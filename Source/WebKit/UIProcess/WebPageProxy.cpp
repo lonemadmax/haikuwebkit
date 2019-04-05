@@ -1335,6 +1335,8 @@ WebProcessProxy& WebPageProxy::ensureRunningProcess()
 
 RefPtr<API::Navigation> WebPageProxy::loadRequest(ResourceRequest&& request, ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy, API::Object* userData)
 {
+	fprintf(stderr,"Access:");
+	fprintf(stderr,"loadRequest: %d",m_isClosed);
     if (m_isClosed)
         return nullptr;
 
@@ -8900,7 +8902,7 @@ void WebPageProxy::updateBackingStoreDiscardableState()
         isDiscardable = false;
     else
         isDiscardable = !pageClient().isViewWindowActive() || !isViewVisible();
-
+        
     m_drawingArea->setBackingStoreIsDiscardable(isDiscardable);
 }
 
