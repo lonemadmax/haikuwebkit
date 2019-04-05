@@ -165,6 +165,10 @@
 #include "ArgumentCodersGtk.h"
 #endif
 
+#if PLATFORM(HAIKU)
+#include <View.h>
+#endif
+
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
 #include <WebCore/MediaPlaybackTargetPicker.h>
 #include <WebCore/WebMediaSessionManagerClient.h>
@@ -325,6 +329,10 @@ typedef struct OpaqueJSContext* JSGlobalContextRef;
 
 #if PLATFORM(WIN)
 typedef HWND PlatformViewWidget;
+#endif
+
+#if PLATFORM(HAIKU)
+typedef BView* PlatformWidget;
 #endif
 
 namespace WebKit {
@@ -965,6 +973,9 @@ public:
 #endif
 #if USE(LIBWPE)
     struct wpe_view_backend* viewBackend();
+#endif
+#if PLATFORM(HAIKU)
+	PlatformWidget viewWidget();
 #endif
 
     bool isProcessingMouseEvents() const;
