@@ -24,8 +24,6 @@ list(APPEND WebKit_SOURCES
     UIProcess/DefaultUndoController.cpp
     UIProcess/BackingStore.cpp
 
-    UIProcess/CoordinatedGraphics/DrawingAreaProxyCoordinatedGraphics.cpp
-
     UIProcess/Launcher/haiku/ProcessLauncherHaiku.cpp
     UIProcess/LegacySessionStateCodingNone.cpp
     UIProcess/WebsiteData/haiku/WebsiteDataStoreHaiku.cpp
@@ -34,6 +32,7 @@ list(APPEND WebKit_SOURCES
     UIProcess/haiku/WebPageProxyHaiku.cpp
     UIProcess/haiku/WebPreferencesHaiku.cpp
     UIProcess/haiku/WebProcessPoolHaiku.cpp
+    UIProcess/API/haiku/WebViewBase.cpp
     UIProcess/API/haiku/WebView.cpp
     UIProcess/API/haiku/PageClientImplHaiku.cpp
 
