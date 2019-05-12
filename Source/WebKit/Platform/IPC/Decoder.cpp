@@ -229,10 +229,10 @@ const uint8_t* Decoder::decodeFixedLengthReference(size_t size, size_t alignment
 }
 
 bool Decoder::removeAttachment(Attachment& attachment)
-{
+{fprintf(stderr,"\n%s\n",__PRETTY_FUNCTION__);
     if (m_attachments.isEmpty())
         return false;
-
+fprintf(stderr,"\n%s\n",__PRETTY_FUNCTION__);
     attachment = m_attachments.takeLast();
     return true;
 }
