@@ -966,6 +966,15 @@ void WebPageProxy::swapToProvisionalPage(std::unique_ptr<ProvisionalPageProxy> p
 void WebPageProxy::finishAttachingToWebProcess(ProcessLaunchReason reason)
 {
     ASSERT(m_process->state() != AuxiliaryProcessProxy::State::Terminated);
+<<<<<<< HEAD
+=======
+    if (m_process->state() == AuxiliaryProcessProxy::State::Running) {
+        // In the process-swap case, the ProvisionalPageProxy constructor already took care of calling webPageEnteringWebProcess()
+        // when the process was provisional.
+        if (isProcessSwap != IsProcessSwap::Yes)
+            m_webProcessLifetimeTracker.webPageEnteringWebProcess(m_process);
+    }
+>>>>>>> b9b8bde73475 (IPC for haiku)
 
     updateActivityState();
     updateThrottleState();
@@ -1093,11 +1102,15 @@ void WebPageProxy::initializeWebPage()
 
     setDrawingArea(pageClient().createDrawingAreaProxy(m_process));
     ASSERT(m_drawingArea);
+<<<<<<< HEAD
 
 #if ENABLE(REMOTE_INSPECTOR)
     // Initialize remote inspector connection now that we have a sub-process that is hosting one of our web views.
     Inspector::RemoteInspector::singleton();
 #endif
+=======
+    process().send(Messages::WebProcess::CreateWebPage(m_pageID, creationParameters(m_process, *m_drawingArea)), 0);
+>>>>>>> b9b8bde73475 (IPC for haiku)
 
     send(Messages::WebProcess::CreateWebPage(m_webPageID, creationParameters(m_process, *m_drawingArea)), 0);
 
@@ -1307,8 +1320,6 @@ WebProcessProxy& WebPageProxy::ensureRunningProcess()
 
 RefPtr<API::Navigation> WebPageProxy::loadRequest(ResourceRequest&& request, ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy, API::Object* userData)
 {
-	fprintf(stderr,"Access:");
-	fprintf(stderr,"loadRequest: %d",m_isClosed);
     if (m_isClosed)
         return nullptr;
 
