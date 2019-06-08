@@ -30,6 +30,7 @@
 #include "StreamServerConnection.h"
 #include <wtf/CompletionHandler.h>
 #include <wtf/StdLibExtras.h>
+#include "NotImplemented.h"
 
 namespace IPC {
 
@@ -121,7 +122,7 @@ void handleMessage(Decoder& decoder, C* object, MF function)
 
 template<typename T, typename C, typename MF>
 void handleMessage(Connection& connection, Decoder& decoder, C* object, MF function)
-{
+{notImplemented();
     Optional<typename CodingType<typename T::Arguments>::Type> arguments;
     decoder >> arguments;
     if (UNLIKELY(!arguments))
