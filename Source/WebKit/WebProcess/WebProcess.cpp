@@ -379,7 +379,7 @@ void WebProcess::initializeConnection(IPC::Connection* connection)
 void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
 {    
     TraceScope traceScope(InitializeWebProcessStart, InitializeWebProcessEnd);
-fprintf(stderr,"%s\n",__PRETTY_FUNCTION__);
+
     ASSERT(m_pageMap.isEmpty());
 
     if (parameters.websiteDataStoreParameters)
@@ -979,7 +979,7 @@ void WebProcess::garbageCollectJavaScriptObjects()
 }
 
 void WebProcess::backgroundResponsivenessPing()
-{fprintf(stderr,"%s\n",__PRETTY_FUNCTION__);
+{
     parentProcessConnection()->send(Messages::WebProcessProxy::DidReceiveBackgroundResponsivenessPing(), 0);
 }
 
