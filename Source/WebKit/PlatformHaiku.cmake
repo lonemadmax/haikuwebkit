@@ -59,7 +59,7 @@ list(APPEND WebKit_SOURCES
     WebProcess/WebPage/haiku/WebInspectorHaiku.cpp
     WebProcess/WebPage/haiku/WebPageHaiku.cpp
     WebProcess/WebPage/AcceleratedSurface.cpp
-	
+    
     WebProcess/haiku/WebProcessHaiku.cpp
     WebProcess/haiku/WebProcessMainHaiku.cpp
 )
