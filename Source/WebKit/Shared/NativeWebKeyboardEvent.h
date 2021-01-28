@@ -47,6 +47,10 @@ struct KeypressCommand;
 typedef union _GdkEvent GdkEvent;
 #endif
 
+#if PLATFORM(HAIKU)
+#include <Message.h>
+#endif
+
 #if PLATFORM(IOS_FAMILY)
 #include <wtf/RetainPtr.h>
 OBJC_CLASS WebEvent;
@@ -85,6 +89,8 @@ public:
     GdkEvent* nativeEvent() const { return m_nativeEvent.get(); }
     const WebCore::CompositionResults& compositionResults() const  { return m_compositionResults; }
     bool isFakeEventForComposition() const { return m_fakeEventForComposition; }
+#elif PLATFORM(HAIKU)
+    const BMessage* nativeEvent() const { return m_nativeEvent; }
 #elif PLATFORM(IOS_FAMILY)
     ::WebEvent* nativeEvent() const { return m_nativeEvent.get(); }
 #elif PLATFORM(WIN)
@@ -100,6 +106,8 @@ private:
     GUniquePtr<GdkEvent> m_nativeEvent;
     WebCore::CompositionResults m_compositionResults;
     bool m_fakeEventForComposition;
+#elif PLATFORM(HAIKU)
+    BMessage* m_nativeEvent;
 #elif PLATFORM(IOS_FAMILY)
     RetainPtr<::WebEvent> m_nativeEvent;
 #elif PLATFORM(WIN)

@@ -600,7 +600,6 @@ inline void AXObjectCache::nodeTextChangePlatformNotification(AccessibilityObjec
 
 inline AXAttributeCacheEnabler::AXAttributeCacheEnabler(AXObjectCache*) { }
 inline AXAttributeCacheEnabler::~AXAttributeCacheEnabler() { }
-
 #endif
 
 } // namespace WebCore

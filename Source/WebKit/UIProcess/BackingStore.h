@@ -33,6 +33,10 @@
 #include <WebCore/BackingStoreBackendCairo.h>
 #endif
 
+#if USE(HAIKU)
+#include <View.h>
+#endif
+
 namespace WebKit {
 
 class ShareableBitmap;
@@ -52,6 +56,9 @@ public:
 
 #if USE(CAIRO)
     typedef cairo_t* PlatformGraphicsContext;
+#endif
+#if USE(HAIKU)
+    typedef BView* PlatformGraphicsContext;
 #endif
 
     void paint(PlatformGraphicsContext, const WebCore::IntRect&);

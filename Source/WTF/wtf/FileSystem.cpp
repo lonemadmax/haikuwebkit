@@ -40,6 +40,10 @@
 #include <unistd.h>
 #endif
 
+#if PLATFORM(HAIKU)
+#define MAP_FILE 0
+#endif
+
 namespace WTF {
 
 namespace FileSystemImpl {

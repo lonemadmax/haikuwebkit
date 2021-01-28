@@ -23,7 +23,7 @@
 #endif
 
 #include <JavaScriptCore/JSExportMacros.h>
-#include <WebCore/PlatformExportMacros.h>
+#include <WebCore/platform/PlatformExportMacros.h>
 #include <pal/ExportMacros.h>
 
 #ifdef __cplusplus

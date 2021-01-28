@@ -53,6 +53,10 @@ set(WebKitTestRunner_SYSTEM_INCLUDE_DIRECTORIES
     ${LIBSOUP_INCLUDE_DIRS}
 )
 
+SET(WebKitTestRunner_LOCAL_INCLUDE_DIRECTORIES
+    ${WEBCORE_DIR}/platform/graphics
+)
+
 set(WebKitTestRunnerInjectedBundle_SOURCES
     ${WEBKIT_TESTRUNNER_INJECTEDBUNDLE_DIR}/AccessibilityController.cpp
     ${WEBKIT_TESTRUNNER_INJECTEDBUNDLE_DIR}/AccessibilityTextMarker.cpp
@@ -104,6 +108,9 @@ GENERATE_BINDINGS(WebKitTestRunnerBindings
 
 WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
 
+foreach(inc ${WebKitTestRunner_LOCAL_INCLUDE_DIRECTORIES})
+    ADD_DEFINITIONS(-iquote ${inc})
+endforeach(inc)
 include_directories(${WebKitTestRunner_INCLUDE_DIRECTORIES})
 include_directories(SYSTEM ${WebKitTestRunner_SYSTEM_INCLUDE_DIRECTORIES})
 

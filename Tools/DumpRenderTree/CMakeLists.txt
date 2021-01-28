@@ -37,6 +37,17 @@ set(DumpRenderTree_INCLUDE_DIRECTORIES
     ${WEBCORE_DIR}/testing/js
 )
 
+set(DumpRenderTree_LOCAL_INCLUDE_DIRECTORIES
+    ${WEBCORE_DIR}/css
+    ${WEBCORE_DIR}/dom
+    ${WEBCORE_DIR}/platform
+    ${WEBCORE_DIR}/platform/graphics
+    ${WEBCORE_DIR}/platform/graphics/transforms
+    ${WEBCORE_DIR}/rendering/shapes
+    ${JAVASCRIPTCORE_DIR}/heap
+    ${JAVASCRIPTCORE_DIR}/parser
+)
+
 set(TestNetscapePlugIn_SOURCES
     TestNetscapePlugIn/PluginObject.cpp
     TestNetscapePlugIn/PluginTest.cpp
@@ -86,7 +97,22 @@ GENERATE_BINDINGS(DumpRenderTreeBindings
 
 WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
 
-include_directories(${DumpRenderTree_INCLUDE_DIRECTORIES})
+IF (HAIKU)
+    foreach(inc ${DumpRenderTree_LOCAL_INCLUDE_DIRECTORIES})
+        ADD_DEFINITIONS(-iquote ${inc})
+    endforeach(inc)
+
+    include_directories(
+        ${DumpRenderTree_INCLUDE_DIRECTORIES}
+    )
+
+LIST(APPEND DumpRenderTree_LIBRARIES WebCore translation)
+ELSE (HAIKU)
+    include_directories(
+        ${DumpRenderTree_INCLUDE_DIRECTORIES}
+        ${DumpRenderTree_LOCAL_INCLUDE_DIRECTORIES}
+    )
+ENDIF (HAIKU)
 
 add_executable(DumpRenderTree ${DumpRenderTree_SOURCES})
 target_link_libraries(DumpRenderTree ${DumpRenderTree_LIBRARIES})

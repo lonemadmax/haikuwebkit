@@ -33,6 +33,10 @@
 OBJC_CLASS NSView;
 #endif
 
+#if PLATFORM(HAIKU)
+#include <Message.h>
+#endif
+
 #if PLATFORM(GTK)
 #include <WebCore/GUniquePtrGtk.h>
 typedef union _GdkEvent GdkEvent;
@@ -66,8 +70,8 @@ public:
     NSEvent* nativeEvent() const { return m_nativeEvent.get(); }
 #elif PLATFORM(GTK)
     GdkEvent* nativeEvent() const { return m_nativeEvent.get(); }
-#elif PLATFORM(WIN)
-    const MSG* nativeEvent() const { return &m_nativeEvent; }
+#elif PLATFORM(HAIKU)
+    const BMessage* nativeEvent() const { return m_nativeEvent; }
 #else
     const void* nativeEvent() const { return nullptr; }
 #endif
@@ -77,8 +81,8 @@ private:
     RetainPtr<NSEvent> m_nativeEvent;
 #elif PLATFORM(GTK)
     GUniquePtr<GdkEvent> m_nativeEvent;
-#elif PLATFORM(WIN)
-    MSG m_nativeEvent;
+#elif PLATFORM(HAIKU)
+    const BMessage* m_nativeEvent;
 #endif
 };
 

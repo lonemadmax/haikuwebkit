@@ -32,8 +32,8 @@
 #include "MinimumReservedZoneSize.h"
 #include "SigillCrashAnalyzer.h"
 #include <algorithm>
+#include <cmath>
 #include <limits>
-#include <math.h>
 #include <mutex>
 #include <stdlib.h>
 #include <string.h>

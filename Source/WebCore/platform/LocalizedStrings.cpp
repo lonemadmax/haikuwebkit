@@ -41,6 +41,10 @@
 #include <wtf/glib/GUniquePtr.h>
 #endif
 
+#if USE(HAIKU)
+#include <String.h>
+#endif
+
 namespace WebCore {
 
 // Because |format| is used as the second parameter to va_start, it cannot be a reference
@@ -63,6 +67,16 @@ String formatLocalizedString(String format, ...)
     GUniquePtr<gchar> result(g_strdup_vprintf(format.utf8().data(), arguments));
     va_end(arguments);
     return String::fromUTF8(result.get());
+#elif USE(HAIKU)
+	BString formatted;
+	va_list arguments;
+    va_start(arguments, format);
+
+	formatted.SetToFormatVarArgs(format.utf8().data(), arguments);
+
+    va_end(arguments);
+
+	return formatted;
 #else
     notImplemented();
     return format;
@@ -1078,7 +1092,7 @@ String webCryptoMasterKeyKeychainLabel(const String& localizedApplicationName)
 #elif USE(GLIB)
     return formatLocalizedString(WEB_UI_STRING("%s WebCrypto Master Key", "Name of application's single WebCrypto master key in Keychain"), localizedApplicationName.utf8().data());
 #else
-    return String::fromUTF8("<application> WebCrypto Master Key", "Name of application's single WebCrypto master key in Keychain").replace("<application>", localizedApplicationName);
+    return String::fromUTF8("<application> WebCrypto Master Key").replace("<application>", localizedApplicationName);
 #endif
 }
 

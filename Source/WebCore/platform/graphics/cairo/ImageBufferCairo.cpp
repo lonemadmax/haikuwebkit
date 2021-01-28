@@ -677,6 +677,11 @@ Vector<uint8_t> ImageBuffer::toData(const String& mimeType, Optional<double>) co
 #if ENABLE(ACCELERATED_2D_CANVAS) && !USE(COORDINATED_GRAPHICS)
 void ImageBufferData::paintToTextureMapper(TextureMapper& textureMapper, const FloatRect& targetRect, const TransformationMatrix& matrix, float opacity)
 {
+    if (textureMapper->accelerationMode() != TextureMapper::OpenGLMode) {
+        notImplemented();
+        return;
+    }
+
     ASSERT(m_texture);
 
     // Cairo may change the active context, so we make sure to change it back after flushing.

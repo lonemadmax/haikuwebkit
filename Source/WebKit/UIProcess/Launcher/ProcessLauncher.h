@@ -41,7 +41,7 @@
 
 namespace WebKit {
 
-#if PLATFORM(GTK) || PLATFORM(WPE)
+#if PLATFORM(GTK) || PLATFORM(WPE) || PLATFORM(HAIKU)
 enum class SandboxPermission {
     ReadOnly,
     ReadWrite,
@@ -75,7 +75,7 @@ public:
         bool shouldMakeProcessLaunchFailForTesting { false };
         CString customWebContentServiceBundleIdentifier;
 
-#if PLATFORM(GTK) || PLATFORM(WPE)
+#if PLATFORM(GTK) || PLATFORM(WPE) || PLATFORM(HAIKU)
         HashMap<CString, SandboxPermission> extraWebProcessSandboxPaths;
 #if ENABLE(DEVELOPER_MODE)
         String processCmdPrefix;

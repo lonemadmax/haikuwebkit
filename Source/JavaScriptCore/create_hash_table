@@ -1,4 +1,4 @@
-#! /usr/bin/env perl
+#! /bin/env perl -w
 #
 # Static Hashtable Generator
 #
