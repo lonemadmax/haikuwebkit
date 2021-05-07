@@ -60,8 +60,9 @@ bool TextChecker::isContinuousSpellCheckingAllowed()
     return false;
 }
 
-void TextChecker::setContinuousSpellCheckingEnabled(bool)
+bool TextChecker::setContinuousSpellCheckingEnabled(bool)
 {
+    return false;
 }
 
 void TextChecker::setGrammarCheckingEnabled(bool)
