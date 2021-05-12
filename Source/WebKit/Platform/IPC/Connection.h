@@ -525,7 +525,7 @@ private:
     void runReadEventLoop();
     void runWriteEventLoop();
     Vector<uint8_t> m_readBuffer;
-    WTF::UniqueRef<Encoder> m_pendingWriteEncoder;
+    UniqueRef<Encoder> m_pendingWriteEncoder;
 #endif
     friend class StreamClientConnection;
 };
