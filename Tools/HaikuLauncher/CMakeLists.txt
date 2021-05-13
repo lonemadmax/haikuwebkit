@@ -7,7 +7,7 @@ SET(HaikuLauncher_SOURCES
 SET(HaikuLauncher_LIBRARIES
     JavaScriptCore
     WebCore
-	WebKitLegacy
+    WebKitLegacy
     ${LIBXML2_LIBRARIES}
     ${LIBXSLT_LIBRARIES}
     ${SQLITE_LIBRARIES}
@@ -16,7 +16,10 @@ SET(HaikuLauncher_LIBRARIES
     be bsd network stdc++ translation tracker
 )
 
-INCLUDE_DIRECTORIES("${WEBKITLEGACY_DIR}/haiku/API")
+INCLUDE_DIRECTORIES(
+    "${WEBKITLEGACY_DIR}/haiku/API"
+    /system/develop/headers/private/netservices/
+)
 
 ADD_EXECUTABLE(HaikuLauncher ${HaikuLauncher_SOURCES})
 TARGET_LINK_LIBRARIES(HaikuLauncher ${HaikuLauncher_LIBRARIES})
