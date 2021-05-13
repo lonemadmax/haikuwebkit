@@ -34,8 +34,9 @@
 #include <String.h>
 #include <UrlRequest.h>
 
-class BUrlContext;
-class BUrlRequest;
+class BPrivate::Network::BUrlContext;
+class BPrivate::Network::BUrlRequest;
+using namespace BPrivate::Network;
 
 namespace WebCore {
 
