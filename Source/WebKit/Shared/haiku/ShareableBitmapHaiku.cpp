@@ -38,27 +38,30 @@ using namespace WebCore;
 
 namespace WebKit {
 
-static inline RefPtr<StillImage> createSurfaceFromBitmap(BitmapRef* bitmap)
+static inline PlatformImagePtr createSurfaceFromBitmap(BitmapRef* bitmap)
 {
-    RefPtr<StillImage> image = StillImage::create(bitmap);
+    PlatformImagePtr image(bitmap);
     return image;
 }
 
 BitmapRef* ShareableBitmap::bitmapObject() const
 {
-    if(isBackedBySharedMemory())
-    return m_sharedMemory->bitmap();
-    
+    if(isBackedBySharedMemory()) {
+        fprintf(stderr, "FIXME ShareableBitmap backed by shared memory\n");
+        // FIXME create bitmap with content in m_sharedMemory
+        return NULL;
+    }
+
     return NULL;
 }
 
 std::unique_ptr<GraphicsContext> ShareableBitmap::createGraphicsContext()
 {
-    RefPtr<StillImage> image = createBitmapSurface();
-    
-    BView* surface = new BView(image->nativeImageForCurrentFrame(nullptr)->Bounds(),
+    PlatformImagePtr image = createPlatformImage();
+
+    BView* surface = new BView(image->Bounds(),
         "Shareable", 0, 0);
-    image->nativeImageForCurrentFrame(nullptr)->AddChild(surface);
+    image->AddChild(surface);
     surface->LockLooper();
 
     return std::make_unique<GraphicsContext>(surface);
@@ -85,9 +88,9 @@ void ShareableBitmap::paint(GraphicsContext& context, float scaleFactor, const I
     notImplemented();
 }
 
-RefPtr<StillImage> ShareableBitmap::createBitmapSurface()
+WebCore::PlatformImagePtr ShareableBitmap::createPlatformImage()
 {
-    RefPtr<StillImage> image = createSurfaceFromBitmap(bitmapObject());
+    WebCore::PlatformImagePtr image = createSurfaceFromBitmap(bitmapObject());
 
     ref(); // Balanced by deref in releaseSurfaceData.
     return image;
@@ -95,22 +98,20 @@ RefPtr<StillImage> ShareableBitmap::createBitmapSurface()
 
 RefPtr<Image> ShareableBitmap::createImage()
 {
-    RefPtr<StillImage> surface = createBitmapSurface();
+    WebCore::PlatformImagePtr surface = createPlatformImage();
     if (!surface)
         return 0;
 
-    return BitmapImage::create(surface->nativeImageForCurrentFrame(nullptr));
+    return BitmapImage::create(std::move(surface));
 }
 
 Checked<unsigned, RecordOverflow> ShareableBitmap::calculateBytesPerRow(WebCore::IntSize size, const ShareableBitmap::Configuration& config)
 {
-    unsigned bytes = calculateBytesPerPixel(config)*size.width();
-    
-    return bytes;
+    return calculateBytesPerPixel(config) * size.width();
 }
 
-unsigned ShareableBitmap::calculateBytesPerPixel(const Configuration&)
+Checked<unsigned int, RecordOverflow> ShareableBitmap::calculateBytesPerPixel(const Configuration&)
 {
-    return 4;	
+    return 4;
 }
 }
