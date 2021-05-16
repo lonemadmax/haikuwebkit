@@ -71,11 +71,5 @@ Data concatenate(const Data& a, const Data& b)
     return { };
 }
 
-Data Data::adoptMap(void* map, size_t size, int fd)
-{
-    notImplemented();
-    return { };
-}
-
 } // namespace NetworkCache
 } // namespace WebKit
