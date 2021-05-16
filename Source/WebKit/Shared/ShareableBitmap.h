@@ -35,10 +35,6 @@
 #include "ColorSpaceData.h"
 #endif
 
-#if PLATFORM(HAIKU)
-#include "StillImageHaiku.h"
-#endif
-
 #if USE(DIRECT2D)
 interface ID2D1Bitmap;
 interface ID2D1RenderTarget;
@@ -148,7 +144,7 @@ public:
 #elif PLATFORM(HAIKU)
     // This creates a BitmapImage that directly references the shared bitmap data.
     // This is only safe to use when we know that the contents of the shareable bitmap won't change.
-    RefPtr<WebCore::StillImage> createBitmapSurface();
+    WebCore::PlatformImagePtr createBitmapSurface();
 
     WebCore::PlatformImagePtr createPlatformImage() { return createBitmapSurface(); }
 #elif USE(DIRECT2D)
