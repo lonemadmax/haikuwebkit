@@ -31,9 +31,9 @@
 namespace WebKit {
 namespace NetworkCache {
 
-IOChannel::IOChannel(const String& filePath, Type type)
-    : m_path{filePath}
-    , m_type{type}
+IOChannel::IOChannel(const String& filePath, Type type, WTF::Optional<WTF::Thread::QOS>)
+    : m_path(filePath)
+    , m_type(type)
 {
     notImplemented();
 }
@@ -42,17 +42,12 @@ IOChannel::~IOChannel()
 {
 }
 
-Ref<IOChannel> IOChannel::open(const String& filePath, IOChannel::Type type)
-{
-    return adoptRef(*new IOChannel(filePath, type));
-}
-
-void IOChannel::read(size_t offset, size_t size, WorkQueue* queue, Function<void(Data&, int error)>&& completionHandler)
+void IOChannel::read(size_t offset, size_t size, WorkQueue& queue, Function<void(Data&, int error)>&& completionHandler)
 {
     notImplemented();
 }
 
-void IOChannel::write(size_t offset, const Data& data, WorkQueue* queue, Function<void(int error)>&& completionHandler)
+void IOChannel::write(size_t offset, const Data& data, WorkQueue& queue, Function<void(int error)>&& completionHandler)
 {
     notImplemented();
 }
