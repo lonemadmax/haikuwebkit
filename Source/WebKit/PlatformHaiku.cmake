@@ -1,5 +1,9 @@
 include(Headers.cmake)
 
+file(MAKE_DIRECTORY ${DERIVED_SOURCES_HAIKU_API_DIR})
+
+configure_file(UIProcess/API/haiku/WebKitVersion.h.in ${DERIVED_SOURCES_HAIKU_API_DIR}/include/WebKitVersion.h)
+
 list(APPEND WebKit_SOURCES
     NetworkProcess/cache/NetworkCacheDataHaiku.cpp
     NetworkProcess/cache/NetworkCacheIOChannelHaiku.cpp
