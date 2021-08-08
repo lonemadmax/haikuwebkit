@@ -24,10 +24,10 @@
  */
 
 #include "config.h"
+#include "WebKitVersion.h"
 #include "WebPageProxy.h"
 
 #include <WebCore/NotImplemented.h>
-#include "WebKitVersion.h"
 
 #include <sys/utsname.h>
 
@@ -70,9 +70,10 @@ void WebPageProxy::loadRecentSearches(const String& name, CompletionHandler<void
     notImplemented();
 }
 
-void WebPageProxy::updateEditorState(const EditorState& editorState)
+bool WebPageProxy::updateEditorState(const EditorState& editorState)
 {
     m_editorState = editorState;
+	return false;
 }
 
 }
