@@ -139,7 +139,7 @@
 #define USE_ACCELERATE 1
 #endif
 
-#if OS(WINDOWS)
+#if OS(WINDOWS) || OS(HAIKU)
 #define USE_SYSTEM_MALLOC 1
 #endif
 
