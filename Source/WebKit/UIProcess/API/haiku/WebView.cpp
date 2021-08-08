@@ -27,6 +27,7 @@
 #include <View.h>
 #include <Looper.h>
 
+#include "config.h"
 
 #include "WKPageConfigurationRef.h"
 #include "WKPage.h"
@@ -38,6 +39,7 @@
 #include "WKPageNavigationClient.h"
 #include "WKPageLoaderClient.h"
 
+#include "wtf/FastMalloc.h"
 #include "wtf/RunLoop.h"
 
 #include "WebView.h"
