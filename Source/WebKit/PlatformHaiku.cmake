@@ -2,7 +2,7 @@ include(Headers.cmake)
 
 file(MAKE_DIRECTORY ${DERIVED_SOURCES_HAIKU_API_DIR})
 
-configure_file(UIProcess/API/haiku/WebKitVersion.h.in ${DERIVED_SOURCES_HAIKU_API_DIR}/include/WebKitVersion.h)
+configure_file(UIProcess/API/haiku/WebKitVersion.h.in ${DERIVED_SOURCES_HAIKU_API_DIR}/WebKitVersion.h)
 
 list(APPEND WebKit_SOURCES
     NetworkProcess/cache/NetworkCacheDataHaiku.cpp
@@ -69,6 +69,7 @@ list(APPEND WebKit_SOURCES
 )
 
 list(APPEND WebKit_INCLUDE_DIRECTORIES
+	"${DERIVED_SOURCES_HAIKU_API_DIR}"
     "${WEBKIT_DIR}/NetworkProcess/unix"
     "${WEBKIT_DIR}/Platform"
     "${WEBKIT_DIR}/Platform/IPC/unix"
