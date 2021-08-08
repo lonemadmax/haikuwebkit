@@ -28,6 +28,7 @@
 
 #include <WebCore/BitmapImage.h>
 #include <WebCore/GraphicsContext.h>
+#include <WebCore/GraphicsContextHaiku.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/NotImplemented.h>
 
@@ -64,7 +65,7 @@ std::unique_ptr<GraphicsContext> ShareableBitmap::createGraphicsContext()
     image->AddChild(surface);
     surface->LockLooper();
 
-    return std::make_unique<GraphicsContext>(surface);
+    return std::make_unique<GraphicsContextHaiku>(surface);
 }
 
 void ShareableBitmap::paint(GraphicsContext& context, const IntPoint& dstPoint, const IntRect& srcRect)
