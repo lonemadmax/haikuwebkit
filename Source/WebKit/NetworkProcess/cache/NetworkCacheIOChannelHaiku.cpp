@@ -31,7 +31,7 @@
 namespace WebKit {
 namespace NetworkCache {
 
-IOChannel::IOChannel(const String& filePath, Type type, WTF::Optional<WTF::Thread::QOS>)
+IOChannel::IOChannel(const String& filePath, Type type, std::optional<WTF::Thread::QOS>)
     : m_path(filePath)
     , m_type(type)
 {
