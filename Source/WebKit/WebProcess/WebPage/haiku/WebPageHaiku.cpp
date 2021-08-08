@@ -33,6 +33,8 @@
 #include <WebCore/KeyboardEvent.h>
 #include <WebCore/PlatformKeyboardEvent.h>
 
+#include "WebKeyboardEvent.h"
+
 using namespace WebCore;
 
 namespace WebKit {
@@ -46,10 +48,6 @@ void WebPage::platformReinitialize()
 }
 
 void WebPage::platformDetach()
-{
-}
-
-void WebPage::platformEditorState(Frame& frame, EditorState& result, IncludePostLayoutDataHint shouldIncludePostLayoutData) const
 {
 }
 
