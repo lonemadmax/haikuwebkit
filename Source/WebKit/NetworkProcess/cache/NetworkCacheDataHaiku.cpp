@@ -54,7 +54,7 @@ bool Data::isNull() const
     return true;
 }
 
-bool Data::apply(const Function<bool(const uint8_t*, size_t)>& applier) const
+bool Data::apply(const Function<bool(WTF::Span<const unsigned char>)>& applier) const
 {
     notImplemented();
     return false;
