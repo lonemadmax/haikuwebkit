@@ -25,6 +25,8 @@
 #pragma once
 
 #include "PageClient.h"
+
+#include "WebDateTimePicker.h"
 #include "WebPageProxy.h"
 #include "DefaultUndoController.h"
 
@@ -70,6 +72,10 @@ namespace WebKit
 	    void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled) override;
 	    RefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy&) override;
 	    Ref<WebContextMenuProxy> createContextMenuProxy(WebPageProxy&, ContextMenuContextData&&, const UserData&) override;
+
+#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
+		RefPtr<WebKit::WebDateTimePicker> createDateTimePicker(WebPageProxy&) override;
+#endif
 		
 		#if ENABLE(INPUT_TYPE_COLOR)
     		RefPtr<WebColorPicker> createColorPicker(WebPageProxy*, const WebCore::Color& intialColor, 
@@ -86,6 +92,8 @@ namespace WebKit
 
 
 	    void didFinishLoadingDataForCustomContentProvider(const String& suggestedFilename, const IPC::DataReference&) override;
+		void didFinishNavigation(API::Navigation*) override;
+		void didFailNavigation(API::Navigation*) override;
 	    void navigationGestureDidBegin() override;
 	    void navigationGestureWillEnd(bool, WebBackForwardListItem&) override;
 	    void navigationGestureDidEnd(bool, WebBackForwardListItem&) override;

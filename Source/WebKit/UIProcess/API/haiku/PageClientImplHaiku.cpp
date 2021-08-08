@@ -26,7 +26,9 @@
 
 #include "PageClientImplHaiku.h"
 
+#include "DrawingAreaCoordinatedGraphics.h"
 #include "DrawingAreaProxyCoordinatedGraphics.h"
+#include "DrawingAreaProxy.h"
 #include "WebProcessProxy.h"
 #include "WebViewBase.h"
 
@@ -276,11 +278,6 @@ namespace WebKit
     }
 
     void PageClientImpl::didFirstVisuallyNonEmptyLayoutForMainFrame()
-    {
-        notImplemented();
-    }
-
-    void PageClientImpl::didFinishLoadForMainFrame()
     {
         notImplemented();
     }
