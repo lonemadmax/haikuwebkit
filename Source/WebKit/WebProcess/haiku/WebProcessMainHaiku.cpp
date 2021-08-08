@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include "WebProcessMainUnix.h"
+#include "WebProcessMain.h"
 
 #include "AuxiliaryProcessMainHaiku.h"
 #include "WebProcess.h"
