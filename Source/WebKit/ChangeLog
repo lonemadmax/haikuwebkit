@@ -1,3 +1,901 @@
+2021-08-09  Said Abou-Hallawa  <said@apple.com>
+
+        Ease sandboxing restrictions for Mail to allow HEIF image decoding
+        https://bugs.webkit.org/show_bug.cgi?id=228812
+        <rdar://80967782>
+
+        Reviewed by Per Arne Vollan.
+
+        If the running application is Mail, add a sandbox extension to allow HEIF
+        image decoding. There is no plan right now to enable HEIF in WebKit. So 
+        do not try to support decoding it outside Mail.
+
+        * Shared/WebProcessCreationParameters.cpp:
+        (WebKit::WebProcessCreationParameters::encode const):
+        (WebKit::WebProcessCreationParameters::decode):
+        * Shared/WebProcessCreationParameters.h:
+        * UIProcess/Cocoa/WebProcessPoolCocoa.mm:
+        (WebKit::WebProcessPool::platformInitializeWebProcess):
+        * WebProcess/cocoa/WebProcessCocoa.mm:
+        (WebKit::WebProcess::platformInitializeWebProcess):
+        (WebKit::WebProcess::initializeSandbox):
+        (WebKit::restrictImageAndVideoDecoders): Deleted.
+
+2021-08-09  Jer Noble  <jer.noble@apple.com>
+
+        [Cocoa|GPU] platformLayer() not always added to remotedly hosted context; black video while playing
+        https://bugs.webkit.org/show_bug.cgi?id=228873
+        <rdar://81271107>
+
+        Reviewed by Eric Carlson.
+
+        Currently, the RemoteMediaPlayerProxy will insert its MediaPlayer's platformLayer() into the
+        remotely hosted context when it receives a "firstVideoFrameAvailable()" notification.
+        However this is problematic for two reasons: AVPlayerLayer may not become "ready for
+        playback" when it is not in an active CALayer heirarchy, and for
+        MediaPlayerPrivateAVFoundation, firstVideoFrameAvailable() is only fired during
+        updateStates(), which is not guaranteed to occur unless another state change occurs.
+
+        Instead, reparent the MediaPlayer's platformLayer() when we receive a
+        mediaPlayerRenderingModeChanged() notification, which notifies the client whenever a
+        platformLayer() is created or destroyed.
+
+        * GPUProcess/media/RemoteMediaPlayerProxy.cpp:
+        * GPUProcess/media/cocoa/RemoteMediaPlayerProxyCocoa.mm:
+        (WebKit::RemoteMediaPlayerProxy::mediaPlayerFirstVideoFrameAvailable):
+        (WebKit::RemoteMediaPlayerProxy::mediaPlayerRenderingModeChanged):
+
+2021-08-09  Imanol Fernandez  <ifernandez@igalia.com>
+
+        Implement fullscreen in WPEView
+        https://bugs.webkit.org/show_bug.cgi?id=227951
+
+        Reviewed by Adrian Perez de Castro.
+
+        Notify DOM fullscreen enter request to libwpe and handle exit fullscreen from libwpe.
+
+        * UIProcess/API/wpe/WPEView.cpp:
+        (WKWPE::m_backend):
+        (WKWPE::View::setFullScreen):
+        * UIProcess/API/wpe/WPEView.h:
+
+2021-08-09  Imanol Fernandez  <ifernandez@igalia.com>
+
+        Allow custom IPC::Attachment messaging in ConnectionUnix.cpp
+        https://bugs.webkit.org/show_bug.cgi?id=227740
+
+        Reviewed by Žan Doberšek.
+
+        In order to share AHardwareBuffer handles via IPC we need to use the AHardwareBuffer_sendHandleToUnixSocket()
+        and AHardwareBuffer_recvHandleFromUnixSocket() functions. This is not currently compatible with the Attachment
+        API used in UnixConnection, as those functions use custom messaging into the socked fd.
+
+        This patch adds a CustomWriterType Attachment that allows custom messaging going into the socket fd.
+
+        * Platform/IPC/unix/ConnectionUnix.cpp:
+
+2021-08-08  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        caret-color does not work on first click in ios
+        https://bugs.webkit.org/show_bug.cgi?id=228859
+        rdar://81674787
+
+        Reviewed by Tim Horton.
+
+        Addresses a couple of issues that cause the `caret-color` CSS property to not be applied when focusing editable
+        content on iOS. See below for more details.
+
+        Test: editing/caret/ios/caret-color-after-refocusing-input.html
+
+        * Platform/spi/ios/UIKitSPI.h:
+        * UIProcess/API/ios/WKWebViewPrivateForTestingIOS.h:
+        * UIProcess/API/ios/WKWebViewTestingIOS.mm:
+        (-[WKWebView _serializedSelectionCaretBackgroundColorForTesting]):
+
+        Add support for a new test-only helper method. See Tools/ChangeLog for more information.
+
+        * UIProcess/ios/WKContentViewInteraction.h:
+        * UIProcess/ios/WKContentViewInteraction.mm:
+        (WebKit::WKSelectionDrawingInfo::WKSelectionDrawingInfo):
+        (WebKit::operator==):
+        (WebKit::operator<<):
+
+        Make a minor adjustment to ensure that changes to `caretColor` in `EditorState` are propagated to UIKit's
+        selection views. To achieve this, we add `caretColor` to `WKSelectionDrawingInfo`, and force the text selection
+        view to update the caret background color when the caret color changes (alongside other selection UI geometry
+        changes, which are applied underneath the call to `-selectionChanged`).
+
+        (-[WKContentView _updateChangedSelection:]):
+        (-[WKContentView textInteractionAssistant]):
+        * WebProcess/WebPage/ios/WebPageIOS.mm:
+        (WebKit::WebPage::getPlatformEditorState const):
+
+        Address an existing FIXME which (mostly) fixes this bug. Currently, the caret color is only computed when
+        `WebPage::m_focusedElement` is set. However, when resigning first responder, we clear out `WebPage`'s
+        `m_focusedElement`) right before updating the DOM selection, which creates a brief window during which we
+        compute an `EditorState` with a `caretColor` of transparent black.
+
+        To avoid this inconsistency, we instead compute the caret color from the selection container; this has the
+        additional benefit of allowing the caret color to change when changing selection within a single editable host
+        with multiple caret colors (instead of always just using the focused element's caret color).
+
+        Note that while this adjustment to `WebPage::getPlatformEditorState` is sufficient to ensure that the value of
+        `-[WKContentView insertionPointColor]` (which is based on `EditorState`) is always up-to-date, this doesn't
+        guarantee that the actual color of UIKit's caret view reflects the updated `-insertionPointColor`, which results
+        in situations where the caret color appears out-of-date after hiding the keyboard and refocusing an input field.
+        To fix this, we need the other adjustment in WKContentView (see above).
+
+2021-08-07  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [macOS] Web process crashes when detaching Document with uncommitted marked text
+        https://bugs.webkit.org/show_bug.cgi?id=228841
+        rdar://79960890
+
+        Reviewed by Ryosuke Niwa.
+
+        Deploy a similar fix on iOS, to avoid any attempts to compute editor state due to discarding uncommitted marked
+        text during Document teardown. This is required in order to avoid the same security assertion when running the
+        new layout test on iOS.
+
+        * WebProcess/WebPage/WebPage.cpp:
+        (WebKit::WebPage::sendEditorStateUpdate):
+
+2021-08-07  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Deduplicate logging channel algorithms
+        https://bugs.webkit.org/show_bug.cgi?id=228809
+
+        Reviewed by Fujii Hironori.
+
+        * GPUProcess/GPUConnectionToWebProcess.cpp:
+        * GPUProcess/GPUProcess.cpp:
+        (WebKit::GPUProcess::initializeGPUProcess):
+        * Platform/LogInitialization.cpp: Copied from Source/WebKit/Shared/WebKit2Initialize.cpp.
+        (WebKit::logChannels):
+        (WebKit::getLogChannel):
+        * Platform/LogInitialization.h:
+        * Platform/Logging.cpp:
+        (WebKit::initializeLogChannelsIfNecessary): Deleted.
+        (WebKit::getLogChannel): Deleted.
+        * Platform/Logging.h:
+        * Shared/AuxiliaryProcess.cpp:
+        (WebKit::AuxiliaryProcess::initialize):
+        * Shared/WebKit2Initialize.cpp:
+        (WebKit::InitializeWebKit2):
+        * Sources.txt:
+        * UIProcess/WebPageProxy.cpp:
+        * UIProcess/WebProcessPool.cpp:
+        * WebKit.xcodeproj/project.pbxproj:
+        * WebProcess/cocoa/WebProcessCocoa.mm:
+        (WebKit::WebProcess::platformInitializeWebProcess):
+
+2021-08-07  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r280756.
+        https://bugs.webkit.org/show_bug.cgi?id=228897
+
+        Broke gtk build
+
+        Reverted changeset:
+
+        "Deduplicate logging channel algorithms"
+        https://bugs.webkit.org/show_bug.cgi?id=228809
+        https://commits.webkit.org/r280756
+
+2021-08-07  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Deduplicate logging channel algorithms
+        https://bugs.webkit.org/show_bug.cgi?id=228809
+
+        Reviewed by Fujii Hironori.
+
+        * GPUProcess/GPUConnectionToWebProcess.cpp:
+        * GPUProcess/GPUProcess.cpp:
+        (WebKit::GPUProcess::initializeGPUProcess):
+        * Platform/LogInitialization.cpp: Copied from Source/WebKit/Shared/WebKit2Initialize.cpp.
+        (WebKit::logChannels):
+        (WebKit::getLogChannel):
+        * Platform/LogInitialization.h:
+        * Platform/Logging.cpp:
+        (WebKit::initializeLogChannelsIfNecessary): Deleted.
+        (WebKit::getLogChannel): Deleted.
+        * Platform/Logging.h:
+        * Shared/AuxiliaryProcess.cpp:
+        (WebKit::AuxiliaryProcess::initialize):
+        * Shared/WebKit2Initialize.cpp:
+        (WebKit::InitializeWebKit2):
+        * Sources.txt:
+        * UIProcess/WebPageProxy.cpp:
+        * UIProcess/WebProcessPool.cpp:
+        * WebKit.xcodeproj/project.pbxproj:
+        * WebProcess/cocoa/WebProcessCocoa.mm:
+        (WebKit::WebProcess::platformInitializeWebProcess):
+
+2021-08-06  Simon Fraser  <simon.fraser@apple.com>
+
+        Clarify some identifier naming in RemoteRenderingBackend
+        https://bugs.webkit.org/show_bug.cgi?id=228886
+
+        Reviewed by Said Abou-Hallawa.
+
+        Rename some "identifier" variables to differentiate between resource identifiers and
+        item buffer identifiers.
+
+        No behavior change.
+
+        * GPUProcess/graphics/RemoteRenderingBackend.cpp:
+        (WebKit::RemoteRenderingBackend::createImageBuffer):
+        (WebKit::RemoteRenderingBackend::wakeUpAndApplyDisplayList):
+        (WebKit::RemoteRenderingBackend::cacheNativeImage):
+        (WebKit::RemoteRenderingBackend::cacheFont):
+        (WebKit::RemoteRenderingBackend::didCreateSharedDisplayListHandle):
+
+2021-08-06  Simon Fraser  <simon.fraser@apple.com>
+
+        Page on mhlw.go.jp triggers WebContent termination by GPU process
+        https://bugs.webkit.org/show_bug.cgi?id=228885
+        <rdar://81603231>
+
+        Reviewed by Wenson Hsieh.
+
+        https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000164708_00001.html triggered an issue
+        where RemoteRenderingBackend::finalizeRenderingUpdate() would be called when the
+        GPU process had just processed a "switching to next item buffer" meta command,
+        but had not yet received the new item buffer. This triggered the 
+        MESSAGE_CHECK(initialHandle, "Missing initial shared display list handle");
+        in RemoteRenderingBackend::wakeUpAndApplyDisplayList().
+
+        Protect against this by having finalizeRenderingUpdate() check that 
+        arguments.itemBufferIdentifier had been received, which is similar to what happens
+        inside the loop in wakeUpAndApplyDisplayList() already.
+
+        Not easily testable.
+
+        * GPUProcess/graphics/RemoteRenderingBackend.cpp:
+        (WebKit::RemoteRenderingBackend::finalizeRenderingUpdate):
+
+2021-08-06  Tim Horton  <timothy_horton@apple.com>
+
+        Disable WKHoverPlatter for now
+        https://bugs.webkit.org/show_bug.cgi?id=228880
+
+        Reviewed by Wenson Hsieh.
+
+        * UIProcess/ios/WKHoverPlatterParameters.mm:
+        (-[WKHoverPlatterParameters setDefaultValues]):
+        Flip the switch.
+
+2021-08-06  Tim Horton  <timothy_horton@apple.com>
+
+        REGRESSION (r185111): Links to App Store doesn't work when opening a PDF in Safari on iOS and iPadOS
+        https://bugs.webkit.org/show_bug.cgi?id=228881
+        rdar://81294035
+
+        Reviewed by Andy Estes.
+
+        * WebProcess/WebPage/WebPage.cpp:
+        (WebKit::WebPage::navigateToPDFLinkWithSimulatedClick):
+        Clicking a link in PDF should absolutely be allowed to launch an external app.
+        Humorously, r185111 applied the correct value to PDFPlugin (macOS), but the
+        wrong value to WKPDFView (iOS). Bring them into alignment.
+
+2021-08-06  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        ASSERTION FAILED: !m_networkLoad in NetworkResourceLoader::~NetworkResourceLoader()
+        https://bugs.webkit.org/show_bug.cgi?id=228853
+
+        Reviewed by Alex Christensen.
+
+        ~NetworkResourceLoader() had the assertion ensuring m_networkLoad
+        was empty. But, this could fail in the following scenario. If a
+        'keepalive' fetch request is not finished and the page is
+        navigated away, its NetworkResourceLoader is transferred to the
+        NetworkSession by NetworkConnectionToWebProcess::transferKeptAliveLoad.
+        And, before the request is finished, if the NetworkSession is
+        destroyed, the kept alive NetworkResourceLoader is destroyed.
+
+        Test: http/tests/fetch/keepalive-fetch.html
+
+        * NetworkProcess/NetworkSession.cpp:
+        (WebKit::NetworkSession::~NetworkSession): Abort m_keptAliveLoads.
+
+2021-08-06  Aditya Keerthi  <akeerthi@apple.com>
+
+        [macOS] 3 second IPC deadlocks involving WebPageProxy::acceptsFirstMouse
+        https://bugs.webkit.org/show_bug.cgi?id=228834
+        rdar://75390908
+
+        Reviewed by Wenson Hsieh and Tim Horton.
+
+        Reports show 3 second hangs in WebPageProxy::acceptsFirstMouse, which is
+        the timeout for the sync IPC sent by the method. While this method has
+        always sent a sync IPC, logs show the WebProcess is also blocked on sync
+        IPC, under WebProcess::ensureGPUProcessConnection.
+
+        If a Web<->GPU process connection has not been established,
+        WebProcess::ensureGPUProcessConnection sends a sync IPC from the
+        WebProcess to the UIProcess to establish get the connection. However, to
+        get the connection, the UIProcess then sends an async IPC with a reply
+        block to the GPUProcess (see GPUProcessProxy::getGPUProcessConnection).
+        The WebProcess remains blocked until the UIProcess receives the reply
+        from the GPUProcess, and then sends a reply to the WebProcess.
+
+        Now, if a call to acceptsFirstMouse occurs in between the time the async
+        UIProcess -> GPUProcess IPC is sent, and the reply is received, we will
+        experience deadlock. The UIProcess will be blocked waiting on the
+        WebProcess' reply to acceptsFirstMouse, and the reply from the GPUProcess
+        will not be dispatched. Since the reply from the GPUProcess will not be
+        dispatched until the UIProcess is unblocked, the WebProcess will be
+        waiting under WebProcess:ensureGPUProcessConnection, and unable to reply
+        to acceptsFirstMouse.
+
+        A simple fix for the described scenario would be to introduce a
+        replySendOptions parameter to sendWithAsyncReply, so that the UIProcess
+        could be re-entered to dispatch the GPUProcess reply, even when waiting
+        for acceptsFirstMouse. However, this will not work in cases where the
+        GPUProcess is being launched, due to being blocked on the reply from
+        xpc_connection_send_message_with_reply in ProcessLauncherMac, which is
+        before the IPC::Connection has been established.
+
+        Since re-entering the UIProcess is not possible in this scenario, given
+        the existing architecture, the next simplest solution is to re-enter
+        the WebProcess on acceptsFirstMouse instead. Consequently, one part of
+        the fix involves sending the acceptsFirstMouse IPC with
+        IPC::SendOption::DispatchMessageEvenWhenWaitingForUnboundedSyncReply and
+        tagging WebProcess::getGPUProcessConnection as unbounded sync IPC.
+
+        Then, we must also consider the fact that, in the WebProcess,
+        acceptsFirstMouse performs hit-testing. Hit-testing triggers layout and
+        could cause script to run. Script could result in a GPUProcess connection
+        being established, eventually leading us down the path towards the
+        aforementioned deadlock. To avoid deadlock in this scenario, we need to
+        interrupt acceptsFirstMouse if a message to get the GPUProcess connection
+        is received. This is achieved by using waitForAndDispatchImmediately with
+        the InterruptWaitingIfSyncMessageArrives option, and splitting up
+        acceptsFirstMouse into two separate IPCs.
+
+        * UIProcess/WebPageProxy.h:
+        * UIProcess/WebPageProxy.messages.in:
+        * UIProcess/ios/WebPageProxyIOS.mm:
+
+        Implementation not required for iOS.
+
+        * UIProcess/mac/WebPageProxyMac.mm:
+        (WebKit::WebPageProxy::acceptsFirstMouse):
+
+        Send an async IPC with IPC::SendOption::DispatchMessageEvenWhenWaitingForUnboundedSyncReply
+        so that the WebProcess can be re-entered to resolve deadlock if
+        necessary. Then, use waitForAndDispatchImmediately to wait for the reply
+        (essentially making it a sync IPC), so that the wait can be interrupted
+        if another sync message, such as getGPUProcessConnection, is received.
+
+        (WebKit::WebPageProxy::handleAcceptsFirstMouse):
+
+        Store the result of the reply from the WebProcess.
+
+        * WebProcess/WebPage/WebPage.h:
+        * WebProcess/WebPage/WebPage.messages.in:
+
+        Split the sync IPC into two async IPCs, in order to support the use of
+        waitForAndDispatchImmediately.
+
+        * WebProcess/WebPage/ios/WebPageIOS.mm:
+
+        Implementation not required for iOS.
+
+        * WebProcess/WebPage/mac/WebPageMac.mm:
+        (WebKit::WebPage::requestAcceptsFirstMouse):
+
+        Exit early if re-entering the WebProcess, to avoid running script on
+        re-entry.
+
+        * WebProcess/WebProcess.cpp:
+        (WebKit::WebProcess::getGPUProcessConnection):
+
+        Tag as unbounded sync IPC, so the WebProcess can be re-entered to
+        resolve deadlock.
+
+2021-08-06  Youenn Fablet  <youenn@apple.com>
+
+        WebKit::SampleBufferDisplayLayer needs to handle GPUProcess crash
+        https://bugs.webkit.org/show_bug.cgi?id=228824
+        <rdar://problem/81564477>
+
+        Reviewed by Eric Carlson.
+
+        Make WebKit::SampleBufferDisplayLayer listen to GPUProcess connection being closed.
+        When that happens, notify its client that it failed.
+
+        * WebProcess/GPU/GPUProcessConnection.cpp:
+        * WebProcess/GPU/GPUProcessConnection.h:
+        * WebProcess/GPU/media/RemoteMediaPlayerManager.cpp:
+        * WebProcess/GPU/webrtc/SampleBufferDisplayLayer.cpp:
+        (WebKit::SampleBufferDisplayLayer::create):
+        (WebKit::SampleBufferDisplayLayer::SampleBufferDisplayLayer):
+        (WebKit::SampleBufferDisplayLayer::~SampleBufferDisplayLayer):
+        (WebKit::SampleBufferDisplayLayer::setDidFail):
+        (WebKit::SampleBufferDisplayLayer::gpuProcessConnectionDidClose):
+        * WebProcess/GPU/webrtc/SampleBufferDisplayLayer.h:
+        * WebProcess/GPU/webrtc/SampleBufferDisplayLayerManager.cpp:
+        (WebKit::SampleBufferDisplayLayerManager::createLayer):
+        * WebProcess/GPU/webrtc/SampleBufferDisplayLayerManager.h:
+
+2021-08-06  Peng Liu  <peng.liu6@apple.com>
+
+        [macOS] Clean up Feature Flags related code
+        https://bugs.webkit.org/show_bug.cgi?id=228803
+        <rdar://problem/81142982>
+
+        Reviewed by Tim Horton.
+
+        On macOS, Safari Technology Preview or a local build WebKit/Safari will always
+        get the default preference values through the "Feature Flags" SPI. Unfortunately,
+        this approach won't work if the OS does not provide correct default preference values.
+
+        With this patch, we only get default preference values with the SPI for system
+        WebKit on macOS. For all other cases, we use hardcoded values. So that
+        WebKit will always get the correct default preference values.
+
+        This patch also fixes a few mistakes in two preferences: "webm_webaudio" and "vp8_decoder".
+
+        * FeatureFlags/WebKit-appletvos.plist:
+        * FeatureFlags/WebKit-ios.plist:
+        * FeatureFlags/WebKit-macos.plist:
+        * FeatureFlags/WebKit-watchos.plist:
+
+        * Shared/Cocoa/WebPreferencesDefaultValuesCocoa.mm:
+        (WebKit::isFeatureFlagEnabled):
+        * Shared/WebPreferencesDefaultValues.cpp:
+        (WebKit::isFeatureFlagEnabled):
+        (WebKit::defaultAsyncFrameAndOverflowScrollingEnabled):
+        (WebKit::defaultUseGPUProcessForCanvasRenderingEnabled):
+        (WebKit::defaultUseGPUProcessForDOMRenderingEnabled):
+        (WebKit::defaultUseGPUProcessForMediaEnabled):
+        (WebKit::defaultUseGPUProcessForWebGLEnabled):
+        (WebKit::defaultCaptureAudioInGPUProcessEnabled):
+        (WebKit::defaultCaptureVideoInGPUProcessEnabled):
+        (WebKit::defaultWebRTCCodecsInGPUProcess):
+        (WebKit::defaultIncrementalPDFEnabled):
+        (WebKit::defaultWebMFormatReaderEnabled):
+        (WebKit::defaultVP8DecoderEnabled):
+        (WebKit::defaultVP9DecoderEnabled):
+        (WebKit::defaultVP9SWDecoderEnabledOnBattery):
+        (WebKit::defaultWebMParserEnabled):
+        (WebKit::defaultWebMWebAudioEnabled):
+        (WebKit::defaultInAppBrowserPrivacy): Deleted.
+        * Shared/WebPreferencesDefaultValues.h:
+
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::WebPageProxy::creationParameters): Fix a typo.
+
+2021-08-06  Jer Noble  <jer.noble@apple.com>
+
+        [Cocoa] Remove support for AVAssetImageGenerator
+        https://bugs.webkit.org/show_bug.cgi?id=228560
+        <rdar://problem/81336280>
+
+        Reviewed by Eric Carlson.
+
+        Drive-by fix: we're passing the wrong value into acceleratedRenderingStateChanged(), and
+        we're not setting the correct initial value on MediaPlayerPrivateRemote creation.
+
+        * GPUProcess/media/RemoteMediaPlayerProxy.h:
+        * WebProcess/GPU/media/MediaPlayerPrivateRemote.cpp:
+        (WebKit::MediaPlayerPrivateRemote::MediaPlayerPrivateRemote):
+        (WebKit::MediaPlayerPrivateRemote::acceleratedRenderingStateChanged):
+
+2021-08-06  Eric Carlson  <eric.carlson@apple.com>
+
+        REGRESSION: ASSERTION FAILED: !DeprecatedGlobalSettings::shouldManageAudioSessionCategory() || AudioSession::sharedSession().category() == AudioSession::CategoryType::PlayAndRecord
+        https://bugs.webkit.org/show_bug.cgi?id=228847
+        <rdar://problem/81587101>
+
+        Reviewed by Jer Noble.
+
+        No new tests, fixes a crashing test.
+
+        * UIProcess/Cocoa/UserMediaCaptureManagerProxy.cpp:
+        (WebKit::UserMediaCaptureManagerProxy::SourceProxy::audioUnitWillStart): Restore.
+
+2021-08-05  Kate Cheney  <katherine_cheney@apple.com>
+
+        LoadWebArchive.FailNavigation1 test is a false positive
+        https://bugs.webkit.org/show_bug.cgi?id=228848
+        <rdar://problem/81587448>
+
+        Reviewed by Brent Fulgham.
+
+        Drive by logging fix.
+
+        * UIProcess/WebProcessProxy.cpp:
+        (WebKit::WebProcessProxy::fetchWebsiteData):
+        (WebKit::WebProcessProxy::deleteWebsiteData):
+
+2021-08-05  Eric Carlson  <eric.carlson@apple.com>
+
+        [iOS] getUserMedia sometimes doesn't capture from specified microphone
+        https://bugs.webkit.org/show_bug.cgi?id=228753
+        rdar://79704226
+
+        Reviewed by Youenn Fablet.
+
+        * UIProcess/Cocoa/UserMediaCaptureManagerProxy.cpp: Re
+        (WebKit::UserMediaCaptureManagerProxy::SourceProxy::audioUnitWillStart): Delete,
+        we don't need it now that the web process configures the audio session before
+        capture begins.
+
+2021-08-05  Youenn Fablet  <youenn@apple.com>
+
+        GPUProcessProxy should send tccd mach lookup sandbox extension
+        https://bugs.webkit.org/show_bug.cgi?id=228827
+
+        Reviewed by Per Arne Vollan.
+
+        In https://bugs.webkit.org/show_bug.cgi?id=225319, I mistakenly moved from mach lookup extension to generic extension.
+        Reverting that change.
+
+        * UIProcess/GPU/GPUProcessProxy.cpp:
+        (WebKit::addTCCDSandboxExtension):
+
+2021-08-05  Eric Carlson  <eric.carlson@apple.com>
+
+        [GPUP] RemoteAudioSessionProxyManager should use the shared audio session
+        https://bugs.webkit.org/show_bug.cgi?id=228795
+        <rdar://problem/81530450>
+
+        Reviewed by Jer Noble.
+
+        RemoteAudioSessionProxyManager creates and uses a private AudioSession, which means
+        that any code that moves from the WebProcess to the GPUProcess and uses
+        `AudioSession::sharedSession` will be using a separate platform audio session wrapper
+        object. RemoteAudioSessionProxyManager doesn't need a private AudioSession, so 
+        change it to use `AudioSession::sharedSession`.
+
+        * GPUProcess/media/RemoteAudioSessionProxyManager.cpp:
+        (WebKit::RemoteAudioSessionProxyManager::RemoteAudioSessionProxyManager): Don't
+        create a new AudioSession.
+        (WebKit::RemoteAudioSessionProxyManager::~RemoteAudioSessionProxyManager): Use
+        AudioSession::sharedSession().
+        (WebKit::RemoteAudioSessionProxyManager::updateCategory): Ditto.
+        (WebKit::RemoteAudioSessionProxyManager::setPreferredBufferSizeForProcess): Ditto.
+        (WebKit::RemoteAudioSessionProxyManager::tryToSetActiveForProcess): Ditto.
+
+2021-08-05  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [macOS Monterey] Translate popover becomes detached from webpage after scrolling
+        https://bugs.webkit.org/show_bug.cgi?id=228807
+        rdar://81540115
+
+        Reviewed by Sam Weinig.
+
+        Close the context menu translation popover in `WebViewImpl::dismissContentRelativeChildWindowsFromViewOnly`
+        (along with all other content-relative UI) to prevent the popover from being detached from its translated text
+        upon scrolling or zooming.
+
+        * UIProcess/Cocoa/WebViewImpl.h:
+        * UIProcess/Cocoa/WebViewImpl.mm:
+        (WebKit::WebViewImpl::dismissContentRelativeChildWindowsFromViewOnly):
+        (WebKit::WebViewImpl::handleContextMenuTranslation):
+
+        Save a weak pointer to the current translation popover when we're about to present it, and use it to force the
+        popover to `-close` when dismissing content-relative child windows. Also take this opportunity to remove some
+        staging declarations on LTUITranslationViewController that have long since landed in the macOS 12 SDK.
+
+2021-08-05  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        GCC 11 builds should use -Wno-array-bounds, -Wno-nonnull
+        https://bugs.webkit.org/show_bug.cgi?id=228601
+
+        Reviewed by Carlos Garcia Campos.
+
+        * WebProcess/Plugins/PluginView.cpp:
+        (WebKit::PluginView::Stream::~Stream):
+
+2021-08-05  Imanol Fernandez  <ifernandez@igalia.com>
+
+        Fix XR related clang warnings in WPE
+        https://bugs.webkit.org/show_bug.cgi?id=228779
+
+        Reviewed by Sam Weinig.
+
+        Fix a few compiler warnings.
+
+        * Shared/XR/XRDeviceProxy.cpp:
+        (WebKit::XRDeviceProxy::views const):
+
+2021-08-04  Tim Horton  <timothy_horton@apple.com>
+
+        Bifurcated RemoteLayerBackingStore zooms in every time it repaints
+        https://bugs.webkit.org/show_bug.cgi?id=228798
+
+        Reviewed by Sam Weinig.
+
+        * Shared/RemoteLayerTree/RemoteLayerBackingStore.mm:
+        (WebKit::RemoteLayerBackingStore::display):
+        If applying the scale/flip workaround manually, we need to save the
+        GraphicsContext state, or it leaks between paints.
+
+2021-08-04  Jean-Yves Avenard  <jya@apple.com>
+
+        Use Observer in place of VideoFullscreenManagerProxyClient
+        https://bugs.webkit.org/show_bug.cgi?id=228761
+        rdar://problem/81489026
+
+        Reviewed by Jer Noble.
+
+        Use an Observer member rather than creating a child class that would be used
+        when the PiP state change. This prevents having to deal with lifetime and
+        potentially setting it up multiple times.
+        No change in observable behaviour, covered with existing tests.
+
+        * UIProcess/Cocoa/VideoFullscreenManagerProxy.h: Remove VideoFullscreenManagerProxyClient
+        class. Use WeakHashSet to store observers.
+        * UIProcess/Cocoa/VideoFullscreenManagerProxy.mm:
+        (WebKit::VideoFullscreenManagerProxy::addVideoInPictureInPictureDidChangeObserver):
+        Method added, replace older setClient
+        (WebKit::VideoFullscreenManagerProxy::hasVideoInPictureInPictureDidChange):
+        Iterate over all observers and call accordingly.
+        * UIProcess/ios/fullscreen/WKFullScreenWindowControllerIOS.mm:
+        (-[WKFullScreenWindowController initWithWebView:]): Remove no longer necessary
+        code.
+        (-[WKFullScreenWindowController dealloc]): Remove no longer necessary
+        code.
+        (-[WKFullScreenWindowController beganEnterFullScreenWithInitialFrame:finalFrame:]):
+        set PiP change observer if none already exists.
+        * UIProcess/mac/WKFullScreenWindowController.mm:
+        (-[WKFullScreenWindowController initWithWindow:webView:page:]): Remove no longer necessary
+        code.
+        (-[WKFullScreenWindowController dealloc]): Remove no longer necessary
+        code.
+        (-[WKFullScreenWindowController clearVideoFullscreenManagerObserver]):
+        (-[WKFullScreenWindowController setVideoFullscreenManagerObserver]):
+        (-[WKFullScreenWindowController didExitPictureInPicture]):
+        (-[WKFullScreenWindowController windowDidEnterFullScreen:]):
+        (-[WKFullScreenWindowController windowDidFailToExitFullScreen:]):
+        (-[WKFullScreenWindowController windowDidExitFullScreen:]):
+
+2021-08-04  Tim Horton  <timothy_horton@apple.com>
+
+        RemoteLayerBackingStore: Adopt a new bifurcated layer switch
+        https://bugs.webkit.org/show_bug.cgi?id=228800
+        <rdar://problem/81534641>
+
+        Reviewed by Sam Weinig.
+
+        * Shared/RemoteLayerTree/RemoteLayerBackingStore.mm:
+        (WebKit::RemoteLayerBackingStore::applyBackingStoreToLayer):
+        Let CA know that we're going to hand it both a display list and
+        backing store ahead of time by setting a new bit.
+
+2021-08-04  Peng Liu  <peng.liu6@apple.com>
+
+        [Catalina][GPUP] Some API tests fail after GPU Process features are enabled
+        https://bugs.webkit.org/show_bug.cgi?id=228589
+
+        Reviewed by Jer Noble.
+
+        When an audio session's configuration changes, let `RemoteAudioSessionProxy`
+        in the GPU process send the latest audio session configuration to `RemoteAudioSession`
+        in the WebContent process through an IPC message (`RemoteAudioSession::ConfigurationChanged`).
+
+        * GPUProcess/media/RemoteAudioSessionProxy.cpp:
+        (WebKit::RemoteAudioSessionProxy::configurationChanged):
+        * GPUProcess/media/RemoteAudioSessionProxy.h:
+
+        * GPUProcess/media/RemoteAudioSessionProxyManager.cpp:
+        (WebKit::RemoteAudioSessionProxyManager::RemoteAudioSessionProxyManager):
+        (WebKit::RemoteAudioSessionProxyManager::~RemoteAudioSessionProxyManager):
+        (WebKit::RemoteAudioSessionProxyManager::beginAudioSessionInterruption):
+        (WebKit::RemoteAudioSessionProxyManager::endAudioSessionInterruption):
+        (WebKit::RemoteAudioSessionProxyManager::hardwareMutedStateDidChange):
+        (WebKit::RemoteAudioSessionProxyManager::bufferSizeDidChange):
+        (WebKit::RemoteAudioSessionProxyManager::sampleRateDidChange):
+        (WebKit::RemoteAudioSessionProxyManager::configurationDidChange):
+
+        * GPUProcess/media/RemoteAudioSessionProxyManager.h:
+        * WebProcess/GPU/media/RemoteAudioSession.cpp:
+        (WebKit::RemoteAudioSession::addConfigurationChangeObserver):
+        (WebKit::RemoteAudioSession::removeConfigurationChangeObserver):
+        (WebKit::RemoteAudioSession::configurationChanged):
+        * WebProcess/GPU/media/RemoteAudioSession.h:
+        * WebProcess/GPU/media/RemoteAudioSession.messages.in:
+
+2021-08-04  Simon Fraser  <simon.fraser@apple.com>
+
+        Crash in DisplayLink::notifyObserversDisplayWasRefreshed() on macOS
+        https://bugs.webkit.org/show_bug.cgi?id=228790
+        <rdar://81338621>
+
+        Reviewed by Tim Horton.
+
+        Defend against DisplayLink::nominalFramesPerSecondFromDisplayLink() returning zero,
+        which can result in a later divide by zero in m_currentUpdate.nextUpdate().
+
+        * UIProcess/mac/DisplayLink.cpp:
+        (WebKit::DisplayLink::nominalFramesPerSecondFromDisplayLink):
+
+2021-08-04  Said Abou-Hallawa  <said@apple.com>
+
+        [GPUProcess] REGRESSION: A noticeable slow down when browsing Live Photos album on iCloud.com
+        https://bugs.webkit.org/show_bug.cgi?id=228673
+        <rdar://81353138>
+
+        Reviewed by Wenson Hsieh.
+
+        RemoteImageBufferProxy::flushDrawingContext() assumes a FlushContext item
+        is always appended to its DisplayList when it calls flushDrawingContextAsync()
+        and this is why it waits up to 3 seconds for the DidFlush message. But this
+        does not happen if the DisplayList of RemoteImageBufferProxy is empty.
+
+        In addition to checking whether the DisplayList is empty, we can check also
+        whether we do not have pending a FlushContext item before appending a new
+        one.
+
+        * WebProcess/GPU/graphics/RemoteImageBufferProxy.h:
+
+2021-08-04  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [iOS 15] "Look Up" action is sometimes missing after force pressing images
+        https://bugs.webkit.org/show_bug.cgi?id=228774
+        rdar://78040734
+
+        Reviewed by Devin Rousso.
+
+        On iOS devices that support both 3D Touch and Visual Look Up (i.e., iPhone XS and iPhone XS Max), it's currently
+        possible to skip the image analysis preflight gesture entirely when showing the context menu over images in the
+        case where the user triggers the interaction by exceeding the force press threshold in under 100 ms (the current
+        delay of the image analysis long press gesture).
+
+        Mitigate this by teaching WKImageAnalysisGestureRecognizer to trigger image analysis preflight slightly ahead of
+        the context menu interaction when performing a force press by transitioning to Began state early under
+        `-touchesBegan:withEvent:` and `-touchesMoved:withEvent:`, if the touch's force exceeds a certain (relatively
+        low) threshold.
+
+        * UIProcess/ios/WKImageAnalysisGestureRecognizer.mm:
+        (-[WKImageAnalysisGestureRecognizer touchesBegan:withEvent:]):
+        (-[WKImageAnalysisGestureRecognizer touchesMoved:withEvent:]):
+        (-[WKImageAnalysisGestureRecognizer beginAfterExceedingForceThresholdIfNeeded:]):
+
+2021-08-04  Per Arne  <pvollan@apple.com>
+
+        [macOS] Update message filters
+        https://bugs.webkit.org/show_bug.cgi?id=228773
+        <rdar://problem/81514311>
+
+        Reviewed by Brent Fulgham.
+
+        Update message filters with enforcement on macOS based on telemetry.
+
+        * WebProcess/com.apple.WebProcess.sb.in:
+
+2021-08-04  Said Abou-Hallawa  <said@apple.com>
+
+        [GPU Process] REGRESSION: iCloud Photos Web app may crash WebProcess once the GPUProcess is relaunched
+        https://bugs.webkit.org/show_bug.cgi?id=228665
+
+        Reviewed by Simon Fraser.
+
+        When the GPUProcess is relaunched, ensure NativeImage is detached from
+        the RemoteResourceCacheProxy once it is removed from its m_nativeImages.
+
+        Otherwise the NativeImage later will ask RemoteResourceCacheProxy to 
+        release its corresponding NativeImage from RemoteResourceCache even
+        though it was destroyed when the GPUProcess was relaunched.
+
+        * WebProcess/GPU/graphics/RemoteResourceCacheProxy.cpp:
+        (WebKit::RemoteResourceCacheProxy::~RemoteResourceCacheProxy):
+        (WebKit::RemoteResourceCacheProxy::clearNativeImageMap):
+        (WebKit::RemoteResourceCacheProxy::remoteResourceCacheWasDestroyed):
+        * WebProcess/GPU/graphics/RemoteResourceCacheProxy.h:
+
+2021-08-03  Jean-Yves Avenard  <jya@apple.com>
+
+        REGRESSION (r280568): ASSERTION FAILED: videoFullscreenManager->client() == &_videoFullscreenManagerProxyClient
+        https://bugs.webkit.org/show_bug.cgi?id=228740
+        rdar://problem/81464301
+
+        Reviewed by Jer Noble.
+
+        Fix assertion to reflect that the code can be code in two ways.
+        This will all go away following bug 228761.
+
+        * UIProcess/mac/WKFullScreenWindowController.mm:
+        (-[WKFullScreenWindowController setVideoFullscreenManagerClient:]):
+
+2021-08-03  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, reverting r280531 and r280589.
+
+        caused
+
+        Reverted changesets:
+
+        "[Cocoa] Remove support for AVAssetImageGenerator"
+        https://bugs.webkit.org/show_bug.cgi?id=228560
+        https://commits.webkit.org/r280531
+
+        "REGRESSION (r280531): multiple modern-media-controls tests
+        have become flaky timeouts"
+        https://bugs.webkit.org/show_bug.cgi?id=228714
+        https://commits.webkit.org/r280589
+
+2021-08-03  Brent Fulgham  <bfulgham@apple.com>
+
+        [iOS] Allow check for nvram "emu" state on internal OS builds
+        https://bugs.webkit.org/show_bug.cgi?id=228745
+        <rdar://problem/78363040>
+
+        Reviewed by Per Arne Vollan.
+
+        Allow access to the 'emu' nvram variable when running on an Apple Internal OS build. This
+        reduces spurious sandbox violation reports, and improves the performance of test systems.
+
+        * Resources/SandboxProfiles/ios/com.apple.WebKit.GPU.sb:
+        * Resources/SandboxProfiles/ios/com.apple.WebKit.WebContent.sb.in:
+
+2021-08-03  Tim Horton  <timothy_horton@apple.com>
+
+        Remove unused processDidTransitionTo{Foreground,Background} IPC
+        https://bugs.webkit.org/show_bug.cgi?id=228328
+
+        Reviewed by Wenson Hsieh.
+
+        * GPUProcess/GPUProcess.cpp:
+        (WebKit::GPUProcess::processDidTransitionToForeground): Deleted.
+        (WebKit::GPUProcess::processDidTransitionToBackground): Deleted.
+        * GPUProcess/GPUProcess.h:
+        * GPUProcess/GPUProcess.messages.in:
+        * NetworkProcess/NetworkProcess.cpp:
+        (WebKit::NetworkProcess::processDidTransitionToForeground): Deleted.
+        (WebKit::NetworkProcess::processDidTransitionToBackground): Deleted.
+        * NetworkProcess/NetworkProcess.h:
+        * NetworkProcess/NetworkProcess.messages.in:
+        * NetworkProcess/cocoa/NetworkProcessCocoa.mm:
+        (WebKit::NetworkProcess::platformProcessDidTransitionToBackground): Deleted.
+        (WebKit::NetworkProcess::platformProcessDidTransitionToForeground): Deleted.
+        * NetworkProcess/curl/NetworkProcessCurl.cpp:
+        (WebKit::NetworkProcess::platformProcessDidTransitionToForeground): Deleted.
+        (WebKit::NetworkProcess::platformProcessDidTransitionToBackground): Deleted.
+        * NetworkProcess/soup/NetworkProcessSoup.cpp:
+        (WebKit::NetworkProcess::platformProcessDidTransitionToForeground): Deleted.
+        (WebKit::NetworkProcess::platformProcessDidTransitionToBackground): Deleted.
+        * UIProcess/GPU/GPUProcessProxy.cpp:
+        (WebKit::GPUProcessProxy::updateProcessAssertion):
+        * UIProcess/Network/NetworkProcessProxy.cpp:
+        (WebKit::NetworkProcessProxy::updateProcessAssertion):
+        * UIProcess/WebAuthentication/WebAuthnProcessProxy.cpp:
+        (WebKit::WebAuthnProcessProxy::updateProcessAssertion):
+        * WebAuthnProcess/WebAuthnProcess.cpp:
+        (WebKit::WebAuthnProcess::processDidTransitionToForeground): Deleted.
+        (WebKit::WebAuthnProcess::processDidTransitionToBackground): Deleted.
+        * WebAuthnProcess/WebAuthnProcess.h:
+        * WebAuthnProcess/WebAuthnProcess.messages.in:
+        These messages do nothing.
+
+2021-08-03  Per Arne  <pvollan@apple.com>
+
+        [iOS] Fix sandbox violation in GPU process
+        https://bugs.webkit.org/show_bug.cgi?id=228743
+        <rdar://problem/81334849>
+
+        Reviewed by Brent Fulgham.
+
+        Allow reading "hw.product" in the GPU process' sandbox.
+
+        * Resources/SandboxProfiles/ios/com.apple.WebKit.GPU.sb:
+
+2021-08-03  Devin Rousso  <drousso@apple.com>
+
+        [Live Text] [iOS] Provide a presenting `UIViewController` for machine readable code actions so that they are related to the same view
+        https://bugs.webkit.org/show_bug.cgi?id=228722
+
+        Reviewed by Tim Horton.
+
+        * UIProcess/ios/WKContentViewInteraction.mm:
+        (-[WKContentView _updateContextMenuForMachineReadableCodeForImageAnalysis:]): Added.
+        (-[WKContentView imageAnalysisGestureDidBegin:]):
+        (-[WKContentView imageAnalysisGestureDidTimeOut:]):
+
 2021-08-02  Peng Liu  <peng.liu6@apple.com>
 
         [GPUP] RemoteAudioSession::setPreferredBufferSize() does not change its preferredBufferSize

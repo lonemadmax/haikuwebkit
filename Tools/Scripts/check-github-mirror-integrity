@@ -24,24 +24,32 @@
 
 import os
 import sys
+import time
 
 from webkitpy import webkitscmpy
-from webkitscmpy import remote
+from webkitscmpy import local, remote
 
 
 def main():
-    repository = remote.Svn('https://svn.webkit.org/repository/webkit')
-    mirror = remote.GitHub('https://github.com/WebKit/WebKit')
+    cache_path = None
+    try:
+        repo = local.Scm.from_path(os.path.dirname(__file__))
+        cache_path = os.path.join(repo.root_path, '.git' if repo.is_git else '.svn', 'svn-webkit-org-cache.json')
+    except OSError:
+        pass
 
-    canonical_tip = repository.commit(branch='trunk')
+    mirror = remote.GitHub('https://github.com/WebKit/WebKit')
+    repository = remote.Svn('https://svn.webkit.org/repository/webkit', cache_path=cache_path)
+
     mirror_tip = mirror.commit(branch='main')
+    canonical_tip = repository.commit(branch='trunk')
 
     if mirror_tip.identifier == canonical_tip.identifier:
         print('GitHub and svn.webkit.org are in sync')
         print(f'HEAD commit on GitHub {mirror_tip} matches HEAD commit on svn.webkit.org {canonical_tip}')
         return 0
 
-    if mirror_tip.timestamp >= canonical_tip.timestamp - 5 * 60 and mirror_tip.identifier == canonical_tip.identifier - 1:
+    if time.time() >= canonical_tip.timestamp - 5 * 60 and mirror_tip.identifier == canonical_tip.identifier - 1:
         print('GitHub is 1 commit behind svn.webkit.org. This is ok.')
         print(f'HEAD commit on GitHub {mirror_tip} slightly behind HEAD commit on svn.webkit.org {canonical_tip}')
         return 0

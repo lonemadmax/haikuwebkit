@@ -1,3 +1,398 @@
+2021-08-08  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        caret-color does not work on first click in ios
+        https://bugs.webkit.org/show_bug.cgi?id=228859
+        rdar://81674787
+
+        Reviewed by Tim Horton.
+
+        Make it possible to test this bug by adding a UIScriptController hook to request the background color of the
+        current selection view's caret view, as serialized CSS text. See LayoutTests/ChangeLog for more details.
+
+        * TestRunnerShared/UIScriptContext/Bindings/UIScriptController.idl:
+        * TestRunnerShared/UIScriptContext/UIScriptController.h:
+        (WTR::UIScriptController::selectionCaretBackgroundColor const):
+        * WebKitTestRunner/ios/UIScriptControllerIOS.h:
+        * WebKitTestRunner/ios/UIScriptControllerIOS.mm:
+        (WTR::UIScriptControllerIOS::selectionCaretBackgroundColor const):
+
+2021-08-07  Aakash Jain  <aakash_jain@apple.com>
+
+        [ews] Limit the size of error context buffer
+        https://bugs.webkit.org/show_bug.cgi?id=228900
+
+        Reviewed by Alexey Proskuryakov.
+
+        * CISupport/ews-build/steps.py:
+        (BuildLogLineObserver.outLineReceived): Limit the lines for additional context to 50 lines.
+
+2021-08-07  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [macOS] Web process crashes when detaching Document with uncommitted marked text
+        https://bugs.webkit.org/show_bug.cgi?id=228841
+        rdar://79960890
+
+        Reviewed by Ryosuke Niwa.
+
+        Make a small adjustment to DumpRenderTree, such that TextInputController targets the selected frame (or the main
+        frame, if there is no DOM selection). This behavior matches that of WebKitTestRunner, and allows layout tests
+        that use TextInputController to simulate setting marked text inside subframes.
+
+        * DumpRenderTree/mac/TextInputControllerMac.m:
+        (-[TextInputController selectedOrMainFrame]):
+        (-[TextInputController textInput]):
+
+2021-08-07  Aakash Jain  <aakash_jain@apple.com>
+
+        [ews] Ensure file handle is not leaked in loadConfig.py
+        https://bugs.webkit.org/show_bug.cgi?id=228866
+
+        Reviewed by Alexey Proskuryakov.
+
+        * CISupport/build-webkit-org/loadConfig.py:
+        (loadBuilderConfig):
+        * CISupport/ews-build/loadConfig.py:
+        (loadBuilderConfig):
+
+2021-08-06  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] Add setup function
+        https://bugs.webkit.org/show_bug.cgi?id=225985
+        <rdar://problem/78226729>
+
+        Reviewed by Dewei Zhu.
+
+        * Scripts/libraries/webkitcorepy/setup.py: Bump version.
+        * Scripts/libraries/webkitcorepy/webkitcorepy/__init__.py: Ditto.
+        * Scripts/libraries/webkitcorepy/webkitcorepy/credentials.py:
+        (credentials): Key should be pulled from environment variable with key_name in it.
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/mocks/local/git.py:
+        (Git): Move config regexes.
+        (Git.__init__): Add `git remote add`, `git config` and `git fetch fork`.
+        (Git.config): Add user.email to default configuration.
+        (Git.edit_config): Modify configuration file.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/mocks/remote/git_hub.py:
+        (GitHub): Add list of forks.
+        (GitHub.__enter__): Correctly mock token.
+        (GitHub.request): Add fork check and fork addition.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/__init__.py:
+        (main): Add setup function.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/remote/git_hub.py:
+        (GitHub.credentials): Strip email domain, guide user on token permissions.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/setup.py: Added.
+        (Setup.github): Ensure that GitHub credentials are in the keychain.
+        (Setup.git): Set the user for the repository, along with merge strategy.
+        (Setup.parser):
+        (Setup.main):
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/git_unittest.py:
+        (test_config): Change user name.
+        (test_global_config): Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/setup_unittest.py: Added.
+        (TestSetup):
+        (TestSetup.setUp):
+        (TestSetup.test_svn):
+        (TestSetup.test_github):
+        (TestSetup.test_git):
+        (TestSetup.test_github_checkout):
+
+2021-08-06  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [Win][WebKitTestRunner] WTR::PlatformWebView leaks m_view (WKViewRef)
+        https://bugs.webkit.org/show_bug.cgi?id=228857
+
+        Reviewed by Don Olmstead.
+
+        Windows WebKitTestRunner leaked a lot of object because it leaked
+        WebKit::WebView that retains WebKit::WebPageProxy.
+
+        * WebKitTestRunner/win/PlatformWebViewWin.cpp:
+        (WTR::PlatformWebView::~PlatformWebView): Release m_view.
+
+2021-08-06  Youenn Fablet  <youenn@apple.com>
+
+        [GPUP] Test WebKit2.CrashGPUProcessAfterApplyingConstraints fails when Media in GPU Process is enabled
+        https://bugs.webkit.org/show_bug.cgi?id=228759
+        <rdar://problem/81529641>
+
+        Reviewed by Geoffrey Garen.
+
+        * TestWebKitAPI/Tests/WebKit/GetUserMedia.mm:
+        Reenable test.
+
+2021-08-06  Aakash Jain  <aakash_jain@apple.com>
+
+        [ews] Make config.json compact
+        https://bugs.webkit.org/show_bug.cgi?id=228862
+
+        Reviewed by Jonathan Bedard.
+
+        * CISupport/ews-build/config.json:
+
+2021-08-05  Diego Pino Garcia  <dpino@igalia.com>
+
+        [buildbot] Add new post-commit bot to build WPE on Ubuntu-LTS
+        https://bugs.webkit.org/show_bug.cgi?id=228535
+
+        Reviewed by Alexey Proskuryakov.
+
+        Currently we only had a bot to build WebKitGTK on Ubuntu LTS. This is
+        not enough to detect build regressions in WPE.
+
+        * CISupport/build-webkit-org/config.json:
+
+2021-08-05  Kate Cheney  <katherine_cheney@apple.com>
+
+        LoadWebArchive.FailNavigation1 test is a false positive
+        https://bugs.webkit.org/show_bug.cgi?id=228848
+        <rdar://problem/81587448>
+
+        Reviewed by Brent Fulgham.
+
+        Update LoadWebArchive.FailNavigation1 to test the case of a webarchive
+        being loaded with a host for better test coverage.
+
+        * TestWebKitAPI/Tests/mac/load-web-archive-1.html:
+
+2021-08-05  Ryan Haddad  <ryanhaddad@apple.com>
+
+        REGRESSION (r279855): TestWebKitAPI.AppleLanguagesTest.UpdateAppleLanguages is failing
+        https://bugs.webkit.org/show_bug.cgi?id=228309
+
+        Unreviewed test gardening.
+
+        This test has been skipped on Apple Silicon because of timeouts, and
+        now it is a flaky failure on Intel machines. Disable it outright for
+        the time be ing.
+
+        * TestWebKitAPI/Tests/WebKit/OverrideAppleLanguagesPreference.mm:
+        (TEST_F):
+
+2021-08-05  Zan Dobersek  <zdobersek@igalia.com>
+
+        run-jsc-stress-tests: detect the riscv64 architecture
+        https://bugs.webkit.org/show_bug.cgi?id=228817
+
+        Reviewed by Adrian Perez de Castro.
+
+        * Scripts/run-jsc-stress-tests: Detect the riscv64 architecture when
+        examining ELF binaries. For the moment, this architecture should be
+        marked as not supporting FTL.
+
+2021-08-04  Peng Liu  <peng.liu6@apple.com>
+
+        [Catalina][GPUP] Some API tests fail after GPU Process features are enabled
+        https://bugs.webkit.org/show_bug.cgi?id=228589
+
+        Reviewed by Jer Noble.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/AudioBufferSize.mm:
+        (TestWebKitAPI::TEST):
+
+2021-08-04  Jonathan Bedard  <jbedard@apple.com>
+
+        [check-github-mirror-integrity] Store remote cache in checkout
+        https://bugs.webkit.org/show_bug.cgi?id=228792
+        <rdar://problem/81527357>
+
+        Reviewed by Aakash Jain.
+
+        * Scripts/check-github-mirror-integrity: Use the local checkout to store the svn.webkit.org, if possible.
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/remote/svn.py:
+        (Svn.__init__): Allow caller to define cache path.
+        (Svn._cache_path): Deleted.
+
+2021-08-04  Jonathan Bedard  <jbedard@apple.com>
+
+        [check-github-mirror-integrity] Compare current time to canonical time
+        https://bugs.webkit.org/show_bug.cgi?id=228787
+        <rdar://problem/81524499>
+
+        Reviewed by Aakash Jain.
+
+        * Scripts/check-github-mirror-integrity: If the mirror isn't in line with the canonical repository, we should
+        check against the current time, not the time of last commit on the mirror.
+
+2021-08-03  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [Cocoa] Tweak the formatting for passing NSArrays to TextStreams
+        https://bugs.webkit.org/show_bug.cgi?id=228766
+
+        Reviewed by Simon Fraser.
+
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/Tests/WTF/cocoa/TextStreamCocoa.cpp: Added.
+        (TEST):
+        * TestWebKitAPI/Tests/WTF/cocoa/TextStreamCocoa.mm: Added.
+        (TEST):
+
+2021-08-04  Jonathan Bedard  <jbedard@apple.com>
+
+        [webkitcorepy] Add shared terminal input code
+        https://bugs.webkit.org/show_bug.cgi?id=226024
+        <rdar://problem/78261645>
+
+        Reviewed by Dewei Zhu.
+
+        * Scripts/libraries/webkitcorepy/setup.py: Bump version.
+        * Scripts/libraries/webkitcorepy/webkitcorepy/__init__.py: Export Terminal object, bump version.
+        * Scripts/libraries/webkitcorepy/webkitcorepy/credentials.py:
+        (credentials): Use Terminal.input.
+        * Scripts/libraries/webkitcorepy/webkitcorepy/mocks/__init__.py:
+        * Scripts/libraries/webkitcorepy/webkitcorepy/mocks/terminal.py: Added.
+        (Terminal):
+        (Terminal.input): Mocking input and raw_input requires so specialized knowledge,
+        so we should generalize it.
+        * Scripts/libraries/webkitcorepy/webkitcorepy/terminal.py: Added.
+        (Terminal):
+        (Terminal.input): Python 2/3 compatible input function.
+        (Terminal.choose): Generic multiple-choice input prompt.
+        * Scripts/libraries/webkitcorepy/webkitcorepy/tests/terminal_unittest.py: Added.
+        (TerminalTests):
+        (TerminalTests.test_choose_basic):
+        (TerminalTests.test_choose_strict):
+        (TerminalTests.test_choose_default):
+        (TerminalTests.test_choose_triple):
+        (TerminalTests.test_choose_number):
+        * Scripts/webkitpy/common/system/user.py:
+        (User.prompt): Use Terminal.input.
+        (User.prompt_with_multiple_lists): Ditto.
+        (User.prompt_with_list): Ditto.
+        (User.confirm): Ditto.
+        * Scripts/webkitpy/common/system/user_mock.py:
+        (MockUser.prompt): Use Terminal.input.
+        (MockUser.prompt_with_list): Ditto.
+
+2021-08-04  Andres Gonzalez  <andresg_22@apple.com>
+
+        Add contributor to accessibility watchlist.
+        https://bugs.webkit.org/show_bug.cgi?id=228775
+
+        Reviewed by Chris Fleizach.
+
+        * Scripts/webkitpy/common/config/watchlist: Added andresg_22@apple.com to accessibility watchlist.
+
+2021-08-03  Risul Islam  <risul_islam@apple.com>
+
+        Add functions for parsing URL query string
+        https://bugs.webkit.org/show_bug.cgi?id=228122
+
+        Reviewed by Darin Adler.
+        
+        Added the test functions required for parsing URL query string.
+
+        * TestWebKitAPI/Tests/WTF/URL.cpp:
+        (TestWebKitAPI::TEST_F):
+
+2021-08-03  Jonathan Bedard  <jbedard@apple.com>
+
+        [webkitpy] Handle case where no existing simulators are defined
+        https://bugs.webkit.org/show_bug.cgi?id=228758
+        <rdar://problem/81484040>
+
+        Reviewed by Ryan Haddad.
+
+        * Scripts/webkitpy/xcode/simulated_device.py:
+        (SimulatedDeviceManager._disambiguate_device_type): If there are no available devices,
+        find the newest device identifier which matches the requested type.
+
+2021-08-03  Jonathan Bedard  <jbedard@apple.com>
+
+        [build.webkit.org] Simulator temp files filling up disk (Follow-up fix)
+        https://bugs.webkit.org/show_bug.cgi?id=228335
+        <rdar://problem/81171840>
+
+        Reviewed by Ryan Haddad.
+
+        * CISupport/kill-old-processes:
+        (main): Use tempdir environment variable, link to underlying bug.
+
+2021-08-03  Jer Noble  <jer.noble@apple.com>
+
+        WebKitTestRunner should dump current results in the case of a timeout
+        https://bugs.webkit.org/show_bug.cgi?id=228706
+        <rdar://79154019>
+
+        Reviewed by Jonathan Bedard.
+
+        When WKTR encounters a timeout, it current prints a "PID UNRESPONSIVE" and "FAIL: timed out" message,
+        but the WebContent process may not actually be unresponsive; it may just be waiting for an event
+        which hasn't fired, or a condition to become true. In these cases, it would be very helpful to see
+        the results of the test so far, so as to diagnose what is keeping the test from running to completion.
+
+        When, in the WKTR process, TestInvocation's "waitToDumpWatchdogTimer" fires, first try sending a message
+        to the InjectedBundle, requesting it to "ForceImmediateCompletion". Only if this message fails to be
+        acted upon will WKTR print the "PID UNRESPONSIVE" message.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.cpp:
+        (WTR::InjectedBundle::didReceiveMessageToPage):
+        * WebKitTestRunner/TestInvocation.cpp:
+        (WTR::TestInvocation::TestInvocation):
+        (WTR::TestInvocation::waitToDumpWatchdogTimerFired):
+        (WTR::TestInvocation::initializeWaitForPostDumpWatchdogTimerIfNeeded):
+        (WTR::TestInvocation::invalidateWaitForPostDumpWatchdogTimer):
+        (WTR::TestInvocation::waitForPostDumpWatchdogTimerFired):
+        (WTR::TestInvocation::done):
+        * WebKitTestRunner/TestInvocation.h:
+
+2021-08-03  Jonathan Bedard  <jbedard@apple.com>
+
+        [webkitpy] Narrow set of terminated simulator processes
+        https://bugs.webkit.org/show_bug.cgi?id=228752
+        <rdar://problem/81479508>
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Scripts/webkitpy/xcode/simulated_device.py:
+        (SimulatedDeviceManager.initialize_devices): Only check Simulator.app.
+        (SimulatedDeviceManager.tear_down): Only kill Simulator.app processes.
+        (SimulatedDevice._delete): Print error if `simctl delete` fails, but continue.
+
+2021-08-03  Jonathan Bedard  <jbedard@apple.com>
+
+        [webkitscmpy] Add access to `git config`
+        https://bugs.webkit.org/show_bug.cgi?id=228597
+        <rdar://problem/81283644>
+
+        Reviewed by Aakash Jain.
+
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/local/git.py:
+        (Git.config): Return git configuration as dictionary.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/mocks/local/git.py:
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/git_unittest.py:
+        (test_config): Test repository configuration.
+        (test_global_config): Test global configuration.
+
+2021-08-03  Jonathan Bedard  <jbedard@apple.com>
+
+        [check-github-mirror-integrity] Handle slow Svn query
+        https://bugs.webkit.org/show_bug.cgi?id=228741
+
+        Reviewed by Aakash Jain.
+
+        * Scripts/check-github-mirror-integrity: Pull commit from GitHub before Subversion.
+
+2021-08-03  Philippe Normand  <pnormand@igalia.com>
+
+        [WPE][GTK] SVN_REVISION drifting away if bots don't re-run cmake
+        https://bugs.webkit.org/show_bug.cgi?id=228290
+
+        Reviewed by Michael Catanzaro.
+
+        The apply-build-revision-to-files.py script wasn't expanding the BUILD_REVISION beyond the
+        first run, because it processes files generated by CMake already, and expanding the
+        BUILD_REVISION once prevents further expansions. So the proposed solution is to always
+        expand BuildRevision.h.in from that script, and for .pc files, to restore the BUILD_REVISION
+        template before updating the file.
+
+        * glib/apply-build-revision-to-files.py:
+        (main):
+
 2021-08-02  Peng Liu  <peng.liu6@apple.com>
 
         [GPUP] RemoteAudioSession::setPreferredBufferSize() does not change its preferredBufferSize

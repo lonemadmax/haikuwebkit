@@ -114,6 +114,8 @@ MediaPlayerPrivateRemote::MediaPlayerPrivateRemote(MediaPlayer* player, MediaPla
     , m_documentSecurityOrigin(player->documentSecurityOrigin())
 {
     INFO_LOG(LOGIDENTIFIER);
+
+    acceleratedRenderingStateChanged();
 }
 #endif
 

@@ -117,7 +117,6 @@ public:
     void outputObscuredDueToInsufficientExternalProtectionChanged(bool);
 
     MediaTime currentMediaTime() const final;
-
     void outputMediaDataWillChange();
 
 private:
@@ -274,6 +273,7 @@ private:
     AVMediaSelectionGroup *safeMediaSelectionGroupForVisualMedia();
 
     NSArray *safeAVAssetTracksForAudibleMedia();
+    NSArray *safeAVAssetTracksForVisualMedia();
 
 #if ENABLE(DATACUE_VALUE)
     void processMetadataTrack();
@@ -437,6 +437,7 @@ private:
     mutable bool m_allowsWirelessVideoPlayback { true };
     bool m_shouldPlayToPlaybackTarget { false };
 #endif
+    bool m_runningModalPaint { false };
 };
 
 }

@@ -255,6 +255,7 @@ WKSelectionDrawingInfo::WKSelectionDrawingInfo(const EditorState& editorState)
     type = SelectionType::Range;
     auto& postLayoutData = editorState.postLayoutData();
     caretRect = postLayoutData.caretRectAtEnd;
+    caretColor = postLayoutData.caretColor;
     selectionGeometries = postLayoutData.selectionGeometries;
     selectionClipRect = postLayoutData.selectionClipRect;
 }
@@ -266,6 +267,9 @@ inline bool operator==(const WKSelectionDrawingInfo& a, const WKSelectionDrawing
 
     if (a.type == WKSelectionDrawingInfo::SelectionType::Range) {
         if (a.caretRect != b.caretRect)
+            return false;
+
+        if (a.caretColor != b.caretColor)
             return false;
 
         if (a.selectionGeometries.size() != b.selectionGeometries.size())
@@ -313,6 +317,7 @@ TextStream& operator<<(TextStream& stream, const WKSelectionDrawingInfo& info)
     TextStream::GroupScope group(stream);
     stream.dumpProperty("type", info.type);
     stream.dumpProperty("caret rect", info.caretRect);
+    stream.dumpProperty("caret color", info.caretColor);
     stream.dumpProperty("selection geometries", info.selectionGeometries);
     stream.dumpProperty("selection clip rect", info.selectionClipRect);
     return stream;
@@ -7255,6 +7260,11 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
     if (force || selectionDrawingInfo != _lastSelectionDrawingInfo) {
         LOG_WITH_STREAM(Selection, stream << "_updateChangedSelection " << selectionDrawingInfo);
 
+        if (_lastSelectionDrawingInfo.caretColor != selectionDrawingInfo.caretColor) {
+            // Force UIKit to update the background color of the selection caret to reflect the new -insertionPointColor.
+            [[_textInteractionAssistant selectionView] tintColorDidChange];
+        }
+
         _cachedSelectedTextRange = nil;
         _lastSelectionDrawingInfo = selectionDrawingInfo;
 
@@ -10156,6 +10166,16 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     return [self createImageAnalysisRequest:analysisTypes image:image imageURL:_positionInformation.imageURL];
 }
 
+#if USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
+
+- (void)_updateContextMenuForMachineReadableCodeForImageAnalysis:(VKImageAnalysis *)analysis
+{
+    analysis.presentingViewControllerForMrcAction = [UIViewController _viewControllerForFullScreenPresentationFromView:self];
+    _contextMenuForMachineReadableCode = [analysis hasResultsForAnalysisTypes:VKAnalysisTypeMachineReadableCode | VKAnalysisTypeAppClip] ? analysis.mrcMenu : nil;
+}
+
+#endif // USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
+
 - (BOOL)validateImageAnalysisRequestIdentifier:(WebKit::ImageAnalysisRequestIdentifier)identifier
 {
     if (_pendingImageAnalysisRequestIdentifier == identifier)
@@ -10323,7 +10343,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
                     UNUSED_PARAM(hasTextResults);
 #endif
 #if USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
-                    strongSelf->_contextMenuForMachineReadableCode = [result hasResultsForAnalysisTypes:VKAnalysisTypeMachineReadableCode | VKAnalysisTypeAppClip] ? result.mrcMenu : nil;
+                    [strongSelf _updateContextMenuForMachineReadableCodeForImageAnalysis:result];
 #endif // USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
                     [strongSelf _invokeAllActionsToPerformAfterPendingImageAnalysis:WebKit::ProceedWithTextSelectionInImage::No];
                 }];
@@ -10392,7 +10412,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
 #if USE(UICONTEXTMENU)
 #if ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
-            strongSelf->_contextMenuForMachineReadableCode = [result hasResultsForAnalysisTypes:VKAnalysisTypeMachineReadableCode | VKAnalysisTypeAppClip] ? result.mrcMenu : nil;
+            [strongSelf _updateContextMenuForMachineReadableCodeForImageAnalysis:result];
 #endif // ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
             strongSelf->_contextMenuWasTriggeredByImageAnalysisTimeout = YES;
             [strongSelf->_contextMenuInteraction _presentMenuAtLocation:location];
@@ -10647,6 +10667,11 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     return [_dataListSuggestionsControl isShowingSuggestions];
 }
 #endif
+
+- (UIWKTextInteractionAssistant *)textInteractionAssistant
+{
+    return _textInteractionAssistant.get();
+}
 
 @end
 

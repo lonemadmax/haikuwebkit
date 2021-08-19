@@ -513,7 +513,7 @@ void HTMLMediaElement::initializeMediaSession()
     registerWithDocument(document);
 
 #if USE(AUDIO_SESSION) && PLATFORM(MAC)
-    AudioSession::sharedSession().addMutedStateObserver(this);
+    AudioSession::sharedSession().addConfigurationChangeObserver(*this);
 #endif
 
     m_mediaSession->clientWillBeginAutoplaying();
@@ -530,7 +530,7 @@ HTMLMediaElement::~HTMLMediaElement()
     unregisterWithDocument(document());
 
 #if USE(AUDIO_SESSION) && PLATFORM(MAC)
-    AudioSession::sharedSession().removeMutedStateObserver(this);
+    AudioSession::sharedSession().removeConfigurationChangeObserver(*this);
 #endif
 
     if (m_audioTracks)
@@ -819,8 +819,6 @@ void HTMLMediaElement::pauseAfterDetachedTask()
     if (!m_player)
         return;
 
-    m_player->acceleratedRenderingStateChanged();
-
     size_t extraMemoryCost = m_player->extraMemoryCost();
     if (extraMemoryCost > m_reportedExtraMemoryCost) {
         JSC::VM& vm = commonVM();
@@ -1070,7 +1068,7 @@ String HTMLMediaElement::canPlayType(const String& mimeType) const
     // Temporarily work around bug 226922. For now claim that the opus and vorbis codecs aren't supported
     // so that sites relying on this test to determine if webaudio use of opus or vorbis won't error.
     auto codecs = contentType.codecs();
-    if (support == MediaPlayer::SupportsType::IsSupported && ((codecs.contains("opus") && !webMWebAudioEnabled()) || codecs.contains("vorbis")))
+    if (support == MediaPlayer::SupportsType::IsSupported && ((codecs.contains("opus") || codecs.contains("vorbis")) && !webMWebAudioEnabled()))
         support = MediaPlayer::SupportsType::IsNotSupported;
 #endif
 
@@ -3810,9 +3808,9 @@ void HTMLMediaElement::setMuted(bool muted)
 }
 
 #if USE(AUDIO_SESSION) && PLATFORM(MAC)
-void HTMLMediaElement::hardwareMutedStateDidChange(AudioSession* session)
+void HTMLMediaElement::hardwareMutedStateDidChange(const AudioSession& session)
 {
-    if (!session->isMuted())
+    if (!session.isMuted())
         return;
 
     if (!hasAudio())
@@ -5055,9 +5053,6 @@ bool HTMLMediaElement::mediaPlayerRenderingCanBeAccelerated()
     // destroy the video layer.
     if (m_videoFullscreenMode == VideoFullscreenModePictureInPicture)
         return true;
-
-    if (!m_inActiveDocument)
-        return false;
 
     auto* renderer = this->renderer();
     return is<RenderVideo>(renderer)
@@ -6749,6 +6744,7 @@ void HTMLMediaElement::createMediaPlayer() WTF_IGNORES_THREAD_SAFETY_ANALYSIS
     m_player->setPreferredDynamicRangeMode(m_overrideDynamicRangeMode.value_or(preferredDynamicRangeMode(document().view())));
     m_player->setMuted(effectiveMuted());
     m_player->setVisible(!m_elementIsHidden);
+    m_player->setVisibleInViewport(isVisibleInViewport());
     schedulePlaybackControlsManagerUpdate();
 
 #if ENABLE(WEB_AUDIO)
@@ -8076,6 +8072,8 @@ bool HTMLMediaElement::isVideoTooSmallForInlinePlayback()
 
 void HTMLMediaElement::isVisibleInViewportChanged()
 {
+    if (m_player)
+        m_player->setVisibleInViewport(isVisibleInViewport());
     queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [this] {
         if (isContextStopped())
             return;

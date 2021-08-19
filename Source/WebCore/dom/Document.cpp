@@ -92,6 +92,7 @@
 #include "HTMLBaseElement.h"
 #include "HTMLBodyElement.h"
 #include "HTMLCanvasElement.h"
+#include "HTMLConstructionSite.h"
 #include "HTMLDialogElement.h"
 #include "HTMLDocument.h"
 #include "HTMLElementFactory.h"
@@ -651,6 +652,7 @@ Document::Document(Frame* frame, const Settings& settings, const URL& url, Docum
     , m_undoManager(UndoManager::create(*this))
     , m_editor(makeUniqueRef<Editor>(*this))
     , m_selection(makeUniqueRef<FrameSelection>(this))
+    , m_whitespaceCache(makeUniqueRef<WhitespaceCache>())
 {
     addToDocumentsMap();
 
@@ -1909,7 +1911,7 @@ Vector<String> Document::formElementsState() const
 {
     if (!m_formController)
         return Vector<String>();
-    return m_formController->formElementsState();
+    return m_formController->formElementsState(*this);
 }
 
 void Document::setStateForNewFormElements(const Vector<String>& stateVector)
@@ -3246,7 +3248,7 @@ bool Document::shouldScheduleLayout() const
     return true;
 }
     
-bool Document::isLayoutTimerActive() const
+bool Document::isLayoutPending() const
 {
     return view() && view()->layoutContext().isLayoutPending();
 }

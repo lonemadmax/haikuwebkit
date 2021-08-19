@@ -773,6 +773,7 @@ enum AutoplayPolicy {
     [Conditional=VIDEO] undefined simulateSystemSleep();
     [Conditional=VIDEO] undefined simulateSystemWake();
     [Conditional=VIDEO] boolean elementIsBlockingDisplaySleep(HTMLMediaElement element);
+    [Conditional=VIDEO] boolean isPlayerVisibleInViewport(HTMLMediaElement element);
 
     MockPageOverlay installMockPageOverlay(PageOverlayType type);
     DOMString pageOverlayLayerTreeAsText(optional unsigned short flags = 0);
@@ -937,6 +938,7 @@ enum AutoplayPolicy {
     undefined markContextAsInsecure();
 
     undefined setMaxCanvasPixelMemory(unsigned long size);
+    undefined setMaxCanvasArea(unsigned long size);
 
     [Conditional=VIDEO] readonly attribute NowPlayingState nowPlayingState;
 

@@ -953,6 +953,11 @@ public:
         m_assembler.smull(dest, left, right);
     }
 
+    void multiplyZeroExtend32(RegisterID left, RegisterID right, RegisterID dest)
+    {
+        m_assembler.umull(dest, left, right);
+    }
+
     void div32(RegisterID dividend, RegisterID divisor, RegisterID dest)
     {
         m_assembler.sdiv<32>(dest, dividend, divisor);
@@ -1062,6 +1067,13 @@ public:
         load32(address, getCachedDataTempRegisterIDAndInvalidate());
         or32(imm, dataTempRegister, dataTempRegister);
         store32(dataTempRegister, address);
+    }
+
+    void or8(RegisterID src, AbsoluteAddress address)
+    {
+        load8(address.m_ptr, getCachedDataTempRegisterIDAndInvalidate());
+        or32(src, dataTempRegister, dataTempRegister);
+        store8(dataTempRegister, address.m_ptr);
     }
 
     void or8(TrustedImm32 imm, AbsoluteAddress address)

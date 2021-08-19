@@ -1,3 +1,551 @@
+2021-08-09  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        Adding missing REFERENCED_FROM_ASM annotations to facilitate LTO
+        https://bugs.webkit.org/show_bug.cgi?id=228865
+
+        Reviewed by Yusuke Suzuki.
+
+        When investigating why WebKitGTK fails to build with LTO (link-time optimization) enabled,
+        one of the GCC developers noticed that we are missing __attribute__ (("used")) on several
+        C++ functions declared in LLIntSlowPaths.h and WasmSlowPaths.h that are called only from
+        asm. Without this attribute, GCC assumes the functions are unused and drops them, then
+        linking fails because they really are used.
+
+        * llint/LLIntSlowPaths.h:
+        * wasm/WasmSlowPaths.h:
+
+2021-08-07  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        Fix ODR violations in JSC
+        https://bugs.webkit.org/show_bug.cgi?id=228876
+
+        Reviewed by Yusuke Suzuki.
+
+        When built with LTO enabled, GCC will warn about violations of C++'s one-definition rule.
+        JSC currently has two violations. The first is JSC::SpeciesConstructResult, which has two
+        different declarations, one in ArrayPrototype.cpp and the other in
+        JSArrayBufferPrototype.cpp. I decided to change the version in ArrayPrototype.cpp to make
+        the declarations match.
+
+        The next problem is JSC::SignalContext. We have two different versions of this struct, one
+        in VMTraps.cpp and the other in SigillCrashAnalyzer.cpp. In this case, I decided to change
+        the one in VMTraps.cpp from JSC::SignalContext to JSC::VMTraps::SignalContext.
+
+        * runtime/ArrayPrototype.cpp:
+        * runtime/VMTraps.cpp:
+        (JSC::VMTraps::tryInstallTrapBreakpoints):
+        * runtime/VMTraps.h:
+
+2021-08-07  Keith Miller  <keith_miller@apple.com>
+
+        for-in should only emit one loop in bytecode
+        https://bugs.webkit.org/show_bug.cgi?id=227989
+
+        Reviewed by Yusuke Suzuki.
+
+        This patch redesigns how we implement for-in loops. Before this patch we would emit three copies of the for-in loop body. One for the indexed properties, one for the named-own properties, and one for generic properties (anything else). This had a couple of problems. Firstly, it meant bytecode size grew exponentially to number of nested for-in loops. This in turn meant DFG/FTL compilation took much longer.
+
+        Going off our experience with fast for-of, this patch turns for-in loops specializations into
+        a "fused" opcode that internally switches on the enumeration mode it currently sees. For example, if we are enumerating an own-named property, the new enumerator_get_by_val bytecode will check the enumerator cell's cached structure matches the base's then load the property offset directly.
+
+        There are four new opcodes this patch adds, which replace the various operations we had for the specialized loops previously. The new opcodes are EnumeratorGetByVal, EnumeratorInByVal, EnumeratorHasOwnProperty, and EnumeratorNext. The first three correspond to GetByVal, InByVal, and HasOwnProperty respectively. The EnumeratorNext opcode has three results in bytecode, the next enumeration value's mode, the index of the property name, and the property name string itself. When enumeration is done EnumeratorNext returns JS null as the property name string. Since the DFG doesn't support tuples yet this opcode is spilt into four new nodes. The first computes the updated index and mode for the next enumeration key, which is encoded into a single JS number. Then there are two nodes that extract the mode and index. Finally, the last new node produces the property name string or null based on the extracted mode and index.
+
+        Since, in most benchmarks, any given enumeration opcode tends to profile exactly one enumeration mode. This patch focuses primarily on reimplementing all the optimizations we have for any one specific mode. This means there are still potential optimizations for the multi-mode flavors of each new opcode.
+
+        The main optimizations implemented for each new opcode are:
+
+        EnumeratorNext:
+        1) IndexedMode loops are loaded and checked for presence inline (DFG/FTL).
+        2) NamedMode is computed inline as long as the cached structure on the enumerator cell matches the base (Baseline+). This can only differ if there's a transition.
+        3) property names are extracted from the cached buffer inline (Baseline+).
+
+        EnumeratorGetByVal:
+        EnumeratorInByVal:
+        EnumeratorHasOwnProperty:
+        1) IndexedMode has all the optimizations of a normal XByVal on indexed properties (DFG/FTL).
+        2) NamedMode will extract the value directly from the inline/out-of-line offset if the structure matches the enumerator's (Baseline+).
+
+        There are also a few interesting changes worth mentioning here:
+        1) If a for-in loop would produce an empty enumerator we now always
+        return the VMs empty enumerator. This has two benefits, most importantly, it distingishes between an unprofiled for-in loop and empty enumeration, which prevents OSR exit loops. Also, it means that the various Enumerator opcodes no longer need to handle undefined/null when `toObject`ing the base value.
+
+        2) The enumerator now contains a bit set of all the modes it will produce. This removes a few extra branches when speculating on the modes we will see in EnumeratorNext.
+
+        3) In the DFG, enumerator GetByVal relies on compileGetByVal to set the result it also passes a prefix callback which emits code after the various cases set up their operands but before code is emitting to help satisfy the branch over register allocation validation. Also, the array mode branch in compileGetByVal passes the data format that it would prefer, which for normal GetByVal is returned. For EnumeratorGetByVal, that preference is completely ignored and it always returns DataFormatJS.
+
+        * assembler/MacroAssemblerARM64.h:
+        (JSC::MacroAssemblerARM64::or8):
+        * assembler/MacroAssemblerX86Common.h:
+        (JSC::MacroAssemblerX86Common::or8):
+        * assembler/MacroAssemblerX86_64.h:
+        (JSC::MacroAssemblerX86_64::rshift64):
+        (JSC::MacroAssemblerX86_64::or8): Deleted.
+        * builtins/BuiltinNames.h:
+        * bytecode/BytecodeList.rb:
+        * bytecode/BytecodeUseDef.cpp:
+        (JSC::computeUsesForBytecodeIndexImpl):
+        (JSC::computeDefsForBytecodeIndexImpl):
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::finishCreation):
+        * bytecode/LinkTimeConstant.h:
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::recordHasOwnPropertyInForInLoop):
+        (JSC::BytecodeGenerator::emitInByVal):
+        (JSC::BytecodeGenerator::emitGetByVal):
+        (JSC::BytecodeGenerator::emitEnumeratorNext):
+        (JSC::BytecodeGenerator::emitEnumeratorHasOwnProperty):
+        (JSC::BytecodeGenerator::pushForInScope):
+        (JSC::BytecodeGenerator::popForInScope):
+        (JSC::rewriteOp):
+        (JSC::ForInContext::finalize):
+        (JSC::BytecodeGenerator::findForInContext):
+        (JSC::BytecodeGenerator::recordHasOwnStructurePropertyInForInLoop): Deleted.
+        (JSC::BytecodeGenerator::emitGetEnumerableLength): Deleted.
+        (JSC::BytecodeGenerator::emitHasEnumerableIndexedProperty): Deleted.
+        (JSC::BytecodeGenerator::emitHasEnumerableStructureProperty): Deleted.
+        (JSC::BytecodeGenerator::emitHasEnumerableProperty): Deleted.
+        (JSC::BytecodeGenerator::emitHasOwnStructureProperty): Deleted.
+        (JSC::BytecodeGenerator::emitEnumeratorStructurePropertyName): Deleted.
+        (JSC::BytecodeGenerator::emitEnumeratorGenericPropertyName): Deleted.
+        (JSC::BytecodeGenerator::emitToIndexString): Deleted.
+        (JSC::BytecodeGenerator::pushIndexedForInScope): Deleted.
+        (JSC::BytecodeGenerator::popIndexedForInScope): Deleted.
+        (JSC::BytecodeGenerator::pushStructureForInScope): Deleted.
+        (JSC::BytecodeGenerator::popStructureForInScope): Deleted.
+        (JSC::StructureForInContext::finalize): Deleted.
+        (JSC::IndexedForInContext::finalize): Deleted.
+        (JSC::BytecodeGenerator::findStructureForInContext): Deleted.
+        * bytecompiler/BytecodeGenerator.h:
+        (JSC::ForInContext::isValid const):
+        (JSC::ForInContext::invalidate):
+        (JSC::ForInContext::local const):
+        (JSC::ForInContext::propertyName const):
+        (JSC::ForInContext::propertyOffset const):
+        (JSC::ForInContext::enumerator const):
+        (JSC::ForInContext::mode const):
+        (JSC::ForInContext::ForInContext):
+        (JSC::ForInContext::bodyBytecodeStartOffset const):
+        (JSC::ForInContext::type const): Deleted.
+        (JSC::ForInContext::isIndexedForInContext const): Deleted.
+        (JSC::ForInContext::isStructureForInContext const): Deleted.
+        (JSC::ForInContext::asIndexedForInContext): Deleted.
+        (JSC::ForInContext::asStructureForInContext): Deleted.
+        (JSC::StructureForInContext::StructureForInContext): Deleted.
+        (JSC::StructureForInContext::index const): Deleted.
+        (JSC::StructureForInContext::property const): Deleted.
+        (JSC::StructureForInContext::enumerator const): Deleted.
+        (JSC::StructureForInContext::baseVariable const): Deleted.
+        (JSC::StructureForInContext::addGetInst): Deleted.
+        (JSC::StructureForInContext::addInInst): Deleted.
+        (JSC::StructureForInContext::addHasOwnPropertyJump): Deleted.
+        (JSC::IndexedForInContext::IndexedForInContext): Deleted.
+        (JSC::IndexedForInContext::index const): Deleted.
+        (JSC::IndexedForInContext::addGetInst): Deleted.
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::HasOwnPropertyFunctionCallDotNode::emitBytecode):
+        (JSC::ForInNode::emitBytecode):
+        * dfg/DFGAbstractInterpreterInlines.h:
+        (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+        * dfg/DFGArrayMode.h:
+        (JSC::DFG::ArrayMode::isSaneChain const):
+        * dfg/DFGBackwardsPropagationPhase.cpp:
+        (JSC::DFG::BackwardsPropagationPhase::propagate):
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::parseBlock):
+        * dfg/DFGCFAPhase.cpp:
+        (JSC::DFG::CFAPhase::injectOSR):
+        * dfg/DFGCapabilities.cpp:
+        (JSC::DFG::capabilityLevel):
+        * dfg/DFGClobberize.h:
+        (JSC::DFG::clobberize):
+        * dfg/DFGDoesGC.cpp:
+        (JSC::DFG::doesGC):
+        * dfg/DFGFixupPhase.cpp:
+        (JSC::DFG::FixupPhase::fixupNode):
+        (JSC::DFG::FixupPhase::setJSArraySaneChainIfPossible):
+        * dfg/DFGGraph.cpp:
+        (JSC::DFG::Graph::dump):
+        * dfg/DFGIntegerRangeOptimizationPhase.cpp:
+        * dfg/DFGMayExit.cpp:
+        * dfg/DFGNode.h:
+        (JSC::DFG::Node::hasHeapPrediction):
+        (JSC::DFG::Node::hasStorageChild const):
+        (JSC::DFG::Node::storageChildIndex):
+        (JSC::DFG::Node::hasArrayMode):
+        (JSC::DFG::Node::hasEnumeratorMetadata const):
+        (JSC::DFG::Node::enumeratorMetadata):
+        * dfg/DFGNodeType.h:
+        * dfg/DFGOpInfo.h:
+        (JSC::DFG::OpInfo::OpInfo):
+        * dfg/DFGOperations.cpp:
+        (JSC::DFG::JSC_DEFINE_JIT_OPERATION):
+        * dfg/DFGOperations.h:
+        * dfg/DFGPredictionPropagationPhase.cpp:
+        * dfg/DFGSSALoweringPhase.cpp:
+        (JSC::DFG::SSALoweringPhase::handleNode):
+        * dfg/DFGSafeToExecute.h:
+        (JSC::DFG::safeToExecute):
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::JSValueRegsTemporary::JSValueRegsTemporary):
+        (JSC::DFG::SpeculativeJIT::compileGetByValOnString):
+        (JSC::DFG::SpeculativeJIT::setIntTypedArrayLoadResult):
+        (JSC::DFG::SpeculativeJIT::compileGetByValOnIntTypedArray):
+        (JSC::DFG::SpeculativeJIT::compileGetByValOnFloatTypedArray):
+        (JSC::DFG::SpeculativeJIT::compileGetByValForObjectWithString):
+        (JSC::DFG::SpeculativeJIT::compileGetByValForObjectWithSymbol):
+        (JSC::DFG::SpeculativeJIT::compileGetByValOnDirectArguments):
+        (JSC::DFG::SpeculativeJIT::compileGetByValOnScopedArguments):
+        (JSC::DFG::SpeculativeJIT::compileEnumeratorNextUpdateIndexAndMode):
+        (JSC::DFG::SpeculativeJIT::compileEnumeratorNextExtractIndex):
+        (JSC::DFG::SpeculativeJIT::compileEnumeratorNextExtractMode):
+        (JSC::DFG::SpeculativeJIT::compileEnumeratorNextUpdatePropertyName):
+        (JSC::DFG::SpeculativeJIT::compileEnumeratorGetByVal):
+        (JSC::DFG::SpeculativeJIT::compileEnumeratorHasProperty):
+        (JSC::DFG::SpeculativeJIT::compileEnumeratorInByVal):
+        (JSC::DFG::SpeculativeJIT::compileEnumeratorHasOwnProperty):
+        (JSC::DFG::SpeculativeJIT::compileHasIndexedProperty):
+        (JSC::DFG::SpeculativeJIT::compileGetEnumerableLength): Deleted.
+        (JSC::DFG::SpeculativeJIT::compileHasEnumerableProperty): Deleted.
+        (JSC::DFG::SpeculativeJIT::compileToIndexString): Deleted.
+        (JSC::DFG::SpeculativeJIT::compileHasEnumerableStructureProperty): Deleted.
+        (JSC::DFG::SpeculativeJIT::compileHasOwnStructurePropertyImpl): Deleted.
+        (JSC::DFG::SpeculativeJIT::compileHasOwnStructureProperty): Deleted.
+        (JSC::DFG::SpeculativeJIT::compileInStructureProperty): Deleted.
+        (JSC::DFG::SpeculativeJIT::compileGetEnumeratorPname): Deleted.
+        (JSC::DFG::SpeculativeJIT::compileGetDirectPname): Deleted.
+        * dfg/DFGSpeculativeJIT.h:
+        (JSC::DFG::SpeculativeJIT::allocate):
+        (JSC::DFG::JSValueOperand::regs):
+        (JSC::DFG::JSValueOperand::gpr):
+        (JSC::DFG::StorageOperand::StorageOperand):
+        (JSC::DFG::StorageOperand::~StorageOperand):
+        (JSC::DFG::StorageOperand::emplace):
+        (JSC::DFG::JSValueRegsTemporary::operator bool):
+        (JSC::DFG::JSValueRegsTemporary::JSValueRegsTemporary):
+        * dfg/DFGSpeculativeJIT32_64.cpp:
+        (JSC::DFG::SpeculativeJIT::compileGetByVal):
+        (JSC::DFG::SpeculativeJIT::compile):
+        * dfg/DFGSpeculativeJIT64.cpp:
+        (JSC::DFG::SpeculativeJIT::compileGetByVal):
+        (JSC::DFG::SpeculativeJIT::compile):
+        * dfg/DFGTypeCheckHoistingPhase.cpp:
+        (JSC::DFG::TypeCheckHoistingPhase::identifyRedundantStructureChecks):
+        (JSC::DFG::TypeCheckHoistingPhase::identifyRedundantArrayChecks):
+        * ftl/FTLAbstractHeapRepository.h:
+        * ftl/FTLCapabilities.cpp:
+        (JSC::FTL::canCompile):
+        * ftl/FTLLowerDFGToB3.cpp:
+        (JSC::FTL::DFG::LowerDFGToB3::compileNode):
+        (JSC::FTL::DFG::LowerDFGToB3::compileGetByValImpl):
+        (JSC::FTL::DFG::LowerDFGToB3::compileGetByVal):
+        (JSC::FTL::DFG::LowerDFGToB3::compileStringCharAtImpl):
+        (JSC::FTL::DFG::LowerDFGToB3::compileStringCharAt):
+        (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+        * ftl/FTLOutput.h:
+        (JSC::FTL::Output::phi):
+        * generator/DSL.rb:
+        * interpreter/Register.h:
+        * interpreter/RegisterInlines.h:
+        (JSC::Register::operator=):
+        * jit/AssemblyHelpers.h:
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        (JSC::JIT::privateCompileSlowCases):
+        * jit/JIT.h:
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::privateCompileHasIndexedProperty):
+        (JSC::JIT::emit_op_has_structure_propertyImpl): Deleted.
+        (JSC::JIT::emit_op_has_enumerable_structure_property): Deleted.
+        (JSC::JIT::emit_op_has_own_structure_property): Deleted.
+        (JSC::JIT::emit_op_in_structure_property): Deleted.
+        (JSC::JIT::emit_op_has_enumerable_indexed_property): Deleted.
+        (JSC::JIT::emitSlow_op_has_enumerable_indexed_property): Deleted.
+        (JSC::JIT::emit_op_get_direct_pname): Deleted.
+        (JSC::JIT::emit_op_enumerator_structure_pname): Deleted.
+        (JSC::JIT::emit_op_enumerator_generic_pname): Deleted.
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::privateCompileHasIndexedProperty):
+        (JSC::JIT::emit_op_has_structure_propertyImpl): Deleted.
+        (JSC::JIT::emit_op_has_enumerable_structure_property): Deleted.
+        (JSC::JIT::emit_op_has_own_structure_property): Deleted.
+        (JSC::JIT::emit_op_in_structure_property): Deleted.
+        (JSC::JIT::emit_op_has_enumerable_indexed_property): Deleted.
+        (JSC::JIT::emitSlow_op_has_enumerable_indexed_property): Deleted.
+        (JSC::JIT::emit_op_get_direct_pname): Deleted.
+        (JSC::JIT::emit_op_enumerator_structure_pname): Deleted.
+        (JSC::JIT::emit_op_enumerator_generic_pname): Deleted.
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::generateGetByValSlowCase):
+        (JSC::JIT::emitSlow_op_get_by_val):
+        (JSC::JIT::emit_op_enumerator_next):
+        (JSC::JIT::emit_op_enumerator_get_by_val):
+        (JSC::JIT::emitSlow_op_enumerator_get_by_val):
+        (JSC::JIT::emit_enumerator_has_propertyImpl):
+        (JSC::JIT::emit_op_enumerator_in_by_val):
+        (JSC::JIT::emit_op_enumerator_has_own_property):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::emit_op_enumerator_next):
+        (JSC::JIT::emit_op_enumerator_get_by_val):
+        (JSC::JIT::emitSlow_op_enumerator_get_by_val):
+        (JSC::JIT::emit_op_enumerator_in_by_val):
+        (JSC::JIT::emit_op_enumerator_has_own_property):
+        * llint/LowLevelInterpreter.asm:
+        * llint/LowLevelInterpreter64.asm:
+        * runtime/CommonSlowPaths.cpp:
+        (JSC::JSC_DEFINE_COMMON_SLOW_PATH):
+        * runtime/CommonSlowPaths.h:
+        * runtime/FileBasedFuzzerAgent.cpp:
+        (JSC::FileBasedFuzzerAgent::getPredictionInternal):
+        * runtime/FileBasedFuzzerAgentBase.cpp:
+        (JSC::FileBasedFuzzerAgentBase::opcodeAliasForLookupKey):
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::init):
+        * runtime/JSPropertyNameEnumerator.cpp:
+        (JSC::JSPropertyNameEnumerator::JSPropertyNameEnumerator):
+        (JSC::JSPropertyNameEnumerator::computeNext):
+        * runtime/JSPropertyNameEnumerator.h:
+        (JSC::propertyNameEnumerator):
+        * runtime/PredictionFileCreatingFuzzerAgent.cpp:
+        (JSC::PredictionFileCreatingFuzzerAgent::getPredictionInternal):
+
+2021-08-06  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, build fix on Debug build
+        https://bugs.webkit.org/show_bug.cgi?id=228810
+
+        * yarr/YarrJIT.h:
+        (JSC::Yarr::BoyerMooreBitmap::addCharacters):
+        (JSC::Yarr::BoyerMooreBitmap::addRanges):
+
+2021-08-06  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Yarr's character tracking for BoyerMoore search should be more precise
+        https://bugs.webkit.org/show_bug.cgi?id=228810
+
+        Reviewed by Saam Barati.
+
+        We should track up to 2 candidate characters without masking, so
+        that we can search a character without masking. To track candidates,
+        we introduce BoyerMooreCharacterCandidates.
+
+        We also add support for m_table because m_table can be used
+        for important CharacterClass like `\s`, and still that does not have
+        many character candidates if the mode is Char8.
+
+        To make `\s` work on Char8 case, we use Char8 / Char16 information
+        to filter characters that never appears in BoyreMoore search bitmap
+        construction.
+
+        * yarr/YarrJIT.cpp:
+        (JSC::Yarr::BoyerMooreInfo::BoyerMooreInfo):
+        (JSC::Yarr::BoyerMooreInfo::set):
+        (JSC::Yarr::BoyerMooreInfo::addCharacters):
+        (JSC::Yarr::BoyerMooreInfo::addRanges):
+        (JSC::Yarr::BoyerMooreInfo::create):
+        (JSC::Yarr::BoyerMooreInfo::createCandidateBitmap const):
+        * yarr/YarrJIT.h:
+        (JSC::Yarr::BoyerMooreCharacterCandidates::isValid const):
+        (JSC::Yarr::BoyerMooreCharacterCandidates::invalidate):
+        (JSC::Yarr::BoyerMooreCharacterCandidates::isEmpty const):
+        (JSC::Yarr::BoyerMooreCharacterCandidates::size const):
+        (JSC::Yarr::BoyerMooreCharacterCandidates::at const):
+        (JSC::Yarr::BoyerMooreCharacterCandidates::add):
+        (JSC::Yarr::BoyerMooreCharacterCandidates::merge):
+        (JSC::Yarr::BoyerMooreBitmap::characterCandidates const):
+        (JSC::Yarr::BoyerMooreBitmap::add):
+        (JSC::Yarr::BoyerMooreBitmap::addCharacters):
+        (JSC::Yarr::BoyerMooreBitmap::addRanges):
+        (JSC::Yarr::BoyerMooreBitmap::isMaskEffective const): Deleted.
+
+2021-08-05  Mikhail R. Gadelha  <mikhail@igalia.com>
+
+        Assertion failure when checking array in DFG (32 bits)
+        https://bugs.webkit.org/show_bug.cgi?id=228839
+
+        Reviewed by Yusuke Suzuki.
+
+        Since empty values don't pass the cell check in 32 bits, we need to
+        guard the SpecEmpty check to only happen in 64 bits archs
+
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::checkArray):
+
+2021-08-05  Robin Morisset  <rmorisset@apple.com>
+
+        REGRESSION (r280507): ASSERTION FAILED: !undominatedPhis.contains(value) in JSC::B3::(anonymous namespace)::Validater::validatePhisAreDominatedByUpsilons()
+        https://bugs.webkit.org/show_bug.cgi?id=228838
+        <rdar://problem/81579314>
+
+        Reviewed by Geoffrey Garen.
+
+        When I added validation of the dominance of Phis by their Upsilons, I checked two things:
+        - There is no path from the entry point to a Phi without going through a corresponding Upsilon (the actual dominance check)
+        - There is no way to execute a Phi twice without going through a corresponding Upsilon in between
+        The second property is not actually true in B3 IR, I had misunderstood that part of the meaning of Phis/Upsilons.
+        So this patch just removes this second check.
+
+        It has no security/stability/performance implication: this is validation code, which runs automatically in debug mode, but should not run at all on customer machines.
+
+        * b3/B3Validate.cpp:
+
+2021-08-05  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        GCC 11 builds should use -Wno-array-bounds, -Wno-nonnull
+        https://bugs.webkit.org/show_bug.cgi?id=228601
+
+        Reviewed by Carlos Garcia Campos.
+
+        * b3/air/AirAllocateRegistersByGraphColoring.cpp:
+        * jit/JITCall.cpp:
+        (JSC::JIT::compileOpCall):
+
+2021-08-05  Zan Dobersek  <zdobersek@igalia.com>
+
+        Use reinterpret_cast_ptr in KeywordLookupGenerator, PropertyMapHashTable
+        https://bugs.webkit.org/show_bug.cgi?id=228819
+
+        Reviewed by Adrian Perez de Castro.
+
+        Switch to using reinterpret_cast_ptr in KeywordLookupGenerator (which
+        generates the KeywordLookup.h header) and PropertyMapHashTable, reducing
+        a bit the GCC warning spewage when compiling for targets benefitting
+        from the reinterpret_cast_ptr workaround.
+
+        * KeywordLookupGenerator.py:
+        * runtime/PropertyMapHashTable.h:
+        (JSC::PropertyTable::table):
+        (JSC::PropertyTable::table const):
+
+2021-08-04  Yijia Huang  <yijia_huang@apple.com>
+
+        [ARM64] Fix Zoom black screen during video meeting on Safari
+        https://bugs.webkit.org/show_bug.cgi?id=228776
+
+        Reviewed by Saam Barati.
+
+        The problem (rdar://81434487) reports that Zoom turns to a black screen during the video 
+        meeting on Safari. The reproduction of this problem is verified and bisected to the previous patch
+        (https://bugs.webkit.org/show_bug.cgi?id=228057). Previously, we introduce a pattern 
+        matching for instruction EON-with-shift on ARM64, where the pattern is d = n ^ ((m ShiftType amount) ^ -1).
+
+            x = m ShiftType amount
+            y = x ^ -1
+            z = n ^ y
+
+        We check canBeInternal() on x but not on y based on the computing cost analysis in that patch, 
+        which is totally wrong. If the pattern matching is triggered, then the compiler would not emit 
+        the corresponding Air of x after lowering, leading to data corruption or system crash since y 
+        depends on x.
+
+        In the real world example (Zoom video meeting), we find the B3 IR:
+
+            ...
+            Int32 b@528 = SShr(b@526, $31(b@527), Wasm: {opcode: I32ShrS, location: 0x26b})
+            Int32 b@529 = BitXor(b@528, $-1(b@144), Wasm: {opcode: I32Xor, location: 0x26e})
+            ...
+            Int32 b@551 = BitXor(b@446, b@529, Wasm: {opcode: I32Xor, location: 0x28e})
+            ...
+
+
+        After Lowering to Air:
+
+            ...
+            Not32 %fp, %x2, b@529
+            ...
+            XorNotRightShift32 %tmp199, %tmp211, $31, %tmp209, b@551
+            ...
+
+        Since the implementation of the previous patch does commitInternal() on b@528, the operand of 
+        b@529 turns to a frame pointer. To resolve this problem, we should either check canBeInternal() 
+        on both b@528 and b@529 or not at all.
+
+        * b3/B3LowerToAir.cpp:
+
+2021-08-04  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r280609.
+        https://bugs.webkit.org/show_bug.cgi?id=228791
+
+        Broke JSC tests on iOS.
+
+        Reverted changeset:
+
+        "[ARM64] Use link register instead of pinning a register for
+        materializing big load constants"
+        https://bugs.webkit.org/show_bug.cgi?id=228710
+        https://commits.webkit.org/r280609
+
+2021-08-03  Yijia Huang  <yijia_huang@apple.com>
+
+        [ARM64] Use link register instead of pinning a register for materializing big load constants
+        https://bugs.webkit.org/show_bug.cgi?id=228710
+
+        Reviewed by Mark Lam.
+
+        Previously, we pin a register as a temp for materializing a large constant that cannot fit in
+        Load/Store imm form. This is not efficient since the register allocator has one less register
+        to allocate from. To solve this problem, we should switch to using the link register as the temp
+        on ARM64.
+
+        * b3/B3Common.cpp:
+        (JSC::B3::linkRegister):
+        (JSC::B3::pinnedExtendedOffsetAddrRegister): Deleted.
+        * b3/B3Common.h:
+        * b3/air/AirAllocateRegistersAndStackAndGenerateCode.cpp:
+        (JSC::B3::Air::callFrameAddr):
+        * b3/air/AirCode.cpp:
+        (JSC::B3::Air::Code::Code):
+        * b3/air/AirLowerStackArgs.cpp:
+        (JSC::B3::Air::lowerStackArgs):
+
+2021-08-02  Yijia Huang  <yijia_huang@apple.com>
+
+        Add a new pattern to instruction selector to utilize UMULL supported by ARM64
+        https://bugs.webkit.org/show_bug.cgi?id=228721
+
+        Reviewed by Saam Barati.
+
+        Unsigned Multiply Long (UMULL) multiplies two 32-bit register values, and writes the 
+        result to the destination register. This instruction is an alias of the UMADDL instruction.
+
+            umull xd wn wm
+
+        The equivalent pattern is: d = ZExt32(n) * ZExt32(m)
+
+        Given B3 IR:
+        Int @0 = ArgumentReg(%x0)
+        Int @1 = Trunc(@0)
+        Int @2 = ArgumentReg(%x1)
+        Int @3 = Trunc(@2)
+        Int @4 = ZExt32(@1)
+        Int @5 = ZExt32(@3)
+        Int @6 = Mul(@4, @5)
+        Void@7 = Return(@6, Terminal)
+
+        // Old optimized AIR
+        Move   %x0, %x0,      @4
+        Move   %x1, %x1,      @5
+        Mul    %x0, %x1, %x0, @6
+        Ret    %x0,           @7
+
+        // New optimized AIR
+        MultiplyZeroExtend %x0, %x1, %x0, @6
+        Ret                %x0,           @7
+
+        * assembler/MacroAssemblerARM64.h:
+        (JSC::MacroAssemblerARM64::multiplyZeroExtend32):
+        * assembler/testmasm.cpp:
+        (JSC::testMultiplyZeroExtend32):
+        * b3/B3LowerToAir.cpp:
+        * b3/air/AirOpcode.opcodes:
+        * b3/testb3.h:
+        * b3/testb3_2.cpp:
+        (testMulArgs32SignExtend):
+        (testMulArgs32ZeroExtend):
+        * b3/testb3_3.cpp:
+        (addArgTests):
+
 2021-08-02  Yijia Huang  <yijia_huang@apple.com>
 
         Add new patterns to instruction selector to utilize AND/EOR/ORR-with-shift supported by ARM64

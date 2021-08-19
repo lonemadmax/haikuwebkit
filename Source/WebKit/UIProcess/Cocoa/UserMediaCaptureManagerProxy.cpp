@@ -102,10 +102,6 @@ public:
 
     void audioUnitWillStart() final
     {
-        // FIXME: WebProcess might want to set the category/bufferSize itself, in which case we should remove that code.
-        auto bufferSize = AudioSession::sharedSession().sampleRate() / 50;
-        if (AudioSession::sharedSession().preferredBufferSize() > bufferSize)
-            AudioSession::sharedSession().setPreferredBufferSize(bufferSize);
         AudioSession::sharedSession().setCategory(AudioSession::CategoryType::PlayAndRecord, RouteSharingPolicy::Default);
     }
 
