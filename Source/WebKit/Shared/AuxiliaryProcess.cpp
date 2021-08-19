@@ -34,6 +34,8 @@
 #include <WebCore/LogInitialization.h>
 #include <pal/SessionID.h>
 
+#include "WebCore/NotImplemented.h"
+
 #if !OS(WINDOWS)
 #include <unistd.h>
 #endif

@@ -31,6 +31,8 @@
 #include <Roster.h>
 #include <StackOrHeapArray.h>
 #include <String.h>
+
+#include <assert.h>
 #include <unistd.h>
 
 using namespace WebCore;
