@@ -156,7 +156,7 @@ FTPEntryType parseOneFTPLine(const char* line, ListState& state, ListResult& res
                 time_t t = static_cast<time_t>(seconds);
 
                 // FIXME: This code has the year 2038 bug
-                gmtime_r(&t, &result.modifiedTime);
+                localtime_r(&t, &result.modifiedTime);
                 result.modifiedTime.tm_year += 1900;
               }
             }
