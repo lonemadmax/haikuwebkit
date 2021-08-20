@@ -141,16 +141,13 @@ void BUrlRequestWrapper::abort()
 
     // Lock if we have already unblocked the receive thread to
     // synchronize cancellation status.
-    if (m_didUnblockReceive)
+    if (!m_receiveMutex.isHeld())
         m_receiveMutex.lock();
 
     m_handler = nullptr;
 
     // If the receive thread is still blocked, unblock it so that it
     // become aware of the state change.
-    if (!m_didUnblockReceive) {
-        m_didUnblockReceive = true;
-    }
     m_receiveMutex.unlock();
 
     if (m_request)
@@ -201,8 +198,7 @@ void BUrlRequestWrapper::HeadersReceived(BPrivate::Network::BUrlRequest* caller)
     m_handler->didReceiveResponse(WTFMove(responseCopy));
 
     // Unblock receive thread
-    if (!m_didUnblockReceive) {
-        m_didUnblockReceive = true;
+    if (m_receiveMutex.isHeld()) {
         m_receiveMutex.unlock();
     }
 }

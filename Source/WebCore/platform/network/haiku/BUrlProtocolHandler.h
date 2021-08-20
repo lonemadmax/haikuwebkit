@@ -66,7 +66,6 @@ private:
     BPrivate::Network::BUrlRequest* m_request { nullptr };
 
     bool m_didReceiveData { false };
-    bool m_didUnblockReceive { false };
 
     // This lock is in charge of two things:
     // - Whether data can be received.
