@@ -885,7 +885,7 @@ String FrameLoaderClientHaiku::userAgent(const URL&) const
 	// A fixed version of webkit is reported here, see https://bugs.webkit.org/show_bug.cgi?id=180365
 	// However some websites still use the Version/ component to detect old browsers, apparently (hi Github!)
 	// so we still need to bump that to match Safari from time to time.
-    return "Mozilla/5.0 (Macintosh; Intel Haiku R1 x86) AppleWebKit/605.1.15 (KHTML, like Gecko) WebPositive/1.2 Version/13 Safari/605.1.15";
+    return "Mozilla/5.0 (Macintosh; Intel Haiku R1) AppleWebKit/605.1.15 (KHTML, like Gecko) WebPositive/1.3 Version/14.1.2 Safari/605.1.15";
 }
 
 bool FrameLoaderClientHaiku::canCachePage() const
