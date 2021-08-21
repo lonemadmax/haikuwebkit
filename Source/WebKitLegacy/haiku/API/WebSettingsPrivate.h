@@ -43,6 +43,7 @@ public:
     ~WebSettingsPrivate();
 
     void apply();
+	void defaults();
 
     WebCore::Settings* settings;
 

@@ -200,9 +200,10 @@ DateTimeInputsEditableComponentsEnabled:
   condition: ENABLE(DATE_AND_TIME_INPUT_TYPES)
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(HAIKU)": true
       default: false
     WebKit:
-      "PLATFORM(MAC) || PLATFORM(GTK)": true
+      "PLATFORM(MAC) || PLATFORM(GTK) || PLATFORM(HAIKU)": true
       default: false
     WebCore:
       default: false
@@ -326,6 +327,7 @@ InputTypeColorEnabled:
   condition: ENABLE(INPUT_TYPE_COLOR)
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(HAIKU)": true
       default: false
     WebKit:
       "PLATFORM(WATCHOS)": false
@@ -340,7 +342,7 @@ InputTypeDateEnabled:
   condition: ENABLE(INPUT_TYPE_DATE)
   defaultValue:
     WebKitLegacy:
-      "PLATFORM(IOS_FAMILY)": true
+      "PLATFORM(IOS_FAMILY) || PLATFORM(HAIKU)": true
       default: false
     WebKit:
       "PLATFORM(MACCATALYST) || PLATFORM(APPLETV)": false
@@ -355,7 +357,7 @@ InputTypeDateTimeLocalEnabled:
   condition: ENABLE(INPUT_TYPE_DATETIMELOCAL)
   defaultValue:
     WebKitLegacy:
-      "PLATFORM(IOS_FAMILY)": true
+      "PLATFORM(IOS_FAMILY) || PLATFORM(HAIKU)": true
       default: false
     WebKit:
       "PLATFORM(MACCATALYST) || PLATFORM(APPLETV)": false
@@ -370,7 +372,7 @@ InputTypeMonthEnabled:
   condition: ENABLE(INPUT_TYPE_MONTH)
   defaultValue:
     WebKitLegacy:
-      "PLATFORM(IOS_FAMILY)": true
+      "PLATFORM(IOS_FAMILY) || PLATFORM(HAIKU)": true
       default: false
     WebKit:
       "!PLATFORM(MAC) && !PLATFORM(MACCATALYST) && !PLATFORM(APPLETV)": true
@@ -385,7 +387,7 @@ InputTypeTimeEnabled:
   condition: ENABLE(INPUT_TYPE_TIME)
   defaultValue:
     WebKitLegacy:
-      "PLATFORM(IOS_FAMILY)": true
+      "PLATFORM(IOS_FAMILY) || PLATFORM(HAIKU)": true
       default: false
     WebKit:
       "PLATFORM(MACCATALYST) || PLATFORM(APPLETV)": false

@@ -87,6 +87,7 @@ void WebSettingsPrivate::apply()
 	if (settings) {
 		WebSettingsPrivate* global = BWebSettings::Default()->fData;
 	    // Apply default values
+		defaults();
 	    settings->setLoadsImagesAutomatically(true);
 	    settings->setMinimumFontSize(5);
 	    settings->setMinimumLogicalFontSize(5);

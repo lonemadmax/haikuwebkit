@@ -102,6 +102,7 @@ AllowDisplayOfInsecureContent:
   type: bool
   defaultValue:
     WebKitLegacy:
+      PLATFORM(HAIKU): true
       default: WebKit::defaultAllowDisplayOfInsecureContent()
     WebKit:
       default: false
@@ -146,6 +147,7 @@ AllowRunningOfInsecureContent:
   type: bool
   defaultValue:
     WebKitLegacy:
+      PLATFORM(HAIKU): false
       default: WebKit::defaultAllowRunningOfInsecureContent()
     WebKit:
       default: false
@@ -1954,6 +1956,7 @@ ShouldConvertInvalidURLsToBlank:
   type: bool
   defaultValue:
     WebKitLegacy:
+      PLATFORM(HAIKU): true
       default: WebKit::defaultShouldConvertInvalidURLsToBlank()
     WebKit:
       default: true
@@ -2066,6 +2069,7 @@ ShouldRestrictBaseURLSchemes:
   type: bool
   defaultValue:
     WebKitLegacy:
+      PLATFORM(HAIKU): false
       default: WebKit::defaultShouldRestrictBaseURLSchemes()
     WebKit:
       default: false
@@ -2364,6 +2368,7 @@ UseLegacyBackgroundSizeShorthandBehavior:
   type: bool
   defaultValue:
     WebKitLegacy:
+      PLATFORM(HAIKU): false
       default: WebKit::defaultUseLegacyBackgroundSizeShorthandBehavior()
     WebKit:
       default: false

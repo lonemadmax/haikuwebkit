@@ -111,4 +111,32 @@ INSTALL(FILES
     COMPONENT devel
 )
 
+set(WebKitLegacy_WEB_PREFERENCES_TEMPLATES
+	${WEBKITLEGACY_DIR}/haiku/Scripts/PreferencesTemplates/WebPreferencesDefinitions.h.erb
+	${WEBKITLEGACY_DIR}/haiku/Scripts/PreferencesTemplates/WebSettingsPrivateGenerated.cpp.erb
+)
+
+set(WebKitLegacy_WEB_PREFERENCES
+    ${WTF_SCRIPTS_DIR}/Preferences/WebPreferences.yaml
+    ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesDebug.yaml
+    ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesExperimental.yaml
+    ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesInternal.yaml
+)
+
+set_source_files_properties(${WebKitLegacy_WEB_PREFERENCES} PROPERTIES GENERATED TRUE)
+
+add_custom_command(
+	OUTPUT
+		${WebKitLegacy_DERIVED_SOURCES_DIR}/WebSettingsPrivateGenerated.cpp
+		${WebKitLegacy_DERIVED_SOURCES_DIR}/WebPreferencesDefinitions.h
+    DEPENDS ${WebKitLegacy_WEB_PREFERENCES_TEMPLATES} ${WebKitLegacy_WEB_PREFERENCES} WTF_CopyPreferences
+	COMMAND ${RUBY_EXECUTABLE} ${WTF_SCRIPTS_DIR}/GeneratePreferences.rb --frontend WebKitLegacy --base ${WTF_SCRIPTS_DIR}/Preferences/WebPreferences.yaml --debug ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesDebug.yaml --experimental ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesExperimental.yaml --internal ${WTF_SCRIPTS_DIR}/Preferences/WebPreferencesInternal.yaml --outputDir "${WebKitLegacy_DERIVED_SOURCES_DIR}" --template ${WEBKITLEGACY_DIR}/haiku/Scripts/PreferencesTemplates/WebSettingsPrivateGenerated.cpp.erb --template ${WEBKITLEGACY_DIR}/haiku/Scripts/PreferencesTemplates/WebPreferencesDefinitions.h.erb
+    VERBATIM)
+
+list(APPEND WebKitLegacy_SOURCES
+	${WebKitLegacy_DERIVED_SOURCES_DIR}/WebSettingsPrivateGenerated.cpp
+)
+
+list(APPEND WebKitLegacy_SOURCES ${WebKitLegacy_INCLUDES} ${WebKitLegacy_SOURCES_Classes} ${WebKitLegacy_SOURCES_WebCoreSupport})
+
 
