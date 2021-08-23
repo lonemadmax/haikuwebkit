@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include "WebProcessMainUnix.h"
+#include "WebProcessMain.h"
 
 #include "AuxiliaryProcessMain.h"
 #include "WebProcess.h"

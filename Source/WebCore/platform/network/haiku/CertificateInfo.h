@@ -54,6 +54,7 @@ public:
 
     const BCertificate& certificate() const { return *m_certificate; }
 
+    bool containsNonRootSHA1SignedCertificate() const { notImplemented(); return false; }
 private:
     const BCertificate* m_certificate;
 };
