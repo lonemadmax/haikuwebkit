@@ -49,31 +49,6 @@ void NetworkProcess::allowSpecificHTTPSCertificateForHost(const CertificateInfo&
     notImplemented();
 }
 
-std::unique_ptr<WebCore::NetworkStorageSession> NetworkProcess::platformCreateDefaultStorageSession() const
-{
-    return std::make_unique<WebCore::NetworkStorageSession>(PAL::SessionID::defaultSessionID());
-}
-
-void NetworkProcess::platformProcessDidTransitionToForeground()
-{
-    notImplemented();
-}
-
-void NetworkProcess::platformProcessDidTransitionToBackground()
-{
-    notImplemented();
-}
-
-void NetworkProcess::clearCacheForAllOrigins(uint32_t cachesToClear)
-{
-    notImplemented();
-}
-
-void NetworkProcess::platformProcessDidResume()
-{
-    notImplemented();
-}
-
 void NetworkProcess::platformTerminate()
 {
     notImplemented();

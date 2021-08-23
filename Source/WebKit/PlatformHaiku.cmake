@@ -27,16 +27,12 @@ list(APPEND WebKit_SOURCES
     UIProcess/haiku/TextCheckerHaiku.cpp
     UIProcess/haiku/WebInspectorProxyHaiku.cpp
     UIProcess/haiku/WebPageProxyHaiku.cpp
-    UIProcess/haiku/WebPreferencesHaiku.cpp
     UIProcess/haiku/WebProcessPoolHaiku.cpp
 
     WebProcess/Cookies/haiku/WebCookieManagerHaiku.cpp
     WebProcess/InjectedBundle/haiku/InjectedBundleHaiku.cpp
     WebProcess/InjectedBundle/haiku/InjectedBundleHaiku.cpp
-    WebProcess/WebCoreSupport/haiku/WebContextMenuClientHaiku.cpp
-    WebProcess/WebCoreSupport/haiku/WebEditorClientHaiku.cpp
     WebProcess/WebCoreSupport/haiku/WebFrameNetworkingContext.cpp
-    WebProcess/WebCoreSupport/haiku/WebPopupMenuHaiku.cpp    
     WebProcess/WebPage/AcceleratedDrawingArea.cpp
     WebProcess/WebPage/CoordinatedGraphics/CoordinatedLayerTreeHost.cpp
     WebProcess/WebPage/DrawingAreaImpl.cpp

@@ -24,7 +24,6 @@
  */
 
 #include "config.h"
-#include "NetworkProcessMainUnix.h"
 
 #include "AuxiliaryProcessMain.h"
 #include "NetworkProcess.h"
