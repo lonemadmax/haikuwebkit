@@ -154,6 +154,7 @@
 #include "PathUtilities.h"
 #include "PictureInPictureSupport.h"
 #include "PlatformKeyboardEvent.h"
+#include "PlatformMediaSession.h"
 #include "PlatformMediaSessionManager.h"
 #include "PlatformScreen.h"
 #include "PlatformStrategies.h"
@@ -2817,31 +2818,31 @@ ExceptionOr<bool> Internals::isPageBoxVisible(int pageNumber)
     return document->isPageBoxVisible(pageNumber);
 }
 
-static LayerTreeFlags toLayerTreeFlags(unsigned short flags)
+static OptionSet<LayerTreeAsTextOptions> toLayerTreeAsTextOptions(unsigned short flags)
 {
-    LayerTreeFlags layerTreeFlags = 0;
+    OptionSet<LayerTreeAsTextOptions> layerTreeFlags;
     if (flags & Internals::LAYER_TREE_INCLUDES_VISIBLE_RECTS)
-        layerTreeFlags |= LayerTreeFlagsIncludeVisibleRects;
+        layerTreeFlags.add(LayerTreeAsTextOptions::IncludeVisibleRects);
     if (flags & Internals::LAYER_TREE_INCLUDES_TILE_CACHES)
-        layerTreeFlags |= LayerTreeFlagsIncludeTileCaches;
+        layerTreeFlags.add(LayerTreeAsTextOptions::IncludeTileCaches);
     if (flags & Internals::LAYER_TREE_INCLUDES_REPAINT_RECTS)
-        layerTreeFlags |= LayerTreeFlagsIncludeRepaintRects;
+        layerTreeFlags.add(LayerTreeAsTextOptions::IncludeRepaintRects);
     if (flags & Internals::LAYER_TREE_INCLUDES_PAINTING_PHASES)
-        layerTreeFlags |= LayerTreeFlagsIncludePaintingPhases;
+        layerTreeFlags.add(LayerTreeAsTextOptions::IncludePaintingPhases);
     if (flags & Internals::LAYER_TREE_INCLUDES_CONTENT_LAYERS)
-        layerTreeFlags |= LayerTreeFlagsIncludeContentLayers;
+        layerTreeFlags.add(LayerTreeAsTextOptions::IncludeContentLayers);
     if (flags & Internals::LAYER_TREE_INCLUDES_ACCELERATES_DRAWING)
-        layerTreeFlags |= LayerTreeFlagsIncludeAcceleratesDrawing;
+        layerTreeFlags.add(LayerTreeAsTextOptions::IncludeAcceleratesDrawing);
     if (flags & Internals::LAYER_TREE_INCLUDES_CLIPPING)
-        layerTreeFlags |= LayerTreeFlagsIncludeClipping;
+        layerTreeFlags.add(LayerTreeAsTextOptions::IncludeClipping);
     if (flags & Internals::LAYER_TREE_INCLUDES_BACKING_STORE_ATTACHED)
-        layerTreeFlags |= LayerTreeFlagsIncludeBackingStoreAttached;
+        layerTreeFlags.add(LayerTreeAsTextOptions::IncludeBackingStoreAttached);
     if (flags & Internals::LAYER_TREE_INCLUDES_ROOT_LAYER_PROPERTIES)
-        layerTreeFlags |= LayerTreeFlagsIncludeRootLayerProperties;
+        layerTreeFlags.add(LayerTreeAsTextOptions::IncludeRootLayerProperties);
     if (flags & Internals::LAYER_TREE_INCLUDES_EVENT_REGION)
-        layerTreeFlags |= LayerTreeFlagsIncludeEventRegion;
+        layerTreeFlags.add(LayerTreeAsTextOptions::IncludeEventRegion);
     if (flags & Internals::LAYER_TREE_INCLUDES_DEEP_COLOR)
-        layerTreeFlags |= LayerTreeFlagsIncludeDeepColor;
+        layerTreeFlags.add(LayerTreeAsTextOptions::IncludeDeepColor);
 
     return layerTreeFlags;
 }
@@ -2854,7 +2855,7 @@ ExceptionOr<String> Internals::layerTreeAsText(Document& document, unsigned shor
 {
     if (!document.frame() || !document.frame()->contentRenderer())
         return Exception { InvalidAccessError };
-    return document.frame()->contentRenderer()->compositor().layerTreeAsText(toLayerTreeFlags(flags));
+    return document.frame()->contentRenderer()->compositor().layerTreeAsText(toLayerTreeAsTextOptions(flags));
 }
 
 ExceptionOr<uint64_t> Internals::layerIDForElement(Element& element)
@@ -4619,7 +4620,7 @@ ExceptionOr<String> Internals::pageOverlayLayerTreeAsText(unsigned short flags) 
 
     document->updateLayoutIgnorePendingStylesheets();
 
-    return MockPageOverlayClient::singleton().layerTreeAsText(*document->page(), toLayerTreeFlags(flags));
+    return MockPageOverlayClient::singleton().layerTreeAsText(*document->page(), toLayerTreeAsTextOptions(flags));
 }
 
 void Internals::setPageMuted(StringView statesString)
@@ -5267,6 +5268,40 @@ bool Internals::hasLowAndHighPowerGPUs()
 #else
     return false;
 #endif
+}
+
+Internals::RequestedGPU Internals::requestedGPU(WebGLRenderingContext& context)
+{
+    UNUSED_PARAM(context);
+    if (auto optionalAttributes = context.getContextAttributes()) {
+        auto attributes = *optionalAttributes;
+        if (attributes.forceRequestForHighPerformanceGPU)
+            return RequestedGPU::HighPerformance;
+        switch (attributes.powerPreference) {
+        case GraphicsContextGLPowerPreference::Default:
+            return RequestedGPU::Default;
+        case GraphicsContextGLPowerPreference::LowPower:
+            return RequestedGPU::LowPower;
+        case GraphicsContextGLPowerPreference::HighPerformance:
+            return RequestedGPU::HighPerformance;
+        }
+    }
+
+    return RequestedGPU::Default;
+}
+
+bool Internals::requestedMetal(WebGLRenderingContext& context)
+{
+    UNUSED_PARAM(context);
+#if PLATFORM(COCOA)
+    if (auto optionalAttributes = context.getContextAttributes()) {
+        auto attributes = *optionalAttributes;
+
+        return attributes.useMetal;
+    }
+#endif
+
+    return false;
 }
 #endif
 
@@ -6331,6 +6366,19 @@ void Internals::loadArtworkImage(String&& url, ArtworkImagePromise&& promise)
     });
     m_artworkLoader->requestImageResource();
 }
+
+ExceptionOr<Vector<String>> Internals::platformSupportedCommands() const
+{
+    if (!contextDocument())
+        return Exception { InvalidAccessError };
+    auto commands = PlatformMediaSessionManager::sharedManager().supportedCommands();
+    Vector<String> commandStrings;
+    for (auto command : commands)
+        commandStrings.append(convertEnumerationToString(command));
+
+    return commandStrings;
+}
+
 #endif
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
@@ -6473,5 +6521,12 @@ ExceptionOr<void> Internals::setDocumentAutoplayPolicy(Document& document, Inter
 
     return { };
 }
+
+#if ENABLE(WEBGL) && !PLATFORM(COCOA)
+bool Internals::platformSupportsMetal(bool)
+{
+    return false;
+}
+#endif
 
 } // namespace WebCore

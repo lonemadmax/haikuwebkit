@@ -644,7 +644,7 @@ Vector<String> Element::getAttributeNames() const
 
 bool Element::isFocusable() const
 {
-    if (!isConnected() || !supportsFocus())
+    if (!isConnected() || !supportsFocus() || isInert())
         return false;
 
     if (!renderer()) {
@@ -1467,6 +1467,13 @@ IntRect Element::boundsInRootViewSpace()
     return view->contentsToRootView(enclosingIntRect(unitedBoundingBoxes(quads)));
 }
 
+IntRect Element::boundingBoxInRootViewCoordinates() const
+{
+    if (RenderObject* renderer = this->renderer())
+        return document().view()->contentsToRootView(renderer->absoluteBoundingBoxRect());
+    return IntRect();
+}
+
 static bool layoutOverflowRectContainsAllDescendants(const RenderBox& renderBox)
 {
     if (renderBox.isRenderView())
@@ -1681,14 +1688,6 @@ FloatRect Element::boundingClientRect()
 Ref<DOMRect> Element::getBoundingClientRect()
 {
     return DOMRect::create(boundingClientRect());
-}
-
-// Note that this is not web-exposed, and does not use the same coordinate system as getBoundingClientRect() and friends.
-IntRect Element::clientRect() const
-{
-    if (RenderObject* renderer = this->renderer())
-        return document().view()->contentsToRootView(renderer->absoluteBoundingBoxRect());
-    return IntRect();
 }
     
 IntRect Element::screenRect() const
@@ -3357,6 +3356,24 @@ void Element::willBecomeFullscreenElement()
 {
     for (auto& child : descendantsOfType<Element>(*this))
         child.ancestorWillEnterFullscreen();
+}
+
+void Element::isInTopLayerWillChange()
+{
+    if (renderer()) {
+        if (renderer()->hasLayer())
+            downcast<RenderLayerModelObject>(*renderer()).layer()->establishesTopLayerWillChange();
+    }
+}
+
+void Element::isInTopLayerDidChange()
+{
+    invalidateStyle();
+
+    if (renderer()) {
+        if (renderer()->hasLayer())
+            downcast<RenderLayerModelObject>(*renderer()).layer()->establishesTopLayerDidChange();
+    }
 }
 
 static PseudoElement* beforeOrAfterPseudoElement(const Element& host, PseudoId pseudoElementSpecifier)

@@ -129,7 +129,6 @@ webkit.org/b/156069 http/tests/download/anchor-download-attribute-content-dispos
 webkit.org/b/156069 http/tests/download/anchor-download-attribute-content-disposition-no-extension-text-plain.html [ Skip ]
 webkit.org/b/156069 http/tests/security/anchor-download-octet-stream-no-extension.html [ Skip ]
 webkit.org/b/156069 http/wpt/html/semantics/text-level-semantics/the-a-element/a-download-click-404.html [ Skip ]
-http/tests/security/frame-src-and-blob-download.https.html [ Skip ]
 
 # Not supported on WK1
 media/no-fullscreen-when-hidden.html [ Skip ]
@@ -322,6 +321,9 @@ webkit.org/b/119094 fast/forms/color/input-color-readonly.html [ Skip ]
 # DumpRenderTree doesn't support logging calls to runOpenPanel.
 fast/forms/file/open-file-panel.html [ Skip ]
 
+# DumpRenderTree doesn't support toggling caps lock key state. WK1 reads caps lock key state directly from the OS.
+fast/forms/caps-lock-indicator-width.html [ Skip ]
+
 # WK1 and WK2 mousemove events are subtly different in ways that break this test on WK1.
 fast/events/ghostly-mousemoves-in-subframe.html [ Skip ]
 
@@ -351,17 +353,6 @@ imported/w3c/web-platform-tests/content-security-policy/worker-src/service-worke
 imported/w3c/web-platform-tests/fetch/api/request/destination [ Skip ]
 imported/w3c/web-platform-tests/fetch/cross-origin-resource-policy [ Skip ]
 imported/w3c/web-platform-tests/fetch/range/sw.https.window.html [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/cache-storage-reporting-dedicated-worker.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/cache-storage-reporting-document.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/cache-storage-reporting-shared-worker.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/coep-on-response-from-service-worker.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/reporting-subresource-corp.tentative.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/service-worker.tentative.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/cross-origin-isolated-permission.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/dedicated-worker-cache-storage.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/reporting-subresource-corp.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/require-corp-sw.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/service-worker-cache-storage.https.html [ Skip ]
 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/popup-coop-by-sw-from-coop.https.html [ Skip ]
 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/popup-coop-by-sw.https.html [ Skip ]
 imported/w3c/web-platform-tests/server-timing/service_worker_idl.html [ Skip ]
@@ -379,6 +370,11 @@ imported/w3c/web-platform-tests/worklets/audio-worklet-service-worker-intercepti
 imported/w3c/web-platform-tests/worklets/layout-worklet-service-worker-interception.https.html [ Skip ]
 imported/w3c/web-platform-tests/worklets/paint-worklet-service-worker-interception.https.html [ Skip ]
 http/wpt/webrtc/transfer-datachannel-service-worker.https.html [ Skip ]
+
+# No Cross-Origin-Embedder-Policy in WK1.
+imported/w3c/web-platform-tests/html/cross-origin-embedder-policy [ Skip ]
+imported/w3c/web-platform-tests/html/cross-origin-opener-policy/coep-blob-popup.https.html [ Skip ]
+http/wpt/html/cross-origin-embedder-policy/require-corp.https.html [ Skip ]
 
 # Quota check missing in WK1
 http/tests/IndexedDB/storage-limit.https.html [ Skip ]
@@ -532,8 +528,6 @@ fast/visual-viewport/viewport-dimensions-exclude-custom-scrollbars.html [ Skip ]
 # This newly imported test times out on WK1 but passes on WK2.
 webkit.org/b/172222 imported/w3c/web-platform-tests/notifications/event-onclose.html [ Skip ]
 
-imported/w3c/web-platform-tests/html/rendering/replaced-elements/images/revoked-blob-print.html [ ImageOnlyFailure ]
-
 imported/w3c/web-platform-tests/html/browsers/history/the-history-interface/history_go_no_argument.html [ Pass Failure ]
 imported/w3c/web-platform-tests/html/browsers/history/the-history-interface/history_go_to_uri.html [ Pass Failure ]
 
@@ -585,6 +579,7 @@ webkit.org/b/159893 [ Debug ] imported/w3c/web-platform-tests/xhr/event-readysta
 
 # NSURLConnection doesn't have an API to give us good timing for redirects. We do what we can with MonotonicTime::now() but this still fails sometimes.
 imported/w3c/web-platform-tests/navigation-timing/nav2_test_redirect_server.html [ Pass Failure ]
+imported/w3c/web-platform-tests/navigation-timing/nav2_test_attributes_values.html [ Pass Failure ]
 
 webkit.org/b/160101 userscripts/window-onerror-for-isolated-world-3.html [ Pass Failure ]
 
@@ -868,8 +863,8 @@ http/tests/is-logged-in/ [ Skip ]
 webkit.org/b/203305 [ Debug ] imported/w3c/web-platform-tests/css/css-transitions/properties-value-inherit-001.html [ Pass Failure ]
 
 # wpt css-position failures
-webkit.org/b/203466 imported/w3c/web-platform-tests/css/css-position/position-sticky-change-top.html [ ImageOnlyFailure ]
-webkit.org/b/203466 imported/w3c/web-platform-tests/css/css-position/position-sticky-scroll-with-clip-and-abspos.html [ ImageOnlyFailure ]
+webkit.org/b/203466 imported/w3c/web-platform-tests/css/css-position/sticky/position-sticky-change-top.html [ ImageOnlyFailure ]
+webkit.org/b/203466 imported/w3c/web-platform-tests/css/css-position/sticky/position-sticky-scroll-with-clip-and-abspos.html [ ImageOnlyFailure ]
 webkit.org/b/203466 imported/w3c/web-platform-tests/css/css-position/z-index-blend-will-change-overlapping-layers.html [ ImageOnlyFailure ]
 
 webkit.org/b/203517 imported/w3c/web-platform-tests/css/css-sizing/dynamic-available-size-iframe.html [ Pass ImageOnlyFailure ]
@@ -971,6 +966,8 @@ accessibility/mac/aria-errormessage.html [ Skip ]
 accessibility/mac/pseudo-element-text-markers.html [ Skip ]
 accessibility/nested-textareas-value-changed-notifications.html [ Skip ]
 accessibility/selected-state-changed-notifications.html [ Skip ]
+accessibility/element-line-rects-and-text.html [ Skip ]
+accessibility/mac/line-index-for-textmarker.html [ Skip ]
 
 # <rdar://problem/61066929> [ Stress GC ] flaky JSC::ExceptionScope::assertNoException crash under WebCore::ReadableStreamDefaultController
 webkit.org/b/211923 imported/w3c/web-platform-tests/fetch/api/basic/stream-safe-creation.any.html [ Pass Crash ]
@@ -1002,9 +999,9 @@ webkit.org/b/214308 http/tests/xmlhttprequest/access-control-basic-allow-preflig
 webkit.org/b/214469 imported/w3c/web-platform-tests/css/css-animations/animation-opacity-pause-and-set-time.html [ ImageOnlyFailure ]
 webkit.org/b/214469 imported/w3c/web-platform-tests/css/css-animations/animation-transform-pause-and-set-time.html [ ImageOnlyFailure ]
 webkit.org/b/214469 imported/w3c/web-platform-tests/css/css-overflow/overflow-ellipsis-dynamic-001.html [ ImageOnlyFailure ]
-webkit.org/b/214469 imported/w3c/web-platform-tests/css/css-position/position-sticky-fixed-ancestor-iframe.html [ ImageOnlyFailure ]
-webkit.org/b/214469 imported/w3c/web-platform-tests/css/css-position/position-sticky-fixed-ancestor.html [ ImageOnlyFailure ]
-webkit.org/b/214469 imported/w3c/web-platform-tests/css/css-position/position-sticky-scroll-reposition.html [ ImageOnlyFailure ]
+webkit.org/b/214469 imported/w3c/web-platform-tests/css/css-position/sticky/position-sticky-fixed-ancestor-iframe.html [ ImageOnlyFailure ]
+webkit.org/b/214469 imported/w3c/web-platform-tests/css/css-position/sticky/position-sticky-fixed-ancestor.html [ ImageOnlyFailure ]
+webkit.org/b/214469 imported/w3c/web-platform-tests/css/css-position/sticky/position-sticky-scroll-reposition.html [ ImageOnlyFailure ]
 webkit.org/b/214469 [ Debug ] imported/w3c/web-platform-tests/css/css-position/position-absolute-crash-chrome-013.html [ Skip ]
 webkit.org/b/214469 [ Debug ] imported/w3c/web-platform-tests/css/css-scoping/slotted-matches.html [ Skip ]
 
@@ -1186,9 +1183,6 @@ webkit.org/b/217761 [ Debug ] webgl/2.0.0/conformance/extensions/webgl-compresse
 
 webkit.org/b/221009 fast/harness/render-tree-as-text-options.html [ Pass Failure ]
 
-webkit.org/b/208477 [ Catalina ] accessibility/mac/test.mp3/boot.xml [ Skip ]
-webkit.org/b/208479 [ Catalina ] accessibility/mac/test.mp3/root.xml [ Skip ]
-
 webkit.org/b/221095 [ BigSur+ ] media/mediacapabilities/vp9.html [ Skip ]
 
 webkit.org/b/221146 [ BigSur ] imported/w3c/web-platform-tests/media-source/mediasource-invalid-codec.html [ Failure ]
@@ -1265,9 +1259,6 @@ webkit.org/b/223944 [ BigSur Debug ] imported/w3c/web-platform-tests/xhr/event-u
 # rdar://80332615 ([Monterey Wk1 Debug] compositing/clipping/border-radius-on-webgl.html is a constant failure)
 [ Monterey Debug ] compositing/clipping/border-radius-on-webgl.html [ Pass ImageOnlyFailure ]
 
-# rdar://80343834 ([ Monterey wk1 Debug ] http/tests/xmlhttprequest/interactive-state.html is a flaky failure)
-[ Monterey Debug ] http/tests/xmlhttprequest/interactive-state.html [ Pass Failure ]
-
 # rdar://80346720 ([Monterey Wk1] media/media-source/media-webm-opus-partial.html is a consistent failure)
 [ Monterey ] media/media-source/media-webm-opus-partial.html [ Failure ]
 
@@ -1339,6 +1330,9 @@ webkit.org/b/228089 imported/w3c/web-platform-tests/html/semantics/links/links-c
 
 webkit.org/b/227516 fast/shadow-dom/style-resolver-sharing.html [ Pass Failure ]
 
+# <rdar://problem/81996454> ([ Monterey wk1 GuardMalloc ] fast/borders/hidpi-3x-input-hairline-border.html is timing out)
+[ Monterey ] fast/borders/hidpi-3x-input-hairline-border.html [ Timeout ]
+
 webkit.org/b/227973 [ BigSur Debug arm64 ] http/tests/security/frameNavigation/xss-DENIED-plugin-navigation.html [ Pass Timeout ]
 webkit.org/b/227973 [ BigSur Release arm64 ] http/tests/security/frameNavigation/xss-DENIED-plugin-navigation.html [ Timeout ]
 
@@ -1379,5 +1373,21 @@ webkit.org/b/228561 http/tests/media/modern-media-controls/macos-fullscreen-medi
 
 webkit.org/b/228704 imported/w3c/web-platform-tests/mathml/relations/html5-tree/dynamic-childlist-002.html [ Pass Failure ]
 
+webkit.org/b/229058 imported/w3c/web-platform-tests/FileAPI/url/url-in-tags.window.html [ Pass Failure ]
+
+#webkit.org/b/203449 Updating test expectations for two tests
+imported/w3c/web-platform-tests/css/css-position/position-relative-003.html [ Pass ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-position/position-relative-004.html [ Pass ImageOnlyFailure ]
+
+#rdar://82039288 ([Monterey wk1 Debug] inspector/timeline/timeline-event-TimerInstall.html is a flaky crash)
+inspector/timeline/timeline-event-TimerInstall.html [ Pass Crash ] 
+
+#rdar://82039967 [ Monterey Debug ] inspector/css/getMatchedStylesForNodeMarkerPseudoId.html is a flaky failure)
+inspector/css/getMatchedStylesForNodeMarkerPseudoId.html [ Pass Failure ]
+
+webkit.org/b/229252 imported/w3c/web-platform-tests/IndexedDB/idbcursor-advance-continue-async.htm [ Pass Timeout ]
+
 # webkit.org/b/228200 Adjusting test expectations for Monterey on Open Source <rdar://80345048>:
 [ Monterey ] webrtc/h264-high.html [ Failure ]
+
+webkit.org/b/229247 http/tests/fetch/keepalive-fetch-2.html [ Pass Failure ]

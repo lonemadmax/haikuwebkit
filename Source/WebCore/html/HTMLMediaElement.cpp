@@ -1552,7 +1552,7 @@ void HTMLMediaElement::loadResource(const URL& initialURL, ContentType& contentT
         if (!m_blobURLForReading.isEmpty())
             ThreadableBlobRegistry::unregisterBlobURL(m_blobURLForReading);
         m_blobURLForReading = BlobURL::createPublicURL(&document().securityOrigin());
-        ThreadableBlobRegistry::registerBlobURL(&document().securityOrigin(), m_blobURLForReading, m_blob->url());
+        ThreadableBlobRegistry::registerBlobURL(&document().securityOrigin(), document().policyContainer(), m_blobURLForReading, m_blob->url());
 
         if (!m_player->load(m_blobURLForReading, contentType, keySystem))
             mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
@@ -5835,7 +5835,7 @@ void HTMLMediaElement::visibilityStateChanged()
     updateSleepDisabling();
     mediaSession().visibilityChanged();
     if (m_player)
-        m_player->setVisible(!m_elementIsHidden);
+        m_player->setPageIsVisible(!m_elementIsHidden);
 }
 
 bool HTMLMediaElement::requiresTextTrackRepresentation() const
@@ -6743,7 +6743,7 @@ void HTMLMediaElement::createMediaPlayer() WTF_IGNORES_THREAD_SAFETY_ANALYSIS
     m_player->setBufferingPolicy(m_bufferingPolicy);
     m_player->setPreferredDynamicRangeMode(m_overrideDynamicRangeMode.value_or(preferredDynamicRangeMode(document().view())));
     m_player->setMuted(effectiveMuted());
-    m_player->setVisible(!m_elementIsHidden);
+    m_player->setPageIsVisible(!m_elementIsHidden);
     m_player->setVisibleInViewport(isVisibleInViewport());
     schedulePlaybackControlsManagerUpdate();
 
@@ -8092,12 +8092,16 @@ void HTMLMediaElement::updateShouldAutoplay()
         return;
 
     bool canAutoplay = mediaSession().autoplayPermitted();
-    if (canAutoplay
-        && mediaSession().state() == PlatformMediaSession::Interrupted
-        && mediaSession().interruptionType() == PlatformMediaSession::InvisibleAutoplay)
-        mediaSession().endInterruption(PlatformMediaSession::MayResumePlaying);
-    else if (!canAutoplay
-        && mediaSession().state() != PlatformMediaSession::Interrupted)
+
+    if (canAutoplay) {
+        if (mediaSession().state() == PlatformMediaSession::Interrupted) {
+            if (mediaSession().interruptionType() == PlatformMediaSession::InvisibleAutoplay)
+                mediaSession().endInterruption(PlatformMediaSession::MayResumePlaying);
+        } else if (!isPlaying())
+            resumeAutoplaying();
+        return;
+    }
+    if (mediaSession().state() != PlatformMediaSession::Interrupted)
         mediaSession().beginInterruption(PlatformMediaSession::InvisibleAutoplay);
 }
 

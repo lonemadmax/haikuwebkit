@@ -555,9 +555,6 @@ void Options::recomputeDependentOptions()
         Options::randomIntegrityAuditRate() = 0;
     else if (Options::randomIntegrityAuditRate() > 1.0)
         Options::randomIntegrityAuditRate() = 1.0;
-    
-    if (Options::usePrivateMethods())
-        Options::usePrivateClassFields() = true;
 
     if (!Options::allowUnsupportedTiers()) {
 #define DISABLE_TIERS(option, flags, ...) do { \
@@ -571,9 +568,6 @@ void Options::recomputeDependentOptions()
 
         FOR_EACH_JSC_EXPERIMENTAL_OPTION(DISABLE_TIERS);
     }
-
-    if (Options::usePrivateStaticClassFields())
-        Options::usePrivateClassFields() = true;
 
     if (Options::verboseVerifyGC())
         Options::verifyGC() = true;

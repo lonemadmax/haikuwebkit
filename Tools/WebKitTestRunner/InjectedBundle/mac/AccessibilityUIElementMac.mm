@@ -844,6 +844,18 @@ double AccessibilityUIElement::clickPointY()
     return 0.0f;
 }
 
+JSRetainPtr<JSStringRef> AccessibilityUIElement::lineRectsAndText() const
+{
+    BEGIN_AX_OBJC_EXCEPTIONS
+    id lineRectsAndText = [m_element accessibilityAttributeValue:@"AXLineRectsAndText"];
+    if (![lineRectsAndText isKindOfClass:NSArray.class])
+        return { };
+    return [[lineRectsAndText componentsJoinedByString:@"|"] createJSStringRef];
+    END_AX_OBJC_EXCEPTIONS
+
+    return { };
+}
+
 double AccessibilityUIElement::intValue() const
 {
     BEGIN_AX_OBJC_EXCEPTIONS
@@ -1460,7 +1472,7 @@ void AccessibilityUIElement::dismiss()
     END_AX_OBJC_EXCEPTIONS
 }
 
-bool AccessibilityUIElement::setSelectedVisibleTextRange(AccessibilityTextMarkerRange* markerRange)
+bool AccessibilityUIElement::setSelectedTextMarkerRange(AccessibilityTextMarkerRange* markerRange)
 {
     if (!markerRange)
         return false;
@@ -1762,6 +1774,18 @@ RefPtr<AccessibilityTextMarkerRange> AccessibilityUIElement::lineTextMarkerRange
     END_AX_OBJC_EXCEPTIONS
     
     return nullptr;
+}
+
+int AccessibilityUIElement::lineIndexForTextMarker(AccessibilityTextMarker* marker) const
+{
+    if (!marker)
+        return -1;
+
+    BEGIN_AX_OBJC_EXCEPTIONS
+    return [[m_element accessibilityAttributeValue:@"AXLineForTextMarker" forParameter:marker->platformTextMarker()] intValue];
+    END_AX_OBJC_EXCEPTIONS
+
+    return -1;
 }
 
 RefPtr<AccessibilityTextMarkerRange> AccessibilityUIElement::misspellingTextMarkerRange(AccessibilityTextMarkerRange* start, bool forward)

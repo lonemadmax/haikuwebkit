@@ -821,7 +821,8 @@ TextStream& operator<<(TextStream& ts, OverflowWrap overflowWrap)
 {
     switch (overflowWrap) {
     case OverflowWrap::Normal: ts << "normal"; break;
-    case OverflowWrap::Break: ts << "break"; break;
+    case OverflowWrap::BreakWord: ts << "break-word"; break;
+    case OverflowWrap::Anywhere: ts << "anywhere"; break;
     }
     return ts;
 }
@@ -887,6 +888,7 @@ TextStream& operator<<(TextStream& ts, PseudoId pseudoId)
     case PseudoId::FirstLetter: ts << "first-letter"; break;
     case PseudoId::Highlight: ts << "highlight"; break;
     case PseudoId::Marker: ts << "marker"; break;
+    case PseudoId::Backdrop: ts << "backdrop"; break;
     case PseudoId::Before: ts << "before"; break;
     case PseudoId::After: ts << "after"; break;
     case PseudoId::Selection: ts << "selection"; break;

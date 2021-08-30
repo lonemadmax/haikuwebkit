@@ -2578,11 +2578,11 @@ private:
             }
 
             // Pre-Index Canonical Form:
-            //     address = add(base, offset)
-            //     memory = load(base, offset)
+            //     address = Add(base, offset)    --->   Move %base %address
+            //     memory = Load(base, offset)           MoveWithIncrement (%address, prefix(offset)) %memory
             // Post-Index Canonical Form:
-            //     memory = load(base, 0)
-            //     address = add(base, offset)
+            //     address = Add(base, offset)    --->   Move %base %address
+            //     memory = Load(base, 0)                MoveWithIncrement (%address, postfix(offset)) %memory
             auto tryAppendIncrementAddress = [&] () -> bool {
                 Air::Opcode opcode = tryOpcodeForType(MoveWithIncrement32, MoveWithIncrement64, memory->type());
                 if (!isValidForm(opcode, Arg::PreIndex, Arg::Tmp) || !m_index)
@@ -2590,11 +2590,16 @@ private:
                 Value* address = m_block->at(m_index - 1);
                 if (address->opcode() != Add || address->type() != Int64)
                     return false;
-                if (address->child(0) != memory->lastChild() || !address->child(1)->hasIntPtr())
+
+                Value* base1 = address->child(0);
+                Value* base2 = memory->lastChild();
+                if (base1 != base2 || !address->child(1)->hasIntPtr())
                     return false;
                 intptr_t offset = address->child(1)->asIntPtr();
                 Value::OffsetType smallOffset = static_cast<Value::OffsetType>(offset);
-                if (smallOffset != offset || !Arg::isValidPostIndexForm(smallOffset))
+                if (smallOffset != offset || !Arg::isValidIncrementIndexForm(smallOffset))
+                    return false;
+                if (m_locked.contains(address) || m_locked.contains(base1))
                     return false;
 
                 Arg incrementArg = Arg();
@@ -3431,6 +3436,52 @@ private:
         }
 
         case Store: {
+            // Pre-Index Canonical Form:
+            //     address = Add(base, Offset)              --->    Move %base %address
+            //     memory = Store(value, base, Offset)              MoveWithIncrement %value (%address, prefix(offset))
+            // Post-Index Canonical Form:
+            //     address = Add(base, Offset)              --->    Move %base %address
+            //     memory = Store(value, base, 0)                   MoveWithIncrement %value (%address, postfix(offset))
+            auto tryAppendIncrementAddress = [&] () -> bool {
+                MemoryValue* memory = m_value->as<MemoryValue>();
+                Value* value = memory->child(0);
+                Air::Opcode opcode = tryOpcodeForType(MoveWithIncrement32, MoveWithIncrement64, value->type());
+                if (!isValidForm(opcode, Arg::PreIndex, Arg::Tmp) || !m_index)
+                    return false;
+                Value* address = m_block->at(m_index - 1);
+                if (address->opcode() != Add || address->type() != Int64)
+                    return false;
+
+                Value* base1 = address->child(0);
+                Value* base2 = memory->child(1);
+                if (base1 != base2 || !address->child(1)->hasIntPtr())
+                    return false;
+                intptr_t offset = address->child(1)->asIntPtr();
+                Value::OffsetType smallOffset = static_cast<Value::OffsetType>(offset);
+                if (smallOffset != offset || !Arg::isValidIncrementIndexForm(smallOffset))
+                    return false;
+                if (m_locked.contains(address) || m_locked.contains(base1) || m_locked.contains(value))
+                    return false;
+
+                Arg incrementArg = Arg();
+                if (memory->offset()) {
+                    if (smallOffset == memory->offset())
+                        incrementArg = Arg::preIndex(tmp(address), smallOffset);
+                } else
+                    incrementArg = Arg::postIndex(tmp(address), smallOffset);
+
+                if (incrementArg) {
+                    append(relaxedMoveForType(address->type()), tmp(base1), tmp(address));
+                    append(opcode, tmp(value), incrementArg);
+                    m_locked.add(address);
+                    return true;
+                }
+                return false;
+            };
+
+            if (tryAppendIncrementAddress())
+                return;
+
             Value* valueToStore = m_value->child(0);
             if (canBeInternal(valueToStore)) {
                 bool matched = false;

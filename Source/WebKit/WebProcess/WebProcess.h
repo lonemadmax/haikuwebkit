@@ -28,6 +28,7 @@
 #include "AccessibilityPreferences.h"
 #include "AuxiliaryProcess.h"
 #include "CacheModel.h"
+#include "IdentifierTypes.h"
 #include "PluginProcessConnectionManager.h"
 #include "SandboxExtension.h"
 #include "StorageAreaIdentifier.h"
@@ -224,7 +225,7 @@ public:
     void removeWebFrame(WebCore::FrameIdentifier);
 
     WebPageGroupProxy* webPageGroup(WebCore::PageGroup*);
-    WebPageGroupProxy* webPageGroup(uint64_t pageGroupID);
+    WebPageGroupProxy* webPageGroup(PageGroupIdentifier);
     WebPageGroupProxy* webPageGroup(const WebPageGroupData&);
 
     uint64_t userGestureTokenIdentifier(RefPtr<WebCore::UserGestureToken>);
@@ -340,10 +341,6 @@ public:
     WebCookieJar& cookieJar() { return m_cookieJar.get(); }
     WebSocketChannelManager& webSocketChannelManager() { return m_webSocketChannelManager; }
 
-#if PLATFORM(IOS_FAMILY)
-    void accessibilityProcessSuspendedNotification(bool);
-#endif
-
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
     float backlightLevel() const { return m_backlightLevel; }
 #endif
@@ -353,10 +350,10 @@ public:
 #if ENABLE(REMOTE_INSPECTOR)
     void enableRemoteWebInspector();
 #endif
-    void unblockServicesRequiredByAccessibility(const SandboxExtension::HandleArray&);
+    void unblockServicesRequiredByAccessibility(const Vector<SandboxExtension::Handle>&);
 #if ENABLE(CFPREFS_DIRECT_MODE)
     void notifyPreferencesChanged(const String& domain, const String& key, const std::optional<String>& encodedValue);
-    void unblockPreferenceService(SandboxExtension::HandleArray&&);
+    void unblockPreferenceService(Vector<SandboxExtension::Handle>&&);
 #endif
     void powerSourceDidChange(bool);
 #endif
@@ -470,7 +467,7 @@ private:
 #endif
 
 #if ENABLE(SERVICE_WORKER)
-    void establishWorkerContextConnectionToNetworkProcess(uint64_t pageGroupID, WebPageProxyIdentifier, WebCore::PageIdentifier, const WebPreferencesStore&, WebCore::RegistrableDomain&&, ServiceWorkerInitializationData&&, CompletionHandler<void()>&&);
+    void establishWorkerContextConnectionToNetworkProcess(PageGroupIdentifier, WebPageProxyIdentifier, WebCore::PageIdentifier, const WebPreferencesStore&, WebCore::RegistrableDomain&&, ServiceWorkerInitializationData&&, CompletionHandler<void()>&&);
 #endif
 
     void fetchWebsiteData(OptionSet<WebsiteDataType>, CompletionHandler<void(WebsiteData&&)>&&);
@@ -611,7 +608,7 @@ private:
     RefPtr<WebConnectionToUIProcess> m_webConnection;
 
     HashMap<WebCore::PageIdentifier, RefPtr<WebPage>> m_pageMap;
-    HashMap<uint64_t, RefPtr<WebPageGroupProxy>> m_pageGroupMap;
+    HashMap<PageGroupIdentifier, RefPtr<WebPageGroupProxy>> m_pageGroupMap;
     RefPtr<InjectedBundle> m_injectedBundle;
 
     Ref<EventDispatcher> m_eventDispatcher;

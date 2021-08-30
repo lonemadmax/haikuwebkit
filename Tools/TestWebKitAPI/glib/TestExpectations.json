@@ -140,9 +140,6 @@
             "/webkit/WebKitWebView/is-playing-audio": {
                 "expected": {"gtk": {"status": ["FAIL", "PASS"], "bug": "webkit.org/b/210635"}}
             },
-            "/webkit/WebKitWebView/page-visibility": {
-                "expected": {"gtk": {"status": ["TIMEOUT", "PASS"], "bug": "webkit.org/b/214804"}}
-            },
             "/webkit/WebKitWebView/fullscreen": {
                 "expected": {"wpe": {"status": ["TIMEOUT", "PASS"]}}
             }
@@ -324,9 +321,6 @@
         "subtests": {
             "/jsc/vm": {
                 "expected": {"all": {"slow": true}}
-            },
-            "/jsc/weak-value": {
-                "expected": {"all": {"status": ["FAIL", "PASS"], "bug": "webkit.org/b/222972"}}
             }
         }
     },

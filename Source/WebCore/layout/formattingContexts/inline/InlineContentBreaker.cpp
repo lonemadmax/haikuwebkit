@@ -417,8 +417,8 @@ OptionSet<InlineContentBreaker::WordBreakRule> InlineContentBreaker::wordBreakBe
         breakRules.add({ WordBreakRule::AtArbitraryPosition });
         return breakRules;
     }
-    // OverflowWrap::Break: An otherwise unbreakable sequence of characters may be broken at an arbitrary point if there are no otherwise-acceptable break points in the line.
-    if (style.overflowWrap() == OverflowWrap::Break && !hasWrapOpportunityAtPreviousPosition) {
+    // OverflowWrap::BreakWord/Anywhere An otherwise unbreakable sequence of characters may be broken at an arbitrary point if there are no otherwise-acceptable break points in the line.
+    if ((style.overflowWrap() == OverflowWrap::BreakWord || style.overflowWrap() == OverflowWrap::Anywhere) && !hasWrapOpportunityAtPreviousPosition) {
         breakRules.add({ WordBreakRule::AtArbitraryPosition });
         return breakRules;
     }
@@ -459,7 +459,7 @@ std::optional<InlineContentBreaker::PartialRun> InlineContentBreaker::tryBreakin
                 auto availableWidthExcludingHyphen = *availableWidth - hyphenWidth;
                 if (availableWidthExcludingHyphen <= 0 || !enoughWidthForHyphenation(availableWidthExcludingHyphen, fontCascade.pixelSize()))
                     return { };
-                leftSideLength = TextUtil::split(inlineTextItem, overflowingRun.logicalWidth, availableWidthExcludingHyphen, logicalLeft).length;
+                leftSideLength = TextUtil::midWordBreak(inlineTextItem, overflowingRun.logicalWidth, availableWidthExcludingHyphen, logicalLeft).length;
             }
             if (leftSideLength < limitBefore)
                 return { };
@@ -493,8 +493,8 @@ std::optional<InlineContentBreaker::PartialRun> InlineContentBreaker::tryBreakin
                 // Fast path for cases when there's no room at all. The content is breakable but we don't have space for it.
                 return { };
             }
-            auto splitData = TextUtil::split(inlineTextItem, overflowingRun.logicalWidth, *availableWidth, logicalLeft);
-            return { splitData.length, splitData.logicalWidth };
+            auto midWordBreak = TextUtil::midWordBreak(inlineTextItem, overflowingRun.logicalWidth, *availableWidth, logicalLeft);
+            return { midWordBreak.length, midWordBreak.logicalWidth };
         };
         // With arbitrary breaking there's always a valid breaking position (even if it is before the first position).
         return tryBreakingAtArbitraryPosition();

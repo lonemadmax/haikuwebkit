@@ -252,6 +252,7 @@
 #import <wtf/FileSystem.h>
 #import <wtf/HashTraits.h>
 #import <wtf/Language.h>
+#import <wtf/LogInitialization.h>
 #import <wtf/MainThread.h>
 #import <wtf/MathExtras.h>
 #import <wtf/ProcessPrivilege.h>
@@ -958,11 +959,6 @@ NSString *WebQuickLookUTIKey      = @"WebQuickLookUTIKey";
 NSString *_WebViewDidStartAcceleratedCompositingNotification = @"_WebViewDidStartAcceleratedCompositing";
 NSString * const WebViewWillCloseNotification = @"WebViewWillCloseNotification";
 
-#if ENABLE(REMOTE_INSPECTOR)
-// FIXME: Legacy, remove this, switch to something from JavaScriptCore Inspector::RemoteInspectorServer.
-NSString *_WebViewRemoteInspectorHasSessionChangedNotification = @"_WebViewRemoteInspectorHasSessionChangedNotification";
-#endif
-
 @interface WebProgressItem : NSObject
 {
 @public
@@ -1481,6 +1477,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
 #endif
     if (!didOneTimeInitialization) {
 #if !LOG_DISABLED || !RELEASE_LOG_DISABLED
+        WTF::logChannels().initializeLogChannelsIfNecessary();
         WebCore::logChannels().initializeLogChannelsIfNecessary();
         WebKit::logChannels().initializeLogChannelsIfNecessary();
 #endif
@@ -5423,7 +5420,7 @@ static bool needsWebViewInitThreadWorkaround()
                 allowsUndo = [decoder decodeBoolForKey:@"AllowsUndo"];
         } else {
             int version;
-            [decoder decodeValueOfObjCType:@encode(int) at:&version];
+            [decoder decodeValueOfObjCType:@encode(int) at:&version size:sizeof(int)];
             frameName = [decoder decodeObject];
             groupName = [decoder decodeObject];
             preferences = [decoder decodeObject];
@@ -8103,13 +8100,11 @@ static NSAppleEventDescriptor* aeDescFromJSValue(JSC::JSGlobalObject* lexicalGlo
 #if !PLATFORM(IOS_FAMILY)
 @implementation WebView (WebViewGrammarChecking)
 
-// FIXME: This method should be merged into WebViewEditing when we're not in API freeze
 - (BOOL)isGrammarCheckingEnabled
 {
     return grammarCheckingEnabled;
 }
 
-// FIXME: This method should be merged into WebViewEditing when we're not in API freeze
 - (void)setGrammarCheckingEnabled:(BOOL)flag
 {
     if (grammarCheckingEnabled == flag)
@@ -8126,7 +8121,6 @@ static NSAppleEventDescriptor* aeDescFromJSValue(JSC::JSGlobalObject* lexicalGlo
         [[self mainFrame] _unmarkAllBadGrammar];
 }
 
-// FIXME: This method should be merged into WebIBActions when we're not in API freeze
 - (void)toggleGrammarChecking:(id)sender
 {
     [self setGrammarCheckingEnabled:![self isGrammarCheckingEnabled]];

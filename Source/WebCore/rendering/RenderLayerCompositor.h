@@ -47,8 +47,6 @@ class ScrollingCoordinator;
 class StickyPositionViewportConstraints;
 class TiledBacking;
 
-typedef unsigned LayerTreeFlags;
-
 enum class CompositingUpdateType {
     AfterStyleChange,
     AfterLayout,
@@ -316,10 +314,10 @@ public:
 
     void widgetDidChangeSize(RenderWidget&);
 
-    WEBCORE_EXPORT String layerTreeAsText(LayerTreeFlags = 0) const;
+    WEBCORE_EXPORT String layerTreeAsText(OptionSet<LayerTreeAsTextOptions> = { }) const;
     WEBCORE_EXPORT String trackedRepaintRectsAsText() const;
 
-    WEBCORE_EXPORT String layerTreeAsText(LayerTreeFlags = 0);
+    WEBCORE_EXPORT String layerTreeAsText(OptionSet<LayerTreeAsTextOptions> = { });
     WEBCORE_EXPORT std::optional<String> platformLayerTreeAsText(Element&, OptionSet<PlatformLayerTreeAsTextFlags>);
 
     float deviceScaleFactor() const override;
@@ -593,7 +591,6 @@ private:
     bool m_flushingLayers { false };
     bool m_shouldFlushOnReattach { false };
     bool m_forceCompositingMode { false };
-    bool m_inPostLayoutUpdate { false }; // true when it's OK to trust layout information (e.g. layer sizes and positions)
 
     bool m_isTrackingRepaints { false }; // Used for testing.
 

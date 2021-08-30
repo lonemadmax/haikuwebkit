@@ -1029,6 +1029,9 @@ CrossOriginResourcePolicy parseCrossOriginResourcePolicyHeader(StringView header
     if (strippedHeader == "same-site")
         return CrossOriginResourcePolicy::SameSite;
 
+    if (strippedHeader == "cross-origin")
+        return CrossOriginResourcePolicy::CrossOrigin;
+
     return CrossOriginResourcePolicy::Invalid;
 }
 

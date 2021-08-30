@@ -1,3 +1,54 @@
+2021-08-21  Per Arne  <pvollan@apple.com>
+
+        [Win] Crash under FontCache::lastResortFallbackFont
+        https://bugs.webkit.org/show_bug.cgi?id=228186
+
+        Reviewed by Myles C. Maxfield.
+
+        Add null check for bitmapDC. Proceeding without a valid bitmapDC will cause a crash. When painting is being done while already in the Windows paint handler,
+        we can end up with a bitmapDC which is null.
+
+        * WebView.cpp:
+        (WebView::paintIntoBackingStore):
+
+2021-08-19  Youenn Fablet  <youenn@apple.com>
+
+        Rename MediaPlayer::setVisible to MediaPlayer::setPageIsVisible
+        https://bugs.webkit.org/show_bug.cgi?id=228837
+        <rdar://problem/81857023>
+
+        Reviewed by Eric Carlson.
+
+        * FullscreenVideoController.cpp:
+        (FullscreenVideoController::exitFullscreen):
+
+2021-08-13  Chris Dumez  <cdumez@apple.com>
+
+        Add Cross-Origin-Embedder-Policy support for Blob URLs
+        https://bugs.webkit.org/show_bug.cgi?id=229041
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebPlatformStrategies.cpp:
+
+2021-08-10  Chris Dumez  <cdumez@apple.com>
+
+        Add Cross-Origin-Opener-Policy support for Blob URLs
+        https://bugs.webkit.org/show_bug.cgi?id=228924
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebPlatformStrategies.cpp:
+
+2021-08-09  Chris Dumez  <cdumez@apple.com>
+
+        Blob URL changes after loading it
+        https://bugs.webkit.org/show_bug.cgi?id=228923
+
+        Reviewed by Geoff Garen.
+
+        * WebCoreSupport/WebPlatformStrategies.cpp:
+
 2021-08-09  Stephan Szabo  <stephan.szabo@sony.com>
 
         [WinCairo][Debug] Build fix after r280756

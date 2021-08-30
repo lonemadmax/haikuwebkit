@@ -58,6 +58,8 @@ class DOMPromiseDeferredBase;
 class MediaStream;
 class MediaStreamTrack;
 class RTCController;
+class RTCDtlsTransport;
+class RTCDtlsTransportBackend;
 class RTCIceCandidate;
 class RTCPeerConnectionErrorCallback;
 class RTCSessionDescription;
@@ -124,6 +126,7 @@ public:
     RTCIceGatheringState iceGatheringState() const { return m_iceGatheringState; }
     RTCIceConnectionState iceConnectionState() const { return m_iceConnectionState; }
     RTCPeerConnectionState connectionState() const { return m_connectionState; }
+    std::optional<bool> canTrickleIceCandidates() const;
 
     void restartIce() { m_backend->restartIce(); }
     const RTCConfiguration& getConfiguration() const { return m_configuration; }
@@ -140,7 +143,7 @@ public:
     Vector<std::reference_wrapper<RTCRtpReceiver>> getReceivers() const;
     const Vector<RefPtr<RTCRtpTransceiver>>& getTransceivers() const;
 
-    const Vector<RefPtr<RTCRtpTransceiver>>& currentTransceivers() const { return m_transceiverSet->list(); }
+    const Vector<RefPtr<RTCRtpTransceiver>>& currentTransceivers() const { return m_transceiverSet.list(); }
 
     ExceptionOr<Ref<RTCRtpSender>> addTrack(Ref<MediaStreamTrack>&&, const Vector<std::reference_wrapper<MediaStream>>&);
     ExceptionOr<void> removeTrack(RTCRtpSender&);
@@ -181,6 +184,9 @@ public:
     Document* document();
 
     void doTask(Function<void()>&&);
+
+    void updateTransceiversAfterSuccessfulLocalDescription();
+    void updateTransceiversAfterSuccessfulRemoteDescription();
 
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger.get(); }
@@ -224,6 +230,9 @@ private:
 
     ExceptionOr<Vector<MediaEndpointConfiguration::IceServerInfo>> iceServersFromConfiguration(RTCConfiguration& newConfiguration, const RTCConfiguration* existingConfiguration, bool isLocalDescriptionSet);
 
+    RefPtr<RTCDtlsTransport> getOrCreateDtlsTransport(std::unique_ptr<RTCDtlsTransportBackend>&&);
+    void updateTransceiverTransports();
+
     bool m_isStopped { false };
     RTCSignalingState m_signalingState { RTCSignalingState::Stable };
     RTCIceGatheringState m_iceGatheringState { RTCIceGatheringState::New };
@@ -235,7 +244,7 @@ private:
     const void* m_logIdentifier;
 #endif
 
-    std::unique_ptr<RtpTransceiverSet> m_transceiverSet { std::unique_ptr<RtpTransceiverSet>(new RtpTransceiverSet()) };
+    RtpTransceiverSet m_transceiverSet;
 
     std::unique_ptr<PeerConnectionBackend> m_backend;
 
@@ -247,6 +256,7 @@ private:
     Deque<std::pair<Ref<DeferredPromise>, Function<void(Ref<DeferredPromise>&&)>>> m_operations;
     bool m_hasPendingOperation { false };
     bool m_shouldFireNegotiationNeededOnceOperationChainIsEmpty { false };
+    Vector<Ref<RTCDtlsTransport>> m_transports;
 };
 
 } // namespace WebCore

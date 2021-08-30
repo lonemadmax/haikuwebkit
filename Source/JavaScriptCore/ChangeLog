@@ -1,3 +1,840 @@
+2021-08-23  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] emitArrayProfilingSiteWithCell should not load indexingType unnecessarily
+        https://bugs.webkit.org/show_bug.cgi?id=229396
+
+        Reviewed by Saam Barati.
+
+        emitArrayProfilingSiteWithCell is always loading indexingType after profiling a cell.
+        But (possibly) this is old code, and there is no reason to do that. This patch removes it.
+
+        * jit/JIT.h:
+        * jit/JITInlines.h:
+        (JSC::JIT::emitArrayProfilingSiteWithCell):
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::emit_op_get_by_val):
+        (JSC::JIT::emit_op_put_by_val):
+        (JSC::JIT::emit_op_get_by_id):
+        (JSC::JIT::emit_op_in_by_val):
+        (JSC::JIT::emit_op_enumerator_get_by_val):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::emit_op_get_by_val):
+        (JSC::JIT::emit_op_put_by_val):
+        (JSC::JIT::emit_op_get_by_id):
+        (JSC::JIT::emit_op_in_by_val):
+
+2021-08-22  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Remove already-shipped wasm option flags
+        https://bugs.webkit.org/show_bug.cgi?id=229386
+
+        Reviewed by Ross Kirsling.
+
+        This patch removes some wasm option flags which are already shipped.
+
+        * runtime/OptionsList.h:
+        * wasm/WasmFormat.h:
+        (JSC::Wasm::isValueType):
+        * wasm/WasmFunctionParser.h:
+        (JSC::Wasm::FunctionParser<Context>::parseExpression):
+        (JSC::Wasm::FunctionParser<Context>::parseUnreachableExpression):
+        * wasm/WasmOperations.cpp:
+        (JSC::Wasm::JSC_DEFINE_JIT_OPERATION):
+        * wasm/WasmParser.h:
+        (JSC::Wasm::Parser<SuccessType>::parseBlockSignature):
+        * wasm/WasmSectionParser.cpp:
+        (JSC::Wasm::SectionParser::parseType):
+        (JSC::Wasm::SectionParser::parseElement):
+        (JSC::Wasm::SectionParser::parseData):
+        (JSC::Wasm::SectionParser::parseDataCount):
+        * wasm/js/JSWebAssembly.cpp:
+        (JSC::JSWebAssembly::finishCreation):
+        * wasm/js/WebAssemblyGlobalConstructor.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+        * wasm/js/WebAssemblyTableConstructor.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+        * wasm/js/WebAssemblyTablePrototype.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+
+2021-08-22  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Remove already-shipped JS feature flags
+        https://bugs.webkit.org/show_bug.cgi?id=229387
+
+        Reviewed by Ross Kirsling.
+
+        These features are already shipped. So removing these runtime flags to clean up source code and
+        remove untested path.
+
+        * API/JSObjectRef.cpp:
+        (JSObjectMakeError):
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::FunctionCallValueNode::emitBytecode):
+        * parser/Lexer.cpp:
+        (JSC::Lexer<T>::lexWithoutClearingLineTerminator):
+        * parser/Parser.cpp:
+        (JSC::Parser<LexerType>::parseInner):
+        (JSC::Parser<LexerType>::parseForStatement):
+        (JSC::Parser<LexerType>::parseClass):
+        (JSC::Parser<LexerType>::parseBinaryExpression):
+        (JSC::Parser<LexerType>::parseGetterSetter):
+        (JSC::Parser<LexerType>::parsePrimaryExpression):
+        (JSC::Parser<LexerType>::parseUnaryExpression):
+        * runtime/AggregateErrorConstructor.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+        * runtime/ErrorConstructor.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+        * runtime/JSGlobalObject.h:
+        * runtime/NativeErrorConstructor.cpp:
+        (JSC::NativeErrorConstructor<errorType>::constructImpl):
+        (JSC::NativeErrorConstructor<errorType>::callImpl):
+        * runtime/Options.cpp:
+        (JSC::Options::recomputeDependentOptions):
+        * runtime/OptionsList.h:
+        * wasm/js/WebAssemblyCompileErrorConstructor.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+        * wasm/js/WebAssemblyLinkErrorConstructor.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+        * wasm/js/WebAssemblyRuntimeErrorConstructor.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+
+2021-08-22  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r280984 and r280996.
+        https://bugs.webkit.org/show_bug.cgi?id=229384
+
+        Speedometer2 0.3-0.5% regression
+
+        Reverted changesets:
+
+        "Update ARM64EHash"
+        https://bugs.webkit.org/show_bug.cgi?id=228962
+        https://commits.webkit.org/r280984
+
+        "Refactor some ARM64EHash code."
+        https://bugs.webkit.org/show_bug.cgi?id=229054
+        https://commits.webkit.org/r280996
+
+2021-08-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Remove Intl runtime feature flags for already shipped ones
+        https://bugs.webkit.org/show_bug.cgi?id=229371
+
+        Reviewed by Ross Kirsling.
+
+        Since they are already shipped, we should remove these runtime flags.
+
+        * builtins/DatePrototype.js:
+        (globalPrivate.toDateTimeOptionsAnyAll):
+        (globalPrivate.toDateTimeOptionsTimeTime):
+        * bytecode/BytecodeIntrinsicRegistry.cpp:
+        (JSC::BytecodeIntrinsicRegistry::BytecodeIntrinsicRegistry):
+        * bytecode/BytecodeIntrinsicRegistry.h:
+        * runtime/IntlDateTimeFormat.cpp:
+        (JSC::toDateTimeOptionsAnyDate):
+        (JSC::IntlDateTimeFormat::initializeDateTimeFormat):
+        (JSC::IntlDateTimeFormat::resolvedOptions const):
+        * runtime/IntlDateTimeFormatPrototype.cpp:
+        (JSC::IntlDateTimeFormatPrototype::finishCreation):
+        * runtime/OptionsList.h:
+
+2021-08-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Intl.DisplayNames v2
+        https://bugs.webkit.org/show_bug.cgi?id=227832
+
+        Reviewed by Ross Kirsling.
+
+        This patch implements Intl.DisplayNames v2[1].
+        Newly added names are calendar names and date time field names.
+        For the language name, language display option is added.
+
+        [1]: https://github.com/tc39/intl-displaynames-v2
+
+        * runtime/CommonIdentifiers.h:
+        * runtime/IntlCache.cpp:
+        (JSC::IntlCache::getFieldDisplayName):
+        * runtime/IntlCache.h:
+        * runtime/IntlDisplayNames.cpp:
+        (JSC::IntlDisplayNames::initializeDisplayNames):
+        (JSC::IntlDisplayNames::of const):
+        (JSC::IntlDisplayNames::resolvedOptions const):
+        (JSC::IntlDisplayNames::typeString):
+        (JSC::IntlDisplayNames::languageDisplayString):
+        * runtime/IntlDisplayNames.h:
+        * runtime/IntlObject.cpp:
+        (JSC::isUnicodeLocaleIdentifierType):
+        (JSC::canonicalizeUnicodeLocaleID):
+        (JSC::canonicalizeLocaleList):
+        (JSC::defaultLocale):
+        (JSC::mapBCP47ToICUCalendarKeyword):
+        (JSC::mapICUCollationKeywordToBCP47):
+        (JSC::canonicalizeLanguageTag): Deleted.
+        * runtime/IntlObject.h:
+
+2021-08-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Intl Locale Info
+        https://bugs.webkit.org/show_bug.cgi?id=227830
+
+        Reviewed by Ross Kirsling.
+
+        This patch implements Intl.Locale's extension (Intl Locale Info proposal)[1], which is already stage 3.
+        Intl.Locale#{calendars,collations,hourCycles,numberingSystems,timeZones} can return array of preferred
+        configuration for the given locale. And Intl.Locale#textInfo can return text layout direction and Intl.Locale#weekInfo
+        can return weekday information (e.g. when weekend starts).
+
+        [1]: https://github.com/tc39/proposal-intl-locale-info
+
+        * runtime/IntlLocale.cpp:
+        (JSC::createArrayFromStringVector):
+        (JSC::IntlLocale::calendars):
+        (JSC::IntlLocale::collations):
+        (JSC::IntlLocale::hourCycles):
+        (JSC::IntlLocale::numberingSystems):
+        (JSC::IntlLocale::timeZones):
+        (JSC::IntlLocale::textInfo):
+        (JSC::IntlLocale::weekInfo):
+        * runtime/IntlLocale.h:
+        * runtime/IntlLocalePrototype.cpp:
+        (JSC::JSC_DEFINE_CUSTOM_GETTER):
+
+2021-08-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Extend Intl TimeZoneName Option
+        https://bugs.webkit.org/show_bug.cgi?id=227831
+
+        Reviewed by Ross Kirsling.
+
+        https://github.com/tc39/proposal-intl-extend-timezonename
+
+        This patch implements Extend Intl TimeZoneName proposal, which adds "shortOffset", "longOffset", "shortGeneric", "longGeneric"
+        timeZoneName variants.
+
+        * runtime/IntlDateTimeFormat.cpp:
+        (JSC::IntlDateTimeFormat::setFormatsFromPattern):
+        (JSC::IntlDateTimeFormat::initializeDateTimeFormat):
+        (JSC::IntlDateTimeFormat::timeZoneNameString):
+        * runtime/IntlDateTimeFormat.h:
+
+2021-08-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Enable String,TypedArray#at
+        https://bugs.webkit.org/show_bug.cgi?id=229354
+
+        Reviewed by Saam Barati.
+
+        Enable String and TypedArray's `at` method.
+
+        * runtime/OptionsList.h:
+
+2021-08-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Enable Array#findLast method
+        https://bugs.webkit.org/show_bug.cgi?id=229355
+
+        Reviewed by Saam Barati.
+
+        This patch enables Array#findLast and Array#findLastIndex methods.
+
+        * runtime/ArrayPrototype.cpp: Order of unscopables is alphabet ordering (https://tc39.es/ecma262/#sec-array.prototype-@@unscopables)
+        (JSC::ArrayPrototype::finishCreation):
+        * runtime/OptionsList.h:
+
+2021-08-20  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Simplify moveIntsToDouble
+        https://bugs.webkit.org/show_bug.cgi?id=229351
+
+        Reviewed by Saam Barati.
+
+        MacroAssembler::moveIntsToDouble required scratch FPRReg. But it was only required for MacroAssemblerX86, and it is already removed.
+        This means that we no longer need this scratch FPRReg. This change makes a lot of IC code, property access code simpler.
+        This patch removes that scratch FPRReg, and removed scratch FPRReg of many arithmetic ICs. This patch is important for PutByVal modern
+        IC since some of property access requires FPRReg because of MacroAssembler::moveIntsToDouble, and it requires adding new m_scratch2FPR
+        to AccessCase. But after this simplification, this is no longer necessary.
+
+        * assembler/MacroAssemblerARMv7.h:
+        (JSC::MacroAssemblerARMv7::moveIntsToDouble):
+        * assembler/MacroAssemblerMIPS.h:
+        (JSC::MacroAssemblerMIPS::moveIntsToDouble):
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compileValueToInt32):
+        (JSC::DFG::SpeculativeJIT::compileDoubleRep):
+        (JSC::DFG::SpeculativeJIT::emitUntypedOrBigIntRightShiftBitOp):
+        (JSC::DFG::SpeculativeJIT::compileValueAdd):
+        (JSC::DFG::SpeculativeJIT::compileValueSub):
+        (JSC::DFG::SpeculativeJIT::compileMathIC):
+        (JSC::DFG::SpeculativeJIT::compileValueNegate):
+        (JSC::DFG::SpeculativeJIT::compileValueMul):
+        (JSC::DFG::SpeculativeJIT::speculateRealNumber):
+        (JSC::DFG::SpeculativeJIT::compileNormalizeMapKey):
+        * dfg/DFGSpeculativeJIT.h:
+        (JSC::DFG::SpeculativeJIT::unboxDouble):
+        * ftl/FTLLowerDFGToB3.cpp:
+        (JSC::FTL::DFG::LowerDFGToB3::compileBinaryMathIC):
+        (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+        * jit/AssemblyHelpers.cpp:
+        (JSC::AssemblyHelpers::emitConvertValueToBoolean):
+        (JSC::AssemblyHelpers::branchIfValue):
+        * jit/AssemblyHelpers.h:
+        (JSC::AssemblyHelpers::unboxDoubleNonDestructive):
+        (JSC::AssemblyHelpers::unboxDouble):
+        * jit/JITAddGenerator.cpp:
+        (JSC::JITAddGenerator::generateFastPath):
+        * jit/JITAddGenerator.h:
+        (JSC::JITAddGenerator::JITAddGenerator):
+        * jit/JITArithmetic.cpp:
+        (JSC::JIT::emitRightShiftFastPath):
+        (JSC::JIT::emitMathICFast):
+        * jit/JITDivGenerator.cpp:
+        (JSC::JITDivGenerator::loadOperand):
+        * jit/JITMulGenerator.cpp:
+        (JSC::JITMulGenerator::generateInline):
+        (JSC::JITMulGenerator::generateFastPath):
+        * jit/JITMulGenerator.h:
+        (JSC::JITMulGenerator::JITMulGenerator):
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::emitFloatTypedArrayPutByVal):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::emitGenericContiguousPutByVal):
+        * jit/JITRightShiftGenerator.cpp:
+        (JSC::JITRightShiftGenerator::generateFastPath):
+        * jit/JITRightShiftGenerator.h:
+        (JSC::JITRightShiftGenerator::JITRightShiftGenerator):
+        * jit/JITSubGenerator.cpp:
+        (JSC::JITSubGenerator::generateInline):
+        (JSC::JITSubGenerator::generateFastPath):
+        * jit/JITSubGenerator.h:
+        (JSC::JITSubGenerator::JITSubGenerator):
+
+2021-08-20  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Remove unnecessary moves in Yarr's sub32 / add32 related code
+        https://bugs.webkit.org/show_bug.cgi?id=228813
+
+        Reviewed by Mark Lam.
+
+        This patch adds three operand sub32 to X64 masm so that we can use it in all masms.
+        We use add32 and sub32 in YarrJIT to remove unnecessary mov instructions in ARM64.
+
+        * assembler/MacroAssembler.h:
+        (JSC::MacroAssembler::sub32):
+        * assembler/MacroAssemblerARMv7.h:
+        (JSC::MacroAssemblerARMv7::sub32):
+        * assembler/MacroAssemblerX86Common.h:
+        (JSC::MacroAssemblerX86Common::sub32):
+        * assembler/testmasm.cpp:
+        (JSC::testSub32ArgImm):
+        * yarr/YarrJIT.cpp:
+
+2021-08-20  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Remove MacroAssemblerX86
+        https://bugs.webkit.org/show_bug.cgi?id=229331
+
+        Reviewed by Mark Lam.
+
+        This patch removes MacroAssemblerX86, which allows simplifying some 32bit MacroAssembler code
+        in a subsequent patch.
+
+        * CMakeLists.txt:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * assembler/MacroAssembler.h:
+        * assembler/MacroAssemblerX86.h: Removed.
+
+2021-08-20  Mikhail R. Gadelha  <mikhail@igalia.com>
+
+        Fix DFG compilation of StringCharAt in 32 bits jsc debug build
+        https://bugs.webkit.org/show_bug.cgi?id=229293
+
+        Reviewed by Keith Miller.
+
+        In SpeculativeJIT::compileGetByValOnString the format can be either DataFormatJS
+        or DataFormatCell so assert either value when compiling it in 32 bits.
+        It's the same assert already present in the DFG 64 bits counterpart
+
+        * dfg/DFGSpeculativeJIT32_64.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+
+2021-08-20  Mark Lam  <mark.lam@apple.com>
+
+        Add some offlineasm enhancements.
+        https://bugs.webkit.org/show_bug.cgi?id=229332
+        rdar://82163923
+
+        Reviewed by Keith Miller.
+
+        1. Enhance "include" offlineasm Instruction to always attempt to include an asm
+           file from <build-products>/usr/local/include/WebKitAdditions/ first.  If the
+           specified file is not available there, then it will attempt to include the file
+           from the same directory as the current source file (which in practice, means
+           Source/JavaScriptCore/llint/).
+
+        2. Enhance "include" offlineasm Instruction to allow an optional file to be
+           included if it exists.  For example, the following offlineasm code:
+
+                include? LowLevelInterpreterAdditions
+
+           ... will attempt to include a file LowLevelInterpreterAdditions.asm.  If the
+           file does not exist, this will be a no-op.  Note: the "?" after the "include"
+           means the include is optional.
+
+        3. Enhanced "emit" offlineasm Instruction to be able to take more than one operand.
+
+           "emit" used to just copy the string operand that follows into the generated
+           LLIntAssembly.h.  Now, "emit" can take multiple comma separated operands, and
+           will concatenate all the operands.
+
+           Additionally, "emit" can now take a LocalLabelReference as an operand.  For
+           example, this offline asm code:
+
+                   emit "b ", .done
+                   ...
+                .done:
+
+           ... will generate this inline asm code in LLIntAssembly.h:
+
+                "b " LOCAL_LABEL_STRING(_offlineasm_someLabel_done) "\n"
+
+           This makes it easier to emit branches to local labels.
+
+        4. Also fixed LLInt code alignment for ARM_THUMB2 and ARM64.
+
+           Previously, it was aligned using ".align 4" which means aligned on a 4
+           instruction boundary.  Note: the interpretation of .align varies for different
+           target CPU architectures.
+
+           Now, we do the alignment using ".balign 4" which means align on a 4 byte
+           boundary.  This is the intended alignment because ARM64 instruction size is
+           4 bytes, and ARM_THUMB2 instruction size is either 2 bytes or 4 bytes.
+           Using .align before was potentially wasting some code space.
+
+        * llint/LowLevelInterpreter.asm:
+        * llint/LowLevelInterpreter.cpp:
+        * offlineasm/ast.rb:
+        * offlineasm/parser.rb:
+
+2021-08-20  Mark Lam  <mark.lam@apple.com>
+
+        Reduce StructureID entropy bits to 5 to make room for more StructureIDs.
+        https://bugs.webkit.org/show_bug.cgi?id=229326
+        rdar://60141624
+
+        Reviewed by Yusuke Suzuki.
+
+        * runtime/StructureIDTable.h:
+
+2021-08-19  Tim Nguyen  <ntim@apple.com>
+
+        Implement ::backdrop pseudo element
+        https://bugs.webkit.org/show_bug.cgi?id=227801
+
+        Reviewed by Antti Koivisto.
+
+        This adds UA styles, RenderTreeBuilder support and WebInspector support for ::backdrop.
+        Some imported blink tests now start passing, some still need proper top layer support.
+
+        * inspector/protocol/CSS.json:
+
+2021-08-18  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Remove op_has_indexed_property related code
+        https://bugs.webkit.org/show_bug.cgi?id=229271
+
+        Reviewed by Saam Barati.
+
+        After our new for-in protocol, op_has_indexed_property is removed.
+        As a result, we can remove many ByValInfo code that is used only
+        for op_has_indexed_property.
+
+        * jit/JIT.h:
+        * jit/JITInlines.h:
+        (JSC::JIT::emitLoadForArrayMode): Deleted.
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::privateCompileHasIndexedProperty): Deleted.
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::privateCompileHasIndexedProperty): Deleted.
+        * jit/JITOperations.cpp:
+        * jit/JITOperations.h:
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::emitDoubleLoad): Deleted.
+        (JSC::JIT::emitContiguousLoad): Deleted.
+        (JSC::JIT::emitArrayStorageLoad): Deleted.
+
+2021-08-18  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        REGRESSION(r280382): [GTK] 2.33.3 does not build with gtk-doc enabled, installs broken pkg-config files
+        https://bugs.webkit.org/show_bug.cgi?id=229152
+
+        Reviewed by Philippe Normand.
+
+        * PlatformGTK.cmake:
+        * javascriptcoregtk.pc.in:
+
+2021-08-17  Saam Barati  <sbarati@apple.com>
+
+        Add an option for canonicalizePrePostIncrements
+        https://bugs.webkit.org/show_bug.cgi?id=229211
+        <rdar://problem/82050126>
+
+        Reviewed by Mark Lam.
+
+        The current phase has bugs. Let's disable it for now until the bugs
+        are fixed. See discussion about the bugs I spotted in:
+        https://bugs.webkit.org/show_bug.cgi?id=228538
+
+        * b3/B3Generate.cpp:
+        (JSC::B3::generateToAir):
+        * b3/testb3_3.cpp:
+        (addShrTests):
+        * runtime/OptionsList.h:
+
+2021-08-16  Mark Lam  <mark.lam@apple.com>
+
+        Ensure that unused LLInt opcodes are not inadvertently used.
+        https://bugs.webkit.org/show_bug.cgi?id=229161
+
+        Reviewed by Robin Morisset.
+
+        The op macro is used for generating LLInt asm code for some entry points to the
+        LLInt, where we don't need 16 bits and 32 bit wide versions of the entry point.
+        For example, we use it for llint_program_prologue.
+
+        Note that llint_program_prologue is generated using:
+
+            op(llint_program_prologue, macro () ...
+
+        where op is:
+
+            macro op(l, fn)
+                commonOp(l, macro () end, macro (size)
+                    size(fn, macro() end, macro() end, macro(gen) gen() end)
+                    #        ^            ^----- wide32 generator
+                    #        `------------------ wide16 generator
+                end)
+            end
+
+        Note that the generators for the wide16 and wide32 versions of the entry point
+        currently emit nothing.  As a result, if we ever have a bug that ends up
+        dispatching to llint_program_prologue_wide16 or llint_program_prologue_wide32,
+        we'll end up falling thru to llint_module_program_prologue, which just happens
+        to be the entry point positioned after those labels.
+
+        This patch adds breakpoints in those 2 unused generators so that we won't
+        inadvertently execute code for something else.
+
+        * llint/LowLevelInterpreter.asm:
+
+2021-08-15  Yijia Huang  <yijia_huang@apple.com>
+
+        [ARM64] Add Pre/Post-Indexed Address Mode to Air for ARM64 (Store Instruction)
+        https://bugs.webkit.org/show_bug.cgi?id=228538
+
+        Reviewed by Filip Pizlo.
+
+        The previous patch has introduced the pre/post-index address mode for Load instruction,
+        which benefits loop program. Here, this patch adds the corresponding mode for Store
+        instruction. Store Register (immediate) stores a word or a doubleword from a register
+        to memory. The address that is used for the store is calculated from a base register
+        and an immediate offset.
+
+        ######################################
+        ## Pre-Index Address Mode For Store ##
+        ######################################
+
+        STR Wt, [Xn, #imm]!
+
+        In B3 Reduction Strength, since we have this reduction rule:
+            Turns this: Store(value, Add(address, offset1), offset = offset2)
+            Into this: Store(value, address, offset = offset1 + offset2)
+
+        The equivalent pattern is:
+            address = Add(base, offset)
+            ...
+            memory = Store(value, base, offset)
+
+        Here, we only consider the pattern:
+            address = Add(base, offset)
+            memory = Store(value, base, offset)
+
+        And, this patch directly treats it as the canonical form. Ideally, we should move 
+        memory to just after the address like what we did for PreIndex Load in the previous 
+        patch. But, we cannot provide a better way to do that since the value may be 
+        used between address and memory. To move value upward, we must move all descendants 
+        of the value along with it to prevent B3 IR index violations, which is risky and expensive.
+
+        Next, lower to Air:
+            Move %base, %address
+            Move %value, (%address, prefix(offset))
+
+        ######################################
+        ## Post-Index Address Mode For Load ##
+        ######################################
+
+        STR Wt, [Xn], #imm
+
+        Then, the equivalent pattern is:
+            memory = Store(value, base, 0)
+            ...
+            address = Add(base, offset)
+
+        First, we convert it to the canonical form:
+            newOffset = Constant
+            newAddress = Add(base, offset)
+            memory = Store(value, base, 0) // move the offset and address to just before the memory
+            ...
+            offset = Identity(newOffset)
+            address = Identity(newAddress)
+
+        Next, lower to Air:
+            Move %base, %newAddress
+            Move %value, (%newAddress, postfix(offset))
+
+        ##############################################
+        ## Test for Pre/Post-Increment Address Mode ##
+        ##############################################
+
+        B3 IR:
+        ------------------------------------------------------
+        Int64 b@0 = ArgumentReg(%x0)
+        Int64 b@1 = ArgumentReg(%x1)
+        Int64 b@2 = Const64(8)
+        Int64 b@3 = Add(b@0, $8(b@2))
+        Void  b@4 = Store(b@1, b@3, ControlDependent|Writes:Top)
+        Void  b@5 = Return(b@3, Terminal)
+        ------------------------------------------------------
+
+        W/O Pre-Increment Address Mode:
+        ------------------------------------------------------
+        Move  %x0, %x2,      b@0
+        Add64  $8, %x2, %x0, b@3
+        Move  %x1, 8(%x2),   b@4
+        Ret64 %x0,           b@5
+        ------------------------------------------------------
+
+        W/ Pre-Increment Address Mode:
+        ------------------------------------------------------
+        MoveWithIncrement64 %x1, (%x0,Pre($8)), b@4
+        Ret64               %x0,                b@5
+        ------------------------------------------------------
+
+
+        B3 IR:
+        ------------------------------------------------------
+        Int64 b@0 = ArgumentReg(%x0)
+        Int64 b@1 = ArgumentReg(%x1)
+        Void  b@2 = Store(b@1, b@0, ControlDependent|Writes:Top)
+        Int64 b@3 = Const64(8)
+        Int64 b@4 = Add(b@0, $8(b@3))
+        Void  b@5 = Return(b@4, Terminal)
+        ------------------------------------------------------
+
+        W/O Post-Increment Address Mode:
+        ------------------------------------------------------
+        Move  %x1, (%x0),      b@2
+        Add64  $8,   %x0, %x0, b@4
+        Ret64 %x0,             b@5
+        ------------------------------------------------------
+
+        W/ Post-Increment Address Mode:
+        ------------------------------------------------------
+        MoveWithIncrement64 %x1, (%x0,Post($8)), b@2
+        Ret64               %x0,                 b@5
+        ------------------------------------------------------
+
+        * b3/B3CanonicalizePrePostIncrements.cpp:
+        (JSC::B3::canonicalizePrePostIncrements):
+        * b3/B3LowerToAir.cpp:
+        * b3/testb3.h:
+        * b3/testb3_3.cpp:
+        (testStorePreIndex32):
+        (testStorePreIndex64):
+        (testStorePostIndex32):
+        (testStorePostIndex64):
+        (addShrTests):
+
+2021-08-13  Keith Miller  <keith_miller@apple.com>
+
+        EnumeratorNextUpdatePropertyName always needs to be able to handle IndexedMode
+        https://bugs.webkit.org/show_bug.cgi?id=229087
+
+        Reviewed by Filip Pizlo.
+
+        Right now, this operation incorrectly assumes that EnumeratorNextUpdateIndexAndMode will guarantee
+        the mode matches the seen mode set. But no speculation is guaranteed and adding such a guarantee
+        would require adding checkpoints, which is likely not worth it. Instead, this patch just makes
+        sure we always handle the allocation for IndexedMode.
+
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compileEnumeratorNextUpdatePropertyName):
+        * ftl/FTLLowerDFGToB3.cpp:
+        (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+
+2021-08-12  Mark Lam  <mark.lam@apple.com>
+
+        Refactor some ARM64EHash code.
+        https://bugs.webkit.org/show_bug.cgi?id=229054
+
+        Reviewed by Keith Miller and Robin Morisset.
+
+        This patch only refactors ARM64EHash code by moving some methods into the private
+        section, and removing some unneeded static_casts.
+
+        Verified with a diff of `otool -tv` dumps of the built JavaScriptCore binaries,
+        that there are no diffs in the generated code from this change.
+
+        * assembler/AssemblerBuffer.h:
+        (JSC::ARM64EHash::ARM64EHash):
+        (JSC::ARM64EHash::update):
+        (JSC::ARM64EHash::makeDiversifier):
+        (JSC::ARM64EHash::nextValue):
+        (JSC::ARM64EHash::bitsForDiversifier):
+        (JSC::ARM64EHash::currentHash):
+
+2021-08-12  Saam Barati  <sbarati@apple.com>
+
+        Update ARM64EHash
+        https://bugs.webkit.org/show_bug.cgi?id=228962
+        <rdar://79883337>
+
+        Reviewed by Mark Lam.
+
+        * assembler/AssemblerBuffer.h:
+        (JSC::ARM64EHash::makeDiversifier):
+        (JSC::ARM64EHash::nextValue):
+        (JSC::ARM64EHash::bitsForDiversifier):
+        (JSC::ARM64EHash::currentHash):
+        (JSC::ARM64EHash::setUpdatedHash):
+        (JSC::ARM64EHash::ARM64EHash):
+        (JSC::ARM64EHash::update):
+        (JSC::ARM64EHash::finalize):
+        (JSC::AssemblerBuffer::AssemblerBuffer):
+        (JSC::AssemblerBuffer::putIntegralUnchecked):
+        (JSC::AssemblerBuffer::hash const):
+        * assembler/LinkBuffer.cpp:
+        (JSC::LinkBuffer::copyCompactAndLinkCode):
+
+2021-08-11  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        WTFCrash in JSC::Lexer<char16_t>::append8
+        https://bugs.webkit.org/show_bug.cgi?id=228982
+
+        Reviewed by Mark Lam.
+
+        sourceURL / sourceMapURL directive should not assume Latin1 characters.
+
+        * parser/Lexer.cpp:
+        (JSC::Lexer<T>::parseCommentDirectiveValue):
+
+2021-08-10  Keith Miller  <keith_miller@apple.com>
+
+        CallFrame::returnPC should untag the return address before passing it to ReturnAddressPtr
+        https://bugs.webkit.org/show_bug.cgi?id=228931
+
+        Reviewed by Mark Lam.
+
+        Right now current debugging code expects that the JS return PC on
+        the stack is already unsigned. This is not true on arm64e.
+        This patch now properly unsigns the return PC before passing it to
+        the ReturnAddressPC constructor.
+
+        * assembler/MacroAssemblerCodeRef.h:
+        (JSC::ReturnAddressPtr::fromTaggedPC):
+        * interpreter/AbstractPC.cpp:
+        (JSC::AbstractPC::AbstractPC):
+        * interpreter/AbstractPC.h:
+        (JSC::AbstractPC::AbstractPC):
+        (JSC::AbstractPC::jitReturnAddress const):
+        * interpreter/CallFrame.h:
+        (JSC::CallFrame::returnPC const):
+
+2021-08-10  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        Scripts/generate-derived-sources.sh: line 19: [: binary operator expected while building Source/WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=228908
+
+        Reviewed by Per Arne Vollan.
+
+        * Scripts/generate-derived-sources.sh:
+        Quote the use of CC so that future copy-paste does not make the same mistake
+        as this bug.
+
+2021-08-09  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] super-Latin1 white space and line terminator after regular expression literal misinterpreted as flags
+        https://bugs.webkit.org/show_bug.cgi?id=227944
+
+        Reviewed by Alexey Shvayka.
+
+        There are non-Latin1 white-spaces and line-terminators, but Lexer::scanRegExp's code did not assume that.
+        As a result, if there is a non-Latin1 white-spaces or line-terminators after RegExp, we raise SyntaxError
+        while this is valid. This patch fixes that.
+
+        * parser/Lexer.cpp:
+        (JSC::Lexer<T>::scanRegExp):
+
+2021-08-09  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        Fix yet another -Wreturn-type warning
+        https://bugs.webkit.org/show_bug.cgi?id=228928
+
+        Unreviewed.
+
+        * ftl/FTLLowerDFGToB3.cpp:
+        (JSC::FTL::DFG::LowerDFGToB3::compileGetByValImpl):
+
+2021-08-09  Yijia Huang  <yijia_huang@apple.com>
+
+        [ARM64] Clean up and fix Pre/Post-Indexed Address Mode to Air for ARM64 (Load Instruction)
+        https://bugs.webkit.org/show_bug.cgi?id=228890
+
+        Reviewed by Keith Miller.
+
+        This patch cleans up and does minor fix to the previous patch (https://bugs.webkit.org/show_bug.cgi?id=228047).
+
+        For the modifications in b3/B3Generate.cpp and b3/B3CanonicalizePrePostIncrements.cpp, we
+        need to convert post-index candidates to the canonical form. So, the address value needs to
+        be moved immediately before the load. This is subject to the dominance constraints that add
+        must be controlled equivalent to the load. So, similarly, if we need to move the offset to
+        just before the load, the dominance constraints must be satisfied. Since it is a constant
+        value, a better approach is to add a new constant value before the memory value. Then,
+        eliminate the dead code.
+
+        There is a bug in b3/B3CanonicalizePrePostIncrements.cpp. The insertionSet.execute(BasicBlock)
+        will reorder value indexes in the basic block. So, we should re-search for the value index in
+        the block every time after the execution.
+
+        In b3/B3LowerToAir.cpp, we need m_locked checks on address and base values. If they are already
+        locked, there is no need to convert the Load instruction to the pre/post-increment form.
+
+        * b3/B3CanonicalizePrePostIncrements.cpp:
+        (JSC::B3::canonicalizePrePostIncrements):
+        * b3/B3Generate.cpp:
+        (JSC::B3::generateToAir):
+        * b3/B3LowerToAir.cpp:
+        * b3/air/AirArg.h:
+        (JSC::B3::Air::Arg::isValidIncrementIndexForm):
+        (JSC::B3::Air::Arg::isValidForm const):
+        (JSC::B3::Air::Arg::isValidPreIndexForm): Deleted.
+        (JSC::B3::Air::Arg::isValidPostIndexForm): Deleted.
+        * b3/air/opcode_generator.rb:
+
+2021-08-09  Keith Miller  <keith_miller@apple.com>
+
+        Revert bad assert about the number of upsilons going into a phi
+        https://bugs.webkit.org/show_bug.cgi?id=228922
+
+        Reviewed by Yusuke Suzuki.
+
+        This assert was invalid because we sometimes emit unreachable phis
+        that don't have any incoming upsilons. Specifically for MultiGetByOffset.
+
+        * ftl/FTLOutput.h:
+        (JSC::FTL::Output::phi):
+
 2021-08-09  Michael Catanzaro  <mcatanzaro@gnome.org>
 
         Adding missing REFERENCED_FROM_ASM annotations to facilitate LTO

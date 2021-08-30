@@ -159,7 +159,6 @@ webkit.org/b/132262 [ Debug ] http/tests/media/video-redirect.html [ Pass ]
 webkit.org/b/218510 fast/dom/Range/getBoundingClientRect.html [ Failure ]
 webkit.org/b/218930 fast/inline/simple-line-layout-16bit-content.html [ ImageOnlyFailure ]
 webkit.org/b/218930 fast/text/simple-lines-hover.html [ ImageOnlyFailure ]
-webkit.org/b/225293 fast/inline/incorrect-middle-baseline-alignment-with-line-height.html [ ImageOnlyFailure ]
 webkit.org/b/226474 [ Debug ] fast/text/letter-spacing-produces-nan-width.html [ Crash ]
 
 # Media - GTK-X11 flaky crash
@@ -472,7 +471,7 @@ webkit.org/b/169917 webkit.org/b/211768 compositing/video/video-border-radius.ht
 webkit.org/b/169917 webkit.org/b/211338 webgl/1.0.3/conformance/textures/texture-size.html [ Failure Timeout Pass ]
 # WebGL timeouts or slow tests.
 webkit.org/b/169917 webgl/1.0.3/conformance/glsl/misc/shader-uniform-packing-restrictions.html [ Timeout ]
-webkit.org/b/169917 webgl/1.0.3/conformance/textures/tex-image-and-sub-image-2d-with-video.html [ Timeout ]
+webkit.org/b/169917 webgl/1.0.3/conformance/textures/tex-image-and-sub-image-2d-with-video.html [ Pass Failure ]
 webkit.org/b/169917 webgl/1.0.3/conformance/glsl/bugs/complex-glsl-does-not-crash.html [ Timeout ]
 webkit.org/b/169917 webgl/1.0.3/conformance/ogles/GL/atan/atan_001_to_008.html [ Slow ]
 webkit.org/b/169917 webgl/1.0.3/conformance/uniforms/uniform-default-values.html [ Slow ]
@@ -798,6 +797,9 @@ webkit.org/b/152247 fast/forms/input-appearance-spinbutton-up.html [ Skip ]
 webkit.org/b/152247 fast/forms/input-appearance-spinbutton.html [ Skip ]
 webkit.org/b/152247 fast/forms/listbox-scrollbar-hit-test.html [ Skip ]
 
+# This is a Mac specific feature
+webkit.org/b/168466 http/tests/security/bypassing-cors-checks-for-extension-urls.html [ Skip ]
+
 # The test directly sends Cocoa events
 swipe/pushState-programmatic-back-while-swiping-crash.html [ Skip ]
 
@@ -941,6 +943,13 @@ webkit.org/b/224590 imported/w3c/web-platform-tests/css/css-text/word-break/word
 
 webkit.org/b/224967 webkit.org/b/225659 imported/w3c/web-platform-tests/css/selectors/focus-visible-002.html [ Crash Failure ]
 
+webkit.org/b/229347 imported/w3c/web-platform-tests/css/css-text/overflow-wrap/overflow-wrap-anywhere-009.html [ ImageOnlyFailure ]
+webkit.org/b/229347 imported/w3c/web-platform-tests/css/css-text/overflow-wrap/overflow-wrap-anywhere-010.html [ ImageOnlyFailure ]
+webkit.org/b/229347 imported/w3c/web-platform-tests/css/css-text/overflow-wrap/overflow-wrap-anywhere-inline-001.html [ ImageOnlyFailure ]
+webkit.org/b/229347 imported/w3c/web-platform-tests/css/css-text/overflow-wrap/overflow-wrap-anywhere-inline-002.html [ ImageOnlyFailure ]
+webkit.org/b/229347 imported/w3c/web-platform-tests/css/css-text/overflow-wrap/overflow-wrap-anywhere-inline-003.html [ ImageOnlyFailure ]
+webkit.org/b/229347 imported/w3c/web-platform-tests/css/css-text/overflow-wrap/overflow-wrap-anywhere-inline-004.html [ ImageOnlyFailure ]
+
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Expected failures.
 #
@@ -1014,6 +1023,8 @@ webkit.org/b/127742 fast/spatial-navigation/snav-unit-overflow-and-scroll-in-dir
 # Tests showing flakiness in the bot
 webkit.org/b/132182 css3/calc/transitions-dependent.html [ Failure ]
 
+webkit.org/b/132385 compositing/repaint/repaint-on-layer-grouping-change.html [ Failure Pass ]
+
 # Fast overflow.
 
 webkit.org/b/136066 animations/fill-mode-iteration-count-non-integer.html [ Timeout Pass ]
@@ -1080,12 +1091,6 @@ webkit.org/b/183609 [ Release ] inspector/unit-tests/throttler.html [ Pass Failu
 webkit.org/b/183214 compositing/video/poster.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/186136 compositing/animation/layer-for-filling-animation.html [ Failure ]
-
-# Tests that fail on the EWS queue since we enabled tests there (obsolete). TODO: the failures below should be filed under a different bug).
-webkit.org/b/186638 compositing/repaint/repaint-on-layer-grouping-change.html [ Failure Pass ]
-webkit.org/b/186638 editing/selection/select-bidi-run.html [ Timeout Pass ]
-
-# Tests failing on the EWS queue.
 
 webkit.org/b/186667 compositing/repaint/iframes/composited-iframe-with-fixed-background-doc-repaint.html [ Failure Pass ]
 
@@ -1215,6 +1220,13 @@ webkit.org/b/224524 editing/selection/user-select-all-with-single-click.html [ F
 
 webkit.org/b/224791 imported/w3c/web-platform-tests/html/browsers/the-window-object/apis-for-creating-and-navigating-browsing-contexts-by-name/open-features-tokenization-screenx-screeny.html [ Timeout Pass ]
 
+webkit.org/b/178472 http/tests/resourceLoadStatistics/prevalent-resource-handled-keydown.html [ Timeout Pass ]
+
+webkit.org/b/229268 media/media-fragments/TC0009.html [ Failure Pass ]
+
+# Flaky on skip-failing-test bot (EWS)
+webkit.org/b/229270 fast/events/monotonic-event-time.html [ Failure Pass ]
+
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Flaky tests
 #////////////////////////////////////////////////////////////////////////////////////////
@@ -1277,6 +1289,8 @@ imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-subframe-root.htm
 imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-element.html [ Slow ]
 imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-main-frame-window.html [ Slow ]
 imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-subframe-window.html [ Slow ]
+
+webrtc/concurrentVideoPlayback2.html [ Slow ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of slow tests
@@ -1346,6 +1360,9 @@ webkit.org/b/211566 http/tests/resourceLoadStatistics/exemptDomains/app-bound-do
 webkit.org/b/211566 http/tests/resourceLoadStatistics/exemptDomains/app-bound-domains-exempt-from-website-data-deletion.html [ Skip ]
 
 webkit.org/b/219979 gamepad/gamepad-polling-access.html [ Timeout Pass ]
+
+# Test is flaky timing out. Also skipped in Mac and iOS.
+editing/selection/select-bidi-run.html [ Skip ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Tests timing out
@@ -1600,8 +1617,6 @@ webkit.org/b/129113 fast/multicol/newmulticol/clipping.html [ Pass ]
 # Test globally skipped, passing on GTK port
 webkit.org/b/124349 fast/hidpi/image-srcset-relative-svg-canvas.html [ Pass ]
 
-webkit.org/b/206589 fast/box-shadow/box-shadow-huge-area-crash.html [ ImageOnlyFailure ]
-
 webkit.org/b/132910 editing/pasteboard/drag-drop-paragraph-crasher.html [ Failure ]
 
 webkit.org/b/132914 http/tests/security/drag-drop-local-file.html [ Failure ]
@@ -1784,7 +1799,6 @@ webkit.org/b/185939 imported/w3c/web-platform-tests/css/WOFF2 [ Pass ]
 webkit.org/b/185938 imported/w3c/web-platform-tests/css/WOFF2/tabledata-glyf-bbox-001.xht [ ImageOnlyFailure ]
 webkit.org/b/185938 imported/w3c/web-platform-tests/css/WOFF2/tabledata-glyf-origlength-001.xht [ ImageOnlyFailure ]
 webkit.org/b/185938 imported/w3c/web-platform-tests/css/WOFF2/tabledata-glyf-origlength-002.xht [ ImageOnlyFailure ]
-webkit.org/b/185938 imported/w3c/web-platform-tests/css/WOFF2/tabledata-recontruct-loca-001.xht [ ImageOnlyFailure ]
 webkit.org/b/185938 imported/w3c/web-platform-tests/css/WOFF2/directory-knowntags-001.xht [ ImageOnlyFailure ]
 webkit.org/b/185938 imported/w3c/web-platform-tests/css/WOFF2/tabledata-glyf-origlength-003.xht [ ImageOnlyFailure ]
 

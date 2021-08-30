@@ -1004,6 +1004,9 @@ http/tests/cache/disk-cache/disk-cache-validation.html
 # Failures as of 06/09/2015
 editing/input/emacs-ctrl-o.html [ Failure ]
 
+# rdar://82191308 ([ Sky ] editing/input/cocoa/autocorrect-on.html is timing out)
+editing/input/cocoa/autocorrect-on.html [ Timeout ]
+
 # Time outs as of 06/09/2015
 fast/images/animated-gif-webkit-transform.html
 
@@ -1216,8 +1219,6 @@ webkit.org/b/171613 http/tests/xmlhttprequest/supported-xml-content-types.html [
 
 webkit.org/b/171331 http/tests/preload/single_download_preload.html [ Pass Failure ]
 
-webkit.org/b/170699 [ Release ] imported/w3c/web-platform-tests/html/webappapis/timers/negative-settimeout.html [ Pass Failure ]
-
 webkit.org/b/171638 [ Release ] http/tests/xmlhttprequest/methods.html [ Pass Timeout ]
 
 webkit.org/b/171830 [ Debug ] http/tests/websocket/tests/hybi/workers/close.html [ Pass Failure ]
@@ -1290,8 +1291,6 @@ webkit.org/b/197662 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-get
 
 webkit.org/b/176030 http/tests/websocket/tests/hybi/send-object-tostring-check.html [ Pass Failure ]
 
-webkit.org/b/199013 [ Debug ] imported/w3c/web-platform-tests/websockets/Create-Secure-verify-url-set-non-default-port.any.html [ Pass Failure ]
-
 webkit.org/b/196495 fast/viewport/ios/viewport-shrink-to-fit-on-new-navigation.html [ Failure ]
 
 webkit.org/b/199071 [ Release ] imported/blink/fast/css/user-select-none.html [ Pass ImageOnlyFailure ]
@@ -1319,9 +1318,6 @@ webkit.org/b/203256 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-ice
 
 # <rdar://problem/56512107> [ iOS ] Three editing/pasteboard/smart-paste-paragraph tests have been flaky since they landed in r243124 (203264)
 webkit.org/b/203264 [ Release ] editing/pasteboard/smart-paste-paragraph-001.html [ Pass Failure ]
-webkit.org/b/228285 editing/pasteboard/smart-paste-paragraph-002.html [ Pass Failure ]
-webkit.org/b/228285 editing/pasteboard/smart-paste-paragraph-003.html [ Pass Failure ]
-webkit.org/b/228285 editing/pasteboard/smart-paste-paragraph-004.html [ Pass Failure ]
 
 # Timeout running prompt() because mock implementation is absent.
 webkit.org/b/203572 media/remoteplayback-prompt.html [ Skip ]
@@ -1850,8 +1846,6 @@ webkit.org/b/214512 imported/w3c/web-platform-tests/css/geometry/DOMMatrix2DInit
 
 webkit.org/b/214598 fast/scrolling/ios/autoscroll-input-when-very-zoomed.html [ Pass Failure ]
 
-webkit.org/b/228672 fast/scrolling/ios/click-events-during-momentum-scroll-in-overflow-after-tap-on-body.html [ Pass Timeout ]
-
 http/tests/in-app-browser-privacy/ [ Pass ]
 
 webkit.org/b/175193 fast/images/async-image-body-background-image.html [ Pass Timeout ]
@@ -1912,6 +1906,8 @@ webkit.org/b/227283 imported/w3c/web-platform-tests/css/css-grid/grid-items/repl
 webkit.org/b/227283 imported/w3c/web-platform-tests/css/css-grid/grid-items/replaced-element-013.html [ ImageOnlyFailure ]
 
 webkit.org/b/215929 compositing/video/poster.html [ Pass Timeout ]
+
+webkit.org/b/223900 compositing/video/video-update-rendering.html [ Pass Failure ]
 
 webkit.org/b/216126 fast/encoding/charset-replacement.html [ Failure ]
 
@@ -1988,6 +1984,8 @@ webkit.org/b/227273 fast/css-custom-paint/out-of-memory-while-adding-worklet-mod
 
 webkit.org/b/226598 animations/leak-document-with-css-animation.html [ Pass Failure ]
 
+webkit.org/b/229338 animations/unprefixed-events.html [ Pass Failure ]
+
 webkit.org/b/227931 imported/w3c/web-platform-tests/css/conditional/idlharness.html [ Pass Failure ]
 
 webkit.org/b/228082 fast/canvas/canvas-overloads-setShadow.html [ Pass Timeout ]
@@ -2005,3 +2003,31 @@ webkit.org/b/228327 [ Release ] imported/w3c/web-platform-tests/worklets/paint-w
 
 webkit.org/b/228604 http/tests/cookies/same-site/fetch-in-same-origin-service-worker.html [ Pass Timeout ]
 webkit.org/b/228604 http/tests/cookies/same-site/fetch-in-cross-origin-service-worker.html [ Pass Timeout ]
+
+#rdar://82134088 ([iOS 15] storage/indexeddb/dont-wedge-private.html is a flaky failure)
+storage/indexeddb/dont-wedge-private.html [ Pass Failure ]
+
+#<rdar://76434263>
+http/wpt/mediarecorder/video-rotation.html [ Pass Failure ]
+
+# These tests currently fail or are flaky in EWS on iOS 14.
+editing/selection/ios/changing-selection-does-not-trigger-autocapitalization.html [ Pass Timeout ]
+editing/selection/ios/do-not-hide-selection-in-visible-container.html [ Failure ]
+editing/selection/ios/do-not-hide-selection-in-visible-field.html [ Failure ]
+
+# rdar://80393995 ([ iOS15 ] http/tests/media/modern-media-controls/overflow-support/playback-speed-live-broadcast.html is a constant timeout) http/tests/media/modern-media-controls/overflow-support/playback-speed-live-broadcast.html [ Timeout ]
+
+#rdar://80391927 ([ iOS ] fast/forms/ios/ipad/open-picker-using-keyboard.html is a flaky timeout) fast/forms/ios/ipad/open-picker-using-keyboard.html [ Pass Timeout ]
+
+#rdar://80390931 (REGRESSION (r271861): [ iOS ] fast/forms/ios/accessory-bar-navigation.html is a constant timeout) fast/forms/ios/accessory-bar-navigation.html [ Timeout ] 
+
+webkit.org/b/168961 fast/events/wheelevent-in-frame.html [ Pass Timeout ]
+
+webkit.org/b/168961 fast/events/touch/page-scaled-touch-gesture-click.html [ Timeout ]
+
+#rdar://80386061 (REGRESSION (Sky19A163?): fast/events/touch/ios/long-press-on-editable-content-then-drag-up-to-change-selected-text.html [ Failure ]) [ iOS15 ]  fast/events/touch/ios/long-press-on-editable-content-then-drag-up-to-change-selected-text.html [ Failure ]
+
+#rdar://80386523 (REGRESSION (Sky19A224?): fast/events/touch/ios/long-press-then-drag-to-select-text.html is failing) [ iOS15 ] fast/events/touch/ios/long-press-then-drag-to-select-text.html [ Failure ] 
+
+#rdar://82183980 ([ iOS 15 ]editing/selection/ios/hide-selection-in-tiny-contenteditable.html is a flaky failure)
+editing/selection/ios/hide-selection-in-tiny-contenteditable.html [ Pass Failure ]

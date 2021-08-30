@@ -52,7 +52,7 @@ struct LineLevelVisualAdjustmentsForRuns {
     bool needsTrailingContentReplacement { false };
 };
 
-inline Layout::InlineLineGeometry::EnclosingTopAndBottom operator+(const Layout::InlineLineGeometry::EnclosingTopAndBottom enclosingTopAndBottom, float offset)
+inline Layout::LineGeometry::EnclosingTopAndBottom operator+(const Layout::LineGeometry::EnclosingTopAndBottom enclosingTopAndBottom, float offset)
 {
     return { enclosingTopAndBottom.top + offset, enclosingTopAndBottom.bottom + offset };
 }
@@ -164,13 +164,12 @@ InlineContentBuilder::InlineContentBuilder(const Layout::LayoutState& layoutStat
 {
 }
 
-void InlineContentBuilder::build(const Layout::InlineFormattingContext& inlineFormattingContext, InlineContent& inlineContent) const
+void InlineContentBuilder::build(const Layout::InlineFormattingState& inlineFormattingState, InlineContent& inlineContent) const
 {
-    auto& inlineFormattingState = inlineFormattingContext.formattingState();
     auto lineLevelVisualAdjustmentsForRuns = computeLineLevelVisualAdjustmentsForRuns(inlineFormattingState);
-    createDisplayLineRuns(inlineFormattingState, inlineContent, lineLevelVisualAdjustmentsForRuns);
-    createDisplayNonRootInlineBoxes(inlineFormattingContext, inlineContent);
-    createDisplayLines(inlineFormattingState, inlineContent, lineLevelVisualAdjustmentsForRuns);
+    createDisplayLineRuns(inlineFormattingState.lines(), inlineFormattingState.lineRuns(), inlineContent, lineLevelVisualAdjustmentsForRuns);
+    createDisplayNonRootInlineBoxes(inlineFormattingState, inlineContent);
+    createDisplayLines(inlineFormattingState.lines(), inlineContent, lineLevelVisualAdjustmentsForRuns);
 }
 
 InlineContentBuilder::LineLevelVisualAdjustmentsForRunsList InlineContentBuilder::computeLineLevelVisualAdjustmentsForRuns(const Layout::InlineFormattingState& inlineFormattingState) const
@@ -179,11 +178,10 @@ InlineContentBuilder::LineLevelVisualAdjustmentsForRunsList InlineContentBuilder
     auto& rootStyle = m_layoutState.root().style();
     auto shouldCheckHorizontalOverflowForContentReplacement = rootStyle.overflowX() == Overflow::Hidden && rootStyle.textOverflow() != TextOverflow::Clip;
 
-    LineLevelVisualAdjustmentsForRunsList lineLevelVisualAdjustmentsForRuns(lines.size());
+    auto lineLevelVisualAdjustmentsForRuns = LineLevelVisualAdjustmentsForRunsList { lines.size() };
     for (size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
         auto lineNeedsLegacyIntegralVerticalPosition = [&] {
             // Legacy inline tree integral rounds the vertical position for certain content (see LegacyInlineFlowBox::placeBoxesInBlockDirection and ::addToLine).
-            auto& rootInlineBox = inlineFormattingState.lineBoxes()[lineIndex].rootInlineBox();
             auto& nonRootInlineLevelBoxList = inlineFormattingState.lineBoxes()[lineIndex].nonRootInlineLevelBoxes();
             if (nonRootInlineLevelBoxList.isEmpty()) {
                 // This is text content only with root inline box.
@@ -195,15 +193,14 @@ InlineContentBuilder::LineLevelVisualAdjustmentsForRunsList InlineContentBuilder
                 if (contentPreventsIntegralSnapping)
                     return false;
 
-                auto& rootInlineBoxStyle = rootInlineBox.style();
                 auto& inlineLevelBoxStyle = inlineLevelBox.style();
-                auto stylePreventsIntegralSnapping = rootInlineBoxStyle.lineHeight() != inlineLevelBoxStyle.lineHeight() || inlineLevelBoxStyle.verticalAlign() != VerticalAlign::Baseline;
+                auto stylePreventsIntegralSnapping = rootStyle.lineHeight() != inlineLevelBoxStyle.lineHeight() || inlineLevelBoxStyle.verticalAlign() != VerticalAlign::Baseline;
                 if (stylePreventsIntegralSnapping)
                     return false;
 
-                auto& rootInlineBoxFontMetrics = rootInlineBoxStyle.fontCascade().fontMetrics();
+                auto& rootFontMetrics = rootStyle.fontCascade().fontMetrics();
                 auto& inlineLevelBoxFontMetrics = inlineLevelBoxStyle.fontCascade().fontMetrics();
-                auto fontPreventsIntegralSnapping = !rootInlineBoxFontMetrics.hasIdenticalAscentDescentAndLineGap(inlineLevelBoxFontMetrics);
+                auto fontPreventsIntegralSnapping = !rootFontMetrics.hasIdenticalAscentDescentAndLineGap(inlineLevelBoxFontMetrics);
                 if (fontPreventsIntegralSnapping)
                     return false;
             }
@@ -220,20 +217,18 @@ InlineContentBuilder::LineLevelVisualAdjustmentsForRunsList InlineContentBuilder
     return lineLevelVisualAdjustmentsForRuns;
 }
 
-void InlineContentBuilder::createDisplayLineRuns(const Layout::InlineFormattingState& inlineFormattingState, InlineContent& inlineContent, const LineLevelVisualAdjustmentsForRunsList& lineLevelVisualAdjustmentsForRuns) const
+void InlineContentBuilder::createDisplayLineRuns(const Layout::InlineLines& lines, const Layout::InlineLineRuns& lineRuns, InlineContent& inlineContent, const LineLevelVisualAdjustmentsForRunsList& lineLevelVisualAdjustmentsForRuns) const
 {
-    auto& runList = inlineFormattingState.lineRuns();
-    if (runList.isEmpty())
+    if (lineRuns.isEmpty())
         return;
-    auto& lines = inlineFormattingState.lines();
 
 #if PROCESS_BIDI_CONTENT
     BidiResolver<Iterator, BidiRun> bidiResolver;
     // FIXME: Add support for override.
     bidiResolver.setStatus(BidiStatus(m_layoutState.root().style().direction(), false));
     // FIXME: Grab the nested isolates from the previous line.
-    bidiResolver.setPosition(Iterator(&runList, 0), 0);
-    bidiResolver.createBidiRunsForLine(Iterator(&runList, runList.size()));
+    bidiResolver.setPosition(Iterator(&lineRuns, 0), 0);
+    bidiResolver.createBidiRunsForLine(Iterator(&lineRuns, lineRuns.size()));
 #endif
 
     Vector<bool> hasAdjustedTrailingLineList(lines.size(), false);
@@ -311,8 +306,8 @@ void InlineContentBuilder::createDisplayLineRuns(const Layout::InlineFormattingS
         inlineContent.runs.append(displayRun);
     };
 
-    inlineContent.runs.reserveInitialCapacity(inlineFormattingState.lineRuns().size());
-    for (auto& lineRun : inlineFormattingState.lineRuns()) {
+    inlineContent.runs.reserveInitialCapacity(lineRuns.size());
+    for (auto& lineRun : lineRuns) {
         if (auto& text = lineRun.text())
             createDisplayTextRunForRange(lineRun, text->start(), text->end());
         else
@@ -320,9 +315,8 @@ void InlineContentBuilder::createDisplayLineRuns(const Layout::InlineFormattingS
     }
 }
 
-void InlineContentBuilder::createDisplayLines(const Layout::InlineFormattingState& inlineFormattingState, InlineContent& inlineContent, const LineLevelVisualAdjustmentsForRunsList& lineLevelVisualAdjustmentsForRuns) const
+void InlineContentBuilder::createDisplayLines(const Layout::InlineLines& lines, InlineContent& inlineContent, const LineLevelVisualAdjustmentsForRunsList& lineLevelVisualAdjustmentsForRuns) const
 {
-    auto& lines = inlineFormattingState.lines();
     auto& runs = inlineContent.runs;
     auto& nonRootInlineBoxes = inlineContent.nonRootInlineBoxes;
     size_t runIndex = 0;
@@ -376,16 +370,16 @@ void InlineContentBuilder::createDisplayLines(const Layout::InlineFormattingStat
     }
 }
 
-void InlineContentBuilder::createDisplayNonRootInlineBoxes(const Layout::InlineFormattingContext& inlineFormattingContext, InlineContent& inlineContent) const
+void InlineContentBuilder::createDisplayNonRootInlineBoxes(const Layout::InlineFormattingState& inlineFormattingState, InlineContent& inlineContent) const
 {
-    auto& inlineFormattingState = inlineFormattingContext.formattingState();
-    auto& inlineFormattingGeometry = downcast<Layout::InlineFormattingGeometry>(inlineFormattingContext.formattingGeometry());
+    auto inlineFormattingContext = Layout::InlineFormattingContext { m_boxTree.rootLayoutBox(), const_cast<Layout::InlineFormattingState&>(inlineFormattingState) };
+    auto& inlineFormattingGeometry = inlineFormattingContext.formattingGeometry();
     for (size_t lineIndex = 0; lineIndex < inlineFormattingState.lineBoxes().size(); ++lineIndex) {
         auto& lineBox = inlineFormattingState.lineBoxes()[lineIndex];
         if (!lineBox.hasInlineBox())
             continue;
 
-        auto& lineBoxLogicalRect = lineBox.logicalRect();
+        auto lineBoxLogicalRect = inlineFormattingState.lines()[lineIndex].lineBoxLogicalRect();
         for (auto& inlineLevelBox : lineBox.nonRootInlineLevelBoxes()) {
             if (!inlineLevelBox.isInlineBox())
                 continue;

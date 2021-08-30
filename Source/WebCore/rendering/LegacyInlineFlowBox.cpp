@@ -798,48 +798,6 @@ void LegacyInlineFlowBox::placeBoxesInBlockDirection(LayoutUnit top, LayoutUnit 
     }
 }
 
-void LegacyInlineFlowBox::maxLogicalBottomForTextDecorationLine(float& maxLogicalBottom, const RenderElement* decorationRenderer, OptionSet<TextDecoration> textDecoration) const
-{
-    for (auto* child = firstChild(); child; child = child->nextOnLine()) {
-        if (child->renderer().isOutOfFlowPositioned())
-            continue; // Positioned placeholders don't affect calculations.
-        
-        if (!(child->lineStyle().textDecorationsInEffect() & textDecoration))
-            continue; // If the text decoration isn't in effect on the child, then it must be outside of |decorationRenderer|'s hierarchy.
-        
-        if (decorationRenderer && decorationRenderer->isRenderInline() && !isAncestorAndWithinBlock(downcast<RenderInline>(*decorationRenderer), &child->renderer()))
-            continue;
-        
-        if (is<LegacyInlineFlowBox>(*child))
-            downcast<LegacyInlineFlowBox>(*child).maxLogicalBottomForTextDecorationLine(maxLogicalBottom, decorationRenderer, textDecoration);
-        else {
-            if (child->isInlineTextBox() || child->lineStyle().textDecorationSkip().isEmpty())
-                maxLogicalBottom = std::max<float>(maxLogicalBottom, child->logicalBottom());
-        }
-    }
-}
-
-void LegacyInlineFlowBox::minLogicalTopForTextDecorationLine(float& minLogicalTop, const RenderElement* decorationRenderer, OptionSet<TextDecoration> textDecoration) const
-{
-    for (auto* child = firstChild(); child; child = child->nextOnLine()) {
-        if (child->renderer().isOutOfFlowPositioned())
-            continue; // Positioned placeholders don't affect calculations.
-        
-        if (!(child->lineStyle().textDecorationsInEffect() & textDecoration))
-            continue; // If the text decoration isn't in effect on the child, then it must be outside of |decorationRenderer|'s hierarchy.
-        
-        if (decorationRenderer && decorationRenderer->isRenderInline() && !isAncestorAndWithinBlock(downcast<RenderInline>(*decorationRenderer), &child->renderer()))
-            continue;
-        
-        if (is<LegacyInlineFlowBox>(*child))
-            downcast<LegacyInlineFlowBox>(*child).minLogicalTopForTextDecorationLine(minLogicalTop, decorationRenderer, textDecoration);
-        else {
-            if (child->isInlineTextBox() || child->lineStyle().textDecorationSkip().isEmpty())
-                minLogicalTop = std::min<float>(minLogicalTop, child->logicalTop());
-        }
-    }
-}
-
 void LegacyInlineFlowBox::flipLinesInBlockDirection(LayoutUnit lineTop, LayoutUnit lineBottom)
 {
     // Flip the box on the line such that the top is now relative to the lineBottom instead of the lineTop.
@@ -1165,17 +1123,6 @@ bool LegacyInlineFlowBox::nodeAtPoint(const HitTestRequest& request, HitTestResu
         // We are beyond the ellipsis box.
         if (locationInContainer.intersects(boundsRect))
             return false;
-    }
-
-    // Constrain our hit testing to the line top and bottom if necessary.
-    bool noQuirksMode = renderer().document().inNoQuirksMode();
-    if (!noQuirksMode && !hasTextChildren() && !(descendantsHaveSameLineHeightAndBaseline() && hasTextDescendants())) {
-        LegacyRootInlineBox& rootBox = root();
-        LayoutUnit top { isHorizontal() ? y() : x()};
-        LayoutUnit logicalHeight { isHorizontal() ? height() : width() };
-        LayoutUnit bottom = std::min(rootBox.lineBottom(), top + logicalHeight);
-        top = std::max(rootBox.lineTop(), top);
-        logicalHeight = bottom - top;
     }
 
     // Move x/y to our coordinates.

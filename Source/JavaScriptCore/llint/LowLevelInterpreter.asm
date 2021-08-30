@@ -457,7 +457,7 @@ end
 
 macro op(l, fn)
     commonOp(l, macro () end, macro (size)
-        size(fn, macro() end, macro() end, macro(gen) gen() end)
+        size(fn, macro() break end, macro() break end, macro(gen) gen() end)
     end)
 end
 
@@ -1963,6 +1963,8 @@ _js_trampoline_llint_function_for_construct_arity_check_untag_wide32:
 _js_trampoline_llint_function_for_construct_arity_check_tag_wide16:
 _js_trampoline_llint_function_for_construct_arity_check_tag_wide32:
     crash()
+
+include? LowLevelInterpreterAdditions
 
 # Value-representation-specific code.
 if JSVALUE64

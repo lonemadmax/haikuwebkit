@@ -12,11 +12,13 @@ editing/editable-region [ Pass ]
 editing/execCommand/ios [ Pass ]
 editing/deleting/ios [ Pass ]
 editing/input/cocoa [ Pass ]
+editing/selection/ios [ Pass ]
 http/tests/quicklook [ Pass ]
 media/ios [ Pass ]
 model-element [ Pass ]
 quicklook [ Pass ]
 system-preview [ Pass ]
+remote-layer-tree/ios [ Pass ]
 swipe [ Pass ]
 http/tests/swipe [ Pass ]
 
@@ -2103,6 +2105,7 @@ accessibility/aria-sort-changed-notification.html [ Pass ]
 webkit.org/b/150366 accessibility/aria-table-attributes.html [ Pass ]
 
 accessibility/selected-state-changed-notifications.html [ Pass ]
+accessibility/element-line-rects-and-text.html [ Pass ]
 
 # Enable "attachment element" test for iOS
 accessibility/attachment-element.html [ Pass ]
@@ -2620,7 +2623,7 @@ imported/w3c/web-platform-tests/css/mediaqueries/device-aspect-ratio-003.html [ 
 fast/text/accessibility-bold-system-font-2.html [ Pass ]
 
 # This test is specific to Core Text.
-fast/text/font-lookup-dot-prefix-case-sensitive.html [ Pass ]
+fast/text/font-lookup-dot-prefix-case-sensitive.html [ ImageOnlyFailure ]
 
 # Missing support for 521-bit elliptic curves.
 crypto/subtle/ec-import-pkcs8-key-export-pkcs8-key-p521.html
@@ -2643,8 +2646,6 @@ crypto/subtle/ecdsa-import-key-verify-p521.html
 crypto/subtle/ecdsa-import-pkcs8-key-p521-validate-ecprivatekey-parameters-publickey.html
 
 webkit.org/b/155092 js/arraybuffer-wrappers.html [ Pass Timeout ]
-
-webkit.org/b/172052 [ Release ] imported/w3c/web-platform-tests/html/webappapis/timers/type-long-setinterval.html [ Pass Failure ]
 
 webkit.org/b/183441 mathml/presentation/multiscripts-equivalence.html [ ImageOnlyFailure ]
 
@@ -3012,7 +3013,6 @@ webkit.org/b/197778 [ Debug ] webgl/2.0.0/conformance2/attribs/gl-vertexattribip
 
 # FIXME: Unskip the following test once we have the fix for <rdar://problem/48322899>.
 editing/selection/ios/select-non-editable-text-using-keyboard.html [ Skip ]
-editing/selection/ios/select-all-non-editable-text-using-keyboard.html [ Skip ]
 
 # Dark Mode is iOS 13 and later.
 css-dark-mode [ Pass ]
@@ -3362,12 +3362,6 @@ imported/w3c/web-platform-tests/html/rendering/widgets/input-date-no-resize-on-h
 # rdar://80384054 ([ iOS15 ] css3/filters/filter-repaint-shadow-layer-child.html is flaky failure)
 css3/filters/filter-repaint-shadow-layer-child.html [ Pass ImageOnlyFailure ]
 
-# rdar://80384447 ([ iOS15 ] editing/selection/ios/hide-selection-after-tap-on-prevent-default-element.html is a Flaky timeout)
-editing/selection/ios/hide-selection-after-tap-on-prevent-default-element.html [ Pass Timeout ]
-
-# rdar://80384801 ([ iOS15 ] editing/selection/ios/select-all-in-readonly-input-does-not-overflow.html is a flaky timeout)
-editing/selection/ios/select-all-in-readonly-input-does-not-overflow.html  [ Pass Timeout ]
-
 # rdar://80392795 ([ iOS15 ] http/tests/misc/object-embedding-svg-delayed-size-negotiation-2.htm is a flaky failure)
 http/tests/misc/object-embedding-svg-delayed-size-negotiation-2.htm [ Pass Failure ]
 
@@ -3385,10 +3379,6 @@ http/wpt/mediarecorder/mute-tracks.html [ Pass Failure ]
 
 # rdar://80396502 ([ iOS15 ] http/wpt/mediarecorder/pause-recording.html is a flaky crash)
 http/wpt/mediarecorder/pause-recording.html [ Pass Crash ]
-
-#Batch adding of test expectations group 3:
-#rdar://80384177 ([ iOS15 ] editing/selection/ios/change-selection-by-tapping-with-existing-selection.html is failing)
-editing/selection/ios/change-selection-by-tapping-with-existing-selection.html  [ Failure ]
 
 #rdar://80385434 ([ iOS15 ] editing/selection/ios/select-text-in-existing-selection.html [ Failure ])
 editing/selection/ios/select-text-in-existing-selection.html  [ Failure ]
@@ -3411,9 +3401,6 @@ fast/text/simple-line-wordspacing.html [ ImageOnlyFailure ]
 # rdar://80395949 ([ iOS15 ] http/tests/websocket/tests/hybi/too-long-payload.html is a constant timeout)
 http/tests/websocket/tests/hybi/too-long-payload.html [ Timeout ]
 
-#rdar://80386326 ([ iOS15 Release ] fast/events/touch/ios/long-press-on-link.html is a constant crash)
-fast/events/touch/ios/long-press-on-link.html [ Crash ]
-
 # rdar://80392337 ([ iOS15 ] fast/text/international/system-language/navigator-language/navigator-language-ru.html is a constant failure)
 fast/text/international/system-language/navigator-language/navigator-language-ru.html [ Failure ]
 
@@ -3423,15 +3410,6 @@ fast/events/ios/key-events-comprehensive/key-events-meta-shift.html [ Failure ]
 
 # rdar://80386075 ([ iOS15 ] fast/css/ios/system-color-for-css-value.html)
 fast/css/ios/system-color-for-css-value.html [ Failure ]
-
-# rdar://80385521 ([ iOS15 ] editing/selection/preserve-selection-when-clicking-button.html is a consistent failure)
-editing/selection/preserve-selection-when-clicking-button.html [ Failure ]
-
-# rdar://80393995 ([ iOS15 WK2 ] http/tests/media/modern-media-controls/overflow-support/playback-speed-live-broadcast.html is a constant timeout)
-http/tests/media/modern-media-controls/overflow-support/playback-speed-live-broadcast.html [ Timeout ]
-
-# rdar://80384564 ([ iOS15 ] editing/selection/ios/persist-selection-after-tapping-on-element-with-mousedown-handler.html is failing)
-editing/selection/ios/persist-selection-after-tapping-on-element-with-mousedown-handler.html [ Failure ]
 
 # rdar://77070325 (REGRESSION: [ iOS15 ] imported/w3c/web-platform-tests/html/canvas/element/imagebitmap/createImageBitmap-flipY.html is flaky failling)
 imported/w3c/web-platform-tests/html/canvas/element/imagebitmap/createImageBitmap-flipY.html [ Pass Failure ]
@@ -3469,6 +3447,8 @@ webkit.org/b/222239 webgl/conformance/extensions/khr-parallel-shader-compile.htm
 
 fast/text/line-break-with-locale.html [ ImageOnlyFailure ]
 
+webkit.org/b/229154 webrtc/peer-connection-audio-mute2.html [ Pass Failure ]
+
 # Skip WebXR tests on iOS
 imported/w3c/web-platform-tests/webxr [ Skip ]
 http/wpt/webxr [ Skip ]
@@ -3479,3 +3459,15 @@ http/tests/media/video-webm-stall.html [ Skip ]
 # webkit.org/b/223385 Two imported webrtc tests are flakey text failing on Release for BigSur+ and iOS 14
 [ Release ] imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-addIceCandidate-connectionSetup.html [ Pass Failure ]
 [ Release ] imported/w3c/web-platform-tests/webrtc/RTCDtlsTransport-state.html [ Pass Failure ]
+
+webkit.org/b/229291 imported/w3c/web-platform-tests/html/rendering/replaced-elements/images/revoked-blob-print.html [ Pass ImageOnlyFailure ]
+
+#rdar://82146367 ([Mac, iOS Release] imported/w3c/web-platform-tests/worklets/layout-worklet-csp.https.html is a flaky failure) imported/w3c/web-platform-tests/worklets/layout-worklet-csp.https.html [ Pass Failure ] 
+
+#rdar://82147623 ([iOS] 3 imported/w3c/web-platform-tests/css/css-typed-om/ tests are flaky failure) 
+imported/w3c/web-platform-tests/css/css-typed-om/width-by-min-px-em.html [ Pass Failure ]
+imported/w3c/web-platform-tests/css/css-typed-om/rotate-by-added-angle.html [ Pass Failure ]
+imported/w3c/web-platform-tests/css/css-typed-om/width-by-max-px-em.html [ Pass Failure ]
+
+webkit.org/b/228176 fast/text/variable-system-font.html [ ImageOnlyFailure ]
+webkit.org/b/228176 fast/text/variable-system-font-2.html [ Pass ]

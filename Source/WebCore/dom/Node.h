@@ -368,6 +368,9 @@ public:
     bool isInShadowTree() const { return hasNodeFlag(NodeFlag::IsInShadowTree); }
     bool isInTreeScope() const { return hasNodeFlag(NodeFlag::IsConnected) || hasNodeFlag(NodeFlag::IsInShadowTree); }
 
+    // https://dom.spec.whatwg.org/#in-a-document-tree
+    bool isInDocumentTree() const { return isConnected() && !isInShadowTree(); }
+
     bool isDocumentTypeNode() const { return nodeType() == DOCUMENT_TYPE_NODE; }
     virtual bool childTypeAllowed(NodeType) const { return false; }
     unsigned countChildNodes() const;
@@ -520,6 +523,13 @@ public:
     static int32_t flagIsLink() { return static_cast<int32_t>(NodeFlag::IsLink); }
     static int32_t flagIsParsingChildrenFinished() { return static_cast<int32_t>(NodeFlag::IsParsingChildrenFinished); }
 #endif // ENABLE(JIT)
+
+    // Whether the node is inert:
+    // https://html.spec.whatwg.org/multipage/interaction.html#inert
+    // https://github.com/WICG/inert/blob/master/README.md
+    // This can't be in Element because text nodes must be recognized as
+    // inert to prevent text selection.
+    bool isInert() const;
 
 protected:
     enum class NodeFlag : uint32_t {

@@ -2503,7 +2503,7 @@ private:
                 JITBinaryMathIC<Generator>* mathIC = jit.codeBlock()->addMathIC<Generator>(arithProfile);
                 mathIC->m_generator = Generator(leftOperand, rightOperand, JSValueRegs(params[0].gpr()),
                     JSValueRegs(params[1].gpr()), JSValueRegs(params[2].gpr()), params.fpScratch(0),
-                    params.fpScratch(1), params.gpScratch(0), InvalidFPRReg);
+                    params.fpScratch(1), params.gpScratch(0));
 
                 bool shouldEmitProfiling = false;
                 bool generatedInline = mathIC->generateInline(jit, *mathICGenerationState, shouldEmitProfiling);
@@ -5456,6 +5456,7 @@ private:
             DFG_CRASH(m_graph, m_node, "Bad array type");
             return nullptr;
         }
+        RELEASE_ASSERT_NOT_REACHED();
     }
 
     void compileGetByVal()
@@ -13137,20 +13138,15 @@ private:
         OptionSet seenModes = m_node->enumeratorMetadata();
 
         if (seenModes.containsAny({ JSPropertyNameEnumerator::OwnStructureMode, JSPropertyNameEnumerator::GenericMode })) {
-            LBasicBlock checkIndex = nullptr;
+            LBasicBlock checkIndex = m_out.newBlock();
             LBasicBlock outOfBoundsBlock = m_out.newBlock();
             LBasicBlock loadPropertyNameBlock = m_out.newBlock();
             continuation = m_out.newBlock();
+            operationBlock = m_out.newBlock();
 
-            if (seenModes.contains(JSPropertyNameEnumerator::IndexedMode)) {
-                checkIndex = m_out.newBlock();
-                operationBlock = m_out.newBlock();
-                m_out.branch(m_out.testIsZero32(mode, m_out.constInt32(JSPropertyNameEnumerator::IndexedMode)), unsure(checkIndex), unsure(operationBlock));
-            }
-
+            m_out.branch(m_out.testIsZero32(mode, m_out.constInt32(JSPropertyNameEnumerator::IndexedMode)), unsure(checkIndex), unsure(operationBlock));
             {
-                if (checkIndex)
-                    m_out.appendTo(checkIndex);
+                m_out.appendTo(checkIndex);
                 LValue outOfBounds = m_out.aboveOrEqual(index, m_out.load32(enumerator, m_heaps.JSPropertyNameEnumerator_endGenericPropertyIndex));
                 m_out.branch(outOfBounds, unsure(outOfBoundsBlock), unsure(loadPropertyNameBlock));
             }
@@ -13169,16 +13165,14 @@ private:
             }
         }
 
-        if (seenModes.contains(JSPropertyNameEnumerator::IndexedMode)) {
-            if (operationBlock)
-                m_out.appendTo(operationBlock);
-            results.append(m_out.anchor(vmCall(Int64, operationEnumeratorNextUpdatePropertyName, weakPointer(globalObject), index, mode, enumerator)));
-            if (continuation)
-                m_out.jump(continuation);
-        }
-
-        if (continuation)
+        if (operationBlock)
+            m_out.appendTo(operationBlock);
+        // Note: We can't omit the operation because we have no guarantee that the mode will match what we profiled.
+        results.append(m_out.anchor(vmCall(Int64, operationEnumeratorNextUpdatePropertyName, weakPointer(globalObject), index, mode, enumerator)));
+        if (continuation) {
+            m_out.jump(continuation);
             m_out.appendTo(continuation);
+        }
 
         ASSERT(results.size());
         LValue result = m_out.phi(Int64, results);
@@ -16018,7 +16012,7 @@ private:
                 auto generator = Box<JITRightShiftGenerator>::create(
                     leftOperand, rightOperand, JSValueRegs(params[0].gpr()),
                     JSValueRegs(params[1].gpr()), JSValueRegs(params[2].gpr()),
-                    params.fpScratch(0), params.gpScratch(0), InvalidFPRReg, shiftType);
+                    params.fpScratch(0), params.gpScratch(0), shiftType);
 
                 generator->generateFastPath(jit);
                 generator->endJumpList().link(&jit);

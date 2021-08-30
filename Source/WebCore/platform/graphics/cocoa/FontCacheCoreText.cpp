@@ -31,6 +31,7 @@
 #include "FontFamilySpecificationCoreText.h"
 #include "RenderThemeCocoa.h"
 #include "SystemFontDatabaseCoreText.h"
+#include "VersionChecks.h"
 #include <pal/spi/cf/CoreTextSPI.h>
 
 #include <CoreText/SFNTLayoutTypes.h>
@@ -335,6 +336,7 @@ VariationDefaultsMap defaultVariationValues(CTFontRef font)
     return result;
 }
 
+#if USE(NON_VARIABLE_SYSTEM_FONT)
 static inline bool fontIsSystemFont(CTFontRef font)
 {
     if (isSystemFont(font))
@@ -343,6 +345,7 @@ static inline bool fontIsSystemFont(CTFontRef font)
     auto name = adoptCF(CTFontCopyPostScriptName(font));
     return fontNameIsSystemFont(name.get());
 }
+#endif
 
 // These values were calculated by performing a linear regression on the CSS weights/widths/slopes and Core Text weights/widths/slopes of San Francisco.
 // FIXME: <rdar://problem/31312602> Get the real values from Core Text.
@@ -505,7 +508,11 @@ RetainPtr<CTFontRef> preparePlatformFont(CTFontRef originalFont, const FontDescr
 
     // Step 2: font-weight, font-stretch, and font-style
     // The system font is somewhat magical. Don't mess with its variations.
-    if (applyWeightWidthSlopeVariations && !fontIsSystemFont(originalFont)) {
+    if (applyWeightWidthSlopeVariations
+#if USE(NON_VARIABLE_SYSTEM_FONT)
+        && !fontIsSystemFont(originalFont)
+#endif
+    ) {
         float weight = fontSelectionRequest.weight;
         float width = fontSelectionRequest.width;
         float slope = fontSelectionRequest.slope.value_or(normalItalicValue());
@@ -1101,17 +1108,24 @@ struct FontLookup {
     bool createdFromPostScriptName { false };
 };
 
+static bool isDotPrefixedForbiddenFont(const AtomString& family)
+{
+    if (linkedOnOrAfter(SDKVersion::FirstForbiddingDotPrefixedFonts))
+        return family.startsWith('.');
+    return equalLettersIgnoringASCIICase(family, ".applesystemuifontserif")
+        || equalLettersIgnoringASCIICase(family, ".sf ns mono")
+        || equalLettersIgnoringASCIICase(family, ".sf ui mono")
+        || equalLettersIgnoringASCIICase(family, ".sf arabic")
+        || equalLettersIgnoringASCIICase(family, ".applesystemuifontrounded");
+}
+
 static FontLookup platformFontLookupWithFamily(const AtomString& family, FontSelectionRequest request, float size, AllowUserInstalledFonts allowUserInstalledFonts)
 {
     const auto& allowlist = fontAllowlist();
     if (!isSystemFont(family.string()) && allowlist.size() && !allowlist.contains(family))
         return { nullptr };
 
-    if (equalLettersIgnoringASCIICase(family, ".applesystemuifontserif")
-        || equalLettersIgnoringASCIICase(family, ".sf ns mono")
-        || equalLettersIgnoringASCIICase(family, ".sf ui mono")
-        || equalLettersIgnoringASCIICase(family, ".sf arabic")
-        || equalLettersIgnoringASCIICase(family, ".applesystemuifontrounded")) {
+    if (isDotPrefixedForbiddenFont(family)) {
         // If you want to use these fonts, use system-ui, ui-serif, ui-monospace, or ui-rounded.
         return { nullptr };
     }

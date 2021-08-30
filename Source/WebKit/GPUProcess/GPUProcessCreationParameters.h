@@ -52,11 +52,12 @@ struct GPUProcessCreationParameters {
     SandboxExtension::Handle containerTemporaryDirectoryExtensionHandle;
 #endif
 #if PLATFORM(IOS_FAMILY)
-    SandboxExtension::HandleArray compilerServiceExtensionHandles;
-    SandboxExtension::HandleArray dynamicIOKitExtensionHandles;
-    SandboxExtension::HandleArray dynamicMachExtensionHandles;
+    Vector<SandboxExtension::Handle> compilerServiceExtensionHandles;
+    Vector<SandboxExtension::Handle> dynamicIOKitExtensionHandles;
+    Vector<SandboxExtension::Handle> dynamicMachExtensionHandles;
 #endif
 
+    String wtfLoggingChannels;
     String webCoreLoggingChannels;
     String webKitLoggingChannels;
 

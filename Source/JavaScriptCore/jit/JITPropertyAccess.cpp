@@ -60,12 +60,12 @@ void JIT::emit_op_get_by_val(const Instruction* currentInstruction)
 
     if (metadata.m_seenIdentifiers.count() > Options::getByValICMaxNumberOfIdentifiers()) {
         auto notCell = branchIfNotCell(regT0);
-        emitArrayProfilingSiteWithCell(regT0, regT2, profile);
+        emitArrayProfilingSiteWithCell(regT0, profile, regT2);
         notCell.link(this);
         callOperationWithProfile(bytecode.metadata(m_codeBlock), operationGetByVal, dst, TrustedImmPtr(m_codeBlock->globalObject()), regT0, regT1);
     } else {
         emitJumpSlowCaseIfNotJSCell(regT0, base);
-        emitArrayProfilingSiteWithCell(regT0, regT2, profile);
+        emitArrayProfilingSiteWithCell(regT0, profile, regT2);
 
         JSValueRegs resultRegs = JSValueRegs(regT0);
 
@@ -462,12 +462,13 @@ void JIT::emit_op_put_by_val(const Instruction* currentInstruction)
         // See comment in op_get_by_val.
         zeroExtend32ToWord(regT1, regT1);
     }
-    emitArrayProfilingSiteWithCell(regT0, regT2, profile);
+    emitArrayProfilingSiteWithCell(regT0, profile, regT2);
 
     PatchableJump badType;
     JumpList slowCases;
 
     // FIXME: Maybe we should do this inline?
+    load8(Address(regT0, JSCell::indexingTypeAndMiscOffset()), regT2);
     addSlowCase(branchTest32(NonZero, regT2, TrustedImm32(CopyOnWrite)));
     and32(TrustedImm32(IndexingShapeMask), regT2);
 
@@ -1307,7 +1308,7 @@ void JIT::emit_op_get_by_id(const Instruction* currentInstruction)
     
     if (*ident == m_vm->propertyNames->length && shouldEmitProfiling()) {
         Jump notArrayLengthMode = branch8(NotEqual, AbsoluteAddress(&metadata.m_modeMetadata.mode), TrustedImm32(static_cast<uint8_t>(GetByIdMode::ArrayLength)));
-        emitArrayProfilingSiteWithCell(regT0, regT1, &metadata.m_modeMetadata.arrayLengthMode.arrayProfile);
+        emitArrayProfilingSiteWithCell(regT0, &metadata.m_modeMetadata.arrayLengthMode.arrayProfile, regT1);
         notArrayLengthMode.link(this);
     }
 
@@ -1713,7 +1714,7 @@ void JIT::emit_op_in_by_val(const Instruction* currentInstruction)
     emitGetVirtualRegister(base, regT0);
     emitJumpSlowCaseIfNotJSCell(regT0, base);
     emitGetVirtualRegister(property, regT1);
-    emitArrayProfilingSiteWithCell(regT0, regT2, profile);
+    emitArrayProfilingSiteWithCell(regT0, profile, regT2);
 
     JITInByValGenerator gen(
         m_codeBlock, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::InByVal, RegisterSet::stubUnavailableRegisters(),
@@ -3101,7 +3102,7 @@ void JIT::emit_op_enumerator_get_by_val(const Instruction* currentInstruction)
     emitGetVirtualRegister(index, regT1);
 
     isNotIndexed.link(this);
-    emitArrayProfilingSiteWithCell(regT0, regT2, profile);
+    emitArrayProfilingSiteWithCell(regT0, profile, regT2);
 
     JITGetByValGenerator gen(
         m_codeBlock, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::GetByVal, RegisterSet::stubUnavailableRegisters(),
@@ -3454,115 +3455,6 @@ void JIT::privateCompilePutByValWithCachedId(ByValInfo* byValInfo, ReturnAddress
 template void JIT::privateCompilePutByValWithCachedId<OpPutByVal>(ByValInfo*, ReturnAddressPtr, PutKind, CacheableIdentifier);
 template void JIT::privateCompilePutByValWithCachedId<OpPutByValDirect>(ByValInfo*, ReturnAddressPtr, PutKind, CacheableIdentifier);
 
-JIT::JumpList JIT::emitDoubleLoad(const Instruction*, PatchableJump& badType, ByValInfo* byValInfo)
-{
-#if USE(JSVALUE64)
-    RegisterID base = regT0;
-    RegisterID property = regT1;
-    RegisterID indexing = regT2;
-    RegisterID scratch = regT3;
-#else
-    RegisterID base = regT0;
-    RegisterID property = regT2;
-    RegisterID indexing = regT1;
-    RegisterID scratch = regT3;
-#endif
-
-    JumpList slowCases;
-
-    if (JITCode::useDataIC(JITType::BaselineJIT)) {
-        if (byValInfo) {
-            auto isCorrectType = branch32(Equal, indexing, TrustedImm32(DoubleShape));
-            farJump(AbsoluteAddress(&byValInfo->m_badTypeJumpTarget), JITStubRoutinePtrTag);
-            isCorrectType.link(this);
-        } else
-            badType = patchableBranch32(NotEqual, indexing, TrustedImm32(DoubleShape));
-    } else
-        badType = patchableBranch32(NotEqual, indexing, TrustedImm32(DoubleShape));
-
-    loadPtr(Address(base, JSObject::butterflyOffset()), scratch);
-    slowCases.append(branch32(AboveOrEqual, property, Address(scratch, Butterfly::offsetOfPublicLength())));
-    loadDouble(BaseIndex(scratch, property, TimesEight), fpRegT0);
-    slowCases.append(branchIfNaN(fpRegT0));
-
-    return slowCases;
-}
-
-JIT::JumpList JIT::emitContiguousLoad(const Instruction*, PatchableJump& badType, ByValInfo* byValInfo, IndexingType expectedShape)
-{
-#if USE(JSVALUE64)
-    RegisterID base = regT0;
-    RegisterID property = regT1;
-    RegisterID indexing = regT2;
-    JSValueRegs result = JSValueRegs(regT0);
-    RegisterID scratch = regT3;
-#else
-    RegisterID base = regT0;
-    RegisterID property = regT2;
-    RegisterID indexing = regT1;
-    JSValueRegs result = JSValueRegs(regT1, regT0);
-    RegisterID scratch = regT3;
-#endif
-
-    JumpList slowCases;
-
-    if (JITCode::useDataIC(JITType::BaselineJIT)) {
-        if (byValInfo) {
-            auto isCorrectType = branch32(Equal, indexing, TrustedImm32(expectedShape));
-            farJump(AbsoluteAddress(&byValInfo->m_badTypeJumpTarget), JITStubRoutinePtrTag);
-            isCorrectType.link(this);
-        } else
-            badType = patchableBranch32(NotEqual, indexing, TrustedImm32(expectedShape));
-    } else
-        badType = patchableBranch32(NotEqual, indexing, TrustedImm32(expectedShape));
-
-    loadPtr(Address(base, JSObject::butterflyOffset()), scratch);
-    slowCases.append(branch32(AboveOrEqual, property, Address(scratch, Butterfly::offsetOfPublicLength())));
-    loadValue(BaseIndex(scratch, property, TimesEight), result);
-    slowCases.append(branchIfEmpty(result));
-
-    return slowCases;
-}
-
-JIT::JumpList JIT::emitArrayStorageLoad(const Instruction*, PatchableJump& badType, ByValInfo* byValInfo)
-{
-#if USE(JSVALUE64)
-    RegisterID base = regT0;
-    RegisterID property = regT1;
-    RegisterID indexing = regT2;
-    JSValueRegs result = JSValueRegs(regT0);
-    RegisterID scratch = regT3;
-#else
-    RegisterID base = regT0;
-    RegisterID property = regT2;
-    RegisterID indexing = regT1;
-    JSValueRegs result = JSValueRegs(regT1, regT0);
-    RegisterID scratch = regT3;
-#endif
-
-    JumpList slowCases;
-
-    add32(TrustedImm32(-ArrayStorageShape), indexing, scratch);
-
-    if (JITCode::useDataIC(JITType::BaselineJIT)) {
-        if (byValInfo) {
-            auto isCorrectType = branch32(BelowOrEqual, scratch, TrustedImm32(SlowPutArrayStorageShape - ArrayStorageShape));
-            farJump(AbsoluteAddress(&byValInfo->m_badTypeJumpTarget), JITStubRoutinePtrTag);
-            isCorrectType.link(this);
-        } else
-            badType = patchableBranch32(Above, scratch, TrustedImm32(SlowPutArrayStorageShape - ArrayStorageShape));
-    } else
-        badType = patchableBranch32(Above, scratch, TrustedImm32(SlowPutArrayStorageShape - ArrayStorageShape));
-
-    loadPtr(Address(base, JSObject::butterflyOffset()), scratch);
-    slowCases.append(branch32(AboveOrEqual, property, Address(scratch, ArrayStorage::vectorLengthOffset())));
-
-    loadValue(BaseIndex(scratch, property, TimesEight, ArrayStorage::vectorOffset()), result);
-    slowCases.append(branchIfEmpty(result));
-
-    return slowCases;
-}
-
 template<typename Op>
 JIT::JumpList JIT::emitIntTypedArrayPutByVal(Op bytecode, PatchableJump& badType, ByValInfo* byValInfo, TypedArrayType type)
 {
@@ -3709,7 +3601,7 @@ JIT::JumpList JIT::emitFloatTypedArrayPutByVal(Op bytecode, PatchableJump& badTy
     Jump ready = jump();
     doubleCase.link(this);
     slowCases.append(branch32(Above, lateScratch, TrustedImm32(JSValue::LowestTag)));
-    moveIntsToDouble(earlyScratch, lateScratch, fpRegT0, fpRegT1);
+    moveIntsToDouble(earlyScratch, lateScratch, fpRegT0);
     ready.link(this);
 #endif
     

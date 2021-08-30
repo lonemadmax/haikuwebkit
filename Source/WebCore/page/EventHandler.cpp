@@ -1778,8 +1778,6 @@ bool EventHandler::handleMousePressEvent(const PlatformMouseEvent& platformMouse
     m_frame.selection().setCaretBlinkingSuspended(true);
 
     bool swallowEvent = !dispatchMouseEvent(eventNames().mousedownEvent, mouseEvent.targetNode(), m_clickCount, platformMouseEvent, FireMouseOverOut::Yes);
-    if (auto page = m_frame.page(); page && swallowEvent)
-        page->chrome().client().didHandleOrPreventMouseDownOrMouseUpEvent();
     m_capturesDragging = !swallowEvent || mouseEvent.scrollbar();
 
     // If the hit testing originally determined the event was in a scrollbar, refetch the MouseEventWithHitTestResults
@@ -1842,9 +1840,6 @@ bool EventHandler::handleMouseDoubleClickEvent(const PlatformMouseEvent& platfor
 
     m_clickCount = platformMouseEvent.clickCount();
     bool swallowMouseUpEvent = !dispatchMouseEvent(eventNames().mouseupEvent, mouseEvent.targetNode(), m_clickCount, platformMouseEvent, FireMouseOverOut::No);
-    if (auto page = m_frame.page(); page && swallowMouseUpEvent)
-        page->chrome().client().didHandleOrPreventMouseDownOrMouseUpEvent();
-
     bool swallowClickEvent = platformMouseEvent.button() != RightButton && mouseEvent.targetNode() == m_clickNode && !dispatchMouseEvent(eventNames().clickEvent, mouseEvent.targetNode(), m_clickCount, platformMouseEvent, FireMouseOverOut::Yes);
 
     if (m_lastScrollbarUnderMouse)
@@ -2148,9 +2143,6 @@ bool EventHandler::handleMouseReleaseEvent(const PlatformMouseEvent& platformMou
         return true;
 
     bool swallowMouseUpEvent = !dispatchMouseEvent(eventNames().mouseupEvent, mouseEvent.targetNode(), m_clickCount, platformMouseEvent, FireMouseOverOut::No);
-    if (auto page = m_frame.page(); page && swallowMouseUpEvent)
-        page->chrome().client().didHandleOrPreventMouseDownOrMouseUpEvent();
-
     bool contextMenuEvent = platformMouseEvent.button() == RightButton;
 
     auto nodeToClick = targetNodeForClickEvent(m_clickNode.get(), mouseEvent.targetNode());
@@ -3051,14 +3043,14 @@ bool EventHandler::handleWheelEventInAppropriateEnclosingBox(Node* startNode, co
 
     RenderBox* currentEnclosingBox = &initialEnclosingBox;
     while (currentEnclosingBox) {
-        if (auto* boxLayer = currentEnclosingBox->layer() ? currentEnclosingBox->layer()->scrollableArea() : nullptr) {
+        if (auto* boxScrollableArea = currentEnclosingBox->layer() ? currentEnclosingBox->layer()->scrollableArea() : nullptr) {
             auto platformEvent = wheelEvent.underlyingPlatformEvent();
             bool scrollingWasHandled;
             if (platformEvent) {
                 auto copiedEvent = platformEvent->copyWithDeltasAndVelocity(filteredPlatformDelta.width(), filteredPlatformDelta.height(), filteredVelocity);
-                scrollingWasHandled = handleWheelEventInScrollableArea(copiedEvent, *boxLayer, eventHandling);
+                scrollingWasHandled = scrollableAreaCanHandleEvent(copiedEvent, *boxScrollableArea) && handleWheelEventInScrollableArea(copiedEvent, *boxScrollableArea, eventHandling);
             } else
-                scrollingWasHandled = didScrollInScrollableArea(*boxLayer, wheelEvent);
+                scrollingWasHandled = didScrollInScrollableArea(*boxScrollableArea, wheelEvent);
 
             if (scrollingWasHandled)
                 return true;
@@ -3068,6 +3060,23 @@ bool EventHandler::handleWheelEventInAppropriateEnclosingBox(Node* startNode, co
         if (!currentEnclosingBox || currentEnclosingBox->isRenderView())
             return false;
     }
+    return false;
+}
+
+bool EventHandler::scrollableAreaCanHandleEvent(const PlatformWheelEvent& wheelEvent, ScrollableArea& scrollableArea)
+{
+#if PLATFORM(MAC)
+    auto biasedDelta = ScrollController::wheelDeltaBiasingTowardsVertical(wheelEvent);
+#else
+    auto biasedDelta = wheelEvent.delta();
+#endif
+
+    if (biasedDelta.height() && !scrollableArea.isPinnedForScrollDeltaOnAxis(-biasedDelta.height(), ScrollEventAxis::Vertical))
+        return true;
+
+    if (biasedDelta.width() && !scrollableArea.isPinnedForScrollDeltaOnAxis(-biasedDelta.width(), ScrollEventAxis::Horizontal))
+        return true;
+
     return false;
 }
 
@@ -3802,6 +3811,8 @@ void EventHandler::defaultKeyboardEventHandler(KeyboardEvent& event)
             defaultTabEventHandler(event);
         else if (event.keyIdentifier() == "U+0008")
             defaultBackspaceEventHandler(event);
+        else if (event.keyIdentifier() == "PageUp" || event.keyIdentifier() == "PageDown")
+            startKeyboardScrolling(event);
         else {
             FocusDirection direction = focusDirectionForKey(event.keyIdentifier());
             if (direction != FocusDirection::None)
@@ -4343,7 +4354,7 @@ void EventHandler::defaultTabEventHandler(KeyboardEvent& event)
         event.setDefaultHandled();
 }
 
-void EventHandler::sendScrollEvent()
+void EventHandler::scheduleScrollEvent()
 {
     Ref<Frame> protectedFrame(m_frame);
     setFrameWasScrolledByUser();

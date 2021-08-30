@@ -828,13 +828,13 @@ void NetworkConnectionToWebProcess::registerBlobURL(const URL& url, Vector<BlobP
     session->blobRegistry().registerBlobURL(url, WTFMove(blobParts), contentType);
 }
 
-void NetworkConnectionToWebProcess::registerBlobURLFromURL(const URL& url, const URL& srcURL)
+void NetworkConnectionToWebProcess::registerBlobURLFromURL(const URL& url, const URL& srcURL, PolicyContainer&& policyContainer)
 {
     auto* session = networkSession();
     if (!session)
         return;
 
-    session->blobRegistry().registerBlobURL(url, srcURL);
+    session->blobRegistry().registerBlobURL(url, srcURL, WTFMove(policyContainer));
 }
 
 void NetworkConnectionToWebProcess::registerBlobURLOptionallyFileBacked(const URL& url, const URL& srcURL, const String& fileBackedPath, const String& contentType)
@@ -845,7 +845,7 @@ void NetworkConnectionToWebProcess::registerBlobURLOptionallyFileBacked(const UR
     if (!session)
         return;
 
-    session->blobRegistry().registerBlobURLOptionallyFileBacked(url, srcURL, BlobDataFileReferenceWithSandboxExtension::create(fileBackedPath), contentType);
+    session->blobRegistry().registerBlobURLOptionallyFileBacked(url, srcURL, BlobDataFileReferenceWithSandboxExtension::create(fileBackedPath), contentType, { });
 }
 
 void NetworkConnectionToWebProcess::registerBlobURLForSlice(const URL& url, const URL& srcURL, int64_t start, int64_t end, const String& contentType)
@@ -864,6 +864,24 @@ void NetworkConnectionToWebProcess::unregisterBlobURL(const URL& url)
         return;
 
     session->blobRegistry().unregisterBlobURL(url);
+}
+
+void NetworkConnectionToWebProcess::registerBlobURLHandle(const URL& url)
+{
+    auto* session = networkSession();
+    if (!session)
+        return;
+
+    session->blobRegistry().registerBlobURLHandle(url);
+}
+
+void NetworkConnectionToWebProcess::unregisterBlobURLHandle(const URL& url)
+{
+    auto* session = networkSession();
+    if (!session)
+        return;
+
+    session->blobRegistry().unregisterBlobURLHandle(url);
 }
 
 void NetworkConnectionToWebProcess::blobSize(const URL& url, CompletionHandler<void(uint64_t)>&& completionHandler)

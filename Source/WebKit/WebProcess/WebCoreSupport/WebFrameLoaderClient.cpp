@@ -1044,7 +1044,7 @@ void WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const Navigat
 
 void WebFrameLoaderClient::cancelPolicyCheck()
 {
-    m_frame->invalidatePolicyListener();
+    m_frame->invalidatePolicyListeners();
 }
 
 void WebFrameLoaderClient::dispatchUnableToImplementPolicy(const ResourceError& error)

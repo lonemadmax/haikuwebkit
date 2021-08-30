@@ -456,8 +456,11 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
 
     setCacheModel(parameters.cacheModel);
 
-    if (!parameters.overrideLanguages.isEmpty())
+    if (!parameters.overrideLanguages.isEmpty()) {
+        LOG_WITH_STREAM(Language, stream << "Web Process initialization is setting overrideLanguages: " << parameters.overrideLanguages);
         overrideUserPreferredLanguages(parameters.overrideLanguages);
+    } else
+        LOG(Language, "Web process initialization is not setting overrideLanguages");
 
     m_textCheckerState = parameters.textCheckerState;
 
@@ -625,6 +628,8 @@ void WebProcess::setIsInProcessCache(bool isInProcessCache)
     }
 
     updateProcessName(IsInProcessInitialization::No);
+
+    IPC::AccessibilityProcessSuspendedNotification(isInProcessCache);
 #else
     UNUSED_PARAM(isInProcessCache);
 #endif
@@ -727,6 +732,7 @@ void WebProcess::setShouldUseFontSmoothing(bool useFontSmoothing)
 
 void WebProcess::userPreferredLanguagesChanged(const Vector<String>& languages) const
 {
+    LOG_WITH_STREAM(Language, stream << "The web process's userPreferredLanguagesChanged: " << languages);
     overrideUserPreferredLanguages(languages);
 }
 
@@ -918,7 +924,7 @@ WebPageGroupProxy* WebProcess::webPageGroup(PageGroup* pageGroup)
     return 0;
 }
 
-WebPageGroupProxy* WebProcess::webPageGroup(uint64_t pageGroupID)
+WebPageGroupProxy* WebProcess::webPageGroup(PageGroupIdentifier pageGroupID)
 {
     return m_pageGroupMap.get(pageGroupID);
 }
@@ -1075,8 +1081,10 @@ static NetworkProcessConnectionInfo getNetworkProcessConnection(IPC::Connection&
             // Connection to UIProcess has been severed, exit cleanly.
             exit(0);
         }
-        if (!connection.sendSync(Messages::WebProcessProxy::GetNetworkProcessConnection(), Messages::WebProcessProxy::GetNetworkProcessConnection::Reply(connectionInfo), 0))
+        if (!connection.sendSync(Messages::WebProcessProxy::GetNetworkProcessConnection(), Messages::WebProcessProxy::GetNetworkProcessConnection::Reply(connectionInfo), 0)) {
+            RELEASE_LOG_ERROR(Process, "getNetworkProcessConnection: Failed to send or receive message");
             return false;
+        }
         return IPC::Connection::identifierIsValid(connectionInfo.identifier());
     };
 
@@ -1514,7 +1522,7 @@ void WebProcess::prepareToSuspend(bool isSuspensionImminent, CompletionHandler<v
     SQLiteDatabase::setIsDatabaseOpeningForbidden(true);
     if (DatabaseTracker::isInitialized())
         DatabaseTracker::singleton().closeAllDatabases(CurrentQueryBehavior::Interrupt);
-    accessibilityProcessSuspendedNotification(true);
+    IPC::AccessibilityProcessSuspendedNotification(true);
     updateFreezerStatus();
 #endif
 
@@ -1576,7 +1584,7 @@ void WebProcess::processDidResume()
 #if PLATFORM(IOS_FAMILY)
     m_webSQLiteDatabaseTracker.setIsSuspended(false);
     SQLiteDatabase::setIsDatabaseOpeningForbidden(false);
-    accessibilityProcessSuspendedNotification(false);
+    IPC::AccessibilityProcessSuspendedNotification(false);
 #endif
 
 #if ENABLE(VIDEO)
@@ -1880,7 +1888,7 @@ LibWebRTCNetwork& WebProcess::libWebRTCNetwork()
 }
 
 #if ENABLE(SERVICE_WORKER)
-void WebProcess::establishWorkerContextConnectionToNetworkProcess(uint64_t pageGroupID, WebPageProxyIdentifier webPageProxyID, PageIdentifier pageID, const WebPreferencesStore& store, RegistrableDomain&& registrableDomain, ServiceWorkerInitializationData&& initializationData, CompletionHandler<void()>&& completionHandler)
+void WebProcess::establishWorkerContextConnectionToNetworkProcess(PageGroupIdentifier pageGroupID, WebPageProxyIdentifier webPageProxyID, PageIdentifier pageID, const WebPreferencesStore& store, RegistrableDomain&& registrableDomain, ServiceWorkerInitializationData&& initializationData, CompletionHandler<void()>&& completionHandler)
 {
     // We are in the Service Worker context process and the call below establishes our connection to the Network Process
     // by calling ensureNetworkProcessConnection. SWContextManager needs to use the same underlying IPC::Connection as the

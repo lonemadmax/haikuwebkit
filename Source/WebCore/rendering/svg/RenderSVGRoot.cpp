@@ -370,13 +370,9 @@ LayoutRect RenderSVGRoot::clippedOverflowRect(const RenderLayerModelObject* repa
 
 std::optional<FloatRect> RenderSVGRoot::computeFloatVisibleRectInContainer(const FloatRect& rect, const RenderLayerModelObject* container, VisibleRectContext context) const
 {
-    // Apply our local transforms (except for x/y translation), then our shadow, 
-    // and then call RenderBox's method to handle all the normal CSS Box model bits
+    // Apply our local transforms (except for x/y translation) and then call
+    // RenderBox's method to handle all the normal CSS Box model bits
     FloatRect adjustedRect = m_localToBorderBoxTransform.mapRect(rect);
-
-    const SVGRenderStyle& svgStyle = style().svgStyle();
-    if (const ShadowData* shadow = svgStyle.shadow())
-        shadow->adjustRectForShadow(adjustedRect);
 
     // Apply initial viewport clip
     if (shouldApplyViewportClip()) {
@@ -402,10 +398,10 @@ std::optional<FloatRect> RenderSVGRoot::computeFloatVisibleRectInContainer(const
 // This method expects local CSS box coordinates.
 // Callers with local SVG viewport coordinates should first apply the localToBorderBoxTransform
 // to convert from SVG viewport coordinates to local CSS box coordinates.
-void RenderSVGRoot::mapLocalToContainer(const RenderLayerModelObject* ancestorContainer, TransformState& transformState, MapCoordinatesFlags mode, bool* wasFixed) const
+void RenderSVGRoot::mapLocalToContainer(const RenderLayerModelObject* ancestorContainer, TransformState& transformState, OptionSet<MapCoordinatesMode> mode, bool* wasFixed) const
 {
-    ASSERT(mode & ~IsFixed); // We should have no fixed content in the SVG rendering tree.
-    ASSERT(mode & UseTransforms); // mapping a point through SVG w/o respecting trasnforms is useless.
+    ASSERT(!mode.contains(IsFixed)); // We should have no fixed content in the SVG rendering tree.
+    ASSERT(mode.contains(UseTransforms)); // mapping a point through SVG w/o respecting transforms is useless.
 
     RenderReplaced::mapLocalToContainer(ancestorContainer, transformState, mode | ApplyContainerFlip, wasFixed);
 }
@@ -417,11 +413,9 @@ const RenderObject* RenderSVGRoot::pushMappingToContainer(const RenderLayerModel
 
 void RenderSVGRoot::updateCachedBoundaries()
 {
-    SVGRenderSupport::computeContainerBoundingBoxes(*this, m_objectBoundingBox, m_objectBoundingBoxValid, m_strokeBoundingBox, m_repaintBoundingBoxExcludingShadow);
-    SVGRenderSupport::intersectRepaintRectWithResources(*this, m_repaintBoundingBoxExcludingShadow);
-    m_repaintBoundingBoxExcludingShadow.inflate(horizontalBorderAndPaddingExtent());
-
-    m_repaintBoundingBox = m_repaintBoundingBoxExcludingShadow;
+    SVGRenderSupport::computeContainerBoundingBoxes(*this, m_objectBoundingBox, m_objectBoundingBoxValid, m_strokeBoundingBox, m_repaintBoundingBox);
+    SVGRenderSupport::intersectRepaintRectWithResources(*this, m_repaintBoundingBox);
+    m_repaintBoundingBox.inflate(horizontalBorderAndPaddingExtent());
 }
 
 bool RenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction hitTestAction)

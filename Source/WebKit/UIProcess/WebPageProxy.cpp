@@ -1169,8 +1169,6 @@ void WebPageProxy::close()
 
     m_process->disconnectFramesFromPage(this);
 
-    resetState(ResetStateReason::PageInvalidated);
-
     m_loaderClient = nullptr;
     m_navigationClient = makeUniqueRef<API::NavigationClient>();
     m_policyClient = nullptr;
@@ -1186,6 +1184,8 @@ void WebPageProxy::close()
 #if ENABLE(FULLSCREEN_API)
     m_fullscreenClient = makeUnique<API::FullscreenClient>();
 #endif
+
+    resetState(ResetStateReason::PageInvalidated);
 
     m_process->processPool().backForwardCache().removeEntriesForPage(*this);
 
@@ -1265,11 +1265,19 @@ void WebPageProxy::maybeInitializeSandboxExtensionHandle(WebProcessProxy& proces
         bool createdExtension = false;
 #if HAVE(AUDIT_TOKEN)
         ASSERT(process.connection() && process.connection()->getAuditToken());
-        if (process.connection() && process.connection()->getAuditToken())
-            createdExtension = SandboxExtension::createHandleForReadByAuditToken(resourceDirectoryURL.fileSystemPath(), *(process.connection()->getAuditToken()), sandboxExtensionHandle);
-        else
+        if (process.connection() && process.connection()->getAuditToken()) {
+            if (auto handle = SandboxExtension::createHandleForReadByAuditToken(resourceDirectoryURL.fileSystemPath(), *(process.connection()->getAuditToken()))) {
+                sandboxExtensionHandle = WTFMove(*handle);
+                createdExtension = true;
+            }
+        } else
 #endif
-            createdExtension = SandboxExtension::createHandle(resourceDirectoryURL.fileSystemPath(), SandboxExtension::Type::ReadOnly, sandboxExtensionHandle);
+        {
+            if (auto handle = SandboxExtension::createHandle(resourceDirectoryURL.fileSystemPath(), SandboxExtension::Type::ReadOnly)) {
+                sandboxExtensionHandle = WTFMove(*handle);
+                createdExtension = true;
+            }
+        }
 
         if (createdExtension) {
             process.assumeReadAccessToBaseURL(*this, resourceDirectoryURL.string());
@@ -1286,11 +1294,19 @@ void WebPageProxy::maybeInitializeSandboxExtensionHandle(WebProcessProxy& proces
     bool createdExtension = false;
 #if HAVE(AUDIT_TOKEN)
     ASSERT(process.connection() && process.connection()->getAuditToken());
-    if (process.connection() && process.connection()->getAuditToken())
-        createdExtension = SandboxExtension::createHandleForReadByAuditToken("/", *(process.connection()->getAuditToken()), sandboxExtensionHandle);
-    else
+    if (process.connection() && process.connection()->getAuditToken()) {
+        if (auto handle = SandboxExtension::createHandleForReadByAuditToken("/", *(process.connection()->getAuditToken()))) {
+            createdExtension = true;
+            sandboxExtensionHandle = WTFMove(*handle);
+        }
+    } else
 #endif
-        createdExtension = SandboxExtension::createHandle("/", SandboxExtension::Type::ReadOnly, sandboxExtensionHandle);
+    {
+        if (auto handle = SandboxExtension::createHandle("/", SandboxExtension::Type::ReadOnly)) {
+            createdExtension = true;
+            sandboxExtensionHandle = WTFMove(*handle);
+        }
+    }
 
     if (createdExtension) {
         willAcquireUniversalFileReadSandboxExtension(process);
@@ -1308,11 +1324,19 @@ void WebPageProxy::maybeInitializeSandboxExtensionHandle(WebProcessProxy& proces
     if (basePath.isNull())
         return;
 #if HAVE(AUDIT_TOKEN)
-    if (process.connection() && process.connection()->getAuditToken())
-        createdExtension = SandboxExtension::createHandleForReadByAuditToken(basePath, *(process.connection()->getAuditToken()), sandboxExtensionHandle);
-    else
+    if (process.connection() && process.connection()->getAuditToken()) {
+        if (auto handle = SandboxExtension::createHandleForReadByAuditToken(basePath, *(process.connection()->getAuditToken()))) {
+            sandboxExtensionHandle = WTFMove(*handle);
+            createdExtension = true;
+        }
+    } else
 #endif
-        createdExtension = SandboxExtension::createHandle(basePath, SandboxExtension::Type::ReadOnly, sandboxExtensionHandle);
+    {
+        if (auto handle = SandboxExtension::createHandle(basePath, SandboxExtension::Type::ReadOnly)) {
+            sandboxExtensionHandle = WTFMove(*handle);
+            createdExtension = true;
+        }
+    }
 
     if (createdExtension)
         process.assumeReadAccessToBaseURL(*this, baseURL.string());
@@ -1403,6 +1427,13 @@ RefPtr<API::Navigation> WebPageProxy::loadFile(const String& fileURLString, cons
         WEBPAGEPROXY_RELEASE_LOG(Loading, "loadFile: page is closed");
         return nullptr;
     }
+
+#if PLATFORM(MAC)
+    if (isQuarantinedAndNotUserApproved(fileURLString)) {
+        WEBPAGEPROXY_RELEASE_LOG(Loading, "loadFile: file cannot be opened because it is from an unidentified developer.");
+        return nullptr;
+    }
+#endif
 
     if (!hasRunningProcess())
         launchProcess({ }, ProcessLaunchReason::InitialProcess);
@@ -2617,12 +2648,12 @@ void WebPageProxy::dragExited(DragData& dragData, const String& dragStorageName)
     performDragControllerAction(DragControllerAction::Exited, dragData, dragStorageName, { }, { });
 }
 
-void WebPageProxy::performDragOperation(DragData& dragData, const String& dragStorageName, SandboxExtension::Handle&& sandboxExtensionHandle, SandboxExtension::HandleArray&& sandboxExtensionsForUpload)
+void WebPageProxy::performDragOperation(DragData& dragData, const String& dragStorageName, SandboxExtension::Handle&& sandboxExtensionHandle, Vector<SandboxExtension::Handle>&& sandboxExtensionsForUpload)
 {
     performDragControllerAction(DragControllerAction::PerformDragOperation, dragData, dragStorageName, WTFMove(sandboxExtensionHandle), WTFMove(sandboxExtensionsForUpload));
 }
 
-void WebPageProxy::performDragControllerAction(DragControllerAction action, DragData& dragData, const String& dragStorageName, SandboxExtension::Handle&& sandboxExtensionHandle, SandboxExtension::HandleArray&& sandboxExtensionsForUpload)
+void WebPageProxy::performDragControllerAction(DragControllerAction action, DragData& dragData, const String& dragStorageName, SandboxExtension::Handle&& sandboxExtensionHandle, Vector<SandboxExtension::Handle>&& sandboxExtensionsForUpload)
 {
     if (!hasRunningProcess())
         return;
@@ -2789,7 +2820,7 @@ void WebPageProxy::processNextQueuedMouseEvent()
         m_process->startResponsivenessTimer();
     }
 
-    std::optional<SandboxExtension::HandleArray> sandboxExtensions;
+    std::optional<Vector<SandboxExtension::Handle>> sandboxExtensions;
 
 #if PLATFORM(MAC)
     bool eventMayStartDrag = !m_currentDragOperation && eventType == WebEvent::MouseMove && event.button() != WebMouseEvent::Button::NoButton;
@@ -7001,9 +7032,11 @@ void WebPageProxy::didChooseFilesForOpenPanelWithDisplayStringAndIcon(const Vect
 
     SandboxExtension::Handle frontboardServicesSandboxExtension, iconServicesSandboxExtension;
 #if HAVE(FRONTBOARD_SYSTEM_APP_SERVICES)
-    SandboxExtension::createHandleForMachLookup("com.apple.frontboard.systemappservices"_s, std::nullopt, frontboardServicesSandboxExtension);
+    if (auto handle = SandboxExtension::createHandleForMachLookup("com.apple.frontboard.systemappservices"_s, std::nullopt))
+        frontboardServicesSandboxExtension = WTFMove(*handle);
 #endif
-    SandboxExtension::createHandleForMachLookup("com.apple.iconservices"_s, std::nullopt, iconServicesSandboxExtension);
+    if (auto handle = SandboxExtension::createHandleForMachLookup("com.apple.iconservices"_s, std::nullopt))
+        iconServicesSandboxExtension = WTFMove(*handle);
 
     send(Messages::WebPage::DidChooseFilesForOpenPanelWithDisplayStringAndIcon(fileURLs, displayString, iconData ? iconData->dataReference() : IPC::DataReference(), frontboardServicesSandboxExtension, iconServicesSandboxExtension));
 
@@ -7192,17 +7225,17 @@ void WebPageProxy::ignoreWord(const String& word)
     TextChecker::ignoreWord(spellDocumentTag(), word);
 }
 
-void WebPageProxy::requestCheckingOfString(uint64_t requestID, const TextCheckingRequestData& request, int32_t insertionPoint)
+void WebPageProxy::requestCheckingOfString(TextCheckerRequestID requestID, const TextCheckingRequestData& request, int32_t insertionPoint)
 {
     TextChecker::requestCheckingOfString(TextCheckerCompletion::create(requestID, request, this), insertionPoint);
 }
 
-void WebPageProxy::didFinishCheckingText(uint64_t requestID, const Vector<WebCore::TextCheckingResult>& result)
+void WebPageProxy::didFinishCheckingText(TextCheckerRequestID requestID, const Vector<WebCore::TextCheckingResult>& result)
 {
     send(Messages::WebPage::DidFinishCheckingText(requestID, result));
 }
 
-void WebPageProxy::didCancelCheckingText(uint64_t requestID)
+void WebPageProxy::didCancelCheckingText(TextCheckerRequestID requestID)
 {
     send(Messages::WebPage::DidCancelCheckingText(requestID));
 }
@@ -8473,7 +8506,7 @@ void WebPageProxy::willStartCapture(const UserMediaPermissionRequestProxy& reque
 
 #endif
 
-void WebPageProxy::requestUserMediaPermissionForFrame(uint64_t userMediaID, FrameIdentifier frameID, const WebCore::SecurityOriginData&  userMediaDocumentOriginData, const WebCore::SecurityOriginData& topLevelDocumentOriginData, WebCore::MediaStreamRequest&& request)
+void WebPageProxy::requestUserMediaPermissionForFrame(UserMediaRequestIdentifier userMediaID, FrameIdentifier frameID, const WebCore::SecurityOriginData& userMediaDocumentOriginData, const WebCore::SecurityOriginData& topLevelDocumentOriginData, WebCore::MediaStreamRequest&& request)
 {
 #if ENABLE(MEDIA_STREAM)
     MESSAGE_CHECK(m_process, m_process->webFrame(frameID));
@@ -8526,7 +8559,7 @@ void WebPageProxy::clearUserMediaState()
 #endif
 }
 
-void WebPageProxy::requestMediaKeySystemPermissionForFrame(uint64_t mediaKeySystemID, FrameIdentifier frameID, const WebCore::SecurityOriginData& topLevelDocumentOriginData, const String& keySystem)
+void WebPageProxy::requestMediaKeySystemPermissionForFrame(MediaKeySystemRequestIdentifier mediaKeySystemID, FrameIdentifier frameID, const WebCore::SecurityOriginData& topLevelDocumentOriginData, const String& keySystem)
 {
 #if ENABLE(ENCRYPTED_MEDIA)
     MESSAGE_CHECK(m_process, m_process->webFrame(frameID));
@@ -8629,28 +8662,28 @@ void WebPageProxy::didDestroyNotification(uint64_t notificationID)
     m_process->processPool().supplement<WebNotificationManagerProxy>()->didDestroyNotification(this, notificationID);
 }
 
-float WebPageProxy::headerHeight(WebFrameProxy& frame)
+float WebPageProxy::headerHeightForPrinting(WebFrameProxy& frame)
 {
     if (frame.isDisplayingPDFDocument())
         return 0;
     return m_uiClient->headerHeight(*this, frame);
 }
 
-float WebPageProxy::footerHeight(WebFrameProxy& frame)
+float WebPageProxy::footerHeightForPrinting(WebFrameProxy& frame)
 {
     if (frame.isDisplayingPDFDocument())
         return 0;
     return m_uiClient->footerHeight(*this, frame);
 }
 
-void WebPageProxy::drawHeader(WebFrameProxy& frame, FloatRect&& rect)
+void WebPageProxy::drawHeaderForPrinting(WebFrameProxy& frame, FloatRect&& rect)
 {
     if (frame.isDisplayingPDFDocument())
         return;
     m_uiClient->drawHeader(*this, frame, WTFMove(rect));
 }
 
-void WebPageProxy::drawFooter(WebFrameProxy& frame, FloatRect&& rect)
+void WebPageProxy::drawFooterForPrinting(WebFrameProxy& frame, FloatRect&& rect)
 {
     if (frame.isDisplayingPDFDocument())
         return;
@@ -10324,13 +10357,13 @@ void WebPageProxy::simulateDeviceOrientationChange(double alpha, double beta, do
 
 #if ENABLE(DATA_DETECTION)
 
-void WebPageProxy::detectDataInAllFrames(WebCore::DataDetectorType types, CompletionHandler<void(const DataDetectionResult&)>&& completionHandler)
+void WebPageProxy::detectDataInAllFrames(OptionSet<WebCore::DataDetectorType> types, CompletionHandler<void(const DataDetectionResult&)>&& completionHandler)
 {
     if (!hasRunningProcess()) {
         completionHandler({ });
         return;
     }
-    sendWithAsyncReply(Messages::WebPage::DetectDataInAllFrames(static_cast<uint64_t>(types)), WTFMove(completionHandler));
+    sendWithAsyncReply(Messages::WebPage::DetectDataInAllFrames(types), WTFMove(completionHandler));
 }
 
 void WebPageProxy::removeDataDetectedLinks(CompletionHandler<void(const DataDetectionResult&)>&& completionHandler)
@@ -10758,9 +10791,9 @@ void WebPageProxy::modelElementPreviewDidObtainContextId(const WebCore::ElementC
 #endif
 
 #if !PLATFORM(COCOA)
-SandboxExtension::HandleArray WebPageProxy::createNetworkExtensionsSandboxExtensions(WebProcessProxy& process)
+Vector<SandboxExtension::Handle> WebPageProxy::createNetworkExtensionsSandboxExtensions(WebProcessProxy& process)
 {
-    return SandboxExtension::HandleArray();
+    return { };
 }
 #endif
 

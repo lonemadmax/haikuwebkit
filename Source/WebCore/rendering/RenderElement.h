@@ -28,6 +28,7 @@
 
 namespace WebCore {
 
+class ContentData;
 class ControlStates;
 class KeyframeList;
 class RenderBlock;
@@ -38,6 +39,8 @@ class RenderElement : public RenderObject {
     WTF_MAKE_ISO_ALLOCATED(RenderElement);
 public:
     virtual ~RenderElement();
+
+    static bool isContentDataSupported(const ContentData&);
 
     enum class ConstructBlockLevelRendererFor {
         Inline           = 1 << 0,
@@ -221,7 +224,6 @@ public:
     bool hasCounterNodeMap() const { return m_hasCounterNodeMap; }
     void setHasCounterNodeMap(bool f) { m_hasCounterNodeMap = f; }
 
-    const RenderElement* enclosingRendererWithTextDecoration(OptionSet<TextDecoration>, bool firstLine) const;
     void drawLineForBoxSide(GraphicsContext&, const FloatRect&, BoxSide, Color, BorderStyle, float adjacentWidth1, float adjacentWidth2, bool antialias = false) const;
 
 #if ENABLE(TEXT_AUTOSIZING)
@@ -256,6 +258,9 @@ public:
 
     virtual void suspendAnimations(MonotonicTime = MonotonicTime()) { }
     std::unique_ptr<RenderStyle> animatedStyle();
+
+    WeakPtr<RenderBlockFlow> backdropRenderer() const;
+    void setBackdropRenderer(RenderBlockFlow&);
 
 protected:
     enum BaseTypeFlag {

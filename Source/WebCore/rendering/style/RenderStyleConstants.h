@@ -95,6 +95,7 @@ enum class PseudoId : uint16_t {
     Before,
     After,
     Selection,
+    Backdrop,
     Scrollbar,
 
     // Internal:
@@ -551,7 +552,8 @@ enum class WordBreak : uint8_t {
 
 enum class OverflowWrap : uint8_t {
     Normal,
-    Break
+    BreakWord,
+    Anywhere
 };
 
 enum class NBSPMode : uint8_t {
@@ -1106,8 +1108,13 @@ enum class AutoRepeatType : uint8_t {
     Fit
 };
 
+#if USE(FREETYPE)
+// Maximum allowed font size in Freetype2 is 65535 because x_ppem and y_ppem fields in FreeType structs are of type 'unsigned short'.
+static const float maximumAllowedFontSize = std::numeric_limits<unsigned short>::max();
+#else
 // Reasonable maximum to prevent insane font sizes from causing crashes on some platforms (such as Windows).
 static const float maximumAllowedFontSize = 1000000.0f;
+#endif
 
 enum class TextIndentLine : uint8_t {
     FirstLine,

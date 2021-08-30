@@ -280,7 +280,7 @@ public:
 
     void focusDocumentView();
     
-    WEBCORE_EXPORT void sendScrollEvent();
+    WEBCORE_EXPORT void scheduleScrollEvent();
 
 #if PLATFORM(MAC)
     WEBCORE_EXPORT void mouseDown(NSEvent *, NSEvent *correspondingPressureEvent);
@@ -354,6 +354,8 @@ public:
 #endif
 
     WEBCORE_EXPORT void invalidateClick();
+
+    static bool scrollableAreaCanHandleEvent(const PlatformWheelEvent&, ScrollableArea&);
 
 private:
 #if ENABLE(DRAG_SUPPORT)

@@ -1295,6 +1295,9 @@ http/tests/incremental/slow-utf8-text.pl [ Skip ]
 # Changing system language is not supported in DumpRenderTree.
 fast/text/international/system-language [ Skip ]
 
+# DumpRenderTree doesn't support toggling caps lock key state. WK1 reads caps lock key state directly from the OS.
+fast/forms/caps-lock-indicator-width.html [ Skip ]
+
 # Imported Blink tests.
 imported/blink/compositing/layer-creation/iframe-clip-removed.html [ ImageOnlyFailure ]
 imported/blink/compositing/repaint/end-of-opacity-transition.html [ ImageOnlyFailure Pass ]
@@ -1410,7 +1413,6 @@ fast/events/media-focus-in-standalone-media-document.html [ Crash Pass ]
 fast/forms/implicit-submission.html [ Crash Failure ]
 fast/parser/strip-script-attrs-on-input.html [ Timeout Crash Pass ]
 fast/replaced/replaced-child-of-absolute-with-auto-height.html [ Crash Pass ]
-fast/scrolling/ios/overflow-div-scrolling.html [ Crash Failure ]
 http/tests/loading/multiple-prioritization.html [ Crash Pass ]
 http/tests/navigation/page-cache-iframe-provisional-load.html [ Crash Pass Failure ]
 imported/blink/editing/execCommand/4128080-2.html [ Crash Failure ]
@@ -1950,3 +1952,5 @@ http/tests/is-logged-in/ [ Skip ]
 imported/w3c/web-platform-tests/fetch/stale-while-revalidate [ Skip ]
 
 webkit.org/b/223193 imported/w3c/web-platform-tests/html/canvas/element/path-objects/2d.path.stroke.scale2.html [ Failure ]
+
+webkit.org/b/229247 http/tests/fetch/keepalive-fetch-2.html [ Pass Failure ]

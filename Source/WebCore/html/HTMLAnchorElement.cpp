@@ -171,7 +171,7 @@ static void appendServerMapMousePosition(StringBuilder& url, Event& event)
     if (!is<RenderImage>(renderer))
         return;
 
-    // FIXME: This should probably pass UseTransforms in the MapCoordinatesFlags.
+    // FIXME: This should probably pass UseTransforms in the OptionSet<MapCoordinatesMode>.
     auto absolutePosition = downcast<RenderImage>(*renderer).absoluteToLocal(FloatPoint(mouseEvent.pageX(), mouseEvent.pageY()));
     url.append('?', std::lround(absolutePosition.x()), ',', std::lround(absolutePosition.y()));
 }
@@ -449,7 +449,7 @@ std::optional<PrivateClickMeasurement> HTMLAnchorElement::parsePrivateClickMeasu
         return std::nullopt;
     }
 
-    auto privateClickMeasurement = PrivateClickMeasurement { SourceID(attributionSourceID.value()), SourceSite(documentRegistrableDomain), AttributionDestinationSite(destinationURL) };
+    auto privateClickMeasurement = PrivateClickMeasurement { SourceID(attributionSourceID.value()), SourceSite(WTFMove(documentRegistrableDomain)), AttributionDestinationSite(destinationURL) };
 
     auto attributionSourceNonceAttr = attributeWithoutSynchronization(attributionsourcenonceAttr);
     if (!attributionSourceNonceAttr.isEmpty()) {
@@ -517,10 +517,8 @@ void HTMLAnchorElement::handleClick(Event& event)
     auto referrerPolicy = hasRel(Relation::NoReferrer) ? ReferrerPolicy::NoReferrer : this->referrerPolicy();
 
     auto effectiveTarget = this->effectiveTarget();
-    std::optional<NewFrameOpenerPolicy> newFrameOpenerPolicy;
-    if (hasRel(Relation::Opener))
-        newFrameOpenerPolicy = NewFrameOpenerPolicy::Allow;
-    else if (hasRel(Relation::NoOpener) || (document().settings().blankAnchorTargetImpliesNoOpenerEnabled() && equalIgnoringASCIICase(effectiveTarget, "_blank")))
+    NewFrameOpenerPolicy newFrameOpenerPolicy = NewFrameOpenerPolicy::Allow;
+    if (hasRel(Relation::NoOpener) || hasRel(Relation::NoReferrer) || (!hasRel(Relation::Opener) && document().settings().blankAnchorTargetImpliesNoOpenerEnabled() && equalIgnoringASCIICase(effectiveTarget, "_blank")))
         newFrameOpenerPolicy = NewFrameOpenerPolicy::Suppress;
 
     auto privateClickMeasurement = parsePrivateClickMeasurement();

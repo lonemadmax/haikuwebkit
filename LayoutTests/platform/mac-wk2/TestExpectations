@@ -88,6 +88,8 @@ http/tests/security/contentSecurityPolicy/manifest-src-allowed.html [ Pass ]
 http/tests/security/contentSecurityPolicy/manifest-src-blocked.html [ Pass ]
 applicationmanifest/ [ Pass ]
 
+webkit.org/b/223750 [ BigSur+ Debug arm64 ] security/contentSecurityPolicy/plugins-types-blocks-quicktime-plugin-replacement-without-mime-type.html [ Pass Crash ]
+
 webkit.org/b/187183 http/tests/security/pasteboard-file-url.html [ Pass ]
 
 fast/canvas/webgl/context-update-on-display-configuration.html [ Pass ]
@@ -305,7 +307,7 @@ webkit.org/b/96438 fast/spatial-navigation
 [ Monterey+ ] http/wpt/mediarecorder/mute-tracks.html [ Pass Failure Timeout ]
 [ Monterey+ ] http/wpt/mediarecorder/pause-recording.html [ Pass Crash Timeout ]
 http/wpt/mediarecorder/set-srcObject-MediaStream-Blob.html [ Pass Failure Timeout ]
-[ Monterey+ ] http/wpt/mediarecorder/video-rotation.html [ Pass Failure Timeout ]
+[ BigSur+ ] http/wpt/mediarecorder/video-rotation.html [ Pass Failure Timeout ]
 
 # rdar://76909385
 [ Monterey+ ] http/tests/websocket/tests/hybi/interleaved-fragments.html [ Pass Failure Timeout ]
@@ -814,6 +816,9 @@ webkit.org/b/173861 [ Release ] http/tests/webrtc/filtering-ice-candidate-cross-
 
 webkit.org/b/172148 tiled-drawing/scrolling/scroll-snap/scroll-snap-mandatory-mainframe-vertical.html [ Pass Failure ]
 
+webkit.org/b/228930 [ BigSur+ arm64 ] tiled-drawing/scrolling/scroll-snap/scroll-snap-momentum-in-non-snapping-axis.html [ Pass Failure ]
+webkit.org/b/228930 [ Catalina Debug ] tiled-drawing/scrolling/scroll-snap/scroll-snap-momentum-in-non-snapping-axis.html [ Pass Failure ]
+
 webkit.org/b/173779 [ Debug ] fast/scrolling/arrow-key-scroll-in-rtl-document.html [ Pass Failure ]
 
 webkit.org/b/173500 http/tests/loading/basic-auth-remove-credentials.html [ Pass Failure ]
@@ -999,7 +1004,7 @@ webkit.org/b/207141 [ Debug ] inspector/canvas/create-context-bitmaprenderer.htm
 
 webkit.org/b/207166 http/wpt/mediarecorder/MediaRecorder-AV-audio-video-dataavailable-gpuprocess.html [ Pass Failure ]
 
-webkit.org/b/206718 inspector/canvas/shaderProgram-add-remove-webgl2.html [ Pass Crash ]
+webkit.org/b/228934 inspector/canvas/shaderProgram-add-remove-webgl2.html [ Pass Crash Timeout Failure ]
 
 webkit.org/b/207209 inspector/heap/getPreview.html [ Pass Failure Timeout ]
 
@@ -1096,11 +1101,15 @@ webkit.org/b/213621 imported/w3c/web-platform-tests/webrtc/RTCRtpReceiver-getCon
 
 webkit.org/b/213652 webrtc/video-autoplay1.html [ Pass Failure ]
 
+webkit.org/b/229076 [ BigSur Debug ] webrtc/video-interruption.html [ Pass Crash ]
+
 webkit.org/b/214084 webrtc/libwebrtc/descriptionGetters.html [ Pass Failure ]
 
 webkit.org/b/214286 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-connectionState.https.html [ Pass Failure ]
 
 webkit.org/b/213804 fast/scrolling/mac/scroll-snapping-in-progress.html [ Pass Failure ]
+
+webkit.org/b/229206 [ Debug ] http/wpt/webrtc/sframe-transform-error.html [ Pass Failure ]
 
 webkit.org/b/214478 [ Debug ] http/wpt/webrtc/generateCertificate.html [ Skip ]
 webkit.org/b/214478 [ Debug ] imported/w3c/web-platform-tests/webrtc/RTCCertificate-postMessage.html [ Skip ]
@@ -1323,7 +1332,6 @@ webkit.org/b/219516 http/wpt/service-workers/service-worker-spinning-install.htt
 webanimations/rotate-property-and-rotate-animation-with-delay-on-forced-layer.html [ Pass ]
 webanimations/scale-property-and-scale-animation-with-delay-on-forced-layer.html [ Pass ]
 webanimations/transform-property-and-transform-animation-with-delay-on-forced-layer.html [ Pass ]
-webanimations/translate-property-and-translate-animation-with-delay-on-forced-layer.html [ Pass ]
 
 webkit.org/b/221847 platform/mac/media/encrypted-media/fps-encrypted-event.html [ Pass Timeout ]
 
@@ -1452,7 +1460,8 @@ webkit.org/b/225664 editing/selection/move-by-character-brute-force.html [ Slow 
 
 webkit.org/b/225669 imported/w3c/web-platform-tests/css/css-transitions/transition-base-response-002.html [ Pass Failure ]
 
-webkit.org/b/225667 http/tests/webAPIStatistics/screen-functions-accessed-data-collection.html [ Slow ]
+# rdar://82047046 ([ Mac wk2 ] http/tests/webAPIStatistics/screen-functions-accessed-data-collection.html is a flaky timeout)
+http/tests/webAPIStatistics/screen-functions-accessed-data-collection.html [ Pass Timeout ]
 
 webkit.org/b/225668 http/tests/xmlhttprequest/redirect-cross-origin-tripmine.html [ Slow ]
 
@@ -1480,7 +1489,7 @@ webkit.org/b/226054 [ BigSur Release ] imported/w3c/web-platform-tests/webrtc/RT
 [ Monterey ] webrtc/h264-high.html [ Timeout ]
 
 # rdar://80346382 ([ Monterey Release wk2 arm64 ] platform/mac/fast/overflow/overflow-scrollbar-hit-test.html is a flaky crash)
-[ Monterey arm64 ] platform/mac/fast/overflow/overflow-scrollbar-hit-test.html [ Failure ]
+[ Monterey arm64 ] platform/mac/fast/overflow/overflow-scrollbar-hit-test.html [ Failure Crash ]
 
 # rdar://80333935 (REGRESSION: [ Monterey wk2 arm64 ] fast/animation/request-animation-frame-throttling-detached-iframe.html and request-animation-frame-throttling-lowPowerMode.html failing)
 [ Monterey arm64 ] fast/animation/request-animation-frame-throttling-detached-iframe.html [ Failure ]
@@ -1522,19 +1531,69 @@ webkit.org/b/228252 [ BigSur Release arm64 ] fast/css-grid-layout/floating-empty
 
 webkit.org/b/228256 [ Debug ] inspector/canvas/create-context-webgl.html [ Pass Failure ]
 
+webkit.org/b/229043 inspector/canvas/recording-webgl-snapshots.html [ Pass Failure ]
+webkit.org/b/229043 inspector/canvas/recording-bitmaprenderer-frameCount.html [ Pass Failure ]
+webkit.org/b/229043 inspector/canvas/recording-2d-full.html [ Pass Crash ]
+webkit.org/b/229237 inspector/canvas/recording-2d-memoryLimit.html [ Pass Crash ]
+
 webkit.org/b/228210 [ Debug ] inspector/model/remote-object/iterator-large.html [ Pass Timeout ]
 
 webkit.org/b/228337 [ BigSur Release Debug arm64 ] fast/selectors/selection-window-inactive-stroke-color.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/228528 [ BigSur Debug arm64 ] fast/text/emoji-overlap.html [ Pass ImageOnlyFailure ]
 
+# rdar://81988829 ([ Monterey wk2 Guard-Malloc arm64 ] fast/text/canvas-color-fonts/* tests are image failing)
+[ Monterey arm64 ] fast/text/canvas-color-fonts/fill-color-COLR.html [ ImageOnlyFailure ]
+[ Monterey arm64 ] fast/text/canvas-color-fonts/fill-gradient-COLR-2.html [ ImageOnlyFailure ]
+[ Monterey arm64 ] fast/text/canvas-color-fonts/linedash-COLR.html [ ImageOnlyFailure ]
+[ Monterey arm64 ] fast/text/canvas-color-fonts/linedash-outlines.html [ ImageOnlyFailure ]
+[ Monterey arm64 ] fast/text/canvas-color-fonts/stroke-gradient-COLR-2.html [ ImageOnlyFailure ]
+[ Monterey arm64 ] fast/text/canvas-color-fonts/stroke-gradient-COLR-3.html [ ImageOnlyFailure ]
+[ Monterey arm64 ] fast/text/canvas-color-fonts/stroke-gradient-COLR-4.html [ ImageOnlyFailure ]
+[ Monterey arm64 ] fast/text/canvas-color-fonts/stroke-gradient-COLR-5.html [ ImageOnlyFailure ]
+
 webkit.org/b/228591 fast/scrolling/mac/programmatic-scroll-overrides-rubberband.html [ Pass Failure ]
+
+webkit.org/b/229156 [ BigSur+ ] webrtc/video-addTrack.html [ Pass Failure ]
 
 # webkit.org/b/228200 Adjusting test expectations for Monterey on Open Source <rdar://80640850>:
 [ Monterey ] imported/w3c/web-platform-tests/content-security-policy/inside-worker/serviceworker-report-only.https.sub.html [ Failure ]
+
+webkit.org/b/229015 [ BigSur ] webgl/2.0.0/conformance2/textures/image_bitmap_from_video/tex-2d-rgb565-rgb-unsigned_short_5_6_5.html [ Pass Timeout Failure ]
+
+webkit.org/b/229158 [ BigSur+ ] webrtc/video-setDirection.html [ Pass Failure ]
+
+webkit.org/b/229163 webrtc/video-addTransceiver.html [ Pass Failure ]
+
+webkit.org/b/229166 webrtc/utf8-sdp.html [ Pass Failure ]
+
+#rdar://82032946 ([Mac wk2] webanimations/translate-property-and-translate-animation-with-delay-on-forced-layer.html is a flaky image-only fail)
+[ BigSur+ ] webanimations/translate-property-and-translate-animation-with-delay-on-forced-layer.html [ Pass Failure ]
 
 # webkit.org/b/228200 Setting multiple test expectations for Monetery on OpenSource:
 [ Monterey ] imported/w3c/web-platform-tests/service-workers/service-worker/import-scripts-cross-origin.https.html [ Failure ]
 [ Monterey ] model-element/model-element-source.html [ Pass Crash ]
 [ Monterey Release ] platform/mac-wk2/plugins/asychronous-deadlock-with-timer-and-evaluate.html [ Pass Crash ]
 [ Monterey Release ] media/media-fragments/TC0004.html [ Pass Timeout ]
+
+# rdar://82000141 ([ Monterey wk2 Release ] 2 css3/background/* tests are flaky image failing)
+[ Monterey Release ] css3/background/background-repeat-round-border.html [ Pass ImageOnlyFailure ]
+[ Monterey Release ] css3/background/background-repeat-round-padding.html [ Pass ImageOnlyFailure ]
+
+#rdar://82034073 ([Monterey wk2 Release] security/contentSecurityPolicy/image-with-file-url-allowed-by-img-src-star.html is flaky image-only fail)
+[ Monterey Release ] security/contentSecurityPolicy/image-with-file-url-allowed-by-img-src-star.html  [ Pass Failure ]
+
+#rdar://82035182 ([Monterey wk2 Release] performance-api/performance-observer-no-document-leak.html is a flaky crash)
+performance-api/performance-observer-no-document-leak.html [ Pass Crash ]
+
+#rdar://82036119 ([Monterey wk2 Release] performance-api/paint-timing/paint-timing-with-worker.html is a flaky crash)
+performance-api/paint-timing/paint-timing-with-worker.html [ Pass Crash ]
+
+#rdar://82043074 ([Star wk2 Debug arm64,Sky/AzulE wk2 Guard-Malloc] imported/w3c/web-platform-tests/xhr/xhr-timeout-longtask.any.html is a flaky failure)
+imported/w3c/web-platform-tests/xhr/xhr-timeout-longtask.any.html [ Pass Failure ]
+
+#rdar://82044002 ([Monterey] imported/w3c/web-platform-tests/service-workers/service-worker/fetch-canvas-tainting-double-write.https.html is a constant failure)
+[ Monterey ]  imported/w3c/web-platform-tests/service-workers/service-worker/fetch-canvas-tainting-double-write.https.html [ Pass Failure ]
+
+# rdar://82002352 ([ Monterey wk2 Release ] css3/blending/background-blend-mode-background-clip-content-box.html is flaky image failing)
+[ Monterey Release ] css3/blending/background-blend-mode-background-clip-content-box.html [ Pass ImageOnlyFailure ]

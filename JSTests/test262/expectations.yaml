@@ -609,9 +609,6 @@ test/annexB/language/global-code/switch-dflt-global-skip-early-err-try.js:
   default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
 test/annexB/language/global-code/switch-dflt-global-skip-early-err.js:
   default: "SyntaxError: Cannot declare a function that shadows a let/const/class/function variable 'f' in strict mode."
-test/built-ins/Array/prototype/Symbol.unscopables/value.js:
-  default: 'Test262Error: `findLast` property value Expected SameValue(«undefined», «true») to be true'
-  strict mode: 'Test262Error: `findLast` property value Expected SameValue(«undefined», «true») to be true'
 test/built-ins/Date/UTC/fp-evaluation-order.js:
   default: 'Test262Error: order of operations / precision in MakeTime Expected SameValue(«NaN», «29312») to be true'
   strict mode: 'Test262Error: order of operations / precision in MakeTime Expected SameValue(«NaN», «29312») to be true'
@@ -1960,57 +1957,3 @@ test/language/statements/variable/dstr/ary-init-iter-get-err-array-prototype.js:
 test/language/statements/variable/dstr/ary-ptrn-elem-id-iter-val-array-prototype.js:
   default: 'Test262Error: Expected SameValue(«3», «42») to be true'
   strict mode: 'Test262Error: Expected SameValue(«3», «42») to be true'
-test/language/white-space/after-regular-expression-literal-em-quad.js:
-  default: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-  strict mode: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-test/language/white-space/after-regular-expression-literal-em-space.js:
-  default: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-  strict mode: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-test/language/white-space/after-regular-expression-literal-en-quad.js:
-  default: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-  strict mode: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-test/language/white-space/after-regular-expression-literal-en-space.js:
-  default: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-  strict mode: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-test/language/white-space/after-regular-expression-literal-figure-space.js:
-  default: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-  strict mode: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-test/language/white-space/after-regular-expression-literal-four-per-em-space.js:
-  default: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-  strict mode: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-test/language/white-space/after-regular-expression-literal-hair-space.js:
-  default: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-  strict mode: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-test/language/white-space/after-regular-expression-literal-ideographic-space.js:
-  default: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g　'"
-  strict mode: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g　'"
-test/language/white-space/after-regular-expression-literal-line-separator.js:
-  default: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-  strict mode: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-test/language/white-space/after-regular-expression-literal-medium-mathematical-space.js:
-  default: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-  strict mode: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-test/language/white-space/after-regular-expression-literal-nnbsp.js:
-  default: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-  strict mode: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-test/language/white-space/after-regular-expression-literal-ogham-space.js:
-  default: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-  strict mode: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-test/language/white-space/after-regular-expression-literal-paragraph-separator.js:
-  default: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-  strict mode: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-test/language/white-space/after-regular-expression-literal-punctuation-space.js:
-  default: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-  strict mode: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-test/language/white-space/after-regular-expression-literal-six-per-em-space.js:
-  default: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-  strict mode: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-test/language/white-space/after-regular-expression-literal-thin-space.js:
-  default: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-  strict mode: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-test/language/white-space/after-regular-expression-literal-three-per-em-space.js:
-  default: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-  strict mode: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g '"
-test/language/white-space/after-regular-expression-literal-zwnbsp.js:
-  default: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g﻿'"
-  strict mode: "SyntaxError: Invalid non-latin character in RexExp literal's flags '/x/g﻿'"

@@ -127,6 +127,7 @@ bool isUnicodeRegionSubtag(StringView);
 bool isUnicodeVariantSubtag(StringView);
 bool isUnicodeLanguageId(StringView);
 bool isStructurallyValidLanguageTag(StringView);
+String canonicalizeUnicodeLocaleID(const CString& languageTag);
 
 bool isWellFormedCurrencyCode(StringView);
 
@@ -135,5 +136,9 @@ std::optional<Vector<char, 32>> canonicalizeLocaleIDWithoutNullTerminator(const 
 struct UFieldPositionIteratorDeleter {
     void operator()(UFieldPositionIterator*) const;
 };
+
+std::optional<String> mapICUCollationKeywordToBCP47(const String&);
+std::optional<String> mapICUCalendarKeywordToBCP47(const String&);
+std::optional<String> mapBCP47ToICUCalendarKeyword(const String&);
 
 } // namespace JSC

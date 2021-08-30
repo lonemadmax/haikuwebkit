@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 #
 # Copyright (C) 2021 Igalia S.L.
 #
@@ -18,18 +17,52 @@
 
 import os
 import sys
+import subprocess
+try:
+    from urllib.parse import urlparse  # pylint: disable=E0611
+except ImportError:
+    from urlparse import urlparse
 
-top_level_directory = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-sys.path.insert(0, os.path.join(top_level_directory, "Tools", "Scripts"))
 
-from webkitpy.common.checkout.scm.detection import SCMDetector  # nopep8
-from webkitpy.common.system.executive import Executive  # nopep8
-from webkitpy.common.system.filesystem import FileSystem  # nopep8
+def get_build_revision():
+    revision = "unknown"
+    with open(os.devnull, 'w') as devnull:
+        gitsvn = os.path.join('.git', 'svn')
+        if os.path.isdir(gitsvn) and os.listdir(gitsvn):
+            for line in subprocess.check_output(("git", "svn", "info"), stderr=devnull).splitlines():
+                parsed = line.split(b':')
+                key = parsed[0]
+                contents = b':'.join(parsed[1:])
+                if key == b'Revision':
+                    revision = "r%s" % contents.decode('utf-8').strip()
+                    break
+        elif os.path.isdir('.git'):
+            try:
+                commit_message = subprocess.check_output(("git", "log", "-1", "--pretty=%B", "origin/HEAD"), stderr=devnull)
+            except subprocess.CalledProcessError:
+                # This may happen with shallow checkouts whose HEAD has been
+                # modified; there is no origin reference anymore, and git
+                # will fail - let's pretend that this is not a repo at all
+                commit_message = ""
+            # Commit messages tend to be huge and the metadata we're looking
+            # for is at the very end. Also a spoofed 'Canonical link' mention
+            # could appear early on. So make sure we get the right metadata by
+            # reversing the contents. And this is a micro-optimization as well.
+            for line in reversed(commit_message.splitlines()):
+                parsed = line.split(b':')
+                key = parsed[0]
+                contents = b':'.join(parsed[1:])
+                if key == b'Canonical link':
+                    url = contents.decode('utf-8').strip()
+                    revision = urlparse(url).path[1:]  # strip leading /
+                    break
+        else:
+            revision = "r%s" % subprocess.check_output(("svnversion"), stderr=devnull).decode('utf-8').strip()
+
+    return revision
 
 def main(args):
-    scm = SCMDetector(FileSystem(), Executive()).default_scm()
-    svn_revision = scm.head_svn_revision()
-    build_revision = "r{}".format(svn_revision)
+    build_revision = get_build_revision()
 
     for in_file in args:
         filename = os.path.basename(in_file)
@@ -43,15 +76,15 @@ def main(args):
             with open(in_file) as fd:
                 for line in fd.readlines():
                     if line.startswith("revision"):
-                        line = "revision=${BUILD_REVISION}\n"
+                        line = "revision=@BUILD_REVISION@\n"
                     lines.append(line)
             data = "".join(lines)
         else:
-            print("Support for expanding $BUILD_REVISION in {} is missing.".format(in_file))
+            print("Support for expanding @BUILD_REVISION@ in {} is missing.".format(in_file))
             return 1
 
         with open(in_file, 'w') as fd:
-            fd.write(data.replace('${BUILD_REVISION}', build_revision))
+            fd.write(data.replace('@BUILD_REVISION@', build_revision))
 
     return 0
 

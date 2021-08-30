@@ -100,6 +100,7 @@
 #import <stdio.h>
 #import <wtf/FileSystem.h>
 #import <wtf/Language.h>
+#import <wtf/LogInitialization.h>
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/cocoa/Entitlements.h>
@@ -279,6 +280,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     }
 
 #if !LOG_DISABLED || !RELEASE_LOG_DISABLED
+    WTF::logChannels().initializeLogChannelsIfNecessary(parameters.wtfLoggingChannels);
     WebCore::logChannels().initializeLogChannelsIfNecessary(parameters.webCoreLoggingChannels);
     WebKit::logChannels().initializeLogChannelsIfNecessary(parameters.webKitLoggingChannels);
 #endif
@@ -937,11 +939,6 @@ void WebProcess::destroyRenderingResources()
 }
 
 #if PLATFORM(IOS_FAMILY)
-void WebProcess::accessibilityProcessSuspendedNotification(bool suspended)
-{
-    UIAccessibilityPostNotification(kAXPidStatusChangedNotification, @{ @"pid" : @(getpid()), @"suspended" : @(suspended) });
-}
-
 void WebProcess::userInterfaceIdiomDidChange(bool isPhoneOrWatch)
 {
     WebKit::setCurrentUserInterfaceIdiomIsPhoneOrWatch(isPhoneOrWatch);
@@ -1198,7 +1195,7 @@ void WebProcess::notifyPreferencesChanged(const String& domain, const String& ke
     dispatchSimulatedNotificationsForPreferenceChange(key);
 }
 
-void WebProcess::unblockPreferenceService(SandboxExtension::HandleArray&& handleArray)
+void WebProcess::unblockPreferenceService(Vector<SandboxExtension::Handle>&& handleArray)
 {
     SandboxExtension::consumePermanently(handleArray);
     _CFPrefsSetDirectModeEnabled(false);
@@ -1258,7 +1255,7 @@ void WebProcess::updatePageScreenProperties()
 }
 #endif
 
-void WebProcess::unblockServicesRequiredByAccessibility(const SandboxExtension::HandleArray& handleArray)
+void WebProcess::unblockServicesRequiredByAccessibility(const Vector<SandboxExtension::Handle>& handleArray)
 {
 #if PLATFORM(IOS_FAMILY)
     bool consumed = SandboxExtension::consumePermanently(handleArray);

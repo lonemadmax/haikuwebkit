@@ -38,8 +38,10 @@ Performance
 PictureInPictureWindow conditional=PICTURE_IN_PICTURE_API
 RemotePlayback conditional=WIRELESS_PLAYBACK_TARGET
 RTCDataChannel conditional=WEB_RTC
+RTCDtlsTransport conditional=WEB_RTC
 RTCDTMFSender conditional=WEB_RTC
 RTCPeerConnection conditional=WEB_RTC
+RTCRtpSFrameTransform conditional=WEB_RTC
 RTCRtpScriptTransform conditional=WEB_RTC
 ServiceWorker conditional=SERVICE_WORKER
 ServiceWorkerContainer conditional=SERVICE_WORKER

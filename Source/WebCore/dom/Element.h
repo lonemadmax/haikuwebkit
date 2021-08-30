@@ -194,7 +194,10 @@ public:
     virtual int scrollWidth();
     virtual int scrollHeight();
 
+    // This updates layout, and has custom handling for SVG.
     WEBCORE_EXPORT IntRect boundsInRootViewSpace();
+    // This does not update layout, and uses absoluteBoundingBoxRect().
+    WEBCORE_EXPORT IntRect boundingBoxInRootViewCoordinates() const;
 
     std::optional<std::pair<RenderObject*, FloatRect>> boundingAbsoluteRectWithoutLayout();
 
@@ -202,9 +205,6 @@ public:
 
     WEBCORE_EXPORT Ref<DOMRectList> getClientRects();
     Ref<DOMRect> getBoundingClientRect();
-
-    // Returns the absolute bounding box translated into client coordinates.
-    WEBCORE_EXPORT IntRect clientRect() const;
 
     // Returns the absolute bounding box translated into screen coordinates.
     WEBCORE_EXPORT IntRect screenRect() const;
@@ -510,6 +510,10 @@ public:
 
     const RenderStyle* lastStyleChangeEventStyle(PseudoId) const;
     void setLastStyleChangeEventStyle(PseudoId, std::unique_ptr<const RenderStyle>&&);
+
+    bool isInTopLayer() const { return document().topLayerElements().contains(makeRef(*const_cast<Element*>(this))); }
+    void isInTopLayerWillChange();
+    void isInTopLayerDidChange();
 
 #if ENABLE(FULLSCREEN_API)
     bool containsFullScreenElement() const { return hasNodeFlag(NodeFlag::ContainsFullScreenElement); }

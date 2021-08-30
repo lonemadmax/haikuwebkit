@@ -50,6 +50,8 @@ class MediaStreamTrack;
 class PeerConnectionBackend;
 class RTCCertificate;
 class RTCDataChannelHandler;
+class RTCDtlsTransport;
+class RTCDtlsTransportBackend;
 class RTCIceCandidate;
 class RTCPeerConnection;
 class RTCRtpReceiver;
@@ -131,6 +133,8 @@ public:
     void newICECandidate(String&& sdp, String&& mid, unsigned short sdpMLineIndex, String&& serverURL);
     virtual void disableICECandidateFiltering();
     void enableICECandidateFiltering();
+
+    virtual std::optional<bool> canTrickleIceCandidates() const = 0;
 
     virtual void applyRotationForOutgoingVideoSources() { }
 

@@ -191,6 +191,7 @@ namespace WebCore {
     macro(RTCDTMFToneChangeEvent) \
     macro(RTCDataChannel) \
     macro(RTCDataChannelEvent) \
+    macro(RTCDtlsTransport) \
     macro(RTCEncodedAudioFrame) \
     macro(RTCEncodedVideoFrame) \
     macro(RTCIceCandidate) \
@@ -219,6 +220,7 @@ namespace WebCore {
     macro(Request) \
     macro(Response) \
     macro(SFrameTransform) \
+    macro(SFrameTransformErrorEvent) \
     macro(ScreenLuminance) \
     macro(ServiceWorker) \
     macro(ServiceWorkerContainer) \

@@ -50,11 +50,6 @@ namespace JSC { typedef MacroAssemblerARMv7 MacroAssemblerBase; };
 #define TARGET_MACROASSEMBLER MacroAssemblerMIPS
 #include "MacroAssemblerMIPS.h"
 
-#elif CPU(X86)
-#define TARGET_ASSEMBLER X86Assembler
-#define TARGET_MACROASSEMBLER MacroAssemblerX86
-#include "MacroAssemblerX86.h"
-
 #elif CPU(X86_64)
 #define TARGET_ASSEMBLER X86Assembler
 #define TARGET_MACROASSEMBLER MacroAssemblerX86_64
@@ -1761,6 +1756,16 @@ public:
             sub32(key.value2, dest);
         } else
             sub32(imm.asTrustedImm32(), dest);
+    }
+
+    void sub32(RegisterID src, Imm32 imm, RegisterID dest)
+    {
+        if (shouldBlind(imm)) {
+            BlindedImm32 key = additionBlindedConstant(imm);
+            sub32(src, key.value1, dest);
+            sub32(key.value2, dest);
+        } else
+            sub32(src, imm.asTrustedImm32(), dest);
     }
     
     void subPtr(Imm32 imm, RegisterID dest)

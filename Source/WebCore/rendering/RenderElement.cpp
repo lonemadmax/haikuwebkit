@@ -145,13 +145,19 @@ RenderElement::~RenderElement()
     ASSERT(!m_firstChild);
 }
 
-RenderPtr<RenderElement> RenderElement::createFor(Element& element, RenderStyle&& style, OptionSet<ConstructBlockLevelRendererFor> rendererTypeOverride)
+bool RenderElement::isContentDataSupported(const ContentData& contentData)
 {
     // Minimal support for content properties replacing an entire element.
     // Works only if we have exactly one piece of content and it's a URL.
     // Otherwise acts as if we didn't support this feature.
+    return is<ImageContentData>(contentData) && !contentData.next();
+}
+
+RenderPtr<RenderElement> RenderElement::createFor(Element& element, RenderStyle&& style, OptionSet<ConstructBlockLevelRendererFor> rendererTypeOverride)
+{
+
     const ContentData* contentData = style.contentData();
-    if (!rendererTypeOverride && contentData && !contentData->next() && is<ImageContentData>(*contentData) && !element.isPseudoElement()) {
+    if (!rendererTypeOverride && contentData && isContentDataSupported(*contentData) && !element.isPseudoElement()) {
         Style::loadPendingResources(style, element.document(), &element);
         auto& styleImage = downcast<ImageContentData>(*contentData).image();
         auto image = createRenderer<RenderImage>(element, WTFMove(style), const_cast<StyleImage*>(&styleImage));
@@ -1733,24 +1739,6 @@ LayoutRect RenderElement::absoluteAnchorRectWithScrollMargin(bool* insideFixed) 
     return absoluteAnchorRect(insideFixed);
 }
 
-const RenderElement* RenderElement::enclosingRendererWithTextDecoration(OptionSet<TextDecoration> textDecoration, bool firstLine) const
-{
-    const RenderElement* current = this;
-    do {
-        if (current->isRenderBlock())
-            return current;
-        if (!current->isRenderInline() || current->isRubyText())
-            return nullptr;
-        
-        const RenderStyle& styleToUse = firstLine ? current->firstLineStyle() : current->style();
-        if (styleToUse.textDecoration() & textDecoration)
-            return current;
-        current = current->parent();
-    } while (current && (!current->element() || (!is<HTMLAnchorElement>(*current->element()) && !current->element()->hasTagName(HTMLNames::fontTag))));
-
-    return current;
-}
-
 void RenderElement::drawLineForBoxSide(GraphicsContext& graphicsContext, const FloatRect& rect, BoxSide side, Color color, BorderStyle borderStyle, float adjacentWidth1, float adjacentWidth2, bool antialias) const
 {
     auto drawBorderRect = [&graphicsContext] (const FloatRect& rect)
@@ -2373,6 +2361,16 @@ std::unique_ptr<RenderStyle> RenderElement::animatedStyle()
         result = RenderStyle::clonePtr(style());
 
     return result;
+}
+
+WeakPtr<RenderBlockFlow> RenderElement::backdropRenderer() const
+{
+    return hasRareData() ? rareData().backdropRenderer : nullptr;
+}
+
+void RenderElement::setBackdropRenderer(RenderBlockFlow& renderer)
+{
+    ensureRareData().backdropRenderer = makeWeakPtr(renderer);
 }
 
 }

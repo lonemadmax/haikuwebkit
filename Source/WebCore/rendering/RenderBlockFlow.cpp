@@ -42,6 +42,7 @@
 #include "LegacyLineLayout.h"
 #include "Logging.h"
 #include "RenderCombineText.h"
+#include "RenderDeprecatedFlexibleBox.h"
 #include "RenderFlexibleBox.h"
 #include "RenderInline.h"
 #include "RenderIterator.h"
@@ -3697,8 +3698,9 @@ void RenderBlockFlow::layoutModernLines(bool relayoutChildren, LayoutUnit& repai
 
     for (auto walker = InlineWalker(*this); !walker.atEnd(); walker.advance()) {
         auto& renderer = *walker.current();
-        if (relayoutChildren)
+        if (relayoutChildren || (is<RenderBox>(renderer) && downcast<RenderBox>(renderer).hasRelativeDimensions()))
             renderer.setNeedsLayout(MarkOnlyThis);
+
         if (!renderer.needsLayout() && !needsUpdateReplacedDimensions)
             continue;
 
@@ -3731,24 +3733,33 @@ void RenderBlockFlow::layoutModernLines(bool relayoutChildren, LayoutUnit& repai
         renderer.clearNeedsLayout();
     }
 
+    auto contentBoxTop = borderAndPaddingBefore();
+
+    auto computeContentHeight = [&] {
+        if (!hasLines() && hasLineIfEmpty())
+            return lineHeight(true, isHorizontalWritingMode() ? HorizontalLine : VerticalLine, PositionOfInteriorLineBoxes);
+
+        return layoutFormattingContextLineLayout.contentLogicalHeight();
+    };
+
+    auto computeBorderBoxBottom = [&] {
+        auto contentBoxBottom = contentBoxTop + computeContentHeight();
+        return contentBoxBottom + borderAndPaddingAfter();
+    };
+
+    auto oldBorderBoxBottom = computeBorderBoxBottom();
+
     layoutFormattingContextLineLayout.layout();
 
     if (view().frameView().layoutContext().layoutState()->isPaginated())
         layoutFormattingContextLineLayout.adjustForPagination();
 
-    auto contentHeight = [&] {
-        if (!hasLines() && hasLineIfEmpty())
-            return lineHeight(true, isHorizontalWritingMode() ? HorizontalLine : VerticalLine, PositionOfInteriorLineBoxes);
-        
-        return layoutFormattingContextLineLayout.contentLogicalHeight();
-    }();
-    auto contentBoxTop = borderAndPaddingBefore();
-    auto contentBoxBottom = contentBoxTop + contentHeight;
-    auto borderBoxBottom = contentBoxBottom + borderAndPaddingAfter();
+    auto newBorderBoxBottom = computeBorderBoxBottom();
 
     repaintLogicalTop = contentBoxTop;
-    repaintLogicalBottom = borderBoxBottom;
-    setLogicalHeight(borderBoxBottom);
+    repaintLogicalBottom = std::max(oldBorderBoxBottom, newBorderBoxBottom);
+
+    setLogicalHeight(newBorderBoxBottom);
 }
 #endif
 
@@ -3793,7 +3804,32 @@ void RenderBlockFlow::ensureLineBoxes()
     } else
         legacyLineLayout.layoutLineBoxes(relayoutChildren, repaintLogicalTop, repaintLogicalBottom);
 
-    updateLogicalHeight();
+    {
+        struct DeprecatedBoxStrechingScope {
+            DeprecatedBoxStrechingScope(RenderElement& parent)
+            {
+                if (is<RenderDeprecatedFlexibleBox>(parent) && parent.style().boxAlign() == BoxAlignment::Stretch) {
+                    // While modern flex box's uses override height to stretch its children, deprecated flex box
+                    // uses a flag which is consulted at updateLogicalHeight().
+                    // This scope class ensures that we don't collapse flex items while swapping the line structures.
+                    // see RenderBox::computeLogicalHeight where isStretchingChildren() is consulted.
+                    strechingRenderer = makeWeakPtr(downcast<RenderDeprecatedFlexibleBox>(parent));
+                    strechingRenderer->setIsStretchingChildren(true);
+                }
+            }
+
+            ~DeprecatedBoxStrechingScope()
+            {
+                if (strechingRenderer)
+                    strechingRenderer->setIsStretchingChildren(false);
+            }
+
+            WeakPtr<RenderDeprecatedFlexibleBox> strechingRenderer;
+
+        };
+        auto deprecatedBoxStrechingScope = DeprecatedBoxStrechingScope(*parent());
+        updateLogicalHeight();
+    }
     ASSERT(didNeedLayout || ceilf(logicalHeight()) == ceilf(oldHeight));
 
     if (!didNeedLayout)

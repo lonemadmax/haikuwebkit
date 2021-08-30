@@ -1,3 +1,182 @@
+2021-08-19  Megan Gardner  <megan_gardner@apple.com>
+
+        Remove old unused code and out of date comments.
+        https://bugs.webkit.org/show_bug.cgi?id=229210
+
+        Reviewed by Anders Carlsson.
+
+        * WebView/WebView.mm:
+        * WebView/WebViewPrivate.h:
+
+2021-08-19  Alex Christensen  <achristensen@webkit.org>
+
+        Remove more non-inclusive language from Source
+        https://bugs.webkit.org/show_bug.cgi?id=229230
+
+        Reviewed by Myles C. Maxfield.
+
+        * WebKit.order:
+        * WebView/WebViewPrivate.h:
+
+2021-08-19  Simon Fraser  <simon.fraser@apple.com>
+
+        Rename Element::clientRect() which does not return a value in web-exposed "client" coordinates
+        https://bugs.webkit.org/show_bug.cgi?id=229243
+
+        Reviewed by Wenson Hsieh.
+
+        The result of Element::clientRect() is in the coordinate space of the root view,
+        not in the space of the Element's Frame, so does not match the other functions on Element
+        with "client" in the name.
+
+        Rename to Element::boundingBoxInRootViewCoordinates() for clarity.
+
+        * WebCoreSupport/WebValidationMessageClient.mm:
+        (WebValidationMessageClient::showValidationMessage):
+        (WebValidationMessageClient::updateValidationBubbleStateIfNeeded):
+
+2021-08-19  Simon Fraser  <simon.fraser@apple.com>
+
+        Rename EventHandler::sendScrollEvent() to scheduleScrollEvent() since the event is not sent synchronously
+        https://bugs.webkit.org/show_bug.cgi?id=229256
+
+        Reviewed by Geoffrey Garen.
+
+        Rename EventHandler::sendScrollEvent() and FrameView::sendScrollEvent()
+        to scheduleScrollEvent() since the event dispatch happens via the next rendering update.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame sendScrollEvent]):
+
+2021-08-16  David Kilzer  <ddkilzer@apple.com>
+
+        "make analyze" should run clang static analyzer in deep mode
+        <https://webkit.org/b/229127>
+        <rdar://problem/81960587>
+
+        Reviewed by Alexey Proskuryakov.
+
+        * migrate-headers.sh:
+        - Treat "analyze" the same as "build" for "ACTION" environment
+          variable.
+
+2021-08-16  David Kilzer  <ddkilzer@apple.com>
+
+        -[WebView initWithCoder:] should use -[NSCoder decodeValueOfObjCType:at:size:]
+        <https://webkit.org/b/229121>
+        <rdar://problem/81956163>
+
+        Reviewed by Anders Carlsson.
+
+        * WebView/WebView.mm:
+        (-[WebView initWithCoder:]):
+        - Switch to -[NSCoder decodeValueOfObjCType:at:size:].
+
+2021-08-13  Chris Dumez  <cdumez@apple.com>
+
+        Add Cross-Origin-Embedder-Policy support for Blob URLs
+        https://bugs.webkit.org/show_bug.cgi?id=229041
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebPlatformStrategies.mm:
+
+2021-08-12  Chris Dumez  <cdumez@apple.com>
+
+        Regression(r273194) Exception being thrown in [WebMainThreadInvoker forwardInvocation] should be autoreleased
+        https://bugs.webkit.org/show_bug.cgi?id=229056
+
+        Reviewed by Geoffrey Garen.
+
+        Exception being thrown in [WebMainThreadInvoker forwardInvocation] should be autoreleased. I got this wrong
+        in r273194.
+
+        * Misc/WebNSObjectExtras.mm:
+        (-[WebMainThreadInvoker forwardInvocation:]):
+
+2021-08-12  Youenn Fablet  <youenn@apple.com>
+
+        REGRESSION (r280726): [ Big Sur wk1 ] 25 imported/w3c/web-platform-tests/fetch/ failing
+        https://bugs.webkit.org/show_bug.cgi?id=228926
+        <rdar://problem/81715332>
+
+        Reviewed by Eric Carlson.
+
+        isFeatureFlagEnabled is called when creating/initializing WebPreferences.
+        It used to check for WebView, which triggers the execution of WebView initialize method
+        while DumpRenderTree is in the middle of creating its testing setup, including its storage testing sessions.
+        Instead, check for WebResource to remove this side effect and get back to past DumpRenderTree initialization.
+
+        * WebView/WebPreferencesDefaultValues.mm:
+        (WebKit::isFeatureFlagEnabled):
+
+2021-08-11  Peng Liu  <peng.liu6@apple.com>
+
+        Function _os_feature_enabled_impl() expects compile-time static strings as arguments
+        https://bugs.webkit.org/show_bug.cgi?id=229017
+        <rdar://81813732>
+
+        Reviewed by Tim Horton.
+
+        There are multiple issues in the current implementation of `isFeatureFlagEnabled()`.
+        1. `_os_feature_enabled_impl()` expects compile-time static strings as arguments.
+        So we should not use `String` here.
+        2. As Simon Fraser pointed out, `String::characters8()` is not null terminated.
+
+        * WebView/WebPreferencesDefaultValues.h:
+        * WebView/WebPreferencesDefaultValues.mm:
+        (WebKit::isFeatureFlagEnabled):
+
+2021-08-10  Peng Liu  <peng.liu6@apple.com>
+
+        REGRESSION (r280726): [ Big Sur wk1 ] 25 imported/w3c/web-platform-tests/fetch/ failing
+        https://bugs.webkit.org/show_bug.cgi?id=228926
+
+        Reviewed by Jer Noble.
+
+        Revert a part of r280726 while investigating the test failures.
+
+        * WebView/WebPreferencesDefaultValues.mm:
+        (WebKit::isFeatureFlagEnabled):
+
+2021-08-10  Chris Dumez  <cdumez@apple.com>
+
+        Add Cross-Origin-Opener-Policy support for Blob URLs
+        https://bugs.webkit.org/show_bug.cgi?id=228924
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebPlatformStrategies.mm:
+
+2021-08-10  Chris Dumez  <cdumez@apple.com>
+
+        Document.baseURI is inaccurate for iframe srcdoc documents
+        https://bugs.webkit.org/show_bug.cgi?id=228933
+
+        Reviewed by Alex Christensen.
+
+        * DOM/DOMHTMLBaseElement.mm:
+        (-[DOMHTMLBaseElement href]):
+
+2021-08-09  Chris Dumez  <cdumez@apple.com>
+
+        Blob URL changes after loading it
+        https://bugs.webkit.org/show_bug.cgi?id=228923
+
+        Reviewed by Geoff Garen.
+
+        * WebCoreSupport/WebPlatformStrategies.mm:
+
+2021-08-09  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Support WTF logging channels
+        https://bugs.webkit.org/show_bug.cgi?id=228768
+
+        Reviewed by Fujii Hironori.
+
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:]):
+
 2021-08-07  Myles C. Maxfield  <mmaxfield@apple.com>
 
         Deduplicate logging channel algorithms

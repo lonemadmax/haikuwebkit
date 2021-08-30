@@ -59,6 +59,7 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
 #if PLATFORM(COCOA) && ENABLE(REMOTE_INSPECTOR)
     encoder << enableRemoteWebInspectorExtensionHandle;
 #endif
+    encoder << wtfLoggingChannels;
     encoder << webCoreLoggingChannels;
     encoder << webKitLoggingChannels;
 #if ENABLE(MEDIA_STREAM)
@@ -225,7 +226,7 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
     parameters.injectedBundlePathExtensionHandle = WTFMove(*injectedBundlePathExtensionHandle);
 
-    std::optional<SandboxExtension::HandleArray> additionalSandboxExtensionHandles;
+    std::optional<Vector<SandboxExtension::Handle>> additionalSandboxExtensionHandles;
     decoder >> additionalSandboxExtensionHandles;
     if (!additionalSandboxExtensionHandles)
         return false;
@@ -262,6 +263,8 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     parameters.enableRemoteWebInspectorExtensionHandle = WTFMove(*enableRemoteWebInspectorExtensionHandle);
 #endif
 
+    if (!decoder.decode(parameters.wtfLoggingChannels))
+        return false;
     if (!decoder.decode(parameters.webCoreLoggingChannels))
         return false;
     if (!decoder.decode(parameters.webKitLoggingChannels))
@@ -443,7 +446,7 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     parameters.websiteDataStoreParameters = WTFMove(*websiteDataStoreParameters);
 
 #if PLATFORM(IOS)
-    std::optional<SandboxExtension::HandleArray> compilerServiceExtensionHandles;
+    std::optional<Vector<SandboxExtension::Handle>> compilerServiceExtensionHandles;
     decoder >> compilerServiceExtensionHandles;
     if (!compilerServiceExtensionHandles)
         return false;
@@ -469,27 +472,27 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     parameters.launchServicesExtensionHandle = WTFMove(*launchServicesExtensionHandle);
 
 #if HAVE(VIDEO_RESTRICTED_DECODING)
-    std::optional<SandboxExtension::HandleArray> videoDecoderExtensionHandles;
+    std::optional<Vector<SandboxExtension::Handle>> videoDecoderExtensionHandles;
     decoder >> videoDecoderExtensionHandles;
     if (!videoDecoderExtensionHandles)
         return false;
     parameters.videoDecoderExtensionHandles = WTFMove(*videoDecoderExtensionHandles);
 #endif
 
-    std::optional<SandboxExtension::HandleArray> diagnosticsExtensionHandles;
+    std::optional<Vector<SandboxExtension::Handle>> diagnosticsExtensionHandles;
     decoder >> diagnosticsExtensionHandles;
     if (!diagnosticsExtensionHandles)
         return false;
     parameters.diagnosticsExtensionHandles = WTFMove(*diagnosticsExtensionHandles);
 
 #if PLATFORM(IOS_FAMILY)
-    std::optional<SandboxExtension::HandleArray> dynamicMachExtensionHandles;
+    std::optional<Vector<SandboxExtension::Handle>> dynamicMachExtensionHandles;
     decoder >> dynamicMachExtensionHandles;
     if (!dynamicMachExtensionHandles)
         return false;
     parameters.dynamicMachExtensionHandles = WTFMove(*dynamicMachExtensionHandles);
 
-    std::optional<SandboxExtension::HandleArray> dynamicIOKitExtensionHandles;
+    std::optional<Vector<SandboxExtension::Handle>> dynamicIOKitExtensionHandles;
     decoder >> dynamicIOKitExtensionHandles;
     if (!dynamicIOKitExtensionHandles)
         return false;
@@ -538,7 +541,7 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
 
 #if PLATFORM(COCOA)
 #if ENABLE(CFPREFS_DIRECT_MODE)
-    std::optional<std::optional<SandboxExtension::HandleArray>> preferencesExtensionHandles;
+    std::optional<std::optional<Vector<SandboxExtension::Handle>>> preferencesExtensionHandles;
     decoder >> preferencesExtensionHandles;
     if (!preferencesExtensionHandles)
         return false;

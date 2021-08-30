@@ -23,8 +23,10 @@
 import argparse
 import logging
 import os
+import sys
 
 from .blame import Blame
+from .branch import Branch
 from .canonicalize import Canonicalize
 from .clean import Clean
 from .command import Command
@@ -64,13 +66,18 @@ def main(args=None, path=None, loggers=None, contributors=None, identifier_templ
 
     subparsers = parser.add_subparsers(help='sub-command help')
 
-    programs = [Find, Info, Checkout, Canonicalize, Pull, Clean, Log, Blame, Setup]
+    programs = [Branch, Blame, Canonicalize, Checkout, Clean, Find, Info, Log, Pull, Setup]
     if subversion:
         programs.append(SetupGitSvn)
 
     for program in programs:
-        subparser = subparsers.add_parser(program.name, help=program.help)
+        kwargs = dict(help=program.help)
+        if sys.version_info > (3, 0):
+            kwargs['aliases'] = program.aliases
+        subparser = subparsers.add_parser(program.name, **kwargs)
         subparser.set_defaults(main=program.main)
+        subparser.set_defaults(program=program.name)
+        subparser.set_defaults(aliases=program.aliases)
         arguments.LoggingGroup(
             subparser,
             loggers=loggers,
@@ -78,7 +85,18 @@ def main(args=None, path=None, loggers=None, contributors=None, identifier_templ
         )
         program.parser(subparser, loggers=loggers)
 
-    parsed = parser.parse_args(args=args)
+    args = args or sys.argv[1:]
+    parsed, unknown = parser.parse_known_args(args=args)
+    if unknown:
+        program_index = 0
+        for candidate in [parsed.program] + parsed.aliases:
+            if candidate in args:
+                program_index = args.index(candidate)
+                break
+        if getattr(parsed, 'args', None):
+            parsed.args = [arg for arg in args[program_index:] if arg in parsed.args or arg in unknown]
+        if any([option not in getattr(parsed, 'args', []) for option in unknown]):
+            parsed = parser.parse_args(args=args)
 
     if parsed.repository.startswith(('https://', 'http://')):
         repository = remote.Scm.from_url(parsed.repository, contributors=contributors)

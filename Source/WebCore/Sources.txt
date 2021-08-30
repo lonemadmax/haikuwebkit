@@ -161,6 +161,7 @@ Modules/mediastream/RTCDataChannel.cpp
 Modules/mediastream/RTCDataChannelEvent.cpp
 Modules/mediastream/RTCDataChannelRemoteHandler.cpp
 Modules/mediastream/RTCDataChannelRemoteSource.cpp
+Modules/mediastream/RTCDtlsTransport.cpp
 Modules/mediastream/RTCEncodedAudioFrame.cpp
 Modules/mediastream/RTCEncodedFrame.cpp
 Modules/mediastream/RTCEncodedVideoFrame.cpp
@@ -171,6 +172,7 @@ Modules/mediastream/RTCPeerConnectionIceEvent.cpp
 Modules/mediastream/RTCPeerConnectionIceErrorEvent.cpp
 Modules/mediastream/RTCRtpReceiver.cpp
 Modules/mediastream/RTCRtpSFrameTransform.cpp
+Modules/mediastream/RTCRtpSFrameTransformErrorEvent.cpp
 Modules/mediastream/RTCRtpSFrameTransformer.cpp
 Modules/mediastream/RTCRtpScriptTransform.cpp
 Modules/mediastream/RTCRtpScriptTransformer.cpp
@@ -185,6 +187,7 @@ Modules/mediastream/STUNMessageParsing.cpp
 Modules/mediastream/UserMediaController.cpp
 Modules/mediastream/UserMediaRequest.cpp
 Modules/mediastream/libwebrtc/LibWebRTCCertificateGenerator.cpp
+Modules/mediastream/libwebrtc/LibWebRTCDtlsTransportBackend.cpp
 Modules/mediastream/libwebrtc/LibWebRTCRtpReceiverTransformBackend.cpp
 Modules/mediastream/libwebrtc/LibWebRTCRtpSenderTransformBackend.cpp
 Modules/mediastream/libwebrtc/LibWebRTCRtpTransformBackend.cpp
@@ -526,7 +529,7 @@ bindings/js/JSTextCustom.cpp
 bindings/js/JSTextTrackCueCustom.cpp
 bindings/js/JSTrackCustom.cpp
 bindings/js/JSTreeWalkerCustom.cpp
-bindings/js/JSTypedOMCSSStyleValueCustom.cpp
+bindings/js/JSCSSStyleValueCustom.cpp
 bindings/js/JSUndoItemCustom.cpp
 bindings/js/JSWebAnimationCustom.cpp
 bindings/js/JSWebGL2RenderingContextCustom.cpp
@@ -764,11 +767,11 @@ css/parser/MediaQueryParser.cpp
 css/parser/SizesAttributeParser.cpp
 css/parser/SizesCalcParser.cpp
 css/typedom/StylePropertyMapReadOnly.cpp
-css/typedom/TypedOMCSSImageValue.cpp
-css/typedom/TypedOMCSSNumericValue.cpp
-css/typedom/TypedOMCSSStyleValue.cpp
-css/typedom/TypedOMCSSUnitValue.cpp
-css/typedom/TypedOMCSSUnparsedValue.cpp
+css/typedom/CSSStyleImageValue.cpp
+css/typedom/CSSNumericValue.cpp
+css/typedom/CSSStyleValue.cpp
+css/typedom/CSSUnitValue.cpp
+css/typedom/CSSUnparsedValue.cpp
 cssjit/SelectorCompiler.cpp
 display/compositing/DisplayLayerController.cpp
 display/css/DisplayBox.cpp
@@ -2173,7 +2176,6 @@ rendering/LegacyLineLayout.cpp
 rendering/LegacyRootInlineBox.cpp
 rendering/LegacyInlineTextBox.cpp
 rendering/MarkedText.cpp
-rendering/MarkedTextStyle.cpp
 rendering/OrderIterator.cpp
 rendering/PointerEventsHitRules.cpp
 rendering/RenderAttachment.cpp
@@ -2261,6 +2263,7 @@ rendering/RenderView.cpp
 rendering/RenderWidget.cpp
 rendering/ScrollAlignment.cpp
 rendering/SelectionRangeData.cpp
+rendering/StyledMarkedText.cpp
 rendering/TableLayout.cpp
 rendering/TextDecorationPainter.cpp
 rendering/TextPaintStyle.cpp
@@ -3294,6 +3297,8 @@ JSRTCDataChannel.cpp
 JSRTCDataChannelEvent.cpp
 JSRTCDegradationPreference.cpp
 JSRTCDtxStatus.cpp
+JSRTCDtlsTransport.cpp
+JSRTCDtlsTransportState.cpp
 JSRTCEncodedAudioFrame.cpp
 JSRTCEncodedVideoFrame.cpp
 JSRTCIceCandidate.cpp
@@ -3326,6 +3331,7 @@ JSRTCRtpParameters.cpp
 JSRTCRtpReceiver.cpp
 JSRTCRtpRtxParameters.cpp
 JSRTCRtpSFrameTransform.cpp
+JSRTCRtpSFrameTransformErrorEvent.cpp
 JSRTCRtpScriptTransform.cpp
 JSRTCRtpScriptTransformer.cpp
 JSRTCRtpSendParameters.cpp
@@ -3583,11 +3589,11 @@ JSTransformStream.cpp
 JSTransformStreamDefaultController.cpp
 JSTransitionEvent.cpp
 JSTreeWalker.cpp
-JSTypedOMCSSImageValue.cpp
-JSTypedOMCSSNumericValue.cpp
-JSTypedOMCSSStyleValue.cpp
-JSTypedOMCSSUnitValue.cpp
-JSTypedOMCSSUnparsedValue.cpp
+JSCSSStyleImageValue.cpp
+JSCSSNumericValue.cpp
+JSCSSStyleValue.cpp
+JSCSSUnitValue.cpp
+JSCSSUnparsedValue.cpp
 JSUIEvent.cpp
 JSUIEventInit.cpp
 JSURLSearchParams.cpp

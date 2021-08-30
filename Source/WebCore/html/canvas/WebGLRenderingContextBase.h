@@ -211,7 +211,7 @@ public:
     std::optional<Vector<RefPtr<WebGLShader>>> getAttachedShaders(WebGLProgram&);
     GCGLint getAttribLocation(WebGLProgram&, const String& name);
     WebGLAny getBufferParameter(GCGLenum target, GCGLenum pname);
-    std::optional<WebGLContextAttributes> getContextAttributes();
+    WEBCORE_EXPORT std::optional<WebGLContextAttributes> getContextAttributes();
     GCGLenum getError();
     virtual WebGLExtension* getExtension(const String& name) = 0;
     virtual WebGLAny getFramebufferAttachmentParameter(GCGLenum target, GCGLenum attachment, GCGLenum pname) = 0;
@@ -524,7 +524,7 @@ protected:
     RefPtr<Image> drawImageIntoBuffer(Image&, int width, int height, int deviceScaleFactor, const char* functionName);
 
 #if ENABLE(VIDEO)
-    RefPtr<Image> videoFrameToImage(HTMLVideoElement*, BackingStoreCopy);
+    RefPtr<Image> videoFrameToImage(HTMLVideoElement*, BackingStoreCopy, const char* functionName);
 #endif
 
     WebGLTexture::TextureExtensionFlag textureExtensionFlags() const;
@@ -614,8 +614,9 @@ protected:
     class LRUImageBufferCache {
     public:
         LRUImageBufferCache(int capacity);
-        // The pointer returned is owned by the image buffer map.
-        ImageBuffer* imageBuffer(const IntSize& size);
+        // Returns pointer to a cleared image buffer that is owned by the cache. The pointer is valid until next call.
+        // Using fillOperator == CompositeOperator::Copy can be used to omit the clear of the buffer.
+        ImageBuffer* imageBuffer(const IntSize&, CompositeOperator fillOperator = CompositeOperator::SourceOver);
     private:
         void bubbleToFront(size_t idx);
         Vector<RefPtr<ImageBuffer>> m_buffers;
