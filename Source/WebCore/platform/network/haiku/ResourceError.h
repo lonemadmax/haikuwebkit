@@ -38,8 +38,8 @@ public:
     {
     }
 
-    ResourceError(const String& domain, int errorCode, const URL& failingURL, const String& localizedDescription, Type type = Type::General)
-        : ResourceErrorBase(domain, errorCode, failingURL, localizedDescription, type)
+    ResourceError(const String& domain, int errorCode, const URL& failingURL, const String& localizedDescription, Type type = Type::General, IsSanitized sanitized = IsSanitized::Yes)
+        : ResourceErrorBase(domain, errorCode, failingURL, localizedDescription, type, sanitized)
     {
     }
 

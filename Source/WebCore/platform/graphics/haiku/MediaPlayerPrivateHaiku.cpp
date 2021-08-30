@@ -240,7 +240,7 @@ bool MediaPlayerPrivate::hasVideo() const
     return m_videoTrack;
 }
 
-void MediaPlayerPrivate::setVisible(bool)
+void MediaPlayerPrivate::setPageIsVisible(bool)
 {
     notImplemented();
 }
