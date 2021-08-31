@@ -18,9 +18,7 @@ add_definitions(-D_GLIBCXX_USE_C99_MATH)
 set(ENABLE_WEBKIT OFF)
 set(ENABLE_WEBKIT_LEGACY ON)
 
-if ("${CMAKE_BUILD_TYPE}" STREQUAL "debug" AND NOT SHARED_CORE)
-    message(FATAL_ERROR "Turn on the SHARED_CORE flag to make a debug build - e.g.\n build-webkit --haiku --debug --cmakeargs=\"-DSHARED_CORE=ON\".\n")
-endif ()
+set(USE_ANGLE_EGL OFF)
 
 # To get assertions in release mode, we replace all -DNDEBUG with -UNDEBUG
 # (they are automatically added by CMake and there is no "release with asserts"
