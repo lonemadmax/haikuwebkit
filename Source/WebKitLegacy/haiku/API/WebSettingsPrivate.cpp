@@ -101,7 +101,7 @@ void WebSettingsPrivate::apply()
         settings->setNeedsSiteSpecificQuirks(true);
 
         char path[256];
-        status_t result = find_path((void*)&WebSettingsPrivate::apply,
+        status_t result = find_path(B_CURRENT_IMAGE_SYMBOL,
             B_FIND_PATH_DATA_DIRECTORY,
             "/WebKit/Directory Listing Template.html", path, 256);
         if (result != B_OK) {

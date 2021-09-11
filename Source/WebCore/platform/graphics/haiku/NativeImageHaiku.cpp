@@ -45,7 +45,7 @@ Color NativeImage::singlePixelSolidColor() const
     if (size() != IntSize(1, 1))
         return Color();
 
-    return (asSRGBA(PackedColor::ARGB { *(int32*)m_platformImage.get()->Bits()}));
+    return (asSRGBA(PackedColor::ARGB { *(uint32*)m_platformImage.get()->Bits()}));
 }
 
 void NativeImage::clearSubimages()
