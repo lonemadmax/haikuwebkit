@@ -78,22 +78,22 @@ class LoopHandler: public BHandler
 
 
 RunLoop::RunLoop()
+	: m_looper(nullptr)
 {
     m_handler = new LoopHandler(this);
 }
 
 RunLoop::~RunLoop()
 {
+	stop();
     delete m_handler;
 }
 
 void RunLoop::run()
 {
 	BLooper* looper = BLooper::LooperForThread(find_thread(NULL));
-	bool newLooper = false;
 	if (!looper) {
-		looper = new BLooper();
-		newLooper = true;
+		current().m_looper = looper = new BLooper();
 	} else if (looper != be_app) {
 		fprintf(stderr, "Add handler to existing RunLoop looper\n");
 	}
@@ -101,16 +101,28 @@ void RunLoop::run()
 	looper->AddHandler(current().m_handler);
 	looper->UnlockLooper();
 
-	if (newLooper)
-		looper->Loop();
+	if (current().m_looper)
+		current().m_looper->Loop();
 }
 
 void RunLoop::stop()
 {
-	m_handler->LockLooper();
+	if (!m_handler->LockLooper())
+		return;
+
 	BLooper* looper = m_handler->Looper();
     looper->RemoveHandler(m_handler);
 	looper->Unlock();
+
+	if (m_looper) {
+		thread_id thread = m_looper->Thread();
+		status_t ret;
+
+		m_looper->PostMessage(B_QUIT_REQUESTED);
+		m_looper = nullptr;
+
+		wait_for_thread(thread, &ret);
+	}
 }
 
 void RunLoop::wakeUp()

@@ -53,6 +53,7 @@
 #if USE(HAIKU_EVENT_LOOP)
 class BHandler;
 class BMessageRunner;
+class BLooper;
 #endif
 
 namespace WTF {
@@ -250,6 +251,7 @@ private:
     WeakHashSet<Observer> m_observers;
 #elif USE(HAIKU_EVENT_LOOP)
     BHandler* m_handler;
+    BLooper* m_looper;
 #elif USE(GENERIC_EVENT_LOOP)
     void schedule(Ref<TimerBase::ScheduledTask>&&);
     void scheduleWithLock(Ref<TimerBase::ScheduledTask>&&) WTF_REQUIRES_LOCK(m_loopLock);
