@@ -120,7 +120,7 @@ class FrameLoaderClientHaiku : public FrameLoaderClient {
 
     void dispatchDecidePolicyForResponse(const ResourceResponse&,
 		const ResourceRequest&, PolicyCheckIdentifier,
-		const String& downloadAttribute, FramePolicyFunction&&) override;
+		const String& downloadAttribute, BrowsingContextGroupSwitchDecision, FramePolicyFunction&&) override;
     void dispatchDecidePolicyForNewWindowAction(const NavigationAction&,
         const ResourceRequest&, FormState*, const String& formName,
 		PolicyCheckIdentifier, FramePolicyFunction&&) override;

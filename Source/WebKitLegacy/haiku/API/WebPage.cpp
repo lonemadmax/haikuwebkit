@@ -72,6 +72,7 @@
 #include "WebCore/Page.h"
 #include "WebCore/PageConfiguration.h"
 #include "WebCore/PageGroup.h"
+#include "WebCore/PermissionController.h"
 #include "WebCore/PlatformKeyboardEvent.h"
 #include "WebCore/PlatformMouseEvent.h"
 #include "WebCore/PlatformWheelEvent.h"
@@ -276,8 +277,9 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         makeUniqueRef<FrameLoaderClientHaiku>(this),
         makeUniqueRef<WebCore::DummySpeechRecognitionProvider>(),
         makeUniqueRef<MediaRecorderProviderHaiku>(),
-        WebBroadcastChannelRegistry::getOrCreate(false)
-        );
+        WebBroadcastChannelRegistry::getOrCreate(false),
+        WebCore::DummyPermissionController::create()
+    );
 
     // alternativeText
     pageClients.chromeClient = new ChromeClientHaiku(this, webView);

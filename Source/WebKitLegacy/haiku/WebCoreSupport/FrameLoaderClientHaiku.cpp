@@ -503,7 +503,8 @@ void FrameLoaderClientHaiku::dispatchShow()
 void FrameLoaderClientHaiku::dispatchDecidePolicyForResponse(
 	const WebCore::ResourceResponse& response,
 	const WebCore::ResourceRequest& request, PolicyCheckIdentifier identifier,
-	const WTF::String&, FramePolicyFunction&& function)
+	const WTF::String&, BrowsingContextGroupSwitchDecision,
+	FramePolicyFunction&& function)
 {
     if (request.isNull()) {
         function(PolicyAction::Ignore, identifier);
