@@ -48,6 +48,11 @@
 #import <pal/spi/ios/GraphicsServicesSPI.h>
 #import <wtf/MainThread.h>
 
+static void overrideSyncInputManagerToAcceptedAutocorrection(id, SEL, TIKeyboardCandidate *candidate, TIKeyboardInput *input)
+{
+    // Intentionally unimplemented. See usage below for more information.
+}
+
 static BOOL overrideIsInHardwareKeyboardMode()
 {
     return NO;
@@ -56,15 +61,6 @@ static BOOL overrideIsInHardwareKeyboardMode()
 static void overridePresentMenuOrPopoverOrViewController()
 {
 }
-
-#if !HAVE(NONDESTRUCTIVE_IMAGE_PASTE_SUPPORT_QUERY)
-
-static BOOL overrideKeyboardDelegateSupportsImagePaste(id, SEL)
-{
-    return NO;
-}
-
-#endif
 
 namespace WTR {
 
@@ -172,6 +168,10 @@ bool TestController::platformResetStateToConsistentValues(const TestOptions& opt
     if (![preferencesActions oneTimeActionCompleted:hardwareKeyboardLastSeenPreferenceKey])
         [preferencesActions didTriggerOneTimeAction:hardwareKeyboardLastSeenPreferenceKey];
 
+    auto didShowContinuousPathIntroductionKey = @"DidShowContinuousPathIntroduction";
+    if (![preferencesActions oneTimeActionCompleted:didShowContinuousPathIntroductionKey])
+        [preferencesActions didTriggerOneTimeAction:didShowContinuousPathIntroductionKey];
+
     // Disables the dictation keyboard shortcut for testing.
     auto dictationKeyboardShortcutPreferenceKey = @"HWKeyboardDictationShortcut";
     auto dictationKeyboardShortcutValueForTesting = @(-1);
@@ -182,17 +182,15 @@ bool TestController::platformResetStateToConsistentValues(const TestOptions& opt
 
     GSEventSetHardwareKeyboardAttached(true, 0);
 
+    // Ignore calls to inform the keyboard daemon that we accepted autocorrection candidates.
+    // This prevents the device from learning misspelled words in between layout tests.
+    method_setImplementation(class_getInstanceMethod(UIKeyboardImpl.class, @selector(syncInputManagerToAcceptedAutocorrection:forInput:)), reinterpret_cast<IMP>(overrideSyncInputManagerToAcceptedAutocorrection));
+
     // Override the implementation of +[UIKeyboard isInHardwareKeyboardMode] to ensure that test runs are deterministic
     // regardless of whether a hardware keyboard is attached. We intentionally never restore the original implementation.
     //
     // FIXME: Investigate whether this can be removed. The swizzled return value is inconsistent with GSEventSetHardwareKeyboardAttached.
     method_setImplementation(class_getClassMethod([UIKeyboard class], @selector(isInHardwareKeyboardMode)), reinterpret_cast<IMP>(overrideIsInHardwareKeyboardMode));
-
-#if !HAVE(NONDESTRUCTIVE_IMAGE_PASTE_SUPPORT_QUERY)
-    // FIXME: Remove this workaround once -[UIKeyboardImpl delegateSupportsImagePaste] no longer increments the general pasteboard's changeCount.
-    if (!m_keyboardDelegateSupportsImagePasteSwizzler)
-        m_keyboardDelegateSupportsImagePasteSwizzler = makeUnique<InstanceMethodSwizzler>(UIKeyboardImpl.class, @selector(delegateSupportsImagePaste), reinterpret_cast<IMP>(overrideKeyboardDelegateSupportsImagePaste));
-#endif
 
     if (m_overriddenKeyboardInputMode) {
         m_overriddenKeyboardInputMode = nil;

@@ -157,6 +157,7 @@ imagesizes
 imagesrcset
 incremental
 indeterminate
+inert
 inputmode
 integrity
 is
@@ -295,6 +296,7 @@ onreset
 onresize
 onscroll
 onsearch
+onsecuritypolicyviolation
 onseeked
 onseeking
 onselect

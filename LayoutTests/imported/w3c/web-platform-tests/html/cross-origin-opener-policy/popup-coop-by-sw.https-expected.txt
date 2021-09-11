@@ -1,6 +1,10 @@
 
-PASS sw_normal, popup_normal
-PASS sw_normal, popup_coop
-PASS sw_coop, popup_normal
-PASS sw_coop, popup_coop
+PASS opener:basic, openee:basic, sw:basic
+PASS opener:basic, openee:basic, sw:coi
+PASS opener:basic, openee:coi, sw:basic
+PASS opener:basic, openee:coi, sw:coi
+PASS opener:coi, openee:basic, sw:basic
+PASS opener:coi, openee:basic, sw:coi
+PASS opener:coi, openee:coi, sw:basic
+PASS opener:coi, openee:coi, sw:coi
 

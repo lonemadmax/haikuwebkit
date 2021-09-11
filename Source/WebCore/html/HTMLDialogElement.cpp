@@ -66,7 +66,7 @@ ExceptionOr<void> HTMLDialogElement::showModal()
     m_isModal = true;
 
     if (!isInTopLayer())
-        document().addToTopLayer(*this);
+        addToTopLayer();
 
     // FIXME: Add steps 8 & 9 from spec. (webkit.org/b/227537)
 
@@ -86,7 +86,7 @@ void HTMLDialogElement::close(const String& result)
         m_returnValue = result;
 
     if (isInTopLayer())
-        document().removeFromTopLayer(*this);
+        removeFromTopLayer();
 
     // FIXME: Add step 6 from spec. (webkit.org/b/227537)
 
@@ -95,7 +95,7 @@ void HTMLDialogElement::close(const String& result)
     });
 }
 
-void HTMLDialogElement::cancel()
+void HTMLDialogElement::queueCancelTask()
 {
     document().eventLoop().queueTask(TaskSource::UserInteraction, [protectedThis = GCReachableRef { *this }] {
         auto cancelEvent = Event::create(eventNames().cancelEvent, Event::CanBubble::No, Event::IsCancelable::Yes);

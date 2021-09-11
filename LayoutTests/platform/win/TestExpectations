@@ -326,6 +326,8 @@ storage/indexeddb/modern/idbobjectstore-delete-1-private.html [ Failure ]
 storage/indexeddb/modern/idbobjectstore-delete-1.html [ Failure ]
 storage/indexeddb/modern/workers-enable.html [ Failure ]
 
+webkit.org/b/229457 storage/indexeddb/getdatabases.html [ Pass Failure ]
+
 imported/w3c/IndexedDB-private-browsing [ Skip ]
 imported/w3c/web-platform-tests/IndexedDB [ Skip ]
 http/tests/security/cross-origin-indexeddb-allowed.html [ Skip ]
@@ -2410,6 +2412,9 @@ webkit.org/b/140947 js/slow-stress/Int32Array-alloc-huge.html [ Pass Failure ]
 webkit.org/b/140947 js/slow-stress/Int32Array-alloc-huge-long-lived.html [ Pass Failure ]
 webkit.org/b/140947 js/slow-stress/Int32Array-alloc-large-long-lived.html [ Skip ]  # Crashing
 
+webkit.org/b/229626 [ Release ] js/dfg-int32array.html [ Pass Crash ]
+webkit.org/b/229626 js/dfg-intrinsic-unused-this.html [ Pass Crash ]
+
 # The following fails due to DOM exception 18.
 js/dom/callback-function-with-handle-event.html [ Skip ] #  [ Timeout ]
 
@@ -2508,6 +2513,8 @@ printing/return-from-printing-mode.html
 
 webkit.org/b/140866 fast/repaint/obscured-background-no-repaint.html [ Failure ]
 [ Debug ] fast/repaint/animation-after-layer-scroll.html [ Failure ]
+
+webkit.org/b/215723 fast/repaint/list-item-equal-style-change-no-repaint.html [ Pass Failure ]
 
 [ Release ] platform/win/fast/text/uniscribe-missing-glyph.html [ Failure ]
 [ Debug ] platform/win/fast/text/uniscribe-missing-glyph.html [ Skip ] # Debug assertion
@@ -3715,8 +3722,6 @@ imported/w3c/web-platform-tests/fetch/api/policies/referrer-origin-when-cross-or
 imported/w3c/web-platform-tests/fetch/api/policies/referrer-unsafe-url-service-worker.https.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/api/request/destination [ Skip ]
 imported/w3c/web-platform-tests/fetch/cross-origin-resource-policy [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-opener-policy/popup-coop-by-sw-from-coop.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-opener-policy/popup-coop-by-sw.https.html [ Skip ]
 imported/w3c/web-platform-tests/server-timing/service_worker_idl.html [ Skip ]
 imported/w3c/web-platform-tests/service-workers [ Skip ]
 imported/w3c/web-platform-tests/html/webappapis/scripting/processing-model-2/integration-with-the-javascript-agent-formalism/requires-failure.https.any.serviceworker.html [ Skip ]
@@ -3725,10 +3730,11 @@ imported/w3c/web-platform-tests/worklets/audio-worklet-service-worker-intercepti
 imported/w3c/web-platform-tests/worklets/layout-worklet-service-worker-interception.https.html [ Skip ]
 imported/w3c/web-platform-tests/worklets/paint-worklet-service-worker-interception.https.html [ Skip ]
 
-# No Cross-Origin-Embedder-Policy in WK1.
+# No Cross-Origin-Opener-Policy / Cross-Origin-Embedder-Policy in WK1.
 imported/w3c/web-platform-tests/html/cross-origin-embedder-policy [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-opener-policy/coep-blob-popup.https.html [ Skip ]
-http/wpt/html/cross-origin-embedder-policy/require-corp.https.html [ Skip ]
+imported/w3c/web-platform-tests/html/cross-origin-opener-policy [ Skip ]
+http/wpt/cross-origin-opener-policy [ Skip ]
+http/wpt/html/cross-origin-embedder-policy [ Skip ]
 
 # No header filtering for WK1
 http/wpt/loading/redirect-headers.html [ Skip ]
@@ -3751,6 +3757,8 @@ webkit.org/b/176598 http/tests/security/contentSecurityPolicy/audio-redirect-all
 webkit.org/b/176606 http/tests/preload/single_download_preload_headers.py [ Pass Crash ]
 webkit.org/b/176609 http/tests/websocket/tests/hybi/close-code-and-reason.html [ Pass Crash ]
 webkit.org/b/176632 http/tests/websocket/tests/hybi/websocket-pending-activity.html [ Pass Crash ]
+
+webkit.org/b/229669 http/tests/websocket/tests/hybi/simple-wss.html [ Failure ]
 
 # Web platform tests are very slow on Windows.
 webkit.org/b/176657 imported/w3c/web-platform-tests/ [ Skip ]
@@ -4658,20 +4666,6 @@ fast/forms/number/number-spinbutton-in-multi-column.html [ Pass Crash ]
 
 webkit.org/b/229194 [ Release ] fast/forms/number/number-spinbutton-state.html [ Pass Crash ]
 
-webkit.org/b/228968 fast/forms/search/search-zoom-computed-style-height.html [ Pass Crash ]
-
-webkit.org/b/229009 fast/forms/input-baseline.html [ Pass Crash ]
-webkit.org/b/229009 fast/forms/form-element-geometry.html [ Pass Crash ]
-webkit.org/b/229009 fast/forms/focus-selection-input.html [ Pass Crash ]
-webkit.org/b/229009 fast/forms/select/listbox-in-multi-column.html [ Pass Crash ]
-webkit.org/b/229009 fast/events/mouse-cursor-image-set.html [ Pass Crash ]
-webkit.org/b/229009 fast/forms/input-button-sizes.html [ Pass Crash ]
-webkit.org/b/229009 fast/forms/input-placeholder-paint-order-2.html [ Pass Crash ]
-webkit.org/b/229009 fast/forms/select/select-painting.html [ Pass Crash ]
-webkit.org/b/229009 fast/forms/textarea/textarea-placeholder-paint-order-2.html [ Pass Crash ]
-
-webkit.org/b/229143 fast/forms/input-appearance-spinbutton-size.html [ Pass Crash ]
-
 webkit.org/b/229005 fast/events/dropzone-005.html [ Pass Crash ]
 
 webkit.org/b/229191 animations/shadow-host-child-change.html [ Pass Failure ]
@@ -4691,3 +4685,5 @@ webkit.org/b/229372 http/tests/websocket/tests/hybi/inspector/send-and-recieve-d
 webkit.org/b/229379 fast/visual-viewport/resize-event-fired-window-resized.html [ Skip ]
 
 webkit.org/b/215318 fast/text/zwj-ligature.html [ ImageOnlyFailure ]
+
+webkit.org/b/229594 js/dfg-int16array.html [ Pass Crash ]

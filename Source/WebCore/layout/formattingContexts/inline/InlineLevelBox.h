@@ -37,11 +37,12 @@ namespace Layout {
 
 class LineBox;
 class LineBoxBuilder;
-struct SimplifiedVerticalAlignment;
+class LineBoxVerticalAligner;
 
 class InlineLevelBox {
 public:
-    static InlineLevelBox createInlineBox(const Box&, InlineLayoutUnit logicalLeft, InlineLayoutUnit logicalWidth);
+    enum class LineSpanningInlineBox { Yes, No };
+    static InlineLevelBox createInlineBox(const Box&, InlineLayoutUnit logicalLeft, InlineLayoutUnit logicalWidth, LineSpanningInlineBox = LineSpanningInlineBox::No);
     static InlineLevelBox createAtomicInlineLevelBox(const Box&, InlineLayoutUnit logicalLeft, InlineLayoutSize);
     static InlineLevelBox createLineBreakBox(const Box&, InlineLayoutUnit logicalLeft);
     static InlineLevelBox createGenericInlineLevelBox(const Box&, InlineLayoutUnit logicalLeft);
@@ -65,14 +66,16 @@ public:
     const Box& layoutBox() const { return *m_layoutBox; }
     const RenderStyle& style() const { return m_layoutBox->style(); }
 
-    bool isInlineBox() const { return m_type == Type::InlineBox || m_type == Type::RootInlineBox; }
+    bool isInlineBox() const { return m_type == Type::InlineBox || isRootInlineBox() || isLineSpanningInlineBox(); }
     bool isRootInlineBox() const { return m_type == Type::RootInlineBox; }
+    bool isLineSpanningInlineBox() const { return m_type == Type::LineSpanningInlineBox; }
     bool isAtomicInlineLevelBox() const { return m_type == Type::AtomicInlineLevelBox; }
     bool isLineBreakBox() const { return m_type == Type::LineBreakBox; }
     bool hasLineBoxRelativeAlignment() const;
 
     enum class Type : uint8_t {
         InlineBox             = 1 << 0,
+        LineSpanningInlineBox = 1 << 1,
         RootInlineBox         = 1 << 1,
         AtomicInlineLevelBox  = 1 << 2,
         LineBreakBox          = 1 << 3,
@@ -84,9 +87,9 @@ public:
     InlineLevelBox() = default;
 
 private:
-    friend struct SimplifiedVerticalAlignment;
-    friend class LineBoxBuilder;
     friend class LineBox;
+    friend class LineBoxBuilder;
+    friend class LineBoxVerticalAligner;
 
     const InlineRect& logicalRect() const { return m_logicalRect; }
     InlineLayoutUnit logicalTop() const { return m_logicalRect.top(); }
@@ -138,9 +141,9 @@ inline InlineLevelBox InlineLevelBox::createAtomicInlineLevelBox(const Box& layo
     return InlineLevelBox { layoutBox, logicalLeft, logicalSize, Type::AtomicInlineLevelBox };
 }
 
-inline InlineLevelBox InlineLevelBox::createInlineBox(const Box& layoutBox, InlineLayoutUnit logicalLeft, InlineLayoutUnit logicalWidth)
+inline InlineLevelBox InlineLevelBox::createInlineBox(const Box& layoutBox, InlineLayoutUnit logicalLeft, InlineLayoutUnit logicalWidth, LineSpanningInlineBox isLineSpanning)
 {
-    return InlineLevelBox { layoutBox, logicalLeft, InlineLayoutSize { logicalWidth, { } }, Type::InlineBox };
+    return InlineLevelBox { layoutBox, logicalLeft, InlineLayoutSize { logicalWidth, { } }, isLineSpanning == LineSpanningInlineBox::Yes ? Type::LineSpanningInlineBox : Type::InlineBox };
 }
 
 inline InlineLevelBox InlineLevelBox::createLineBreakBox(const Box& layoutBox, InlineLayoutUnit logicalLeft)

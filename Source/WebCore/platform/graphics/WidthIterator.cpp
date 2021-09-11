@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 - 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2003 - 2021 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Holger Hans Peter Freyther
  *
  * This library is free software; you can redistribute it and/or
@@ -278,6 +278,8 @@ inline void WidthIterator::advanceInternal(TextIterator& textIterator, GlyphBuff
     float widthOfCurrentFontRange = 0;
     // We are iterating in string order, not glyph order. Compare this to ComplexTextController::adjustGlyphsAndAdvances()
     while (textIterator.consume(character, clusterLength)) {
+        // FIXME: Should we replace unpaired surrogates with the object replacement character?
+        // Should we do this before or after shaping? What does a shaper do with an unpaired surrogate?
         m_containsTabs |= character == tabCharacter;
         currentCharacterIndex = textIterator.currentIndex();
         unsigned advanceLength = clusterLength;
@@ -556,6 +558,16 @@ bool WidthIterator::characterCanUseSimplifiedTextMeasuring(UChar character, bool
     return true;
 }
 
+void WidthIterator::adjustForSyntheticBold(GlyphBuffer& glyphBuffer, unsigned index)
+{
+    auto glyph = glyphBuffer.glyphAt(index);
+    static constexpr const GlyphBufferGlyph deletedGlyph = 0xFFFF;
+    auto syntheticBoldOffset = glyph == deletedGlyph ? 0 : glyphBuffer.fontAt(index).syntheticBoldOffset();
+    m_runWidthSoFar += syntheticBoldOffset;
+    auto& advance = glyphBuffer.advances(index)[0];
+    setWidth(advance, width(advance) + syntheticBoldOffset);
+}
+
 void WidthIterator::applyCSSVisibilityRules(GlyphBuffer& glyphBuffer, unsigned glyphBufferStartIndex)
 {
     // This function needs to be kept in sync with characterCanUseSimplifiedTextMeasuring().
@@ -577,6 +589,7 @@ void WidthIterator::applyCSSVisibilityRules(GlyphBuffer& glyphBuffer, unsigned g
             ASSERT(glyphBuffer.fonts(i)[0]);
             // FIXME: Is this actually necessary? If the font specifically has a glyph for NBSP, I don't see a reason not to use it.
             glyphBuffer.glyphs(i)[0] = glyphBuffer.fonts(i)[0]->spaceGlyph();
+            adjustForSyntheticBold(glyphBuffer, i);
             continue;
         }
 
@@ -593,6 +606,8 @@ void WidthIterator::applyCSSVisibilityRules(GlyphBuffer& glyphBuffer, unsigned g
             glyphBuffer.origins(i)[0] = makeGlyphBufferOrigin(0, -yPosition);
             continue;
         }
+
+        adjustForSyntheticBold(glyphBuffer, i);
 
         if ((characterResponsibleForThisGlyph >= nullCharacter && characterResponsibleForThisGlyph < space)
             || (characterResponsibleForThisGlyph >= deleteCharacter && characterResponsibleForThisGlyph < noBreakSpace)) {
@@ -623,8 +638,6 @@ void WidthIterator::applyCSSVisibilityRules(GlyphBuffer& glyphBuffer, unsigned g
             continue;
         }
     }
-
-    
 }
 
 void WidthIterator::finalize(GlyphBuffer& buffer)

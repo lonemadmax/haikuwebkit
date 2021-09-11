@@ -1,3 +1,1314 @@
+2021-09-02  Antti Koivisto  <antti@apple.com>
+
+        [CSS Cascade Layers] Import @import WPT tests
+        https://bugs.webkit.org/show_bug.cgi?id=229796
+
+        Reviewed by Youenn Fablet.
+
+        * web-platform-tests/css/css-cascade/layer-import-expected.txt: Added.
+        * web-platform-tests/css/css-cascade/layer-import.html: Added.
+        * web-platform-tests/css/css-cascade/w3c-import.log:
+
+2021-09-01  Alex Christensen  <achristensen@webkit.org>
+
+        PerformanceNavigationTiming should be instantiated before scripts run then updated when response finishes
+        https://bugs.webkit.org/show_bug.cgi?id=229751
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/navigation-timing/nav2_test_response_end_and_duration_before_during_and_after_load_event-expected.txt: Added.
+        * web-platform-tests/navigation-timing/nav2_test_response_end_and_duration_before_during_and_after_load_event.html: Added.
+        * web-platform-tests/navigation-timing/resources/respond_slowly.py: Added.
+        (main):
+
+2021-09-01  Chris Dumez  <cdumez@apple.com>
+
+        Add support for ServiceWorkerGlobalScope.serviceWorker
+        https://bugs.webkit.org/show_bug.cgi?id=229720
+
+        Reviewed by Youenn Fablet.
+
+        Rebaseline WPT tests that are now passing.
+
+        * web-platform-tests/html/cross-origin-opener-policy/popup-coop-by-sw.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/global-serviceworker.https.any.serviceworker-expected.txt:
+
+2021-09-01  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        document.fonts.size needs to update style so it doesn't return stale values
+        https://bugs.webkit.org/show_bug.cgi?id=229644
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/css/css-font-loading/fontfaceset-update-after-stylesheet-change-expected.txt:
+
+2021-09-01  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        CSSFontFaceSet.clear() should not clear CSS-connected members
+        https://bugs.webkit.org/show_bug.cgi?id=229643
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/css/css-font-loading/fontfaceset-clear-css-connected-expected.txt:
+
+2021-08-13  Sergio Villar Senin  <svillar@igalia.com>
+
+        [css-flexbox] Add initial support for css-align-3 positional alignment properties
+        https://bugs.webkit.org/show_bug.cgi?id=229074
+
+        Reviewed by Simon Fraser.
+
+        Fixed expectations for 56 subtests that should PASS now instead of FAIL.
+
+        * web-platform-tests/css/css-flexbox/align-content-horiz-001a-expected.txt: Mark 8 subtests as PASS.
+        * web-platform-tests/css/css-flexbox/align-content-horiz-001b-expected.txt: Ditto.
+        * web-platform-tests/css/css-flexbox/align-content-horiz-002-expected.txt: Ditto.
+        * web-platform-tests/css/css-flexbox/align-content-vert-001a-expected.txt: Ditto.
+        * web-platform-tests/css/css-flexbox/align-content-vert-001b-expected.txt: Ditto.
+        * web-platform-tests/css/css-flexbox/align-content-vert-002-expected.txt: Ditto.
+        * web-platform-tests/css/css-flexbox/align-content-wmvert-001-expected.txt: Ditto.
+
+2021-08-31  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Import web-platform-tests/css/css-font-loading
+        https://bugs.webkit.org/show_bug.cgi?id=229729
+
+        Reviewed by Simon Fraser.
+
+        % ./Tools/Scripts/import-w3c-tests css/css-font-loading -l -s /path/to/web-platform-tests -d imported/w3c/web-platform-tests
+
+        * resources/import-expectations.json:
+        * resources/resource-files.json:
+        * web-platform-tests/css/css-font-loading/fontface-override-descriptor-getter-setter.sub.html: Added.
+        * web-platform-tests/css/css-font-loading/fontface-override-descriptors-expected.html: Added.
+        * web-platform-tests/css/css-font-loading/fontface-override-descriptors.html: Added.
+        * web-platform-tests/css/css-font-loading/fontface-size-adjust-descriptor-expected.html: Added.
+        * web-platform-tests/css/css-font-loading/fontface-size-adjust-descriptor.html: Added.
+        * web-platform-tests/css/css-font-loading/fontfaceset-add-css-connected-expected.txt: Added.
+        * web-platform-tests/css/css-font-loading/fontfaceset-add-css-connected.html: Added.
+        * web-platform-tests/css/css-font-loading/fontfaceset-clear-css-connected-2-expected.html: Added.
+        * web-platform-tests/css/css-font-loading/fontfaceset-clear-css-connected-2.html: Added.
+        * web-platform-tests/css/css-font-loading/fontfaceset-clear-css-connected-expected.txt: Added.
+        * web-platform-tests/css/css-font-loading/fontfaceset-clear-css-connected.html: Added.
+        * web-platform-tests/css/css-font-loading/fontfaceset-delete-css-connected-2-expected.html: Added.
+        * web-platform-tests/css/css-font-loading/fontfaceset-delete-css-connected-2.html: Added.
+        * web-platform-tests/css/css-font-loading/fontfaceset-delete-css-connected-expected.txt: Added.
+        * web-platform-tests/css/css-font-loading/fontfaceset-delete-css-connected.html: Added.
+        * web-platform-tests/css/css-font-loading/fontfaceset-load-var.html: Added.
+        * web-platform-tests/css/css-font-loading/fontfaceset-update-after-stylesheet-change-expected.txt: Added.
+        * web-platform-tests/css/css-font-loading/fontfaceset-update-after-stylesheet-change.html: Added.
+        * web-platform-tests/css/css-font-loading/nonexistent-file-url-expected.txt: Added.
+        * web-platform-tests/css/css-font-loading/nonexistent-file-url.html: Added.
+        * web-platform-tests/css/css-font-loading/resources/Rochester.otf: Added.
+        * web-platform-tests/css/css-font-loading/resources/w3c-import.log:
+        * web-platform-tests/css/css-font-loading/w3c-import.log:
+
+2021-08-31  Chris Dumez  <cdumez@apple.com>
+
+        Enable SharedArrayBuffer support when COOP/COEP headers are used
+        https://bugs.webkit.org/show_bug.cgi?id=229559
+        <rdar://problem/82391945>
+
+        Reviewed by Alex Christensen.
+
+        Rebaseline a few web-platform-tests now that window.crossOriginIsolated properly returns
+        true when COOP+COEP are used.
+
+        Note that SharedArrayBuffer are already forcefully enabled by run-webkit-tests.py when running
+        the layout tests, which is why there are not more layout test results changes. At some point,
+        we should stop forcefully enabling SharedArrayBuffer when running web-platform-tests at least,
+        since WPT tests already make sure to use COOP+COEP when testing SharedArrayBuffer.
+
+        * web-platform-tests/IndexedDB/serialize-sharedarraybuffer-throws.https-expected.txt:
+        * web-platform-tests/html/cross-origin-embedder-policy/cross-origin-isolated-permission.https-expected.txt:
+        Note that some subtests are failing because we don't support the Permissions-Policy HTTP header:
+        - https://w3c.github.io/webappsec-permissions-policy/
+
+        * web-platform-tests/html/cross-origin-opener-policy/coep.https-expected.txt:
+
+2021-08-31  Marcos Caceres  <marcos@marcosc.com>
+
+        [Payment Request] Calling PaymentRequest's show() should consume user activation
+        https://bugs.webkit.org/show_bug.cgi?id=217365
+
+        Reviewed by Youenn Fablet and Devin Rousso.
+
+        Re-import payment-request tests from WPT c0453ea15be63fc697bdbc141aa6837a1020b114.
+
+        * web-platform-tests/payment-request/payment-is-showing.https.html:
+        * web-platform-tests/payment-request/payment-request-canmakepayment-method.https-expected.txt:
+        * web-platform-tests/payment-request/payment-request-hasenrolledinstrument-method.tentative.https-expected.txt:
+        * web-platform-tests/payment-request/payment-request-show-method.https-expected.txt: Added.
+        * web-platform-tests/payment-request/payment-request-show-method.https.html:
+        * web-platform-tests/payment-request/rejects_if_not_active.https.html:
+        * web-platform-tests/payment-request/show-method-optional-promise-rejects.https-expected.txt:
+
+2021-08-31  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Resync web-platform-tests/shadow-dom
+        https://bugs.webkit.org/show_bug.cgi?id=229698
+
+        Reviewed by Antti Koivisto.
+
+        Resync WPT tests for shadow DOM as of 62d977d3e3161a900aecd007ff3fc88b621fdc65.
+
+        * resources/resource-files.json:
+        * web-platform-tests/shadow-dom/declarative/declarative-shadow-dom-basic.tentative-expected.txt:
+        * web-platform-tests/shadow-dom/declarative/declarative-shadow-dom-basic.tentative.html:
+        * web-platform-tests/shadow-dom/focus/focus-pseudo-on-shadow-host-1-expected.xht: Added.
+        * web-platform-tests/shadow-dom/focus/focus-pseudo-on-shadow-host-1.html: Added.
+        * web-platform-tests/shadow-dom/focus/focus-pseudo-on-shadow-host-2-expected.xht: Added.
+        * web-platform-tests/shadow-dom/focus/focus-pseudo-on-shadow-host-2.html: Added.
+        * web-platform-tests/shadow-dom/focus/focus-pseudo-on-shadow-host-3-expected.xht: Added.
+        * web-platform-tests/shadow-dom/focus/focus-pseudo-on-shadow-host-3.html: Added.
+        * web-platform-tests/shadow-dom/focus/w3c-import.log:
+        * web-platform-tests/shadow-dom/imperative-slot-api-expected.txt:
+        * web-platform-tests/shadow-dom/imperative-slot-api-slotchange-expected.txt:
+        * web-platform-tests/shadow-dom/imperative-slot-api-slotchange.html:
+        * web-platform-tests/shadow-dom/imperative-slot-api.html:
+        * web-platform-tests/shadow-dom/imperative-slot-assign-not-slotable-crash-expected.txt: Added.
+        * web-platform-tests/shadow-dom/imperative-slot-assign-not-slotable-crash.html: Added.
+        * web-platform-tests/shadow-dom/w3c-import.log:
+
+2021-08-31  Chris Dumez  <cdumez@apple.com>
+
+        Implement self.structuredClone()
+        https://bugs.webkit.org/show_bug.cgi?id=228331
+        <rdar://problem/81468374>
+
+        Reviewed by Ryosuke Niwa.
+
+        Import layout test coverage from WPT.
+
+        * web-platform-tests/html/webappapis/structured-clone/structured-clone.any-expected.txt: Added.
+        * web-platform-tests/html/webappapis/structured-clone/structured-clone.any.html: Added.
+        * web-platform-tests/html/webappapis/structured-clone/structured-clone.any.js: Added.
+        * web-platform-tests/html/webappapis/structured-clone/structured-clone.any.worker-expected.txt: Added.
+        * web-platform-tests/html/webappapis/structured-clone/structured-clone.any.worker.html: Added.
+        * web-platform-tests/html/webappapis/structured-clone/w3c-import.log:
+
+2021-08-31  Chris Dumez  <cdumez@apple.com>
+
+        [COOP] html/cross-origin-opener-policy/coop-same-origin-allow-popups-document-write.html WPT test is failing
+        https://bugs.webkit.org/show_bug.cgi?id=229692
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/html/cross-origin-opener-policy/coop-same-origin-allow-popups-document-write-expected.txt:
+        Rebaseline WPT test that is now passing.
+
+        * web-platform-tests/html/cross-origin-opener-policy/coop-same-origin-allow-popups-document-write.html:
+        Merge typo fix from https://github.com/web-platform-tests/wpt/commit/0adccdd2cd38e2217a11d3d6dd14260f32a8a0a6
+
+2021-08-31  Antti Koivisto  <antti@apple.com>
+
+        [CSS Cascade Layers] Compute order correctly for late added sublayers
+        https://bugs.webkit.org/show_bug.cgi?id=229666
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-cascade/layer-basic-expected.txt:
+
+2021-08-31  Youenn Fablet  <youenn@apple.com>
+
+        Add support for RTCIceTransport
+        https://bugs.webkit.org/show_bug.cgi?id=229285
+
+        Reviewed by Eric Carlson.
+
+        * web-platform-tests/webrtc/idlharness.https.window-expected.txt:
+        * web-platform-tests/webrtc/protocol/bundle.https-expected.txt:
+
+2021-08-30  Johnson Zhou  <qiaosong_zhou@apple.com>
+
+        Rebaseline for CSS Typed OM, CSSUnparsedValue partially implemented.
+        https://bugs.webkit.org/show_bug.cgi?id=229069
+
+        Reviewed by Alex Christensen.
+
+        * web-platform-tests/css/css-typed-om/idlharness-expected.txt:
+        * web-platform-tests/css/css-typed-om/set-var-reference-thcrash-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-normalization/normalize-ident.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-normalization/normalize-image-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-normalization/normalize-numeric.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-normalization/normalize-tokens.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-objects/parse-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-objects/parse-invalid-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-objects/parseAll-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-objects/parseAll-invalid-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-serialization/cssKeywordValue.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-serialization/cssPositionValue-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-serialization/cssStyleValue-cssom-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-serialization/cssStyleValue-string-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-serialization/cssUnitValue.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-serialization/cssUnparsedValue-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/cssUnparsedValue-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/cssUnparsedValue-indexed-getter-setter-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/cssUnparsedValue-iterable-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/cssUnparsedValue-length-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/cssVariableReferenceValue-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/cssVariableReferenceValue-invalid-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/cssVariableReferenceValue-variable-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/numeric-objects/parse.tentative-expected.txt:
+        * web-platform-tests/css/css-typed-om/the-stylepropertymap/inline/get-expected.txt:
+
+2021-08-30  Chris Dumez  <cdumez@apple.com>
+
+        Resync COOP / COEP WPT tests from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=229678
+
+        Reviewed by Alex Christensen.
+
+        Resync COOP / COEP WPT tests from upstream e216db9509def8bc72b24e482.
+
+        * web-platform-tests/html/cross-origin-embedder-policy/*: Updated.
+        * web-platform-tests/html/cross-origin-opener-policy/*: Updated.
+
+2021-08-30  Sihui Liu  <sihui_liu@apple.com>
+
+        Add stubs for Permissions API
+        https://bugs.webkit.org/show_bug.cgi?id=229339
+        <rdar://problem/82442205>
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/permissions/idlharness.any-expected.txt:
+        * web-platform-tests/permissions/idlharness.any.worker-expected.txt:
+        * web-platform-tests/permissions/nfc-permission-expected.txt:
+        * web-platform-tests/permissions/permissions-query-feature-policy-attribute.https.sub-expected.txt:
+        * web-platform-tests/permissions/permissionsstatus-name-expected.txt:
+        * web-platform-tests/permissions/screen-wake-lock-permission-expected.txt:
+        * web-platform-tests/permissions/test-background-fetch-permission-expected.txt:
+        * web-platform-tests/permissions/test-periodic-background-sync-permission-expected.txt:
+
+2021-08-30  Sihui Liu  <sihui_liu@apple.com>
+
+        Import file-system-access tests from WPT
+        https://bugs.webkit.org/show_bug.cgi?id=229593
+
+        Reviewed by Ryosuke Niwa.
+
+        * resources/import-expectations.json:
+        * web-platform-tests/file-system-access/META.yml: Added.
+        * web-platform-tests/file-system-access/README.md: Added.
+        * web-platform-tests/file-system-access/idlharness.https.any-expected.txt: Added.
+        * web-platform-tests/file-system-access/idlharness.https.any.html: Added.
+        * web-platform-tests/file-system-access/idlharness.https.any.js: Added.
+        * web-platform-tests/file-system-access/idlharness.https.any.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/idlharness.https.any.worker.html: Added.
+        * web-platform-tests/file-system-access/opaque-origin.https.window-expected.txt: Added.
+        * web-platform-tests/file-system-access/opaque-origin.https.window.html: Added.
+        * web-platform-tests/file-system-access/opaque-origin.https.window.js: Added.
+        (add_iframe):
+        (async verify_does_not_exist_in_data_uri_iframe):
+        (async verify_results_from_sandboxed_child_window):
+        * web-platform-tests/file-system-access/resources/data/testfile.txt: Added.
+        * web-platform-tests/file-system-access/resources/data/w3c-import.log: Added.
+        * web-platform-tests/file-system-access/resources/local-fs-test-helpers.js: Added.
+        (const.directory_promise.async await):
+        (const.directory_promise):
+        (directory_test):
+        (async directory_test):
+        * web-platform-tests/file-system-access/resources/message-target-dedicated-worker.js: Added.
+        * web-platform-tests/file-system-access/resources/message-target-service-worker.js: Added.
+        * web-platform-tests/file-system-access/resources/message-target-shared-worker.js: Added.
+        * web-platform-tests/file-system-access/resources/message-target.html: Added.
+        * web-platform-tests/file-system-access/resources/message-target.js: Added.
+        (async receiver):
+        (add_message_event_handlers):
+        * web-platform-tests/file-system-access/resources/messaging-blob-helpers.js: Added.
+        (async create_message_target_blob_url):
+        (async create_message_target_data_uri):
+        (async create_message_target_html_without_subresources):
+        (async fetch_text):
+        * web-platform-tests/file-system-access/resources/messaging-helpers.js: Added.
+        (create_dedicated_worker):
+        (async create_service_worker):
+        (async add_iframe):
+        (async open_window):
+        (async wait_for_loaded_message):
+        (create_message_channel):
+        (async create_file_system_handles):
+        (async do_post_message_test):
+        (async do_message_port_test):
+        * web-platform-tests/file-system-access/resources/messaging-serialize-helpers.js: Added.
+        (async serialize_handles):
+        (async serialize_handle):
+        (async serialize_file_system_handle):
+        (async serialize_file_system_file_handle):
+        (async serialize_file_system_directory_handle):
+        (async assert_equals_cloned_handles):
+        (assert_equals_serialized_handles):
+        (assert_equals_serialized_handle):
+        (assert_equals_serialized_file_system_handle):
+        (assert_equals_serialized_file_system_file_handle):
+        (assert_equals_serialized_file_system_directory_handle):
+        (serialize_message_error_event):
+        (assert_equals_serialized_message_error_event):
+        * web-platform-tests/file-system-access/resources/opaque-origin-sandbox.html: Added.
+        * web-platform-tests/file-system-access/resources/sandboxed-fs-test-helpers.js: Added.
+        (async cleanupSandboxedFileSystem):
+        * web-platform-tests/file-system-access/resources/sync-access-handle-test.js: Added.
+        (async cleanupSandboxedFileSystem):
+        * web-platform-tests/file-system-access/resources/test-helpers.js: Added.
+        (navigator.userAgent.includes):
+        (async getFileSize):
+        (async getFileContents):
+        (async getDirectoryEntryCount):
+        (async getSortedDirectoryEntries):
+        (async createFileWithContents):
+        (garbageCollect):
+        * web-platform-tests/file-system-access/resources/w3c-import.log: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-IndexedDB.https.any-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-IndexedDB.https.any.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-IndexedDB.https.any.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-IndexedDB.https.any.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-IndexedDB.https.any.worker.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-isSameEntry.https.any-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-isSameEntry.https.any.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-isSameEntry.https.any.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-isSameEntry.https.any.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-isSameEntry.https.any.worker.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-BroadcastChannel.https.window-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-BroadcastChannel.https.window.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-BroadcastChannel.https.window.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-Error.https.window-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-Error.https.window.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-Error.https.window.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-MessagePort-frames.https.window-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-MessagePort-frames.https.window.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-MessagePort-frames.https.window.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-MessagePort-windows.https.window-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-MessagePort-windows.https.window.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-MessagePort-windows.https.window.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-MessagePort-workers.https.window-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-MessagePort-workers.https.window.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-MessagePort-workers.https.window.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-frames.https.window-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-frames.https.window.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-frames.https.window.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-windows.https.window-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-windows.https.window.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-windows.https.window.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-workers.https.window-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-workers.https.window.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-workers.https.window.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-remove.https.any-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-remove.https.any.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-remove.https.any.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-remove.https.any.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-remove.https.any.worker.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-getDirectoryHandle.https.any-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-getDirectoryHandle.https.any.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-getDirectoryHandle.https.any.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-getDirectoryHandle.https.any.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-getDirectoryHandle.https.any.worker.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-getFileHandle.https.any-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-getFileHandle.https.any.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-getFileHandle.https.any.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-getFileHandle.https.any.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-getFileHandle.https.any.worker.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-iteration.https.any-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-iteration.https.any.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-iteration.https.any.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-iteration.https.any.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-iteration.https.any.worker.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-removeEntry.https.any-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-removeEntry.https.any.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-removeEntry.https.any.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-removeEntry.https.any.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-removeEntry.https.any.worker.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-resolve.https.any-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-resolve.https.any.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-resolve.https.any.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-resolve.https.any.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-resolve.https.any.worker.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemFileHandle-create-sync-access-handle-dedicated-worker.https.tentative.window-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemFileHandle-create-sync-access-handle-dedicated-worker.https.tentative.window.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemFileHandle-create-sync-access-handle-dedicated-worker.https.tentative.window.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemFileHandle-getFile.https.any-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemFileHandle-getFile.https.any.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemFileHandle-getFile.https.any.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemFileHandle-getFile.https.any.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemFileHandle-getFile.https.any.worker.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemFileHandle-sync-access-handle-lock.https.tentative.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemFileHandle-sync-access-handle-lock.https.tentative.worker.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemFileHandle-sync-access-handle-lock.https.tentative.worker.js: Added.
+        (promise_test.async t):
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-close.https.tentative.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-close.https.tentative.worker.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-close.https.tentative.worker.js: Added.
+        (sync_access_handle_test.async testCase):
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-flush.https.tentative.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-flush.https.tentative.worker.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-flush.https.tentative.worker.js: Added.
+        (sync_access_handle_test.async t):
+        (sync_access_handle_test.async testCase):
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-getSize.https.tentative.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-getSize.https.tentative.worker.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-getSize.https.tentative.worker.js: Added.
+        (sync_access_handle_test.async testCase):
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-read-write.https.tentative.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-read-write.https.tentative.worker.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-read-write.https.tentative.worker.js: Added.
+        (sync_access_handle_test):
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-truncate.https.tentative.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-truncate.https.tentative.worker.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-truncate.https.tentative.worker.js: Added.
+        (sync_access_handle_test.async testCase):
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream-piped.https.any-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream-piped.https.any.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream-piped.https.any.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream-piped.https.any.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream-piped.https.any.worker.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream-write.https.any-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream-write.https.any.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream-write.https.any.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream-write.https.any.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream-write.https.any.worker.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream.https.any-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream.https.any.html: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream.https.any.js: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream.https.any.worker-expected.txt: Added.
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream.https.any.worker.html: Added.
+        * web-platform-tests/file-system-access/script-tests/FileSystemBaseHandle-IndexedDB.js: Added.
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemBaseHandle-isSameEntry.js: Added.
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemBaseHandle-postMessage-BroadcastChannel.js: Added.
+        (async create_broadcast_channel):
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemBaseHandle-postMessage-Error.js: Added.
+        (async do_send_message_error_test):
+        (async do_receive_message_error_test):
+        (async do_send_and_receive_message_error_test):
+        (async do_send_message_port_error_test):
+        (async do_receive_message_port_error_test):
+        (async do_send_and_receive_message_port_error_test):
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemBaseHandle-postMessage-MessagePort-frames.js: Added.
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemBaseHandle-postMessage-MessagePort-windows.js: Added.
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemBaseHandle-postMessage-MessagePort-workers.js: Added.
+        (directory_test.async t):
+        (self.SharedWorker.undefined.directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemBaseHandle-postMessage-frames.js: Added.
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemBaseHandle-postMessage-windows.js: Added.
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemBaseHandle-postMessage-workers.js: Added.
+        (directory_test.async t):
+        (self.SharedWorker.undefined.directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemBaseHandle-remove.js: Added.
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemDirectoryHandle-getDirectoryHandle.js: Added.
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemDirectoryHandle-getFileHandle.js: Added.
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemDirectoryHandle-iteration.js: Added.
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemDirectoryHandle-removeEntry.js: Added.
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemDirectoryHandle-resolve.js: Added.
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemFileHandle-create-sync-access-handle-dedicated-worker.js: Added.
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemFileHandle-getFile.js: Added.
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemSyncAccessHandle-flush.js: Added.
+        (sync_access_handle_test.async handle):
+        * web-platform-tests/file-system-access/script-tests/FileSystemWritableFileStream-piped.js: Added.
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemWritableFileStream-write.js: Added.
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/FileSystemWritableFileStream.js: Added.
+        (directory_test.async t):
+        * web-platform-tests/file-system-access/script-tests/w3c-import.log: Added.
+        * web-platform-tests/file-system-access/showPicker-errors.https.window-expected.txt: Added.
+        * web-platform-tests/file-system-access/showPicker-errors.https.window.html: Added.
+        * web-platform-tests/file-system-access/showPicker-errors.https.window.js: Added.
+        (promise_test.async t):
+        (define_file_picker_error_tests.async promise_test):
+        (define_file_picker_error_tests.async const):
+        (define_file_picker_error_tests):
+        (define_file_picker_extension_error_test):
+        * web-platform-tests/file-system-access/w3c-import.log: Added.
+
+2021-08-30  Chris Dumez  <cdumez@apple.com>
+
+        Implement self.reportError()
+        https://bugs.webkit.org/show_bug.cgi?id=228316
+        <rdar://problem/81446162>
+
+        Reviewed by Sam Weinig.
+
+        Import test coverage from:
+        - https://github.com/web-platform-tests/wpt/pull/29738
+
+        * web-platform-tests/html/webappapis/scripting/reporterror.any-expected.txt: Added.
+        * web-platform-tests/html/webappapis/scripting/reporterror.any.html: Added.
+        * web-platform-tests/html/webappapis/scripting/reporterror.any.js: Added.
+        (undefined.forEach.throwable.test.t.assert_equals):
+        (test):
+        * web-platform-tests/html/webappapis/scripting/reporterror.any.worker-expected.txt: Added.
+        * web-platform-tests/html/webappapis/scripting/reporterror.any.worker.html: Added.
+        * web-platform-tests/html/webappapis/scripting/w3c-import.log: Added.
+
+2021-08-27  Antti Koivisto  <antti@apple.com>
+
+        [CSS Cascade Layers] Initial support
+        https://bugs.webkit.org/show_bug.cgi?id=229542
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-cascade/layer-basic-expected.txt:
+
+2021-08-27  Martin Robinson  <mrobinson@webkit.org>
+
+        [css-position-sticky] createIndicatorForStickyElements testing function races with font loading
+        https://bugs.webkit.org/show_bug.cgi?id=229602
+
+        Reviewed by Žan Doberšek.
+
+        * web-platform-tests/css/css-position/resources/ref-rectangle.js:
+        (createIndicatorForStickyElements): Wait to read the size of the target div until
+        all web fonts have loaded. This ensures that this executes after Ahem has loaded
+        for the failing test.
+
+2021-08-27  Emilio Cobos Álvarez  <emilio@crisal.io>
+
+        Don't forget about the outer selector when matching ::slotted().
+        https://bugs.webkit.org/show_bug.cgi?id=229438
+
+        Reviewed by Antti Koivisto.
+
+        * web-platform-tests/css/css-scoping/slotted-specificity-002-expected.html: Added.
+        * web-platform-tests/css/css-scoping/slotted-specificity-002.html: Added.
+        * web-platform-tests/css/css-scoping/w3c-import.log:
+
+2021-08-27  Martin Robinson  <mrobinson@webkit.org>
+
+        [css-position-sticky] Update WPT position:sticky tests
+        https://bugs.webkit.org/show_bug.cgi?id=229555
+
+        Reviewed by Sergio Villar Senin.
+
+        * resources/import-expectations.json:
+        * web-platform-tests/css/css-position/sticky/position-sticky-change-top-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-change-top.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-flexbox-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-flexbox.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-grid-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-grid.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-hyperlink-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-hyperlink.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-inline-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-inline.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-nested-inline-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-nested-inline.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-nested-table-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-nested-table.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-nested-thead-th-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-nested-thead-th.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-rendering-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-rendering.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-stacking-context-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-stacking-context.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-table-parts-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-table-parts.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-table-tfoot-bottom-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-table-tfoot-bottom.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-table-th-bottom-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-table-th-bottom.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-table-th-left-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-table-th-left.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-table-th-right-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-table-th-right.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-table-th-top-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-table-th-top.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-table-thead-top-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-table-thead-top.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-table-tr-bottom-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-table-tr-bottom.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-table-tr-top-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-table-tr-top.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-writing-modes-expected.html:
+        * web-platform-tests/css/css-position/sticky/position-sticky-writing-modes.html:
+        * web-platform-tests/css/css-position/sticky/w3c-import.log:
+
+2021-08-26  Alan Bujtas  <zalan@apple.com>
+
+        REGRESSION(r275754): Using MarkOnlyThis to make the preferred width dirty introduces unexpected state
+        https://bugs.webkit.org/show_bug.cgi?id=229586
+        <rdar://82141454>
+
+        Unreviewed revert of r275754.
+
+        * web-platform-tests/css/css-grid/grid-items/grid-items-percentage-paddings-002-expected.txt:
+        * web-platform-tests/css/css-grid/grid-items/grid-items-percentage-paddings-vertical-lr-002-expected.txt:
+        * web-platform-tests/css/css-grid/grid-items/grid-items-percentage-paddings-vertical-rl-002-expected.txt:
+
+2021-08-26  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r281616.
+        https://bugs.webkit.org/show_bug.cgi?id=229570
+
+        It is crashing in iOS Debug
+
+        Reverted changeset:
+
+        "Signaling state check when applying a local or remote
+        description is no longer aligned with the WebRTC spec"
+        https://bugs.webkit.org/show_bug.cgi?id=229138
+        https://commits.webkit.org/r281616
+
+2021-08-26  Enrique Ocaña González  <eocanha@igalia.com>
+
+        [GStreamer][MSE] Implement the "sequence" mode in SourceBuffer for the GStreamer ports
+        https://bugs.webkit.org/show_bug.cgi?id=210341
+
+        Reviewed by Alicia Boya Garcia.
+
+        * web-platform-tests/media-source/mediasource-sourcebuffer-mode-timestamps-expected.txt: Added extra blank line in expectations, like in many other expectations files.
+
+2021-08-26  Youenn Fablet  <youenn@apple.com>
+
+        Signaling state check when applying a local or remote description is no longer aligned with the WebRTC spec
+        https://bugs.webkit.org/show_bug.cgi?id=229138
+
+        Reviewed by Eric Carlson.
+
+        Rebasing tests.
+        Some tests are going from PASS to FAIL:
+        - LayoutTests/imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-operations.https.html: we do not support yet rollback.
+        - LayoutTests/imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-setLocalDescription-pranswer.html:  is no longer throwing the right exception (and we are not supporting pranswer yet).
+        - LayoutTests/imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-setRemoteDescription.html: we are throwing with a different exception.
+
+        * web-platform-tests/webrtc/RTCPeerConnection-SLD-SRD-timing.https-expected.txt:
+        * web-platform-tests/webrtc/RTCPeerConnection-operations.https-expected.txt:
+        * web-platform-tests/webrtc/RTCPeerConnection-perfect-negotiation-stress-glare-linear.https-expected.txt:
+        * web-platform-tests/webrtc/RTCPeerConnection-perfect-negotiation-stress-glare.https-expected.txt:
+        * web-platform-tests/webrtc/RTCPeerConnection-restartIce.https-expected.txt:
+        * web-platform-tests/webrtc/RTCPeerConnection-setDescription-transceiver-expected.txt:
+        * web-platform-tests/webrtc/RTCPeerConnection-setLocalDescription-answer-expected.txt:
+        * web-platform-tests/webrtc/RTCPeerConnection-setLocalDescription-offer-expected.txt:
+        * web-platform-tests/webrtc/RTCPeerConnection-setLocalDescription-pranswer-expected.txt:
+        * web-platform-tests/webrtc/RTCPeerConnection-setLocalDescription-rollback-expected.txt:
+        * web-platform-tests/webrtc/RTCPeerConnection-setRemoteDescription-expected.txt:
+        * web-platform-tests/webrtc/RTCPeerConnection-setRemoteDescription-offer-expected.txt:
+        * web-platform-tests/webrtc/RTCPeerConnection-setRemoteDescription-rollback-expected.txt:
+        * web-platform-tests/webrtc/RTCRtpTransceiver.https-expected.txt:
+
+2021-08-25  Chris Dumez  <cdumez@apple.com>
+
+        [Mac wk2] imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/reporting-to-frame-owner.https.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=229511
+        <rdar://problem/82356082>
+
+        Unreviewed, address test flakiness by silencing console logging.
+
+        * web-platform-tests/html/cross-origin-embedder-policy/reporting-to-frame-owner.https-expected.txt:
+
+2021-08-25  Simon Fraser  <simon.fraser@apple.com>
+
+        Update css-masking WPT
+        https://bugs.webkit.org/show_bug.cgi?id=229373
+
+        Reviewed by Tim Horton.
+        
+        Re-import css-masking tests from WPT fe104253de3197002a2600a4ed7e3b5e18fc9121.
+
+        * resources/import-expectations.json:
+        * web-platform-tests/css/css-masking/META.yml: Added.
+        * web-platform-tests/css/css-masking/animations/clip-path-composition-expected.txt: Added.
+        * web-platform-tests/css/css-masking/animations/clip-path-composition.html: Added.
+        * web-platform-tests/css/css-masking/animations/clip-path-interpolation-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/animations/clip-path-interpolation-001.html: Added.
+        * web-platform-tests/css/css-masking/animations/clip-path-interpolation-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/animations/clip-path-interpolation-002.html: Added.
+        * web-platform-tests/css/css-masking/animations/mask-image-interpolation-expected.txt: Added.
+        * web-platform-tests/css/css-masking/animations/mask-image-interpolation.html: Added.
+        * web-platform-tests/css/css-masking/animations/mask-position-interpolation-expected.txt: Added.
+        * web-platform-tests/css/css-masking/animations/mask-position-interpolation.html: Added.
+        * web-platform-tests/css/css-masking/animations/w3c-import.log: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-nested-twice-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-nested-twice.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-002.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-003-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-003.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-004-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-004.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-005-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-005.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-006-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-006.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-007-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-007.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-008-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-008.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-009-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-009.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-010-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip-rule-010.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-clip.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-clip-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-clip-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-clip-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-clip-002.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-clip-003-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-clip-003.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-clip-004-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-clip-004.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-invisible-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-invisible.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-syling-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-syling.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-use-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-use-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-use-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-use-002.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-use-003-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-use-003.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-use-004-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-use-004.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-use-005-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-use-005.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-use-006-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-use-006.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-use-007-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-content-use-007.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-css-transform-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-css-transform-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-css-transform-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-css-transform-002.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-css-transform-003-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-css-transform-003.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-css-transform-004-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-css-transform-004.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-dom-child-changes-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-dom-child-changes.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-dom-clippathunits-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-dom-clippathunits.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-dom-href-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-dom-href.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-dom-id-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-dom-id.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-invalid-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-invalid.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-negative-scale-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-negative-scale.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-no-content-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-no-content-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-no-content-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-no-content-002.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-no-content-003-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-no-content-003.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-no-content-004-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-no-content-004.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-no-content-005-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-no-content-005.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-objectboundingbox-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-objectboundingbox-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-objectboundingbox-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-objectboundingbox-002.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-objectboundingbox-003-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-objectboundingbox-003.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-objectboundingbox-004-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-objectboundingbox-004.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-g-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-g-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-g-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-g-002.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-g-003-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-g-003.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-g-004-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-g-004.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-g-005-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-g-005.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-marker-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-marker-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-marker-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-marker-002.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-marker-003-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-marker-003.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-svg-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-svg-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-svg-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-svg-002.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-use-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-use-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-use-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-on-use-002.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-precision-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-precision-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-recursion-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-recursion-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-recursion-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-recursion-002.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-circle-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-circle-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-circle-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-circle-002.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-circle-003-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-circle-003.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-circle-004-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-circle-004.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-circle-005-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-circle-005.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-ellipse-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-ellipse-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-ellipse-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-ellipse-002.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-inset-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-inset-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-inset-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-inset-002.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-polygon-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-polygon-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-polygon-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-polygon-002.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-polygon-003-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-polygon-003.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-text-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-text-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-text-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-text-002.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-text-003-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-text-003.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-text-004-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-text-004.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-text-005-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-text-005.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-userspaceonuse-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-userspaceonuse-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-with-opacity-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-with-opacity.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-with-transform-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-with-transform.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-and-nested-clip-path-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-and-nested-clip-path.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-002.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-003-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-003.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-004-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-004.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-005-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-005.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-006-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-006.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-007-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-007.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-008-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-008.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-009-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-009.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-010-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-010.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-panning-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-panning-001.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-panning-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-nested-clip-path-panning-002.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-objectboundingbox-content-clip-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-objectboundingbox-content-clip-transform-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-objectboundingbox-content-clip-transform.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-objectboundingbox-content-clip.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-userspaceonuse-content-clip-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-userspaceonuse-content-clip-transform-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-userspaceonuse-content-clip-transform.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/mask-userspaceonuse-content-clip.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-circle-001-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-clip-rule-001-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-clip-rule-002-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-clip-rule-003-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-clip-rule-004-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-content-clip-004-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-ellipse-001-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-invisible-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-negative-scale-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-on-marker-001-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-on-marker-002-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-precision-001-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-recursion-002-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-shape-inset-001-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-square-001-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-square-002-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-square-003-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-square-hole-001-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-text-001-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-text-002-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/clip-path-text-003-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/mask-and-nested-clip-path-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/mask-content-clip-001-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/mask-content-clip-002-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/mask-nested-clip-path-001-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/mask-nested-clip-path-002-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/mask-nested-clip-path-003-ref.svg: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/reference/w3c-import.log: Added.
+        * web-platform-tests/css/css-masking/clip-path-svg-content/w3c-import.log: Added.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/animations/w3c-import.log: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-blending-offset-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-blending-offset.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-descendant-text-mutated-001.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-inset-round-percent-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-inset-round-percent.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-path-interpolation-with-zoom-expected.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-path-interpolation-with-zoom.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-path-with-zoom-expected.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-path-with-zoom-hittest-expected.html: Removed.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-path-with-zoom-hittest-expected.txt: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-path-with-zoom-hittest.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-path-with-zoom.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-svg-text-backdrop-filter-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-svg-text-backdrop-filter.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-svg-text-font-loading-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-svg-text-font-loading.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/w3c-import.log:
+        * web-platform-tests/css/css-masking/clip-rule/clip-rule-001-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-rule/clip-rule-001.html: Added.
+        * web-platform-tests/css/css-masking/clip-rule/clip-rule-002-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-rule/clip-rule-002.html: Added.
+        * web-platform-tests/css/css-masking/clip-rule/w3c-import.log: Added.
+        * web-platform-tests/css/css-masking/clip/clip-absolute-positioned-001-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-absolute-positioned-001.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-absolute-positioned-002-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-absolute-positioned-002.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-filter-order-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-filter-order.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-fixed-pos-transform-descendant-001-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-fixed-pos-transform-descendant-001.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-negative-values-001-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-negative-values-001.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-negative-values-002-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-negative-values-002.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-negative-values-003-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-negative-values-003.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-negative-values-004-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-negative-values-004.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-no-clipping-001-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-no-clipping-001.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-no-clipping-002-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-no-clipping-002.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-no-stacking-context-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-no-stacking-context.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-not-absolute-positioned-001-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-not-absolute-positioned-001.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-not-absolute-positioned-002-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-not-absolute-positioned-002.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-not-absolute-positioned-003-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-not-absolute-positioned-003.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-not-absolute-positioned-004-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-not-absolute-positioned-004.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-auto-001-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-auto-001.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-auto-002-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-auto-002.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-auto-003-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-auto-003.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-auto-004-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-auto-004.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-auto-005-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-auto-005.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-auto-006-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-auto-006.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-comma-001-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-comma-001.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-comma-002-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-comma-002.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-comma-003-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-comma-003.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-comma-004-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-comma-004.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-scroll-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-rect-scroll.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-transform-order-2-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-transform-order-2.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-transform-order-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip/clip-transform-order.html: Added.
+        * web-platform-tests/css/css-masking/clip/w3c-import.log: Added.
+        * web-platform-tests/css/css-masking/hit-test/clip-path-element-objectboundingbox-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/hit-test/clip-path-element-objectboundingbox-001.html: Added.
+        * web-platform-tests/css/css-masking/hit-test/clip-path-element-objectboundingbox-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/hit-test/clip-path-element-objectboundingbox-002.html: Added.
+        * web-platform-tests/css/css-masking/hit-test/clip-path-element-userspaceonuse-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/hit-test/clip-path-element-userspaceonuse-001.html: Added.
+        * web-platform-tests/css/css-masking/hit-test/clip-path-shape-polygon-and-box-shadow-expected.txt: Added.
+        * web-platform-tests/css/css-masking/hit-test/clip-path-shape-polygon-and-box-shadow.html: Added.
+        * web-platform-tests/css/css-masking/hit-test/w3c-import.log: Added.
+        * web-platform-tests/css/css-masking/idlharness-expected.txt: Added.
+        * web-platform-tests/css/css-masking/idlharness.html: Added.
+        * web-platform-tests/css/css-masking/inheritance.sub-expected.txt: Added.
+        * web-platform-tests/css/css-masking/inheritance.sub.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/mask-image-clip-exclude-expected.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/mask-image-clip-exclude.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/mask-image-data-url-image-expected.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/mask-image-data-url-image.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/mask-image-ib-split-2-expected.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/mask-image-ib-split-2.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/mask-image-ib-split-expected.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/mask-image-ib-split.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/mask-image-svg-child-will-change-expected.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/mask-image-svg-child-will-change.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/mask-image-url-image-expected.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/mask-image-url-image-hash-expected.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/mask-image-url-image-hash.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/mask-image-url-image.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/mask-image-url-local-mask-expected.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/mask-image-url-local-mask.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/mask-image-url-remote-mask-expected.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/mask-image-url-remote-mask.html: Added.
+        * web-platform-tests/css/css-masking/mask-image/reference/1x1-black-30-alpha.png: Added.
+        * web-platform-tests/css/css-masking/mask-image/reference/w3c-import.log: Added.
+        * web-platform-tests/css/css-masking/mask-image/support/image-with-ref.svg: Added.
+        * web-platform-tests/css/css-masking/mask-image/support/image.svg: Added.
+        * web-platform-tests/css/css-masking/mask-image/support/mask.svg: Added.
+        * web-platform-tests/css/css-masking/mask-image/support/w3c-import.log: Added.
+        * web-platform-tests/css/css-masking/mask-image/w3c-import.log: Added.
+        * web-platform-tests/css/css-masking/mask-svg-content/mask-empty-container-with-filter-expected.txt: Added.
+        * web-platform-tests/css/css-masking/mask-svg-content/mask-empty-container-with-filter.svg: Added.
+        * web-platform-tests/css/css-masking/mask-svg-content/mask-negative-scale-expected.txt: Added.
+        * web-platform-tests/css/css-masking/mask-svg-content/mask-negative-scale.svg: Added.
+        * web-platform-tests/css/css-masking/mask-svg-content/mask-text-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/mask-svg-content/mask-text-001.svg: Added.
+        * web-platform-tests/css/css-masking/mask-svg-content/mask-type-001-expected.txt: Added.
+        * web-platform-tests/css/css-masking/mask-svg-content/mask-type-001.svg: Added.
+        * web-platform-tests/css/css-masking/mask-svg-content/mask-type-002-expected.txt: Added.
+        * web-platform-tests/css/css-masking/mask-svg-content/mask-type-002.svg: Added.
+        * web-platform-tests/css/css-masking/mask-svg-content/mask-type-003-expected.txt: Added.
+        * web-platform-tests/css/css-masking/mask-svg-content/mask-type-003.svg: Added.
+        * web-platform-tests/css/css-masking/mask-svg-content/reference/mask-green-square-001-ref.svg: Added.
+        * web-platform-tests/css/css-masking/mask-svg-content/reference/mask-negative-scale-001-ref.svg: Added.
+        * web-platform-tests/css/css-masking/mask-svg-content/reference/mask-text-001-ref.svg: Added.
+        * web-platform-tests/css/css-masking/mask-svg-content/reference/w3c-import.log: Added.
+        * web-platform-tests/css/css-masking/mask-svg-content/w3c-import.log: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-computed-expected.txt: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-computed.html: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-invalid-expected.txt: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-invalid.html: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-path-computed-expected.txt: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-path-computed.html: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-path-invalid-expected.txt: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-path-invalid.html: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-path-valid-expected.txt: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-path-valid.html: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-rule-computed-expected.txt: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-rule-computed.html: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-rule-invalid-expected.txt: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-rule-invalid.html: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-rule-valid-expected.txt: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-rule-valid.html: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-valid-expected.txt: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-valid.html: Added.
+        * web-platform-tests/css/css-masking/parsing/mask-invalid-expected.txt: Added.
+        * web-platform-tests/css/css-masking/parsing/mask-invalid.html: Added.
+        * web-platform-tests/css/css-masking/parsing/mask-position-invalid-expected.txt: Added.
+        * web-platform-tests/css/css-masking/parsing/mask-position-invalid.html: Added.
+        * web-platform-tests/css/css-masking/parsing/mask-position-valid-expected.txt: Added.
+        * web-platform-tests/css/css-masking/parsing/mask-position-valid.html: Added.
+        * web-platform-tests/css/css-masking/parsing/mask-type-computed-expected.txt: Added.
+        * web-platform-tests/css/css-masking/parsing/mask-type-computed.html: Added.
+        * web-platform-tests/css/css-masking/parsing/mask-type-invalid-expected.txt: Added.
+        * web-platform-tests/css/css-masking/parsing/mask-type-invalid.html: Added.
+        * web-platform-tests/css/css-masking/parsing/mask-type-valid-expected.txt: Added.
+        * web-platform-tests/css/css-masking/parsing/mask-type-valid.html: Added.
+        * web-platform-tests/css/css-masking/parsing/mask-valid.sub-expected.txt: Added.
+        * web-platform-tests/css/css-masking/parsing/mask-valid.sub.html: Added.
+        * web-platform-tests/css/css-masking/parsing/w3c-import.log: Added.
+        * web-platform-tests/css/css-masking/resources/blue-20.png: Added.
+        * web-platform-tests/css/css-masking/resources/green-20.png: Added.
+        * web-platform-tests/css/css-masking/resources/stripes-20.png: Added.
+        * web-platform-tests/css/css-masking/resources/w3c-import.log: Added.
+        * web-platform-tests/css/css-masking/w3c-import.log: Added.
+
+2021-08-25  Sonia Singla  <ssingla@igalia.com>
+
+        Add onsecuritypolicyviolation on GlobalEventHandlers
+        https://bugs.webkit.org/show_bug.cgi?id=229381
+
+        Reviewed by Frédéric Wang.
+
+        * web-platform-tests/html/dom/idlharness.https-expected.txt:
+        * web-platform-tests/html/webappapis/scripting/events/event-handler-all-global-events-expected.txt:
+        * web-platform-tests/html/webappapis/scripting/events/event-handler-attributes-body-window-expected.txt:
+        * web-platform-tests/html/webappapis/scripting/events/event-handler-attributes-windowless-body-expected.txt:
+        * web-platform-tests/mathml/relations/html5-tree/math-global-event-handlers.tentative-expected.txt:
+
+2021-08-24  Chris Dumez  <cdumez@apple.com>
+
+        Geolocation API should callback with error if doc is not fully active
+        https://bugs.webkit.org/show_bug.cgi?id=228319
+        <rdar://problem/81450315>
+
+        Reviewed by Ryosuke Niwa.
+
+        * web-platform-tests/geolocation-API/PositionOptions.https-expected.txt:
+        Rebaseline WPT test now that more checks are passing.
+
+        * web-platform-tests/geolocation-API/non-fully-active.https-expected.txt: Added.
+        * web-platform-tests/geolocation-API/non-fully-active.https.html: Added.
+        * web-platform-tests/geolocation-API/resources/iframe.html: Added.
+        Import test coverage from WPT https://github.com/web-platform-tests/wpt/pull/29799.
+
+        * web-platform-tests/resources/testdriver-vendor.js:
+        (window.test_driver_internal.set_permission):
+        Add support for test_driver.set_permission("geolocation", "granted") so that Geolocation
+        WPT tests can run with our infrastructure.
+
+2021-08-24  Chris Dumez  <cdumez@apple.com>
+
+        [WK2] Implement process-swapping based on Cross-Origin-Opener-Policy HTTP header
+        https://bugs.webkit.org/show_bug.cgi?id=229203
+        <rdar://problem/82047686>
+
+        Reviewed by Alex Christensen.
+
+        Minor test rebaseline due to logging changes.
+
+        * web-platform-tests/html/cross-origin-opener-policy/coep-blob-popup.https-expected.txt:
+
+2021-08-24  Antti Koivisto  <antti@apple.com>
+
+        [CSS Cascade Layers] Import basic tests
+        https://bugs.webkit.org/show_bug.cgi?id=229441
+
+        Reviewed by Tim Horton.
+
+        * web-platform-tests/css/css-cascade/layer-basic-expected.txt: Added.
+        * web-platform-tests/css/css-cascade/layer-basic.html: Added.
+        * web-platform-tests/css/css-cascade/w3c-import.log:
+
+2021-08-24  Alex Christensen  <achristensen@webkit.org>
+
+        Unprefix -webkit-backface-visibility
+        https://bugs.webkit.org/show_bug.cgi?id=170983
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/css-transforms/css-transform-property-existence-expected.txt: Added.
+        * web-platform-tests/css/css-transforms/css-transform-property-existence.html: Added.
+        * web-platform-tests/css/css-transforms/parsing/backface-visibility-computed-expected.txt:
+        * web-platform-tests/css/css-transforms/parsing/backface-visibility-valid-expected.txt:
+        * web-platform-tests/css/cssom/cssstyledeclaration-csstext-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/accumulation-per-property-001-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/addition-per-property-001-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/interpolation-per-property-001-expected.txt:
+
+2021-08-24  Chris Dumez  <cdumez@apple.com>
+
+        Fire a load event for <iframe src="about:blank#foo">
+        https://bugs.webkit.org/show_bug.cgi?id=228958
+        <rdar://problem/82035810>
+
+        Reviewed by Darin Adler.
+
+        Import layout test coverage from WPT.
+
+        * web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/initial-empty-document/initial-content-replacement-expected.txt: Added.
+        * web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/initial-empty-document/initial-content-replacement.html: Added.
+        * web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/initial-empty-document/load-event-iframe-element-expected.txt: Added.
+        * web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/initial-empty-document/load-event-iframe-element.html: Added.
+        * web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/initial-empty-document/load-pageshow-events-iframe-contentWindow-expected.txt: Added.
+        * web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/initial-empty-document/load-pageshow-events-iframe-contentWindow.html: Added.
+        * web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/initial-empty-document/load-pageshow-events-window-open-expected.txt: Added.
+        * web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/initial-empty-document/load-pageshow-events-window-open.html: Added.
+        * web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/initial-empty-document/resources/helpers.js: Added.
+        (assertNoLoadAndPageshowEvent):
+
+2021-08-24  Tim Nguyen  <ntim@apple.com>
+
+        Move cancel dialog task to `defaultKeyboardEventHandler`.
+        https://bugs.webkit.org/show_bug.cgi?id=228845
+
+        Reviewed by Antti Koivisto.
+
+        Updated test expectations.
+
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-keydown-preventDefault-expected.txt:
+
+2021-08-24  Tim Nguyen  <ntim@apple.com>
+
+        Implement inert attribute behind feature flag
+        https://bugs.webkit.org/show_bug.cgi?id=165279
+
+        Reviewed by Chris Dumez.
+
+        Import inert/ WPT directory using `import-w3c-tests -t web-platform-tests/inert`.
+        WPT revision: https://github.com/web-platform-tests/wpt/commit/f02e38d7a67999683d05579f62b339430c61e4ec
+
+        * resources/import-expectations.json:
+        * resources/resource-files.json:
+        * web-platform-tests/inert/frame/button.html: Added.
+        * web-platform-tests/inert/frame/w3c-import.log: Added.
+        * web-platform-tests/inert/inert-does-not-match-disabled-selector.tentative-expected.txt: Added.
+        * web-platform-tests/inert/inert-does-not-match-disabled-selector.tentative.html: Added.
+        * web-platform-tests/inert/inert-in-shadow-dom.tentative-expected.txt: Added.
+        * web-platform-tests/inert/inert-in-shadow-dom.tentative.html: Added.
+        * web-platform-tests/inert/inert-inlines.tentative-expected.txt: Added.
+        * web-platform-tests/inert/inert-inlines.tentative.html: Added.
+        * web-platform-tests/inert/inert-label-focus.tentative-expected.txt: Added.
+        * web-platform-tests/inert/inert-label-focus.tentative.html: Added.
+        * web-platform-tests/inert/inert-node-is-uneditable.tentative-expected.txt: Added.
+        * web-platform-tests/inert/inert-node-is-uneditable.tentative.html: Added.
+        * web-platform-tests/inert/inert-node-is-unfocusable.tentative-expected.txt: Added.
+        * web-platform-tests/inert/inert-node-is-unfocusable.tentative.html: Added.
+        * web-platform-tests/inert/inert-node-is-unselectable.tentative-expected.txt: Added.
+        * web-platform-tests/inert/inert-node-is-unselectable.tentative.html: Added.
+        * web-platform-tests/inert/inert-on-slots.tentative-expected.txt: Added.
+        * web-platform-tests/inert/inert-on-slots.tentative.html: Added.
+        * web-platform-tests/inert/inert-retargeting-iframe.tentative-expected.txt: Added.
+        * web-platform-tests/inert/inert-retargeting-iframe.tentative.html: Added.
+        * web-platform-tests/inert/inert-retargeting.tentative-expected.txt: Added.
+        * web-platform-tests/inert/inert-retargeting.tentative.html: Added.
+        * web-platform-tests/inert/w3c-import.log: Added.
+
+2021-08-23  Alex Christensen  <achristensen@webkit.org>
+
+        Setting window.location.href to an invalid URL should throw a TypeError
+        https://bugs.webkit.org/show_bug.cgi?id=229303
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/url/failure-expected.txt:
+
+2021-08-23  Cameron McCormack  <heycam@apple.com>
+
+        Preserve color space when getting current color in DisplayListDrawGlyphsRecorder.
+        https://bugs.webkit.org/show_bug.cgi?id=229024
+        <rdar://problem/81828477>
+
+        Reviewed by Sam Weinig.
+
+        Add tests for calling fillText() and strokeText() with a display-p3
+        color for fillStyle, strokeStyle, and shadowColor, on a display-p3 canvas.
+
+        * web-platform-tests/html/canvas/element/wide-gamut-canvas/2d.color.space.p3.fillText-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/wide-gamut-canvas/2d.color.space.p3.fillText.html: Added.
+        * web-platform-tests/html/canvas/element/wide-gamut-canvas/2d.color.space.p3.fillText.shadow-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/wide-gamut-canvas/2d.color.space.p3.fillText.shadow.html: Added.
+        * web-platform-tests/html/canvas/element/wide-gamut-canvas/2d.color.space.p3.strokeText-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/wide-gamut-canvas/2d.color.space.p3.strokeText.html: Added.
+        * web-platform-tests/html/canvas/tools/yaml/element/color_space.yaml:
+
+2021-08-23  Alan Bujtas  <zalan@apple.com>
+
+        Simplified text measuring only works with the primary font
+        https://bugs.webkit.org/show_bug.cgi?id=228617
+        <rdar://problem/81588175>
+
+        Reviewed by Myles C. Maxfield.
+
+        * web-platform-tests/css/css-fonts/font-display/font-display-failure-fallback-expected.txt:
+
 2021-08-23  Sihui Liu  <sihui_liu@apple.com>
 
         Import permissions tests from WPT

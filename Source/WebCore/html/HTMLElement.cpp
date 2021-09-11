@@ -331,6 +331,7 @@ HTMLElement::EventHandlerNameMap HTMLElement::createEventHandlerNameMap()
         &onresizeAttr.get(),
         &onscrollAttr.get(),
         &onsearchAttr.get(),
+        &onsecuritypolicyviolationAttr.get(),
         &onseekedAttr.get(),
         &onseekingAttr.get(),
         &onselectAttr.get(),
@@ -481,7 +482,7 @@ void HTMLElement::parseAttribute(const QualifiedName& name, const AtomString& va
             setTabIndexExplicitly(std::nullopt);
         return;
     }
-    
+
     if (name == inputmodeAttr) {
         auto& document = this->document();
         if (this == document.focusedElement()) {

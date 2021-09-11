@@ -14,6 +14,9 @@
     "imported/w3c/css/css-color/color-resolving-hsl.html": [
         "slow"
     ],
+    "imported/w3c/css/css-font-loading/idlharness.https.html": [
+        "slow"
+    ],
     "imported/w3c/css/css-values/vh_not_refreshing_on_chrome.html": [
         "slow"
     ],
@@ -2555,6 +2558,9 @@
     "imported/w3c/web-platform-tests/html/canvas/offscreen/text/2d.text.draw.fill.maxWidth.zero.html": [
         "slow"
     ],
+    "imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/anonymous-iframe/anonymous-iframe-popup.tentative.https.html": [
+        "slow"
+    ],
     "imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/cache-storage-reporting-dedicated-worker.https.html": [
         "slow"
     ],
@@ -2589,6 +2595,9 @@
         "slow"
     ],
     "imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/header-parsing.https.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/iframe-history-none-require-corp.https.html": [
         "slow"
     ],
     "imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/none.https.html": [

@@ -423,7 +423,10 @@ public:
     bool lastNavigationWasAppInitiated() const { return m_lastNavigationWasAppInitiated; }
     void setLastNavigationWasAppInitiated(bool lastNavigationWasAppInitiated) { m_lastNavigationWasAppInitiated = lastNavigationWasAppInitiated; }
 
-    CrossOriginOpenerPolicy crossOriginOpenerPolicy() const { return m_currentCoopEnforcementResult ? m_currentCoopEnforcementResult->crossOriginOpenerPolicy : CrossOriginOpenerPolicy { }; }
+    std::optional<CrossOriginOpenerPolicy> crossOriginOpenerPolicy() const { return m_currentCoopEnforcementResult ? std::make_optional(m_currentCoopEnforcementResult->crossOriginOpenerPolicy) : std::nullopt; }
+
+    bool isContinuingLoadAfterResponsePolicyCheck() const { return m_isContinuingLoadAfterResponsePolicyCheck; }
+    void setIsContinuingLoadAfterResponsePolicyCheck(bool isContinuingLoadAfterResponsePolicyCheck) { m_isContinuingLoadAfterResponsePolicyCheck = isContinuingLoadAfterResponsePolicyCheck; }
 
 protected:
     WEBCORE_EXPORT DocumentLoader(const ResourceRequest&, const SubstituteData&);
@@ -561,6 +564,7 @@ private:
     bool m_gotFirstByte { false };
     bool m_isClientRedirect { false };
     bool m_isLoadingMultipartContent { false };
+    bool m_isContinuingLoadAfterResponsePolicyCheck { false };
 
     // FIXME: Document::m_processingLoadEvent and DocumentLoader::m_wasOnloadDispatched are roughly the same
     // and should be merged.

@@ -188,6 +188,7 @@ Modules/mediastream/UserMediaController.cpp
 Modules/mediastream/UserMediaRequest.cpp
 Modules/mediastream/libwebrtc/LibWebRTCCertificateGenerator.cpp
 Modules/mediastream/libwebrtc/LibWebRTCDtlsTransportBackend.cpp
+Modules/mediastream/libwebrtc/LibWebRTCIceTransportBackend.cpp
 Modules/mediastream/libwebrtc/LibWebRTCRtpReceiverTransformBackend.cpp
 Modules/mediastream/libwebrtc/LibWebRTCRtpSenderTransformBackend.cpp
 Modules/mediastream/libwebrtc/LibWebRTCRtpTransformBackend.cpp
@@ -203,6 +204,9 @@ Modules/paymentrequest/PaymentRequest.cpp
 Modules/paymentrequest/PaymentRequestUpdateEvent.cpp
 Modules/paymentrequest/PaymentRequestUtilities.cpp
 Modules/paymentrequest/PaymentResponse.cpp
+Modules/permissions/NavigatorPermissions.cpp
+Modules/permissions/PermissionStatus.cpp
+Modules/permissions/Permissions.cpp
 Modules/pictureinpicture/DocumentPictureInPicture.cpp
 Modules/pictureinpicture/EnterPictureInPictureEvent.cpp
 Modules/pictureinpicture/HTMLVideoElementPictureInPicture.cpp
@@ -772,6 +776,7 @@ css/typedom/CSSNumericValue.cpp
 css/typedom/CSSStyleValue.cpp
 css/typedom/CSSUnitValue.cpp
 css/typedom/CSSUnparsedValue.cpp
+css/typedom/CSSOMVariableReferenceValue.cpp
 cssjit/SelectorCompiler.cpp
 display/compositing/DisplayLayerController.cpp
 display/css/DisplayBox.cpp
@@ -1452,6 +1457,7 @@ layout/floats/FloatAvoider.cpp
 layout/floats/FloatingContext.cpp
 layout/floats/FloatingState.cpp
 layout/formattingContexts/inline/InlineContentBreaker.cpp
+layout/formattingContexts/inline/InlineDisplayContentBuilder.cpp
 layout/formattingContexts/inline/InlineFormattingContext.cpp
 layout/formattingContexts/inline/InlineFormattingGeometry.cpp
 layout/formattingContexts/inline/InlineFormattingQuirks.cpp
@@ -1459,7 +1465,9 @@ layout/formattingContexts/inline/InlineFormattingState.cpp
 layout/formattingContexts/inline/InlineItem.cpp
 layout/formattingContexts/inline/InlineLine.cpp
 layout/formattingContexts/inline/InlineLineBox.cpp
+layout/formattingContexts/inline/InlineLineBoxBuilder.cpp
 layout/formattingContexts/inline/InlineLineBuilder.cpp
+layout/formattingContexts/inline/InlineLineBoxVerticalAligner.cpp
 layout/formattingContexts/inline/InlineTextItem.cpp
 layout/formattingContexts/inline/text/TextUtil.cpp
 layout/integration/LayoutIntegrationBoxTree.cpp
@@ -1698,6 +1706,7 @@ page/WheelEventDeltaFilter.cpp
 page/WheelEventTestMonitor.cpp
 page/WindowFeatures.cpp
 page/WindowFocusAllowedIndicator.cpp
+page/WindowOrWorkerGlobalScope.cpp
 page/WorkerNavigator.cpp
 page/csp/ContentSecurityPolicy.cpp
 page/csp/ContentSecurityPolicyClient.cpp
@@ -1957,7 +1966,6 @@ platform/graphics/RoundedRect.cpp
 platform/graphics/ShadowBlur.cpp
 platform/graphics/SourceBufferPrivate.cpp
 platform/graphics/StringTruncator.cpp
-platform/graphics/SurrogatePairAwareTextIterator.cpp
 platform/graphics/TextRun.cpp
 platform/graphics/TextTrackRepresentation.cpp
 platform/graphics/TrackPrivateBase.cpp
@@ -3271,6 +3279,11 @@ JSPerformanceTiming.cpp
 JSPeriodicWave.cpp
 JSPeriodicWaveConstraints.cpp
 JSPeriodicWaveOptions.cpp
+JSPermissionDescriptor.cpp
+JSPermissionName.cpp
+JSPermissionState.cpp
+JSPermissionStatus.cpp
+JSPermissions.cpp
 JSPictureInPictureWindow.cpp
 JSPlaybackDirection.cpp
 JSPointerEvent.cpp
@@ -3278,7 +3291,6 @@ JSPopStateEvent.cpp
 JSPositionCallback.cpp
 JSPositionErrorCallback.cpp
 JSPositionOptions.cpp
-JSPostMessageOptions.cpp
 JSPredefinedColorSpace.cpp
 JSProcessingInstruction.cpp
 JSProgressEvent.cpp
@@ -3561,6 +3573,7 @@ JSStaticRange.cpp
 JSStorage.cpp
 JSStorageEvent.cpp
 JSStringCallback.cpp
+JSStructuredSerializeOptions.cpp
 JSStyleMedia.cpp
 JSStylePropertyMap.cpp
 JSStylePropertyMapReadOnly.cpp
@@ -3591,6 +3604,7 @@ JSTransitionEvent.cpp
 JSTreeWalker.cpp
 JSCSSStyleImageValue.cpp
 JSCSSNumericValue.cpp
+JSCSSOMVariableReferenceValue.cpp
 JSCSSStyleValue.cpp
 JSCSSUnitValue.cpp
 JSCSSUnparsedValue.cpp

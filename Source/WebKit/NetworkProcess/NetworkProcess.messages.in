@@ -108,7 +108,6 @@ messages -> NetworkProcess LegacyReceiver {
     ScheduleCookieBlockingUpdate(PAL::SessionID sessionID) -> () Async
     ScheduleStatisticsAndDataRecordsProcessing(PAL::SessionID sessionID) -> () Async
     StatisticsDatabaseHasAllTables(PAL::SessionID sessionID) -> (bool hasAllTables) Async
-    StatisticsDatabaseColumnsForTable(PAL::SessionID sessionID, String tableName) -> (Vector<String> columns) Async
     SetCacheMaxAgeCapForPrevalentResources(PAL::SessionID sessionID, Seconds seconds) -> () Async
     SetGrandfathered(PAL::SessionID sessionID, WebCore::RegistrableDomain resourceDomain, bool isGrandfathered) -> () Async
     GetResourceLoadStatisticsDataSummary(PAL::SessionID sessionID) -> (Vector<WebKit::WebResourceLoadStatisticsStore::ThirdPartyData> thirdPartyData) Async
@@ -164,6 +163,7 @@ messages -> NetworkProcess LegacyReceiver {
     ClearPrivateClickMeasurement(PAL::SessionID sessionID) -> () Async
     SetPrivateClickMeasurementOverrideTimerForTesting(PAL::SessionID sessionID, bool value) -> () Async
     MarkAttributedPrivateClickMeasurementsAsExpiredForTesting(PAL::SessionID sessionID) -> () Async
+    SetPrivateClickMeasurementEphemeralMeasurementForTesting(PAL::SessionID sessionID, bool value) -> () Async
     SimulateResourceLoadStatisticsSessionRestart(PAL::SessionID sessionID) -> () Async
     SetPrivateClickMeasurementTokenPublicKeyURLForTesting(PAL::SessionID sessionID, URL url) -> () Async
     SetPrivateClickMeasurementTokenSignatureURLForTesting(PAL::SessionID sessionID, URL url) -> () Async
@@ -193,6 +193,8 @@ messages -> NetworkProcess LegacyReceiver {
     AppPrivacyReportTestingData(PAL::SessionID sessionID) -> (struct WebKit::AppPrivacyReportTestingData data) Async
     ClearAppPrivacyReportTestingData(PAL::SessionID sessionID) -> () Async
 #endif
+
+    PrepareLoadForWebProcessTransfer(WebCore::ProcessIdentifier sourceProcessIdentifier, uint64_t resourceLoadIdentifier) -> (std::optional<WebKit::NetworkResourceLoadIdentifier> networkResourceLoadIdentifier) Async
 
     AddWebPageNetworkParameters(PAL::SessionID sessionID, WebKit::WebPageProxyIdentifier pageID, WebKit::WebPageNetworkParameters parameters)
     RemoveWebPageNetworkParameters(PAL::SessionID sessionID, WebKit::WebPageProxyIdentifier pageID)

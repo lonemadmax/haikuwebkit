@@ -351,11 +351,13 @@ void WebPage::getPlatformEditorState(Frame& frame, EditorState& result) const
 
 void WebPage::platformWillPerformEditingCommand()
 {
+#if ENABLE(CONTENT_CHANGE_OBSERVER)
     auto& frame = m_page->focusController().focusedOrMainFrame();
     if (auto* document = frame.document()) {
         if (auto* holdingTank = document->domTimerHoldingTankIfExists())
             holdingTank->removeAll();
     }
+#endif
 }
 
 FloatSize WebPage::screenSize() const
@@ -3226,7 +3228,7 @@ std::optional<FocusedElementInformation> WebPage::focusedElementInformation()
         information.previousNodeRect = rootViewBounds(*previousElement);
         information.hasPreviousNode = true;
     }
-    information.focusedElementIdentifier = m_currentFocusedElementIdentifier;
+    information.identifier = m_lastFocusedElementInformationIdentifier.increment();
 
     if (is<LabelableElement>(*focusedElement)) {
         if (auto labels = downcast<LabelableElement>(*focusedElement).labels()) {

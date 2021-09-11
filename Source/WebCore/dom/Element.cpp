@@ -2250,13 +2250,11 @@ Node::InsertedIntoAncestorResult Element::insertedIntoAncestor(InsertionType ins
 
 void Element::removedFromAncestor(RemovalType removalType, ContainerNode& oldParentOfRemovedTree)
 {
-    document().removeFromTopLayer(*this);
-
 #if ENABLE(FULLSCREEN_API)
     if (containsFullScreenElement())
         setContainsFullScreenElementOnAncestorsCrossingFrameBoundaries(false);
 #endif
-    
+
     if (auto* page = document().page()) {
 #if ENABLE(POINTER_LOCK)
         page->pointerLockController().elementWasRemoved(*this);
@@ -2327,6 +2325,9 @@ void Element::removedFromAncestor(RemovalType removalType, ContainerNode& oldPar
             scrollLatchingController->removeLatchingStateForTarget(*this);
     }
 #endif
+
+    if (UNLIKELY(isInTopLayer()))
+        removeFromTopLayer();
 
     if (hasNodeFlag(NodeFlag::HasElementIdentifier)) {
         document().identifiedElementWasRemovedFromDocument(*this);
@@ -3358,22 +3359,46 @@ void Element::willBecomeFullscreenElement()
         child.ancestorWillEnterFullscreen();
 }
 
-void Element::isInTopLayerWillChange()
+static inline RenderLayer* renderLayerForElement(Element& element)
 {
-    if (renderer()) {
-        if (renderer()->hasLayer())
-            downcast<RenderLayerModelObject>(*renderer()).layer()->establishesTopLayerWillChange();
-    }
+    auto* renderer = element.renderer();
+    if (!renderer || !renderer->hasLayer() || !is<RenderLayerModelObject>(renderer))
+        return nullptr;
+    return downcast<RenderLayerModelObject>(*renderer).layer();
 }
 
-void Element::isInTopLayerDidChange()
+void Element::addToTopLayer()
 {
-    invalidateStyle();
+    RELEASE_ASSERT(!isInTopLayer());
+    ScriptDisallowedScope scriptDisallowedScope;
 
-    if (renderer()) {
-        if (renderer()->hasLayer())
-            downcast<RenderLayerModelObject>(*renderer()).layer()->establishesTopLayerDidChange();
-    }
+    if (auto* layer = renderLayerForElement(*this))
+        layer->establishesTopLayerWillChange();
+
+    document().addTopLayerElement(*this);
+    setNodeFlag(NodeFlag::IsInTopLayer);
+
+    invalidateStyleInternal();
+
+    if (auto* layer = renderLayerForElement(*this))
+        layer->establishesTopLayerDidChange();
+}
+
+void Element::removeFromTopLayer()
+{
+    RELEASE_ASSERT(isInTopLayer());
+    ScriptDisallowedScope scriptDisallowedScope;
+
+    if (auto* layer = renderLayerForElement(*this))
+        layer->establishesTopLayerWillChange();
+
+    document().removeTopLayerElement(*this);
+    clearNodeFlag(NodeFlag::IsInTopLayer);
+
+    invalidateStyleInternal();
+
+    if (auto* layer = renderLayerForElement(*this))
+        layer->establishesTopLayerDidChange();
 }
 
 static PseudoElement* beforeOrAfterPseudoElement(const Element& host, PseudoId pseudoElementSpecifier)

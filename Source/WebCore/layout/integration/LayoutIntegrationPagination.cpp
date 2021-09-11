@@ -144,11 +144,12 @@ static Ref<InlineContent> makeAdjustedContent(const InlineContent& inlineContent
     {
         return Run {
             run.lineIndex(),
+            run.type(),
             run.layoutBox(),
-            moveVertically(run.rect(), offset),
+            moveVertically(run.logicalRect(), offset),
             moveVertically(run.inkOverflow(), offset),
             run.expansion(),
-            run.textContent()
+            run.text()
         };
     };
 

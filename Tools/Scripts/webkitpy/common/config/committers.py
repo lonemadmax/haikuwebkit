@@ -31,6 +31,7 @@
 
 import fnmatch
 import json
+import os
 import sys
 
 from webkitcorepy import string_utils, unicode
@@ -172,7 +173,10 @@ class Contributor(object):
         return False
 
     def as_dict(self):
-        info = {"emails" : self._case_preserved_emails}
+        info = dict(
+            name=self.full_name,
+            emails=self._case_preserved_emails,
+        )
 
         if self.aliases:
             info["aliases"] = self.aliases
@@ -189,7 +193,7 @@ class Contributor(object):
             info["expertise"] = self.expertise
 
         if self.is_bot:
-            info["class"] = "bot"
+            info["status"] = "bot"
 
         return info
 
@@ -229,10 +233,12 @@ class CommitterList(object):
         self._accounts_by_login = {}
 
     def load_json(self):
-        filesystem = FileSystem()
-        json_path = filesystem.join(filesystem.dirname(filesystem.path_to_module('webkitpy.common.config')), 'contributors.json')
+        json_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))),
+            'metadata', 'contributors.json',
+        )
         try:
-            contributors = json.loads(filesystem.read_text_file(json_path))
+            contributors = json.loads(FileSystem().read_text_file(json_path))
         except ValueError as e:
             sys.exit('contributors.json is malformed: ' + str(e))
 
@@ -240,8 +246,11 @@ class CommitterList(object):
         self._committers = []
         self._reviewers = []
 
-        for name, data in contributors.items():
+        for data in contributors:
+            name = data.get('name')
             status = data.get('status')
+            if not name:
+                continue
             if status == "reviewer":
                 contributor = Reviewer(name, data.get('emails'), data.get('nicks'), data.get('aliases'), data.get('expertise'))
                 self._reviewers.append(contributor)
@@ -249,7 +258,7 @@ class CommitterList(object):
             elif status == "committer":
                 contributor = Committer(name, data.get('emails'), data.get('nicks'), data.get('aliases'), data.get('expertise'))
                 self._committers.append(contributor)
-            elif data.get('class') == 'bot':
+            elif status == 'bot':
                 contributor = Bot(name, data.get('emails'), data.get('nicks'), data.get('aliases'), data.get('expertise'))
             else:
                 contributor = Contributor(name, data.get('emails'), data.get('nicks'), data.get('aliases'), data.get('expertise'))
@@ -261,21 +270,18 @@ class CommitterList(object):
         self._committers = committers + reviewers
         self._reviewers = reviewers
 
-    @staticmethod
-    def _contributor_list_to_dict(list):
-        committers_dict = {}
-        for contributor in sorted(list):
-            committers_dict[contributor.full_name] = contributor.as_dict()
-        return committers_dict
-
     def as_json(self):
-        result = CommitterList._contributor_list_to_dict(self._contributors)
-        return json.dumps(result, sort_keys=True, indent=3, separators=(',', ' : '))
+        return json.dumps(
+            [contributor.as_dict() for contributor in sorted(self._contributors)],
+            sort_keys=True, indent=3, separators=(',', ' : '),
+        )
 
     def reformat_in_place(self):
-        filesystem = FileSystem()
-        json_path = filesystem.join(filesystem.dirname(filesystem.path_to_module('webkitpy.common.config')), 'contributors.json')
-        filesystem.write_text_file(json_path, self.as_json())
+        json_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))),
+            'metadata', 'contributors.json',
+        )
+        FileSystem().write_text_file(json_path, self.as_json())
 
     # Contributors who are not in any other category.
     def _exclusive_contributors(self):

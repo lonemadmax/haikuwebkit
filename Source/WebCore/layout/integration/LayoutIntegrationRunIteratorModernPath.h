@@ -48,9 +48,9 @@ public:
     {
     }
 
-    bool isText() const { return !!run().textContent(); }
+    bool isText() const { return !!run().text(); }
 
-    FloatRect rect() const { return run().rect(); }
+    FloatRect rect() const { return run().logicalRect(); }
 
     bool isHorizontal() const { return true; }
     bool dirOverride() const { return false; }
@@ -61,11 +61,11 @@ public:
 
     unsigned char bidiLevel() const { return 0; }
 
-    bool hasHyphen() const { return run().textContent()->hasHyphen(); }
-    StringView text() const { return run().textContent()->originalContent(); }
-    unsigned start() const { return run().textContent()->start(); }
-    unsigned end() const { return run().textContent()->end(); }
-    unsigned length() const { return run().textContent()->length(); }
+    bool hasHyphen() const { return run().text()->hasHyphen(); }
+    StringView text() const { return run().text()->originalContent(); }
+    unsigned start() const { return run().text()->start(); }
+    unsigned end() const { return run().text()->end(); }
+    unsigned length() const { return run().text()->length(); }
 
     // FIXME: Make a shared generic version of this.
     inline unsigned offsetForPosition(float x) const
@@ -137,7 +137,7 @@ public:
     void traverseNextTextRun()
     {
         ASSERT(!atEnd());
-        ASSERT(run().textContent());
+        ASSERT(run().text());
 
         auto& layoutBox = run().layoutBox();
 
@@ -194,7 +194,7 @@ public:
 
     bool operator==(const RunIteratorModernPath& other) const { return m_inlineContent == other.m_inlineContent && m_runIndex == other.m_runIndex; }
 
-    bool atEnd() const { return m_runIndex == runs().size() || !run().hasUnderlyingLayout(); }
+    bool atEnd() const { return m_runIndex == runs().size(); }
 
     LegacyInlineBox* legacyInlineBox() const
     {

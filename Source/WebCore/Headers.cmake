@@ -129,6 +129,12 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/notifications/NotificationPermission.h
     Modules/notifications/NotificationPermissionCallback.h
 
+    Modules/permissions/PermissionController.h
+    Modules/permissions/PermissionDescriptor.h
+    Modules/permissions/PermissionName.h
+    Modules/permissions/PermissionObserver.h
+    Modules/permissions/PermissionState.h
+
     Modules/plugins/PluginReplacement.h
     Modules/plugins/YouTubePluginReplacement.h
 
@@ -428,6 +434,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/Comment.h
     dom/ContainerNode.h
     dom/ContextDestructionObserver.h
+    dom/CrossOriginMode.h
     dom/CustomElementReactionQueue.h
     dom/DOMException.h
     dom/DOMHighResTimeStamp.h
@@ -761,6 +768,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     layout/LayoutUnits.h
     layout/MarginTypes.h
 
+    layout/formattingContexts/inline/InlineLineRun.h
     layout/formattingContexts/inline/InlineRect.h
 
     layout/integration/LayoutIntegrationInlineContent.h
@@ -768,7 +776,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     layout/integration/LayoutIntegrationLineIterator.h
     layout/integration/LayoutIntegrationLineIteratorLegacyPath.h
     layout/integration/LayoutIntegrationLineIteratorModernPath.h
-    layout/integration/LayoutIntegrationRun.h
     layout/integration/LayoutIntegrationRunIterator.h
     layout/integration/LayoutIntegrationRunIteratorLegacyPath.h
     layout/integration/LayoutIntegrationRunIteratorModernPath.h
@@ -929,7 +936,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/PointerCaptureController.h
     page/PointerCharacteristics.h
     page/PointerLockController.h
-    page/PostMessageOptions.h
     page/PrewarmInformation.h
     page/PrintContext.h
     page/ProcessWarming.h
@@ -954,6 +960,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/SpeechRecognitionProvider.h
     page/SpeechSynthesisClient.h
     page/StorageBlockingPolicy.h
+    page/StructuredSerializeOptions.h
     page/SuspendableTimer.h
     page/TextDirectionSubmenuInclusionBehavior.h
     page/TextIndicator.h
@@ -979,6 +986,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/WheelEventDeltaFilter.h
     page/WheelEventTestMonitor.h
     page/WindowFeatures.h
+    page/WindowOrWorkerGlobalScope.h
 
     page/csp/ContentSecurityPolicy.h
     page/csp/ContentSecurityPolicyClient.h

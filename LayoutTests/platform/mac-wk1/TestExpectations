@@ -353,8 +353,6 @@ imported/w3c/web-platform-tests/content-security-policy/worker-src/service-worke
 imported/w3c/web-platform-tests/fetch/api/request/destination [ Skip ]
 imported/w3c/web-platform-tests/fetch/cross-origin-resource-policy [ Skip ]
 imported/w3c/web-platform-tests/fetch/range/sw.https.window.html [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-opener-policy/popup-coop-by-sw-from-coop.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-opener-policy/popup-coop-by-sw.https.html [ Skip ]
 imported/w3c/web-platform-tests/server-timing/service_worker_idl.html [ Skip ]
 imported/w3c/web-platform-tests/service-workers [ Skip ]
 imported/w3c/web-platform-tests/infrastructure/server/context.any.serviceworker.html [ Skip ]
@@ -371,10 +369,11 @@ imported/w3c/web-platform-tests/worklets/layout-worklet-service-worker-intercept
 imported/w3c/web-platform-tests/worklets/paint-worklet-service-worker-interception.https.html [ Skip ]
 http/wpt/webrtc/transfer-datachannel-service-worker.https.html [ Skip ]
 
-# No Cross-Origin-Embedder-Policy in WK1.
+# No Cross-Origin-Opener-Policy / Cross-Origin-Embedder-Policy in WK1.
 imported/w3c/web-platform-tests/html/cross-origin-embedder-policy [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-opener-policy/coep-blob-popup.https.html [ Skip ]
-http/wpt/html/cross-origin-embedder-policy/require-corp.https.html [ Skip ]
+imported/w3c/web-platform-tests/html/cross-origin-opener-policy [ Skip ]
+http/wpt/cross-origin-opener-policy [ Skip ]
+http/wpt/html/cross-origin-embedder-policy [ Skip ]
 
 # Quota check missing in WK1
 http/tests/IndexedDB/storage-limit.https.html [ Skip ]
@@ -392,7 +391,7 @@ http/wpt/webrtc [ Skip ]
 webrtc/datachannel [ Pass ]
 webrtc/datachannel/mdns-ice-candidates.html [ Skip ]
 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-setLocalDescription-offer.html [ Failure ]
-webkit.org/b/209878  [ Debug ] webrtc/datachannel/multiple-connections.html [ Slow ]
+
 imported/w3c/web-platform-tests/webrtc-encoded-transform [ Skip ]
 
 # These tests test the Shadow DOM based HTML form validation UI but Mac WK1 is using native dialogs instead.
@@ -567,6 +566,9 @@ editing/spelling/spelling-insert-html.html [ Pass Timeout ]
 editing/spelling/spellcheck-async.html [ Failure ]
 editing/spelling/spelling-unified-emulation.html [ Failure ]
 
+# Skip due to lack of DumpRenderTree `AccessibilityUIElement::domIdentifer` implementation.
+accessibility/mac/search-predicate-for-adhoc-radio-groups.html [ Skip ]
+
 # <rdar://problem/26050923> The result is probably still a pass, but we don't have a way
 # to have platform specific results that are different between WK1 and WK2.
 accessibility/mac/document-attributes.html [ Failure ]
@@ -643,6 +645,8 @@ media/track/track-cues-enter-exit.html [ Pass Crash ]
 
 # <rdar://problem/61744994> media/track/track-cues-cuechange.html is flaky timing out.
 media/track/track-cues-cuechange.html [ Pass Crash Timeout ]
+
+webkit.org/b/229765 [ Catalina Debug ] media/track/track-disabled-addcue.html [ Pass Crash ]
 
 webkit.org/b/167127 pointer-lock/locked-element-removed-from-dom.html
 
@@ -937,6 +941,9 @@ webkit.org/b/208449 [ Debug ] mathml/presentation/attributes-accent-accentunder-
 webkit.org/b/209479 [ Debug ] webgl/2.0.0/conformance2/rendering/blitframebuffer-filter-outofbounds.html [ Pass Timeout ]
 
 webkit.org/b/209480 [ Debug ] webgl/2.0.0/conformance/attribs/gl-vertexattribpointer.html [ Pass Timeout ]
+
+webkit.org/b/229580 [ Debug ] webgl/2.0.0/conformance/textures/misc/texture-upload-size.html [ Pass Crash ]
+webkit.org/b/229580 [ Debug ] webgl/2.0.0/conformance2/textures/misc/tex-srgb-mipmap.html [ Pass Crash ]
 
 webkit.org/b/208825 [ Debug ] inspector/script-profiler/event-type-Microtask.html [ Pass Failure ]
 
@@ -1390,4 +1397,18 @@ webkit.org/b/229252 imported/w3c/web-platform-tests/IndexedDB/idbcursor-advance-
 # webkit.org/b/228200 Adjusting test expectations for Monterey on Open Source <rdar://80345048>:
 [ Monterey ] webrtc/h264-high.html [ Failure ]
 
+webkit.org/b/229425 fast/canvas/webgl/texImage2D-video-flipY-false.html [ Pass Timeout ]
+
+webkit.org/b/229481 media/video-poster-background.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/229506 imported/w3c/web-platform-tests/css/css-fonts/downloadable-font-in-iframe-print.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/229519 media/media-session/actionHandlerInternalMappings.html [ Pass Failure ]
+
+webkit.org/b/229522 pointerevents/mouse/compatibility-mouse-events-prevention-mouse-released.html [ Pass Failure ]
+
 webkit.org/b/229247 http/tests/fetch/keepalive-fetch-2.html [ Pass Failure ]
+
+webkit.org/b/209878 [ Debug ] webrtc/datachannel/multiple-connections.html [ Pass Failure Slow ]
+
+webkit.org/b/228211 css2.1/20110323/replaced-intrinsic-003.htm [ Pass Failure ]

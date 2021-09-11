@@ -639,6 +639,8 @@ loader/go-back-to-different-window-size.html [ Failure ]
 # CSS transform tests that fail:
 transforms/2d/transform-fixed-container.html [ Failure ]
 
+webkit.org/b/228718 [ Release ] editing/inserting/insert-paragraph-separator-with-html-elements-crash.html [ Pass Failure ]
+
 # Editing tests that fail:
 editing/inserting/caret-position.html [ Failure ]
 editing/inserting/insert-3654864-fix.html [ Failure ]
@@ -1003,9 +1005,6 @@ http/tests/cache/disk-cache/disk-cache-validation.html
 
 # Failures as of 06/09/2015
 editing/input/emacs-ctrl-o.html [ Failure ]
-
-# rdar://82191308 ([ Sky ] editing/input/cocoa/autocorrect-on.html is timing out)
-editing/input/cocoa/autocorrect-on.html [ Timeout ]
 
 # Time outs as of 06/09/2015
 fast/images/animated-gif-webkit-transform.html
@@ -1823,8 +1822,6 @@ webkit.org/b/214322 [ Debug ] http/tests/workers/worker-importScripts-banned-mim
 webkit.org/b/214382 [ Release ] imported/w3c/web-platform-tests/websockets/remove-own-iframe-during-onerror.window.html [ Pass Failure ]
 
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-backgrounds/background-position-subpixel-at-border.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-backgrounds/border-image-repeat-space-7.html [ ImageOnlyFailure ]
-webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-backgrounds/css3-border-image-repeat-stretch.html [ ImageOnlyFailure ]
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-space-8.html [ ImageOnlyFailure ]
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-backgrounds/simple-bg-color.html [ ImageOnlyFailure ]
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-fonts/font-language-override-02.html [ ImageOnlyFailure ]
@@ -1937,6 +1934,8 @@ webkit.org/b/186045 imported/w3c/web-platform-tests/css/css-values/vh_not_refres
 
 webkit.org/b/217258 svg/W3C-I18N/tspan-direction-rtl.svg [ Failure ]
 
+webkit.org/b/229743 [ Release ] svg/W3C-SVG-1.1/struct-dom-06-b.svg [ Pass Failure ]
+
 webkit.org/b/217263 imported/w3c/web-platform-tests/mediacapture-record/MediaRecorder-no-sink.https.html [ Slow Failure Crash ]
 
 webkit.org/b/217263 imported/w3c/web-platform-tests/mediacapture-record/MediaRecorder-peerconnection.https.html [ Slow Failure ]
@@ -1974,6 +1973,9 @@ webkit.org/b/223586 webgl/conformance/extensions/khr-parallel-shader-compile.htm
 webkit.org/b/214955 fast/parser/xml-colon-entity.html [ Failure ]
 
 webkit.org/b/223750 [ Debug ] security/contentSecurityPolicy/plugins-types-allows-youtube-plugin-replacement.html [ Pass Crash ]
+
+webkit.org/b/155196 [ Release ] security/contentSecurityPolicy/video-with-file-url-allowed-by-media-src-star-with-AllowContentSecurityPolicySourceStarToMatchAnyProtocol-enabled.html [ Pass ImageOnlyFailure ]
+webkit.org/b/155196 security/contentSecurityPolicy/video-with-file-url-allowed-by-media-src-star.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/225686 imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-snap-root-001.html [ ImageOnlyFailure ]
 webkit.org/b/225686 imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-snap-root-002.html [ ImageOnlyFailure ]
@@ -2017,17 +2019,23 @@ editing/selection/ios/do-not-hide-selection-in-visible-field.html [ Failure ]
 
 # rdar://80393995 ([ iOS15 ] http/tests/media/modern-media-controls/overflow-support/playback-speed-live-broadcast.html is a constant timeout) http/tests/media/modern-media-controls/overflow-support/playback-speed-live-broadcast.html [ Timeout ]
 
-#rdar://80391927 ([ iOS ] fast/forms/ios/ipad/open-picker-using-keyboard.html is a flaky timeout) fast/forms/ios/ipad/open-picker-using-keyboard.html [ Pass Timeout ]
-
-#rdar://80390931 (REGRESSION (r271861): [ iOS ] fast/forms/ios/accessory-bar-navigation.html is a constant timeout) fast/forms/ios/accessory-bar-navigation.html [ Timeout ] 
-
 webkit.org/b/168961 fast/events/wheelevent-in-frame.html [ Pass Timeout ]
 
-webkit.org/b/168961 fast/events/touch/page-scaled-touch-gesture-click.html [ Timeout ]
+#rdar://80386061 (REGRESSION (iOS15 19A163?): fast/events/touch/ios/long-press-on-editable-content-then-drag-up-to-change-selected-text.html [ Failure ]) [ iOS15 ]  fast/events/touch/ios/long-press-on-editable-content-then-drag-up-to-change-selected-text.html [ Failure ]
 
-#rdar://80386061 (REGRESSION (Sky19A163?): fast/events/touch/ios/long-press-on-editable-content-then-drag-up-to-change-selected-text.html [ Failure ]) [ iOS15 ]  fast/events/touch/ios/long-press-on-editable-content-then-drag-up-to-change-selected-text.html [ Failure ]
+#rdar://80386523 (REGRESSION (iOS15 19A224?): fast/events/touch/ios/long-press-then-drag-to-select-text.html is failing) [ iOS15 ] fast/events/touch/ios/long-press-then-drag-to-select-text.html [ Failure ]
 
-#rdar://80386523 (REGRESSION (Sky19A224?): fast/events/touch/ios/long-press-then-drag-to-select-text.html is failing) [ iOS15 ] fast/events/touch/ios/long-press-then-drag-to-select-text.html [ Failure ] 
+#rdar://82259067 ([iOS Debug]fast/events/ios/rotation/basic-rotation.html is a constant crash) fast/events/ios/rotation/basic-rotation.html [ Pass Crash Failure ]
+
+webkit.org/b/229558 http/tests/navigation/page-cache-getUserMedia-pending-promise.html [ Pass Failure ]
+
+webkit.org/b/229561 http/tests/navigation/page-cache-video.html [ Pass Failure ]
+
+webkit.org/b/229563 imported/w3c/web-platform-tests/css/css-display/display-contents-blockify-dynamic.html [ Pass Timeout ]
+
+webkit.org/b/229567 [ Release ] imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-subpixel-clip.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/229585 imported/w3c/web-platform-tests/navigation-timing/test_performance_attributes.sub.html [ Pass Failure ]
 
 #rdar://82183980 ([ iOS 15 ]editing/selection/ios/hide-selection-in-tiny-contenteditable.html is a flaky failure)
 editing/selection/ios/hide-selection-in-tiny-contenteditable.html [ Pass Failure ]

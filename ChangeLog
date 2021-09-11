@@ -1,3 +1,83 @@
+2021-09-01  Jonathan Bedard  <jbedard@apple.com>
+
+        [contributors.json] Relocation (Part 2)
+        https://bugs.webkit.org/show_bug.cgi?id=229690
+        <rdar://problem/82552403>
+
+        Reviewed by Dewei Zhu.
+
+        * metadata/contributors.json: Convert from dictionary to list.
+
+2021-09-01  Jonathan Bedard  <jbedard@apple.com>
+
+        [contributors.json] Relocation (Part 1)
+        https://bugs.webkit.org/show_bug.cgi?id=229690
+        <rdar://problem/82552403>
+
+        Reviewed by Aakash Jain.
+
+        * metadata/contributors.json: Copied from Tools/Scripts/webkitpy/common/config/contributors.json.
+
+2021-08-30  Zan Dobersek  <zdobersek@igalia.com>
+
+        RISCV64 support in LLInt
+        https://bugs.webkit.org/show_bug.cgi?id=229035
+        <rdar://problem/82120908>
+
+        Reviewed by Yusuke Suzuki.
+
+        * Source/cmake/WebKitFeatures.cmake:
+        Don't force CLoop to be default for RISCV64 anymore.
+
+2021-08-27  Stephan Szabo  <stephan.szabo@sony.com>
+
+        [PlayStation][CMake] Add control over whether JavaScriptCore should be shared
+        https://bugs.webkit.org/show_bug.cgi?id=229591
+
+        Add option for controlling whether to build a shared JavaScriptCore and
+        set build type for that appropriately.
+
+        Reviewed by Don Olmstead.
+
+        * Source/cmake/OptionsPlayStation.cmake:
+
+2021-08-27  Russell Epstein  <repstein@apple.com>
+
+        Land Windows build fixes from safari-612.1.29.14-branch.
+        https://bugs.webkit.org/show_bug.cgi?id=229627
+
+        Reviewed by Per Arne Vollan.
+
+        * Source/Makefile:
+        * Source/cmake/WinTools.make:
+
+2021-08-27  Carlos Alberto Lopez Perez  <clopez@igalia.com>
+
+        [CMake] ICU 61.2 is required to build WebKit since r281375
+        https://bugs.webkit.org/show_bug.cgi?id=229608
+
+        Reviewed by Yusuke Suzuki.
+
+        Raise the minimum version required for ICU.
+
+        * Source/cmake/OptionsAppleWin.cmake:
+        * Source/cmake/OptionsFTW.cmake:
+        * Source/cmake/OptionsGTK.cmake:
+        * Source/cmake/OptionsJSCOnly.cmake:
+        * Source/cmake/OptionsMac.cmake:
+        * Source/cmake/OptionsPlayStation.cmake:
+        * Source/cmake/OptionsWPE.cmake:
+        * Source/cmake/OptionsWinCairo.cmake:
+
+2021-08-25  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Add command to enable logging in the docs
+        https://bugs.webkit.org/show_bug.cgi?id=229419
+
+        Reviewed by Dean Jackson.
+
+        * Introduction.md:
+
 2021-08-20  Carlos Alberto Lopez Perez  <clopez@igalia.com>
 
         REGRESSION(r274166): [GTK] It broke run-javascriptcore-tests causing all tests to use lot of memory

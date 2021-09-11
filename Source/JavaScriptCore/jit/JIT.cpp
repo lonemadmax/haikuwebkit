@@ -510,13 +510,13 @@ void JIT::privateCompileSlowCases()
     m_getByValIndex = 0;
     m_getByIdWithThisIndex = 0;
     m_putByIdIndex = 0;
+    m_putByValIndex = 0;
     m_inByIdIndex = 0;
     m_inByValIndex = 0;
     m_delByIdIndex = 0;
     m_delByValIndex = 0;
     m_instanceOfIndex = 0;
     m_privateBrandAccessIndex = 0;
-    m_byValInstructionIndex = 0;
     m_callLinkInfoIndex = 0;
 
     unsigned bytecodeCountHavingSlowCase = 0;
@@ -662,6 +662,7 @@ void JIT::privateCompileSlowCases()
     RELEASE_ASSERT(m_getByIdIndex == m_getByIds.size());
     RELEASE_ASSERT(m_getByIdWithThisIndex == m_getByIdsWithThis.size());
     RELEASE_ASSERT(m_putByIdIndex == m_putByIds.size());
+    RELEASE_ASSERT(m_putByValIndex == m_putByVals.size());
     RELEASE_ASSERT(m_inByIdIndex == m_inByIds.size());
     RELEASE_ASSERT(m_instanceOfIndex == m_instanceOfs.size());
     RELEASE_ASSERT(m_privateBrandAccessIndex == m_privateBrandAccesses.size());
@@ -909,51 +910,13 @@ void JIT::link()
     finalizeInlineCaches(m_getByVals, patchBuffer);
     finalizeInlineCaches(m_getByIdsWithThis, patchBuffer);
     finalizeInlineCaches(m_putByIds, patchBuffer);
+    finalizeInlineCaches(m_putByVals, patchBuffer);
     finalizeInlineCaches(m_delByIds, patchBuffer);
     finalizeInlineCaches(m_delByVals, patchBuffer);
     finalizeInlineCaches(m_inByIds, patchBuffer);
     finalizeInlineCaches(m_inByVals, patchBuffer);
     finalizeInlineCaches(m_instanceOfs, patchBuffer);
     finalizeInlineCaches(m_privateBrandAccesses, patchBuffer);
-
-    if (m_byValCompilationInfo.size()) {
-#if ENABLE(EXTRA_CTI_THUNKS)
-        CodeLocationLabel exceptionHandler(vm().getCTIStub(handleExceptionGenerator).retaggedCode<ExceptionHandlerPtrTag>());
-#else
-        CodeLocationLabel<ExceptionHandlerPtrTag> exceptionHandler = patchBuffer.locationOf<ExceptionHandlerPtrTag>(m_exceptionHandler);
-#endif
-
-        for (const auto& byValCompilationInfo : m_byValCompilationInfo) {
-            PatchableJump patchableNotIndexJump = byValCompilationInfo.notIndexJump;
-            CodeLocationJump<JSInternalPtrTag> notIndexJump;
-            if (Jump(patchableNotIndexJump).isSet())
-                notIndexJump = CodeLocationJump<JSInternalPtrTag>(patchBuffer.locationOf<JSInternalPtrTag>(patchableNotIndexJump));
-
-            PatchableJump patchableBadTypeJump = byValCompilationInfo.badTypeJump;
-            CodeLocationJump<JSInternalPtrTag> badTypeJump;
-            if (Jump(patchableBadTypeJump).isSet())
-                badTypeJump = CodeLocationJump<JSInternalPtrTag>(patchBuffer.locationOf<JSInternalPtrTag>(byValCompilationInfo.badTypeJump));
-
-            auto doneTarget = CodeLocationLabel<JSInternalPtrTag>(patchBuffer.locationOf<JSInternalPtrTag>(byValCompilationInfo.doneTarget));
-            auto nextHotPathTarget = CodeLocationLabel<JSInternalPtrTag>(patchBuffer.locationOf<JSInternalPtrTag>(byValCompilationInfo.nextHotPathTarget));
-            auto slowPathTarget = CodeLocationLabel<JSInternalPtrTag>(patchBuffer.locationOf<JSInternalPtrTag>(byValCompilationInfo.slowPathTarget));
-
-            byValCompilationInfo.byValInfo->setUp(
-                exceptionHandler,
-                byValCompilationInfo.arrayMode,
-                byValCompilationInfo.arrayProfile,
-                doneTarget,
-                nextHotPathTarget,
-                slowPathTarget);
-            if (JITCode::useDataIC(JITType::BaselineJIT)) {
-                byValCompilationInfo.byValInfo->m_notIndexJumpTarget = slowPathTarget.retagged<JITStubRoutinePtrTag>();
-                byValCompilationInfo.byValInfo->m_badTypeJumpTarget = slowPathTarget.retagged<JITStubRoutinePtrTag>();
-            } else {
-                byValCompilationInfo.byValInfo->m_notIndexJump = notIndexJump;
-                byValCompilationInfo.byValInfo->m_badTypeJump = badTypeJump;
-            }
-        }
-    }
 
     for (auto& compilationInfo : m_callCompilationInfo) {
         CallLinkInfo& info = *compilationInfo.callLinkInfo;
@@ -1057,7 +1020,7 @@ void JIT::privateCompileExceptionHandlers()
         jumpToExceptionHandler(vm());
     }
 
-    if (!m_exceptionChecks.empty() || m_byValCompilationInfo.size()) {
+    if (!m_exceptionChecks.empty()) {
         m_exceptionHandler = label();
         m_exceptionChecks.link(this);
 

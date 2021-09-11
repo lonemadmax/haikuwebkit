@@ -1236,6 +1236,10 @@ private:
                         fixEdge<SymbolUse>(child2);
                         break;
                     }
+                    if (!m_graph.m_slowPutByVal.contains(node)) {
+                        fixEdge<CellUse>(child1);
+                        break;
+                    }
                 }
 #if USE(JSVALUE32_64)
                 // Due to register pressure on 32-bit, we speculate cell and
@@ -1948,8 +1952,16 @@ private:
             break;
         }
 
-        case CheckPrivateBrand:
+        case CheckPrivateBrand: {
+            fixEdge<SymbolUse>(node->child2());
+            break;
+        }
+
         case PutPrivateName: {
+            if (!m_graph.m_slowPutByVal.contains(node)) {
+                if (node->child1()->shouldSpeculateCell())
+                    fixEdge<CellUse>(node->child1());
+            }
             fixEdge<SymbolUse>(node->child2());
             break;
         }
@@ -2865,7 +2877,7 @@ private:
         case CPUIntrinsic:
         case FilterCallLinkStatus:
         case FilterGetByStatus:
-        case FilterPutByIdStatus:
+        case FilterPutByStatus:
         case FilterInByStatus:
         case FilterDeleteByStatus:
         case FilterCheckPrivateBrandStatus:

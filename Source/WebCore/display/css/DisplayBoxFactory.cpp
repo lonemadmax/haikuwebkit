@@ -143,14 +143,12 @@ std::unique_ptr<Box> BoxFactory::displayBoxForLayoutBox(const Layout::Box& layou
     return makeUnique<Box>(m_treeBuilder.tree(), pixelSnappedBorderBoxRect, WTFMove(style), flags);
 }
 
-std::unique_ptr<Box> BoxFactory::displayBoxForTextRun(const Layout::LineRun& run, const Layout::LineGeometry& lineGeometry, const ContainingBlockContext& containingBlockContext) const
+std::unique_ptr<Box> BoxFactory::displayBoxForTextRun(const Layout::Run& run, const Layout::LineGeometry& lineGeometry, const ContainingBlockContext& containingBlockContext) const
 {
+    UNUSED_PARAM(lineGeometry);
     ASSERT(run.text());
-    auto lineRect = lineGeometry.lineBoxLogicalRect();
-    auto lineLayoutRect = LayoutRect { lineRect.left(), lineRect.top(), lineRect.width(), lineRect.height() };
 
     auto runRect = LayoutRect { run.logicalLeft(), run.logicalTop(), run.logicalWidth(), run.logicalHeight() };
-    runRect.moveBy(lineLayoutRect.location());
     runRect.move(containingBlockContext.offsetFromRoot);
 
     auto style = Style { run.layoutBox().style() };

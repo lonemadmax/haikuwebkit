@@ -289,10 +289,12 @@
 #include "RenderFullScreen.h"
 #endif
 
-#if PLATFORM(IOS_FAMILY)
+#if ENABLE(CONTENT_CHANGE_OBSERVER)
 #include "ContentChangeObserver.h"
-#include "CSSFontSelector.h"
 #include "DOMTimerHoldingTank.h"
+#endif
+
+#if PLATFORM(IOS_FAMILY)
 #include "DeviceMotionClientIOS.h"
 #include "DeviceMotionController.h"
 #include "DeviceOrientationClientIOS.h"
@@ -823,6 +825,7 @@ void Document::removedLastRef()
 
         destroyTreeScopeData();
         removeDetachedChildren();
+        RELEASE_ASSERT(m_topLayerElements.isEmpty());
         m_formController = nullptr;
         
         m_markers->detach();
@@ -2194,7 +2197,7 @@ bool Document::updateStyleIfNeeded()
             return false;
     }
 
-#if PLATFORM(IOS_FAMILY)
+#if ENABLE(CONTENT_CHANGE_OBSERVER)
     ContentChangeObserver::StyleRecalcScope observingScope(*this);
 #endif
     // The early exit above for !needsStyleRecalc() is needed when updateWidgetPositions() is called in runOrScheduleAsynchronousTasks().
@@ -2517,7 +2520,7 @@ void Document::frameDestroyed()
 void Document::willDetachPage()
 {
     FrameDestructionObserver::willDetachPage();
-#if PLATFORM(IOS_FAMILY)
+#if ENABLE(CONTENT_CHANGE_OBSERVER)
     contentChangeObserver().willDetachPage();
 #endif
     if (domWindow() && frame())
@@ -2758,7 +2761,7 @@ bool Document::shouldBypassMainWorldContentSecurityPolicy() const
 
 void Document::platformSuspendOrStopActiveDOMObjects()
 {
-#if PLATFORM(IOS_FAMILY)
+#if ENABLE(CONTENT_CHANGE_OBSERVER)
     contentChangeObserver().didSuspendActiveDOMObjects();
 #endif
 }
@@ -3552,6 +3555,11 @@ IDBClient::IDBConnectionProxy* Document::idbConnectionProxy()
         m_idbConnectionProxy = &currentPage->idbConnection().proxy();
     }
     return m_idbConnectionProxy.get();
+}
+
+RefPtr<PermissionController> Document::permissionController()
+{
+    return page() ? &page()->permissionController() : nullptr;
 }
 
 SocketProvider* Document::socketProvider()
@@ -7436,7 +7444,7 @@ Ref<DocumentFragment> Document::documentFragmentForInnerOuterHTML()
 
 Ref<FontFaceSet> Document::fonts()
 {
-    updateStyleIfNeeded();
+    updateStyleIfNeeded(); // FIXME: This is unnecessary. Instead, the actual accessors in the FontFaceSet need to update style.
     return fontSelector().fontFaceSet();
 }
     
@@ -8467,24 +8475,19 @@ Vector<RefPtr<WebAnimation>> Document::matchingAnimations(const WTF::Function<bo
     return animations;
 }
 
-void Document::addToTopLayer(Element& element)
+void Document::addTopLayerElement(Element& element)
 {
-    element.isInTopLayerWillChange();
-
+    RELEASE_ASSERT(&element.document() == this && element.isConnected() && !element.isInTopLayer());
     // To add an element to a top layer, remove it from top layer and then append it to top layer.
-    m_topLayerElements.appendOrMoveToLast(element);
-
-    element.isInTopLayerDidChange();
+    auto result = m_topLayerElements.add(element);
+    RELEASE_ASSERT(result.isNewEntry);
 }
 
-void Document::removeFromTopLayer(Element& element)
+void Document::removeTopLayerElement(Element& element)
 {
-    element.isInTopLayerWillChange();
-
-    if (!m_topLayerElements.remove(element))
-        return;
-
-    element.isInTopLayerDidChange();
+    RELEASE_ASSERT(&element.document() == this && element.isInTopLayer());
+    auto didRemove = m_topLayerElements.remove(element);
+    RELEASE_ASSERT(didRemove);
 }
 
 HTMLDialogElement* Document::activeModalDialog() const
@@ -8774,7 +8777,7 @@ void Document::setPaintWorkletGlobalScopeForName(const String& name, Ref<PaintWo
 }
 #endif
 
-#if PLATFORM(IOS_FAMILY)
+#if ENABLE(CONTENT_CHANGE_OBSERVER)
 
 ContentChangeObserver& Document::contentChangeObserver()
 {
@@ -8930,15 +8933,8 @@ void Document::prepareCanvasesForDisplayIfNeeded()
 
     auto canvases = copyToVectorOf<Ref<HTMLCanvasElement>>(m_canvasesNeedingDisplayPreparation);
     m_canvasesNeedingDisplayPreparation.clear();
-    for (auto& canvas : canvases) {
-        // However, if they are not in the document body, then they won't
-        // be composited and thus don't need preparation. Unfortunately they
-        // can't tell at the time they were added to the list, since they
-        // could be inserted or removed from the document body afterwards.
-        if (!canvas->isInTreeScope())
-            continue;
+    for (auto& canvas : canvases)
         canvas->prepareForDisplay();
-    }
 }
 
 void Document::clearCanvasPreparation(HTMLCanvasElement& canvas)

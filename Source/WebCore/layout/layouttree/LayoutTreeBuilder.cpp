@@ -98,16 +98,20 @@ static std::optional<LayoutSize> accumulatedOffsetForInFlowPositionedContinuatio
     return block.relativePositionOffset();
 }
 
-static bool canUseSimplifiedTextMeasuring(const StringView& content, const FontCascade& font, bool whitespaceIsCollapsed)
+static bool canUseSimplifiedTextMeasuring(const StringView& content, const FontCascade& fontCascade, bool whitespaceIsCollapsed)
 {
-    if (font.codePath(TextRun(content)) == FontCascade::CodePath::Complex)
+    if (fontCascade.codePath(TextRun(content)) == FontCascade::CodePath::Complex)
         return false;
 
-    if (font.wordSpacing() || font.letterSpacing())
+    if (fontCascade.wordSpacing() || fontCascade.letterSpacing())
         return false;
 
+    auto& primaryFont = fontCascade.primaryFont();
     for (unsigned i = 0; i < content.length(); ++i) {
         if (!WidthIterator::characterCanUseSimplifiedTextMeasuring(content[i], whitespaceIsCollapsed))
+            return false;
+        auto glyphData = fontCascade.glyphDataForCharacter(content[i], false);
+        if (!glyphData.isValid() || glyphData.font != &primaryFont)
             return false;
     }
     return true;
@@ -383,7 +387,7 @@ void showInlineTreeAndRuns(TextStream& stream, const LayoutState& layoutState, c
 {
     auto& inlineFormattingState = layoutState.establishedInlineFormattingState(inlineFormattingRoot);
     auto& lines = inlineFormattingState.lines();
-    auto& lineBoxes = inlineFormattingState.lineBoxes();
+    auto& runs = inlineFormattingState.runs();
 
     for (size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
         auto addSpacing = [&] {
@@ -404,42 +408,36 @@ void showInlineTreeAndRuns(TextStream& stream, const LayoutState& layoutState, c
         stream << "  Inline level boxes:";
         stream.nextLine();
 
-        auto& lineBox = lineBoxes[lineIndex];
-        auto outputInlineLevelBox = [&](const auto& inlineLevelBox) {
+        auto outputInlineLevelBox = [&](const auto& inlineLevelBoxRun) {
             addSpacing();
             stream << "    ";
-            auto logicalRect = InlineRect { };
-            auto& layoutBox = inlineLevelBox.layoutBox();
-            if (inlineLevelBox.isRootInlineBox()) {
-                stream << "Root inline box";
-                logicalRect = lineBox.logicalRectForRootInlineBox();
-            } else if (inlineLevelBox.isAtomicInlineLevelBox()) {
+            auto logicalRect = inlineLevelBoxRun.logicalRect();
+            auto& layoutBox = inlineLevelBoxRun.layoutBox();
+            if (layoutBox.isAtomicInlineLevelBox())
                 stream << "Atomic inline level box";
-                logicalRect = lineBox.logicalBorderBoxForAtomicInlineLevelBox(layoutBox, layoutState.geometryForBox(layoutBox));
-            } else if (inlineLevelBox.isLineBreakBox()) {
+            else if (layoutBox.isLineBreakBox())
                 stream << "Line break box";
-                logicalRect = lineBox.logicalRectForLineBreakBox(layoutBox);
-            } else if (inlineLevelBox.isInlineBox()) {
+            else if (layoutBox.isInlineBox())
                 stream << "Inline box";
-                logicalRect = lineBox.logicalBorderBoxForInlineBox(layoutBox, layoutState.geometryForBox(layoutBox));
-            } else
+            else
                 stream << "Generic inline level box";
             stream
                 << " at (" << logicalRect.left() << "," << logicalRect.top() << ")"
-                << " size (" << logicalRect.width() << "x" << logicalRect.height() << ")"
-                << " baseline (" << logicalRect.top() + inlineLevelBox.baseline() << ")"
-                << " ascent (" << inlineLevelBox.baseline() << "/" << inlineLevelBox.layoutBounds().ascent << ")"
-                << " descent (" << inlineLevelBox.descent().value_or(0.0f) << "/" << inlineLevelBox.layoutBounds().descent << ")";
+                << " size (" << logicalRect.width() << "x" << logicalRect.height() << ")";
             stream.nextLine();
         };
-        outputInlineLevelBox(lineBox.rootInlineBox());
-        for (auto& inlineLevelBox : lineBox.nonRootInlineLevelBoxes())
-            outputInlineLevelBox(inlineLevelBox);
+        for (auto& run : runs) {
+            if (run.lineIndex() != lineIndex)
+                continue;
+            if (!run.layoutBox().isInlineLevelBox())
+                continue;
+            outputInlineLevelBox(run);
+        }
 
         addSpacing();
         stream << "  Runs:";
         stream.nextLine();
-        for (auto& run : inlineFormattingState.lineRuns()) {
+        for (auto& run : runs) {
             if (run.lineIndex() != lineIndex)
                 continue;
             addSpacing();

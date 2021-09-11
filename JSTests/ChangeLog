@@ -1,3 +1,172 @@
+2021-08-31  Ross Kirsling  <ross.kirsling@sony.com>
+
+        [JSC] Implement Temporal.Duration
+        https://bugs.webkit.org/show_bug.cgi?id=228532
+
+        Reviewed by Yusuke Suzuki.
+
+        * stress/temporal-duration.js: Added.
+        * test262/config.yaml: Enabled Duration tests.
+
+2021-08-30  Ross Kirsling  <ross.kirsling@sony.com>
+
+        [JSC][Intl] Errors for .call({}) are too verbose
+        https://bugs.webkit.org/show_bug.cgi?id=229694
+
+        Reviewed by Yusuke Suzuki.
+
+        * stress/intl-displaynames.js:
+
+2021-08-30  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Implement Temporal.Calendar
+        https://bugs.webkit.org/show_bug.cgi?id=229651
+
+        Reviewed by Ross Kirsling.
+
+        * stress/temporal-calendar.js: Added.
+        (shouldBe):
+        (shouldThrow):
+        (new.Temporal.Calendar):
+
+2021-08-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Upgrade test262
+        https://bugs.webkit.org/show_bug.cgi?id=229645
+
+        Reviewed by Keith Miller.
+
+        Upgrade test262 to the latest one.
+
+        * test262/expectations.yaml:
+        * test262/latest-changes-summary.txt:
+        * test262/test262-Revision.txt:
+
+2021-08-26  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Intl.DateTimeFormat incorrectly parses patterns with 'h' literal
+        https://bugs.webkit.org/show_bug.cgi?id=229313
+        rdar://82414310
+
+        Reviewed by Ross Kirsling.
+
+        * stress/intl-date-pattern-includes-literal-text.js: Added.
+        (shouldBe):
+
+2021-08-26  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Float32Arrays.sort() return undefined when length < 2
+        https://bugs.webkit.org/show_bug.cgi?id=229575
+
+        Reviewed by Saam Barati.
+
+        * stress/typed-array-sort-small.js: Added.
+        (shouldBe):
+        (throw.new.Error):
+
+2021-08-26  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] op_put_private_name should use modern IC and remove ByValInfo
+        https://bugs.webkit.org/show_bug.cgi?id=229544
+
+        Reviewed by Saam Barati.
+
+        Move class-fields-private benchmarks into microbenchmarks.
+        Added several microbenchmarks and stress tests.
+
+        * microbenchmarks/class-private-field-polymorphic.js: Added.
+        (shouldBe):
+        (test.A.prototype.put):
+        * microbenchmarks/get-private-name.js: Renamed from JSTests/microbenchmarks/class-fields-private/get-private-name.js.
+        * microbenchmarks/monomorphic-get-private-field.js: Renamed from JSTests/microbenchmarks/class-fields-private/monomorphic-get-private-field.js.
+        * microbenchmarks/polymorphic-get-private-field.js: Renamed from JSTests/microbenchmarks/class-fields-private/polymorphic-get-private-field.js.
+        * microbenchmarks/polymorphic-put-private-field.js: Renamed from JSTests/microbenchmarks/class-fields-private/polymorphic-put-private-field.js.
+        * microbenchmarks/put-by-val-polymorphic-properties.js: Added.
+        (shouldBe):
+        (test):
+        * microbenchmarks/put-private-field.js: Renamed from JSTests/microbenchmarks/class-fields-private/put-private-field.js.
+        * stress/class-private-field-megamorphic.js: Added.
+        (shouldBe):
+        * stress/class-private-field-polymorphic.js: Added.
+        (shouldBe):
+        (test.A.prototype.put):
+        * stress/put-by-val-polymorphic-properties.js: Added.
+        (shouldBe):
+        (test):
+
+2021-08-26  Saam Barati  <sbarati@apple.com>
+
+        r281485 was not sufficient in where it called disablePeepholeOptimization
+        https://bugs.webkit.org/show_bug.cgi?id=229582
+        <rdar://82346980>
+
+        Reviewed by Yusuke Suzuki.
+
+        * stress/for-in-disable-bytecode-generator-peephole-optimizations-after-rewrite-2.js: Added.
+        (foo):
+
+2021-08-24  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Update Intl tests to support ICU 68
+        https://bugs.webkit.org/show_bug.cgi?id=229467
+
+        Reviewed by Mark Lam.
+
+        ICU 68 changes some outputs of Intl tests. This patch adjusts that.
+
+        * stress/intl-parse-unicode-subtags.js:
+        (vm.icuVersion):
+
+2021-08-24  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Add Intl Enumeration APIs
+        https://bugs.webkit.org/show_bug.cgi?id=214795
+
+        Reviewed by Ross Kirsling.
+
+        * stress/intl-datetimeformat.js:
+        * stress/intl-enumeration.js: Added.
+        (shouldBe):
+        (shouldThrow):
+        * stress/intl-locale-info.js:
+        (let.l.new.Intl.Locale.shouldBe):
+        (shouldBe):
+
+2021-08-24  Keith Miller  <keith_miller@apple.com>
+
+        (r281473) stress/for-in-has-own-property-shouldnt-flush-registers.js failing on Debug
+        https://bugs.webkit.org/show_bug.cgi?id=229448
+
+        Reviewed by Mark Lam.
+
+        Fix typo in test name.
+
+        * stress/for-in-in-by-val-should-flush-registers.js: Renamed from JSTests/stress/for-in-in-by-val-shouldnt-flush-registers.js.
+
+2021-08-23  Saam Barati  <sbarati@apple.com>
+
+        Disable peephole optimizations in the byte code generator after rewriting instructions for for-in
+        https://bugs.webkit.org/show_bug.cgi?id=229420
+        <rdar://82020528>
+
+        Reviewed by Keith Miller.
+
+        * stress/for-in-disable-bytecode-generator-peephole-optimizations-after-rewrite.js: Added.
+        (foo):
+
+2021-08-23  Saam Barati  <sbarati@apple.com>
+
+        compileEnumeratorHasProperty uses flushRegisters incorrectly
+        https://bugs.webkit.org/show_bug.cgi?id=229412
+        <rdar://82020767>
+
+        Reviewed by Keith Miller.
+
+        * stress/for-in-has-own-property-shouldnt-flush-registers.js: Added.
+        (foo):
+        * stress/for-in-in-by-val-shouldnt-flush-registers.js: Added.
+        (a.toString):
+
 2021-08-22  Yusuke Suzuki  <ysuzuki@apple.com>
 
         [JSC] Remove already-shipped wasm option flags

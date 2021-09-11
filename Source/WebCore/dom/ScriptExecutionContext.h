@@ -28,7 +28,9 @@
 #pragma once
 
 #include "ActiveDOMObject.h"
+#include "CrossOriginMode.h"
 #include "DOMTimer.h"
+#include "PermissionController.h"
 #include "RTCDataChannelRemoteHandlerConnection.h"
 #include "ResourceLoaderOptions.h"
 #include "ScriptExecutionContextIdentifier.h"
@@ -115,6 +117,7 @@ public:
     virtual void disableWebAssembly(const String& errorMessage) = 0;
 
     virtual IDBClient::IDBConnectionProxy* idbConnectionProxy() = 0;
+    virtual RefPtr<PermissionController> permissionController() { return nullptr; }
 
     virtual SocketProvider* socketProvider() = 0;
 
@@ -171,6 +174,9 @@ public:
     virtual CSSValuePool& cssValuePool();
     virtual std::unique_ptr<FontLoadRequest> fontLoadRequest(String& url, bool isSVG, bool isInitiatingElementInUserAgentShadowTree, LoadedFromOpaqueSource);
     virtual void beginLoadingFontSoon(FontLoadRequest&) { }
+
+    WEBCORE_EXPORT static void setCrossOriginMode(CrossOriginMode);
+    static CrossOriginMode crossOriginMode();
 
     void ref() { refScriptExecutionContext(); }
     void deref() { derefScriptExecutionContext(); }

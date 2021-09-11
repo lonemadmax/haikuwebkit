@@ -34,35 +34,59 @@
 namespace WebCore {
 namespace Layout {
 
-struct LineRun {
+struct Run {
     WTF_MAKE_STRUCT_FAST_ALLOCATED;
     struct Text {
         WTF_MAKE_STRUCT_FAST_ALLOCATED;
     public:
-        Text(size_t position, size_t length, const String&);
+        Text(size_t position, size_t length, const String& originalContent, String adjustedContentToRender = String(), bool hasHyphen = false);
 
         size_t start() const { return m_start; }
         size_t end() const { return start() + length(); }
         size_t length() const { return m_length; }
-        String content() const { return m_contentString; }
+        StringView originalContent() const { return StringView(m_originalContent).substring(m_start, m_length); }
+        StringView renderedContent() const { return m_adjustedContentToRender.isNull() ? originalContent() : m_adjustedContentToRender; }
 
-        bool needsHyphen() const { return m_needsHyphen; }
-        void setNeedsHyphen() { m_needsHyphen = true; }
-
-        void expand(size_t delta) { m_length += delta; }
-        void shrink(size_t delta) { m_length -= delta; }
+        bool hasHyphen() const { return m_hasHyphen; }
 
     private:
         size_t m_start { 0 };
         size_t m_length { 0 };
-        bool m_needsHyphen { false };
-        String m_contentString;
+        bool m_hasHyphen { false };
+        String m_originalContent;
+        String m_adjustedContentToRender;
     };
 
+    enum class Type {
+        Text,
+        SoftLineBreak,
+        LineBreakBox,
+        AtomicInlineLevelBox,
+        NonRootInlineBox,
+        RootInlineBox,
+        GenericInlineLevelBox
+    };
     struct Expansion;
-    LineRun(size_t lineIndex, const Box&, const InlineRect&, Expansion, std::optional<Text> = std::nullopt);
+    Run(size_t lineIndex, Type, const Box&, const InlineRect&, const InlineRect& inkOverflow, Expansion, std::optional<Text> = std::nullopt, bool hasContent = true, bool isLineSpanning = false);
+
+    bool isText() const { return m_type == Type::Text; }
+    bool isSoftLineBreak() const { return m_type == Type::SoftLineBreak; }
+    bool isLineBreakBox() const { return m_type == Type::LineBreakBox; }
+    bool isLineBreak() const { return isSoftLineBreak() || isLineBreakBox(); }
+    bool isAtomicInlineLevelBox() const { return m_type == Type::AtomicInlineLevelBox; }
+    bool isInlineBox() const { return isNonRootInlineBox() || isRootInlineBox(); }
+    bool isNonRootInlineBox() const { return m_type == Type::NonRootInlineBox; }
+    bool isRootInlineBox() const { return m_type == Type::RootInlineBox; }
+    bool isGenericInlineLevelBox() const { return m_type == Type::GenericInlineLevelBox; }
+    bool isInlineLevelBox() const { return isAtomicInlineLevelBox() || isLineBreakBox() || isInlineBox() || isGenericInlineLevelBox(); }
+    bool isNonRootInlineLevelBox() const { return isInlineLevelBox() && !isRootInlineBox(); }
+    Type type() const { return m_type; }
+
+    bool hasContent() const { return m_hasContent; }
+    bool isLineSpanning() const { return m_isLineSpanning; }
 
     const InlineRect& logicalRect() const { return m_logicalRect; }
+    const InlineRect& inkOverflow() const { return m_inkOverflow; }
 
     InlineLayoutUnit logicalTop() const { return logicalRect().top(); }
     InlineLayoutUnit logicalBottom() const { return logicalRect().bottom(); }
@@ -83,30 +107,51 @@ struct LineRun {
     Expansion expansion() const { return m_expansion; }
 
     const Box& layoutBox() const { return *m_layoutBox; }
+    const RenderStyle& style() const { return layoutBox().style(); }
+
     size_t lineIndex() const { return m_lineIndex; }
+
+    void setVerticalPositionIntegral();
 
 private:
     const size_t m_lineIndex;
+    const Type m_type;
     WeakPtr<const Layout::Box> m_layoutBox;
     InlineRect m_logicalRect;
+    InlineRect m_inkOverflow;
+    bool m_hasContent { true };
+    // FIXME: This is temporary until after iterators can skip over line spanning/root inline boxes.
+    bool m_isLineSpanning { false };
     Expansion m_expansion;
     std::optional<Text> m_text;
 };
 
-inline LineRun::LineRun(size_t lineIndex, const Layout::Box& layoutBox, const InlineRect& logicalRect, Expansion expansion, std::optional<Text> text)
+inline Run::Run(size_t lineIndex, Type type, const Layout::Box& layoutBox, const InlineRect& logicalRect, const InlineRect& inkOverflow, Expansion expansion, std::optional<Text> text, bool hasContent, bool isLineSpanning)
     : m_lineIndex(lineIndex)
+    , m_type(type)
     , m_layoutBox(makeWeakPtr(layoutBox))
     , m_logicalRect(logicalRect)
+    , m_inkOverflow(inkOverflow)
+    , m_hasContent(hasContent)
+    , m_isLineSpanning(isLineSpanning)
     , m_expansion(expansion)
     , m_text(text)
 {
 }
 
-inline LineRun::Text::Text(size_t start, size_t length, const String& contentString)
+inline Run::Text::Text(size_t start, size_t length, const String& originalContent, String adjustedContentToRender, bool hasHyphen)
     : m_start(start)
     , m_length(length)
-    , m_contentString(contentString)
+    , m_hasHyphen(hasHyphen)
+    , m_originalContent(originalContent)
+    , m_adjustedContentToRender(adjustedContentToRender)
 {
+}
+
+inline void Run::setVerticalPositionIntegral()
+{
+    m_logicalRect.setTop(roundToInt(m_logicalRect.top()));
+    m_inkOverflow.setTop(roundToInt(m_inkOverflow.top()));
 }
 
 }

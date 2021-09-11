@@ -39,6 +39,7 @@
 #include "IDBConnectionProxy.h"
 #include "ImageBitmapOptions.h"
 #include "InspectorInstrumentation.h"
+#include "JSDOMExceptionHandling.h"
 #include "Performance.h"
 #include "RuntimeEnabledFeatures.h"
 #include "ScheduledAction.h"
@@ -585,9 +586,7 @@ void WorkerGlobalScope::clearDecodedScriptData()
 
 bool WorkerGlobalScope::crossOriginIsolated() const
 {
-    // FIXME: Implemented this. This should return true if COOP/COEP are used and the page is allowed to use APIs
-    // that require cross-origin isolation (e.g. SharedArrayBuffer).
-    return false;
+    return ScriptExecutionContext::crossOriginMode() == CrossOriginMode::Isolated;
 }
 
 void WorkerGlobalScope::updateSourceProviderBuffers(const ScriptBuffer& mainScript, const HashMap<URL, ScriptBuffer>& importedScripts)

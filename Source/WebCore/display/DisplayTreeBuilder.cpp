@@ -305,7 +305,12 @@ void TreeBuilder::buildInlineDisplayTree(const Layout::LayoutState& layoutState,
 {
     auto& inlineFormattingState = layoutState.establishedInlineFormattingState(inlineFormattingRoot);
 
-    for (auto& run : inlineFormattingState.lineRuns()) {
+    for (auto& run : inlineFormattingState.runs()) {
+        if (run.isRootInlineBox()) {
+            // Not supported yet.
+            continue;
+        }
+
         if (run.text()) {
             auto& lineGeometry = inlineFormattingState.lines().at(run.lineIndex());
             auto textBox = m_boxFactory.displayBoxForTextRun(run, lineGeometry, positioningContext().inFlowContainingBlockContext());

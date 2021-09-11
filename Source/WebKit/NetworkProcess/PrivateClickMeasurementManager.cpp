@@ -28,6 +28,7 @@
 
 #include "Logging.h"
 #include "NetworkSession.h"
+#include "PrivateClickMeasurementDebugInfo.h"
 #include <JavaScriptCore/ConsoleTypes.h>
 #include <WebCore/FetchOptions.h>
 #include <WebCore/FormData.h>
@@ -52,11 +53,12 @@ using EphemeralSourceNonce = PrivateClickMeasurement::EphemeralSourceNonce;
 
 constexpr Seconds debugModeSecondsUntilSend { 10_s };
 
-PrivateClickMeasurementManager::PrivateClickMeasurementManager(NetworkSession& networkSession, NetworkProcess& networkProcess, PAL::SessionID sessionID, Function<void(NetworkLoadParameters&&, NetworkLoadCallback&&)>&& networkLoadFunction)
+PrivateClickMeasurementManager::PrivateClickMeasurementManager(NetworkSession& networkSession, NetworkProcess& networkProcess, PAL::SessionID sessionID, const String& storageDirectory, Function<void(NetworkLoadParameters&&, NetworkLoadCallback&&)>&& networkLoadFunction)
     : m_firePendingAttributionRequestsTimer(*this, &PrivateClickMeasurementManager::firePendingAttributionRequests)
     , m_networkSession(makeWeakPtr(networkSession))
     , m_networkProcess(networkProcess)
     , m_sessionID(sessionID)
+    , m_storageDirectory(storageDirectory)
     , m_networkLoadFunction(WTFMove(networkLoadFunction))
 {
     ASSERT(m_networkLoadFunction);
@@ -67,17 +69,17 @@ PrivateClickMeasurementManager::PrivateClickMeasurementManager(NetworkSession& n
     startTimer(5_s);
 }
 
-void PrivateClickMeasurementManager::storeUnattributed(PrivateClickMeasurement&& attribution)
+void PrivateClickMeasurementManager::storeUnattributed(PrivateClickMeasurement&& measurement)
 {
     if (!featureEnabled())
         return;
 
     clearExpired();
 
-    if (attribution.ephemeralSourceNonce()) {
-        auto attributionCopy = attribution;
+    if (measurement.ephemeralSourceNonce()) {
+        auto measurementCopy = measurement;
         // This is guaranteed to be close in time to the navigational click which makes it likely to be personally identifiable.
-        getTokenPublicKey(WTFMove(attributionCopy), PrivateClickMeasurement::AttributionReportEndpoint::Source, PrivateClickMeasurement::PcmDataCarried::PersonallyIdentifiable, [weakThis = makeWeakPtr(*this), this] (PrivateClickMeasurement&& attribution, const String& publicKeyBase64URL) {
+        getTokenPublicKey(WTFMove(measurementCopy), PrivateClickMeasurement::AttributionReportEndpoint::Source, PrivateClickMeasurement::PcmDataCarried::PersonallyIdentifiable, [weakThis = makeWeakPtr(*this), this] (PrivateClickMeasurement&& measurement, const String& publicKeyBase64URL) {
             if (!weakThis)
                 return;
 
@@ -85,10 +87,10 @@ void PrivateClickMeasurementManager::storeUnattributed(PrivateClickMeasurement&&
                 return;
 
             if (m_fraudPreventionValuesForTesting)
-                attribution.setSourceUnlinkableTokenValue(m_fraudPreventionValuesForTesting->unlinkableToken);
+                measurement.setSourceUnlinkableTokenValue(m_fraudPreventionValuesForTesting->unlinkableToken);
 #if PLATFORM(COCOA)
             else {
-                if (auto errorMessage = attribution.calculateAndUpdateSourceUnlinkableToken(publicKeyBase64URL)) {
+                if (auto errorMessage = measurement.calculateAndUpdateSourceUnlinkableToken(publicKeyBase64URL)) {
                     RELEASE_LOG_INFO(PrivateClickMeasurement, "Got the following error in calculateAndUpdateSourceUnlinkableToken(): '%{public}s", errorMessage->utf8().data());
                     m_networkProcess->broadcastConsoleMessage(m_sessionID, MessageSource::PrivateClickMeasurement, MessageLevel::Error, makeString("[Private Click Measurement] "_s, *errorMessage));
                     return;
@@ -96,17 +98,14 @@ void PrivateClickMeasurementManager::storeUnattributed(PrivateClickMeasurement&&
             }
 #endif
 
-            getSignedUnlinkableToken(WTFMove(attribution));
+            getSignedUnlinkableToken(WTFMove(measurement));
             return;
         });
     }
 
     m_networkProcess->broadcastConsoleMessage(m_sessionID, MessageSource::PrivateClickMeasurement, MessageLevel::Log, "[Private Click Measurement] Storing a click."_s);
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
-    if (auto* resourceLoadStatistics = m_networkSession->resourceLoadStatistics())
-        resourceLoadStatistics->insertPrivateClickMeasurement(WTFMove(attribution), PrivateClickMeasurementAttributionType::Unattributed);
-#endif
+    insertPrivateClickMeasurement(WTFMove(measurement), PrivateClickMeasurementAttributionType::Unattributed);
 }
 
 static NetworkLoadParameters generateNetworkLoadParameters(URL&& url, const String& httpMethod, RefPtr<JSON::Object>&& jsonPayload, PrivateClickMeasurement::PcmDataCarried dataTypeCarried, bool isDebugModeEnabled)
@@ -182,14 +181,14 @@ void PrivateClickMeasurementManager::getTokenPublicKey(PrivateClickMeasurement&&
 
 }
 
-void PrivateClickMeasurementManager::getSignedUnlinkableToken(PrivateClickMeasurement&& attribution)
+void PrivateClickMeasurementManager::getSignedUnlinkableToken(PrivateClickMeasurement&& measurement)
 {
     if (!featureEnabled())
         return;
 
     // This is guaranteed to be close in time to the navigational click which makes it likely to be personally identifiable.
     auto pcmDataCarried = PrivateClickMeasurement::PcmDataCarried::PersonallyIdentifiable;
-    auto tokenSignatureURL = attribution.tokenSignatureURL();
+    auto tokenSignatureURL = measurement.tokenSignatureURL();
     if (m_tokenSignatureURLForTesting) {
         tokenSignatureURL = *m_tokenSignatureURLForTesting;
         // FIXME(225364)
@@ -199,12 +198,12 @@ void PrivateClickMeasurementManager::getSignedUnlinkableToken(PrivateClickMeasur
     if (tokenSignatureURL.isEmpty() || !tokenSignatureURL.isValid())
         return;
 
-    auto loadParameters = generateNetworkLoadParametersForHttpPost(WTFMove(tokenSignatureURL), attribution.tokenSignatureJSON(), pcmDataCarried, debugModeEnabled());
+    auto loadParameters = generateNetworkLoadParametersForHttpPost(WTFMove(tokenSignatureURL), measurement.tokenSignatureJSON(), pcmDataCarried, debugModeEnabled());
 
     RELEASE_LOG_INFO(PrivateClickMeasurement, "About to fire a unlinkable token signing request.");
     m_networkProcess->broadcastConsoleMessage(m_sessionID, MessageSource::PrivateClickMeasurement, MessageLevel::Log, "[Private Click Measurement] About to fire a unlinkable token signing request."_s);
 
-    m_networkLoadFunction(WTFMove(loadParameters), [weakThis = makeWeakPtr(*this), this, attribution = WTFMove(attribution)] (auto& error, auto& response, auto& jsonObject) mutable {
+    m_networkLoadFunction(WTFMove(loadParameters), [weakThis = makeWeakPtr(*this), this, measurement = WTFMove(measurement)] (auto& error, auto& response, auto& jsonObject) mutable {
         if (!weakThis)
             return;
 
@@ -225,10 +224,10 @@ void PrivateClickMeasurementManager::getSignedUnlinkableToken(PrivateClickMeasur
         }
         // FIX NOW!
         if (m_fraudPreventionValuesForTesting)
-            attribution.setSourceSecretToken({ m_fraudPreventionValuesForTesting->secretToken, m_fraudPreventionValuesForTesting->signature, m_fraudPreventionValuesForTesting->keyID });
+            measurement.setSourceSecretToken({ m_fraudPreventionValuesForTesting->secretToken, m_fraudPreventionValuesForTesting->signature, m_fraudPreventionValuesForTesting->keyID });
 #if PLATFORM(COCOA)
         else {
-            if (auto errorMessage = attribution.calculateAndUpdateSourceSecretToken(signatureBase64URL)) {
+            if (auto errorMessage = measurement.calculateAndUpdateSourceSecretToken(signatureBase64URL)) {
                 RELEASE_LOG_INFO(PrivateClickMeasurement, "Got the following error in calculateAndUpdateSourceSecretToken(): '%{public}s", errorMessage->utf8().data());
                 m_networkProcess->broadcastConsoleMessage(m_sessionID, MessageSource::PrivateClickMeasurement, MessageLevel::Error, makeString("[Private Click Measurement] "_s, *errorMessage));
                 return;
@@ -238,12 +237,20 @@ void PrivateClickMeasurementManager::getSignedUnlinkableToken(PrivateClickMeasur
 
         m_networkProcess->broadcastConsoleMessage(m_sessionID, MessageSource::PrivateClickMeasurement, MessageLevel::Log, "[Private Click Measurement] Storing a secret token."_s);
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
-        if (auto* resourceLoadStatistics = m_networkSession->resourceLoadStatistics())
-            resourceLoadStatistics->insertPrivateClickMeasurement(WTFMove(attribution), PrivateClickMeasurementAttributionType::Unattributed);
-#endif
+        insertPrivateClickMeasurement(WTFMove(measurement), PrivateClickMeasurementAttributionType::Unattributed);
     });
 
+}
+
+void PrivateClickMeasurementManager::insertPrivateClickMeasurement(PrivateClickMeasurement&& measurement, PrivateClickMeasurementAttributionType type)
+{
+    if (m_isRunningEphemeralMeasurementTest)
+        measurement.setEphemeral(PrivateClickMeasurementAttributionEphemeral::Yes);
+    if (measurement.isEphemeral()) {
+        m_ephemeralMeasurement = WTFMove(measurement);
+        return;
+    }
+    store().insertPrivateClickMeasurement(WTFMove(measurement), type);
 }
 
 void PrivateClickMeasurementManager::handleAttribution(AttributionTriggerData&& attributionTriggerData, const URL& requestURL, const WebCore::ResourceRequest& redirectRequest)
@@ -276,39 +283,48 @@ void PrivateClickMeasurementManager::startTimer(Seconds seconds)
 
 void PrivateClickMeasurementManager::attribute(const SourceSite& sourceSite, const AttributionDestinationSite& destinationSite, AttributionTriggerData&& attributionTriggerData)
 {
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
     if (!featureEnabled())
         return;
 
-    if (auto* resourceLoadStatistics = m_networkSession->resourceLoadStatistics()) {
-        resourceLoadStatistics->attributePrivateClickMeasurement(sourceSite, destinationSite, WTFMove(attributionTriggerData), [this, weakThis = makeWeakPtr(*this)] (auto attributionSecondsUntilSendData) {
-            if (!weakThis)
-                return;
-            
-            if (!attributionSecondsUntilSendData)
-                return;
-
-            if (attributionSecondsUntilSendData.value().hasValidSecondsUntilSendValues()) {
-                auto minSecondsUntilSend = attributionSecondsUntilSendData.value().minSecondsUntilSend();
-
-                ASSERT(minSecondsUntilSend);
-                if (!minSecondsUntilSend)
-                    return;
-
-                if (m_firePendingAttributionRequestsTimer.isActive() && m_firePendingAttributionRequestsTimer.nextFireInterval() < *minSecondsUntilSend)
-                    return;
-
-                if (UNLIKELY(debugModeEnabled())) {
-                    m_networkProcess->broadcastConsoleMessage(m_sessionID, MessageSource::PrivateClickMeasurement, MessageLevel::Log, makeString("[Private Click Measurement] Setting timer for firing attribution request to the debug mode timeout of "_s, debugModeSecondsUntilSend.seconds(), " seconds where the regular timeout would have been "_s, minSecondsUntilSend.value().seconds(), " seconds."_s));
-                    minSecondsUntilSend = debugModeSecondsUntilSend;
-                } else
-                    m_networkProcess->broadcastConsoleMessage(m_sessionID, MessageSource::PrivateClickMeasurement, MessageLevel::Log, makeString("[Private Click Measurement] Setting timer for firing attribution request to the timeout of "_s, minSecondsUntilSend.value().seconds(), " seconds."_s));
-
-                startTimer(*minSecondsUntilSend);
-            }
-        });
+    if (m_ephemeralMeasurement) {
+        // Ephemeral measurement can only have one pending click.
+        if (m_ephemeralMeasurement->sourceSite() != sourceSite)
+            return;
+        if (m_ephemeralMeasurement->destinationSite() != destinationSite)
+            return;
     }
-#endif
+        
+    store().attributePrivateClickMeasurement(sourceSite, destinationSite, WTFMove(attributionTriggerData), std::exchange(m_ephemeralMeasurement, std::nullopt), [this, weakThis = makeWeakPtr(*this)] (auto attributionSecondsUntilSendData, auto debugInfo) {
+        if (!weakThis)
+            return;
+        
+        if (!attributionSecondsUntilSendData)
+            return;
+
+        if (UNLIKELY(debugModeEnabled())) {
+            for (auto& message : debugInfo.messages)
+                m_networkProcess->broadcastConsoleMessage(m_sessionID, MessageSource::PrivateClickMeasurement, message.messageLevel, message.message);
+        }
+
+        if (attributionSecondsUntilSendData.value().hasValidSecondsUntilSendValues()) {
+            auto minSecondsUntilSend = attributionSecondsUntilSendData.value().minSecondsUntilSend();
+
+            ASSERT(minSecondsUntilSend);
+            if (!minSecondsUntilSend)
+                return;
+
+            if (m_firePendingAttributionRequestsTimer.isActive() && m_firePendingAttributionRequestsTimer.nextFireInterval() < *minSecondsUntilSend)
+                return;
+
+            if (UNLIKELY(debugModeEnabled())) {
+                m_networkProcess->broadcastConsoleMessage(m_sessionID, MessageSource::PrivateClickMeasurement, MessageLevel::Log, makeString("[Private Click Measurement] Setting timer for firing attribution request to the debug mode timeout of "_s, debugModeSecondsUntilSend.seconds(), " seconds where the regular timeout would have been "_s, minSecondsUntilSend.value().seconds(), " seconds."_s));
+                minSecondsUntilSend = debugModeSecondsUntilSend;
+            } else
+                m_networkProcess->broadcastConsoleMessage(m_sessionID, MessageSource::PrivateClickMeasurement, MessageLevel::Log, makeString("[Private Click Measurement] Setting timer for firing attribution request to the timeout of "_s, minSecondsUntilSend.value().seconds(), " seconds."_s));
+
+            startTimer(*minSecondsUntilSend);
+        }
+    });
 }
 
 void PrivateClickMeasurementManager::fireConversionRequest(const PrivateClickMeasurement& attribution, PrivateClickMeasurement::AttributionReportEndpoint attributionReportEndpoint)
@@ -374,26 +390,18 @@ void PrivateClickMeasurementManager::fireConversionRequestImpl(const PrivateClic
 
 void PrivateClickMeasurementManager::clearSentAttribution(PrivateClickMeasurement&& sentConversion, PrivateClickMeasurement::AttributionReportEndpoint attributionReportEndpoint)
 {
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
     if (!featureEnabled())
         return;
 
-    if (auto* resourceLoadStatistics = m_networkSession->resourceLoadStatistics())
-        resourceLoadStatistics->clearSentAttribution(WTFMove(sentConversion), attributionReportEndpoint);
-#endif
+    store().clearSentAttribution(WTFMove(sentConversion), attributionReportEndpoint);
 }
 
 void PrivateClickMeasurementManager::firePendingAttributionRequests()
 {
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
     if (!featureEnabled())
         return;
 
-    auto* resourceLoadStatistics = m_networkSession->resourceLoadStatistics();
-    if (!resourceLoadStatistics)
-        return;
-
-    resourceLoadStatistics->allAttributedPrivateClickMeasurement([this, weakThis = makeWeakPtr(*this)] (auto&& attributions) {
+    store().allAttributedPrivateClickMeasurement([this, weakThis = makeWeakPtr(*this)] (auto&& attributions) {
         if (!weakThis)
             return;
         auto nextTimeToFire = Seconds::infinity();
@@ -443,58 +451,42 @@ void PrivateClickMeasurementManager::firePendingAttributionRequests()
         if (nextTimeToFire < Seconds::infinity())
             startTimer(nextTimeToFire);
     });
-#endif
 }
 
-void PrivateClickMeasurementManager::clear()
+void PrivateClickMeasurementManager::clear(CompletionHandler<void()>&& completionHandler)
 {
     m_firePendingAttributionRequestsTimer.stop();
+    m_ephemeralMeasurement = std::nullopt;
+    m_isRunningEphemeralMeasurementTest = false;
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
     if (!featureEnabled())
-        return;
+        return completionHandler();
 
-    if (auto* resourceLoadStatistics = m_networkSession->resourceLoadStatistics())
-        resourceLoadStatistics->clearPrivateClickMeasurement();
-#endif
+    store().clearPrivateClickMeasurement(WTFMove(completionHandler));
 }
 
-void PrivateClickMeasurementManager::clearForRegistrableDomain(const RegistrableDomain& domain)
+void PrivateClickMeasurementManager::clearForRegistrableDomain(const RegistrableDomain& domain, CompletionHandler<void()>&& completionHandler)
 {
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
     if (!featureEnabled())
-        return;
+        return completionHandler();
 
-    if (auto* resourceLoadStatistics = m_networkSession->resourceLoadStatistics())
-        resourceLoadStatistics->clearPrivateClickMeasurementForRegistrableDomain(domain);
-#endif
+    store().clearPrivateClickMeasurementForRegistrableDomain(domain, WTFMove(completionHandler));
 }
 
 void PrivateClickMeasurementManager::clearExpired()
 {
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
     if (!featureEnabled())
         return;
 
-    if (auto* resourceLoadStatistics = m_networkSession->resourceLoadStatistics())
-        resourceLoadStatistics->clearExpiredPrivateClickMeasurement();
-#endif
+    store().clearExpiredPrivateClickMeasurement();
 }
 
-void PrivateClickMeasurementManager::toString(CompletionHandler<void(String)>&& completionHandler) const
+void PrivateClickMeasurementManager::toStringForTesting(CompletionHandler<void(String)>&& completionHandler) const
 {
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
-    if (!featureEnabled()) {
-        completionHandler("\nNo stored Private Click Measurement data.\n"_s);
-        return;
-    }
+    if (!featureEnabled())
+        return completionHandler("\nNo stored Private Click Measurement data.\n"_s);
 
-    if (auto* resourceLoadStatistics = m_networkSession->resourceLoadStatistics()) {
-        resourceLoadStatistics->privateClickMeasurementToString(WTFMove(completionHandler));
-        return;
-    }
-#endif
-    completionHandler("\nNo stored Private Click Measurement data.\n"_s);
+    store().privateClickMeasurementToStringForTesting(WTFMove(completionHandler));
 }
 
 void PrivateClickMeasurementManager::setTokenPublicKeyURLForTesting(URL&& testURL)
@@ -522,13 +514,10 @@ void PrivateClickMeasurementManager::setAttributionReportURLsForTesting(URL&& so
 
 void PrivateClickMeasurementManager::markAllUnattributedAsExpiredForTesting()
 {
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
     if (!featureEnabled())
         return;
 
-    if (auto* resourceLoadStatistics = m_networkSession->resourceLoadStatistics())
-        resourceLoadStatistics->markAllUnattributedPrivateClickMeasurementAsExpiredForTesting();
-#endif
+    store().markAllUnattributedPrivateClickMeasurementAsExpiredForTesting();
 }
 
 void PrivateClickMeasurementManager::setPCMFraudPreventionValuesForTesting(String&& unlinkableToken, String&& secretToken, String&& signature, String&& keyID)
@@ -550,18 +539,35 @@ bool PrivateClickMeasurementManager::debugModeEnabled() const
 
 void PrivateClickMeasurementManager::markAttributedPrivateClickMeasurementsAsExpiredForTesting(CompletionHandler<void()>&& completionHandler)
 {
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
-    if (!featureEnabled()) {
-        completionHandler();
-        return;
-    }
+    if (!featureEnabled())
+        return completionHandler();
 
-    if (auto* resourceLoadStatistics = m_networkSession->resourceLoadStatistics()) {
-        resourceLoadStatistics->markAttributedPrivateClickMeasurementsAsExpiredForTesting(WTFMove(completionHandler));
-        return;
-    }
-#endif
-    completionHandler();
+    store().markAttributedPrivateClickMeasurementsAsExpiredForTesting(WTFMove(completionHandler));
+}
+
+PCM::Store& PrivateClickMeasurementManager::store()
+{
+    if (!m_store)
+        m_store = PCM::Store::create(m_storageDirectory);
+    return *m_store;
+}
+
+const PCM::Store& PrivateClickMeasurementManager::store() const
+{
+    if (!m_store)
+        m_store = PCM::Store::create(m_storageDirectory);
+    return *m_store;
+}
+
+void PrivateClickMeasurementManager::destroyStoreForTesting(CompletionHandler<void()>&& completionHandler)
+{
+    if (!m_store)
+        return completionHandler();
+    m_store->close([weakThis = makeWeakPtr(*this), completionHandler = WTFMove(completionHandler)] () mutable {
+        if (weakThis)
+            weakThis->m_store = nullptr;
+        return completionHandler();
+    });
 }
 
 } // namespace WebKit

@@ -5369,9 +5369,6 @@ void ForInContext::finalize(BytecodeGenerator& generator, UnlinkedCodeBlockGener
     if (!escaped)
         return;
 
-    OpcodeID lastOpcodeID = generator.m_lastOpcodeID;
-    InstructionStream::MutableRef lastInstruction = generator.m_lastInstruction;
-
     for (const auto& instTuple : m_getInsts)
         rewriteOp<OpEnumeratorGetByVal, OpGetByVal>(generator, instTuple);
 
@@ -5389,7 +5386,6 @@ void ForInContext::finalize(BytecodeGenerator& generator, UnlinkedCodeBlockGener
         auto end = branchInstIndex + instruction->size();
 
         generator.m_writer.seek(branchInstIndex);
-
         generator.disablePeepholeOptimization();
 
         OpJmp::emit(&generator, BoundLabel(static_cast<int>(newBranchTarget) - static_cast<int>(branchInstIndex)));
@@ -5399,10 +5395,7 @@ void ForInContext::finalize(BytecodeGenerator& generator, UnlinkedCodeBlockGener
     }
 
     generator.m_writer.seek(generator.m_writer.size());
-    if (generator.m_lastInstruction.offset() + generator.m_lastInstruction->size() != generator.m_writer.size()) {
-        generator.m_lastOpcodeID = lastOpcodeID;
-        generator.m_lastInstruction = lastInstruction;
-    }
+    generator.disablePeepholeOptimization(); // We might've just changed the last bytecode that was emitted.
 }
 
 void StaticPropertyAnalysis::record()

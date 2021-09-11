@@ -33,6 +33,7 @@
 #include "NetworkProcess.h"
 #include "NetworkProcessProxyMessages.h"
 #include "NetworkSession.h"
+#include "PrivateClickMeasurementManager.h"
 #include "ResourceLoadStatisticsDatabaseStore.h"
 #include "ResourceLoadStatisticsMemoryStore.h"
 #include "ShouldGrandfatherStatistics.h"
@@ -317,23 +318,6 @@ void WebResourceLoadStatisticsStore::statisticsDatabaseHasAllTables(CompletionHa
         auto missingTables = downcast<ResourceLoadStatisticsDatabaseStore>(*m_statisticsStore).checkForMissingTablesInSchema();
         postTaskReply([hasAllTables = missingTables ? false : true, completionHandler = WTFMove(completionHandler)] () mutable {
             completionHandler(hasAllTables);
-        });
-    });
-}
-
-void WebResourceLoadStatisticsStore::statisticsDatabaseColumnsForTable(const String& table, CompletionHandler<void(Vector<String>&&)>&& completionHandler)
-{
-    ASSERT(RunLoop::isMain());
-
-    postTask([this, table = table.isolatedCopy(), completionHandler = WTFMove(completionHandler)]() mutable {
-        if (!m_statisticsStore || !is<ResourceLoadStatisticsDatabaseStore>(*m_statisticsStore)) {
-            completionHandler({ });
-            ASSERT_NOT_REACHED();
-            return;
-        }
-        auto columns = downcast<ResourceLoadStatisticsDatabaseStore>(*m_statisticsStore).columnsForTable(table);
-        postTaskReply([columns = WTFMove(columns), completionHandler = WTFMove(completionHandler)] () mutable {
-            completionHandler(WTFMove(columns));
         });
     });
 }
@@ -1445,11 +1429,7 @@ void WebResourceLoadStatisticsStore::aggregatedThirdPartyData(CompletionHandler<
 void WebResourceLoadStatisticsStore::suspend(CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
-
-    sharedStatisticsQueue()->suspend([]() mutable {
-        for (auto& databaseStore : ResourceLoadStatisticsDatabaseStore::allStores())
-            databaseStore->interrupt();
-    }, WTFMove(completionHandler));
+    sharedStatisticsQueue()->suspend(ResourceLoadStatisticsDatabaseStore::interruptAllDatabases, WTFMove(completionHandler));
 }
 
 void WebResourceLoadStatisticsStore::resume()
@@ -1466,185 +1446,6 @@ void WebResourceLoadStatisticsStore::insertExpiredStatisticForTesting(const Regi
     postTask([this, domain = domain.isolatedCopy(), numberOfOperatingDaysPassed, hadUserInteraction, isScheduledForAllButCookieDataRemoval, isPrevalent, completionHandler = WTFMove(completionHandler)]() mutable {
         if (m_statisticsStore)
             m_statisticsStore->insertExpiredStatisticForTesting(WTFMove(domain), numberOfOperatingDaysPassed, hadUserInteraction, isScheduledForAllButCookieDataRemoval, isPrevalent);
-        postTaskReply(WTFMove(completionHandler));
-    });
-}
-
-void WebResourceLoadStatisticsStore::insertPrivateClickMeasurement(PrivateClickMeasurement&& attribution, PrivateClickMeasurementAttributionType attributionType)
-{
-    ASSERT(RunLoop::isMain());
-
-    if (isEphemeral())
-        return;
-
-    postTask([this, attribution = WTFMove(attribution), attributionType]() mutable {
-        if (!m_statisticsStore)
-            return;
-
-        m_statisticsStore->insertPrivateClickMeasurement(WTFMove(attribution), attributionType);
-    });
-}
-
-void WebResourceLoadStatisticsStore::markAllUnattributedPrivateClickMeasurementAsExpiredForTesting()
-{
-    ASSERT(RunLoop::isMain());
-
-    if (isEphemeral())
-        return;
-
-    postTask([this]() {
-        if (!m_statisticsStore)
-            return;
-
-        m_statisticsStore->markAllUnattributedPrivateClickMeasurementAsExpiredForTesting();
-    });
-}
-
-void WebResourceLoadStatisticsStore::attributePrivateClickMeasurement(const PrivateClickMeasurement::SourceSite& sourceSite, const PrivateClickMeasurement::AttributionDestinationSite& destinationSite, PrivateClickMeasurement::AttributionTriggerData&& attributionTriggerData, CompletionHandler<void(std::optional<WebCore::PrivateClickMeasurement::AttributionSecondsUntilSendData>)>&& completionHandler)
-{
-    ASSERT(RunLoop::isMain());
-
-    if (isEphemeral()) {
-        completionHandler({ });
-        return;
-    }
-
-    postTask([this, sourceSite = sourceSite.isolatedCopy(), destinationSite = destinationSite.isolatedCopy(), attributionTriggerData = WTFMove(attributionTriggerData), completionHandler = WTFMove(completionHandler)]() mutable {
-        if (!m_statisticsStore) {
-            postTaskReply([completionHandler = WTFMove(completionHandler)]() mutable {
-                completionHandler(std::nullopt);
-            });
-            return;
-        }
-
-        auto seconds = m_statisticsStore->attributePrivateClickMeasurement(sourceSite, destinationSite, WTFMove(attributionTriggerData));
-        postTaskReply([seconds, completionHandler = WTFMove(completionHandler)]() mutable {
-            completionHandler(seconds);
-        });
-    });
-}
-
-void WebResourceLoadStatisticsStore::allAttributedPrivateClickMeasurement(CompletionHandler<void(Vector<PrivateClickMeasurement>&&)>&& completionHandler)
-{
-    ASSERT(RunLoop::isMain());
-
-    if (isEphemeral()) {
-        completionHandler({ });
-        return;
-    }
-
-    postTask([this, completionHandler = WTFMove(completionHandler)]() mutable {
-        if (!m_statisticsStore) {
-            postTaskReply([completionHandler = WTFMove(completionHandler)]() mutable {
-                completionHandler({ });
-            });
-            return;
-        }
-
-        auto convertedAttributions = m_statisticsStore->allAttributedPrivateClickMeasurement();
-        postTaskReply([convertedAttributions = WTFMove(convertedAttributions), completionHandler = WTFMove(completionHandler)]() mutable {
-            completionHandler(WTFMove(convertedAttributions));
-        });
-    });
-}
-
-void WebResourceLoadStatisticsStore::clearPrivateClickMeasurement()
-{
-    ASSERT(RunLoop::isMain());
-
-    if (isEphemeral())
-        return;
-
-    postTask([this]() {
-        if (!m_statisticsStore)
-            return;
-
-        m_statisticsStore->clearPrivateClickMeasurement(std::nullopt);
-    });
-}
-    
-void WebResourceLoadStatisticsStore::clearPrivateClickMeasurementForRegistrableDomain(const RegistrableDomain& domain)
-{
-    ASSERT(RunLoop::isMain());
-
-    if (isEphemeral())
-        return;
-
-    postTask([this, domain = domain.isolatedCopy()]() mutable {
-        if (!m_statisticsStore)
-            return;
-
-        m_statisticsStore->clearPrivateClickMeasurement(domain);
-    });
-}
-
-void WebResourceLoadStatisticsStore::clearExpiredPrivateClickMeasurement()
-{
-    ASSERT(RunLoop::isMain());
-
-    if (isEphemeral())
-        return;
-
-    postTask([this]() {
-        if (!m_statisticsStore)
-            return;
-
-        m_statisticsStore->clearExpiredPrivateClickMeasurement();
-    });
-}
-
-void WebResourceLoadStatisticsStore::privateClickMeasurementToString(CompletionHandler<void(String)>&& completionHandler)
-{
-    ASSERT(RunLoop::isMain());
-
-    if (isEphemeral()) {
-        completionHandler("\nNo stored Private Click Measurement data.\n"_s);
-        return;
-    }
-
-    postTask([this, completionHandler = WTFMove(completionHandler)]() mutable {
-        if (!m_statisticsStore) {
-            postTaskReply([completionHandler = WTFMove(completionHandler)]() mutable {
-                completionHandler({ });
-            });
-            return;
-        }
-
-        auto result = m_statisticsStore->privateClickMeasurementToString();
-        postTaskReply([result = result.isolatedCopy(), completionHandler = WTFMove(completionHandler)]() mutable {
-            completionHandler(result);
-        });
-    });
-}
-
-void WebResourceLoadStatisticsStore::clearSentAttribution(WebCore::PrivateClickMeasurement&& attributionToClear, PrivateClickMeasurement::AttributionReportEndpoint attributionReportEndpoint)
-{
-    ASSERT(RunLoop::isMain());
-
-    if (isEphemeral())
-        return;
-
-    postTask([this, attributionToClear = WTFMove(attributionToClear), attributionReportEndpoint]() mutable {
-        if (!m_statisticsStore)
-            return;
-
-        m_statisticsStore->clearSentAttribution(WTFMove(attributionToClear), attributionReportEndpoint);
-    });
-}
-
-void WebResourceLoadStatisticsStore::markAttributedPrivateClickMeasurementsAsExpiredForTesting(CompletionHandler<void()>&& completionHandler)
-{
-    ASSERT(RunLoop::isMain());
-
-    if (isEphemeral()) {
-        completionHandler();
-        return;
-    }
-
-    postTask([this, completionHandler = WTFMove(completionHandler)]() mutable {
-        if (m_statisticsStore)
-            m_statisticsStore->markAttributedPrivateClickMeasurementsAsExpiredForTesting();
-
         postTaskReply(WTFMove(completionHandler));
     });
 }

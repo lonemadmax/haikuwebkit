@@ -48,6 +48,7 @@
 #include "NetworkSession.h"
 #include "NetworkSessionCreationParameters.h"
 #include "PreconnectTask.h"
+#include "PrivateClickMeasurementStore.h"
 #include "RemoteNetworkingContext.h"
 #include "ShouldGrandfatherStatistics.h"
 #include "StorageAccessStatus.h"
@@ -770,19 +771,6 @@ void NetworkProcess::statisticsDatabaseHasAllTables(PAL::SessionID sessionID, Co
     } else {
         ASSERT_NOT_REACHED();
         completionHandler(false);
-    }
-}
-
-void NetworkProcess::statisticsDatabaseColumnsForTable(PAL::SessionID sessionID, const String& tableName, CompletionHandler<void(Vector<String>&&)>&& completionHandler)
-{
-    if (auto* networkSession = this->networkSession(sessionID)) {
-        if (auto* resourceLoadStatistics = networkSession->resourceLoadStatistics())
-            resourceLoadStatistics->statisticsDatabaseColumnsForTable(tableName, WTFMove(completionHandler));
-        else
-            completionHandler({ });
-    } else {
-        ASSERT_NOT_REACHED();
-        completionHandler({ });
     }
 }
 
@@ -1614,11 +1602,11 @@ void NetworkProcess::deleteWebsiteData(PAL::SessionID sessionID, OptionSet<Websi
         networkSession->removeNetworkWebsiteData(modifiedSince, std::nullopt, [clearTasksHandler] { });
 
     if (websiteDataTypes.contains(WebsiteDataType::DiskCache) && !sessionID.isEphemeral())
-        clearDiskCache(modifiedSince, [clearTasksHandler = WTFMove(clearTasksHandler)] { });
+        clearDiskCache(modifiedSince, [clearTasksHandler] { });
 
     if (websiteDataTypes.contains(WebsiteDataType::PrivateClickMeasurements)) {
         if (auto* networkSession = this->networkSession(sessionID))
-            networkSession->clearPrivateClickMeasurement();
+            networkSession->clearPrivateClickMeasurement([clearTasksHandler] { });
     }
 
 #if HAVE(CFNETWORK_ALTERNATIVE_SERVICE)
@@ -1677,14 +1665,14 @@ void NetworkProcess::deleteWebsiteDataForOrigins(PAL::SessionID sessionID, Optio
     }
 #endif
 
+    auto clearTasksHandler = WTF::CallbackAggregator::create(WTFMove(completionHandler));
+
     if (websiteDataTypes.contains(WebsiteDataType::PrivateClickMeasurements)) {
         if (auto* networkSession = this->networkSession(sessionID)) {
             for (auto& originData : originDatas)
-                networkSession->clearPrivateClickMeasurementForRegistrableDomain(RegistrableDomain::uncheckedCreateFromHost(originData.host));
+                networkSession->clearPrivateClickMeasurementForRegistrableDomain(RegistrableDomain::uncheckedCreateFromHost(originData.host), [clearTasksHandler] { });
         }
     }
-    
-    auto clearTasksHandler = WTF::CallbackAggregator::create(WTFMove(completionHandler));
 
     if (websiteDataTypes.contains(WebsiteDataType::DOMCache)) {
         for (auto& originData : originDatas)
@@ -2245,6 +2233,7 @@ void NetworkProcess::prepareToSuspend(bool isSuspensionImminent, CompletionHandl
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     WebResourceLoadStatisticsStore::suspend([callbackAggregator] { });
 #endif
+    PCM::Store::prepareForProcessToSuspend([callbackAggregator] { });
 
     forEachNetworkSession([&] (auto& networkSession) {
         platformFlushCookies(networkSession.sessionID(), [callbackAggregator] { });
@@ -2287,7 +2276,8 @@ void NetworkProcess::resume()
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     WebResourceLoadStatisticsStore::resume();
 #endif
-    
+    PCM::Store::processDidResume();
+
 #if ENABLE(SERVICE_WORKER)
     for (auto& server : m_swServers.values())
         server->endSuspension();
@@ -2569,9 +2559,9 @@ void NetworkProcess::dumpPrivateClickMeasurement(PAL::SessionID sessionID, Compl
 void NetworkProcess::clearPrivateClickMeasurement(PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
 {
     if (auto* session = networkSession(sessionID))
-        session->clearPrivateClickMeasurement();
-    
-    completionHandler();
+        session->clearPrivateClickMeasurement(WTFMove(completionHandler));
+    else
+        completionHandler();
 }
 
 void NetworkProcess::setPrivateClickMeasurementOverrideTimerForTesting(PAL::SessionID sessionID, bool value, CompletionHandler<void()>&& completionHandler)
@@ -2590,15 +2580,14 @@ void NetworkProcess::firePrivateClickMeasurementTimerImmediately(PAL::SessionID 
 
 void NetworkProcess::simulateResourceLoadStatisticsSessionRestart(PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
 {
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    // FIXME: Rename this to simulatePrivateClickMeasurementSessionRestart.
     if (auto* session = networkSession(sessionID)) {
-        session->recreateResourceLoadStatisticStore([this, sessionID, completionHandler = WTFMove(completionHandler)] () mutable {
+        session->recreatePrivateClickMeasurementStore([this, sessionID, completionHandler = WTFMove(completionHandler)] () mutable {
             firePrivateClickMeasurementTimerImmediately(sessionID);
             completionHandler();
         });
         return;
     }
-#endif
     completionHandler();
 }
 
@@ -2610,6 +2599,15 @@ void NetworkProcess::markAttributedPrivateClickMeasurementsAsExpiredForTesting(P
     }
     completionHandler();
 }
+
+void NetworkProcess::setPrivateClickMeasurementEphemeralMeasurementForTesting(PAL::SessionID sessionID, bool value, CompletionHandler<void()>&& completionHandler)
+{
+    if (auto* session = networkSession(sessionID))
+        session->setPrivateClickMeasurementEphemeralMeasurementForTesting(value);
+    
+    completionHandler();
+}
+
 
 void NetworkProcess::setPrivateClickMeasurementTokenPublicKeyURLForTesting(PAL::SessionID sessionID, URL&& url, CompletionHandler<void()>&& completionHandler)
 {
@@ -2805,6 +2803,26 @@ RTCDataChannelRemoteManagerProxy& NetworkProcess::rtcDataChannelProxy()
     return *m_rtcDataChannelProxy;
 }
 #endif
+
+void NetworkProcess::prepareLoadForWebProcessTransfer(WebCore::ProcessIdentifier sourceProcessIdentifier, uint64_t resourceLoadIdentifier, CompletionHandler<void(std::optional<NetworkResourceLoadIdentifier>)>&& completionHandler)
+{
+    ASSERT(resourceLoadIdentifier);
+    auto* connection = webProcessConnection(sourceProcessIdentifier);
+    if (!connection)
+        return completionHandler(std::nullopt);
+
+    auto session = connection->networkSession();
+    if (!session)
+        return completionHandler(std::nullopt);
+
+    auto loader = connection->takeNetworkResourceLoader(resourceLoadIdentifier);
+    if (!loader)
+        return completionHandler(std::nullopt);
+
+    auto identifier = loader->identifier();
+    session->addLoaderAwaitingWebProcessTransfer(loader.releaseNonNull());
+    completionHandler(identifier);
+}
 
 void NetworkProcess::addWebPageNetworkParameters(PAL::SessionID sessionID, WebPageProxyIdentifier pageID, WebPageNetworkParameters&& parameters)
 {

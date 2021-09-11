@@ -388,6 +388,12 @@ $(PROJECT_DIR)/Modules/paymentrequest/PaymentResponse.idl
 $(PROJECT_DIR)/Modules/paymentrequest/PaymentShippingOption.idl
 $(PROJECT_DIR)/Modules/paymentrequest/PaymentShippingType.idl
 $(PROJECT_DIR)/Modules/paymentrequest/PaymentValidationErrors.idl
+$(PROJECT_DIR)/Modules/permissions/Navigator+Permissions.idl
+$(PROJECT_DIR)/Modules/permissions/PermissionDescriptor.idl
+$(PROJECT_DIR)/Modules/permissions/PermissionName.idl
+$(PROJECT_DIR)/Modules/permissions/PermissionState.idl
+$(PROJECT_DIR)/Modules/permissions/PermissionStatus.idl
+$(PROJECT_DIR)/Modules/permissions/Permissions.idl
 $(PROJECT_DIR)/Modules/pictureinpicture/Document+PictureInPicture.idl
 $(PROJECT_DIR)/Modules/pictureinpicture/DocumentOrShadowRoot+PictureInPicture.idl
 $(PROJECT_DIR)/Modules/pictureinpicture/EnterPictureInPictureEvent.idl
@@ -729,6 +735,7 @@ $(PROJECT_DIR)/css/plugIns.css
 $(PROJECT_DIR)/css/quirks.css
 $(PROJECT_DIR)/css/svg.css
 $(PROJECT_DIR)/css/typedom/CSSNumericValue.idl
+$(PROJECT_DIR)/css/typedom/CSSOMVariableReferenceValue.idl
 $(PROJECT_DIR)/css/typedom/CSSStyleImageValue.idl
 $(PROJECT_DIR)/css/typedom/CSSStyleValue.idl
 $(PROJECT_DIR)/css/typedom/CSSUnitValue.idl
@@ -1170,6 +1177,7 @@ $(PROJECT_DIR)/page/ScrollOptions.idl
 $(PROJECT_DIR)/page/ScrollToOptions.idl
 $(PROJECT_DIR)/page/Settings.yaml
 $(PROJECT_DIR)/page/ShareData.idl
+$(PROJECT_DIR)/page/StructuredSerializeOptions.idl
 $(PROJECT_DIR)/page/UndoItem.idl
 $(PROJECT_DIR)/page/UndoManager.idl
 $(PROJECT_DIR)/page/UserMessageHandler.idl

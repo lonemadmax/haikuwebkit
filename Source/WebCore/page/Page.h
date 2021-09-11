@@ -131,6 +131,7 @@ class PaymentCoordinator;
 class PerformanceLogging;
 class PerformanceLoggingClient;
 class PerformanceMonitor;
+class PermissionController;
 class PluginData;
 class PluginInfoProvider;
 class PluginViewBase;
@@ -170,9 +171,10 @@ using SharedStringHash = uint32_t;
 enum class CanWrap : bool;
 enum class DidWrap : bool;
 enum class RouteSharingPolicy : uint8_t;
-enum class ShouldTreatAsContinuingLoad : bool;
+enum class ShouldTreatAsContinuingLoad : uint8_t;
 
 enum class EventThrottlingBehavior : bool { Responsive, Unresponsive };
+enum class MainFrameMainResource : bool { No, Yes };
 
 enum class CompositingPolicy : bool {
     Normal,
@@ -814,8 +816,7 @@ public:
     bool isOnlyNonUtilityPage() const;
     bool isUtilityPage() const { return m_isUtilityPage; }
 
-    bool loadsSubresources() const { return m_loadsSubresources; }
-    WEBCORE_EXPORT bool allowsLoadFromURL(const URL&) const;
+    WEBCORE_EXPORT bool allowsLoadFromURL(const URL&, MainFrameMainResource) const;
     ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking() const { return m_shouldRelaxThirdPartyCookieBlocking; }
 
     bool isLowPowerModeEnabled() const { return m_throttlingReasons.contains(ThrottlingReason::LowPowerMode); }
@@ -871,6 +872,8 @@ public:
     WEBCORE_EXPORT bool hasCachedTextRecognitionResult(const HTMLElement&) const;
     void cacheTextRecognitionResult(const HTMLElement&, const IntRect& containerRect, const TextRecognitionResult&);
 #endif
+
+    WEBCORE_EXPORT PermissionController& permissionController();
 
 private:
     struct Navigation {
@@ -1193,6 +1196,8 @@ private:
 
     const bool m_httpsUpgradeEnabled { true };
     mutable MediaSessionGroupIdentifier m_mediaSessionGroupIdentifier;
+
+    Ref<PermissionController> m_permissionController;
 
 #if ENABLE(IMAGE_ANALYSIS)
     // FIXME: These should be refactored to use a weak hash map of HTMLElement to std::pair<TextRecognitionResult, IntSize>.

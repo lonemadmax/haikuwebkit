@@ -1643,16 +1643,18 @@ private:
         Edge fromEdge = (from->*m_originGetter)();
         Edge toEdge = (to->*m_originGetter)();
         
+        Edge destinationEdge = toEdge;
         if (fromEdge != toEdge) {
             // Convert the right/bottom into a calc expression,
             if (fromEdge == m_farEdge)
                 fromLength = convertTo100PercentMinusLength(fromLength);
             else if (toEdge == m_farEdge) {
                 toLength = convertTo100PercentMinusLength(toLength);
-                (destination->*m_originSetter)(fromEdge); // Now we have a calc(100% - l), it's relative to the left/top edge.
+                destinationEdge = fromEdge; // Now we have a calc(100% - l), it's relative to the left/top edge.
             }
         }
 
+        (destination->*m_originSetter)(destinationEdge);
         (destination->*m_lengthSetter)(blendFunc(fromLength, toLength, context));
     }
 
@@ -2460,7 +2462,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new DiscretePropertyWrapper<const StyleContentAlignmentData&>(CSSPropertyAlignContent, &RenderStyle::alignContent, &RenderStyle::setAlignContent),
         new DiscretePropertyWrapper<const StyleSelfAlignmentData&>(CSSPropertyAlignItems, &RenderStyle::alignItems, &RenderStyle::setAlignItems),
         new DiscretePropertyWrapper<const StyleSelfAlignmentData&>(CSSPropertyAlignSelf, &RenderStyle::alignSelf, &RenderStyle::setAlignSelf),
-        new DiscretePropertyWrapper<BackfaceVisibility>(CSSPropertyWebkitBackfaceVisibility, &RenderStyle::backfaceVisibility, &RenderStyle::setBackfaceVisibility),
+        new DiscretePropertyWrapper<BackfaceVisibility>(CSSPropertyBackfaceVisibility, &RenderStyle::backfaceVisibility, &RenderStyle::setBackfaceVisibility),
         new DiscretePropertyWrapper<FillAttachment>(CSSPropertyBackgroundAttachment, &RenderStyle::backgroundAttachment, &RenderStyle::setBackgroundAttachment),
         new DiscretePropertyWrapper<FillBox>(CSSPropertyBackgroundClip, &RenderStyle::backgroundClip, &RenderStyle::setBackgroundClip),
         new DiscretePropertyWrapper<FillBox>(CSSPropertyBackgroundOrigin, &RenderStyle::backgroundOrigin, &RenderStyle::setBackgroundOrigin),

@@ -258,7 +258,7 @@ def parse_args(args):
                  "'ignore' == Run them anyway, "
                  "'only' == only run the SKIP tests, "
                  "'always' == always skip, even if listed on the command line.")),
-        optparse.make_option("--force", action="store_true", default=False,
+        optparse.make_option("--expect-pass", "--force", action="store_true", default=False, dest="force",
             help="Run all tests with PASS as expected result, even those marked SKIP in the test list or " + \
                  "those which are device-specific (implies --skipped=ignore)"),
         optparse.make_option("--time-out-ms", "--timeout",
@@ -343,6 +343,7 @@ def parse_args(args):
         optparse.make_option(
             "--prefer-integrated-gpu", action="store_true", default=False,
             help=("Prefer using the lower-power integrated GPU on a dual-GPU system. Note that other running applications and the tests themselves can override this request.")),
+        optparse.make_option('--show-window', action="store_true", default=False, help="Make the test runner window visible during testing."),
     ]))
 
     option_group_definitions.append(("Web Platform Test Server Options", [

@@ -111,6 +111,18 @@ CFNetworkNetworkLoaderEnabled:
     WebKit:
       default: false
 
+CSSCascadeLayersEnabled:
+  type: bool
+  humanReadableName: "CSS Cascade Layers"
+  humanReadableDescription: "Enable CSS Cascade Layers"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSColor4:
   type: bool
   humanReadableName: "CSS Color 4 Color Types"
@@ -534,6 +546,18 @@ IncrementalPDFLoadingEnabled:
     WebKit:
       default: WebKit::defaultIncrementalPDFEnabled()
 
+InertAttributeEnabled:
+  type: bool
+  humanReadableName: "inert attribute"
+  humanReadableDescription: "Enable inert attribute support"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 # FIXME: This is on by default in WebKit2. Perhaps we should consider turning it on for WebKitLegacy as well.
 IntersectionObserverEnabled:
   type: bool
@@ -654,6 +678,18 @@ LinkPreloadResponsiveImagesEnabled:
   type: bool
   humanReadableName: "Link preload responsive images"
   humanReadableDescription: "Enable link preload responsive images"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+LinkSanitizerEnabled:
+  type: bool
+  humanReadableName: "Link Sanitizer"
+  humanReadableDescription: "Enable link sanitizer"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -861,6 +897,18 @@ PerformanceResourceTimingSensitivePropertiesEnabled:
   type: bool
   humanReadableName: "PerformanceResourceTiming.transferSize, encodedBodySize, and decodedBodySize"
   humanReadableDescription: "Enable all properties of PerformanceResourceTiming API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+PermissionsAPIEnabled:
+  type: bool
+  humanReadableName: "Permissions API"
+  humanReadableDescription: "Enable Permissions API"
   defaultValue:
     WebKitLegacy:
       default: false

@@ -58,6 +58,9 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(Performance);
 
+constexpr Seconds highTimePrecision { 20_us };
+static Seconds timePrecision { 1_ms };
+
 Performance::Performance(ScriptExecutionContext* context, MonotonicTime timeOrigin)
     : ContextDestructionObserver(context)
     , m_resourceTimingBufferFullTimer(*this, &Performance::resourceTimingBufferFullTimerFired) // FIXME: Migrate this to the event loop as well. https://bugs.webkit.org/show_bug.cgi?id=229044
@@ -92,9 +95,14 @@ ReducedResolutionSeconds Performance::nowInReducedResolutionSeconds() const
 
 Seconds Performance::reduceTimeResolution(Seconds seconds)
 {
-    double resolution = (1000_us).seconds();
+    double resolution = timePrecision.seconds();
     double reduced = std::floor(seconds.seconds() / resolution) * resolution;
     return Seconds(reduced);
+}
+
+void Performance::allowHighPrecisionTime()
+{
+    timePrecision = highTimePrecision;
 }
 
 DOMHighResTimeStamp Performance::relativeTimeFromTimeOriginInReducedResolution(MonotonicTime timestamp) const
@@ -241,6 +249,14 @@ void Performance::addNavigationTiming(DocumentLoader& documentLoader, Document& 
 {
     ASSERT(document.settings().performanceNavigationTimingAPIEnabled());
     m_navigationTiming = PerformanceNavigationTiming::create(m_timeOrigin, resource, timing, metrics, document.eventTiming(), document.securityOrigin(), documentLoader.triggeringAction().type());
+}
+
+void Performance::navigationFinished(const NetworkLoadMetrics& metrics)
+{
+    if (!m_navigationTiming)
+        return;
+    m_navigationTiming->navigationFinished(metrics);
+
     queueEntry(*m_navigationTiming);
 }
 

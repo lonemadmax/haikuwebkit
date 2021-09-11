@@ -424,7 +424,7 @@ void DocumentLoader::notifyFinished(CachedResource& resource, const NetworkLoadM
     if (auto document = makeRefPtr(this->document())) {
         if (auto domWindow = makeRefPtr(document->domWindow())) {
             if (document->settings().performanceNavigationTimingAPIEnabled())
-                domWindow->performance().addNavigationTiming(*this, *document, resource, timing(), metrics);
+                domWindow->performance().navigationFinished(metrics);
         }
     }
 
@@ -783,15 +783,12 @@ bool DocumentLoader::doCrossOriginOpenerHandlingOfResponse(const ResourceRespons
 
     // https://html.spec.whatwg.org/multipage/browsing-the-web.html#process-a-navigate-fetch (Step 12.5.6.2)
     // If sandboxFlags is not empty and responseCOOP's value is not "unsafe-none", then set response to an appropriate network error and break.
-    if (responseCOOP.value != CrossOriginOpenerPolicyValue::UnsafeNone && m_frame->document()->creationSandboxFlags() != SandboxNone) {
+    if (responseCOOP.value != CrossOriginOpenerPolicyValue::UnsafeNone && frameLoader()->effectiveSandboxFlags() != SandboxNone) {
         cancelMainResourceLoad(frameLoader()->cancelledError(m_request));
         return false;
     }
 
     m_currentCoopEnforcementResult = enforceResponseCrossOriginOpenerPolicy(response.url(), responseOrigin, responseCOOP);
-    if (m_currentCoopEnforcementResult->needsBrowsingContextGroupSwitch)
-        frameLoader()->switchBrowsingContextsGroup();
-
     return true;
 }
 
@@ -951,6 +948,15 @@ void DocumentLoader::responseReceived(CachedResource& resource, const ResourceRe
     responseReceived(response, WTFMove(completionHandler));
 }
 
+static BrowsingContextGroupSwitchDecision toBrowsingContextGroupSwitchDecision(const std::optional<CrossOriginOpenerPolicyEnforcementResult>& currentCoopEnforcementResult)
+{
+    if (!currentCoopEnforcementResult || !currentCoopEnforcementResult->needsBrowsingContextGroupSwitch)
+        return BrowsingContextGroupSwitchDecision::StayInGroup;
+    if (currentCoopEnforcementResult->crossOriginOpenerPolicy.value == CrossOriginOpenerPolicyValue::SameOriginPlusCOEP)
+        return BrowsingContextGroupSwitchDecision::NewIsolatedGroup;
+    return BrowsingContextGroupSwitchDecision::NewSharedGroup;
+}
+
 void DocumentLoader::responseReceived(const ResourceResponse& response, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(response.certificateInfo());
@@ -998,9 +1004,6 @@ void DocumentLoader::responseReceived(const ResourceResponse& response, Completi
         }
     }
 
-    if (!doCrossOriginOpenerHandlingOfResponse(response))
-        return;
-
     // There is a bug in CFNetwork where callbacks can be dispatched even when loads are deferred.
     // See <rdar://problem/6304600> for more details.
 #if !USE(CF)
@@ -1042,11 +1045,20 @@ void DocumentLoader::responseReceived(const ResourceResponse& response, Completi
     }
 #endif
 
+    if (!doCrossOriginOpenerHandlingOfResponse(response))
+        return;
+
+    if (std::exchange(m_isContinuingLoadAfterResponsePolicyCheck, false)) {
+        continueAfterContentPolicy(PolicyAction::Use);
+        return;
+    }
+
     RefPtr<SubresourceLoader> mainResourceLoader = this->mainResourceLoader();
     if (mainResourceLoader)
         mainResourceLoader->markInAsyncResponsePolicyCheck();
     auto requestIdentifier = PolicyCheckIdentifier::create();
-    frameLoader()->checkContentPolicy(m_response, requestIdentifier, [this, protectedThis = makeRef(*this), mainResourceLoader = WTFMove(mainResourceLoader),
+    auto browsingContextGroupSwitchDecision = toBrowsingContextGroupSwitchDecision(m_currentCoopEnforcementResult);
+    frameLoader()->checkContentPolicy(m_response, requestIdentifier, browsingContextGroupSwitchDecision, [this, protectedThis = makeRef(*this), mainResourceLoader = WTFMove(mainResourceLoader),
         completionHandler = completionHandlerCaller.release(), requestIdentifier] (PolicyAction policy, PolicyCheckIdentifier responseIdentifier) mutable {
         RELEASE_ASSERT(responseIdentifier.isValidFor(requestIdentifier));
         continueAfterContentPolicy(policy);
@@ -1318,8 +1330,14 @@ void DocumentLoader::commitData(const uint8_t* bytes, size_t length)
         if (!isLoading())
             return;
 
-        if (auto* window = document.domWindow())
+        if (auto* window = document.domWindow()) {
             window->prewarmLocalStorageIfNecessary();
+
+            if (document.settings().performanceNavigationTimingAPIEnabled() && m_mainResource) {
+                auto* metrics = m_response.deprecatedNetworkLoadMetricsOrNull();
+                window->performance().addNavigationTiming(*this, document, *m_mainResource, timing(), metrics ? *metrics : NetworkLoadMetrics { });
+            }
+        }
 
         bool userChosen;
         String encoding;
@@ -2008,8 +2026,14 @@ bool DocumentLoader::maybeLoadEmpty()
     String mimeType = shouldLoadEmpty ? "text/html" : frameLoader()->client().generatedMIMETypeForURLScheme(m_request.url().protocol().toStringWithoutCopying());
     m_response = ResourceResponse(m_request.url(), mimeType, 0, "UTF-8"_s);
 
-    if (frameLoader()->stateMachine().committedFirstRealDocumentLoad())
+    if (!frameLoader()->stateMachine().isDisplayingInitialEmptyDocument()) {
         doCrossOriginOpenerHandlingOfResponse(m_response);
+
+        // FIXME: Non-initial about:blank loads may cause a browsing context group switch. However, such load is synchronous and doesn't
+        // involve a response policy decision. As a result, we simulate a browsing context group switch without actually swapping process.
+        if (m_currentCoopEnforcementResult && m_currentCoopEnforcementResult->needsBrowsingContextGroupSwitch)
+            frameLoader()->switchBrowsingContextsGroup();
+    }
 
     finishedLoading();
     return true;
@@ -2238,6 +2262,7 @@ void DocumentLoader::clearMainResource()
 #endif
 
     m_mainResource = nullptr;
+    m_isContinuingLoadAfterResponsePolicyCheck = false;
 
     unregisterTemporaryServiceWorkerClient();
 }

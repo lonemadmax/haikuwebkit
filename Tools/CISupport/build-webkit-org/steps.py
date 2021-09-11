@@ -171,7 +171,7 @@ class KillOldProcesses(shell.Compile):
     name = "kill-old-processes"
     description = ["killing old processes"]
     descriptionDone = ["killed old processes"]
-    command = ["python", "./Tools/CISupport/kill-old-processes", "buildbot"]
+    command = ["python3", "./Tools/CISupport/kill-old-processes", "buildbot"]
 
 
 class TriggerCrashLogSubmission(shell.Compile):
@@ -531,7 +531,7 @@ class RunWebKitTests(shell.Test):
     description = ["layout-tests running"]
     descriptionDone = ["layout-tests"]
     resultDirectory = "layout-test-results"
-    command = ["python", "./Tools/Scripts/run-webkit-tests",
+    command = ["python3", "./Tools/Scripts/run-webkit-tests",
                "--no-build",
                "--no-show-results",
                "--no-new-test-results",
@@ -863,7 +863,7 @@ class RunBindingsTests(shell.Test):
     name = "bindings-generation-tests"
     description = ["bindings-tests running"]
     descriptionDone = ["bindings-tests"]
-    command = ["python", "./Tools/Scripts/run-bindings-tests"]
+    command = ["python3", "./Tools/Scripts/run-bindings-tests"]
 
 
 class RunBuiltinsTests(shell.Test):
@@ -940,11 +940,11 @@ class RunGLibAPITests(shell.Test):
 
 
 class RunGtkAPITests(RunGLibAPITests):
-    command = ["python", "./Tools/Scripts/run-gtk-tests", WithProperties("--%(configuration)s")]
+    command = ["python3", "./Tools/Scripts/run-gtk-tests", WithProperties("--%(configuration)s")]
 
 
 class RunWPEAPITests(RunGLibAPITests):
-    command = ["python", "./Tools/Scripts/run-wpe-tests", WithProperties("--%(configuration)s")]
+    command = ["python3", "./Tools/Scripts/run-wpe-tests", WithProperties("--%(configuration)s")]
 
 
 class RunWebDriverTests(shell.Test):
@@ -1264,7 +1264,7 @@ class ShowIdentifier(shell.ShellCommand):
         self.log_observer = logobserver.BufferLogObserver()
         self.addLogObserver('stdio', self.log_observer)
         revision = self.getProperty('got_revision')
-        self.setCommand(['python', 'Tools/Scripts/git-webkit', 'find', 'r{}'.format(revision)])
+        self.setCommand(['python3', 'Tools/Scripts/git-webkit', 'find', 'r{}'.format(revision)])
         return shell.ShellCommand.start(self)
 
     def evaluateCommand(self, cmd):

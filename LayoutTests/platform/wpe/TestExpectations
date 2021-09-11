@@ -265,6 +265,9 @@ webkit.org/b/222895 imported/w3c/web-platform-tests/svg/text/reftests/dominant-b
 # WebGL
 webkit.org/b/213203 webgl/1.0.3/conformance/rendering/multisample-corruption.html [ Failure Timeout ]
 
+# WebXR
+webkit.org/b/229455 webxr/high-performance.html [ Failure ]
+
 # Workers
 webkit.org/b/187597 fast/workers/worker-exception-during-navigation.html [ Timeout Pass ]
 
@@ -1347,6 +1350,7 @@ webkit.org/b/208188 webgl/webgl2-rendering-context-defined.html [ Skip ]
 webkit.org/b/208188 webgl/webgl2-rendering-context-obtain.html [ Skip ]
 webkit.org/b/208188 webgl/2.0.0 [ Skip ]
 webkit.org/b/208188 webgl/2.0.y [ Skip ]
+webkit.org/b/208188 webgl/pending/conformance2 [ Skip ]
 
 webkit.org/b/212080 mathml/presentation/href-enter.html [ ImageOnlyFailure ]
 webkit.org/b/212080 mathml/presentation/href-style.html [ ImageOnlyFailure ]

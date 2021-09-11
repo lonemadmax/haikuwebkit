@@ -108,12 +108,12 @@ public:
         void addRuleIfNeeded(const RuleData&);
     };
 
-    void addRulesFromSheet(StyleSheetContents&, const MediaQueryEvaluator&);
-    void addRulesFromSheet(StyleSheetContents&, MediaQuerySet* sheetQuery, const MediaQueryEvaluator&, Style::Resolver&);
+    void addRulesFromSheet(const StyleSheetContents&, const MediaQueryEvaluator&);
+    void addRulesFromSheet(const StyleSheetContents&, const MediaQuerySet* sheetQuery, const MediaQueryEvaluator&, Style::Resolver&);
 
-    void addStyleRule(const StyleRule&, MediaQueryCollector&);
-    void addRule(const StyleRule&, unsigned selectorIndex, unsigned selectorListIndex, MediaQueryCollector* = nullptr);
+    void addRule(const StyleRule&, unsigned selectorIndex, unsigned selectorListIndex, unsigned cascadeLayerOrder = 0, MediaQueryCollector* = nullptr);
     void addPageRule(StyleRulePage&);
+
     void addToRuleSet(const AtomString& key, AtomRuleMap&, const RuleData&);
     void shrinkToFit();
     void disableAutoShrinkToFit() { m_autoShrinkToFitEnabled = false; }
@@ -145,12 +145,37 @@ public:
     bool hasShadowPseudoElementRules() const { return !m_shadowPseudoElementRules.isEmpty(); }
     bool hasHostPseudoClassRulesMatchingInShadowTree() const { return m_hasHostPseudoClassRulesMatchingInShadowTree; }
 
+    unsigned cascadeLayerOrderFor(const RuleData&) const;
+
 private:
     RuleSet();
 
-    enum class AddRulesMode { Normal, ResolverMutationScan };
-    void addRulesFromSheet(StyleSheetContents&, MediaQueryCollector&, Style::Resolver*, AddRulesMode);
-    void addChildRules(const Vector<RefPtr<StyleRuleBase>>&, MediaQueryCollector&, Style::Resolver*, AddRulesMode);
+    using CascadeLayerIdentifier = unsigned;
+
+    struct Builder {
+        enum class Mode { Normal, ResolverMutationScan };
+
+        Ref<RuleSet> ruleSet;
+        MediaQueryCollector mediaQueryCollector;
+        Style::Resolver* resolver { nullptr };
+        Mode mode { Mode::Normal };
+        CascadeLayerName resolvedCascadeLayerName { };
+        HashMap<CascadeLayerName, CascadeLayerIdentifier> cascadeLayerIdentifierMap { };
+        CascadeLayerIdentifier currentCascadeLayerIdentifier { 0 };
+
+        void addRulesFromSheet(const StyleSheetContents&);
+
+        ~Builder();
+        
+    private:
+        void addChildRules(const Vector<RefPtr<StyleRuleBase>>&);
+        void addStyleRule(const StyleRule&);
+
+        void pushCascadeLayer(const CascadeLayerName&);
+        void popCascadeLayer(const CascadeLayerName&);
+        void updateCascadeLayerOrder();
+    };
+
     struct CollectedMediaQueryChanges {
         bool requiredFullReset { false };
         Vector<size_t> changedQueryIndexes { };
@@ -159,6 +184,14 @@ private:
     CollectedMediaQueryChanges evaluateDynamicMediaQueryRules(const MediaQueryEvaluator&, size_t startIndex);
 
     template<typename Function> void traverseRuleDatas(Function&&);
+
+    struct CascadeLayer {
+        CascadeLayerName resolvedName;
+        CascadeLayerIdentifier parentIdentifier;
+        unsigned order { 0 };
+    };
+    CascadeLayer& cascadeLayerForIdentifier(CascadeLayerIdentifier identifier) { return m_cascadeLayers[identifier - 1]; }
+    const CascadeLayer& cascadeLayerForIdentifier(CascadeLayerIdentifier identifier) const { return m_cascadeLayers[identifier - 1]; }
 
     AtomRuleMap m_idRules;
     AtomRuleMap m_classRules;
@@ -179,6 +212,11 @@ private:
     Vector<DynamicMediaQueryRules> m_dynamicMediaQueryRules;
     HashMap<Vector<size_t>, Ref<const RuleSet>> m_mediaQueryInvalidationRuleSetCache;
     unsigned m_ruleCount { 0 };
+
+    Vector<CascadeLayer> m_cascadeLayers;
+    // This is a side vector to hold layer identifiers without bloating RuleData.
+    Vector<CascadeLayerIdentifier> m_cascadeLayerIdentifierForRulePosition;
+
     bool m_hasHostPseudoClassRulesMatchingInShadowTree { false };
     bool m_autoShrinkToFitEnabled { true };
     bool m_hasViewportDependentMediaQueries { false };
@@ -192,6 +230,16 @@ inline const RuleSet::RuleDataVector* RuleSet::tagRules(const AtomString& key, b
     else
         tagRules = &m_tagLocalNameRules;
     return tagRules->get(key);
+}
+
+inline unsigned RuleSet::cascadeLayerOrderFor(const RuleData& ruleData) const
+{
+    if (m_cascadeLayerIdentifierForRulePosition.size() <= ruleData.position())
+        return 0;
+    auto identifier = m_cascadeLayerIdentifierForRulePosition[ruleData.position()];
+    if (!identifier)
+        return 0;
+    return cascadeLayerForIdentifier(identifier).order;
 }
 
 } // namespace Style

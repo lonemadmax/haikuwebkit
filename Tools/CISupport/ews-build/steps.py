@@ -223,7 +223,7 @@ class ShowIdentifier(shell.ShellCommand):
         revision = self.getProperty('ews_revision', self.getProperty('got_revision'))
         if not revision:
             revision = 'HEAD'
-        self.setCommand(['python', 'Tools/Scripts/git-webkit', 'find', revision])
+        self.setCommand(['python3', 'Tools/Scripts/git-webkit', 'find', revision])
         return shell.ShellCommand.start(self)
 
     def evaluateCommand(self, cmd):
@@ -1234,7 +1234,7 @@ class RunBindingsTests(shell.ShellCommand):
     flunkOnFailure = True
     jsonFileName = 'bindings_test_results.json'
     logfiles = {'json': jsonFileName}
-    command = ['python', 'Tools/Scripts/run-bindings-tests', '--json-output={0}'.format(jsonFileName)]
+    command = ['python3', 'Tools/Scripts/run-bindings-tests', '--json-output={0}'.format(jsonFileName)]
 
     def __init__(self, **kwargs):
         super(RunBindingsTests, self).__init__(timeout=5 * 60, logEnviron=False, **kwargs)
@@ -1632,6 +1632,10 @@ class CompileWebKitWithoutPatch(CompileWebKit):
     name = 'compile-webkit-without-patch'
     haltOnFailure = False
 
+    def __init__(self, retry_build_on_failure=False, **kwargs):
+        self.retry_build_on_failure = retry_build_on_failure
+        super(CompileWebKitWithoutPatch, self).__init__(**kwargs)
+
     def doStepIf(self, step):
         return self.getProperty('patchFailedToBuild') or self.getProperty('patchFailedTests')
 
@@ -1639,7 +1643,26 @@ class CompileWebKitWithoutPatch(CompileWebKit):
         return not self.doStepIf(step)
 
     def evaluateCommand(self, cmd):
-        return shell.Compile.evaluateCommand(self, cmd)
+        rc = shell.Compile.evaluateCommand(self, cmd)
+        if rc == FAILURE and self.retry_build_on_failure:
+            message = 'Unable to build WebKit without patch, retrying build'
+            self.descriptionDone = message
+            self.send_email_for_unexpected_build_failure()
+            self.build.buildFinished([message], RETRY)
+        return rc
+
+    def send_email_for_unexpected_build_failure(self):
+        try:
+            builder_name = self.getProperty('buildername', '')
+            worker_name = self.getProperty('workername', '')
+            build_url = '{}#/builders/{}/builds/{}'.format(self.master.config.buildbotURL, self.build._builderid, self.build.number)
+            email_subject = '{} might be in bad state, unable to build WebKit'.format(worker_name)
+            email_text = '{} might be in bad state. It is unable to build WebKit.'.format(worker_name)
+            email_text += ' Same patch was built successfuly on builder queue previously.\n\nBuild: {}\n\nBuilder: {}'.format(build_url, builder_name)
+            reference = 'build-failure-{}'.format(worker_name)
+            send_email_to_bot_watchers(email_subject, email_text, builder_name, reference)
+        except Exception as e:
+            print('Error in sending email for unexpected build failure: {}'.format(e))
 
 
 class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin):
@@ -1938,7 +1961,9 @@ class RunJSCTestsWithoutPatch(RunJavaScriptCoreTests):
     prefix = 'jsc_clean_tree_'
 
     def evaluateCommand(self, cmd):
-        return shell.Test.evaluateCommand(self, cmd)
+        rc = shell.Test.evaluateCommand(self, cmd)
+        self.setProperty('clean_tree_run_status', rc)
+        return rc
 
 
 class AnalyzeJSCTestsResults(buildstep.BuildStep):
@@ -1967,31 +1992,26 @@ class AnalyzeJSCTestsResults(buildstep.BuildStep):
 
         new_stress_failures = stress_failures_with_patch - clean_tree_stress_failures
         new_binary_failures = binary_failures_with_patch - clean_tree_binary_failures
-        new_stress_failures_to_display = ', '.join(sorted(list(new_stress_failures))[:self.NUM_FAILURES_TO_DISPLAY])
-        new_binary_failures_to_display = ', '.join(sorted(list(new_binary_failures))[:self.NUM_FAILURES_TO_DISPLAY])
+        self.new_stress_failures_to_display = ', '.join(sorted(list(new_stress_failures))[:self.NUM_FAILURES_TO_DISPLAY])
+        self.new_binary_failures_to_display = ', '.join(sorted(list(new_binary_failures))[:self.NUM_FAILURES_TO_DISPLAY])
 
         self._addToLog('stderr', '\nFailures in first run: {}'.format((list(first_run_binary_failures) + list(first_run_stress_failures))[:self.NUM_FAILURES_TO_DISPLAY]))
         self._addToLog('stderr', '\nFailures in second run: {}'.format((list(second_run_binary_failures) + list(second_run_stress_failures))[:self.NUM_FAILURES_TO_DISPLAY]))
         self._addToLog('stderr', '\nFlaky Tests: {}'.format(flaky_failures_string))
         self._addToLog('stderr', '\nFailures on clean tree: {}'.format(clean_tree_failures_string))
 
+        if (not first_run_stress_failures) and (not first_run_binary_failures) and (not second_run_stress_failures) and (not second_run_binary_failures):
+            # If we've made it here, then jsc-tests and re-run-jsc-tests failed, which means
+            # there should have been some test failures. Otherwise there is some unexpected issue.
+            clean_tree_run_status = self.getProperty('clean_tree_run_status', FAILURE)
+            if clean_tree_run_status == SUCCESS:
+                return self.report_failure(set(), set())
+            # TODO: email EWS admins
+            return self.retry_build('Unexpected infrastructure issue, retrying build')
+
         if new_stress_failures or new_binary_failures:
-            self._addToLog('stderr', '\nNew binary failures: {}.\nNew stress test failures: {}\n'.format(new_binary_failures_to_display, new_stress_failures_to_display))
-            self.finished(FAILURE)
-            self.build.results = FAILURE
-            message = ''
-            if new_binary_failures:
-                pluralSuffix = 's' if len(new_binary_failures) > 1 else ''
-                message = 'Found {} new JSC binary failure{}: {}'.format(len(new_binary_failures), pluralSuffix, new_binary_failures_to_display)
-            if new_stress_failures:
-                if message:
-                    message += ', '
-                pluralSuffix = 's' if len(new_stress_failures) > 1 else ''
-                message += 'Found {} new JSC stress test failure{}: {}'.format(len(new_stress_failures), pluralSuffix, new_stress_failures_to_display)
-                if len(new_stress_failures) > self.NUM_FAILURES_TO_DISPLAY:
-                    message += ' ...'
-            self.descriptionDone = message
-            self.build.buildFinished([message], FAILURE)
+            self._addToLog('stderr', '\nNew binary failures: {}.\nNew stress test failures: {}\n'.format(self.new_binary_failures_to_display, self.new_stress_failures_to_display))
+            return self.report_failure(new_binary_failures, new_stress_failures)
         else:
             self._addToLog('stderr', '\nNo new failures\n')
             self.finished(SUCCESS)
@@ -2010,6 +2030,33 @@ class AnalyzeJSCTestsResults(buildstep.BuildStep):
                 for flaky_failure in flaky_failures:
                     self.send_email_for_flaky_failure(flaky_failure)
             self.build.buildFinished([message], SUCCESS)
+        return defer.succeed(None)
+
+    def retry_build(self, message):
+        self.descriptionDone = message
+        self.finished(RETRY)
+        self.build.buildFinished([message], RETRY)
+        return defer.succeed(None)
+
+    def report_failure(self, new_binary_failures, new_stress_failures):
+        message = ''
+        if (not new_binary_failures) and (not new_stress_failures):
+            message = 'Found unexpected failure with patch'
+        if new_binary_failures:
+            pluralSuffix = 's' if len(new_binary_failures) > 1 else ''
+            message = 'Found {} new JSC binary failure{}: {}'.format(len(new_binary_failures), pluralSuffix, self.new_binary_failures_to_display)
+        if new_stress_failures:
+            if message:
+                message += ', '
+            pluralSuffix = 's' if len(new_stress_failures) > 1 else ''
+            message += 'Found {} new JSC stress test failure{}: {}'.format(len(new_stress_failures), pluralSuffix, self.new_stress_failures_to_display)
+            if len(new_stress_failures) > self.NUM_FAILURES_TO_DISPLAY:
+                message += ' ...'
+
+        self.finished(FAILURE)
+        self.build.results = FAILURE
+        self.descriptionDone = message
+        self.build.buildFinished([message], FAILURE)
         return defer.succeed(None)
 
     @defer.inlineCallbacks
@@ -2066,7 +2113,7 @@ class KillOldProcesses(shell.Compile):
     name = 'kill-old-processes'
     description = ['killing old processes']
     descriptionDone = ['Killed old processes']
-    command = ['python', 'Tools/CISupport/kill-old-processes', 'buildbot']
+    command = ['python3', 'Tools/CISupport/kill-old-processes', 'buildbot']
 
     def __init__(self, **kwargs):
         super(KillOldProcesses, self).__init__(timeout=2 * 60, logEnviron=False, **kwargs)
@@ -2123,7 +2170,7 @@ class RunWebKitTests(shell.Test):
     test_failures_log_name = 'test-failures'
     ENABLE_GUARD_MALLOC = False
     EXIT_AFTER_FAILURES = '30'
-    command = ['python', 'Tools/Scripts/run-webkit-tests',
+    command = ['python3', 'Tools/Scripts/run-webkit-tests',
                '--no-build',
                '--no-show-results',
                '--no-new-test-results',
@@ -2388,7 +2435,7 @@ class ReRunWebKitTests(RunWebKitTests):
                                                 ExtractTestResults(identifier='rerun'),
                                                 UnApplyPatchIfRequired(),
                                                 ValidatePatch(verifyBugClosed=False, addURLs=False),
-                                                CompileWebKitWithoutPatch(),
+                                                CompileWebKitWithoutPatch(retry_build_on_failure=True),
                                                 ValidatePatch(verifyBugClosed=False, addURLs=False),
                                                 KillOldProcesses(),
                                                 RunWebKitTestsWithoutPatch()])
@@ -2810,7 +2857,7 @@ class RunAPITests(TestWithFailureCount):
     def start(self):
         platform = self.getProperty('platform')
         if platform == 'gtk':
-            command = ['python', 'Tools/Scripts/run-gtk-tests',
+            command = ['python3', 'Tools/Scripts/run-gtk-tests',
                        '--{0}'.format(self.getProperty('configuration')),
                        '--json-output={0}'.format(self.jsonFileName)]
             self.setCommand(command)
@@ -2856,7 +2903,7 @@ class ReRunAPITests(RunAPITests):
                 steps_to_add.append(InstallWpeDependencies())
             elif platform == 'gtk':
                 steps_to_add.append(InstallGtkDependencies())
-            steps_to_add.append(CompileWebKitWithoutPatch())
+            steps_to_add.append(CompileWebKitWithoutPatch(retry_build_on_failure=True))
             steps_to_add.append(ValidatePatch(verifyBugClosed=False, addURLs=False))
             steps_to_add.append(KillOldProcesses())
             steps_to_add.append(RunAPITestsWithoutPatch())

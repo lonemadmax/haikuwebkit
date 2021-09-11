@@ -72,6 +72,7 @@
 #include "History.h"
 #include "IdleRequestOptions.h"
 #include "InspectorInstrumentation.h"
+#include "JSDOMExceptionHandling.h"
 #include "JSDOMPromiseDeferred.h"
 #include "JSDOMWindowBase.h"
 #include "JSExecState.h"
@@ -1116,11 +1117,6 @@ void DOMWindow::alert(const String& message)
         return;
     }
 
-    if (!document->securityOrigin().isSameOriginDomain(document->topDocument().securityOrigin())) {
-        printErrorMessage("Use of window.alert is not allowed in different origin-domain iframes.");
-        return;
-    }
-
     document->updateStyleIfNeeded();
 #if ENABLE(POINTER_LOCK)
     page->pointerLockController().requestPointerUnlock();
@@ -1150,11 +1146,6 @@ bool DOMWindow::confirmForBindings(const String& message)
         return false;
     }
 
-    if (!document->securityOrigin().isSameOriginDomain(document->topDocument().securityOrigin())) {
-        printErrorMessage("Use of window.confirm is not allowed in different origin-domain iframes.");
-        return false;
-    }
-
     document->updateStyleIfNeeded();
 #if ENABLE(POINTER_LOCK)
     page->pointerLockController().requestPointerUnlock();
@@ -1181,11 +1172,6 @@ String DOMWindow::prompt(const String& message, const String& defaultValue)
 
     if (!page->arePromptsAllowed()) {
         printErrorMessage("Use of window.prompt is not allowed while unloading a page.");
-        return String();
-    }
-
-    if (!document->securityOrigin().isSameOriginDomain(document->topDocument().securityOrigin())) {
-        printErrorMessage("Use of window.prompt is not allowed in different origin-domain iframes.");
         return String();
     }
 
@@ -1923,9 +1909,8 @@ bool DOMWindow::isSecureContext() const
 
 bool DOMWindow::crossOriginIsolated() const
 {
-    // FIXME: Implemented this. This should return true if COOP/COEP are used and the page is allowed to use APIs
-    // that require cross-origin isolation (e.g. SharedArrayBuffer).
-    return false;
+    ASSERT(ScriptExecutionContext::crossOriginMode() == CrossOriginMode::Shared || !document() || document()->topDocument().crossOriginOpenerPolicy().value == CrossOriginOpenerPolicyValue::SameOriginPlusCOEP);
+    return ScriptExecutionContext::crossOriginMode() == CrossOriginMode::Isolated;
 }
 
 static void didAddStorageEventListener(DOMWindow& window)

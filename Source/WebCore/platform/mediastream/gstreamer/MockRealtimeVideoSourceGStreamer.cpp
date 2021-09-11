@@ -63,6 +63,36 @@ CaptureSourceOrError MockDisplayCaptureSourceGStreamer::create(const CaptureDevi
     return CaptureSourceOrError(WTFMove(source));
 }
 
+MockDisplayCaptureSourceGStreamer::MockDisplayCaptureSourceGStreamer(Ref<MockRealtimeVideoSourceGStreamer>&& source, CaptureDevice::DeviceType type)
+    : RealtimeMediaSource(Type::Video, source->name().isolatedCopy())
+    , m_source(WTFMove(source))
+    , m_type(type)
+{
+    m_source->addVideoSampleObserver(*this);
+}
+
+MockDisplayCaptureSourceGStreamer::~MockDisplayCaptureSourceGStreamer()
+{
+    m_source->removeVideoSampleObserver(*this);
+}
+
+void MockDisplayCaptureSourceGStreamer::stopProducingData()
+{
+    m_source->removeVideoSampleObserver(*this);
+    m_source->stop();
+}
+
+void MockDisplayCaptureSourceGStreamer::requestToEnd(Observer& callingObserver)
+{
+    m_source->removeVideoSampleObserver(*this);
+    m_source->requestToEnd(callingObserver);
+}
+
+void MockDisplayCaptureSourceGStreamer::videoSampleAvailable(MediaSample& sample)
+{
+    RealtimeMediaSource::videoSampleAvailable(sample);
+}
+
 const RealtimeMediaSourceCapabilities& MockDisplayCaptureSourceGStreamer::capabilities()
 {
     if (!m_capabilities) {
@@ -117,7 +147,7 @@ void MockRealtimeVideoSourceGStreamer::updateSampleBuffer()
     if (!imageBuffer)
         return;
 
-    auto pixelBuffer = imageBuffer->getPixelBuffer({ AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRA8, DestinationColorSpace::SRGB() }, { { }, imageBuffer->logicalSize() });
+    auto pixelBuffer = imageBuffer->getPixelBuffer({ AlphaPremultiplication::Premultiplied, PixelFormat::BGRA8, DestinationColorSpace::SRGB() }, { { }, imageBuffer->logicalSize() });
     if (!pixelBuffer)
         return;
 

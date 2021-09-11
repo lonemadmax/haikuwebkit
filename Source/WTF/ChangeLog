@@ -1,3 +1,208 @@
+2021-09-02  Mark Lam  <mark.lam@apple.com>
+
+        Add more support for JIT operation validation testing.
+        https://bugs.webkit.org/show_bug.cgi?id=229534
+        rdar://81526335
+
+        Reviewed by Saam Barati.
+
+        * wtf/PlatformCallingConventions.h:
+        * wtf/PtrTag.h:
+        (WTF::PtrTagTraits::isTagged):
+        (WTF::isTaggedNativeCodePtrImpl):
+        (WTF::isTaggedWith):
+        (WTF::assertIsTaggedWith):
+
+2021-08-26  Darin Adler  <darin@apple.com>
+
+        Cut down on use of CFGetTypeID, using dynamic_cf_cast instead; related streamlining
+        https://bugs.webkit.org/show_bug.cgi?id=229414
+
+        Reviewed by Tim Horton.
+
+        * wtf/cf/TypeCastsCF.h: Added WTF_DECLARE_CF_TYPE_TRAIT(CFURL). Added a
+        dynamic_cf_cast overload that converts from one RetainPtr type to another
+        and avoids reference count churn. Tweaked comments.
+
+        * wtf/cocoa/Entitlements.mm:
+        (WTF::hasEntitlement): Use kCFBooleanTrue instead of CFBooleanGetValue.
+
+        * wtf/text/cocoa/TextBreakIteratorInternalICUCocoa.cpp:
+        (WTF::textBreakLocalePreference): Use dynamic_cf_cast.
+
+2021-08-30  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Implement Temporal.Calendar
+        https://bugs.webkit.org/show_bug.cgi?id=229651
+
+        Reviewed by Ross Kirsling.
+
+        Add UChar version of createStaticStringImpl to make immortal thread-safe StringImpl with UChar.
+
+        * wtf/text/StringImpl.cpp:
+        (WTF::StringImpl::createStaticStringImpl):
+        * wtf/text/StringImpl.h:
+        (WTF::StringImpl::createStaticStringImpl):
+
+2021-08-30  Sihui Liu  <sihui_liu@apple.com>
+
+        Add stubs for Permissions API
+        https://bugs.webkit.org/show_bug.cgi?id=229339
+        <rdar://problem/82442205>
+
+        Reviewed by Chris Dumez.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-08-30  Zan Dobersek  <zdobersek@igalia.com>
+
+        RISCV64 support in LLInt
+        https://bugs.webkit.org/show_bug.cgi?id=229035
+        <rdar://problem/82120908>
+
+        Reviewed by Yusuke Suzuki.
+
+        * wtf/PlatformEnable.h:
+        Define ENABLE_LLINT_EMBEDDED_OPCODE_ID to 1 for CPU(RISCV64).
+
+2021-08-28  Cameron McCormack  <heycam@apple.com>
+
+        Miscellaneous typo fixes
+        https://bugs.webkit.org/show_bug.cgi?id=229642
+
+        Reviewed by Fujii Hironori.
+
+        * wtf/CrossThreadTask.h:
+        (WTF::callMemberFunctionForCrossThreadTask):
+        * wtf/text/StringImpl.h:
+        (WTF::StringImpl::createSubstringSharingImpl):
+
+2021-08-28  David Kilzer  <ddkilzer@apple.com>
+
+        [WTF] Fix static analyzer warnings about nullptr derefs in StringImpl::copyCharacters() and tryMakeStringFromAdapters()
+        <https://webkit.org/b/229461>
+        <rdar://problem/82303279>
+
+        Reviewed by Darin Adler.
+
+        * wtf/text/StringConcatenate.h:
+        (WTF::tryMakeStringFromAdapters):
+        - Add nullptr checks for `buffer` since it makes no sense to
+          call stringTypeAdapterAccumulator() with a nullptr argument,
+          and it fixes static analyzer warnings about dereferencing
+          nullptr.
+        * wtf/text/StringImpl.h:
+        (WTF::StringImpl::copyCharacters):
+        - Add `ASSERT(destination || !numCharacters)` statement to
+          describe an invariant when calling this method.  This stops
+          the static analyzer from emitting false positive warnings
+          about `destination` being nullptr.
+
+2021-08-27  Simon Fraser  <simon.fraser@apple.com>
+
+        Define ENABLE_CONTENT_CHANGE_OBSERVER for IOS_FAMILY and use it to wrap content observation code
+        https://bugs.webkit.org/show_bug.cgi?id=229624
+
+        Reviewed by Alan Bujtas.
+
+        Deploy ENABLE(CONTENT_CHANGE_OBSERVER).
+
+        * Scripts/Preferences/WebPreferences.yaml:
+        * wtf/PlatformEnable.h:
+        * wtf/PlatformEnableCocoa.h:
+
+2021-08-27  Eric Carlson  <eric.carlson@apple.com>
+
+        [ Catalina EWS ] media/track/track-disabled-addcue.html is flaky crashing
+        https://bugs.webkit.org/show_bug.cgi?id=229462
+        <rdar://problem/82302915>
+
+        Reviewed by Darin Adler.
+
+        * wtf/SetForScope.h:
+        (WTF::SetForScope::SetForScope): Add a constructor that takes the value to set
+        on scope exit.
+
+2021-08-27  Russell Epstein  <repstein@apple.com>
+
+        Land Windows build fixes from safari-612.1.29.14-branch
+        https://bugs.webkit.org/show_bug.cgi?id=229627
+
+        Reviewed by Per Arne Vollan.
+
+        * WTF.vcxproj/WTF.proj:
+
+2021-08-27  Antti Koivisto  <antti@apple.com>
+
+        [CSS Cascade Layers] Initial support
+        https://bugs.webkit.org/show_bug.cgi?id=229542
+
+        Reviewed by Simon Fraser.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-08-27  Mikhail R. Gadelha  <mikhail@igalia.com>
+
+        Avoid increasing required alignment of target type warning on ARM 32 bits
+        https://bugs.webkit.org/show_bug.cgi?id=229151
+
+        Reviewed by Mark Lam.
+
+        Same approach as https://bugs.webkit.org/show_bug.cgi?id=38045
+        cast pointers to void* to bypass warning about increasing pointer
+        alingment. reinterpret_cast_ptr has custom behaviour only on ARM and
+        MIPS 32 bits, and doesn't change the behaviour in 64 bits archs
+        (reinterpret_cast_ptr is preprocessed to reinterpret_cast in 64 bits
+        archs)
+
+        * wtf/BloomFilter.h:
+        (WTF::BloomFilter<keyBits>::keysFromHash):
+        * wtf/FileSystem.cpp:
+        (WTF::FileSystemImpl::makeSalt):
+
+2021-08-26  Risul Islam  <risul_islam@apple.com>
+
+        Add new experimental feature flag for sanitizing links
+        https://bugs.webkit.org/show_bug.cgi?id=229451
+
+        Reviewed by Kate Cheney.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-08-25  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Remove some iOS-specific compile-time guards that are no longer needed
+        https://bugs.webkit.org/show_bug.cgi?id=229500
+
+        Reviewed by Tim Horton.
+
+        Remove the feature flags. See WebKit/ChangeLog for more details.
+
+        * wtf/PlatformHave.h:
+        * wtf/PlatformUse.h:
+
+2021-08-24  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Add Intl Enumeration APIs
+        https://bugs.webkit.org/show_bug.cgi?id=214795
+
+        Reviewed by Ross Kirsling.
+
+        * wtf/text/StringImpl.cpp:
+        (WTF::StringImpl::createFromLiteral):
+        * wtf/text/StringImpl.h:
+
+2021-08-24  Tim Nguyen  <ntim@apple.com>
+
+        Implement inert attribute behind feature flag
+        https://bugs.webkit.org/show_bug.cgi?id=165279
+
+        Reviewed by Chris Dumez.
+
+        Add runtime InertAttributeEnabled feature flag disabled by default.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
 2021-08-21  Myles C. Maxfield  <mmaxfield@apple.com>
 
         overwriteCodePoint() in createAndFillGlyphPage() is wrong

@@ -355,6 +355,9 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
 {
     NSMutableSet *mediaTypes = [NSMutableSet set];
     for (NSString *mimeType in mimeTypes) {
+        if ([mimeType isEqualToString:@"*/*"])
+            return [NSSet set];
+
         if ([mimeType caseInsensitiveCompare:@"image/*"] == NSOrderedSame)
             [mediaTypes addObject:UTTypeImage.identifier];
         else if ([mimeType caseInsensitiveCompare:@"video/*"] == NSOrderedSame)
@@ -368,7 +371,6 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
             if (uti)
                 [mediaTypes addObject:uti.identifier];
         }
-
     }
     return mediaTypes;
 }
@@ -531,7 +533,7 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
 #if HAVE(UICONTEXTMENU_LOCATION)
     if (_allowedImagePickerTypes.containsAny({ WKFileUploadPanelImagePickerType::Image, WKFileUploadPanelImagePickerType::Video })) {
         [self ensureContextMenuInteraction];
-        [_documentContextMenuInteraction _presentMenuAtLocation:_interactionPoint];
+        [_view presentContextMenu:_documentContextMenuInteraction.get() atLocation:_interactionPoint];
     } else // Image and Video types are not accepted so bypass the menu and open the file picker directly.
 #endif
         [self showFilePickerMenu];

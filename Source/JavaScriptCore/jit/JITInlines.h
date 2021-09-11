@@ -352,32 +352,12 @@ inline void JIT::emitArrayProfilingSiteWithCell(RegisterID cellGPR, ArrayProfile
     }
 }
 
-inline void JIT::emitArrayProfileStoreToHoleSpecialCase(ArrayProfile* arrayProfile)
+inline void JIT::emitArrayProfilingSiteWithCell(RegisterID cellGPR, RegisterID arrayProfileGPR, RegisterID scratchGPR)
 {
-    store8(TrustedImm32(1), arrayProfile->addressOfMayStoreToHole());
-}
-
-inline void JIT::emitArrayProfileOutOfBoundsSpecialCase(ArrayProfile* arrayProfile)
-{
-    store8(TrustedImm32(1), arrayProfile->addressOfOutOfBounds());
-}
-
-inline JITArrayMode JIT::chooseArrayMode(ArrayProfile* profile)
-{
-    auto arrayProfileSaw = [] (ArrayModes arrayModes, IndexingType capability) {
-        return arrayModesIncludeIgnoringTypedArrays(arrayModes, capability);
-    };
-
-    ConcurrentJSLocker locker(m_codeBlock->m_lock);
-    profile->computeUpdatedPrediction(locker, m_codeBlock);
-    ArrayModes arrayModes = profile->observedArrayModes(locker);
-    if (arrayProfileSaw(arrayModes, DoubleShape))
-        return JITDouble;
-    if (arrayProfileSaw(arrayModes, Int32Shape))
-        return JITInt32;
-    if (arrayProfileSaw(arrayModes, ArrayStorageShape))
-        return JITArrayStorage;
-    return JITContiguous;
+    if (shouldEmitProfiling()) {
+        load32(MacroAssembler::Address(cellGPR, JSCell::structureIDOffset()), scratchGPR);
+        store32(scratchGPR, Address(arrayProfileGPR, ArrayProfile::offsetOfLastSeenStructureID()));
+    }
 }
 
 ALWAYS_INLINE int32_t JIT::getOperandConstantInt(VirtualRegister src)
