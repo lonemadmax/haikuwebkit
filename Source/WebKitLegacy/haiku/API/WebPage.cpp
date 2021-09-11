@@ -1416,6 +1416,7 @@ void BWebPage::handleFindString(BMessage* message)
         || message->FindBool("wrap selection", &wrapSelection) != B_OK
         || message->FindBool("start in selection", &startInSelection) != B_OK) {
         message->SendReply(&reply);
+        return;
     }
 
     WebCore::FindOptions options;
