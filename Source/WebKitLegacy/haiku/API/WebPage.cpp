@@ -53,6 +53,7 @@
 #include "WebCore/DeviceOrientationClientMock.h"
 #include "WebCore/DiagnosticLoggingClient.h"
 #include "WebCore/DOMTimer.h"
+#include <WebCore/DummyStorageProvider.h>
 #include "WebCore/DummySpeechRecognitionProvider.h"
 #include "WebCore/Editor.h"
 #include "WebCore/EmptyClients.h"
@@ -278,7 +279,8 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         makeUniqueRef<WebCore::DummySpeechRecognitionProvider>(),
         makeUniqueRef<MediaRecorderProviderHaiku>(),
         WebBroadcastChannelRegistry::getOrCreate(false),
-        WebCore::DummyPermissionController::create()
+        WebCore::DummyPermissionController::create(),
+        makeUniqueRef<WebCore::DummyStorageProvider>()
     );
 
     // alternativeText
