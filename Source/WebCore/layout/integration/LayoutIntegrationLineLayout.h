@@ -27,6 +27,7 @@
 
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 
+#include "FloatRect.h"
 #include "LayoutIntegrationBoxTree.h"
 #include "LayoutIntegrationLineIterator.h"
 #include "LayoutIntegrationRunIterator.h"
@@ -95,8 +96,10 @@ public:
     LineIterator firstLine() const;
     LineIterator lastLine() const;
 
+    LayoutRect firstInlineBoxRect(const RenderInline&) const;
     LayoutRect enclosingBorderBoxRectFor(const RenderInline&) const;
     LayoutRect visualOverflowBoundingBoxRectFor(const RenderInline&) const;
+    Vector<FloatRect> collectInlineBoxRects(const RenderInline&) const;
 
     const RenderObject& rendererForLayoutBox(const Layout::Box&) const;
     const RenderBlockFlow& flow() const { return m_boxTree.flow(); }
@@ -119,7 +122,7 @@ private:
 
     const Layout::ContainerBox& rootLayoutBox() const;
     Layout::ContainerBox& rootLayoutBox();
-    void releaseInlineItemCache();
+    void releaseCaches();
 
     BoxTree m_boxTree;
     Layout::LayoutState m_layoutState;

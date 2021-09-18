@@ -31,6 +31,7 @@ namespace WebCore {
 class ContentData;
 class ControlStates;
 class KeyframeList;
+class ReferencedSVGResources;
 class RenderBlock;
 class RenderStyle;
 class RenderTreeBuilder;
@@ -262,6 +263,8 @@ public:
     WeakPtr<RenderBlockFlow> backdropRenderer() const;
     void setBackdropRenderer(RenderBlockFlow&);
 
+    ReferencedSVGResources& ensureReferencedSVGResources();
+
 protected:
     enum BaseTypeFlag {
         RenderLayerModelObjectFlag  = 1 << 0,
@@ -294,9 +297,6 @@ protected:
     void willBeRemovedFromTree(IsInternalMove) override;
     void willBeDestroyed() override;
     void notifyFinished(CachedResource&, const NetworkLoadMetrics&) override;
-
-    void setRenderInlineAlwaysCreatesLineBoxes(bool b) { m_renderInlineAlwaysCreatesLineBoxes = b; }
-    bool renderInlineAlwaysCreatesLineBoxes() const { return m_renderInlineAlwaysCreatesLineBoxes; }
 
     void setHasContinuationChainNode(bool b) { m_hasContinuationChainNode = b; }
 
@@ -361,12 +361,14 @@ private:
     
     bool shouldWillChangeCreateStackingContext() const;
     void issueRepaintForOutlineAuto(float outlineSize);
+    
+    void updateReferencedSVGResources();
+    void clearReferencedSVGResources();
 
     unsigned m_baseTypeFlags : 6;
     unsigned m_ancestorLineBoxDirty : 1;
     unsigned m_hasInitializedStyle : 1;
 
-    unsigned m_renderInlineAlwaysCreatesLineBoxes : 1;
     unsigned m_renderBoxNeedsLazyRepaint : 1;
     unsigned m_hasPausedImageAnimations : 1;
     unsigned m_hasCounterNodeMap : 1;

@@ -117,6 +117,7 @@
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "RenderingUpdateScheduler.h"
+#include "ReportingEndpointsCache.h"
 #include "ResizeObserver.h"
 #include "ResourceUsageOverlay.h"
 #include "RuntimeEnabledFeatures.h"
@@ -135,6 +136,7 @@
 #include "StorageArea.h"
 #include "StorageNamespace.h"
 #include "StorageNamespaceProvider.h"
+#include "StorageProvider.h"
 #include "StyleAdjuster.h"
 #include "StyleResolver.h"
 #include "StyleScope.h"
@@ -327,6 +329,8 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_shouldRelaxThirdPartyCookieBlocking(pageConfiguration.shouldRelaxThirdPartyCookieBlocking)
     , m_httpsUpgradeEnabled(pageConfiguration.httpsUpgradeEnabled)
     , m_permissionController(WTFMove(pageConfiguration.permissionController))
+    , m_reportingEndpointsCache(WTFMove(pageConfiguration.reportingEndpointsCache))
+    , m_storageProvider(WTFMove(pageConfiguration.storageProvider))
 {
     updateTimerThrottlingState();
 
@@ -719,16 +723,17 @@ bool Page::findString(const String& target, FindOptions options, DidWrap* didWra
         return false;
 
     CanWrap canWrap = options.contains(WrapAround) ? CanWrap::Yes : CanWrap::No;
-    Frame* frame = &focusController().focusedOrMainFrame();
-    Frame* startFrame = frame;
+    CheckedRef focusController { *m_focusController };
+    RefPtr frame = &focusController->focusedOrMainFrame();
+    RefPtr startFrame = frame;
     do {
         if (frame->editor().findString(target, (options - WrapAround) | StartInSelection)) {
             if (frame != startFrame)
                 startFrame->selection().clear();
-            focusController().setFocusedFrame(frame);
+            focusController->setFocusedFrame(frame.get());
             return true;
         }
-        frame = incrementFrame(frame, !options.contains(Backwards), canWrap, didWrap);
+        frame = incrementFrame(frame.get(), !options.contains(Backwards), canWrap, didWrap);
     } while (frame && frame != startFrame);
 
     // Search contents of startFrame, on the other side of the selection that we did earlier.
@@ -737,7 +742,7 @@ bool Page::findString(const String& target, FindOptions options, DidWrap* didWra
         if (didWrap)
             *didWrap = DidWrap::Yes;
         bool found = startFrame->editor().findString(target, options | WrapAround | StartInSelection);
-        focusController().setFocusedFrame(frame);
+        focusController->setFocusedFrame(frame.get());
         return found;
     }
 
@@ -937,7 +942,7 @@ uint32_t Page::replaceRangesWithText(const Vector<SimpleRange>& rangesToReplace,
 
 uint32_t Page::replaceSelectionWithText(const String& replacementText)
 {
-    auto frame = makeRef(focusController().focusedOrMainFrame());
+    Ref frame = CheckedRef(focusController())->focusedOrMainFrame();
     auto selection = frame->selection().selection();
     if (!selection.isContentEditable())
         return 0;
@@ -1018,7 +1023,7 @@ Vector<Ref<Element>> Page::editableElementsInRect(const FloatRect& searchRectInR
     // tries to avoid creating line boxes, which are things it hit tests, for them to reduce memory. If the
     // focused element is inside the search rect it's the most likely target for future editing operations,
     // even if it's empty. So, we special case it here.
-    if (auto* focusedElement = focusController().focusedOrMainFrame().document()->focusedElement()) {
+    if (RefPtr focusedElement = CheckedRef(focusController())->focusedOrMainFrame().document()->focusedElement()) {
         if (searchRectInRootViewCoordinates.inclusivelyIntersects(focusedElement->boundingBoxInRootViewCoordinates())) {
             if (auto* editableElement = rootEditableElement(*focusedElement))
                 rootEditableElements.add(*editableElement);
@@ -1029,7 +1034,7 @@ Vector<Ref<Element>> Page::editableElementsInRect(const FloatRect& searchRectInR
 
 const VisibleSelection& Page::selection() const
 {
-    return focusController().focusedOrMainFrame().selection().selection();
+    return CheckedRef(focusController())->focusedOrMainFrame().selection().selection();
 }
 
 void Page::setDefersLoading(bool defers)
@@ -2335,7 +2340,7 @@ void Page::setActivityState(OptionSet<ActivityState::Flag> activityState)
     bool wasVisibleAndActive = isVisibleAndActive();
     m_activityState = activityState;
 
-    m_focusController->setActivityState(activityState);
+    CheckedRef(*m_focusController)->setActivityState(activityState);
 
     if (changed & ActivityState::IsVisible)
         setIsVisibleInternal(activityState.contains(ActivityState::IsVisible));
@@ -3536,7 +3541,7 @@ bool Page::shouldDisableCorsForRequestTo(const URL& url) const
 
 void Page::revealCurrentSelection()
 {
-    focusController().focusedOrMainFrame().selection().revealSelection(SelectionRevealMode::Reveal, ScrollAlignment::alignCenterIfNeeded);
+    CheckedRef(focusController())->focusedOrMainFrame().selection().revealSelection(SelectionRevealMode::Reveal, ScrollAlignment::alignCenterIfNeeded);
 }
 
 void Page::injectUserStyleSheet(UserStyleSheet& userStyleSheet)
@@ -3700,6 +3705,11 @@ void Page::resetTextRecognitionResults()
 PermissionController& Page::permissionController()
 {
     return m_permissionController.get();
+}
+
+StorageConnection& Page::storageConnection()
+{
+    return m_storageProvider->storageConnection();
 }
 
 } // namespace WebCore

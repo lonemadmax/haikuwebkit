@@ -41,8 +41,6 @@ function endTest() {
 if (window.testRunner) {
     testRunner.dumpAsText();
     testRunner.waitUntilDone();
-    testRunner.setCanOpenWindows()
-    testRunner.setCloseRemainingWindowsWhenComplete(true);
     startTest();
     document.querySelector('button').remove();
 }

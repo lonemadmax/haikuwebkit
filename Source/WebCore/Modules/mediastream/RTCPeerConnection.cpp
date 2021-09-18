@@ -60,6 +60,7 @@
 #include "RTCOfferOptions.h"
 #include "RTCPeerConnectionIceErrorEvent.h"
 #include "RTCPeerConnectionIceEvent.h"
+#include "RTCSctpTransport.h"
 #include "RTCSessionDescription.h"
 #include "RTCSessionDescriptionInit.h"
 #include "Settings.h"
@@ -242,23 +243,10 @@ void RTCPeerConnection::setLocalDescription(std::optional<Description>&& localDe
 
     ALWAYS_LOG(LOGIDENTIFIER, "Setting local description to:\n", description ? description->sdp() : "''");
     chainOperation(WTFMove(promise), [this, description = WTFMove(description)](auto&& promise) mutable {
-        m_backend->setLocalDescription(description.get(), WTFMove(promise));
+        m_backend->setLocalDescription(description.get(), [promise = DOMPromiseDeferred<void>(WTFMove(promise))](auto&& result) mutable {
+            promise.settle(WTFMove(result));
+        });
     });
-}
-
-RefPtr<RTCSessionDescription> RTCPeerConnection::localDescription() const
-{
-    return m_backend->localDescription();
-}
-
-RefPtr<RTCSessionDescription> RTCPeerConnection::currentLocalDescription() const
-{
-    return m_backend->currentLocalDescription();
-}
-
-RefPtr<RTCSessionDescription> RTCPeerConnection::pendingLocalDescription() const
-{
-    return m_backend->pendingLocalDescription();
 }
 
 void RTCPeerConnection::setRemoteDescription(Description&& remoteDescription, Ref<DeferredPromise>&& promise)
@@ -281,23 +269,21 @@ void RTCPeerConnection::setRemoteDescription(Description&& remoteDescription, Re
 
     ALWAYS_LOG(LOGIDENTIFIER, "Setting remote description to:\n", description->sdp());
     chainOperation(WTFMove(promise), [this, description = WTFMove(description)](auto&& promise) mutable {
-        m_backend->setRemoteDescription(*description, WTFMove(promise));
+        if (description->type() == RTCSdpType::Offer && m_signalingState != RTCSignalingState::Stable && m_signalingState != RTCSignalingState::HaveRemoteOffer) {
+            auto rollbackDescription = RTCSessionDescription::create(RTCSdpType::Rollback, String { emptyString() });
+            m_backend->setLocalDescription(rollbackDescription.ptr(), [this, protectedThis = makeRef(*this), description = WTFMove(description), promise = WTFMove(promise)](auto&&) mutable {
+                if (isClosed())
+                    return;
+                m_backend->setRemoteDescription(*description, [promise = DOMPromiseDeferred<void>(WTFMove(promise))](auto&& result) mutable {
+                    promise.settle(WTFMove(result));
+                });
+            });
+            return;
+        }
+        m_backend->setRemoteDescription(*description, [promise = DOMPromiseDeferred<void>(WTFMove(promise))](auto&& result) mutable {
+            promise.settle(WTFMove(result));
+        });
     });
-}
-
-RefPtr<RTCSessionDescription> RTCPeerConnection::remoteDescription() const
-{
-    return m_backend->remoteDescription();
-}
-
-RefPtr<RTCSessionDescription> RTCPeerConnection::currentRemoteDescription() const
-{
-    return m_backend->currentRemoteDescription();
-}
-
-RefPtr<RTCSessionDescription> RTCPeerConnection::pendingRemoteDescription() const
-{
-    return m_backend->pendingRemoteDescription();
 }
 
 void RTCPeerConnection::addIceCandidate(Candidate&& rtcCandidate, Ref<DeferredPromise>&& promise)
@@ -325,10 +311,8 @@ void RTCPeerConnection::addIceCandidate(Candidate&& rtcCandidate, Ref<DeferredPr
         return;
     }
 
-    if (isClosed()) {
-        promise->reject(InvalidStateError);
+    if (isClosed())
         return;
-    }
 
     ALWAYS_LOG(LOGIDENTIFIER, "Received ice candidate:\n", candidate ? candidate->candidate() : "null");
     chainOperation(WTFMove(promise), [this, candidate = WTFMove(candidate)](auto&& promise) mutable {
@@ -646,7 +630,7 @@ void RTCPeerConnection::updateIceConnectionState(RTCIceConnectionState newState)
 {
     ALWAYS_LOG(LOGIDENTIFIER, newState);
 
-    scriptExecutionContext()->postTask([protectedThis = makeRef(*this), newState](ScriptExecutionContext&) {
+    scriptExecutionContext()->postTask([protectedThis = makeRef(*this), newState](auto&) mutable {
         if (protectedThis->isClosed() || protectedThis->m_iceConnectionState == newState)
             return;
 
@@ -699,11 +683,13 @@ RTCIceConnectionState RTCPeerConnection::computeIceConnectionStateFromIceTranspo
         return RTCIceConnectionState::Closed;
 
     auto iceTransports = m_iceTransports;
+
     iceTransports.removeAllMatching([&](auto& iceTransport) {
-        bool test = allOf(m_transceiverSet.list(), [&iceTransport](auto& transceiver) {
+        if (m_sctpTransport && &m_sctpTransport->transport().iceTransport() == iceTransport.ptr())
+            return false;
+        return allOf(m_transceiverSet.list(), [&iceTransport](auto& transceiver) {
             return !isIceTransportUsedByTransceiver(iceTransport.get(), *transceiver);
         });
-        return test;
     });
 
     if (anyOf(iceTransports, [](auto& transport) { return transport->state() == RTCIceTransportState::Failed; }))
@@ -738,22 +724,28 @@ void RTCPeerConnection::processIceTransportStateChange(RTCIceTransport& iceTrans
         dispatchEventWhenFeasible(Event::create(eventNames().connectionstatechangeEvent, Event::CanBubble::No, Event::IsCancelable::No));
 }
 
-void RTCPeerConnection::scheduleNegotiationNeededEvent()
+void RTCPeerConnection::updateNegotiationNeededFlag(std::optional<uint32_t> eventId)
 {
-    if (m_hasPendingOperation) {
-        m_shouldFireNegotiationNeededOnceOperationChainIsEmpty = true;
-        return;
-    }
-    scriptExecutionContext()->postTask([this, protectedThis = makeRef(*this)](ScriptExecutionContext&) {
+    scriptExecutionContext()->postTask([this, protectedThis = makeRef(*this), eventId](auto&) mutable {
         if (isClosed())
             return;
+        if (!eventId) {
+            if (!m_negotiationNeededEventId)
+                return;
+            eventId = m_negotiationNeededEventId;
+        }
         if (m_hasPendingOperation) {
-            m_shouldFireNegotiationNeededOnceOperationChainIsEmpty = true;
+            m_negotiationNeededEventId = *eventId;
             return;
         }
-        if (!m_backend->isNegotiationNeeded())
+        if (signalingState() != RTCSignalingState::Stable) {
+            m_negotiationNeededEventId = *eventId;
             return;
-        m_backend->clearNegotiationNeededState();
+        }
+
+        if (!m_backend->isNegotiationNeeded(*eventId))
+            return;
+
         dispatchEventWhenFeasible(Event::create(eventNames().negotiationneededEvent, Event::CanBubble::No, Event::IsCancelable::No));
     });
 }
@@ -871,17 +863,15 @@ void RTCPeerConnection::chainOperation(Ref<DeferredPromise>&& promise, Function<
             return;
         }
 
-        if (m_operations.isEmpty()) {
-            m_hasPendingOperation = false;
-            if (m_shouldFireNegotiationNeededOnceOperationChainIsEmpty) {
-                m_shouldFireNegotiationNeededOnceOperationChainIsEmpty = false;
-                scheduleNegotiationNeededEvent();
-            }
+        if (!m_operations.isEmpty()) {
+            auto promiseOperation = m_operations.takeFirst();
+            promiseOperation.second(WTFMove(promiseOperation.first));
             return;
         }
 
-        auto promiseOperation = m_operations.takeFirst();
-        promiseOperation.second(WTFMove(promiseOperation.first));
+        m_hasPendingOperation = false;
+        if (m_negotiationNeededEventId)
+            updateNegotiationNeededFlag({ });
     });
 
     if (m_hasPendingOperation || !m_operations.isEmpty()) {
@@ -929,6 +919,25 @@ RefPtr<RTCDtlsTransport> RTCPeerConnection::getOrCreateDtlsTransport(std::unique
     return m_dtlsTransports[index].copyRef();
 }
 
+static void updateDescription(RefPtr<RTCSessionDescription>& description, std::optional<RTCSdpType> type, String&& sdp)
+{
+    if (description && type && description->sdp() == sdp && description->type() == *type)
+        return;
+    if (!type || sdp.isEmpty()) {
+        description = nullptr;
+        return;
+    }
+    description = RTCSessionDescription::create(*type, WTFMove(sdp));
+}
+
+void RTCPeerConnection::updateDescriptions(PeerConnectionBackend::DescriptionStates&& states)
+{
+    updateDescription(m_currentLocalDescription, states.currentLocalDescriptionSdpType, WTFMove(states.currentLocalDescriptionSdp));
+    updateDescription(m_pendingLocalDescription, states.pendingLocalDescriptionSdpType, WTFMove(states.pendingLocalDescriptionSdp));
+    updateDescription(m_currentRemoteDescription, states.currentRemoteDescriptionSdpType, WTFMove(states.currentRemoteDescriptionSdp));
+    updateDescription(m_pendingRemoteDescription, states.pendingRemoteDescriptionSdpType, WTFMove(states.pendingRemoteDescriptionSdp));
+}
+
 void RTCPeerConnection::updateTransceiverTransports()
 {
     for (auto& transceiver : m_transceiverSet.list()) {
@@ -952,6 +961,26 @@ void RTCPeerConnection::updateTransceiversAfterSuccessfulLocalDescription()
 void RTCPeerConnection::updateTransceiversAfterSuccessfulRemoteDescription()
 {
     updateTransceiverTransports();
+}
+
+void RTCPeerConnection::updateSctpBackend(std::unique_ptr<RTCSctpTransportBackend>&& sctpBackend)
+{
+    if (!sctpBackend) {
+        m_sctpTransport = nullptr;
+        return;
+    }
+    if (m_sctpTransport && m_sctpTransport->backend() == *sctpBackend) {
+        m_sctpTransport->update();
+        return;
+    }
+    auto* context = scriptExecutionContext();
+    if (!context)
+        return;
+
+    auto dtlsTransport = getOrCreateDtlsTransport(sctpBackend->dtlsTransportBackend().moveToUniquePtr());
+    if (!dtlsTransport)
+        return;
+    m_sctpTransport = RTCSctpTransport::create(*context, makeUniqueRefFromNonNullUniquePtr(WTFMove(sctpBackend)), dtlsTransport.releaseNonNull());
 }
 
 #if !RELEASE_LOG_DISABLED

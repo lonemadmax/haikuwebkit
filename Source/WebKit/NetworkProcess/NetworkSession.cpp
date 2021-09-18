@@ -35,7 +35,9 @@
 #include "NetworkResourceLoader.h"
 #include "NetworkSessionCreationParameters.h"
 #include "PingLoad.h"
+#include "PrivateClickMeasurementClientImpl.h"
 #include "PrivateClickMeasurementManager.h"
+#include "PrivateClickMeasurementManagerProxy.h"
 #include "WebPageProxy.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcessProxy.h"
@@ -91,11 +93,20 @@ static String pcmStoreDirectory(const NetworkSession& session, const String& res
     return resourceLoadStatisticsDirectory;
 }
 
+static UniqueRef<PCM::ManagerInterface> managerOrProxy(NetworkSession& networkSession, NetworkProcess& networkProcess, const NetworkSessionCreationParameters& parameters)
+{
+    // FIXME: Turn this on and remove ManagerInterface once rdar://80701098 is closed.
+    constexpr bool usePCMDaemon = false;
+
+    if (usePCMDaemon)
+        return makeUniqueRef<PCM::ManagerProxy>();
+    return makeUniqueRef<PrivateClickMeasurementManager>(makeUniqueRef<PCM::ClientImpl>(networkSession, networkProcess), pcmStoreDirectory(networkSession, parameters.resourceLoadStatisticsParameters.directory, parameters.resourceLoadStatisticsParameters.privateClickMeasurementStorageDirectory));
+}
+
 NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSessionCreationParameters& parameters)
     : m_sessionID(parameters.sessionID)
     , m_networkProcess(networkProcess)
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
-    , m_privateClickMeasurementStorageDirectory(parameters.resourceLoadStatisticsParameters.privateClickMeasurementStorageDirectory)
     , m_resourceLoadStatisticsDirectory(parameters.resourceLoadStatisticsParameters.directory)
     , m_shouldIncludeLocalhostInResourceLoadStatistics(parameters.resourceLoadStatisticsParameters.shouldIncludeLocalhost ? ShouldIncludeLocalhost::Yes : ShouldIncludeLocalhost::No)
     , m_enableResourceLoadStatisticsDebugMode(parameters.resourceLoadStatisticsParameters.enableDebugMode ? EnableResourceLoadStatisticsDebugMode::Yes : EnableResourceLoadStatisticsDebugMode::No)
@@ -106,6 +117,7 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
     , m_firstPartyWebsiteDataRemovalMode(parameters.resourceLoadStatisticsParameters.firstPartyWebsiteDataRemovalMode)
     , m_standaloneApplicationDomain(parameters.resourceLoadStatisticsParameters.standaloneApplicationDomain)
 #endif
+    , m_privateClickMeasurement(managerOrProxy(*this, networkProcess, parameters))
     , m_broadcastChannelRegistry(makeUniqueRef<NetworkBroadcastChannelRegistry>())
     , m_testSpeedMultiplier(parameters.testSpeedMultiplier)
     , m_allowsServerPreconnect(parameters.allowsServerPreconnect)
@@ -139,12 +151,6 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     setResourceLoadStatisticsEnabled(parameters.resourceLoadStatisticsParameters.enabled);
-    m_privateClickMeasurement = makeUnique<PrivateClickMeasurementManager>(*this, networkProcess, parameters.sessionID, pcmStoreDirectory(*this, parameters.resourceLoadStatisticsParameters.directory, parameters.resourceLoadStatisticsParameters.privateClickMeasurementStorageDirectory), [weakThis = makeWeakPtr(this)] (auto&& loadParameters, auto&& completionHandler) {
-        if (!weakThis)
-            return completionHandler(ResourceError(ResourceError::Type::Cancellation), { }, { });
-
-        PrivateClickMeasurementNetworkLoader::start(*weakThis, WTFMove(loadParameters), WTFMove(completionHandler));
-    });
 #endif
 }
 
@@ -153,7 +159,6 @@ NetworkSession::~NetworkSession()
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     destroyResourceLoadStatistics([] { });
 #endif
-    privateClickMeasurement().store().close([] { });
     for (auto& loader : std::exchange(m_keptAliveLoads, { }))
         loader->abort();
 }
@@ -321,7 +326,7 @@ void NetworkSession::storePrivateClickMeasurement(WebCore::PrivateClickMeasureme
 
 void NetworkSession::handlePrivateClickMeasurementConversion(PrivateClickMeasurement::AttributionTriggerData&& attributionTriggerData, const URL& requestURL, const WebCore::ResourceRequest& redirectRequest)
 {
-    privateClickMeasurement().handleAttribution(WTFMove(attributionTriggerData), requestURL, redirectRequest);
+    privateClickMeasurement().handleAttribution(WTFMove(attributionTriggerData), requestURL, RegistrableDomain(redirectRequest.url()), redirectRequest.firstPartyForCookies());
 }
 
 void NetworkSession::dumpPrivateClickMeasurement(CompletionHandler<void(String)>&& completionHandler)
@@ -380,9 +385,14 @@ void NetworkSession::setPCMFraudPreventionValuesForTesting(String&& unlinkableTo
     privateClickMeasurement().setPCMFraudPreventionValuesForTesting(WTFMove(unlinkableToken), WTFMove(secretToken), WTFMove(signature), WTFMove(keyID));
 }
 
-void NetworkSession::firePrivateClickMeasurementTimerImmediately()
+void NetworkSession::firePrivateClickMeasurementTimerImmediatelyForTesting()
 {
-    privateClickMeasurement().startTimer(0_s);
+    privateClickMeasurement().startTimerImmediatelyForTesting();
+}
+
+void NetworkSession::allowTLSCertificateChainForLocalPCMTesting(const WebCore::CertificateInfo& certificateInfo)
+{
+    privateClickMeasurement().allowTLSCertificateChainForLocalPCMTesting(certificateInfo);
 }
 
 void NetworkSession::addKeptAliveLoad(Ref<NetworkResourceLoader>&& loader)
@@ -419,7 +429,9 @@ void NetworkSession::CachedNetworkResourceLoader::expirationTimerFired()
         return;
 
     auto loader = session->takeLoaderAwaitingWebProcessTransfer(m_loader->identifier());
-    ASSERT_UNUSED(loader, loader);
+    ASSERT(loader);
+    if (loader)
+        loader->abort();
 }
 
 void NetworkSession::addLoaderAwaitingWebProcessTransfer(Ref<NetworkResourceLoader>&& loader)

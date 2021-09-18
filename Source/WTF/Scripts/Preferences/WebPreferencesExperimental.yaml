@@ -87,7 +87,7 @@ BlankAnchorTargetImpliesNoOpenerEnabled:
     WebCore:
       default: true
 
-# We have to resolve the privacy issue in https://github.com/whatwg/html/issues/5803 before we can enable this.
+# We would have to partition BroadcastChannel based on PageGroups if we wanted to enable this for WebKitLegacy.
 BroadcastChannelEnabled:
   type: bool
   humanReadableName: "BroadcastChannel API"
@@ -99,6 +99,18 @@ BroadcastChannelEnabled:
       default: false
     WebCore:
       default: false
+
+BroadcastChannelOriginPartitioningEnabled:
+  type: bool
+  humanReadableName: "BroadcastChannel Origin Partitioning"
+  humanReadableDescription: "BroadcastChannel Origin Partitioning"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
 
 CFNetworkNetworkLoaderEnabled:
   type: bool
@@ -341,7 +353,7 @@ CrossOriginEmbedderPolicyEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
       default: false
 
@@ -353,7 +365,7 @@ CrossOriginOpenerPolicyEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
       default: false
 
@@ -1092,6 +1104,18 @@ SpringTimingFunctionEnabled:
     WebCore:
       default: false
 
+StorageAPIEnabled:
+  type: bool
+  humanReadableName: "Storage API"
+  humanReadableDescription: "Enable Storage API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 SyntheticEditingCommandsEnabled:
   type: bool
   humanReadableName: "Synthetic Editing Commands"
@@ -1343,18 +1367,6 @@ WebMParserEnabled:
       default: WebKit::defaultWebMParserEnabled()
     WebKit:
       default: WebKit::defaultWebMParserEnabled()
-
-WebMWebAudioEnabled:
-  type: bool
-  webcoreBinding: RuntimeEnabledFeatures
-  humanReadableName: "WebM Web Audio"
-  humanReadableDescription: "Enable WebM Web Audio"
-  condition: ENABLE(MEDIA_SOURCE)
-  defaultValue:
-    WebKitLegacy:
-      default: WebKit::defaultWebMWebAudioEnabled()
-    WebKit:
-      default: WebKit::defaultWebMWebAudioEnabled()
 
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 WebRTCH264LowLatencyEncoderEnabled:

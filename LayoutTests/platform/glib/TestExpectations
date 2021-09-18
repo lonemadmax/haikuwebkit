@@ -619,7 +619,7 @@ webkit.org/b/221445 fast/text/international/system-language/jp-circled.html [ Sk
 # GStreamer-related bugs
 #////////////////////////////////////////////////////////////////////////////////////////
 
-webkit.org/b/79203 fast/mediastream/RTCPeerConnection-iceconnectionstatechange-event.html [ Timeout ]
+webkit.org/b/79203 fast/mediastream/RTCPeerConnection-iceconnectionstatechange-event.html [ Failure Pass ]
 webkit.org/b/79203 fast/mediastream/RTCRtpSender-replaceTrack.html [ Failure ]
 webkit.org/b/187603 fast/mediastream/media-stream-track-source-failure.html [ Timeout Failure Pass ]
 
@@ -678,14 +678,17 @@ webkit.org/b/154390 http/tests/media/hls/hls-audio-tracks-locale-selection.html 
 
 webkit.org/b/199617 http/tests/media/hls/hls-video-resize.html [ Skip ]
 
-webkit.org/b/227258 media/media-source/media-source-seek-unbuffered.html [ Timeout ]
-
 webkit.org/b/227661 http/tests/media/hls/hls-webvtt-seek-backwards.html [ Timeout ]
 
 webkit.org/b/227934 media/media-source/media-webm-vorbis-partial.html [ Failure ]
 webkit.org/b/227934 media/media-source/media-webm-opus-partial.html [ Failure ]
 
 webkit.org/b/229761 http/tests/media/media-stream/audio-capture-and-category.https.html [ Failure ]
+
+webkit.org/b/229973 media/track/in-band/track-in-band-kate-ogg-cues-added-once.html [ Failure Pass ]
+webkit.org/b/229973 media/track/in-band/track-in-band-srt-mkv-cues-added-once.html [ Failure Pass ]
+
+webkit.org/b/230028 media/media-source/media-source-seek-twice.html [ Pass Timeout ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of GStreamer-related bugs
@@ -1415,11 +1418,6 @@ webkit.org/b/216359 fast/text/emoji-synthesis.html [ ImageOnlyFailure ]
 # Failing since added in r268138.
 webkit.org/b/217815 imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-filter-order.html [ ImageOnlyFailure ]
 
-# MediaSession is not enabled in GTK/WPE.
-webkit.org/b/217991 imported/w3c/web-platform-tests/mediasession/ [ Skip ]
-webkit.org/b/217991 media/media-session/ [ Skip ]
-webkit.org/b/217991 fast/mediasession/ [ Skip ]
-
 # This test uses an MPEG-4 video
 media/video-seek-to-current-time.html [ Skip ]
 
@@ -1771,7 +1769,7 @@ fast/text/hidpi-text-selection-gap-between-words.html [ Skip ]
 
 # No different rendering for text-rendering: optimizeLegibility.
 fast/text/variations/optical-sizing-trak-2.html [ Skip ]
-fast/text/trak-optimizeLegibility.html [ Skip ]
+fast/text/trak-optimizeLegibility.html [ ImageOnlyFailure ]
 
 # Currently enabled on Mac only.
 media/media-usage-state.html [ Skip ]
@@ -2435,6 +2433,10 @@ webkit.org/b/229738 fast/text/whitespace/tab-character-basics.html [ Failure ]
 webkit.org/b/229738 fast/text/word-break.html [ Failure ]
 
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/background-clip-content-box-002.html [ ImageOnlyFailure ]
+
+webkit.org/b/229764 animations/background-position.html [ ImageOnlyFailure Pass ]
+
+webkit.org/b/229979 media/media-source/media-source-stalled-holds-sleep-assertion.html [ Timeout ]
 
 # End: Common failures between GTK and WPE.
 

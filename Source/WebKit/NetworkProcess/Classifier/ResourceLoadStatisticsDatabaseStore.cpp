@@ -33,6 +33,7 @@
 #include "PluginProcessManager.h"
 #include "PluginProcessProxy.h"
 #include "PrivateClickMeasurementManager.h"
+#include "PrivateClickMeasurementManagerProxy.h"
 #include "ResourceLoadStatisticsMemoryStore.h"
 #include "StorageAccessStatus.h"
 #include "WebProcessProxy.h"
@@ -556,11 +557,11 @@ void ResourceLoadStatisticsDatabaseStore::migrateDataToPCMDatabaseIfNecessary()
             if (!networkSession)
                 return;
 
-            auto& pcmStore = networkSession->privateClickMeasurement().store();
+            auto& manager = networkSession->privateClickMeasurement();
             for (auto& pcm : WTFMove(attributed))
-                pcmStore.insertPrivateClickMeasurement(WTFMove(pcm), PrivateClickMeasurementAttributionType::Attributed);
+                manager.migratePrivateClickMeasurementFromLegacyStorage(WTFMove(pcm), PrivateClickMeasurementAttributionType::Attributed);
             for (auto& pcm : WTFMove(unattributed))
-                pcmStore.insertPrivateClickMeasurement(WTFMove(pcm), PrivateClickMeasurementAttributionType::Unattributed);
+                manager.migratePrivateClickMeasurementFromLegacyStorage(WTFMove(pcm), PrivateClickMeasurementAttributionType::Unattributed);
         });
 
     }

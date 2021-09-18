@@ -31,6 +31,8 @@
 import logging
 import re
 
+from webkitcorepy import string_utils
+
 _log = logging.getLogger(__name__)
 
 
@@ -84,6 +86,8 @@ def get_diff_converter(lines):
              converter from git to SVN.
     """
     for i, line in enumerate(lines[:-1]):
+        line = string_utils.decode(line)
+
         # Stop when we find the first patch
         if line[:3] == "+++" and lines[i + 1] == "---":
             break
@@ -152,7 +156,7 @@ class DiffParser(object):
         new_diff_line = None
         transform_line = get_diff_converter(diff_input)
         for line in diff_input:
-            line = line.rstrip("\n")
+            line = string_utils.decode(line).rstrip("\n")
             line = transform_line(line)
 
             file_declaration = match(r"^Index: (?P<FilePath>.+)", line)

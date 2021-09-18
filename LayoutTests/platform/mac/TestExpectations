@@ -324,6 +324,8 @@ fast/forms/file/file-input-capture.html
 
 webkit.org/b/85969 http/tests/loading/post-in-iframe-with-back-navigation.html [ Failure ]
 
+webkit.org/b/222563 http/tests/loading/basic-auth-load-URL-with-consecutive-slashes.html [ Pass Failure ]
+
 webkit.org/b/86480 plugins/npruntime/delete-plugin-within-setProperty.html [ Failure ]
 webkit.org/b/86480 plugins/npruntime/delete-plugin-within-hasProperty-return-true.html [ Failure ]
 webkit.org/b/86480 plugins/npruntime/delete-plugin-within-hasProperty-return-false.html [ Failure ]
@@ -403,9 +405,6 @@ webgl/1.0.3/conformance/more/functions [ Skip ]
 
 # Sending the mouse down event to the scrollbar starts a nested run loop which causes a hang.
 fast/events/mousedown-in-subframe-scrollbar.html [ Skip ]
-
-webkit.org/b/96828 fast/canvas/webgl/oes-vertex-array-object.html [ Skip ]
-webkit.org/b/96828 webgl/1.0.3/conformance/extensions/oes-vertex-array-object.html [ Skip ]
 
 http/tests/misc/willCacheResponse-delegate-callback.html [ Failure ]
 http/tests/xmlhttprequest/basic-auth-nopassword.html [ Failure ]
@@ -982,9 +981,6 @@ webkit.org/b/156634 inspector/formatting/formatting-javascript.html [ Pass Timeo
 webkit.org/b/158948 inspector/timeline [ Pass Timeout ]
 webkit.org/b/191539 http/tests/inspector/network/resource-security-connection.html [ Skip ]
 
-webkit.org/b/149128 fast/text/control-characters [ ImageOnlyFailure ]
-
-
 # VNE testing is flaky.
 webkit.org/b/210436 http/tests/performance/paint-timing/performance-paint-timing-fcp-after-visually-non-empty-for-num-chars.html [ Pass Failure ]
 
@@ -1086,6 +1082,8 @@ css3/filters/backdrop/backdrop-filter-with-border-radius-and-reflection.html [ P
 
 # rdar://problem/27141291
 editing/selection/triple-click-in-pre.html [ Failure ]
+
+webkit.org/b/230047 editing/deleting/forward-delete-crash.html [ Pass Timeout ]
 
 # rdar://problem/31243824
 webkit.org/b/158747 media/restore-from-page-cache.html [ Pass Failure Crash ]
@@ -1223,9 +1221,6 @@ webkit.org/b/175102 workers/wasm-hashset-many.html [ Skip ]
 webkit.org/b/175102 workers/wasm-hashset-many-2.html [ Skip ]
 
 webkit.org/b/175193 fast/images/async-image-body-background-image.html [ Pass Timeout ]
-
-# This test is specific to Core Text.
-webkit.org/b/228177 [ Mojave Catalina BigSur Monterey ] fast/text/font-lookup-dot-prefix-case-sensitive.html [ ImageOnlyFailure ]
 
 webkit.org/b/173010 [ Debug ] js/slow-stress/Int32Array-alloc-huge.html [ Pass Timeout ]
 
@@ -1717,6 +1712,7 @@ webkit.org/b/214155 imported/w3c/web-platform-tests/html/cross-origin-embedder-p
 [ Catalina Mojave BigSur ] media/media-source/media-webm-opus-partial.html [ Skip ]
 [ Catalina Mojave BigSur ] media/media-source/media-webm-opus-partial-abort.html [ Skip ]
 [ Catalina Mojave BigSur ] webaudio/decode-audio-data-webm-opus.html [ Skip ]
+[ Catalina Mojave BigSur ] webaudio/decode-audio-data-webm-opus-resample.html [ Skip ]
 [ Catalina Mojave BigSur ] webaudio/decode-audio-data-webm-vorbis.html [ Skip ]
 
 webkit.org/b/214422 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiocontext-interface/suspend-after-construct.html [ Pass Failure ]
@@ -2209,8 +2205,6 @@ webkit.org/b/224212 [ arm64 ] compositing/background-color/no-composited-backgro
 
 webkit.org/b/215397 media/modern-media-controls/media-controller/media-controller-fullscreen-ltr.html [ Pass Failure ]
 
-webkit.org/b/224297 media/modern-media-controls/seek-forward-support/seek-forward-support.html [ Pass Timeout ]
-
 webkit.org/b/224396 webgl/1.0.3/conformance/glsl/constructors/glsl-construct-ivec2.html [ Slow ]
 
 webkit.org/b/224631 [ BigSur ] imported/w3c/web-platform-tests/css/css-fonts/font-feature-settings-tibetan.html [ Pass ImageOnlyFailure ]
@@ -2269,11 +2263,6 @@ webkit.org/b/226299 [ BigSur ] http/tests/performance/performance-resource-timin
 
 # rdar://80340581 ([ Monterey ] http/tests/preload/onload_event.html is a flaky failure)
 [ Monterey ] http/tests/preload/onload_event.html [ Pass Failure ]
-
-#rdar://80344478 ([ Monterey ] 3 imported/w3c/web-platform-tests/html/canvas/element/imagebitmap/createImageBitmap* tests timing out)
-[ Monterey ] imported/w3c/web-platform-tests/html/canvas/element/imagebitmap/createImageBitmap-drawImage.html [ Timeout ]
-[ Monterey ] imported/w3c/web-platform-tests/html/canvas/element/imagebitmap/createImageBitmap-flipY.html [ Timeout ]
-[ Monterey ] imported/w3c/web-platform-tests/html/canvas/element/imagebitmap/createImageBitmap-serializable.html [ Timeout ]
 
 [ BigSur Monterey ] webaudio/Panner/hrtf-database.html [ Pass ]
 [ BigSur Monterey ] webaudio/codec-tests/aac/vbr-128kbps-44khz.html [ Pass ]
@@ -2349,9 +2338,14 @@ webkit.org/b/229463 [ BigSur Debug ] http/tests/inspector/network/resource-mime-
 webkit.org/b/228364 media/track/track-in-band-duplicate-tracks-when-source-changes.html [ Pass Timeout ]
 
 webkit.org/b/229509 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/iframe-popup-same-origin-allow-popups-to-same-origin-allow-popups.https.html [ Pass Failure ]
+webkit.org/b/228642 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/iframe-popup-same-origin-allow-popups-to-same-origin.https.html [ Pass Failure ]
+webkit.org/b/228642 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/iframe-popup-unsafe-none-to-unsafe-none.https.html [ Pass Failure ]
+webkit.org/b/228642 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/javascript-url.https.html [ Pass Failure ]
 
 webkit.org/b/229517 imported/w3c/web-platform-tests/webrtc-extensions/RTCRtpSynchronizationSource-captureTimestamp.html [ Pass Failure ]
 webkit.org/b/229517 imported/w3c/web-platform-tests/webrtc-extensions/RTCRtpSynchronizationSource-senderCaptureTimeOffset.html [ Pass Failure ]
+
+webkit.org/b/230116 imported/w3c/web-platform-tests/webrtc-extensions/transfer-datachannel.html [ Pass Failure ]
 
 # rdar://82132196 (20 webkit imported/w3c/web-platform-tests/css/ layout tests failing)
 [ Monterey ] imported/w3c/web-platform-tests/css/css-backgrounds/background-position/subpixel-position-center.tentative.html [ Pass ImageOnlyFailure ]
@@ -2390,5 +2384,3 @@ webkit.org/b/228176 [ Mojave Catalina BigSur Monterey ] fast/text/variable-syste
 # These tests open apparently unskippable prompts on Catalina.
 webkit.org/b/229391 [ Mojave Catalina ] fast/text/mobileasset-font.html [ Skip ]
 webkit.org/b/189448 [ Mojave Catalina ] fast/text/osaka-synthetic-bold.html [ Skip ]
-
-webkit.org/b/229766 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/coop-csp-sandbox-navigate.https.html [ Pass Failure ]

@@ -45,13 +45,15 @@ public:
 
 private:
     void createRunsAndUpdateGeometryForLineContent(const LineBuilder::LineContent&, const LineBox&, const InlineLayoutPoint& lineBoxLogicalTopLeft, const size_t lineIndex);
-    void createRunsAndUpdateGeometryForLineSpanningInlineBoxes(const LineBox&, const InlineLayoutPoint& lineBoxLogicalTopLeft, const size_t lineIndex, size_t lineSpanningInlineBoxIndex);
+    void createRunsAndUpdateGeometryForLineSpanningInlineBoxes(const LineBox&, const InlineLayoutPoint& lineBoxLogicalTopLeft, const size_t lineIndex);
+    void collectInkOverflowForInlineBoxRuns(const LineBox&);
 
     const ContainerBox& root() const { return m_formattingContextRoot; }
     InlineFormattingState& formattingState() const { return m_formattingState; } 
 
     const ContainerBox& m_formattingContextRoot;
     InlineFormattingState& m_formattingState;
+    HashMap<const Box*, size_t> m_inlineBoxRunIndexMap;
 };
 
 }

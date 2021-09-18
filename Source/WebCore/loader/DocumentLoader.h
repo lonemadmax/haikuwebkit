@@ -393,7 +393,7 @@ public:
     const Vector<LinkIcon>& linkIcons() const { return m_linkIcons; }
 
 #if ENABLE(APPLICATION_MANIFEST)
-    WEBCORE_EXPORT uint64_t loadApplicationManifest();
+    WEBCORE_EXPORT void loadApplicationManifest(CompletionHandler<void(const std::optional<ApplicationManifest>&)>&&);
     void finishedLoadingApplicationManifest(ApplicationManifestLoader&);
 #endif
 
@@ -423,6 +423,7 @@ public:
     bool lastNavigationWasAppInitiated() const { return m_lastNavigationWasAppInitiated; }
     void setLastNavigationWasAppInitiated(bool lastNavigationWasAppInitiated) { m_lastNavigationWasAppInitiated = lastNavigationWasAppInitiated; }
 
+    ContentSecurityPolicy* contentSecurityPolicy() const { return m_contentSecurityPolicy.get(); }
     std::optional<CrossOriginOpenerPolicy> crossOriginOpenerPolicy() const { return m_currentCoopEnforcementResult ? std::make_optional(m_currentCoopEnforcementResult->crossOriginOpenerPolicy) : std::nullopt; }
 
     bool isContinuingLoadAfterResponsePolicyCheck() const { return m_isContinuingLoadAfterResponsePolicyCheck; }
@@ -515,7 +516,7 @@ private:
     void becomeMainResourceClient();
 
 #if ENABLE(APPLICATION_MANIFEST)
-    void notifyFinishedLoadingApplicationManifest(uint64_t callbackIdentifier, std::optional<ApplicationManifest>);
+    void notifyFinishedLoadingApplicationManifest();
 #endif
 
     // ContentSecurityPolicyClient
@@ -620,7 +621,9 @@ private:
     Vector<LinkIcon> m_linkIcons;
 
 #if ENABLE(APPLICATION_MANIFEST)
-    HashMap<std::unique_ptr<ApplicationManifestLoader>, uint64_t> m_applicationManifestLoaders;
+    std::unique_ptr<ApplicationManifestLoader> m_applicationManifestLoader;
+    Vector<CompletionHandler<void(const std::optional<ApplicationManifest>&)>> m_loadApplicationManifestCallbacks;
+    bool m_finishedLoadingApplicationManifest { false };
 #endif
 
     Vector<CustomHeaderFields> m_customHeaderFields;
@@ -628,6 +631,7 @@ private:
     ShouldOpenExternalURLsPolicy m_shouldOpenExternalURLsPolicy { ShouldOpenExternalURLsPolicy::ShouldNotAllow };
 
     std::unique_ptr<ApplicationCacheHost> m_applicationCacheHost;
+    std::unique_ptr<ContentSecurityPolicy> m_contentSecurityPolicy;
 
 #if ENABLE(CONTENT_FILTERING)
     std::unique_ptr<ContentFilter> m_contentFilter;

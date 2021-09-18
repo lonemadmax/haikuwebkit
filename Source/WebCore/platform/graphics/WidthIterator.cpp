@@ -23,6 +23,7 @@
 #include "WidthIterator.h"
 
 #include "CharacterProperties.h"
+#include "ComposedCharacterClusterTextIterator.h"
 #include "Font.h"
 #include "FontCascade.h"
 #include "GlyphBuffer.h"
@@ -522,14 +523,18 @@ bool WidthIterator::characterCanUseSimplifiedTextMeasuring(UChar character, bool
     // This function needs to be kept in sync with applyCSSVisibilityRules().
 
     switch (character) {
+    case newlineCharacter:
+    case carriageReturn:
+    case zeroWidthNoBreakSpace:
+    case zeroWidthNonJoiner:
+    case zeroWidthJoiner:
+        return true;
     case tabCharacter:
         if (!whitespaceIsCollapsed)
             return false;
         break;
     case noBreakSpace:
     case softHyphen:
-    case newlineCharacter:
-    case carriageReturn:
     case leftToRightMark:
     case rightToLeftMark:
     case leftToRightEmbed:
@@ -538,13 +543,10 @@ bool WidthIterator::characterCanUseSimplifiedTextMeasuring(UChar character, bool
     case rightToLeftOverride:
     case leftToRightIsolate:
     case rightToLeftIsolate:
-    case zeroWidthNonJoiner:
-    case zeroWidthJoiner:
     case popDirectionalFormatting:
     case popDirectionalIsolate:
     case firstStrongIsolate:
     case objectReplacementCharacter:
-    case zeroWidthNoBreakSpace:
         return false;
         break;
     }
@@ -670,7 +672,11 @@ void WidthIterator::advance(unsigned offset, GlyphBuffer& glyphBuffer)
         Latin1TextIterator textIterator(m_run.data8(m_currentCharacterIndex), m_currentCharacterIndex, offset, length);
         advanceInternal(textIterator, glyphBuffer);
     } else {
+#if USE(CLUSTER_AWARE_WIDTH_ITERATOR)
+        ComposedCharacterClusterTextIterator textIterator(m_run.data16(m_currentCharacterIndex), m_currentCharacterIndex, offset, length);
+#else
         SurrogatePairAwareTextIterator textIterator(m_run.data16(m_currentCharacterIndex), m_currentCharacterIndex, offset, length);
+#endif
         advanceInternal(textIterator, glyphBuffer);
     }
 

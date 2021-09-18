@@ -46,6 +46,7 @@
 #include "DocumentLoader.h"
 #include "DragClient.h"
 #include "DummySpeechRecognitionProvider.h"
+#include "DummyStorageProvider.h"
 #include "EditorClient.h"
 #include "EmptyFrameLoaderClient.h"
 #include "FileChooser.h"
@@ -1175,9 +1176,9 @@ public:
 private:
     EmptyBroadcastChannelRegistry() = default;
 
-    void registerChannel(const SecurityOriginData&, const String&, BroadcastChannelIdentifier) final { }
-    void unregisterChannel(const SecurityOriginData&, const String&, BroadcastChannelIdentifier) final { }
-    void postMessage(const SecurityOriginData&, const String&, BroadcastChannelIdentifier, Ref<SerializedScriptValue>&&, CompletionHandler<void()>&&) final { }
+    void registerChannel(const ClientOrigin&, const String&, BroadcastChannelIdentifier) final { }
+    void unregisterChannel(const ClientOrigin&, const String&, BroadcastChannelIdentifier) final { }
+    void postMessage(const ClientOrigin&, const String&, BroadcastChannelIdentifier, Ref<SerializedScriptValue>&&, CompletionHandler<void()>&&) final { }
 };
 
 PageConfiguration pageConfigurationWithEmptyClients(PAL::SessionID sessionID)
@@ -1196,7 +1197,8 @@ PageConfiguration pageConfigurationWithEmptyClients(PAL::SessionID sessionID)
         makeUniqueRef<DummySpeechRecognitionProvider>(),
         makeUniqueRef<EmptyMediaRecorderProvider>(),
         EmptyBroadcastChannelRegistry::create(),
-        DummyPermissionController::create()
+        DummyPermissionController::create(),
+        makeUniqueRef<DummyStorageProvider>()
     };
 
     static NeverDestroyed<EmptyChromeClient> dummyChromeClient;

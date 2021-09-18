@@ -226,7 +226,7 @@ void LineLayout::layout()
 
 void LineLayout::constructContent()
 {
-    auto inlineContentBuilder = InlineContentBuilder { m_layoutState, flow(), m_boxTree };
+    auto inlineContentBuilder = InlineContentBuilder { flow(), m_boxTree };
     inlineContentBuilder.build(m_inlineFormattingState, ensureInlineContent());
     ASSERT(m_inlineContent);
 
@@ -302,7 +302,7 @@ size_t LineLayout::lineCount() const
 {
     if (!m_inlineContent)
         return 0;
-    if (m_inlineContent->runs.isEmpty())
+    if (!m_inlineContent->hasContent())
         return 0;
 
     return m_inlineContent->lines.size();
@@ -364,35 +364,26 @@ TextRunIterator LineLayout::textRunsFor(const RenderText& renderText) const
 {
     if (!m_inlineContent)
         return { };
+
     auto& layoutBox = m_boxTree.layoutBoxForRenderer(renderText);
-
-    auto firstIndex = [&]() -> std::optional<size_t> {
-        for (size_t i = 0; i < m_inlineContent->runs.size(); ++i) {
-            if (&m_inlineContent->runs[i].layoutBox() == &layoutBox)
-                return i;
-        }
-        return { };
-    }();
-
+    auto firstIndex = m_inlineContent->firstRunIndexForLayoutBox(layoutBox);
     if (!firstIndex)
         return { };
 
-    return { RunIteratorModernPath(*m_inlineContent, *firstIndex) };
+    return LayoutIntegration::textRunFor(*m_inlineContent, *firstIndex);
 }
 
 RunIterator LineLayout::runFor(const RenderElement& renderElement) const
 {
     if (!m_inlineContent)
         return { };
+
     auto& layoutBox = m_boxTree.layoutBoxForRenderer(renderElement);
+    auto firstIndex = m_inlineContent->firstRunIndexForLayoutBox(layoutBox);
+    if (!firstIndex)
+        return { };
 
-    for (size_t i = 0; i < m_inlineContent->runs.size(); ++i) {
-        auto& run =  m_inlineContent->runs[i];
-        if (&run.layoutBox() == &layoutBox)
-            return { RunIteratorModernPath(*m_inlineContent, i) };
-    }
-
-    return { };
+    return LayoutIntegration::runFor(*m_inlineContent, *firstIndex);
 }
 
 LineIterator LineLayout::firstLine() const
@@ -411,12 +402,23 @@ LineIterator LineLayout::lastLine() const
     return { LineIteratorModernPath(*m_inlineContent, m_inlineContent->lines.isEmpty() ? 0 : m_inlineContent->lines.size() - 1) };
 }
 
+LayoutRect LineLayout::firstInlineBoxRect(const RenderInline& renderInline) const
+{
+    auto& layoutBox = m_boxTree.layoutBoxForRenderer(renderInline);
+
+    if (auto* run = m_inlineContent->firstRunForLayoutBox(layoutBox))
+        return Layout::toLayoutRect(run->logicalRect());
+
+    return { };
+}
+
 LayoutRect LineLayout::enclosingBorderBoxRectFor(const RenderInline& renderInline) const
 {
     if (!m_inlineContent)
         return { };
 
-    if (m_inlineContent->runs.isEmpty())
+    // FIXME: This keeps the existing output.
+    if (!m_inlineContent->hasContent())
         return { };
 
     return Layout::BoxGeometry::borderBoxRect(m_inlineFormattingState.boxGeometry(m_boxTree.layoutBoxForRenderer(renderInline)));
@@ -424,8 +426,29 @@ LayoutRect LineLayout::enclosingBorderBoxRectFor(const RenderInline& renderInlin
 
 LayoutRect LineLayout::visualOverflowBoundingBoxRectFor(const RenderInline& renderInline) const
 {
-    // FIXME: This doesn't contain overflow.
-    return enclosingBorderBoxRectFor(renderInline);
+    auto& layoutBox = m_boxTree.layoutBoxForRenderer(renderInline);
+
+    LayoutRect result;
+    m_inlineContent->traverseNonRootInlineBoxes(layoutBox, [&](auto& inlineBox) {
+        result.unite(Layout::toLayoutRect(inlineBox.inkOverflow()));
+    });
+
+    return result;
+}
+
+Vector<FloatRect> LineLayout::collectInlineBoxRects(const RenderInline& renderInline) const
+{
+    if (!m_inlineContent)
+        return { };
+
+    auto& layoutBox = m_boxTree.layoutBoxForRenderer(renderInline);
+
+    Vector<FloatRect> result;
+    m_inlineContent->traverseNonRootInlineBoxes(layoutBox, [&](auto& inlineBox) {
+        result.append(inlineBox.logicalRect());
+    });
+
+    return result;
 }
 
 const RenderObject& LineLayout::rendererForLayoutBox(const Layout::Box& layoutBox) const
@@ -455,6 +478,8 @@ void LineLayout::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     paintRect.moveBy(-paintOffset);
 
     for (auto& run : m_inlineContent->runsForRect(paintRect)) {
+        if (run.isInlineBox())
+            continue;
         if (run.text())
             paintTextRunUsingPhysicalCoordinates(paintInfo, paintOffset, m_inlineContent->lineForRun(run), run);
         else if (auto& renderer = m_boxTree.rendererForLayoutBox(run.layoutBox()); is<RenderBox>(renderer) && renderer.isReplaced()) {
@@ -479,50 +504,27 @@ bool LineLayout::hitTest(const HitTestRequest& request, HitTestResult& result, c
     for (auto& run : WTF::makeReversedRange(inlineContent.runs)) {
         auto& renderer = m_boxTree.rendererForLayoutBox(run.layoutBox());
 
-        if (is<RenderText>(renderer)) {
-            auto runRect = Layout::toLayoutRect(run.logicalRect());
-            runRect.moveBy(accumulatedOffset);
+        if (!run.isRootInlineBox() && is<RenderLayerModelObject>(renderer) && downcast<RenderLayerModelObject>(renderer).hasSelfPaintingLayer())
+            continue;
 
-            if (!locationInContainer.intersects(runRect))
-                continue;
-            
-            auto& style = run.style();
-            if (style.visibility() != Visibility::Visible || style.pointerEvents() == PointerEvents::None)
-                continue;
-
-            renderer.updateHitTestResult(result, locationInContainer.point() - toLayoutSize(accumulatedOffset));
-            if (result.addNodeToListBasedTestResult(renderer.nodeForHitTest(), request, locationInContainer, runRect) == HitTestProgress::Stop)
+        if (run.isAtomicInlineLevelBox()) {
+            if (renderer.hitTest(request, result, locationInContainer, accumulatedOffset))
                 return true;
             continue;
         }
 
-        if (is<RenderBox>(renderer)) {
-            auto& renderBox = downcast<RenderBox>(renderer);
-            if (renderBox.hasSelfPaintingLayer())
-                continue;
-            
-            if (renderBox.hitTest(request, result, locationInContainer, accumulatedOffset)) {
-                renderBox.updateHitTestResult(result, locationInContainer.point() - toLayoutSize(accumulatedOffset));
-                return true;
-            }
-        }
-    }
+        auto runRect = Layout::toLayoutRect(run.logicalRect());
+        runRect.moveBy(accumulatedOffset);
 
-    for (auto& inlineBox : WTF::makeReversedRange(inlineContent.nonRootInlineBoxes)) {
-        auto inlineBoxRect = Layout::toLayoutRect(inlineBox.rect());
-        inlineBoxRect.moveBy(accumulatedOffset);
-
-        if (!locationInContainer.intersects(inlineBoxRect))
+        if (!locationInContainer.intersects(runRect))
             continue;
 
-        auto& style = inlineBox.style();
+        auto& style = run.style();
         if (style.visibility() != Visibility::Visible || style.pointerEvents() == PointerEvents::None)
             continue;
-
-        auto& renderer = m_boxTree.rendererForLayoutBox(inlineBox.layoutBox());
-
+        
         renderer.updateHitTestResult(result, locationInContainer.point() - toLayoutSize(accumulatedOffset));
-        if (result.addNodeToListBasedTestResult(renderer.nodeForHitTest(), request, locationInContainer, inlineBoxRect) == HitTestProgress::Stop)
+        if (result.addNodeToListBasedTestResult(renderer.nodeForHitTest(), request, locationInContainer, runRect) == HitTestProgress::Stop)
             return true;
     }
 
@@ -536,13 +538,15 @@ void LineLayout::releaseCaches(RenderView& view)
 
     for (auto& renderer : descendantsOfType<RenderBlockFlow>(view)) {
         if (auto* lineLayout = renderer.modernLineLayout())
-            lineLayout->releaseInlineItemCache();
+            lineLayout->releaseCaches();
     }
 }
 
-void LineLayout::releaseInlineItemCache()
+void LineLayout::releaseCaches()
 {
     m_inlineFormattingState.inlineItems().clear();
+    if (m_inlineContent)
+        m_inlineContent->releaseCaches();
 }
 
 void LineLayout::paintTextRunUsingPhysicalCoordinates(PaintInfo& paintInfo, const LayoutPoint& paintOffset, const Line& line, const Run& run)
@@ -615,7 +619,7 @@ void LineLayout::paintTextRunUsingPhysicalCoordinates(PaintInfo& paintInfo, cons
         if (!style.textDecorationsInEffect().isEmpty()) {
             auto& textRenderer = downcast<RenderText>(m_boxTree.rendererForLayoutBox(run.layoutBox()));
             auto decorationPainter = TextDecorationPainter { paintContext, style.textDecorationsInEffect(), textRenderer, false, fontCascade };
-            decorationPainter.setTextRunIterator(m_inlineContent->iteratorForTextRun(run));
+            decorationPainter.setTextRunIterator(textRunFor(*m_inlineContent, run));
             decorationPainter.setWidth(runRect.width());
             decorationPainter.paintTextDecoration(textRun, textOrigin, runRect.location() + physicalPaintOffset);
         }

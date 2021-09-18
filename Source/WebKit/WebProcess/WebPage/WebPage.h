@@ -407,6 +407,8 @@ public:
 
     void releaseMemory(WTF::Critical);
 
+    unsigned remoteImagesCountForTesting() const;
+
     enum class LazyCreationPolicy { UseExistingOnly, CreateIfNeeded };
 
     WebInspector* inspector(LazyCreationPolicy = LazyCreationPolicy::CreateIfNeeded);
@@ -793,7 +795,6 @@ public:
     void focusNextFocusedElement(bool isForward, CompletionHandler<void()>&&);
     void autofillLoginCredentials(const String&, const String&);
     void setFocusedElementValue(const WebCore::ElementContext&, const String&);
-    void setFocusedElementValueAsNumber(const WebCore::ElementContext&, double);
     void setFocusedElementSelectedIndex(const WebCore::ElementContext&, uint32_t index, bool allowMultipleSelection);
     void setIsShowingInputViewForFocusedElement(bool);
     bool isShowingInputViewForFocusedElement() const { return m_isShowingInputViewForFocusedElement; }
@@ -1295,7 +1296,6 @@ public:
 
 #if ENABLE(APPLICATION_MANIFEST)
     void getApplicationManifest(CompletionHandler<void(const std::optional<WebCore::ApplicationManifest>&)>&&);
-    void didFinishLoadingApplicationManifest(uint64_t, const std::optional<WebCore::ApplicationManifest>&);
 #endif
 
 #if USE(WPE_RENDERER)
@@ -2310,10 +2310,6 @@ private:
 
     HashMap<uint64_t, Function<void(bool granted)>> m_storageAccessResponseCallbackMap;
 
-#if ENABLE(APPLICATION_MANIFEST)
-    HashMap<uint64_t, CompletionHandler<void(const std::optional<WebCore::ApplicationManifest>&)>> m_applicationManifestFetchCallbackMap;
-#endif
-
     OptionSet<LayerTreeFreezeReason> m_layerTreeFreezeReasons;
     bool m_isSuspended { false };
     bool m_needsFontAttributes { false };
@@ -2380,8 +2376,6 @@ private:
 #if ENABLE(APP_HIGHLIGHTS)
     WebCore::HighlightVisibility m_appHighlightsVisible { WebCore::HighlightVisibility::Hidden };
 #endif
-
-    bool m_needsSiteSpecificViewportQuirks { true };
 };
 
 #if !PLATFORM(IOS_FAMILY)

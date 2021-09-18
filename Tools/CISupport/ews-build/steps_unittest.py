@@ -55,7 +55,7 @@ from steps import (AnalyzeAPITestsResults, AnalyzeCompileWebKitResults, AnalyzeJ
                    RunWebKitPyPython3Tests, RunWebKitTests, RunWebKitTestsInStressMode, RunWebKitTestsInStressGuardmallocMode,
                    RunWebKitTestsWithoutPatch, TestWithFailureCount, ShowIdentifier,
                    Trigger, TransferToS3, UnApplyPatchIfRequired, UpdateWorkingDirectory, UploadBuiltProduct,
-                   UploadTestResults, ValidateCommiterAndReviewer, ValidatePatch, VerifyGitHubIntegrity)
+                   UploadTestResults, ValidateChangeLogAndReviewer, ValidateCommiterAndReviewer, ValidatePatch, VerifyGitHubIntegrity)
 
 # Workaround for https://github.com/buildbot/buildbot/issues/4669
 from buildbot.test.fake.fakebuild import FakeBuild
@@ -337,7 +337,7 @@ class TestApplyWatchList(BuildStepMixinAdditions, unittest.TestCase):
             ExpectShell(workdir='wkdir',
                         timeout=120,
                         logEnviron=False,
-                        command=['python', 'Tools/Scripts/webkit-patch', 'apply-watchlist-local', '1234'])
+                        command=['python3', 'Tools/Scripts/webkit-patch', 'apply-watchlist-local', '1234'])
             + ExpectShell.log('stdio', stdout='Result of watchlist: cc "" messages ""')
             + 0,
         )
@@ -351,12 +351,49 @@ class TestApplyWatchList(BuildStepMixinAdditions, unittest.TestCase):
             ExpectShell(workdir='wkdir',
                         timeout=120,
                         logEnviron=False,
-                        command=['python', 'Tools/Scripts/webkit-patch', 'apply-watchlist-local', '1234'])
+                        command=['python3', 'Tools/Scripts/webkit-patch', 'apply-watchlist-local', '1234'])
             + ExpectShell.log('stdio', stdout='Unexpected failure')
             + 2,
         )
         self.expectOutcome(result=FAILURE, state_string='Failed to apply watchlist')
         return self.runStep()
+
+
+class TestValidateChangeLogAndReviewer(BuildStepMixinAdditions, unittest.TestCase):
+    def setUp(self):
+        self.longMessage = True
+        return self.setUpBuildStep()
+
+    def tearDown(self):
+        return self.tearDownBuildStep()
+
+    def test_success(self):
+        self.setupStep(ValidateChangeLogAndReviewer())
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        timeout=180,
+                        logEnviron=False,
+                        command=['python3', 'Tools/Scripts/webkit-patch', 'validate-changelog', '--check-oops', '--non-interactive'])
+            + 0,
+        )
+        self.expectOutcome(result=SUCCESS, state_string='Validated ChangeLog and Reviewer')
+        return self.runStep()
+
+    def test_failure(self):
+        self.setupStep(ValidateChangeLogAndReviewer())
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        timeout=180,
+                        logEnviron=False,
+                        command=['python3', 'Tools/Scripts/webkit-patch', 'validate-changelog', '--check-oops', '--non-interactive'])
+            + ExpectShell.log('stdio', stdout='ChangeLog entry in LayoutTests/ChangeLog contains OOPS!.')
+            + 2,
+        )
+        self.expectOutcome(result=FAILURE, state_string='ChangeLog validation failed')
+        rc = self.runStep()
+        self.assertEqual(self.getProperty('bugzilla_comment_text'), 'ChangeLog entry in LayoutTests/ChangeLog contains OOPS!.\n')
+        self.assertEqual(self.getProperty('build_finish_summary'), 'ChangeLog validation failed')
+        return rc
 
 
 class TestRunBindingsTests(BuildStepMixinAdditions, unittest.TestCase):
@@ -2565,7 +2602,7 @@ class TestCleanWorkingDirectory(BuildStepMixinAdditions, unittest.TestCase):
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logEnviron=False,
-                        command=['python', 'Tools/Scripts/clean-webkit'],
+                        command=['python3', 'Tools/Scripts/clean-webkit'],
                         )
             + 0,
         )
@@ -2577,7 +2614,7 @@ class TestCleanWorkingDirectory(BuildStepMixinAdditions, unittest.TestCase):
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logEnviron=False,
-                        command=['python', 'Tools/Scripts/clean-webkit'],
+                        command=['python3', 'Tools/Scripts/clean-webkit'],
                         )
             + ExpectShell.log('stdio', stdout='Unexpected failure.')
             + 2,
@@ -2700,7 +2737,7 @@ class TestUnApplyPatchIfRequired(BuildStepMixinAdditions, unittest.TestCase):
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logEnviron=False,
-                        command=['python', 'Tools/Scripts/clean-webkit'],
+                        command=['python3', 'Tools/Scripts/clean-webkit'],
                         )
             + 0,
         )
@@ -2714,7 +2751,7 @@ class TestUnApplyPatchIfRequired(BuildStepMixinAdditions, unittest.TestCase):
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logEnviron=False,
-                        command=['python', 'Tools/Scripts/clean-webkit'],
+                        command=['python3', 'Tools/Scripts/clean-webkit'],
                         )
             + ExpectShell.log('stdio', stdout='Unexpected failure.')
             + 2,
@@ -2997,12 +3034,13 @@ class TestDownloadBuiltProduct(BuildStepMixinAdditions, unittest.TestCase):
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logEnviron=False,
-                        command=['python', 'Tools/CISupport/download-built-product', '--release', 'https://s3-us-west-2.amazonaws.com/ews-archives.webkit.org/ios-simulator-12-x86_64-release/1234.zip'],
+                        command=['python3', 'Tools/CISupport/download-built-product', '--release', 'https://s3-us-west-2.amazonaws.com/ews-archives.webkit.org/ios-simulator-12-x86_64-release/1234.zip'],
                         )
             + 0,
         )
         self.expectOutcome(result=SUCCESS, state_string='Downloaded built product')
-        return self.runStep()
+        with current_hostname(EWS_BUILD_HOSTNAME):
+            return self.runStep()
 
     def test_failure(self):
         self.setupStep(DownloadBuiltProduct())
@@ -3013,13 +3051,24 @@ class TestDownloadBuiltProduct(BuildStepMixinAdditions, unittest.TestCase):
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logEnviron=False,
-                        command=['python', 'Tools/CISupport/download-built-product', '--debug', 'https://s3-us-west-2.amazonaws.com/ews-archives.webkit.org/mac-sierra-x86_64-debug/123456.zip'],
+                        command=['python3', 'Tools/CISupport/download-built-product', '--debug', 'https://s3-us-west-2.amazonaws.com/ews-archives.webkit.org/mac-sierra-x86_64-debug/123456.zip'],
                         )
             + ExpectShell.log('stdio', stdout='Unexpected failure.')
             + 2,
         )
         self.expectOutcome(result=FAILURE, state_string='Failed to download built product from S3')
-        return self.runStep()
+        with current_hostname(EWS_BUILD_HOSTNAME):
+            return self.runStep()
+
+    def test_deployment_skipped(self):
+        self.setupStep(DownloadBuiltProduct())
+        self.setProperty('fullPlatform', 'gtk')
+        self.setProperty('configuration', 'release')
+        self.setProperty('architecture', 'x86_64')
+        self.setProperty('patch_id', '123456')
+        self.expectOutcome(result=SKIPPED)
+        with current_hostname('test-ews-deployment.igalia.com'):
+            return self.runStep()
 
 
 class TestDownloadBuiltProductFromMaster(BuildStepMixinAdditions, unittest.TestCase):
@@ -3159,7 +3208,7 @@ class TestTransferToS3(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('architecture', 'x86_64')
         self.setProperty('patch_id', '1234')
         self.expectLocalCommands(
-            ExpectMasterShellCommand(command=['python',
+            ExpectMasterShellCommand(command=['python3',
                                               '../Shared/transfer-archive-to-s3',
                                               '--patch_id', '1234',
                                               '--identifier', 'mac-highsierra-x86_64-release',
@@ -3178,7 +3227,7 @@ class TestTransferToS3(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('architecture', 'x86_64')
         self.setProperty('patch_id', '1234')
         self.expectLocalCommands(
-            ExpectMasterShellCommand(command=['python',
+            ExpectMasterShellCommand(command=['python3',
                                               '../Shared/transfer-archive-to-s3',
                                               '--patch_id', '1234',
                                               '--identifier', 'ios-simulator-12-x86_64-debug',
@@ -3601,7 +3650,7 @@ class TestArchiveTestResults(BuildStepMixinAdditions, unittest.TestCase):
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logEnviron=False,
-                        command=['python', 'Tools/CISupport/test-result-archive', '--platform=ios-simulator',  '--release', 'archive'],
+                        command=['python3', 'Tools/CISupport/test-result-archive', '--platform=ios-simulator',  '--release', 'archive'],
                         )
             + 0,
         )
@@ -3616,7 +3665,7 @@ class TestArchiveTestResults(BuildStepMixinAdditions, unittest.TestCase):
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logEnviron=False,
-                        command=['python', 'Tools/CISupport/test-result-archive', '--platform=mac',  '--debug', 'archive'],
+                        command=['python3', 'Tools/CISupport/test-result-archive', '--platform=mac',  '--debug', 'archive'],
                         )
             + ExpectShell.log('stdio', stdout='Unexpected failure.')
             + 2,
@@ -4216,8 +4265,8 @@ class TestValidateCommiterAndReviewer(BuildStepMixinAdditions, unittest.TestCase
 
     def test_load_contributors_from_disk(self):
         ValidateCommiterAndReviewer._addToLog = lambda cls, logtype, log: sys.stdout.write(log)
-        contributors = ValidateCommiterAndReviewer().load_contributors_from_disk()
-        self.assertEqual(contributors['Aakash Jain']['nicks'], ['aakash_jain'])
+        contributors = filter(lambda element: element.get('name') == 'Aakash Jain', ValidateCommiterAndReviewer().load_contributors_from_disk())
+        self.assertEqual(list(contributors)[0]['emails'], ['aakash_jain@apple.com'])
 
 
 class TestCheckPatchStatusOnEWSQueues(BuildStepMixinAdditions, unittest.TestCase):

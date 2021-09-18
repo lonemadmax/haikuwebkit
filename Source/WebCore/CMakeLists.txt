@@ -53,6 +53,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/plugins"
     "${WEBCORE_DIR}/Modules/remoteplayback"
     "${WEBCORE_DIR}/Modules/speech"
+    "${WEBCORE_DIR}/Modules/storage"
     "${WEBCORE_DIR}/Modules/streams"
     "${WEBCORE_DIR}/Modules/webaudio"
     "${WEBCORE_DIR}/Modules/webauthn"
@@ -208,6 +209,7 @@ set(WebCore_IDL_INCLUDES
     Modules/paymentrequest
     Modules/permissions
     Modules/speech
+    Modules/storage
     Modules/streams
     Modules/webaudio
     Modules/webdatabase
@@ -388,6 +390,9 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediastream/RTCDtxStatus.idl
     Modules/mediastream/RTCEncodedAudioFrame.idl
     Modules/mediastream/RTCEncodedVideoFrame.idl
+    Modules/mediastream/RTCError.idl
+    Modules/mediastream/RTCErrorDetailType.idl
+    Modules/mediastream/RTCErrorEvent.idl
     Modules/mediastream/RTCIceCandidate.idl
     Modules/mediastream/RTCIceCandidateInit.idl
     Modules/mediastream/RTCIceCandidateType.idl
@@ -430,6 +435,8 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediastream/RTCRtpSynchronizationSource.idl
     Modules/mediastream/RTCRtpTransceiver.idl
     Modules/mediastream/RTCRtpTransceiverDirection.idl
+    Modules/mediastream/RTCSctpTransport.idl
+    Modules/mediastream/RTCSctpTransportState.idl
     Modules/mediastream/RTCSdpType.idl
     Modules/mediastream/RTCSessionDescription.idl
     Modules/mediastream/RTCSessionDescriptionInit.idl
@@ -495,6 +502,8 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/speech/SpeechSynthesisEvent.idl
     Modules/speech/SpeechSynthesisUtterance.idl
     Modules/speech/SpeechSynthesisVoice.idl
+
+    Modules/storage/StorageManager.idl
 
     Modules/streams/ByteLengthQueuingStrategy.idl
     Modules/streams/CountQueuingStrategy.idl
@@ -705,6 +714,7 @@ set(WebCore_NON_SVG_IDL_FILES
     css/CSSUnknownRule.idl
     css/DocumentOrShadowRoot+CSSOM.idl
     css/DOMCSSCustomPropertyDescriptor.idl
+    css/DOMCSSNamespace+CSSNumericFactory.idl
     css/DOMCSSNamespace+CSSPainting.idl
     css/DOMCSSNamespace+CSSPropertiesandValues.idl
     css/DOMCSSNamespace.idl
@@ -729,6 +739,7 @@ set(WebCore_NON_SVG_IDL_FILES
     css/StyleSheet.idl
     css/StyleSheetList.idl
 
+    css/typedom/CSSKeywordValue.idl
     css/typedom/CSSNumericValue.idl
     css/typedom/CSSOMVariableReferenceValue.idl
     css/typedom/CSSStyleImageValue.idl
@@ -1074,6 +1085,7 @@ set(WebCore_NON_SVG_IDL_FILES
     page/NavigatorPlugins.idl
     page/NavigatorServiceWorker.idl
     page/NavigatorShare.idl
+    page/NavigatorStorage.idl
     page/Performance+NavigationTiming.idl
     page/Performance+PerformanceTimeline.idl
     page/Performance+ResourceTiming.idl
@@ -2050,7 +2062,6 @@ set(WebCore_BUILTINS_SOURCES
     ${WEBCORE_DIR}/Modules/streams/TransformStream.js
     ${WEBCORE_DIR}/Modules/streams/TransformStreamDefaultController.js
     ${WEBCORE_DIR}/Modules/streams/TransformStreamInternals.js
-    ${WEBCORE_DIR}/Modules/streams/WritableStream.js
     ${WEBCORE_DIR}/Modules/streams/WritableStreamDefaultController.js
     ${WEBCORE_DIR}/Modules/streams/WritableStreamDefaultWriter.js
     ${WEBCORE_DIR}/Modules/streams/WritableStreamInternals.js

@@ -227,9 +227,8 @@ LegacyInlineFlowBox* LegacyLineLayout::createLineBoxes(RenderObject* obj, const 
         // as well. In this situation our inline has actually been split in two on
         // the same line (this can happen with very fancy language mixtures).
         bool constructedNewBox = false;
-        bool allowedToConstructNewBox = !hasDefaultLineBoxContain || !inlineFlow || inlineFlow->alwaysCreateLineBoxes();
         bool canUseExistingParentBox = parentBox && !parentIsConstructedOrHaveNext(parentBox);
-        if (allowedToConstructNewBox && !canUseExistingParentBox) {
+        if (!canUseExistingParentBox) {
             // We need to make a new box for this render object. Once
             // made, we need to place it at the end of the current line.
             LegacyInlineBox* newBox = createInlineBoxForRenderer(obj);
@@ -896,7 +895,7 @@ BidiRun* LegacyLineLayout::computeInlineDirectionPositionsForSegment(LegacyRootI
     BidiRun* previousRun = nullptr;
     for (; run; run = run->next()) {
         auto computeExpansionOpportunities = [&expansionOpportunities, &expansionOpportunityCount, textAlign, &isAfterExpansion] (RenderBlockFlow& block,
-            LegacyInlineTextBox& textBox, BidiRun* previousRun, BidiRun* nextRun, const StringView& stringView, TextDirection direction)
+            LegacyInlineTextBox& textBox, BidiRun* previousRun, BidiRun* nextRun, StringView stringView, TextDirection direction)
         {
             if (stringView.isEmpty()) {
                 // Empty runs should still produce an entry in expansionOpportunities list so that the number of items matches the number of runs.
@@ -1769,8 +1768,6 @@ void LegacyLineLayout::layoutLineBoxes(bool relayoutChildren, LayoutUnit& repain
                         box.layoutIfNeeded();
                 }
             } else if (o.isTextOrLineBreak() || (is<RenderInline>(o) && !walker.atEndOfInline())) {
-                if (is<RenderInline>(o))
-                    downcast<RenderInline>(o).updateAlwaysCreateLineBoxes(layoutState.isFullLayout());
                 if (layoutState.isFullLayout() || o.selfNeedsLayout())
                     dirtyLineBoxesForRenderer(o, layoutState.isFullLayout());
                 o.clearNeedsLayout();

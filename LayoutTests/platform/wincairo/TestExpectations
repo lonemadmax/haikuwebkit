@@ -1106,7 +1106,13 @@ fast/css-custom-paint/ [ Skip ]
 css-typedom [ Skip ]
 
 # Dark mode not supported on Windows
-css-dark-mode [ Skip ]
+css-dark-mode [ Pass ]
+css-dark-mode/color-scheme-css.html [ Failure ]
+css-dark-mode/color-scheme-meta.html [ Failure ]
+css-dark-mode/color-scheme-priority.html [ Failure ]
+css-dark-mode/default-colors.html [ Failure ]
+css-dark-mode/older-syntax/supported-color-schemes-css.html [ Failure ]
+css-dark-mode/older-syntax/supported-color-schemes-meta.html [ Failure ]
 
 webkit.org/b/142260 fast/css/has-attachment.html [ Skip ]
 
@@ -1447,7 +1453,11 @@ webkit.org/b/199186 fonts/use-typo-metrics-1.html [ Skip ]
 webkit.org/b/209455 http/wpt/misc/last-modified-parsing.html [ Failure ]
 webkit.org/b/209455 http/wpt/misc/no-last-modified.html [ Failure ]
 
+webkit.org/b/225258 js/dom/Promise-reject-large-string.html [ Pass Failure ]
+
 webkit.org/b/227189 fast/forms/checkbox-and-pseudo.html [ Skip ] # Require expect file for dumped render tree.
+
+webkit.org/b/215271 storage/indexeddb/modern/new-database-after-user-delete.html [ Pass Failure ]
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # TEMPORARY SKIPS -- these areas still need to be addressed individually
@@ -1506,6 +1516,7 @@ http/wpt/beacon [ Skip ]
 http/wpt/cache-storage [ Skip ]
 http/wpt/common [ Skip ]
 http/wpt/credential-management [ Skip ]
+http/wpt/cross-origin-opener-policy [ Skip ]
 http/wpt/cross-origin-resource-policy [ Skip ]
 http/wpt/css [ Skip ]
 http/wpt/crypto [ Skip ]
@@ -1559,6 +1570,7 @@ imported/w3c/web-platform-tests/entries-api [ Skip ]
 imported/w3c/web-platform-tests/eventsource [ Skip ]
 imported/w3c/web-platform-tests/feature-policy [ Skip ]
 imported/w3c/web-platform-tests/fetch [ Skip ]
+imported/w3c/web-platform-tests/file-system-access [ Skip ]
 imported/w3c/web-platform-tests/fonts [ Skip ]
 imported/w3c/web-platform-tests/geolocation-API [ Skip ]
 imported/w3c/web-platform-tests/hr-time [ Skip ]
@@ -1598,6 +1610,7 @@ imported/w3c/web-platform-tests/server-timing [ Skip ]
 imported/w3c/web-platform-tests/service-workers [ Skip ]
 imported/w3c/web-platform-tests/shadow-dom [ Skip ]
 imported/w3c/web-platform-tests/speech-api [ Skip ]
+imported/w3c/web-platform-tests/storage [ Skip ]
 imported/w3c/web-platform-tests/streams [ Skip ]
 imported/w3c/web-platform-tests/subresource-integrity [ Skip ]
 imported/w3c/web-platform-tests/svg [ Skip ]
@@ -1777,7 +1790,6 @@ fast/css/will-change/will-change-creates-stacking-context-inline.html [ ImageOnl
 fast/css/will-change/will-change-creates-stacking-context.html [ ImageOnlyFailure ]
 fast/custom-elements/defined-rule.html [ ImageOnlyFailure ]
 fast/dom/call-a-constructor-as-a-function.html [ Failure ]
-fast/dom/webtiming.html [ Failure ]
 fast/dynamic/float-in-trailing-whitespace-after-last-line-break-2.html [ Failure ]
 fast/dynamic/mail-autosize-with-iframe.html [ Failure ]
 fast/editing/frame-selection-is-not-caret.html [ Skip ] # Crash by assertion failure
@@ -1795,7 +1807,6 @@ fast/events/domactivate-sets-underlying-click-event-as-handled.html [ Skip ] # F
 fast/events/drag-and-drop-autoscroll.html [ Skip ] # Crash
 fast/events/drag-and-drop-move-not-copy.html [ Skip ] # Crash
 fast/events/drag-customData.html [ Failure ]
-fast/events/drag-image-with-border-image.html [ Failure ]
 fast/events/drag-in-frames.html [ Failure ]
 fast/events/drag-select-when-zoomed-with-header.html [ Failure ]
 fast/events/drag-select-when-zoomed.html [ Failure ]
@@ -1849,7 +1860,6 @@ fast/events/wheel/wheelevent-basic.html [ Failure ]
 fast/events/wheel/wheelevent-in-horizontal-scrollbar-in-rtl.html [ Failure ]
 fast/events/wheel/wheelevent-in-vertical-scrollbar-in-rtl.html [ Failure ]
 fast/harness/render-tree-as-text-options.html [ Failure ]
-fast/html/broadcast-channel-between-different-sessions.html [ Failure ]
 fast/html/details-comment-crash.html [ ImageOnlyFailure ]
 fast/html/details-marker-style-mixed.html [ Missing ]
 fast/html/details-writing-mode-mixed.html [ Missing ]
@@ -1957,7 +1967,7 @@ fast/text/tatechuyoko.html [ Failure Pass ]
 fast/text/text-indent-inside-float.html [ ImageOnlyFailure ]
 fast/text/text-transform-turkish-and-azeri.html [ ImageOnlyFailure ]
 fast/text/trailing-word-detection.html [ Failure ]
-fast/text/trak-optimizeLegibility.html [ Failure ]
+fast/text/trak-optimizeLegibility.html [ ImageOnlyFailure ]
 fast/text/trimmable-whitespace-followed-by-br.html [ ImageOnlyFailure ]
 fast/text/updateNewFont.html [ Failure ]
 fast/text/user-installed-fonts/disable.html [ ImageOnlyFailure ]
@@ -2021,7 +2031,6 @@ http/tests/xmlhttprequest/post-blob-content-type-sync.html [ Failure ]
 http/tests/xmlhttprequest/resetting-timeout-to-zero.html [ Failure ]
 http/tests/xmlhttprequest/timeout-greater-than-default-network-timeout.html [ Failure ]
 http/tests/xmlhttprequest/upload-progress-events-gc.html [ Skip ] # Timeout
-http/wpt/cross-origin-opener-policy/header-parsing-with-report-to.https.html [ Failure ]
 http/wpt/fetch/response-opaque-clone.html [ Skip ]
 http/wpt/fetch/response-status-text.html [ Failure ]
 inspector/cpu-profiler/threads.html [ Failure ]
@@ -2083,3 +2092,6 @@ webgl/2.0.0/conformance2/textures/misc/tex-image-with-bad-args-from-dom-elements
 webgl/2.0.0/conformance2/transform_feedback/transform_feedback.html [ Skip ] # Timeout and flaky
 webgl/webgl-oom-paint-document-no-crash.html [ Skip ]
 workers/bomb.html [ Skip ] # Timeout
+
+fast/masking/clip-path-selection.html [ Failure ]
+animations/remove-syncing-animation.html [ Pass Failure ]

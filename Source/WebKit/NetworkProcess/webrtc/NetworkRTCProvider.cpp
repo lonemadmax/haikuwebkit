@@ -49,6 +49,7 @@
 #include "NetworkRTCResolverCocoa.h"
 #include "NetworkRTCTCPSocketCocoa.h"
 #include "NetworkRTCUDPSocketCocoa.h"
+#include "NetworkSessionCocoa.h"
 #endif
 
 namespace WebKit {
@@ -91,6 +92,10 @@ NetworkRTCProvider::NetworkRTCProvider(NetworkConnectionToWebProcess& connection
     , m_sourceApplicationAuditToken(connection.networkProcess().sourceApplicationAuditToken())
 #endif
 {
+#if PLATFORM(COCOA)
+    if (auto* session = static_cast<NetworkSessionCocoa*>(connection.networkSession()))
+        m_applicationBundleIdentifier = session->sourceApplicationBundleIdentifier().utf8();
+#endif
 #if !RELEASE_LOG_DISABLED
     rtc::LogMessage::SetLogOutput(WebKit2LogWebRTC.state == WTFLogChannelState::On ? rtc::LS_INFO : rtc::LS_WARNING, doReleaseLogging);
 #endif
@@ -197,13 +202,13 @@ rtc::ProxyInfo NetworkRTCProvider::proxyInfoFromSession(const RTCNetwork::Socket
 }
 #endif
 
-void NetworkRTCProvider::createClientTCPSocket(LibWebRTCSocketIdentifier identifier, const RTCNetwork::SocketAddress& localAddress, const RTCNetwork::SocketAddress& remoteAddress, String&& userAgent, int options, WebPageProxyIdentifier pageIdentifier, bool isRelayDisabled)
+void NetworkRTCProvider::createClientTCPSocket(LibWebRTCSocketIdentifier identifier, const RTCNetwork::SocketAddress& localAddress, const RTCNetwork::SocketAddress& remoteAddress, String&& userAgent, int options, WebPageProxyIdentifier pageIdentifier, bool isFirstParty, bool isRelayDisabled, WebCore::RegistrableDomain&& domain)
 {
     ASSERT(m_rtcNetworkThread.IsCurrent());
 
 #if PLATFORM(COCOA)
     if (m_platformTCPSocketsEnabled) {
-        if (auto socket = NetworkRTCTCPSocketCocoa::createClientTCPSocket(identifier, *this, remoteAddress.value, options, attributedBundleIdentifierFromPageIdentifier(pageIdentifier), isRelayDisabled, m_ipcConnection.copyRef())) {
+        if (auto socket = NetworkRTCTCPSocketCocoa::createClientTCPSocket(identifier, *this, remoteAddress.value, options, attributedBundleIdentifierFromPageIdentifier(pageIdentifier), isFirstParty, isRelayDisabled, domain, m_ipcConnection.copyRef())) {
             addSocket(identifier, WTFMove(socket));
             return;
         }

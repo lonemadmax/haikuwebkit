@@ -62,9 +62,11 @@ class PerformanceLoggingClient;
 class PermissionController;
 class PluginInfoProvider;
 class ProgressTrackerClient;
+class ReportingEndpointsCache;
 class SocketProvider;
 class SpeechRecognitionProvider;
 class StorageNamespaceProvider;
+class StorageProvider;
 class UserContentProvider;
 class UserContentURLPattern;
 class ValidationMessageClient;
@@ -75,7 +77,7 @@ class SpeechSynthesisClient;
 class PageConfiguration {
     WTF_MAKE_NONCOPYABLE(PageConfiguration); WTF_MAKE_FAST_ALLOCATED;
 public:
-    WEBCORE_EXPORT PageConfiguration(PAL::SessionID, UniqueRef<EditorClient>&&, Ref<SocketProvider>&&, UniqueRef<LibWebRTCProvider>&&, Ref<CacheStorageProvider>&&, Ref<UserContentProvider>&&, Ref<BackForwardClient>&&, Ref<CookieJar>&&, UniqueRef<ProgressTrackerClient>&&, UniqueRef<FrameLoaderClient>&&, UniqueRef<SpeechRecognitionProvider>&&, UniqueRef<MediaRecorderProvider>&&, Ref<BroadcastChannelRegistry>&&, Ref<PermissionController>&&);
+    WEBCORE_EXPORT PageConfiguration(PAL::SessionID, UniqueRef<EditorClient>&&, Ref<SocketProvider>&&, UniqueRef<LibWebRTCProvider>&&, Ref<CacheStorageProvider>&&, Ref<UserContentProvider>&&, Ref<BackForwardClient>&&, Ref<CookieJar>&&, UniqueRef<ProgressTrackerClient>&&, UniqueRef<FrameLoaderClient>&&, UniqueRef<SpeechRecognitionProvider>&&, UniqueRef<MediaRecorderProvider>&&, Ref<BroadcastChannelRegistry>&&, Ref<PermissionController>&&, UniqueRef<StorageProvider>&&);
     WEBCORE_EXPORT ~PageConfiguration();
     PageConfiguration(PageConfiguration&&);
 
@@ -132,6 +134,7 @@ public:
     Vector<UserContentURLPattern> corsDisablingPatterns;
     UniqueRef<SpeechRecognitionProvider> speechRecognitionProvider;
     UniqueRef<MediaRecorderProvider> mediaRecorderProvider;
+    RefPtr<ReportingEndpointsCache> reportingEndpointsCache;
 
     // FIXME: These should be all be Settings.
     bool loadsSubresources { true };
@@ -141,6 +144,7 @@ public:
     bool httpsUpgradeEnabled { true };
 
     Ref<PermissionController> permissionController;
+    UniqueRef<StorageProvider> storageProvider;
 };
 
 }

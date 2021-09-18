@@ -165,6 +165,8 @@ Modules/mediastream/RTCDtlsTransport.cpp
 Modules/mediastream/RTCEncodedAudioFrame.cpp
 Modules/mediastream/RTCEncodedFrame.cpp
 Modules/mediastream/RTCEncodedVideoFrame.cpp
+Modules/mediastream/RTCError.cpp
+Modules/mediastream/RTCErrorEvent.cpp
 Modules/mediastream/RTCIceCandidate.cpp
 Modules/mediastream/RTCIceTransport.cpp
 Modules/mediastream/RTCPeerConnection.cpp
@@ -179,6 +181,7 @@ Modules/mediastream/RTCRtpScriptTransformer.cpp
 Modules/mediastream/RTCRtpSender.cpp
 Modules/mediastream/RTCRtpTransform.cpp
 Modules/mediastream/RTCRtpTransceiver.cpp
+Modules/mediastream/RTCSctpTransport.cpp
 Modules/mediastream/RTCSessionDescription.cpp
 Modules/mediastream/RTCTrackEvent.cpp
 Modules/mediastream/RTCTransformEvent.cpp
@@ -193,6 +196,7 @@ Modules/mediastream/libwebrtc/LibWebRTCRtpReceiverTransformBackend.cpp
 Modules/mediastream/libwebrtc/LibWebRTCRtpSenderTransformBackend.cpp
 Modules/mediastream/libwebrtc/LibWebRTCRtpTransformBackend.cpp
 Modules/mediastream/libwebrtc/LibWebRTCRtpTransformableFrame.cpp
+Modules/mediastream/libwebrtc/LibWebRTCSctpTransportBackend.cpp
 Modules/model-element/HTMLModelElement.cpp
 Modules/notifications/Notification.cpp
 Modules/notifications/NotificationController.cpp
@@ -228,8 +232,10 @@ Modules/speech/SpeechSynthesis.cpp
 Modules/speech/SpeechSynthesisEvent.cpp
 Modules/speech/SpeechSynthesisUtterance.cpp
 Modules/speech/SpeechSynthesisVoice.cpp
+Modules/storage/StorageManager.cpp
 Modules/streams/ReadableStreamSink.cpp
 Modules/streams/ReadableStreamSource.cpp
+Modules/streams/WritableStream.cpp
 Modules/webaudio/AnalyserNode.cpp
 Modules/webaudio/AsyncAudioDecoder.cpp
 Modules/webaudio/AudioBasicInspectorNode.cpp
@@ -422,6 +428,7 @@ bindings/js/DOMGCOutputConstraint.cpp
 bindings/js/DOMWrapperWorld.cpp
 bindings/js/GCController.cpp
 bindings/js/IDBBindingUtilities.cpp
+bindings/js/InternalWritableStream.cpp
 bindings/js/JSAbortSignalCustom.cpp
 bindings/js/JSAbstractRangeCustom.cpp
 bindings/js/JSAnimationEffectCustom.cpp
@@ -565,7 +572,6 @@ bindings/js/WebCoreJSClientData.cpp
 bindings/js/WebCoreTypedArrayController.cpp
 bindings/js/WorkerModuleScriptLoader.cpp
 bindings/js/WindowProxy.cpp
-bindings/js/WritableStream.cpp
 bridge/IdentifierRep.cpp
 bridge/NP_jsobject.cpp
 bridge/c/CRuntimeObject.cpp
@@ -771,7 +777,9 @@ css/parser/MediaQueryParser.cpp
 css/parser/SizesAttributeParser.cpp
 css/parser/SizesCalcParser.cpp
 css/typedom/StylePropertyMapReadOnly.cpp
+css/typedom/CSSKeywordValue.cpp
 css/typedom/CSSStyleImageValue.cpp
+css/typedom/CSSNumericFactory.cpp
 css/typedom/CSSNumericValue.cpp
 css/typedom/CSSStyleValue.cpp
 css/typedom/CSSUnitValue.cpp
@@ -1309,6 +1317,7 @@ html/canvas/WebGLVertexArrayObjectBase.cpp
 html/canvas/WebGLVertexArrayObjectOES.cpp
 html/forms/FileIconLoader.cpp
 html/parser/CSSPreloadScanner.cpp
+html/parser/HTMLAtomStringCache.cpp
 html/parser/HTMLConstructionSite.cpp
 html/parser/HTMLDocumentParser.cpp
 html/parser/HTMLElementStack.cpp
@@ -1533,6 +1542,7 @@ loader/NetscapePlugInStreamLoader.cpp
 loader/PingLoader.cpp
 loader/PolicyChecker.cpp
 loader/ProgressTracker.cpp
+loader/ReportingEndpointsCache.cpp
 loader/ResourceCryptographicDigest.cpp
 loader/ResourceLoadInfo.cpp
 loader/ResourceLoadNotifier.cpp
@@ -2186,6 +2196,7 @@ rendering/LegacyInlineTextBox.cpp
 rendering/MarkedText.cpp
 rendering/OrderIterator.cpp
 rendering/PointerEventsHitRules.cpp
+rendering/ReferencedSVGResources.cpp
 rendering/RenderAttachment.cpp
 rendering/RenderBlock.cpp
 rendering/RenderBlockFlow.cpp
@@ -2273,6 +2284,7 @@ rendering/ScrollAlignment.cpp
 rendering/SelectionRangeData.cpp
 rendering/StyledMarkedText.cpp
 rendering/TableLayout.cpp
+rendering/TextBoxPainter.cpp
 rendering/TextDecorationPainter.cpp
 rendering/TextPaintStyle.cpp
 rendering/TextPainter.cpp
@@ -3313,6 +3325,9 @@ JSRTCDtlsTransport.cpp
 JSRTCDtlsTransportState.cpp
 JSRTCEncodedAudioFrame.cpp
 JSRTCEncodedVideoFrame.cpp
+JSRTCError.cpp
+JSRTCErrorDetailType.cpp
+JSRTCErrorEvent.cpp
 JSRTCIceCandidate.cpp
 JSRTCIceCandidateInit.cpp
 JSRTCIceCandidateType.cpp
@@ -3351,6 +3366,8 @@ JSRTCRtpSender.cpp
 JSRTCRtpSynchronizationSource.cpp
 JSRTCRtpTransceiver.cpp
 JSRTCRtpTransceiverDirection.cpp
+JSRTCSctpTransport.cpp
+JSRTCSctpTransportState.cpp
 JSRTCSdpType.cpp
 JSRTCSessionDescription.cpp
 JSRTCSessionDescriptionInit.cpp
@@ -3571,6 +3588,7 @@ JSStereoPannerNode.cpp
 JSStereoPannerOptions.cpp
 JSStaticRange.cpp
 JSStorage.cpp
+JSStorageManager.cpp
 JSStorageEvent.cpp
 JSStringCallback.cpp
 JSStructuredSerializeOptions.cpp
@@ -3602,6 +3620,7 @@ JSTransformStream.cpp
 JSTransformStreamDefaultController.cpp
 JSTransitionEvent.cpp
 JSTreeWalker.cpp
+JSCSSKeywordValue.cpp
 JSCSSStyleImageValue.cpp
 JSCSSNumericValue.cpp
 JSCSSOMVariableReferenceValue.cpp

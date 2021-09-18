@@ -2596,12 +2596,9 @@ void Document::willBeRemovedFromFrame()
     if (m_hasPreparedForDestruction)
         return;
 
-#if USE(LIBWEBRTC)
-    // FIXME: This should be moved to Modules/mediastream.
-    if (LibWebRTCProvider::webRTCAvailable()) {
-        if (auto* page = this->page())
-            page->libWebRTCProvider().unregisterMDNSNames(identifier());
-    }
+#if ENABLE(WEB_RTC)
+    if (m_rtcNetworkManager)
+        m_rtcNetworkManager->unregisterMDNSNames();
 #endif
 
 #if ENABLE(SERVICE_WORKER)
@@ -3560,6 +3557,11 @@ IDBClient::IDBConnectionProxy* Document::idbConnectionProxy()
 RefPtr<PermissionController> Document::permissionController()
 {
     return page() ? &page()->permissionController() : nullptr;
+}
+
+StorageConnection* Document::storageConnection()
+{
+    return page() ? &page()->storageConnection() : nullptr;
 }
 
 SocketProvider* Document::socketProvider()
@@ -5618,12 +5620,9 @@ void Document::suspend(ReasonForSuspension reason)
             view->compositor().cancelCompositingLayerUpdate();
     }
 
-#if USE(LIBWEBRTC)
-    // FIXME: This should be moved to Modules/mediastream.
-    if (LibWebRTCProvider::webRTCAvailable()) {
-        if (auto* page = this->page())
-            page->libWebRTCProvider().unregisterMDNSNames(identifier());
-    }
+#if ENABLE(WEB_RTC)
+    if (m_rtcNetworkManager)
+        m_rtcNetworkManager->unregisterMDNSNames();
 #endif
 
 #if ENABLE(SERVICE_WORKER)
@@ -7444,7 +7443,6 @@ Ref<DocumentFragment> Document::documentFragmentForInnerOuterHTML()
 
 Ref<FontFaceSet> Document::fonts()
 {
-    updateStyleIfNeeded(); // FIXME: This is unnecessary. Instead, the actual accessors in the FontFaceSet need to update style.
     return fontSelector().fontFaceSet();
 }
     

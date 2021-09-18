@@ -79,6 +79,7 @@
 #include "WebPreferences.h"
 #include "WebUndoStepID.h"
 #include "WebsitePoliciesData.h"
+#include "WindowKind.h"
 #include <WebCore/ActivityState.h>
 #include <WebCore/AutoplayEvent.h>
 #include <WebCore/Color.h>
@@ -729,6 +730,8 @@ public:
     bool isViewFocused() const { return m_activityState.contains(WebCore::ActivityState::IsFocused); }
     bool isViewWindowActive() const { return m_activityState.contains(WebCore::ActivityState::WindowIsActive); }
 
+    WindowKind windowKind() const { return m_windowKind; };
+
     void addMIMETypeWithCustomContentProvider(const String& mimeType);
 
     void selectAll();
@@ -840,7 +843,6 @@ public:
     void saveImageToLibrary(const SharedMemory::IPCHandle& imageHandle);
     void focusNextFocusedElement(bool isForward, CompletionHandler<void()>&& = [] { });
     void setFocusedElementValue(const WebCore::ElementContext&, const String&);
-    void setFocusedElementValueAsNumber(const WebCore::ElementContext&, double);
     void setFocusedElementSelectedIndex(const WebCore::ElementContext&, uint32_t index, bool allowMultipleSelection = false);
     void applicationDidEnterBackground();
     void applicationDidFinishSnapshottingAfterEnteringBackground();
@@ -1736,7 +1738,7 @@ public:
 
     // Logic shared between the WebPageProxy and the ProvisionalPageProxy.
     void didStartProvisionalLoadForFrameShared(Ref<WebProcessProxy>&&, WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, URL&&, URL&& unreachableURL, const UserData&);
-    void didFailProvisionalLoadForFrameShared(Ref<WebProcessProxy>&&, WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, const String& provisionalURL, const WebCore::ResourceError&, WebCore::WillContinueLoading, const UserData&);
+    void didFailProvisionalLoadForFrameShared(Ref<WebProcessProxy>&&, WebFrameProxy&, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, const String& provisionalURL, const WebCore::ResourceError&, WebCore::WillContinueLoading, const UserData&);
     void didReceiveServerRedirectForProvisionalLoadForFrameShared(Ref<WebProcessProxy>&&, WebCore::FrameIdentifier, uint64_t navigationID, WebCore::ResourceRequest&&, const UserData&);
     void didPerformServerRedirectShared(Ref<WebProcessProxy>&&, const String& sourceURLString, const String& destinationURLString, WebCore::FrameIdentifier);
     void didPerformClientRedirectShared(Ref<WebProcessProxy>&&, const String& sourceURLString, const String& destinationURLString, WebCore::FrameIdentifier);
@@ -1968,9 +1970,6 @@ public:
 #if ENABLE(IMAGE_ANALYSIS) && PLATFORM(MAC)
     WKQuickLookPreviewController *quickLookPreviewController() const { return m_quickLookPreviewController.get(); }
 #endif
-
-    bool needsSiteSpecificViewportQuirks() const { return m_needsSiteSpecificViewportQuirks; }
-    void setNeedsSiteSpecificViewportQuirks(bool value) { m_needsSiteSpecificViewportQuirks = value; }
 
 #if PLATFORM(MAC)
     bool isQuarantinedAndNotUserApproved(const String&);
@@ -3098,7 +3097,7 @@ private:
     RetainPtr<WKQuickLookPreviewController> m_quickLookPreviewController;
 #endif
 
-    bool m_needsSiteSpecificViewportQuirks { true };
+    WindowKind m_windowKind { WindowKind::Unparented };
 };
 
 #ifdef __OBJC__

@@ -36,37 +36,27 @@
 namespace WebCore {
 namespace Layout {
 
-#define ALLOW_ROOT_AND_LINE_SPANNING_INLINE_BOX 0
-
 InlineDisplayContentBuilder::InlineDisplayContentBuilder(const ContainerBox& formattingContextRoot, InlineFormattingState& formattingState)
     : m_formattingContextRoot(formattingContextRoot)
     , m_formattingState(formattingState)
 {
-
 }
 
 void InlineDisplayContentBuilder::build(const LineBuilder::LineContent& lineContent, const LineBox& lineBox, const InlineLayoutPoint& lineBoxLogicalTopLeft, const size_t lineIndex)
 {
     auto& formattingState = this->formattingState();
-#if ALLOW_ROOT_AND_LINE_SPANNING_INLINE_BOX
     // Every line starts with a root run, even the empty ones.
     auto rootInlineBoxRect = lineBox.logicalRectForRootInlineBox();
     rootInlineBoxRect.moveBy(lineBoxLogicalTopLeft);
     formattingState.addRun({ lineIndex, Run::Type::RootInlineBox, root(), rootInlineBoxRect, rootInlineBoxRect, { }, { },  lineBox.rootInlineBox().hasContent()});
-#endif
-    // Spanning inline boxes start at the very beginning of the line.
-    auto lineSpanningInlineBoxIndex = formattingState.runs().size();
+    createRunsAndUpdateGeometryForLineSpanningInlineBoxes(lineBox, lineBoxLogicalTopLeft, lineIndex);
     createRunsAndUpdateGeometryForLineContent(lineContent, lineBox, lineBoxLogicalTopLeft, lineIndex);
-    createRunsAndUpdateGeometryForLineSpanningInlineBoxes(lineBox, lineBoxLogicalTopLeft, lineIndex, lineSpanningInlineBoxIndex);
+    collectInkOverflowForInlineBoxRuns(lineBox);
 }
 
 void InlineDisplayContentBuilder::createRunsAndUpdateGeometryForLineContent(const LineBuilder::LineContent& lineContent, const LineBox& lineBox, const InlineLayoutPoint& lineBoxLogicalTopLeft, const size_t lineIndex)
 {
     auto& formattingState = this->formattingState();
-    // Legacy inline tree integral rounds the vertical position for certain content (see LegacyInlineFlowBox::placeBoxesInBlockDirection and ::addToLine).
-    // See shouldClearDescendantsHaveSameLineHeightAndBaseline in LegacyInlineFlowBox::addToLine.
-    auto lineNeedIntegralPosition = true;
-    auto& rootStyle = root().style();
     // Create the inline runs on the current line. This is mostly text and atomic inline runs.
     for (auto& lineRun : lineContent.runs) {
         auto& layoutBox = lineRun.layoutBox();
@@ -129,8 +119,6 @@ void InlineDisplayContentBuilder::createRunsAndUpdateGeometryForLineContent(cons
             auto& boxGeometry = formattingState.boxGeometry(layoutBox);
             boxGeometry.setLogicalTopLeft(toLayoutPoint(lineBreakBoxRect.topLeft()));
             boxGeometry.setContentBoxHeight(toLayoutUnit(lineBreakBoxRect.height()));
-            if (!formattingState.layoutState().inStandardsMode())
-                lineNeedIntegralPosition = false;
             break;
         }
         case InlineItem::Type::Box: {
@@ -138,13 +126,24 @@ void InlineDisplayContentBuilder::createRunsAndUpdateGeometryForLineContent(cons
             auto& boxGeometry = formattingState.boxGeometry(layoutBox);
             auto logicalBorderBox = lineBox.logicalBorderBoxForAtomicInlineLevelBox(layoutBox, boxGeometry);
             logicalBorderBox.moveBy(lineBoxLogicalTopLeft);
+            // FIXME: Add ink overflow support for atomic inline level boxes (e.g. box shadow).
             formattingState.addRun({ lineIndex, Run::Type::AtomicInlineLevelBox, layoutBox, logicalBorderBox, logicalBorderBox, lineRun.expansion(), { } });
 
             auto borderBoxLogicalTopLeft = logicalBorderBox.topLeft();
             // Note that inline boxes are relative to the line and their top position can be negative.
             // Atomic inline boxes are all set. Their margin/border/content box geometries are already computed. We just have to position them here.
             boxGeometry.setLogicalTopLeft(toLayoutPoint(borderBoxLogicalTopLeft));
-            lineNeedIntegralPosition = false;
+
+            auto adjustParentInlineBoxInkOverflow = [&] {
+                auto& parentInlineBox = layoutBox.parent();
+                if (&parentInlineBox == &root()) {
+                    // We don't collect ink overflow for the root inline box run.
+                    return;
+                }
+                RELEASE_ASSERT(m_inlineBoxRunIndexMap.contains(&parentInlineBox));
+                formattingState.runs()[m_inlineBoxRunIndexMap.get(&parentInlineBox)].adjustInkOverflow(logicalBorderBox);
+            };
+            adjustParentInlineBoxInkOverflow();
             break;
         }
         case InlineItem::Type::InlineBoxStart: {
@@ -154,6 +153,7 @@ void InlineDisplayContentBuilder::createRunsAndUpdateGeometryForLineContent(cons
             inlineBoxBorderBox.moveBy(lineBoxLogicalTopLeft);
             if (lineBox.hasContent()) {
                 // FIXME: It's expected to not have any runs on empty lines. We should reconsider this.
+                m_inlineBoxRunIndexMap.add(&layoutBox, formattingState.runs().size());
                 formattingState.addRun({ lineIndex, Run::Type::NonRootInlineBox, layoutBox, inlineBoxBorderBox, inlineBoxBorderBox, { }, { }, lineBox.inlineLevelBoxForLayoutBox(layoutBox).hasContent() });
             }
 
@@ -164,14 +164,6 @@ void InlineDisplayContentBuilder::createRunsAndUpdateGeometryForLineContent(cons
             boxGeometry.setContentBoxHeight(contentBoxHeight);
             auto contentBoxWidth = logicalRect.width() - (boxGeometry.horizontalBorder() + boxGeometry.horizontalPadding().value_or(0_lu));
             boxGeometry.setContentBoxWidth(contentBoxWidth);
-
-            if (lineNeedIntegralPosition) {
-                auto& inlineBoxStyle = layoutBox.style();
-                auto stylePreventsIntegralSnapping = rootStyle.lineHeight() != inlineBoxStyle.lineHeight() || inlineBoxStyle.verticalAlign() != VerticalAlign::Baseline;
-                auto fontPreventsIntegralSnapping = !rootStyle.fontCascade().fontMetrics().hasIdenticalAscentDescentAndLineGap(inlineBoxStyle.fontCascade().fontMetrics());
-                if (stylePreventsIntegralSnapping || fontPreventsIntegralSnapping)
-                    lineNeedIntegralPosition = false;
-            }
             break;
         }
         default:
@@ -179,11 +171,9 @@ void InlineDisplayContentBuilder::createRunsAndUpdateGeometryForLineContent(cons
             break;
         }
     }
-    // FIXME: This is temporary. Remove when legacy line layout's integral snapping is removed.
-    formattingState.lines().last().setNeedsIntegralPosition(lineNeedIntegralPosition);
 }
 
-void InlineDisplayContentBuilder::createRunsAndUpdateGeometryForLineSpanningInlineBoxes(const LineBox& lineBox, const InlineLayoutPoint& lineBoxLogicalTopLeft, const size_t /*lineIndex*/, size_t /*lineSpanningInlineBoxIndex*/)
+void InlineDisplayContentBuilder::createRunsAndUpdateGeometryForLineSpanningInlineBoxes(const LineBox& lineBox, const InlineLayoutPoint& lineBoxLogicalTopLeft, const size_t lineIndex)
 {
     if (!lineBox.hasContent()) {
         // When a spanning inline box (e.g. <div>text<span><br></span></div>) lands on an empty line
@@ -192,9 +182,7 @@ void InlineDisplayContentBuilder::createRunsAndUpdateGeometryForLineSpanningInli
         return;
     }
 
-    auto& rootStyle = root().style();
     auto& formattingState = this->formattingState();
-    auto lineNeedIntegralPosition = formattingState.lines().last().needsIntegralPosition();
     for (auto& inlineLevelBox : lineBox.nonRootInlineLevelBoxes()) {
         if (!inlineLevelBox.isLineSpanningInlineBox())
             continue;
@@ -204,9 +192,9 @@ void InlineDisplayContentBuilder::createRunsAndUpdateGeometryForLineSpanningInli
         auto inlineBoxBorderBox = lineBox.logicalBorderBoxForInlineBox(layoutBox, boxGeometry);
         inlineBoxBorderBox.moveBy(lineBoxLogicalTopLeft);
 
-#if ALLOW_ROOT_AND_LINE_SPANNING_INLINE_BOX
-        formattingState.runs().insert(lineSpanningInlineBoxIndex++, { lineIndex, Run::Type::NonRootInlineBox, layoutBox, inlineBoxBorderBox, inlineBoxBorderBox, { }, { }, inlineLevelBox.hasContent(), true });
-#endif
+        m_inlineBoxRunIndexMap.add(&layoutBox, formattingState.runs().size());
+        formattingState.addRun({ lineIndex, Run::Type::NonRootInlineBox, layoutBox, inlineBoxBorderBox, inlineBoxBorderBox, { }, { }, inlineLevelBox.hasContent(), true });
+
         auto inlineBoxSize = LayoutSize { LayoutUnit::fromFloatCeil(inlineBoxBorderBox.width()), LayoutUnit::fromFloatCeil(inlineBoxBorderBox.height()) };
         auto logicalRect = Rect { LayoutPoint { inlineBoxBorderBox.topLeft() }, inlineBoxSize };
         // Middle or end of the inline box. Let's stretch the box as needed.
@@ -216,17 +204,32 @@ void InlineDisplayContentBuilder::createRunsAndUpdateGeometryForLineSpanningInli
 
         boxGeometry.setContentBoxHeight(enclosingBorderBoxRect.height() - (boxGeometry.verticalBorder() + boxGeometry.verticalPadding().value_or(0_lu)));
         boxGeometry.setContentBoxWidth(enclosingBorderBoxRect.width() - (boxGeometry.horizontalBorder() + boxGeometry.horizontalPadding().value_or(0_lu)));
-
-        if (lineNeedIntegralPosition) {
-            auto& inlineBoxStyle = layoutBox.style();
-            auto stylePreventsIntegralSnapping = rootStyle.lineHeight() != inlineBoxStyle.lineHeight() || inlineBoxStyle.verticalAlign() != VerticalAlign::Baseline;
-            auto fontPreventsIntegralSnapping = !rootStyle.fontCascade().fontMetrics().hasIdenticalAscentDescentAndLineGap(inlineBoxStyle.fontCascade().fontMetrics());
-            if (stylePreventsIntegralSnapping || fontPreventsIntegralSnapping)
-                lineNeedIntegralPosition = false;
-        }
     }
-    // FIXME: This is temporary. Remove when legacy line layout's integral snapping is removed.
-    formattingState.lines().last().setNeedsIntegralPosition(lineNeedIntegralPosition);
+}
+
+void InlineDisplayContentBuilder::collectInkOverflowForInlineBoxRuns(const LineBox& lineBox)
+{
+    if (m_inlineBoxRunIndexMap.isEmpty() || !lineBox.hasContent()) {
+        // This line has no inline box (only root, but we don't collect ink overflow for the root inline box atm)
+        return;
+    }
+
+    auto& formattingState = this->formattingState();
+    auto& nonRootInlineLevelBoxes = lineBox.nonRootInlineLevelBoxes();
+    // Visit the inline boxes and propagate ink overflow to their parents -except to the root inline box.
+    // (e.g. <span style="font-size: 10px;">Small font size<span style="font-size: 300px;">Larger font size. This overflows the top most span.</span></span>).
+    for (size_t index = nonRootInlineLevelBoxes.size(); index--;) {
+        if (!nonRootInlineLevelBoxes[index].isInlineBox())
+            continue;
+        auto& inlineBox = nonRootInlineLevelBoxes[index].layoutBox();
+        auto& parentInlineBox = inlineBox.parent();
+        if (&parentInlineBox == &root())
+            continue;
+        RELEASE_ASSERT(m_inlineBoxRunIndexMap.contains(&inlineBox) && m_inlineBoxRunIndexMap.contains(&parentInlineBox));
+        auto& inkOverflow = formattingState.runs()[m_inlineBoxRunIndexMap.get(&inlineBox)].inkOverflow();
+        auto& parentInlineBoxRun = formattingState.runs()[m_inlineBoxRunIndexMap.get(&parentInlineBox)];
+        parentInlineBoxRun.adjustInkOverflow(inkOverflow);
+    }
 }
 
 }

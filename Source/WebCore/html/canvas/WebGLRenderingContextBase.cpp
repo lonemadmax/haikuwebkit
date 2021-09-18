@@ -1905,16 +1905,15 @@ void WebGLRenderingContextBase::compressedTexImage2D(GCGLenum target, GCGLint le
 #if USE(ANGLE)
     if (!validateTexture2DBinding("compressedTexImage2D", target))
         return;
+    if (!validateCompressedTexFormat("compressedTexImage2D", internalformat))
+        return;
     m_context->compressedTexImage2D(target, level, internalformat, width, height,
         border, data.byteLength(), makeGCGLSpan(data.baseAddress(), data.byteLength()));
 #else
     if (!validateTexFuncLevel("compressedTexImage2D", target, level))
         return;
-
-    if (!validateCompressedTexFormat(internalformat)) {
-        synthesizeGLError(GraphicsContextGL::INVALID_ENUM, "compressedTexImage2D", "invalid internalformat");
+    if (!validateCompressedTexFormat("compressedTexImage2D", internalformat))
         return;
-    }
     if (border) {
         synthesizeGLError(GraphicsContextGL::INVALID_VALUE, "compressedTexImage2D", "border not 0");
         return;
@@ -1950,14 +1949,14 @@ void WebGLRenderingContextBase::compressedTexSubImage2D(GCGLenum target, GCGLint
 #if USE(ANGLE)
     if (!validateTexture2DBinding("compressedTexSubImage2D", target))
         return;
+    if (!validateCompressedTexFormat("compressedTexSubImage2D", format))
+        return;
     m_context->compressedTexSubImage2D(target, level, xoffset, yoffset, width, height, format, data.byteLength(), GCGLSpan<const GCGLvoid>(data.baseAddress(), data.byteLength()));
 #else
     if (!validateTexFuncLevel("compressedTexSubImage2D", target, level))
         return;
-    if (!validateCompressedTexFormat(format)) {
-        synthesizeGLError(GraphicsContextGL::INVALID_ENUM, "compressedTexSubImage2D", "invalid format");
+    if (!validateCompressedTexFormat("compressedTexSubImage2D", format))
         return;
-    }
     if (!validateCompressedTexFuncData("compressedTexSubImage2D", width, height, format, data))
         return;
 
@@ -2338,10 +2337,7 @@ void WebGLRenderingContextBase::disableVertexAttribArray(GCGLuint index)
         synthesizeGLError(GraphicsContextGL::INVALID_VALUE, "disableVertexAttribArray", "index out of range");
         return;
     }
-
-    WebGLVertexArrayObjectBase::VertexAttribState& state = m_boundVertexArrayObject->getVertexAttribState(index);
-    state.enabled = false;
-
+    m_boundVertexArrayObject->setVertexAttribEnabled(index, false);
 #if !USE(ANGLE)
     if (index > 0 || isGLES2Compliant())
 #endif
@@ -2359,6 +2355,15 @@ bool WebGLRenderingContextBase::validateNPOTTextureLevel(GCGLsizei width, GCGLsi
     return true;
 }
 #endif
+
+bool WebGLRenderingContextBase::validateVertexArrayObject(const char* functionName)
+{
+    if (!m_boundVertexArrayObject->areAllEnabledAttribBuffersBound()) {
+        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, functionName, "no buffer is bound to enabled attribute");
+        return false;
+    }
+    return true;
+}
 
 bool WebGLRenderingContextBase::validateElementArraySize(GCGLsizei count, GCGLenum type, GCGLintptr offset)
 {
@@ -2701,6 +2706,8 @@ void WebGLRenderingContextBase::drawArrays(GCGLenum mode, GCGLint first, GCGLsiz
     if (!validateDrawArrays("drawArrays", mode, first, count, 0))
         return;
 #endif
+    if (!validateVertexArrayObject("drawArrays"))
+        return;
 
     if (m_currentProgram && InspectorInstrumentation::isWebGLProgramDisabled(*this, *m_currentProgram))
         return;
@@ -2764,6 +2771,8 @@ void WebGLRenderingContextBase::drawElements(GCGLenum mode, GCGLsizei count, GCG
     if (!validateDrawElements("drawElements", mode, count, type, offset, numElements, 0))
         return;
 #endif
+    if (!validateVertexArrayObject("drawElements"))
+        return;
 
     if (m_currentProgram && InspectorInstrumentation::isWebGLProgramDisabled(*this, *m_currentProgram))
         return;
@@ -2832,10 +2841,7 @@ void WebGLRenderingContextBase::enableVertexAttribArray(GCGLuint index)
         synthesizeGLError(GraphicsContextGL::INVALID_VALUE, "enableVertexAttribArray", "index out of range");
         return;
     }
-
-    WebGLVertexArrayObjectBase::VertexAttribState& state = m_boundVertexArrayObject->getVertexAttribState(index);
-    state.enabled = true;
-
+    m_boundVertexArrayObject->setVertexAttribEnabled(index, true);
     m_context->enableVertexAttribArray(index);
 }
 
@@ -6335,7 +6341,6 @@ void WebGLRenderingContextBase::vertexAttribPointer(GCGLuint index, GCGLint size
         return;
     }
     GCGLsizei bytesPerElement = size * typeSize;
-
     m_boundVertexArrayObject->setVertexAttribState(locker, index, bytesPerElement, size, type, normalized, stride, static_cast<GCGLintptr>(offset), false, m_boundArrayBuffer.get());
     m_context->vertexAttribPointer(index, size, type, normalized, stride, static_cast<GCGLintptr>(offset));
 }
@@ -6835,11 +6840,16 @@ GCGLint WebGLRenderingContextBase::maxTextureLevelForTarget(GCGLenum target)
     return 0;
 }
 
-#if !USE(ANGLE)
-bool WebGLRenderingContextBase::validateCompressedTexFormat(GCGLenum format)
+bool WebGLRenderingContextBase::validateCompressedTexFormat(const char* functionName, GCGLenum format)
 {
-    return m_compressedTextureFormats.contains(format);
+    if (!m_compressedTextureFormats.contains(format)) {
+        synthesizeGLError(GraphicsContextGL::INVALID_ENUM, functionName, "invalid format");
+        return false;
+    }
+    return true;
 }
+
+#if !USE(ANGLE)
 
 struct BlockParameters {
     const int width;
@@ -7533,13 +7543,10 @@ void WebGLRenderingContextBase::vertexAttribfvImpl(const char* functionName, GCG
 #if !USE(ANGLE)
 void WebGLRenderingContextBase::initVertexAttrib0()
 {
-    WebGLVertexArrayObjectBase::VertexAttribState& state = m_boundVertexArrayObject->getVertexAttribState(0);
-    
     m_vertexAttrib0Buffer = createBuffer();
     m_context->bindBuffer(GraphicsContextGL::ARRAY_BUFFER, m_vertexAttrib0Buffer->object());
     m_context->bufferData(GraphicsContextGL::ARRAY_BUFFER, 0, GraphicsContextGL::DYNAMIC_DRAW);
     m_context->vertexAttribPointer(0, 4, GraphicsContextGL::FLOAT, false, 0, 0);
-    state.bufferBinding = m_vertexAttrib0Buffer;
     m_context->bindBuffer(GraphicsContextGL::ARRAY_BUFFER, 0);
     m_context->enableVertexAttribArray(0);
     m_vertexAttrib0BufferSize = 0;
@@ -7932,6 +7939,8 @@ void WebGLRenderingContextBase::drawArraysInstanced(GCGLenum mode, GCGLint first
     if (!validateDrawArrays("drawArraysInstanced", mode, first, count, primcount))
         return;
 #endif // !USE(ANGLE)
+    if (!validateVertexArrayObject("drawArraysInstanced"))
+        return;
 
     clearIfComposited(ClearCallerDrawOrClear);
 
@@ -7971,6 +7980,8 @@ void WebGLRenderingContextBase::drawElementsInstanced(GCGLenum mode, GCGLsizei c
     if (!validateDrawElements("drawElementsInstanced", mode, count, type, offset, numElements, primcount))
         return;
 #endif // !USE(ANGLE)
+    if (!validateVertexArrayObject("drawElementsInstanced"))
+        return;
 
     clearIfComposited(ClearCallerDrawOrClear);
 

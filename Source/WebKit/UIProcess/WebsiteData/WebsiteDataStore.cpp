@@ -271,6 +271,8 @@ void WebsiteDataStore::resolveDirectoriesIfNecessary()
         m_resolvedConfiguration->setCacheStorageDirectory(resolvePathForSandboxExtension(m_configuration->cacheStorageDirectory()));
     if (!m_configuration->hstsStorageDirectory().isEmpty() && m_resolvedConfiguration->hstsStorageDirectory().isEmpty())
         m_resolvedConfiguration->setHSTSStorageDirectory(resolvePathForSandboxExtension(m_configuration->hstsStorageDirectory()));
+    if (!m_configuration->generalStorageDirectory().isEmpty())
+        m_resolvedConfiguration->setGeneralStorageDirectory(resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration->generalStorageDirectory()));
 #if HAVE(ARKIT_INLINE_PREVIEW)
     if (!m_configuration->modelElementCacheDirectory().isEmpty())
         m_resolvedConfiguration->setModelElementCacheDirectory(resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration->modelElementCacheDirectory()));
@@ -1589,6 +1591,11 @@ void WebsiteDataStore::setResourceLoadStatisticsThirdPartyCNAMEDomainForTesting(
 }
 #endif // ENABLE(RESOURCE_LOAD_STATISTICS)
 
+void WebsiteDataStore::setCachedProcessSuspensionDelayForTesting(Seconds delay)
+{
+    WebProcessCache::setCachedProcessSuspensionDelayForTesting(delay);
+}
+
 void WebsiteDataStore::syncLocalStorage(CompletionHandler<void()>&& completionHandler)
 {
     networkProcess().sendWithAsyncReply(Messages::NetworkProcess::SyncLocalStorage(), WTFMove(completionHandler));
@@ -1665,9 +1672,14 @@ static String computeMediaKeyFile(const String& mediaKeyDirectory)
     return FileSystem::pathByAppendingComponent(mediaKeyDirectory, "SecureStop.plist");
 }
 
-void WebsiteDataStore::allowSpecificHTTPSCertificateForHost(const WebCertificateInfo* certificate, const String& host)
+void WebsiteDataStore::allowSpecificHTTPSCertificateForHost(const WebCore::CertificateInfo& certificate, const String& host)
 {
-    networkProcess().send(Messages::NetworkProcess::AllowSpecificHTTPSCertificateForHost(certificate->certificateInfo(), host), 0);
+    networkProcess().send(Messages::NetworkProcess::AllowSpecificHTTPSCertificateForHost(certificate, host), 0);
+}
+
+void WebsiteDataStore::allowTLSCertificateChainForLocalPCMTesting(const WebCore::CertificateInfo& certificate)
+{
+    networkProcess().send(Messages::NetworkProcess::AllowTLSCertificateChainForLocalPCMTesting(sessionID(), certificate), 0);
 }
 
 Vector<WebCore::SecurityOriginData> WebsiteDataStore::mediaKeyOrigins(const String& mediaKeysStorageDirectory)
@@ -1741,7 +1753,8 @@ void WebsiteDataStore::getNetworkProcessConnection(WebProcessProxy& webProcessPr
                     networkProcessIdentifier = networkProcessProxy->processIdentifier();
                     networkProcessState = networkProcessProxy->stateString();
                 }
-                RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("WebsiteDataStore::getNetworkProcessConnection: Failed to get connection - networkProcessProxy=%p, networkProcessIdentifier=%d, processState=%s, webProcessProxy=%p, webProcessIdentifier=%d", networkProcessProxy.get(), networkProcessIdentifier, networkProcessState.utf8().data(), webProcessProxy.get(), webProcessProxy->processIdentifier());
+                RELEASE_LOG_ERROR(Process, "WebsiteDataStore::getNetworkProcessConnection: Failed to get connection - networkProcessProxy=%p, networkProcessIdentifier=%d, processState=%s, webProcessProxy=%p, webProcessIdentifier=%d", networkProcessProxy.get(), networkProcessIdentifier, networkProcessState.utf8().data(), webProcessProxy.get(), webProcessProxy->processIdentifier());
+                RELEASE_ASSERT_NOT_REACHED();
 #endif
             };
 
@@ -2082,6 +2095,12 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
             parameters.cacheStorageDirectoryExtensionHandle = WTFMove(*handle);
     }
 
+    if (auto directory = generalStorageDirectory(); !directory.isEmpty()) {
+        parameters.generalStorageDirectory = directory;
+        if (auto handle = SandboxExtension::createHandleForReadWriteDirectory(directory))
+            parameters.generalStorageDirectoryHandle = WTFMove(*handle);
+    }
+
     parameters.perOriginStorageQuota = perOriginStorageQuota();
     parameters.perThirdPartyOriginStorageQuota = perThirdPartyOriginStorageQuota();
 
@@ -2141,23 +2160,28 @@ void WebsiteDataStore::resetQuota(CompletionHandler<void()>&& completionHandler)
     networkProcess().resetQuota(m_sessionID, [callbackAggregator] { });
 }
 
+void WebsiteDataStore::clearStorage(CompletionHandler<void()>&& completionHandler)
+{
+    networkProcess().clearStorage(m_sessionID, WTFMove(completionHandler));
+}
+
 #if !PLATFORM(COCOA)
-WTF::String WebsiteDataStore::defaultMediaCacheDirectory()
+String WebsiteDataStore::defaultMediaCacheDirectory()
 {
     // FIXME: Implement. https://bugs.webkit.org/show_bug.cgi?id=156369 and https://bugs.webkit.org/show_bug.cgi?id=156370
-    return WTF::String();
+    return String();
 }
 
-WTF::String WebsiteDataStore::defaultAlternativeServicesDirectory()
+String WebsiteDataStore::defaultAlternativeServicesDirectory()
 {
     // FIXME: Implement.
-    return WTF::String();
+    return String();
 }
 
-WTF::String WebsiteDataStore::defaultJavaScriptConfigurationDirectory()
+String WebsiteDataStore::defaultJavaScriptConfigurationDirectory()
 {
     // FIXME: Implement.
-    return WTF::String();
+    return String();
 }
 
 bool WebsiteDataStore::http3Enabled()
@@ -2172,10 +2196,10 @@ bool WebsiteDataStore::networkProcessHasEntitlementForTesting(const String&)
 #endif // !PLATFORM(COCOA)
 
 #if !USE(GLIB) && !PLATFORM(COCOA)
-WTF::String WebsiteDataStore::defaultDeviceIdHashSaltsStorageDirectory()
+String WebsiteDataStore::defaultDeviceIdHashSaltsStorageDirectory()
 {
     // Not implemented.
-    return WTF::String();
+    return String();
 }
 #endif
 

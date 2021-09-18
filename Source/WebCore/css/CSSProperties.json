@@ -149,7 +149,13 @@
         "as seen when one is seen. This could enforce the 'last-one-wins' rule.",
         "",
         "* aliases:",
-        "An array of the alternative names for this property.",
+        "An array of the alternative names for this property. Aliases are folded at",
+        "parse time and don't have their own CSSPropertyID.",
+        "",
+        "* synonym:",
+        "An alternative name for this property that gets its own CSSPropertyID.",
+        "This allows parsing code to handle differences in allowed values.",
+        "Style builder code is shared with the original property.",
         "",
         "* enable-if:",
         "Indicates that code should only be generated for this property/value if the",
@@ -6327,6 +6333,16 @@
                 "url": "https://www.w3.org/TR/css-masking-1/#propdef-mask-image"
             }
         },
+        "-webkit-mask-mode": {
+            "codegen-properties": {
+                "name-for-methods": "MaskMode",
+                "fill-layer-property": true
+            },
+            "specification": {
+                "category": "css-masking",
+                "url": "https://www.w3.org/TR/css-masking-1/#propdef-mask-mode"
+            }
+        },
         "-webkit-mask-origin": {
             "codegen-properties": {
                 "name-for-methods": "Origin",
@@ -6425,8 +6441,8 @@
         },
         "-webkit-mask-source-type": {
             "codegen-properties": {
-                "name-for-methods": "MaskSourceType",
-                "fill-layer-property": true
+                "synonym": "-webkit-mask-mode",
+                "comment": "Deprecated alias for mask-mode, supports an 'auto' value, does not support 'match-source'"
             },
             "status": "non-standard"
 ,
@@ -6679,9 +6695,6 @@
                     "-webkit-text-decoration-line"
                 ]
             },
-            "status": {
-                "status": "experimental"
-            },
             "specification": {
                 "category": "css-text-decor",
                 "url": "https://www.w3.org/TR/css-text-decor-3/#text-decoration-line"
@@ -6700,9 +6713,6 @@
                 "dashed",
                 "wavy"
             ],
-            "status": {
-                "status": "experimental"
-            },
             "specification": {
                 "category": "css-text-decor",
                 "url": "https://www.w3.org/TR/css-text-decor-3/#text-decoration-style"
@@ -6717,9 +6727,6 @@
                 "visited-link-color-support": true,
                 "color-property": true
             },
-            "status": {
-                "status": "experimental"
-            },
             "specification": {
                 "category": "css-text-decor",
                 "url": "https://www.w3.org/TR/css-text-decor-3/#text-decoration-color"
@@ -6733,9 +6740,6 @@
                     "-webkit-text-decoration-skip"
                 ]
             },
-            "status": {
-                "status": "experimental"
-            },
             "specification": {
                 "category": "css-text-decor",
                 "url": "https://www.w3.org/TR/css-text-decor-3/#text-decoration-skip"
@@ -6748,9 +6752,6 @@
                 ]
             },
             "inherited": true,
-            "status": {
-                "status": "experimental"
-            },
             "specification": {
                 "category": "css-text-decor",
                 "url": "https://www.w3.org/TR/css-text-decor-3/#text-underline-position-property"
@@ -6761,9 +6762,6 @@
             "codegen-properties": {
                 "converter": "TextUnderlineOffset"
             },
-            "status": {
-                "status": "experimental"
-            },
             "specification": {
                 "category": "css-text-decor",
                 "url": "https://www.w3.org/TR/css-text-decor-4/#underline-offset"
@@ -6773,9 +6771,6 @@
             "inherited": true,
             "codegen-properties": {
                 "converter": "TextDecorationThickness"
-            },
-            "status": {
-                "status": "experimental"
             },
             "specification": {
                 "category": "css-text-decor",

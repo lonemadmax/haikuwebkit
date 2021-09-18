@@ -49,6 +49,7 @@
 #include "PageIdentifier.h"
 #include "PlatformEvent.h"
 #include "PlaybackTargetClientContextIdentifier.h"
+#include "RTCNetworkManager.h"
 #include "ReferrerPolicy.h"
 #include "Region.h"
 #include "RegistrableDomain.h"
@@ -705,8 +706,14 @@ public:
 
     IDBClient::IDBConnectionProxy* idbConnectionProxy() final;
     RefPtr<PermissionController> permissionController() final;
+    StorageConnection* storageConnection() final;
     SocketProvider* socketProvider() final;
     RefPtr<RTCDataChannelRemoteHandlerConnection> createRTCDataChannelRemoteHandlerConnection() final;
+
+#if ENABLE(WEB_RTC)
+    RTCNetworkManager* rtcNetworkManager() { return m_rtcNetworkManager.get(); }
+    void setRTCNetworkManager(Ref<RTCNetworkManager>&& rtcNetworkManager) { m_rtcNetworkManager = WTFMove(rtcNetworkManager); }
+#endif
 
     bool canNavigate(Frame* targetFrame, const URL& destinationURL = URL());
 
@@ -2221,6 +2228,10 @@ private:
 
     ListHashSet<Ref<Element>> m_topLayerElements;
     UniqueRef<WhitespaceCache> m_whitespaceCache;
+
+#if ENABLE(WEB_RTC)
+    RefPtr<RTCNetworkManager> m_rtcNetworkManager;
+#endif
 };
 
 Element* eventTargetElementForDocument(Document*);

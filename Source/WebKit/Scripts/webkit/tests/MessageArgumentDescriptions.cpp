@@ -25,12 +25,19 @@
 #include "config.h"
 #include "MessageArgumentDescriptions.h"
 
-#if ENABLE(IPC_TESTING_API)
+#if ENABLE(IPC_TESTING_API) || !LOG_DISABLED
 
+#include "JSIPCBinding.h"
 #include "ArgumentCoders.h"
-#if USE(AVFOUNDATION)
-#include "ArgumentCodersCF.h"
+#include "TestClassName.h"
+#if ENABLE(TEST_FEATURE)
+#include "TestTwoStateEnum.h"
 #endif
+#include "TestWithSuperclassMessages.h"
+#include <optional>
+#include <wtf/text/WTFString.h>
+#if (ENABLE(WEBKIT2) && (NESTED_MASTER_CONDITION || MASTER_OR && MASTER_AND))
+#include "ArgumentCoders.h"
 #include "Connection.h"
 #if ENABLE(DEPRECATED_FEATURE) || ENABLE(EXPERIMENTAL_FEATURE)
 #include "DummyType.h"
@@ -38,25 +45,42 @@
 #if PLATFORM(MAC)
 #include "GestureTypes.h"
 #endif
-#include "IPCSemaphore.h"
-#include "JSIPCBinding.h"
 #if PLATFORM(MAC)
 #include "MachPort.h"
 #endif
 #include "Plugin.h"
-#include "StreamConnectionBuffer.h"
-#include "TestClassName.h"
-#if ENABLE(TEST_FEATURE)
-#include "TestTwoStateEnum.h"
-#endif
-#include "TestWithCVPixelBufferMessages.h"
-#include "TestWithIfMessageMessages.h"
-#include "TestWithImageDataMessages.h"
 #include "TestWithLegacyReceiverMessages.h"
-#include "TestWithSemaphoreMessages.h"
-#include "TestWithStreamBufferMessages.h"
-#include "TestWithStreamMessages.h"
-#include "TestWithSuperclassMessages.h"
+#include "WebCoreArgumentCoders.h"
+#include "WebPreferencesStore.h"
+#if (ENABLE(TOUCH_EVENTS) && (NESTED_MESSAGE_CONDITION && SOME_OTHER_MESSAGE_CONDITION)) || (ENABLE(TOUCH_EVENTS) && (NESTED_MESSAGE_CONDITION || SOME_OTHER_MESSAGE_CONDITION))
+#include "WebTouchEvent.h"
+#endif
+#include <WebCore/GraphicsLayer.h>
+#if PLATFORM(MAC)
+#include <WebCore/KeyboardEvent.h>
+#endif
+#include <WebCore/PluginData.h>
+#include <utility>
+#include <wtf/HashMap.h>
+#if PLATFORM(MAC)
+#include <wtf/OptionSet.h>
+#endif
+#include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
+#endif
+#if (ENABLE(WEBKIT2) && (NESTED_MASTER_CONDITION || MASTER_OR && MASTER_AND))
+#include "ArgumentCoders.h"
+#include "Connection.h"
+#if ENABLE(DEPRECATED_FEATURE) || ENABLE(EXPERIMENTAL_FEATURE)
+#include "DummyType.h"
+#endif
+#if PLATFORM(MAC)
+#include "GestureTypes.h"
+#endif
+#if PLATFORM(MAC)
+#include "MachPort.h"
+#endif
+#include "Plugin.h"
 #include "TestWithoutAttributesMessages.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebPreferencesStore.h"
@@ -64,28 +88,51 @@
 #include "WebTouchEvent.h"
 #endif
 #include <WebCore/GraphicsLayer.h>
-#include <WebCore/ImageData.h>
 #if PLATFORM(MAC)
 #include <WebCore/KeyboardEvent.h>
 #endif
 #include <WebCore/PluginData.h>
-#include <optional>
 #include <utility>
 #include <wtf/HashMap.h>
-#if PLATFORM(COCOA)
-#include <wtf/MachSendRight.h>
-#endif
 #if PLATFORM(MAC)
 #include <wtf/OptionSet.h>
 #endif
+#include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
+#endif
+#if PLATFORM(COCOA) || PLATFORM(GTK)
+#include "ArgumentCoders.h"
+#endif
+#include "TestWithIfMessageMessages.h"
+#if PLATFORM(COCOA) || PLATFORM(GTK)
+#include <wtf/text/WTFString.h>
+#endif
+#include "IPCSemaphore.h"
+#include "TestWithSemaphoreMessages.h"
+#include "ArgumentCoders.h"
+#include "TestWithImageDataMessages.h"
+#include "WebCoreArgumentCoders.h"
+#include <WebCore/ImageData.h>
 #include <wtf/RefCounted.h>
+#include "ArgumentCoders.h"
+#include "TestWithStreamMessages.h"
+#if PLATFORM(COCOA)
+#include <wtf/MachSendRight.h>
+#endif
+#include <wtf/text/WTFString.h>
+#include "StreamConnectionBuffer.h"
+#include "TestWithStreamBufferMessages.h"
+#if USE(AVFOUNDATION)
+#include "ArgumentCodersCF.h"
+#endif
+#include "TestWithCVPixelBufferMessages.h"
 #if USE(AVFOUNDATION)
 #include <wtf/RetainPtr.h>
 #endif
-#include <wtf/Vector.h>
-#include <wtf/text/WTFString.h>
 
 namespace IPC {
+
+#if ENABLE(IPC_TESTING_API)
 
 std::optional<JSC::JSValue> jsValueForArguments(JSC::JSGlobalObject* globalObject, MessageName name, Decoder& decoder)
 {
@@ -302,6 +349,8 @@ std::optional<JSC::JSValue> jsValueForReplyArguments(JSC::JSGlobalObject* global
     }
     return std::nullopt;
 }
+
+#endif // ENABLE(IPC_TESTING_API)
 
 std::optional<Vector<ArgumentDescription>> messageArgumentDescriptions(MessageName name)
 {
@@ -665,4 +714,4 @@ std::optional<Vector<ArgumentDescription>> messageReplyArgumentDescriptions(Mess
 
 } // namespace WebKit
 
-#endif
+#endif // ENABLE(IPC_TESTING_API) || !LOG_DISABLED

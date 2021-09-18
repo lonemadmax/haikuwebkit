@@ -27,7 +27,8 @@ skip:
     - test/built-ins/Temporal/PlainDate
     - test/built-ins/Temporal/PlainDateTime
     - test/built-ins/Temporal/PlainMonthDay
-    - test/built-ins/Temporal/PlainTime
+    - test/built-ins/Temporal/PlainTime/prototype/toPlainDateTime
+    - test/built-ins/Temporal/PlainTime/prototype/toZonedDateTime
     - test/built-ins/Temporal/PlainYearMonth
     - test/built-ins/Temporal/TimeZone
     - test/built-ins/Temporal/ZonedDateTime
@@ -70,6 +71,9 @@ skip:
     - test/intl402/Locale/constructor-apply-options-canonicalizes-twice.js
     - test/intl402/Locale/constructor-non-iana-canon.js
     - test/intl402/Locale/likely-subtags.js
+
+    # The spec is changed, but the test is not updated yet. https://github.com/tc39/proposal-intl-locale-info/pull/44
+    - test/intl402/Locale/prototype/weekInfo/output-object-keys.js
 
     # Pass only in ICU 68~
     - test/intl402/Locale/constructor-options-region-valid.js

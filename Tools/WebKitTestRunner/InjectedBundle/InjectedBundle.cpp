@@ -192,9 +192,6 @@ void InjectedBundle::didReceiveMessageToPage(WKBundlePageRef page, WKStringRef m
     if (WKStringIsEqualToUTF8CString(messageName, "BeginTest")) {
         ASSERT(messageBody);
         auto messageBodyDictionary = dictionaryValue(messageBody);
-        m_dumpPixels = booleanValue(messageBodyDictionary, "DumpPixels");
-        m_timeout = Seconds::fromMilliseconds(uint64Value(messageBodyDictionary, "Timeout"));
-        m_dumpJSConsoleLogInStdErr = booleanValue(messageBodyDictionary, "DumpJSConsoleLogInStdErr");
         WKBundlePagePostMessage(page, toWK("Ack").get(), toWK("BeginTest").get());
         beginTesting(messageBodyDictionary, BegingTestingMode::New);
         return;
@@ -491,6 +488,10 @@ void InjectedBundle::beginTesting(WKDictionaryRef settings, BegingTestingMode te
 {
     m_state = Testing;
 
+    m_dumpPixels = booleanValue(settings, "DumpPixels");
+    m_timeout = Seconds::fromMilliseconds(uint64Value(settings, "Timeout"));
+    m_dumpJSConsoleLogInStdErr = booleanValue(settings, "DumpJSConsoleLogInStdErr");
+
     m_pixelResult.clear();
     m_repaintRects.clear();
 
@@ -515,7 +516,6 @@ void InjectedBundle::beginTesting(WKDictionaryRef settings, BegingTestingMode te
 
     m_testRunner->setUserStyleSheetEnabled(false);
 
-    m_testRunner->setCloseRemainingWindowsWhenComplete(false);
     m_testRunner->setAcceptsEditing(true);
     m_testRunner->setTabKeyCyclesThroughElements(true);
     m_testRunner->clearTestRunnerCallbacks();
@@ -561,19 +561,7 @@ void InjectedBundle::done()
 
     WKBundlePagePostMessageIgnoringFullySynchronousMode(page()->page(), toWK("Done").get(), body.get());
 
-    closeOtherPages();
-
     m_state = Idle;
-}
-
-void InjectedBundle::closeOtherPages()
-{
-    Vector<WKBundlePageRef> pagesToClose;
-    size_t size = m_pages.size();
-    for (size_t i = 1; i < size; ++i)
-        pagesToClose.append(m_pages[i]->page());
-    for (auto& page : pagesToClose)
-        WKBundlePageClose(page);
 }
 
 void InjectedBundle::dumpBackForwardListsForAllPages(StringBuilder& stringBuilder)

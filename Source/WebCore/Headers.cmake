@@ -115,10 +115,15 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/mediastream/RTCDataChannel.h
     Modules/mediastream/RTCDataChannelRemoteHandler.h
     Modules/mediastream/RTCDataChannelRemoteSource.h
+    Modules/mediastream/RTCError.h
+    Modules/mediastream/RTCErrorDetailType.h
+    Modules/mediastream/RTCNetworkManager.h
     Modules/mediastream/STUNMessageParsing.h
     Modules/mediastream/UserMediaClient.h
     Modules/mediastream/UserMediaController.h
     Modules/mediastream/UserMediaRequest.h
+
+    Modules/mediastream/libwebrtc/LibWebRTCUtils.h
 
     Modules/model-element/HTMLModelElement.h
 
@@ -149,6 +154,11 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/speech/SpeechRecognitionResultData.h
     Modules/speech/SpeechRecognitionUpdate.h
     Modules/speech/SpeechRecognizer.h
+
+    Modules/storage/DummyStorageProvider.h
+    Modules/storage/StorageConnection.h
+    Modules/storage/StorageManager.h
+    Modules/storage/StorageProvider.h
 
     Modules/streams/ReadableStreamSink.h
     Modules/streams/ReadableStreamSource.h
@@ -821,6 +831,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     loader/PrivateClickMeasurement.h
     loader/ProgressTracker.h
     loader/ProgressTrackerClient.h
+    loader/ReportingEndpointsCache.h
     loader/ResourceCryptographicDigest.h
     loader/ResourceLoadInfo.h
     loader/ResourceLoadNotifier.h
@@ -1414,6 +1425,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/mediastream/CaptureDevice.h
     platform/mediastream/CaptureDeviceManager.h
+    platform/mediastream/MDNSRegisterError.h
     platform/mediastream/MediaConstraints.h
     platform/mediastream/MediaStreamPrivate.h
     platform/mediastream/MediaStreamRequest.h

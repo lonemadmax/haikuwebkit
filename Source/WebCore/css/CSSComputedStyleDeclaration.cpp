@@ -301,6 +301,27 @@ static Ref<CSSValueList> createPositionListForLayer(CSSPropertyID propertyID, co
     return list;
 }
 
+static Ref<CSSValue> createSingleAxisPositionValueForLayer(CSSPropertyID propertyID, const FillLayer& layer, const RenderStyle& style)
+{
+    if (propertyID == CSSPropertyBackgroundPositionX || propertyID == CSSPropertyWebkitMaskPositionX) {
+        if (!layer.isBackgroundXOriginSet() || layer.backgroundXOrigin() == Edge::Left)
+            return zoomAdjustedPixelValueForLength(layer.xPosition(), style);
+
+        auto list = CSSValueList::createSpaceSeparated();
+        list->append(CSSValuePool::singleton().createValue(layer.backgroundXOrigin()));
+        list->append(zoomAdjustedPixelValueForLength(layer.xPosition(), style));
+        return list;
+    }
+
+    if (!layer.isBackgroundYOriginSet() || layer.backgroundYOrigin() == Edge::Top)
+        return zoomAdjustedPixelValueForLength(layer.yPosition(), style);
+
+    auto list = CSSValueList::createSpaceSeparated();
+    list->append(CSSValuePool::singleton().createValue(layer.backgroundYOrigin()));
+    list->append(zoomAdjustedPixelValueForLength(layer.yPosition(), style));
+    return list;
+}
+
 static Length getOffsetComputedLength(const RenderStyle& style, CSSPropertyID propertyID)
 {
     // If specified as a length, the corresponding absolute length; if specified as
@@ -602,29 +623,22 @@ static Ref<CSSValue> computedTransform(RenderObject* renderer, const RenderStyle
     return list;
 }
 
+// https://drafts.csswg.org/css-transforms-2/#propdef-translate
+// Computed value: the keyword none or a pair of computed <length-percentage> values and an absolute length
 static Ref<CSSValue> computedTranslate(RenderObject* renderer, const RenderStyle& style)
 {
     auto* translate = style.translate();
     if (!translate || !rendererCanBeTransformed(renderer) || translate->isIdentity())
         return CSSValuePool::singleton().createIdentifierValue(CSSValueNone);
 
-    FloatRect pixelSnappedRect;
-    if (is<RenderBox>(*renderer))
-        pixelSnappedRect = snapRectToDevicePixels(downcast<RenderBox>(*renderer).borderBoxRect(), renderer->document().deviceScaleFactor());
-
-    TransformationMatrix transform;
-    translate->apply(transform, pixelSnappedRect.size());
-
     auto list = CSSValueList::createSpaceSeparated();
-    if (transform.isAffine()) {
-        list->append(zoomAdjustedPixelValue(transform.e(), style));
-        if (transform.f())
-            list->append(zoomAdjustedPixelValue(transform.f(), style));
-    } else {
-        list->append(zoomAdjustedPixelValue(transform.m41(), style));
-        list->append(zoomAdjustedPixelValue(transform.m42(), style));
-        list->append(zoomAdjustedPixelValue(transform.m43(), style));
-    }
+    list->append(zoomAdjustedPixelValueForLength(translate->x(), style));
+
+    if (!translate->y().isZero() || !translate->z().isZero())
+        list->append(zoomAdjustedPixelValueForLength(translate->y(), style));
+
+    if (!translate->z().isZero())
+        list->append(zoomAdjustedPixelValueForLength(translate->z(), style));
 
     return list;
 }
@@ -1700,15 +1714,34 @@ static Ref<CSSValue> fillRepeatToCSSValue(FillRepeat xRepeat, FillRepeat yRepeat
     return list;
 }
 
-static Ref<CSSValue> fillSourceTypeToCSSValue(MaskSourceType type)
+static Ref<CSSValue> maskSourceTypeToCSSValue(MaskMode type)
 {
     switch (type) {
-    case MaskSourceType::Alpha:
+    case MaskMode::Alpha:
         return CSSValuePool::singleton().createValue(CSSValueAlpha);
-    default:
-        ASSERT(type == MaskSourceType::Luminance);
+    case MaskMode::Luminance:
+        ASSERT(type == MaskMode::Luminance);
         return CSSValuePool::singleton().createValue(CSSValueLuminance);
+    case MaskMode::MatchSource:
+        // MatchSource is only available in the mask-mode property.
+        return CSSValuePool::singleton().createValue(CSSValueAlpha);
     }
+    ASSERT_NOT_REACHED();
+    return CSSValuePool::singleton().createValue(CSSValueAlpha);
+}
+
+static Ref<CSSValue> maskModeToCSSValue(MaskMode type)
+{
+    switch (type) {
+    case MaskMode::Alpha:
+        return CSSValuePool::singleton().createValue(CSSValueAlpha);
+    case MaskMode::Luminance:
+        return CSSValuePool::singleton().createValue(CSSValueLuminance);
+    case MaskMode::MatchSource:
+        return CSSValuePool::singleton().createValue(CSSValueMatchSource);
+    }
+    ASSERT_NOT_REACHED();
+    return CSSValuePool::singleton().createValue(CSSValueMatchSource);
 }
 
 static Ref<CSSValue> fillSizeToCSSValue(const FillSize& fillSize, const RenderStyle& style)
@@ -2616,10 +2649,19 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertyWebkitMaskSourceType: {
             auto& layers = style.maskLayers();
             if (!layers.next())
-                return fillSourceTypeToCSSValue(layers.maskSourceType());
+                return maskSourceTypeToCSSValue(layers.maskMode());
             auto list = CSSValueList::createCommaSeparated();
             for (auto* currLayer = &layers; currLayer; currLayer = currLayer->next())
-                list->append(fillSourceTypeToCSSValue(currLayer->maskSourceType()));
+                list->append(maskSourceTypeToCSSValue(currLayer->maskMode()));
+            return list;
+        }
+        case CSSPropertyWebkitMaskMode: {
+            auto& layers = style.maskLayers();
+            if (!layers.next())
+                return maskModeToCSSValue(layers.maskMode());
+            auto list = CSSValueList::createCommaSeparated();
+            for (auto* currLayer = &layers; currLayer; currLayer = currLayer->next())
+                list->append(maskModeToCSSValue(currLayer->maskMode()));
             return list;
         }
         case CSSPropertyWebkitBackgroundComposite:
@@ -2671,11 +2713,11 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertyWebkitMaskPositionX: {
             auto& layers = propertyID == CSSPropertyWebkitMaskPositionX ? style.maskLayers() : style.backgroundLayers();
             if (!layers.next())
-                return cssValuePool.createValue(layers.xPosition(), style);
+                return createSingleAxisPositionValueForLayer(propertyID, layers, style);
 
             auto list = CSSValueList::createCommaSeparated();
             for (auto* currLayer = &layers; currLayer; currLayer = currLayer->next())
-                list->append(cssValuePool.createValue(currLayer->xPosition(), style));
+                list->append(createSingleAxisPositionValueForLayer(propertyID, *currLayer, style));
 
             return list;
         }
@@ -2683,11 +2725,11 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertyWebkitMaskPositionY: {
             auto& layers = propertyID == CSSPropertyWebkitMaskPositionY ? style.maskLayers() : style.backgroundLayers();
             if (!layers.next())
-                return cssValuePool.createValue(layers.yPosition(), style);
+                return createSingleAxisPositionValueForLayer(propertyID, layers, style);
 
             auto list = CSSValueList::createCommaSeparated();
             for (auto* currLayer = &layers; currLayer; currLayer = currLayer->next())
-                list->append(cssValuePool.createValue(currLayer->yPosition(), style));
+                list->append(createSingleAxisPositionValueForLayer(propertyID, *currLayer, style));
 
             return list;
         }

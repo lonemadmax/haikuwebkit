@@ -54,6 +54,7 @@
 #include "Settings.h"
 #include "StyledMarkedText.h"
 #include "Text.h"
+#include "TextBoxPainter.h"
 #include "TextBoxSelectableRange.h"
 #include "TextDecorationPainter.h"
 #include "TextPaintStyle.h"
@@ -158,7 +159,7 @@ bool LegacyInlineTextBox::isSelectable(unsigned startPosition, unsigned endPosit
     return selectableRange().intersects(startPosition, endPosition);
 }
 
-RenderObject::HighlightState LegacyInlineTextBox::selectionState()
+RenderObject::HighlightState LegacyInlineTextBox::selectionState() const
 {
     auto state = renderer().view().selection().highlightStateForTextBox(renderer(), selectableRange());
     
@@ -184,7 +185,7 @@ RenderObject::HighlightState LegacyInlineTextBox::selectionState()
     return state;
 }
 
-inline const FontCascade& LegacyInlineTextBox::lineFont() const
+const FontCascade& LegacyInlineTextBox::lineFont() const
 {
     return combinedText() ? combinedText()->textCombineFont() : lineStyle().fontCascade();
 }
@@ -213,7 +214,6 @@ LayoutRect snappedSelectionRect(const LayoutRect& selectionRect, float logicalRi
     return LayoutRect { topPoint, LayoutSize { width, height } };
 }
 
-// FIXME: Share more code with paintMarkedTextBackground().
 LayoutRect LegacyInlineTextBox::localSelectionRect(unsigned startPos, unsigned endPos) const
 {
     auto [clampedStart, clampedEnd] = selectableRange().clamp(startPos, endPos);
@@ -404,14 +404,6 @@ std::optional<bool> LegacyInlineTextBox::emphasisMarkExistsAndIsAbove(const Rend
     return isAbove;
 }
 
-static MarkedText createMarkedTextFromSelectionInBox(const LegacyInlineTextBox& box)
-{
-    auto [selectionStart, selectionEnd] = box.selectionStartEnd();
-    if (selectionStart < selectionEnd)
-        return { selectionStart, selectionEnd, MarkedText::Selection };
-    return { };
-}
-
 void LegacyInlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, LayoutUnit /*lineTop*/, LayoutUnit /*lineBottom*/)
 {
     if (isLineBreak() || !paintInfo.shouldPaintWithinRoot(renderer()) || renderer().style().visibility() != Visibility::Visible
@@ -427,192 +419,12 @@ void LegacyInlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOf
     
     LayoutUnit paintEnd = isHorizontal() ? paintInfo.rect.maxX() : paintInfo.rect.maxY();
     LayoutUnit paintStart = isHorizontal() ? paintInfo.rect.x() : paintInfo.rect.y();
-    
-    FloatPoint localPaintOffset(paintOffset);
-    
+
     if (logicalStart >= paintEnd || logicalStart + logicalExtent <= paintStart)
         return;
 
-    bool isPrinting = renderer().document().printing();
-    
-    // Determine whether or not we're selected.
-    bool haveSelection = !isPrinting && paintInfo.phase != PaintPhase::TextClip && selectionState() != RenderObject::HighlightState::None;
-    if (!haveSelection && paintInfo.phase == PaintPhase::Selection) {
-        // When only painting the selection, don't bother to paint if there is none.
-        return;
-    }
-
-    if (m_truncation != cNoTruncation) {
-        if (renderer().containingBlock()->style().isLeftToRightDirection() != isLeftToRightDirection()) {
-            // Make the visible fragment of text hug the edge closest to the rest of the run by moving the origin
-            // at which we start drawing text.
-            // e.g. In the case of LTR text truncated in an RTL Context, the correct behavior is:
-            // |Hello|CBA| -> |...He|CBA|
-            // In order to draw the fragment "He" aligned to the right edge of it's box, we need to start drawing
-            // farther to the right.
-            // NOTE: WebKit's behavior differs from that of IE which appears to just overlay the ellipsis on top of the
-            // truncated string i.e.  |Hello|CBA| -> |...lo|CBA|
-            LayoutUnit widthOfVisibleText { renderer().width(m_start, m_truncation, textPos(), isFirstLine()) };
-            LayoutUnit widthOfHiddenText { logicalWidth() - widthOfVisibleText };
-            LayoutSize truncationOffset(isLeftToRightDirection() ? widthOfHiddenText : -widthOfHiddenText, 0_lu);
-            localPaintOffset.move(isHorizontal() ? truncationOffset : truncationOffset.transposedSize());
-        }
-    }
-
-    GraphicsContext& context = paintInfo.context();
-
-    const RenderStyle& lineStyle = this->lineStyle();
-    
-    localPaintOffset.move(0, lineStyle.isHorizontalWritingMode() ? 0 : -logicalHeight());
-
-    FloatPoint boxOrigin = locationIncludingFlipping();
-    boxOrigin.moveBy(localPaintOffset);
-    FloatRect boxRect(boxOrigin, FloatSize(logicalWidth(), logicalHeight()));
-
-    if (paintInfo.phase == PaintPhase::EventRegion) {
-        if (visibleToHitTesting())
-            paintInfo.eventRegionContext->unite(enclosingIntRect(boxRect), renderer().style());
-        return;
-    }
-
-    auto* combinedText = this->combinedText();
-
-    bool shouldRotate = !isHorizontal() && !combinedText;
-    if (shouldRotate)
-        context.concatCTM(rotation(boxRect, Clockwise));
-
-    // Determine whether or not we have composition underlines to draw.
-    bool containsComposition = renderer().textNode() && renderer().frame().editor().compositionNode() == renderer().textNode();
-    bool useCustomUnderlines = containsComposition && renderer().frame().editor().compositionUsesCustomUnderlines();
-
-    // 1. Paint backgrounds behind text if needed. Examples of such backgrounds include selection
-    // and composition underlines.
-    if (paintInfo.phase != PaintPhase::Selection && paintInfo.phase != PaintPhase::TextClip && !isPrinting) {
-        if (containsComposition && !useCustomUnderlines)
-            paintCompositionBackground(paintInfo, boxOrigin);
-
-        auto selectableRange = this->selectableRange();
-
-        Vector<MarkedText> markedTexts;
-        markedTexts.appendVector(MarkedText::collectForDocumentMarkers(renderer(), selectableRange, MarkedText::PaintPhase::Background));
-        markedTexts.appendVector(MarkedText::collectForHighlights(renderer(), parent()->renderer(), selectableRange, MarkedText::PaintPhase::Background));
-
-#if ENABLE(TEXT_SELECTION)
-        if (haveSelection && !useCustomUnderlines && !context.paintingDisabled()) {
-            auto selectionMarkedText = createMarkedTextFromSelectionInBox(*this);
-            if (!selectionMarkedText.isEmpty())
-                markedTexts.append(WTFMove(selectionMarkedText));
-        }
-#endif
-        auto styledMarkedTexts = StyledMarkedText::subdivideAndResolve(markedTexts, renderer(), isFirstLine(), paintInfo);
-
-        // Coalesce styles of adjacent marked texts to minimize the number of drawing commands.
-        auto coalescedStyledMarkedTexts = StyledMarkedText::coalesceAdjacentWithEqualBackground(styledMarkedTexts);
-
-        paintMarkedTexts(paintInfo, MarkedText::PaintPhase::Background, boxRect, coalescedStyledMarkedTexts);
-    }
-
-    // FIXME: Right now, LegacyInlineTextBoxes never call addRelevantUnpaintedObject() even though they might
-    // legitimately be unpainted if they are waiting on a slow-loading web font. We should fix that, and
-    // when we do, we will have to account for the fact the LegacyInlineTextBoxes do not always have unique
-    // renderers and Page currently relies on each unpainted object having a unique renderer.
-    if (paintInfo.phase == PaintPhase::Foreground)
-        renderer().page().addRelevantRepaintedObject(&renderer(), IntRect(boxOrigin.x(), boxOrigin.y(), logicalWidth(), logicalHeight()));
-
-    if (paintInfo.phase == PaintPhase::Foreground)
-        paintPlatformDocumentMarkers(context, boxOrigin);
-
-    // 2. Now paint the foreground, including text and decorations like underline/overline (in quirks mode only).
-    bool shouldPaintSelectionForeground = haveSelection && !useCustomUnderlines;
-    Vector<MarkedText> markedTexts;
-    if (paintInfo.phase != PaintPhase::Selection) {
-        auto selectableRange = this->selectableRange();
-
-        // The marked texts for the gaps between document markers and selection are implicitly created by subdividing the entire line.
-        markedTexts.append({ selectableRange.clamp(m_start), selectableRange.clamp(end()), MarkedText::Unmarked });
-        
-        if (!isPrinting) {
-            markedTexts.appendVector(MarkedText::collectForDocumentMarkers(renderer(), selectableRange, MarkedText::PaintPhase::Foreground));
-            markedTexts.appendVector(MarkedText::collectForHighlights(renderer(), parent()->renderer(), selectableRange, MarkedText::PaintPhase::Foreground));
-
-            bool shouldPaintDraggedContent = !(paintInfo.paintBehavior.contains(PaintBehavior::ExcludeSelection));
-            if (shouldPaintDraggedContent) {
-                auto markedTextsForDraggedContent = MarkedText::collectForDraggedContent(renderer(), selectableRange);
-                if (!markedTextsForDraggedContent.isEmpty()) {
-                    shouldPaintSelectionForeground = false;
-                    markedTexts.appendVector(markedTextsForDraggedContent);
-                }
-            }
-        }
-    }
-    // The selection marked text acts as a placeholder when computing the marked texts for the gaps...
-    if (shouldPaintSelectionForeground) {
-        ASSERT(!isPrinting);
-        auto selectionMarkedText = createMarkedTextFromSelectionInBox(*this);
-        if (!selectionMarkedText.isEmpty())
-            markedTexts.append(WTFMove(selectionMarkedText));
-    }
-
-    auto styledMarkedTexts = StyledMarkedText::subdivideAndResolve(markedTexts, renderer(), isFirstLine(), paintInfo);
-
-    // ... now remove the selection marked text if we are excluding selection.
-    if (!isPrinting && paintInfo.paintBehavior.contains(PaintBehavior::ExcludeSelection)) {
-        styledMarkedTexts.removeAllMatching([] (const StyledMarkedText& markedText) {
-            return markedText.type == MarkedText::Selection;
-        });
-    }
-
-    // Coalesce styles of adjacent marked texts to minimize the number of drawing commands.
-    auto coalescedStyledMarkedTexts = StyledMarkedText::coalesceAdjacentWithEqualForeground(styledMarkedTexts);
-
-    paintMarkedTexts(paintInfo, MarkedText::PaintPhase::Foreground, boxRect, coalescedStyledMarkedTexts);
-
-    // Paint decorations
-    auto textDecorations = lineStyle.textDecorationsInEffect();
-    bool highlightDecorations = !MarkedText::collectForHighlights(renderer(), parent()->renderer(), selectableRange(), MarkedText::PaintPhase::Decoration).isEmpty();
-    bool lineDecorations = !textDecorations.isEmpty();
-    if ((lineDecorations || highlightDecorations) && paintInfo.phase != PaintPhase::Selection) {
-        TextRun textRun = createTextRun();
-        unsigned length = textRun.length();
-        if (m_truncation != cNoTruncation)
-            length = m_truncation;
-        unsigned selectionStart = 0;
-        unsigned selectionEnd = 0;
-        if (haveSelection)
-            std::tie(selectionStart, selectionEnd) = selectionStartEnd();
-
-        FloatRect textDecorationSelectionClipOutRect;
-        if ((paintInfo.paintBehavior.contains(PaintBehavior::ExcludeSelection)) && selectionStart < selectionEnd && selectionEnd <= length) {
-            textDecorationSelectionClipOutRect = logicalOverflowRect();
-            textDecorationSelectionClipOutRect.moveBy(localPaintOffset);
-            float logicalWidthBeforeRange;
-            float logicalWidthAfterRange;
-            float logicalSelectionWidth = lineFont().widthOfTextRange(textRun, selectionStart, selectionEnd, nullptr, &logicalWidthBeforeRange, &logicalWidthAfterRange);
-            // FIXME: Do we need to handle vertical bottom to top text?
-            if (!isHorizontal()) {
-                textDecorationSelectionClipOutRect.move(0, logicalWidthBeforeRange);
-                textDecorationSelectionClipOutRect.setHeight(logicalSelectionWidth);
-            } else if (direction() == TextDirection::RTL) {
-                textDecorationSelectionClipOutRect.move(logicalWidthAfterRange, 0);
-                textDecorationSelectionClipOutRect.setWidth(logicalSelectionWidth);
-            } else {
-                textDecorationSelectionClipOutRect.move(logicalWidthBeforeRange, 0);
-                textDecorationSelectionClipOutRect.setWidth(logicalSelectionWidth);
-            }
-        }
-
-        // Coalesce styles of adjacent marked texts to minimize the number of drawing commands.
-        auto coalescedStyledMarkedTexts = StyledMarkedText::coalesceAdjacentWithEqualDecorations(styledMarkedTexts);
-
-        paintMarkedTexts(paintInfo, MarkedText::PaintPhase::Decoration, boxRect, coalescedStyledMarkedTexts, textDecorationSelectionClipOutRect);
-    }
-
-    // 3. Paint fancy decorations, including composition underlines and platform-specific underlines for spelling errors, grammar errors, et cetera.
-    if (paintInfo.phase == PaintPhase::Foreground && useCustomUnderlines)
-        paintCompositionUnderlines(paintInfo, boxOrigin);
-    
-    if (shouldRotate)
-        context.concatCTM(rotation(boxRect, Counterclockwise));
+    TextBoxPainter textBoxPainter(*this, paintInfo, paintOffset);
+    textBoxPainter.paint();
 }
 
 TextBoxSelectableRange LegacyInlineTextBox::selectableRange() const
@@ -655,80 +467,6 @@ bool LegacyInlineTextBox::hasMarkers() const
     return MarkedText::collectForDocumentMarkers(renderer(), selectableRange(), MarkedText::PaintPhase::Decoration).size();
 }
 
-void LegacyInlineTextBox::paintPlatformDocumentMarkers(GraphicsContext& context, const FloatPoint& boxOrigin)
-{
-    // This must match calculateUnionOfAllDocumentMarkerBounds().
-    auto markedTexts = MarkedText::collectForDocumentMarkers(renderer(), selectableRange(), MarkedText::PaintPhase::Decoration);
-    for (auto& markedText : MarkedText::subdivide(markedTexts, MarkedText::OverlapStrategy::Frontmost))
-        paintPlatformDocumentMarker(context, boxOrigin, markedText);
-}
-
-FloatRect LegacyInlineTextBox::calculateUnionOfAllDocumentMarkerBounds() const
-{
-    // This must match paintPlatformDocumentMarkers().
-    FloatRect result;
-    auto markedTexts = MarkedText::collectForDocumentMarkers(renderer(), selectableRange(), MarkedText::PaintPhase::Decoration);
-    for (auto& markedText : MarkedText::subdivide(markedTexts, MarkedText::OverlapStrategy::Frontmost))
-        result = unionRect(result, calculateDocumentMarkerBounds(markedText));
-    return result;
-}
-
-FloatRect LegacyInlineTextBox::calculateDocumentMarkerBounds(const MarkedText& markedText) const
-{
-    auto& font = lineFont();
-    auto ascent = font.fontMetrics().ascent();
-    auto fontSize = std::min(std::max(font.size(), 10.0f), 40.0f);
-    auto y = ascent + 0.11035 * fontSize;
-    auto height = 0.13247 * fontSize;
-
-    // Avoid measuring the text when the entire line box is selected as an optimization.
-    if (markedText.startOffset || markedText.endOffset != selectableRange().clamp(end())) {
-        TextRun run = createTextRun();
-        LayoutRect selectionRect = LayoutRect(0, y, 0, height);
-        lineFont().adjustSelectionRectForText(run, selectionRect, markedText.startOffset, markedText.endOffset);
-        return selectionRect;
-    }
-
-    return FloatRect(0, y, logicalWidth(), height);
-}
-
-void LegacyInlineTextBox::paintPlatformDocumentMarker(GraphicsContext& context, const FloatPoint& boxOrigin, const MarkedText& markedText)
-{
-    // Never print spelling/grammar markers (5327887)
-    if (renderer().document().printing())
-        return;
-
-    if (m_truncation == cFullTruncation)
-        return;
-
-    auto bounds = calculateDocumentMarkerBounds(markedText);
-
-    auto lineStyleForMarkedTextType = [&]() -> DocumentMarkerLineStyle {
-        bool shouldUseDarkAppearance = renderer().useDarkAppearance();
-        switch (markedText.type) {
-        case MarkedText::SpellingError:
-            return { DocumentMarkerLineStyle::Mode::Spelling, shouldUseDarkAppearance };
-        case MarkedText::GrammarError:
-            return { DocumentMarkerLineStyle::Mode::Grammar, shouldUseDarkAppearance };
-        case MarkedText::Correction:
-            return { DocumentMarkerLineStyle::Mode::AutocorrectionReplacement, shouldUseDarkAppearance };
-        case MarkedText::DictationAlternatives:
-            return { DocumentMarkerLineStyle::Mode::DictationAlternatives, shouldUseDarkAppearance };
-#if PLATFORM(IOS_FAMILY)
-        case MarkedText::DictationPhraseWithAlternatives:
-            // FIXME: Rename DocumentMarkerLineStyle::TextCheckingDictationPhraseWithAlternatives and remove the PLATFORM(IOS_FAMILY)-guard.
-            return { DocumentMarkerLineStyle::Mode::TextCheckingDictationPhraseWithAlternatives, shouldUseDarkAppearance };
-#endif
-        default:
-            ASSERT_NOT_REACHED();
-            return { DocumentMarkerLineStyle::Mode::Spelling, shouldUseDarkAppearance };
-        }
-    };
-
-    bounds.moveBy(boxOrigin);
-    context.drawDotsForDocumentMarker(bounds, lineStyleForMarkedTextType());
-}
-
 FloatPoint LegacyInlineTextBox::textOriginFromBoxRect(const FloatRect& boxRect) const
 {
     FloatPoint textOrigin { boxRect.x(), boxRect.y() + lineFont().fontMetrics().ascent() };
@@ -741,264 +479,6 @@ FloatPoint LegacyInlineTextBox::textOriginFromBoxRect(const FloatRect& boxRect) 
     else
         textOrigin.setX(roundToDevicePixel(LayoutUnit { textOrigin.x() }, renderer().document().deviceScaleFactor()));
     return textOrigin;
-}
-
-void LegacyInlineTextBox::paintMarkedTexts(PaintInfo& paintInfo, MarkedText::PaintPhase phase, const FloatRect& boxRect, const Vector<StyledMarkedText>& markedTexts, const FloatRect& decorationClipOutRect)
-{
-    switch (phase) {
-    case MarkedText::PaintPhase::Background:
-        for (auto& markedText : markedTexts)
-            paintMarkedTextBackground(paintInfo, boxRect.location(), markedText.style.backgroundColor, markedText.startOffset, markedText.endOffset);
-        return;
-    case MarkedText::PaintPhase::Foreground:
-        for (auto& markedText : markedTexts)
-            paintMarkedTextForeground(paintInfo, boxRect, markedText);
-        return;
-    case MarkedText::PaintPhase::Decoration:
-        for (auto& markedText : markedTexts)
-            paintMarkedTextDecoration(paintInfo, boxRect, decorationClipOutRect, markedText);
-        return;
-    }
-}
-
-void LegacyInlineTextBox::paintMarkedTextBackground(PaintInfo& paintInfo, const FloatPoint& boxOrigin, const Color& color, unsigned clampedStartOffset, unsigned clampedEndOffset, MarkedTextBackgroundStyle style)
-{
-    if (clampedStartOffset >= clampedEndOffset)
-        return;
-
-    GraphicsContext& context = paintInfo.context();
-    GraphicsContextStateSaver stateSaver { context };
-    updateGraphicsContext(context, TextPaintStyle { color }); // Don't draw text at all!
-
-    // Note that if the text is truncated, we let the thing being painted in the truncation
-    // draw its own highlight.
-    TextRun textRun = createTextRun();
-
-    const LegacyRootInlineBox& rootBox = root();
-    LayoutUnit selectionBottom = rootBox.selectionBottom();
-    LayoutUnit selectionTop = rootBox.selectionTopAdjustedForPrecedingBlock();
-
-    // Use same y positioning and height as for selection, so that when the selection and this subrange are on
-    // the same word there are no pieces sticking out.
-    LayoutUnit deltaY { renderer().style().isFlippedLinesWritingMode() ? selectionBottom - logicalBottom() : logicalTop() - selectionTop };
-    LayoutUnit selectionHeight = std::max<LayoutUnit>(0, selectionBottom - selectionTop);
-
-    LayoutRect selectionRect { LayoutUnit(boxOrigin.x()), LayoutUnit(boxOrigin.y() - deltaY), LayoutUnit(logicalWidth()), selectionHeight };
-    lineFont().adjustSelectionRectForText(textRun, selectionRect, clampedStartOffset, clampedEndOffset);
-
-    // FIXME: Support painting combined text. See <https://bugs.webkit.org/show_bug.cgi?id=180993>.
-    auto backgroundRect = snapRectToDevicePixelsWithWritingDirection(selectionRect, renderer().document().deviceScaleFactor(), textRun.ltr());
-    if (style == MarkedTextBackgroundStyle::Rounded) {
-        backgroundRect.expand(-1, -1);
-        backgroundRect.move(0.5, 0.5);
-        context.fillRoundedRect(FloatRoundedRect { backgroundRect, FloatRoundedRect::Radii { 2 } }, color);
-        return;
-    }
-
-    context.fillRect(backgroundRect, color);
-}
-
-void LegacyInlineTextBox::paintMarkedTextForeground(PaintInfo& paintInfo, const FloatRect& boxRect, const StyledMarkedText& markedText)
-{
-    if (markedText.startOffset >= markedText.endOffset)
-        return;
-
-    GraphicsContext& context = paintInfo.context();
-    const FontCascade& font = lineFont();
-    const RenderStyle& lineStyle = this->lineStyle();
-
-    float emphasisMarkOffset = 0;
-    std::optional<bool> markExistsAndIsAbove = emphasisMarkExistsAndIsAbove(lineStyle);
-    const AtomString& emphasisMark = markExistsAndIsAbove ? lineStyle.textEmphasisMarkString() : nullAtom();
-    if (!emphasisMark.isEmpty())
-        emphasisMarkOffset = *markExistsAndIsAbove ? -font.fontMetrics().ascent() - font.emphasisMarkDescent(emphasisMark) : font.fontMetrics().descent() + font.emphasisMarkAscent(emphasisMark);
-
-    TextPainter textPainter { context };
-    textPainter.setFont(font);
-    textPainter.setStyle(markedText.style.textStyles);
-    textPainter.setIsHorizontal(isHorizontal());
-    if (markedText.style.textShadow) {
-        textPainter.setShadow(&markedText.style.textShadow.value());
-        if (lineStyle.hasAppleColorFilter())
-            textPainter.setShadowColorFilter(&lineStyle.appleColorFilter());
-    }
-    textPainter.setEmphasisMark(emphasisMark, emphasisMarkOffset, combinedText());
-    if (auto* debugShadow = debugTextShadow())
-        textPainter.setShadow(debugShadow);
-
-    TextRun textRun = createTextRun();
-    textPainter.setGlyphDisplayListIfNeeded(*this, paintInfo, font, context, textRun);
-
-    GraphicsContextStateSaver stateSaver { context, false };
-    if (markedText.type == MarkedText::DraggedContent) {
-        stateSaver.save();
-        context.setAlpha(markedText.style.alpha);
-    }
-    // TextPainter wants the box rectangle and text origin of the entire line box.
-    textPainter.paintRange(textRun, boxRect, textOriginFromBoxRect(boxRect), markedText.startOffset, markedText.endOffset);
-}
-
-void LegacyInlineTextBox::paintMarkedTextDecoration(PaintInfo& paintInfo, const FloatRect& boxRect, const FloatRect& clipOutRect, const StyledMarkedText& markedText)
-{
-    if (m_truncation == cFullTruncation)
-        return;
-
-    GraphicsContext& context = paintInfo.context();
-    updateGraphicsContext(context, markedText.style.textStyles);
-
-    bool isCombinedText = combinedText();
-    if (isCombinedText)
-        context.concatCTM(rotation(boxRect, Clockwise));
-
-    // 1. Compute text selection
-    unsigned startOffset = markedText.startOffset;
-    unsigned endOffset = markedText.endOffset;
-    if (startOffset >= endOffset)
-        return;
-
-    // Note that if the text is truncated, we let the thing being painted in the truncation
-    // draw its own decoration.
-    TextRun textRun = createTextRun();
-
-    // Avoid measuring the text when the entire line box is selected as an optimization.
-    FloatRect snappedSelectionRect = boxRect;
-    if (startOffset || endOffset != textRun.length()) {
-        LayoutRect selectionRect = { boxRect.x(), boxRect.y(), boxRect.width(), boxRect.height() };
-        lineFont().adjustSelectionRectForText(textRun, selectionRect, startOffset, endOffset);
-        snappedSelectionRect = snapRectToDevicePixelsWithWritingDirection(selectionRect, renderer().document().deviceScaleFactor(), textRun.ltr());
-    }
-
-    // 2. Paint
-    auto textDecorations = lineStyle().textDecorationsInEffect();
-    textDecorations.add(TextDecorationPainter::textDecorationsInEffectForStyle(markedText.style.textDecorationStyles));
-    TextDecorationPainter decorationPainter { context, textDecorations, renderer(), isFirstLine(), lineFont(), markedText.style.textDecorationStyles };
-    decorationPainter.setTextRunIterator(LayoutIntegration::textRunFor(this));
-    decorationPainter.setWidth(snappedSelectionRect.width());
-    decorationPainter.setIsHorizontal(isHorizontal());
-    if (markedText.style.textShadow) {
-        decorationPainter.setTextShadow(&markedText.style.textShadow.value());
-        if (lineStyle().hasAppleColorFilter())
-            decorationPainter.setShadowColorFilter(&lineStyle().appleColorFilter());
-    }
-
-    {
-        GraphicsContextStateSaver stateSaver { context, false };
-        bool isDraggedContent = markedText.type == MarkedText::DraggedContent;
-        if (isDraggedContent || !clipOutRect.isEmpty()) {
-            stateSaver.save();
-            if (isDraggedContent)
-                context.setAlpha(markedText.style.alpha);
-            if (!clipOutRect.isEmpty())
-                context.clipOut(clipOutRect);
-        }
-        decorationPainter.paintTextDecoration(textRun.subRun(startOffset, endOffset - startOffset), textOriginFromBoxRect(snappedSelectionRect), snappedSelectionRect.location());
-    }
-
-    if (isCombinedText)
-        context.concatCTM(rotation(boxRect, Counterclockwise));
-}
-
-void LegacyInlineTextBox::paintCompositionBackground(PaintInfo& paintInfo, const FloatPoint& boxOrigin)
-{
-    auto selectableRange = this->selectableRange();
-
-    if (!renderer().frame().editor().compositionUsesCustomHighlights()) {
-        paintMarkedTextBackground(paintInfo, boxOrigin, CompositionHighlight::defaultCompositionFillColor, selectableRange.clamp(renderer().frame().editor().compositionStart()), selectableRange.clamp(renderer().frame().editor().compositionEnd()));
-        return;
-    }
-
-    for (auto& highlight : renderer().frame().editor().customCompositionHighlights()) {
-        if (highlight.endOffset <= m_start)
-            continue;
-
-        if (highlight.startOffset >= end())
-            break;
-
-        auto [clampedStart, clampedEnd] = selectableRange.clamp(highlight.startOffset, highlight.endOffset);
-        paintMarkedTextBackground(paintInfo, boxOrigin, highlight.color, clampedStart, clampedEnd, MarkedTextBackgroundStyle::Rounded);
-
-        if (highlight.endOffset > end())
-            break;
-    }
-}
-
-void LegacyInlineTextBox::paintCompositionUnderlines(PaintInfo& paintInfo, const FloatPoint& boxOrigin) const
-{
-    if (m_truncation == cFullTruncation)
-        return;
-
-    for (auto& underline : renderer().frame().editor().customCompositionUnderlines()) {
-        if (underline.endOffset <= m_start) {
-            // Underline is completely before this run. This might be an underline that sits
-            // before the first run we draw, or underlines that were within runs we skipped
-            // due to truncation.
-            continue;
-        }
-
-        if (underline.startOffset >= end())
-            break; // Underline is completely after this run, bail. A later run will paint it.
-
-        // Underline intersects this run. Paint it.
-        paintCompositionUnderline(paintInfo, boxOrigin, underline);
-
-        if (underline.endOffset > end())
-            break; // Underline also runs into the next run. Bail now, no more marker advancement.
-    }
-}
-
-static inline void mirrorRTLSegment(float logicalWidth, TextDirection direction, float& start, float width)
-{
-    if (direction == TextDirection::LTR)
-        return;
-    start = logicalWidth - width - start;
-}
-
-void LegacyInlineTextBox::paintCompositionUnderline(PaintInfo& paintInfo, const FloatPoint& boxOrigin, const CompositionUnderline& underline) const
-{
-    if (m_truncation == cFullTruncation)
-        return;
-    
-    float start = 0; // start of line to draw, relative to tx
-    float width = logicalWidth(); // how much line to draw
-    bool useWholeWidth = true;
-    unsigned paintStart = m_start;
-    unsigned paintEnd = end();
-    if (paintStart <= underline.startOffset) {
-        paintStart = underline.startOffset;
-        useWholeWidth = false;
-        start = renderer().width(m_start, paintStart - m_start, textPos(), isFirstLine());
-    }
-    if (paintEnd != underline.endOffset) {
-        paintEnd = std::min(paintEnd, (unsigned)underline.endOffset);
-        useWholeWidth = false;
-    }
-    if (m_truncation != cNoTruncation) {
-        paintEnd = std::min(paintEnd, (unsigned)m_start + m_truncation);
-        useWholeWidth = false;
-    }
-    if (!useWholeWidth) {
-        width = renderer().width(paintStart, paintEnd - paintStart, textPos() + start, isFirstLine());
-        mirrorRTLSegment(logicalWidth(), direction(), start, width);
-    }
-
-    // Thick marked text underlines are 2px thick as long as there is room for the 2px line under the baseline.
-    // All other marked text underlines are 1px thick.
-    // If there's not enough space the underline will touch or overlap characters.
-    int lineThickness = 1;
-    int baseline = lineStyle().fontMetrics().ascent();
-    if (underline.thick && logicalHeight() - baseline >= 2)
-        lineThickness = 2;
-
-    // We need to have some space between underlines of subsequent clauses, because some input methods do not use different underline styles for those.
-    // We make each line shorter, which has a harmless side effect of shortening the first and last clauses, too.
-    start += 1;
-    width -= 2;
-
-    GraphicsContext& context = paintInfo.context();
-    Color underlineColor = underline.compositionUnderlineColor == CompositionUnderlineColor::TextColor ? renderer().style().visitedDependentColorWithColorFilter(CSSPropertyWebkitTextFillColor) : renderer().style().colorByApplyingColorFilter(underline.color);
-    context.setStrokeColor(underlineColor);
-    context.setStrokeThickness(lineThickness);
-    context.drawLineForText(FloatRect(boxOrigin.x() + start, boxOrigin.y() + logicalHeight() - lineThickness, width, lineThickness), renderer().document().printing());
 }
 
 int LegacyInlineTextBox::caretMinOffset() const
@@ -1089,12 +569,12 @@ String LegacyInlineTextBox::text(bool ignoreCombinedText, bool ignoreHyphen) con
     return RenderBlock::updateSecurityDiscCharacters(lineStyle(), WTFMove(result));
 }
 
-inline const RenderCombineText* LegacyInlineTextBox::combinedText() const
+const RenderCombineText* LegacyInlineTextBox::combinedText() const
 {
     return lineStyle().hasTextCombine() && is<RenderCombineText>(renderer()) && downcast<RenderCombineText>(renderer()).isCombined() ? &downcast<RenderCombineText>(renderer()) : nullptr;
 }
 
-ShadowData* LegacyInlineTextBox::debugTextShadow()
+const ShadowData* LegacyInlineTextBox::debugTextShadow() const
 {
     if (!renderer().settings().legacyLineLayoutVisualCoverageEnabled())
         return nullptr;

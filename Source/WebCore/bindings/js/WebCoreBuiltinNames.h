@@ -79,6 +79,7 @@ namespace WebCore {
     macro(CSSAnimation) \
     macro(CSSCounterStyleRule) \
     macro(CSSImageValue) \
+    macro(CSSKeywordValue) \
     macro(CSSNumericValue) \
     macro(CSSPaintSize) \
     macro(CSSStyleValue) \
@@ -170,10 +171,6 @@ namespace WebCore {
     macro(PaymentResponse) \
     macro(PerformanceNavigationTiming) \
     macro(PictureInPictureWindow) \
-    macro(SQLError) \
-    macro(SQLResultSet) \
-    macro(SQLResultSetRowList) \
-    macro(SQLTransaction) \
     macro(PaintWorkletGlobalScope) \
     macro(PerformanceEntry) \
     macro(PerformanceEntryList) \
@@ -199,6 +196,8 @@ namespace WebCore {
     macro(RTCDtlsTransport) \
     macro(RTCEncodedAudioFrame) \
     macro(RTCEncodedVideoFrame) \
+    macro(RTCError) \
+    macro(RTCErrorEvent) \
     macro(RTCIceCandidate) \
     macro(RTCIceTransport) \
     macro(RTCPeerConnection) \
@@ -211,6 +210,7 @@ namespace WebCore {
     macro(RTCRtpSender) \
     macro(RTCRtpTransceiver) \
     macro(RTCRtpTransform) \
+    macro(RTCSctpTransport) \
     macro(RTCSessionDescription) \
     macro(RTCStatsReport) \
     macro(RTCTrackEvent) \
@@ -226,6 +226,10 @@ namespace WebCore {
     macro(Response) \
     macro(SFrameTransform) \
     macro(SFrameTransformErrorEvent) \
+    macro(SQLError) \
+    macro(SQLResultSet) \
+    macro(SQLResultSetRowList) \
+    macro(SQLTransaction) \
     macro(ScreenLuminance) \
     macro(ServiceWorker) \
     macro(ServiceWorkerContainer) \
@@ -244,6 +248,7 @@ namespace WebCore {
     macro(StereoPannerNode) \
     macro(StylePropertyMapReadOnly) \
     macro(StylePropertyMap) \
+    macro(StorageManager) \
     macro(SubtleCrypto) \
     macro(TextDecoderStream) \
     macro(TextDecoderStreamDecoder) \
@@ -343,6 +348,7 @@ namespace WebCore {
     macro(flushAlgorithm) \
     macro(focus) \
     macro(frames) \
+    macro(getInternalWritableStream) \
     macro(getTracks) \
     macro(getUserMedia) \
     macro(gpu) \
@@ -354,6 +360,8 @@ namespace WebCore {
     macro(inFlightWriteRequest) \
     macro(indexedDB) \
     macro(initializeWith) \
+    macro(internalStream) \
+    macro(internalWritable) \
     macro(isAbortSignal) \
     macro(isDisturbed) \
     macro(isLoading) \

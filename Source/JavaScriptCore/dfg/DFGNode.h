@@ -2887,6 +2887,11 @@ public:
     {
         return isNeitherDoubleNorHeapBigIntNorStringSpeculation(prediction());
     }
+
+    bool shouldSpeculateNeitherDoubleNorHeapBigInt()
+    {
+        return isNeitherDoubleNorHeapBigIntSpeculation(prediction());
+    }
     
     bool shouldSpeculateUntypedForArithmetic()
     {
@@ -3267,10 +3272,10 @@ public:
         }
     }
 
-    OptionSet<JSPropertyNameEnumerator::Mode> enumeratorMetadata()
+    OptionSet<JSPropertyNameEnumerator::Flag> enumeratorMetadata()
     {
         ASSERT(hasEnumeratorMetadata());
-        return OptionSet<JSPropertyNameEnumerator::Mode>::fromRaw(m_opInfo2.as<unsigned>());
+        return OptionSet<JSPropertyNameEnumerator::Flag>::fromRaw(m_opInfo2.as<unsigned>());
     }
 
     void dumpChildren(PrintStream& out)

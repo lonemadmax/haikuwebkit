@@ -97,6 +97,8 @@ struct Run {
     InlineLayoutUnit logicalHeight() const { return logicalRect().height(); }
 
     void moveVertically(InlineLayoutUnit offset) { m_logicalRect.moveVertically(offset); }
+    void adjustInkOverflow(const InlineRect& childBorderBox) { return m_inkOverflow.expandToContain(childBorderBox); }
+
     std::optional<Text>& text() { return m_text; }
     const std::optional<Text>& text() const { return m_text; }
 
@@ -110,8 +112,6 @@ struct Run {
     const RenderStyle& style() const { return layoutBox().style(); }
 
     size_t lineIndex() const { return m_lineIndex; }
-
-    void setVerticalPositionIntegral();
 
 private:
     const size_t m_lineIndex;
@@ -146,12 +146,6 @@ inline Run::Text::Text(size_t start, size_t length, const String& originalConten
     , m_originalContent(originalContent)
     , m_adjustedContentToRender(adjustedContentToRender)
 {
-}
-
-inline void Run::setVerticalPositionIntegral()
-{
-    m_logicalRect.setTop(roundToInt(m_logicalRect.top()));
-    m_inkOverflow.setTop(roundToInt(m_inkOverflow.top()));
 }
 
 }

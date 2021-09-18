@@ -23,20 +23,13 @@
 #pragma once
 
 #include "LegacyInlineBox.h"
-#include "MarkedText.h"
 #include "RenderText.h"
+#include "TextBoxSelectableRange.h"
 #include "TextRun.h"
 
 namespace WebCore {
 
 class RenderCombineText;
-class RenderedDocumentMarker;
-class TextPainter;
-struct CompositionUnderline;
-struct MarkedText;
-struct StyledMarkedText;
-struct TextBoxSelectableRange;
-struct TextPaintStyle;
 
 const unsigned short cNoTruncation = USHRT_MAX;
 const unsigned short cFullTruncation = USHRT_MAX - 1;
@@ -135,7 +128,7 @@ private:
     void attachLine() final;
     
 public:
-    RenderObject::HighlightState selectionState() final;
+    RenderObject::HighlightState selectionState() const final;
 
 private:
     void clearTruncation() final { m_truncation = cNoTruncation; }
@@ -159,30 +152,16 @@ public:
     virtual float positionForOffset(unsigned offset) const;
 
     bool hasMarkers() const;
-    FloatRect calculateUnionOfAllDocumentMarkerBounds() const;
-    FloatRect calculateDocumentMarkerBounds(const MarkedText&) const;
 
 private:
+    friend class TextBoxPainter;
+
     FloatPoint textOriginFromBoxRect(const FloatRect&) const;
-
-    void paintMarkedTexts(PaintInfo&, MarkedText::PaintPhase, const FloatRect& boxRect, const Vector<StyledMarkedText>&, const FloatRect& decorationClipOutRect = { });
-
-    void paintPlatformDocumentMarker(GraphicsContext&, const FloatPoint& boxOrigin, const MarkedText&);
-    void paintPlatformDocumentMarkers(GraphicsContext&, const FloatPoint& boxOrigin);
-
-    void paintCompositionBackground(PaintInfo&, const FloatPoint& boxOrigin);
-    void paintCompositionUnderlines(PaintInfo&, const FloatPoint& boxOrigin) const;
-    void paintCompositionUnderline(PaintInfo&, const FloatPoint& boxOrigin, const CompositionUnderline&) const;
-
-    enum class MarkedTextBackgroundStyle : bool { Default, Rounded };
-    void paintMarkedTextBackground(PaintInfo&, const FloatPoint& boxOrigin, const Color&, unsigned clampedStartOffset, unsigned clampedEndOffset, MarkedTextBackgroundStyle = MarkedTextBackgroundStyle::Default);
-    void paintMarkedTextForeground(PaintInfo&, const FloatRect& boxRect, const StyledMarkedText&);
-    void paintMarkedTextDecoration(PaintInfo&, const FloatRect& boxRect, const FloatRect& clipOutRect, const StyledMarkedText&);
 
     const RenderCombineText* combinedText() const;
     const FontCascade& lineFont() const;
 
-    ShadowData* debugTextShadow();
+    const ShadowData* debugTextShadow() const;
 
     String text(bool ignoreCombinedText = false, bool ignoreHyphen = false) const; // The effective text for the run.
     TextRun createTextRun(bool ignoreCombinedText = false, bool ignoreHyphen = false) const;

@@ -27,6 +27,7 @@
 
 #include "AppPrivacyReport.h"
 #include "AuxiliaryProcessProxy.h"
+#include "IdentifierTypes.h"
 #include "NetworkProcessProxyMessagesReplies.h"
 #include "NetworkResourceLoadIdentifier.h"
 #include "ProcessLauncher.h"
@@ -242,6 +243,7 @@ public:
     void networkProcessDidTerminate(TerminationReason);
     
     void resetQuota(PAL::SessionID, CompletionHandler<void()>&&);
+    void clearStorage(PAL::SessionID, CompletionHandler<void()>&&);
 
     void resourceLoadDidSendRequest(WebPageProxyIdentifier, ResourceLoadInfo&&, WebCore::ResourceRequest&&, std::optional<IPC::FormDataReference>&&);
     void resourceLoadDidPerformHTTPRedirection(WebPageProxyIdentifier, ResourceLoadInfo&&, WebCore::ResourceResponse&&, WebCore::ResourceRequest&&);
@@ -292,7 +294,7 @@ private:
 
     // Message handlers
     void didReceiveNetworkProcessProxyMessage(IPC::Connection&, IPC::Decoder&);
-    void didReceiveAuthenticationChallenge(PAL::SessionID, WebPageProxyIdentifier, const std::optional<WebCore::SecurityOriginData>&, WebCore::AuthenticationChallenge&&, bool, uint64_t challengeID);
+    void didReceiveAuthenticationChallenge(PAL::SessionID, WebPageProxyIdentifier, const std::optional<WebCore::SecurityOriginData>&, WebCore::AuthenticationChallenge&&, bool, AuthenticationChallengeIdentifier);
     void negotiatedLegacyTLS(WebPageProxyIdentifier);
     void didNegotiateModernTLS(WebPageProxyIdentifier, const URL&);
     void setWebProcessHasUploads(WebCore::ProcessIdentifier, bool);

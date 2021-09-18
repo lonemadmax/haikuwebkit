@@ -250,6 +250,9 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/mediastream/RTCDtxStatus.idl \
     $(WebCore)/Modules/mediastream/RTCEncodedAudioFrame.idl \
     $(WebCore)/Modules/mediastream/RTCEncodedVideoFrame.idl \
+    $(WebCore)/Modules/mediastream/RTCError.idl \
+    $(WebCore)/Modules/mediastream/RTCErrorDetailType.idl \
+    $(WebCore)/Modules/mediastream/RTCErrorEvent.idl \
     $(WebCore)/Modules/mediastream/RTCIceCandidate.idl \
     $(WebCore)/Modules/mediastream/RTCIceCandidateInit.idl \
     $(WebCore)/Modules/mediastream/RTCIceCandidateType.idl \
@@ -292,6 +295,8 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/mediastream/RTCRtpSynchronizationSource.idl \
     $(WebCore)/Modules/mediastream/RTCRtpTransceiver.idl \
     $(WebCore)/Modules/mediastream/RTCRtpTransceiverDirection.idl \
+    $(WebCore)/Modules/mediastream/RTCSctpTransport.idl \
+    $(WebCore)/Modules/mediastream/RTCSctpTransportState.idl \
     $(WebCore)/Modules/mediastream/RTCSdpType.idl \
     $(WebCore)/Modules/mediastream/RTCSessionDescription.idl \
     $(WebCore)/Modules/mediastream/RTCSessionDescriptionInit.idl \
@@ -367,6 +372,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/streams/WritableStreamDefaultController.idl \
     $(WebCore)/Modules/streams/WritableStreamDefaultWriter.idl \
     $(WebCore)/Modules/streams/WritableStreamSink.idl \
+    $(WebCore)/Modules/storage/StorageManager.idl \
     $(WebCore)/Modules/webaudio/AnalyserNode.idl \
     $(WebCore)/Modules/webaudio/AnalyserOptions.idl \
     $(WebCore)/Modules/webaudio/AudioBuffer.idl \
@@ -583,6 +589,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/css/DocumentOrShadowRoot+CSSOM.idl \
     $(WebCore)/css/DOMCSSCustomPropertyDescriptor.idl \
     $(WebCore)/css/DOMCSSNamespace.idl \
+    $(WebCore)/css/DOMCSSNamespace+CSSNumericFactory.idl \
     $(WebCore)/css/DOMCSSNamespace+CSSPainting.idl \
     $(WebCore)/css/DOMCSSNamespace+CSSPropertiesandValues.idl \
     $(WebCore)/css/DOMMatrix.idl \
@@ -607,6 +614,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/css/StyleSheetList.idl \
     $(WebCore)/css/typedom/StylePropertyMap.idl \
     $(WebCore)/css/typedom/StylePropertyMapReadOnly.idl \
+	$(WebCore)/css/typedom/CSSKeywordValue.idl \
     $(WebCore)/css/typedom/CSSStyleImageValue.idl \
     $(WebCore)/css/typedom/CSSNumericValue.idl \
     $(WebCore)/css/typedom/CSSStyleValue.idl \
@@ -993,6 +1001,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/page/NavigatorPlugins.idl \
     $(WebCore)/page/NavigatorServiceWorker.idl \
     $(WebCore)/page/NavigatorShare.idl \
+    $(WebCore)/page/NavigatorStorage.idl \
     $(WebCore)/page/Performance+NavigationTiming.idl \
     $(WebCore)/page/Performance+PerformanceTimeline.idl \
     $(WebCore)/page/Performance+ResourceTiming.idl \
@@ -1943,7 +1952,6 @@ WebCore_BUILTINS_SOURCES = \
     $(WebCore)/Modules/streams/TransformStream.js \
     $(WebCore)/Modules/streams/TransformStreamDefaultController.js \
     $(WebCore)/Modules/streams/TransformStreamInternals.js \
-    $(WebCore)/Modules/streams/WritableStream.js \
     $(WebCore)/Modules/streams/WritableStreamDefaultController.js \
     $(WebCore)/Modules/streams/WritableStreamDefaultWriter.js \
     $(WebCore)/Modules/streams/WritableStreamInternals.js \

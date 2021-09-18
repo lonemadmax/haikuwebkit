@@ -3034,13 +3034,15 @@ void FrameView::updateBackgroundRecursively(const std::optional<Color>& backgrou
 #else
     static const auto cssValueControlBackground = CSSValueWindow;
 #endif
-    Color baseBackgroundColor = backgroundColor.value_or(RenderTheme::singleton().systemColor(cssValueControlBackground, styleColorOptions()));
-#else
-    Color baseBackgroundColor = backgroundColor.value_or(Color::white);
 #endif
 
     for (auto* frame = m_frame.ptr(); frame; frame = frame->tree().traverseNext(m_frame.ptr())) {
-        if (FrameView* view = frame->view()) {
+        if (auto* view = frame->view()) {
+#if HAVE(OS_DARK_MODE_SUPPORT)
+            auto baseBackgroundColor = backgroundColor.value_or(RenderTheme::singleton().systemColor(cssValueControlBackground, view->styleColorOptions()));
+#else
+            auto baseBackgroundColor = backgroundColor.value_or(Color::white);
+#endif
             view->setTransparent(!baseBackgroundColor.isVisible());
             view->setBaseBackgroundColor(baseBackgroundColor);
             if (view->needsLayout())
@@ -4321,11 +4323,6 @@ void FrameView::paintContents(GraphicsContext& context, const IntRect& dirtyRect
     RenderLayer* rootLayer = renderView->layer();
 
     RenderObject::SetLayoutNeededForbiddenScope forbidSetNeedsLayout(rootLayer->renderer());
-
-    // To work around http://webkit.org/b/135106, ensure that the paint root isn't an inline with culled line boxes.
-    // FIXME: This can cause additional content to be included in the snapshot, so remove this once that bug is fixed.
-    while (is<RenderInline>(renderer) && !downcast<RenderInline>(*renderer).firstLineBox())
-        renderer = renderer->parent();
 
     rootLayer->paint(context, dirtyRect, LayoutSize(), m_paintBehavior, renderer, { }, securityOriginPaintPolicy == SecurityOriginPaintPolicy::AnyOrigin ? RenderLayer::SecurityOriginPaintPolicy::AnyOrigin : RenderLayer::SecurityOriginPaintPolicy::AccessibleOriginOnly, eventRegionContext);
     if (auto* scrollableRootLayer = rootLayer->scrollableArea()) {

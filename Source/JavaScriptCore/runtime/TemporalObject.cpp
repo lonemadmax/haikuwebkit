@@ -33,6 +33,10 @@
 #include "TemporalDurationConstructor.h"
 #include "TemporalDurationPrototype.h"
 #include "TemporalNow.h"
+#include "TemporalPlainTimeConstructor.h"
+#include "TemporalPlainTimePrototype.h"
+#include "TemporalTimeZoneConstructor.h"
+#include "TemporalTimeZonePrototype.h"
 
 namespace JSC {
 
@@ -59,6 +63,20 @@ static JSValue createDurationConstructor(VM& vm, JSObject* object)
     return TemporalDurationConstructor::create(vm, TemporalDurationConstructor::createStructure(vm, globalObject, globalObject->functionPrototype()), jsCast<TemporalDurationPrototype*>(globalObject->durationStructure()->storedPrototypeObject()));
 }
 
+static JSValue createPlainTimeConstructor(VM& vm, JSObject* object)
+{
+    TemporalObject* temporalObject = jsCast<TemporalObject*>(object);
+    auto* globalObject = temporalObject->globalObject(vm);
+    return TemporalPlainTimeConstructor::create(vm, TemporalPlainTimeConstructor::createStructure(vm, globalObject, globalObject->functionPrototype()), jsCast<TemporalPlainTimePrototype*>(globalObject->plainTimeStructure()->storedPrototypeObject()));
+}
+
+static JSValue createTimeZoneConstructor(VM& vm, JSObject* object)
+{
+    TemporalObject* temporalObject = jsCast<TemporalObject*>(object);
+    JSGlobalObject* globalObject = temporalObject->globalObject(vm);
+    return TemporalTimeZoneConstructor::create(vm, TemporalTimeZoneConstructor::createStructure(vm, globalObject, globalObject->functionPrototype()), jsCast<TemporalTimeZonePrototype*>(globalObject->timeZoneStructure()->storedPrototypeObject()));
+}
+
 } // namespace JSC
 
 #include "TemporalObject.lut.h"
@@ -68,8 +86,10 @@ namespace JSC {
 /* Source for TemporalObject.lut.h
 @begin temporalObjectTable
   Calendar       createCalendarConstructor       DontEnum|PropertyCallback
-  Now            createNowObject                 DontEnum|PropertyCallback
   Duration       createDurationConstructor       DontEnum|PropertyCallback
+  Now            createNowObject                 DontEnum|PropertyCallback
+  PlainTime      createPlainTimeConstructor      DontEnum|PropertyCallback
+  TimeZone       createTimeZoneConstructor       DontEnum|PropertyCallback
 @end
 */
 
@@ -232,19 +252,21 @@ PrecisionData secondsStringPrecision(JSGlobalObject* globalObject, JSObject* opt
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    auto smallestUnit = temporalSmallestUnit(globalObject, options, { TemporalUnit::Year, TemporalUnit::Month, TemporalUnit::Week, TemporalUnit::Day, TemporalUnit::Hour, TemporalUnit::Minute });
+    auto smallestUnit = temporalSmallestUnit(globalObject, options, { TemporalUnit::Year, TemporalUnit::Month, TemporalUnit::Week, TemporalUnit::Day, TemporalUnit::Hour });
     RETURN_IF_EXCEPTION(scope, { });
 
     if (smallestUnit) {
         switch (smallestUnit.value()) {
+        case TemporalUnit::Minute:
+            return { { Precision::Minute, 0 }, TemporalUnit::Minute, 1 };
         case TemporalUnit::Second:
-            return { 0, TemporalUnit::Second, 1 };
+            return { { Precision::Fixed, 0 }, TemporalUnit::Second, 1 };
         case TemporalUnit::Millisecond:
-            return { 3, TemporalUnit::Millisecond, 1 };
+            return { { Precision::Fixed, 3 }, TemporalUnit::Millisecond, 1 };
         case TemporalUnit::Microsecond:
-            return { 6, TemporalUnit::Microsecond, 1 };
+            return { { Precision::Fixed, 6 }, TemporalUnit::Microsecond, 1 };
         case TemporalUnit::Nanosecond:
-            return { 9, TemporalUnit::Nanosecond, 1 };
+            return { { Precision::Fixed, 9 }, TemporalUnit::Nanosecond, 1 };
         default:
             RELEASE_ASSERT_NOT_REACHED();
             return { };
@@ -255,20 +277,36 @@ PrecisionData secondsStringPrecision(JSGlobalObject* globalObject, JSObject* opt
     RETURN_IF_EXCEPTION(scope, { });
 
     if (!precision)
-        return { std::nullopt, TemporalUnit::Nanosecond, 1 };
+        return { { Precision::Auto, 0 }, TemporalUnit::Nanosecond, 1 };
+
+    auto pow10Unsigned = [](unsigned n) -> unsigned {
+        unsigned result = 1;
+        for (unsigned i = 0; i < n; ++i)
+            result *= 10;
+        return result;
+    };
 
     unsigned digits = precision.value();
     if (!digits)
-        return { 0, TemporalUnit::Second, 1 };
+        return { { Precision::Fixed, 0 }, TemporalUnit::Second, 1 };
 
     if (digits <= 3)
-        return { digits, TemporalUnit::Millisecond, std::pow(10, 3 - digits) };
+        return { { Precision::Fixed, digits }, TemporalUnit::Millisecond, pow10Unsigned(3 - digits) };
 
     if (digits <= 6)
-        return { digits, TemporalUnit::Microsecond, std::pow(10, 6 - digits) };
+        return { { Precision::Fixed, digits }, TemporalUnit::Microsecond, pow10Unsigned(6 - digits) };
 
     ASSERT(digits <= 9);
-    return { digits, TemporalUnit::Nanosecond, std::pow(10, 9 - digits) };
+    return { { Precision::Fixed, digits }, TemporalUnit::Nanosecond, pow10Unsigned(9 - digits) };
+}
+
+// ToTemporalRoundingMode ( normalizedOptions, fallback )
+// https://tc39.es/proposal-temporal/#sec-temporal-totemporalroundingmode
+RoundingMode temporalRoundingMode(JSGlobalObject* globalObject, JSObject* options, RoundingMode fallback)
+{
+    return intlOption<RoundingMode>(globalObject, options, globalObject->vm().propertyNames->roundingMode,
+        { { "ceil"_s, RoundingMode::Ceil }, { "floor"_s, RoundingMode::Floor }, { "trunc"_s, RoundingMode::Trunc }, { "halfExpand"_s, RoundingMode::HalfExpand } },
+        "roundingMode must be either \"ceil\", \"floor\", \"trunc\", or \"halfExpand\""_s, fallback);
 }
 
 // MaximumTemporalDurationRoundingIncrement ( unit )
@@ -328,6 +366,15 @@ double roundNumberToIncrement(double x, double increment, RoundingMode mode)
     case RoundingMode::HalfExpand:
         return std::round(quotient) * increment;
     }
+
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+TemporalOverflow toTemporalOverflow(JSGlobalObject* globalObject, JSObject* options)
+{
+    return intlOption<TemporalOverflow>(globalObject, options, globalObject->vm().propertyNames->overflow,
+        { { "constrain"_s, TemporalOverflow::Constrain }, { "reject"_s, TemporalOverflow::Reject } },
+        "overflow must be either \"constrain\" or \"reject\""_s, TemporalOverflow::Constrain);
 }
 
 } // namespace JSC

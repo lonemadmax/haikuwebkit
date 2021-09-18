@@ -41,6 +41,7 @@
 #include "RenderView.h"
 #include "Settings.h"
 #include "Text.h"
+#include "TextBoxPainter.h"
 #include <math.h>
 #include <wtf/IsoMallocInlines.h>
 
@@ -760,36 +761,22 @@ void LegacyInlineFlowBox::placeBoxesInBlockDirection(LayoutUnit top, LayoutUnit 
     LayoutUnit& lineTopIncludingMargins, LayoutUnit& lineBottomIncludingMargins, bool& hasAnnotationsBefore, bool& hasAnnotationsAfter, FontBaseline baselineType)
 {
     bool isRootBox = isRootInlineBox();
-    LayoutUnit rootInlineBoxRoundedOverflow;
-    if (isRootBox) {
-        const FontMetrics& fontMetrics = lineStyle().fontMetrics();
-        // RootInlineBoxes are always placed on at pixel boundaries in their logical y direction. Not doing
-        // so results in incorrect rendering of text decorations, most notably underlines.
-        auto logicalTop = top + maxAscent - fontMetrics.ascent(baselineType);
-        // FIXME: Let's do device pixel snapping at paint time instead (webkit.org/b/227751).
-        auto adjustedLogicalTop = roundToInt(logicalTop);
-        setLogicalTop(adjustedLogicalTop);
-        rootInlineBoxRoundedOverflow = LayoutUnit { adjustedLogicalTop } - logicalTop;
-    }
+    if (isRootBox)
+        setLogicalTop(top + maxAscent - lineStyle().fontMetrics().ascent(baselineType));
 
     placeChildInlineBoxesInBlockDirection(*this, top, maxHeight, maxAscent, strictMode, lineTop, lineBottom, setLineTop, lineTopIncludingMargins, lineBottomIncludingMargins, hasAnnotationsBefore, hasAnnotationsAfter, baselineType);
 
     if (isRootBox) {
         if (strictMode || hasTextChildren() || (descendantsHaveSameLineHeightAndBaseline() && hasTextDescendants())) {
-            // The root inlinebox is supposed to fit the [top, top + maxHeight] space. However due to the integral rounding on the root inlinebox's logical top,
-            // it may accidentally leak out of the containing block and trigger unintended layout overflow (see above).
-            // Make sure we don't stretch the line with the rounded root inlinebox.
-            auto rootInlineBoxLogicalTop = LayoutUnit { logicalTop() } - rootInlineBoxRoundedOverflow;
-            auto rootInlineBoxLogicalBottom = LayoutUnit { logicalBottom() } - rootInlineBoxRoundedOverflow;
             if (!setLineTop) {
                 setLineTop = true;
-                lineTop = rootInlineBoxLogicalTop;
+                lineTop = logicalTop();
                 lineTopIncludingMargins = lineTop;
             } else {
-                lineTop = std::min(lineTop, rootInlineBoxLogicalTop);
+                lineTop = std::min(lineTop, LayoutUnit(logicalTop()));
                 lineTopIncludingMargins = std::min(lineTop, lineTopIncludingMargins);
             }
-            lineBottom = std::max(lineBottom, rootInlineBoxLogicalBottom);
+            lineBottom = std::max(lineBottom, LayoutUnit(logicalBottom()));
             lineBottomIncludingMargins = std::max(lineBottom, lineBottomIncludingMargins);
         }
         
@@ -936,7 +923,7 @@ inline void LegacyInlineFlowBox::addTextBoxVisualOverflow(LegacyInlineTextBox& t
     
     logicalVisualOverflow = LayoutRect(logicalLeftVisualOverflow, logicalTopVisualOverflow, logicalRightVisualOverflow - logicalLeftVisualOverflow, logicalBottomVisualOverflow - logicalTopVisualOverflow);
 
-    auto documentMarkerBounds = textBox.calculateUnionOfAllDocumentMarkerBounds();
+    auto documentMarkerBounds = TextBoxPainter::calculateUnionOfAllDocumentMarkerBounds(textBox);
     documentMarkerBounds.move(textBox.logicalLeft(), textBox.logicalTop());
     logicalVisualOverflow = unionRect(logicalVisualOverflow, LayoutRect(documentMarkerBounds));
 
@@ -1068,40 +1055,13 @@ bool LegacyInlineFlowBox::nodeAtPoint(const HitTestRequest& request, HitTestResu
         return false;
 
     // Check children first.
-    // We need to account for culled inline parents of the hit-tested nodes, so that they may also get included in area-based hit-tests.
-    RenderElement* culledParent = nullptr;
     for (auto* child = lastChild(); child; child = child->previousOnLine()) {
         if (is<RenderText>(child->renderer()) || !child->boxModelObject()->hasSelfPaintingLayer()) {
-            RenderElement* newParent = nullptr;
-            // Culled parents are only relevant for area-based hit-tests, so ignore it in point-based ones.
-            if (locationInContainer.isRectBasedTest()) {
-                newParent = child->renderer().parent();
-                if (newParent == &renderer())
-                    newParent = nullptr;
-            }
-            // Check the culled parent after all its children have been checked, to do this we wait until
-            // we are about to test an element with a different parent.
-            if (newParent != culledParent) {
-                if (!newParent || !newParent->isDescendantOf(culledParent)) {
-                    while (culledParent && culledParent != &renderer() && culledParent != newParent) {
-                        if (is<RenderInline>(*culledParent) && downcast<RenderInline>(*culledParent).hitTestCulledInline(request, result, locationInContainer, accumulatedOffset))
-                            return true;
-                        culledParent = culledParent->parent();
-                    }
-                }
-                culledParent = newParent;
-            }
             if (child->nodeAtPoint(request, result, locationInContainer, accumulatedOffset, lineTop, lineBottom, hitTestAction)) {
                 renderer().updateHitTestResult(result, locationInContainer.point() - toLayoutSize(accumulatedOffset));
                 return true;
             }
         }
-    }
-    // Check any culled ancestor of the final children tested.
-    while (culledParent && culledParent != &renderer()) {
-        if (is<RenderInline>(*culledParent) && downcast<RenderInline>(*culledParent).hitTestCulledInline(request, result, locationInContainer, accumulatedOffset))
-            return true;
-        culledParent = culledParent->parent();
     }
 
     // Now check ourselves. Pixel snap hit testing.
@@ -1496,7 +1456,7 @@ LegacyInlineBox* LegacyInlineFlowBox::lastLeafDescendant() const
     return leaf;
 }
 
-RenderObject::HighlightState LegacyInlineFlowBox::selectionState()
+RenderObject::HighlightState LegacyInlineFlowBox::selectionState() const
 {
     return RenderObject::HighlightState::None;
 }

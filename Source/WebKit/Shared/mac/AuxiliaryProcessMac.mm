@@ -73,6 +73,9 @@ SOFT_LINK_SYSTEM_LIBRARY(libsystem_notify)
 SOFT_LINK_OPTIONAL(libsystem_notify, notify_set_options, void, __cdecl, (uint32_t));
 #endif
 
+SOFT_LINK_FRAMEWORK_IN_UMBRELLA(ApplicationServices, HIServices)
+SOFT_LINK_OPTIONAL(HIServices, HIS_XPC_ResetMessageConnection, void, (), ())
+
 #if PLATFORM(MAC)
 #define USE_CACHE_COMPILED_SANDBOX 1
 #else
@@ -700,6 +703,8 @@ static void initializeSandboxParameters(const AuxiliaryProcessInitializationPara
         mbr_close_connectionsPtr()();
     if (lookup_close_connectionsPtr())
         lookup_close_connectionsPtr()();
+    if (HIS_XPC_ResetMessageConnectionPtr())
+        HIS_XPC_ResetMessageConnectionPtr()();
 }
 
 void AuxiliaryProcess::initializeSandbox(const AuxiliaryProcessInitializationParameters& parameters, SandboxInitializationParameters& sandboxParameters)

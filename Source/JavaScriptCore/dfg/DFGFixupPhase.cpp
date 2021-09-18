@@ -2274,6 +2274,11 @@ private:
         case GetPropertyEnumerator: {
             if (node->child1()->shouldSpeculateCell())
                 fixEdge<CellUse>(node->child1());
+            else if (node->child1()->shouldSpeculateOther()) {
+                insertCheck<OtherUse>(node->child1().node());
+                m_graph.convertToConstant(node, m_graph.freeze(vm().emptyPropertyNameEnumerator()));
+            } else if (node->child1()->shouldSpeculateCellOrOther())
+                fixEdge<CellOrOtherUse>(node->child1());
             break;
         }
 
@@ -4477,7 +4482,23 @@ private:
             node->setOpAndDefaultFlags(CompareStrictEq);
             return;
         }
-#endif
+#if USE(JSVALUE64)
+        if (node->child1()->shouldSpeculateNeitherDoubleNorHeapBigInt()
+            && node->child2()->shouldSpeculateNotDouble()) {
+            fixEdge<NeitherDoubleNorHeapBigIntUse>(node->child1());
+            fixEdge<NotDoubleUse>(node->child2());
+            node->setOpAndDefaultFlags(CompareStrictEq);
+            return;
+        }
+        if (node->child1()->shouldSpeculateNotDouble()
+            && node->child2()->shouldSpeculateNeitherDoubleNorHeapBigInt()) {
+            fixEdge<NotDoubleUse>(node->child1());
+            fixEdge<NeitherDoubleNorHeapBigIntUse>(node->child2());
+            node->setOpAndDefaultFlags(CompareStrictEq);
+            return;
+        }
+#endif // USE(JSVALUE64)
+#endif // !USE(BIGINT32)
     }
 
     void fixupChecksInBlock(BasicBlock* block)

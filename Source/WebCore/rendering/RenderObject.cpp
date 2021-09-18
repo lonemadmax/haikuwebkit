@@ -45,6 +45,7 @@
 #include "LogicalSelectionOffsetCaches.h"
 #include "Page.h"
 #include "PseudoElement.h"
+#include "ReferencedSVGResources.h"
 #include "RenderChildIterator.h"
 #include "RenderCounter.h"
 #include "RenderFragmentedFlow.h"
@@ -1946,6 +1947,15 @@ void RenderObject::removeRareData()
     setHasRareData(false);
 }
 
+RenderObject::RenderObjectRareData::RenderObjectRareData()
+    : m_hasReflection(false)
+    , m_isRenderFragmentedFlow(false)
+    , m_hasOutlineAutoAncestor(false)
+{
+}
+
+RenderObject::RenderObjectRareData::~RenderObjectRareData() = default;
+
 bool RenderObject::hasNonEmptyVisibleRectRespectingParentFrames() const
 {
     auto enclosingFrameRenderer = [] (const RenderObject& renderer) {
@@ -2175,7 +2185,7 @@ auto RenderObject::collectSelectionGeometriesInternal(const SimpleRange& range) 
     for (auto& node : intersectingNodesWithDeprecatedZeroOffsetStartQuirk(range)) {
         auto renderer = node.renderer();
         // Only ask leaf render objects for their line box rects.
-        if (renderer && !renderer->firstChildSlow() && renderer->style().userSelect() != UserSelect::None) {
+        if (renderer && !renderer->firstChildSlow() && renderer->style().userSelect() != UserSelect::None && !node.isInert()) {
             bool isStartNode = renderer->node() == range.start.container.ptr();
             bool isEndNode = renderer->node() == range.end.container.ptr();
             if (hasFlippedWritingMode != renderer->style().isFlippedBlocksWritingMode())

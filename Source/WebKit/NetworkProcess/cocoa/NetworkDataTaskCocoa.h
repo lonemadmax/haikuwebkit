@@ -29,10 +29,12 @@
 #include "NetworkDataTask.h"
 #include "NetworkLoadParameters.h"
 #include <WebCore/NetworkLoadMetrics.h>
+#include <WebCore/PrivateClickMeasurement.h>
 #include <wtf/RetainPtr.h>
 
 OBJC_CLASS NSHTTPCookieStorage;
 OBJC_CLASS NSURLSessionDataTask;
+OBJC_CLASS NSMutableURLRequest;
 
 namespace WebCore {
 class RegistrableDomain;
@@ -126,5 +128,6 @@ private:
 };
 
 WebCore::Credential serverTrustCredential(const WebCore::AuthenticationChallenge&);
+void setPCMDataCarriedOnRequest(WebCore::PrivateClickMeasurement::PcmDataCarried, NSMutableURLRequest *);
 
 } // namespace WebKit

@@ -43,6 +43,7 @@
 #include "SharedBufferDataReference.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebErrors.h"
+#include "WebLoaderStrategy.h"
 #include "WebPageMessages.h"
 #include "WebResourceLoaderMessages.h"
 #include "WebSWServerConnection.h"
@@ -527,7 +528,11 @@ void NetworkResourceLoader::transferToNewWebProcess(NetworkConnectionToWebProces
     m_connection = newConnection;
     m_parameters.identifier = newCoreIdentifier;
 
+#if ENABLE(SERVICE_WORKER)
     ASSERT(m_responseCompletionHandler || m_cacheEntryWaitingForContinueDidReceiveResponse || m_serviceWorkerFetchTask);
+#else
+    ASSERT(m_responseCompletionHandler || m_cacheEntryWaitingForContinueDidReceiveResponse);
+#endif
     bool willWaitForContinueDidReceiveResponse = true;
     send(Messages::WebResourceLoader::DidReceiveResponse { m_response, willWaitForContinueDidReceiveResponse });
 }
@@ -602,7 +607,7 @@ bool NetworkResourceLoader::shouldInterruptNavigationForCrossOriginEmbedderPolic
 
     // https://html.spec.whatwg.org/multipage/origin.html#check-a-navigation-response's-adherence-to-its-embedder-policy
     if (m_parameters.parentCrossOriginEmbedderPolicy.value != WebCore::CrossOriginEmbedderPolicyValue::UnsafeNone && m_parameters.sourceOrigin) {
-        auto responseCOEP = WebCore::obtainCrossOriginEmbedderPolicy(response, m_parameters.sourceOrigin->isPotentiallyTrustworthy() ? IsSecureContext::Yes : IsSecureContext::No);
+        auto responseCOEP = WebCore::obtainCrossOriginEmbedderPolicy(response, nullptr);
         if (responseCOEP.value != WebCore::CrossOriginEmbedderPolicyValue::RequireCORP) {
             String errorMessage = makeString("Refused to display '", response.url().stringCenterEllipsizedToLength(), "' in a frame because of Cross-Origin-Embedder-Policy.");
             send(Messages::WebPage::AddConsoleMessage { m_parameters.webFrameID,  MessageSource::Security, MessageLevel::Error, errorMessage, coreIdentifier() }, m_parameters.webPageID);
@@ -618,7 +623,7 @@ bool NetworkResourceLoader::shouldInterruptWorkerLoadForCrossOriginEmbedderPolic
         return false;
 
     if (m_parameters.crossOriginEmbedderPolicy.value != WebCore::CrossOriginEmbedderPolicyValue::UnsafeNone && m_parameters.sourceOrigin) {
-        auto responseCOEP = WebCore::obtainCrossOriginEmbedderPolicy(response, m_parameters.sourceOrigin->isPotentiallyTrustworthy() ? IsSecureContext::Yes : IsSecureContext::No);
+        auto responseCOEP = WebCore::obtainCrossOriginEmbedderPolicy(response, nullptr);
         if (responseCOEP.value != WebCore::CrossOriginEmbedderPolicyValue::RequireCORP) {
             String errorMessage = makeString("Refused to load '", response.url().stringCenterEllipsizedToLength(), "' worker because of Cross-Origin-Embedder-Policy.");
             send(Messages::WebPage::AddConsoleMessage { m_parameters.webFrameID,  MessageSource::Security, MessageLevel::Error, errorMessage, coreIdentifier() }, m_parameters.webPageID);
@@ -641,6 +646,27 @@ void NetworkResourceLoader::didReceiveResponse(ResourceResponse&& receivedRespon
         auto information = m_networkLoadChecker->takeNetworkLoadInformation();
         information.response = m_response;
         m_connection->addNetworkLoadInformation(coreIdentifier(), WTFMove(information));
+    }
+
+    auto resourceLoadInfo = this->resourceLoadInfo();
+
+    auto isFetchOrXHR = [] (const ResourceLoadInfo& info) {
+        return info.type == ResourceLoadInfo::Type::Fetch
+            || info.type == ResourceLoadInfo::Type::XMLHTTPRequest;
+    };
+
+    auto isMediaMIMEType = [] (const String& mimeType) {
+        return mimeType.startsWithIgnoringASCIICase("audio/")
+            || mimeType.startsWithIgnoringASCIICase("video/")
+            || equalLettersIgnoringASCIICase(mimeType, "application/octet-stream");
+    };
+
+    if (!m_bufferedData
+        && m_response.expectedContentLength() > static_cast<long long>(1 * MB)
+        && isFetchOrXHR(resourceLoadInfo)
+        && isMediaMIMEType(m_response.mimeType())) {
+        m_bufferedData = SharedBuffer::create();
+        m_parameters.maximumBufferingTime = WebLoaderStrategy::mediaMaximumBufferingTime;
     }
 
     // For multipart/x-mixed-replace didReceiveResponseAsync gets called multiple times and buffering would require special handling.
@@ -717,7 +743,7 @@ void NetworkResourceLoader::didReceiveResponse(ResourceResponse&& receivedRespon
     send(Messages::WebResourceLoader::DidReceiveResponse { response, willWaitForContinueDidReceiveResponse });
 
     if (m_parameters.pageHasResourceLoadClient)
-        m_connection->networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::ResourceLoadDidReceiveResponse(m_parameters.webPageProxyID, resourceLoadInfo(), response), 0);
+        m_connection->networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::ResourceLoadDidReceiveResponse(m_parameters.webPageProxyID, resourceLoadInfo, response), 0);
 
     if (willWaitForContinueDidReceiveResponse) {
         m_responseCompletionHandler = WTFMove(completionHandler);

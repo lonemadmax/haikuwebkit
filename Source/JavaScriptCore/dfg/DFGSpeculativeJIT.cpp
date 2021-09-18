@@ -7226,7 +7226,21 @@ bool SpeculativeJIT::compileStrictEq(Node* node)
         compileNotDoubleNeitherDoubleNorHeapBigIntNorStringStrictEquality(node, notDoubleChild, neitherDoubleNorHeapBigIntNorStringChild);
         return false;
     }
-#endif
+#if USE(JSVALUE64)
+    if (node->isBinaryUseKind(NeitherDoubleNorHeapBigIntUse, NotDoubleUse)) {
+        Edge neitherDoubleNorHeapBigIntChild = node->child1();
+        Edge notDoubleChild = node->child2();
+        compileNeitherDoubleNorHeapBigIntToNotDoubleStrictEquality(node, neitherDoubleNorHeapBigIntChild, notDoubleChild);
+        return false;
+    }
+    if (node->isBinaryUseKind(NotDoubleUse, NeitherDoubleNorHeapBigIntUse)) {
+        Edge notDoubleChild = node->child1();
+        Edge neitherDoubleNorHeapBigIntChild = node->child2();
+        compileNeitherDoubleNorHeapBigIntToNotDoubleStrictEquality(node, neitherDoubleNorHeapBigIntChild, notDoubleChild);
+        return false;
+    }
+#endif // USE(JSVALUE64)
+#endif // !USE(BIGINT32)
 
     if (node->isBinaryUseKind(HeapBigIntUse)) {
         compileHeapBigIntEquality(node);
@@ -7457,6 +7471,40 @@ void SpeculativeJIT::compilePeepHoleSymbolEquality(Node* node, Node* branchNode)
     }
 }
 
+void SpeculativeJIT::emitBitwiseJSValueEquality(JSValueRegs& left, JSValueRegs& right, GPRReg& result)
+{
+#if USE(JSVALUE64)
+    m_jit.compare64(JITCompiler::Equal, left.gpr(), right.gpr(), result);
+#else
+    m_jit.move(TrustedImm32(0), result);
+    JITCompiler::Jump notEqual = m_jit.branch32(JITCompiler::NotEqual, left.tagGPR(), right.tagGPR());
+    m_jit.compare32(JITCompiler::Equal, left.payloadGPR(), right.payloadGPR(), result);
+    notEqual.link(&m_jit);
+#endif
+}
+
+void SpeculativeJIT::emitBranchOnBitwiseJSValueEquality(JSValueRegs& left, JSValueRegs& right, BasicBlock* taken, BasicBlock* notTaken)
+{
+#if USE(JSVALUE64)
+    if (taken == nextBlock()) {
+        branch64(JITCompiler::NotEqual, left.gpr(), right.gpr(), notTaken);
+        jump(taken);
+    } else {
+        branch64(JITCompiler::Equal, left.gpr(), right.gpr(), taken);
+        jump(notTaken);
+    }
+#else
+    branch32(JITCompiler::NotEqual, left.tagGPR(), right.tagGPR(), notTaken);
+    if (taken == nextBlock()) {
+        branch32(JITCompiler::NotEqual, left.payloadGPR(), right.payloadGPR(), notTaken);
+        jump(taken);
+    } else {
+        branch32(JITCompiler::Equal, left.payloadGPR(), right.payloadGPR(), taken);
+        jump(notTaken);
+    }
+#endif
+}
+
 void SpeculativeJIT::compileNotDoubleNeitherDoubleNorHeapBigIntNorStringStrictEquality(Node* node, Edge notDoubleChild, Edge neitherDoubleNorHeapBigIntNorStringChild)
 {
     JSValueOperand left(this, notDoubleChild, ManualOperandSpeculation);
@@ -7476,14 +7524,7 @@ void SpeculativeJIT::compileNotDoubleNeitherDoubleNorHeapBigIntNorStringStrictEq
     speculateNotDouble(notDoubleChild, leftRegs, tempGPR);
     speculateNeitherDoubleNorHeapBigIntNorString(neitherDoubleNorHeapBigIntNorStringChild, rightRegs, tempGPR);
 
-#if USE(JSVALUE64)
-    m_jit.compare64(JITCompiler::Equal, left.gpr(), right.gpr(), result.gpr());
-#else
-    m_jit.move(TrustedImm32(0), result.gpr());
-    JITCompiler::Jump notEqual = m_jit.branch32(JITCompiler::NotEqual, left.tagGPR(), right.tagGPR());
-    m_jit.compare32(JITCompiler::Equal, left.payloadGPR(), right.payloadGPR(), result.gpr());
-    notEqual.link(&m_jit);
-#endif
+    emitBitwiseJSValueEquality(leftRegs, rightRegs, resultGPR);
     unblessedBooleanResult(resultGPR, node);
 }
 
@@ -7503,24 +7544,7 @@ void SpeculativeJIT::compilePeepHoleNotDoubleNeitherDoubleNorHeapBigIntNorString
     BasicBlock* taken = branchNode->branchData()->taken.block;
     BasicBlock* notTaken = branchNode->branchData()->notTaken.block;
 
-#if USE(JSVALUE64)
-    if (taken == nextBlock()) {
-        branch64(JITCompiler::NotEqual, left.gpr(), right.gpr(), notTaken);
-        jump(taken);
-    } else {
-        branch64(JITCompiler::Equal, left.gpr(), right.gpr(), taken);
-        jump(notTaken);
-    }
-#else
-    branch32(JITCompiler::NotEqual, left.tagGPR(), right.tagGPR(), notTaken);
-    if (taken == nextBlock()) {
-        branch32(JITCompiler::NotEqual, left.payloadGPR(), right.payloadGPR(), notTaken);
-        jump(taken);
-    } else {
-        branch32(JITCompiler::Equal, left.payloadGPR(), right.payloadGPR(), taken);
-        jump(notTaken);
-    }
-#endif
+    emitBranchOnBitwiseJSValueEquality(leftRegs, rightRegs, taken, notTaken);
 }
 
 void SpeculativeJIT::compileStringEquality(
@@ -11781,6 +11805,42 @@ void SpeculativeJIT::speculateNotDouble(Edge edge)
     speculateNotDouble(edge, regs, tempGPR);
 }
 
+void SpeculativeJIT::speculateNeitherDoubleNorHeapBigInt(Edge edge, JSValueRegs regs, GPRReg tempGPR)
+{
+    if (!needsTypeCheck(edge, ~(SpecFullDouble | SpecHeapBigInt)))
+        return;
+
+    JITCompiler::JumpList done;
+
+    bool mayBeInt32 = needsTypeCheck(edge, ~SpecInt32Only);
+    if (mayBeInt32)
+        done.append(m_jit.branchIfInt32(regs));
+
+    DFG_TYPE_CHECK(regs, edge, ~SpecFullDouble, m_jit.branchIfNumber(regs, tempGPR));
+
+    bool mayBeNotCell = needsTypeCheck(edge, SpecCell);
+    if (mayBeNotCell)
+        done.append(m_jit.branchIfNotCell(regs));
+
+    DFG_TYPE_CHECK(regs, edge, ~SpecHeapBigInt, m_jit.branchIfHeapBigInt(regs.payloadGPR()));
+
+    if (mayBeInt32 || mayBeNotCell)
+        done.link(&m_jit);
+}
+
+void SpeculativeJIT::speculateNeitherDoubleNorHeapBigInt(Edge edge)
+{
+    if (!needsTypeCheck(edge, ~(SpecFullDouble | SpecHeapBigInt)))
+        return;
+
+    JSValueOperand operand(this, edge, ManualOperandSpeculation);
+    GPRTemporary temp(this);
+    JSValueRegs regs = operand.jsValueRegs();
+    GPRReg tempGPR = temp.gpr();
+
+    speculateNeitherDoubleNorHeapBigInt(edge, regs, tempGPR);
+}
+
 void SpeculativeJIT::speculateNeitherDoubleNorHeapBigIntNorString(Edge edge, JSValueRegs regs, GPRReg tempGPR)
 {
     if (!needsTypeCheck(edge, ~(SpecFullDouble | SpecString | SpecHeapBigInt)))
@@ -11794,14 +11854,14 @@ void SpeculativeJIT::speculateNeitherDoubleNorHeapBigIntNorString(Edge edge, JSV
 
     DFG_TYPE_CHECK(regs, edge, ~SpecFullDouble, m_jit.branchIfNumber(regs, tempGPR));
 
-    bool mayNotBeCell = needsTypeCheck(edge, SpecCell);
-    if (mayNotBeCell)
+    bool mayBeNotCell = needsTypeCheck(edge, SpecCell);
+    if (mayBeNotCell)
         done.append(m_jit.branchIfNotCell(regs));
 
     static_assert(StringType + 1 == HeapBigIntType);
     DFG_TYPE_CHECK(regs, edge, ~(SpecString | SpecHeapBigInt), m_jit.branchIfType(regs.payloadGPR(), JSTypeRange { StringType, HeapBigIntType }));
 
-    if (mayBeInt32 || mayNotBeCell)
+    if (mayBeInt32 || mayBeNotCell)
         done.link(&m_jit);
 }
 
@@ -12002,6 +12062,9 @@ void SpeculativeJIT::speculate(Node*, Edge edge)
         break;
     case NotDoubleUse:
         speculateNotDouble(edge);
+        break;
+    case NeitherDoubleNorHeapBigIntUse:
+        speculateNeitherDoubleNorHeapBigInt(edge);
         break;
     case NeitherDoubleNorHeapBigIntNorStringUse:
         speculateNeitherDoubleNorHeapBigIntNorString(edge);
@@ -13510,7 +13573,8 @@ void SpeculativeJIT::compileEnumeratorNextUpdateIndexAndMode(Node* node)
         m_jit.load32(MacroAssembler::Address(baseGPR, JSCell::structureIDOffset()), resultRegs.payloadGPR());
         speculationCheck(BadCache, JSValueSource(), node, m_jit.branch32(MacroAssembler::NotEqual, resultRegs.payloadGPR(), MacroAssembler::Address(enumeratorGPR, JSPropertyNameEnumerator::cachedStructureIDOffset())));
 
-        m_jit.load32(MacroAssembler::Address(enumeratorGPR, JSPropertyNameEnumerator::modeSetOffset()), resultRegs.payloadGPR());
+        m_jit.load32(MacroAssembler::Address(enumeratorGPR, JSPropertyNameEnumerator::flagsOffset()), resultRegs.payloadGPR());
+        m_jit.and32(TrustedImm32(JSPropertyNameEnumerator::enumerationModeMask), resultRegs.payloadGPR());
         speculationCheck(BadCache, JSValueSource(), node, m_jit.branch32(MacroAssembler::NotEqual, TrustedImm32(JSPropertyNameEnumerator::OwnStructureMode), resultRegs.payloadGPR()));
 
         m_jit.move(indexGPR, resultRegs.payloadGPR());
@@ -13942,16 +14006,86 @@ void SpeculativeJIT::compileMatchStructure(Node* node)
 
 void SpeculativeJIT::compileGetPropertyEnumerator(Node* node)
 {
-    if (node->child1().useKind() == CellUse) {
-        SpeculateCellOperand base(this, node->child1());
-        GPRReg baseGPR = base.gpr();
+    if (node->child1().useKind() == CellUse || node->child1().useKind() == CellOrOtherUse) {
+        JSValueOperand base(this, node->child1(), ManualOperandSpeculation);
+        GPRTemporary scratch1(this);
+        GPRTemporary scratch2(this);
 
-        flushRegisters();
-        GPRFlushedCallResult result(this);
-        GPRReg resultGPR = result.gpr();
-        callOperation(operationGetPropertyEnumeratorCell, resultGPR, TrustedImmPtr::weakPointer(m_graph, m_graph.globalObjectFor(node->origin.semantic)), baseGPR);
+        speculate(node, node->child1());
+
+        JSValueRegs baseRegs = base.jsValueRegs();
+        GPRReg scratch1GPR = scratch1.gpr();
+        GPRReg scratch2GPR = scratch2.gpr();
+
+        CCallHelpers::JumpList slowCases;
+        CCallHelpers::JumpList doneCases;
+
+        if (node->child1().useKind() == CellOrOtherUse) {
+            auto notOther = m_jit.branchIfNotOther(baseRegs, scratch1GPR);
+            m_jit.move(TrustedImmPtr::weakPointer(m_graph, vm().emptyPropertyNameEnumerator()), scratch1GPR);
+            doneCases.append(m_jit.jump());
+            notOther.link(&m_jit);
+        }
+
+        // We go to the inlined fast path if the object is UndecidedShape / NoIndexingShape for simplicity.
+        static_assert(!NonArray);
+        static_assert(ArrayClass == 1);
+        static_assert(UndecidedShape == 2);
+        static_assert(ArrayWithUndecided == 3);
+        static_assert(NonArray <= ArrayWithUndecided);
+        static_assert(ArrayClass <= ArrayWithUndecided);
+        static_assert(ArrayWithUndecided <= ArrayWithUndecided);
+
+        AbstractValue& baseValue = m_state.forNode(node->child1());
+        RegisteredStructure onlyStructure;
+        StructureRareData* rareData = nullptr;
+        bool skipIndexingMaskCheck = false;
+        if (baseValue.isType(SpecObject) && baseValue.m_structure.isFinite()) {
+            bool hasIndexing = false;
+            baseValue.m_structure.forEach([&] (RegisteredStructure structure) {
+                if (structure->indexingType() > ArrayWithUndecided)
+                    hasIndexing = true;
+            });
+            if (!hasIndexing)
+                skipIndexingMaskCheck = true;
+            onlyStructure = baseValue.m_structure.onlyStructure();
+            if (onlyStructure)
+                rareData = onlyStructure->tryRareData();
+        }
+
+        if (!skipIndexingMaskCheck) {
+            m_jit.load8(CCallHelpers::Address(baseRegs.payloadGPR(), JSCell::indexingTypeAndMiscOffset()), scratch1GPR);
+            m_jit.and32(CCallHelpers::TrustedImm32(IndexingTypeMask), scratch1GPR);
+            slowCases.append(m_jit.branch32(CCallHelpers::Above, scratch1GPR, CCallHelpers::TrustedImm32(ArrayWithUndecided)));
+        }
+
+        if (rareData) {
+            FrozenValue* frozenRareData = m_graph.freeze(rareData);
+            m_jit.move(TrustedImmPtr(frozenRareData), scratch1GPR);
+            m_jit.loadPtr(CCallHelpers::Address(scratch1GPR, StructureRareData::offsetOfCachedPropertyNameEnumerator()), scratch1GPR);
+        } else {
+            if (onlyStructure)
+                m_jit.move(TrustedImmPtr(onlyStructure), scratch1GPR);
+            else
+                m_jit.emitLoadStructure(vm(), baseRegs.payloadGPR(), scratch1GPR, scratch2GPR);
+            m_jit.loadPtr(CCallHelpers::Address(scratch1GPR, Structure::previousOrRareDataOffset()), scratch1GPR);
+            slowCases.append(m_jit.branchTestPtr(CCallHelpers::Zero, scratch1GPR));
+            slowCases.append(m_jit.branchIfStructure(scratch1GPR));
+            m_jit.loadPtr(CCallHelpers::Address(scratch1GPR, StructureRareData::offsetOfCachedPropertyNameEnumerator()), scratch1GPR);
+        }
+
+        slowCases.append(m_jit.branchTestPtr(CCallHelpers::Zero, scratch1GPR));
+        slowCases.append(m_jit.branchTest32(CCallHelpers::Zero, CCallHelpers::Address(scratch1GPR, JSPropertyNameEnumerator::flagsOffset()), CCallHelpers::TrustedImm32(JSPropertyNameEnumerator::ValidatedViaWatchpoint)));
+        doneCases.append(m_jit.jump());
+
+        slowCases.link(&m_jit);
+        silentSpillAllRegisters(scratch1GPR, scratch2GPR);
+        callOperation(operationGetPropertyEnumeratorCell, scratch1GPR, TrustedImmPtr::weakPointer(m_graph, m_graph.globalObjectFor(node->origin.semantic)), baseRegs.payloadGPR());
+        silentFillAllRegisters();
         m_jit.exceptionCheck();
-        cellResult(resultGPR, node);
+
+        doneCases.link(&m_jit);
+        cellResult(scratch1GPR, node);
         return;
     }
 
@@ -14211,7 +14345,7 @@ void SpeculativeJIT::compileObjectKeysOrObjectGetOwnPropertyNames(Node* node)
             m_jit.loadPtr(CCallHelpers::Address(structureGPR, Structure::previousOrRareDataOffset()), scratchGPR);
 
             slowCases.append(m_jit.branchTestPtr(CCallHelpers::Zero, scratchGPR));
-            slowCases.append(m_jit.branch32(CCallHelpers::Equal, CCallHelpers::Address(scratchGPR, JSCell::structureIDOffset()), TrustedImm32(bitwise_cast<int32_t>(vm().structureStructure->structureID()))));
+            slowCases.append(m_jit.branchIfStructure(scratchGPR));
 
             m_jit.loadPtr(CCallHelpers::Address(scratchGPR, StructureRareData::offsetOfCachedPropertyNames(node->op() == ObjectKeys ? CachedPropertyNamesKind::Keys : CachedPropertyNamesKind::GetOwnPropertyNames)), scratchGPR);
 

@@ -281,6 +281,7 @@ public:
     void terminateServiceWorkers();
 
     void resetQuota();
+    void clearStorage();
 
     void removeAllSessionCredentials();
 
@@ -384,7 +385,7 @@ private:
     WKContextRef platformAdjustContext(WKContextRef, WKContextConfigurationRef);
     void platformInitializeContext();
     void platformCreateWebView(WKPageConfigurationRef, const TestOptions&);
-    static PlatformWebView* platformCreateOtherPage(PlatformWebView* parentView, WKPageConfigurationRef, const TestOptions&);
+    static UniqueRef<PlatformWebView> platformCreateOtherPage(PlatformWebView* parentView, WKPageConfigurationRef, const TestOptions&);
 
     // Returns false if the reset timed out.
     bool platformResetStateToConsistentValues(const TestOptions&);
@@ -519,6 +520,9 @@ private:
     static WKPageRef createOtherPage(WKPageRef, WKPageConfigurationRef, WKNavigationActionRef, WKWindowFeaturesRef, const void*);
     WKPageRef createOtherPage(PlatformWebView* parentView, WKPageConfigurationRef, WKNavigationActionRef, WKWindowFeaturesRef);
 
+    static void closeOtherPage(WKPageRef, const void*);
+    void closeOtherPage(WKPageRef, PlatformWebView*);
+
     static void runModal(WKPageRef, const void* clientInfo);
     static void runModal(PlatformWebView*);
 
@@ -552,6 +556,7 @@ private:
     WebNotificationProvider m_webNotificationProvider;
 
     std::unique_ptr<PlatformWebView> m_mainWebView;
+    Vector<UniqueRef<PlatformWebView>> m_auxiliaryWebViews;
     WKRetainPtr<WKContextRef> m_context;
     WKRetainPtr<WKPageGroupRef> m_pageGroup;
     WKRetainPtr<WKUserContentControllerRef> m_userContentController;

@@ -30,11 +30,14 @@
 #include "JSTypeInfo.h"
 #include "PropertyOffset.h"
 #include "PropertySlot.h"
+#include <wtf/FixedVector.h>
 
 namespace JSC {
 
 class JSPropertyNameEnumerator;
+class LLIntOffsetsExtractor;
 class Structure;
+class StructureChain;
 class CachedSpecialPropertyAdaptiveStructureWatchpoint;
 class CachedSpecialPropertyAdaptiveInferredPropertyValueWatchpoint;
 struct SpecialPropertyCache;
@@ -51,6 +54,9 @@ enum class CachedSpecialPropertyKey : uint8_t {
     ToPrimitive,
 };
 static constexpr unsigned numberOfCachedSpecialPropertyKeys = 4;
+
+class StructureRareData;
+class StructureChainInvalidationWatchpoint;
 
 class StructureRareData final : public JSCell {
 public:
@@ -102,11 +108,19 @@ public:
         return OBJECT_OFFSETOF(StructureRareData, m_cachedPropertyNames) + sizeof(WriteBarrier<JSImmutableButterfly>) * static_cast<unsigned>(kind);
     }
 
+    static ptrdiff_t offsetOfCachedPropertyNameEnumerator()
+    {
+        return OBJECT_OFFSETOF(StructureRareData, m_cachedPropertyNameEnumerator);
+    }
+
     DECLARE_EXPORT_INFO;
 
     void finalizeUnconditionally(VM&);
 
+    void invalidateWatchpointBasedValidation();
+
 private:
+    friend class LLIntOffsetsExtractor;
     friend class Structure;
     friend class CachedSpecialPropertyAdaptiveStructureWatchpoint;
     friend class CachedSpecialPropertyAdaptiveInferredPropertyValueWatchpoint;
@@ -121,10 +135,13 @@ private:
     bool canCacheSpecialProperty(CachedSpecialPropertyKey);
     void giveUpOnSpecialPropertyCache(CachedSpecialPropertyKey);
 
+    bool tryCachePropertyNameEnumeratorViaWatchpoint(VM&, StructureChain*);
+
     WriteBarrier<Structure> m_previous;
     // FIXME: We should have some story for clearing these property names caches in GC.
     // https://bugs.webkit.org/show_bug.cgi?id=192659
     WriteBarrier<JSPropertyNameEnumerator> m_cachedPropertyNameEnumerator;
+    FixedVector<StructureChainInvalidationWatchpoint> m_cachedPropertyNameEnumeratorWatchpoints;
     WriteBarrier<JSImmutableButterfly> m_cachedPropertyNames[numberOfCachedPropertyNames] { };
 
     typedef HashMap<PropertyOffset, RefPtr<WatchpointSet>, WTF::IntHash<PropertyOffset>, WTF::UnsignedWithZeroKeyHashTraits<PropertyOffset>> PropertyWatchpointMap;

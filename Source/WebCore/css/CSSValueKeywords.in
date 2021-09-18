@@ -1351,6 +1351,10 @@ calc
 min
 max
 clamp
+sin
+cos
+e
+pi
 
 from-image
 
@@ -1543,6 +1547,11 @@ selector
 // math-style
 // normal
 compact
+
+// mask-type, mask-mode
+// alpha
+// luminance
+match-source
 
 // rotate
 x

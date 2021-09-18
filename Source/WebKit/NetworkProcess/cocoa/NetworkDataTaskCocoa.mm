@@ -57,11 +57,16 @@
 #if USE(APPLE_INTERNAL_SDK)
 #import <WebKitAdditions/NetworkDataTaskCocoaAdditions.h>
 #else
-static void processPCMRequest(WebCore::PrivateClickMeasurement::PcmDataCarried, NSMutableURLRequest *) { }
 static void overrideAttributionContext(NSMutableURLRequest *) { }
+static void processPCMRequest(WebCore::PrivateClickMeasurement::PcmDataCarried, NSMutableURLRequest *) { }
 #endif
 
 namespace WebKit {
+
+void setPCMDataCarriedOnRequest(WebCore::PrivateClickMeasurement::PcmDataCarried pcmDataCarried, NSMutableURLRequest *request)
+{
+    processPCMRequest(pcmDataCarried, request);
+}
 
 #if USE(CREDENTIAL_STORAGE_WITH_NETWORK_SESSION)
 static void applyBasicAuthorizationHeader(WebCore::ResourceRequest& request, const WebCore::Credential& credential)
@@ -346,9 +351,6 @@ NetworkDataTaskCocoa::NetworkDataTaskCocoa(NetworkSession& session, NetworkDataT
 #endif
 
     overrideAttributionContext(mutableRequest.get());
-
-    if (parameters.pcmDataCarried)
-        processPCMRequest(*parameters.pcmDataCarried, mutableRequest.get());
 
     nsRequest = mutableRequest;
 

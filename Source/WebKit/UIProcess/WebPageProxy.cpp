@@ -1413,6 +1413,8 @@ void WebPageProxy::loadRequestWithNavigationShared(Ref<WebProcessProxy>&& proces
 
     navigation.setIsLoadedWithNavigationShared(true);
 
+    process->markProcessAsRecentlyUsed();
+
     if (!process->isLaunching() || !url.isLocalFile())
         process->send(Messages::WebPage::LoadRequest(loadParameters), webPageID);
     else
@@ -1474,6 +1476,7 @@ RefPtr<API::Navigation> WebPageProxy::loadFile(const String& fileURLString, cons
     maybeInitializeSandboxExtensionHandle(m_process, fileURL, resourceDirectoryURL, loadParameters.sandboxExtensionHandle, checkAssumedReadAccessToResourceURL);
     addPlatformLoadParameters(m_process, loadParameters);
 
+    m_process->markProcessAsRecentlyUsed();
     if (m_process->isLaunching())
         send(Messages::WebPage::LoadRequestWaitingForProcessLaunch(loadParameters, resourceDirectoryURL, m_identifier, checkAssumedReadAccessToResourceURL));
     else
@@ -1533,6 +1536,7 @@ void WebPageProxy::loadDataWithNavigationShared(Ref<WebProcessProxy>&& process, 
     loadParameters.isNavigatingToAppBoundDomain = isNavigatingToAppBoundDomain;
     addPlatformLoadParameters(process, loadParameters);
 
+    process->markProcessAsRecentlyUsed();
     process->assumeReadAccessToBaseURL(*this, baseURL);
     process->send(Messages::WebPage::LoadData(loadParameters), webPageID);
     process->startResponsivenessTimer();
@@ -1590,6 +1594,7 @@ RefPtr<API::Navigation> WebPageProxy::loadSimulatedRequest(WebCore::ResourceRequ
 
     addPlatformLoadParameters(m_process, loadParameters);
 
+    m_process->markProcessAsRecentlyUsed();
     m_process->assumeReadAccessToBaseURL(*this, baseURL);
     m_process->send(Messages::WebPage::LoadSimulatedRequestAndResponse(loadParameters, simulatedResponse), m_webPageID);
     m_process->startResponsivenessTimer();
@@ -1633,6 +1638,7 @@ void WebPageProxy::loadAlternateHTML(const IPC::DataReference& htmlData, const S
     loadParameters.userData = UserData(process().transformObjectsToHandles(userData).get());
     addPlatformLoadParameters(process(), loadParameters);
 
+    m_process->markProcessAsRecentlyUsed();
     m_process->assumeReadAccessToBaseURL(*this, baseURL.string());
     m_process->assumeReadAccessToBaseURL(*this, unreachableURL.string());
     send(Messages::WebPage::LoadAlternateHTML(loadParameters));
@@ -1662,6 +1668,7 @@ void WebPageProxy::loadWebArchiveData(API::Data* webArchiveData, API::Object* us
     loadParameters.userData = UserData(process().transformObjectsToHandles(userData).get());
     addPlatformLoadParameters(process(), loadParameters);
 
+    m_process->markProcessAsRecentlyUsed();
     send(Messages::WebPage::LoadData(loadParameters));
     m_process->startResponsivenessTimer();
 }
@@ -1737,6 +1744,7 @@ RefPtr<API::Navigation> WebPageProxy::reload(OptionSet<WebCore::ReloadOption> op
     if (options.contains(WebCore::ReloadOption::DisableContentBlockers))
         navigation->setUserContentExtensionsEnabled(false);
 
+    m_process->markProcessAsRecentlyUsed();
     send(Messages::WebPage::Reload(navigation->navigationID(), options.toRaw(), sandboxExtensionHandle));
     m_process->startResponsivenessTimer();
 
@@ -1815,6 +1823,7 @@ RefPtr<API::Navigation> WebPageProxy::goToBackForwardItem(WebBackForwardListItem
     auto transaction = m_pageLoadState.transaction();
     m_pageLoadState.setPendingAPIRequest(transaction, { navigation ? navigation->navigationID() : 0, item.url() });
 
+    m_process->markProcessAsRecentlyUsed();
     send(Messages::WebPage::GoToBackForwardItem(navigation ? navigation->navigationID() : 0, item.itemID(), frameLoadType, ShouldTreatAsContinuingLoad::No, std::nullopt, m_lastNavigationWasAppInitiated));
     m_process->startResponsivenessTimer();
 
@@ -4781,37 +4790,37 @@ void WebPageProxy::didChangeProvisionalURLForFrameShared(Ref<WebProcessProxy>&& 
 
 void WebPageProxy::didFailProvisionalLoadForFrame(FrameIdentifier frameID, FrameInfoData&& frameInfo, WebCore::ResourceRequest&& request, uint64_t navigationID, const String& provisionalURL, const ResourceError& error, WillContinueLoading willContinueLoading, const UserData& userData)
 {
-    if (m_provisionalPage && m_provisionalPage->navigationID() == navigationID) {
+    WebFrameProxy* frame = m_process->webFrame(frameID);
+    MESSAGE_CHECK(m_process, frame);
+
+    if (m_provisionalPage && frame->isMainFrame()) {
         // The load did not fail, it is merely happening in a new provisional process.
         return;
     }
 
-    didFailProvisionalLoadForFrameShared(m_process.copyRef(), frameID, WTFMove(frameInfo), WTFMove(request), navigationID, provisionalURL, error, willContinueLoading, userData);
+    didFailProvisionalLoadForFrameShared(m_process.copyRef(), *frame, WTFMove(frameInfo), WTFMove(request), navigationID, provisionalURL, error, willContinueLoading, userData);
 }
 
-void WebPageProxy::didFailProvisionalLoadForFrameShared(Ref<WebProcessProxy>&& process, FrameIdentifier frameID, FrameInfoData&& frameInfo, WebCore::ResourceRequest&& request, uint64_t navigationID, const String& provisionalURL, const ResourceError& error, WillContinueLoading willContinueLoading, const UserData& userData)
+void WebPageProxy::didFailProvisionalLoadForFrameShared(Ref<WebProcessProxy>&& process, WebFrameProxy& frame, FrameInfoData&& frameInfo, WebCore::ResourceRequest&& request, uint64_t navigationID, const String& provisionalURL, const ResourceError& error, WillContinueLoading willContinueLoading, const UserData& userData)
 {
     LOG(Loading, "(Loading) WebPageProxy %" PRIu64 " in web process pid %i didFailProvisionalLoadForFrame to provisionalURL %s", m_identifier.toUInt64(), process->processIdentifier(), provisionalURL.utf8().data());
-    WEBPAGEPROXY_RELEASE_LOG_ERROR(Process, "didFailProvisionalLoadForFrame: frameID=%" PRIu64 ", domain=%s, code=%d", frameID.toUInt64(), error.domain().utf8().data(), error.errorCode());
+    WEBPAGEPROXY_RELEASE_LOG_ERROR(Process, "didFailProvisionalLoadForFrame: frameID=%" PRIu64 ", domain=%s, code=%d", frame.frameID().toUInt64(), error.domain().utf8().data(), error.errorCode());
 
     PageClientProtector protector(pageClient());
 
-    WebFrameProxy* frame = process->webFrame(frameID);
-    MESSAGE_CHECK(process, frame);
-
     if (m_controlledByAutomation) {
         if (auto* automationSession = process->processPool().automationSession())
-            automationSession->navigationOccurredForFrame(*frame);
+            automationSession->navigationOccurredForFrame(frame);
     }
 
     // FIXME: We should message check that navigationID is not zero here, but it's currently zero for some navigations through the back/forward cache.
     RefPtr<API::Navigation> navigation;
-    if (frame->isMainFrame() && navigationID)
+    if (frame.isMainFrame() && navigationID)
         navigation = navigationState().takeNavigation(navigationID);
 
     auto transaction = m_pageLoadState.transaction();
 
-    if (frame->isMainFrame()) {
+    if (frame.isMainFrame()) {
         reportPageLoadResult(error);
         m_pageLoadState.didFailProvisionalLoad(transaction);
         pageClient().didFailProvisionalLoadForMainFrame();
@@ -4819,7 +4828,7 @@ void WebPageProxy::didFailProvisionalLoadForFrameShared(Ref<WebProcessProxy>&& p
             navigation->setClientNavigationActivity(nullptr);
     }
 
-    frame->didFailProvisionalLoad();
+    frame.didFailProvisionalLoad();
 
     m_pageLoadState.commitChanges();
 
@@ -4827,7 +4836,7 @@ void WebPageProxy::didFailProvisionalLoadForFrameShared(Ref<WebProcessProxy>&& p
     m_failingProvisionalLoadURL = provisionalURL;
 
     if (m_loaderClient)
-        m_loaderClient->didFailProvisionalLoadWithErrorForFrame(*this, *frame, navigation.get(), error, process->transformHandlesToObjects(userData.object()).get());
+        m_loaderClient->didFailProvisionalLoadWithErrorForFrame(*this, frame, navigation.get(), error, process->transformHandlesToObjects(userData.object()).get());
     else {
         m_navigationClient->didFailProvisionalNavigationWithError(*this, FrameInfoData { frameInfo }, navigation.get(), error, process->transformHandlesToObjects(userData.object()).get());
         m_navigationClient->didFailProvisionalLoadWithErrorForFrame(*this, WTFMove(request), error, WTFMove(frameInfo));
@@ -4836,7 +4845,7 @@ void WebPageProxy::didFailProvisionalLoadForFrameShared(Ref<WebProcessProxy>&& p
     m_failingProvisionalLoadURL = { };
 
     // If the provisional page's load fails then we destroy the provisional page.
-    if (m_provisionalPage && m_provisionalPage->mainFrame() == frame && willContinueLoading == WillContinueLoading::No)
+    if (m_provisionalPage && m_provisionalPage->mainFrame() == &frame && willContinueLoading == WillContinueLoading::No)
         m_provisionalPage = nullptr;
 }
 
@@ -5176,6 +5185,7 @@ void WebPageProxy::didChangeMainDocument(FrameIdentifier frameID)
 
 void WebPageProxy::viewIsBecomingVisible()
 {
+    m_process->markProcessAsRecentlyUsed();
 #if ENABLE(MEDIA_STREAM)
     if (m_userMediaPermissionRequestManager)
         m_userMediaPermissionRequestManager->viewIsBecomingVisible();
@@ -7720,8 +7730,6 @@ void WebPageProxy::resetStateAfterProcessTermination(ProcessTerminationReason re
         if (auto* automationSession = process().processPool().automationSession())
             automationSession->terminate();
     }
-
-    m_needsSiteSpecificViewportQuirks = true;
 }
 
 void WebPageProxy::provisionalProcessDidTerminate()
@@ -7739,6 +7747,7 @@ static bool shouldReloadAfterProcessTermination(ProcessTerminationReason reason)
     case ProcessTerminationReason::RequestedByGPUProcess:
     case ProcessTerminationReason::Crash:
         return true;
+    case ProcessTerminationReason::ExceededProcessCountLimit:
     case ProcessTerminationReason::NavigationSwap:
     case ProcessTerminationReason::RequestedByClient:
         break;
@@ -10575,6 +10584,13 @@ void WebPageProxy::webViewDidMoveToWindow()
         if (!observer.value)
             continue;
         observer.value->webViewDidMoveToWindow();
+    }
+
+    auto newWindowKind = pageClient().windowKind();
+    if (m_windowKind != newWindowKind) {
+        m_windowKind = newWindowKind;
+        if (m_drawingArea)
+            m_drawingArea->windowKindDidChange();    
     }
 }
 

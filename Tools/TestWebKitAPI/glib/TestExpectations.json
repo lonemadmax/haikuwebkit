@@ -83,7 +83,7 @@
                 }
             },
             "/webkit/WebKitWebExtension/form-submission-steps": {
-                "expected": {"gtk": {"status": ["TIMEOUT", "PASS"], "bug": "webkit.org/b/205333"}}
+                "expected": {"all": {"status": ["TIMEOUT", "PASS"], "bug": "webkit.org/b/205333"}}
             },
             "/webkit/WebKitWebExtension/form-controls-associated-signal": {
                 "expected": {"gtk": {"status": ["FAIL", "PASS"], "bug": "webkit.org/b/205380"}}
@@ -300,6 +300,11 @@
             "/webkit/WebKitWebPage/context-menu-node": {
                 "expected": {
                     "gtk": {"status": ["FAIL"], "bug": "webkit.org/b/227020"}
+                }
+            },
+            "/webkit/WebKitWebView/default-menu": {
+                "expected": {
+                    "gtk": {"status": ["FAIL"], "bug": "webkit.org/b/230043"}
                 }
             }
         }

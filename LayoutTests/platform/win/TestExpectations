@@ -1500,6 +1500,7 @@ webkit.org/b/130011 accessibility/aria-setsize-posinset.html [ Skip ]
 webkit.org/b/95405 accessibility/win/single-select-children.html [ Skip ]
 accessibility/file-upload-button-stringvalue.html
 webkit.org/b/97026 accessibility/file-upload-button-with-axpress.html [ Skip ] #  [ Timeout ]
+accessibility/dialog-showModal.html [ Skip ]
 
 # Color Well is not implemented:
 accessibility/color-well.html
@@ -1884,6 +1885,7 @@ webkit.org/b/229195 svg/custom/animate-initial-pause-unpause.html [ Pass Timeout
 svg/animations/animate-text-nested-transforms.html [ Failure ]
 svg/repaint/text-mask-update.svg [ ImageOnlyFailure ]
 svg/text/lengthAdjust-text-metrics.html [ Failure ]
+css3/filters/reference-filter-change-repaint.html [ Failure ]
 
 # Weird black images
 imported/mozilla/svg/svg-effects-area-unzoomed.xhtml
@@ -3785,8 +3787,6 @@ inspector/console/webcore-logging.html [ Skip ]
 
 webkit.org/b/177216 fast/images/animated-image-mp4.html [ Skip ]
 
-webkit.org/b/228325 fast/images/exif-orientation-composited.html [ Pass ImageOnlyFailure ]
-
 webkit.org/b/177234 http/wpt/resource-timing/rt-cors.html [ Skip ]
 webkit.org/b/177234 http/wpt/resource-timing/rt-cors.worker.html [ Skip ]
 
@@ -4121,6 +4121,8 @@ webkit.org/b/189836 webanimations/accelerated-animation-suspension.html [ Skip ]
 
 webkit.org/b/190032 css3/filters/composited-during-animation-layertree.html [ Pass Failure ]
 webkit.org/b/190032 transitions/clip-path-transitions.html [ Pass Failure ]
+
+webkit.org/b/229829 css3/filters/canvas-with-filter-after-repaint.html [ Pass ImageOnlyFailure ]
 
 # MediaRecorder is not enabled on Windows
 imported/w3c/web-platform-tests/mediacapture-record [ Skip ]
@@ -4634,8 +4636,9 @@ fast/forms/option-mouseevents.html [ Pass Failure ]
 fast/forms/password-doubleclick-selection.html [ Pass Failure ]
 fast/text/offsetForPosition-complex-fallback.html [ Pass Failure ]
 
-# testRunner.setShouldSwapToEphemeralSessionOnNextNavigation() does not work with window.open() in DRT.
+# No BroadcastChannel support on Windows.
 fast/html/broadcast-channel-between-different-sessions.html [ Skip ]
+http/tests/messaging/broadcastchannel-partitioning.html [ Skip ]
 
 # This test is skipped because the necessary feature flag functionality specific to the Windows WebKit legacy port is
 # not implemented.  The feature flags in question are CSSCounterStyleAtRulesEnabled and CSSCounterStyleAtRuleImageSymbolsEnabled.

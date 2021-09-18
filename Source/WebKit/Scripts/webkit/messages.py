@@ -311,6 +311,7 @@ def types_that_cannot_be_forward_declared():
         'WebCore::WebSocketIdentifier',
         'WebKit::ActivityStateChangeID',
         'WebKit::AudioMediaStreamTrackRendererInternalUnitIdentifier',
+        'WebKit::AuthenticationChallengeIdentifier',
         'WebKit::ContentWorldIdentifier',
         'WebKit::DisplayLinkObserverID',
         'WebKit::DownloadID',
@@ -566,17 +567,17 @@ def async_message_statement(receiver, message):
     dispatch_function = 'handleMessage'
     if message.has_attribute(ASYNC_ATTRIBUTE):
         dispatch_function += 'Async'
-        dispatch_function_args.insert(0, 'connection')
 
     if message.has_attribute(WANTS_CONNECTION_ATTRIBUTE):
-        if message.has_attribute(ASYNC_ATTRIBUTE):
-            dispatch_function += 'WantsConnection'
-        else:
-            dispatch_function_args.insert(0, 'connection')
+        dispatch_function += 'WantsConnection'
+
+    connection = 'connection'
+    if receiver.has_attribute(STREAM_ATTRIBUTE):
+        connection = 'connection.connection()'
 
     result = []
     result.append('    if (decoder.messageName() == Messages::%s::%s::name())\n' % (receiver.name, message.name))
-    result.append('        return IPC::%s<Messages::%s::%s>(%s);\n' % (dispatch_function, receiver.name, message.name, ', '.join(dispatch_function_args)))
+    result.append('        return IPC::%s<Messages::%s::%s>(%s, %s);\n' % (dispatch_function, receiver.name, message.name, connection, ', '.join(dispatch_function_args)))
     return surround_in_condition(''.join(result), message.condition)
 
 
@@ -584,12 +585,11 @@ def sync_message_statement(receiver, message):
     dispatch_function = 'handleMessage'
     if message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
         dispatch_function += 'Synchronous'
-        if message.has_attribute(WANTS_CONNECTION_ATTRIBUTE):
-            dispatch_function += 'WantsConnection'
     if message.has_attribute(ASYNC_ATTRIBUTE):
         dispatch_function += 'Async'
+    if message.has_attribute(WANTS_CONNECTION_ATTRIBUTE):
+        dispatch_function += 'WantsConnection'
 
-    wants_connection = message.has_attribute(SYNCHRONOUS_ATTRIBUTE) or message.has_attribute(WANTS_CONNECTION_ATTRIBUTE)
     maybe_reply_encoder = ", *replyEncoder"
     if receiver.has_attribute(STREAM_ATTRIBUTE):
         maybe_reply_encoder = ''
@@ -598,7 +598,7 @@ def sync_message_statement(receiver, message):
 
     result = []
     result.append('    if (decoder.messageName() == Messages::%s::%s::name())\n' % (receiver.name, message.name))
-    result.append('        return IPC::%s<Messages::%s::%s>(%sdecoder%s, this, &%s);\n' % (dispatch_function, receiver.name, message.name, 'connection, ' if wants_connection else '', maybe_reply_encoder, handler_function(receiver, message)))
+    result.append('        return IPC::%s<Messages::%s::%s>(connection, decoder%s, this, &%s);\n' % (dispatch_function, receiver.name, message.name, maybe_reply_encoder, handler_function(receiver, message)))
     return surround_in_condition(''.join(result), message.condition)
 
 
@@ -770,6 +770,7 @@ def headers_for_type(type):
         'WebCore::WebGLLoadPolicy': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::WillContinueLoading': ['<WebCore/FrameLoaderTypes.h>'],
         'WebKit::ActivityStateChangeID': ['"DrawingAreaInfo.h"'],
+        'WebKit::AuthenticationChallengeIdentifier': ['"IdentifierTypes.h"'],
         'WebKit::AllowOverwrite': ['"DownloadID.h"'],
         'WebKit::AppPrivacyReportTestingData': ['"AppPrivacyReport.h"'],
         'WebKit::BackForwardListItemState': ['"SessionState.h"'],
@@ -1230,26 +1231,33 @@ def generate_js_argument_descriptions(receivers, function_name, arguments_from_m
 
 
 def generate_message_argument_description_implementation(receivers, receiver_headers):
-    header_conditions = {
-        '"JSIPCBinding.h"': [None]
-    }
-    for receiver in receivers:
-        if receiver.has_attribute(BUILTIN_ATTRIBUTE):
-            continue
-        header_conditions['"%s"' % messages_header_filename(receiver)] = [None]
-        collect_header_conditions_for_receiver(receiver, header_conditions)
-
     result = []
     result.append(_license_header)
     result.append('#include "config.h"\n')
     result.append('#include "MessageArgumentDescriptions.h"\n')
     result.append('\n')
-    result.append('#if ENABLE(IPC_TESTING_API)\n')
+    result.append('#if ENABLE(IPC_TESTING_API) || !LOG_DISABLED\n')
     result.append('\n')
-    result += generate_header_includes_from_conditions(header_conditions)
+    result.append('#include "JSIPCBinding.h"\n')
+
+    for receiver in receivers:
+        if receiver.has_attribute(BUILTIN_ATTRIBUTE):
+            continue
+        if receiver.condition:
+            result.append('#if %s\n' % receiver.condition)
+        header_conditions = {
+            '"%s"' % messages_header_filename(receiver): [None]
+        }
+        collect_header_conditions_for_receiver(receiver, header_conditions)
+        result += generate_header_includes_from_conditions(header_conditions)
+        if receiver.condition:
+            result.append('#endif\n')
+
     result.append('\n')
 
     result.append('namespace IPC {\n')
+    result.append('\n')
+    result.append('#if ENABLE(IPC_TESTING_API)\n')
     result.append('\n')
 
     generate_js_value_conversion_function(result, receivers, 'jsValueForArguments', 'Arguments')
@@ -1258,6 +1266,8 @@ def generate_message_argument_description_implementation(receivers, receiver_hea
 
     generate_js_value_conversion_function(result, receivers, 'jsValueForReplyArguments', 'ReplyArguments', lambda message: message.reply_parameters is not None and (message.has_attribute(SYNCHRONOUS_ATTRIBUTE) or message.has_attribute(ASYNC_ATTRIBUTE)))
 
+    result.append('\n')
+    result.append('#endif // ENABLE(IPC_TESTING_API)\n')
     result.append('\n')
 
     result += generate_js_argument_descriptions(receivers, 'messageArgumentDescriptions', lambda message: message.parameters)
@@ -1270,5 +1280,5 @@ def generate_message_argument_description_implementation(receivers, receiver_hea
 
     result.append('} // namespace WebKit\n')
     result.append('\n')
-    result.append('#endif\n')
+    result.append('#endif // ENABLE(IPC_TESTING_API) || !LOG_DISABLED\n')
     return ''.join(result)

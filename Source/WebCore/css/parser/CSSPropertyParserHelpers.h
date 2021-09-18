@@ -46,6 +46,8 @@ namespace WebKitFontFamilyNames {
 enum class FamilyNamesIndex;
 }
 
+enum class BoxOrient : uint8_t;
+
 // When these functions are successful, they will consume all the relevant
 // tokens from the range and also consume any whitespace which follows. When
 // the start of the range doesn't match the type we're looking for, the range
@@ -80,6 +82,7 @@ std::optional<unsigned> consumePositiveIntegerRaw(CSSParserTokenRange&);
 RefPtr<CSSPrimitiveValue> consumePositiveInteger(CSSParserTokenRange&);
 std::optional<double> consumeNumberRaw(CSSParserTokenRange&, ValueRange = ValueRange::All);
 RefPtr<CSSPrimitiveValue> consumeNumber(CSSParserTokenRange&, ValueRange);
+RefPtr<CSSPrimitiveValue> consumeNumberOrPercent(CSSParserTokenRange&, ValueRange);
 std::optional<double> consumeFontWeightNumberRaw(CSSParserTokenRange&);
 RefPtr<CSSPrimitiveValue> consumeFontWeightNumber(CSSParserTokenRange&);
 RefPtr<CSSPrimitiveValue> consumeFontWeightNumberWorkerSafe(CSSParserTokenRange&, CSSValuePool&);
@@ -125,6 +128,7 @@ struct PositionCoordinates {
 };
 
 RefPtr<CSSPrimitiveValue> consumePosition(CSSParserTokenRange&, CSSParserMode, UnitlessQuirk, PositionSyntax);
+RefPtr<CSSPrimitiveValue> consumeSingleAxisPosition(CSSParserTokenRange&, CSSParserMode, BoxOrient);
 std::optional<PositionCoordinates> consumePositionCoordinates(CSSParserTokenRange&, CSSParserMode, UnitlessQuirk, PositionSyntax);
 std::optional<PositionCoordinates> consumeOneOrTwoValuedPositionCoordinates(CSSParserTokenRange&, CSSParserMode, UnitlessQuirk);
 

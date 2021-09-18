@@ -27,6 +27,7 @@ set(WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/NetworkProcess/ServiceWorker"
     "${WEBKIT_DIR}/NetworkProcess/WebStorage"
     "${WEBKIT_DIR}/NetworkProcess/cache"
+    "${WEBKIT_DIR}/NetworkProcess/storage"
     "${WEBKIT_DIR}/NetworkProcess/watchos"
     "${WEBKIT_DIR}/NetworkProcess/webrtc"
     "${WEBKIT_DIR}/Platform"
@@ -176,6 +177,8 @@ set(WebKit_MESSAGES_IN_FILES
     NetworkProcess/WebStorage/StorageManagerSet
 
     NetworkProcess/cache/CacheStorageEngineConnection
+
+    NetworkProcess/storage/NetworkStorageManager
 
     NetworkProcess/webrtc/NetworkMDNSRegister
     NetworkProcess/webrtc/NetworkRTCMonitor
@@ -456,7 +459,11 @@ macro(GENERATE_MESSAGE_SOURCES _output_source _inputs)
         )
         list(APPEND ${_output_source} ${WebKit_DERIVED_SOURCES_DIR}/${_name}MessageReceiver.cpp)
     endforeach ()
-    list(APPEND ${_output_source} ${WebKit_DERIVED_SOURCES_DIR}/MessageNames.cpp)
+
+    list(APPEND ${_output_source}
+        ${WebKit_DERIVED_SOURCES_DIR}/MessageArgumentDescriptions.cpp
+        ${WebKit_DERIVED_SOURCES_DIR}/MessageNames.cpp
+    )
 
     add_custom_command(
         OUTPUT

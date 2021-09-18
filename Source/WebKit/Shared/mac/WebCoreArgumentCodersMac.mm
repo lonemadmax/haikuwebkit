@@ -30,6 +30,8 @@
 #import "ArgumentCodersCF.h"
 #import "ArgumentCodersCocoa.h"
 #import "DataReference.h"
+#import "PrivateClickMeasurementDecoder.h"
+#import "PrivateClickMeasurementEncoder.h"
 #import <WebCore/CertificateInfo.h>
 #import <WebCore/ContentFilterUnblockHandler.h>
 #import <WebCore/Credential.h>
@@ -44,6 +46,7 @@
 
 namespace IPC {
 
+template<>
 void ArgumentCoder<WebCore::CertificateInfo>::encode(Encoder& encoder, const WebCore::CertificateInfo& certificateInfo)
 {
     encoder << certificateInfo.type();
@@ -63,37 +66,56 @@ void ArgumentCoder<WebCore::CertificateInfo>::encode(Encoder& encoder, const Web
     }
 }
 
-bool ArgumentCoder<WebCore::CertificateInfo>::decode(Decoder& decoder, WebCore::CertificateInfo& certificateInfo)
+template<>
+void ArgumentCoder<WebCore::CertificateInfo>::encode(WebKit::PCM::Encoder& encoder, const WebCore::CertificateInfo& certificateInfo)
 {
-    WebCore::CertificateInfo::Type certificateInfoType;
-    if (!decoder.decode(certificateInfoType))
-        return false;
+    ASSERT(certificateInfo.type() == WebCore::CertificateInfo::Type::Trust);
+    encoder << certificateInfo.trust();
+}
 
-    switch (certificateInfoType) {
+template<>
+std::optional<WebCore::CertificateInfo> ArgumentCoder<WebCore::CertificateInfo>::decode(Decoder& decoder)
+{
+    std::optional<WebCore::CertificateInfo::Type> certificateInfoType;
+    decoder >> certificateInfoType;
+    if (!certificateInfoType)
+        return std::nullopt;
+
+    switch (*certificateInfoType) {
 #if HAVE(SEC_TRUST_SERIALIZATION)
     case WebCore::CertificateInfo::Type::Trust: {
-        RetainPtr<SecTrustRef> trust;
-        if (!decoder.decode(trust) || !trust)
-            return false;
+        std::optional<RetainPtr<SecTrustRef>> trust;
+        decoder >> trust;
+        if (!trust || !*trust)
+            return std::nullopt;
 
-        certificateInfo = WebCore::CertificateInfo(WTFMove(trust));
-        return true;
+        return WebCore::CertificateInfo(WTFMove(*trust));
     }
 #endif
     case WebCore::CertificateInfo::Type::CertificateChain: {
-        RetainPtr<CFArrayRef> certificateChain;
-        if (!decoder.decode(certificateChain) || !certificateChain)
-            return false;
+        std::optional<RetainPtr<CFArrayRef>> certificateChain;
+        decoder >> certificateChain;
+        if (!certificateChain || !*certificateChain)
+            return std::nullopt;
 
-        certificateInfo = WebCore::CertificateInfo(WTFMove(certificateChain));
-        return true;
-    }    
+        return WebCore::CertificateInfo(WTFMove(*certificateChain));
+    }
     case WebCore::CertificateInfo::Type::None:
         // Do nothing.
         break;
     }
 
-    return true;
+    return {{ }};
+}
+
+template<>
+std::optional<WebCore::CertificateInfo> ArgumentCoder<WebCore::CertificateInfo>::decode(WebKit::PCM::Decoder& decoder)
+{
+    std::optional<RetainPtr<SecTrustRef>> trust;
+    decoder >> trust;
+    if (!trust || !*trust)
+        return std::nullopt;
+    return WebCore::CertificateInfo(WTFMove(*trust));
 }
 
 static void encodeNSError(Encoder& encoder, NSError *nsError)

@@ -72,6 +72,7 @@ class HTTPCookieStore;
 }
 
 namespace WebCore {
+class CertificateInfo;
 class RegistrableDomain;
 class SecurityOrigin;
 
@@ -85,7 +86,6 @@ class SecKeyProxyStore;
 class DeviceIdHashSaltStorage;
 class NetworkProcessProxy;
 class SOAuthorizationCoordinator;
-class WebCertificateInfo;
 class WebPageProxy;
 class WebProcessPool;
 class WebProcessProxy;
@@ -158,6 +158,7 @@ public:
     uint64_t perOriginStorageQuota() const { return m_resolvedConfiguration->perOriginStorageQuota(); }
     uint64_t perThirdPartyOriginStorageQuota() const;
     const String& cacheStorageDirectory() const { return m_resolvedConfiguration->cacheStorageDirectory(); }
+    const String& generalStorageDirectory() const { return m_resolvedConfiguration->generalStorageDirectory(); }
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     void clearResourceLoadStatisticsInWebProcesses(CompletionHandler<void()>&&);
@@ -259,7 +260,10 @@ public:
     const String& resolvedModelElementCacheDirectory() const { return m_resolvedConfiguration->modelElementCacheDirectory(); }
 #endif
 
-    void allowSpecificHTTPSCertificateForHost(const WebCertificateInfo*, const String& host);
+    static void setCachedProcessSuspensionDelayForTesting(Seconds);
+
+    void allowSpecificHTTPSCertificateForHost(const WebCore::CertificateInfo&, const String& host);
+    void allowTLSCertificateChainForLocalPCMTesting(const WebCore::CertificateInfo&);
 
     DeviceIdHashSaltStorage& deviceIdHashSaltStorage() { return m_deviceIdHashSaltStorage.get(); }
 
@@ -341,6 +345,7 @@ public:
 #endif
     static WTF::String defaultIndexedDBDatabaseDirectory();
     static WTF::String defaultCacheStorageDirectory();
+    static WTF::String defaultGeneralStorageDirectory();
     static WTF::String defaultMediaCacheDirectory();
     static WTF::String defaultMediaKeysStorageDirectory();
     static WTF::String defaultDeviceIdHashSaltsStorageDirectory();
@@ -348,6 +353,7 @@ public:
     static bool http3Enabled();
 
     void resetQuota(CompletionHandler<void()>&&);
+    void clearStorage(CompletionHandler<void()>&&);
 
 #if ENABLE(APP_BOUND_DOMAINS)
     void hasAppBoundSession(CompletionHandler<void(bool)>&&) const;
@@ -382,9 +388,9 @@ private:
     WebsiteDataStore();
 
     enum class ShouldCreateDirectory { No, Yes };
-    static WTF::String tempDirectoryFileSystemRepresentation(const WTF::String& directoryName, ShouldCreateDirectory = ShouldCreateDirectory::Yes);
-    static WTF::String cacheDirectoryFileSystemRepresentation(const WTF::String& directoryName, ShouldCreateDirectory = ShouldCreateDirectory::Yes);
-    static WTF::String websiteDataDirectoryFileSystemRepresentation(const WTF::String& directoryName);
+    static String tempDirectoryFileSystemRepresentation(const String& directoryName, ShouldCreateDirectory = ShouldCreateDirectory::Yes);
+    static String cacheDirectoryFileSystemRepresentation(const String& directoryName, ShouldCreateDirectory = ShouldCreateDirectory::Yes);
+    static String websiteDataDirectoryFileSystemRepresentation(const String& directoryName);
 
     HashSet<RefPtr<WebProcessPool>> processPools(size_t limit = std::numeric_limits<size_t>::max()) const;
 
@@ -419,7 +425,7 @@ private:
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     bool m_resourceLoadStatisticsDebugMode { false };
     bool m_resourceLoadStatisticsEnabled { false };
-    WTF::Function<void(const String&)> m_statisticsTestingCallback;
+    Function<void(const String&)> m_statisticsTestingCallback;
 #endif
 
     Ref<WorkQueue> m_queue;

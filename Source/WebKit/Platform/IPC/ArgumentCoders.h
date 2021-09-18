@@ -63,6 +63,7 @@ template<typename T, size_t Extent> struct ArgumentCoder<ArrayReference<T, Exten
             return;
         encoder.encodeFixedLengthData(reinterpret_cast<const uint8_t*>(arrayReference.data()), arrayReference.size() * sizeof(T), alignof(T));
     }
+    template<typename Decoder>
     static std::optional<ArrayReferenceType> decode(Decoder& decoder)
     {
         if (!Extent)
@@ -84,22 +85,24 @@ template<typename T> struct ArgumentCoder<ArrayReference<T, arrayReferenceDynami
             return;
         encoder.encodeFixedLengthData(reinterpret_cast<const uint8_t*>(arrayReference.data()), arrayReference.size() * sizeof(T), alignof(T));
     }
+    template<typename Decoder>
     static std::optional<ArrayReferenceType> decode(Decoder& decoder)
     {
-        uint64_t size;
-        if (!decoder.decode(size))
-            return std::nullopt;
+        std::optional<uint64_t> size;
+        decoder >> size;
         if (!size)
+            return std::nullopt;
+        if (!*size)
             return ArrayReferenceType();
 
-        auto dataSize = CheckedSize { size } * sizeof(T);
+        auto dataSize = CheckedSize { *size } * sizeof(T);
         if (UNLIKELY(dataSize.hasOverflowed()))
             return std::nullopt;
 
         const uint8_t* data = decoder.decodeFixedLengthReference(dataSize, alignof(T));
         if (!data)
             return std::nullopt;
-        return ArrayReferenceType(reinterpret_cast<const T*>(data), static_cast<size_t>(size));
+        return ArrayReferenceType(reinterpret_cast<const T*>(data), static_cast<size_t>(*size));
     }
 };
 
@@ -300,6 +303,7 @@ auto tupleFromTupleAndObject(T&& object, std::tuple<Elements...>&& tuple)
 
 template<typename Type, typename... Types>
 struct TupleDecoderImpl {
+    template<typename Decoder>
     static std::optional<std::tuple<Type, Types...>> decode(Decoder& decoder)
     {
         std::optional<Type> optional;
@@ -317,6 +321,7 @@ struct TupleDecoderImpl {
 
 template<typename Type>
 struct TupleDecoderImpl<Type> {
+    template<typename Decoder>
     static std::optional<std::tuple<Type>> decode(Decoder& decoder)
     {
         std::optional<Type> optional;
@@ -329,6 +334,7 @@ struct TupleDecoderImpl<Type> {
 
 template<size_t size, typename... Elements>
 struct TupleDecoder {
+    template<typename Decoder>
     static std::optional<std::tuple<Elements...>> decode(Decoder& decoder)
     {
         return TupleDecoderImpl<Elements...>::decode(decoder);
@@ -337,6 +343,7 @@ struct TupleDecoder {
 
 template<>
 struct TupleDecoder<0> {
+    template<typename Decoder>
     static std::optional<std::tuple<>> decode(Decoder&)
     {
         return std::make_tuple();
@@ -350,6 +357,7 @@ template<typename... Elements> struct ArgumentCoder<std::tuple<Elements...>> {
         TupleEncoder<sizeof...(Elements), Elements...>::encode(encoder, tuple);
     }
 
+    template<typename Decoder>
     static std::optional<std::tuple<Elements...>> decode(Decoder& decoder)
     {
         return TupleDecoder<sizeof...(Elements), Elements...>::decode(decoder);
@@ -399,14 +407,16 @@ template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t min
         return true;
     }
 
+    template<typename Decoder>
     static std::optional<Vector<T, inlineCapacity, OverflowHandler, minCapacity>> decode(Decoder& decoder)
     {
-        uint64_t size;
-        if (!decoder.decode(size))
+        std::optional<uint64_t> size;
+        decoder >> size;
+        if (!size)
             return std::nullopt;
 
         Vector<T, inlineCapacity, OverflowHandler, minCapacity> vector;
-        for (size_t i = 0; i < size; ++i) {
+        for (size_t i = 0; i < *size; ++i) {
             std::optional<T> element;
             decoder >> element;
             if (!element)
@@ -453,21 +463,23 @@ template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t min
         return true;
     }
     
+    template<typename Decoder>
     static std::optional<Vector<T, inlineCapacity, OverflowHandler, minCapacity>> decode(Decoder& decoder)
     {
-        uint64_t decodedSize;
-        if (!decoder.decode(decodedSize))
+        std::optional<uint64_t> decodedSize;
+        decoder >> decodedSize;
+        if (!decodedSize)
             return std::nullopt;
 
         if (!isInBounds<size_t>(decodedSize))
             return std::nullopt;
 
-        auto size = static_cast<size_t>(decodedSize);
+        auto size = static_cast<size_t>(*decodedSize);
 
         // Since we know the total size of the elements, we can allocate the vector in
         // one fell swoop. Before allocating we must however make sure that the decoder buffer
         // is big enough.
-        if (!decoder.bufferIsLargeEnoughToContain<T>(size))
+        if (!decoder.template bufferIsLargeEnoughToContain<T>(size))
             return std::nullopt;
         
         Vector<T, inlineCapacity, OverflowHandler, minCapacity> vector;
@@ -721,8 +733,10 @@ template<typename... Types> struct ArgumentCoder<WTF::Variant<Types...>> {
 };
     
 template<> struct ArgumentCoder<WallTime> {
+    template<typename Encoder>
     static void encode(Encoder&, const WallTime&);
     static WARN_UNUSED_RETURN bool decode(Decoder&, WallTime&);
+    template<typename Decoder>
     static std::optional<WallTime> decode(Decoder&);
 };
 
@@ -732,14 +746,17 @@ template<> struct ArgumentCoder<AtomString> {
 };
 
 template<> struct ArgumentCoder<CString> {
+    template<typename Encoder>
     static void encode(Encoder&, const CString&);
-    static WARN_UNUSED_RETURN bool decode(Decoder&, CString&);
+    template<typename Decoder>
+    static std::optional<CString> decode(Decoder&);
 };
 
 template<> struct ArgumentCoder<String> {
     template<typename Encoder>
     static void encode(Encoder&, const String&);
     static WARN_UNUSED_RETURN bool decode(Decoder&, String&);
+    template<typename Decoder>
     static std::optional<String> decode(Decoder&);
 };
 

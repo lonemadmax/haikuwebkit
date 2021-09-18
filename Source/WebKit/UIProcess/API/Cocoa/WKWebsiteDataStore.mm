@@ -544,6 +544,11 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
 #endif
 }
 
++ (void)_setCachedProcessSuspensionDelayForTesting:(double)delayInSeconds
+{
+    WebKit::WebsiteDataStore::setCachedProcessSuspensionDelayForTesting(Seconds(delayInSeconds));
+}
+
 - (void)_isRelationshipOnlyInDatabaseOnce:(NSURL *)firstPartyURL thirdParty:(NSURL *)thirdPartyURL completionHandler:(void (^)(BOOL))completionHandler
 {
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
@@ -645,7 +650,12 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
 
 - (void)_allowTLSCertificateChain:(NSArray *)certificateChain forHost:(NSString *)host
 {
-    _websiteDataStore->allowSpecificHTTPSCertificateForHost(WebKit::WebCertificateInfo::create(WebCore::CertificateInfo((__bridge CFArrayRef)certificateChain)).ptr(), host);
+    _websiteDataStore->allowSpecificHTTPSCertificateForHost(WebCore::CertificateInfo((__bridge CFArrayRef)certificateChain), host);
+}
+
+- (void)_trustServerForLocalPCMTesting:(SecTrustRef)serverTrust
+{
+    _websiteDataStore->allowTLSCertificateChainForLocalPCMTesting(WebCore::CertificateInfo(serverTrust));
 }
 
 - (void)_appBoundDomains:(void (^)(NSArray<NSString *> *))completionHandler

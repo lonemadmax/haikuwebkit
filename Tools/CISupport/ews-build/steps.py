@@ -275,7 +275,7 @@ class CleanWorkingDirectory(shell.ShellCommand):
     descriptionDone = ['Cleaned working directory']
     flunkOnFailure = True
     haltOnFailure = True
-    command = ['python', 'Tools/Scripts/clean-webkit']
+    command = ['python3', 'Tools/Scripts/clean-webkit']
 
     def __init__(self, **kwargs):
         super(CleanWorkingDirectory, self).__init__(logEnviron=False, **kwargs)
@@ -899,13 +899,13 @@ class ValidatePatch(buildstep.BuildStep, BugzillaMixin):
 class ValidateCommiterAndReviewer(buildstep.BuildStep):
     name = 'validate-commiter-and-reviewer'
     descriptionDone = ['Validated commiter and reviewer']
-    url = 'https://raw.githubusercontent.com/WebKit/WebKit/main/Tools/Scripts/webkitpy/common/config/contributors.json'
+    url = 'https://raw.githubusercontent.com/WebKit/WebKit/main/metadata/contributors.json'
     contributors = {}
 
     def load_contributors_from_disk(self):
         cwd = os.path.abspath(os.path.dirname(__file__))
-        tools_dir_path = os.path.dirname(os.path.dirname(cwd))
-        contributors_path = os.path.join(tools_dir_path, 'Scripts/webkitpy/common/config/contributors.json')
+        repo_root = os.path.dirname(os.path.dirname(os.path.dirname(cwd)))
+        contributors_path = os.path.join(repo_root, 'metadata/contributors.json')
         try:
             with open(contributors_path, 'rb') as contributors_json:
                 return json.load(contributors_json)
@@ -930,11 +930,12 @@ class ValidateCommiterAndReviewer(buildstep.BuildStep):
             contributors_json = self.load_contributors_from_disk()
 
         contributors = {}
-        for key, value in contributors_json.items():
+        for value in contributors_json:
+            name = value.get('name')
             emails = value.get('emails')
-            if emails:
+            if name and emails:
                 bugzilla_email = emails[0].lower()  # We're requiring that the first email is the primary bugzilla email
-                contributors[bugzilla_email] = {'name': key, 'status': value.get('status')}
+                contributors[bugzilla_email] = {'name': name, 'status': value.get('status')}
         return contributors
 
     @defer.inlineCallbacks
@@ -1008,7 +1009,7 @@ class ValidateCommiterAndReviewer(buildstep.BuildStep):
 class ValidateChangeLogAndReviewer(shell.ShellCommand):
     name = 'validate-changelog-and-reviewer'
     descriptionDone = ['Validated ChangeLog and Reviewer']
-    command = ['python', 'Tools/Scripts/webkit-patch', 'validate-changelog', '--check-oops', '--non-interactive']
+    command = ['python3', 'Tools/Scripts/webkit-patch', 'validate-changelog', '--check-oops', '--non-interactive']
     haltOnFailure = False
     flunkOnFailure = True
 
@@ -2747,7 +2748,7 @@ class TransferToS3(master.MasterShellCommand):
     archive = WithProperties('public_html/archives/%(fullPlatform)s-%(architecture)s-%(configuration)s/%(patch_id)s.zip')
     identifier = WithProperties('%(fullPlatform)s-%(architecture)s-%(configuration)s')
     patch_id = WithProperties('%(patch_id)s')
-    command = ['python', '../Shared/transfer-archive-to-s3', '--patch_id', patch_id, '--identifier', identifier, '--archive', archive]
+    command = ['python3', '../Shared/transfer-archive-to-s3', '--patch_id', patch_id, '--identifier', identifier, '--archive', archive]
     haltOnFailure = False
     flunkOnFailure = False
 
@@ -2781,7 +2782,7 @@ class TransferToS3(master.MasterShellCommand):
 
 
 class DownloadBuiltProduct(shell.ShellCommand):
-    command = ['python', 'Tools/CISupport/download-built-product',
+    command = ['python3', 'Tools/CISupport/download-built-product',
                WithProperties('--%(configuration)s'),
                WithProperties(S3URL + 'ews-archives.webkit.org/%(fullPlatform)s-%(architecture)s-%(configuration)s/%(patch_id)s.zip')]
     name = 'download-built-product'
@@ -2790,12 +2791,20 @@ class DownloadBuiltProduct(shell.ShellCommand):
     flunkOnFailure = False
 
     def getResultSummary(self):
-        if self.results != SUCCESS:
+        if self.results not in [SUCCESS, SKIPPED]:
             return {'step': 'Failed to download built product from S3'}
         return super(DownloadBuiltProduct, self).getResultSummary()
 
     def __init__(self, **kwargs):
         super(DownloadBuiltProduct, self).__init__(logEnviron=False, **kwargs)
+
+    def start(self):
+        # Only try to download from S3 on the official deployment <https://webkit.org/b/230006>
+        if CURRENT_HOSTNAME == EWS_BUILD_HOSTNAME:
+            return shell.ShellCommand.start(self)
+        self.build.addStepsAfterCurrentStep([DownloadBuiltProductFromMaster()])
+        self.finished(SKIPPED)
+        return defer.succeed(None)
 
     def evaluateCommand(self, cmd):
         rc = shell.ShellCommand.evaluateCommand(self, cmd)
@@ -3072,7 +3081,7 @@ class AnalyzeAPITestsResults(buildstep.BuildStep):
 
 
 class ArchiveTestResults(shell.ShellCommand):
-    command = ['python', 'Tools/CISupport/test-result-archive',
+    command = ['python3', 'Tools/CISupport/test-result-archive',
                Interpolate('--platform=%(prop:platform)s'), Interpolate('--%(prop:configuration)s'), 'archive']
     name = 'archive-test-results'
     description = ['archiving test results']
@@ -3249,7 +3258,7 @@ class ApplyWatchList(shell.ShellCommand):
     description = ['applying watchilist']
     descriptionDone = ['Applied WatchList']
     bug_id = WithProperties('%(bug_id)s')
-    command = ['python', 'Tools/Scripts/webkit-patch', 'apply-watchlist-local', bug_id]
+    command = ['python3', 'Tools/Scripts/webkit-patch', 'apply-watchlist-local', bug_id]
     haltOnFailure = True
     flunkOnFailure = True
 

@@ -46,6 +46,7 @@
 #include "Logging.h"
 #include "Page.h"
 #include "PathUtilities.h"
+#include "ReferencedSVGResources.h"
 #include "RenderBlock.h"
 #include "RenderChildIterator.h"
 #include "RenderCounter.h"
@@ -108,7 +109,6 @@ inline RenderElement::RenderElement(ContainerNode& elementOrDocument, RenderStyl
     , m_baseTypeFlags(baseTypeFlags)
     , m_ancestorLineBoxDirty(false)
     , m_hasInitializedStyle(false)
-    , m_renderInlineAlwaysCreatesLineBoxes(false)
     , m_renderBoxNeedsLazyRepaint(false)
     , m_hasPausedImageAnimations(false)
     , m_hasCounterNodeMap(false)
@@ -954,6 +954,9 @@ void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldS
     updateShapeImage(oldStyle ? oldStyle->shapeOutside() : nullptr, m_style.shapeOutside());
 
     SVGRenderSupport::styleChanged(*this, oldStyle);
+
+    if (diff >= StyleDifference::Repaint)
+        updateReferencedSVGResources();
 
     if (!m_parent)
         return;
@@ -2274,6 +2277,33 @@ void RenderElement::resetEnclosingFragmentedFlowAndChildInfoIncludingDescendants
 
     for (auto& child : childrenOfType<RenderElement>(*this))
         child.resetEnclosingFragmentedFlowAndChildInfoIncludingDescendants(fragmentedFlow);
+}
+
+ReferencedSVGResources& RenderElement::ensureReferencedSVGResources()
+{
+    auto& rareData = ensureRareData();
+    if (!rareData.referencedSVGResources)
+        rareData.referencedSVGResources = WTF::makeUnique<ReferencedSVGResources>(*this);
+
+    return *rareData.referencedSVGResources;
+}
+
+void RenderElement::clearReferencedSVGResources()
+{
+    if (!hasRareData())
+        return;
+
+    ensureRareData().referencedSVGResources = nullptr;
+}
+
+// This needs to run when the entire render tree has been constructed, so can't be called from styleDidChange.
+void RenderElement::updateReferencedSVGResources()
+{
+    auto referencedElementIDs = ReferencedSVGResources::referencedSVGResourceIDs(style());
+    if (!referencedElementIDs.isEmpty())
+        ensureReferencedSVGResources().updateReferencedResources(document(), referencedElementIDs);
+    else
+        clearReferencedSVGResources();
 }
 
 #if ENABLE(TEXT_AUTOSIZING)

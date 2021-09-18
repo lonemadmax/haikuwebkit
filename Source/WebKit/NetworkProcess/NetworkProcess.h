@@ -106,6 +106,7 @@ class NetworkConnectionToWebProcess;
 class NetworkProcessSupplement;
 class NetworkProximityManager;
 class NetworkResourceLoader;
+class NetworkStorageManager;
 class ProcessAssertion;
 class StorageManagerSet;
 class WebPageNetworkParameters;
@@ -307,6 +308,7 @@ public:
     void syncLocalStorage(CompletionHandler<void()>&&);
 
     void resetQuota(PAL::SessionID, CompletionHandler<void()>&&);
+    void clearStorage(PAL::SessionID, CompletionHandler<void()>&&);
     void renameOriginInWebsiteData(PAL::SessionID, const URL&, const URL&, OptionSet<WebsiteDataType>, CompletionHandler<void()>&&);
 
 #if ENABLE(SERVICE_WORKER)
@@ -448,8 +450,9 @@ private:
     void setCacheModel(CacheModel);
     void setCacheModelSynchronouslyForTesting(CacheModel, CompletionHandler<void()>&&);
     void allowSpecificHTTPSCertificateForHost(const WebCore::CertificateInfo&, const String& host);
+    void allowTLSCertificateChainForLocalPCMTesting(PAL::SessionID, const WebCore::CertificateInfo&);
     void setAllowsAnySSLCertificateForWebSocket(bool, CompletionHandler<void()>&&);
-    
+
     void flushCookies(PAL::SessionID, CompletionHandler<void()>&&);
 
     void addWebPageNetworkParameters(PAL::SessionID, WebPageProxyIdentifier, WebPageNetworkParameters&&);
@@ -501,8 +504,6 @@ private:
     void setIsHoldingLockedFiles(bool);
 #endif
 
-    void firePrivateClickMeasurementTimerImmediately(PAL::SessionID);
-
     class SessionStorageQuotaManager {
         WTF_MAKE_FAST_ALLOCATED;
     public:
@@ -538,6 +539,9 @@ private:
     };
     void addSessionStorageQuotaManager(PAL::SessionID, uint64_t defaultQuota, uint64_t defaultThirdPartyQuota, const String& cacheRootPath, SandboxExtension::Handle&);
     void removeSessionStorageQuotaManager(PAL::SessionID);
+
+    void addStorageManagerForSession(PAL::SessionID, const String& path, SandboxExtension::Handle&);
+    void removeStorageManagerForSession(PAL::SessionID);
 
     // Connections to WebProcesses.
     HashMap<WebCore::ProcessIdentifier, Ref<NetworkConnectionToWebProcess>> m_webProcessConnections;
@@ -611,6 +615,8 @@ private:
 
     bool m_privateClickMeasurementEnabled { true };
     bool m_privateClickMeasurementDebugModeEnabled { false };
+
+    HashMap<PAL::SessionID, Ref<NetworkStorageManager>> m_storageManagers;
 };
 
 } // namespace WebKit

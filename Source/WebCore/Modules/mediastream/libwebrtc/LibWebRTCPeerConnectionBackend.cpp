@@ -109,6 +109,11 @@ void LibWebRTCPeerConnectionBackend::disableICECandidateFiltering()
         factory->disableRelay();
 }
 
+bool LibWebRTCPeerConnectionBackend::isNegotiationNeeded(uint32_t eventId) const
+{
+    return m_endpoint->isNegotiationNeeded(eventId);
+}
+
 static inline webrtc::PeerConnectionInterface::BundlePolicy bundlePolicyfromConfiguration(const MediaEndpointConfiguration& configuration)
 {
     switch (configuration.bundlePolicy) {
@@ -230,26 +235,13 @@ void LibWebRTCPeerConnectionBackend::getStats(RTCRtpReceiver& receiver, Ref<Defe
 void LibWebRTCPeerConnectionBackend::doSetLocalDescription(const RTCSessionDescription* description)
 {
     m_endpoint->doSetLocalDescription(description);
-    if (!m_isLocalDescriptionSet) {
-        if (m_isRemoteDescriptionSet) {
-            for (auto& candidate : m_pendingCandidates)
-                m_endpoint->addIceCandidate(*candidate);
-            m_pendingCandidates.clear();
-        }
-        m_isLocalDescriptionSet = true;
-    }
+    m_isLocalDescriptionSet = true;
 }
 
 void LibWebRTCPeerConnectionBackend::doSetRemoteDescription(const RTCSessionDescription& description)
 {
     m_endpoint->doSetRemoteDescription(description);
-    if (!m_isRemoteDescriptionSet) {
-        if (m_isLocalDescriptionSet) {
-            for (auto& candidate : m_pendingCandidates)
-                m_endpoint->addIceCandidate(*candidate);
-        }
-        m_isRemoteDescriptionSet = true;
-    }
+    m_isRemoteDescriptionSet = true;
 }
 
 void LibWebRTCPeerConnectionBackend::doCreateOffer(RTCOfferOptions&& options)
@@ -277,26 +269,18 @@ void LibWebRTCPeerConnectionBackend::doStop()
     m_pendingReceivers.clear();
 }
 
-void LibWebRTCPeerConnectionBackend::doAddIceCandidate(RTCIceCandidate& candidate)
+void LibWebRTCPeerConnectionBackend::doAddIceCandidate(RTCIceCandidate& candidate, AddIceCandidateCallback&& callback)
 {
     webrtc::SdpParseError error;
     int sdpMLineIndex = candidate.sdpMLineIndex() ? candidate.sdpMLineIndex().value() : 0;
     std::unique_ptr<webrtc::IceCandidateInterface> rtcCandidate(webrtc::CreateIceCandidate(candidate.sdpMid().utf8().data(), sdpMLineIndex, candidate.candidate().utf8().data(), &error));
 
     if (!rtcCandidate) {
-        addIceCandidateFailed(Exception { OperationError, String::fromUTF8(error.description.data(), error.description.length()) });
+        callback(Exception { OperationError, String::fromUTF8(error.description.data(), error.description.length()) });
         return;
     }
 
-    // libwebrtc does not like that ice candidates are set before the description.
-    if (!m_isLocalDescriptionSet || !m_isRemoteDescriptionSet)
-        m_pendingCandidates.append(WTFMove(rtcCandidate));
-    else if (!m_endpoint->addIceCandidate(*rtcCandidate.get())) {
-        ASSERT_NOT_REACHED();
-        addIceCandidateFailed(Exception { OperationError, "Failed to apply the received candidate"_s });
-        return;
-    }
-    addIceCandidateSucceeded();
+    m_endpoint->addIceCandidate(WTFMove(rtcCandidate), WTFMove(callback));
 }
 
 Ref<RTCRtpReceiver> LibWebRTCPeerConnectionBackend::createReceiver(std::unique_ptr<LibWebRTCRtpReceiverBackend>&& backend)
@@ -316,45 +300,6 @@ Ref<RTCRtpReceiver> LibWebRTCPeerConnectionBackend::createReceiver(std::unique_p
 std::unique_ptr<RTCDataChannelHandler> LibWebRTCPeerConnectionBackend::createDataChannelHandler(const String& label, const RTCDataChannelInit& options)
 {
     return m_endpoint->createDataChannel(label, options);
-}
-
-RefPtr<RTCSessionDescription> LibWebRTCPeerConnectionBackend::currentLocalDescription() const
-{
-    auto description = m_endpoint->currentLocalDescription();
-    if (description)
-        description->setSdp(filterSDP(String(description->sdp())));
-    return description;
-}
-
-RefPtr<RTCSessionDescription> LibWebRTCPeerConnectionBackend::currentRemoteDescription() const
-{
-    return m_endpoint->currentRemoteDescription();
-}
-
-RefPtr<RTCSessionDescription> LibWebRTCPeerConnectionBackend::pendingLocalDescription() const
-{
-    auto description = m_endpoint->pendingLocalDescription();
-    if (description)
-        description->setSdp(filterSDP(String(description->sdp())));
-    return description;
-}
-
-RefPtr<RTCSessionDescription> LibWebRTCPeerConnectionBackend::pendingRemoteDescription() const
-{
-    return m_endpoint->pendingRemoteDescription();
-}
-
-RefPtr<RTCSessionDescription> LibWebRTCPeerConnectionBackend::localDescription() const
-{
-    auto description = m_endpoint->localDescription();
-    if (description)
-        description->setSdp(filterSDP(String(description->sdp())));
-    return description;
-}
-
-RefPtr<RTCSessionDescription> LibWebRTCPeerConnectionBackend::remoteDescription() const
-{
-    return m_endpoint->remoteDescription();
 }
 
 static inline RefPtr<RTCRtpSender> findExistingSender(const Vector<RefPtr<RTCRtpTransceiver>>& transceivers, LibWebRTCRtpSenderBackend& senderBackend)

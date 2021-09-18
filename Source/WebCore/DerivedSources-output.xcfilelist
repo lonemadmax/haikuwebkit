@@ -308,10 +308,14 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSKeyframeRule.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSKeyframeRule.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSKeyframesRule.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSKeyframesRule.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSKeywordValue.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSKeywordValue.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSMediaRule.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSMediaRule.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSNamespaceRule.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSNamespaceRule.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSNumericFactory.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSNumericFactory.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSNumericValue.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSNumericValue.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSOMVariableReferenceValue.cpp
@@ -501,6 +505,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMApplicationCache.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMBindingInternalsBuiltins.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMCSSCustomPropertyDescriptor.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMCSSCustomPropertyDescriptor.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMCSSNamespace+CSSNumericFactory.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMCSSNamespace+CSSNumericFactory.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMCSSNamespace+CSSPainting.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMCSSNamespace+CSSPainting.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMCSSNamespace+CSSPropertiesandValues.cpp
@@ -1421,6 +1427,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorServiceWorker.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorServiceWorker.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorShare.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorShare.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorStorage.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorStorage.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorWebDriver.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorWebDriver.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigatorWebXR.cpp
@@ -1661,6 +1669,12 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCEncodedAudioFrame.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCEncodedAudioFrame.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCEncodedVideoFrame.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCEncodedVideoFrame.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCError.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCError.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCErrorDetailType.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCErrorDetailType.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCErrorEvent.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCErrorEvent.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCIceCandidate.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCIceCandidate.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCIceCandidateInit.cpp
@@ -1747,6 +1761,10 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCRtpTransceiverDirection.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCRtpTransceiverDirection.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCRtpTransform.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCRtpTransform.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCSctpTransport.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCSctpTransport.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCSctpTransportState.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCSctpTransportState.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCSdpType.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCSdpType.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRTCSessionDescription.cpp
@@ -2199,6 +2217,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSStorage.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSStorage.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSStorageEvent.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSStorageEvent.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSStorageManager.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSStorageManager.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSStringCallback.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSStringCallback.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSStructuredSerializeOptions.cpp
@@ -2623,7 +2643,6 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/WebKitFontFamilyNames.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/WebKitFontFamilyNames.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/WorkerGlobalScopeConstructors.idl
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/WorkletGlobalScopeConstructors.idl
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/WritableStreamBuiltins.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/WritableStreamDefaultControllerBuiltins.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/WritableStreamDefaultWriterBuiltins.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/WritableStreamInternalsBuiltins.h

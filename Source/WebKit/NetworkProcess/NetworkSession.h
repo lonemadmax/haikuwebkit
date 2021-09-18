@@ -29,7 +29,7 @@
 #include "NavigatingToAppBoundDomain.h"
 #include "NetworkResourceLoadIdentifier.h"
 #include "PrefetchCache.h"
-#include "PrivateClickMeasurementNetworkLoader.h"
+#include "PrivateClickMeasurementManagerInterface.h"
 #include "SandboxExtension.h"
 #include "ServiceWorkerSoftUpdateLoader.h"
 #include "WebResourceLoadStatisticsStore.h"
@@ -46,6 +46,7 @@
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
+class CertificateInfo;
 class NetworkStorageSession;
 class ResourceRequest;
 enum class IncludeHttpOnlyCookies : bool;
@@ -61,7 +62,6 @@ class NetworkProcess;
 class NetworkResourceLoader;
 class NetworkBroadcastChannelRegistry;
 class NetworkSocketChannel;
-class PrivateClickMeasurementManager;
 class WebPageNetworkParameters;
 class WebResourceLoadStatisticsStore;
 class WebSocketTask;
@@ -137,7 +137,8 @@ public:
     void markPrivateClickMeasurementsAsExpiredForTesting();
     void setPrivateClickMeasurementEphemeralMeasurementForTesting(bool);
     void setPCMFraudPreventionValuesForTesting(String&& unlinkableToken, String&& secretToken, String&& signature, String&& keyID);
-    void firePrivateClickMeasurementTimerImmediately();
+    void firePrivateClickMeasurementTimerImmediatelyForTesting();
+    void allowTLSCertificateChainForLocalPCMTesting(const WebCore::CertificateInfo&);
 
     void addKeptAliveLoad(Ref<NetworkResourceLoader>&&);
     void removeKeptAliveLoad(NetworkResourceLoader&);
@@ -168,14 +169,11 @@ public:
 #endif
 
     NetworkLoadScheduler& networkLoadScheduler();
-    PrivateClickMeasurementManager& privateClickMeasurement() { return *m_privateClickMeasurement; }
+    PCM::ManagerInterface& privateClickMeasurement() { return m_privateClickMeasurement.get(); }
 
 #if PLATFORM(COCOA)
     AppPrivacyReportTestingData& appPrivacyReportTestingData() { return m_appPrivacyReportTestingData; }
 #endif
-
-    void addPrivateClickMeasurementNetworkLoader(std::unique_ptr<PrivateClickMeasurementNetworkLoader>&& loader) { m_privateClickMeasurementNetworkLoaders.add(WTFMove(loader)); }
-    void removePrivateClickMeasurementNetworkLoader(PrivateClickMeasurementNetworkLoader* loader) { m_privateClickMeasurementNetworkLoaders.remove(loader); }
 
     virtual void removeNetworkWebsiteData(std::optional<WallTime>, std::optional<HashSet<WebCore::RegistrableDomain>>&&, CompletionHandler<void()>&& completionHandler) { completionHandler(); }
 
@@ -196,7 +194,6 @@ protected:
     Ref<NetworkProcess> m_networkProcess;
     WeakHashSet<NetworkDataTask> m_dataTaskSet;
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
-    String m_privateClickMeasurementStorageDirectory;
     String m_resourceLoadStatisticsDirectory;
     RefPtr<WebResourceLoadStatisticsStore> m_resourceLoadStatistics;
     ShouldIncludeLocalhost m_shouldIncludeLocalhostInResourceLoadStatistics { ShouldIncludeLocalhost::Yes };
@@ -212,7 +209,7 @@ protected:
     std::optional<WebCore::RegistrableDomain> m_thirdPartyCNAMEDomainForTesting;
 #endif
     bool m_isStaleWhileRevalidateEnabled { false };
-    std::unique_ptr<PrivateClickMeasurementManager> m_privateClickMeasurement;
+    UniqueRef<PCM::ManagerInterface> m_privateClickMeasurement;
 
     HashSet<Ref<NetworkResourceLoader>> m_keptAliveLoads;
 
@@ -248,7 +245,6 @@ protected:
     AppPrivacyReportTestingData m_appPrivacyReportTestingData;
 #endif
 
-    HashSet<std::unique_ptr<PrivateClickMeasurementNetworkLoader>> m_privateClickMeasurementNetworkLoaders;
     HashMap<WebPageProxyIdentifier, String> m_attributedBundleIdentifierFromPageIdentifiers;
 };
 
