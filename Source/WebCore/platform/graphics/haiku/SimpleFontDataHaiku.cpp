@@ -34,6 +34,7 @@
 #include "FontCache.h"
 #include "FontDescription.h"
 #include "NotImplemented.h"
+#include "SpecialCharacters.h"
 #include "TextEncoding.h"
 
 #include <wtf/text/CString.h>
@@ -98,13 +99,15 @@ FloatRect Font::platformBoundsForGlyph(Glyph glyph) const
     if (!font)
         return FloatRect();
 
-    if (glyph == 0)
-        glyph = 0xfdd1;
-
+    const char* string;
     BRect rect;
-    char string[5] = { 0 };
-    char* ptr = string;
-    BUnicodeChar::ToUTF8((uint32)glyph, &ptr);
+    char buffer[5] = { 0 };
+    if (glyph != 0) {
+        char* ptr = buffer;
+        string = buffer;
+        BUnicodeChar::ToUTF8((uint32)glyph, &ptr);
+    } else
+        string = s_fakeNotdefUTF8;
     font->GetBoundingBoxesAsGlyphs(string, 1, B_SCREEN_METRIC, &rect);
     return rect;
 }
@@ -114,13 +117,15 @@ float Font::platformWidthForGlyph(Glyph glyph) const
     if (!platformData().size())
         return 0;
 
-    if (glyph == 0)
-        glyph = 0xfdd1;
-
+    const char* string;
     float escapements[1];
-    char string[5] = { 0 };
-    char* ptr = string;
-    BUnicodeChar::ToUTF8((uint32)glyph, &ptr);
+    char buffer[5] = { 0 };
+    if (glyph != 0) {
+        char* ptr = buffer;
+        string = buffer;
+        BUnicodeChar::ToUTF8((uint32)glyph, &ptr);
+    } else
+        string = s_fakeNotdefUTF8;
     m_platformData.font()->GetEscapements(string, 1, escapements);
     return escapements[0] * m_platformData.font()->Size();
 }
