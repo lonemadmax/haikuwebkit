@@ -31,6 +31,7 @@
 #include "FontDescription.h"
 #include "FontSelector.h"
 #include "GraphicsContext.h"
+#include "SpecialCharacters.h"
 #include "TextEncoding.h"
 #include "NotImplemented.h"
 #include <wtf/text/CString.h>
@@ -89,7 +90,7 @@ void FontCascade::drawGlyphs(GraphicsContext& graphicsContext, const Font& font,
     for (int i = 0; i < numGlyphs; i++) {
         Glyph glyph = glyphs[i];
         if (glyph == 0)
-            glyph = 0xfdd1;
+            glyph = s_fakeNotdef;
 
         offsets[i].x = offset;
         offsets[i].y = point.y();

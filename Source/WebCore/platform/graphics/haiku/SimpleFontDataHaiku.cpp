@@ -34,6 +34,7 @@
 #include "FontCache.h"
 #include "FontDescription.h"
 #include "NotImplemented.h"
+#include "SpecialCharacters.h"
 #include "TextEncoding.h"
 
 #include <wtf/text/CString.h>
@@ -99,7 +100,7 @@ FloatRect Font::platformBoundsForGlyph(Glyph glyph) const
         return FloatRect();
 
     if (glyph == 0)
-        glyph = 0xfdd1;
+        glyph = s_fakeNotdef;
 
     BRect rect;
     char string[5] = { 0 };
@@ -115,7 +116,7 @@ float Font::platformWidthForGlyph(Glyph glyph) const
         return 0;
 
     if (glyph == 0)
-        glyph = 0xfdd1;
+        glyph = s_fakeNotdef;
 
     float escapements[1];
     char string[5] = { 0 };
