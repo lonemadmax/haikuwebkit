@@ -34,14 +34,14 @@
 namespace WebCore {
 
 IntSize::IntSize(const BSize& size)
-    : m_width(size.IntegerWidth())
-    , m_height(size.IntegerHeight())
+    : m_width(size.IntegerWidth() + 1)
+    , m_height(size.IntegerHeight() + 1)
 {
 }
 
 IntSize::operator BSize() const
 {
-    return BSize(width(), height());
+    return BSize(width() - 1, height() - 1);
 }
 
 } // namespace WebCore
