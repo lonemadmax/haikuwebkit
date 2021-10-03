@@ -185,8 +185,8 @@ BMessenger BWebPage::sDownloadListener;
     gcry_control(GCRYCTL_INITIALIZATION_FINISHED, nullptr);
 #endif
 
-    ScriptController::initializeMainThread();
     WTF::initializeMainThread();
+    ScriptController::initializeMainThread();
     WTF::AtomString::init();
     WebCore::UTF8Encoding();
 
