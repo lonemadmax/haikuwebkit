@@ -193,7 +193,7 @@ FrameView::FrameView(Frame& frame)
 {
     init();
 
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
     ScrollElasticity verticalElasticity = ScrollElasticityNone;
     ScrollElasticity horizontalElasticity = ScrollElasticityNone;
     if (m_frame->isMainFrame()) {
@@ -887,7 +887,7 @@ ScrollableArea* FrameView::scrollableAreaForScrollingNodeID(ScrollingNodeID node
     return renderView->compositor().scrollableAreaForScrollingNodeID(nodeID);
 }
 
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
 GraphicsLayer* FrameView::layerForOverhangAreas() const
 {
     RenderView* renderView = this->renderView();
@@ -914,7 +914,7 @@ GraphicsLayer* FrameView::setWantsLayerForBottomOverHangArea(bool wantsLayer) co
     return renderView->compositor().updateLayerForBottomOverhangArea(wantsLayer);
 }
 
-#endif // ENABLE(RUBBER_BANDING)
+#endif // HAVE(RUBBER_BANDING)
 
 void FrameView::updateSnapOffsets()
 {
@@ -1298,7 +1298,7 @@ void FrameView::didLayout(WeakPtr<RenderElement> layoutRoot)
 
     updateCompositingLayersAfterLayout();
 
-    auto document = makeRef(*frame().document());
+    Ref document = *frame().document();
 
 #if PLATFORM(COCOA) || PLATFORM(WIN) || PLATFORM(GTK)
     if (auto* cache = document->existingAXObjectCache())
@@ -1445,9 +1445,9 @@ bool FrameView::usesAsyncScrolling() const
     return false;
 }
 
-bool FrameView::usesMockScrollAnimator() const
+bool FrameView::mockScrollAnimatorEnabled() const
 {
-    return DeprecatedGlobalSettings::usesMockScrollAnimator();
+    return frame().settings().mockScrollAnimatorEnabled();
 }
 
 void FrameView::logMockScrollAnimatorMessage(const String& message) const
@@ -2231,7 +2231,7 @@ bool FrameView::scrollToFragmentInternal(StringView fragmentIdentifier)
     auto& document = *frame().document();
     RELEASE_ASSERT(document.haveStylesheetsLoaded());
 
-    auto anchorElement = makeRefPtr(document.findAnchor(fragmentIdentifier));
+    RefPtr anchorElement = document.findAnchor(fragmentIdentifier);
 
     LOG(Scrolling, " anchorElement is %p", anchorElement.get());
 
@@ -2318,7 +2318,7 @@ void FrameView::setScrollPosition(const ScrollPosition& scrollPosition, const Sc
     if (page && page->isMonitoringWheelEvents())
         scrollAnimator().setWheelEventTestMonitor(page->wheelEventTestMonitor());
 
-    ScrollOffset snappedOffset = ceiledIntPoint(scrollAnimator().adjustScrollOffsetForSnappingIfNeeded(scrollOffsetFromPosition(scrollPosition), options.snapPointSelectionMethod));
+    ScrollOffset snappedOffset = ceiledIntPoint(scrollAnimator().scrollOffsetAdjustedForSnapping(scrollOffsetFromPosition(scrollPosition), options.snapPointSelectionMethod));
     auto snappedPosition = scrollPositionFromOffset(snappedOffset);
 
     if (options.animated == AnimatedScroll::Yes)
@@ -2372,14 +2372,14 @@ void FrameView::scrollToFocusedElementImmediatelyIfNeeded()
 
 void FrameView::scrollToFocusedElementTimerFired()
 {
-    auto protectedThis = makeRef(*this);
+    Ref protectedThis { *this };
     scrollToFocusedElementInternal();
 }
 
 void FrameView::scrollToFocusedElementInternal()
 {
     RELEASE_ASSERT(m_shouldScrollToFocusedElement);
-    auto document = makeRefPtr(frame().document());
+    RefPtr document = frame().document();
     if (!document)
         return;
 
@@ -2388,7 +2388,7 @@ void FrameView::scrollToFocusedElementInternal()
         return; // Updating the layout may have ran scripts.
     m_shouldScrollToFocusedElement = false;
 
-    auto focusedElement = makeRefPtr(document->focusedElement());
+    RefPtr focusedElement = document->focusedElement();
     if (!focusedElement)
         return;
     auto updateTarget = focusedElement->focusAppearanceUpdateTarget();
@@ -3764,6 +3764,7 @@ void FrameView::scrollTo(const ScrollPosition& newPosition)
 
 void FrameView::scrollToPositionWithAnimation(const ScrollPosition& position, ScrollType scrollType, ScrollClamping)
 {
+    // FIXME: Why isn't all this in ScrollableArea?
     auto previousScrollType = currentScrollType();
     setCurrentScrollType(scrollType);
 
@@ -3889,7 +3890,7 @@ bool FrameView::isScrollable(Scrollability definitionOfScrollable)
         return false;
 
     bool requiresActualOverflowToBeConsideredScrollable = !frame().isMainFrame() || definitionOfScrollable != Scrollability::ScrollableOrRubberbandable;
-#if !ENABLE(RUBBER_BANDING)
+#if !HAVE(RUBBER_BANDING)
     requiresActualOverflowToBeConsideredScrollable = true;
 #endif
 
@@ -3966,7 +3967,17 @@ void FrameView::scrollbarStyleChanged(ScrollbarStyle newStyle, bool forceUpdate)
     ScrollView::scrollbarStyleChanged(newStyle, forceUpdate);
 }
 
-void FrameView::notifyPageThatContentAreaWillPaint() const
+void FrameView::notifyAllFramesThatContentAreaWillPaint() const
+{
+    notifyScrollableAreasThatContentAreaWillPaint();
+
+    for (auto* child = frame().tree().firstRenderedChild(); child; child = child->tree().traverseNextRendered(m_frame.ptr())) {
+        if (auto* frameView = child->view())
+            frameView->notifyScrollableAreasThatContentAreaWillPaint();
+    }
+}
+
+void FrameView::notifyScrollableAreasThatContentAreaWillPaint() const
 {
     Page* page = frame().page();
     if (!page)
@@ -3977,16 +3988,17 @@ void FrameView::notifyPageThatContentAreaWillPaint() const
     if (!m_scrollableAreas)
         return;
 
-    for (auto& scrollableArea : *m_scrollableAreas)
-        scrollableArea->contentAreaWillPaint();
+    for (auto& scrollableArea : *m_scrollableAreas) {
+        // ScrollView ScrollableAreas will be handled via the Frame tree traversal above.
+        if (!is<ScrollView>(scrollableArea))
+            scrollableArea->contentAreaWillPaint();
+    }
 }
 
 bool FrameView::scrollAnimatorEnabled() const
 {
-#if ENABLE(SMOOTH_SCROLLING)
-    if (Page* page = frame().page())
+    if (auto* page = frame().page())
         return page->settings().scrollAnimatorEnabled();
-#endif
 
     return false;
 }
@@ -4183,6 +4195,16 @@ void FrameView::updateControlTints()
 
     if (page)
         page->setIsCountingRelevantRepaintedObjects(isCurrentlyCountingRelevantRepaintedObject);
+}
+
+void FrameView::invalidateControlTints()
+{
+    traverseForPaintInvalidation(NullGraphicsContext::PaintInvalidationReasons::InvalidatingControlTints);
+}
+
+void FrameView::invalidateImagesWithAsyncDecodes()
+{
+    traverseForPaintInvalidation(NullGraphicsContext::PaintInvalidationReasons::InvalidatingImagesWithAsyncDecodes);
 }
 
 void FrameView::traverseForPaintInvalidation(NullGraphicsContext::PaintInvalidationReasons paintInvalidationReasons)
@@ -5136,7 +5158,7 @@ bool FrameView::handleWheelEventForScrolling(const PlatformWheelEvent& wheelEven
 {
     // Note that to allow for rubber-band over-scroll behavior, even non-scrollable views
     // should handle wheel events.
-#if !ENABLE(RUBBER_BANDING)
+#if !HAVE(RUBBER_BANDING)
     if (!isScrollable())
         return false;
 #endif

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2004 Zack Rusin <zack@kde.org>
- * Copyright (C) 2004-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2021 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alexey Proskuryakov <ap@webkit.org>
  * Copyright (C) 2007 Nicholas Shanks <webkit@nickshanks.com>
  * Copyright (C) 2011 Sencha, Inc. All rights reserved.
@@ -65,6 +65,7 @@
 #include "RenderInline.h"
 #include "RenderStyle.h"
 #include "SVGElement.h"
+#include "SVGRenderSupport.h"
 #include "Settings.h"
 #include "ShapeValue.h"
 #include "StyleProperties.h"
@@ -556,6 +557,17 @@ static LayoutRect sizingBox(RenderObject& renderer)
 
     auto& box = downcast<RenderBox>(renderer);
     return box.style().boxSizing() == BoxSizing::BorderBox ? box.borderBoxRect() : box.computedCSSContentBoxRect();
+}
+
+static FloatRect transformReferenceBox(const RenderStyle& style, const RenderElement& renderer)
+{
+    if (is<RenderBox>(renderer))
+        return downcast<RenderBox>(renderer).referenceBox(transformBoxToCSSBoxType(style.transformBox()));
+
+    if (is<SVGElement>(renderer.element()))
+        return SVGRenderSupport::transformReferenceBox(renderer, downcast<SVGElement>(*renderer.element()), style);
+
+    return { };
 }
 
 static Ref<CSSFunctionValue> matrixTransformValue(const TransformationMatrix& transform, const RenderStyle& style)
@@ -1578,10 +1590,6 @@ static Ref<CSSValue> renderTextDecorationFlagsToCSSValue(OptionSet<TextDecoratio
         list->append(cssValuePool.createIdentifierValue(CSSValueOverline));
     if (textDecoration & TextDecoration::LineThrough)
         list->append(cssValuePool.createIdentifierValue(CSSValueLineThrough));
-#if ENABLE(LETTERPRESS)
-    if (textDecoration & TextDecoration::Letterpress)
-        list->append(cssValuePool.createIdentifierValue(CSSValueWebkitLetterpress));
-#endif
 
     if (!list->length())
         return cssValuePool.createIdentifierValue(CSSValueNone);
@@ -1607,18 +1615,15 @@ static Ref<CSSValue> renderTextDecorationStyleFlagsToCSSValue(TextDecorationStyl
     return CSSValuePool::singleton().createExplicitInitialValue();
 }
 
-static Ref<CSSValue> renderTextDecorationSkipFlagsToCSSValue(OptionSet<TextDecorationSkip> textDecorationSkip)
+static RefPtr<CSSValue> renderTextDecorationSkipToCSSValue(TextDecorationSkipInk textDecorationSkipInk)
 {
-    // FIXME: This should probably return a CSSValueList with the set of all TextDecorationSkips.
-    switch (static_cast<TextDecorationSkip>(textDecorationSkip.toRaw())) {
-    case TextDecorationSkip::Auto:
-        return CSSValuePool::singleton().createIdentifierValue(CSSValueAuto);
-    case TextDecorationSkip::None:
+    switch (textDecorationSkipInk) {
+    case TextDecorationSkipInk::None:
         return CSSValuePool::singleton().createIdentifierValue(CSSValueNone);
-    case TextDecorationSkip::Ink:
-        return CSSValuePool::singleton().createIdentifierValue(CSSValueInk);
-    case TextDecorationSkip::Objects:
-        return CSSValuePool::singleton().createIdentifierValue(CSSValueObjects);
+    case TextDecorationSkipInk::Auto:
+        return CSSValuePool::singleton().createIdentifierValue(CSSValueAuto);
+    case TextDecorationSkipInk::All:
+        return nullptr;
     }
 
     ASSERT_NOT_REACHED();
@@ -1832,9 +1837,31 @@ static Ref<CSSPrimitiveValue> fontSizeFromStyle(const RenderStyle& style)
     return zoomAdjustedPixelValue(style.fontDescription().computedSize(), style);
 }
 
+static Ref<CSSPrimitiveValue> fontPaletteFromStyle(const RenderStyle& style)
+{
+    auto fontPalette = style.fontDescription().fontPalette();
+    switch (fontPalette.type) {
+    case FontPalette::Type::None:
+        return CSSValuePool::singleton().createIdentifierValue(CSSValueNone);
+    case FontPalette::Type::Normal:
+        return CSSValuePool::singleton().createIdentifierValue(CSSValueNormal);
+    case FontPalette::Type::Light:
+        return CSSValuePool::singleton().createIdentifierValue(CSSValueLight);
+    case FontPalette::Type::Dark:
+        return CSSValuePool::singleton().createIdentifierValue(CSSValueDark);
+    case FontPalette::Type::Custom:
+        return CSSValuePool::singleton().createCustomIdent(fontPalette.identifier);
+    }
+}
+
 Ref<CSSPrimitiveValue> ComputedStyleExtractor::fontNonKeywordWeightFromStyleValue(FontSelectionValue weight)
 {
     return CSSValuePool::singleton().createValue(static_cast<float>(weight), CSSUnitType::CSS_NUMBER);
+}
+
+static Ref<CSSPrimitiveValue> fontNonKeywordWeightFromStyle(const RenderStyle& style)
+{
+    return ComputedStyleExtractor::fontNonKeywordWeightFromStyleValue(style.fontDescription().weight());
 }
 
 Ref<CSSPrimitiveValue> ComputedStyleExtractor::fontWeightFromStyleValue(FontSelectionValue weight)
@@ -1842,11 +1869,6 @@ Ref<CSSPrimitiveValue> ComputedStyleExtractor::fontWeightFromStyleValue(FontSele
     if (auto value = fontWeightKeyword(weight))
         return CSSValuePool::singleton().createIdentifierValue(value.value());
     return fontNonKeywordWeightFromStyleValue(weight);
-}
-
-static Ref<CSSPrimitiveValue> fontWeightFromStyle(const RenderStyle& style)
-{
-    return ComputedStyleExtractor::fontWeightFromStyleValue(style.fontDescription().weight());
 }
 
 Ref<CSSPrimitiveValue> ComputedStyleExtractor::fontNonKeywordStretchFromStyleValue(FontSelectionValue stretch)
@@ -2934,7 +2956,9 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertyFontVariant:
             return fontVariantFromStyle(style);
         case CSSPropertyFontWeight:
-            return fontWeightFromStyle(style);
+            return fontNonKeywordWeightFromStyle(style);
+        case CSSPropertyFontPalette:
+            return fontPaletteFromStyle(style);
         case CSSPropertyFontSynthesis:
             return fontSynthesisFromStyle(style);
         case CSSPropertyFontFeatureSettings: {
@@ -3054,6 +3078,8 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertyImageResolution:
             return cssValuePool.createValue(style.imageResolution(), CSSUnitType::CSS_DPPX);
 #endif
+        case CSSPropertyInputSecurity:
+            return cssValuePool.createValue(style.inputSecurity());
         case CSSPropertyLeft:
             return positionOffsetValue(style, CSSPropertyLeft, renderer);
         case CSSPropertyLetterSpacing:
@@ -3221,7 +3247,9 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertyTextDecorationColor:
             return currentColorOrValidColor(&style, style.textDecorationColor());
         case CSSPropertyTextDecorationSkip:
-            return renderTextDecorationSkipFlagsToCSSValue(style.textDecorationSkip());
+            return renderTextDecorationSkipToCSSValue(style.textDecorationSkipInk());
+        case CSSPropertyTextDecorationSkipInk:
+            return cssValuePool.createValue(style.textDecorationSkipInk());
         case CSSPropertyTextUnderlinePosition:
             return cssValuePool.createValue(style.textUnderlinePosition());
         case CSSPropertyTextUnderlineOffset:
@@ -3582,10 +3610,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertyPerspectiveOrigin: {
             auto list = CSSValueList::createSpaceSeparated();
             if (renderer) {
-                LayoutRect box;
-                if (is<RenderBox>(*renderer))
-                    box = downcast<RenderBox>(*renderer).borderBoxRect();
-
+                auto box = transformReferenceBox(style, *renderer);
                 list->append(zoomAdjustedPixelValue(minimumValueForLength(style.perspectiveOriginX(), box.width()), style));
                 list->append(zoomAdjustedPixelValue(minimumValueForLength(style.perspectiveOriginY(), box.height()), style));
             } else {
@@ -3641,10 +3666,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertyTransformOrigin: {
             auto list = CSSValueList::createSpaceSeparated();
             if (renderer) {
-                LayoutRect box;
-                if (is<RenderBox>(*renderer))
-                    box = downcast<RenderBox>(*renderer).borderBoxRect();
-
+                auto box = transformReferenceBox(style, *renderer);
                 list->append(zoomAdjustedPixelValue(minimumValueForLength(style.transformOriginX(), box.width()), style));
                 list->append(zoomAdjustedPixelValue(minimumValueForLength(style.transformOriginY(), box.height()), style));
                 if (style.transformOriginZ())
@@ -4047,6 +4069,11 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertySrc:
         case CSSPropertyUnicodeRange:
         case CSSPropertyFontDisplay:
+            break;
+
+        // Unimplemented @font-palette-values properties
+        case CSSPropertyBasePalette:
+        case CSSPropertyOverrideColors:
             break;
 
         /* Other unimplemented properties */

@@ -68,13 +68,13 @@ void ServiceWorkerGlobalScope::skipWaiting(Ref<DeferredPromise>&& promise)
     uint64_t requestIdentifier = ++m_lastRequestIdentifier;
     m_pendingSkipWaitingPromises.add(requestIdentifier, WTFMove(promise));
 
-    callOnMainThread([workerThread = makeRef(thread()), requestIdentifier]() mutable {
+    callOnMainThread([workerThread = Ref { thread() }, requestIdentifier]() mutable {
         if (auto* connection = SWContextManager::singleton().connection()) {
             auto identifier = workerThread->identifier();
             connection->skipWaiting(identifier, [workerThread = WTFMove(workerThread), requestIdentifier] {
                 workerThread->runLoop().postTask([requestIdentifier](auto& context) {
                     auto& scope = downcast<ServiceWorkerGlobalScope>(context);
-                    scope.eventLoop().queueTask(TaskSource::DOMManipulation, [scope = makeRef(scope), requestIdentifier]() mutable {
+                    scope.eventLoop().queueTask(TaskSource::DOMManipulation, [scope = Ref { scope }, requestIdentifier]() mutable {
                         if (auto promise = scope->m_pendingSkipWaitingPromises.take(requestIdentifier))
                             promise->resolve();
                     });
@@ -114,7 +114,7 @@ void ServiceWorkerGlobalScope::removeServiceWorkerClient(ServiceWorkerClient& cl
 // https://w3c.github.io/ServiceWorker/#update-service-worker-extended-events-set-algorithm
 void ServiceWorkerGlobalScope::updateExtendedEventsSet(ExtendableEvent* newEvent)
 {
-    ASSERT(!isMainThread());
+    ASSERT(isContextThread());
     ASSERT(!newEvent || !newEvent->isBeingDispatched());
     bool hadPendingEvents = hasPendingEvents();
     m_extendedEvents.removeAllMatching([](auto& event) {

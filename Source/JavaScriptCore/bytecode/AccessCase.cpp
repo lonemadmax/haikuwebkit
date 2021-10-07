@@ -123,16 +123,50 @@ Ref<AccessCase> AccessCase::create(VM& vm, JSCell* owner, AccessType type, Cache
 
 RefPtr<AccessCase> AccessCase::createTransition(
     VM& vm, JSCell* owner, CacheableIdentifier identifier, PropertyOffset offset, Structure* oldStructure, Structure* newStructure,
-    const ObjectPropertyConditionSet& conditionSet, RefPtr<PolyProtoAccessChain>&& prototypeAccessChain)
+    const ObjectPropertyConditionSet& conditionSet, RefPtr<PolyProtoAccessChain>&& prototypeAccessChain, const StructureStubInfo& stubInfo)
 {
     RELEASE_ASSERT(oldStructure == newStructure->previousID());
 
     // Skip optimizing the case where we need a realloc, if we don't have
     // enough registers to make it happen.
-    if (GPRInfo::numberOfRegisters < 6
-        && oldStructure->outOfLineCapacity() != newStructure->outOfLineCapacity()
-        && oldStructure->outOfLineCapacity()) {
-        return nullptr;
+    if (oldStructure->outOfLineCapacity() != newStructure->outOfLineCapacity()) {
+        // In 64 bits jsc uses 1 register for value, and it uses 2 registers in 32 bits
+        size_t requiredRegisters = 1; // stubInfo.valueRegs()
+#if USE(JSVALUE32_64)
+        ++requiredRegisters;
+#endif
+
+        // 1 register for the property in 64 bits
+        ++requiredRegisters;
+#if USE(JSVALUE32_64)
+        // In 32 bits, jsc uses may use one extra register, if it is not a Cell
+        if (stubInfo.propertyRegs().tagGPR() != InvalidGPRReg)
+            ++requiredRegisters;
+#endif
+
+        // 1 register for the base in 64 bits
+        ++requiredRegisters;
+#if USE(JSVALUE32_64)
+        // In 32 bits, jsc uses may use one extra register, if it is not a Cell
+        if (stubInfo.baseRegs().tagGPR() != InvalidGPRReg)
+            ++requiredRegisters;
+#endif
+
+        if (stubInfo.m_stubInfoGPR != InvalidGPRReg)
+            ++requiredRegisters;
+        if (stubInfo.m_arrayProfileGPR != InvalidGPRReg)
+            ++requiredRegisters;
+
+        // One extra register for scratchGPR
+        ++requiredRegisters;
+
+        // Check if we have enough registers when reallocating
+        if (oldStructure->outOfLineCapacity() && GPRInfo::numberOfRegisters < requiredRegisters)
+            return nullptr;
+
+        // If we are (re)allocating inline, jsc needs two extra scratchGPRs
+        if (!oldStructure->couldHaveIndexingHeader() && GPRInfo::numberOfRegisters < (requiredRegisters + 2))
+            return nullptr;
     }
 
     return adoptRef(*new AccessCase(vm, owner, Transition, identifier, offset, newStructure, conditionSet, WTFMove(prototypeAccessChain)));
@@ -168,15 +202,15 @@ RefPtr<AccessCase> AccessCase::fromStructureStubInfo(
     switch (stubInfo.cacheType()) {
     case CacheType::GetByIdSelf:
         RELEASE_ASSERT(stubInfo.hasConstantIdentifier);
-        return ProxyableAccessCase::create(vm, owner, Load, identifier, stubInfo.u.byIdSelf.offset, stubInfo.m_inlineAccessBaseStructure.get());
+        return ProxyableAccessCase::create(vm, owner, Load, identifier, stubInfo.byIdSelfOffset, stubInfo.inlineAccessBaseStructure(vm));
 
     case CacheType::PutByIdReplace:
         RELEASE_ASSERT(stubInfo.hasConstantIdentifier);
-        return AccessCase::create(vm, owner, Replace, identifier, stubInfo.u.byIdSelf.offset, stubInfo.m_inlineAccessBaseStructure.get());
+        return AccessCase::create(vm, owner, Replace, identifier, stubInfo.byIdSelfOffset, stubInfo.inlineAccessBaseStructure(vm));
 
     case CacheType::InByIdSelf:
         RELEASE_ASSERT(stubInfo.hasConstantIdentifier);
-        return AccessCase::create(vm, owner, InHit, identifier, stubInfo.u.byIdSelf.offset, stubInfo.m_inlineAccessBaseStructure.get());
+        return AccessCase::create(vm, owner, InHit, identifier, stubInfo.byIdSelfOffset, stubInfo.inlineAccessBaseStructure(vm));
 
     case CacheType::ArrayLength:
         RELEASE_ASSERT(stubInfo.hasConstantIdentifier);
@@ -819,8 +853,9 @@ bool AccessCase::canReplace(const AccessCase& other) const
 
 void AccessCase::dump(PrintStream& out) const
 {
-    out.print("\n", m_type, ":(");
+    out.print("\n", m_type, ": {");
 
+    Indenter indent;
     CommaPrinter comma;
 
     out.print(comma, m_state);
@@ -829,21 +864,25 @@ void AccessCase::dump(PrintStream& out) const
     if (isValidOffset(m_offset))
         out.print(comma, "offset = ", m_offset);
 
+    ++indent;
+
     if (m_polyProtoAccessChain) {
-        out.print(comma, "prototype access chain = ");
+        out.print("\n", indent, "prototype access chain = ");
         m_polyProtoAccessChain->dump(structure(), out);
     } else {
         if (m_type == Transition || m_type == Delete || m_type == SetPrivateBrand)
-            out.print(comma, "structure = ", pointerDump(structure()), " -> ", pointerDump(newStructure()));
+            out.print("\n", indent, "from structure = ", pointerDump(structure()),
+                "\n", indent, "to structure = ", pointerDump(newStructure()));
         else if (m_structure)
-            out.print(comma, "structure = ", pointerDump(m_structure.get()));
+            out.print("\n", indent, "structure = ", pointerDump(m_structure.get()));
     }
 
     if (!m_conditionSet.isEmpty())
-        out.print(comma, "conditions = ", m_conditionSet);
+        out.print("\n", indent, "conditions = ", m_conditionSet);
 
-    dumpImpl(out, comma);
-    out.print(")");
+    dumpImpl(out, comma, indent);
+
+    out.print("}");
 }
 
 bool AccessCase::visitWeak(VM& vm) const
@@ -1946,14 +1985,10 @@ void AccessCase::generateImpl(AccessGenerationState& state)
         // Stuff for custom getters/setters.
         CCallHelpers::Call operationCall;
 
+
         // This also does the necessary calculations of whether or not we're an
         // exception handling call site.
-        RegisterSet extraRegistersToPreserve;
-#if CPU(ARM64)
-        if (codeBlock->useDataIC())
-            extraRegistersToPreserve.set(ARM64Registers::lr);
-#endif
-        AccessGenerationState::SpillState spillState = state.preserveLiveRegistersToStackForCall(extraRegistersToPreserve);
+        AccessGenerationState::SpillState spillState = state.preserveLiveRegistersToStackForCall();
 
         auto restoreLiveRegistersFromStackForCall = [&](AccessGenerationState::SpillState& spillState, bool callHasReturnValue) {
             RegisterSet dontRestore;
@@ -2040,8 +2075,7 @@ void AccessCase::generateImpl(AccessGenerationState& state)
             ASSERT(!(numberOfRegsForCall % stackAlignmentRegisters()));
             unsigned numberOfBytesForCall = numberOfRegsForCall * sizeof(Register) - sizeof(CallerFrameAndPC);
 
-            unsigned alignedNumberOfBytesForCall =
-            WTF::roundUpToMultipleOf(stackAlignmentBytes(), numberOfBytesForCall);
+            unsigned alignedNumberOfBytesForCall = WTF::roundUpToMultipleOf(stackAlignmentBytes(), numberOfBytesForCall);
 
             jit.subPtr(
                 CCallHelpers::TrustedImm32(alignedNumberOfBytesForCall),
@@ -2099,6 +2133,7 @@ void AccessCase::generateImpl(AccessGenerationState& state)
 
             int stackPointerOffset = (codeBlock->stackPointerOffset() * sizeof(Register)) - state.preservedReusedRegisterState.numberOfBytesPreserved - spillState.numberOfStackBytesUsedForRegisterPreservation;
             jit.addPtr(CCallHelpers::TrustedImm32(stackPointerOffset), GPRInfo::callFrameRegister, CCallHelpers::stackPointerRegister);
+
             bool callHasReturnValue = isGetter();
             restoreLiveRegistersFromStackForCall(spillState, callHasReturnValue);
 
@@ -2225,12 +2260,7 @@ void AccessCase::generateImpl(AccessGenerationState& state)
 
             jit.loadPtr(CCallHelpers::Address(baseGPR, JSProxy::targetOffset()), scratchGPR);
 
-            RegisterSet extraRegistersToPreserve;
-#if CPU(ARM64)
-            if (codeBlock->useDataIC())
-                extraRegistersToPreserve.set(ARM64Registers::lr);
-#endif
-            auto spillState = state.preserveLiveRegistersToStackForCallWithoutExceptions(extraRegistersToPreserve);
+            auto spillState = state.preserveLiveRegistersToStackForCallWithoutExceptions();
 
             jit.setupArguments<decltype(operationWriteBarrierSlowPath)>(CCallHelpers::TrustedImmPtr(&vm), scratchGPR);
             jit.prepareCallOperation(vm);
@@ -2249,7 +2279,7 @@ void AccessCase::generateImpl(AccessGenerationState& state)
 
     case Transition: {
         ASSERT(!viaProxy());
-        // AccessCase::transition() should have returned null if this wasn't true.
+        // AccessCase::createTransition() should have returned null if this wasn't true.
         RELEASE_ASSERT(GPRInfo::numberOfRegisters >= 6 || !structure()->outOfLineCapacity() || structure()->outOfLineCapacity() == newStructure()->outOfLineCapacity());
 
         // NOTE: This logic is duplicated in AccessCase::doesCalls(). It's important that doesCalls() knows
@@ -2325,10 +2355,6 @@ void AccessCase::generateImpl(AccessGenerationState& state)
                 RegisterSet extraRegistersToPreserve;
                 extraRegistersToPreserve.set(baseGPR);
                 extraRegistersToPreserve.set(valueRegs);
-#if CPU(ARM64)
-                if (codeBlock->useDataIC())
-                    extraRegistersToPreserve.set(ARM64Registers::lr);
-#endif
                 AccessGenerationState::SpillState spillState = state.preserveLiveRegistersToStackForCall(extraRegistersToPreserve);
                 
                 jit.store32(

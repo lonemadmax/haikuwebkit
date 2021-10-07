@@ -114,7 +114,7 @@ public:
     };
 };
 
-String convertEnumerationToString(MediaPlayerEnums::ReadyState);
+WEBCORE_EXPORT String convertEnumerationToString(MediaPlayerEnums::ReadyState);
 String convertEnumerationToString(MediaPlayerEnums::NetworkState);
 String convertEnumerationToString(MediaPlayerEnums::Preload);
 String convertEnumerationToString(MediaPlayerEnums::SupportsType);

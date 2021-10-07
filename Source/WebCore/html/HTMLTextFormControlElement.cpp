@@ -40,9 +40,9 @@
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
+#include "InlineIteratorBox.h"
+#include "InlineIteratorLine.h"
 #include "LayoutDisallowedScope.h"
-#include "LayoutIntegrationLineIterator.h"
-#include "LayoutIntegrationRunIterator.h"
 #include "Logging.h"
 #include "NodeTraversal.h"
 #include "Page.h"
@@ -701,13 +701,13 @@ String HTMLTextFormControlElement::valueWithHardLineBreaks() const
 
     Node* softLineBreakNode = nullptr;
     unsigned softLineBreakOffset = 0;
-    auto currentLine = LayoutIntegration::firstLineFor(*renderer);
+    auto currentLine = InlineIterator::firstLineFor(*renderer);
     if (!currentLine)
         return value();
 
     auto skipToNextSoftLineBreakPosition = [&] {
         for (; currentLine; currentLine.traverseNext()) {
-            auto lastRun = currentLine.lastRun();
+            auto lastRun = currentLine->lastRun();
             ASSERT(lastRun);
             auto& renderer = lastRun->renderer();
             auto lineEndsWithBR = is<RenderLineBreak>(renderer) && !downcast<RenderLineBreak>(renderer).isWBR();

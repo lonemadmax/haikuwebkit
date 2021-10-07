@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2010 Google Inc. All rights reserved.
  * Copyright (C) 2015 Roopesh Chander (roop@roopc.net)
- * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -49,6 +49,7 @@
 #include "Page.h"
 #include "PlatformStrategies.h"
 #include "ProgressTracker.h"
+#include "ReportingEndpointsCache.h"
 #include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "ResourceLoadInfo.h"
@@ -171,9 +172,6 @@ void PingLoader::sendViolationReport(Frame& frame, const URL& reportURL, Ref<For
     case ViolationReportType::ContentSecurityPolicy:
         request.setHTTPContentType("application/csp-report"_s);
         break;
-    case ViolationReportType::XSSAuditor:
-        request.setHTTPContentType("application/json"_s);
-        break;
     case ViolationReportType::StandardReportingAPIViolation:
         request.setHTTPContentType("application/reports+json"_s);
         break;
@@ -199,7 +197,7 @@ void PingLoader::sendViolationReport(Frame& frame, const URL& reportURL, Ref<For
 
 void PingLoader::startPingLoad(Frame& frame, ResourceRequest& request, HTTPHeaderMap&& originalRequestHeaders, ShouldFollowRedirects shouldFollowRedirects, ContentSecurityPolicyImposition policyCheck, ReferrerPolicy referrerPolicy, std::optional<ViolationReportType> violationReportType)
 {
-    unsigned long identifier = frame.page()->progress().createUniqueIdentifier();
+    auto identifier = ResourceLoaderIdentifier::generate();
     // FIXME: Why activeDocumentLoader? I would have expected documentLoader().
     // It seems like the PingLoader should be associated with the current
     // Document in the Frame, but the activeDocumentLoader will be associated
@@ -227,7 +225,7 @@ void PingLoader::startPingLoad(Frame& frame, ResourceRequest& request, HTTPHeade
     if (platformStrategies()->loaderStrategy()->usePingLoad()) {
         InspectorInstrumentation::willSendRequestOfType(&frame, identifier, frame.loader().activeDocumentLoader(), request, InspectorInstrumentation::LoadType::Ping);
 
-        platformStrategies()->loaderStrategy()->startPingLoad(frame, request, WTFMove(originalRequestHeaders), options, policyCheck, [protectedFrame = makeRef(frame), identifier] (const ResourceError& error, const ResourceResponse& response) {
+        platformStrategies()->loaderStrategy()->startPingLoad(frame, request, WTFMove(originalRequestHeaders), options, policyCheck, [protectedFrame = Ref { frame }, identifier] (const ResourceError& error, const ResourceResponse& response) {
             if (!response.isNull())
                 InspectorInstrumentation::didReceiveResourceResponse(protectedFrame, identifier, protectedFrame->loader().activeDocumentLoader(), response, nullptr);
             if (!error.isNull()) {
@@ -243,4 +241,42 @@ void PingLoader::startPingLoad(Frame& frame, ResourceRequest& request, HTTPHeade
     frame.document()->cachedResourceLoader().requestPingResource(WTFMove(cachedResourceRequest));
 }
 
+// // https://html.spec.whatwg.org/multipage/origin.html#sanitize-url-report
+String PingLoader::sanitizeURLForReport(const URL& url)
+{
+    URL sanitizedURL = url;
+    sanitizedURL.removeCredentials();
+    sanitizedURL.removeFragmentIdentifier();
+    return sanitizedURL.string();
 }
+
+// https://www.w3.org/TR/reporting/#try-delivery
+void PingLoader::sendReportToEndpoint(Frame& frame, const SecurityOriginData& origin, const String& endpoint, const String& type, const URL& reportURL, const String& userAgent, const Function<void(JSON::Object&)>& populateReportBody)
+{
+    ASSERT(!endpoint.isEmpty());
+    auto reportingEndpointsCache = frame.page() ? frame.page()->reportingEndpointsCache() : nullptr;
+    if (!reportingEndpointsCache)
+        return;
+    auto endpointURL = reportingEndpointsCache->endpointURL(origin, endpoint);
+    if (!endpointURL.isValid())
+        return;
+
+    auto body = JSON::Object::create();
+    populateReportBody(body);
+
+    auto reportObject = JSON::Object::create();
+    reportObject->setString("type"_s, type);
+    if (reportURL.isValid())
+        reportObject->setString("url"_s, reportURL.string());
+    reportObject->setString("user_agent", userAgent);
+    reportObject->setInteger("age", 0); // We currently do not delay sending the reports.
+    reportObject->setObject("body"_s, WTFMove(body));
+
+    auto reportList = JSON::Array::create();
+    reportList->pushObject(reportObject);
+
+    auto report = FormData::create(reportList->toJSONString().utf8());
+    sendViolationReport(frame, endpointURL, WTFMove(report), ViolationReportType::StandardReportingAPIViolation);
+}
+
+} // namespace WebCore

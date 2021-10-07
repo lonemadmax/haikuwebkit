@@ -420,7 +420,17 @@ self.addEventListener("message", (event) => {
 
 )SWRESOURCE";
 
-TEST(ServiceWorkers, Basic)
+enum class ShouldRunServiceWorkersOnMainThread : bool { No, Yes };
+
+static void setViewDataStore(WKWebViewConfiguration* viewConfiguration, ShouldRunServiceWorkersOnMainThread shouldRunServiceWorkersOnMainThread)
+{
+    auto storeConfiguration = adoptNS([_WKWebsiteDataStoreConfiguration new]);
+    [storeConfiguration setShouldRunServiceWorkersOnMainThreadForTesting:shouldRunServiceWorkersOnMainThread == ShouldRunServiceWorkersOnMainThread::Yes];
+    auto dataStore = adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:storeConfiguration.get()]);
+    [viewConfiguration setWebsiteDataStore:dataStore.get()];
+}
+
+static void runBasicSWTest(ShouldRunServiceWorkersOnMainThread shouldRunServiceWorkersOnMainThread)
 {
     ServiceWorkerTCPServer server({
         { "text/html", mainBytes },
@@ -429,17 +439,18 @@ TEST(ServiceWorkers, Basic)
 
     [WKWebsiteDataStore _allowWebsiteDataRecordsForAllOrigins];
 
+    auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    setViewDataStore(configuration.get(), shouldRunServiceWorkersOnMainThread);
+
+    auto messageHandler = adoptNS([[SWMessageHandler alloc] init]);
+    [[configuration userContentController] addScriptMessageHandler:messageHandler.get() name:@"sw"];
+
     // Start with a clean slate data store
-    [[WKWebsiteDataStore defaultDataStore] removeDataOfTypes:[WKWebsiteDataStore allWebsiteDataTypes] modifiedSince:[NSDate distantPast] completionHandler:^() {
+    [[configuration websiteDataStore] removeDataOfTypes:[WKWebsiteDataStore allWebsiteDataTypes] modifiedSince:[NSDate distantPast] completionHandler:^() {
         done = true;
     }];
     TestWebKitAPI::Util::run(&done);
     done = false;
-
-    auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
-
-    auto messageHandler = adoptNS([[SWMessageHandler alloc] init]);
-    [[configuration userContentController] addScriptMessageHandler:messageHandler.get() name:@"sw"];
 
     auto webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration.get()]);
 
@@ -450,7 +461,7 @@ TEST(ServiceWorkers, Basic)
 
     webView = nullptr;
 
-    [[WKWebsiteDataStore defaultDataStore] fetchDataRecordsOfTypes:[NSSet setWithObject:WKWebsiteDataTypeServiceWorkerRegistrations] completionHandler:^(NSArray<WKWebsiteDataRecord *> *websiteDataRecords) {
+    [[configuration websiteDataStore] fetchDataRecordsOfTypes:[NSSet setWithObject:WKWebsiteDataTypeServiceWorkerRegistrations] completionHandler:^(NSArray<WKWebsiteDataRecord *> *websiteDataRecords) {
         EXPECT_EQ(1u, [websiteDataRecords count]);
         EXPECT_WK_STREQ(websiteDataRecords[0].displayName, "127.0.0.1");
 
@@ -459,6 +470,16 @@ TEST(ServiceWorkers, Basic)
 
     TestWebKitAPI::Util::run(&done);
     done = false;
+}
+
+TEST(ServiceWorkers, Basic)
+{
+    runBasicSWTest(ShouldRunServiceWorkersOnMainThread::No);
+}
+
+TEST(ServiceWorkers, BasicWithMainThreadSW)
+{
+    runBasicSWTest(ShouldRunServiceWorkersOnMainThread::Yes);
 }
 
 @interface SWCustomUserAgentDelegate : NSObject <WKNavigationDelegate> {
@@ -755,6 +776,58 @@ TEST(ServiceWorkers, InterceptFirstLoadAfterRestoreFromDisk)
     done = false;
 
     configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    messageHandler = adoptNS([[SWMessageHandlerWithExpectedMessage alloc] init]);
+    [[configuration userContentController] addScriptMessageHandler:messageHandler.get() name:@"sw"];
+
+    webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration.get()]);
+
+    expectedMessage = "Intercepted by worker";
+    [webView loadRequest:server.request()];
+
+    TestWebKitAPI::Util::run(&done);
+    done = false;
+}
+
+TEST(ServiceWorkers, MainThreadSWInterceptsLoad)
+{
+    [WKWebsiteDataStore _allowWebsiteDataRecordsForAllOrigins];
+    RetainPtr<WKWebViewConfiguration> configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    setViewDataStore(configuration.get(), ShouldRunServiceWorkersOnMainThread::Yes);
+
+    RetainPtr<WKWebsiteDataStore> dataStore = [configuration websiteDataStore];
+
+    // Start with a clean slate data store
+    [dataStore removeDataOfTypes:[WKWebsiteDataStore allWebsiteDataTypes] modifiedSince:[NSDate distantPast] completionHandler:^() {
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+    done = false;
+
+    auto messageHandler = adoptNS([[SWMessageHandlerWithExpectedMessage alloc] init]);
+    [[configuration userContentController] addScriptMessageHandler:messageHandler.get() name:@"sw"];
+
+    ServiceWorkerTCPServer server({
+        { "text/html", mainForFirstLoadInterceptTestBytes },
+        { "application/javascript", scriptInterceptingFirstLoadBytes },
+    }, {
+        { "application/javascript", scriptInterceptingFirstLoadBytes },
+    });
+
+    auto webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration.get()]);
+
+    expectedMessage = "Service Worker activated";
+    [webView loadRequest:server.request()];
+
+    TestWebKitAPI::Util::run(&done);
+
+    webView = nullptr;
+    configuration = nullptr;
+    messageHandler = nullptr;
+
+    done = false;
+
+    configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    [configuration setWebsiteDataStore:dataStore.get()];
     messageHandler = adoptNS([[SWMessageHandlerWithExpectedMessage alloc] init]);
     [[configuration userContentController] addScriptMessageHandler:messageHandler.get() name:@"sw"];
 
@@ -2077,22 +2150,19 @@ TEST(ServiceWorkers, ContentRuleList)
     [[configuration userContentController] addContentRuleList:contentRuleList.get()];
 
     using namespace TestWebKitAPI;
-    TCPServer server([] (int socket) {
-        auto respond = [socket] (const char* body, const char* mimeType) {
-            NSString *format = @"HTTP/1.1 200 OK\r\n"
-            "Content-Type: %s\r\n"
-            "Content-Length: %d\r\n\r\n"
-            "%s";
-            NSString *response = [NSString stringWithFormat:format, mimeType, strlen(body), body];
-            TCPServer::write(socket, response.UTF8String, response.length);
-        };
-        TCPServer::read(socket);
-        respond(mainBytes, "text/html");
-        TCPServer::read(socket);
-        respond(contentRuleListWorkerScript, "application/javascript");
-        auto lastRequest = TCPServer::read(socket);
-        EXPECT_TRUE(strnstr((const char*)lastRequest.data(), "allowedsubresource", lastRequest.size()));
-        respond("successful fetch", "application/octet-stream");
+    HTTPServer server([] (Connection connection) {
+        connection.receiveHTTPRequest([=](Vector<char>&&) {
+            connection.send(HTTPResponse({{ "Content-Type", "text/html" }}, mainBytes).serialize(), [=] {
+                connection.receiveHTTPRequest([=](Vector<char>&&) {
+                    connection.send(HTTPResponse({{ "Content-Type", "application/javascript" }}, contentRuleListWorkerScript).serialize(), [=] {
+                        connection.receiveHTTPRequest([=](Vector<char>&& lastRequest) {
+                            EXPECT_TRUE(strnstr((const char*)lastRequest.data(), "allowedsubresource", lastRequest.size()));
+                            connection.send(HTTPResponse("successful fetch").serialize());
+                        });
+                    });
+                });
+            });
+        });
     });
 
     expectedMessage = @"Message from worker: PASS - blocked first request, allowed second";
@@ -2108,8 +2178,6 @@ TEST(ServiceWorkers, ContentRuleList)
     }];
     TestWebKitAPI::Util::run(&doneRemoving);
 }
-
-#if HAVE(TLS_PROTOCOL_VERSION_T)
 
 static bool isTestServerTrust(SecTrustRef trust)
 {
@@ -2298,8 +2366,6 @@ TEST(ServiceWorkers, ChangeOfServerCertificate)
         EXPECT_WK_STREQ([webView2 _test_waitForAlert], "new worker");
     }
 }
-
-#endif // HAVE(TLS_PROTOCOL_VERSION_T)
 
 TEST(ServiceWorkers, ClearDOMCacheAlsoIncludesServiceWorkerRegistrations)
 {

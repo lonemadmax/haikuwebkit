@@ -36,23 +36,24 @@ static ExceptionOr<JSC::JSValue> invokeWritableStreamFunction(JSC::JSGlobalObjec
     JSC::VM& vm = globalObject.vm();
     JSC::JSLockHolder lock(vm);
 
+    auto scope = DECLARE_CATCH_SCOPE(vm);
+
     auto function = globalObject.get(&globalObject, identifier);
     ASSERT(function.isCallable(vm));
+    scope.assertNoExceptionExceptTermination();
 
-    auto scope = DECLARE_THROW_SCOPE(vm);
     auto callData = JSC::getCallData(vm, function);
 
     auto result = call(&globalObject, function, callData, JSC::jsUndefined(), arguments);
-    if (UNLIKELY(scope.exception()))
-        return Exception { ExistingExceptionError };
+    RETURN_IF_EXCEPTION(scope, Exception { ExistingExceptionError });
 
     return result;
 }
 
-ExceptionOr<Ref<InternalWritableStream>> InternalWritableStream::create(JSDOMGlobalObject& globalObject, JSC::JSValue underlyingSink, JSC::JSValue strategy)
+ExceptionOr<Ref<InternalWritableStream>> InternalWritableStream::createFromUnderlyingSink(JSDOMGlobalObject& globalObject, JSC::JSValue underlyingSink, JSC::JSValue strategy)
 {
     auto* clientData = static_cast<JSVMClientData*>(globalObject.vm().clientData);
-    auto& privateName = clientData->builtinFunctions().writableStreamInternalsBuiltins().createInternalWritableStreamPrivateName();
+    auto& privateName = clientData->builtinFunctions().writableStreamInternalsBuiltins().createInternalWritableStreamFromUnderlyingSinkPrivateName();
 
     JSC::MarkedArgumentBuffer arguments;
     arguments.append(underlyingSink);
@@ -65,6 +66,11 @@ ExceptionOr<Ref<InternalWritableStream>> InternalWritableStream::create(JSDOMGlo
 
     ASSERT(result.returnValue().isObject());
     return adoptRef(*new InternalWritableStream(globalObject, *result.returnValue().toObject(&globalObject)));
+}
+
+Ref<InternalWritableStream> InternalWritableStream::fromObject(JSDOMGlobalObject& globalObject, JSC::JSObject& object)
+{
+    return adoptRef(*new InternalWritableStream(globalObject, object));
 }
 
 bool InternalWritableStream::locked() const

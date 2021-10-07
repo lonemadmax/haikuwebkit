@@ -499,6 +499,9 @@ macro checkSwitchToJITForLoop()
             cCall2(_llint_loop_osr)
             btpz r0, .recover
             move r1, sp
+
+            loadBaselineJITConstantPool()
+
             jmp r0
         .recover:
             loadi ArgumentCountIncludingThis + TagOffset[cfr], PC
@@ -1012,18 +1015,13 @@ strictEqualityJumpOp(jnstricteq, OpJnstricteq,
 
 macro preOp(opcodeName, opcodeStruct, integerOperation)
     llintOpWithMetadata(op_%opcodeName%, opcodeStruct, macro (size, get, dispatch, metadata, return)
-        macro updateArithProfile(type)
-            orh type, %opcodeStruct%::Metadata::m_arithProfile + UnaryArithProfile::m_bits[t1]
-        end
-
-        metadata(t1, t2)
         get(m_srcDst, t0)
         bineq TagOffset[cfr, t0, 8], Int32Tag, .slow
         loadi PayloadOffset[cfr, t0, 8], t2
-        # Metadata in t1, srcDst in t2
+        # srcDst in t2
         integerOperation(t2, .slow)
         storei t2, PayloadOffset[cfr, t0, 8]
-        updateArithProfile(ArithProfileInt)
+        updateUnaryArithProfile(size, opcodeStruct, ArithProfileInt, t5, t2)
         dispatch()
 
     .slow:
@@ -1088,23 +1086,17 @@ end)
 
 
 llintOpWithMetadata(op_negate, OpNegate, macro (size, get, dispatch, metadata, return)
-
-    macro updateArithProfile(type)
-        orh type, OpNegate::Metadata::m_arithProfile + UnaryArithProfile::m_bits[t5]
-    end
-
-    metadata(t5, t0)
     get(m_operand, t0)
     loadConstantOrVariable(size, t0, t1, t2)
     bineq t1, Int32Tag, .opNegateSrcNotInt
     btiz t2, 0x7fffffff, .opNegateSlow
     negi t2
-    updateArithProfile(ArithProfileInt)
+    updateUnaryArithProfile(size, OpNegate, ArithProfileInt, t0, t3)
     return (Int32Tag, t2)
 .opNegateSrcNotInt:
     bia t1, LowestTag, .opNegateSlow
     xori 0x80000000, t1
-    updateArithProfile(ArithProfileNumber)
+    updateUnaryArithProfile(size, OpNegate, ArithProfileNumber, t0, t3)
     return(t1, t2)
 
 .opNegateSlow:
@@ -1115,18 +1107,13 @@ end)
 
 macro binaryOpCustomStore(opcodeName, opcodeStruct, integerOperationAndStore, doubleOperation)
     llintOpWithMetadata(op_%opcodeName%, opcodeStruct, macro (size, get, dispatch, metadata, return)
-        macro arithProfile(type)
-            orh type, %opcodeStruct%::Metadata::m_arithProfile + BinaryArithProfile::m_bits[t5]
-        end
-
-        metadata(t5, t2)
         get(m_rhs, t2)
         get(m_lhs, t0)
         loadConstantOrVariable(size, t2, t3, t1)
         loadConstantOrVariable2Reg(size, t0, t2, t0)
         bineq t2, Int32Tag, .op1NotInt
         bineq t3, Int32Tag, .op2NotInt
-        arithProfile(ArithProfileIntInt)
+        updateBinaryArithProfile(size, opcodeStruct, ArithProfileIntInt, t5, t2)
         get(m_dst, t2)
         integerOperationAndStore(t3, t1, t0, .slow, t2)
         dispatch()
@@ -1136,12 +1123,12 @@ macro binaryOpCustomStore(opcodeName, opcodeStruct, integerOperationAndStore, do
         bia t2, LowestTag, .slow
         bib t3, LowestTag, .op1NotIntOp2Double
         bineq t3, Int32Tag, .slow
-        arithProfile(ArithProfileNumberInt)
+        updateBinaryArithProfile(size, opcodeStruct, ArithProfileNumberInt, t5, t4)
         ci2ds t1, ft1
         jmp .op1NotIntReady
     .op1NotIntOp2Double:
         fii2d t1, t3, ft1
-        arithProfile(ArithProfileNumberNumber)
+        updateBinaryArithProfile(size, opcodeStruct, ArithProfileNumberNumber, t5, t4)
     .op1NotIntReady:
         get(m_dst, t1)
         fii2d t0, t2, ft0
@@ -1153,7 +1140,7 @@ macro binaryOpCustomStore(opcodeName, opcodeStruct, integerOperationAndStore, do
         # First operand is definitely an int, the second operand is definitely not.
         get(m_dst, t2)
         bia t3, LowestTag, .slow
-        arithProfile(ArithProfileIntNumber)
+        updateBinaryArithProfile(size, opcodeStruct, ArithProfileIntNumber, t5, t4)
         ci2ds t0, ft0
         fii2d t1, t3, ft1
         doubleOperation(ft1, ft0)
@@ -1943,6 +1930,20 @@ undefinedOrNullJumpOp(jundefined_or_null, OpJundefinedOrNull,
 
 undefinedOrNullJumpOp(jnundefined_or_null, OpJnundefinedOrNull,
     macro (value, target) bineq value, NullTag, target end)
+
+llintOpWithReturn(op_jeq_ptr, OpJeqPtr, macro (size, get, dispatch, return)
+    get(m_value, t0)
+    get(m_specialPointer, t1)
+    loadConstant(size, t1, t3, t2)
+    bineq TagOffset[cfr, t0, 8], CellTag, .opJeqPtrFallThrough
+    bpneq PayloadOffset[cfr, t0, 8], t2, .opJeqPtrFallThrough
+.opJeqPtrBranch:
+    get(m_targetLabel, t0)
+    jumpImpl(dispatchIndirect, t0)
+.opJeqPtrFallThrough:
+    dispatch()
+end)
+
 
 llintOpWithMetadata(op_jneq_ptr, OpJneqPtr, macro (size, get, dispatch, metadata, return)
     get(m_value, t0)

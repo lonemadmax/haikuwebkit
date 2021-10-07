@@ -1,3 +1,340 @@
+2021-10-02  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Update test262 config.yaml since OSS WebKit now uses ICU 64.2 header
+        https://bugs.webkit.org/show_bug.cgi?id=231121
+
+        Reviewed by Mark Lam.
+
+        * test262/config.yaml:
+
+2021-10-02  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] DateTimeFormat.resolvedOptions shouldn't return an object with other date/time properties if dateStyle or timeStyle are set
+        https://bugs.webkit.org/show_bug.cgi?id=231041
+
+        Reviewed by Ross Kirsling.
+
+        * stress/intl-date-time-format-date-time-style-basic.js:
+        (shouldBe.JSON.stringify.o.resolvedOptions):
+        (shouldBe):
+        (shouldBe.o.format): Deleted.
+
+2021-10-02  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, add reported test to our stress tests
+        https://bugs.webkit.org/show_bug.cgi?id=230827
+
+        While we cannot reproduce the issue successfully, adding it to our stress tests to ensure that this will never happen.
+
+        * stress/intl-datetimeformat.js:
+
+2021-10-01  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r283293.
+        https://bugs.webkit.org/show_bug.cgi?id=231116
+
+        changing print() broke a lot of random things
+
+        Reverted changeset:
+
+        "Print values in a nicer way in the jsc shell"
+        https://bugs.webkit.org/show_bug.cgi?id=230931
+        https://commits.webkit.org/r283293
+
+2021-09-30  Saam Barati  <sbarati@apple.com>
+
+        The DFG/FTL need to be aware that Proxy's can produce "function" for typeof and might be callable
+        https://bugs.webkit.org/show_bug.cgi?id=230804
+        <rdar://problem/83543951>
+
+        Reviewed by Yusuke Suzuki.
+
+        * stress/ai-typeof-needs-to-be-aware-of-proxy-2.js: Added.
+        (assert):
+        (builtin.vm.createBuiltin):
+        (builtin2.vm.createBuiltin):
+        (let.p.new.Proxy):
+        * stress/ai-typeof-needs-to-be-aware-of-proxy.js: Added.
+        (assert):
+        (builtin.vm.createBuiltin):
+        (let.p.new.Proxy):
+        * stress/is-callable-in-ftl-needs-to-be-aware-of-proxy.js: Added.
+        (main):
+
+2021-09-29  Mark Lam  <mark.lam@apple.com>
+
+        DFG strength reduction on % operator should handle an INT_MIN divisor.
+        https://bugs.webkit.org/show_bug.cgi?id=230391
+        <rdar://problem/83229740>
+
+        Reviewed by Robin Morisset.
+
+        * stress/dfg-strength-reduction-on-mod-should-handle-INT_MIN.js: Added.
+
+2021-09-29  Saam Barati  <sbarati@apple.com>
+
+        Print values in a nicer way in the jsc shell
+        https://bugs.webkit.org/show_bug.cgi?id=230931
+
+        Reviewed by Tadeu Zagallo.
+
+        * ChakraCore/test/jsc-lib.js:
+
+2021-09-29  Saam Barati  <sbarati@apple.com>
+
+        We need to load the baseline JIT's constant pool register after OSR exit to checkpoints if we return to baseline code
+        https://bugs.webkit.org/show_bug.cgi?id=230972
+        <rdar://83659469>
+
+        Reviewed by Mark Lam and Yusuke Suzuki.
+
+        * stress/checkpoint-osr-exit-needs-to-reload-baseline-jit-constant-pool-gpr.js: Added.
+        (empty):
+        (empty2):
+        (test):
+
+2021-09-29  Saam Barati  <sbarati@apple.com>
+
+        Code inside strength reduction can incorrectly prove that we know what lastIndex is
+        https://bugs.webkit.org/show_bug.cgi?id=230802
+        <rdar://problem/83543699>
+
+        Reviewed by Mark Lam.
+
+        * stress/dont-fold-regexp-exec-when-we-dont-know-last-index-and-regexp-is-constant.js: Added.
+        (assert):
+        (let.reg.RegExp.foo.g.doExec):
+        (noInline.doExec):
+
+2021-09-29  Saam Barati  <sbarati@apple.com>
+
+        DoesGCCheck does not use enough bits for nodeIndex
+        https://bugs.webkit.org/show_bug.cgi?id=230915
+        <rdar://83297515>
+
+        Unreviewed. Forgot to add a try/catch in the test.
+
+        * stress/verify-can-gc-node-index.js:
+
+2021-09-28  Saam Barati  <sbarati@apple.com>
+
+        DoesGCCheck does not use enough bits for nodeIndex
+        https://bugs.webkit.org/show_bug.cgi?id=230915
+        <rdar://83297515>
+
+        Reviewed by Mark Lam.
+
+        * stress/verify-can-gc-node-index.js: Added.
+        (gen):
+        (f):
+
+2021-09-28  Alexey Shvayka  <shvaikalesh@gmail.com>
+
+        Speed up setting JSFunction's "prototype" property
+        https://bugs.webkit.org/show_bug.cgi?id=230864
+
+        Reviewed by Yusuke Suzuki.
+
+        * microbenchmarks/class-creation.js: Added.
+        * microbenchmarks/function-prototype-put-non-reified.js: Added.
+        * microbenchmarks/function-prototype-put-reified.js: Added.
+
+2021-09-27  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [WTF] Add ApproximateTime
+        https://bugs.webkit.org/show_bug.cgi?id=230876
+
+        Reviewed by Filip Pizlo.
+
+        * microbenchmarks/approximate-time-now.js: Added.
+        * microbenchmarks/monotonic-time-now.js: Added.
+        * microbenchmarks/wall-time-now.js: Added.
+
+2021-09-26  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Optimize PutByVal with for-in
+        https://bugs.webkit.org/show_bug.cgi?id=230801
+
+        Reviewed by Saam Barati.
+
+        * stress/for-in-sentinel.js: Added.
+        (shouldBe):
+        (test):
+
+2021-09-26  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r283095.
+        https://bugs.webkit.org/show_bug.cgi?id=230815
+
+        We should land the original patch since this does not work
+        with bytecode cache
+
+        Reverted changeset:
+
+        "[JSC] Optimize PutByVal with for-in"
+        https://bugs.webkit.org/show_bug.cgi?id=230801
+        https://commits.webkit.org/r283095
+
+2021-09-26  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Optimize PutByVal with for-in
+        https://bugs.webkit.org/show_bug.cgi?id=230801
+
+        Reviewed by Saam Barati.
+
+        * stress/for-in-sentinel.js: Added.
+        (shouldBe):
+        (test):
+
+2021-09-24 Rick Waldron <waldron.rick@gmail.com>
+
+        [JSC] Add checkScriptSyntax function to jsc host environment
+        https://bugs.webkit.org/show_bug.cgi?id=230631
+
+        Reviewed by Yusuke Suzuki.
+
+        Updates tests that were using eval() to verify syntax.
+
+        * stress/arrow-function-syntax.js: Replace custom checkSyntax with checkScriptSyntax
+        * stress/async-iteration-for-await-of-syntax.js: Replace custom checkSyntax with checkScriptSyntax
+        * stress/async-iteration-syntax.js: Replace custom checkSyntax with checkScriptSyntax
+
+2021-09-23  Ross Kirsling  <ross.kirsling@sony.com>
+
+        [JSC] Handle syntactic production for `#x in expr` correctly
+        https://bugs.webkit.org/show_bug.cgi?id=230668
+
+        Reviewed by Yusuke Suzuki.
+
+        * stress/private-in.js: Add tests.
+        * test262/expectations.yaml: Mark two test cases as passing.
+
+2021-09-22  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Filter algorithmic numbering systems from enumeration data
+        https://bugs.webkit.org/show_bug.cgi?id=230660
+
+        Reviewed by Ross Kirsling.
+
+        * stress/intl-enumeration.js:
+        * test262/expectations.yaml:
+
+2021-09-22  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Adjust Intl currency enumeration
+        https://bugs.webkit.org/show_bug.cgi?id=230656
+
+        Reviewed by Ross Kirsling.
+
+        * stress/intl-enumeration.js:
+        * test262/expectations.yaml:
+
+2021-09-22  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] emoji and eor collations are missing
+        https://bugs.webkit.org/show_bug.cgi?id=230652
+
+        Reviewed by Ross Kirsling.
+
+        * stress/intl-enumeration.js:
+        * test262/expectations.yaml:
+
+2021-09-22  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Intl unicode identifier type will reject underscore
+        https://bugs.webkit.org/show_bug.cgi?id=230645
+
+        Reviewed by Ross Kirsling.
+
+        * test262/expectations.yaml:
+
+2021-09-22  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Upgrade test262
+        https://bugs.webkit.org/show_bug.cgi?id=230641
+
+        Reviewed by Ross Kirsling.
+
+        Upgrade test262 to the latest one.
+
+        * test262/config.yaml:
+        * test262/expectations.yaml:
+        * test262/test262-Revision.txt:
+
+2021-09-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] CompareStrictEq is omitting String check incorrectly
+        https://bugs.webkit.org/show_bug.cgi?id=230582
+        rdar://83237121
+
+        Reviewed by Mark Lam.
+
+        * stress/compare-strict-eq-string-check.js: Added.
+        (foo):
+        (bar):
+
+2021-09-21  Justin Michaud  <justin_michaud@apple.com>
+
+        Differential testing: live statement don't execute
+        https://bugs.webkit.org/show_bug.cgi?id=229939
+
+        Reviewed by Saam Barati.
+
+        * stress/in-by-val-should-throw.js: Added.
+        (doesThrow):
+        (noInline.doesThrow.noFTL.doesThrow.blackbox):
+        (noInline.blackbox.doesNotThrow):
+        (noInline.doesNotThrow.noFTL.doesNotThrow.main):
+
+2021-09-20  Mikhail R. Gadelha  <mikhail@igalia.com>
+
+        Skip stress/json-stringify-stack-overflow.js only on memory limited systems
+        https://bugs.webkit.org/show_bug.cgi?id=230489
+
+        Unreviewed gardening.
+
+        It's currently only failing on systems with low memory, regardless of
+        the arch.
+
+        * stress/json-stringify-stack-overflow.js:
+
+2021-09-17  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Add fast property enumeration mode for JSON.stringify
+        https://bugs.webkit.org/show_bug.cgi?id=230393
+
+        Reviewed by Mark Lam.
+
+        * stress/json-stringify-object-modify.js: Added.
+        (shouldBe):
+        (throw.new.Error.let.object.hello.get inner):
+        (throw.new.Error):
+        (shouldBe.let.object.hello.get inner):
+
+2021-09-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Optimize leaf object creation in JSON.parse
+        https://bugs.webkit.org/show_bug.cgi?id=230298
+
+        Reviewed by Keith Miller.
+
+        * microbenchmarks/json-parse-leaf-object.js: Added.
+
+2021-09-13  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Add JSON.parse microbenchmarks from Speedometer2
+        https://bugs.webkit.org/show_bug.cgi?id=230234
+
+        Reviewed by Saam Barati.
+
+        This patch adds JSON.parse microbenchmarks from Speedometer2. We record JSON.parse call in Speedometer2 subtests,
+        and create benchmark which performs the same calls.
+
+        * microbenchmarks/flight-todomvc-json-parse.js: Renamed from JSTests/microbenchmarks/flight-todomvc-json.js.
+        * microbenchmarks/vanilla-es2015-babel-webpack-todomvc-json-parse.js: Added.
+        * microbenchmarks/vanilla-es2015-todomvc-json-parse.js: Added.
+        * microbenchmarks/vanilla-todomvc-json-parse.js: Added.
+
 2021-09-10  Justin Michaud  <justin_michaud@apple.com>
 
         [ JSC Catalina Release ] wasm.yaml/wasm/references/multitable.js.wasm-collect-continuously (javascriptcore-tests) is a flaky timeout

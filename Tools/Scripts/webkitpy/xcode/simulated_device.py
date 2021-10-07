@@ -367,7 +367,7 @@ class SimulatedDeviceManager(object):
         host.executive.run_command([SimulatedDeviceManager.xcrun, 'simctl', 'boot', device.udid])
         SimulatedDeviceManager.INITIALIZED_DEVICES.append(device)
         # FIXME: Remove this delay once rdar://77234240 is resolved.
-        time.sleep(10)
+        time.sleep(15)
 
     @staticmethod
     def device_count_for_type(device_type, host=None, use_booted_simulator=True, **kwargs):
@@ -666,17 +666,12 @@ class SimulatedDevice(object):
 
         with Timeout(timeout, handler=RuntimeError(u'Timed out waiting for process to open {} on {}'.format(bundle_id, self.udid)), patch=False):
             while True:
-                output = ''
-                try:
-                    output = self.executive.run_command(
-                        ['xcrun', 'simctl', 'launch', self.udid, bundle_id] + args,
-                        env=environment_to_use,
-                        error_handler=_log_debug_error,
-                        return_stderr=False,
-                    )
-                except OSError as e:
-                    _log.debug("simctl launch raised '{}'".format(e))
-                    continue
+                output = self.executive.run_command(
+                    ['xcrun', 'simctl', 'launch', self.udid, bundle_id] + args,
+                    env=environment_to_use,
+                    error_handler=_log_debug_error,
+                    return_stderr=False,
+                )
                 match = re.match(r'(?P<bundle>[^:]+): (?P<pid>\d+)\n', output)
                 # FIXME: We shouldn't need to check the PID <rdar://problem/31154075>.
                 if match and self.executive.check_running_pid(int(match.group('pid'))):

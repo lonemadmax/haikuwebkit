@@ -69,6 +69,7 @@
 #include "Logging.h"
 #include "MemoryCache.h"
 #include "MixedContentChecker.h"
+#include "NavigationRequester.h"
 #include "NavigationScheduler.h"
 #include "NetworkLoadMetrics.h"
 #include "NetworkStorageSession.h"
@@ -122,7 +123,7 @@
 #include "QuickLook.h"
 #endif
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 #include "NetworkStorageSession.h"
 #endif
 
@@ -423,8 +424,8 @@ void DocumentLoader::notifyFinished(CachedResource& resource, const NetworkLoadM
         return;
 #endif
 
-    if (auto document = makeRefPtr(this->document())) {
-        if (auto domWindow = makeRefPtr(document->domWindow())) {
+    if (RefPtr document = this->document()) {
+        if (RefPtr domWindow = document->domWindow()) {
             if (document->settings().performanceNavigationTimingAPIEnabled())
                 domWindow->performance().navigationFinished(metrics);
         }
@@ -464,8 +465,8 @@ void DocumentLoader::finishedLoading()
         // before calling dispatchDidFinishLoading so that we don't later try to
         // cancel the already-finished substitute load.
         NetworkLoadMetrics emptyMetrics;
-        unsigned long identifier = m_identifierForLoadWithoutResourceLoader;
-        m_identifierForLoadWithoutResourceLoader = 0;
+        ResourceLoaderIdentifier identifier = m_identifierForLoadWithoutResourceLoader;
+        m_identifierForLoadWithoutResourceLoader = { };
         frameLoader()->notifier().dispatchDidFinishLoading(this, identifier, emptyMetrics, nullptr);
     }
 
@@ -526,7 +527,7 @@ bool DocumentLoader::isPostOrRedirectAfterPost(const ResourceRequest& newRequest
 
 void DocumentLoader::handleSubstituteDataLoadNow()
 {
-    Ref<DocumentLoader> protectedThis = makeRef(*this);
+    Ref<DocumentLoader> protectedThis = Ref { *this };
     
     ResourceResponse response = m_substituteData.response();
     if (response.url().isEmpty())
@@ -590,7 +591,7 @@ void DocumentLoader::redirectReceived(CachedResource& resource, ResourceRequest&
         m_serviceWorkerRegistrationData = { };
         unregisterTemporaryServiceWorkerClient();
     }
-    willSendRequest(WTFMove(request), redirectResponse, [completionHandler = WTFMove(completionHandler), protectedThis = makeRef(*this), this] (auto&& request) mutable {
+    willSendRequest(WTFMove(request), redirectResponse, [completionHandler = WTFMove(completionHandler), protectedThis = Ref { *this }, this] (auto&& request) mutable {
         ASSERT(!m_substituteData.isValid());
         if (request.isNull() || !m_mainDocumentError.isNull() || !m_frame) {
             completionHandler({ });
@@ -635,7 +636,7 @@ void DocumentLoader::willSendRequest(ResourceRequest&& newRequest, const Resourc
     bool didReceiveRedirectResponse = !redirectResponse.isNull();
     if (didReceiveRedirectResponse && m_frame->isMainFrame()) {
         if (auto reportingEndpointsCache = m_frame->page() ? m_frame->page()->reportingEndpointsCache() : nullptr)
-            reportingEndpointsCache->addEndPointsFromResponse(redirectResponse);
+            reportingEndpointsCache->addEndpointsFromResponse(redirectResponse);
     }
 
     if (!frameLoader()->checkIfFormActionAllowedByCSP(newRequest.url(), didReceiveRedirectResponse)) {
@@ -702,9 +703,6 @@ void DocumentLoader::willSendRequest(ResourceRequest&& newRequest, const Resourc
         }
     }
 
-    if (didReceiveRedirectResponse && !doCrossOriginOpenerHandlingOfResponse(redirectResponse))
-        return;
-
     if (!newRequest.url().host().isEmpty() && SecurityOrigin::shouldIgnoreHost(newRequest.url())) {
         auto url = newRequest.url();
         url.setHostAndPort({ });
@@ -721,7 +719,7 @@ void DocumentLoader::willSendRequest(ResourceRequest&& newRequest, const Resourc
     if (!didReceiveRedirectResponse)
         return completionHandler(WTFMove(newRequest));
 
-    auto navigationPolicyCompletionHandler = [this, protectedThis = makeRef(*this), protectedFrame = makeRef(*m_frame), completionHandler = WTFMove(completionHandler)] (ResourceRequest&& request, WeakPtr<FormState>&&, NavigationPolicyDecision navigationPolicyDecision) mutable {
+    auto navigationPolicyCompletionHandler = [this, protectedThis = Ref { *this }, protectedFrame = Ref { *m_frame }, completionHandler = WTFMove(completionHandler)] (ResourceRequest&& request, WeakPtr<FormState>&&, NavigationPolicyDecision navigationPolicyDecision) mutable {
         m_waitingForNavigationPolicy = false;
         switch (navigationPolicyDecision) {
         case NavigationPolicyDecision::IgnoreLoad:
@@ -744,134 +742,35 @@ void DocumentLoader::willSendRequest(ResourceRequest&& newRequest, const Resourc
     policyChecker.checkNavigationPolicy(WTFMove(newRequest), redirectResponse, WTFMove(navigationPolicyCompletionHandler));
 }
 
-// https://html.spec.whatwg.org/multipage/origin.html#check-browsing-context-group-switch-coop-value
-static bool checkIfCOOPValuesRequireBrowsingContextGroupSwitch(bool isInitialAboutBlank, CrossOriginOpenerPolicyValue activeDocumentCOOPValue, const SecurityOrigin& activeDocumentNavigationOrigin, CrossOriginOpenerPolicyValue responseCOOPValue, const SecurityOrigin& responseOrigin)
-{
-    // If the result of matching activeDocumentCOOPValue, activeDocumentNavigationOrigin, responseCOOPValue, and responseOrigin is true, return false.
-    // https://html.spec.whatwg.org/multipage/origin.html#matching-coop
-    if (activeDocumentCOOPValue == CrossOriginOpenerPolicyValue::UnsafeNone && responseCOOPValue == CrossOriginOpenerPolicyValue::UnsafeNone)
-        return false;
-    if (activeDocumentCOOPValue == responseCOOPValue && activeDocumentNavigationOrigin.isSameOriginAs(responseOrigin))
-        return false;
-
-    // If all of the following are true:
-    // - isInitialAboutBlank,
-    // - activeDocumentCOOPValue's value is "same-origin-allow-popups".
-    // - responseCOOPValue is "unsafe-none",
-    // then return false.
-    if (isInitialAboutBlank && activeDocumentCOOPValue == CrossOriginOpenerPolicyValue::SameOriginAllowPopups && responseCOOPValue == CrossOriginOpenerPolicyValue::UnsafeNone)
-        return false;
-
-    return true;
-}
-
-// https://html.spec.whatwg.org/multipage/origin.html#check-bcg-switch-navigation-report-only
-static bool checkIfEnforcingReportOnlyCOOPWouldRequireBrowsingContextGroupSwitch(bool isInitialAboutBlank, const CrossOriginOpenerPolicy& activeDocumentCOOP, const SecurityOrigin& activeDocumentNavigationOrigin, const CrossOriginOpenerPolicy& responseCOOP, const SecurityOrigin& responseOrigin)
-{
-    if (!checkIfCOOPValuesRequireBrowsingContextGroupSwitch(isInitialAboutBlank, activeDocumentCOOP.reportOnlyValue, activeDocumentNavigationOrigin, responseCOOP.reportOnlyValue, responseOrigin))
-        return false;
-
-    if (checkIfCOOPValuesRequireBrowsingContextGroupSwitch(isInitialAboutBlank, activeDocumentCOOP.reportOnlyValue, activeDocumentNavigationOrigin, responseCOOP.value, responseOrigin))
-        return true;
-
-    if (checkIfCOOPValuesRequireBrowsingContextGroupSwitch(isInitialAboutBlank, activeDocumentCOOP.value, activeDocumentNavigationOrigin, responseCOOP.reportOnlyValue, responseOrigin))
-        return true;
-
-    return false;
-}
-
-static std::tuple<Ref<SecurityOrigin>, CrossOriginOpenerPolicy> computeResponseOriginAndCOOP(const ResourceResponse& response, const Document& document, const std::optional<NavigationAction::Requester>& requester, ContentSecurityPolicy* responseCSP)
-{
-    // Non-initial empty documents (about:blank) should inherit their cross-origin-opener-policy from the navigation's initiator top level document,
-    // if the initiator and its top level document are same-origin, or default (unsafe-none) otherwise.
-    // https://github.com/whatwg/html/issues/6913
-    if (SecurityPolicy::shouldInheritSecurityOriginFromOwner(response.url()) && requester)
-        return std::make_tuple(makeRef(requester->securityOrigin()), requester->securityOrigin().isSameOriginAs(requester->topOrigin()) ? requester->crossOriginOpenerPolicy() : CrossOriginOpenerPolicy { });
-
-    // If the HTTP response contains a CSP header, it may set sandbox flags, which would cause the origin to become unique.
-    auto responseOrigin = responseCSP && responseCSP->sandboxFlags() != SandboxNone ? SecurityOrigin::createUnique() : SecurityOrigin::create(response.url());
-    return std::make_tuple(WTFMove(responseOrigin), obtainCrossOriginOpenerPolicy(response, document));
-}
-
 // https://html.spec.whatwg.org/multipage/browsing-the-web.html#process-a-navigate-fetch (Step 12.5.6)
-bool DocumentLoader::doCrossOriginOpenerHandlingOfResponse(const ResourceResponse& response)
+std::optional<CrossOriginOpenerPolicyEnforcementResult> DocumentLoader::doCrossOriginOpenerHandlingOfResponse(const ResourceResponse& response)
 {
     // COOP only applies to top-level browsing contexts.
     if (!m_frame->isMainFrame())
-        return true;
+        return std::nullopt;
 
     if (!m_frame->document() || !m_frame->document()->settings().crossOriginOpenerPolicyEnabled())
-        return true;
+        return std::nullopt;
 
-    auto [responseOrigin, responseCOOP] = computeResponseOriginAndCOOP(response, *m_frame->document(), m_triggeringAction.requester(), m_contentSecurityPolicy.get());
+    URL openerURL;
+    if (auto openerFrame = m_frame->loader().opener())
+        openerURL = openerFrame->document() ? openerFrame->document()->url() : URL();
 
-    // https://html.spec.whatwg.org/multipage/browsing-the-web.html#process-a-navigate-fetch (Step 12.5.6.2)
-    // If sandboxFlags is not empty and responseCOOP's value is not "unsafe-none", then set response to an appropriate network error and break.
-    if (responseCOOP.value != CrossOriginOpenerPolicyValue::UnsafeNone && frameLoader()->effectiveSandboxFlags() != SandboxNone) {
+    auto currentCoopEnforcementResult = CrossOriginOpenerPolicyEnforcementResult::from(m_frame->document()->url(), m_frame->document()->securityOrigin(), m_frame->document()->crossOriginOpenerPolicy(), m_triggeringAction.requester(), openerURL);
+
+    auto newCoopEnforcementResult = WebCore::doCrossOriginOpenerHandlingOfResponse(response, m_triggeringAction.requester(), m_contentSecurityPolicy.get(), frameLoader()->effectiveSandboxFlags(), frameLoader()->stateMachine().isDisplayingInitialEmptyDocument(), currentCoopEnforcementResult, [&](COOPDisposition disposition, const CrossOriginOpenerPolicy& responseCOOP, const SecurityOrigin& responseOrigin) {
+        // FIXME: Add the concept of browsing context group like in the specification instead of treating the whole process as a group.
+        if (Page::nonUtilityPageCount() > 1) {
+            sendViolationReportWhenNavigatingToCOOPResponse(*m_frame, responseCOOP, disposition, response.url(), currentCoopEnforcementResult.url, responseOrigin, currentCoopEnforcementResult.currentOrigin, m_request.httpReferrer(), m_request.httpUserAgent());
+            sendViolationReportWhenNavigatingAwayFromCOOPResponse(*m_frame, currentCoopEnforcementResult.crossOriginOpenerPolicy, disposition, currentCoopEnforcementResult.url, response.url(), currentCoopEnforcementResult.currentOrigin, responseOrigin, currentCoopEnforcementResult.isCurrentContextNavigationSource, m_request.httpUserAgent());
+        }
+    });
+    if (!newCoopEnforcementResult) {
         cancelMainResourceLoad(frameLoader()->cancelledError(m_request));
-        return false;
+        return std::nullopt;
     }
 
-    m_currentCoopEnforcementResult = enforceResponseCrossOriginOpenerPolicy(response.url(), responseOrigin, responseCOOP);
-    return true;
-}
-
-// https://html.spec.whatwg.org/multipage/origin.html#coop-enforce
-CrossOriginOpenerPolicyEnforcementResult DocumentLoader::enforceResponseCrossOriginOpenerPolicy(const URL& responseURL, SecurityOrigin& responseOrigin, const CrossOriginOpenerPolicy& responseCOOP)
-{
-    ASSERT(m_frame->isMainFrame());
-    ASSERT(m_frame->document());
-    ASSERT(m_frame->document()->settings().crossOriginOpenerPolicyEnabled());
-
-    if (!m_currentCoopEnforcementResult) {
-        auto requester = m_triggeringAction.requester();
-        bool currentContextIsSource = requester && m_frame->document()->securityOrigin().isSameOriginAs(requester->securityOrigin());
-        m_currentCoopEnforcementResult = CrossOriginOpenerPolicyEnforcementResult {
-            false,
-            false,
-            m_frame->document()->url(),
-            m_frame->document()->securityOrigin(),
-            m_frame->document()->crossOriginOpenerPolicy(),
-            currentContextIsSource,
-        };
-        if (SecurityPolicy::shouldInheritSecurityOriginFromOwner(m_frame->document()->url())) {
-            if (auto openerFrame = m_frame->loader().opener()) {
-                if (auto openerDocument = openerFrame->document())
-                    m_currentCoopEnforcementResult->url = openerDocument->url();
-            }
-        }
-    }
-
-    CrossOriginOpenerPolicyEnforcementResult newCOOPEnforcementResult = {
-        m_currentCoopEnforcementResult->needsBrowsingContextGroupSwitch,
-        m_currentCoopEnforcementResult->needsBrowsingContextGroupSwitchDueToReportOnly,
-        responseURL,
-        responseOrigin,
-        responseCOOP,
-        true
-    };
-
-    if (checkIfCOOPValuesRequireBrowsingContextGroupSwitch(frameLoader()->stateMachine().isDisplayingInitialEmptyDocument(), m_currentCoopEnforcementResult->crossOriginOpenerPolicy.value, m_currentCoopEnforcementResult->currentOrigin, responseCOOP.value, responseOrigin)) {
-        newCOOPEnforcementResult.needsBrowsingContextGroupSwitch = true;
-
-        // FIXME: Add the concept of browsing context group like in the specification instead of treating the whole process as a group.
-        if (Page::nonUtilityPageCount() > 1) {
-            sendViolationReportWhenNavigatingToCOOPResponse(*m_frame, responseCOOP, COOPDisposition::Enforce, responseURL, m_currentCoopEnforcementResult->url, responseOrigin, m_currentCoopEnforcementResult->currentOrigin, m_request.httpReferrer(), m_request.httpUserAgent());
-            sendViolationReportWhenNavigatingAwayFromCOOPResponse(*m_frame, m_currentCoopEnforcementResult->crossOriginOpenerPolicy, COOPDisposition::Enforce, m_currentCoopEnforcementResult->url, responseURL, m_currentCoopEnforcementResult->currentOrigin, responseOrigin, m_currentCoopEnforcementResult->isCurrentContextNavigationSource, m_request.httpUserAgent());
-        }
-    }
-
-    if (checkIfEnforcingReportOnlyCOOPWouldRequireBrowsingContextGroupSwitch(frameLoader()->stateMachine().isDisplayingInitialEmptyDocument(), m_currentCoopEnforcementResult->crossOriginOpenerPolicy, m_currentCoopEnforcementResult->currentOrigin, responseCOOP, responseOrigin)) {
-        newCOOPEnforcementResult.needsBrowsingContextGroupSwitchDueToReportOnly = true;
-
-        // FIXME: Add the concept of browsing context group like in the specification instead of treating the whole process as a group.
-        if (Page::nonUtilityPageCount() > 1) {
-            sendViolationReportWhenNavigatingToCOOPResponse(*m_frame, responseCOOP, COOPDisposition::Reporting, responseURL, m_currentCoopEnforcementResult->url, responseOrigin, m_currentCoopEnforcementResult->currentOrigin, m_request.httpReferrer(), m_request.httpUserAgent());
-            sendViolationReportWhenNavigatingAwayFromCOOPResponse(*m_frame, m_currentCoopEnforcementResult->crossOriginOpenerPolicy, COOPDisposition::Reporting, m_currentCoopEnforcementResult->url, responseURL, m_currentCoopEnforcementResult->currentOrigin, responseOrigin, m_currentCoopEnforcementResult->isCurrentContextNavigationSource, m_request.httpUserAgent());
-        }
-    }
-
-    return newCOOPEnforcementResult;
+    return newCoopEnforcementResult;
 }
 
 bool DocumentLoader::tryLoadingRequestFromApplicationCache()
@@ -886,7 +785,7 @@ bool DocumentLoader::tryLoadingSubstituteData()
         return false;
 
     DOCUMENTLOADER_RELEASE_LOG("startLoadingMainResource: Returning substitute data");
-    m_identifierForLoadWithoutResourceLoader = m_frame->page()->progress().createUniqueIdentifier();
+    m_identifierForLoadWithoutResourceLoader = ResourceLoaderIdentifier::generate();
     frameLoader()->notifier().assignIdentifierToInitialRequest(m_identifierForLoadWithoutResourceLoader, this, m_request);
     frameLoader()->notifier().dispatchWillSendRequest(this, m_identifierForLoadWithoutResourceLoader, m_request, ResourceResponse(), nullptr);
 
@@ -924,7 +823,7 @@ bool DocumentLoader::tryLoadingRedirectRequestFromApplicationCache(const Resourc
     // If the ResourceLoader is indeed cancelled, it would normally send resource load callbacks.
     // Therefore, sever our relationship with the network load but prevent the ResourceLoader from sending ResourceLoadNotifier callbacks.
 
-    auto resourceLoader = makeRefPtr(mainResourceLoader());
+    RefPtr resourceLoader = mainResourceLoader();
     if (resourceLoader) {
         ASSERT(resourceLoader->shouldSendResourceLoadCallbacks());
         resourceLoader->setSendCallbackPolicy(SendCallbackPolicy::DoNotSendCallbacks);
@@ -939,7 +838,7 @@ bool DocumentLoader::tryLoadingRedirectRequestFromApplicationCache(const Resourc
     return true;
 }
 
-void DocumentLoader::stopLoadingAfterXFrameOptionsOrContentSecurityPolicyDenied(unsigned long identifier, const ResourceResponse& response)
+void DocumentLoader::stopLoadingAfterXFrameOptionsOrContentSecurityPolicyDenied(ResourceLoaderIdentifier identifier, const ResourceResponse& response)
 {
     Ref<DocumentLoader> protectedThis { *this };
     InspectorInstrumentation::continueAfterXFrameOptionsDenied(*m_frame, identifier, *this, response);
@@ -952,7 +851,7 @@ void DocumentLoader::stopLoadingAfterXFrameOptionsOrContentSecurityPolicyDenied(
         cancelMainResourceLoad(frameLoader->cancelledError(m_request));
 }
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 static URL microsoftTeamsRedirectURL()
 {
     return URL(URL(), "https://www.microsoft.com/en-us/microsoft-365/microsoft-teams/");
@@ -968,8 +867,10 @@ void DocumentLoader::responseReceived(CachedResource& resource, const ResourceRe
         m_contentSecurityPolicy->didReceiveHeaders(ContentSecurityPolicyResponseHeaders { response }, m_request.httpReferrer(), ContentSecurityPolicy::ReportParsingErrors::No);
     } else
         m_contentSecurityPolicy = nullptr;
+    if (m_frame && m_frame->document() && m_frame->document()->settings().crossOriginOpenerPolicyEnabled())
+        m_responseCOOP = obtainCrossOriginOpenerPolicy(response);
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     // FIXME(218779): Remove this quirk once microsoft.com completes their login flow redesign.
     if (m_frame && m_frame->document()) {
         auto& document = *m_frame->document();
@@ -987,7 +888,7 @@ void DocumentLoader::responseReceived(CachedResource& resource, const ResourceRe
 
 #if ENABLE(SERVICE_WORKER)
     if (RuntimeEnabledFeatures::sharedFeatures().serviceWorkerEnabled() && response.source() == ResourceResponse::Source::MemoryCache) {
-        matchRegistration(response.url(), [this, protectedThis = makeRef(*this), response, completionHandler = WTFMove(completionHandler)](auto&& registrationData) mutable {
+        matchRegistration(response.url(), [this, protectedThis = Ref { *this }, response, completionHandler = WTFMove(completionHandler)](auto&& registrationData) mutable {
             if (!m_mainDocumentError.isNull() || !m_frame) {
                 completionHandler();
                 return;
@@ -999,15 +900,6 @@ void DocumentLoader::responseReceived(CachedResource& resource, const ResourceRe
     }
 #endif
     responseReceived(response, WTFMove(completionHandler));
-}
-
-static BrowsingContextGroupSwitchDecision toBrowsingContextGroupSwitchDecision(const std::optional<CrossOriginOpenerPolicyEnforcementResult>& currentCoopEnforcementResult)
-{
-    if (!currentCoopEnforcementResult || !currentCoopEnforcementResult->needsBrowsingContextGroupSwitch)
-        return BrowsingContextGroupSwitchDecision::StayInGroup;
-    if (currentCoopEnforcementResult->crossOriginOpenerPolicy.value == CrossOriginOpenerPolicyValue::SameOriginPlusCOEP)
-        return BrowsingContextGroupSwitchDecision::NewIsolatedGroup;
-    return BrowsingContextGroupSwitchDecision::NewSharedGroup;
 }
 
 void DocumentLoader::responseReceived(const ResourceResponse& response, CompletionHandler<void()>&& completionHandler)
@@ -1033,11 +925,11 @@ void DocumentLoader::responseReceived(const ResourceResponse& response, Completi
 
     if (m_frame->isMainFrame()) {
         if (auto reportingEndpointsCache = m_frame->page() ? m_frame->page()->reportingEndpointsCache() : nullptr)
-            reportingEndpointsCache->addEndPointsFromResponse(response);
+            reportingEndpointsCache->addEndpointsFromResponse(response);
     }
 
     ASSERT(m_identifierForLoadWithoutResourceLoader || m_mainResource);
-    unsigned long identifier = m_identifierForLoadWithoutResourceLoader ? m_identifierForLoadWithoutResourceLoader : m_mainResource->identifier();
+    ResourceLoaderIdentifier identifier = m_identifierForLoadWithoutResourceLoader ? m_identifierForLoadWithoutResourceLoader : m_mainResource->identifier();
     ASSERT(identifier);
 
     if (m_substituteData.isValid() || !platformStrategies()->loaderStrategy()->havePerformedSecurityChecks(response)) {
@@ -1054,7 +946,7 @@ void DocumentLoader::responseReceived(const ResourceResponse& response, Completi
             if (!frameOptions.isNull()) {
                 if (frameLoader()->shouldInterruptLoadForXFrameOptions(frameOptions, url, identifier)) {
                     String message = "Refused to display '" + url.stringCenterEllipsizedToLength() + "' in a frame because it set 'X-Frame-Options' to '" + frameOptions + "'.";
-                    m_frame->document()->addConsoleMessage(MessageSource::Security, MessageLevel::Error, message, identifier);
+                    m_frame->document()->addConsoleMessage(MessageSource::Security, MessageLevel::Error, message, identifier.toUInt64());
                     stopLoadingAfterXFrameOptionsOrContentSecurityPolicyDenied(identifier, response);
                     return;
                 }
@@ -1103,20 +995,11 @@ void DocumentLoader::responseReceived(const ResourceResponse& response, Completi
     }
 #endif
 
-    if (!doCrossOriginOpenerHandlingOfResponse(response))
-        return;
-
-    if (std::exchange(m_isContinuingLoadAfterResponsePolicyCheck, false)) {
-        continueAfterContentPolicy(PolicyAction::Use);
-        return;
-    }
-
     RefPtr<SubresourceLoader> mainResourceLoader = this->mainResourceLoader();
     if (mainResourceLoader)
         mainResourceLoader->markInAsyncResponsePolicyCheck();
     auto requestIdentifier = PolicyCheckIdentifier::create();
-    auto browsingContextGroupSwitchDecision = toBrowsingContextGroupSwitchDecision(m_currentCoopEnforcementResult);
-    frameLoader()->checkContentPolicy(m_response, requestIdentifier, browsingContextGroupSwitchDecision, [this, protectedThis = makeRef(*this), mainResourceLoader = WTFMove(mainResourceLoader),
+    frameLoader()->checkContentPolicy(m_response, requestIdentifier, [this, protectedThis = Ref { *this }, mainResourceLoader = WTFMove(mainResourceLoader),
         completionHandler = completionHandlerCaller.release(), requestIdentifier] (PolicyAction policy, PolicyCheckIdentifier responseIdentifier) mutable {
         RELEASE_ASSERT(responseIdentifier.isValidFor(requestIdentifier));
         continueAfterContentPolicy(policy);
@@ -1180,10 +1063,10 @@ bool DocumentLoader::disallowDataRequest() const
         return false;
 
     if (auto* currentDocument = frame()->document()) {
-        unsigned long identifier = m_identifierForLoadWithoutResourceLoader ? m_identifierForLoadWithoutResourceLoader : m_mainResource->identifier();
+        ResourceLoaderIdentifier identifier = m_identifierForLoadWithoutResourceLoader ? m_identifierForLoadWithoutResourceLoader : m_mainResource->identifier();
         ASSERT(identifier);
 
-        currentDocument->addConsoleMessage(MessageSource::Security, MessageLevel::Error, makeString("Not allowed to navigate top frame to data URL '", m_response.url().stringCenterEllipsizedToLength(), "'."), identifier);
+        currentDocument->addConsoleMessage(MessageSource::Security, MessageLevel::Error, makeString("Not allowed to navigate top frame to data URL '", m_response.url().stringCenterEllipsizedToLength(), "'."), identifier.toUInt64());
     }
     DOCUMENTLOADER_RELEASE_LOG("continueAfterContentPolicy: cannot show URL");
 
@@ -1393,7 +1276,7 @@ void DocumentLoader::commitData(const uint8_t* bytes, size_t length)
 
             if (document.settings().performanceNavigationTimingAPIEnabled() && m_mainResource) {
                 auto* metrics = m_response.deprecatedNetworkLoadMetricsOrNull();
-                window->performance().addNavigationTiming(*this, document, *m_mainResource, timing(), metrics ? *metrics : NetworkLoadMetrics { });
+                window->performance().addNavigationTiming(*this, document, *m_mainResource, timing(), metrics ? *metrics : NetworkLoadMetrics::emptyMetrics());
             }
         }
 
@@ -2016,7 +1899,7 @@ void DocumentLoader::stopLoadingSubresources()
     ASSERT(m_subresourceLoaders.isEmpty());
 }
 
-void DocumentLoader::addSubresourceLoader(ResourceLoader* loader)
+void DocumentLoader::addSubresourceLoader(ResourceLoader& loader)
 {
     // The main resource's underlying ResourceLoader will ask to be added here.
     // It is much simpler to handle special casing of main resource loads if we don't
@@ -2025,12 +1908,12 @@ void DocumentLoader::addSubresourceLoader(ResourceLoader* loader)
     // if we are just starting the main resource load.
     if (!m_gotFirstByte)
         return;
-    ASSERT(loader->identifier());
-    ASSERT(!m_subresourceLoaders.contains(loader->identifier()));
-    ASSERT(!mainResourceLoader() || mainResourceLoader() != loader);
+    ASSERT(loader.identifier());
+    ASSERT(!m_subresourceLoaders.contains(loader.identifier()));
+    ASSERT(!mainResourceLoader() || mainResourceLoader() != &loader);
 
     // Application Cache loaders are handled by their ApplicationCacheGroup directly.
-    if (loader->options().applicationCacheMode == ApplicationCacheMode::Bypass)
+    if (loader.options().applicationCacheMode == ApplicationCacheMode::Bypass)
         return;
 
 #if ASSERT_ENABLED
@@ -2040,7 +1923,7 @@ void DocumentLoader::addSubresourceLoader(ResourceLoader* loader)
             break;
         case Document::AboutToEnterBackForwardCache: {
             // A page about to enter the BackForwardCache should only be able to start ping loads.
-            auto* cachedResource = downcast<SubresourceLoader>(loader)->cachedResource();
+            auto* cachedResource = downcast<SubresourceLoader>(loader).cachedResource();
             ASSERT(cachedResource && (CachedResource::shouldUsePingLoad(cachedResource->type()) || cachedResource->options().keepAlive));
             break;
         }
@@ -2052,7 +1935,7 @@ void DocumentLoader::addSubresourceLoader(ResourceLoader* loader)
     }
 #endif
 
-    m_subresourceLoaders.add(loader->identifier(), loader);
+    m_subresourceLoaders.add(loader.identifier(), &loader);
 }
 
 void DocumentLoader::removeSubresourceLoader(LoadCompletionType type, ResourceLoader* loader)
@@ -2104,12 +1987,11 @@ bool DocumentLoader::maybeLoadEmpty()
     m_response = ResourceResponse(m_request.url(), mimeType, 0, "UTF-8"_s);
 
     if (!frameLoader()->stateMachine().isDisplayingInitialEmptyDocument()) {
-        doCrossOriginOpenerHandlingOfResponse(m_response);
-
-        // FIXME: Non-initial about:blank loads may cause a browsing context group switch. However, such load is synchronous and doesn't
-        // involve a response policy decision. As a result, we simulate a browsing context group switch without actually swapping process.
-        if (m_currentCoopEnforcementResult && m_currentCoopEnforcementResult->needsBrowsingContextGroupSwitch)
-            frameLoader()->switchBrowsingContextsGroup();
+        if (auto coopEnforcementResult = doCrossOriginOpenerHandlingOfResponse(m_response)) {
+            m_responseCOOP = coopEnforcementResult->crossOriginOpenerPolicy;
+            if (coopEnforcementResult->needsBrowsingContextGroupSwitch)
+                frameLoader()->switchBrowsingContextsGroup();
+        }
     }
 
     finishedLoading();
@@ -2278,7 +2160,7 @@ void DocumentLoader::loadMainResource(ResourceRequest&& request)
 #endif
 
     if (!mainResourceLoader()) {
-        m_identifierForLoadWithoutResourceLoader = m_frame->page()->progress().createUniqueIdentifier();
+        m_identifierForLoadWithoutResourceLoader = ResourceLoaderIdentifier::generate();
         frameLoader()->notifier().assignIdentifierToInitialRequest(m_identifierForLoadWithoutResourceLoader, this, mainResourceRequest.resourceRequest());
         frameLoader()->notifier().dispatchWillSendRequest(this, m_identifierForLoadWithoutResourceLoader, mainResourceRequest.resourceRequest(), ResourceResponse(), nullptr);
     }
@@ -2339,18 +2221,18 @@ void DocumentLoader::clearMainResource()
 #endif
 
     m_mainResource = nullptr;
-    m_isContinuingLoadAfterResponsePolicyCheck = false;
+    m_isContinuingLoadAfterProvisionalLoadStarted = false;
 
     unregisterTemporaryServiceWorkerClient();
 }
 
-void DocumentLoader::subresourceLoaderFinishedLoadingOnePart(ResourceLoader* loader)
+void DocumentLoader::subresourceLoaderFinishedLoadingOnePart(ResourceLoader& loader)
 {
-    unsigned long identifier = loader->identifier();
+    ResourceLoaderIdentifier identifier = loader.identifier();
     ASSERT(identifier);
 
-    if (!m_multipartSubresourceLoaders.add(identifier, loader).isNewEntry) {
-        ASSERT(m_multipartSubresourceLoaders.get(identifier) == loader);
+    if (!m_multipartSubresourceLoaders.add(identifier, &loader).isNewEntry) {
+        ASSERT(m_multipartSubresourceLoaders.get(identifier) == &loader);
         ASSERT(!m_subresourceLoaders.contains(identifier));
     } else {
         ASSERT(m_subresourceLoaders.contains(identifier));

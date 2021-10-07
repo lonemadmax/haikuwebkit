@@ -1,3 +1,51 @@
+2021-09-29  Philippe Normand  <pnormand@igalia.com>
+
+        [Flatpak SDK] Add bwrap and xdg-dbus-proxy
+        https://bugs.webkit.org/show_bug.cgi?id=230456
+
+        Reviewed by Sergio Villar Senin.
+
+        These are needed in order to enable the Bubblewrap launcher in WPE/GTK at build time.
+        
+        * elements/sdk-platform.bst:
+        * elements/sdk/bubblewrap.bst: Added.
+        * elements/sdk/xdg-dbus-proxy.bst: Added.
+
+2021-09-29  Philippe Normand  <pnormand@igalia.com>
+
+        [Flatpak SDK] rr replay is broken
+        https://bugs.webkit.org/show_bug.cgi?id=230952
+
+        Reviewed by Sergio Villar Senin.
+
+        * patches/rr/0001-cmake-Look-for-resources-in-cmake-s-install-lib-dir.patch: As lib
+        resources and bin resources don't necessarily share the same parent directory, one lookup
+        function is needed for each use-case.
+
+2021-09-29  Philippe Normand  <pnormand@igalia.com>
+
+        [Flatpak SDK] rr unable to locate librrpage.so
+        https://bugs.webkit.org/show_bug.cgi?id=230942
+
+        Reviewed by Sergio Villar Senin.
+
+        Look for resources in cmake's install lib dir.
+
+        * elements/sdk/rr.bst:
+        * patches/rr/0001-cmake-Look-for-resources-in-cmake-s-install-lib-dir.patch: Added.
+
+2021-09-28  Philippe Normand  <pnormand@igalia.com>
+
+        [Flatpak SDK] Update libsoup3 and friends
+        https://bugs.webkit.org/show_bug.cgi?id=230891
+
+        Reviewed by Michael Catanzaro.
+
+        * elements/sdk/glib.bst: Bump to 2.70, the most recent stable version.
+        * elements/sdk/libsoup3.bst: Bump to 3.0.0.
+        * elements/sdk/rr.bst: Drive-by update to latest master.
+        * elements/sdk/wpebackend-fdo.bst: Update to 1.10.0.
+
 2021-09-11  Philippe Normand  <pnormand@igalia.com>
 
         [Flatpak SDK] Update to FDO 21.08

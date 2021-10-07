@@ -159,7 +159,6 @@ static WebCore::PrivacyStance toPrivacyStance(nw_connection_privacy_stance_t sta
 }
 #endif
 
-#if HAVE(CFNETWORK_NEGOTIATED_SSL_PROTOCOL_CIPHER)
 #if HAVE(CFNETWORK_METRICS_APIS_V4)
 static String stringForTLSProtocolVersion(tls_protocol_version_t protocol)
 {
@@ -439,7 +438,6 @@ static String stringForSSLCipher(SSLCipherSuite cipher)
 #undef STRINGIFY_CIPHER
 }
 #endif // HAVE(CFNETWORK_METRICS_APIS_V4)
-#endif // HAVE(CFNETWORK_NEGOTIATED_SSL_PROTOCOL_CIPHER)
 
 @interface WKNetworkSessionDelegate : NSObject <NSURLSessionDataDelegate
 #if HAVE(NSURLSESSION_WEBSOCKET)
@@ -515,7 +513,7 @@ static String stringForSSLCipher(SSLCipherSuite cipher)
     completionHandler(WebCore::createHTTPBodyNSInputStream(*body).get());
 }
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 static NSURLRequest* downgradeRequest(NSURLRequest *request)
 {
     auto nsMutableRequest = adoptNS([request mutableCopy]);
@@ -579,7 +577,7 @@ static void updateIgnoreStrictTransportSecuritySetting(RetainPtr<NSURLRequest>& 
 
     if (auto* networkDataTask = [self existingTask:task]) {
         bool shouldIgnoreHSTS = false;
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
         if (auto* sessionCocoa = networkDataTask->networkSession()) {
             auto* storageSession = sessionCocoa->networkProcess().storageSession(sessionCocoa->sessionID());
             NSURL *firstPartyForCookies = networkDataTask->isTopLevelNavigation() ? request.URL : request.mainDocumentURL;
@@ -638,7 +636,7 @@ static void updateIgnoreStrictTransportSecuritySetting(RetainPtr<NSURLRequest>& 
 
     if (auto* networkDataTask = [self existingTask:task]) {
         bool shouldIgnoreHSTS = false;
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
         if (auto* sessionCocoa = networkDataTask->networkSession()) {
             auto* storageSession = sessionCocoa->networkProcess().storageSession(sessionCocoa->sessionID());
             shouldIgnoreHSTS = schemeWasUpgradedDueToDynamicHSTS(request)
@@ -727,14 +725,13 @@ static inline void processServerTrustEvaluation(NetworkSessionCocoa& session, Se
         if (NetworkSessionCocoa::allowsSpecificHTTPSCertificateForHost(challenge))
             return completionHandler(NSURLSessionAuthChallengeUseCredential, [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust]);
 
-#if HAVE(TLS_PROTOCOL_VERSION_T)
         NSURLSessionTaskTransactionMetrics *metrics = task._incompleteTaskMetrics.transactionMetrics.lastObject;
         auto tlsVersion = (tls_protocol_version_t)metrics.negotiatedTLSProtocolVersion.unsignedShortValue;
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         if (tlsVersion == tls_protocol_version_TLSv10 || tlsVersion == tls_protocol_version_TLSv11)
             negotiatedLegacyTLS = NegotiatedLegacyTLS::Yes;
 ALLOW_DEPRECATED_DECLARATIONS_END
-#endif
+
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         if (negotiatedLegacyTLS == NegotiatedLegacyTLS::No && [task respondsToSelector:@selector(_TLSNegotiatedProtocolVersion)]) {
             SSLProtocol tlsVersion = [task _TLSNegotiatedProtocolVersion];
@@ -754,7 +751,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
                 networkDataTask->didNegotiateModernTLS(URL(URL(), makeString(String(protectionSpace.protocol), "://", String(protectionSpace.host), ':', protectionSpace.port)));
             }
 #if HAVE(CFNETWORK_NSURLSESSION_STRICTRUSTEVALUATE)
-            auto decisionHandler = makeBlockPtr([weakSelf = WeakObjCPtr<WKNetworkSessionDelegate>(self), sessionCocoa = makeWeakPtr(sessionCocoa), completionHandler = makeBlockPtr(completionHandler), taskIdentifier, networkDataTask = makeRefPtr(networkDataTask), negotiatedLegacyTLS](NSURLAuthenticationChallenge *challenge, OSStatus trustResult) mutable {
+            auto decisionHandler = makeBlockPtr([weakSelf = WeakObjCPtr<WKNetworkSessionDelegate>(self), sessionCocoa = makeWeakPtr(sessionCocoa), completionHandler = makeBlockPtr(completionHandler), taskIdentifier, networkDataTask = RefPtr { networkDataTask }, negotiatedLegacyTLS](NSURLAuthenticationChallenge *challenge, OSStatus trustResult) mutable {
                 auto strongSelf = weakSelf.get();
                 if (!strongSelf)
                     return completionHandler(NSURLSessionAuthChallengeCancelAuthenticationChallenge, nil);
@@ -816,20 +813,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             }
         }
 
-#if USE(LEGACY_CFNETWORK_DOWNLOADS)
-        if (resumeData) {
-            // Mojave does not include the download location in the resume data from CFNetwork. Add it from the task.
-            auto unarchiver = adoptNS([[NSKeyedUnarchiver alloc] initForReadingFromData:resumeData error:nil]);
-            [unarchiver setDecodingFailurePolicy:NSDecodingFailurePolicyRaiseException];
-            auto dictionary = adoptNS(static_cast<NSMutableDictionary *>([[unarchiver decodeObjectOfClasses:[NSSet setWithObjects:[NSDictionary class], [NSArray class], [NSString class], [NSNumber class], [NSData class], [NSURL class], [NSURLRequest class], nil] forKey:@"NSKeyedArchiveRootObjectKey"] mutableCopy]));
-            [unarchiver finishDecoding];
-            [dictionary setObject:task._pathToDownloadTaskFile forKey:@"NSURLSessionResumeInfoLocalPath"];
-            auto encoder = adoptNS([[NSKeyedArchiver alloc] initRequiringSecureCoding:YES]);
-            [encoder encodeObject:dictionary.get() forKey:@"NSKeyedArchiveRootObjectKey"];
-            resumeData = [encoder encodedData];
-        }
-#endif
-
         auto resumeDataReference = resumeData ? IPC::DataReference { static_cast<const uint8_t*>(resumeData.bytes), resumeData.length } : IPC::DataReference { };
         download->didFail(error, resumeDataReference);
     }
@@ -865,12 +848,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         networkLoadMetrics.markComplete();
         networkLoadMetrics.redirectCount = metrics.redirectCount;
         networkLoadMetrics.protocol = String(m.networkProtocolName);
-#if HAVE(CFNETWORK_METRICS_CONNECTION_PROPERTIES)
         networkLoadMetrics.cellular = m.cellular;
         networkLoadMetrics.expensive = m.expensive;
         networkLoadMetrics.constrained = m.constrained;
         networkLoadMetrics.multipath = m.multipath;
-#endif
         networkLoadMetrics.isReusedConnection = m.isReusedConnection;
 
 #if HAVE(NETWORK_CONNECTION_PRIVACY_STANCE)
@@ -878,37 +859,36 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
 
         if (networkDataTask->shouldCaptureExtraNetworkLoadMetrics()) {
-            networkLoadMetrics.priority = toNetworkLoadPriority(task.priority);
+            auto additionalMetrics = WebCore::AdditionalNetworkLoadMetricsForWebInspector::create();
+            additionalMetrics->priority = toNetworkLoadPriority(task.priority);
 
 #if HAVE(CFNETWORK_METRICS_APIS_V4)
             if (auto port = [m.remotePort unsignedIntValue])
-                networkLoadMetrics.remoteAddress = makeString(String(m.remoteAddress), ':', port);
+                additionalMetrics->remoteAddress = makeString(String(m.remoteAddress), ':', port);
             else
-                networkLoadMetrics.remoteAddress = m.remoteAddress;
+                additionalMetrics->remoteAddress = m.remoteAddress;
 #else
             ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-            networkLoadMetrics.remoteAddress = String(m._remoteAddressAndPort);
+            additionalMetrics->remoteAddress = String(m._remoteAddressAndPort);
             ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
-            networkLoadMetrics.connectionIdentifier = String([m._connectionIdentifier UUIDString]);
+            additionalMetrics->connectionIdentifier = String([m._connectionIdentifier UUIDString]);
 
-#if HAVE(CFNETWORK_NEGOTIATED_SSL_PROTOCOL_CIPHER)
 #if HAVE(CFNETWORK_METRICS_APIS_V4)
-            networkLoadMetrics.tlsProtocol = stringForTLSProtocolVersion((tls_protocol_version_t)[m.negotiatedTLSProtocolVersion unsignedShortValue]);
-            networkLoadMetrics.tlsCipher = stringForTLSCipherSuite((tls_ciphersuite_t)[m.negotiatedTLSCipherSuite unsignedShortValue]);
+            additionalMetrics->tlsProtocol = stringForTLSProtocolVersion((tls_protocol_version_t)[m.negotiatedTLSProtocolVersion unsignedShortValue]);
+            additionalMetrics->tlsCipher = stringForTLSCipherSuite((tls_ciphersuite_t)[m.negotiatedTLSCipherSuite unsignedShortValue]);
 #else
             ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-            networkLoadMetrics.tlsProtocol = stringForSSLProtocol(m._negotiatedTLSProtocol);
-            networkLoadMetrics.tlsCipher = stringForSSLCipher(m._negotiatedTLSCipher);
+            additionalMetrics->tlsProtocol = stringForSSLProtocol(m._negotiatedTLSProtocol);
+            additionalMetrics->tlsCipher = stringForSSLCipher(m._negotiatedTLSCipher);
             ALLOW_DEPRECATED_DECLARATIONS_END
-#endif
 #endif
 
             __block WebCore::HTTPHeaderMap requestHeaders;
             [m.request.allHTTPHeaderFields enumerateKeysAndObjectsUsingBlock:^(NSString *name, NSString *value, BOOL *) {
                 requestHeaders.set(String(name), String(value));
             }];
-            networkLoadMetrics.requestHeaders = WTFMove(requestHeaders);
+            additionalMetrics->requestHeaders = WTFMove(requestHeaders);
 
             uint64_t requestHeaderBytesSent = 0;
             uint64_t responseHeaderBytesReceived = 0;
@@ -925,9 +905,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
             }
 
-            networkLoadMetrics.requestHeaderBytesSent = requestHeaderBytesSent;
-            networkLoadMetrics.requestBodyBytesSent = task.countOfBytesSent;
-            networkLoadMetrics.responseHeaderBytesReceived = responseHeaderBytesReceived;
+            additionalMetrics->requestHeaderBytesSent = requestHeaderBytesSent;
+            additionalMetrics->requestBodyBytesSent = task.countOfBytesSent;
+            additionalMetrics->responseHeaderBytesReceived = responseHeaderBytesReceived;
+            networkLoadMetrics.additionalNetworkLoadMetricsForWebInspector = WTFMove(additionalMetrics);
         }
 #if HAVE(CFNETWORK_METRICS_APIS_V4)
         networkLoadMetrics.responseBodyBytesReceived = m.countOfResponseBodyBytesReceived;
@@ -954,22 +935,13 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
         NegotiatedLegacyTLS negotiatedLegacyTLS = NegotiatedLegacyTLS::No;
         NSURLSessionTaskMetrics *taskMetrics = dataTask._incompleteTaskMetrics;
-#if HAVE(TLS_PROTOCOL_VERSION_T)
+
         NSURLSessionTaskTransactionMetrics *metrics = taskMetrics.transactionMetrics.lastObject;
         auto tlsVersion = (tls_protocol_version_t)metrics.negotiatedTLSProtocolVersion.unsignedShortValue;
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         if (tlsVersion == tls_protocol_version_TLSv10 || tlsVersion == tls_protocol_version_TLSv11)
             negotiatedLegacyTLS = NegotiatedLegacyTLS::Yes;
 ALLOW_DEPRECATED_DECLARATIONS_END
-#else // We do not need to check _TLSNegotiatedProtocolVersion if we have metrics.negotiatedTLSProtocolVersion because it works at response time even before rdar://problem/56522601
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        if ([dataTask respondsToSelector:@selector(_TLSNegotiatedProtocolVersion)]) {
-            SSLProtocol tlsVersion = [dataTask _TLSNegotiatedProtocolVersion];
-            if (tlsVersion == kTLSProtocol11 || tlsVersion == kTLSProtocol1)
-                negotiatedLegacyTLS = NegotiatedLegacyTLS::Yes;
-        }
-        ALLOW_DEPRECATED_DECLARATIONS_END
-#endif
         
         // Avoid MIME type sniffing if the response comes back as 304 Not Modified.
         int statusCode = [response isKindOfClass:NSHTTPURLResponse.class] ? [(NSHTTPURLResponse *)response statusCode] : 0;
@@ -1438,7 +1410,7 @@ SessionWrapper& NetworkSessionCocoa::sessionWrapperForTask(WebPageProxyIdentifie
     auto shouldBeConsideredAppBound = isNavigatingToAppBoundDomain ? *isNavigatingToAppBoundDomain : NavigatingToAppBoundDomain::Yes;
     if (isParentProcessAFullWebBrowser(networkProcess()))
         shouldBeConsideredAppBound = NavigatingToAppBoundDomain::No;
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     if (auto* storageSession = networkStorageSession()) {
         auto firstParty = WebCore::RegistrableDomain(request.firstPartyForCookies());
         if (storageSession->shouldBlockThirdPartyCookiesButKeepFirstPartyCookiesFor(firstParty))

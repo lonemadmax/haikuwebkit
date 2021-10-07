@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2019-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,14 +30,32 @@
 #include "pas_heap.h"
 #include "pas_heap_config.h"
 #include "pas_heap_lock.h"
-#include "pas_intrinsic_allocation_result.h"
+#include "pas_allocation_result.h"
 #include "pas_local_allocator_inlines.h"
 #include "pas_physical_memory_transaction.h"
 #include "pas_primitive_heap_ref.h"
 
 PAS_BEGIN_EXTERN_C;
 
-static PAS_ALWAYS_INLINE pas_intrinsic_allocation_result
+/* This header provides entrypoints for both primitive and flex heaps. You select the mode by passing
+   either the primitive heap_runtuime_config or the flex heap_runtime_config.
+   
+   Primitive heaps are for objects that should be kept separate from the main heap but that otherwise
+   don't have any interesting type. So, they are like intrinsic heaps, but the tuning has to be such
+   that we are efficient for lots of small heaps. But, there's no restriction on whether the data in
+   the heap is reused in any particular way -- we run this with a type size of 1.
+
+   These have all the functionality of intrinsic heaps but are tuned to allow for there to be a
+   variable number of heaps. While libpas knows about every intrinsic heap that a heap_config may
+   have, libpas allows primitive heaps to be created by libpas clients.
+
+   Flex heaps are for flexible array members. Currently we tune them almost exactly like primitive
+   heaps except that bitfit is disabled for flex.
+
+   FIXME: Flex heaps should provide stronger isolation in the large heap. That can be achieved while
+   still keeping these entrypoints. It's just a different large heap reuse policy. */
+
+static PAS_ALWAYS_INLINE pas_allocation_result
 pas_try_allocate_primitive_impl(pas_primitive_heap_ref* heap_ref,
                                 size_t size,
                                 size_t alignment,
@@ -53,7 +71,7 @@ pas_try_allocate_primitive_impl(pas_primitive_heap_ref* heap_ref,
     size_t index;
     
     if (!pas_is_power_of_2(alignment))
-        return pas_intrinsic_allocation_result_create_empty();
+        return pas_allocation_result_create_failure();
     
     aligned_size = pas_round_up_to_power_of_2(size, alignment);
     
@@ -92,7 +110,7 @@ pas_try_allocate_primitive_impl(pas_primitive_heap_ref* heap_ref,
     /* This should be specialized out in the non-alignment case because of ALWAYS_INLINE and
        alignment being the constant 1. */
     if (alignment != 1 && allocator.did_succeed
-        && alignment > pas_local_allocator_alignment(allocator.allocator))
+        && alignment > pas_local_allocator_alignment((pas_local_allocator*)allocator.allocator))
         allocator.did_succeed = false;
 
     return try_allocate_common(&heap_ref->base, aligned_size, aligned_size, alignment, allocator);
@@ -108,7 +126,7 @@ pas_try_allocate_primitive_impl(pas_primitive_heap_ref* heap_ref,
         pas_avoid_count_lookup, \
         (result_filter)); \
     \
-    static PAS_ALWAYS_INLINE pas_intrinsic_allocation_result name( \
+    static PAS_ALWAYS_INLINE pas_allocation_result name( \
         pas_primitive_heap_ref* heap_ref, \
         size_t size, \
         size_t alignment) \
@@ -117,7 +135,7 @@ pas_try_allocate_primitive_impl(pas_primitive_heap_ref* heap_ref,
             heap_ref, size, alignment, (heap_config), (runtime_config), name ## _impl); \
     } \
     \
-    static PAS_UNUSED PAS_NEVER_INLINE pas_intrinsic_allocation_result name ## _for_realloc( \
+    static PAS_UNUSED PAS_NEVER_INLINE pas_allocation_result name ## _for_realloc( \
         pas_primitive_heap_ref* heap_ref, size_t size) \
     { \
         return name(heap_ref, size, 1); \
@@ -125,10 +143,10 @@ pas_try_allocate_primitive_impl(pas_primitive_heap_ref* heap_ref,
     \
     struct pas_dummy
 
-typedef pas_intrinsic_allocation_result (*pas_try_allocate_primitive)(
+typedef pas_allocation_result (*pas_try_allocate_primitive)(
     pas_primitive_heap_ref* heap_ref, size_t size, size_t alignment);
 
-typedef pas_intrinsic_allocation_result (*pas_try_allocate_primitive_for_realloc)(
+typedef pas_allocation_result (*pas_try_allocate_primitive_for_realloc)(
     pas_primitive_heap_ref* heap_ref, size_t size);
 
 PAS_END_EXTERN_C;

@@ -32,6 +32,7 @@
 #include "FontCache.h"
 #include "FontCascade.h"
 #include "FontDescription.h"
+#include "Logging.h"
 #include "OpenTypeCG.h"
 #include "SharedBuffer.h"
 #include <CoreText/CoreText.h>
@@ -108,6 +109,9 @@ static bool isAhemFont(CFStringRef familyName)
 
 bool fontHasTable(CTFontRef ctFont, unsigned tableTag)
 {
+#if USE(CTFONTHASTABLE)
+    return CTFontHasTable(ctFont, tableTag);
+#else
     auto tableTags = adoptCF(CTFontCopyAvailableTables(ctFont, kCTFontTableOptionNoOptions));
     if (!tableTags)
         return false;
@@ -118,10 +122,14 @@ bool fontHasTable(CTFontRef ctFont, unsigned tableTag)
             return true;
     }
     return false;
+#endif
 }
 
 bool fontHasEitherTable(CTFontRef ctFont, unsigned tableTag1, unsigned tableTag2)
 {
+#if USE(CTFONTHASTABLE)
+    return fontHasTable(ctFont, tableTag1) || fontHasTable(ctFont, tableTag2);
+#else
     auto tableTags = adoptCF(CTFontCopyAvailableTables(ctFont, kCTFontTableOptionNoOptions));
     if (!tableTags)
         return false;
@@ -132,6 +140,7 @@ bool fontHasEitherTable(CTFontRef ctFont, unsigned tableTag1, unsigned tableTag2
             return true;
     }
     return false;
+#endif
 }
 
 void Font::platformInit()
@@ -596,8 +605,11 @@ GlyphBufferAdvance Font::applyTransforms(GlyphBuffer& glyphBuffer, unsigned begi
             range.length = std::min(range.location, -range.length);
             range.location = range.location - range.length;
             glyphBuffer.remove(beginningGlyphIndex + range.location, range.length);
-        } else
+            LOG_WITH_STREAM(TextShaping, stream << "Callback called to remove at location " << range.location << " and length " << range.length);
+        } else {
             glyphBuffer.makeHole(beginningGlyphIndex + range.location, range.length, this);
+            LOG_WITH_STREAM(TextShaping, stream << "Callback called to insert hole at location " << range.location << " and length " << range.length);
+        }
 
         *newGlyphsPointer = glyphBuffer.glyphs(beginningGlyphIndex);
         *newAdvancesPointer = glyphBuffer.advances(beginningGlyphIndex);
@@ -617,6 +629,34 @@ GlyphBufferAdvance Font::applyTransforms(GlyphBuffer& glyphBuffer, unsigned begi
     for (unsigned i = 0; i < glyphBuffer.size() - beginningGlyphIndex; ++i)
         glyphBuffer.offsetsInString(beginningGlyphIndex)[i] -= beginningStringIndex;
 
+    LOG_WITH_STREAM(TextShaping,
+        stream << "Simple shaping " << numberOfInputGlyphs << " glyphs in font " << String(adoptCF(CTFontCopyPostScriptName(m_platformData.ctFont())).get()) << ".\n";
+        const auto* glyphs = glyphBuffer.glyphs(beginningGlyphIndex);
+        stream << "Glyphs:";
+        for (unsigned i = 0; i < numberOfInputGlyphs; ++i)
+            stream << " " << glyphs[i];
+        stream << "\n";
+        const auto* advances = glyphBuffer.advances(beginningGlyphIndex);
+        stream << "Advances:";
+        for (unsigned i = 0; i < numberOfInputGlyphs; ++i)
+            stream << " " << FloatSize(advances[i]);
+        stream << "\n";
+        const auto* origins = glyphBuffer.origins(beginningGlyphIndex);
+        stream << "Origins:";
+        for (unsigned i = 0; i < numberOfInputGlyphs; ++i)
+            stream << " " << origins[i];
+        stream << "\n";
+        const auto* offsets = glyphBuffer.offsetsInString(beginningGlyphIndex);
+        stream << "Offsets:";
+        for (unsigned i = 0; i < numberOfInputGlyphs; ++i)
+            stream << " " << offsets[i];
+        stream << "\n";
+        const UChar* codeUnits = upconvertedCharacters.get();
+        stream << "Code Units:";
+        for (unsigned i = 0; i < numberOfInputGlyphs; ++i)
+            stream << " " << codeUnits[i];
+    );
+
     auto initialAdvance = CTFontShapeGlyphs(
         m_platformData.ctFont(),
         glyphBuffer.glyphs(beginningGlyphIndex),
@@ -628,6 +668,36 @@ GlyphBufferAdvance Font::applyTransforms(GlyphBuffer& glyphBuffer, unsigned begi
         options,
         localeString.get(),
         handler);
+
+    LOG_WITH_STREAM(TextShaping,
+        stream << "Shaping result: " << glyphBuffer.size() - beginningGlyphIndex << " glyphs.\n";
+        const auto* glyphs = glyphBuffer.glyphs(beginningGlyphIndex);
+        stream << "Glyphs:";
+        for (unsigned i = 0; i < glyphBuffer.size() - beginningGlyphIndex; ++i)
+            stream << " " << glyphs[i];
+        stream << "\n";
+        const auto* advances = glyphBuffer.advances(beginningGlyphIndex);
+        stream << "Advances:";
+        for (unsigned i = 0; i < glyphBuffer.size() - beginningGlyphIndex; ++i)
+            stream << " " << FloatSize(advances[i]);
+        stream << "\n";
+        const auto* origins = glyphBuffer.origins(beginningGlyphIndex);
+        stream << "Origins:";
+        for (unsigned i = 0; i < glyphBuffer.size() - beginningGlyphIndex; ++i)
+            stream << " " << origins[i];
+        stream << "\n";
+        const auto* offsets = glyphBuffer.offsetsInString(beginningGlyphIndex);
+        stream << "Offsets:";
+        for (unsigned i = 0; i < glyphBuffer.size() - beginningGlyphIndex; ++i)
+            stream << " " << offsets[i];
+        stream << "\n";
+        const UChar* codeUnits = upconvertedCharacters.get();
+        stream << "Code Units:";
+        for (unsigned i = 0; i < glyphBuffer.size() - beginningGlyphIndex; ++i)
+            stream << " " << codeUnits[i];
+        stream << "\n";
+        stream << "Initial advance: " << FloatSize(initialAdvance);
+    );
 
     ASSERT(numberOfInputGlyphs || glyphBuffer.size() == beginningGlyphIndex);
     ASSERT(numberOfInputGlyphs || (!initialAdvance.width && !initialAdvance.height));

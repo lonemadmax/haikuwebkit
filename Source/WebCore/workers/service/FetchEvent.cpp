@@ -78,7 +78,7 @@ ExceptionOr<void> FetchEvent::respondWith(Ref<DOMPromise>&& promise)
     m_respondPromise = WTFMove(promise);
     addExtendLifetimePromise(*m_respondPromise);
 
-    auto isRegistered = m_respondPromise->whenSettled([this, protectedThis = makeRef(*this)] {
+    auto isRegistered = m_respondPromise->whenSettled([this, protectedThis = Ref { *this }] {
         promiseIsSettled();
     });
 
@@ -134,7 +134,7 @@ void FetchEvent::promiseIsSettled()
         return;
     }
 
-    processResponse(makeRef(*response));
+    processResponse(Ref { *response });
 }
 
 } // namespace WebCore

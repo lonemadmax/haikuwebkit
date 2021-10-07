@@ -887,11 +887,11 @@ static void replaceRanges(Page& page, const Vector<FindReplacementRange>& ranges
         if (firstNode == secondNode)
             return false;
 
-        auto firstFrame = makeRefPtr(firstNode->document().frame());
+        RefPtr firstFrame = firstNode->document().frame();
         if (!firstFrame)
             return true;
 
-        auto secondFrame = makeRefPtr(secondNode->document().frame());
+        RefPtr secondFrame = secondNode->document().frame();
         if (!secondFrame)
             return false;
 
@@ -904,7 +904,7 @@ static void replaceRanges(Page& page, const Vector<FindReplacementRange>& ranges
     });
 
     for (auto& container : containerNodesInOrderOfReplacement) {
-        auto frame = makeRefPtr(container->document().frame());
+        RefPtr frame = container->document().frame();
         if (!frame)
             continue;
 
@@ -929,7 +929,7 @@ uint32_t Page::replaceRangesWithText(const Vector<SimpleRange>& rangesToReplace,
     replacementRanges.reserveInitialCapacity(rangesToReplace.size());
 
     for (auto& range : rangesToReplace) {
-        auto highestRoot = makeRefPtr(highestEditableRoot(makeDeprecatedLegacyPosition(range.start)));
+        RefPtr highestRoot = highestEditableRoot(makeDeprecatedLegacyPosition(range.start));
         if (!highestRoot || highestRoot != highestEditableRoot(makeDeprecatedLegacyPosition(range.end)) || !highestRoot->document().frame())
             continue;
         auto scope = makeRangeSelectingNodeContents(*highestRoot);
@@ -966,7 +966,7 @@ void Page::setEditableRegionEnabled(bool enabled)
     if (m_isEditableRegionEnabled == enabled)
         return;
     m_isEditableRegionEnabled = enabled;
-    auto frameView = makeRefPtr(mainFrame().view());
+    RefPtr frameView = mainFrame().view();
     if (!frameView)
         return;
     if (auto* renderView = frameView->renderView())
@@ -986,11 +986,11 @@ bool Page::shouldBuildEditableRegion() const
 
 Vector<Ref<Element>> Page::editableElementsInRect(const FloatRect& searchRectInRootViewCoordinates) const
 {
-    auto frameView = makeRefPtr(mainFrame().view());
+    RefPtr frameView = mainFrame().view();
     if (!frameView)
         return { };
 
-    auto document = makeRefPtr(mainFrame().document());
+    RefPtr document = mainFrame().document();
     if (!document)
         return { };
 
@@ -1584,17 +1584,13 @@ void Page::updateRendering()
 
     layoutIfNeeded();
 
-#if ENABLE(INTERSECTION_OBSERVER)
     runProcessingStep(RenderingUpdateStep::IntersectionObservations, [] (Document& document) {
         document.updateIntersectionObservations();
     });
-#endif
 
-#if ENABLE(RESIZE_OBSERVER)
     runProcessingStep(RenderingUpdateStep::ResizeObservations, [&] (Document& document) {
         document.updateResizeObservations(*this);
     });
-#endif
 
     runProcessingStep(RenderingUpdateStep::Images, [] (Document& document) {
         for (auto& image : document.cachedResourceLoader().allCachedSVGImages()) {
@@ -1670,7 +1666,7 @@ void Page::doAfterUpdateRendering()
         if (appHighlightStorage->hasUnrestoredHighlights() && MonotonicTime::now() - appHighlightStorage->lastRangeSearchTime() > 1_s) {
             appHighlightStorage->resetLastRangeSearchTime();
             document.eventLoop().queueTask(TaskSource::InternalAsyncTask, [weakDocument = makeWeakPtr(document)] {
-                auto document = makeRefPtr(weakDocument.get());
+                RefPtr document { weakDocument.get() };
                 if (!document)
                     return;
 
@@ -1717,6 +1713,9 @@ void Page::doAfterUpdateRendering()
         ASSERT(!frameView || !frameView->needsLayout());
     }
 #endif
+
+    if (auto* view = mainFrame().view())
+        view->notifyAllFramesThatContentAreaWillPaint();
 
     if (!m_sampledPageTopColor) {
         m_sampledPageTopColor = PageColorSampler::sampleTop(*this);
@@ -2208,9 +2207,6 @@ void Page::playbackControlsMediaEngineChanged()
 
 void Page::setMuted(MediaProducer::MutedStateFlags muted)
 {
-    if (m_mutedState == muted)
-        return;
-
     m_mutedState = muted;
 
     forEachDocument([] (Document& document) {
@@ -2620,14 +2616,14 @@ void Page::setUnderPageBackgroundColorOverride(Color&& underPageBackgroundColorO
 
     scheduleRenderingUpdate({ });
 
-#if ENABLE(RUBBER_BANDING)
-    if (auto frameView = makeRefPtr(mainFrame().view())) {
+#if HAVE(RUBBER_BANDING)
+    if (RefPtr frameView = mainFrame().view()) {
         if (auto* renderView = frameView->renderView()) {
             if (renderView->usesCompositing())
                 renderView->compositor().updateLayerForOverhangAreasBackgroundColor();
         }
     }
-#endif // ENABLE(RUBBER_BANDING)
+#endif // HAVE(RUBBER_BANDING)
 }
 
 // These are magical constants that might be tweaked over time.
@@ -3497,8 +3493,8 @@ void Page::configureLoggingChannel(const String& channelName, WTFLogChannelState
 
 void Page::didFinishLoadingImageForElement(HTMLImageElement& element)
 {
-    element.document().eventLoop().queueTask(TaskSource::Networking, [element = makeRef(element)]() {
-        auto frame = makeRefPtr(element->document().frame());
+    element.document().eventLoop().queueTask(TaskSource::Networking, [element = Ref { element }]() {
+        RefPtr frame = element->document().frame();
         if (!frame)
             return;
 
@@ -3612,12 +3608,8 @@ WTF::TextStream& operator<<(WTF::TextStream& ts, RenderingUpdateStep step)
     case RenderingUpdateStep::Animations: ts << "Animations"; break;
     case RenderingUpdateStep::Fullscreen: ts << "Fullscreen"; break;
     case RenderingUpdateStep::AnimationFrameCallbacks: ts << "AnimationFrameCallbacks"; break;
-#if ENABLE(INTERSECTION_OBSERVER)
     case RenderingUpdateStep::IntersectionObservations: ts << "IntersectionObservations"; break;
-#endif
-#if ENABLE(RESIZE_OBSERVER)
     case RenderingUpdateStep::ResizeObservations: ts << "ResizeObservations"; break;
-#endif
     case RenderingUpdateStep::Images: ts << "Images"; break;
     case RenderingUpdateStep::WheelEventMonitorCallbacks: ts << "WheelEventMonitorCallbacks"; break;
     case RenderingUpdateStep::CursorUpdate: ts << "CursorUpdate"; break;
@@ -3634,24 +3626,22 @@ WTF::TextStream& operator<<(WTF::TextStream& ts, RenderingUpdateStep step)
 
 void Page::updateElementsWithTextRecognitionResults()
 {
-    if (m_textRecognitionResultsByElement.isEmpty())
+    if (m_textRecognitionResults.isEmptyIgnoringNullReferences())
         return;
 
-    m_textRecognitionResultsByElement.removeAllMatching([](auto& elementAndResult) {
-        return !elementAndResult.first;
-    });
+    m_textRecognitionResults.removeNullReferences();
 
     Vector<std::pair<Ref<HTMLElement>, TextRecognitionResult>> elementsToUpdate;
-    for (auto& [element, resultAndRect] : m_textRecognitionResultsByElement) {
-        if (!element->isConnected())
+    for (auto entry : m_textRecognitionResults) {
+        Ref protectedElement = entry.key;
+        if (!protectedElement->isConnected())
             continue;
 
-        auto& [result, containerRect] = resultAndRect;
-        auto protectedElement = makeRef(*element);
         auto renderer = protectedElement->renderer();
         if (!is<RenderImage>(renderer))
             continue;
 
+        auto& [result, containerRect] = entry.value;
         auto newContainerRect = protectedElement->containerRectForTextRecognition();
         if (containerRect == newContainerRect)
             continue;
@@ -3662,7 +3652,7 @@ void Page::updateElementsWithTextRecognitionResults()
 
     for (auto& [element, result] : elementsToUpdate) {
         element->document().eventLoop().queueTask(TaskSource::InternalAsyncTask, [result = TextRecognitionResult { result }, weakElement = makeWeakPtr(element.get())] {
-            auto element = makeRefPtr(weakElement.get());
+            RefPtr element { weakElement.get() };
             if (!element)
                 return;
 
@@ -3673,31 +3663,17 @@ void Page::updateElementsWithTextRecognitionResults()
 
 bool Page::hasCachedTextRecognitionResult(const HTMLElement& element) const
 {
-    return m_elementsWithTextRecognitionResults.contains(element);
+    return m_textRecognitionResults.contains(element);
 }
 
 void Page::cacheTextRecognitionResult(const HTMLElement& element, const IntRect& containerRect, const TextRecognitionResult& result)
 {
-    m_elementsWithTextRecognitionResults.add(element);
-
-    auto index = m_textRecognitionResultsByElement.findMatching([&](auto& elementAndResult) {
-        return elementAndResult.first == &element;
-    });
-
-    if (index == notFound)
-        m_textRecognitionResultsByElement.append({ makeWeakPtr(element), { result, containerRect } });
-    else
-        m_textRecognitionResultsByElement[index].second = { result, containerRect };
-
-    m_textRecognitionResultsByElement.removeAllMatching([](auto& elementAndResult) {
-        return !elementAndResult.first;
-    });
+    m_textRecognitionResults.set(element, CachedTextRecognitionResult { result, containerRect });
 }
 
 void Page::resetTextRecognitionResults()
 {
-    m_textRecognitionResultsByElement.clear();
-    m_elementsWithTextRecognitionResults.clear();
+    m_textRecognitionResults.clear();
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS)

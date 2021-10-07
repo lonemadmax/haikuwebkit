@@ -25,7 +25,7 @@ import sys
 from .command import Command
 from .branch import Branch
 
-from webkitcorepy import arguments, run, string_utils
+from webkitcorepy import arguments, run
 from webkitscmpy import local, log, remote
 
 
@@ -75,22 +75,11 @@ class PullRequest(Command):
             sys.stderr.write('No modified files\n')
             return 1
         log.warning('Amending commit...' if has_commit else 'Creating commit...')
-        if run([repository.executable(), 'commit'] + (['--amend'] if has_commit else []), cwd=repository.root_path).returncode:
+        if run([repository.executable(), 'commit', '--date=now'] + (['--amend'] if has_commit else []), cwd=repository.root_path).returncode:
             sys.stderr.write('Failed to generate commit\n')
             return 1
 
         return 0
-
-    @classmethod
-    def branch_point(cls, args, repository, **kwargs):
-        cnt = 0
-        commit = None
-        while not commit or commit.branch.startswith(Branch.PREFIX):
-            cnt += 1
-            commit = repository.find(argument='HEAD~{}'.format(cnt), include_log=False, include_identifier=False)
-            log.warning('    Found {}...'.format(string_utils.pluralize(cnt, 'commit')))
-
-        return commit
 
     @classmethod
     def main(cls, args, repository, **kwargs):
@@ -98,7 +87,7 @@ class PullRequest(Command):
             sys.stderr.write("Can only '{}' on a native Git repository\n".format(cls.name))
             return 1
 
-        if not repository.branch.startswith(Branch.PREFIX):
+        if not repository.DEV_BRANCHES.match(repository.branch):
             if Branch.main(args, repository, **kwargs):
                 sys.stderr.write("Abandoning pushing pull-request because '{}' could not be created\n".format(args.issue))
                 return 1
@@ -110,7 +99,7 @@ class PullRequest(Command):
         if result:
             return result
 
-        branch_point = cls.branch_point(args, repository, **kwargs)
+        branch_point = Branch.branch_point(repository)
         if args.rebase or (args.rebase is None and repository.config().get('pull.rebase')):
             log.warning("Rebasing '{}' on '{}'...".format(repository.branch, branch_point.branch))
             if repository.pull(rebase=True, branch=branch_point.branch):

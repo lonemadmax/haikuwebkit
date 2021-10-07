@@ -27,6 +27,10 @@ function mac_process_webcontent_entitlements()
             plistbuddy Add :com.apple.avfoundation.allow-system-wide-context bool YES
             plistbuddy add :com.apple.QuartzCore.webkit-limited-types bool YES
         fi
+        if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 120000 ))
+        then
+            plistbuddy add :com.apple.coreaudio.allow-vorbis-decode bool YES
+        fi
     fi
 
     mac_process_webcontent_or_plugin_entitlements
@@ -178,7 +182,7 @@ function maccatalyst_process_webcontent_entitlements()
         plistbuddy Add :com.apple.private.pac.exception bool YES
         plistbuddy Add :com.apple.private.security.message-filter bool YES
         plistbuddy Add :com.apple.UIKit.view-service-wants-custom-idiom-and-scale bool YES
-        plistbuddy add :com.apple.QuartzCore.webkit-limited-types bool YES
+        plistbuddy Add :com.apple.QuartzCore.webkit-limited-types bool YES
     fi
 
     if [[ "${WK_USE_RESTRICTED_ENTITLEMENTS}" == YES ]]
@@ -202,7 +206,7 @@ function maccatalyst_process_gpu_entitlements()
     plistbuddy Add :com.apple.runningboard.assertions.webkit bool YES
     plistbuddy Add :com.apple.QuartzCore.webkit-end-points bool YES
     plistbuddy Add :com.apple.private.memory.ownership_transfer bool YES
-    plistbuddy add :com.apple.QuartzCore.webkit-limited-types bool YES
+    plistbuddy Add :com.apple.QuartzCore.webkit-limited-types bool YES
 
     if [[ "${WK_USE_RESTRICTED_ENTITLEMENTS}" == YES ]]
     then
@@ -316,6 +320,8 @@ function ios_family_process_gpu_entitlements()
     plistbuddy Add :com.apple.systemstatus.activityattribution bool YES
     plistbuddy Add :com.apple.security.exception.mach-lookup.global-name array
     plistbuddy Add :com.apple.security.exception.mach-lookup.global-name:0 string com.apple.systemstatus.activityattribution
+    plistbuddy Add :com.apple.private.attribution.explicitly-assumed-identities array
+    plistbuddy Add :com.apple.private.attribution.explicitly-assumed-identities:0:type string wildcard
 }
 
 function ios_family_process_webauthn_entitlements()

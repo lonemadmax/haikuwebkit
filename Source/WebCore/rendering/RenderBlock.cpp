@@ -39,7 +39,7 @@
 #include "HitTestLocation.h"
 #include "HitTestResult.h"
 #include "ImageBuffer.h"
-#include "InlineIterator.h"
+#include "InlineWalker.h"
 #include "LayoutRepainter.h"
 #include "LegacyInlineElementBox.h"
 #include "LegacyInlineTextBox.h"
@@ -660,6 +660,23 @@ void RenderBlock::addOverflowFromChildren()
     }
 }
 
+LayoutSize RenderBlock::clientLogicalRightAndBottomAfterRepositioning() const
+{
+    LayoutUnit maxChildLogicalRight;
+    LayoutUnit maxChildLogicalBottom;
+    for (RenderBox* child = firstChildBox(); child; child = child->nextSiblingBox()) {
+        if (child->isOutOfFlowPositioned())
+            continue;
+        LayoutUnit childLogicalRight = logicalLeftForChild(*child) + logicalWidthForChild(*child) + marginEndForChild(*child);
+        LayoutUnit childLogicalBottom = logicalTopForChild(*child) + logicalHeightForChild(*child) + marginAfterForChild(*child);
+        maxChildLogicalRight = std::max(maxChildLogicalRight, childLogicalRight);
+        maxChildLogicalBottom = std::max(maxChildLogicalBottom, childLogicalBottom);
+
+    }
+    return LayoutSize(maxChildLogicalRight + paddingRight(), std::max(clientLogicalBottom(), maxChildLogicalBottom + paddingAfter()));
+}
+
+
 // Overflow is always relative to the border-box of the element in question.
 // Therefore, if the element has a vertical scrollbar placed on the left, an overflow rect at x=2px would conceptually intersect the scrollbar.
 void RenderBlock::computeOverflow(LayoutUnit oldClientAfterEdge, bool)
@@ -670,15 +687,22 @@ void RenderBlock::computeOverflow(LayoutUnit oldClientAfterEdge, bool)
     addOverflowFromPositionedObjects();
 
     if (hasNonVisibleOverflow()) {
+        // Set the axis we don't care about to be 1, since we want this overflow to always be considered reachable.
+        LayoutUnit rectWidth = 1_lu;
+        // For grid, width of the overflow rect should be the width of the grid area of the items rather than the container block.
+        // As per https://github.com/w3c/csswg-drafts/issues/3653, child's margins along with padding should contribute to the
+        // scrollable overflow area.
+        if (this->isRenderGrid())
+            rectWidth = clientLogicalRightAndBottomAfterRepositioning().width();
+
         // When we have overflow clip, propagate the original spillout since it will include collapsed bottom margins
-        // and bottom padding.  Set the axis we don't care about to be 1, since we want this overflow to always
-        // be considered reachable.
+        // and bottom padding.
         LayoutRect clientRect(flippedClientBoxRect());
         LayoutRect rectToApply;
         if (isHorizontalWritingMode())
-            rectToApply = LayoutRect(clientRect.x(), clientRect.y(), 1_lu, std::max(0_lu, oldClientAfterEdge - clientRect.y()));
+            rectToApply = LayoutRect(clientRect.x(), clientRect.y(), rectWidth, std::max(0_lu, oldClientAfterEdge - clientRect.y()));
         else
-            rectToApply = LayoutRect(clientRect.x(), clientRect.y(), std::max(0_lu, oldClientAfterEdge - clientRect.x()), 1_lu);
+            rectToApply = LayoutRect(clientRect.x(), clientRect.y(), std::max(0_lu, oldClientAfterEdge - clientRect.x()), rectWidth);
         addLayoutOverflow(rectToApply);
         if (hasRenderOverflow())
             m_overflow->setLayoutClientAfterEdge(oldClientAfterEdge);
@@ -730,7 +754,7 @@ void RenderBlock::addOverflowFromPositionedObjects()
 
 void RenderBlock::addVisualOverflowFromTheme()
 {
-    if (!style().hasAppearance())
+    if (!style().hasEffectiveAppearance())
         return;
 
     FloatRect inflatedRect = borderBoxRect();
@@ -850,14 +874,14 @@ void RenderBlock::simplifiedNormalFlowLayout()
 {
     if (childrenInline()) {
         ListHashSet<LegacyRootInlineBox*> lineBoxes;
-        for (InlineWalker walker(*this); !walker.atEnd(); walker.advance()) {
+        for (InlineWalker walker(downcast<RenderBlockFlow>(*this)); !walker.atEnd(); walker.advance()) {
             RenderObject& renderer = *walker.current();
             if (!renderer.isOutOfFlowPositioned() && (renderer.isReplaced() || renderer.isFloating())) {
                 RenderBox& box = downcast<RenderBox>(renderer);
                 box.layoutIfNeeded();
                 if (box.inlineBoxWrapper())
                     lineBoxes.add(&box.inlineBoxWrapper()->root());
-            } else if (is<RenderText>(renderer) || (is<RenderInline>(renderer) && !walker.atEndOfInline()))
+            } else if (is<RenderText>(renderer) || is<RenderInline>(renderer))
                 renderer.clearNeedsLayout();
         }
 
@@ -1657,8 +1681,7 @@ LayoutRect RenderBlock::blockSelectionGap(RenderBlock& rootBlock, const LayoutPo
     return gapRect;
 }
 
-LayoutRect RenderBlock::logicalLeftSelectionGap(RenderBlock& rootBlock, const LayoutPoint& rootBlockPhysicalPosition, const LayoutSize& offsetFromRootBlock,
-    RenderBoxModelObject* selObj, LayoutUnit logicalLeft, LayoutUnit logicalTop, LayoutUnit logicalHeight, const LogicalSelectionOffsetCaches& cache, const PaintInfo* paintInfo)
+LayoutRect RenderBlock::logicalLeftSelectionGap(RenderBlock& rootBlock, const LayoutPoint& rootBlockPhysicalPosition, const LayoutSize& offsetFromRootBlock, RenderElement* selObj, LayoutUnit logicalLeft, LayoutUnit logicalTop, LayoutUnit logicalHeight, const LogicalSelectionOffsetCaches& cache, const PaintInfo* paintInfo)
 {
     LayoutUnit rootBlockLogicalTop = blockDirectionOffset(rootBlock, offsetFromRootBlock) + logicalTop;
     LayoutUnit rootBlockLogicalLeft = std::max(logicalLeftSelectionOffset(rootBlock, logicalTop, cache), logicalLeftSelectionOffset(rootBlock, logicalTop + logicalHeight, cache));
@@ -1674,8 +1697,7 @@ LayoutRect RenderBlock::logicalLeftSelectionGap(RenderBlock& rootBlock, const La
     return gapRect;
 }
 
-LayoutRect RenderBlock::logicalRightSelectionGap(RenderBlock& rootBlock, const LayoutPoint& rootBlockPhysicalPosition, const LayoutSize& offsetFromRootBlock,
-    RenderBoxModelObject* selObj, LayoutUnit logicalRight, LayoutUnit logicalTop, LayoutUnit logicalHeight, const LogicalSelectionOffsetCaches& cache, const PaintInfo* paintInfo)
+LayoutRect RenderBlock::logicalRightSelectionGap(RenderBlock& rootBlock, const LayoutPoint& rootBlockPhysicalPosition, const LayoutSize& offsetFromRootBlock, RenderElement* selObj, LayoutUnit logicalRight, LayoutUnit logicalTop, LayoutUnit logicalHeight, const LogicalSelectionOffsetCaches& cache, const PaintInfo* paintInfo)
 {
     LayoutUnit rootBlockLogicalTop = blockDirectionOffset(rootBlock, offsetFromRootBlock) + logicalTop;
     LayoutUnit rootBlockLogicalLeft = std::max(inlineDirectionOffset(rootBlock, offsetFromRootBlock) + logicalRight,
@@ -2429,7 +2451,7 @@ LayoutUnit RenderBlock::baselinePosition(FontBaseline baselineType, bool firstLi
         // FIXME: Might be better to have a custom CSS property instead, so that if the theme
         // is turned off, checkboxes/radios will still have decent baselines.
         // FIXME: Need to patch form controls to deal with vertical lines.
-        if (style().hasAppearance() && !theme().isControlContainer(style().appearance()))
+        if (style().hasEffectiveAppearance() && !theme().isControlContainer(style().effectiveAppearance()))
             return theme().baselinePosition(*this);
             
         // CSS2.1 states that the baseline of an inline block is the baseline of the last line box in

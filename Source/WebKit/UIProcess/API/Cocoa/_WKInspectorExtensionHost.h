@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,10 +54,13 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)unregisterExtension:(_WKInspectorExtension *)extension completionHandler:(void(^)(NSError * _Nullable))completionHandler;
 
 /**
- * @abstract Closes the associated Web Inspector instance. This will cause all
- * registered _WKInspectorExtensions to be unregistered and invalidated.
+ * @abstract Opens the specified extension tab in the associated Web Inspector.
+ * @param extensionTabIdentifier An identifier for an extension tab created using WKInspectorExtension methods.
+ * @param completionHandler The completion handler to be called when the request to show the tab succeeds or fails.
+ * @discussion This method has no effect if the extensionTabIdentifier is invalid.
+ * It is an error to call this method prior to calling -[_WKInspectorIBActions show].
  */
-- (void)close;
+- (void)showExtensionTabWithIdentifier:(NSString *)extensionTabIdentifier completionHandler:(void(^)(NSError * _Nullable))completionHandler;
 
 /**
  * @abstract The web view that is used to host extension tabs created via _WKInspectorExtension.

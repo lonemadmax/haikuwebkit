@@ -1,6 +1,6 @@
 /*
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2021 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -133,6 +133,14 @@ void StyleSheetContents::parserAppendRule(Ref<StyleRuleBase>&& rule)
 {
     ASSERT(!rule->isCharsetRule());
 
+    if (is<StyleRuleLayer>(rule) && m_importRules.isEmpty() && m_childRules.isEmpty() && m_namespaceRules.isEmpty()) {
+        auto& layerRule = downcast<StyleRuleLayer>(rule.get());
+        if (layerRule.isStatement()) {
+            m_layerRulesBeforeImportRules.append(&layerRule);
+            return;
+        }
+    }
+
     if (is<StyleRuleImport>(rule)) {
         // Parser enforces that @import rules come before anything else except @charset.
         ASSERT(m_childRules.isEmpty());
@@ -146,9 +154,9 @@ void StyleSheetContents::parserAppendRule(Ref<StyleRuleBase>&& rule)
         // Parser enforces that @namespace rules come before all rules other than
         // import/charset rules
         ASSERT(m_childRules.isEmpty());
-        StyleRuleNamespace& namespaceRule = downcast<StyleRuleNamespace>(rule.get());
+        auto& namespaceRule = downcast<StyleRuleNamespace>(rule.get());
         parserAddNamespace(namespaceRule.prefix(), namespaceRule.uri());
-        m_namespaceRules.append(downcast<StyleRuleNamespace>(rule.ptr()));
+        m_namespaceRules.append(&namespaceRule);
         return;
     }
 
@@ -170,6 +178,11 @@ StyleRuleBase* StyleSheetContents::ruleAt(unsigned index) const
     ASSERT_WITH_SECURITY_IMPLICATION(index < ruleCount());
     
     unsigned childVectorIndex = index;
+    if (childVectorIndex < m_layerRulesBeforeImportRules.size())
+        return m_layerRulesBeforeImportRules[childVectorIndex].get();
+
+    childVectorIndex -= m_layerRulesBeforeImportRules.size();
+
     if (childVectorIndex < m_importRules.size())
         return m_importRules[childVectorIndex].get();
 
@@ -186,6 +199,7 @@ StyleRuleBase* StyleSheetContents::ruleAt(unsigned index) const
 unsigned StyleSheetContents::ruleCount() const
 {
     unsigned result = 0;
+    result += m_layerRulesBeforeImportRules.size();
     result += m_importRules.size();
     result += m_namespaceRules.size();
     result += m_childRules.size();
@@ -203,6 +217,7 @@ void StyleSheetContents::clearRules()
         ASSERT(m_importRules.at(i)->parentStyleSheet() == this);
         m_importRules[i]->clearParentStyleSheet();
     }
+    m_layerRulesBeforeImportRules.clear();
     m_importRules.clear();
     m_namespaceRules.clear();
     m_childRules.clear();
@@ -224,6 +239,19 @@ bool StyleSheetContents::wrapperInsertRule(Ref<StyleRuleBase>&& rule, unsigned i
     ASSERT(!rule->isCharsetRule());
     
     unsigned childVectorIndex = index;
+    if (childVectorIndex < m_layerRulesBeforeImportRules.size() || (childVectorIndex == m_layerRulesBeforeImportRules.size() && is<StyleRuleLayer>(rule))) {
+        if (!is<StyleRuleLayer>(rule))
+            return false;
+        auto& layerRule = downcast<StyleRuleLayer>(rule.get());
+        if (layerRule.isStatement()) {
+            m_layerRulesBeforeImportRules.insert(childVectorIndex, &layerRule);
+            return true;
+        }
+        if (childVectorIndex < m_layerRulesBeforeImportRules.size())
+            return false;
+    }
+    childVectorIndex -= m_layerRulesBeforeImportRules.size();
+
     if (childVectorIndex < m_importRules.size() || (childVectorIndex == m_importRules.size() && rule->isImportRule())) {
         // Inserting non-import rule before @import is not allowed.
         if (!is<StyleRuleImport>(rule))
@@ -239,7 +267,6 @@ bool StyleSheetContents::wrapperInsertRule(Ref<StyleRuleBase>&& rule, unsigned i
         return false;
     childVectorIndex -= m_importRules.size();
 
-    
     if (childVectorIndex < m_namespaceRules.size() || (childVectorIndex == m_namespaceRules.size() && rule->isNamespaceRule())) {
         // Inserting non-namespace rules other than import rule before @namespace is
         // not allowed.
@@ -278,6 +305,12 @@ void StyleSheetContents::wrapperDeleteRule(unsigned index)
     ASSERT_WITH_SECURITY_IMPLICATION(index < ruleCount());
 
     unsigned childVectorIndex = index;
+    if (childVectorIndex < m_layerRulesBeforeImportRules.size()) {
+        m_layerRulesBeforeImportRules.remove(childVectorIndex);
+        return;
+    }
+    childVectorIndex -= m_layerRulesBeforeImportRules.size();
+
     if (childVectorIndex < m_importRules.size()) {
         m_importRules[childVectorIndex]->clearParentStyleSheet();
         m_importRules.remove(childVectorIndex);
@@ -436,6 +469,7 @@ static bool traverseRulesInVector(const Vector<RefPtr<StyleRuleBase>>& rules, co
             break;
         case StyleRuleType::Style:
         case StyleRuleType::FontFace:
+        case StyleRuleType::FontPaletteValues:
         case StyleRuleType::Page:
         case StyleRuleType::Keyframes:
         case StyleRuleType::Namespace:
@@ -486,6 +520,7 @@ bool StyleSheetContents::traverseSubresources(const WTF::Function<bool (const Ca
         case StyleRuleType::Keyframe:
         case StyleRuleType::Supports:
         case StyleRuleType::Layer:
+        case StyleRuleType::FontPaletteValues:
             return false;
         };
         ASSERT_NOT_REACHED();

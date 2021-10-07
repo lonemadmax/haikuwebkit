@@ -611,6 +611,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     builtins/BuiltinNames.h
     builtins/BuiltinUtils.h
 
+    bytecode/ArithProfile.h
     bytecode/ArrayAllocationProfile.h
     bytecode/ArrayProfile.h
     bytecode/BytecodeConventions.h
@@ -837,6 +838,8 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
 
     jit/AssemblyHelpers.h
     jit/AssemblyHelpersSpoolers.h
+    jit/BaselineJITCode.h
+    jit/CallFrameShuffleData.h
     jit/CCallHelpers.h
     jit/ExecutableAllocator.h
     jit/ExecutableMemoryHandle.h
@@ -857,6 +860,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     jit/Reg.h
     jit/RegisterAtOffset.h
     jit/RegisterAtOffsetList.h
+    jit/RegisterMap.h
     jit/RegisterSet.h
     jit/Snippet.h
     jit/SnippetParams.h
@@ -875,6 +879,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     parser/ParserError.h
     parser/ParserModes.h
     parser/ParserTokens.h
+    parser/ResultType.h
     parser/SourceCode.h
     parser/SourceProvider.h
     parser/SourceProviderCache.h
@@ -1464,10 +1469,12 @@ if (CMAKE_COMPILER_IS_GNUCXX AND GCC_OFFLINEASM_SOURCE_MAP)
         PROPERTY RULE_LAUNCH_COMPILE "${LowLevelInterpreter_LAUNCHER}")
 
     # Pass in the filename as a magic preprocessor directive, so that
-    # the wrapper can accurately identify the source file.
+    # the wrapper can accurately identify the source file. This is incompatible
+    # with LTO.
     set_source_files_properties("llint/LowLevelInterpreter.cpp"
         PROPERTIES
-        COMPILE_DEFINITIONS "POSTPROCESS_ASM=llint/LowLevelInterpreter.cpp")
+        COMPILE_DEFINITIONS "POSTPROCESS_ASM=llint/LowLevelInterpreter.cpp"
+        COMPILE_OPTIONS "-fno-lto")
 endif ()
 
 # When building JavaScriptCore as an object library, we need to make sure the

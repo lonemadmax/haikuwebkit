@@ -1063,20 +1063,16 @@ TextStream& operator<<(TextStream& ts, TextDecoration textDecoration)
     case TextDecoration::Overline: ts << "overline"; break;
     case TextDecoration::LineThrough: ts << "line-through"; break;
     case TextDecoration::Blink: ts << "blink"; break;
-#if ENABLE(LETTERPRESS)
-    case TextDecoration::Letterpress: ts << "letterpress"; break;
-#endif
     }
     return ts;
 }
 
-TextStream& operator<<(TextStream& ts, TextDecorationSkip skip)
+TextStream& operator<<(TextStream& ts, TextDecorationSkipInk skip)
 {
     switch (skip) {
-    case TextDecorationSkip::None: ts << "none"; break;
-    case TextDecorationSkip::Ink: ts << "ink"; break;
-    case TextDecorationSkip::Objects: ts << "objects"; break;
-    case TextDecorationSkip::Auto: ts << "auto"; break;
+    case TextDecorationSkipInk::None: ts << "none"; break;
+    case TextDecorationSkipInk::Auto: ts << "auto"; break;
+    case TextDecorationSkipInk::All: ts << "all"; break;
     }
     return ts;
 }
@@ -1306,6 +1302,25 @@ TextStream& operator<<(TextStream& ts, MathStyle mathStyle)
 bool alwaysPageBreak(BreakBetween between)
 {
     return between >= BreakBetween::Page;
+}
+
+CSSBoxType transformBoxToCSSBoxType(TransformBox transformBox)
+{
+    switch (transformBox) {
+    case TransformBox::StrokeBox:
+        return CSSBoxType::StrokeBox;
+    case TransformBox::ContentBox:
+        return CSSBoxType::ContentBox;
+    case TransformBox::BorderBox:
+        return CSSBoxType::BorderBox;
+    case TransformBox::FillBox:
+        return CSSBoxType::FillBox;
+    case TransformBox::ViewBox:
+        return CSSBoxType::ViewBox;
+    default:
+        ASSERT_NOT_REACHED();
+        return CSSBoxType::BorderBox;
+    }
 }
 
 const float defaultMiterLimit = 4;

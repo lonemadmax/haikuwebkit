@@ -100,6 +100,7 @@ namespace WebCore {
     M(ResourceLoading) \
     M(ResourceLoadObserver) \
     M(ResourceLoadStatistics) \
+    M(ScrollAnimations) \
     M(ScrollSnap) \
     M(Scrolling) \
     M(ScrollingTree) \
@@ -114,6 +115,7 @@ namespace WebCore {
     M(StyleSheets) \
     M(SVG) \
     M(TextAutosizing) \
+    M(TextShaping) \
     M(Tiling) \
     M(Threading) \
     M(URLParser) \

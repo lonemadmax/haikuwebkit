@@ -381,7 +381,7 @@ NS_ASSUME_NONNULL_END
 @end
 #endif
 
-#if !USE(APPLE_INTERNAL_SDK) || USE(AV_SAMPLE_BUFFER_DISPLAY_LAYER)
+#if !USE(APPLE_INTERNAL_SDK)
 @interface AVSampleBufferDisplayLayer (WebCorePrivate)
 @property (assign, nonatomic) BOOL preventsDisplaySleepDuringVideoPlayback;
 @end
@@ -397,6 +397,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) NSString* routingContextUID;
 @property (readonly) BOOL eligibleForBTSmartRoutingConsideration;
 - (BOOL)setEligibleForBTSmartRoutingConsideration:(BOOL)inValue error:(NSError **)outError;
+- (BOOL)setHostProcessAttribution:(NSArray<NSString *>*)inHostProcessInfo error:(NSError **)outError SPI_AVAILABLE(ios(15.0), watchos(8.0), tvos(15.0)) API_UNAVAILABLE(macCatalyst, macos);
 @end
 
 NS_ASSUME_NONNULL_END
@@ -431,12 +432,6 @@ NS_ASSUME_NONNULL_END
 @interface AVSampleBufferDisplayLayer (VideoOutput)
 @property (nonatomic, nullable) AVSampleBufferVideoOutput *output;
 @end
-
-#if HAVE(AVFOUNDATION_INTERSTITIAL_EVENTS)
-@interface AVPlayerItem (AVPlayerInterstitialSupport)
-@property (nonatomic) BOOL automaticallyHandlesInterstitialEvents;
-@end
-#endif
 
 #endif // USE(APPLE_INTERNAL_SDK)
 #endif // HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)

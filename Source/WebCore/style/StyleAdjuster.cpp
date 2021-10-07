@@ -36,6 +36,7 @@
 #include "Element.h"
 #include "EventNames.h"
 #include "FrameView.h"
+#include "HTMLDialogElement.h"
 #include "HTMLDivElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLMarqueeElement.h"
@@ -315,7 +316,7 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
 
         // Top layer elements are always position: absolute; unless the position is set to fixed.
         // https://fullscreen.spec.whatwg.org/#new-stacking-layer
-        bool isInTopLayer = style.styleType() == PseudoId::Backdrop || (m_element && m_element->isInTopLayer());
+        bool isInTopLayer = isInTopLayerOrBackdrop(style, m_element);
         if (style.position() != PositionType::Absolute && style.position() != PositionType::Fixed && isInTopLayer)
             style.setPosition(PositionType::Absolute);
 
@@ -392,6 +393,9 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
             style.setOverflowY(style.overflowY() == Overflow::Visible ? Overflow::Auto : style.overflowY());
         }
 
+        if (is<HTMLInputElement>(*m_element) && downcast<HTMLInputElement>(*m_element).isPasswordField())
+            style.setTextSecurity(style.inputSecurity() == InputSecurity::Auto ? TextSecurity::Disc : TextSecurity::None);
+
         // Disallow -webkit-user-modify on :pseudo and ::pseudo elements.
         if (!m_element->shadowPseudoId().isNull())
             style.setUserModify(UserModify::ReadOnly);
@@ -455,7 +459,7 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
     }
 
     // Menulists should have visible overflow
-    if (style.appearance() == MenulistPart) {
+    if (style.effectiveAppearance() == MenulistPart) {
         style.setOverflowX(Overflow::Visible);
         style.setOverflowY(Overflow::Visible);
     }
@@ -517,6 +521,24 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
 
     style.setEffectiveTouchActions(computeEffectiveTouchActions(style, m_parentStyle.effectiveTouchActions()));
 
+    // Counterparts in Element::addToTopLayer/removeFromTopLayer & SharingResolver::canShareStyleWithElement need to match!
+    auto hasInertAttribute = [this] (const Element* element) -> bool {
+        return m_document.settings().inertAttributeEnabled() && is<HTMLElement>(element) && element->hasAttribute(HTMLNames::inertAttr);
+    };
+    auto isInertSubtreeRoot = [this, hasInertAttribute] (const Element* element) -> bool {
+        if (m_document.activeModalDialog() && element == m_document.documentElement())
+            return true;
+        if (hasInertAttribute(element))
+            return true;
+        return false;
+    };
+    if (isInertSubtreeRoot(m_element))
+        style.setEffectiveInert(true);
+
+    // Make sure the active dialog is interactable when the whole document is blocked by the modal dialog
+    if (m_element == m_document.activeModalDialog() && !hasInertAttribute(m_element))
+        style.setEffectiveInert(false);
+
     if (m_element)
         style.setEventListenerRegionTypes(computeEventListenerRegionTypes(*m_element, m_parentStyle.eventListenerRegionTypes()));
 
@@ -574,7 +596,7 @@ static bool hasEffectiveDisplayNoneForDisplayContents(const Element& element)
 
 void Adjuster::adjustDisplayContentsStyle(RenderStyle& style) const
 {
-    bool isInTopLayer = style.styleType() == PseudoId::Backdrop || (m_element && m_element->isInTopLayer());
+    bool isInTopLayer = isInTopLayerOrBackdrop(style, m_element);
     if (isInTopLayer || m_document.documentElement() == m_element) {
         style.setEffectiveDisplay(DisplayType::Block);
         return;

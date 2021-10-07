@@ -1,7 +1,7 @@
 /*
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
  * (C) 2002-2003 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2002-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2002-2021 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,9 +25,11 @@
 #include "CSSCounterStyleRule.h"
 #include "CSSDeferredParser.h"
 #include "CSSFontFaceRule.h"
+#include "CSSFontPaletteValuesRule.h"
 #include "CSSImportRule.h"
 #include "CSSKeyframeRule.h"
 #include "CSSKeyframesRule.h"
+#include "CSSLayerRule.h"
 #include "CSSMediaRule.h"
 #include "CSSNamespaceRule.h"
 #include "CSSPageRule.h"
@@ -69,6 +71,9 @@ void StyleRuleBase::destroy()
         return;
     case StyleRuleType::FontFace:
         delete downcast<StyleRuleFontFace>(this);
+        return;
+    case StyleRuleType::FontPaletteValues:
+        delete downcast<StyleRuleFontPaletteValues>(this);
         return;
     case StyleRuleType::Media:
         delete downcast<StyleRuleMedia>(this);
@@ -113,6 +118,8 @@ Ref<StyleRuleBase> StyleRuleBase::copy() const
         return downcast<StyleRulePage>(*this).copy();
     case StyleRuleType::FontFace:
         return downcast<StyleRuleFontFace>(*this).copy();
+    case StyleRuleType::FontPaletteValues:
+        return downcast<StyleRuleFontPaletteValues>(*this).copy();
     case StyleRuleType::Media:
         return downcast<StyleRuleMedia>(*this).copy();
     case StyleRuleType::Supports:
@@ -149,6 +156,9 @@ Ref<CSSRule> StyleRuleBase::createCSSOMWrapper(CSSStyleSheet* parentSheet, CSSRu
     case StyleRuleType::FontFace:
         rule = CSSFontFaceRule::create(downcast<StyleRuleFontFace>(self), parentSheet);
         break;
+    case StyleRuleType::FontPaletteValues:
+        rule = CSSFontPaletteValuesRule::create(downcast<StyleRuleFontPaletteValues>(self), parentSheet);
+        break;
     case StyleRuleType::Media:
         rule = CSSMediaRule::create(downcast<StyleRuleMedia>(self), parentSheet);
         break;
@@ -168,7 +178,8 @@ Ref<CSSRule> StyleRuleBase::createCSSOMWrapper(CSSStyleSheet* parentSheet, CSSRu
         rule = CSSCounterStyleRule::create(downcast<StyleRuleCounterStyle>(self), parentSheet);
         break;
     case StyleRuleType::Layer:
-        // FIXME: Implement.
+        rule = CSSLayerRule::create(downcast<StyleRuleLayer>(self), parentSheet);
+        break;
     case StyleRuleType::Unknown:
     case StyleRuleType::Charset:
     case StyleRuleType::Keyframe:
@@ -224,7 +235,7 @@ const StyleProperties& StyleRule::properties() const
 
 MutableStyleProperties& StyleRule::mutableProperties()
 {
-    if (!is<MutableStyleProperties>(m_properties.get()))
+    if (!is<MutableStyleProperties>(m_properties))
         m_properties = properties().mutableCopy();
     return downcast<MutableStyleProperties>(m_properties.get());
 }
@@ -293,7 +304,7 @@ Ref<StyleRulePage> StyleRulePage::create(Ref<StyleProperties>&& properties, CSSS
 
 MutableStyleProperties& StyleRulePage::mutableProperties()
 {
-    if (!is<MutableStyleProperties>(m_properties.get()))
+    if (!is<MutableStyleProperties>(m_properties))
         m_properties = m_properties->mutableCopy();
     return downcast<MutableStyleProperties>(m_properties.get());
 }
@@ -314,10 +325,28 @@ StyleRuleFontFace::~StyleRuleFontFace() = default;
 
 MutableStyleProperties& StyleRuleFontFace::mutableProperties()
 {
-    if (!is<MutableStyleProperties>(m_properties.get()))
+    if (!is<MutableStyleProperties>(m_properties))
         m_properties = m_properties->mutableCopy();
     return downcast<MutableStyleProperties>(m_properties.get());
 }
+
+StyleRuleFontPaletteValues::StyleRuleFontPaletteValues(const AtomString& name, const AtomString& fontFamily, const FontPaletteIndex& basePalette, Vector<FontPaletteValues::OverriddenColor>&& overrideColors)
+    : StyleRuleBase(StyleRuleType::FontPaletteValues)
+    , m_name(name)
+    , m_fontFamily(fontFamily)
+    , m_fontPaletteValues(basePalette, WTFMove(overrideColors))
+{
+}
+
+StyleRuleFontPaletteValues::StyleRuleFontPaletteValues(const StyleRuleFontPaletteValues& o)
+    : StyleRuleBase(o)
+    , m_name(o.name())
+    , m_fontFamily(o.fontFamily())
+    , m_fontPaletteValues(o.m_fontPaletteValues)
+{
+}
+
+StyleRuleFontPaletteValues::~StyleRuleFontPaletteValues() = default;
 
 DeferredStyleGroupRuleList::DeferredStyleGroupRuleList(const CSSParserTokenRange& range, CSSDeferredParser& parser)
     : m_parser(parser)
@@ -473,17 +502,17 @@ StyleRuleLayer::StyleRuleLayer(const StyleRuleLayer& other)
 {
 }
 
-Ref<StyleRuleLayer> StyleRuleLayer::create(Vector<CascadeLayerName>&& nameList)
+Ref<StyleRuleLayer> StyleRuleLayer::createStatement(Vector<CascadeLayerName>&& nameList)
 {
     return adoptRef(*new StyleRuleLayer(WTFMove(nameList)));
 }
 
-Ref<StyleRuleLayer> StyleRuleLayer::create(CascadeLayerName&& name, Vector<RefPtr<StyleRuleBase>>&& rules)
+Ref<StyleRuleLayer> StyleRuleLayer::createBlock(CascadeLayerName&& name, Vector<RefPtr<StyleRuleBase>>&& rules)
 {
     return adoptRef(*new StyleRuleLayer(WTFMove(name), WTFMove(rules)));
 }
 
-Ref<StyleRuleLayer> StyleRuleLayer::create(CascadeLayerName&& name, std::unique_ptr<DeferredStyleGroupRuleList>&& rules)
+Ref<StyleRuleLayer> StyleRuleLayer::createBlock(CascadeLayerName&& name, std::unique_ptr<DeferredStyleGroupRuleList>&& rules)
 {
     return adoptRef(*new StyleRuleLayer(WTFMove(name), WTFMove(rules)));
 }

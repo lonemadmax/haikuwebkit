@@ -75,8 +75,8 @@
 #define SUBRESOURCELOADER_RELEASE_LOG(fmt, ...) UNUSED_VARIABLE(this)
 #define SUBRESOURCELOADER_RELEASE_LOG_ERROR(fmt, ...) UNUSED_VARIABLE(this)
 #else
-#define SUBRESOURCELOADER_RELEASE_LOG(fmt, ...) RELEASE_LOG(ResourceLoading, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", frameLoader=%p, resourceID=%lu] SubresourceLoader::" fmt, this, PAGE_ID, FRAME_ID, frameLoader(), identifier(), ##__VA_ARGS__)
-#define SUBRESOURCELOADER_RELEASE_LOG_ERROR(fmt, ...) RELEASE_LOG_ERROR(ResourceLoading, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", frameLoader=%p, resourceID=%lu] SubresourceLoader::" fmt, this, PAGE_ID, FRAME_ID, frameLoader(), identifier(), ##__VA_ARGS__)
+#define SUBRESOURCELOADER_RELEASE_LOG(fmt, ...) RELEASE_LOG(ResourceLoading, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", frameLoader=%p, resourceID=%" PRIu64 "] SubresourceLoader::" fmt, this, PAGE_ID, FRAME_ID, frameLoader(), identifier().toUInt64(), ##__VA_ARGS__)
+#define SUBRESOURCELOADER_RELEASE_LOG_ERROR(fmt, ...) RELEASE_LOG_ERROR(ResourceLoading, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", frameLoader=%p, resourceID=%" PRIu64 "] SubresourceLoader::" fmt, this, PAGE_ID, FRAME_ID, frameLoader(), identifier().toUInt64(), ##__VA_ARGS__)
 #endif
 
 namespace WebCore {
@@ -143,7 +143,7 @@ void SubresourceLoader::startLoading()
 {
     // FIXME: this should probably be removed.
     ASSERT(!IOSApplication::isWebProcess());
-    init(ResourceRequest(m_iOSOriginalRequest), [this, protectedThis = makeRef(*this)] (bool success) {
+    init(ResourceRequest(m_iOSOriginalRequest), [this, protectedThis = Ref { *this }] (bool success) {
         if (!success)
             return;
         m_iOSOriginalRequest = ResourceRequest();
@@ -162,7 +162,7 @@ void SubresourceLoader::cancelIfNotFinishing()
 
 void SubresourceLoader::init(ResourceRequest&& request, CompletionHandler<void(bool)>&& completionHandler)
 {
-    ResourceLoader::init(WTFMove(request), [this, protectedThis = makeRef(*this), completionHandler = WTFMove(completionHandler)] (bool initialized) mutable {
+    ResourceLoader::init(WTFMove(request), [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)] (bool initialized) mutable {
         if (!initialized)
             return completionHandler(false);
         if (!m_documentLoader) {
@@ -172,7 +172,7 @@ void SubresourceLoader::init(ResourceRequest&& request, CompletionHandler<void(b
         }
         ASSERT(!reachedTerminalState());
         m_state = Initialized;
-        m_documentLoader->addSubresourceLoader(this);
+        m_documentLoader->addSubresourceLoader(*this);
         m_origin = m_resource->origin();
         completionHandler(true);
     });
@@ -200,7 +200,7 @@ void SubresourceLoader::willSendRequestInternal(ResourceRequest&& newRequest, co
             (isScriptLikeDestination(options().destination) ? ResourceLoadObserver::FetchDestinationIsScriptLike::Yes : ResourceLoadObserver::FetchDestinationIsScriptLike::No));
     }
 
-    auto continueWillSendRequest = [this, protectedThis = makeRef(*this), redirectResponse] (CompletionHandler<void(ResourceRequest&&)>&& completionHandler, ResourceRequest&& newRequest) mutable {
+    auto continueWillSendRequest = [this, protectedThis = Ref { *this }, redirectResponse] (CompletionHandler<void(ResourceRequest&&)>&& completionHandler, ResourceRequest&& newRequest) mutable {
         if (newRequest.isNull() || reachedTerminalState()) {
             if (newRequest.isNull())
                 SUBRESOURCELOADER_RELEASE_LOG("willSendRequestInternal: resource load canceled because new request is NULL (1)");
@@ -210,7 +210,7 @@ void SubresourceLoader::willSendRequestInternal(ResourceRequest&& newRequest, co
         }
 
         ResourceLoader::willSendRequestInternal(WTFMove(newRequest), redirectResponse, [this, protectedThis = WTFMove(protectedThis), completionHandler = WTFMove(completionHandler), redirectResponse] (ResourceRequest&& request) mutable {
-            tracePoint(SubresourceLoadWillStart, identifier(), PAGE_ID, FRAME_ID);
+            tracePoint(SubresourceLoadWillStart, identifier().toUInt64(), PAGE_ID, FRAME_ID);
 
             if (reachedTerminalState()) {
                 SUBRESOURCELOADER_RELEASE_LOG("willSendRequestInternal: reached terminal state; calling completion handler");
@@ -491,14 +491,14 @@ void SubresourceLoader::didReceiveResponse(const ResourceResponse& response, Com
             // Since a subresource loader does not load multipart sections progressively, data was delivered to the loader all at once.
             // After the first multipart section is complete, signal to delegates that this load is "finished"
             NetworkLoadMetrics emptyMetrics;
-            m_documentLoader->subresourceLoaderFinishedLoadingOnePart(this);
+            m_documentLoader->subresourceLoaderFinishedLoadingOnePart(*this);
             didFinishLoadingOnePart(emptyMetrics);
         }
 
         if (responseHasHTTPStatusCodeError()) {
             m_loadTiming.markEndTime();
             auto* metrics = this->response().deprecatedNetworkLoadMetricsOrNull();
-            reportResourceTiming(metrics ? *metrics : NetworkLoadMetrics { });
+            reportResourceTiming(metrics ? *metrics : NetworkLoadMetrics::emptyMetrics());
 
             m_state = Finishing;
             m_resource->error(CachedResource::LoadError);
@@ -741,11 +741,11 @@ void SubresourceLoader::didFinishLoading(const NetworkLoadMetrics& networkLoadMe
         // complete load metrics in didFinishLoad. In those cases, fall back to the possibility
         // that they populated partial load timing information on the ResourceResponse.
         const auto* timing = m_resource->response().deprecatedNetworkLoadMetricsOrNull();
-        reportResourceTiming(timing ? *timing : NetworkLoadMetrics { });
+        reportResourceTiming(timing ? *timing : NetworkLoadMetrics::emptyMetrics());
     }
 
     if (m_resource->type() != CachedResource::Type::MainResource)
-        tracePoint(SubresourceLoadDidEnd, identifier());
+        tracePoint(SubresourceLoadDidEnd, identifier().toUInt64());
 
     m_state = Finishing;
     m_resource->finishLoading(resourceData(), networkLoadMetrics);
@@ -791,7 +791,7 @@ void SubresourceLoader::didFail(const ResourceError& error)
     m_state = Finishing;
 
     if (m_resource->type() != CachedResource::Type::MainResource)
-        tracePoint(SubresourceLoadDidEnd, identifier());
+        tracePoint(SubresourceLoadDidEnd, identifier().toUInt64());
 
     if (m_resource->resourceToRevalidate())
         MemoryCache::singleton().revalidationFailed(*m_resource);
@@ -844,7 +844,7 @@ void SubresourceLoader::didCancel(const ResourceError&)
     ASSERT(m_resource);
 
     if (m_resource->type() != CachedResource::Type::MainResource)
-        tracePoint(SubresourceLoadDidEnd, identifier());
+        tracePoint(SubresourceLoadDidEnd, identifier().toUInt64());
 
     m_resource->cancelLoad();
     notifyDone(LoadCompletionType::Cancel);

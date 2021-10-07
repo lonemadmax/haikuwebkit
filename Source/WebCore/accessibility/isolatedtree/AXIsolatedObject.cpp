@@ -68,14 +68,13 @@ void AXIsolatedObject::init()
 
 void AXIsolatedObject::initializeAttributeData(AXCoreObject& object, bool isRoot)
 {
+    ASSERT(is<AccessibilityObject>(object));
+
     setProperty(AXPropertyName::ARIALandmarkRoleDescription, object.ariaLandmarkRoleDescription().isolatedCopy());
     setProperty(AXPropertyName::AccessibilityDescription, object.accessibilityDescription().isolatedCopy());
     setProperty(AXPropertyName::BoundingBoxRect, object.boundingBoxRect());
-    setProperty(AXPropertyName::Description, object.descriptionAttributeValue().isolatedCopy());
     setProperty(AXPropertyName::ElementRect, object.elementRect());
     setProperty(AXPropertyName::HasARIAValueNow, object.hasARIAValueNow());
-    setProperty(AXPropertyName::HasApplePDFAnnotationAttribute, object.hasApplePDFAnnotationAttribute());
-    setProperty(AXPropertyName::HelpText, object.helpTextAttributeValue().isolatedCopy());
     setProperty(AXPropertyName::IsAccessibilityIgnored, object.accessibilityIsIgnored());
     setProperty(AXPropertyName::IsActiveDescendantOfFocusedContainer, object.isActiveDescendantOfFocusedContainer());
     setProperty(AXPropertyName::IsAttachment, object.isAttachment());
@@ -137,11 +136,9 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& object, bool isRoot
     setProperty(AXPropertyName::RoleDescription, object.roleDescription().isolatedCopy());
     setProperty(AXPropertyName::RolePlatformString, object.rolePlatformString().isolatedCopy());
     setProperty(AXPropertyName::RoleValue, static_cast<int>(object.roleValue()));
-    setProperty(AXPropertyName::SpeechHint, object.speechHintAttributeValue().isolatedCopy());
     setProperty(AXPropertyName::SupportsDatetimeAttribute, object.supportsDatetimeAttribute());
     setProperty(AXPropertyName::SupportsRowCountChange, object.supportsRowCountChange());
     setProperty(AXPropertyName::Title, object.title().isolatedCopy());
-    setProperty(AXPropertyName::TitleAttributeValue, object.titleAttributeValue().isolatedCopy());
     setProperty(AXPropertyName::DatetimeAttributeValue, object.datetimeAttributeValue().isolatedCopy());
     setProperty(AXPropertyName::CanSetFocusAttribute, object.canSetFocusAttribute());
     setProperty(AXPropertyName::CanSetTextRangeAttributes, object.canSetTextRangeAttributes());
@@ -209,9 +206,6 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& object, bool isRoot
     setProperty(AXPropertyName::AutoCompleteValue, object.autoCompleteValue().isolatedCopy());
     setProperty(AXPropertyName::SpeakAs, object.speakAsProperty());
     setProperty(AXPropertyName::StringValue, object.stringValue().isolatedCopy());
-#if PLATFORM(MAC)
-    setProperty(AXPropertyName::CaretBrowsingEnabled, object.caretBrowsingEnabled());
-#endif
     setObjectProperty(AXPropertyName::FocusableAncestor, object.focusableAncestor());
     setObjectProperty(AXPropertyName::EditableAncestor, object.editableAncestor());
     setObjectProperty(AXPropertyName::HighestEditableAncestor, object.highestEditableAncestor());
@@ -289,6 +283,11 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& object, bool isRoot
 
     if (object.isTextControl())
         setProperty(AXPropertyName::TextLength, object.textLength());
+
+    if (object.isRadioButton()) {
+        if (auto nameAttribute = object.attributeValue("name"))
+            setProperty(AXPropertyName::NameAttribute, nameAttribute->isolatedCopy());
+    }
 
     if (object.canHaveSelectedChildren()) {
         AccessibilityChildrenVector selectedChildren;
@@ -404,14 +403,13 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& object, bool isRoot
 
     if (isRoot) {
         setObjectProperty(AXPropertyName::WebArea, object.webAreaObject());
-        setProperty(AXPropertyName::PreventKeyboardDOMEventDispatch, object.preventKeyboardDOMEventDispatch());
         setProperty(AXPropertyName::SessionID, object.sessionID());
         setProperty(AXPropertyName::DocumentURI, object.documentURI().isolatedCopy());
         setProperty(AXPropertyName::DocumentEncoding, object.documentEncoding().isolatedCopy());
         setObjectVectorProperty(AXPropertyName::DocumentLinks, object.documentLinks());
     }
 
-    initializePlatformProperties(object);
+    initializePlatformProperties(object, isRoot);
 }
 
 AXCoreObject* AXIsolatedObject::associatedAXObject() const
@@ -514,8 +512,12 @@ void AXIsolatedObject::detachFromParent()
 
 const AXCoreObject::AccessibilityChildrenVector& AXIsolatedObject::children(bool)
 {
+#if USE(APPLE_INTERNAL_SDK)
     ASSERT(_AXSIsolatedTreeModeFunctionIsAvailable() && ((_AXSIsolatedTreeMode_Soft() == AXSIsolatedTreeModeSecondaryThread && !isMainThread())
         || (_AXSIsolatedTreeMode_Soft() == AXSIsolatedTreeModeMainThread && isMainThread())));
+#elif USE(ATSPI)
+    ASSERT(!isMainThread());
+#endif
     updateBackingStore();
     m_children.clear();
     m_children.reserveInitialCapacity(m_childrenIDs.size());
@@ -603,13 +605,6 @@ String AXIsolatedObject::documentURI() const
     return String();
 }
 
-bool AXIsolatedObject::preventKeyboardDOMEventDispatch() const
-{
-    if (auto root = tree()->rootNode())
-        return root->boolAttributeValue(AXPropertyName::PreventKeyboardDOMEventDispatch);
-    return false;
-}
-
 String AXIsolatedObject::documentEncoding() const
 {
     if (auto root = tree()->rootNode())
@@ -654,15 +649,6 @@ AXCoreObject* AXIsolatedObject::parentObjectUnignored() const
 AXCoreObject* AXIsolatedObject::scrollBar(AccessibilityOrientation orientation)
 {
     return objectAttributeValue(orientation == AccessibilityOrientation::Vertical ? AXPropertyName::VerticalScrollBar : AXPropertyName::HorizontalScrollBar);
-}
-
-template<typename U>
-void AXIsolatedObject::performFunctionOnMainThread(U&& lambda) const
-{
-    Accessibility::performFunctionOnMainThread([&lambda, this] () {
-        if (auto* object = associatedAXObject())
-            lambda(object);
-    });
 }
 
 void AXIsolatedObject::setARIAGrabbed(bool value)
@@ -770,13 +756,6 @@ void AXIsolatedObject::setCaretBrowsingEnabled(bool value)
     });
 }
 #endif
-
-void AXIsolatedObject::setPreventKeyboardDOMEventDispatch(bool value)
-{
-    performFunctionOnMainThread([&value](AXCoreObject* object) {
-        object->setPreventKeyboardDOMEventDispatch(value);
-    });
-}
 
 SRGBA<uint8_t> AXIsolatedObject::colorValue() const
 {
@@ -1163,15 +1142,6 @@ FloatRect AXIsolatedObject::convertFrameToSpace(const FloatRect& rect, Accessibi
     return Accessibility::retrieveValueFromMainThread<FloatRect>([&rect, &space, this] () -> FloatRect {
         if (auto* axObject = associatedAXObject())
             return axObject->convertFrameToSpace(rect, space);
-        return { };
-    });
-}
-
-FloatRect AXIsolatedObject::convertRectToPlatformSpace(const FloatRect& rect, AccessibilityConversionSpace space) const
-{
-    return Accessibility::retrieveValueFromMainThread<FloatRect>([&rect, &space, this] () -> FloatRect {
-        if (auto* axObject = associatedAXObject())
-            return axObject->convertRectToPlatformSpace(rect, space);
         return { };
     });
 }
@@ -1862,12 +1832,6 @@ bool AXIsolatedObject::supportsChecked() const
     return false;
 }
 
-bool AXIsolatedObject::ignoredFromModalPresence() const
-{
-    ASSERT_NOT_REACHED();
-    return false;
-}
-
 bool AXIsolatedObject::isModalDescendant(Node*) const
 {
     ASSERT_NOT_REACHED();
@@ -2201,16 +2165,13 @@ AXCoreObject* AXIsolatedObject::firstAnonymousBlockChild() const
     return nullptr;
 }
 
-bool AXIsolatedObject::hasAttribute(const QualifiedName&) const
+std::optional<String> AXIsolatedObject::attributeValue(const String& attributeName) const
 {
-    ASSERT_NOT_REACHED();
-    return false;
-}
-
-const AtomString& AXIsolatedObject::getAttribute(const QualifiedName&) const
-{
-    ASSERT_NOT_REACHED();
-    return nullAtom();
+    if (attributeName == "name") {
+        if (m_propertyMap.contains(AXPropertyName::NameAttribute))
+            return stringAttributeValue(AXPropertyName::NameAttribute);
+    }
+    return std::nullopt;
 }
 
 bool AXIsolatedObject::hasTagName(const QualifiedName&) const

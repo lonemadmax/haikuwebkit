@@ -102,7 +102,7 @@ private:
     bool canRunBeforeUnloadConfirmPanel() final;
     bool runBeforeUnloadConfirmPanel(const String& message, WebCore::Frame&) final;
     
-    void closeWindowSoon() final;
+    void closeWindow() final;
     
     void runJavaScriptAlert(WebCore::Frame&, const String&) final;
     bool runJavaScriptConfirm(WebCore::Frame&, const String&) final;
@@ -407,9 +407,10 @@ private:
 
     void didInvalidateDocumentMarkerRects() final;
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     void hasStorageAccess(WebCore::RegistrableDomain&& subFrameDomain, WebCore::RegistrableDomain&& topFrameDomain, WebCore::Frame&, WTF::CompletionHandler<void(bool)>&&) final;
     void requestStorageAccess(WebCore::RegistrableDomain&& subFrameDomain, WebCore::RegistrableDomain&& topFrameDomain, WebCore::Frame&, WebCore::StorageAccessScope, WTF::CompletionHandler<void(WebCore::RequestStorageAccessResult)>&&) final;
+    bool hasPageLevelStorageAccess(const WebCore::RegistrableDomain& topLevelDomain, const WebCore::RegistrableDomain& resourceDomain) const final;
 #endif
 
 #if ENABLE(DEVICE_ORIENTATION)
@@ -454,10 +455,10 @@ private:
     void enumerateImmersiveXRDevices(CompletionHandler<void(const PlatformXR::Instance::DeviceList&)>&&) final;
 #endif
 
-#if HAVE(ARKIT_INLINE_PREVIEW_IOS)
+#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
     void takeModelElementFullscreen(WebCore::GraphicsLayer::PlatformLayerID contentLayerId) const final;
 #endif
-#if HAVE(ARKIT_INLINE_PREVIEW_MAC)
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
     void modelElementDidCreatePreview(WebCore::HTMLModelElement&, const URL&, const String&, const WebCore::FloatSize&) const final;
 #endif
 

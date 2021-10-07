@@ -34,15 +34,9 @@ enum class GestureType : uint8_t {
     OneFingerTap,
     TapAndAHalf,
     DoubleTap,
-    TapAndHalf,
-    DoubleTapInUneditable,
-    OneFingerTapInUneditable,
-    OneFingerTapSelectsAll,
     OneFingerDoubleTap,
     OneFingerTripleTap,
     TwoFingerSingleTap,
-    TwoFingerRangedSelectGesture,
-    TapOnLinkWithGesture,
     PhraseBoundary
 };
 
@@ -102,15 +96,9 @@ template<> struct EnumTraits<WebKit::GestureType> {
         WebKit::GestureType::OneFingerTap,
         WebKit::GestureType::TapAndAHalf,
         WebKit::GestureType::DoubleTap,
-        WebKit::GestureType::TapAndHalf,
-        WebKit::GestureType::DoubleTapInUneditable,
-        WebKit::GestureType::OneFingerTapInUneditable,
-        WebKit::GestureType::OneFingerTapSelectsAll,
         WebKit::GestureType::OneFingerDoubleTap,
         WebKit::GestureType::OneFingerTripleTap,
         WebKit::GestureType::TwoFingerSingleTap,
-        WebKit::GestureType::TwoFingerRangedSelectGesture,
-        WebKit::GestureType::TapOnLinkWithGesture,
         WebKit::GestureType::PhraseBoundary
     >;
 };

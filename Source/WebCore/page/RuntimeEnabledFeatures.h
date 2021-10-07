@@ -176,12 +176,12 @@ public:
 
     void setReadableByteStreamAPIEnabled(bool isEnabled) { m_isReadableByteStreamAPIEnabled = isEnabled; }
     bool readableByteStreamAPIEnabled() const { return m_isReadableByteStreamAPIEnabled; }
-    void setWritableStreamAPIEnabled(bool isEnabled) { m_isWritableStreamAPIEnabled = isEnabled; }
-    bool writableStreamAPIEnabled() const { return m_isWritableStreamAPIEnabled; }
     void setTransformStreamAPIEnabled(bool isEnabled) { m_isTransformStreamAPIEnabled = isEnabled; }
     bool transformStreamAPIEnabled() const { return m_isTransformStreamAPIEnabled; }
 
 #if ENABLE(SERVICE_WORKER)
+    bool pushAPIEnabled() const { return m_pushAPIEnabled; }
+    void setPushAPIEnabled(bool isEnabled) { m_pushAPIEnabled = isEnabled; }
     bool serviceWorkerEnabled() const { return m_serviceWorkerEnabled; }
     void setServiceWorkerEnabled(bool isEnabled) { m_serviceWorkerEnabled = isEnabled; }
 #endif
@@ -257,6 +257,11 @@ public:
     bool webAuthenticationModernEnabled() const { return m_areWebAuthenticationModernEnabled; }
 #endif
 
+#if ENABLE(MEDIA_SOURCE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
+    void setMediaSourceInlinePaintingEnabled(bool);
+    bool mediaSourceInlinePaintingEnabled() const { return m_mediaSourceInlinePaintingEnabled; }
+#endif
+
 private:
     // Never instantiate.
     RuntimeEnabledFeatures();
@@ -330,10 +335,10 @@ private:
 #endif
 
     bool m_isReadableByteStreamAPIEnabled { false };
-    bool m_isWritableStreamAPIEnabled { false };
     bool m_isTransformStreamAPIEnabled { false };
 
 #if ENABLE(SERVICE_WORKER)
+    bool m_pushAPIEnabled { false };
     bool m_serviceWorkerEnabled { false };
 #endif
 
@@ -391,6 +396,10 @@ private:
 
 #if ENABLE(WEB_AUTHN)
     bool m_areWebAuthenticationModernEnabled { false };
+#endif
+
+#if ENABLE(MEDIA_SOURCE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
+    bool m_mediaSourceInlinePaintingEnabled { false };
 #endif
 
     friend class WTF::NeverDestroyed<RuntimeEnabledFeatures>;

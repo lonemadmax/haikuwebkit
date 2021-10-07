@@ -160,8 +160,13 @@ SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVMediaCharacteristicLegible, N
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVPlayerItemLegibleOutputTextStylingResolutionSourceAndRulesOnly, NSString *)
 #define AVPlayerItemLegibleOutputTextStylingResolutionSourceAndRulesOnly PAL::get_AVFoundation_AVPlayerItemLegibleOutputTextStylingResolutionSourceAndRulesOnly()
 
+
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAssetChapterMetadataGroupsDidChangeNotification, NSString *)
+#define AVAssetChapterMetadataGroupsDidChangeNotification PAL::get_AVFoundation_AVAssetChapterMetadataGroupsDidChangeNotification()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVMetadataCommonKeyTitle, NSString *)
 #define AVMetadataCommonKeyTitle PAL::get_AVFoundation_AVMetadataCommonKeyTitle()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVMetadataCommonKeyArtwork, NSString *)
+#define AVMetadataCommonKeyArtwork PAL::get_AVFoundation_AVMetadataCommonKeyArtwork()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVMetadataKeySpaceCommon, NSString *)
 #define AVMetadataKeySpaceCommon PAL::get_AVFoundation_AVMetadataKeySpaceCommon()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVMediaTypeSubtitle, NSString *)
@@ -320,7 +325,7 @@ SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVRouteDetectorMultipleRoutesDe
 #endif // HAVE(WATCHOS)
 
 #if HAVE(AVROUTEPICKERVIEW)
-SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVOutputContextOutputDevicesDidChangeNotification, NSString *)
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVOutputContextOutputDevicesDidChangeNotification, NSNotificationName)
 #define AVOutputContextOutputDevicesDidChangeNotification PAL::get_AVFoundation_AVOutputContextOutputDevicesDidChangeNotification()
 #endif // HAVE(AVROUTEPICKERVIEW)
 

@@ -93,7 +93,7 @@ HTMLFormElement::~HTMLFormElement()
 
     m_defaultButton = nullptr;
     for (auto& weakElement : m_associatedElements) {
-        auto element = makeRefPtr(weakElement.get());
+        RefPtr element { weakElement.get() };
         ASSERT(element);
         auto* associatedElement = element->asFormAssociatedElement();
         ASSERT(associatedElement);
@@ -159,7 +159,7 @@ unsigned HTMLFormElement::length() const
 {
     unsigned length = 0;
     for (auto& weakElement : m_associatedElements) {
-        auto element = makeRefPtr(weakElement.get());
+        RefPtr element { weakElement.get() };
         ASSERT(element);
         auto* associatedElement = element->asFormAssociatedElement();
         ASSERT(associatedElement);
@@ -272,7 +272,7 @@ void HTMLFormElement::submitIfPossible(Event* event, HTMLFormControlElement* sub
 
     bool shouldValidate = document().page() && document().page()->settings().interactiveFormValidationEnabled() && !noValidate();
     if (shouldValidate) {
-        auto submitElement = makeRefPtr(submitter ? submitter : findSubmitter(event));
+        RefPtr submitElement = submitter ? submitter : findSubmitter(event);
         if (submitElement && submitElement->formNoValidate())
             shouldValidate = false;
     }
@@ -289,7 +289,7 @@ void HTMLFormElement::submitIfPossible(Event* event, HTMLFormControlElement* sub
     auto formState = FormState::create(*this, textFieldValues(), document(), NotSubmittedByJavaScript);
     targetFrame->loader().client().dispatchWillSendSubmitEvent(WTFMove(formState));
 
-    auto protectedThis = makeRef(*this);
+    Ref protectedThis { *this };
 
     auto submitEvent = SubmitEvent::create(submitter);
     dispatchEvent(submitEvent);
@@ -341,7 +341,7 @@ StringPairVector HTMLFormElement::textFieldValues() const
     StringPairVector result;
     result.reserveInitialCapacity(m_associatedElements.size());
     for (auto& weakElement : m_associatedElements) {
-        auto element = makeRefPtr(weakElement.get());
+        RefPtr element { weakElement.get() };
         if (!is<HTMLInputElement>(element))
             continue;
         auto& input = downcast<HTMLInputElement>(*element);
@@ -395,7 +395,7 @@ void HTMLFormElement::submit(Event* event, bool activateSubmitButton, bool proce
     if (firstSuccessfulSubmitButton)
         firstSuccessfulSubmitButton->setActivatedSubmit(true);
 
-    auto protectedThis = makeRef(*this); // Form submission can execute arbitary JavaScript.
+    Ref protectedThis { *this }; // Form submission can execute arbitary JavaScript.
 
     auto shouldLockHistory = processingUserGesture ? LockHistory::No : LockHistory::Yes;
     auto formSubmission = FormSubmission::create(*this, submitter, m_attributes, event, shouldLockHistory, trigger);
@@ -716,7 +716,7 @@ String HTMLFormElement::target() const
 
 String HTMLFormElement::effectiveTarget(const Event* event, HTMLFormControlElement* overrideSubmitter) const
 {
-    if (auto submitter = makeRefPtr(overrideSubmitter ? overrideSubmitter : findSubmitter(event))) {
+    if (RefPtr submitter = overrideSubmitter ? overrideSubmitter : findSubmitter(event)) {
         auto targetValue = submitter->attributeWithoutSynchronization(formtargetAttr);
         if (!targetValue.isNull())
             return targetValue;
@@ -794,7 +794,7 @@ bool HTMLFormElement::checkInvalidControlsAndCollectUnhandled(Vector<RefPtr<HTML
     auto elements = copyAssociatedElementsVector();
     bool hasInvalidControls = false;
     for (auto& element : elements) {
-        if (element->form() == this && is<HTMLFormControlElement>(element.get())) {
+        if (element->form() == this && is<HTMLFormControlElement>(element)) {
             HTMLFormControlElement& control = downcast<HTMLFormControlElement>(element.get());
             if (!control.checkValidity(&unhandledInvalidControls) && control.form() == this)
                 hasInvalidControls = true;
@@ -838,7 +838,7 @@ RefPtr<HTMLElement> HTMLFormElement::elementFromPastNamesMap(const AtomString& p
     auto weakElement = m_pastNamesMap.get(pastName);
     if (!weakElement)
         return nullptr;
-    auto element = makeRefPtr(weakElement.get());
+    RefPtr element { weakElement.get() };
 #if ASSERT_ENABLED
     assertItemCanBeInPastNamesMap(element->asFormNamedItem());
 #endif
@@ -895,7 +895,7 @@ void HTMLFormElement::resumeFromDocumentSuspension()
 {
     ASSERT(!shouldAutocomplete());
 
-    document().postTask([formElement = makeRef(*this)] (ScriptExecutionContext&) {
+    document().postTask([formElement = Ref { *this }] (ScriptExecutionContext&) {
         formElement->resetAssociatedFormControlElements();
     });
 }
@@ -930,7 +930,7 @@ const Vector<WeakPtr<HTMLElement>>& HTMLFormElement::unsafeAssociatedElements() 
 Vector<Ref<FormAssociatedElement>> HTMLFormElement::copyAssociatedElementsVector() const
 {
     return WTF::map(m_associatedElements, [] (auto& weakElement) {
-        auto element = makeRefPtr(weakElement.get());
+        RefPtr element { weakElement.get() };
         ASSERT(element);
         auto* formAssociatedElement = element->asFormAssociatedElement();
         ASSERT(formAssociatedElement);

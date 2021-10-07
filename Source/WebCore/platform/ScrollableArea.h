@@ -45,6 +45,7 @@ class LayoutSize;
 class PlatformTouchEvent;
 class PlatformWheelEvent;
 class ScrollAnimator;
+class ScrollbarsController;
 class GraphicsLayer;
 class TiledBacking;
 
@@ -172,11 +173,10 @@ public:
 
     virtual ScrollingNodeID scrollingNodeID() const { return 0; }
 
-    // This getter will create a ScrollAnimator if it doesn't already exist.
     WEBCORE_EXPORT ScrollAnimator& scrollAnimator() const;
-
-    // This getter will return null if the ScrollAnimator hasn't been created yet.
     ScrollAnimator* existingScrollAnimator() const { return m_scrollAnimator.get(); }
+
+    WEBCORE_EXPORT ScrollbarsController& scrollbarsController() const;
 
     virtual bool isActive() const = 0;
     WEBCORE_EXPORT virtual void invalidateScrollbar(Scrollbar&, const IntRect&);
@@ -227,6 +227,7 @@ public:
 
     WEBCORE_EXPORT ScrollOffset scrollOffset() const;
 
+    ScrollOffset minimumScrollOffset() const { return { }; }
     ScrollOffset maximumScrollOffset() const;
 
     WEBCORE_EXPORT ScrollPosition scrollPositionFromOffset(ScrollOffset) const;
@@ -316,9 +317,11 @@ public:
     // This function is static so that it can be called from the main thread or the scrolling thread.
     WEBCORE_EXPORT static void computeScrollbarValueAndOverhang(float currentPosition, float totalSize, float visibleSize, float& doubleValue, float& overhangAmount);
 
-    bool isPinnedForScrollDeltaOnAxis(float scrollDelta, ScrollEventAxis) const;
-    bool isPinnedForScrollDelta(const FloatSize&) const;
-    RectEdges<bool> edgePinnedState() const;
+    static std::optional<BoxSide> targetSideForScrollDelta(FloatSize, ScrollEventAxis);
+
+    // "Pinned" means scrolled at or beyond the edge.
+    bool isPinnedOnSide(BoxSide) const;
+    WEBCORE_EXPORT RectEdges<bool> edgePinnedState() const;
 
     // True if scrolling happens by moving compositing layers.
     virtual bool usesCompositedScrolling() const { return false; }
@@ -334,7 +337,7 @@ public:
     void verticalScrollbarLayerDidChange();
     void horizontalScrollbarLayerDidChange();
 
-    virtual bool usesMockScrollAnimator() const { return false; }
+    virtual bool mockScrollAnimatorEnabled() const { return false; }
     virtual void logMockScrollAnimatorMessage(const String&) const { };
 
     virtual bool shouldPlaceVerticalScrollbarOnLeft() const = 0;
@@ -359,7 +362,7 @@ protected:
 
     friend class ScrollingCoordinator;
     virtual GraphicsLayer* layerForScrollCorner() const { return nullptr; }
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
     virtual GraphicsLayer* layerForOverhangAreas() const { return nullptr; }
 #endif
 
@@ -378,6 +381,7 @@ private:
     virtual void setScrollOffset(const ScrollOffset&) = 0;
 
     mutable std::unique_ptr<ScrollAnimator> m_scrollAnimator;
+    mutable std::unique_ptr<ScrollbarsController> m_scrollbarsController;
 
     // There are 8 possible combinations of writing mode and direction. Scroll origin will be non-zero in the x or y axis
     // if there is any reversed direction or writing-mode. The combinations are:

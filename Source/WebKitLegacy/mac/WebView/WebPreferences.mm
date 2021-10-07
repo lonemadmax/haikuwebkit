@@ -1180,16 +1180,6 @@ public:
     [self _setBoolValue:flag forKey:WebKitJavaScriptCanAccessClipboardPreferenceKey];
 }
 
-- (BOOL)isXSSAuditorEnabled
-{
-    return [self _boolValueForKey:WebKitXSSAuditorEnabledPreferenceKey];
-}
-
-- (void)setXSSAuditorEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitXSSAuditorEnabledPreferenceKey];
-}
-
 #if !PLATFORM(IOS_FAMILY)
 - (BOOL)respectStandardStyleKeyEquivalents
 {
@@ -3320,16 +3310,6 @@ static RetainPtr<NSString>& classIBCreatorID()
     [self _setBoolValue:flag forKey:WebKitReadableByteStreamAPIEnabledPreferenceKey];
 }
 
-- (BOOL)writableStreamAPIEnabled
-{
-    return [self _boolValueForKey:WebKitWritableStreamAPIEnabledPreferenceKey];
-}
-
-- (void)setWritableStreamAPIEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitWritableStreamAPIEnabledPreferenceKey];
-}
-
 - (BOOL)transformStreamAPIEnabled
 {
     return [self _boolValueForKey:WebKitTransformStreamAPIEnabledPreferenceKey];
@@ -3508,6 +3488,15 @@ static RetainPtr<NSString>& classIBCreatorID()
 - (BOOL)experimentalNotificationsEnabled
 {
     return NO;
+}
+
+- (BOOL)isXSSAuditorEnabled
+{
+    return FALSE;
+}
+
+- (void)setXSSAuditorEnabled:(BOOL)flag
+{
 }
 
 @end

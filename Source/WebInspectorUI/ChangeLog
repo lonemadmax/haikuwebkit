@@ -1,3 +1,259 @@
+2021-09-29  BJ Burg  <bburg@apple.com>
+
+        [Cocoa] add _WKInspectorExtension SPI to evaluate script on an extension tab
+        https://bugs.webkit.org/show_bug.cgi?id=230646
+        <rdar://problem/83420328>
+
+        Reviewed by Devin Rousso.
+
+        Add a new InspectorFrontendAPI method to evaluate script on an iframe within
+        Web Inspector. This in turn calls out to InspectorFrontendHost to do the actual evaluation.
+        Otherwise, the CSP policy set by the tab content may block any such evaluation
+        if the 'script-src' directive does not include 'unsafe-eval'.
+
+        * UserInterface/Protocol/InspectorFrontendAPI.js:
+        (InspectorFrontendAPI.showExtensionTab):
+        (InspectorFrontendAPI.evaluateScriptInExtensionTab):
+        Call through to the WebInspectorExtensionController method.
+
+        * UserInterface/Controllers/WebInspectorExtensionController.js:
+        (WI.WebInspectorExtensionController.prototype.evaluateScriptInExtensionTab): Added.
+        Try to get the <iframe> for a extensionTabID, and use InspectorFrontendHost to
+        evaluate script in the context of the <iframe>. Be sure to correctly wrap the result.
+
+        * UserInterface/Views/WebInspectorExtensionTabContentView.js:
+        (WI.WebInspectorExtensionTabContentView):
+        (WI.WebInspectorExtensionTabContentView.prototype.get iframeElement):
+        (WI.WebInspectorExtensionTabContentView.shouldSaveTab):
+        (WI.WebInspectorExtensionTabContentView.prototype.initialLayout): Deleted.
+        While writing the API test, I saw that the first evaluation frequently failed
+        because the <iframe> did not exist. Change this class so that the <iframe>
+        is created in the constructor. Add a getter for the <iframe> element.
+
+        (WI.WebInspectorExtensionTabContentView.prototype._extensionFrameDidLoad):
+        (WI.WebInspectorExtensionTabContentView.prototype._maybeDispatchDidShowExtensionTab):
+        While writing this patch, it became apparent that didShowExtensionTab() was being
+        called prior to the iframe actually completing its initial load. Then, the test
+        would try to evaluate script on about:blank instead of the actual tab content.
+        To fix this, require that the <iframe> be attached and have fired the `onload` event
+        before we notify clients that it has been 'shown'.
+
+        * UserInterface/Main.html:
+        Adjust the default CSP policy to not mention img-src. This allows ports such as
+        Cocoa to set their own img-src CSP directive. These changes are necessary to allow
+        images to load from custom URL schemes.
+
+        * UserInterface/Views/TabBrowser.js:
+        (WI.TabBrowser.prototype.bestTabContentViewForRepresentedObject):
+        The new API test exposes a bug in this assertion, namely, that it does not account
+        for the situation where a tab does not wish to be saved. In that case, the displayed
+        WebInspectorExtensionTabContentView is *not* at index 0 of WI.TabBrowser.recentTabContentViews.
+        This is correctly handled with a special case in WI.TabBrowser._tabBarItemSelected,
+        so incorporate that logic into the assertion.
+
+2021-09-28  BJ Burg  <bburg@apple.com>
+
+        Web Inspector: add settings option for 'Show Mock Web Extension Tab' in engineering builds
+        https://bugs.webkit.org/show_bug.cgi?id=230923
+
+        Reviewed by Devin Rousso.
+
+        This is an engineering-only facility to quickly check the behavior of
+        WebInspectorExtensionTabContentView (aka Web Extension Tabs). The behavior
+        of these tabs differs from other tabs, so it is important to make this easy to verify.
+
+        * UserInterface/Base/Setting.js: Add new setting.
+        * UserInterface/Debug/Bootstrap.js:
+        (updateMockWebExtensionTab):
+        (WI.runBootstrapOperations):
+        Call the InspectorFrontendAPI commands that would be called by WebInspectorUIExtensionController
+        to register an extension and create a tab for it.
+
+        * UserInterface/Debug/MockWebExtensionTab.html: Added.
+        This is adapted from InspectorExtension-basic-tab.html as used in TestWebKitAPI.
+
+        * UserInterface/Protocol/InspectorFrontendAPI.js: Fix a typo in the headerdoc
+        for createTabForExtension.
+
+        * UserInterface/Views/SettingsTabContentView.js:
+        (WI.SettingsTabContentView.prototype._createEngineeringSettingsView):
+
+2021-09-28  BJ Burg  <bburg@apple.com>
+
+        [Cocoa] Add SPI to select a tab created by _WKInspectorExtension
+        https://bugs.webkit.org/show_bug.cgi?id=230580
+        <rdar://problem/83372851>
+
+        Reviewed by Devin Rousso.
+
+        Add a method to look up a WebInspectorExtensionTabContentView
+        by its extensionTabID and then show it with WI.tabBrowser.
+
+        * UserInterface/Controllers/WebInspectorExtensionController.js:
+        (WI.WebInspectorExtensionController.prototype.reloadForExtension):
+        Remove extra newlines.
+        (WI.WebInspectorExtensionController.prototype.showExtensionTab): Added.
+
+        * UserInterface/Protocol/InspectorFrontendAPI.js:
+        (InspectorFrontendAPI.showExtensionTab): Added.
+
+2021-09-23  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Web Inspector support for font-palette
+        https://bugs.webkit.org/show_bug.cgi?id=230453
+
+        Reviewed by Devin Rousso.
+
+        Provide keyword completions.
+
+        * UserInterface/Models/CSSKeywordCompletions.js:
+
+2021-09-22  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: add a pinned [+] button to the tab bar to make it easier to re-open closed tabs
+        https://bugs.webkit.org/show_bug.cgi?id=230600
+
+        Reviewed by BJ Burg.
+
+        * UserInterface/Views/TabBar.js:
+        (WI.TabBar):
+        (WI.TabBar.prototype.selectTabBarItem):
+        (WI.TabBar.prototype.layout):
+        (WI.TabBar.prototype._pinnedButtons): Added.
+        (WI.TabBar.prototype._closedTabClasses): Added.
+        (WI.TabBar.prototype._handleTabContainerMouseDown):
+        (WI.TabBar.prototype._handleShowHiddenTabsTabBarItemMouseDown): Added.
+        (WI.TabBar.prototype._handleAddClosedTabsTabBarItemMouseDown): Added.
+        (WI.TabBar.prototype._handleTabContainerClick): Deleted.
+        Add a `_openClosedTabsTabBarItem` that's a `WI.PinnedTabBarItem` without a `representedObject`,
+        meaning that it's basically just a button and won't actually open a tab when clicked. This
+        suits our purposes perfectly as we only want to show a contextmenu on click, not to mention
+        that it will only be shown if there are closed tabs.
+        Drive-by: Rename `_tabPickerTabBarItem` to `_showHiddenTabsTabBarItem` to clarify purpose.
+        Drive-by: Remove `_handleTabContainerClick` as tabs can only be removed via the contextmenu.
+
+        * UserInterface/Images/Overflow.svg: Renamed from UserInterface/Images/TabPicker.svg.
+        Drive-by: Rename to clarify purpose.
+
+        * Localizations/en.lproj/localizedStrings.js:
+
+2021-09-16  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: Regression(r279613) Audit result scope toggles are missing
+        https://bugs.webkit.org/show_bug.cgi?id=230322
+
+        Reviewed by Devin Rousso.
+
+        The sizing calculations modified in r279613 were erroneously applied to both the minimum space calculation as
+        well as the navigation item hiding calculations, despite hiding navigation items never being done for non-sidebar
+        navigation bars. The logic in `WI.NavigationBar.prototype._calculateMinimumWidth` remains unchanged, as we still
+        need sidebars to provide a minimum width that can accommodate all items in a flex layout in order to avoid
+        flowing navigation items on to another row. The navigation bar in a sidebar is unique in this respect, as other
+        navigation bars will gracefully hide components if they truly don't have enough space, but a sidebar relies on
+        getting a minimum size that can actually accommodate all items in a single row.
+
+        * UserInterface/Views/NavigationBar.js:
+        (WI.NavigationBar.prototype.layout.calculateVisibleItemWidth):
+        (WI.NavigationBar.prototype.layout):
+
+2021-09-16  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: Don't maintain a back-forward stack for `ContentBrowser`/`ContentViewContainer` when not necessary
+        https://bugs.webkit.org/show_bug.cgi?id=230286
+
+        Reviewed by Devin Rousso.
+
+        We currently maintain a back/forward stack for all ContentViewContainers, even if other history entries won't be
+        used. Instead, subclasses of ContentBrowserTabContentView should be able to disable the history stack, which
+        helps us ensure that outdated content views are not kept around for these subclasses and their views.
+
+        This does not line up one-to-one with views that hide the back/forward buttons, as the back/forward stack is
+        used in some places to provide a memory of selection across different views, like in the Graphics tab.
+
+        * UserInterface/Views/AuditTabContentView.js:
+        (WI.AuditTabContentView):
+        * UserInterface/Views/ConsoleTabContentView.js:
+        (WI.ConsoleTabContentView):
+        * UserInterface/Views/ContentBrowser.js:
+        * UserInterface/Views/ContentBrowserTabContentView.js:
+        * UserInterface/Views/ContentViewContainer.js:
+        (WI.ContentViewContainer.prototype.showContentView):
+        (WI.ContentViewContainer.prototype.replaceContentView):
+        * UserInterface/Views/ElementsTabContentView.js:
+        (WI.ElementsTabContentView):
+        * UserInterface/Views/GraphicsTabContentView.js:
+        (WI.GraphicsTabContentView):
+        * UserInterface/Views/LayersTabContentView.js:
+        (WI.LayersTabContentView):
+        * UserInterface/Views/NetworkDetailView.js:
+        (WI.NetworkDetailView.prototype.initialLayout):
+        * UserInterface/Views/NetworkTabContentView.js:
+        (WI.NetworkTabContentView):
+        * UserInterface/Views/TimelineRecordingContentView.js:
+        (WI.TimelineRecordingContentView):
+
+2021-09-16  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: `FrameDOMTreeContentView` may update after it has `closed` called, causing hangs on some webpages on reload
+        https://bugs.webkit.org/show_bug.cgi?id=230186
+
+        Reviewed by Devin Rousso.
+
+        `FrameDOMTreeContentView` may be `closed` between a call to `_requestRootDOMNode` and the response being
+        provided to `_rootDOMNodeAvailable`. This can result in an attempt to select a DOM node in an old and detached
+        DOM tree. To combat this, add a flag to `ContentView` to mark a closed `ContentView` as such, and then return
+        early from `_rootDOMNodeAvailable` if the `ContentView` is already closed.
+
+        * UserInterface/Views/ContentView.js:
+        (WI.ContentView):
+        (WI.ContentView.prototype.closed):
+        (WI.ContentView.prototype.get isClosed):
+        * UserInterface/Views/FrameDOMTreeContentView.js:
+        (WI.FrameDOMTreeContentView.prototype._rootDOMNodeAvailable):
+
+2021-09-15  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: `TreeOutline` should return early when failing to find an ancestor while populating the tree
+        https://bugs.webkit.org/show_bug.cgi?id=230287
+
+        Reviewed by Devin Rousso.
+
+        When an ancestor can not be found, we should return to prevent additional work (which will fail) from being done.
+
+        * UserInterface/Views/TreeOutline.js:
+        (WI.TreeOutline.prototype.findTreeElement):
+
+2021-09-15  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: `DOMTreeUpdater` doesn't complete deferred updating/clear updated lists when a node isn't found in the tree
+        https://bugs.webkit.org/show_bug.cgi?id=230289
+
+        Reviewed by Devin Rousso.
+
+        Instead of an early return when a tree element can't be found, we should continue on to the next updated node
+        and finish out by clearing the collections of updated nodes, otherwise a node that will never be findable again
+        will cause extra work to be done on every update.
+
+        * UserInterface/Views/DOMTreeUpdater.js:
+        (WI.DOMTreeUpdater.prototype._updateModifiedNodes):
+
+2021-09-13  Razvan Caliman  <rcaliman@apple.com>
+
+        Web Inspector: Update naming of WI.CSSCompletions callback used for collecting supported CSS properties from the target
+        https://bugs.webkit.org/show_bug.cgi?id=230153
+
+        Reviewed by Devin Rousso.
+
+        Rename `WI.CSSCompletions.initializeCSSCompletions.propertyNamesCallback(names)` to `propertiesCallback(properties)` 
+        to remove confusion about what the payload actually contains: not a list of property names, but a list of objects with 
+        CSS property names, values, aliases, longhands, etc.
+
+        The constructor of `WI.CSSCompletions` expects and handles this payload.
+
+        * UserInterface/Models/CSSCompletions.js:
+        (WI.CSSCompletions.initializeCSSCompletions):
+        (WI.CSSCompletions.initializeCSSCompletions.propertyNamesCallback): Deleted.
+
 2021-08-27  Russell Epstein  <repstein@apple.com>
 
         Land Windows build fixes from safari-612.1.29.14-branch.

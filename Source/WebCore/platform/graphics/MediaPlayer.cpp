@@ -33,9 +33,13 @@
 #include "Document.h"
 #include "GraphicsContext.h"
 #include "IntRect.h"
+#include "LegacyCDMSession.h"
 #include "Logging.h"
 #include "MIMETypeRegistry.h"
 #include "MediaPlayerPrivate.h"
+#include "PlatformMediaResourceLoader.h"
+#include "PlatformScreen.h"
+#include "PlatformTextTrack.h"
 #include "PlatformTimeRanges.h"
 #include <wtf/Lock.h>
 #include <wtf/NeverDestroyed.h>
@@ -190,8 +194,13 @@ private:
 #endif
 
     const Vector<WebCore::ContentType>& mediaContentTypesRequiringHardwareSupport() const final { return nullContentTypeVector(); }
-};
 
+    RefPtr<PlatformMediaResourceLoader> mediaPlayerCreateResourceLoader() final { return nullptr; }
+
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
+    RefPtr<ArrayBuffer> mediaPlayerCachedKeyForKeyId(const String&) const final { return nullptr; }
+#endif
+};
 
 const Vector<ContentType>& MediaPlayerClient::mediaContentTypesRequiringHardwareSupport() const
 {
@@ -417,6 +426,7 @@ MediaPlayer::MediaPlayer(MediaPlayerClient& client)
     : m_client(&client)
     , m_reloadTimer(*this, &MediaPlayer::reloadTimerFired)
     , m_private(makeUnique<NullMediaPlayerPrivate>(this))
+    , m_preferredDynamicRangeMode(DynamicRangeMode::Standard)
 {
 }
 
@@ -425,6 +435,7 @@ MediaPlayer::MediaPlayer(MediaPlayerClient& client, MediaPlayerEnums::MediaEngin
     , m_reloadTimer(*this, &MediaPlayer::reloadTimerFired)
     , m_private(makeUnique<NullMediaPlayerPrivate>(this))
     , m_activeEngineIdentifier(mediaEngineIdentifier)
+    , m_preferredDynamicRangeMode(DynamicRangeMode::Standard)
 {
 }
 

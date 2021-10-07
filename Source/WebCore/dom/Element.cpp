@@ -60,6 +60,7 @@
 #include "GetAnimationsOptions.h"
 #include "HTMLBodyElement.h"
 #include "HTMLCanvasElement.h"
+#include "HTMLDialogElement.h"
 #include "HTMLDocument.h"
 #include "HTMLHtmlElement.h"
 #include "HTMLLabelElement.h"
@@ -206,13 +207,9 @@ Element::~Element()
     ASSERT(!beforePseudoElement());
     ASSERT(!afterPseudoElement());
 
-#if ENABLE(INTERSECTION_OBSERVER)
     disconnectFromIntersectionObservers();
-#endif
 
-#if ENABLE(RESIZE_OBSERVER)
     disconnectFromResizeObservers();
-#endif
 
     removeShadowRoot();
 
@@ -644,7 +641,7 @@ Vector<String> Element::getAttributeNames() const
 
 bool Element::isFocusable() const
 {
-    if (!isConnected() || !supportsFocus() || isInert())
+    if (!isConnected() || !supportsFocus() || deprecatedIsInert())
         return false;
 
     if (!renderer()) {
@@ -712,7 +709,7 @@ void Element::setActive(bool flag, bool pause, Style::InvalidationScope invalida
         return;
 
     bool reactsToPress = false;
-    if (renderer()->style().hasAppearance() && renderer()->theme().stateChanged(*renderer(), ControlStates::States::Pressed))
+    if (renderer()->style().hasEffectiveAppearance() && renderer()->theme().stateChanged(*renderer(), ControlStates::States::Pressed))
         reactsToPress = true;
 
     // The rest of this function implements a feature that only works if the
@@ -809,7 +806,7 @@ void Element::setHovered(bool flag, Style::InvalidationScope invalidationScope)
         document().userActionElements().setHovered(*this, flag);
     }
 
-    if (auto* style = renderStyle(); style && style->hasAppearance())
+    if (auto* style = renderStyle(); style && style->hasEffectiveAppearance())
         renderer()->theme().stateChanged(*renderer(), ControlStates::States::Hovered);
 }
 
@@ -1016,7 +1013,7 @@ void Element::scrollTo(const ScrollToOptions& options, ScrollClamping clamping, 
         // If the element is the scrolling element and is not potentially scrollable,
         // invoke scroll() on window with options as the only argument, and terminate these steps.
         // FIXME: Scrolling an independently scrollable body is broken: webkit.org/b/161612.
-        auto window = makeRefPtr(document().domWindow());
+        RefPtr window = document().domWindow();
         if (!window)
             return;
 
@@ -1142,7 +1139,7 @@ int Element::offsetLeftForBindings()
 {
     auto offset = offsetLeft();
 
-    auto parent = makeRefPtr(offsetParent());
+    RefPtr parent = offsetParent();
     if (!parent || !parent->isInShadowTree())
         return offset;
 
@@ -1171,7 +1168,7 @@ int Element::offsetTopForBindings()
 {
     auto offset = offsetTop();
 
-    auto parent = makeRefPtr(offsetParent());
+    RefPtr parent = offsetParent();
     if (!parent || !parent->isInShadowTree())
         return offset;
 
@@ -2124,7 +2121,6 @@ void Element::didMoveToNewDocument(Document& oldDocument, Document& newDocument)
     if (UNLIKELY(isDefinedCustomElement()))
         CustomElementReactionQueue::enqueueAdoptedCallbackIfNeeded(*this, oldDocument, newDocument);
 
-#if ENABLE(INTERSECTION_OBSERVER)
     if (auto* observerData = intersectionObserverDataIfExists()) {
         for (const auto& observer : observerData->observers) {
             if (observer->hasObservationTargets()) {
@@ -2133,7 +2129,6 @@ void Element::didMoveToNewDocument(Document& oldDocument, Document& newDocument)
             }
         }
     }
-#endif
 }
 
 bool Element::hasAttributes() const
@@ -3000,12 +2995,12 @@ RefPtr<Attr> Element::getAttributeNode(const AtomString& qualifiedName)
 RefPtr<Attr> Element::getAttributeNodeNS(const AtomString& namespaceURI, const AtomString& localName)
 {
     if (!elementData())
-        return 0;
+        return nullptr;
     QualifiedName qName(nullAtom(), localName, namespaceURI);
     synchronizeAttribute(qName);
     const Attribute* attribute = elementData()->findAttributeByName(qName);
     if (!attribute)
-        return 0;
+        return nullptr;
     return ensureAttr(attribute->name());
 }
 
@@ -3069,7 +3064,7 @@ void Element::focus(const FocusOptions& options)
     if (!isConnected())
         return;
 
-    auto document = makeRef(this->document());
+    Ref document { this->document() };
     if (document->focusedElement() == this) {
         if (document->page())
             document->page()->chrome().client().elementDidRefocus(*this);
@@ -3087,7 +3082,7 @@ void Element::focus(const FocusOptions& options)
         return;
 
     if (auto root = shadowRootWithDelegatesFocus(*this)) {
-        auto currentlyFocusedElement = makeRefPtr(document->focusedElement());
+        RefPtr currentlyFocusedElement = document->focusedElement();
         if (root->containsIncludingShadowDOM(currentlyFocusedElement.get())) {
             if (document->page())
                 document->page()->chrome().client().elementDidRefocus(*currentlyFocusedElement);
@@ -3379,7 +3374,10 @@ void Element::addToTopLayer()
     document().addTopLayerElement(*this);
     setNodeFlag(NodeFlag::IsInTopLayer);
 
+    // Invalidate inert state
     invalidateStyleInternal();
+    if (document().documentElement())
+        document().documentElement()->invalidateStyleInternal();
 
     if (auto* layer = renderLayerForElement(*this))
         layer->establishesTopLayerDidChange();
@@ -3396,7 +3394,12 @@ void Element::removeFromTopLayer()
     document().removeTopLayerElement(*this);
     clearNodeFlag(NodeFlag::IsInTopLayer);
 
+    // Invalidate inert state
     invalidateStyleInternal();
+    if (document().documentElement())
+        document().documentElement()->invalidateStyleInternal();
+    if (auto* modalElement = document().activeModalDialog())
+        modalElement->invalidateStyleInternal();
 
     if (auto* layer = renderLayerForElement(*this))
         layer->establishesTopLayerDidChange();
@@ -3892,8 +3895,6 @@ void Element::requestPointerLock()
 
 #endif
 
-#if ENABLE(INTERSECTION_OBSERVER)
-
 void Element::disconnectFromIntersectionObservers()
 {
     auto* observerData = intersectionObserverDataIfExists();
@@ -3925,8 +3926,6 @@ IntersectionObserverData* Element::intersectionObserverDataIfExists()
 {
     return hasRareData() ? elementRareData()->intersectionObserverData() : nullptr;
 }
-
-#endif
 
 ElementAnimationRareData* Element::animationRareData(PseudoId pseudoId) const
 {
@@ -4027,8 +4026,6 @@ void Element::setLastStyleChangeEventStyle(PseudoId pseudoId, std::unique_ptr<co
         ensureAnimationRareData(pseudoId).setLastStyleChangeEventStyle(WTFMove(style));
 }
 
-#if ENABLE(RESIZE_OBSERVER)
-
 void Element::disconnectFromResizeObservers()
 {
     auto* observerData = resizeObserverData();
@@ -4052,8 +4049,6 @@ ResizeObserverData* Element::resizeObserverData()
 {
     return hasRareData() ? elementRareData()->resizeObserverData() : nullptr;
 }
-
-#endif
 
 bool Element::isSpellCheckingEnabled() const
 {

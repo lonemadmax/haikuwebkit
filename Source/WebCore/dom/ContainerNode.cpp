@@ -249,7 +249,7 @@ ExceptionOr<void> ContainerNode::removeSelfOrChildNodesForInsertion(Node& child,
 {
     if (!is<DocumentFragment>(child)) {
         nodesForInsertion.append(child);
-        auto oldParent = makeRefPtr(child.parentNode());
+        RefPtr oldParent = child.parentNode();
         if (!oldParent)
             return { };
         return oldParent->removeChild(child);
@@ -1013,7 +1013,7 @@ ExceptionOr<void> ContainerNode::replaceChildren(Vector<NodeOrString>&& vector)
     }
 
     // step 3
-    auto protectedThis = makeRef(*this);
+    Ref protectedThis { *this };
     ChildListMutationScope mutation(*this);
     removeAllChildrenWithScriptAssertion(ChildChange::Source::API, DeferChildrenChanged::No);
 

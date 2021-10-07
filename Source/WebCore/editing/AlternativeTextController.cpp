@@ -339,15 +339,11 @@ bool AlternativeTextController::canEnableAutomaticSpellingCorrection() const
 {
 #if ENABLE(AUTOCORRECT)
     auto position = m_document.selection().selection().start();
-    if (auto editableRoot = position.rootEditableElement()) {
-        if (is<HTMLElement>(editableRoot) && !downcast<HTMLElement>(*editableRoot).shouldAutocorrect())
-            return false;
-    }
-
-    if (auto control = enclosingTextFormControl(position)) {
+    if (RefPtr control = enclosingTextFormControl(position)) {
         if (!control->shouldAutocorrect())
             return false;
-    }
+    } else if (RefPtr editableRoot = position.rootEditableElement(); is<HTMLElement>(editableRoot) && !downcast<HTMLElement>(*editableRoot).shouldAutocorrect())
+        return false;
 #endif
 
     return true;
@@ -607,7 +603,7 @@ void AlternativeTextController::applyAlternativeTextToRange(const SimpleRange& r
     auto paragraphStart = makeBoundaryPoint(startOfParagraph(makeDeprecatedLegacyPosition(range.start)));
     if (!paragraphStart)
         return;
-    auto treeScopeRoot = makeRef(range.start.container->treeScope().rootNode());
+    Ref treeScopeRoot = range.start.container->treeScope().rootNode();
     auto treeScopeStart = BoundaryPoint { treeScopeRoot.get(), 0 };
     auto correctionOffsetInParagraph = characterCount({ *paragraphStart, range.start });
     auto paragraphOffsetInTreeScope = characterCount({ treeScopeStart, *paragraphStart });

@@ -206,8 +206,8 @@ static void drawReplacementArrow(GraphicsContext& context, const FloatRect& insi
     FloatPoint arrowTip(rect.maxX(), center.y());
 
     context.setStrokeThickness(2);
-    context.setLineCap(RoundCap);
-    context.setLineJoin(RoundJoin);
+    context.setLineCap(LineCap::Round);
+    context.setLineJoin(LineJoin::Round);
 
     Path path;
     path.moveTo(FloatPoint(rect.x(), center.y()));
@@ -310,7 +310,7 @@ void RenderEmbeddedObject::getReplacementTextGeometry(const LayoutPoint& accumul
     fontDescription.setRenderingMode(settings().fontRenderingMode());
     fontDescription.setComputedSize(12);
     font = FontCascade(WTFMove(fontDescription), 0, 0);
-    font.update(0);
+    font.update(nullptr);
 
     run = TextRun(m_unavailablePluginReplacementText);
     textWidth = font.width(run);

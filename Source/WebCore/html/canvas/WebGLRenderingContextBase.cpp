@@ -134,6 +134,10 @@
 #include "OffscreenCanvas.h"
 #endif
 
+#if ENABLE(MEDIA_STREAM)
+#include "MediaSample.h"
+#endif
+
 namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(WebGLRenderingContextBase);
@@ -1374,6 +1378,15 @@ std::optional<PixelBuffer> WebGLRenderingContextBase::paintRenderingResultsToPix
     clearIfComposited(ClearCallerOther);
     return m_context->paintRenderingResultsToPixelBuffer();
 }
+
+#if ENABLE(MEDIA_STREAM)
+RefPtr<MediaSample> WebGLRenderingContextBase::paintCompositedResultsToMediaSample()
+{
+    if (isContextLostOrPending())
+        return nullptr;
+    return m_context->paintCompositedResultsToMediaSample();
+}
+#endif
 
 WebGLTexture::TextureExtensionFlag WebGLRenderingContextBase::textureExtensionFlags() const
 {
@@ -3167,7 +3180,7 @@ WebGLAny WebGLRenderingContextBase::getParameter(GCGLenum pname)
     case GraphicsContextGL::DITHER:
         return getBooleanParameter(pname);
     case GraphicsContextGL::ELEMENT_ARRAY_BUFFER_BINDING:
-        return makeRefPtr(m_boundVertexArrayObject->getElementArrayBuffer());
+        return RefPtr { m_boundVertexArrayObject->getElementArrayBuffer() };
     case GraphicsContextGL::FRAMEBUFFER_BINDING:
         return m_framebufferBinding;
     case GraphicsContextGL::FRONT_FACE:
@@ -3332,7 +3345,7 @@ WebGLAny WebGLRenderingContextBase::getParameter(GCGLenum pname)
         if (m_oesVertexArrayObject) {
             if (m_boundVertexArrayObject->isDefaultObject())
                 return nullptr;
-            return makeRefPtr(static_cast<WebGLVertexArrayObjectOES&>(*m_boundVertexArrayObject));
+            return static_pointer_cast<WebGLVertexArrayObjectOES>(m_boundVertexArrayObject);
         }
         synthesizeGLError(GraphicsContextGL::INVALID_ENUM, "getParameter", "invalid parameter name, OES_vertex_array_object not enabled");
         return nullptr;
@@ -3950,14 +3963,6 @@ bool WebGLRenderingContextBase::extensionIsEnabled(const String& name)
     return false;
 }
 
-void WebGLRenderingContextBase::enablePreserveDrawingBuffer()
-{
-    ASSERT(!m_attributes.preserveDrawingBuffer);
-    m_attributes.preserveDrawingBuffer = true;
-    // Must send this notification down to the GraphicsContextGL as well.
-    m_context->enablePreserveDrawingBuffer();
-}
-
 void WebGLRenderingContextBase::hint(GCGLenum target, GCGLenum mode)
 {
     if (isContextLostOrPending())
@@ -4152,7 +4157,7 @@ void WebGLRenderingContextBase::makeXRCompatible(MakeXRCompatiblePromise&& promi
     // 2. Let context be the target WebGLRenderingContextBase object.
     // 3. Ensure an immersive XR device is selected.
     auto& xrSystem = NavigatorWebXR::xr(window->navigator());
-    xrSystem.ensureImmersiveXRDeviceIsSelected([this, protectedThis = makeRef(*this), promise = WTFMove(promise), protectedXrSystem = makeRef(xrSystem)]() mutable {
+    xrSystem.ensureImmersiveXRDeviceIsSelected([this, protectedThis = Ref { *this }, promise = WTFMove(promise), protectedXrSystem = Ref { xrSystem }]() mutable {
         auto rejectPromiseWithInvalidStateError = makeScopeExit([&]() {
             m_isXRCompatible = false;
             promise.reject(Exception { InvalidStateError });
@@ -8168,14 +8173,6 @@ Lock& WebGLRenderingContextBase::objectGraphLock()
 void WebGLRenderingContextBase::prepareForDisplay()
 {
     if (!m_context)
-        return;
-
-    // If the canvas is not in the document body, then it won't be
-    // composited and thus doesn't need preparation. Unfortunately
-    // it can't tell at the time it was added to the list, since it
-    // could be inserted or removed from the document body afterwards.
-    auto canvas = htmlCanvas();
-    if (!canvas || !canvas->isInTreeScope())
         return;
 
     m_context->prepareForDisplay();

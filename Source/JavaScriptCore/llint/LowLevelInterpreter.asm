@@ -413,6 +413,11 @@ macro metadata(size, opcode, dst, scratch)
     muli sizeof %opcode%::Metadata, scratch # scratch *= sizeof(Op::Metadata)
     addi scratch, dst # offset += scratch
     addp metadataTable, dst # return &metadataTable[offset]
+    # roundUpToMultipleOf(alignof(Metadata), dst)
+    const adder = (constexpr (alignof(%opcode%::Metadata))) - 1
+    const mask = ~adder
+    addp adder, dst
+    andp mask, dst
 end
 
 macro jumpImpl(dispatchIndirect, targetOffsetReg)
@@ -1415,7 +1420,8 @@ end
 
 macro checkSwitchToJIT(increment, action)
     loadp CodeBlock[cfr], t0
-    baddis increment, CodeBlock::m_llintExecuteCounter + BaselineExecutionCounter::m_counter[t0], .continue
+    loadp CodeBlock::m_unlinkedCode[t0], t0
+    baddis increment, (UnlinkedCodeBlock::m_llintExecuteCounter + BaselineExecutionCounter::m_counter)[t0], .continue
     action()
     .continue:
 end
@@ -1498,7 +1504,8 @@ macro prologue(codeBlockGetter, codeBlockSetter, osrSlowPath, traceSlowPath)
     codeBlockGetter(t1)
     codeBlockSetter(t1)
     if not (C_LOOP or C_LOOP_WIN)
-        baddis 5, CodeBlock::m_llintExecuteCounter + BaselineExecutionCounter::m_counter[t1], .continue
+        loadp CodeBlock::m_unlinkedCode[t1], t0
+        baddis 5, (UnlinkedCodeBlock::m_llintExecuteCounter + BaselineExecutionCounter::m_counter)[t0], .continue
         if JSVALUE64
             move cfr, a0
             move PC, a1
@@ -1612,14 +1619,14 @@ macro functionInitialization(profileArgSkip)
     # optimal way for architectures that have more than five registers available
     # for arbitrary use in the interpreter.
     loadi CodeBlock::m_numParameters[t1], t0
-    addp -profileArgSkip, t0 # Use addi because that's what has the peephole
+    addp -profileArgSkip, t0
     assert(macro (ok) bpgteq t0, 0, ok end)
     btpz t0, .argumentProfileDone
     loadp CodeBlock::m_argumentValueProfiles + FixedVector::m_storage + RefCountedArray::m_data[t1], t3
     btpz t3, .argumentProfileDone # When we can't JIT, we don't allocate any argument value profiles.
     mulp sizeof ValueProfile, t0, t2 # Aaaaahhhh! Need strength reduction!
     lshiftp 3, t0 # offset of last JSValue arguments on the stack.
-    addp t2, t3 # pointer to end of ValueProfile array in CodeBlock::m_argumentValueProfiles.
+    addp t2, t3 # pointer to end of ValueProfile array in the value profile array.
 .argumentProfileLoop:
     if JSVALUE64
         loadq ThisArgumentOffset - 8 + profileArgSkip * 8[cfr, t0], t2
@@ -2475,6 +2482,35 @@ op(llint_internal_function_construct_trampoline, macro ()
 end)
 
 
+if JIT
+    macro loadBaselineJITConstantPool()
+        # Baseline uses LLInt's PB register for its JIT constant pool.
+        loadp CodeBlock[cfr], PB
+        loadp CodeBlock::m_jitData[PB], PB
+        loadp CodeBlock::JITData::m_jitConstantPool[PB], PB
+    end
+
+    macro setupReturnToBaselineAfterCheckpointExitIfNeeded()
+        # DFG or FTL OSR exit could have compiled an OSR exit to LLInt code.
+        # That means it set up registers as if execution would happen in the
+        # LLInt. However, during OSR exit for checkpoints, we might return to
+        # JIT code if it's already compiled. After the OSR exit gets compiled,
+        # we can tier up to JIT code. And checkpoint exit will jump to it.
+        # That means we always need to set up our constant pool GPR, because the OSR
+        # exit code might not have done it.
+        bpneq r0, 1, .notBaselineJIT
+        loadBaselineJITConstantPool()
+    .notBaselineJIT:
+
+    end
+else
+    macro loadBaselineJITConstantPool()
+    end
+
+    macro setupReturnToBaselineAfterCheckpointExitIfNeeded()
+    end
+end
+
 op(checkpoint_osr_exit_from_inlined_call_trampoline, macro ()
     if (JSVALUE64 and not (C_LOOP or C_LOOP_WIN)) or ARMv7 or MIPS
         restoreStackPointerAfterCall()
@@ -2498,8 +2534,10 @@ op(checkpoint_osr_exit_from_inlined_call_trampoline, macro ()
             cCall2(_llint_slow_path_checkpoint_osr_exit_from_inlined_call)
         end
 
+        setupReturnToBaselineAfterCheckpointExitIfNeeded()
         restoreStateAfterCCall()
         branchIfException(_llint_throw_from_slow_path_trampoline)
+
         if ARM64E
             move r1, a0
             leap JSCConfig + constexpr JSC::offsetOfJSCConfigGateMap + (constexpr Gate::loopOSREntry) * PtrSize, a2
@@ -2521,6 +2559,7 @@ op(checkpoint_osr_exit_trampoline, macro ()
         move cfr, a0
         # We don't call saveStateForCCall() because we are going to use the bytecodeIndex from our side state.
         cCall2(_llint_slow_path_checkpoint_osr_exit)
+        setupReturnToBaselineAfterCheckpointExitIfNeeded()
         restoreStateAfterCCall()
         branchIfException(_llint_throw_from_slow_path_trampoline)
         if ARM64E
@@ -2556,6 +2595,23 @@ macro notSupported()
         # on Intel, which is 1 byte, and bkpt on ARMv7, which is 2 bytes.)
         break
     end
+end
+
+
+macro updateUnaryArithProfile(size, opcodeStruct, type, scratch1, scratch2)
+    getu(size, opcodeStruct, m_profileIndex, scratch1)
+    loadp CodeBlock[cfr], scratch2
+    loadp CodeBlock::m_unlinkedCode[scratch2], scratch2
+    loadp UnlinkedCodeBlock::m_unaryArithProfiles + FixedVector::m_storage + RefCountedArray::m_data[scratch2], scratch2
+    orh type, UnaryArithProfile::m_bits[scratch2, scratch1, 2]
+end
+
+macro updateBinaryArithProfile(size, opcodeStruct, type, scratch1, scratch2)
+    getu(size, opcodeStruct, m_profileIndex, scratch1)
+    loadp CodeBlock[cfr], scratch2
+    loadp CodeBlock::m_unlinkedCode[scratch2], scratch2
+    loadp UnlinkedCodeBlock::m_binaryArithProfiles + FixedVector::m_storage + RefCountedArray::m_data[scratch2], scratch2
+    orh type, BinaryArithProfile::m_bits[scratch2, scratch1, 2]
 end
 
 // FIXME: We should not need the X86_64_WIN condition here, since WEBASSEMBLY should already be false on Windows

@@ -1,3 +1,179 @@
+2021-10-03  Basuke Suzuki  <basuke.suzuki@sony.com>
+
+        Enable release log to stderr
+        https://bugs.webkit.org/show_bug.cgi?id=230725
+        <rdar://problem/83740529>
+
+        Reviewed by Michael Catanzaro.
+
+        Introduced new flags, USE_LOG_STDERR for release logging to stderr.
+
+        * Source/cmake/WebKitFeatures.cmake:
+
+2021-10-02  Philippe Normand  <pnormand@igalia.com>
+
+        [GTK][WPE] Enable bwrap launcher build on bots
+        https://bugs.webkit.org/show_bug.cgi?id=230969
+
+        Reviewed by Michael Catanzaro.
+
+        * Source/cmake/OptionsGTK.cmake:
+        * Source/cmake/OptionsWPE.cmake:
+
+2021-09-30  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Upgrade GCC requirement to 8.3.0
+        https://bugs.webkit.org/show_bug.cgi?id=231042
+
+        Reviewed by Darin Adler.
+
+        Based on the roadmap[1], we upgrade GCC requirement to 8.3.0, which is default GCC in Debian one-old-stable (buster) right now.
+        This paves the way to enabling some of useful C++20 features, e.g. default initializer for bitfields.
+
+        [1]: https://trac.webkit.org/wiki/WebKitGTK/GCCRequirement
+
+        * Source/cmake/WebKitCommon.cmake:
+
+2021-09-29  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        MediaStream canvas.captureStream() fails for WebGL
+        https://bugs.webkit.org/show_bug.cgi?id=230613
+        <rdar://82307293>
+
+        Reviewed by Youenn Fablet.
+
+        Add a manual test to interact with media stream
+        captureStream() behavior until the implementation is
+        testable.
+
+        * ManualTests/mediastream/mediastream-canvas-to-video.html: Added.
+
+2021-09-28  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][WPE] Bump libsoup3 version to 3.0.0
+        https://bugs.webkit.org/show_bug.cgi?id=230601
+
+        Reviewed by Philippe Normand.
+
+        * Source/cmake/OptionsGTK.cmake:
+        * Source/cmake/OptionsWPE.cmake:
+
+2021-09-23  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [MSVC] The "/Zc:lambda" switch is recommended to use the new lambda processor.
+        https://bugs.webkit.org/show_bug.cgi?id=226070
+
+        Reviewed by Ross Kirsling.
+
+        Visual Studio 16.5 added the "/Zc:lambda" switch for the better
+        C++ conformance, but it had a compiler crashing bug. Visual Studio
+        16.9 fixed the bug.
+
+        * Source/cmake/OptionsMSVC.cmake: Added /Zc:lambda for Visual
+        Studio 16.9 or later. I will remove the MSVC_VERSION check after
+        AppleWin bots will upgrade MSVC.
+
+2021-09-17  Angelos Oikonomopoulos  <angelos@igalia.com>
+
+        Unbreak GCC_OFFLINEASM_SOURCE_MAP when LTO is in use
+        https://bugs.webkit.org/show_bug.cgi?id=230061
+        <rdar://problem/83166173>
+
+        Reviewed by Michael Catanzaro.
+
+        * Source/cmake/OptionsCommon.cmake:
+
+        Re-enable GCC_OFFLINEASM_SOURCE_MAP.
+
+2021-09-17  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Unreviewed. [GTK] Bump version numbers
+
+        * Source/cmake/OptionsGTK.cmake:
+
+2021-09-17  Martin Robinson  <mrobinson@webkit.org>
+
+        Add Martin Robinson as a reviewer
+        https://bugs.webkit.org/show_bug.cgi?id=230392
+
+        Unreviewed.
+
+        * metadata/contributors.json: Add myself as a reviewer and update my specializations.
+
+2021-09-17  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][a11y] Add a build option to enable ATSPI
+        https://bugs.webkit.org/show_bug.cgi?id=230254
+
+        Reviewed by Adrian Perez de Castro.
+
+        Add USE_ATSPI build option that disables ATK and enables isolated tree.
+
+        * Source/cmake/OptionsGTK.cmake:
+
+2021-09-16  Philip Chimento  <pchimento@igalia.com>
+
+        Fixes for build-webkit --minimal
+        https://bugs.webkit.org/show_bug.cgi?id=229780
+
+        Reviewed by Fujii Hironori.
+
+        Remove ENABLE_RESIZE_OBSERVER build-time option. This option is
+        quite broken if you try to disable it.
+
+        * Source/cmake/OptionsFTW.cmake:
+        * Source/cmake/OptionsMac.cmake:
+        * Source/cmake/WebKitFeatures.cmake:
+
+2021-09-15  Philip Chimento  <pchimento@igalia.com>
+
+        Fixes for build-webkit --minimal
+        https://bugs.webkit.org/show_bug.cgi?id=229780
+
+        Reviewed by Fujii Hironori.
+
+        Remove ENABLE_INTERSECTION_OBSERVER build-time option. This option is
+        quite broken if you try to disable it.
+
+        * Source/cmake/OptionsFTW.cmake:
+        * Source/cmake/OptionsMac.cmake:
+        * Source/cmake/WebKitFeatures.cmake:
+
+2021-09-14  John Wilander  <wilander@apple.com>
+
+        Rename RESOURCE_LOAD_STATISTICS to INTELLIGENT_TRACKING_PREVENTION
+        https://bugs.webkit.org/show_bug.cgi?id=230279
+        <rdar://problem/83118683>
+
+        Reviewed by Darin Adler.
+
+        * Source/cmake/OptionsFTW.cmake:
+        * Source/cmake/OptionsGTK.cmake:
+        * Source/cmake/OptionsMac.cmake:
+        * Source/cmake/OptionsPlayStation.cmake:
+        * Source/cmake/OptionsWPE.cmake:
+        * Source/cmake/OptionsWin.cmake:
+        * Source/cmake/WebKitFeatures.cmake:
+
+2021-09-14  Hoa Dinh  <dvh@apple.com>
+
+        Add dvh@apple.com to the list of contributors.
+        https://bugs.webkit.org/show_bug.cgi?id=230276
+
+        Reviewed by Jonathan Bedard.
+
+        * metadata/contributors.json:
+
+2021-09-13  Sam Sneddon  <gsnedders@apple.com>
+
+        Move ENABLE_RESOLUTION_MEDIA_QUERY to a runtime flag, start running tests again
+        https://bugs.webkit.org/show_bug.cgi?id=229776
+
+        Reviewed by Simon Fraser.
+
+        * Source/cmake/OptionsFTW.cmake:
+        * Source/cmake/WebKitFeatures.cmake:
+
 2021-09-11  Philippe Normand  <pnormand@igalia.com>
 
         [GLIB] MediaSession is not enabled

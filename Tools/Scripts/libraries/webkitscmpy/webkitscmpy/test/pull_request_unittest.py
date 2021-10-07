@@ -25,7 +25,7 @@ import sys
 import unittest
 
 from webkitcorepy import OutputCapture, testing
-from webkitscmpy import Commit, PullRequest, program, mocks
+from webkitscmpy import Commit, PullRequest, program, mocks, remote
 
 
 class TestPullRequest(unittest.TestCase):
@@ -33,12 +33,25 @@ class TestPullRequest(unittest.TestCase):
         self.assertEqual('PR 123 | [scoping] Bug to fix', str(PullRequest(123, title='[scoping] Bug to fix')))
         self.assertEqual('PR 1234', str(PullRequest(1234)))
 
-    def test_create_body_single(self):
+    def test_create_body_single_linked(self):
         self.assertEqual(
             PullRequest.create_body(None, [Commit(
                 hash='11aa76f9fc380e9fe06157154f32b304e8dc4749',
                 message='[scoping] Bug to fix\n\nReviewed by Tim Contributor.\n',
             )]), '''#### 11aa76f9fc380e9fe06157154f32b304e8dc4749
+<pre>
+[scoping] Bug to fix
+
+Reviewed by Tim Contributor.
+</pre>''',
+        )
+
+    def test_create_body_single_no_link(self):
+        self.assertEqual(
+            PullRequest.create_body(None, [Commit(
+                hash='11aa76f9fc380e9fe06157154f32b304e8dc4749',
+                message='[scoping] Bug to fix\n\nReviewed by Tim Contributor.\n',
+            )], linkify=False), '''#### 11aa76f9fc380e9fe06157154f32b304e8dc4749
 ```
 [scoping] Bug to fix
 
@@ -58,17 +71,43 @@ Reviewed by Tim Contributor.
         self.assertEqual(commits[0].hash, '11aa76f9fc380e9fe06157154f32b304e8dc4749')
         self.assertEqual(commits[0].message, '[scoping] Bug to fix\n\nReviewed by Tim Contributor.')
 
-    def test_create_body_multiple(self):
+    def test_create_body_multiple_linked(self):
         self.assertEqual(
             PullRequest.create_body(None, [Commit(
                 hash='11aa76f9fc380e9fe06157154f32b304e8dc4749',
-                message='[scoping] Bug to fix (Part 2)\n\nReviewed by Tim Contributor.\n',
+                message='[scoping] Bug to fix (Part 2)\nhttps://bugs.webkit.org/1234\n\nReviewed by Tim Contributor.\n',
             ), Commit(
                 hash='53ea230fcedbce327eb1c45a6ab65a88de864505',
-                message='[scoping] Bug to fix (Part 1)\n\nReviewed by Tim Contributor.\n',
+                message='[scoping] Bug to fix (Part 1)\n<http://bugs.webkit.org/1234>\n\nReviewed by Tim Contributor.\n',
             )]), '''#### 11aa76f9fc380e9fe06157154f32b304e8dc4749
+<pre>
+[scoping] Bug to fix (Part 2)
+<a href="https://bugs.webkit.org/1234">https://bugs.webkit.org/1234</a>
+
+Reviewed by Tim Contributor.
+</pre>
+----------------------------------------------------------------------
+#### 53ea230fcedbce327eb1c45a6ab65a88de864505
+<pre>
+[scoping] Bug to fix (Part 1)
+&lt;<a href="http://bugs.webkit.org/1234">http://bugs.webkit.org/1234</a> &gt;
+
+Reviewed by Tim Contributor.
+</pre>''',
+        )
+
+    def test_create_body_multiple_no_link(self):
+        self.assertEqual(
+            PullRequest.create_body(None, [Commit(
+                hash='11aa76f9fc380e9fe06157154f32b304e8dc4749',
+                message='[scoping] Bug to fix (Part 2)\nhttps://bugs.webkit.org/1234\n\nReviewed by Tim Contributor.\n',
+            ), Commit(
+                hash='53ea230fcedbce327eb1c45a6ab65a88de864505',
+                message='[scoping] Bug to fix (Part 1)\n<http://bugs.webkit.org/1234>\n\nReviewed by Tim Contributor.\n',
+            )], linkify=False), '''#### 11aa76f9fc380e9fe06157154f32b304e8dc4749
 ```
 [scoping] Bug to fix (Part 2)
+https://bugs.webkit.org/1234
 
 Reviewed by Tim Contributor.
 ```
@@ -76,6 +115,7 @@ Reviewed by Tim Contributor.
 #### 53ea230fcedbce327eb1c45a6ab65a88de864505
 ```
 [scoping] Bug to fix (Part 1)
+<http://bugs.webkit.org/1234>
 
 Reviewed by Tim Contributor.
 ```''',
@@ -104,13 +144,39 @@ Reviewed by Tim Contributor.
         self.assertEqual(commits[1].hash, '53ea230fcedbce327eb1c45a6ab65a88de864505')
         self.assertEqual(commits[1].message, '[scoping] Bug to fix (Part 1)\n\nReviewed by Tim Contributor.')
 
+    def test_parse_html_body_multiple(self):
+        self.maxDiff = None
+        body, commits = PullRequest.parse_body('''#### 11aa76f9fc380e9fe06157154f32b304e8dc4749
+<pre>
+[scoping] Bug to fix (Part 2)
+<a href="https://bugs.webkit.org/1234">https://bugs.webkit.org/1234</a>
+
+Reviewed by Tim Contributor.
+</pre>
+----------------------------------------------------------------------
+#### 53ea230fcedbce327eb1c45a6ab65a88de864505
+<pre>
+[scoping] Bug to fix (Part 1)
+&lt;<a href="http://bugs.webkit.org/1234">http://bugs.webkit.org/1234</a> &gt;
+
+Reviewed by Tim Contributor.
+</pre>''')
+        self.assertIsNone(body)
+        self.assertEqual(len(commits), 2)
+
+        self.assertEqual(commits[0].hash, '11aa76f9fc380e9fe06157154f32b304e8dc4749')
+        self.assertEqual(commits[0].message, '[scoping] Bug to fix (Part 2)\nhttps://bugs.webkit.org/1234\n\nReviewed by Tim Contributor.')
+
+        self.assertEqual(commits[1].hash, '53ea230fcedbce327eb1c45a6ab65a88de864505')
+        self.assertEqual(commits[1].message, '[scoping] Bug to fix (Part 1)\n<http://bugs.webkit.org/1234>\n\nReviewed by Tim Contributor.')
+
     def test_create_body_empty(self):
         self.assertEqual(
             PullRequest.create_body(None, [Commit(hash='11aa76f9fc380e9fe06157154f32b304e8dc4749')]),
             '''#### 11aa76f9fc380e9fe06157154f32b304e8dc4749
-```
+<pre>
 ???
-```''',
+</pre>''',
         )
 
     def test_parse_body_empty(self):
@@ -118,6 +184,16 @@ Reviewed by Tim Contributor.
 ```
 ???
 ```''')
+        self.assertIsNone(body)
+        self.assertEqual(len(commits), 1)
+        self.assertEqual(commits[0].hash, '11aa76f9fc380e9fe06157154f32b304e8dc4749')
+        self.assertEqual(commits[0].message, None)
+
+    def test_parse_html_body_empty(self):
+        body, commits = PullRequest.parse_body('''#### 11aa76f9fc380e9fe06157154f32b304e8dc4749
+<pre>
+???
+</pre>''')
         self.assertIsNone(body)
         self.assertEqual(len(commits), 1)
         self.assertEqual(commits[0].hash, '11aa76f9fc380e9fe06157154f32b304e8dc4749')
@@ -132,11 +208,11 @@ Reviewed by Tim Contributor.
 
 ----------------------------------------------------------------------
 #### 11aa76f9fc380e9fe06157154f32b304e8dc4749
-```
+<pre>
 [scoping] Bug to fix
 
 Reviewed by Tim Contributor.
-```''',
+</pre>''',
         )
 
     def test_parse_body_single(self):
@@ -149,6 +225,21 @@ Reviewed by Tim Contributor.
 
 Reviewed by Tim Contributor.
 ```''')
+        self.assertEqual(body, 'Comment body')
+        self.assertEqual(len(commits), 1)
+        self.assertEqual(commits[0].hash, '11aa76f9fc380e9fe06157154f32b304e8dc4749')
+        self.assertEqual(commits[0].message, '[scoping] Bug to fix\n\nReviewed by Tim Contributor.')
+
+    def test_parse_html_body_single(self):
+        body, commits = PullRequest.parse_body('''Comment body
+
+----------------------------------------------------------------------
+#### 11aa76f9fc380e9fe06157154f32b304e8dc4749
+<pre>
+[scoping] Bug to fix
+
+Reviewed by Tim Contributor.
+</pre>''')
         self.assertEqual(body, 'Comment body')
         self.assertEqual(len(commits), 1)
         self.assertEqual(commits[0].hash, '11aa76f9fc380e9fe06157154f32b304e8dc4749')
@@ -191,12 +282,13 @@ class TestDoPullRequest(testing.PathTestCase):
             self.assertDictEqual(repo.staged, {})
             self.assertEqual(repo.head.hash, 'e4390abc95a2026370b8c9813b7e55c61c5d6ebb')
 
-        self.assertEqual(captured.root.log.getvalue(), '''Creating the local development branch 'eng/pr-branch'...
+        self.assertEqual(
+            '\n'.join([line for line in captured.root.log.getvalue().splitlines() if 'Mock process' not in line]),
+            """Creating the local development branch 'eng/pr-branch'...
 Creating commit...
     Found 1 commit...
 Rebasing 'eng/pr-branch' on 'main'...
-Rebased 'eng/pr-branch' on 'main!'
-''')
+Rebased 'eng/pr-branch' on 'main!'""")
         self.assertEqual(captured.stderr.getvalue(), "'{}' doesn't have a recognized remote\n".format(self.path))
 
     def test_modified(self):
@@ -211,13 +303,14 @@ Rebased 'eng/pr-branch' on 'main!'
             self.assertEqual(repo.head.hash, 'd05082bf6707252aef3472692598a587ed3fb213')
 
         self.assertEqual(captured.stderr.getvalue(), "'{}' doesn't have a recognized remote\n".format(self.path))
-        self.assertEqual(captured.root.log.getvalue(), '''Creating the local development branch 'eng/pr-branch'...
+        self.assertEqual(
+            '\n'.join([line for line in captured.root.log.getvalue().splitlines() if 'Mock process' not in line]),
+            """Creating the local development branch 'eng/pr-branch'...
     Adding modified.txt...
 Creating commit...
     Found 1 commit...
 Rebasing 'eng/pr-branch' on 'main'...
-Rebased 'eng/pr-branch' on 'main!'
-''')
+Rebased 'eng/pr-branch' on 'main!'""")
 
     def test_github(self):
         with OutputCapture() as captured, mocks.remote.GitHub() as remote, \
@@ -232,7 +325,7 @@ Rebased 'eng/pr-branch' on 'main!'
         self.assertEqual(captured.stderr.getvalue(), '')
         log = captured.root.log.getvalue().splitlines()
         self.assertEqual(
-            log[:6] + log[9 if sys.version_info > (3, 0) else 7:], [
+            [line for line in log if 'Mock process' not in line], [
                 "Creating the local development branch 'eng/pr-branch'...",
                 'Creating commit...',
                 '    Found 1 commit...',
@@ -262,8 +355,9 @@ Rebased 'eng/pr-branch' on 'main!'
 
         self.assertEqual(captured.stderr.getvalue(), '')
         log = captured.root.log.getvalue().splitlines()
+        self.maxDiff = None
         self.assertEqual(
-            log[:5] + log[8 if sys.version_info > (3, 0) else 6:], [
+            [line for line in log if 'Mock process' not in line], [
                 "Amending commit...",
                 '    Found 1 commit...',
                 "Rebasing 'eng/pr-branch' on 'main'...",
@@ -288,7 +382,7 @@ Rebased 'eng/pr-branch' on 'main!'
         self.assertEqual(captured.stderr.getvalue(), '')
         log = captured.root.log.getvalue().splitlines()
         self.assertEqual(
-            log[:6] + log[9 if sys.version_info > (3, 0) else 7:], [
+            [line for line in log if 'Mock process' not in line], [
                 "Creating the local development branch 'eng/pr-branch'...",
                 'Creating commit...',
                 '    Found 1 commit...',
@@ -321,7 +415,7 @@ Rebased 'eng/pr-branch' on 'main!'
         self.assertEqual(captured.stderr.getvalue(), '')
         log = captured.root.log.getvalue().splitlines()
         self.assertEqual(
-            log[:5] + log[8 if sys.version_info > (3, 0) else 6:], [
+            [line for line in log if 'Mock process' not in line], [
                 "Amending commit...",
                 '    Found 1 commit...',
                 "Rebasing 'eng/pr-branch' on 'main'...",
@@ -331,3 +425,97 @@ Rebased 'eng/pr-branch' on 'main!'
                 "Updated 'PR 1 | Amended commit'!",
             ],
         )
+
+
+class TestNetworkPullRequestGitHub(unittest.TestCase):
+    remote = 'https://github.example.com/WebKit/WebKit'
+
+    @classmethod
+    def webserver(cls):
+        result = mocks.remote.GitHub()
+        result.pull_requests = [dict(
+            number=1,
+            state='open',
+            title='Example Change',
+            user=dict(login='tcontributor'),
+            body='''#### 95507e3a1a4a919d1a156abbc279fdf6d24b13f5
+<pre>
+Example Change
+<a href="https://bugs.webkit.org/show_bug.cgi?id=1234">https://bugs.webkit.org/show_bug.cgi?id=1234</a>
+
+Reviewed by NOBODY (OOPS!).
+
+* Source/file.cpp:
+</pre>
+''',
+            head=dict(ref='eng/pull-request'),
+            base=dict(ref='main'),
+        )]
+        return result
+
+    def test_find(self):
+        with self.webserver():
+            prs = list(remote.GitHub(self.remote).pull_requests.find())
+            self.assertEqual(len(prs), 1)
+            self.assertEqual(prs[0].number, 1)
+            self.assertEqual(prs[0].title, 'Example Change')
+            self.assertEqual(prs[0].head, 'eng/pull-request')
+            self.assertEqual(prs[0].base, 'main')
+
+    def test_get(self):
+        with self.webserver():
+            pr = remote.GitHub(self.remote).pull_requests.get(1)
+            self.assertEqual(pr.number, 1)
+            self.assertEqual(pr.title, 'Example Change')
+            self.assertEqual(pr.head, 'eng/pull-request')
+            self.assertEqual(pr.base, 'main')
+
+
+class TestNetworkPullRequestBitBucket(unittest.TestCase):
+    remote = 'https://bitbucket.example.com/projects/WEBKIT/repos/webkit'
+
+    @classmethod
+    def webserver(cls):
+        result = mocks.remote.BitBucket()
+        result.pull_requests = [dict(
+            id=1,
+            state='OPEN',
+            title='Example Change',
+            author=dict(
+                user=dict(
+                    name='tcontributor',
+                    emailAddress='tcontributor@apple.com',
+                    displayName='Tim Contributor',
+                ),
+            ), body='''#### 95507e3a1a4a919d1a156abbc279fdf6d24b13f5
+```
+Example Change
+https://bugs.webkit.org/show_bug.cgi?id=1234
+
+Reviewed by NOBODY (OOPS!).
+
+* Source/file.cpp:
+```
+''',
+            fromRef=dict(displayId='eng/pull-request'),
+            toRef=dict(displayId='main'),
+        )]
+        return result
+
+    def test_find(self):
+        with self.webserver():
+            with self.webserver():
+                prs = list(remote.BitBucket(self.remote).pull_requests.find())
+                self.assertEqual(len(prs), 1)
+                self.assertEqual(prs[0].number, 1)
+                self.assertEqual(prs[0].title, 'Example Change')
+                self.assertEqual(prs[0].head, 'eng/pull-request')
+                self.assertEqual(prs[0].base, 'main')
+
+    def test_get(self):
+        with self.webserver():
+            pr = remote.BitBucket(self.remote).pull_requests.get(1)
+            self.assertEqual(pr.number, 1)
+            self.assertEqual(pr.title, 'Example Change')
+            self.assertEqual(pr.head, 'eng/pull-request')
+            self.assertEqual(pr.base, 'main')

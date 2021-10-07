@@ -45,6 +45,7 @@
 #include "CalculationCategory.h"
 #include "ColorConversion.h"
 #include "ColorLuminance.h"
+#include "Logging.h"
 #include "Pair.h"
 #include "RenderStyleConstants.h"
 #include "RuntimeEnabledFeatures.h"
@@ -52,6 +53,7 @@
 #include "WebKitFontFamilyNames.h"
 #include <wtf/SortedArrayMap.h>
 #include <wtf/text/StringConcatenateNumbers.h>
+#include <wtf/text/TextStream.h>
 
 namespace WebCore {
 
@@ -142,8 +144,13 @@ public:
 
     RefPtr<CSSPrimitiveValue> consumeValueIfCategory(CalculationCategory category)
     {
-        if (!m_calcValue || m_calcValue->category() != category)
+        if (!m_calcValue)
             return nullptr;
+
+        if (m_calcValue->category() != category) {
+            LOG_WITH_STREAM(Calc, stream << "CalcParser::consumeValueIfCategory - failing because calc category " << m_calcValue->category() << " does not match requested category " << category);
+            return nullptr;
+        }
         m_sourceRange = m_range;
         return m_pool.createValue(WTFMove(m_calcValue));
     }
@@ -207,25 +214,6 @@ public:
         return { { m_calcValue->primitiveType(), m_calcValue->doubleValue() } };
     }
 
-    std::optional<LengthOrPercentRaw> consumeLengthOrPercentRaw()
-    {
-        if (!m_calcValue)
-            return std::nullopt;
-
-        switch (m_calcValue->category()) {
-        case CalculationCategory::Length:
-            m_sourceRange = m_range;
-            return { LengthRaw({ m_calcValue->primitiveType(), m_calcValue->doubleValue() }) };
-        case CalculationCategory::Percent:
-        case CalculationCategory::PercentLength:
-        case CalculationCategory::PercentNumber:
-            m_sourceRange = m_range;
-            return { { m_calcValue->doubleValue() } };
-        default:
-            return std::nullopt;
-        }
-    }
-
 private:
     CSSParserTokenRange& m_sourceRange;
     CSSParserTokenRange m_range;
@@ -235,15 +223,31 @@ private:
 
 // MARK: - Primitive value consumers for callers that know the token type.
 
-// MARK: Integer (Raw)
-
-template<typename IntType> static std::optional<IntType> consumeIntegerTypeRawWithKnownTokenTypeFunction(CSSParserTokenRange& range, double minimumValue)
+static RefPtr<CSSCalcValue> consumeCalcRawWithKnownTokenTypeFunction(CSSParserTokenRange& range, CalculationCategory category, const CSSCalcSymbolTable& symbolTable = { }, ValueRange valueRange = ValueRange::All)
 {
     ASSERT(range.peek().type() == FunctionToken);
 
-    CalcParser parser(range, CalculationCategory::Number);
-    if (auto calculation = parser.value(); calculation && calculation->category() == CalculationCategory::Number)
-        return parser.consumeIntegerTypeRaw<IntType>(minimumValue);
+    const auto& token = range.peek();
+    auto functionId = token.functionId();
+    if (!CSSCalcValue::isCalcFunction(functionId))
+        return nullptr;
+
+    auto calcValue = CSSCalcValue::create(functionId, consumeFunction(range), category, valueRange, symbolTable);
+    if (calcValue && calcValue->category() == category)
+        return calcValue;
+
+    return nullptr;
+}
+
+// MARK: Integer (Raw)
+
+template<typename IntType> static std::optional<IntType> consumeIntegerTypeRawWithKnownTokenTypeFunction(CSSParserTokenRange& sourceRange, double minimumValue)
+{
+    auto range = sourceRange;
+    if (auto value = consumeCalcRawWithKnownTokenTypeFunction(range, CalculationCategory::Number, { }, ValueRange::All)) {
+        sourceRange = range;
+        return clampTo<IntType>(std::round(std::max(value->doubleValue(), minimumValue)));
+    }
 
     return std::nullopt;
 }
@@ -286,12 +290,17 @@ static std::optional<double> validatedNumberRaw(double value, ValueRange valueRa
     return value;
 }
 
-static std::optional<double> consumeNumberRawWithKnownTokenTypeFunction(CSSParserTokenRange& range, const CSSCalcSymbolTable& symbolTable, ValueRange valueRange)
+static std::optional<double> consumeNumberRawWithKnownTokenTypeFunction(CSSParserTokenRange& sourceRange, const CSSCalcSymbolTable& symbolTable, ValueRange valueRange)
 {
-    ASSERT(range.peek().type() == FunctionToken);
+    auto range = sourceRange;
+    if (auto value = consumeCalcRawWithKnownTokenTypeFunction(range, CalculationCategory::Number, symbolTable, valueRange)) {
+        if (auto validatedValue = validatedNumberRaw(value->doubleValue(), valueRange)) {
+            sourceRange = range;
+            return validatedValue;
+        }
+    }
 
-    CalcParser parser(range, CalculationCategory::Number, valueRange, symbolTable);
-    return parser.consumeNumberRaw();
+    return std::nullopt;
 }
 
 static std::optional<double> consumeNumberRawWithKnownTokenTypeNumber(CSSParserTokenRange& range, const CSSCalcSymbolTable&, ValueRange valueRange)
@@ -361,12 +370,23 @@ static std::optional<double> validatedPercentRaw(double value, ValueRange valueR
     return value;
 }
 
-static std::optional<double> consumePercentRawWithKnownTokenTypeFunction(CSSParserTokenRange& range, const CSSCalcSymbolTable& symbolTable, ValueRange valueRange)
+static std::optional<double> consumePercentRawWithKnownTokenTypeFunction(CSSParserTokenRange& sourceRange, const CSSCalcSymbolTable& symbolTable, ValueRange valueRange)
 {
-    ASSERT(range.peek().type() == FunctionToken);
+    ASSERT(sourceRange.peek().type() == FunctionToken);
 
-    CalcParser parser(range, CalculationCategory::Percent, valueRange, symbolTable);
-    return parser.consumePercentRaw();
+    const auto& token = sourceRange.peek();
+    auto functionId = token.functionId();
+    if (!CSSCalcValue::isCalcFunction(functionId))
+        return std::nullopt;
+
+    auto range = sourceRange;
+    auto calcValue = CSSCalcValue::create(functionId, consumeFunction(range), CalculationCategory::Percent, valueRange, symbolTable);
+    if (calcValue && calcValue->category() == CalculationCategory::Percent) {
+        sourceRange = range;
+        return calcValue->doubleValue();
+    }
+
+    return std::nullopt;
 }
 
 static std::optional<double> consumePercentRawWithKnownTokenTypePercentage(CSSParserTokenRange& range, const CSSCalcSymbolTable&, ValueRange valueRange)
@@ -433,12 +453,14 @@ static std::optional<double> validatedLengthRaw(double value, ValueRange valueRa
     return value;
 }
 
-static std::optional<LengthRaw> consumeLengthRawWithKnownTokenTypeFunction(CSSParserTokenRange& range, const CSSCalcSymbolTable& symbolTable, ValueRange valueRange, CSSParserMode, UnitlessQuirk)
+static std::optional<LengthRaw> consumeLengthRawWithKnownTokenTypeFunction(CSSParserTokenRange& sourceRange, const CSSCalcSymbolTable& symbolTable, ValueRange valueRange, CSSParserMode, UnitlessQuirk)
 {
-    ASSERT(range.peek().type() == FunctionToken);
-
-    CalcParser parser(range, CalculationCategory::Length, valueRange, symbolTable);
-    return parser.consumeLengthRaw();
+    auto range = sourceRange;
+    if (auto value = consumeCalcRawWithKnownTokenTypeFunction(range, CalculationCategory::Length, symbolTable, valueRange)) {
+        sourceRange = range;
+        return { { value->primitiveType(), value->doubleValue() } };
+    }
+    return std::nullopt;
 }
 
 static std::optional<LengthRaw> consumeLengthRawWithKnownTokenTypeDimension(CSSParserTokenRange& range, const CSSCalcSymbolTable&, ValueRange valueRange, CSSParserMode parserMode, UnitlessQuirk)
@@ -458,6 +480,7 @@ static std::optional<LengthRaw> consumeLengthRawWithKnownTokenTypeDimension(CSSP
     case CSSUnitType::CSS_LHS:
     case CSSUnitType::CSS_RLHS:
     case CSSUnitType::CSS_CHS:
+    case CSSUnitType::CSS_IC:
     case CSSUnitType::CSS_EXS:
     case CSSUnitType::CSS_PX:
     case CSSUnitType::CSS_CM:
@@ -528,12 +551,14 @@ static RefPtr<CSSPrimitiveValue> consumeLengthCSSPrimitiveValueWithCalcWithKnown
 
 // MARK: Angle (raw)
 
-static std::optional<AngleRaw> consumeAngleRawWithKnownTokenTypeFunction(CSSParserTokenRange& range, const CSSCalcSymbolTable& symbolTable, ValueRange valueRange, CSSParserMode, UnitlessQuirk, UnitlessZeroQuirk)
+static std::optional<AngleRaw> consumeAngleRawWithKnownTokenTypeFunction(CSSParserTokenRange& sourceRange, const CSSCalcSymbolTable& symbolTable, ValueRange valueRange, CSSParserMode, UnitlessQuirk, UnitlessZeroQuirk)
 {
-    ASSERT(range.peek().type() == FunctionToken);
-
-    CalcParser parser(range, CalculationCategory::Angle, valueRange, symbolTable);
-    return parser.consumeAngleRaw();
+    auto range = sourceRange;
+    if (auto value = consumeCalcRawWithKnownTokenTypeFunction(range, CalculationCategory::Angle, symbolTable, valueRange)) {
+        sourceRange = range;
+        return { { value->primitiveType(), value->doubleValue() } };
+    }
+    return std::nullopt;
 }
 
 static std::optional<AngleRaw> consumeAngleRawWithKnownTokenTypeDimension(CSSParserTokenRange& range, const CSSCalcSymbolTable&, ValueRange, CSSParserMode, UnitlessQuirk, UnitlessZeroQuirk)
@@ -629,14 +654,12 @@ static RefPtr<CSSPrimitiveValue> consumeTimeCSSPrimitiveValueWithCalcWithKnownTo
 
 // MARK: Resolution (CSSPrimitiveValue - no calc)
 
-static RefPtr<CSSPrimitiveValue> consumeResolutionCSSPrimitiveValueWithKnownTokenTypeDimension(CSSParserTokenRange& range, AllowXResolutionUnit allowX, CSSValuePool& pool)
+static RefPtr<CSSPrimitiveValue> consumeResolutionCSSPrimitiveValueWithKnownTokenTypeDimension(CSSParserTokenRange& range, CSSValuePool& pool)
 {
     ASSERT(range.peek().type() == DimensionToken);
 
-    if (auto unit = range.peek().unitType(); unit == CSSUnitType::CSS_DPPX || unit == CSSUnitType::CSS_DPI || unit == CSSUnitType::CSS_DPCM)
+    if (auto unit = range.peek().unitType(); unit == CSSUnitType::CSS_DPPX || unit == CSSUnitType::CSS_X || unit == CSSUnitType::CSS_DPI || unit == CSSUnitType::CSS_DPCM)
         return pool.createValue(range.consumeIncludingWhitespace().numericValue(), unit);
-    if (allowX == AllowXResolutionUnit::Allow && range.peek().unitString() == "x")
-        return pool.createValue(range.consumeIncludingWhitespace().numericValue(), CSSUnitType::CSS_DPPX);
 
     return nullptr;
 }
@@ -888,7 +911,7 @@ RefPtr<CSSPrimitiveValue> consumeTime(CSSParserTokenRange& range, CSSParserMode 
     return nullptr;
 }
 
-RefPtr<CSSPrimitiveValue> consumeResolution(CSSParserTokenRange& range, AllowXResolutionUnit allowX)
+RefPtr<CSSPrimitiveValue> consumeResolution(CSSParserTokenRange& range)
 {
     // NOTE: Unlike the other types, calc() does not work with <resolution>.
 
@@ -896,7 +919,7 @@ RefPtr<CSSPrimitiveValue> consumeResolution(CSSParserTokenRange& range, AllowXRe
 
     switch (token.type()) {
     case DimensionToken:
-        return consumeResolutionCSSPrimitiveValueWithKnownTokenTypeDimension(range, allowX, CSSValuePool::singleton());
+        return consumeResolutionCSSPrimitiveValueWithKnownTokenTypeDimension(range, CSSValuePool::singleton());
     
     default:
         break;
@@ -945,10 +968,10 @@ std::optional<LengthOrPercentRaw> consumeLengthOrPercentRaw(CSSParserTokenRange&
 
     switch (token.type()) {
     case FunctionToken: {
-        // FIXME: Should this be using trying to generate the calc with both Length and Percent destination category types?
-        CalcParser parser(range, CalculationCategory::Length, valueRange);
-        if (auto calculation = parser.value(); calculation && canConsumeCalcValue(calculation->category(), parserMode))
-            return parser.consumeLengthOrPercentRaw();
+        if (auto length = consumeLengthRawWithKnownTokenTypeFunction(range, { }, valueRange, parserMode, unitless))
+            return convertToLengthOrPercentRaw(length);
+        if (auto percent = consumePercentRawWithKnownTokenTypeFunction(range, { }, valueRange))
+            return convertToLengthOrPercentRaw(percent);
         break;
     }
 
@@ -1339,6 +1362,14 @@ RefPtr<CSSPrimitiveValue> consumeCustomIdent(CSSParserTokenRange& range, bool sh
         return nullptr;
     auto identifier = range.consumeIncludingWhitespace().value();
     return CSSValuePool::singleton().createCustomIdent(shouldLowercase ? identifier.convertToASCIILowercase() : identifier.toString());
+}
+
+RefPtr<CSSPrimitiveValue> consumeDashedIdent(CSSParserTokenRange& range, bool shouldLowercase)
+{
+    auto result = consumeCustomIdent(range, shouldLowercase);
+    if (result && result->stringValue().startsWith("--"))
+        return result;
+    return nullptr;
 }
 
 RefPtr<CSSPrimitiveValue> consumeString(CSSParserTokenRange& range)
@@ -3330,7 +3361,7 @@ static RefPtr<CSSValue> consumeImageSet(CSSParserTokenRange& range, const CSSPar
 
         imageSet->append(image.releaseNonNull());
 
-        auto resolution = consumeResolution(args, AllowXResolutionUnit::Allow);
+        auto resolution = consumeResolution(args);
         if (!resolution || resolution->floatValue() <= 0)
             return nullptr;
 

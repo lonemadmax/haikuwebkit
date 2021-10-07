@@ -584,7 +584,7 @@ public:
     bool isActive() const final;
     bool forceUpdateScrollbarsOnMainThreadForPerformanceTesting() const final;
 
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
     WEBCORE_EXPORT GraphicsLayer* setWantsLayerForTopOverHangArea(bool) const;
     WEBCORE_EXPORT GraphicsLayer* setWantsLayerForBottomOverHangArea(bool) const;
 #endif
@@ -634,6 +634,8 @@ public:
 
     const HashSet<Widget*>& widgetsInRenderTree() const { return m_widgetsInRenderTree; }
 
+    void notifyAllFramesThatContentAreaWillPaint() const;
+
     void addTrackedRepaintRect(const FloatRect&);
 
     // exposedRect represents WebKit's understanding of what part
@@ -663,11 +665,10 @@ public:
 
     void setSpeculativeTilingDelayDisabledForTesting(bool disabled) { m_speculativeTilingDelayDisabledForTesting = disabled; }
 
-    WEBCORE_EXPORT FrameFlattening effectiveFrameFlattening() const;
+    FrameFlattening effectiveFrameFlattening() const;
 
-    WEBCORE_EXPORT void traverseForPaintInvalidation(NullGraphicsContext::PaintInvalidationReasons);
-    void invalidateControlTints() { traverseForPaintInvalidation(NullGraphicsContext::PaintInvalidationReasons::InvalidatingControlTints); }
-    void invalidateImagesWithAsyncDecodes() { traverseForPaintInvalidation(NullGraphicsContext::PaintInvalidationReasons::InvalidatingImagesWithAsyncDecodes); }
+    WEBCORE_EXPORT void invalidateControlTints();
+    void invalidateImagesWithAsyncDecodes();
 
     void invalidateScrollbarsForAllScrollableAreas();
 
@@ -676,7 +677,7 @@ public:
 
     void renderLayerDidScroll(const RenderLayer&);
 
-    WEBCORE_EXPORT void scrollToPositionWithAnimation(const ScrollPosition&, ScrollType = ScrollType::Programmatic, ScrollClamping = ScrollClamping::Clamped);
+    void scrollToPositionWithAnimation(const ScrollPosition&, ScrollType = ScrollType::Programmatic, ScrollClamping = ScrollClamping::Clamped);
 
     bool inUpdateEmbeddedObjects() const { return m_inUpdateEmbeddedObjects; }
 
@@ -690,7 +691,8 @@ private:
 
     bool scrollContentsFastPath(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect) final;
     void scrollContentsSlowPath(const IntRect& updateRect) final;
-    
+
+    void traverseForPaintInvalidation(NullGraphicsContext::PaintInvalidationReasons);
     void repaintSlowRepaintObjects();
 
     bool isVerticalDocument() const final;
@@ -762,7 +764,7 @@ private:
     IntRect scrollableAreaBoundingBox(bool* = nullptr) const final;
     bool scrollAnimatorEnabled() const final;
     GraphicsLayer* layerForScrollCorner() const final;
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
     GraphicsLayer* layerForOverhangAreas() const final;
 #endif
     void contentsResized() final;
@@ -772,7 +774,7 @@ private:
 #endif
 
     bool usesCompositedScrolling() const final;
-    bool usesMockScrollAnimator() const final;
+    bool mockScrollAnimatorEnabled() const final;
     void logMockScrollAnimatorMessage(const String&) const final;
 
     bool styleHidesScrollbarWithOrientation(ScrollbarOrientation) const;
@@ -796,8 +798,6 @@ private:
     void updateScrollableAreaSet();
     void updateLayoutViewport();
 
-    void notifyPageThatContentAreaWillPaint() const final;
-
     void enableSpeculativeTilingIfNeeded();
     void speculativeTilingEnableTimerFired();
 
@@ -813,6 +813,8 @@ private:
     void scrollableAreaSetChanged();
     void scheduleScrollEvent();
     void resetScrollAnchor();
+
+    void notifyScrollableAreasThatContentAreaWillPaint() const;
 
     bool hasCustomScrollbars() const;
 

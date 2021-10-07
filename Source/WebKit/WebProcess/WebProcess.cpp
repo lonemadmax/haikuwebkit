@@ -59,6 +59,7 @@
 #include "WebConnectionToUIProcess.h"
 #include "WebCookieJar.h"
 #include "WebCoreArgumentCoders.h"
+#include "WebFileSystemStorageConnection.h"
 #include "WebFrame.h"
 #include "WebFrameNetworkingContext.h"
 #include "WebGamepadProvider.h"
@@ -144,7 +145,7 @@
 #include <wtf/URLParser.h>
 #include <wtf/text/StringHash.h>
 
-#if HAVE(ARKIT_INLINE_PREVIEW)
+#if ENABLE(ARKIT_INLINE_PREVIEW)
 #include <WebCore/HTMLModelElement.h>
 #endif
 
@@ -551,7 +552,7 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
     JSC::Wasm::enableFastMemory();
 #endif
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS) && !RELEASE_LOG_DISABLED
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION) && !RELEASE_LOG_DISABLED
     WebResourceLoadObserver::setShouldLogUserInteraction(parameters.shouldLogUserInteraction);
 #endif
 
@@ -579,14 +580,14 @@ void WebProcess::setWebsiteDataStoreParameters(WebProcessDataStoreParameters&& p
         WebCore::HTMLMediaElement::setMediaCacheDirectory(parameters.mediaCacheDirectory);
 #endif
 
-#if HAVE(ARKIT_INLINE_PREVIEW)
+#if ENABLE(ARKIT_INLINE_PREVIEW)
     if (!parameters.modelElementCacheDirectory.isEmpty())
         WebCore::HTMLModelElement::setModelElementCacheDirectory(parameters.modelElementCacheDirectory);
 #endif
 
     setResourceLoadStatisticsEnabled(parameters.resourceLoadStatisticsEnabled);
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     m_thirdPartyCookieBlockingMode = parameters.thirdPartyCookieBlockingMode;
     if (parameters.resourceLoadStatisticsEnabled) {
         if (!ResourceLoadObserver::sharedIfExists())
@@ -1195,6 +1196,7 @@ void WebProcess::networkProcessConnectionClosed(NetworkProcessConnection* connec
     m_webLoaderStrategy.networkProcessCrashed();
     WebSocketStream::networkProcessCrashed();
     m_webSocketChannelManager.networkProcessCrashed();
+    m_broadcastChannelRegistry->networkProcessCrashed();
 
     if (m_libWebRTCNetwork)
         m_libWebRTCNetwork->networkProcessCrashed();
@@ -1206,6 +1208,20 @@ void WebProcess::networkProcessConnectionClosed(NetworkProcessConnection* connec
             paymentCoordinator->networkProcessConnectionClosed();
 #endif
     }
+
+    // Recreate a new connection with valid IPC connection on next operation.
+    if (m_fileSystemStorageConnection) {
+        m_fileSystemStorageConnection->connectionClosed();
+        m_fileSystemStorageConnection = nullptr;
+    }
+}
+
+WebFileSystemStorageConnection& WebProcess::fileSystemStorageConnection()
+{
+    if (!m_fileSystemStorageConnection)
+        m_fileSystemStorageConnection = WebFileSystemStorageConnection::create(ensureNetworkProcessConnection().connection());
+
+    return *m_fileSystemStorageConnection;
 }
 
 WebLoaderStrategy& WebProcess::webLoaderStrategy()
@@ -1255,7 +1271,7 @@ GPUProcessConnection& WebProcess::ensureGPUProcessConnection()
         if (!IPC::Connection::identifierIsValid(connectionInfo.identifier()))
             CRASH();
 
-        m_gpuProcessConnection = GPUProcessConnection::create(connectionInfo.releaseIdentifier());
+        m_gpuProcessConnection = GPUProcessConnection::create(connectionInfo.releaseIdentifier(), connectionInfo.parameters);
 #if HAVE(AUDIT_TOKEN)
         ASSERT(connectionInfo.auditToken);
         m_gpuProcessConnection->setAuditToken(WTFMove(connectionInfo.auditToken));
@@ -1685,7 +1701,7 @@ void WebProcess::setResourceLoadStatisticsEnabled(bool enabled)
     if (WebCore::DeprecatedGlobalSettings::resourceLoadStatisticsEnabled() == enabled)
         return;
     WebCore::DeprecatedGlobalSettings::setResourceLoadStatisticsEnabled(enabled);
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     if (enabled && !ResourceLoadObserver::sharedIfExists())
         WebCore::ResourceLoadObserver::setShared(*new WebResourceLoadObserver(m_sessionID && m_sessionID->isEphemeral() ? WebCore::ResourceLoadStatistics::IsEphemeral::Yes : WebCore::ResourceLoadStatistics::IsEphemeral::No));
 #endif
@@ -1693,7 +1709,7 @@ void WebProcess::setResourceLoadStatisticsEnabled(bool enabled)
 
 void WebProcess::clearResourceLoadStatistics()
 {
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     if (auto* observer = ResourceLoadObserver::sharedIfExists())
         observer->clearState();
     for (auto& page : m_pageMap.values())
@@ -1703,7 +1719,7 @@ void WebProcess::clearResourceLoadStatistics()
 
 void WebProcess::flushResourceLoadStatistics()
 {
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     if (auto* observer = ResourceLoadObserver::sharedIfExists())
         observer->updateCentralStatisticsStore([] { });
 #endif
@@ -1711,7 +1727,7 @@ void WebProcess::flushResourceLoadStatistics()
 
 void WebProcess::seedResourceLoadStatisticsForTesting(const RegistrableDomain& firstPartyDomain, const RegistrableDomain& thirdPartyDomain, bool shouldScheduleNotification, CompletionHandler<void()>&& completionHandler)
 {
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     if (auto* observer = ResourceLoadObserver::sharedIfExists())
         observer->logSubresourceLoadingForTesting(firstPartyDomain, thirdPartyDomain, shouldScheduleNotification);
 #endif
@@ -1888,7 +1904,7 @@ void WebProcess::clearCachedPage(BackForwardItemIdentifier backForwardItemID, Co
 LibWebRTCNetwork& WebProcess::libWebRTCNetwork()
 {
     if (!m_libWebRTCNetwork)
-        m_libWebRTCNetwork = makeUnique<LibWebRTCNetwork>();
+        m_libWebRTCNetwork = LibWebRTCNetwork::create();
     return *m_libWebRTCNetwork;
 }
 
@@ -2015,7 +2031,7 @@ void WebProcess::displayWasRefreshed(uint32_t displayID, const DisplayUpdate& di
 }
 #endif
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 void WebProcess::setThirdPartyCookieBlockingMode(ThirdPartyCookieBlockingMode thirdPartyCookieBlockingMode, CompletionHandler<void()>&& completionHandler)
 {
     m_thirdPartyCookieBlockingMode = thirdPartyCookieBlockingMode;
@@ -2158,7 +2174,7 @@ bool WebProcess::shouldUseRemoteRenderingForWebGL() const
 SpeechRecognitionRealtimeMediaSourceManager& WebProcess::ensureSpeechRecognitionRealtimeMediaSourceManager()
 {
     if (!m_speechRecognitionRealtimeMediaSourceManager)
-        m_speechRecognitionRealtimeMediaSourceManager = makeUnique<SpeechRecognitionRealtimeMediaSourceManager>(makeRef(*parentProcessConnection()));
+        m_speechRecognitionRealtimeMediaSourceManager = makeUnique<SpeechRecognitionRealtimeMediaSourceManager>(*parentProcessConnection());
 
     return *m_speechRecognitionRealtimeMediaSourceManager;
 }

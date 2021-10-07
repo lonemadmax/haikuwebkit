@@ -1,0 +1,258 @@
+/*
+ * Copyright (C) 2021 Apple Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1.  Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ * 2.  Redistributions in binary form must reproduce the above copyright
+ *     notice, this list of conditions and the following disclaimer in the
+ *     documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ * ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#import "config.h"
+#import <wtf/cocoa/TypeCastsCocoa.h>
+
+#import <wtf/StdLibExtras.h>
+
+#if __has_feature(objc_arc) && !defined(TypeCastsCocoa)
+#error This tests TypeCastsCocoa.h with ARC disabled.
+#endif
+
+@interface MyObjectSubtype : NSObject
+@end
+
+@implementation MyObjectSubtype
+@end
+
+namespace TestWebKitAPI {
+
+using namespace WTF;
+
+static const char* helloWorldCString = "Hello world";
+static size_t helloWorldCStringLength()
+{
+    static auto length = strlen(helloWorldCString);
+    return length;
+}
+
+TEST(TypeCastsCocoa, bridge_cast)
+{
+    @autoreleasepool {
+        auto objectNS = adoptNS([[NSString alloc] initWithFormat:@"%s", helloWorldCString]);
+        auto objectNSPtr = reinterpret_cast<uintptr_t>(objectNS.get());
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectNSPtr));
+
+        auto objectCF = bridge_cast(WTFMove(objectNS));
+        auto objectCFPtr = reinterpret_cast<uintptr_t>(objectCF.get());
+        EXPECT_EQ(nil, objectNS.get());
+        EXPECT_EQ(objectNSPtr, objectCFPtr);
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectCFPtr));
+
+        objectNS = bridge_cast(WTFMove(objectCF));
+        objectNSPtr = reinterpret_cast<uintptr_t>(objectNS.get());
+        EXPECT_EQ(NULL, objectCF.get());
+        EXPECT_EQ(objectCFPtr, objectNSPtr);
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectNSPtr));
+    }
+
+    @autoreleasepool {
+        auto objectCF = adoptCF(CFStringCreateWithBytes(NULL, (const UInt8*)helloWorldCString, helloWorldCStringLength(), kCFStringEncodingUTF8, false));
+        auto objectCFPtr = reinterpret_cast<uintptr_t>(objectCF.get());
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectCFPtr));
+
+        auto objectNS = bridge_cast(WTFMove(objectCF));
+        auto objectNSPtr = reinterpret_cast<uintptr_t>(objectNS.get());
+        EXPECT_EQ(NULL, objectCF.get());
+        EXPECT_EQ(objectCFPtr, objectNSPtr);
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectNSPtr));
+
+        objectCF = bridge_cast(WTFMove(objectNS));
+        objectCFPtr = reinterpret_cast<uintptr_t>(objectCF.get());
+        EXPECT_EQ(nil, objectNS.get());
+        EXPECT_EQ(objectNSPtr, objectCFPtr);
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectCFPtr));
+    }
+}
+
+TEST(TypeCastsCocoa, bridge_id_cast)
+{
+    @autoreleasepool {
+        RetainPtr<CFTypeRef> objectCF;
+        auto objectID = bridge_id_cast(WTFMove(objectCF));
+        EXPECT_EQ(NULL, objectCF.get());
+        EXPECT_EQ(nil, objectID.get());
+    }
+
+    @autoreleasepool {
+        auto objectCF = adoptCF(CFStringCreateWithBytes(NULL, (const UInt8*)helloWorldCString, helloWorldCStringLength(), kCFStringEncodingUTF8, false));
+        auto objectCFPtr = reinterpret_cast<uintptr_t>(objectCF.get());
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectCFPtr));
+
+        auto objectID = bridge_id_cast(WTFMove(objectCF));
+        auto objectIDPtr = reinterpret_cast<uintptr_t>(objectID.get());
+        EXPECT_EQ(NULL, objectCF.get());
+        EXPECT_EQ(objectCFPtr, objectIDPtr);
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectIDPtr));
+    }
+}
+
+TEST(TypeCastsCocoa, checked_objc_cast)
+{
+    EXPECT_EQ(nil, checked_objc_cast<NSString>(nil));
+
+    @autoreleasepool {
+        auto objectNS = adoptNS((id)[[NSString alloc] initWithFormat:@"%s", helloWorldCString]);
+        auto objectNSPtr = reinterpret_cast<uintptr_t>(objectNS.get());
+        EXPECT_EQ(objectNS.get(), checked_objc_cast<NSString>((__bridge id)(CFTypeRef)objectNSPtr));
+        EXPECT_EQ(objectNS.get(), checked_objc_cast<NSObject>((__bridge id)(CFTypeRef)objectNSPtr));
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectNSPtr));
+    }
+
+    @autoreleasepool {
+        auto objectNS = adoptNS((NSObject *)[[NSString alloc] initWithFormat:@"%s", helloWorldCString]);
+        auto objectNSPtr = reinterpret_cast<uintptr_t>(objectNS.get());
+        EXPECT_EQ(objectNS.get(), checked_objc_cast<NSString>((__bridge NSObject *)(CFTypeRef)objectNSPtr));
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectNSPtr));
+    }
+
+    @autoreleasepool {
+        auto objectNS = adoptNS([[NSString alloc] initWithFormat:@"%s", helloWorldCString]);
+        auto objectNSPtr = reinterpret_cast<uintptr_t>(objectNS.get());
+        EXPECT_EQ(objectNS.get(), checked_objc_cast<NSObject>((__bridge NSString *)(CFTypeRef)objectNSPtr));
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectNSPtr));
+    }
+}
+
+TEST(TypeCastsCocoa, dynamic_objc_cast)
+{
+    EXPECT_EQ(nil, dynamic_objc_cast<NSString>(nil));
+
+    @autoreleasepool {
+        auto objectNS = adoptNS<id>([[NSString alloc] initWithFormat:@"%s", helloWorldCString]);
+        auto objectNSPtr = reinterpret_cast<uintptr_t>(objectNS.get());
+        EXPECT_EQ(objectNS.get(), dynamic_objc_cast<NSString>(objectNS.get()));
+        EXPECT_EQ(objectNS.get(), dynamic_objc_cast<NSObject>(objectNS.get()));
+        EXPECT_EQ(nil, dynamic_objc_cast<NSArray>(objectNS.get()));
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectNSPtr));
+    }
+
+    @autoreleasepool {
+        auto objectNS = adoptNS<NSObject *>([[NSString alloc] initWithFormat:@"%s", helloWorldCString]);
+        auto objectNSPtr = reinterpret_cast<uintptr_t>(objectNS.get());
+        EXPECT_EQ(objectNS.get(), dynamic_objc_cast<NSString>(objectNS.get()));
+        EXPECT_EQ(nil, dynamic_objc_cast<NSArray>(objectNS.get()));
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectNSPtr));
+    }
+
+    @autoreleasepool {
+        auto objectNS = adoptNS([[NSString alloc] initWithFormat:@"%s", helloWorldCString]);
+        auto objectNSPtr = reinterpret_cast<uintptr_t>(objectNS.get());
+        EXPECT_EQ(objectNS.get(), dynamic_objc_cast<NSObject>(objectNS.get()));
+        EXPECT_EQ(nil, dynamic_objc_cast<NSArray>(objectNS.get()));
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectNSPtr));
+    }
+
+    @autoreleasepool {
+        auto objectID = adoptNS<id>([[NSObject alloc] init]);
+        auto objectIDPtr = reinterpret_cast<uintptr_t>(objectID.get());
+        EXPECT_EQ(objectID.get(), dynamic_objc_cast<NSObject>(objectID.get()));
+        EXPECT_EQ(nil, dynamic_objc_cast<MyObjectSubtype>(objectID.get()));
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectIDPtr));
+    }
+
+    @autoreleasepool {
+        auto objectNS = adoptNS([[NSObject alloc] init]);
+        auto objectNSPtr = reinterpret_cast<uintptr_t>(objectNS.get());
+        EXPECT_EQ(nil, dynamic_objc_cast<MyObjectSubtype>(objectNS.get()));
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectNSPtr));
+    }
+}
+
+TEST(TypeCastsCocoa, dynamic_objc_cast_RetainPtr)
+{
+    @autoreleasepool {
+        RetainPtr<NSString> object;
+        auto objectCast = dynamic_objc_cast<NSString>(WTFMove(object));
+        EXPECT_EQ(nil, object.get());
+        EXPECT_EQ(nil, objectCast.get());
+    }
+
+    @autoreleasepool {
+        auto object = adoptNS<id>([[NSString alloc] initWithFormat:@"%s", helloWorldCString]);
+        auto objectPtr = reinterpret_cast<uintptr_t>(object.get());
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectPtr));
+
+        auto objectCast = dynamic_objc_cast<NSString>(WTFMove(object));
+        auto objectCastPtr = reinterpret_cast<uintptr_t>(objectCast.get());
+        EXPECT_EQ(nil, object.get());
+        EXPECT_EQ(objectPtr, objectCastPtr);
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectCastPtr));
+
+        object = adoptNS<id>([[NSString alloc] initWithFormat:@"%s", helloWorldCString]);
+        objectPtr = reinterpret_cast<uintptr_t>(object.get());
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectPtr));
+
+        auto objectCast2 = dynamic_objc_cast<NSObject>(WTFMove(object));
+        auto objectCastPtr2 = reinterpret_cast<uintptr_t>(objectCast2.get());
+        EXPECT_EQ(nil, object.get());
+        EXPECT_EQ(objectPtr, objectCastPtr2);
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectCastPtr2));
+
+        object = adoptNS<id>([[NSString alloc] initWithFormat:@"%s", helloWorldCString]);
+        objectPtr = reinterpret_cast<uintptr_t>(object.get());
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectPtr));
+
+        auto objectCastBad = dynamic_objc_cast<NSArray>(WTFMove(object));
+        auto objectPtr2 = reinterpret_cast<uintptr_t>(object.get());
+        EXPECT_EQ(objectPtr, objectPtr2);
+        EXPECT_EQ(nil, objectCastBad.get());
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectPtr2));
+    }
+
+    @autoreleasepool {
+        auto object = adoptNS([[NSString alloc] initWithFormat:@"%s", helloWorldCString]);
+        auto objectPtr = reinterpret_cast<uintptr_t>(object.get());
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectPtr));
+
+        auto objectCast = dynamic_objc_cast<NSObject>(WTFMove(object));
+        auto objectCastPtr = reinterpret_cast<uintptr_t>(objectCast.get());
+        EXPECT_EQ(nil, object.get());
+        EXPECT_EQ(objectPtr, objectCastPtr);
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectCastPtr));
+    }
+
+    @autoreleasepool {
+        auto object = adoptNS<id>([[NSObject alloc] init]);
+        auto objectPtr = reinterpret_cast<uintptr_t>(object.get());
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectPtr));
+
+        auto objectCast = dynamic_objc_cast<NSObject>(WTFMove(object));
+        auto objectCastPtr = reinterpret_cast<uintptr_t>(objectCast.get());
+        EXPECT_EQ(nil, object.get());
+        EXPECT_EQ(objectPtr, objectCastPtr);
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectCastPtr));
+
+        object = adoptNS<id>([[NSObject alloc] init]);
+        objectPtr = reinterpret_cast<uintptr_t>(object.get());
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectPtr));
+
+        auto objectCastBad = dynamic_objc_cast<MyObjectSubtype>(WTFMove(object));
+        EXPECT_EQ(nil, objectCastBad.get());
+        EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectPtr));
+    }
+}
+
+} // namespace TestWebKitAPI

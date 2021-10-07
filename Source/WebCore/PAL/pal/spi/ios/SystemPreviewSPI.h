@@ -25,7 +25,7 @@
 
 #if USE(APPLE_INTERNAL_SDK)
 
-#if HAVE(ARKIT_QUICK_LOOK_PREVIEW_ITEM)
+#if ENABLE(ARKIT_QUICK_LOOK_PREVIEW_ITEM)
 #import <AssetViewer/ARQuickLookWebKitItem.h>
 #endif
 
@@ -33,7 +33,7 @@
 #import <AssetViewer/ASVThumbnailView.h>
 #endif
 
-#if HAVE(ARKIT_INLINE_PREVIEW_IOS)
+#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
 #import <AssetViewer/ASVInlinePreview.h>
 #endif
 
@@ -46,6 +46,8 @@
 @class QLItem;
 @class QLPreviewController;
 
+NS_ASSUME_NONNULL_BEGIN
+
 @protocol ASVThumbnailViewDelegate <NSObject>
 - (void)thumbnailView:(ASVThumbnailView *)thumbnailView wantsToPresentPreviewController:(QLPreviewController *)previewController forItem:(QLItem *)item;
 @end
@@ -57,7 +59,7 @@
 @end
 #endif
 
-#if HAVE(ARKIT_QUICK_LOOK_PREVIEW_ITEM)
+#if ENABLE(ARKIT_QUICK_LOOK_PREVIEW_ITEM)
 #import <ARKit/ARKit.h>
 
 @protocol ARQuickLookWebKitItemDelegate
@@ -72,10 +74,10 @@
 
 #endif
 
-#if HAVE(ARKIT_INLINE_PREVIEW_IOS)
+#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
 
 @class ASVInlinePreview;
-
+@class CAFenceHandle;
 @interface ASVInlinePreview : NSObject
 @property (nonatomic, readonly) CALayer *layer;
 
@@ -93,5 +95,7 @@
 @end
 
 #endif
+
+NS_ASSUME_NONNULL_END
 
 #endif

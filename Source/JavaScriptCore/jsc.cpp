@@ -22,6 +22,7 @@
 
 #include "config.h"
 
+#include "APICast.h"
 #include "ArrayBuffer.h"
 #include "BigIntConstructor.h"
 #include "BytecodeCacheError.h"
@@ -44,6 +45,7 @@
 #include "JITSizeStatistics.h"
 #include "JSArray.h"
 #include "JSArrayBuffer.h"
+#include "JSBasePrivate.h"
 #include "JSBigInt.h"
 #include "JSFinalizationRegistry.h"
 #include "JSFunction.h"
@@ -285,6 +287,7 @@ static JSC_DECLARE_HOST_FUNCTION(functionGCAndSweep);
 static JSC_DECLARE_HOST_FUNCTION(functionFullGC);
 static JSC_DECLARE_HOST_FUNCTION(functionEdenGC);
 static JSC_DECLARE_HOST_FUNCTION(functionHeapSize);
+static JSC_DECLARE_HOST_FUNCTION(functionMemoryUsageStatistics);
 static JSC_DECLARE_HOST_FUNCTION(functionCreateMemoryFootprint);
 static JSC_DECLARE_HOST_FUNCTION(functionResetMemoryPeak);
 static JSC_DECLARE_HOST_FUNCTION(functionAddressOf);
@@ -328,6 +331,7 @@ static JSC_DECLARE_HOST_FUNCTION(functionFinalizationRegistryLiveCount);
 static JSC_DECLARE_HOST_FUNCTION(functionFinalizationRegistryDeadCount);
 static JSC_DECLARE_HOST_FUNCTION(functionIs32BitPlatform);
 static JSC_DECLARE_HOST_FUNCTION(functionCheckModuleSyntax);
+static JSC_DECLARE_HOST_FUNCTION(functionCheckScriptSyntax);
 static JSC_DECLARE_HOST_FUNCTION(functionPlatformSupportsSamplingProfiler);
 static JSC_DECLARE_HOST_FUNCTION(functionGenerateHeapSnapshot);
 static JSC_DECLARE_HOST_FUNCTION(functionGenerateHeapSnapshotForGCDebugging);
@@ -528,6 +532,7 @@ private:
         addFunction(vm, "fullGC", functionFullGC, 0);
         addFunction(vm, "edenGC", functionEdenGC, 0);
         addFunction(vm, "gcHeapSize", functionHeapSize, 0);
+        addFunction(vm, "memoryUsageStatistics", functionMemoryUsageStatistics, 0);
         addFunction(vm, "MemoryFootprint", functionCreateMemoryFootprint, 0);
         addFunction(vm, "resetMemoryPeak", functionResetMemoryPeak, 0);
         addFunction(vm, "addressOf", functionAddressOf, 1);
@@ -598,6 +603,7 @@ private:
         addFunction(vm, "is32BitPlatform", functionIs32BitPlatform, 0);
 
         addFunction(vm, "checkModuleSyntax", functionCheckModuleSyntax, 1);
+        addFunction(vm, "checkScriptSyntax", functionCheckScriptSyntax, 1);
 
         addFunction(vm, "platformSupportsSamplingProfiler", functionPlatformSupportsSamplingProfiler, 0);
         addFunction(vm, "generateHeapSnapshot", functionGenerateHeapSnapshot, 0);
@@ -1458,6 +1464,12 @@ private:
 };
 
 const ClassInfo JSCMemoryFootprint::s_info = { "MemoryFootprint", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSCMemoryFootprint) };
+
+JSC_DEFINE_HOST_FUNCTION(functionMemoryUsageStatistics, (JSGlobalObject* globalObject, CallFrame*))
+{
+    auto contextRef = toRef(globalObject);
+    return JSValue::encode(toJS(JSGetMemoryUsageStatistics(contextRef)));
+}
 
 JSC_DEFINE_HOST_FUNCTION(functionCreateMemoryFootprint, (JSGlobalObject* globalObject, CallFrame*))
 {
@@ -2609,6 +2621,28 @@ JSC_DEFINE_HOST_FUNCTION(functionCheckModuleSyntax, (JSGlobalObject* globalObjec
 
     ParserError error;
     bool validSyntax = checkModuleSyntax(globalObject, jscSource(source, { }, String(), TextPosition(), SourceProviderSourceType::Module), error);
+    RETURN_IF_EXCEPTION(scope, encodedJSValue());
+    stopWatch.stop();
+
+    if (!validSyntax)
+        throwException(globalObject, scope, jsNontrivialString(vm, toString("SyntaxError: ", error.message(), ":", error.line())));
+    return JSValue::encode(jsNumber(stopWatch.getElapsedMS()));
+}
+
+JSC_DEFINE_HOST_FUNCTION(functionCheckScriptSyntax, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    String source = callFrame->argument(0).toWTFString(globalObject);
+    RETURN_IF_EXCEPTION(scope, encodedJSValue());
+
+    StopWatch stopWatch;
+    stopWatch.start();
+
+    ParserError error;
+
+    bool validSyntax = checkSyntax(vm, jscSource(source, { }), error);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
     stopWatch.stop();
 

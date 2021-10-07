@@ -38,7 +38,7 @@
 #define SOFTLINK_AVKIT_FRAMEWORK() SOFT_LINK_FRAMEWORK_OPTIONAL(AVKit)
 #endif
 
-#if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101400)
+#if PLATFORM(COCOA)
 #define CMSAMPLEBUFFERCALL_NOESCAPE CF_NOESCAPE
 #else
 #define CMSAMPLEBUFFERCALL_NOESCAPE
@@ -175,6 +175,10 @@ SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMTextVerticalLayout_RightToLeft,
 
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBlockBufferCreateContiguous, OSStatus, (CFAllocatorRef structureAllocator, CMBlockBufferRef sourceBuffer, CFAllocatorRef blockAllocator, const CMBlockBufferCustomBlockSource* customBlockSource, size_t offsetToData, size_t dataLength, CMBlockBufferFlags flags, CMBlockBufferRef* blockBufferOut), (structureAllocator, sourceBuffer, blockAllocator, customBlockSource, offsetToData, dataLength, flags, blockBufferOut))
 #define CMBlockBufferCreateContiguous softLink_CoreMedia_CMBlockBufferCreateContiguous
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBlockBufferAppendBufferReference, OSStatus, (CMBlockBufferRef theBuffer, CMBlockBufferRef targetBBuf, size_t offsetToData, size_t dataLength, CMBlockBufferFlags flags), (theBuffer, targetBBuf, offsetToData, dataLength, flags))
+#define CMBlockBufferAppendBufferReference softLink_CoreMedia_CMBlockBufferAppendBufferReference
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBlockBufferCreateEmpty, OSStatus, (CFAllocatorRef structureAllocator, uint32_t subBlockCapacity, CMBlockBufferFlags flags, CMBlockBufferRef* blockBufferOut), (structureAllocator, subBlockCapacity, flags, blockBufferOut))
+#define CMBlockBufferCreateEmpty softLink_CoreMedia_CMBlockBufferCreateEmpty
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMFormatDescriptionGetMediaSubType, FourCharCode, (CMFormatDescriptionRef desc), (desc))
 #define CMFormatDescriptionGetMediaSubType softLink_CoreMedia_CMFormatDescriptionGetMediaSubType
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMFormatDescriptionGetMediaType, CMMediaType, (CMFormatDescriptionRef desc), (desc))

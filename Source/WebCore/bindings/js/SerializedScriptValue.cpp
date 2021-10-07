@@ -59,6 +59,12 @@
 #include "ScriptState.h"
 #include "SharedBuffer.h"
 #include "WebCoreJSClientData.h"
+#if PLATFORM(COCOA)
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+#if USE(CG)
+#include <CoreGraphics/CoreGraphics.h>
+#endif
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/BigIntObject.h>
 #include <JavaScriptCore/BooleanObject.h>
@@ -237,8 +243,22 @@ static unsigned typedArrayElementSize(ArrayBufferViewSubtag tag)
 
 enum class PredefinedColorSpaceTag : uint8_t {
     SRGB = 0
-#if ENABLE(DESTINATION_COLOR_SPACE_DISPLAY_P3)
+#if ENABLE(PREDEFINED_COLOR_SPACE_DISPLAY_P3)
     , DisplayP3 = 1
+#endif
+};
+
+enum DestinationColorSpaceTag {
+    DestinationColorSpaceSRGBTag = 0,
+#if ENABLE(DESTINATION_COLOR_SPACE_LINEAR_SRGB)
+    DestinationColorSpaceLinearSRGBTag = 1,
+#endif
+#if ENABLE(DESTINATION_COLOR_SPACE_DISPLAY_P3)
+    DestinationColorSpaceDisplayP3Tag = 2,
+#endif
+#if PLATFORM(COCOA)
+    DestinationColorSpaceCGColorSpaceNameTag = 3,
+    DestinationColorSpaceCGColorSpacePropertyListTag = 4,
 #endif
 };
 
@@ -321,8 +341,9 @@ static unsigned countUsages(CryptoKeyUsageBitmap usages)
  * Version 6. added support for 8-bit strings.
  * Version 7. added support for File's lastModified attribute.
  * Version 8. added support for ImageData's colorSpace attribute.
+ * Version 9. added support for ImageBitmap color space.
  */
-static const unsigned CurrentVersion = 8;
+static const unsigned CurrentVersion = 9;
 static const unsigned TerminatorTag = 0xFFFFFFFF;
 static const unsigned StringPoolTag = 0xFFFFFFFE;
 static const unsigned NonIndexPropertiesTag = 0xFFFFFFFD;
@@ -386,7 +407,7 @@ static const unsigned StringDataIs8BitFlag = 0x80000000;
  *    | DOMQuad
  *    | ImageBitmapTransferTag <value:uint32_t>
  *    | RTCCertificateTag
- *    | ImageBitmapTag <originClean:uint8_t> <logicalWidth:int32_t> <logicalHeight:int32_t> <resolutionScale:double> <byteLength:uint32_t>(<imageByteData:uint8_t>)
+ *    | ImageBitmapTag <originClean:uint8_t> <logicalWidth:int32_t> <logicalHeight:int32_t> <resolutionScale:double> DestinationColorSpace <byteLength:uint32_t>(<imageByteData:uint8_t>)
  *    | OffscreenCanvasTransferTag <value:uint32_t>
  *    | WasmMemoryTag <value:uint32_t>
  *    | RTCDataChannelTransferTag <processIdentifier:uint64_t><rtcDataChannelIdentifier:uint64_t><label:String>
@@ -502,6 +523,12 @@ static const unsigned StringDataIs8BitFlag = 0x80000000;
  * DOMQuadData :-
  *      <p1:DOMPointData> <p2:DOMPointData> <p3:DOMPointData> <p4:DOMPointData>
  *
+ * DestinationColorSpace :-
+ *        DestinationColorSpaceSRGBTag
+ *      | DestinationColorSpaceLinearSRGBTag
+ *      | DestinationColorSpaceDisplayP3Tag
+ *      | DestinationColorSpaceCGColorSpaceNameTag <nameDataLength:uint32_t> <nameData:uint8_t>{nameDataLength}
+ *      | DestinationColorSpaceCGColorSpacePropertyListTag <propertyListDataLength:uint32_t> <propertyListData:uint8_t>{propertyListDataLength}
  */
 
 using DeserializationResult = std::pair<JSC::JSValue, SerializationReturnCode>;
@@ -1082,7 +1109,8 @@ private:
             return;
         }
 
-        PixelBufferFormat format { AlphaPremultiplication::Premultiplied, PixelFormat::RGBA8, DestinationColorSpace::SRGB() };
+        // FIXME: We should try to avoid converting pixel format.
+        PixelBufferFormat format { AlphaPremultiplication::Premultiplied, PixelFormat::RGBA8, buffer->colorSpace() };
         const IntSize& logicalSize = buffer->logicalSize();
         auto pixelBuffer = buffer->getPixelBuffer(format, { IntPoint::zero(), logicalSize });
         if (!pixelBuffer) {
@@ -1101,6 +1129,7 @@ private:
         write(static_cast<int32_t>(logicalSize.width()));
         write(static_cast<int32_t>(logicalSize.height()));
         write(static_cast<double>(buffer->resolutionScale()));
+        write(buffer->colorSpace());
 
         write(static_cast<uint32_t>(arrayBuffer->byteLength()));
         write(static_cast<const uint8_t*>(arrayBuffer->data()), arrayBuffer->byteLength());
@@ -1346,7 +1375,7 @@ private:
                     return false;
 
                 uint32_t index = m_wasmModules.size(); 
-                m_wasmModules.append(makeRef(module->module()));
+                m_wasmModules.append(&module->module());
                 write(WasmModuleTag);
                 write(index);
                 return true;
@@ -1361,7 +1390,7 @@ private:
                     return true;
                 }
                 uint32_t index = m_wasmMemoryHandles.size();
-                m_wasmMemoryHandles.append(makeRef(memory->memory().handle()));
+                m_wasmMemoryHandles.append(&memory->memory().handle());
                 write(WasmMemoryTag);
                 write(index);
                 return true;
@@ -1417,6 +1446,11 @@ private:
     }
 
     void write(ArrayBufferViewSubtag tag)
+    {
+        writeLittleEndian<uint8_t>(m_buffer, static_cast<uint8_t>(tag));
+    }
+
+    void write(DestinationColorSpaceTag tag)
     {
         writeLittleEndian<uint8_t>(m_buffer, static_cast<uint8_t>(tag));
     }
@@ -1564,12 +1598,74 @@ private:
         case PredefinedColorSpace::SRGB:
             writeLittleEndian<uint8_t>(m_buffer, static_cast<uint8_t>(PredefinedColorSpaceTag::SRGB));
             break;
-#if ENABLE(DESTINATION_COLOR_SPACE_DISPLAY_P3)
+#if ENABLE(PREDEFINED_COLOR_SPACE_DISPLAY_P3)
         case PredefinedColorSpace::DisplayP3:
             writeLittleEndian<uint8_t>(m_buffer, static_cast<uint8_t>(PredefinedColorSpaceTag::DisplayP3));
             break;
 #endif
         }
+    }
+
+#if PLATFORM(COCOA)
+    void write(const RetainPtr<CFDataRef>& data)
+    {
+        uint32_t dataLength = CFDataGetLength(data.get());
+        write(dataLength);
+        write(CFDataGetBytePtr(data.get()), dataLength);
+    }
+#endif
+
+    void write(DestinationColorSpace destinationColorSpace)
+    {
+        if (destinationColorSpace == DestinationColorSpace::SRGB()) {
+            write(DestinationColorSpaceSRGBTag);
+            return;
+        }
+
+#if ENABLE(DESTINATION_COLOR_SPACE_LINEAR_SRGB)
+        if (destinationColorSpace == DestinationColorSpace::LinearSRGB()) {
+            write(DestinationColorSpaceLinearSRGBTag);
+            return;
+        }
+#endif
+
+#if ENABLE(DESTINATION_COLOR_SPACE_DISPLAY_P3)
+        if (destinationColorSpace == DestinationColorSpace::DisplayP3()) {
+            write(DestinationColorSpaceDisplayP3Tag);
+            return;
+        }
+#endif
+
+#if PLATFORM(COCOA)
+        auto colorSpace = destinationColorSpace.platformColorSpace();
+
+        if (auto name = CGColorSpaceGetName(colorSpace)) {
+            auto data = adoptCF(CFStringCreateExternalRepresentation(nullptr, name, kCFStringEncodingUTF8, 0));
+            if (!data) {
+                write(DestinationColorSpaceSRGBTag);
+                return;
+            }
+
+            write(DestinationColorSpaceCGColorSpaceNameTag);
+            write(data);
+            return;
+        }
+
+        if (auto propertyList = adoptCF(CGColorSpaceCopyPropertyList(colorSpace))) {
+            auto data = adoptCF(CFPropertyListCreateData(nullptr, propertyList.get(), kCFPropertyListBinaryFormat_v1_0, 0, nullptr));
+            if (!data) {
+                write(DestinationColorSpaceSRGBTag);
+                return;
+            }
+
+            write(DestinationColorSpaceCGColorSpacePropertyListTag);
+            write(data);
+            return;
+        }
+#endif
+
+        ASSERT_NOT_REACHED();
+        write(DestinationColorSpaceSRGBTag);
     }
 
 #if ENABLE(WEB_CRYPTO)
@@ -2561,7 +2657,7 @@ private:
         case PredefinedColorSpaceTag::SRGB:
             result = PredefinedColorSpace::SRGB;
             return true;
-#if ENABLE(DESTINATION_COLOR_SPACE_DISPLAY_P3)
+#if ENABLE(PREDEFINED_COLOR_SPACE_DISPLAY_P3)
         case PredefinedColorSpaceTag::DisplayP3:
             result = PredefinedColorSpace::DisplayP3;
             return true;
@@ -2569,6 +2665,90 @@ private:
         default:
             return false;
         }
+    }
+
+    bool read(DestinationColorSpaceTag& tag)
+    {
+        if (m_ptr >= m_end)
+            return false;
+        tag = static_cast<DestinationColorSpaceTag>(*m_ptr++);
+        return true;
+    }
+
+#if PLATFORM(COCOA)
+    bool read(RetainPtr<CFDataRef>& data)
+    {
+        uint32_t dataLength;
+        if (!read(dataLength) || static_cast<uint32_t>(m_end - m_ptr) < dataLength)
+            return false;
+
+        data = adoptCF(CFDataCreateWithBytesNoCopy(nullptr, m_ptr, dataLength, kCFAllocatorNull));
+        if (!data)
+            return false;
+
+        m_ptr += dataLength;
+        return true;
+    }
+#endif
+
+    bool read(DestinationColorSpace& destinationColorSpace)
+    {
+        DestinationColorSpaceTag tag;
+        if (!read(tag))
+            return false;
+
+        switch (tag) {
+        case DestinationColorSpaceSRGBTag:
+            destinationColorSpace = DestinationColorSpace::SRGB();
+            return true;
+#if ENABLE(DESTINATION_COLOR_SPACE_LINEAR_SRGB)
+        case DestinationColorSpaceLinearSRGBTag:
+            destinationColorSpace = DestinationColorSpace::LinearSRGB();
+            return true;
+#endif
+#if ENABLE(DESTINATION_COLOR_SPACE_DISPLAY_P3)
+        case DestinationColorSpaceDisplayP3Tag:
+            destinationColorSpace = DestinationColorSpace::DisplayP3();
+            return true;
+#endif
+#if PLATFORM(COCOA)
+        case DestinationColorSpaceCGColorSpaceNameTag: {
+            RetainPtr<CFDataRef> data;
+            if (!read(data))
+                return false;
+
+            auto name = adoptCF(CFStringCreateFromExternalRepresentation(nullptr, data.get(), kCFStringEncodingUTF8));
+            if (!name)
+                return false;
+
+            auto colorSpace = adoptCF(CGColorSpaceCreateWithName(name.get()));
+            if (!colorSpace)
+                return false;
+
+            destinationColorSpace = DestinationColorSpace(colorSpace.get());
+            return true;
+        }
+        case DestinationColorSpaceCGColorSpacePropertyListTag: {
+            RetainPtr<CFDataRef> data;
+            if (!read(data))
+                return false;
+
+            auto propertyList = adoptCF(CFPropertyListCreateWithData(nullptr, data.get(), kCFPropertyListImmutable, nullptr, nullptr));
+            if (!propertyList)
+                return false;
+
+            auto colorSpace = adoptCF(CGColorSpaceCreateWithPropertyList(propertyList.get()));
+            if (!colorSpace)
+                return false;
+
+            destinationColorSpace = DestinationColorSpace(colorSpace.get());
+            return true;
+        }
+#endif
+        }
+
+        ASSERT_NOT_REACHED();
+        return false;
     }
 
 #if ENABLE(WEB_CRYPTO)
@@ -3162,9 +3342,10 @@ private:
         int32_t logicalWidth;
         int32_t logicalHeight;
         double resolutionScale;
+        auto colorSpace = DestinationColorSpace::SRGB();
         RefPtr<ArrayBuffer> arrayBuffer;
 
-        if (!read(serializationState) || !read(logicalWidth) || !read(logicalHeight) || !read(resolutionScale) || !readArrayBuffer(arrayBuffer)) {
+        if (!read(serializationState) || !read(logicalWidth) || !read(logicalHeight) || !read(resolutionScale) || (m_version > 8 && !read(colorSpace)) || !readArrayBuffer(arrayBuffer)) {
             fail();
             return JSValue();
         }
@@ -3173,13 +3354,13 @@ private:
         auto imageDataSize = logicalSize;
         imageDataSize.scale(resolutionScale);
 
-        auto buffer = ImageBitmap::createImageBuffer(*scriptExecutionContextFromExecState(m_lexicalGlobalObject), logicalSize, RenderingMode::Unaccelerated, resolutionScale);
+        auto buffer = ImageBitmap::createImageBuffer(*scriptExecutionContextFromExecState(m_lexicalGlobalObject), logicalSize, RenderingMode::Unaccelerated, colorSpace, resolutionScale);
         if (!buffer) {
             fail();
             return JSValue();
         }
 
-        PixelBufferFormat format { AlphaPremultiplication::Premultiplied, PixelFormat::RGBA8, DestinationColorSpace::SRGB() };
+        PixelBufferFormat format { AlphaPremultiplication::Premultiplied, PixelFormat::RGBA8, colorSpace };
         auto pixelBuffer = PixelBuffer::tryCreate(format, imageDataSize, arrayBuffer.releaseNonNull());
         if (!pixelBuffer) {
             fail();
@@ -4377,7 +4558,7 @@ void SerializedScriptValue::writeBlobsToDiskForIndexedDB(CompletionHandler<void(
     ASSERT(isMainThread());
     ASSERT(hasBlobURLs());
 
-    blobRegistry().writeBlobsToTemporaryFiles(blobURLs(), [completionHandler = WTFMove(completionHandler), this, protectedThis = makeRef(*this)] (auto&& blobFilePaths) mutable {
+    blobRegistry().writeBlobsToTemporaryFilesForIndexedDB(blobURLs(), [completionHandler = WTFMove(completionHandler), this, protectedThis = Ref { *this }] (auto&& blobFilePaths) mutable {
         ASSERT(isMainThread());
 
         if (blobFilePaths.isEmpty()) {

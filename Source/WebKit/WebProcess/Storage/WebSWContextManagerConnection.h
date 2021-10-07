@@ -49,6 +49,7 @@ namespace WebCore {
 struct FetchOptions;
 class ResourceRequest;
 struct ServiceWorkerContextData;
+enum class WorkerThreadMode : bool;
 }
 
 namespace WebKit {
@@ -86,7 +87,7 @@ private:
     // IPC messages.
     void serviceWorkerStarted(std::optional<WebCore::ServiceWorkerJobDataIdentifier>, WebCore::ServiceWorkerIdentifier, bool doesHandleFetch) final;
     void serviceWorkerFailedToStart(std::optional<WebCore::ServiceWorkerJobDataIdentifier>, WebCore::ServiceWorkerIdentifier, const String& exceptionMessage) final;
-    void installServiceWorker(WebCore::ServiceWorkerContextData&&, WebCore::ServiceWorkerData&&, String&& userAgent);
+    void installServiceWorker(WebCore::ServiceWorkerContextData&&, WebCore::ServiceWorkerData&&, String&& userAgent, WebCore::WorkerThreadMode);
     void updateAppInitiatedValue(WebCore::ServiceWorkerIdentifier, WebCore::LastNavigationWasAppInitiated);
     void startFetch(WebCore::SWServerConnectionIdentifier, WebCore::ServiceWorkerIdentifier, WebCore::FetchIdentifier, WebCore::ResourceRequest&&, WebCore::FetchOptions&&, IPC::FormDataReference&&, String&& referrer);
     void cancelFetch(WebCore::SWServerConnectionIdentifier, WebCore::ServiceWorkerIdentifier, WebCore::FetchIdentifier);
@@ -135,7 +136,7 @@ private:
     std::optional<WebCore::PageIdentifier> pageID() const final { return m_pageID; }
     std::optional<WebCore::FrameIdentifier> frameID() const final { return m_frameID; }
 
-    bool shouldUseCredentialStorage(WebCore::DocumentLoader*, unsigned long) final { return true; }
+    bool shouldUseCredentialStorage(WebCore::DocumentLoader*, WebCore::ResourceLoaderIdentifier) final { return true; }
     bool isServiceWorkerFrameLoaderClient() const final { return true; }
 
     String userAgent(const URL&) const final { return m_userAgent; }

@@ -364,9 +364,6 @@ public:
     LayoutIntegration::LineLayout* modernLineLayout();
 #endif
 
-    void ensureLineBoxes();
-    void generateLineBoxTree();
-
 #if ENABLE(TREE_DEBUGGING)
     void outputFloatingObjects(WTF::TextStream&, int depth) const;
     void outputLineTreeAndMark(WTF::TextStream&, const LegacyInlineBox* markedBox, int depth) const;
@@ -403,6 +400,8 @@ public:
     void addFloatsToNewParent(RenderBlockFlow& toBlockFlow) const;
     
     LayoutUnit endPaddingWidthForCaret() const;
+
+    LayoutUnit adjustSelectionTopForPrecedingBlock(LayoutUnit top) const;
 
 protected:
     bool shouldResetLogicalHeightBeforeLayout() const override { return true; }
@@ -556,7 +555,6 @@ private:
     int m_widthForTextAutosizing;
     unsigned m_lineCountForTextAutosizing : 2;
 #endif
-    void setSelectionState(HighlightState) final;
 
 public:
     // FIXME-BLOCKFLOW: These can be made protected again once all callers have been moved here.

@@ -354,13 +354,13 @@ static void replaceRichContentWithAttachments(Frame& frame, DocumentFragment& fr
 
     for (auto& info : attachmentInsertionInfo) {
         auto originalElement = WTFMove(info.originalElement);
-        auto parent = makeRefPtr(originalElement->parentNode());
+        RefPtr parent { originalElement->parentNode() };
         if (!parent)
             continue;
 
         auto attachment = HTMLAttachmentElement::create(HTMLNames::attachmentTag, fragment.document());
         if (supportsClientSideAttachmentData(frame)) {
-            if (is<HTMLImageElement>(originalElement.get()) && contentTypeIsSuitableForInlineImageRepresentation(info.contentType)) {
+            if (is<HTMLImageElement>(originalElement) && contentTypeIsSuitableForInlineImageRepresentation(info.contentType)) {
                 auto& image = downcast<HTMLImageElement>(originalElement.get());
                 image.setAttributeWithoutSynchronization(HTMLNames::srcAttr, DOMURL::createObjectURL(*frame.document(), Blob::create(frame.document(), info.data->copyData(), info.contentType)));
                 image.setAttachmentElement(attachment.copyRef());
@@ -703,7 +703,7 @@ static String typeForAttachmentElement(const String& contentType)
 
 static Ref<HTMLElement> attachmentForFilePath(Frame& frame, const String& path, PresentationSize preferredSize, const String& explicitContentType)
 {
-    auto document = makeRef(*frame.document());
+    Ref document = *frame.document();
     auto attachment = HTMLAttachmentElement::create(HTMLNames::attachmentTag, document);
     if (!supportsClientSideAttachmentData(frame)) {
         attachment->setFile(File::create(document.ptr(), path), HTMLAttachmentElement::UpdateDisplayAttributes::Yes);
@@ -747,7 +747,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 static Ref<HTMLElement> attachmentForData(Frame& frame, SharedBuffer& buffer, const String& contentType, const String& name, PresentationSize preferredSize)
 {
-    auto document = makeRef(*frame.document());
+    Ref document = *frame.document();
     auto attachment = HTMLAttachmentElement::create(HTMLNames::attachmentTag, document);
     auto attachmentType = typeForAttachmentElement(contentType);
 
@@ -817,7 +817,7 @@ bool WebContentReader::readURL(const URL& url, const String& title)
         return false;
 #endif // PLATFORM(IOS_FAMILY)
 
-    auto document = makeRef(*frame.document());
+    Ref document = *frame.document();
     auto anchor = HTMLAnchorElement::create(document.get());
     anchor->setAttributeWithoutSynchronization(HTMLNames::hrefAttr, url.string());
 
@@ -840,7 +840,7 @@ bool WebContentReader::readDataBuffer(SharedBuffer& buffer, const String& type, 
     if (!shouldReplaceRichContentWithAttachments())
         return false;
 
-    auto document = makeRefPtr(frame.document());
+    RefPtr document { frame.document() };
     if (!document)
         return false;
 

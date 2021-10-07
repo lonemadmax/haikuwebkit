@@ -20,7 +20,9 @@
     "css/css-text-decor": "import", 
     "css/css-transforms": "import", 
     "css/css-transforms/parsing": "import", 
+    "css/css-ui": "import", 
     "css/css-values": "import", 
+    "css/cssom-view": "import", 
     "css/geometry": "import", 
     "css/selectors": "import", 
     "css/support": "import", 
@@ -223,6 +225,8 @@
     "web-platform-tests/fetch/range": "import", 
     "web-platform-tests/fetch/stale-while-revalidate": "import", 
     "web-platform-tests/file-system-access": "import", 
+    "web-platform-tests/fonts": "import", 
+    "web-platform-tests/fonts/noto": "import", 
     "web-platform-tests/fullscreen": "skip", 
     "web-platform-tests/gamepad": "skip", 
     "web-platform-tests/generic-sensor": "skip", 
@@ -386,6 +390,7 @@
     "web-platform-tests/presentation-api": "skip", 
     "web-platform-tests/progress-events": "skip", 
     "web-platform-tests/proximity": "skip", 
+    "web-platform-tests/push-api": "import", 
     "web-platform-tests/quirks-mode": "skip", 
     "web-platform-tests/quirks/unitless-length": "import", 
     "web-platform-tests/referrer-policy": "import", 
@@ -465,5 +470,6 @@
     "web-platform-tests/worklets": "import", 
     "web-platform-tests/x-frame-options": "skip", 
     "web-platform-tests/xhr": "import", 
-    "web-platform/test/html/infrastructure": "import"
+    "web-platform/test/html/infrastructure": "import", 
+    "webrtc-platform-tests/webrtc": "import"
 }

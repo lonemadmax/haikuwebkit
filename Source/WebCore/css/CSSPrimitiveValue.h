@@ -108,6 +108,7 @@ public:
     bool isDotsPerInch() const { return primitiveType() == CSSUnitType::CSS_DPI; }
     bool isDotsPerPixel() const { return primitiveType() == CSSUnitType::CSS_DPPX; }
     bool isDotsPerCentimeter() const { return primitiveType() == CSSUnitType::CSS_DPCM; }
+    bool isX() const { return primitiveType() == CSSUnitType::CSS_X; }
     bool isResolution() const { return unitCategory(primitiveType()) == CSSUnitCategory::Resolution; }
     bool isViewportPercentageLength() const { return isViewportPercentageLength(primitiveUnitType()); }
     bool isViewportPercentageWidth() const { return primitiveUnitType() == CSSUnitType::CSS_VW; }
@@ -281,6 +282,7 @@ constexpr bool CSSPrimitiveValue::isFontRelativeLength(CSSUnitType type)
         || type == CSSUnitType::CSS_RLHS
         || type == CSSUnitType::CSS_REMS
         || type == CSSUnitType::CSS_CHS
+        || type == CSSUnitType::CSS_IC
         || type == CSSUnitType::CSS_QUIRKY_EMS;
 }
 
@@ -296,6 +298,7 @@ constexpr bool CSSPrimitiveValue::isLength(CSSUnitType type)
         || type == CSSUnitType::CSS_PC
         || type == CSSUnitType::CSS_REMS
         || type == CSSUnitType::CSS_CHS
+        || type == CSSUnitType::CSS_IC
         || type == CSSUnitType::CSS_Q
         || type == CSSUnitType::CSS_LHS
         || type == CSSUnitType::CSS_RLHS

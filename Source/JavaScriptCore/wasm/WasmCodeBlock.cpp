@@ -49,7 +49,7 @@ CodeBlock::CodeBlock(Context* context, MemoryMode mode, ModuleInformation& modul
     RefPtr<CodeBlock> protectedThis = this;
 
     if (Options::useWasmLLInt()) {
-        m_plan = adoptRef(*new LLIntPlan(context, makeRef(moduleInformation), m_llintCallees->data(), createSharedTask<Plan::CallbackType>([this, protectedThis = WTFMove(protectedThis)] (Plan&) {
+        m_plan = adoptRef(*new LLIntPlan(context, moduleInformation, m_llintCallees->data(), createSharedTask<Plan::CallbackType>([this, protectedThis = WTFMove(protectedThis)] (Plan&) {
             Locker locker { m_lock };
             if (m_plan->failed()) {
                 m_errorMessage = m_plan->errorMessage();
@@ -76,7 +76,7 @@ CodeBlock::CodeBlock(Context* context, MemoryMode mode, ModuleInformation& modul
     }
 #if ENABLE(WEBASSEMBLY_B3JIT)
     else {
-        m_plan = adoptRef(*new BBQPlan(context, makeRef(moduleInformation), CompilerMode::FullCompile, createSharedTask<Plan::CallbackType>([this, protectedThis = WTFMove(protectedThis)] (Plan&) {
+        m_plan = adoptRef(*new BBQPlan(context, moduleInformation, CompilerMode::FullCompile, createSharedTask<Plan::CallbackType>([this, protectedThis = WTFMove(protectedThis)] (Plan&) {
             Locker locker { m_lock };
             if (m_plan->failed()) {
                 m_errorMessage = m_plan->errorMessage();
@@ -110,7 +110,7 @@ CodeBlock::CodeBlock(Context* context, MemoryMode mode, ModuleInformation& modul
 
     auto& worklist = Wasm::ensureWorklist();
     // Note, immediately after we enqueue the plan, there is a chance the above callback will be called.
-    worklist.enqueue(makeRef(*m_plan.get()));
+    worklist.enqueue(*m_plan.get());
 }
 
 CodeBlock::~CodeBlock() { }
@@ -143,10 +143,10 @@ void CodeBlock::compileAsync(Context* context, AsyncCompilationCallback&& task)
         // a RefPtr on the Plan until the plan finishes notifying all of its callbacks.
         RefPtr<CodeBlock> protectedThis = this;
         plan->addCompletionTask(context, createSharedTask<Plan::CallbackType>([this, task = WTFMove(task), protectedThis = WTFMove(protectedThis)] (Plan&) {
-            task->run(makeRef(*this));
+            task->run(Ref { *this });
         }));
     } else
-        task->run(makeRef(*this));
+        task->run(Ref { *this });
 }
 
 bool CodeBlock::isSafeToRun(MemoryMode memoryMode)

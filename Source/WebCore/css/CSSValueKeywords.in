@@ -1073,10 +1073,6 @@ no-limit
 manual
 // auto
 
-#if defined(ENABLE_LETTERPRESS) && ENABLE_LETTERPRESS
--webkit-letterpress
-#endif
-
 #if defined(ENABLE_OVERFLOW_SCROLLING_TOUCH) && ENABLE_OVERFLOW_SCROLLING_TOUCH
 // -webkit-overflow-scrolling
 // auto
@@ -1351,10 +1347,28 @@ calc
 min
 max
 clamp
+pow
+sqrt
+hypot
 sin
 cos
 e
 pi
+exp
+log
+asin
+acos
+atan
+atan2
+abs
+sign
+mod
+rem
+to-zero
+nearest
+infinity
+-infinity
+NaN
 
 from-image
 
@@ -1486,11 +1500,11 @@ more
 less
 // no-preference
 
-#if defined(ENABLE_DARK_MODE_CSS) && ENABLE_DARK_MODE_CSS
-// prefers-color-scheme
+// prefers-color-scheme, font-palette
 light
 dark
 
+#if defined(ENABLE_DARK_MODE_CSS) && ENABLE_DARK_MODE_CSS
 // color-scheme
 only
 // light

@@ -29,6 +29,7 @@
 #include "ElementData.h"
 #include "FocusOptions.h"
 #include "HTMLNames.h"
+#include "RenderStyle.h"
 #include "ScrollTypes.h"
 #include "ShadowRootInit.h"
 #include "ShadowRootMode.h"
@@ -69,17 +70,11 @@ enum class IsSyntheticClick : bool { No, Yes };
 enum class SelectionRestorationMode : uint8_t;
 
 struct GetAnimationsOptions;
+struct IntersectionObserverData;
 struct KeyframeAnimationOptions;
+struct ResizeObserverData;
 struct ScrollIntoViewOptions;
 struct ScrollToOptions;
-
-#if ENABLE(INTERSECTION_OBSERVER)
-struct IntersectionObserverData;
-#endif
-
-#if ENABLE(RESIZE_OBSERVER)
-struct ResizeObserverData;
-#endif
 
 namespace Style {
 struct ElementStyle;
@@ -614,15 +609,11 @@ public:
     using ContainerNode::setAttributeEventListener;
     void setAttributeEventListener(const AtomString& eventType, const QualifiedName& attributeName, const AtomString& value);
 
-#if ENABLE(INTERSECTION_OBSERVER)
     IntersectionObserverData& ensureIntersectionObserverData();
     IntersectionObserverData* intersectionObserverDataIfExists();
-#endif
 
-#if ENABLE(RESIZE_OBSERVER)
     ResizeObserverData& ensureResizeObserverData();
     ResizeObserverData* resizeObserverData();
-#endif
 
     Element* findAnchorElementForLink(String& outAnchorName);
 
@@ -707,13 +698,9 @@ private:
     LayoutRect absoluteEventBounds(bool& boundsIncludeAllDescendantElements, bool& includesFixedPositionElements);
     LayoutRect absoluteEventBoundsOfElementAndDescendants(bool& includesFixedPositionElements);
 
-#if ENABLE(INTERSECTION_OBSERVER)
     void disconnectFromIntersectionObservers();
-#endif
 
-#if ENABLE(RESIZE_OBSERVER)
     void disconnectFromResizeObservers();
-#endif
 
     // The cloneNode function is private so that non-virtual cloneElementWith/WithoutChildren are used instead.
     Ref<Node> cloneNodeInternal(Document&, CloningOperation) override;
@@ -883,6 +870,11 @@ inline const AtomString& Element::getAttribute(const QualifiedName& name, const 
     if (!value.isNull())
         return value;
     return getAttribute(names...);
+}
+
+inline bool isInTopLayerOrBackdrop(const RenderStyle& style, const Element* element)
+{
+    return (element && element->isInTopLayer()) || style.styleType() == PseudoId::Backdrop;
 }
 
 } // namespace WebCore

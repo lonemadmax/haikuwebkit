@@ -368,7 +368,7 @@ void SourceBufferPrivateAVFObjC::didParseInitializationData(InitializationSegmen
             if (!weakThis)
                 return;
 
-            auto videoTrackSelectedChanged = [weakThis, this, trackRef = makeRef(track), selected] {
+            auto videoTrackSelectedChanged = [weakThis, this, trackRef = Ref { track }, selected] {
                 if (!weakThis)
                     return;
                 trackDidChangeSelected(trackRef, selected);
@@ -390,7 +390,7 @@ void SourceBufferPrivateAVFObjC::didParseInitializationData(InitializationSegmen
             if (!weakThis)
                 return;
 
-            auto audioTrackEnabledChanged= [weakThis, this, trackRef = makeRef(track), enabled] {
+            auto audioTrackEnabledChanged= [weakThis, this, trackRef = Ref { track }, enabled] {
                 if (!weakThis)
                     return;
 
@@ -572,9 +572,9 @@ static dispatch_queue_t globalDataParserQueue()
     return globalQueue;
 }
 
-void SourceBufferPrivateAVFObjC::append(Vector<unsigned char>&& data)
+void SourceBufferPrivateAVFObjC::append(Ref<SharedBuffer>&& data)
 {
-    ALWAYS_LOG(LOGIDENTIFIER, "data length = ", data.size());
+    ALWAYS_LOG(LOGIDENTIFIER, "data length = ", data->size());
 
     ASSERT(!m_hasSessionSemaphore);
     ASSERT(!m_abortSemaphore);
@@ -870,7 +870,7 @@ void SourceBufferPrivateAVFObjC::trackDidChangeEnabled(AudioTrackPrivate& track,
 
 AVStreamDataParser* SourceBufferPrivateAVFObjC::streamDataParser() const
 {
-    if (is<SourceBufferParserAVFObjC>(m_parser.get()))
+    if (is<SourceBufferParserAVFObjC>(m_parser))
         return downcast<SourceBufferParserAVFObjC>(m_parser.get()).streamDataParser();
     return nil;
 }

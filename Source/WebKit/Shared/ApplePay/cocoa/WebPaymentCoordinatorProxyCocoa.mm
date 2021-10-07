@@ -241,6 +241,10 @@ static PKPaymentRequestAPIType toAPIType(WebCore::ApplePaySessionPaymentRequest:
     }
 }
 
+#if !USE(APPLE_INTERNAL_SDK)
+static void merge(PKPaymentRequest *, const WebCore::ApplePaySessionPaymentRequest&) { }
+#endif
+
 RetainPtr<PKPaymentRequest> WebPaymentCoordinatorProxy::platformPaymentRequest(const URL& originatingURL, const Vector<URL>& linkIconURLs, const WebCore::ApplePaySessionPaymentRequest& paymentRequest)
 {
     auto result = adoptNS([PAL::allocPKPaymentRequestInstance() init]);
@@ -280,11 +284,9 @@ RetainPtr<PKPaymentRequest> WebPaymentCoordinatorProxy::platformPaymentRequest(c
 
     [result setSupportedCountries:toNSSet(paymentRequest.supportedCountries()).get()];
 
-#if HAVE(PASSKIT_BOUND_INTERFACE_IDENTIFIER)
     auto& boundInterfaceIdentifier = m_client.paymentCoordinatorBoundInterfaceIdentifier(*this);
     if (!boundInterfaceIdentifier.isEmpty())
         [result setBoundInterfaceIdentifier:boundInterfaceIdentifier];
-#endif
 
     // FIXME: Instead of using respondsToSelector, this should use a proper #if version check.
     auto& bundleIdentifier = m_client.paymentCoordinatorSourceApplicationBundleIdentifier(*this);
@@ -321,9 +323,7 @@ RetainPtr<PKPaymentRequest> WebPaymentCoordinatorProxy::platformPaymentRequest(c
         [result setShippingContactEditingMode:toPKShippingContactEditingMode(*shippingContactEditingMode)];
 #endif
 
-#if defined(WebPaymentCoordinatorProxyCocoaAdditions_platformPaymentRequest)
-    WebPaymentCoordinatorProxyCocoaAdditions_platformPaymentRequest
-#endif
+    merge(result.get(), paymentRequest);
 
     return result;
 }

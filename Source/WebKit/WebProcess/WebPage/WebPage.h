@@ -83,6 +83,7 @@
 #include <WebCore/PluginData.h>
 #include <WebCore/PointerCharacteristics.h>
 #include <WebCore/PointerID.h>
+#include <WebCore/RectEdges.h>
 #include <WebCore/SecurityPolicyViolationEvent.h>
 #include <WebCore/ShareData.h>
 #include <WebCore/SimpleRange.h>
@@ -106,9 +107,13 @@
 #include <wtf/WallTime.h>
 #include <wtf/text/WTFString.h>
 
-#if ENABLE(ACCESSIBILITY) && USE(ATK)
+#if ENABLE(ACCESSIBILITY)
+#if USE(ATK)
 typedef struct _AtkObject AtkObject;
 #include <wtf/glib/GRefPtr.h>
+#elif USE(ATSPI)
+#include <WebCore/AccessibilityRootAtspi.h>
+#endif
 #endif
 
 #if PLATFORM(GTK)
@@ -215,11 +220,12 @@ class SubstituteData;
 class TextCheckingRequest;
 class VisiblePosition;
 
-#if HAVE(ARKIT_INLINE_PREVIEW)
+#if ENABLE(ARKIT_INLINE_PREVIEW)
 class HTMLModelElement;
 #endif
 
 enum SyntheticClickType : int8_t;
+enum class COEPDisposition : bool;
 enum class CreateNewGroupForHighlight : bool;
 enum class DOMPasteAccessResponse : uint8_t;
 enum class DragApplicationFlags : uint8_t;
@@ -436,8 +442,12 @@ public:
     WebFullScreenManager* fullScreenManager();
 #endif
 
-    void addConsoleMessage(WebCore::FrameIdentifier, MessageSource, MessageLevel, const String&, uint64_t requestID = 0);
+    void addConsoleMessage(WebCore::FrameIdentifier, MessageSource, MessageLevel, const String&, WebCore::ResourceLoaderIdentifier = { });
     void sendCSPViolationReport(WebCore::FrameIdentifier, const URL& reportURL, IPC::FormDataReference&&);
+    void sendCOEPPolicyInheritenceViolation(WebCore::FrameIdentifier, const WebCore::SecurityOriginData& embedderOrigin, const String& endpoint, WebCore::COEPDisposition, const String& type, const URL& blockedURL);
+    void sendCOEPCORPViolation(WebCore::FrameIdentifier, const WebCore::SecurityOriginData& embedderOrigin, const String& endpoint, WebCore::COEPDisposition, WebCore::FetchOptions::Destination, const URL& blockedURL);
+    void sendViolationReportWhenNavigatingToCOOPResponse(WebCore::FrameIdentifier, const WebCore::CrossOriginOpenerPolicy&, WebCore::COOPDisposition, const URL& coopURL, const URL& previousResponseURL, const WebCore::SecurityOriginData& coopOrigin, const WebCore::SecurityOriginData& previousResponseOrigin, const String& referrer, const String& userAgent, const String& reportToHeaderValue);
+    void sendViolationReportWhenNavigatingAwayFromCOOPResponse(WebCore::FrameIdentifier, const WebCore::CrossOriginOpenerPolicy&, WebCore::COOPDisposition, const URL& coopURL, const URL& nextResponseURL, const WebCore::SecurityOriginData& coopOrigin, const WebCore::SecurityOriginData& nextResponseOrigin, bool isCOOPResponseNavigationSource, const String& userAgent);
     void enqueueSecurityPolicyViolationEvent(WebCore::FrameIdentifier, WebCore::SecurityPolicyViolationEvent::Init&&);
 
     // -- Called by the DrawingArea.
@@ -1013,8 +1023,8 @@ public:
     void drawPagesForPrinting(WebCore::FrameIdentifier, const PrintInfo&, CompletionHandler<void(const WebCore::ResourceError&)>&&);
 #endif
 
-    void addResourceRequest(unsigned long, const WebCore::ResourceRequest&);
-    void removeResourceRequest(unsigned long);
+    void addResourceRequest(WebCore::ResourceLoaderIdentifier, const WebCore::ResourceRequest&);
+    void removeResourceRequest(WebCore::ResourceLoaderIdentifier);
 
     void setMediaVolume(float);
     void setMuted(WebCore::MediaProducer::MutedStateFlags, CompletionHandler<void()>&&);
@@ -1268,7 +1278,7 @@ public:
 
     void flushPendingEditorStateUpdate();
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     void hasStorageAccess(WebCore::RegistrableDomain&& subFrameDomain, WebCore::RegistrableDomain&& topFrameDomain, WebFrame&, CompletionHandler<void(bool)>&&);
     void requestStorageAccess(WebCore::RegistrableDomain&& subFrameDomain, WebCore::RegistrableDomain&& topFrameDomain, WebFrame&, WebCore::StorageAccessScope, CompletionHandler<void(WebCore::RequestStorageAccessResult)>&&);
     bool hasPageLevelStorageAccess(const WebCore::RegistrableDomain& topLevelDomain, const WebCore::RegistrableDomain& resourceDomain) const;
@@ -1473,15 +1483,19 @@ public:
     PlatformXRSystemProxy& xrSystemProxy();
 #endif
 
-#if HAVE(ARKIT_INLINE_PREVIEW_IOS)
+#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
     void takeModelElementFullscreen(WebCore::GraphicsLayer::PlatformLayerID contentLayerId);
 #endif
-#if HAVE(ARKIT_INLINE_PREVIEW_MAC)
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
     void modelElementDidCreatePreview(WebCore::HTMLModelElement&, const URL&, const String&, const WebCore::FloatSize&);
     void modelElementPreviewDidObtainContextId(const WebCore::ElementContext&, const String&, uint32_t);
 #endif
 
     void prepareToRunModalJavaScriptDialog();
+
+#if USE(ATSPI)
+    const WebCore::AccessibilityRootAtspi& accessibilityRootObject() const { return *m_accessibilityRootObject; }
+#endif
 
 private:
     WebPage(WebCore::PageIdentifier, WebPageCreationParameters&&);
@@ -1496,7 +1510,7 @@ private:
     void platformReinitialize();
     void platformDetach();
     void getPlatformEditorState(WebCore::Frame&, EditorState&) const;
-    bool platformNeedsLayoutForEditorState(const WebCore::Frame&) const;
+    bool requiresPostLayoutDataForEditorState(const WebCore::Frame&) const;
     void platformWillPerformEditingCommand();
     void sendEditorStateUpdate();
     void getPlatformEditorStateCommon(const WebCore::Frame&, EditorState&) const;
@@ -1872,13 +1886,13 @@ private:
 
     void frameBecameRemote(WebCore::FrameIdentifier, WebCore::GlobalFrameIdentifier&& remoteFrameIdentifier, WebCore::GlobalWindowIdentifier&& remoteWindowIdentifier);
 
-    void registerURLSchemeHandler(uint64_t identifier, const String& scheme);
+    void registerURLSchemeHandler(WebURLSchemeHandlerIdentifier, const String& scheme);
 
-    void urlSchemeTaskWillPerformRedirection(uint64_t handlerIdentifier, uint64_t taskIdentifier, WebCore::ResourceResponse&&, WebCore::ResourceRequest&&, CompletionHandler<void(WebCore::ResourceRequest&&)>&&);
-    void urlSchemeTaskDidPerformRedirection(uint64_t handlerIdentifier, uint64_t taskIdentifier, WebCore::ResourceResponse&&, WebCore::ResourceRequest&&);
-    void urlSchemeTaskDidReceiveResponse(uint64_t handlerIdentifier, uint64_t taskIdentifier, const WebCore::ResourceResponse&);
-    void urlSchemeTaskDidReceiveData(uint64_t handlerIdentifier, uint64_t taskIdentifier, const IPC::DataReference&);
-    void urlSchemeTaskDidComplete(uint64_t handlerIdentifier, uint64_t taskIdentifier, const WebCore::ResourceError&);
+    void urlSchemeTaskWillPerformRedirection(WebURLSchemeHandlerIdentifier, WebCore::ResourceLoaderIdentifier taskIdentifier, WebCore::ResourceResponse&&, WebCore::ResourceRequest&&, CompletionHandler<void(WebCore::ResourceRequest&&)>&&);
+    void urlSchemeTaskDidPerformRedirection(WebURLSchemeHandlerIdentifier, WebCore::ResourceLoaderIdentifier taskIdentifier, WebCore::ResourceResponse&&, WebCore::ResourceRequest&&);
+    void urlSchemeTaskDidReceiveResponse(WebURLSchemeHandlerIdentifier, WebCore::ResourceLoaderIdentifier taskIdentifier, const WebCore::ResourceResponse&);
+    void urlSchemeTaskDidReceiveData(WebURLSchemeHandlerIdentifier, WebCore::ResourceLoaderIdentifier taskIdentifier, const IPC::DataReference&);
+    void urlSchemeTaskDidComplete(WebURLSchemeHandlerIdentifier, WebCore::ResourceLoaderIdentifier taskIdentifier, const WebCore::ResourceError&);
 
     void setIsTakingSnapshotsForApplicationSuspension(bool);
     void setNeedsDOMWindowResizeEvent();
@@ -1920,6 +1934,7 @@ private:
     void consumeNetworkExtensionSandboxExtensions(const Vector<SandboxExtension::Handle>&);
 
     bool hasPendingEditorStateUpdate() const;
+    bool shouldAvoidComputingPostLayoutDataForEditorState() const;
 
     WebCore::PageIdentifier m_identifier;
 
@@ -2009,8 +2024,12 @@ private:
     RetainPtr<NSDictionary> m_dataDetectionContext;
 #endif
 
-#if ENABLE(ACCESSIBILITY) && USE(ATK)
+#if ENABLE(ACCESSIBILITY)
+#if USE(ATK)
     GRefPtr<AtkObject> m_accessibilityObject;
+#elif USE(ATSPI)
+    RefPtr<WebCore::AccessibilityRootAtspi> m_accessibilityRootObject;
+#endif
 #endif
 
 #if PLATFORM(WIN)
@@ -2148,16 +2167,13 @@ private:
     std::optional<WebCore::SimpleRange> m_rangeForDropSnapshot;
 #endif
 
-    bool m_cachedMainFrameIsPinnedToLeftSide { true };
-    bool m_cachedMainFrameIsPinnedToRightSide { true };
-    bool m_cachedMainFrameIsPinnedToTopSide { true };
-    bool m_cachedMainFrameIsPinnedToBottomSide { true };
+    WebCore::RectEdges<bool> m_cachedMainFramePinnedState { true, true, true, true };
     bool m_canShortCircuitHorizontalWheelEvents { false };
     bool m_hasWheelEventHandlers { false };
 
     unsigned m_cachedPageCount { 0 };
 
-    HashSet<unsigned long> m_trackedNetworkResourceRequestIdentifiers;
+    HashSet<WebCore::ResourceLoaderIdentifier> m_trackedNetworkResourceRequestIdentifiers;
 
     WebCore::IntSize m_minimumSizeForAutoLayout;
     WebCore::IntSize m_sizeToContentAutoSizeMaximumSize;
@@ -2165,9 +2181,10 @@ private:
     std::optional<WebCore::IntSize> m_viewportSizeForCSSViewportUnits;
 
     bool m_userIsInteracting { false };
-    bool m_hasEverFocusedElementDueToUserInteractionSincePageTransition { false };
 
 #if HAVE(TOUCH_BAR)
+    bool m_hasEverFocusedElementDueToUserInteractionSincePageTransition { false };
+    bool m_requiresUserActionForEditingControlsManager { false };
     bool m_isTouchBarUpdateSupressedForHiddenContentEditable { false };
     bool m_isNeverRichlyEditableForTouchBar { false };
 #endif
@@ -2306,7 +2323,7 @@ private:
 #endif
 
     HashMap<String, RefPtr<WebURLSchemeHandlerProxy>> m_schemeToURLSchemeHandlerProxyMap;
-    HashMap<uint64_t, WebURLSchemeHandlerProxy*> m_identifierToURLSchemeHandlerProxyMap;
+    HashMap<WebURLSchemeHandlerIdentifier, WebURLSchemeHandlerProxy*> m_identifierToURLSchemeHandlerProxyMap;
 
     HashMap<uint64_t, Function<void(bool granted)>> m_storageAccessResponseCallbackMap;
 
@@ -2327,7 +2344,7 @@ private:
     WebCore::Timer m_textAutoSizingAdjustmentTimer;
 #endif
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     HashMap<WebCore::RegistrableDomain, WebCore::RegistrableDomain> m_domainsWithPageLevelStorageAccess;
     HashSet<WebCore::RegistrableDomain> m_loadedSubresourceDomains;
 #endif
@@ -2380,8 +2397,12 @@ private:
 
 #if !PLATFORM(IOS_FAMILY)
 inline void WebPage::platformWillPerformEditingCommand() { }
-inline bool WebPage::platformNeedsLayoutForEditorState(const WebCore::Frame&) const { return false; }
+inline bool WebPage::requiresPostLayoutDataForEditorState(const WebCore::Frame&) const { return false; }
 inline void WebPage::prepareToRunModalJavaScriptDialog() { }
+#endif
+
+#if !PLATFORM(MAC)
+inline bool WebPage::shouldAvoidComputingPostLayoutDataForEditorState() const { return false; }
 #endif
 
 } // namespace WebKit

@@ -145,7 +145,19 @@ id attributeValue(id element, NSString *attribute)
 
     BEGIN_AX_OBJC_EXCEPTIONS
     AccessibilityUIElement::s_controller->executeOnAXThreadAndWait([&element, &attribute, &value] {
-        value = [element accessibilityAttributeValue:attribute];
+        // The given `element` may not respond to `accessibilityAttributeValue`, so first check to see if it responds to the attribute-specific selector.
+        if ([attribute isEqual:NSAccessibilityChildrenAttribute] && [element respondsToSelector:@selector(accessibilityChildren)])
+            value = [element accessibilityChildren];
+        else if ([attribute isEqual:NSAccessibilityDescriptionAttribute] && [element respondsToSelector:@selector(accessibilityLabel)])
+            value = [element accessibilityLabel];
+        else if ([attribute isEqual:NSAccessibilityParentAttribute] && [element respondsToSelector:@selector(accessibilityParent)])
+            value = [element accessibilityParent];
+        else if ([attribute isEqual:NSAccessibilityRoleAttribute] && [element respondsToSelector:@selector(accessibilityRole)])
+            value = [element accessibilityRole];
+        else if ([attribute isEqual:NSAccessibilityValueAttribute] && [element respondsToSelector:@selector(accessibilityValue)])
+            value = [element accessibilityValue];
+        else
+            value = [element accessibilityAttributeValue:attribute];
     });
     END_AX_OBJC_EXCEPTIONS
 
@@ -1870,16 +1882,11 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::rectsForTextMarkerRange(Accessi
 RefPtr<AccessibilityTextMarkerRange> AccessibilityUIElement::textMarkerRangeForMarkers(AccessibilityTextMarker* startMarker, AccessibilityTextMarker* endMarker)
 {
     BEGIN_AX_OBJC_EXCEPTIONS
-    id startPlatformMarker = startMarker->platformTextMarker();
-    id endPlatformMarker = endMarker->platformTextMarker();
-    if (!startPlatformMarker || !endPlatformMarker)
-        return nullptr;
-
-    NSArray* textMarkers = @[startPlatformMarker, endPlatformMarker];
-    id textMarkerRange = [m_element accessibilityAttributeValue:@"AXTextMarkerRangeForUnorderedTextMarkers" forParameter:textMarkers];
+    NSArray *textMarkers = @[startMarker->platformTextMarker(), endMarker->platformTextMarker()];
+    id textMarkerRange = [m_element accessibilityAttributeValue:@"AXTextMarkerRangeForTextMarkers" forParameter:textMarkers];
     return AccessibilityTextMarkerRange::create(textMarkerRange);
     END_AX_OBJC_EXCEPTIONS
-    
+
     return nullptr;
 }
 

@@ -177,7 +177,7 @@ void RemoteRenderingBackend::createImageBuffer(const FloatSize& logicalSize, Ren
         return;
     }
 
-    m_remoteResourceCache.cacheImageBuffer(makeRef(*imageBuffer));
+    m_remoteResourceCache.cacheImageBuffer(*imageBuffer);
     updateRenderingResourceRequest();
 
     if (m_pendingWakeupInfo && m_pendingWakeupInfo->shouldPerformWakeup(imageBufferResourceIdentifier))
@@ -236,8 +236,8 @@ DisplayList::ReplayResult RemoteRenderingBackend::submit(const DisplayList::Disp
 
 RefPtr<ImageBuffer> RemoteRenderingBackend::nextDestinationImageBufferAfterApplyingDisplayLists(ImageBuffer& initialDestination, size_t initialOffset, DisplayListReaderHandle& handle, GPUProcessWakeupReason reason)
 {
-    auto destination = makeRefPtr(initialDestination);
-    auto handleProtector = makeRef(handle);
+    RefPtr destination { &initialDestination };
+    Ref handleProtector { handle };
 
     auto offset = initialOffset;
     size_t sizeToRead = 0;
@@ -269,7 +269,7 @@ RefPtr<ImageBuffer> RemoteRenderingBackend::nextDestinationImageBufferAfterApply
         MESSAGE_CHECK_WITH_RETURN_VALUE(offset <= handle.sharedMemory().size(), nullptr, "Out-of-bounds offset into shared display list handle");
 
         if (result.reasonForStopping == DisplayList::StopReplayReason::ChangeDestinationImageBuffer) {
-            destination = makeRefPtr(m_remoteResourceCache.cachedImageBuffer(*result.nextDestinationImageBuffer));
+            destination = m_remoteResourceCache.cachedImageBuffer(*result.nextDestinationImageBuffer);
             if (!destination) {
                 ASSERT(!m_pendingWakeupInfo);
                 m_pendingWakeupInfo = {{
@@ -311,7 +311,7 @@ RefPtr<ImageBuffer> RemoteRenderingBackend::nextDestinationImageBufferAfterApply
             auto newDestinationIdentifier = makeObjectIdentifier<RenderingResourceIdentifierType>(resumeReadingInfo->destination);
             MESSAGE_CHECK_WITH_RETURN_VALUE(newDestinationIdentifier.isValid(), nullptr, "Invalid image buffer destination when resuming display list processing");
 
-            destination = makeRefPtr(m_remoteResourceCache.cachedImageBuffer(newDestinationIdentifier));
+            destination = m_remoteResourceCache.cachedImageBuffer(newDestinationIdentifier);
             MESSAGE_CHECK_WITH_RETURN_VALUE(destination, nullptr, "Missing image buffer destination when resuming display list processing");
 
             offset = resumeReadingInfo->offset;
@@ -329,7 +329,7 @@ void RemoteRenderingBackend::wakeUpAndApplyDisplayList(const GPUProcessWakeupMes
 
     updateLastKnownState(RemoteRenderingBackendState::BeganReplayingDisplayList);
 
-    auto destinationImageBuffer = makeRefPtr(m_remoteResourceCache.cachedImageBuffer(arguments.destinationImageBufferIdentifier));
+    RefPtr destinationImageBuffer = m_remoteResourceCache.cachedImageBuffer(arguments.destinationImageBufferIdentifier);
     MESSAGE_CHECK(destinationImageBuffer, "Missing destination image buffer");
 
     auto initialHandle = m_sharedDisplayListHandles.get(arguments.itemBufferIdentifier);
@@ -466,7 +466,7 @@ void RemoteRenderingBackend::getShareableBitmapForImageBuffer(WebCore::Rendering
             return;
         auto backendSize = imageBuffer->backendSize();
         auto resultSize = preserveResolution == WebCore::PreserveResolution::Yes ? backendSize : imageBuffer->logicalSize();
-        auto bitmap = ShareableBitmap::createShareable(resultSize, { });
+        auto bitmap = ShareableBitmap::createShareable(resultSize, { imageBuffer->colorSpace() });
         if (!bitmap)
             return;
         auto context = bitmap->createGraphicsContext();
@@ -490,7 +490,7 @@ void RemoteRenderingBackend::cacheNativeImage(const ShareableBitmap::Handle& han
     if (!image)
         return;
 
-    m_remoteResourceCache.cacheNativeImage(makeRef(*image));
+    m_remoteResourceCache.cacheNativeImage(*image);
 
     if (m_pendingWakeupInfo && m_pendingWakeupInfo->shouldPerformWakeup(nativeImageResourceIdentifier))
         wakeUpAndApplyDisplayList(std::exchange(m_pendingWakeupInfo, std::nullopt)->arguments);
@@ -671,7 +671,7 @@ std::optional<DisplayList::ItemHandle> WARN_UNUSED_RETURN RemoteRenderingBackend
 
 void RemoteRenderingBackend::updateRenderingResourceRequest()
 {
-    bool hasActiveDrawables = !m_remoteResourceCache.imageBuffers().isEmpty() || !m_remoteResourceCache.nativeImages().isEmpty();
+    bool hasActiveDrawables = m_remoteResourceCache.hasActiveDrawables();
     bool hasActiveRequest = m_renderingResourcesRequest.isRequested();
     if (hasActiveDrawables && !hasActiveRequest)
         m_renderingResourcesRequest = ScopedRenderingResourcesRequest::acquire();
@@ -682,11 +682,7 @@ void RemoteRenderingBackend::updateRenderingResourceRequest()
 bool RemoteRenderingBackend::allowsExitUnderMemoryPressure() const
 {
     ASSERT(isMainRunLoop());
-    bool hasActiveDrawables = false;
-    m_workQueue->dispatchSync([this, &hasActiveDrawables] {
-        hasActiveDrawables = !m_remoteResourceCache.imageBuffers().isEmpty() || !m_remoteResourceCache.nativeImages().isEmpty();
-    });
-    return !hasActiveDrawables;
+    return !m_remoteResourceCache.hasActiveDrawables();
 }
 
 RemoteRenderingBackendState RemoteRenderingBackend::lastKnownState() const

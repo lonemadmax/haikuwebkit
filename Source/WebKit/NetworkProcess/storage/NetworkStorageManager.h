@@ -26,8 +26,10 @@
 #pragma once
 
 #include "Connection.h"
+#include "FileSystemStorageError.h"
 #include "OriginStorageManager.h"
 #include <WebCore/ClientOrigin.h>
+#include <WebCore/FileSystemHandleIdentifier.h>
 #include <pal/SessionID.h>
 
 namespace WebCore {
@@ -36,7 +38,9 @@ struct ClientOrigin;
 
 namespace WebKit {
 
-class NetworkStorageManager : public IPC::Connection::WorkQueueMessageReceiver {
+class FileSystemStorageHandleRegistry;
+
+class NetworkStorageManager final : public IPC::Connection::WorkQueueMessageReceiver {
 public:
     static Ref<NetworkStorageManager> create(PAL::SessionID, const String& path);
 
@@ -44,25 +48,37 @@ public:
     void stopReceivingMessageFromConnection(IPC::Connection&);
 
     PAL::SessionID sessionID() const { return m_sessionID; }
+    void close();
     void clearStorageForTesting(CompletionHandler<void()>&&);
 
 private:
     NetworkStorageManager(PAL::SessionID, const String& path);
+    ~NetworkStorageManager();
     OriginStorageManager& localOriginStorageManager(const WebCore::ClientOrigin&);
+    FileSystemStorageHandleRegistry& fileSystemStorageHandleRegistry();
 
     // IPC::MessageReceiver (implemented by generated code)
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
 
-    // Message Handlers
+    // Message handlers
     void persisted(const WebCore::ClientOrigin&, CompletionHandler<void(bool)>&&);
     void persist(const WebCore::ClientOrigin&, CompletionHandler<void(bool)>&&);
+    void fileSystemGetDirectory(IPC::Connection&, const WebCore::ClientOrigin&, CompletionHandler<void(Expected<WebCore::FileSystemHandleIdentifier, FileSystemStorageError>)>&&);
+    void isSameEntry(WebCore::FileSystemHandleIdentifier, WebCore::FileSystemHandleIdentifier, CompletionHandler<void(bool)>&&);
+    void getFileHandle(IPC::Connection&, WebCore::FileSystemHandleIdentifier, String&& name, bool createIfNecessary, CompletionHandler<void(Expected<WebCore::FileSystemHandleIdentifier, FileSystemStorageError>)>&&);
+    void getDirectoryHandle(IPC::Connection&, WebCore::FileSystemHandleIdentifier, String&& name, bool createIfNecessary, CompletionHandler<void(Expected<WebCore::FileSystemHandleIdentifier, FileSystemStorageError>)>&&);
+    void removeEntry(WebCore::FileSystemHandleIdentifier, const String& name, bool deleteRecursively, CompletionHandler<void(std::optional<FileSystemStorageError>)>&&);
+    void resolve(WebCore::FileSystemHandleIdentifier, WebCore::FileSystemHandleIdentifier, CompletionHandler<void(Expected<Vector<String>, FileSystemStorageError>)>&&);
 
     PAL::SessionID m_sessionID;
     Ref<WorkQueue> m_queue;
     String m_path;
     FileSystem::Salt m_salt;
+    bool m_closed { false };
     HashMap<WebCore::ClientOrigin, std::unique_ptr<OriginStorageManager>> m_localOriginStorageManagers;
     HashMap<WebCore::ClientOrigin, std::unique_ptr<OriginStorageManager>> m_sessionOriginStorageManagers;
+    WeakHashSet<IPC::Connection> m_connections; // Main thread only.
+    std::unique_ptr<FileSystemStorageHandleRegistry> m_fileSystemStorageHandleRegistry;
 };
 
 } // namespace WebKit

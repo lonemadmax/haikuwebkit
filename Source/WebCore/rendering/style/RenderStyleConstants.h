@@ -504,6 +504,11 @@ enum class TextSecurity : uint8_t {
     Square
 };
 
+enum class InputSecurity : uint8_t {
+    Auto,
+    None
+};
+
 // CSS3 User Modify Properties
 
 enum class UserModify : uint8_t {
@@ -739,20 +744,13 @@ enum class TextTransform : uint8_t {
     None
 };
 
-#if ENABLE(LETTERPRESS)
-static const size_t TextDecorationBits = 5;
-#else
 static const size_t TextDecorationBits = 4;
-#endif
 enum class TextDecoration : uint8_t {
     None          = 0,
     Underline     = 1 << 0,
     Overline      = 1 << 1,
     LineThrough   = 1 << 2,
     Blink         = 1 << 3,
-#if ENABLE(LETTERPRESS)
-    Letterpress   = 1 << 4,
-#endif
 };
 
 enum class TextDecorationStyle : uint8_t {
@@ -782,11 +780,10 @@ enum class TextJustify : uint8_t {
 };
 #endif // CSS3_TEXT
 
-enum class TextDecorationSkip : uint8_t {
-    None      = 0,
-    Ink       = 1 << 0,
-    Objects   = 1 << 1,
-    Auto      = 1 << 2
+enum class TextDecorationSkipInk : uint8_t {
+    None,
+    Auto,
+    All
 };
 
 enum class TextUnderlinePosition : uint8_t {
@@ -1246,6 +1243,8 @@ enum class Containment : uint8_t {
     Size     = 1 << 2,
 };
 
+CSSBoxType transformBoxToCSSBoxType(TransformBox);
+
 extern const float defaultMiterLimit;
 
 WTF::TextStream& operator<<(WTF::TextStream&, AnimationFillMode);
@@ -1340,7 +1339,7 @@ WTF::TextStream& operator<<(WTF::TextStream&, TableLayoutType);
 WTF::TextStream& operator<<(WTF::TextStream&, TextAlignMode);
 WTF::TextStream& operator<<(WTF::TextStream&, TextCombine);
 WTF::TextStream& operator<<(WTF::TextStream&, TextDecoration);
-WTF::TextStream& operator<<(WTF::TextStream&, TextDecorationSkip);
+WTF::TextStream& operator<<(WTF::TextStream&, TextDecorationSkipInk);
 WTF::TextStream& operator<<(WTF::TextStream&, TextDecorationStyle);
 WTF::TextStream& operator<<(WTF::TextStream&, TextEmphasisFill);
 WTF::TextStream& operator<<(WTF::TextStream&, TextEmphasisMark);

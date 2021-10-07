@@ -85,7 +85,7 @@ public:
     void start();
     void abort();
 
-    void transferToNewWebProcess(NetworkConnectionToWebProcess&, ResourceLoadIdentifier);
+    void transferToNewWebProcess(NetworkConnectionToWebProcess&, WebCore::ResourceLoaderIdentifier);
 
     // Message handlers.
     void didReceiveNetworkResourceLoaderMessage(IPC::Connection&, IPC::Decoder&);
@@ -97,11 +97,12 @@ public:
 
     NetworkConnectionToWebProcess& connectionToWebProcess() const { return m_connection; }
     PAL::SessionID sessionID() const { return m_connection->sessionID(); }
-    ResourceLoadIdentifier coreIdentifier() const { return m_parameters.identifier; }
+    WebCore::ResourceLoaderIdentifier coreIdentifier() const { return m_parameters.identifier; }
     WebCore::FrameIdentifier frameID() const { return m_parameters.webFrameID; }
     WebCore::PageIdentifier pageID() const { return m_parameters.webPageID; }
     const NetworkResourceLoadParameters& parameters() const { return m_parameters; }
     NetworkResourceLoadIdentifier identifier() const { return m_resourceLoadID; }
+    const URL& firstResponseURL() const { return m_firstResponseURL; }
 
     NetworkCache::GlobalFrameID globalFrameID() { return { m_parameters.webPageProxyID, pageID(), frameID() }; }
 
@@ -129,9 +130,9 @@ public:
     bool isMainFrameLoad() const { return isMainResource() && m_parameters.frameAncestorOrigins.isEmpty(); }
     bool isCrossOriginPrefetch() const;
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS) && !RELEASE_LOG_DISABLED
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION) && !RELEASE_LOG_DISABLED
     static bool shouldLogCookieInformation(NetworkConnectionToWebProcess&, PAL::SessionID);
-    static void logCookieInformation(NetworkConnectionToWebProcess&, const String& label, const void* loggedObject, const WebCore::NetworkStorageSession&, const URL& firstParty, const WebCore::SameSiteInfo&, const URL&, const String& referrer, std::optional<WebCore::FrameIdentifier>, std::optional<WebCore::PageIdentifier>, std::optional<uint64_t> identifier);
+    static void logCookieInformation(NetworkConnectionToWebProcess&, const String& label, const void* loggedObject, const WebCore::NetworkStorageSession&, const URL& firstParty, const WebCore::SameSiteInfo&, const URL&, const String& referrer, std::optional<WebCore::FrameIdentifier>, std::optional<WebCore::PageIdentifier>, std::optional<WebCore::ResourceLoaderIdentifier>);
 #endif
 
     void disableExtraNetworkLoadMetricsCapture() { m_shouldCaptureExtraNetworkLoadMetrics = false; }
@@ -145,6 +146,9 @@ public:
     void serviceWorkerDidNotHandle(ServiceWorkerFetchTask*);
 #endif
 
+    std::optional<WebCore::ResourceError> doCrossOriginOpenerHandlingOfResponse(const WebCore::ResourceResponse&);
+    void sendDidReceiveResponsePotentiallyInNewBrowsingContextGroup(const WebCore::ResourceResponse&, bool needsContinueDidReceiveResponseMessage);
+
     bool isAppInitiated();
 
 private:
@@ -152,7 +156,7 @@ private:
 
     // IPC::MessageSender
     IPC::Connection* messageSenderConnection() const override;
-    uint64_t messageSenderDestinationID() const override { return m_parameters.identifier; }
+    uint64_t messageSenderDestinationID() const override { return m_parameters.identifier.toUInt64(); }
 
     bool canUseCache(const WebCore::ResourceRequest&) const;
     bool canUseCachedRedirect(const WebCore::ResourceRequest&) const;
@@ -193,7 +197,7 @@ private:
     void consumeSandboxExtensions();
     void invalidateSandboxExtensions();
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS) && !RELEASE_LOG_DISABLED
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION) && !RELEASE_LOG_DISABLED
     void logCookieInformation() const;
 #endif
 
@@ -255,6 +259,8 @@ private:
 #endif
     NetworkResourceLoadIdentifier m_resourceLoadID;
     WebCore::ResourceResponse m_redirectResponse;
+    URL m_firstResponseURL; // First URL in response's URL list (https://fetch.spec.whatwg.org/#concept-response-url-list).
+    std::optional<WebCore::CrossOriginOpenerPolicyEnforcementResult> m_currentCoopEnforcementResult;
 };
 
 } // namespace WebKit

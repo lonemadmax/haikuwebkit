@@ -63,6 +63,7 @@
 #include "HTMLIFrameElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
+#include "HTMLVideoElement.h"
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "Image.h"
@@ -83,6 +84,7 @@
 #include "PluginDocument.h"
 #include "Range.h"
 #include "RenderFrameSet.h"
+#include "RenderImage.h"
 #include "RenderLayer.h"
 #include "RenderLayerScrollableArea.h"
 #include "RenderListBox.h"
@@ -96,6 +98,7 @@
 #include "ScrollAnimator.h"
 #include "ScrollLatchingController.h"
 #include "Scrollbar.h"
+#include "ScrollingEffectsController.h"
 #include "SelectionRestorationMode.h"
 #include "Settings.h"
 #include "ShadowRoot.h"
@@ -139,6 +142,10 @@
 
 #if ENABLE(POINTER_LOCK)
 #include "PointerLockController.h"
+#endif
+
+#if USE(APPLE_INTERNAL_SDK)
+#include <WebKitAdditions/EventHandlerAdditions.cpp>
 #endif
 
 namespace WebCore {
@@ -441,7 +448,7 @@ static Node* nodeToSelectOnMouseDownForNode(Node& targetNode)
     if (HTMLElement::isInsideImageOverlay(targetNode))
         return nullptr;
 
-    if (auto rootUserSelectAll = makeRefPtr(Position::rootUserSelectAllForNode(&targetNode)))
+    if (RefPtr rootUserSelectAll = Position::rootUserSelectAllForNode(&targetNode))
         return rootUserSelectAll.get();
 
     if (targetNode.shouldSelectOnMouseDown())
@@ -452,7 +459,7 @@ static Node* nodeToSelectOnMouseDownForNode(Node& targetNode)
 
 static VisibleSelection expandSelectionToRespectSelectOnMouseDown(Node& targetNode, const VisibleSelection& selection)
 {
-    auto nodeToSelect = makeRefPtr(nodeToSelectOnMouseDownForNode(targetNode));
+    RefPtr nodeToSelect = nodeToSelectOnMouseDownForNode(targetNode);
     if (!nodeToSelect)
         return selection;
 
@@ -699,7 +706,7 @@ bool EventHandler::handleMousePressEventSingleClick(const MouseEventWithHitTestR
 
 bool EventHandler::canMouseDownStartSelect(const MouseEventWithHitTestResults& event)
 {
-    auto node = makeRefPtr(event.targetNode());
+    RefPtr node = event.targetNode();
 
     if (Page* page = m_frame.page()) {
         if (!page->chrome().client().shouldUseMouseEventForSelection(event.event()))
@@ -1187,7 +1194,7 @@ HitTestResult EventHandler::hitTestResultAtPoint(const LayoutPoint& point, Optio
     if (!request.readOnly())
         m_frame.document()->updateHoverActiveState(request, result.targetElement());
 
-    auto innerNode = makeRefPtr(result.innerNode());
+    RefPtr innerNode = result.innerNode();
     if (request.disallowsUserAgentShadowContent()
         || (request.disallowsUserAgentShadowContentExceptForImageOverlays() && innerNode && !HTMLElement::isInsideImageOverlay(*innerNode)))
         result.setToNonUserAgentShadowAncestor();
@@ -2512,6 +2519,32 @@ static bool hierarchyHasCapturingEventListeners(Element* element, const AtomStri
     return false;
 }
 
+RefPtr<Element> EventHandler::textRecognitionCandidateElement() const
+{
+    RefPtr candidateElement = m_elementUnderMouse;
+    if (candidateElement) {
+        if (auto shadowHost = candidateElement->shadowHost())
+            candidateElement = shadowHost;
+    }
+
+    if (!candidateElement)
+        return nullptr;
+
+    auto renderer = candidateElement->renderer();
+    if (!is<RenderImage>(renderer))
+        return nullptr;
+
+#if USE(APPLE_INTERNAL_SDK)
+    if (isAdditionalTextRecognitionCandidateElement(*candidateElement))
+        return candidateElement;
+#endif
+
+    if (is<HTMLVideoElement>(*candidateElement))
+        return nullptr;
+
+    return candidateElement;
+}
+
 void EventHandler::updateMouseEventTargetNode(const AtomString& eventType, Node* targetNode, const PlatformMouseEvent& platformMouseEvent, FireMouseOverOut fireMouseOverOut)
 {
     Ref<Frame> protectedFrame(m_frame);
@@ -2531,7 +2564,7 @@ void EventHandler::updateMouseEventTargetNode(const AtomString& eventType, Node*
 
 #if ENABLE(IMAGE_ANALYSIS)
     if (m_frame.settings().preferInlineTextSelectionInImages()) {
-        if (!m_elementUnderMouse || !is<RenderImage>(m_elementUnderMouse->renderer()))
+        if (!textRecognitionCandidateElement())
             m_textRecognitionHoverTimer.stop();
         else if (!platformMouseEvent.movementDelta().isZero())
             m_textRecognitionHoverTimer.restart();
@@ -3066,15 +3099,17 @@ bool EventHandler::handleWheelEventInAppropriateEnclosingBox(Node* startNode, co
 bool EventHandler::scrollableAreaCanHandleEvent(const PlatformWheelEvent& wheelEvent, ScrollableArea& scrollableArea)
 {
 #if PLATFORM(MAC)
-    auto biasedDelta = ScrollController::wheelDeltaBiasingTowardsVertical(wheelEvent);
+    auto biasedDelta = ScrollingEffectsController::wheelDeltaBiasingTowardsVertical(wheelEvent);
 #else
     auto biasedDelta = wheelEvent.delta();
 #endif
 
-    if (biasedDelta.height() && !scrollableArea.isPinnedForScrollDeltaOnAxis(-biasedDelta.height(), ScrollEventAxis::Vertical))
+    auto verticalSide = ScrollableArea::targetSideForScrollDelta(-biasedDelta, ScrollEventAxis::Vertical);
+    if (verticalSide && !scrollableArea.isPinnedOnSide(*verticalSide))
         return true;
 
-    if (biasedDelta.width() && !scrollableArea.isPinnedForScrollDeltaOnAxis(-biasedDelta.width(), ScrollEventAxis::Horizontal))
+    auto horizontalSide = ScrollableArea::targetSideForScrollDelta(-biasedDelta, ScrollEventAxis::Horizontal);
+    if (horizontalSide && !scrollableArea.isPinnedOnSide(*horizontalSide))
         return true;
 
     return false;
@@ -3130,7 +3165,7 @@ void EventHandler::defaultWheelEventHandler(Node* startNode, WheelEvent& wheelEv
     if (isUserEvent && !m_currentWheelEventAllowsScrolling)
         return;
 
-    auto protectedFrame = makeRef(m_frame);
+    Ref protectedFrame { m_frame };
 
     FloatSize filteredPlatformDelta(wheelEvent.deltaX(), wheelEvent.deltaY());
     FloatSize filteredVelocity;
@@ -3410,11 +3445,12 @@ void EventHandler::hoverTimerFired()
 
 void EventHandler::textRecognitionHoverTimerFired()
 {
-    if (!m_elementUnderMouse || !is<RenderImage>(m_elementUnderMouse->renderer()))
+    auto element = this->textRecognitionCandidateElement();
+    if (!element)
         return;
 
     if (auto* page = m_frame.page())
-        page->chrome().client().requestTextRecognition(*m_elementUnderMouse);
+        page->chrome().client().requestTextRecognition(*element);
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS)
@@ -4360,7 +4396,7 @@ void EventHandler::scheduleScrollEvent()
     setFrameWasScrolledByUser();
     if (!m_frame.view())
         return;
-    auto document = makeRefPtr(m_frame.document());
+    RefPtr document = m_frame.document();
     if (!document)
         return;
     document->addPendingScrollEventTarget(*document);

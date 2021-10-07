@@ -82,6 +82,7 @@ public:
     void clearMockMediaDevices();
     void removeMockMediaDevice(const String&);
     void resetMockMediaDevices();
+    void setMockCameraIsInterrupted(bool);
 #endif
 
     void removeSession(PAL::SessionID);
@@ -91,6 +92,8 @@ public:
 #endif
 
     void updatePreferences();
+
+    void terminateForTesting();
 
 private:
     explicit GPUProcessProxy();

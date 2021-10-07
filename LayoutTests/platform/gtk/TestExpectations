@@ -546,10 +546,6 @@ webkit.org/b/187064 webrtc/datachannel/mdns-ice-candidates.html
 webkit.org/b/187064 webrtc/libwebrtc/descriptionGetters.html
 webkit.org/b/177533 webrtc/video-interruption.html
 
-# Requires Resolution Media Query support
-webkit.org/b/100137 fast/media/mq-resolution.html [ Failure ]
-webkit.org/b/100137 fast/media/mq-resolution-dpi-dpcm-warning.html [ Failure ]
-
 # Skip the perf/ tests in debug builds
 Bug(GTK) [ Debug ] perf [ Skip ]
 
@@ -615,8 +611,6 @@ webkit.org/b/141458 imported/mozilla/svg/pattern-scale-01a.svg [ ImageOnlyFailur
 webkit.org/b/141458 imported/mozilla/svg/pattern-scale-01b.svg [ ImageOnlyFailure Pass ]
 webkit.org/b/141458 imported/mozilla/svg/pattern-scale-01c.svg [ ImageOnlyFailure Pass ]
 webkit.org/b/141458 imported/mozilla/svg/symbol-01.svg [ ImageOnlyFailure Pass ]
-
-webkit.org/b/141961 fast/multicol/span/span-as-immediate-columns-child.html [ Failure ]
 
 webkit.org/b/118126 css3/flexbox/image-percent-max-height.html [ ImageOnlyFailure ]
 
@@ -1490,9 +1484,6 @@ Bug(GTK) editing/selection/context-menu-text-selection-lookup.html [ Failure ]
 
 Bug(GTK) http/tests/misc/iframe-beforeunload-dialog-matching-ancestor-securityorigin.html [ Failure ]
 
-Bug(GTK) http/tests/security/xssAuditor/xss-filter-bypass-big5.html [ Failure ]
-Bug(GTK) http/tests/security/xssAuditor/xss-filter-bypass-sjis.html [ Failure ]
-
 Bug(GTK) fast/backgrounds/background-position-parsing.html [ Failure ]
 
 Bug(GTK) fast/css/sticky/sticky-top-zoomed.html [ ImageOnlyFailure ]
@@ -1689,17 +1680,11 @@ webkit.org/b/149128 fast/text/control-characters [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/xhr/event-readystatechange-loaded.any.js [ Slow ]
 
 webkit.org/b/151267 imported/blink/fast/transforms/transform-update-frame-overflow.html [ ImageOnlyFailure Pass ]
-webkit.org/b/153602 fast/table/003.html [ Failure ]
 webkit.org/b/153602 fast/text/emoji.html [ Failure ]
-webkit.org/b/153602 tables/mozilla_expected_failures/bugs/bug89315.html [ Failure ]
 
 webkit.org/b/153698 imported/w3c/web-platform-tests/css/css-multicol/multicol-rule-dashed-000.xht [ ImageOnlyFailure ]
 
 webkit.org/b/94952 platform/gtk/scrollbars/overflow-scrollbar-horizontal-wheel-scroll.html [ Failure ]
-
-webkit.org/b/158928 svg/zoom/page/zoom-svg-through-object-with-absolute-size-2.xhtml [ Failure ]
-webkit.org/b/158928 svg/zoom/page/zoom-svg-through-object-with-absolute-size.xhtml [ Failure ]
-webkit.org/b/158928 svg/zoom/page/zoom-svg-through-object-with-percentage-size.xhtml [ Failure ]
 
 webkit.org/b/160251 fast/text/font-kerning.html [ ImageOnlyFailure ]
 
@@ -1982,8 +1967,6 @@ webkit.org/b/227231 imported/w3c/web-platform-tests/css/css-counter-styles/upper
 webkit.org/b/227231 imported/w3c/web-platform-tests/css/css-counter-styles/upper-armenian/css3-counter-styles-110.html [ ImageOnlyFailure ]
 
 webkit.org/b/228153 accessibility/math-multiscript-attributes.html [ Failure ]
-webkit.org/b/228153 css1/font_properties/font.html [ Failure ]
-webkit.org/b/228153 css1/pseudo/multiple_pseudo_elements.html [ Failure ]
 webkit.org/b/228153 css2.1/t051201-c23-first-line-00-b.html [ Failure ]
 webkit.org/b/228153 css2.1/t1508-c527-font-04-b.html [ Failure ]
 webkit.org/b/228153 css2.1/t1508-c527-font-05-b.html [ Failure ]
@@ -2136,6 +2119,11 @@ webkit.org/b/228153 mathml/presentation/roots.xhtml [ Failure ]
 webkit.org/b/228153 platform/gtk/fonts/webkit-font-smoothing.html [ ImageOnlyFailure ]
 webkit.org/b/228153 svg/batik/text/verticalText.svg [ Failure ]
 webkit.org/b/228153 svg/text/offset-square-svg-font.html [ ImageOnlyFailure ]
+webkit.org/b/228153 imported/w3c/web-platform-tests/css/css-pseudo/first-letter-with-quote.html [ ImageOnlyFailure ]
+
+webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/3dtransform-and-filter-no-perspective-001.html [ ImageOnlyFailure ]
+
+webkit.org/b/230414 editing/selection/doubleclick-beside-cr-span.html [ Failure ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of non-crashing, non-flaky tests failing

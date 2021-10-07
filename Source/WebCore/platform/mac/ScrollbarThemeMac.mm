@@ -34,7 +34,6 @@
 #import "LocalCurrentGraphicsContext.h"
 #import "NSScrollerImpDetails.h"
 #import "PlatformMouseEvent.h"
-#import "ScrollAnimatorMac.h"
 #import "ScrollView.h"
 #import <Carbon/Carbon.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
@@ -578,7 +577,7 @@ void ScrollbarThemeMac::paintScrollCorner(ScrollableArea&, GraphicsContext& cont
     ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
 static RetainPtr<CGColorRef> linenBackgroundColor()
 {
     NSImage *image = nil;

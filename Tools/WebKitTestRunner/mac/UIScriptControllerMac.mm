@@ -71,7 +71,7 @@ void UIScriptControllerMac::zoomToScale(double scale, JSValueRef callback)
     auto* webView = this->webView();
     [webView _setPageScale:scale withOrigin:CGPointZero];
 
-    [webView _doAfterNextPresentationUpdate:makeBlockPtr([this, strongThis = makeRef(*this), callbackID] {
+    [webView _doAfterNextPresentationUpdate:makeBlockPtr([this, strongThis = Ref { *this }, callbackID] {
         if (!m_context)
             return;
         m_context->asyncTaskComplete(callbackID);
@@ -91,7 +91,7 @@ void UIScriptControllerMac::simulateAccessibilitySettingsChangeNotification(JSVa
     NSNotificationCenter *center = [[NSWorkspace sharedWorkspace] notificationCenter];
     [center postNotificationName:NSWorkspaceAccessibilityDisplayOptionsDidChangeNotification object:webView];
 
-    [webView _doAfterNextPresentationUpdate:makeBlockPtr([this, strongThis = makeRef(*this), callbackID] {
+    [webView _doAfterNextPresentationUpdate:makeBlockPtr([this, strongThis = Ref { *this }, callbackID] {
         if (!m_context)
             return;
         m_context->asyncTaskComplete(callbackID);
@@ -152,7 +152,7 @@ void UIScriptControllerMac::activateDataListSuggestion(unsigned index, JSValueRe
     [table selectRowIndexes:[NSIndexSet indexSetWithIndex:index] byExtendingSelection:NO];
 
     // Send the action after a short delay to simulate normal user interaction.
-    WorkQueue::main().dispatchAfter(50_ms, [this, protectedThis = makeRefPtr(*this), callbackID, table] {
+    WorkQueue::main().dispatchAfter(50_ms, [this, protectedThis = Ref { *this }, callbackID, table] {
         if ([table window])
             [table sendAction:[table action] to:[table target]];
 
@@ -211,7 +211,7 @@ void UIScriptControllerMac::chooseMenuAction(JSStringRef jsAction, JSValueRef ca
         [activeMenu cancelTracking];
     }
 
-    WorkQueue::main().dispatch([this, strongThis = makeRef(*this), callbackID] {
+    WorkQueue::main().dispatch([this, strongThis = Ref { *this }, callbackID] {
         if (!m_context)
             return;
         m_context->asyncTaskComplete(callbackID);
@@ -288,7 +288,7 @@ void UIScriptControllerMac::activateAtPoint(long x, long y, JSValueRef callback)
     eventSender->mouseDown(0, 0);
     eventSender->mouseUp(0, 0);
 
-    WorkQueue::main().dispatch([this, strongThis = makeRef(*this), callbackID] {
+    WorkQueue::main().dispatch([this, strongThis = Ref { *this }, callbackID] {
         if (!m_context)
             return;
         m_context->asyncTaskComplete(callbackID);

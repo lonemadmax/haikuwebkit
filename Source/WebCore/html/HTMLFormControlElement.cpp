@@ -183,7 +183,7 @@ void HTMLFormControlElement::disabledStateChanged()
 {
     updateWillValidateAndValidity();
     invalidateStyleForSubtree();
-    if (renderer() && renderer()->style().hasAppearance())
+    if (renderer() && renderer()->style().hasEffectiveAppearance())
         renderer()->theme().stateChanged(*renderer(), ControlStates::States::Enabled);
 }
 
@@ -252,13 +252,13 @@ void HTMLFormControlElement::didAttachRenderers()
         setAutofocused();
 
         RefPtr<HTMLFormControlElement> element = this;
-        auto frameView = makeRefPtr(document().view());
+        RefPtr frameView = document().view();
         if (frameView && frameView->layoutContext().isInLayout()) {
             frameView->queuePostLayoutCallback([element] {
                 element->focus({ SelectionRestorationMode::PlaceCaretAtStart });
             });
         } else {
-            Style::queuePostResolutionCallback([element] {
+            Style::deprecatedQueuePostResolutionCallback([element] {
                 element->focus({ SelectionRestorationMode::PlaceCaretAtStart });
             });
         }
@@ -366,7 +366,7 @@ void HTMLFormControlElement::didRecalcStyle(Style::Change)
     // trigger synchronous layout, so it must not be called during style recalc.
     if (renderer()) {
         RefPtr<HTMLFormControlElement> element = this;
-        Style::queuePostResolutionCallback([element]{
+        Style::deprecatedQueuePostResolutionCallback([element] {
             if (auto* renderer = element->renderer())
                 renderer->updateFromElement();
         });
@@ -545,7 +545,7 @@ void HTMLFormControlElement::focusAndShowValidationMessage()
     // focus() will scroll the element into view and this scroll may happen asynchronously.
     // Because scrolling the view hides the validation message, we need to show the validation
     // message asynchronously as well.
-    callOnMainThread([this, protectedThis = makeRef(*this)] {
+    callOnMainThread([this, protectedThis = Ref { *this }] {
         updateVisibleValidationMessage();
     });
 }

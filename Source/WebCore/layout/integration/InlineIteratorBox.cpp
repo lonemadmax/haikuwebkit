@@ -1,0 +1,195 @@
+/*
+ * Copyright (C) 2019 Apple Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS''
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#include "config.h"
+#include "InlineIteratorBox.h"
+
+#include "InlineIteratorLine.h"
+#include "InlineIteratorTextBox.h"
+#include "LayoutIntegrationLineLayout.h"
+#include "RenderBlockFlow.h"
+#include "RenderLineBreak.h"
+#include "RenderView.h"
+
+namespace WebCore {
+namespace InlineIterator {
+
+BoxIterator::BoxIterator(Box::PathVariant&& pathVariant)
+    : m_box(WTFMove(pathVariant))
+{
+}
+
+BoxIterator::BoxIterator(const Box& run)
+    : m_box(run)
+{
+}
+
+bool BoxIterator::operator==(const BoxIterator& other) const
+{
+    return m_box.m_pathVariant == other.m_box.m_pathVariant;
+}
+
+bool BoxIterator::atEnd() const
+{
+    return WTF::switchOn(m_box.m_pathVariant, [](auto& path) {
+        return path.atEnd();
+    });
+}
+
+BoxIterator Box::nextOnLine() const
+{
+    return BoxIterator(*this).traverseNextOnLine();
+}
+
+BoxIterator Box::previousOnLine() const
+{
+    return BoxIterator(*this).traversePreviousOnLine();
+}
+
+BoxIterator Box::nextOnLineIgnoringLineBreak() const
+{
+    return BoxIterator(*this).traverseNextOnLineIgnoringLineBreak();
+}
+
+BoxIterator Box::previousOnLineIgnoringLineBreak() const
+{
+    return BoxIterator(*this).traversePreviousOnLineIgnoringLineBreak();
+}
+
+LineIterator Box::line() const
+{
+    return WTF::switchOn(m_pathVariant, [](const BoxLegacyPath& path) {
+        return LineIterator(LineIteratorLegacyPath(&path.rootInlineBox()));
+    }
+#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+    , [](const BoxModernPath& path) {
+        return LineIterator(LineIteratorModernPath(path.inlineContent(), path.box().lineIndex()));
+    }
+#endif
+    );
+}
+
+const RenderStyle& Box::style() const
+{
+    return line()->isFirst() ? renderer().firstLineStyle() : renderer().style();
+}
+
+RenderObject::HighlightState Box::selectionState() const
+{
+    if (isText()) {
+        auto& text = downcast<TextBox>(*this);
+        auto& renderer = text.renderer();
+        return renderer.view().selection().highlightStateForTextBox(renderer, text.selectableRange());
+    }
+    return renderer().selectionState();
+}
+
+BoxIterator& BoxIterator::traverseNextOnLine()
+{
+    WTF::switchOn(m_box.m_pathVariant, [](auto& path) {
+        path.traverseNextOnLine();
+    });
+    return *this;
+}
+
+BoxIterator& BoxIterator::traversePreviousOnLine()
+{
+    WTF::switchOn(m_box.m_pathVariant, [](auto& path) {
+        path.traversePreviousOnLine();
+    });
+    return *this;
+}
+
+BoxIterator& BoxIterator::traverseNextOnLineIgnoringLineBreak()
+{
+    do {
+        traverseNextOnLine();
+    } while (!atEnd() && m_box.isLineBreak());
+    return *this;
+}
+
+BoxIterator& BoxIterator::traversePreviousOnLineIgnoringLineBreak()
+{
+    do {
+        traversePreviousOnLine();
+    } while (!atEnd() && m_box.isLineBreak());
+    return *this;
+}
+
+BoxIterator& BoxIterator::traverseNextOnLineInLogicalOrder()
+{
+    WTF::switchOn(m_box.m_pathVariant, [](auto& path) {
+        path.traverseNextOnLineInLogicalOrder();
+    });
+    return *this;
+}
+
+BoxIterator& BoxIterator::traversePreviousOnLineInLogicalOrder()
+{
+    WTF::switchOn(m_box.m_pathVariant, [](auto& path) {
+        path.traversePreviousOnLineInLogicalOrder();
+    });
+    return *this;
+}
+
+BoxIterator boxFor(const RenderLineBreak& renderer)
+{
+#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+    if (auto* lineLayout = LayoutIntegration::LineLayout::containing(renderer))
+        return lineLayout->boxFor(renderer);
+#endif
+    return { BoxLegacyPath(renderer.inlineBoxWrapper()) };
+}
+
+BoxIterator boxFor(const RenderBox& renderer)
+{
+#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+    if (auto* lineLayout = LayoutIntegration::LineLayout::containing(renderer))
+        return lineLayout->boxFor(renderer);
+#endif
+    return { BoxLegacyPath(renderer.inlineBoxWrapper()) };
+}
+
+#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+BoxIterator boxFor(const LayoutIntegration::InlineContent& content, size_t boxIndex)
+{
+    return { BoxModernPath { content, boxIndex } };
+}
+#endif
+
+#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+const BoxModernPath& Box::modernPath() const
+{
+    return WTF::get<BoxModernPath>(m_pathVariant);
+}
+#endif
+
+const BoxLegacyPath& Box::legacyPath() const
+{
+    return WTF::get<BoxLegacyPath>(m_pathVariant);
+}
+
+}
+}

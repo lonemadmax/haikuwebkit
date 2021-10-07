@@ -421,7 +421,7 @@ bool WebChromeClient::runBeforeUnloadConfirmPanel(const String& message, Frame& 
     return shouldClose;
 }
 
-void WebChromeClient::closeWindowSoon()
+void WebChromeClient::closeWindow()
 {
     // FIXME: This code assumes that the client will respond to a close page
     // message by actually closing the page. Safari does this, but there is
@@ -923,11 +923,7 @@ GraphicsLayerFactory* WebChromeClient::graphicsLayerFactory() const
 
 WebCore::DisplayRefreshMonitorFactory* WebChromeClient::displayRefreshMonitorFactory() const
 {
-#if PLATFORM(COCOA)
     return m_page.drawingArea();
-#else
-    return nullptr;
-#endif
 }
 
 #if ENABLE(GPU_PROCESS)
@@ -1232,7 +1228,7 @@ void WebChromeClient::disableSuddenTermination()
 
 void WebChromeClient::didAddHeaderLayer(GraphicsLayer& headerParent)
 {
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
     if (PageBanner* banner = m_page.headerPageBanner())
         banner->didAddParentLayer(&headerParent);
 #else
@@ -1242,7 +1238,7 @@ void WebChromeClient::didAddHeaderLayer(GraphicsLayer& headerParent)
 
 void WebChromeClient::didAddFooterLayer(GraphicsLayer& footerParent)
 {
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
     if (PageBanner* banner = m_page.footerPageBanner())
         banner->didAddParentLayer(&footerParent);
 #else
@@ -1427,7 +1423,7 @@ void WebChromeClient::didInvalidateDocumentMarkerRects()
     m_page.findController().didInvalidateDocumentMarkerRects();
 }
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 void WebChromeClient::hasStorageAccess(RegistrableDomain&& subFrameDomain, RegistrableDomain&& topFrameDomain, Frame& frame, CompletionHandler<void(bool)>&& completionHandler)
 {
     auto* webFrame = WebFrame::fromCoreFrame(frame);
@@ -1440,6 +1436,11 @@ void WebChromeClient::requestStorageAccess(RegistrableDomain&& subFrameDomain, R
     auto* webFrame = WebFrame::fromCoreFrame(frame);
     ASSERT(webFrame);
     m_page.requestStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), *webFrame, scope, WTFMove(completionHandler));
+}
+
+bool WebChromeClient::hasPageLevelStorageAccess(const WebCore::RegistrableDomain& topLevelDomain, const WebCore::RegistrableDomain& resourceDomain) const
+{
+    return m_page.hasPageLevelStorageAccess(topLevelDomain, resourceDomain);
 }
 #endif
 
@@ -1525,14 +1526,14 @@ void WebChromeClient::enumerateImmersiveXRDevices(CompletionHandler<void(const P
 }
 #endif
 
-#if HAVE(ARKIT_INLINE_PREVIEW_IOS)
+#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
 void WebChromeClient::takeModelElementFullscreen(WebCore::GraphicsLayer::PlatformLayerID contentLayerId) const
 {
     m_page.takeModelElementFullscreen(contentLayerId);
 }
 #endif
 
-#if HAVE(ARKIT_INLINE_PREVIEW_MAC)
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
 void WebChromeClient::modelElementDidCreatePreview(WebCore::HTMLModelElement& element, const URL& url, const String& uuid, const WebCore::FloatSize& size) const
 {
     m_page.modelElementDidCreatePreview(element, url, uuid, size);

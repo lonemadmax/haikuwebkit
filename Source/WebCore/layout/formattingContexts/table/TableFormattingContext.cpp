@@ -31,7 +31,6 @@
 #include "BlockFormattingState.h"
 #include "FloatingState.h"
 #include "InlineFormattingState.h"
-#include "InvalidationState.h"
 #include "LayoutBox.h"
 #include "LayoutBoxGeometry.h"
 #include "LayoutChildIterator.h"
@@ -54,7 +53,7 @@ TableFormattingContext::TableFormattingContext(const ContainerBox& formattingCon
 {
 }
 
-void TableFormattingContext::layoutInFlowContent(InvalidationState&, const ConstraintsForInFlowContent& constraints)
+void TableFormattingContext::layoutInFlowContent(const ConstraintsForInFlowContent& constraints)
 {
     auto availableHorizontalSpace = constraints.horizontal().logicalWidth;
     auto availableVerticalSpace = downcast<ConstraintsForTableContent>(constraints).availableVerticalSpaceForContent();
@@ -105,11 +104,10 @@ void TableFormattingContext::setUsedGeometryForCells(LayoutUnit availableHorizon
         cellBoxGeometry.setContentBoxWidth(formattingGeometry.horizontalSpaceForCellContent(*cell));
 
         if (cellBox.hasInFlowOrFloatingChild()) {
-            auto invalidationState = InvalidationState { };
             // FIXME: This should probably be part of the invalidation state to indicate when we re-layout the cell multiple times as part of the multi-pass table algorithm.
             auto& floatingStateForCellContent = layoutState().ensureBlockFormattingState(cellBox).floatingState();
             floatingStateForCellContent.clear();
-            LayoutContext::createFormattingContext(cellBox, layoutState())->layoutInFlowContent(invalidationState, formattingGeometry.constraintsForInFlowContent(cellBox));
+            LayoutContext::createFormattingContext(cellBox, layoutState())->layoutInFlowContent(formattingGeometry.constraintsForInFlowContent(cellBox));
         }
         cellBoxGeometry.setContentBoxHeight(formattingGeometry.verticalSpaceForCellContent(*cell, availableVerticalSpace));
 
@@ -156,16 +154,16 @@ void TableFormattingContext::setUsedGeometryForCells(LayoutUnit availableHorizon
                     // Normally by the time we start positioning the child content, we already have computed borders and padding for the containing block.
                     // This is different with table cells where the final padding offset depends on the content height as we use
                     // the padding box to vertically align the table cell content.
-                    auto& formattingState = layoutState().establishedFormattingState(cellBox);
+                    auto& formattingState = layoutState().formattingStateForFormattingContext(cellBox);
                     for (auto* child = cellBox.firstInFlowOrFloatingChild(); child; child = child->nextInFlowOrFloatingSibling()) {
                         if (child->isInlineTextBox())
                             continue;
                         formattingState.boxGeometry(*child).moveVertically(intrinsicPaddingTop);
                     }
                     if (cellBox.establishesInlineFormattingContext()) {
-                        auto& inlineFormattingStatee = layoutState().establishedInlineFormattingState(cellBox);
-                        for (auto& run : inlineFormattingStatee.runs())
-                            run.moveVertically(intrinsicPaddingTop);
+                        auto& inlineFormattingStatee = layoutState().formattingStateForInlineFormattingContext(cellBox);
+                        for (auto& box : inlineFormattingStatee.boxes())
+                            box.moveVertically(intrinsicPaddingTop);
                         for (auto& line : inlineFormattingStatee.lines())
                             line.moveVertically(intrinsicPaddingTop);
                     }
@@ -541,10 +539,8 @@ void TableFormattingContext::computeAndDistributeExtraSpace(LayoutUnit available
                 cellBoxGeometry.setPadding(formattingGeometry.computedPadding(cellBox, availableHorizontalSpace));
                 cellBoxGeometry.setContentBoxWidth(formattingGeometry.horizontalSpaceForCellContent(cell));
 
-                if (cellBox.hasInFlowOrFloatingChild()) {
-                    auto invalidationState = InvalidationState { };
-                    LayoutContext::createFormattingContext(cellBox, layoutState())->layoutInFlowContent(invalidationState, formattingGeometry.constraintsForInFlowContent(cellBox));
-                }
+                if (cellBox.hasInFlowOrFloatingChild())
+                    LayoutContext::createFormattingContext(cellBox, layoutState())->layoutInFlowContent(formattingGeometry.constraintsForInFlowContent(cellBox));
                 cellBoxGeometry.setContentBoxHeight(formattingGeometry.verticalSpaceForCellContent(cell, availableVerticalSpace));
             };
             layoutCellContent(slot.cell());

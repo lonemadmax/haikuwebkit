@@ -44,6 +44,7 @@
 #import <wtf/NeverDestroyed.h>
 #import <wtf/Scope.h>
 #import <wtf/cocoa/Entitlements.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/spi/darwin/SandboxSPI.h>
 
@@ -295,7 +296,7 @@ void WebProcessProxy::sendAudioComponentRegistrations()
     if (!PAL::isAudioToolboxCoreFrameworkAvailable() || !PAL::canLoad_AudioToolboxCore_AudioComponentFetchServerRegistrations())
         return;
 
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), [protectedThis = makeRef(*this)] () mutable {
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), [weakThis = makeWeakPtr(*this)] () mutable {
         CFDataRef registrations { nullptr };
 
         WebCore::registerOpusDecoderIfNeeded();
@@ -303,9 +304,12 @@ void WebProcessProxy::sendAudioComponentRegistrations()
         if (noErr != AudioComponentFetchServerRegistrations(&registrations) || !registrations)
             return;
 
-        RunLoop::main().dispatch([protectedThis = WTFMove(protectedThis), registrations = adoptCF(registrations)] () mutable {
+        RunLoop::main().dispatch([weakThis = WTFMove(weakThis), registrations = adoptCF(registrations)] () mutable {
+            if (!weakThis)
+                return;
+
             auto registrationData = WebCore::SharedBuffer::create(registrations.get());
-            protectedThis->send(Messages::WebProcess::ConsumeAudioComponentRegistrations({ registrationData }), 0);
+            weakThis->send(Messages::WebProcess::ConsumeAudioComponentRegistrations({ registrationData }), 0);
         });
     });
 }

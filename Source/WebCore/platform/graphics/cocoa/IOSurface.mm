@@ -35,7 +35,6 @@
 #import "Logging.h"
 #import "PlatformScreen.h"
 #import <pal/spi/cg/CoreGraphicsSPI.h>
-#import <pal/spi/cocoa/IOSurfaceSPI.h>
 #import <wtf/Assertions.h>
 #import <wtf/MachSendRight.h>
 #import <wtf/MathExtras.h>
@@ -525,7 +524,7 @@ IOSurface::Format IOSurface::formatForPixelFormat(PixelFormat format)
     return IOSurface::Format::BGRA;
 }
 
-static TextStream& operator<<(TextStream& ts, IOSurface::Format format)
+TextStream& operator<<(TextStream& ts, IOSurface::Format format)
 {
     switch (format) {
     case IOSurface::Format::BGRA:

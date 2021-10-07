@@ -217,7 +217,7 @@ void WebSocket::failAsynchronously()
     // constructor, we have to wait until the constructor has completed before firing the
     // event; otherwise, users can't connect to the event.
 
-    scriptExecutionContext()->postTask([this, protectedThis = makeRef(*this)](auto&) {
+    scriptExecutionContext()->postTask([this, protectedThis = Ref { *this }](auto&) {
         this->dispatchOrQueueErrorEvent();
         this->stop();
     });
@@ -324,7 +324,7 @@ ExceptionOr<void> WebSocket::connect(const String& url, const Vector<String>& pr
         return { };
     }
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     auto reportRegistrableDomain = [domain = RegistrableDomain(m_url).isolatedCopy()](auto& context) mutable {
         if (auto* frame = downcast<Document>(context).frame())
             frame->loader().client().didLoadFromRegistrableDomain(WTFMove(domain));

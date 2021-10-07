@@ -613,11 +613,11 @@ test/built-ins/Date/UTC/fp-evaluation-order.js:
   default: 'Test262Error: order of operations / precision in MakeTime Expected SameValue(«NaN», «29312») to be true'
   strict mode: 'Test262Error: order of operations / precision in MakeTime Expected SameValue(«NaN», «29312») to be true'
 test/built-ins/Function/internals/Construct/derived-return-val-realm.js:
-  default: 'Test262Error: Expected a TypeError but got a TypeError'
-  strict mode: 'Test262Error: Expected a TypeError but got a TypeError'
+  default: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
+  strict mode: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
 test/built-ins/Function/internals/Construct/derived-this-uninitialized-realm.js:
-  default: 'Test262Error: Expected a ReferenceError but got a ReferenceError'
-  strict mode: 'Test262Error: Expected a ReferenceError but got a ReferenceError'
+  default: 'Test262Error: Expected a ReferenceError but got a different error constructor with the same name'
+  strict mode: 'Test262Error: Expected a ReferenceError but got a different error constructor with the same name'
 test/built-ins/Function/prototype/toString/AsyncFunction.js:
   default: "SyntaxError: Unexpected token ';'. Expected a ')' or a ',' after a parameter declaration."
   strict mode: "SyntaxError: Unexpected token ';'. Expected a ')' or a ',' after a parameter declaration."
@@ -778,38 +778,38 @@ test/built-ins/Proxy/apply/arguments-realm.js:
   default: 'Test262Error: Expected SameValue(«function Array() {'
   strict mode: 'Test262Error: Expected SameValue(«function Array() {'
 test/built-ins/Proxy/apply/null-handler-realm.js:
-  default: 'Test262Error: Expected a TypeError but got a TypeError'
-  strict mode: 'Test262Error: Expected a TypeError but got a TypeError'
+  default: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
+  strict mode: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
 test/built-ins/Proxy/apply/trap-is-not-callable-realm.js:
-  default: 'Test262Error: Expected a TypeError but got a TypeError'
-  strict mode: 'Test262Error: Expected a TypeError but got a TypeError'
+  default: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
+  strict mode: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
 test/built-ins/Proxy/construct/arguments-realm.js:
   default: 'Test262Error: Expected SameValue(«function Array() {'
   strict mode: 'Test262Error: Expected SameValue(«function Array() {'
 test/built-ins/Proxy/construct/null-handler-realm.js:
-  default: 'Test262Error: Expected a TypeError but got a TypeError'
-  strict mode: 'Test262Error: Expected a TypeError but got a TypeError'
+  default: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
+  strict mode: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
 test/built-ins/Proxy/construct/return-not-object-throws-boolean-realm.js:
-  default: 'Test262Error: Expected a TypeError but got a TypeError'
-  strict mode: 'Test262Error: Expected a TypeError but got a TypeError'
+  default: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
+  strict mode: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
 test/built-ins/Proxy/construct/return-not-object-throws-null-realm.js:
-  default: 'Test262Error: Expected a TypeError but got a TypeError'
-  strict mode: 'Test262Error: Expected a TypeError but got a TypeError'
+  default: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
+  strict mode: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
 test/built-ins/Proxy/construct/return-not-object-throws-number-realm.js:
-  default: 'Test262Error: Expected a TypeError but got a TypeError'
-  strict mode: 'Test262Error: Expected a TypeError but got a TypeError'
+  default: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
+  strict mode: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
 test/built-ins/Proxy/construct/return-not-object-throws-string-realm.js:
-  default: 'Test262Error: Expected a TypeError but got a TypeError'
-  strict mode: 'Test262Error: Expected a TypeError but got a TypeError'
+  default: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
+  strict mode: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
 test/built-ins/Proxy/construct/return-not-object-throws-symbol-realm.js:
-  default: 'Test262Error: Expected a TypeError but got a TypeError'
-  strict mode: 'Test262Error: Expected a TypeError but got a TypeError'
+  default: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
+  strict mode: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
 test/built-ins/Proxy/construct/return-not-object-throws-undefined-realm.js:
-  default: 'Test262Error: Expected a TypeError but got a TypeError'
-  strict mode: 'Test262Error: Expected a TypeError but got a TypeError'
+  default: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
+  strict mode: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
 test/built-ins/Proxy/construct/trap-is-not-callable-realm.js:
-  default: 'Test262Error: Expected a TypeError but got a TypeError'
-  strict mode: 'Test262Error: Expected a TypeError but got a TypeError'
+  default: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
+  strict mode: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
 test/built-ins/RegExp/prototype/Symbol.match/builtin-infer-unicode.js:
   default: 'Test262Error: Expected SameValue(«�», «null») to be true'
   strict mode: 'Test262Error: Expected SameValue(«�», «null») to be true'
@@ -858,6 +858,36 @@ test/intl402/Locale/likely-subtags-grandfathered.js:
 test/intl402/Locale/prototype/minimize/removing-likely-subtags-first-adds-likely-subtags.js:
   default: 'Test262Error: "und".minimize() should be "en" Expected SameValue(«en-u-va-posix», «en») to be true'
   strict mode: 'Test262Error: "und".minimize() should be "en" Expected SameValue(«en-u-va-posix», «en») to be true'
+test/intl402/Temporal/Calendar/prototype/era/branding.js:
+  default: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
+  strict mode: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
+test/intl402/Temporal/Calendar/prototype/eraYear/branding.js:
+  default: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
+  strict mode: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
+test/intl402/Temporal/PlainDate/prototype/era/branding.js:
+  default: "TypeError: undefined is not an object (evaluating 'Temporal.PlainDate.prototype')"
+  strict mode: "TypeError: undefined is not an object (evaluating 'Temporal.PlainDate.prototype')"
+test/intl402/Temporal/PlainDate/prototype/eraYear/branding.js:
+  default: "TypeError: undefined is not an object (evaluating 'Temporal.PlainDate.prototype')"
+  strict mode: "TypeError: undefined is not an object (evaluating 'Temporal.PlainDate.prototype')"
+test/intl402/Temporal/PlainDateTime/prototype/era/branding.js:
+  default: "TypeError: undefined is not an object (evaluating 'Temporal.PlainDateTime.prototype')"
+  strict mode: "TypeError: undefined is not an object (evaluating 'Temporal.PlainDateTime.prototype')"
+test/intl402/Temporal/PlainDateTime/prototype/eraYear/branding.js:
+  default: "TypeError: undefined is not an object (evaluating 'Temporal.PlainDateTime.prototype')"
+  strict mode: "TypeError: undefined is not an object (evaluating 'Temporal.PlainDateTime.prototype')"
+test/intl402/Temporal/PlainYearMonth/prototype/era/branding.js:
+  default: "TypeError: undefined is not an object (evaluating 'Temporal.PlainYearMonth.prototype')"
+  strict mode: "TypeError: undefined is not an object (evaluating 'Temporal.PlainYearMonth.prototype')"
+test/intl402/Temporal/PlainYearMonth/prototype/eraYear/branding.js:
+  default: "TypeError: undefined is not an object (evaluating 'Temporal.PlainYearMonth.prototype')"
+  strict mode: "TypeError: undefined is not an object (evaluating 'Temporal.PlainYearMonth.prototype')"
+test/intl402/Temporal/ZonedDateTime/prototype/era/branding.js:
+  default: "TypeError: undefined is not an object (evaluating 'Temporal.ZonedDateTime.prototype')"
+  strict mode: "TypeError: undefined is not an object (evaluating 'Temporal.ZonedDateTime.prototype')"
+test/intl402/Temporal/ZonedDateTime/prototype/eraYear/branding.js:
+  default: "TypeError: undefined is not an object (evaluating 'Temporal.ZonedDateTime.prototype')"
+  strict mode: "TypeError: undefined is not an object (evaluating 'Temporal.ZonedDateTime.prototype')"
 test/language/block-scope/syntax/redeclaration/async-function-name-redeclaration-attempt-with-async-function.js:
   default: 'Test262: This statement should not be evaluated.'
 test/language/block-scope/syntax/redeclaration/async-function-name-redeclaration-attempt-with-async-generator.js:
@@ -1424,18 +1454,6 @@ test/language/expressions/call/eval-spread-empty-trailing.js:
 test/language/expressions/call/eval-spread.js:
   default: 'Test262Error: Expected SameValue(«local», «1») to be true'
   strict mode: 'Test262Error: Expected SameValue(«local», «1») to be true'
-test/language/expressions/call/tco-cross-realm-class-construct.js:
-  default: 'Test262Error: Expected a TypeError but got a TypeError'
-  strict mode: 'Test262Error: Expected a TypeError but got a TypeError'
-test/language/expressions/call/tco-cross-realm-class-derived-construct.js:
-  default: 'Test262Error: Expected a TypeError but got a TypeError'
-  strict mode: 'Test262Error: Expected a TypeError but got a TypeError'
-test/language/expressions/call/tco-cross-realm-fun-call.js:
-  default: 'Test262Error: Expected a TypeError but got a TypeError'
-  strict mode: 'Test262Error: Expected a TypeError but got a TypeError'
-test/language/expressions/call/tco-cross-realm-fun-construct.js:
-  default: 'Test262Error: Expected a TypeError but got a TypeError'
-  strict mode: 'Test262Error: Expected a TypeError but got a TypeError'
 test/language/expressions/call/tco-non-eval-function-dynamic.js:
   default: 'RangeError: Maximum call stack size exceeded.'
 test/language/expressions/call/tco-non-eval-function.js:
@@ -1577,9 +1595,6 @@ test/language/expressions/generators/scope-body-lex-distinct.js:
   default: 'Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all'
 test/language/expressions/generators/scope-param-rest-elem-var-open.js:
   default: 'Test262Error: Expected SameValue(«outside», «inside») to be true'
-test/language/expressions/in/private-field-in-nested.js:
-  default: 'Test262: This statement should not be evaluated.'
-  strict mode: 'Test262: This statement should not be evaluated.'
 test/language/expressions/instanceof/prototype-getter-with-primitive.js:
   default: "Test262Error: getter for 'prototype' called"
   strict mode: "Test262Error: getter for 'prototype' called"
@@ -1590,8 +1605,8 @@ test/language/expressions/logical-assignment/lgcl-nullish-assignment-operator-no
 test/language/expressions/logical-assignment/lgcl-or-assignment-operator-non-simple-lhs.js:
   default: 'Test262: This statement should not be evaluated.'
 test/language/expressions/new/non-ctor-err-realm.js:
-  default: 'Test262Error: production including Arguments Expected a TypeError but got a TypeError'
-  strict mode: 'Test262Error: production including Arguments Expected a TypeError but got a TypeError'
+  default: 'Test262Error: production including Arguments Expected a TypeError but got a different error constructor with the same name'
+  strict mode: 'Test262Error: production including Arguments Expected a TypeError but got a different error constructor with the same name'
 test/language/expressions/object/method-definition/async-gen-meth-eval-var-scope-syntax-err.js:
   default: 'Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all'
 test/language/expressions/object/method-definition/gen-meth-eval-var-scope-syntax-err.js:

@@ -82,6 +82,7 @@ struct MockWebAuthenticationConfiguration;
 namespace WebKit {
 
 class AuthenticatorManager;
+class AuxiliaryProcessProxy;
 class SecKeyProxyStore;
 class DeviceIdHashSaltStorage;
 class NetworkProcessProxy;
@@ -98,7 +99,7 @@ struct NetworkProcessConnectionInfo;
 struct WebsiteDataRecord;
 struct WebsiteDataStoreParameters;
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 enum class ShouldGrandfatherStatistics : bool;
 enum class StorageAccessStatus : uint8_t;
 enum class StorageAccessPromptStatus;
@@ -160,7 +161,7 @@ public:
     const String& cacheStorageDirectory() const { return m_resolvedConfiguration->cacheStorageDirectory(); }
     const String& generalStorageDirectory() const { return m_resolvedConfiguration->generalStorageDirectory(); }
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     void clearResourceLoadStatisticsInWebProcesses(CompletionHandler<void()>&&);
 #endif
 
@@ -173,7 +174,7 @@ public:
     void setServiceWorkerTimeoutForTesting(Seconds);
     void resetServiceWorkerTimeoutForTesting();
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     void fetchDataForRegistrableDomains(OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, Vector<WebCore::RegistrableDomain>&&, CompletionHandler<void(Vector<WebsiteDataRecord>&&, HashSet<WebCore::RegistrableDomain>&&)>&&);
     void clearPrevalentResource(const URL&, CompletionHandler<void()>&&);
     void clearUserInteraction(const URL&, CompletionHandler<void()>&&);
@@ -256,7 +257,7 @@ public:
     const String& resolvedServiceWorkerRegistrationDirectory() const { return m_resolvedConfiguration->serviceWorkerRegistrationDirectory(); }
     const String& resolvedResourceLoadStatisticsDirectory() const { return m_resolvedConfiguration->resourceLoadStatisticsDirectory(); }
     const String& resolvedHSTSStorageDirectory() const { return m_resolvedConfiguration->hstsStorageDirectory(); }
-#if HAVE(ARKIT_INLINE_PREVIEW)
+#if ENABLE(ARKIT_INLINE_PREVIEW)
     const String& resolvedModelElementCacheDirectory() const { return m_resolvedConfiguration->modelElementCacheDirectory(); }
 #endif
 
@@ -278,8 +279,8 @@ public:
     void dispatchOnQueue(Function<void()>&&);
 
 #if PLATFORM(COCOA)
-    void sendNetworkProcessXPCEndpointToWebProcess(WebProcessProxy&);
-    void sendNetworkProcessXPCEndpointToAllWebProcesses();
+    void sendNetworkProcessXPCEndpointToProcess(AuxiliaryProcessProxy&) const;
+    void sendNetworkProcessXPCEndpointToAllProcesses();
     
     static bool useNetworkLoader();
 #endif
@@ -340,7 +341,7 @@ public:
 #if USE(GLIB)
     static WTF::String defaultHSTSDirectory();
 #endif
-#if HAVE(ARKIT_INLINE_PREVIEW)
+#if ENABLE(ARKIT_INLINE_PREVIEW)
     static WTF::String defaultModelElementCacheDirectory();
 #endif
     static WTF::String defaultIndexedDBDatabaseDirectory();
@@ -422,7 +423,7 @@ private:
 
     const Ref<DeviceIdHashSaltStorage> m_deviceIdHashSaltStorage;
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     bool m_resourceLoadStatisticsDebugMode { false };
     bool m_resourceLoadStatisticsEnabled { false };
     Function<void(const String&)> m_statisticsTestingCallback;
@@ -472,7 +473,7 @@ private:
 #if HAVE(APP_SSO)
     UniqueRef<SOAuthorizationCoordinator> m_soAuthorizationCoordinator;
 #endif
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     mutable std::optional<WebCore::ThirdPartyCookieBlockingMode> m_thirdPartyCookieBlockingMode; // Lazily computed.
 #endif
 };

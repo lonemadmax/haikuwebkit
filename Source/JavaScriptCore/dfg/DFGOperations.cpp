@@ -30,6 +30,7 @@
 #include "CacheableIdentifierInlines.h"
 #include "ClonedArguments.h"
 #include "CodeBlock.h"
+#include "CodeBlockInlines.h"
 #include "CommonSlowPaths.h"
 #include "DFGDriver.h"
 #include "DFGJITCode.h"
@@ -86,10 +87,10 @@ IGNORE_WARNINGS_BEGIN("frame-address")
 namespace JSC { namespace DFG {
 
 template<bool strict, bool direct>
-static inline void putByVal(JSGlobalObject* globalObject, VM& vm, JSValue baseValue, uint32_t index, JSValue value)
+static ALWAYS_INLINE void putByVal(JSGlobalObject* globalObject, VM& vm, JSValue baseValue, uint32_t index, JSValue value)
 {
     ASSERT(isIndex(index));
-    if (direct) {
+    if constexpr (direct) {
         RELEASE_ASSERT(baseValue.isObject());
         asObject(baseValue)->putDirectIndex(globalObject, index, value, 0, strict ? PutDirectIndexShouldThrow : PutDirectIndexShouldNotThrow);
         return;
@@ -128,7 +129,7 @@ ALWAYS_INLINE static void putByValInternal(JSGlobalObject* globalObject, VM& vm,
     RETURN_IF_EXCEPTION(scope, void());
 
     PutPropertySlot slot(baseValue, strict);
-    if (direct) {
+    if constexpr (direct) {
         RELEASE_ASSERT(baseValue.isObject());
         JSObject* baseObject = asObject(baseValue);
         if (std::optional<uint32_t> index = parseIndex(propertyName)) {
@@ -148,7 +149,7 @@ template<bool strict, bool direct>
 ALWAYS_INLINE static void putByValCellInternal(JSGlobalObject* globalObject, VM& vm, JSCell* base, PropertyName propertyName, JSValue value)
 {
     PutPropertySlot slot(base, strict);
-    if (direct) {
+    if constexpr (direct) {
         RELEASE_ASSERT(base->isObject());
         JSObject* baseObject = asObject(base);
         if (std::optional<uint32_t> index = parseIndex(propertyName)) {
@@ -2486,7 +2487,7 @@ JSC_DEFINE_JIT_OPERATION(operationEnumeratorNextUpdateIndexAndMode, EncodedJSVal
     return JSValue::encode(result);
 }
 
-JSC_DEFINE_JIT_OPERATION(operationEnumeratorNextUpdatePropertyName, EncodedJSValue, (JSGlobalObject* globalObject, uint32_t index, int32_t modeNumber, JSPropertyNameEnumerator* enumerator))
+JSC_DEFINE_JIT_OPERATION(operationEnumeratorNextUpdatePropertyName, JSString*, (JSGlobalObject* globalObject, uint32_t index, int32_t modeNumber, JSPropertyNameEnumerator* enumerator))
 {
     VM& vm = globalObject->vm();
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
@@ -2494,15 +2495,15 @@ JSC_DEFINE_JIT_OPERATION(operationEnumeratorNextUpdatePropertyName, EncodedJSVal
 
     if (modeNumber == JSPropertyNameEnumerator::IndexedMode) {
         if (index < enumerator->indexedLength())
-            return JSValue::encode(jsString(vm, Identifier::from(vm, index).string()));
-        return JSValue::encode(jsNull());
+            return jsString(vm, Identifier::from(vm, index).string());
+        return vm.smallStrings.sentinelString();
     }
 
     JSString* result = enumerator->propertyNameAtIndex(index);
     if (!result)
-        return JSValue::encode(jsNull());
+        return vm.smallStrings.sentinelString();
 
-    return JSValue::encode(result);
+    return result;
 }
 
 JSC_DEFINE_JIT_OPERATION(operationEnumeratorRecoverNameAndGetByVal, EncodedJSValue, (JSGlobalObject* globalObject, JSCell* base, uint32_t index, JSPropertyNameEnumerator* enumerator))
@@ -2530,12 +2531,23 @@ JSC_DEFINE_JIT_OPERATION(operationEnumeratorInByVal, EncodedJSValue, (JSGlobalOb
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue base = JSValue::decode(baseValue);
-    RETURN_IF_EXCEPTION(scope, { });
     if (modeNumber == JSPropertyNameEnumerator::IndexedMode && base.isObject())
         RELEASE_AND_RETURN(scope, JSValue::encode(jsBoolean(jsCast<JSObject*>(base)->hasProperty(globalObject, index))));
 
     JSString* propertyName = jsSecureCast<JSString*>(vm, JSValue::decode(propertyNameValue));
     RELEASE_AND_RETURN(scope, JSValue::encode(jsBoolean(CommonSlowPaths::opInByVal(globalObject, base, propertyName))));
+}
+
+JSC_DEFINE_JIT_OPERATION(operationEnumeratorGetByValGeneric, EncodedJSValue, (JSGlobalObject* globalObject, JSCell* baseCell, EncodedJSValue propertyNameValue, uint32_t index, int32_t modeNumber, JSPropertyNameEnumerator* enumerator))
+{
+    VM& vm = globalObject->vm();
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    JSValue property = JSValue::decode(propertyNameValue);
+    JSPropertyNameEnumerator::Flag mode = static_cast<JSPropertyNameEnumerator::Flag>(modeNumber);
+    RELEASE_AND_RETURN(scope, JSValue::encode(CommonSlowPaths::opEnumeratorGetByVal(globalObject, baseCell, property, index, mode, enumerator)));
 }
 
 JSC_DEFINE_JIT_OPERATION(operationEnumeratorHasOwnProperty, EncodedJSValue, (JSGlobalObject* globalObject, EncodedJSValue baseValue, EncodedJSValue propertyNameValue, uint32_t index, int32_t modeNumber))
@@ -2546,7 +2558,6 @@ JSC_DEFINE_JIT_OPERATION(operationEnumeratorHasOwnProperty, EncodedJSValue, (JSG
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue base = JSValue::decode(baseValue);
-    RETURN_IF_EXCEPTION(scope, { });
     if (modeNumber == JSPropertyNameEnumerator::IndexedMode && base.isObject())
         RELEASE_AND_RETURN(scope, JSValue::encode(jsBoolean(jsCast<JSObject*>(base)->hasOwnProperty(globalObject, index))));
 
@@ -2859,7 +2870,7 @@ JSC_DEFINE_JIT_OPERATION(operationFindSwitchImmTargetForDouble, char*, (VM* vmPo
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
     JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
     CodeBlock* codeBlock = callFrame->codeBlock();
-    const SimpleJumpTable& linkedTable = codeBlock->switchJumpTable(tableIndex);
+    const SimpleJumpTable& linkedTable = codeBlock->dfgSwitchJumpTable(tableIndex);
     JSValue value = JSValue::decode(encodedValue);
     ASSERT(value.isDouble());
     double asDouble = value.asDouble();
@@ -2880,7 +2891,7 @@ JSC_DEFINE_JIT_OPERATION(operationSwitchString, char*, (JSGlobalObject* globalOb
 
     RETURN_IF_EXCEPTION(throwScope, nullptr);
     CodeBlock* codeBlock = callFrame->codeBlock();
-    const StringJumpTable& linkedTable = codeBlock->stringSwitchJumpTable(tableIndex);
+    const StringJumpTable& linkedTable = codeBlock->dfgStringSwitchJumpTable(tableIndex);
     return linkedTable.ctiForValue(*unlinkedTable, strImpl).executableAddress<char*>();
 }
 

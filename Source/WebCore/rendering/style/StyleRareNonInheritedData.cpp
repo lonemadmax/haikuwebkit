@@ -92,6 +92,7 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     , marginBeforeCollapse(static_cast<unsigned>(MarginCollapse::Collapse))
     , marginAfterCollapse(static_cast<unsigned>(MarginCollapse::Collapse))
     , appearance(static_cast<unsigned>(RenderStyle::initialAppearance()))
+    , effectiveAppearance(static_cast<unsigned>(RenderStyle::initialAppearance()))
     , borderFit(static_cast<unsigned>(RenderStyle::initialBorderFit()))
     , textCombine(static_cast<unsigned>(RenderStyle::initialTextCombine()))
     , textDecorationStyle(static_cast<unsigned>(RenderStyle::initialTextDecorationStyle()))
@@ -109,6 +110,7 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     , breakAfter(static_cast<unsigned>(RenderStyle::initialBreakBetween()))
     , breakInside(static_cast<unsigned>(RenderStyle::initialBreakInside()))
     , resize(static_cast<unsigned>(RenderStyle::initialResize()))
+    , inputSecurity(static_cast<unsigned>(RenderStyle::initialInputSecurity()))
     , hasAttrContent(false)
     , isNotFinal(false)
     , columnGap(RenderStyle::initialColumnGap())
@@ -191,6 +193,7 @@ inline StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonIn
     , marginBeforeCollapse(o.marginBeforeCollapse)
     , marginAfterCollapse(o.marginAfterCollapse)
     , appearance(o.appearance)
+    , effectiveAppearance(o.effectiveAppearance)
     , borderFit(o.borderFit)
     , textCombine(o.textCombine)
     , textDecorationStyle(o.textDecorationStyle)
@@ -208,6 +211,7 @@ inline StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonIn
     , breakAfter(o.breakAfter)
     , breakInside(o.breakInside)
     , resize(o.resize)
+    , inputSecurity(o.inputSecurity)
     , hasAttrContent(o.hasAttrContent)
     , isNotFinal(o.isNotFinal)
     , columnGap(o.columnGap)
@@ -294,6 +298,7 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
         && marginBeforeCollapse == o.marginBeforeCollapse
         && marginAfterCollapse == o.marginAfterCollapse
         && appearance == o.appearance
+        && effectiveAppearance == o.effectiveAppearance
         && borderFit == o.borderFit
         && textCombine == o.textCombine
         && textDecorationStyle == o.textDecorationStyle
@@ -315,6 +320,7 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
         && breakBefore == o.breakBefore
         && breakInside == o.breakInside
         && resize == o.resize
+        && inputSecurity == o.inputSecurity
         && hasAttrContent == o.hasAttrContent
         && isNotFinal == o.isNotFinal
         && columnGap == o.columnGap

@@ -34,8 +34,8 @@
 #include "HTMLParserIdioms.h"
 #include "HighlightData.h"
 #include "HighlightRegister.h"
-#include "LayoutIntegrationLineIterator.h"
-#include "LayoutIntegrationRunIterator.h"
+#include "InlineIteratorBox.h"
+#include "InlineIteratorLine.h"
 #include "LayoutRepainter.h"
 #include "RenderBlock.h"
 #include "RenderFragmentedFlow.h"
@@ -373,7 +373,7 @@ bool RenderReplaced::setNeedsLayoutIfNeededAfterIntrinsicSizeChange()
     setPreferredLogicalWidthsDirty(true);
     
     // If the actual area occupied by the image has changed and it is not constrained by style then a layout is required.
-    bool imageSizeIsConstrained = style().logicalWidth().isSpecified() && style().logicalHeight().isSpecified();
+    bool imageSizeIsConstrained = style().logicalWidth().isSpecified() && style().logicalHeight().isSpecified() && !style().logicalMinWidth().isIntrinsic() && !style().logicalMaxWidth().isIntrinsic();
     
     // FIXME: We only need to recompute the containing block's preferred size
     // if the containing block's size depends on the image's size (i.e., the container uses shrink-to-fit sizing).
@@ -689,8 +689,8 @@ void RenderReplaced::computePreferredLogicalWidths()
 VisiblePosition RenderReplaced::positionForPoint(const LayoutPoint& point, const RenderFragmentContainer* fragment)
 {
     auto [top, bottom] = [&] {
-        if (auto run = LayoutIntegration::runFor(*this)) {
-            auto line = run.line();
+        if (auto run = InlineIterator::boxFor(*this)) {
+            auto line = run->line();
             return std::make_pair(line->selectionTopForHitTesting(), line->selectionBottom());
         }
         return std::make_pair(logicalTop(), logicalBottom());

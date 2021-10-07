@@ -540,17 +540,18 @@ void RenderLayerBacking::createPrimaryGraphicsLayer()
             m_graphicsLayer->setAcceleratesDrawing(true);
     }
 #endif    
-    
-    updateOpacity(renderer().style());
-    updateTransform(renderer().style());
-    updateFilters(renderer().style());
+    auto& style = renderer().style();
+    updateOpacity(style);
+    updateTransform(style);
+    updateFilters(style);
 #if ENABLE(FILTERS_LEVEL_2)
-    updateBackdropFilters(renderer().style());
+    updateBackdropFilters(style);
 #endif
 #if ENABLE(CSS_COMPOSITING)
-    updateBlendMode(renderer().style());
+    updateBlendMode(style);
 #endif
-    updateCustomAppearance(renderer().style());
+    updateCustomAppearance(style);
+    updateContentsScalingFilters(style);
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -770,13 +771,33 @@ void RenderLayerBacking::updateBlendMode(const RenderStyle& style)
 
 void RenderLayerBacking::updateCustomAppearance(const RenderStyle& style)
 {
-    ControlPart appearance = style.appearance();
+    ControlPart appearance = style.effectiveAppearance();
     if (appearance == MediaControlsLightBarBackgroundPart)
         m_graphicsLayer->setCustomAppearance(GraphicsLayer::CustomAppearance::LightBackdrop);
     else if (appearance == MediaControlsDarkBarBackgroundPart)
         m_graphicsLayer->setCustomAppearance(GraphicsLayer::CustomAppearance::DarkBackdrop);
     else
         m_graphicsLayer->setCustomAppearance(GraphicsLayer::CustomAppearance::None);
+}
+
+void RenderLayerBacking::updateContentsScalingFilters(const RenderStyle& style)
+{
+    if (!renderer().isCanvas() || canvasCompositingStrategy(renderer()) != CanvasAsLayerContents)
+        return;
+    auto minificationFilter = GraphicsLayer::ScalingFilter::Linear;
+    auto magnificationFilter = GraphicsLayer::ScalingFilter::Linear;
+    switch (style.imageRendering()) {
+    case ImageRendering::CrispEdges:
+    case ImageRendering::Pixelated:
+        // FIXME: In order to match other code-paths, we treat these the same.
+        minificationFilter = GraphicsLayer::ScalingFilter::Nearest;
+        magnificationFilter = GraphicsLayer::ScalingFilter::Nearest;
+        break;
+    default:
+        break;
+    }
+    m_graphicsLayer->setContentsMinificationFilter(minificationFilter);
+    m_graphicsLayer->setContentsMagnificationFilter(magnificationFilter);
 }
 
 static bool layerOrAncestorIsTransformedOrUsingCompositedScrolling(RenderLayer& layer)
@@ -959,6 +980,7 @@ void RenderLayerBacking::updateConfigurationAfterStyleChange()
     updateBlendMode(style);
 #endif
     updateCustomAppearance(style);
+    updateContentsScalingFilters(style);
 }
 
 bool RenderLayerBacking::updateConfiguration(const RenderLayer* compositingAncestor)
@@ -1075,7 +1097,7 @@ bool RenderLayerBacking::updateConfiguration(const RenderLayer* compositingAnces
 #if ENABLE(MODEL_ELEMENT)
     else if (is<RenderModel>(renderer())) {
         auto element = downcast<HTMLModelElement>(renderer().element());
-#if HAVE(ARKIT_INLINE_PREVIEW_MAC)
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
         if (auto* platformLayer = element->platformLayer())
             m_graphicsLayer->setContentsToPlatformLayer(platformLayer, GraphicsLayer::ContentsLayerPurpose::Model);
 #else
@@ -1284,6 +1306,7 @@ void RenderLayerBacking::updateGeometry(const RenderLayer* compositedAncestor)
 #if ENABLE(CSS_COMPOSITING)
     updateBlendMode(style);
 #endif
+    updateContentsScalingFilters(style);
 
     ASSERT(compositedAncestor == m_owningLayer.ancestorCompositingLayer());
     LayoutRect parentGraphicsLayerRect = computeParentGraphicsLayerRect(compositedAncestor);
@@ -1567,7 +1590,7 @@ void RenderLayerBacking::updateAfterDescendants()
     if (m_scrollContainerLayer) {
         m_scrollContainerLayer->setContentsVisible(renderer().style().visibility() == Visibility::Visible);
 
-        bool userInteractive = renderer().style().pointerEvents() != PointerEvents::None;
+        bool userInteractive = renderer().visibleToHitTesting();
         m_scrollContainerLayer->setUserInteractionEnabled(userInteractive);
         if (m_layerForHorizontalScrollbar)
             m_layerForHorizontalScrollbar->setUserInteractionEnabled(userInteractive);
@@ -2445,7 +2468,7 @@ float RenderLayerBacking::compositingOpacity(float rendererOpacity) const
 // FIXME: Code is duplicated in RenderLayer. Also, we should probably not consider filters a box decoration here.
 static inline bool hasVisibleBoxDecorations(const RenderStyle& style)
 {
-    return style.hasVisibleBorder() || style.hasBorderRadius() || style.hasOutline() || style.hasAppearance() || style.boxShadow() || style.hasFilter();
+    return style.hasVisibleBorder() || style.hasBorderRadius() || style.hasOutline() || style.hasEffectiveAppearance() || style.boxShadow() || style.hasFilter();
 }
 
 static bool canDirectlyCompositeBackgroundBackgroundImage(const RenderStyle& style)

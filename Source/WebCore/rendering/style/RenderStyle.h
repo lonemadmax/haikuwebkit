@@ -215,6 +215,7 @@ public:
     bool hasEntirelyFixedBackground() const;
 
     bool hasAppearance() const { return appearance() != NoControlPart; }
+    bool hasEffectiveAppearance() const { return effectiveAppearance() != NoControlPart; }
 
     bool hasBackground() const;
     
@@ -366,6 +367,7 @@ public:
     FontSelectionValue fontWeight() const { return fontDescription().weight(); }
     FontSelectionValue fontStretch() const { return fontDescription().stretch(); }
     std::optional<FontSelectionValue> fontItalic() const { return fontDescription().italic(); }
+    FontPalette fontPalette() const { return fontDescription().fontPalette(); }
 
     const Length& textIndent() const { return m_rareInheritedData->indent; }
     TextAlignMode textAlign() const { return static_cast<TextAlignMode>(m_inheritedFlags.textAlign); }
@@ -373,7 +375,7 @@ public:
     OptionSet<TextDecoration> textDecorationsInEffect() const { return OptionSet<TextDecoration>::fromRaw(m_inheritedFlags.textDecorations); }
     OptionSet<TextDecoration> textDecoration() const { return OptionSet<TextDecoration>::fromRaw(m_visualData->textDecoration); }
     TextDecorationStyle textDecorationStyle() const { return static_cast<TextDecorationStyle>(m_rareNonInheritedData->textDecorationStyle); }
-    OptionSet<TextDecorationSkip> textDecorationSkip() const { return OptionSet<TextDecorationSkip>::fromRaw(m_rareInheritedData->textDecorationSkip); }
+    TextDecorationSkipInk textDecorationSkipInk() const { return static_cast<TextDecorationSkipInk>(m_rareInheritedData->textDecorationSkipInk); }
     TextUnderlinePosition textUnderlinePosition() const { return static_cast<TextUnderlinePosition>(m_rareInheritedData->textUnderlinePosition); }
     TextUnderlineOffset textUnderlineOffset() const { return m_rareInheritedData->textUnderlineOffset; }
     TextDecorationThickness textDecorationThickness() const { return m_rareInheritedData->textDecorationThickness; }
@@ -508,6 +510,7 @@ public:
     float opacity() const { return m_rareNonInheritedData->opacity; }
     bool hasOpacity() const { return m_rareNonInheritedData->opacity < 1; }
     ControlPart appearance() const { return static_cast<ControlPart>(m_rareNonInheritedData->appearance); }
+    ControlPart effectiveAppearance() const { return static_cast<ControlPart>(m_rareNonInheritedData->effectiveAppearance); }
     AspectRatioType aspectRatioType() const { return static_cast<AspectRatioType>(m_rareNonInheritedData->aspectRatioType); }
     double aspectRatioWidth() const { return m_rareNonInheritedData->aspectRatioWidth; }
     double aspectRatioHeight() const { return m_rareNonInheritedData->aspectRatioHeight; }
@@ -743,6 +746,8 @@ public:
     OptionSet<TouchAction> effectiveTouchActions() const { return m_rareInheritedData->effectiveTouchActions; }
     OptionSet<EventListenerRegionType> eventListenerRegionTypes() const { return m_rareInheritedData->eventListenerRegionTypes; }
 
+    bool effectiveInert() const { return m_rareInheritedData->effectiveInert; }
+
     const LengthBox& scrollMargin() const;
     const Length& scrollMarginTop() const;
     const Length& scrollMarginBottom() const;
@@ -781,6 +786,7 @@ public:
 #endif
 
     TextSecurity textSecurity() const { return static_cast<TextSecurity>(m_rareInheritedData->textSecurity); }
+    InputSecurity inputSecurity() const { return static_cast<InputSecurity>(m_rareNonInheritedData->inputSecurity); }
 
     WritingMode writingMode() const { return static_cast<WritingMode>(m_inheritedFlags.writingMode); }
     bool isHorizontalWritingMode() const { return WebCore::isHorizontalWritingMode(writingMode()); }
@@ -970,6 +976,7 @@ public:
     void setFontWeight(FontSelectionValue);
     void setFontStretch(FontSelectionValue);
     void setFontItalic(std::optional<FontSelectionValue>);
+    void setFontPalette(FontPalette);
 
     void setColor(const Color&);
     void setTextIndent(Length&& length) { SET_VAR(m_rareInheritedData, indent, WTFMove(length)); }
@@ -979,7 +986,7 @@ public:
     void setTextDecorationsInEffect(OptionSet<TextDecoration> v) { m_inheritedFlags.textDecorations = v.toRaw(); }
     void setTextDecoration(OptionSet<TextDecoration> v) { SET_VAR(m_visualData, textDecoration, v.toRaw()); }
     void setTextDecorationStyle(TextDecorationStyle v) { SET_VAR(m_rareNonInheritedData, textDecorationStyle, static_cast<unsigned>(v)); }
-    void setTextDecorationSkip(OptionSet<TextDecorationSkip> skip) { SET_VAR(m_rareInheritedData, textDecorationSkip, skip.toRaw()); }
+    void setTextDecorationSkipInk(TextDecorationSkipInk skipInk) { SET_VAR(m_rareInheritedData, textDecorationSkipInk, static_cast<unsigned>(skipInk)); }
     void setTextUnderlinePosition(TextUnderlinePosition position) { SET_VAR(m_rareInheritedData, textUnderlinePosition, static_cast<unsigned>(position)); }
     void setTextUnderlineOffset(TextUnderlineOffset textUnderlineOffset) { SET_VAR(m_rareInheritedData, textUnderlineOffset, textUnderlineOffset); }
     void setTextDecorationThickness(TextDecorationThickness textDecorationThickness) { SET_VAR(m_rareInheritedData, textDecorationThickness, textDecorationThickness); }
@@ -1126,7 +1133,8 @@ public:
     void setCaretColor(const Color& c) { SET_VAR(m_rareInheritedData, caretColor, c); SET_VAR(m_rareInheritedData, hasAutoCaretColor, false);  }
     void setHasAutoCaretColor() { SET_VAR(m_rareInheritedData, hasAutoCaretColor, true); SET_VAR(m_rareInheritedData, caretColor, currentColor()); }
     void setOpacity(float f) { float v = clampTo<float>(f, 0.f, 1.f); SET_VAR(m_rareNonInheritedData, opacity, v); }
-    void setAppearance(ControlPart a) { SET_VAR(m_rareNonInheritedData, appearance, a); }
+    void setAppearance(ControlPart a) { SET_VAR(m_rareNonInheritedData, appearance, a); SET_VAR(m_rareNonInheritedData, effectiveAppearance, a); }
+    void setEffectiveAppearance(ControlPart a) { SET_VAR(m_rareNonInheritedData, effectiveAppearance, a); }
     // For valid values of box-align see http://www.w3.org/TR/2009/WD-css3-flexbox-20090723/#alignment
     void setBoxAlign(BoxAlignment a) { SET_NESTED_VAR(m_rareNonInheritedData, deprecatedFlexibleBox, align, static_cast<unsigned>(a)); }
     void setBoxDirection(BoxDirection d) { m_inheritedFlags.boxDirection = static_cast<unsigned>(d); }
@@ -1303,6 +1311,9 @@ public:
     void setEffectiveTouchActions(OptionSet<TouchAction> touchActions) { SET_VAR(m_rareInheritedData, effectiveTouchActions, touchActions); }
     void setEventListenerRegionTypes(OptionSet<EventListenerRegionType> eventListenerTypes) { SET_VAR(m_rareInheritedData, eventListenerRegionTypes, eventListenerTypes); }
 
+    // internal property
+    void setEffectiveInert(bool effectiveInert) { SET_VAR(m_rareInheritedData, effectiveInert, effectiveInert); }
+
     void setScrollMarginTop(Length&&);
     void setScrollMarginBottom(Length&&);
     void setScrollMarginLeft(Length&&);
@@ -1337,6 +1348,7 @@ public:
 #endif
 
     void setTextSecurity(TextSecurity security) { SET_VAR(m_rareInheritedData, textSecurity, static_cast<unsigned>(security)); }
+    void setInputSecurity(InputSecurity security) { SET_VAR(m_rareNonInheritedData, inputSecurity, static_cast<unsigned>(security)); }
 
 #if ENABLE(CSS_TRAILING_WORD)
     void setTrailingWord(TrailingWord) { }
@@ -1357,13 +1369,13 @@ public:
     static PaintOrder initialPaintOrder() { return PaintOrder::Normal; }
     static Vector<PaintType, 3> paintTypesForPaintOrder(PaintOrder);
     
-    void setCapStyle(LineCap val) { SET_VAR(m_rareInheritedData, capStyle, val); }
+    void setCapStyle(LineCap val) { SET_VAR(m_rareInheritedData, capStyle, static_cast<unsigned>(val)); }
     LineCap capStyle() const { return static_cast<LineCap>(m_rareInheritedData->capStyle); }
-    static LineCap initialCapStyle() { return ButtCap; }
+    static LineCap initialCapStyle() { return LineCap::Butt; }
     
-    void setJoinStyle(LineJoin val) { SET_VAR(m_rareInheritedData, joinStyle, val); }
+    void setJoinStyle(LineJoin val) { SET_VAR(m_rareInheritedData, joinStyle, static_cast<unsigned>(val)); }
     LineJoin joinStyle() const { return static_cast<LineJoin>(m_rareInheritedData->joinStyle); }
-    static LineJoin initialJoinStyle() { return MiterJoin; }
+    static LineJoin initialJoinStyle() { return LineJoin::Miter; }
     
     const Length& strokeWidth() const { return m_rareInheritedData->strokeWidth; }
     void setStrokeWidth(Length&& w) { SET_VAR(m_rareInheritedData, strokeWidth, WTFMove(w)); }
@@ -1597,7 +1609,7 @@ public:
     static TextAlignMode initialTextAlign() { return TextAlignMode::Start; }
     static OptionSet<TextDecoration> initialTextDecoration() { return OptionSet<TextDecoration> { }; }
     static TextDecorationStyle initialTextDecorationStyle() { return TextDecorationStyle::Solid; }
-    static OptionSet<TextDecorationSkip> initialTextDecorationSkip() { return TextDecorationSkip::Auto; }
+    static TextDecorationSkipInk initialTextDecorationSkipInk() { return TextDecorationSkipInk::Auto; }
     static TextUnderlinePosition initialTextUnderlinePosition() { return TextUnderlinePosition::Auto; }
     static TextUnderlineOffset initialTextUnderlineOffset() { return TextUnderlineOffset::createWithAuto(); }
     static TextDecorationThickness initialTextDecorationThickness() { return TextDecorationThickness::createWithAuto(); }
@@ -1773,6 +1785,7 @@ public:
     static IntSize initialInitialLetter() { return IntSize(); }
     static LineClampValue initialLineClamp() { return LineClampValue(); }
     static TextSecurity initialTextSecurity() { return TextSecurity::None; }
+    static InputSecurity initialInputSecurity() { return InputSecurity::Auto; };
 
 #if PLATFORM(IOS_FAMILY)
     static bool initialTouchCalloutEnabled() { return true; }
@@ -2005,6 +2018,7 @@ private:
 int adjustForAbsoluteZoom(int, const RenderStyle&);
 float adjustFloatForAbsoluteZoom(float, const RenderStyle&);
 LayoutUnit adjustLayoutUnitForAbsoluteZoom(LayoutUnit, const RenderStyle&);
+LayoutSize adjustLayoutSizeForAbsoluteZoom(LayoutSize, const RenderStyle&);
 
 BorderStyle collapsedBorderStyle(BorderStyle);
 
@@ -2125,6 +2139,15 @@ inline float adjustFloatForAbsoluteZoom(float value, const RenderStyle& style)
 inline LayoutUnit adjustLayoutUnitForAbsoluteZoom(LayoutUnit value, const RenderStyle& style)
 {
     return LayoutUnit(value / style.effectiveZoom());
+}
+
+inline LayoutSize adjustLayoutSizeForAbsoluteZoom(LayoutSize size, const RenderStyle& style)
+{
+    auto zoom = style.effectiveZoom();
+    return {
+        size.width() / zoom,
+        size.height() / zoom
+    };
 }
 
 inline BorderStyle collapsedBorderStyle(BorderStyle style)

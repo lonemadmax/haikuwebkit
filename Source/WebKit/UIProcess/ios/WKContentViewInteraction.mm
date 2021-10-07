@@ -145,11 +145,11 @@
 #import <pal/spi/ios/ManagedConfigurationSPI.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/BlockPtr.h>
-#import <wtf/RetainPtr.h>
 #import <wtf/Scope.h>
 #import <wtf/SetForScope.h>
 #import <wtf/WeakObjCPtr.h>
 #import <wtf/cocoa/NSURLExtras.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/text/TextStream.h>
 
@@ -4158,32 +4158,18 @@ static inline WebKit::GestureType toGestureType(UIWKGestureType gestureType)
         return WebKit::GestureType::TapAndAHalf;
     case UIWKGestureDoubleTap:
         return WebKit::GestureType::DoubleTap;
-    case UIWKGestureTapAndHalf:
-        return WebKit::GestureType::TapAndHalf;
-    case UIWKGestureDoubleTapInUneditable:
-        return WebKit::GestureType::DoubleTapInUneditable;
-    case UIWKGestureOneFingerTapInUneditable:
-        return WebKit::GestureType::OneFingerTapInUneditable;
-    case UIWKGestureOneFingerTapSelectsAll:
-        return WebKit::GestureType::OneFingerTapSelectsAll;
     case UIWKGestureOneFingerDoubleTap:
         return WebKit::GestureType::OneFingerDoubleTap;
     case UIWKGestureOneFingerTripleTap:
         return WebKit::GestureType::OneFingerTripleTap;
     case UIWKGestureTwoFingerSingleTap:
         return WebKit::GestureType::TwoFingerSingleTap;
-    case UIWKGestureTwoFingerRangedSelectGesture:
-        return WebKit::GestureType::TwoFingerRangedSelectGesture;
-    case UIWKGestureTapOnLinkWithGesture:
-        return WebKit::GestureType::TapOnLinkWithGesture;
     case UIWKGesturePhraseBoundary:
         return WebKit::GestureType::PhraseBoundary;
-    case UIWKGestureMakeWebSelection:
+    default:
         ASSERT_NOT_REACHED();
         return WebKit::GestureType::Loupe;
     }
-    ASSERT_NOT_REACHED();
-    return WebKit::GestureType::Loupe;
 }
 
 static inline UIWKGestureType toUIWKGestureType(WebKit::GestureType gestureType)
@@ -4197,24 +4183,12 @@ static inline UIWKGestureType toUIWKGestureType(WebKit::GestureType gestureType)
         return UIWKGestureTapAndAHalf;
     case WebKit::GestureType::DoubleTap:
         return UIWKGestureDoubleTap;
-    case WebKit::GestureType::TapAndHalf:
-        return UIWKGestureTapAndHalf;
-    case WebKit::GestureType::DoubleTapInUneditable:
-        return UIWKGestureDoubleTapInUneditable;
-    case WebKit::GestureType::OneFingerTapInUneditable:
-        return UIWKGestureOneFingerTapInUneditable;
-    case WebKit::GestureType::OneFingerTapSelectsAll:
-        return UIWKGestureOneFingerTapSelectsAll;
     case WebKit::GestureType::OneFingerDoubleTap:
         return UIWKGestureOneFingerDoubleTap;
     case WebKit::GestureType::OneFingerTripleTap:
         return UIWKGestureOneFingerTripleTap;
     case WebKit::GestureType::TwoFingerSingleTap:
         return UIWKGestureTwoFingerSingleTap;
-    case WebKit::GestureType::TwoFingerRangedSelectGesture:
-        return UIWKGestureTwoFingerRangedSelectGesture;
-    case WebKit::GestureType::TapOnLinkWithGesture:
-        return UIWKGestureTapOnLinkWithGesture;
     case WebKit::GestureType::PhraseBoundary:
         return UIWKGesturePhraseBoundary;
     }

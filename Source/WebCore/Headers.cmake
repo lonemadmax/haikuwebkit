@@ -37,6 +37,15 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/fetch/FetchLoader.h
     Modules/fetch/FetchLoaderClient.h
 
+    Modules/filesystemaccess/FileSystemDirectoryHandle.h
+    Modules/filesystemaccess/FileSystemFileHandle.h
+    Modules/filesystemaccess/FileSystemHandle.h
+    Modules/filesystemaccess/FileSystemHandleIdentifier.h
+    Modules/filesystemaccess/FileSystemStorageConnection.h
+    Modules/filesystemaccess/StorageManagerFileSystemAccess.h
+    Modules/filesystemaccess/WorkerFileSystemStorageConnection.h
+    Modules/filesystemaccess/WorkerFileSystemStorageConnectionCallbackIdentifier.h
+
     Modules/geolocation/Geolocation.h
     Modules/geolocation/GeolocationClient.h
     Modules/geolocation/GeolocationController.h
@@ -159,6 +168,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/storage/StorageConnection.h
     Modules/storage/StorageManager.h
     Modules/storage/StorageProvider.h
+    Modules/storage/WorkerStorageConnection.h
 
     Modules/streams/ReadableStreamSink.h
     Modules/streams/ReadableStreamSource.h
@@ -361,6 +371,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/CSSConditionRule.h
     css/CSSCustomPropertyValue.h
     css/CSSFontFaceRule.h
+    css/CSSFontPaletteValuesRule.h
     css/CSSFontFamily.h
     css/CSSGridIntegerRepeatValue.h
     css/CSSGroupingRule.h
@@ -754,11 +765,14 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/parser/HTMLParserScriptingFlagPolicy.h
 
     html/track/AudioTrack.h
+    html/track/AudioTrackClient.h
     html/track/TextTrack.h
+    html/track/TextTrackClient.h
     html/track/TextTrackCue.h
     html/track/TrackBase.h
     html/track/VTTCue.h
     html/track/VideoTrack.h
+    html/track/VideoTrackClient.h
 
     inspector/InspectorClient.h
     inspector/InspectorController.h
@@ -778,17 +792,18 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     layout/LayoutUnits.h
     layout/MarginTypes.h
 
-    layout/formattingContexts/inline/InlineLineRun.h
+    layout/formattingContexts/inline/display/InlineDisplayBox.h
     layout/formattingContexts/inline/InlineRect.h
 
+    layout/integration/InlineIteratorBox.h
+    layout/integration/InlineIteratorBoxLegacyPath.h
+    layout/integration/InlineIteratorBoxModernPath.h
+    layout/integration/InlineIteratorLine.h
+    layout/integration/InlineIteratorLineLegacyPath.h
+    layout/integration/InlineIteratorLineModernPath.h
+    layout/integration/InlineIteratorTextBox.h
     layout/integration/LayoutIntegrationInlineContent.h
     layout/integration/LayoutIntegrationLine.h
-    layout/integration/LayoutIntegrationLineIterator.h
-    layout/integration/LayoutIntegrationLineIteratorLegacyPath.h
-    layout/integration/LayoutIntegrationLineIteratorModernPath.h
-    layout/integration/LayoutIntegrationRunIterator.h
-    layout/integration/LayoutIntegrationRunIteratorLegacyPath.h
-    layout/integration/LayoutIntegrationRunIteratorModernPath.h
     layout/layouttree/LayoutBox.h
 
     loader/CanvasActivityRecord.h
@@ -824,6 +839,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     loader/MediaResourceLoader.h
     loader/MixedContentChecker.h
     loader/NavigationAction.h
+    loader/NavigationRequester.h
     loader/NetscapePlugInStreamLoader.h
     loader/PingLoader.h
     loader/PolicyChecker.h
@@ -839,6 +855,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     loader/ResourceLoadStatistics.h
     loader/ResourceLoadTiming.h
     loader/ResourceLoader.h
+    loader/ResourceLoaderIdentifier.h
     loader/ResourceLoaderOptions.h
     loader/ResourceLoaderTypes.h
     loader/ResourceTimingInformation.h
@@ -1009,7 +1026,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/scrolling/ScrollingConstraints.h
     page/scrolling/ScrollingCoordinator.h
     page/scrolling/ScrollingCoordinatorTypes.h
-    page/scrolling/ScrollingMomentumCalculator.h
     page/scrolling/ScrollingStateFixedNode.h
     page/scrolling/ScrollingStateFrameHostingNode.h
     page/scrolling/ScrollingStateFrameScrollingNode.h
@@ -1127,6 +1143,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/SSLKeyGenerator.h
     platform/ScreenProperties.h
     platform/ScriptExecutionContextIdentifier.h
+    platform/ScrollAnimationMomentum.h
     platform/ScrollAnimator.h
     platform/ScrollTypes.h
     platform/ScrollView.h
@@ -1211,6 +1228,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ANGLEWebKitBridge.h
     platform/graphics/AnimationFrameRate.h
     platform/graphics/AudioTrackPrivate.h
+    platform/graphics/AudioTrackPrivateClient.h
     platform/graphics/BifurcatedGraphicsContext.h
     platform/graphics/BitmapImage.h
     platform/graphics/Color.h
@@ -1235,6 +1253,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/DisplayRefreshMonitorFactory.h
     platform/graphics/DisplayRefreshMonitorManager.h
     platform/graphics/DisplayUpdate.h
+    platform/graphics/DrawGlyphsRecorder.h
     platform/graphics/ExtensionsGL.h
     platform/graphics/FloatLine.h
     platform/graphics/FloatPoint.h
@@ -1249,10 +1268,13 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/FontCascade.h
     platform/graphics/FontCascadeDescription.h
     platform/graphics/FontCascadeFonts.h
+    platform/graphics/FontCreationContext.h
     platform/graphics/FontDescription.h
     platform/graphics/FontFamilySpecificationNull.h
     platform/graphics/FontGenericFamilies.h
     platform/graphics/FontMetrics.h
+    platform/graphics/FontPalette.h
+    platform/graphics/FontPaletteValues.h
     platform/graphics/FontPlatformData.h
     platform/graphics/FontRanges.h
     platform/graphics/FontSelectionAlgorithm.h
@@ -1350,11 +1372,13 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/TextTrackRepresentation.h
     platform/graphics/TiledBacking.h
     platform/graphics/TrackPrivateBase.h
+    platform/graphics/TrackPrivateBaseClient.h
     platform/graphics/VP9Utilities.h
     platform/graphics/VelocityData.h
     platform/graphics/VideoLayerManager.h
     platform/graphics/VideoPlaybackQualityMetrics.h
     platform/graphics/VideoTrackPrivate.h
+    platform/graphics/VideoTrackPrivateClient.h
     platform/graphics/WidthCache.h
     platform/graphics/WindRule.h
 
@@ -1363,7 +1387,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/angle/GraphicsContextGLANGLEUtilities.h
 
     platform/graphics/displaylists/DisplayList.h
-    platform/graphics/displaylists/DisplayListDrawGlyphsRecorder.h
     platform/graphics/displaylists/DisplayListDrawingContext.h
     platform/graphics/displaylists/DisplayListFlushIdentifier.h
     platform/graphics/displaylists/DisplayListImageBuffer.h
@@ -1712,6 +1735,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     workers/WorkerScriptLoader.h
     workers/WorkerScriptLoaderClient.h
     workers/WorkerThread.h
+    workers/WorkerThreadMode.h
     workers/WorkerThreadType.h
     workers/WorkerType.h
 

@@ -43,6 +43,7 @@
 #import "FloatConversion.h"
 #import "GraphicsContext.h"
 #import "ImageRotationSessionVT.h"
+#import "InbandChapterTrackPrivateAVFObjC.h"
 #import "InbandMetadataTextTrackPrivateAVF.h"
 #import "InbandTextTrackPrivateAVFObjC.h"
 #import "Logging.h"
@@ -52,6 +53,9 @@
 #import "MediaSessionManagerCocoa.h"
 #import "OutOfBandTextTrackPrivateAVF.h"
 #import "PixelBufferConformerCV.h"
+#import "PlatformMediaResourceLoader.h"
+#import "PlatformScreen.h"
+#import "PlatformTextTrack.h"
 #import "PlatformTimeRanges.h"
 #import "RuntimeApplicationChecks.h"
 #import "ScriptDisallowedScope.h"
@@ -103,6 +107,10 @@
 
 #if ENABLE(AVF_CAPTIONS)
 #import "TextTrack.h"
+#endif
+
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
+#import "MediaPlaybackTarget.h"
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -179,6 +187,7 @@ enum MediaPlayerAVFoundationObservationContext {
 -(void)disconnect;
 -(void)metadataLoaded;
 -(void)didEnd:(NSNotification *)notification;
+-(void)chapterMetadataDidChange:(NSNotification *)notification;
 -(void)observeValueForKeyPath:keyPath ofObject:(id)object change:(NSDictionary *)change context:(MediaPlayerAVFoundationObservationContext)context;
 - (void)legibleOutput:(id)output didOutputAttributedStrings:(NSArray *)strings nativeSampleBuffers:(NSArray *)nativeSamples forItemTime:(CMTime)itemTime;
 - (void)outputSequenceWasFlushed:(id)output;
@@ -544,6 +553,7 @@ void MediaPlayerPrivateAVFoundationObjC::cancelLoad()
     for (AVPlayerItemTrack *track in m_cachedTracks.get())
         [track removeObserver:m_objcObserver.get() forKeyPath:@"enabled"];
     m_cachedTracks = nullptr;
+    m_chapterTracks.clear();
 
 #if ENABLE(WEB_AUDIO) && USE(MEDIATOOLBOX)
     if (m_provider) {
@@ -980,6 +990,8 @@ void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const URL& url, Ret
             resourceLoader.URLSession = (NSURLSession *)adoptNS([[WebCoreNSURLSession alloc] initWithResourceLoader:*mediaResourceLoader delegate:resourceLoader.URLSessionDataDelegate delegateQueue:resourceLoader.URLSessionDataDelegateQueue]).get();
     }
 
+    [[NSNotificationCenter defaultCenter] addObserver:m_objcObserver.get() selector:@selector(chapterMetadataDidChange:) name:AVAssetChapterMetadataGroupsDidChangeNotification object:m_avAsset.get()];
+
     m_haveCheckedPlayability = false;
 
     setDelayCallbacks(false);
@@ -1229,10 +1241,18 @@ MediaPlayerPrivateAVFoundation::ItemStatus MediaPlayerPrivateAVFoundationObjC::p
         return MediaPlayerPrivateAVFoundation::MediaPlayerAVPlayerItemStatusFailed;
     if (m_cachedLikelyToKeepUp)
         return MediaPlayerPrivateAVFoundation::MediaPlayerAVPlayerItemStatusPlaybackLikelyToKeepUp;
+    // From AVPlayer.h:
+    // AVPlayerTimeControlStatusWaitingToPlayAtSpecifiedRate
+    // This state is entered when
+    // 1) the playback buffer becomes empty and playback stalls in AVPlayerTimeControlStatusPlaying,
+    // 2) when rate is set from zero to non-zero in AVPlayerTimeControlStatusPaused and insufficient media data has been buffered for playback to occur, or
+    // 3) when the player has no item to play, i.e. when the receiver's currentItem is nil.
+    // In this state, the value of the rate property is not currently effective but instead indicates the rate at which playback will start or resume.
+    // We can't rely on just m_cachedBufferFull and m_cachedBufferEmpty due to rdar://83048005.
+    if (m_cachedTimeControlStatus == AVPlayerTimeControlStatusWaitingToPlayAtSpecifiedRate || m_cachedBufferEmpty)
+        return MediaPlayerAVPlayerItemStatusPlaybackBufferEmpty;
     if (m_cachedBufferFull)
         return MediaPlayerPrivateAVFoundation::MediaPlayerAVPlayerItemStatusPlaybackBufferFull;
-    if (m_cachedBufferEmpty)
-        return MediaPlayerPrivateAVFoundation::MediaPlayerAVPlayerItemStatusPlaybackBufferEmpty;
 
     return MediaPlayerPrivateAVFoundation::MediaPlayerAVPlayerItemStatusReadyToPlay;
 }
@@ -1600,7 +1620,7 @@ double MediaPlayerPrivateAVFoundationObjC::effectiveRate() const
     if (!metaDataAvailable())
         return 0;
 
-    return m_cachedRate;
+    return m_cachedTimeControlStatus == AVPlayerTimeControlStatusWaitingToPlayAtSpecifiedRate ? 0.0 : m_cachedRate;
 }
 
 double MediaPlayerPrivateAVFoundationObjC::seekableTimeRangesLastModifiedTime() const
@@ -1733,6 +1753,7 @@ unsigned long long MediaPlayerPrivateAVFoundationObjC::totalBytes() const
 void MediaPlayerPrivateAVFoundationObjC::setAsset(RetainPtr<id>&& asset)
 {
     m_avAsset = WTFMove(asset);
+    processChapterTracks();
 }
 
 MediaPlayerPrivateAVFoundation::AssetStatus MediaPlayerPrivateAVFoundationObjC::assetStatus() const
@@ -2073,6 +2094,33 @@ static AVAssetTrack* firstEnabledTrack(NSArray* tracks)
     if (index == NSNotFound)
         return nil;
     return [tracks objectAtIndex:index];
+}
+
+void MediaPlayerPrivateAVFoundationObjC::metadataLoaded()
+{
+    MediaPlayerPrivateAVFoundation::metadataLoaded();
+    processChapterTracks();
+}
+
+void MediaPlayerPrivateAVFoundationObjC::processChapterTracks()
+{
+    ASSERT(m_avAsset);
+
+    for (NSLocale *locale in [m_avAsset availableChapterLocales]) {
+
+        auto chapters = [m_avAsset chapterMetadataGroupsWithTitleLocale:locale containingItemsWithCommonKeys:@[AVMetadataCommonKeyArtwork]];
+        if (!chapters.count)
+            continue;
+
+        String language = [locale localeIdentifier];
+        auto track = m_chapterTracks.ensure(language, [&]() {
+            auto track = InbandChapterTrackPrivateAVFObjC::create(locale);
+            player()->addTextTrack(track.get());
+            return track;
+        }).iterator->value;
+
+        track->processChapters(chapters);
+    }
 }
 
 void MediaPlayerPrivateAVFoundationObjC::tracksChanged()
@@ -3144,14 +3192,6 @@ void MediaPlayerPrivateAVFoundationObjC::playerItemStatusDidChange(int status)
 {
     m_cachedItemStatus = status;
 
-    // Setting the pitch algorithm here causes tests to fail on Mojave; revert this change
-    // for <= Mojave builds.
-#if !(PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED > 101400)
-    // FIXME(rdar://72829354): Remove after AVFoundation radar is fixed.
-    if (status == AVPlayerItemStatusReadyToPlay)
-        [m_avPlayerItem setAudioTimePitchAlgorithm:audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(player()->pitchCorrectionAlgorithm(), player()->preservesPitch(), m_requestedRate)];
-#endif
-
     updateStates();
 }
 
@@ -3451,6 +3491,7 @@ void MediaPlayerPrivateAVFoundationObjC::timeControlStatusDidChange(int timeCont
         return;
 
     m_cachedTimeControlStatus = timeControlStatus;
+    updateStates();
     rateChanged();
     m_wallClockAtCachedCurrentTime = std::nullopt;
 
@@ -3593,6 +3634,7 @@ NSArray* assetMetadataKeyNames()
         @"resolvedURL",
         @"tracks",
         @"availableMediaCharacteristicsWithMediaSelectionOptions",
+        @"availableChapterLocales",
     nil];
     return keys;
 }
@@ -3678,6 +3720,20 @@ NSArray* playerKVOProperties()
         m_player->queueTaskOnEventLoop([player = m_player] {
             if (player)
                 player->didEnd();
+        });
+    });
+}
+
+- (void)chapterMetadataDidChange:(NSNotification *)unusedNotification
+{
+    UNUSED_PARAM(unusedNotification);
+    ensureOnMainThread([self, strongSelf = retainPtr(self)] {
+        if (!m_player)
+            return;
+
+        m_player->queueTaskOnEventLoop([player = m_player] {
+            if (player)
+                player->processChapterTracks();
         });
     });
 }

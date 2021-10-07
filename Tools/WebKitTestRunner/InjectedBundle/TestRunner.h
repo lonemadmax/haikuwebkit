@@ -472,6 +472,7 @@ public:
     void setShouldDismissJavaScriptAlertsAsynchronously(bool);
     void abortModal();
 
+    void terminateGPUProcess();
     void terminateNetworkProcess();
     void terminateServiceWorkers();
     void setUseSeparateServiceWorkerProcess(bool);
@@ -495,6 +496,7 @@ public:
     void resetMockMediaDevices();
     void setMockCameraOrientation(unsigned);
     bool isMockRealtimeMediaSourceCenterEnabled();
+    void setMockCameraIsInterrupted(bool);
 
     bool hasAppBoundSession();
     void clearAppBoundSession();
@@ -530,11 +532,15 @@ public:
     void markAttributedPrivateClickMeasurementsAsExpiredForTesting();
     void setPrivateClickMeasurementEphemeralMeasurementForTesting(bool value);
     void setPrivateClickMeasurementFraudPreventionValuesForTesting(JSStringRef unlinkableToken, JSStringRef secretToken, JSStringRef signature, JSStringRef keyID);
+    void setPrivateClickMeasurementAppBundleIDForTesting(JSStringRef);
     void simulateResourceLoadStatisticsSessionRestart();
 
     void setIsSpeechRecognitionPermissionGranted(bool);
 
     void setIsMediaKeySystemPermissionGranted(bool);
+
+    void takeViewPortSnapshot(JSValueRef callback);
+    void viewPortSnapshotTaken(WKStringRef);
 
 private:
     TestRunner();
@@ -603,6 +609,7 @@ private:
     bool m_hasSetDowngradeReferrerCallback { false };
     bool m_hasSetBlockThirdPartyCookiesCallback { false };
     bool m_hasSetFirstPartyWebsiteDataRemovalModeCallback { false };
+    bool m_takeViewPortSnapshot { false };
 };
 
 } // namespace WTR

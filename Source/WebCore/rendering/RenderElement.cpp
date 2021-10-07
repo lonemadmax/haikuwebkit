@@ -40,8 +40,8 @@
 #include "HTMLHtmlElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
-#include "LayoutIntegrationLineIterator.h"
-#include "LayoutIntegrationRunIterator.h"
+#include "InlineIteratorLine.h"
+#include "InlineIteratorTextBox.h"
 #include "LengthFunctions.h"
 #include "Logging.h"
 #include "Page.h"
@@ -306,10 +306,7 @@ StyleDifference RenderElement::adjustStyleDifference(StyleDifference diff, Optio
     }
 
     if (contextSensitiveProperties & StyleDifferenceContextSensitiveProperty::ClipPath) {
-        if (hasLayer()
-            && downcast<RenderLayerModelObject>(*this).layer()->isComposited()
-            && hasClipPath()
-            && RenderLayerCompositor::canCompositeClipPath(*downcast<RenderLayerModelObject>(*this).layer()))
+        if (hasLayer() && downcast<RenderLayerModelObject>(*this).layer()->willCompositeClipPath())
             diff = std::max(diff, StyleDifference::RecompositeLayer);
         else
             diff = std::max(diff, StyleDifference::Repaint);
@@ -706,17 +703,14 @@ void RenderElement::removeLayers(RenderLayer* parentLayer)
         child.removeLayers(parentLayer);
 }
 
-void RenderElement::moveLayers(RenderLayer* oldParent, RenderLayer* newParent)
+void RenderElement::moveLayers(RenderLayer* oldParent, RenderLayer& newParent)
 {
-    if (!newParent)
-        return;
-
     if (hasLayer()) {
         RenderLayer* layer = downcast<RenderLayerModelObject>(*this).layer();
         ASSERT(oldParent == layer->parent());
         if (oldParent)
             oldParent->removeChild(*layer);
-        newParent->addChild(*layer);
+        newParent.addChild(*layer);
         return;
     }
 
@@ -856,6 +850,8 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
         }
 
         auto needsInvalidateEventRegion = [&] {
+            if (m_style.effectiveInert() != newStyle.effectiveInert())
+                return true;
             if (m_style.pointerEvents() != newStyle.pointerEvents())
                 return true;
 #if ENABLE(TOUCH_ACTION_REGIONS)
@@ -1573,9 +1569,9 @@ std::unique_ptr<RenderStyle> RenderElement::selectionPseudoStyle() const
         return selectionStyle;
     }
 
-    if (auto root = makeRefPtr(element()->containingShadowRoot())) {
+    if (RefPtr root = element()->containingShadowRoot()) {
         if (root->mode() == ShadowRootMode::UserAgent) {
-            auto currentElement = makeRefPtr(element()->shadowHost());
+            RefPtr currentElement = element()->shadowHost();
             // When an element has display: contents, this element doesn't have a renderer
             // and its children will render as children of the parent element.
             while (currentElement && currentElement->hasDisplayContents())
@@ -1648,14 +1644,14 @@ bool RenderElement::getLeadingCorner(FloatPoint& point, bool& insideFixed) const
             return true;
         }
 
-        if (p->node() && p->node() == element() && is<RenderText>(*o) && !LayoutIntegration::firstTextRunFor(downcast<RenderText>(*o))) {
+        if (p->node() && p->node() == element() && is<RenderText>(*o) && !InlineIterator::firstTextBoxFor(downcast<RenderText>(*o))) {
             // do nothing - skip unrendered whitespace that is a child or next sibling of the anchor
         } else if (is<RenderText>(*o) || o->isReplaced()) {
             point = FloatPoint();
             if (is<RenderText>(*o)) {
                 auto& textRenderer = downcast<RenderText>(*o);
-                if (auto run = LayoutIntegration::firstTextRunFor(textRenderer))
-                    point.move(textRenderer.linesBoundingBox().x(), run.line()->top());
+                if (auto run = InlineIterator::firstTextBoxFor(textRenderer))
+                    point.move(textRenderer.linesBoundingBox().x(), run->line()->top());
             } else if (is<RenderBox>(*o))
                 point.moveBy(downcast<RenderBox>(*o).location());
             point = o->container()->localToAbsolute(point, UseTransforms, &insideFixed);

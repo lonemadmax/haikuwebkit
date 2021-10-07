@@ -1,4 +1,4 @@
-# Copyright (C) 2006-2020 Apple Inc. All rights reserved.
+# Copyright (C) 2006-2021 Apple Inc. All rights reserved.
 # Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
 # Copyright (C) 2009 Cameron McCormack <cam@mcc.id.au>
 #
@@ -152,6 +152,10 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/fetch/FetchRequestRedirect.idl \
     $(WebCore)/Modules/fetch/FetchResponse.idl \
     $(WebCore)/Modules/fetch/WindowOrWorkerGlobalScope+Fetch.idl \
+    $(WebCore)/Modules/filesystemaccess/FileSystemDirectoryHandle.idl \
+    $(WebCore)/Modules/filesystemaccess/FileSystemFileHandle.idl \
+    $(WebCore)/Modules/filesystemaccess/FileSystemHandle.idl \
+    $(WebCore)/Modules/filesystemaccess/StorageManager+FileSystemAccess.idl \
     $(WebCore)/Modules/gamepad/Gamepad.idl \
     $(WebCore)/Modules/gamepad/GamepadButton.idl \
     $(WebCore)/Modules/gamepad/GamepadEvent.idl \
@@ -264,6 +268,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/mediastream/RTCIceTcpCandidateType.idl \
     $(WebCore)/Modules/mediastream/RTCIceTransport.idl \
     $(WebCore)/Modules/mediastream/RTCIceTransportState.idl \
+    $(WebCore)/Modules/mediastream/RTCLocalSessionDescriptionInit.idl \
     $(WebCore)/Modules/mediastream/RTCOfferAnswerOptions.idl \
     $(WebCore)/Modules/mediastream/RTCOfferOptions.idl \
     $(WebCore)/Modules/mediastream/RTCPeerConnection.idl \
@@ -341,6 +346,10 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/pictureinpicture/HTMLVideoElement+PictureInPicture.idl \
     $(WebCore)/Modules/pictureinpicture/PictureInPictureWindow.idl \
     $(WebCore)/Modules/plugins/QuickTimePluginReplacement.idl \
+    $(WebCore)/Modules/push-api/PushEvent.idl \
+    $(WebCore)/Modules/push-api/PushEventInit.idl \
+    $(WebCore)/Modules/push-api/PushMessageData.idl \
+    $(WebCore)/Modules/push-api/ServiceWorkerGlobalScope+PushAPI.idl \
     $(WebCore)/Modules/remoteplayback/HTMLMediaElement+RemotePlayback.idl \
     $(WebCore)/Modules/remoteplayback/RemotePlayback.idl \
     $(WebCore)/Modules/remoteplayback/RemotePlaybackAvailabilityCallback.idl \
@@ -570,8 +579,10 @@ JS_BINDING_IDLS := \
     $(WebCore)/css/CSSConditionRule.idl \
     $(WebCore)/css/CSSCounterStyleRule.idl \
     $(WebCore)/css/CSSFontFaceRule.idl \
+    $(WebCore)/css/CSSFontPaletteValuesRule.idl \
     $(WebCore)/css/CSSGroupingRule.idl \
     $(WebCore)/css/CSSImportRule.idl \
+    $(WebCore)/css/CSSLayerRule.idl \
     $(WebCore)/css/CSSKeyframeRule.idl \
     $(WebCore)/css/CSSKeyframesRule.idl \
     $(WebCore)/css/CSSMediaRule.idl \
@@ -621,6 +632,28 @@ JS_BINDING_IDLS := \
     $(WebCore)/css/typedom/CSSUnitValue.idl \
     $(WebCore)/css/typedom/CSSUnparsedValue.idl \
     $(WebCore)/css/typedom/CSSOMVariableReferenceValue.idl \
+    $(WebCore)/css/typedom/numeric/CSSMathInvert.idl \
+    $(WebCore)/css/typedom/numeric/CSSMathMax.idl \
+    $(WebCore)/css/typedom/numeric/CSSMathMin.idl \
+	$(WebCore)/css/typedom/numeric/CSSMathNegate.idl \
+    $(WebCore)/css/typedom/numeric/CSSMathOperator.idl \
+    $(WebCore)/css/typedom/numeric/CSSMathProduct.idl \
+    $(WebCore)/css/typedom/numeric/CSSMathSum.idl \
+    $(WebCore)/css/typedom/numeric/CSSMathValue.idl \
+    $(WebCore)/css/typedom/numeric/CSSNumericArray.idl \
+    $(WebCore)/css/typedom/numeric/CSSNumericBaseType.idl \
+    $(WebCore)/css/typedom/numeric/CSSNumericType.idl \
+	$(WebCore)/css/typedom/transform/CSSMatrixComponent.idl \
+	$(WebCore)/css/typedom/transform/CSSMatrixComponentOptions.idl \
+	$(WebCore)/css/typedom/transform/CSSPerspective.idl \
+	$(WebCore)/css/typedom/transform/CSSRotate.idl \
+	$(WebCore)/css/typedom/transform/CSSScale.idl \
+	$(WebCore)/css/typedom/transform/CSSSkew.idl \
+	$(WebCore)/css/typedom/transform/CSSSkewX.idl \
+	$(WebCore)/css/typedom/transform/CSSSkewY.idl \
+	$(WebCore)/css/typedom/transform/CSSTransformComponent.idl \
+	$(WebCore)/css/typedom/transform/CSSTransformValue.idl \
+	$(WebCore)/css/typedom/transform/CSSTranslate.idl \
     $(WebCore)/dom/AbortAlgorithm.idl \
     $(WebCore)/dom/AbortController.idl \
     $(WebCore)/dom/AbortSignal.idl \
@@ -1023,8 +1056,11 @@ JS_BINDING_IDLS := \
     $(WebCore)/page/PerformanceTiming.idl \
     $(WebCore)/page/RemoteDOMWindow.idl \
     $(WebCore)/page/ResizeObserver.idl \
+    $(WebCore)/page/ResizeObserverBoxOptions.idl \
     $(WebCore)/page/ResizeObserverCallback.idl \
     $(WebCore)/page/ResizeObserverEntry.idl \
+    $(WebCore)/page/ResizeObserverOptions.idl \
+    $(WebCore)/page/ResizeObserverSize.idl \
     $(WebCore)/page/Screen.idl \
     $(WebCore)/page/ScrollBehavior.idl \
     $(WebCore)/page/ScrollIntoViewOptions.idl \
@@ -1225,9 +1261,12 @@ JS_BINDING_IDLS := \
     $(WebCore)/testing/XRSimulateUserActivationFunction.idl \
     $(WebCore)/workers/AbstractWorker.idl \
     $(WebCore)/workers/DedicatedWorkerGlobalScope.idl \
+    $(WebCore)/workers/SharedWorker.idl \
+    $(WebCore)/workers/SharedWorkerGlobalScope.idl \
     $(WebCore)/workers/Worker.idl \
     $(WebCore)/workers/WorkerGlobalScope.idl \
     $(WebCore)/workers/WorkerLocation.idl \
+	$(WebCore)/workers/WorkerOptions.idl \
     $(WebCore)/workers/WorkerType.idl \
     $(WebCore)/workers/service/ExtendableEvent.idl \
     $(WebCore)/workers/service/ExtendableEventInit.idl \
@@ -1515,6 +1554,7 @@ MODERN_MEDIA_CONTROLS_STYLE_SHEETS = \
     $(WebCore)/Modules/modern-media-controls/controls/media-controls.css \
     $(WebCore)/Modules/modern-media-controls/controls/media-document.css \
     $(WebCore)/Modules/modern-media-controls/controls/placard.css \
+    $(WebCore)/Modules/modern-media-controls/controls/range-button.css \
     $(WebCore)/Modules/modern-media-controls/controls/slider.css \
     $(WebCore)/Modules/modern-media-controls/controls/status-label.css \
     $(WebCore)/Modules/modern-media-controls/controls/text-tracks.css \
@@ -1590,6 +1630,10 @@ MODERN_MEDIA_CONTROLS_SCRIPTS = \
     $(WebCore)/Modules/modern-media-controls/controls/rewind-button.js \
     $(WebCore)/Modules/modern-media-controls/controls/forward-button.js \
     $(WebCore)/Modules/modern-media-controls/controls/overflow-button.js \
+    $(WebCore)/Modules/modern-media-controls/controls/range-button.js \
+    $(WebCore)/Modules/modern-media-controls/controls/volume-button.js \
+    $(WebCore)/Modules/modern-media-controls/controls/brightness-button.js \
+    $(WebCore)/Modules/modern-media-controls/controls/close-button.js \
     $(WebCore)/Modules/modern-media-controls/controls/buttons-container.js \
     $(WebCore)/Modules/modern-media-controls/controls/status-label.js \
     $(WebCore)/Modules/modern-media-controls/controls/controls-bar.js \
@@ -1612,6 +1656,8 @@ MODERN_MEDIA_CONTROLS_SCRIPTS = \
     $(WebCore)/Modules/modern-media-controls/media/media-controller-support.js \
     $(WebCore)/Modules/modern-media-controls/media/airplay-support.js \
     $(WebCore)/Modules/modern-media-controls/media/audio-support.js \
+    $(WebCore)/Modules/modern-media-controls/media/brightness-support.js \
+    $(WebCore)/Modules/modern-media-controls/media/close-support.js \
     $(WebCore)/Modules/modern-media-controls/media/controls-visibility-support.js \
     $(WebCore)/Modules/modern-media-controls/media/fullscreen-support.js \
     $(WebCore)/Modules/modern-media-controls/media/mute-support.js \
@@ -1630,6 +1676,7 @@ MODERN_MEDIA_CONTROLS_SCRIPTS = \
     $(WebCore)/Modules/modern-media-controls/media/time-control-support.js \
     $(WebCore)/Modules/modern-media-controls/media/tracks-support.js \
     $(WebCore)/Modules/modern-media-controls/media/volume-support.js \
+    $(WebCore)/Modules/modern-media-controls/media/mute-and-volume-support.js \
     $(WebCore)/Modules/modern-media-controls/media/media-document-controller.js \
     $(WebCore)/Modules/modern-media-controls/media/watchos-media-controls-support.js \
     $(WebCore)/Modules/modern-media-controls/media/media-controller.js \
@@ -1832,6 +1879,7 @@ WINDOW_CONSTRUCTORS_FILE = DOMWindowConstructors.idl
 WORKERGLOBALSCOPE_CONSTRUCTORS_FILE = WorkerGlobalScopeConstructors.idl
 DEDICATEDWORKERGLOBALSCOPE_CONSTRUCTORS_FILE = DedicatedWorkerGlobalScopeConstructors.idl
 SERVICEWORKERGLOBALSCOPE_CONSTRUCTORS_FILE = ServiceWorkerGlobalScopeConstructors.idl
+SHAREDWORKERGLOBALSCOPE_CONSTRUCTORS_FILE = SharedWorkerGlobalScopeConstructors.idl
 WORKLETGLOBALSCOPE_CONSTRUCTORS_FILE = WorkletGlobalScopeConstructors.idl
 PAINTWORKLETGLOBALSCOPE_CONSTRUCTORS_FILE = PaintWorkletGlobalScopeConstructors.idl
 AUDIOWORKLETGLOBALSCOPE_CONSTRUCTORS_FILE = AudioWorkletGlobalScopeConstructors.idl
@@ -1854,7 +1902,7 @@ IDL_INTERMEDIATE_PATTERNS = $(subst .,%,$(IDL_INTERMEDIATE_FILES))
 
 $(IDL_INTERMEDIATE_PATTERNS) : $(PREPROCESS_IDLS_SCRIPTS) $(IDL_ATTRIBUTES_FILE) $(JS_BINDING_IDLS) $(FEATURE_AND_PLATFORM_DEFINE_DEPENDENCIES)
 	$(shell echo $(JS_BINDING_IDLS) | tr " " "\n" > IDLFileNamesList.txt)
-	$(PERL) $(WebCore)/bindings/scripts/preprocess-idls.pl --defines "$(FEATURE_AND_PLATFORM_DEFINES) LANGUAGE_JAVASCRIPT" --idlFileNamesList IDLFileNamesList.txt --idlAttributesFile $(IDL_ATTRIBUTES_FILE) --supplementalDependencyFile $(SUPPLEMENTAL_DEPENDENCY_FILE) --isoSubspacesHeaderFile $(ISO_SUBSPACES_HEADER_FILE) --constructorsHeaderFile $(CONSTRUCTORS_HEADER_FILE) --windowConstructorsFile $(WINDOW_CONSTRUCTORS_FILE) --workerGlobalScopeConstructorsFile $(WORKERGLOBALSCOPE_CONSTRUCTORS_FILE) --dedicatedWorkerGlobalScopeConstructorsFile $(DEDICATEDWORKERGLOBALSCOPE_CONSTRUCTORS_FILE) --serviceWorkerGlobalScopeConstructorsFile $(SERVICEWORKERGLOBALSCOPE_CONSTRUCTORS_FILE) --workletGlobalScopeConstructorsFile $(WORKLETGLOBALSCOPE_CONSTRUCTORS_FILE) --paintWorkletGlobalScopeConstructorsFile $(PAINTWORKLETGLOBALSCOPE_CONSTRUCTORS_FILE) --audioWorkletGlobalScopeConstructorsFile $(AUDIOWORKLETGLOBALSCOPE_CONSTRUCTORS_FILE) --supplementalMakefileDeps $(SUPPLEMENTAL_MAKEFILE_DEPS)
+	$(PERL) $(WebCore)/bindings/scripts/preprocess-idls.pl --defines "$(FEATURE_AND_PLATFORM_DEFINES) LANGUAGE_JAVASCRIPT" --idlFileNamesList IDLFileNamesList.txt --idlAttributesFile $(IDL_ATTRIBUTES_FILE) --supplementalDependencyFile $(SUPPLEMENTAL_DEPENDENCY_FILE) --isoSubspacesHeaderFile $(ISO_SUBSPACES_HEADER_FILE) --constructorsHeaderFile $(CONSTRUCTORS_HEADER_FILE) --windowConstructorsFile $(WINDOW_CONSTRUCTORS_FILE) --workerGlobalScopeConstructorsFile $(WORKERGLOBALSCOPE_CONSTRUCTORS_FILE) --dedicatedWorkerGlobalScopeConstructorsFile $(DEDICATEDWORKERGLOBALSCOPE_CONSTRUCTORS_FILE) --serviceWorkerGlobalScopeConstructorsFile $(SERVICEWORKERGLOBALSCOPE_CONSTRUCTORS_FILE) --sharedWorkerGlobalScopeConstructorsFile $(SHAREDWORKERGLOBALSCOPE_CONSTRUCTORS_FILE) --workletGlobalScopeConstructorsFile $(WORKLETGLOBALSCOPE_CONSTRUCTORS_FILE) --paintWorkletGlobalScopeConstructorsFile $(PAINTWORKLETGLOBALSCOPE_CONSTRUCTORS_FILE) --audioWorkletGlobalScopeConstructorsFile $(AUDIOWORKLETGLOBALSCOPE_CONSTRUCTORS_FILE) --supplementalMakefileDeps $(SUPPLEMENTAL_MAKEFILE_DEPS)
 
 #
 # Emit the rules to generate bindings from IDL files. Note that there are

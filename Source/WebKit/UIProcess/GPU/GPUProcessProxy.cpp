@@ -310,6 +310,11 @@ void GPUProcessProxy::resetMockMediaDevices()
 {
     send(Messages::GPUProcess::ResetMockMediaDevices { }, 0);
 }
+
+void GPUProcessProxy::setMockCameraIsInterrupted(bool isInterrupted)
+{
+    send(Messages::GPUProcess::SetMockCameraIsInterrupted { isInterrupted }, 0);
+}
 #endif
 
 void GPUProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions)
@@ -335,7 +340,7 @@ void GPUProcessProxy::getGPUProcessConnection(WebProcessProxy& webProcessProxy, 
 
     RELEASE_LOG(ProcessSuspension, "%p - GPUProcessProxy is taking a background assertion because a web process is requesting a connection", this);
     startResponsivenessTimer(UseLazyStop::No);
-    sendWithAsyncReply(Messages::GPUProcess::CreateGPUConnectionToWebProcess { webProcessProxy.coreProcessIdentifier(), webProcessProxy.sessionID(), parameters }, [this, weakThis = makeWeakPtr(*this), reply = WTFMove(reply)](auto&& identifier) mutable {
+    sendWithAsyncReply(Messages::GPUProcess::CreateGPUConnectionToWebProcess { webProcessProxy.coreProcessIdentifier(), webProcessProxy.sessionID(), parameters }, [this, weakThis = makeWeakPtr(*this), reply = WTFMove(reply)](auto&& identifier, auto&& connectionParameters) mutable {
         if (!weakThis) {
             RELEASE_LOG_ERROR(Process, "GPUProcessProxy::getGPUProcessConnection: GPUProcessProxy deallocated during connection establishment");
             return reply({ });
@@ -352,7 +357,7 @@ void GPUProcessProxy::getGPUProcessConnection(WebProcessProxy& webProcessProxy, 
         UNUSED_VARIABLE(this);
 #elif OS(DARWIN)
         MESSAGE_CHECK(MACH_PORT_VALID(identifier->port()));
-        reply(GPUProcessConnectionInfo { IPC::Attachment { identifier->port(), MACH_MSG_TYPE_MOVE_SEND }, this->connection()->getAuditToken() });
+        reply(GPUProcessConnectionInfo { IPC::Attachment { identifier->port(), MACH_MSG_TYPE_MOVE_SEND }, this->connection()->getAuditToken(), WTFMove(connectionParameters) });
 #else
         notImplemented();
 #endif
@@ -361,7 +366,7 @@ void GPUProcessProxy::getGPUProcessConnection(WebProcessProxy& webProcessProxy, 
 
 void GPUProcessProxy::gpuProcessExited(GPUProcessTerminationReason reason)
 {
-    auto protectedThis = makeRef(*this);
+    Ref protectedThis { *this };
 
     switch (reason) {
     case GPUProcessTerminationReason::Crash:
@@ -387,6 +392,11 @@ void GPUProcessProxy::processIsReadyToExit()
     RELEASE_LOG(Process, "%p - GPUProcessProxy::processIsReadyToExit:", this);
     terminate();
     gpuProcessExited(GPUProcessTerminationReason::IdleExit); // May cause |this| to get deleted.
+}
+
+void GPUProcessProxy::terminateForTesting()
+{
+    processIsReadyToExit();
 }
 
 void GPUProcessProxy::didClose(IPC::Connection&)
@@ -421,6 +431,14 @@ void GPUProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connect
 #if PLATFORM(IOS_FAMILY)
     if (xpc_connection_t connection = this->connection()->xpcConnection())
         m_throttler.didConnectToProcess(xpc_connection_get_pid(connection));
+#endif
+
+#if PLATFORM(COCOA)
+    auto it = m_sessionIDs.begin();
+    if (it != m_sessionIDs.end()) {
+        auto webSiteDataStore = WebsiteDataStore::existingDataStoreForSessionID(*m_sessionIDs.begin());
+        webSiteDataStore->sendNetworkProcessXPCEndpointToProcess(*this);
+    }
 #endif
 }
 

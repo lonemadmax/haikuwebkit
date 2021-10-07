@@ -105,6 +105,7 @@ void GenericLabel<JSGeneratorTraits>::setLocation(BytecodeGenerator& generator, 
         CASE(OpJeq)
         CASE(OpJstricteq)
         CASE(OpJneq)
+        CASE(OpJeqPtr)
         CASE(OpJneqPtr)
         CASE(OpJnstricteq)
         CASE(OpJless)
@@ -1497,6 +1498,16 @@ void BytecodeGenerator::emitJumpIfNotFunctionApply(RegisterID* cond, Label& targ
     OpJneqPtr::emit(this, cond, moveLinkTimeConstant(nullptr, LinkTimeConstant::applyFunction), target.bind(this));
 }
 
+void BytecodeGenerator::emitJumpIfEmptyPropertyNameEnumerator(RegisterID* cond, Label& target)
+{
+    OpJeqPtr::emit(this, cond, moveLinkTimeConstant(nullptr, LinkTimeConstant::emptyPropertyNameEnumerator), target.bind(this));
+}
+
+void BytecodeGenerator::emitJumpIfSentinelString(RegisterID* cond, Label& target)
+{
+    OpJeqPtr::emit(this, cond, moveLinkTimeConstant(nullptr, LinkTimeConstant::sentinelString), target.bind(this));
+}
+
 unsigned BytecodeGenerator::emitWideJumpIfNotFunctionHasOwnProperty(RegisterID* cond, Label& target)
 {
     OpJneqPtr::emit<OpcodeSize::Wide32>(this, cond, moveLinkTimeConstant(nullptr, LinkTimeConstant::hasOwnPropertyFunction), target.bind(this));
@@ -1598,7 +1609,7 @@ RegisterID* BytecodeGenerator::emitUnaryOp(OpcodeID opcodeID, RegisterID* dst, R
         emitUnaryOp<OpNot>(dst, src);
         break;
     case op_negate:
-        OpNegate::emit(this, dst, src, type);
+        OpNegate::emit(this, dst, src, m_codeBlock->addUnaryArithProfile(), type);
         break;
     case op_bitnot:
         emitUnaryOp<OpBitnot>(dst, src);
@@ -1696,13 +1707,13 @@ RegisterID* BytecodeGenerator::emitTypeOf(RegisterID* dst, RegisterID* src)
 
 RegisterID* BytecodeGenerator::emitInc(RegisterID* srcDst)
 {
-    OpInc::emit(this, srcDst);
+    OpInc::emit(this, srcDst, m_codeBlock->addUnaryArithProfile());
     return srcDst;
 }
 
 RegisterID* BytecodeGenerator::emitDec(RegisterID* srcDst)
 {
-    OpDec::emit(this, srcDst);
+    OpDec::emit(this, srcDst, m_codeBlock->addUnaryArithProfile());
     return srcDst;
 }
 

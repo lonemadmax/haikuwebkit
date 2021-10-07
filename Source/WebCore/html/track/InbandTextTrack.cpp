@@ -32,6 +32,7 @@
 #include "InbandGenericTextTrack.h"
 #include "InbandTextTrackPrivate.h"
 #include "InbandWebVTTTextTrack.h"
+#include "TextTrackClient.h"
 #include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
@@ -58,13 +59,13 @@ InbandTextTrack::InbandTextTrack(Document& document, InbandTextTrackPrivate& tra
     : TextTrack(&document, emptyAtom(), trackPrivate.id(), trackPrivate.label(), trackPrivate.language(), InBand)
     , m_private(trackPrivate)
 {
-    m_private->setClient(this);
+    m_private->setClient(*this);
     updateKindFromPrivate();
 }
 
 InbandTextTrack::~InbandTextTrack()
 {
-    m_private->setClient(nullptr);
+    m_private->clearClient();
 }
 
 void InbandTextTrack::setPrivate(InbandTextTrackPrivate& trackPrivate)
@@ -72,9 +73,9 @@ void InbandTextTrack::setPrivate(InbandTextTrackPrivate& trackPrivate)
     if (m_private.ptr() == &trackPrivate)
         return;
 
-    m_private->setClient(nullptr);
+    m_private->clearClient();
     m_private = trackPrivate;
-    m_private->setClient(this);
+    m_private->setClient(*this);
 
     setModeInternal(mode());
     updateKindFromPrivate();

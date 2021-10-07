@@ -144,6 +144,8 @@ void WebPage::getPlatformEditorState(Frame& frame, EditorState& result) const
 {
     getPlatformEditorStateCommon(frame, result);
 
+    result.canEnableAutomaticSpellingCorrection = result.isContentEditable && frame.editor().canEnableAutomaticSpellingCorrection();
+
     if (result.isMissingPostLayoutData)
         return;
 
@@ -167,7 +169,6 @@ void WebPage::getPlatformEditorState(Frame& frame, EditorState& result) const
     postLayoutData.selectedTextLength = characterCount({ *selectionStartBoundary, *selectionEnd });
     postLayoutData.paragraphContextForCandidateRequest = contextRangeForCandidateRequest ? plainText(*contextRangeForCandidateRequest) : String();
     postLayoutData.stringForCandidateRequest = frame.editor().stringForCandidateRequest();
-    postLayoutData.canEnableAutomaticSpellingCorrection = frame.editor().canEnableAutomaticSpellingCorrection();
 
     auto quads = RenderObject::absoluteTextQuads(*selectedRange);
     if (!quads.isEmpty())
@@ -890,7 +891,7 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FloatPoint locati
     };
 
     URL absoluteLinkURL = hitTestResult.absoluteLinkURL();
-    if (auto urlElement = makeRefPtr(hitTestResult.URLElement()); !absoluteLinkURL.isEmpty() && urlElement) {
+    if (auto urlElement = RefPtr { hitTestResult.URLElement() }; !absoluteLinkURL.isEmpty() && urlElement) {
         auto elementRange = makeRangeSelectingNodeContents(*urlElement);
         immediateActionResult.linkTextIndicator = TextIndicator::createWithRange(elementRange, indicatorOptions(elementRange), TextIndicatorPresentationTransition::FadeIn);
     }
@@ -1081,6 +1082,21 @@ void WebPage::didEndMagnificationGesture()
 #if ENABLE(MAC_GESTURE_EVENTS)
     m_page->mainFrame().eventHandler().didEndMagnificationGesture();
 #endif
+}
+
+bool WebPage::shouldAvoidComputingPostLayoutDataForEditorState() const
+{
+    if (m_needsFontAttributes) {
+        // Font attribute information is propagated to the UI process through post-layout data on EditorState.
+        return false;
+    }
+
+    if (!m_requiresUserActionForEditingControlsManager || m_hasEverFocusedElementDueToUserInteractionSincePageTransition) {
+        // Text editing controls on the touch bar depend on having post-layout editor state data.
+        return false;
+    }
+
+    return true;
 }
 
 #if HAVE(APP_ACCENT_COLORS)

@@ -742,6 +742,20 @@ TextAutosizingUsesIdempotentMode:
     WebCore:
       default: false
 
+TextRecognitionEnhancementsEnabled:
+  type: bool
+  humanReadableName: "Text Recognition Enhancements"
+  humanReadableDescription: "Enable Text Recognition Enhancements"
+  condition: ENABLE(IMAGE_ANALYSIS)
+  exposed: [ WebKit ]
+  defaultValue:
+    WebCore:
+      default: false
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 UndoManagerAPIEnabled:
   type: bool
@@ -774,7 +788,7 @@ UseCGDisplayListsForDOMRendering:
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
-      default: false
+      default: true
 
 UseGPUProcessForDOMRenderingEnabled:
   type: bool

@@ -786,7 +786,7 @@ IntRect AccessibilityObject::boundingBoxForQuads(RenderObject* obj, const Vector
     for (const auto& quad : quads) {
         FloatRect r = quad.enclosingBoundingBox();
         if (!r.isEmpty()) {
-            if (obj->style().hasAppearance())
+            if (obj->style().hasEffectiveAppearance())
                 obj->theme().adjustRepaintRect(*obj, r);
             result.unite(r);
         }
@@ -1955,6 +1955,16 @@ const AtomString& AccessibilityObject::getAttribute(const QualifiedName& attribu
     return nullAtom();
 }
 
+std::optional<String> AccessibilityObject::attributeValue(const String& attributeName) const
+{
+    if (attributeName == "name") {
+        auto value = getAttribute(nameAttr);
+        if (!value.isNull())
+            return value;
+    }
+    return std::nullopt;
+}
+
 int AccessibilityObject::getIntegralAttribute(const QualifiedName& attributeName) const
 {
     return parseHTMLInteger(getAttribute(attributeName)).value_or(0);
@@ -2262,8 +2272,7 @@ bool AccessibilityObject::hasHighlighting() const
 #if !PLATFORM(MAC)
 String AccessibilityObject::rolePlatformString() const
 {
-    // FIXME: implement in other platforms.
-    return String();
+    return Accessibility::roleToPlatformString(roleValue());
 }
 
 String AccessibilityObject::rolePlatformDescription() const
@@ -2677,12 +2686,12 @@ int AccessibilityObject::posInSet() const
 {
     return getIntegralAttribute(aria_posinsetAttr);
 }
-    
+
 String AccessibilityObject::identifierAttribute() const
 {
     return getAttribute(idAttr);
 }
-    
+
 void AccessibilityObject::classList(Vector<String>& classList) const
 {
     Node* node = this->node();
@@ -2704,15 +2713,29 @@ bool AccessibilityObject::supportsPressed() const
     
 bool AccessibilityObject::supportsExpanded() const
 {
-    // Undefined values should not result in this attribute being exposed to ATs according to ARIA.
-    const AtomString& expanded = getAttribute(aria_expandedAttr);
-    if (equalLettersIgnoringASCIICase(expanded, "true") || equalLettersIgnoringASCIICase(expanded, "false"))
-        return true;
     switch (roleValue()) {
+    case AccessibilityRole::Button:
+    case AccessibilityRole::CheckBox:
+    case AccessibilityRole::ColumnHeader:
     case AccessibilityRole::ComboBox:
-    case AccessibilityRole::DisclosureTriangle:
     case AccessibilityRole::Details:
-        return true;
+    case AccessibilityRole::DisclosureTriangle:
+    case AccessibilityRole::GridCell:
+    case AccessibilityRole::Link:
+    case AccessibilityRole::ListBox:
+    case AccessibilityRole::MenuItem:
+    case AccessibilityRole::MenuItemCheckbox:
+    case AccessibilityRole::MenuItemRadio:
+    case AccessibilityRole::Row:
+    case AccessibilityRole::RowHeader:
+    case AccessibilityRole::Switch:
+    case AccessibilityRole::Tab:
+    case AccessibilityRole::TreeItem:
+    case AccessibilityRole::WebApplication: {
+        // Undefined values should not result in this attribute being exposed to ATs according to ARIA.
+        const AtomString& expanded = getAttribute(aria_expandedAttr);
+        return equalLettersIgnoringASCIICase(expanded, "true") || equalLettersIgnoringASCIICase(expanded, "false");
+    }
     default:
         return false;
     }
@@ -2720,9 +2743,6 @@ bool AccessibilityObject::supportsExpanded() const
     
 bool AccessibilityObject::isExpanded() const
 {
-    if (equalLettersIgnoringASCIICase(getAttribute(aria_expandedAttr), "true"))
-        return true;
-    
     if (is<HTMLDetailsElement>(node()))
         return downcast<HTMLDetailsElement>(node())->isOpen();
     
@@ -2733,6 +2753,9 @@ bool AccessibilityObject::isExpanded() const
         }))
             return parent->isExpanded();
     }
+
+    if (supportsExpanded())
+        return equalLettersIgnoringASCIICase(getAttribute(aria_expandedAttr), "true");
 
     return false;  
 }
@@ -3227,9 +3250,6 @@ bool AccessibilityObject::accessibilityIsIgnoredByDefault() const
 // http://www.w3.org/TR/wai-aria/terms#def_hidden
 bool AccessibilityObject::isAXHidden() const
 {
-    if (node() && node()->isInert())
-        return true;
-
     if (isFocused())
         return false;
     
@@ -3270,8 +3290,8 @@ AccessibilityObjectInclusion AccessibilityObject::defaultObjectInclusion() const
     
     if (useParentData ? m_isIgnoredFromParentData.isAXHidden : isAXHidden())
         return AccessibilityObjectInclusion::IgnoreObject;
-    
-    if (ignoredFromModalPresence())
+
+    if ((renderer() && renderer()->style().effectiveInert()) || ignoredFromModalPresence())
         return AccessibilityObjectInclusion::IgnoreObject;
     
     if (useParentData ? m_isIgnoredFromParentData.isPresentationalChildOfAriaRole : isPresentationalChildOfAriaRole())
@@ -3592,17 +3612,17 @@ void AccessibilityObject::ariaOwnsReferencingElements(AccessibilityChildrenVecto
 
 void AccessibilityObject::setIsIgnoredFromParentDataForChild(AXCoreObject* child)
 {
-    if (!child)
+    if (!is<AccessibilityObject>(child))
         return;
-    
+
     if (child->parentObject() != this) {
         child->clearIsIgnoredFromParentData();
         return;
     }
-    
+
     AccessibilityIsIgnoredFromParentData result = AccessibilityIsIgnoredFromParentData(this);
     if (!m_isIgnoredFromParentData.isNull()) {
-        result.isAXHidden = (m_isIgnoredFromParentData.isAXHidden || equalLettersIgnoringASCIICase(child->getAttribute(aria_hiddenAttr), "true")) && !child->isFocused();
+        result.isAXHidden = (m_isIgnoredFromParentData.isAXHidden || equalLettersIgnoringASCIICase(downcast<AccessibilityObject>(child)->getAttribute(aria_hiddenAttr), "true")) && !child->isFocused();
         result.isPresentationalChildOfAriaRole = m_isIgnoredFromParentData.isPresentationalChildOfAriaRole || ariaRoleHasPresentationalChildren();
         result.isDescendantOfBarrenParent = m_isIgnoredFromParentData.isDescendantOfBarrenParent || !canHaveChildren();
     } else {
@@ -3610,7 +3630,7 @@ void AccessibilityObject::setIsIgnoredFromParentDataForChild(AXCoreObject* child
         result.isPresentationalChildOfAriaRole = child->isPresentationalChildOfAriaRole();
         result.isDescendantOfBarrenParent = child->isDescendantOfBarrenParent();
     }
-    
+
     child->setIsIgnoredFromParentData(result);
 }
 
@@ -3628,7 +3648,7 @@ String AccessibilityObject::outerHTML() const
 
 namespace Accessibility {
 
-#if !PLATFORM(MAC)
+#if !PLATFORM(MAC) && !USE(ATSPI)
 // FIXME: implement in other platforms.
 PlatformRoleMap createPlatformRoleMap() { return PlatformRoleMap(); }
 #endif
@@ -3651,7 +3671,7 @@ static bool isRadioButtonInDifferentAdhocGroup(AXCoreObject* axObject, AXCoreObj
     if (!referenceObject || !referenceObject->isRadioButton())
         return true;
 
-    return axObject->element()->getNameAttribute() != referenceObject->element()->getNameAttribute();
+    return axObject->attributeValue("name") != referenceObject->attributeValue("name");
 }
 
 static bool isAccessibilityObjectSearchMatchAtIndex(AXCoreObject* axObject, AccessibilitySearchCriteria const& criteria, size_t index)
@@ -3782,7 +3802,14 @@ static bool isAccessibilityTextSearchMatch(AXCoreObject* axObject, Accessibility
 {
     if (!axObject)
         return false;
-    return axObject->containsText(criteria.searchText);
+
+    // If text is empty we return true.
+    if (criteria.searchText.isEmpty())
+        return true;
+
+    return containsPlainText(axObject->title(), criteria.searchText, CaseInsensitive)
+        || containsPlainText(axObject->accessibilityDescription(), criteria.searchText, CaseInsensitive)
+        || containsPlainText(axObject->stringValue(), criteria.searchText, CaseInsensitive);
 }
 
 static bool objectMatchesSearchCriteriaWithResultLimit(AXCoreObject* object, AccessibilitySearchCriteria const& criteria, AXCoreObject::AccessibilityChildrenVector& results)

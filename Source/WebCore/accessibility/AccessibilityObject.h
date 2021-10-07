@@ -319,7 +319,7 @@ public:
     const String keyShortcutsValue() const override;
 
     // This function checks if the object should be ignored when there's a modal dialog displayed.
-    bool ignoredFromModalPresence() const override;
+    virtual bool ignoredFromModalPresence() const;
     bool isModalDescendant(Node*) const override;
     bool isModalNode() const override;
 
@@ -514,8 +514,9 @@ public:
     AccessibilityObject* firstAnonymousBlockChild() const override;
 
     WEBCORE_EXPORT static AccessibilityRole ariaRoleToWebCoreRole(const String&);
-    bool hasAttribute(const QualifiedName&) const override;
-    const AtomString& getAttribute(const QualifiedName&) const override;
+    virtual bool hasAttribute(const QualifiedName&) const;
+    virtual const AtomString& getAttribute(const QualifiedName&) const;
+    std::optional<String> attributeValue(const String&) const override;
     int getIntegralAttribute(const QualifiedName&) const;
     bool hasTagName(const QualifiedName&) const override;
     String tagName() const override;

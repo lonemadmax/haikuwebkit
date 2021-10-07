@@ -65,7 +65,6 @@ typedef NS_OPTIONS(NSUInteger, _WKSelectionAttributes) {
     _WKSelectionAttributeNoSelection = 0,
     _WKSelectionAttributeIsCaret = 1 << 0,
     _WKSelectionAttributeIsRange = 1 << 1,
-    _WKSelectionAttributeAtStartOfSentence = 1 << 2,
 } WK_API_AVAILABLE(macos(10.15), ios(13.0));
 
 typedef NS_ENUM(NSInteger, _WKShouldOpenExternalURLsPolicy) {
@@ -421,6 +420,7 @@ for this property.
 #if !TARGET_OS_TV && !TARGET_OS_WATCH
 @property (nonatomic, copy, setter=_setUIEventAttribution:) UIEventAttribution *_uiEventAttribution WK_API_AVAILABLE(ios(15.0));
 @property (nonatomic, copy, setter=_setEphemeralUIEventAttribution:) UIEventAttribution *_ephemeralUIEventAttribution WK_API_AVAILABLE(ios(WK_IOS_TBA));
+- (void)_setEphemeralUIEventAttribution:(UIEventAttribution *)attribution forApplicationWithBundleID:(NSString *)bundleID WK_API_AVAILABLE(ios(WK_IOS_TBA));
 #endif
 
 @property (nonatomic, readonly) CGRect _contentVisibleRect WK_API_AVAILABLE(ios(10.0));

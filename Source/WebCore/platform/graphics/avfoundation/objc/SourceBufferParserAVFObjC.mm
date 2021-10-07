@@ -40,6 +40,7 @@
 #import "MediaSampleAVFObjC.h"
 #import "NotImplemented.h"
 #import "SharedBuffer.h"
+#import "SourceBufferPrivate.h"
 #import "TimeRanges.h"
 #import "VideoTrackPrivateMediaSourceAVFObjC.h"
 #import <AVFoundation/AVAssetTrack.h>
@@ -211,8 +212,8 @@ SourceBufferParserAVFObjC::~SourceBufferParserAVFObjC()
 
 void SourceBufferParserAVFObjC::appendData(Segment&& segment, CompletionHandler<void()>&& completionHandler, AppendFlags flags)
 {
-    auto sharedData = SharedBuffer::create(segment.takeVector());
-    auto nsData = sharedData->createNSData();
+    auto sharedBuffer = segment.takeSharedBuffer();
+    auto nsData = sharedBuffer->createNSData();
     if (m_parserStateWasReset || flags == AppendFlags::Discontinuity)
         [m_parser appendStreamData:nsData.get() withFlags:AVStreamDataParserStreamDataDiscontinuity];
     else
@@ -253,14 +254,14 @@ void SourceBufferParserAVFObjC::invalidate()
 #if !RELEASE_LOG_DISABLED
 void SourceBufferParserAVFObjC::setLogger(const Logger& logger, const void* logIdentifier)
 {
-    m_logger = makeRefPtr(logger);
+    m_logger = &logger;
     m_logIdentifier = logIdentifier;
 }
 #endif
 
 void SourceBufferParserAVFObjC::didParseStreamDataAsAsset(AVAsset* asset)
 {
-    m_callOnClientThreadCallback([this, strongThis = makeRef(*this), asset = retainPtr(asset)] {
+    m_callOnClientThreadCallback([this, strongThis = Ref { *this }, asset = retainPtr(asset)] {
         if (!m_didParseInitializationDataCallback)
             return;
 
@@ -301,7 +302,7 @@ void SourceBufferParserAVFObjC::didParseStreamDataAsAsset(AVAsset* asset)
 
 void SourceBufferParserAVFObjC::didFailToParseStreamDataWithError(NSError* error)
 {
-    m_callOnClientThreadCallback([this, strongThis = makeRef(*this), error = retainPtr(error)] {
+    m_callOnClientThreadCallback([this, strongThis = Ref { *this }, error = retainPtr(error)] {
         if (m_didEncounterErrorDuringParsingCallback)
             m_didEncounterErrorDuringParsingCallback(error.get().code);
     });
@@ -310,7 +311,7 @@ void SourceBufferParserAVFObjC::didFailToParseStreamDataWithError(NSError* error
 void SourceBufferParserAVFObjC::didProvideMediaDataForTrackID(uint64_t trackID, CMSampleBufferRef sampleBuffer, const String& mediaType, unsigned flags)
 {
     UNUSED_PARAM(flags);
-    m_callOnClientThreadCallback([this, strongThis = makeRef(*this), sampleBuffer = retainPtr(sampleBuffer), trackID, mediaType = mediaType] {
+    m_callOnClientThreadCallback([this, strongThis = Ref { *this }, sampleBuffer = retainPtr(sampleBuffer), trackID, mediaType = mediaType] {
         if (!m_didProvideMediaDataCallback)
             return;
 

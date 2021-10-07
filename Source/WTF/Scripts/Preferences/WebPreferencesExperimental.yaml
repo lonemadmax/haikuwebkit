@@ -96,7 +96,7 @@ BroadcastChannelEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
       default: false
 
@@ -129,11 +129,11 @@ CSSCascadeLayersEnabled:
   humanReadableDescription: "Enable CSS Cascade Layers"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSColor4:
   type: bool
@@ -421,6 +421,18 @@ ExposeSpeakersEnabled:
     WebCore:
       default: false
 
+FTPEnabled:
+  type: bool
+  humanReadableName: "FTP support enabled"
+  humanReadableDescription: "FTP support enabled"
+  defaultValue:
+    WebCore:
+      default: false
+    WebKit:
+      default: false
+    WebKitLegacy:
+      default: false
+      
 # FIXME: This seems to be accidentally enabled for WebKit1 right now due to the old code using the
 # wrong preference key in some places. We should identify whether it really makes sense to keep this
 # enabled.
@@ -434,6 +446,18 @@ FetchAPIKeepAliveEnabled:
       default: true
     WebKit:
       default: true
+
+FileSystemAccessEnabled:
+  type: bool
+  humanReadableName: "File System Access API"
+  humanReadableDescription: "Enable File System Access API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 FocusVisibleEnabled:
   type: bool
@@ -575,7 +599,6 @@ IntersectionObserverEnabled:
   type: bool
   humanReadableName: "Intersection Observer"
   humanReadableDescription: "Enable Intersection Observer support"
-  condition: ENABLE(INTERSECTION_OBSERVER)
   defaultValue:
     WebKitLegacy:
       default: false
@@ -790,6 +813,19 @@ MediaSessionPlaylistEnabled:
     WebCore:
       default: false
 
+MediaSourceInlinePaintingEnabled:
+  type: bool
+  humanReadableName: "Experimental MediaSource Inline Painting"
+  humanReadableDescription: "Experimental MediaSource Inline Painting"
+  condition: ENABLE(MEDIA_SOURCE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 ModelElementEnabled:
   type: bool
   humanReadableName: "HTML <model> element"
@@ -961,6 +997,18 @@ ProcessSwapOnCrossSiteNavigationEnabled:
       "PLATFORM(MAC) || PLATFORM(IOS) || PLATFORM(GTK) || PLATFORM(WPE)": true
       default: false
 
+PushAPIEnabled:
+  type: bool
+  condition: ENABLE(SERVICE_WORKER)
+  humanReadableName: "Push API"
+  humanReadableDescription: "Enable Push API"
+  webcoreBinding: RuntimeEnabledFeatures
+  defaultValue:
+    WebCore:
+      default: false
+    WebKit:
+      default: false
+
 ReadableByteStreamAPIEnabled:
   type: bool
   humanReadableName: "ReadableByteStream"
@@ -1028,12 +1076,23 @@ ResizeObserverEnabled:
   type: bool
   humanReadableName: "Resize Observer"
   humanReadableDescription: "Enable Resize Observer support"
-  condition: ENABLE(RESIZE_OBSERVER)
   defaultValue:
     WebKitLegacy:
       default: false
     WebKit:
       default: true
+    WebCore:
+      default: false
+
+ResolutionMediaFeatureEnabled:
+  type: bool
+  humanReadableName: "Resolution media feature"
+  humanReadableDescription: "Enable resolution media feature support"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
     WebCore:
       default: false
 
@@ -1063,6 +1122,18 @@ ServerTimingEnabled:
       default: false
     WebKit:
       "ENABLE(EXPERIMENTAL_FEATURES) && (PLATFORM(GTK) || PLATFORM(WPE))": true
+      default: false
+
+SharedWorkerEnabled:
+  type: bool
+  humanReadableName: "SharedWorker"
+  humanReadableDescription: "Enabled SharedWorker API"
+  defaultValue:
+    WebCore:
+      default: false
+    WebKitLegacy:
+      default: false
+    WebKit:
       default: false
 
 ShouldDeferAsynchronousScriptsUntilAfterDocumentLoadOrFirstPaint:
@@ -1368,6 +1439,19 @@ WebMParserEnabled:
     WebKit:
       default: WebKit::defaultWebMParserEnabled()
 
+WebRTCEncodedTransformEnabled:
+  type: bool
+  condition: ENABLE(WEB_RTC)
+  humanReadableName: "WebRTC Encoded Transform API"
+  humanReadableDescription: "Enable WebRTC Encoded Transform API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: true
+    WebCore:
+      default: true
+
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 WebRTCH264LowLatencyEncoderEnabled:
   type: bool
@@ -1392,19 +1476,6 @@ WebRTCH265CodecEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
-
-WebRTCInsertableStreamsEnabled:
-  type: bool
-  condition: ENABLE(WEB_RTC)
-  humanReadableName: "WebRTC Insertable Streams API"
-  humanReadableDescription: "Enable WebRTC Insertable Streams API"
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
       default: false
 
 # FIXME: This is not relevent for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
@@ -1440,6 +1511,19 @@ WebRTCPlatformUDPSocketsEnabled:
   defaultValue:
     WebKit:
       default: true
+
+WebRTCSFrameTransformEnabled:
+  type: bool
+  condition: ENABLE(WEB_RTC)
+  humanReadableName: "WebRTC SFrame Transform API"
+  humanReadableDescription: "Enable WebRTC SFrame Transform API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 WebRTCSocketsProxyingEnabled:
   type: bool
@@ -1517,15 +1601,3 @@ WheelEventGesturesBecomeNonBlocking:
       default: true
     WebCore:
       default: true
-
-WritableStreamAPIEnabled:
-  type: bool
-  humanReadableName: "WritableStream API"
-  humanReadableDescription: "Enable Writable Stream API"
-  webcoreBinding: RuntimeEnabledFeatures
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-

@@ -430,10 +430,6 @@ plugins/npruntime/invoke-failure.html
 # CSS image-resolution is not yet enabled.
 webkit.org/b/85262 fast/css/image-resolution
 
-# Resolution media query is not yet enabled.
-webkit.org/b/85262 fast/media/mq-resolution.html [ Skip ]
-webkit.org/b/85262 fast/media/mq-resolution-dpi-dpcm-warning.html [ Skip ]
-
 # CSS image-orientation is not yet enabled.
 webkit.org/b/89052 fast/css/image-orientation
 
@@ -605,6 +601,8 @@ webkit.org/b/124933 svg/animations/getCurrentTime-pause-unpause.html [ Pass Fail
 
 webkit.org/b/52016 http/tests/xmlhttprequest/xmlhttprequest-50ms-download-dispatch.html [ Pass Failure Timeout ]
 
+webkit.org/b/225668 http/tests/xmlhttprequest/redirect-cross-origin-tripmine.html [ Pass Timeout ]
+
 # Subpixel failures START
 # Inline text positioning
 webkit.org/b/85532 fast/sub-pixel/file-upload-control-at-fractional-offset.html [ ImageOnlyFailure ]
@@ -766,6 +764,8 @@ webkit.org/b/116651 media/context-menu-actions.html [ Skip ]
 
 webkit.org/b/61487 http/tests/media/video-cross-site.html [ Failure ]
 
+webkit.org/b/230708 [ Debug ] media/video-ended-seek-crash.html [ Pass Timeout ]
+
 # Opera-submitted tests to W3C for <track>, a lot of failures still.
 webkit.org/b/103926 media/track/opera/idl/media-idl-tests.html [ Skip ]
 webkit.org/b/103926 media/track/opera/interfaces/HTMLElement/HTMLMediaElement/crossOrigin.html [ Skip ]
@@ -877,6 +877,8 @@ webkit.org/b/93560 fast/canvas/webgl/tex-image-and-sub-image-2d-with-image-data.
 fast/canvas/canvas-draw-canvas-on-canvas-shadow.html [ Pass Failure ]
 fast/canvas/canvas-fillRect-gradient-shadow.html [ Pass Failure ]
 
+webkit.org/b/230313 [ BigSur+ ] fast/canvas/canvas-draw-canvas-on-canvas-flushing-order.html [ Pass ImageOnlyFailure ]
+
 # SVG gradients are not bit-for-bit equivalent through a scale.
 webkit.org/b/142192 svg/transforms/transformed-text-fill-gradient.html [ ImageOnlyFailure ]
 
@@ -909,7 +911,7 @@ media/accessiblity-describes-video.html [ Pass Failure ]
 
 webkit.org/b/145432 media/video-transformed-by-javascript.html [ Failure ]
 
-webkit.org/b/140022 http/tests/media/track-in-band-hls-metadata.html [ Pass Timeout ]
+webkit.org/b/140022 http/tests/media/track-in-band-hls-metadata.html [ Pass Timeout Failure ]
 
 # <rdar://problem/21263363>
 http/tests/media/remove-while-loading.html [ Skip ]
@@ -1035,6 +1037,8 @@ webkit.org/b/187103 js/error-should-not-strong-reference-global-object.html [ Pa
 
 webkit.org/b/155505 http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-audio.html [ Skip ]
 webkit.org/b/155505 http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-video.html [ Skip ]
+
+webkit.org/b/230428 http/tests/security/contentSecurityPolicy/frame-src-cross-origin-load.html [ Pass Failure ]
 
 webkit.org/b/154688 inspector/controller/runtime-controller.html [ Pass Timeout ]
 
@@ -1541,6 +1545,8 @@ webkit.org/b/212172 [ Catalina ] fast/text/font-collection.html [ ImageOnlyFailu
 
 webkit.org/b/200128 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-video-element/video_timeupdate_on_seek.html [ Timeout Pass ]
 
+webkit.org/b/231084 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-video-element/resize-during-playback.html [ Pass Failure ]
+
 # The test runner is failing in an unrelated, unexplained, invisible to the human eye, 2 pixels difference.
 webkit.org/b/201401 imported/w3c/web-platform-tests/media-source/mediasource-video-is-visible.html [ Skip ]
 
@@ -1845,7 +1851,7 @@ imported/w3c/web-platform-tests/media-source/mediasource-changetype-play-without
 [ BigSur+ ] fast/replaced/frame-removed-during-resize-smaller.html [ Pass Crash ]
 
 # <rdar://problem/60512303> [ wk2 ] imported/w3c/web-platform-tests/content-security-policy/connect-src/connect-src-eventsource-allowed.sub.html is flaky timing out.
-[ BigSur+ ] imported/w3c/web-platform-tests/content-security-policy/connect-src/connect-src-eventsource-allowed.sub.html [ Pass Timeout Failure ]
+imported/w3c/web-platform-tests/content-security-policy/connect-src/connect-src-eventsource-allowed.sub.html [ Pass Timeout Failure ]
 
 # <rdar://problem/60501497> REGRESSION (r258080) fast/history/history-back-while-pdf-in-pagecache.html is timing out.
 [ BigSur+ ] fast/history/history-back-while-pdf-in-pagecache.html [ Pass ImageOnlyFailure Crash Timeout ]
@@ -1916,9 +1922,11 @@ webkit.org/b/228094 imported/w3c/web-platform-tests/mathml/presentation-markup/o
 [ BigSur+ ] http/tests/media/hls/range-request.html [ Skip ]
 [ BigSur+ ] http/tests/media/hls/video-cookie.html [ Skip ]
 
-webkit.org/b/229424 [ Catalina ] http/tests/media/hls/range-request.html [ Pass Failure ]
-
 webkit.org/b/228189 http/tests/media/hls/hls-webvtt-seek-backwards.html [ Pass Timeout ]
+
+webkit.org/b/230411 http/tests/media/hls/video-controller-getStartDate.html [ Pass Failure ]
+
+webkit.org/b/227891 http/tests/appcache/fail-on-update.html [ Pass Timeout DumpJSConsoleLogInStdErr ]
 
 # rdar://66660680 (REGRESSION (20A2327a-20A2348b): media/video-canvas-createPattern.html is failing)
 [ BigSur+ ] media/video-canvas-createPattern.html [ Failure ]
@@ -2049,7 +2057,7 @@ webkit.org/b/218346 [ Mojave ] fast/text/canvas-color-fonts [ Skip ]
 
 webkit.org/b/219403 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-candidate-in-sdp.https.html [ Pass Failure ]
 
-webkit.org/b/219460 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-perfect-negotiation.https.html [ Skip ]
+webkit.org/b/219460 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-perfect-negotiation.https.html [ Pass Failure ]
 
 webkit.org/b/219555 inspector/animation/effectChanged.html [ Pass Timeout ]
 
@@ -2187,8 +2195,6 @@ webkit.org/b/224016 [ Catalina ] webgl/2.0.0/conformance/ogles/GL/any/any_001_to
 
 webkit.org/b/223820 inspector/debugger/csp-exceptions.html [ Pass Failure Timeout ]
 
-webkit.org/b/222748 [ Debug ] http/tests/security/contentSecurityPolicy/frame-src-cross-origin-load.html [ Pass Failure ]
-
 webkit.org/b/223949 crypto/crypto-random-values-oom.html [ Pass Timeout ]
 
 webkit.org/b/223973 [ Debug ] imported/w3c/web-platform-tests/xhr/xhr-timeout-longtask.any.worker.html [ Pass Failure ]
@@ -2206,6 +2212,8 @@ webkit.org/b/224212 [ arm64 ] compositing/background-color/no-composited-backgro
 webkit.org/b/215397 media/modern-media-controls/media-controller/media-controller-fullscreen-ltr.html [ Pass Failure ]
 
 webkit.org/b/224396 webgl/1.0.3/conformance/glsl/constructors/glsl-construct-ivec2.html [ Slow ]
+
+webkit.org/b/229472 [ BigSur Debug ] webgl/1.0.3/conformance/glsl/constructors/glsl-construct-bvec2.html [ Slow ]
 
 webkit.org/b/224631 [ BigSur ] imported/w3c/web-platform-tests/css/css-fonts/font-feature-settings-tibetan.html [ Pass ImageOnlyFailure ]
 
@@ -2303,9 +2311,6 @@ webkit.org/b/228311 imported/w3c/web-platform-tests/css/css-scoping/css-scoping-
 # webkit.org/b/228200 Adjusting test expectations for Monterey on Open Source <rdar://80344138>:
 [ Monterey ] imported/w3c/web-platform-tests/fetch/connection-pool/network-partition-key.html [ Failure ]
 
-# rdar://77527267 REGRESSION: imported/w3c/web-platform-tests/html/canvas/element/imagebitmap/createImageBitmap-flipY.html is a constant timeout and is flaky crashing and text failing
-[ Monterey ] imported/w3c/web-platform-tests/html/canvas/element/imagebitmap/createImageBitmap-invalid-args.html [ Pass Failure Timeout ]
-
 # webkit.org/b/228200 Setting multiple test expectations for Monetery on OpenSource:
 [ Monterey ] model-element/model-element-graphics-layers-opacity.html [ Pass Failure ]
 [ Monterey Debug arm64 ] imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-restartIce.https.html [ Pass Failure Crash ]
@@ -2337,9 +2342,6 @@ webkit.org/b/229463 [ BigSur Debug ] http/tests/inspector/network/resource-mime-
 
 webkit.org/b/228364 media/track/track-in-band-duplicate-tracks-when-source-changes.html [ Pass Timeout ]
 
-webkit.org/b/229509 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/iframe-popup-same-origin-allow-popups-to-same-origin-allow-popups.https.html [ Pass Failure ]
-webkit.org/b/228642 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/iframe-popup-same-origin-allow-popups-to-same-origin.https.html [ Pass Failure ]
-webkit.org/b/228642 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/iframe-popup-unsafe-none-to-unsafe-none.https.html [ Pass Failure ]
 webkit.org/b/228642 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/javascript-url.https.html [ Pass Failure ]
 
 webkit.org/b/229517 imported/w3c/web-platform-tests/webrtc-extensions/RTCRtpSynchronizationSource-captureTimestamp.html [ Pass Failure ]
@@ -2347,31 +2349,31 @@ webkit.org/b/229517 imported/w3c/web-platform-tests/webrtc-extensions/RTCRtpSync
 
 webkit.org/b/230116 imported/w3c/web-platform-tests/webrtc-extensions/transfer-datachannel.html [ Pass Failure ]
 
-# rdar://82132196 (20 webkit imported/w3c/web-platform-tests/css/ layout tests failing)
-[ Monterey ] imported/w3c/web-platform-tests/css/css-backgrounds/background-position/subpixel-position-center.tentative.html [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-flexbox/flex-aspect-ratio-img-column-016.html [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-flexbox/flex-aspect-ratio-img-row-006.html [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-flexbox/flex-aspect-ratio-img-row-012.html [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-flexbox/flex-minimum-height-flex-items-005.xht [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-flexbox/flex-minimum-width-flex-items-005.xht [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-flexbox/flex-minimum-width-flex-items-010.html [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-flexbox/flex-minimum-width-flex-items-016.html [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-flexbox/image-items-flake-001.html [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-grid/grid-items/grid-img-item-percent-max-height-001.html [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-grid/grid-items/grid-minimum-size-grid-items-006.html [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-grid/grid-items/grid-minimum-size-grid-items-008.html [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-multicol/multicol-rule-fraction-002.xht [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/abspos-016.html [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-027.html [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-028.html [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-029.html [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-030.html [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/replaced-element-031.html [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/css/css-ui/outline-negative-offset-composited-scroll.html [ Pass ImageOnlyFailure ]
-[ Monterey ] svg/custom/image-width-height-auto-dynamic.svg [ Pass ImageOnlyFailure ]
-[ Monterey ] svg/custom/image-width-height-auto-initial.svg [ Pass ImageOnlyFailure ]
-[ Monterey ] svg/custom/image-width-height-length-initial.svg [ Pass ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/density-size-correction/density-corrected-image-svg.html [ Pass ImageOnlyFailure ]
+# display-p3 canvas and ImageData are Cocoa only for now.
+[ Monterey+ ] fast/canvas/canvas-color-space-display-p3-ImageData.html [ Pass ]
+[ Monterey+ ] fast/canvas/canvas-color-space-display-p3.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-Blob.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-ImageBitmap.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-ImageData.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-canvas.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-cloned.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-image.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-pattern-canvas.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-pattern-image.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-settings.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-draw-high-bit-depth-images.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/wide-gamut-canvas/2d.color.space.p3.fillText.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/wide-gamut-canvas/2d.color.space.p3.fillText.shadow.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/wide-gamut-canvas/2d.color.space.p3.strokeText.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/wide-gamut-canvas/2d.color.space.p3.to.p3.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/wide-gamut-canvas/2d.color.space.p3.to.srgb.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/wide-gamut-canvas/2d.color.space.p3.toBlob.p3.canvas.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/wide-gamut-canvas/2d.color.space.p3.toBlob.with.putImageData.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/wide-gamut-canvas/2d.color.space.p3.toDataURL.p3.canvas.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/wide-gamut-canvas/2d.color.space.p3.toDataURL.jpeg.p3.canvas.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/wide-gamut-canvas/2d.color.space.p3.toDataURL.with.putImageData.html [ Pass ]
+[ Monterey+ ] storage/indexeddb/structured-clone-image-data-display-p3.html [ Pass ]
 
 webkit.org/b/229521 pointer-lock/lock-already-locked.html [ Pass Failure ]
 
@@ -2384,3 +2386,47 @@ webkit.org/b/228176 [ Mojave Catalina BigSur Monterey ] fast/text/variable-syste
 # These tests open apparently unskippable prompts on Catalina.
 webkit.org/b/229391 [ Mojave Catalina ] fast/text/mobileasset-font.html [ Skip ]
 webkit.org/b/189448 [ Mojave Catalina ] fast/text/osaka-synthetic-bold.html [ Skip ]
+
+webkit.org/b/230327 imported/w3c/web-platform-tests/css/css-transforms/crashtests/transform-marquee-resize-div-image-001.html [ Pass Failure ]
+
+# rdar://83591040
+[ Monterey+ ] editing/mac/dictionary-lookup/dictionary-lookup-input.html [ Crash ]
+[ Monterey+ ] editing/mac/dictionary-lookup/dictionary-lookup-inside-selection.html [ Crash ]
+[ Monterey+ ] editing/mac/dictionary-lookup/dictionary-lookup-outside-selection.html [ Crash ]
+[ Monterey+ ] editing/mac/dictionary-lookup/dictionary-lookup-rtl.html [ Crash ]
+[ Monterey+ ] editing/mac/dictionary-lookup/dictionary-lookup.html [ Crash ]
+[ Monterey+ ] editing/selection/5354455-2.html [ Crash ]
+[ Monterey+ ] editing/selection/context-menu-on-text.html [ Crash ]
+[ Monterey+ ] editing/selection/context-menu-text-selection-lookup.html [ Crash ]
+
+rdar://83592102
+[ Monterey+ ] editing/mac/selection/context-menu-select-editability.html [ Crash ]
+[ Monterey+ ] editing/mac/spelling/advance-to-next-misspelling.html [ Crash ]
+[ Monterey+ ] editing/selection/5354455-1.html [ Crash ]
+[ Monterey+ ] editing/spelling/context-menu-suggestions-multiword-selection.html [ Crash ]
+[ Monterey+ ] editing/spelling/context-menu-suggestions-subword-selection.html [ Crash ]
+[ Monterey+ ] editing/spelling/context-menu-suggestions.html [ Crash ]
+[ Monterey+ ] editing/mac/spelling/disable-automatic-spelling-correction-context-menu-item.html [ Crash ]
+[ Monterey+ ] editing/spelling/spellcheck-input-search-crash.html [ Crash ]
+[ Monterey+ ] editing/mac/style/do-not-crash-when-showing-font-panel.html [ Crash ]
+[ Monterey+ ] editing/selection/empty-cell-right-click.html [ Crash ]
+[ Monterey+ ] editing/selection/minimal-user-select-crash.html [ Crash ]
+[ Monterey+ ] fast/events/context-no-deselect.html [ Crash ]
+[ Monterey+ ] fast/events/contextmenu-actions-in-selected-text.html [ Crash ]
+[ Monterey+ ] fast/events/contextmenu-dismiss-blink-caret.html [ Crash ]
+[ Monterey+ ] fast/events/contextmenu-reentrancy-crash.html [ Crash ]
+[ Monterey+ ] fast/forms/color/color-input-activate-crash.html [ Crash ]
+[ Monterey+ ] fast/forms/color/color-suggestion-picker-crash-on-set-value.html [ Crash ]
+[ Monterey+ ] fast/forms/color/input-color-onchange-event.html [ Crash ]
+[ Monterey+ ] fast/forms/color/input-color-readonly.html [ Crash ]
+
+webkit.org/b/170629  memory/memory-pressure-simulation.html [ Pass Failure Crash ]
+
+webkit.org/b/230711 [ BigSur ] http/tests/inspector/network/resource-initiatorNode.html [ Pass Failure Crash ]
+
+webkit.org/b/230780 [ Catalina BigSur Debug ] fast/workers/use-machine-stack.html [ Pass Crash ]
+
+webkit.org/b/230862 [ Catalina BigSur ] imported/w3c/web-platform-tests/resource-timing/sizes-redirect-img.html [ Pass Failure ]
+
+webkit.org/b/230984 [ BigSur Debug arm64 ] streams/readableStream-then.html [ Pass Crash ]
+

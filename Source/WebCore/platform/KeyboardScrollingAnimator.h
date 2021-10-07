@@ -25,8 +25,8 @@
 
 #pragma once
 
-#include "KeyboardEvent.h"
-#include "KeyboardScroll.h"
+#include "KeyboardEvent.h" // FIXME: This is a layering violation.
+#include "KeyboardScroll.h" // FIXME: This is a layering violation.
 #include "RectEdges.h"
 #include "ScrollAnimator.h"
 
@@ -36,7 +36,7 @@ class KeyboardScrollingAnimator {
     WTF_MAKE_NONCOPYABLE(KeyboardScrollingAnimator);
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    KeyboardScrollingAnimator(ScrollAnimator&, ScrollController&);
+    KeyboardScrollingAnimator(ScrollAnimator&, ScrollingEffectsController&);
 
     bool beginKeyboardScrollGesture(KeyboardEvent&);
     void handleKeyUpEvent();
@@ -44,12 +44,12 @@ public:
 
 private:
     void stopKeyboardScrollAnimation();
-    RectEdges<bool> scrollableDirectionsFromOffset(FloatPoint) const;
+    RectEdges<bool> scrollableDirectionsFromPosition(FloatPoint) const;
     std::optional<KeyboardScroll> keyboardScrollForKeyboardEvent(KeyboardEvent&) const;
     float scrollDistance(ScrollDirection, ScrollGranularity) const;
 
     ScrollAnimator& m_scrollAnimator;
-    ScrollController& m_scrollController;
+    ScrollingEffectsController& m_scrollController;
     std::optional<WebCore::KeyboardScroll> m_currentKeyboardScroll;
     bool m_scrollTriggeringKeyIsPressed { false };
     FloatSize m_velocity;

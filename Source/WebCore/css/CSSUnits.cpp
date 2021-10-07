@@ -39,6 +39,7 @@ CSSUnitCategory unitCategory(CSSUnitType type)
     case CSSUnitType::CSS_PT:
     case CSSUnitType::CSS_PC:
     case CSSUnitType::CSS_Q:
+    case CSSUnitType::CSS_IC:
         return CSSUnitCategory::Length;
     case CSSUnitType::CSS_MS:
     case CSSUnitType::CSS_S:
@@ -52,6 +53,7 @@ CSSUnitCategory unitCategory(CSSUnitType type)
     case CSSUnitType::CSS_KHZ:
         return CSSUnitCategory::Frequency;
     case CSSUnitType::CSS_DPPX:
+    case CSSUnitType::CSS_X:
     case CSSUnitType::CSS_DPI:
     case CSSUnitType::CSS_DPCM:
         return CSSUnitCategory::Resolution;
@@ -75,10 +77,8 @@ CSSUnitType canonicalUnitTypeForCategory(CSSUnitCategory category)
         return CSSUnitType::CSS_DEG;
     case CSSUnitCategory::Frequency:
         return CSSUnitType::CSS_HZ;
-#if ENABLE(CSS_IMAGE_RESOLUTION) || ENABLE(RESOLUTION_MEDIA_QUERY)
     case CSSUnitCategory::Resolution:
         return CSSUnitType::CSS_DPPX;
-#endif
     default:
         return CSSUnitType::CSS_UNKNOWN;
     }
@@ -139,6 +139,7 @@ TextStream& operator<<(TextStream& ts, CSSUnitType unitType)
     case CSSUnitType::CSS_VMIN: ts << "vmin"; break;
     case CSSUnitType::CSS_VMAX: ts << "vmax"; break;
     case CSSUnitType::CSS_DPPX: ts << "dppx"; break;
+    case CSSUnitType::CSS_X: ts << "x"; break;
     case CSSUnitType::CSS_DPI: ts << "dpi"; break;
     case CSSUnitType::CSS_DPCM: ts << "dpcm"; break;
     case CSSUnitType::CSS_FR: ts << "fr"; break;
@@ -150,6 +151,7 @@ TextStream& operator<<(TextStream& ts, CSSUnitType unitType)
     case CSSUnitType::CSS_TURN: ts << "turn"; break;
     case CSSUnitType::CSS_REMS: ts << "rems"; break;
     case CSSUnitType::CSS_CHS: ts << "chs"; break;
+    case CSSUnitType::CSS_IC: ts << "ics"; break;
     case CSSUnitType::CSS_COUNTER_NAME: ts << "counter_name"; break;
     case CSSUnitType::CSS_SHAPE: ts << "shape"; break;
     case CSSUnitType::CSS_QUAD: ts << "quad"; break;

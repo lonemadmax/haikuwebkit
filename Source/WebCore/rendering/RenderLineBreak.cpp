@@ -26,9 +26,9 @@
 #include "FontMetrics.h"
 #include "HTMLElement.h"
 #include "HTMLWBRElement.h"
+#include "InlineIteratorBox.h"
+#include "InlineIteratorLine.h"
 #include "InlineRunAndOffset.h"
-#include "LayoutIntegrationLineIterator.h"
-#include "LayoutIntegrationRunIterator.h"
 #include "LegacyInlineElementBox.h"
 #include "LegacyRootInlineBox.h"
 #include "LogicalSelectionOffsetCaches.h"
@@ -144,7 +144,7 @@ VisiblePosition RenderLineBreak::positionForPoint(const LayoutPoint&, const Rend
 
 IntRect RenderLineBreak::linesBoundingBox() const
 {
-    auto run = LayoutIntegration::runFor(*this);
+    auto run = InlineIterator::boxFor(*this);
     if (!run)
         return { };
 
@@ -153,7 +153,7 @@ IntRect RenderLineBreak::linesBoundingBox() const
 
 void RenderLineBreak::absoluteRects(Vector<IntRect>& rects, const LayoutPoint& accumulatedOffset) const
 {
-    auto box = LayoutIntegration::runFor(*this);
+    auto box = InlineIterator::boxFor(*this);
     if (!box)
         return;
 
@@ -163,7 +163,7 @@ void RenderLineBreak::absoluteRects(Vector<IntRect>& rects, const LayoutPoint& a
 
 void RenderLineBreak::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) const
 {
-    auto box = LayoutIntegration::runFor(*this);
+    auto box = InlineIterator::boxFor(*this);
     if (!box)
         return;
 
@@ -180,11 +180,11 @@ void RenderLineBreak::updateFromStyle()
 #if PLATFORM(IOS_FAMILY)
 void RenderLineBreak::collectSelectionGeometries(Vector<SelectionGeometry>& rects, unsigned, unsigned)
 {
-    auto run = LayoutIntegration::runFor(*this);
+    auto run = InlineIterator::boxFor(*this);
 
     if (!run)
         return;
-    auto line = run.line();
+    auto line = run->line();
 
     auto lineSelectionRect = line->selectionRect();
     LayoutRect rect = IntRect(run->logicalLeft(), lineSelectionRect.y(), 0, lineSelectionRect.height());
@@ -214,8 +214,8 @@ void RenderLineBreak::collectSelectionGeometries(Vector<SelectionGeometry>& rect
     extentsRect = localToAbsoluteQuad(FloatRect(extentsRect)).enclosingBoundingBox();
     if (!run->isHorizontal())
         extentsRect = extentsRect.transposedRect();
-    bool isFirstOnLine = !run.previousOnLine();
-    bool isLastOnLine = !run.nextOnLine();
+    bool isFirstOnLine = !run->previousOnLine();
+    bool isLastOnLine = !run->nextOnLine();
     if (containingBlock->isRubyBase() || containingBlock->isRubyText())
         isLastOnLine = !containingBlock->containingBlock()->inlineBoxWrapper()->nextOnLineExists();
 

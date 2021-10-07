@@ -87,6 +87,12 @@ enum {
     kCTFontTraitEmphasized = kCTFontTraitBold,
 };
 
+typedef CF_ENUM(CFIndex, CTFontPalette)
+{
+    kCTFontPaletteLight = -1,
+    kCTFontPaletteDark = -2
+};
+
 typedef const struct __OTSVGTable * OTSVGTableRef;
 
 #endif
@@ -124,6 +130,8 @@ void CTFontGetUnsummedAdvancesForGlyphsAndStyle(CTFontRef, CTFontOrientation, CG
 CTFontDescriptorRef CTFontDescriptorCreateForCSSFamily(CFStringRef cssFamily, CFStringRef language);
 bool CTFontGetGlyphsForCharacterRange(CTFontRef, CGGlyph glyphs[], CFRange);
 
+bool CTFontHasTable(CTFontRef, CTFontTableTag);
+
 CTFontDescriptorRef CTFontDescriptorCreateForUIType(CTFontUIFontType, CGFloat size, CFStringRef language);
 CTFontDescriptorRef CTFontDescriptorCreateWithTextStyle(CFStringRef style, CFStringRef size, CFStringRef language);
 CTFontDescriptorRef CTFontDescriptorCreateCopyWithSymbolicTraits(CTFontDescriptorRef original, CTFontSymbolicTraits symTraitValue, CTFontSymbolicTraits symTraitMask);
@@ -147,6 +155,9 @@ extern const CFStringRef kCTFontUIFontDesignDefault;
 extern const CFStringRef kCTFontUIFontDesignSerif;
 extern const CFStringRef kCTFontUIFontDesignMonospaced;
 extern const CFStringRef kCTFontUIFontDesignRounded;
+
+extern const CFStringRef kCTFontPaletteAttribute;
+extern const CFStringRef kCTFontPaletteColorsAttribute;
 
 extern const CFStringRef kCTFrameMaximumNumberOfLinesAttributeName;
 

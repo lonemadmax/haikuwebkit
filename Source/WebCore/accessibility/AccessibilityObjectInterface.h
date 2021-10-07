@@ -30,7 +30,8 @@
 #include "FrameLoaderClient.h"
 #include "HTMLTextFormControlElement.h"
 #include "LayoutRect.h"
-#include "TextIterator.h"
+#include "SimpleRange.h"
+#include "TextIteratorBehavior.h"
 #include "VisibleSelection.h"
 #include "Widget.h"
 #include <wtf/HashSet.h>
@@ -40,6 +41,10 @@
 #if PLATFORM(WIN)
 #include "AccessibilityObjectWrapperWin.h"
 #include "COMPtr.h"
+#endif
+
+#if USE(ATSPI)
+#include "AccessibilityObjectAtspi.h"
 #endif
 
 #if USE(ATK)
@@ -52,6 +57,8 @@ typedef WebAccessibilityObjectWrapper AccessibilityObjectWrapper;
 typedef struct _NSRange NSRange;
 typedef const struct __AXTextMarker* AXTextMarkerRef;
 typedef const struct __AXTextMarkerRange* AXTextMarkerRangeRef;
+#elif USE(ATSPI)
+typedef WebCore::AccessibilityObjectAtspi AccessibilityObjectWrapper;
 #elif USE(ATK)
 typedef struct _WebKitAccessible WebKitAccessible;
 typedef struct _WebKitAccessible AccessibilityObjectWrapper;
@@ -1061,7 +1068,6 @@ public:
     virtual const String keyShortcutsValue() const = 0;
 
     // This function checks if the object should be ignored when there's a modal dialog displayed.
-    virtual bool ignoredFromModalPresence() const = 0;
     virtual bool isModalDescendant(Node*) const = 0;
     virtual bool isModalNode() const = 0;
 
@@ -1126,14 +1132,6 @@ public:
     virtual String accessibilityDescription() const = 0;
     virtual String title() const = 0;
     virtual String helpText() const = 0;
-    bool containsText(String const& text) const
-    {
-        // If text is empty we return true.
-        return text.isEmpty()
-            || containsPlainText(title(), text, CaseInsensitive)
-            || containsPlainText(accessibilityDescription(), text, CaseInsensitive)
-            || containsPlainText(stringValue(), text, CaseInsensitive);
-    }
 
     // Methods for determining accessibility text.
     virtual bool isARIAStaticText() const = 0;
@@ -1256,8 +1254,7 @@ public:
     bool isAncestorOfObject(const AXCoreObject*) const;
     virtual AXCoreObject* firstAnonymousBlockChild() const = 0;
 
-    virtual bool hasAttribute(const QualifiedName&) const = 0;
-    virtual const AtomString& getAttribute(const QualifiedName&) const = 0;
+    virtual std::optional<String> attributeValue(const String&) const = 0;
     virtual bool hasTagName(const QualifiedName&) const = 0;
     virtual String tagName() const = 0;
 
@@ -1514,6 +1511,8 @@ private:
     RetainPtr<WebAccessibilityObjectWrapper> m_wrapper;
 #elif PLATFORM(WIN)
     COMPtr<AccessibilityObjectWrapper> m_wrapper;
+#elif USE(ATSPI)
+    RefPtr<AccessibilityObjectAtspi> m_wrapper;
 #elif USE(ATK)
     GRefPtr<WebKitAccessible> m_wrapper;
 #endif

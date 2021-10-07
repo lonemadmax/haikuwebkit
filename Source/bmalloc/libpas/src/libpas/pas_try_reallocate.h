@@ -26,14 +26,14 @@
 #ifndef PAS_TRY_REALLOCATE_H
 #define PAS_TRY_REALLOCATE_H
 
-#include "pas_bitfit_global_directory.h"
+#include "pas_bitfit_directory.h"
 #include "pas_deallocate.h"
 #include "pas_large_map.h"
 #include "pas_reallocate_free_mode.h"
 #include "pas_reallocate_heap_teleport_rule.h"
 #include "pas_try_allocate.h"
 #include "pas_try_allocate_array.h"
-#include "pas_try_allocate_intrinsic_primitive.h"
+#include "pas_try_allocate_intrinsic.h"
 #include "pas_try_allocate_primitive.h"
 
 PAS_BEGIN_EXTERN_C;
@@ -54,6 +54,8 @@ pas_try_allocate_for_reallocate_and_copy(
     pas_try_reallocate_allocate_callback allocate_callback,
     void* allocate_callback_arg)
 {
+    static const bool verbose = false;
+    
     pas_typed_allocation_result result;
 
     /* If heaps are based on some rigorous notion of type, then we should disallow heap
@@ -91,6 +93,8 @@ pas_try_allocate_for_reallocate_and_copy(
     result = allocate_callback(target_heap, new_count, allocate_callback_arg);
     
     if (result.ptr) {
+        if (verbose)
+            pas_log("result.ptr = %p\n", result.ptr);
         /* FIXME: We need to actually be rounding down the old size to our
            type size. To do that we'd want the typed allocation result to
            give us the type size. For primitive allocations, it would
@@ -133,7 +137,7 @@ pas_try_reallocate_table_segregated_case(pas_page_base* page_base,
         break;
         
     case pas_reallocate_disallow_heap_teleport: {
-        pas_segregated_global_size_directory* directory;
+        pas_segregated_size_directory* directory;
         directory = pas_segregated_page_get_directory_for_address_in_page(
             page, begin, segregated_config);
         old_size = directory->object_size;
@@ -175,9 +179,9 @@ pas_try_reallocate_table_bitfit_case(pas_page_base* page_base,
         
     case pas_reallocate_disallow_heap_teleport:
         old_heap = pas_heap_for_segregated_heap(
-            pas_compact_bitfit_global_directory_ptr_load_non_null(
+            pas_compact_bitfit_directory_ptr_load_non_null(
                 &pas_compact_atomic_bitfit_view_ptr_load_non_null(
-                    &page->owner)->global_directory)->heap);
+                    &page->owner)->directory)->heap);
         break;
     }
     
@@ -217,7 +221,7 @@ pas_try_reallocate(void* old_ptr,
             break;
 
         case pas_reallocate_disallow_heap_teleport: {
-            pas_segregated_global_size_directory* directory;
+            pas_segregated_size_directory* directory;
             directory = pas_segregated_page_get_directory_for_address_and_page_config(
                 begin, config.small_segregated_config);
             old_size = directory->object_size;
@@ -249,9 +253,9 @@ pas_try_reallocate(void* old_ptr,
 
         case pas_reallocate_disallow_heap_teleport:
             old_heap = pas_heap_for_segregated_heap(
-                pas_compact_bitfit_global_directory_ptr_load_non_null(
+                pas_compact_bitfit_directory_ptr_load_non_null(
                     &pas_compact_atomic_bitfit_view_ptr_load_non_null(
-                        &page->owner)->global_directory)->heap);
+                        &page->owner)->directory)->heap);
             break;
         }
         
@@ -307,7 +311,7 @@ pas_try_reallocate(void* old_ptr,
         if (!begin)
             return allocate_callback(heap, new_count, allocate_callback_arg);
 
-        if (PAS_UNLIKELY(pas_debug_heap_is_enabled())) {
+        if (PAS_UNLIKELY(pas_debug_heap_is_enabled(config.kind))) {
             void* raw_result;
             size_t size;
             bool did_overflow;
@@ -363,40 +367,40 @@ pas_try_reallocate(void* old_ptr,
 }
 
 typedef struct {
-    pas_try_allocate_intrinsic_primitive_for_realloc try_allocate_intrinsic_primitive;
-} pas_try_reallocate_intrinsic_primitive_allocate_data;
+    pas_try_allocate_intrinsic_for_realloc try_allocate_intrinsic;
+} pas_try_reallocate_intrinsic_allocate_data;
 
 static PAS_ALWAYS_INLINE pas_typed_allocation_result
-pas_try_reallocate_intrinsic_primitive_allocate_callback(
+pas_try_reallocate_intrinsic_allocate_callback(
     pas_heap* heap,
     size_t new_count,
     void* arg)
 {
-    pas_try_reallocate_intrinsic_primitive_allocate_data* data;
+    pas_try_reallocate_intrinsic_allocate_data* data;
 
     PAS_UNUSED_PARAM(heap);
     
-    data = (pas_try_reallocate_intrinsic_primitive_allocate_data*)arg;
+    data = (pas_try_reallocate_intrinsic_allocate_data*)arg;
     
     return pas_typed_allocation_result_create_with_intrinsic_allocation_result(
-        data->try_allocate_intrinsic_primitive(new_count),
+        data->try_allocate_intrinsic(new_count),
         NULL,
         new_count);
 }
 
-static PAS_ALWAYS_INLINE pas_intrinsic_allocation_result
-pas_try_reallocate_intrinsic_primitive(
+static PAS_ALWAYS_INLINE pas_allocation_result
+pas_try_reallocate_intrinsic(
     void* old_ptr,
     pas_heap* heap,
     size_t new_size,
     pas_heap_config config,
-    pas_try_allocate_intrinsic_primitive_for_realloc try_allocate_intrinsic_primitive,
+    pas_try_allocate_intrinsic_for_realloc try_allocate_intrinsic,
     pas_reallocate_heap_teleport_rule teleport_rule,
     pas_reallocate_free_mode free_mode)
 {
-    pas_try_reallocate_intrinsic_primitive_allocate_data data;
+    pas_try_reallocate_intrinsic_allocate_data data;
     
-    data.try_allocate_intrinsic_primitive = try_allocate_intrinsic_primitive;
+    data.try_allocate_intrinsic = try_allocate_intrinsic;
     
     return pas_typed_allocation_result_as_intrinsic_allocation_result(
         pas_try_reallocate(
@@ -406,7 +410,7 @@ pas_try_reallocate_intrinsic_primitive(
             config,
             teleport_rule,
             free_mode,
-            pas_try_reallocate_intrinsic_primitive_allocate_callback,
+            pas_try_reallocate_intrinsic_allocate_callback,
             &data));
 }
 
@@ -523,19 +527,27 @@ pas_try_reallocate_primitive_allocate_callback(
     size_t new_count,
     void* arg)
 {
+    static const bool verbose = false;
+    
     pas_try_reallocate_primitive_allocate_data* data;
+    pas_allocation_result result;
 
     PAS_UNUSED_PARAM(heap);
     
     data = (pas_try_reallocate_primitive_allocate_data*)arg;
+
+    result = data->try_allocate_primitive(data->heap_ref, new_count);
+
+    if (verbose)
+        pas_log("in realloc - result.begin = %p\n", (void*)result.begin);
     
     return pas_typed_allocation_result_create_with_intrinsic_allocation_result(
-        data->try_allocate_primitive(data->heap_ref, new_count),
+        result,
         NULL,
         new_count);
 }
 
-static PAS_ALWAYS_INLINE pas_intrinsic_allocation_result
+static PAS_ALWAYS_INLINE pas_allocation_result
 pas_try_reallocate_primitive(
     void* old_ptr,
     pas_primitive_heap_ref* heap_ref,

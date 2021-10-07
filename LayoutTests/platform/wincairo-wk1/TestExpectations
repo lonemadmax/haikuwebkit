@@ -323,6 +323,8 @@ http/tests/multipart/multipart-wait-before-boundary.html [ Timeout ]
 
 # Skip Service Workers in WK1
 http/tests/workers/service [ Skip ]
+http/wpt/push-api [ Skip ]
+imported/w3c/web-platform-tests/push-api [ Skip ]
 http/wpt/service-workers [ Skip ]
 
 fast/css/aspect-ratio-invalidate-if-disabled.html [ Failure ]
@@ -458,4 +460,4 @@ webkit.org/b/229247 http/tests/fetch/keepalive-fetch-2.html [ Pass Failure ]
 fast/html/broadcast-channel-between-different-sessions.html [ Skip ]
 http/tests/messaging/broadcastchannel-partitioning.html [ Skip ]
 
-https://webkit.org/b/230141 [ Debug ] editing/pasteboard/paste-contents-with-side-effects.html [ Crash ]
+webkit.org/b/230141 [ Debug ] editing/pasteboard/paste-contents-with-side-effects.html [ Pass Crash ]

@@ -46,6 +46,7 @@
 #import "Page.h"
 #import "PageOverlayController.h"
 #import "Settings.h"
+#import "TextIterator.h"
 #import <QuartzCore/QuartzCore.h>
 #import <pal/mac/DataDetectorsSoftLink.h>
 
@@ -399,7 +400,7 @@ void ServicesOverlayController::buildSelectionHighlight()
         if (!mainFrameView)
             return;
 
-        auto viewForRange = makeRefPtr(selectionRange->start.document().view());
+        RefPtr viewForRange = selectionRange->start.document().view();
         if (!viewForRange)
             return;
 

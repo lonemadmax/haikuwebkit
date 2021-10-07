@@ -34,8 +34,8 @@
 namespace WebCore {
 namespace Layout {
 
-LineBox::LineBox(const Box& rootLayoutBox, InlineLayoutUnit contentLogicalLeft, InlineLayoutUnit contentLogicalWidth, size_t nonSpanningInlineLevelBoxCount)
-    : m_rootInlineBox(rootLayoutBox, contentLogicalLeft, InlineLayoutSize { contentLogicalWidth, { } }, InlineLevelBox::Type::RootInlineBox)
+LineBox::LineBox(const Box& rootLayoutBox, InlineLayoutUnit contentLogicalLeft, InlineLayoutUnit contentLogicalWidth, size_t lineIndex, size_t nonSpanningInlineLevelBoxCount)
+    : m_rootInlineBox(rootLayoutBox, !lineIndex ? rootLayoutBox.firstLineStyle() : rootLayoutBox.style(), contentLogicalLeft, InlineLayoutSize { contentLogicalWidth, { } }, InlineLevelBox::Type::RootInlineBox)
 {
     m_nonRootInlineLevelBoxList.reserveInitialCapacity(nonSpanningInlineLevelBoxCount);
     m_nonRootInlineLevelBoxMap.reserveInitialCapacity(nonSpanningInlineLevelBoxCount);
@@ -53,7 +53,7 @@ InlineRect LineBox::logicalRectForTextRun(const Line::Run& run) const
     ASSERT(run.isText() || run.isSoftLineBreak());
     auto* parentInlineBox = &inlineLevelBoxForLayoutBox(run.layoutBox().parent());
     ASSERT(parentInlineBox->isInlineBox());
-    auto& fontMetrics = parentInlineBox->style().fontMetrics();
+    auto& fontMetrics = parentInlineBox->primaryFontMetrics();
     auto runlogicalTop = parentInlineBox->logicalTop() + parentInlineBox->baseline() - fontMetrics.ascent();
 
     while (parentInlineBox != &m_rootInlineBox && !parentInlineBox->hasLineBoxRelativeAlignment()) {

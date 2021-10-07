@@ -103,7 +103,7 @@ bool defaultAllowsInlineMediaPlaybackAfterFullscreen()
 
 bool defaultAllowsPictureInPictureMediaPlayback()
 {
-    static bool shouldAllowPictureInPictureMediaPlayback = dyld_get_program_sdk_version() >= DYLD_IOS_VERSION_9_0;
+    static bool shouldAllowPictureInPictureMediaPlayback = WebCore::linkedOnOrAfter(WebCore::SDKVersion::FirstWithPictureInPictureMediaPlayback);
     return shouldAllowPictureInPictureMediaPlayback;
 }
 
@@ -126,14 +126,14 @@ bool defaultPassiveTouchListenersAsDefaultOnDocument()
 
 bool defaultRequiresUserGestureToLoadVideo()
 {
-    static bool shouldRequireUserGestureToLoadVideo = dyld_get_program_sdk_version() >= DYLD_IOS_VERSION_10_0;
+    static bool shouldRequireUserGestureToLoadVideo = linkedOnOrAfter(WebCore::SDKVersion::FirstThatRequiresUserGestureToLoadVideo);
     return shouldRequireUserGestureToLoadVideo;
 }
 
 bool defaultWebSQLEnabled()
 {
     // For backward compatibility, keep WebSQL working until apps are rebuilt with the iOS 14 SDK.
-    static bool webSQLEnabled = dyld_get_program_sdk_version() < DYLD_IOS_VERSION_14_0;
+    static bool webSQLEnabled = !linkedOnOrAfter(WebCore::SDKVersion::FirstWithWebSQLDisabledByDefaultInLegacyWebKit);
     return webSQLEnabled;
 }
 
@@ -251,11 +251,7 @@ bool defaultAllowRunningOfInsecureContent()
 
 bool defaultShouldConvertInvalidURLsToBlank()
 {
-#if PLATFORM(IOS_FAMILY)
-    static bool shouldConvertInvalidURLsToBlank = dyld_get_program_sdk_version() >= DYLD_IOS_VERSION_10_0;
-#else
-    static bool shouldConvertInvalidURLsToBlank = dyld_get_program_sdk_version() >= DYLD_MACOSX_VERSION_10_12;
-#endif
+    static bool shouldConvertInvalidURLsToBlank = linkedOnOrAfter(WebCore::SDKVersion::FirstThatConvertsInvalidURLsToBlank);
     return shouldConvertInvalidURLsToBlank;
 }
 
@@ -275,13 +271,25 @@ bool defaultWheelEventGesturesBecomeNonBlocking()
 
 #endif
 
-#if ENABLE(MEDIA_SOURCE)
+#if ENABLE(MEDIA_SOURCE) && PLATFORM(IOS_FAMILY)
+bool defaultMediaSourceEnabled()
+{
+#if PLATFORM(MACCATALYST)
+    return true;
+#elif PLATFORM(IOS)
+    return WebCore::deviceClass() != MGDeviceClassiPhone
+        && WebCore::deviceClass() != MGDeviceClassiPod;
+#else
+    return false;
+#endif
+}
+#endif
 
+#if ENABLE(MEDIA_SOURCE)
 bool defaultWebMParserEnabled()
 {
     return isFeatureFlagEnabled("webm_parser", true);
 }
-
 #endif // ENABLE(MEDIA_SOURCE)
 
 #if ENABLE(VP9)

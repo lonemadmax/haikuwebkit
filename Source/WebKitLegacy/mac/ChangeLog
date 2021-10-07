@@ -1,3 +1,222 @@
+2021-10-03  David Kilzer  <ddkilzer@apple.com>
+
+        WTF::RetainPtr<> allows assignment of two pointer types that are not assignable
+        <https://webkit.org/b/230406>
+        <rdar://problem/83241893>
+
+        Reviewed by Darin Adler.
+
+        * Plugins/WebBasePluginPackage.mm:
+        (+[WebBasePluginPackage pluginWithPath:]):
+        - Use explicit type with RetainPtr<> to match return type.
+
+2021-10-01  Chris Dumez  <cdumez@apple.com>
+
+        Drop support for macOS < 10.15
+        https://bugs.webkit.org/show_bug.cgi?id=231085
+
+        Reviewed by Darin Adler.
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _recursive:displayRectIgnoringOpacity:inContext:stopAtLayerBackedViews:]):
+        (-[WebHTMLView _recursive:displayRectIgnoringOpacity:inContext:stopAtLayerBackedViews:_recursive:displayRectIgnoringOpacity:inContext:shouldChangeFontReferenceColor:stopAtLayerBackedViews:]): Deleted.
+
+2021-10-01  Ian Anderson  <iana@apple.com>
+
+        WebKitLegacy's module map files don't get installed
+        https://bugs.webkit.org/show_bug.cgi?id=230736
+
+        Reviewed by David Kilzer.
+
+        Revert r271607 because it doesn't work and isn't the right approach.
+
+        * Configurations/WebKitLegacy.xcconfig:
+        * History/WebBackForwardListPrivate.h:
+        * Misc/WebKitLegacy_Private.h: Removed.
+        * Misc/WebKitLegacy_iOS_Private.h: Removed.
+        * Misc/WebKitLegacy_macOS_Private.h: Removed.
+
+2021-09-29  Chris Dumez  <cdumez@apple.com>
+
+        Make WebLocalizedString() thread-safe
+        https://bugs.webkit.org/show_bug.cgi?id=230954
+
+        Reviewed by Alexey Proskuryakov.
+
+        Make WebLocalizedString() thread-safe. It takes minimal effort to make it thread-safe given
+        that the NSBundle API is thread-safe [1] and clients keep calling it on the background thread.
+
+        [1] https://developer.apple.com/documentation/foundation/nslocalizedstringwithdefaultvalue
+        "As of OS X 10.11 and iOS 9, NSBundle is thread-safe. As such, you can safely call
+         NSLocalizedStringWithDefaultValue from any execution context."
+
+        * Misc/WebLocalizableStrings.mm:
+
+2021-09-28  Chris Dumez  <cdumez@apple.com>
+
+        Move Cross-Origin-Opener-Policy handling to the NetworkProcess
+        https://bugs.webkit.org/show_bug.cgi?id=230812
+        <rdar://83504842>
+
+        Reviewed by Youenn Fablet.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::dispatchDecidePolicyForResponse):
+
+2021-09-23  Tim Horton  <timothy_horton@apple.com>
+
+        Move more linked-on-or-after checks to WebCore::linkedOnOrAfter()
+        https://bugs.webkit.org/show_bug.cgi?id=230694
+
+        Reviewed by Wenson Hsieh.
+
+        * Misc/WebDownload.mm:
+        (shouldCallOnNetworkThread):
+        * WebView/WebPreferencesDefaultValues.mm:
+        (WebKit::defaultRequiresUserGestureToLoadVideo):
+        (WebKit::defaultWebSQLEnabled):
+        (WebKit::defaultShouldConvertInvalidURLsToBlank):
+
+2021-09-23  Tim Horton  <timothy_horton@apple.com>
+
+        shouldAllowPictureInPictureMediaPlayback should use WebCore's linkedOnOrAfter()
+        https://bugs.webkit.org/show_bug.cgi?id=230674
+
+        Reviewed by Simon Fraser.
+
+        * WebView/WebPreferencesDefaultValues.mm:
+        (WebKit::defaultAllowsPictureInPictureMediaPlayback):
+        Adopt the WebCore API (which supports overrides for Safari and for testing).
+
+2021-09-23  Brent Fulgham  <bfulgham@apple.com>
+
+        Remove XSS Auditor: Part 3 (Deprecate API)
+        https://bugs.webkit.org/show_bug.cgi?id=230661
+        <rdar://problem/83428911>
+
+        Reviewed by Mark Lam.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (-[WebPreferences isXSSAuditorEnabled]):
+        (-[WebPreferences setXSSAuditorEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+
+2021-09-22  Chris Dumez  <cdumez@apple.com>
+
+        Drop makeRef() and use Ref { } instead
+        https://bugs.webkit.org/show_bug.cgi?id=230626
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::requestCheckingOfString):
+
+2021-09-21  Chris Dumez  <cdumez@apple.com>
+
+        Drop makeRefPtr() and use RefPtr { } directly instead
+        https://bugs.webkit.org/show_bug.cgi?id=230564
+
+        Reviewed by Alex Christensen.
+
+        * DOM/DOM.mm:
+        (-[DOMRange renderedImageForcingBlackText:renderedImageForcingBlackText:]):
+        * WebCoreSupport/WebContextMenuClient.mm:
+        (WebContextMenuClient::imageForCurrentSharingServicePickerItem):
+        * WebCoreSupport/WebDragClient.mm:
+        (WebDragClient::declareAndWriteDragImage):
+        * WebView/WebHTMLRepresentation.mm:
+        (-[WebHTMLRepresentation elementWithName:inForm:]):
+        (-[WebHTMLRepresentation controlsInForm:]):
+        * WebView/WebView.mm:
+        (-[WebView updateTextTouchBar]):
+
+2021-09-21  David Kilzer  <ddkilzer@apple.com>
+
+        Rename {checked,dynamic}_ns_cast<> to {checked,dynamic}_objc_cast<>
+        <https://webkit.org/b/230508>
+        <rdar://problem/83323145>
+
+        Reviewed by Brent Fulgham.
+
+        * WebCoreSupport/WebDragClient.mm:
+        * WebView/WebHTMLView.mm:
+        - Import <wtf/cocoa/TypeCastsCocoa.h> for future move of
+          WTF::dynamic_objc_cast<> from RetainPtr.h to that header.
+
+2021-09-20  Chris Dumez  <cdumez@apple.com>
+
+        Stop using makeRef(*this) / makeRefPtr(this)
+        https://bugs.webkit.org/show_bug.cgi?id=230464
+
+        Reviewed by Alex Christensen.
+
+        * Plugins/Hosted/HostedNetscapePluginStream.mm:
+        (WebKit::HostedNetscapePluginStream::start):
+        * Plugins/WebNetscapePluginStream.mm:
+        (WebNetscapePluginStream::start):
+
+2021-09-17  Alex Christensen  <achristensen@webkit.org>
+
+        Use ObjectIdentifier for ResourceLoader
+        https://bugs.webkit.org/show_bug.cgi?id=230278
+
+        Reviewed by Michael Catanzaro.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::assignIdentifierToInitialRequest):
+        (WebFrameLoaderClient::dispatchWillSendRequest):
+        (WebFrameLoaderClient::shouldUseCredentialStorage):
+        (WebFrameLoaderClient::dispatchDidReceiveAuthenticationChallenge):
+        (WebFrameLoaderClient::canAuthenticateAgainstProtectionSpace):
+        (WebFrameLoaderClient::connectionProperties):
+        (WebFrameLoaderClient::dispatchDidReceiveResponse):
+        (WebFrameLoaderClient::willCacheResponse const):
+        (WebFrameLoaderClient::dispatchDidReceiveContentLength):
+        (WebFrameLoaderClient::dispatchDidFinishLoading):
+        (WebFrameLoaderClient::dispatchDidFailLoading):
+        * WebView/WebDocumentLoaderMac.h:
+        * WebView/WebDocumentLoaderMac.mm:
+        (WebDocumentLoaderMac::increaseLoadCount):
+        (WebDocumentLoaderMac::decreaseLoadCount):
+        * WebView/WebViewInternal.h:
+
+2021-09-17  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Add fast property enumeration mode for JSON.stringify
+        https://bugs.webkit.org/show_bug.cgi?id=230393
+
+        Reviewed by Mark Lam.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h:
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::demarshalValues):
+
+2021-09-14  Chris Dumez  <cdumez@apple.com>
+
+        [Hardening] Validate IDBValue's blob paths in WebIDBServer::putOrAdd()
+        https://bugs.webkit.org/show_bug.cgi?id=230233
+        <rdar://79562514>
+
+        Reviewed by Brady Eidson.
+
+        * WebCoreSupport/WebPlatformStrategies.mm:
+
+2021-09-13  Youenn Fablet  <youenn@apple.com>
+
+        Remove WritableStream runtime flag
+        https://bugs.webkit.org/show_bug.cgi?id=230148
+
+        Reviewed by Sihui Liu.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (-[WebPreferences writableStreamAPIEnabled]): Deleted.
+        (-[WebPreferences setWritableStreamAPIEnabled:]): Deleted.
+        * WebView/WebPreferencesPrivate.h:
+
 2021-09-11  David Kilzer  <ddkilzer@apple.com>
 
         CFNotificationCenterAddObserver() should use weak observers

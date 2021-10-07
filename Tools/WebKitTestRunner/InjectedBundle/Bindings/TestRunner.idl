@@ -361,6 +361,7 @@ interface TestRunner {
 
     undefined setCustomUserAgent(DOMString userAgent);
 
+    undefined terminateGPUProcess();
     undefined terminateNetworkProcess();
     undefined terminateServiceWorkers();
     undefined setUseSeparateServiceWorkerProcess(boolean value);
@@ -383,6 +384,7 @@ interface TestRunner {
     undefined resetMockMediaDevices();
     undefined setMockCameraOrientation(unsigned long orientation);
     boolean isMockRealtimeMediaSourceCenterEnabled();
+    undefined setMockCameraIsInterrupted(boolean isInterrupted);
 
     boolean hasAppBoundSession();
     undefined clearAppBoundSession();
@@ -414,10 +416,13 @@ interface TestRunner {
     undefined setPrivateClickMeasurementAttributionReportURLsForTesting(DOMString sourceURLString, DOMString destinationURLString);
     undefined markPrivateClickMeasurementsAsExpiredForTesting();
     undefined setPrivateClickMeasurementFraudPreventionValuesForTesting(DOMString unlinkableToken, DOMString secretToken, DOMString signature, DOMString keyID);
+    undefined setPrivateClickMeasurementAppBundleIDForTesting(DOMString appBundleID);
 
     // SpeechRecognition
     undefined setIsSpeechRecognitionPermissionGranted(boolean value);
 
     // MediaKeySystem
     undefined setIsMediaKeySystemPermissionGranted(boolean value);
+
+    undefined takeViewPortSnapshot(object callback);
 };

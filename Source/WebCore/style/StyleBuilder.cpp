@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  * Copyright (C) 2004-2005 Allan Sandfeld Jensen (kde@carewolf.com)
  * Copyright (C) 2006, 2007 Nicholas Shanks (webkit@nickshanks.com)
- * Copyright (C) 2005-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2021 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alexey Proskuryakov <ap@webkit.org>
  * Copyright (C) 2007, 2008 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
@@ -32,7 +32,6 @@
 
 #include "CSSFontSelector.h"
 #include "CSSPaintImageValue.h"
-#include "CSSPendingSubstitutionValue.h"
 #include "CSSValuePool.h"
 #include "HTMLElement.h"
 #include "PaintWorkletGlobalScope.h"
@@ -196,7 +195,7 @@ void Builder::applyCustomProperty(const String& name)
         if (index != SelectorChecker::MatchDefault && m_state.style().insideLink() == InsideLink::NotInside)
             continue;
 
-        auto valueToApply = makeRef(downcast<CSSCustomPropertyValue>(*property.cssValue[index]));
+        Ref valueToApply = downcast<CSSCustomPropertyValue>(*property.cssValue[index]);
 
         if (inCycle) {
             m_state.m_appliedCustomProperties.add(name); // Make sure we do not try to apply this property again while resolving it.
@@ -232,7 +231,7 @@ void Builder::applyCustomProperty(const String& name)
         if (index != SelectorChecker::MatchDefault && m_state.style().insideLink() == InsideLink::NotInside)
             continue;
 
-        auto valueToApply = makeRef(downcast<CSSCustomPropertyValue>(*property.cssValue[index]));
+        Ref valueToApply = downcast<CSSCustomPropertyValue>(*property.cssValue[index]);
 
         if (inCycle && WTF::holds_alternative<Ref<CSSVariableReferenceValue>>(valueToApply->value())) {
             // Resolve this value so that we reset its dependencies.
@@ -368,16 +367,9 @@ Ref<CSSValue> Builder::resolveValue(CSSPropertyID propertyID, CSSValue& value)
     return *variableValue;
 }
 
-RefPtr<CSSValue> Builder::resolvedVariableValue(CSSPropertyID propID, const CSSValue& value)
+RefPtr<CSSValue> Builder::resolvedVariableValue(CSSPropertyID propertyID, const CSSValue& value)
 {
-    if (value.isPendingSubstitutionValue()) {
-        auto& substitutionValue = downcast<CSSPendingSubstitutionValue>(value);
-        CSSParser parser(CSSParserContext(m_state.document(), substitutionValue.baseURL()));
-        return parser.parseValueWithVariableReferences(propID, value, m_state);
-    }
-    
-    CSSParser parser(m_state.document());
-    return parser.parseValueWithVariableReferences(propID, value, m_state);
+    return CSSParser(m_state.document()).parseValueWithVariableReferences(propertyID, value, m_state);
 }
 
 }

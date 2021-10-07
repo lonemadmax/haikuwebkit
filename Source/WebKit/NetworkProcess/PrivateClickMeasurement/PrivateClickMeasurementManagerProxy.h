@@ -25,8 +25,10 @@
 
 #pragma once
 
+#include "PrivateClickMeasurementConnection.h"
 #include "PrivateClickMeasurementManagerInterface.h"
 #include <wtf/FastMalloc.h>
+#include <wtf/text/CString.h>
 
 namespace WebKit {
 
@@ -35,8 +37,12 @@ namespace PCM {
 class ManagerProxy : public ManagerInterface {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    void storeUnattributed(WebCore::PrivateClickMeasurement&&) final;
-    void handleAttribution(WebCore::PrivateClickMeasurement::AttributionTriggerData&&, const URL& requestURL, WebCore::RegistrableDomain&& redirectDomain, const URL& firstPartyURL) final;
+    ManagerProxy(const String& machServiceName);
+
+    using ApplicationBundleIdentifier = String;
+
+    void storeUnattributed(WebCore::PrivateClickMeasurement&&, CompletionHandler<void()>&&) final;
+    void handleAttribution(WebCore::PrivateClickMeasurement::AttributionTriggerData&&, const URL& requestURL, WebCore::RegistrableDomain&& redirectDomain, const URL& firstPartyURL, const ApplicationBundleIdentifier&) final;
     void clear(CompletionHandler<void()>&&) final;
     void clearForRegistrableDomain(const WebCore::RegistrableDomain&, CompletionHandler<void()>&&) final;
     void migratePrivateClickMeasurementFromLegacyStorage(WebCore::PrivateClickMeasurement&&, PrivateClickMeasurementAttributionType) final;
@@ -48,11 +54,19 @@ public:
     void setAttributionReportURLsForTesting(URL&& sourceURL, URL&& destinationURL) final;
     void markAllUnattributedAsExpiredForTesting() final;
     void markAttributedPrivateClickMeasurementsAsExpiredForTesting(CompletionHandler<void()>&&) final;
-    void setEphemeralMeasurementForTesting(bool) final;
     void setPCMFraudPreventionValuesForTesting(String&& unlinkableToken, String&& secretToken, String&& signature, String&& keyID) final;
     void startTimerImmediatelyForTesting() final;
+    void setPrivateClickMeasurementAppBundleIDForTesting(ApplicationBundleIdentifier&&) final;
     void destroyStoreForTesting(CompletionHandler<void()>&&) final;
     void allowTLSCertificateChainForLocalPCMTesting(const WebCore::CertificateInfo&) final;
+
+private:
+    template<MessageType messageType, typename... Args>
+    void sendMessage(Args&&...) const;
+    template<MessageType messageType, typename... Args, typename... ReplyArgs>
+    void sendMessageWithReply(CompletionHandler<void(ReplyArgs...)>&&, Args&&...) const;
+
+    Connection m_connection;
 };
 
 } // namespace PCM

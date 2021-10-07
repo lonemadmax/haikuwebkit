@@ -435,8 +435,6 @@ void Options::recomputeDependentOptions()
     Options::useConcurrentGC() = false;
 #endif
 
-    if (!isARM64())
-        Options::useDataIC() = false;
     if (!Options::useDataIC())
         Options::useDataICInOptimizingJIT() = false;
 

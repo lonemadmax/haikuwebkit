@@ -66,7 +66,7 @@ RemoteGraphicsContextGL::RemoteGraphicsContextGL(GPUConnectionToWebProcess& gpuC
     : m_gpuConnectionToWebProcess(makeWeakPtr(gpuConnectionToWebProcess))
     , m_streamConnection(IPC::StreamServerConnection<RemoteGraphicsContextGL>::create(gpuConnectionToWebProcess.connection(), WTFMove(stream), remoteGraphicsContextGLStreamWorkQueue()))
     , m_graphicsContextGLIdentifier(graphicsContextGLIdentifier)
-    , m_renderingBackend(makeRef(renderingBackend))
+    , m_renderingBackend(renderingBackend)
     , m_renderingResourcesRequest(ScopedWebGLRenderingResourcesRequest::acquire())
 {
     assertIsMainRunLoop();
@@ -83,7 +83,7 @@ RemoteGraphicsContextGL::~RemoteGraphicsContextGL()
 void RemoteGraphicsContextGL::initialize(GraphicsContextGLAttributes&& attributes)
 {
     assertIsMainRunLoop();
-    remoteGraphicsContextGLStreamWorkQueue().dispatch([attributes = WTFMove(attributes), protectedThis = makeRef(*this)]() mutable {
+    remoteGraphicsContextGLStreamWorkQueue().dispatch([attributes = WTFMove(attributes), protectedThis = Ref { *this }]() mutable {
         protectedThis->workQueueInitialize(WTFMove(attributes));
     });
     m_streamConnection->startReceivingMessages(*this, Messages::RemoteGraphicsContextGL::messageReceiverName(), m_graphicsContextGLIdentifier.toUInt64());
@@ -103,7 +103,7 @@ void RemoteGraphicsContextGL::stopListeningForIPC(Ref<RemoteGraphicsContextGL>&&
 void RemoteGraphicsContextGL::displayWasReconfigured()
 {
     assertIsMainRunLoop();
-    remoteGraphicsContextGLStreamWorkQueue().dispatch([protectedThis = makeRef(*this)]() {
+    remoteGraphicsContextGLStreamWorkQueue().dispatch([protectedThis = Ref { *this }]() {
         assertIsCurrent(protectedThis->m_streamThread);
         protectedThis->m_context->displayWasReconfigured();
     });

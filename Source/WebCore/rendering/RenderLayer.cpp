@@ -490,7 +490,7 @@ void RenderLayer::insertOnlyThisLayer(LayerChangeTiming timing)
 
     // Remove all descendant layers from the hierarchy and add them to the new position.
     for (auto& child : childrenOfType<RenderElement>(renderer()))
-        child.moveLayers(m_parent, this);
+        child.moveLayers(m_parent, *this);
 
     if (parent()) {
         if (timing == LayerChangeTiming::StyleChange)
@@ -680,6 +680,21 @@ void RenderLayer::dirtyStackingContextZOrderLists()
 {
     if (auto* sc = stackingContext())
         sc->dirtyZOrderLists();
+}
+
+bool RenderLayer::willCompositeClipPath() const
+{
+    if (!isComposited())
+        return false;
+
+    auto* clipPath = renderer().style().clipPath();
+    if (!clipPath)
+        return false;
+
+    if (renderer().hasMask())
+        return false;
+
+    return (clipPath->type() != ClipPathOperation::Shape || clipPath->type() == ClipPathOperation::Shape) && GraphicsLayer::supportsLayerType(GraphicsLayer::Type::Shape);
 }
 
 void RenderLayer::dirtyNormalFlowList()
@@ -1254,25 +1269,6 @@ static inline LayoutRect computeReferenceBox(const RenderObject& renderer, CSSBo
         return rootRelativeBounds;
     
     return computeReferenceRectFromBox(downcast<RenderBox>(renderer), boxType, offsetFromRoot);
-}
-
-static inline CSSBoxType transformBoxToCSSBoxType(TransformBox transformBox)
-{
-    switch (transformBox) {
-    case TransformBox::StrokeBox:
-        return CSSBoxType::StrokeBox;
-    case TransformBox::ContentBox:
-        return CSSBoxType::ContentBox;
-    case TransformBox::BorderBox:
-        return CSSBoxType::BorderBox;
-    case TransformBox::FillBox:
-        return CSSBoxType::FillBox;
-    case TransformBox::ViewBox:
-        return CSSBoxType::ViewBox;
-    default:
-        ASSERT_NOT_REACHED();
-        return CSSBoxType::BorderBox;
-    }
 }
 
 void RenderLayer::updateTransform()
@@ -1924,18 +1920,19 @@ RenderLayer* RenderLayer::enclosingCompositingLayer(IncludeSelfOrNot includeSelf
     return nullptr;
 }
 
+static RenderLayer* repaintTargetForLayer(const RenderLayer& layer)
+{
+    if (compositedWithOwnBackingStore(layer))
+        return const_cast<RenderLayer*>(&layer);
+
+    if (layer.paintsIntoProvidedBacking())
+        return layer.backingProviderLayer();
+
+    return nullptr;
+}
+
 RenderLayer* RenderLayer::enclosingCompositingLayerForRepaint(IncludeSelfOrNot includeSelf) const
 {
-    auto repaintTargetForLayer = [](const RenderLayer& layer) -> RenderLayer* {
-        if (compositedWithOwnBackingStore(layer))
-            return const_cast<RenderLayer*>(&layer);
-        
-        if (layer.paintsIntoProvidedBacking())
-            return layer.backingProviderLayer();
-        
-        return nullptr;
-    };
-
     RenderLayer* repaintTarget = nullptr;
     if (includeSelf == IncludeSelf && (repaintTarget = repaintTargetForLayer(*this)))
         return repaintTarget;
@@ -1946,6 +1943,18 @@ RenderLayer* RenderLayer::enclosingCompositingLayerForRepaint(IncludeSelfOrNot i
     }
          
     return nullptr;
+}
+
+bool RenderLayer::sharesCompositingLayerForRepaint(const RenderLayer& otherLayer) const
+{
+    if (repaintTargetForLayer(*this))
+        return false;
+
+    const RenderLayer* paintParent = paintOrderParent();
+    if (&otherLayer == paintParent)
+        return true;
+    auto* otherPaintParent = otherLayer.paintOrderParent();
+    return paintParent == otherPaintParent || this == otherPaintParent;
 }
 
 RenderLayer* RenderLayer::enclosingFilterLayer(IncludeSelfOrNot includeSelf) const
@@ -3972,10 +3981,7 @@ Element* RenderLayer::enclosingElement() const
 
 bool RenderLayer::establishesTopLayer() const
 {
-    if (!renderer().element())
-        return renderer().style().styleType() == PseudoId::Backdrop;
-
-    return renderer().element()->isInTopLayer();
+    return isInTopLayerOrBackdrop(renderer().style(), renderer().element());
 }
 
 void RenderLayer::establishesTopLayerWillChange()
@@ -4457,8 +4463,11 @@ ClipRects* RenderLayer::clipRects(const ClipRectsContext& context) const
 
 bool RenderLayer::clipCrossesPaintingBoundary() const
 {
-    return parent()->enclosingPaginationLayer(IncludeCompositedPaginatedLayers) != enclosingPaginationLayer(IncludeCompositedPaginatedLayers)
-        || parent()->enclosingCompositingLayerForRepaint() != enclosingCompositingLayerForRepaint();
+    auto* parentLayer = parent();
+    if (!sharesCompositingLayerForRepaint(*parentLayer))
+        return true;
+
+    return parentLayer->enclosingPaginationLayer(IncludeCompositedPaginatedLayers) != enclosingPaginationLayer(IncludeCompositedPaginatedLayers);
 }
 
 void RenderLayer::calculateClipRects(const ClipRectsContext& clipRectsContext, ClipRects& clipRects) const

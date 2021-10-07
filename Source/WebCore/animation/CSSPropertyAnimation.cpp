@@ -191,7 +191,7 @@ static RefPtr<ScaleTransformOperation> blendFunc(ScaleTransformOperation* from, 
     }
 
     auto blendedOperation = to->blend(from, context);
-    if (is<ScaleTransformOperation>(blendedOperation.get())) {
+    if (is<ScaleTransformOperation>(blendedOperation)) {
         auto& scale = downcast<ScaleTransformOperation>(blendedOperation.get());
         return ScaleTransformOperation::create(scale.x(), scale.y(), scale.z(), scale.type());
     }
@@ -227,7 +227,7 @@ static RefPtr<RotateTransformOperation> blendFunc(RotateTransformOperation* from
     }
 
     auto blendedOperation = to->blend(from, context);
-    if (is<RotateTransformOperation>(blendedOperation.get())) {
+    if (is<RotateTransformOperation>(blendedOperation)) {
         auto& rotate = downcast<RotateTransformOperation>(blendedOperation.get());
         return RotateTransformOperation::create(rotate.x(), rotate.y(), rotate.z(), rotate.angle(), rotate.type());
     }
@@ -263,7 +263,7 @@ static RefPtr<TranslateTransformOperation> blendFunc(TranslateTransformOperation
     }
 
     Ref<TransformOperation> blendedOperation = to->blend(from, context);
-    if (is<TranslateTransformOperation>(blendedOperation.get())) {
+    if (is<TranslateTransformOperation>(blendedOperation)) {
         TranslateTransformOperation& translate = downcast<TranslateTransformOperation>(blendedOperation.get());
         return TranslateTransformOperation::create(translate.x(), translate.y(), translate.z(), translate.type());
     }
@@ -315,9 +315,9 @@ static inline FilterOperations blendFilterOperations(const FilterOperations& fro
     size_t toSize = to.operations().size();
     size_t size = std::max(fromSize, toSize);
     for (size_t i = 0; i < size; i++) {
-        RefPtr<FilterOperation> fromOp = (i < fromSize) ? from.operations()[i].get() : 0;
-        RefPtr<FilterOperation> toOp = (i < toSize) ? to.operations()[i].get() : 0;
-        RefPtr<FilterOperation> blendedOp = toOp ? blendFunc(fromOp.get(), toOp.get(), context) : (fromOp ? blendFunc(0, fromOp.get(), context, true) : 0);
+        RefPtr<FilterOperation> fromOp = (i < fromSize) ? from.operations()[i].get() : nullptr;
+        RefPtr<FilterOperation> toOp = (i < toSize) ? to.operations()[i].get() : nullptr;
+        RefPtr<FilterOperation> blendedOp = toOp ? blendFunc(fromOp.get(), toOp.get(), context) : (fromOp ? blendFunc(0, fromOp.get(), context, true) : nullptr);
         if (blendedOp)
             result.operations().append(blendedOp);
         else {
@@ -2538,6 +2538,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new DiscretePropertyWrapper<BlendMode>(CSSPropertyMixBlendMode, &RenderStyle::blendMode, &RenderStyle::setBlendMode),
 #endif
         new PropertyWrapperAspectRatio,
+        new DiscretePropertyWrapper<FontPalette>(CSSPropertyFontPalette, &RenderStyle::fontPalette, &RenderStyle::setFontPalette),
     };
     const unsigned animatableLonghandPropertiesCount = WTF_ARRAY_LENGTH(animatableLonghandPropertyWrappers);
 

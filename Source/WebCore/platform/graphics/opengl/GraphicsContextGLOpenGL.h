@@ -69,6 +69,7 @@ OBJC_CLASS CALayer;
 OBJC_CLASS WebGLLayer;
 namespace WebCore {
 class GraphicsContextGLIOSurfaceSwapChain;
+class GraphicsContextGLCVANGLE;
 }
 #endif // PLATFORM(COCOA)
 
@@ -108,7 +109,6 @@ public:
     virtual ~GraphicsContextGLOpenGL();
 
 #if PLATFORM(COCOA)
-    static Ref<GraphicsContextGLOpenGL> createShared(GraphicsContextGLOpenGL& sharedContext);
     static Ref<GraphicsContextGLOpenGL> createForGPUProcess(const GraphicsContextGLAttributes&, GraphicsContextGLIOSurfaceSwapChain*);
 
     CALayer* platformLayer() const final { return reinterpret_cast<CALayer*>(m_webGLLayer.get()); }
@@ -464,13 +464,15 @@ public:
     void resetBuffersToAutoClear();
     void setBuffersToAutoClear(GCGLbitfield) final;
     GCGLbitfield getBuffersToAutoClear() const final;
-    void enablePreserveDrawingBuffer() final;
 
     void dispatchContextChangedNotification();
 
     void paintRenderingResultsToCanvas(ImageBuffer&) final;
     std::optional<PixelBuffer> paintRenderingResultsToPixelBuffer() final;
     void paintCompositedResultsToCanvas(ImageBuffer&) final;
+#if ENABLE(MEDIA_STREAM)
+    RefPtr<MediaSample> paintCompositedResultsToMediaSample() final;
+#endif
 
     std::optional<PixelBuffer> readRenderingResultsForPainting();
     std::optional<PixelBuffer> readCompositedResultsForPainting();
@@ -544,15 +546,14 @@ public:
 
 private:
 #if PLATFORM(COCOA)
-    GraphicsContextGLOpenGL(GraphicsContextGLAttributes, HostWindow*, GraphicsContextGLOpenGL* sharedContext = nullptr, GraphicsContextGLIOSurfaceSwapChain* = nullptr);
+    GraphicsContextGLOpenGL(GraphicsContextGLAttributes, HostWindow*, GraphicsContextGLIOSurfaceSwapChain* = nullptr);
 #else
-    GraphicsContextGLOpenGL(GraphicsContextGLAttributes, HostWindow*, GraphicsContextGLOpenGL* sharedContext = nullptr);
+    GraphicsContextGLOpenGL(GraphicsContextGLAttributes, HostWindow*);
 #endif
 
     // Called once by all the public entry points that eventually call OpenGL.
     // Called once by all the public entry points of ExtensionsGL that eventually call OpenGL.
     bool makeContextCurrent() WARN_UNUSED_RETURN;
-    void clearCurrentContext();
 
     // Take into account the user's requested context creation attributes,
     // in particular stencil and antialias, and determine which could or
@@ -579,6 +580,8 @@ private:
     bool reshapeDisplayBufferBacking();
     bool allocateAndBindDisplayBufferBacking();
     bool bindDisplayBufferBacking(std::unique_ptr<IOSurface> backing, void* pbuffer);
+    static bool makeCurrent(PlatformGraphicsContextGLDisplay, PlatformGraphicsContextGL);
+    friend class GraphicsContextGLCVANGLE;
 #endif
 #if USE(ANGLE)
     // Returns false if context should be lost due to timeout.
@@ -795,9 +798,10 @@ private:
     ScopedHighPerformanceGPURequest m_highPerformanceGPURequest;
 #endif
 #if ENABLE(VIDEO) && USE(AVFOUNDATION)
-    std::unique_ptr<GraphicsContextGLCV> m_cv;
+    std::unique_ptr<GraphicsContextGLCVANGLE> m_cv;
 #endif
 #if USE(ANGLE)
+    bool m_useFenceSyncForDisplayRateLimit = false;
     static constexpr size_t maxPendingFrames = 3;
     size_t m_oldestFrameCompletionFence { 0 };
     ScopedGLFence m_frameCompletionFences[maxPendingFrames];

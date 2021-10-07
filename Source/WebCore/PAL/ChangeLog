@@ -1,3 +1,208 @@
+2021-10-03  David Kilzer  <ddkilzer@apple.com>
+
+        Build fix: Attribute IOSurfaces created by camera and decoders to responsible WebProcess
+        <https://bugs.webkit.org/show_bug.cgi?id=231075>
+        <rdar://problem/83767168>
+
+        Unreviewed build fix.
+
+        * pal/spi/cocoa/IOSurfaceSPI.h:
+        (IOSurfaceMemoryLedgerTags):
+        - Define enums for both HAVE(IOSURFACE_SET_OWNERSHIP)
+          and HAVE(IOSURFACE_SET_OWNERSHIP_IDENTITY).
+
+2021-10-03  David Kilzer  <ddkilzer@apple.com>
+
+        Build fix: GPU Process microphone attribution SPI adoption
+        <https://bugs.webkit.org/show_bug.cgi?id=231034>
+        <rdar://problem/83732537>
+
+        * pal/spi/cocoa/AVFoundationSPI.h:
+        (-[AVAudioSession setHostProcessAttribution:error:]):
+        - Add SPI declaration for open source bots.
+
+2021-10-01  Chris Dumez  <cdumez@apple.com>
+
+        Drop support for macOS < 10.15
+        https://bugs.webkit.org/show_bug.cgi?id=231085
+
+        Reviewed by Darin Adler.
+
+        * pal/cocoa/AVFoundationSoftLink.mm:
+        * pal/spi/cocoa/AVFoundationSPI.h:
+        * pal/spi/mac/NSMenuSPI.h:
+        * pal/spi/mac/NSViewSPI.h:
+
+2021-10-01  Kate Cheney  <katherine_cheney@apple.com>
+
+        GPU Process microphone attribution SPI adoption
+        https://bugs.webkit.org/show_bug.cgi?id=231034
+        <rdar://problem/83732537>
+
+        Reviewed by Youenn Fablet.
+
+        * pal/spi/cocoa/LaunchServicesSPI.h:
+
+2021-09-30  Devin Rousso  <drousso@apple.com>
+
+        [iOS][GPU Process] support `<attachment>`
+        https://bugs.webkit.org/show_bug.cgi?id=230781
+        <rdar://problem/70884096>
+
+        Reviewed by Myles Maxfield.
+
+        * pal/spi/cg/CoreGraphicsSPI.h:
+
+2021-09-29  Eric Carlson  <eric.carlson@apple.com>
+
+        [Cocoa] Support in-band chapter tracks
+        https://bugs.webkit.org/show_bug.cgi?id=230380
+        <rdar://problem/83218578>
+
+        Reviewed by Jer Noble.
+
+        * pal/cocoa/AVFoundationSoftLink.h:
+        * pal/cocoa/AVFoundationSoftLink.mm:
+
+2021-09-28  Alex Christensen  <achristensen@webkit.org>
+
+        Mostly fix Mac CMake build
+        https://bugs.webkit.org/show_bug.cgi?id=230868
+
+        Reviewed by Don Olmstead.
+
+        * pal/PlatformMac.cmake:
+
+2021-09-28  Alex Christensen  <achristensen@webkit.org>
+
+        Fix build with non-internal Monterey SDK
+        https://bugs.webkit.org/show_bug.cgi?id=230872
+
+        Reviewed by Jonathan Bedard.
+
+        * pal/spi/cocoa/PassKitSPI.h:
+        * pal/spi/mac/SystemPreviewSPI.h:
+
+2021-09-24  Jonathan Bedard  <jbedard@apple.com>
+
+        [iOS 15] Support building WebKit (Part 3)
+        https://bugs.webkit.org/show_bug.cgi?id=227002
+        <rdar://problem/79316598>
+
+        Reviewed by Ryan Haddad.
+
+        * pal/spi/cocoa/QuartzCoreSPI.h: Add CAFenceHandle.
+        * pal/spi/ios/SystemPreviewSPI.h: Ditto.
+
+2021-09-23  Simon Fraser  <simon.fraser@apple.com>
+
+        Unify more media-related WebCore source files
+        https://bugs.webkit.org/show_bug.cgi?id=230666
+
+        Reviewed by Tim Horton.
+
+        AVOutputContextOutputDevicesDidChangeNotification is declared as an NSNotificationName.
+
+        * pal/cocoa/AVFoundationSoftLink.h:
+        * pal/cocoa/AVFoundationSoftLink.mm:
+
+2021-09-22  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [Cocoa] Hook up palettes to CoreText
+        https://bugs.webkit.org/show_bug.cgi?id=230449
+
+        Reviewed by Simon Fraser.
+
+        * pal/spi/cf/CoreTextSPI.h:
+
+2021-09-21  Jean-Yves Avenard  <jya@apple.com>
+
+        Use SharedMemory for transferring appended buffers from SourceBuffer to the GPU process
+        https://bugs.webkit.org/show_bug.cgi?id=230329
+        rdar://problem/83291495
+
+        Reviewed by Jer Noble.
+
+        * pal/cf/CoreMediaSoftLink.cpp:
+        * pal/cf/CoreMediaSoftLink.h: Add required CoreMedia methods.
+
+2021-09-21  Per Arne Vollan  <pvollan@apple.com>
+
+        [Mac Catalyst] Fix build issue
+        https://bugs.webkit.org/show_bug.cgi?id=230567
+        <rdar://83314629>
+
+        Unreviewed follow-up fix after <https://commits.webkit.org/241966@main>.
+
+        Fix an incorrect define check.
+
+        * pal/spi/cocoa/LaunchServicesSPI.h:
+
+2021-09-21  Per Arne Vollan  <pvollan@apple.com>
+
+        [Mac Catalyst] Fix build issue
+        https://bugs.webkit.org/show_bug.cgi?id=230567
+        <rdar://83314629>
+
+        Reviewed by Brent Fulgham.
+
+        The identifier kLSDefaultSessionID is undeclared. Declare it for the internal build on Catalyst.
+
+        * pal/spi/cocoa/LaunchServicesSPI.h:
+
+2021-09-20  Jer Noble  <jer.noble@apple.com>
+
+        [Cocoa] Make AVSampleBufferVideoOutput support an Experimental Feature
+        https://bugs.webkit.org/show_bug.cgi?id=230424
+
+        Reviewed by Eric Carlson.
+
+        Drive-by fix: fix up the declarations in AVFoundationSPI.h.
+
+        * pal/spi/cocoa/AVFoundationSPI.h:
+
+2021-09-17  Per Arne Vollan  <pvollan@apple.com>
+
+        [Mac Catalyst] Fix build issue
+        https://bugs.webkit.org/show_bug.cgi?id=230373
+
+        Reviewed by Darin Adler.
+
+        There's an issue with the Mac Catalyst build where LSSessionID is being redefined. Address this by removing the second definition,
+        and moving the related function into the open source section.
+
+        * pal/spi/cocoa/LaunchServicesSPI.h:
+
+2021-09-16  Tim Horton  <timothy_horton@apple.com>
+
+        Adjust ARKIT_INLINE_PREVIEW* compile time flags
+        https://bugs.webkit.org/show_bug.cgi?id=230332
+
+        Reviewed by Sam Weinig.
+
+        * pal/spi/ios/SystemPreviewSPI.h:
+        * pal/spi/mac/SystemPreviewSPI.h:
+        Adopt the new name.
+
+2021-09-15  Devin Rousso  <drousso@apple.com>
+
+        [Payment Request] Clean up some WKA hooks
+        https://bugs.webkit.org/show_bug.cgi?id=230182
+        <rdar://problem/78824639>
+
+        Reviewed by Tim Horton.
+
+        * pal/spi/cocoa/PassKitSPI.h:
+
+2021-09-14  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [Cocoa] Migrate to CTFontHasTable() from CTFontCopyAvailableTables()
+        https://bugs.webkit.org/show_bug.cgi?id=230248
+
+        Reviewed by Anders Carlsson.
+
+        * pal/spi/cf/CoreTextSPI.h:
+
 2021-09-11  David Kilzer  <ddkilzer@apple.com>
 
         CFNotificationCenterAddObserver() should use weak observers

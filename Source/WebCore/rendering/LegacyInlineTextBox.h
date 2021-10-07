@@ -31,8 +31,9 @@ namespace WebCore {
 
 class RenderCombineText;
 
-const unsigned short cNoTruncation = USHRT_MAX;
-const unsigned short cFullTruncation = USHRT_MAX - 1;
+namespace InlineIterator {
+class BoxLegacyPath;
+}
 
 class LegacyInlineTextBox : public LegacyInlineBox {
     WTF_MAKE_ISO_ALLOCATED(LegacyInlineTextBox);
@@ -70,7 +71,7 @@ public:
 
     void offsetRun(int d) { ASSERT(!isDirty()); ASSERT(d > 0 || m_start >= static_cast<unsigned>(-d)); m_start += d; }
 
-    unsigned short truncation() const { return m_truncation; }
+    auto truncation() const { return m_truncation; }
 
     TextBoxSelectableRange selectableRange() const;
 
@@ -115,7 +116,6 @@ private:
 
 public:
     virtual LayoutRect localSelectionRect(unsigned startPos, unsigned endPos) const;
-    bool isSelectable(unsigned startPosition, unsigned endPosition) const;
     std::pair<unsigned, unsigned> selectionStartEnd() const;
 
 protected:
@@ -131,7 +131,7 @@ public:
     RenderObject::HighlightState selectionState() const final;
 
 private:
-    void clearTruncation() final { m_truncation = cNoTruncation; }
+    void clearTruncation() final { m_truncation = { }; }
     float placeEllipsisBox(bool flowIsLTR, float visibleLeftEdge, float visibleRightEdge, float ellipsisWidth, float &truncatedWidth, bool& foundBox) final;
 
 public:
@@ -154,14 +154,11 @@ public:
     bool hasMarkers() const;
 
 private:
+    friend class InlineIterator::BoxLegacyPath;
     friend class TextBoxPainter;
-
-    FloatPoint textOriginFromBoxRect(const FloatRect&) const;
 
     const RenderCombineText* combinedText() const;
     const FontCascade& lineFont() const;
-
-    const ShadowData* debugTextShadow() const;
 
     String text(bool ignoreCombinedText = false, bool ignoreHyphen = false) const; // The effective text for the run.
     TextRun createTextRun(bool ignoreCombinedText = false, bool ignoreHyphen = false) const;
@@ -173,12 +170,11 @@ private:
     LegacyInlineTextBox* m_prevTextBox { nullptr }; // The previous box that also uses our RenderObject
     LegacyInlineTextBox* m_nextTextBox { nullptr }; // The next box that also uses our RenderObject
 
+    // Where to truncate when text overflow is applied.
+    std::optional<unsigned short> m_truncation;
+
     unsigned m_start { 0 };
     unsigned short m_len { 0 };
-
-    // Where to truncate when text overflow is applied. We use special constants to
-    // denote no truncation (the whole run paints) and full truncation (nothing paints at all).
-    unsigned short m_truncation { cNoTruncation };
 };
 
 LayoutRect snappedSelectionRect(const LayoutRect&, float logicalRight, float selectionTop, float selectionHeight, bool isHorizontal);

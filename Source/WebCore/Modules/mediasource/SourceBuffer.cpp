@@ -34,7 +34,9 @@
 
 #if ENABLE(MEDIA_SOURCE)
 
+#include "AudioTrack.h"
 #include "AudioTrackList.h"
+#include "AudioTrackPrivate.h"
 #include "BufferSource.h"
 #include "Event.h"
 #include "EventNames.h"
@@ -44,11 +46,14 @@
 #include "Logging.h"
 #include "MediaDescription.h"
 #include "MediaSource.h"
+#include "SharedBuffer.h"
 #include "SourceBufferList.h"
 #include "SourceBufferPrivate.h"
 #include "TextTrackList.h"
 #include "TimeRanges.h"
+#include "VideoTrack.h"
 #include "VideoTrackList.h"
+#include "VideoTrackPrivate.h"
 #include <JavaScriptCore/JSCInlines.h>
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/VM.h>
@@ -394,7 +399,7 @@ void SourceBuffer::abortIfUpdating()
 
     // 4.1. Abort the buffer append algorithm if it is running.
     m_appendBufferTimer.stop();
-    m_pendingAppendData.clear();
+    m_pendingAppendData = nullptr;
     m_private->abort();
 
     // 4.2. Set the updating attribute to false.
@@ -494,7 +499,8 @@ ExceptionOr<void> SourceBuffer::appendBufferInternal(const unsigned char* data, 
 
     // NOTE: Return to 3.2 appendBuffer()
     // 3. Add data to the end of the input buffer.
-    m_pendingAppendData.append(data, size);
+    ASSERT(!m_pendingAppendData);
+    m_pendingAppendData = SharedBuffer::create(data, size);
 
     // 4. Set the updating attribute to true.
     m_updating = true;
@@ -524,18 +530,14 @@ void SourceBuffer::appendBufferTimerFired()
     // https://dvcs.w3.org/hg/html-media/raw-file/tip/media-source/media-source.html#sourcebuffer-segment-parser-loop
     // When the segment parser loop algorithm is invoked, run the following steps:
 
+    RefPtr<SharedBuffer> appendData = WTFMove(m_pendingAppendData);
     // 1. Loop Top: If the input buffer is empty, then jump to the need more data step below.
-    if (!m_pendingAppendData.size()) {
+    if (!appendData || !appendData->size()) {
         sourceBufferPrivateAppendComplete(AppendResult::AppendSucceeded);
         return;
     }
 
-    // Manually clear out the m_pendingAppendData Vector, in case the platform implementation
-    // rejects appending the buffer for whatever reason.
-    // FIXME: The implementation should guarantee the move from this Vector, and we should
-    // assert here to confirm that. See https://bugs.webkit.org/show_bug.cgi?id=178003.
-    m_private->append(WTFMove(m_pendingAppendData));
-    m_pendingAppendData.clear();
+    m_private->append(appendData.releaseNonNull());
 }
 
 void SourceBuffer::sourceBufferPrivateAppendComplete(AppendResult result)
@@ -605,7 +607,7 @@ void SourceBuffer::removeTimerFired()
 
     // 6. Run the coded frame removal algorithm with start and end as the start and end of the removal range.
 
-    m_private->removeCodedFrames(m_pendingRemoveStart, m_pendingRemoveEnd, m_source->currentTime(), m_source->isEnded(), [this, protectedThis = makeRef(*this)] {
+    m_private->removeCodedFrames(m_pendingRemoveStart, m_pendingRemoveEnd, m_source->currentTime(), m_source->isEnded(), [this, protectedThis = Ref { *this }] {
         // 7. Set the updating attribute to false.
         m_updating = false;
         m_pendingRemoveStart = MediaTime::invalidTime();
@@ -1211,7 +1213,10 @@ void SourceBuffer::sourceBufferPrivateReportExtraMemoryCost(uint64_t extraMemory
 
 void SourceBuffer::reportExtraMemoryAllocated(uint64_t extraMemory)
 {
-    uint64_t extraMemoryCost = m_pendingAppendData.capacity() + extraMemory;
+    uint64_t extraMemoryCost = extraMemory;
+    if (m_pendingAppendData)
+        extraMemoryCost += m_pendingAppendData->size();
+
     if (extraMemoryCost <= m_reportedExtraMemoryCost)
         return;
 

@@ -88,6 +88,7 @@
 #include "JSSetIterator.h"
 #include "LLIntThunks.h"
 #include "OperandsInlines.h"
+#include "PCToCodeOriginMap.h"
 #include "ProbeContext.h"
 #include "RegExpObject.h"
 #include "ScratchRegisterAllocator.h"
@@ -717,7 +718,7 @@ private:
         if constexpr (validateDFGDoesGC) {
             if (Options::validateDoesGC()) {
                 bool expectDoesGC = doesGC(m_graph, m_node);
-                m_out.store(m_out.constInt32(DoesGCCheck::encode(expectDoesGC, m_node->index(), m_node->op())), m_out.absolute(vm().heap.addressOfDoesGC()));
+                m_out.store(m_out.constInt64(DoesGCCheck::encode(expectDoesGC, m_node->index(), m_node->op())), m_out.absolute(vm().heap.addressOfDoesGC()));
             }
         }
 
@@ -2320,6 +2321,18 @@ private:
         compileBinaryMathIC<JITSubGenerator>(arithProfile, repatchingFunction, nonRepatchingFunction);
     }
 
+    template <typename Generator, typename = typename std::enable_if<std::is_same<Generator, JITAddGenerator>::value>::type>
+    static JITAddIC* addMathIC(DFG::CommonData& common, BinaryArithProfile* profile) { return common.addJITAddIC(profile); }
+
+    template <typename Generator, typename = typename std::enable_if<std::is_same<Generator, JITMulGenerator>::value>::type>
+    static JITMulIC* addMathIC(DFG::CommonData& common, BinaryArithProfile* profile) { return common.addJITMulIC(profile); }
+
+    template <typename Generator, typename = typename std::enable_if<std::is_same<Generator, JITNegGenerator>::value>::type>
+    static JITNegIC* addMathIC(DFG::CommonData& common, UnaryArithProfile* profile) { return common.addJITNegIC(profile); }
+
+    template <typename Generator, typename = typename std::enable_if<std::is_same<Generator, JITSubGenerator>::value>::type>
+    static JITSubIC* addMathIC(DFG::CommonData& common, BinaryArithProfile* profile) { return common.addJITSubIC(profile); }
+
     void compileValueMul()
     {
         JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
@@ -2391,7 +2404,7 @@ private:
 #endif
 
                 Box<MathICGenerationState> mathICGenerationState = Box<MathICGenerationState>::create();
-                JITUnaryMathIC<Generator>* mathIC = jit.codeBlock()->addMathIC<Generator>(arithProfile);
+                JITUnaryMathIC<Generator>* mathIC = addMathIC<Generator>(state->jitCode->common, arithProfile);
                 mathIC->m_generator = Generator(JSValueRegs(params[0].gpr()), JSValueRegs(params[1].gpr()), params.gpScratch(0));
 
                 bool shouldEmitProfiling = false;
@@ -2500,7 +2513,7 @@ private:
 #endif
 
                 Box<MathICGenerationState> mathICGenerationState = Box<MathICGenerationState>::create();
-                JITBinaryMathIC<Generator>* mathIC = jit.codeBlock()->addMathIC<Generator>(arithProfile);
+                JITBinaryMathIC<Generator>* mathIC = addMathIC<Generator>(state->jitCode->common, arithProfile);
                 mathIC->m_generator = Generator(leftOperand, rightOperand, JSValueRegs(params[0].gpr()),
                     JSValueRegs(params[1].gpr()), JSValueRegs(params[2].gpr()), params.fpScratch(0),
                     params.fpScratch(1), params.gpScratch(0));
@@ -4317,7 +4330,7 @@ private:
             GPRReg stubInfoGPR = JITCode::useDataIC(JITType::FTLJIT) ? params.gpScratch(0) : InvalidGPRReg;
 
             auto generator = Box<JITPutByValGenerator>::create(
-                jit.codeBlock(), JITType::FTLJIT, nodeSemanticOrigin, callSiteIndex, AccessType::PutByVal,
+                jit.codeBlock(), JITType::FTLJIT, nodeSemanticOrigin, callSiteIndex, AccessType::PutPrivateName,
                 params.unavailableRegisters(), JSValueRegs(baseGPR), JSValueRegs(propertyGPR), JSValueRegs(valueGPR), InvalidGPRReg, stubInfoGPR);
 
             generator->stubInfo()->propertyIsSymbol = true;
@@ -9878,15 +9891,15 @@ private:
         setBoolean(m_out.phi(Int32, fastTrue, fastFalse, slowResult));
     }
 
-    void compileNeitherDoubleNorHeapBigIntToNotDoubleStrictEquality(Edge neitherDoubleNorHeapBigIntEdge, Edge notDoubleEdge)
+    void compileNeitherDoubleNorHeapBigIntToNotDoubleStrictEquality(Edge leftNeitherDoubleNorHeapBigIntEdge, Edge rightNotDoubleEdge)
     {
-        ASSERT(neitherDoubleNorHeapBigIntEdge.useKind() == NeitherDoubleNorHeapBigIntUse);
-        ASSERT(notDoubleEdge.useKind() == NotDoubleUse);
+        ASSERT(leftNeitherDoubleNorHeapBigIntEdge.useKind() == NeitherDoubleNorHeapBigIntUse);
+        ASSERT(rightNotDoubleEdge.useKind() == NotDoubleUse);
 
-        LValue leftValue = lowJSValue(neitherDoubleNorHeapBigIntEdge, ManualOperandSpeculation);
-        LValue rightValue = lowJSValue(notDoubleEdge, ManualOperandSpeculation);
-        SpeculatedType leftValueType = provenType(neitherDoubleNorHeapBigIntEdge);
-        SpeculatedType rightValueType = provenType(notDoubleEdge);
+        LValue leftValue = lowJSValue(leftNeitherDoubleNorHeapBigIntEdge, ManualOperandSpeculation);
+        LValue rightValue = lowJSValue(rightNotDoubleEdge, ManualOperandSpeculation);
+        SpeculatedType leftValueType = provenType(leftNeitherDoubleNorHeapBigIntEdge);
+        SpeculatedType rightValueType = provenType(rightNotDoubleEdge);
 
         LBasicBlock triviallyEqualCase = m_out.newBlock();
         LBasicBlock leftIsNotInt32EqualCase = m_out.newBlock();
@@ -9928,11 +9941,11 @@ private:
         m_out.branch(isInt32(leftValue, leftValueType), unsure(returnTrueBlock), unsure(leftIsNotInt32EqualCase));
 
         m_out.appendTo(leftIsNotInt32EqualCase, leftIsCellEqualCase);
-        typeCheckWithoutUpdatingInterpreter(jsValueValue(leftValue), neitherDoubleNorHeapBigIntEdge, ~SpecFullDouble, isNumber(leftValue));
+        typeCheckWithoutUpdatingInterpreter(jsValueValue(leftValue), leftNeitherDoubleNorHeapBigIntEdge, ~SpecFullDouble, isNumber(leftValue));
         m_out.branch(isCell(leftValue, leftValueType & ~SpecFullNumber), unsure(leftIsCellEqualCase), unsure(returnTrueBlock));
 
         m_out.appendTo(leftIsCellEqualCase, returnTrueBlock);
-        typeCheckWithoutUpdatingInterpreter(jsValueValue(leftValue), neitherDoubleNorHeapBigIntEdge, ~SpecHeapBigInt, isHeapBigInt(leftValue));
+        typeCheckWithoutUpdatingInterpreter(jsValueValue(leftValue), leftNeitherDoubleNorHeapBigIntEdge, ~SpecHeapBigInt, isHeapBigInt(leftValue));
         m_out.jump(returnTrueBlock);
 
         m_out.appendTo(returnTrueBlock, notTriviallyEqualCase);
@@ -9940,13 +9953,13 @@ private:
         m_out.jump(continuation);
 
         m_out.appendTo(notTriviallyEqualCase, leftIsCell);
-        speculateNotDouble(neitherDoubleNorHeapBigIntEdge);
-        speculateNotDouble(notDoubleEdge);
+        speculateNotDouble(leftNeitherDoubleNorHeapBigIntEdge);
+        speculateNotDouble(rightNotDoubleEdge);
         ValueFromBlock fastFalse = m_out.anchor(m_out.booleanFalse);
         m_out.branch(isNotCell(leftValue, leftValueType & ~SpecFullDouble), unsure(continuation), unsure(leftIsCell));
 
         m_out.appendTo(leftIsCell, leftIsString);
-        FTL_TYPE_CHECK(jsValueValue(leftValue), neitherDoubleNorHeapBigIntEdge, ~SpecHeapBigInt, isHeapBigInt(leftValue));
+        FTL_TYPE_CHECK(jsValueValue(leftValue), leftNeitherDoubleNorHeapBigIntEdge, ~SpecHeapBigInt, isHeapBigInt(leftValue));
         m_out.branch(isNotString(leftValue, leftValueType & SpecCell & ~SpecHeapBigInt), unsure(continuation), unsure(leftIsString));
 
         m_out.appendTo(leftIsString, rightIsCell);
@@ -9956,7 +9969,7 @@ private:
         m_out.branch(isNotString(rightValue, rightValueType & SpecCell & ~SpecFullDouble), unsure(continuation), unsure(rightIsString));
 
         m_out.appendTo(rightIsString, continuation);
-        ValueFromBlock slowResult = m_out.anchor(stringsEqual(leftValue, rightValue, neitherDoubleNorHeapBigIntEdge, notDoubleEdge));
+        ValueFromBlock slowResult = m_out.anchor(stringsEqual(leftValue, rightValue, leftNeitherDoubleNorHeapBigIntEdge, rightNotDoubleEdge));
         m_out.jump(continuation);
 
         m_out.appendTo(continuation, lastNext);
@@ -10285,6 +10298,7 @@ private:
                     for (unsigned i = numPassedArgs; i < numAllocatedArgs; ++i)
                         shuffleData.args.append(ValueRecovery::constant(jsUndefined()));
                     shuffleData.numPassedArgs = numPassedArgs;
+                    shuffleData.numParameters = jit.codeBlock()->numParameters();
                     shuffleData.setupCalleeSaveRegisters(jit.codeBlock());
                     
                     CallLinkInfo* callLinkInfo = jit.codeBlock()->addCallLinkInfo(semanticNodeOrigin);
@@ -10443,13 +10457,14 @@ private:
                     shuffleData.args.append(params[1 + i].recoveryForJSValue());
 
                 shuffleData.numPassedArgs = numArgs;
+                shuffleData.numParameters = jit.codeBlock()->numParameters();
                 
                 shuffleData.setupCalleeSaveRegisters(jit.codeBlock());
 
                 CallLinkInfo* callLinkInfo = jit.codeBlock()->addCallLinkInfo(codeOrigin);
                 callLinkInfo->setUpCall(CallLinkInfo::TailCall, GPRInfo::regT0);
 
-                auto slowPath = callLinkInfo->emitTailCallFastPath(jit, GPRInfo::regT0, InvalidGPRReg, CallLinkInfo::UseDataIC::No, [&] {
+                auto slowPath = callLinkInfo->emitTailCallFastPath(jit, GPRInfo::regT0, [&] {
                     callLinkInfo->setFrameShuffleData(shuffleData);
                     CallFrameShuffler(jit, shuffleData).prepareForTailCall();
                 });
@@ -10792,7 +10807,7 @@ private:
                 CCallHelpers::JumpList slowPath;
                 CCallHelpers::Jump done;
                 if (isTailCall) {
-                    slowPath = callLinkInfo->emitTailCallFastPath(jit, GPRInfo::regT0, InvalidGPRReg, CallLinkInfo::UseDataIC::No, [&] {
+                    slowPath = callLinkInfo->emitTailCallFastPath(jit, GPRInfo::regT0, [&] {
                         jit.emitRestoreCalleeSaves();
                         jit.prepareForTailCallSlow();
                     });
@@ -11073,7 +11088,7 @@ private:
                 CCallHelpers::JumpList slowPath;
                 CCallHelpers::Jump done;
                 if (isTailCall) {
-                    slowPath = callLinkInfo->emitTailCallFastPath(jit, GPRInfo::regT0, InvalidGPRReg, CallLinkInfo::UseDataIC::No, [&] {
+                    slowPath = callLinkInfo->emitTailCallFastPath(jit, GPRInfo::regT0, [&] {
                         jit.emitRestoreCalleeSaves();
                         jit.prepareForTailCallSlow();
                     });
@@ -13182,8 +13197,12 @@ private:
     LValue compileHasIndexedPropertyImpl(LValue index, S_JITOperation_GCZ slowPathOperation)
     {
         JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
-        LValue base = lowCell(m_graph.varArgChild(m_node, 0));
         ArrayMode mode = m_node->arrayMode();
+
+        auto baseEdge = m_graph.varArgChild(m_node, 0);
+        LValue base = lowCell(baseEdge);
+        if (baseEdge.useKind() == ObjectUse)
+            speculateObject(baseEdge, base);
 
         switch (m_node->arrayMode().type()) {
         case Array::Int32:
@@ -13522,14 +13541,14 @@ private:
 
             {
                 m_out.appendTo(outOfBoundsBlock);
-                results.append(m_out.anchor(m_out.constInt64(JSValue::encode(jsNull()))));
+                results.append(m_out.anchor(weakPointer(vm().smallStrings.sentinelString())));
                 m_out.jump(continuation);
             }
 
             {
                 m_out.appendTo(loadPropertyNameBlock);
                 LValue namesVector = m_out.loadPtr(enumerator, m_heaps.JSPropertyNameEnumerator_cachedPropertyNamesVector);
-                results.append(m_out.anchor(m_out.zeroExtPtr(m_out.loadPtr(m_out.baseIndex(m_heaps.WriteBarrierBuffer_bufferContents.atAnyIndex(), namesVector, m_out.zeroExt(index, Int64), ScalePtr)))));
+                results.append(m_out.anchor(m_out.loadPtr(m_out.baseIndex(m_heaps.WriteBarrierBuffer_bufferContents.atAnyIndex(), namesVector, m_out.zeroExt(index, Int64), ScalePtr))));
                 m_out.jump(continuation);
             }
         }
@@ -13537,14 +13556,14 @@ private:
         if (operationBlock)
             m_out.appendTo(operationBlock);
         // Note: We can't omit the operation because we have no guarantee that the mode will match what we profiled.
-        results.append(m_out.anchor(vmCall(Int64, operationEnumeratorNextUpdatePropertyName, weakPointer(globalObject), index, mode, enumerator)));
+        results.append(m_out.anchor(vmCall(pointerType(), operationEnumeratorNextUpdatePropertyName, weakPointer(globalObject), index, mode, enumerator)));
         if (continuation) {
             m_out.jump(continuation);
             m_out.appendTo(continuation);
         }
 
         ASSERT(results.size());
-        LValue result = m_out.phi(Int64, results);
+        LValue result = m_out.phi(pointerType(), results);
         setJSValue(result);
     }
 
@@ -16003,8 +16022,8 @@ private:
                 if (Options::validateDoesGC()) {
                     // We need to mock what a Return does: claims to GC.
                     jit.move(CCallHelpers::TrustedImmPtr(vm->heap.addressOfDoesGC()), GPRInfo::regT0);
-                    jit.move(CCallHelpers::TrustedImm32(DoesGCCheck::encode(true, DoesGCCheck::Special::Uninitialized)), GPRInfo::regT1);
-                    jit.store32(GPRInfo::regT1, CCallHelpers::Address(GPRInfo::regT0));
+                    jit.move(CCallHelpers::TrustedImm64(DoesGCCheck::encode(true, DoesGCCheck::Special::Uninitialized)), GPRInfo::regT1);
+                    jit.store64(GPRInfo::regT1, CCallHelpers::Address(GPRInfo::regT0));
                 }
             }
             restore();
@@ -19522,7 +19541,7 @@ private:
             
     LValue isExoticForTypeof(LValue cell, SpeculatedType type = SpecFullTop)
     {
-        if (!(type & SpecObjectOther))
+        if (!(type & (SpecObjectOther | SpecProxyObject)))
             return m_out.booleanFalse;
         return m_out.testNonZero32(
             m_out.load8ZeroExt32(cell, m_heaps.JSCell_typeInfoFlags),

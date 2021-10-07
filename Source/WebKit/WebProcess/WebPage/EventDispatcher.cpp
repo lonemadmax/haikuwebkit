@@ -96,7 +96,7 @@ void EventDispatcher::initializeConnection(IPC::Connection* connection)
     connection->addWorkQueueMessageReceiver(Messages::EventDispatcher::messageReceiverName(), m_queue.get(), this);
 }
 
-void EventDispatcher::wheelEvent(PageIdentifier pageID, const WebWheelEvent& wheelEvent, bool canRubberBandAtLeft, bool canRubberBandAtRight, bool canRubberBandAtTop, bool canRubberBandAtBottom)
+void EventDispatcher::wheelEvent(PageIdentifier pageID, const WebWheelEvent& wheelEvent, RectEdges<bool> rubberBandableEdges)
 {
 #if PLATFORM(COCOA) || ENABLE(SCROLLING_THREAD)
     PlatformWheelEvent platformWheelEvent = platform(wheelEvent);
@@ -137,13 +137,13 @@ void EventDispatcher::wheelEvent(PageIdentifier pageID, const WebWheelEvent& whe
         // scrolling tree can be notified.
         // We only need to do this at the beginning of the gesture.
         if (platformWheelEvent.phase() == PlatformWheelEventPhase::Began)
-            scrollingTree->setMainFrameCanRubberBand({ canRubberBandAtTop, canRubberBandAtRight, canRubberBandAtBottom, canRubberBandAtLeft });
+            scrollingTree->setMainFrameCanRubberBand(rubberBandableEdges);
 
         auto processingSteps = scrollingTree->determineWheelEventProcessing(platformWheelEvent);
 
         scrollingTree->willProcessWheelEvent();
 
-        ScrollingThread::dispatch([scrollingTree, wheelEvent, platformWheelEvent, processingSteps, pageID, protectedThis = makeRef(*this)] {
+        ScrollingThread::dispatch([scrollingTree, wheelEvent, platformWheelEvent, processingSteps, pageID, protectedThis = Ref { *this }] {
             if (processingSteps.contains(WheelEventProcessingSteps::MainThreadForScrolling)) {
                 scrollingTree->willSendEventToMainThread(platformWheelEvent);
                 protectedThis->dispatchWheelEventViaMainThread(pageID, wheelEvent, processingSteps);
@@ -165,10 +165,7 @@ void EventDispatcher::wheelEvent(PageIdentifier pageID, const WebWheelEvent& whe
         });
     } while (false);
 #else
-    UNUSED_PARAM(canRubberBandAtLeft);
-    UNUSED_PARAM(canRubberBandAtRight);
-    UNUSED_PARAM(canRubberBandAtTop);
-    UNUSED_PARAM(canRubberBandAtBottom);
+    UNUSED_PARAM(rubberBandableEdges);
 
     dispatchWheelEventViaMainThread(pageID, wheelEvent, processingSteps);
 #endif
@@ -177,7 +174,7 @@ void EventDispatcher::wheelEvent(PageIdentifier pageID, const WebWheelEvent& whe
 #if ENABLE(MAC_GESTURE_EVENTS)
 void EventDispatcher::gestureEvent(PageIdentifier pageID, const WebKit::WebGestureEvent& gestureEvent)
 {
-    RunLoop::main().dispatch([protectedThis = makeRef(*this), pageID, gestureEvent]() mutable {
+    RunLoop::main().dispatch([protectedThis = Ref { *this }, pageID, gestureEvent]() mutable {
         protectedThis->dispatchGestureEvent(pageID, gestureEvent);
     });
 }
@@ -217,7 +214,7 @@ void EventDispatcher::touchEvent(PageIdentifier pageID, const WebTouchEvent& tou
     }
 
     if (updateListWasEmpty) {
-        RunLoop::main().dispatch([protectedThis = makeRef(*this)]() mutable {
+        RunLoop::main().dispatch([protectedThis = Ref { *this }]() mutable {
             protectedThis->dispatchTouchEvents();
         });
     }
@@ -243,7 +240,7 @@ void EventDispatcher::dispatchTouchEvents()
 void EventDispatcher::dispatchWheelEventViaMainThread(WebCore::PageIdentifier pageID, const WebWheelEvent& wheelEvent, OptionSet<WheelEventProcessingSteps> processingSteps)
 {
     ASSERT(!RunLoop::isMain());
-    RunLoop::main().dispatch([protectedThis = makeRef(*this), pageID, wheelEvent, steps = processingSteps - WheelEventProcessingSteps::ScrollingThread]() mutable {
+    RunLoop::main().dispatch([protectedThis = Ref { *this }, pageID, wheelEvent, steps = processingSteps - WheelEventProcessingSteps::ScrollingThread]() mutable {
         protectedThis->dispatchWheelEvent(pageID, wheelEvent, steps);
     });
 }

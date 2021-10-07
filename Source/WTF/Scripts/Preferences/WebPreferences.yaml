@@ -1080,6 +1080,7 @@ IsAccessibilityIsolatedTreeEnabled:
     WebKitLegacy:
       default: false
     WebKit:
+      "USE(ATSPI)": true
       default: false
     WebCore:
       default: false
@@ -1436,15 +1437,16 @@ MediaSourceEnabled:
   type: bool
   defaultValue:
     WebKitLegacy:
-      default: true
+      "ENABLE(MEDIA_SOURCE) && PLATFORM(IOS_FAMILY)": WebKit::defaultMediaSourceEnabled()
+      "ENABLE(MEDIA_SOURCE) && !PLATFORM(IOS_FAMILY)": true
+      default: false
     WebKit:
-      "PLATFORM(COCOA) && PLATFORM(MAC)": true
-      "PLATFORM(COCOA) && !PLATFORM(MAC)": false
-      default: true
+      "ENABLE(MEDIA_SOURCE) && PLATFORM(IOS_FAMILY)": WebKit::defaultMediaSourceEnabled()
+      "ENABLE(MEDIA_SOURCE) && !PLATFORM(IOS_FAMILY)": true
+      default: false
     WebCore:
-      "PLATFORM(COCOA) && PLATFORM(MAC)": true
-      "PLATFORM(COCOA) && !PLATFORM(MAC)": false
-      default: true
+      "ENABLE(MEDIA_SOURCE)": true
+      default: false
 
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely (though we should still set the default value to false when initializing settings).
 # FIXME: Seems to be unused. Remove once verified.
@@ -1521,6 +1523,16 @@ MockCaptureDevicesPromptEnabled:
   defaultValue:
     WebKit:
       default: true
+
+MockScrollAnimatorEnabled:
+  type: bool
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 MockScrollbarsEnabled:
   type: bool
@@ -1828,7 +1840,7 @@ RequiresUserGestureToLoadVideo:
 
 RubberBandingForSubScrollableRegionsEnabled:
   type: bool
-  condition: ENABLE(RUBBER_BANDING)
+  condition: HAVE(RUBBER_BANDING)
   defaultValue:
     WebKitLegacy:
       default: false
@@ -1879,14 +1891,16 @@ SansSerifFontFamily:
 
 ScrollAnimatorEnabled:
   type: bool
-  condition: ENABLE(SMOOTH_SCROLLING)
   defaultValue:
     WebKitLegacy:
-      default: true
+      "PLATFORM(MAC)": true
+      default: false
     WebKit:
-      default: true
+      "PLATFORM(MAC)": true
+      default: false
     WebCore:
-      default: true
+      "PLATFORM(MAC)": true
+      default: false
 
 # FIXME: This is handled via WebView SPI rather than WebPreferences for WebKitLegacy. We should change the SPI to lookup the WebPreferences value instead.
 SelectTrailingWhitespaceEnabled:
@@ -2313,13 +2327,13 @@ TextInteractionEnabled:
   type: bool
   defaultValue:
     WebKitLegacy:
-      "PLATFORM(WATCH_OS)": false
+      "PLATFORM(WATCHOS)": false
       default: true
     WebKit:
-      "PLATFORM(WATCH_OS)": false
+      "PLATFORM(WATCHOS)": false
       default: true
     WebCore:
-      "PLATFORM(WATCH_OS)": false
+      "PLATFORM(WATCHOS)": false
       default: true
 
 ThreadedScrollingEnabled:
@@ -2558,8 +2572,8 @@ XSSAuditorEnabled:
   type: bool
   defaultValue:
     WebKitLegacy:
-      default: true
+      default: false
     WebKit:
-      default: true
+      default: false
     WebCore:
       default: false

@@ -536,7 +536,7 @@ class RunWebKitTests(shell.Test):
     description = ["layout-tests running"]
     descriptionDone = ["layout-tests"]
     resultDirectory = "layout-test-results"
-    command = ["python3", "Tools/Scripts/run-webkit-tests",
+    command = ["python", "Tools/Scripts/run-webkit-tests",
                "--no-build",
                "--no-show-results",
                "--no-new-test-results",
@@ -875,7 +875,7 @@ class RunBuiltinsTests(shell.Test):
     name = "builtins-generator-tests"
     description = ["builtins-generator-tests running"]
     descriptionDone = ["builtins-generator-tests"]
-    command = ["python", "Tools/Scripts/run-builtins-generator-tests"]
+    command = ["python3", "Tools/Scripts/run-builtins-generator-tests"]
 
 
 class RunGLibAPITests(shell.Test):

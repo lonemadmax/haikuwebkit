@@ -60,6 +60,7 @@
 #include "WebsiteDataStore.h"
 #include "WebsiteDataType.h"
 #include <JavaScriptCore/RemoteInspector.h>
+#include <WebCore/ResourceLoaderIdentifier.h>
 #include <glib/gi18n-lib.h>
 #include <libintl.h>
 #include <memory>
@@ -170,14 +171,14 @@ private:
             return;
 
         GRefPtr<WebKitURISchemeRequest> request = adoptGRef(webkitURISchemeRequestCreate(m_context, page, task));
-        auto addResult = m_requests.add(task.identifier(), WTFMove(request));
+        auto addResult = m_requests.add({ task.resourceLoaderID(), task.pageProxyID() }, WTFMove(request));
         ASSERT(addResult.isNewEntry);
         m_callback(addResult.iterator->value.get(), m_userData);
     }
 
     void platformStopTask(WebPageProxy&, WebURLSchemeTask& task) final
     {
-        auto it = m_requests.find(task.identifier());
+        auto it = m_requests.find({ task.resourceLoaderID(), task.pageProxyID() });
         if (it == m_requests.end())
             return;
 
@@ -187,18 +188,17 @@ private:
 
     void platformTaskCompleted(WebURLSchemeTask& task) final
     {
-        m_requests.remove(task.identifier());
+        m_requests.remove({ task.resourceLoaderID(), task.pageProxyID() });
     }
 
     WebKitWebContext* m_context { nullptr };
     WebKitURISchemeRequestCallback m_callback { nullptr };
     void* m_userData { nullptr };
     GDestroyNotify m_destroyNotify { nullptr };
-    HashMap<uint64_t, GRefPtr<WebKitURISchemeRequest>> m_requests;
+    HashMap<std::pair<WebCore::ResourceLoaderIdentifier, WebPageProxyIdentifier>, GRefPtr<WebKitURISchemeRequest>> m_requests;
 };
 
 typedef HashMap<String, RefPtr<WebKitURISchemeHandler> > URISchemeHandlerMap;
-typedef HashMap<uint64_t, GRefPtr<WebKitURISchemeRequest> > URISchemeRequestMap;
 
 class WebKitAutomationClient;
 

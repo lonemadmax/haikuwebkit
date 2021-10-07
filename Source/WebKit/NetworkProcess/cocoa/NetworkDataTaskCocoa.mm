@@ -125,18 +125,12 @@ void NetworkDataTaskCocoa::applySniffingPoliciesAndBindRequestToInferfaceIfNeede
     nsRequest = mutableRequest.autorelease();
 }
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 NSHTTPCookieStorage *NetworkDataTaskCocoa::statelessCookieStorage()
 {
     static NeverDestroyed<RetainPtr<NSHTTPCookieStorage>> statelessCookieStorage;
     if (!statelessCookieStorage.get()) {
-#if HAVE(NSHTTPCOOKIESTORAGE__INITWITHIDENTIFIER_WITH_INACCURATE_NULLABILITY)
-        IGNORE_NULL_CHECK_WARNINGS_BEGIN
-#endif
         statelessCookieStorage.get() = adoptNS([[NSHTTPCookieStorage alloc] _initWithIdentifier:nil private:YES]);
-#if HAVE(NSHTTPCOOKIESTORAGE__INITWITHIDENTIFIER_WITH_INACCURATE_NULLABILITY)
-        IGNORE_NULL_CHECK_WARNINGS_END
-#endif
         statelessCookieStorage.get().get().cookieAcceptPolicy = NSHTTPCookieAcceptPolicyNever;
     }
     ASSERT(statelessCookieStorage.get().get().cookies.count == 0);
@@ -334,7 +328,7 @@ NetworkDataTaskCocoa::NetworkDataTaskCocoa(NetworkSession& session, NetworkDataT
 #endif
 
     bool shouldBlockCookies = false;
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     shouldBlockCookies = m_storedCredentialsPolicy == WebCore::StoredCredentialsPolicy::EphemeralStateless;
     if (auto* networkStorageSession = session.networkStorageSession()) {
         if (!shouldBlockCookies)
@@ -376,7 +370,7 @@ NetworkDataTaskCocoa::NetworkDataTaskCocoa(NetworkSession& session, NetworkDataT
 #endif
     }
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 #if HAVE(CFNETWORK_CNAME_AND_COOKIE_TRANSFORM_SPI)
     applyCookiePolicyForThirdPartyCNAMECloaking(request);
 #endif
@@ -521,7 +515,7 @@ void NetworkDataTaskCocoa::willPerformHTTPRedirection(WebCore::ResourceResponse&
     if (isTopLevelNavigation())
         request.setFirstPartyForCookies(request.url());
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 #if HAVE(CFNETWORK_CNAME_AND_COOKIE_TRANSFORM_SPI)
     applyCookiePolicyForThirdPartyCNAMECloaking(request);
 #endif
@@ -641,7 +635,7 @@ void NetworkDataTaskCocoa::resume()
 
     auto& cocoaSession = static_cast<NetworkSessionCocoa&>(*m_session);
     if (cocoaSession.deviceManagementRestrictionsEnabled() && m_isForMainResourceNavigationForAnyFrame) {
-        auto didDetermineDeviceRestrictionPolicyForURL = makeBlockPtr([this, protectedThis = makeRef(*this)](BOOL isBlocked) mutable {
+        auto didDetermineDeviceRestrictionPolicyForURL = makeBlockPtr([this, protectedThis = Ref { *this }](BOOL isBlocked) mutable {
             callOnMainRunLoop([this, protectedThis = WTFMove(protectedThis), isBlocked] {
                 if (isBlocked) {
                     scheduleFailure(RestrictedURLFailure);

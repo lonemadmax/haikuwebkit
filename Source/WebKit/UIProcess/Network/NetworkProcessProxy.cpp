@@ -44,6 +44,7 @@
 #include "NetworkProcessCreationParameters.h"
 #include "NetworkProcessMessages.h"
 #include "NetworkProcessProxyMessages.h"
+#include "PageClient.h"
 #include "SandboxExtension.h"
 #if HAVE(SEC_KEY_PROXY)
 #include "SecKeyProxyStore.h"
@@ -316,7 +317,7 @@ void NetworkProcessProxy::renameOriginInWebsiteData(PAL::SessionID sessionID, co
 
 void NetworkProcessProxy::networkProcessDidTerminate(TerminationReason reason)
 {
-    auto protectedThis = makeRef(*this);
+    Ref protectedThis { *this };
 
     if (m_downloadProxyMap)
         m_downloadProxyMap->invalidate();
@@ -390,9 +391,9 @@ void NetworkProcessProxy::didReceiveAuthenticationChallenge(PAL::SessionID sessi
             store->addSecKeyProxyStore(WTFMove(newSecKeyProxyStore));
         }
     }
-    auto authenticationChallenge = AuthenticationChallengeProxy::create(WTFMove(coreChallenge), challengeID, makeRef(*connection()), WTFMove(secKeyProxyStore));
+    auto authenticationChallenge = AuthenticationChallengeProxy::create(WTFMove(coreChallenge), challengeID, *connection(), WTFMove(secKeyProxyStore));
 #else
-    auto authenticationChallenge = AuthenticationChallengeProxy::create(WTFMove(coreChallenge), challengeID, makeRef(*connection()), nullptr);
+    auto authenticationChallenge = AuthenticationChallengeProxy::create(WTFMove(coreChallenge), challengeID, *connection(), nullptr);
 #endif
 
     WebPageProxy* page = nullptr;
@@ -436,6 +437,15 @@ void NetworkProcessProxy::didNegotiateModernTLS(WebPageProxyIdentifier pageID, c
         page->didNegotiateModernTLS(url);
 }
 
+void NetworkProcessProxy::triggerBrowsingContextGroupSwitchForNavigation(WebPageProxyIdentifier pageID, uint64_t navigationID, BrowsingContextGroupSwitchDecision browsingContextGroupSwitchDecision, const WebCore::RegistrableDomain& responseDomain, NetworkResourceLoadIdentifier existingNetworkResourceLoadIdentifierToResume, CompletionHandler<void(bool success)>&& completionHandler)
+{
+    RELEASE_LOG(ProcessSwapping, "%p - NetworkProcessProxy::triggerBrowsingContextGroupSwitchForNavigation: pageID=%" PRIu64 ", navigationID=%" PRIu64 ", browsingContextGroupSwitchDecision=%u, existingNetworkResourceLoadIdentifierToResume=%" PRIu64, this, pageID.toUInt64(), navigationID, (unsigned)browsingContextGroupSwitchDecision, existingNetworkResourceLoadIdentifierToResume.toUInt64());
+    if (auto* page = pageID ? WebProcessProxy::webPage(pageID) : nullptr)
+        page->triggerBrowsingContextGroupSwitchForNavigation(navigationID, browsingContextGroupSwitchDecision, responseDomain, existingNetworkResourceLoadIdentifierToResume, WTFMove(completionHandler));
+    else
+        completionHandler(false);
+}
+
 void NetworkProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connection::Identifier connectionIdentifier)
 {
     AuxiliaryProcessProxy::didFinishLaunching(launcher, connectionIdentifier);
@@ -470,21 +480,10 @@ void NetworkProcessProxy::terminateWebProcess(WebCore::ProcessIdentifier webProc
 
 void NetworkProcessProxy::terminateUnresponsiveServiceWorkerProcesses(WebCore::ProcessIdentifier processIdentifier)
 {
-    if (auto process = makeRefPtr(WebProcessProxy::processForIdentifier(processIdentifier))) {
+    if (RefPtr process = WebProcessProxy::processForIdentifier(processIdentifier)) {
         process->disableServiceWorkers();
         process->requestTermination(ProcessTerminationReason::ExceededCPULimit);
     }
-}
-
-void NetworkProcessProxy::prepareLoadForWebProcessTransfer(WebCore::ProcessIdentifier sourceProcessIdentifier, uint64_t resourceLoadIdentifier, CompletionHandler<void(std::optional<NetworkResourceLoadIdentifier>)>&& completionHandler)
-{
-    RELEASE_LOG(ProcessSwapping, "%p - NetworkProcessProxy::prepareLoadForWebProcessTransfer: sourceProcessIdentifier: %" PRIu64 ", resourceLoadIdentifier: %" PRIu64, this, sourceProcessIdentifier.toUInt64(), resourceLoadIdentifier);
-    if (!resourceLoadIdentifier) {
-        completionHandler({ });
-        return;
-    }
-
-    sendWithAsyncReply(Messages::NetworkProcess::PrepareLoadForWebProcessTransfer(sourceProcessIdentifier, resourceLoadIdentifier), WTFMove(completionHandler));
 }
 
 void NetworkProcessProxy::logDiagnosticMessageWithResult(WebPageProxyIdentifier pageID, const String& message, const String& description, uint32_t result, WebCore::ShouldSample shouldSample)
@@ -559,7 +558,7 @@ void NetworkProcessProxy::resourceLoadDidCompleteWithError(WebPageProxyIdentifie
     page->resourceLoadDidCompleteWithError(WTFMove(loadInfo), WTFMove(response), WTFMove(error));
 }
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 void NetworkProcessProxy::dumpResourceLoadStatistics(PAL::SessionID sessionID, CompletionHandler<void(String)>&& completionHandler)
 {
     if (!canSendMessage()) {
@@ -1148,7 +1147,7 @@ void NetworkProcessProxy::deleteWebsiteDataInUIProcessForRegistrableDomains(PAL:
         return;
     }
 
-    websiteDataStore->fetchDataForRegistrableDomains(dataTypes, fetchOptions, WTFMove(domains), [dataTypes, websiteDataStore = makeRef(*websiteDataStore), completionHandler = WTFMove(completionHandler)] (Vector<WebsiteDataRecord>&& matchingDataRecords, HashSet<WebCore::RegistrableDomain>&& domainsWithMatchingDataRecords) mutable {
+    websiteDataStore->fetchDataForRegistrableDomains(dataTypes, fetchOptions, WTFMove(domains), [dataTypes, websiteDataStore = Ref { *websiteDataStore }, completionHandler = WTFMove(completionHandler)] (Vector<WebsiteDataRecord>&& matchingDataRecords, HashSet<WebCore::RegistrableDomain>&& domainsWithMatchingDataRecords) mutable {
         websiteDataStore->removeData(dataTypes, WTFMove(matchingDataRecords), [domainsWithMatchingDataRecords = WTFMove(domainsWithMatchingDataRecords), completionHandler = WTFMove(completionHandler)] () mutable {
             completionHandler(WTFMove(domainsWithMatchingDataRecords));
         });
@@ -1171,6 +1170,18 @@ void NetworkProcessProxy::setAppBoundDomainsForResourceLoadStatistics(PAL::Sessi
     sendWithAsyncReply(Messages::NetworkProcess::SetAppBoundDomainsForResourceLoadStatistics(sessionID, appBoundDomains), [completionHandler = WTFMove(completionHandler)]() mutable {
         completionHandler();
     });
+}
+#endif
+
+#if ENABLE(APPLE_PAY_REMOTE_UI_USES_SCENE)
+void NetworkProcessProxy::getWindowSceneIdentifierForPaymentPresentation(WebPageProxyIdentifier webPageProxyIdentifier, CompletionHandler<void(const String&)>&& completionHandler)
+{
+    auto* page = WebProcessProxy::webPage(webPageProxyIdentifier);
+    if (!page) {
+        completionHandler(nullString());
+        return;
+    }
+    completionHandler(page->pageClient().sceneID());
 }
 #endif
 
@@ -1242,7 +1253,7 @@ void NetworkProcessProxy::setDomainsWithCrossPageStorageAccess(HashMap<TopFrameD
         processPool->setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, SubResourceDomain> { domains }, [callbackAggregator] { });
 }
 
-#endif // ENABLE(RESOURCE_LOAD_STATISTICS)
+#endif // ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 
 void NetworkProcessProxy::setPrivateClickMeasurementDebugMode(bool debugMode)
 {

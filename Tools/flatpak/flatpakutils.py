@@ -65,6 +65,10 @@ _log = logging.getLogger(__name__)
 FLATPAK_USER_DIR_PATH = os.path.realpath(os.path.join(scriptdir, "../../WebKitBuild", "UserFlatpak"))
 DEFAULT_SCCACHE_SCHEDULER='https://sccache.igalia.com'
 
+# Our SDK branch matches with the FDO SDK branch. When updating the FDO SDK release branch
+# in our SDK build definitions please don't forget to update the version here as well.
+SDK_BRANCH = "21.08"
+
 is_colored_output_supported = False
 try:
     import curses
@@ -508,9 +512,10 @@ class WebkitFlatpak:
         # Where the source folder is mounted inside the sandbox.
         self.sandbox_source_root = "/app/webkit"
 
+        self.base_build_dir = 'WebKitBuild'
+
         self.build_gst = False
 
-        self.sdk_branch = "0.3"
         self.platform = "gtk"
         self.check_available = False
         self.user_command = []
@@ -566,20 +571,19 @@ class WebkitFlatpak:
         if self.gdb is None and '--gdb' in sys.argv:
             self.gdb = True
 
-        base_build_dir = 'WebKitBuild'
-
         # This path doesn't take $WEBKIT_OUTPUTDIR in account because the standalone toolchains
         # paths depend on it and those are also hard-coded in the generated sccache config.
-        self.build_root = os.path.join(self.source_root, base_build_dir)
+        self.default_build_root = os.path.join(self.source_root, self.base_build_dir)
 
         self.config_file = os.path.join(self.flatpak_build_path, 'webkit_flatpak_config.json')
         self.sccache_config_file = os.path.join(self.flatpak_build_path, 'sccache.toml')
 
         build_root = os.environ.get("WEBKIT_OUTPUTDIR", self.source_root)
-        self.build_path = os.path.join(build_root, base_build_dir, self.platform, self.build_type)
+        self.build_root = os.path.join(build_root, self.base_build_dir)
+        self.build_path = os.path.join(self.build_root, self.platform, self.build_type)
         _log.debug("Building %s port in %s" % (self.platform, self.build_path))
 
-        self.toolchains_directory = os.path.join(self.build_root, "Toolchains")
+        self.toolchains_directory = os.path.join(self.flatpak_build_path, "Toolchains")
         if not os.path.isdir(self.toolchains_directory):
             os.makedirs(self.toolchains_directory)
 
@@ -638,8 +642,8 @@ class WebkitFlatpak:
         if not os.path.exists(os.path.join(gst_dir, 'gst-env.py')):
             raise RuntimeError('GST_BUILD_PATH set to %s but it doesn\'t seem to be a valid `gst-build` checkout.' % gst_dir)
 
-        gst_builddir = os.path.join(self.source_root, "WebKitBuild", 'gst-build')
-        if not os.path.exists(os.path.join(self.build_root, 'gst-build', 'build.ninja')):
+        gst_builddir = os.path.join(self.source_root, self.base_build_dir, 'gst-build')
+        if not os.path.exists(os.path.join(self.default_build_root, 'gst-build', 'build.ninja')):
             if not building:
                 raise RuntimeError('Trying to enter gst-build env from %s but it is not built, make sure to rebuild webkit.' % gst_dir)
 
@@ -721,10 +725,10 @@ class WebkitFlatpak:
         if not isinstance(args, list):
             args = list(args)
 
-        sandbox_build_path = os.path.join(self.sandbox_source_root, "WebKitBuild", self.build_type)
+        sandbox_build_path = os.path.join(self.sandbox_source_root, self.base_build_dir, self.build_type)
         sandbox_environment = {
             "TEST_RUNNER_INJECTED_BUNDLE_FILENAME": os.path.join(sandbox_build_path, "lib/libTestRunnerInjectedBundle.so"),
-            "PATH": "/usr/lib/sdk/llvm11/bin:/usr/bin:/usr/lib/sdk/rust-stable/bin/",
+            "PATH": "/usr/lib/sdk/llvm12/bin:/usr/bin:/usr/lib/sdk/rust/bin/",
         }
 
         if not args:
@@ -878,21 +882,37 @@ class WebkitFlatpak:
             _log.debug('Enabling the icecream compiler')
             flatpak_command.extend([share_network_option, "--filesystem=home"])
 
-            n_cores = multiprocessing.cpu_count() * 3
-            _log.debug('Following icecream recommendation for the number of cores to use: %d' % n_cores)
-            toolchain_name = os.environ.get("CC", "gcc")
             try:
-                toolchain_path = os.environ.get("ICECC_VERSION_OVERRIDE", self.icc_version[toolchain_name])
+                n_cores = os.environ["NUMBER_OF_PROCESSORS"]
             except KeyError:
-                Console.error_message("Toolchains configuration not found. Please run webkit-flatpak -r")
+                n_cores = multiprocessing.cpu_count() * 3
+                _log.debug('Following icecream recommendation for the number of cores to use: %d' % n_cores)
+            toolchain_name = os.environ.get("CC", "gcc")
+            default_toolchain = self.icc_version.get(toolchain_name)
+
+            try:
+                toolchain_override = os.environ["ICECC_VERSION_OVERRIDE"]
+            except KeyError:
+                toolchain_path = default_toolchain
+            else:
+                if not os.path.isfile(toolchain_override):
+                    Console.error_message("%s toolchain not found. ICECC_VERSION_OVERRIDE mis-configured?", toolchain_override)
+                    return 1
+
+                toolchain_path = self.host_path_to_sandbox_path(toolchain_override)
+
+            if not toolchain_path:
+                Console.error_message("Toolchains configuration not found. Please run webkit-flatpak -r or set ICECC_VERSION_OVERRIDE to a valid host path")
                 return 1
+
             if "ICECC_VERSION_APPEND" in os.environ:
+                extra_toolchain = os.environ["ICECC_VERSION_APPEND"]
+                if not os.path.isfile(extra_toolchain):
+                    Console.error_message("%s is not a valid IceCC toolchain. ICECC_VERSION_APPEND mis-configured?", extra_toolchain)
+                    return 1
                 toolchain_path += ","
-                toolchain_path += os.environ["ICECC_VERSION_APPEND"]
-            native_toolchain = toolchain_path.split(",")[0]
-            if not os.path.isfile(native_toolchain):
-                Console.error_message("%s is not a valid IceCC toolchain. Please run webkit-flatpak -r", native_toolchain)
-                return 1
+                toolchain_path += self.host_path_to_sandbox_path(extra_toolchain)
+
             sandbox_environment.update({
                 "CCACHE_PREFIX": "icecc",
                 "ICECC_TEST_SOCKET": "/run/icecc/iceccd.socket",
@@ -990,9 +1010,22 @@ class WebkitFlatpak:
             for package in self._get_dependency_packages():
                 if package.name.startswith("org.webkit") \
                    and self.repos.is_package_installed(package.name) \
-                   and not self.repos.is_package_installed(package.name, branch=self.sdk_branch):
+                   and not self.repos.is_package_installed(package.name, branch=SDK_BRANCH):
+
+                    # Cache sccache auth token before removing UserFlatpak.
+                    self.acquire_sccache_auth_token_from_config_file()
+
                     Console.message("New SDK version available, removing local UserFlatpak directory before switching to new version")
                     shutil.rmtree(self.flatpak_build_path)
+
+                    Console.message("Forcing next WebKit build to re-run CMake")
+                    for platform in ('GTK', 'WPE'):
+                        for build_type in ('Release', 'Debug'):
+                            cache_path = os.path.join(self.build_root, platform, build_type, 'CMakeCache.txt')
+                            if os.path.isfile(cache_path):
+                                Console.message("Removing %s", cache_path)
+                                os.remove(cache_path)
+
                     self._reset_repository()
                     break
 
@@ -1006,6 +1039,17 @@ class WebkitFlatpak:
 
         result = self.setup_dev_env()
         if regenerate_toolchains:
+
+            # Toolchains used to be stored in WebKitBuild/Toolchains. Remove this path if found, to save
+            # up disk space.
+            old_toolchains_path = os.path.join(self.default_build_root, "Toolchains")
+            if os.path.isdir(old_toolchains_path):
+                Console.message("Purging obsolete toolchains")
+                shutil.rmtree(old_toolchains_path)
+
+            if not os.path.isdir(self.toolchains_directory):
+                os.makedirs(self.toolchains_directory)
+
             Console.message("Updating icecc/sccache standalone toolchain archives")
             self.icc_version = {}
             gcc_archive, toolchains = self.pack_toolchain(("gcc", "g++"), {"/usr/bin/c++": "g++",
@@ -1033,16 +1077,19 @@ class WebkitFlatpak:
     def has_environment(self):
         return os.path.exists(self.flatpak_build_path)
 
-    def save_config(self, toolchains):
-        with open(self.config_file, 'w') as config:
-            json_config = {'icecc_version': self.icc_version}
-            json.dump(json_config, config)
-
+    def acquire_sccache_auth_token_from_config_file(self):
         if os.path.isfile(self.sccache_config_file) and not self.sccache_token:
             Console.message("Reusing sccache auth token from old configuration file")
             with open(self.sccache_config_file) as config:
                 sccache_config = toml.load(config)
                 self.sccache_token = sccache_config['dist']['auth']['token']
+
+    def save_config(self, toolchains):
+        with open(self.config_file, 'w') as config:
+            json_config = {'icecc_version': self.icc_version}
+            json.dump(json_config, config)
+
+        self.acquire_sccache_auth_token_from_config_file()
 
         if not self.sccache_token:
             Console.message("No authentication token provided. Re-run this with the -t option if an sccache token was provided to you. Skipping sccache configuration for now.")
@@ -1091,21 +1138,22 @@ class WebkitFlatpak:
             relative_filename = "webkit-sdk-{name}-{filename}".format(name=compilers[0], filename=icc_version_filename.decode())
             archive_filename = os.path.join(self.toolchains_directory, relative_filename)
             os.rename(icc_version_filename, archive_filename)
-            self.icc_version[compilers[0]] = archive_filename
+            archive_sandbox_path = self.host_path_to_sandbox_path(archive_filename)
+            self.icc_version[compilers[0]] = archive_sandbox_path
             Console.message("Created %s self-contained toolchain archive", archive_filename)
 
             sccache_toolchains = []
             for (compiler_executable, archive_compiler_executable) in path_mapping.items():
                 item = {'type': 'path_override',
                         'compiler_executable': compiler_executable,
-                        'archive': archive_filename,
+                        'archive': archive_sandbox_path,
                         'archive_compiler_executable': compiler_mapping[archive_compiler_executable]}
                 sccache_toolchains.append(item)
             return (relative_filename, sccache_toolchains)
 
     def check_installed_packages(self):
         for package in self._get_dependency_packages():
-            if package.name.startswith("org.webkit") and not package.is_installed(self.sdk_branch):
+            if package.name.startswith("org.webkit") and not package.is_installed(SDK_BRANCH):
                 Console.error_message("Flatpak package %s not installed. Please update your SDK: Tools/Scripts/update-webkit-flatpak", package)
                 return False
         else:
@@ -1134,20 +1182,17 @@ class WebkitFlatpak:
 
     def _get_dependency_packages(self):
         arch = platform.machine()
-        self.runtime = FlatpakPackage("org.webkit.Platform", self.sdk_branch,
+        self.runtime = FlatpakPackage("org.webkit.Platform", SDK_BRANCH,
                                       self.sdk_repo, arch)
-        self.sdk = FlatpakPackage("org.webkit.Sdk", self.sdk_branch,
+        self.sdk = FlatpakPackage("org.webkit.Sdk", SDK_BRANCH,
                                   self.sdk_repo, arch)
         packages = [self.runtime, self.sdk]
-        packages.append(FlatpakPackage('org.webkit.Sdk.Debug', self.sdk_branch,
+        packages.append(FlatpakPackage('org.webkit.Sdk.Debug', SDK_BRANCH,
                                        self.sdk_repo, arch))
-
-        fdo_branch = "20.08"
-        extensions = ("rust-stable", "llvm11")
-        for name in extensions:
-            packages.append(FlatpakPackage("org.freedesktop.Sdk.Extension.%s" % name, fdo_branch,
-                                           self.flathub_repo, arch))
-
+        packages.append(FlatpakPackage("org.freedesktop.Sdk.Extension.llvm12", SDK_BRANCH,
+                                       self.flathub_repo, arch))
+        packages.append(FlatpakPackage("org.freedesktop.Platform.GL.default", SDK_BRANCH,
+                                       self.flathub_repo, arch))
         return packages
 
     def install_all(self):
@@ -1155,7 +1200,7 @@ class WebkitFlatpak:
             return
         Console.message("Installing %s dependencies in %s", self.build_type, self.flatpak_build_path)
         for package in self._get_dependency_packages():
-            if not package.is_installed(self.sdk_branch):
+            if not package.is_installed(SDK_BRANCH):
                 package.install()
 
     def run_gdb(self):

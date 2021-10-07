@@ -1,7 +1,7 @@
 /*
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
  * (C) 2002-2003 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2002-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2002-2021 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,6 +23,7 @@
 
 #include "CSSSelectorList.h"
 #include "CompiledSelector.h"
+#include "FontPaletteValues.h"
 #include "StyleProperties.h"
 #include "StyleRuleType.h"
 #include <wtf/RefPtr.h>
@@ -52,6 +53,7 @@ public:
     bool isCharsetRule() const { return type() == StyleRuleType::Charset; }
     bool isCounterStyleRule() const { return type() == StyleRuleType::CounterStyle; }
     bool isFontFaceRule() const { return type() == StyleRuleType::FontFace; }
+    bool isFontPaletteValuesRule() const { return type() == StyleRuleType::FontPaletteValues; }
     bool isKeyframesRule() const { return type() == StyleRuleType::Keyframes; }
     bool isKeyframeRule() const { return type() == StyleRuleType::Keyframe; }
     bool isNamespaceRule() const { return type() == StyleRuleType::Namespace; }
@@ -155,6 +157,51 @@ private:
     Ref<StyleProperties> m_properties;
 };
 
+class StyleRuleFontPaletteValues final : public StyleRuleBase {
+public:
+    static Ref<StyleRuleFontPaletteValues> create(const AtomString& name, const AtomString& fontFamily, const FontPaletteIndex& basePalette, Vector<FontPaletteValues::OverriddenColor>&& overrideColors)
+    {
+        return adoptRef(*new StyleRuleFontPaletteValues(name, fontFamily, basePalette, WTFMove(overrideColors)));
+    }
+    
+    ~StyleRuleFontPaletteValues();
+
+    const AtomString& name() const
+    {
+        return m_name;
+    }
+
+    const AtomString& fontFamily() const
+    {
+        return m_fontFamily;
+    }
+
+    const FontPaletteValues& fontPaletteValues() const
+    {
+        return m_fontPaletteValues;
+    }
+
+    const FontPaletteIndex& basePalette() const
+    {
+        return m_fontPaletteValues.basePalette();
+    }
+
+    const Vector<FontPaletteValues::OverriddenColor>& overrideColors() const
+    {
+        return m_fontPaletteValues.overrideColors();
+    }
+
+    Ref<StyleRuleFontPaletteValues> copy() const { return adoptRef(*new StyleRuleFontPaletteValues(*this)); }
+
+private:
+    StyleRuleFontPaletteValues(const AtomString& name, const AtomString& fontFamily, const FontPaletteIndex& basePalette, Vector<FontPaletteValues::OverriddenColor>&& overrideColors);
+    StyleRuleFontPaletteValues(const StyleRuleFontPaletteValues&);
+
+    AtomString m_name;
+    AtomString m_fontFamily;
+    FontPaletteValues m_fontPaletteValues;
+};
+
 class StyleRulePage final : public StyleRuleBase {
 public:
     static Ref<StyleRulePage> create(Ref<StyleProperties>&&, CSSSelectorList&&);
@@ -246,12 +293,12 @@ private:
 
 class StyleRuleLayer final : public StyleRuleGroup {
 public:
-    static Ref<StyleRuleLayer> create(Vector<CascadeLayerName>&&);
-    static Ref<StyleRuleLayer> create(CascadeLayerName&&, Vector<RefPtr<StyleRuleBase>>&&);
-    static Ref<StyleRuleLayer> create(CascadeLayerName&&, std::unique_ptr<DeferredStyleGroupRuleList>&&);
+    static Ref<StyleRuleLayer> createStatement(Vector<CascadeLayerName>&&);
+    static Ref<StyleRuleLayer> createBlock(CascadeLayerName&&, Vector<RefPtr<StyleRuleBase>>&&);
+    static Ref<StyleRuleLayer> createBlock(CascadeLayerName&&, std::unique_ptr<DeferredStyleGroupRuleList>&&);
     Ref<StyleRuleLayer> copy() const { return adoptRef(*new StyleRuleLayer(*this)); }
 
-    bool isList() const { return WTF::holds_alternative<Vector<CascadeLayerName>>(m_nameVariant); }
+    bool isStatement() const { return WTF::holds_alternative<Vector<CascadeLayerName>>(m_nameVariant); }
 
     auto& name() const { return WTF::get<CascadeLayerName>(m_nameVariant); }
     auto& nameList() const { return WTF::get<Vector<CascadeLayerName>>(m_nameVariant); }
@@ -355,6 +402,10 @@ SPECIALIZE_TYPE_TRAITS_END()
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::StyleRuleFontFace)
     static bool isType(const WebCore::StyleRuleBase& rule) { return rule.isFontFaceRule(); }
+SPECIALIZE_TYPE_TRAITS_END()
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::StyleRuleFontPaletteValues)
+    static bool isType(const WebCore::StyleRuleBase& rule) { return rule.isFontPaletteValuesRule(); }
 SPECIALIZE_TYPE_TRAITS_END()
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::StyleRuleMedia)

@@ -1,3 +1,56 @@
+2021-10-01  Chris Dumez  <cdumez@apple.com>
+
+        Drop support for macOS < 10.15
+        https://bugs.webkit.org/show_bug.cgi?id=231085
+
+        Reviewed by Darin Adler.
+
+        * Source/webrtc/sdk/WebKit/VideoProcessingSoftLink.h:
+
+2021-09-30  Youenn Fablet  <youenn@apple.com>
+
+        Support AES GCM ciphers in WebRTC
+        https://bugs.webkit.org/show_bug.cgi?id=214402
+        <rdar://problem/65700381>
+
+        Reviewed by Eric Carlson.
+
+        * Configurations/libwebrtc.iOS.exp:
+        * Configurations/libwebrtc.iOSsim.exp:
+        * Configurations/libwebrtc.mac.exp:
+
+2021-09-28  Alex Christensen  <achristensen@webkit.org>
+
+        Mostly fix Mac CMake build
+        https://bugs.webkit.org/show_bug.cgi?id=230868
+
+        Reviewed by Don Olmstead.
+
+        * CMakeLists.txt:
+
+2021-09-21  Youenn Fablet  <youenn@apple.com>
+
+        NetworkRTCUDPSocketCocoaConnections should handle NAT64 IP addresses correctly
+        https://bugs.webkit.org/show_bug.cgi?id=230552
+        <rdar://83297256>
+
+        Reviewed by Alex Christensen.
+
+        * Configurations/libwebrtc.iOS.exp:
+        * Configurations/libwebrtc.iOSsim.exp:
+        * Configurations/libwebrtc.mac.exp:
+
+2021-09-15  Youenn Fablet  <youenn@apple.com>
+
+        Migrate to libwebrtc non-racy setRemoteDescription/setLocalDescription variants
+        https://bugs.webkit.org/show_bug.cgi?id=230262
+
+        Reviewed by Darin Adler.
+
+        * Configurations/libwebrtc.iOS.exp:
+        * Configurations/libwebrtc.iOSsim.exp:
+        * Configurations/libwebrtc.mac.exp:
+
 2021-09-09  Youenn Fablet  <youenn@apple.com>
 
         Add support for RTCSctpTransport

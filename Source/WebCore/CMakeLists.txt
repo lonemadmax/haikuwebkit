@@ -31,6 +31,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/encryptedmedia/legacy"
     "${WEBCORE_DIR}/Modules/entriesapi"
     "${WEBCORE_DIR}/Modules/fetch"
+    "${WEBCORE_DIR}/Modules/filesystemaccess"
     "${WEBCORE_DIR}/Modules/geolocation"
     "${WEBCORE_DIR}/Modules/highlight"
     "${WEBCORE_DIR}/Modules/indexeddb"
@@ -51,6 +52,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/permissions"
     "${WEBCORE_DIR}/Modules/pictureinpicture"
     "${WEBCORE_DIR}/Modules/plugins"
+    "${WEBCORE_DIR}/Modules/push-api"
     "${WEBCORE_DIR}/Modules/remoteplayback"
     "${WEBCORE_DIR}/Modules/speech"
     "${WEBCORE_DIR}/Modules/storage"
@@ -82,6 +84,8 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/css/calc"
     "${WEBCORE_DIR}/css/parser"
     "${WEBCORE_DIR}/css/typedom"
+    "${WEBCORE_DIR}/css/typedom/numeric"
+    "${WEBCORE_DIR}/css/typedom/transform"
     "${WEBCORE_DIR}/cssjit"
     "${WEBCORE_DIR}/display"
     "${WEBCORE_DIR}/display/compositing"
@@ -107,9 +111,10 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/layout/formattingContexts/flex"
     "${WEBCORE_DIR}/layout/floats"
     "${WEBCORE_DIR}/layout/formattingContexts/inline"
+    "${WEBCORE_DIR}/layout/formattingContexts/inline/display"
+    "${WEBCORE_DIR}/layout/formattingContexts/inline/invalidation"
     "${WEBCORE_DIR}/layout/formattingContexts/inline/text"
     "${WEBCORE_DIR}/layout/integration"
-    "${WEBCORE_DIR}/layout/invalidation"
     "${WEBCORE_DIR}/layout/layouttree"
     "${WEBCORE_DIR}/layout/formattingContexts/table"
     "${WEBCORE_DIR}/loader"
@@ -198,6 +203,7 @@ set(WebCore_IDL_INCLUDES
     Modules/encryptedmedia/legacy
     Modules/entriesapi
     Modules/fetch
+    Modules/filesystemaccess
     Modules/geolocation
     Modules/highlight
     Modules/indexeddb
@@ -208,6 +214,7 @@ set(WebCore_IDL_INCLUDES
     Modules/notifications
     Modules/paymentrequest
     Modules/permissions
+    Modules/push-api
     Modules/speech
     Modules/storage
     Modules/streams
@@ -219,6 +226,9 @@ set(WebCore_IDL_INCLUDES
     bindings/js
 
     css/typedom
+
+    css/typedom/numeric
+    css/typedom/transform
 
     html/canvas
     html/shadow
@@ -287,6 +297,11 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/fetch/FetchRequestRedirect.idl
     Modules/fetch/FetchResponse.idl
     Modules/fetch/WindowOrWorkerGlobalScope+Fetch.idl
+
+    Modules/filesystemaccess/FileSystemDirectoryHandle.idl
+    Modules/filesystemaccess/FileSystemFileHandle.idl
+    Modules/filesystemaccess/FileSystemHandle.idl
+    Modules/filesystemaccess/StorageManager+FileSystemAccess.idl
 
     Modules/geolocation/Geolocation.idl
     Modules/geolocation/GeolocationCoordinates.idl
@@ -404,6 +419,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediastream/RTCIceTcpCandidateType.idl
     Modules/mediastream/RTCIceTransport.idl
     Modules/mediastream/RTCIceTransportState.idl
+    Modules/mediastream/RTCLocalSessionDescriptionInit.idl
     Modules/mediastream/RTCOfferAnswerOptions.idl
     Modules/mediastream/RTCOfferOptions.idl
     Modules/mediastream/RTCPeerConnection.idl
@@ -485,6 +501,11 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/pictureinpicture/EnterPictureInPictureEvent.idl
     Modules/pictureinpicture/HTMLVideoElement+PictureInPicture.idl
     Modules/pictureinpicture/PictureInPictureWindow.idl
+
+    Modules/push-api/PushEvent.idl
+    Modules/push-api/PushEventInit.idl
+    Modules/push-api/PushMessageData.idl
+    Modules/push-api/ServiceWorkerGlobalScope+PushAPI.idl
 
     Modules/remoteplayback/RemotePlayback.idl
     Modules/remoteplayback/RemotePlaybackAvailabilityCallback.idl
@@ -696,10 +717,12 @@ set(WebCore_NON_SVG_IDL_FILES
     css/CSSConditionRule.idl
     css/CSSCounterStyleRule.idl
     css/CSSFontFaceRule.idl
+    css/CSSFontPaletteValuesRule.idl
     css/CSSGroupingRule.idl
     css/CSSImportRule.idl
     css/CSSKeyframeRule.idl
     css/CSSKeyframesRule.idl
+    css/CSSLayerRule.idl
     css/CSSMediaRule.idl
     css/CSSNamespaceRule.idl
     css/CSSPaintCallback.idl
@@ -748,6 +771,30 @@ set(WebCore_NON_SVG_IDL_FILES
     css/typedom/CSSUnparsedValue.idl
     css/typedom/StylePropertyMap.idl
     css/typedom/StylePropertyMapReadOnly.idl
+
+    css/typedom/numeric/CSSMathInvert.idl
+    css/typedom/numeric/CSSMathMax.idl
+    css/typedom/numeric/CSSMathMin.idl
+    css/typedom/numeric/CSSMathNegate.idl
+    css/typedom/numeric/CSSMathOperator.idl
+    css/typedom/numeric/CSSMathProduct.idl
+    css/typedom/numeric/CSSMathSum.idl
+    css/typedom/numeric/CSSMathValue.idl
+    css/typedom/numeric/CSSNumericArray.idl
+    css/typedom/numeric/CSSNumericBaseType.idl
+    css/typedom/numeric/CSSNumericType.idl
+
+    css/typedom/transform/CSSMatrixComponent.idl
+    css/typedom/transform/CSSMatrixComponentOptions.idl
+    css/typedom/transform/CSSPerspective.idl
+    css/typedom/transform/CSSRotate.idl
+    css/typedom/transform/CSSScale.idl
+    css/typedom/transform/CSSSkew.idl
+    css/typedom/transform/CSSSkewX.idl
+    css/typedom/transform/CSSSkewY.idl
+    css/typedom/transform/CSSTransformComponent.idl
+    css/typedom/transform/CSSTransformValue.idl
+    css/typedom/transform/CSSTranslate.idl
 
     dom/AbortAlgorithm.idl
     dom/AbortController.idl
@@ -1107,8 +1154,11 @@ set(WebCore_NON_SVG_IDL_FILES
     page/PerformanceTiming.idl
     page/RemoteDOMWindow.idl
     page/ResizeObserver.idl
+    page/ResizeObserverBoxOptions.idl
     page/ResizeObserverCallback.idl
     page/ResizeObserverEntry.idl
+    page/ResizeObserverOptions.idl
+    page/ResizeObserverSize.idl
     page/Screen.idl
     page/ScrollBehavior.idl
     page/ScrollIntoViewOptions.idl
@@ -1139,9 +1189,12 @@ set(WebCore_NON_SVG_IDL_FILES
 
     workers/AbstractWorker.idl
     workers/DedicatedWorkerGlobalScope.idl
+    workers/SharedWorker.idl
+    workers/SharedWorkerGlobalScope.idl
     workers/Worker.idl
     workers/WorkerGlobalScope.idl
     workers/WorkerLocation.idl
+    workers/WorkerOptions.idl
     workers/WorkerType.idl
 
     workers/service/ExtendableEvent.idl
@@ -1832,6 +1885,7 @@ set(WINDOW_CONSTRUCTORS_FILE ${WebCore_DERIVED_SOURCES_DIR}/DOMWindowConstructor
 set(WORKERGLOBALSCOPE_CONSTRUCTORS_FILE ${WebCore_DERIVED_SOURCES_DIR}/WorkerGlobalScopeConstructors.idl)
 set(DEDICATEDWORKERGLOBALSCOPE_CONSTRUCTORS_FILE ${WebCore_DERIVED_SOURCES_DIR}/DedicatedWorkerGlobalScopeConstructors.idl)
 set(SERVICEWORKERGLOBALSCOPE_CONSTRUCTORS_FILE ${WebCore_DERIVED_SOURCES_DIR}/ServiceWorkerGlobalScopeConstructors.idl)
+set(SHAREDWORKERGLOBALSCOPE_CONSTRUCTORS_FILE ${WebCore_DERIVED_SOURCES_DIR}/SharedWorkerGlobalScopeConstructors.idl)
 set(WORKLETGLOBALSCOPE_CONSTRUCTORS_FILE ${WebCore_DERIVED_SOURCES_DIR}/WorkletGlobalScopeConstructors.idl)
 set(PAINTWORKLETGLOBALSCOPE_CONSTRUCTORS_FILE ${WebCore_DERIVED_SOURCES_DIR}/PaintWorkletGlobalScopeConstructors.idl)
 set(AUDIOWORKLETGLOBALSCOPE_CONSTRUCTORS_FILE ${WebCore_DERIVED_SOURCES_DIR}/AudioWorkletGlobalScopeConstructors.idl)
@@ -2021,6 +2075,7 @@ GENERATE_BINDINGS(WebCoreBindings
         --workerGlobalScopeConstructorsFile ${WORKERGLOBALSCOPE_CONSTRUCTORS_FILE}
         --dedicatedWorkerGlobalScopeConstructorsFile ${DEDICATEDWORKERGLOBALSCOPE_CONSTRUCTORS_FILE}
         --serviceWorkerGlobalScopeConstructorsFile ${SERVICEWORKERGLOBALSCOPE_CONSTRUCTORS_FILE}
+        --sharedWorkerGlobalScopeConstructorsFile ${SHAREDWORKERGLOBALSCOPE_CONSTRUCTORS_FILE}
         --workletGlobalScopeConstructorsFile ${WORKLETGLOBALSCOPE_CONSTRUCTORS_FILE}
         --paintWorkletGlobalScopeConstructorsFile ${PAINTWORKLETGLOBALSCOPE_CONSTRUCTORS_FILE}
         --audioWorkletGlobalScopeConstructorsFile ${AUDIOWORKLETGLOBALSCOPE_CONSTRUCTORS_FILE})

@@ -1,3 +1,1052 @@
+2021-10-03  David Kilzer  <ddkilzer@apple.com>
+
+        WTF::RetainPtr<> allows assignment of two pointer types that are not assignable
+        <https://webkit.org/b/230406>
+        <rdar://problem/83241893>
+
+        Reviewed by Darin Adler.
+
+        * wtf/RetainPtr.h:
+        (WTF::RetainPtr::RetainPtr):
+        (WTF::RetainPtr::checkType): Add.
+        - Add type check for move constructor.
+
+        * wtf/cocoa/TypeCastsCocoa.h:
+        - Change #include to #import.
+        (WTF_CF_TO_NS_BRIDGE_TRANSFER): Add.
+        (WTF_CF_TO_NS_BRIDGE_TRANSFER): Add.
+        - Helper macros for bridge_cast() and bridge_id_cast().
+        (WTF_DECLARE_CF_NS_BRIDGE_CAST): Add.
+        - Macro used to define bridge_cast() functions for all known
+          toll-free-bridged types.
+        (WTF::bridge_cast): Add.
+        - Helper macro for toll-free-bridge casting from a known CF type
+          to and from their Objective-C NS type.  Prevents ref churn for
+          rvale RetainPtr<> objects.
+        (WTF::bridge_id_cast): Add.
+        - Helper macro for casting from any CFTypeRef to id.  Prevents
+          ref churn for rvalue RetainPtr<> objects.
+        (WTF::checked_objc_cast):
+        - Simplified to match dynamic_objc_cast<> implementation in
+          RetainPtr.h.
+
+        * wtf/cocoa/VectorCocoa.h:
+        (WTF::createNSArray):
+        - Change return type to match object.
+
+2021-10-03  Basuke Suzuki  <basuke.suzuki@sony.com>
+
+        Enable release log to stderr
+        https://bugs.webkit.org/show_bug.cgi?id=230725
+        <rdar://problem/83740529>
+
+        Reviewed by Michael Catanzaro.
+
+        Define new compiler definitions, USE_LOG_STDERR for release logging. We don't have
+        modern logging backend so that dumping out to stdout/stderr is still very valuable. 
+
+        * wtf/Assertions.cpp:
+        * wtf/Assertions.h:
+        * wtf/Logger.h:
+        (WTF::Logger::log):
+        (WTF::Logger::logVerbose):
+
+2021-10-02  Philippe Normand  <pnormand@igalia.com>
+
+        [GLib] Media session manager unable to handle more than one session
+        https://bugs.webkit.org/show_bug.cgi?id=230250
+
+        Reviewed by Adrian Perez de Castro.
+
+        * wtf/glib/GRefPtr.h: Forward-declare GDBusConnection.
+
+2021-10-01  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Upgrade in-tree OSS ICU header to 64.2 because macOS Mojave build will be dropped
+        https://bugs.webkit.org/show_bug.cgi?id=231104
+
+        Reviewed by Myles C. Maxfield.
+
+        WebKit no longer supports macOS Mojave build. This means that we can upgrade in-tree ICU header,
+        which is only used when OSS WebKit is built. ICU 64.2 is ICU shipped in macOS Catalina.
+
+        * icu/LICENSE:
+        * icu/README:
+        * icu/unicode/alphaindex.h:
+        * icu/unicode/brkiter.h:
+        * icu/unicode/bytestream.h:
+        (StringByteSink::StringByteSink):
+        * icu/unicode/calendar.h:
+        * icu/unicode/caniter.h:
+        * icu/unicode/casemap.h:
+        * icu/unicode/char16ptr.h:
+        (Char16Ptr::Char16Ptr):
+        (Char16Ptr::~Char16Ptr):
+        (Char16Ptr::get const):
+        (ConstChar16Ptr::ConstChar16Ptr):
+        (ConstChar16Ptr::~ConstChar16Ptr):
+        (ConstChar16Ptr::get const):
+        (toUCharPtr):
+        (toOldUCharPtr):
+        * icu/unicode/coll.h:
+        * icu/unicode/compactdecimalformat.h:
+        * icu/unicode/currpinf.h:
+        (CurrencyPluralInfo::operator!= const):
+        * icu/unicode/currunit.h:
+        * icu/unicode/datefmt.h:
+        * icu/unicode/dcfmtsym.h:
+        * icu/unicode/decimfmt.h:
+        * icu/unicode/docmain.h:
+        * icu/unicode/dtintrv.h:
+        * icu/unicode/dtitvfmt.h:
+        * icu/unicode/dtitvinf.h:
+        * icu/unicode/dtptngen.h:
+        * icu/unicode/edits.h:
+        * icu/unicode/enumset.h:
+        * icu/unicode/filteredbrk.h:
+        * icu/unicode/fmtable.h:
+        * icu/unicode/formattedvalue.h: Added.
+        * icu/unicode/gender.h:
+        * icu/unicode/icuplug.h:
+        * icu/unicode/listformatter.h:
+        * icu/unicode/localebuilder.h: Added.
+        * icu/unicode/localpointer.h:
+        (LocalPointer::LocalPointer):
+        (LocalPointer::operator std::unique_ptr<T> ):
+        (LocalArray::LocalArray):
+        (LocalArray::operator std::unique_ptr<T[]> ):
+        * icu/unicode/locdspnm.h:
+        * icu/unicode/locid.h:
+        (Locale::toLanguageTag const):
+        (Locale::getKeywords const):
+        (Locale::getUnicodeKeywords const):
+        (Locale::getKeywordValue const):
+        (Locale::getUnicodeKeywordValue const):
+        * icu/unicode/measfmt.h:
+        * icu/unicode/measunit.h:
+        * icu/unicode/messagepattern.h:
+        * icu/unicode/msgfmt.h:
+        * icu/unicode/normalizer2.h:
+        * icu/unicode/nounit.h:
+        * icu/unicode/numberformatter.h:
+        * icu/unicode/numberrangeformatter.h: Added.
+        * icu/unicode/numfmt.h:
+        * icu/unicode/numsys.h:
+        * icu/unicode/parsepos.h:
+        * icu/unicode/platform.h:
+        * icu/unicode/plurfmt.h:
+        * icu/unicode/plurrule.h:
+        * icu/unicode/ptypes.h:
+        * icu/unicode/rbbi.h:
+        * icu/unicode/rbnf.h:
+        * icu/unicode/regex.h:
+        * icu/unicode/region.h:
+        * icu/unicode/reldatefmt.h:
+        * icu/unicode/simpleformatter.h:
+        * icu/unicode/smpdtfmt.h:
+        * icu/unicode/stringoptions.h:
+        * icu/unicode/stringtriebuilder.h:
+        * icu/unicode/timezone.h:
+        * icu/unicode/translit.h:
+        * icu/unicode/tzfmt.h:
+        * icu/unicode/ubidi.h:
+        * icu/unicode/ubiditransform.h:
+        * icu/unicode/ucal.h:
+        * icu/unicode/uchar.h:
+        * icu/unicode/ucnv.h:
+        * icu/unicode/ucol.h:
+        * icu/unicode/uconfig.h:
+        * icu/unicode/ucpmap.h: Added.
+        * icu/unicode/ucptrie.h: Added.
+        * icu/unicode/ucurr.h:
+        * icu/unicode/udat.h:
+        * icu/unicode/udateintervalformat.h:
+        * icu/unicode/udatpg.h:
+        * icu/unicode/uenum.h:
+        * icu/unicode/uformattedvalue.h: Added.
+        * icu/unicode/ugender.h:
+        * icu/unicode/ulistformatter.h:
+        * icu/unicode/umachine.h:
+        * icu/unicode/umutablecptrie.h: Added.
+        * icu/unicode/uniset.h:
+        * icu/unicode/unistr.h:
+        * icu/unicode/unum.h:
+        * icu/unicode/unumberformatter.h:
+        * icu/unicode/unumsys.h:
+        * icu/unicode/uobject.h:
+        * icu/unicode/upluralrules.h:
+        * icu/unicode/uregex.h:
+        * icu/unicode/ureldatefmt.h:
+        * icu/unicode/urename.h:
+        * icu/unicode/ures.h:
+        * icu/unicode/uscript.h:
+        * icu/unicode/usearch.h:
+        * icu/unicode/uset.h:
+        * icu/unicode/uspoof.h:
+        * icu/unicode/ustring.h:
+        * icu/unicode/utext.h:
+        * icu/unicode/utf16.h:
+        * icu/unicode/utf8.h:
+        * icu/unicode/utypes.h:
+        * icu/unicode/uvernum.h:
+
+2021-10-01  Chris Dumez  <cdumez@apple.com>
+
+        Drop support for macOS < 10.15
+        https://bugs.webkit.org/show_bug.cgi?id=231085
+
+        Reviewed by Darin Adler.
+
+        * wtf/PlatformEnableCocoa.h:
+        * wtf/PlatformHave.h:
+        * wtf/PlatformUse.h:
+
+2021-10-01  Youenn Fablet  <youenn@apple.com>
+
+        Add support for PushEvent
+        https://bugs.webkit.org/show_bug.cgi?id=231007
+        <rdar://problem/83707470>
+
+        Reviewed by Chris Dumez.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-10-01  Chris Dumez  <cdumez@apple.com>
+
+        Drop legacy USE(LEGACY_CFNETWORK_DOWNLOADS) code paths
+        https://bugs.webkit.org/show_bug.cgi?id=231081
+
+        Reviewed by Alex Christensen.
+
+        Drop legacy USE(LEGACY_CFNETWORK_DOWNLOADS) code paths, as we no longer support Mac OS 14 Mojave.
+
+        * wtf/PlatformUse.h:
+
+2021-09-30  Sihui Liu  <sihui_liu@apple.com>
+
+        Make File System Access API available in Worker
+        https://bugs.webkit.org/show_bug.cgi?id=230805
+        <rdar://problem/83552511>
+
+        Reviewed by Youenn Fablet.
+
+        * wtf/CrossThreadCopier.h:
+
+2021-09-30  Eddy Wong  <eddy_wong@apple.com>
+
+        Adopt presentationSceneIdentifierForPaymentAuthorizationController delegate call from PassKit
+        https://bugs.webkit.org/show_bug.cgi?id=230874
+
+        Reviewed by Devin Rousso.
+
+        * wtf/PlatformEnableCocoa.h: Defines new flag ENABLE_APPLE_PAY_REMOTE_UI_USES_SCENE
+
+2021-09-30  Darin Adler  <darin@apple.com>
+
+        Add StdLibExtras.h include to a file that uses bitwise_cast without including it
+        https://bugs.webkit.org/show_bug.cgi?id=231027
+
+        Reviewed by Yusuke Suzuki.
+
+        * wtf/RawPtrTraits.h: Include StdLibExtras.h.
+
+2021-09-29  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [WinCairo] REGRESSION(r280726): registry keys enabling GPU process mode don't work
+        https://bugs.webkit.org/show_bug.cgi?id=230871
+
+        Reviewed by Don Olmstead.
+
+        * wtf/PlatformHave.h: r270175 defined HAVE_SYSTEM_FEATURE_FLAGS
+        for Windows to use WebKit::isFeatureFlagEnabled. But, it is no
+        longer needed.
+
+2021-09-29  Kiet Ho  <tho22@apple.com>
+
+        Implement the 'ic' unit from CSS Values 4
+        https://bugs.webkit.org/show_bug.cgi?id=204276
+        <rdar://problem/57256127>
+
+        Reviewed by Myles C. Maxfield.
+
+        * wtf/unicode/CharacterNames.h: add CJK water glyph (U+6C34) constant.
+
+2021-09-29  Antti Koivisto  <antti@apple.com>
+
+        [CSS Cascade Layers] Enable by default
+        https://bugs.webkit.org/show_bug.cgi?id=230948
+
+        Reviewed by Simon Fraser.
+
+        Flip the switch.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-09-28  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        iOS simulator build should use PTHREAD_JIT_PERMISSIONS_API
+        https://bugs.webkit.org/show_bug.cgi?id=230920
+        rdar://77494871
+
+        Reviewed by Filip Pizlo.
+
+        In AppleSilicon macOS, we should use PTHREAD_JIT_PERMISSIONS_API for OSS build.
+        However, we are not enabling that for iOS simulator build. This patch enables that.
+        This API exists after iOS 14.0 SDK.
+
+        * wtf/PlatformUse.h:
+
+2021-09-28  Alex Christensen  <achristensen@webkit.org>
+
+        Mostly fix Mac CMake build
+        https://bugs.webkit.org/show_bug.cgi?id=230868
+
+        Reviewed by Don Olmstead.
+
+        * wtf/PlatformMac.cmake:
+
+2021-09-28  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, fix Windows build
+        https://bugs.webkit.org/show_bug.cgi?id=230876
+
+        * wtf/GenericTimeMixin.h:
+        (WTF::GenericTimeMixin::operator+=):
+        (WTF::GenericTimeMixin::operator-=):
+
+2021-09-27  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [WTF] Add ApproximateTime
+        https://bugs.webkit.org/show_bug.cgi?id=230876
+
+        Reviewed by Filip Pizlo.
+
+        * WTF.xcodeproj/project.pbxproj:
+        * wtf/ApproximateTime.cpp: Copied from Source/WTF/wtf/ClockType.cpp.
+        (WTF::ApproximateTime::approximateWallTime const):
+        (WTF::ApproximateTime::approximateMonotonicTime const):
+        (WTF::ApproximateTime::dump const):
+        * wtf/ApproximateTime.h: Copied from Source/WTF/wtf/MonotonicTime.h.
+        (WTF::ApproximateTime::MarkableTraits::isEmptyValue):
+        (WTF::ApproximateTime::MarkableTraits::emptyValue):
+        (std::isnan):
+        (std::isinf):
+        (std::isfinite):
+        * wtf/CMakeLists.txt:
+        * wtf/ClockType.cpp:
+        (WTF::printInternal):
+        * wtf/ClockType.h:
+        * wtf/CurrentTime.cpp:
+        (WTF::MonotonicTime::fromMachAbsoluteTime):
+        (WTF::MonotonicTime::toMachAbsoluteTime const):
+        (WTF::ApproximateTime::fromMachApproximateTime):
+        (WTF::ApproximateTime::toMachApproximateTime const):
+        (WTF::ApproximateTime::now):
+        * wtf/MonotonicTime.h:
+        * wtf/Seconds.cpp:
+        (WTF::Seconds::operator+ const):
+        (WTF::Seconds::operator- const):
+        * wtf/Seconds.h:
+        * wtf/TimeWithDynamicClockType.cpp:
+        (WTF::TimeWithDynamicClockType::now):
+        (WTF::TimeWithDynamicClockType::approximateTime const):
+        (WTF::TimeWithDynamicClockType::approximateWallTime const):
+        (WTF::TimeWithDynamicClockType::approximateMonotonicTime const):
+        * wtf/TimeWithDynamicClockType.h:
+        * wtf/WallTime.h:
+
+2021-09-27  Antti Koivisto  <antti@apple.com>
+
+        [LFC] Use CheckedRef/Ptr instead of WeakPtr
+        https://bugs.webkit.org/show_bug.cgi?id=230821
+
+        Reviewed by Alan Bujtas.
+
+        * wtf/CheckedRef.h:
+        (WTF::CanMakeCheckedPtrBase::incrementPtrCount const):
+        (WTF::CanMakeCheckedPtrBase::decrementPtrCount const):
+        (WTF::CanMakeCheckedPtrBase::incrementPtrCount): Deleted.
+        (WTF::CanMakeCheckedPtrBase::decrementPtrCount): Deleted.
+
+        Make const so CheckedPtr<const Foo> works.
+
+2021-09-27  Jean-Yves Avenard  <jya@apple.com>
+
+        Vorbis decoder can't be instantiated - Remove workaround added in bug 228139
+        https://bugs.webkit.org/show_bug.cgi?id=230742
+        rdar://83484414
+
+        Reviewed by Eric Carlson.
+
+        * wtf/PlatformUse.h: Add USE_VORBIS_AUDIOCOMPONENT_WORKAROUND
+
+2021-09-27  Saam Barati  <sbarati@apple.com>
+
+        Build an unlinked baseline JIT
+        https://bugs.webkit.org/show_bug.cgi?id=229223
+        <rdar://problem/82321772>
+
+        Reviewed by Yusuke Suzuki.
+
+        * wtf/Bag.h:
+        * wtf/Packed.h:
+        (WTF::PackedAlignedPtr::operator* const):
+
+2021-09-27  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r283102, r283103 and r283104.
+        https://bugs.webkit.org/show_bug.cgi?id=230854
+
+        It regresses JetStream2 on iOS devices
+
+        Reverted changesets:
+
+        "Build an unlinked baseline JIT"
+        https://bugs.webkit.org/show_bug.cgi?id=229223
+        https://commits.webkit.org/r283102
+
+        "Unreviewed, fix CLoop build"
+        https://bugs.webkit.org/show_bug.cgi?id=229223
+        https://commits.webkit.org/r283103
+
+        "Unreviewed, fix CLoop build part 2"
+        https://bugs.webkit.org/show_bug.cgi?id=229223
+        https://commits.webkit.org/r283104
+
+2021-09-27  Saam Barati  <sbarati@apple.com>
+
+        Build an unlinked baseline JIT
+        https://bugs.webkit.org/show_bug.cgi?id=229223
+        <rdar://problem/82321772>
+
+        Reviewed by Yusuke Suzuki.
+
+        * wtf/Bag.h:
+        * wtf/Packed.h:
+        (WTF::PackedAlignedPtr::operator* const):
+
+2021-09-26  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r283083 and r283088.
+        https://bugs.webkit.org/show_bug.cgi?id=230806
+
+        Windows pors are crashing
+
+        Reverted changesets:
+
+        "Build an unlinked baseline JIT"
+        https://bugs.webkit.org/show_bug.cgi?id=229223
+        https://commits.webkit.org/r283083
+
+        "Make byte codes with arithmetic profiles switch to using an
+        index instead of a pointer in metadata"
+        https://bugs.webkit.org/show_bug.cgi?id=230798
+        https://commits.webkit.org/r283088
+
+2021-09-25  Saam Barati  <sbarati@apple.com>
+
+        Build an unlinked baseline JIT
+        https://bugs.webkit.org/show_bug.cgi?id=229223
+        <rdar://problem/82321772>
+
+        Reviewed by Yusuke Suzuki.
+
+        * wtf/Bag.h:
+        * wtf/Packed.h:
+        (WTF::PackedAlignedPtr::operator* const):
+
+2021-09-24  Devin Rousso  <drousso@apple.com>
+
+        Add typechecking `is` overloads for `std::unique_ptr`, `WTF::UniqueRef`, and `WTF::WeakPtr`
+        https://bugs.webkit.org/show_bug.cgi?id=230734
+
+        Reviewed by Chris Dumez.
+
+        * wtf/StdLibExtras.h:
+        * wtf/TypeCasts.h:
+        (WTF::is):
+        * wtf/UniqueRef.h:
+        (WTF::GetPtrHelper<UniqueRef<T>>::getPtr): Added.
+        (WTF::is): Added.
+        * wtf/WeakPtr.h:
+        (WTF::is): Added.
+
+2021-09-24  Jonathan Bedard  <jbedard@apple.com>
+
+        [iOS 15] Support building WebKit (Part 3)
+        https://bugs.webkit.org/show_bug.cgi?id=227002
+        <rdar://problem/79316598>
+
+        Reviewed by Ryan Haddad.
+
+        * wtf/spi/darwin/XPCSPI.h: Import NSError header.
+
+2021-09-23  Tim Horton  <timothy_horton@apple.com>
+
+        Move more linked-on-or-after checks to WebCore::linkedOnOrAfter()
+        https://bugs.webkit.org/show_bug.cgi?id=230694
+
+        Reviewed by Wenson Hsieh.
+
+        * wtf/spi/darwin/dyldSPI.h:
+
+2021-09-23  Jean-Yves Avenard  <jya@apple.com>
+
+        Opus and Vorbis codecs aren't available on iPad.
+        https://bugs.webkit.org/show_bug.cgi?id=230595
+        rdar://problem/83382734
+
+        Vorbis and Opus are usable on platforms other than macOS and are being checked
+        at runtime already.
+        Reviewed by Eric Carlson.
+
+        * wtf/PlatformEnableCocoa.h:
+
+2021-09-22  Chris Dumez  <cdumez@apple.com>
+
+        Drop makeRef() and use Ref { } instead
+        https://bugs.webkit.org/show_bug.cgi?id=230626
+
+        Reviewed by Alex Christensen.
+
+        * wtf/Ref.h:
+
+2021-09-22  Brady Eidson  <beidson@apple.com>
+
+        Disable FTP.
+        <rdar://81193860> and https://bugs.webkit.org/show_bug.cgi?id=230477
+
+        Reviewed by Geoff Garen.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+        * wtf/URL.cpp:
+        (WTF::URL::protocolIsInFTPFamily const):
+        (WTF::protocolIsInFTPFamily):
+        * wtf/URL.h:
+
+2021-09-22  Simon Fraser  <simon.fraser@apple.com>
+
+        Remove ENABLE(SMOOTH_SCROLLING)
+        https://bugs.webkit.org/show_bug.cgi?id=230587
+
+        Reviewed by Tim Horton.
+
+        ENABLE(SMOOTH_SCROLLING) was always enabled on macOS, so remove it. The pref defaults
+        to true on macOS, and false elsewhere.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+        * wtf/PlatformEnable.h:
+        * wtf/PlatformEnableCocoa.h:
+
+2021-09-21  Simon Fraser  <simon.fraser@apple.com>
+
+        Change from ENABLE(RUBBER_BANDING) to HAVE(RUBBER_BANDING)
+        https://bugs.webkit.org/show_bug.cgi?id=230583
+
+        Reviewed by Tim Horton.
+
+        RUBBER_BANDING is not a feature we'll ever turn off on macOS, and it was only ever enabled
+        for that platform. However, it's also used in some cross-platform code, so
+        HAVE(RUBBER_BANDING) makes more sense for that use.
+
+        Also remove ENABLE(RUBBER_BANDING) #ifdefs from inside PLATFORM(MAC) code.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+        * wtf/PlatformHave.h:
+
+2021-09-21  Chris Dumez  <cdumez@apple.com>
+
+        Reduce use of makeRef() and use Ref { } instead
+        https://bugs.webkit.org/show_bug.cgi?id=230585
+
+        Reviewed by Alex Christensen.
+
+        * wtf/WeakPtr.h:
+        (WTF::WeakPtrFactory::createWeakPtr const):
+
+2021-09-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [WTF] Use Int128 in MediaTime
+        https://bugs.webkit.org/show_bug.cgi?id=230575
+
+        Reviewed by Eric Carlson.
+
+        Previously, __int128_t exists only in 64bit clang and GCC environments. But now
+        we always have Int128. Int128 is __int128_t in 64bit clang and GCC, and Int128 library
+        implementation in the other environments. So we always use Int128 code in MediaTime.
+
+        * wtf/MediaTime.cpp:
+        (WTF::MediaTime::setTimeScale):
+
+2021-09-21  Chris Dumez  <cdumez@apple.com>
+
+        Drop makeRefPtr() and use RefPtr { } directly instead
+        https://bugs.webkit.org/show_bug.cgi?id=230564
+
+        Reviewed by Alex Christensen.
+
+        * wtf/RefPtr.h:
+
+2021-09-21  David Kilzer  <ddkilzer@apple.com>
+
+        Rename {checked,dynamic}_ns_cast<> to {checked,dynamic}_objc_cast<>
+        <https://webkit.org/b/230508>
+        <rdar://problem/83323145>
+
+        Reviewed by Brent Fulgham.
+
+        * WTF.xcodeproj/project.pbxproj:
+        * wtf/PlatformMac.cmake:
+        - Update for rename of TypeCastsNS.h to TypeCastsCocoa.h.
+
+        * wtf/RetainPtr.h:
+        (WTF::dynamic_objc_cast):
+        - Move dynamic_ns_cast<> from TypeCastsNS.h to here.
+        - Remove `using` statements to limit Objective-C types without
+          asterisks to match RetainPtr<>.
+        * wtf/cocoa/TypeCastsCocoa.h: Rename from TypeCastsNS.h.
+        (WTF::checked_objc_cast):
+        (WTF::dynamic_objc_cast):
+        - Do the rename.
+        - Remove "using WTF::dynamic_ns_cast;" instead of renaming it
+          since this is already in RetainPtr.h.
+
+2021-09-21  Jer Noble  <jer.noble@apple.com>
+
+        [iOS] Enable MSE in WKWebViews by default on iPad
+        https://bugs.webkit.org/show_bug.cgi?id=230426
+
+        Reviewed by Tim Horton.
+
+        Give a default value getter for the MediaSourceEnabled preference.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
+2021-09-21  Philip Chimento  <philip.chimento@gmail.com>
+
+        Add LLVM/FLang's int128_t implementation to WTF
+        https://bugs.webkit.org/show_bug.cgi?id=230437
+
+        Added int128_t implementation from LLVM, and its dependency
+        LeadingZeroBitCount.h. Both reformatted according to WebKit style.
+
+        Reviewed by Yusuke Suzuki.
+
+        * LICENSE-LLVM.txt: Added.
+        * WTF.xcodeproj/project.pbxproj:
+        * wtf/CMakeLists.txt:
+        * wtf/Int128.h: Added.
+        (WTF::Int128Impl::Int128Impl):
+        (WTF::Int128Impl::operator+ const):
+        (WTF::Int128Impl::operator~ const):
+        (WTF::Int128Impl::operator- const):
+        (WTF::Int128Impl::operator! const):
+        (WTF::Int128Impl::operator bool const):
+        (WTF::Int128Impl::operator std::uint64_t const):
+        (WTF::Int128Impl::operator std::int64_t const):
+        (WTF::Int128Impl::operator int const):
+        (WTF::Int128Impl::high const):
+        (WTF::Int128Impl::low const):
+        (WTF::Int128Impl::operator++):
+        (WTF::Int128Impl::operator--):
+        (WTF::Int128Impl::operator& const):
+        (WTF::Int128Impl::operator |  const):
+        (WTF::Int128Impl::operator^ const):
+        (WTF::Int128Impl::operator<< const):
+        (WTF::Int128Impl::operator>> const):
+        (WTF::Int128Impl::operator* const):
+        (WTF::Int128Impl::operator/ const):
+        (WTF::Int128Impl::operator% const):
+        (WTF::Int128Impl::operator< const):
+        (WTF::Int128Impl::operator<= const):
+        (WTF::Int128Impl::operator== const):
+        (WTF::Int128Impl::operator!= const):
+        (WTF::Int128Impl::operator>= const):
+        (WTF::Int128Impl::operator> const):
+        (WTF::Int128Impl::operator&=):
+        (WTF::Int128Impl::operator|=):
+        (WTF::Int128Impl::operator^=):
+        (WTF::Int128Impl::operator<<=):
+        (WTF::Int128Impl::operator>>=):
+        (WTF::Int128Impl::operator+=):
+        (WTF::Int128Impl::operator-=):
+        (WTF::Int128Impl::operator*=):
+        (WTF::Int128Impl::operator/=):
+        (WTF::Int128Impl::operator%=):
+        (WTF::Int128Impl::leadingZeroes const):
+        * wtf/LeadingZeroBitCount.cpp: Added.
+        * wtf/LeadingZeroBitCount.h: Added.
+        (WTF::leadingZeroBitCount):
+        (WTF::bitsNeededFor):
+
+2021-09-20  Chris Dumez  <cdumez@apple.com>
+
+        Reduce use of makeRefPtr() and use RefPtr { } directly
+        https://bugs.webkit.org/show_bug.cgi?id=230503
+
+        Reviewed by Geoffrey Garen.
+
+        * wtf/CrossThreadTask.h:
+        (WTF::createCrossThreadTask):
+
+2021-09-20  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Refactor some code that controls Live Text selection behavior
+        https://bugs.webkit.org/show_bug.cgi?id=230482
+        rdar://83173597
+
+        Reviewed by Megan Gardner.
+
+        Add an (off-by-default) internal feature to enable certain enhancements to Live Text.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2021-09-20  Brent Fulgham  <bfulgham@apple.com>
+
+        Remove XSS Auditor: Part 1 (Turn off by default)
+        https://bugs.webkit.org/show_bug.cgi?id=230483
+        <rdar://problem/83310922>
+
+        Reviewed by Yusuke Suzuki.
+
+        As an initial step in removing the XSS Auditor, turn it off by default.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
+2021-09-20  Chris Dumez  <cdumez@apple.com>
+
+        Stop using makeRef(*this) / makeRefPtr(this)
+        https://bugs.webkit.org/show_bug.cgi?id=230464
+
+        Reviewed by Alex Christensen.
+
+        * wtf/cocoa/WorkQueueCocoa.cpp:
+        (WTF::WorkQueue::dispatch):
+        (WTF::WorkQueue::dispatchAfter):
+        * wtf/glib/SocketConnection.cpp:
+        (WTF::SocketConnection::SocketConnection):
+        (WTF::SocketConnection::waitForSocketWritability):
+
+2021-09-20  Jer Noble  <jer.noble@apple.com>
+
+        [Cocoa] Make AVSampleBufferVideoOutput support an Experimental Feature
+        https://bugs.webkit.org/show_bug.cgi?id=230424
+
+        Reviewed by Eric Carlson.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+        * wtf/PlatformHave.h:
+
+2021-09-18  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [iOS Family] Delete letterpress support
+        https://bugs.webkit.org/show_bug.cgi?id=230441
+
+        Reviewed by Tim Horton.
+
+        * wtf/PlatformEnable.h:
+        * wtf/PlatformEnableCocoa.h:
+
+2021-09-17  David Kilzer  <ddkilzer@apple.com>
+
+        Build fix: WebKit::WebProcessPool should use a weak observer with CFNotificationCenter
+        <https://webkit.org/b/230227>
+        <rdar://problem/83067708>
+
+        * wtf/spi/cocoa/NSObjCRuntimeSPI.h:
+        - Fix internal Catalina builds by including
+          NSObjCRuntime_Private.h, but falling through to define
+          NS_DIRECT and NS_DIRECT_MEMBERS if they weren't defined in the
+          private header.
+
+2021-09-17  Tim Horton  <timothy_horton@apple.com>
+
+        Enable UseCGDisplayListsForDOMRendering by default where it is available
+        https://bugs.webkit.org/show_bug.cgi?id=230387
+
+        Reviewed by Dean Jackson.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2021-09-17  Cameron McCormack  <heycam@apple.com>
+
+        Preserve color space when creating ImageBuffers for ImageBitmaps
+        https://bugs.webkit.org/show_bug.cgi?id=229022
+        <rdar://problem/81828459>
+
+        Reviewed by Sam Weinig.
+
+        * wtf/PlatformHave.h:
+
+2021-09-17  Simon Fraser  <simon.fraser@apple.com>
+
+        Convert usesMockScrollAnimator from a DeprecatedGlobalSettings to a WebPreference
+        https://bugs.webkit.org/show_bug.cgi?id=230371
+
+        Reviewed by Tim Horton.
+
+        Add a MockScrollAnimatorEnabled setting.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
+2021-09-17  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][a11y] Add a build option to enable ATSPI
+        https://bugs.webkit.org/show_bug.cgi?id=230254
+
+        Reviewed by Adrian Perez de Castro.
+
+        Enable isolated tree when building with ATSPI.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
+2021-09-16  David Kilzer  <ddkilzer@apple.com>
+
+        WebKit::WebProcessPool should use a weak observer with CFNotificationCenter
+        <https://webkit.org/b/230227>
+        <rdar://problem/83067708>
+
+        Reviewed by Darin Adler.
+
+        Tests (API):
+            TestWTF.TypeCastsNS.checked_ns_cast
+            TestWTF.TypeCastsNS.dynamic_ns_cast
+            TestWTF.TypeCastsNS.dynamic_ns_cast_RetainPtr
+
+        * WTF.xcodeproj/project.pbxproj:
+        * wtf/PlatformMac.cmake:
+        - Add new header files to the project.
+
+        * wtf/cocoa/TypeCastsNS.h: Add.
+        (WTF::checked_ns_cast):
+        (WTF::dynamic_ns_cast):
+        - Add casts for NS objects similar to TypeCastsCF.h.
+
+        * wtf/PlatformHave.h:
+        (HAVE_NS_DIRECT_SUPPORT): Add.
+        - Note that clang for macOS 11 Big Sur claims to know about the
+          attributes, but will fail to compile if they are actually
+          used.
+
+        * wtf/spi/cocoa/NSObjCRuntimeSPI.h: Add.
+        (NS_DIRECT):
+        (NS_DIRECT_MEMBERS):
+        - Define compiler attributes for direct dispatch of Objective-C
+          methods.
+
+2021-09-16  Philip Chimento  <pchimento@igalia.com>
+
+        Fixes for build-webkit --minimal
+        https://bugs.webkit.org/show_bug.cgi?id=229780
+
+        Reviewed by Fujii Hironori.
+
+        Remove ENABLE_RESIZE_OBSERVER build-time option. This option is
+        quite broken if you try to disable it.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+        * wtf/PlatformEnableCocoa.h:
+
+2021-09-16  Tim Horton  <timothy_horton@apple.com>
+
+        Adjust ARKIT_INLINE_PREVIEW* compile time flags
+        https://bugs.webkit.org/show_bug.cgi?id=230332
+
+        Reviewed by Sam Weinig.
+
+        * wtf/PlatformEnableCocoa.h:
+        Make these ENABLE()s instead of HAVE()s (as they control a WebKit feature).
+        Also, disable the ASVInlinePreview version if WKSeparatedModelView is enabled,
+        we don't need both, and we currently always make a WKSeparatedModelView
+        in that case anyway.
+
+        * wtf/PlatformHave.h:
+        Stop using __has_include in favor of version checks, now that
+        the header has been around for a while.
+
+2021-09-16  Youenn Fablet  <youenn@apple.com>
+
+        Enable RTCRtpScriptTransform by default
+        https://bugs.webkit.org/show_bug.cgi?id=230220
+
+        Reviewed by Eric Carlson.
+
+        Splitting  WebRTCInsertableStreamsEnabled to WebRTCEncodedTransformEnabled and WebRTCSFrameTransformEnabled.
+        Keeping WebRTCSFrameTransformEnabled as off by default until SFrame solidifies and mark WebRTCEncodedTransformEnabled as on by default.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-09-16  Cameron McCormack  <heycam@apple.com>
+
+        Disable display-p3 canvas and ImageData on platforms other than Monterey+ and iOS 15+
+        https://bugs.webkit.org/show_bug.cgi?id=230139
+        <rdar://81828819>
+
+        Reviewed by Sam Weinig.
+
+        Add HAVE(CORE_ANIMATION_FIX_FOR_RADAR_78402035) to represent whether
+        CoreAnimation has a fix for a bug that prevents Display P3 canvas
+        rendering operations from behaving correctly.
+
+        Add ENABLE(PREDEFINED_COLOR_SPACE_DISPLAY_P3) to represent whether the
+        "display-p3" values of the PredefinedColorSpace IDL enum is enabled.
+        This in turn controls whether Display P3 canvases and ImageData objects
+        can be created. We turn this on only for platforms where
+        ENABLE(DESTINATION_COLOR_SPACE_DISPLAY_P3), since that is what the
+        canvas and ImageData backing stores use, and only if
+        HAVE(CORE_ANIMATION_FIX_FOR_RADAR_78402035). The result is that these
+        features are only enabled on macOS Monterey+ and iOS 15+.
+
+        * wtf/PlatformEnable.h:
+        * wtf/PlatformEnableCocoa.h:
+        * wtf/PlatformHave.h:
+
+2021-09-15  Philip Chimento  <pchimento@igalia.com>
+
+        Fixes for build-webkit --minimal
+        https://bugs.webkit.org/show_bug.cgi?id=229780
+
+        Reviewed by Fujii Hironori.
+
+        Remove ENABLE_INTERSECTION_OBSERVER build-time option. This option is
+        quite broken if you try to disable it.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+        * wtf/PlatformEnableCocoa.h:
+
+2021-09-15  Alex Christensen  <achristensen@webkit.org>
+
+        Add IDL skeleton for SharedWorker
+        https://bugs.webkit.org/show_bug.cgi?id=230293
+
+        Reviewed by Geoff Garen.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-09-14  John Wilander  <wilander@apple.com>
+
+        Rename RESOURCE_LOAD_STATISTICS to INTELLIGENT_TRACKING_PREVENTION
+        https://bugs.webkit.org/show_bug.cgi?id=230279
+        <rdar://problem/83118683>
+
+        Reviewed by Darin Adler.
+
+        * wtf/PlatformEnableCocoa.h:
+
+2021-09-14  Chris Dumez  <cdumez@apple.com>
+
+        Enable BroadcastChannel for modern WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=230235
+
+        Reviewed by Geoffrey Garen.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-09-14  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, reverting r282408.
+
+        Breaks internal builds.
+
+        Reverted changeset:
+
+        "Enable RTCRtpScriptTransform by default"
+        https://bugs.webkit.org/show_bug.cgi?id=230220
+        https://commits.webkit.org/r282408
+
+2021-09-14  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        CSSFontFaceSrcValue.cssText should be quoted consistently with other browsers
+        https://bugs.webkit.org/show_bug.cgi?id=230273
+        <rdar://problem/79644124>
+
+        Reviewed by Darin Adler.
+
+        * wtf/unicode/CharacterNames.h:
+
+2021-09-14  Youenn Fablet  <youenn@apple.com>
+
+        Enable RTCRtpScriptTransform by default
+        https://bugs.webkit.org/show_bug.cgi?id=230220
+
+        Reviewed by Eric Carlson.
+
+        Splitting  WebRTCInsertableStreamsEnabled to WebRTCEncodedTransformEnabled and WebRTCSFrameTransformEnabled.
+        Keeping WebRTCSFrameTransformEnabled as off by default until SFrame solidifies and mark WebRTCEncodedTransformEnabled as on by default.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-09-14  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        StackTrace outputs a garbage prefix because WTF::StackTrace::m_prefix is filled with the stack content
+        https://bugs.webkit.org/show_bug.cgi?id=230207
+
+        Reviewed by Yusuke Suzuki.
+
+        r278474 (Bug 226390) added a new member m_prefix to StackTrace at
+        the bottom of the structure. However, StackTrace isn't a normal
+        structure. The members are filled with the stack content.
+
+        * wtf/StackTrace.h: Moved the m_prefix to the top of the members.
+
+2021-09-14  Kate Cheney  <katherine_cheney@apple.com>
+
+        Followup to https://bugs.webkit.org/show_bug.cgi?id=217784
+
+        Reviewed by Wenson Hsieh.
+
+        Update platform name for watchOS.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
+2021-09-14  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [Cocoa] Migrate to CTFontHasTable() from CTFontCopyAvailableTables()
+        https://bugs.webkit.org/show_bug.cgi?id=230248
+
+        Reviewed by Anders Carlsson.
+
+        * wtf/PlatformUse.h:
+
+2021-09-13  Alex Christensen  <achristensen@webkit.org>
+
+        Add unit test that uses PCM daemon
+        https://bugs.webkit.org/show_bug.cgi?id=230191
+
+        Reviewed by Chris Dumez.
+
+        * wtf/PlatformHave.h:
+        * wtf/spi/darwin/XPCSPI.h:
+
+2021-09-13  Sihui Liu  <sihui_liu@apple.com>
+
+        Add stub for File System Access API
+        https://bugs.webkit.org/show_bug.cgi?id=230101
+
+        Reviewed by Youenn Fablet.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-09-13  Sam Sneddon  <gsnedders@apple.com>
+
+        Move ENABLE_RESOLUTION_MEDIA_QUERY to a runtime flag, start running tests again
+        https://bugs.webkit.org/show_bug.cgi?id=229776
+
+        Reviewed by Simon Fraser.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+        Add ResolutionMediaFeatureEnabled
+
+2021-09-13  Youenn Fablet  <youenn@apple.com>
+
+        Remove WritableStream runtime flag
+        https://bugs.webkit.org/show_bug.cgi?id=230148
+
+        Reviewed by Sihui Liu.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
 2021-09-11  Philippe Normand  <pnormand@igalia.com>
 
         [GLIB] MediaSession is not enabled

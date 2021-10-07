@@ -452,7 +452,7 @@ Node::Editability HTMLElement::editabilityFromContentEditableAttr(const Node& no
         }
     }
 
-    auto containingShadowRoot = makeRefPtr(node.containingShadowRoot());
+    RefPtr containingShadowRoot { node.containingShadowRoot() };
     if (containingShadowRoot && containingShadowRoot->mode() == ShadowRootMode::UserAgent)
         return Editability::ReadOnly;
 
@@ -482,6 +482,9 @@ void HTMLElement::parseAttribute(const QualifiedName& name, const AtomString& va
             setTabIndexExplicitly(std::nullopt);
         return;
     }
+
+    if (document().settings().inertAttributeEnabled() && name == inertAttr)
+        invalidateStyleInternal();
 
     if (name == inputmodeAttr) {
         auto& document = this->document();
@@ -1254,24 +1257,8 @@ static const AtomString& imageOverlayDataDetectorClassName()
 
 bool HTMLElement::shouldExtendSelectionToTargetNode(const Node& targetNode, const VisibleSelection& selectionBeforeUpdate)
 {
-    if (!is<HTMLDivElement>(targetNode))
-        return true;
-
-    auto shadowHost = makeRefPtr(targetNode.shadowHost());
-    if (!is<HTMLElement>(shadowHost))
-        return true;
-
-    auto& host = downcast<HTMLElement>(*shadowHost);
-    if (!host.hasImageOverlay())
-        return true;
-
-    if (!targetNode.contains(selectionBeforeUpdate.start().containerNode()))
-        return true;
-
-    for (auto& child : childrenOfType<HTMLDivElement>(*host.userAgentShadowRoot())) {
-        if (child.getIdAttribute() == imageOverlayElementIdentifier())
-            return &targetNode != &child;
-    }
+    if (auto range = selectionBeforeUpdate.range(); range && isInsideImageOverlay(*range))
+        return isImageOverlayText(targetNode);
 
     return true;
 }
@@ -1291,7 +1278,7 @@ static RefPtr<HTMLElement> imageOverlayHost(const Node& node)
     if (!is<HTMLElement>(host))
         return nullptr;
 
-    auto element = makeRefPtr(downcast<HTMLElement>(*host));
+    RefPtr element { &downcast<HTMLElement>(*host) };
     return element->hasImageOverlay() ? element : nullptr;
 }
 
@@ -1302,7 +1289,7 @@ bool HTMLElement::isImageOverlayDataDetectorResult() const
 
 bool HTMLElement::isInsideImageOverlay(const SimpleRange& range)
 {
-    auto commonAncestor = makeRefPtr(commonInclusiveAncestor<ComposedTree>(range));
+    RefPtr commonAncestor = commonInclusiveAncestor<ComposedTree>(range);
     if (!commonAncestor)
         return false;
 
@@ -1425,7 +1412,7 @@ void HTMLElement::updateWithTextRecognitionResult(const TextRecognitionResult& r
     if (result.isEmpty())
         return;
 
-    auto shadowRoot = makeRef(ensureUserAgentShadowRoot());
+    Ref shadowRoot = ensureUserAgentShadowRoot();
     if (!textRecognitionElements.root) {
         auto rootContainer = HTMLDivElement::create(document());
         rootContainer->setIdAttribute(imageOverlayElementIdentifier());
@@ -1602,7 +1589,7 @@ void HTMLElement::updateWithTextRecognitionResult(const TextRecognitionResult& r
     }
 #endif // ENABLE(DATA_DETECTION)
 
-    if (auto frame = makeRefPtr(document().frame()))
+    if (RefPtr frame = document().frame())
         frame->eventHandler().scheduleCursorUpdate();
 
     if (cacheTextRecognitionResults == CacheTextRecognitionResults::Yes) {

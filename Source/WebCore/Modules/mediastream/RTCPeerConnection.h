@@ -44,9 +44,11 @@
 #include "RTCDataChannel.h"
 #include "RTCIceConnectionState.h"
 #include "RTCIceGatheringState.h"
+#include "RTCLocalSessionDescriptionInit.h"
 #include "RTCPeerConnectionState.h"
 #include "RTCRtpEncodingParameters.h"
 #include "RTCRtpTransceiver.h"
+#include "RTCSessionDescriptionInit.h"
 #include "RTCSignalingState.h"
 #include <JavaScriptCore/Uint8Array.h>
 #include <wtf/LoggerHelper.h>
@@ -110,13 +112,12 @@ public:
     void createOffer(RTCOfferOptions&&, Ref<DeferredPromise>&&);
     void createAnswer(RTCAnswerOptions&&, Ref<DeferredPromise>&&);
 
-    using Description = Variant<RTCSessionDescriptionInit, RefPtr<RTCSessionDescription>>;
-    void setLocalDescription(std::optional<Description>&&, Ref<DeferredPromise>&&);
+    void setLocalDescription(std::optional<RTCLocalSessionDescriptionInit>&&, Ref<DeferredPromise>&&);
     RefPtr<RTCSessionDescription> localDescription() const { return m_pendingLocalDescription ? m_pendingLocalDescription.get() : m_currentLocalDescription.get(); }
     RefPtr<RTCSessionDescription> currentLocalDescription() const { return m_currentLocalDescription.get(); }
     RefPtr<RTCSessionDescription> pendingLocalDescription() const { return m_pendingLocalDescription.get(); }
 
-    void setRemoteDescription(Description&&, Ref<DeferredPromise>&&);
+    void setRemoteDescription(RTCSessionDescriptionInit&&, Ref<DeferredPromise>&&);
     RTCSessionDescription* remoteDescription() const { return m_pendingRemoteDescription ? m_pendingRemoteDescription.get() : m_currentRemoteDescription.get(); }
     RTCSessionDescription* currentRemoteDescription() const { return m_currentRemoteDescription.get(); }
     RTCSessionDescription* pendingRemoteDescription() const { return m_pendingRemoteDescription.get(); }
@@ -170,13 +171,13 @@ public:
     WEBCORE_EXPORT void emulatePlatformEvent(const String& action);
 
     // API used by PeerConnectionBackend and relatives
-    void setSignalingState(RTCSignalingState);
     void updateIceGatheringState(RTCIceGatheringState);
     void updateIceConnectionState(RTCIceConnectionState);
+    void updateConnectionState();
 
     void updateNegotiationNeededFlag(std::optional<uint32_t>);
 
-    void dispatchEventWhenFeasible(Ref<Event>&&);
+    void scheduleEvent(Ref<Event>&&);
 
     void disableICECandidateFiltering() { m_backend->disableICECandidateFiltering(); }
     void enableICECandidateFiltering() { m_backend->enableICECandidateFiltering(); }
@@ -185,16 +186,18 @@ public:
 
     Document* document();
 
-    void doTask(Function<void()>&&);
-
     void updateDescriptions(PeerConnectionBackend::DescriptionStates&&);
     void updateTransceiversAfterSuccessfulLocalDescription();
     void updateTransceiversAfterSuccessfulRemoteDescription();
     void updateSctpBackend(std::unique_ptr<RTCSctpTransportBackend>&&);
 
     void processIceTransportStateChange(RTCIceTransport&);
+    void processIceTransportChanges();
 
     RTCSctpTransport* sctp() { return m_sctpTransport.get(); }
+
+    // EventTarget implementation.
+    void dispatchEvent(Event&) final;
 
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger.get(); }
@@ -217,7 +220,6 @@ private:
     // EventTarget implementation.
     void refEventTarget() final { ref(); }
     void derefEventTarget() final { deref(); }
-    void dispatchEvent(Event&) final;
 
     // ActiveDOMObject
     WEBCORE_EXPORT void stop() final;
@@ -226,7 +228,6 @@ private:
     void resume() final;
     bool virtualHasPendingActivity() const final;
 
-    void updateConnectionState();
     bool updateIceConnectionStateFromIceTransports();
     RTCIceConnectionState computeIceConnectionStateFromIceTransports();
     RTCPeerConnectionState computeConnectionState();
@@ -245,6 +246,8 @@ private:
     Ref<RTCIceTransport> getOrCreateIceTransport(UniqueRef<RTCIceTransportBackend>&&);
     RefPtr<RTCDtlsTransport> getOrCreateDtlsTransport(std::unique_ptr<RTCDtlsTransportBackend>&&);
     void updateTransceiverTransports();
+
+    void setSignalingState(RTCSignalingState);
 
     bool m_isStopped { false };
     RTCSignalingState m_signalingState { RTCSignalingState::Stable };
@@ -265,7 +268,6 @@ private:
     RTCController* m_controller { nullptr };
     Vector<RefPtr<RTCCertificate>> m_certificates;
     bool m_shouldDelayTasks { false };
-    Vector<Function<void()>> m_pendingTasks;
     Deque<std::pair<Ref<DeferredPromise>, Function<void(Ref<DeferredPromise>&&)>>> m_operations;
     bool m_hasPendingOperation { false };
     std::optional<uint32_t> m_negotiationNeededEventId;
@@ -277,6 +279,9 @@ private:
     RefPtr<RTCSessionDescription> m_pendingLocalDescription;
     RefPtr<RTCSessionDescription> m_currentRemoteDescription;
     RefPtr<RTCSessionDescription> m_pendingRemoteDescription;
+
+    String m_lastCreatedOffer;
+    String m_lastCreatedAnswer;
 };
 
 } // namespace WebCore

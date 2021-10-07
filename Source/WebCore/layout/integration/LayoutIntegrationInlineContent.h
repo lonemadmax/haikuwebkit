@@ -27,12 +27,11 @@
 
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 
-#include "InlineLineRun.h"
+#include "InlineDisplayBox.h"
 #include "LayoutIntegrationLine.h"
+#include <wtf/HashMap.h>
 #include <wtf/IteratorRange.h>
 #include <wtf/Vector.h>
-#include <wtf/WeakHashMap.h>
-#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
@@ -43,60 +42,63 @@ namespace Layout {
 class Box;
 }
 
+namespace InlineDisplay {
+struct Box;
+} 
+
 namespace LayoutIntegration {
 
 class LineLayout;
-
-using Run = Layout::Run;
 
 struct InlineContent : public RefCounted<InlineContent> {
     static Ref<InlineContent> create(const LineLayout& lineLayout) { return adoptRef(*new InlineContent(lineLayout)); }
     ~InlineContent();
 
-    using Runs = Vector<Run>;
+    using Boxes = Vector<InlineDisplay::Box>;
     using Lines = Vector<Line>;
 
-    Runs runs;
+    Boxes boxes;
     Lines lines;
 
     float clearGapAfterLastLine { 0 };
 
     bool hasContent() const;
     
-    const Line& lineForRun(const Run& run) const { return lines[run.lineIndex()]; }
-    WTF::IteratorRange<const Run*> runsForRect(const LayoutRect&) const;
+    const Line& lineForBox(const InlineDisplay::Box& box) const { return lines[box.lineIndex()]; }
+    WTF::IteratorRange<const InlineDisplay::Box*> boxesForRect(const LayoutRect&) const;
     void shrinkToFit();
 
-    const LineLayout& lineLayout() const;
+    const LineLayout& lineLayout() const { return *m_lineLayout; }
     const RenderObject& rendererForLayoutBox(const Layout::Box&) const;
     const RenderBlockFlow& containingBlock() const;
 
-    size_t indexForRun(const Run&) const;
+    size_t indexForBox(const InlineDisplay::Box&) const;
 
-    const Run* firstRunForLayoutBox(const Layout::Box&) const;
+    const InlineDisplay::Box* firstBoxForLayoutBox(const Layout::Box&) const;
     template<typename Function> void traverseNonRootInlineBoxes(const Layout::Box&, Function&&);
 
-    std::optional<size_t> firstRunIndexForLayoutBox(const Layout::Box&) const;
+    std::optional<size_t> firstBoxIndexForLayoutBox(const Layout::Box&) const;
     const Vector<size_t>& nonRootInlineBoxIndexesForLayoutBox(const Layout::Box&) const;
 
+    void clearAndDetach();
     void releaseCaches();
 
 private:
     InlineContent(const LineLayout&);
 
-    WeakPtr<const LineLayout> m_lineLayout;
+    CheckedPtr<const LineLayout> m_lineLayout;
 
-    using FirstRunIndexCache = WeakHashMap<Layout::Box, size_t>;
-    mutable std::unique_ptr<FirstRunIndexCache> m_firstRunIndexCache;
+    using FirstBoxIndexCache = HashMap<CheckedRef<const Layout::Box>, size_t>;
+    mutable std::unique_ptr<FirstBoxIndexCache> m_firstBoxIndexCache;
 
-    using InlineBoxIndexCache = WeakHashMap<Layout::Box, Vector<size_t>>;
+    using InlineBoxIndexCache = HashMap<CheckedRef<const Layout::Box>, Vector<size_t>>;
     mutable std::unique_ptr<InlineBoxIndexCache> m_inlineBoxIndexCache;
 };
 
 template<typename Function> void InlineContent::traverseNonRootInlineBoxes(const Layout::Box& layoutBox, Function&& function)
 {
     for (auto index : nonRootInlineBoxIndexesForLayoutBox(layoutBox))
-        function(runs[index]);
+        function(boxes[index]);
 }
 
 }

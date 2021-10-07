@@ -208,7 +208,7 @@ void NetworkProcess::clearDiskCache(WallTime modifiedSince, CompletionHandler<vo
         m_clearCacheDispatchGroup = adoptOSObject(dispatch_group_create());
 
     auto group = m_clearCacheDispatchGroup.get();
-    dispatch_group_async(group, dispatch_get_main_queue(), makeBlockPtr([this, protectedThis = makeRef(*this), modifiedSince, completionHandler = WTFMove(completionHandler)] () mutable {
+    dispatch_group_async(group, dispatch_get_main_queue(), makeBlockPtr([this, protectedThis = Ref { *this }, modifiedSince, completionHandler = WTFMove(completionHandler)] () mutable {
         auto aggregator = CallbackAggregator::create(WTFMove(completionHandler));
         forEachNetworkSession([modifiedSince, &aggregator](NetworkSession& session) {
             if (auto* cache = session.cache())
@@ -248,5 +248,12 @@ void NetworkProcess::platformFlushCookies(PAL::SessionID sessionID, CompletionHa
     else
         completionHandler();
 }
+
+#if ENABLE(CFPREFS_DIRECT_MODE)
+void NetworkProcess::notifyPreferencesChanged(const String& domain, const String& key, const std::optional<String>& encodedValue)
+{
+    preferenceDidUpdate(domain, key, encodedValue);
+}
+#endif
 
 } // namespace WebKit

@@ -42,6 +42,7 @@
 #include "LinkIcon.h"
 #include "NavigationAction.h"
 #include "ResourceError.h"
+#include "ResourceLoaderIdentifier.h"
 #include "ResourceLoaderOptions.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
@@ -89,7 +90,7 @@ class SubstituteResource;
 
 enum class ShouldContinue;
 
-using ResourceLoaderMap = HashMap<unsigned long, RefPtr<ResourceLoader>>;
+using ResourceLoaderMap = HashMap<ResourceLoaderIdentifier, RefPtr<ResourceLoader>>;
 
 enum class AutoplayPolicy : uint8_t {
     Default, // Uses policies specified in document settings.
@@ -295,7 +296,7 @@ public:
 
     void stopLoadingPlugIns();
     void stopLoadingSubresources();
-    WEBCORE_EXPORT void stopLoadingAfterXFrameOptionsOrContentSecurityPolicyDenied(unsigned long identifier, const ResourceResponse&);
+    WEBCORE_EXPORT void stopLoadingAfterXFrameOptionsOrContentSecurityPolicyDenied(ResourceLoaderIdentifier, const ResourceResponse&);
 
     bool userContentExtensionsEnabled() const { return m_userContentExtensionsEnabled; }
     void setUserContentExtensionsEnabled(bool enabled) { m_userContentExtensionsEnabled = enabled; }
@@ -338,12 +339,12 @@ public:
     WEBCORE_EXPORT MouseEventPolicy mouseEventPolicy() const;
     void setMouseEventPolicy(MouseEventPolicy policy) { m_mouseEventPolicy = policy; }
 
-    void addSubresourceLoader(ResourceLoader*);
+    void addSubresourceLoader(ResourceLoader&);
     void removeSubresourceLoader(LoadCompletionType, ResourceLoader*);
     void addPlugInStreamLoader(ResourceLoader&);
     void removePlugInStreamLoader(ResourceLoader&);
 
-    void subresourceLoaderFinishedLoadingOnePart(ResourceLoader*);
+    void subresourceLoaderFinishedLoadingOnePart(ResourceLoader&);
 
     void setDeferMainResourceDataLoad(bool defer) { m_deferMainResourceDataLoad = defer; }
     
@@ -424,10 +425,10 @@ public:
     void setLastNavigationWasAppInitiated(bool lastNavigationWasAppInitiated) { m_lastNavigationWasAppInitiated = lastNavigationWasAppInitiated; }
 
     ContentSecurityPolicy* contentSecurityPolicy() const { return m_contentSecurityPolicy.get(); }
-    std::optional<CrossOriginOpenerPolicy> crossOriginOpenerPolicy() const { return m_currentCoopEnforcementResult ? std::make_optional(m_currentCoopEnforcementResult->crossOriginOpenerPolicy) : std::nullopt; }
+    const std::optional<CrossOriginOpenerPolicy>& crossOriginOpenerPolicy() const { return m_responseCOOP; }
 
-    bool isContinuingLoadAfterResponsePolicyCheck() const { return m_isContinuingLoadAfterResponsePolicyCheck; }
-    void setIsContinuingLoadAfterResponsePolicyCheck(bool isContinuingLoadAfterResponsePolicyCheck) { m_isContinuingLoadAfterResponsePolicyCheck = isContinuingLoadAfterResponsePolicyCheck; }
+    bool isContinuingLoadAfterProvisionalLoadStarted() const { return m_isContinuingLoadAfterProvisionalLoadStarted; }
+    void setIsContinuingLoadAfterProvisionalLoadStarted(bool isContinuingLoadAfterProvisionalLoadStarted) { m_isContinuingLoadAfterProvisionalLoadStarted = isContinuingLoadAfterProvisionalLoadStarted; }
 
 protected:
     WEBCORE_EXPORT DocumentLoader(const ResourceRequest&, const SubstituteData&);
@@ -449,8 +450,7 @@ private:
 #endif
     void unregisterTemporaryServiceWorkerClient();
 
-    bool doCrossOriginOpenerHandlingOfResponse(const ResourceResponse&);
-    CrossOriginOpenerPolicyEnforcementResult enforceResponseCrossOriginOpenerPolicy(const URL& responseURL, SecurityOrigin& responseOrigin, const CrossOriginOpenerPolicy& responseCOOP);
+    std::optional<CrossOriginOpenerPolicyEnforcementResult> doCrossOriginOpenerHandlingOfResponse(const ResourceResponse&);
 
     void loadMainResource(ResourceRequest&&);
 
@@ -565,7 +565,7 @@ private:
     bool m_gotFirstByte { false };
     bool m_isClientRedirect { false };
     bool m_isLoadingMultipartContent { false };
-    bool m_isContinuingLoadAfterResponsePolicyCheck { false };
+    bool m_isContinuingLoadAfterProvisionalLoadStarted { false };
 
     // FIXME: Document::m_processingLoadEvent and DocumentLoader::m_wasOnloadDispatched are roughly the same
     // and should be merged.
@@ -589,7 +589,7 @@ private:
     Vector<ResourceResponse> m_responses;
     bool m_stopRecordingResponses { false };
 
-    std::optional<CrossOriginOpenerPolicyEnforcementResult> m_currentCoopEnforcementResult;
+    std::optional<CrossOriginOpenerPolicy> m_responseCOOP;
     
     typedef HashMap<RefPtr<ResourceLoader>, RefPtr<SubstituteResource>> SubstituteResourceMap;
     SubstituteResourceMap m_pendingSubstituteResources;
@@ -610,7 +610,7 @@ private:
     bool m_loadingMainResource { false };
     DocumentLoadTiming m_loadTiming;
 
-    unsigned long m_identifierForLoadWithoutResourceLoader { 0 };
+    ResourceLoaderIdentifier m_identifierForLoadWithoutResourceLoader;
 
     DataLoadToken m_dataLoadToken;
     bool m_waitingForContentPolicy { false };

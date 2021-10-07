@@ -1800,13 +1800,6 @@ OptionSet<StyleColor::Options> RenderObject::styleColorOptions() const
 
 void RenderObject::setSelectionState(HighlightState state)
 {
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-    if (state != HighlightState::None) {
-        if (auto* lineLayout = LayoutIntegration::LineLayout::containing(*this))
-            lineLayout->flow().ensureLineBoxes();
-    }
-#endif
-
     m_bitfields.setSelectionState(state);
 }
 
@@ -2185,7 +2178,7 @@ auto RenderObject::collectSelectionGeometriesInternal(const SimpleRange& range) 
     for (auto& node : intersectingNodesWithDeprecatedZeroOffsetStartQuirk(range)) {
         auto renderer = node.renderer();
         // Only ask leaf render objects for their line box rects.
-        if (renderer && !renderer->firstChildSlow() && renderer->style().userSelect() != UserSelect::None && !node.isInert()) {
+        if (renderer && !renderer->firstChildSlow() && renderer->style().userSelect() != UserSelect::None && !renderer->style().effectiveInert()) {
             bool isStartNode = renderer->node() == range.start.container.ptr();
             bool isEndNode = renderer->node() == range.end.container.ptr();
             if (hasFlippedWritingMode != renderer->style().isFlippedBlocksWritingMode())

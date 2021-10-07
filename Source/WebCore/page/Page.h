@@ -27,6 +27,7 @@
 #include "Document.h"
 #include "FindOptions.h"
 #include "FrameLoaderTypes.h"
+#include "IntRectHash.h"
 #include "LayoutMilestone.h"
 #include "LayoutRect.h"
 #include "LengthBox.h"
@@ -55,6 +56,7 @@
 #include <wtf/Noncopyable.h>
 #include <wtf/Ref.h>
 #include <wtf/UniqueRef.h>
+#include <wtf/WeakHashMap.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
@@ -195,12 +197,8 @@ enum class RenderingUpdateStep : uint16_t {
     Animations                      = 1 << 3,
     Fullscreen                      = 1 << 4,
     AnimationFrameCallbacks         = 1 << 5,
-#if ENABLE(INTERSECTION_OBSERVER)
     IntersectionObservations        = 1 << 6,
-#endif
-#if ENABLE(RESIZE_OBSERVER)
     ResizeObservations              = 1 << 7,
-#endif
     Images                          = 1 << 8,
     WheelEventMonitorCallbacks      = 1 << 9,
     CursorUpdate                    = 1 << 10,
@@ -218,12 +216,8 @@ constexpr OptionSet<RenderingUpdateStep> updateRenderingSteps = {
     RenderingUpdateStep::Animations,
     RenderingUpdateStep::Fullscreen,
     RenderingUpdateStep::AnimationFrameCallbacks,
-#if ENABLE(INTERSECTION_OBSERVER)
     RenderingUpdateStep::IntersectionObservations,
-#endif
-#if ENABLE(RESIZE_OBSERVER)
     RenderingUpdateStep::ResizeObservations,
-#endif
     RenderingUpdateStep::Images,
     RenderingUpdateStep::WheelEventMonitorCallbacks,
     RenderingUpdateStep::CursorUpdate,
@@ -291,7 +285,7 @@ public:
     WEBCORE_EXPORT void setBroadcastChannelRegistry(Ref<BroadcastChannelRegistry>&&); // Only used by WebKitLegacy.
 
     WEBCORE_EXPORT static void forEachPage(const WTF::Function<void(Page&)>&);
-    static unsigned nonUtilityPageCount();
+    WEBCORE_EXPORT static unsigned nonUtilityPageCount();
 
     unsigned subframeCount() const;
 
@@ -628,7 +622,7 @@ public:
     static const int maxNumberOfFrames = 1000;
 
     void setEditable(bool isEditable) { m_isEditable = isEditable; }
-    bool isEditable() { return m_isEditable; }
+    bool isEditable() const { return m_isEditable; }
 
     WEBCORE_EXPORT VisibilityState visibilityState() const;
     WEBCORE_EXPORT void resumeAnimatingImages();
@@ -1207,9 +1201,8 @@ private:
     UniqueRef<StorageProvider> m_storageProvider;
 
 #if ENABLE(IMAGE_ANALYSIS)
-    // FIXME: These should be refactored to use a weak hash map of HTMLElement to std::pair<TextRecognitionResult, IntSize>.
-    Vector<std::pair<WeakPtr<HTMLElement>, std::pair<TextRecognitionResult, IntRect>>> m_textRecognitionResultsByElement;
-    WeakHashSet<HTMLElement> m_elementsWithTextRecognitionResults;
+    using CachedTextRecognitionResult = std::pair<TextRecognitionResult, IntRect>;
+    WeakHashMap<HTMLElement, CachedTextRecognitionResult> m_textRecognitionResults;
 #endif
 };
 

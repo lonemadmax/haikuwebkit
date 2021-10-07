@@ -150,8 +150,7 @@ public:
 
 #if PLATFORM(COCOA)
     unsigned scrollCount() const { return m_scrollCount; }
-    float unacceleratedScrollingDeltaX() const { return m_unacceleratedScrollingDeltaX; }
-    float unacceleratedScrollingDeltaY() const { return m_unacceleratedScrollingDeltaY; }
+    FloatSize unacceleratedScrollingDelta() const { return { m_unacceleratedScrollingDeltaX, m_unacceleratedScrollingDeltaY }; }
 #endif
 
 #if ENABLE(ASYNC_SCROLLING)
@@ -173,7 +172,7 @@ public:
 
     bool isEndOfNonMomentumScroll() const;
     bool isTransitioningToMomentumScroll() const;
-    FloatPoint swipeVelocity() const;
+    FloatSize swipeVelocity() const;
 #endif
 
 #if PLATFORM(WIN)
@@ -262,10 +261,10 @@ inline bool PlatformWheelEvent::isTransitioningToMomentumScroll() const
     return m_phase == PlatformWheelEventPhase::None && m_momentumPhase == PlatformWheelEventPhase::Began;
 }
 
-inline FloatPoint PlatformWheelEvent::swipeVelocity() const
+inline FloatSize PlatformWheelEvent::swipeVelocity() const
 {
     // The swiping velocity is stored in the deltas of the event declaring it.
-    return isTransitioningToMomentumScroll() ? FloatPoint(m_wheelTicksX, m_wheelTicksY) : FloatPoint();
+    return isTransitioningToMomentumScroll() ? FloatSize(m_wheelTicksX, m_wheelTicksY) : FloatSize();
 }
 
 #endif // ENABLE(KINETIC_SCROLLING)

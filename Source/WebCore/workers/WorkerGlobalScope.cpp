@@ -48,6 +48,7 @@
 #include "SecurityOriginPolicy.h"
 #include "ServiceWorkerGlobalScope.h"
 #include "SocketProvider.h"
+#include "WorkerFileSystemStorageConnection.h"
 #include "WorkerFontLoadRequest.h"
 #include "WorkerLoaderProxy.h"
 #include "WorkerLocation.h"
@@ -56,6 +57,7 @@
 #include "WorkerReportingProxy.h"
 #include "WorkerSWClientConnection.h"
 #include "WorkerScriptLoader.h"
+#include "WorkerStorageConnection.h"
 #include <JavaScriptCore/ScriptArguments.h>
 #include <JavaScriptCore/ScriptCallStack.h>
 #include <wtf/IsoMallocInlines.h>
@@ -138,6 +140,12 @@ void WorkerGlobalScope::prepareForDestruction()
 
     if (m_cacheStorageConnection)
         m_cacheStorageConnection->clearPendingRequests();
+
+    if (m_storageConnection)
+        m_storageConnection->scopeClosed();
+
+    if (m_fileSystemStorageConnection)
+        m_fileSystemStorageConnection->scopeClosed();
 }
 
 void WorkerGlobalScope::removeAllEventListeners()
@@ -183,7 +191,7 @@ SocketProvider* WorkerGlobalScope::socketProvider()
 RefPtr<RTCDataChannelRemoteHandlerConnection> WorkerGlobalScope::createRTCDataChannelRemoteHandlerConnection()
 {
     RefPtr<RTCDataChannelRemoteHandlerConnection> connection;
-    callOnMainThreadAndWait([workerThread = makeRef(thread()), &connection]() mutable {
+    callOnMainThreadAndWait([workerThread = Ref { thread() }, &connection]() mutable {
         connection = workerThread->workerLoaderProxy().createRTCDataChannelRemoteHandlerConnection();
     });
     ASSERT(connection);
@@ -212,6 +220,31 @@ void WorkerGlobalScope::resume()
 {
     if (m_connectionProxy)
         m_connectionProxy->setContextSuspended(*this, false);
+}
+
+WorkerStorageConnection& WorkerGlobalScope::storageConnection()
+{
+    if (!m_storageConnection)
+        m_storageConnection = WorkerStorageConnection::create(*this);
+
+    return *m_storageConnection;
+}
+
+WorkerFileSystemStorageConnection& WorkerGlobalScope::getFileSystemStorageConnection(Ref<FileSystemStorageConnection>&& mainThreadConnection)
+{
+    if (!m_fileSystemStorageConnection)
+        m_fileSystemStorageConnection = WorkerFileSystemStorageConnection::create(*this, WTFMove(mainThreadConnection));
+    else if (m_fileSystemStorageConnection->mainThreadConnection() != mainThreadConnection.ptr()) {
+        m_fileSystemStorageConnection->connectionClosed();
+        m_fileSystemStorageConnection = WorkerFileSystemStorageConnection::create(*this, WTFMove(mainThreadConnection));
+    }
+
+    return *m_fileSystemStorageConnection;
+}
+
+WorkerFileSystemStorageConnection* WorkerGlobalScope::fileSystemStorageConnection()
+{
+    return m_fileSystemStorageConnection.get();
 }
 
 WorkerLocation& WorkerGlobalScope::location() const

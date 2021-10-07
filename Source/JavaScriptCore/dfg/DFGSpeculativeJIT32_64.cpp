@@ -730,6 +730,7 @@ void SpeculativeJIT::emitCall(Node* node)
             shuffleData.callee = ValueRecovery::inPair(calleeTagGPR, calleePayloadGPR);
             shuffleData.args.resize(numAllocatedArgs);
             shuffleData.numPassedArgs = numPassedArgs;
+            shuffleData.numParameters = m_jit.codeBlock()->numParameters();
 
             for (unsigned i = 0; i < numPassedArgs; ++i) {
                 Edge argEdge = m_jit.graph().varArgChild(node, i + 1);
@@ -889,7 +890,7 @@ void SpeculativeJIT::emitCall(Node* node)
 
     CCallHelpers::JumpList slowCases;
     if (isTail) {
-        slowCases = info->emitTailCallFastPath(m_jit, calleePayloadGPR, InvalidGPRReg, CallLinkInfo::UseDataIC::No, [&] {
+        slowCases = info->emitTailCallFastPath(m_jit, calleePayloadGPR, [&] {
             if (node->op() == TailCall) {
                 info->setFrameShuffleData(shuffleData);
                 CallFrameShuffler(m_jit, shuffleData).prepareForTailCall();
@@ -2148,7 +2149,10 @@ void SpeculativeJIT::compile(Node* node)
     if constexpr (validateDFGDoesGC) {
         if (Options::validateDoesGC()) {
             bool expectDoesGC = doesGC(m_jit.graph(), node);
-            m_jit.store32(TrustedImm32(DoesGCCheck::encode(expectDoesGC, node->index(), node->op())), vm().heap.addressOfDoesGC());
+            DoesGCCheck check;
+            check.u.encoded = DoesGCCheck::encode(expectDoesGC, node->index(), node->op());
+            m_jit.store32(CCallHelpers::TrustedImm32(check.u.other), &vm().heap.addressOfDoesGC()->u.other);
+            m_jit.store32(CCallHelpers::TrustedImm32(check.u.nodeIndex), &vm().heap.addressOfDoesGC()->u.nodeIndex);
         }
     }
 
@@ -4480,6 +4484,29 @@ void SpeculativeJIT::compileArithRandom(Node* node)
     doubleResult(result.fpr(), node);
 }
 
+// FIXME: we are always taking the slow path here, we should be able to do the equivalent to the 64bit version if we add more available (callee-save registers) to ARMv7 and/or if we reduce the number of registers compileEnumeratorGetByVal uses. See bug #230189.
+void SpeculativeJIT::compileEnumeratorGetByVal(Node* node)
+{
+    SpeculateCellOperand baseOperand(this, m_graph.varArgChild(node, 0));
+    JSValueOperand property(this, m_graph.varArgChild(node, 1));
+    SpeculateStrictInt32Operand index(this, m_graph.varArgChild(node, 3));
+    SpeculateStrictInt32Operand mode(this, m_graph.varArgChild(node, 4));
+    SpeculateCellOperand enumerator(this, m_graph.varArgChild(node, 5));
+    GPRReg baseOperandGPR = baseOperand.gpr();
+    JSValueRegs propertyRegs = property.jsValueRegs();
+    GPRReg indexGPR = index.gpr();
+    GPRReg modeGPR = mode.gpr();
+    GPRReg enumeratorGPR = enumerator.gpr();
+
+    flushRegisters();
+
+    JSValueRegsFlushedCallResult result(this);
+    JSValueRegs resultRegs = result.regs();
+
+    callOperation(operationEnumeratorGetByValGeneric, resultRegs, TrustedImmPtr::weakPointer(m_graph, m_graph.globalObjectFor(node->origin.semantic)), baseOperandGPR, propertyRegs, indexGPR, modeGPR, enumeratorGPR);
+    m_jit.exceptionCheck();
+    jsValueResult(resultRegs, node);
+}
 #endif
 
 } } // namespace JSC::DFG

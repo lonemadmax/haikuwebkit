@@ -72,7 +72,7 @@ inline static RefPtr<ShareableBitmap> createShareableBitmapFromNativeImage(Nativ
 {
     auto imageSize = image.size();
 
-    auto bitmap = ShareableBitmap::createShareable(image.size(), { });
+    auto bitmap = ShareableBitmap::createShareable(image.size(), { image.colorSpace() });
     if (!bitmap)
         return nullptr;
 
@@ -126,7 +126,7 @@ void RemoteResourceCacheProxy::recordFontUse(Font& font)
     });
 
     if (result.isNewEntry) {
-        m_remoteRenderingBackendProxy.cacheFont(makeRef(font));
+        m_remoteRenderingBackendProxy.cacheFont(font);
         ++m_numberOfFontsUsedInCurrentRenderingUpdate;
         return;
     }

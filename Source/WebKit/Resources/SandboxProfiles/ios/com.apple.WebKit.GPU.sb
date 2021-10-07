@@ -24,7 +24,11 @@
 (version 1)
 (deny default (with partial-symbolication))
 (deny nvram*)
+(deny system-privilege)
 (allow system-audit file-read-metadata)
+
+;; Silence spurious logging due to rdar://20117923 and rdar://72366475
+(deny system-privilege (privilege-id PRIV_GLOBAL_PROC_INFO) (with no-report))
 
 ;;;
 ;;; The following rules were originally contained in 'common.sb'. We are duplicating them here so we can
@@ -34,7 +38,7 @@
 (import "util.sb")
 
 (define-once (allow-read-and-issue-generic-extensions . filters)
-    (allow file-read*
+    (allow file-read* (with telemetry)
            (apply require-any filters))
     (allow file-issue-extension
         (require-all
@@ -42,7 +46,7 @@
             (apply require-any filters))))
 
 (define-once (allow-read-write-and-issue-generic-extensions . filters)
-    (allow file-read* file-write*
+    (allow file-read* file-write* (with telemetry)
            (apply require-any filters))
     (allow file-read-metadata
            (apply require-any filters))
@@ -52,20 +56,20 @@
             (apply require-any filters))))
 
 (define-once (managed-configuration-read-public)
-    (allow file-read*
+    (allow file-read* (with telemetry)
            (well-known-system-group-container-subpath "/systemgroup.com.apple.configurationprofiles/Library/ConfigurationProfiles/PublicInfo")
            (front-user-home-subpath "/Library/ConfigurationProfiles/PublicInfo")
            (front-user-home-subpath "/Library/UserConfigurationProfiles/PublicInfo")))
 
 (define-once (managed-configuration-read . files)
     (if (null? files)
-        (allow file-read*
+        (allow file-read* (with telemetry)
                (well-known-system-group-container-subpath "/systemgroup.com.apple.configurationprofiles/Library/ConfigurationProfiles")
                (front-user-home-subpath "/Library/ConfigurationProfiles")
                (front-user-home-subpath "/Library/UserConfigurationProfiles"))
         (for-each
             (lambda (file)
-                (allow file-read*
+                (allow file-read* (with telemetry)
                     (well-known-system-group-container-literal
                         (string-append "/systemgroup.com.apple.configurationprofiles/Library/ConfigurationProfiles/" file))
                     (front-user-home-literal
@@ -80,14 +84,15 @@
 
 (define-once (mobile-preferences-read . domains)
     (allow-preferences-common)
-    (allow user-preference-read (apply preference-domain domains)))
-
-(define-once (mobile-preferences-read-write . domains)
-    (allow-preferences-common)
-    (allow user-preference-read user-preference-write (apply preference-domain domains)))
+    (for-each (lambda (domain)
+        (begin
+            (allow user-preference-read (with telemetry) (preference-domain domain))
+            (allow file-read*
+                (home-literal (string-append "/Library/Preferences/" domain ".plist")))))
+        domains))
 
 (define-once (framebuffer-access)
-    (allow iokit-open
+    (allow iokit-open (with telemetry)
            (iokit-user-client-class "IOMobileFramebufferUserClient")
            (when (defined? 'iokit-external-method)
                (apply-message-filter
@@ -110,13 +115,13 @@
               (extension "com.apple.assets.read"))))
         ;; <rdar://problem/10710883>
         ;; <rdar://problem/11569106>
-        (allow file-read* asset-access-filter)
+        (allow file-read* (with telemetry) asset-access-filter)
         (if (memq 'with-media-playback options)
             (play-media asset-access-filter))
         (mobile-preferences-read "com.apple.MobileAsset")))
 
 (define-once (play-audio)
-    (allow mach-lookup
+    (allow mach-lookup (with telemetry)
            (global-name "com.apple.audio.AURemoteIOServer")))
 
 (define-once (play-media . filters)
@@ -126,20 +131,8 @@
             (require-all
                 (apply require-any filters)
                 (extension-class "com.apple.mediaserverd.read"))))
-    (allow file-issue-extension
-        (require-all
-            (extension-class "com.apple.mediaserverd.read")
-            (extension "com.apple.security.exception.files.absolute-path.read-only"
-                       "com.apple.security.exception.files.absolute-path.read-write"
-                       "com.apple.security.exception.files.home-relative-path.read-only"
-                       "com.apple.security.exception.files.home-relative-path.read-write")))
-    (allow file-issue-extension
-        (require-all
-            (extension-class "com.apple.mediaserverd.read-write")
-            (extension "com.apple.security.exception.files.absolute-path.read-write"
-                       "com.apple.security.exception.files.home-relative-path.read-write")))
     ;; CoreMedia framework.
-    (allow mach-lookup
+    (allow mach-lookup (with telemetry)
            (global-name "com.apple.coremedia.admin")
            (global-name "com.apple.coremedia.asset.xpc")
            (global-name "com.apple.coremedia.assetimagegenerator.xpc")
@@ -181,14 +174,14 @@
     )
 
     ;; AVF needs to see these network preferences:
-    (allow file-read*
+    (allow file-read* (with telemetry)
         (literal "/private/var/preferences/com.apple.networkd.plist"))
 
     ;; Required by the MediaPlayer framework.
-    (allow mach-lookup
+    (allow mach-lookup (with telemetry)
         (global-name "com.apple.audio.AudioSession"))
 
-    (allow mach-lookup (with report) (with telemetry)
+    (allow mach-lookup (with telemetry)
         (global-name "com.apple.airplay.apsynccontroller.xpc"))
 
     ;; Allow mediaserverd to issue file extensions for the purposes of reading media
@@ -201,10 +194,8 @@
     (mobile-preferences-read
         "com.apple.mediaremote"
         "com.apple.mobileipod")
-    (allow mach-lookup
+    (allow mach-lookup (with telemetry)
            (global-name "com.apple.mediaremoted.xpc"))
-    (allow mach-lookup (with report) (with telemetry)
-        (xpc-service-name "com.apple.MediaPlayer.RemotePlayerService"))
 )
 
 (define-once (media-capture-support)
@@ -216,19 +207,19 @@
     (with-filter (extension "com.apple.webkit.camera")
         (allow user-preference-read
             (preference-domain "com.apple.coremedia"))
-        (allow file-read* (subpath "/Library/CoreMediaIO/Plug-Ins/DAL"))
-        (allow mach-lookup (extension "com.apple.app-sandbox.mach"))
+        (allow file-read* (with telemetry) (subpath "/Library/CoreMediaIO/Plug-Ins/DAL"))
+        (allow mach-lookup (with telemetry) (extension "com.apple.app-sandbox.mach"))
         (allow device-camera))
 
     ;; Support incoming video connections
-    (allow mach-lookup
+    (allow mach-lookup (with telemetry)
         (global-name "com.apple.coremedia.compressionsession")
         (global-name "com.apple.coremedia.decompressionsession")
         (global-name "com.apple.coremedia.videoqueue"))
 )
 
 (define-once (accessibility-support)
-    (allow mach-register
+    (allow mach-register (with telemetry)
         (local-name "com.apple.iphone.axserver"))
     (mobile-preferences-read "com.apple.Accessibility")
     
@@ -240,18 +231,18 @@
 
 (define-once (media-accessibility-support)
     ;; <rdar://problem/12801477>
-    (allow mach-lookup
+    (allow mach-lookup (with telemetry)
         (global-name "com.apple.accessibility.mediaaccessibilityd"))
 
     ;; <rdar://problem/12250145>
     (mobile-preferences-read "com.apple.mediaaccessibility")
-    (mobile-preferences-read-write "com.apple.mediaaccessibility.public")
+    (mobile-preferences-read "com.apple.mediaaccessibility.public")
 )
 
 (define-once (url-translation)
     ;; For translating http:// & https:// URLs referencing itms:// URLs.
     ;; <rdar://problem/11587338>
-    (allow file-read*
+    (allow file-read* (with telemetry)
            (home-literal "/Library/Caches/com.apple.itunesstored/url-resolution.plist")))
 
 ;;;
@@ -273,7 +264,7 @@
                 "IOAccelDevice2"
                 "IOAccelSharedUserClient2"))
 
-    (allow iokit-open
+    (allow iokit-open (with telemetry)
            (iokit-connection "IOGPU")
            (iokit-user-client-class
                 "AGXDeviceUserClient"))
@@ -287,10 +278,10 @@
         (iokit-property "MetalPluginName")
     )
 
-    (allow sysctl-read
-           (sysctl-name #"kern.bootsessionuuid"))
+    (allow sysctl-read (with telemetry)
+        (sysctl-name #"kern.bootsessionuuid"))
 
-    (allow mach-lookup
+    (allow mach-lookup (with telemetry)
        ;; <rdar://problem/47268166>
        (xpc-service-name "com.apple.MTLCompilerService"))
     
@@ -336,14 +327,14 @@
     (deny file-read* file-write*
           (vnode-type BLOCK-DEVICE CHARACTER-DEVICE))
 
-    (allow file-read* file-write-data
+    (allow file-read* file-write-data (with telemetry)
            (literal "/dev/null")
            (literal "/dev/zero"))
 
-    (allow file-read* file-write-data file-ioctl
+    (allow file-read* file-write-data file-ioctl (with telemetry)
            (literal "/dev/dtracehelper"))
 
-    (allow file-read*
+    (allow file-read* (with telemetry)
            (literal "/dev/random")
            (literal "/dev/urandom"))
     ;; <rdar://problem/14215718>
@@ -351,7 +342,7 @@
           (literal "/dev/random")
           (literal "/dev/urandom"))
 
-    (allow file-read* file-write-data file-ioctl
+    (allow file-read* file-write-data file-ioctl  (with telemetry)
            (literal "/dev/aes_0")))
 
 (define required-etc-files
@@ -373,7 +364,7 @@
 
     ;; <rdar://problem/14555119> Access to high quality speech voices
     ;; Needed for WebSpeech
-    (allow file-read*
+    (allow file-read* (with telemetry)
         (home-subpath "/Library/VoiceServices/Assets")
         (home-subpath "/Library/Assets/com_apple_MobileAsset_VoiceServicesVocalizerVoice"))
 )
@@ -392,13 +383,8 @@
     (allow mach-lookup
         (global-name "com.apple.CARenderServer"))
 
-    (allow mach-lookup (with report) (with telemetry)
-        (global-name-regex #"^com\.apple\.uikit\.viewservice\..+")
-        (xpc-service-name-regex #"\.viewservice$") ;; <rdar://problem/31252371>
-    )
-
     ; UIKit-required IOKit nodes.
-    (allow iokit-open
+    (allow iokit-open (with telemetry)
         (iokit-user-client-class "IOSurfaceAcceleratorClient")
         (iokit-user-client-class "IOSurfaceSendRight")
         ;; Requires by UIView -> UITextMagnifierRenderer -> UIWindow
@@ -412,13 +398,8 @@
 )
 
 (define-once (dictionary-support)
-    ; Dictionary Services used by UITextFields.
-    ; <rdar://problem/9386926>
-    (allow-create-directory
-        (home-literal "/Library/Caches/com.apple.DictionaryServices"))
-
     ; <rdar://problem/8548856> Sub-TLF: Sandbox change for apps for read-only access to the dictionary directory/data
-    (allow file-read*
+    (allow file-read* (with telemetry)
         ; XXX - /Library ought to be allowed in all UI profiles but isn't (CF, MobileSafari)
         (subpath "/Library/Dictionaries")
         (home-subpath "/Library/Dictionaries"))
@@ -428,7 +409,7 @@
 
 (deny file-write-mount file-write-unmount)
 
-(allow file-read-metadata
+(allow file-read-metadata (with telemetry)
     (vnode-type DIRECTORY))
 
 (mobile-preferences-read "com.apple.security")
@@ -437,14 +418,14 @@
   (mobile-preferences-read "com.apple.PrototypeTools"))
 
 (with-elevated-precedence
-    (allow file-read*
+    (allow file-read* (with telemetry)
            (subpath "/usr/lib"
                     "/usr/share"
                     "/private/var/db/timezone"))
     (allow-read-and-issue-generic-extensions
         (subpath "/Library/RegionFeatures"
                  "/System/Library"))
-    (allow file-issue-extension
+    (allow file-issue-extension (with telemetry)
         (require-all
             (extension-class "com.apple.mediaserverd.read")
             (subpath "/System/Library")))
@@ -455,17 +436,17 @@
                 (subpath "/System/Library/Caches/com.apple.factorydata"))))
         (deny file-issue-extension file-read* hw-identifying-paths))
     
-    (allow file-map-executable
+    (allow file-map-executable (with telemetry)
            (subpath "/System/Library")
            (subpath "/usr/lib"))
-    (allow file-read-metadata
+    (allow file-read-metadata (with telemetry)
            (vnode-type SYMLINK))
 
     ;;; <rdar://problem/24144418>
-    (allow file-read*
+    (allow file-read* (with telemetry)
            (subpath "/private/var/preferences/Logging"))
 
-    (mobile-preferences-read "kCFPreferencesAnyApplication")
+    (allow user-preference-read (preference-domain "kCFPreferencesAnyApplication"))
     (allow file-read*
            (front-user-home-literal "/Library/Preferences/.GlobalPreferences.plist")
            (front-user-home-literal "/Library/Preferences/.GlobalPreferences_m.plist"))
@@ -474,11 +455,11 @@
            (literal "/private/var/Managed Preferences/mobile/.GlobalPreferences.plist"))
     (allow managed-preference-read (preference-domain "kCFPreferencesAnyApplication"))
 
-    (allow file-read-metadata
+    (allow file-read-metadata (with telemetry)
            (home-literal "/Library/Caches/powerlog.launchd"))
 
     (allow-read-and-issue-generic-extensions (executable-bundle))
-    (allow file-map-executable (executable-bundle))
+    (allow file-map-executable (with telemetry) (executable-bundle))
 
     ;; <rdar://problem/13963294>
     (deny file-read-data file-issue-extension file-map-executable
@@ -491,47 +472,27 @@
             (extension
                 "com.apple.app-sandbox.read"
                 "com.apple.app-sandbox.read-write"
-                "com.apple.quicklook.readonly"
-                "com.apple.security.exception.files.absolute-path.read-only"
-                "com.apple.security.exception.files.absolute-path.read-write"
-                "com.apple.security.exception.files.home-relative-path.read-only"
-                "com.apple.security.exception.files.home-relative-path.read-write"
                 "com.apple.sharing.airdrop.readonly")
-            (allow file-read* file-read-metadata)
+            (allow file-read* file-read-metadata (with telemetry))
             (allow file-issue-extension
                    (extension-class "com.apple.app-sandbox.read"
                                     "com.apple.mediaserverd.read"
-                                    "com.apple.quicklook.readonly"
                                     "com.apple.sharing.airdrop.readonly")))
         (with-filter
             (extension
-                "com.apple.app-sandbox.read-write"
-                "com.apple.security.exception.files.absolute-path.read-write"
-                "com.apple.security.exception.files.home-relative-path.read-write")
-            (allow file-write*)
-            (allow file-issue-extension
+                "com.apple.app-sandbox.read-write")
+            (allow file-write* (with telemetry))
+            (allow file-issue-extension (with telemetry)
                    (extension-class "com.apple.app-sandbox.read-write"
                                     "com.apple.mediaserverd.read-write"))))
 
     ;; <rdar://problem/16079361>
-    (with-filter (global-name-prefix "")
-        (allow mach-register
-               (extension "com.apple.security.exception.mach-register.global-name")))
-    (with-filter (local-name-prefix "")
-        (allow mach-register
-               (extension "com.apple.security.exception.mach-register.local-name")))
-    (allow-read-and-issue-generic-extensions
-           (extension "com.apple.security.exception.files.absolute-path.read-only")
-           (extension "com.apple.security.exception.files.home-relative-path.read-only"))
-    (allow-read-write-and-issue-generic-extensions
-           (extension "com.apple.security.exception.files.absolute-path.read-write")
-           (extension "com.apple.security.exception.files.home-relative-path.read-write"))
     (allow managed-preference-read
            (extension "com.apple.security.exception.managed-preference.read-only"))
     (allow user-preference-read
            (extension "com.apple.security.exception.shared-preference.read-only"))
 
-    (allow file-issue-extension
+    (allow file-issue-extension (with telemetry)
           (require-all
               (extension-class "com.apple.nsurlstorage.extension-cache")
               (extension "com.apple.security.exception.files.home-relative-path.read-write")
@@ -544,53 +505,53 @@
     (internal-debugging-support)
 )
 
-(allow file-read*
+(allow file-read* (with telemetry)
     required-etc-files
     (literal "/"))
 
-(allow file-read*
+(allow file-read* (with telemetry)
        (subpath "/private/var/MobileAsset/PreinstalledAssetsV2/InstallWithOs"))
 
 (device-access)
 
-(allow file-issue-extension
+(allow file-issue-extension (with telemetry)
     (require-all
         (extension-class "com.apple.app-sandbox.read-write" "com.apple.app-sandbox.read")
         (extension "com.apple.fileprovider.read-write")))
 
-(allow mach-lookup
+(allow mach-lookup (with telemetry)
     (global-name "com.apple.logd")
     (global-name "com.apple.logd.events")
     (global-name "com.apple.distributed_notifications@1v3")
     (global-name "com.apple.aggregated")
 )
 
-(allow mach-lookup (with report) (with telemetry)
+(allow mach-lookup (with telemetry)
     (global-name "com.apple.tccd"))
 
-(allow ipc-posix-shm-read*
+(allow ipc-posix-shm-read* (with telemetry)
        (ipc-posix-name-prefix "apple.cfprefs."))
  
-(allow mach-lookup (with report) (with telemetry)
+(allow mach-lookup (with telemetry)
     (global-name "com.apple.lsd.mapdb"))
 
 ;; <rdar://problem/12413942>
-(allow file-read*
+(allow file-read* (with telemetry)
        (well-known-system-group-container-literal "/systemgroup.com.apple.mobilegestaltcache/Library/Caches/com.apple.MobileGestalt.plist"))
 (allow iokit-get-properties
        (iokit-property "IORegistryEntryPropertyKeys"))
 
-(allow ipc-posix-sem-open
+(allow ipc-posix-sem-open (with telemetry)
        (ipc-posix-name "containermanagerd.fb_check"))
 
 (with-filter (ipc-posix-name "purplebuddy.sentinel")
     (deny ipc-posix-sem-create ipc-posix-sem-post ipc-posix-sem-unlink ipc-posix-sem-wait)
-    (allow ipc-posix-sem-open))
+    (allow ipc-posix-sem-open (with telemetry)))
 
 (allow mach-lookup (with telemetry)
     (global-name "com.apple.runningboard")) ;; Needed by process assertion code (ProcessTaskStateObserver).
 
-(allow system-sched
+(allow system-sched (with telemetry)
        (require-entitlement "com.apple.private.kernel.override-cpumon"))
 
 (deny sysctl-read (with no-report)
@@ -599,30 +560,30 @@
           "sysctl.proc_native"))
 
 (with-filter (system-attribute apple-internal)
-    (allow sysctl-read sysctl-write
+    (allow sysctl-read sysctl-write (with telemetry)
            (sysctl-name "vm.footprint_suspend"))
-    (allow nvram-get (nvram-variable "emu")) ;; <rdar://problem/78363040>
+    (allow nvram-get (with telemetry) (nvram-variable "emu")) ;; <rdar://problem/78363040>
 )
 
-(allow mach-lookup (with report) (with telemetry)
+(allow mach-lookup (with telemetry)
        (global-name "com.apple.system.logger"))
 
-(allow file-read-metadata
+(allow file-read-metadata (with telemetry)
        (literal "/private/var/run/syslog"))
 
 ;; ObjC map_images needs to send logging data to syslog. <rdar://problem/39778918>
 (with-filter (system-attribute apple-internal)
-    (allow network-outbound
+    (allow network-outbound (with telemetry)
        (literal "/private/var/run/syslog")
     )
 )
 
-(allow mach-lookup
+(allow mach-lookup (with telemetry)
        (global-name "com.apple.system.notification_center"))
-(allow ipc-posix-shm-read*
+(allow ipc-posix-shm-read* (with telemetry)
        (ipc-posix-name "apple.shm.notification_center"))
 
-(allow mach-lookup (with report) (with telemetry)
+(allow mach-lookup (with telemetry)
     (global-name "com.apple.diagnosticd"))
 
 (managed-configuration-read-public)
@@ -630,14 +591,15 @@
 (deny system-info (with no-report)
       (info-type "net.link.addr"))
 
-(allow file-read*
+(allow file-read* (with telemetry)
        (subpath "/private/var/db/datadetectors/sys"))
 
 (allow-well-known-system-group-container-subpath-read
        "/systemgroup.com.apple.icloud.findmydevice.managed/Library")
 
-(allow mach-task-name (target self))
+(allow mach-task-name (with telemetry) (target self))
 
+(allow process-info* (with telemetry))
 (allow process-info-pidinfo (target self))
 (allow process-info-pidfdinfo (target self))
 (allow process-info-pidfileportinfo (target self))
@@ -669,15 +631,12 @@
 (url-translation)
 
 ;; TextInput framework
-(allow mach-lookup (with report) (with telemetry)
+(allow mach-lookup (with telemetry)
     (global-name "com.apple.TextInput"))
 
 (mobile-preferences-read "com.apple.da")
 
 (speech-synthesis-and-voiceover)
-
-(allow mach-lookup (with report) (with telemetry)
-    (global-name "com.apple.audio.AudioComponentRegistrar"))
 
 ;; Permit reading assets via MobileAsset framework.
 (asset-access 'with-media-playback)
@@ -687,7 +646,7 @@
     "/systemgroup.com.apple.nsurlstoragedresources/Library/dafsaData.bin")
 
 ;; Access the keyboards
-(allow file-read*
+(allow file-read* (with telemetry)
     (home-subpath "/Library/Caches/com.apple.keyboards"))
 
 (mobile-preferences-read
@@ -708,11 +667,11 @@
     (with no-log))
 
 ;; <rdar://problem/12985925> Need read access to /var/mobile/Library/Fonts to all apps
-(allow file-read*
+(allow file-read* (with telemetry)
     (home-subpath "/Library/Fonts"))
 
 ;; <rdar://problem/7344719&26323449> LaunchServices app icons
-(allow file-read*
+(allow file-read* (with telemetry)
     (well-known-system-group-container-subpath "/systemgroup.com.apple.lsd.iconscache"))
 
 (allow-preferences-common)
@@ -724,13 +683,10 @@
 
 (uikit-requirements)
 
-;; <rdar://problem/9404009>
-(mobile-preferences-read "kCFPreferencesAnyApplication")
-
 (dictionary-support)
 
 ; <rdar://problem/8440231>
-(allow file-read*
+(allow file-read* (with telemetry)
     (home-literal "/Library/Caches/DateFormats.plist"))
 ; Silently deny writes when CFData attempts to write to the cache directory.
 (deny file-write*
@@ -757,54 +713,10 @@
 ;;; End UIKit-apps.sb content
 ;;;
 
-;; In CFPrefs direct mode, access to preference files is required.
-(allow file-read*
-    (home-literal
-        "/Library/Preferences/com.apple.Accessibility.plist"
-        "/Library/Preferences/com.apple.AdLib.plist"
-        "/Library/Preferences/com.apple.EmojiPreferences.plist"
-        "/Library/Preferences/com.apple.InputModePreferences.plist"
-        "/Library/Preferences/com.apple.LaunchServices.plist"
-        "/Library/Preferences/com.apple.Metal.plist"
-        "/Library/Preferences/com.apple.MobileAsset.plist"
-        "/Library/Preferences/com.apple.Preferences.plist"
-        "/Library/Preferences/com.apple.PrototypeTools.plist"
-        "/Library/Preferences/com.apple.SpeakSelection.plist"
-        "/Library/Preferences/com.apple.UIKit.plist"
-        "/Library/Preferences/com.apple.VoiceOverTouch.plist"
-        "/Library/Preferences/com.apple.WebFoundation.plist"
-        "/Library/Preferences/com.apple.WebUI.plist"
-        "/Library/Preferences/com.apple.airplay.plist"
-        "/Library/Preferences/com.apple.audio.virtualaudio.plist"
-        "/Library/Preferences/com.apple.avfoundation.plist"
-        "/Library/Preferences/com.apple.avfoundation.frecents.plist"
-        "/Library/Preferences/com.apple.avfoundation.videoperformancehud.plist"
-        "/Library/Preferences/com.apple.avkit.plist"
-        "/Library/Preferences/com.apple.coreanimation.plist"
-        "/Library/Preferences/com.apple.coreaudio.plist"
-        "/Library/Preferences/com.apple.coremedia.plist"
-        "/Library/Preferences/com.apple.corevideo.plist"
-        "/Library/Preferences/com.apple.da.plist"
-        "/Library/Preferences/com.apple.keyboard.plist"
-        "/Library/Preferences/com.apple.lookup.shared.plist"
-        "/Library/Preferences/com.apple.mediaaccessibility.plist"
-        "/Library/Preferences/com.apple.mediaaccessibility.public.plist"
-        "/Library/Preferences/com.apple.mediaremote.plist"
-        "/Library/Preferences/com.apple.mobileipod.plist"
-        "/Library/Preferences/com.apple.mt.plist"
-        "/Library/Preferences/com.apple.hangtracer.plist"
-        "/Library/Preferences/com.apple.iokit.IOMobileGraphicsFamily.plist"
-        "/Library/Preferences/com.apple.itunesstored.plist"
-        "/Library/Preferences/com.apple.opengl.plist"
-        "/Library/Preferences/com.apple.preferences.sounds.plist"
-        "/Library/Preferences/com.apple.security.plist"
-        "/Library/Preferences/com.apple.voiceservices.plist"
-        "/Library/Preferences/com.apple.voiceservices.logging.plist"
-    )
-)
+(mobile-preferences-read "com.apple.AdLib.plist")
 
 (deny sysctl*)
-(allow sysctl-read
+(allow sysctl-read (with telemetry)
     (sysctl-name
         "hw.activecpu"
         "hw.availcpu"
@@ -920,10 +832,10 @@
 
 ;; Sandbox extensions
 (define (apply-read-and-issue-extension op path-filter)
-    (op file-read* path-filter)
+    (op file-read* (with telemetry) path-filter)
     (op file-issue-extension (require-all (extension-class "com.apple.app-sandbox.read") path-filter)))
 (define (apply-write-and-issue-extension op path-filter)
-    (op file-write* path-filter)
+    (op file-write* (with telemetry) path-filter)
     (op file-issue-extension (require-all (extension-class "com.apple.app-sandbox.read-write") path-filter)))
 (define (read-only-and-issue-extensions path-filter)
     (apply-read-and-issue-extension allow path-filter))
@@ -934,7 +846,7 @@
 (read-write-and-issue-extensions (extension "com.apple.app-sandbox.read-write"))
 
 ;; Access to client's cache folder & re-vending to CFNetwork.
-(allow file-issue-extension (require-all
+(allow file-issue-extension (with telemetry) (require-all
     (extension "com.apple.app-sandbox.read-write")
     (extension-class "com.apple.nsurlstorage.extension-cache")))
 
@@ -943,7 +855,7 @@
 (media-accessibility-support)
 
 ;; Various services required by CFNetwork and other frameworks
-(allow mach-lookup (with telemetry-backtrace)
+(allow mach-lookup (with telemetry)
     (global-name "com.apple.analyticsd"))
 
 ;; Silence reports about things we do not want access to:
@@ -955,16 +867,16 @@
 (deny file-read-xattr file-write-xattr (xattr-regex #"^com\.apple\.security\.private\."))
 
 ;; Allow loading injected bundles.
-(allow file-map-executable)
+(allow file-map-executable (with telemetry))
 
 ;; Allow ManagedPreference access
-(allow file-read* (literal "/private/var/Managed Preferences/mobile/com.apple.webcontentfilter.plist"))
+(allow file-read* (with telemetry) (literal "/private/var/Managed Preferences/mobile/com.apple.webcontentfilter.plist"))
 
-(allow file-read-data
+(allow file-read-data (with telemetry)
     (literal "/usr/local/lib/log") ; <rdar://problem/36629495>
 )
 
-(allow mach-lookup
+(allow mach-lookup (with telemetry)
     (require-all
         (extension "com.apple.webkit.extension.mach")
         (global-name
@@ -975,7 +887,7 @@
     )
 )
 
-(allow iokit-open
+(allow iokit-open (with telemetry)
     (require-all
         (extension "com.apple.webkit.extension.iokit")
         (iokit-user-client-class
@@ -997,7 +909,7 @@
     (xpc-service-name "com.apple.audio.toolbox.reporting.service")
 )
 
-(deny mach-lookup (with telemetry-backtrace)
+(deny mach-lookup (with telemetry)
     (xpc-service-name "com.apple.iconservices")
     (global-name
         "com.apple.PowerManagement.control"
@@ -1006,23 +918,23 @@
     )
 )
 
-(allow mach-lookup
+(allow mach-lookup (with telemetry)
     (global-name "com.apple.systemstatus.activityattribution")
 )
 
-(allow mach-lookup
+(allow mach-lookup (with telemetry)
     (require-all
         (extension "com.apple.webkit.extension.mach")
         (global-name "com.apple.iphone.axserver-systemwide" "com.apple.tccd")))
 
-(allow mach-lookup
+(allow mach-lookup (with telemetry)
     (require-all
         (extension "com.apple.webkit.extension.mach")
         (xpc-service-name-prefix "com.apple.AGXCompilerService")))
 
 (media-capture-support)
 
-(allow mach-lookup
+(allow mach-lookup (with telemetry)
   (global-name "com.apple.audio.AudioQueueServer" "com.apple.audio.AudioComponentRegistrar")
 )
 
@@ -1033,3 +945,101 @@
 (deny mach-lookup
     (global-name "com.apple.webkit.camera")
 )
+
+(when (defined? 'syscall-unix)
+    (allow syscall-unix (with telemetry))
+    (allow syscall-unix (syscall-number
+        SYS___disable_threadsignal
+        SYS___mac_syscall
+        SYS___pthread_sigmask
+        SYS___semwait_signal
+        SYS_access
+        SYS_bsdthread_create
+        SYS_bsdthread_ctl
+        SYS_bsdthread_register
+        SYS_bsdthread_terminate
+        SYS_change_fdguard_np
+        SYS_chdir
+        SYS_close
+        SYS_close_nocancel
+        SYS_connect
+        SYS_csops
+        SYS_csops_audittoken
+        SYS_exit
+        SYS_fcntl
+        SYS_flock
+        SYS_fsetattrlist
+        SYS_fsetxattr
+        SYS_fsgetpath
+        SYS_fstat64
+        SYS_fstatat64
+        SYS_fstatfs64
+        SYS_ftruncate
+        SYS_getattrlist
+        SYS_getdirentries64
+        SYS_getegid
+        SYS_getentropy
+        SYS_geteuid
+        SYS_getfsstat64
+        SYS_getgid
+        SYS_getpid
+        SYS_getrlimit
+        SYS_gettid
+        SYS_gettimeofday
+        SYS_getuid
+        SYS_ioctl
+        SYS_issetugid
+        SYS_kdebug_trace64
+        SYS_kdebug_trace_string
+        SYS_kdebug_typefilter
+        SYS_kevent_id
+        SYS_kevent_qos
+        SYS_kqueue_workloop_ctl
+        SYS_lseek
+        SYS_lstat64
+        SYS_madvise
+        SYS_memorystatus_control
+        SYS_mkdir
+        SYS_mmap
+        SYS_mprotect
+        SYS_msync
+        SYS_munmap
+        SYS_objc_bp_assist_cfg_np
+        SYS_open
+        SYS_open_nocancel
+        SYS_openat
+        SYS_os_fault_with_payload
+        SYS_pathconf
+        SYS_pread
+        SYS_proc_info
+        SYS_psynch_cvbroad
+        SYS_psynch_cvclrprepost
+        SYS_psynch_cvsignal
+        SYS_psynch_cvwait
+        SYS_psynch_mutexdrop
+        SYS_psynch_mutexwait
+        SYS_psynch_rw_rdlock
+        SYS_psynch_rw_unlock
+        SYS_psynch_rw_wrlock
+        SYS_read
+        SYS_read_nocancel
+        SYS_readlink
+        SYS_rename
+        SYS_sem_close
+        SYS_sem_open
+        SYS_sendto
+        SYS_shared_region_check_np
+        SYS_shm_open
+        SYS_sigaction
+        SYS_socket
+        SYS_stat64
+        SYS_sysctl
+        SYS_sysctlbyname
+        SYS_thread_selfid
+        SYS_ulock_wait
+        SYS_ulock_wake
+        SYS_work_interval_ctl
+        SYS_workq_kernreturn
+        SYS_workq_open
+        SYS_write_nocancel
+        SYS_writev)))

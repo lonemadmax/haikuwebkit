@@ -26,14 +26,17 @@
 #import "config.h"
 
 #import "HTTPServer.h"
+#import "PlatformUtilities.h"
 #import "TestWKWebView.h"
 #import "Utilities.h"
 #import <WebKit/WKProcessPoolPrivate.h>
+#import <WebKit/WKScriptMessageHandler.h>
 #import <WebKit/WKWebViewPrivate.h>
 #import <WebKit/WKWebsiteDataStorePrivate.h>
 #import <WebKit/_WKWebsiteDataStoreConfiguration.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/UUID.h>
 #import <wtf/Vector.h>
 
 TEST(NetworkProcess, Entitlements)
@@ -191,4 +194,153 @@ TEST(NetworkProcess, CORSPreflightCachePartitioned)
     [secondWebView loadHTMLString:html baseURL:baseURL];
     while (preflightRequestsReceived != 2)
         TestWebKitAPI::Util::spinRunLoop();
+}
+
+
+static Vector<RetainPtr<WKScriptMessage>> receivedMessages;
+static bool receivedMessage = false;
+
+@interface BroadcastChannelMessageHandler : NSObject <WKScriptMessageHandler>
+@end
+
+@implementation BroadcastChannelMessageHandler
+- (void)userContentController:(WKUserContentController *)userContentController didReceiveScriptMessage:(WKScriptMessage *)message
+{
+    receivedMessages.append(message);
+    receivedMessage = true;
+}
+@end
+
+static void waitUntilNetworkProcessIsResponsive(WKWebView *webView1, WKWebView *webView2)
+{
+    // We've just terminated and relaunched the network process. However, there is no easy well to tell if the webviews'
+    // WebProcesses have been notified of the network process crash or not (we only know that the UIProcess was). Because
+    // we don't want the test to go on with the WebProcesses using stale NetworkProcessConnections, we use the following
+    // trick to wait until both WebProcesses are able to communicate with the new NetworkProcess:
+    // The first WebProcess tries setting a cookie until the second Webview is able to see it.
+    auto expectedCookieString = makeString("TEST=", createCanonicalUUIDString());
+    auto setTestCookieString = makeString("setInterval(() => { document.cookie='", expectedCookieString, "'; }, 100);");
+    [webView1 evaluateJavaScript:(NSString *)setTestCookieString completionHandler: [&] (id result, NSError *error) {
+        EXPECT_TRUE(!error);
+    }];
+
+    bool canSecondWebViewSeeNewCookie = false;
+    do {
+        TestWebKitAPI::Util::spinRunLoop(10);
+        String cookieString = (NSString *)[webView2 objectByEvaluatingJavaScript:@"document.cookie"];
+        canSecondWebViewSeeNewCookie = cookieString.contains(expectedCookieString);
+    } while (!canSecondWebViewSeeNewCookie);
+}
+
+TEST(NetworkProcess, BroadcastChannelCrashRecovery)
+{
+    auto webViewConfiguration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    auto messageHandler = adoptNS([[BroadcastChannelMessageHandler alloc] init]);
+    [[webViewConfiguration userContentController] addScriptMessageHandler:messageHandler.get() name:@"test"];
+
+    auto webView1 = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:webViewConfiguration.get()]);
+    auto webView2 = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:webViewConfiguration.get()]);
+
+    receivedMessage = false;
+    receivedMessages.clear();
+
+    NSString *html = [NSString stringWithFormat:@"<script>let bc = new BroadcastChannel('test'); bc.onmessage = (msg) => { webkit.messageHandlers.test.postMessage(msg.data); };</script>"];
+    NSURL *baseURL = [NSURL URLWithString:@"http://example.com/"];
+
+    [webView1 synchronouslyLoadHTMLString:html baseURL:baseURL];
+    [webView2 synchronouslyLoadHTMLString:html baseURL:baseURL];
+
+    auto webPID1 = [webView1 _webProcessIdentifier];
+    auto webPID2 = [webView2 _webProcessIdentifier];
+    EXPECT_NE(webPID1, 0);
+    EXPECT_NE(webPID2, 0);
+    EXPECT_NE(webPID1, webPID2);
+
+    auto networkPID = [[WKWebsiteDataStore defaultDataStore] _networkProcessIdentifier];
+    EXPECT_NE(networkPID, 0);
+
+    EXPECT_FALSE(receivedMessage);
+    EXPECT_TRUE(receivedMessages.isEmpty());
+
+    // Test that initial communication from webView1 to webView2 works.
+    receivedMessage = false;
+    receivedMessages.clear();
+    bool finishedRunningScript = false;
+    [webView1 evaluateJavaScript:@"bc.postMessage('foo')" completionHandler: [&] (id result, NSError *error) {
+        EXPECT_TRUE(!error);
+        finishedRunningScript = true;
+    }];
+    TestWebKitAPI::Util::run(&finishedRunningScript);
+
+    TestWebKitAPI::Util::run(&receivedMessage);
+    TestWebKitAPI::Util::spinRunLoop(10);
+
+    EXPECT_EQ(receivedMessages.size(), 1U);
+    EXPECT_EQ([receivedMessages[0] webView], webView2);
+    EXPECT_WK_STREQ([receivedMessages[0] body], @"foo");
+
+    // Test that initial communication from webView2 to webView1 works.
+    receivedMessage = false;
+    receivedMessages.clear();
+    finishedRunningScript = false;
+    [webView2 evaluateJavaScript:@"bc.postMessage('bar')" completionHandler: [&] (id result, NSError *error) {
+        EXPECT_TRUE(!error);
+        finishedRunningScript = true;
+    }];
+    TestWebKitAPI::Util::run(&finishedRunningScript);
+
+    TestWebKitAPI::Util::run(&receivedMessage);
+    TestWebKitAPI::Util::spinRunLoop(10);
+
+    EXPECT_EQ(receivedMessages.size(), 1U);
+    EXPECT_EQ([receivedMessages[0] webView], webView1);
+    EXPECT_WK_STREQ([receivedMessages[0] body], @"bar");
+
+    // Kill the network process.
+    kill(networkPID, 9);
+    while ([[WKWebsiteDataStore defaultDataStore] _networkProcessIdentifier] == networkPID)
+        TestWebKitAPI::Util::spinRunLoop(10);
+
+    waitUntilNetworkProcessIsResponsive(webView1.get(), webView2.get());
+
+    // Test that initial communication from webView1 to webView2 works.
+    receivedMessage = false;
+    receivedMessages.clear();
+    finishedRunningScript = false;
+    [webView1 evaluateJavaScript:@"bc.postMessage('foo2')" completionHandler: [&] (id result, NSError *error) {
+        EXPECT_TRUE(!error);
+        finishedRunningScript = true;
+    }];
+    TestWebKitAPI::Util::run(&finishedRunningScript);
+
+    TestWebKitAPI::Util::run(&receivedMessage);
+    TestWebKitAPI::Util::spinRunLoop(10);
+
+    EXPECT_EQ(receivedMessages.size(), 1U);
+    EXPECT_EQ([receivedMessages[0] webView], webView2);
+    EXPECT_WK_STREQ([receivedMessages[0] body], @"foo2");
+
+    // Test that initial communication from webView2 to webView1 works.
+    receivedMessage = false;
+    receivedMessages.clear();
+    finishedRunningScript = false;
+    [webView2 evaluateJavaScript:@"bc.postMessage('bar2')" completionHandler: [&] (id result, NSError *error) {
+        EXPECT_TRUE(!error);
+        finishedRunningScript = true;
+    }];
+    TestWebKitAPI::Util::run(&finishedRunningScript);
+
+    TestWebKitAPI::Util::run(&receivedMessage);
+    TestWebKitAPI::Util::spinRunLoop(10);
+
+    EXPECT_EQ(receivedMessages.size(), 1U);
+    EXPECT_EQ([receivedMessages[0] webView], webView1);
+    EXPECT_WK_STREQ([receivedMessages[0] body], @"bar2");
+
+    auto networkPID2 = [[WKWebsiteDataStore defaultDataStore] _networkProcessIdentifier];
+    EXPECT_NE(networkPID2, 0);
+    EXPECT_NE(networkPID, networkPID2);
+
+    EXPECT_EQ(webPID1, [webView1 _webProcessIdentifier]);
+    EXPECT_EQ(webPID2, [webView2 _webProcessIdentifier]);
 }

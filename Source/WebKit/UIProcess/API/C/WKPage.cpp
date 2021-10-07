@@ -678,27 +678,27 @@ bool WKPageAreScrollbarAnimationsSuppressed(WKPageRef pageRef)
 
 bool WKPageIsPinnedToLeftSide(WKPageRef pageRef)
 {
-    return toImpl(pageRef)->isPinnedToLeftSide();
+    return toImpl(pageRef)->pinnedState().left();
 }
 
 bool WKPageIsPinnedToRightSide(WKPageRef pageRef)
 {
-    return toImpl(pageRef)->isPinnedToRightSide();
+    return toImpl(pageRef)->pinnedState().right();
 }
 
 bool WKPageIsPinnedToTopSide(WKPageRef pageRef)
 {
-    return toImpl(pageRef)->isPinnedToTopSide();
+    return toImpl(pageRef)->pinnedState().top();
 }
 
 bool WKPageIsPinnedToBottomSide(WKPageRef pageRef)
 {
-    return toImpl(pageRef)->isPinnedToBottomSide();
+    return toImpl(pageRef)->pinnedState().bottom();
 }
 
 bool WKPageRubberBandsAtLeft(WKPageRef pageRef)
 {
-    return toImpl(pageRef)->rubberBandsAtLeft();
+    return toImpl(pageRef)->rubberBandableEdges().left();
 }
 
 void WKPageSetRubberBandsAtLeft(WKPageRef pageRef, bool rubberBandsAtLeft)
@@ -709,7 +709,7 @@ void WKPageSetRubberBandsAtLeft(WKPageRef pageRef, bool rubberBandsAtLeft)
 
 bool WKPageRubberBandsAtRight(WKPageRef pageRef)
 {
-    return toImpl(pageRef)->rubberBandsAtRight();
+    return toImpl(pageRef)->rubberBandableEdges().right();
 }
 
 void WKPageSetRubberBandsAtRight(WKPageRef pageRef, bool rubberBandsAtRight)
@@ -720,7 +720,7 @@ void WKPageSetRubberBandsAtRight(WKPageRef pageRef, bool rubberBandsAtRight)
 
 bool WKPageRubberBandsAtTop(WKPageRef pageRef)
 {
-    return toImpl(pageRef)->rubberBandsAtTop();
+    return toImpl(pageRef)->rubberBandableEdges().top();
 }
 
 void WKPageSetRubberBandsAtTop(WKPageRef pageRef, bool rubberBandsAtTop)
@@ -731,7 +731,7 @@ void WKPageSetRubberBandsAtTop(WKPageRef pageRef, bool rubberBandsAtTop)
 
 bool WKPageRubberBandsAtBottom(WKPageRef pageRef)
 {
-    return toImpl(pageRef)->rubberBandsAtBottom();
+    return toImpl(pageRef)->rubberBandableEdges().bottom();
 }
 
 void WKPageSetRubberBandsAtBottom(WKPageRef pageRef, bool rubberBandsAtBottom)
@@ -1151,7 +1151,6 @@ void WKPageSetPageLoaderClient(WKPageRef pageRef, const WKPageLoaderClientBase* 
         {
             initialize(client);
             
-#if !PLATFORM(MAC) || __MAC_OS_X_VERSION_MIN_REQUIRED > 101400
             // WKPageSetPageLoaderClient is deprecated. Use WKPageSetPageNavigationClient instead.
             RELEASE_ASSERT(!m_client.didFinishDocumentLoadForFrame);
             RELEASE_ASSERT(!m_client.didSameDocumentNavigationForFrame);
@@ -1184,7 +1183,6 @@ void WKPageSetPageLoaderClient(WKPageRef pageRef, const WKPageLoaderClientBase* 
             RELEASE_ASSERT(!m_client.navigationGestureDidBegin);
             RELEASE_ASSERT(!m_client.navigationGestureWillEnd);
             RELEASE_ASSERT(!m_client.navigationGestureDidEnd);
-#endif
         }
 
     private:
@@ -3138,6 +3136,14 @@ void WKPageSetPCMFraudPreventionValuesForTesting(WKPageRef pageRef, WKStringRef 
     });
 }
 
+void WKPageSetPrivateClickMeasurementAppBundleIDForTesting(WKPageRef pageRef, WKStringRef appBundleIDForTesting, WKPageSetPrivateClickMeasurementAppBundleIDForTestingFunction callback, void* callbackContext)
+{
+    CRASH_IF_SUSPENDED;
+    toImpl(pageRef)->setPrivateClickMeasurementAppBundleIDForTesting(toWTFString(appBundleIDForTesting), [callbackContext, callback] () {
+        callback(callbackContext);
+    });
+}
+
 void WKPageSetMockCameraOrientation(WKPageRef pageRef, uint64_t orientation)
 {
     CRASH_IF_SUSPENDED;
@@ -3146,7 +3152,7 @@ void WKPageSetMockCameraOrientation(WKPageRef pageRef, uint64_t orientation)
 #endif
 }
 
-WK_EXPORT bool WKPageIsMockRealtimeMediaSourceCenterEnabled(WKPageRef)
+bool WKPageIsMockRealtimeMediaSourceCenterEnabled(WKPageRef)
 {
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
     return MockRealtimeMediaSourceCenter::mockRealtimeMediaSourceCenterEnabled();
@@ -3155,10 +3161,19 @@ WK_EXPORT bool WKPageIsMockRealtimeMediaSourceCenterEnabled(WKPageRef)
 #endif
 }
 
+void WKPageSetMockCameraIsInterrupted(WKPageRef pageRef, bool isInterrupted)
+{
+    CRASH_IF_SUSPENDED;
+#if ENABLE(MEDIA_STREAM) && ENABLE(GPU_PROCESS)
+    auto& gpuProcess = toImpl(pageRef)->process().processPool().ensureGPUProcess();
+    gpuProcess.setMockCameraIsInterrupted(isInterrupted);
+#endif
+}
+
 void WKPageLoadedSubresourceDomains(WKPageRef pageRef, WKPageLoadedSubresourceDomainsFunction callback, void* callbackContext)
 {
     CRASH_IF_SUSPENDED;
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     toImpl(pageRef)->getLoadedSubresourceDomains([callbackContext, callback](Vector<RegistrableDomain>&& domains) {
         Vector<RefPtr<API::Object>> apiDomains = WTF::map(domains, [](auto& domain) {
             return RefPtr<API::Object>(API::String::create(WTFMove(domain.string())));
@@ -3174,7 +3189,7 @@ void WKPageLoadedSubresourceDomains(WKPageRef pageRef, WKPageLoadedSubresourceDo
 void WKPageClearLoadedSubresourceDomains(WKPageRef pageRef)
 {
     CRASH_IF_SUSPENDED;
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     toImpl(pageRef)->clearLoadedSubresourceDomains();
 #else
     UNUSED_PARAM(pageRef);

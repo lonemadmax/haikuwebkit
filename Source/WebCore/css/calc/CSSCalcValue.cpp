@@ -180,6 +180,66 @@ static RefPtr<CSSCalcExpressionNode> createCSS(const CalcExpressionNode& node, c
                 return nullptr;
             return CSSCalcOperationNode::createMinOrMaxOrClamp(op, WTFMove(children), operationNode.destinationCategory());
         }
+        case CalcOperator::Log: {
+            auto children = createCSS(operationChildren, style);
+            if (children.size() != 1 && children.size() != 2)
+                return nullptr;
+            return CSSCalcOperationNode::createLog(WTFMove(children));
+        }
+        case CalcOperator::Exp: {
+            auto children = createCSS(operationChildren, style);
+            if (children.size() != 1)
+                return nullptr;
+            return CSSCalcOperationNode::createExp(WTFMove(children));
+        }
+        case CalcOperator::Asin:
+        case CalcOperator::Acos:
+        case CalcOperator::Atan: {
+            auto children = createCSS(operationChildren, style);
+            if (children.size() != 1)
+                return nullptr;
+            return CSSCalcOperationNode::createInverseTrig(op, WTFMove(children));
+        }
+        case CalcOperator::Atan2: {
+            auto children = createCSS(operationChildren, style);
+            if (children.size() != 2)
+                return nullptr;
+            return CSSCalcOperationNode::createAtan2(WTFMove(children));
+        }
+        case CalcOperator::Sign:
+        case CalcOperator::Abs: {
+            auto children = createCSS(operationChildren, style);
+            if (children.size() != 1)
+                return nullptr;
+            return CSSCalcOperationNode::createSign(op, WTFMove(children));
+        }
+        case CalcOperator::Sqrt:
+        case CalcOperator::Pow: {
+            auto children = createCSS(operationChildren, style);
+            if (children.isEmpty())
+                return nullptr;
+            return CSSCalcOperationNode::createPowOrSqrt(op, WTFMove(children));
+        }
+        case CalcOperator::Hypot: {
+            auto children = createCSS(operationChildren, style);
+            if (children.isEmpty())
+                return nullptr;
+            return CSSCalcOperationNode::createHypot(WTFMove(children));
+        }
+        case CalcOperator::Mod:
+        case CalcOperator::Rem:
+        case CalcOperator::Round: {
+            auto children = createCSS(operationChildren, style);
+            if (children.size() != 2)
+                return nullptr;
+            return CSSCalcOperationNode::createStep(op, WTFMove(children));
+        }
+        case CalcOperator::Nearest:
+        case CalcOperator::ToZero:
+        case CalcOperator::Up:
+        case CalcOperator::Down: {
+            return CSSCalcOperationNode::createRoundConstant(op);
+        }
         }
         return nullptr;
     }
@@ -291,9 +351,23 @@ bool CSSCalcValue::isCalcFunction(CSSValueID functionId)
     case CSSValueMin:
     case CSSValueMax:
     case CSSValueClamp:
+    case CSSValuePow:
+    case CSSValueSqrt:
+    case CSSValueHypot:
     case CSSValueSin:
     case CSSValueCos:
     case CSSValueTan:
+    case CSSValueExp:
+    case CSSValueLog:
+    case CSSValueAsin:
+    case CSSValueAcos:
+    case CSSValueAtan:
+    case CSSValueAtan2:
+    case CSSValueAbs:
+    case CSSValueSign:
+    case CSSValueRound:
+    case CSSValueMod:
+    case CSSValueRem:
         return true;
     default:
         return false;

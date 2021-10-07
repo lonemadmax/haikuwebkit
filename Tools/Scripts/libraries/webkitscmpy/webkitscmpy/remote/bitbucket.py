@@ -39,6 +39,23 @@ class BitBucket(Scm):
         TITLE_CHAR_LIMIT = 254
         BODY_CHAR_LIMIT = 32766
 
+        def PullRequest(self, data):
+            if not data:
+                return None
+            return PullRequest(
+                number=data['id'],
+                title=data.get('title'),
+                body=data.get('description'),
+                author=self.repository.contributors.create(
+                    data['author']['user']['displayName'],
+                    data['author']['user']['emailAddress'],
+                ), head=data['fromRef']['displayId'],
+                base=data['toRef']['displayId'],
+            )
+
+        def get(self, number):
+            return self.PullRequest(self.repository.request('pull-requests/{}'.format(int(number))))
+
         def find(self, state=None, head=None, base=None):
             params = dict(
                 limit=100,
@@ -56,16 +73,7 @@ class BitBucket(Scm):
             for datum in data or []:
                 if base and not datum['toRef']['id'].endswith(base):
                     continue
-                yield PullRequest(
-                    number=datum['id'],
-                    title=datum.get('title'),
-                    body=datum.get('description'),
-                    author=self.repository.contributors.create(
-                        datum['author']['user']['displayName'],
-                        datum['author']['user']['emailAddress'],
-                    ), head=datum['fromRef']['displayId'],
-                    base=datum['toRef']['displayId'],
-                )
+                yield self.PullRequest(datum)
 
         def create(self, head, title, body=None, commits=None, base=None):
             for key, value in dict(head=head, title=title).items():
@@ -74,7 +82,7 @@ class BitBucket(Scm):
 
             if len(title) > self.TITLE_CHAR_LIMIT:
                 raise ValueError('Title length too long. Limit is: {}'.format(self.TITLE_CHAR_LIMIT))
-            description = PullRequest.create_body(body, commits)
+            description = PullRequest.create_body(body, commits, linkify=False)
             if description and len(description) > self.BODY_CHAR_LIMIT:
                 raise ValueError('Body length too long. Limit is: {}'.format(self.BODY_CHAR_LIMIT))
             response = requests.post(
@@ -84,7 +92,7 @@ class BitBucket(Scm):
                     name=self.repository.name,
                 ), json=dict(
                     title=title,
-                    description=PullRequest.create_body(body, commits),
+                    description=PullRequest.create_body(body, commits, linkify=False),
                     fromRef=dict(
                         id='refs/heads/{}'.format(head),
                         repository=dict(
@@ -102,17 +110,7 @@ class BitBucket(Scm):
             )
             if response.status_code // 100 != 2:
                 return None
-            data = response.json()
-            return PullRequest(
-                number=data['id'],
-                title=data.get('title'),
-                body=data.get('description'),
-                author=self.repository.contributors.create(
-                    data['author']['user']['displayName'],
-                    data['author']['user']['emailAddress'],
-                ), head=data['fromRef']['displayId'],
-                base=data['toRef']['displayId'],
-            )
+            return self.PullRequest(response.json())
 
         def update(self, pull_request, head=None, title=None, body=None, commits=None, base=None):
             if not isinstance(pull_request, PullRequest):
@@ -125,7 +123,7 @@ class BitBucket(Scm):
             if title:
                 to_change['title'] = title
             if body or commits:
-                to_change['description'] = PullRequest.create_body(body, commits)
+                to_change['description'] = PullRequest.create_body(body, commits, linkify=False)
             if head:
                 to_change['fromRef'] = dict(
                     id='refs/heads/{}'.format(head),

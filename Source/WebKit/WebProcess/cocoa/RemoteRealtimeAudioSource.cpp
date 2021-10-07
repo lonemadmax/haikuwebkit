@@ -53,7 +53,7 @@ Ref<RealtimeMediaSource> RemoteRealtimeAudioSource::create(const CaptureDevice& 
 }
 
 RemoteRealtimeAudioSource::RemoteRealtimeAudioSource(RealtimeMediaSourceIdentifier identifier, const CaptureDevice& device, const MediaConstraints* constraints, String&& name, String&& hashSalt, UserMediaCaptureManager& manager, bool shouldCaptureInGPUProcess)
-    : RealtimeMediaSource(RealtimeMediaSource::Type::Audio, WTFMove(name), String::number(identifier.toUInt64()), WTFMove(hashSalt))
+    : RealtimeMediaSource(RealtimeMediaSource::Type::Audio, WTFMove(name), String { device.persistentId() }, WTFMove(hashSalt))
     , m_proxy(identifier, device, shouldCaptureInGPUProcess, constraints)
     , m_manager(manager)
 {
@@ -65,7 +65,7 @@ RemoteRealtimeAudioSource::RemoteRealtimeAudioSource(RealtimeMediaSourceIdentifi
 
 void RemoteRealtimeAudioSource::createRemoteMediaSource()
 {
-    m_proxy.createRemoteMediaSource(deviceIDHashSalt(), [this, protectedThis = makeRef(*this)](bool succeeded, auto&& errorMessage, auto&& settings, auto&& capabilities, auto&&, auto, auto) {
+    m_proxy.createRemoteMediaSource(deviceIDHashSalt(), [this, protectedThis = Ref { *this }](bool succeeded, auto&& errorMessage, auto&& settings, auto&& capabilities, auto&&, auto, auto) {
         if (!succeeded) {
             m_proxy.didFail(WTFMove(errorMessage));
             return;

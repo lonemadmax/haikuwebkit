@@ -53,16 +53,12 @@ class WorkerGlobalScopeProxy;
 class WorkerScriptLoader;
 
 struct StructuredSerializeOptions;
+struct WorkerOptions;
 
 class Worker final : public AbstractWorker, public ActiveDOMObject, private WorkerScriptLoaderClient {
     WTF_MAKE_ISO_ALLOCATED(Worker);
 public:
-    struct Options {
-        WorkerType type;
-        FetchRequestCredentials credentials;
-        String name;
-    };
-    static ExceptionOr<Ref<Worker>> create(ScriptExecutionContext&, JSC::RuntimeFlags, const String& url, const Options&);
+    static ExceptionOr<Ref<Worker>> create(ScriptExecutionContext&, JSC::RuntimeFlags, const String& url, const WorkerOptions&);
     virtual ~Worker();
 
     ExceptionOr<void> postMessage(JSC::JSGlobalObject&, JSC::JSValue message, StructuredSerializeOptions&&);
@@ -85,13 +81,13 @@ public:
     WorkerType type() const { return m_type; }
 
 private:
-    explicit Worker(ScriptExecutionContext&, JSC::RuntimeFlags, const Options&);
+    explicit Worker(ScriptExecutionContext&, JSC::RuntimeFlags, const WorkerOptions&);
 
     EventTargetInterface eventTargetInterface() const final { return WorkerEventTargetInterfaceType; }
 
     void notifyNetworkStateChange(bool isOnline);
 
-    void didReceiveResponse(unsigned long identifier, const ResourceResponse&) final;
+    void didReceiveResponse(ResourceLoaderIdentifier, const ResourceResponse&) final;
     void notifyFinished() final;
 
     // ActiveDOMObject.

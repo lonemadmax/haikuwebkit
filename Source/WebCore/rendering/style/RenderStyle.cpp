@@ -33,6 +33,7 @@
 #include "FloatRoundedRect.h"
 #include "FontCascade.h"
 #include "FontSelector.h"
+#include "InlineIteratorTextBox.h"
 #include "InlineTextBoxStyle.h"
 #include "Pagination.h"
 #include "QuotesData.h"
@@ -457,7 +458,7 @@ static inline unsigned computeFontHash(const FontCascade& font)
 unsigned RenderStyle::hashForTextAutosizing() const
 {
     // FIXME: Not a very smart hash. Could be improved upon. See <https://bugs.webkit.org/show_bug.cgi?id=121131>.
-    unsigned hash = m_rareNonInheritedData->appearance;
+    unsigned hash = m_rareNonInheritedData->effectiveAppearance;
     hash ^= m_rareNonInheritedData->marginBeforeCollapse;
     hash ^= m_rareNonInheritedData->marginAfterCollapse;
     hash ^= m_rareNonInheritedData->lineClamp.value();
@@ -479,7 +480,7 @@ unsigned RenderStyle::hashForTextAutosizing() const
 
 bool RenderStyle::equalForTextAutosizing(const RenderStyle& other) const
 {
-    return m_rareNonInheritedData->appearance == other.m_rareNonInheritedData->appearance
+    return m_rareNonInheritedData->effectiveAppearance == other.m_rareNonInheritedData->effectiveAppearance
         && m_rareNonInheritedData->marginBeforeCollapse == other.m_rareNonInheritedData->marginBeforeCollapse
         && m_rareNonInheritedData->marginAfterCollapse == other.m_rareNonInheritedData->marginAfterCollapse
         && m_rareNonInheritedData->lineClamp == other.m_rareNonInheritedData->lineClamp
@@ -650,7 +651,7 @@ static bool rareNonInheritedDataChangeRequiresLayout(const StyleRareNonInherited
 {
     ASSERT(&first != &second);
 
-    if (first.appearance != second.appearance
+    if (first.effectiveAppearance != second.effectiveAppearance
         || first.marginBeforeCollapse != second.marginBeforeCollapse
         || first.marginAfterCollapse != second.marginAfterCollapse
         || first.lineClamp != second.lineClamp
@@ -742,6 +743,9 @@ static bool rareNonInheritedDataChangeRequiresLayout(const StyleRareNonInherited
         || first.aspectRatioHeight != second.aspectRatioHeight) {
         return true;
     }
+
+    if (first.inputSecurity != second.inputSecurity)
+        return true;
 
     return false;
 }
@@ -1161,7 +1165,7 @@ bool RenderStyle::changeRequiresRepaintIfTextOrBorderOrOutline(const RenderStyle
         || m_visualData->textDecoration != other.m_visualData->textDecoration
         || m_rareNonInheritedData->textDecorationStyle != other.m_rareNonInheritedData->textDecorationStyle
         || m_rareNonInheritedData->textDecorationColor != other.m_rareNonInheritedData->textDecorationColor
-        || m_rareInheritedData->textDecorationSkip != other.m_rareInheritedData->textDecorationSkip
+        || m_rareInheritedData->textDecorationSkipInk != other.m_rareInheritedData->textDecorationSkipInk
         || m_rareInheritedData->textFillColor != other.m_rareInheritedData->textFillColor
         || m_rareInheritedData->textStrokeColor != other.m_rareInheritedData->textStrokeColor
         || m_rareInheritedData->textEmphasisColor != other.m_rareInheritedData->textEmphasisColor
@@ -1936,6 +1940,16 @@ void RenderStyle::setFontItalic(std::optional<FontSelectionValue> value)
     FontSelector* currentFontSelector = fontCascade().fontSelector();
     auto description = fontDescription();
     description.setItalic(value);
+
+    setFontDescription(WTFMove(description));
+    fontCascade().update(currentFontSelector);
+}
+
+void RenderStyle::setFontPalette(FontPalette value)
+{
+    FontSelector* currentFontSelector = fontCascade().fontSelector();
+    auto description = fontDescription();
+    description.setFontPalette(value);
 
     setFontDescription(WTFMove(description));
     fontCascade().update(currentFontSelector);

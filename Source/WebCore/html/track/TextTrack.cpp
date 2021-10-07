@@ -38,6 +38,7 @@
 #include "Document.h"
 #include "Event.h"
 #include "SourceBuffer.h"
+#include "TextTrackClient.h"
 #include "TextTrackCueList.h"
 #include "TextTrackList.h"
 #include "VTTRegion.h"
@@ -332,7 +333,7 @@ ExceptionOr<void> TextTrack::addCue(Ref<TextTrackCue>&& cue)
     // If a DataCue is added to a TextTrack via the addCue() method but the text track does not have its text
     // track kind set to metadata, throw a InvalidNodeTypeError exception and don't add the cue to the TextTrackList
     // of the TextTrack.
-    if (is<DataCue>(cue.get()) && m_kind != Kind::Metadata)
+    if (is<DataCue>(cue) && m_kind != Kind::Metadata)
         return Exception { InvalidNodeTypeError };
 
     INFO_LOG(LOGIDENTIFIER, cue.get());
@@ -345,7 +346,7 @@ ExceptionOr<void> TextTrack::addCue(Ref<TextTrackCue>&& cue)
 
     // The addCue(cue) method of TextTrack objects, when invoked, must run the following steps:
 
-    auto cueTrack = makeRefPtr(cue->track());
+    RefPtr cueTrack = cue->track();
     if (cueTrack == this)
         return { };
 
@@ -445,7 +446,7 @@ void TextTrack::addRegion(Ref<VTTRegion>&& region)
 
     // 1. If the given region is in a text track list of regions, then remove
     // region from that text track list of regions.
-    auto regionTrack = makeRefPtr(region->track());
+    RefPtr regionTrack = region->track();
     if (regionTrack && regionTrack != this)
         regionTrack->removeRegion(region.get());
 
@@ -453,7 +454,7 @@ void TextTrack::addRegion(Ref<VTTRegion>&& region)
     // a region with the same identifier as region replace the values of that
     // region's width, height, anchor point, viewport anchor point and scroll
     // attributes with those of region.
-    auto existingRegion = makeRefPtr(regionList.getRegionById(region->id()));
+    RefPtr existingRegion = regionList.getRegionById(region->id());
     if (existingRegion) {
         existingRegion->updateParametersFromRegion(region);
         return;

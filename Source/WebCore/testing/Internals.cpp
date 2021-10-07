@@ -531,7 +531,6 @@ void Internals::resetToConsistentState(Page& page)
     WTF::clearDefaultPortForProtocolMapForTesting();
     overrideUserPreferredLanguages(Vector<String>());
     WebCore::DeprecatedGlobalSettings::setUsesOverlayScrollbars(false);
-    WebCore::DeprecatedGlobalSettings::setUsesMockScrollAnimator(false);
     if (!page.mainFrame().editor().isContinuousSpellCheckingEnabled())
         page.mainFrame().editor().toggleContinuousSpellChecking();
     if (page.mainFrame().editor().isOverwriteModeEnabled())
@@ -2560,13 +2559,13 @@ void Internals::handleAcceptedCandidate(const String& candidate, unsigned locati
 
 void Internals::changeSelectionListType()
 {
-    if (auto frame = makeRefPtr(this->frame()))
+    if (RefPtr frame = this->frame())
         frame->editor().changeSelectionListType();
 }
 
 void Internals::changeBackToReplacedString(const String& replacedString)
 {
-    if (auto frame = makeRefPtr(this->frame()))
+    if (RefPtr frame = this->frame())
         frame->editor().changeBackToReplacedString(replacedString);
 }
 
@@ -2696,19 +2695,15 @@ bool Internals::isBaseAudioContextAlive(uint64_t contextID)
 }
 #endif // ENABLE(WEB_AUDIO)
 
-#if ENABLE(INTERSECTION_OBSERVER)
 unsigned Internals::numberOfIntersectionObservers(const Document& document) const
 {
     return document.numberOfIntersectionObservers();
 }
-#endif
 
-#if ENABLE(RESIZE_OBSERVER)
 unsigned Internals::numberOfResizeObservers(const Document& document) const
 {
     return document.numberOfResizeObservers();
 }
-#endif
 
 uint64_t Internals::documentIdentifier(const Document& document) const
 {
@@ -2928,7 +2923,7 @@ ExceptionOr<ScrollableArea*> Internals::scrollableAreaForNode(Node* node) const
     if (!node)
         return Exception { InvalidAccessError };
 
-    auto nodeRef = makeRef(*node);
+    Ref nodeRef { *node };
     nodeRef->document().updateLayoutIgnorePendingStylesheets();
 
     ScrollableArea* scrollableArea = nullptr;
@@ -3822,11 +3817,6 @@ void Internals::setUsesOverlayScrollbars(bool enabled)
 
     static_cast<ScrollbarThemeMac&>(theme).preferencesChanged();
 #endif
-}
-
-void Internals::setUsesMockScrollAnimator(bool enabled)
-{
-    WebCore::DeprecatedGlobalSettings::setUsesMockScrollAnimator(enabled);
 }
 
 void Internals::forceReload(bool endToEnd)
@@ -4750,7 +4740,7 @@ void Internals::queueMicroTask(int testNumber)
 
     ScriptExecutionContext* context = document;
     auto& eventLoop = context->eventLoop();
-    eventLoop.queueMicrotask([document = makeRef(*document), testNumber]() {
+    eventLoop.queueMicrotask([document = Ref { *document }, testNumber]() {
         document->addConsoleMessage(MessageSource::JS, MessageLevel::Debug, makeString("MicroTask #", testNumber, " has run."));
     });
 }
@@ -5175,7 +5165,7 @@ ExceptionOr<void> Internals::queueTaskToQueueMicrotask(Document& document, const
         return Exception { NotSupportedError };
 
     ScriptExecutionContext& context = document; // This avoids unnecessarily exporting Document::eventLoop.
-    context.eventLoop().queueTask(*source, [movedCallback = WTFMove(callback), protectedDocument = makeRef(document)]() mutable {
+    context.eventLoop().queueTask(*source, [movedCallback = WTFMove(callback), protectedDocument = Ref { document }]() mutable {
         ScriptExecutionContext& context = protectedDocument.get();
         context.eventLoop().queueMicrotask([callback = WTFMove(movedCallback)] {
             callback->handleEvent();
@@ -5448,24 +5438,28 @@ void Internals::grabNextMediaStreamTrackFrame(TrackFramePromise&& promise)
 
 void Internals::videoSampleAvailable(MediaSample& sample)
 {
-    m_trackVideoSampleCount++;
-    if (!m_nextTrackFramePromise)
-        return;
+    callOnMainThread([this, weakThis = makeWeakPtr(this), sample = Ref { sample }] {
+        if (!weakThis)
+            return;
+        m_trackVideoSampleCount++;
+        if (!m_nextTrackFramePromise)
+            return;
 
-    auto& videoSettings = m_trackSource->settings();
-    if (!videoSettings.width() || !videoSettings.height())
-        return;
-    
-    auto rgba = sample.getRGBAImageData();
-    if (!rgba)
-        return;
-    
-    auto imageData = ImageData::create(rgba.releaseNonNull(), videoSettings.width(), videoSettings.height(), { { PredefinedColorSpace::SRGB } });
-    if (!imageData.hasException())
-        m_nextTrackFramePromise->resolve(imageData.releaseReturnValue());
-    else
-        m_nextTrackFramePromise->reject(imageData.exception().code());
-    m_nextTrackFramePromise = nullptr;
+        auto& videoSettings = m_trackSource->settings();
+        if (!videoSettings.width() || !videoSettings.height())
+            return;
+
+        auto rgba = sample->getRGBAImageData();
+        if (!rgba)
+            return;
+
+        auto imageData = ImageData::create(rgba.releaseNonNull(), videoSettings.width(), videoSettings.height(), { { PredefinedColorSpace::SRGB } });
+        if (!imageData.hasException())
+            m_nextTrackFramePromise->resolve(imageData.releaseReturnValue());
+        else
+            m_nextTrackFramePromise->reject(imageData.exception().code());
+        m_nextTrackFramePromise = nullptr;
+    });
 }
 
 void Internals::delayMediaStreamTrackSamples(MediaStreamTrack& track, float delay)
@@ -5597,13 +5591,13 @@ void Internals::sendH2Ping(String url, DOMPromiseDeferred<IDLDouble>&& promise)
 {
     auto* document = contextDocument();
     if (!document) {
-        promise.settle(InvalidStateError);
+        promise.reject(InvalidStateError);
         return;
     }
 
     auto* frame = document->frame();
     if (!frame) {
-        promise.settle(InvalidStateError);
+        promise.reject(InvalidStateError);
         return;
     }
 
@@ -5611,7 +5605,7 @@ void Internals::sendH2Ping(String url, DOMPromiseDeferred<IDLDouble>&& promise)
         if (result.has_value())
             promise.resolve(result.value().value());
         else
-            promise.settle(InvalidStateError);
+            promise.reject(InvalidStateError);
     });
 }
 
@@ -6542,5 +6536,16 @@ bool Internals::platformSupportsMetal(bool)
     return false;
 }
 #endif
+
+void Internals::retainTextIteratorForDocumentContent()
+{
+    auto* document = contextDocument();
+    if (!document)
+        return;
+
+    auto range = makeRangeSelectingNodeContents(*document);
+    m_textIterator = makeUnique<TextIterator>(range);
+}
+
 
 } // namespace WebCore

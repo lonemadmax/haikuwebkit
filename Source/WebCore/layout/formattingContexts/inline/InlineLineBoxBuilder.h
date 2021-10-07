@@ -27,10 +27,11 @@
 
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 
+#include "InlineDisplayLine.h"
 #include "InlineFormattingContext.h"
 #include "InlineLineBox.h"
 #include "InlineLineBuilder.h"
-#include "InlineLineGeometry.h"
+#include "TextUtil.h"
 
 namespace WebCore {
 namespace Layout {
@@ -43,15 +44,17 @@ class LineBoxBuilder {
 public:
     LineBoxBuilder(const InlineFormattingContext&);
 
-    struct LineBoxAndGeometry {
+    struct LineAndLineBox {
+        InlineDisplay::Line line;
         LineBox lineBox;
-        LineGeometry lineGeometry;
     };
-    LineBoxAndGeometry build(const LineBuilder::LineContent&);
+    LineAndLineBox build(const LineBuilder::LineContent&, size_t lineIndex);
 
 private:
-    void setVerticalGeometryForInlineBox(InlineLevelBox&) const;
-    InlineLayoutUnit constructAndAlignInlineLevelBoxes(LineBox&, const Line::RunList&);
+    void setInitialVerticalGeometryForInlineBox(InlineLevelBox&) const;
+    void setVerticalGeometryForLineBreakBox(InlineLevelBox& lineBreakBox, const InlineLevelBox& parentInlineBox) const;
+    void adjustVerticalGeometryForInlineBoxWithFallbackFonts(InlineLevelBox&, const TextUtil::FallbackFontList&) const;
+    InlineLayoutUnit constructAndAlignInlineLevelBoxes(LineBox&, const Line::RunList&, size_t lineIndex);
 
     const InlineFormattingContext& formattingContext() const { return m_inlineFormattingContext; }
     const Box& rootBox() const { return formattingContext().root(); }

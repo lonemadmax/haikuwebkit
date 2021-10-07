@@ -119,7 +119,7 @@ StyleRareInheritedData::StyleRareInheritedData()
     , textAlignLast(static_cast<unsigned>(RenderStyle::initialTextAlignLast()))
     , textJustify(static_cast<unsigned>(RenderStyle::initialTextJustify()))
 #endif
-    , textDecorationSkip(RenderStyle::initialTextDecorationSkip().toRaw())
+    , textDecorationSkipInk(static_cast<unsigned>(RenderStyle::initialTextDecorationSkipInk()))
     , textUnderlinePosition(static_cast<unsigned>(RenderStyle::initialTextUnderlinePosition()))
     , rubyPosition(static_cast<unsigned>(RenderStyle::initialRubyPosition()))
     , textZoom(static_cast<unsigned>(RenderStyle::initialTextZoom()))
@@ -128,13 +128,14 @@ StyleRareInheritedData::StyleRareInheritedData()
 #endif
     , hangingPunctuation(RenderStyle::initialHangingPunctuation().toRaw())
     , paintOrder(static_cast<unsigned>(RenderStyle::initialPaintOrder()))
-    , capStyle(RenderStyle::initialCapStyle())
-    , joinStyle(RenderStyle::initialJoinStyle())
+    , capStyle(static_cast<unsigned>(RenderStyle::initialCapStyle()))
+    , joinStyle(static_cast<unsigned>(RenderStyle::initialJoinStyle()))
     , hasSetStrokeWidth(false)
     , hasSetStrokeColor(false)
     , mathStyle(static_cast<unsigned>(RenderStyle::initialMathStyle()))
     , hasAutoCaretColor(true)
     , hasVisitedLinkAutoCaretColor(true)
+    , effectiveInert(false)
     , isInSubtreeWithBlendMode(false)
     , effectiveTouchActions(RenderStyle::initialTouchActions())
     , strokeWidth(RenderStyle::initialStrokeWidth())
@@ -216,7 +217,7 @@ inline StyleRareInheritedData::StyleRareInheritedData(const StyleRareInheritedDa
     , textAlignLast(o.textAlignLast)
     , textJustify(o.textJustify)
 #endif
-    , textDecorationSkip(o.textDecorationSkip)
+    , textDecorationSkipInk(o.textDecorationSkipInk)
     , textUnderlinePosition(o.textUnderlinePosition)
     , rubyPosition(o.rubyPosition)
     , textZoom(o.textZoom)
@@ -232,6 +233,7 @@ inline StyleRareInheritedData::StyleRareInheritedData(const StyleRareInheritedDa
     , mathStyle(o.mathStyle)
     , hasAutoCaretColor(o.hasAutoCaretColor)
     , hasVisitedLinkAutoCaretColor(o.hasVisitedLinkAutoCaretColor)
+    , effectiveInert(o.effectiveInert)
     , isInSubtreeWithBlendMode(o.isInSubtreeWithBlendMode)
     , effectiveTouchActions(o.effectiveTouchActions)
     , eventListenerRegionTypes(o.eventListenerRegionTypes)
@@ -341,7 +343,7 @@ bool StyleRareInheritedData::operator==(const StyleRareInheritedData& o) const
         && textAlignLast == o.textAlignLast
         && textJustify == o.textJustify
 #endif // CSS3_TEXT
-        && textDecorationSkip == o.textDecorationSkip
+        && textDecorationSkipInk == o.textDecorationSkipInk
         && textUnderlinePosition == o.textUnderlinePosition
         && rubyPosition == o.rubyPosition
         && textZoom == o.textZoom
@@ -359,6 +361,7 @@ bool StyleRareInheritedData::operator==(const StyleRareInheritedData& o) const
         && isInSubtreeWithBlendMode == o.isInSubtreeWithBlendMode
         && effectiveTouchActions == o.effectiveTouchActions
         && eventListenerRegionTypes == o.eventListenerRegionTypes
+        && effectiveInert == o.effectiveInert
         && strokeWidth == o.strokeWidth
         && strokeColor == o.strokeColor
         && visitedLinkStrokeColor == o.visitedLinkStrokeColor

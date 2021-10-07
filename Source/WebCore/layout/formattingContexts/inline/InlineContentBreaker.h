@@ -28,11 +28,9 @@
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 
 #include "LayoutUnits.h"
+#include "RenderStyle.h"
 
 namespace WebCore {
-
-class RenderStyle;
-
 namespace Layout {
 
 class InlineItem;
@@ -84,15 +82,16 @@ public:
         bool hasTrailingCollapsibleContent() const { return !!collapsibleLogicalWidth(); }
         bool isFullyCollapsible() const { return logicalWidth() == collapsibleLogicalWidth(); }
 
-        void append(const InlineItem&, InlineLayoutUnit logicalWidth, std::optional<InlineLayoutUnit> collapsibleWidth);
+        void append(const InlineItem&, const RenderStyle&, InlineLayoutUnit logicalWidth, std::optional<InlineLayoutUnit> collapsibleWidth);
         void reset();
 
         struct Run {
-            Run(const InlineItem&, InlineLayoutUnit logicalWidth);
+            Run(const InlineItem&, const RenderStyle&, InlineLayoutUnit logicalWidth);
             Run(const Run&);
             Run& operator=(const Run&);
 
             const InlineItem& inlineItem;
+            const RenderStyle& style;
             InlineLayoutUnit logicalWidth { 0 };
         };
         using RunList = Vector<Run, 3>;
@@ -116,7 +115,7 @@ public:
     Result processInlineContent(const ContinuousContent&, const LineStatus&);
     void setHyphenationDisabled() { n_hyphenationIsDisabled = true; }
 
-    static bool isWrappingAllowed(const InlineItem&);
+    static bool isWrappingAllowed(const ContinuousContent::Run&);
 
 private:
     Result processOverflowingContent(const ContinuousContent&, const LineStatus&) const;
@@ -133,14 +132,16 @@ private:
     bool n_hyphenationIsDisabled { false };
 };
 
-inline InlineContentBreaker::ContinuousContent::Run::Run(const InlineItem& inlineItem, InlineLayoutUnit logicalWidth)
+inline InlineContentBreaker::ContinuousContent::Run::Run(const InlineItem& inlineItem, const RenderStyle& style, InlineLayoutUnit logicalWidth)
     : inlineItem(inlineItem)
+    , style(style)
     , logicalWidth(logicalWidth)
 {
 }
 
 inline InlineContentBreaker::ContinuousContent::Run::Run(const Run& other)
     : inlineItem(other.inlineItem)
+    , style(other.style)
     , logicalWidth(other.logicalWidth)
 {
 }

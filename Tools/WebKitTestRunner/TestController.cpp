@@ -1667,6 +1667,14 @@ void TestController::didReceiveMessageFromInjectedBundle(WKStringRef messageName
             return;
         }
 
+#if PLATFORM(GTK)
+        if (WKStringIsEqualToUTF8CString(subMessageName, "SetWheelHasPreciseDeltas")) {
+            auto hasPreciseDeltas = booleanValue(dictionary, "HasPreciseDeltas");
+            m_eventSenderProxy->setWheelHasPreciseDeltas(hasPreciseDeltas);
+            return;
+        }
+#endif
+
         ASSERT_NOT_REACHED();
     }
 
@@ -2706,6 +2714,11 @@ void TestController::setIgnoresViewportScaleLimits(bool ignoresViewportScaleLimi
     WKPageSetIgnoresViewportScaleLimits(m_mainWebView->page(), ignoresViewportScaleLimits);
 }
 
+void TestController::terminateGPUProcess()
+{
+    WKContextTerminateGPUProcess(platformContext());
+}
+
 void TestController::terminateNetworkProcess()
 {
     WKWebsiteDataStoreTerminateNetworkProcess(websiteDataStore());
@@ -3503,6 +3516,11 @@ bool TestController::isMockRealtimeMediaSourceCenterEnabled() const
     return WKPageIsMockRealtimeMediaSourceCenterEnabled(m_mainWebView->page());
 }
 
+void TestController::setMockCameraIsInterrupted(bool isInterrupted)
+{
+    WKPageSetMockCameraIsInterrupted(m_mainWebView->page(), isInterrupted);
+}
+
 struct InAppBrowserPrivacyCallbackContext {
     explicit InAppBrowserPrivacyCallbackContext(TestController& controller)
         : testController(controller)
@@ -3594,6 +3612,10 @@ void TestController::setAllowedMenuActions(const Vector<String>&)
 {
 }
 
+WKRetainPtr<WKStringRef> TestController::takeViewPortSnapshot()
+{
+    return adoptWK(WKStringCreateWithUTF8CString("not implemented"));
+}
 #endif
 
 void TestController::sendDisplayConfigurationChangedMessageForTesting()
@@ -3724,6 +3746,13 @@ void TestController::setPCMFraudPreventionValuesForTesting(WKStringRef unlinkabl
 {
     PrivateClickMeasurementVoidCallbackContext callbackContext(*this);
     WKPageSetPCMFraudPreventionValuesForTesting(m_mainWebView->page(), unlinkableToken, secretToken, signature, keyID, privateClickMeasurementVoidCallback, &callbackContext);
+    runUntil(callbackContext.done, noTimeout);
+}
+
+void TestController::setPrivateClickMeasurementAppBundleIDForTesting(WKStringRef appBundleID)
+{
+    PrivateClickMeasurementVoidCallbackContext callbackContext(*this);
+    WKPageSetPrivateClickMeasurementAppBundleIDForTesting(m_mainWebView->page(), appBundleID, privateClickMeasurementVoidCallback, &callbackContext);
     runUntil(callbackContext.done, noTimeout);
 }
 

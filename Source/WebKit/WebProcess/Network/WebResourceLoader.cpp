@@ -54,7 +54,7 @@
 #include <WebCore/SubresourceLoader.h>
 #include <wtf/CompletionHandler.h>
 
-#define WEBRESOURCELOADER_RELEASE_LOG(fmt, ...) RELEASE_LOG(Network, "%p - [webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 "] WebResourceLoader::" fmt, this, m_trackingParameters.pageID.toUInt64(), m_trackingParameters.frameID.toUInt64(), m_trackingParameters.resourceID, ##__VA_ARGS__)
+#define WEBRESOURCELOADER_RELEASE_LOG(fmt, ...) RELEASE_LOG(Network, "%p - [webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 "] WebResourceLoader::" fmt, this, m_trackingParameters.pageID.toUInt64(), m_trackingParameters.frameID.toUInt64(), m_trackingParameters.resourceID.toUInt64(), ##__VA_ARGS__)
 
 namespace WebKit {
 using namespace WebCore;
@@ -83,7 +83,7 @@ uint64_t WebResourceLoader::messageSenderDestinationID() const
 {
     RELEASE_ASSERT(RunLoop::isMain());
     RELEASE_ASSERT(m_coreLoader->identifier());
-    return m_coreLoader->identifier();
+    return m_coreLoader->identifier().toUInt64();
 }
 
 void WebResourceLoader::detachFromCoreLoader()
@@ -153,9 +153,9 @@ void WebResourceLoader::didReceiveResponse(const ResourceResponse& response, boo
     }
 
     if (InspectorInstrumentationWebKit::shouldInterceptResponse(m_coreLoader->frame(), response)) {
-        unsigned long interceptedRequestIdentifier = m_coreLoader->identifier();
+        auto interceptedRequestIdentifier = m_coreLoader->identifier();
         m_interceptController.beginInterceptingResponse(interceptedRequestIdentifier);
-        InspectorInstrumentationWebKit::interceptResponse(m_coreLoader->frame(), response, interceptedRequestIdentifier, [this, protectedThis = makeRef(*this), interceptedRequestIdentifier, policyDecisionCompletionHandler = WTFMove(policyDecisionCompletionHandler)](const ResourceResponse& inspectorResponse, RefPtr<SharedBuffer> overrideData) mutable {
+        InspectorInstrumentationWebKit::interceptResponse(m_coreLoader->frame(), response, interceptedRequestIdentifier, [this, protectedThis = Ref { *this }, interceptedRequestIdentifier, policyDecisionCompletionHandler = WTFMove(policyDecisionCompletionHandler)](const ResourceResponse& inspectorResponse, RefPtr<SharedBuffer> overrideData) mutable {
             if (!m_coreLoader || !m_coreLoader->identifier()) {
                 WEBRESOURCELOADER_RELEASE_LOG("didReceiveResponse: not continuing intercept load because no coreLoader or no ID");
                 m_interceptController.continueResponse(interceptedRequestIdentifier);
@@ -196,7 +196,7 @@ void WebResourceLoader::didReceiveData(const IPC::DataReference& data, int64_t e
 
     if (UNLIKELY(m_interceptController.isIntercepting(m_coreLoader->identifier()))) {
         auto buffer = SharedBuffer::create(data.data(), data.size());
-        m_interceptController.defer(m_coreLoader->identifier(), [this, protectedThis = makeRef(*this), buffer = WTFMove(buffer), encodedDataLength]() mutable {
+        m_interceptController.defer(m_coreLoader->identifier(), [this, protectedThis = Ref { *this }, buffer = WTFMove(buffer), encodedDataLength]() mutable {
             if (m_coreLoader)
                 didReceiveData({ buffer->data(), buffer->size() }, encodedDataLength);
         });
@@ -216,7 +216,7 @@ void WebResourceLoader::didFinishResourceLoad(const NetworkLoadMetrics& networkL
     WEBRESOURCELOADER_RELEASE_LOG("didFinishResourceLoad: (length=%zd)", m_numBytesReceived);
 
     if (UNLIKELY(m_interceptController.isIntercepting(m_coreLoader->identifier()))) {
-        m_interceptController.defer(m_coreLoader->identifier(), [this, protectedThis = makeRef(*this), networkLoadMetrics]() mutable {
+        m_interceptController.defer(m_coreLoader->identifier(), [this, protectedThis = Ref { *this }, networkLoadMetrics]() mutable {
             if (m_coreLoader)
                 didFinishResourceLoad(networkLoadMetrics);
         });
@@ -259,7 +259,7 @@ void WebResourceLoader::didFailResourceLoad(const ResourceError& error)
     WEBRESOURCELOADER_RELEASE_LOG("didFailResourceLoad:");
 
     if (UNLIKELY(m_interceptController.isIntercepting(m_coreLoader->identifier()))) {
-        m_interceptController.defer(m_coreLoader->identifier(), [this, protectedThis = makeRef(*this), error]() mutable {
+        m_interceptController.defer(m_coreLoader->identifier(), [this, protectedThis = Ref { *this }, error]() mutable {
             if (m_coreLoader)
                 didFailResourceLoad(error);
         });

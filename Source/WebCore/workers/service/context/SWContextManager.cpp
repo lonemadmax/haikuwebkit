@@ -109,6 +109,18 @@ void SWContextManager::fireActivateEvent(ServiceWorkerIdentifier identifier)
     serviceWorker->fireActivateEvent();
 }
 
+void SWContextManager::firePushEvent(ServiceWorkerIdentifier identifier, std::optional<Vector<uint8_t>>&& data, CompletionHandler<void(bool)>&& callback)
+{
+    auto* serviceWorker = m_workerMap.get(identifier);
+    if (!serviceWorker) {
+        callback(false);
+        return;
+    }
+
+    serviceWorker->firePushEvent(WTFMove(data), WTFMove(callback));
+}
+
+
 void SWContextManager::terminateWorker(ServiceWorkerIdentifier identifier, Seconds timeout, Function<void()>&& completionHandler)
 {
     auto serviceWorker = m_workerMap.take(identifier);
@@ -134,7 +146,7 @@ void SWContextManager::stopWorker(ServiceWorkerThreadProxy& serviceWorker, Secon
     m_pendingServiceWorkerTerminationRequests.add(identifier, makeUnique<ServiceWorkerTerminationRequest>(*this, identifier, timeout));
 
     auto& thread = serviceWorker.thread();
-    thread.stop([this, identifier, serviceWorker = makeRef(serviceWorker), completionHandler = WTFMove(completionHandler)]() mutable {
+    thread.stop([this, identifier, serviceWorker = Ref { serviceWorker }, completionHandler = WTFMove(completionHandler)]() mutable {
         m_pendingServiceWorkerTerminationRequests.remove(identifier);
 
         if (auto* connection = SWContextManager::singleton().connection())

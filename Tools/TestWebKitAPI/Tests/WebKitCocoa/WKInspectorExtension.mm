@@ -1,0 +1,191 @@
+/*
+ * Copyright (C) 2021 Apple Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS''
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#import "config.h"
+
+#if ENABLE(INSPECTOR_EXTENSIONS)
+
+#import "TestCocoa.h"
+#import "TestInspectorURLSchemeHandler.h"
+#import "Utilities.h"
+#import <WebKit/WKPreferencesPrivate.h>
+#import <WebKit/WKWebViewPrivate.h>
+#import <WebKit/_WKInspector.h>
+#import <WebKit/_WKInspectorConfiguration.h>
+#import <WebKit/_WKInspectorExtension.h>
+#import <WebKit/_WKInspectorExtensionDelegate.h>
+#import <WebKit/_WKInspectorExtensionPrivateForTesting.h>
+#import <WebKit/_WKInspectorPrivateForTesting.h>
+#import <wtf/RetainPtr.h>
+
+static bool didAttachLocalInspectorCalled = false;
+static bool didShowExtensionTabWasCalled = false;
+static bool didHideExtensionTabWasCalled = false;
+static bool pendingCallbackWasCalled = false;
+static RetainPtr<TestInspectorURLSchemeHandler> sharedURLSchemeHandler;
+static RetainPtr<_WKInspectorExtension> sharedInspectorExtension;
+static RetainPtr<NSString> sharedExtensionTabIdentifier;
+
+static void resetGlobalState()
+{
+    didAttachLocalInspectorCalled = false;
+    didShowExtensionTabWasCalled = false;
+    didHideExtensionTabWasCalled = false;
+    pendingCallbackWasCalled = false;
+}
+
+@interface UIDelegateForTestingInspectorExtension : NSObject <WKUIDelegate>
+@end
+
+@implementation UIDelegateForTestingInspectorExtension
+
+- (void)_webView:(WKWebView *)webView didAttachLocalInspector:(_WKInspector *)inspector
+{
+    EXPECT_EQ(webView._inspector, inspector);
+    didAttachLocalInspectorCalled = true;
+}
+
+- (_WKInspectorConfiguration *)_webView:(WKWebView *)webView configurationForLocalInspector:(_WKInspector *)inspector
+{
+    if (!sharedURLSchemeHandler)
+        sharedURLSchemeHandler = adoptNS([[TestInspectorURLSchemeHandler alloc] init]);
+
+    auto inspectorConfiguration = adoptNS([[_WKInspectorConfiguration alloc] init]);
+    [inspectorConfiguration setURLSchemeHandler:sharedURLSchemeHandler.get() forURLScheme:@"test-resource"];
+    return inspectorConfiguration.autorelease();
+}
+
+@end
+
+
+@interface InspectorExtensionDelegateForTestingInspectorExtension : NSObject <_WKInspectorExtensionDelegate>
+@end
+
+@implementation InspectorExtensionDelegateForTestingInspectorExtension {
+}
+
+- (void)inspectorExtension:(_WKInspectorExtension *)extension didShowTabWithIdentifier:(NSString *)tabIdentifier
+{
+    didShowExtensionTabWasCalled = true;
+}
+
+- (void)inspectorExtension:(_WKInspectorExtension *)extension didHideTabWithIdentifier:(NSString *)tabIdentifier
+{
+    didHideExtensionTabWasCalled = true;
+}
+
+@end
+
+TEST(WKInspectorExtension, CanEvaluateScriptInExtensionTab)
+{
+    resetGlobalState();
+
+    auto webViewConfiguration = adoptNS([WKWebViewConfiguration new]);
+    webViewConfiguration.get().preferences._developerExtrasEnabled = YES;
+    auto webView = adoptNS([[WKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:webViewConfiguration.get()]);
+    auto uiDelegate = adoptNS([UIDelegateForTestingInspectorExtension new]);
+
+    [webView setUIDelegate:uiDelegate.get()];
+    [webView loadHTMLString:@"<head><title>Test page to be inspected</title></head><body><p>Filler content</p></body>" baseURL:[NSURL URLWithString:@"http://example.com/"]];
+
+    [[webView _inspector] show];
+    TestWebKitAPI::Util::run(&didAttachLocalInspectorCalled);
+
+    auto extensionID = [NSUUID UUID].UUIDString;
+    auto extensionDisplayName = @"FirstExtension";
+
+    // Register the test extension.
+    pendingCallbackWasCalled = false;
+    [[webView _inspector] registerExtensionWithID:extensionID displayName:extensionDisplayName completionHandler:^(NSError * _Nullable error, _WKInspectorExtension * _Nullable extension) {
+        EXPECT_NULL(error);
+        EXPECT_NOT_NULL(extension);
+        sharedInspectorExtension = extension;
+
+        pendingCallbackWasCalled = true;
+    }];
+    TestWebKitAPI::Util::run(&pendingCallbackWasCalled);
+
+    auto extensionDelegate = adoptNS([InspectorExtensionDelegateForTestingInspectorExtension new]);
+    [sharedInspectorExtension setDelegate:extensionDelegate.get()];
+
+    // Create and show an extension tab.
+    auto iconURL = [NSURL URLWithString:@"test-resource://FirstExtension/InspectorExtension-TabIcon-30x30.png"];
+    auto sourceURL = [NSURL URLWithString:@"test-resource://FirstExtension/InspectorExtension-basic-tab.html"];
+
+    pendingCallbackWasCalled = false;
+    [sharedInspectorExtension createTabWithName:@"FirstExtension-Tab" tabIconURL:iconURL sourceURL:sourceURL completionHandler:^(NSError * _Nullable error, NSString * _Nullable extensionTabIdentifier) {
+        EXPECT_NULL(error);
+        EXPECT_NOT_NULL(extensionTabIdentifier);
+        sharedExtensionTabIdentifier = extensionTabIdentifier;
+
+        pendingCallbackWasCalled = true;
+    }];
+    TestWebKitAPI::Util::run(&pendingCallbackWasCalled);
+
+    pendingCallbackWasCalled = false;
+    didShowExtensionTabWasCalled = false;
+    [[webView _inspector] showExtensionTabWithIdentifier:sharedExtensionTabIdentifier.get() completionHandler:^(NSError * _Nullable error) {
+        EXPECT_NULL(error);
+
+        pendingCallbackWasCalled = true;
+    }];
+    TestWebKitAPI::Util::run(&pendingCallbackWasCalled);
+    TestWebKitAPI::Util::run(&didShowExtensionTabWasCalled);
+
+    // Read back a value that is set in the <iframe>'s script context.
+    pendingCallbackWasCalled = false;
+    auto scriptSource2 = @"window._secretValue";
+    [sharedInspectorExtension _evaluateScript:scriptSource2 inExtensionTabWithIdentifier:sharedExtensionTabIdentifier.get() completionHandler:^(NSError * _Nullable error, NSDictionary * _Nullable result) {
+        EXPECT_NULL(error);
+        EXPECT_NOT_NULL(result);
+        EXPECT_NS_EQUAL(result[@"answer"], @42);
+
+        pendingCallbackWasCalled = true;
+    }];
+    TestWebKitAPI::Util::run(&pendingCallbackWasCalled);
+
+    // Check to see that script is actually being evaluated in the <iframe>'s script context.
+    pendingCallbackWasCalled = false;
+    auto scriptSource3 = @"window.top !== window";
+    [sharedInspectorExtension _evaluateScript:scriptSource3 inExtensionTabWithIdentifier:sharedExtensionTabIdentifier.get() completionHandler:^(NSError * _Nullable error, NSDictionary * _Nullable result) {
+        EXPECT_NULL(error);
+        EXPECT_NOT_NULL(result);
+        EXPECT_NS_EQUAL(result, @YES);
+
+        pendingCallbackWasCalled = true;
+    }];
+    TestWebKitAPI::Util::run(&pendingCallbackWasCalled);
+
+    // Unregister the test extension.
+    pendingCallbackWasCalled = false;
+    [[webView _inspector] unregisterExtension:sharedInspectorExtension.get() completionHandler:^(NSError * _Nullable error) {
+        EXPECT_NULL(error);
+
+        pendingCallbackWasCalled = true;
+    }];
+    TestWebKitAPI::Util::run(&pendingCallbackWasCalled);
+}
+
+#endif // ENABLE(INSPECTOR_EXTENSIONS)

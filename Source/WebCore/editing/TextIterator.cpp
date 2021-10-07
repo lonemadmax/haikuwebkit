@@ -580,7 +580,7 @@ bool TextIterator::handleTextNode()
         return true;
     }
 
-    m_textRun = LayoutIntegration::firstTextRunInTextOrderFor(renderer);
+    m_textRun = InlineIterator::firstTextBoxInTextOrderFor(renderer);
 
     bool shouldHandleFirstLetter = !m_handledFirstLetter && is<RenderTextFragment>(renderer) && !m_offset;
     if (shouldHandleFirstLetter)
@@ -607,7 +607,7 @@ void TextIterator::handleTextRun()
         return;
     }
 
-    auto firstTextRun = LayoutIntegration::firstTextRunInTextOrderFor(renderer);
+    auto firstTextRun = InlineIterator::firstTextBoxInTextOrderFor(renderer);
 
     String rendererText = renderer.text();
     unsigned start = m_offset;
@@ -633,7 +633,7 @@ void TextIterator::handleTextRun()
         
         // Determine what the next text run will be, but don't advance yet
         auto nextTextRun = m_textRun;
-        nextTextRun.traverseNextTextRunInTextOrder();
+        nextTextRun.traverseNextTextBoxInTextOrder();
 
         if (runStart < runEnd) {
             auto isNewlineOrTab = [&](UChar character) {
@@ -701,7 +701,7 @@ void TextIterator::handleTextNodeFirstLetter(RenderTextFragment& renderer)
         if (auto* firstLetterText = firstRenderTextInFirstLetter(firstLetter)) {
             m_handledFirstLetter = true;
             m_remainingTextRun = m_textRun;
-            m_textRun = LayoutIntegration::firstTextRunInTextOrderFor(*firstLetterText);
+            m_textRun = InlineIterator::firstTextBoxInTextOrderFor(*firstLetterText);
             m_firstLetterText = firstLetterText;
         }
     }
@@ -732,7 +732,7 @@ bool TextIterator::handleReplacedElement()
     }
 
     if (m_behaviors.contains(TextIteratorBehavior::EntersImageOverlays) && is<HTMLElement>(m_node) && downcast<HTMLElement>(*m_node).hasImageOverlay()) {
-        if (auto shadowRoot = makeRefPtr(m_node->shadowRoot())) {
+        if (RefPtr shadowRoot = m_node->shadowRoot()) {
             m_node = shadowRoot.get();
             pushFullyClippedState(m_fullyClippedStack, *m_node);
             m_offset = 0;
@@ -2434,7 +2434,7 @@ String plainText(const SimpleRange& range, TextIteratorBehaviors defaultBehavior
     // The initial buffer size can be critical for performance: https://bugs.webkit.org/show_bug.cgi?id=81192
     constexpr unsigned initialCapacity = 1 << 15;
 
-    auto document = makeRef(range.start.document());
+    Ref document = range.start.document();
 
     unsigned bufferLength = 0;
     StringBuilder builder;

@@ -180,7 +180,7 @@ bool RenderLayerScrollableArea::isUserScrollInProgress() const
 
 bool RenderLayerScrollableArea::isRubberBandInProgress() const
 {
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
     if (!scrollsOverflow())
         return false;
 
@@ -240,7 +240,7 @@ void RenderLayerScrollableArea::setScrollPosition(const ScrollPosition& position
 
 ScrollOffset RenderLayerScrollableArea::clampScrollOffset(const ScrollOffset& scrollOffset) const
 {
-    return scrollOffset.constrainedBetween(IntPoint(), maximumScrollOffset());
+    return scrollOffset.constrainedBetween(minimumScrollOffset(), maximumScrollOffset());
 }
 
 bool RenderLayerScrollableArea::requestScrollPositionUpdate(const ScrollPosition& position, ScrollType scrollType, ScrollClamping clamping)
@@ -266,7 +266,7 @@ ScrollOffset RenderLayerScrollableArea::scrollToOffset(const ScrollOffset& scrol
     auto previousScrollType = currentScrollType();
     setCurrentScrollType(options.type);
 
-    ScrollOffset snappedOffset = ceiledIntPoint(scrollAnimator().adjustScrollOffsetForSnappingIfNeeded(clampedScrollOffset, options.snapPointSelectionMethod));
+    ScrollOffset snappedOffset = ceiledIntPoint(scrollAnimator().scrollOffsetAdjustedForSnapping(clampedScrollOffset, options.snapPointSelectionMethod));
     auto snappedPosition = scrollPositionFromOffset(snappedOffset);
     if (options.animated == AnimatedScroll::Yes)
         ScrollableArea::scrollToPositionWithAnimation(snappedPosition);
@@ -512,7 +512,7 @@ IntRect RenderLayerScrollableArea::visibleContentRectInternal(VisibleContentRect
 
 IntSize RenderLayerScrollableArea::overhangAmount() const
 {
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
     auto& renderer = m_layer.renderer();
     if (!renderer.settings().rubberBandingForSubScrollableRegionsEnabled())
         return IntSize();
@@ -854,14 +854,14 @@ void RenderLayerScrollableArea::setHasHorizontalScrollbar(bool hasScrollbar)
 
     if (hasScrollbar) {
         m_hBar = createScrollbar(HorizontalScrollbar);
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
         auto& renderer = m_layer.renderer();
         ScrollElasticity elasticity = scrollsOverflow() && renderer.settings().rubberBandingForSubScrollableRegionsEnabled() ? ScrollElasticityAutomatic : ScrollElasticityNone;
         ScrollableArea::setHorizontalScrollElasticity(elasticity);
 #endif
     } else {
         destroyScrollbar(HorizontalScrollbar);
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
         ScrollableArea::setHorizontalScrollElasticity(ScrollElasticityNone);
 #endif
     }
@@ -880,14 +880,14 @@ void RenderLayerScrollableArea::setHasVerticalScrollbar(bool hasScrollbar)
 
     if (hasScrollbar) {
         m_vBar = createScrollbar(VerticalScrollbar);
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
         auto& renderer = m_layer.renderer();
         ScrollElasticity elasticity = scrollsOverflow() && renderer.settings().rubberBandingForSubScrollableRegionsEnabled() ? ScrollElasticityAutomatic : ScrollElasticityNone;
         ScrollableArea::setVerticalScrollElasticity(elasticity);
 #endif
     } else {
         destroyScrollbar(VerticalScrollbar);
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
         ScrollableArea::setVerticalScrollElasticity(ScrollElasticityNone);
 #endif
     }
@@ -1118,7 +1118,7 @@ void RenderLayerScrollableArea::updateScrollbarsAfterStyleChange(const RenderSty
         return;
 
     // List box parts handle the scrollbars by themselves so we have nothing to do.
-    if (box->style().appearance() == ListboxPart)
+    if (box->style().effectiveAppearance() == ListboxPart)
         return;
 
     bool hadVerticalScrollbar = hasVerticalScrollbar();
@@ -1138,7 +1138,7 @@ void RenderLayerScrollableArea::updateScrollbarsAfterLayout()
     ASSERT(box);
 
     // List box parts handle the scrollbars by themselves so we have nothing to do.
-    if (box->style().appearance() == ListboxPart)
+    if (box->style().effectiveAppearance() == ListboxPart)
         return;
 
     bool hadHorizontalScrollbar = hasHorizontalScrollbar();
@@ -1832,9 +1832,9 @@ void RenderLayerScrollableArea::updateLayerPositionsAfterOverflowScroll()
     m_layer.updateLayerPositionsAfterScroll(&geometryMap, RenderLayer::IsOverflowScroll);
 }
 
-bool RenderLayerScrollableArea::usesMockScrollAnimator() const
+bool RenderLayerScrollableArea::mockScrollAnimatorEnabled() const
 {
-    return DeprecatedGlobalSettings::usesMockScrollAnimator();
+    return m_layer.renderer().settings().mockScrollAnimatorEnabled();
 }
 
 void RenderLayerScrollableArea::logMockScrollAnimatorMessage(const String& message) const

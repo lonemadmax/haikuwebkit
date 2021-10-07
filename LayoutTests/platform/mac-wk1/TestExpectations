@@ -79,6 +79,9 @@ editing/async-clipboard/clipboard-read-text-from-platform.html [ Skip ]
 editing/async-clipboard/clipboard-read-text-same-origin.html [ Skip ]
 editing/async-clipboard/sanitize-when-reading-markup.html [ Skip ]
 
+# No requestStorageAccess() support for WK1.
+http/tests/messaging/broadcastchannel-partitioning-with-storage-access.html [ Skip ]
+
 imported/w3c/web-platform-tests/websockets/Close-1000-reason.any.html [ Pass Failure ]
 imported/w3c/web-platform-tests/websockets/Close-1000-reason.any.worker.html [ Pass Failure ]
 imported/w3c/web-platform-tests/websockets/binary/001.html [ Pass Failure ]
@@ -336,6 +339,7 @@ http/tests/cache-storage [ Skip ]
 http/tests/cookies/same-site/fetch-in-cross-origin-service-worker.html [ Skip ]
 http/tests/cookies/same-site/fetch-in-same-origin-service-worker.html [ Skip ]
 http/wpt/cache-storage [ Skip ]
+http/wpt/push-api [ Skip ]
 http/wpt/service-workers [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/inside-worker/serviceworker-report-only.https.sub.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/sandbox/service-worker-sandbox.https.html [ Skip ]
@@ -354,6 +358,7 @@ imported/w3c/web-platform-tests/fetch/api/request/destination [ Skip ]
 imported/w3c/web-platform-tests/fetch/cross-origin-resource-policy [ Skip ]
 imported/w3c/web-platform-tests/fetch/range/sw.https.window.html [ Skip ]
 imported/w3c/web-platform-tests/server-timing/service_worker_idl.html [ Skip ]
+imported/w3c/web-platform-tests/push-api [ Skip ]
 imported/w3c/web-platform-tests/service-workers [ Skip ]
 imported/w3c/web-platform-tests/infrastructure/server/context.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/infrastructure/server/secure-context.https.any.serviceworker.html [ Skip ]
@@ -368,6 +373,8 @@ imported/w3c/web-platform-tests/worklets/audio-worklet-service-worker-intercepti
 imported/w3c/web-platform-tests/worklets/layout-worklet-service-worker-interception.https.html [ Skip ]
 imported/w3c/web-platform-tests/worklets/paint-worklet-service-worker-interception.https.html [ Skip ]
 http/wpt/webrtc/transfer-datachannel-service-worker.https.html [ Skip ]
+imported/w3c/web-platform-tests/content-security-policy/script-src/script-src-strict_dynamic_worker.https.html [ Skip ]
+imported/w3c/web-platform-tests/notifications/idlharness.https.any.serviceworker.html [ Skip ]
 
 # No Cross-Origin-Opener-Policy / Cross-Origin-Embedder-Policy in WK1.
 imported/w3c/web-platform-tests/html/cross-origin-embedder-policy [ Skip ]
@@ -575,6 +582,9 @@ accessibility/mac/search-predicate-for-adhoc-radio-groups.html [ Skip ]
 accessibility/mac/document-attributes.html [ Failure ]
 accessibility/parent-delete.html [ Failure ]
 
+# Skip because the embedded plugin never resolves in WK1, resulting in a timeout.
+accessibility/mac/basic-embed-pdf-accessibility.html [ Skip ]
+
 # rdar://problem/26478296
 svg/hixie/text/003.html [ Failure ]
 
@@ -649,6 +659,8 @@ media/track/track-cues-cuechange.html [ Pass Crash Timeout ]
 
 webkit.org/b/229765 [ Catalina Debug ] media/track/track-disabled-addcue.html [ Pass Crash ]
 
+webkit.org/b/229478 [ Release ] media/track/track-in-band.html [ Pass Timeout ]
+
 webkit.org/b/167127 pointer-lock/locked-element-removed-from-dom.html
 
 webkit.org/b/167857 pageoverlay/overlay-remove-reinsert-view.html [ Skip ]
@@ -679,6 +691,8 @@ webkit.org/b/168265 media/modern-media-controls/forward-button/forward-button.ht
 # Requires WK2 loading support
 http/wpt/fetch/dnt-header-after-redirection.html [ Skip ]
 http/wpt/fetch/inspect-preflight.html [ Skip ]
+
+webkit.org/b/230693 [ Debug ] http/wpt/fetch/navigation-post-to-get-origin.html [ Pass Crash ]
 
 # requires wk2 speculative tiling
 fast/images/low-memory-decode.html [ Skip ]
@@ -1038,6 +1052,8 @@ imported/w3c/web-platform-tests/webaudio/the-audio-api/the-mediaelementaudiosour
 
 webkit.org/b/215452 [ Debug ] imported/w3c/web-platform-tests/css/css-grid/grid-items/grid-items-percentage-paddings-002.html [ Pass Failure ]
 
+webkit.org/b/231103 imported/w3c/web-platform-tests/css/css-multicol/multicol-gap-percentage-001.html [ Pass Failure ]
+
 # <rdar://problem/30897457> [StressGC] ASSERTION FAILED: view in com.apple.WebCore: WebCore::Widget::getOuterView const + 132
 [ HighSierra Debug ] fast/frames/insert-frame-unload-handler.html [ Skip ]
 
@@ -1276,6 +1292,8 @@ webkit.org/b/223944 [ BigSur Debug ] imported/w3c/web-platform-tests/xhr/event-u
 # rdar://80342885 ([ Monterey wk1 arm64 ] webanimations/accelerated-transition-by-removing-property.html is a flaky image only failure)
 [ Monterey arm64 ] webanimations/accelerated-transition-by-removing-property.html [ Pass ImageOnlyFailure ]
 
+webkit.org/b/230863 webanimations/relative-ordering-of-translate-and-rotate-properties-accelerated.html [ Pass ImageOnlyFailure ]
+
 webkit.org/b/223816 [ arm64 ] platform/mac/fast/objc/webScriptObject-hasWebScriptKey.html [ Failure ]
 
 # rdar://80346975
@@ -1327,9 +1345,6 @@ webkit.org/b/227085 imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-t
 [ BigSur ] imported/w3c/web-platform-tests/css/css-will-change/will-change-stacking-context-filter-1.html [ Pass ImageOnlyFailure ]
 [ BigSur ] imported/w3c/web-platform-tests/css/css-will-change/will-change-stacking-context-opacity-1.html [ Pass ImageOnlyFailure ]
 
-# This test relies on BroadcastChannel and has been flaky on WK1 since we added support for BroadcastChannel.
-webkit.org/b/228089 imported/w3c/web-platform-tests/html/semantics/links/links-created-by-a-and-area-elements/htmlanchorelement_noopener.html  [ Pass Failure ]
-
 # rdar://80331434 ([ Mac WK1 Release ] accessibility/loading-iframe-sends-notification.html is a flaky timeout)
 [ Release ] accessibility/loading-iframe-sends-notification.html [ Pass Timeout ]
 
@@ -1337,9 +1352,6 @@ webkit.org/b/227516 fast/shadow-dom/style-resolver-sharing.html [ Pass Failure ]
 
 # <rdar://problem/81996454> ([ Monterey wk1 GuardMalloc ] fast/borders/hidpi-3x-input-hairline-border.html is timing out)
 [ Monterey ] fast/borders/hidpi-3x-input-hairline-border.html [ Timeout ]
-
-webkit.org/b/227973 [ BigSur Debug arm64 ] http/tests/security/frameNavigation/xss-DENIED-plugin-navigation.html [ Pass Timeout ]
-webkit.org/b/227973 [ BigSur Release arm64 ] http/tests/security/frameNavigation/xss-DENIED-plugin-navigation.html [ Timeout ]
 
 webkit.org/b/228042 [ Release ] media/modern-media-controls/volume-support/volume-support-drag-to-mute.html [ Pass Timeout Failure ]
 
@@ -1386,12 +1398,6 @@ webkit.org/b/229058 imported/w3c/web-platform-tests/FileAPI/url/url-in-tags.wind
 imported/w3c/web-platform-tests/css/css-position/position-relative-003.html [ Pass ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-position/position-relative-004.html [ Pass ImageOnlyFailure ]
 
-#rdar://82039288 ([Monterey wk1 Debug] inspector/timeline/timeline-event-TimerInstall.html is a flaky crash)
-inspector/timeline/timeline-event-TimerInstall.html [ Pass Crash ] 
-
-#rdar://82039967 [ Monterey Debug ] inspector/css/getMatchedStylesForNodeMarkerPseudoId.html is a flaky failure)
-inspector/css/getMatchedStylesForNodeMarkerPseudoId.html [ Pass Failure ]
-
 webkit.org/b/229252 imported/w3c/web-platform-tests/IndexedDB/idbcursor-advance-continue-async.htm [ Pass Timeout ]
 
 # webkit.org/b/228200 Adjusting test expectations for Monterey on Open Source <rdar://80345048>:
@@ -1401,18 +1407,75 @@ webkit.org/b/229425 fast/canvas/webgl/texImage2D-video-flipY-false.html [ Pass T
 
 webkit.org/b/229481 media/video-poster-background.html [ Pass ImageOnlyFailure ]
 
-webkit.org/b/229506 imported/w3c/web-platform-tests/css/css-fonts/downloadable-font-in-iframe-print.html [ Pass ImageOnlyFailure ]
-
 webkit.org/b/229519 media/media-session/actionHandlerInternalMappings.html [ Pass Failure ]
-
-webkit.org/b/229522 pointerevents/mouse/compatibility-mouse-events-prevention-mouse-released.html [ Pass Failure ]
 
 webkit.org/b/229247 http/tests/fetch/keepalive-fetch-2.html [ Pass Failure ]
 
 webkit.org/b/209878 [ Debug ] webrtc/datachannel/multiple-connections.html [ Pass Failure Slow ]
 
-webkit.org/b/229877 webrtc/datachannel/getStats-no-prflx-remote-candidate.html [ Pass Timeout ]
-
 webkit.org/b/230055 [ BigSur ] webrtc/datachannel/datachannel-page-cache-send.html [ Pass Timeout ]
 
 webkit.org/b/228211 css2.1/20110323/replaced-intrinsic-003.htm [ Pass Failure ]
+
+webkit.org/b/230425 printing/allowed-breaks.html [ Pass Failure ]
+
+webkit.org/b/231102 [ BigSur ] printing/css2.1/page-break-after-000.html [ Pass Failure ]
+
+# webkit.org/b/214448 Web Share API is not implemented for mac-wk1
+http/tests/webshare/ [ Skip ]
+
+webkit.org/b/230701 [ Catalina Debug ] performance-api/performance-observer-callback-after-gc.html [ Pass Crash ]
+
+webkit.org/b/230729 [ Catalina Release ] imported/w3c/web-platform-tests/html/browsers/origin/cross-origin-objects/cross-origin-objects.html [ Pass Failure ]
+
+webkit.org/b/230765 [ Catalina Debug ] storage/indexeddb/mozilla/cursors-private.html [ Pass Crash ]
+
+#WebGL Tests Timing Out on Catalina Debug WK1 EWS webkit.org/b/230774
+[ Catalina Debug ] webgl/1.0.3/conformance/canvas/drawingbuffer-static-canvas-test.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/2.0.0/conformance/ogles/GL/inversesqrt/inversesqrt_001_to_006.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/1.0.3/conformance/ogles/GL/notEqual/notEqual_009_to_012.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/2.0.0/conformance/ogles/GL/step/step_001_to_006.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/1.0.3/conformance/ogles/GL/exp/exp_001_to_008.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/1.0.3/conformance/ogles/GL/struct/struct_049_to_056.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/2.0.0/conformance2/textures/webgl_canvas/tex-2d-r8ui-red_integer-unsigned_byte.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/1.0.3/conformance/canvas/viewport-unchanged-upon-resize.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/2.0.0/conformance2/textures/image_bitmap_from_blob/tex-2d-rgba4-rgba-unsigned_short_4_4_4_4.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/2.0.0/conformance2/textures/canvas/tex-2d-rg8-rg-unsigned_byte.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/1.0.3/conformance/textures/tex-image-and-sub-image-2d-with-canvas-rgba5551.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/2.0.0/conformance2/textures/image_bitmap_from_image_data/tex-2d-rgb5_a1-rgba-unsigned_byte.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/1.0.3/conformance/uniforms/out-of-bounds-uniform-array-access.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/max-active-contexts-gc.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/1.0.3/conformance/extensions/ext-sRGB.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/2.0.0/conformance/glsl/misc/shader-with-undefined-preprocessor-symbol.frag.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/2.0.0/conformance2/misc/expando-loss-2.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/2.0.0/conformance/ogles/GL/gl_FragCoord/gl_FragCoord_001_to_003.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/2.0.0/conformance2/textures/image_data/tex-2d-r11f_g11f_b10f-rgb-half_float.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/2.0.0/conformance/extensions/get-extension.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/2.0.0/conformance2/textures/canvas/tex-2d-r11f_g11f_b10f-rgb-half_float.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/1.0.3/conformance/attribs/gl-vertex-attrib-zero-issues.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/webgl2-primitive-restart.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/1.0.3/conformance/programs/program-test.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/pending/conformance/glsl/misc/swizzle-as-lvalue.html [ Pass Timeout ]
+[ Catalina Debug ] webgl/2.0.0/conformance/rendering/draw-elements-out-of-bounds.html [ Pass Timeout ]
+
+webkit.org/b/230777 [ Catalina Debug ] transitions/transition-end-event-destroy-renderer.html [ Pass Crash ]
+
+webkit.org/b/230808 [ Catalina Debug ] media/modern-media-controls/media-controls/media-controls-placard-compressed-metrics.html [ Pass Crash ]
+
+webkit.org/b/230831 [ Catalina Debug ] storage/websql/multiple-transactions-on-different-handles.html [ Pass Crash ]
+
+webkit.org/b/230833 [ Catalina Debug ] performance-api/performance-observer-order.html [ Pass Crash ]
+
+webkit.org/b/230835 [ Catalina BigSur Debug ] webgl/2.0.y/conformance/extensions/webgl-compressed-texture-s3tc-srgb.html [ Pass Crash ]
+webkit.org/b/230835 [ Catalina BigSur Debug ] webgl/1.0.3/conformance/extensions/oes-texture-float.html [ Pass Crash ]
+webkit.org/b/230835 [ Catalina BigSur Debug ] webgl/2.0.0/conformance/extensions/ext-blend-minmax.html [ Pass Crash ]
+
+webkit.org/b/230842 [ Catalina BigSur Debug ] media/track/audio-track.html [ Pass Crash ]
+
+webkit.org/b/230844 [ Catalina Debug ] storage/indexeddb/mozilla/cursor-mutation.html [ Pass Crash ]
+
+webkit.org/b/230846 [ Catalina Debug ] svg/filters/big-height-filter.svg [ Pass Crash ]
+
+webkit.org/b/230848 [ Catalina BigSur Debug ] webrtc/datachannel/datachannel-gc.html [ Pass Crash ]
+
+webkit.org/b/230905 [ Catalina BigSur Release ] imported/w3c/web-platform-tests/css/css-cascade/layer-counter-style-override.html [ Pass Failure ]

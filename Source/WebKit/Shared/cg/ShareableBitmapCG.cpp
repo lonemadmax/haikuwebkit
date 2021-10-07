@@ -37,10 +37,26 @@
 
 namespace WebKit {
 using namespace WebCore;
-    
+
+void ShareableBitmap::validateConfiguration(Configuration& configuration)
+{
+    if (!configuration.colorSpace)
+        return;
+
+    configuration.colorSpace = configuration.colorSpace->asRGB();
+
+    if (!configuration.colorSpace) {
+#if HAVE(CORE_GRAPHICS_EXTENDED_SRGB_COLOR_SPACE)
+        configuration.colorSpace = DestinationColorSpace(extendedSRGBColorSpaceRef());
+#else
+        configuration.colorSpace = DestinationColorSpace::SRGB();
+#endif
+    }
+}
+
 static CGColorSpaceRef colorSpace(const ShareableBitmap::Configuration& configuration)
 {
-    return configuration.colorSpace ? configuration.colorSpace->platformColorSpace() : WebCore::sRGBColorSpaceRef();
+    return configuration.colorSpace ? configuration.colorSpace->platformColorSpace() : sRGBColorSpaceRef();
 }
 
 static bool wantsExtendedRange(const ShareableBitmap::Configuration& configuration)

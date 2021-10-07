@@ -82,7 +82,7 @@ void InspectorFrontendAPIDispatcher::suspend(UnsuspendSoon unsuspendSoon)
     m_suspended = true;
 
     if (unsuspendSoon == UnsuspendSoon::Yes) {
-        RunLoop::main().dispatch([protectedThis = makeRef(*this)] {
+        RunLoop::main().dispatch([protectedThis = Ref { *this }] {
             // If the frontend page has been deallocated, there's nothing to do.
             if (!protectedThis->m_frontendPage)
                 return;
@@ -195,7 +195,7 @@ void InspectorFrontendAPIDispatcher::evaluateOrQueueExpression(const String& exp
         if (!weakThis)
             return;
 
-        auto strongThis = makeRef(*weakThis);
+        Ref strongThis = { *weakThis };
         if (!strongThis->m_pendingResponses.size())
             return;
 

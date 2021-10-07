@@ -1,5 +1,5 @@
 // Copyright 2015 The Chromium Authors. All rights reserved.
-// Copyright (C) 2016 Apple Inc. All rights reserved.
+// Copyright (C) 2016-2021 Apple Inc. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
@@ -38,6 +38,7 @@
 #include "CSSCustomPropertyValue.h"
 #include "CSSFontFaceSrcValue.h"
 #include "CSSFontFeatureValue.h"
+#include "CSSFontPaletteValuesOverrideColorsValue.h"
 #if ENABLE(VARIATION_FONTS)
 #include "CSSFontVariationValue.h"
 #endif
@@ -233,6 +234,8 @@ bool CSSPropertyParser::parseValue(CSSPropertyID propertyID, bool important, con
 
     if (ruleType == StyleRuleType::FontFace)
         parseSuccess = parser.parseFontFaceDescriptor(propertyID);
+    else if (ruleType == StyleRuleType::FontPaletteValues)
+        parseSuccess = parser.parseFontPaletteValuesDescriptor(propertyID);
     else if (ruleType == StyleRuleType::CounterStyle)
         parseSuccess = parser.parseCounterStyleDescriptor(propertyID, context);
     else
@@ -321,9 +324,9 @@ bool CSSPropertyParser::parseValueStart(CSSPropertyID propertyID, bool important
     }
 
     if (CSSVariableParser::containsValidVariableReferences(originalRange, m_context)) {
-        auto variable = CSSVariableReferenceValue::create(originalRange);
+        auto variable = CSSVariableReferenceValue::create(originalRange, m_context);
         if (isShorthand)
-            addExpandedPropertyForValue(propertyID, CSSPendingSubstitutionValue::create(propertyID, WTFMove(variable), m_context.baseURL), important);
+            addExpandedPropertyForValue(propertyID, CSSPendingSubstitutionValue::create(propertyID, WTFMove(variable)), important);
         else
             addProperty(propertyID, CSSPropertyInvalid, WTFMove(variable), important);
         return true;
@@ -357,7 +360,7 @@ bool CSSPropertyParser::consumeTransformOrigin(bool important)
         bool atEnd = m_range.atEnd();
         auto resultZ = consumeLength(m_range, m_context.mode, ValueRange::All);
         bool hasZ = resultZ;
-        if (!hasZ && !atEnd)
+        if ((!hasZ && !atEnd) || !m_range.atEnd())
             return false;
         addProperty(CSSPropertyTransformOriginX, CSSPropertyTransformOrigin, WTFMove(resultXY->x), important);
         addProperty(CSSPropertyTransformOriginY, CSSPropertyTransformOrigin, WTFMove(resultXY->y), important);
@@ -922,6 +925,13 @@ static RefPtr<CSSPrimitiveValue> consumeFontWeight(CSSParserTokenRange& range)
         });
     }
     return nullptr;
+}
+
+static RefPtr<CSSPrimitiveValue> consumeFontPalette(CSSParserTokenRange& range)
+{
+    if (auto result = consumeIdent<CSSValueNone, CSSValueNormal, CSSValueLight, CSSValueDark>(range))
+        return result;
+    return consumeDashedIdent(range);
 }
 
 static RefPtr<CSSValue> consumeFamilyName(CSSParserTokenRange& range)
@@ -1659,11 +1669,7 @@ static RefPtr<CSSValue> consumeTextDecorationLine(CSSParserTokenRange& range)
 
     RefPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
     while (true) {
-#if ENABLE(LETTERPRESS)
-        RefPtr<CSSPrimitiveValue> ident = consumeIdent<CSSValueBlink, CSSValueUnderline, CSSValueOverline, CSSValueLineThrough, CSSValueWebkitLetterpress>(range);
-#else
         RefPtr<CSSPrimitiveValue> ident = consumeIdent<CSSValueBlink, CSSValueUnderline, CSSValueOverline, CSSValueLineThrough>(range);
-#endif
         if (!ident)
             break;
         if (list->hasValue(ident.get()))
@@ -1676,25 +1682,25 @@ static RefPtr<CSSValue> consumeTextDecorationLine(CSSParserTokenRange& range)
     return list;
 }
 
-static RefPtr<CSSValue> consumeTextDecorationSkip(CSSParserTokenRange& range)
+bool CSSPropertyParser::consumeTextDecorationSkip(bool important)
 {
-    CSSValueID id = range.peek().id();
-    if (id == CSSValueNone)
-        return consumeIdent(range);
-
-    RefPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
-    while (true) {
-        auto ident = consumeIdent<CSSValueAuto, CSSValueInk, CSSValueObjects>(range);
-        if (!ident)
-            break;
-        if (list->hasValue(ident.get()))
-            return nullptr;
-        list->append(ident.releaseNonNull());
+    if (RefPtr<CSSPrimitiveValue> skip = consumeIdent<CSSValueNone, CSSValueAuto, CSSValueInk>(m_range)) {
+        switch (skip->valueID()) {
+        case CSSValueNone:
+            addProperty(CSSPropertyTextDecorationSkipInk, CSSPropertyTextDecorationSkip, skip.releaseNonNull(), important);
+            return m_range.atEnd();
+        case CSSValueAuto:
+            addProperty(CSSPropertyTextDecorationSkipInk, CSSPropertyTextDecorationSkip, skip.releaseNonNull(), important);
+            return m_range.atEnd();
+        case CSSValueInk:
+            addProperty(CSSPropertyTextDecorationSkipInk, CSSPropertyTextDecorationSkip, CSSValuePool::singleton().createIdentifierValue(CSSValueAuto), important);
+            return m_range.atEnd();
+        default:
+            ASSERT_NOT_REACHED();
+            return false;
+        }
     }
-
-    if (!list->length())
-        return nullptr;
-    return list;
+    return false;
 }
 
 static RefPtr<CSSValue> consumeTextEmphasisStyle(CSSParserTokenRange& range)
@@ -1986,7 +1992,7 @@ static RefPtr<CSSValue> consumeTranslate(CSSParserTokenRange& range, CSSParserMo
             return list;
         // Add the zero value for y if we did not already add a y value.
         if (list->length() == 1)
-            list->append(CSSPrimitiveValue::create(0, CSSUnitType::CSS_PX));
+            list->append(*y);
         list->append(*z);
     }
 
@@ -2665,8 +2671,8 @@ static RefPtr<CSSBasicShapeInset> consumeBasicShapeInset(CSSParserTokenRange& ar
         shape->updateShapeSize1Value(top.releaseNonNull());
 
     if (consumeIdent<CSSValueRound>(args)) {
-        RefPtr<CSSPrimitiveValue> horizontalRadii[4] = { 0 };
-        RefPtr<CSSPrimitiveValue> verticalRadii[4] = { 0 };
+        RefPtr<CSSPrimitiveValue> horizontalRadii[4] = { nullptr };
+        RefPtr<CSSPrimitiveValue> verticalRadii[4] = { nullptr };
         if (!consumeRadii(horizontalRadii, verticalRadii, args, context.mode, false))
             return nullptr;
         shape->setTopLeftRadius(createPrimitiveValuePair(horizontalRadii[0].releaseNonNull(), verticalRadii[0].releaseNonNull(), Pair::IdenticalValueEncoding::Coalesce));
@@ -2875,7 +2881,7 @@ static RefPtr<CSSValue> consumeBorderImageRepeat(CSSParserTokenRange& range)
 static RefPtr<CSSValue> consumeBorderImageSlice(CSSPropertyID property, CSSParserTokenRange& range)
 {
     bool fill = consumeIdent<CSSValueFill>(range);
-    RefPtr<CSSPrimitiveValue> slices[4] = { 0 };
+    RefPtr<CSSPrimitiveValue> slices[4] = { nullptr };
 
     for (size_t index = 0; index < 4; ++index) {
         RefPtr<CSSPrimitiveValue> value = consumePercent(range, ValueRange::NonNegative);
@@ -2912,7 +2918,7 @@ static RefPtr<CSSValue> consumeBorderImageSlice(CSSPropertyID property, CSSParse
 
 static RefPtr<CSSValue> consumeBorderImageOutset(CSSParserTokenRange& range)
 {
-    RefPtr<CSSPrimitiveValue> outsets[4] = { 0 };
+    RefPtr<CSSPrimitiveValue> outsets[4] = { nullptr };
 
     RefPtr<CSSPrimitiveValue> value;
     for (size_t index = 0; index < 4; ++index) {
@@ -4018,6 +4024,8 @@ RefPtr<CSSValue> CSSPropertyParser::parseSingleValue(CSSPropertyID property, CSS
         return consumeFontFamily(m_range);
     case CSSPropertyFontWeight:
         return consumeFontWeight(m_range);
+    case CSSPropertyFontPalette:
+        return consumeFontPalette(m_range);
     case CSSPropertyFontStretch:
         return consumeFontStretch(m_range, CSSValuePool::singleton());
     case CSSPropertyFontStyle:
@@ -4192,8 +4200,6 @@ RefPtr<CSSValue> CSSPropertyParser::parseSingleValue(CSSPropertyID property, CSS
         return consumePositiveInteger(m_range);
     case CSSPropertyTextDecorationColor:
         return consumeColor(m_range, m_context);
-    case CSSPropertyTextDecorationSkip:
-        return consumeTextDecorationSkip(m_range);
     case CSSPropertyWebkitTextStrokeWidth:
         return consumeTextStrokeWidth(m_range, m_context.mode);
     case CSSPropertyWebkitTextFillColor:
@@ -4828,6 +4834,65 @@ bool CSSPropertyParser::parseFontFaceDescriptor(CSSPropertyID propId)
         return consumeFontVariantShorthand(false);
     case CSSPropertyFontFeatureSettings:
         parsedValue = consumeFontFeatureSettings(m_range, CSSValuePool::singleton());
+        break;
+    default:
+        break;
+    }
+
+    if (!parsedValue || !m_range.atEnd())
+        return false;
+
+    addProperty(propId, CSSPropertyInvalid, *parsedValue, false);
+    return true;
+}
+
+static RefPtr<CSSPrimitiveValue> consumeBasePaletteDescriptor(CSSParserTokenRange& range)
+{
+    if (auto result = consumeIdent<CSSValueLight, CSSValueDark>(range))
+        return result;
+    if (auto result = consumeString(range))
+        return result;
+    return consumeInteger(range, 0);
+}
+
+static RefPtr<CSSValueList> consumeOverrideColorsDescriptor(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
+    do {
+        RefPtr<CSSPrimitiveValue> key;
+        if (range.peek().type() == StringToken)
+            key = consumeString(range);
+        else
+            key = consumeInteger(range, 0);
+        if (!key)
+            return nullptr;
+
+        auto color = consumeColor(range, context);
+        if (!color)
+            return nullptr;
+
+        RefPtr<CSSValue> value = CSSFontPaletteValuesOverrideColorsValue::create(key.releaseNonNull(), color.releaseNonNull());
+        list->append(value.releaseNonNull());
+    } while (consumeCommaIncludingWhitespace(range));
+    
+    if (!range.atEnd() || !list->length())
+        return nullptr;
+
+    return list;
+}
+
+bool CSSPropertyParser::parseFontPaletteValuesDescriptor(CSSPropertyID propId)
+{
+    RefPtr<CSSValue> parsedValue;
+    switch (propId) {
+    case CSSPropertyFontFamily:
+        parsedValue = consumeFamilyName(m_range);
+        break;
+    case CSSPropertyBasePalette:
+        parsedValue = consumeBasePaletteDescriptor(m_range);
+        break;
+    case CSSPropertyOverrideColors:
+        parsedValue = consumeOverrideColorsDescriptor(m_range, m_context);
         break;
     default:
         break;
@@ -6165,6 +6230,8 @@ bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
         return consumePlaceItemsShorthand(important);
     case CSSPropertyPlaceSelf:
         return consumePlaceSelfShorthand(important);
+    case CSSPropertyTextDecorationSkip:
+        return consumeTextDecorationSkip(important);
     default:
         return false;
     }

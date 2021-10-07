@@ -37,6 +37,7 @@
 #import "ColorIOS.h"
 #import "DateComponents.h"
 #import "Document.h"
+#import "DrawGlyphsRecorder.h"
 #import "File.h"
 #import "FloatRoundedRect.h"
 #import "FontCache.h"
@@ -83,8 +84,8 @@
 #import <pal/spi/ios/UIKitSPI.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/ObjCRuntimeExtras.h>
-#import <wtf/RefPtr.h>
 #import <wtf/StdLibExtras.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 #if ENABLE(DATALIST_ELEMENT)
 #include "HTMLDataListElement.h"
@@ -446,7 +447,7 @@ void RenderThemeIOS::paintCheckboxDecorations(const RenderObject& box, const Pai
 LayoutRect RenderThemeIOS::adjustedPaintRect(const RenderBox& box, const LayoutRect& paintRect) const
 {
     // Workaround for <rdar://problem/6209763>. Force the painting bounds of checkboxes and radio controls to be square.
-    if (box.style().appearance() == CheckboxPart || box.style().appearance() == RadioPart) {
+    if (box.style().effectiveAppearance() == CheckboxPart || box.style().effectiveAppearance() == RadioPart) {
         float width = std::min(paintRect.width(), paintRect.height());
         float height = width;
         return enclosingLayoutRect(FloatRect(paintRect.x(), paintRect.y() + (box.height() - height) / 2, width, height)); // Vertically center the checkbox, like on desktop
@@ -457,9 +458,9 @@ LayoutRect RenderThemeIOS::adjustedPaintRect(const RenderBox& box, const LayoutR
 
 int RenderThemeIOS::baselinePosition(const RenderBox& box) const
 {
-    if (box.style().appearance() == CheckboxPart || box.style().appearance() == RadioPart)
+    if (box.style().effectiveAppearance() == CheckboxPart || box.style().effectiveAppearance() == RadioPart)
         return box.marginTop() + box.height() - 2; // The baseline is 2px up from the bottom of the checkbox/radio in AppKit.
-    if (box.style().appearance() == MenulistPart)
+    if (box.style().effectiveAppearance() == MenulistPart)
         return box.marginTop() + box.height() - 5; // This is to match AppKit. There might be a better way to calculate this though.
     return RenderTheme::baselinePosition(box);
 }
@@ -467,10 +468,10 @@ int RenderThemeIOS::baselinePosition(const RenderBox& box) const
 bool RenderThemeIOS::isControlStyled(const RenderStyle& style, const RenderStyle& userAgentStyle) const
 {
     // Buttons and MenulistButtons are styled if they contain a background image.
-    if (style.appearance() == PushButtonPart || style.appearance() == MenulistButtonPart)
+    if (style.effectiveAppearance() == PushButtonPart || style.effectiveAppearance() == MenulistButtonPart)
         return !style.visitedDependentColor(CSSPropertyBackgroundColor).isVisible() || style.backgroundLayers().hasImage();
 
-    if (style.appearance() == TextFieldPart || style.appearance() == TextAreaPart)
+    if (style.effectiveAppearance() == TextFieldPart || style.effectiveAppearance() == TextAreaPart)
         return style.backgroundLayers() != userAgentStyle.backgroundLayers();
 
     return RenderTheme::isControlStyled(style, userAgentStyle);
@@ -530,6 +531,24 @@ void RenderThemeIOS::paintRadioDecorations(const RenderObject& box, const PaintI
     }
 }
 
+void RenderThemeIOS::adjustTextFieldStyle(RenderStyle& style, const Element* element) const
+{
+    if (!element)
+        return;
+
+    // Do not force a background color for elements that have a textfield
+    // appearance by default, so that their background color can be styled.
+    if (is<HTMLInputElement>(*element)) {
+        auto& input = downcast<HTMLInputElement>(*element);
+        // <input type=search> is the only TextFieldInputType that has a
+        // non-textfield appearance value.
+        if (input.isTextField() && !input.isSearchField())
+            return;
+    }
+
+    style.setBackgroundColor(systemColor(CSSValueWebkitControlBackground, element->document().styleColorOptions(&style)));
+}
+
 void RenderThemeIOS::paintTextFieldDecorations(const RenderObject& box, const PaintInfo& paintInfo, const FloatRect& rect)
 {
 #if ENABLE(IOS_FORM_CONTROL_REFRESH)
@@ -577,7 +596,7 @@ LengthBox RenderThemeIOS::popupInternalPaddingBox(const RenderStyle& style, cons
         padding = emSize->computeLength<float>(CSSToLengthConversionData(&style, nullptr, nullptr, nullptr, 1.0, std::nullopt));
     }
 
-    if (style.appearance() == MenulistButtonPart) {
+    if (style.effectiveAppearance() == MenulistButtonPart) {
         if (style.direction() == TextDirection::RTL)
             return { 0, 0, 0, static_cast<int>(padding + style.borderTopWidth()) };
         return { 0, static_cast<int>(padding + style.borderTopWidth()), 0, 0 };
@@ -606,7 +625,7 @@ static inline bool canAdjustBorderRadiusForAppearance(ControlPart appearance, co
 
 void RenderThemeIOS::adjustRoundBorderRadius(RenderStyle& style, RenderBox& box)
 {
-    if (!canAdjustBorderRadiusForAppearance(style.appearance(), box) || style.backgroundLayers().hasImage())
+    if (!canAdjustBorderRadiusForAppearance(style.effectiveAppearance(), box) || style.backgroundLayers().hasImage())
         return;
 
     if ((is<RenderButton>(box) || is<RenderMenuList>(box)) && box.height() >= largeButtonSize) {
@@ -858,7 +877,7 @@ bool RenderThemeIOS::paintSliderTrack(const RenderObject& box, const PaintInfo& 
     auto& style = box.style();
 
     bool isHorizontal = true;
-    switch (style.appearance()) {
+    switch (style.effectiveAppearance()) {
     case SliderHorizontalPart:
         isHorizontal = true;
         // Inset slightly so the thumb covers the edge.
@@ -932,7 +951,7 @@ bool RenderThemeIOS::paintSliderTrack(const RenderObject& box, const PaintInfo& 
 
 void RenderThemeIOS::adjustSliderThumbSize(RenderStyle& style, const Element*) const
 {
-    if (style.appearance() != SliderThumbHorizontalPart && style.appearance() != SliderThumbVerticalPart)
+    if (style.effectiveAppearance() != SliderThumbHorizontalPart && style.effectiveAppearance() != SliderThumbVerticalPart)
         return;
 
     // Enforce "border-radius: 50%".
@@ -1114,7 +1133,7 @@ void RenderThemeIOS::adjustButtonStyle(RenderStyle& style, const Element* elemen
         style.setMinHeight(Length(ControlBaseHeight / ControlBaseFontSize * style.fontDescription().computedSize(), LengthType::Fixed));
 
 #if ENABLE(INPUT_TYPE_COLOR)
-    if (style.appearance() == ColorWellPart)
+    if (style.effectiveAppearance() == ColorWellPart)
         return;
 #endif
 
@@ -1270,7 +1289,7 @@ bool RenderThemeIOS::supportsFocusRing(const RenderStyle&) const
 bool RenderThemeIOS::supportsBoxShadow(const RenderStyle& style) const
 {
     // FIXME: See if additional native controls can support box shadows.
-    switch (style.appearance()) {
+    switch (style.effectiveAppearance()) {
     case SliderThumbHorizontalPart:
     case SliderThumbVerticalPart:
         return true;
@@ -1518,6 +1537,7 @@ struct RenderAttachmentInfo {
     struct LabelLine {
         FloatRect rect;
         RetainPtr<CTLineRef> line;
+        RetainPtr<CTFontRef> font;
     };
     Vector<LabelLine> lines;
 
@@ -1527,10 +1547,10 @@ private:
     void buildWrappedLines(const String&, CTFontRef, UIColor *, unsigned maximumLineCount);
     void buildSingleLine(const String&, CTFontRef, UIColor *);
 
-    void addLine(CTLineRef);
+    void addLine(CTFontRef, CTLineRef);
 };
 
-void RenderAttachmentInfo::addLine(CTLineRef line)
+void RenderAttachmentInfo::addLine(CTFontRef font, CTLineRef line)
 {
     CGRect lineBounds = CTLineGetBoundsWithOptions(line, kCTLineBoundsExcludeTypographicLeading);
     CGFloat trailingWhitespaceWidth = CTLineGetTrailingWhitespaceWidth(line);
@@ -1539,6 +1559,7 @@ void RenderAttachmentInfo::addLine(CTLineRef line)
 
     CGFloat xOffset = (attachmentRect.width() / 2) - (lineWidthIgnoringTrailingWhitespace / 2);
     LabelLine labelLine;
+    labelLine.font = font;
     labelLine.line = line;
     labelLine.rect = FloatRect(xOffset, 0, lineWidthIgnoringTrailingWhitespace, lineHeight);
 
@@ -1573,7 +1594,7 @@ void RenderAttachmentInfo::buildWrappedLines(const String& text, CTFontRef font,
     CFIndex lineIndex = 0;
     CFIndex nonTruncatedLineCount = std::min<CFIndex>(maximumLineCount - 1, lineCount);
     for (; lineIndex < nonTruncatedLineCount; ++lineIndex)
-        addLine((CTLineRef)CFArrayGetValueAtIndex(ctLines, lineIndex));
+        addLine(font, (CTLineRef)CFArrayGetValueAtIndex(ctLines, lineIndex));
 
     if (lineIndex == lineCount)
         return;
@@ -1593,7 +1614,7 @@ void RenderAttachmentInfo::buildWrappedLines(const String& text, CTFontRef font,
     if (!truncatedLine)
         truncatedLine = remainingLine;
 
-    addLine(truncatedLine.get());
+    addLine(font, truncatedLine.get());
 }
 
 void RenderAttachmentInfo::buildSingleLine(const String& text, CTFontRef font, UIColor *color)
@@ -1607,7 +1628,7 @@ void RenderAttachmentInfo::buildSingleLine(const String& text, CTFontRef font, U
     };
     RetainPtr<NSAttributedString> attributedText = adoptNS([[NSAttributedString alloc] initWithString:text attributes:textAttributes]);
 
-    addLine(adoptCF(CTLineCreateWithAttributedString((CFAttributedStringRef)attributedText.get())).get());
+    addLine(font, adoptCF(CTLineCreateWithAttributedString((CFAttributedStringRef)attributedText.get())).get());
 }
 
 static BOOL getAttachmentProgress(const RenderAttachment& attachment, float& progress)
@@ -1748,15 +1769,10 @@ static void paintAttachmentIcon(GraphicsContext& context, RenderAttachmentInfo& 
 
 static void paintAttachmentText(GraphicsContext& context, RenderAttachmentInfo& info)
 {
-    for (const auto& line : info.lines) {
-        GraphicsContextStateSaver saver(context);
+    DrawGlyphsRecorder recorder(context, DrawGlyphsRecorder::DeconstructDrawGlyphs::Yes, DrawGlyphsRecorder::DeriveFontFromContext::Yes);
 
-        context.translate(toFloatSize(line.rect.minXMaxYCorner()));
-        context.scale(FloatSize(1, -1));
-
-        CGContextSetTextPosition(context.platformContext(), 0, 0);
-        CTLineDraw(line.line.get(), context.platformContext());
-    }
+    for (const auto& line : info.lines)
+        recorder.drawNativeText(line.font.get(), CTFontGetSize(line.font.get()), line.line.get(), line.rect);
 }
 
 static void paintAttachmentProgress(GraphicsContext& context, RenderAttachmentInfo& info)
@@ -2282,7 +2298,7 @@ bool RenderThemeIOS::paintMeter(const RenderObject& renderer, const PaintInfo& p
         return true;
 
     auto& renderMeter = downcast<RenderMeter>(renderer);
-    auto element = makeRefPtr(renderMeter.meterElement());
+    RefPtr element = renderMeter.meterElement();
 
     auto& context = paintInfo.context();
     GraphicsContextStateSaver stateSaver(context);
@@ -2352,7 +2368,7 @@ void RenderThemeIOS::paintSliderTicks(const RenderObject& box, const PaintInfo& 
     FloatRect tickRect;
     FloatRoundedRect::Radii tickCornerRadii(tickCornerRadius);
 
-    bool isHorizontal = box.style().appearance() == SliderHorizontalPart;
+    bool isHorizontal = box.style().effectiveAppearance() == SliderHorizontalPart;
     if (isHorizontal) {
         tickRect.setWidth(tickWidth);
         tickRect.setHeight(tickHeight);
@@ -2399,7 +2415,7 @@ bool RenderThemeIOS::paintSliderTrackWithFormControlRefresh(const RenderObject& 
     bool isHorizontal = true;
     FloatRect trackClip = rect;
 
-    switch (box.style().appearance()) {
+    switch (box.style().effectiveAppearance()) {
     case SliderHorizontalPart:
         // Inset slightly so the thumb covers the edge.
         if (trackClip.width() > 2) {

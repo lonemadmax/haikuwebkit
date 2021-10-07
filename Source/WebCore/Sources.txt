@@ -1,4 +1,4 @@
-// Copyright (C) 2017-2020 Apple Inc. All rights reserved.
+// Copyright (C) 2017-2021 Apple Inc. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
@@ -58,6 +58,10 @@ Modules/fetch/FetchLoader.cpp
 Modules/fetch/FetchRequest.cpp
 Modules/fetch/FetchResponse.cpp
 Modules/fetch/WindowOrWorkerGlobalScopeFetch.cpp
+Modules/filesystemaccess/FileSystemDirectoryHandle.cpp
+Modules/filesystemaccess/FileSystemFileHandle.cpp
+Modules/filesystemaccess/FileSystemHandle.cpp
+Modules/filesystemaccess/WorkerFileSystemStorageConnection.cpp
 Modules/geolocation/GeoNotifier.cpp
 Modules/geolocation/Geolocation.cpp
 Modules/geolocation/GeolocationController.cpp
@@ -215,6 +219,8 @@ Modules/pictureinpicture/DocumentPictureInPicture.cpp
 Modules/pictureinpicture/EnterPictureInPictureEvent.cpp
 Modules/pictureinpicture/HTMLVideoElementPictureInPicture.cpp
 Modules/pictureinpicture/PictureInPictureWindow.cpp
+Modules/push-api/PushEvent.cpp
+Modules/push-api/PushMessageData.cpp
 Modules/remoteplayback/RemotePlayback.cpp
 Modules/speech/SpeechRecognition.cpp
 Modules/speech/SpeechRecognitionAlternative.cpp
@@ -233,6 +239,7 @@ Modules/speech/SpeechSynthesisEvent.cpp
 Modules/speech/SpeechSynthesisUtterance.cpp
 Modules/speech/SpeechSynthesisVoice.cpp
 Modules/storage/StorageManager.cpp
+Modules/storage/WorkerStorageConnection.cpp
 Modules/streams/ReadableStreamSink.cpp
 Modules/streams/ReadableStreamSource.cpp
 Modules/streams/WritableStream.cpp
@@ -346,30 +353,30 @@ Modules/websockets/WebSocketExtensionParser.cpp
 Modules/websockets/WebSocketFrame.cpp
 Modules/websockets/WebSocketHandshake.cpp
 Modules/websockets/WorkerThreadableWebSocketChannel.cpp
-Modules/webxr/NavigatorWebXR.cpp @no-unify
-Modules/webxr/WebXRBoundedReferenceSpace.cpp @no-unify
-Modules/webxr/WebXRFrame.cpp @no-unify
-Modules/webxr/WebXRGamepad.cpp @no-unify
-Modules/webxr/WebXRInputSource.cpp @no-unify
-Modules/webxr/WebXRInputSourceArray.cpp @no-unify
-Modules/webxr/WebXRInputSpace.cpp @no-unify
-Modules/webxr/WebXRLayer.cpp @no-unify
-Modules/webxr/WebXROpaqueFramebuffer.cpp @no-unify
-Modules/webxr/WebXRPose.cpp @no-unify
-Modules/webxr/WebXRReferenceSpace.cpp @no-unify
-Modules/webxr/WebXRRenderState.cpp @no-unify
-Modules/webxr/WebXRRigidTransform.cpp @no-unify
-Modules/webxr/WebXRSession.cpp @no-unify
-Modules/webxr/WebXRSpace.cpp @no-unify
-Modules/webxr/WebXRSystem.cpp @no-unify
-Modules/webxr/WebXRView.cpp @no-unify
-Modules/webxr/WebXRViewerPose.cpp @no-unify
-Modules/webxr/WebXRViewport.cpp @no-unify
-Modules/webxr/WebXRWebGLLayer.cpp @no-unify
-Modules/webxr/XRInputSourceEvent.cpp @no-unify
-Modules/webxr/XRInputSourcesChangeEvent.cpp @no-unify
-Modules/webxr/XRReferenceSpaceEvent.cpp @no-unify
-Modules/webxr/XRSessionEvent.cpp @no-unify
+Modules/webxr/NavigatorWebXR.cpp
+Modules/webxr/WebXRBoundedReferenceSpace.cpp
+Modules/webxr/WebXRFrame.cpp
+Modules/webxr/WebXRGamepad.cpp
+Modules/webxr/WebXRInputSource.cpp
+Modules/webxr/WebXRInputSourceArray.cpp
+Modules/webxr/WebXRInputSpace.cpp
+Modules/webxr/WebXRLayer.cpp
+Modules/webxr/WebXROpaqueFramebuffer.cpp
+Modules/webxr/WebXRPose.cpp
+Modules/webxr/WebXRReferenceSpace.cpp
+Modules/webxr/WebXRRenderState.cpp
+Modules/webxr/WebXRRigidTransform.cpp
+Modules/webxr/WebXRSession.cpp
+Modules/webxr/WebXRSpace.cpp
+Modules/webxr/WebXRSystem.cpp
+Modules/webxr/WebXRView.cpp
+Modules/webxr/WebXRViewerPose.cpp
+Modules/webxr/WebXRViewport.cpp
+Modules/webxr/WebXRWebGLLayer.cpp
+Modules/webxr/XRInputSourceEvent.cpp
+Modules/webxr/XRInputSourcesChangeEvent.cpp
+Modules/webxr/XRReferenceSpaceEvent.cpp
+Modules/webxr/XRSessionEvent.cpp
 accessibility/AXImage.cpp
 accessibility/AXLogger.cpp
 accessibility/AXObjectCache.cpp
@@ -435,6 +442,7 @@ bindings/js/JSAnimationEffectCustom.cpp
 bindings/js/JSAnimationTimelineCustom.cpp
 bindings/js/JSAttrCustom.cpp
 bindings/js/JSAudioBufferCustom.cpp
+bindings/js/JSAudioBufferSourceNodeCustom.cpp
 bindings/js/JSAudioNodeCustom.cpp
 bindings/js/JSAudioWorkletProcessorCustom.cpp
 bindings/js/JSAuthenticatorResponseCustom.cpp
@@ -485,6 +493,7 @@ bindings/js/JSExecState.cpp
 bindings/js/JSExtendableMessageEventCustom.cpp
 bindings/js/JSFetchEventCustom.cpp
 bindings/js/JSFileSystemEntryCustom.cpp
+bindings/js/JSFileSystemHandleCustom.cpp
 bindings/js/JSHTMLAllCollectionCustom.cpp
 bindings/js/JSHTMLCanvasElementCustom.cpp
 bindings/js/JSHTMLCollectionCustom.cpp
@@ -541,6 +550,7 @@ bindings/js/JSTextTrackCueCustom.cpp
 bindings/js/JSTrackCustom.cpp
 bindings/js/JSTreeWalkerCustom.cpp
 bindings/js/JSCSSStyleValueCustom.cpp
+bindings/js/JSCSSTransformComponentCustom.cpp
 bindings/js/JSUndoItemCustom.cpp
 bindings/js/JSWebAnimationCustom.cpp
 bindings/js/JSWebGL2RenderingContextCustom.cpp
@@ -654,6 +664,8 @@ css/CSSFontFaceSet.cpp
 css/CSSFontFaceSource.cpp
 css/CSSFontFaceSrcValue.cpp
 css/CSSFontFeatureValue.cpp
+css/CSSFontPaletteValuesOverrideColorsValue.cpp
+css/CSSFontPaletteValuesRule.cpp
 css/CSSFontSelector.cpp
 css/CSSFontStyleRangeValue.cpp
 css/CSSFontStyleValue.cpp
@@ -674,6 +686,7 @@ css/CSSInheritedValue.cpp
 css/CSSInitialValue.cpp
 css/CSSKeyframeRule.cpp
 css/CSSKeyframesRule.cpp
+css/CSSLayerRule.cpp
 css/CSSLineBoxContainValue.cpp
 css/CSSMarkup.cpp
 css/CSSMediaRule.cpp
@@ -782,9 +795,28 @@ css/typedom/CSSStyleImageValue.cpp
 css/typedom/CSSNumericFactory.cpp
 css/typedom/CSSNumericValue.cpp
 css/typedom/CSSStyleValue.cpp
+css/typedom/CSSStyleValueFactory.cpp
 css/typedom/CSSUnitValue.cpp
 css/typedom/CSSUnparsedValue.cpp
 css/typedom/CSSOMVariableReferenceValue.cpp
+css/typedom/numeric/CSSMathInvert.cpp
+css/typedom/numeric/CSSMathMax.cpp
+css/typedom/numeric/CSSMathMin.cpp
+css/typedom/numeric/CSSMathNegate.cpp
+css/typedom/numeric/CSSMathProduct.cpp
+css/typedom/numeric/CSSMathSum.cpp
+css/typedom/numeric/CSSMathValue.cpp
+css/typedom/numeric/CSSNumericArray.cpp
+css/typedom/transform/CSSMatrixComponent.cpp
+css/typedom/transform/CSSPerspective.cpp
+css/typedom/transform/CSSRotate.cpp
+css/typedom/transform/CSSScale.cpp
+css/typedom/transform/CSSSkew.cpp
+css/typedom/transform/CSSSkewX.cpp
+css/typedom/transform/CSSSkewY.cpp
+css/typedom/transform/CSSTransformComponent.cpp
+css/typedom/transform/CSSTransformValue.cpp
+css/typedom/transform/CSSTranslate.cpp
 cssjit/SelectorCompiler.cpp
 display/compositing/DisplayLayerController.cpp
 display/css/DisplayBox.cpp
@@ -1336,8 +1368,6 @@ html/parser/HTMLSrcsetParser.cpp
 html/parser/HTMLTokenizer.cpp
 html/parser/HTMLTreeBuilder.cpp
 html/parser/TextDocumentParser.cpp
-html/parser/XSSAuditor.cpp
-html/parser/XSSAuditorDelegate.cpp
 html/shadow/AutoFillButtonElement.cpp
 html/shadow/DataListButtonElement.cpp
 html/shadow/DetailsMarkerControl.cpp
@@ -1478,17 +1508,17 @@ layout/formattingContexts/inline/InlineLineBoxBuilder.cpp
 layout/formattingContexts/inline/InlineLineBuilder.cpp
 layout/formattingContexts/inline/InlineLineBoxVerticalAligner.cpp
 layout/formattingContexts/inline/InlineTextItem.cpp
+layout/formattingContexts/inline/invalidation/InlineInvalidation.cpp
 layout/formattingContexts/inline/text/TextUtil.cpp
+layout/integration/InlineIteratorBox.cpp
+layout/integration/InlineIteratorLine.cpp
+layout/integration/InlineIteratorTextBox.cpp
 layout/integration/LayoutIntegrationBoxTree.cpp
 layout/integration/LayoutIntegrationCoverage.cpp
 layout/integration/LayoutIntegrationInlineContentBuilder.cpp
 layout/integration/LayoutIntegrationInlineContent.cpp
-layout/integration/LayoutIntegrationLineIterator.cpp
 layout/integration/LayoutIntegrationLineLayout.cpp
 layout/integration/LayoutIntegrationPagination.cpp
-layout/integration/LayoutIntegrationRunIterator.cpp
-layout/invalidation/InvalidationContext.cpp
-layout/invalidation/InvalidationState.cpp
 layout/layouttree/LayoutBox.cpp
 layout/layouttree/LayoutContainerBox.cpp
 layout/layouttree/LayoutBoxGeometry.cpp
@@ -1537,6 +1567,7 @@ loader/LoaderStrategy.cpp
 loader/MediaResourceLoader.cpp
 loader/MixedContentChecker.cpp
 loader/NavigationAction.cpp
+loader/NavigationRequester.cpp
 loader/NavigationScheduler.cpp
 loader/NetscapePlugInStreamLoader.cpp
 loader/PingLoader.cpp
@@ -1733,7 +1764,6 @@ page/scrolling/ScrollSnapOffsetsInfo.cpp
 page/scrolling/ScrollLatchingController.cpp
 page/scrolling/ScrollingConstraints.cpp
 page/scrolling/ScrollingCoordinator.cpp
-page/scrolling/ScrollingMomentumCalculator.cpp
 page/scrolling/ScrollingStateFixedNode.cpp
 page/scrolling/ScrollingStateFrameHostingNode.cpp
 page/scrolling/ScrollingStateFrameScrollingNode.cpp
@@ -1801,16 +1831,21 @@ platform/ReferrerPolicy.cpp
 platform/RemoteCommandListener.cpp
 platform/RuntimeApplicationChecks.cpp
 platform/SSLKeyGenerator.cpp
+platform/ScrollAnimation.cpp
+platform/ScrollAnimationKinetic.cpp
+platform/ScrollAnimationMomentum.cpp
 platform/ScrollAnimationSmooth.cpp
 platform/ScrollAnimator.cpp
-platform/ScrollController.cpp
+platform/ScrollingEffectsController.cpp
 platform/ScrollSnapAnimatorState.cpp
 platform/ScrollTypes.cpp
 platform/ScrollView.cpp
 platform/ScrollableArea.cpp
 platform/Scrollbar.cpp
+platform/ScrollbarsController.cpp
 platform/ScrollbarTheme.cpp
 platform/ScrollbarThemeComposite.cpp
+platform/ScrollingMomentumCalculator.cpp
 platform/SerializedPlatformDataCue.cpp
 platform/SharedBuffer.cpp
 platform/SharedBufferChunkReader.cpp
@@ -2077,7 +2112,7 @@ platform/mock/MockRealtimeVideoSource.cpp
 platform/mock/PlatformSpeechSynthesizerMock.cpp
 platform/mock/RTCDataChannelHandlerMock.cpp
 platform/mock/RTCNotifiersMock.cpp
-platform/mock/ScrollAnimatorMock.cpp
+platform/mock/ScrollbarsControllerMock.cpp
 platform/mock/ScrollbarThemeMock.cpp
 platform/mock/mediasource/MockBox.cpp
 platform/mock/mediasource/MockMediaPlayerMediaSource.cpp
@@ -2102,6 +2137,7 @@ platform/network/HTTPHeaderMap.cpp
 platform/network/HTTPHeaderValues.cpp
 platform/network/HTTPParsers.cpp
 platform/network/MIMEHeader.cpp
+platform/network/NetworkLoadMetrics.cpp
 platform/network/NetworkStateNotifier.cpp
 platform/network/NetworkStorageSession.cpp
 platform/network/ParsedContentRange.cpp
@@ -2146,13 +2182,13 @@ platform/text/TextCodecUserDefined.cpp
 platform/text/TextEncoding.cpp
 platform/text/TextEncodingDetectorICU.cpp
 platform/text/TextEncodingRegistry.cpp
-platform/xr/openxr/OpenXRInput.cpp @no-unify
-platform/xr/openxr/OpenXRInputSource.cpp @no-unify
-platform/xr/openxr/OpenXRInstance.cpp @no-unify
-platform/xr/openxr/OpenXRExtensions.cpp @no-unify
-platform/xr/openxr/OpenXRLayer.cpp @no-unify
-platform/xr/openxr/OpenXRSwapchain.cpp @no-unify
-platform/xr/openxr/PlatformXROpenXR.cpp @no-unify
+platform/xr/openxr/OpenXRInput.cpp
+platform/xr/openxr/OpenXRInputSource.cpp
+platform/xr/openxr/OpenXRInstance.cpp
+platform/xr/openxr/OpenXRExtensions.cpp
+platform/xr/openxr/OpenXRLayer.cpp
+platform/xr/openxr/OpenXRSwapchain.cpp
+platform/xr/openxr/PlatformXROpenXR.cpp
 plugins/DOMMimeType.cpp
 plugins/DOMMimeTypeArray.cpp
 plugins/DOMPlugin.cpp
@@ -2181,7 +2217,7 @@ rendering/HitTestLocation.cpp
 rendering/HitTestResult.cpp
 rendering/HitTestingTransformState.cpp
 rendering/ImageQualityController.cpp
-rendering/InlineIterator.cpp
+rendering/InlineBoxPainter.cpp
 rendering/LayerAncestorClippingStack.cpp
 rendering/LayerOverlapMap.cpp
 rendering/LayoutDisallowedScope.cpp
@@ -2190,6 +2226,7 @@ rendering/LegacyEllipsisBox.cpp
 rendering/LegacyInlineBox.cpp
 rendering/LegacyInlineElementBox.cpp
 rendering/LegacyInlineFlowBox.cpp
+rendering/LegacyInlineIterator.cpp
 rendering/LegacyLineLayout.cpp
 rendering/LegacyRootInlineBox.cpp
 rendering/LegacyInlineTextBox.cpp
@@ -2443,6 +2480,7 @@ style/PseudoClassChangeInvalidation.cpp
 style/RuleData.cpp
 style/RuleFeature.cpp
 style/RuleSet.cpp
+style/RuleSetBuilder.cpp
 style/StyleAdjuster.cpp
 style/StyleBuilder.cpp
 style/StyleBuilderState.cpp
@@ -2606,6 +2644,8 @@ workers/AbstractWorker.cpp
 workers/DedicatedWorkerGlobalScope.cpp
 workers/DedicatedWorkerThread.cpp
 workers/ScriptBuffer.cpp
+workers/SharedWorker.cpp
+workers/SharedWorkerGlobalScope.cpp
 workers/Worker.cpp
 workers/WorkerAnimationController.cpp
 workers/WorkerConsoleClient.cpp
@@ -2797,10 +2837,12 @@ JSCSSAnimation.cpp
 JSCSSConditionRule.cpp
 JSCSSCounterStyleRule.cpp
 JSCSSFontFaceRule.cpp
+JSCSSFontPaletteValuesRule.cpp
 JSCSSGroupingRule.cpp
 JSCSSImportRule.cpp
 JSCSSKeyframeRule.cpp
 JSCSSKeyframesRule.cpp
+JSCSSLayerRule.cpp
 JSCSSMediaRule.cpp
 JSCSSNamespaceRule.cpp
 JSCSSPageRule.cpp
@@ -2995,11 +3037,14 @@ JSFileList.cpp
 JSFileReader.cpp
 JSFileReaderSync.cpp
 JSFileSystemDirectoryEntry.cpp
+JSFileSystemDirectoryHandle.cpp
 JSFileSystemDirectoryReader.cpp
 JSFileSystemEntriesCallback.cpp
 JSFileSystemEntry.cpp
 JSFileSystemEntryCallback.cpp
 JSFileSystemFileEntry.cpp
+JSFileSystemFileHandle.cpp
+JSFileSystemHandle.cpp
 JSFillMode.cpp
 JSFocusEvent.cpp
 JSFocusOptions.cpp
@@ -3312,6 +3357,9 @@ JSPublicKeyCredentialCreationOptions.cpp
 JSPublicKeyCredentialDescriptor.cpp
 JSPublicKeyCredentialRequestOptions.cpp
 JSPublicKeyCredentialType.cpp
+JSPushEvent.cpp
+JSPushEventInit.cpp
+JSPushMessageData.cpp
 JSRTCAnswerOptions.cpp
 JSRTCCertificate.cpp
 JSRTCConfiguration.cpp
@@ -3339,6 +3387,7 @@ JSRTCIceServer.cpp
 JSRTCIceTcpCandidateType.cpp
 JSRTCIceTransport.cpp
 JSRTCIceTransportState.cpp
+JSRTCLocalSessionDescriptionInit.cpp
 JSRTCOfferAnswerOptions.cpp
 JSRTCOfferOptions.cpp
 JSRTCPeerConnection.cpp
@@ -3390,8 +3439,11 @@ JSRemotePlayback.cpp
 JSRemotePlaybackAvailabilityCallback.cpp
 JSRequestAnimationFrameCallback.cpp
 JSResizeObserver.cpp
+JSResizeObserverBoxOptions.cpp
 JSResizeObserverCallback.cpp
 JSResizeObserverEntry.cpp
+JSResizeObserverOptions.cpp
+JSResizeObserverSize.cpp
 JSRsaHashedImportParams.cpp
 JSRsaHashedKeyGenParams.cpp
 JSRsaKeyGenParams.cpp
@@ -3570,6 +3622,8 @@ JSShadowRoot.cpp
 JSShadowRootInit.cpp
 JSShadowRootMode.cpp
 JSShareData.cpp
+JSSharedWorker.cpp
+JSSharedWorkerGlobalScope.cpp
 JSSlotable.cpp
 JSSourceBuffer.cpp
 JSSourceBufferList.cpp
@@ -3622,8 +3676,30 @@ JSTransitionEvent.cpp
 JSTreeWalker.cpp
 JSCSSKeywordValue.cpp
 JSCSSStyleImageValue.cpp
+JSCSSMathInvert.cpp
+JSCSSMathMax.cpp
+JSCSSMathMin.cpp
+JSCSSMathNegate.cpp
+JSCSSMathOperator.cpp
+JSCSSMathProduct.cpp
+JSCSSMathSum.cpp
+JSCSSMathValue.cpp
+JSCSSNumericArray.cpp
+JSCSSNumericBaseType.cpp
+JSCSSNumericType.cpp
 JSCSSNumericValue.cpp
 JSCSSOMVariableReferenceValue.cpp
+JSCSSMatrixComponent.cpp
+JSCSSMatrixComponentOptions.cpp
+JSCSSPerspective.cpp
+JSCSSRotate.cpp
+JSCSSScale.cpp
+JSCSSSkew.cpp
+JSCSSSkewX.cpp
+JSCSSSkewY.cpp
+JSCSSTransformComponent.cpp
+JSCSSTransformValue.cpp
+JSCSSTranslate.cpp
 JSCSSStyleValue.cpp
 JSCSSUnitValue.cpp
 JSCSSUnparsedValue.cpp
@@ -3716,6 +3792,7 @@ JSWindowOrWorkerGlobalScope.cpp
 JSWorker.cpp
 JSWorkerGlobalScope.cpp
 JSWorkerLocation.cpp
+JSWorkerOptions.cpp
 JSWorkerNavigator.cpp
 JSWorkerType.cpp
 JSWorklet.cpp

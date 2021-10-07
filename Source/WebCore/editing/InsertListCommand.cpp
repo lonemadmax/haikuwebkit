@@ -56,7 +56,7 @@ RefPtr<HTMLElement> InsertListCommand::insertList(Document& document, Type type)
 
 HTMLElement* InsertListCommand::fixOrphanedListChild(Node& node)
 {
-    auto parentNode = makeRefPtr(node.parentNode());
+    RefPtr parentNode { node.parentNode() };
     if (parentNode && !parentNode->hasRichlyEditableStyle())
         return nullptr;
 
@@ -329,7 +329,7 @@ void InsertListCommand::unlistifyParagraph(const VisiblePosition& originalStart,
         // in listNode that comes before listChildNode, as listChildNode could have ancestors
         // between it and listNode. So, we split up to listNode before inserting the placeholder
         // where we're about to move listChildNode to.
-        if (auto listChildNodeParentNode = makeRefPtr(listChildNode->parentNode()); listChildNodeParentNode && listChildNodeParentNode != listNode)
+        if (RefPtr listChildNodeParentNode { listChildNode->parentNode() }; listChildNodeParentNode && listChildNodeParentNode != listNode)
             splitElement(*listNode, *splitTreeToNode(*listChildNode, *listNode).get());
         insertNodeBefore(nodeToInsert.releaseNonNull(), *listNode);
     } else
@@ -364,7 +364,7 @@ RefPtr<HTMLElement> InsertListCommand::listifyParagraph(const VisiblePosition& o
     VisiblePosition end = endOfParagraph(start, CanSkipOverEditingBoundary);
     
     if (start.isNull() || end.isNull() || !start.deepEquivalent().containerNode()->hasEditableStyle() || !end.deepEquivalent().containerNode()->hasEditableStyle())
-        return 0;
+        return nullptr;
 
     // Check for adjoining lists.
     auto listItemElement = HTMLLIElement::create(document());
@@ -405,7 +405,7 @@ RefPtr<HTMLElement> InsertListCommand::listifyParagraph(const VisiblePosition& o
             insertionPos = positionInParentBeforeNode(listChild.get());
 
         if (!isEditablePosition(insertionPos))
-            return 0;
+            return nullptr;
 
         insertNodeAt(*listElement, insertionPos);
 

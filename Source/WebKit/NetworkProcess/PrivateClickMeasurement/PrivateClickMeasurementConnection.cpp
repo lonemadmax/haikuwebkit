@@ -34,18 +34,17 @@ namespace PCM {
 
 #if !PLATFORM(COCOA)
 
-Connection Connection::connectionToDaemon()
-{
-    notImplemented();
-    return { };
-}
-
-void Connection::send(MessageType, EncodedMessage&&)
+Connection::Connection(CString&&)
 {
     notImplemented();
 }
 
-void Connection::sendWithReply(MessageType, EncodedMessage&&, CompletionHandler<void(EncodedMessage&&)>&& completionHandler)
+void Connection::send(MessageType, EncodedMessage&&) const
+{
+    notImplemented();
+}
+
+void Connection::sendWithReply(MessageType, EncodedMessage&&, CompletionHandler<void(EncodedMessage&&)>&& completionHandler) const
 {
     notImplemented();
     completionHandler({ });

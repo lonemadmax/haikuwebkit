@@ -251,6 +251,7 @@ enum class AXPropertyName : uint16_t {
     MathSuperscriptObject,
     MaxValueForRange,
     MinValueForRange,
+    NameAttribute,
     NextSibling,
     Orientation,
     OuterHTML,
@@ -343,7 +344,11 @@ public:
 
     struct NodeChange {
         Ref<AXIsolatedObject> isolatedObject;
+#if PLATFORM(COCOA)
         RetainPtr<AccessibilityObjectWrapper> wrapper;
+#elif USE(ATSPI)
+        RefPtr<AccessibilityObjectWrapper> wrapper;
+#endif
     };
 
     void generateSubtree(AXCoreObject&, AXCoreObject*, bool attachWrapper);

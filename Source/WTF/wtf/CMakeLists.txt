@@ -3,6 +3,7 @@ set(WTF_PUBLIC_HEADERS
     AggregateLogger.h
     Algorithms.h
     AnsiColors.h
+    ApproximateTime.h
     Assertions.h
     Atomics.h
     AutodrainedPool.h
@@ -78,6 +79,7 @@ set(WTF_PUBLIC_HEADERS
     Function.h
     FunctionDispatcher.h
     FunctionTraits.h
+    GenericTimeMixin.h
     GetPtr.h
     Gigacage.h
     GlobalVersion.h
@@ -103,6 +105,7 @@ set(WTF_PUBLIC_HEADERS
     InlineASM.h
     Insertion.h
     InstanceCounted.h
+    Int128.h
     InterferenceGraph.h
     IsoMalloc.h
     IsoMallocInlines.h
@@ -113,6 +116,7 @@ set(WTF_PUBLIC_HEADERS
     KeyValuePair.h
     LEBDecoder.h
     Language.h
+    LeadingZeroBitCount.h
     LikelyDenseUnsignedIntegerSet.h
     ListDump.h
     ListHashSet.h
@@ -392,6 +396,7 @@ set(WTF_PUBLIC_HEADERS
 
 set(WTF_SOURCES
     ASCIICType.cpp
+    ApproximateTime.cpp
     Assertions.cpp
     AutomaticThread.cpp
     Bag.cpp
@@ -423,6 +428,7 @@ set(WTF_SOURCES
     JSONValues.cpp
     JSValueMalloc.cpp
     Language.cpp
+    LeadingZeroBitCount.cpp
     LikelyDenseUnsignedIntegerSet.cpp
     Lock.cpp
     LockedPrintStream.cpp

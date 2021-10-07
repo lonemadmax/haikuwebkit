@@ -77,6 +77,7 @@
 #include "WebPaymentCoordinatorProxy.h"
 #include "WebPopupMenuProxy.h"
 #include "WebPreferences.h"
+#include "WebURLSchemeHandlerIdentifier.h"
 #include "WebUndoStepID.h"
 #include "WebsitePoliciesData.h"
 #include "WindowKind.h"
@@ -103,6 +104,7 @@
 #include <WebCore/PlatformSpeechSynthesisUtterance.h>
 #include <WebCore/PlatformSpeechSynthesizer.h>
 #include <WebCore/PointerID.h>
+#include <WebCore/RectEdges.h>
 #include <WebCore/RegistrableDomain.h>
 #include <WebCore/RunJavaScriptParameters.h>
 #include <WebCore/ScrollTypes.h>
@@ -192,7 +194,7 @@ interface ID3D11Device1;
 #include "PlatformXRSystem.h"
 #endif
 
-#if HAVE(ARKIT_INLINE_PREVIEW)
+#if ENABLE(ARKIT_INLINE_PREVIEW)
 #include "ModelElementController.h"
 #endif
 
@@ -578,13 +580,13 @@ public:
     void systemPreviewActionTriggered(const WebCore::SystemPreviewInfo&, const String&);
 #endif
 
-#if HAVE(ARKIT_INLINE_PREVIEW)
+#if ENABLE(ARKIT_INLINE_PREVIEW)
     ModelElementController* modelElementController() { return m_modelElementController.get(); }
 #endif
-#if HAVE(ARKIT_INLINE_PREVIEW_IOS)
+#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
     void takeModelElementFullscreen(WebCore::GraphicsLayer::PlatformLayerID contentLayerId);
 #endif
-#if HAVE(ARKIT_INLINE_PREVIEW_MAC)
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
     void modelElementDidCreatePreview(const WebCore::ElementContext&, const URL&, const String&, const WebCore::FloatSize&);
     void modelElementPreviewDidObtainContextId(const WebCore::ElementContext&, const String&, uint32_t);
 #endif
@@ -684,6 +686,8 @@ public:
     WebCore::Color underlayColor() const { return m_underlayColor; }
     void setUnderlayColor(const WebCore::Color&);
 
+    void triggerBrowsingContextGroupSwitchForNavigation(uint64_t navigationID, WebCore::BrowsingContextGroupSwitchDecision, const WebCore::RegistrableDomain& responseDomain, NetworkResourceLoadIdentifier existingNetworkResourceLoadIdentifierToResume, CompletionHandler<void(bool success)>&&);
+
     // At this time, m_pageExtendedBackgroundColor can be set via pageExtendedBackgroundColorDidChange() which is a message
     // from the UIProcess, or by didCommitLayerTree(). When PLATFORM(MAC) adopts UI side compositing, we should get rid of
     // the message entirely.
@@ -713,8 +717,13 @@ public:
     void setDelegatesScrolling(bool delegatesScrolling) { m_delegatesScrolling = delegatesScrolling; }
     bool delegatesScrolling() const { return m_delegatesScrolling; }
 
-    void setPrivateClickMeasurement(std::optional<WebCore::PrivateClickMeasurement>&& measurement) { m_privateClickMeasurement = WTFMove(measurement); }
-    const std::optional<WebCore::PrivateClickMeasurement>& privateClickMeasurement() const { return m_privateClickMeasurement; }
+    struct PrivateClickMeasurementAndMetadata {
+        WebCore::PrivateClickMeasurement pcm;
+        String sourceDescription;
+        String purchaser;
+    };
+    void setPrivateClickMeasurement(std::optional<PrivateClickMeasurementAndMetadata>&& measurement) { m_privateClickMeasurement = WTFMove(measurement); }
+    const std::optional<PrivateClickMeasurementAndMetadata>& privateClickMeasurement() const { return m_privateClickMeasurement; }
 
     enum class ActivityStateChangeDispatchMode : bool { Deferrable, Immediate };
     enum class ActivityStateChangeReplyMode : bool { Asynchronous, Synchronous };
@@ -1086,18 +1095,13 @@ public:
     void setSuppressScrollbarAnimations(bool);
     bool areScrollbarAnimationsSuppressed() const { return m_suppressScrollbarAnimations; }
 
-    bool isPinnedToLeftSide() const { return m_mainFrameIsPinnedToLeftSide; }
-    bool isPinnedToRightSide() const { return m_mainFrameIsPinnedToRightSide; }
-    bool isPinnedToTopSide() const { return m_mainFrameIsPinnedToTopSide; }
-    bool isPinnedToBottomSide() const { return m_mainFrameIsPinnedToBottomSide; }
+    WebCore::RectEdges<bool> pinnedState() const { return m_mainFramePinnedState; }
 
-    bool rubberBandsAtLeft() const;
+    WebCore::RectEdges<bool> rubberBandableEdges() const { return m_rubberBandableEdges; }
+    void setRubberBandableEdges(WebCore::RectEdges<bool> edges) { m_rubberBandableEdges = edges; }
     void setRubberBandsAtLeft(bool);
-    bool rubberBandsAtRight() const;
     void setRubberBandsAtRight(bool);
-    bool rubberBandsAtTop() const;
     void setRubberBandsAtTop(bool);
-    bool rubberBandsAtBottom() const;
     void setRubberBandsAtBottom(bool);
 
     void setShouldUseImplicitRubberBandControl(bool shouldUseImplicitRubberBandControl) { m_shouldUseImplicitRubberBandControl = shouldUseImplicitRubberBandControl; }
@@ -1669,7 +1673,7 @@ public:
     void touchBarMenuItemDataRemoved(const TouchBarMenuItemData&);
 #endif
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     void requestStorageAccessConfirm(const WebCore::RegistrableDomain& subFrameDomain, const WebCore::RegistrableDomain& topFrameDomain, WebCore::FrameIdentifier, CompletionHandler<void(bool)>&&);
     void didCommitCrossSiteLoadWithDataTransferFromPrevalentResource();
     void getLoadedSubresourceDomains(CompletionHandler<void(Vector<WebCore::RegistrableDomain>&&)>&&);
@@ -1745,7 +1749,7 @@ public:
     void didNavigateWithNavigationDataShared(Ref<WebProcessProxy>&&, const WebNavigationDataStore&, WebCore::FrameIdentifier);
     void didChangeProvisionalURLForFrameShared(Ref<WebProcessProxy>&&, WebCore::FrameIdentifier, uint64_t navigationID, URL&&);
     void decidePolicyForNavigationActionAsyncShared(Ref<WebProcessProxy>&&, WebCore::PageIdentifier, WebCore::FrameIdentifier, FrameInfoData&&, WebCore::PolicyCheckIdentifier, uint64_t navigationID, NavigationActionData&&, FrameInfoData&& originatingFrameInfo, std::optional<WebPageProxyIdentifier> originatingPageID, const WebCore::ResourceRequest& originalRequest, WebCore::ResourceRequest&&, IPC::FormDataReference&& requestBody, WebCore::ResourceResponse&& redirectResponse, const UserData&, uint64_t listenerID);
-    void decidePolicyForResponseShared(Ref<WebProcessProxy>&&, WebCore::PageIdentifier, WebCore::FrameIdentifier, FrameInfoData&&, WebCore::PolicyCheckIdentifier, uint64_t navigationID, const WebCore::ResourceResponse&, const WebCore::ResourceRequest&, bool canShowMIMEType, const String& downloadAttribute, bool wasAllowedByInjectedBundle, WebCore::BrowsingContextGroupSwitchDecision, uint64_t mainResourceLoadIdentifier, uint64_t listenerID, const UserData&);
+    void decidePolicyForResponseShared(Ref<WebProcessProxy>&&, WebCore::PageIdentifier, WebCore::FrameIdentifier, FrameInfoData&&, WebCore::PolicyCheckIdentifier, uint64_t navigationID, const WebCore::ResourceResponse&, const WebCore::ResourceRequest&, bool canShowMIMEType, const String& downloadAttribute, bool wasAllowedByInjectedBundle, uint64_t listenerID, const UserData&);
     void startURLSchemeTaskShared(Ref<WebProcessProxy>&&, WebCore::PageIdentifier, URLSchemeTaskParameters&&);
     void loadDataWithNavigationShared(Ref<WebProcessProxy>&&, WebCore::PageIdentifier, API::Navigation&, const IPC::DataReference&, const String& MIMEType, const String& encoding, const String& baseURL, API::Object* userData, WebCore::ShouldTreatAsContinuingLoad, std::optional<NavigatingToAppBoundDomain>, std::optional<WebsitePoliciesData>&&, WebCore::ShouldOpenExternalURLsPolicy, WebCore::SubstituteData::SessionHistoryVisibility);
     void loadRequestWithNavigationShared(Ref<WebProcessProxy>&&, WebCore::PageIdentifier, API::Navigation&, WebCore::ResourceRequest&&, WebCore::ShouldOpenExternalURLsPolicy, API::Object* userData, WebCore::ShouldTreatAsContinuingLoad, std::optional<NavigatingToAppBoundDomain>, std::optional<WebsitePoliciesData>&& = std::nullopt, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume = std::nullopt);
@@ -1769,6 +1773,7 @@ public:
     void setPrivateClickMeasurementAttributionReportURLsForTesting(const URL& sourceURL, const URL& destinationURL, CompletionHandler<void()>&&);
     void markPrivateClickMeasurementsAsExpiredForTesting(CompletionHandler<void()>&&);
     void setPCMFraudPreventionValuesForTesting(const String& unlinkableToken, const String& secretToken, const String& signature, const String& keyID, CompletionHandler<void()>&&);
+    void setPrivateClickMeasurementAppBundleIDForTesting(const String& appBundleIDForTesting, CompletionHandler<void()>&&);
 
 #if ENABLE(SPEECH_SYNTHESIS)
     void speechSynthesisVoiceList(CompletionHandler<void(Vector<WebSpeechSynthesisVoice>&&)>&&);
@@ -2063,7 +2068,7 @@ private:
     void decidePolicyForNewWindowAction(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::PolicyCheckIdentifier, NavigationActionData&&,
         WebCore::ResourceRequest&&, const String& frameName, uint64_t listenerID, const UserData&);
     void decidePolicyForResponse(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::PolicyCheckIdentifier, uint64_t navigationID,
-        const WebCore::ResourceResponse&, const WebCore::ResourceRequest&, bool canShowMIMEType, const String& downloadAttribute, bool wasAllowedByInjectedBundle, WebCore::BrowsingContextGroupSwitchDecision, uint64_t mainResourceLoadIdentifier, uint64_t listenerID, const UserData&);
+        const WebCore::ResourceResponse&, const WebCore::ResourceRequest&, bool canShowMIMEType, const String& downloadAttribute, bool wasAllowedByInjectedBundle, uint64_t listenerID, const UserData&);
     void unableToImplementPolicy(WebCore::FrameIdentifier, const WebCore::ResourceError&, const UserData&);
     void beginSafeBrowsingCheck(const URL&, bool, WebFramePolicyListenerProxy&);
 
@@ -2143,7 +2148,7 @@ private:
     void notifyScrollerThumbIsVisibleInRect(const WebCore::IntRect&);
     void recommendedScrollbarStyleDidChange(int32_t newStyle);
     void didChangeScrollbarsForMainFrame(bool hasHorizontalScrollbar, bool hasVerticalScrollbar);
-    void didChangeScrollOffsetPinningForMainFrame(bool pinnedToLeftSide, bool pinnedToRightSide, bool pinnedToTopSide, bool pinnedToBottomSide);
+    void didChangeScrollOffsetPinningForMainFrame(WebCore::RectEdges<bool>);
     void didChangePageCount(unsigned);
     void themeColorChanged(const WebCore::Color&);
     void pageExtendedBackgroundColorDidChange(const WebCore::Color&);
@@ -2232,7 +2237,7 @@ private:
 #endif
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
-    void bindAccessibilityTree(const String&);
+    void bindAccessibilityTree(const String&, CompletionHandler<void(String&&)>&&);
 #endif
 
 #if PLATFORM(GTK)
@@ -2427,7 +2432,7 @@ private:
 #endif
 
     void startURLSchemeTask(URLSchemeTaskParameters&&);
-    void stopURLSchemeTask(uint64_t handlerIdentifier, uint64_t taskIdentifier);
+    void stopURLSchemeTask(WebURLSchemeHandlerIdentifier, WebCore::ResourceLoaderIdentifier);
     void loadSynchronousURLSchemeTask(URLSchemeTaskParameters&&, Messages::WebPageProxy::LoadSynchronousURLSchemeTaskDelayedReply&&);
 
     bool checkURLReceivedFromCurrentOrPreviousWebProcess(WebProcessProxy&, const String&);
@@ -2473,7 +2478,7 @@ private:
 
     void didAttachToRunningProcess();
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     void logFrameNavigation(const WebFrameProxy&, const URL& pageURL, const WebCore::ResourceRequest&, const URL& redirectURL, bool wasPotentiallyInitiatedByUser);
 #endif
 
@@ -2488,6 +2493,9 @@ private:
 #endif
 #if ENABLE(APPLE_PAY) && PLATFORM(IOS_FAMILY)
     UIViewController *paymentCoordinatorPresentingViewController(const WebPaymentCoordinatorProxy&) final;
+#if ENABLE(APPLE_PAY_REMOTE_UI_USES_SCENE)
+    void getWindowSceneIdentifierForPaymentPresentation(WebPageProxyIdentifier, CompletionHandler<void(const String&)>&&) final;
+#endif
     const String& paymentCoordinatorCTDataConnectionServiceType(const WebPaymentCoordinatorProxy&) final;
     std::unique_ptr<PaymentAuthorizationPresenter> paymentCoordinatorAuthorizationPresenter(WebPaymentCoordinatorProxy&, PKPaymentRequest *) final;
 #endif
@@ -2637,7 +2645,7 @@ private:
     std::unique_ptr<SystemPreviewController> m_systemPreviewController;
 #endif
 
-#if HAVE(ARKIT_INLINE_PREVIEW)
+#if ENABLE(ARKIT_INLINE_PREVIEW)
     std::unique_ptr<ModelElementController> m_modelElementController;
 #endif
 
@@ -2847,7 +2855,10 @@ private:
 #endif
 
     PageLoadState m_pageLoadState;
-    
+
+    WebCore::RectEdges<bool> m_mainFramePinnedState { true, true, true, true };
+    WebCore::RectEdges<bool> m_rubberBandableEdges { true, true, true, true };
+
     bool m_delegatesScrolling { false };
 
     bool m_mainFrameHasHorizontalScrollbar { false };
@@ -2856,16 +2867,7 @@ private:
     // Whether horizontal wheel events can be handled directly for swiping purposes.
     bool m_canShortCircuitHorizontalWheelEvents { true };
 
-    bool m_mainFrameIsPinnedToLeftSide { true };
-    bool m_mainFrameIsPinnedToRightSide { true };
-    bool m_mainFrameIsPinnedToTopSide { true };
-    bool m_mainFrameIsPinnedToBottomSide { true };
-
     bool m_shouldUseImplicitRubberBandControl { false };
-    bool m_rubberBandsAtLeft { true };
-    bool m_rubberBandsAtRight { true };
-    bool m_rubberBandsAtTop { true };
-    bool m_rubberBandsAtBottom { true };
         
     bool m_enableVerticalRubberBanding { true };
     bool m_enableHorizontalRubberBanding { true };
@@ -2981,7 +2983,7 @@ private:
     bool m_preferFasterClickOverDoubleTap { false };
 
     HashMap<String, Ref<WebURLSchemeHandler>> m_urlSchemeHandlersByScheme;
-    HashMap<uint64_t, Ref<WebURLSchemeHandler>> m_urlSchemeHandlersByIdentifier;
+    HashMap<WebURLSchemeHandlerIdentifier, Ref<WebURLSchemeHandler>> m_urlSchemeHandlersByIdentifier;
 
 #if ENABLE(ATTACHMENT_ELEMENT)
     using IdentifierToAttachmentMap = HashMap<String, Ref<API::Attachment>>;
@@ -3062,7 +3064,7 @@ private:
     std::unique_ptr<WebDeviceOrientationUpdateProviderProxy> m_webDeviceOrientationUpdateProviderProxy;
 #endif
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     MonotonicTime m_didFinishDocumentLoadForMainFrameTimestamp;
 #endif
         
@@ -3083,7 +3085,7 @@ private:
     bool m_isRunningModalJavaScriptDialog { false };
     bool m_isSuspended { false };
 
-    std::optional<WebCore::PrivateClickMeasurement> m_privateClickMeasurement;
+    std::optional<PrivateClickMeasurementAndMetadata> m_privateClickMeasurement;
 
 #if ENABLE(WEBXR) && !USE(OPENXR)
     std::unique_ptr<PlatformXRSystem> m_xrSystem;

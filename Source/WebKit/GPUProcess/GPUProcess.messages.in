@@ -25,7 +25,7 @@
 messages -> GPUProcess LegacyReceiver {
     InitializeGPUProcess(struct WebKit::GPUProcessCreationParameters processCreationParameters)
 
-    CreateGPUConnectionToWebProcess(WebCore::ProcessIdentifier processIdentifier, PAL::SessionID sessionID, struct WebKit::GPUProcessConnectionParameters parameters) -> (std::optional<IPC::Attachment> connectionIdentifier) Async
+    CreateGPUConnectionToWebProcess(WebCore::ProcessIdentifier processIdentifier, PAL::SessionID sessionID, struct WebKit::GPUProcessConnectionParameters parameters) -> (std::optional<IPC::Attachment> connectionIdentifier, struct WebKit::GPUProcessConnectionInitializationParameters parameters) Async
 
     PrepareToSuspend(bool isSuspensionImminent) -> () Async
     ProcessDidResume()
@@ -43,6 +43,7 @@ messages -> GPUProcess LegacyReceiver {
     ClearMockMediaDevices();
     RemoveMockMediaDevice(String persistentId);
     ResetMockMediaDevices();
+    SetMockCameraIsInterrupted(bool isInterrupted);
 #endif
 #if PLATFORM(MAC)
     DisplayConfigurationChanged(CGDirectDisplayID displayID, CGDisplayChangeSummaryFlags flags)
@@ -62,6 +63,10 @@ messages -> GPUProcess LegacyReceiver {
 
 #if ENABLE(VORBIS)
     SetVorbisDecoderEnabled(bool enabled);
+#endif
+
+#if ENABLE(CFPREFS_DIRECT_MODE)
+    NotifyPreferencesChanged(String domain, String key, std::optional<String> encodedValue)
 #endif
 }
 

@@ -96,6 +96,7 @@ public:
 #endif
 #if PLATFORM(GTK) || PLATFORM(WPE)
     const String& accessibilityPlugID() { return m_accessibilityPlugID; }
+    CompletionHandler<void(String&&)> takeAccessibilityBindCompletionHandler() { return std::exchange(m_accessibilityBindCompletionHandler, nullptr); }
 #endif
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
     LayerHostingContextID contextIDForVisibilityPropagationInWebProcess() const { return m_contextIDForVisibilityPropagationInWebProcess; }
@@ -125,7 +126,7 @@ private:
     bool sendMessage(UniqueRef<IPC::Encoder>&&, OptionSet<IPC::SendOption>, std::optional<std::pair<CompletionHandler<void(IPC::Decoder*)>, uint64_t>>&&) final;
 
     void decidePolicyForNavigationActionAsync(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::PolicyCheckIdentifier, uint64_t navigationID, NavigationActionData&&, FrameInfoData&& originatingFrameInfo, std::optional<WebPageProxyIdentifier> originatingPageID, const WebCore::ResourceRequest& originalRequest, WebCore::ResourceRequest&&, IPC::FormDataReference&& requestBody, WebCore::ResourceResponse&& redirectResponse, const UserData&, uint64_t listenerID);
-    void decidePolicyForResponse(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::PolicyCheckIdentifier, uint64_t navigationID, const WebCore::ResourceResponse&, const WebCore::ResourceRequest&, bool canShowMIMEType, const String& downloadAttribute, bool wasAllowedByInjectedBundle, WebCore::BrowsingContextGroupSwitchDecision, uint64_t listenerID, uint64_t mainResourceLoadIdentifier, const UserData&);
+    void decidePolicyForResponse(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::PolicyCheckIdentifier, uint64_t navigationID, const WebCore::ResourceResponse&, const WebCore::ResourceRequest&, bool canShowMIMEType, const String& downloadAttribute, bool wasAllowedByInjectedBundle, uint64_t listenerID, const UserData&);
     void didChangeProvisionalURLForFrame(WebCore::FrameIdentifier, uint64_t navigationID, URL&&);
     void didPerformServerRedirect(const String& sourceURLString, const String& destinationURLString, WebCore::FrameIdentifier);
     void didReceiveServerRedirectForProvisionalLoadForFrame(WebCore::FrameIdentifier, uint64_t navigationID, WebCore::ResourceRequest&&, const UserData&);
@@ -148,7 +149,7 @@ private:
     void registerWebProcessAccessibilityToken(const IPC::DataReference&);
 #endif
 #if PLATFORM(GTK) || PLATFORM(WPE)
-    void bindAccessibilityTree(const String&);
+    void bindAccessibilityTree(const String&, CompletionHandler<void(String&&)>&&);
 #endif
 #if ENABLE(CONTENT_FILTERING)
     void contentFilterDidBlockLoadForFrame(const WebCore::ContentFilterUnblockHandler&, WebCore::FrameIdentifier);
@@ -178,6 +179,7 @@ private:
 #endif
 #if PLATFORM(GTK) || PLATFORM(WPE)
     String m_accessibilityPlugID;
+    CompletionHandler<void(String&&)> m_accessibilityBindCompletionHandler;
 #endif
 #if PLATFORM(IOS_FAMILY)
     UniqueRef<ProcessThrottler::ForegroundActivity> m_provisionalLoadActivity;

@@ -185,7 +185,7 @@ bool Connection::SyncMessageState::processIncomingMessage(Connection& connection
     }
 
     if (shouldDispatch) {
-        RunLoop::main().dispatch([this, protectedConnection = makeRef(connection)]() mutable {
+        RunLoop::main().dispatch([this, protectedConnection = Ref { connection }]() mutable {
             dispatchMessagesAndResetDidScheduleDispatchMessagesForConnection(protectedConnection);
         });
     }
@@ -429,7 +429,7 @@ void Connection::invalidate()
     
     m_isValid = false;
 
-    m_connectionQueue->dispatch([protectedThis = makeRef(*this)]() mutable {
+    m_connectionQueue->dispatch([protectedThis = Ref { *this }]() mutable {
         protectedThis->platformInvalidate();
     });
 }
@@ -493,7 +493,7 @@ bool Connection::sendMessage(UniqueRef<Encoder>&& encoder, OptionSet<SendOption>
     }
     
     // FIXME: We should add a boolean flag so we don't call this when work has already been scheduled.
-    m_connectionQueue->dispatch([protectedThis = makeRef(*this)]() mutable {
+    m_connectionQueue->dispatch([protectedThis = Ref { *this }]() mutable {
         protectedThis->sendOutgoingMessages();
     });
     return true;
@@ -512,7 +512,7 @@ Timeout Connection::timeoutRespectingIgnoreTimeoutsForTesting(Timeout timeout) c
 std::unique_ptr<Decoder> Connection::waitForMessage(MessageName messageName, uint64_t destinationID, Timeout timeout, OptionSet<WaitForOption> waitForOptions)
 {
     ASSERT(RunLoop::isMain());
-    auto protectedThis = makeRef(*this);
+    Ref protectedThis { *this };
 
     timeout = timeoutRespectingIgnoreTimeoutsForTesting(timeout);
 
@@ -754,7 +754,7 @@ void Connection::processIncomingMessage(std::unique_ptr<Decoder> message)
     }
 
     if (!MessageReceiveQueueMap::isValidMessage(*message)) {
-        RunLoop::main().dispatch([protectedThis = makeRef(*this), messageName = message->messageName()]() mutable {
+        RunLoop::main().dispatch([protectedThis = Ref { *this }, messageName = message->messageName()]() mutable {
             protectedThis->dispatchDidReceiveInvalidMessage(messageName);
         });
         return;
@@ -858,7 +858,7 @@ void Connection::addMessageObserver(const MessageObserver& observer)
 
 void Connection::postConnectionDidCloseOnConnectionWorkQueue()
 {
-    m_connectionQueue->dispatch([protectedThis = makeRef(*this)]() mutable {
+    m_connectionQueue->dispatch([protectedThis = Ref { *this }]() mutable {
         protectedThis->connectionDidClose();
     });
 }
@@ -892,7 +892,7 @@ void Connection::connectionDidClose()
     if (m_didCloseOnConnectionWorkQueueCallback)
         m_didCloseOnConnectionWorkQueueCallback(this);
 
-    RunLoop::main().dispatch([protectedThis = makeRef(*this)]() mutable {
+    RunLoop::main().dispatch([protectedThis = Ref { *this }]() mutable {
         // If the connection has been explicitly invalidated before dispatchConnectionDidClose was called,
         // then the connection will be invalid here.
         if (!protectedThis->isValid())
@@ -982,7 +982,7 @@ void Connection::dispatchSyncMessage(Decoder& decoder)
 
 void Connection::dispatchDidReceiveInvalidMessage(MessageName messageName)
 {
-    ensureOnMainRunLoop([this, protectedThis = makeRef(*this), messageName]() mutable {
+    ensureOnMainRunLoop([this, protectedThis = Ref { *this }, messageName]() mutable {
         if (!isValid())
             return;
         m_client.didReceiveInvalidMessage(*this, messageName);
@@ -1020,7 +1020,7 @@ void Connection::enqueueIncomingMessage(std::unique_ptr<Decoder> incomingMessage
             return;
     }
 
-    RunLoop::main().dispatch([protectedThis = makeRef(*this)]() mutable {
+    RunLoop::main().dispatch([protectedThis = Ref { *this }]() mutable {
         if (protectedThis->isIncomingMessagesThrottlingEnabled())
             protectedThis->dispatchIncomingMessages();
         else
@@ -1135,7 +1135,7 @@ void Connection::MessagesThrottler::scheduleMessagesDispatch()
         m_dispatchMessagesTimer.startOneShot(0_s);
         return;
     }
-    RunLoop::main().dispatch([this, protectedConnection = makeRefPtr(&m_connection)]() mutable {
+    RunLoop::main().dispatch([this, protectedConnection = RefPtr { &m_connection }]() mutable {
         (protectedConnection.get()->*m_dispatchMessages)();
     });
 }

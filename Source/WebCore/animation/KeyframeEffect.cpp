@@ -1181,7 +1181,7 @@ void KeyframeEffect::setTarget(RefPtr<Element>&& newTarget)
     auto& previousTargetStyleable = targetStyleable();
     RefPtr<Element> protector;
     if (previousTargetStyleable)
-        protector = makeRefPtr(previousTargetStyleable->element);
+        protector = &previousTargetStyleable->element;
     m_target = WTFMove(newTarget);
     didChangeTargetStyleable(previousTargetStyleable);
 }
@@ -1555,7 +1555,7 @@ void KeyframeEffect::setAnimatedPropertiesInStyle(RenderStyle& targetStyle, doub
             if (auto duration = iterationDuration()) {
                 auto rangeDuration = (endOffset - startOffset) * duration.seconds();
                 if (auto* timingFunction = timingFunctionForKeyframeAtIndex(startKeyframeIndex.value()))
-                    transformedDistance = timingFunction->transformTime(intervalDistance, rangeDuration);
+                    transformedDistance = timingFunction->transformProgress(intervalDistance, rangeDuration);
             }
         }
 

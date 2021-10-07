@@ -649,6 +649,7 @@ enum {
     EnterFullscreenForElementCallbackID,
     ExitFullscreenForElementCallbackID,
     AppBoundRequestContextDataForDomainCallbackID,
+    TakeViewPortSnapshotCallbackID,
     FirstUIScriptCallbackID = 100
 };
 
@@ -1072,6 +1073,11 @@ void TestRunner::setShouldDownloadUndisplayableMIMETypes(bool value)
 void TestRunner::setShouldAllowDeviceOrientationAndMotionAccess(bool value)
 {
     postPageMessage("SetShouldAllowDeviceOrientationAndMotionAccess", value);
+}
+
+void TestRunner::terminateGPUProcess()
+{
+    postSynchronousPageMessage("TerminateGPUProcess");
 }
 
 void TestRunner::terminateNetworkProcess()
@@ -1806,6 +1812,11 @@ bool TestRunner::isMockRealtimeMediaSourceCenterEnabled()
     return postSynchronousMessageReturningBoolean("IsMockRealtimeMediaSourceCenterEnabled");
 }
 
+void TestRunner::setMockCameraIsInterrupted(bool isInterrupted)
+{
+    postSynchronousMessage("SetMockCameraIsInterrupted", isInterrupted);
+}
+
 #if ENABLE(GAMEPAD)
 
 void TestRunner::connectMockGamepad(unsigned index)
@@ -2103,6 +2114,12 @@ void TestRunner::setPrivateClickMeasurementFraudPreventionValuesForTesting(JSStr
     }));
 }
 
+void TestRunner::setPrivateClickMeasurementAppBundleIDForTesting(JSStringRef appBundleID)
+{
+    postSynchronousPageMessage("SetPrivateClickMeasurementAppBundleIDForTesting",
+        toWK(appBundleID));
+}
+
 bool TestRunner::hasAppBoundSession()
 {
     return postSynchronousPageMessageReturningBoolean("HasAppBoundSession");
@@ -2164,6 +2181,23 @@ void TestRunner::setIsSpeechRecognitionPermissionGranted(bool granted)
 void TestRunner::setIsMediaKeySystemPermissionGranted(bool granted)
 {
     postSynchronousPageMessage("SetIsMediaKeySystemPermissionGranted", granted);
+}
+
+void TestRunner::takeViewPortSnapshot(JSValueRef callback)
+{
+    if (m_takeViewPortSnapshot)
+        return;
+
+    cacheTestRunnerCallback(TakeViewPortSnapshotCallbackID, callback);
+    postMessage("TakeViewPortSnapshot");
+    m_takeViewPortSnapshot = true;
+}
+
+void TestRunner::viewPortSnapshotTaken(WKStringRef value)
+{
+    auto jsValue = JSValueMakeString(mainFrameJSContext(), toJS(value).get());
+    callTestRunnerCallback(TakeViewPortSnapshotCallbackID, 1, &jsValue);
+    m_takeViewPortSnapshot = false;
 }
 
 ALLOW_DEPRECATED_DECLARATIONS_END

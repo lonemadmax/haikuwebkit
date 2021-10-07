@@ -55,7 +55,7 @@ Ref<RealtimeVideoCaptureSource> RemoteRealtimeVideoSource::create(const CaptureD
 }
 
 RemoteRealtimeVideoSource::RemoteRealtimeVideoSource(RealtimeMediaSourceIdentifier identifier, const CaptureDevice& device, const MediaConstraints* constraints, String&& name, String&& hashSalt, UserMediaCaptureManager& manager, bool shouldCaptureInGPUProcess)
-    : RealtimeVideoCaptureSource(WTFMove(name), String::number(identifier.toUInt64()), WTFMove(hashSalt))
+    : RealtimeVideoCaptureSource(WTFMove(name), String { device.persistentId() }, WTFMove(hashSalt))
     , m_proxy(identifier, device, shouldCaptureInGPUProcess, constraints)
     , m_manager(manager)
 {
@@ -67,7 +67,7 @@ RemoteRealtimeVideoSource::RemoteRealtimeVideoSource(RealtimeMediaSourceIdentifi
 
 void RemoteRealtimeVideoSource::createRemoteMediaSource()
 {
-    m_proxy.createRemoteMediaSource(deviceIDHashSalt(), [this, protectedThis = makeRef(*this)](bool succeeded, auto&& errorMessage, auto&& settings, auto&& capabilities, auto&& presets, auto size, auto frameRate) mutable {
+    m_proxy.createRemoteMediaSource(deviceIDHashSalt(), [this, protectedThis = Ref { *this }](bool succeeded, auto&& errorMessage, auto&& settings, auto&& capabilities, auto&& presets, auto size, auto frameRate) mutable {
         if (!succeeded) {
             m_proxy.didFail(WTFMove(errorMessage));
             return;

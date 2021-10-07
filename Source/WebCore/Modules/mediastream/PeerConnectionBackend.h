@@ -35,6 +35,7 @@
 
 #include "IDLTypes.h"
 #include "LibWebRTCProvider.h"
+#include "RTCIceGatheringState.h"
 #include "RTCRtpSendParameters.h"
 #include "RTCSessionDescription.h"
 #include "RTCSignalingState.h"
@@ -92,11 +93,12 @@ public:
     explicit PeerConnectionBackend(RTCPeerConnection&);
     virtual ~PeerConnectionBackend();
 
-    void createOffer(RTCOfferOptions&&, PeerConnection::SessionDescriptionPromise&&);
-    void createAnswer(RTCAnswerOptions&&, PeerConnection::SessionDescriptionPromise&&);
+    using CreateCallback = Function<void(ExceptionOr<RTCSessionDescriptionInit>&&)>;
+    void createOffer(RTCOfferOptions&&, CreateCallback&&);
+    void createAnswer(RTCAnswerOptions&&, CreateCallback&&);
     void setLocalDescription(const RTCSessionDescription*, Function<void(ExceptionOr<void>&&)>&&);
     void setRemoteDescription(const RTCSessionDescription&, Function<void(ExceptionOr<void>&&)>&&);
-    void addIceCandidate(RTCIceCandidate*, DOMPromiseDeferred<void>&&);
+    void addIceCandidate(RTCIceCandidate*, Function<void(ExceptionOr<void>&&)>&&);
 
     virtual std::unique_ptr<RTCDataChannelHandler> createDataChannelHandler(const String&, const RTCDataChannelInit&) = 0;
 
@@ -123,6 +125,7 @@ public:
     virtual void emulatePlatformEvent(const String& action) = 0;
 
     struct DescriptionStates {
+        std::optional<RTCSignalingState> signalingState;
         std::optional<RTCSdpType> currentLocalDescriptionSdpType;
         String currentLocalDescriptionSdp;
         std::optional<RTCSdpType> pendingLocalDescriptionSdpType;
@@ -134,6 +137,8 @@ public:
     };
 
     void newICECandidate(String&& sdp, String&& mid, unsigned short sdpMLineIndex, String&& serverURL, std::optional<DescriptionStates>&&);
+    void newDataChannel(UniqueRef<RTCDataChannelHandler>&&, String&&, RTCDataChannelInit&&);
+
     virtual void disableICECandidateFiltering();
     void enableICECandidateFiltering();
 
@@ -193,11 +198,10 @@ public:
     using AddIceCandidateCallbackFunction = void(ExceptionOr<std::optional<PeerConnectionBackend::DescriptionStates>>&&);
     using AddIceCandidateCallback = Function<AddIceCandidateCallbackFunction>;
 
-protected:
-    void fireICECandidateEvent(RefPtr<RTCIceCandidate>&&, String&& url);
-    void doneGatheringCandidates();
+    void iceGatheringStateChanged(RTCIceGatheringState);
 
-    void updateSignalingState(RTCSignalingState);
+protected:
+    void doneGatheringCandidates();
 
     void createOfferSucceeded(String&&);
     void createOfferFailed(Exception&&);
@@ -227,14 +231,13 @@ private:
     virtual void doSetLocalDescription(const RTCSessionDescription*) = 0;
     virtual void doSetRemoteDescription(const RTCSessionDescription&) = 0;
     virtual void doAddIceCandidate(RTCIceCandidate&, AddIceCandidateCallback&&) = 0;
-    virtual void endOfIceCandidates(DOMPromiseDeferred<void>&&);
     virtual void doStop() = 0;
 
 protected:
     RTCPeerConnection& m_peerConnection;
 
 private:
-    std::unique_ptr<PeerConnection::SessionDescriptionPromise> m_offerAnswerPromise;
+    CreateCallback m_offerAnswerCallback;
     Function<void(ExceptionOr<void>&&)> m_setDescriptionCallback;
 
     bool m_shouldFilterICECandidates { true };

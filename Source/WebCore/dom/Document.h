@@ -706,7 +706,7 @@ public:
 
     IDBClient::IDBConnectionProxy* idbConnectionProxy() final;
     RefPtr<PermissionController> permissionController() final;
-    StorageConnection* storageConnection() final;
+    StorageConnection* storageConnection();
     SocketProvider* socketProvider() final;
     RefPtr<RTCDataChannelRemoteHandlerConnection> createRTCDataChannelRemoteHandlerConnection() final;
 
@@ -1367,7 +1367,7 @@ public:
     bool isSameOriginAsTopDocument() const { return securityOrigin().isSameOriginAs(topOrigin()); }
     bool shouldForceNoOpenerBasedOnCOOP() const;
 
-    const CrossOriginOpenerPolicy& crossOriginOpenerPolicy() const final;
+    WEBCORE_EXPORT const CrossOriginOpenerPolicy& crossOriginOpenerPolicy() const final;
     void setCrossOriginOpenerPolicy(const CrossOriginOpenerPolicy&);
 
     void willLoadScriptElement(const URL&);
@@ -1428,7 +1428,6 @@ public:
 
     void scheduleRenderingUpdate(OptionSet<RenderingUpdateStep>);
 
-#if ENABLE(INTERSECTION_OBSERVER)
     void addIntersectionObserver(IntersectionObserver&);
     void removeIntersectionObserver(IntersectionObserver&);
     unsigned numberOfIntersectionObservers() const { return m_intersectionObservers.size(); }
@@ -1436,9 +1435,7 @@ public:
     void scheduleInitialIntersectionObservationUpdate();
     IntersectionObserverData& ensureIntersectionObserverData();
     IntersectionObserverData* intersectionObserverDataIfExists() { return m_intersectionObserverData.get(); }
-#endif
 
-#if ENABLE(RESIZE_OBSERVER)
     void addResizeObserver(ResizeObserver&);
     void removeResizeObserver(ResizeObserver&);
     unsigned numberOfResizeObservers() const { return m_resizeObservers.size(); }
@@ -1449,7 +1446,6 @@ public:
     bool hasSkippedResizeObservations() const;
     void setHasSkippedResizeObservations(bool);
     void updateResizeObservations(Page&);
-#endif
 
 #if ENABLE(MEDIA_STREAM)
     void setHasCaptureMediaStreamTrack() { m_hasHadCaptureMediaStreamTrack = true; }
@@ -1552,7 +1548,7 @@ public:
     bool handlingTouchEvent() const { return m_handlingTouchEvent; }
 #endif
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     WEBCORE_EXPORT bool hasRequestedPageSpecificStorageAccessWithUserInteraction(const RegistrableDomain&);
     WEBCORE_EXPORT void setHasRequestedPageSpecificStorageAccessWithUserInteraction(const RegistrableDomain&);
     WEBCORE_EXPORT void wasLoadedWithDataTransferFromPrevalentResource();
@@ -1932,17 +1928,13 @@ private:
 
     WeakHashSet<HTMLImageElement> m_dynamicMediaQueryDependentImages;
 
-#if ENABLE(INTERSECTION_OBSERVER)
     Vector<WeakPtr<IntersectionObserver>> m_intersectionObservers;
     Vector<WeakPtr<IntersectionObserver>> m_intersectionObserversWithPendingNotifications;
     Timer m_intersectionObserversInitialUpdateTimer;
     // This is only non-null when this document is an explicit root.
     std::unique_ptr<IntersectionObserverData> m_intersectionObserverData;
-#endif
 
-#if ENABLE(RESIZE_OBSERVER)
     Vector<WeakPtr<ResizeObserver>> m_resizeObservers;
-#endif
 
     Timer m_loadEventDelayTimer;
 
@@ -2044,7 +2036,7 @@ private:
 
     std::optional<WallTime> m_overrideLastModified;
 
-    HashSet<RefPtr<Element>> m_associatedFormControls;
+    WeakHashSet<Element> m_associatedFormControls;
     unsigned m_disabledFieldsetElementsCount { 0 };
 
     unsigned m_dataListElementCount { 0 };
@@ -2184,7 +2176,7 @@ private:
     RefPtr<SWClientConnection> m_serviceWorkerConnection;
 #endif
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     RegistrableDomain m_registrableDomainRequestedPageSpecificStorageAccessWithUserInteraction { };
     String m_referrerOverride;
 #endif

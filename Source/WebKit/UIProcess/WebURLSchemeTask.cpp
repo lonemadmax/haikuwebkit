@@ -44,8 +44,8 @@ Ref<WebURLSchemeTask> WebURLSchemeTask::create(WebURLSchemeHandler& handler, Web
 
 WebURLSchemeTask::WebURLSchemeTask(WebURLSchemeHandler& handler, WebPageProxy& page, WebProcessProxy& process, PageIdentifier webPageID, URLSchemeTaskParameters&& parameters, SyncLoadCompletionHandler&& syncCompletionHandler)
     : m_urlSchemeHandler(handler)
-    , m_process(makeRef(process))
-    , m_identifier(parameters.taskIdentifier)
+    , m_process(&process)
+    , m_resourceLoaderID(parameters.taskIdentifier)
     , m_pageProxyID(page.identifier())
     , m_webPageID(webPageID)
     , m_request(WTFMove(parameters.request))
@@ -100,13 +100,13 @@ auto WebURLSchemeTask::willPerformRedirection(ResourceResponse&& response, Resou
 
     m_waitingForRedirectCompletionHandlerCallback = true;
 
-    Function<void(ResourceRequest&&)> innerCompletionHandler = [protectedThis = makeRef(*this), this, completionHandler = WTFMove(completionHandler)] (ResourceRequest&& request) mutable {
+    Function<void(ResourceRequest&&)> innerCompletionHandler = [protectedThis = Ref { *this }, this, completionHandler = WTFMove(completionHandler)] (ResourceRequest&& request) mutable {
         m_waitingForRedirectCompletionHandlerCallback = false;
         if (!m_stopped && !m_completed)
             completionHandler(WTFMove(request));
     };
 
-    page->sendWithAsyncReply(Messages::WebPage::URLSchemeTaskWillPerformRedirection(m_urlSchemeHandler->identifier(), m_identifier, response, request), WTFMove(innerCompletionHandler));
+    page->sendWithAsyncReply(Messages::WebPage::URLSchemeTaskWillPerformRedirection(m_urlSchemeHandler->identifier(), m_resourceLoaderID, response, request), WTFMove(innerCompletionHandler));
 
     return ExceptionType::None;
 }
@@ -138,7 +138,7 @@ auto WebURLSchemeTask::didPerformRedirection(WebCore::ResourceResponse&& respons
         m_request = request;
     }
 
-    m_process->send(Messages::WebPage::URLSchemeTaskDidPerformRedirection(m_urlSchemeHandler->identifier(), m_identifier, response, request), m_webPageID);
+    m_process->send(Messages::WebPage::URLSchemeTaskDidPerformRedirection(m_urlSchemeHandler->identifier(), m_resourceLoaderID, response, request), m_webPageID);
 
     return ExceptionType::None;
 }
@@ -164,7 +164,7 @@ auto WebURLSchemeTask::didReceiveResponse(const ResourceResponse& response) -> E
     if (isSync())
         m_syncResponse = response;
 
-    m_process->send(Messages::WebPage::URLSchemeTaskDidReceiveResponse(m_urlSchemeHandler->identifier(), m_identifier, response), m_webPageID);
+    m_process->send(Messages::WebPage::URLSchemeTaskDidReceiveResponse(m_urlSchemeHandler->identifier(), m_resourceLoaderID, response), m_webPageID);
     return ExceptionType::None;
 }
 
@@ -194,7 +194,7 @@ auto WebURLSchemeTask::didReceiveData(Ref<SharedBuffer>&& buffer) -> ExceptionTy
         return ExceptionType::None;
     }
 
-    m_process->send(Messages::WebPage::URLSchemeTaskDidReceiveData(m_urlSchemeHandler->identifier(), m_identifier, buffer.get()), m_webPageID);
+    m_process->send(Messages::WebPage::URLSchemeTaskDidReceiveData(m_urlSchemeHandler->identifier(), m_resourceLoaderID, buffer.get()), m_webPageID);
     return ExceptionType::None;
 }
 
@@ -225,8 +225,8 @@ auto WebURLSchemeTask::didComplete(const ResourceError& error) -> ExceptionType
         m_syncData = nullptr;
     }
 
-    m_process->send(Messages::WebPage::URLSchemeTaskDidComplete(m_urlSchemeHandler->identifier(), m_identifier, error), m_webPageID);
-    m_urlSchemeHandler->taskCompleted(*this);
+    m_process->send(Messages::WebPage::URLSchemeTaskDidComplete(m_urlSchemeHandler->identifier(), m_resourceLoaderID, error), m_webPageID);
+    m_urlSchemeHandler->taskCompleted(pageProxyID(), *this);
 
     return ExceptionType::None;
 }

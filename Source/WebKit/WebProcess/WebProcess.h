@@ -76,6 +76,10 @@
 #include <WebCore/CaptionUserPreferences.h>
 #endif
 
+#if USE(ATSPI)
+#include <WebCore/AccessibilityAtspi.h>
+#endif
+
 namespace API {
 class Object;
 }
@@ -140,6 +144,7 @@ class WebCacheStorageProvider;
 class WebCookieJar;
 class WebCompiledContentRuleListData;
 class WebConnectionToUIProcess;
+class WebFileSystemStorageConnection;
 class WebFrame;
 class WebLoaderStrategy;
 class WebPage;
@@ -198,7 +203,7 @@ public:
     
     PAL::SessionID sessionID() const { ASSERT(m_sessionID); return *m_sessionID; }
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     WebCore::ThirdPartyCookieBlockingMode thirdPartyCookieBlockingMode() const { return m_thirdPartyCookieBlockingMode; }
 #endif
 
@@ -245,6 +250,7 @@ public:
     void networkProcessConnectionClosed(NetworkProcessConnection*);
     NetworkProcessConnection* existingNetworkProcessConnection() { return m_networkProcessConnection.get(); }
     WebLoaderStrategy& webLoaderStrategy();
+    WebFileSystemStorageConnection& fileSystemStorageConnection();
 
 #if ENABLE(GPU_PROCESS)
     GPUProcessConnection& ensureGPUProcessConnection();
@@ -398,6 +404,10 @@ public:
     SpeechRecognitionRealtimeMediaSourceManager& ensureSpeechRecognitionRealtimeMediaSourceManager();
 #endif
 
+#if USE(ATSPI)
+    WebCore::AccessibilityAtspi& accessibilityAtspi() const { return *m_accessibility; }
+#endif
+
 private:
     WebProcess();
     ~WebProcess();
@@ -524,7 +534,7 @@ private:
 
 #endif
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     void setThirdPartyCookieBlockingMode(WebCore::ThirdPartyCookieBlockingMode, CompletionHandler<void()>&&);
     void setDomainsWithUserInteraction(HashSet<WebCore::RegistrableDomain>&&);
     void setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, SubResourceDomain>&&, CompletionHandler<void()>&&);
@@ -607,6 +617,11 @@ private:
     void setUseSystemAppearanceForScrollbars(bool);
 #endif
 
+#if ENABLE(CFPREFS_DIRECT_MODE)
+    void handlePreferenceChange(const String& domain, const String& key, id value) final;
+    void dispatchSimulatedNotificationsForPreferenceChange(const String& key) final;
+#endif
+
     RefPtr<WebConnectionToUIProcess> m_webConnection;
 
     HashMap<WebCore::PageIdentifier, RefPtr<WebPage>> m_pageMap;
@@ -646,6 +661,7 @@ private:
     String m_uiProcessBundleIdentifier;
     RefPtr<NetworkProcessConnection> m_networkProcessConnection;
     WebLoaderStrategy& m_webLoaderStrategy;
+    RefPtr<WebFileSystemStorageConnection> m_fileSystemStorageConnection;
 
 #if ENABLE(GPU_PROCESS)
     RefPtr<GPUProcessConnection> m_gpuProcessConnection;
@@ -667,7 +683,7 @@ private:
     Ref<WebCore::ReportingEndpointsCache> m_reportingEndpointsCache;
     WebSocketChannelManager m_webSocketChannelManager;
 
-    std::unique_ptr<LibWebRTCNetwork> m_libWebRTCNetwork;
+    RefPtr<LibWebRTCNetwork> m_libWebRTCNetwork;
 
     HashSet<String> m_dnsPrefetchedHosts;
     PAL::HysteresisActivity m_dnsPrefetchHystereris;
@@ -744,7 +760,7 @@ private:
     // By the time the WebProcess gets a WebPage, it is guaranteed to have a sessionID.
     std::optional<PAL::SessionID> m_sessionID;
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     WebCore::ThirdPartyCookieBlockingMode m_thirdPartyCookieBlockingMode { WebCore::ThirdPartyCookieBlockingMode::All };
 #endif
 
@@ -765,6 +781,10 @@ private:
 
 #if ENABLE(MEDIA_STREAM)
     std::unique_ptr<SpeechRecognitionRealtimeMediaSourceManager> m_speechRecognitionRealtimeMediaSourceManager;
+#endif
+
+#if USE(ATSPI)
+    std::unique_ptr<WebCore::AccessibilityAtspi> m_accessibility;
 #endif
 };
 

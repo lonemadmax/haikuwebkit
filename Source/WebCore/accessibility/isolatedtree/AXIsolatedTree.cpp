@@ -30,6 +30,7 @@
 
 #include "AXIsolatedObject.h"
 #include "AXLogger.h"
+#include "FrameView.h"
 #include "Page.h"
 #include <wtf/NeverDestroyed.h>
 
@@ -133,7 +134,7 @@ RefPtr<AXIsolatedTree> AXIsolatedTree::treeForPageID(PageIdentifier pageID)
     Locker locker { s_cacheLock };
 
     if (auto tree = treePageCache().get(pageID))
-        return makeRefPtr(tree);
+        return RefPtr { tree };
 
     return nullptr;
 }

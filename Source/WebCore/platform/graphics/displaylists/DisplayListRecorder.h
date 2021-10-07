@@ -26,8 +26,8 @@
 #pragma once
 
 #include "DisplayList.h"
-#include "DisplayListDrawGlyphsRecorder.h"
 #include "DisplayListItems.h"
+#include "DrawGlyphsRecorder.h"
 #include "GraphicsContext.h"
 #include "Image.h" // For Image::TileRule.
 #include "TextFlags.h"
@@ -55,7 +55,7 @@ class Recorder : public GraphicsContext {
     WTF_MAKE_NONCOPYABLE(Recorder);
 public:
     class Delegate;
-    WEBCORE_EXPORT Recorder(DisplayList&, const GraphicsContextState&, const FloatRect& initialClip, const AffineTransform&, Delegate* = nullptr, DrawGlyphsRecorder::DrawGlyphsDeconstruction = DrawGlyphsRecorder::DrawGlyphsDeconstruction::Deconstruct);
+    WEBCORE_EXPORT Recorder(DisplayList&, const GraphicsContextState&, const FloatRect& initialClip, const AffineTransform&, Delegate* = nullptr, DrawGlyphsRecorder::DeconstructDrawGlyphs = DrawGlyphsRecorder::DeconstructDrawGlyphs::Yes);
     WEBCORE_EXPORT virtual ~Recorder();
 
     WEBCORE_EXPORT void getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect& sourceRect);
@@ -77,7 +77,6 @@ public:
     void flushContext(FlushIdentifier identifier) { append<FlushContext>(identifier); }
 
 private:
-    friend class DrawGlyphsRecorder;
     Recorder(Recorder& parent, const GraphicsContextState&, const FloatRect& initialClip, const AffineTransform& initialCTM);
 
     bool hasPlatformContext() const final { return false; }
@@ -94,6 +93,8 @@ private:
 
     void fillRoundedRectImpl(const FloatRoundedRect&, const Color&) final { ASSERT_NOT_REACHED(); }
     void drawLineForText(const FloatRect&, bool, bool, StrokeStyle) final { ASSERT_NOT_REACHED(); }
+
+    const GraphicsContextState& state() const final;
 
     void updateState(const GraphicsContextState&, GraphicsContextState::StateChangeFlags) final;
 
@@ -121,8 +122,7 @@ private:
 #endif
 
     void drawGlyphs(const Font&, const GlyphBufferGlyph*, const GlyphBufferAdvance*, unsigned numGlyphs, const FloatPoint& anchorPoint, FontSmoothingMode) final;
-
-    void appendDrawGlyphsItemWithCachedFont(const Font&, const GlyphBufferGlyph*, const GlyphBufferAdvance*, unsigned count, const FloatPoint& localAnchor, FontSmoothingMode);
+    void drawGlyphsAndCacheFont(const Font&, const GlyphBufferGlyph*, const GlyphBufferAdvance*, unsigned count, const FloatPoint& localAnchor, FontSmoothingMode);
 
     void drawImageBuffer(WebCore::ImageBuffer&, const FloatRect& destination, const FloatRect& source, const ImagePaintingOptions&) final;
     void drawNativeImage(NativeImage&, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions&) final;

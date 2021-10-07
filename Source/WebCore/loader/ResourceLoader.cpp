@@ -67,7 +67,7 @@
 #undef RESOURCELOADER_RELEASE_LOG
 #define PAGE_ID ((frame() ? frame()->pageID().value_or(PageIdentifier()) : PageIdentifier()).toUInt64())
 #define FRAME_ID ((frame() ? frame()->frameID().value_or(FrameIdentifier()) : FrameIdentifier()).toUInt64())
-#define RESOURCELOADER_RELEASE_LOG(fmt, ...) RELEASE_LOG(Network, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", frameLoader=%p, resourceID=%lu] ResourceLoader::" fmt, this, PAGE_ID, FRAME_ID, frameLoader(), identifier(), ##__VA_ARGS__)
+#define RESOURCELOADER_RELEASE_LOG(fmt, ...) RELEASE_LOG(Network, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", frameLoader=%p, resourceID=%" PRIu64 "] ResourceLoader::" fmt, this, PAGE_ID, FRAME_ID, frameLoader(), identifier().toUInt64(), ##__VA_ARGS__)
 
 namespace WebCore {
 
@@ -116,7 +116,7 @@ void ResourceLoader::releaseResources()
 
     finishNetworkLoad();
 
-    m_identifier = 0;
+    m_identifier = { };
 
     m_resourceData = nullptr;
     m_deferredRequest = ResourceRequest();
@@ -167,7 +167,7 @@ void ResourceLoader::init(ResourceRequest&& clientRequest, CompletionHandler<voi
     }
     FrameLoader::addSameSiteInfoToRequestIfNeeded(clientRequest, m_frame->document());
 
-    willSendRequestInternal(WTFMove(clientRequest), ResourceResponse(), [this, protectedThis = makeRef(*this), completionHandler = WTFMove(completionHandler)](ResourceRequest&& request) mutable {
+    willSendRequestInternal(WTFMove(clientRequest), ResourceResponse(), [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](ResourceRequest&& request) mutable {
 
 #if PLATFORM(IOS_FAMILY)
         // If this ResourceLoader was stopped as a result of willSendRequest, bail out.
@@ -191,7 +191,7 @@ void ResourceLoader::init(ResourceRequest&& clientRequest, CompletionHandler<voi
 
 void ResourceLoader::deliverResponseAndData(const ResourceResponse& response, RefPtr<SharedBuffer>&& buffer)
 {
-    didReceiveResponse(response, [this, protectedThis = makeRef(*this), buffer = WTFMove(buffer)]() mutable {
+    didReceiveResponse(response, [this, protectedThis = Ref { *this }, buffer = WTFMove(buffer)]() mutable {
         if (reachedTerminalState())
             return;
 
@@ -285,7 +285,7 @@ void ResourceLoader::loadDataURL()
     auto mode = DataURLDecoder::Mode::Legacy;
     if (m_request.requester() == ResourceRequest::Requester::Fetch)
         mode = DataURLDecoder::Mode::ForgivingBase64;
-    DataURLDecoder::decode(url, scheduleContext, mode, [this, protectedThis = makeRef(*this), url](auto decodeResult) mutable {
+    DataURLDecoder::decode(url, scheduleContext, mode, [this, protectedThis = Ref { *this }, url](auto decodeResult) mutable {
         if (this->reachedTerminalState())
             return;
         if (!decodeResult) {
@@ -373,7 +373,7 @@ void ResourceLoader::willSendRequestInternal(ResourceRequest&& request, const Re
     // We need a resource identifier for all requests, even if FrameLoader is never going to see it (such as with CORS preflight requests).
     bool createdResourceIdentifier = false;
     if (!m_identifier) {
-        m_identifier = m_frame->page()->progress().createUniqueIdentifier();
+        m_identifier = ResourceLoaderIdentifier::generate();
         createdResourceIdentifier = true;
     }
 
@@ -430,7 +430,7 @@ void ResourceLoader::willSendRequestInternal(ResourceRequest&& request, const Re
     if (isRedirect) {
         RESOURCELOADER_RELEASE_LOG("willSendRequestInternal: Processing cross-origin redirect");
         platformStrategies()->loaderStrategy()->crossOriginRedirectReceived(this, request.url());
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
         frameLoader()->client().didLoadFromRegistrableDomain(RegistrableDomain(request.url()));
 #endif
     }

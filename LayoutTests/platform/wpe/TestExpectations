@@ -178,6 +178,7 @@ imported/w3c/web-platform-tests/css/css-contain/contain-size-inline-block-003.ht
 
 # Accessibility
 webkit.org/b/225479 accessibility/aria-modal.html [ Timeout ]
+webkit.org/b/225479 accessibility/dialog-showModal.html [ Timeout ]
 
 # Complex Text Path: Tests passing with --complex-text
 webkit.org/b/215355 fonts/ligature.html [ ImageOnlyFailure ]
@@ -230,6 +231,9 @@ webkit.org/b/212083 loader/navigation-policy/should-open-external-urls/user-gest
 webkit.org/b/212083 loader/navigation-policy/should-open-external-urls/user-gesture-window-open-without-flag.html
 webkit.org/b/212145 http/tests/navigation/no-referrer-reset.html [ Timeout ]
 webkit.org/b/212145 http/tests/navigation/no-referrer-target-blank.html [ Timeout ]
+
+# Mediastream
+webkit.org/b/213202 fast/mediastream/getUserMedia-grant-persistency3.html [ Failure ]
 
 # Media Queries
 webkit.org/b/226521 [ Release ] imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/source-media-outside-doc.html [ Pass Failure ]
@@ -1450,6 +1454,10 @@ Bug(WPE) media/media-playback-page-visibility.html [ Timeout ]
 Bug(WPE) media/video-canvas-createPattern.html [ Failure ]
 
 webkit.org/b/210226 imported/w3c/web-platform-tests/IndexedDB/interleaved-cursors-small.html [ Failure ]
+
+webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/backface-visibility-hidden-006.html [ ImageOnlyFailure ]
+webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/composited-under-rotateY-180deg-clip-perspective.html [ ImageOnlyFailure ]
+webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/scrollable-scroll-3d-transform-z.html [ ImageOnlyFailure ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # UNSORTED Expectations. When in doubt, put it here.

@@ -60,6 +60,7 @@ enum class CSSUnitType : uint8_t {
     CSS_VMIN,
     CSS_VMAX,
     CSS_DPPX,
+    CSS_X,
     CSS_DPI,
     CSS_DPCM,
     CSS_FR,
@@ -74,6 +75,7 @@ enum class CSSUnitType : uint8_t {
     CSS_TURN,
     CSS_REMS,
     CSS_CHS,
+    CSS_IC,
 
     CSS_COUNTER_NAME,
 

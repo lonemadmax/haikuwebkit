@@ -336,13 +336,13 @@ void SpeculativeJIT::nonSpeculativePeepholeBranchNullOrUndefined(Edge operand, N
     }
 }
 
-void SpeculativeJIT::compileNeitherDoubleNorHeapBigIntToNotDoubleStrictEquality(Node* node, Edge neitherDoubleNorHeapBigIntChild, Edge notDoubleChild)
+void SpeculativeJIT::compileNeitherDoubleNorHeapBigIntToNotDoubleStrictEquality(Node* node, Edge leftNeitherDoubleNorHeapBigIntChild, Edge rightNotDoubleChild)
 {
-    ASSERT(neitherDoubleNorHeapBigIntChild.useKind() == NeitherDoubleNorHeapBigIntUse);
-    ASSERT(notDoubleChild.useKind() == NotDoubleUse);
+    ASSERT(leftNeitherDoubleNorHeapBigIntChild.useKind() == NeitherDoubleNorHeapBigIntUse);
+    ASSERT(rightNotDoubleChild.useKind() == NotDoubleUse);
 
-    JSValueOperand left(this, neitherDoubleNorHeapBigIntChild, ManualOperandSpeculation);
-    JSValueOperand right(this, notDoubleChild, ManualOperandSpeculation);
+    JSValueOperand left(this, leftNeitherDoubleNorHeapBigIntChild, ManualOperandSpeculation);
+    JSValueOperand right(this, rightNotDoubleChild, ManualOperandSpeculation);
 
     GPRTemporary temp(this);
     GPRTemporary leftTemp(this);
@@ -352,8 +352,6 @@ void SpeculativeJIT::compileNeitherDoubleNorHeapBigIntToNotDoubleStrictEquality(
     JSValueRegs leftRegs = left.jsValueRegs();
     JSValueRegs rightRegs = right.jsValueRegs();
 
-    GPRReg leftGPR = leftRegs.payloadGPR();
-    GPRReg rightGPR = rightRegs.payloadGPR();
     GPRReg tempGPR = temp.gpr();
     GPRReg leftTempGPR = leftTemp.gpr();
     GPRReg rightTempGPR = rightTemp.gpr();
@@ -362,7 +360,7 @@ void SpeculativeJIT::compileNeitherDoubleNorHeapBigIntToNotDoubleStrictEquality(
 
     // We try to avoid repeated and redundant checks here, which leads to the following pseudo-code:
     /*
-     if (left == true) {
+     if (left == right) {
        speculateNeitherDoubleNorHeapBigInt(left);
        return true;
      }
@@ -385,44 +383,40 @@ void SpeculativeJIT::compileNeitherDoubleNorHeapBigIntToNotDoubleStrictEquality(
     JITCompiler::JumpList trueCase;
     JITCompiler::JumpList falseCase;
 
-    JITCompiler::Jump notEqual = m_jit.branch64(JITCompiler::NotEqual, leftGPR, rightGPR);
+    JITCompiler::Jump notEqual = m_jit.branch64(JITCompiler::NotEqual, leftRegs.payloadGPR(), rightRegs.payloadGPR());
     // We cannot use speculateNeitherDoubleNorHeapBigInt here, because it updates the interpreter state, and we can skip over it.
     // So we would always skip the speculateNotDouble that follows.
-    if (needsTypeCheck(neitherDoubleNorHeapBigIntChild, ~SpecFullDouble)) {
-        if (needsTypeCheck(neitherDoubleNorHeapBigIntChild, ~SpecInt32Only))
+    if (needsTypeCheck(leftNeitherDoubleNorHeapBigIntChild, ~SpecFullDouble)) {
+        if (needsTypeCheck(leftNeitherDoubleNorHeapBigIntChild, ~SpecInt32Only))
             trueCase.append(m_jit.branchIfInt32(leftRegs));
-        speculationCheck(BadType, leftRegs, neitherDoubleNorHeapBigIntChild.node(), m_jit.branchIfNumber(leftRegs, tempGPR));
+        speculationCheck(BadType, leftRegs, leftNeitherDoubleNorHeapBigIntChild.node(), m_jit.branchIfNumber(leftRegs, tempGPR));
     }
-    if (needsTypeCheck(neitherDoubleNorHeapBigIntChild, ~SpecHeapBigInt)) {
-        if (needsTypeCheck(neitherDoubleNorHeapBigIntChild, SpecCell))
+    if (needsTypeCheck(leftNeitherDoubleNorHeapBigIntChild, ~SpecHeapBigInt)) {
+        if (needsTypeCheck(leftNeitherDoubleNorHeapBigIntChild, SpecCell))
             trueCase.append(m_jit.branchIfNotCell(leftRegs));
-        speculationCheck(BadType, leftRegs, neitherDoubleNorHeapBigIntChild.node(), m_jit.branchIfHeapBigInt(leftGPR));
+        speculationCheck(BadType, leftRegs, leftNeitherDoubleNorHeapBigIntChild.node(), m_jit.branchIfHeapBigInt(leftRegs.payloadGPR()));
     }
     trueCase.append(m_jit.jump());
     notEqual.link(&m_jit);
 
-    speculateNotDouble(notDoubleChild, rightRegs, tempGPR);
-    speculateNotDouble(neitherDoubleNorHeapBigIntChild, leftRegs, tempGPR);
+    speculateNotDouble(rightNotDoubleChild, rightRegs, tempGPR);
+    speculateNotDouble(leftNeitherDoubleNorHeapBigIntChild, leftRegs, tempGPR);
 
-    bool leftMayBeNotCell = needsTypeCheck(neitherDoubleNorHeapBigIntChild, SpecCellCheck);
-    if (leftMayBeNotCell)
+    if (needsTypeCheck(leftNeitherDoubleNorHeapBigIntChild, SpecCellCheck))
         falseCase.append(m_jit.branchIfNotCell(leftRegs));
 
-    DFG_TYPE_CHECK(leftRegs, neitherDoubleNorHeapBigIntChild, ~SpecHeapBigInt, m_jit.branchIfHeapBigInt(leftGPR));
+    DFG_TYPE_CHECK(leftRegs, leftNeitherDoubleNorHeapBigIntChild, ~SpecHeapBigInt, m_jit.branchIfHeapBigInt(leftRegs.payloadGPR()));
 
-    bool leftMayBeNotStringKnowingCell = needsTypeCheck(neitherDoubleNorHeapBigIntChild, (~SpecString) & SpecCellCheck);
-    if (leftMayBeNotStringKnowingCell)
-        falseCase.append(m_jit.branchIfNotString(leftGPR));
+    if (needsTypeCheck(leftNeitherDoubleNorHeapBigIntChild, SpecString))
+        falseCase.append(m_jit.branchIfNotString(leftRegs.payloadGPR()));
 
-    bool rightMayBeNotCell = needsTypeCheck(notDoubleChild, SpecCellCheck);
-    if (rightMayBeNotCell)
+    if (needsTypeCheck(rightNotDoubleChild, SpecCellCheck))
         falseCase.append(m_jit.branchIfNotCell(rightRegs));
 
-    bool rightMayBeNotStringKnowingCell = needsTypeCheck(notDoubleChild, (~SpecString) & SpecCellCheck);
-    if (rightMayBeNotStringKnowingCell)
-        falseCase.append(m_jit.branchIfNotString(rightGPR));
+    if (needsTypeCheck(rightNotDoubleChild, SpecString))
+        falseCase.append(m_jit.branchIfNotString(rightRegs.payloadGPR()));
 
-    compileStringEquality(node, leftGPR, rightGPR, tempGPR, leftTempGPR, rightTempGPR, leftTemp2GPR, rightTemp2GPR, trueCase, falseCase);
+    compileStringEquality(node, leftRegs.payloadGPR(), rightRegs.payloadGPR(), tempGPR, leftTempGPR, rightTempGPR, leftTemp2GPR, rightTemp2GPR, trueCase, falseCase);
 }
 
 void SpeculativeJIT::nonSpeculativePeepholeStrictEq(Node* node, Node* branchNode, bool invert)
@@ -834,6 +828,7 @@ void SpeculativeJIT::emitCall(Node* node)
             shuffleData.callee = ValueRecovery::inGPR(calleeGPR, DataFormatJS);
             shuffleData.args.resize(numAllocatedArgs);
             shuffleData.numPassedArgs = numPassedArgs;
+            shuffleData.numParameters = m_jit.codeBlock()->numParameters();
             
             for (unsigned i = 0; i < numPassedArgs; ++i) {
                 Edge argEdge = m_jit.graph().varArgChild(node, i + 1);
@@ -985,7 +980,7 @@ void SpeculativeJIT::emitCall(Node* node)
     
     CCallHelpers::JumpList slowCases;
     if (isTail) {
-        slowCases = callLinkInfo->emitTailCallFastPath(m_jit, calleeGPR, InvalidGPRReg, CallLinkInfo::UseDataIC::No, [&] {
+        slowCases = callLinkInfo->emitTailCallFastPath(m_jit, calleeGPR, [&] {
             if (node->op() == TailCall) {
                 callLinkInfo->setFrameShuffleData(shuffleData);
                 CallFrameShuffler(m_jit, shuffleData).prepareForTailCall();
@@ -2706,7 +2701,7 @@ void SpeculativeJIT::compile(Node* node)
     if constexpr (validateDFGDoesGC) {
         if (Options::validateDoesGC()) {
             bool expectDoesGC = doesGC(m_jit.graph(), node);
-            m_jit.store32(TrustedImm32(DoesGCCheck::encode(expectDoesGC, node->index(), node->op())), vm().heap.addressOfDoesGC());
+            m_jit.store64(TrustedImm64(DoesGCCheck::encode(expectDoesGC, node->index(), node->op())), vm().heap.addressOfDoesGC());
         }
     }
 
@@ -6349,6 +6344,114 @@ void SpeculativeJIT::compileDateGet(Node* node)
 
     default:
         RELEASE_ASSERT_NOT_REACHED();
+    }
+}
+
+void SpeculativeJIT::compileEnumeratorGetByVal(Node* node)
+{
+    Edge baseEdge = m_graph.varArgChild(node, 0);
+    auto generate = [&] (GPRReg baseCellGPR) {
+        MacroAssembler::JumpList doneCases;
+        JSValueRegsTemporary result;
+        JSValueRegs resultRegs;
+        GPRReg indexGPR;
+        GPRReg enumeratorGPR;
+        MacroAssembler::Jump badStructureSlowPath;
+
+        compileGetByVal(node, scopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat)>([&] (DataFormat) {
+            Edge storageEdge = m_graph.varArgChild(node, 2);
+            StorageOperand storage;
+            if (storageEdge)
+                storage.emplace(this, storageEdge);
+            SpeculateStrictInt32Operand index(this, m_graph.varArgChild(node, 3));
+            SpeculateStrictInt32Operand mode(this, m_graph.varArgChild(node, 4));
+            SpeculateCellOperand enumerator(this, m_graph.varArgChild(node, 5));
+
+            GPRReg modeGPR = mode.gpr();
+            indexGPR = index.gpr();
+            enumeratorGPR = enumerator.gpr();
+
+            result = JSValueRegsTemporary(this);
+            resultRegs = result.regs();
+            GPRReg scratchGPR = resultRegs.payloadGPR();
+
+            bool haveStorage = !!storageEdge;
+            GPRTemporary storageTemporary;
+            GPRReg storageGPR;
+            if (!haveStorage) {
+                storageTemporary = GPRTemporary(this, Reuse, enumerator);
+                storageGPR = storageTemporary.gpr();
+            } else
+                storageGPR = storage.gpr();
+
+            MacroAssembler::JumpList notFastNamedCases;
+
+            // FIXME: We shouldn't generate this code if we know base is not an object.
+            notFastNamedCases.append(m_jit.branchTest32(MacroAssembler::NonZero, modeGPR, TrustedImm32(JSPropertyNameEnumerator::IndexedMode | JSPropertyNameEnumerator::GenericMode)));
+            {
+                if (!m_state.forNode(baseEdge).isType(SpecCell))
+                    notFastNamedCases.append(m_jit.branchIfNotCell(baseCellGPR));
+
+                // Check the structure
+                // FIXME: If we know there's only one structure for base we can just embed it here.
+                m_jit.load32(MacroAssembler::Address(baseCellGPR, JSCell::structureIDOffset()), scratchGPR);
+
+                auto badStructure = m_jit.branch32(
+                    MacroAssembler::NotEqual,
+                    scratchGPR,
+                    MacroAssembler::Address(
+                        enumeratorGPR, JSPropertyNameEnumerator::cachedStructureIDOffset()));
+
+                // FIXME: Maybe we should have a better way to represent Indexed+Named?
+                if (m_graph.varArgChild(node, 1).node() == m_graph.varArgChild(node, 3).node())
+                    badStructureSlowPath = badStructure;
+                else
+                    notFastNamedCases.append(badStructure);
+
+                // Compute the offset
+                // If index is less than the enumerator's cached inline storage, then it's an inline access
+                MacroAssembler::Jump outOfLineAccess = m_jit.branch32(MacroAssembler::AboveOrEqual,
+                    indexGPR, MacroAssembler::Address(enumeratorGPR, JSPropertyNameEnumerator::cachedInlineCapacityOffset()));
+
+                m_jit.loadValue(MacroAssembler::BaseIndex(baseCellGPR, indexGPR, MacroAssembler::TimesEight, JSObject::offsetOfInlineStorage()), resultRegs);
+
+                doneCases.append(m_jit.jump());
+
+                // Otherwise it's out of line
+                outOfLineAccess.link(&m_jit);
+                m_jit.move(indexGPR, scratchGPR);
+                m_jit.sub32(MacroAssembler::Address(enumeratorGPR, JSPropertyNameEnumerator::cachedInlineCapacityOffset()), scratchGPR);
+                m_jit.neg32(scratchGPR);
+                m_jit.signExtend32ToPtr(scratchGPR, scratchGPR);
+                if (!haveStorage)
+                    m_jit.loadPtr(MacroAssembler::Address(baseCellGPR, JSObject::butterflyOffset()), storageGPR);
+                constexpr intptr_t offsetOfFirstProperty = offsetInButterfly(firstOutOfLineOffset) * static_cast<intptr_t>(sizeof(EncodedJSValue));
+                m_jit.loadValue(MacroAssembler::BaseIndex(storageGPR, scratchGPR, MacroAssembler::TimesEight, offsetOfFirstProperty), resultRegs);
+                doneCases.append(m_jit.jump());
+            }
+
+            notFastNamedCases.link(&m_jit);
+            return std::make_pair(resultRegs, DataFormatJS);
+        }));
+
+        // We rely on compileGetByVal to call jsValueResult for us.
+        // FIXME: This is kinda hacky...
+        ASSERT(generationInfo(node).jsValueRegs() == resultRegs && generationInfo(node).registerFormat() == DataFormatJS);
+
+        if (badStructureSlowPath.isSet())
+            addSlowPathGenerator(slowPathCall(badStructureSlowPath, this, operationEnumeratorRecoverNameAndGetByVal, resultRegs, TrustedImmPtr::weakPointer(m_graph, m_graph.globalObjectFor(node->origin.semantic)), baseCellGPR, indexGPR, enumeratorGPR));
+
+        doneCases.link(&m_jit);
+    };
+
+    if (isCell(baseEdge.useKind())) {
+        // Use manual operand speculation since Fixup may have picked a UseKind more restrictive than CellUse.
+        speculate(node, baseEdge);
+        SpeculateCellOperand baseOperand(this, baseEdge, ManualOperandSpeculation);
+        generate(baseOperand.gpr());
+    } else {
+        JSValueOperand baseOperand(this, baseEdge);
+        generate(baseOperand.gpr());
     }
 }
 

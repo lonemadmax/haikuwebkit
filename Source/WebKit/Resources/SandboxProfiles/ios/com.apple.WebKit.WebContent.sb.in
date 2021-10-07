@@ -24,7 +24,11 @@
 (version 1)
 (deny default (with partial-symbolication))
 (deny nvram*)
+(deny system-privilege)
 (allow system-audit file-read-metadata)
+
+;; Silence spurious logging due to rdar://20117923 and rdar://72366475
+(deny system-privilege (privilege-id PRIV_GLOBAL_PROC_INFO) (with no-report))
 
 ;;;
 ;;; The following rules were originally contained in 'common.sb'. We are duplicating them here so we can
@@ -80,11 +84,12 @@
 
 (define-once (mobile-preferences-read . domains)
     (allow-preferences-common)
-    (allow user-preference-read (apply preference-domain domains)))
-
-(define-once (mobile-preferences-read-write . domains)
-    (allow-preferences-common)
-    (allow user-preference-read user-preference-write (apply preference-domain domains)))
+    (for-each (lambda (domain)
+        (begin
+            (allow user-preference-read (preference-domain domain))
+            (allow file-read*
+                (home-literal (string-append "/Library/Preferences/" domain ".plist")))))
+        domains))
 
 (define-once (framebuffer-access)
     (allow iokit-open
@@ -138,18 +143,6 @@
             (require-all
                 (apply require-any filters)
                 (extension-class "com.apple.mediaserverd.read"))))
-    (allow file-issue-extension
-        (require-all
-            (extension-class "com.apple.mediaserverd.read")
-            (extension "com.apple.security.exception.files.absolute-path.read-only"
-                       "com.apple.security.exception.files.absolute-path.read-write"
-                       "com.apple.security.exception.files.home-relative-path.read-only"
-                       "com.apple.security.exception.files.home-relative-path.read-write")))
-    (allow file-issue-extension
-        (require-all
-            (extension-class "com.apple.mediaserverd.read-write")
-            (extension "com.apple.security.exception.files.absolute-path.read-write"
-                       "com.apple.security.exception.files.home-relative-path.read-write")))
 
     (mobile-preferences-read
         "com.apple.avfoundation"
@@ -205,7 +198,7 @@
 (define-once (media-accessibility-support)
     ;; <rdar://problem/12250145>
     (mobile-preferences-read "com.apple.mediaaccessibility")
-    (mobile-preferences-read-write "com.apple.mediaaccessibility.public")
+    (mobile-preferences-read "com.apple.mediaaccessibility.public")
 )
 
 (define-once (url-translation)
@@ -527,11 +520,6 @@
 )
 
 (define-once (dictionary-support)
-    ; Dictionary Services used by UITextFields.
-    ; <rdar://problem/9386926>
-    (allow-create-directory
-        (home-literal "/Library/Caches/com.apple.DictionaryServices"))
-
     ; <rdar://problem/8548856> Sub-TLF: Sandbox change for apps for read-only access to the dictionary directory/data
     (allow file-read*
         ; XXX - /Library ought to be allowed in all UI profiles but isn't (CF, MobileSafari)
@@ -580,7 +568,7 @@
     (allow file-read*
            (subpath "/private/var/preferences/Logging"))
 
-    (mobile-preferences-read "kCFPreferencesAnyApplication")
+    (allow user-preference-read (preference-domain "kCFPreferencesAnyApplication"))
     (allow file-read*
            (front-user-home-literal "/Library/Preferences/.GlobalPreferences.plist")
            (front-user-home-literal "/Library/Preferences/.GlobalPreferences_m.plist"))
@@ -606,53 +594,25 @@
             (extension
                 "com.apple.app-sandbox.read"
                 "com.apple.app-sandbox.read-write"
-                "com.apple.quicklook.readonly"
-                "com.apple.security.exception.files.absolute-path.read-only"
-                "com.apple.security.exception.files.absolute-path.read-write"
-                "com.apple.security.exception.files.home-relative-path.read-only"
-                "com.apple.security.exception.files.home-relative-path.read-write"
                 "com.apple.sharing.airdrop.readonly")
             (allow file-read* file-read-metadata)
             (allow file-issue-extension
                    (extension-class "com.apple.app-sandbox.read"
                                     "com.apple.mediaserverd.read"
-                                    "com.apple.quicklook.readonly"
                                     "com.apple.sharing.airdrop.readonly")))
         (with-filter
             (extension
-                "com.apple.app-sandbox.read-write"
-                "com.apple.security.exception.files.absolute-path.read-write"
-                "com.apple.security.exception.files.home-relative-path.read-write")
+                "com.apple.app-sandbox.read-write")
             (allow file-write*)
             (allow file-issue-extension
                    (extension-class "com.apple.app-sandbox.read-write"
                                     "com.apple.mediaserverd.read-write"))))
 
     ;; <rdar://problem/16079361>
-    (with-filter (global-name-prefix "")
-        (allow mach-register
-               (extension "com.apple.security.exception.mach-register.global-name")))
-    (with-filter (local-name-prefix "")
-        (allow mach-register
-               (extension "com.apple.security.exception.mach-register.local-name")))
-    (allow-read-and-issue-generic-extensions
-           (extension "com.apple.security.exception.files.absolute-path.read-only")
-           (extension "com.apple.security.exception.files.home-relative-path.read-only"))
-    (allow-read-write-and-issue-generic-extensions
-           (extension "com.apple.security.exception.files.absolute-path.read-write")
-           (extension "com.apple.security.exception.files.home-relative-path.read-write"))
     (allow managed-preference-read
            (extension "com.apple.security.exception.managed-preference.read-only"))
     (allow user-preference-read
            (extension "com.apple.security.exception.shared-preference.read-only"))
-
-    (allow file-issue-extension
-          (require-all
-              (extension-class "com.apple.nsurlstorage.extension-cache")
-              (extension "com.apple.security.exception.files.home-relative-path.read-write")
-              (require-any
-                  (prefix "/private/var/root/Library/Caches/")
-                  (front-user-home-prefix "/Library/Caches/"))))
 )
 
 (with-filter (system-attribute apple-internal)
@@ -847,9 +807,6 @@
 
 (uikit-requirements)
 
-;; <rdar://problem/9404009>
-(mobile-preferences-read "kCFPreferencesAnyApplication")
-
 (dictionary-support)
 
 ; <rdar://problem/8440231>
@@ -880,51 +837,7 @@
 ;;; End UIKit-apps.sb content
 ;;;
 
-;; In CFPrefs direct mode, access to preference files is required.
-(allow file-read*
-    (home-literal
-        "/Library/Preferences/com.apple.Accessibility.plist"
-        "/Library/Preferences/com.apple.AdLib.plist"
-        "/Library/Preferences/com.apple.EmojiPreferences.plist"
-        "/Library/Preferences/com.apple.InputModePreferences.plist"
-        "/Library/Preferences/com.apple.LaunchServices.plist"
-        "/Library/Preferences/com.apple.Metal.plist"
-        "/Library/Preferences/com.apple.MobileAsset.plist"
-        "/Library/Preferences/com.apple.Preferences.plist"
-        "/Library/Preferences/com.apple.PrototypeTools.plist"
-        "/Library/Preferences/com.apple.SpeakSelection.plist"
-        "/Library/Preferences/com.apple.UIKit.plist"
-        "/Library/Preferences/com.apple.VoiceOverTouch.plist"
-        "/Library/Preferences/com.apple.WebFoundation.plist"
-        "/Library/Preferences/com.apple.WebUI.plist"
-        "/Library/Preferences/com.apple.airplay.plist"
-        "/Library/Preferences/com.apple.audio.virtualaudio.plist"
-        "/Library/Preferences/com.apple.avfoundation.plist"
-        "/Library/Preferences/com.apple.avfoundation.frecents.plist"
-        "/Library/Preferences/com.apple.avfoundation.videoperformancehud.plist"
-        "/Library/Preferences/com.apple.avkit.plist"
-        "/Library/Preferences/com.apple.coreanimation.plist"
-        "/Library/Preferences/com.apple.coreaudio.plist"
-        "/Library/Preferences/com.apple.coremedia.plist"
-        "/Library/Preferences/com.apple.corevideo.plist"
-        "/Library/Preferences/com.apple.da.plist"
-        "/Library/Preferences/com.apple.keyboard.plist"
-        "/Library/Preferences/com.apple.lookup.shared.plist"
-        "/Library/Preferences/com.apple.mediaaccessibility.plist"
-        "/Library/Preferences/com.apple.mediaaccessibility.public.plist"
-        "/Library/Preferences/com.apple.mediaremote.plist"
-        "/Library/Preferences/com.apple.mobileipod.plist"
-        "/Library/Preferences/com.apple.mt.plist"
-        "/Library/Preferences/com.apple.hangtracer.plist"
-        "/Library/Preferences/com.apple.iokit.IOMobileGraphicsFamily.plist"
-        "/Library/Preferences/com.apple.itunesstored.plist"
-        "/Library/Preferences/com.apple.opengl.plist"
-        "/Library/Preferences/com.apple.preferences.sounds.plist"
-        "/Library/Preferences/com.apple.security.plist"
-        "/Library/Preferences/com.apple.voiceservices.plist"
-        "/Library/Preferences/com.apple.voiceservices.logging.plist"
-    )
-)
+(mobile-preferences-read "com.apple.AdLib.plist")
 
 (deny file-read* (with no-report)
     (home-literal
@@ -1381,7 +1294,6 @@
         (syscall-number SYS_necp_client_action)
         (syscall-number SYS_ulock_wait)
         (syscall-number SYS_ulock_wake)
-        (syscall-number SYS_kdebug_typefilter)
         (syscall-number SYS_shared_region_check_np)
         (syscall-number SYS_getpid)
         (syscall-number SYS_bsdthread_register)
@@ -1403,7 +1315,6 @@
         (syscall-number SYS_open_dprotected_np)
         (syscall-number SYS_pread_nocancel)
         (syscall-number SYS___semwait_signal_nocancel)
-        (syscall-number SYS_kdebug_trace_string) ;; Needed for performance sampling, see <rdar://problem/48829655>.
         (syscall-number SYS_fgetattrlist) ;; <rdar://problem/50266257>
         (syscall-number SYS_fsetxattr) ;; <rdar://problem/49795964>
         (syscall-number SYS_abort_with_payload) ;; <rdar://problem/50967271>
@@ -1418,6 +1329,12 @@
     (if (defined? 'SYS_objc_bp_assist_cfg_np)
         (allow syscall-unix (syscall-number SYS_objc_bp_assist_cfg_np)))
 )
+
+(with-filter (system-attribute apple-internal)
+    (when (defined? 'syscall-unix)
+        (allow syscall-unix
+            (syscall-number SYS_kdebug_trace_string) ;; Needed for performance sampling, see <rdar://problem/48829655>.
+            (syscall-number SYS_kdebug_typefilter))))
 
 (when (defined? 'file-ioctl)
     (deny file-ioctl (with telemetry))

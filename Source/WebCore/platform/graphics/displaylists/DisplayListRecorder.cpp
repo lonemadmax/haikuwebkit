@@ -40,11 +40,11 @@
 namespace WebCore {
 namespace DisplayList {
 
-Recorder::Recorder(DisplayList& displayList, const GraphicsContextState& state, const FloatRect& initialClip, const AffineTransform& initialCTM, Delegate* delegate, DrawGlyphsRecorder::DrawGlyphsDeconstruction drawGlyphsDeconstruction)
+Recorder::Recorder(DisplayList& displayList, const GraphicsContextState& state, const FloatRect& initialClip, const AffineTransform& initialCTM, Delegate* delegate, DrawGlyphsRecorder::DeconstructDrawGlyphs deconstructDrawGlyphs)
     : m_displayList(displayList)
     , m_delegate(delegate)
     , m_isNested(false)
-    , m_drawGlyphsRecorder(*this, drawGlyphsDeconstruction)
+    , m_drawGlyphsRecorder(*this, deconstructDrawGlyphs)
 {
     LOG_WITH_STREAM(DisplayLists, stream << "\nRecording with clip " << initialClip);
     m_stateStack.append({ state, initialCTM, initialClip });
@@ -54,7 +54,7 @@ Recorder::Recorder(Recorder& parent, const GraphicsContextState& state, const Fl
     : m_displayList(parent.m_displayList)
     , m_delegate(parent.m_delegate)
     , m_isNested(true)
-    , m_drawGlyphsRecorder(*this, parent.m_drawGlyphsRecorder.drawGlyphsDeconstruction())
+    , m_drawGlyphsRecorder(*this, parent.m_drawGlyphsRecorder.deconstructDrawGlyphs())
 {
     m_stateStack.append({ state, initialCTM, initialClip });
 }
@@ -150,6 +150,11 @@ void Recorder::appendStateChangeItemIfNecessary()
     currentState().lastDrawingState = stateChanges.m_state;
 }
 
+const GraphicsContextState& Recorder::state() const
+{
+    return currentState().stateChange.m_state;
+}
+
 void Recorder::updateState(const GraphicsContextState& state, GraphicsContextState::StateChangeFlags flags)
 {
     currentState().stateChange.accumulate(state, flags);
@@ -190,7 +195,7 @@ void Recorder::drawGlyphs(const Font& font, const GlyphBufferGlyph* glyphs, cons
     m_drawGlyphsRecorder.drawGlyphs(font, glyphs, advances, numGlyphs, startPoint, smoothingMode);
 }
 
-void Recorder::appendDrawGlyphsItemWithCachedFont(const Font& font, const GlyphBufferGlyph* glyphs, const GlyphBufferAdvance* advances, unsigned count, const FloatPoint& localAnchor, FontSmoothingMode smoothingMode)
+void Recorder::drawGlyphsAndCacheFont(const Font& font, const GlyphBufferGlyph* glyphs, const GlyphBufferAdvance* advances, unsigned count, const FloatPoint& localAnchor, FontSmoothingMode smoothingMode)
 {
     if (m_delegate)
         m_delegate->recordFontUse(const_cast<Font&>(font));
@@ -272,7 +277,7 @@ void Recorder::setCTM(const AffineTransform& transform)
 
 AffineTransform Recorder::getCTM(GraphicsContext::IncludeDeviceScale) const
 {
-    // FIXME: Respect the given value of IncludeDeviceScale.
+    // FIXME: <https://webkit.org/b/230647> ([GPU Process] add support for `IncludeDeviceScale` inside `DisplayList::Recorder::getCTM`)
     return currentState().ctm;
 }
 

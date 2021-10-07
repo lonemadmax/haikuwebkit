@@ -49,6 +49,10 @@
 #import <wtf/cocoa/Entitlements.h>
 #import <wtf/text/cf/StringConcatenateCF.h>
 
+#if ENABLE(GPU_PROCESS)
+#import "GPUProcessProxy.h"
+#endif
+
 #if PLATFORM(IOS_FAMILY)
 #import <UIKit/UIApplication.h>
 #import <pal/ios/ManagedConfigurationSoftLink.h>
@@ -74,7 +78,7 @@ static std::atomic<bool> hasInitializedAppBoundDomains = false;
 static std::atomic<bool> keyExists = false;
 #endif
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 WebCore::ThirdPartyCookieBlockingMode WebsiteDataStore::thirdPartyCookieBlockingMode() const
 {
     if (!m_thirdPartyCookieBlockingMode) {
@@ -98,7 +102,7 @@ void WebsiteDataStore::platformSetNetworkParameters(WebsiteDataStoreParameters& 
     auto sameSiteStrictEnforcementEnabled = WebCore::SameSiteStrictEnforcementEnabled::No;
     auto firstPartyWebsiteDataRemovalMode = WebCore::FirstPartyWebsiteDataRemovalMode::AllButCookies;
     WebCore::RegistrableDomain resourceLoadStatisticsManualPrevalentResource { };
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     enableResourceLoadStatisticsDebugMode = [defaults boolForKey:@"ITPDebugMode"];
 
     if ([defaults boolForKey:[NSString stringWithFormat:@"Experimental%@", WebPreferencesKey::isSameSiteStrictEnforcementEnabledKey().createCFString().get()]])
@@ -126,7 +130,7 @@ void WebsiteDataStore::platformSetNetworkParameters(WebsiteDataStoreParameters& 
     static NSString * const WebKitLogCookieInformationDefaultsKey = @"WebKitLogCookieInformation";
     shouldLogCookieInformation = [defaults boolForKey:WebKitLogCookieInformationDefaultsKey];
 #endif
-#endif // ENABLE(RESOURCE_LOAD_STATISTICS)
+#endif // ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 
     URL httpProxy = m_configuration->httpProxy();
     URL httpsProxy = m_configuration->httpsProxy();
@@ -331,7 +335,7 @@ String WebsiteDataStore::defaultJavaScriptConfigurationDirectory()
     return tempDirectoryFileSystemRepresentation("JavaScriptCoreDebug", ShouldCreateDirectory::No);
 }
 
-#if HAVE(ARKIT_INLINE_PREVIEW)
+#if ENABLE(ARKIT_INLINE_PREVIEW)
 String WebsiteDataStore::defaultModelElementCacheDirectory()
 {
     return tempDirectoryFileSystemRepresentation("ModelElement", ShouldCreateDirectory::No);
@@ -513,7 +517,7 @@ void WebsiteDataStore::ensureAppBoundDomains(CompletionHandler<void(const HashSe
 
     // Hopping to the background thread then back to the main thread
     // ensures that initializeAppBoundDomains() has finished.
-    appBoundDomainQueue().dispatch([this, protectedThis = makeRef(*this), completionHandler = WTFMove(completionHandler)] () mutable {
+    appBoundDomainQueue().dispatch([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)] () mutable {
         RunLoop::main().dispatch([this, protectedThis = WTFMove(protectedThis), completionHandler = WTFMove(completionHandler)] () mutable {
             ASSERT(hasInitializedAppBoundDomains);
             if (m_configuration->enableInAppBrowserPrivacyForTesting())
@@ -534,7 +538,7 @@ void WebsiteDataStore::beginAppBoundDomainCheck(const String& host, const String
 {
     ASSERT(RunLoop::isMain());
 
-    ensureAppBoundDomains([&host, &protocol, listener = makeRef(listener)] (auto& domains, auto& schemes) mutable {
+    ensureAppBoundDomains([&host, &protocol, listener = Ref { listener }] (auto& domains, auto& schemes) mutable {
         // Must check for both an empty app bound domains list and an empty key before returning nullopt
         // because test cases may have app bound domains but no key.
         bool hasAppBoundDomains = keyExists || !domains.isEmpty();
@@ -594,7 +598,7 @@ bool WebsiteDataStore::networkProcessHasEntitlementForTesting(const String& enti
     return WTF::hasEntitlement(networkProcess().connection()->xpcConnection(), entitlement.utf8().data());
 }
 
-void WebsiteDataStore::sendNetworkProcessXPCEndpointToWebProcess(WebProcessProxy& process)
+void WebsiteDataStore::sendNetworkProcessXPCEndpointToProcess(AuxiliaryProcessProxy& process) const
 {
     if (process.state() != AuxiliaryProcessProxy::State::Running)
         return;
@@ -607,10 +611,14 @@ void WebsiteDataStore::sendNetworkProcessXPCEndpointToWebProcess(WebProcessProxy
     xpc_connection_send_message(connection->xpcConnection(), message);
 }
 
-void WebsiteDataStore::sendNetworkProcessXPCEndpointToAllWebProcesses()
+void WebsiteDataStore::sendNetworkProcessXPCEndpointToAllProcesses()
 {
     for (auto& process : m_processes)
-        sendNetworkProcessXPCEndpointToWebProcess(process);
+        sendNetworkProcessXPCEndpointToProcess(process);
+#if ENABLE(GPU_PROCESS)
+    if (GPUProcessProxy::singletonIfCreated())
+        sendNetworkProcessXPCEndpointToProcess(*GPUProcessProxy::singletonIfCreated());
+#endif
 }
 
 }

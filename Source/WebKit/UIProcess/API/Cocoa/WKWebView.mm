@@ -186,17 +186,13 @@
 #import <WebCore/ColorMac.h>
 #endif
 
-#if PLATFORM(IOS_FAMILY)
 #if PLATFORM(WATCHOS)
 static const BOOL defaultAllowsViewportShrinkToFit = YES;
 static const BOOL defaultFastClickingEnabled = YES;
-#else
+#elif PLATFORM(IOS_FAMILY)
 static const BOOL defaultAllowsViewportShrinkToFit = NO;
 static const BOOL defaultFastClickingEnabled = NO;
 #endif
-
-static const uint32_t firstSDKVersionWithLinkPreviewEnabledByDefault = 0xA0000;
-#endif // PLATFORM(IOS_FAMILY)
 
 #define THROW_IF_SUSPENDED if (UNLIKELY(_page && _page->isSuspended())) \
     [NSException raise:NSInternalInconsistencyException format:@"The WKWebView is suspended"]
@@ -245,7 +241,7 @@ RetainPtr<NSError> nsErrorFromExceptionDetails(const WebCore::ExceptionDetails& 
 
 static bool shouldAllowPictureInPictureMediaPlayback()
 {
-    static bool shouldAllowPictureInPictureMediaPlayback = dyld_get_program_sdk_version() >= DYLD_IOS_VERSION_9_0;
+    static bool shouldAllowPictureInPictureMediaPlayback = WebCore::linkedOnOrAfter(WebCore::SDKVersion::FirstWithPictureInPictureMediaPlayback);
     return shouldAllowPictureInPictureMediaPlayback;
 }
 
@@ -260,7 +256,7 @@ static bool shouldAllowSettingAnyXHRHeaderFromFileURLs()
 static bool shouldRequireUserGestureToLoadVideo()
 {
 #if PLATFORM(IOS_FAMILY)
-    static bool shouldRequireUserGestureToLoadVideo = dyld_get_program_sdk_version() >= DYLD_IOS_VERSION_10_0;
+    static bool shouldRequireUserGestureToLoadVideo = linkedOnOrAfter(WebCore::SDKVersion::FirstThatRequiresUserGestureToLoadVideo);
     return shouldRequireUserGestureToLoadVideo;
 #else
     return false;
@@ -369,9 +365,7 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     _viewportMetaTagWidth = WebCore::ViewportArguments::ValueAuto;
     _initialScaleFactor = 1;
     _allowsViewportShrinkToFit = defaultAllowsViewportShrinkToFit;
-
-    static uint32_t programSDKVersion = dyld_get_program_sdk_version();
-    _allowsLinkPreview = programSDKVersion >= firstSDKVersionWithLinkPreviewEnabledByDefault;
+    _allowsLinkPreview = linkedOnOrAfter(WebCore::SDKVersion::FirstWithLinkPreviewEnabledByDefault);
 
     auto fastClickingEnabled = []() {
         if (NSNumber *enabledValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"WebKitFastClickingDisabled"])
@@ -414,7 +408,6 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
         _contentView = adoptNS([[WKContentView alloc] initWithFrame:self.bounds page:_page.copyRef()]);
 
     _impl->setAutomaticallyAdjustsContentInsets(true);
-    _impl->setRequiresUserActionForEditingControlsManager([configuration _requiresUserActionForEditingControlsManager]);
 
     [self _setupScrollAndContentViews];
 #endif
@@ -435,7 +428,7 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     _resourceLoadDelegate = makeUnique<WebKit::ResourceLoadDelegate>(self);
 
     for (auto& pair : pageConfiguration->urlSchemeHandlers())
-        _page->setURLSchemeHandlerForScheme(WebKit::WebURLSchemeHandlerCocoa::create(static_cast<WebKit::WebURLSchemeHandlerCocoa&>(pair.value.get()).apiHandler()), pair.key);
+        _page->setURLSchemeHandlerForScheme(pair.value.get(), pair.key);
 
     _page->setCocoaView(self);
 
@@ -777,13 +770,6 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
 
     if (!path)
         [NSException raise:NSInvalidArgumentException format:@"Invalid resume data"];
-
-#if USE(LEGACY_CFNETWORK_DOWNLOADS)
-    // Mojave CFNetwork fails to resume a download if the destination does not exist.
-    // If someone has removed the destination file, make an empty file at that location.
-    if (![[NSFileManager defaultManager] fileExistsAtPath:path])
-        [[NSData data] writeToFile:path atomically:YES];
-#endif
 
     _page->resumeDownload(API::Data::createWithoutCopying(resumeData), path, [completionHandler = makeBlockPtr(completionHandler)] (auto* download) {
         if (download)
@@ -1703,14 +1689,6 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
     else
         attributes |= _WKSelectionAttributeIsCaret;
 
-    if (!editorState.isMissingPostLayoutData) {
-#if PLATFORM(IOS_FAMILY)
-        if (editorState.postLayoutData().atStartOfSentence)
-            attributes |= _WKSelectionAttributeAtStartOfSentence;
-#endif
-    } else if (previousAttributes & _WKSelectionAttributeAtStartOfSentence)
-        attributes |= _WKSelectionAttributeAtStartOfSentence;
-
     return attributes;
 }
 
@@ -1967,7 +1945,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKCONTENTVIEW)
 
 - (void)_frames:(void (^)(_WKFrameTreeNode *))completionHandler
 {
-    _page->getAllFrames([completionHandler = makeBlockPtr(completionHandler), page = makeRef(*_page.get())] (WebKit::FrameTreeNodeData&& data) {
+    _page->getAllFrames([completionHandler = makeBlockPtr(completionHandler), page = Ref { *_page.get() }] (WebKit::FrameTreeNodeData&& data) {
         completionHandler(wrapper(API::FrameTreeNode::create(WTFMove(data), page.get())));
     });
 }

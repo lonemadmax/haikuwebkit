@@ -58,7 +58,7 @@ void ImageOverlayController::updateDataDetectorHighlights(const HTMLElement& ove
     Vector<Ref<HTMLElement>> dataDetectorResultElements;
     for (auto& child : descendantsOfType<HTMLElement>(*overlayHost.userAgentShadowRoot())) {
         if (child.isImageOverlayDataDetectorResult() && child.renderer())
-            dataDetectorResultElements.append(makeRef(child));
+            dataDetectorResultElements.append(child);
     }
 
     HashSet<Ref<HTMLElement>> dataDetectorResultElementsWithHighlights;
@@ -70,11 +70,11 @@ void ImageOverlayController::updateDataDetectorHighlights(const HTMLElement& ove
     if (dataDetectorResultElementsWithHighlights == dataDetectorResultElements)
         return;
 
-    auto mainFrameView = makeRefPtr(m_page->mainFrame().view());
+    RefPtr mainFrameView = m_page->mainFrame().view();
     if (!mainFrameView)
         return;
 
-    auto frameView = makeRefPtr(overlayHost.document().view());
+    RefPtr frameView = overlayHost.document().view();
     if (!frameView)
         return;
 
@@ -98,7 +98,7 @@ void ImageOverlayController::updateDataDetectorHighlights(const HTMLElement& ove
 
 bool ImageOverlayController::platformHandleMouseEvent(const PlatformMouseEvent& event)
 {
-    auto mainFrameView = makeRefPtr(m_page->mainFrame().view());
+    RefPtr mainFrameView = m_page->mainFrame().view();
     if (!mainFrameView)
         return false;
 
@@ -117,7 +117,7 @@ bool ImageOverlayController::platformHandleMouseEvent(const PlatformMouseEvent& 
 
         mouseIsOverActiveDataDetectorHighlightButton = isOverButton;
         m_activeDataDetectorHighlight = highlight.copyRef();
-        activeDataDetectorElement = makeRefPtr(*element);
+        activeDataDetectorElement = element.get();
         break;
     }
 
@@ -142,11 +142,11 @@ bool ImageOverlayController::handleDataDetectorAction(const HTMLElement& element
     if (!m_page)
         return false;
 
-    auto frame = makeRefPtr(element.document().frame());
+    RefPtr frame = element.document().frame();
     if (!frame)
         return false;
 
-    auto frameView = makeRefPtr(element.document().view());
+    RefPtr frameView = element.document().view();
     if (!frameView)
         return false;
 
@@ -203,7 +203,7 @@ void ImageOverlayController::elementUnderMouseDidChange(Frame& frame, Element* e
         return;
     }
 
-    auto imageOverlayHost = makeRef(downcast<HTMLElement>(*shadowHost));
+    Ref imageOverlayHost = downcast<HTMLElement>(*shadowHost);
     if (!imageOverlayHost->hasImageOverlay()) {
         ASSERT_NOT_REACHED();
         m_hostElementForDataDetectors = nullptr;

@@ -109,7 +109,7 @@ public:
     // can contain a mixture of boxes and other object types, these functions need to be in the base class.
     void addLayers(RenderLayer* parentLayer);
     void removeLayers(RenderLayer* parentLayer);
-    void moveLayers(RenderLayer* oldParent, RenderLayer* newParent);
+    void moveLayers(RenderLayer* oldParent, RenderLayer& newParent);
     RenderLayer* findNextLayer(RenderLayer* parentLayer, RenderObject* startPoint, bool checkParent = true);
 
     virtual void dirtyLinesFromChangedChild(RenderObject&) { }
@@ -156,6 +156,9 @@ public:
 
     bool visibleToHitTesting(std::optional<HitTestRequest> hitTestRequest = std::nullopt) const
     {
+        if (style().effectiveInert())
+            return false;
+
         if (style().visibility() != Visibility::Visible)
             return false;
 
@@ -529,6 +532,11 @@ inline int adjustForAbsoluteZoom(int value, const RenderElement& renderer)
 inline LayoutUnit adjustLayoutUnitForAbsoluteZoom(LayoutUnit value, const RenderElement& renderer)
 {
     return adjustLayoutUnitForAbsoluteZoom(value, renderer.style());
+}
+
+inline LayoutSize adjustLayoutSizeForAbsoluteZoom(LayoutSize size, const RenderElement& renderer)
+{
+    return adjustLayoutSizeForAbsoluteZoom(size, renderer.style());
 }
 
 inline RenderObject* RenderElement::firstInFlowChild() const

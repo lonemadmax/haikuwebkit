@@ -321,6 +321,11 @@ template<> struct ArgumentCoder<WebCore::FloatBoxExtent> {
     static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::FloatBoxExtent&);
 };
 
+template<> struct ArgumentCoder<WebCore::RectEdges<bool>> {
+    static void encode(Encoder&, const WebCore::RectEdges<bool>&);
+    static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::RectEdges<bool>&);
+};
+
 template<> struct ArgumentCoder<WebCore::FloatSize> {
     static void encode(Encoder&, const WebCore::FloatSize&);
     static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::FloatSize&);
@@ -905,16 +910,6 @@ template<> struct EnumTraits<WebCore::InputMode> {
     >;
 };
 
-template<> struct EnumTraits<WebCore::NetworkLoadPriority> {
-    using values = EnumValues<
-        WebCore::NetworkLoadPriority,
-        WebCore::NetworkLoadPriority::Low,
-        WebCore::NetworkLoadPriority::Medium,
-        WebCore::NetworkLoadPriority::High,
-        WebCore::NetworkLoadPriority::Unknown
-    >;
-};
-
 template<> struct EnumTraits<WebCore::NotificationDirection> {
     using values = EnumValues<
         WebCore::NotificationDirection,
@@ -1062,6 +1057,24 @@ template<> struct EnumTraits<WebCore::ScrollSnapStrictness> {
         WebCore::ScrollSnapStrictness::None,
         WebCore::ScrollSnapStrictness::Proximity,
         WebCore::ScrollSnapStrictness::Mandatory
+    >;
+};
+
+template<> struct EnumTraits<WebCore::LengthType> {
+    using values = EnumValues<
+        WebCore::LengthType,
+        WebCore::LengthType::Auto,
+        WebCore::LengthType::Relative,
+        WebCore::LengthType::Percent,
+        WebCore::LengthType::Fixed,
+        WebCore::LengthType::Intrinsic,
+        WebCore::LengthType::MinIntrinsic,
+        WebCore::LengthType::MinContent,
+        WebCore::LengthType::MaxContent,
+        WebCore::LengthType::FillAvailable,
+        WebCore::LengthType::FitContent,
+        WebCore::LengthType::Calculated,
+        WebCore::LengthType::Undefined
     >;
 };
 

@@ -48,9 +48,10 @@ WebsiteDataStoreConfiguration::WebsiteDataStoreConfiguration(IsPersistent isPers
         setResourceLoadStatisticsDirectory(WebsiteDataStore::defaultResourceLoadStatisticsDirectory());
         setDeviceIdHashSaltsStorageDirectory(WebsiteDataStore::defaultDeviceIdHashSaltsStorageDirectory());
         setJavaScriptConfigurationDirectory(WebsiteDataStore::defaultJavaScriptConfigurationDirectory());
-#if HAVE(ARKIT_INLINE_PREVIEW)
+#if ENABLE(ARKIT_INLINE_PREVIEW)
         setModelElementCacheDirectory(WebsiteDataStore::defaultModelElementCacheDirectory());
 #endif
+        // FIXME: Give m_pcmMachServiceName a default value and remove PCM::ManagerInterface once rdar://80701098 is closed.
     }
 }
 
@@ -96,15 +97,17 @@ Ref<WebsiteDataStoreConfiguration> WebsiteDataStoreConfiguration::copy() const
     copy->m_suppressesConnectionTerminationOnSystemChange = this->m_suppressesConnectionTerminationOnSystemChange;
     copy->m_allowsServerPreconnect = this->m_allowsServerPreconnect;
     copy->m_requiresSecureHTTPSProxyConnection = this->m_requiresSecureHTTPSProxyConnection;
+    copy->m_shouldRunServiceWorkersOnMainThreadForTesting = this->m_shouldRunServiceWorkersOnMainThreadForTesting;
     copy->m_preventsSystemHTTPProxyAuthentication = this->m_preventsSystemHTTPProxyAuthentication;
     copy->m_standaloneApplicationURL = this->m_standaloneApplicationURL;
     copy->m_enableInAppBrowserPrivacyForTesting = this->m_enableInAppBrowserPrivacyForTesting;
     copy->m_allowsHSTSWithUntrustedRootCertificate = this->m_allowsHSTSWithUntrustedRootCertificate;
+    copy->m_pcmMachServiceName = this->m_pcmMachServiceName;
 #if PLATFORM(COCOA)
     if (m_proxyConfiguration)
         copy->m_proxyConfiguration = adoptCF(CFDictionaryCreateCopy(nullptr, this->m_proxyConfiguration.get()));
 #endif
-#if HAVE(ARKIT_INLINE_PREVIEW)
+#if ENABLE(ARKIT_INLINE_PREVIEW)
     copy->m_modelElementCacheDirectory = this->m_modelElementCacheDirectory;
 #endif
 

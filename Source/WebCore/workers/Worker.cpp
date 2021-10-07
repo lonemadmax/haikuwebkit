@@ -43,6 +43,7 @@
 #include "SecurityOrigin.h"
 #include "StructuredSerializeOptions.h"
 #include "WorkerGlobalScopeProxy.h"
+#include "WorkerOptions.h"
 #include "WorkerScriptLoader.h"
 #include "WorkerThread.h"
 #include <JavaScriptCore/IdentifiersFactory.h>
@@ -69,7 +70,7 @@ void Worker::networkStateChanged(bool isOnLine)
         worker->notifyNetworkStateChange(isOnLine);
 }
 
-inline Worker::Worker(ScriptExecutionContext& context, JSC::RuntimeFlags runtimeFlags, const Options& options)
+inline Worker::Worker(ScriptExecutionContext& context, JSC::RuntimeFlags runtimeFlags, const WorkerOptions& options)
     : ActiveDOMObject(&context)
     , m_name(options.name)
     , m_identifier("worker:" + Inspector::IdentifiersFactory::createIdentifier())
@@ -88,7 +89,7 @@ inline Worker::Worker(ScriptExecutionContext& context, JSC::RuntimeFlags runtime
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
 }
 
-ExceptionOr<Ref<Worker>> Worker::create(ScriptExecutionContext& context, JSC::RuntimeFlags runtimeFlags, const String& url, const Options& options)
+ExceptionOr<Ref<Worker>> Worker::create(ScriptExecutionContext& context, JSC::RuntimeFlags runtimeFlags, const String& url, const WorkerOptions& options)
 {
     ASSERT(isMainThread());
 
@@ -195,7 +196,7 @@ void Worker::notifyNetworkStateChange(bool isOnLine)
     m_contextProxy.notifyNetworkStateChange(isOnLine);
 }
 
-void Worker::didReceiveResponse(unsigned long identifier, const ResourceResponse& response)
+void Worker::didReceiveResponse(ResourceLoaderIdentifier identifier, const ResourceResponse& response)
 {
     const URL& responseURL = response.url();
     if (!responseURL.protocolIsBlob() && !responseURL.protocolIs("file") && !SecurityOrigin::create(responseURL)->isUnique())
@@ -251,7 +252,7 @@ void Worker::createRTCRtpScriptTransformer(RTCRtpScriptTransform& transform, Mes
     if (!scriptExecutionContext())
         return;
 
-    m_contextProxy.postTaskToWorkerGlobalScope([transform = makeRef(transform), options = WTFMove(options)](auto& context) mutable {
+    m_contextProxy.postTaskToWorkerGlobalScope([transform = Ref { transform }, options = WTFMove(options)](auto& context) mutable {
         if (auto transformer = downcast<DedicatedWorkerGlobalScope>(context).createRTCRtpScriptTransformer(WTFMove(options)))
             transform->setTransformer(*transformer);
     });

@@ -60,7 +60,7 @@ ExceptionOr<Ref<RTCRtpScriptTransform>> RTCRtpScriptTransform::create(JSC::JSGlo
     if (channels.hasException())
         return channels.releaseException();
 
-    auto transform = adoptRef(*new RTCRtpScriptTransform(*context, makeRef(worker)));
+    auto transform = adoptRef(*new RTCRtpScriptTransform(*context, worker));
     transform->suspendIfNeeded();
 
     worker.createRTCRtpScriptTransformer(transform, { serializedOptions.releaseReturnValue(), channels.releaseReturnValue() });
@@ -89,7 +89,7 @@ void RTCRtpScriptTransform::setTransformer(RTCRtpScriptTransformer& transformer)
         m_transformer = makeWeakPtr(transformer);
     }
     transformer.startPendingActivity();
-    callOnMainThread([this, protectedThis = makeRef(*this)]() mutable {
+    callOnMainThread([this, protectedThis = Ref { *this }]() mutable {
         if (m_backend)
             setupTransformer(m_backend.releaseNonNull());
     });
@@ -113,8 +113,8 @@ void RTCRtpScriptTransform::willClearBackend(RTCRtpTransformBackend&)
 void RTCRtpScriptTransform::initializeTransformer(RTCRtpTransformBackend& backend)
 {
     m_isAttached = true;
-    if (!setupTransformer(makeRef(backend)))
-        m_backend = makeRef(backend);
+    if (!setupTransformer(backend))
+        m_backend = &backend;
 }
 
 bool RTCRtpScriptTransform::setupTransformer(Ref<RTCRtpTransformBackend>&& backend)

@@ -919,7 +919,7 @@ ExceptionOr<void> DOMWindow::postMessage(JSC::JSGlobalObject& lexicalGlobalObjec
     RefPtr<WindowProxy> incumbentWindowProxy = incumbentWindow.frame() ? &incumbentWindow.frame()->windowProxy() : nullptr;
     auto userGestureToForward = UserGestureIndicator::currentUserGesture();
 
-    document()->eventLoop().queueTask(TaskSource::PostedMessageQueue, [this, protectedThis = makeRef(*this), message = WTFMove(message), incumbentWindowProxy = WTFMove(incumbentWindowProxy), sourceOrigin = WTFMove(sourceOrigin), userGestureToForward = WTFMove(userGestureToForward), postMessageIdentifier, stackTrace = WTFMove(stackTrace), targetOrigin = WTFMove(target)]() mutable {
+    document()->eventLoop().queueTask(TaskSource::PostedMessageQueue, [this, protectedThis = Ref { *this }, message = WTFMove(message), incumbentWindowProxy = WTFMove(incumbentWindowProxy), sourceOrigin = WTFMove(sourceOrigin), userGestureToForward = WTFMove(userGestureToForward), postMessageIdentifier, stackTrace = WTFMove(stackTrace), targetOrigin = WTFMove(target)]() mutable {
         if (!isCurrentlyDisplayedInFrame())
             return;
 
@@ -1056,7 +1056,11 @@ void DOMWindow::close()
     ResourceLoadObserver::shared().updateCentralStatisticsStore([] { });
 
     page->setIsClosing();
-    page->chrome().closeWindowSoon();
+
+    document()->eventLoop().queueTask(TaskSource::DOMManipulation, [this, protectedThis = Ref { *this }] {
+        if (auto* page = this->page())
+            page->chrome().closeWindow();
+    });
 }
 
 void DOMWindow::print()
@@ -1285,7 +1289,7 @@ int DOMWindow::innerWidth() const
         return 0;
 
     // Force enough layout in the parent document to ensure that the FrameView has been resized.
-    if (auto ownerElement = makeRefPtr(frameElement()))
+    if (RefPtr ownerElement = frameElement())
         ownerElement->document().updateLayoutIfDimensionsOutOfDate(*ownerElement, WidthDimensionsCheck);
 
     RefPtr frame = this->frame();
@@ -1865,7 +1869,7 @@ void DOMWindow::cancelAnimationFrame(int id)
 
 int DOMWindow::requestIdleCallback(Ref<IdleRequestCallback>&& callback, const IdleRequestOptions& options)
 {
-    auto document = makeRefPtr(this->document());
+    RefPtr document = this->document();
     if (!document)
         return 0;
     return document->requestIdleCallback(WTFMove(callback), Seconds::fromMilliseconds(options.timeout));
@@ -1873,7 +1877,7 @@ int DOMWindow::requestIdleCallback(Ref<IdleRequestCallback>&& callback, const Id
 
 void DOMWindow::cancelIdleCallback(int id)
 {
-    auto document = makeRefPtr(this->document());
+    RefPtr document = this->document();
     if (!document)
         return;
     return document->cancelIdleCallback(id);
@@ -2233,7 +2237,7 @@ bool DOMWindow::removeEventListener(const AtomString& eventType, EventListener& 
 void DOMWindow::languagesChanged()
 {
     // https://html.spec.whatwg.org/multipage/system-state.html#dom-navigator-languages
-    if (auto document = makeRefPtr(this->document()))
+    if (RefPtr document = this->document())
         document->queueTaskToDispatchEventOnWindow(TaskSource::DOMManipulation, Event::create(eventNames().languagechangeEvent, Event::CanBubble::No, Event::IsCancelable::No));
 }
 
@@ -2241,8 +2245,8 @@ void DOMWindow::dispatchLoadEvent()
 {
     // If we did not protect it, the document loader and its timing subobject might get destroyed
     // as a side effect of what event handling code does.
-    auto protectedThis = makeRef(*this);
-    auto protectedLoader = makeRefPtr(frame() ? frame()->loader().documentLoader() : nullptr);
+    Ref protectedThis { *this };
+    RefPtr protectedLoader = frame() ? frame()->loader().documentLoader() : nullptr;
     bool shouldMarkLoadEventTimes = protectedLoader && !protectedLoader->timing().loadEventStart();
 
     if (shouldMarkLoadEventTimes) {
@@ -2277,7 +2281,7 @@ void DOMWindow::dispatchEvent(Event& event, EventTarget* target)
     // called with a target of null. Most callers pass the document as the target, though.
     // Fixing this could allow us to remove the special case in DocumentEventQueue::dispatchEvent.
 
-    auto protectedThis = makeRef(*this);
+    Ref protectedThis { *this };
 
     // Pausing a page may trigger pagehide and pageshow events. WebCore also implicitly fires these
     // events when closing a WebView. Here we keep track of the state of the page to prevent duplicate,
@@ -2550,7 +2554,7 @@ ExceptionOr<RefPtr<Frame>> DOMWindow::createWindow(const String& urlString, cons
 
 ExceptionOr<RefPtr<WindowProxy>> DOMWindow::open(DOMWindow& activeWindow, DOMWindow& firstWindow, const String& urlStringToOpen, const AtomString& frameName, const String& windowFeaturesString)
 {
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     if (RefPtr document = this->document()) {
         if (document->settings().needsSiteSpecificQuirks() && urlStringToOpen == Quirks::BBCRadioPlayerURLString()) {
             auto radioPlayerDomain = RegistrableDomain(URL(URL(), Quirks::staticRadioPlayerURLString()));

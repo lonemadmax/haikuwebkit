@@ -24,6 +24,10 @@
 (version 1)
 (deny default (with partial-symbolication))
 (deny nvram*)
+(deny system-privilege)
+
+;; Silence spurious logging due to rdar://20117923 and rdar://72366475
+(deny system-privilege (privilege-id PRIV_GLOBAL_PROC_INFO) (with no-report))
 
 ;;;
 ;;; The following rules were originally contained in 'common.sb'. We are duplicating them here so we can
@@ -45,7 +49,12 @@
 
 (define-once (mobile-preferences-read . domains)
     (allow-preferences-common)
-    (allow user-preference-read (apply preference-domain domains)))
+    (for-each (lambda (domain)
+        (begin
+            (allow user-preference-read (preference-domain domain))
+            (allow file-read*
+                (home-literal (string-append "/Library/Preferences/" domain ".plist")))))
+        domains))
 
 (define-once (internal-debugging-support)
     (allow file-read* file-map-executable
@@ -180,7 +189,9 @@
         )
     )
 
-    (mobile-preferences-read "kCFPreferencesAnyApplication")
+    (allow user-preference-read (preference-domain "kCFPreferencesAnyApplication"))
+    (allow file-read*
+        (front-user-home-literal "/Library/Preferences/.GlobalPreferences.plist"))
     (allow managed-preference-read (preference-domain "kCFPreferencesAnyApplication"))
     
     (allow file-read*
@@ -196,14 +207,6 @@
         (require-all
             (executable-bundle)
             (regex #"/[^/]+/SC_Info/")))
-
-    (allow file-issue-extension
-          (require-all
-              (extension-class "com.apple.nsurlstorage.extension-cache")
-              (extension "com.apple.security.exception.files.home-relative-path.read-write")
-              (require-any
-                  (prefix "/private/var/root/Library/Caches/")
-                  (front-user-home-prefix "/Library/Caches/"))))
 )
 
 (with-filter (system-attribute apple-internal)
@@ -223,7 +226,6 @@
 
 (allow mach-lookup
     (global-name
-        "com.apple.cfprefsd.daemon"
         "com.apple.logd"
         "com.apple.logd.events"
         "com.apple.system.notification_center"

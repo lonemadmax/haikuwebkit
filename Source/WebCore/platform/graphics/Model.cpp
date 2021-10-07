@@ -28,15 +28,19 @@
 
 #if ENABLE(MODEL_ELEMENT)
 
+#include <wtf/text/TextStream.h>
+
 namespace WebCore {
 
-Ref<Model> Model::create(Ref<SharedBuffer> data)
+Ref<Model> Model::create(Ref<SharedBuffer> data, String mimeType, URL url)
 {
-    return adoptRef(*new Model(data));
+    return adoptRef(*new Model(WTFMove(data), WTFMove(mimeType), WTFMove(url)));
 }
 
-Model::Model(Ref<SharedBuffer> data)
-    : m_data(data)
+Model::Model(Ref<SharedBuffer> data, String mimeType, URL url)
+    : m_data(WTFMove(data))
+    , m_mimeType(WTFMove(mimeType))
+    , m_url(WTFMove(url))
 {
 }
 
@@ -45,9 +49,11 @@ Model::~Model() = default;
 TextStream& operator<<(TextStream& ts, const Model& model)
 {
     TextStream::GroupScope groupScope(ts);
-    
+
     ts.dumpProperty("data-size", model.data()->size());
-    
+    ts.dumpProperty("mime-type", model.mimeType());
+    ts.dumpProperty("url", model.url());
+
     return ts;
 }
 

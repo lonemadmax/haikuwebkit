@@ -80,10 +80,28 @@ namespace WebCore {
     macro(CSSCounterStyleRule) \
     macro(CSSImageValue) \
     macro(CSSKeywordValue) \
+    macro(CSSMathInvert) \
+    macro(CSSMathMax) \
+    macro(CSSMathMin) \
+    macro(CSSMathNegate) \
+    macro(CSSMathProduct) \
+    macro(CSSMathSum) \
+    macro(CSSMathValue) \
+    macro(CSSMatrixComponent) \
+    macro(CSSNumericArray) \
     macro(CSSNumericValue) \
     macro(CSSPaintSize) \
+    macro(CSSPerspective) \
+    macro(CSSRotate) \
+    macro(CSSScale) \
+    macro(CSSSkew) \
+    macro(CSSSkewX) \
+    macro(CSSSkewY) \
     macro(CSSStyleValue) \
+    macro(CSSTransformComponent) \
+    macro(CSSTransformValue) \
     macro(CSSTransition) \
+    macro(CSSTranslate) \
     macro(CSSUnitValue) \
     macro(CSSUnparsedValue) \
     macro(CSSVariableReferenceValue) \
@@ -100,9 +118,12 @@ namespace WebCore {
     macro(FetchEvent) \
     macro(FileSystem) \
     macro(FileSystemDirectoryEntry) \
+    macro(FileSystemDirectoryHandle) \
     macro(FileSystemDirectoryReader) \
     macro(FileSystemEntry) \
     macro(FileSystemFileEntry) \
+    macro(FileSystemFileHandle) \
+    macro(FileSystemHandle) \
     macro(Gamepad) \
     macro(GamepadButton) \
     macro(GamepadEvent) \
@@ -186,6 +207,8 @@ namespace WebCore {
     macro(Permissions) \
     macro(PointerEvent) \
     macro(PublicKeyCredential) \
+    macro(PushEvent) \
+    macro(PushMessageData) \
     macro(ResizeObserver) \
     macro(ResizeObserverEntry) \
     macro(RTCCertificate) \
@@ -236,6 +259,8 @@ namespace WebCore {
     macro(ServiceWorkerGlobalScope) \
     macro(ServiceWorkerRegistration) \
     macro(ShadowRoot) \
+    macro(SharedWorker) \
+    macro(SharedWorkerGlobalScope) \
     macro(SpeechRecognition) \
     macro(SpeechRecognitionAlternative) \
     macro(SpeechRecognitionErrorEvent) \
@@ -249,6 +274,7 @@ namespace WebCore {
     macro(StylePropertyMapReadOnly) \
     macro(StylePropertyMap) \
     macro(StorageManager) \
+    macro(StorageManagerFileSystemAccess) \
     macro(SubtleCrypto) \
     macro(TextDecoderStream) \
     macro(TextDecoderStreamDecoder) \
@@ -330,6 +356,7 @@ namespace WebCore {
     macro(controller) \
     macro(createImageBitmap) \
     macro(createReadableStream) \
+    macro(createWritableStreamFromInternal) \
     macro(crossOriginIsolated) \
     macro(customElements) \
     macro(decode) \
@@ -375,7 +402,7 @@ namespace WebCore {
     macro(makeThisTypeError) \
     macro(matchingElementInFlatTree) \
     macro(mediaStreamTrackConstraints) \
-    macro(openDatabase) \
+    macro(onpush) \
     macro(onrtctransform) \
     macro(ontouchcancel) \
     macro(ontouchend) \
@@ -390,6 +417,7 @@ namespace WebCore {
     macro(onvrdisplaydisconnect) \
     macro(onvrdisplayfocus) \
     macro(onvrdisplaypresentchange) \
+    macro(openDatabase) \
     macro(opener) \
     macro(operations) \
     macro(ownerReadableStream) \
@@ -473,7 +501,6 @@ namespace WebCore {
     macro(whenSignalAborted) \
     macro(window) \
     macro(writable) \
-    macro(writableStreamAPIEnabled) \
     macro(writeAlgorithm) \
     macro(writing) \
     macro(writer) \

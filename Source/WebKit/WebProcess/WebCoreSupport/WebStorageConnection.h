@@ -31,6 +31,11 @@ namespace IPC {
 class Connection;
 }
 
+namespace WebCore {
+template<typename> class ExceptionOr;
+class FileSystemDirectoryHandle;
+}
+
 namespace WebKit {
 
 class WebStorageConnection final : public WebCore::StorageConnection {
@@ -38,8 +43,9 @@ public:
     static Ref<WebStorageConnection> create();
 
 private:
-    void persisted(WebCore::ClientOrigin&&, CompletionHandler<void(bool)>&&) final;
-    void persist(WebCore::ClientOrigin&&, CompletionHandler<void(bool)>&&) final;
+    void getPersisted(const WebCore::ClientOrigin&, StorageConnection::PersistCallback&&) final;
+    void persist(const WebCore::ClientOrigin&, StorageConnection::PersistCallback&&) final;
+    void fileSystemGetDirectory(const WebCore::ClientOrigin&, StorageConnection::GetDirectoryCallback&&) final;
 
     IPC::Connection& connection();
 };

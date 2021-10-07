@@ -43,6 +43,7 @@ unsigned short DeprecatedCSSOMPrimitiveValue::primitiveType() const
     case CSSUnitType::CSS_CALC_PERCENTAGE_WITH_LENGTH:  return 115;
     case CSSUnitType::CSS_CALC_PERCENTAGE_WITH_NUMBER:  return 114;
     case CSSUnitType::CSS_CHS:                          return 109;
+    case CSSUnitType::CSS_IC:                           return CSS_UNKNOWN;
     case CSSUnitType::CSS_CM:                           return CSS_CM;
     case CSSUnitType::CSS_COUNTER:                      return CSS_COUNTER;
     case CSSUnitType::CSS_COUNTER_NAME:                 return 110;
@@ -91,6 +92,7 @@ unsigned short DeprecatedCSSOMPrimitiveValue::primitiveType() const
     case CSSUnitType::CSS_VMAX:                         return CSS_VMAX;
     case CSSUnitType::CSS_VMIN:                         return CSS_VMIN;
     case CSSUnitType::CSS_VW:                           return CSS_VW;
+    case CSSUnitType::CSS_X:                            return 37;
     }
 
     ASSERT_NOT_REACHED();
@@ -132,6 +134,7 @@ ExceptionOr<float> DeprecatedCSSOMPrimitiveValue::getFloatValue(unsigned short u
     case 34:                return m_value->getFloatValue(CSSUnitType::CSS_Q);
     case 35:                return m_value->getFloatValue(CSSUnitType::CSS_LHS);
     case 36:                return m_value->getFloatValue(CSSUnitType::CSS_RLHS);
+    case 37:                return m_value->getFloatValue(CSSUnitType::CSS_X);
     case 107:               return m_value->getFloatValue(CSSUnitType::CSS_TURN);
     case 108:               return m_value->getFloatValue(CSSUnitType::CSS_REMS);
     case 109:               return m_value->getFloatValue(CSSUnitType::CSS_CHS);

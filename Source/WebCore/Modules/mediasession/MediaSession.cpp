@@ -149,7 +149,7 @@ MediaSession::MediaSession(Navigator& navigator)
     , m_coordinator(MediaSessionCoordinator::create(navigator.scriptExecutionContext()))
 #endif
 {
-    m_logger = makeRefPtr(Document::sharedLogger());
+    m_logger = &Document::sharedLogger();
     m_logIdentifier = nextLogIdentifier();
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
@@ -362,7 +362,7 @@ void MediaSession::removeObserver(Observer& observer)
 void MediaSession::forEachObserver(const Function<void(Observer&)>& apply)
 {
     ASSERT(isMainThread());
-    auto protectedThis = makeRef(*this);
+    Ref protectedThis { *this };
     m_observers.forEach(apply);
 }
 

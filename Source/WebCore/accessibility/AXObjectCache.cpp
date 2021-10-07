@@ -112,13 +112,6 @@
 #include "TextBoundaries.h"
 #include "TextControlInnerElements.h"
 #include "TextIterator.h"
-
-#if ENABLE(ACCESSIBILITY_ISOLATED_TREE) && PLATFORM(MAC)
-#include <pal/spi/cocoa/AccessibilitySupportSPI.h>
-#include <pal/spi/cocoa/AccessibilitySupportSoftLink.h>
-#include <pal/spi/mac/HIServicesSPI.h>
-#endif
-
 #include <wtf/DataLog.h>
 #include <wtf/SetForScope.h>
 
@@ -671,7 +664,7 @@ AccessibilityObject* AXObjectCache::getOrCreate(Widget* widget)
     // Will crash later if we have two objects for the same widget.
     ASSERT(!get(widget));
 
-    // Catch the case if an (unsupported) widget type is used. Only FrameView and ScrollBar are supported now.
+    // Ensure we weren't given an unsupported widget type.
     ASSERT(newObj);
     if (!newObj)
         return nullptr;
@@ -722,7 +715,7 @@ AccessibilityObject* AXObjectCache::getOrCreate(Node* node)
     if (!inCanvasSubtree && !isHidden && !insideMeterElement)
         return nullptr;
 
-    auto protectedNode = makeRef(*node);
+    Ref protectedNode { *node };
 
     // Fallback content is only focusable as long as the canvas is displayed and visible.
     // Update the style before Element::isFocusable() gets called.
@@ -767,35 +760,6 @@ AccessibilityObject* AXObjectCache::getOrCreate(RenderObject* renderer)
     return newObj.get();
 }
 
-#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-bool AXObjectCache::clientSupportsIsolatedTree()
-{
-    auto client = _AXGetClientForCurrentRequestUntrusted();
-    return client == kAXClientTypeVoiceOver
-        || UNLIKELY(client == kAXClientTypeWebKitTesting);
-}
-
-bool AXObjectCache::isIsolatedTreeEnabled()
-{
-    static std::atomic<bool> enabled { false };
-    if (enabled)
-        return true;
-
-    if (!isMainThread()) {
-        ASSERT(_AXUIElementRequestServicedBySecondaryAXThread());
-        enabled = true;
-    } else {
-        enabled = RuntimeEnabledFeatures::sharedFeatures().isAccessibilityIsolatedTreeEnabled() // Used to turn off in apps other than Safari, e.g., Mail.
-            && _AXSIsolatedTreeModeFunctionIsAvailable()
-            && _AXSIsolatedTreeMode_Soft() != AXSIsolatedTreeModeOff // Used to switch via system defaults.
-            && clientSupportsIsolatedTree();
-    }
-
-    return enabled;
-}
-
-#endif
-
 AXCoreObject* AXObjectCache::rootObject()
 {
     if (!gAccessibilityEnabled)
@@ -810,15 +774,6 @@ AXCoreObject* AXObjectCache::rootObject()
 }
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-
-void AXObjectCache::initializeSecondaryAXThread()
-{
-    // Now that we have created our tree, initialize the secondary thread,
-    // so future requests come in on the other thread.
-    if (_AXSIsolatedTreeModeFunctionIsAvailable() && _AXSIsolatedTreeMode_Soft() == AXSIsolatedTreeModeSecondaryThread)
-        _AXUIElementUseSecondaryAXThread(true);
-}
-
 RefPtr<AXIsolatedTree> AXObjectCache::getOrCreateIsolatedTree() const
 {
     if (!m_pageID)
@@ -843,13 +798,6 @@ AXCoreObject* AXObjectCache::isolatedTreeRootObject()
     // Should not get here, couldn't create the IsolatedTree.
     ASSERT_NOT_REACHED();
     return nullptr;
-}
-
-bool AXObjectCache::usedOnAXThread()
-{
-    ASSERT(isIsolatedTreeEnabled());
-    return _AXSIsolatedTreeModeFunctionIsAvailable()
-        && _AXSIsolatedTreeMode_Soft() == AXSIsolatedTreeModeSecondaryThread;
 }
 #endif
 
@@ -1723,7 +1671,7 @@ void AXObjectCache::handleAriaExpandedChange(Node* node)
     // An aria-expanded change can cause two notifications to be posted:
     // RowCountChanged for the tree or table ancestor of this object, and
     // RowExpanded/Collapsed for this object.
-    if (auto object = makeRefPtr(get(node))) {
+    if (RefPtr object = get(node)) {
         // Find the ancestor that supports RowCountChanged if exists.
         auto* ancestor = Accessibility::findAncestor<AccessibilityObject>(*object, false, [] (auto& candidate) {
             return candidate.supportsRowCountChange();
@@ -1926,7 +1874,7 @@ VisiblePosition AXObjectCache::visiblePositionForTextMarkerData(TextMarkerData& 
         || textMarkerData.node->isPseudoElement())
         return { };
 
-    auto visiblePosition = VisiblePosition(makeContainerOffsetPosition(textMarkerData.node, textMarkerData.offset), textMarkerData.affinity);
+    auto visiblePosition = VisiblePosition({ textMarkerData.node, textMarkerData.offset, textMarkerData.anchorType }, textMarkerData.affinity);
     auto deepPosition = visiblePosition.deepEquivalent();
     if (deepPosition.isNull())
         return { };
@@ -2510,7 +2458,7 @@ std::optional<TextMarkerData> AXObjectCache::textMarkerDataForVisiblePosition(co
         return std::nullopt;
 
     Position deepPos = visiblePos.deepEquivalent();
-    Node* domNode = deepPos.deprecatedNode();
+    Node* domNode = deepPos.anchorNode();
     ASSERT(domNode);
     if (!domNode)
         return std::nullopt;
@@ -2541,6 +2489,7 @@ std::optional<TextMarkerData> AXObjectCache::textMarkerDataForVisiblePosition(co
     textMarkerData.axID = obj.get()->objectID();
     textMarkerData.node = domNode;
     textMarkerData.offset = deepPos.deprecatedEditingOffset();
+    textMarkerData.anchorType = deepPos.anchorType();
     textMarkerData.affinity = visiblePos.affinity();
 
     textMarkerData.characterOffset = characterOffset.offset;
@@ -2996,7 +2945,7 @@ LayoutRect AXObjectCache::localCaretRectForCharacterOffset(RenderObject*& render
     if (runAndOffset.run)
         renderer = const_cast<RenderObject*>(&runAndOffset.run->renderer());
 
-    if (is<RenderLineBreak>(renderer) && LayoutIntegration::runFor(downcast<RenderLineBreak>(*renderer)) != runAndOffset.run)
+    if (is<RenderLineBreak>(renderer) && InlineIterator::boxFor(downcast<RenderLineBreak>(*renderer)) != runAndOffset.run)
         return IntRect();
 
     return computeLocalCaretRect(*renderer, runAndOffset);

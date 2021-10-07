@@ -52,6 +52,8 @@ CSSUnitType cssPrimitiveValueUnitFromTrie(const CharacterType* data, unsigned le
             return CSSUnitType::CSS_Q;
         case 's':
             return CSSUnitType::CSS_S;
+        case 'x':
+            return CSSUnitType::CSS_X;
         }
         break;
     case 2:
@@ -81,8 +83,12 @@ CSSUnitType cssPrimitiveValueUnitFromTrie(const CharacterType* data, unsigned le
                 return CSSUnitType::CSS_HZ;
             break;
         case 'i':
-            if (toASCIILower(data[1]) == 'n')
+            switch (toASCIILower(data[1])) {
+            case 'c':
+                return CSSUnitType::CSS_IC;
+            case 'n':
                 return CSSUnitType::CSS_IN;
+            }
             break;
         case 'l':
             if (toASCIILower(data[1]) == 'h' && RuntimeEnabledFeatures::sharedFeatures().lineHeightUnitsEnabled())

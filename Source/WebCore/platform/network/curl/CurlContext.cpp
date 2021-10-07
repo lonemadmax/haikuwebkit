@@ -171,6 +171,7 @@ CurlShareHandle::CurlShareHandle()
     m_shareHandle = curl_share_init();
     curl_share_setopt(m_shareHandle, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
     curl_share_setopt(m_shareHandle, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
+    curl_share_setopt(m_shareHandle, CURLSHOPT_SHARE, CURL_LOCK_DATA_SSL_SESSION);
     curl_share_setopt(m_shareHandle, CURLSHOPT_LOCKFUNC, lockCallback);
     curl_share_setopt(m_shareHandle, CURLSHOPT_UNLOCKFUNC, unlockCallback);
 }
@@ -198,6 +199,7 @@ Lock* CurlShareHandle::mutexFor(curl_lock_data data)
     static Lock cookieMutex;
     static Lock dnsMutex;
     static Lock shareMutex;
+    static Lock sslSessionMutex;
 
     switch (data) {
     case CURL_LOCK_DATA_COOKIE:
@@ -206,6 +208,8 @@ Lock* CurlShareHandle::mutexFor(curl_lock_data data)
         return &dnsMutex;
     case CURL_LOCK_DATA_SHARE:
         return &shareMutex;
+    case CURL_LOCK_DATA_SSL_SESSION:
+        return &sslSessionMutex;
     default:
         ASSERT_NOT_REACHED();
         return nullptr;
@@ -862,16 +866,41 @@ void CurlHandle::addExtraNetworkLoadMetrics(NetworkLoadMetrics& networkLoadMetri
     if (errorCode != CURLE_OK)
         return;
 
-    networkLoadMetrics.requestHeaderBytesSent = requestHeaderSize;
-    networkLoadMetrics.requestBodyBytesSent = requestBodySize;
-    networkLoadMetrics.responseHeaderBytesReceived = responseHeaderSize;
     networkLoadMetrics.responseBodyBytesReceived = responseBodySize;
 
-    if (ip) {
-        networkLoadMetrics.remoteAddress = String(ip);
-        if (port)
-            networkLoadMetrics.remoteAddress.append(":" + String::number(port));
+    auto additionalMetrics = AdditionalNetworkLoadMetricsForWebInspector::create();
+    if (!m_tlsConnectionInfo) {
+        curl_tlssessioninfo* info = nullptr;
+
+        errorCode = curl_easy_getinfo(m_handle, CURLINFO_TLS_SSL_PTR, &info);
+        if (errorCode != CURLE_OK)
+            return;
+
+        if (info && info->backend == CURLSSLBACKEND_OPENSSL && info->internals) {
+            auto ssl = static_cast<SSL*>(info->internals);
+
+            m_tlsConnectionInfo = makeUnique<TLSConnectionInfo>();
+            m_tlsConnectionInfo->protocol = OpenSSL::tlsVersion(ssl);
+            m_tlsConnectionInfo->cipher = OpenSSL::tlsCipherName(ssl);
+        }
     }
+
+    additionalMetrics->requestHeaderBytesSent = requestHeaderSize;
+    additionalMetrics->requestBodyBytesSent = requestBodySize;
+    additionalMetrics->responseHeaderBytesReceived = responseHeaderSize;
+
+    if (ip) {
+        additionalMetrics->remoteAddress = String(ip);
+        if (port)
+            additionalMetrics->remoteAddress.append(":" + String::number(port));
+    }
+
+    if (m_tlsConnectionInfo) {
+        additionalMetrics->tlsProtocol = m_tlsConnectionInfo->protocol;
+        additionalMetrics->tlsCipher = m_tlsConnectionInfo->cipher;
+    }
+
+    networkLoadMetrics.additionalNetworkLoadMetricsForWebInspector = WTFMove(additionalMetrics);
 }
 
 std::optional<CertificateInfo> CurlHandle::certificateInfo() const

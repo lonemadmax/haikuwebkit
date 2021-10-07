@@ -32,6 +32,7 @@
 #include "ApplicationCacheResource.h"
 #include "Attribute.h"
 #include "AudioTrackList.h"
+#include "AudioTrackPrivate.h"
 #include "Blob.h"
 #include "BlobURL.h"
 #include "CSSPropertyNames.h"
@@ -68,6 +69,7 @@
 #include "JSDOMPromiseDeferred.h"
 #include "JSHTMLMediaElement.h"
 #include "JSMediaControlsHost.h"
+#include "LoadableTextTrack.h"
 #include "Logging.h"
 #include "MIMETypeRegistry.h"
 #include "MediaController.h"
@@ -87,6 +89,7 @@
 #include "PageGroup.h"
 #include "PictureInPictureSupport.h"
 #include "PlatformMediaSessionManager.h"
+#include "PlatformTextTrack.h"
 #include "ProgressTracker.h"
 #include "Quirks.h"
 #include "RegistrableDomain.h"
@@ -111,7 +114,9 @@
 #include "UserContentController.h"
 #include "UserGestureIndicator.h"
 #include "VideoPlaybackQuality.h"
+#include "VideoTrack.h"
 #include "VideoTrackList.h"
+#include "VideoTrackPrivate.h"
 #include <JavaScriptCore/ScriptObject.h>
 #include <JavaScriptCore/Uint8Array.h>
 #include <limits>
@@ -536,6 +541,28 @@ HTMLMediaElement::~HTMLMediaElement()
     ALWAYS_LOG(LOGIDENTIFIER);
 
     beginIgnoringTrackDisplayUpdateRequests();
+
+    if (m_textTracks) {
+        for (unsigned i = 0; i < m_textTracks->length(); ++i) {
+            auto track = m_textTracks->item(i);
+            track->clearClient(*this);
+        }
+    }
+
+    if (m_audioTracks) {
+        for (unsigned i = 0; i < m_audioTracks->length(); ++i) {
+            auto track = m_audioTracks->item(i);
+            track->clearClient(*this);
+        }
+    }
+
+    if (m_videoTracks) {
+        for (unsigned i = 0; i < m_videoTracks->length(); ++i) {
+            auto track = m_videoTracks->item(i);
+            track->clearClient(*this);
+        }
+    }
+
     allMediaElements().remove(this);
 
     setShouldDelayLoadEvent(false);
@@ -1451,7 +1478,7 @@ void HTMLMediaElement::loadResource(const URL& initialURL, ContentType& contentT
     }
 
 #if ENABLE(CONTENT_EXTENSIONS)
-    if (auto documentLoader = makeRefPtr(frame->loader().documentLoader())) {
+    if (RefPtr documentLoader = frame->loader().documentLoader()) {
         if (page->userContentProvider().processContentRuleListsForLoad(*page, url, ContentExtensions::ResourceType::Media, *documentLoader).summary.blockedLoad) {
             mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
             return;
@@ -1814,7 +1841,7 @@ void HTMLMediaElement::updateActiveTextTrackCues(const MediaTime& movieTime)
         // simple event named cuechange at the track element as well.
         if (is<LoadableTextTrack>(*affectedTrack)) {
             auto event = Event::create(eventNames().cuechangeEvent, Event::CanBubble::No, Event::IsCancelable::No);
-            auto trackElement = makeRefPtr(downcast<LoadableTextTrack>(*affectedTrack).trackElement());
+            RefPtr trackElement = downcast<LoadableTextTrack>(*affectedTrack).trackElement();
             ASSERT(trackElement);
             scheduleEventOn(*trackElement, WTFMove(event));
         }
@@ -3028,7 +3055,7 @@ void HTMLMediaElement::setAudioOutputDevice(String&& deviceId, DOMPromiseDeferre
     if (m_player)
         m_player->audioOutputDeviceChanged();
 
-    scriptExecutionContext()->eventLoop().queueTask(TaskSource::MediaElement, [this, protectedThis = makeRef(*this), deviceId = WTFMove(deviceId), promise = WTFMove(promise)]() mutable {
+    scriptExecutionContext()->eventLoop().queueTask(TaskSource::MediaElement, [this, protectedThis = Ref { *this }, deviceId = WTFMove(deviceId), promise = WTFMove(promise)]() mutable {
         m_audioOutputHashedDeviceId = WTFMove(deviceId);
         promise.resolve();
     });
@@ -3500,7 +3527,7 @@ void HTMLMediaElement::setPlaybackRate(double rate)
 void HTMLMediaElement::updatePlaybackRate()
 {
     double requestedRate = requestedPlaybackRate();
-    if (m_player && potentiallyPlaying() && m_player->effectiveRate() != requestedRate)
+    if (m_player && potentiallyPlaying() && m_player->rate() != requestedRate)
         m_player->setRate(requestedRate);
 }
 
@@ -4238,7 +4265,7 @@ void HTMLMediaElement::removeTextTrack(Ref<TextTrack>&& track, bool scheduleEven
         return;
 
     TrackDisplayUpdateScope scope { *this };
-    if (auto cues = makeRefPtr(track->cues()))
+    if (RefPtr cues = track->cues())
         textTrackRemoveCues(track, *cues);
     track->clearClient(*this);
     if (m_textTracks)
@@ -4261,7 +4288,7 @@ void HTMLMediaElement::forgetResourceSpecificTracks()
     if (m_textTracks) {
         TrackDisplayUpdateScope scope { *this };
         for (int i = m_textTracks->length() - 1; i >= 0; --i) {
-            auto track = makeRef(*m_textTracks->item(i));
+            Ref track = *m_textTracks->item(i);
             if (track->trackType() == TextTrack::InBand)
                 removeTextTrack(WTFMove(track), false);
         }
@@ -4600,8 +4627,8 @@ void HTMLMediaElement::updateCaptionContainer()
 
 void HTMLMediaElement::layoutSizeChanged()
 {
-    if (auto frameView = makeRefPtr(document().view())) {
-        auto task = [this, protectedThis = makeRef(*this)] {
+    if (RefPtr frameView = document().view()) {
+        auto task = [this, protectedThis = Ref { *this }] {
             if (auto root = userAgentShadowRoot())
                 root->dispatchEvent(Event::create("resize", Event::CanBubble::No, Event::IsCancelable::No));
         };
@@ -6395,7 +6422,7 @@ WEBCORE_EXPORT void HTMLMediaElement::setVideoFullscreenStandby(bool value)
     if (m_videoFullscreenStandby)
         document().page()->chrome().client().enterVideoFullscreenForVideoElement(downcast<HTMLVideoElement>(*this), VideoFullscreenModeNone, m_videoFullscreenStandby);
     else
-        document().page()->chrome().client().exitVideoFullscreenForVideoElement(downcast<HTMLVideoElement>(*this), [this, protectedThis = makeRef(*this)](auto success) mutable {
+        document().page()->chrome().client().exitVideoFullscreenForVideoElement(downcast<HTMLVideoElement>(*this), [this, protectedThis = Ref { *this }](auto success) mutable {
             m_videoFullscreenStandby = !success;
         });
 }
@@ -6859,7 +6886,7 @@ void HTMLMediaElement::createMediaPlayer() WTF_IGNORES_THREAD_SAFETY_ANALYSIS
     mediaSession().setActive(true);
 
 #if ENABLE(WEB_AUDIO)
-    auto protectedAudioSourceNode = makeRefPtr(m_audioSourceNode);
+    RefPtr protectedAudioSourceNode = m_audioSourceNode;
     std::optional<Locker<Lock>> audioSourceNodeLocker;
     if (m_audioSourceNode)
         audioSourceNodeLocker.emplace(m_audioSourceNode->processLock());

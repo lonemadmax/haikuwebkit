@@ -33,6 +33,7 @@
 #include "ContentSecurityPolicy.h"
 #include "DOMImplementation.h"
 #include "DOMWindow.h"
+#include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
@@ -45,6 +46,7 @@
 #include "ScriptableDocumentParser.h"
 #include "SecurityOrigin.h"
 #include "SecurityOriginPolicy.h"
+#include "SecurityPolicy.h"
 #include "SegmentedString.h"
 #include "Settings.h"
 #include "SinkDocument.h"
@@ -200,7 +202,7 @@ bool DocumentWriter::begin(const URL& urlReference, bool dispatch, Document* own
         document->contentSecurityPolicy()->setInsecureNavigationRequestsToUpgrade(existingDocument->contentSecurityPolicy()->takeNavigationRequestsToUpgrade());
     }
 
-    auto protectedFrame = makeRef(*m_frame);
+    Ref protectedFrame = *m_frame;
 
     m_frame->loader().didBeginDocument(dispatch);
 

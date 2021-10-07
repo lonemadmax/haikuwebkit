@@ -32,6 +32,7 @@
 #include "PrivateClickMeasurementManagerInterface.h"
 #include "SandboxExtension.h"
 #include "ServiceWorkerSoftUpdateLoader.h"
+#include "WebPageProxyIdentifier.h"
 #include "WebResourceLoadStatisticsStore.h"
 #include <WebCore/BlobRegistryImpl.h>
 #include <WebCore/NetworkStorageSession.h>
@@ -42,6 +43,7 @@
 #include <wtf/Ref.h>
 #include <wtf/Seconds.h>
 #include <wtf/UniqueRef.h>
+#include <wtf/WeakHashSet.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
@@ -96,7 +98,7 @@ public:
 
     void recreatePrivateClickMeasurementStore(CompletionHandler<void()>&&);
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     WebResourceLoadStatisticsStore* resourceLoadStatistics() const { return m_resourceLoadStatistics.get(); }
     void setResourceLoadStatisticsEnabled(bool);
     bool isResourceLoadStatisticsEnabled() const;
@@ -139,11 +141,13 @@ public:
     void setPCMFraudPreventionValuesForTesting(String&& unlinkableToken, String&& secretToken, String&& signature, String&& keyID);
     void firePrivateClickMeasurementTimerImmediatelyForTesting();
     void allowTLSCertificateChainForLocalPCMTesting(const WebCore::CertificateInfo&);
+    void setPrivateClickMeasurementAppBundleIDForTesting(String&&);
 
     void addKeptAliveLoad(Ref<NetworkResourceLoader>&&);
     void removeKeptAliveLoad(NetworkResourceLoader&);
 
     void addLoaderAwaitingWebProcessTransfer(Ref<NetworkResourceLoader>&&);
+    void removeLoaderWaitingWebProcessTransfer(NetworkResourceLoadIdentifier);
     RefPtr<NetworkResourceLoader> takeLoaderAwaitingWebProcessTransfer(NetworkResourceLoadIdentifier);
 
     NetworkCache::Cache* cache() { return m_cache.get(); }
@@ -160,6 +164,7 @@ public:
 
     unsigned testSpeedMultiplier() const { return m_testSpeedMultiplier; }
     bool allowsServerPreconnect() const { return m_allowsServerPreconnect; }
+    bool shouldRunServiceWorkersOnMainThreadForTesting() const { return m_shouldRunServiceWorkersOnMainThreadForTesting; }
 
     bool isStaleWhileRevalidateEnabled() const { return m_isStaleWhileRevalidateEnabled; }
 
@@ -186,14 +191,14 @@ public:
 protected:
     NetworkSession(NetworkProcess&, const NetworkSessionCreationParameters&);
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     void forwardResourceLoadStatisticsSettings();
 #endif
 
     PAL::SessionID m_sessionID;
     Ref<NetworkProcess> m_networkProcess;
     WeakHashSet<NetworkDataTask> m_dataTaskSet;
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     String m_resourceLoadStatisticsDirectory;
     RefPtr<WebResourceLoadStatisticsStore> m_resourceLoadStatistics;
     ShouldIncludeLocalhost m_shouldIncludeLocalhostInResourceLoadStatistics { ShouldIncludeLocalhost::Yes };
@@ -210,6 +215,8 @@ protected:
 #endif
     bool m_isStaleWhileRevalidateEnabled { false };
     UniqueRef<PCM::ManagerInterface> m_privateClickMeasurement;
+    std::optional<WebCore::PrivateClickMeasurement> m_ephemeralMeasurement;
+    bool m_isRunningEphemeralMeasurementTest { false };
 
     HashSet<Ref<NetworkResourceLoader>> m_keptAliveLoads;
 
@@ -236,6 +243,7 @@ protected:
     UniqueRef<NetworkBroadcastChannelRegistry> m_broadcastChannelRegistry;
     unsigned m_testSpeedMultiplier { 1 };
     bool m_allowsServerPreconnect { true };
+    bool m_shouldRunServiceWorkersOnMainThreadForTesting { false };
 
 #if ENABLE(SERVICE_WORKER)
     HashSet<std::unique_ptr<ServiceWorkerSoftUpdateLoader>> m_softUpdateLoaders;

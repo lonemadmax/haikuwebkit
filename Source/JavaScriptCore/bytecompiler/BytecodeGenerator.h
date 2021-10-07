@@ -682,7 +682,7 @@ namespace JSC {
             RegisterID*>
         emitBinaryOp(RegisterID* dst, RegisterID* src1, RegisterID* src2, OperandTypes types)
         {
-            BinaryOp::emit(this, dst, src1, src2, types);
+            BinaryOp::emit(this, dst, src1, src2, m_codeBlock->addBinaryArithProfile(), types);
             return dst;
         }
 
@@ -858,6 +858,8 @@ namespace JSC {
         void emitJumpIfFalse(RegisterID* cond, Label& target);
         void emitJumpIfNotFunctionCall(RegisterID* cond, Label& target);
         void emitJumpIfNotFunctionApply(RegisterID* cond, Label& target);
+        void emitJumpIfEmptyPropertyNameEnumerator(RegisterID* cond, Label& target);
+        void emitJumpIfSentinelString(RegisterID* cond, Label& target);
         unsigned emitWideJumpIfNotFunctionHasOwnProperty(RegisterID* cond, Label& target);
         void recordHasOwnPropertyInForInLoop(ForInContext&, unsigned branchOffset, Label& genericPath);
 
@@ -1069,7 +1071,6 @@ namespace JSC {
         void popLexicalScope(VariableEnvironmentNode*);
         void prepareLexicalScopeForNextForLoopIteration(VariableEnvironmentNode*, RegisterID* loopSymbolTable);
         int labelScopeDepth() const;
-        UnlinkedArrayProfile newArrayProfile();
 
     private:
         ParserError generate();

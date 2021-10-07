@@ -1013,7 +1013,9 @@ sub XcodeOptions
     determineForceOptimizationLevel();
     determineCoverageIsEnabled();
     determineLTOMode();
-    determineXcodeSDK();
+    if (isAppleCocoaWebKit()) {
+      determineXcodeSDK();
+    }
 
     my @options;
     push @options, "-UseSanitizedBuildSystemEnvironment=YES";
@@ -1493,14 +1495,7 @@ sub isWin64()
 sub determineIsWin64()
 {
     return if defined($isWin64);
-    $isWin64 = checkForArgumentAndRemoveFromARGV("--64-bit") || ((isAnyWindows() || isJSCOnly()) && !shouldBuild32Bit());
-}
-
-sub determineIsWin64FromArchitecture($)
-{
-    my $arch = shift;
-    $isWin64 = ($arch eq "x86_64");
-    return $isWin64;
+    $isWin64 = checkForArgumentAndRemoveFromARGV("--64-bit") || (isAnyWindows() && !shouldBuild32Bit());
 }
 
 sub isCygwin()
@@ -2538,7 +2533,10 @@ sub generateBuildSystemFromCMakeProject
 
     push @args, "-DLTO_MODE=$ltoMode" if ltoMode();
 
-    push @args, '-DCMAKE_TOOLCHAIN_FILE=Platform/PlayStation' if isPlayStation();
+    if (isPlayStation()) {
+        my $toolChainFile = $ENV{'CMAKE_TOOLCHAIN_FILE'} || "Platform/PlayStation";
+        push @args, '-DCMAKE_TOOLCHAIN_FILE=' . $toolChainFile;
+    }
 
     if ($willUseNinja) {
         push @args, "-G";

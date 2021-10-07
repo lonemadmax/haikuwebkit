@@ -31,8 +31,10 @@
 
 namespace WebCore {
 
+class FileSystemDirectoryHandle;
 class NavigatorBase;
 template<typename> class DOMPromiseDeferred;
+template<typename> class ExceptionOr;
 
 class StorageManager : public RefCounted<StorageManager> {
     WTF_MAKE_ISO_ALLOCATED(StorageManager);
@@ -40,10 +42,10 @@ public:
     static Ref<StorageManager> create(NavigatorBase&);
     void persisted(DOMPromiseDeferred<IDLBoolean>&&);
     void persist(DOMPromiseDeferred<IDLBoolean>&&);
+    void fileSystemAccessGetDirectory(DOMPromiseDeferred<IDLInterface<FileSystemDirectoryHandle>>&&);
 
 private:
     explicit StorageManager(NavigatorBase&);
-
     WeakPtr<NavigatorBase> m_navigator;
 };
 

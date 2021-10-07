@@ -450,7 +450,7 @@ void ScriptExecutionContext::reportUnhandledPromiseRejection(JSC::JSGlobalObject
 
 void ScriptExecutionContext::addConsoleMessage(MessageSource source, MessageLevel level, const String& message, const String& sourceURL, unsigned lineNumber, unsigned columnNumber, JSC::JSGlobalObject* state, unsigned long requestIdentifier)
 {
-    addMessage(source, level, message, sourceURL, lineNumber, columnNumber, 0, state, requestIdentifier);
+    addMessage(source, level, message, sourceURL, lineNumber, columnNumber, nullptr, state, requestIdentifier);
 }
 
 bool ScriptExecutionContext::dispatchErrorEvent(const String& errorMessage, int lineNumber, int columnNumber, const String& sourceURL, JSC::Exception* exception, CachedScript* cachedScript)
@@ -647,6 +647,26 @@ bool ScriptExecutionContext::postTaskTo(ScriptExecutionContextIdentifier identif
         return false;
 
     context->postTask(WTFMove(task));
+    return true;
+}
+
+bool ScriptExecutionContext::ensureOnContextThread(ScriptExecutionContextIdentifier identifier, Task&& task)
+{
+    ScriptExecutionContext* context = nullptr;
+    {
+        Locker locker { allScriptExecutionContextsMapLock };
+        context = allScriptExecutionContextsMap().get(identifier);
+
+        if (!context)
+            return false;
+
+        if (!context->isContextThread()) {
+            context->postTask(WTFMove(task));
+            return true;
+        }
+    }
+
+    task.performTask(*context);
     return true;
 }
 

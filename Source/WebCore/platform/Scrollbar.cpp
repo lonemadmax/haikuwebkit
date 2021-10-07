@@ -33,6 +33,7 @@
 #include "ScrollView.h"
 #include "ScrollableArea.h"
 #include "ScrollbarTheme.h"
+#include "ScrollbarsController.h"
 #include <algorithm>
 
 #if PLATFORM(GTK)
@@ -428,7 +429,7 @@ bool Scrollbar::shouldParticipateInHitTesting()
     // Non-overlay scrollbars should always participate in hit testing.
     if (!isOverlayScrollbar())
         return true;
-    return m_scrollableArea.scrollAnimator().shouldScrollbarParticipateInHitTesting(this);
+    return m_scrollableArea.scrollbarsController().shouldScrollbarParticipateInHitTesting(this);
 }
 
 bool Scrollbar::isWindowActive() const

@@ -188,6 +188,13 @@ private:
         return m_process.setCaptureAttributionString();
     }
 
+#if HAVE(IOSURFACE_SET_OWNERSHIP_IDENTITY)
+    std::optional<task_id_token_t> webProcessIdentityToken() const final
+    {
+        return m_process.webProcessIdentityToken();
+    }
+#endif
+
     GPUConnectionToWebProcess& m_process;
 };
 
@@ -340,7 +347,7 @@ bool GPUConnectionToWebProcess::allowsExitUnderMemoryPressure() const
     if (!m_sampleBufferDisplayLayerManager->allowsExitUnderMemoryPressure())
         return false;
 #endif
-#if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM) && HAVE(AVASSETWRITERDELEGATE)
+#if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
     if (m_remoteMediaRecorderManager && !m_remoteMediaRecorderManager->allowsExitUnderMemoryPressure())
         return false;
 #endif
@@ -424,7 +431,7 @@ RemoteAudioMediaStreamTrackRendererInternalUnitManager& GPUConnectionToWebProces
 }
 #endif
 
-#if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM) && HAVE(AVASSETWRITERDELEGATE)
+#if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 RemoteMediaRecorderManager& GPUConnectionToWebProcess::mediaRecorderManager()
 {
     if (!m_remoteMediaRecorderManager)
@@ -449,7 +456,9 @@ RemoteAudioSessionProxy& GPUConnectionToWebProcess::audioSessionProxy()
 {
     if (!m_audioSessionProxy) {
         m_audioSessionProxy = RemoteAudioSessionProxy::create(*this).moveToUniquePtr();
-        gpuProcess().audioSessionManager().addProxy(*m_audioSessionProxy);
+
+        auto auditToken = gpuProcess().parentProcessConnection()->getAuditToken();
+        gpuProcess().audioSessionManager().addProxy(*m_audioSessionProxy, auditToken);
     }
     return *m_audioSessionProxy;
 }
@@ -648,7 +657,7 @@ bool GPUConnectionToWebProcess::dispatchMessage(IPC::Connection& connection, IPC
         return true;
     }
 #endif
-#if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM) && HAVE(AVASSETWRITERDELEGATE)
+#if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
     if (decoder.messageReceiverName() == Messages::RemoteMediaRecorderManager::messageReceiverName()) {
         mediaRecorderManager().didReceiveMessageFromWebProcess(connection, decoder);
         return true;

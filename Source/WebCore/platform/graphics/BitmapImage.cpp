@@ -199,7 +199,7 @@ Vector<Ref<NativeImage>> BitmapImage::framesNativeImages()
 
     for (size_t i = 0; i < count; ++i) {
         if (auto image = frameImageAtIndexCacheIfNeeded(i))
-            images.append(makeRef(*image));
+            images.append(*image);
     }
 
     return images;
@@ -655,6 +655,11 @@ void BitmapImage::imageFrameAvailableAtIndex(size_t index)
 
     if (imageObserver())
         imageObserver()->imageFrameAvailable(*this, ImageAnimatingState::No, nullptr, decodingStatus);
+}
+
+DestinationColorSpace BitmapImage::colorSpace()
+{
+    return nativeImage()->colorSpace();
 }
 
 unsigned BitmapImage::decodeCountForTesting() const

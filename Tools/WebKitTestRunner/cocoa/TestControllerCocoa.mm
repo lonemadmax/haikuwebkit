@@ -37,6 +37,7 @@
 #import <Security/SecItem.h>
 #import <WebKit/WKContextConfigurationRef.h>
 #import <WebKit/WKContextPrivate.h>
+#import <WebKit/WKImageCG.h>
 #import <WebKit/WKPreferencesRefPrivate.h>
 #import <WebKit/WKProcessPoolPrivate.h>
 #import <WebKit/WKStringCF.h>
@@ -460,11 +461,7 @@ void TestController::addTestKeyToKeychain(const String& privateKeyBase64, const 
         (id)kSecAttrLabel: attrLabel,
         (id)kSecAttrApplicationTag: adoptNS([[NSData alloc] initWithBase64EncodedString:applicationTagBase64 options:NSDataBase64DecodingIgnoreUnknownCharacters]).get(),
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
-#if HAVE(DATA_PROTECTION_KEYCHAIN)
         (id)kSecUseDataProtectionKeychain: @YES
-#else
-        (id)kSecAttrNoLegacy: @YES
-#endif
     };
     OSStatus status = SecItemAdd((__bridge CFDictionaryRef)addQuery, NULL);
     ASSERT_UNUSED(status, !status);
@@ -475,11 +472,7 @@ void TestController::cleanUpKeychain(const String& attrLabel, const String& appl
     auto deleteQuery = adoptNS([[NSMutableDictionary alloc] init]);
     [deleteQuery setObject:(id)kSecClassKey forKey:(id)kSecClass];
     [deleteQuery setObject:attrLabel forKey:(id)kSecAttrLabel];
-#if HAVE(DATA_PROTECTION_KEYCHAIN)
     [deleteQuery setObject:@YES forKey:(id)kSecUseDataProtectionKeychain];
-#else
-    [deleteQuery setObject:@YES forKey:(id)kSecAttrNoLegacy];
-#endif
     if (!!applicationLabelBase64)
         [deleteQuery setObject:adoptNS([[NSData alloc] initWithBase64EncodedString:applicationLabelBase64 options:NSDataBase64DecodingIgnoreUnknownCharacters]).get() forKey:(id)kSecAttrApplicationLabel];
 
@@ -493,11 +486,7 @@ bool TestController::keyExistsInKeychain(const String& attrLabel, const String& 
         (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPrivate,
         (id)kSecAttrLabel: attrLabel,
         (id)kSecAttrApplicationLabel: adoptNS([[NSData alloc] initWithBase64EncodedString:applicationLabelBase64 options:NSDataBase64DecodingIgnoreUnknownCharacters]).get(),
-#if HAVE(DATA_PROTECTION_KEYCHAIN)
         (id)kSecUseDataProtectionKeychain: @YES
-#else
-        (id)kSecAttrNoLegacy: @YES
-#endif
     };
     OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL);
     if (!status)
@@ -569,6 +558,11 @@ void TestController::configureContentMode(WKWebViewConfiguration *configuration,
     UNUSED_PARAM(options);
 #endif
     configuration.defaultWebpagePreferences = webpagePreferences.get();
+}
+
+WKRetainPtr<WKStringRef> TestController::takeViewPortSnapshot()
+{
+    return adoptWK(WKImageCreateDataURLFromImage(mainWebView()->windowSnapshotImage().get()));
 }
 
 } // namespace WTR

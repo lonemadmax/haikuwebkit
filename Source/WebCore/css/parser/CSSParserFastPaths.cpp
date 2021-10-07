@@ -649,6 +649,8 @@ bool CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyID propertyId
         return valueID == CSSValueFromImage || valueID == CSSValueNone;
     case CSSPropertyImageRendering: // auto | optimizeContrast | pixelated | optimizeSpeed | crispEdges | optimizeQuality | webkit-crispEdges
         return valueID == CSSValueAuto || valueID == CSSValueOptimizeSpeed || valueID == CSSValueOptimizeQuality || valueID == CSSValueWebkitCrispEdges || valueID == CSSValueWebkitOptimizeContrast || valueID == CSSValueCrispEdges || valueID == CSSValuePixelated;
+    case CSSPropertyInputSecurity:
+        return valueID == CSSValueAuto || valueID == CSSValueNone;
 #if ENABLE(CSS_COMPOSITING)
     case CSSPropertyIsolation: // auto | isolate
         return valueID == CSSValueAuto || valueID == CSSValueIsolate;
@@ -901,6 +903,8 @@ bool CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyID propertyId
     case CSSPropertyFontOpticalSizing:
         return valueID == CSSValueAuto || valueID == CSSValueNone;
 #endif
+    case CSSPropertyTextDecorationSkipInk:
+        return valueID == CSSValueAuto || valueID == CSSValueNone || valueID == CSSValueAll;
     default:
         ASSERT_NOT_REACHED();
         return false;
@@ -938,6 +942,7 @@ bool CSSParserFastPaths::isKeywordPropertyID(CSSPropertyID propertyId)
     case CSSPropertyFontVariantPosition:
     case CSSPropertyImageOrientation:
     case CSSPropertyImageRendering:
+    case CSSPropertyInputSecurity:
     case CSSPropertyListStylePosition:
     case CSSPropertyListStyleType:
     case CSSPropertyObjectFit:
@@ -1061,6 +1066,7 @@ bool CSSParserFastPaths::isKeywordPropertyID(CSSPropertyID propertyId)
     case CSSPropertyFontOpticalSizing:
 #endif
     case CSSPropertyMathStyle:
+    case CSSPropertyTextDecorationSkipInk:
         return true;
     default:
         return false;

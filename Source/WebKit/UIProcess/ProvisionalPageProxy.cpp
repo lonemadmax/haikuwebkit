@@ -103,6 +103,11 @@ ProvisionalPageProxy::ProvisionalPageProxy(WebPageProxy& page, Ref<WebProcessPro
 
 ProvisionalPageProxy::~ProvisionalPageProxy()
 {
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    if (m_accessibilityBindCompletionHandler)
+        m_accessibilityBindCompletionHandler({ });
+#endif
+
     if (!m_wasCommitted) {
         m_page.inspectorController().willDestroyProvisionalPage(*this);
 
@@ -333,12 +338,12 @@ void ProvisionalPageProxy::decidePolicyForNavigationActionAsync(FrameIdentifier 
     m_page.decidePolicyForNavigationActionAsyncShared(m_process.copyRef(), m_webPageID, frameID, WTFMove(frameInfo), identifier, navigationID, WTFMove(navigationActionData), WTFMove(originatingFrameInfo), originatingPageID, originalRequest, WTFMove(request), WTFMove(requestBody), WTFMove(redirectResponse), userData, listenerID);
 }
 
-void ProvisionalPageProxy::decidePolicyForResponse(FrameIdentifier frameID, FrameInfoData&& frameInfo, WebCore::PolicyCheckIdentifier identifier, uint64_t navigationID, const WebCore::ResourceResponse& response, const WebCore::ResourceRequest& request, bool canShowMIMEType, const String& downloadAttribute, bool wasAllowedByInjectedBundle, BrowsingContextGroupSwitchDecision browsingContextGroupSwitchDecision, uint64_t mainResourceLoadIdentifier, uint64_t listenerID, const UserData& userData)
+void ProvisionalPageProxy::decidePolicyForResponse(FrameIdentifier frameID, FrameInfoData&& frameInfo, WebCore::PolicyCheckIdentifier identifier, uint64_t navigationID, const WebCore::ResourceResponse& response, const WebCore::ResourceRequest& request, bool canShowMIMEType, const String& downloadAttribute, bool wasAllowedByInjectedBundle, uint64_t listenerID, const UserData& userData)
 {
     if (!validateInput(frameID, navigationID))
         return;
 
-    m_page.decidePolicyForResponseShared(m_process.copyRef(), m_webPageID, frameID, WTFMove(frameInfo), identifier, navigationID, response, request, canShowMIMEType, downloadAttribute, wasAllowedByInjectedBundle, browsingContextGroupSwitchDecision, mainResourceLoadIdentifier, listenerID, userData);
+    m_page.decidePolicyForResponseShared(m_process.copyRef(), m_webPageID, frameID, WTFMove(frameInfo), identifier, navigationID, response, request, canShowMIMEType, downloadAttribute, wasAllowedByInjectedBundle, listenerID, userData);
 }
 
 void ProvisionalPageProxy::didPerformServerRedirect(const String& sourceURLString, const String& destinationURLString, FrameIdentifier frameID)
@@ -422,9 +427,10 @@ void ProvisionalPageProxy::registerWebProcessAccessibilityToken(const IPC::DataR
 #endif
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
-void ProvisionalPageProxy::bindAccessibilityTree(const String& plugID)
+void ProvisionalPageProxy::bindAccessibilityTree(const String& plugID, CompletionHandler<void(String&&)>&& completionHandler)
 {
     m_accessibilityPlugID = plugID;
+    m_accessibilityBindCompletionHandler = WTFMove(completionHandler);
 }
 #endif
 
@@ -489,7 +495,7 @@ void ProvisionalPageProxy::didReceiveMessage(IPC::Connection& connection, IPC::D
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
     if (decoder.messageName() == Messages::WebPageProxy::BindAccessibilityTree::name()) {
-        IPC::handleMessage<Messages::WebPageProxy::BindAccessibilityTree>(connection, decoder, this, &ProvisionalPageProxy::bindAccessibilityTree);
+        IPC::handleMessageAsync<Messages::WebPageProxy::BindAccessibilityTree>(connection, decoder, this, &ProvisionalPageProxy::bindAccessibilityTree);
         return;
     }
 #endif

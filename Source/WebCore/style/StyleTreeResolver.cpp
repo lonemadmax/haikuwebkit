@@ -246,7 +246,7 @@ ElementUpdates TreeResolver::resolveElement(Element& element)
     if (element.hasTagName(HTMLNames::meterTag)
         || is<HTMLProgressElement>(element)
         || (is<HTMLInputElement>(element) && downcast<HTMLInputElement>(element).isSearchField())) {
-        if (existingStyle && update.style->appearance() != existingStyle->appearance()) {
+        if (existingStyle && update.style->effectiveAppearance() != existingStyle->effectiveAppearance()) {
             update.change = Change::Renderer;
             descendantsToResolve = DescendantsToResolve::All;
         }
@@ -648,7 +648,7 @@ static Vector<RefPtr<Frame>>& memoryCacheClientCallsResumeQueue()
     return vector;
 }
 
-void queuePostResolutionCallback(Function<void ()>&& callback)
+void deprecatedQueuePostResolutionCallback(Function<void()>&& callback)
 {
     postResolutionCallbackQueue().append(WTFMove(callback));
 }

@@ -387,9 +387,7 @@ public:
     Vector<GCReachableRef<ContainerNode>> targets;
 };
 
-#if ENABLE(INTERSECTION_OBSERVER)
 static const Seconds intersectionObserversInitialUpdateDelay { 2000_ms };
-#endif
 
 // DOM Level 2 says (letters added):
 //
@@ -630,9 +628,7 @@ Document::Document(Frame* frame, const Settings& settings, const URL& url, Docum
 #if ENABLE(FULLSCREEN_API)
     , m_fullscreenManager { makeUniqueRef<FullscreenManager>(*this) }
 #endif
-#if ENABLE(INTERSECTION_OBSERVER)
     , m_intersectionObserversInitialUpdateTimer(*this, &Document::intersectionObserversInitialUpdateTimerFired)
-#endif
     , m_loadEventDelayTimer(*this, &Document::loadEventDelayTimerFired)
 #if PLATFORM(IOS_FAMILY) && ENABLE(DEVICE_ORIENTATION)
     , m_deviceMotionClient(makeUnique<DeviceMotionClientIOS>(page() ? page()->deviceOrientationUpdateProvider() : nullptr))
@@ -704,7 +700,6 @@ Document::~Document()
     if (m_logger)
         m_logger->removeObserver(*this);
 
-#if ENABLE(INTERSECTION_OBSERVER)
     if (m_intersectionObserverData) {
         for (const auto& observer : m_intersectionObserverData->observers) {
             if (observer)
@@ -714,7 +709,6 @@ Document::~Document()
         // Document cannot be a target.
         ASSERT(m_intersectionObserverData->registrations.isEmpty());
     }
-#endif
 
     removeFromDocumentsMap();
 
@@ -876,6 +870,8 @@ void Document::commonTeardown()
         m_timelinesController->detachFromDocument();
 
     m_timeline = nullptr;
+    m_associatedFormControls.clear();
+    m_didAssociateFormControlsTimer.stop();
 }
 
 Element* Document::elementForAccessKey(const String& key)
@@ -1736,9 +1732,9 @@ void Document::updateTitle(const StringWithDirection& title)
     m_title.direction = title.direction;
 
     if (!m_updateTitleTaskScheduled) {
-        eventLoop().queueTask(TaskSource::DOMManipulation, [protectedThis = makeRef(*this), this]() mutable {
+        eventLoop().queueTask(TaskSource::DOMManipulation, [protectedThis = Ref { *this }, this]() mutable {
             m_updateTitleTaskScheduled = false;
-            if (auto documentLoader = makeRefPtr(loader()))
+            if (RefPtr documentLoader = loader())
                 documentLoader->setTitle(m_title);
         });
         m_updateTitleTaskScheduled = true;
@@ -1911,7 +1907,7 @@ void Document::forEachMediaElement(const Function<void(HTMLMediaElement&)>& func
 {
     ASSERT(!m_mediaElements.hasNullReferences());
     m_mediaElements.forEach([&](auto& element) {
-        function(makeRef(element));
+        function(Ref { element });
     });
 }
 
@@ -2144,6 +2140,9 @@ void Document::resolveStyle(ResolveStyleType type)
 
 void Document::updateTextRenderer(Text& text, unsigned offsetOfReplacedText, unsigned lengthOfReplacedText)
 {
+    if (!hasLivingRenderTree())
+        return;
+
     if (!m_pendingRenderTreeTextUpdate)
         m_pendingRenderTreeTextUpdate = makeUnique<Style::Update>(*this);
 
@@ -3218,7 +3217,7 @@ void Document::implicitClose()
 
     m_processingLoadEvent = false;
 
-    if (auto fontFaceSet = makeRefPtr(fontSelector().fontFaceSetIfExists()))
+    if (RefPtr fontFaceSet = fontSelector().fontFaceSetIfExists())
         fontFaceSet->documentDidFinishLoading();
 
 #if PLATFORM(COCOA) || PLATFORM(WIN) || PLATFORM(GTK)
@@ -3739,8 +3738,8 @@ void Document::didRemoveAllPendingStylesheet()
 
     if (m_gotoAnchorNeededAfterStylesheetsLoad) {
         // https://html.spec.whatwg.org/multipage/browsing-the-web.html#try-to-scroll-to-the-fragment
-        eventLoop().queueTask(TaskSource::Networking, [protectedThis = makeRef(*this), this] {
-            auto frameView = makeRefPtr(view());
+        eventLoop().queueTask(TaskSource::Networking, [protectedThis = Ref { *this }, this] {
+            RefPtr frameView = view();
             if (!frameView)
                 return;
             if (!haveStylesheetsLoaded()) {
@@ -3834,12 +3833,12 @@ void Document::processMetaHttpEquiv(const String& equiv, const String& content, 
     case HTTPHeaderName::XFrameOptions:
         if (frame) {
             FrameLoader& frameLoader = frame->loader();
-            unsigned long requestIdentifier = 0;
+            ResourceLoaderIdentifier requestIdentifier;
             if (frameLoader.activeDocumentLoader() && frameLoader.activeDocumentLoader()->mainResourceLoader())
                 requestIdentifier = frameLoader.activeDocumentLoader()->mainResourceLoader()->identifier();
 
             String message = "The X-Frame-Option '" + content + "' supplied in a <meta> element was ignored. X-Frame-Options may only be provided by an HTTP header sent with the document.";
-            addConsoleMessage(MessageSource::Security, MessageLevel::Error, message, requestIdentifier);
+            addConsoleMessage(MessageSource::Security, MessageLevel::Error, message, requestIdentifier.toUInt64());
         }
         break;
 
@@ -4083,7 +4082,7 @@ MouseEventWithHitTestResults Document::prepareMouseEvent(const HitTestRequest& r
 
     auto captureElementChanged = CaptureChange::No;
     if (!request.readOnly()) {
-        auto targetElement = makeRefPtr(result.targetElement());
+        RefPtr targetElement = result.targetElement();
         if (auto* page = this->page()) {
             // Before we dispatch a new mouse event, we must run the Process Pending Capture Element steps as defined
             // in https://w3c.github.io/pointerevents/#process-pending-pointer-capture.
@@ -5076,14 +5075,14 @@ void Document::dispatchWindowLoadEvent()
 
 void Document::queueTaskToDispatchEvent(TaskSource source, Ref<Event>&& event)
 {
-    eventLoop().queueTask(source, [document = makeRef(*this), event = WTFMove(event)] {
+    eventLoop().queueTask(source, [document = Ref { *this }, event = WTFMove(event)] {
         document->dispatchEvent(event);
     });
 }
 
 void Document::queueTaskToDispatchEventOnWindow(TaskSource source, Ref<Event>&& event)
 {
-    eventLoop().queueTask(source, [this, protectedThis = makeRef(*this), event = WTFMove(event)] {
+    eventLoop().queueTask(source, [this, protectedThis = Ref { *this }, event = WTFMove(event)] {
         if (!m_domWindow)
             return;
         m_domWindow->dispatchEvent(event);
@@ -5310,7 +5309,7 @@ ExceptionOr<void> Document::setCookie(const String& value)
 
 String Document::referrer()
 {
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     if (!m_referrerOverride.isEmpty())
         return m_referrerOverride;
     if (DeprecatedGlobalSettings::resourceLoadStatisticsEnabled() && frame()) {
@@ -5794,11 +5793,11 @@ bool Document::shouldCreateRenderers()
 
 static Editor::Command command(Document* document, const String& commandName, bool userInterface = false)
 {
-    auto protectedDocument = makeRef(*document);
+    Ref protectedDocument { *document };
 
     document->updateStyleIfNeeded();
 
-    auto frame = makeRefPtr(document->frame());
+    RefPtr frame = document->frame();
 
     if (!frame || frame->document() != document)
         return Editor::Command();
@@ -7538,18 +7537,24 @@ void Document::didAssociateFormControl(Element& element)
     auto* page = this->page();
     if (!page || !page->chrome().client().shouldNotifyOnFormChanges())
         return;
-    m_associatedFormControls.add(&element);
-    if (!m_didAssociateFormControlsTimer.isActive())
-        m_didAssociateFormControlsTimer.startOneShot(0_s);
+
+    auto isNewEntry = m_associatedFormControls.add(&element).isNewEntry;
+    if (isNewEntry && !m_didAssociateFormControlsTimer.isActive())
+        m_didAssociateFormControlsTimer.startOneShot(isTopDocument() || hasHadUserInteraction() ? 0_s : 1_s);
 }
 
 void Document::didAssociateFormControlsTimerFired()
 {
-    auto vector = copyToVector(m_associatedFormControls);
-    m_associatedFormControls.clear();
-    if (auto* page = this->page()) {
+    Vector<RefPtr<Element>> controls;
+    controls.reserveInitialCapacity(m_associatedFormControls.computeSize());
+    for (auto& element : std::exchange(m_associatedFormControls, { })) {
+        if (element.isConnected())
+            controls.uncheckedAppend(&element);
+    }
+
+    if (auto page = this->page(); page && !controls.isEmpty()) {
         ASSERT(m_frame);
-        page->chrome().client().didAssociateFormControls(vector, *m_frame);
+        page->chrome().client().didAssociateFormControls(controls, *m_frame);
     }
 }
 
@@ -7821,26 +7826,20 @@ void Document::removeDynamicMediaQueryDependentImage(HTMLImageElement& element)
     m_dynamicMediaQueryDependentImages.remove(element);
 }
 
-#if ENABLE(INTERSECTION_OBSERVER)
 void Document::intersectionObserversInitialUpdateTimerFired()
 {
     scheduleRenderingUpdate(RenderingUpdateStep::IntersectionObservations);
 }
-#endif
 
 void Document::scheduleRenderingUpdate(OptionSet<RenderingUpdateStep> requestedSteps)
 {
-#if ENABLE(INTERSECTION_OBSERVER)
     if (m_intersectionObserversInitialUpdateTimer.isActive()) {
         m_intersectionObserversInitialUpdateTimer.stop();
         requestedSteps.add(RenderingUpdateStep::IntersectionObservations);
     }
-#endif
     if (auto page = this->page())
         page->scheduleRenderingUpdate(requestedSteps);
 }
-
-#if ENABLE(INTERSECTION_OBSERVER)
 
 void Document::addIntersectionObserver(IntersectionObserver& observer)
 {
@@ -8075,10 +8074,6 @@ IntersectionObserverData& Document::ensureIntersectionObserverData()
     return *m_intersectionObserverData;
 }
 
-#endif
-
-#if ENABLE(RESIZE_OBSERVER)
-
 void Document::addResizeObserver(ResizeObserver& observer)
 {
     if (!m_resizeObservers.contains(&observer))
@@ -8158,8 +8153,6 @@ void Document::updateResizeObservations(Page& page)
         scheduleRenderingUpdate(RenderingUpdateStep::ResizeObservations);
     }
 }
-
-#endif
 
 const AtomString& Document::dir() const
 {
@@ -8378,7 +8371,7 @@ void Document::updateMainArticleElementAfterLayout()
     m_mainArticleElement = makeWeakPtr(tallestArticle.get());
 }
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 
 bool Document::hasRequestedPageSpecificStorageAccessWithUserInteraction(const RegistrableDomain& domain)
 {

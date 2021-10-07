@@ -60,12 +60,15 @@ class Widget;
 
 struct TextMarkerData {
     AXID axID { 0 };
+
     Node* node { nullptr };
-    int offset { 0 };
+    unsigned offset { 0 };
+    Position::AnchorType anchorType { Position::PositionIsOffsetInAnchor };
+    Affinity affinity { Affinity::Downstream };
+
     int characterStartIndex { 0 };
     int characterOffset { 0 };
     bool ignored { false };
-    Affinity affinity { Affinity::Downstream };
 };
 
 struct CharacterOffset {
@@ -169,7 +172,7 @@ public:
     void remove(Widget*);
     void remove(AXID);
 
-#if !PLATFORM(COCOA)
+#if !PLATFORM(COCOA) && !USE(ATSPI)
     void detachWrapper(AXCoreObject*, AccessibilityDetachmentType);
 #endif
 private:
@@ -581,7 +584,7 @@ inline void AXObjectCache::deferRecomputeIsIgnored(Element*) { }
 inline void AXObjectCache::deferTextChangedIfNeeded(Node*) { }
 inline void AXObjectCache::deferSelectedChildrenChangedIfNeeded(Element&) { }
 inline void AXObjectCache::deferTextReplacementNotificationForTextControl(HTMLTextFormControlElement&, const String&) { }
-#if !PLATFORM(COCOA)
+#if !PLATFORM(COCOA) && !USE(ATSPI)
 inline void AXObjectCache::detachWrapper(AXCoreObject*, AccessibilityDetachmentType) { }
 #endif
 inline void AXObjectCache::focusModalNodeTimerFired() { }

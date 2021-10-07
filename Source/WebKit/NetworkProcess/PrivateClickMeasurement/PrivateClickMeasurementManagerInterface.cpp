@@ -48,10 +48,11 @@ namespace MessageInfo {
 
 FUNCTION(storeUnattributed)
 ARGUMENTS(WebCore::PrivateClickMeasurement)
+REPLY()
 END
 
 FUNCTION(handleAttribution)
-ARGUMENTS(PrivateClickMeasurementManager::AttributionTriggerData, URL, WebCore::RegistrableDomain, URL)
+ARGUMENTS(PrivateClickMeasurementManager::AttributionTriggerData, URL, WebCore::RegistrableDomain, URL, String)
 END
 
 FUNCTION(clear)
@@ -98,16 +99,16 @@ ARGUMENTS()
 REPLY()
 END
 
-FUNCTION(setEphemeralMeasurementForTesting)
-ARGUMENTS(bool)
-END
-
 FUNCTION(setPCMFraudPreventionValuesForTesting)
 ARGUMENTS(String, String, String, String)
 END
 
 FUNCTION(startTimerImmediatelyForTesting)
 ARGUMENTS()
+END
+
+FUNCTION(setPrivateClickMeasurementAppBundleIDForTesting)
+ARGUMENTS(String)
 END
 
 FUNCTION(destroyStoreForTesting)
@@ -129,6 +130,7 @@ EMPTY_REPLY(clear);
 EMPTY_REPLY(clearForRegistrableDomain);
 EMPTY_REPLY(markAttributedPrivateClickMeasurementsAsExpiredForTesting);
 EMPTY_REPLY(destroyStoreForTesting);
+EMPTY_REPLY(storeUnattributed);
 #undef EMPTY_REPLY
 
 PCM::EncodedMessage toStringForTesting::encodeReply(String reply)
@@ -143,7 +145,6 @@ PCM::EncodedMessage toStringForTesting::encodeReply(String reply)
 bool messageTypeSendsReply(MessageType messageType)
 {
     switch (messageType) {
-    case MessageType::StoreUnattributed:
     case MessageType::HandleAttribution:
     case MessageType::MigratePrivateClickMeasurementFromLegacyStorage:
     case MessageType::SetOverrideTimerForTesting:
@@ -151,11 +152,12 @@ bool messageTypeSendsReply(MessageType messageType)
     case MessageType::SetTokenSignatureURLForTesting:
     case MessageType::SetAttributionReportURLsForTesting:
     case MessageType::MarkAllUnattributedAsExpiredForTesting:
-    case MessageType::SetEphemeralMeasurementForTesting:
     case MessageType::SetPCMFraudPreventionValuesForTesting:
     case MessageType::StartTimerImmediatelyForTesting:
+    case MessageType::SetPrivateClickMeasurementAppBundleIDForTesting:
     case MessageType::AllowTLSCertificateChainForLocalPCMTesting:
         return false;
+    case MessageType::StoreUnattributed:
     case MessageType::MarkAttributedPrivateClickMeasurementsAsExpiredForTesting:
     case MessageType::DestroyStoreForTesting:
     case MessageType::ToStringForTesting:
@@ -167,11 +169,22 @@ bool messageTypeSendsReply(MessageType messageType)
     return false;
 }
 
+static std::unique_ptr<PrivateClickMeasurementManager>& managerPointer()
+{
+    static NeverDestroyed<std::unique_ptr<PrivateClickMeasurementManager>> manager;
+    return manager.get();
+}
+
+void initializePCMStorageInDirectory(const String& storageDirectory)
+{
+    ASSERT(!managerPointer());
+    managerPointer() = makeUnique<PrivateClickMeasurementManager>(makeUniqueRef<PCM::DaemonClient>(), storageDirectory);
+}
+
 static PrivateClickMeasurementManager& daemonManager()
 {
-    // FIXME: Give the manager a valid storage directory.
-    static NeverDestroyed<PrivateClickMeasurementManager> instance(makeUniqueRef<PCM::DaemonClient>(), String());
-    return instance.get();
+    ASSERT(managerPointer());
+    return *managerPointer();
 }
 
 template<typename Info>
@@ -209,7 +222,7 @@ void decodeMessageAndSendToManager(MessageType messageType, Vector<uint8_t>&& en
     ASSERT(messageTypeSendsReply(messageType) == !!replySender);
     switch (messageType) {
     case PCM::MessageType::StoreUnattributed:
-        handlePCMMessage<MessageInfo::storeUnattributed>(WTFMove(encodedMessage));
+        handlePCMMessageWithReply<MessageInfo::storeUnattributed>(WTFMove(encodedMessage), WTFMove(replySender));
         break;
     case PCM::MessageType::HandleAttribution:
         handlePCMMessage<MessageInfo::handleAttribution>(WTFMove(encodedMessage));
@@ -244,14 +257,14 @@ void decodeMessageAndSendToManager(MessageType messageType, Vector<uint8_t>&& en
     case PCM::MessageType::MarkAttributedPrivateClickMeasurementsAsExpiredForTesting:
         handlePCMMessageWithReply<MessageInfo::markAttributedPrivateClickMeasurementsAsExpiredForTesting>(WTFMove(encodedMessage), WTFMove(replySender));
         break;
-    case PCM::MessageType::SetEphemeralMeasurementForTesting:
-        handlePCMMessage<MessageInfo::setEphemeralMeasurementForTesting>(WTFMove(encodedMessage));
-        break;
     case PCM::MessageType::SetPCMFraudPreventionValuesForTesting:
         handlePCMMessage<MessageInfo::setPCMFraudPreventionValuesForTesting>(WTFMove(encodedMessage));
         break;
     case PCM::MessageType::StartTimerImmediatelyForTesting:
         handlePCMMessage<MessageInfo::startTimerImmediatelyForTesting>(WTFMove(encodedMessage));
+        break;
+    case PCM::MessageType::SetPrivateClickMeasurementAppBundleIDForTesting:
+        handlePCMMessage<MessageInfo::setPrivateClickMeasurementAppBundleIDForTesting>(WTFMove(encodedMessage));
         break;
     case PCM::MessageType::DestroyStoreForTesting:
         handlePCMMessageWithReply<MessageInfo::destroyStoreForTesting>(WTFMove(encodedMessage), WTFMove(replySender));

@@ -139,7 +139,7 @@ public:
     unsigned textAlignLast : 3; // TextAlignLast
     unsigned textJustify : 2; // TextJustify
 #endif
-    unsigned textDecorationSkip : 5; // TextDecorationSkip
+    unsigned textDecorationSkipInk : 2; // TextDecorationSkipInk
     unsigned textUnderlinePosition : 2; // TextUnderlinePosition
     unsigned rubyPosition : 2; // RubyPosition
     unsigned textZoom: 1; // TextZoom
@@ -161,6 +161,7 @@ public:
     unsigned hasAutoCaretColor : 1;
     unsigned hasVisitedLinkAutoCaretColor : 1;
 
+    unsigned effectiveInert : 1;
     unsigned isInSubtreeWithBlendMode : 1;
 
     OptionSet<TouchAction> effectiveTouchActions;

@@ -744,6 +744,12 @@ void TestInvocation::didReceiveMessageFromInjectedBundle(WKStringRef messageName
         TestController::singleton().setStatisticsFirstPartyWebsiteDataRemovalMode(booleanValue(messageBody));
         return;
     }
+    
+    if (WKStringIsEqualToUTF8CString(messageName, "TakeViewPortSnapshot")) {
+        auto value = TestController::singleton().takeViewPortSnapshot();
+        postPageMessage("ViewPortSnapshotTaken", value.get());
+        return;
+    }
 
     if (WKStringIsEqualToUTF8CString(messageName, "StatisticsSetToSameSiteStrictCookies")) {
         TestController::singleton().setStatisticsToSameSiteStrictCookies(stringValue(messageBody));
@@ -956,6 +962,11 @@ WKRetainPtr<WKTypeRef> TestInvocation::didReceiveSynchronousMessageFromInjectedB
     if (WKStringIsEqualToUTF8CString(messageName, "IsMockRealtimeMediaSourceCenterEnabled"))
         return adoptWK(WKBooleanCreate(TestController::singleton().isMockRealtimeMediaSourceCenterEnabled()));
     
+    if (WKStringIsEqualToUTF8CString(messageName, "SetMockCameraIsInterrupted")) {
+        TestController::singleton().setMockCameraIsInterrupted(booleanValue(messageBody));
+        return nullptr;
+    }
+
     if (WKStringIsEqualToUTF8CString(messageName, "HasAppBoundSession"))
         return adoptWK(WKBooleanCreate(TestController::singleton().hasAppBoundSession()));
 
@@ -1280,6 +1291,12 @@ WKRetainPtr<WKTypeRef> TestInvocation::didReceiveSynchronousMessageFromInjectedB
         return nullptr;
     }
 
+    if (WKStringIsEqualToUTF8CString(messageName, "TerminateGPUProcess")) {
+        ASSERT(!messageBody);
+        TestController::singleton().terminateGPUProcess();
+        return nullptr;
+    }
+
     if (WKStringIsEqualToUTF8CString(messageName, "TerminateNetworkProcess")) {
         ASSERT(!messageBody);
         TestController::singleton().terminateNetworkProcess();
@@ -1403,6 +1420,11 @@ WKRetainPtr<WKTypeRef> TestInvocation::didReceiveSynchronousMessageFromInjectedB
         auto keyID = stringValue(testDictionary, "KeyID");
 
         TestController::singleton().setPCMFraudPreventionValuesForTesting(unlinkableToken, secretToken, signature, keyID);
+        return nullptr;
+    }
+
+    if (WKStringIsEqualToUTF8CString(messageName, "SetPrivateClickMeasurementAppBundleIDForTesting")) {
+        TestController::singleton().setPrivateClickMeasurementAppBundleIDForTesting(stringValue(messageBody));
         return nullptr;
     }
 

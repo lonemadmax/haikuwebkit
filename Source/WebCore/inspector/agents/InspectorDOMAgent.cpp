@@ -1875,7 +1875,7 @@ Ref<Protocol::DOM::EventListener> InspectorDOMAgent::buildObjectForEventListener
     int lineNumber = 0;
     int columnNumber = 0;
     String scriptID;
-    if (is<JSEventListener>(eventListener.get())) {
+    if (is<JSEventListener>(eventListener)) {
         auto& scriptListener = downcast<JSEventListener>(eventListener.get());
 
         Document* document = nullptr;
@@ -2117,7 +2117,7 @@ Ref<Protocol::DOM::AccessibilityProperties> InspectorDOMAgent::buildObjectForAcc
             else // Future versions of ARIA may allow additional truthy values. Ex. format, order, or size.
                 invalid = Protocol::DOM::AccessibilityProperties::Invalid::True;
             
-            if (axObject->isAXHidden() || axObject->isDOMHidden())
+            if (axObject->isHidden())
                 hidden = true;
             
             label = axObject->computedLabel();

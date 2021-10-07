@@ -118,7 +118,6 @@ public:
 
     virtual IDBClient::IDBConnectionProxy* idbConnectionProxy() = 0;
     virtual RefPtr<PermissionController> permissionController() { return nullptr; }
-    virtual StorageConnection* storageConnection() { return nullptr; }
 
     virtual SocketProvider* socketProvider() = 0;
 
@@ -281,6 +280,7 @@ public:
     ServiceWorkerContainer* ensureServiceWorkerContainer();
 #endif
     WEBCORE_EXPORT static bool postTaskTo(ScriptExecutionContextIdentifier, Task&&);
+    WEBCORE_EXPORT static bool ensureOnContextThread(ScriptExecutionContextIdentifier, Task&&);
 
     ScriptExecutionContextIdentifier contextIdentifier() const;
 

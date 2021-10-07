@@ -138,7 +138,7 @@ void WebPageProxy::beginSafeBrowsingCheck(const URL& url, bool forMainFrameNavig
     SSBLookupContext *context = [SSBLookupContext sharedLookupContext];
     if (!context)
         return listener.didReceiveSafeBrowsingResults({ });
-    [context lookUpURL:url completionHandler:makeBlockPtr([listener = makeRef(listener), forMainFrameNavigation, url = url] (SSBLookupResult *result, NSError *error) mutable {
+    [context lookUpURL:url completionHandler:makeBlockPtr([listener = Ref { listener }, forMainFrameNavigation, url = url] (SSBLookupResult *result, NSError *error) mutable {
         RunLoop::main().dispatch([listener = WTFMove(listener), result = retainPtr(result), error = retainPtr(error), forMainFrameNavigation, url = WTFMove(url)] {
             if (error) {
                 listener->didReceiveSafeBrowsingResults({ });
@@ -534,7 +534,7 @@ void WebPageProxy::scheduleActivityStateUpdate()
             // that may result in other frameworks trying to install commit handlers for the same phase, which is not allowed.
             // So, dispatch_async here; we only care that the activity state change doesn't apply until after the active commit is complete.
             WorkQueue::main().dispatch([weakThis] {
-                auto protectedThis = makeRefPtr(weakThis.get());
+                RefPtr protectedThis { weakThis.get() };
                 if (!protectedThis)
                     return;
 
@@ -634,11 +634,7 @@ Vector<SandboxExtension::Handle> WebPageProxy::createNetworkExtensionsSandboxExt
     if (!process.hasNetworkExtensionSandboxAccess() && NetworkExtensionContentFilter::isRequired()) {
         process.markHasNetworkExtensionSandboxAccess();
         constexpr ASCIILiteral neHelperService { "com.apple.nehelper"_s };
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101500
-        constexpr ASCIILiteral neSessionManagerService { "com.apple.nesessionmanager"_s };
-#else
         constexpr ASCIILiteral neSessionManagerService { "com.apple.nesessionmanager.content-filter"_s };
-#endif
         return SandboxExtension::createHandlesForMachLookup({ neHelperService, neSessionManagerService }, std::nullopt);
     }
 #endif

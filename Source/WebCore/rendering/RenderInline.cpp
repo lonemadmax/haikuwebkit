@@ -187,13 +187,14 @@ void RenderInline::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
     }
 
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-    if (auto* lineLayout = LayoutIntegration::LineLayout::containing(*this)) {
-        if (diff >= StyleDifference::Repaint && selfNeedsLayout()) {
-            // FIXME: Add support for partial invalidation.
-            if (auto* container = LayoutIntegration::LineLayout::blockContainer(*this))
-                container->invalidateLineLayoutPath();
-        } else
-            lineLayout->updateStyle(*this);
+    if (diff >= StyleDifference::Repaint) {
+        if (auto* lineLayout = LayoutIntegration::LineLayout::containing(*this)) {
+            auto shouldInvalidateLineLayoutPath = selfNeedsLayout() || !LayoutIntegration::LineLayout::canUseForAfterInlineBoxStyleChange(*this, diff);
+            if (shouldInvalidateLineLayoutPath)
+                lineLayout->flow().invalidateLineLayoutPath();
+            else
+                lineLayout->updateStyle(*this, *oldStyle);
+        }
     }
 #endif
 }
@@ -344,7 +345,7 @@ LayoutPoint RenderInline::firstInlineBoxTopLeft() const
         return lineLayout->firstInlineBoxRect(*this).location();
 #endif
     if (LegacyInlineBox* firstBox = firstLineBox())
-        return flooredLayoutPoint(firstBox->topLeft());
+        return flooredLayoutPoint(firstBox->locationIncludingFlipping());
     return { };
 }
 
@@ -416,43 +417,30 @@ const char* RenderInline::renderName() const
 bool RenderInline::nodeAtPoint(const HitTestRequest& request, HitTestResult& result,
                                 const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction hitTestAction)
 {
+    ASSERT(layer());
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-    if (auto* lineLayout = LayoutIntegration::LineLayout::containing(const_cast<RenderInline&>(*this)))
-        lineLayout->flow().ensureLineBoxes();
+    ASSERT(!LayoutIntegration::LineLayout::containing(const_cast<RenderInline&>(*this)));
 #endif
     return m_lineBoxes.hitTest(this, request, result, locationInContainer, accumulatedOffset, hitTestAction);
 }
 
 VisiblePosition RenderInline::positionForPoint(const LayoutPoint& point, const RenderFragmentContainer* fragment)
 {
-    // FIXME: Does not deal with relative or sticky positioned inlines (should it?)
-    RenderBlock& containingBlock = *this->containingBlock();
+    auto& containingBlock = *this->containingBlock();
 
-    auto hasInlineBox = [&] {
-#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-        if (LayoutIntegration::LineLayout::containing(*this))
-            return true;
-#endif
-        return !!firstLineBox();
-    };
-
-    if (hasInlineBox()) {
-        // This inline actually has an inline box. We must have clicked in the border/padding of one of these boxes. We
-        // should try to find a result by asking our containing block.
-        return containingBlock.positionForPoint(point, fragment);
+    if (auto* continuation = this->continuation()) {
+        // Translate the coords from the pre-anonymous block to the post-anonymous block.
+        LayoutPoint parentBlockPoint = containingBlock.location() + point;
+        while (continuation) {
+            RenderBlock* currentBlock = continuation->isInline() ? continuation->containingBlock() : downcast<RenderBlock>(continuation);
+            if (continuation->isInline() || continuation->firstChild())
+                return continuation->positionForPoint(parentBlockPoint - currentBlock->locationOffset(), fragment);
+            continuation = continuation->inlineContinuation();
+        }
+        return RenderBoxModelObject::positionForPoint(point, fragment);
     }
 
-    // Translate the coords from the pre-anonymous block to the post-anonymous block.
-    LayoutPoint parentBlockPoint = containingBlock.location() + point;
-    RenderBoxModelObject* continuation = this->continuation();
-    while (continuation) {
-        RenderBlock* currentBlock = continuation->isInline() ? continuation->containingBlock() : downcast<RenderBlock>(continuation);
-        if (continuation->isInline() || continuation->firstChild())
-            return continuation->positionForPoint(parentBlockPoint - currentBlock->locationOffset(), fragment);
-        continuation = continuation->inlineContinuation();
-    }
-    
-    return RenderBoxModelObject::positionForPoint(point, fragment);
+    return containingBlock.positionForPoint(point, fragment);
 }
 
 class LinesBoundingBoxGeneratorContext {
@@ -1128,6 +1116,22 @@ void RenderInline::paintOutlineForLine(GraphicsContext& graphicsContext, const L
         adjacentWidth2 = outlineWidth;
         drawLineForBoxSide(graphicsContext, FloatRect(topLeft, bottomRight), BoxSide::Bottom, outlineColor, outlineStyle, adjacentWidth1, adjacentWidth2, antialias);
     }
+}
+
+bool isEmptyInline(const RenderInline& renderer)
+{
+    for (auto& current : childrenOfType<RenderObject>(renderer)) {
+        if (current.isFloatingOrOutOfFlowPositioned())
+            continue;
+        if (is<RenderText>(current)) {
+            if (!downcast<RenderText>(current).isAllCollapsibleWhitespace())
+                return false;
+            continue;
+        }
+        if (!is<RenderInline>(current) || !isEmptyInline(downcast<RenderInline>(current)))
+            return false;
+    }
+    return true;
 }
 
 } // namespace WebCore

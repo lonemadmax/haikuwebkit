@@ -56,8 +56,9 @@ public:
         const FloatList& floats;
         bool hasIntrusiveFloat { false };
         InlineLayoutPoint logicalTopLeft;
-        InlineLayoutUnit lineLogicalWidth;
-        InlineLayoutUnit contentLogicalWidth;
+        InlineLayoutUnit lineLogicalWidth { 0 };
+        InlineLayoutUnit contentLogicalWidth { 0 };
+        InlineLayoutUnit hangingWhitespaceWidth { 0 };
         bool isLastLineWithInlineContent { true };
         size_t nonSpanningInlineLevelBoxCount { 0 };
         const Line::RunList& runs;
@@ -97,7 +98,7 @@ private:
     size_t rebuildLine(const InlineItemRange& needsLayoutRange, const InlineItem& lastInlineItemToAdd);
     size_t rebuildLineForTrailingSoftHyphen(const InlineItemRange& layoutRange);
     void commitPartialContent(const InlineContentBreaker::ContinuousContent::RunList&, const InlineContentBreaker::Result::PartialTrailingContent&);
-    void initialize(const UsedConstraints&);
+    void initialize(const UsedConstraints&, bool isFirstLine);
     struct CommittedContent {
         size_t inlineItemCount { 0 };
         size_t partialTrailingContentLength { 0 };
@@ -116,6 +117,8 @@ private:
     const ContainerBox& root() const;
     const LayoutState& layoutState() const;
 
+private:
+    bool m_isFirstLine { false };
     const InlineFormattingContext& m_inlineFormattingContext;
     InlineFormattingState* m_inlineFormattingState { nullptr };
     FloatingState* m_floatingState { nullptr };

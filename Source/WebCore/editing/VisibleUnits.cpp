@@ -31,9 +31,9 @@
 #include "HTMLBRElement.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
+#include "InlineIteratorBox.h"
+#include "InlineIteratorLine.h"
 #include "InlineRunAndOffset.h"
-#include "LayoutIntegrationLineIterator.h"
-#include "LayoutIntegrationRunIterator.h"
 #include "NodeTraversal.h"
 #include "Range.h"
 #include "RenderBlockFlow.h"
@@ -124,12 +124,12 @@ static Position nextLineCandidatePosition(Node* node, const VisiblePosition& vis
     return Position();
 }
 
-static bool isTextOrLineBreakRun(LayoutIntegration::RunIterator run)
+static bool isTextOrLineBreakRun(InlineIterator::BoxIterator run)
 {
     return run && (run->isText() || run->renderer().isBR());
 }
 
-static LayoutIntegration::RunIterator previousTextOrLineBreakRun(LayoutIntegration::RunIterator run)
+static InlineIterator::BoxIterator previousTextOrLineBreakRun(InlineIterator::BoxIterator run)
 {
     while (run) {
         run.traversePreviousOnLineInLogicalOrder();
@@ -139,7 +139,7 @@ static LayoutIntegration::RunIterator previousTextOrLineBreakRun(LayoutIntegrati
     return { };
 }
 
-static LayoutIntegration::RunIterator nextTextOrLineBreakRun(LayoutIntegration::RunIterator run)
+static InlineIterator::BoxIterator nextTextOrLineBreakRun(InlineIterator::BoxIterator run)
 {
     while (run) {
         run.traverseNextOnLineInLogicalOrder();
@@ -149,28 +149,28 @@ static LayoutIntegration::RunIterator nextTextOrLineBreakRun(LayoutIntegration::
     return { };
 }
 
-static LayoutIntegration::RunIterator startTextOrLineBreakRun(LayoutIntegration::LineIterator line)
+static InlineIterator::BoxIterator startTextOrLineBreakRun(InlineIterator::LineIterator line)
 {
-    auto run = line.logicalStartRun();
+    auto run = line->logicalStartRun();
     if (isTextOrLineBreakRun(run))
         return run;
     return nextTextOrLineBreakRun(run);
 }
 
-static LayoutIntegration::RunIterator endTextOrLineBreakRun(LayoutIntegration::LineIterator line)
+static InlineIterator::BoxIterator endTextOrLineBreakRun(InlineIterator::LineIterator line)
 {
-    auto run = line.logicalEndRun();
+    auto run = line->logicalEndRun();
     if (isTextOrLineBreakRun(run))
         return run;
     return previousTextOrLineBreakRun(run);
 }
 
-static const LayoutIntegration::RunIterator logicallyPreviousRun(const VisiblePosition& visiblePosition, LayoutIntegration::RunIterator startRun, bool& previousBoxInDifferentLine)
+static const InlineIterator::BoxIterator logicallyPreviousRun(const VisiblePosition& visiblePosition, InlineIterator::BoxIterator startRun, bool& previousBoxInDifferentLine)
 {
     if (auto previousRun = previousTextOrLineBreakRun(startRun))
         return previousRun;
 
-    if (auto previousLine = startRun.line().previous()) {
+    if (auto previousLine = startRun->line()->previous()) {
         // FIXME: Why isn't previousBoxInDifferentLine set here?
         if (auto previousRun = endTextOrLineBreakRun(previousLine))
             return previousRun;
@@ -190,25 +190,25 @@ static const LayoutIntegration::RunIterator logicallyPreviousRun(const VisiblePo
         if (!previousLine)
             break;
 
-        if (previousLine != startRun.line()) {
+        if (previousLine != startRun->line()) {
             if (auto previousRun = endTextOrLineBreakRun(previousLine)) {
                 previousBoxInDifferentLine = true;
                 return previousRun;
             }
         }
 
-        startRun = previousLine.logicalStartRun();
+        startRun = previousLine->logicalStartRun();
     }
     return { };
 }
 
 
-static const LayoutIntegration::RunIterator logicallyNextRun(const VisiblePosition& visiblePosition, LayoutIntegration::RunIterator startRun, bool& nextBoxInDifferentLine)
+static const InlineIterator::BoxIterator logicallyNextRun(const VisiblePosition& visiblePosition, InlineIterator::BoxIterator startRun, bool& nextBoxInDifferentLine)
 {
     if (auto nextRun = nextTextOrLineBreakRun(startRun))
         return nextRun;
 
-    if (auto nextLine = startRun.line().next()) {
+    if (auto nextLine = startRun->line()->next()) {
         // FIXME: Why isn't previousBoxInDifferentLine set here?
         if (auto nextRun = startTextOrLineBreakRun(nextLine))
             return nextRun;
@@ -228,19 +228,19 @@ static const LayoutIntegration::RunIterator logicallyNextRun(const VisiblePositi
         if (!nextLine)
             break;
 
-        if (nextLine != startRun.line()) {
+        if (nextLine != startRun->line()) {
             if (auto nextRun = startTextOrLineBreakRun(nextLine)) {
                 nextBoxInDifferentLine = true;
                 return nextRun;
             }
         }
 
-        startRun = nextLine.logicalEndRun();
+        startRun = nextLine->logicalEndRun();
     }
     return { };
 }
 
-static UBreakIterator* wordBreakIteratorForMinOffsetBoundary(const VisiblePosition& visiblePosition, LayoutIntegration::TextRunIterator textRun,
+static UBreakIterator* wordBreakIteratorForMinOffsetBoundary(const VisiblePosition& visiblePosition, InlineIterator::TextBoxIterator textRun,
     unsigned& previousRunLength, bool& previousRunInDifferentLine, Vector<UChar, 1024>& string)
 {
     previousRunInDifferentLine = false;
@@ -255,7 +255,7 @@ static UBreakIterator* wordBreakIteratorForMinOffsetBoundary(const VisiblePositi
     string.clear();
 
     if (previousRun) {
-        auto& previousTextRun = downcast<LayoutIntegration::TextRunIterator>(previousRun);
+        auto& previousTextRun = downcast<InlineIterator::TextBoxIterator>(previousRun);
         previousRunLength = previousTextRun->length();
         append(string, previousTextRun->text());
     }
@@ -264,7 +264,7 @@ static UBreakIterator* wordBreakIteratorForMinOffsetBoundary(const VisiblePositi
     return wordBreakIterator(StringView(string.data(), string.size()));
 }
 
-static UBreakIterator* wordBreakIteratorForMaxOffsetBoundary(const VisiblePosition& visiblePosition, LayoutIntegration::TextRunIterator textRun,
+static UBreakIterator* wordBreakIteratorForMaxOffsetBoundary(const VisiblePosition& visiblePosition, InlineIterator::TextBoxIterator textRun,
     bool& nextRunInDifferentLine, Vector<UChar, 1024>& string)
 {
     nextRunInDifferentLine = false;
@@ -280,7 +280,7 @@ static UBreakIterator* wordBreakIteratorForMaxOffsetBoundary(const VisiblePositi
     append(string, textRun->text());
 
     if (nextRun) {
-        auto& nextTextRun = downcast<LayoutIntegration::TextRunIterator>(nextRun);
+        auto& nextTextRun = downcast<InlineIterator::TextBoxIterator>(nextRun);
         append(string, nextTextRun->text());
     }
 
@@ -315,7 +315,7 @@ static VisiblePosition visualWordPosition(const VisiblePosition& visiblePosition
     visiblePosition.deepEquivalent().document()->updateLayoutIgnorePendingStylesheets();
 
     TextDirection blockDirection = directionOfEnclosingBlock(visiblePosition.deepEquivalent());
-    LayoutIntegration::RunIterator previouslyVisitedRun;
+    InlineIterator::BoxIterator previouslyVisitedRun;
     VisiblePosition current = visiblePosition;
     std::optional<VisiblePosition> previousPosition;
     UBreakIterator* iter = nullptr;
@@ -340,7 +340,7 @@ static VisiblePosition visualWordPosition(const VisiblePosition& visiblePosition
             continue;
         }
 
-        auto& textRun = downcast<LayoutIntegration::TextRunIterator>(run);
+        auto& textRun = downcast<InlineIterator::TextBoxIterator>(run);
         unsigned previousRunLength = 0;
         bool previousRunInDifferentLine = false;
         bool nextRunInDifferentLine = false;
@@ -746,8 +746,8 @@ static VisiblePosition startPositionForLine(const VisiblePosition& c, LineEndpoi
         return VisiblePosition();
     }
 
-    Node* startNode;
-    LayoutIntegration::RunIterator startRun = mode == UseLogicalOrdering ? line.logicalStartRunWithNode() : line.firstRun();
+    Node* startNode = nullptr;
+    auto startRun = mode == UseLogicalOrdering ? line->logicalStartRunWithNode() : line->firstRun();
     // Generated content (e.g. list markers and CSS :before and :after pseudoelements) have no corresponding DOM element,
     // and so cannot be represented by a VisiblePosition. Use whatever follows instead.
     while (true) {
@@ -764,7 +764,7 @@ static VisiblePosition startPositionForLine(const VisiblePosition& c, LineEndpoi
             startRun.traverseNextOnLine();
     }
 
-    return is<Text>(*startNode) ? Position(downcast<Text>(startNode), downcast<LayoutIntegration::PathTextRun>(*startRun).start())
+    return is<Text>(*startNode) ? Position(downcast<Text>(startNode), downcast<InlineIterator::TextBox>(*startRun).start())
         : positionBeforeNode(startNode);
 }
 
@@ -816,8 +816,8 @@ static VisiblePosition endPositionForLine(const VisiblePosition& c, LineEndpoint
         return VisiblePosition();
     }
 
-    Node* endNode;
-    LayoutIntegration::RunIterator endRun = mode == UseLogicalOrdering ? line.logicalEndRunWithNode() : line.lastRun();
+    Node* endNode = nullptr;
+    auto endRun = mode == UseLogicalOrdering ? line->logicalEndRunWithNode() : line->lastRun();
     // Generated content (e.g. list markers and CSS :before and :after pseudoelements) have no corresponding DOM element,
     // and so cannot be represented by a VisiblePosition. Use whatever precedes instead.
     while (true) {
@@ -837,8 +837,8 @@ static VisiblePosition endPositionForLine(const VisiblePosition& c, LineEndpoint
     Position pos;
     if (is<HTMLBRElement>(*endNode))
         pos = positionBeforeNode(endNode);
-    else if (is<LayoutIntegration::PathTextRun>(*endRun) && is<Text>(*endNode)) {
-        auto& endTextRun = downcast<LayoutIntegration::PathTextRun>(*endRun);
+    else if (is<InlineIterator::TextBox>(*endRun) && is<Text>(*endNode)) {
+        auto& endTextRun = downcast<InlineIterator::TextBox>(*endRun);
         int endOffset = endTextRun.start();
         if (!endTextRun.isLineBreak())
             endOffset += endTextRun.length();
@@ -929,7 +929,7 @@ bool isLogicalEndOfLine(const VisiblePosition& p)
     return p.isNotNull() && p == logicalEndOfLine(p);
 }
 
-static inline IntPoint absoluteLineDirectionPointToLocalPointInBlock(LayoutIntegration::LineIterator& line, int lineDirectionPoint)
+static inline IntPoint absoluteLineDirectionPointToLocalPointInBlock(InlineIterator::LineIterator& line, int lineDirectionPoint)
 {
     auto& containingBlock = line->containingBlock();
     FloatPoint absoluteBlockPoint = containingBlock.localToAbsolute(FloatPoint()) - toFloatSize(containingBlock.scrollPosition());
@@ -961,12 +961,12 @@ VisiblePosition previousLinePosition(const VisiblePosition& visiblePosition, int
     if (!renderer)
         return VisiblePosition();
 
-    LayoutIntegration::LineIterator line;
+    InlineIterator::LineIterator line;
     if (auto run = visiblePosition.inlineRunAndOffset().run) {
-        line = run.line().previous();
+        line = run->line()->previous();
         // We want to skip zero height boxes.
         // This could happen in case it is a LegacyRootInlineBox with trailing floats.
-        if (!line || !line->logicalHeight() || !line.firstRun())
+        if (!line || !line->logicalHeight() || !line->firstRun())
             line = { };
     }
 
@@ -983,7 +983,7 @@ VisiblePosition previousLinePosition(const VisiblePosition& visiblePosition, int
     if (line) {
         // FIXME: Can be wrong for multi-column layout and with transforms.
         auto pointInLine = absoluteLineDirectionPointToLocalPointInBlock(line, lineDirectionPoint);
-        auto& renderer = line.closestRunForPoint(pointInLine, isEditablePosition(p))->renderer();
+        auto& renderer = line->closestRunForPoint(pointInLine, isEditablePosition(p))->renderer();
         Node* node = renderer.node();
         if (node && editingIgnoresContent(*node))
             return positionInParentBeforeNode(node);
@@ -1011,12 +1011,12 @@ VisiblePosition nextLinePosition(const VisiblePosition& visiblePosition, int lin
     if (!node->renderer())
         return VisiblePosition();
 
-    LayoutIntegration::LineIterator line;
+    InlineIterator::LineIterator line;
     if (auto run = visiblePosition.inlineRunAndOffset().run) {
-        line = run.line().next();
+        line = run->line()->next();
         // We want to skip zero height boxes.
         // This could happen in case it is a LegacyRootInlineBox with trailing floats.
-        if (!line || !line->logicalHeight() || !line.firstRun())
+        if (!line || !line->logicalHeight() || !line->firstRun())
             line = { };
     }
 
@@ -1036,7 +1036,7 @@ VisiblePosition nextLinePosition(const VisiblePosition& visiblePosition, int lin
     if (line) {
         // FIXME: Can be wrong for multi-column layout and with transforms.
         auto pointInLine = absoluteLineDirectionPointToLocalPointInBlock(line, lineDirectionPoint);
-        auto& renderer = line.closestRunForPoint(pointInLine, isEditablePosition(p))->renderer();
+        auto& renderer = line->closestRunForPoint(pointInLine, isEditablePosition(p))->renderer();
         Node* node = renderer.node();
         if (node && editingIgnoresContent(*node))
             return positionInParentBeforeNode(node);

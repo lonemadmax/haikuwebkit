@@ -120,6 +120,7 @@ PASS flood-opacity
 PASS font-family
 PASS font-feature-settings
 PASS font-optical-sizing
+PASS font-palette
 PASS font-size
 PASS font-stretch
 PASS font-style
@@ -149,6 +150,7 @@ PASS height
 PASS image-orientation
 PASS image-rendering
 PASS inline-size
+PASS input-security
 PASS inset-block-end
 PASS inset-block-start
 PASS inset-inline-end
@@ -270,6 +272,7 @@ PASS text-decoration
 PASS text-decoration-color
 PASS text-decoration-line
 PASS text-decoration-skip
+PASS text-decoration-skip-ink
 PASS text-decoration-style
 PASS text-decoration-thickness
 PASS text-indent

@@ -223,7 +223,7 @@ void TextDecorationPainter::paintTextDecoration(const TextRun& textRun, const Fl
         if (style == TextDecorationStyle::Wavy)
             strokeWavyTextDecoration(m_context, rect, m_lineStyle.computedFontPixelSize());
         else if (decoration == TextDecoration::Underline || decoration == TextDecoration::Overline) {
-            if ((m_lineStyle.textDecorationSkip() == TextDecorationSkip::Ink || m_lineStyle.textDecorationSkip() == TextDecorationSkip::Auto) && m_isHorizontal) {
+            if ((m_lineStyle.textDecorationSkipInk() == TextDecorationSkipInk::Auto || m_lineStyle.textDecorationSkipInk() == TextDecorationSkipInk::All) && m_isHorizontal) {
                 if (!m_context.paintingDisabled()) {
                     FloatRect underlineBoundingBox = m_context.computeUnderlineBoundsForText(rect, m_isPrinting);
                     DashArray intersections = m_font.dashesForIntersectionsWithRect(textRun, textOrigin, underlineBoundingBox);
@@ -288,7 +288,7 @@ void TextDecorationPainter::paintTextDecoration(const TextRun& textRun, const Fl
         if (m_decorations.contains(TextDecoration::Underline)) {
             float textDecorationBaseFontSize = 16;
             auto defaultGap = m_lineStyle.computedFontSize() / textDecorationBaseFontSize;
-            float offset = computeUnderlineOffset(m_lineStyle.textUnderlinePosition(), m_lineStyle.textUnderlineOffset(), m_lineStyle.fontMetrics(), m_textRun, defaultGap);
+            float offset = computeUnderlineOffset(m_lineStyle.textUnderlinePosition(), m_lineStyle.textUnderlineOffset(), m_lineStyle.fontMetrics(), m_textBox, defaultGap);
             float wavyOffset = m_styles.underlineStyle == TextDecorationStyle::Wavy ? m_wavyOffset : 0;
             FloatRect rect(localOrigin, FloatSize(m_width, textDecorationThickness));
             rect.move(0, offset + wavyOffset);

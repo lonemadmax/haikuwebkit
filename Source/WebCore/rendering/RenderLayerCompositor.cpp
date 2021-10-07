@@ -415,7 +415,7 @@ RenderLayerCompositor::~RenderLayerCompositor()
     GraphicsLayer::unparentAndClear(m_layerForVerticalScrollbar);
     GraphicsLayer::unparentAndClear(m_layerForScrollCorner);
 
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
     GraphicsLayer::unparentAndClear(m_layerForOverhangAreas);
     GraphicsLayer::unparentAndClear(m_contentShadowLayer);
     GraphicsLayer::unparentAndClear(m_layerForTopOverhangArea);
@@ -1725,7 +1725,8 @@ void RenderLayerCompositor::layerStyleChanged(StyleDifference diff, RenderLayer&
 
     if (diff >= StyleDifference::RecompositeLayer) {
         if (layer.isComposited()) {
-            if (is<RenderWidget>(layer.renderer()) || (oldStyle && oldStyle->pointerEvents() != newStyle.pointerEvents())) {
+            bool hitTestingStateChanged = oldStyle && (oldStyle->pointerEvents() != newStyle.pointerEvents() || oldStyle->effectiveInert() != newStyle.effectiveInert());
+            if (is<RenderWidget>(layer.renderer()) || hitTestingStateChanged) {
                 // For RenderWidgets this is necessary to get iframe layers hooked up in response to scheduleInvalidateStyleAndLayerComposition().
                 layer.setNeedsCompositingConfigurationUpdate();
             }
@@ -1757,18 +1758,6 @@ bool RenderLayerCompositor::needsCompositingUpdateForStyleChangeOnNonCompositedL
         return true;
 
     return false;
-}
-
-bool RenderLayerCompositor::canCompositeClipPath(const RenderLayer& layer)
-{
-    ASSERT(layer.isComposited());
-    ASSERT(layer.renderer().style().clipPath());
-
-    if (layer.renderer().hasMask())
-        return false;
-
-    auto& clipPath = *layer.renderer().style().clipPath();
-    return (clipPath.type() != ClipPathOperation::Shape || clipPath.type() == ClipPathOperation::Shape) && GraphicsLayer::supportsLayerType(GraphicsLayer::Type::Shape);
 }
 
 // FIXME: remove and never ask questions about reflection layers.
@@ -1822,7 +1811,7 @@ bool RenderLayerCompositor::updateBacking(RenderLayer& layer, RequiresCompositin
                 auto& frameView = m_renderView.frameView();
                 if (auto* scrollingCoordinator = this->scrollingCoordinator())
                     scrollingCoordinator->frameViewRootLayerDidChange(frameView);
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
                 updateLayerForHeader(frameView.headerHeight());
                 updateLayerForFooter(frameView.footerHeight());
 #endif
@@ -2192,7 +2181,7 @@ void RenderLayerCompositor::frameViewDidChangeSize()
         frameViewDidScroll();
         updateOverflowControlsLayers();
 
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
         if (m_layerForOverhangAreas) {
             auto& frameView = m_renderView.frameView();
             m_layerForOverhangAreas->setSize(frameView.frameRect().size());
@@ -2546,7 +2535,7 @@ void RenderLayerCompositor::updateRootLayerPosition()
 
     updateScrollLayerClipping();
 
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
     if (m_contentShadowLayer && m_rootContentsLayer) {
         m_contentShadowLayer->setPosition(m_rootContentsLayer->position());
         m_contentShadowLayer->setSize(m_rootContentsLayer->size());
@@ -3735,7 +3724,7 @@ bool RenderLayerCompositor::requiresScrollCornerLayer() const
     return shouldCompositeOverflowControls() && m_renderView.frameView().isScrollCornerVisible();
 }
 
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
 bool RenderLayerCompositor::requiresOverhangAreasLayer() const
 {
     if (!isMainFrameCompositor())
@@ -3904,7 +3893,7 @@ void RenderLayerCompositor::updateLayerForOverhangAreasBackgroundColor()
         m_layerForOverhangAreas->setCustomAppearance(GraphicsLayer::CustomAppearance::ScrollingOverhang);
 }
 
-#endif // ENABLE(RUBBER_BANDING)
+#endif // HAVE(RUBBER_BANDING)
 
 bool RenderLayerCompositor::viewNeedsToInvalidateEventRegionOfEnclosingCompositingLayerForRepaint() const
 {
@@ -3979,7 +3968,7 @@ void RenderLayerCompositor::rootBackgroundColorOrTransparencyChanged()
     if (extendedBackgroundColorChanged) {
         page().chrome().client().pageExtendedBackgroundColorDidChange();
         
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
         updateLayerForOverhangAreasBackgroundColor();
 #endif
     }
@@ -3989,7 +3978,7 @@ void RenderLayerCompositor::rootBackgroundColorOrTransparencyChanged()
 
 void RenderLayerCompositor::updateOverflowControlsLayers()
 {
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
     if (requiresOverhangAreasLayer()) {
         if (!m_layerForOverhangAreas) {
             m_layerForOverhangAreas = GraphicsLayer::create(graphicsLayerFactory(), *this);
@@ -4179,7 +4168,7 @@ void RenderLayerCompositor::destroyRootLayer()
 
     detachRootLayer();
 
-#if ENABLE(RUBBER_BANDING)
+#if HAVE(RUBBER_BANDING)
     GraphicsLayer::unparentAndClear(m_layerForOverhangAreas);
 #endif
 

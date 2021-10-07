@@ -84,6 +84,9 @@ fast/css/text-overflow-ellipsis-strict.html [ Skip ]
 
 webkit.org/b/178337 fast/replaced/width100percent-image.html [ Skip ]
 
+# invisible soft hyphen makes the line taller in legacy line layout.
+fast/text/undefined-glyph-with-ligature.html [ ImageOnlyFailure ]
+
 ################################################################################
 ##############    Missing Functionality Prevents Testing        ################
 ################################################################################
@@ -147,7 +150,7 @@ http/tests/security/contentSecurityPolicy/report-cross-origin-no-cookies.py [ Sk
 http/tests/security/contentSecurityPolicy/report-cross-origin-no-cookies-when-private-browsing-enabled.py [ Skip ] 
 http/tests/navigation/ping-attribute/area-cross-origin.html [ Skip ] 
 http/tests/navigation/ping-attribute/anchor-cross-origin.html [ Skip ] 
-http/tests/referrer-policy/no-referrer-when-downgrade/ [ Skip ] 
+http/tests/referrer-policy/no-referrer-when-downgrade/ [ Skip ]
 http/tests/referrer-policy/unsafe-url/cross-origin-http-http.html [ Skip ] 
 http/tests/referrer-policy/unsafe-url/cross-origin-http.https.html [ Skip ] 
 http/tests/referrer-policy-img/no-referrer-when-downgrade/ [ Skip ] 
@@ -599,6 +602,7 @@ webkit.org/b/87919 fast/repaint/hidpi-transform-on-subpixel-repaintrect.html [ F
 webkit.org/b/87919 fast/repaint/hidpi-wrong-repaint-rect-when-parent-has-noncompositing-transform.html [ Failure ]
 
 webkit.org/b/151754 fast/borders/hidpi-border-clipping-right-after-move.html [ ImageOnlyFailure ]
+fast/box-shadow/hidpi-box-shadow-inset-on-subpixel-position.html [ ImageOnlyFailure ]
 
 # Skip because this platform does not support a paging mouse wheel event
 fast/events/wheel/platform-wheelevent-paging-x-in-non-scrolling-div.html [ Skip ]
@@ -951,9 +955,6 @@ webkit.org/b/38000 media/media-fullscreen-not-in-document.html [ Skip ]
 #webkit.org/b/95806 media/video-source-error-no-candidate.html [ Pass Failure ]
 #webkit.org/b/95806 media/video-source-moved.html [ Pass Failure ]
 
-# Resolution media query is not yet enabled.
-webkit.org/b/85262 fast/media/mq-resolution.html [ Skip ]
-webkit.org/b/85262 fast/media/mq-resolution-dpi-dpcm-warning.html [ Skip ]
 http/tests/media/media-document.html [ Skip ]
 http/tests/media/video-useragent.html [ Skip ]
 
@@ -984,6 +985,7 @@ media/audio-constructor-src.html [ Skip ] #  Timeout
 media/track/track-in-band-legacy-api.html [ Skip ]
 media/track/track-in-band-mode.html [ Skip ]
 media/track/track-in-band-duplicate-tracks-when-source-changes.html [ Skip ]
+media/track/track-in-band-chapters.html [ Skip ]
 #fast/media/mq-transform-02.html [ Pass ImageOnlyFailure ]
 #fast/media/mq-transform-03.html [ Pass ImageOnlyFailure ]
 
@@ -1459,6 +1461,7 @@ webkit.org/b/140798 [ Debug ] accessibility/aria-switch-checked.html [ Skip ]
 webkit.org/b/140798 [ Release ] accessibility/aria-switch-text.html [ Skip ]
 webkit.org/b/140798 [ Debug ] accessibility/aria-switch-text.html [ Skip ]
 webkit.org/b/193371 accessibility/set-selected-editable.html [ Skip ]
+webkit.org/b/140798 accessibility/aria-expanded-supported-roles.html [ Skip ]
 
 # The following timeouts are caused by the same problem: [ Failure ]
 webkit.org/b/126066 accessibility/loading-iframe-updates-axtree.html [ Skip ]
@@ -2319,7 +2322,6 @@ http/tests/security/storage-blocking-loosened-websql.html [ Failure ]
 http/tests/security/storage-blocking-strengthened-plugin.html [ Failure ]
 http/tests/security/storage-blocking-strengthened-private-browsing-plugin.html [ Failure ]
 http/tests/security/storage-blocking-strengthened-websql.html [ Failure ]
-http/tests/security/xssAuditor/script-tag-with-callbacks.html [ Failure ]
 http/tests/ssl/ping-with-unsafe-redirect.html [ Failure ]
 http/tests/ssl/referer-301.html [ Failure ]
 http/tests/ssl/referer-303.html [ Failure ]
@@ -2416,6 +2418,7 @@ webkit.org/b/140947 js/slow-stress/Int32Array-alloc-large-long-lived.html [ Skip
 
 webkit.org/b/229626 [ Release ] js/dfg-int32array.html [ Pass Crash ]
 webkit.org/b/229626 js/dfg-intrinsic-unused-this.html [ Pass Crash ]
+webkit.org/b/229626 js/dfg-uint8array.html [ Pass Crash ]
 
 # The following fails due to DOM exception 18.
 js/dom/callback-function-with-handle-event.html [ Skip ] #  [ Timeout ]
@@ -2710,7 +2713,6 @@ webkit.org/b/140519 [ Debug ] fast/flexbox/flexing-overflow-scroll-item.html [ S
 webkit.org/b/117323 fast/frames/sandboxed-iframe-about-blank.html [ Failure ]
 webkit.org/b/117323 fast/frames/sandboxed-iframe-navigation-allowed.html [ Failure ]
 fast/frames/sandboxed-iframe-scripting-05.html [ Pass Timeout ]
-webkit.org/b/112764 fast/frames/xss-auditor-handles-file-urls.html [ Failure ]
 
 fast/harness/results.html [ Failure ]
 
@@ -3585,7 +3587,6 @@ http/tests/local/blob/send-hybrid-blob-using-open-panel.html [ Skip ]
 http/tests/security/contentSecurityPolicy/cross-origin-plugin-document-allowed-in-child-window.html [ Skip ]
 http/tests/security/contentSecurityPolicy/same-origin-plugin-document-blocked-in-child-window.html [ Skip ]
 http/tests/security/move-iframe-within-focus-handler-inside-removal.html [ Skip ]
-http/tests/security/xssAuditor/regress-167121.html [ Skip ]
 http/tests/websocket/tests/hybi/inspector/before-load.html [ Skip ]
 http/tests/websocket/tests/hybi/inspector/binary.html [ Skip ]
 http/tests/websocket/tests/hybi/inspector/client-close.html [ Skip ]
@@ -3711,6 +3712,7 @@ http/tests/cache-storage [ Skip ]
 http/tests/inspector/network/resource-response-service-worker.html [ Skip ]
 http/tests/workers/service [ Skip ]
 http/wpt/cache-storage [ Skip ]
+http/wpt/push-api [ Skip ]
 http/wpt/service-workers [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/securitypolicyviolation/inside-service-worker.https.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/worker-src/service-worker-src-child-fallback-blocked.https.sub.html [ Skip ]
@@ -3724,6 +3726,7 @@ imported/w3c/web-platform-tests/fetch/api/policies/referrer-origin-when-cross-or
 imported/w3c/web-platform-tests/fetch/api/policies/referrer-unsafe-url-service-worker.https.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/api/request/destination [ Skip ]
 imported/w3c/web-platform-tests/fetch/cross-origin-resource-policy [ Skip ]
+imported/w3c/web-platform-tests/push-api [ Skip ]
 imported/w3c/web-platform-tests/server-timing/service_worker_idl.html [ Skip ]
 imported/w3c/web-platform-tests/service-workers [ Skip ]
 imported/w3c/web-platform-tests/html/webappapis/scripting/processing-model-2/integration-with-the-javascript-agent-formalism/requires-failure.https.any.serviceworker.html [ Skip ]
@@ -3910,7 +3913,6 @@ webkit.org/b/182694 fast/html/marquee-reparent-check.html [ Crash ]
 webkit.org/b/182694 fast/loader/document-destruction-within-unload.html [ Crash ]
 webkit.org/b/182694 fast/text/invalid-positionForPoint-offset.html [ Crash ]
 webkit.org/b/182694 http/tests/security/svg-image-with-cached-remote-image.html [ Crash ]
-webkit.org/b/182694 http/tests/security/xssAuditor/iframe-onload-in-svg-tag.html [ Crash ]
 webkit.org/b/182694 imported/blink/http/tests/svg/svgload-vs-load.svg [ Crash ]
 webkit.org/b/182694 imported/blink/svg/animations/repeatn-event-1a.svg [ Crash ]
 webkit.org/b/182694 imported/blink/svg/animations/repeatn-event-1e.svg [ Crash ]
@@ -4639,6 +4641,7 @@ fast/text/offsetForPosition-complex-fallback.html [ Pass Failure ]
 # No BroadcastChannel support on Windows.
 fast/html/broadcast-channel-between-different-sessions.html [ Skip ]
 http/tests/messaging/broadcastchannel-partitioning.html [ Skip ]
+http/tests/messaging/broadcastchannel-partitioning-with-storage-access.html [ Skip ]
 
 # This test is skipped because the necessary feature flag functionality specific to the Windows WebKit legacy port is
 # not implemented.  The feature flags in question are CSSCounterStyleAtRulesEnabled and CSSCounterStyleAtRuleImageSymbolsEnabled.
@@ -4690,3 +4693,16 @@ webkit.org/b/229379 fast/visual-viewport/resize-event-fired-window-resized.html 
 webkit.org/b/215318 fast/text/zwj-ligature.html [ ImageOnlyFailure ]
 
 webkit.org/b/229594 js/dfg-int16array.html [ Pass Crash ]
+webkit.org/b/229594 js/dfg-int32array-overflow-values.html [ Pass Crash ]
+webkit.org/b/229594 js/dfg-int8array.html [ Pass Crash ]
+webkit.org/b/229594 js/dfg-uint32array-overflow-values.html [ Pass Crash ]
+webkit.org/b/229594 js/dfg-uint8clampedarray.html [ Pass Crash ]
+webkit.org/b/229594 js/dfg-float64array.html [ Pass Crash ]
+
+# webkit.org/b/214448 Web Share API is not implemented in the Windows port
+http/tests/webshare/ [ Skip ]
+
+webkit.org/b/230727 fast/images/exif-orientation-composited.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/230838 svg/as-background-image/svg-as-background-body.html [ Pass Crash ]
+

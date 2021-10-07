@@ -279,6 +279,17 @@ webkit.org/b/206881 imported/w3c/web-platform-tests/css/css-fonts/font-variant-e
 # GLIB PASS since 240265@main
 imported/w3c/web-platform-tests/css/css-images/multiple-position-color-stop-radial.html [ Pass ]
 
+# GLIB PASS since added in r282287
+imported/w3c/web-platform-tests/css/css-transforms/3d-rendering-context-and-z-ordering-001.html
+imported/w3c/web-platform-tests/css/css-transforms/huge-length-tiny-scale.html
+imported/w3c/web-platform-tests/css/css-transforms/preserve3d-and-filter-no-perspective.html
+imported/w3c/web-platform-tests/css/css-transforms/transform3d-scale-004.html
+imported/w3c/web-platform-tests/css/css-transforms/transform3d-sorting-003.html
+imported/w3c/web-platform-tests/css/css-transforms/transform3d-translate3d-001.html
+
+# GLIB PASS since r281724
+imported/mozilla/svg/as-image/border-image-simple-1.html [ Pass ]
+
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of PASSING tests.
 #////////////////////////////////////////////////////////////////////////////////////////
@@ -539,6 +550,42 @@ webkit.org/b/229389 imported/w3c/web-platform-tests/css/css-text/white-space/con
 webkit.org/b/229389 imported/w3c/web-platform-tests/css/css-text/white-space/control-chars-09E.html [ ImageOnlyFailure ]
 webkit.org/b/229389 imported/w3c/web-platform-tests/css/css-text/white-space/control-chars-09F.html [ ImageOnlyFailure ]
 
+webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/backface-visibility-hidden-001.html [ ImageOnlyFailure ]
+webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/composited-under-rotateY-180deg-clip.html [ ImageOnlyFailure ]
+webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/composited-under-rotateY-180deg.html [ ImageOnlyFailure ]
+webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/dynamic-fixed-pos-cb-change.html [ ImageOnlyFailure ]
+webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/preserve3d-and-filter-with-perspective.html [ ImageOnlyFailure ]
+webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/transform-background-001.html [ ImageOnlyFailure ]
+webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/transform-background-002.html [ ImageOnlyFailure ]
+webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/transform-fixed-bg-007.html [ ImageOnlyFailure ]
+webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/transform-table-009.html [ ImageOnlyFailure ]
+webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/transform-table-010.html [ ImageOnlyFailure ]
+webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/transform-table-011.html [ ImageOnlyFailure ]
+webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/transform3d-rotatex-perspective-003.html [ ImageOnlyFailure ]
+webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/transforms-skewX.html [ ImageOnlyFailure ]
+webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/perspective-split-by-zero-w.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/animations/font-palette-animation-3.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-13.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-16.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-17.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-18.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-19.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-22.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-3.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-4.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-5.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-6.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-7.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-8.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-9.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-add.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-modify.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-remove.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/palette-values-rule-add.html [ ImageOnlyFailure ]
+webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/palette-values-rule-delete.html [ ImageOnlyFailure ]
+
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of CSS-related bugs
 #////////////////////////////////////////////////////////////////////////////////////////
@@ -619,9 +666,14 @@ webkit.org/b/221445 fast/text/international/system-language/jp-circled.html [ Sk
 # GStreamer-related bugs
 #////////////////////////////////////////////////////////////////////////////////////////
 
-webkit.org/b/79203 fast/mediastream/RTCPeerConnection-iceconnectionstatechange-event.html [ Failure Pass ]
+webkit.org/b/230415 fast/mediastream/RTCPeerConnection-iceconnectionstatechange-event.html [ Timeout ]
 webkit.org/b/79203 fast/mediastream/RTCRtpSender-replaceTrack.html [ Failure ]
 webkit.org/b/187603 fast/mediastream/media-stream-track-source-failure.html [ Timeout Failure Pass ]
+webkit.org/b/231057 fast/mediastream/media-stream-video-track-interrupted.html [ Failure ]
+# Not exactly GStreamer (missing helper method to take viewport screenshot)
+webkit.org/b/231059 fast/mediastream/video-rotation-gpu-process-crash.html [ Failure ]
+webkit.org/b/231059 fast/mediastream/video-rotation.html [ Failure ]
+webkit.org/b/231061 fast/mediastream/captureStream/canvas3d.html [ Timeout ]
 
 webkit.org/b/223508 imported/w3c/web-platform-tests/mediacapture-streams/MediaStream-MediaElement-srcObject.https.html [ Failure Pass ]
 
@@ -1168,6 +1220,8 @@ webkit.org/b/229051 webgl/1.0.x/conformance/misc/invalid-passed-params.html [ Fa
 
 webkit.org/b/229052 webgl/1.0.x/conformance/textures/misc/texture-corner-case-videos.html [ Failure ]
 
+webkit.org/b/96828 webgl/1.0.x/conformance/extensions/oes-vertex-array-object.html [ Failure ]
+
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of WebGL-related bugs
 #////////////////////////////////////////////////////////////////////////////////////////
@@ -1205,7 +1259,7 @@ webkit.org/b/187064 webrtc/video-rotation-no-cvo.html [ Failure Crash ]
 
 webkit.org/b/206464 webkit.org/b/218787 webrtc/peerconnection-page-cache-long.html [ Failure Pass Timeout ]
 
-webkit.org/b/208125 webrtc/peerconnection-new-candidate-page-cache.html [ Failure Timeout ]
+webkit.org/b/208125 webrtc/peerconnection-new-candidate-page-cache.html [ Pass Crash ]
 
 webkit.org/b/216538 webrtc/captureCanvas-webrtc-software-h264-baseline.html [ Slow Failure ]
 
@@ -1443,10 +1497,6 @@ http/tests/media/now-playing-info.html [ Skip ]
 http/wpt/mediarecorder [ Skip ]
 imported/w3c/web-platform-tests/mediacapture-record [ Skip ]
 
-imported/w3c/web-platform-tests/html/canvas/element/drawing-images-to-the-canvas/image-orientation/drawImage-from-bitmap.tentative.html [ Pass ]
-imported/w3c/web-platform-tests/html/canvas/element/drawing-images-to-the-canvas/image-orientation/drawImage-from-element-swap-width-height.tentative.html [ Pass ]
-imported/w3c/web-platform-tests/html/canvas/element/drawing-images-to-the-canvas/image-orientation/drawImage-from-element.tentative.html [ Pass ]
-
 imported/w3c/web-platform-tests/html/rendering/replaced-elements/embedded-content-rendering-rules/canvas-update-with-border-object-fit.html [ Pass ]
 
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/reset-algorithm-rendering.html [ Pass ]
@@ -1592,6 +1642,7 @@ webkit.org/b/131546 media/track/track-forced-subtitles-in-band.html [ Timeout Fa
 webkit.org/b/131546 media/track/track-in-band-cues-added-once.html [ Timeout Crash ]
 webkit.org/b/131546 webkit.org/b/198830 media/track/track-in-band-legacy-api.html [ Failure Crash ]
 webkit.org/b/131546 media/track/track-in-band-mode.html [ Skip ]
+media/track/track-in-band-chapters.html [ Skip ]
 
 # DataCue.value not enabled
 http/tests/media/track-in-band-hls-metadata.html [ Skip ]
@@ -1811,6 +1862,8 @@ fast/images/pdf-in-canvas.html [ Skip ]
 fast/replaced/pdf-as-image.html [ Skip ]
 webkit.org/b/120844 fast/images/pdf-as-image-with-annotations.html [ Skip ]
 
+http/tests/webshare [ Skip ]
+
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of UNSUPPORTED tests.
 #////////////////////////////////////////////////////////////////////////////////////////
@@ -1981,7 +2034,6 @@ webkit.org/b/161589 css3/masking/mask-repeat-space-padding.html [ ImageOnlyFailu
 webkit.org/b/162815 fast/text/variations/font-face-clamp.html [ ImageOnlyFailure ]
 webkit.org/b/162815 fast/text/variations/font-selection-properties.html [ ImageOnlyFailure ]
 webkit.org/b/162815 fast/text/variations/skia-postscript-name.html [ ImageOnlyFailure ]
-webkit.org/b/163971 fast/borders/border-image-space.html [ ImageOnlyFailure ]
 webkit.org/b/163981 fast/css3-text/css3-text-decoration/text-underline-position/underline-visual-overflow-with-subpixel-position.html [ Failure ]
 
 # Skip tests requiring UIScriptController::zoomToScale.
@@ -2224,7 +2276,6 @@ webkit.org/b/211940 fast/text/multiple-codeunit-vertical-upright-2.html [ ImageO
 webkit.org/b/211940 fast/text/multiple-codeunit-vertical-upright.html [ ImageOnlyFailure ]
 
 webkit.org/b/167108 imported/w3c/web-platform-tests/media-source/mediasource-sequencemode-append-buffer.html [ Failure ]
-webkit.org/b/167108 imported/w3c/web-platform-tests/media-source/mediasource-seekable.html [ Failure ]
 webkit.org/b/197711 imported/w3c/web-platform-tests/media-source/mediasource-correct-frames.html [ Pass Timeout Failure ]
 webkit.org/b/214349 imported/w3c/web-platform-tests/media-source/mediasource-changetype-play-negative.html [ Crash Failure Pass ]
 webkit.org/b/203078 imported/w3c/web-platform-tests/media-source/mediasource-seek-beyond-duration.html [ Failure ]
@@ -2282,7 +2333,7 @@ webkit.org/b/104809 media/track/track-cues-pause-on-exit.html [ Timeout Pass Cra
 
 webkit.org/b/133865 media/W3C/video/networkState/networkState_during_progress.html [ Failure ]
 
-webkit.org/b/134576 media/track/video/video-track-mkv-theora-selected.html [ Timeout ]
+webkit.org/b/134576 media/track/video/video-track-mkv-theora-selected.html [ Failure ]
 webkit.org/b/143478 media/video-page-load-preload-none.html [ Failure ]
 
 webkit.org/b/145051 webkit.org/b/198830 [ Release ] media/video-rtl.html [ ImageOnlyFailure Pass Crash ]
@@ -2437,6 +2488,11 @@ webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/backgrou
 webkit.org/b/229764 animations/background-position.html [ ImageOnlyFailure Pass ]
 
 webkit.org/b/229979 media/media-source/media-source-stalled-holds-sleep-assertion.html [ Timeout ]
+
+webkit.org/b/230315 imported/w3c/web-platform-tests/mathml/presentation-markup/direction/direction-006.html [ ImageOnlyFailure ]
+
+webkit.org/b/230317 http/tests/privateClickMeasurement/expired-attribution-report-gets-sent-on-session-start.html [ Failure ]
+webkit.org/b/230317 http/tests/privateClickMeasurement/send-attribution-conversion-request.html [ Failure ]
 
 # End: Common failures between GTK and WPE.
 

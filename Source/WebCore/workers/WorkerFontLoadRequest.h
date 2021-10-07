@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2021 Metrological Group B.V.
  * Copyright (C) 2021 Igalia S.L.
+ * Copyright (C) 2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +34,7 @@
 
 namespace WebCore {
 
+class FontCreationContext;
 class ScriptExecutionContext;
 class SharedBuffer;
 class WorkerGlobalScope;
@@ -54,15 +56,15 @@ private:
     bool errorOccurred() const final { return m_errorOccurred; }
 
     bool ensureCustomFontData(const AtomString& remoteURI) final;
-    RefPtr<Font> createFont(const FontDescription&, const AtomString& remoteURI, bool syntheticBold, bool syntheticItalic, const FontFeatureSettings&, FontSelectionSpecifiedCapabilities) final;
+    RefPtr<Font> createFont(const FontDescription&, const AtomString& remoteURI, bool syntheticBold, bool syntheticItalic, const FontCreationContext&) final;
 
     void setClient(FontLoadRequestClient*) final;
 
     bool isWorkerFontLoadRequest() const final { return true; }
 
-    void didReceiveResponse(unsigned long identifier, const ResourceResponse&) final;
+    void didReceiveResponse(ResourceLoaderIdentifier, const ResourceResponse&) final;
     void didReceiveData(const uint8_t* data, int dataLength) final;
-    void didFinishLoading(unsigned long identifier) final;
+    void didFinishLoading(ResourceLoaderIdentifier) final;
     void didFail(const ResourceError&) final;
 
     URL m_url;
