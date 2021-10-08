@@ -1,3 +1,157 @@
+2021-10-05  Xan López  <xan@igalia.com>
+
+        [JSC][32bit] Fix bugs after unlinked baseline jit
+        https://bugs.webkit.org/show_bug.cgi?id=231232
+
+        Reviewed by Yusuke Suzuki.
+
+        Fix a bunch of bugs introduced with unlinked baseline jit. As of
+        now we are disabling DataIC on baseline JIT to get things working
+        ASAP, making that work will be the next step. This makes us almost
+        go back to green bots.
+
+        (Patch co-authored with Geza Lore)
+
+        * bytecode/CallLinkInfo.cpp:
+        (JSC::CallLinkInfo::emitDataICFastPath): ASSERT we are not using DataIC on 32-bit.
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::hasDebuggerRequests const):
+        (JSC::CodeBlock::debuggerRequestsAddress): Deleted.
+        * jit/JITCall32_64.cpp:
+        (JSC::JIT::compileOpCall): don't use DataIC.
+        (JSC::JIT::compileOpCallSlowCase): set missing label.
+        * jit/JITCode.h:
+        (JSC::JITCode::useDataIC): disable DataIC on baseline JIT for 32-bit.
+        * jit/JITInlines.h:
+        (JSC::JIT::getConstantOperand): get constants from the CodeBlock,
+        since we don't do sharing on 32-bit.
+        (JSC::JIT::emitValueProfilingSite): remove an overzealous ASSERT.
+        (JSC::JIT::loadConstant): use sizeof(void*) instead of '8', makes
+        things work on 32-bit.
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_debug): share this with 32-bit.
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_debug): Deleted.
+        * llint/LowLevelInterpreter32_64.asm: do not thrash the PC register.
+
+2021-10-05  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] JSPropertyNameEnumerator should not have cached prototype chain since empty JSPropertyNameEnumerator is shared
+        https://bugs.webkit.org/show_bug.cgi?id=231202
+        rdar://83815122
+
+        Reviewed by Keith Miller.
+
+        r282014 assumed an invariant that JSPropertyNameEnumerator's StructureChain is immutable.
+        This invariant is also used in validation of JSPropertyNameEnumerator. However, this
+        invariant was broken since we now have shared empty sentinel JSPropertyNameEnumerator, which can
+        be used for different structures having different prototype chain.
+
+        Since now we have shared JSPropertyNameEnumerator, JSPropertyNameEnumerator should not have
+        StructureChain in its member. When invalidating StructureChain in Structure, we also clear
+        cached JSPropertyNameEnumerator so that we do not get a stale JSPropertyNameEnumerator from
+        Structure even though watchpoint-based validation is not used.
+
+        This patch also removes ValidatedViaWatchpoint flag in JSPropertyNameEnumerator due to the same
+        reason. We should not modify JSPropertyNameEnumerator once it is instantiated. Instead, we encode
+        this flag as a lowest bit of m_cachedPropertyNameEnumerator. If it is validated via traversing (not watchpoints),
+        then this bit is set. So when loading that pointer from StructureRareData, we can quickly detect
+        it without even accessing to the enumerator. This fixes the issue, and it is even cleaner.
+        We rename m_cachedPropertyNameEnumerator to m_cachedPropertyNameEnumeratorAndFlag since it now
+        includes this flag.
+
+        While reviewing the code, we also found that watchpoint-based validation didn't care about PolyProto.
+        We should disable watchpoint-based validation if PolyProto is used.
+
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compileGetPropertyEnumerator):
+        * ftl/FTLAbstractHeapRepository.h:
+        * ftl/FTLLowerDFGToB3.cpp:
+        (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::emit_op_get_property_enumerator):
+        * llint/LLIntSlowPaths.cpp:
+        (JSC::LLInt::LLINT_SLOW_PATH_DECL):
+        * llint/LowLevelInterpreter64.asm:
+        * runtime/JSPropertyNameEnumerator.cpp:
+        (JSC::JSPropertyNameEnumerator::visitChildrenImpl):
+        * runtime/JSPropertyNameEnumerator.h:
+        (JSC::propertyNameEnumerator):
+        * runtime/Structure.cpp:
+        (JSC::Structure::visitChildrenImpl):
+        (JSC::Structure::setCachedPropertyNameEnumerator):
+        (JSC::Structure::cachedPropertyNameEnumeratorAndFlag const):
+        * runtime/Structure.h:
+        (JSC::Structure::propertyNameEnumeratorShouldWatch const):
+        * runtime/StructureInlines.h:
+        (JSC::Structure::prototypeChain const):
+        (JSC::Structure::clearCachedPrototypeChain):
+        * runtime/StructureRareData.cpp:
+        (JSC::StructureRareData::visitChildrenImpl):
+        * runtime/StructureRareData.h:
+        * runtime/StructureRareDataInlines.h:
+        (JSC::StructureRareData::cachedPropertyNameEnumerator const):
+        (JSC::StructureRareData::cachedPropertyNameEnumeratorAndFlag const):
+        (JSC::StructureRareData::setCachedPropertyNameEnumerator):
+        (JSC::StructureChainInvalidationWatchpoint::fireInternal):
+        (JSC::StructureRareData::tryCachePropertyNameEnumeratorViaWatchpoint):
+        (JSC::StructureRareData::clearCachedPropertyNameEnumerator):
+        (JSC::StructureRareData::invalidateWatchpointBasedValidation): Deleted.
+
+2021-10-04  Saam Barati  <sbarati@apple.com>
+
+        Display return values in nicer way in the jsc REPL and add a prettyPrint function
+        https://bugs.webkit.org/show_bug.cgi?id=230931
+        <rdar://problem/83698777>
+
+        Reviewed by Tadeu Zagallo.
+
+        Currently, print(1), print("1"), and print([1]) all print to stdout
+        simply as "1" (without the quotes). Same for values when running the
+        REPL. This isn't super helpful. Let's print quotes for strings, and
+        brackets for arrays. This patch adds a prettyPrint function to do
+        that, since we have a lot of tests that depend on the old print behavior.
+        
+        This patch also makes values printed in the REPL the new pretty style.
+
+
+        * jsc.cpp:
+        (toCString):
+        (printInternal):
+        (JSC_DEFINE_HOST_FUNCTION):
+        (runInteractive):
+        (cStringFromViewWithString): Deleted.
+        * runtime/JSCJSValue.cpp:
+        (JSC::JSValue::toWTFStringForConsole const):
+        * runtime/JSCJSValue.h:
+
+2021-10-04  Saam Barati  <sbarati@apple.com>
+
+        IntrinsicGetterAccessCase implementation of __proto__ needs to handle get_by_id_with_this
+        https://bugs.webkit.org/show_bug.cgi?id=229951
+        <rdar://problem/82787527>
+
+        Reviewed by Yusuke Suzuki.
+
+        The whole point of get_by_id_with_this is to have different
+        slot base values for |this| vs the slot base when invoking
+        getters. However, our intrinsic getter inlining wasn't respecting
+        this. This patch makes the __proto__ intrinsic getter do the right
+        thing. For typed array intrinsic getters, if they have different
+        |this| value vs slot base, we chose not to inline them, because
+        the type checks are not on the |this| value, so they're not guaranteed
+        to be typed arrays. We can improve upon this in the future.
+
+        * bytecode/IntrinsicGetterAccessCase.h:
+        * jit/AssemblyHelpers.cpp:
+        (JSC::AssemblyHelpers::emitLoadPrototypeWithoutCheck):
+        * jit/AssemblyHelpers.h:
+        * jit/IntrinsicEmitter.cpp:
+        (JSC::IntrinsicGetterAccessCase::canEmitIntrinsicGetter):
+        (JSC::IntrinsicGetterAccessCase::emitIntrinsicGetter):
+        * jit/Repatch.cpp:
+        (JSC::tryCacheGetBy):
+
 2021-10-03  Don Olmstead  <don.olmstead@sony.com>
 
         Non-unified build fixes, early October 2021 edition

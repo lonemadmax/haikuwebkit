@@ -162,6 +162,7 @@
 #include "PaintWorkletGlobalScope.h"
 #include "Performance.h"
 #include "PerformanceNavigationTiming.h"
+#include "PermissionController.h"
 #include "PlatformLocale.h"
 #include "PlatformMediaSessionManager.h"
 #include "PlatformScreen.h"
@@ -6401,6 +6402,8 @@ bool Document::isSecureContext() const
     if (!m_frame)
         return true;
     if (!RuntimeEnabledFeatures::sharedFeatures().secureContextChecksEnabled())
+        return true;
+    if (page() && page()->isServiceWorkerPage())
         return true;
 
     for (auto* frame = m_frame->tree().parent(); frame; frame = frame->tree().parent()) {

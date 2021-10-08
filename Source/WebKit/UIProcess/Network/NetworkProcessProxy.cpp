@@ -1255,12 +1255,12 @@ void NetworkProcessProxy::setDomainsWithCrossPageStorageAccess(HashMap<TopFrameD
 
 #endif // ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 
-void NetworkProcessProxy::setPrivateClickMeasurementDebugMode(bool debugMode)
+void NetworkProcessProxy::setPrivateClickMeasurementDebugMode(PAL::SessionID sessionID, bool debugMode)
 {
     if (!canSendMessage())
         return;
 
-    send(Messages::NetworkProcess::SetPrivateClickMeasurementDebugMode(debugMode), 0);
+    send(Messages::NetworkProcess::SetPrivateClickMeasurementDebugMode(sessionID, debugMode), 0);
 }
 
 void NetworkProcessProxy::sendProcessWillSuspendImminentlyForTesting()
@@ -1366,9 +1366,9 @@ void NetworkProcessProxy::didDestroyWebUserContentControllerProxy(WebUserContent
 #endif
 
 #if ENABLE(SERVICE_WORKER)
-void NetworkProcessProxy::establishWorkerContextConnectionToNetworkProcess(RegistrableDomain&& registrableDomain, PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
+void NetworkProcessProxy::establishWorkerContextConnectionToNetworkProcess(RegistrableDomain&& registrableDomain, std::optional<ServiceWorkerClientIdentifier> serviceWorkerPageIdentifier, PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
 {
-    WebProcessPool::establishWorkerContextConnectionToNetworkProcess(*this, RegistrableDomain {registrableDomain}, sessionID, WTFMove(completionHandler));
+    WebProcessPool::establishWorkerContextConnectionToNetworkProcess(*this, WTFMove(registrableDomain), serviceWorkerPageIdentifier, sessionID, WTFMove(completionHandler));
 }
 
 void NetworkProcessProxy::workerContextConnectionNoLongerNeeded(WebCore::ProcessIdentifier identifier)

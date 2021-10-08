@@ -26,46 +26,18 @@
 namespace WebCore {
 namespace Style {
 
-struct RuleSetMediaQueryCollector {
-    ~RuleSetMediaQueryCollector();
-
-    const MediaQueryEvaluator& evaluator;
-    const bool collectDynamic { false };
-
-    struct DynamicContext {
-        Ref<const MediaQuerySet> set;
-        Vector<size_t> affectedRulePositions { };
-        RuleFeatureVector ruleFeatures { };
-    };
-    Vector<DynamicContext> dynamicContextStack { };
-
-    Vector<RuleSet::DynamicMediaQueryRules> dynamicMediaQueryRules { };
-    bool didMutateResolverWithinDynamicMediaQuery { false };
-    bool hasViewportDependentMediaQueries { false };
-
-    bool pushAndEvaluate(const MediaQuerySet*);
-    void pop(const MediaQuerySet*);
-    void didMutateResolver();
-    void addRuleIfNeeded(const RuleData&);
-};
-
-struct RuleSetBuilder {
-    enum class Mode { Normal, ResolverMutationScan };
-
-    Ref<RuleSet> ruleSet;
-    RuleSetMediaQueryCollector mediaQueryCollector;
-    Resolver* resolver { nullptr };
-    Mode mode { Mode::Normal };
-    CascadeLayerName resolvedCascadeLayerName { };
-    HashMap<CascadeLayerName, RuleSet::CascadeLayerIdentifier> cascadeLayerIdentifierMap { };
-    RuleSet::CascadeLayerIdentifier currentCascadeLayerIdentifier { 0 };
-    Vector<RuleSet::ResolverMutatingRule> collectedResolverMutatingRules { };
-
-    void addRulesFromSheet(const StyleSheetContents&);
-
+class RuleSetBuilder {
+public:
+    enum class ShrinkToFit { Enable, Disable };
+    RuleSetBuilder(RuleSet&, const MediaQueryEvaluator&, Resolver* = nullptr, ShrinkToFit = ShrinkToFit::Enable);
     ~RuleSetBuilder();
 
+    void addRulesFromSheet(const StyleSheetContents&, const MediaQuerySet* sheetQuery = nullptr);
+
 private:
+    RuleSetBuilder(const MediaQueryEvaluator&);
+
+    void addRulesFromSheetContents(const StyleSheetContents&);
     void addChildRules(const Vector<RefPtr<StyleRuleBase>>&);
     void addStyleRule(const StyleRule&);
 
@@ -74,6 +46,40 @@ private:
     void popCascadeLayer(const CascadeLayerName&);
     void updateCascadeLayerOrder();
     void addMutatingRulesToResolver();
+    void updateDynamicMediaQueries();
+
+    struct MediaQueryCollector {
+        ~MediaQueryCollector();
+
+        const MediaQueryEvaluator& evaluator;
+        bool collectDynamic { false };
+
+        struct DynamicContext {
+            Ref<const MediaQuerySet> set;
+            Vector<size_t> affectedRulePositions { };
+            RuleFeatureVector ruleFeatures { };
+        };
+        Vector<DynamicContext> dynamicContextStack { };
+
+        Vector<RuleSet::DynamicMediaQueryRules> dynamicMediaQueryRules { };
+        bool hasViewportDependentMediaQueries { false };
+
+        bool pushAndEvaluate(const MediaQuerySet*);
+        void pop(const MediaQuerySet*);
+        void addRuleIfNeeded(const RuleData&);
+    };
+
+    RefPtr<RuleSet> m_ruleSet;
+    MediaQueryCollector m_mediaQueryCollector;
+    Resolver* m_resolver { nullptr };
+    const ShrinkToFit m_shrinkToFit { ShrinkToFit::Enable };
+
+    CascadeLayerName m_resolvedCascadeLayerName { };
+    HashMap<CascadeLayerName, RuleSet::CascadeLayerIdentifier> m_cascadeLayerIdentifierMap { };
+    RuleSet::CascadeLayerIdentifier m_currentCascadeLayerIdentifier { 0 };
+
+    Vector<RuleSet::ResolverMutatingRule> m_collectedResolverMutatingRules { };
+    bool didSeeResolverMutationWithinDynamicMediaQuery { false };
 };
 
 }

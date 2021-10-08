@@ -40,6 +40,7 @@ namespace InlineIterator {
 
 class LineIterator;
 class BoxIterator;
+class LeafBoxIterator;
 class TextBoxIterator;
 
 struct EndIterator { };
@@ -56,6 +57,8 @@ public:
     Box(PathVariant&&);
 
     bool isText() const;
+    bool isInlineBox() const;
+    bool isRootInlineBox() const;
 
     FloatRect rect() const;
 
@@ -90,15 +93,17 @@ public:
     const InlineDisplay::Box* inlineBox() const;
 #endif
 
-    BoxIterator nextOnLine() const;
-    BoxIterator previousOnLine() const;
-    BoxIterator nextOnLineIgnoringLineBreak() const;
-    BoxIterator previousOnLineIgnoringLineBreak() const;
+    LeafBoxIterator nextOnLine() const;
+    LeafBoxIterator previousOnLine() const;
+    LeafBoxIterator nextOnLineIgnoringLineBreak() const;
+    LeafBoxIterator previousOnLineIgnoringLineBreak() const;
 
     LineIterator line() const;
 
 protected:
     friend class BoxIterator;
+    friend class InlineBoxIterator;
+    friend class LeafBoxIterator;
     friend class TextBoxIterator;
 
     // To help with debugging.
@@ -112,10 +117,6 @@ protected:
 
 class BoxIterator {
 public:
-    BoxIterator() : m_box(BoxLegacyPath { nullptr, { } }) { };
-    BoxIterator(Box::PathVariant&&);
-    BoxIterator(const Box&);
-
     explicit operator bool() const { return !atEnd(); }
 
     bool operator==(const BoxIterator&) const;
@@ -129,21 +130,32 @@ public:
 
     bool atEnd() const;
 
-    BoxIterator& traverseNextOnLine();
-    BoxIterator& traversePreviousOnLine();
-    BoxIterator& traverseNextOnLineIgnoringLineBreak();
-    BoxIterator& traversePreviousOnLineIgnoringLineBreak();
-    BoxIterator& traverseNextOnLineInLogicalOrder();
-    BoxIterator& traversePreviousOnLineInLogicalOrder();
-
 protected:
+    BoxIterator() : m_box(BoxLegacyPath { nullptr, { } }) { };
+    BoxIterator(Box::PathVariant&&);
+    BoxIterator(const Box&);
+
     Box m_box;
 };
 
-BoxIterator boxFor(const RenderLineBreak&);
-BoxIterator boxFor(const RenderBox&);
+class LeafBoxIterator : public BoxIterator {
+public:
+    LeafBoxIterator() = default;
+    LeafBoxIterator(Box::PathVariant&&);
+    LeafBoxIterator(const Box&);
+
+    LeafBoxIterator& traverseNextOnLine();
+    LeafBoxIterator& traversePreviousOnLine();
+    LeafBoxIterator& traverseNextOnLineIgnoringLineBreak();
+    LeafBoxIterator& traversePreviousOnLineIgnoringLineBreak();
+    LeafBoxIterator& traverseNextOnLineInLogicalOrder();
+    LeafBoxIterator& traversePreviousOnLineInLogicalOrder();
+};
+
+LeafBoxIterator boxFor(const RenderLineBreak&);
+LeafBoxIterator boxFor(const RenderBox&);
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-BoxIterator boxFor(const LayoutIntegration::InlineContent&, size_t boxIndex);
+LeafBoxIterator boxFor(const LayoutIntegration::InlineContent&, size_t boxIndex);
 #endif
 
 // -----------------------------------------------
@@ -157,6 +169,20 @@ inline bool Box::isText() const
 {
     return WTF::switchOn(m_pathVariant, [](auto& path) {
         return path.isText();
+    });
+}
+
+inline bool Box::isInlineBox() const
+{
+    return WTF::switchOn(m_pathVariant, [](auto& path) {
+        return path.isInlineBox();
+    });
+}
+
+inline bool Box::isRootInlineBox() const
+{
+    return WTF::switchOn(m_pathVariant, [](auto& path) {
+        return path.isRootInlineBox();
     });
 }
 

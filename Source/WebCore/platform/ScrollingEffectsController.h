@@ -34,6 +34,7 @@
 #include "ScrollSnapOffsetsInfo.h"
 #include "ScrollTypes.h"
 #include "WheelEventTestMonitor.h"
+#include <wtf/Deque.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RunLoop.h>
 
@@ -85,9 +86,7 @@ public:
     virtual void setScrollBehaviorStatus(ScrollBehaviorStatus) = 0;
     virtual ScrollBehaviorStatus scrollBehaviorStatus() const = 0;
 
-    // FIXME: use ScrollClamping to collapse these to one.
-    virtual void immediateScrollBy(const FloatSize&) = 0;
-    virtual void immediateScrollByWithoutContentEdgeConstraints(const FloatSize&) = 0;
+    virtual void immediateScrollBy(const FloatSize&, ScrollClamping = ScrollClamping::Clamped) = 0;
 
     // If the current scroll position is within the overhang area, this function will cause
     // the page to scroll to the nearest boundary point.
@@ -118,6 +117,7 @@ public:
     virtual void didStopScrollSnapAnimation() { }
     virtual float pageScaleFactor() const = 0;
     virtual ScrollExtents scrollExtents() const = 0;
+    virtual bool scrollAnimationEnabled() const { return true; }
 };
 
 class ScrollingEffectsController : public ScrollAnimationClient {
@@ -132,11 +132,8 @@ public:
     void scrollPositionChanged();
 
     bool startAnimatedScrollToDestination(FloatPoint startOffset, FloatPoint destinationOffset);
-    bool regargetAnimatedScroll(FloatPoint newDestinationOffset);
+    bool retargetAnimatedScroll(FloatPoint newDestinationOffset);
     void stopAnimatedScroll();
-
-    // FIXME: Hack for ScrollAnimatorGeneric. Needs cleanup.
-    bool processWheelEventForKineticScrolling(const PlatformWheelEvent&);
 
     bool startMomentumScrollWithInitialVelocity(const FloatPoint& initialOffset, const FloatSize& initialVelocity, const FloatSize& initialDelta, const WTF::Function<FloatPoint(const FloatPoint&)>& destinationModifier);
 
@@ -163,10 +160,10 @@ public:
     // FIXME: This is never called. We never set m_activeScrollSnapIndexDidChange back to false.
     void setScrollSnapIndexDidChange(bool state) { m_activeScrollSnapIndexDidChange = state; }
 
-#if PLATFORM(MAC)
     // Returns true if handled.
     bool handleWheelEvent(const PlatformWheelEvent&);
 
+#if PLATFORM(MAC)
     static FloatSize wheelDeltaBiasingTowardsVertical(const PlatformWheelEvent&);
 
     bool isScrollSnapInProgress() const;
@@ -212,13 +209,19 @@ private:
 #endif
 
     void startOrStopAnimationCallbacks();
-    void scrollToOffsetForAnimation(const FloatPoint& scrollOffset);
 
     // ScrollAnimationClient
     void scrollAnimationDidUpdate(ScrollAnimation&, const FloatPoint& /* currentOffset */) final;
     void scrollAnimationWillStart(ScrollAnimation&) final;
     void scrollAnimationDidEnd(ScrollAnimation&) final;
-    ScrollExtents scrollExtentsForAnimation(ScrollAnimation&)  final;
+    ScrollExtents scrollExtentsForAnimation(ScrollAnimation&) final;
+
+#if ENABLE(KINETIC_SCROLLING) && !PLATFORM(MAC)
+    // Returns true if handled.
+    bool processWheelEventForKineticScrolling(const PlatformWheelEvent&);
+
+    Deque<PlatformWheelEvent> m_scrollHistory;
+#endif
 
     ScrollingEffectsControllerClient& m_client;
 

@@ -1849,14 +1849,14 @@ ExceptionOr<void> Internals::setScrollViewPosition(int x, int y)
         return Exception { InvalidAccessError };
 
     auto& frameView = *document->view();
-    bool constrainsScrollingToContentEdgeOldValue = frameView.constrainsScrollingToContentEdge();
+    auto oldClamping = frameView.scrollClamping();
     bool scrollbarsSuppressedOldValue = frameView.scrollbarsSuppressed();
 
-    frameView.setConstrainsScrollingToContentEdge(false);
+    frameView.setScrollClamping(ScrollClamping::Unclamped);
     frameView.setScrollbarsSuppressed(false);
     frameView.setScrollOffsetFromInternals({ x, y });
     frameView.setScrollbarsSuppressed(scrollbarsSuppressedOldValue);
-    frameView.setConstrainsScrollingToContentEdge(constrainsScrollingToContentEdgeOldValue);
+    frameView.setScrollClamping(oldClamping);
 
     return { };
 }
@@ -6122,7 +6122,7 @@ String Internals::windowLocationHost(DOMWindow& window)
 String Internals::systemColorForCSSValue(const String& cssValue, bool useDarkModeAppearance, bool useElevatedUserInterfaceLevel)
 {
     CSSValueID id = cssValueKeywordID(cssValue);
-    RELEASE_ASSERT(StyleColor::isSystemColor(id));
+    RELEASE_ASSERT(StyleColor::isSystemColorKeyword(id));
 
     OptionSet<StyleColor::Options> options;
     if (useDarkModeAppearance)

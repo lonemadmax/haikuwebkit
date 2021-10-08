@@ -147,8 +147,7 @@ private:
     void setScrollBehaviorStatus(ScrollBehaviorStatus) final;
     ScrollBehaviorStatus scrollBehaviorStatus() const final;
 
-    void immediateScrollByWithoutContentEdgeConstraints(const FloatSize&) final;
-    void immediateScrollBy(const FloatSize&) final;
+    void immediateScrollBy(const FloatSize&, ScrollClamping = ScrollClamping::Clamped) final;
     void adjustScrollPositionToBoundsIfNecessary() final;
 
 #if HAVE(RUBBER_BANDING)
@@ -160,6 +159,10 @@ private:
 #if PLATFORM(MAC)
     void deferWheelEventTestCompletionForReason(WheelEventTestMonitor::ScrollableAreaIdentifier, WheelEventTestMonitor::DeferReason) const final;
     void removeWheelEventTestCompletionDeferralForReason(WheelEventTestMonitor::ScrollableAreaIdentifier, WheelEventTestMonitor::DeferReason) const final;
+#endif
+
+#if PLATFORM(GTK) || USE(NICOSIA)
+    bool scrollAnimationEnabled() const final;
 #endif
 
     static FloatSize deltaFromStep(ScrollbarOrientation, float step, float multiplier);

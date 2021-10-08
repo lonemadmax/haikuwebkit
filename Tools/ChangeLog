@@ -1,3 +1,107 @@
+2021-10-05  David Kilzer  <ddkilzer@apple.com>
+
+        REGRESSION (r283476): [ iOS macOS Debug ] TestWTF failures in RetainPtrARC and TypeCastsCocoaARC
+        <https://webkit.org/b/231172>
+        <rdar://problem/83836549>
+
+        Unreviewed partial revert of r283476.
+
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        - Remove RetainPtrARC.mm and TypeCastsCocoaARC.mm from the
+          project.
+        * TestWebKitAPI/Tests/WTF/cocoa/TypeCastsCocoaARC.mm: Delete.
+        * TestWebKitAPI/Tests/WTF/ns/RetainPtrARC.mm: Delete.
+        - Remove these tests until issues can be fixed.
+
+2021-10-05  David Kilzer  <ddkilzer@apple.com>
+
+        Follow-up #2: WTF::RetainPtr<> allows assignment of two pointer types that are not assignable
+        <https://webkit.org/b/230406>
+        <rdar://problem/83241893>
+
+        Unreviewed attempt to fix API tests.
+
+        * TestWebKitAPI/Tests/WTF/cocoa/TypeCastsCocoa.mm:
+        (TestWebKitAPI::TEST):
+        - Revert code back to using objectNS.get() for
+          checked_objc_cast<> tests since it always worked.
+
+2021-10-04  Jonathan Bedard  <jbedard@apple.com>
+
+        [ews-build.webkit.org] check-patch-relevance can get stuck
+        https://bugs.webkit.org/show_bug.cgi?id=231190
+        <rdar://problem/77327168>
+
+        Reviewed by Alexey Proskuryakov.
+
+        * CISupport/ews-build/steps.py:
+        (CheckPatchRelevance): Compute all regexes in advance.
+        (CheckPatchRelevance._patch_is_relevant): Rely on pre-computed regexes,
+        limit the number of characters to check in a line to 250 and include a
+        hard-timeout so that a patch can never get EWS stuck.
+
+2021-10-04  Chris Dumez  <cdumez@apple.com>
+
+        Add SPI to launch a service service worker in a WKWebView and expose service worker to injected bundle
+        https://bugs.webkit.org/show_bug.cgi?id=231045
+        <rdar://problem/83744069>
+
+        Reviewed by Geoff Garen.
+
+        Add API test coverage.
+
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/Tests/WebKitCocoa/ServiceWorkerBasic.mm:
+        (-[ServiceWorkerSchemeHandler initWithBytes:]):
+        (-[ServiceWorkerSchemeHandler addMappingFromURLString:toData:]):
+        (-[ServiceWorkerSchemeHandler webView:startURLSchemeTask:]):
+        (-[ServiceWorkerSchemeHandler webView:stopURLSchemeTask:]):
+        (-[ServiceWorkerPageRemoteObject serviceWorkerGlobalObjectIsAvailable]):
+        * TestWebKitAPI/Tests/WebKitCocoa/ServiceWorkerPagePlugIn.mm: Added.
+        (-[ServiceWorkerPagePlugIn webProcessPlugInBrowserContextController:serviceWorkerGlobalObjectIsAvailableForFrame:inScriptWorld:]):
+        (-[ServiceWorkerPagePlugIn webProcessPlugIn:didCreateBrowserContextController:]):
+        * TestWebKitAPI/Tests/WebKitCocoa/ServiceWorkerPageProtocol.h: Added.
+
+2021-10-04  David Kilzer  <ddkilzer@apple.com>
+
+        Follow-up: WTF::RetainPtr<> allows assignment of two pointer types that are not assignable
+        <https://webkit.org/b/230406>
+        <rdar://problem/83241893>
+
+        Unreviewed attempt to fix api-ios tests.
+
+        * TestWebKitAPI/Tests/WTF/cocoa/TypeCastsCocoa.mm:
+        (TestWebKitAPI::TEST):
+        - Work around TestWTF.TypeCastsCocoa.checked_objc_cast test
+          failures on iOS Simulator by using @autoreleasepool.
+
+2021-10-04  John Pascoe  <j_pascoe@apple.com>
+
+        [WebAuthn] Prefer internal user verification if available over pin entry.
+        https://bugs.webkit.org/show_bug.cgi?id=213903
+        <rdar://problem/65359269>
+
+        Reviewed by Brent Fulgham.
+
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/Tests/WebKitCocoa/_WKWebAuthenticationPanel.mm:
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/WebKitCocoa/web-authentication-get-assertion-hid-internal-uv.html: Added.
+        * TestWebKitAPI/Tests/WebKitCocoa/web-authentication-make-credential-hid-internal-uv.html: Added.
+
+2021-10-04  John Pascoe  <j_pascoe@apple.com>
+
+        [WebAuthn] Add SPI to change username of credential
+        https://bugs.webkit.org/show_bug.cgi?id=230956
+        <rdar://problem/83471755>
+
+        Reviewed by Brent Fulgham.
+
+        API test coverage for updating the username of a webauthn credential.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/_WKWebAuthenticationPanel.mm:
+        (TestWebKitAPI::TEST):
+
 2021-10-04  Aakash Jain  <aakash_jain@apple.com>
 
         Send EWS exception emails to bot watchers instead of Aakash

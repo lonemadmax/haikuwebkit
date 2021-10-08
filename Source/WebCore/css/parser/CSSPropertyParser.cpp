@@ -929,7 +929,7 @@ static RefPtr<CSSPrimitiveValue> consumeFontWeight(CSSParserTokenRange& range)
 
 static RefPtr<CSSPrimitiveValue> consumeFontPalette(CSSParserTokenRange& range)
 {
-    if (auto result = consumeIdent<CSSValueNone, CSSValueNormal, CSSValueLight, CSSValueDark>(range))
+    if (auto result = consumeIdent<CSSValueNormal, CSSValueLight, CSSValueDark>(range))
         return result;
     return consumeDashedIdent(range);
 }
@@ -4867,7 +4867,7 @@ static RefPtr<CSSValueList> consumeOverrideColorsDescriptor(CSSParserTokenRange&
         if (!key)
             return nullptr;
 
-        auto color = consumeColor(range, context);
+        auto color = consumeColor(range, context, false, { StyleColor::CSSColorType::Absolute });
         if (!color)
             return nullptr;
 

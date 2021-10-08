@@ -65,7 +65,7 @@ http/tests/app-privacy-report/ [ Skip ]
 # display-p3 canvas and ImageData are iOS 15+.
 fast/canvas/canvas-color-space-display-p3-ImageData.html [ Failure ]
 fast/canvas/canvas-color-space-display-p3.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage.html [ Failure ]
+imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage.https.html [ Failure ]
 imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-Blob.html [ Failure ]
 imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-ImageBitmap.html [ Failure ]
 imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-ImageData.html [ Failure ]
@@ -99,9 +99,21 @@ media/modern-media-controls/overflow-support/chapters.html [ Pass ]
 fast/events/ios/key-events-comprehensive/key-events-control-option.html [ Pass Timeout ]
 [ Debug ] fast/events/ios/key-events-comprehensive/key-events-control-shift.html [ Pass Timeout ]
 
-fast/events/ios/keydown-keyup-keypress-keys-in-non-editable-using-chinese-keyboard.html [ Pass Failure ]
-
 imported/w3c/web-platform-tests/css/css-text/line-breaking/line-breaking-atomic-nowrap-001.html [ Pass Timeout ]
 
 # These tests occasionally crash with debug assertions in iOS 14 simulator
 fast/events/ios/rotation [ Skip ]
+
+# These tests fail or are flaky in non-internal iOS 14 simulator
+fast/forms/ios/accessory-bar-navigation.html [ Pass Failure Timeout ]
+fast/forms/ios/autocapitalize-words.html [ Pass Failure ]
+fast/forms/ios/focus-input-in-fixed.html [ Pass Failure Timeout Crash ]
+fast/forms/ios/focus-input-in-iframe.html [ Pass Failure Crash Timeout ]
+fast/forms/ios/focus-input-via-button-no-scaling.html [ Pass Failure Timeout Crash ]
+fast/forms/ios/focus-input-via-button.html [ Pass Failure Timeout Crash ]
+fast/forms/ios/focus-long-textarea.html [ Pass Failure Timeout Crash ]
+fast/forms/ios/inputmode-none-with-hardware-keyboard.html [ Pass Failure ]
+fast/forms/ios/zoom-after-input-tap-wide-input.html [ Pass Failure Timeout Crash ]
+fast/forms/ios/zoom-after-input-tap.html [ Pass Failure Timeout Crash ]
+
+fast/events/ios/keydown-keyup-keypress-keys-in-non-editable-using-chinese-keyboard.html [ Pass Failure ]

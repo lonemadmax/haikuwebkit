@@ -1,3 +1,242 @@
+2021-10-04  Chris Dumez  <cdumez@apple.com>
+
+        Add SPI to launch a service service worker in a WKWebView and expose service worker to injected bundle
+        https://bugs.webkit.org/show_bug.cgi?id=231045
+        <rdar://problem/83744069>
+
+        Reviewed by Geoff Garen.
+
+        Add new [WKWebView loadServiceWorker:(NSURL *)] to load a service worker in a web view. When called,
+        it causes us to create a page with HTML start registers the service worker with the provided URL.
+
+        The service worker in question will differ slightly from usual service workers in that:
+        - The service worker URL doesn't need to be HTTP/HTTPS. In particular, a custom scheme (with corresponding
+          custom scheme handler) can be used.
+        - The service worker will always run in the WKWebView's associated WebProcess (which can be controlled via
+          WKWebViewConfiguration._relatedWebView).
+        - The service worker will run on the main thead
+        - The service worker is not persistent, meaning that it will not be saved to disk, unlike regular service
+          workers.
+        - The service worker's global object will be exposed to the injected bundle via a new serviceWorkerGlobalObjectIsAvailableForFrame
+          function call on WKWebProcessPlugInLoadDelegate. The provided Frame will be the WKWebView's main frame.
+        - The service worker will be unregistered & exit as soon as its WKWebView gets closed / deallocated.
+
+        To make the service worker more usable via the injected bundle API, the following changes were made too:
+        - [WKWebProcessPlugInFrame lookUpFrameFromJSContext:] will return the WKWebView's main frame when passed in
+          that view's service worker context.
+        - A new [WKWebProcessPlugInFrame jsContextForServiceWorkerWorld:(WKWebProcessPlugInScriptWorld *)] SPI was
+          added to get the service worker's JS context from the view.
+
+        I added an API test that launches such a service worker, makes sure the injected bundle gets notified on
+        the main thread of the service worker global object and that it can script it. The test also makes sure
+        the _relatedWebView SPI works to force a service worker into another view's process. It also tests that
+        [WKWebProcessPlugInFrame lookUpFrameFromJSContext:] and [WKWebProcessPlugInFrame jsContextForServiceWorkerWorld:(WKWebProcessPlugInScriptWorld *)]
+        work as expected. Finally, it makes sure the service worker properly exits when the view gets closed.
+
+        * NetworkProcess/NetworkConnectionToWebProcess.cpp:
+        (WebKit::NetworkConnectionToWebProcess::establishSWContextConnection):
+        * NetworkProcess/NetworkConnectionToWebProcess.h:
+        * NetworkProcess/NetworkConnectionToWebProcess.messages.in:
+        * NetworkProcess/NetworkProcess.cpp:
+        (WebKit::NetworkProcess::swServerForSession):
+        * NetworkProcess/ServiceWorker/WebSWServerConnection.cpp:
+        (WebKit::WebSWServerConnection::startFetch):
+        * NetworkProcess/ServiceWorker/WebSWServerToContextConnection.cpp:
+        (WebKit::WebSWServerToContextConnection::WebSWServerToContextConnection):
+        * NetworkProcess/ServiceWorker/WebSWServerToContextConnection.h:
+        * Shared/LoadParameters.cpp:
+        (WebKit::LoadParameters::encode const):
+        (WebKit::LoadParameters::decode):
+        * Shared/LoadParameters.h:
+        * UIProcess/API/Cocoa/WKWebView.mm:
+        (-[WKWebView loadRequest:]):
+        (-[WKWebView loadFileURL:allowingReadAccessToURL:]):
+        (-[WKWebView loadData:MIMEType:characterEncodingName:baseURL:]):
+        (-[WKWebView _loadServiceWorker:]):
+        * UIProcess/API/Cocoa/WKWebViewPrivate.h:
+        * UIProcess/Network/NetworkProcessProxy.cpp:
+        (WebKit::NetworkProcessProxy::establishWorkerContextConnectionToNetworkProcess):
+        * UIProcess/Network/NetworkProcessProxy.h:
+        * UIProcess/Network/NetworkProcessProxy.messages.in:
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::WebPageProxy::loadDataWithNavigationShared):
+        (WebKit::WebPageProxy::resetStateAfterProcessExited):
+        (WebKit::WebPageProxy::loadServiceWorker):
+        * UIProcess/WebPageProxy.h:
+        * UIProcess/WebProcessPool.cpp:
+        (WebKit::WebProcessPool::establishWorkerContextConnectionToNetworkProcess):
+        * UIProcess/WebProcessPool.h:
+        * UIProcess/WebProcessProxy.cpp:
+        (WebKit::WebProcessProxy::establishServiceWorkerContext):
+        (WebKit::WebProcessProxy::enableServiceWorkers):
+        * UIProcess/WebProcessProxy.h:
+        * WebProcess/InjectedBundle/API/APIInjectedBundlePageLoaderClient.h:
+        (API::InjectedBundle::PageLoaderClient::serviceWorkerGlobalObjectIsAvailableForFrame):
+        * WebProcess/InjectedBundle/API/Cocoa/WKWebProcessPlugInFrame.h:
+        * WebProcess/InjectedBundle/API/Cocoa/WKWebProcessPlugInFrame.mm:
+        (-[WKWebProcessPlugInFrame jsContextForServiceWorkerWorld:]):
+        * WebProcess/InjectedBundle/API/Cocoa/WKWebProcessPlugInLoadDelegate.h:
+        * WebProcess/InjectedBundle/API/c/WKBundlePageLoaderClient.h:
+        * WebProcess/InjectedBundle/API/glib/WebKitWebPage.cpp:
+        * WebProcess/InjectedBundle/API/mac/WKWebProcessPlugInBrowserContextController.mm:
+        (serviceWorkerGlobalObjectIsAvailableForFrame):
+        (setUpPageLoaderClient):
+        * WebProcess/InjectedBundle/InjectedBundlePageLoaderClient.cpp:
+        (WebKit::InjectedBundlePageLoaderClient::globalObjectIsAvailableForFrame):
+        (WebKit::InjectedBundlePageLoaderClient::serviceWorkerGlobalObjectIsAvailableForFrame):
+        * WebProcess/InjectedBundle/InjectedBundlePageLoaderClient.h:
+        * WebProcess/Storage/WebSWContextManagerConnection.cpp:
+        (WebKit::WebSWContextManagerConnection::WebSWContextManagerConnection):
+        (WebKit::WebSWContextManagerConnection::establishConnection):
+        * WebProcess/Storage/WebSWContextManagerConnection.h:
+        * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebKit::WebFrameLoaderClient::dispatchServiceWorkerGlobalObjectAvailable):
+        * WebProcess/WebCoreSupport/WebFrameLoaderClient.h:
+        * WebProcess/WebPage/WebFrame.cpp:
+        (WebKit::WebFrame::jsContextForServiceWorkerWorld):
+        (WebKit::WebFrame::frameForContext):
+        * WebProcess/WebPage/WebFrame.h:
+        * WebProcess/WebPage/WebPage.cpp:
+        (WebKit::WebPage::loadData):
+        * WebProcess/WebProcess.cpp:
+        (WebKit::WebProcess::establishWorkerContextConnectionToNetworkProcess):
+        * WebProcess/WebProcess.h:
+        * WebProcess/WebProcess.messages.in:
+
+2021-10-04  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed build fix after r283431.
+
+        * UIProcess/API/Cocoa/_WKWebAuthenticationPanel.mm:
+        (+[_WKWebAuthenticationPanel setUsernameForLocalCredentialWithID:username:]):
+
+2021-10-04  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed build fix after r283431.
+
+        * UIProcess/API/Cocoa/_WKWebAuthenticationPanel.mm:
+        (+[_WKWebAuthenticationPanel setUsernameForLocalCredentialWithID:username:]):
+
+2021-10-04  John Pascoe  <j_pascoe@apple.com>
+
+        [WebAuthn] Prefer internal user verification if available over pin entry.
+        https://bugs.webkit.org/show_bug.cgi?id=213903
+        <rdar://problem/65359269>
+
+        Reviewed by Brent Fulgham.
+
+        * UIProcess/WebAuthentication/Mock/MockHidConnection.cpp:
+        (WebKit::MockHidConnection::feedReports):
+        * UIProcess/WebAuthentication/fido/CtapAuthenticator.cpp:
+        (WebKit::CtapAuthenticator::makeCredential):
+        (WebKit::CtapAuthenticator::getAssertion):
+        (WebKit::fido::toStatus): Deleted.
+        (WebKit::fido::isPinError): Deleted.
+
+2021-10-04  John Pascoe  <j_pascoe@apple.com>
+
+        [WebAuthn] Add SPI to change username of credential
+        https://bugs.webkit.org/show_bug.cgi?id=230956
+        <rdar://problem/83471755>
+
+        Reviewed by Brent Fulgham.
+
+        Adds a new method for changing the username of a given stored webauthn credential.
+
+        New API test: TestWebKitAPI.WebAuthenticationPanel.UpdateCredentialUsername
+
+        * UIProcess/API/Cocoa/_WKWebAuthenticationPanel.h:
+        * UIProcess/API/Cocoa/_WKWebAuthenticationPanel.mm:
+        (+[_WKWebAuthenticationPanel setUsernameForLocalCredentialWithID:username:]):
+
+2021-10-04  Youenn Fablet  <youenn@apple.com>
+
+        Send necessary sandbox extensions to WebProcess in case WebRTC codecs run in WebProcess
+        https://bugs.webkit.org/show_bug.cgi?id=231073
+
+        Reviewed by Eric Carlson.
+
+        Manually tested, make sure to send extensions like if audio/video capture happens in WebProcess.
+        This allows validating regressions due or not to GPUProcess.
+
+        * UIProcess/WebPageProxy.cpp:
+
+2021-10-04  Chris Dumez  <cdumez@apple.com>
+
+        Use isolated NSURLSessions for each first party registrable domain
+        https://bugs.webkit.org/show_bug.cgi?id=230750
+        <rdar://83159358>
+
+        Reviewed by Alex Christensen.
+
+        Previously would use up to 10 isolated NSURLSessions only for domains marked as prevalent
+        by ITP *and* that the user interacts with as first party website. We now use different
+        isolated NSURLSession for each top-level registrable domain, not matter their ITP status.
+        This significantly improves privacy.
+
+        To avoid having too many NSURLSession, we clear the ones that haven't been used in the
+        last 10 minutes, every time we add a new one.
+
+        * NetworkProcess/cocoa/NetworkSessionCocoa.h:
+        * NetworkProcess/cocoa/NetworkSessionCocoa.mm:
+        (WebKit::NetworkSessionCocoa::sessionWrapperForTask):
+        (WebKit::SessionSet::isolatedSession):
+
+2021-10-04  Tim Horton  <timothy_horton@apple.com>
+
+        process-entitlements should fail if a subcommand fails
+        https://bugs.webkit.org/show_bug.cgi?id=231155
+
+        Reviewed by Anders Carlsson.
+
+        * Scripts/process-entitlements.sh:
+        See bug 231154, which fixes a mistake in r283156 which made one of the
+        PlistBuddy invocations from process-entitlements fail, but did not
+        result in a failing build. PlistBuddy does correctly return a non-zero
+        return value in this case, so we should just tell the shell to propagate
+        that upwards.
+
+2021-10-04  Alex Christensen  <achristensen@webkit.org>
+
+        Enable PCM debug mode per WebsiteDataStore instead of process-global
+        https://bugs.webkit.org/show_bug.cgi?id=231096
+
+        Reviewed by Kate Cheney.
+
+        This will make it so we don't need to restart the network process in order to enable or disable debug mode.
+
+        * NetworkProcess/NetworkProcess.cpp:
+        (WebKit::NetworkProcess::initializeNetworkProcess):
+        (WebKit::NetworkProcess::setPrivateClickMeasurementDebugMode):
+        (WebKit::NetworkProcess::privateClickMeasurementDebugModeEnabled const): Deleted.
+        * NetworkProcess/NetworkProcess.h:
+        * NetworkProcess/NetworkProcess.messages.in:
+        * NetworkProcess/NetworkProcessCreationParameters.cpp:
+        (WebKit::NetworkProcessCreationParameters::encode const):
+        (WebKit::NetworkProcessCreationParameters::decode):
+        * NetworkProcess/NetworkProcessCreationParameters.h:
+        * NetworkProcess/NetworkSession.cpp:
+        (WebKit::NetworkSession::NetworkSession):
+        (WebKit::NetworkSession::setPrivateClickMeasurementDebugMode):
+        * NetworkProcess/NetworkSession.h:
+        (WebKit::NetworkSession::privateClickMeasurementDebugModeEnabled const):
+        * NetworkProcess/NetworkSessionCreationParameters.cpp:
+        (WebKit::NetworkSessionCreationParameters::encode const):
+        (WebKit::NetworkSessionCreationParameters::decode):
+        * NetworkProcess/NetworkSessionCreationParameters.h:
+        * NetworkProcess/PrivateClickMeasurement/PrivateClickMeasurementClientImpl.cpp:
+        (WebKit::PCM::ClientImpl::debugModeEnabled const):
+        * UIProcess/Cocoa/WebProcessPoolCocoa.mm:
+        (WebKit::WebProcessPool::platformInitializeNetworkProcess):
+        * UIProcess/Network/NetworkProcessProxy.cpp:
+        (WebKit::NetworkProcessProxy::setPrivateClickMeasurementDebugMode):
+        * UIProcess/Network/NetworkProcessProxy.h:
+        * UIProcess/WebsiteData/Cocoa/WebsiteDataStoreCocoa.mm:
+        (WebKit::experimentalFeatureEnabled):
+        (WebKit::WebsiteDataStore::platformSetNetworkParameters):
+        * UIProcess/WebsiteData/WebsiteDataStore.cpp:
+        (WebKit::WebsiteDataStore::setPrivateClickMeasurementDebugMode):
+
 2021-10-04  Jean-Yves Avenard  <jya@apple.com>
 
         Vorbis decoder can't be instantiated - follow up on Bug 230742

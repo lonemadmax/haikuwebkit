@@ -1,3 +1,280 @@
+2021-10-05  Simon Fraser  <simon.fraser@apple.com>
+
+        REGRESSION (r283335): Momentum scrolling is no longer locked to an axis
+        https://bugs.webkit.org/show_bug.cgi?id=231206
+
+        Reviewed by Wenson Hsieh.
+
+        * fast/scrolling/mac/momentum-axis-locking-expected.txt: Added.
+        * fast/scrolling/mac/momentum-axis-locking.html: Added.
+
+2021-10-05  Alan Bujtas  <zalan@apple.com>
+
+        [IFC][Integration] Enable first-line style for modern line layout
+        https://bugs.webkit.org/show_bug.cgi?id=231178
+
+        Reviewed by Antti Koivisto.
+
+        * fast/css/empty-inline-line-height-first-line-expected.txt:
+        * fast/css/empty-inline-line-height-first-line-quirksmode-expected.txt:
+        * platform/ios/editing/deleting/delete-at-paragraph-boundaries-002-expected.txt:
+        * platform/ios/editing/deleting/delete-at-paragraph-boundaries-003-expected.txt:
+        * platform/ios/editing/deleting/delete-at-paragraph-boundaries-004-expected.txt:
+        * platform/ios/editing/deleting/delete-at-paragraph-boundaries-005-expected.txt:
+        * platform/ios/editing/deleting/delete-at-paragraph-boundaries-006-expected.txt:
+        * platform/ios/editing/deleting/delete-at-paragraph-boundaries-007-expected.txt:
+        * platform/ios/editing/deleting/delete-at-paragraph-boundaries-008-expected.txt:
+        * platform/ios/editing/deleting/delete-at-paragraph-boundaries-009-expected.txt:
+        * platform/ios/editing/deleting/delete-at-paragraph-boundaries-010-expected.txt:
+        * platform/ios/editing/deleting/delete-at-paragraph-boundaries-011-expected.txt:
+        * platform/ios/editing/deleting/non-smart-delete-expected.txt:
+        * platform/ios/editing/inserting/insert-br-quoted-001-expected.txt:
+        * platform/ios/editing/inserting/insert-br-quoted-002-expected.txt:
+        * platform/ios/editing/inserting/insert-br-quoted-003-expected.txt:
+        * platform/ios/editing/inserting/insert-br-quoted-004-expected.txt:
+        * platform/ios/editing/inserting/insert-br-quoted-005-expected.txt:
+        * platform/ios/editing/inserting/insert-br-quoted-006-expected.txt:
+        * platform/ios/editing/inserting/insert-div-026-expected.txt:
+        * platform/ios/editing/inserting/return-key-with-selection-001-expected.txt:
+        * platform/ios/editing/inserting/return-key-with-selection-002-expected.txt:
+        * platform/ios/editing/inserting/return-key-with-selection-003-expected.txt:
+        * platform/ios/editing/pasteboard/paste-4038267-fix-expected.txt:
+        * platform/ios/editing/pasteboard/paste-line-endings-001-expected.txt:
+        * platform/ios/editing/pasteboard/paste-line-endings-002-expected.txt:
+        * platform/ios/editing/pasteboard/paste-line-endings-003-expected.txt:
+        * platform/ios/editing/pasteboard/paste-line-endings-004-expected.txt:
+        * platform/ios/editing/pasteboard/paste-line-endings-005-expected.txt:
+        * platform/ios/editing/pasteboard/paste-line-endings-006-expected.txt:
+        * platform/ios/editing/pasteboard/paste-line-endings-007-expected.txt:
+        * platform/ios/editing/pasteboard/paste-line-endings-008-expected.txt:
+        * platform/ios/editing/pasteboard/paste-line-endings-009-expected.txt:
+        * platform/ios/editing/pasteboard/paste-line-endings-010-expected.txt:
+        * platform/ios/editing/pasteboard/paste-match-style-001-expected.txt:
+        * platform/ios/editing/pasteboard/paste-match-style-002-expected.txt:
+        * platform/ios/editing/pasteboard/paste-text-019-expected.txt:
+        * platform/ios/editing/style/block-styles-007-expected.txt:
+        * platform/ios/editing/style/style-3998892-fix-expected.txt:
+        * platform/ios/editing/style/style-boundary-001-expected.txt:
+        * platform/ios/editing/style/style-boundary-004-expected.txt:
+        * platform/ios/editing/unsupported-content/list-delete-003-expected.txt:
+        * platform/ios/editing/unsupported-content/list-type-after-expected.txt:
+        * platform/ios/fast/css/empty-inline-line-height-first-line-expected.txt:
+        * platform/ios/fast/css/empty-inline-line-height-first-line-quirksmode-expected.txt:
+        * platform/ios/fast/css/first-line-text-decoration-expected.txt:
+        * platform/ios/fast/css/first-line-text-decoration-inherited-from-parent-expected.txt:
+        * platform/ios/fast/text/firstline/001-expected.txt:
+        * platform/mac/editing/deleting/delete-at-paragraph-boundaries-002-expected.txt:
+        * platform/mac/editing/deleting/delete-at-paragraph-boundaries-003-expected.txt:
+        * platform/mac/editing/deleting/delete-at-paragraph-boundaries-004-expected.txt:
+        * platform/mac/editing/deleting/delete-at-paragraph-boundaries-005-expected.txt:
+        * platform/mac/editing/deleting/delete-at-paragraph-boundaries-006-expected.txt:
+        * platform/mac/editing/deleting/delete-at-paragraph-boundaries-007-expected.txt:
+        * platform/mac/editing/deleting/delete-at-paragraph-boundaries-008-expected.txt:
+        * platform/mac/editing/deleting/delete-at-paragraph-boundaries-009-expected.txt:
+        * platform/mac/editing/deleting/delete-at-paragraph-boundaries-010-expected.txt:
+        * platform/mac/editing/deleting/delete-at-paragraph-boundaries-011-expected.txt:
+        * platform/mac/editing/deleting/non-smart-delete-expected.txt:
+        * platform/mac/editing/inserting/insert-br-quoted-001-expected.txt:
+        * platform/mac/editing/inserting/insert-br-quoted-002-expected.txt:
+        * platform/mac/editing/inserting/insert-br-quoted-003-expected.txt:
+        * platform/mac/editing/inserting/insert-br-quoted-004-expected.txt:
+        * platform/mac/editing/inserting/insert-br-quoted-005-expected.txt:
+        * platform/mac/editing/inserting/insert-br-quoted-006-expected.txt:
+        * platform/mac/editing/inserting/insert-div-026-expected.txt:
+        * platform/mac/editing/inserting/return-key-with-selection-001-expected.txt:
+        * platform/mac/editing/inserting/return-key-with-selection-002-expected.txt:
+        * platform/mac/editing/inserting/return-key-with-selection-003-expected.txt:
+        * platform/mac/editing/pasteboard/emacs-cntl-y-001-expected.txt:
+        * platform/mac/editing/pasteboard/emacs-ctrl-k-y-001-expected.txt:
+        * platform/mac/editing/pasteboard/paste-4038267-fix-expected.txt:
+        * platform/mac/editing/pasteboard/paste-line-endings-001-expected.txt:
+        * platform/mac/editing/pasteboard/paste-line-endings-002-expected.txt:
+        * platform/mac/editing/pasteboard/paste-line-endings-003-expected.txt:
+        * platform/mac/editing/pasteboard/paste-line-endings-004-expected.txt:
+        * platform/mac/editing/pasteboard/paste-line-endings-005-expected.txt:
+        * platform/mac/editing/pasteboard/paste-line-endings-006-expected.txt:
+        * platform/mac/editing/pasteboard/paste-line-endings-007-expected.txt:
+        * platform/mac/editing/pasteboard/paste-line-endings-008-expected.txt:
+        * platform/mac/editing/pasteboard/paste-line-endings-009-expected.txt:
+        * platform/mac/editing/pasteboard/paste-line-endings-010-expected.txt:
+        * platform/mac/editing/pasteboard/paste-match-style-001-expected.txt:
+        * platform/mac/editing/pasteboard/paste-match-style-002-expected.txt:
+        * platform/mac/editing/pasteboard/paste-text-019-expected.txt:
+        * platform/mac/editing/style/block-styles-007-expected.txt:
+        * platform/mac/editing/style/smoosh-styles-001-expected.txt:
+        * platform/mac/editing/style/smoosh-styles-003-expected.txt:
+        * platform/mac/editing/style/style-3998892-fix-expected.txt:
+        * platform/mac/editing/style/style-boundary-001-expected.txt:
+        * platform/mac/editing/style/style-boundary-002-expected.txt:
+        * platform/mac/editing/style/style-boundary-003-expected.txt:
+        * platform/mac/editing/style/style-boundary-004-expected.txt:
+        * platform/mac/editing/style/style-boundary-005-expected.txt:
+        * platform/mac/editing/unsupported-content/list-delete-001-expected.txt:
+        * platform/mac/editing/unsupported-content/list-delete-003-expected.txt:
+        * platform/mac/editing/unsupported-content/list-type-after-expected.txt:
+        * platform/mac/editing/unsupported-content/list-type-before-expected.txt:
+        * platform/mac/editing/unsupported-content/table-delete-002-expected.txt:
+        * platform/mac/editing/unsupported-content/table-type-after-expected.txt:
+        * platform/mac/editing/unsupported-content/table-type-before-expected.txt:
+        * platform/mac/fast/css/first-line-text-decoration-expected.txt:
+        * platform/mac/fast/css/first-line-text-decoration-inherited-from-parent-expected.txt:
+        * platform/mac/fast/text/firstline/001-expected.txt:
+        * platform/win/editing/deleting/delete-at-paragraph-boundaries-002-expected.txt:
+        * platform/win/editing/deleting/delete-at-paragraph-boundaries-003-expected.txt:
+        * platform/win/editing/deleting/delete-at-paragraph-boundaries-004-expected.txt:
+        * platform/win/editing/deleting/delete-at-paragraph-boundaries-005-expected.txt:
+        * platform/win/editing/deleting/delete-at-paragraph-boundaries-006-expected.txt:
+        * platform/win/editing/deleting/delete-at-paragraph-boundaries-007-expected.txt:
+        * platform/win/editing/deleting/delete-at-paragraph-boundaries-008-expected.txt:
+        * platform/win/editing/deleting/delete-at-paragraph-boundaries-009-expected.txt:
+        * platform/win/editing/deleting/delete-at-paragraph-boundaries-010-expected.txt:
+        * platform/win/editing/deleting/delete-at-paragraph-boundaries-011-expected.txt:
+        * platform/win/editing/deleting/non-smart-delete-expected.txt:
+        * platform/win/editing/inserting/insert-br-quoted-001-expected.txt:
+        * platform/win/editing/inserting/insert-br-quoted-002-expected.txt:
+        * platform/win/editing/inserting/insert-br-quoted-003-expected.txt:
+        * platform/win/editing/inserting/insert-br-quoted-004-expected.txt:
+        * platform/win/editing/inserting/insert-br-quoted-005-expected.txt:
+        * platform/win/editing/inserting/insert-br-quoted-006-expected.txt:
+        * platform/win/editing/inserting/insert-div-026-expected.txt:
+        * platform/win/editing/inserting/return-key-with-selection-001-expected.txt:
+        * platform/win/editing/inserting/return-key-with-selection-002-expected.txt:
+        * platform/win/editing/inserting/return-key-with-selection-003-expected.txt:
+        * platform/win/editing/style/block-styles-007-expected.txt:
+        * platform/win/editing/style/smoosh-styles-001-expected.txt:
+        * platform/win/editing/style/smoosh-styles-003-expected.txt:
+        * platform/win/editing/style/style-3998892-fix-expected.txt:
+        * platform/win/editing/style/style-boundary-001-expected.txt:
+        * platform/win/editing/style/style-boundary-002-expected.txt:
+        * platform/win/editing/style/style-boundary-003-expected.txt:
+        * platform/win/editing/style/style-boundary-004-expected.txt:
+        * platform/win/editing/style/style-boundary-005-expected.txt:
+        * platform/win/editing/unsupported-content/list-delete-001-expected.txt:
+        * platform/win/editing/unsupported-content/list-delete-003-expected.txt:
+        * platform/win/editing/unsupported-content/list-type-after-expected.txt:
+        * platform/win/editing/unsupported-content/list-type-before-expected.txt:
+        * platform/win/editing/unsupported-content/table-delete-002-expected.txt:
+        * platform/win/editing/unsupported-content/table-type-after-expected.txt:
+        * platform/win/editing/unsupported-content/table-type-before-expected.txt:
+
+2021-10-05  Martin Robinson  <mrobinson@webkit.org>
+
+        [css-position-sticky] scrollIntoView should not take into account sticky positioning offsets
+        https://bugs.webkit.org/show_bug.cgi?id=230689
+
+        Reviewed by Simon Fraser.
+
+        * platform/ios-wk2/imported/w3c/web-platform-tests/css/css-position/sticky/position-sticky-scrollIntoView-expected.txt: Removed.
+
+2021-10-05  Youenn Fablet  <youenn@apple.com>
+
+        Removing no longer needed flaky expectations from WebRTC tests
+        https://bugs.webkit.org/show_bug.cgi?id=231223
+
+        Unreviewed.
+
+        Update expectations based on results.webkit.org results.
+
+        * TestExpectations:
+        * platform/ios-simulator-wk2/TestExpectations:
+        * platform/ios-wk2/TestExpectations:
+        * platform/ios/TestExpectations:
+        * platform/mac-wk2/TestExpectations:
+        * platform/mac/TestExpectations:
+
+2021-10-05  Tim Nguyen  <ntim@apple.com>
+
+        Remove unnecessary autofocus attribute dependencies in tests
+        https://bugs.webkit.org/show_bug.cgi?id=231219
+
+        Reviewed by Antti Koivisto.
+
+        The new autofocus behaviour timing happens asynchronously with the page "update rendering" steps.
+
+        Some tests are using it solely to focus synchronously on elements. We should just use HTMLElement.focus()
+        there so they don't rely on the current synchronous timing of autofocus.
+
+        * fast/forms/number/number-placeholder-with-unacceptable-value-expected.html:
+        * fast/forms/number/number-placeholder-with-unacceptable-value.html:
+        * fast/forms/range/range-type-change-onchange.html:
+
+2021-10-04  Tim Nguyen  <ntim@apple.com>
+
+        Update ios-wk2 test expectations for select-validity.html WPT
+        https://bugs.webkit.org/show_bug.cgi?id=231217
+
+        Unreviewed test gardening.
+
+        * platform/ios-wk2/imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/select-validity-expected.txt:
+
+2021-10-04  Cameron McCormack  <heycam@apple.com>
+
+        Choose an appropriate color space when converting an SVG image into a NativeImage for canvas drawImage
+        https://bugs.webkit.org/show_bug.cgi?id=231062
+        <rdar://problem/83752451>
+
+        Reviewed by Simon Fraser.
+
+        * TestExpectations:
+        * platform/ios-14/TestExpectations:
+        * platform/ios/TestExpectations:
+        * platform/mac/TestExpectations:
+
+2021-10-04  Cameron McCormack  <heycam@apple.com>
+
+        Update test expectations for canvas color space tests in simulator
+        https://bugs.webkit.org/show_bug.cgi?id=231204
+        <rdar://problem/83865405>
+
+        Unreviewed test gardening.
+
+        * platform/ios-simulator/TestExpectations:
+
+2021-10-04  Tim Nguyen  <ntim@apple.com>
+
+        Re-import html/semantics/forms/ WPT
+        https://bugs.webkit.org/show_bug.cgi?id=231168
+
+        Reviewed by Youenn Fablet.
+
+        https://github.com/web-platform-tests/wpt/commit/dc29fc4ff101c1c216494a88a1f8a31a0f21d0aa
+
+        * TestExpectations:
+        * tests-options.json:
+
+2021-10-04  Ayumi Kojima  <ayumi_kojima@apple.com>
+
+        Cleaning up expectations for iOS 15.
+        https://bugs.webkit.org/show_bug.cgi?id=230968
+
+        Unreviewed test gardening.
+
+        * platform/ios-14/TestExpectations:
+        * platform/ios-15/fast/events/ios/keydown-keyup-keypress-keys-in-non-editable-using-chinese-keyboard-expected.txt: Added.
+
+2021-10-04  Eric Hutchison  <ehutchison@apple.com>
+
+        Remove test expectations since 'crash' has been resolved.
+        https://bugs.webkit.org/show_bug.cgi?id=230245.
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk1/TestExpectations:
+        * platform/mac-wk2/TestExpectations:
+
+2021-10-04  Chris Dumez  <cdumez@apple.com>
+
+        Use isolated NSURLSessions for each first party registrable domain
+        https://bugs.webkit.org/show_bug.cgi?id=230750
+        <rdar://83159358>
+
+        Reviewed by Alex Christensen.
+
+        This test is now passing more checks on WebKit2 but still completely fails on WebKit1 so I am
+        adding a WK1-specific baseline.
+
+        * platform/mac-wk1/imported/w3c/web-platform-tests/fetch/connection-pool/network-partition-key-expected.txt: Copied from LayoutTests/imported/w3c/web-platform-tests/fetch/connection-pool/network-partition-key-expected.txt.
+
 2021-10-04  Ayumi Kojima  <ayumi_kojima@apple.com>
 
         Cleaning up expectations for iOS 15.

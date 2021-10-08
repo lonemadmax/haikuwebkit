@@ -1,3 +1,34 @@
+2021-10-05  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] JSPropertyNameEnumerator should not have cached prototype chain since empty JSPropertyNameEnumerator is shared
+        https://bugs.webkit.org/show_bug.cgi?id=231202
+
+        Reviewed by Keith Miller.
+
+        * stress/for-in-validation-poly-proto.js: Added.
+        (shouldBe):
+        (test):
+        (factory.Test):
+        (factory):
+        * stress/for-in-validation-watchpoint.js: Added.
+        (shouldBe):
+        (test):
+        (Test):
+        (factory):
+
+2021-10-04  Saam Barati  <sbarati@apple.com>
+
+        IntrinsicGetterAccessCase implementation of __proto__ needs to handle get_by_id_with_this
+        https://bugs.webkit.org/show_bug.cgi?id=229951
+        <rdar://problem/82787527>
+
+        Reviewed by Yusuke Suzuki.
+
+        * stress/run-proto-intrinsic-getter-with-this-value-in-get-by-id-with-this.js: Added.
+        (assert):
+        (main.v37):
+        (main):
+
 2021-10-02  Yusuke Suzuki  <ysuzuki@apple.com>
 
         [JSC] Update test262 config.yaml since OSS WebKit now uses ICU 64.2 header

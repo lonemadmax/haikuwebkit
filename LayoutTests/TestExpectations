@@ -562,8 +562,6 @@ imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/natural-size-orientation.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/form-submission-0/form-double-submit-multiple-targets.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/form-submission-0/form-double-submit-to-different-origin-frame.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/forms/textfieldselection/select-event.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/forms/textfieldselection/textfieldselection-setRangeText.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-button-element/button-submit-remove-children.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/css-module/charset-2.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/css-module/referrer-policies.sub.html [ Skip ]
@@ -795,7 +793,6 @@ imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/mi
 imported/w3c/web-platform-tests/html/browsers/windows/targeting-cross-origin-nested-browsing-contexts.html [ Failure Pass ]
 imported/w3c/web-platform-tests/html/webappapis/update-rendering/child-document-raf-order.html [ Failure Pass ]
 imported/w3c/web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/img-aspect-ratio-lazy.tentative.html [ Failure Pass ]
-imported/w3c/web-platform-tests/html/semantics/forms/autofocus/update-the-rendering.html [ Failure Pass ]
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/muted-errors.sub.html [ Failure Pass ]
 imported/w3c/web-platform-tests/fetch/api/cors/cors-cookies.any.html [ Failure Pass ]
 imported/w3c/web-platform-tests/fetch/content-length/parsing.window.html [ Failure Pass ]
@@ -2082,16 +2079,8 @@ webrtc/h264-high.html [ Slow ]
 
 webkit.org/b/207798 webrtc/connection-state.html [ Pass Failure ]
 
-imported/w3c/web-platform-tests/webrtc/RTCRtpReceiver-getSynchronizationSources.https.html [ Pass Failure Slow ]
-webkit.org/b/214197 imported/w3c/web-platform-tests/webrtc/RTCRtpTransceiver.https.html [ Pass Failure Crash ]
-imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-iceGatheringState.html [ Pass Failure ]
-imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-addIceCandidate-timing.https.html [ Pass Failure ]
+imported/w3c/web-platform-tests/webrtc/RTCRtpReceiver-getSynchronizationSources.https.html [ Slow ]
 imported/w3c/web-platform-tests/webrtc/protocol/split.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-restartIce-onnegotiationneeded.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-candidate-in-sdp.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-perfect-negotiation-stress-glare.https.html [ Pass Failure ]
-imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-perfect-negotiation-stress-glare-linear.https.html [ Pass Failure ]
-
 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-relay-canvas.https.html [ Pass Failure ]
 imported/w3c/web-platform-tests/webrtc/protocol/rtp-clockrate.html [ Pass Failure ]
 
@@ -5084,7 +5073,7 @@ imported/w3c/web-platform-tests/css/css-color/predefined-013.html [ Skip ]
 # display-p3 canvas and ImageData are Cocoa only for now.
 fast/canvas/canvas-color-space-display-p3-ImageData.html [ Failure ]
 fast/canvas/canvas-color-space-display-p3.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage.html [ Failure ]
+imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage.https.html [ Failure ]
 imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-Blob.html [ Failure ]
 imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-ImageBitmap.html [ Failure ]
 imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-ImageData.html [ Failure ]
@@ -5215,3 +5204,5 @@ imported/w3c/web-platform-tests/inert/inert-retargeting-iframe.tentative.html [ 
 
 imported/w3c/web-platform-tests/content-security-policy/script-src/ [ DumpJSConsoleLogInStdErr ]
 
+# import-w3c-tests copies -notref.html to -expected.html, so expected image failure here.
+imported/w3c/web-platform-tests/html/semantics/forms/the-textarea-element/placeholder-white-space.tentative.html [ ImageOnlyFailure ]

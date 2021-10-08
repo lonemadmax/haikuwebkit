@@ -114,24 +114,24 @@ TEST(TypeCastsCocoa, checked_objc_cast)
     EXPECT_EQ(nil, checked_objc_cast<NSString>(nil));
 
     @autoreleasepool {
-        auto objectNS = adoptNS((id)[[NSString alloc] initWithFormat:@"%s", helloWorldCString]);
+        auto objectNS = adoptNS<id>([[NSString alloc] initWithFormat:@"%s", helloWorldCString]);
         auto objectNSPtr = reinterpret_cast<uintptr_t>(objectNS.get());
-        EXPECT_EQ(objectNS.get(), checked_objc_cast<NSString>((__bridge id)(CFTypeRef)objectNSPtr));
-        EXPECT_EQ(objectNS.get(), checked_objc_cast<NSObject>((__bridge id)(CFTypeRef)objectNSPtr));
+        EXPECT_EQ(objectNS.get(), checked_objc_cast<NSString>(objectNS.get()));
+        EXPECT_EQ(objectNS.get(), checked_objc_cast<NSObject>(objectNS.get()));
         EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectNSPtr));
     }
 
     @autoreleasepool {
-        auto objectNS = adoptNS((NSObject *)[[NSString alloc] initWithFormat:@"%s", helloWorldCString]);
+        auto objectNS = adoptNS<NSObject *>([[NSString alloc] initWithFormat:@"%s", helloWorldCString]);
         auto objectNSPtr = reinterpret_cast<uintptr_t>(objectNS.get());
-        EXPECT_EQ(objectNS.get(), checked_objc_cast<NSString>((__bridge NSObject *)(CFTypeRef)objectNSPtr));
+        EXPECT_EQ(objectNS.get(), checked_objc_cast<NSString>(objectNS.get()));
         EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectNSPtr));
     }
 
     @autoreleasepool {
         auto objectNS = adoptNS([[NSString alloc] initWithFormat:@"%s", helloWorldCString]);
         auto objectNSPtr = reinterpret_cast<uintptr_t>(objectNS.get());
-        EXPECT_EQ(objectNS.get(), checked_objc_cast<NSObject>((__bridge NSString *)(CFTypeRef)objectNSPtr));
+        EXPECT_EQ(objectNS.get(), checked_objc_cast<NSObject>(objectNS.get()));
         EXPECT_EQ(1L, CFGetRetainCount((CFTypeRef)objectNSPtr));
     }
 }
