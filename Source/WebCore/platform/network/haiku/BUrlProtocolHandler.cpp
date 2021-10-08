@@ -274,7 +274,7 @@ ssize_t BUrlRequestWrapper::Write(const void* data, size_t size)
 
         auto buffer = SharedBuffer::create(reinterpret_cast<const char*>(data), size);
 
-        callOnMainThread([this, protectedThis = makeRef(*this), buffer = WTFMove(buffer)]() mutable {
+        callOnMainThread([this, protectedThis = Ref{*this}, buffer = WTFMove(buffer)]() mutable {
             if (m_handler)
                 m_handler->didReceiveBuffer(WTFMove(buffer));
         });
@@ -462,8 +462,8 @@ void BUrlProtocolHandler::didReceiveResponse(ResourceResponse&& response)
     // Make sure the resource handle is not deleted immediately, otherwise
     // didReceiveResponse would crash. Keep a reference to it so it can be
     // deleted cleanly after the function returns.
-    auto protectedHandle = makeRef(*m_resourceHandle);
-    protectedHandle->didReceiveResponse(WTFMove(response), [this/*, protectedThis = makeRef(*this)*/] {
+    auto protectedHandle = Ref{*m_resourceHandle};
+    protectedHandle->didReceiveResponse(WTFMove(response), [this/*, protectedThis = Ref{*this}*/] {
         //continueAfterDidReceiveResponse();
     });
 }

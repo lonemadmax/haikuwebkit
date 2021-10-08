@@ -78,24 +78,24 @@ class FrameLoaderClientHaiku : public FrameLoaderClient {
     void detachedFromParent2() override;
     void detachedFromParent3() override;
 
-    void assignIdentifierToInitialRequest(unsigned long identifier, DocumentLoader*, const ResourceRequest&) override;
+    void assignIdentifierToInitialRequest(ResourceLoaderIdentifier identifier, DocumentLoader*, const ResourceRequest&) override;
 
-    void dispatchWillSendRequest(DocumentLoader*, unsigned long, ResourceRequest&,
+    void dispatchWillSendRequest(DocumentLoader*, ResourceLoaderIdentifier, ResourceRequest&,
                                          const ResourceResponse&) override;
-    bool shouldUseCredentialStorage(DocumentLoader*, unsigned long identifier) override;
+    bool shouldUseCredentialStorage(DocumentLoader*, ResourceLoaderIdentifier identifier) override;
     void dispatchDidReceiveAuthenticationChallenge(DocumentLoader*,
-        unsigned long identifier, const AuthenticationChallenge&) override;
+        ResourceLoaderIdentifier identifier, const AuthenticationChallenge&) override;
 
     bool dispatchDidReceiveInvalidCertificate(DocumentLoader*,
         const CertificateInfo& certificate, const char* message) override;
 
     void dispatchDidCommitLoad(std::optional<WebCore::HasInsecureContent>,
         std::optional<WebCore::UsedLegacyTLS>) override;
-    void dispatchDidReceiveResponse(DocumentLoader*, unsigned long,
+    void dispatchDidReceiveResponse(DocumentLoader*, ResourceLoaderIdentifier,
         const ResourceResponse&) override;
-    void dispatchDidReceiveContentLength(DocumentLoader*, unsigned long, int) override;
-    void dispatchDidFinishLoading(DocumentLoader*, unsigned long) override;
-    void dispatchDidFailLoading(DocumentLoader*, unsigned long,
+    void dispatchDidReceiveContentLength(DocumentLoader*, ResourceLoaderIdentifier, int) override;
+    void dispatchDidFinishLoading(DocumentLoader*, ResourceLoaderIdentifier) override;
+    void dispatchDidFailLoading(DocumentLoader*, ResourceLoaderIdentifier,
                                         const ResourceError&) override;
 
     void dispatchDidDispatchOnloadEvents() override;
@@ -120,7 +120,7 @@ class FrameLoaderClientHaiku : public FrameLoaderClient {
 
     void dispatchDecidePolicyForResponse(const ResourceResponse&,
 		const ResourceRequest&, PolicyCheckIdentifier,
-		const String& downloadAttribute, BrowsingContextGroupSwitchDecision, FramePolicyFunction&&) override;
+		const String& downloadAttribute, FramePolicyFunction&&) override;
     void dispatchDecidePolicyForNewWindowAction(const NavigationAction&,
         const ResourceRequest&, FormState*, const String& formName,
 		PolicyCheckIdentifier, FramePolicyFunction&&) override;

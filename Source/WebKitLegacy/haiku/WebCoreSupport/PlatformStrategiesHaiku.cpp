@@ -99,9 +99,9 @@ private:
     {
         return m_blobRegistry.blobSize(url);
     }
-    void writeBlobsToTemporaryFiles(const Vector<String>& blobURLs, CompletionHandler<void(Vector<String>&& filePaths)>&& completionHandler) final override
+    void writeBlobsToTemporaryFilesForIndexedDB(const Vector<String>& blobURLs, CompletionHandler<void(Vector<String>&& filePaths)>&& completionHandler) final override
     {
-        m_blobRegistry.writeBlobsToTemporaryFiles(blobURLs, WTFMove(completionHandler));
+        m_blobRegistry.writeBlobsToTemporaryFilesForIndexedDB(blobURLs, WTFMove(completionHandler));
     }
 
     BlobRegistryImpl* blobRegistryImpl() final { return &m_blobRegistry; }

@@ -248,7 +248,7 @@ bool ChromeClientHaiku::runBeforeUnloadConfirmPanel(const String& message, Frame
     return runJavaScriptConfirm(frame, message);
 }
 
-void ChromeClientHaiku::closeWindowSoon()
+void ChromeClientHaiku::closeWindow()
 {
      // Make sure this Page can no longer be found by script code.
     m_webPage->page()->setGroupName(String());

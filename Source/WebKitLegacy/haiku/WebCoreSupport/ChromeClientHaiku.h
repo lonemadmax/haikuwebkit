@@ -66,6 +66,7 @@ namespace WebCore {
         void focusedFrameChanged(Frame*) override;
 
         Page* createWindow(Frame&, const WindowFeatures&, const NavigationAction&) override;
+        void closeWindow() override;
 
         void show() override;
 
@@ -91,8 +92,6 @@ namespace WebCore {
 
         bool canRunBeforeUnloadConfirmPanel() override;
         bool runBeforeUnloadConfirmPanel(const String& message, Frame& frame) override;
-
-        void closeWindowSoon() override;
 
         void runJavaScriptAlert(Frame&, const String&) override;
         bool runJavaScriptConfirm(Frame&, const String&) override;

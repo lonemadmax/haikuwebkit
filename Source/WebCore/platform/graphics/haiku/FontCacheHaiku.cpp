@@ -90,8 +90,7 @@ Ref<Font> FontCache::lastResortFallbackFont(const FontDescription& fontDescripti
 
 std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(
     const FontDescription& fontDescription, const AtomString& family,
-    const WebCore::FontFeatureSettings*,
-    WebCore::FontSelectionSpecifiedCapabilities)
+    const WebCore::FontCreationContext&)
 {
     return std::make_unique<FontPlatformData>(fontDescription, family);
 }

@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "NativeImage.h"
+#include "NotImplemented.h"
 
 #include <Bitmap.h>
 
@@ -46,6 +47,12 @@ Color NativeImage::singlePixelSolidColor() const
         return Color();
 
     return (asSRGBA(PackedColor::ARGB { *(uint32*)m_platformImage.get()->Bits()}));
+}
+
+DestinationColorSpace NativeImage::colorSpace() const
+{
+    notImplemented();
+    return DestinationColorSpace::SRGB();
 }
 
 void NativeImage::clearSubimages()

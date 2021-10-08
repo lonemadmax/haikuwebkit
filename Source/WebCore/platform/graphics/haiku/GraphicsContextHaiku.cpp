@@ -442,13 +442,13 @@ void GraphicsContextHaiku::setLineCap(LineCap lineCap)
 {
     cap_mode mode = B_BUTT_CAP;
     switch (lineCap) {
-    case RoundCap:
+    case LineCap::Round:
         mode = B_ROUND_CAP;
         break;
-    case SquareCap:
+    case LineCap::Square:
         mode = B_SQUARE_CAP;
         break;
-    case ButtCap:
+    case LineCap::Butt:
     default:
         break;
     }
@@ -466,13 +466,13 @@ void GraphicsContextHaiku::setLineJoin(LineJoin lineJoin)
 {
     join_mode mode = B_MITER_JOIN;
     switch (lineJoin) {
-    case RoundJoin:
+    case LineJoin::Round:
         mode = B_ROUND_JOIN;
         break;
-    case BevelJoin:
+    case LineJoin::Bevel:
         mode = B_BEVEL_JOIN;
         break;
-    case MiterJoin:
+    case LineJoin::Miter:
     default:
         break;
     }

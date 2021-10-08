@@ -170,27 +170,27 @@ bool FrameLoaderClientHaiku::dispatchDidLoadResourceFromMemoryCache(DocumentLoad
     return false;
 }
 
-void FrameLoaderClientHaiku::assignIdentifierToInitialRequest(unsigned long /*identifier*/,
+void FrameLoaderClientHaiku::assignIdentifierToInitialRequest(ResourceLoaderIdentifier /*identifier*/,
                                                               DocumentLoader* /*loader*/,
                                                               const ResourceRequest& /*request*/)
 {
     notImplemented();
 }
 
-void FrameLoaderClientHaiku::dispatchWillSendRequest(DocumentLoader* /*loader*/, unsigned long /*identifier*/,
+void FrameLoaderClientHaiku::dispatchWillSendRequest(DocumentLoader* /*loader*/, ResourceLoaderIdentifier /*identifier*/,
                                                      ResourceRequest& /*request*/,
                                                      const ResourceResponse& /*redirectResponse*/)
 {
     notImplemented();
 }
 
-bool FrameLoaderClientHaiku::shouldUseCredentialStorage(DocumentLoader*, unsigned long)
+bool FrameLoaderClientHaiku::shouldUseCredentialStorage(DocumentLoader*, ResourceLoaderIdentifier)
 {
     notImplemented();
     return false;
 }
 
-void FrameLoaderClientHaiku::dispatchDidReceiveAuthenticationChallenge(DocumentLoader*, unsigned long, const AuthenticationChallenge& challenge)
+void FrameLoaderClientHaiku::dispatchDidReceiveAuthenticationChallenge(DocumentLoader*, ResourceLoaderIdentifier, const AuthenticationChallenge& challenge)
 {
     const ProtectionSpace& space = challenge.protectionSpace();
     String text = "Host \"" + space.host() + "\" requests authentication for realm \"" + space.realm() + "\"\n";
@@ -263,31 +263,31 @@ bool FrameLoaderClientHaiku::dispatchDidReceiveInvalidCertificate(DocumentLoader
 
 
 void FrameLoaderClientHaiku::dispatchDidReceiveResponse(DocumentLoader* loader,
-                                                        unsigned long identifier,
+                                                        ResourceLoaderIdentifier identifier,
                                                         const ResourceResponse& coreResponse)
 {
     loader->writer().setEncoding(coreResponse.textEncodingName(), false);
 
     BMessage message(RESPONSE_RECEIVED);
     message.AddInt32("status", coreResponse.httpStatusCode());
-    message.AddInt32("identifier", identifier);
+    message.AddInt64("identifier", identifier.toUInt64());
     message.AddString("url", coreResponse.url().string());
     message.AddString("mimeType", coreResponse.mimeType());
     dispatchMessage(message);
 }
 
 void FrameLoaderClientHaiku::dispatchDidReceiveContentLength(DocumentLoader* /*loader*/,
-                                                             unsigned long /*id*/, int /*length*/)
+                                                             ResourceLoaderIdentifier /*id*/, int /*length*/)
 {
     notImplemented();
 }
 
-void FrameLoaderClientHaiku::dispatchDidFinishLoading(DocumentLoader* /*loader*/, unsigned long /*identifier*/)
+void FrameLoaderClientHaiku::dispatchDidFinishLoading(DocumentLoader* /*loader*/, ResourceLoaderIdentifier /*identifier*/)
 {
     notImplemented();
 }
 
-void FrameLoaderClientHaiku::dispatchDidFailLoading(DocumentLoader* loader, unsigned long, const ResourceError& error)
+void FrameLoaderClientHaiku::dispatchDidFailLoading(DocumentLoader* loader, ResourceLoaderIdentifier, const ResourceError& error)
 {
     if (error.isCancellation())
         return;
@@ -503,8 +503,7 @@ void FrameLoaderClientHaiku::dispatchShow()
 void FrameLoaderClientHaiku::dispatchDecidePolicyForResponse(
 	const WebCore::ResourceResponse& response,
 	const WebCore::ResourceRequest& request, PolicyCheckIdentifier identifier,
-	const WTF::String&, BrowsingContextGroupSwitchDecision,
-	FramePolicyFunction&& function)
+	const WTF::String&, FramePolicyFunction&& function)
 {
     if (request.isNull()) {
         function(PolicyAction::Ignore, identifier);

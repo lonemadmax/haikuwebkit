@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include "DisplayListDrawGlyphsRecorder.h"
+#include "DrawGlyphsRecorder.h"
 
 #include "DisplayListItems.h"
 #include "DisplayListRecorder.h"
@@ -34,18 +34,14 @@
 
 namespace WebCore {
 
-namespace DisplayList {
-
-DrawGlyphsRecorder::DrawGlyphsRecorder(Recorder& owner, DrawGlyphsDeconstruction)
+DrawGlyphsRecorder::DrawGlyphsRecorder(GraphicsContext& owner, DeconstructDrawGlyphs, DeriveFontFromContext)
     : m_owner(owner)
 {
 }
 
 void DrawGlyphsRecorder::drawGlyphs(const Font& font, const GlyphBufferGlyph* glyphs, const GlyphBufferAdvance* advances, unsigned numGlyphs, const FloatPoint& startPoint, FontSmoothingMode smoothingMode)
 {
-    m_owner.appendDrawGlyphsItemWithCachedFont(font, glyphs, advances, numGlyphs, startPoint, smoothingMode);
+    m_owner.drawGlyphsAndCacheFont(font, glyphs, advances, numGlyphs, startPoint, smoothingMode);
 }
-
-} // namespace DisplayList
 
 } // namespace WebCore

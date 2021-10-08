@@ -28,6 +28,7 @@
 
 namespace WebCore {
 
+    class FontCreationContext;
     class FontPlatformData;
     class SharedBuffer;
 
@@ -37,7 +38,7 @@ namespace WebCore {
         FontCustomPlatformData() { }
         ~FontCustomPlatformData();
 
-        FontPlatformData fontPlatformData(const FontDescription& description, bool& bold, bool& italic, const FontFeatureSettings&, WebCore::FontSelectionSpecifiedCapabilities);
+        FontPlatformData fontPlatformData(const FontDescription& description, bool& bold, bool& italic, const FontCreationContext&);
 	    static bool supportsFormat(const String&);
     };
 

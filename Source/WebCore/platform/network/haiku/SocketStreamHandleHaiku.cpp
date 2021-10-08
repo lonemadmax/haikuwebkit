@@ -55,7 +55,7 @@ SocketStreamHandleImpl::SocketStreamHandleImpl(const URL& url, SocketStreamHandl
     LOG(Network, "SocketStreamHandle %p new client %p", this, &m_client);
     ASSERT(isMainThread());
 
-    m_workerThread = Thread::create("WebSocket thread", [this, protectedThis = makeRef(*this)] {
+    m_workerThread = Thread::create("WebSocket thread", [this, protectedThis = Ref{*this}] {
         threadEntryPoint();
     });
 }
@@ -117,7 +117,7 @@ void SocketStreamHandleImpl::threadEntryPoint()
         return;
 	}
 
-    callOnMainThread([this, protectedThis = makeRef(*this)] {
+    callOnMainThread([this, protectedThis = Ref{*this}] {
         if (m_state == Connecting) {
             m_state = Open;
             m_client.didOpenSocketStream(*this);
@@ -142,7 +142,7 @@ void SocketStreamHandleImpl::threadEntryPoint()
                 m_writeBufferSize = 0;
                 m_writeBufferOffset = 0;
 
-                callOnMainThread([this, protectedThis = makeRef(*this)] {
+                callOnMainThread([this, protectedThis = Ref{*this}] {
                     m_hasPendingWriteData = false;
                     sendPendingData();
                 });
@@ -157,7 +157,7 @@ void SocketStreamHandleImpl::threadEntryPoint()
 				// Make sure we are still connected.
 				if (!socket->IsConnected()) {
 					m_running = false;
-					callOnMainThread([this, protectedThis = makeRef(*this)] {
+					callOnMainThread([this, protectedThis = Ref{*this}] {
 						close();
 					});
 					break;
@@ -165,7 +165,7 @@ void SocketStreamHandleImpl::threadEntryPoint()
                 continue;
 			}
 
-            callOnMainThread([this, protectedThis = makeRef(*this), buffer = WTFMove(readBuffer), size = bytesRead ] {
+            callOnMainThread([this, protectedThis = Ref{*this}, buffer = WTFMove(readBuffer), size = bytesRead ] {
                 if (m_state == Open)
                     m_client.didReceiveSocketStreamData(*this, buffer.get(), size);
             });
@@ -179,7 +179,7 @@ void SocketStreamHandleImpl::threadEntryPoint()
 void SocketStreamHandleImpl::handleError(status_t errorCode)
 {
     m_running = false;
-    callOnMainThread([this, protectedThis = makeRef(*this), errorCode, localizedDescription = strerror(errorCode)] {
+    callOnMainThread([this, protectedThis = Ref{*this}, errorCode, localizedDescription = strerror(errorCode)] {
         if (m_state == Closed)
             return;
 

@@ -123,8 +123,6 @@ void ResourceHandle::receivedCredential(const AuthenticationChallenge& challenge
 {
     ASSERT(!challenge.isNull());
     ResourceHandleInternal* internal = getInternal();
-    if (challenge != internal->m_currentWebChallenge)
-        return;
 
     internal->m_user = credential.user();
     internal->m_password = credential.password();
@@ -136,8 +134,6 @@ void ResourceHandle::receivedRequestToContinueWithoutCredential(const Authentica
 {
     ASSERT(!challenge.isNull());
     ResourceHandleInternal* internal = getInternal();
-    if (challenge != internal->m_currentWebChallenge)
-        return;
 
     internal->m_user = "";
     internal->m_password = "";

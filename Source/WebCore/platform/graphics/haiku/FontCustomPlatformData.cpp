@@ -30,7 +30,7 @@ FontCustomPlatformData::~FontCustomPlatformData()
 {
 }
 
-FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription& description, bool& bold, bool& italic, const FontFeatureSettings&, WebCore::FontSelectionSpecifiedCapabilities)
+FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription& description, bool& bold, bool& italic, const FontCreationContext&)
 {
     return FontPlatformData(description.computedSize(), bold, italic);
 }
