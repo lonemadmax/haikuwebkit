@@ -264,7 +264,9 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/credentialmanagement/Navigator+Credentials.idl
 
     Modules/encryptedmedia/MediaKeyEncryptionScheme.idl
+    Modules/encryptedmedia/MediaKeyMessageEventInit.idl
     Modules/encryptedmedia/MediaKeyMessageEvent.idl
+    Modules/encryptedmedia/MediaKeyMessageType.idl
     Modules/encryptedmedia/MediaKeySession.idl
     Modules/encryptedmedia/MediaKeySessionType.idl
     Modules/encryptedmedia/MediaKeyStatusMap.idl
@@ -301,6 +303,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/filesystemaccess/FileSystemDirectoryHandle.idl
     Modules/filesystemaccess/FileSystemFileHandle.idl
     Modules/filesystemaccess/FileSystemHandle.idl
+    Modules/filesystemaccess/FileSystemSyncAccessHandle.idl
     Modules/filesystemaccess/StorageManager+FileSystemAccess.idl
 
     Modules/geolocation/Geolocation.idl
@@ -502,10 +505,18 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/pictureinpicture/HTMLVideoElement+PictureInPicture.idl
     Modules/pictureinpicture/PictureInPictureWindow.idl
 
+    Modules/push-api/PushEncryptionKeyName.idl
     Modules/push-api/PushEvent.idl
     Modules/push-api/PushEventInit.idl
+    Modules/push-api/PushManager.idl
     Modules/push-api/PushMessageData.idl
+    Modules/push-api/PushPermissionState.idl
+    Modules/push-api/PushSubscription.idl
+    Modules/push-api/PushSubscriptionJSON.idl
+    Modules/push-api/PushSubscriptionOptions.idl
+    Modules/push-api/PushSubscriptionOptionsInit.idl
     Modules/push-api/ServiceWorkerGlobalScope+PushAPI.idl
+    Modules/push-api/ServiceWorkerRegistration+PushAPI.idl
 
     Modules/remoteplayback/RemotePlayback.idl
     Modules/remoteplayback/RemotePlaybackAvailabilityCallback.idl
@@ -1714,9 +1725,9 @@ if (ENABLE_WEBGL)
             ${WEBCORE_DIR}/platform/graphics/angle
         )
         list(APPEND WebCore_SOURCES
+            platform/graphics/angle/ANGLEUtilities.cpp
             platform/graphics/angle/ExtensionsGLANGLE.cpp
             platform/graphics/angle/GraphicsContextGLANGLE.cpp
-            platform/graphics/angle/GraphicsContextGLANGLEEGLUtilities.cpp
             platform/graphics/angle/TemporaryANGLESetting.cpp
         )
 

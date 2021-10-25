@@ -25,6 +25,7 @@
 #include "RenderBlockFlow.h"
 
 #include "Editor.h"
+#include "ElementInlines.h"
 #include "FloatingObjects.h"
 #include "Frame.h"
 #include "FrameSelection.h"
@@ -466,7 +467,7 @@ void RenderBlockFlow::setChildrenInline(bool value)
 {
     if (childrenInline() && !value) {
         setLineLayoutPath(UndeterminedPath);
-        m_lineLayout = WTF::Monostate();
+        m_lineLayout = std::monostate();
     }
 
     RenderBlock::setChildrenInline(value);
@@ -689,7 +690,7 @@ void RenderBlockFlow::layoutInlineChildren(bool relayoutChildren, LayoutUnit& re
         if (LayoutIntegration::LineLayout::canUseFor(*this))
             return ModernPath;
 #endif
-        return LineBoxesPath;
+        return LegacyPath;
     };
 
     if (lineLayoutPath() == UndeterminedPath)
@@ -2180,7 +2181,7 @@ void RenderBlockFlow::styleWillChange(StyleDifference diff, const RenderStyle& n
 
 void RenderBlockFlow::deleteLines()
 {
-    m_lineLayout = WTF::Monostate();
+    m_lineLayout = std::monostate();
 
     RenderBlock::deleteLines();
 }
@@ -3727,9 +3728,9 @@ void RenderBlockFlow::invalidateLineLayoutPath()
 {
     switch (lineLayoutPath()) {
     case UndeterminedPath:
-    case ForceLineBoxesPath:
+    case ForcedLegacyPath:
         return;
-    case LineBoxesPath:
+    case LegacyPath:
         setLineLayoutPath(UndeterminedPath);
         return;
     case ModernPath: {
@@ -3737,9 +3738,9 @@ void RenderBlockFlow::invalidateLineLayoutPath()
         auto path = UndeterminedPath;
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
         if (modernLineLayout() && modernLineLayout()->shouldSwitchToLegacyOnInvalidation())
-            path = ForceLineBoxesPath;
+            path = ForcedLegacyPath;
 #endif
-        m_lineLayout = WTF::Monostate();
+        m_lineLayout = std::monostate();
         setLineLayoutPath(path);
         if (needsLayout())
             return;

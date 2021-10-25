@@ -1,3 +1,208 @@
+2021-10-12  Philippe Normand  <pnormand@igalia.com>
+
+        Add my github username to contributors.json
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-11  Patrick Griffis  <pgriffis@igalia.com>
+
+        Add my github username to contributors.json
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-11  Sam Weinig  <weinig@apple.com>
+
+        Add my github username and keep my expertise where it is because, while not up to date, it is fun
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-11  Theresa O'Connor  <hober@apple.com>
+
+        Various updates to my contributors.json entry.
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-11  Devin Rousso  <drousso@apple.com>
+
+        Add my github and update my expertise
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-10  Noam Rosenthal  <noam@webkit.org>
+
+        Add my github username to contributors.json
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-11 Emilio Cobos Álvarez  <emilio@crisal.io>
+
+        Add my GitHub username to contributors.json.
+        https://bugs.webkit.org/show_bug.cgi?id=231507
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-11  Claudio Saavedra  <csaavedra@igalia.com>
+
+        Add my github username to contributors.json
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-11  Diego Pino Garcia  <dpino@igalia.com>
+
+        Add GitHub username for Diego Pino Garcia
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-10  Pablo Saavedra  <psaavedra@igalia.com>
+
+        Add GitHub username for Pablo Saavedra
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-10  Xabier Rodriguez Calvar  <calvaris@igalia.com>
+
+        Unreviewed. Add GitHub username for Xabier Rodriguez Calvar
+
+        * metadata/contributors.json:
+
+2021-10-10  Cameron McCormack  <heycam@apple.com>
+
+        Add GitHub account to contributors.json
+        https://bugs.webkit.org/show_bug.cgi?id=231497
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-10  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        [WPE] Reenable -fvisibility=hidden and -fvisibility-inlines-hidden
+        https://bugs.webkit.org/show_bug.cgi?id=222860
+
+        Reviewed by Philippe Normand.
+
+        * Source/cmake/OptionsWPE.cmake:
+
+2021-10-10  Adrian Perez de Castro  <aperez@igalia.com>
+
+        Unreviewed. Add GitHub username for Adrian Perez de Castro
+
+        While at it, run "validate-committer-lists --canonicalize".
+
+        * metadata/contributors.json:
+
+2021-10-09  Alberto Garcia  <berto@igalia.com>
+
+        Add GitHub account to contributors.json
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-09  Jean-Yves Avenard  <jya@apple.com>
+
+        Unreviewed, add my GitHub username
+
+        * metadata/contributors.json:
+
+2021-10-09  Manuel Rego Casasnovas  <rego@igalia.com>
+
+        Add GitHub account to contributors.json and update expertise field
+        https://bugs.webkit.org/show_bug.cgi?id=231476
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-08  Joonghun Park  <jh718.park@samsung.com>
+
+        Unreviewed. Add github username for Joonghun Park.
+
+        * metadata/contributors.json:
+
+2021-10-08  Jonathan Bedard  <jbedard@apple.com>
+
+        Add github username for Michael Catanzaro
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-08  Kenneth Russell  <kbr@chromium.org>
+
+        Add github username for kbr
+        https://bugs.webkit.org/show_bug.cgi?id=231462
+
+        Reviewed by Dean Jackson.
+
+        * metadata/contributors.json:
+
+2021-10-08  Ross Kirsling  <ross.kirsling@sony.com>
+
+        Unreviewed, add GitHub usernames for Sony contributors.
+
+        * metadata/contributors.json:
+
+2021-10-08  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, add my GitHub username
+
+        * metadata/contributors.json:
+
+2021-10-08  Tim Nguyen  <ntim@apple.com>
+
+        [contributors.json] Add more Github usernames
+        https://bugs.webkit.org/show_bug.cgi?id=231453
+
+        Reviewed by Jonathan Bedard.
+
+        * metadata/contributors.json:
+
+2021-10-08  Jonathan Bedard  <jbedard@apple.com>
+
+        [contributors.json] Support GitHub usernames
+        https://bugs.webkit.org/show_bug.cgi?id=231400
+        <rdar://problem/84005266>
+
+        Reviewed by Dewei Zhu.
+
+        * metadata/contributors.json: Add some GitHub usernames.
+
+2021-10-07  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK] Reenable -fvisibility=hidden
+        https://bugs.webkit.org/show_bug.cgi?id=181916
+
+        Reviewed by Michael Catanzaro.
+
+        * Source/cmake/OptionsGTK.cmake:
+
+2021-10-06  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed, mark Kimmo Kinnunen as reviewer in the right contributors.json file this time.
+
+        * metadata/contributors.json:
+
 2021-10-03  Basuke Suzuki  <basuke.suzuki@sony.com>
 
         Enable release log to stderr

@@ -68,9 +68,6 @@ public:
     virtual bool isListBox() const { return false; }
     virtual bool isPDFPlugin() const { return false; }
 
-    ScrollBehaviorStatus currentScrollBehaviorStatus() { return m_currentScrollBehaviorStatus; }
-    void setScrollBehaviorStatus(ScrollBehaviorStatus status) { m_currentScrollBehaviorStatus = status; }
-
     WEBCORE_EXPORT bool scroll(ScrollDirection, ScrollGranularity, float multiplier = 1);
     WEBCORE_EXPORT void scrollToPositionWithAnimation(const FloatPoint&, ScrollClamping = ScrollClamping::Clamped);
     WEBCORE_EXPORT void scrollToPositionWithoutAnimation(const FloatPoint&, ScrollClamping = ScrollClamping::Clamped);
@@ -86,6 +83,8 @@ public:
     // returns true, the scrollable area won't actually update the scroll position and instead
     // expect it to happen sometime in the future.
     virtual bool requestScrollPositionUpdate(const ScrollPosition&, ScrollType = ScrollType::User, ScrollClamping = ScrollClamping::Clamped) { return false; }
+    virtual bool requestAnimatedScrollToPosition(const ScrollPosition&, ScrollClamping = ScrollClamping::Clamped) { return false; }
+    virtual void stopAsyncAnimatedScroll() { }
 
     WEBCORE_EXPORT virtual bool handleWheelEventForScrolling(const PlatformWheelEvent&, std::optional<WheelScrollGestureState>);
 
@@ -252,6 +251,10 @@ public:
     ScrollType currentScrollType() const { return m_currentScrollType; }
     void setCurrentScrollType(ScrollType scrollType) { m_currentScrollType = scrollType; }
 
+    // This reflects animated scrolls triggered by CSS OM View "smooth" scrolls.
+    ScrollAnimationStatus scrollAnimationStatus() { return m_scrollAnimationStatus; }
+    void setScrollAnimationStatus(ScrollAnimationStatus status) { m_scrollAnimationStatus = status; }
+
     bool scrollShouldClearLatchedState() const { return m_scrollShouldClearLatchedState; }
     void setScrollShouldClearLatchedState(bool shouldClear) { m_scrollShouldClearLatchedState = shouldClear; }
 
@@ -403,7 +406,7 @@ private:
     ScrollbarOverlayStyle m_scrollbarOverlayStyle { ScrollbarOverlayStyle::ScrollbarOverlayStyleDefault };
 
     ScrollType m_currentScrollType { ScrollType::User };
-    ScrollBehaviorStatus m_currentScrollBehaviorStatus { ScrollBehaviorStatus::NotInAnimation };
+    ScrollAnimationStatus m_scrollAnimationStatus { ScrollAnimationStatus::NotAnimating };
 
     bool m_inLiveResize { false };
     bool m_scrollOriginChanged { false };

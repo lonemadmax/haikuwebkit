@@ -29,6 +29,7 @@
 #include "CSSComputedStyleDeclaration.h"
 #include "ContextDestructionObserver.h"
 #include "Cookie.h"
+#include "EpochTimeStamp.h"
 #include "ExceptionOr.h"
 #include "HEVCUtilities.h"
 #include "IDLTypes.h"
@@ -38,7 +39,7 @@
 #include "SleepDisabler.h"
 #include "TextIndicator.h"
 #include "VP9Utilities.h"
-#include <JavaScriptCore/Float32Array.h>
+#include <JavaScriptCore/Forward.h>
 
 #if ENABLE(VIDEO)
 #include "MediaElementSession.h"
@@ -141,6 +142,10 @@ struct MediaSessionActionDetails;
 class MediaSessionCoordinator;
 class MockMediaSessionCoordinator;
 #endif
+#endif
+
+#if ENABLE(SERVICE_WORKER)
+class PushSubscription;
 #endif
 
 template<typename IDLType> class DOMPromiseDeferred;
@@ -1192,6 +1197,10 @@ public:
     ExceptionOr<void> setDocumentAutoplayPolicy(Document&, AutoplayPolicy);
 
     void retainTextIteratorForDocumentContent();
+
+#if ENABLE(SERVICE_WORKER)
+    RefPtr<PushSubscription> createPushSubscription(const String& endpoint, std::optional<EpochTimeStamp> expirationTime, bool userVisibleOnly, const ArrayBuffer& serverVAPIDPublicKey, const ArrayBuffer& clientECDHPublicKey, const ArrayBuffer& auth);
+#endif
 
 private:
     explicit Internals(Document&);

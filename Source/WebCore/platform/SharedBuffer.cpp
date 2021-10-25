@@ -28,6 +28,7 @@
 #include "config.h"
 #include "SharedBuffer.h"
 
+#include <JavaScriptCore/ArrayBuffer.h>
 #include <algorithm>
 #include <wtf/HexNumber.h>
 #include <wtf/persistence/PersistentCoders.h>
@@ -144,7 +145,7 @@ Vector<uint8_t> SharedBuffer::takeData()
         return { };
 
     Vector<uint8_t> combinedData;
-    if (hasOneSegment() && WTF::holds_alternative<Vector<uint8_t>>(m_segments[0].segment->m_immutableData))
+    if (hasOneSegment() && std::holds_alternative<Vector<uint8_t>>(m_segments[0].segment->m_immutableData))
         combinedData = std::exchange(WTF::get<Vector<uint8_t>>(m_segments[0].segment->m_immutableData), Vector<uint8_t>());
     else
         combinedData = combineSegmentsData(m_segments, m_size);
@@ -341,25 +342,25 @@ bool SharedBuffer::internallyConsistent() const
 const uint8_t* SharedBuffer::DataSegment::data() const
 {
     auto visitor = WTF::makeVisitor(
-        [](const Vector<uint8_t>& data) { return data.data(); },
+        [](const Vector<uint8_t>& data) -> const uint8_t* { return data.data(); },
 #if USE(CF)
-        [](const RetainPtr<CFDataRef>& data) { return CFDataGetBytePtr(data.get()); },
+        [](const RetainPtr<CFDataRef>& data) -> const uint8_t* { return CFDataGetBytePtr(data.get()); },
 #endif
 #if USE(GLIB)
-        [](const GRefPtr<GBytes>& data) { return static_cast<const uint8_t*>(g_bytes_get_data(data.get(), nullptr)); },
+        [](const GRefPtr<GBytes>& data) -> const uint8_t* { return static_cast<const uint8_t*>(g_bytes_get_data(data.get(), nullptr)); },
 #endif
 #if USE(GSTREAMER)
-        [](const RefPtr<GstMappedOwnedBuffer>& data) { return data->data(); },
+        [](const RefPtr<GstMappedOwnedBuffer>& data) -> const uint8_t* { return data->data(); },
 #endif
-        [](const FileSystem::MappedFileData& data) { return static_cast<const uint8_t*>(data.data()); },
-        [](const Provider& provider) { return provider.data(); }
+        [](const FileSystem::MappedFileData& data) -> const uint8_t* { return static_cast<const uint8_t*>(data.data()); },
+        [](const Provider& provider) -> const uint8_t* { return provider.data(); }
     );
-    return WTF::visit(visitor, m_immutableData);
+    return std::visit(visitor, m_immutableData);
 }
 
 bool SharedBuffer::DataSegment::containsMappedFileData() const
 {
-    return WTF::holds_alternative<FileSystem::MappedFileData>(m_immutableData);
+    return std::holds_alternative<FileSystem::MappedFileData>(m_immutableData);
 }
 
 #if !USE(CF)
@@ -425,20 +426,20 @@ bool SharedBuffer::operator==(const SharedBuffer& other) const
 size_t SharedBuffer::DataSegment::size() const
 {
     auto visitor = WTF::makeVisitor(
-        [](const Vector<uint8_t>& data) { return data.size(); },
+        [](const Vector<uint8_t>& data) -> size_t { return data.size(); },
 #if USE(CF)
-        [](const RetainPtr<CFDataRef>& data) { return CFDataGetLength(data.get()); },
+        [](const RetainPtr<CFDataRef>& data) -> size_t { return CFDataGetLength(data.get()); },
 #endif
 #if USE(GLIB)
-        [](const GRefPtr<GBytes>& data) { return g_bytes_get_size(data.get()); },
+        [](const GRefPtr<GBytes>& data) -> size_t { return g_bytes_get_size(data.get()); },
 #endif
 #if USE(GSTREAMER)
-        [](const RefPtr<GstMappedOwnedBuffer>& data) { return data->size(); },
+        [](const RefPtr<GstMappedOwnedBuffer>& data) -> size_t { return data->size(); },
 #endif
-        [](const FileSystem::MappedFileData& data) { return data.size(); },
-        [](const Provider& provider) { return provider.size(); }
+        [](const FileSystem::MappedFileData& data) -> size_t { return data.size(); },
+        [](const Provider& provider) -> size_t { return provider.size(); }
     );
-    return WTF::visit(visitor, m_immutableData);
+    return std::visit(visitor, m_immutableData);
 }
 
 SharedBufferDataView::SharedBufferDataView(Ref<SharedBuffer::DataSegment>&& segment, size_t positionWithinSegment)

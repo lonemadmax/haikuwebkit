@@ -271,6 +271,10 @@ public:
     xpc_object_t xpcEndpointMessage() const { return m_endpointMessage.get(); }
 #endif
 
+#if ENABLE(SERVICE_WORKER)
+    void processPushMessage(PAL::SessionID, std::optional<Span<const uint8_t>>, const URL&, CompletionHandler<void(bool wasProcessed)>&&);
+#endif
+
 private:
     explicit NetworkProcessProxy();
 
@@ -319,6 +323,8 @@ private:
     void workerContextConnectionNoLongerNeeded(WebCore::ProcessIdentifier);
     void registerServiceWorkerClientProcess(WebCore::ProcessIdentifier webProcessIdentifier, WebCore::ProcessIdentifier serviceWorkerProcessIdentifier);
     void unregisterServiceWorkerClientProcess(WebCore::ProcessIdentifier webProcessIdentifier, WebCore::ProcessIdentifier serviceWorkerProcessIdentifier);
+    void startServiceWorkerBackgroundProcessing(WebCore::ProcessIdentifier serviceWorkerProcessIdentifier);
+    void endServiceWorkerBackgroundProcessing(WebCore::ProcessIdentifier serviceWorkerProcessIdentifier);
 #endif
 
     void terminateWebProcess(WebCore::ProcessIdentifier);

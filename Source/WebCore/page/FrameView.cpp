@@ -95,6 +95,7 @@
 #include "ResizeObserver.h"
 #include "RuntimeEnabledFeatures.h"
 #include "SVGDocument.h"
+#include "SVGElementTypeHelpers.h"
 #include "SVGSVGElement.h"
 #include "ScriptRunner.h"
 #include "ScriptedAnimationController.h"
@@ -350,6 +351,12 @@ void FrameView::detachCustomScrollbars()
         setHasVerticalScrollbar(false);
 
     m_scrollCorner = nullptr;
+}
+
+void FrameView::willBeDestroyed()
+{
+    setHasHorizontalScrollbar(false);
+    setHasVerticalScrollbar(false);
 }
 
 void FrameView::recalculateScrollbarOverlayStyle()
@@ -2306,7 +2313,7 @@ void FrameView::scrollElementToRect(const Element& element, const IntRect& rect)
 
 void FrameView::setScrollPosition(const ScrollPosition& scrollPosition, const ScrollPositionChangeOptions& options)
 {
-    LOG_WITH_STREAM(Scrolling, stream << "FrameView::setScrollPosition " << scrollPosition << " , clearing anchor");
+    LOG_WITH_STREAM(Scrolling, stream << "FrameView::setScrollPosition " << scrollPosition << " animated " << (options.animated == ScrollIsAnimated::Yes) << ", clearing anchor");
 
     auto oldScrollType = currentScrollType();
     setCurrentScrollType(options.type);
@@ -2321,7 +2328,7 @@ void FrameView::setScrollPosition(const ScrollPosition& scrollPosition, const Sc
     ScrollOffset snappedOffset = ceiledIntPoint(scrollAnimator().scrollOffsetAdjustedForSnapping(scrollOffsetFromPosition(scrollPosition), options.snapPointSelectionMethod));
     auto snappedPosition = scrollPositionFromOffset(snappedOffset);
 
-    if (options.animated == AnimatedScroll::Yes)
+    if (options.animated == ScrollIsAnimated::Yes)
         scrollToPositionWithAnimation(snappedPosition, currentScrollType(), options.clamping);
     else
         ScrollView::setScrollPosition(snappedPosition, options);
@@ -2685,6 +2692,30 @@ bool FrameView::requestScrollPositionUpdate(const ScrollPosition& position, Scro
 #endif
 
     return false;
+}
+
+bool FrameView::requestAnimatedScrollToPosition(const ScrollPosition& destinationPosition, ScrollClamping clamping)
+{
+    LOG_WITH_STREAM(Scrolling, stream << "FrameView::requestAnimatedScrollToPosition " << destinationPosition);
+
+#if ENABLE(ASYNC_SCROLLING)
+    if (auto scrollingCoordinator = this->scrollingCoordinator())
+        return scrollingCoordinator->requestAnimatedScrollToPosition(*this, destinationPosition, clamping);
+#else
+    UNUSED_PARAM(destinationPosition);
+#endif
+
+    return false;
+}
+
+void FrameView::stopAsyncAnimatedScroll()
+{
+#if ENABLE(ASYNC_SCROLLING)
+    LOG_WITH_STREAM(Scrolling, stream << "FrameView::stopAsyncAnimatedScroll");
+
+    if (auto scrollingCoordinator = this->scrollingCoordinator())
+        return scrollingCoordinator->stopAnimatedScroll(*this);
+#endif
 }
 
 HostWindow* FrameView::hostWindow() const
@@ -3768,9 +3799,10 @@ void FrameView::scrollToPositionWithAnimation(const ScrollPosition& position, Sc
     auto previousScrollType = currentScrollType();
     setCurrentScrollType(scrollType);
 
-    if (currentScrollBehaviorStatus() == ScrollBehaviorStatus::InNonNativeAnimation)
+    if (scrollAnimationStatus() == ScrollAnimationStatus::Animating)
         scrollAnimator().cancelAnimations();
-    if (position != this->scrollPosition())
+
+    if (position != scrollPosition())
         ScrollableArea::scrollToPositionWithAnimation(position);
 
     setCurrentScrollType(previousScrollType);

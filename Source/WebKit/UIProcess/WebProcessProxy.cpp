@@ -1570,7 +1570,7 @@ void WebProcessProxy::isResponsive(CompletionHandler<void(bool isWebProcessRespo
     if (callback)
         m_isResponsiveCallbacks.append(WTFMove(callback));
 
-    checkForResponsiveness([weakThis = makeWeakPtr(*this)]() mutable {
+    checkForResponsiveness([weakThis = WeakPtr { *this }]() mutable {
         if (!weakThis)
             return;
 
@@ -1587,7 +1587,7 @@ void WebProcessProxy::isResponsiveWithLazyStop()
     if (!responsivenessTimer().hasActiveTimer()) {
         // We do not send a ping if we are already waiting for the WebProcess.
         // Spamming pings on a slow web process is not helpful.
-        checkForResponsiveness([weakThis = makeWeakPtr(*this)]() mutable {
+        checkForResponsiveness([weakThis = WeakPtr { *this }]() mutable {
             if (!weakThis)
                 return;
 
@@ -1895,7 +1895,7 @@ void WebProcessProxy::establishServiceWorkerContext(const WebPreferencesStore& s
 {
     WEBPROCESSPROXY_RELEASE_LOG(Loading, "establishServiceWorkerContext: Started");
     markProcessAsRecentlyUsed();
-    sendWithAsyncReply(Messages::WebProcess::EstablishWorkerContextConnectionToNetworkProcess { processPool().defaultPageGroup().pageGroupID(), m_serviceWorkerInformation->serviceWorkerPageProxyID, m_serviceWorkerInformation->serviceWorkerPageID, store, registrableDomain, serviceWorkerPageIdentifier, m_serviceWorkerInformation->initializationData }, [this, weakThis = makeWeakPtr(*this), completionHandler = WTFMove(completionHandler)]() mutable {
+    sendWithAsyncReply(Messages::WebProcess::EstablishWorkerContextConnectionToNetworkProcess { processPool().defaultPageGroup().pageGroupID(), m_serviceWorkerInformation->serviceWorkerPageProxyID, m_serviceWorkerInformation->serviceWorkerPageID, store, registrableDomain, serviceWorkerPageIdentifier, m_serviceWorkerInformation->initializationData }, [this, weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)]() mutable {
         if (weakThis)
             WEBPROCESSPROXY_RELEASE_LOG(Loading, "establishServiceWorkerContext: Finished");
         completionHandler();
@@ -1938,6 +1938,14 @@ void WebProcessProxy::updateServiceWorkerProcessAssertion()
             m_serviceWorkerInformation->activity = m_throttler.backgroundActivity("Service Worker for background view(s)"_s);
         return;
     }
+
+    if (m_hasServiceWorkerBackgroundProcessing) {
+        WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "Service Worker for background processing");
+        if (!ProcessThrottler::isValidBackgroundActivity(m_serviceWorkerInformation->activity))
+            m_serviceWorkerInformation->activity = m_throttler.backgroundActivity("Service Worker for background processing"_s);
+        return;
+    }
+
     m_serviceWorkerInformation->activity = nullptr;
 }
 
@@ -1969,6 +1977,26 @@ bool WebProcessProxy::hasServiceWorkerForegroundActivityForTesting() const
 bool WebProcessProxy::hasServiceWorkerBackgroundActivityForTesting() const
 {
     return m_serviceWorkerInformation ? ProcessThrottler::isValidBackgroundActivity(m_serviceWorkerInformation->activity) : false;
+}
+
+void WebProcessProxy::startServiceWorkerBackgroundProcessing()
+{
+    if (!m_serviceWorkerInformation)
+        return;
+
+    WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "startServiceWorkerBackgroundProcessing");
+    m_hasServiceWorkerBackgroundProcessing = true;
+    updateServiceWorkerProcessAssertion();
+}
+
+void WebProcessProxy::endServiceWorkerBackgroundProcessing()
+{
+    if (!m_serviceWorkerInformation)
+        return;
+
+    WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "endServiceWorkerBackgroundProcessing");
+    m_hasServiceWorkerBackgroundProcessing = false;
+    updateServiceWorkerProcessAssertion();
 }
 #endif // ENABLE(SERVICE_WORKER)
 

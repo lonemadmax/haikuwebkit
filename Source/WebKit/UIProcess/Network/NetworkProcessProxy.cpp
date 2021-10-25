@@ -174,6 +174,10 @@ void NetworkProcessProxy::sendCreationParametersToNewProcess()
     });
 #endif
 
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    parameters.enablePrivateClickMeasurement = false;
+#endif
+
     WebProcessPool::platformInitializeNetworkProcess(parameters);
     send(Messages::NetworkProcess::InitializeNetworkProcess(parameters), 0);
 }
@@ -253,7 +257,7 @@ void NetworkProcessProxy::getNetworkProcessConnection(WebProcessProxy& webProces
     RELEASE_LOG(ProcessSuspension, "%p - NetworkProcessProxy is taking a background assertion because a web process is requesting a connection", this);
     if (!isLaunching())
         startResponsivenessTimer(UseLazyStop::No);
-    sendWithAsyncReply(Messages::NetworkProcess::CreateNetworkConnectionToWebProcess { webProcessProxy.coreProcessIdentifier(), webProcessProxy.sessionID() }, [this, weakThis = makeWeakPtr(*this), reply = WTFMove(reply)](auto&& identifier, auto cookieAcceptPolicy) mutable {
+    sendWithAsyncReply(Messages::NetworkProcess::CreateNetworkConnectionToWebProcess { webProcessProxy.coreProcessIdentifier(), webProcessProxy.sessionID() }, [this, weakThis = WeakPtr { *this }, reply = WTFMove(reply)](auto&& identifier, auto cookieAcceptPolicy) mutable {
         if (!weakThis) {
             RELEASE_LOG_ERROR(Process, "NetworkProcessProxy::getNetworkProcessConnection: NetworkProcessProxy deallocated during connection establishment");
             return reply({ });
@@ -1396,6 +1400,18 @@ void NetworkProcessProxy::unregisterServiceWorkerClientProcess(WebCore::ProcessI
 
     serviceWorkerProcess->unregisterServiceWorkerClientProcess(*webProcess);
 }
+
+void NetworkProcessProxy::startServiceWorkerBackgroundProcessing(WebCore::ProcessIdentifier serviceWorkerProcessIdentifier)
+{
+    if (auto* serviceWorkerProcess = WebProcessProxy::processForIdentifier(serviceWorkerProcessIdentifier))
+        serviceWorkerProcess->startServiceWorkerBackgroundProcessing();
+}
+
+void NetworkProcessProxy::endServiceWorkerBackgroundProcessing(WebCore::ProcessIdentifier serviceWorkerProcessIdentifier)
+{
+    if (auto* serviceWorkerProcess = WebProcessProxy::processForIdentifier(serviceWorkerProcessIdentifier))
+        serviceWorkerProcess->endServiceWorkerBackgroundProcessing();
+}
 #endif
 
 void NetworkProcessProxy::requestStorageSpace(PAL::SessionID sessionID, const WebCore::ClientOrigin& origin, uint64_t currentQuota, uint64_t currentSize, uint64_t spaceRequired, CompletionHandler<void(std::optional<uint64_t> quota)>&& completionHandler)
@@ -1630,6 +1646,16 @@ void NetworkProcessProxy::didExceedMemoryLimit()
     networkProcessDidTerminate(TerminationReason::ExceededMemoryLimit);
 }
 #endif
+
+#if ENABLE(SERVICE_WORKER)
+void NetworkProcessProxy::processPushMessage(PAL::SessionID sessionID, std::optional<Span<const uint8_t>> data, const URL& registrationURL, CompletionHandler<void(bool wasProcessed)>&& callback)
+{
+    std::optional<IPC::DataReference> ipcData;
+    if (data)
+        ipcData = IPC::DataReference { data->data(), data->size() };
+    sendWithAsyncReply(Messages::NetworkProcess::ProcessPushMessage { sessionID, ipcData, registrationURL }, WTFMove(callback));
+}
+#endif // ENABLE(SERVICE_WORKER)
 
 } // namespace WebKit
 

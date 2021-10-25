@@ -192,8 +192,8 @@
 #include "RuntimeApplicationChecks.h"
 #include "RuntimeEnabledFeatures.h"
 #include "SVGDocumentExtensions.h"
-#include "SVGElement.h"
 #include "SVGElementFactory.h"
+#include "SVGElementTypeHelpers.h"
 #include "SVGNames.h"
 #include "SVGSVGElement.h"
 #include "SVGTitleElement.h"
@@ -1568,11 +1568,7 @@ void Document::setDocumentURI(const String& uri)
 void Document::setContent(const String& content)
 {
     open();
-    // FIXME: This should probably use insert(), but that's (intentionally)
-    // not implemented for the XML parser as it's normally synonymous with
-    // document.write(). append() will end up yielding, but close() will
-    // pump the tokenizer syncrhonously and finish the parse.
-    m_parser->append(content.impl());
+    m_parser->appendSynchronously(content.impl());
     close();
 }
 
@@ -4471,6 +4467,40 @@ void Document::adjustFocusedNodeOnNodeRemoval(Node& node, NodeRemoval nodeRemova
         // Also we need to call removeFocusNavigationNodeOfSubtree after this function because
         // setFocusedElement(nullptr) will reset m_focusNavigationStartingNode.
         setFocusNavigationStartingNode(focusedElement.get());
+    }
+}
+
+void Document::appendAutofocusCandidate(Element& candidate)
+{
+    ASSERT(isTopDocument());
+    ASSERT(!m_isAutofocusProcessed);
+    auto it = m_autofocusCandidates.findIf([&candidate](auto& c) {
+        return c == &candidate;
+    });
+    if (it != m_autofocusCandidates.end())
+        m_autofocusCandidates.remove(it);
+    m_autofocusCandidates.append(makeWeakPtr(candidate));
+}
+
+void Document::flushAutofocusCandidates()
+{
+    ASSERT(isTopDocument());
+    if (m_isAutofocusProcessed)
+        return;
+    while (!m_autofocusCandidates.isEmpty()) {
+        RefPtr element = m_autofocusCandidates.takeFirst().get();
+        if (!element || !element->document().isFullyActive() || &element->document().topDocument() != this)
+            continue;
+        if (auto* parser = scriptableDocumentParser(); parser && parser->hasScriptsWaitingForStylesheets())
+            break;
+        // FIXME: Need to ignore if the inclusive ancestor documents has a target element.
+        // FIXME: Use the result of getting the focusable area for element if element is not focusable.
+        if (element->isFocusable()) {
+            m_autofocusCandidates.clear();
+            setAutofocusProcessed();
+            element->runFocusingStepsForAutofocus();
+            return;
+        }
     }
 }
 
@@ -8611,7 +8641,7 @@ void Document::didLogMessage(const WTFLogChannel& channel, WTFLogLevel level, Ve
     if (messageSource == MessageSource::Other)
         return;
 
-    eventLoop().queueTask(TaskSource::InternalAsyncTask, [weakThis = makeWeakPtr(*this), level, messageSource, logMessages = WTFMove(logMessages)]() mutable {
+    eventLoop().queueTask(TaskSource::InternalAsyncTask, [weakThis = WeakPtr { *this }, level, messageSource, logMessages = WTFMove(logMessages)]() mutable {
         if (!weakThis || !weakThis->page())
             return;
 
@@ -8826,7 +8856,7 @@ void Document::didRejectSyncXHRDuringPageDismissal()
     if (m_numberOfRejectedSyncXHRs > 1)
         return;
 
-    postTask([this, weakThis = makeWeakPtr(*this)](auto&) mutable {
+    postTask([this, weakThis = WeakPtr { *this }](auto&) mutable {
         if (weakThis)
             m_numberOfRejectedSyncXHRs = 0;
     });

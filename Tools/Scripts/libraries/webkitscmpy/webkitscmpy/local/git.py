@@ -31,6 +31,7 @@ import sys
 import time
 
 from datetime import datetime, timedelta
+from collections import defaultdict
 
 from webkitcorepy import run, decorators, NestedFuzzyDict
 from webkitscmpy.local import Scm
@@ -49,6 +50,9 @@ class Git(Scm):
             self._last_populated = {}
             self._guranteed_for = guranteed_for
 
+            self.load()
+
+        def load(self):
             if not os.path.exists(self.path):
                 return
 
@@ -204,12 +208,16 @@ class Git(Scm):
             _, b_count, branch = parts
             if b_count < 0:
                 return None
-            if branch not in self._ordered_commits or len(self._ordered_commits[branch]) <= b_count:
-                if populate:
-                    self.populate(branch=branch)
-                    return self.to_hash(identifier=identifier, populate=False)
-                return None
-            return self._ordered_commits[branch][b_count]
+            if branch in self._ordered_commits and len(self._ordered_commits[branch]) > b_count:
+                return self._ordered_commits[branch][b_count]
+
+            self.load()
+            if branch in self._ordered_commits and len(self._ordered_commits[branch]) > b_count:
+                return self._ordered_commits[branch][b_count]
+            if populate:
+                self.populate(branch=branch)
+                return self.to_hash(identifier=identifier, populate=False)
+            return None
 
         def to_revision(self, hash=None, identifier=None, populate=True, branch=None):
             if hash:
@@ -221,16 +229,24 @@ class Git(Scm):
             _, b_count, branch = parts
             if b_count < 0:
                 return None
-            if branch not in self._ordered_revisions or len(self._ordered_revisions[branch]) <= b_count:
-                if populate:
-                    self.populate(branch=branch)
-                    return self.to_revision(identifier=identifier, populate=False)
-                return None
-            return self._ordered_revisions[branch][b_count]
+            if branch in self._ordered_revisions and len(self._ordered_revisions[branch]) > b_count:
+                return self._ordered_revisions[branch][b_count]
+
+            self.load()
+            if branch in self._ordered_revisions and len(self._ordered_revisions[branch]) > b_count:
+                return self._ordered_revisions[branch][b_count]
+            if populate:
+                self.populate(branch=branch)
+                return self.to_revision(identifier=identifier, populate=False)
+            return None
 
         def to_identifier(self, hash=None, revision=None, populate=True, branch=None):
             revision = Commit._parse_revision(revision, do_assert=False)
             if revision:
+                if revision in self._revisions_to_identifiers:
+                    return self._revisions_to_identifiers[revision]
+
+                self.load()
                 if revision in self._revisions_to_identifiers:
                     return self._revisions_to_identifiers[revision]
                 if populate:
@@ -244,7 +260,11 @@ class Git(Scm):
                     candidate = self._hash_to_identifiers.get(hash)
                 except KeyError:  # Means the hash wasn't specific enough
                     return None
+                if candidate:
+                    return candidate
 
+                self.load()
+                candidate = self._hash_to_identifiers.get(hash)
                 if candidate:
                     return candidate
                 if populate:
@@ -256,6 +276,7 @@ class Git(Scm):
     GIT_COMMIT = re.compile(r'commit (?P<hash>[0-9a-f]+)')
     SSH_REMOTE = re.compile('(ssh://)?git@(?P<host>[^:/]+)[:/](?P<path>.+).git')
     HTTP_REMOTE = re.compile('(?P<protocol>https?)://(?P<host>.+)/(?P<path>.+).git')
+    REMOTE_BRANCH = re.compile(r'remotes\/(?P<remote>[^\/]+)\/(?P<branch>.+)')
 
     @classmethod
     @decorators.Memoize()
@@ -369,7 +390,7 @@ class Git(Scm):
 
     @property
     def branches(self):
-        return self._branches_for()
+        return self.branches_for()
 
     @property
     def tags(self):
@@ -415,7 +436,7 @@ class Git(Scm):
             raise self.Exception('Failed to retrieve revision count for {}'.format(native_parameter))
         return int(revision_count.stdout)
 
-    def _branches_for(self, hash=None):
+    def branches_for(self, hash=None, remote=True):
         branch = run(
             [self.executable(), 'branch', '-a'] + (['--contains', hash] if hash else []),
             cwd=self.root_path,
@@ -424,8 +445,21 @@ class Git(Scm):
         )
         if branch.returncode:
             raise self.Exception('Failed to retrieve branch list for {}'.format(self.root_path))
-        result = [branch.lstrip(' *') for branch in filter(lambda branch: '->' not in branch, branch.stdout.splitlines())]
-        return sorted(set(['/'.join(branch.split('/')[2:]) if branch.startswith('remotes/origin/') else branch for branch in result]))
+        result = defaultdict(set)
+        for branch in [branch.lstrip(' *') for branch in filter(lambda branch: '->' not in branch, branch.stdout.splitlines())]:
+            match = self.REMOTE_BRANCH.match(branch)
+            if match:
+                result[match.group('remote')].add(match.group('branch'))
+            else:
+                result[None].add(branch)
+
+        if remote is False:
+            return sorted(result[None])
+        if remote is True:
+            return sorted(set.union(*result.values()))
+        if isinstance(remote, str):
+            return sorted(result[remote])
+        return result
 
     def commit(self, hash=None, revision=None, identifier=None, branch=None, tag=None, include_log=True, include_identifier=True):
         # Only git-svn checkouts can convert revisions to fully qualified commits, unless we happen to have a SVN cache built
@@ -495,7 +529,7 @@ class Git(Scm):
                 baseline = branch or 'HEAD'
                 is_default = baseline == default_branch
                 if baseline == 'HEAD':
-                    is_default = default_branch in self._branches_for(baseline)
+                    is_default = default_branch in self.branches_for(baseline)
 
                 if is_default and parsed_branch_point:
                     raise self.Exception('Cannot provide a branch point for a commit on the default branch')
@@ -546,7 +580,7 @@ class Git(Scm):
         branch_point = None
         # A commit is often on multiple branches, the canonical branch is the one with the highest priority
         if branch != default_branch:
-            branch = self.prioritize_branches(self._branches_for(hash))
+            branch = self.prioritize_branches(self.branches_for(hash))
 
         if not identifier and include_identifier:
             cached_identifier = self.cache.to_identifier(hash=hash, branch=branch) if self.cache else None

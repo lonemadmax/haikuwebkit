@@ -43,6 +43,7 @@
 #include "Editing.h"
 #include "Editor.h"
 #include "EditorClient.h"
+#include "ElementInlines.h"
 #include "EventNames.h"
 #include "FileList.h"
 #include "FloatPoint.h"
@@ -94,6 +95,7 @@
 #include "ResourceLoadObserver.h"
 #include "RuntimeApplicationChecks.h"
 #include "SVGDocument.h"
+#include "SVGElementTypeHelpers.h"
 #include "SVGNames.h"
 #include "ScrollAnimator.h"
 #include "ScrollLatchingController.h"
@@ -3885,6 +3887,9 @@ bool EventHandler::dragHysteresisExceeded(const FloatPoint& dragViewportLocation
         case DragSourceAction::Image:
 #if ENABLE(ATTACHMENT_ELEMENT)
         case DragSourceAction::Attachment:
+#endif
+#if ENABLE(MODEL_ELEMENT)
+        case DragSourceAction::Model:
 #endif
             threshold = ImageDragHysteresis;
             break;

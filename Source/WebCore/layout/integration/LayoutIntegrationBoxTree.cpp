@@ -37,6 +37,7 @@
 #include "RenderChildIterator.h"
 #include "RenderImage.h"
 #include "RenderLineBreak.h"
+#include "TextUtil.h"
 
 namespace WebCore {
 namespace LayoutIntegration {
@@ -89,9 +90,14 @@ void BoxTree::buildTree()
         if (is<RenderText>(childRenderer)) {
             auto& textRenderer = downcast<RenderText>(childRenderer);
             auto style = RenderStyle::createAnonymousStyleWithDisplay(textRenderer.style(), DisplayType::Inline);
+            auto canUseSimplifiedTextMeasuring = [&] {
+                if (!textRenderer.canUseSimplifiedTextMeasuring())
+                    return false;
+                return !firstLineStyle || Layout::TextUtil::canUseSimplifiedTextMeasuringForFirstLine(style, *firstLineStyle);
+            }();
             return makeUnique<Layout::InlineTextBox>(
                 style.textSecurity() == TextSecurity::None ? textRenderer.text() : RenderBlock::updateSecurityDiscCharacters(style, textRenderer.text())
-                , textRenderer.canUseSimplifiedTextMeasuring(), WTFMove(style), WTFMove(firstLineStyle));
+                , canUseSimplifiedTextMeasuring, WTFMove(style), WTFMove(firstLineStyle));
         }
 
         auto style = RenderStyle::clone(childRenderer.style());
@@ -153,9 +159,10 @@ void BoxTree::buildTree()
 void BoxTree::appendChild(UniqueRef<Layout::Box> childBox, RenderObject& childRenderer)
 {
     auto& parentBox = downcast<Layout::ContainerBox>(layoutBoxForRenderer(*childRenderer.parent()));
-    parentBox.appendChild(childBox.get());
 
-    m_boxes.append({ WTFMove(childBox), &childRenderer });
+    m_boxes.append({ childBox.get(), &childRenderer });
+
+    parentBox.appendChild(WTFMove(childBox));
 
     if (m_boxes.size() > smallTreeThreshold) {
         if (m_rendererToBoxMap.isEmpty()) {

@@ -105,6 +105,7 @@
 #include "RenderWidget.h"
 #include "RenderedPosition.h"
 #include "SVGDocument.h"
+#include "SVGElementTypeHelpers.h"
 #include "SVGImage.h"
 #include "SVGSVGElement.h"
 #include "Text.h"
@@ -121,7 +122,7 @@ using namespace HTMLNames;
 
 AccessibilityRenderObject::AccessibilityRenderObject(RenderObject* renderer)
     : AccessibilityNodeObject(renderer->node())
-    , m_renderer(makeWeakPtr(renderer))
+    , m_renderer(renderer)
 {
 #ifndef NDEBUG
     m_renderer->setHasAXObject(true);
@@ -165,7 +166,7 @@ RenderBoxModelObject* AccessibilityRenderObject::renderBoxModelObject() const
 
 void AccessibilityRenderObject::setRenderer(RenderObject* renderer)
 {
-    m_renderer = makeWeakPtr(renderer);
+    m_renderer = renderer;
     setNode(renderer->node());
 }
 
@@ -1766,6 +1767,11 @@ URL AccessibilityRenderObject::url() const
 
     if (isInputImage() && is<HTMLInputElement>(node))
         return downcast<HTMLInputElement>(node)->src();
+
+#if ENABLE(VIDEO)
+    if (isVideo() && is<HTMLVideoElement>(node))
+        return downcast<HTMLVideoElement>(node)->currentSrc();
+#endif
 
     return URL();
 }

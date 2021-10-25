@@ -43,9 +43,11 @@ protected:
     ScrollingTreeOverflowScrollingNodeMac(ScrollingTree&, ScrollingNodeID);
 
     void commitStateBeforeChildren(const ScrollingStateNode&) override;
-    void commitStateAfterChildren(const ScrollingStateNode&) override;
     
     FloatPoint adjustedScrollPosition(const FloatPoint&, ScrollClamping) const override;
+
+    bool startAnimatedScrollToPosition(FloatPoint destinationPosition) override;
+    void stopAnimatedScroll() override;
 
     void currentScrollPositionChanged(ScrollType, ScrollingLayerPositionAction) final;
     void willDoProgrammaticScroll(const FloatPoint&) final;

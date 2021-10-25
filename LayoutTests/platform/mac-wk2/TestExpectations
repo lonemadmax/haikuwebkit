@@ -92,6 +92,8 @@ applicationmanifest/ [ Pass ]
 
 webkit.org/b/187183 http/tests/security/pasteboard-file-url.html [ Pass ]
 
+webkit.org/b/231328 http/tests/preload/onload_event.html [ Pass Failure ]
+
 fast/canvas/webgl/context-update-on-display-configuration.html [ Pass ]
 
 fast/misc/valid-primary-screen-displayID.html [ Pass ]
@@ -540,6 +542,8 @@ webkit.org/b/151455 [ Release ] http/tests/xmlhttprequest/workers/methods-async.
 webkit.org/b/150542 fast/forms/state-restore-per-form.html [ Pass Timeout ]
 
 webkit.org/b/151709 [ Release ] http/tests/xmlhttprequest/workers/methods.html [ Pass Timeout ]
+
+webkit.org/b/231372 [ BigSur arm64 Debug ] http/tests/xmlhttprequest/access-control-response-with-body.html [ Pass Crash ]
 
 ### END OF (1) Classified failures with bug reports
 ########################################
@@ -1664,4 +1668,10 @@ webkit.org/b/230866 [ Catalina BigSur ] imported/w3c/web-platform-tests/mediacap
 
 webkit.org/b/231083 [ Debug ] imported/w3c/web-platform-tests/content-security-policy/generic/policy-inherited-correctly-by-plznavigate.html [ Pass Failure ]
 
+webkit.org/b/231379 [ BigSur Release ] http/tests/resourceLoadStatistics/sandboxed-nesting-iframe-with-non-sandboxed-iframe-redirect-ip-to-localhost-to-ip.html [ Pass Failure ]
+
+webkit.org/b/231386 [ BigSur ] http/tests/resourceLoadStatistics/website-data-removal-for-site-with-user-interaction.html [ Pass Timeout ]
+
+webkit.org/b/231600 [ Release ] imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-main-frame-window.html [ Pass Failure ]
+webkit.org/b/231600 [ Release ] imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-main-frame-root.html [ Failure ]
 

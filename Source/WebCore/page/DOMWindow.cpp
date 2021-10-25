@@ -1712,8 +1712,10 @@ void DOMWindow::scrollTo(const ScrollToOptions& options, ScrollClamping clamping
 
     // This is an optimization for the common case of scrolling to (0, 0) when the scroller is already at the origin.
     // If an animated scroll is in progress, this optimization is skipped to ensure that the animated scroll is really stopped.
-    if (view->currentScrollBehaviorStatus() == ScrollBehaviorStatus::NotInAnimation && !scrollToOptions.left.value() && !scrollToOptions.top.value() && view->contentsScrollPosition() == IntPoint(0, 0))
+    if (view->scrollAnimationStatus() == ScrollAnimationStatus::NotAnimating && !scrollToOptions.left.value() && !scrollToOptions.top.value() && view->contentsScrollPosition().isZero()) {
+        LOG_WITH_STREAM(Scrolling, stream << "DOMWindow::scrollTo bailing because going to 0,0");
         return;
+    }
 
     document()->updateLayoutIgnorePendingStylesheets();
 
@@ -1721,7 +1723,7 @@ void DOMWindow::scrollTo(const ScrollToOptions& options, ScrollClamping clamping
 
     // FIXME: Should we use document()->scrollingElement()?
     // See https://bugs.webkit.org/show_bug.cgi?id=205059
-    auto animated = useSmoothScrolling(scrollToOptions.behavior.value_or(ScrollBehavior::Auto), document()->documentElement()) ? AnimatedScroll::Yes : AnimatedScroll::No;
+    auto animated = useSmoothScrolling(scrollToOptions.behavior.value_or(ScrollBehavior::Auto), document()->documentElement()) ? ScrollIsAnimated::Yes : ScrollIsAnimated::No;
     auto scrollPositionChangeOptions = ScrollPositionChangeOptions::createProgrammaticWithOptions(clamping, animated, snapPointSelectionMethod);
     view->setContentsScrollPosition(layoutPos, scrollPositionChangeOptions);
 }
@@ -1799,7 +1801,7 @@ ExceptionOr<int> DOMWindow::setTimeout(JSC::JSGlobalObject& state, std::unique_p
 
     // FIXME: Should this check really happen here? Or should it happen when code is about to eval?
     if (action->type() == ScheduledAction::Type::Code) {
-        if (!context->contentSecurityPolicy()->allowEval(&state))
+        if (!context->contentSecurityPolicy()->allowEval(&state, LogToConsole::Yes))
             return 0;
     }
 
@@ -1824,7 +1826,7 @@ ExceptionOr<int> DOMWindow::setInterval(JSC::JSGlobalObject& state, std::unique_
 
     // FIXME: Should this check really happen here? Or should it happen when code is about to eval?
     if (action->type() == ScheduledAction::Type::Code) {
-        if (!context->contentSecurityPolicy()->allowEval(&state))
+        if (!context->contentSecurityPolicy()->allowEval(&state, LogToConsole::Yes))
             return 0;
     }
 

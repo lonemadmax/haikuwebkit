@@ -152,9 +152,6 @@ static void printReason(AvoidanceReason reason, TextStream& stream)
     case AvoidanceReason::FlowTextHasDirectionCharacter:
         stream << "direction character";
         break;
-    case AvoidanceReason::FlowIsMissingPrimaryFont:
-        stream << "missing primary font";
-        break;
     case AvoidanceReason::FlowTextIsCombineText:
         stream << "text is combine";
         break;
@@ -214,6 +211,9 @@ static void printReason(AvoidanceReason reason, TextStream& stream)
         break;
     case AvoidanceReason::InlineBoxHasBackground:
         stream << "inline box has background";
+        break;
+    case AvoidanceReason::InlineBoxHasBackgroundClipText:
+        stream << "inline box has background-clip: text";
         break;
     default:
         break;
@@ -337,7 +337,7 @@ static void printModernLineLayoutCoverage(void)
         textLength += flowLength;
         auto reasons = canUseForLineLayoutWithReason(*flow, IncludeReasons::All);
         if (reasons.isEmpty()) {
-            if (flow->lineLayoutPath() == RenderBlockFlow::ForceLineBoxesPath) {
+            if (flow->lineLayoutPath() == RenderBlockFlow::ForcedLegacyPath) {
                 supportedButForcedToLineLayoutTextLength += flowLength;
                 ++numberOfSupportedButForcedToLineLayoutLeafBlocks;
             }
@@ -386,7 +386,7 @@ static OptionSet<AvoidanceReason> canUseForText(StringView text, IncludeReasons 
             return direction == U_RIGHT_TO_LEFT || direction == U_RIGHT_TO_LEFT_ARABIC
                 || direction == U_RIGHT_TO_LEFT_EMBEDDING || direction == U_RIGHT_TO_LEFT_OVERRIDE
                 || direction == U_LEFT_TO_RIGHT_EMBEDDING || direction == U_LEFT_TO_RIGHT_OVERRIDE
-                || direction == U_POP_DIRECTIONAL_FORMAT || direction == U_BOUNDARY_NEUTRAL;
+                || direction == U_POP_DIRECTIONAL_FORMAT;
         };
         if (isRTLDirectional(character))
             SET_REASON_AND_RETURN_IF_NEEDED(FlowTextHasDirectionCharacter, reasons, includeReasons);
@@ -400,8 +400,6 @@ static OptionSet<AvoidanceReason> canUseForFontAndText(const RenderBoxModelObjec
     // We assume that all lines have metrics based purely on the primary font.
     const auto& style = container.style();
     auto& fontCascade = style.fontCascade();
-    if (fontCascade.primaryFont().isInterstitial())
-        SET_REASON_AND_RETURN_IF_NEEDED(FlowIsMissingPrimaryFont, reasons, includeReasons);
     if (style.lineBoxContain().contains(LineBoxContain::Glyphs))
         SET_REASON_AND_RETURN_IF_NEEDED(FlowHasLineBoxContainGlyphs, reasons, includeReasons);
     for (const auto& textRenderer : childrenOfType<RenderText>(container)) {
@@ -422,7 +420,7 @@ static OptionSet<AvoidanceReason> canUseForFontAndText(const RenderBoxModelObjec
         } else {
             WebCore::TextRun run(String(textRenderer.text()));
             run.setCharacterScanForCodePath(false);
-            if (style.fontCascade().codePath(run) != FontCascade::CodePath::Simple)
+            if (fontCascade.codePath(run) != FontCascade::CodePath::Simple)
                 SET_REASON_AND_RETURN_IF_NEEDED(FlowHasComplexFontCodePath, reasons, includeReasons);
         }
 
@@ -486,6 +484,8 @@ static OptionSet<AvoidanceReason> canUseForRenderInlineChild(const RenderInline&
         SET_REASON_AND_RETURN_IF_NEEDED(InlineBoxHasBorderOrBorderImage, reasons, includeReasons);
     if (style.hasBackground())
         SET_REASON_AND_RETURN_IF_NEEDED(InlineBoxHasBackground, reasons, includeReasons);
+    if (style.backgroundClip() == FillBox::Text)
+        SET_REASON_AND_RETURN_IF_NEEDED(InlineBoxHasBackgroundClipText, reasons, includeReasons);
     if (style.hasOutline())
         SET_REASON_AND_RETURN_IF_NEEDED(ContentHasOutline, reasons, includeReasons);
     if (renderInline.isInFlowPositioned())

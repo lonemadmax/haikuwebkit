@@ -36,6 +36,19 @@ InlineBox::InlineBox(PathVariant&& path)
 {
 }
 
+std::pair<bool, bool> InlineBox::hasClosedLeftAndRightEdge() const
+{
+    // FIXME: Layout knows the answer to this question so we should consult it.
+#if ENABLE(CSS_BOX_DECORATION_BREAK)
+    if (style().boxDecorationBreak() == BoxDecorationBreak::Clone)
+        return { true, true };
+#endif
+    bool isLTR = style().isLeftToRightDirection();
+    bool isFirst = !previousInlineBox() && !renderer().isContinuation();
+    bool isLast = !nextInlineBox() && !renderer().continuation();
+    return { isLTR ? isFirst : isLast, isLTR ? isLast : isFirst };
+};
+
 InlineBoxIterator InlineBox::nextInlineBox() const
 {
     return InlineBoxIterator(*this).traverseNextInlineBox();
@@ -78,6 +91,11 @@ InlineBoxIterator inlineBoxFor(const LegacyInlineFlowBox& legacyInlineFlowBox)
 }
 
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+InlineBoxIterator inlineBoxFor(const LayoutIntegration::InlineContent& content, const InlineDisplay::Box& box)
+{
+    return inlineBoxFor(content, content.indexForBox(box));
+}
+
 InlineBoxIterator inlineBoxFor(const LayoutIntegration::InlineContent& content, size_t boxIndex)
 {
     ASSERT(content.boxes[boxIndex].isInlineBox());

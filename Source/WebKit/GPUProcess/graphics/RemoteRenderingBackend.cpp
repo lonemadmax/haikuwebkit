@@ -32,6 +32,7 @@
 #include "GPUConnectionToWebProcess.h"
 #include "Logging.h"
 #include "PlatformRemoteImageBuffer.h"
+#include "QualifiedRenderingResourceIdentifier.h"
 #include "RemoteMediaPlayerManagerProxy.h"
 #include "RemoteMediaPlayerProxy.h"
 #include "RemoteRenderingBackendCreationParameters.h"
@@ -81,6 +82,7 @@ Ref<RemoteRenderingBackend> RemoteRenderingBackend::create(GPUConnectionToWebPro
 
 RemoteRenderingBackend::RemoteRenderingBackend(GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackendCreationParameters&& creationParameters)
     : m_workQueue(WorkQueue::create("RemoteRenderingBackend work queue", WorkQueue::Type::Serial, WorkQueue::QOS::UserInteractive))
+    , m_remoteResourceCache(gpuConnectionToWebProcess.webProcessIdentifier())
     , m_gpuConnectionToWebProcess(gpuConnectionToWebProcess)
     , m_renderingBackendIdentifier(creationParameters.identifier)
     , m_resumeDisplayListSemaphore(WTFMove(creationParameters.resumeDisplayListSemaphore))
@@ -142,17 +144,26 @@ bool RemoteRenderingBackend::applyMediaItem(DisplayList::ItemHandle item, Graphi
     return true;
 }
 
-void RemoteRenderingBackend::didCreateImageBufferBackend(ImageBufferBackendHandle handle, RenderingResourceIdentifier renderingResourceIdentifier)
+void RemoteRenderingBackend::didCreateImageBufferBackend(ImageBufferBackendHandle handle, QualifiedRenderingResourceIdentifier renderingResourceIdentifier)
 {
-    send(Messages::RemoteRenderingBackendProxy::DidCreateImageBufferBackend(WTFMove(handle), renderingResourceIdentifier), m_renderingBackendIdentifier);
+    MESSAGE_CHECK(renderingResourceIdentifier.processIdentifier() == m_gpuConnectionToWebProcess->webProcessIdentifier(), "Sending didCreateImageBufferBackend() message to the wrong web process.");
+    send(Messages::RemoteRenderingBackendProxy::DidCreateImageBufferBackend(WTFMove(handle), renderingResourceIdentifier.object()), m_renderingBackendIdentifier);
 }
 
-void RemoteRenderingBackend::didFlush(DisplayList::FlushIdentifier flushIdentifier, RenderingResourceIdentifier renderingResourceIdentifier)
+void RemoteRenderingBackend::didFlush(GraphicsContextFlushIdentifier flushIdentifier, QualifiedRenderingResourceIdentifier renderingResourceIdentifier)
 {
-    send(Messages::RemoteRenderingBackendProxy::DidFlush(flushIdentifier, renderingResourceIdentifier), m_renderingBackendIdentifier);
+    MESSAGE_CHECK(renderingResourceIdentifier.processIdentifier() == m_gpuConnectionToWebProcess->webProcessIdentifier(), "Sending didFlush() message to the wrong web process.");
+    send(Messages::RemoteRenderingBackendProxy::DidFlush(flushIdentifier, renderingResourceIdentifier.object()), m_renderingBackendIdentifier);
 }
 
 void RemoteRenderingBackend::createImageBuffer(const FloatSize& logicalSize, RenderingMode renderingMode, float resolutionScale, const DestinationColorSpace& colorSpace, PixelFormat pixelFormat, RenderingResourceIdentifier imageBufferResourceIdentifier)
+{
+    // Immediately turn the RenderingResourceIdentifier (which is error-prone) to a QualifiedRenderingResourceIdentifier,
+    // and use a helper function to make sure that don't accidentally use the RenderingResourceIdentifier (because the helper function can't see it).
+    createImageBufferWithQualifiedIdentifier(logicalSize, renderingMode, resolutionScale, colorSpace, pixelFormat, { imageBufferResourceIdentifier, m_gpuConnectionToWebProcess->webProcessIdentifier() });
+}
+
+void RemoteRenderingBackend::createImageBufferWithQualifiedIdentifier(const FloatSize& logicalSize, RenderingMode renderingMode, float resolutionScale, const DestinationColorSpace& colorSpace, PixelFormat pixelFormat, QualifiedRenderingResourceIdentifier imageBufferResourceIdentifier)
 {
     ASSERT(!RunLoop::isMain());
     ASSERT(renderingMode == RenderingMode::Accelerated || renderingMode == RenderingMode::Unaccelerated);
@@ -177,16 +188,17 @@ void RemoteRenderingBackend::createImageBuffer(const FloatSize& logicalSize, Ren
         return;
     }
 
-    m_remoteResourceCache.cacheImageBuffer(*imageBuffer);
+    m_remoteResourceCache.cacheImageBuffer(*imageBuffer, imageBufferResourceIdentifier);
     updateRenderingResourceRequest();
 
     if (m_pendingWakeupInfo && m_pendingWakeupInfo->shouldPerformWakeup(imageBufferResourceIdentifier))
-        wakeUpAndApplyDisplayList(std::exchange(m_pendingWakeupInfo, std::nullopt)->arguments);
+        resumeFromPendingWakeupInformation();
 }
 
-RemoteRenderingBackend::ReplayerDelegate::ReplayerDelegate(WebCore::ImageBuffer& destination, RemoteRenderingBackend& remoteRenderingBackend)
+RemoteRenderingBackend::ReplayerDelegate::ReplayerDelegate(WebCore::ImageBuffer& destination, RemoteRenderingBackend& remoteRenderingBackend, ProcessIdentifier webProcessIdentifier)
     : m_destination(destination)
     , m_remoteRenderingBackend(remoteRenderingBackend)
+    , m_webProcessIdentifier(webProcessIdentifier)
 {
 }
 
@@ -213,7 +225,7 @@ void RemoteRenderingBackend::ReplayerDelegate::didResetMaskImageBuffer()
 
 void RemoteRenderingBackend::ReplayerDelegate::recordResourceUse(RenderingResourceIdentifier renderingResourceIdentifier)
 {
-    m_remoteRenderingBackend.remoteResourceCache().recordResourceUse(renderingResourceIdentifier);
+    m_remoteRenderingBackend.remoteResourceCache().recordResourceUse({ renderingResourceIdentifier, m_webProcessIdentifier });
 }
 
 DisplayList::ReplayResult RemoteRenderingBackend::submit(const DisplayList::DisplayList& displayList, ImageBuffer& destination)
@@ -221,20 +233,18 @@ DisplayList::ReplayResult RemoteRenderingBackend::submit(const DisplayList::Disp
     if (displayList.isEmpty())
         return { };
 
-    ReplayerDelegate replayerDelegate(destination, *this);
+    ReplayerDelegate replayerDelegate(destination, *this, m_gpuConnectionToWebProcess->webProcessIdentifier());
 
     return WebCore::DisplayList::Replayer {
         destination.context(),
         displayList,
-        &remoteResourceCache().imageBuffers(),
-        &remoteResourceCache().nativeImages(),
-        &remoteResourceCache().fonts(),
+        &remoteResourceCache().resourceHeap(),
         m_currentMaskImageBuffer.get(),
         &replayerDelegate
     }.replay();
 }
 
-RefPtr<ImageBuffer> RemoteRenderingBackend::nextDestinationImageBufferAfterApplyingDisplayLists(ImageBuffer& initialDestination, size_t initialOffset, DisplayListReaderHandle& handle, GPUProcessWakeupReason reason)
+RefPtr<ImageBuffer> RemoteRenderingBackend::nextDestinationImageBufferAfterApplyingDisplayLists(ImageBuffer& initialDestination, size_t initialOffset, DisplayListReaderHandle& handle, GPUProcessWakeupReason reason, ProcessIdentifier webProcessIdentifier)
 {
     RefPtr destination { &initialDestination };
     Ref handleProtector { handle };
@@ -269,11 +279,14 @@ RefPtr<ImageBuffer> RemoteRenderingBackend::nextDestinationImageBufferAfterApply
         MESSAGE_CHECK_WITH_RETURN_VALUE(offset <= handle.sharedMemory().size(), nullptr, "Out-of-bounds offset into shared display list handle");
 
         if (result.reasonForStopping == DisplayList::StopReplayReason::ChangeDestinationImageBuffer) {
-            destination = m_remoteResourceCache.cachedImageBuffer(*result.nextDestinationImageBuffer);
+            destination = m_remoteResourceCache.cachedImageBuffer({ *result.nextDestinationImageBuffer, m_gpuConnectionToWebProcess->webProcessIdentifier() });
             if (!destination) {
                 ASSERT(!m_pendingWakeupInfo);
                 m_pendingWakeupInfo = {{
-                    { handle.identifier(), offset, *result.nextDestinationImageBuffer, reason },
+                    handle.identifier(),
+                    offset,
+                    { *result.nextDestinationImageBuffer, webProcessIdentifier },
+                    reason,
                     std::nullopt,
                     RemoteRenderingBackendState::WaitingForDestinationImageBuffer
                 }};
@@ -282,8 +295,11 @@ RefPtr<ImageBuffer> RemoteRenderingBackend::nextDestinationImageBufferAfterApply
 
         if (result.reasonForStopping == DisplayList::StopReplayReason::MissingCachedResource) {
             m_pendingWakeupInfo = {{
-                { handle.identifier(), offset, destination->renderingResourceIdentifier(), reason },
-                result.missingCachedResourceIdentifier,
+                handle.identifier(),
+                offset,
+                { destination->renderingResourceIdentifier(), webProcessIdentifier },
+                reason,
+                { { *result.missingCachedResourceIdentifier, webProcessIdentifier } },
                 RemoteRenderingBackendState::WaitingForCachedResource
             }};
         }
@@ -311,7 +327,7 @@ RefPtr<ImageBuffer> RemoteRenderingBackend::nextDestinationImageBufferAfterApply
             auto newDestinationIdentifier = makeObjectIdentifier<RenderingResourceIdentifierType>(resumeReadingInfo->destination);
             MESSAGE_CHECK_WITH_RETURN_VALUE(newDestinationIdentifier.isValid(), nullptr, "Invalid image buffer destination when resuming display list processing");
 
-            destination = m_remoteResourceCache.cachedImageBuffer(newDestinationIdentifier);
+            destination = m_remoteResourceCache.cachedImageBuffer({ newDestinationIdentifier, m_gpuConnectionToWebProcess->webProcessIdentifier() });
             MESSAGE_CHECK_WITH_RETURN_VALUE(destination, nullptr, "Missing image buffer destination when resuming display list processing");
 
             offset = resumeReadingInfo->offset;
@@ -323,27 +339,34 @@ RefPtr<ImageBuffer> RemoteRenderingBackend::nextDestinationImageBufferAfterApply
 
 void RemoteRenderingBackend::wakeUpAndApplyDisplayList(const GPUProcessWakeupMessageArguments& arguments)
 {
+    // Immediately turn the RenderingResourceIdentifier (which is error-prone) to a QualifiedRenderingResourceIdentifier,
+    // and use a helper function to make sure that don't accidentally use the RenderingResourceIdentifier (because the helper function can't see it).
+    wakeUpAndApplyDisplayListWithQualifiedIdentifier(arguments.itemBufferIdentifier, arguments.offset, { arguments.destinationImageBufferIdentifier, m_gpuConnectionToWebProcess->webProcessIdentifier() }, arguments.reason);
+}
+
+void RemoteRenderingBackend::wakeUpAndApplyDisplayListWithQualifiedIdentifier(WebCore::DisplayList::ItemBufferIdentifier itemBufferIdentifier, uint64_t offset, QualifiedRenderingResourceIdentifier destinationImageBufferIdentifier, GPUProcessWakeupReason reason)
+{
     ASSERT(!RunLoop::isMain());
 
     TraceScope tracingScope(WakeUpAndApplyDisplayListStart, WakeUpAndApplyDisplayListEnd);
 
     updateLastKnownState(RemoteRenderingBackendState::BeganReplayingDisplayList);
 
-    RefPtr destinationImageBuffer = m_remoteResourceCache.cachedImageBuffer(arguments.destinationImageBufferIdentifier);
+    RefPtr destinationImageBuffer = m_remoteResourceCache.cachedImageBuffer(destinationImageBufferIdentifier);
     MESSAGE_CHECK(destinationImageBuffer, "Missing destination image buffer");
 
-    auto initialHandle = m_sharedDisplayListHandles.get(arguments.itemBufferIdentifier);
+    auto initialHandle = m_sharedDisplayListHandles.get(itemBufferIdentifier);
     MESSAGE_CHECK(initialHandle, "Missing initial shared display list handle");
 
-    LOG_WITH_STREAM(SharedDisplayLists, stream << "Waking up to Items[" << arguments.itemBufferIdentifier << "] => Image(" << arguments.destinationImageBufferIdentifier << ") at " << arguments.offset);
-    destinationImageBuffer = nextDestinationImageBufferAfterApplyingDisplayLists(*destinationImageBuffer, arguments.offset, *initialHandle, arguments.reason);
+    LOG_WITH_STREAM(SharedDisplayLists, stream << "Waking up to Items[" << itemBufferIdentifier << "] => Image(" << destinationImageBufferIdentifier.object() << ") at " << offset);
+    destinationImageBuffer = nextDestinationImageBufferAfterApplyingDisplayLists(*destinationImageBuffer, offset, *initialHandle, reason, m_gpuConnectionToWebProcess->webProcessIdentifier());
 
-    // FIXME: All the callers pass m_pendingWakeupInfo.arguments so the body of this function should just be this loop.
+    // FIXME: All the callers pass m_pendingWakeupInfo's fields so the body of this function should just be this loop.
     while (destinationImageBuffer && m_pendingWakeupInfo) {
         if (m_pendingWakeupInfo->missingCachedResourceIdentifier)
             break;
 
-        auto nextHandle = m_sharedDisplayListHandles.get(m_pendingWakeupInfo->arguments.itemBufferIdentifier);
+        auto nextHandle = m_sharedDisplayListHandles.get(m_pendingWakeupInfo->itemBufferIdentifier);
         if (!nextHandle) {
             // If the handle identifier is currently unknown, wait until the GPU process receives an
             // IPC message with a shared memory handle to the next item buffer.
@@ -351,8 +374,10 @@ void RemoteRenderingBackend::wakeUpAndApplyDisplayList(const GPUProcessWakeupMes
         }
 
         // Otherwise, continue reading the next display list item buffer from the start.
-        auto arguments = std::exchange(m_pendingWakeupInfo, std::nullopt)->arguments;
-        destinationImageBuffer = nextDestinationImageBufferAfterApplyingDisplayLists(*destinationImageBuffer, arguments.offset, *nextHandle, arguments.reason);
+        auto offset = m_pendingWakeupInfo->offset;
+        auto reason = m_pendingWakeupInfo->reason;
+        m_pendingWakeupInfo = std::nullopt;
+        destinationImageBuffer = nextDestinationImageBufferAfterApplyingDisplayLists(*destinationImageBuffer, offset, *nextHandle, reason, m_gpuConnectionToWebProcess->webProcessIdentifier());
     }
     LOG_WITH_STREAM(SharedDisplayLists, stream << "Going back to sleep.");
 
@@ -362,10 +387,13 @@ void RemoteRenderingBackend::wakeUpAndApplyDisplayList(const GPUProcessWakeupMes
         updateLastKnownState(RemoteRenderingBackendState::FinishedReplayingDisplayList);
 }
 
-void RemoteRenderingBackend::setNextItemBufferToRead(DisplayList::ItemBufferIdentifier identifier, WebCore::RenderingResourceIdentifier destinationIdentifier)
+void RemoteRenderingBackend::setNextItemBufferToRead(DisplayList::ItemBufferIdentifier identifier, QualifiedRenderingResourceIdentifier destinationIdentifier)
 {
     m_pendingWakeupInfo = {{
-        { identifier, SharedDisplayListHandle::headerSize(), destinationIdentifier, GPUProcessWakeupReason::Unspecified },
+        identifier,
+        SharedDisplayListHandle::headerSize(),
+        destinationIdentifier,
+        GPUProcessWakeupReason::Unspecified,
         std::nullopt,
         RemoteRenderingBackendState::WaitingForItemBuffer
     }};
@@ -434,6 +462,13 @@ void RemoteRenderingBackend::populateGetPixelBufferSharedMemory(std::optional<We
 
 void RemoteRenderingBackend::getDataURLForImageBuffer(const String& mimeType, std::optional<double> quality, WebCore::PreserveResolution preserveResolution, WebCore::RenderingResourceIdentifier renderingResourceIdentifier, CompletionHandler<void(String&&)>&& completionHandler)
 {
+    // Immediately turn the RenderingResourceIdentifier (which is error-prone) to a QualifiedRenderingResourceIdentifier,
+    // and use a helper function to make sure that don't accidentally use the RenderingResourceIdentifier (because the helper function can't see it).
+    getDataURLForImageBufferWithQualifiedIdentifier(mimeType, quality, preserveResolution, { renderingResourceIdentifier, m_gpuConnectionToWebProcess->webProcessIdentifier() }, WTFMove(completionHandler));
+}
+
+void RemoteRenderingBackend::getDataURLForImageBufferWithQualifiedIdentifier(const String& mimeType, std::optional<double> quality, WebCore::PreserveResolution preserveResolution, QualifiedRenderingResourceIdentifier renderingResourceIdentifier, CompletionHandler<void(String&&)>&& completionHandler)
+{
     ASSERT(!RunLoop::isMain());
 
     String urlString;
@@ -444,6 +479,13 @@ void RemoteRenderingBackend::getDataURLForImageBuffer(const String& mimeType, st
 
 void RemoteRenderingBackend::getDataForImageBuffer(const String& mimeType, std::optional<double> quality, WebCore::RenderingResourceIdentifier renderingResourceIdentifier, CompletionHandler<void(Vector<uint8_t>&&)>&& completionHandler)
 {
+    // Immediately turn the RenderingResourceIdentifier (which is error-prone) to a QualifiedRenderingResourceIdentifier,
+    // and use a helper function to make sure that don't accidentally use the RenderingResourceIdentifier (because the helper function can't see it).
+    getDataForImageBufferWithQualifiedIdentifier(mimeType, quality, { renderingResourceIdentifier, m_gpuConnectionToWebProcess->webProcessIdentifier() }, WTFMove(completionHandler));
+}
+
+void RemoteRenderingBackend::getDataForImageBufferWithQualifiedIdentifier(const String& mimeType, std::optional<double> quality, QualifiedRenderingResourceIdentifier renderingResourceIdentifier, CompletionHandler<void(Vector<uint8_t>&&)>&& completionHandler)
+{
     ASSERT(!RunLoop::isMain());
 
     Vector<uint8_t> data;
@@ -453,6 +495,13 @@ void RemoteRenderingBackend::getDataForImageBuffer(const String& mimeType, std::
 }
 
 void RemoteRenderingBackend::getShareableBitmapForImageBuffer(WebCore::RenderingResourceIdentifier identifier, WebCore::PreserveResolution preserveResolution, CompletionHandler<void(ShareableBitmap::Handle&&)>&& completionHandler)
+{
+    // Immediately turn the RenderingResourceIdentifier (which is error-prone) to a QualifiedRenderingResourceIdentifier,
+    // and use a helper function to make sure that don't accidentally use the RenderingResourceIdentifier (because the helper function can't see it).
+    getShareableBitmapForImageBufferWithQualifiedIdentifier({ identifier, m_gpuConnectionToWebProcess->webProcessIdentifier() }, preserveResolution, WTFMove(completionHandler));
+}
+
+void RemoteRenderingBackend::getShareableBitmapForImageBufferWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier identifier, WebCore::PreserveResolution preserveResolution, CompletionHandler<void(ShareableBitmap::Handle&&)>&& completionHandler)
 {
     ASSERT(!RunLoop::isMain());
 
@@ -480,30 +529,44 @@ void RemoteRenderingBackend::getShareableBitmapForImageBuffer(WebCore::Rendering
 
 void RemoteRenderingBackend::cacheNativeImage(const ShareableBitmap::Handle& handle, RenderingResourceIdentifier nativeImageResourceIdentifier)
 {
+    // Immediately turn the RenderingResourceIdentifier (which is error-prone) to a QualifiedRenderingResourceIdentifier,
+    // and use a helper function to make sure that don't accidentally use the RenderingResourceIdentifier (because the helper function can't see it).
+    cacheNativeImageWithQualifiedIdentifier(handle, { nativeImageResourceIdentifier, m_gpuConnectionToWebProcess->webProcessIdentifier() });
+}
+
+void RemoteRenderingBackend::cacheNativeImageWithQualifiedIdentifier(const ShareableBitmap::Handle& handle, QualifiedRenderingResourceIdentifier nativeImageResourceIdentifier)
+{
     ASSERT(!RunLoop::isMain());
 
     auto bitmap = ShareableBitmap::create(handle);
     if (!bitmap)
         return;
 
-    auto image = NativeImage::create(bitmap->createPlatformImage(), nativeImageResourceIdentifier);
+    auto image = NativeImage::create(bitmap->createPlatformImage(), nativeImageResourceIdentifier.object());
     if (!image)
         return;
 
-    m_remoteResourceCache.cacheNativeImage(*image);
+    m_remoteResourceCache.cacheNativeImage(*image, nativeImageResourceIdentifier);
 
     if (m_pendingWakeupInfo && m_pendingWakeupInfo->shouldPerformWakeup(nativeImageResourceIdentifier))
-        wakeUpAndApplyDisplayList(std::exchange(m_pendingWakeupInfo, std::nullopt)->arguments);
+        resumeFromPendingWakeupInformation();
 }
 
-void RemoteRenderingBackend::cacheFont(Ref<Font>&& font)
+void RemoteRenderingBackend::cacheFont(Ref<WebCore::Font>&& font)
+{
+    // Immediately turn the RenderingResourceIdentifier (which is error-prone) to a QualifiedRenderingResourceIdentifier,
+    // and use a helper function to make sure that don't accidentally use the RenderingResourceIdentifier (because the helper function can't see it).
+    auto renderingResourceIdentifier = font->renderingResourceIdentifier();
+    cacheFontWithQualifiedIdentifier(WTFMove(font), { renderingResourceIdentifier, m_gpuConnectionToWebProcess->webProcessIdentifier() });
+}
+
+void RemoteRenderingBackend::cacheFontWithQualifiedIdentifier(Ref<Font>&& font, QualifiedRenderingResourceIdentifier fontResourceIdentifier)
 {
     ASSERT(!RunLoop::isMain());
 
-    auto fontResourceIdentifier = font->renderingResourceIdentifier();
-    m_remoteResourceCache.cacheFont(WTFMove(font));
+    m_remoteResourceCache.cacheFont(WTFMove(font), fontResourceIdentifier);
     if (m_pendingWakeupInfo && m_pendingWakeupInfo->shouldPerformWakeup(fontResourceIdentifier))
-        wakeUpAndApplyDisplayList(std::exchange(m_pendingWakeupInfo, std::nullopt)->arguments);
+        resumeFromPendingWakeupInformation();
 }
 
 void RemoteRenderingBackend::deleteAllFonts()
@@ -514,6 +577,13 @@ void RemoteRenderingBackend::deleteAllFonts()
 
 void RemoteRenderingBackend::releaseRemoteResource(RenderingResourceIdentifier renderingResourceIdentifier, uint64_t useCount)
 {
+    // Immediately turn the RenderingResourceIdentifier (which is error-prone) to a QualifiedRenderingResourceIdentifier,
+    // and use a helper function to make sure that don't accidentally use the RenderingResourceIdentifier (because the helper function can't see it).
+    releaseRemoteResourceWithQualifiedIdentifier({ renderingResourceIdentifier, m_gpuConnectionToWebProcess->webProcessIdentifier() }, useCount);
+}
+
+void RemoteRenderingBackend::releaseRemoteResourceWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier renderingResourceIdentifier, uint64_t useCount)
+{
     ASSERT(!RunLoop::isMain());
     auto success = m_remoteResourceCache.releaseRemoteResource(renderingResourceIdentifier, useCount);
     MESSAGE_CHECK(success, "Resource is being released before being cached.");
@@ -522,17 +592,24 @@ void RemoteRenderingBackend::releaseRemoteResource(RenderingResourceIdentifier r
 
 void RemoteRenderingBackend::finalizeRenderingUpdate(RenderingUpdateID renderingUpdateID)
 {
-    auto shouldPerformWakeup = [&](const GPUProcessWakeupMessageArguments& arguments) {
-        return m_remoteResourceCache.cachedImageBuffer(arguments.destinationImageBufferIdentifier) && m_sharedDisplayListHandles.contains(arguments.itemBufferIdentifier);
+    auto shouldPerformWakeup = [&] {
+        return m_remoteResourceCache.cachedImageBuffer(m_pendingWakeupInfo->destinationImageBufferIdentifier) && m_sharedDisplayListHandles.contains(m_pendingWakeupInfo->itemBufferIdentifier);
     };
 
-    if (m_pendingWakeupInfo && shouldPerformWakeup(m_pendingWakeupInfo->arguments))
-        wakeUpAndApplyDisplayList(std::exchange(m_pendingWakeupInfo, std::nullopt)->arguments);
+    if (m_pendingWakeupInfo && shouldPerformWakeup())
+        resumeFromPendingWakeupInformation();
 
     send(Messages::RemoteRenderingBackendProxy::DidFinalizeRenderingUpdate(renderingUpdateID), m_renderingBackendIdentifier);
 }
 
 void RemoteRenderingBackend::didCreateSharedDisplayListHandle(DisplayList::ItemBufferIdentifier itemBufferIdentifier, const SharedMemory::IPCHandle& handle, RenderingResourceIdentifier destinationBufferIdentifier)
+{
+    // Immediately turn the RenderingResourceIdentifier (which is error-prone) to a QualifiedRenderingResourceIdentifier,
+    // and use a helper function to make sure that don't accidentally use the RenderingResourceIdentifier (because the helper function can't see it).
+    didCreateSharedDisplayListHandleWithQualifiedIdentifier(itemBufferIdentifier, handle, { destinationBufferIdentifier, m_gpuConnectionToWebProcess->webProcessIdentifier() });
+}
+
+void RemoteRenderingBackend::didCreateSharedDisplayListHandleWithQualifiedIdentifier(DisplayList::ItemBufferIdentifier itemBufferIdentifier, const SharedMemory::IPCHandle& handle, QualifiedRenderingResourceIdentifier)
 {
     ASSERT(!RunLoop::isMain());
     MESSAGE_CHECK(!m_sharedDisplayListHandles.contains(itemBufferIdentifier), "Duplicate shared display list handle");
@@ -544,7 +621,17 @@ void RemoteRenderingBackend::didCreateSharedDisplayListHandle(DisplayList::ItemB
     }
 
     if (m_pendingWakeupInfo && m_pendingWakeupInfo->shouldPerformWakeup(itemBufferIdentifier))
-        wakeUpAndApplyDisplayList(std::exchange(m_pendingWakeupInfo, std::nullopt)->arguments);
+        resumeFromPendingWakeupInformation();
+}
+
+void RemoteRenderingBackend::resumeFromPendingWakeupInformation()
+{
+    auto itemBufferIdentifier = m_pendingWakeupInfo->itemBufferIdentifier;
+    auto offset = m_pendingWakeupInfo->offset;
+    auto destinationImageBufferIdentifier = m_pendingWakeupInfo->destinationImageBufferIdentifier;
+    auto reason = m_pendingWakeupInfo->reason;
+    m_pendingWakeupInfo = std::nullopt;
+    wakeUpAndApplyDisplayListWithQualifiedIdentifier(itemBufferIdentifier, offset, destinationImageBufferIdentifier, reason);
 }
 
 void RemoteRenderingBackend::didCreateMaskImageBuffer(ImageBuffer& imageBuffer)
@@ -647,7 +734,6 @@ std::optional<DisplayList::ItemHandle> WARN_UNUSED_RETURN RemoteRenderingBackend
     case DisplayList::ItemType::Scale:
     case DisplayList::ItemType::SetCTM:
     case DisplayList::ItemType::SetInlineFillColor:
-    case DisplayList::ItemType::SetInlineFillGradient:
     case DisplayList::ItemType::SetInlineStrokeColor:
     case DisplayList::ItemType::SetLineCap:
     case DisplayList::ItemType::SetLineJoin:
@@ -695,6 +781,14 @@ void RemoteRenderingBackend::updateLastKnownState(RemoteRenderingBackendState st
 {
     ASSERT(!RunLoop::isMain());
     m_lastKnownState.storeRelaxed(state);
+}
+
+void RemoteRenderingBackend::performWithMediaPlayerOnMainThread(MediaPlayerIdentifier identifier, Function<void(MediaPlayer&)>&& callback)
+{
+    callOnMainRunLoopAndWait([&, gpuConnectionToWebProcess = m_gpuConnectionToWebProcess, identifier] {
+        if (auto player = gpuConnectionToWebProcess->remoteMediaPlayerManagerProxy().mediaPlayer(identifier))
+            callback(*player);
+    });
 }
 
 } // namespace WebKit

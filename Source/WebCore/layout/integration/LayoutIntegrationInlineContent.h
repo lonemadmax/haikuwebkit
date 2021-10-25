@@ -61,11 +61,14 @@ struct InlineContent : public RefCounted<InlineContent> {
     Lines lines;
 
     float clearGapAfterLastLine { 0 };
+    bool hasMultilinePaintOverlap { false };
 
     bool hasContent() const;
     
     const Line& lineForBox(const InlineDisplay::Box& box) const { return lines[box.lineIndex()]; }
-    WTF::IteratorRange<const InlineDisplay::Box*> boxesForRect(const LayoutRect&) const;
+
+    IteratorRange<const InlineDisplay::Box*> boxesForRect(const LayoutRect&) const;
+
     void shrinkToFit();
 
     const LineLayout& lineLayout() const { return *m_lineLayout; }

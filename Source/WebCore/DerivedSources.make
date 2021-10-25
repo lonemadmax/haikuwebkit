@@ -117,7 +117,9 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/credentialmanagement/CredentialsContainer.idl \
     $(WebCore)/Modules/credentialmanagement/Navigator+Credentials.idl \
     $(WebCore)/Modules/encryptedmedia/MediaKeyEncryptionScheme.idl \
+    $(WebCore)/Modules/encryptedmedia/MediaKeyMessageEventInit.idl \
     $(WebCore)/Modules/encryptedmedia/MediaKeyMessageEvent.idl \
+    $(WebCore)/Modules/encryptedmedia/MediaKeyMessageType.idl \
     $(WebCore)/Modules/encryptedmedia/MediaKeySession.idl \
     $(WebCore)/Modules/encryptedmedia/MediaKeySessionType.idl \
     $(WebCore)/Modules/encryptedmedia/MediaKeyStatusMap.idl \
@@ -155,6 +157,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/filesystemaccess/FileSystemDirectoryHandle.idl \
     $(WebCore)/Modules/filesystemaccess/FileSystemFileHandle.idl \
     $(WebCore)/Modules/filesystemaccess/FileSystemHandle.idl \
+	$(WebCore)/Modules/filesystemaccess/FileSystemSyncAccessHandle.idl \
     $(WebCore)/Modules/filesystemaccess/StorageManager+FileSystemAccess.idl \
     $(WebCore)/Modules/gamepad/Gamepad.idl \
     $(WebCore)/Modules/gamepad/GamepadButton.idl \
@@ -346,10 +349,18 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/pictureinpicture/HTMLVideoElement+PictureInPicture.idl \
     $(WebCore)/Modules/pictureinpicture/PictureInPictureWindow.idl \
     $(WebCore)/Modules/plugins/QuickTimePluginReplacement.idl \
+    $(WebCore)/Modules/push-api/PushEncryptionKeyName.idl \
     $(WebCore)/Modules/push-api/PushEvent.idl \
     $(WebCore)/Modules/push-api/PushEventInit.idl \
+    $(WebCore)/Modules/push-api/PushManager.idl \
     $(WebCore)/Modules/push-api/PushMessageData.idl \
+    $(WebCore)/Modules/push-api/PushPermissionState.idl \
+    $(WebCore)/Modules/push-api/PushSubscription.idl \
+    $(WebCore)/Modules/push-api/PushSubscriptionJSON.idl \
+    $(WebCore)/Modules/push-api/PushSubscriptionOptions.idl \
+    $(WebCore)/Modules/push-api/PushSubscriptionOptionsInit.idl \
     $(WebCore)/Modules/push-api/ServiceWorkerGlobalScope+PushAPI.idl \
+    $(WebCore)/Modules/push-api/ServiceWorkerRegistration+PushAPI.idl \
     $(WebCore)/Modules/remoteplayback/HTMLMediaElement+RemotePlayback.idl \
     $(WebCore)/Modules/remoteplayback/RemotePlayback.idl \
     $(WebCore)/Modules/remoteplayback/RemotePlaybackAvailabilityCallback.idl \
@@ -1573,6 +1584,15 @@ ModernMediaControls.css : $(MODERN_MEDIA_CONTROLS_STYLE_SHEETS)
 
 # user agent style sheets
 
+POSSIBLE_ADDITIONAL_USER_AGENT_STYLE_SHEETS = \
+    $(foreach \
+        STYLE_SHEET, \
+        $(ADDITIONAL_USER_AGENT_STYLE_SHEETS), \
+        $(firstword $(realpath $(foreach \
+            ADDITIONS_PATH, \
+            $(ADDITIONS_PATHS), \
+            $(ADDITIONS_PATH)/$(STYLE_SHEET)))))
+
 USER_AGENT_STYLE_SHEETS = \
     $(WebCore)/css/dialog.css \
     $(WebCore)/css/fullscreen.css \
@@ -1587,6 +1607,7 @@ USER_AGENT_STYLE_SHEETS = \
     $(WebCore)/html/shadow/meterElementShadow.css \
     $(WebCore)/Modules/plugins/QuickTimePluginReplacement.css \
     ModernMediaControls.css \
+    $(POSSIBLE_ADDITIONAL_USER_AGENT_STYLE_SHEETS) \
 #
 
 UserAgentStyleSheets.h : $(WebCore)/css/make-css-file-arrays.pl $(WebCore)/bindings/scripts/preprocessor.pm $(USER_AGENT_STYLE_SHEETS) $(FEATURE_AND_PLATFORM_DEFINE_DEPENDENCIES)

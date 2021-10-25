@@ -658,6 +658,11 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
     _websiteDataStore->allowTLSCertificateChainForLocalPCMTesting(WebCore::CertificateInfo(serverTrust));
 }
 
+- (void)_setPrivateClickMeasurementDebugModeEnabledForTesting:(BOOL)enabled
+{
+    _websiteDataStore->setPrivateClickMeasurementDebugMode(enabled);
+}
+
 - (void)_appBoundDomains:(void (^)(NSArray<NSString *> *))completionHandler
 {
 #if ENABLE(APP_BOUND_DOMAINS)
@@ -746,6 +751,23 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
     _websiteDataStore->countNonDefaultSessionSets([completionHandler = makeBlockPtr(completionHandler)] (size_t count) {
         completionHandler(count);
     });
+}
+
+-(bool)_hasServiceWorkerBackgroundActivityForTesting
+{
+    return _websiteDataStore->hasServiceWorkerBackgroundActivityForTesting();
+}
+
+-(void)_processPushMessage:(NSData*) message registration:(NSURL *)registration completionHandler:(void(^)(bool wasProcessed))completionHandler
+{
+#if ENABLE(SERVICE_WORKER)
+    std::optional<Span<const uint8_t>> data;
+    if (message)
+        data = Span<const uint8_t> { reinterpret_cast<const uint8_t*>(message.bytes), message.length };
+    _websiteDataStore->networkProcess().processPushMessage(_websiteDataStore->sessionID(), data, registration, [completionHandler = makeBlockPtr(completionHandler)] (bool wasProcessed) {
+        completionHandler(wasProcessed);
+    });
+#endif
 }
 
 @end

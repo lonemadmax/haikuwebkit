@@ -42,6 +42,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/filesystemaccess/FileSystemHandle.h
     Modules/filesystemaccess/FileSystemHandleIdentifier.h
     Modules/filesystemaccess/FileSystemStorageConnection.h
+    Modules/filesystemaccess/FileSystemSyncAccessHandle.h
+    Modules/filesystemaccess/FileSystemSyncAccessHandleIdentifier.h
     Modules/filesystemaccess/StorageManagerFileSystemAccess.h
     Modules/filesystemaccess/WorkerFileSystemStorageConnection.h
     Modules/filesystemaccess/WorkerFileSystemStorageConnectionCallbackIdentifier.h
@@ -465,7 +467,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/DOMRectInit.h
     dom/DOMRectList.h
     dom/DOMRectReadOnly.h
-    dom/DOMTimeStamp.h
     dom/DataTransfer.h
     dom/DeviceOrientationClient.h
     dom/DeviceOrientationData.h
@@ -485,9 +486,11 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/ElementContext.h
     dom/ElementData.h
     dom/ElementIdentifier.h
+    dom/ElementInlines.h
     dom/ElementIterator.h
     dom/ElementIteratorAssertions.h
     dom/ElementTraversal.h
+    dom/EpochTimeStamp.h
     dom/Event.h
     dom/EventInit.h
     dom/EventListener.h
@@ -496,6 +499,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/EventLoop.h
     dom/EventModifierInit.h
     dom/EventNames.h
+    dom/EventOptions.h
     dom/EventQueue.h
     dom/EventTarget.h
     dom/EventTargetConcrete.h
@@ -658,6 +662,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/FormAssociatedElement.h
     html/FormNamedItem.h
     html/HTMLAnchorElement.h
+    html/HTMLAnchorElementInlines.h
     html/HTMLAreaElement.h
     html/HTMLAttachmentElement.h
     html/HTMLAudioElement.h
@@ -1133,6 +1138,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/PopupMenuClient.h
     platform/PopupMenuStyle.h
     platform/ProcessIdentifier.h
+    platform/ProcessQualified.h
     platform/PromisedAttachmentInfo.h
     platform/PublicSuffix.h
     platform/RectEdges.h
@@ -1291,6 +1297,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/GlyphPage.h
     platform/graphics/Gradient.h
     platform/graphics/GraphicsContext.h
+    platform/graphics/GraphicsContextFlushIdentifier.h
     platform/graphics/GraphicsContextGL.h
     platform/graphics/GraphicsContextGLAttributes.h
     platform/graphics/GraphicsLayer.h
@@ -1383,12 +1390,11 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/WindRule.h
 
     platform/graphics/angle/ANGLEHeaders.h
+    platform/graphics/angle/ANGLEUtilities.h
     platform/graphics/angle/ExtensionsGLANGLE.h
-    platform/graphics/angle/GraphicsContextGLANGLEUtilities.h
 
     platform/graphics/displaylists/DisplayList.h
     platform/graphics/displaylists/DisplayListDrawingContext.h
-    platform/graphics/displaylists/DisplayListFlushIdentifier.h
     platform/graphics/displaylists/DisplayListImageBuffer.h
     platform/graphics/displaylists/DisplayListItemBuffer.h
     platform/graphics/displaylists/DisplayListItemBufferIdentifier.h
@@ -1396,7 +1402,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/displaylists/DisplayListItems.h
     platform/graphics/displaylists/DisplayListIterator.h
     platform/graphics/displaylists/DisplayListRecorder.h
+    platform/graphics/displaylists/DisplayListRecorderImpl.h
     platform/graphics/displaylists/DisplayListReplayer.h
+    platform/graphics/displaylists/DisplayListResourceHeap.h
     platform/graphics/displaylists/InMemoryDisplayList.h
 
     platform/graphics/cv/ImageTransferSessionVT.h

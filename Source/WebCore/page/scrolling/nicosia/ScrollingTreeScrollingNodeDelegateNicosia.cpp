@@ -30,6 +30,7 @@
 #if ENABLE(ASYNC_SCROLLING) && USE(NICOSIA)
 
 #include "NicosiaPlatformLayer.h"
+#include "ScrollExtents.h"
 #include "ScrollingTreeFrameScrollingNode.h"
 
 #if USE(GLIB_EVENT_LOOP)
@@ -84,11 +85,6 @@ WheelEventHandlingResult ScrollingTreeScrollingNodeDelegateNicosia::handleWheelE
         return WheelEventHandlingResult::unhandled();
 
     return WheelEventHandlingResult::handled();
-}
-
-void ScrollingTreeScrollingNodeDelegateNicosia::stopScrollAnimations()
-{
-    m_scrollController.stopAnimatedScroll();
 }
 
 void ScrollingTreeScrollingNodeDelegateNicosia::animationTimerFired()
@@ -166,6 +162,11 @@ void ScrollingTreeScrollingNodeDelegateNicosia::didStopScrollSnapAnimation()
     scrollingNode().setScrollSnapInProgress(false);
 }
 
+void ScrollingTreeScrollingNodeDelegateNicosia::didStopAnimatedScroll()
+{
+    scrollingNode().didStopAnimatedScroll();
+}
+
 float ScrollingTreeScrollingNodeDelegateNicosia::pageScaleFactor() const
 {
     // FIXME: What should this return for non-root frames, and overflow?
@@ -180,6 +181,19 @@ ScrollExtents ScrollingTreeScrollingNodeDelegateNicosia::scrollExtents() const
         scrollingNode().totalContentsSize(),
         scrollingNode().scrollableAreaSize()
     };
+}
+
+bool ScrollingTreeScrollingNodeDelegateNicosia::startAnimatedScrollToPosition(FloatPoint destinationPosition)
+{
+    auto currentOffset = ScrollableArea::scrollOffsetFromPosition(currentScrollPosition(), scrollOrigin());
+    auto destinationOffset = ScrollableArea::scrollOffsetFromPosition(destinationPosition, scrollOrigin());
+    
+    return m_scrollController.startAnimatedScrollToDestination(currentOffset, destinationOffset);
+}
+
+void ScrollingTreeScrollingNodeDelegateNicosia::stopAnimatedScroll()
+{
+    m_scrollController.stopAnimatedScroll();
 }
 
 } // namespace WebCore

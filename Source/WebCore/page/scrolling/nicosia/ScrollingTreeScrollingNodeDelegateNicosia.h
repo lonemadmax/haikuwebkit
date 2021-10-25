@@ -31,7 +31,6 @@
 #if ENABLE(ASYNC_SCROLLING) && USE(NICOSIA)
 
 #include "NicosiaPlatformLayer.h"
-#include "ScrollAnimation.h"
 #include "ScrollingEffectsController.h"
 #include "ScrollingStateOverflowScrollingNode.h"
 #include "ThreadedScrollingTree.h"
@@ -39,7 +38,6 @@
 
 namespace WebCore {
 
-// FIXME: This should not be a ScrollAnimationClient.
 class ScrollingTreeScrollingNodeDelegateNicosia : public ScrollingTreeScrollingNodeDelegate, public ScrollingEffectsControllerClient {
 public:
     explicit ScrollingTreeScrollingNodeDelegateNicosia(ScrollingTreeScrollingNode&, bool scrollAnimatorEnabled);
@@ -49,7 +47,10 @@ public:
     std::unique_ptr<Nicosia::SceneIntegration::UpdateScope> createUpdateScope();
     void updateVisibleLengths();
     WheelEventHandlingResult handleWheelEvent(const PlatformWheelEvent&, EventTargeting);
-    void stopScrollAnimations();
+
+    // ScrollingTreeScrollingNodeDelegate
+    bool startAnimatedScrollToPosition(FloatPoint) final;
+    void stopAnimatedScroll() final;
 
 private:
     void animationTimerFired();
@@ -63,16 +64,17 @@ private:
     bool allowsHorizontalScrolling() const final;
     bool allowsVerticalScrolling() const final;
 
-    void setScrollBehaviorStatus(ScrollBehaviorStatus status) final { m_scrollBehaviorStatus = status; }
-    ScrollBehaviorStatus scrollBehaviorStatus() const final { return m_scrollBehaviorStatus; }
-
     void immediateScrollBy(const FloatSize&, ScrollClamping = ScrollClamping::Clamped) final;
 
     void adjustScrollPositionToBoundsIfNecessary() final;
 
     FloatPoint scrollOffset() const final;
+
     void willStartScrollSnapAnimation() final;
     void didStopScrollSnapAnimation() final;
+
+    void didStopAnimatedScroll() final;
+
     float pageScaleFactor() const final;
     ScrollExtents scrollExtents() const final;
 
@@ -80,7 +82,6 @@ private:
 
     ScrollingEffectsController m_scrollController;
     std::unique_ptr<RunLoop::Timer<ScrollingTreeScrollingNodeDelegateNicosia>> m_animationTimer;
-    ScrollBehaviorStatus m_scrollBehaviorStatus { ScrollBehaviorStatus::NotInAnimation };
 
     bool m_scrollAnimatorEnabled { false };
 };

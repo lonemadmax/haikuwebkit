@@ -815,6 +815,7 @@ public:
     virtual bool isLink() const = 0;
     bool isImage() const { return roleValue() == AccessibilityRole::Image; }
     bool isImageMap() const { return roleValue() == AccessibilityRole::ImageMap; }
+    bool isVideo() const { return roleValue() == AccessibilityRole::Video; }
     virtual bool isNativeImage() const = 0;
     virtual bool isImageButton() const = 0;
     virtual bool isPasswordField() const = 0;
@@ -1010,7 +1011,7 @@ public:
     virtual String validationMessage() const = 0;
 
     virtual unsigned blockquoteLevel() const = 0;
-    virtual int headingLevel() const = 0;
+    virtual unsigned headingLevel() const = 0;
     virtual AccessibilityButtonState checkboxOrRadioValue() const = 0;
     virtual String valueDescription() const = 0;
     virtual float valueForRange() const = 0;
@@ -1118,6 +1119,9 @@ public:
     virtual bool isPresentationalChildOfAriaRole() const = 0;
     virtual bool ariaRoleHasPresentationalChildren() const = 0;
     virtual bool inheritsPresentationalRole() const = 0;
+
+    using AXValue = Variant<bool, unsigned, float, String, AccessibilityButtonState, AXCoreObject*>;
+    virtual AXValue value() = 0;
 
     // Accessibility Text
     virtual void accessibilityText(Vector<AccessibilityText>&) const = 0;
@@ -1371,6 +1375,7 @@ public:
     enum class ScrollByPageDirection { Up, Down, Left, Right };
     virtual bool scrollByPage(ScrollByPageDirection) const = 0;
     virtual IntPoint scrollPosition() const = 0;
+    virtual AccessibilityChildrenVector contents() = 0;
     virtual IntSize scrollContentsSize() const = 0;
     virtual IntRect scrollVisibleContentRect() const = 0;
     virtual void scrollToMakeVisible(const ScrollRectToVisibleOptions&) const = 0;
@@ -1405,7 +1410,7 @@ public:
     virtual bool isMathMultiscriptObject(AccessibilityMathMultiscriptObjectType) const = 0;
 
     // Root components.
-    virtual AXCoreObject* mathRadicandObject() = 0;
+    virtual std::optional<AccessibilityChildrenVector> mathRadicand() = 0;
     virtual AXCoreObject* mathRootIndexObject() = 0;
 
     // Under over components.

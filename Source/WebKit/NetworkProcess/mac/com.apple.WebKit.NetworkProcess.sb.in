@@ -24,18 +24,19 @@
 (version 1)
 (deny default (with partial-symbolication))
 (deny nvram*)
-(deny system-privilege)
 
 (allow system-audit file-read-metadata)
+
+(with-filter (require-not (uid 0))
+    (deny system-privilege)
+    ;; Silence spurious logging due to rdar://20117923 and rdar://72366475
+    (deny system-privilege (privilege-id PRIV_GLOBAL_PROC_INFO) (with no-report)))
 
 (allow system-privilege (with grant)
     (require-all
         (privilege-id PRIV_NET_PRIVILEGED_SOCKET_DELEGATE)
         (require-entitlement "com.apple.private.network.socket-delegate")))
  
-;; Silence spurious logging due to rdar://20117923 and rdar://72366475
-(deny system-privilege (privilege-id PRIV_GLOBAL_PROC_INFO) (with no-report))
-
 #include "Shared/Sandbox/preferences.sb"
 
 #if PLATFORM(MAC)
@@ -218,7 +219,7 @@
         "sysctl.name2oid"
         "vm.footprint_suspend")
     (sysctl-name-prefix "kern.proc.pid.")
-    (sysctl-name-regex #"^net.routetable")
+    (sysctl-name-prefix "net.routetable")
     (sysctl-name-prefix "hw.optional.") ;; <rdar://problem/71462790>
     (sysctl-name-prefix "hw.perflevel") ;; <rdar://problem/76783596>
 )
@@ -341,7 +342,7 @@
 (allow ipc-posix-shm-read-data (with telemetry)
     (ipc-posix-name "FNetwork.defaultStorageSession")
     (ipc-posix-name-regex #"\.PrivateBrowsing-")
-    (ipc-posix-name-regex #"^WebKit Test-")
+    (ipc-posix-name-prefix "^WebKit Test-")
     (ipc-posix-name "/com.apple.AppSSO.version")
 )
 
@@ -455,11 +456,10 @@
     (subpath "/Library/KerberosPlugins/GSSAPI")
     (subpath "/Library/KerberosPlugins/KerberosFrameworkPlugins"))
 
-(if (defined? 'vnode-type)
-    (deny file-write-create (vnode-type SYMLINK)))
+(deny file-write-create (vnode-type SYMLINK))
 
 ;; Reserve a namespace for additional protected extended attributes.
-(deny file-read-xattr file-write-xattr (xattr-regex #"^com\.apple\.security\.private\."))
+(deny file-read-xattr file-write-xattr (xattr-prefix "com.apple.security.private."))
 
 (deny file-read* file-write* (with no-log)
     ;; FIXME: Should be removed after <rdar://problem/10463881> is fixed.

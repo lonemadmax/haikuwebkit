@@ -1,3 +1,543 @@
+2021-10-12  Aditya Keerthi  <akeerthi@apple.com>
+
+        [css-ui] Fix interpolation of accent-color
+        https://bugs.webkit.org/show_bug.cgi?id=231443
+        rdar://84037162
+
+        Reviewed by Antoine Quint.
+
+        * web-platform-tests/css/css-ui/animation/accent-color-interpolation-expected.txt:
+
+2021-10-11  Tim Nguyen  <ntim@apple.com>
+
+        Implement new autofocus behavior
+        https://bugs.webkit.org/show_bug.cgi?id=203139
+        <rdar://problem/56397019>
+
+        Reviewed by Wenson Hsieh.
+
+        Make WebKit match the new autofocus spec:
+        - https://html.spec.whatwg.org/multipage/interaction.html#the-autofocus-attribute
+        - https://html.spec.whatwg.org/multipage/interaction.html#focusing-steps
+
+        The new autofocus behavior queues up all autofocusable elements (visible or not), then
+        fires autofocus asynchronously during the "update rendering" steps, unlike the old behavior
+        which runs focus synchronously whenever it finds a visible autofocusable element.
+
+        Original patch by Ryosuke Niwa.
+
+        * web-platform-tests/html/interaction/focus/the-autofocus-attribute/document-with-fragment-empty-expected.txt:
+        * web-platform-tests/html/interaction/focus/the-autofocus-attribute/document-with-fragment-nonexistent-expected.txt:
+        * web-platform-tests/html/interaction/focus/the-autofocus-attribute/document-with-fragment-top-expected.txt:
+        * web-platform-tests/html/interaction/focus/the-autofocus-attribute/first-expected.txt:
+        * web-platform-tests/html/interaction/focus/the-autofocus-attribute/first-when-later-expected.txt:
+        * web-platform-tests/html/interaction/focus/the-autofocus-attribute/queue-non-focusable-expected.txt:
+        * web-platform-tests/html/interaction/focus/the-autofocus-attribute/update-the-rendering-expected.txt:
+        * web-platform-tests/selection/selection-select-all-move-input-crash-expected.txt: Expected change since input autofocus now places caret at start
+
+2021-10-11  Ben Nham  <nham@apple.com>
+
+        Add push registration stubs
+        https://bugs.webkit.org/show_bug.cgi?id=231064
+
+        Reviewed by Youenn Fablet.
+
+        Update test results after importing PushManager-related IDL.
+
+        * web-platform-tests/push-api/idlharness.https.any-expected.txt:
+        * web-platform-tests/push-api/idlharness.https.any.serviceworker-expected.txt:
+        * web-platform-tests/push-api/idlharness.https.any.worker-expected.txt:
+
+2021-10-11  Tim Nguyen  <ntim@apple.com>
+
+        Import new top layer WPTs
+        https://bugs.webkit.org/show_bug.cgi?id=229318
+
+        Reviewed by Youenn Fablet.
+
+        Sync html/semantics/interactive-elements/the-dialog-element/ WPTs from https://github.com/web-platform-tests/wpt/commit/023d5aa5d338569ae12988190705e1d570930d61
+
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/resources/green-dialog-and-backdrop.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/resources/w3c-import.log:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-clip-expected.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-clip.html: Copied from LayoutTests/imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/resources/green-dialog-and-backdrop.html.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-filter-expected.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-filter.html: Copied from LayoutTests/imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/resources/green-dialog-and-backdrop.html.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-mask-expected.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-mask.html: Copied from LayoutTests/imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/resources/green-dialog-and-backdrop.html.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-opacity-expected.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-opacity.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-overflow-clip-expected.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-overflow-clip.html: Copied from LayoutTests/imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/resources/green-dialog-and-backdrop.html.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-overflow-hidden-expected.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-overflow-hidden.html: Copied from LayoutTests/imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/resources/green-dialog-and-backdrop.html.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-overflow-scroll-expected.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-overflow-scroll.html: Copied from LayoutTests/imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/resources/green-dialog-and-backdrop.html.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-transform-expected.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-transform.html: Copied from LayoutTests/imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/resources/green-dialog-and-backdrop.html.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/w3c-import.log:
+
+2021-10-10  Sihui Liu  <sihui_liu@apple.com>
+
+        Add support for iterating FileSystemDirectoryHandle
+        https://bugs.webkit.org/show_bug.cgi?id=231142
+        <rdar://problem/83848092>
+
+        Reviewed by Youenn Fablet and Yusuke Suzuki.
+
+        Rebaselined existing tests as new interface is added and tests can proceed to next stage.
+
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-IndexedDB.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-IndexedDB.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-isSameEntry.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-isSameEntry.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-BroadcastChannel.https.window-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-Error.https.window-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-MessagePort-frames.https.window-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-MessagePort-windows.https.window-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-MessagePort-workers.https.window-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-frames.https.window-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-windows.https.window-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-workers.https.window-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-remove.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-remove.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-getDirectoryHandle.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-getDirectoryHandle.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-getFileHandle.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-getFileHandle.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-iteration.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-iteration.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-removeEntry.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-removeEntry.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-resolve.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-resolve.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemFileHandle-create-sync-access-handle-dedicated-worker.https.tentative.window-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemFileHandle-getFile.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemFileHandle-getFile.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-close.https.tentative.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-flush.https.tentative.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-getSize.https.tentative.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-read-write.https.tentative.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-truncate.https.tentative.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream-piped.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream-piped.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream-write.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream-write.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream.https.any.worker-expected.txt:
+
+2021-10-10  Alan Bujtas  <zalan@apple.com>
+
+        [IFC][Integration] Do not bail out on missing primary font
+        https://bugs.webkit.org/show_bug.cgi?id=231488
+
+        Reviewed by Antti Koivisto.
+
+        * web-platform-tests/css/cssom-view/getBoundingClientRect-shy-expected.txt:
+
+2021-10-08  Aditya Keerthi  <akeerthi@apple.com>
+
+        Add support for '-webkit-appearance: auto'
+        https://bugs.webkit.org/show_bug.cgi?id=231203
+        rdar://83696133
+
+        Reviewed by Wenson Hsieh.
+
+        * web-platform-tests/css/css-ui/appearance-cssom-001-expected.txt:
+
+        Mark progression.
+
+2021-10-08  Chris Dumez  <cdumez@apple.com>
+
+        Merge optimizations to AudioParamTimeline::hasValues() from Blink
+        https://bugs.webkit.org/show_bug.cgi?id=231428
+
+        Reviewed by Eric Carlson.
+
+        Merge https://github.com/web-platform-tests/wpt/pull/31165. Thanks to the new optimizations, we are now
+        using K-Rate processing in more cases. For some of the StereoPannerNode tests, we went from A-Rate processing
+        to K-Rate. Because our K-Rate processing implementation is vectorized (and doing all operations as float), it
+        does not have the same precision as the A-Rate one which does operations of double variables and only casts
+        to float at the end.
+
+        * web-platform-tests/webaudio/resources/stereopanner-testing.js:
+        (Test):
+        * web-platform-tests/webaudio/the-audio-api/the-stereopanner-interface/no-dezippering-expected.txt:
+        * web-platform-tests/webaudio/the-audio-api/the-stereopanner-interface/no-dezippering.html:
+        * web-platform-tests/webaudio/the-audio-api/the-stereopanner-interface/stereopannernode-panning-expected.txt:
+
+2021-10-08  Tim Nguyen  <ntim@apple.com>
+
+        Re-sync the-dialog-element and inert WPT from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=231392
+
+        Reviewed by Youenn Fablet.
+
+        Upstream commit: https://github.com/web-platform-tests/wpt/commit/a44515b7c7774abf1256f488bf0e9dc02459fced
+
+        * resources/resource-files.json:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-inert.tentative-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-inert.tentative.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/w3c-import.log:
+        * web-platform-tests/inert/frame/button.html: Removed.
+        * web-platform-tests/inert/frame/w3c-import.log: Removed.
+        * web-platform-tests/inert/inert-computed-style-expected.txt: Added.
+        * web-platform-tests/inert/inert-computed-style.html: Added.
+        * web-platform-tests/inert/inert-retargeting-iframe.tentative.html: Removed.
+        * web-platform-tests/inert/inert-retargeting.tentative.html: Removed.
+        * web-platform-tests/inert/w3c-import.log:
+
+2021-10-08  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        font-families inside @font-palette-values need to be case insensitive
+        https://bugs.webkit.org/show_bug.cgi?id=231215
+        <rdar://problem/83871643>
+
+        Reviewed by Antti Koivisto.
+
+        * web-platform-tests/css/css-fonts/font-palette-33-expected.html: Added.
+        * web-platform-tests/css/css-fonts/font-palette-33.html: Added.
+        * web-platform-tests/css/css-fonts/font-palette-34-expected.html: Added.
+        * web-platform-tests/css/css-fonts/font-palette-34.html: Added.
+
+2021-10-07  Alexey Shvayka  <shvaikalesh@gmail.com>
+
+        `highWaterMark` should be a readonly WebIDL attribute of queuing strategies
+        https://bugs.webkit.org/show_bug.cgi?id=231355
+
+        Reviewed by Youenn Fablet.
+
+        * web-platform-tests/streams/idlharness.any-expected.txt:
+        * web-platform-tests/streams/idlharness.any.worker-expected.txt:
+        * web-platform-tests/streams/queuing-strategies.any-expected.txt:
+        * web-platform-tests/streams/queuing-strategies.any.worker-expected.txt:
+
+2021-10-07  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Shadowing of @font-palette-values rules doesn't work
+        https://bugs.webkit.org/show_bug.cgi?id=231218
+        <rdar://problem/83872258>
+
+        Reviewed by Wenson Hsieh.
+
+        * web-platform-tests/css/css-fonts/font-palette-32-expected.html: Added.
+        * web-platform-tests/css/css-fonts/font-palette-32.html: Added.
+
+2021-10-07  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Stop parsing font palette things that we can't implement
+        https://bugs.webkit.org/show_bug.cgi?id=230799
+        <rdar://problem/83537772>
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-fonts/parsing/font-palette-values-valid.html:
+
+2021-10-07  Aditya Keerthi  <akeerthi@apple.com>
+
+        [css-ui] Parsing support for accent-color
+        https://bugs.webkit.org/show_bug.cgi?id=231334
+        rdar://83955508
+
+        Reviewed by Antti Koivisto.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/css-ui/accent-color-computed-expected.txt:
+        * web-platform-tests/css/css-ui/accent-color-parsing-expected.txt:
+        * web-platform-tests/css/css-ui/animation/accent-color-interpolation-expected.txt:
+        * web-platform-tests/css/cssom/cssstyledeclaration-csstext-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
+2021-10-07  Antti Koivisto  <antti@apple.com>
+
+        Cascade layer styles should be lower priority than unlayered styles
+        https://bugs.webkit.org/show_bug.cgi?id=231342
+
+        Reviewed by Simon Fraser.
+
+        Update from the WPT repo.
+
+        * web-platform-tests/css/css-cascade/layer-basic.html:
+        * web-platform-tests/css/css-cascade/layer-font-face-override-expected.txt:
+        * web-platform-tests/css/css-cascade/layer-font-face-override.html:
+        * web-platform-tests/css/css-cascade/layer-import.html:
+        * web-platform-tests/css/css-cascade/layer-keyframes-override-expected.txt:
+        * web-platform-tests/css/css-cascade/layer-keyframes-override.html:
+        * web-platform-tests/css/css-cascade/layer-stylesheet-sharing.html:
+
+2021-10-07  Rob Buis  <rbuis@igalia.com>
+
+        Resync the-img-element WPT tests from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=231297
+
+        Reviewed by Youenn Fablet.
+
+        Resync html the-img-element tests from upstream 163d457f7eec.
+
+        * resources/import-expectations.json:
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-below-viewport-dynamic.html:
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-in-viewport-dynamic.html:
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-negative-margin-expected.txt: Added.
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-negative-margin.html: Added.
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-relevant-mutations.html:
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-slow-aspect-ratio.html:
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-slow.html:
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-to-eager.html:
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-use-list-of-available-images-expected.txt: Added.
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-use-list-of-available-images.html: Added.
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/list-of-available-images-does-not-coalesce-in-flight-requests.sub.tentative-expected.txt: Added.
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/list-of-available-images-does-not-coalesce-in-flight-requests.sub.tentative.html: Added.
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/relevant-mutations-expected.txt: Removed.
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/relevant-mutations.html: Removed.
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/resources/image-and-stash.py: Added.
+        (main):
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/resources/image-loading-lazy-below-viewport.html:
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/resources/w3c-import.log:
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/w3c-import.log:
+
+2021-10-06  Ben Nham  <nham@apple.com>
+
+        Add PushSubscription stubs
+        https://bugs.webkit.org/show_bug.cgi?id=231278
+
+        Reviewed Alex Christensen.
+
+        Updated the WPT test results to reflect the newly implemented interfaces.
+
+        * web-platform-tests/push-api/idlharness.https.any-expected.txt:
+        * web-platform-tests/push-api/idlharness.https.any.serviceworker-expected.txt:
+
+2021-10-06  Sihui Liu  <sihui_liu@apple.com>
+
+        Add support for FileSystemSyncAccessHandle
+        https://bugs.webkit.org/show_bug.cgi?id=231185
+        <rdar://problem/83847859>
+
+        Reviewed by Youenn Fablet.
+
+        * web-platform-tests/file-system-access/sandboxed_FileSystemFileHandle-sync-access-handle-lock.https.tentative.worker-expected.txt:
+
+2021-10-06  Kiet Ho  <tho22@apple.com>
+
+        Import css/motion tests from WPT
+        https://bugs.webkit.org/show_bug.cgi?id=231195
+
+        Reviewed by Myles C. Maxfield.
+
+        Imported from git hash 4060609421747fbcd6f99d59ded3df9eaf3018b4.
+
+        * resources/import-expectations.json:
+        * resources/resource-files.json:
+        * web-platform-tests/css/motion/META.yml: Added.
+        * web-platform-tests/css/motion/animation/offset-anchor-composition-expected.txt: Added.
+        * web-platform-tests/css/motion/animation/offset-anchor-composition.html: Added.
+        * web-platform-tests/css/motion/animation/offset-anchor-interpolation-expected.txt: Added.
+        * web-platform-tests/css/motion/animation/offset-anchor-interpolation.html: Added.
+        * web-platform-tests/css/motion/animation/offset-distance-composition-expected.txt: Added.
+        * web-platform-tests/css/motion/animation/offset-distance-composition.html: Added.
+        * web-platform-tests/css/motion/animation/offset-distance-interpolation-expected.txt: Added.
+        * web-platform-tests/css/motion/animation/offset-distance-interpolation.html: Added.
+        * web-platform-tests/css/motion/animation/offset-interpolation-expected.txt: Added.
+        * web-platform-tests/css/motion/animation/offset-interpolation.html: Added.
+        * web-platform-tests/css/motion/animation/offset-path-composition-expected.txt: Added.
+        * web-platform-tests/css/motion/animation/offset-path-composition.html: Added.
+        * web-platform-tests/css/motion/animation/offset-path-interpolation-001-expected.txt: Added.
+        * web-platform-tests/css/motion/animation/offset-path-interpolation-001.html: Added.
+        * web-platform-tests/css/motion/animation/offset-path-interpolation-002-expected.txt: Added.
+        * web-platform-tests/css/motion/animation/offset-path-interpolation-002.html: Added.
+        * web-platform-tests/css/motion/animation/offset-path-interpolation-003-expected.txt: Added.
+        * web-platform-tests/css/motion/animation/offset-path-interpolation-003.html: Added.
+        * web-platform-tests/css/motion/animation/offset-path-interpolation-004-expected.txt: Added.
+        * web-platform-tests/css/motion/animation/offset-path-interpolation-004.html: Added.
+        * web-platform-tests/css/motion/animation/offset-path-interpolation-005-expected.txt: Added.
+        * web-platform-tests/css/motion/animation/offset-path-interpolation-005.html: Added.
+        * web-platform-tests/css/motion/animation/offset-position-composition-expected.txt: Added.
+        * web-platform-tests/css/motion/animation/offset-position-composition.html: Added.
+        * web-platform-tests/css/motion/animation/offset-position-interpolation-expected.txt: Added.
+        * web-platform-tests/css/motion/animation/offset-position-interpolation.html: Added.
+        * web-platform-tests/css/motion/animation/offset-rotate-composition-expected.txt: Added.
+        * web-platform-tests/css/motion/animation/offset-rotate-composition.html: Added.
+        * web-platform-tests/css/motion/animation/offset-rotate-interpolation-expected.txt: Added.
+        * web-platform-tests/css/motion/animation/offset-rotate-interpolation.html: Added.
+        * web-platform-tests/css/motion/animation/reftests/offset-distance-interpolation-001-expected.html: Added.
+        * web-platform-tests/css/motion/animation/reftests/offset-distance-interpolation-001.html: Added.
+        * web-platform-tests/css/motion/animation/reftests/offset-path-path-interpolation-001-expected.html: Added.
+        * web-platform-tests/css/motion/animation/reftests/offset-path-path-interpolation-001.html: Added.
+        * web-platform-tests/css/motion/animation/reftests/offset-path-with-transforms-001-expected.html: Added.
+        * web-platform-tests/css/motion/animation/reftests/offset-path-with-transforms-001.html: Added.
+        * web-platform-tests/css/motion/animation/reftests/offset-rotate-interpolation-001-expected.html: Added.
+        * web-platform-tests/css/motion/animation/reftests/offset-rotate-interpolation-001.html: Added.
+        * web-platform-tests/css/motion/animation/reftests/w3c-import.log: Added.
+        * web-platform-tests/css/motion/animation/w3c-import.log: Added.
+        * web-platform-tests/css/motion/inheritance-expected.txt: Added.
+        * web-platform-tests/css/motion/inheritance.html: Added.
+        * web-platform-tests/css/motion/offset-anchor-transform-box-fill-box-001-expected.html: Added.
+        * web-platform-tests/css/motion/offset-anchor-transform-box-fill-box-001.html: Added.
+        * web-platform-tests/css/motion/offset-anchor-transform-box-fill-box-002-expected.html: Added.
+        * web-platform-tests/css/motion/offset-anchor-transform-box-fill-box-002.html: Added.
+        * web-platform-tests/css/motion/offset-anchor-transform-box-fill-box-003-expected.html: Added.
+        * web-platform-tests/css/motion/offset-anchor-transform-box-fill-box-003.html: Added.
+        * web-platform-tests/css/motion/offset-distance-001-expected.html: Added.
+        * web-platform-tests/css/motion/offset-distance-001.html: Added.
+        * web-platform-tests/css/motion/offset-distance-002-expected.html: Added.
+        * web-platform-tests/css/motion/offset-distance-002.html: Added.
+        * web-platform-tests/css/motion/offset-distance-003-expected.html: Added.
+        * web-platform-tests/css/motion/offset-distance-003.html: Added.
+        * web-platform-tests/css/motion/offset-distance-004-expected.html: Added.
+        * web-platform-tests/css/motion/offset-distance-004.html: Added.
+        * web-platform-tests/css/motion/offset-distance-005-expected.html: Added.
+        * web-platform-tests/css/motion/offset-distance-005.html: Added.
+        * web-platform-tests/css/motion/offset-distance-006-expected.html: Added.
+        * web-platform-tests/css/motion/offset-distance-006.html: Added.
+        * web-platform-tests/css/motion/offset-distance-007-expected.html: Added.
+        * web-platform-tests/css/motion/offset-distance-007.html: Added.
+        * web-platform-tests/css/motion/offset-distance-008-expected.html: Added.
+        * web-platform-tests/css/motion/offset-distance-008.html: Added.
+        * web-platform-tests/css/motion/offset-distance-009-expected.html: Added.
+        * web-platform-tests/css/motion/offset-distance-009.html: Added.
+        * web-platform-tests/css/motion/offset-path-huge-angle-deg-001-crash.html: Added.
+        * web-platform-tests/css/motion/offset-path-huge-angle-grad-001-crash.html: Added.
+        * web-platform-tests/css/motion/offset-path-huge-angle-turn-001-crash.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-001-expected.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-001.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-002-expected.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-002.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-003-expected.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-003.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-004-expected.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-004.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-005-expected.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-005.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-006-expected.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-006.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-007-expected.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-007.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-008-expected.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-008.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-009-expected.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-009.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-contain-001-expected.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-contain-001.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-contain-002-expected.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-contain-002.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-contain-003-expected.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-contain-003.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-contain-004-expected.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-contain-004.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-contain-005-expected.html: Added.
+        * web-platform-tests/css/motion/offset-path-ray-contain-005.html: Added.
+        * web-platform-tests/css/motion/offset-path-serialization-expected.txt: Added.
+        * web-platform-tests/css/motion/offset-path-serialization.html: Added.
+        * web-platform-tests/css/motion/offset-path-string-001-expected.html: Added.
+        * web-platform-tests/css/motion/offset-path-string-001.html: Added.
+        * web-platform-tests/css/motion/offset-path-string-002-expected.html: Added.
+        * web-platform-tests/css/motion/offset-path-string-002.html: Added.
+        * web-platform-tests/css/motion/offset-rotate-001-expected.html: Added.
+        * web-platform-tests/css/motion/offset-rotate-001.html: Added.
+        * web-platform-tests/css/motion/offset-rotate-002-expected.html: Added.
+        * web-platform-tests/css/motion/offset-rotate-002.html: Added.
+        * web-platform-tests/css/motion/offset-rotate-003-expected.html: Added.
+        * web-platform-tests/css/motion/offset-rotate-003.html: Added.
+        * web-platform-tests/css/motion/offset-rotate-004-expected.html: Added.
+        * web-platform-tests/css/motion/offset-rotate-004.html: Added.
+        * web-platform-tests/css/motion/offset-rotate-005-expected.html: Added.
+        * web-platform-tests/css/motion/offset-rotate-005.html: Added.
+        * web-platform-tests/css/motion/offset-supports-calc-expected.txt: Added.
+        * web-platform-tests/css/motion/offset-supports-calc.html: Added.
+        * web-platform-tests/css/motion/parsing/offset-anchor-computed-expected.txt: Added.
+        * web-platform-tests/css/motion/parsing/offset-anchor-computed.html: Added.
+        * web-platform-tests/css/motion/parsing/offset-anchor-parsing-invalid-expected.txt: Added.
+        * web-platform-tests/css/motion/parsing/offset-anchor-parsing-invalid.html: Added.
+        * web-platform-tests/css/motion/parsing/offset-anchor-parsing-valid-expected.txt: Added.
+        * web-platform-tests/css/motion/parsing/offset-anchor-parsing-valid.html: Added.
+        * web-platform-tests/css/motion/parsing/offset-distance-computed-expected.txt: Added.
+        * web-platform-tests/css/motion/parsing/offset-distance-computed.html: Added.
+        * web-platform-tests/css/motion/parsing/offset-distance-parsing-invalid-expected.txt: Added.
+        * web-platform-tests/css/motion/parsing/offset-distance-parsing-invalid.html: Added.
+        * web-platform-tests/css/motion/parsing/offset-distance-parsing-valid-expected.txt: Added.
+        * web-platform-tests/css/motion/parsing/offset-distance-parsing-valid.html: Added.
+        * web-platform-tests/css/motion/parsing/offset-parsing-invalid-expected.txt: Added.
+        * web-platform-tests/css/motion/parsing/offset-parsing-invalid.html: Added.
+        * web-platform-tests/css/motion/parsing/offset-parsing-valid-expected.txt: Added.
+        * web-platform-tests/css/motion/parsing/offset-parsing-valid.html: Added.
+        * web-platform-tests/css/motion/parsing/offset-path-computed-expected.txt: Added.
+        * web-platform-tests/css/motion/parsing/offset-path-computed.html: Added.
+        * web-platform-tests/css/motion/parsing/offset-path-parsing-invalid-expected.txt: Added.
+        * web-platform-tests/css/motion/parsing/offset-path-parsing-invalid.html: Added.
+        * web-platform-tests/css/motion/parsing/offset-path-parsing-valid-expected.txt: Added.
+        * web-platform-tests/css/motion/parsing/offset-path-parsing-valid.html: Added.
+        * web-platform-tests/css/motion/parsing/offset-position-computed-expected.txt: Added.
+        * web-platform-tests/css/motion/parsing/offset-position-computed.html: Added.
+        * web-platform-tests/css/motion/parsing/offset-position-parsing-invalid-expected.txt: Added.
+        * web-platform-tests/css/motion/parsing/offset-position-parsing-invalid.html: Added.
+        * web-platform-tests/css/motion/parsing/offset-position-parsing-valid-expected.txt: Added.
+        * web-platform-tests/css/motion/parsing/offset-position-parsing-valid.html: Added.
+        * web-platform-tests/css/motion/parsing/offset-rotate-computed-expected.txt: Added.
+        * web-platform-tests/css/motion/parsing/offset-rotate-computed.html: Added.
+        * web-platform-tests/css/motion/parsing/offset-rotate-parsing-invalid-expected.txt: Added.
+        * web-platform-tests/css/motion/parsing/offset-rotate-parsing-invalid.html: Added.
+        * web-platform-tests/css/motion/parsing/offset-rotate-parsing-valid-expected.txt: Added.
+        * web-platform-tests/css/motion/parsing/offset-rotate-parsing-valid.html: Added.
+        * web-platform-tests/css/motion/parsing/offset-shorthand-expected.txt: Added.
+        * web-platform-tests/css/motion/parsing/offset-shorthand.html: Added.
+        * web-platform-tests/css/motion/parsing/w3c-import.log: Added.
+        * web-platform-tests/css/motion/w3c-import.log: Added.
+
+2021-10-06  Aditya Keerthi  <akeerthi@apple.com>
+
+        Fix serialization of CSSMediaRule
+        https://bugs.webkit.org/show_bug.cgi?id=231249
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/css/css-ui/appearance-serialization-expected.txt: Rebaseline.
+        * web-platform-tests/css/css-ui/webkit-appearance-serialization-expected.txt: Rebaseline.
+        * web-platform-tests/css/cssom/serialize-media-rule-expected.txt: Mark progression.
+
+2021-10-06  Tim Nguyen  <ntim@apple.com>
+
+        Reset m_isModal flag when removing <dialog> from document
+        https://bugs.webkit.org/show_bug.cgi?id=231290
+
+        Reviewed by Alan Bujtas.
+
+        m_isModal triggers the :-internal-modal-dialog pseudo class, which changes position from absolute to fixed.
+
+        When removing a modal <dialog> from the document, it is also removed from the top layer, so it makes sense
+        to reset the m_isModal flag as well as a result.
+
+        Updated test expectations to reflect new passing tests.
+
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/abspos-dialog-layout-expected.txt:
+
+2021-10-05  Kate Cheney  <katherine_cheney@apple.com>
+
+        CSP: unsafe-eval tests timing out or failing
+        https://bugs.webkit.org/show_bug.cgi?id=231113
+        <rdar://problem/83425041>
+
+        Reviewed by Brent Fulgham.
+
+        * web-platform-tests/content-security-policy/script-src/script-src-1_4-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/script-src-1_4_1-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/script-src-1_4_2-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/script-src-strict_dynamic_eval-expected.txt: Added.
+        * web-platform-tests/content-security-policy/script-src/script-src-strict_dynamic_new_function-expected.txt: Added.
+        * web-platform-tests/content-security-policy/securitypolicyviolation/blockeduri-eval-expected.txt:
+        This test gets the report but gets an incorrect column number. The bug
+        seems tangential to this patch and we should fix it in a followup.
+
+        * web-platform-tests/content-security-policy/unsafe-eval/eval-blocked-and-sends-report.sub-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-eval/eval-blocked-in-about-blank-iframe.sub-expected.txt:
+        This test gets the report but reveals a bug where we don't allow
+        inline script to execute after calling eval() when unsafe-inline is
+        specified but not unsafe-eval. Tracking in rdar://83846298.
+
+        * web-platform-tests/content-security-policy/unsafe-eval/eval-blocked.sub-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-eval/eval-scripts-setInterval-blocked.sub-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-eval/eval-scripts-setTimeout-blocked.sub-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-eval/function-constructor-blocked.sub-expected.txt:
+
 2021-10-05  Martin Robinson  <mrobinson@webkit.org>
 
         [css-position-sticky] scrollIntoView should not take into account sticky positioning offsets

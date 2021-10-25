@@ -39,6 +39,8 @@ fast/forms/ios/ipad/open-picker-using-keyboard.html [ Pass Timeout ]
 fast/css/appearance-apple-pay-button.html [ Pass ]
 fast/css/appearance-apple-pay-button-border-radius.html [ Pass ]
 fast/css/appearance-apple-pay-button-default-corners.html [ Pass ]
+fast/css/webkit-named-image/apple-pay-logo-black [ Pass ]
+fast/css/webkit-named-image/apple-pay-logo-white [ Pass ]
 fast/css/getComputedStyle/computed-style-apple-pay-button.html [ Pass ]
 
 fast/css/ios [ Pass ]
@@ -2110,6 +2112,8 @@ webkit.org/b/148806 imported/w3c/web-platform-tests/css/css-multicol/multicol-sp
 # Enable "phone number linkifying" test for iOS
 fast/dom/linkify-phone-numbers.html [ Pass ]
 
+accessibility/video-element-url-attribute.html [ Pass ]
+
 # Enable "aria-current" tests for iOS.
 webkit.org/b/149297 accessibility/aria-current.html [ Pass ]
 accessibility/aria-current-state-changed-notification.html [ Pass ]
@@ -2213,7 +2217,6 @@ webkit.org/b/153371 imported/w3c/web-platform-tests/xhr/getresponseheader-chunke
 webkit.org/b/169210 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/history-traversal/persisted-user-state-restoration/scroll-restoration-navigation-samedoc.html [ Failure ]
 
 # displaylist tests are flaky on ios-simulator wk2
-webkit.org/b/153656 displaylists/canvas-display-list.html [ Pass Failure ]
 webkit.org/b/153656 displaylists/extent-includes-transforms.html [ Pass Failure ]
 webkit.org/b/153656 displaylists/extent-includes-shadow.html [ Pass Failure ]
 webkit.org/b/153656 displaylists/layer-dispay-list.html [ Pass Failure ]
@@ -2438,11 +2441,6 @@ webkit.org/b/162739 fast/images/gif-loop-count.html [ Pass ImageOnlyFailure ]
 webkit.org/b/162647 http/tests/xmlhttprequest/onabort-response-getters.html [ Pass Failure ]
 
 webkit.org/b/163755 imported/w3c/web-platform-tests/css/css-shapes/shape-outside/shape-image/shape-image-025.html [ ImageOnlyFailure ]
-
-webkit.org/b/5991 imported/w3c/web-platform-tests/css/cssom-view/scrolling-quirks-vs-nonquirks.html [ Failure ]
-
-webkit.org/b/149264 imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-subframe-root.html [ Failure ]
-webkit.org/b/149264 imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-subframe-window.html [ Failure ]
 
 # Variation fonts are not implemented earlier than iOS 11.
 fast/text/variations [ Pass Failure ImageOnlyFailure ]
@@ -2988,6 +2986,8 @@ http/tests/xmlhttprequest/gzip-content-type-no-content-encoding.html [ Pass ]
 
 webkit.org/b/173041 http/tests/websocket/tests/hybi/handshake-ok-with-legacy-sec-websocket-response-headers.html [ Pass Failure ]
 
+webkit.org/b/230968 http/tests/websocket/tests/hybi/bad-handshake-crash.html [ Skip ]
+
 # WK2 spelling dot test infrastructure isn't hooked up on iOS
 webkit.org/b/190764 editing/spelling/spelling-dots-repaint.html [ Skip ]
 webkit.org/b/190764 editing/spelling/spelling-dots-position.html [ Skip ]
@@ -3388,7 +3388,7 @@ http/wpt/mediarecorder/mute-tracks.html [ Pass Failure ]
 http/wpt/mediarecorder/pause-recording.html [ Pass Crash ]
 
 # rdar://80383672 ([ iOS15 ] accessibility/misspelling-range.html is failing)
-accessibility/misspelling-range.html  [ Failure ]
+webkit.org/b/231261 accessibility/misspelling-range.html  [ Failure ]
 
 # rdar://80386523 ([ iOS15 ] fast/events/touch/ios/long-press-then-drag-to-select-text.html is failing)
 fast/events/touch/ios/long-press-then-drag-to-select-text.html  [ Failure ]

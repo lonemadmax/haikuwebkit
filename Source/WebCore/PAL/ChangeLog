@@ -1,3 +1,60 @@
+2021-10-12  Chris Dumez  <cdumez@apple.com>
+
+        Allow direct construction of WeakPtr without makeWeakPtr()
+        https://bugs.webkit.org/show_bug.cgi?id=231580
+
+        Reviewed by Darin Adler.
+
+        Allow direct construction of WeakPtr without makeWeakPtr(), and deprecate makeWeakPtr().
+
+        * pal/system/mac/SystemSleepListenerMac.mm:
+        (PAL::SystemSleepListenerMac::SystemSleepListenerMac):
+
+2021-10-12  Alex Christensen  <achristensen@webkit.org>
+
+        Remove non-HAVE(CFNETWORK_NSURLSESSION_STRICTRUSTEVALUATE) code
+        https://bugs.webkit.org/show_bug.cgi?id=231579
+
+        Reviewed by Chris Dumez.
+
+        * pal/spi/cf/CFNetworkSPI.h:
+
+2021-10-08  Devin Rousso  <drousso@apple.com>
+
+        [iOS][GPU Process] support `<attachment>`
+        https://bugs.webkit.org/show_bug.cgi?id=230781
+        <rdar://problem/70884096>
+
+        Reviewed by Myles Maxfield.
+
+        * pal/spi/cg/CoreGraphicsSPI.h:
+
+2021-10-05  Aditya Keerthi  <akeerthi@apple.com>
+
+        [iOS] Transcode videos selected from UIImagePickerController
+        https://bugs.webkit.org/show_bug.cgi?id=230639
+        rdar://79665678
+
+        Reviewed by Tim Horton.
+
+        Add AVFoundation API needed to transcode video.
+
+        * pal/cocoa/AVFoundationSoftLink.h:
+        * pal/cocoa/AVFoundationSoftLink.mm:
+
+2021-10-05  Ayumi Kojima  <ayumi_kojima@apple.com>
+
+        Unreviewed, reverting r283339.
+
+        Reverting because this commit may have caused fast/attachment
+        tests to crash
+
+        Reverted changeset:
+
+        "[iOS][GPU Process] support `<attachment>`"
+        https://bugs.webkit.org/show_bug.cgi?id=230781
+        https://commits.webkit.org/r283339
+
 2021-10-03  David Kilzer  <ddkilzer@apple.com>
 
         Build fix: Attribute IOSurfaces created by camera and decoders to responsible WebProcess

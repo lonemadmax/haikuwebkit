@@ -46,6 +46,7 @@
 #include "DocumentTimeline.h"
 #include "Editing.h"
 #include "ElementAnimationRareData.h"
+#include "ElementInlines.h"
 #include "ElementIterator.h"
 #include "ElementRareData.h"
 #include "EventDispatcher.h"
@@ -101,7 +102,7 @@
 #include "RenderWidget.h"
 #include "RuntimeEnabledFeatures.h"
 #include "SVGDocumentExtensions.h"
-#include "SVGElement.h"
+#include "SVGElementTypeHelpers.h"
 #include "SVGNames.h"
 #include "SVGSVGElement.h"
 #include "ScriptDisallowedScope.h"
@@ -918,7 +919,7 @@ void Element::scrollIntoView(std::optional<Variant<bool, ScrollIntoViewOptions>>
     ScrollIntoViewOptions options;
     if (arg) {
         auto value = arg.value();
-        if (WTF::holds_alternative<ScrollIntoViewOptions>(value))
+        if (std::holds_alternative<ScrollIntoViewOptions>(value))
             options = WTF::get<ScrollIntoViewOptions>(value);
         else if (!WTF::get<bool>(value))
             options.blockPosition = ScrollLogicalPosition::End;
@@ -1000,6 +1001,8 @@ void Element::scrollBy(double x, double y)
 
 void Element::scrollTo(const ScrollToOptions& options, ScrollClamping clamping, ScrollSnapPointSelectionMethod snapPointSelectionMethod)
 {
+    LOG_WITH_STREAM(Scrolling, stream << "Element " << *this << " scrollTo " << options.left << ", " << options.top);
+
     if (!document().settings().CSSOMViewScrollingAPIEnabled()) {
         // If the element is the root element and document is in quirks mode, terminate these steps.
         // Note that WebKit always uses quirks mode document scrolling behavior. See Document::scrollingElement().
@@ -1036,7 +1039,7 @@ void Element::scrollTo(const ScrollToOptions& options, ScrollClamping clamping, 
         clampToInteger(scrollToOptions.top.value() * renderer->style().effectiveZoom())
     );
 
-    auto animated = useSmoothScrolling(scrollToOptions.behavior.value_or(ScrollBehavior::Auto), this) ? AnimatedScroll::Yes : AnimatedScroll::No;
+    auto animated = useSmoothScrolling(scrollToOptions.behavior.value_or(ScrollBehavior::Auto), this) ? ScrollIsAnimated::Yes : ScrollIsAnimated::No;
     auto scrollPositionChangeOptions = ScrollPositionChangeOptions::createProgrammaticWithOptions(clamping, animated, snapPointSelectionMethod);
     renderer->setScrollPosition(scrollPosition, scrollPositionChangeOptions);
 }
@@ -1365,7 +1368,7 @@ void Element::setScrollLeft(int newLeft)
     document().updateLayoutIgnorePendingStylesheets();
 
     auto options = ScrollPositionChangeOptions::createProgrammatic();
-    options.animated = useSmoothScrolling(ScrollBehavior::Auto, this) ? AnimatedScroll::Yes : AnimatedScroll::No;
+    options.animated = useSmoothScrolling(ScrollBehavior::Auto, this) ? ScrollIsAnimated::Yes : ScrollIsAnimated::No;
 
     if (document().scrollingElement() == this) {
         if (auto* frame = documentFrameWithNonNullView()) {
@@ -1388,7 +1391,7 @@ void Element::setScrollTop(int newTop)
     document().updateLayoutIgnorePendingStylesheets();
 
     auto options = ScrollPositionChangeOptions::createProgrammatic();
-    options.animated = useSmoothScrolling(ScrollBehavior::Auto, this) ? AnimatedScroll::Yes : AnimatedScroll::No;
+    options.animated = useSmoothScrolling(ScrollBehavior::Auto, this) ? ScrollIsAnimated::Yes : ScrollIsAnimated::No;
 
     if (document().scrollingElement() == this) {
         if (auto* frame = documentFrameWithNonNullView()) {
@@ -3173,6 +3176,11 @@ void Element::blur()
     }
 }
 
+void Element::runFocusingStepsForAutofocus()
+{
+    focus();
+}
+
 void Element::dispatchFocusInEvent(const AtomString& eventType, RefPtr<Element>&& oldFocusedElement)
 {
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isScriptAllowed() || !isInWebProcess());
@@ -4620,7 +4628,7 @@ ExceptionOr<Ref<WebAnimation>> Element::animate(JSC::JSGlobalObject& lexicalGlob
     if (options) {
         auto optionsValue = options.value();
         Variant<double, KeyframeEffectOptions> keyframeEffectOptionsVariant;
-        if (WTF::holds_alternative<double>(optionsValue))
+        if (std::holds_alternative<double>(optionsValue))
             keyframeEffectOptionsVariant = WTF::get<double>(optionsValue);
         else {
             auto keyframeEffectOptions = WTF::get<KeyframeAnimationOptions>(optionsValue);

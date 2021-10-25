@@ -52,6 +52,8 @@ public:
     void clear(CompletionHandler<void()>&&) final;
     void clearForRegistrableDomain(const RegistrableDomain&, CompletionHandler<void()>&&) final;
     void migratePrivateClickMeasurementFromLegacyStorage(PrivateClickMeasurement&&, PrivateClickMeasurementAttributionType) final;
+    void setDebugModeIsEnabled(bool) final;
+    void firePendingAttributionRequests();
 
     void toStringForTesting(CompletionHandler<void(String)>&&) const final;
     void setOverrideTimerForTesting(bool value) final { m_isRunningTest = value; }
@@ -77,7 +79,6 @@ private:
     void attribute(const SourceSite&, const AttributionDestinationSite&, AttributionTriggerData&&, const ApplicationBundleIdentifier&);
     void fireConversionRequest(const PrivateClickMeasurement&, PrivateClickMeasurement::AttributionReportEndpoint);
     void fireConversionRequestImpl(const PrivateClickMeasurement&, PrivateClickMeasurement::AttributionReportEndpoint);
-    void firePendingAttributionRequests();
     void clearExpired();
     bool featureEnabled() const;
     bool debugModeEnabled() const;

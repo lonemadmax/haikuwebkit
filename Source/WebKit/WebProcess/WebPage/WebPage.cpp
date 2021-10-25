@@ -2729,6 +2729,11 @@ void WebPage::pageStoppedScrolling()
         frame->loader().history().saveScrollPositionAndViewStateToItem(frame->loader().history().currentItem());
 }
 
+void WebPage::setHasActiveAnimatedScrolls(bool hasActiveAnimatedScrolls)
+{
+    send(Messages::WebPageProxy::SetHasActiveAnimatedScrolls(hasActiveAnimatedScrolls));
+}
+
 #if ENABLE(CONTEXT_MENUS)
 WebContextMenu& WebPage::contextMenu()
 {
@@ -3981,6 +3986,8 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
 
 #if PLATFORM(COCOA)
     m_pdfPluginEnabled = store.getBoolValueForKey(WebPreferencesKey::pdfPluginEnabledKey());
+    
+    m_selectionFlippingEnabled = store.getBoolValueForKey(WebPreferencesKey::selectionFlippingEnabledKey());
 #endif
 #if ENABLE(PAYMENT_REQUEST)
     settings.setPaymentRequestEnabled(store.getBoolValueForKey(WebPreferencesKey::applePayEnabledKey()));

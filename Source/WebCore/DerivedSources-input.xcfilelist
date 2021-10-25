@@ -89,6 +89,8 @@ $(PROJECT_DIR)/Modules/credentialmanagement/CredentialsContainer.idl
 $(PROJECT_DIR)/Modules/credentialmanagement/Navigator+Credentials.idl
 $(PROJECT_DIR)/Modules/encryptedmedia/MediaKeyEncryptionScheme.idl
 $(PROJECT_DIR)/Modules/encryptedmedia/MediaKeyMessageEvent.idl
+$(PROJECT_DIR)/Modules/encryptedmedia/MediaKeyMessageEventInit.idl
+$(PROJECT_DIR)/Modules/encryptedmedia/MediaKeyMessageType.idl
 $(PROJECT_DIR)/Modules/encryptedmedia/MediaKeySession.idl
 $(PROJECT_DIR)/Modules/encryptedmedia/MediaKeySessionType.idl
 $(PROJECT_DIR)/Modules/encryptedmedia/MediaKeyStatusMap.idl
@@ -126,6 +128,7 @@ $(PROJECT_DIR)/Modules/fetch/WindowOrWorkerGlobalScope+Fetch.idl
 $(PROJECT_DIR)/Modules/filesystemaccess/FileSystemDirectoryHandle.idl
 $(PROJECT_DIR)/Modules/filesystemaccess/FileSystemFileHandle.idl
 $(PROJECT_DIR)/Modules/filesystemaccess/FileSystemHandle.idl
+$(PROJECT_DIR)/Modules/filesystemaccess/FileSystemSyncAccessHandle.idl
 $(PROJECT_DIR)/Modules/filesystemaccess/StorageManager+FileSystemAccess.idl
 $(PROJECT_DIR)/Modules/gamepad/Gamepad.idl
 $(PROJECT_DIR)/Modules/gamepad/GamepadButton.idl
@@ -421,10 +424,18 @@ $(PROJECT_DIR)/Modules/pictureinpicture/PictureInPictureWindow.idl
 $(PROJECT_DIR)/Modules/plugins/QuickTimePluginReplacement.css
 $(PROJECT_DIR)/Modules/plugins/QuickTimePluginReplacement.idl
 $(PROJECT_DIR)/Modules/plugins/QuickTimePluginReplacement.js
+$(PROJECT_DIR)/Modules/push-api/PushEncryptionKeyName.idl
 $(PROJECT_DIR)/Modules/push-api/PushEvent.idl
 $(PROJECT_DIR)/Modules/push-api/PushEventInit.idl
+$(PROJECT_DIR)/Modules/push-api/PushManager.idl
 $(PROJECT_DIR)/Modules/push-api/PushMessageData.idl
+$(PROJECT_DIR)/Modules/push-api/PushPermissionState.idl
+$(PROJECT_DIR)/Modules/push-api/PushSubscription.idl
+$(PROJECT_DIR)/Modules/push-api/PushSubscriptionJSON.idl
+$(PROJECT_DIR)/Modules/push-api/PushSubscriptionOptions.idl
+$(PROJECT_DIR)/Modules/push-api/PushSubscriptionOptionsInit.idl
 $(PROJECT_DIR)/Modules/push-api/ServiceWorkerGlobalScope+PushAPI.idl
+$(PROJECT_DIR)/Modules/push-api/ServiceWorkerRegistration+PushAPI.idl
 $(PROJECT_DIR)/Modules/remoteplayback/HTMLMediaElement+RemotePlayback.idl
 $(PROJECT_DIR)/Modules/remoteplayback/RemotePlayback.idl
 $(PROJECT_DIR)/Modules/remoteplayback/RemotePlaybackAvailabilityCallback.idl

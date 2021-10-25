@@ -26,6 +26,30 @@
 # They must include a humanReadableName and humanReadableDescription. This is
 #   the text exposed to the user from the WebKit client.
 
+AccentColorEnabled:
+  type: bool
+  humanReadableName: "CSS Accent Color"
+  humanReadableDescription: "Enable accent-color CSS property"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+AccessHandleEnabled:
+  type: bool
+  humanReadableName: "AccessHandle API"
+  humanReadableDescription: "Enable AccessHandle API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 AccessibilityObjectModelEnabled:
   type: bool
   humanReadableName: "Accessibility Object Model"
@@ -238,9 +262,9 @@ CSSOMViewSmoothScrollingEnabled:
   humanReadableDescription: "Enable DOM API and CSS property for 'smooth' scroll behavior"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
       default: false
 
@@ -311,6 +335,18 @@ ContactPickerAPIEnabled:
   type: bool
   humanReadableName: "Contact Picker API"
   humanReadableDescription: "Enable the Contact Picker API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+CoopCoepViolationReportingEnabled:
+  type: bool
+  humanReadableName: "COOP and COEP violations reporting"
+  humanReadableDescription: "Cross-Origin-Opener-Policy and Cross-Origin-Embedder-Policy reporting"
   defaultValue:
     WebKitLegacy:
       default: false

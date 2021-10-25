@@ -32,6 +32,7 @@
 #include "PlatformWheelEvent.h"
 #include "ScrollAnimationMomentum.h"
 #include "ScrollAnimationSmooth.h"
+#include "ScrollExtents.h"
 #include "ScrollableArea.h"
 #include "WheelEventTestMonitor.h"
 #include <wtf/text/TextStream.h>
@@ -240,10 +241,15 @@ bool ScrollingEffectsController::processWheelEventForKineticScrolling(const Plat
     if (!event.isEndOfNonMomentumScroll() && !event.isTransitioningToMomentumScroll())
         return false;
 
+    m_inScrollGesture = false;
+
     if (m_currentAnimation && !is<ScrollAnimationKinetic>(m_currentAnimation.get())) {
         m_currentAnimation->stop();
         m_currentAnimation = nullptr;
     }
+
+    if (usesScrollSnap())
+        return false;
 
     if (!m_currentAnimation)
         m_currentAnimation = makeUnique<ScrollAnimationKinetic>(*this);
@@ -267,9 +273,29 @@ bool ScrollingEffectsController::processWheelEventForKineticScrolling(const Plat
 }
 #endif
 
+void ScrollingEffectsController::adjustDeltaForSnappingIfNeeded(float& deltaX, float& deltaY)
+{
+    if (snapOffsetsInfo() && !snapOffsetsInfo()->isEmpty()) {
+        float scale = m_client.pageScaleFactor();
+        auto scrollOffset = m_client.scrollOffset();
+        auto extents = m_client.scrollExtents();
+
+        auto originalOffset = LayoutPoint(scrollOffset.x() / scale, scrollOffset.y() / scale);
+        auto newOffset = LayoutPoint((scrollOffset.x() + deltaX) / scale, (scrollOffset.y() + deltaY) / scale);
+
+        auto offsetX = snapOffsetsInfo()->closestSnapOffset(ScrollEventAxis::Horizontal, LayoutSize(extents.contentsSize), newOffset, deltaX, originalOffset.x()).first;
+        auto offsetY = snapOffsetsInfo()->closestSnapOffset(ScrollEventAxis::Vertical, LayoutSize(extents.contentsSize), newOffset, deltaY, originalOffset.y()).first;
+
+        deltaX = (offsetX - originalOffset.x()) * scale;
+        deltaY = (offsetY - originalOffset.y()) * scale;
+    }
+}
+
 bool ScrollingEffectsController::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
 {
 #if ENABLE(KINETIC_SCROLLING)
+    m_inScrollGesture = wheelEvent.hasPreciseScrollingDeltas() && !wheelEvent.isEndOfNonMomentumScroll() && !wheelEvent.isTransitioningToMomentumScroll();
+
     if (processWheelEventForKineticScrolling(wheelEvent))
         return true;
 #endif
@@ -287,9 +313,6 @@ bool ScrollingEffectsController::handleWheelEvent(const PlatformWheelEvent& whee
     if ((deltaY < 0 && scrollOffset.y() >= maxPosition.y())
         || (deltaY > 0 && scrollOffset.y() <= minPosition.y()))
         deltaY = 0;
-
-    if (!deltaX && !deltaY)
-        return false;
 
     if (wheelEvent.granularity() == ScrollByPageWheelEvent) {
         if (deltaX) {
@@ -309,20 +332,14 @@ bool ScrollingEffectsController::handleWheelEvent(const PlatformWheelEvent& whee
     deltaX = -deltaX;
     deltaY = -deltaY;
 
-    if (snapOffsetsInfo() && !snapOffsetsInfo()->isEmpty()) {
-        float scale = m_client.pageScaleFactor();
-        auto originalOffset = LayoutPoint(scrollOffset.x() / scale, scrollOffset.y() / scale);
-        auto newOffset = LayoutPoint((scrollOffset.x() + deltaX) / scale, (scrollOffset.y() + deltaY) / scale);
+    if (!m_inScrollGesture)
+        adjustDeltaForSnappingIfNeeded(deltaX, deltaY);
 
-        auto offsetX = snapOffsetsInfo()->closestSnapOffset(ScrollEventAxis::Horizontal, LayoutSize(extents.contentsSize), newOffset, deltaX, originalOffset.x()).first;
-        auto offsetY = snapOffsetsInfo()->closestSnapOffset(ScrollEventAxis::Vertical, LayoutSize(extents.contentsSize), newOffset, deltaY, originalOffset.y()).first;
-
-        deltaX = (offsetX - originalOffset.x()) * scale;
-        deltaY = (offsetY - originalOffset.y()) * scale;
-    }
+    if (!deltaX && !deltaY)
+        return false;
 
 #if ENABLE(SMOOTH_SCROLLING)
-    if (m_client.scrollAnimationEnabled() && !wheelEvent.hasPreciseScrollingDeltas()) {
+    if (m_client.scrollAnimationEnabled() && !m_inScrollGesture) {
         if (is<ScrollAnimationSmooth>(m_currentAnimation.get())) {
             auto lastDestinationOffset = downcast<ScrollAnimationSmooth>(*m_currentAnimation).destinationOffset();
             retargetAnimatedScroll(lastDestinationOffset + FloatSize { deltaX, deltaY });
@@ -335,6 +352,22 @@ bool ScrollingEffectsController::handleWheelEvent(const PlatformWheelEvent& whee
     m_client.immediateScrollBy({ deltaX, deltaY });
 
     return true;
+}
+
+bool ScrollingEffectsController::isUserScrollInProgress() const
+{
+    return m_inScrollGesture;
+}
+
+bool ScrollingEffectsController::isScrollSnapInProgress() const
+{
+    if (!usesScrollSnap())
+        return false;
+
+    if (m_inScrollGesture || (m_currentAnimation && m_currentAnimation->isActive()))
+        return true;
+
+    return false;
 }
 #endif
 
@@ -424,7 +457,8 @@ void ScrollingEffectsController::scrollAnimationDidEnd(ScrollAnimation& animatio
         stopScrollSnapAnimation();
     }
 
-    m_client.setScrollBehaviorStatus(ScrollBehaviorStatus::NotInAnimation);
+    // FIXME: Need to track state better and only call this when the running animation is for CSS smooth scrolling. Calling should be harmless, though.
+    m_client.didStopAnimatedScroll();
     startOrStopAnimationCallbacks();
 }
 

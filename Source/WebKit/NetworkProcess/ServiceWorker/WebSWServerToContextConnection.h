@@ -93,6 +93,7 @@ private:
     void didSaveScriptsToDisk(WebCore::ServiceWorkerIdentifier, const WebCore::ScriptBuffer&, const HashMap<URL, WebCore::ScriptBuffer>& importedScripts) final;
     void findClientByIdentifierCompleted(uint64_t requestIdentifier, const std::optional<WebCore::ServiceWorkerClientData>&, bool hasSecurityError) final;
     void matchAllCompleted(uint64_t requestIdentifier, const Vector<WebCore::ServiceWorkerClientData>&) final;
+    void firePushEvent(WebCore::ServiceWorkerIdentifier, const std::optional<Vector<uint8_t>>&, CompletionHandler<void(bool)>&&) final;
 
     void connectionIsNoLongerNeeded() final;
     void terminateDueToUnresponsiveness() final;
@@ -104,6 +105,7 @@ private:
     HashMap<WebCore::FetchIdentifier, WeakPtr<ServiceWorkerFetchTask>> m_ongoingFetches;
     bool m_isThrottleable { true };
     WebPageProxyIdentifier m_webPageProxyID;
+    size_t m_processingPushEventsCount { 0 };
 }; // class WebSWServerToContextConnection
 
 } // namespace WebKit

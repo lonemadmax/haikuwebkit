@@ -79,6 +79,7 @@
 #import "VisibleUnits.h"
 #import "WebCoreFrameView.h"
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
 using namespace WebCore;
@@ -1571,6 +1572,12 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         [tempArray addObject:NSAccessibilityURLAttribute];
         return tempArray;
     }());
+    static auto videoAttrs = makeNeverDestroyed([] {
+        auto tempArray = adoptNS([[NSMutableArray alloc] initWithArray:attributes.get().get()]);
+        // This should represent the URL of the video content, not the poster.
+        [tempArray addObject:NSAccessibilityURLAttribute];
+        return tempArray;
+    }());
 
     NSArray *objectAttributes = attributes.get().get();
 
@@ -1636,6 +1643,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         objectAttributes = menuButtonAttrs.get().get();
     else if (backingObject->isMenuItem())
         objectAttributes = menuItemAttrs.get().get();
+    else if (backingObject->isVideo())
+        objectAttributes = videoAttrs.get().get();
 
     NSArray *additionalAttributes = [self additionalAccessibilityAttributeNames];
     if ([additionalAttributes count])
@@ -2291,48 +2300,17 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
             if ([[[self attachmentView] accessibilityAttributeNames] containsObject:NSAccessibilityValueAttribute])
                 return [[self attachmentView] accessibilityAttributeValue:NSAccessibilityValueAttribute];
         }
-        if (backingObject->supportsRangeValue())
-            return [NSNumber numberWithFloat:backingObject->valueForRange()];
-        if (backingObject->roleValue() == AccessibilityRole::SliderThumb)
-            return [NSNumber numberWithFloat:backingObject->parentObject()->valueForRange()];
-        if (backingObject->isHeading())
-            return @(backingObject->headingLevel());
 
-        if (backingObject->supportsCheckedState()) {
-            switch (backingObject->checkboxOrRadioValue()) {
-            case AccessibilityButtonState::Off:
-                return @(0);
-            case AccessibilityButtonState::On:
-                return @(1);
-            case AccessibilityButtonState::Mixed:
-                return @(2);
-            }
-        }
-
-        // radio groups return the selected radio button as the AXValue
-        if (backingObject->isRadioGroup()) {
-            AXCoreObject* radioButton = backingObject->selectedRadioButton();
-            if (!radioButton)
-                return nil;
-            return radioButton->wrapper();
-        }
-
-        if (backingObject->isTabList()) {
-            AXCoreObject* tabItem = backingObject->selectedTabItem();
-            if (!tabItem)
-                return nil;
-            return tabItem->wrapper();
-        }
-
-        if (backingObject->isTabItem())
-            return @(backingObject->isSelected());
-
-        if (backingObject->isColorWell()) {
-            auto color = convertColor<SRGBA<float>>(backingObject->colorValue());
-            return [NSString stringWithFormat:@"rgb %7.5f %7.5f %7.5f 1", color.red, color.green, color.blue];
-        }
-
-        return backingObject->stringValue();
+        auto value = backingObject->value();
+        return WTF::switchOn(value,
+            [] (bool& typedValue) -> id { return @(typedValue); },
+            [] (unsigned& typedValue) -> id { return @(typedValue); },
+            [] (float& typedValue) -> id { return @(typedValue); },
+            [] (String& typedValue) -> id { return (NSString *)typedValue; },
+            [] (AccessibilityButtonState& typedValue) -> id { return @((unsigned)typedValue); },
+            [] (AXCoreObject*& typedValue) { return typedValue ? (id)typedValue->wrapper() : nil; },
+            [] (auto&) { return nil; }
+        );
     }
 
     if ([attributeName isEqualToString:(NSString *)kAXMenuItemMarkCharAttribute]) {
@@ -2411,36 +2389,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         }
     }
 
-    if ([attributeName isEqualToString:NSAccessibilityContentsAttribute]) {
-        // The contents of a tab list are all the children except the tabs.
-        if (backingObject->isTabList()) {
-            auto children = self.childrenVectorArray;
-            AccessibilityObject::AccessibilityChildrenVector tabs;
-            backingObject->tabChildren(tabs);
-            auto tabsChildren = convertToNSArray(tabs);
-
-            NSMutableArray *contents = [NSMutableArray array];
-            for (id childWrapper in children) {
-                if ([tabsChildren containsObject:childWrapper])
-                    [contents addObject:childWrapper];
-            }
-            return contents;
-        }
-
-        if (backingObject->isScrollView()) {
-            // A scrollView's contents are everything except the scroll bars.
-            auto children = self.childrenVectorArray;
-            NSMutableArray *contents = [NSMutableArray array];
-
-            for (WebAccessibilityObjectWrapper *childWrapper in children) {
-                if (auto backingObject = [childWrapper axBackingObject]) {
-                    if (!backingObject->isScrollbar())
-                        [contents addObject:childWrapper];
-                }
-            }
-            return contents;
-        }
-    }
+    if ([attributeName isEqualToString:NSAccessibilityContentsAttribute])
+        return convertToNSArray(backingObject->contents());
 
     if (backingObject->isTable() && backingObject->isExposable()) {
         if ([attributeName isEqualToString:NSAccessibilityRowsAttribute])
@@ -2775,10 +2725,16 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     // MathML Attributes.
     if (backingObject->isMathElement()) {
-        if ([attributeName isEqualToString:NSAccessibilityMathRootIndexAttribute])
-            return (backingObject->mathRootIndexObject()) ? backingObject->mathRootIndexObject()->wrapper() : 0;
-        if ([attributeName isEqualToString:NSAccessibilityMathRootRadicandAttribute])
-            return (backingObject->mathRadicandObject()) ? backingObject->mathRadicandObject()->wrapper() : 0;
+        if ([attributeName isEqualToString:NSAccessibilityMathRootIndexAttribute]) {
+            auto* rootIndex = backingObject->mathRootIndexObject();
+            return rootIndex ? rootIndex->wrapper() : nil;
+        }
+
+        if ([attributeName isEqualToString:NSAccessibilityMathRootRadicandAttribute]) {
+            auto radicand = backingObject->mathRadicand();
+            return radicand ? convertToNSArray(*radicand) : nil;
+        }
+
         if ([attributeName isEqualToString:NSAccessibilityMathFractionNumeratorAttribute])
             return (backingObject->mathNumeratorObject()) ? backingObject->mathNumeratorObject()->wrapper() : 0;
         if ([attributeName isEqualToString:NSAccessibilityMathFractionDenominatorAttribute])
@@ -4130,7 +4086,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
                 return nil;
 
             CharacterOffset characterOffset = characterOffsetForTextMarker(cache, textMarker);
-            return [protectedSelf nextTextMarkerForCharacterOffset:characterOffset].bridgingAutorelease();
+            return bridge_id_cast([protectedSelf nextTextMarkerForCharacterOffset:characterOffset]);
         });
     }
 
@@ -4145,7 +4101,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
                 return nil;
 
             CharacterOffset characterOffset = characterOffsetForTextMarker(cache, textMarker);
-            return [protectedSelf previousTextMarkerForCharacterOffset:characterOffset].bridgingAutorelease();
+            return bridge_id_cast([protectedSelf previousTextMarkerForCharacterOffset:characterOffset]);
         });
     }
 

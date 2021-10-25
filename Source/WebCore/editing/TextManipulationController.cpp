@@ -51,7 +51,7 @@ namespace WebCore {
 
 inline bool TextManipulationController::ExclusionRule::match(const Element& element) const
 {
-    return switchOn(rule, [&element] (ElementRule rule) {
+    return WTF::switchOn(rule, [&element] (ElementRule rule) {
         return rule.localName == element.localName();
     }, [&element] (AttributeRule rule) {
         return equalIgnoringASCIICase(element.getAttribute(rule.name), rule.value);
@@ -574,7 +574,7 @@ void TextManipulationController::scheduleObservationUpdate()
 
     m_didScheduleObservationUpdate = true;
 
-    m_document->eventLoop().queueTask(TaskSource::InternalAsyncTask, [weakThis = makeWeakPtr(*this)] {
+    m_document->eventLoop().queueTask(TaskSource::InternalAsyncTask, [weakThis = WeakPtr { *this }] {
         auto* controller = weakThis.get();
         if (!controller)
             return;

@@ -27,7 +27,7 @@
 
 #pragma once
 
-#include "DisplayListFlushIdentifier.h"
+#include "GraphicsContextFlushIdentifier.h"
 #include "ImageBufferBackend.h"
 #include "RenderingMode.h"
 #include "RenderingResourceIdentifier.h"
@@ -50,7 +50,7 @@ public:
 
     // Create an image buffer compatible with the context, with suitable resolution for drawing into the buffer and then into this context.
     static RefPtr<ImageBuffer> createCompatibleBuffer(const FloatSize&, const GraphicsContext&);
-    static RefPtr<ImageBuffer> createCompatibleBuffer(const FloatSize&, const DestinationColorSpace&, const GraphicsContext&);
+    WEBCORE_EXPORT static RefPtr<ImageBuffer> createCompatibleBuffer(const FloatSize&, const DestinationColorSpace&, const GraphicsContext&);
     static RefPtr<ImageBuffer> createCompatibleBuffer(const FloatSize&, float resolutionScale, const DestinationColorSpace&, const GraphicsContext&);
 
     // These functions are used when clamping the ImageBuffer which is created for filter, masker or clipper.
@@ -76,11 +76,11 @@ public:
     virtual GraphicsContext& context() const = 0;
     virtual void flushContext() = 0;
 
-    virtual DisplayList::DrawingContext* drawingContext() { return nullptr; }
+    virtual GraphicsContext* drawingContext() { return nullptr; }
     virtual bool prefersPreparationForDisplay() { return false; }
     virtual void flushDrawingContext() { }
     virtual void flushDrawingContextAsync() { }
-    virtual void didFlush(DisplayList::FlushIdentifier) { }
+    virtual void didFlush(GraphicsContextFlushIdentifier) { }
 
     virtual void changeDestinationImageBuffer(RenderingResourceIdentifier) { }
     virtual void prepareToAppendDisplayListItems(DisplayList::ItemBufferHandle&&) { }
@@ -141,7 +141,5 @@ protected:
     virtual RefPtr<Image> sinkIntoImage(PreserveResolution = PreserveResolution::No) = 0;
     virtual void drawConsuming(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions&) = 0;
 };
-
-using ImageBufferHashMap = HashMap<RenderingResourceIdentifier, Ref<ImageBuffer>>;
 
 } // namespace WebCore

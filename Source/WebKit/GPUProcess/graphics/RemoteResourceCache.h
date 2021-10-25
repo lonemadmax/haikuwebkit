@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc.  All rights reserved.
+ * Copyright (C) 2020-2021 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,9 +27,11 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "QualifiedRenderingResourceIdentifier.h"
 #include <WebCore/Font.h>
 #include <WebCore/ImageBuffer.h>
 #include <WebCore/NativeImage.h>
+#include <WebCore/ProcessIdentifier.h>
 #include <WebCore/RenderingResourceIdentifier.h>
 #include <wtf/HashMap.h>
 
@@ -39,20 +41,20 @@ class RemoteRenderingBackend;
 
 class RemoteResourceCache {
 public:
-    RemoteResourceCache() = default;
+    RemoteResourceCache(WebCore::ProcessIdentifier webProcessIdentifier);
     RemoteResourceCache(RemoteResourceCache&&);
 
-    void cacheImageBuffer(Ref<WebCore::ImageBuffer>&&);
-    WebCore::ImageBuffer* cachedImageBuffer(WebCore::RenderingResourceIdentifier);
-    void cacheNativeImage(Ref<WebCore::NativeImage>&&);
-    void cacheFont(Ref<WebCore::Font>&&);
+    void cacheImageBuffer(Ref<WebCore::ImageBuffer>&&, QualifiedRenderingResourceIdentifier);
+    WebCore::ImageBuffer* cachedImageBuffer(QualifiedRenderingResourceIdentifier) const;
+    void cacheNativeImage(Ref<WebCore::NativeImage>&&, QualifiedRenderingResourceIdentifier);
+    WebCore::NativeImage* cachedNativeImage(QualifiedRenderingResourceIdentifier) const;
+    void cacheFont(Ref<WebCore::Font>&&, QualifiedRenderingResourceIdentifier);
+    WebCore::Font* cachedFont(QualifiedRenderingResourceIdentifier) const;
     void deleteAllFonts();
-    bool releaseRemoteResource(WebCore::RenderingResourceIdentifier, uint64_t useCount);
-    void recordResourceUse(WebCore::RenderingResourceIdentifier);
+    bool releaseRemoteResource(QualifiedRenderingResourceIdentifier, uint64_t useCount);
+    void recordResourceUse(QualifiedRenderingResourceIdentifier);
 
-    const WebCore::ImageBufferHashMap& imageBuffers() const { return m_imageBuffers; }
-    const WebCore::NativeImageHashMap& nativeImages() const { return m_nativeImages; }
-    const WebCore::FontRenderingResourceMap& fonts() const { return m_fonts; }
+    const WebCore::DisplayList::ResourceHeap& resourceHeap() const { return m_resourceHeap; }
 
     bool hasActiveDrawables() const { return m_hasActiveDrawables; }
 
@@ -76,16 +78,16 @@ private:
         ResourceState state { ResourceState::Alive };
         int64_t useOrPendingCount { 0 };
     };
-    using ResourceUseCountersMap = HashMap<WebCore::RenderingResourceIdentifier, ResourceUseCounter>;
+    using ResourceUseCountersMap = HashMap<QualifiedRenderingResourceIdentifier, ResourceUseCounter>;
 
-    bool maybeRemoveResource(WebCore::RenderingResourceIdentifier, ResourceUseCountersMap::iterator&);
-    void ensureResourceUseCounter(WebCore::RenderingResourceIdentifier);
+    bool maybeRemoveResource(QualifiedRenderingResourceIdentifier, ResourceUseCountersMap::iterator&);
+    void ensureResourceUseCounter(QualifiedRenderingResourceIdentifier);
 
     void updateHasActiveDrawables();
 
-    WebCore::ImageBufferHashMap m_imageBuffers;
-    WebCore::NativeImageHashMap m_nativeImages;
-    WebCore::FontRenderingResourceMap m_fonts;
+    WebCore::ProcessIdentifier m_webProcessIdentifier;
+
+    WebCore::DisplayList::ResourceHeap m_resourceHeap;
     std::atomic<bool> m_hasActiveDrawables { false };
 
     ResourceUseCountersMap m_resourceUseCounters;

@@ -536,41 +536,101 @@ void RenderThemeIOS::adjustTextFieldStyle(RenderStyle& style, const Element* ele
     if (!element)
         return;
 
+    bool hasTextfieldAppearance = false;
     // Do not force a background color for elements that have a textfield
     // appearance by default, so that their background color can be styled.
     if (is<HTMLInputElement>(*element)) {
         auto& input = downcast<HTMLInputElement>(*element);
         // <input type=search> is the only TextFieldInputType that has a
         // non-textfield appearance value.
-        if (input.isTextField() && !input.isSearchField())
-            return;
+        hasTextfieldAppearance = input.isTextField() && !input.isSearchField();
     }
+
+    bool useAlternateDesign = element->document().settings().alternateFormControlDesignEnabled();
+    if (useAlternateDesign) {
+        if (hasTextfieldAppearance)
+            style.setBackgroundColor(Color::transparentBlack);
+        else
+            style.setBackgroundColor(systemColor(CSSValueWebkitControlBackground, element->document().styleColorOptions(&style)));
+        style.resetBorderExceptRadius();
+        return;
+    }
+
+    if (hasTextfieldAppearance)
+        return;
 
     style.setBackgroundColor(systemColor(CSSValueWebkitControlBackground, element->document().styleColorOptions(&style)));
 }
 
-void RenderThemeIOS::paintTextFieldDecorations(const RenderObject& box, const PaintInfo& paintInfo, const FloatRect& rect)
+void RenderThemeIOS::paintTextFieldInnerShadow(const PaintInfo& paintInfo, const FloatRoundedRect& roundedRect)
 {
-#if ENABLE(IOS_FORM_CONTROL_REFRESH)
-    if (box.settings().iOSFormControlRefreshEnabled())
-        return;
-#endif
+    auto& context = paintInfo.context();
+
+    const FloatSize innerShadowOffset { 0, 5 };
+    constexpr auto innerShadowBlur = 10.0f;
+    auto innerShadowColor = DisplayP3<float> { 0, 0, 0, 0.04f };
+    context.setShadow(innerShadowOffset, innerShadowBlur, innerShadowColor);
+    context.setFillColor(Color::black);
+
+    Path innerShadowPath;
+    FloatRect innerShadowRect = roundedRect.rect();
+    innerShadowRect.inflate(std::max<float>(innerShadowOffset.width(), innerShadowOffset.height()) + innerShadowBlur);
+    innerShadowPath.addRect(innerShadowRect);
+
+    FloatRoundedRect innerShadowHoleRect = roundedRect;
+    // FIXME: This is not from the spec; but without it we get antialiasing fringe from the fill; we need a better solution.
+    innerShadowHoleRect.inflate(0.5);
+    innerShadowPath.addRoundedRect(innerShadowHoleRect);
+
+    context.setFillRule(WindRule::EvenOdd);
+    context.fillPath(innerShadowPath);
+}
+
+void RenderThemeIOS::paintTextFieldDecorations(const RenderBox& box, const PaintInfo& paintInfo, const FloatRect& rect)
+{
+    auto& context = paintInfo.context();
+    GraphicsContextStateSaver stateSaver(context);
 
     auto& style = box.style();
-    FloatPoint point(rect.x() + style.borderLeftWidth(), rect.y() + style.borderTopWidth());
+    auto roundedRect = style.getRoundedBorderFor(LayoutRect(rect)).pixelSnappedRoundedRectForPainting(box.document().deviceScaleFactor());
 
-    GraphicsContextStateSaver stateSaver(paintInfo.context());
+#if ENABLE(IOS_FORM_CONTROL_REFRESH)
+    if (box.settings().iOSFormControlRefreshEnabled()) {
+        bool shouldPaintFillAndInnerShadow = false;
+        auto element = box.element();
+        if (is<HTMLInputElement>(*element)) {
+            auto& input = downcast<HTMLInputElement>(*element);
+            if (input.isTextField() && !input.isSearchField())
+                shouldPaintFillAndInnerShadow = true;
+        }
 
-    paintInfo.context().clipRoundedRect(style.getRoundedBorderFor(LayoutRect(rect)).pixelSnappedRoundedRectForPainting(box.document().deviceScaleFactor()));
+        bool useAlternateDesign = box.settings().alternateFormControlDesignEnabled();
+        if (useAlternateDesign && shouldPaintFillAndInnerShadow) {
+            Path path;
+            path.addRoundedRect(roundedRect);
+
+            context.setFillColor(Color::black.colorWithAlphaByte(10));
+            context.drawPath(path);
+            context.clipPath(path);
+            paintTextFieldInnerShadow(paintInfo, roundedRect);
+        }
+
+        return;
+    }
+#endif
+
+    context.clipRoundedRect(roundedRect);
 
     // This gradient gets drawn black when printing.
     // Do not draw the gradient if there is no visible top border.
     bool topBorderIsInvisible = !style.hasBorder() || !style.borderTopWidth() || style.borderTopIsTransparent();
-    if (!box.view().printing() && !topBorderIsInvisible)
-        drawAxialGradient(paintInfo.context().platformContext(), gradientWithName(InsetGradient), point, FloatPoint(CGPointMake(point.x(), point.y() + 3.0f)), LinearInterpolation);
+    if (!box.view().printing() && !topBorderIsInvisible) {
+        FloatPoint point(rect.x() + style.borderLeftWidth(), rect.y() + style.borderTopWidth());
+        drawAxialGradient(context.platformContext(), gradientWithName(InsetGradient), point, FloatPoint(CGPointMake(point.x(), point.y() + 3.0f)), LinearInterpolation);
+    }
 }
 
-void RenderThemeIOS::paintTextAreaDecorations(const RenderObject& box, const PaintInfo& paintInfo, const FloatRect& rect)
+void RenderThemeIOS::paintTextAreaDecorations(const RenderBox& box, const PaintInfo& paintInfo, const FloatRect& rect)
 {
     paintTextFieldDecorations(box, paintInfo, rect);
 }
@@ -1101,7 +1161,7 @@ void RenderThemeIOS::adjustSearchFieldStyle(RenderStyle& style, const Element* e
     adjustRoundBorderRadius(style, *box);
 }
 
-void RenderThemeIOS::paintSearchFieldDecorations(const RenderObject& box, const PaintInfo& paintInfo, const IntRect& rect)
+void RenderThemeIOS::paintSearchFieldDecorations(const RenderBox& box, const PaintInfo& paintInfo, const IntRect& rect)
 {
     paintTextFieldDecorations(box, paintInfo, rect);
 }
@@ -2007,10 +2067,10 @@ void RenderThemeIOS::paintSystemPreviewBadge(Image& image, const PaintInfo& pain
             m_largeBadgeSurface = IOSurface::create({ largeBadgeDimension, largeBadgeDimension }, DestinationColorSpace::SRGB());
         surface = m_largeBadgeSurface->surface();
     }
-    [m_ciContext.get() render:translatedImage toIOSurface:surface bounds:badgeRect colorSpace:sRGBColorSpaceRef()];
+    [m_ciContext render:translatedImage toIOSurface:surface bounds:badgeRect colorSpace:sRGBColorSpaceRef()];
     cgImage = useSmallBadge ? m_smallBadgeSurface->createImage() : m_largeBadgeSurface->createImage();
 #else
-    cgImage = adoptCF([m_ciContext.get() createCGImage:sourceOverFilter.outputImage fromRect:flippedInsetBadgeRect]);
+    cgImage = adoptCF([m_ciContext createCGImage:sourceOverFilter.outputImage fromRect:flippedInsetBadgeRect]);
 #endif
 
     // Before we render the result, we should clip to a circle around the badge rectangle.
@@ -2058,18 +2118,44 @@ Color RenderThemeIOS::checkboxRadioBorderColor(OptionSet<ControlStates::States> 
     return defaultBorderColor;
 }
 
-Color RenderThemeIOS::checkboxRadioBackgroundColor(OptionSet<ControlStates::States> states, OptionSet<StyleColor::Options> styleColorOptions)
+Color RenderThemeIOS::checkboxRadioBackgroundColor(bool useAlternateDesign, OptionSet<ControlStates::States> states, OptionSet<StyleColor::Options> styleColorOptions)
 {
-    bool empty = !states.containsAny({ ControlStates::States::Checked, ControlStates::States::Indeterminate });
+    bool isEmpty = !states.containsAny({ ControlStates::States::Checked, ControlStates::States::Indeterminate });
+    bool isEnabled = states.contains(ControlStates::States::Enabled);
+    bool isPressed = states.contains(ControlStates::States::Pressed);
 
-    if (!states.contains(ControlStates::States::Enabled))
-        return systemColor(empty ? CSSValueWebkitControlBackground : CSSValueAppleSystemOpaqueTertiaryFill, styleColorOptions);
+    if (useAlternateDesign) {
+        // FIXME (rdar://problem/83895064): The disabled state for the alternate appearance is currently unspecified; this is just a guess.
+        if (!isEnabled)
+            return systemColor(isEmpty ? CSSValueWebkitControlBackground : CSSValueAppleSystemOpaqueTertiaryFill, styleColorOptions);
 
-    auto enabledBackgroundColor = systemColor(empty ? CSSValueWebkitControlBackground : CSSValueAppleSystemBlue, styleColorOptions);
-    if (states.contains(ControlStates::States::Pressed))
+        if (isPressed)
+            return isEmpty ? Color(DisplayP3<float> { 0.773, 0.773, 0.773 }) : Color(DisplayP3<float> { 0.067, 0.38, 0.953 });
+
+        return isEmpty ? Color(DisplayP3<float> { 0.835, 0.835, 0.835 }) : Color(DisplayP3<float> { 0.203, 0.47, 0.964 });
+    }
+
+    if (!isEnabled)
+        return systemColor(isEmpty ? CSSValueWebkitControlBackground : CSSValueAppleSystemOpaqueTertiaryFill, styleColorOptions);
+
+    auto enabledBackgroundColor = systemColor(isEmpty ? CSSValueWebkitControlBackground : CSSValueAppleSystemBlue, styleColorOptions);
+    if (isPressed)
         return enabledBackgroundColor.colorWithAlphaMultipliedBy(pressedStateOpacity);
 
     return enabledBackgroundColor;
+}
+
+RefPtr<Gradient> RenderThemeIOS::checkboxRadioBackgroundGradient(const FloatRect& rect, OptionSet<ControlStates::States> states)
+{
+    bool isPressed = states.contains(ControlStates::States::Pressed);
+    if (isPressed)
+        return nullptr;
+
+    bool isEmpty = !states.containsAny({ ControlStates::States::Checked, ControlStates::States::Indeterminate });
+    auto gradient = Gradient::create(Gradient::LinearData { rect.minXMinYCorner(), rect.maxXMaxYCorner() });
+    gradient->addColorStop({ 0.0f, DisplayP3<float> { 0, 0, 0, isEmpty ? 0.05f : 0.125f }});
+    gradient->addColorStop({ 1.0f, DisplayP3<float> { 0, 0, 0, 0 }});
+    return gradient;
 }
 
 Color RenderThemeIOS::checkboxRadioIndicatorColor(OptionSet<ControlStates::States> states, OptionSet<StyleColor::Options> styleColorOptions)
@@ -2084,10 +2170,52 @@ Color RenderThemeIOS::checkboxRadioIndicatorColor(OptionSet<ControlStates::State
     return enabledIndicatorColor;
 }
 
+void RenderThemeIOS::paintCheckboxRadioInnerShadow(const PaintInfo& paintInfo, const FloatRoundedRect& roundedRect, OptionSet<ControlStates::States> states)
+{
+    auto& context = paintInfo.context();
+    GraphicsContextStateSaver stateSaver { context };
+
+    if (auto gradient = checkboxRadioBackgroundGradient(roundedRect.rect(), states)) {
+        context.setFillGradient(*gradient);
+
+        Path path;
+        path.addRoundedRect(roundedRect);
+        context.fillPath(path);
+    }
+
+    const FloatSize innerShadowOffset { 2, 2 };
+    constexpr auto innerShadowBlur = 3.0f;
+
+    bool isEmpty = !states.containsAny({ ControlStates::States::Checked, ControlStates::States::Indeterminate });
+    auto firstShadowColor = DisplayP3<float> { 0, 0, 0, isEmpty ? 0.05f : 0.1f };
+    context.setShadow(innerShadowOffset, innerShadowBlur, firstShadowColor);
+    context.setFillColor(Color::black);
+
+    Path innerShadowPath;
+    FloatRect innerShadowRect = roundedRect.rect();
+    innerShadowRect.inflate(std::max<float>(innerShadowOffset.width(), innerShadowOffset.height()) + innerShadowBlur);
+    innerShadowPath.addRect(innerShadowRect);
+
+    FloatRoundedRect innerShadowHoleRect = roundedRect;
+    // FIXME: This is not from the spec; but without it we get antialiasing fringe from the fill; we need a better solution.
+    innerShadowHoleRect.inflate(0.5);
+    innerShadowPath.addRoundedRect(innerShadowHoleRect);
+
+    context.setFillRule(WindRule::EvenOdd);
+    context.fillPath(innerShadowPath);
+
+    constexpr auto secondShadowColor = DisplayP3<float> { 1, 1, 1, 0.5f };
+    context.setShadow(FloatSize { 0, 0 }, 1, secondShadowColor);
+
+    context.fillPath(innerShadowPath);
+}
+
 bool RenderThemeIOS::paintCheckbox(const RenderObject& box, const PaintInfo& paintInfo, const FloatRect& rect)
 {
     if (!box.settings().iOSFormControlRefreshEnabled())
         return true;
+
+    bool useAlternateDesign = box.settings().alternateFormControlDesignEnabled();
 
     auto& context = paintInfo.context();
     GraphicsContextStateSaver stateSaver { context };
@@ -2100,7 +2228,7 @@ bool RenderThemeIOS::paintCheckbox(const RenderObject& box, const PaintInfo& pai
     auto controlStates = extractControlStatesForRenderer(box);
     auto styleColorOptions = box.styleColorOptions();
 
-    auto backgroundColor = checkboxRadioBackgroundColor(controlStates, styleColorOptions);
+    auto backgroundColor = checkboxRadioBackgroundColor(useAlternateDesign, controlStates, styleColorOptions);
 
     bool checked = controlStates.contains(ControlStates::States::Checked);
     bool indeterminate = controlStates.contains(ControlStates::States::Indeterminate);
@@ -2109,16 +2237,28 @@ bool RenderThemeIOS::paintCheckbox(const RenderObject& box, const PaintInfo& pai
     if (empty) {
         Path path;
         path.addRoundedRect(checkboxRect);
-        context.setStrokeColor(checkboxRadioBorderColor(controlStates, styleColorOptions));
-        context.setStrokeThickness(checkboxRadioBorderWidth * 2);
-        context.setStrokeStyle(SolidStroke);
+        if (!useAlternateDesign) {
+            context.setStrokeColor(checkboxRadioBorderColor(controlStates, styleColorOptions));
+            context.setStrokeThickness(checkboxRadioBorderWidth * 2);
+            context.setStrokeStyle(SolidStroke);
+        }
+            
         context.setFillColor(backgroundColor);
         context.clipPath(path);
         context.drawPath(path);
+
+        if (useAlternateDesign)
+            paintCheckboxRadioInnerShadow(paintInfo, checkboxRect, controlStates);
+
         return false;
     }
 
     context.fillRoundedRect(checkboxRect, backgroundColor);
+
+    if (useAlternateDesign) {
+        context.clipRoundedRect(checkboxRect);
+        paintCheckboxRadioInnerShadow(paintInfo, checkboxRect, controlStates);
+    }
 
     Path path;
     if (checked) {
@@ -2163,17 +2303,26 @@ bool RenderThemeIOS::paintRadio(const RenderObject& box, const PaintInfo& paintI
     if (!box.settings().iOSFormControlRefreshEnabled())
         return true;
 
+    bool useAlternateDesign = box.settings().alternateFormControlDesignEnabled();
+
     auto& context = paintInfo.context();
     GraphicsContextStateSaver stateSaver(context);
 
     auto controlStates = extractControlStatesForRenderer(box);
     auto styleColorOptions = box.styleColorOptions();
 
-    auto backgroundColor = checkboxRadioBackgroundColor(controlStates, styleColorOptions);
+    auto backgroundColor = checkboxRadioBackgroundColor(useAlternateDesign, controlStates, styleColorOptions);
+
+    FloatRoundedRect radioRect { rect, FloatRoundedRect::Radii(rect.width() / 2, rect.height() / 2) };
 
     if (controlStates.contains(ControlStates::States::Checked)) {
         context.setFillColor(backgroundColor);
         context.fillEllipse(rect);
+
+        if (useAlternateDesign) {
+            context.clipRoundedRect(radioRect);
+            paintCheckboxRadioInnerShadow(paintInfo, radioRect, controlStates);
+        }
 
         // The inner circle is 6 / 14 the size of the surrounding circle,
         // leaving 8 / 14 around it. (8 / 14) / 2 = 2 / 7.
@@ -2188,12 +2337,17 @@ bool RenderThemeIOS::paintRadio(const RenderObject& box, const PaintInfo& paintI
     } else {
         Path path;
         path.addEllipse(rect);
-        context.setStrokeColor(checkboxRadioBorderColor(controlStates, styleColorOptions));
-        context.setStrokeThickness(checkboxRadioBorderWidth * 2);
-        context.setStrokeStyle(SolidStroke);
+        if (!useAlternateDesign) {
+            context.setStrokeColor(checkboxRadioBorderColor(controlStates, styleColorOptions));
+            context.setStrokeThickness(checkboxRadioBorderWidth * 2);
+            context.setStrokeStyle(SolidStroke);
+        }
         context.setFillColor(backgroundColor);
         context.clipPath(path);
         context.drawPath(path);
+
+        if (useAlternateDesign)
+            paintCheckboxRadioInnerShadow(paintInfo, radioRect, controlStates);
     }
 
     return false;

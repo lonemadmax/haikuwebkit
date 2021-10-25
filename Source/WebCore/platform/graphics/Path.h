@@ -142,13 +142,13 @@ public:
     static Path polygonPathFromPoints(const Vector<FloatPoint>&);
 
     bool contains(const FloatPoint&, WindRule = WindRule::NonZero) const;
-    bool strokeContains(const FloatPoint&, const Function<void(GraphicsContext&)>& strokeStyleApplier) const;
+    bool strokeContains(const FloatPoint&, const WTF::Function<void(GraphicsContext&)>& strokeStyleApplier) const;
 
     // fastBoundingRect() should equal or contain boundingRect(); boundingRect()
     // should perfectly bound the points within the path.
     FloatRect boundingRect() const;
     WEBCORE_EXPORT FloatRect fastBoundingRect() const;
-    FloatRect strokeBoundingRect(const Function<void(GraphicsContext&)>& strokeStyleApplier = { }) const;
+    FloatRect strokeBoundingRect(const WTF::Function<void(GraphicsContext&)>& strokeStyleApplier = { }) const;
 
     WEBCORE_EXPORT size_t elementCount() const;
     float length() const;
@@ -300,7 +300,7 @@ private:
 #endif
 };
 
-WTF::TextStream& operator<<(WTF::TextStream&, const Path&);
+WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const Path&);
 
 template<class Encoder> void Path::encode(Encoder& encoder) const
 {
@@ -424,7 +424,7 @@ template<class Decoder> std::optional<Path> Path::decode(Decoder& decoder)
 
 template <typename DataType> inline bool Path::hasInlineData() const
 {
-    return WTF::holds_alternative<DataType>(m_inlineData);
+    return std::holds_alternative<DataType>(m_inlineData);
 }
 
 template<typename DataType> inline const DataType& Path::inlineData() const
@@ -439,7 +439,7 @@ template<typename DataType> inline DataType& Path::inlineData()
 
 inline bool Path::hasInlineData() const
 {
-    return !hasInlineData<Monostate>();
+    return !hasInlineData<std::monostate>();
 }
 
 #endif

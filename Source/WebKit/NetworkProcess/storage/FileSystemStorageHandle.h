@@ -27,6 +27,7 @@
 
 #include "Connection.h"
 #include <WebCore/FileSystemHandleIdentifier.h>
+#include <WebCore/FileSystemSyncAccessHandleIdentifier.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebKit {
@@ -37,17 +38,26 @@ enum class FileSystemStorageError : uint8_t;
 class FileSystemStorageHandle : public CanMakeWeakPtr<FileSystemStorageHandle, WeakPtrFactoryInitialization::Eager> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    enum class Type : bool { File, Directory };
+    enum class Type : uint8_t { File, Directory, Any };
     FileSystemStorageHandle(FileSystemStorageManager&, Type, String&& path, String&& name);
 
     WebCore::FileSystemHandleIdentifier identifier() const { return m_identifier; }
     const String& path() const { return m_path; }
+    Type type() const { return m_type; }
 
     bool isSameEntry(WebCore::FileSystemHandleIdentifier);
     Expected<WebCore::FileSystemHandleIdentifier, FileSystemStorageError> getFileHandle(IPC::Connection::UniqueID, String&& name, bool createIfNecessary);
     Expected<WebCore::FileSystemHandleIdentifier, FileSystemStorageError> getDirectoryHandle(IPC::Connection::UniqueID, String&& name, bool createIfNecessary);
     std::optional<FileSystemStorageError> removeEntry(const String& name, bool deleteRecursively);
     Expected<Vector<String>, FileSystemStorageError> resolve(WebCore::FileSystemHandleIdentifier);
+    Expected<Vector<String>, FileSystemStorageError> getHandleNames();
+    Expected<std::pair<WebCore::FileSystemHandleIdentifier, bool>, FileSystemStorageError> getHandle(IPC::Connection::UniqueID, String&& name);
+
+    Expected<WebCore::FileSystemSyncAccessHandleIdentifier, FileSystemStorageError> createSyncAccessHandle();
+    Expected<uint64_t, FileSystemStorageError> getSize(WebCore::FileSystemSyncAccessHandleIdentifier);
+    std::optional<FileSystemStorageError> truncate(WebCore::FileSystemSyncAccessHandleIdentifier, uint64_t size);
+    std::optional<FileSystemStorageError> flush(WebCore::FileSystemSyncAccessHandleIdentifier);
+    std::optional<FileSystemStorageError> close(WebCore::FileSystemSyncAccessHandleIdentifier);
 
 private:
     Expected<WebCore::FileSystemHandleIdentifier, FileSystemStorageError> requestCreateHandle(IPC::Connection::UniqueID, Type, String&& name, bool createIfNecessary);
@@ -57,6 +67,7 @@ private:
     Type m_type;
     String m_path;
     String m_name;
+    std::optional<WebCore::FileSystemSyncAccessHandleIdentifier> m_activeSyncAccessHandle;
 };
 
 } // namespace WebKit

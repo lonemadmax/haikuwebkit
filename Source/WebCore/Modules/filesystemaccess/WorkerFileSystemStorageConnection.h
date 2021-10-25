@@ -46,8 +46,12 @@ public:
     using CallbackIdentifier = WorkerFileSystemStorageConnectionCallbackIdentifier;
     void didIsSameEntry(CallbackIdentifier, ExceptionOr<bool>&&);
     void didGetHandle(CallbackIdentifier, ExceptionOr<FileSystemHandleIdentifier>&&);
-    void didRemoveEntry(CallbackIdentifier, ExceptionOr<void>&&);
     void didResolve(CallbackIdentifier, ExceptionOr<Vector<String>>&&);
+    void didCreateSyncAccessHandle(CallbackIdentifier, ExceptionOr<FileSystemSyncAccessHandleIdentifier>&& result);
+    void completeVoidCallback(CallbackIdentifier, ExceptionOr<void>&& result);
+    void completeIntegerCallback(CallbackIdentifier, ExceptionOr<uint64_t>&& result);
+    void didGetHandleNames(CallbackIdentifier, ExceptionOr<Vector<String>>&&);
+    void didGetHandleWithType(CallbackIdentifier, ExceptionOr<std::pair<FileSystemHandleIdentifier, bool>>&&);
 
 private:
     WorkerFileSystemStorageConnection(WorkerGlobalScope&, Ref<FileSystemStorageConnection>&&);
@@ -56,15 +60,27 @@ private:
     void isSameEntry(FileSystemHandleIdentifier, FileSystemHandleIdentifier, FileSystemStorageConnection::SameEntryCallback&&) final;
     void getFileHandle(FileSystemHandleIdentifier, const String& name, bool createIfNecessary, FileSystemStorageConnection::GetHandleCallback&&) final;
     void getDirectoryHandle(FileSystemHandleIdentifier, const String& name, bool createIfNecessary, FileSystemStorageConnection::GetHandleCallback&&) final;
-    void removeEntry(FileSystemHandleIdentifier, const String& name, bool deleteRecursively, FileSystemStorageConnection::RemoveEntryCallback&&) final;
+    void removeEntry(FileSystemHandleIdentifier, const String& name, bool deleteRecursively, FileSystemStorageConnection::VoidCallback&&) final;
     void resolve(FileSystemHandleIdentifier, FileSystemHandleIdentifier, FileSystemStorageConnection::ResolveCallback&&) final;
+    void getHandleNames(FileSystemHandleIdentifier, GetHandleNamesCallback&&) final;
+    void getHandle(FileSystemHandleIdentifier, const String& name, GetHandleWithTypeCallback&&) final;
+
+    void createSyncAccessHandle(FileSystemHandleIdentifier, FileSystemStorageConnection::GetAccessHandleCallback&&) final;
+    void getSize(FileSystemHandleIdentifier, FileSystemSyncAccessHandleIdentifier, FileSystemStorageConnection::IntegerCallback&&) final;
+    void truncate(FileSystemHandleIdentifier, FileSystemSyncAccessHandleIdentifier, uint64_t size, FileSystemStorageConnection::VoidCallback&&) final;
+    void flush(FileSystemHandleIdentifier, FileSystemSyncAccessHandleIdentifier, FileSystemStorageConnection::VoidCallback&&) final;
+    void close(FileSystemHandleIdentifier, FileSystemSyncAccessHandleIdentifier, FileSystemStorageConnection::VoidCallback&&) final;
 
     WeakPtr<WorkerGlobalScope> m_scope;
     RefPtr<FileSystemStorageConnection> m_mainThreadConnection;
     HashMap<CallbackIdentifier, FileSystemStorageConnection::SameEntryCallback> m_sameEntryCallbacks;
     HashMap<CallbackIdentifier, FileSystemStorageConnection::GetHandleCallback> m_getHandleCallbacks;
-    HashMap<CallbackIdentifier, FileSystemStorageConnection::RemoveEntryCallback> m_removeEntryCallbacks;
     HashMap<CallbackIdentifier, FileSystemStorageConnection::ResolveCallback> m_resolveCallbacks;
+    HashMap<CallbackIdentifier, FileSystemStorageConnection::GetAccessHandleCallback> m_getAccessHandlCallbacks;
+    HashMap<CallbackIdentifier, FileSystemStorageConnection::VoidCallback> m_voidCallbacks;
+    HashMap<CallbackIdentifier, FileSystemStorageConnection::IntegerCallback> m_integerCallbacks;
+    HashMap<CallbackIdentifier, FileSystemStorageConnection::GetHandleNamesCallback> m_getHandleNamesCallbacks;
+    HashMap<CallbackIdentifier, FileSystemStorageConnection::GetHandleWithTypeCallback> m_getHandleWithTypeCallbacks;
 };
 
 } // namespace WebCore

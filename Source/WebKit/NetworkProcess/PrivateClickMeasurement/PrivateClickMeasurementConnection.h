@@ -28,13 +28,16 @@
 #include <wtf/CompletionHandler.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
+#include <wtf/text/CString.h>
 
 #if PLATFORM(COCOA)
-#include <wtf/OSObjectPtr.h>
+#include <wtf/RetainPtr.h>
 #include <wtf/spi/darwin/XPCSPI.h>
 #endif
 
 namespace WebKit {
+
+class NetworkSession;
 
 namespace PCM {
 
@@ -43,18 +46,34 @@ using EncodedMessage = Vector<uint8_t>;
 
 class Connection : public CanMakeWeakPtr<Connection> {
 public:
-    explicit Connection(CString&& machServiceName);
+    Connection() = default;
+#if PLATFORM(COCOA)
+    explicit Connection(RetainPtr<xpc_connection_t>&& connection)
+        : m_connection(WTFMove(connection)) { }
+    xpc_connection_t get() const { return m_connection.get(); }
+    void send(xpc_object_t) const;
+    void sendWithReply(xpc_object_t, CompletionHandler<void(xpc_object_t)>&&) const;
+protected:
+    mutable RetainPtr<xpc_connection_t> m_connection;
+#endif
+};
+
+class ConnectionToMachService : public Connection {
+public:
+    ConnectionToMachService(CString&& machServiceName, NetworkSession&);
 
     void send(MessageType, EncodedMessage&&) const;
     void sendWithReply(MessageType, EncodedMessage&&, CompletionHandler<void(EncodedMessage&&)>&&) const;
 
 private:
-#if PLATFORM(COCOA)
     void initializeConnectionIfNeeded() const;
+#if PLATFORM(COCOA)
+    void checkForDebugMessageBroadcast(xpc_object_t) const;
+#endif
+    void sendDebugModeIsEnabledMessageIfNecessary() const;
 
     const CString m_machServiceName;
-    mutable OSObjectPtr<xpc_connection_t> m_connection;
-#endif
+    WeakPtr<NetworkSession> m_networkSession;
 };
 
 } // namespace PCM

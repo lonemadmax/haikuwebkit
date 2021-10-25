@@ -754,7 +754,7 @@ bool CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyID propertyId
     case CSSPropertyVisibility: // visible | hidden | collapse
         return valueID == CSSValueVisible || valueID == CSSValueHidden || valueID == CSSValueCollapse;
     case CSSPropertyWebkitAppearance:
-        return (valueID >= CSSValueCheckbox && valueID <= CSSValueCapsLockIndicator) || valueID == CSSValueNone;
+        return (valueID >= CSSValueCheckbox && valueID <= CSSValueCapsLockIndicator) || valueID == CSSValueNone || valueID == CSSValueAuto;
     case CSSPropertyBackfaceVisibility:
         return valueID == CSSValueVisible || valueID == CSSValueHidden;
 #if ENABLE(CSS_COMPOSITING)
@@ -1398,7 +1398,7 @@ static RefPtr<CSSValue> parseSimpleTransform(CSSPropertyID propertyID, StringVie
     return parseSimpleTransformList(string.characters16(), string.length());
 }
 
-static RefPtr<CSSValue> parseCaretColor(StringView string, const CSSParserContext& context)
+static RefPtr<CSSValue> parseColorWithAuto(StringView string, const CSSParserContext& context)
 {
     ASSERT(!string.isEmpty());
     if (cssValueKeywordID(string) == CSSValueAuto)
@@ -1410,8 +1410,8 @@ RefPtr<CSSValue> CSSParserFastPaths::maybeParseValue(CSSPropertyID propertyID, S
 {
     if (auto result = parseSimpleLengthValue(propertyID, string, context.mode))
         return result;
-    if (propertyID == CSSPropertyCaretColor)
-        return parseCaretColor(string, context);
+    if (propertyID == CSSPropertyCaretColor || (propertyID == CSSPropertyAccentColor && context.accentColorEnabled))
+        return parseColorWithAuto(string, context);
     if (CSSProperty::isColorProperty(propertyID))
         return parseColor(string, context);
     if (auto result = parseKeywordValue(propertyID, string, context))

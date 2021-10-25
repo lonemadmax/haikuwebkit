@@ -33,6 +33,7 @@
 #include "ImageBufferBackendHandle.h"
 #include "MessageReceiver.h"
 #include "MessageSender.h"
+#include "QualifiedRenderingResourceIdentifier.h"
 #include "RemoteRenderingBackendState.h"
 #include "RemoteResourceCache.h"
 #include "RenderingBackendIdentifier.h"
@@ -42,6 +43,7 @@
 #include <WebCore/DisplayList.h>
 #include <WebCore/DisplayListItems.h>
 #include <WebCore/DisplayListReplayer.h>
+#include <WebCore/ProcessIdentifier.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
@@ -81,10 +83,10 @@ public:
     bool applyMediaItem(WebCore::DisplayList::ItemHandle, WebCore::GraphicsContext&);
 
     // Messages to be sent.
-    void didCreateImageBufferBackend(ImageBufferBackendHandle, WebCore::RenderingResourceIdentifier);
-    void didFlush(WebCore::DisplayList::FlushIdentifier, WebCore::RenderingResourceIdentifier);
+    void didCreateImageBufferBackend(ImageBufferBackendHandle, QualifiedRenderingResourceIdentifier);
+    void didFlush(WebCore::GraphicsContextFlushIdentifier, QualifiedRenderingResourceIdentifier);
 
-    void setNextItemBufferToRead(WebCore::DisplayList::ItemBufferIdentifier, WebCore::RenderingResourceIdentifier destination);
+    void setNextItemBufferToRead(WebCore::DisplayList::ItemBufferIdentifier, QualifiedRenderingResourceIdentifier destination);
 
     void didCreateMaskImageBuffer(WebCore::ImageBuffer&);
     void didResetMaskImageBuffer();
@@ -97,6 +99,8 @@ public:
     void dispatch(Function<void()>&&);
 
     RemoteRenderingBackendState lastKnownState() const;
+
+    void performWithMediaPlayerOnMainThread(WebCore::MediaPlayerIdentifier, Function<void(WebCore::MediaPlayer&)>&&);
 
 private:
     RemoteRenderingBackend(GPUConnectionToWebProcess&, RemoteRenderingBackendCreationParameters&&);
@@ -117,7 +121,7 @@ private:
     }
 
     WebCore::DisplayList::ReplayResult submit(const WebCore::DisplayList::DisplayList&, WebCore::ImageBuffer& destination);
-    RefPtr<WebCore::ImageBuffer> nextDestinationImageBufferAfterApplyingDisplayLists(WebCore::ImageBuffer& initialDestination, size_t initialOffset, DisplayListReaderHandle&, GPUProcessWakeupReason);
+    RefPtr<WebCore::ImageBuffer> nextDestinationImageBufferAfterApplyingDisplayLists(WebCore::ImageBuffer& initialDestination, size_t initialOffset, DisplayListReaderHandle&, GPUProcessWakeupReason, WebCore::ProcessIdentifier webProcessIdentifier);
 
     std::optional<SharedMemory::IPCHandle> updateSharedMemoryForGetPixelBufferHelper(size_t byteCount);
     void updateRenderingResourceRequest();
@@ -149,9 +153,22 @@ private:
     void finalizeRenderingUpdate(RenderingUpdateID);
     void didCreateSharedDisplayListHandle(WebCore::DisplayList::ItemBufferIdentifier, const SharedMemory::IPCHandle&, WebCore::RenderingResourceIdentifier destinationBufferIdentifier);
 
+    // Received messages translated to use QualifiedRenderingResourceIdentifier.
+    void wakeUpAndApplyDisplayListWithQualifiedIdentifier(WebCore::DisplayList::ItemBufferIdentifier, uint64_t offset, QualifiedRenderingResourceIdentifier, GPUProcessWakeupReason);
+    void createImageBufferWithQualifiedIdentifier(const WebCore::FloatSize& logicalSize, WebCore::RenderingMode, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::PixelFormat, QualifiedRenderingResourceIdentifier);
+    void getDataURLForImageBufferWithQualifiedIdentifier(const String& mimeType, std::optional<double> quality, WebCore::PreserveResolution, QualifiedRenderingResourceIdentifier, CompletionHandler<void(String&&)>&&);
+    void getDataForImageBufferWithQualifiedIdentifier(const String& mimeType, std::optional<double> quality, QualifiedRenderingResourceIdentifier, CompletionHandler<void(Vector<uint8_t>&&)>&&);
+    void getShareableBitmapForImageBufferWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier, WebCore::PreserveResolution, CompletionHandler<void(ShareableBitmap::Handle&&)>&&);
+    void cacheNativeImageWithQualifiedIdentifier(const ShareableBitmap::Handle&, QualifiedRenderingResourceIdentifier);
+    void didCreateSharedDisplayListHandleWithQualifiedIdentifier(WebCore::DisplayList::ItemBufferIdentifier, const SharedMemory::IPCHandle&, QualifiedRenderingResourceIdentifier destinationBufferIdentifier);
+    void releaseRemoteResourceWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier, uint64_t useCount);
+    void cacheFontWithQualifiedIdentifier(Ref<WebCore::Font>&&, QualifiedRenderingResourceIdentifier);
+
+    void resumeFromPendingWakeupInformation();
+
     class ReplayerDelegate : public WebCore::DisplayList::Replayer::Delegate {
     public:
-        ReplayerDelegate(WebCore::ImageBuffer&, RemoteRenderingBackend&);
+        ReplayerDelegate(WebCore::ImageBuffer&, RemoteRenderingBackend&, WebCore::ProcessIdentifier webProcessIdentifier);
 
     private:
         bool apply(WebCore::DisplayList::ItemHandle, WebCore::GraphicsContext&) final;
@@ -161,22 +178,26 @@ private:
 
         WebCore::ImageBuffer& m_destination;
         RemoteRenderingBackend& m_remoteRenderingBackend;
+        WebCore::ProcessIdentifier m_webProcessIdentifier;
     };
 
     struct PendingWakeupInformation {
-        GPUProcessWakeupMessageArguments arguments;
-        std::optional<WebCore::RenderingResourceIdentifier> missingCachedResourceIdentifier;
+        WebCore::DisplayList::ItemBufferIdentifier itemBufferIdentifier;
+        uint64_t offset { 0 };
+        QualifiedRenderingResourceIdentifier destinationImageBufferIdentifier;
+        GPUProcessWakeupReason reason { GPUProcessWakeupReason::Unspecified };
+        std::optional<QualifiedRenderingResourceIdentifier> missingCachedResourceIdentifier;
         RemoteRenderingBackendState state { RemoteRenderingBackendState::Initialized };
 
-        bool shouldPerformWakeup(WebCore::RenderingResourceIdentifier identifier) const
+        bool shouldPerformWakeup(QualifiedRenderingResourceIdentifier identifier) const
         {
-            return arguments.destinationImageBufferIdentifier == identifier
+            return destinationImageBufferIdentifier == identifier
                 || missingCachedResourceIdentifier == identifier;
         }
 
         bool shouldPerformWakeup(WebCore::DisplayList::ItemBufferIdentifier identifier) const
         {
-            return arguments.itemBufferIdentifier == identifier;
+            return itemBufferIdentifier == identifier;
         }
     };
 

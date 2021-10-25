@@ -47,7 +47,7 @@ class RemoteRenderingBackend;
 template<typename BackendType> class ThreadSafeRemoteImageBufferFlusher;
 
 template<typename BackendType>
-class RemoteImageBufferProxy : public WebCore::DisplayList::ImageBuffer<BackendType>, public WebCore::DisplayList::Recorder::Delegate, public WebCore::DisplayList::ItemBufferWritingClient {
+class RemoteImageBufferProxy : public WebCore::DisplayList::ImageBuffer<BackendType>, public WebCore::DisplayList::RecorderImpl::Delegate, public WebCore::DisplayList::ItemBufferWritingClient {
     using BaseDisplayListImageBuffer = WebCore::DisplayList::ImageBuffer<BackendType>;
     using BaseDisplayListImageBuffer::m_backend;
     using BaseDisplayListImageBuffer::m_drawingContext;
@@ -80,9 +80,9 @@ public:
         return m_backend->createImageBufferBackendHandle();
     }
 
-    WebCore::DisplayList::FlushIdentifier lastSentFlushIdentifier() const { return m_sentFlushIdentifier; }
+    WebCore::GraphicsContextFlushIdentifier lastSentFlushIdentifier() const { return m_sentFlushIdentifier; }
 
-    void waitForDidFlushOnSecondaryThread(WebCore::DisplayList::FlushIdentifier targetFlushIdentifier)
+    void waitForDidFlushOnSecondaryThread(WebCore::GraphicsContextFlushIdentifier targetFlushIdentifier)
     {
         ASSERT(!isMainRunLoop());
         Locker locker { m_receivedFlushIdentifierLock };
@@ -119,7 +119,7 @@ protected:
         return m_sentFlushIdentifier != m_receivedFlushIdentifier;
     }
 
-    void didFlush(WebCore::DisplayList::FlushIdentifier flushIdentifier) final
+    void didFlush(WebCore::GraphicsContextFlushIdentifier flushIdentifier) final
     {
         ASSERT(isMainRunLoop());
         Locker locker { m_receivedFlushIdentifierLock };
@@ -261,7 +261,7 @@ protected:
             return;
 
         if (!m_drawingContext.displayList().isEmpty() || !hasPendingFlush()) {
-            m_sentFlushIdentifier = WebCore::DisplayList::FlushIdentifier::generate();
+            m_sentFlushIdentifier = WebCore::GraphicsContextFlushIdentifier::generate();
             m_drawingContext.recorder().flushContext(m_sentFlushIdentifier);
         }
 
@@ -339,7 +339,7 @@ protected:
 
     RefPtr<WebCore::SharedBuffer> encodeItemOutOfLine(const WebCore::DisplayList::DisplayListItem& item) const final
     {
-        return WTF::visit([](const auto& displayListItem) -> RefPtr<WebCore::SharedBuffer> {
+        return std::visit([](const auto& displayListItem) -> RefPtr<WebCore::SharedBuffer> {
             using DisplayListItemType = typename WTF::RemoveCVAndReference<decltype(displayListItem)>::type;
             if constexpr (!DisplayListItemType::isInlineItem)
                 return IPC::Encoder::encodeSingleObject<DisplayListItemType>(displayListItem);
@@ -353,10 +353,10 @@ protected:
         return WTF::makeUnique<ThreadSafeRemoteImageBufferFlusher<BackendType>>(*this);
     }
 
-    WebCore::DisplayList::FlushIdentifier m_sentFlushIdentifier;
+    WebCore::GraphicsContextFlushIdentifier m_sentFlushIdentifier;
     Lock m_receivedFlushIdentifierLock;
     Condition m_receivedFlushIdentifierChangedCondition;
-    WebCore::DisplayList::FlushIdentifier m_receivedFlushIdentifier WTF_GUARDED_BY_LOCK(m_receivedFlushIdentifierLock); // Only modified on the main thread but may get queried on a secondary thread.
+    WebCore::GraphicsContextFlushIdentifier m_receivedFlushIdentifier WTF_GUARDED_BY_LOCK(m_receivedFlushIdentifierLock); // Only modified on the main thread but may get queried on a secondary thread.
     WeakPtr<RemoteRenderingBackendProxy> m_remoteRenderingBackendProxy;
 };
 
@@ -377,7 +377,7 @@ public:
 
 private:
     Ref<RemoteImageBufferProxy<BackendType>> m_imageBuffer;
-    WebCore::DisplayList::FlushIdentifier m_targetFlushIdentifier;
+    WebCore::GraphicsContextFlushIdentifier m_targetFlushIdentifier;
 };
 
 } // namespace WebKit

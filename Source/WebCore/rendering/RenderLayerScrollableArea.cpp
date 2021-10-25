@@ -254,10 +254,33 @@ bool RenderLayerScrollableArea::requestScrollPositionUpdate(const ScrollPosition
     return false;
 }
 
+bool RenderLayerScrollableArea::requestAnimatedScrollToPosition(const ScrollPosition& destinationPosition, ScrollClamping clamping)
+{
+#if ENABLE(ASYNC_SCROLLING)
+    LOG_WITH_STREAM(Scrolling, stream << m_layer << " requestAnimatedScrollToPosition " << destinationPosition);
+
+    if (auto* scrollingCoordinator = m_layer.page().scrollingCoordinator())
+        return scrollingCoordinator->requestAnimatedScrollToPosition(*this, destinationPosition, clamping);
+#endif
+    return false;
+}
+
+void RenderLayerScrollableArea::stopAsyncAnimatedScroll()
+{
+#if ENABLE(ASYNC_SCROLLING)
+    LOG_WITH_STREAM(Scrolling, stream << m_layer << " stopAsyncAnimatedScroll");
+
+    if (auto* scrollingCoordinator = m_layer.page().scrollingCoordinator())
+        return scrollingCoordinator->stopAnimatedScroll(*this);
+#endif
+}
+
 ScrollOffset RenderLayerScrollableArea::scrollToOffset(const ScrollOffset& scrollOffset, const ScrollPositionChangeOptions& options)
 {
-    if (currentScrollBehaviorStatus() == ScrollBehaviorStatus::InNonNativeAnimation)
+    if (scrollAnimationStatus() == ScrollAnimationStatus::Animating) {
         scrollAnimator().cancelAnimations();
+        stopAsyncAnimatedScroll();
+    }
 
     ScrollOffset clampedScrollOffset = options.clamping == ScrollClamping::Clamped ? clampScrollOffset(scrollOffset) : scrollOffset;
     if (clampedScrollOffset == this->scrollOffset())
@@ -268,13 +291,10 @@ ScrollOffset RenderLayerScrollableArea::scrollToOffset(const ScrollOffset& scrol
 
     ScrollOffset snappedOffset = ceiledIntPoint(scrollAnimator().scrollOffsetAdjustedForSnapping(clampedScrollOffset, options.snapPointSelectionMethod));
     auto snappedPosition = scrollPositionFromOffset(snappedOffset);
-    if (options.animated == AnimatedScroll::Yes)
+    if (options.animated == ScrollIsAnimated::Yes)
         ScrollableArea::scrollToPositionWithAnimation(snappedPosition);
-    else {
-        if (!requestScrollPositionUpdate(snappedPosition, options.type, options.clamping))
-            scrollToPositionWithoutAnimation(snappedPosition, options.clamping);
-        setScrollBehaviorStatus(ScrollBehaviorStatus::NotInAnimation);
-    }
+    else if (!requestScrollPositionUpdate(snappedPosition, options.type, options.clamping))
+        scrollToPositionWithoutAnimation(snappedPosition, options.clamping);
 
     setCurrentScrollType(previousScrollType);
     return snappedOffset;
@@ -312,7 +332,7 @@ void RenderLayerScrollableArea::scrollTo(const ScrollPosition& position)
 #endif
     }
 
-    if (m_scrollPosition == newPosition && currentScrollBehaviorStatus() == ScrollBehaviorStatus::NotInAnimation) {
+    if (m_scrollPosition == newPosition && scrollAnimationStatus() == ScrollAnimationStatus::NotAnimating) {
         // FIXME: Nothing guarantees we get a scrollTo() with an unchanged position at the end of a user gesture.
         // The ScrollingCoordinator probably needs to message the main thread when a gesture ends.
         if (requiresScrollPositionReconciliation()) {
@@ -1759,7 +1779,7 @@ std::optional<LayoutRect> RenderLayerScrollableArea::updateScrollPosition(const 
     ASSERT(box);
 
     ScrollOffset clampedScrollOffset = clampScrollOffset(scrollOffset() + toIntSize(roundedIntRect(revealRect).location()));
-    if (clampedScrollOffset != scrollOffset() || currentScrollBehaviorStatus() != ScrollBehaviorStatus::NotInAnimation) {
+    if (clampedScrollOffset != scrollOffset() || scrollAnimationStatus() != ScrollAnimationStatus::NotAnimating) {
         ScrollOffset oldScrollOffset = scrollOffset();
         ScrollOffset realScrollOffset = scrollToOffset(clampedScrollOffset, options);
 

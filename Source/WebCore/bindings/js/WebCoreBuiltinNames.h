@@ -119,11 +119,13 @@ namespace WebCore {
     macro(FileSystem) \
     macro(FileSystemDirectoryEntry) \
     macro(FileSystemDirectoryHandle) \
+    macro(FileSystemDirectoryHandleIterator) \
     macro(FileSystemDirectoryReader) \
     macro(FileSystemEntry) \
     macro(FileSystemFileEntry) \
     macro(FileSystemFileHandle) \
     macro(FileSystemHandle) \
+    macro(FileSystemSyncAccessHandle) \
     macro(Gamepad) \
     macro(GamepadButton) \
     macro(GamepadEvent) \
@@ -208,7 +210,10 @@ namespace WebCore {
     macro(PointerEvent) \
     macro(PublicKeyCredential) \
     macro(PushEvent) \
+    macro(PushManager) \
     macro(PushMessageData) \
+    macro(PushSubscription) \
+    macro(PushSubscriptionOptions) \
     macro(ResizeObserver) \
     macro(ResizeObserverEntry) \
     macro(RTCCertificate) \

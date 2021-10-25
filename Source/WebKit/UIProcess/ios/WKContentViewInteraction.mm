@@ -476,7 +476,7 @@ constexpr double fasterTapSignificantZoomThreshold = 0.8;
         [[_contentView formAccessoryView] showAutoFillButtonWithTitle:title];
     else
         [[_contentView formAccessoryView] hideAutoFillButton];
-    if (!WebKit::currentUserInterfaceIdiomIsPhoneOrWatch())
+    if (!WebKit::currentUserInterfaceIdiomIsSmallScreen())
         [_contentView reloadInputViews];
 }
 
@@ -1582,7 +1582,7 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
                 if (_focusRequiresStrongPasswordAssistance)
                     return true;
 
-                if (WebKit::currentUserInterfaceIdiomIsPhoneOrWatch())
+                if (WebKit::currentUserInterfaceIdiomIsSmallScreen())
                     return true;
             }
 
@@ -2257,7 +2257,7 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
         if (self._shouldUseContextMenusForFormControls)
             return NO;
 #endif
-        return WebKit::currentUserInterfaceIdiomIsPhoneOrWatch();
+        return WebKit::currentUserInterfaceIdiomIsSmallScreen();
     }
     default:
         return YES;
@@ -2312,7 +2312,7 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
         fontSize:_focusedElementInformation.nodeFontSize
         minimumScale:_focusedElementInformation.minimumScaleFactor
         maximumScale:_focusedElementInformation.maximumScaleFactorIgnoringAlwaysScalable
-        allowScaling:_focusedElementInformation.allowsUserScalingIgnoringAlwaysScalable && WebKit::currentUserInterfaceIdiomIsPhoneOrWatch()
+        allowScaling:_focusedElementInformation.allowsUserScalingIgnoringAlwaysScalable && WebKit::currentUserInterfaceIdiomIsSmallScreen()
         forceScroll:[self requiresAccessoryView]];
 }
 
@@ -3336,7 +3336,7 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
         if (self._shouldUseContextMenusForFormControls)
             return NO;
 #endif
-        return WebKit::currentUserInterfaceIdiomIsPhoneOrWatch();
+        return WebKit::currentUserInterfaceIdiomIsSmallScreen();
     }
     case WebKit::InputType::Text:
     case WebKit::InputType::Password:
@@ -3349,7 +3349,7 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
     case WebKit::InputType::ContentEditable:
     case WebKit::InputType::TextArea:
     case WebKit::InputType::Week:
-        return WebKit::currentUserInterfaceIdiomIsPhoneOrWatch();
+        return WebKit::currentUserInterfaceIdiomIsSmallScreen();
     }
 }
 
@@ -4273,6 +4273,8 @@ static inline UIWKSelectionFlags toUIWKSelectionFlags(OptionSet<WebKit::Selectio
     NSInteger uiFlags = UIWKNone;
     if (flags.contains(WebKit::WordIsNearTap))
         uiFlags |= UIWKWordIsNearTap;
+    if (flags.contains(WebKit::SelectionFlipped))
+        uiFlags |= UIWKSelectionFlipped;
     if (flags.contains(WebKit::PhraseBoundaryChanged))
         uiFlags |= UIWKPhraseBoundaryChanged;
 
@@ -4284,6 +4286,8 @@ static inline OptionSet<WebKit::SelectionFlags> toSelectionFlags(UIWKSelectionFl
     OptionSet<WebKit::SelectionFlags> flags;
     if (uiFlags & UIWKWordIsNearTap)
         flags.add(WebKit::WordIsNearTap);
+    if (uiFlags & UIWKSelectionFlipped)
+        flags.add(WebKit::SelectionFlipped);
     if (uiFlags & UIWKPhraseBoundaryChanged)
         flags.add(WebKit::PhraseBoundaryChanged);
     return flags;
@@ -4882,7 +4886,7 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
     [accessoryView setNextEnabled:_focusedElementInformation.hasNextNode];
     [accessoryView setPreviousEnabled:_focusedElementInformation.hasPreviousNode];
 
-    if (!WebKit::currentUserInterfaceIdiomIsPhoneOrWatch()) {
+    if (!WebKit::currentUserInterfaceIdiomIsSmallScreen()) {
         [accessoryView setClearVisible:NO];
         return;
     }
@@ -7714,7 +7718,7 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
 
 - (BOOL)_shouldUseLegacySelectPopoverDismissalBehavior
 {
-    if (WebKit::currentUserInterfaceIdiomIsPhoneOrWatch())
+    if (WebKit::currentUserInterfaceIdiomIsSmallScreen())
         return NO;
 
     if (_focusedElementInformation.elementType != WebKit::InputType::Select)

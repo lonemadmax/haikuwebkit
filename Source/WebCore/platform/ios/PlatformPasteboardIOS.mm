@@ -656,7 +656,7 @@ static RetainPtr<WebItemProviderRegistrationInfoList> createItemProviderRegistra
         if (cocoaType.isEmpty())
             return;
 
-        if (WTF::holds_alternative<String>(value)) {
+        if (std::holds_alternative<String>(value)) {
             if (WTF::get<String>(value).isNull())
                 return;
 
@@ -758,7 +758,7 @@ RefPtr<SharedBuffer> PlatformPasteboard::readBuffer(size_t index, const String& 
 
     if (![pasteboardItem count])
         return nullptr;
-    return SharedBuffer::create([pasteboardItem.get() objectAtIndex:0]);
+    return SharedBuffer::create([pasteboardItem objectAtIndex:0]);
 }
 
 String PlatformPasteboard::readString(size_t index, const String& type) const

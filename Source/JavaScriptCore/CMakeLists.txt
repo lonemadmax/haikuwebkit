@@ -122,6 +122,8 @@ set(JavaScriptCore_OBJECT_LUT_SOURCES
     wasm/js/JSToWasmICCallee.cpp
     wasm/js/WebAssemblyCompileErrorConstructor.cpp
     wasm/js/WebAssemblyCompileErrorPrototype.cpp
+    wasm/js/WebAssemblyExceptionConstructor.cpp
+    wasm/js/WebAssemblyExceptionPrototype.cpp
     wasm/js/WebAssemblyGlobalConstructor.cpp
     wasm/js/WebAssemblyGlobalPrototype.cpp
     wasm/js/WebAssemblyInstanceConstructor.cpp
@@ -136,6 +138,8 @@ set(JavaScriptCore_OBJECT_LUT_SOURCES
     wasm/js/WebAssemblyRuntimeErrorPrototype.cpp
     wasm/js/WebAssemblyTableConstructor.cpp
     wasm/js/WebAssemblyTablePrototype.cpp
+    wasm/js/WebAssemblyTagConstructor.cpp
+    wasm/js/WebAssemblyTagPrototype.cpp
 )
 
 set(JavaScriptCore_FRAMEWORKS
@@ -603,6 +607,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
 
     b3/B3Common.h
     b3/B3Type.h
+    b3/B3ValueRep.h
 
     bindings/ScriptFunctionCall.h
     bindings/ScriptObject.h
@@ -659,6 +664,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     bytecode/PutByIdFlags.h
     bytecode/SetPrivateBrandStatus.h
     bytecode/SetPrivateBrandVariant.h
+    bytecode/SourceID.h
     bytecode/SpeculatedType.h
     bytecode/StructureSet.h
     bytecode/SuperSampler.h
@@ -733,6 +739,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     heap/GCSegmentedArray.h
     heap/Handle.h
     heap/HandleBlock.h
+    heap/HandleForward.h
     heap/HandleSet.h
     heap/HandleTypes.h
     heap/Heap.h
@@ -771,6 +778,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     heap/SlotVisitorInlines.h
     heap/SlotVisitorMacros.h
     heap/Strong.h
+    heap/StrongForward.h
     heap/StrongInlines.h
     heap/Subspace.h
     heap/SubspaceInlines.h
@@ -915,6 +923,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/ArrayPrototype.h
     runtime/ArrayStorage.h
     runtime/ArrayStorageInlines.h
+    runtime/AsyncIteratorPrototype.h
     runtime/AuxiliaryBarrier.h
     runtime/AuxiliaryBarrierInlines.h
     runtime/BasicBlockLocation.h
@@ -987,6 +996,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/ExecutableBaseInlines.h
     runtime/Float32Array.h
     runtime/Float64Array.h
+    runtime/Forward.h
     runtime/FunctionConstructor.h
     runtime/FunctionExecutable.h
     runtime/FunctionHasExecutedCache.h
@@ -1178,6 +1188,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/ToNativeFromValue.h
     runtime/TypeError.h
     runtime/TypeSet.h
+    runtime/TypedArrayAdaptersForwardDeclarations.h
     runtime/TypedArrayAdaptors.h
     runtime/TypedArrayController.h
     runtime/TypedArrayInlines.h
@@ -1218,6 +1229,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     wasm/WasmFaultSignalHandler.h
     wasm/WasmFormat.h
     wasm/WasmFunctionCodeBlock.h
+    wasm/WasmHandlerInfo.h
     wasm/WasmIndexOrName.h
     wasm/WasmLLIntTierUpCounter.h
     wasm/WasmMemory.h
@@ -1226,12 +1238,14 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     wasm/WasmModule.h
     wasm/WasmName.h
     wasm/WasmNameSection.h
+    wasm/WasmOSREntryData.h
     wasm/WasmPageCount.h
     wasm/WasmSections.h
     wasm/WasmSignature.h
     wasm/WasmStreamingCompiler.h
     wasm/WasmStreamingParser.h
     wasm/WasmTierUpCount.h
+    wasm/WasmValueLocation.h
 
     wasm/js/JSWebAssembly.h
     wasm/js/JSWebAssemblyMemory.h

@@ -153,6 +153,7 @@
 #include "JSWeakSet.h"
 #include "JSWebAssembly.h"
 #include "JSWebAssemblyCompileError.h"
+#include "JSWebAssemblyException.h"
 #include "JSWebAssemblyGlobal.h"
 #include "JSWebAssemblyInstance.h"
 #include "JSWebAssemblyLinkError.h"
@@ -160,6 +161,7 @@
 #include "JSWebAssemblyModule.h"
 #include "JSWebAssemblyRuntimeError.h"
 #include "JSWebAssemblyTable.h"
+#include "JSWebAssemblyTag.h"
 #include "JSWithScope.h"
 #include "LazyClassStructureInlines.h"
 #include "LazyPropertyInlines.h"
@@ -220,6 +222,8 @@
 #include "WeakSetPrototype.h"
 #include "WebAssemblyCompileErrorConstructor.h"
 #include "WebAssemblyCompileErrorPrototype.h"
+#include "WebAssemblyExceptionConstructor.h"
+#include "WebAssemblyExceptionPrototype.h"
 #include "WebAssemblyFunction.h"
 #include "WebAssemblyGlobalConstructor.h"
 #include "WebAssemblyGlobalPrototype.h"
@@ -236,6 +240,8 @@
 #include "WebAssemblyRuntimeErrorPrototype.h"
 #include "WebAssemblyTableConstructor.h"
 #include "WebAssemblyTablePrototype.h"
+#include "WebAssemblyTagConstructor.h"
+#include "WebAssemblyTagPrototype.h"
 #include <wtf/RandomNumber.h>
 #include <wtf/SystemTracing.h>
 
@@ -522,6 +528,7 @@ const GlobalObjectMethodTable JSGlobalObject::s_globalObjectMethodTable = {
     &reportUncaughtExceptionAtEventLoop,
     &currentScriptExecutionOwner,
     &scriptExecutionStatus,
+    &reportViolationForUnsafeEval,
     nullptr, // defaultLanguage
     nullptr, // compileStreaming
     nullptr, // instantiateStreaming
@@ -601,6 +608,7 @@ JSGlobalObject::JSGlobalObject(VM& vm, Structure* structure, const GlobalObjectM
     , m_havingABadTimeWatchpoint(WatchpointSet::create(IsWatched))
     , m_varInjectionWatchpoint(WatchpointSet::create(IsWatched))
     , m_varReadOnlyWatchpoint(WatchpointSet::create(IsWatched))
+    , m_regExpRecompiledWatchpoint(WatchpointSet::create(IsWatched))
     , m_weakRandom(Options::forceWeakRandomSeed() ? Options::forcedWeakRandomSeed() : static_cast<unsigned>(randomNumber() * (std::numeric_limits<unsigned>::max() + 1.0)))
     , m_arrayIteratorProtocolWatchpointSet(IsWatched)
     , m_mapIteratorProtocolWatchpointSet(IsWatched)

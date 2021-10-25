@@ -47,6 +47,7 @@ class ScrollSnapAnimatorState;
 class ScrollingEffectsController;
 class ScrollableArea;
 class WheelEventTestMonitor;
+struct ScrollExtents;
 
 class ScrollingEffectsControllerTimer : public RunLoop::TimerBase {
 public:
@@ -82,10 +83,6 @@ public:
     virtual bool allowsHorizontalScrolling() const = 0;
     virtual bool allowsVerticalScrolling() const = 0;
 
-    // FIXME: Maybe ScrollBehaviorStatus should be stored on ScrollingEffectsController.
-    virtual void setScrollBehaviorStatus(ScrollBehaviorStatus) = 0;
-    virtual ScrollBehaviorStatus scrollBehaviorStatus() const = 0;
-
     virtual void immediateScrollBy(const FloatSize&, ScrollClamping = ScrollClamping::Clamped) = 0;
 
     // If the current scroll position is within the overhang area, this function will cause
@@ -113,8 +110,13 @@ public:
     virtual void removeWheelEventTestCompletionDeferralForReason(WheelEventTestMonitor::ScrollableAreaIdentifier, WheelEventTestMonitor::DeferReason) const { /* Do nothing */ }
 
     virtual FloatPoint scrollOffset() const = 0;
+
+    virtual void willStartAnimatedScroll() { }
+    virtual void didStopAnimatedScroll() { }
+
     virtual void willStartScrollSnapAnimation() { }
     virtual void didStopScrollSnapAnimation() { }
+
     virtual float pageScaleFactor() const = 0;
     virtual ScrollExtents scrollExtents() const = 0;
     virtual bool scrollAnimationEnabled() const { return true; }
@@ -163,11 +165,11 @@ public:
     // Returns true if handled.
     bool handleWheelEvent(const PlatformWheelEvent&);
 
-#if PLATFORM(MAC)
-    static FloatSize wheelDeltaBiasingTowardsVertical(const PlatformWheelEvent&);
-
     bool isScrollSnapInProgress() const;
     bool isUserScrollInProgress() const;
+
+#if PLATFORM(MAC)
+    static FloatSize wheelDeltaBiasingTowardsVertical(const PlatformWheelEvent&);
 
     // Returns true if handled.
     bool processWheelEventForScrollSnap(const PlatformWheelEvent&);
@@ -216,6 +218,8 @@ private:
     void scrollAnimationDidEnd(ScrollAnimation&) final;
     ScrollExtents scrollExtentsForAnimation(ScrollAnimation&) final;
 
+    void adjustDeltaForSnappingIfNeeded(float& deltaX, float& deltaY);
+
 #if ENABLE(KINETIC_SCROLLING) && !PLATFORM(MAC)
     // Returns true if handled.
     bool processWheelEventForKineticScrolling(const PlatformWheelEvent&);
@@ -234,6 +238,7 @@ private:
     bool m_isAnimatingRubberBand { false };
     bool m_isAnimatingScrollSnap { false };
     bool m_isAnimatingKeyboardScrolling { false };
+    bool m_inScrollGesture { false };
 
 #if PLATFORM(MAC)
     WallTime m_lastMomentumScrollTimestamp;
@@ -241,7 +246,6 @@ private:
     FloatSize m_stretchScrollForce;
     FloatSize m_momentumVelocity;
 
-    bool m_inScrollGesture { false };
     bool m_momentumScrollInProgress { false };
     bool m_ignoreMomentumScrolls { false };
     bool m_isRubberBanding { false };

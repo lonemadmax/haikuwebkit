@@ -180,7 +180,7 @@ NetworkProcess::NetworkProcess(AuxiliaryProcessInitializationParameters&& parame
     LegacyCustomProtocolManager::networkProcessCreated(*this);
 #endif
 
-    NetworkStateNotifier::singleton().addListener([weakThis = makeWeakPtr(*this)](bool isOnLine) {
+    NetworkStateNotifier::singleton().addListener([weakThis = WeakPtr { *this }](bool isOnLine) {
         if (!weakThis)
             return;
         for (auto& webProcessConnection : weakThis->m_webProcessConnections.values())
@@ -1388,8 +1388,9 @@ void NetworkProcess::preconnectTo(PAL::SessionID sessionID, WebPageProxyIdentifi
     parameters.shouldPreconnectOnly = PreconnectOnly::Yes;
 
     networkSession->networkLoadScheduler().startedPreconnectForMainResource(url, userAgent);
-    auto task = new PreconnectTask(*networkSession, WTFMove(parameters), [networkSession, url, userAgent](const WebCore::ResourceError& error) {
-        networkSession->networkLoadScheduler().finishedPreconnectForMainResource(url, userAgent, error);
+    auto task = new PreconnectTask(*networkSession, WTFMove(parameters), [weakNetworkSession = makeWeakPtr(*networkSession), url, userAgent](const WebCore::ResourceError& error) {
+        if (weakNetworkSession)
+            weakNetworkSession->networkLoadScheduler().finishedPreconnectForMainResource(url, userAgent, error);
     });
     task->setTimeout(10_s);
     task->start();
@@ -2221,7 +2222,7 @@ void NetworkProcess::suspendIDBServers(bool isSuspensionImminent)
     if (allSuspended)
         return;
 
-    RunLoop::main().dispatchAfter(5_s, [this, weakThis = makeWeakPtr(*this), suspensionIdentifier = m_suspensionIdentifier] {
+    RunLoop::main().dispatchAfter(5_s, [this, weakThis = WeakPtr { *this }, suspensionIdentifier = m_suspensionIdentifier] {
         if (!weakThis)
             return;
 
@@ -2516,6 +2517,14 @@ void NetworkProcess::addServiceWorkerSession(PAL::SessionID sessionID, bool proc
     if (addResult.isNewEntry)
         SandboxExtension::consumePermanently(handle);
 }
+
+void NetworkProcess::processPushMessage(PAL::SessionID sessionID, const std::optional<IPC::DataReference>& ipcData, URL&& registrationURL, CompletionHandler<void(bool)>&& callback)
+{
+    std::optional<Vector<uint8_t>> data;
+    if (ipcData)
+        data = Vector<uint8_t> { ipcData->data(), ipcData->size() };
+    swServerForSession(sessionID).processPushMessage(WTFMove(data), WTFMove(registrationURL), WTFMove(callback));
+}
 #endif // ENABLE(SERVICE_WORKER)
 
 void NetworkProcess::requestStorageSpace(PAL::SessionID sessionID, const ClientOrigin& origin, uint64_t quota, uint64_t currentSize, uint64_t spaceRequired, CompletionHandler<void(std::optional<uint64_t>)>&& callback)
@@ -2536,7 +2545,7 @@ RefPtr<StorageQuotaManager> NetworkProcess::storageQuotaManager(PAL::SessionID s
 
         return CacheStorage::Engine::diskUsage(cacheRootPath, origin) + IDBServer::IDBServer::diskUsage(idbRootPath, origin);
     };
-    StorageQuotaManager::QuotaIncreaseRequester quotaIncreaseRequester = [this, weakThis = makeWeakPtr(*this), sessionID, origin] (uint64_t currentQuota, uint64_t currentSpace, uint64_t requestedIncrease, auto&& callback) {
+    StorageQuotaManager::QuotaIncreaseRequester quotaIncreaseRequester = [this, weakThis = WeakPtr { *this }, sessionID, origin] (uint64_t currentQuota, uint64_t currentSpace, uint64_t requestedIncrease, auto&& callback) {
         ASSERT(isMainRunLoop());
         if (!weakThis)
             callback({ });

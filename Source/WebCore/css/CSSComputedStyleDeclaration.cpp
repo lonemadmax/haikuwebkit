@@ -1850,6 +1850,7 @@ static Ref<CSSPrimitiveValue> fontPaletteFromStyle(const RenderStyle& style)
     case FontPalette::Type::Custom:
         return CSSValuePool::singleton().createCustomIdent(fontPalette.identifier);
     }
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 Ref<CSSPrimitiveValue> ComputedStyleExtractor::fontNonKeywordWeightFromStyleValue(FontSelectionValue weight)
@@ -2625,7 +2626,13 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertyInternalTextAutosizingStatus:
 #endif
             break;
-
+        case CSSPropertyAccentColor: {
+            if (!m_element->document().settings().accentColorEnabled())
+                return nullptr;
+            if (style.hasAutoAccentColor())
+                return cssValuePool.createIdentifierValue(CSSValueAuto);
+            return currentColorOrValidColor(&style, style.accentColor());
+        }
         case CSSPropertyBackgroundColor:
             return m_allowVisitedStyle ? cssValuePool.createColorValue(style.visitedDependentColor(CSSPropertyBackgroundColor)) : currentColorOrValidColor(&style, style.backgroundColor());
         case CSSPropertyBackgroundImage:

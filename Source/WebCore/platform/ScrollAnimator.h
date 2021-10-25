@@ -49,6 +49,8 @@ class ScrollableArea;
 class Scrollbar;
 class WheelEventTestMonitor;
 
+struct ScrollExtents;
+
 class ScrollingEffectsControllerTimer;
 
 class ScrollAnimator : private ScrollingEffectsControllerClient {
@@ -93,9 +95,10 @@ public:
 
     virtual void cancelAnimations();
 
-    virtual bool isUserScrollInProgress() const { return false; }
     virtual bool isRubberBandInProgress() const { return false; }
-    virtual bool isScrollSnapInProgress() const { return false; }
+
+    bool isUserScrollInProgress() const { return m_scrollController.isUserScrollInProgress(); }
+    bool isScrollSnapInProgress() const { return m_scrollController.isScrollSnapInProgress(); }
 
     void contentsSizeChanged();
 
@@ -144,8 +147,8 @@ private:
     bool allowsHorizontalScrolling() const final;
     bool allowsVerticalScrolling() const final;
 
-    void setScrollBehaviorStatus(ScrollBehaviorStatus) final;
-    ScrollBehaviorStatus scrollBehaviorStatus() const final;
+    void willStartAnimatedScroll() final;
+    void didStopAnimatedScroll() final;
 
     void immediateScrollBy(const FloatSize&, ScrollClamping = ScrollClamping::Clamped) final;
     void adjustScrollPositionToBoundsIfNecessary() final;

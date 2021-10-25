@@ -1918,7 +1918,7 @@ void SpeculativeJIT::compileStringSlice(Node* node)
 
     m_jit.lshift32(MacroAssembler::TrustedImm32(sizeof(void*) == 4 ? 2 : 3), tempGPR);
     m_jit.addPtr(TrustedImmPtr(vm.smallStrings.singleCharacterStrings()), tempGPR);
-    m_jit.loadPtr(tempGPR, tempGPR);
+    m_jit.loadPtr(CCallHelpers::Address(tempGPR), tempGPR);
 
     addSlowPathGenerator(slowPathCall(bigCharacter, this, operationSingleCharacterString, tempGPR, &vm, tempGPR));
 
@@ -2634,7 +2634,7 @@ void SpeculativeJIT::compileGetByValOnString(Node* node, const ScopedLambda<std:
     VM& vm = this->vm();
     m_jit.lshift32(MacroAssembler::TrustedImm32(sizeof(void*) == 4 ? 2 : 3), scratchReg);
     m_jit.addPtr(TrustedImmPtr(vm.smallStrings.singleCharacterStrings()), scratchReg);
-    m_jit.loadPtr(scratchReg, scratchReg);
+    m_jit.loadPtr(CCallHelpers::Address(scratchReg), scratchReg);
 
     addSlowPathGenerator(
         slowPathCall(
@@ -3325,19 +3325,20 @@ void SpeculativeJIT::loadFromIntTypedArray(GPRReg storageReg, GPRReg propertyReg
     }
 }
 
-void SpeculativeJIT::setIntTypedArrayLoadResult(Node* node, JSValueRegs resultRegs, TypedArrayType type, bool canSpeculate, bool shouldBox)
+void SpeculativeJIT::setIntTypedArrayLoadResult(Node* node, JSValueRegs resultRegs, TypedArrayType type, bool canSpeculate, bool shouldBox, FPRReg resultFPR)
 {
     bool isUInt32 = elementSize(type) == 4 && !isSigned(type);
+    if (isUInt32)
+        ASSERT(resultFPR != InvalidFPRReg);
     GPRReg resultReg = resultRegs.payloadGPR();
 
     if (shouldBox) {
         if (isUInt32) {
-            FPRTemporary fresult(this);
-            m_jit.convertInt32ToDouble(resultReg, fresult.fpr());
+            m_jit.convertInt32ToDouble(resultReg, resultFPR);
             JITCompiler::Jump positive = m_jit.branch32(MacroAssembler::GreaterThanOrEqual, resultReg, TrustedImm32(0));
-            m_jit.addDouble(JITCompiler::AbsoluteAddress(&AssemblyHelpers::twoToThe32), fresult.fpr());
+            m_jit.addDouble(JITCompiler::AbsoluteAddress(&AssemblyHelpers::twoToThe32), resultFPR);
             positive.link(&m_jit);
-            m_jit.boxDouble(fresult.fpr(), resultRegs);
+            m_jit.boxDouble(resultFPR, resultRegs);
         } else
             m_jit.boxInt32(resultRegs.payloadGPR(), resultRegs);
         jsValueResult(resultRegs, node);
@@ -3365,12 +3366,11 @@ void SpeculativeJIT::setIntTypedArrayLoadResult(Node* node, JSValueRegs resultRe
     }
 #endif
     
-    FPRTemporary fresult(this);
-    m_jit.convertInt32ToDouble(resultReg, fresult.fpr());
+    m_jit.convertInt32ToDouble(resultReg, resultFPR);
     JITCompiler::Jump positive = m_jit.branch32(MacroAssembler::GreaterThanOrEqual, resultReg, TrustedImm32(0));
-    m_jit.addDouble(JITCompiler::AbsoluteAddress(&AssemblyHelpers::twoToThe32), fresult.fpr());
+    m_jit.addDouble(JITCompiler::AbsoluteAddress(&AssemblyHelpers::twoToThe32), resultFPR);
     positive.link(&m_jit);
-    doubleResult(fresult.fpr(), node);
+    doubleResult(resultFPR, node);
 }
 
 void SpeculativeJIT::compileGetByValOnIntTypedArray(Node* node, TypedArrayType type, const ScopedLambda<std::tuple<JSValueRegs, DataFormat>(DataFormat preferredFormat)>& prefix)
@@ -3385,6 +3385,13 @@ void SpeculativeJIT::compileGetByValOnIntTypedArray(Node* node, TypedArrayType t
     GPRReg propertyReg = property.gpr();
     GPRReg storageReg = storage.gpr();
 
+    std::optional<FPRTemporary> fprTemp;
+    FPRReg resultFPR = InvalidFPRReg;
+    if (elementSize(type) == 4 && !isSigned(type)) {
+        fprTemp.emplace(this);
+        resultFPR = fprTemp->fpr();
+    }
+
     JSValueRegs resultRegs;
     DataFormat format;
     std::tie(resultRegs, format) = prefix(DataFormatInt32);
@@ -3393,7 +3400,7 @@ void SpeculativeJIT::compileGetByValOnIntTypedArray(Node* node, TypedArrayType t
     emitTypedArrayBoundsCheck(node, baseReg, propertyReg);
     loadFromIntTypedArray(storageReg, propertyReg, resultRegs.payloadGPR(), type);
     constexpr bool canSpeculate = true;
-    setIntTypedArrayLoadResult(node, resultRegs, type, canSpeculate, shouldBox);
+    setIntTypedArrayLoadResult(node, resultRegs, type, canSpeculate, shouldBox, resultFPR);
 }
 
 bool SpeculativeJIT::getIntTypedArrayStoreOperand(
@@ -10548,13 +10555,14 @@ void SpeculativeJIT::compileCallDOM(Node* node)
 
     // FIXME: We should have a way to call functions with the vector of registers.
     // https://bugs.webkit.org/show_bug.cgi?id=163099
-    Vector<Variant<SpeculateCellOperand, SpeculateInt32Operand, SpeculateBooleanOperand>, JSC_DOMJIT_SIGNATURE_MAX_ARGUMENTS_INCLUDING_THIS> operands;
+    using OperandVariant = Variant<SpeculateCellOperand, SpeculateInt32Operand, SpeculateBooleanOperand>;
+    Vector<OperandVariant, JSC_DOMJIT_SIGNATURE_MAX_ARGUMENTS_INCLUDING_THIS> operands;
     Vector<GPRReg, JSC_DOMJIT_SIGNATURE_MAX_ARGUMENTS_INCLUDING_THIS> regs;
 
     auto appendCell = [&](Edge& edge) {
         SpeculateCellOperand operand(this, edge);
         regs.append(operand.gpr());
-        operands.append(WTFMove(operand));
+        operands.append(OperandVariant(std::in_place_type<SpeculateCellOperand>, WTFMove(operand)));
     };
 
     auto appendString = [&](Edge& edge) {
@@ -10562,19 +10570,19 @@ void SpeculativeJIT::compileCallDOM(Node* node)
         GPRReg gpr = operand.gpr();
         regs.append(gpr);
         speculateString(edge, gpr);
-        operands.append(WTFMove(operand));
+        operands.append(OperandVariant(std::in_place_type<SpeculateCellOperand>, WTFMove(operand)));
     };
 
     auto appendInt32 = [&](Edge& edge) {
         SpeculateInt32Operand operand(this, edge);
         regs.append(operand.gpr());
-        operands.append(WTFMove(operand));
+        operands.append(OperandVariant(std::in_place_type<SpeculateInt32Operand>, WTFMove(operand)));
     };
 
     auto appendBoolean = [&](Edge& edge) {
         SpeculateBooleanOperand operand(this, edge);
         regs.append(operand.gpr());
-        operands.append(WTFMove(operand));
+        operands.append(OperandVariant(std::in_place_type<SpeculateBooleanOperand>, WTFMove(operand)));
     };
 
     unsigned index = 0;
@@ -11223,7 +11231,7 @@ void SpeculativeJIT::compileNewRegexp(Node* node)
 
     m_jit.storePtr(
         TrustedImmPtr(node->cellOperand()),
-        CCallHelpers::Address(resultGPR, RegExpObject::offsetOfRegExpAndLastIndexIsNotWritableFlag()));
+        CCallHelpers::Address(resultGPR, RegExpObject::offsetOfRegExpAndFlags()));
     m_jit.storeValue(lastIndexRegs, CCallHelpers::Address(resultGPR, RegExpObject::offsetOfLastIndex()));
     m_jit.mutatorFence(vm());
 
@@ -12773,7 +12781,7 @@ void SpeculativeJIT::compileSetRegExpObjectLastIndex(Node* node)
             ExoticObjectMode, JSValueRegs(), nullptr,
             m_jit.branchTestPtr(
                 JITCompiler::NonZero,
-                JITCompiler::Address(regExpGPR, RegExpObject::offsetOfRegExpAndLastIndexIsNotWritableFlag()),
+                JITCompiler::Address(regExpGPR, RegExpObject::offsetOfRegExpAndFlags()),
                 JITCompiler::TrustedImm32(RegExpObject::lastIndexIsNotWritableFlag)));
     }
 
@@ -15331,7 +15339,7 @@ void SpeculativeJIT::compileClearCatchLocals(Node* node)
     GPRTemporary scratch(this);
     GPRReg scratchGPR = scratch.gpr();
     m_jit.move(TrustedImmPtr(scratchBuffer->addressOfActiveLength()), scratchGPR);
-    m_jit.storePtr(TrustedImmPtr(nullptr), scratchGPR);
+    m_jit.storePtr(TrustedImmPtr(nullptr), CCallHelpers::Address(scratchGPR));
     noResult(node);
 }
 

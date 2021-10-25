@@ -113,8 +113,11 @@ public:
     bool isScrollSnapInProgressForNode(ScrollingNodeID);
     void setNodeScrollSnapInProgress(ScrollingNodeID, bool);
 
+    bool isAnimatedScrollInProgressForNode(ScrollingNodeID);
+    void setAnimatedScrollInProgressForNode(ScrollingNodeID, bool);
+
     virtual void invalidate() { }
-    WEBCORE_EXPORT virtual void commitTreeState(std::unique_ptr<ScrollingStateTree>&&);
+    WEBCORE_EXPORT void commitTreeState(std::unique_ptr<ScrollingStateTree>&&);
     
     WEBCORE_EXPORT virtual void applyLayerPositions();
     WEBCORE_EXPORT void applyLayerPositionsAfterCommit();
@@ -129,9 +132,10 @@ public:
     // Called after a scrolling tree node has handled a scroll and updated its layers.
     // Updates FrameView/RenderLayer scrolling state and GraphicsLayers.
     virtual void scrollingTreeNodeDidScroll(ScrollingTreeScrollingNode&, ScrollingLayerPositionAction = ScrollingLayerPositionAction::Sync) = 0;
+    virtual void scrollingTreeNodeDidStopAnimatedScroll(ScrollingTreeScrollingNode&) { }
 
-    // Called for requested scroll position updates.
-    virtual void scrollingTreeNodeRequestsScroll(ScrollingNodeID, const FloatPoint& /*scrollPosition*/, ScrollType, ScrollClamping) { }
+    // Called for requested scroll position updates. Returns true if handled.
+    virtual bool scrollingTreeNodeRequestsScroll(ScrollingNodeID, const RequestedScrollData&) { return false; }
 
     // Delegated scrolling/zooming has caused the viewport to change, so update viewport-constrained layers
     WEBCORE_EXPORT void mainFrameViewportChangedViaDelegatedScrolling(const FloatPoint& scrollPosition, const WebCore::FloatRect& layoutViewport, double scale);
@@ -221,26 +225,7 @@ public:
     void windowScreenDidChange(PlatformDisplayID, std::optional<FramesPerSecond> nominalFramesPerSecond);
     PlatformDisplayID displayID();
     
-    bool hasProcessedWheelEventsRecently();
     WEBCORE_EXPORT void willProcessWheelEvent();
-
-    struct ScrollUpdate {
-        ScrollingNodeID nodeID { 0 };
-        FloatPoint scrollPosition;
-        std::optional<FloatPoint> layoutViewportOrigin;
-        ScrollingLayerPositionAction updateLayerPositionAction { ScrollingLayerPositionAction::Sync };
-        
-        bool canMerge(const ScrollUpdate& other) const
-        {
-            return nodeID == other.nodeID && updateLayerPositionAction == other.updateLayerPositionAction;
-        }
-        
-        void merge(ScrollUpdate&& other)
-        {
-            scrollPosition = other.scrollPosition;
-            layoutViewportOrigin = other.layoutViewportOrigin;
-        }
-    };
 
     void addPendingScrollUpdate(ScrollUpdate&&);
     Vector<ScrollUpdate> takePendingScrollUpdates();
@@ -258,6 +243,11 @@ protected:
 
     void applyLayerPositionsInternal() WTF_REQUIRES_LOCK(m_treeLock);
     void removeAllNodes() WTF_REQUIRES_LOCK(m_treeLock);
+    
+    virtual void hasNodeWithAnimatedScrollChanged(bool /* hasNodeWithAnimatedScroll */) { }
+
+    bool hasProcessedWheelEventsRecently();
+    bool hasNodeWithActiveAnimatedScroll();
 
     Lock m_treeLock; // Protects the scrolling tree.
 
@@ -268,6 +258,8 @@ private:
     void applyLayerPositionsRecursive(ScrollingTreeNode&) WTF_REQUIRES_LOCK(m_treeLock);
     void notifyRelatedNodesRecursive(ScrollingTreeNode&);
     void traverseScrollingTreeRecursive(ScrollingTreeNode&, const VisitorFunction&) WTF_REQUIRES_LOCK(m_treeLock);
+    
+    virtual void didCommitTree() { }
 
     WEBCORE_EXPORT virtual RefPtr<ScrollingTreeNode> scrollingNodeForPoint(FloatPoint);
 #if ENABLE(WHEEL_EVENT_REGIONS)
@@ -277,7 +269,7 @@ private:
     OptionSet<WheelEventProcessingSteps> computeWheelProcessingSteps(const PlatformWheelEvent&) WTF_REQUIRES_LOCK(m_treeStateLock);
 
     virtual void receivedWheelEvent(const PlatformWheelEvent&) { }
-    
+
     RefPtr<ScrollingTreeFrameScrollingNode> m_rootNode;
 
     using ScrollingTreeNodeMap = HashMap<ScrollingNodeID, RefPtr<ScrollingTreeNode>>;
@@ -300,6 +292,7 @@ private:
         HashSet<ScrollingNodeID> nodesWithActiveRubberBanding;
         HashSet<ScrollingNodeID> nodesWithActiveScrollSnap;
         HashSet<ScrollingNodeID> nodesWithActiveUserScrolls;
+        HashSet<ScrollingNodeID> nodesWithActiveAnimatedScrolls;
     };
     
     Lock m_treeStateLock;

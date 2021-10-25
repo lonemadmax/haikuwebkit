@@ -918,7 +918,7 @@ static RefPtr<CSSPrimitiveValue> consumeFontVariantCSS21(CSSParserTokenRange& ra
 static RefPtr<CSSPrimitiveValue> consumeFontWeight(CSSParserTokenRange& range)
 {
     if (auto result = consumeFontWeightRaw(range)) {
-        return switchOn(*result, [] (CSSValueID valueID) {
+        return WTF::switchOn(*result, [] (CSSValueID valueID) {
             return CSSValuePool::singleton().createIdentifierValue(valueID);
         }, [] (double weightNumber) {
             return CSSValuePool::singleton().createValue(weightNumber, CSSUnitType::CSS_NUMBER);
@@ -1729,7 +1729,7 @@ static RefPtr<CSSValue> consumeTextEmphasisStyle(CSSParserTokenRange& range)
     return nullptr;
 }
 
-static RefPtr<CSSPrimitiveValue> consumeCaretColor(CSSParserTokenRange& range, const CSSParserContext& context)
+static RefPtr<CSSPrimitiveValue> consumeColorWithAuto(CSSParserTokenRange& range, const CSSParserContext& context)
 {
     if (range.peek().id() == CSSValueAuto)
         return consumeIdent(range);
@@ -4218,8 +4218,13 @@ RefPtr<CSSValue> CSSPropertyParser::parseSingleValue(CSSPropertyID property, CSS
     case CSSPropertyLightingColor:
     case CSSPropertyColumnRuleColor:
         return consumeColor(m_range, m_context);
+    case CSSPropertyAccentColor: {
+        if (!m_context.accentColorEnabled)
+            return nullptr;
+        return consumeColorWithAuto(m_range, m_context);
+    }
     case CSSPropertyCaretColor:
-        return consumeCaretColor(m_range, m_context);
+        return consumeColorWithAuto(m_range, m_context);
     case CSSPropertyColor:
     case CSSPropertyBackgroundColor:
         return consumeColor(m_range, m_context, inQuirksMode());
@@ -4850,8 +4855,6 @@ static RefPtr<CSSPrimitiveValue> consumeBasePaletteDescriptor(CSSParserTokenRang
 {
     if (auto result = consumeIdent<CSSValueLight, CSSValueDark>(range))
         return result;
-    if (auto result = consumeString(range))
-        return result;
     return consumeInteger(range, 0);
 }
 
@@ -4859,11 +4862,7 @@ static RefPtr<CSSValueList> consumeOverrideColorsDescriptor(CSSParserTokenRange&
 {
     RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
     do {
-        RefPtr<CSSPrimitiveValue> key;
-        if (range.peek().type() == StringToken)
-            key = consumeString(range);
-        else
-            key = consumeInteger(range, 0);
+        auto key = consumeInteger(range, 0);
         if (!key)
             return nullptr;
 

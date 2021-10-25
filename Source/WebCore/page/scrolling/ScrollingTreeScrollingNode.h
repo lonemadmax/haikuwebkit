@@ -48,6 +48,7 @@ class WEBCORE_EXPORT ScrollingTreeScrollingNode : public ScrollingTreeNode {
     friend class ScrollingTreeScrollingNodeDelegateNicosia;
 #endif
     friend class ScrollingTree;
+    friend class ThreadedScrollingTree;
 
 public:
     virtual ~ScrollingTreeScrollingNode();
@@ -78,7 +79,7 @@ public:
     void scrollTo(const FloatPoint&, ScrollType = ScrollType::User, ScrollClamping = ScrollClamping::Clamped);
     void scrollBy(const FloatSize&, ScrollClamping = ScrollClamping::Clamped);
 
-    virtual void stopScrollAnimations() { };
+    void handleScrollPositionRequest(const RequestedScrollData&);
 
     void wasScrolledByDelegatedScrolling(const FloatPoint& position, std::optional<FloatRect> overrideLayoutViewport = { }, ScrollingLayerPositionAction = ScrollingLayerPositionAction::Sync);
     
@@ -123,6 +124,12 @@ protected:
     virtual void willDoProgrammaticScroll(const FloatPoint&) { }
     
     virtual FloatPoint adjustedScrollPosition(const FloatPoint&, ScrollClamping = ScrollClamping::Clamped) const;
+    
+    virtual bool startAnimatedScrollToPosition(FloatPoint) { return false; }
+    virtual void stopAnimatedScroll() { }
+
+    void willStartAnimatedScroll();
+    void didStopAnimatedScroll();
 
     virtual void currentScrollPositionChanged(ScrollType, ScrollingLayerPositionAction = ScrollingLayerPositionAction::Sync);
     virtual void updateViewportForCurrentScrollPosition(std::optional<FloatRect> = { }) { }

@@ -39,6 +39,8 @@ public:
 
     const RenderBoxModelObject& renderer() const { return downcast<RenderBoxModelObject>(Box::renderer()); }
 
+    std::pair<bool, bool> hasClosedLeftAndRightEdge() const;
+
     // FIXME: Remove. For intermediate porting steps only.
     const LegacyInlineFlowBox* legacyInlineBox() const { return downcast<LegacyInlineFlowBox>(Box::legacyInlineBox()); }
 
@@ -65,6 +67,7 @@ private:
 
 InlineBoxIterator inlineBoxFor(const LegacyInlineFlowBox&);
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+InlineBoxIterator inlineBoxFor(const LayoutIntegration::InlineContent&, const InlineDisplay::Box&);
 InlineBoxIterator inlineBoxFor(const LayoutIntegration::InlineContent&, size_t boxIndex);
 #endif
 

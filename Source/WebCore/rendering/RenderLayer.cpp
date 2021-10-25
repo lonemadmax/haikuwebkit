@@ -57,6 +57,7 @@
 #include "DocumentTimeline.h"
 #include "Editor.h"
 #include "Element.h"
+#include "ElementInlines.h"
 #include "EventHandler.h"
 #include "FEColorMatrix.h"
 #include "FEMerge.h"
@@ -2444,7 +2445,7 @@ void RenderLayer::scrollRectToVisible(const LayoutRect& absoluteRect, bool insid
     {
         auto scrollPositionOptions = ScrollPositionChangeOptions::createProgrammatic();
         if (!renderer().frame().eventHandler().autoscrollInProgress() && element && useSmoothScrolling(options.behavior, element))
-            scrollPositionOptions.animated = AnimatedScroll::Yes;
+            scrollPositionOptions.animated = ScrollIsAnimated::Yes;
         return scrollPositionOptions;
     };
 

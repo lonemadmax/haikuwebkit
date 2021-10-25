@@ -102,9 +102,63 @@ enum class ViewportRectStability {
     ChangingObscuredInsetsInteractively // This implies Unstable.
 };
 
+enum class ScrollRequestType : uint8_t {
+    PositionUpdate,
+    CancelAnimatedScroll
+};
+
+struct RequestedScrollData {
+    ScrollRequestType requestType { ScrollRequestType::PositionUpdate };
+    FloatPoint scrollPosition;
+    ScrollType scrollType { ScrollType::User };
+    ScrollClamping clamping { ScrollClamping::Clamped };
+    ScrollIsAnimated animated { ScrollIsAnimated::No };
+
+    bool operator==(const RequestedScrollData& other) const
+    {
+        return requestType == other.requestType
+            && scrollPosition == other.scrollPosition
+            && scrollType == other.scrollType
+            && clamping == other.clamping
+            && animated == other.animated;
+    }
+};
+
+enum class ScrollUpdateType : uint8_t {
+    PositionUpdate,
+    AnimatedScrollDidEnd
+};
+
+struct ScrollUpdate {
+    ScrollingNodeID nodeID { 0 };
+    FloatPoint scrollPosition;
+    std::optional<FloatPoint> layoutViewportOrigin;
+    ScrollUpdateType updateType { ScrollUpdateType::PositionUpdate };
+    ScrollingLayerPositionAction updateLayerPositionAction { ScrollingLayerPositionAction::Sync };
+    
+    bool canMerge(const ScrollUpdate& other) const
+    {
+        return nodeID == other.nodeID && updateLayerPositionAction == other.updateLayerPositionAction && updateType == other.updateType;
+    }
+    
+    void merge(ScrollUpdate&& other)
+    {
+        scrollPosition = other.scrollPosition;
+        layoutViewportOrigin = other.layoutViewportOrigin;
+    }
+};
+
 } // namespace WebCore
 
 namespace WTF {
+
+template<> struct EnumTraits<WebCore::ScrollRequestType> {
+    using values = EnumValues<
+        WebCore::ScrollRequestType,
+        WebCore::ScrollRequestType::PositionUpdate,
+        WebCore::ScrollRequestType::CancelAnimatedScroll
+    >;
+};
 
 template<> struct EnumTraits<WebCore::ScrollingNodeType> {
     using values = EnumValues<

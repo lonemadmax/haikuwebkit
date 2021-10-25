@@ -44,7 +44,7 @@
 #include "HTMLMapElement.h"
 #include "HTMLNames.h"
 #include "HitTestResult.h"
-#include "InlineIteratorBox.h"
+#include "InlineIteratorInlineBox.h"
 #include "InlineIteratorLine.h"
 #include "Page.h"
 #include "PaintInfo.h"
@@ -55,6 +55,7 @@
 #include "RenderTheme.h"
 #include "RenderView.h"
 #include "RuntimeEnabledFeatures.h"
+#include "SVGElementTypeHelpers.h"
 #include "SVGImage.h"
 #include "Settings.h"
 #include <wtf/IsoMallocInlines.h>
@@ -691,9 +692,9 @@ ImageDrawResult RenderImage::paintIntoRect(PaintInfo& paintInfo, const FloatRect
     return drawResult;
 }
 
-bool RenderImage::boxShadowShouldBeAppliedToBackground(const LayoutPoint& paintOffset, BackgroundBleedAvoidance bleedAvoidance, const LegacyInlineFlowBox*) const
+bool RenderImage::boxShadowShouldBeAppliedToBackground(const LayoutPoint& paintOffset, BackgroundBleedAvoidance bleedAvoidance, const InlineIterator::InlineBoxIterator&) const
 {
-    if (!RenderBoxModelObject::boxShadowShouldBeAppliedToBackground(paintOffset, bleedAvoidance))
+    if (!RenderBoxModelObject::boxShadowShouldBeAppliedToBackground(paintOffset, bleedAvoidance, { }))
         return false;
 
     return !const_cast<RenderImage*>(this)->backgroundIsKnownToBeObscured(paintOffset);

@@ -1016,7 +1016,7 @@ void MediaPlayerPrivateGStreamer::notifyPlayerOfTrack()
     default:
         ASSERT_NOT_REACHED();
     }
-    HashMap<AtomString, RefPtr<TrackPrivateType>>& tracks = *get<HashMap<AtomString, RefPtr<TrackPrivateType>>*>(variantTracks);
+    HashMap<AtomString, RefPtr<TrackPrivateType>>& tracks = *WTF::get<HashMap<AtomString, RefPtr<TrackPrivateType>>*>(variantTracks);
 
     // Ignore notifications after a EOS. We don't want the tracks to disappear when the video is finished.
     if (m_isEndReached && (type == TrackType::Audio || type == TrackType::Video))
@@ -1071,16 +1071,16 @@ void MediaPlayerPrivateGStreamer::notifyPlayerOfTrack()
         ASSERT(streamId == track->id());
         tracks.add(streamId, track.copyRef());
 
-        Variant<AudioTrackPrivate&, VideoTrackPrivate&, InbandTextTrackPrivate&> variantTrack(track.get());
+        Variant<AudioTrackPrivate*, VideoTrackPrivate*, InbandTextTrackPrivate*> variantTrack(&track.get());
         switch (variantTrack.index()) {
         case TrackType::Audio:
-            m_player->addAudioTrack(get<AudioTrackPrivate&>(variantTrack));
+            m_player->addAudioTrack(*WTF::get<AudioTrackPrivate*>(variantTrack));
             break;
         case TrackType::Video:
-            m_player->addVideoTrack(get<VideoTrackPrivate&>(variantTrack));
+            m_player->addVideoTrack(*WTF::get<VideoTrackPrivate*>(variantTrack));
             break;
         case TrackType::Text:
-            m_player->addTextTrack(get<InbandTextTrackPrivate&>(variantTrack));
+            m_player->addTextTrack(*WTF::get<InbandTextTrackPrivate*>(variantTrack));
             break;
         }
     }
@@ -1843,7 +1843,7 @@ void MediaPlayerPrivateGStreamer::handleMessage(GstMessage* message)
         if (gst_is_missing_plugin_message(message)) {
 #if !USE(GSTREAMER_FULL)
             if (gst_install_plugins_supported()) {
-                auto missingPluginCallback = MediaPlayerRequestInstallMissingPluginsCallback::create([weakThis = makeWeakPtr(*this)](uint32_t result, MediaPlayerRequestInstallMissingPluginsCallback& missingPluginCallback) {
+                auto missingPluginCallback = MediaPlayerRequestInstallMissingPluginsCallback::create([weakThis = WeakPtr { *this }](uint32_t result, MediaPlayerRequestInstallMissingPluginsCallback& missingPluginCallback) {
                     if (!weakThis) {
                         GST_INFO("got missing pluging installation callback in destroyed player with result %u", result);
                         return;
@@ -3040,7 +3040,7 @@ void MediaPlayerPrivateGStreamer::invalidateCachedPosition() const
 
 void MediaPlayerPrivateGStreamer::invalidateCachedPositionOnNextIteration() const
 {
-    RunLoop::main().dispatch([weakThis = makeWeakPtr(*this), this] {
+    RunLoop::main().dispatch([weakThis = WeakPtr { *this }, this] {
         if (!weakThis)
             return;
         invalidateCachedPosition();
@@ -3074,7 +3074,7 @@ void MediaPlayerPrivateGStreamer::triggerRepaint(GstSample* sample)
             GST_ERROR_OBJECT(pipeline(), "Received sample without caps: %" GST_PTR_FORMAT, sample);
             return;
         }
-        RunLoop::main().dispatch([weakThis = makeWeakPtr(*this), this, caps = WTFMove(caps)] {
+        RunLoop::main().dispatch([weakThis = WeakPtr { *this }, this, caps = WTFMove(caps)] {
             if (!weakThis)
                 return;
             updateVideoSizeAndOrientationFromCaps(caps.get());
@@ -3586,7 +3586,7 @@ void MediaPlayerPrivateGStreamer::initializationDataEncountered(InitData&& initD
 {
     ASSERT(!isMainThread());
 
-    RunLoop::main().dispatch([weakThis = makeWeakPtr(*this), initData = WTFMove(initData)] {
+    RunLoop::main().dispatch([weakThis = WeakPtr { *this }, initData = WTFMove(initData)] {
         if (!weakThis)
             return;
 

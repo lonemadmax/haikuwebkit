@@ -48,15 +48,18 @@ typedef CCallHelpers::Imm64 Imm64;
 
 bool IntrinsicGetterAccessCase::canEmitIntrinsicGetter(StructureStubInfo& stubInfo, JSFunction* getter, Structure* structure)
 {
+    // We aren't structure checking the this value, so we don't know:
+    // - For type array loads, that it's a typed array.
+    // - For __proto__ getter, that the incoming value is an object,
+    //   and if it overrides getPrototype structure flags.
+    // So for these cases, it's simpler to just call the getter directly.
+    if (stubInfo.thisValueIsInThisGPR())
+        return false;
 
     switch (getter->intrinsic()) {
     case TypedArrayByteOffsetIntrinsic:
     case TypedArrayByteLengthIntrinsic:
     case TypedArrayLengthIntrinsic: {
-        // We aren't structure checking the this value, so we don't know it's a typed array.
-        if (stubInfo.thisValueIsInThisGPR())
-            return false;
-
         TypedArrayType type = structure->classInfo()->typedArrayStorageType;
 
         if (!isTypedView(type))
@@ -137,34 +140,10 @@ void IntrinsicGetterAccessCase::emitIntrinsicGetter(AccessGenerationState& state
     }
 
     case UnderscoreProtoIntrinsic: {
-        StructureStubInfo& stubInfo = *state.stubInfo;
-        if (stubInfo.thisValueIsInThisGPR()) {
-            ScratchRegisterAllocator allocator(stubInfo.usedRegisters);
-            allocator.lock(state.scratchGPR);
-            allocator.lock(state.baseGPR);
-            allocator.lock(state.u.thisGPR);
-            allocator.lock(valueRegs);
-#if USE(JSVALUE32_64)
-            allocator.lock(stubInfo.baseTagGPR);
-            allocator.lock(stubInfo.v.thisTagGPR);
-#endif
-            if (stubInfo.m_stubInfoGPR != InvalidGPRReg)
-                allocator.lock(stubInfo.m_stubInfoGPR);
-            if (stubInfo.m_arrayProfileGPR != InvalidGPRReg)
-                allocator.lock(stubInfo.m_arrayProfileGPR);
-
-            GPRReg scratch2GPR = allocator.allocateScratchGPR();
-            auto preservedState = allocator.preserveReusedRegistersByPushing(jit, ScratchRegisterAllocator::ExtraStackSpace::NoExtraSpace);
-
-            jit.emitLoadPrototypeWithoutCheck(state.m_vm, state.u.thisGPR, valueRegs, state.scratchGPR, scratch2GPR);
-
-            allocator.restoreReusedRegistersByPopping(jit, preservedState);
-        } else {
-            if (structure()->hasPolyProto())
-                jit.loadValue(CCallHelpers::Address(baseGPR, offsetRelativeToBase(knownPolyProtoOffset)), valueRegs);
-            else
-                jit.moveValue(structure()->storedPrototype(), valueRegs);
-        }
+        if (structure()->hasPolyProto())
+            jit.loadValue(CCallHelpers::Address(baseGPR, offsetRelativeToBase(knownPolyProtoOffset)), valueRegs);
+        else
+            jit.moveValue(structure()->storedPrototype(), valueRegs);
         state.succeed();
         return;
     }

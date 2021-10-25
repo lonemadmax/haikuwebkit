@@ -29,6 +29,7 @@
 #if ENABLE(ASYNC_SCROLLING) && PLATFORM(MAC)
 
 #import "Logging.h"
+#import "ScrollExtents.h"
 #import "ScrollingStateScrollingNode.h"
 #import "ScrollingTree.h"
 #import "ScrollingTreeFrameScrollingNode.h"
@@ -111,6 +112,19 @@ bool ScrollingTreeScrollingNodeDelegateMac::handleWheelEvent(const PlatformWheel
         return true;
 
     return m_scrollController.handleWheelEvent(wheelEvent);
+}
+
+bool ScrollingTreeScrollingNodeDelegateMac::startAnimatedScrollToPosition(FloatPoint destinationPosition)
+{
+    auto currentOffset = ScrollableArea::scrollOffsetFromPosition(currentScrollPosition(), scrollOrigin());
+    auto destinationOffset = ScrollableArea::scrollOffsetFromPosition(destinationPosition, scrollOrigin());
+    
+    return m_scrollController.startAnimatedScrollToDestination(currentOffset, destinationOffset);
+}
+
+void ScrollingTreeScrollingNodeDelegateMac::stopAnimatedScroll()
+{
+    m_scrollController.stopAnimatedScroll();
 }
 
 void ScrollingTreeScrollingNodeDelegateMac::willDoProgrammaticScroll(const FloatPoint& targetPosition)
@@ -358,6 +372,11 @@ float ScrollingTreeScrollingNodeDelegateMac::pageScaleFactor() const
     return 1;
 }
 
+void ScrollingTreeScrollingNodeDelegateMac::didStopAnimatedScroll()
+{
+    scrollingNode().didStopAnimatedScroll();
+}
+
 void ScrollingTreeScrollingNodeDelegateMac::willStartScrollSnapAnimation()
 {
     scrollingNode().setScrollSnapInProgress(true);
@@ -383,7 +402,7 @@ void ScrollingTreeScrollingNodeDelegateMac::deferWheelEventTestCompletionForReas
 
     scrollingTree().deferWheelEventTestCompletionForReason(identifier, reason);
 }
-    
+
 void ScrollingTreeScrollingNodeDelegateMac::removeWheelEventTestCompletionDeferralForReason(WheelEventTestMonitor::ScrollableAreaIdentifier identifier, WheelEventTestMonitor::DeferReason reason) const
 {
     if (!scrollingTree().isMonitoringWheelEvents())

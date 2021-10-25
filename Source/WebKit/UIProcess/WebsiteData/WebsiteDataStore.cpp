@@ -1007,6 +1007,15 @@ void WebsiteDataStore::resetServiceWorkerTimeoutForTesting()
     networkProcess().sendSync(Messages::NetworkProcess::ResetServiceWorkerFetchTimeoutForTesting(), Messages::NetworkProcess::ResetServiceWorkerFetchTimeoutForTesting::Reply(), 0);
 }
 
+bool WebsiteDataStore::hasServiceWorkerBackgroundActivityForTesting() const
+{
+#if ENABLE(SERVICE_WORKER)
+    return WTF::anyOf(WebProcessPool::allProcessPools(), [](auto& pool) { return pool->hasServiceWorkerBackgroundActivityForTesting(); });
+#else
+    return false;
+#endif
+}
+
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 void WebsiteDataStore::setMaxStatisticsEntries(size_t maximumEntryCount, CompletionHandler<void()>&& completionHandler)
 {
@@ -1737,7 +1746,7 @@ void WebsiteDataStore::removeMediaKeys(const String& mediaKeysStorageDirectory, 
 void WebsiteDataStore::getNetworkProcessConnection(WebProcessProxy& webProcessProxy, CompletionHandler<void(const NetworkProcessConnectionInfo&)>&& reply, ShouldRetryOnFailure shouldRetryOnFailure)
 {
     auto& networkProcessProxy = networkProcess();
-    networkProcessProxy.getNetworkProcessConnection(webProcessProxy, [weakThis = makeWeakPtr(*this), networkProcessProxy = makeWeakPtr(networkProcessProxy), webProcessProxy = makeWeakPtr(webProcessProxy), reply = WTFMove(reply), shouldRetryOnFailure] (auto& connectionInfo) mutable {
+    networkProcessProxy.getNetworkProcessConnection(webProcessProxy, [weakThis = WeakPtr { *this }, networkProcessProxy = makeWeakPtr(networkProcessProxy), webProcessProxy = makeWeakPtr(webProcessProxy), reply = WTFMove(reply), shouldRetryOnFailure] (auto& connectionInfo) mutable {
         if (UNLIKELY(!IPC::Connection::identifierIsValid(connectionInfo.identifier()))) {
             auto logError = [networkProcessProxy, webProcessProxy]() {
 #if OS(DARWIN)

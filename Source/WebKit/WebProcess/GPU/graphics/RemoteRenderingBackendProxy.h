@@ -88,6 +88,7 @@ public:
     void destroyGetPixelBufferSharedMemory();
 
     void createRemoteImageBuffer(WebCore::ImageBuffer&);
+    bool isCached(const WebCore::ImageBuffer&) const;
         
     // IPC::MessageSender.
     IPC::Connection* messageSenderConnection() const override;
@@ -100,7 +101,7 @@ public:
     RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, WebCore::RenderingMode, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::PixelFormat);
     String getDataURLForImageBuffer(const String& mimeType, std::optional<double> quality, WebCore::PreserveResolution, WebCore::RenderingResourceIdentifier);
     Vector<uint8_t> getDataForImageBuffer(const String& mimeType, std::optional<double> quality, WebCore::RenderingResourceIdentifier);
-    WebCore::DisplayList::FlushIdentifier flushDisplayListAndCommit(const WebCore::DisplayList::DisplayList&, WebCore::RenderingResourceIdentifier);
+    WebCore::GraphicsContextFlushIdentifier flushDisplayListAndCommit(const WebCore::DisplayList::DisplayList&, WebCore::RenderingResourceIdentifier);
     RefPtr<ShareableBitmap> getShareableBitmap(WebCore::RenderingResourceIdentifier, WebCore::PreserveResolution);
     void cacheNativeImage(const ShareableBitmap::Handle&, WebCore::RenderingResourceIdentifier);
     void cacheFont(Ref<WebCore::Font>&&);
@@ -124,6 +125,22 @@ public:
 
     bool isGPUProcessConnectionClosed() const { return !m_gpuProcessConnection; }
 
+    template<typename T, typename U>
+    void sendToStream(T&& message, ObjectIdentifier<U> identifier)
+    {
+        // FIXME: Not yet implemented.
+    }
+
+    template<typename T>
+    void sendToStream(T&& message)
+    {
+        sendToStream(WTFMove(message), renderingBackendIdentifier());
+    }
+
+    void recordNativeImageUse(WebCore::NativeImage&);
+    void recordFontUse(WebCore::Font&);
+    void recordImageBufferUse(WebCore::ImageBuffer&);
+
 private:
     explicit RemoteRenderingBackendProxy(WebPage&);
 
@@ -134,7 +151,7 @@ private:
 
     // Messages to be received.
     void didCreateImageBufferBackend(ImageBufferBackendHandle, WebCore::RenderingResourceIdentifier);
-    void didFlush(WebCore::DisplayList::FlushIdentifier, WebCore::RenderingResourceIdentifier);
+    void didFlush(WebCore::GraphicsContextFlushIdentifier, WebCore::RenderingResourceIdentifier);
     void didFinalizeRenderingUpdate(RenderingUpdateID didRenderingUpdateID);
 
     RefPtr<DisplayListWriterHandle> mostRecentlyUsedDisplayListHandle();

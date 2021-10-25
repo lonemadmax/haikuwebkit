@@ -1061,6 +1061,8 @@ webkit.org/b/158649 fast/text/chinese-font-name-aliases-2.html [ ImageOnlyFailur
 fast/css/appearance-apple-pay-button.html [ Pass ]
 fast/css/appearance-apple-pay-button-border-radius.html [ Pass ]
 fast/css/appearance-apple-pay-button-default-corners.html [ Pass ]
+fast/css/webkit-named-image/apple-pay-logo-black [ Pass ]
+fast/css/webkit-named-image/apple-pay-logo-white [ Pass ]
 fast/css/getComputedStyle/computed-style-apple-pay-button.html [ Pass ]
 
 # <rdar://problem/23504749> imported/w3c/web-platform-tests/xhr/response-method.htm failing
@@ -2393,7 +2395,7 @@ webkit.org/b/230327 imported/w3c/web-platform-tests/css/css-transforms/crashtest
 [ Monterey+ ] editing/selection/context-menu-on-text.html [ Crash ]
 [ Monterey+ ] editing/selection/context-menu-text-selection-lookup.html [ Crash ]
 
-rdar://83592102
+# rdar://83592102
 [ Monterey+ ] editing/mac/selection/context-menu-select-editability.html [ Crash ]
 [ Monterey+ ] editing/mac/spelling/advance-to-next-misspelling.html [ Crash ]
 [ Monterey+ ] editing/selection/5354455-1.html [ Crash ]
