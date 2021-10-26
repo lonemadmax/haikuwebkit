@@ -31,6 +31,7 @@
 #include "CSSFontSelector.h"
 #include "CSSValueList.h"
 #include "CSSValuePool.h"
+#include "CommonVM.h"
 #include "ContentSecurityPolicy.h"
 #include "Crypto.h"
 #include "FontCache.h"
@@ -41,6 +42,7 @@
 #include "InspectorInstrumentation.h"
 #include "JSDOMExceptionHandling.h"
 #include "Performance.h"
+#include "RTCDataChannelRemoteHandlerConnection.h"
 #include "RuntimeEnabledFeatures.h"
 #include "ScheduledAction.h"
 #include "ScriptSourceCode.h"
@@ -78,7 +80,7 @@ static HashSet<ScriptExecutionContextIdentifier>& allWorkerGlobalScopeIdentifier
 WTF_MAKE_ISO_ALLOCATED_IMPL(WorkerGlobalScope);
 
 WorkerGlobalScope::WorkerGlobalScope(WorkerThreadType type, const WorkerParameters& params, Ref<SecurityOrigin>&& origin, WorkerThread& thread, Ref<SecurityOrigin>&& topOrigin, IDBClient::IDBConnectionProxy* connectionProxy, SocketProvider* socketProvider)
-    : WorkerOrWorkletGlobalScope(type, JSC::VM::create(), &thread)
+    : WorkerOrWorkletGlobalScope(type, isMainThread() ? Ref { commonVM() } : JSC::VM::create(), &thread)
     , m_url(params.scriptURL)
     , m_identifier(params.identifier)
     , m_userAgent(params.userAgent)
@@ -370,7 +372,7 @@ ExceptionOr<void> WorkerGlobalScope::importScripts(const Vector<String>& urls)
         {
             NakedPtr<JSC::Exception> exception;
             ScriptSourceCode sourceCode(scriptLoader->script(), URL(scriptLoader->responseURL()));
-            sourceProvider = makeWeakPtr(static_cast<ScriptBufferSourceProvider&>(sourceCode.provider()));
+            sourceProvider = static_cast<ScriptBufferSourceProvider&>(sourceCode.provider());
             script()->evaluate(sourceCode, exception);
             if (exception) {
                 script()->setException(exception);
@@ -594,7 +596,7 @@ void WorkerGlobalScope::releaseMemoryInWorkers(Synchronous synchronous)
 void WorkerGlobalScope::setMainScriptSourceProvider(ScriptBufferSourceProvider& provider)
 {
     ASSERT(!m_mainScriptSourceProvider);
-    m_mainScriptSourceProvider = makeWeakPtr(provider);
+    m_mainScriptSourceProvider = provider;
 }
 
 void WorkerGlobalScope::addImportedScriptSourceProvider(const URL& url, ScriptBufferSourceProvider& provider)

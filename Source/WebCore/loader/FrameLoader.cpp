@@ -55,7 +55,7 @@
 #include "DatabaseManager.h"
 #include "DiagnosticLoggingClient.h"
 #include "DiagnosticLoggingKeys.h"
-#include "Document.h"
+#include "DocumentInlines.h"
 #include "DocumentLoader.h"
 #include "Editor.h"
 #include "EditorClient.h"
@@ -217,7 +217,7 @@ static bool isDocumentSandboxed(Frame& frame, SandboxFlags mask)
 class PageLevelForbidScope {
 protected:
     explicit PageLevelForbidScope(Page* page)
-        : m_page(makeWeakPtr(page))
+        : m_page(page)
     {
     }
 
@@ -1055,11 +1055,11 @@ void FrameLoader::setOpener(Frame* opener)
         openerFrameLoader.m_openedFrames.remove(m_frame);
     }
     if (opener) {
-        opener->loader().m_openedFrames.add(&m_frame);
+        opener->loader().m_openedFrames.add(m_frame);
         if (auto* page = m_frame.page())
             page->setOpenedByDOMWithOpener(true);
     }
-    m_opener = makeWeakPtr(opener);
+    m_opener = opener;
 
     if (m_frame.document())
         m_frame.document()->initSecurityContext();
@@ -1270,7 +1270,7 @@ void FrameLoader::loadFrameRequest(FrameLoadRequest&& request, Event* event, Ref
     else
         loadType = FrameLoadType::Standard;
 
-    auto completionHandler = [this, protectedFrame = Ref { m_frame }, formState = makeWeakPtr(formState.get()), frameName = request.frameName()] {
+    auto completionHandler = [this, protectedFrame = Ref { m_frame }, formState = WeakPtr { formState }, frameName = request.frameName()] {
         // FIXME: It's possible this targetFrame will not be the same frame that was targeted by the actual
         // load if frame names have changed.
         Frame* sourceFrame = formState ? formState->sourceDocument().frame() : &m_frame;
@@ -2825,12 +2825,13 @@ void FrameLoader::frameDetached()
         checkCompletenessNow();
     }
 
-    if (m_frame.document()->backForwardCacheState() != Document::InBackForwardCache) {
+    if (m_frame.document()->backForwardCacheState() != Document::InBackForwardCache)
         stopAllLoadersAndCheckCompleteness();
-        m_frame.document()->stopActiveDOMObjects();
-    }
 
     detachFromParent();
+
+    if (m_frame.document()->backForwardCacheState() != Document::InBackForwardCache)
+        m_frame.document()->stopActiveDOMObjects();
 }
 
 void FrameLoader::detachFromParent()
@@ -4101,7 +4102,7 @@ RefPtr<Frame> createWindow(Frame& openerFrame, Frame& lookupFrame, FrameLoadRequ
     created = false;
 
     // FIXME: Provide line number information with respect to the opener's document.
-    if (request.resourceRequest().url().protocolIsJavaScript() && !openerFrame.document()->contentSecurityPolicy()->allowJavaScriptURLs(openerFrame.document()->url().string(), { }))
+    if (request.resourceRequest().url().protocolIsJavaScript() && !openerFrame.document()->contentSecurityPolicy()->allowJavaScriptURLs(openerFrame.document()->url().string(), { }, request.resourceRequest().url().string()))
         return nullptr;
 
     if (!request.frameName().isEmpty() && !equalIgnoringASCIICase(request.frameName(), "_blank")) {

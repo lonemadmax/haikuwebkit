@@ -30,6 +30,10 @@
 #include <WebCore/FileSystemSyncAccessHandleIdentifier.h>
 #include <wtf/WeakPtr.h>
 
+namespace IPC {
+class SharedFileHandle;
+}
+
 namespace WebKit {
 
 class FileSystemStorageManager;
@@ -46,6 +50,7 @@ public:
     Type type() const { return m_type; }
 
     bool isSameEntry(WebCore::FileSystemHandleIdentifier);
+    std::optional<FileSystemStorageError> move(WebCore::FileSystemHandleIdentifier, const String& newName);
     Expected<WebCore::FileSystemHandleIdentifier, FileSystemStorageError> getFileHandle(IPC::Connection::UniqueID, String&& name, bool createIfNecessary);
     Expected<WebCore::FileSystemHandleIdentifier, FileSystemStorageError> getDirectoryHandle(IPC::Connection::UniqueID, String&& name, bool createIfNecessary);
     std::optional<FileSystemStorageError> removeEntry(const String& name, bool deleteRecursively);
@@ -53,7 +58,8 @@ public:
     Expected<Vector<String>, FileSystemStorageError> getHandleNames();
     Expected<std::pair<WebCore::FileSystemHandleIdentifier, bool>, FileSystemStorageError> getHandle(IPC::Connection::UniqueID, String&& name);
 
-    Expected<WebCore::FileSystemSyncAccessHandleIdentifier, FileSystemStorageError> createSyncAccessHandle();
+    using AccessHandleInfo = std::pair<WebCore::FileSystemSyncAccessHandleIdentifier, IPC::SharedFileHandle>;
+    Expected<AccessHandleInfo, FileSystemStorageError> createSyncAccessHandle();
     Expected<uint64_t, FileSystemStorageError> getSize(WebCore::FileSystemSyncAccessHandleIdentifier);
     std::optional<FileSystemStorageError> truncate(WebCore::FileSystemSyncAccessHandleIdentifier, uint64_t size);
     std::optional<FileSystemStorageError> flush(WebCore::FileSystemSyncAccessHandleIdentifier);
@@ -68,6 +74,7 @@ private:
     String m_path;
     String m_name;
     std::optional<WebCore::FileSystemSyncAccessHandleIdentifier> m_activeSyncAccessHandle;
+    FileSystem::PlatformFileHandle m_handle { FileSystem::invalidPlatformFileHandle };
 };
 
 } // namespace WebKit

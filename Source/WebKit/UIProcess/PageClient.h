@@ -49,10 +49,10 @@
 #include <WebCore/MediaControlsContextMenuItem.h>
 #include <WebCore/UserInterfaceLayoutDirection.h>
 #include <WebCore/ValidationBubble.h>
+#include <variant>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
 #include <wtf/URL.h>
-#include <wtf/Variant.h>
 #include <wtf/WeakPtr.h>
 
 #if PLATFORM(COCOA)
@@ -282,7 +282,7 @@ public:
 
     virtual void didChangeContentSize(const WebCore::IntSize&) = 0;
 
-    virtual void showSafeBrowsingWarning(const SafeBrowsingWarning&, CompletionHandler<void(Variant<ContinueUnsafeLoad, URL>&&)>&& completionHandler) { completionHandler(ContinueUnsafeLoad::Yes); }
+    virtual void showSafeBrowsingWarning(const SafeBrowsingWarning&, CompletionHandler<void(std::variant<ContinueUnsafeLoad, URL>&&)>&& completionHandler) { completionHandler(ContinueUnsafeLoad::Yes); }
     virtual void clearSafeBrowsingWarning() { }
     virtual void clearSafeBrowsingWarningIfForMainFrameNavigation() { }
     

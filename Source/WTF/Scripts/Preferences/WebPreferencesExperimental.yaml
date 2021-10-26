@@ -46,8 +46,10 @@ AccessHandleEnabled:
     WebKitLegacy:
       default: false
     WebKit:
+      "PLATFORM(COCOA)" : true
       default: false
     WebCore:
+      "PLATFORM(COCOA)" : true
       default: false
 
 AccessibilityObjectModelEnabled:
@@ -256,6 +258,18 @@ CSSIndividualTransformPropertiesEnabled:
     WebCore:
       default: true
 
+CSSMotionPathEnabled:
+  type: bool
+  humanReadableName: "CSS Motion Path"
+  humanReadableDescription: "Enable CSS Motion Path support"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSOMViewSmoothScrollingEnabled:
   type: bool
   humanReadableName: "CSSOM View Smooth Scrolling"
@@ -415,9 +429,11 @@ DialogElementEnabled:
   webcoreBinding: RuntimeEnabledFeatures
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
+    WebCore:
+      default: true
 
 # FIXME: Starting the preference name with "Disable" is inconsistent with most other preferences and should be changed.
 DisableMediaExperiencePIDInheritance:
@@ -493,8 +509,10 @@ FileSystemAccessEnabled:
     WebKitLegacy:
       default: false
     WebKit:
+      "PLATFORM(COCOA)" : true
       default: false
     WebCore:
+      "PLATFORM(COCOA)" : true
       default: false
 
 FocusVisibleEnabled:
@@ -694,7 +712,7 @@ IsSameSiteStrictEnforcementEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
       default: false
 
@@ -1221,8 +1239,10 @@ StorageAPIEnabled:
     WebKitLegacy:
       default: false
     WebKit:
+      "PLATFORM(COCOA)" : true
       default: false
     WebCore:
+      "PLATFORM(COCOA)" : true
       default: false
 
 SyntheticEditingCommandsEnabled:
@@ -1644,6 +1664,19 @@ WebXRGamepadsModuleEnabled:
   humanReadableName: "WebXR Gamepads Module"
   humanReadableDescription: "Adds support for the WebXR Gamepads Module"
   condition: ENABLE(WEBXR)
+  defaultValue:
+    WebKitLegacy:
+      default: WebKit::defaultWebXREnabled()
+    WebKit:
+      default: WebKit::defaultWebXREnabled()
+    WebCore:
+      default: false
+
+WebXRHandInputModuleEnabled:
+  type: bool
+  humanReadableName: "WebXR Hand Input Module"
+  humanReadableDescription: "Adds support for the Hands Input Module for WebXR"
+  condition: ENABLE(WEBXR_HANDS)
   defaultValue:
     WebKitLegacy:
       default: WebKit::defaultWebXREnabled()

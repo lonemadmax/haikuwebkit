@@ -83,13 +83,15 @@ RenderTheme::RenderTheme()
 
 void RenderTheme::adjustStyle(RenderStyle& style, const Element* element, const RenderStyle* userAgentAppearanceStyle)
 {
-    auto part = style.appearance();
+    auto part = style.effectiveAppearance();
     if (part == AutoPart) {
         part = autoAppearanceForElement(element);
-        if (part == NoControlPart) {
-            style.setEffectiveAppearance(NoControlPart);
+
+        ASSERT(part != AutoPart);
+        style.setEffectiveAppearance(part);
+
+        if (part == NoControlPart)
             return;
-        }
     }
 
     // Force inline and table display styles to be inline-block (except for table- which is block)
@@ -110,10 +112,9 @@ void RenderTheme::adjustStyle(RenderStyle& style, const Element* element, const 
             part = NoControlPart;
             break;
         }
-    }
 
-    ASSERT(part != AutoPart);
-    style.setEffectiveAppearance(part);
+        style.setEffectiveAppearance(part);
+    }
 
     if (!style.hasEffectiveAppearance())
         return;
@@ -445,7 +446,7 @@ bool RenderTheme::paint(const RenderBox& box, ControlStates& controlStates, cons
     case ButtonPart:
     case InnerSpinButtonPart:
         updateControlStatesForRenderer(box, controlStates);
-        Theme::singleton().paint(part, controlStates, paintInfo.context(), devicePixelSnappedRect, box.style().effectiveZoom(), &box.view().frameView(), deviceScaleFactor, pageScaleFactor, box.document().useSystemAppearance(), box.useDarkAppearance());
+        Theme::singleton().paint(part, controlStates, paintInfo.context(), devicePixelSnappedRect, box.style().effectiveZoom(), &box.view().frameView(), deviceScaleFactor, pageScaleFactor, box.document().useSystemAppearance(), box.useDarkAppearance(), box.style().effectiveAccentColor());
         return false;
     default:
         break;
@@ -555,6 +556,10 @@ bool RenderTheme::paint(const RenderBox& box, ControlStates& controlStates, cons
     case AttachmentPart:
     case BorderlessAttachmentPart:
         return paintAttachment(box, paintInfo, integralSnappedRect);
+#endif
+#if ENABLE(DATALIST_ELEMENT)
+    case ListButtonPart:
+        return paintListButton(box, paintInfo, devicePixelSnappedRect);
 #endif
     default:
         break;
@@ -723,7 +728,7 @@ LayoutPoint RenderTheme::volumeSliderOffsetFromMuteButton(const RenderBox& muteB
 
 #endif
 
-Color RenderTheme::activeSelectionBackgroundColor(OptionSet<StyleColor::Options> options) const
+Color RenderTheme::activeSelectionBackgroundColor(OptionSet<StyleColorOptions> options) const
 {
     auto& cache = colorCache(options);
     if (!cache.activeSelectionBackgroundColor.isValid())
@@ -731,7 +736,7 @@ Color RenderTheme::activeSelectionBackgroundColor(OptionSet<StyleColor::Options>
     return cache.activeSelectionBackgroundColor;
 }
 
-Color RenderTheme::inactiveSelectionBackgroundColor(OptionSet<StyleColor::Options> options) const
+Color RenderTheme::inactiveSelectionBackgroundColor(OptionSet<StyleColorOptions> options) const
 {
     auto& cache = colorCache(options);
     if (!cache.inactiveSelectionBackgroundColor.isValid())
@@ -739,12 +744,12 @@ Color RenderTheme::inactiveSelectionBackgroundColor(OptionSet<StyleColor::Option
     return cache.inactiveSelectionBackgroundColor;
 }
 
-Color RenderTheme::transformSelectionBackgroundColor(const Color& color, OptionSet<StyleColor::Options>) const
+Color RenderTheme::transformSelectionBackgroundColor(const Color& color, OptionSet<StyleColorOptions>) const
 {
     return blendWithWhite(color);
 }
 
-Color RenderTheme::activeSelectionForegroundColor(OptionSet<StyleColor::Options> options) const
+Color RenderTheme::activeSelectionForegroundColor(OptionSet<StyleColorOptions> options) const
 {
     auto& cache = colorCache(options);
     if (!cache.activeSelectionForegroundColor.isValid() && supportsSelectionForegroundColors(options))
@@ -752,7 +757,7 @@ Color RenderTheme::activeSelectionForegroundColor(OptionSet<StyleColor::Options>
     return cache.activeSelectionForegroundColor;
 }
 
-Color RenderTheme::inactiveSelectionForegroundColor(OptionSet<StyleColor::Options> options) const
+Color RenderTheme::inactiveSelectionForegroundColor(OptionSet<StyleColorOptions> options) const
 {
     auto& cache = colorCache(options);
     if (!cache.inactiveSelectionForegroundColor.isValid() && supportsSelectionForegroundColors(options))
@@ -760,7 +765,7 @@ Color RenderTheme::inactiveSelectionForegroundColor(OptionSet<StyleColor::Option
     return cache.inactiveSelectionForegroundColor;
 }
 
-Color RenderTheme::activeListBoxSelectionBackgroundColor(OptionSet<StyleColor::Options> options) const
+Color RenderTheme::activeListBoxSelectionBackgroundColor(OptionSet<StyleColorOptions> options) const
 {
     auto& cache = colorCache(options);
     if (!cache.activeListBoxSelectionBackgroundColor.isValid())
@@ -768,7 +773,7 @@ Color RenderTheme::activeListBoxSelectionBackgroundColor(OptionSet<StyleColor::O
     return cache.activeListBoxSelectionBackgroundColor;
 }
 
-Color RenderTheme::inactiveListBoxSelectionBackgroundColor(OptionSet<StyleColor::Options> options) const
+Color RenderTheme::inactiveListBoxSelectionBackgroundColor(OptionSet<StyleColorOptions> options) const
 {
     auto& cache = colorCache(options);
     if (!cache.inactiveListBoxSelectionBackgroundColor.isValid())
@@ -776,7 +781,7 @@ Color RenderTheme::inactiveListBoxSelectionBackgroundColor(OptionSet<StyleColor:
     return cache.inactiveListBoxSelectionBackgroundColor;
 }
 
-Color RenderTheme::activeListBoxSelectionForegroundColor(OptionSet<StyleColor::Options> options) const
+Color RenderTheme::activeListBoxSelectionForegroundColor(OptionSet<StyleColorOptions> options) const
 {
     auto& cache = colorCache(options);
     if (!cache.activeListBoxSelectionForegroundColor.isValid() && supportsListBoxSelectionForegroundColors(options))
@@ -784,7 +789,7 @@ Color RenderTheme::activeListBoxSelectionForegroundColor(OptionSet<StyleColor::O
     return cache.activeListBoxSelectionForegroundColor;
 }
 
-Color RenderTheme::inactiveListBoxSelectionForegroundColor(OptionSet<StyleColor::Options> options) const
+Color RenderTheme::inactiveListBoxSelectionForegroundColor(OptionSet<StyleColorOptions> options) const
 {
     auto& cache = colorCache(options);
     if (!cache.inactiveListBoxSelectionForegroundColor.isValid() && supportsListBoxSelectionForegroundColors(options))
@@ -792,47 +797,47 @@ Color RenderTheme::inactiveListBoxSelectionForegroundColor(OptionSet<StyleColor:
     return cache.inactiveListBoxSelectionForegroundColor;
 }
 
-Color RenderTheme::platformActiveSelectionBackgroundColor(OptionSet<StyleColor::Options>) const
+Color RenderTheme::platformActiveSelectionBackgroundColor(OptionSet<StyleColorOptions>) const
 {
     // Use a blue color by default if the platform theme doesn't define anything.
     return Color::blue;
 }
 
-Color RenderTheme::platformActiveSelectionForegroundColor(OptionSet<StyleColor::Options>) const
+Color RenderTheme::platformActiveSelectionForegroundColor(OptionSet<StyleColorOptions>) const
 {
     // Use a white color by default if the platform theme doesn't define anything.
     return Color::white;
 }
 
-Color RenderTheme::platformInactiveSelectionBackgroundColor(OptionSet<StyleColor::Options>) const
+Color RenderTheme::platformInactiveSelectionBackgroundColor(OptionSet<StyleColorOptions>) const
 {
     // Use a grey color by default if the platform theme doesn't define anything.
     // This color matches Firefox's inactive color.
     return SRGBA<uint8_t> { 176, 176, 176 };
 }
 
-Color RenderTheme::platformInactiveSelectionForegroundColor(OptionSet<StyleColor::Options>) const
+Color RenderTheme::platformInactiveSelectionForegroundColor(OptionSet<StyleColorOptions>) const
 {
     // Use a black color by default.
     return Color::black;
 }
 
-Color RenderTheme::platformActiveListBoxSelectionBackgroundColor(OptionSet<StyleColor::Options> options) const
+Color RenderTheme::platformActiveListBoxSelectionBackgroundColor(OptionSet<StyleColorOptions> options) const
 {
     return platformActiveSelectionBackgroundColor(options);
 }
 
-Color RenderTheme::platformActiveListBoxSelectionForegroundColor(OptionSet<StyleColor::Options> options) const
+Color RenderTheme::platformActiveListBoxSelectionForegroundColor(OptionSet<StyleColorOptions> options) const
 {
     return platformActiveSelectionForegroundColor(options);
 }
 
-Color RenderTheme::platformInactiveListBoxSelectionBackgroundColor(OptionSet<StyleColor::Options> options) const
+Color RenderTheme::platformInactiveListBoxSelectionBackgroundColor(OptionSet<StyleColorOptions> options) const
 {
     return platformInactiveSelectionBackgroundColor(options);
 }
 
-Color RenderTheme::platformInactiveListBoxSelectionForegroundColor(OptionSet<StyleColor::Options> options) const
+Color RenderTheme::platformInactiveListBoxSelectionForegroundColor(OptionSet<StyleColorOptions> options) const
 {
     return platformInactiveSelectionForegroundColor(options);
 }
@@ -1354,10 +1359,10 @@ void RenderTheme::platformColorsDidChange()
     Page::updateStyleForAllPagesAfterGlobalChangeInEnvironment();
 }
 
-auto RenderTheme::colorCache(OptionSet<StyleColor::Options> options) const -> ColorCache&
+auto RenderTheme::colorCache(OptionSet<StyleColorOptions> options) const -> ColorCache&
 {
     auto optionsIgnoringVisitedLink = options;
-    optionsIgnoringVisitedLink.remove(StyleColor::Options::ForVisitedLink);
+    optionsIgnoringVisitedLink.remove(StyleColorOptions::ForVisitedLink);
 
     return m_colorCacheMap.ensure(optionsIgnoringVisitedLink.toRaw(), [] {
         return ColorCache();
@@ -1404,11 +1409,11 @@ void RenderTheme::systemFont(CSSValueID systemFontID, FontCascadeDescription& fo
     updateCachedSystemFontDescription(systemFontID, fontDescription);
 }
 
-Color RenderTheme::systemColor(CSSValueID cssValueId, OptionSet<StyleColor::Options> options) const
+Color RenderTheme::systemColor(CSSValueID cssValueId, OptionSet<StyleColorOptions> options) const
 {
     switch (cssValueId) {
     case CSSValueWebkitLink:
-        return options.contains(StyleColor::Options::ForVisitedLink) ? SRGBA<uint8_t> { 85, 26, 139 } : SRGBA<uint8_t> { 0, 0, 238 };
+        return options.contains(StyleColorOptions::ForVisitedLink) ? SRGBA<uint8_t> { 85, 26, 139 } : SRGBA<uint8_t> { 0, 0, 238 };
     case CSSValueWebkitActivelink:
     case CSSValueActivetext:
         return Color::red;
@@ -1489,7 +1494,7 @@ Color RenderTheme::systemColor(CSSValueID cssValueId, OptionSet<StyleColor::Opti
     }
 }
 
-Color RenderTheme::textSearchHighlightColor(OptionSet<StyleColor::Options> options) const
+Color RenderTheme::textSearchHighlightColor(OptionSet<StyleColorOptions> options) const
 {
     auto& cache = colorCache(options);
     if (!cache.textSearchHighlightColor.isValid())
@@ -1497,13 +1502,13 @@ Color RenderTheme::textSearchHighlightColor(OptionSet<StyleColor::Options> optio
     return cache.textSearchHighlightColor;
 }
 
-Color RenderTheme::platformTextSearchHighlightColor(OptionSet<StyleColor::Options>) const
+Color RenderTheme::platformTextSearchHighlightColor(OptionSet<StyleColorOptions>) const
 {
     return Color::yellow;
 }
 
 #if ENABLE(APP_HIGHLIGHTS)
-Color RenderTheme::appHighlightColor(OptionSet<StyleColor::Options> options) const
+Color RenderTheme::appHighlightColor(OptionSet<StyleColorOptions> options) const
 {
     auto& cache = colorCache(options);
     if (!cache.appHighlightColor.isValid())
@@ -1511,13 +1516,13 @@ Color RenderTheme::appHighlightColor(OptionSet<StyleColor::Options> options) con
     return cache.appHighlightColor;
 }
 
-Color RenderTheme::platformAppHighlightColor(OptionSet<StyleColor::Options>) const
+Color RenderTheme::platformAppHighlightColor(OptionSet<StyleColorOptions>) const
 {
     return Color::yellow;
 }
 #endif
 
-Color RenderTheme::defaultButtonTextColor(OptionSet<StyleColor::Options> options) const
+Color RenderTheme::defaultButtonTextColor(OptionSet<StyleColorOptions> options) const
 {
     auto& cache = colorCache(options);
     if (!cache.defaultButtonTextColor.isValid())
@@ -1525,7 +1530,7 @@ Color RenderTheme::defaultButtonTextColor(OptionSet<StyleColor::Options> options
     return cache.defaultButtonTextColor;
 }
 
-Color RenderTheme::platformDefaultButtonTextColor(OptionSet<StyleColor::Options> options) const
+Color RenderTheme::platformDefaultButtonTextColor(OptionSet<StyleColorOptions> options) const
 {
     return systemColor(CSSValueActivebuttontext, options);
 }
@@ -1585,7 +1590,7 @@ void RenderTheme::setCustomFocusRingColor(const Color& color)
     customFocusRingColor() = color;
 }
 
-Color RenderTheme::focusRingColor(OptionSet<StyleColor::Options> options) const
+Color RenderTheme::focusRingColor(OptionSet<StyleColorOptions> options) const
 {
     if (customFocusRingColor().isValid())
         return customFocusRingColor();

@@ -37,6 +37,7 @@
 #include "HTMLParserIdioms.h"
 #include "HTMLTableElement.h"
 #include "InlineIteratorLine.h"
+#include "InlineIteratorLogicalOrderTraversal.h"
 #include "InlineIteratorTextBox.h"
 #include "InlineRunAndOffset.h"
 #include "LegacyInlineTextBox.h"
@@ -740,7 +741,7 @@ Position Position::upstream(EditingBoundaryCrossingRule rule) const
         if (is<RenderText>(*renderer)) {
             auto& textRenderer = downcast<RenderText>(*renderer);
 
-            auto firstTextRun = InlineIterator::firstTextBoxInTextOrderFor(textRenderer);
+            auto [firstTextRun, orderCache] = InlineIterator::firstTextBoxInLogicalOrderFor(textRenderer);
             if (!firstTextRun)
                 continue;
 
@@ -758,7 +759,7 @@ Position Position::upstream(EditingBoundaryCrossingRule rule) const
                 if (textOffset > run->start() && textOffset <= run->end())
                     return currentPosition;
 
-                auto nextRun = run->nextTextBoxInTextOrder();
+                auto nextRun = InlineIterator::nextTextBoxInLogicalOrder(run, orderCache);
                 if (textOffset == run->end() + 1 && nextRun && run->line() != nextRun->line())
                     return currentPosition;
 
@@ -847,7 +848,7 @@ Position Position::downstream(EditingBoundaryCrossingRule rule) const
         if (is<RenderText>(*renderer)) {
             auto& textRenderer = downcast<RenderText>(*renderer);
 
-            auto firstTextRun = InlineIterator::firstTextBoxInTextOrderFor(textRenderer);
+            auto [firstTextRun, orderCache] = InlineIterator::firstTextBoxInLogicalOrderFor(textRenderer);
             if (!firstTextRun)
                 continue;
 
@@ -864,7 +865,7 @@ Position Position::downstream(EditingBoundaryCrossingRule rule) const
                 if (textOffset >= run->start() && textOffset < run->end())
                     return currentPosition;
 
-                auto nextRun = run->nextTextBoxInTextOrder();
+                auto nextRun = InlineIterator::nextTextBoxInLogicalOrder(run, orderCache);
                 if (textOffset == run->end() && nextRun && run->line() != nextRun->line())
                     return currentPosition;
 
@@ -936,18 +937,18 @@ bool Position::hasRenderedNonAnonymousDescendantsWithHeight(const RenderElement&
     return false;
 }
 
-bool Position::nodeIsInertOrUserSelectNone(Node* node)
+bool Position::nodeIsUserSelectNone(Node* node)
 {
     if (!node)
         return false;
-    return node->renderer() && (node->renderer()->style().userSelect() == UserSelect::None || node->renderer()->style().effectiveInert());
+    return node->renderer() && (node->renderer()->style().userSelectIncludingInert() == UserSelect::None);
 }
 
 bool Position::nodeIsUserSelectAll(const Node* node)
 {
     if (!node)
         return false;
-    return node->renderer() && (node->renderer()->style().userSelect() == UserSelect::All && !node->renderer()->style().effectiveInert());
+    return node->renderer() && (node->renderer()->style().userSelectIncludingInert() == UserSelect::All);
 }
 
 Node* Position::rootUserSelectAllForNode(Node* node)
@@ -987,16 +988,16 @@ bool Position::isCandidate() const
 
     if (renderer->isBR()) {
         // FIXME: The condition should be m_anchorType == PositionIsBeforeAnchor, but for now we still need to support legacy positions.
-        return !m_offset && m_anchorType != PositionIsAfterAnchor && !nodeIsInertOrUserSelectNone(deprecatedNode()->parentNode());
+        return !m_offset && m_anchorType != PositionIsAfterAnchor && !nodeIsUserSelectNone(deprecatedNode()->parentNode());
     }
 
     if (is<RenderText>(*renderer))
-        return !nodeIsInertOrUserSelectNone(deprecatedNode()) && downcast<RenderText>(*renderer).containsCaretOffset(m_offset);
+        return !nodeIsUserSelectNone(deprecatedNode()) && downcast<RenderText>(*renderer).containsCaretOffset(m_offset);
 
     if (positionBeforeOrAfterNodeIsCandidate(*deprecatedNode())) {
         return ((atFirstEditingPositionForNode() && m_anchorType == PositionIsBeforeAnchor)
             || (atLastEditingPositionForNode() && m_anchorType == PositionIsAfterAnchor))
-            && !nodeIsInertOrUserSelectNone(deprecatedNode()->parentNode());
+            && !nodeIsUserSelectNone(deprecatedNode()->parentNode());
     }
 
     if (is<HTMLHtmlElement>(*m_anchorNode))
@@ -1006,13 +1007,13 @@ bool Position::isCandidate() const
         auto& block = downcast<RenderBlock>(*renderer);
         if (block.logicalHeight() || is<HTMLBodyElement>(*m_anchorNode) || m_anchorNode->isRootEditableElement()) {
             if (!Position::hasRenderedNonAnonymousDescendantsWithHeight(block))
-                return atFirstEditingPositionForNode() && !Position::nodeIsInertOrUserSelectNone(deprecatedNode());
-            return m_anchorNode->hasEditableStyle() && !Position::nodeIsInertOrUserSelectNone(deprecatedNode()) && atEditingBoundary();
+                return atFirstEditingPositionForNode() && !Position::nodeIsUserSelectNone(deprecatedNode());
+            return m_anchorNode->hasEditableStyle() && !Position::nodeIsUserSelectNone(deprecatedNode()) && atEditingBoundary();
         }
         return false;
     }
 
-    return m_anchorNode->hasEditableStyle() && !Position::nodeIsInertOrUserSelectNone(deprecatedNode()) && atEditingBoundary();
+    return m_anchorNode->hasEditableStyle() && !Position::nodeIsUserSelectNone(deprecatedNode()) && atEditingBoundary();
 }
 
 bool Position::isRenderedCharacter() const
@@ -1173,7 +1174,7 @@ static InlineIterator::TextBoxIterator searchAheadForBetterMatch(RenderText& ren
         if (isNonTextLeafChild(*next))
             return { };
         if (is<RenderText>(*next)) {
-            if (auto run = InlineIterator::firstTextBoxInTextOrderFor(downcast<RenderText>(*next)))
+            if (auto [run, orderCache] = InlineIterator::firstTextBoxInLogicalOrderFor(downcast<RenderText>(*next)); run)
                 return run;
         }
     }

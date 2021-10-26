@@ -24,12 +24,11 @@
 (version 1)
 (deny default (with partial-symbolication))
 (deny nvram*)
+(deny system-privilege)
 (allow system-audit file-read-metadata)
 
-(with-filter (require-not (uid 0))
-    (deny system-privilege)
-    ;; Silence spurious logging due to rdar://20117923 and rdar://72366475
-    (deny system-privilege (privilege-id PRIV_GLOBAL_PROC_INFO) (with no-report)))
+;; Silence spurious logging due to rdar://20117923 and rdar://72366475
+(deny system-privilege (privilege-id PRIV_GLOBAL_PROC_INFO) (with no-report))
 
 #include "Shared/Sandbox/preferences.sb"
 
@@ -879,6 +878,9 @@
     ; <rdar://problem/35509194>
     (global-name "com.apple.coremedia.endpointremotecontrolsession.xpc")
     (global-name "com.apple.coremedia.routediscoverer.xpc")
+#if __MAC_OS_X_VERSION_MIN_REQUIRED > 120000
+    (global-name "com.apple.coremedia.samplebufferconsumer.xpc")
+#endif
     (global-name "com.apple.coremedia.volumecontroller.xpc")
 )
 

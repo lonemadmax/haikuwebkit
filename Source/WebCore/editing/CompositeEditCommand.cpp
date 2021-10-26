@@ -33,8 +33,8 @@
 #include "DataTransfer.h"
 #include "DeleteFromTextNodeCommand.h"
 #include "DeleteSelectionCommand.h"
-#include "Document.h"
 #include "DocumentFragment.h"
+#include "DocumentInlines.h"
 #include "DocumentMarkerController.h"
 #include "Editing.h"
 #include "Editor.h"
@@ -48,6 +48,7 @@
 #include "HTMLNames.h"
 #include "HTMLSpanElement.h"
 #include "InlineIteratorBox.h"
+#include "InlineIteratorLogicalOrderTraversal.h"
 #include "InsertIntoTextNodeCommand.h"
 #include "InsertLineBreakCommand.h"
 #include "InsertNodeBeforeCommand.h"
@@ -1016,7 +1017,7 @@ void CompositeEditCommand::deleteInsignificantText(Text& textNode, unsigned star
         if (!textRenderer)
             return;
 
-        auto run = InlineIterator::firstTextBoxInTextOrderFor(*textRenderer);
+        auto [run, orderCache] = InlineIterator::firstTextBoxInLogicalOrderFor(*textRenderer);
         if (!run) {
             wholeTextNodeIsEmpty = true;
             return;
@@ -1051,7 +1052,7 @@ void CompositeEditCommand::deleteInsignificantText(Text& textNode, unsigned star
 
             previousRun = run;
             if (run)
-                run.traverseNextTextBoxInTextOrder();
+                run = InlineIterator::nextTextBoxInLogicalOrder(run, orderCache);
         }
     };
     determineRemovalMode();

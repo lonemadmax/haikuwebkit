@@ -40,6 +40,7 @@ public:
     enum class ShouldAllowEmptyURLIfSourceListIsNotNone { No, Yes };
     bool allows(const URL&, bool didReceiveRedirectResponse, ShouldAllowEmptyURLIfSourceListIsNotNone);
     bool allows(const ContentSecurityPolicyHash&) const;
+    bool allowUnsafeHashes(const ContentSecurityPolicyHash&) const;
     bool allows(const String& nonce) const;
     bool allowInline() const { return m_sourceList.allowInline(); }
     bool allowEval() const { return m_sourceList.allowEval(); }
@@ -47,7 +48,11 @@ public:
 
     OptionSet<ContentSecurityPolicyHashAlgorithm> hashAlgorithmsUsed() const { return m_sourceList.hashAlgorithmsUsed(); }
 
+    void setNameForReporting(const String& name) { m_nameForReporting = name; }
+    const String& nameForReporting() const final { return !m_nameForReporting.isEmpty() ? m_nameForReporting : name(); }
+
 private:
+    String m_nameForReporting;
     ContentSecurityPolicySourceList m_sourceList;
 };
 

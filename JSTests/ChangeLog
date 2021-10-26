@@ -1,3 +1,172 @@
+2021-10-18  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] PutByVal's child5 should be KnownInt32Use / Int52RepUse in FTL
+        https://bugs.webkit.org/show_bug.cgi?id=231884
+        rdar://84357099
+
+        Reviewed by Robin Morisset.
+
+        * stress/put-by-val-known-int32.js: Added.
+        (new.Uint8Array.1000000.map):
+
+2021-10-16  Robin Morisset  <rmorisset@apple.com>
+
+        Allow WASM to use up to 4GB
+        https://bugs.webkit.org/show_bug.cgi?id=229353
+        rdar://81603447
+
+        Reviewed by Yusuke Suzuki.
+
+        The big-wasm-memory/wasm-memory-requested... tests used to simply expect an OOM at 2GB.
+        They now expect success at 4GB, and failure at 4GB+1.
+        The exceptions they expect are now more specific, as previously there was a rounding issue that was causing the specific exceptions not to be thrown (resulting in the generic OOM exception later in the code).
+        Finally I made them only run on 64-bit platforms since we don't support typed arrays >=2GB on 32-bits, and I made them only run in one configuration since they can take a little bit of time.
+
+        I also added a few new tests, specifically checking our handling of large typed arrays, and especially of indices above INT32_MAX.
+
+        * stress/big-wasm-memory-grow-no-max.js:
+        (test):
+        * stress/big-wasm-memory-grow.js:
+        (test):
+        * stress/big-wasm-memory.js:
+        (test):
+        * stress/typed-array-always-large.js: Added.
+        (getArrayLength):
+        (getByVal):
+        (putByVal):
+        (test):
+        * stress/typed-array-eventually-large.js: Added.
+        (getArrayLength):
+        (getByVal):
+        (putByVal):
+        (test):
+        * stress/typed-array-large-eventually-oob.js: Added.
+        (getArrayLength):
+        (getByVal):
+        (putByVal):
+        (test):
+        * wasm/regress/wasm-memory-requested-more-than-MAX_ARRAY_BUFFER_SIZE-2.js:
+        * wasm/regress/wasm-memory-requested-more-than-MAX_ARRAY_BUFFER_SIZE.js:
+
+2021-10-15  Robin Morisset  <rmorisset@apple.com>
+
+        Revert r284230, my last fixes to the watch build make it break tests
+        https://bugs.webkit.org/show_bug.cgi?id=231797
+
+        Unreviewed.
+
+        * stress/big-wasm-memory-grow-no-max.js:
+        (test):
+        * stress/big-wasm-memory-grow.js:
+        (test):
+        * stress/big-wasm-memory.js:
+        (test):
+        * stress/typed-array-always-large.js: Removed.
+        (getArrayLength): Deleted.
+        (getByVal): Deleted.
+        (putByVal): Deleted.
+        (test): Deleted.
+        * stress/typed-array-eventually-large.js: Removed.
+        (getArrayLength): Deleted.
+        (getByVal): Deleted.
+        (putByVal): Deleted.
+        (test): Deleted.
+        * stress/typed-array-large-eventually-oob.js: Removed.
+        (getArrayLength): Deleted.
+        (getByVal): Deleted.
+        (putByVal): Deleted.
+        (test): Deleted.
+        * wasm/regress/wasm-memory-requested-more-than-MAX_ARRAY_BUFFER_SIZE-2.js:
+        * wasm/regress/wasm-memory-requested-more-than-MAX_ARRAY_BUFFER_SIZE.js:
+
+2021-10-14  Robin Morisset  <rmorisset@apple.com>
+
+        Allow WASM to use up to 4GB
+        https://bugs.webkit.org/show_bug.cgi?id=229353
+        rdar://81603447
+
+        Reviewed by Yusuke Suzuki.
+
+        The big-wasm-memory/wasm-memory-requested... tests used to simply expect an OOM at 2GB.
+        They now expect success at 4GB, and failure at 4GB+1.
+        The exceptions they expect are now more specific, as previously there was a rounding issue that was causing the specific exceptions not to be thrown (resulting in the generic OOM exception later in the code).
+        Finally I made them only run on 64-bit platforms since we don't support typed arrays >=2GB on 32-bits, and I made them only run in one configuration since they can take a little bit of time.
+
+        I also added a few new tests, specifically checking our handling of large typed arrays, and especially of indices above INT32_MAX.
+
+        * stress/big-wasm-memory-grow-no-max.js:
+        (test):
+        * stress/big-wasm-memory-grow.js:
+        (test):
+        * stress/big-wasm-memory.js:
+        (test):
+        * stress/typed-array-always-large.js: Added.
+        (getArrayLength):
+        (getByVal):
+        (putByVal):
+        (test):
+        * stress/typed-array-eventually-large.js: Added.
+        (getArrayLength):
+        (getByVal):
+        (putByVal):
+        (test):
+        * stress/typed-array-large-eventually-oob.js: Added.
+        (getArrayLength):
+        (getByVal):
+        (putByVal):
+        (test):
+        * wasm/regress/wasm-memory-requested-more-than-MAX_ARRAY_BUFFER_SIZE-2.js:
+        * wasm/regress/wasm-memory-requested-more-than-MAX_ARRAY_BUFFER_SIZE.js:
+
+2021-10-14  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r284151.
+        https://bugs.webkit.org/show_bug.cgi?id=231740
+
+        WTR
+
+        Reverted changeset:
+
+        "Test coverage for JSC shadow realms implementation"
+        https://bugs.webkit.org/show_bug.cgi?id=230602
+        https://commits.webkit.org/r284151
+
+2021-10-14  Phillip Mates  <pmates@igalia.com>
+
+        Test coverage for JSC shadow realms implementation
+        https://bugs.webkit.org/show_bug.cgi?id=230602
+
+        Reviewed by Yusuke Suzuki.
+
+        * modules/import-meta-syntax.js:
+        (shouldThrow):
+        * stress/eval-indirect.js: Added.
+        (shouldBe):
+        (shouldThrow):
+        * stress/import-syntax.js:
+        * stress/resources/shadow-realm-example-module.js: Added.
+        (putInGlobal):
+        (getFromGlobal):
+        (getAnObject):
+        (getCallCount):
+        * stress/shadow-realm-evaluate.js: Added.
+        (shouldBe):
+        (shouldThrow):
+        (assertionFn):
+        (shouldBe.String):
+        (shouldBe.globalObjectFor.doEval):
+        (shouldBe.globalObjectFor):
+        * stress/shadow-realm-import-value.js: Added.
+        (shouldBe):
+        (shouldThrow):
+        (async shouldThrowAsync):
+        (async const):
+        (doImport):
+        * stress/shadow-realm.js: Added.
+        (shouldBe):
+        (throw.new.Error):
+        * test262/config.yaml:
+
 2021-10-11  Saam Barati  <sbarati@apple.com>
 
         Don't branch around register allocation in DFG enumerator get by val and pass in the right LValue type to strictInt52ToJSValue

@@ -32,12 +32,14 @@
 
 namespace WebCore {
 
-MediaSampleGStreamer::MediaSampleGStreamer(GRefPtr<GstSample>&& sample, const FloatSize& presentationSize, const AtomString& trackId)
+MediaSampleGStreamer::MediaSampleGStreamer(GRefPtr<GstSample>&& sample, const FloatSize& presentationSize, const AtomString& trackId, VideoRotation videoRotation, bool videoMirrored)
     : m_pts(MediaTime::zeroTime())
     , m_dts(MediaTime::zeroTime())
     , m_duration(MediaTime::zeroTime())
     , m_trackId(trackId)
     , m_presentationSize(presentationSize)
+    , m_videoRotation(videoRotation)
+    , m_videoMirrored(videoMirrored)
 {
     const GstClockTime minimumDuration = 1000; // 1 us
     ASSERT(sample);
@@ -98,10 +100,10 @@ Ref<MediaSampleGStreamer> MediaSampleGStreamer::createFakeSample(GstCaps*, Media
     return adoptRef(*gstreamerMediaSample);
 }
 
-Ref<MediaSampleGStreamer> MediaSampleGStreamer::createImageSample(PixelBuffer&& pixelBuffer, const IntSize& destinationSize, double frameRate)
+Ref<MediaSampleGStreamer> MediaSampleGStreamer::createImageSample(PixelBuffer&& pixelBuffer, const IntSize& destinationSize, double frameRate, VideoRotation videoRotation, bool videoMirrored)
 {
     ensureGStreamerInitialized();
-    
+
     auto size = pixelBuffer.size();
 
     auto data = pixelBuffer.takeData();
@@ -146,7 +148,7 @@ Ref<MediaSampleGStreamer> MediaSampleGStreamer::createImageSample(PixelBuffer&& 
         gst_video_converter_frame(converter.get(), inputFrame.get(), outputFrame.get());
         sample = adoptGRef(gst_sample_new(outputBuffer.get(), outputCaps.get(), nullptr, nullptr));
     }
-    return create(WTFMove(sample), FloatSize(width, height), { });
+    return create(WTFMove(sample), FloatSize(width, height), { }, videoRotation, videoMirrored);
 }
 
 RefPtr<JSC::Uint8ClampedArray> MediaSampleGStreamer::getRGBAImageData() const
@@ -181,6 +183,15 @@ RefPtr<JSC::Uint8ClampedArray> MediaSampleGStreamer::getRGBAImageData() const
     GstMappedFrame inputFrame(gst_sample_get_buffer(m_sample.get()), inputInfo, GST_MAP_READ);
     gst_video_converter_frame(converter.get(), inputFrame.get(), outputFrame.get());
     return JSC::Uint8ClampedArray::tryCreate(WTFMove(bufferStorage), 0, byteLength);
+}
+
+void MediaSampleGStreamer::extendToTheBeginning()
+{
+    // Only to be used with the first sample, as a hack for lack of support for edit lists.
+    // See AppendPipeline::appsinkNewSample()
+    ASSERT(m_dts == MediaTime::zeroTime());
+    m_duration += m_pts;
+    m_pts = MediaTime::zeroTime();
 }
 
 void MediaSampleGStreamer::setTimestamps(const MediaTime& presentationTime, const MediaTime& decodeTime)

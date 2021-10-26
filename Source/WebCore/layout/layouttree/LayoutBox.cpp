@@ -48,6 +48,7 @@ Box::Box(std::optional<ElementAttributes> attributes, RenderStyle&& style, std::
     , m_baseTypeFlags(baseTypeFlags.toRaw())
     , m_hasRareData(false)
     , m_isAnonymous(false)
+    , m_isIntegrationBlockContainer(false)
 {
     if (firstLineStyle)
         ensureRareData().firstLineStyle = WTFMove(firstLineStyle);
@@ -94,6 +95,9 @@ bool Box::establishesFormattingContext() const
 
 bool Box::establishesBlockFormattingContext() const
 {
+    if (isIntegrationRoot())
+        return true;
+
     // ICB always creates a new (inital) block formatting context.
     if (is<InitialContainingBlock>(*this))
         return true;
@@ -543,7 +547,7 @@ std::optional<LayoutUnit> Box::columnWidth() const
 void Box::setCachedGeometryForLayoutState(LayoutState& layoutState, std::unique_ptr<BoxGeometry> geometry) const
 {
     ASSERT(!m_cachedLayoutState);
-    m_cachedLayoutState = makeWeakPtr(layoutState);
+    m_cachedLayoutState = layoutState;
     m_cachedGeometryForLayoutState = WTFMove(geometry);
 }
 

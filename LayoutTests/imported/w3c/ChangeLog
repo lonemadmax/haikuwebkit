@@ -1,3 +1,379 @@
+2021-10-18  Kiet Ho  <tho22@apple.com>
+
+        Implement parsing and animation support for offset-distance, offset-position, offset-anchor
+        https://bugs.webkit.org/show_bug.cgi?id=231491
+
+        Reviewed by Antoine Quint.
+
+        Updated relevant test expectations.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/cssom/cssstyledeclaration-csstext-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-anchor-composition-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-anchor-interpolation-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-distance-composition-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-distance-interpolation-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-position-composition-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-position-interpolation-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-position-interpolation.html:
+          Fixed test to accept other length expressions as equivalent.
+        * web-platform-tests/css/motion/inheritance-expected.txt:
+        * web-platform-tests/css/motion/offset-supports-calc-expected.txt:
+        * web-platform-tests/css/motion/parsing/offset-anchor-computed-expected.txt:
+        * web-platform-tests/css/motion/parsing/offset-anchor-parsing-valid-expected.txt:
+        * web-platform-tests/css/motion/parsing/offset-anchor-parsing-valid.html:
+          Fixed test to accept "center" as an alternative to "center center",
+          "calc(20% + 10px) center" as an alternative to "calc(10px + 20%) center".
+        * web-platform-tests/css/motion/parsing/offset-distance-computed-expected.txt:
+        * web-platform-tests/css/motion/parsing/offset-distance-parsing-valid-expected.txt:
+        * web-platform-tests/css/motion/parsing/offset-position-computed-expected.txt:
+        * web-platform-tests/css/motion/parsing/offset-position-parsing-valid-expected.txt:
+        * web-platform-tests/css/motion/parsing/offset-position-parsing-valid.html:
+          Fixed test to accept "center" as an alternative to "center center",
+          "calc(20% + 10px) center" as an alternative to "calc(10px + 20%) center".
+        * web-platform-tests/css/motion/parsing/offset-shorthand-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/accumulation-per-property-002-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/addition-per-property-002-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/interpolation-per-property-002-expected.txt:
+
+2021-10-18  Tim Nguyen  <ntim@apple.com>
+
+        Re-import shadow-dom WPT
+        https://bugs.webkit.org/show_bug.cgi?id=231845
+
+        Reviewed by Antoine Quint.
+
+        Upstream commit: https://github.com/web-platform-tests/wpt/commit/deaab24d4e359f4264ba8843fa87a558ed9e0b81
+
+        The flakiness of focus-pseudo-matches-on-shadow-host.html was due to not waiting for the "update rendering"
+        steps for autofocus to happen, which is flaky with the new autofocus behavior. This has been fixed by a Gecko
+        committer who had the issue on their side as well:
+
+        https://github.com/web-platform-tests/wpt/commit/7555902a6e5c2b2f285bc6d0e2e05b5f3229af6a
+
+        * resources/resource-files.json:
+        * web-platform-tests/shadow-dom/declarative/declarative-shadow-dom-attachment.tentative.html:
+        * web-platform-tests/shadow-dom/focus/blur-on-shadow-host-delegatesFocus-expected.txt: Added.
+        * web-platform-tests/shadow-dom/focus/blur-on-shadow-host-delegatesFocus.html: Added.
+        * web-platform-tests/shadow-dom/focus/click-focus-delegatesFocus-click-method-expected.txt: Removed.
+        * web-platform-tests/shadow-dom/focus/click-focus-delegatesFocus-click-method.html: Removed.
+        * web-platform-tests/shadow-dom/focus/click-focus-delegatesFocus-click-expected.txt: Added.
+        * web-platform-tests/shadow-dom/focus/click-focus-delegatesFocus-click.html: Added.
+        * web-platform-tests/shadow-dom/focus/focus-pseudo-matches-on-shadow-host.html:
+        * web-platform-tests/shadow-dom/focus/focus-pseudo-on-shadow-host-2.html:
+        * web-platform-tests/shadow-dom/focus/focus-selector-delegatesFocus-expected.txt:
+        * web-platform-tests/shadow-dom/focus/focus-selector-delegatesFocus.html:
+        * web-platform-tests/shadow-dom/focus/focus-tab-on-shadow-host-expected.txt: Added.
+        * web-platform-tests/shadow-dom/focus/focus-tab-on-shadow-host.html: Added.
+        * web-platform-tests/shadow-dom/focus/w3c-import.log:
+
+2021-10-15  Antoine Quint  <graouts@webkit.org>
+
+        CSS Animations creation and sorting is incorrect and may lead to crash
+        https://bugs.webkit.org/show_bug.cgi?id=231812
+        <rdar://problem/82980774>
+
+        Reviewed by Dean Jackson.
+
+        Mark two progressions in a test that now passes entirely.
+
+        * web-platform-tests/css/css-animations/Element-getAnimations-dynamic-changes.tentative-expected.txt:
+
+2021-10-15  Kate Cheney  <katherine_cheney@apple.com>
+
+        CSP: Implement src-elem and src-attr directives
+        https://bugs.webkit.org/show_bug.cgi?id=231751
+        <rdar://problem/83332874>
+
+        Reviewed by Brent Fulgham.
+
+        * web-platform-tests/content-security-policy/child-src/child-src-blocked.sub-expected.txt:
+        * web-platform-tests/content-security-policy/child-src/child-src-redirect-blocked.sub-expected.txt:
+        * web-platform-tests/content-security-policy/default-src-inline-blocked.sub-expected.txt: Added.
+        * web-platform-tests/content-security-policy/default-src/default-src-inline-blocked.sub-expected.txt:
+        * web-platform-tests/content-security-policy/generic/generic-0_1-img-src-expected.txt:
+        * web-platform-tests/content-security-policy/generic/generic-0_1-script-src-expected.txt:
+        * web-platform-tests/content-security-policy/meta/combine-header-and-meta-policies.sub-expected.txt:
+        * web-platform-tests/content-security-policy/navigation/javascript-url-navigation-inherits-csp-expected.txt:
+        * web-platform-tests/content-security-policy/navigation/to-javascript-parent-initiated-parent-csp-expected.txt:
+        * web-platform-tests/content-security-policy/reporting/report-uri-effective-directive-expected.txt:
+        * web-platform-tests/content-security-policy/script-src-attr-elem/script-src-attr-allowed-src-blocked-expected.txt:
+        * web-platform-tests/content-security-policy/script-src-attr-elem/script-src-attr-blocked-src-allowed-expected.txt:
+        * web-platform-tests/content-security-policy/script-src-attr-elem/script-src-elem-allowed-attr-blocked-expected.txt:
+        * web-platform-tests/content-security-policy/script-src-attr-elem/script-src-elem-allowed-src-blocked-expected.txt:
+        * web-platform-tests/content-security-policy/script-src-attr-elem/script-src-elem-blocked-attr-allowed-expected.txt:
+        * web-platform-tests/content-security-policy/script-src-attr-elem/script-src-elem-blocked-src-allowed-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/injected-inline-script-blocked.sub-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/script-src-1_1-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/script-src-1_10-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/script-src-1_2-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/script-src-1_2_1-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/script-src-report-only-policy-works-with-hash-policy-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/scriptnonce-and-scripthash.sub-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/scriptnonce-basic-blocked.sub-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/scriptnonce-ignore-unsafeinline.sub-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/srcdoc-doesnt-bypass-script-src.sub-expected.txt:
+        * web-platform-tests/content-security-policy/style-src-attr-elem/style-src-attr-allowed-src-blocked-expected.txt:
+        * web-platform-tests/content-security-policy/style-src-attr-elem/style-src-attr-blocked-src-allowed-expected.txt:
+        * web-platform-tests/content-security-policy/style-src-attr-elem/style-src-elem-allowed-attr-blocked-expected.txt:
+        * web-platform-tests/content-security-policy/style-src-attr-elem/style-src-elem-allowed-src-blocked-expected.txt:
+        * web-platform-tests/content-security-policy/style-src-attr-elem/style-src-elem-blocked-attr-allowed-expected.txt:
+        * web-platform-tests/content-security-policy/style-src-attr-elem/style-src-elem-blocked-src-allowed-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/injected-inline-script-blocked.sub-expected.txt: Added.
+        * web-platform-tests/content-security-policy/style-src/injected-inline-style-blocked.sub-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/inline-style-allowed-while-cloning-objects.sub-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/inline-style-attribute-blocked-expected.txt: Added.
+        * web-platform-tests/content-security-policy/style-src/inline-style-attribute-blocked.sub-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/style-src-hash-blocked-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/style-src-injected-inline-style-blocked-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/style-src-inline-style-attribute-blocked-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/style-src-inline-style-blocked-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/style-src-inline-style-nonce-blocked-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/stylehash-basic-blocked.sub-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/stylenonce-allowed.sub-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/stylenonce-blocked.sub-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-hashes/javascript_src_denied_missing_unsafe_hashes-href-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-hashes/javascript_src_denied_missing_unsafe_hashes-href_blank-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-hashes/javascript_src_denied_missing_unsafe_hashes-window_open-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-hashes/javascript_src_denied_wrong_hash-href-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-hashes/javascript_src_denied_wrong_hash-href_blank-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-hashes/javascript_src_denied_wrong_hash-window_open-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-hashes/script_event_handlers_denied_missing_unsafe_hashes-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-hashes/script_event_handlers_denied_wrong_hash-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-hashes/style_attribute_denied_missing_unsafe_hashes-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-hashes/style_attribute_denied_wrong_hash-expected.txt:
+        * web-platform-tests/content-security-policy/blob/blob-urls-do-not-match-self.sub-expected.txt:
+        * web-platform-tests/content-security-policy/generic/generic-0_10_1.sub-expected.txt:
+        * web-platform-tests/content-security-policy/generic/generic-0_2_2.sub-expected.txt:
+        * web-platform-tests/content-security-policy/generic/generic-0_2_3-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/script-src-report-only-policy-works-with-external-hash-policy-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/style-blocked.sub-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/style-src-imported-style-blocked-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/style-src-injected-stylesheet-blocked.sub-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/style-src-none-blocked-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/style-src-stylesheet-nonce-blocked-expected.txt:
+        * web-platform-tests/content-security-policy/svg/svg-inline.sub-expected.txt:
+
+2021-10-15  Alexey Shvayka  <shvaikalesh@gmail.com>
+
+        [WebIDL] JSDOMBuiltinConstructor instances should support subclassing
+        https://bugs.webkit.org/show_bug.cgi?id=231689
+
+        Reviewed by Youenn Fablet.
+
+        * web-platform-tests/streams/queuing-strategies.any-expected.txt:
+        * web-platform-tests/streams/queuing-strategies.any.worker-expected.txt:
+        * web-platform-tests/streams/readable-streams/general.any-expected.txt:
+        * web-platform-tests/streams/readable-streams/general.any.worker-expected.txt:
+        * web-platform-tests/streams/transform-streams/general.any-expected.txt:
+        * web-platform-tests/streams/transform-streams/general.any.worker-expected.txt:
+
+2021-10-14  Antti Koivisto  <antti@apple.com>
+
+        [CSS Cascade Layers] Layer should have higher priority than its descendant layers
+        https://bugs.webkit.org/show_bug.cgi?id=231725
+
+        Reviewed by Simon Fraser.
+
+        Update from the WPT repo.
+
+        * web-platform-tests/css/css-cascade/layer-basic.html:
+        * web-platform-tests/css/css-cascade/layer-counter-style-override-expected.txt:
+        * web-platform-tests/css/css-cascade/layer-counter-style-override.html:
+        * web-platform-tests/css/css-cascade/layer-font-face-override.html:
+        * web-platform-tests/css/css-cascade/layer-import.html:
+        * web-platform-tests/css/css-cascade/layer-keyframes-override.html:
+        * web-platform-tests/css/css-cascade/layer-property-override-expected.txt:
+        * web-platform-tests/css/css-cascade/layer-property-override.html:
+        * web-platform-tests/css/css-cascade/layer-scroll-timeline-override-expected.txt:
+        * web-platform-tests/css/css-cascade/layer-scroll-timeline-override.html:
+        * web-platform-tests/css/css-cascade/presentational-hints-cascade-expected.txt:
+        * web-platform-tests/css/css-cascade/presentational-hints-cascade.html:
+
+2021-10-14  Tim Nguyen  <ntim@apple.com>
+
+        Don't run focusing steps on disconnected or inert <dialog>
+        https://bugs.webkit.org/show_bug.cgi?id=231721
+
+        Reviewed by Antti Koivisto.
+
+        Marked relevant WPTs as passing.
+
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focusing-steps-disconnected-expected.txt:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focusing-steps-inert-expected.txt:
+
+2021-10-14  Alexey Shvayka  <shvaikalesh@gmail.com>
+
+        AudioContext::getOutputTimestamp() uses incorrect global object as a high-res timestamp origin
+        https://bugs.webkit.org/show_bug.cgi?id=230138
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/webaudio/the-audio-api/the-audiocontext-interface/audiocontext-getoutputtimestamp-cross-realm-expected.txt: Added.
+        * web-platform-tests/webaudio/the-audio-api/the-audiocontext-interface/audiocontext-getoutputtimestamp-cross-realm.html: Added.
+
+2021-10-14  Tim Nguyen  <ntim@apple.com>
+
+        Import new <dialog> focus-related WPT
+        https://bugs.webkit.org/show_bug.cgi?id=231736
+
+        Reviewed by Youenn Fablet.
+
+        Upstream commit: https://github.com/web-platform-tests/wpt/commit/d6ef7143ef347dcedd680fafa3a7d91e77624e0f
+
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focusing-steps-disconnected-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focusing-steps-disconnected.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focusing-steps-inert-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focusing-steps-inert.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/focus-after-close-expected.txt:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/focus-after-close.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/w3c-import.log:
+
+2021-10-13  Tim Nguyen  <ntim@apple.com>
+
+        Implement <dialog> focusing steps
+        https://bugs.webkit.org/show_bug.cgi?id=227537
+
+        Reviewed by Darin Adler.
+
+        https://html.spec.whatwg.org/multipage/interactive-elements.html#dialog-focusing-steps
+
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-autofocus-expected.txt:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-autofocus-just-once-expected.txt:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-autofocus-multiple-times-expected.txt:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-cancel-with-input-expected.txt:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-cancel-with-select-expected.txt:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focusing-steps-prevent-autofocus-expected.txt:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-showModal-expected.txt:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/focus-after-close-expected.txt:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/show-modal-focusing-steps-expected.txt:
+
+2021-10-13  Aditya Keerthi  <akeerthi@apple.com>
+
+        [macOS] Add support for accent-color
+        https://bugs.webkit.org/show_bug.cgi?id=231464
+        rdar://84049511
+
+        Reviewed by Tim Horton.
+
+        Renamed 'not-ref' to 'expected-mismatch' so that the test is run as
+        expected.
+
+        * web-platform-tests/css/css-ui/accent-color-checkbox-checked-001.tentative-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-ui/accent-color-checkbox-checked-001-notref.html.
+        * web-platform-tests/css/css-ui/accent-color-checkbox-checked-001.tentative-expected.html: Removed.
+
+2021-10-13  Aditya Keerthi  <akeerthi@apple.com>
+
+        Unprefix -webkit-appearance
+        https://bugs.webkit.org/show_bug.cgi?id=231534
+        rdar://84112934
+
+        Reviewed by Wenson Hsieh.
+
+        Mark progressions.
+
+        The remaining test failures deal with <compat-auto> keywords and will
+        be addressed on a case-by-case basis.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/css-ui/appearance-cssom-001-expected.txt:
+        * web-platform-tests/css/css-ui/appearance-initial-value-001-expected.txt:
+        * web-platform-tests/css/css-ui/appearance-parsing-expected.txt:
+        * web-platform-tests/css/css-ui/appearance-property-expected.txt:
+        * web-platform-tests/css/css-ui/appearance-serialization-expected.txt:
+        * web-platform-tests/css/css-ui/inheritance-expected.txt:
+        * web-platform-tests/css/css-ui/webkit-appearance-parsing-expected.txt:
+        * web-platform-tests/css/css-ui/webkit-appearance-property-expected.txt:
+        * web-platform-tests/css/css-ui/webkit-appearance-serialization-expected.txt:
+        * web-platform-tests/css/cssom/cssstyledeclaration-csstext-expected.txt:
+        * web-platform-tests/html/rendering/widgets/appearance/default-styles-expected.txt:
+
+2021-10-13  Youenn Fablet  <youenn@apple.com>
+
+        Add support for WebRTC media capabilities
+        https://bugs.webkit.org/show_bug.cgi?id=231568
+
+        Reviewed by Eric Carlson.
+
+        * resources/import-expectations.json:
+        * web-platform-tests/media-capabilities/META.yml: Added.
+        * web-platform-tests/media-capabilities/README.md: Added.
+        * web-platform-tests/media-capabilities/decodingInfo.any-expected.txt: Added.
+        * web-platform-tests/media-capabilities/decodingInfo.any.html: Added.
+        * web-platform-tests/media-capabilities/decodingInfo.any.js: Added.
+        * web-platform-tests/media-capabilities/decodingInfo.any.worker-expected.txt: Added.
+        * web-platform-tests/media-capabilities/decodingInfo.any.worker.html: Added.
+        * web-platform-tests/media-capabilities/decodingInfo.webrtc-expected.txt: Added.
+        * web-platform-tests/media-capabilities/decodingInfo.webrtc.html: Added.
+        * web-platform-tests/media-capabilities/encodingInfo-expected.txt: Added.
+        * web-platform-tests/media-capabilities/encodingInfo.html: Added.
+        * web-platform-tests/media-capabilities/encodingInfo.webrtc-expected.txt: Added.
+        * web-platform-tests/media-capabilities/encodingInfo.webrtc.html: Added.
+        * web-platform-tests/media-capabilities/idlharness.any-expected.txt: Added.
+        * web-platform-tests/media-capabilities/idlharness.any.html: Added.
+        * web-platform-tests/media-capabilities/idlharness.any.js: Added.
+        * web-platform-tests/media-capabilities/idlharness.any.worker-expected.txt: Added.
+        * web-platform-tests/media-capabilities/idlharness.any.worker.html: Added.
+        * web-platform-tests/media-capabilities/w3c-import.log: Added.
+
+2021-10-12  Kate Cheney  <katherine_cheney@apple.com>
+
+        CSP: Implement unsafe-hashes
+        https://bugs.webkit.org/show_bug.cgi?id=231313
+        <rdar://problem/83724376>
+
+        Reviewed by Brent Fulgham.
+
+        Some unsafe-hashes tests still "fail" because we haven't implemented 
+        some directives like script-src-elem/script-src-attr but will
+        still test correct behavior for unsafe-hashes because the reports are
+        received correctly. Tracking implementation of missing directives
+        in rdar://83332874.
+
+        * web-platform-tests/content-security-policy/navigation/to-javascript-parent-initiated-parent-csp-expected.txt:
+        * web-platform-tests/content-security-policy/securitypolicyviolation/blockeduri-inline-expected.txt:
+        Tests that have changed failures now that the blockedURI target is
+        correct.
+
+        * web-platform-tests/content-security-policy/unsafe-hashes/javascript_src_allowed-href-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-hashes/javascript_src_allowed-href_blank-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-hashes/javascript_src_allowed-window_location-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-hashes/javascript_src_allowed-window_open-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-hashes/script_event_handlers_allowed-expected.txt:
+        * web-platform-tests/content-security-policy/unsafe-hashes/style_attribute_allowed-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/dynamic-import/string-compilation-nonce-classic-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/dynamic-import/string-compilation-nonce-module-expected.txt:
+
+2021-10-12  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        WPT test gardening for font palettes
+        https://bugs.webkit.org/show_bug.cgi?id=231649
+
+        This is being upstreamed in https://github.com/web-platform-tests/wpt/pull/30959.
+
+        Unreviewed.
+
+        * web-platform-tests/css/css-fonts/font-palette-add-2.html:
+        * web-platform-tests/css/css-fonts/font-palette-modify-2.html:
+        * web-platform-tests/css/css-fonts/font-palette-remove-2.html:
+        * web-platform-tests/css/css-fonts/parsing/font-palette-invalid.html:
+        * web-platform-tests/css/css-fonts/parsing/font-palette-valid.html:
+
+2021-10-12  Sihui Liu  <sihui_liu@apple.com>
+
+        Implement FileSystemSyncAccessHandle read() and write()
+        https://bugs.webkit.org/show_bug.cgi?id=231466
+        <rdar://problem/84050394>
+
+        Reviewed by Youenn Fablet.
+
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-close.https.tentative.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-flush.https.tentative.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-getSize.https.tentative.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-read-write.https.tentative.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-truncate.https.tentative.worker-expected.txt:
+
 2021-10-12  Aditya Keerthi  <akeerthi@apple.com>
 
         [css-ui] Fix interpolation of accent-color

@@ -1,3 +1,200 @@
+2021-10-18  Ms2ger  <Ms2ger@igalia.com>
+
+        Add my github username to contributors.json
+        https://bugs.webkit.org/show_bug.cgi?id=231893
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-18  Rob Buis  <rbuis@igalia.com>
+
+        Add my github username to contributors.json
+        https://bugs.webkit.org/show_bug.cgi?id=231889
+
+        Reviewed by Manuel Rego Casasnovas.
+
+        * metadata/contributors.json:
+
+2021-10-18  Xan Lopez  <xan@igalia.com>
+
+        Add my github username to contributors.json
+        https://bugs.webkit.org/show_bug.cgi?id=231887
+
+        Unreviewed.
+
+        * metadata/contributors.json: add my github username.
+
+2021-10-18  Miguel Gomez  <magomez@igalia.com>
+
+        Add my github username to contributors.json
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-16  Tetsuharu Ohzeki  <tetsuharu.ohzeki@gmail.com>
+
+        Add github username for tetsuharuohzeki to contributors.json
+        https://bugs.webkit.org/show_bug.cgi?id=231864
+
+        Reviewed by Fujii Hironori.
+
+        * metadata/contributors.json:
+
+2021-10-16  Angelos Oikonomopoulos  <angelos@igalia.com>
+
+        Add my github username to contributors.json
+        https://bugs.webkit.org/show_bug.cgi?id=231861
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-16  Caitlin Potter  <caitp@igalia.com>
+
+        Add github username for myself
+        https://bugs.webkit.org/show_bug.cgi?id=231857
+
+        Reviewed by Yusuke Suzuki.
+
+        * metadata/contributors.json:
+
+2021-10-15  Basuke Suzuki  <basuke.suzuki@sony.com>
+
+        Add flag to turn off Iso heap
+        https://bugs.webkit.org/show_bug.cgi?id=231823
+
+        Reviewed by Yusuke Suzuki.
+
+        Added USE_ISO_MALLOC feature flags which is on by default for most platforms.
+
+        * Source/cmake/OptionsPlayStation.cmake:
+        * Source/cmake/WebKitFeatures.cmake:
+
+2021-10-15  Ross Kirsling  <ross.kirsling@sony.com>
+
+        Realize Mac CMake build of WebCore and WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=231749
+
+        Reviewed by Alex Christensen.
+
+        * Source/cmake/OptionsMac.cmake:
+        * Source/cmake/WebKitMacros.cmake:
+
+2021-10-15  Jonathan Bedard  <jbedard@apple.com>
+
+        Add github username for Dewei Zhu
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-15  Andres Gonzalez  <andresg_22@apple.com>
+
+        Change Andres Gonzalez status to reviewer.
+        https://bugs.webkit.org/show_bug.cgi?id=231738
+
+        Reviewed by Chris Fleizach.
+
+        * metadata/contributors.json:
+
+2021-10-15  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Unreviewed. Fix GTK build with ubuntu 18.04
+
+        GLib version bump in r284152 was too high for ubuntu 18.04 even though it followed our dependencies policy.
+
+        * Source/cmake/OptionsGTK.cmake:
+        * Source/cmake/OptionsWPE.cmake:
+
+2021-10-14  Ali Juma  <ajuma@chromium.org>
+
+        Add my GitHub username to contributors.json
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-14  Víctor Manuel Jáquez Leal  <vjaquez@igalia.com>
+
+        Add my GitHub username to contributors.json
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-14  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r283878.
+        https://bugs.webkit.org/show_bug.cgi?id=231735
+
+        It
+
+        Reverted changeset:
+
+        "[WPE] Reenable -fvisibility=hidden and -fvisibility-inlines-
+        hidden"
+        https://bugs.webkit.org/show_bug.cgi?id=222860
+        https://commits.webkit.org/r283878
+
+2021-10-14  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][WPE] Bump GLib version to 2.58.3
+        https://bugs.webkit.org/show_bug.cgi?id=231726
+
+        Reviewed by Philippe Normand.
+
+        * Source/cmake/OptionsGTK.cmake:
+        * Source/cmake/OptionsWPE.cmake:
+
+2021-10-14  Enrique Ocaña González  <eocanha@igalia.com>
+
+        [contributors.json] Add eocanha github account and canonicalize
+        https://bugs.webkit.org/show_bug.cgi?id=231729
+
+        Unreviewed.
+
+        Added eocanha github user to contributors.json and canonicalize the file to make the style checker happy.
+
+        * metadata/contributors.json:
+
+2021-10-13  Tim Horton  <timothy_horton@apple.com>
+
+        Add my GitHub username to contributors.json
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-13  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Add my github username to contributors.json
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-10-12  Alex Christensen  <achristensen@webkit.org>
+
+        Add webpushd executable
+        https://bugs.webkit.org/show_bug.cgi?id=231650
+
+        Reviewed by Brady Eidson.
+
+        * WebKit.xcworkspace/xcshareddata/xcschemes/All Source.xcscheme:
+
+2021-10-12  Basuke Suzuki  <basuke.suzuki@sony.com>
+
+        [PlayStation] Enable RemoteInspector by default
+        https://bugs.webkit.org/show_bug.cgi?id=231599
+
+        Reviewed by Fujii Hironori.
+
+        It was treated as experimental feature but we've depended on this feature in various situation.
+
+        * Source/cmake/OptionsPlayStation.cmake:
+
 2021-10-12  Philippe Normand  <pnormand@igalia.com>
 
         Add my github username to contributors.json

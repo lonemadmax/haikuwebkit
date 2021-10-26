@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "ActiveDOMObject.h"
 #include "HTMLElement.h"
 #include "MediaList.h"
 #include "Timer.h"

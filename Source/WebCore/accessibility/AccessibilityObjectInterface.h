@@ -34,9 +34,9 @@
 #include "TextIteratorBehavior.h"
 #include "VisibleSelection.h"
 #include "Widget.h"
+#include <variant>
 #include <wtf/HashSet.h>
 #include <wtf/RefCounted.h>
-#include <wtf/Variant.h>
 
 #if PLATFORM(WIN)
 #include "AccessibilityObjectWrapperWin.h"
@@ -85,7 +85,6 @@ class Path;
 class QualifiedName;
 class RenderObject;
 class ScrollView;
-class Widget;
 
 struct AccessibilityText;
 struct ScrollRectToVisibleOptions;
@@ -626,7 +625,7 @@ enum class AccessibilitySearchKey {
     VisitedLink,
 };
 
-using AXEditingStyleValueVariant = Variant<String, bool, int>;
+using AXEditingStyleValueVariant = std::variant<String, bool, int>;
 
 struct AccessibilitySearchCriteria {
     AXCoreObject* anchorObject { nullptr };
@@ -1120,7 +1119,7 @@ public:
     virtual bool ariaRoleHasPresentationalChildren() const = 0;
     virtual bool inheritsPresentationalRole() const = 0;
 
-    using AXValue = Variant<bool, unsigned, float, String, AccessibilityButtonState, AXCoreObject*>;
+    using AXValue = std::variant<bool, unsigned, float, String, AccessibilityButtonState, AXCoreObject*>;
     virtual AXValue value() = 0;
 
     // Accessibility Text
@@ -1187,13 +1186,17 @@ public:
     virtual String selectedText() const = 0;
     virtual String accessKey() const = 0;
     virtual String actionVerb() const = 0;
+
+    // Widget support.
+    virtual bool isWidget() const = 0;
     virtual Widget* widget() const = 0;
     virtual PlatformWidget platformWidget() const = 0;
+    virtual Widget* widgetForAttachmentView() const = 0;
+
 #if PLATFORM(COCOA)
     virtual RemoteAXObjectRef remoteParentObject() const = 0;
     virtual FloatRect convertRectToPlatformSpace(const FloatRect&, AccessibilityConversionSpace) const = 0;
 #endif
-    virtual Widget* widgetForAttachmentView() const = 0;
     virtual Page* page() const = 0;
     virtual Document* document() const = 0;
     virtual FrameView* documentFrameView() const = 0;

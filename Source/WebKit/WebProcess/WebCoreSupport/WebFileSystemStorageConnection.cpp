@@ -121,7 +121,8 @@ void WebFileSystemStorageConnection::createSyncAccessHandle(WebCore::FileSystemH
         if (!result)
             return completionHandler(convertToException(result.error()));
 
-        completionHandler(WTFMove(result.value()));
+        auto resultValue = result.value();
+        completionHandler(std::pair { resultValue.first, resultValue.second.handle() });
     });
 }
 
@@ -191,6 +192,16 @@ void WebFileSystemStorageConnection::getHandle(WebCore::FileSystemHandleIdentifi
             return completionHandler(convertToException(result.error()));
 
         completionHandler(WTFMove(result.value()));
+    });
+}
+
+void WebFileSystemStorageConnection::move(WebCore::FileSystemHandleIdentifier identifier, WebCore::FileSystemHandleIdentifier destinationIdentifier, const String& newName, VoidCallback&& completionHandler)
+{
+    if (!m_connection)
+        return completionHandler(WebCore::Exception { WebCore::UnknownError, "Connection is lost" });
+
+    m_connection->sendWithAsyncReply(Messages::NetworkStorageManager::Move(identifier, destinationIdentifier, newName), [completionHandler = WTFMove(completionHandler)](auto error) mutable {
+        completionHandler(convertToExceptionOr(error));
     });
 }
 

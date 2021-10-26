@@ -391,7 +391,7 @@ void NetworkProcessProxy::didReceiveAuthenticationChallenge(PAL::SessionID sessi
     if (coreChallenge.protectionSpace().authenticationScheme() == ProtectionSpaceAuthenticationSchemeClientCertificateRequested) {
         if (auto* store = websiteDataStoreFromSessionID(sessionID)) {
             auto newSecKeyProxyStore = SecKeyProxyStore::create();
-            secKeyProxyStore = makeWeakPtr(newSecKeyProxyStore.get());
+            secKeyProxyStore = newSecKeyProxyStore;
             store->addSecKeyProxyStore(WTFMove(newSecKeyProxyStore));
         }
     }
@@ -414,7 +414,7 @@ void NetworkProcessProxy::didReceiveAuthenticationChallenge(PAL::SessionID sessi
         return;
     }
 
-    WebPageProxy::forMostVisibleWebPageIfAny(sessionID, *topOrigin, [this, weakThis = makeWeakPtr(this), sessionID, authenticationChallenge = WTFMove(authenticationChallenge), negotiatedLegacyTLS](auto* page) mutable {
+    WebPageProxy::forMostVisibleWebPageIfAny(sessionID, *topOrigin, [this, weakThis = WeakPtr { *this }, sessionID, authenticationChallenge = WTFMove(authenticationChallenge), negotiatedLegacyTLS](auto* page) mutable {
         if (!weakThis)
             return;
 

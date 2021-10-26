@@ -28,6 +28,7 @@
 #include "FileSystemHandleIdentifier.h"
 #include "FileSystemSyncAccessHandleIdentifier.h"
 #include <wtf/CompletionHandler.h>
+#include <wtf/FileSystem.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
 namespace WebCore {
@@ -43,13 +44,14 @@ public:
     using SameEntryCallback = CompletionHandler<void(ExceptionOr<bool>&&)>;
     using GetHandleCallback = CompletionHandler<void(ExceptionOr<FileSystemHandleIdentifier>&&)>;
     using ResolveCallback = CompletionHandler<void(ExceptionOr<Vector<String>>&&)>;
-    using GetAccessHandleCallback = CompletionHandler<void(ExceptionOr<FileSystemSyncAccessHandleIdentifier>&&)>;
+    using GetAccessHandleCallback = CompletionHandler<void(ExceptionOr<std::pair<FileSystemSyncAccessHandleIdentifier, FileSystem::PlatformFileHandle>>&&)>;
     using VoidCallback = CompletionHandler<void(ExceptionOr<void>&&)>;
     using IntegerCallback = CompletionHandler<void(ExceptionOr<uint64_t>&&)>;
     using GetHandleNamesCallback = CompletionHandler<void(ExceptionOr<Vector<String>>&&)>;
     using GetHandleWithTypeCallback = CompletionHandler<void(ExceptionOr<std::pair<FileSystemHandleIdentifier, bool>>&&)>;
 
     virtual void isSameEntry(FileSystemHandleIdentifier, FileSystemHandleIdentifier, SameEntryCallback&&) = 0;
+    virtual void move(FileSystemHandleIdentifier, FileSystemHandleIdentifier, const String& newName, VoidCallback&&) = 0;
     virtual void getFileHandle(FileSystemHandleIdentifier, const String& name, bool createIfNecessary, GetHandleCallback&&) = 0;
     virtual void getDirectoryHandle(FileSystemHandleIdentifier, const String& name, bool createIfNecessary, GetHandleCallback&&) = 0;
     virtual void removeEntry(FileSystemHandleIdentifier, const String& name, bool deleteRecursively, VoidCallback&&) = 0;

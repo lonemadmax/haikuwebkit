@@ -130,12 +130,6 @@ static inline std::optional<size_t> firstTextRunIndex(const InlineContentBreaker
     return { };
 }
 
-bool InlineContentBreaker::isWrappingAllowed(const ContinuousContent::Run& run)
-{
-    // Do not try to wrap overflown 'pre' and 'no-wrap' content to next line.
-    return run.style.whiteSpace() != WhiteSpace::Pre && run.style.whiteSpace() != WhiteSpace::NoWrap;
-}
-
 bool InlineContentBreaker::shouldKeepEndOfLineWhitespace(const ContinuousContent& continuousContent) const
 {
     // Grab the style and check for white-space property to decide whether we should let this whitespace content overflow the current line.
@@ -269,7 +263,7 @@ InlineContentBreaker::Result InlineContentBreaker::processOverflowingContent(con
         // Parent style drives the wrapping behavior here.
         // e.g. <div style="white-space: nowrap">some text<div style="display: inline-block; white-space: pre-wrap"></div></div>.
         // While the inline-block has pre-wrap which allows wrapping, the content lives in a nowrap context.
-        return isWrappingAllowed(continuousContent.runs()[overflowingRunIndex]);
+        return TextUtil::isWrappingAllowed(continuousContent.runs()[overflowingRunIndex].style);
     };
     if (shouldWrapUnbreakableContentToNextLine())
         return { Result::Action::Wrap, IsEndOfLine::Yes };
@@ -300,7 +294,150 @@ static bool isWrappableRun(const InlineContentBreaker::ContinuousContent::Run& r
         return false;
     }
     // Check if this text run needs to stay on the current line.
-    return InlineContentBreaker::isWrappingAllowed(run);
+    return TextUtil::isWrappingAllowed(run.style);
+}
+
+struct CandidateTextRunForBreaking {
+    size_t index { 0 };
+    bool isOverflowingRun { true };
+    InlineLayoutUnit logicalLeft { 0 };
+};
+std::optional<InlineContentBreaker::PartialRun> InlineContentBreaker::tryBreakingTextRun(const ContinuousContent::RunList& runs, const CandidateTextRunForBreaking& candidateTextRun, InlineLayoutUnit availableWidth, bool lineHasWrapOpportunityAtPreviousPosition) const
+{
+    auto& candidateRun = runs[candidateTextRun.index];
+    ASSERT(candidateRun.inlineItem.isText());
+    auto& inlineTextItem = downcast<InlineTextItem>(candidateRun.inlineItem);
+    auto& style = candidateRun.style;
+    auto lineHasRoomForContent = availableWidth > 0;
+
+    auto breakRules = wordBreakBehavior(style, lineHasWrapOpportunityAtPreviousPosition);
+    if (breakRules.isEmpty())
+        return { };
+
+    auto& fontCascade = style.fontCascade();
+    if (breakRules.contains(WordBreakRule::AtArbitraryPositionWithinWords)) {
+        auto tryBreakingAtArbitraryPositionWithinWords = [&]() -> std::optional<PartialRun> {
+            // Breaking is allowed within “words”: specifically, in addition to soft wrap opportunities allowed for normal, any typographic letter units
+            // It does not affect rules governing the soft wrap opportunities created by white space. Hyphenation is not applied.
+            ASSERT(!breakRules.contains(WordBreakRule::AtHyphenationOpportunities));
+            if (inlineTextItem.isWhitespace()) {
+                // AtArbitraryPositionWithinWords does not affect the breaking opportunities around whitespace.
+                return { };
+            }
+
+            if (!inlineTextItem.length()) {
+                // Empty text runs may be breakable based on style, but in practice we can't really split them any further.
+                return PartialRun { };
+            }
+
+            if (!candidateTextRun.isOverflowingRun) {
+                // When the run can be split at arbitrary position we would normally just return the entire run when it is intended to fit on the line
+                // but here we have to check for mid-word break.
+                auto nextIndex = nextTextRunIndex(runs, candidateTextRun.index);
+                if (!nextIndex || !downcast<InlineTextItem>(runs[*nextIndex].inlineItem).isWhitespace())
+                    return PartialRun { inlineTextItem.length(), TextUtil::width(inlineTextItem, fontCascade, candidateTextRun.logicalLeft) };
+                // We've got room for the run but we have to try to break it mid-word.
+                if (inlineTextItem.length() == 1) {
+                    // We can't mid-word break a single character.
+                    return { };
+                }
+                auto startPosition = inlineTextItem.start();
+                auto endPosition = inlineTextItem.end() - 1;
+                return PartialRun { inlineTextItem.length() - 1, TextUtil::width(inlineTextItem, fontCascade, startPosition, endPosition, candidateTextRun.logicalLeft) };
+            }
+
+            if (!lineHasRoomForContent) {
+                auto previousIndex = previousTextRunIndex(runs, candidateTextRun.index);
+                if (!previousIndex || !downcast<InlineTextItem>(runs[*previousIndex].inlineItem).isWhitespace()) {
+                    // Fast path for cases when there's no room at all. We can break this content at the start.
+                    return PartialRun { };
+                }
+                if (inlineTextItem.length() == 1) {
+                    // We can't mid-word break a single character.
+                    return { };
+                }
+                auto startPosition = inlineTextItem.start() + 1;
+                auto endPosition = inlineTextItem.end();
+                return PartialRun { inlineTextItem.length() - 1, TextUtil::width(inlineTextItem, fontCascade, startPosition, endPosition, candidateTextRun.logicalLeft) };
+            }
+            auto midWordBreak = TextUtil::midWordBreak(inlineTextItem, fontCascade, candidateRun.logicalWidth, availableWidth, candidateTextRun.logicalLeft);
+            return PartialRun { midWordBreak.length, midWordBreak.logicalWidth };
+        };
+        return tryBreakingAtArbitraryPositionWithinWords();
+    }
+
+    if (breakRules.contains(WordBreakRule::AtHyphenationOpportunities)) {
+        auto tryBreakingAtHyphenationOpportunity = [&]() -> std::optional<PartialRun> {
+            // Find the hyphen position as follows:
+            // 1. Split the text by taking the hyphen width into account
+            // 2. Find the last hyphen position before the split position
+            if (candidateTextRun.isOverflowingRun && !lineHasRoomForContent) {
+                // We won't be able to find hyphen location when there's no available space.
+                return { };
+            }
+            auto runLength = inlineTextItem.length();
+            unsigned limitBefore = style.hyphenationLimitBefore() == RenderStyle::initialHyphenationLimitBefore() ? 0 : style.hyphenationLimitBefore();
+            unsigned limitAfter = style.hyphenationLimitAfter() == RenderStyle::initialHyphenationLimitAfter() ? 0 : style.hyphenationLimitAfter();
+            // Check if this run can accommodate the before/after limits at all before start measuring text.
+            if (limitBefore >= runLength || limitAfter >= runLength || limitBefore + limitAfter > runLength)
+                return { };
+
+            unsigned leftSideLength = runLength;
+            auto hyphenWidth = InlineLayoutUnit { fontCascade.width(TextRun { StringView { style.hyphenString() } }) };
+            if (candidateTextRun.isOverflowingRun) {
+                auto availableWidthExcludingHyphen = availableWidth - hyphenWidth;
+                if (availableWidthExcludingHyphen <= 0 || !enoughWidthForHyphenation(availableWidthExcludingHyphen, fontCascade.pixelSize()))
+                    return { };
+                leftSideLength = TextUtil::midWordBreak(inlineTextItem, fontCascade, candidateRun.logicalWidth, availableWidthExcludingHyphen, candidateTextRun.logicalLeft).length;
+            }
+            if (leftSideLength < limitBefore)
+                return { };
+            // Adjust before index to accommodate the limit-after value (it's the last potential hyphen location in this run).
+            auto hyphenBefore = std::min(leftSideLength, runLength - limitAfter) + 1;
+            unsigned hyphenLocation = lastHyphenLocation(StringView(inlineTextItem.inlineTextBox().content()).substring(inlineTextItem.start(), inlineTextItem.length()), hyphenBefore, style.computedLocale());
+            if (!hyphenLocation || hyphenLocation < limitBefore)
+                return { };
+            // hyphenLocation is relative to the start of this InlineItemText.
+            ASSERT(inlineTextItem.start() + hyphenLocation < inlineTextItem.end());
+            auto trailingPartialRunWidthWithHyphen = TextUtil::width(inlineTextItem, fontCascade, inlineTextItem.start(), inlineTextItem.start() + hyphenLocation, candidateTextRun.logicalLeft);
+            return PartialRun { hyphenLocation, trailingPartialRunWidthWithHyphen, hyphenWidth };
+        };
+        if (auto partialRun = tryBreakingAtHyphenationOpportunity())
+            return partialRun;
+    }
+
+    if (breakRules.contains(WordBreakRule::AtArbitraryPosition)) {
+        auto tryBreakingAtArbitraryPosition = [&]() -> PartialRun {
+            if (!inlineTextItem.length()) {
+                // Empty text runs may be breakable based on style, but in practice we can't really split them any further.
+                return { };
+            }
+            if (!candidateTextRun.isOverflowingRun) {
+                // When the run can be split at arbitrary position let's just return the entire run when it is intended to fit on the line.
+                // However the breaking properties only set rules for text content, so let's check if this run is adjacent to another text run.
+                ASSERT(inlineTextItem.length());
+                // FIXME: We may need to check if the "next" text run is visually adjacent to this non-overflowing run too (e.g. A<span style="border: 100px solid green;"></span>B)
+                if (nextTextRunIndex(runs, candidateTextRun.index)) {
+                    // We are in-between text runs. It's okay to return the entire run triggering split at the very right edge.
+                    auto trailingPartialRunWidth = TextUtil::width(inlineTextItem, fontCascade, candidateTextRun.logicalLeft);
+                    return { inlineTextItem.length(), trailingPartialRunWidth };
+                }
+                auto startPosition = inlineTextItem.start() + 1;
+                auto endPosition = inlineTextItem.end();
+                return { inlineTextItem.length() - 1, TextUtil::width(inlineTextItem, fontCascade, startPosition, endPosition, candidateTextRun.logicalLeft) };
+            }
+            if (!lineHasRoomForContent) {
+                // Fast path for cases when there's no room at all. The content is breakable but we don't have space for it.
+                return { };
+            }
+            auto midWordBreak = TextUtil::midWordBreak(inlineTextItem, fontCascade, candidateRun.logicalWidth, availableWidth, candidateTextRun.logicalLeft);
+            return { midWordBreak.length, midWordBreak.logicalWidth };
+        };
+        // With arbitrary breaking there's always a valid breaking position (even if it is before the first position).
+        return tryBreakingAtArbitraryPosition();
+    }
+
+    return { };
 }
 
 std::optional<InlineContentBreaker::OverflowingTextContent::BreakingPosition> InlineContentBreaker::tryBreakingOverflowingRun(const LineStatus& lineStatus, const ContinuousContent::RunList& runs, size_t overflowingRunIndex, InlineLayoutUnit nonOverflowingContentWidth) const
@@ -308,7 +445,9 @@ std::optional<InlineContentBreaker::OverflowingTextContent::BreakingPosition> In
     auto overflowingRun = runs[overflowingRunIndex];
     if (!isWrappableRun(overflowingRun))
         return { };
-    auto partialOverflowingRun = tryBreakingTextRun(runs, overflowingRunIndex, lineStatus.contentLogicalRight + nonOverflowingContentWidth, std::max(0.0f, lineStatus.availableWidth - nonOverflowingContentWidth), lineStatus.hasWrapOpportunityAtPreviousPosition);
+
+    auto avilableWidth = std::max(0.0f, lineStatus.availableWidth - nonOverflowingContentWidth);
+    auto partialOverflowingRun = tryBreakingTextRun(runs, { overflowingRunIndex, true, lineStatus.contentLogicalRight + nonOverflowingContentWidth }, avilableWidth, lineStatus.hasWrapOpportunityAtPreviousPosition);
     if (!partialOverflowingRun)
         return { };
     if (partialOverflowingRun->length)
@@ -330,12 +469,32 @@ std::optional<InlineContentBreaker::OverflowingTextContent::BreakingPosition> In
         if (!isWrappableRun(run))
             continue;
         ASSERT(run.inlineItem.isText());
-        if (auto partialRun = tryBreakingTextRun(runs, index, lineStatus.contentLogicalRight + previousContentWidth, { }, lineStatus.hasWrapOpportunityAtPreviousPosition)) {
+        auto avilableWidth = std::max(0.0f, lineStatus.availableWidth - previousContentWidth);
+        if (auto partialRun = tryBreakingTextRun(runs, { index, false, lineStatus.contentLogicalRight + previousContentWidth }, avilableWidth, lineStatus.hasWrapOpportunityAtPreviousPosition)) {
             // We know this run fits, so if breaking is allowed on the run, it should return a non-empty left-side
             // since it's either at hyphen position or the entire run is returned.
             ASSERT(partialRun->length);
             auto runIsFullyAccommodated = partialRun->length == downcast<InlineTextItem>(run.inlineItem).length();
-            return OverflowingTextContent::BreakingPosition { index, OverflowingTextContent::BreakingPosition::TrailingContent { false, runIsFullyAccommodated ? std::nullopt : partialRun } };
+            if (runIsFullyAccommodated) {
+                auto trailingRunIndex = [&] {
+                    // Try not break content at inline box boundary.
+                    // e.g. <span style="word-wrap: break-word">fits_and_we_break_at_the_right_edge</span><span>overflows</span>
+                    // we should forward the breaking index to the closing inline box.
+                    // FIXME: We may wanna skip over the visually empty inline boxes only e.g. <span style="word-wrap: break-word">fits_and_we_break_at_the_right_edge</span><span></span><span>overflows</span>
+                    auto trailingInlineBoxEndIndex = std::optional<size_t> { };
+                    for (auto candidateIndex = index + 1; candidateIndex < overflowingRunIndex; ++candidateIndex) {
+                        auto& trailingInlineItem = runs[candidateIndex].inlineItem;
+                        if (trailingInlineItem.isInlineBoxEnd())
+                            trailingInlineBoxEndIndex = candidateIndex;
+                        if (!trailingInlineItem.isInlineBoxStart() && !trailingInlineItem.isInlineBoxEnd())
+                            break;
+                    }
+                    ASSERT(!trailingInlineBoxEndIndex || *trailingInlineBoxEndIndex < overflowingRunIndex);
+                    return trailingInlineBoxEndIndex.value_or(index);
+                };
+                return OverflowingTextContent::BreakingPosition { trailingRunIndex(), OverflowingTextContent::BreakingPosition::TrailingContent { false, std::nullopt } };
+            }
+            return OverflowingTextContent::BreakingPosition { index, OverflowingTextContent::BreakingPosition::TrailingContent { false, partialRun } };
         }
     }
     return { };
@@ -352,7 +511,7 @@ std::optional<InlineContentBreaker::OverflowingTextContent::BreakingPosition> In
         }
         ASSERT(run.inlineItem.isText());
         // At this point the available space is zero. Let's try the break these overflowing set of runs at the earliest possible.
-        if (auto partialRun = tryBreakingTextRun(runs, index, lineStatus.contentLogicalRight + nextContentWidth, 0, lineStatus.hasWrapOpportunityAtPreviousPosition)) {
+        if (auto partialRun = tryBreakingTextRun(runs, { index, true, lineStatus.contentLogicalRight + nextContentWidth }, 0, lineStatus.hasWrapOpportunityAtPreviousPosition)) {
             // <span>unbreakable_and_overflows<span style="word-break: break-all">breakable</span>
             // The partial run length could very well be 0 meaning the trailing run is actually the overflowing run (see above in the example).
             if (partialRun->length) {
@@ -447,139 +606,16 @@ OptionSet<InlineContentBreaker::WordBreakRule> InlineContentBreaker::wordBreakBe
     return includeHyphenationIfAllowed({ });
 }
 
-std::optional<InlineContentBreaker::PartialRun> InlineContentBreaker::tryBreakingTextRun(const ContinuousContent::RunList& runs, size_t candidateRunIndex, InlineLayoutUnit logicalLeft, std::optional<InlineLayoutUnit> availableWidth, bool hasWrapOpportunityAtPreviousPosition) const
-{
-    auto& candidateRun = runs[candidateRunIndex];
-    ASSERT(candidateRun.inlineItem.isText());
-    auto& inlineTextItem = downcast<InlineTextItem>(candidateRun.inlineItem);
-    auto& style = candidateRun.style;
-    auto availableSpaceIsInfinite = !availableWidth.has_value();
-
-    auto breakRules = wordBreakBehavior(style, hasWrapOpportunityAtPreviousPosition);
-    if (breakRules.isEmpty())
-        return { };
-
-    auto& fontCascade = style.fontCascade();
-    if (breakRules.contains(WordBreakRule::AtArbitraryPositionWithinWords)) {
-        // Breaking is allowed within “words”: specifically, in addition to soft wrap opportunities allowed for normal, any typographic letter units
-        // It does not affect rules governing the soft wrap opportunities created by white space. Hyphenation is not applied.
-        ASSERT(!breakRules.contains(WordBreakRule::AtHyphenationOpportunities));
-        if (inlineTextItem.isWhitespace()) {
-            // AtArbitraryPositionWithinWords does not affect the breaking opportunities around whitespace.
-            return { };
-        }
-
-        if (!inlineTextItem.length()) {
-            // Empty text runs may be breakable based on style, but in practice we can't really split them any further.
-            return PartialRun { };
-        }
-
-        if (availableSpaceIsInfinite) {
-            // When the run can be split at arbitrary position we would normally just return the entire run when it is intended to fit on the line
-            // but here we have to check for mid-word break.
-            auto nextIndex = nextTextRunIndex(runs, candidateRunIndex);
-            if (!nextIndex || !downcast<InlineTextItem>(runs[*nextIndex].inlineItem).isWhitespace())
-                return PartialRun { inlineTextItem.length(), TextUtil::width(inlineTextItem, fontCascade, logicalLeft) };
-            // We've got room for the run but we have to try to break it mid-word.
-            if (inlineTextItem.length() == 1) {
-                // We can't mid-word break a single character.
-                return { };
-            }
-            auto startPosition = inlineTextItem.start();
-            auto endPosition = inlineTextItem.end() - 1;
-            return PartialRun { inlineTextItem.length() - 1, TextUtil::width(inlineTextItem, fontCascade, startPosition, endPosition, logicalLeft) };
-        }
-
-        if (!*availableWidth) {
-            auto previousIndex = previousTextRunIndex(runs, candidateRunIndex);
-            if (!previousIndex || !downcast<InlineTextItem>(runs[*previousIndex].inlineItem).isWhitespace()) {
-                // Fast path for cases when there's no room at all. We can break this content at the start.
-                return PartialRun { };
-            }
-            if (inlineTextItem.length() == 1) {
-                // We can't mid-word break a single character.
-                return { };
-            }
-            auto startPosition = inlineTextItem.start() + 1;
-            auto endPosition = inlineTextItem.end();
-            return PartialRun { inlineTextItem.length() - 1, TextUtil::width(inlineTextItem, fontCascade, startPosition, endPosition, logicalLeft) };
-        }
-        auto midWordBreak = TextUtil::midWordBreak(inlineTextItem, fontCascade, candidateRun.logicalWidth, *availableWidth, logicalLeft);
-        return PartialRun { midWordBreak.length, midWordBreak.logicalWidth };
-    }
-
-    if (breakRules.contains(WordBreakRule::AtHyphenationOpportunities)) {
-        auto tryBreakingAtHyphenationOpportunity = [&]() -> std::optional<PartialRun> {
-            // Find the hyphen position as follows:
-            // 1. Split the text by taking the hyphen width into account
-            // 2. Find the last hyphen position before the split position
-            if (!availableSpaceIsInfinite && !*availableWidth) {
-                // We won't be able to find hyphen location when there's no available space.
-                return { };
-            }
-            auto runLength = inlineTextItem.length();
-            unsigned limitBefore = style.hyphenationLimitBefore() == RenderStyle::initialHyphenationLimitBefore() ? 0 : style.hyphenationLimitBefore();
-            unsigned limitAfter = style.hyphenationLimitAfter() == RenderStyle::initialHyphenationLimitAfter() ? 0 : style.hyphenationLimitAfter();
-            // Check if this run can accommodate the before/after limits at all before start measuring text.
-            if (limitBefore >= runLength || limitAfter >= runLength || limitBefore + limitAfter > runLength)
-                return { };
-
-            unsigned leftSideLength = runLength;
-            auto hyphenWidth = InlineLayoutUnit { fontCascade.width(TextRun { StringView { style.hyphenString() } }) };
-            if (!availableSpaceIsInfinite) {
-                auto availableWidthExcludingHyphen = *availableWidth - hyphenWidth;
-                if (availableWidthExcludingHyphen <= 0 || !enoughWidthForHyphenation(availableWidthExcludingHyphen, fontCascade.pixelSize()))
-                    return { };
-                leftSideLength = TextUtil::midWordBreak(inlineTextItem, fontCascade, candidateRun.logicalWidth, availableWidthExcludingHyphen, logicalLeft).length;
-            }
-            if (leftSideLength < limitBefore)
-                return { };
-            // Adjust before index to accommodate the limit-after value (it's the last potential hyphen location in this run).
-            auto hyphenBefore = std::min(leftSideLength, runLength - limitAfter) + 1;
-            unsigned hyphenLocation = lastHyphenLocation(StringView(inlineTextItem.inlineTextBox().content()).substring(inlineTextItem.start(), inlineTextItem.length()), hyphenBefore, style.computedLocale());
-            if (!hyphenLocation || hyphenLocation < limitBefore)
-                return { };
-            // hyphenLocation is relative to the start of this InlineItemText.
-            ASSERT(inlineTextItem.start() + hyphenLocation < inlineTextItem.end());
-            auto trailingPartialRunWidthWithHyphen = TextUtil::width(inlineTextItem, fontCascade, inlineTextItem.start(), inlineTextItem.start() + hyphenLocation, logicalLeft);
-            return PartialRun { hyphenLocation, trailingPartialRunWidthWithHyphen, hyphenWidth };
-        };
-        if (auto partialRun = tryBreakingAtHyphenationOpportunity())
-            return partialRun;
-    }
-
-    if (breakRules.contains(WordBreakRule::AtArbitraryPosition)) {
-        auto tryBreakingAtArbitraryPosition = [&]() -> PartialRun {
-            if (!inlineTextItem.length()) {
-                // Empty text runs may be breakable based on style, but in practice we can't really split them any further.
-                return { };
-            }
-            if (availableSpaceIsInfinite) {
-                // When the run can be split at arbitrary position let's just return the entire run when it is intended to fit on the line.
-                ASSERT(inlineTextItem.length());
-                auto trailingPartialRunWidth = TextUtil::width(inlineTextItem, fontCascade, logicalLeft);
-                return { inlineTextItem.length(), trailingPartialRunWidth };
-            }
-            if (!*availableWidth) {
-                // Fast path for cases when there's no room at all. The content is breakable but we don't have space for it.
-                return { };
-            }
-            auto midWordBreak = TextUtil::midWordBreak(inlineTextItem, fontCascade, candidateRun.logicalWidth, *availableWidth, logicalLeft);
-            return { midWordBreak.length, midWordBreak.logicalWidth };
-        };
-        // With arbitrary breaking there's always a valid breaking position (even if it is before the first position).
-        return tryBreakingAtArbitraryPosition();
-    }
-
-    return { };
-}
-
 void InlineContentBreaker::ContinuousContent::append(const InlineItem& inlineItem, const RenderStyle& style, InlineLayoutUnit logicalWidth, std::optional<InlineLayoutUnit> collapsibleWidth)
 {
+    ASSERT(inlineItem.isText() || inlineItem.isBox() || inlineItem.isInlineBoxStart() || inlineItem.isInlineBoxEnd());
     m_runs.append({ inlineItem, style, logicalWidth });
     m_logicalWidth = clampTo<InlineLayoutUnit>(m_logicalWidth + logicalWidth);
     if (!collapsibleWidth) {
-        m_collapsibleLogicalWidth = { };
+        if (inlineItem.isText() || inlineItem.isBox()) {
+            // Inline boxes do not prevent the trailing content from getting collapsed.
+            m_collapsibleLogicalWidth = { };
+        }
         return;
     }
     ASSERT(*collapsibleWidth <= logicalWidth);

@@ -74,7 +74,6 @@
 #include "TextControlInnerElements.h"
 #include "UserGestureIndicator.h"
 #include "VisibleUnits.h"
-#include "Widget.h"
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/unicode/CharacterNames.h>
@@ -393,11 +392,6 @@ bool AccessibilityNodeObject::canHaveChildren() const
     case AccessibilityRole::MenuItemRadio:
     case AccessibilityRole::Splitter:
     case AccessibilityRole::Meter:
-        return false;
-    case AccessibilityRole::DocumentMath:
-#if ENABLE(MATHML)
-        return node()->isMathMLElement();
-#endif
         return false;
     default:
         return true;

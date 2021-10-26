@@ -47,7 +47,7 @@ public:
     void didIsSameEntry(CallbackIdentifier, ExceptionOr<bool>&&);
     void didGetHandle(CallbackIdentifier, ExceptionOr<FileSystemHandleIdentifier>&&);
     void didResolve(CallbackIdentifier, ExceptionOr<Vector<String>>&&);
-    void didCreateSyncAccessHandle(CallbackIdentifier, ExceptionOr<FileSystemSyncAccessHandleIdentifier>&& result);
+    void didCreateSyncAccessHandle(CallbackIdentifier, ExceptionOr<std::pair<FileSystemSyncAccessHandleIdentifier, FileSystem::PlatformFileHandle>>&&);
     void completeVoidCallback(CallbackIdentifier, ExceptionOr<void>&& result);
     void completeIntegerCallback(CallbackIdentifier, ExceptionOr<uint64_t>&& result);
     void didGetHandleNames(CallbackIdentifier, ExceptionOr<Vector<String>>&&);
@@ -58,6 +58,7 @@ private:
 
     // FileSystemStorageConnection
     void isSameEntry(FileSystemHandleIdentifier, FileSystemHandleIdentifier, FileSystemStorageConnection::SameEntryCallback&&) final;
+    void move(FileSystemHandleIdentifier, FileSystemHandleIdentifier, const String& newName, VoidCallback&&) final;
     void getFileHandle(FileSystemHandleIdentifier, const String& name, bool createIfNecessary, FileSystemStorageConnection::GetHandleCallback&&) final;
     void getDirectoryHandle(FileSystemHandleIdentifier, const String& name, bool createIfNecessary, FileSystemStorageConnection::GetHandleCallback&&) final;
     void removeEntry(FileSystemHandleIdentifier, const String& name, bool deleteRecursively, FileSystemStorageConnection::VoidCallback&&) final;

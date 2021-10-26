@@ -817,7 +817,6 @@ fast/text/backslash-to-yen-sign-euc.html [ Failure Pass ]
 fast/text/backslash-to-yen-sign.html [ Failure Pass ]
 fast/text/bidi-embedding-pop-and-push-same.html [ Failure Pass ]
 fast/text/break-word.html [ Failure Pass ]
-fast/text/capitalize-boundaries.html [ Failure Pass ]
 fast/text/capitalize-empty-generated-string.html [ Failure Pass ]
 fast/text/capitalize-preserve-nbsp.html [ Failure Pass ]
 fast/text/cg-fallback-bolding.html [ Failure Pass ]
@@ -1223,8 +1222,6 @@ webkit.org/b/170181 http/tests/xmlhttprequest/workers/methods.html [ Pass Timeou
 
 webkit.org/b/171389 [ Release ] http/tests/security/contentSecurityPolicy/source-list-parsing-05.html [ Pass Timeout ]
 
-webkit.org/b/230428 http/tests/security/contentSecurityPolicy/frame-src-cross-origin-load.html [ Pass Failure Timeout ]
-
 webkit.org/b/171528 [ Release ] http/tests/preload/not_delaying_window_onload_before_discovery.html [ Pass Failure ]
 
 webkit.org/b/231328 http/tests/preload/onload_event.html [ Pass Failure ]
@@ -1382,6 +1379,8 @@ webkit.org/b/207386 imported/w3c/web-platform-tests/css/css-transitions/properti
 imported/w3c/web-platform-tests/css/css-transforms/huge-length-tiny-scale.html [ Pass Timeout ]
 imported/w3c/web-platform-tests/css/css-transforms/transform-input-003.html [ ImageOnlyFailure ]
 
+webkit.org/b/231816 imported/w3c/web-platform-tests/css/css-transforms/crashtests/transform-marquee-resize-div-image-001.html [ Pass Failure ]
+
 webkit.org/b/207465 [ Debug ] storage/indexeddb/intversion-long-queue.html [ Pass Failure ]
 
 webkit.org/b/207466 http/wpt/service-workers/service-worker-networkprocess-crash.html [ Slow Pass Failure ]
@@ -1419,8 +1418,6 @@ webkit.org/b/208030 http/tests/workers/service/registration-clear-redundant-work
 webkit.org/b/207038 compositing/webgl/webgl-reflection.html [ Pass Failure ]
 
 webkit.org/b/208081 http/tests/workers/service/Client-properties-auxiliary.html [ Pass Timeout ]
-
-webkit.org/b/230376 http/tests/workers/service/client-removed-from-clients-while-in-page-cache.html [ Pass Timeout ]
 
 # webkit.org/b/208078 Continue to skip 2.0.0 on iOS WK2 until discrepancies can be addressed
 webgl/2.0.0 [ Skip ]
@@ -1915,6 +1912,8 @@ webkit.org/b/214598 fast/scrolling/ios/autoscroll-input-when-very-zoomed.html [ 
 
 webkit.org/b/231603 fast/scrolling/ios/reconcile-layer-position-recursive.html [ Pass Failure ]
 
+webkit.org/b/231641 fast/scrolling/ios/scroll-snap-with-momentum-scroll-in-overflow-scroll-area.html [ Pass Failure ]
+
 webkit.org/b/230988 [ Debug ] fast/selectors/is-backtracking.html [ Timeout ]
 webkit.org/b/230988 [ Debug ] fast/selectors/matches-backtracking.html [ Timeout ]
 
@@ -1953,8 +1952,6 @@ webkit.org/b/215351 http/wpt/service-workers/module-meta-url-fragment.https.html
 webkit.org/b/228670 http/wpt/service-workers/navigation-redirect-main-frame.https.html [ Pass Timeout ]
 
 webkit.org/b/228165 http/wpt/webrtc/transfer-datachannel-service-worker.https.html [ Pass Failure ]
-
-webkit.org/b/230421 http/wpt/webaudio/the-audio-api/the-audioworklet-interface/context-already-rendering.html [ Pass Failure Timeout ]
 
 webkit.org/b/215398 [ Release ] imported/w3c/web-platform-tests/css/css-images/idlharness.html [ Pass Timeout ]
 
@@ -2034,6 +2031,9 @@ webkit.org/b/217641 [ Debug ] imported/w3c/web-platform-tests/xhr/event-timeout.
 webkit.org/b/219438 [ Release ] fast/canvas/canvas-overflow-hidden-animation.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/230413 [ Debug ] fast/canvas/canvas-drawImage-detached-leak.html [ Pass Failure ]
+
+webkit.org/b/231681 [ Release ] fast/canvas/gradient-text-with-shadow.html [ Pass Failure ]
+webkit.org/b/231681 [ Release ] fast/canvas/gradient-with-clip.html [ Pass Failure ]
 
 webanimations/multiple-transform-properties-and-multiple-transform-properties-animation-with-delay-on-forced-layer.html [ Pass ]
 webanimations/rotate-property-and-rotate-animation-with-delay-on-forced-layer.html [ Pass ]
@@ -2137,6 +2137,8 @@ webkit.org/b/231255 http/tests/privateClickMeasurement/attribution-conversion-th
 
 webkit.org/b/231431 http/tests/privateClickMeasurement/attribution-conversion-through-fetch-keepalive.html [ Pass Crash ]
 
+webkit.org/b/231748 http/tests/privateClickMeasurement/attribution-conversion-through-image-redirect-ephemeral.html [ Pass Crash ]
+
 webkit.org/b/229563 imported/w3c/web-platform-tests/css/css-display/display-contents-blockify-dynamic.html [ Pass Timeout ]
 
 webkit.org/b/229567 [ Release ] imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-subpixel-clip.html [ Pass ImageOnlyFailure ]
@@ -2165,9 +2167,11 @@ webkit.org/b/230850 remote-layer-tree/ios/uiview-tree-basic.html [ Pass Failure 
 
 webkit.org/b/230905 imported/w3c/web-platform-tests/css/css-cascade/layer-counter-style-override.html [ Pass Failure ]
 
-webkit.org/b/231083 [ Debug ] imported/w3c/web-platform-tests/content-security-policy/generic/policy-inherited-correctly-by-plznavigate.html [ Pass Failure ]
+webkit.org/b/231752 [ Debug ] imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-049.html [ Pass Crash ]
 
-webkit.org/b/231544 [ Debug ] imported/w3c/web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker.html [ Pass Timeout ]
+webkit.org/b/231083 imported/w3c/web-platform-tests/content-security-policy/generic/policy-inherited-correctly-by-plznavigate.html [ Pass Failure ]
+
+webkit.org/b/231544 [ Debug ] imported/w3c/web-platform-tests/WebCryptoAPI/derive_bits_keys/pbkdf2.https.any.worker.html [ Slow ]
 
 webkit.org/b/231397 [ Debug ] fast/canvas/webgl/multisample-resolve-consistency.html [ Slow ]
 webkit.org/b/231397 [ Debug ] fast/selectors/slow-style-sharing-with-long-cousin-list.html [ Slow ]
@@ -2192,3 +2196,16 @@ webkit.org/b/231622 fast/events/ios/rotation/do-not-shrink-to-fit-content-after-
 webkit.org/b/231623 [ Debug ] fast/scrolling/ios/click-events-during-momentum-scroll-in-main-frame.html [ Pass Timeout ]
 
 webkit.org/b/231631 [ Debug ] fast/selectors/case-insensitive-attribute-bascis.html [ Pass Timeout ]
+
+webkit.org/b/231636 [ Debug ] media/media-fragments/TC0001.html [ Pass Timeout ]
+
+webkit.org/b/231638 [ Debug ] webgl/pending/conformance/glsl/misc/shader-with-reserved-words-2.html [ Pass Timeout ]
+
+webkit.org/b/231684 [ Debug ] requestidlecallback/requestidlecallback-document-gc.html [ Pass Crash ]
+
+webkit.org/b/230509 fast/events/ios/dom-update-on-keydown-quirk.html [ Pass Failure ]
+
+webkit.org/b/231714 fast/scrolling/ios/click-events-during-momentum-scroll-in-overflow.html [ Pass Timeout ]
+
+webkit.org/b/231780 [ Debug ] imported/w3c/web-platform-tests/webrtc/simulcast/basic.https.html [ Pass Failure ]
+

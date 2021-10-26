@@ -147,17 +147,17 @@ static void processGoogleLegacyAppIdSupportExtension(const std::optional<Authent
     transports.remove(AuthenticatorTransport::Internal);
 }
 
-static String getRpId(const Variant<PublicKeyCredentialCreationOptions, PublicKeyCredentialRequestOptions>& options)
+static String getRpId(const std::variant<PublicKeyCredentialCreationOptions, PublicKeyCredentialRequestOptions>& options)
 {
     if (std::holds_alternative<PublicKeyCredentialCreationOptions>(options))
-        return WTF::get<PublicKeyCredentialCreationOptions>(options).rp.id;
-    return WTF::get<PublicKeyCredentialRequestOptions>(options).rpId;
+        return std::get<PublicKeyCredentialCreationOptions>(options).rp.id;
+    return std::get<PublicKeyCredentialRequestOptions>(options).rpId;
 }
 
-static String getUserName(const Variant<PublicKeyCredentialCreationOptions, PublicKeyCredentialRequestOptions>& options)
+static String getUserName(const std::variant<PublicKeyCredentialCreationOptions, PublicKeyCredentialRequestOptions>& options)
 {
     if (std::holds_alternative<PublicKeyCredentialCreationOptions>(options))
-        return WTF::get<PublicKeyCredentialCreationOptions>(options).user.name;
+        return std::get<PublicKeyCredentialCreationOptions>(options).user.name;
     return emptyString();
 }
 
@@ -287,7 +287,7 @@ void AuthenticatorManager::respondReceived(Respond&& respond)
 
     auto shouldComplete = std::holds_alternative<Ref<AuthenticatorResponse>>(respond);
     if (!shouldComplete)
-        shouldComplete = WTF::get<ExceptionData>(respond).code == InvalidStateError;
+        shouldComplete = std::get<ExceptionData>(respond).code == InvalidStateError;
     if (shouldComplete) {
         invokePendingCompletionHandler(WTFMove(respond));
         clearStateAsync();
@@ -462,7 +462,7 @@ void AuthenticatorManager::runPanel()
 
     m_pendingRequestData.panel = API::WebAuthenticationPanel::create(*this, getRpId(options), transports, getClientDataType(options), getUserName(options));
     auto& panel = *m_pendingRequestData.panel;
-    page->uiClient().runWebAuthenticationPanel(*page, panel, *frame, FrameInfoData { m_pendingRequestData.frameInfo }, [transports = WTFMove(transports), weakPanel = makeWeakPtr(panel), weakThis = WeakPtr { *this }, this] (WebAuthenticationPanelResult result) {
+    page->uiClient().runWebAuthenticationPanel(*page, panel, *frame, FrameInfoData { m_pendingRequestData.frameInfo }, [transports = WTFMove(transports), weakPanel = WeakPtr { panel }, weakThis = WeakPtr { *this }, this] (WebAuthenticationPanelResult result) {
         // The panel address is used to determine if the current pending request is still the same.
         if (!weakThis || !weakPanel
             || (result == WebAuthenticationPanelResult::DidNotPresent)
@@ -535,7 +535,7 @@ void AuthenticatorManager::dispatchPanelClientCall(Function<void(const API::WebA
 {
     auto weakPanel = m_pendingRequestData.weakPanel;
     if (!weakPanel)
-        weakPanel = makeWeakPtr(m_pendingRequestData.panel.get());
+        weakPanel = m_pendingRequestData.panel;
     if (!weakPanel)
         return;
 

@@ -28,6 +28,7 @@
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 
 #include "FontCascade.h"
+#include "LayoutContainerBox.h"
 #include "LayoutIntegrationInlineContent.h"
 #include "TextBoxSelectableRange.h"
 
@@ -136,12 +137,6 @@ public:
         ASSERT(atEnd() || box().text());
     }
 
-    void traverseNextTextBoxInTextOrder()
-    {
-        // FIXME: No RTL in LFC.
-        traverseNextTextBox();
-    }
-
     void traverseNextOnLine()
     {
         ASSERT(!atEnd());
@@ -164,16 +159,6 @@ public:
 
         if (!atEnd() && oldLineIndex != box().lineIndex())
             setAtEnd();
-    }
-
-    void traverseNextOnLineInLogicalOrder()
-    {
-        traverseNextOnLine();
-    }
-
-    void traversePreviousOnLineInLogicalOrder()
-    {
-        traversePreviousOnLine();
     }
 
     void traverseNextInlineBox()
@@ -210,6 +195,36 @@ public:
         ASSERT(atEnd() || box().isInlineBox());
     }
 
+    BoxModernPath firstLeafBoxForInlineBox() const
+    {
+        ASSERT(box().isInlineBox());
+
+        auto& inlineBox = box().layoutBox();
+
+        // The next box is the first descendant of this box;
+        auto first = *this;
+        first.traverseNextOnLine();
+
+        if (!first.atEnd() && !first.isWithinInlineBox(inlineBox))
+            first.setAtEnd();
+
+        return first;
+    }
+
+    BoxModernPath lastLeafBoxForInlineBox() const
+    {
+        ASSERT(box().isInlineBox());
+
+        auto& inlineBox = box().layoutBox();
+
+        // FIXME: Get the last box index directly from the display box.
+        auto last = firstLeafBoxForInlineBox();
+        for (auto box = last; !box.atEnd() && box.isWithinInlineBox(inlineBox); box.traverseNextOnLine())
+            last = box;
+
+        return last;
+    }
+
     bool operator==(const BoxModernPath& other) const { return m_inlineContent == other.m_inlineContent && m_boxIndex == other.m_boxIndex; }
 
     bool atEnd() const { return m_boxIndex == boxes().size(); }
@@ -217,6 +232,16 @@ public:
     auto& inlineContent() const { return *m_inlineContent; }
 
 private:
+    bool isWithinInlineBox(const Layout::Box& inlineBox)
+    {
+        auto* layoutBox = &box().layoutBox().parent();
+        for (; layoutBox->isInlineBox(); layoutBox = &layoutBox->parent()) {
+            if (layoutBox == &inlineBox)
+                return true;
+        }
+        return false;
+    }
+
     void traverseNextBox()
     {
         ASSERT(!atEnd());

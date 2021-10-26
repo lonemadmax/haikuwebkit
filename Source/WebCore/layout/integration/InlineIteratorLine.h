@@ -28,7 +28,7 @@
 #include "FontBaseline.h"
 #include "InlineIteratorLineLegacyPath.h"
 #include "InlineIteratorLineModernPath.h"
-#include <wtf/Variant.h>
+#include <variant>
 
 namespace WebCore {
 namespace InlineIterator {
@@ -41,7 +41,7 @@ struct EndLineIterator { };
 
 class Line {
 public:
-    using PathVariant = Variant<
+    using PathVariant = std::variant<
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
         LineIteratorModernPath,
 #endif
@@ -89,11 +89,6 @@ public:
 
     LeafBoxIterator closestRunForPoint(const IntPoint& pointInContents, bool editableOnly) const;
     LeafBoxIterator closestRunForLogicalLeftPosition(int position, bool editableOnly = false) const;
-
-    LeafBoxIterator logicalStartRun() const;
-    LeafBoxIterator logicalEndRun() const;
-    LeafBoxIterator logicalStartRunWithNode() const;
-    LeafBoxIterator logicalEndRunWithNode() const;
     
     LeafBoxIterator firstSelectedBox() const;
     LeafBoxIterator lastSelectedBox() const;

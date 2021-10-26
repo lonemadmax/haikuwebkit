@@ -20,10 +20,10 @@
 #pragma once
 
 #include "BlobData.h"
+#include <variant>
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
 #include <wtf/URL.h>
-#include <wtf/Variant.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
@@ -38,7 +38,7 @@ class TextEncoding;
 struct FormDataElement {
     struct EncodedFileData;
     struct EncodedBlobData;
-    using Data = Variant<Vector<uint8_t>, EncodedFileData, EncodedBlobData>;
+    using Data = std::variant<Vector<uint8_t>, EncodedFileData, EncodedBlobData>;
 
     FormDataElement() = default;
     explicit FormDataElement(Data&& data)

@@ -50,6 +50,7 @@
 #include "DocumentLoader.h"
 #include "DocumentMarkerController.h"
 #include "DocumentTimeline.h"
+#include "DocumentTimelinesController.h"
 #include "DragController.h"
 #include "Editing.h"
 #include "Editor.h"
@@ -1552,7 +1553,7 @@ void Page::updateRendering()
     Vector<WeakPtr<Document>> initialDocuments;
     forEachDocument([&initialDocuments] (Document& document) {
         document.domWindow()->freezeNowTimestamp();
-        initialDocuments.append(makeWeakPtr(&document));
+        initialDocuments.append(document);
     });
 
     auto runProcessingStep = [&](RenderingUpdateStep step, const WTF::Function<void(Document&)>& perDocumentFunction) {
@@ -1671,7 +1672,7 @@ void Page::doAfterUpdateRendering()
         
         if (appHighlightStorage->hasUnrestoredHighlights() && MonotonicTime::now() - appHighlightStorage->lastRangeSearchTime() > 1_s) {
             appHighlightStorage->resetLastRangeSearchTime();
-            document.eventLoop().queueTask(TaskSource::InternalAsyncTask, [weakDocument = makeWeakPtr(document)] {
+            document.eventLoop().queueTask(TaskSource::InternalAsyncTask, [weakDocument = WeakPtr { document }] {
                 RefPtr document { weakDocument.get() };
                 if (!document)
                     return;
@@ -2173,7 +2174,7 @@ void Page::storageBlockingStateChanged()
 
 void Page::updateIsPlayingMedia()
 {
-    MediaProducer::MediaStateFlags state;
+    MediaProducerMediaStateFlags state;
     forEachDocument([&](auto& document) {
         state.add(document.mediaState());
     });
@@ -2211,7 +2212,7 @@ void Page::playbackControlsMediaEngineChanged()
 
 #endif
 
-void Page::setMuted(MediaProducer::MutedStateFlags muted)
+void Page::setMuted(MediaProducerMutedStateFlags muted)
 {
     m_mutedState = muted;
 
@@ -2220,7 +2221,7 @@ void Page::setMuted(MediaProducer::MutedStateFlags muted)
     });
 }
 
-void Page::stopMediaCapture(MediaProducer::MediaCaptureKind kind)
+void Page::stopMediaCapture(MediaProducerMediaCaptureKind kind)
 {
     UNUSED_PARAM(kind);
 #if ENABLE(MEDIA_STREAM)
@@ -3021,7 +3022,7 @@ void Page::showPlaybackTargetPicker(PlaybackTargetClientContextIdentifier contex
 #endif
 }
 
-void Page::playbackTargetPickerClientStateDidChange(PlaybackTargetClientContextIdentifier contextId, MediaProducer::MediaStateFlags state)
+void Page::playbackTargetPickerClientStateDidChange(PlaybackTargetClientContextIdentifier contextId, MediaProducerMediaStateFlags state)
 {
     chrome().client().playbackTargetPickerClientStateDidChange(contextId, state);
 }
@@ -3658,7 +3659,7 @@ void Page::updateElementsWithTextRecognitionResults()
     }
 
     for (auto& [element, result] : elementsToUpdate) {
-        element->document().eventLoop().queueTask(TaskSource::InternalAsyncTask, [result = TextRecognitionResult { result }, weakElement = makeWeakPtr(element.get())] {
+        element->document().eventLoop().queueTask(TaskSource::InternalAsyncTask, [result = TextRecognitionResult { result }, weakElement = WeakPtr { element }] {
             RefPtr element { weakElement.get() };
             if (!element)
                 return;
@@ -3704,7 +3705,7 @@ void Page::setServiceWorkerGlobalScope(ServiceWorkerGlobalScope& serviceWorkerGl
 {
     ASSERT(isMainThread());
     ASSERT(m_isServiceWorkerPage);
-    m_serviceWorkerGlobalScope = makeWeakPtr(serviceWorkerGlobalScope);
+    m_serviceWorkerGlobalScope = serviceWorkerGlobalScope;
 }
 #endif
 

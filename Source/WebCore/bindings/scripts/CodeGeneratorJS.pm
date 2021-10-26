@@ -696,7 +696,7 @@ sub AddToIncludesForIDLType
     }
 
     if ($type->isUnion) {
-        AddToIncludes("<wtf/Variant.h>", $includesRef, $conditional);
+        AddToIncludes("<variant>", $includesRef, $conditional);
         AddToIncludes("JSDOMConvertUnion.h", $includesRef, $conditional);
 
         foreach my $memberType (@{$type->subtypes}) {
@@ -2279,6 +2279,7 @@ sub GetEnumerationValueName
     my ($name) = @_;
 
     return "EmptyString" if $name eq "";
+    return "WebRTC" if $name eq "webrtc";
     $name = join("", map { $codeGenerator->WK_ucfirst($_) } split("-", $name));
     $name = "_$name" if $name =~ /^\d/;
     return $name;
@@ -8015,7 +8016,7 @@ sub AddJSBuiltinIncludesIfNeeded()
 {
     my $interface = shift;
 
-    if ($interface->extendedAttributes->{JSBuiltin} || HasJSBuiltinConstructor($interface)) {
+    if (HasJSBuiltinConstructor($interface)) {
         AddToImplIncludes($interface->type->name . "Builtins.h");
         return;
     }

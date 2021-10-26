@@ -362,9 +362,12 @@ Modules/webxr/NavigatorWebXR.cpp
 Modules/webxr/WebXRBoundedReferenceSpace.cpp
 Modules/webxr/WebXRFrame.cpp
 Modules/webxr/WebXRGamepad.cpp
+Modules/webxr/WebXRHand.cpp
 Modules/webxr/WebXRInputSource.cpp
 Modules/webxr/WebXRInputSourceArray.cpp
 Modules/webxr/WebXRInputSpace.cpp
+Modules/webxr/WebXRJointPose.cpp
+Modules/webxr/WebXRJointSpace.cpp
 Modules/webxr/WebXRLayer.cpp
 Modules/webxr/WebXROpaqueFramebuffer.cpp
 Modules/webxr/WebXRPose.cpp
@@ -562,6 +565,7 @@ bindings/js/JSUndoItemCustom.cpp
 bindings/js/JSWebAnimationCustom.cpp
 bindings/js/JSWebGL2RenderingContextCustom.cpp
 bindings/js/JSWebGLRenderingContextCustom.cpp
+bindings/js/JSWebXRSessionCustom.cpp
 bindings/js/JSWebXRReferenceSpaceCustom.cpp
 bindings/js/JSWebXRRigidTransformCustom.cpp
 bindings/js/JSWebXRSpaceCustom.cpp
@@ -1521,6 +1525,7 @@ layout/formattingContexts/inline/text/TextUtil.cpp
 layout/integration/InlineIteratorBox.cpp
 layout/integration/InlineIteratorInlineBox.cpp
 layout/integration/InlineIteratorLine.cpp
+layout/integration/InlineIteratorLogicalOrderTraversal.cpp
 layout/integration/InlineIteratorTextBox.cpp
 layout/integration/LayoutIntegrationBoxTree.cpp
 layout/integration/LayoutIntegrationCoverage.cpp
@@ -1542,7 +1547,6 @@ layout/formattingContexts/table/TableFormattingQuirks.cpp
 layout/formattingContexts/table/TableFormattingState.cpp
 layout/formattingContexts/table/TableGrid.cpp
 layout/formattingContexts/table/TableLayout.cpp
-loader/PrivateClickMeasurement.cpp
 loader/ApplicationManifestLoader.cpp
 loader/CanvasActivityRecord.cpp
 loader/ContentFilter.cpp
@@ -1685,7 +1689,6 @@ page/FrameView.cpp
 page/FrameViewLayoutContext.cpp
 page/History.cpp
 page/ImageOverlayController.cpp
-page/KeyboardScroll.cpp
 page/IntersectionObserver.cpp
 page/IntersectionObserverEntry.cpp
 page/Location.cpp
@@ -1808,6 +1811,7 @@ platform/FileHandle.cpp
 platform/FileMonitor.cpp
 platform/FileStream.cpp
 platform/FrameRateMonitor.cpp
+platform/KeyboardScroll.cpp
 platform/KeyboardScrollingAnimator.cpp
 platform/LayoutUnit.cpp
 platform/LegacySchemeRegistry.cpp
@@ -1817,9 +1821,7 @@ platform/LengthPoint.cpp
 platform/LengthSize.cpp
 platform/LocalizedStrings.cpp
 platform/LogInitialization.cpp
-platform/Logging.cpp
 platform/LowPowerModeNotifier.cpp
-platform/MIMETypeRegistry.cpp
 platform/MainThreadSharedTimer.cpp
 platform/MediaStrategy.cpp
 platform/NotImplemented.cpp
@@ -1838,7 +1840,6 @@ platform/PreviewConverter.cpp
 platform/ProcessIdentifier.cpp
 platform/ReferrerPolicy.cpp
 platform/RemoteCommandListener.cpp
-platform/RuntimeApplicationChecks.cpp
 platform/SSLKeyGenerator.cpp
 platform/ScrollAnimation.cpp
 platform/ScrollAnimationKinetic.cpp
@@ -2143,8 +2144,6 @@ platform/network/DNSResolveQueue.cpp
 platform/network/DataURLDecoder.cpp
 platform/network/FormData.cpp
 platform/network/FormDataBuilder.cpp
-platform/network/HTTPHeaderMap.cpp
-platform/network/HTTPHeaderValues.cpp
 platform/network/HTTPParsers.cpp
 platform/network/MIMEHeader.cpp
 platform/network/NetworkLoadMetrics.cpp
@@ -2166,12 +2165,7 @@ platform/network/SocketStreamHandleImpl.cpp
 platform/network/SynchronousLoaderClient.cpp
 platform/network/TimingAllowOrigin.cpp
 platform/sql/SQLiteAuthorizer.cpp
-platform/sql/SQLiteDatabase.cpp
-platform/sql/SQLiteDatabaseTracker.cpp
 platform/sql/SQLiteFileSystem.cpp
-platform/sql/SQLiteStatement.cpp
-platform/sql/SQLiteStatementAutoResetScope.cpp
-platform/sql/SQLiteTransaction.cpp
 platform/text/BidiContext.cpp
 platform/text/DateTimeFormat.cpp
 platform/text/EncodingTables.cpp
@@ -3792,8 +3786,11 @@ JSWebKitTransitionEvent.cpp
 JSWebSocket.cpp
 JSWebXRBoundedReferenceSpace.cpp
 JSWebXRFrame.cpp
+JSWebXRHand.cpp
 JSWebXRInputSource.cpp
 JSWebXRInputSourceArray.cpp
+JSWebXRJointPose.cpp
+JSWebXRJointSpace.cpp
 JSWebXRLayer.cpp
 JSWebXRPose.cpp
 JSWebXRReferenceSpace.cpp
@@ -3835,6 +3832,7 @@ JSXPathResult.cpp
 JSXREnvironmentBlendMode.cpp
 JSXREye.cpp
 JSXRFrameRequestCallback.cpp
+JSXRHandJoint.cpp
 JSXRHandedness.cpp
 JSXRInputSourceEvent.cpp
 JSXRInputSourcesChangeEvent.cpp

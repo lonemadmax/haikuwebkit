@@ -36,6 +36,7 @@
 #include "ComposedTreeAncestorIterator.h"
 #include "ComposedTreeIterator.h"
 #include "CursorList.h"
+#include "DocumentInlines.h"
 #include "DocumentMarkerController.h"
 #include "DragController.h"
 #include "DragEvent.h"
@@ -474,7 +475,7 @@ static VisibleSelection expandSelectionToRespectSelectOnMouseDown(Node& targetNo
 
 bool EventHandler::updateSelectionForMouseDownDispatchingSelectStart(Node* targetNode, const VisibleSelection& selection, TextGranularity granularity)
 {
-    if (Position::nodeIsInertOrUserSelectNone(targetNode))
+    if (Position::nodeIsUserSelectNone(targetNode))
         return false;
 
     if (!dispatchSelectStart(targetNode)) {
@@ -714,12 +715,12 @@ bool EventHandler::canMouseDownStartSelect(const MouseEventWithHitTestResults& e
         if (!page->chrome().client().shouldUseMouseEventForSelection(event.event()))
             return false;
     }
-    
+
     if (!node || !node->renderer())
         return true;
 
     if (HTMLElement::isImageOverlayText(*node))
-        return node->renderer()->style().userSelect() != UserSelect::None;
+        return node->renderer()->style().userSelectIncludingInert() != UserSelect::None;
 
     return node->canStartSelection() || Position::nodeIsUserSelectAll(node.get());
 }
@@ -1521,7 +1522,7 @@ std::optional<Cursor> EventHandler::selectCursor(const HitTestResult& result, bo
     case CursorType::Auto: {
         if (HTMLElement::isImageOverlayText(node.get())) {
             auto* renderer = node->renderer();
-            if (renderer && renderer->style().userSelect() != UserSelect::None)
+            if (renderer && renderer->style().userSelectIncludingInert() != UserSelect::None)
                 return iBeam;
         }
 
@@ -2891,7 +2892,7 @@ static WeakPtr<Widget> widgetForElement(const Element& element)
     if (!is<RenderWidget>(target) || !downcast<RenderWidget>(*target).widget())
         return { };
 
-    return makeWeakPtr(*downcast<RenderWidget>(*target).widget());
+    return *downcast<RenderWidget>(*target).widget();
 }
 
 bool EventHandler::completeWidgetWheelEvent(const PlatformWheelEvent& event, const WeakPtr<Widget>& widget, const WeakPtr<ScrollableArea>& scrollableArea)
@@ -4320,10 +4321,11 @@ float EventHandler::scrollDistance(ScrollDirection direction, ScrollGranularity 
 void EventHandler::stopKeyboardScrolling()
 {
     Ref protectedFrame = m_frame;
-    FrameView* view = m_frame.view();
+    auto* view = m_frame.view();
+    if (!view)
+        return;
 
-    KeyboardScrollingAnimator* animator = view->scrollAnimator().keyboardScrollingAnimator();
-
+    auto* animator = view->scrollAnimator().keyboardScrollingAnimator();
     if (animator)
         animator->handleKeyUpEvent();
 }
@@ -4334,12 +4336,14 @@ bool EventHandler::startKeyboardScrolling(KeyboardEvent& event)
         return false;
 
     Ref protectedFrame = m_frame;
-    FrameView* view = m_frame.view();
+    auto* view = m_frame.view();
+    if (!view)
+        return false;
 
-    KeyboardScrollingAnimator* animator = view->scrollAnimator().keyboardScrollingAnimator();
-
-    if (animator)
-        return animator->beginKeyboardScrollGesture(event);
+    auto* animator = view->scrollAnimator().keyboardScrollingAnimator();
+    auto* platformEvent = event.underlyingPlatformEvent();
+    if (animator && platformEvent)
+        return animator->beginKeyboardScrollGesture(*platformEvent);
 
     return false;
 }
@@ -4433,7 +4437,7 @@ void EventHandler::updateLastScrollbarUnderMouse(Scrollbar* scrollbar, SetOrClea
         // Send mouse entered if we're setting a new scrollbar.
         if (scrollbar && setOrClear == SetOrClearLastScrollbar::Set) {
             scrollbar->mouseEntered();
-            m_lastScrollbarUnderMouse = makeWeakPtr(*scrollbar);
+            m_lastScrollbarUnderMouse = *scrollbar;
         } else
             m_lastScrollbarUnderMouse = nullptr;
     }

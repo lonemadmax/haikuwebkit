@@ -193,6 +193,7 @@ RenderStyle::RenderStyle(CreateDefaultStyleTag)
     m_nonInheritedFlags.firstChildState = false;
     m_nonInheritedFlags.lastChildState = false;
     m_nonInheritedFlags.isLink = false;
+    m_nonInheritedFlags.hasExplicitlyClearedContent = false;
     m_nonInheritedFlags.styleType = static_cast<unsigned>(PseudoId::None);
     m_nonInheritedFlags.pseudoBits = static_cast<unsigned>(PseudoId::None);
 
@@ -2171,6 +2172,17 @@ Color RenderStyle::colorByApplyingColorFilter(const Color& color) const
     Color transformedColor = color;
     appleColorFilter().transformColor(transformedColor);
     return transformedColor;
+}
+
+Color RenderStyle::effectiveAccentColor() const
+{
+    if (hasAutoAccentColor())
+        return { };
+
+    if (hasAppleColorFilter())
+        return colorByApplyingColorFilter(colorResolvingCurrentColor(accentColor()));
+
+    return colorResolvingCurrentColor(accentColor());
 }
 
 const BorderValue& RenderStyle::borderBefore() const

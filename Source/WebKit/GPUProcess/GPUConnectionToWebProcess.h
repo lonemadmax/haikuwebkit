@@ -53,6 +53,10 @@
 #include <CoreGraphics/CGDisplayConfiguration.h>
 #endif
 
+#if PLATFORM(COCOA)
+#include <pal/spi/cocoa/TCCSPI.h>
+#endif
+
 namespace WebCore {
 class SecurityOrigin;
 struct SecurityOriginData;
@@ -123,6 +127,11 @@ public:
     bool allowsVideoCapture() const { return m_allowsVideoCapture; }
     bool allowsDisplayCapture() const { return m_allowsDisplayCapture; }
 #endif
+
+#if ENABLE(APP_PRIVACY_REPORT)
+    void setTCCIdentity();
+#endif
+
 #if PLATFORM(MAC)
     void displayConfigurationChanged(CGDirectDisplayID, CGDisplayChangeSummaryFlags);
 #endif
@@ -178,7 +187,7 @@ private:
     RemoteMediaRecorderManager& mediaRecorderManager();
 #endif
 
-    void createRenderingBackend(RemoteRenderingBackendCreationParameters&&);
+    void createRenderingBackend(RemoteRenderingBackendCreationParameters&&, IPC::StreamConnectionBuffer&&);
     void releaseRenderingBackend(RenderingBackendIdentifier);
 
 #if ENABLE(WEBGL)

@@ -27,12 +27,12 @@
 #pragma once
 
 #include <JavaScriptCore/Forward.h>
+#include <variant>
 #include <wtf/FileSystem.h>
 #include <wtf/Forward.h>
 #include <wtf/Function.h>
 #include <wtf/Span.h>
 #include <wtf/ThreadSafeRefCounted.h>
-#include <wtf/Variant.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
@@ -182,7 +182,7 @@ public:
         DataSegment(Provider&& provider)
             : m_immutableData(WTFMove(provider)) { }
 
-        Variant<Vector<uint8_t>,
+        std::variant<Vector<uint8_t>,
 #if USE(CF)
             RetainPtr<CFDataRef>,
 #endif

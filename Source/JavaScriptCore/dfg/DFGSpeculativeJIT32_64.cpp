@@ -742,6 +742,8 @@ void SpeculativeJIT::emitCall(Node* node)
             
             for (unsigned i = numPassedArgs; i < numAllocatedArgs; ++i)
                 shuffleData.args[i] = ValueRecovery::constant(jsUndefined());
+
+            shuffleData.setupCalleeSaveRegisters(m_jit.codeBlock());
         } else {
             m_jit.store32(MacroAssembler::TrustedImm32(numPassedArgs), m_jit.calleeFramePayloadSlot(CallFrameSlot::argumentCountIncludingThis));
         
@@ -2134,6 +2136,7 @@ void SpeculativeJIT::compileGetByVal(Node* node, const ScopedLambda<std::tuple<J
         compileGetByValOnScopedArguments(node, prefix);
         break;
     default: {
+        ASSERT(node->arrayMode().isSomeTypedArrayView());
         TypedArrayType type = node->arrayMode().typedArrayType();
         if (isInt(type))
             compileGetByValOnIntTypedArray(node, type, prefix);
@@ -3538,6 +3541,11 @@ void SpeculativeJIT::compile(Node* node)
         compileGetArrayLength(node);
         break;
 
+    case GetTypedArrayLengthAsInt52:
+        // We do not support typed arrays larger than 2GB on 32-bit platforms.
+        RELEASE_ASSERT_NOT_REACHED();
+        break;
+
     case DeleteById: {
         compileDeleteById(node);
         break;
@@ -3617,6 +3625,11 @@ void SpeculativeJIT::compile(Node* node)
         
     case GetTypedArrayByteOffset: {
         compileGetTypedArrayByteOffset(node);
+        break;
+    }
+
+    case GetTypedArrayByteOffsetAsInt52: {
+        RELEASE_ASSERT_NOT_REACHED();
         break;
     }
 
@@ -4398,6 +4411,7 @@ void SpeculativeJIT::compile(Node* node)
     case Int52Constant:
     case AssertInBounds:
     case CheckInBounds:
+    case CheckInBoundsInt52:
     case ArithIMul:
     case MultiGetByOffset:
     case MultiPutByOffset:

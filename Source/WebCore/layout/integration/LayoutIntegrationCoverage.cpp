@@ -206,14 +206,8 @@ static void printReason(AvoidanceReason reason, TextStream& stream)
     case AvoidanceReason::InlineBoxNeedsLayer:
         stream << "inline box needs layer";
         break;
-    case AvoidanceReason::InlineBoxHasBorderOrBorderImage:
-        stream << "inline box has border or border image";
-        break;
-    case AvoidanceReason::InlineBoxHasBackground:
-        stream << "inline box has background";
-        break;
-    case AvoidanceReason::InlineBoxHasBackgroundClipText:
-        stream << "inline box has background-clip: text";
+    case AvoidanceReason::BoxDecorationBreakClone:
+        stream << "webkit-box-decoration-break: clone";
         break;
     default:
         break;
@@ -480,12 +474,10 @@ static OptionSet<AvoidanceReason> canUseForRenderInlineChild(const RenderInline&
     auto& style = renderInline.style();
     if (style.boxShadow() || !style.hangingPunctuation().isEmpty())
         SET_REASON_AND_RETURN_IF_NEEDED(ChildBoxHasUnsupportedStyle, reasons, includeReasons)
-    if (style.hasBorder() || style.borderImage().hasImage())
-        SET_REASON_AND_RETURN_IF_NEEDED(InlineBoxHasBorderOrBorderImage, reasons, includeReasons);
-    if (style.hasBackground())
-        SET_REASON_AND_RETURN_IF_NEEDED(InlineBoxHasBackground, reasons, includeReasons);
-    if (style.backgroundClip() == FillBox::Text)
-        SET_REASON_AND_RETURN_IF_NEEDED(InlineBoxHasBackgroundClipText, reasons, includeReasons);
+#if ENABLE(CSS_BOX_DECORATION_BREAK)
+    if (style.boxDecorationBreak() == BoxDecorationBreak::Clone)
+        SET_REASON_AND_RETURN_IF_NEEDED(BoxDecorationBreakClone, reasons, includeReasons);
+#endif
     if (style.hasOutline())
         SET_REASON_AND_RETURN_IF_NEEDED(ContentHasOutline, reasons, includeReasons);
     if (renderInline.isInFlowPositioned())

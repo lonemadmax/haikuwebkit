@@ -40,9 +40,9 @@
 #include "PixelBuffer.h"
 #include "RenderingResourceIdentifier.h"
 #include "SharedBuffer.h"
+#include <variant>
 #include <wtf/EnumTraits.h>
 #include <wtf/TypeCasts.h>
-#include <wtf/Variant.h>
 
 namespace WTF {
 class TextStream;
@@ -2429,7 +2429,7 @@ private:
     RenderingResourceIdentifier m_identifier;
 };
 
-using DisplayListItem = Variant
+using DisplayListItem = std::variant
     < ApplyDeviceScaleFactor
     , BeginClipToDrawingCommands
     , BeginTransparencyLayer

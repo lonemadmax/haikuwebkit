@@ -40,8 +40,7 @@
 #include "VideoLayerRemote.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebProcess.h"
-#include <JavaScriptCore/GenericTypedArrayViewInlines.h>
-#include <JavaScriptCore/TypedArrayType.h>
+#include <JavaScriptCore/TypedArrayInlines.h>
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/MediaPlayer.h>
 #include <WebCore/NotImplemented.h>
@@ -50,6 +49,7 @@
 #include <WebCore/PlatformTimeRanges.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/RuntimeEnabledFeatures.h>
+#include <WebCore/SecurityOrigin.h>
 #include <WebCore/TextTrackRepresentation.h>
 #include <WebCore/VideoLayerManager.h>
 #include <wtf/HashMap.h>
@@ -110,7 +110,7 @@ MediaPlayerPrivateRemote::MediaPlayerPrivateRemote(MediaPlayer* player, MediaPla
     , m_logIdentifier(player->mediaPlayerLogIdentifier())
     ,
 #endif
-      m_player(makeWeakPtr(*player))
+      m_player(*player)
     , m_mediaResourceLoader(*player->createResourceLoader())
 #if PLATFORM(COCOA)
     , m_videoLayerManager(makeUniqueRef<VideoLayerManagerObjC>(logger(), logIdentifier()))
@@ -851,7 +851,11 @@ void MediaPlayerPrivateRemote::setVideoFullscreenMode(MediaPlayer::VideoFullscre
 
 void MediaPlayerPrivateRemote::videoFullscreenStandbyChanged()
 {
-    connection().send(Messages::RemoteMediaPlayerProxy::VideoFullscreenStandbyChanged(), m_id);
+    RefPtr player = m_player.get();
+    if (!player)
+        return;
+
+    connection().send(Messages::RemoteMediaPlayerProxy::VideoFullscreenStandbyChanged(player->isVideoFullscreenStandby()), m_id);
 }
 #endif
 

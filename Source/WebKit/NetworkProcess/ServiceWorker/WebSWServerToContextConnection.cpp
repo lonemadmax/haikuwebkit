@@ -47,7 +47,7 @@ using namespace WebCore;
 WebSWServerToContextConnection::WebSWServerToContextConnection(NetworkConnectionToWebProcess& connection, WebPageProxyIdentifier webPageProxyID, RegistrableDomain&& registrableDomain, std::optional<ServiceWorkerClientIdentifier> serviceWorkerPageIdentifier, SWServer& server)
     : SWServerToContextConnection(WTFMove(registrableDomain), serviceWorkerPageIdentifier)
     , m_connection(connection)
-    , m_server(makeWeakPtr(server))
+    , m_server(server)
     , m_webPageProxyID(webPageProxyID)
 {
     server.addContextConnection(*this);
@@ -115,7 +115,7 @@ void WebSWServerToContextConnection::firePushEvent(WebCore::ServiceWorkerIdentif
     std::optional<IPC::DataReference> ipcData;
     if (data)
         ipcData = IPC::DataReference { data->data(), data->size() };
-    sendWithAsyncReply(Messages::WebSWContextManagerConnection::FirePushEvent(serviceWorkerIdentifier, ipcData), [weakThis = makeWeakPtr(this), callback = WTFMove(callback)](bool wasProcessed) mutable {
+    sendWithAsyncReply(Messages::WebSWContextManagerConnection::FirePushEvent(serviceWorkerIdentifier, ipcData), [weakThis = WeakPtr { *this }, callback = WTFMove(callback)](bool wasProcessed) mutable {
         if (weakThis && !--weakThis->m_processingPushEventsCount)
             weakThis->m_connection.networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::EndServiceWorkerBackgroundProcessing { weakThis->webProcessIdentifier() }, 0);
         callback(wasProcessed);
@@ -188,7 +188,7 @@ void WebSWServerToContextConnection::didReceiveFetchTaskMessage(IPC::Connection&
 void WebSWServerToContextConnection::registerFetch(ServiceWorkerFetchTask& task)
 {
     ASSERT(!m_ongoingFetches.contains(task.fetchIdentifier()));
-    m_ongoingFetches.add(task.fetchIdentifier(), makeWeakPtr(task));
+    m_ongoingFetches.add(task.fetchIdentifier(), task);
 }
 
 void WebSWServerToContextConnection::unregisterFetch(ServiceWorkerFetchTask& task)

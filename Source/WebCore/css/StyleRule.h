@@ -26,10 +26,10 @@
 #include "FontPaletteValues.h"
 #include "StyleProperties.h"
 #include "StyleRuleType.h"
+#include <variant>
 #include <wtf/RefPtr.h>
 #include <wtf/TypeCasts.h>
 #include <wtf/UniqueArray.h>
-#include <wtf/Variant.h>
 
 namespace WebCore {
 
@@ -300,8 +300,8 @@ public:
 
     bool isStatement() const { return std::holds_alternative<Vector<CascadeLayerName>>(m_nameVariant); }
 
-    auto& name() const { return WTF::get<CascadeLayerName>(m_nameVariant); }
-    auto& nameList() const { return WTF::get<Vector<CascadeLayerName>>(m_nameVariant); }
+    auto& name() const { return std::get<CascadeLayerName>(m_nameVariant); }
+    auto& nameList() const { return std::get<Vector<CascadeLayerName>>(m_nameVariant); }
 
 private:
     StyleRuleLayer(Vector<CascadeLayerName>&&);
@@ -309,7 +309,7 @@ private:
     StyleRuleLayer(CascadeLayerName&&, std::unique_ptr<DeferredStyleGroupRuleList>&&);
     StyleRuleLayer(const StyleRuleLayer&);
 
-    Variant<CascadeLayerName, Vector<CascadeLayerName>> m_nameVariant;
+    std::variant<CascadeLayerName, Vector<CascadeLayerName>> m_nameVariant;
 };
 
 // This is only used by the CSS parser.

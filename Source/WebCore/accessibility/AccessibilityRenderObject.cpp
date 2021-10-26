@@ -680,12 +680,14 @@ String AccessibilityRenderObject::textUnderElement(AccessibilityTextUnderElement
             if (Frame* frame = nodeDocument->frame()) {
                 // catch stale WebCoreAXObject (see <rdar://problem/3960196>)
                 if (frame->document() != nodeDocument)
-                    return String();
+                    return { };
 
-                // Renders referenced by accessibility objects could get destroyed, if TextIterator ends up triggering
-                // style update/layout here. See also AXObjectCache::deferTextChangedIfNeeded().
-                ASSERT_WITH_SECURITY_IMPLICATION(!nodeDocument->childNeedsStyleRecalc());
+                // Renderers referenced by accessibility objects could get destroyed if TextIterator ends up triggering
+                // a style update or layout here. See also AXObjectCache::deferTextChangedIfNeeded().
+                if (nodeDocument->childNeedsStyleRecalc())
+                    return { };
                 ASSERT_WITH_SECURITY_IMPLICATION(!nodeDocument->view()->layoutContext().isInRenderTreeLayout());
+
                 return plainText(*textRange, textIteratorBehaviorForTextRange());
             }
         }
@@ -2004,11 +2006,14 @@ Document* AccessibilityRenderObject::document() const
     return &m_renderer->document();
 }
 
+bool AccessibilityRenderObject::isWidget() const
+{
+    return widget();
+}
+
 Widget* AccessibilityRenderObject::widget() const
 {
-    if (!m_renderer || !is<RenderWidget>(*m_renderer))
-        return nullptr;
-    return downcast<RenderWidget>(*m_renderer).widget();
+    return is<RenderWidget>(m_renderer.get()) ? downcast<RenderWidget>(*m_renderer).widget() : nullptr;
 }
 
 AccessibilityObject* AccessibilityRenderObject::accessibilityParentForImageMap(HTMLMapElement* map) const

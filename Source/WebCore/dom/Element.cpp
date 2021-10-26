@@ -42,6 +42,7 @@
 #include "DOMRectList.h"
 #include "DOMTokenList.h"
 #include "DOMWindow.h"
+#include "DocumentInlines.h"
 #include "DocumentSharedObjectPool.h"
 #include "DocumentTimeline.h"
 #include "Editing.h"
@@ -906,7 +907,7 @@ inline ScrollAlignment toScrollAlignmentForBlockDirection(std::optional<ScrollLo
     }
 }
 
-void Element::scrollIntoView(std::optional<Variant<bool, ScrollIntoViewOptions>>&& arg)
+void Element::scrollIntoView(std::optional<std::variant<bool, ScrollIntoViewOptions>>&& arg)
 {
     document().updateLayoutIgnorePendingStylesheets();
 
@@ -920,8 +921,8 @@ void Element::scrollIntoView(std::optional<Variant<bool, ScrollIntoViewOptions>>
     if (arg) {
         auto value = arg.value();
         if (std::holds_alternative<ScrollIntoViewOptions>(value))
-            options = WTF::get<ScrollIntoViewOptions>(value);
-        else if (!WTF::get<bool>(value))
+            options = std::get<ScrollIntoViewOptions>(value);
+        else if (!std::get<bool>(value))
             options.blockPosition = ScrollLogicalPosition::End;
     }
 
@@ -2353,7 +2354,7 @@ void Element::addShadowRoot(Ref<ShadowRoot>&& newShadowRoot)
 
         ensureElementRareData().setShadowRoot(WTFMove(newShadowRoot));
 
-        shadowRoot.setHost(makeWeakPtr<Element>(this));
+        shadowRoot.setHost(*this);
         shadowRoot.setParentTreeScope(treeScope());
 
 #if ASSERT_ENABLED
@@ -4621,17 +4622,17 @@ Element* Element::findAnchorElementForLink(String& outAnchorName)
     return nullptr;
 }
 
-ExceptionOr<Ref<WebAnimation>> Element::animate(JSC::JSGlobalObject& lexicalGlobalObject, JSC::Strong<JSC::JSObject>&& keyframes, std::optional<Variant<double, KeyframeAnimationOptions>>&& options)
+ExceptionOr<Ref<WebAnimation>> Element::animate(JSC::JSGlobalObject& lexicalGlobalObject, JSC::Strong<JSC::JSObject>&& keyframes, std::optional<std::variant<double, KeyframeAnimationOptions>>&& options)
 {
     String id = "";
-    std::optional<Variant<double, KeyframeEffectOptions>> keyframeEffectOptions;
+    std::optional<std::variant<double, KeyframeEffectOptions>> keyframeEffectOptions;
     if (options) {
         auto optionsValue = options.value();
-        Variant<double, KeyframeEffectOptions> keyframeEffectOptionsVariant;
+        std::variant<double, KeyframeEffectOptions> keyframeEffectOptionsVariant;
         if (std::holds_alternative<double>(optionsValue))
-            keyframeEffectOptionsVariant = WTF::get<double>(optionsValue);
+            keyframeEffectOptionsVariant = std::get<double>(optionsValue);
         else {
-            auto keyframeEffectOptions = WTF::get<KeyframeAnimationOptions>(optionsValue);
+            auto keyframeEffectOptions = std::get<KeyframeAnimationOptions>(optionsValue);
             id = keyframeEffectOptions.id;
             keyframeEffectOptionsVariant = WTFMove(keyframeEffectOptions);
         }

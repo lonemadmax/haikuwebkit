@@ -38,7 +38,7 @@ Ref<WorkerFileSystemStorageConnection> WorkerFileSystemStorageConnection::create
 }
 
 WorkerFileSystemStorageConnection::WorkerFileSystemStorageConnection(WorkerGlobalScope& scope, Ref<FileSystemStorageConnection>&& connection)
-    : m_scope(makeWeakPtr(scope))
+    : m_scope(scope)
     , m_mainThreadConnection(WTFMove(connection))
 {
 }
@@ -193,7 +193,7 @@ void WorkerFileSystemStorageConnection::didResolve(CallbackIdentifier callbackId
         callback(WTFMove(result));
 }
 
-void WorkerFileSystemStorageConnection::didCreateSyncAccessHandle(CallbackIdentifier callbackIdentifier, ExceptionOr<FileSystemSyncAccessHandleIdentifier>&& result)
+void WorkerFileSystemStorageConnection::didCreateSyncAccessHandle(CallbackIdentifier callbackIdentifier, ExceptionOr<std::pair<FileSystemSyncAccessHandleIdentifier, FileSystem::PlatformFileHandle>>&& result)
 {
     if (auto callback = m_getAccessHandlCallbacks.take(callbackIdentifier))
         callback(WTFMove(result));
@@ -221,7 +221,10 @@ void WorkerFileSystemStorageConnection::createSyncAccessHandle(FileSystemHandleI
 
     callOnMainThread([callbackIdentifier, workerThread = Ref { m_scope->thread() }, mainThreadConnection = m_mainThreadConnection, identifier]() mutable {
         auto mainThreadCallback = [callbackIdentifier, workerThread = WTFMove(workerThread)](auto result) mutable {
-            workerThread->runLoop().postTaskForMode([callbackIdentifier, result = crossThreadCopy(result)] (auto& scope) mutable {
+            auto crossThreadResult = result;
+            if (result.hasException())
+                crossThreadResult = crossThreadCopy(result.exception());
+            workerThread->runLoop().postTaskForMode([callbackIdentifier, result = WTFMove(crossThreadResult)] (auto& scope) mutable {
                 if (auto connection = downcast<WorkerGlobalScope>(scope).fileSystemStorageConnection())
                     connection->didCreateSyncAccessHandle(callbackIdentifier, WTFMove(result));
             }, WorkerRunLoop::defaultMode());
@@ -361,6 +364,26 @@ void WorkerFileSystemStorageConnection::didGetHandleWithType(CallbackIdentifier 
 {
     if (auto callback = m_getHandleWithTypeCallbacks.take(callbackIdentifier))
         callback(WTFMove(result));
+}
+
+void WorkerFileSystemStorageConnection::move(FileSystemHandleIdentifier identifier, FileSystemHandleIdentifier destinationIdentifier, const String& newName, VoidCallback&& callback)
+{
+    if (!m_scope)
+        return callback(Exception { InvalidStateError });
+
+    auto callbackIdentifier = CallbackIdentifier::generateThreadSafe();
+    m_voidCallbacks.add(callbackIdentifier, WTFMove(callback));
+
+    callOnMainThread([callbackIdentifier, workerThread = Ref { m_scope->thread() }, mainThreadConnection = m_mainThreadConnection, identifier, destinationIdentifier, name = crossThreadCopy(newName)]() mutable {
+        auto mainThreadCallback = [callbackIdentifier, workerThread = WTFMove(workerThread)](auto result) mutable {
+            workerThread->runLoop().postTaskForMode([callbackIdentifier, result = crossThreadCopy(result)] (auto& scope) mutable {
+                if (auto connection = downcast<WorkerGlobalScope>(scope).fileSystemStorageConnection())
+                    connection->completeVoidCallback(callbackIdentifier, WTFMove(result));
+            }, WorkerRunLoop::defaultMode());
+        };
+
+        mainThreadConnection->move(identifier, destinationIdentifier, name, WTFMove(mainThreadCallback));
+    });
 }
 
 } // namespace WebCore

@@ -157,14 +157,14 @@ static Ref<WorkQueue> registrationDatabaseWorkQueue()
     static LazyNeverDestroyed<Ref<WorkQueue>> workQueue;
     static std::once_flag onceKey;
     std::call_once(onceKey, [] {
-        workQueue.construct(WorkQueue::create("ServiceWorker I/O Thread", WorkQueue::Type::Serial));
+        workQueue.construct(WorkQueue::create("ServiceWorker I/O Thread"));
     });
     return workQueue;
 }
 
 RegistrationDatabase::RegistrationDatabase(RegistrationStore& store, String&& databaseDirectory)
     : m_workQueue(registrationDatabaseWorkQueue())
-    , m_store(makeWeakPtr(store))
+    , m_store(store)
     , m_databaseDirectory(WTFMove(databaseDirectory))
     , m_databaseFilePath(FileSystem::pathByAppendingComponent(m_databaseDirectory, databaseFilename()))
 {

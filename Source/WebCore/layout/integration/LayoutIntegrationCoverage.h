@@ -91,15 +91,15 @@ enum class AvoidanceReason : uint64_t {
     MultiColumnFlowIsFloating                    = 1LLU  << 50,
     // Unused                                    = 1LLU  << 51,
     // Unused                                    = 1LLU  << 52,
-    InlineBoxHasBackgroundClipText               = 1LLU  << 53,
+    // Unused                                    = 1LLU  << 53,
     UnsupportedFieldset                          = 1LLU  << 54,
     ChildBoxIsFloatingOrPositioned               = 1LLU  << 55,
     ContentIsSVG                                 = 1LLU  << 56,
     ChildBoxHasUnsupportedStyle                  = 1LLU  << 57,
     UnsupportedImageMap                          = 1LLU  << 58,
     InlineBoxNeedsLayer                          = 1LLU  << 59,
-    InlineBoxHasBorderOrBorderImage              = 1LLU  << 60,
-    InlineBoxHasBackground                       = 1LLU  << 61,
+    BoxDecorationBreakClone                      = 1LLU  << 60,
+    // Unused                                    = 1LLU  << 61,
     EndOfReasons                                 = 1LLU  << 62
 };
 

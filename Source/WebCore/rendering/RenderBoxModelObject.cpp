@@ -41,6 +41,7 @@
 #include "HTMLNames.h"
 #include "ImageBuffer.h"
 #include "ImageQualityController.h"
+#include "InlineIteratorInlineBox.h"
 #include "Path.h"
 #include "RenderBlock.h"
 #include "RenderFlexibleBox.h"
@@ -59,6 +60,7 @@
 #include "RenderView.h"
 #include "ScrollingConstraints.h"
 #include "Settings.h"
+#include "TextBoxPainter.h"
 #include "TransformState.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
@@ -84,7 +86,7 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(RenderBoxModelObject);
 // <b><i><p>Hello</p></i></b>. In this example the <i> will have a block as
 // its continuation but the <b> will just have an inline as its continuation.
 RenderBoxModelObject::ContinuationChainNode::ContinuationChainNode(RenderBoxModelObject& renderer)
-    : renderer(makeWeakPtr(renderer))
+    : renderer(renderer)
 {
 }
 
@@ -710,22 +712,28 @@ InterpolationQuality RenderBoxModelObject::chooseInterpolationQuality(GraphicsCo
     return view().imageQualityController().chooseInterpolationQuality(context, this, image, layer, size);
 }
 
-void RenderBoxModelObject::paintMaskForTextFillBox(ImageBuffer* maskImage, const FloatRect& maskRect, const InlineIterator::InlineBoxIterator& box, const LayoutRect& scrolledPaintRect)
+void RenderBoxModelObject::paintMaskForTextFillBox(ImageBuffer* maskImage, const FloatRect& maskRect, const InlineIterator::InlineBoxIterator& inlineBox, const LayoutRect& scrolledPaintRect)
 {
     GraphicsContext& maskImageContext = maskImage->context();
     maskImageContext.translate(-maskRect.location());
 
     // Now add the text to the clip. We do this by painting using a special paint phase that signals to
-    // LegacyInlineTextBoxes that they should just add their contents to the clip.
-    PaintInfo info(maskImageContext, LayoutRect { maskRect }, PaintPhase::TextClip, PaintBehavior::ForceBlackText);
-    if (box) {
-        auto* legacyInlineBox = const_cast<LegacyInlineFlowBox*>(box->legacyInlineBox());
-        const auto& rootBox = legacyInlineBox->root();
-        legacyInlineBox->paint(info, LayoutPoint(scrolledPaintRect.x() - legacyInlineBox->x(), scrolledPaintRect.y() - legacyInlineBox->y()), rootBox.lineTop(), rootBox.lineBottom());
-    } else {
-        LayoutSize localOffset = is<RenderBox>(*this) ? downcast<RenderBox>(*this).locationOffset() : LayoutSize();
-        paint(info, scrolledPaintRect.location() - localOffset);
+    // the painter it should just modify the clip.
+    PaintInfo maskInfo(maskImageContext, LayoutRect { maskRect }, PaintPhase::TextClip, PaintBehavior::ForceBlackText);
+    if (inlineBox) {
+        auto paintOffset = scrolledPaintRect.location() - toLayoutSize(LayoutPoint(inlineBox->rect().location()));
+
+        for (auto box = inlineBox->firstLeafBox(), end = inlineBox->endLeafBox(); box != end; box.traverseNextOnLine()) {
+            if (!box->isText())
+                continue;
+            TextBoxPainter textBoxPainter(downcast<InlineIterator::TextBoxIterator>(box), maskInfo, paintOffset);
+            textBoxPainter.paint();
+        }
+        return;
     }
+
+    LayoutSize localOffset = is<RenderBox>(*this) ? downcast<RenderBox>(*this).locationOffset() : LayoutSize();
+    paint(maskInfo, scrolledPaintRect.location() - localOffset);
 }
 
 void RenderBoxModelObject::paintFillLayerExtended(const PaintInfo& paintInfo, const Color& color, const FillLayer& bgLayer, const LayoutRect& rect,
@@ -2634,7 +2642,7 @@ RenderTextFragment* RenderBoxModelObject::firstLetterRemainingText() const
 void RenderBoxModelObject::setFirstLetterRemainingText(RenderTextFragment& remainingText)
 {
     ASSERT(isFirstLetter());
-    firstLetterRemainingTextMap().set(this, makeWeakPtr(remainingText));
+    firstLetterRemainingTextMap().set(this, remainingText);
 }
 
 void RenderBoxModelObject::clearFirstLetterRemainingText()

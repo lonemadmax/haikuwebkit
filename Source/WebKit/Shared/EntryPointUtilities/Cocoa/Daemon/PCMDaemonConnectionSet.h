@@ -34,9 +34,10 @@ enum class MessageLevel : uint8_t;
 }
 
 namespace WebKit {
-namespace PCM {
-
+namespace Daemon {
 class Connection;
+}
+namespace PCM {
 
 class DaemonConnectionSet {
 public:
@@ -45,7 +46,7 @@ public:
     void add(xpc_connection_t);
     void remove(xpc_connection_t);
 
-    void setConnectedNetworkProcessHasDebugModeEnabled(const Connection&, bool);
+    void setConnectedNetworkProcessHasDebugModeEnabled(const Daemon::Connection&, bool);
     bool debugModeEnabled() const;
     void broadcastConsoleMessage(JSC::MessageLevel, const String&);
     

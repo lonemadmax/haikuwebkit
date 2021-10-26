@@ -93,6 +93,8 @@ webkit.org/b/203264 editing/pasteboard/smart-paste-paragraph-001.html [ Pass ]
 
 webkit.org/b/230047 editing/deleting/forward-delete-crash.html [ Pass Timeout ]
 
+webkit.org/b/231635 [ Release ] editing/selection/ios/scroll-to-reveal-selection-when-showing-software-keyboard.html [ Timeout ]
+
 media/picture-in-picture [ Pass ]
 media/remove-video-element-in-pip-from-document.html [ Pass ]
 
@@ -109,3 +111,5 @@ webkit.org/b/231609 imported/w3c/web-platform-tests/webmessaging/MessagePort_onm
 webkit.org/b/231611 [ Debug ] imported/w3c/web-platform-tests/webrtc-encoded-transform/sframe-transform-in-worker.https.html [ Pass Failure ]
 
 webkit.org/b/231616 [ Debug ] compositing/layer-creation/scale-rotation-transition-overlap.html [ Pass Failure Timeout ]
+
+webkit.org/b/231640 [ Debug ] webrtc/video-mute.html [ Pass Timeout ]

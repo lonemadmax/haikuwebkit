@@ -55,7 +55,7 @@
 
 @implementation WKWebView (WKTesting)
 
-- (void)_addEventAttributionWithSourceID:(uint8_t)sourceID destinationURL:(NSURL *)destination sourceDescription:(NSString *)sourceDescription purchaser:(NSString *)purchaser reportEndpoint:(NSURL *)reportEndpoint optionalNonce:(NSString *)nonce applicationBundleID:(NSString *)bundleID
+- (void)_addEventAttributionWithSourceID:(uint8_t)sourceID destinationURL:(NSURL *)destination sourceDescription:(NSString *)sourceDescription purchaser:(NSString *)purchaser reportEndpoint:(NSURL *)reportEndpoint optionalNonce:(NSString *)nonce applicationBundleID:(NSString *)bundleID ephemeral:(BOOL)ephemeral
 {
     WebCore::PrivateClickMeasurement measurement(
         WebCore::PrivateClickMeasurement::SourceID(sourceID),
@@ -63,7 +63,7 @@
         WebCore::PrivateClickMeasurement::AttributionDestinationSite(destination),
         bundleID,
         WallTime::now(),
-        WebCore::PrivateClickMeasurement::AttributionEphemeral::No
+        ephemeral ? WebCore::PrivateClickMeasurement::AttributionEphemeral::Yes : WebCore::PrivateClickMeasurement::AttributionEphemeral::No
     );
     if (nonce)
         measurement.setEphemeralSourceNonce({ nonce });
@@ -496,7 +496,7 @@
 
         void join(WebKit::MediaSessionCommandCompletionHandler&& callback) final
         {
-            [m_clientCoordinator joinWithCompletion:makeBlockPtr([weakThis = makeWeakPtr(this), callback = WTFMove(callback)] (BOOL success) mutable {
+            [m_clientCoordinator joinWithCompletion:makeBlockPtr([weakThis = WeakPtr { *this }, callback = WTFMove(callback)] (BOOL success) mutable {
                 if (!weakThis) {
                     callback(WebCore::ExceptionData { WebCore::InvalidStateError, String() });
                     return;
@@ -513,7 +513,7 @@
 
         void seekTo(double time, WebKit::MediaSessionCommandCompletionHandler&& callback) final
         {
-            [m_clientCoordinator seekTo:time withCompletion:makeBlockPtr([weakThis = makeWeakPtr(this), callback = WTFMove(callback)] (BOOL success) mutable {
+            [m_clientCoordinator seekTo:time withCompletion:makeBlockPtr([weakThis = WeakPtr { *this }, callback = WTFMove(callback)] (BOOL success) mutable {
                 if (!weakThis) {
                     callback(WebCore::ExceptionData { WebCore::InvalidStateError, String() });
                     return;
@@ -525,7 +525,7 @@
 
         void play(WebKit::MediaSessionCommandCompletionHandler&& callback) final
         {
-            [m_clientCoordinator playWithCompletion:makeBlockPtr([weakThis = makeWeakPtr(this), callback = WTFMove(callback)] (BOOL success) mutable {
+            [m_clientCoordinator playWithCompletion:makeBlockPtr([weakThis = WeakPtr { *this }, callback = WTFMove(callback)] (BOOL success) mutable {
                 if (!weakThis) {
                     callback(WebCore::ExceptionData { WebCore::InvalidStateError, String() });
                     return;
@@ -537,7 +537,7 @@
 
         void pause(WebKit::MediaSessionCommandCompletionHandler&& callback) final
         {
-            [m_clientCoordinator pauseWithCompletion:makeBlockPtr([weakThis = makeWeakPtr(this), callback = WTFMove(callback)] (BOOL success) mutable {
+            [m_clientCoordinator pauseWithCompletion:makeBlockPtr([weakThis = WeakPtr { *this }, callback = WTFMove(callback)] (BOOL success) mutable {
                 if (!weakThis) {
                     callback(WebCore::ExceptionData { WebCore::InvalidStateError, String() });
                     return;
@@ -549,7 +549,7 @@
 
         void setTrack(const String& track, WebKit::MediaSessionCommandCompletionHandler&& callback) final
         {
-            [m_clientCoordinator setTrack:track withCompletion:makeBlockPtr([weakThis = makeWeakPtr(this), callback = WTFMove(callback)] (BOOL success) mutable {
+            [m_clientCoordinator setTrack:track withCompletion:makeBlockPtr([weakThis = WeakPtr { *this }, callback = WTFMove(callback)] (BOOL success) mutable {
                 if (!weakThis) {
                     callback(WebCore::ExceptionData { WebCore::InvalidStateError, String() });
                     return;
@@ -629,7 +629,7 @@
     self = [super init];
     if (!self)
         return nil;
-    m_coordinatorClient = makeWeakPtr(coordinator);
+    m_coordinatorClient = coordinator;
     return self;
 }
 

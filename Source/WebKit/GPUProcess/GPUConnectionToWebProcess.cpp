@@ -188,6 +188,13 @@ private:
         return m_process.setCaptureAttributionString();
     }
 
+#if ENABLE(APP_PRIVACY_REPORT)
+    void setTCCIdentity() final
+    {
+        m_process.setTCCIdentity();
+    }
+#endif
+
 #if HAVE(IOSURFACE_SET_OWNERSHIP_IDENTITY)
     std::optional<task_id_token_t> webProcessIdentityToken() const final
     {
@@ -230,7 +237,7 @@ GPUConnectionToWebProcess::GPUConnectionToWebProcess(GPUProcess& gpuProcess, Web
     RELEASE_ASSERT(RunLoop::isMain());
 
 #if ENABLE(ROUTING_ARBITRATION) && HAVE(AVAUDIO_ROUTING_ARBITER)
-    gpuProcess.audioSessionManager().session().setRoutingArbitrationClient(makeWeakPtr(m_routingArbitrator.get()));
+    gpuProcess.audioSessionManager().session().setRoutingArbitrationClient(m_routingArbitrator.get());
 #endif
 
     if (!parameters.overrideLanguages.isEmpty())
@@ -474,10 +481,10 @@ RemoteImageDecoderAVFProxy& GPUConnectionToWebProcess::imageDecoderAVFProxy()
 }
 #endif
 
-void GPUConnectionToWebProcess::createRenderingBackend(RemoteRenderingBackendCreationParameters&& creationParameters)
+void GPUConnectionToWebProcess::createRenderingBackend(RemoteRenderingBackendCreationParameters&& creationParameters, IPC::StreamConnectionBuffer&& streamBuffer)
 {
     auto addResult = m_remoteRenderingBackendMap.ensure(creationParameters.identifier, [&]() {
-        return IPC::ScopedActiveMessageReceiveQueue { RemoteRenderingBackend::create(*this, WTFMove(creationParameters)) };
+        return IPC::ScopedActiveMessageReceiveQueue { RemoteRenderingBackend::create(*this, WTFMove(creationParameters), WTFMove(streamBuffer)) };
     });
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
 }

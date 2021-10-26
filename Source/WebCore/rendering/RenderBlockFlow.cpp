@@ -36,6 +36,7 @@
 #include "HitTestLocation.h"
 #include "InlineIteratorBox.h"
 #include "InlineIteratorLine.h"
+#include "InlineIteratorLogicalOrderTraversal.h"
 #include "InlineIteratorTextBox.h"
 #include "InlineWalker.h"
 #include "LayoutIntegrationLineLayout.h"
@@ -524,6 +525,7 @@ void RenderBlockFlow::layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalH
         }
         if (!firstChild() && !isAnonymousBlock())
             setChildrenInline(true);
+        dirtyForLayoutFromPercentageHeightDescendants();
         if (childrenInline())
             layoutInlineChildren(relayoutChildren, repaintLogicalTop, repaintLogicalBottom);
         else
@@ -630,8 +632,6 @@ void RenderBlockFlow::layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalH
 
 void RenderBlockFlow::layoutBlockChildren(bool relayoutChildren, LayoutUnit& maxFloatLogicalBottom)
 {
-    dirtyForLayoutFromPercentageHeightDescendants();
-
     LayoutUnit beforeEdge = borderAndPaddingBefore();
     LayoutUnit afterEdge = borderAndPaddingAfter() + scrollbarLogicalHeight();
 
@@ -3386,7 +3386,7 @@ bool RenderBlockFlow::needsLayoutAfterFragmentRangeChange() const
 void RenderBlockFlow::setMultiColumnFlow(RenderMultiColumnFlow& fragmentedFlow)
 {
     ASSERT(!hasRareBlockFlowData() || !rareBlockFlowData()->m_multiColumnFlow);
-    ensureRareBlockFlowData().m_multiColumnFlow = makeWeakPtr(fragmentedFlow);
+    ensureRareBlockFlowData().m_multiColumnFlow = fragmentedFlow;
 }
 
 void RenderBlockFlow::clearMultiColumnFlow()
@@ -3620,7 +3620,8 @@ VisiblePosition RenderBlockFlow::positionForPointWithInlineChildren(const Layout
     if (lastLineWithChildren) {
         // We hit this case for Mac behavior when the Y coordinate is below the last box.
         ASSERT(moveCaretToBoundary);
-        if (auto logicallyLastRun = lastLineWithChildren->logicalEndRunWithNode())
+        InlineIterator::LineLogicalOrderCache orderCache;
+        if (auto logicallyLastRun = InlineIterator::lastLeafOnLineInLogicalOrderWithNode(lastLineWithChildren, orderCache))
             return positionForRun(*this, logicallyLastRun, false);
     }
 

@@ -27,6 +27,7 @@
 
 #include "CharacterRange.h"
 #include "FindOptions.h"
+#include "InlineIteratorLogicalOrderTraversal.h"
 #include "InlineIteratorTextBox.h"
 #include "SimpleRange.h"
 #include "TextIteratorBehavior.h"
@@ -120,6 +121,7 @@ private:
     void handleTextNodeFirstLetter(RenderTextFragment&);
     void emitCharacter(UChar, Node& characterNode, Node* offsetBaseNode, int textStartOffset, int textEndOffset);
     void emitText(Text& textNode, RenderText&, int textStartOffset, int textEndOffset);
+    void revertToRemainingTextRun();
 
     Node* baseNodeForEmittingNewLine() const;
 
@@ -150,9 +152,11 @@ private:
     // Used when there is still some pending text from the current node; when these are false and null, we go back to normal iterating.
     Node* m_nodeForAdditionalNewline { nullptr };
     InlineIterator::TextBoxIterator m_textRun;
+    InlineIterator::TextLogicalOrderCache m_textRunLogicalOrderCache;
 
     // Used when iterating over :first-letter text to save pointer to remaining text box.
     InlineIterator::TextBoxIterator m_remainingTextRun;
+    InlineIterator::TextLogicalOrderCache m_remainingTextRunLogicalOrderCache;
 
     // Used to point to RenderText object for :first-letter.
     RenderText* m_firstLetterText { nullptr };

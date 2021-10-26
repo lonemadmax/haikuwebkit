@@ -50,10 +50,12 @@
 #import "GraphicsContext.h"
 #import "GraphicsContextCG.h"
 #import "HTMLAttachmentElement.h"
+#import "HTMLButtonElement.h"
 #import "HTMLInputElement.h"
 #import "HTMLMeterElement.h"
 #import "HTMLNames.h"
 #import "HTMLSelectElement.h"
+#import "HTMLTextAreaElement.h"
 #import "IOSurface.h"
 #import "Icon.h"
 #import "LocalCurrentTraitCollection.h"
@@ -335,8 +337,26 @@ FloatRect RenderThemeIOS::addRoundedBorderClip(const RenderObject& box, Graphics
     return border.rect();
 }
 
-void RenderThemeIOS::adjustCheckboxStyle(RenderStyle& style, const Element*) const
+void RenderThemeIOS::adjustStyleForAlternateFormControlDesignTransition(RenderStyle& style, const Element* element) const
 {
+    if (!element)
+        return;
+
+    if (!element->document().settings().alternateFormControlDesignEnabled())
+        return;
+
+#if ENABLE(CSS_TRANSFORM_STYLE_OPTIMIZED_3D)
+    // FIXME: We need to find a way to not do this for any running transition, only the UA-owned transition.
+    style.setTransformStyle3D(element->hasRunningTransitionForProperty(PseudoId::None, CSSPropertyID::CSSPropertyTranslate) || element->hovered() ? TransformStyle3D::Optimized3D : TransformStyle3D::Flat);
+#else
+    UNUSED_PARAM(style);
+#endif
+}
+
+void RenderThemeIOS::adjustCheckboxStyle(RenderStyle& style, const Element* element) const
+{
+    adjustStyleForAlternateFormControlDesignTransition(style, element);
+
     if (!style.width().isIntrinsicOrAuto() && !style.height().isAuto())
         return;
 
@@ -474,11 +494,18 @@ bool RenderThemeIOS::isControlStyled(const RenderStyle& style, const RenderStyle
     if (style.effectiveAppearance() == TextFieldPart || style.effectiveAppearance() == TextAreaPart)
         return style.backgroundLayers() != userAgentStyle.backgroundLayers();
 
+#if ENABLE(DATALIST_ELEMENT)
+    if (style.effectiveAppearance() == ListButtonPart)
+        return style.hasContent() || style.hasExplicitlyClearedContent();
+#endif
+
     return RenderTheme::isControlStyled(style, userAgentStyle);
 }
 
-void RenderThemeIOS::adjustRadioStyle(RenderStyle& style, const Element*) const
+void RenderThemeIOS::adjustRadioStyle(RenderStyle& style, const Element* element) const
 {
+    adjustStyleForAlternateFormControlDesignTransition(style, element);
+
     if (!style.width().isIntrinsicOrAuto() && !style.height().isAuto())
         return;
 
@@ -602,7 +629,8 @@ void RenderThemeIOS::paintTextFieldDecorations(const RenderBox& box, const Paint
             auto& input = downcast<HTMLInputElement>(*element);
             if (input.isTextField() && !input.isSearchField())
                 shouldPaintFillAndInnerShadow = true;
-        }
+        } else if (is<HTMLTextAreaElement>(*element))
+            shouldPaintFillAndInnerShadow = true;
 
         bool useAlternateDesign = box.settings().alternateFormControlDesignEnabled();
         if (useAlternateDesign && shouldPaintFillAndInnerShadow) {
@@ -628,6 +656,18 @@ void RenderThemeIOS::paintTextFieldDecorations(const RenderBox& box, const Paint
         FloatPoint point(rect.x() + style.borderLeftWidth(), rect.y() + style.borderTopWidth());
         drawAxialGradient(context.platformContext(), gradientWithName(InsetGradient), point, FloatPoint(CGPointMake(point.x(), point.y() + 3.0f)), LinearInterpolation);
     }
+}
+
+void RenderThemeIOS::adjustTextAreaStyle(RenderStyle& style, const Element* element) const
+{
+    if (!element)
+        return;
+
+    if (!element->document().settings().alternateFormControlDesignEnabled())
+        return;
+
+    style.setBackgroundColor(Color::transparentBlack);
+    style.resetBorderExceptRadius();
 }
 
 void RenderThemeIOS::paintTextAreaDecorations(const RenderBox& box, const PaintInfo& paintInfo, const FloatRect& rect)
@@ -767,6 +807,8 @@ static void adjustInputElementButtonStyle(RenderStyle& style, const HTMLInputEle
 
 void RenderThemeIOS::adjustMenuListButtonStyle(RenderStyle& style, const Element* element) const
 {
+    adjustStyleForAlternateFormControlDesignTransition(style, element);
+
     // Set the min-height to be at least MenuListMinHeight.
     if (style.height().isAuto())
         style.setMinHeight(Length(std::max(MenuListMinHeight, static_cast<int>(MenuListBaseHeight / MenuListBaseFontSize * style.fontDescription().computedSize())), LengthType::Fixed));
@@ -776,7 +818,7 @@ void RenderThemeIOS::adjustMenuListButtonStyle(RenderStyle& style, const Element
     if (!element)
         return;
 
-    adjustPressedStyle(style, *element);
+    adjustButtonLikeControlStyle(style, *element);
 
     // Enforce some default styles in the case that this is a non-multiple <select> element,
     // or a date input. We don't force these if this is just an element with
@@ -1169,23 +1211,55 @@ void RenderThemeIOS::paintSearchFieldDecorations(const RenderBox& box, const Pai
 // This value matches the opacity applied to UIKit controls.
 constexpr auto pressedStateOpacity = 0.75f;
 
-void RenderThemeIOS::adjustPressedStyle(RenderStyle& style, const Element& element) const
+bool RenderThemeIOS::isSubmitStyleButton(const Element& element) const
+{
+    if (is<HTMLInputElement>(element) && downcast<HTMLInputElement>(element).isSubmitButton())
+        return true;
+
+    if (is<HTMLButtonElement>(element) && downcast<HTMLButtonElement>(element).isExplicitlySetSubmitButton())
+        return true;
+
+    return false;
+}
+
+void RenderThemeIOS::adjustButtonLikeControlStyle(RenderStyle& style, const Element& element) const
 {
 #if ENABLE(IOS_FORM_CONTROL_REFRESH)
-    if (element.document().settings().iOSFormControlRefreshEnabled() && element.active() && !element.isDisabledFormControl()) {
-        auto textColor = style.color();
-        if (textColor.isValid())
-            style.setColor(textColor.colorWithAlphaMultipliedBy(pressedStateOpacity));
+    if (!element.document().settings().iOSFormControlRefreshEnabled())
+        return;
 
-        auto backgroundColor = style.backgroundColor();
-        if (backgroundColor.isValid())
-            style.setBackgroundColor(backgroundColor.colorWithAlphaMultipliedBy(pressedStateOpacity));
+    // FIXME: Implement button-like control adjustments for the alternate design.
+    if (element.document().settings().alternateFormControlDesignEnabled())
+        return;
+
+    if (element.isDisabledFormControl())
+        return;
+
+    auto tintColor = style.effectiveAccentColor();
+    if (tintColor.isValid()) {
+        if (isSubmitStyleButton(element))
+            style.setBackgroundColor(tintColor);
+        else
+            style.setColor(tintColor);
     }
+
+    if (!element.active())
+        return;
+
+    auto textColor = style.color();
+    if (textColor.isValid())
+        style.setColor(textColor.colorWithAlphaMultipliedBy(pressedStateOpacity));
+
+    auto backgroundColor = style.backgroundColor();
+    if (backgroundColor.isValid())
+        style.setBackgroundColor(backgroundColor.colorWithAlphaMultipliedBy(pressedStateOpacity));
 #endif
 }
 
 void RenderThemeIOS::adjustButtonStyle(RenderStyle& style, const Element* element) const
 {
+    adjustStyleForAlternateFormControlDesignTransition(style, element);
+
     // If no size is specified, ensure the height of the button matches ControlBaseHeight scaled
     // with the font size. min-height is used rather than height to avoid clipping the contents of
     // the button in cases where the button contains more than one line of text.
@@ -1208,7 +1282,7 @@ void RenderThemeIOS::adjustButtonStyle(RenderStyle& style, const Element* elemen
     if (!element)
         return;
 
-    adjustPressedStyle(style, *element);
+    adjustButtonLikeControlStyle(style, *element);
 
     RenderBox* box = element->renderBox();
     if (!box)
@@ -1298,12 +1372,12 @@ void RenderThemeIOS::paintFileUploadIconDecorations(const RenderObject&, const R
     icon->paint(paintInfo.context(), thumbnailRect);
 }
 
-Color RenderThemeIOS::platformActiveSelectionBackgroundColor(OptionSet<StyleColor::Options>) const
+Color RenderThemeIOS::platformActiveSelectionBackgroundColor(OptionSet<StyleColorOptions>) const
 {
     return Color::transparentBlack;
 }
 
-Color RenderThemeIOS::platformInactiveSelectionBackgroundColor(OptionSet<StyleColor::Options>) const
+Color RenderThemeIOS::platformInactiveSelectionBackgroundColor(OptionSet<StyleColorOptions>) const
 {
     return Color::transparentBlack;
 }
@@ -1323,13 +1397,13 @@ Color RenderThemeIOS::systemFocusRingColor()
     return *cachedFocusRingColor();
 }
 
-Color RenderThemeIOS::platformFocusRingColor(OptionSet<StyleColor::Options>) const
+Color RenderThemeIOS::platformFocusRingColor(OptionSet<StyleColorOptions>) const
 {
     return systemFocusRingColor();
 }
 
 #if ENABLE(APP_HIGHLIGHTS)
-Color RenderThemeIOS::platformAppHighlightColor(OptionSet<StyleColor::Options>) const
+Color RenderThemeIOS::platformAppHighlightColor(OptionSet<StyleColorOptions>) const
 {
     // FIXME: expose the real value from UIKit.
     return SRGBA<uint8_t> { 255, 238, 190 };
@@ -1484,9 +1558,9 @@ void RenderThemeIOS::setFocusRingColor(const Color& color)
     cachedFocusRingColor() = color;
 }
 
-Color RenderThemeIOS::systemColor(CSSValueID cssValueID, OptionSet<StyleColor::Options> options) const
+Color RenderThemeIOS::systemColor(CSSValueID cssValueID, OptionSet<StyleColorOptions> options) const
 {
-    const bool forVisitedLink = options.contains(StyleColor::Options::ForVisitedLink);
+    const bool forVisitedLink = options.contains(StyleColorOptions::ForVisitedLink);
 
     // The system color cache below can't handle visited links. The only color value
     // that cares about visited links is CSSValueWebkitLink, so handle it here by
@@ -1498,8 +1572,8 @@ Color RenderThemeIOS::systemColor(CSSValueID cssValueID, OptionSet<StyleColor::O
 
     auto& cache = colorCache(options);
     return cache.systemStyleColors.ensure(cssValueID, [this, cssValueID, options] () -> Color {
-        const bool useDarkAppearance = options.contains(StyleColor::Options::UseDarkAppearance);
-        const bool useElevatedUserInterfaceLevel = options.contains(StyleColor::Options::UseElevatedUserInterfaceLevel);
+        const bool useDarkAppearance = options.contains(StyleColorOptions::UseDarkAppearance);
+        const bool useElevatedUserInterfaceLevel = options.contains(StyleColorOptions::UseElevatedUserInterfaceLevel);
         if (!globalCSSValueToSystemColorMap().isEmpty()) {
             auto it = globalCSSValueToSystemColorMap().find(CSSValueKey { cssValueID, useDarkAppearance, useElevatedUserInterfaceLevel });
             if (it == globalCSSValueToSystemColorMap().end())
@@ -1511,6 +1585,15 @@ Color RenderThemeIOS::systemColor(CSSValueID cssValueID, OptionSet<StyleColor::O
             return *color;
         return RenderTheme::systemColor(cssValueID, options);
     }).iterator->value;
+}
+
+Color RenderThemeIOS::controlTintColor(const RenderStyle& style, OptionSet<StyleColorOptions> options) const
+{
+    Color tintColor = style.effectiveAccentColor();
+    if (tintColor.isValid())
+        return tintColor;
+
+    return systemColor(CSSValueAppleSystemBlue, options);
 }
 
 #if ENABLE(ATTACHMENT_ELEMENT)
@@ -2105,7 +2188,7 @@ constexpr auto nativeControlBorderWidth = 1.0f;
 constexpr auto checkboxRadioBorderWidth = 1.5f;
 constexpr auto checkboxRadioBorderDisabledOpacity = 0.3f;
 
-Color RenderThemeIOS::checkboxRadioBorderColor(OptionSet<ControlStates::States> states, OptionSet<StyleColor::Options> styleColorOptions)
+Color RenderThemeIOS::checkboxRadioBorderColor(OptionSet<ControlStates::States> states, OptionSet<StyleColorOptions> styleColorOptions)
 {
     auto defaultBorderColor = systemColor(CSSValueAppleSystemSecondaryLabel, styleColorOptions);
 
@@ -2118,7 +2201,7 @@ Color RenderThemeIOS::checkboxRadioBorderColor(OptionSet<ControlStates::States> 
     return defaultBorderColor;
 }
 
-Color RenderThemeIOS::checkboxRadioBackgroundColor(bool useAlternateDesign, OptionSet<ControlStates::States> states, OptionSet<StyleColor::Options> styleColorOptions)
+Color RenderThemeIOS::checkboxRadioBackgroundColor(bool useAlternateDesign, const RenderStyle& style, OptionSet<ControlStates::States> states, OptionSet<StyleColorOptions> styleColorOptions)
 {
     bool isEmpty = !states.containsAny({ ControlStates::States::Checked, ControlStates::States::Indeterminate });
     bool isEnabled = states.contains(ControlStates::States::Enabled);
@@ -2138,7 +2221,7 @@ Color RenderThemeIOS::checkboxRadioBackgroundColor(bool useAlternateDesign, Opti
     if (!isEnabled)
         return systemColor(isEmpty ? CSSValueWebkitControlBackground : CSSValueAppleSystemOpaqueTertiaryFill, styleColorOptions);
 
-    auto enabledBackgroundColor = systemColor(isEmpty ? CSSValueWebkitControlBackground : CSSValueAppleSystemBlue, styleColorOptions);
+    auto enabledBackgroundColor = isEmpty ? systemColor(CSSValueWebkitControlBackground, styleColorOptions) : controlTintColor(style, styleColorOptions);
     if (isPressed)
         return enabledBackgroundColor.colorWithAlphaMultipliedBy(pressedStateOpacity);
 
@@ -2158,12 +2241,12 @@ RefPtr<Gradient> RenderThemeIOS::checkboxRadioBackgroundGradient(const FloatRect
     return gradient;
 }
 
-Color RenderThemeIOS::checkboxRadioIndicatorColor(OptionSet<ControlStates::States> states, OptionSet<StyleColor::Options> styleColorOptions)
+Color RenderThemeIOS::checkboxRadioIndicatorColor(OptionSet<ControlStates::States> states, OptionSet<StyleColorOptions> styleColorOptions)
 {
     if (!states.contains(ControlStates::States::Enabled))
         return systemColor(CSSValueAppleSystemTertiaryLabel, styleColorOptions);
 
-    Color enabledIndicatorColor = systemColor(CSSValueAppleSystemLabel, styleColorOptions | StyleColor::Options::UseDarkAppearance);
+    Color enabledIndicatorColor = systemColor(CSSValueAppleSystemLabel, styleColorOptions | StyleColorOptions::UseDarkAppearance);
     if (states.contains(ControlStates::States::Pressed))
         return enabledIndicatorColor.colorWithAlphaMultipliedBy(pressedStateOpacity);
 
@@ -2228,7 +2311,7 @@ bool RenderThemeIOS::paintCheckbox(const RenderObject& box, const PaintInfo& pai
     auto controlStates = extractControlStatesForRenderer(box);
     auto styleColorOptions = box.styleColorOptions();
 
-    auto backgroundColor = checkboxRadioBackgroundColor(useAlternateDesign, controlStates, styleColorOptions);
+    auto backgroundColor = checkboxRadioBackgroundColor(useAlternateDesign, box.style(), controlStates, styleColorOptions);
 
     bool checked = controlStates.contains(ControlStates::States::Checked);
     bool indeterminate = controlStates.contains(ControlStates::States::Indeterminate);
@@ -2311,7 +2394,7 @@ bool RenderThemeIOS::paintRadio(const RenderObject& box, const PaintInfo& paintI
     auto controlStates = extractControlStatesForRenderer(box);
     auto styleColorOptions = box.styleColorOptions();
 
-    auto backgroundColor = checkboxRadioBackgroundColor(useAlternateDesign, controlStates, styleColorOptions);
+    auto backgroundColor = checkboxRadioBackgroundColor(useAlternateDesign, box.style(), controlStates, styleColorOptions);
 
     FloatRoundedRect radioRect { rect, FloatRoundedRect::Radii(rect.width() / 2, rect.height() / 2) };
 
@@ -2433,7 +2516,7 @@ bool RenderThemeIOS::paintProgressBarWithFormControlRefresh(const RenderObject& 
     }
 
     FloatRect barRect(barLeft, barTop, barWidth, barHeight);
-    context.fillRoundedRect(FloatRoundedRect(barRect, barCornerRadii), systemColor(CSSValueAppleSystemBlue, styleColorOptions).colorWithAlphaMultipliedBy(alpha));
+    context.fillRoundedRect(FloatRoundedRect(barRect, barCornerRadii), controlTintColor(renderer.style(), styleColorOptions).colorWithAlphaMultipliedBy(alpha));
 
     return false;
 }
@@ -2491,6 +2574,51 @@ bool RenderThemeIOS::paintMeter(const RenderObject& renderer, const PaintInfo& p
 }
 
 #if ENABLE(DATALIST_ELEMENT)
+
+bool RenderThemeIOS::paintListButton(const RenderObject& box, const PaintInfo& paintInfo, const FloatRect& rect)
+{
+    auto& context = paintInfo.context();
+    GraphicsContextStateSaver stateSaver(context);
+
+    auto& style = box.style();
+
+    float paddingTop = floatValueForLength(style.paddingTop(), rect.height());
+    float paddingRight = floatValueForLength(style.paddingRight(), rect.width());
+    float paddingBottom = floatValueForLength(style.paddingBottom(), rect.height());
+    float paddingLeft = floatValueForLength(style.paddingLeft(), rect.width());
+
+    FloatRect indicatorRect = rect;
+    indicatorRect.move(paddingLeft, paddingTop);
+    indicatorRect.contract(paddingLeft + paddingRight, paddingTop + paddingBottom);
+
+    Path path;
+    path.moveTo({ 35.48, 38.029 });
+    path.addBezierCurveTo({ 36.904, 38.029 }, { 38.125, 37.5 }, { 39.223, 36.361 });
+    path.addLineTo({ 63.352, 11.987 });
+    path.addBezierCurveTo({ 64.206, 11.092 }, { 64.695, 9.993 }, { 64.695, 8.691 });
+    path.addBezierCurveTo({ 64.695, 6.046 }, { 62.579, 3.971 }, { 59.975, 3.971 });
+    path.addBezierCurveTo({ 58.714, 3.971 }, { 57.493, 4.5 }, { 56.557, 5.436 });
+    path.addLineTo({ 35.52, 26.839 });
+    path.addLineTo({ 14.443, 5.436 });
+    path.addBezierCurveTo({ 13.507, 4.5 }, { 12.327, 3.971 }, { 10.984, 3.971 });
+    path.addBezierCurveTo({ 8.38, 3.971 }, { 6.305, 6.046 }, { 6.305, 8.691 });
+    path.addBezierCurveTo({ 6.305, 9.993 }, { 6.753, 11.092 }, { 7.648, 11.987 });
+    path.addLineTo({ 31.777, 36.36 });
+    path.addBezierCurveTo({ 32.916, 37.499 }, { 34.096, 38.028 }, { 35.48, 38.028 });
+
+    const FloatSize indicatorSize(71.0f, 42.0f);
+    float scale = indicatorRect.width() / indicatorSize.width();
+
+    AffineTransform transform;
+    transform.translate(rect.center() - (indicatorSize * scale * 0.5f));
+    transform.scale(scale);
+    path.transform(transform);
+
+    context.setFillColor(controlTintColor(style, box.styleColorOptions()));
+    context.fillPath(path);
+
+    return false;
+}
 
 void RenderThemeIOS::paintSliderTicks(const RenderObject& box, const PaintInfo& paintInfo, const FloatRect& rect)
 {
@@ -2550,7 +2678,7 @@ void RenderThemeIOS::paintSliderTicks(const RenderObject& box, const PaintInfo& 
                 tickRect.setY(rect.y() + tickRatio * (rect.height() - tickRect.height()));
 
             FloatRoundedRect roundedTickRect(snapRectToDevicePixels(LayoutRect(tickRect), deviceScaleFactor), tickCornerRadii);
-            context.fillRoundedRect(roundedTickRect, systemColor((value >= *optionValue) ? CSSValueAppleSystemBlue : CSSValueAppleSystemOpaqueSeparator, styleColorOptions));
+            context.fillRoundedRect(roundedTickRect, (value >= *optionValue) ? controlTintColor(box.style(), styleColorOptions) : systemColor(CSSValueAppleSystemOpaqueSeparator, styleColorOptions));
         }
     }
 }
@@ -2626,7 +2754,7 @@ bool RenderThemeIOS::paintSliderTrackWithFormControlRefresh(const RenderObject& 
     }
 
     FloatRoundedRect fillRect(trackClip, cornerRadii);
-    context.fillRoundedRect(fillRect, systemColor(CSSValueAppleSystemBlue, styleColorOptions));
+    context.fillRoundedRect(fillRect, controlTintColor(box.style(), styleColorOptions));
 
     return false;
 }
@@ -2643,6 +2771,8 @@ String RenderThemeIOS::colorInputStyleSheet(const Settings& settings) const
 
 void RenderThemeIOS::adjustColorWellStyle(RenderStyle& style, const Element* element) const
 {
+    adjustStyleForAlternateFormControlDesignTransition(style, element);
+
     if (!element || element->document().settings().iOSFormControlRefreshEnabled())
         return;
 

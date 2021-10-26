@@ -60,7 +60,7 @@ public:
     const LegacyInlineTextBox* legacyInlineBox() const { return downcast<LegacyInlineTextBox>(Box::legacyInlineBox()); }
 
     TextBoxIterator nextTextBox() const;
-    TextBoxIterator nextTextBoxInTextOrder() const;
+    TextBoxIterator previousTextBox() const;
 };
 
 class TextBoxIterator : public LeafBoxIterator {
@@ -75,15 +75,12 @@ public:
     const TextBox* operator->() const { return &get(); }
 
     TextBoxIterator& traverseNextTextBox();
-    TextBoxIterator& traverseNextTextBoxInTextOrder();
 
 private:
     BoxIterator& traverseNextOnLine() = delete;
     BoxIterator& traversePreviousOnLine() = delete;
     BoxIterator& traverseNextOnLineIgnoringLineBreak() = delete;
     BoxIterator& traversePreviousOnLineIgnoringLineBreak() = delete;
-    BoxIterator& traverseNextOnLineInLogicalOrder() = delete;
-    BoxIterator& traversePreviousOnLineInLogicalOrder() = delete;
 
     const TextBox& get() const { return downcast<TextBox>(m_box); }
 };
@@ -103,7 +100,6 @@ private:
 };
 
 TextBoxIterator firstTextBoxFor(const RenderText&);
-TextBoxIterator firstTextBoxInTextOrderFor(const RenderText&);
 TextBoxIterator textBoxFor(const LegacyInlineTextBox*);
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 TextBoxIterator textBoxFor(const LayoutIntegration::InlineContent&, const InlineDisplay::Box&);

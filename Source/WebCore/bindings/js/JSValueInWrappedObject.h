@@ -29,7 +29,7 @@
 #include <JavaScriptCore/JSCJSValue.h>
 #include <JavaScriptCore/SlotVisitor.h>
 #include <JavaScriptCore/Weak.h>
-#include <wtf/Variant.h>
+#include <variant>
 
 namespace WebCore {
 
@@ -48,7 +48,7 @@ private:
     // we get null rather than a dangling pointer to a deleted object.
     using Weak = JSC::Weak<JSC::JSCell>;
     // FIXME: Would storing a separate JSValue alongside a Weak be better than using a Variant?
-    using Value = Variant<JSC::JSValue, Weak>;
+    using Value = std::variant<JSC::JSValue, Weak>;
     static Value makeValue(JSC::JSValue);
     Value m_value;
 };

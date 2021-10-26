@@ -28,7 +28,7 @@
 #include "InlineIteratorBoxLegacyPath.h"
 #include "InlineIteratorBoxModernPath.h"
 #include "LegacyInlineElementBox.h"
-#include <wtf/Variant.h>
+#include <variant>
 
 namespace WebCore {
 
@@ -47,7 +47,7 @@ struct EndIterator { };
 
 class Box {
 public:
-    using PathVariant = Variant<
+    using PathVariant = std::variant<
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
         BoxModernPath,
 #endif
@@ -131,7 +131,7 @@ public:
     bool atEnd() const;
 
 protected:
-    BoxIterator() : m_box(BoxLegacyPath { nullptr, { } }) { };
+    BoxIterator() : m_box(BoxLegacyPath { nullptr }) { };
     BoxIterator(Box::PathVariant&&);
     BoxIterator(const Box&);
 
@@ -148,8 +148,6 @@ public:
     LeafBoxIterator& traversePreviousOnLine();
     LeafBoxIterator& traverseNextOnLineIgnoringLineBreak();
     LeafBoxIterator& traversePreviousOnLineIgnoringLineBreak();
-    LeafBoxIterator& traverseNextOnLineInLogicalOrder();
-    LeafBoxIterator& traversePreviousOnLineInLogicalOrder();
 };
 
 LeafBoxIterator boxFor(const RenderLineBreak&);
@@ -246,7 +244,7 @@ inline const LegacyInlineBox* Box::legacyInlineBox() const
 {
     if (!std::holds_alternative<BoxLegacyPath>(m_pathVariant))
         return nullptr;
-    return WTF::get<BoxLegacyPath>(m_pathVariant).legacyInlineBox();
+    return std::get<BoxLegacyPath>(m_pathVariant).legacyInlineBox();
 }
 
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
@@ -254,7 +252,7 @@ inline const InlineDisplay::Box* Box::inlineBox() const
 {
     if (!std::holds_alternative<BoxModernPath>(m_pathVariant))
         return nullptr;
-    return &WTF::get<BoxModernPath>(m_pathVariant).box();
+    return &std::get<BoxModernPath>(m_pathVariant).box();
 }
 #endif
 

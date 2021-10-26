@@ -100,8 +100,8 @@ public:
 
     virtual bool shouldRubberBandOnSide(BoxSide) const = 0;
 
-    virtual void willStartRubberBandSnapAnimation() { }
-    virtual void didStopRubberbandSnapAnimation() { }
+    virtual void willStartRubberBandAnimation() { }
+    virtual void didStopRubberBandAnimation() { }
 
     virtual void rubberBandingStateChanged(bool) { }
 #endif
@@ -137,10 +137,12 @@ public:
     bool retargetAnimatedScroll(FloatPoint newDestinationOffset);
     void stopAnimatedScroll();
 
+    void stopKeyboardScrolling();
+
     bool startMomentumScrollWithInitialVelocity(const FloatPoint& initialOffset, const FloatSize& initialVelocity, const FloatSize& initialDelta, const WTF::Function<FloatPoint(const FloatPoint&)>& destinationModifier);
 
-    void beginKeyboardScrolling();
-    void stopKeyboardScrolling();
+    void willBeginKeyboardScrolling();
+    void didStopKeyboardScrolling();
     
     // Should be called periodically by the client. Started by startAnimationCallback(), stopped by stopAnimationCallback().
     void animationCallback(MonotonicTime);
@@ -174,13 +176,13 @@ public:
     // Returns true if handled.
     bool processWheelEventForScrollSnap(const PlatformWheelEvent&);
 
-    void stopRubberbanding();
+    void stopRubberBanding();
     bool isRubberBandInProgress() const;
     RectEdges<bool> rubberBandingEdges() const { return m_rubberBandingEdges; }
 #endif
 
 private:
-    void updateRubberBandAnimatingState(MonotonicTime);
+    void updateRubberBandAnimatingState();
     void updateKeyboardScrollingAnimatingState(MonotonicTime);
 
     void setIsAnimatingRubberBand(bool);
@@ -200,9 +202,13 @@ private:
     bool modifyScrollDeltaForStretching(const PlatformWheelEvent&, FloatSize&, bool isHorizontallyStretched, bool isVerticallyStretched);
     bool applyScrollDeltaWithStretching(const PlatformWheelEvent&, FloatSize, bool isHorizontallyStretched, bool isVerticallyStretched);
 
-    void startRubberbandAnimationIfNecessary();
-    void startRubberbandAnimation();
-    void stopRubberbandAnimation();
+    void startRubberBandAnimationIfNecessary();
+
+    void startRubberBandAnimation(const FloatPoint& targetOffset, const FloatSize& initialVelocity, const FloatSize& initialOverscroll);
+    void stopRubberBandAnimation();
+
+    void willStartRubberBandAnimation();
+    void didStopRubberBandAnimation();
 
     bool shouldRubberBandOnSide(BoxSide) const;
     bool isRubberBandInProgressInternal() const;
@@ -254,10 +260,6 @@ private:
     std::unique_ptr<ScrollingEffectsControllerTimer> m_statelessSnapTransitionTimer;
 
 #if HAVE(RUBBER_BANDING)
-    // Rubber band state.
-    MonotonicTime m_startTime;
-    FloatSize m_startStretch;
-    FloatSize m_origVelocity;
     RectEdges<bool> m_rubberBandingEdges;
 #endif
 

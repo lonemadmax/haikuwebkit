@@ -731,10 +731,7 @@ static NSURL *createUniqueWebDataURL();
 #else
         auto* layer = startNode->renderer()->enclosingLayer();
         if (layer) {
-            auto* scrollableArea = layer->ensureLayerScrollableArea();
-            scrollableArea->setAdjustForIOSCaretWhenScrolling(true);
             startNode->renderer()->scrollRectToVisible(WebCore::enclosingIntRect(rangeRect), insideFixed, { WebCore::SelectionRevealMode::Reveal, WebCore::ScrollAlignment::alignToEdgeIfNeeded, WebCore::ScrollAlignment::alignToEdgeIfNeeded, WebCore::ShouldAllowCrossOriginScrolling::Yes });
-            scrollableArea->setAdjustForIOSCaretWhenScrolling(false);
             _private->coreFrame->selection().setCaretRectNeedsUpdate();
             _private->coreFrame->selection().updateAppearance();
         }
@@ -752,10 +749,7 @@ static NSURL *createUniqueWebDataURL();
     if (startNode && startNode->renderer()) {
         auto* layer = startNode->renderer()->enclosingLayer();
         if (layer) {
-            auto* scrollableArea = layer->ensureLayerScrollableArea();
-            scrollableArea->setAdjustForIOSCaretWhenScrolling(true);
             startNode->renderer()->scrollRectToVisible(WebCore::enclosingIntRect(rangeRect), insideFixed, { WebCore::SelectionRevealMode::Reveal, WebCore::ScrollAlignment::alignToEdgeIfNeeded, WebCore::ScrollAlignment::alignToEdgeIfNeeded, WebCore::ShouldAllowCrossOriginScrolling::Yes});
-            scrollableArea->setAdjustForIOSCaretWhenScrolling(false);
 
             auto coreFrame = core(self);
             if (coreFrame) {
@@ -1724,7 +1718,7 @@ static WebFrameLoadType toWebFrameLoadType(WebCore::FrameLoadType frameLoadType)
             if (marker->type() != WebCore::DocumentMarker::DictationResult)
                 continue;
 
-            id metadata = WTF::get<RetainPtr<id>>(marker->data()).get();
+            id metadata = std::get<RetainPtr<id>>(marker->data()).get();
 
             // All result markers should have metadata.
             ASSERT(metadata);
@@ -1769,7 +1763,7 @@ static WebFrameLoadType toWebFrameLoadType(WebCore::FrameLoadType frameLoadType)
     if (markers.size() == 0)
         return nil;
 
-    return WTF::get<RetainPtr<id>>(markers[0]->data()).get();
+    return std::get<RetainPtr<id>>(markers[0]->data()).get();
 }
 
 - (void)recursiveSetUpdateAppearanceEnabled:(BOOL)enabled

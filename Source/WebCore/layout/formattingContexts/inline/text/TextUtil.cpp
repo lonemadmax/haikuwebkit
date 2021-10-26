@@ -120,6 +120,9 @@ TextUtil::FallbackFontList TextUtil::fallbackFontsForRun(const Line::Run& run, c
     TextUtil::FallbackFontList fallbackFonts;
 
     auto collectFallbackFonts = [&](const auto& textRun) {
+        if (textRun.text().isEmpty())
+            return;
+
         if (textRun.is8Bit()) {
             auto textIterator = Latin1TextIterator { textRun.data8(0), 0, textRun.length(), textRun.length() };
             fallbackFontsForRunWithIterator(fallbackFonts, style.fontCascade(), textRun, textIterator);
@@ -146,12 +149,9 @@ TextUtil::MidWordBreak TextUtil::midWordBreak(const InlineTextItem& inlineTextIt
     auto text = inlineTextItem.inlineTextBox().content();
     auto surrogatePairAwareIndex = [&] (auto index) {
         // We should never break in the middle of a surrogate pair. They are considered one joint entity.
-        RELEASE_ASSERT(index < text.length());
-        if (!U16_IS_LEAD(text[index]))
-            return index;
-        RELEASE_ASSERT(index + 1 < text.length());
-        ASSERT(U16_IS_TRAIL(text[index + 1]));
-        return ++index;
+        auto offset = index + 1;
+        U16_SET_CP_LIMIT(text, 0, offset, text.length());
+        return offset - 1;
     };
 
     auto left = startPosition;
@@ -169,15 +169,9 @@ TextUtil::MidWordBreak TextUtil::midWordBreak(const InlineTextItem& inlineTextIt
             left = middle + 1;
             leftSideWidth = width;
         } else if (width > availableWidth) {
-            auto surrogatePairAwareStart = [&] (auto index) {
-                if (!U16_IS_TRAIL(text[middle]))
-                    return index;
-                RELEASE_ASSERT(index);
-                ASSERT(U16_IS_LEAD(text[index - 1]));
-                return --index;
-            };
-            // When the substring does not fit, the right side is supposed to be the start of the surrogate pair if applicable. 
-            right = surrogatePairAwareStart(middle);
+            // When the substring does not fit, the right side is supposed to be the start of the surrogate pair if applicable.
+            right = middle;
+            U16_SET_CP_START(text, 0, right);
         } else {
             right = middle + 1;
             leftSideWidth = width;
@@ -221,6 +215,12 @@ bool TextUtil::shouldPreserveNewline(const Box& layoutBox)
     auto whitespace = layoutBox.style().whiteSpace();
     // https://www.w3.org/TR/css-text-3/#white-space-property
     return whitespace == WhiteSpace::Pre || whitespace == WhiteSpace::PreWrap || whitespace == WhiteSpace::BreakSpaces || whitespace == WhiteSpace::PreLine; 
+}
+
+bool TextUtil::isWrappingAllowed(const RenderStyle& style)
+{
+    // Do not try to wrap overflown 'pre' and 'no-wrap' content to next line.
+    return style.whiteSpace() != WhiteSpace::Pre && style.whiteSpace() != WhiteSpace::NoWrap;
 }
 
 LineBreakIteratorMode TextUtil::lineBreakIteratorMode(LineBreak lineBreak)

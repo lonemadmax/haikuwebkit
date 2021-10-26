@@ -21,6 +21,7 @@
 
 #if ENABLE(ACCESSIBILITY) && USE(ATSPI)
 #include "AccessibilityAtspi.h"
+#include "IntRect.h"
 #include <wtf/FastMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/WeakPtr.h>
@@ -34,7 +35,7 @@ class Page;
 class AccessibilityRootAtspi final : public ThreadSafeRefCounted<AccessibilityRootAtspi> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<AccessibilityRootAtspi> create(const Page&, AccessibilityAtspi&);
+    static Ref<AccessibilityRootAtspi> create(Page&, AccessibilityAtspi&);
     ~AccessibilityRootAtspi() = default;
 
     void registerObject(CompletionHandler<void(const String&)>&&);
@@ -52,9 +53,12 @@ public:
     void serialize(GVariantBuilder*) const;
 
 private:
-    AccessibilityRootAtspi(const Page&, AccessibilityAtspi&);
+    AccessibilityRootAtspi(Page&, AccessibilityAtspi&);
+
+    IntRect frameRect(uint32_t) const;
 
     static GDBusInterfaceVTable s_accessibleFunctions;
+    static GDBusInterfaceVTable s_componentFunctions;
 
     AccessibilityAtspi& m_atspi;
     WeakPtr<Page> m_page;

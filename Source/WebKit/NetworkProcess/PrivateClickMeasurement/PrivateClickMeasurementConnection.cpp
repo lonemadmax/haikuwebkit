@@ -26,29 +26,20 @@
 #include "config.h"
 #include "PrivateClickMeasurementConnection.h"
 
-#include <WebCore/NotImplemented.h>
-
 namespace WebKit {
 
 namespace PCM {
 
-ConnectionToMachService::ConnectionToMachService(CString&& machServiceName, NetworkSession& networkSession)
-    : m_machServiceName(WTFMove(machServiceName))
-    , m_networkSession(makeWeakPtr(networkSession)) { }
+Connection::Connection(CString&& machServiceName, NetworkSession& networkSession)
+    : Daemon::ConnectionToMachService<ConnectionTraits>(WTFMove(machServiceName))
+    , m_networkSession(networkSession)
+{
+}
 
 #if !PLATFORM(COCOA)
-
-void ConnectionToMachService::send(MessageType, EncodedMessage&&) const
+void Connection::newConnectionWasInitialized() const
 {
-    notImplemented();
 }
-
-void ConnectionToMachService::sendWithReply(MessageType, EncodedMessage&&, CompletionHandler<void(EncodedMessage&&)>&& completionHandler) const
-{
-    notImplemented();
-    completionHandler({ });
-}
-
 #endif
 
 } // namespace PCM

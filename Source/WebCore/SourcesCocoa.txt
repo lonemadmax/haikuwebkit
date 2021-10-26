@@ -177,13 +177,13 @@ inspector/mac/PageDebuggerMac.mm
 loader/archive/cf/LegacyWebArchive.cpp
 loader/archive/cf/LegacyWebArchiveMac.mm
 loader/cocoa/DiskCacheMonitorCocoa.mm
-loader/cocoa/PrivateClickMeasurementCocoa.mm
 loader/cocoa/SubresourceLoaderCocoa.mm
 loader/ios/LegacyPreviewLoader.mm
 loader/mac/DocumentLoaderMac.cpp
 loader/mac/LoaderNSURLExtras.mm
 loader/mac/ResourceLoaderMac.mm
 page/CaptionUserPreferencesMediaAF.cpp
+page/cocoa/CaptionUserPreferencesMediaAFCocoa.mm
 page/cocoa/MemoryReleaseCocoa.mm
 page/cocoa/PerformanceLoggingCocoa.mm
 page/cocoa/ResourceUsageOverlayCocoa.mm
@@ -388,6 +388,7 @@ platform/graphics/cocoa/WebActionDisablingCALayerDelegate.mm
 platform/graphics/cocoa/WebCoreCALayerExtras.mm
 platform/graphics/cocoa/WebCoreDecompressionSession.mm
 platform/graphics/cocoa/WebGLLayer.mm
+platform/graphics/cocoa/WebProcessGraphicsContextGLOpenGLCocoa.mm
 platform/graphics/cocoa/VideoTrackPrivateWebM.cpp
 platform/graphics/coretext/DrawGlyphsRecorderCoreText.cpp
 platform/graphics/coretext/FontCascadeCoreText.cpp
@@ -488,13 +489,13 @@ platform/mac/PlatformSpeechSynthesizerMac.mm
 platform/mac/PlaybackSessionInterfaceMac.mm @no-unify
 platform/mac/PluginBlocklist.mm
 platform/mac/PowerObserverMac.cpp
-platform/mac/PublicSuffixMac.mm
 platform/mac/SSLKeyGeneratorMac.mm
 platform/mac/ScrollAnimatorMac.mm @no-unify
-platform/mac/ScrollingEffectsController.mm
+platform/mac/ScrollAnimationRubberBand.mm
 platform/mac/ScrollViewMac.mm
 platform/mac/ScrollbarsControllerMac.mm @no-unify
 platform/mac/ScrollbarThemeMac.mm @no-unify
+platform/mac/ScrollingEffectsController.mm
 platform/mac/ScrollingMomentumCalculatorMac.mm
 platform/mac/SerializedPlatformDataCueMac.mm
 platform/mac/StringUtilities.mm
@@ -522,12 +523,14 @@ platform/mediarecorder/cocoa/VideoSampleBufferCompressor.mm
 platform/mediastream/cocoa/AudioMediaStreamTrackRendererCocoa.cpp
 platform/mediastream/cocoa/AudioMediaStreamTrackRendererInternalUnit.cpp
 platform/mediastream/cocoa/AudioMediaStreamTrackRendererUnit.cpp
+platform/mediastream/cocoa/DisplayCaptureSourceCocoa.cpp
 platform/mediastream/ios/AVAudioSessionCaptureDevice.mm
 platform/mediastream/ios/AVAudioSessionCaptureDeviceManager.mm @no-unify
 platform/mediastream/ios/CoreAudioCaptureSourceIOS.mm
+platform/mediastream/ios/ReplayKitCaptureSource.mm @no-unify
 platform/mediastream/libwebrtc/LibWebRTCProviderCocoa.cpp
 platform/mediastream/mac/AVCaptureDeviceManager.mm
-platform/mediastream/mac/AVVideoCaptureSource.mm
+platform/mediastream/mac/AVVideoCaptureSource.mm @no-unify
 platform/mediastream/mac/BaseAudioSharedUnit.cpp
 platform/mediastream/mac/CGDisplayStreamCaptureSource.cpp
 platform/mediastream/mac/CGDisplayStreamScreenCaptureSource.mm
@@ -535,7 +538,6 @@ platform/mediastream/mac/CoreAudioCaptureDevice.cpp
 platform/mediastream/mac/CoreAudioCaptureDeviceManager.cpp
 platform/mediastream/mac/CoreAudioCaptureSource.cpp
 platform/mediastream/mac/DisplayCaptureManagerCocoa.cpp
-platform/mediastream/mac/DisplayCaptureSourceMac.cpp
 platform/mediastream/mac/MediaStreamTrackAudioSourceProviderCocoa.cpp
 platform/mediastream/mac/MockAudioSharedUnit.mm
 platform/mediastream/mac/MockRealtimeVideoSourceMac.mm
@@ -549,7 +551,6 @@ platform/mediastream/mac/WebAudioSourceProviderCocoa.mm
 platform/mock/MediaPlaybackTargetMock.cpp
 platform/mock/MediaPlaybackTargetPickerMock.cpp
 platform/mock/MockAudioDestinationCocoa.cpp
-platform/network/cf/CertificateInfoCFNet.cpp
 platform/network/cf/DNSResolveQueueCFNet.cpp
 platform/network/cf/FormDataStreamCFNet.cpp
 platform/network/cf/NetworkStorageSessionCFNet.cpp

@@ -28,6 +28,7 @@
 #include "RenderObject.h"
 
 #include "AXObjectCache.h"
+#include "DocumentInlines.h"
 #include "Editing.h"
 #include "ElementAncestorIterator.h"
 #include "FloatQuad.h"
@@ -1795,7 +1796,7 @@ bool RenderObject::useDarkAppearance() const
     return document().useDarkAppearance(&style());
 }
 
-OptionSet<StyleColor::Options> RenderObject::styleColorOptions() const
+OptionSet<StyleColorOptions> RenderObject::styleColorOptions() const
 {
     return document().styleColorOptions(&style());
 }
@@ -2180,7 +2181,7 @@ auto RenderObject::collectSelectionGeometriesInternal(const SimpleRange& range) 
     for (auto& node : intersectingNodesWithDeprecatedZeroOffsetStartQuirk(range)) {
         auto renderer = node.renderer();
         // Only ask leaf render objects for their line box rects.
-        if (renderer && !renderer->firstChildSlow() && renderer->style().userSelect() != UserSelect::None && !renderer->style().effectiveInert()) {
+        if (renderer && !renderer->firstChildSlow() && renderer->style().userSelectIncludingInert() != UserSelect::None) {
             bool isStartNode = renderer->node() == range.start.container.ptr();
             bool isEndNode = renderer->node() == range.end.container.ptr();
             if (hasFlippedWritingMode != renderer->style().isFlippedBlocksWritingMode())

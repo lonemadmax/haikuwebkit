@@ -45,14 +45,14 @@ public:
 
     bool isWhitespace() const { return m_textItemType == TextItemType::Whitespace; }
     bool isWordSeparator() const { return m_isWordSeparator; }
+    bool isZeroWidthSpaceSeparator() const;
     bool hasTrailingSoftHyphen() const { return m_hasTrailingSoftHyphen; }
     std::optional<InlineLayoutUnit> width() const { return m_hasWidth ? std::make_optional(m_width) : std::optional<InlineLayoutUnit> { }; }
-    bool isEmptyContent() const;
 
     const InlineTextBox& inlineTextBox() const { return downcast<InlineTextBox>(layoutBox()); }
 
     InlineTextItem left(unsigned length) const;
-    InlineTextItem right(unsigned length) const;
+    InlineTextItem right(unsigned length, std::optional<InlineLayoutUnit> width) const;
 
     static bool shouldPreserveSpacesAndTabs(const InlineTextItem&);
 
@@ -108,12 +108,12 @@ inline InlineTextItem InlineTextItem::left(unsigned length) const
     return { inlineTextBox(), start(), length, false, isWordSeparator(), std::nullopt, m_textItemType };
 }
 
-inline InlineTextItem InlineTextItem::right(unsigned length) const
+inline InlineTextItem InlineTextItem::right(unsigned length, std::optional<InlineLayoutUnit> width) const
 {
     RELEASE_ASSERT(length <= this->length());
     ASSERT(m_textItemType != TextItemType::Undefined);
     ASSERT(length);
-    return { inlineTextBox(), end() - length, length, hasTrailingSoftHyphen(), isWordSeparator(), std::nullopt, m_textItemType };
+    return { inlineTextBox(), end() - length, length, hasTrailingSoftHyphen(), isWordSeparator(), width, m_textItemType };
 }
 
 }

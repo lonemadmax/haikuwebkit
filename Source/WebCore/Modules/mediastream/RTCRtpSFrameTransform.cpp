@@ -72,7 +72,7 @@ void RTCRtpSFrameTransform::setEncryptionKey(CryptoKey& key, std::optional<uint6
         return;
     }
 
-    if (WTF::get<CryptoKeyAlgorithm>(algorithm).name != "HKDF") {
+    if (std::get<CryptoKeyAlgorithm>(algorithm).name != "HKDF") {
         promise.reject(Exception { TypeError, "Only HKDF is supported"_s });
         return;
     }
@@ -159,7 +159,7 @@ void RTCRtpSFrameTransform::initializeTransformer(RTCRtpTransformBackend& backen
     m_transformer->setIsEncrypting(side == Side::Sender);
     m_transformer->setMediaType(backend.mediaType());
 
-    backend.setTransformableFrameCallback([transformer = m_transformer, identifier = context->contextIdentifier(), backend = Ref { backend }, weakThis = makeWeakPtr(this)](auto&& frame) {
+    backend.setTransformableFrameCallback([transformer = m_transformer, identifier = context->contextIdentifier(), backend = Ref { backend }, weakThis = WeakPtr { *this }](auto&& frame) {
         auto chunk = frame->data();
         if (!chunk.data() || !chunk.size())
             return;
@@ -219,7 +219,7 @@ ExceptionOr<void> RTCRtpSFrameTransform::createStreams()
     if (readable.hasException())
         return readable.releaseException();
 
-    auto writable = WritableStream::create(*JSC::jsCast<JSDOMGlobalObject*>(globalObject), SimpleWritableStreamSink::create([transformer = m_transformer, readableStreamSource = m_readableStreamSource, weakThis = makeWeakPtr(this)](auto& context, auto value) -> ExceptionOr<void> {
+    auto writable = WritableStream::create(*JSC::jsCast<JSDOMGlobalObject*>(globalObject), SimpleWritableStreamSink::create([transformer = m_transformer, readableStreamSource = m_readableStreamSource, weakThis = WeakPtr { *this }](auto& context, auto value) -> ExceptionOr<void> {
         if (!context.globalObject())
             return Exception { InvalidStateError };
         auto& globalObject = *JSC::jsCast<JSDOMGlobalObject*>(context.globalObject());

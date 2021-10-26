@@ -24,11 +24,11 @@
 #include "IntRect.h"
 #include "IntSize.h"
 #include <memory>
+#include <variant>
 #include <wtf/CompletionHandler.h>
 #include <wtf/HashMap.h>
 #include <wtf/Ref.h>
 #include <wtf/UniqueRef.h>
-#include <wtf/Variant.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
 
@@ -77,6 +77,38 @@ enum class XRTargetRayMode {
     TrackedPointer,
     Screen,
 };
+
+#if ENABLE(WEBXR_HANDS)
+
+enum class HandJoint : unsigned {
+    Wrist,
+    ThumbMetacarpal,
+    ThumbPhalanxProximal,
+    ThumbPhalanxDistal,
+    ThumbTip,
+    IndexFingerMetacarpal,
+    IndexFingerPhalanxProximal,
+    IndexFingerPhalanxIntermediate,
+    IndexFingerPhalanxDistal,
+    IndexFingerTip,
+    MiddleFingerMetacarpal,
+    MiddleFingerPhalanxProximal,
+    MiddleFingerPhalanxIntermediate,
+    MiddleFingerPhalanxDistal,
+    MiddleFingerTip,
+    RingFingerMetacarpal,
+    RingFingerPhalanxProximal,
+    RingFingerPhalanxIntermediate,
+    RingFingerPhalanxDistal,
+    RingFingerTip,
+    PinkyFingerMetacarpal,
+    PinkyFingerPhalanxProximal,
+    PinkyFingerPhalanxIntermediate,
+    PinkyFingerPhalanxDistal,
+    PinkyFingerTip
+};
+
+#endif
 
 class TrackingAndRenderingClient;
 
@@ -152,7 +184,7 @@ public:
         static constexpr size_t projectionMatrixSize = 16;
         typedef std::array<float, projectionMatrixSize> ProjectionMatrix;
 
-        using Projection = Variant<Fov, ProjectionMatrix, std::nullptr_t>;
+        using Projection = std::variant<Fov, ProjectionMatrix, std::nullptr_t>;
 
         struct View {
             Pose offset;
@@ -208,6 +240,10 @@ public:
             std::optional<InputSourcePose> gripOrigin;
             Vector<InputSourceButton> buttons;
             Vector<float> axes;
+#if ENABLE(WEBXR_HANDS)
+            // FIXME: Actually hold some hand data.
+            bool simulateHand { false };
+#endif
 
             template<class Encoder> void encode(Encoder&) const;
             template<class Decoder> static std::optional<InputSource> decode(Decoder&);
@@ -365,14 +401,14 @@ void Device::FrameData::View::encode(Encoder& encoder) const
     bool hasFov = std::holds_alternative<PlatformXR::Device::FrameData::Fov>(projection);
     encoder << hasFov;
     if (hasFov) {
-        encoder << WTF::get<PlatformXR::Device::FrameData::Fov>(projection);
+        encoder << std::get<PlatformXR::Device::FrameData::Fov>(projection);
         return;
     }
 
     bool hasProjectionMatrix = std::holds_alternative<PlatformXR::Device::FrameData::ProjectionMatrix>(projection);
     encoder << hasProjectionMatrix;
     if (hasProjectionMatrix) {
-        for (float f : WTF::get<PlatformXR::Device::FrameData::ProjectionMatrix>(projection))
+        for (float f : std::get<PlatformXR::Device::FrameData::ProjectionMatrix>(projection))
             encoder << f;
         return;
     }

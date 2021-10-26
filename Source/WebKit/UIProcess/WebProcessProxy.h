@@ -408,7 +408,7 @@ public:
     static void muteCaptureInPagesExcept(WebCore::PageIdentifier);
     SpeechRecognitionRemoteRealtimeMediaSourceManager& ensureSpeechRecognitionRemoteRealtimeMediaSourceManager();
 #endif
-    void pageMutedStateChanged(WebCore::PageIdentifier, WebCore::MediaProducer::MutedStateFlags);
+    void pageMutedStateChanged(WebCore::PageIdentifier, WebCore::MediaProducerMutedStateFlags);
     void pageIsBecomingInvisible(WebCore::PageIdentifier);
 
 #if PLATFORM(COCOA) && ENABLE(REMOTE_INSPECTOR)
@@ -551,7 +551,7 @@ private:
     public:
         WeakOrStrongPtr(T& object, IsWeak isWeak)
             : m_isWeak(isWeak)
-            , m_weakObject(makeWeakPtr(object))
+            , m_weakObject(object)
         {
             updateStrongReference();
         }

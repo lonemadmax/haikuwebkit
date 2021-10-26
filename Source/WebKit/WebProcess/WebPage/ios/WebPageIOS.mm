@@ -330,7 +330,7 @@ void WebPage::getPlatformEditorState(Frame& frame, EditorState& result) const
     if (selectedRange) {
         auto markers = frame.document()->markers().markersInRange(*selectedRange, DocumentMarker::MarkerType::DictationAlternatives);
         postLayoutData.dictationContextsForSelection = WTF::map(markers, [] (auto* marker) {
-            return WTF::get<DocumentMarker::DictationData>(marker->data()).context;
+            return std::get<DocumentMarker::DictationData>(marker->data()).context;
         });
     }
 #endif
@@ -812,7 +812,7 @@ void WebPage::didFinishContentChangeObserving(WKContentChange observedContentCha
     LOG_WITH_STREAM(ContentObservation, stream << "didFinishContentChangeObserving: pending target node(" << m_pendingSyntheticClickNode << ")");
     if (!m_pendingSyntheticClickNode)
         return;
-    callOnMainRunLoop([protectedThis = Ref { *this }, targetNode = Ref<Node>(*m_pendingSyntheticClickNode), originalDocument = makeWeakPtr(m_pendingSyntheticClickNode->document()), observedContentChange, location = m_pendingSyntheticClickLocation, modifiers = m_pendingSyntheticClickModifiers, pointerId = m_pendingSyntheticClickPointerId] {
+    callOnMainRunLoop([protectedThis = Ref { *this }, targetNode = Ref<Node>(*m_pendingSyntheticClickNode), originalDocument = WeakPtr { m_pendingSyntheticClickNode->document() }, observedContentChange, location = m_pendingSyntheticClickLocation, modifiers = m_pendingSyntheticClickModifiers, pointerId = m_pendingSyntheticClickPointerId] {
         if (protectedThis->m_isClosed || !protectedThis->corePage())
             return;
         if (!originalDocument || &targetNode->document() != originalDocument)
@@ -2202,7 +2202,7 @@ void WebPage::selectTextWithGranularityAtPoint(const WebCore::IntPoint& point, W
     if (auto selectionChangedHandler = std::exchange(m_selectionChangedHandler, {}))
         selectionChangedHandler();
 
-    m_selectionChangedHandler = [point, granularity, isInteractingWithFocusedElement, completionHandler = WTFMove(completionHandler), webPage = makeWeakPtr(*this), this]() mutable {
+    m_selectionChangedHandler = [point, granularity, isInteractingWithFocusedElement, completionHandler = WTFMove(completionHandler), webPage = WeakPtr { *this }, this]() mutable {
         RefPtr<WebPage> strongPage = webPage.get();
         if (!strongPage) {
             completionHandler();
@@ -2906,7 +2906,7 @@ static void selectionPositionInformation(WebPage& page, const InteractionInforma
         if (attachment.file())
             info.url = URL::fileURLWithFileSystemPath(downcast<HTMLAttachmentElement>(*hitNode).file()->path());
     } else {
-        info.isSelectable = renderer->style().userSelect() != UserSelect::None && !renderer->style().effectiveInert();
+        info.isSelectable = renderer->style().userSelectIncludingInert() != UserSelect::None;
         // We don't want to select blocks that are larger than 97% of the visible area of the document.
         // FIXME: Is this heuristic still needed, now that block selection has been removed?
         if (info.isSelectable && !hitNode->isTextNode())
@@ -2918,7 +2918,7 @@ static void selectionPositionInformation(WebPage& page, const InteractionInforma
             continue;
 
         auto& style = renderer->style();
-        if (style.userSelect() == UserSelect::None && style.userDrag() == UserDrag::Element) {
+        if (style.userSelectIncludingInert() == UserSelect::None && style.userDrag() == UserDrag::Element) {
             info.prefersDraggingOverTextSelection = true;
             break;
         }

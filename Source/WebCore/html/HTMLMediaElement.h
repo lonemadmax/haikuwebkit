@@ -115,7 +115,7 @@ class RemotePlayback;
 using CueInterval = PODInterval<MediaTime, TextTrackCue*>;
 using CueList = Vector<CueInterval>;
 
-using MediaProvider = std::optional<Variant<
+using MediaProvider = std::optional < std::variant <
 #if ENABLE(MEDIA_STREAM)
     RefPtr<MediaStream>,
 #endif
@@ -527,7 +527,7 @@ public:
 
     double maxBufferedTime() const;
 
-    MediaProducer::MediaStateFlags mediaState() const override;
+    MediaProducerMediaStateFlags mediaState() const override;
 
     void layoutSizeChanged();
     void visibilityDidChange();
@@ -1212,7 +1212,7 @@ private:
 #endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
-    MediaProducer::MediaStateFlags m_mediaState;
+    MediaProducerMediaStateFlags m_mediaState;
     MonotonicTime m_currentPlaybackTargetIsWirelessEventFiredTime;
     bool m_hasPlaybackTargetAvailabilityListeners { false };
     bool m_failedToPlayToWirelessTarget { false };

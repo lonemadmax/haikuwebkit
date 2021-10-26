@@ -26,6 +26,7 @@
 #include "CommonVM.h"
 #include "ContentSecurityPolicy.h"
 #include "DOMWrapperWorld.h"
+#include "DocumentInlines.h"
 #include "DocumentLoader.h"
 #include "Event.h"
 #include "Frame.h"
@@ -276,7 +277,7 @@ void ScriptController::initScriptForWindowProxy(JSWindowProxy& windowProxy)
     if (Page* page = m_frame.page()) {
         windowProxy.attachDebugger(page->debugger());
         windowProxy.window()->setProfileGroup(page->group().identifier());
-        windowProxy.window()->setConsoleClient(makeWeakPtr(page->console()));
+        windowProxy.window()->setConsoleClient(page->console());
     }
 
     m_frame.loader().dispatchDidClearWindowObjectInWorld(world);
@@ -815,7 +816,7 @@ void ScriptController::executeJavaScriptURL(const URL& url, RefPtr<SecurityOrigi
     if (requesterSecurityOrigin && !requesterSecurityOrigin->isSameOriginDomain(m_frame.document()->securityOrigin()))
         return;
 
-    if (!m_frame.page() || !m_frame.document()->contentSecurityPolicy()->allowJavaScriptURLs(m_frame.document()->url().string(), eventHandlerPosition().m_line))
+    if (!m_frame.page() || !m_frame.document()->contentSecurityPolicy()->allowJavaScriptURLs(m_frame.document()->url().string(), eventHandlerPosition().m_line, url.string()))
         return;
 
     // We need to hold onto the Frame here because executing script can

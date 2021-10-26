@@ -29,6 +29,7 @@
 #include "BreakLines.h"
 #include "BreakingContext.h"
 #include "CharacterProperties.h"
+#include "DocumentInlines.h"
 #include "DocumentMarkerController.h"
 #include "FloatQuad.h"
 #include "Frame.h"
@@ -36,6 +37,7 @@
 #include "HTMLParserIdioms.h"
 #include "Hyphenation.h"
 #include "InlineIteratorLine.h"
+#include "InlineIteratorLogicalOrderTraversal.h"
 #include "InlineIteratorTextBox.h"
 #include "InlineRunAndOffset.h"
 #include "LayoutIntegrationLineLayout.h"
@@ -1711,7 +1713,7 @@ unsigned RenderText::countRenderedCharacterOffsetsUntil(unsigned offset) const
 enum class OffsetType { Character, Caret };
 static bool containsOffset(const RenderText& text, unsigned offset, OffsetType type)
 {
-    for (auto box = InlineIterator::firstTextBoxInTextOrderFor(text); box; box.traverseNextTextBoxInTextOrder()) {
+    for (auto [box, orderCache] = InlineIterator::firstTextBoxInLogicalOrderFor(text); box; box = InlineIterator::nextTextBoxInLogicalOrder(box, orderCache)) {
         auto start = box->start();
         if (offset < start)
             return false;
@@ -1819,7 +1821,7 @@ void RenderText::setInlineWrapperForDisplayContents(RenderInline* wrapper)
         m_hasInlineWrapperForDisplayContents = false;
         return;
     }
-    inlineWrapperForDisplayContentsMap().add(this, makeWeakPtr(wrapper));
+    inlineWrapperForDisplayContentsMap().add(this, wrapper);
     m_hasInlineWrapperForDisplayContents = true;
 }
 

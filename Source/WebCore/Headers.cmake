@@ -476,6 +476,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/DocumentFontLoader.h
     dom/DocumentFragment.h
     dom/DocumentFullscreen.h
+    dom/DocumentInlines.h
     dom/DocumentMarker.h
     dom/DocumentMarkerController.h
     dom/DocumentStorageAccess.h
@@ -806,9 +807,12 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     layout/integration/InlineIteratorLine.h
     layout/integration/InlineIteratorLineLegacyPath.h
     layout/integration/InlineIteratorLineModernPath.h
+    layout/integration/InlineIteratorLogicalOrderTraversal.h
     layout/integration/InlineIteratorTextBox.h
     layout/integration/LayoutIntegrationInlineContent.h
     layout/integration/LayoutIntegrationLine.h
+
+    layout/layouttree/LayoutContainerBox.h
     layout/layouttree/LayoutBox.h
 
     loader/CanvasActivityRecord.h
@@ -947,7 +951,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/FrameViewLayoutContext.h
     page/GlobalFrameIdentifier.h
     page/GlobalWindowIdentifier.h
-    page/KeyboardScroll.h
     page/LayoutMilestone.h
     page/MediaCanStartListener.h
     page/MediaControlsContextMenuItem.h
@@ -961,6 +964,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/PageConsoleClient.h
     page/PageGroup.h
     page/PageIdentifier.h
+    page/PageInlines.h
     page/PageOverlay.h
     page/PageOverlayController.h
     page/PagePasteboardContext.h
@@ -1084,6 +1088,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/FileStreamClient.h
     platform/FloatConversion.h
     platform/HostWindow.h
+    platform/KeyboardScroll.h
     platform/KeyedCoding.h
     platform/KeypressCommand.h
     platform/LayoutUnit.h
@@ -1468,6 +1473,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/mediastream/RTCDataChannelRemoteSourceConnection.h
     platform/mediastream/RTCDataChannelState.h
     platform/mediastream/RTCPriorityType.h
+    platform/mediastream/RTCRtpCapabilities.h
+    platform/mediastream/RTCRtpCodecCapability.h
     platform/mediastream/RealtimeMediaSource.h
     platform/mediastream/RealtimeMediaSourceCapabilities.h
     platform/mediastream/RealtimeMediaSourceCenter.h

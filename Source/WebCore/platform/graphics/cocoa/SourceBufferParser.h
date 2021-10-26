@@ -31,10 +31,10 @@
 #include "SourceBufferPrivateClient.h"
 #include <JavaScriptCore/Forward.h>
 #include <pal/spi/cocoa/MediaToolboxSPI.h>
+#include <variant>
 #include <wtf/CompletionHandler.h>
 #include <wtf/RefCounted.h>
 #include <wtf/ThreadSafeRefCounted.h>
-#include <wtf/Variant.h>
 
 namespace WTF {
 class Logger;
@@ -78,7 +78,7 @@ public:
         size_t read(size_t position, size_t, uint8_t* destination) const;
 
     private:
-        Variant<
+        std::variant<
 #if HAVE(MT_PLUGIN_FORMAT_READER)
             RetainPtr<MTPluginByteSourceRef>,
 #endif

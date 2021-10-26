@@ -1410,7 +1410,7 @@ void RenderLayer::updatePagination()
     // layers). We track an enclosingPaginationLayer instead of using a simple bit, since we want to be able to get back
     // to that layer easily.
     if (renderer().isRenderFragmentedFlow()) {
-        m_enclosingPaginationLayer = makeWeakPtr(*this);
+        m_enclosingPaginationLayer = *this;
         return;
     }
 
@@ -1421,7 +1421,7 @@ void RenderLayer::updatePagination()
         if (parent()->hasTransform())
             m_enclosingPaginationLayer = nullptr;
         else
-            m_enclosingPaginationLayer = makeWeakPtr(parent()->enclosingPaginationLayer(IncludeCompositedPaginatedLayers));
+            m_enclosingPaginationLayer = parent()->enclosingPaginationLayer(IncludeCompositedPaginatedLayers);
         return;
     }
 
@@ -1435,7 +1435,7 @@ void RenderLayer::updatePagination()
             if (containingBlock->layer()->hasTransform())
                 m_enclosingPaginationLayer = nullptr;
             else
-                m_enclosingPaginationLayer = makeWeakPtr(containingBlock->layer()->enclosingPaginationLayer(IncludeCompositedPaginatedLayers));
+                m_enclosingPaginationLayer = containingBlock->layer()->enclosingPaginationLayer(IncludeCompositedPaginatedLayers);
             return;
         }
     }
@@ -1890,7 +1890,7 @@ void RenderLayer::setBackingProviderLayer(RenderLayer* backingProvider)
     if (!renderer().renderTreeBeingDestroyed())
         clearClipRectsIncludingDescendants();
 
-    m_backingProviderLayer = makeWeakPtr(backingProvider);
+    m_backingProviderLayer = backingProvider;
 }
 
 void RenderLayer::disconnectFromBackingProviderLayer()
@@ -3182,15 +3182,19 @@ bool RenderLayer::setupClipPath(GraphicsContext& context, const LayerPaintingInf
     if (is<RenderSVGRoot>(renderer()))
         return false;
 
+    if (!is<RenderBox>(renderer()))
+        return false;
+
     // It's not clear that this geometry is correct: https://github.com/w3c/csswg-drafts/issues/5786
-    auto rootRelativeBounds = calculateLayerBounds(paintingInfo.rootLayer, offsetFromRoot, { UseLocalClipRectIfPossible });
+    auto clipPathObjectBoundingBox = computeReferenceRectFromBox(downcast<RenderBox>(renderer()), CSSBoxType::BorderBox, offsetFromRoot);
 
     auto& style = renderer().style();
     LayoutSize paintingOffsetFromRoot = LayoutSize(snapSizeToDevicePixel(offsetFromRoot + paintingInfo.subpixelOffset, LayoutPoint(), renderer().document().deviceScaleFactor()));
     ASSERT(style.clipPath());
     if (is<ShapeClipPathOperation>(*style.clipPath()) || (is<BoxClipPathOperation>(*style.clipPath()) && is<RenderBox>(renderer()))) {
         WindRule windRule;
-        Path path = computeClipPath(paintingOffsetFromRoot, rootRelativeBounds, windRule);
+        // FIXME: Should probably pixel-snap clipPathObjectBoundingBox here.
+        Path path = computeClipPath(paintingOffsetFromRoot, clipPathObjectBoundingBox, windRule);
         context.save();
         context.clipPath(path, windRule);
         return true;
@@ -3200,11 +3204,15 @@ bool RenderLayer::setupClipPath(GraphicsContext& context, const LayerPaintingInf
         auto& referenceClipPathOperation = downcast<ReferenceClipPathOperation>(*style.clipPath());
         if (auto* clipperRenderer = renderer().ensureReferencedSVGResources().referencedClipperRenderer(renderer().document(), referenceClipPathOperation)) {
             context.save();
-            auto referenceBox = snapRectToDevicePixels(rootRelativeBounds, renderer().document().deviceScaleFactor());
+            auto referenceBox = snapRectToDevicePixels(clipPathObjectBoundingBox, renderer().document().deviceScaleFactor());
             auto offset = referenceBox.location();
+
+            auto clippedContentBounds = FloatRect(calculateLayerBounds(paintingInfo.rootLayer, offsetFromRoot, { UseLocalClipRectIfPossible }));
+            clippedContentBounds.moveBy(-offset);
+
             context.translate(offset);
-            FloatRect svgReferenceBox { {}, referenceBox.size() };
-            clipperRenderer->applyClippingToContext(context, renderer(), svgReferenceBox, renderer().style().effectiveZoom());
+            FloatRect clipPathReferenceBox { { }, referenceBox.size() };
+            clipperRenderer->applyClippingToContext(context, renderer(), clipPathReferenceBox, clippedContentBounds, renderer().style().effectiveZoom());
             context.translate(-offset);
             return true;
         }
@@ -5240,7 +5248,7 @@ static void determineNonLayerDescendantsPaintedContent(const RenderElement& rend
             if (!renderText.hasRenderedText())
                 continue;
 
-            if (renderer.style().userSelect() != UserSelect::None)
+            if (renderer.style().userSelectIncludingInert() != UserSelect::None)
                 request.setHasPaintedContent();
 
             if (!renderText.text().isAllSpecialCharacters<isHTMLSpace>()) {

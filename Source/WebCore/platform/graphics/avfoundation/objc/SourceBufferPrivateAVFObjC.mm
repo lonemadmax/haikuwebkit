@@ -304,7 +304,7 @@ Ref<SourceBufferPrivateAVFObjC> SourceBufferPrivateAVFObjC::create(MediaSourcePr
 
 SourceBufferPrivateAVFObjC::SourceBufferPrivateAVFObjC(MediaSourcePrivateAVFObjC* parent, Ref<SourceBufferParser>&& parser)
     : m_parser(WTFMove(parser))
-    , m_errorListener(adoptNS([[WebAVSampleBufferErrorListener alloc] initWithParent:makeWeakPtr(*this)]))
+    , m_errorListener(adoptNS([[WebAVSampleBufferErrorListener alloc] initWithParent:*this]))
     , m_appendQueue(WorkQueue::create("SourceBufferPrivateAVFObjC data parser queue"))
     , m_mediaSource(parent)
     , m_mapID(nextMapID())
@@ -322,7 +322,7 @@ SourceBufferPrivateAVFObjC::SourceBufferPrivateAVFObjC(MediaSourcePrivateAVFObjC
     m_parser->setLogger(m_logger.get(), m_logIdentifier);
 #endif
 
-    sourceBufferMap().add(m_mapID, makeWeakPtr(*this));
+    sourceBufferMap().add(m_mapID, *this);
 }
 
 SourceBufferPrivateAVFObjC::~SourceBufferPrivateAVFObjC()
@@ -365,7 +365,7 @@ void SourceBufferPrivateAVFObjC::didParseInitializationData(InitializationSegmen
     clearTracks();
 
     for (auto videoTrackInfo : segment.videoTracks) {
-        videoTrackInfo.track->setSelectedChangedCallback([weakThis = makeWeakPtr(this), this] (VideoTrackPrivate& track, bool selected) {
+        videoTrackInfo.track->setSelectedChangedCallback([weakThis = WeakPtr { *this }, this] (VideoTrackPrivate& track, bool selected) {
             if (!weakThis)
                 return;
 
@@ -387,7 +387,7 @@ void SourceBufferPrivateAVFObjC::didParseInitializationData(InitializationSegmen
     }
 
     for (auto audioTrackInfo : segment.audioTracks) {
-        audioTrackInfo.track->setEnabledChangedCallback([weakThis = makeWeakPtr(this), this] (AudioTrackPrivate& track, bool enabled) {
+        audioTrackInfo.track->setEnabledChangedCallback([weakThis = WeakPtr { *this }, this] (AudioTrackPrivate& track, bool enabled) {
             if (!weakThis)
                 return;
 
@@ -573,21 +573,21 @@ void SourceBufferPrivateAVFObjC::append(Ref<SharedBuffer>&& data)
     if (m_client)
         m_client->sourceBufferPrivateReportExtraMemoryCost(totalTrackBufferSizeInBytes());
 
-    m_parser->setDidParseInitializationDataCallback([weakThis = makeWeakPtr(this), abortCalled = m_abortCalled] (InitializationSegment&& segment) {
+    m_parser->setDidParseInitializationDataCallback([weakThis = WeakPtr { *this }, abortCalled = m_abortCalled] (InitializationSegment&& segment) {
         ASSERT(isMainThread());
         if (!weakThis || abortCalled != weakThis->m_abortCalled)
             return;
         weakThis->didParseInitializationData(WTFMove(segment));
     });
 
-    m_parser->setDidEncounterErrorDuringParsingCallback([weakThis = makeWeakPtr(this), abortCalled = m_abortCalled] (int32_t errorCode) {
+    m_parser->setDidEncounterErrorDuringParsingCallback([weakThis = WeakPtr { *this }, abortCalled = m_abortCalled] (int32_t errorCode) {
         ASSERT(isMainThread());
         if (!weakThis || abortCalled != weakThis->m_abortCalled)
             return;
         weakThis->didEncounterErrorDuringParsing(errorCode);
     });
 
-    m_parser->setDidProvideMediaDataCallback([weakThis = makeWeakPtr(this), abortCalled = m_abortCalled] (Ref<MediaSample>&& sample, uint64_t trackId, const String& mediaType) {
+    m_parser->setDidProvideMediaDataCallback([weakThis = WeakPtr { *this }, abortCalled = m_abortCalled] (Ref<MediaSample>&& sample, uint64_t trackId, const String& mediaType) {
         ASSERT(isMainThread());
         if (!weakThis || abortCalled != weakThis->m_abortCalled)
             return;
@@ -595,7 +595,7 @@ void SourceBufferPrivateAVFObjC::append(Ref<SharedBuffer>&& data)
     });
 
     m_abortSemaphore = Box<Semaphore>::create(0);
-    m_parser->setWillProvideContentKeyRequestInitializationDataForTrackIDCallback([weakThis = makeWeakPtr(this), abortSemaphore = m_abortSemaphore, abortCalled = m_abortCalled] (uint64_t trackID) mutable {
+    m_parser->setWillProvideContentKeyRequestInitializationDataForTrackIDCallback([weakThis = WeakPtr { *this }, abortSemaphore = m_abortSemaphore, abortCalled = m_abortCalled] (uint64_t trackID) mutable {
         // We must call synchronously to the main thread, as the AVStreamSession must be associated
         // with the streamDataParser before the delegate method returns.
         Box<BinarySemaphore> respondedSemaphore = Box<BinarySemaphore>::create();
@@ -616,7 +616,7 @@ void SourceBufferPrivateAVFObjC::append(Ref<SharedBuffer>&& data)
         }
     });
 
-    m_parser->setDidProvideContentKeyRequestInitializationDataForTrackIDCallback([weakThis = makeWeakPtr(this), abortSemaphore = m_abortSemaphore, abortCalled = m_abortCalled](Ref<Uint8Array>&& initData, uint64_t trackID) mutable {
+    m_parser->setDidProvideContentKeyRequestInitializationDataForTrackIDCallback([weakThis = WeakPtr { *this }, abortSemaphore = m_abortSemaphore, abortCalled = m_abortCalled](Ref<Uint8Array>&& initData, uint64_t trackID) mutable {
         // Called on the data parser queue.
         Box<BinarySemaphore> hasSessionSemaphore = Box<BinarySemaphore>::create();
         callOnMainThread([weakThis = WTFMove(weakThis), abortCalled, initData = WTFMove(initData), trackID, hasSessionSemaphore] () mutable {
@@ -876,7 +876,7 @@ void SourceBufferPrivateAVFObjC::setCDMSession(CDMSessionMediaSourceAVFObjC* ses
     if (m_session)
         m_session->removeSourceBuffer(this);
 
-    m_session = makeWeakPtr(session);
+    m_session = session;
 
     if (m_session) {
         m_session->addSourceBuffer(this);

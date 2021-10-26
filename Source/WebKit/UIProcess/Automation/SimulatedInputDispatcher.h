@@ -30,11 +30,11 @@
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/IntPoint.h>
 #include <WebCore/IntSize.h>
+#include <variant>
 #include <wtf/CompletionHandler.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/RunLoop.h>
 #include <wtf/Seconds.h>
-#include <wtf/Variant.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
@@ -136,7 +136,7 @@ public:
         virtual void simulateTouchInteraction(WebPageProxy&, TouchInteraction, const WebCore::IntPoint& locationInView, std::optional<Seconds> duration, AutomationCompletionHandler&&) = 0;
 #endif
 #if ENABLE(WEBDRIVER_KEYBOARD_INTERACTIONS)
-        virtual void simulateKeyboardInteraction(WebPageProxy&, KeyboardInteraction, WTF::Variant<VirtualKey, CharKey>&&, AutomationCompletionHandler&&) = 0;
+        virtual void simulateKeyboardInteraction(WebPageProxy&, KeyboardInteraction, std::variant<VirtualKey, CharKey>&&, AutomationCompletionHandler&&) = 0;
 #endif
 #if ENABLE(WEBDRIVER_WHEEL_INTERACTIONS)
         virtual void simulateWheelInteraction(WebPageProxy&, const WebCore::IntPoint& locationInView, const WebCore::IntSize& delta, AutomationCompletionHandler&&) = 0;

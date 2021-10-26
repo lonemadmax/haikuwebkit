@@ -1,3 +1,140 @@
+2021-10-18  David Kilzer  <ddkilzer@apple.com>
+
+        Bug 231882: WebKit::GPUConnectionToWebProcess::setTCCIdentity() leaks a tcc_identity_t
+        <https://webkit.org/b/231882>
+        <rdar://problem/84350854>
+
+        Reviewed by Chris Dumez.
+
+        * pal/spi/cocoa/TCCSPI.h:
+        - Properly declare tcc_identity_t as an OSObject.
+
+2021-10-18  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GLIB] Simplify SleepDisabler by checking if we are under sandbox
+        https://bugs.webkit.org/show_bug.cgi?id=231670
+
+        Reviewed by Adrian Perez de Castro.
+
+        Current implementation always tries to connect to ScreenSaver interface and if that fails tries with the portal
+        one. It's simpler to check if we are under sandbox and it avoids a connection that we know is always going to
+        fail.
+
+        * pal/system/glib/SleepDisablerGLib.cpp:
+        (PAL::SleepDisablerGLib::SleepDisablerGLib):
+        (PAL::SleepDisablerGLib::acquireInhibitor):
+        (PAL::SleepDisablerGLib::releaseInhibitor):
+        (PAL::SleepDisablerGLib::acquireInhibitorViaScreenSaverProxy): Deleted.
+        (PAL::SleepDisablerGLib::acquireInhibitorViaInhibitPortalProxy): Deleted.
+        (PAL::SleepDisablerGLib::releaseInhibitorViaScreenSaverProxy): Deleted.
+        (PAL::SleepDisablerGLib::releaseInhibitorViaInhibitPortalProxy): Deleted.
+        * pal/system/glib/SleepDisablerGLib.h:
+
+2021-10-17  David Kilzer  <ddkilzer@apple.com>
+
+        Build fix #3: Adopt attribution AVCaptureSession SPI for GPU process
+        https://bugs.webkit.org/show_bug.cgi?id=231621
+        <rdar://problem/80748535>
+
+        Unreviewed build fix.
+
+        * pal/spi/cocoa/TCCSPI.h:
+        - Use HAVE(TCC_IOS_14_BIG_SUR_SPI).
+
+2021-10-15  Ross Kirsling  <ross.kirsling@sony.com>
+
+        Realize Mac CMake build of WebCore and WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=231749
+
+        Reviewed by Alex Christensen.
+
+        * pal/PlatformMac.cmake:
+
+2021-10-15  Eric Carlson  <eric.carlson@apple.com>
+
+        [iOS] Support getDisplayMedia
+        https://bugs.webkit.org/show_bug.cgi?id=231455
+        <rdar://problem/84044495>
+
+        Reviewed by Youenn Fablet and Jer Noble.
+
+        * PAL.xcodeproj/project.pbxproj:
+        * pal/ios/ReplayKitSoftLink.h: Added.
+        * pal/ios/ReplayKitSoftLink.mm: Added.
+
+2021-10-14  Alex Christensen  <achristensen@webkit.org>
+
+        Fix non-internal iOS builds after r284220
+        https://bugs.webkit.org/show_bug.cgi?id=231621
+
+        * pal/spi/cocoa/TCCSPI.h:
+
+2021-10-14  Kate Cheney  <katherine_cheney@apple.com>
+
+        Adopt attribution AVCaptureSession SPI for GPU process
+        https://bugs.webkit.org/show_bug.cgi?id=231621
+        <rdar://problem/80748535>
+
+        Reviewed by Eric Carlson.
+
+        * PAL.xcodeproj/project.pbxproj:
+        * pal/spi/cocoa/AVFoundationSPI.h:
+        * pal/spi/cocoa/TCCSPI.h: Renamed from Source/WebKit/Platform/spi/ios/TCCSPI.h.
+
+2021-10-14  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        All the SDKVariant.xcconfig files should match
+        https://bugs.webkit.org/show_bug.cgi?id=231663
+
+        Reviewed by Youenn Fablet.
+
+        * Configurations/SDKVariant.xcconfig:
+
+2021-10-13  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Support both VK and VKC-prefixed SPI when softlinking VisionKitCore classes
+        https://bugs.webkit.org/show_bug.cgi?id=231683
+        rdar://83744729
+
+        Reviewed by Tim Horton.
+
+        See WebKit/ChangeLog for more details.
+
+        * pal/cocoa/VisionKitCoreSoftLink.h:
+        * pal/cocoa/VisionKitCoreSoftLink.mm:
+
+2021-10-13  Aditya Keerthi  <akeerthi@apple.com>
+
+        [macOS] Add support for accent-color
+        https://bugs.webkit.org/show_bug.cgi?id=231464
+        rdar://84049511
+
+        Reviewed by Tim Horton.
+
+        * pal/spi/mac/NSAppearanceSPI.h:
+
+2021-10-12  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Move some staged VisionKitCore SPI into VisionKitCoreSPI.h
+        https://bugs.webkit.org/show_bug.cgi?id=231648
+
+        Reviewed by Tim Horton.
+
+        See WebKit/ChangeLog for more details.
+
+        * pal/spi/cocoa/VisionKitCoreSPI.h:
+
+2021-10-12  Sihui Liu  <sihui_liu@apple.com>
+
+        Implement FileSystemSyncAccessHandle read() and write()
+        https://bugs.webkit.org/show_bug.cgi?id=231466
+        <rdar://problem/84050394>
+
+        Reviewed by Youenn Fablet.
+
+        * PAL.xcodeproj/project.pbxproj:
+        * pal/spi/cocoa/FilePortSPI.h: Added.
+
 2021-10-12  Chris Dumez  <cdumez@apple.com>
 
         Allow direct construction of WeakPtr without makeWeakPtr()

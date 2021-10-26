@@ -138,7 +138,7 @@ bool RenderReplaced::shouldDrawSelectionTint() const
 inline static bool draggedContentContainsReplacedElement(const Vector<RenderedDocumentMarker*>& markers, const Element& element)
 {
     for (auto* marker : markers) {
-        if (WTF::get<RefPtr<Node>>(marker->data()) == &element)
+        if (std::get<RefPtr<Node>>(marker->data()) == &element)
             return true;
     }
     return false;
@@ -159,7 +159,7 @@ Color RenderReplaced::calculateHighlightColor() const
                     if (!isHighlighted(state, highlightData))
                         continue;
 
-                    OptionSet<StyleColor::Options> styleColorOptions = { StyleColor::Options::UseSystemAppearance };
+                    OptionSet<StyleColorOptions> styleColorOptions = { StyleColorOptions::UseSystemAppearance };
                     return theme().appHighlightColor(styleColorOptions);
                 }
             }

@@ -61,11 +61,11 @@
 #include "VTTCue.h"
 #include "VoidCallback.h"
 #include <JavaScriptCore/JSCJSValueInlines.h>
+#include <variant>
 #include <wtf/Function.h>
 #include <wtf/JSONValues.h>
 #include <wtf/Scope.h>
 #include <wtf/UUID.h>
-#include <wtf/Variant.h>
 
 #if USE(APPLE_INTERNAL_SDK)
 #include <WebKitAdditions/MediaControlsHostAdditions.h>
@@ -103,7 +103,7 @@ Ref<MediaControlsHost> MediaControlsHost::create(HTMLMediaElement& mediaElement)
 }
 
 MediaControlsHost::MediaControlsHost(HTMLMediaElement& mediaElement)
-    : m_mediaElement(makeWeakPtr(mediaElement))
+    : m_mediaElement(mediaElement)
 {
 }
 
@@ -505,7 +505,7 @@ bool MediaControlsHost::showMediaControlsContextMenu(HTMLElement& target, String
         x2_0,
     };
 
-    using MenuData = Variant<
+    using MenuData = std::variant<
 #if ENABLE(VIDEO_PRESENTATION_MODE)
         PictureInPictureTag,
 #endif // ENABLE(VIDEO_PRESENTATION_MODE)
@@ -652,7 +652,7 @@ bool MediaControlsHost::showMediaControlsContextMenu(HTMLElement& target, String
 
     m_showMediaControlsContextMenuCallback = WTFMove(callback);
 
-    auto handleItemSelected = [weakThis = makeWeakPtr(this), idMap = WTFMove(idMap)] (MenuItemIdentifier selectedItemID) {
+    auto handleItemSelected = [weakThis = WeakPtr { *this }, idMap = WTFMove(idMap)] (MenuItemIdentifier selectedItemID) {
         if (!weakThis)
             return;
         Ref strongThis = *weakThis;

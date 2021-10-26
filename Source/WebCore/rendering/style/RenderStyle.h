@@ -610,6 +610,7 @@ public:
     MarqueeDirection marqueeDirection() const { return static_cast<MarqueeDirection>(m_rareNonInheritedData->marquee->direction); }
     UserModify userModify() const { return static_cast<UserModify>(m_rareInheritedData->userModify); }
     UserDrag userDrag() const { return static_cast<UserDrag>(m_rareNonInheritedData->userDrag); }
+    UserSelect userSelectIncludingInert() const { return effectiveInert() ? UserSelect::None : userSelect(); }
     UserSelect userSelect() const { return static_cast<UserSelect>(m_rareInheritedData->userSelect); }
     TextOverflow textOverflow() const { return static_cast<TextOverflow>(m_rareNonInheritedData->textOverflow); }
     MarginCollapse marginBeforeCollapse() const { return static_cast<MarginCollapse>(m_rareNonInheritedData->marginBeforeCollapse); }
@@ -1474,6 +1475,8 @@ public:
     const ContentData* contentData() const { return m_rareNonInheritedData->content.get(); }
     bool contentDataEquivalent(const RenderStyle* otherStyle) const { return const_cast<RenderStyle*>(this)->m_rareNonInheritedData->contentDataEquivalent(*const_cast<RenderStyle*>(otherStyle)->m_rareNonInheritedData); }
     void clearContent();
+    void setHasExplicitlyClearedContent(bool v) { m_nonInheritedFlags.hasExplicitlyClearedContent = v; }
+    bool hasExplicitlyClearedContent() const { return m_nonInheritedFlags.hasExplicitlyClearedContent; };
     void setContent(const String&, bool add = false);
     void setContent(RefPtr<StyleImage>&&, bool add = false);
     void setContent(std::unique_ptr<CounterContent>, bool add = false);
@@ -1859,8 +1862,6 @@ public:
     const Color& textStrokeColor() const { return m_rareInheritedData->textStrokeColor; }
     const Color& caretColor() const { return m_rareInheritedData->caretColor; }
     bool hasAutoCaretColor() const { return m_rareInheritedData->hasAutoCaretColor; }
-    const Color& accentColor() const { return m_rareInheritedData->accentColor; }
-    bool hasAutoAccentColor() const { return m_rareInheritedData->hasAutoAccentColor; }
     const Color& visitedLinkColor() const;
     const Color& visitedLinkBackgroundColor() const { return m_rareNonInheritedData->visitedLinkBackgroundColor; }
     const Color& visitedLinkBorderLeftColor() const { return m_rareNonInheritedData->visitedLinkBorderLeftColor; }
@@ -1880,6 +1881,22 @@ public:
     const Color& stopColor() const { return svgStyle().stopColor(); }
     const Color& floodColor() const { return svgStyle().floodColor(); }
     const Color& lightingColor() const { return svgStyle().lightingColor(); }
+
+    Color effectiveAccentColor() const;
+    const Color& accentColor() const { return m_rareInheritedData->accentColor; }
+    bool hasAutoAccentColor() const { return m_rareInheritedData->hasAutoAccentColor; }
+
+    const Length& offsetDistance() const { return m_rareNonInheritedData->offsetDistance; }
+    void setOffsetDistance(Length&& distance) { SET_VAR(m_rareNonInheritedData, offsetDistance, WTFMove(distance)); }
+    static Length initialOffsetDistance() { return Length(0, LengthType::Fixed); }
+
+    LengthPoint offsetPosition() const { return m_rareNonInheritedData->offsetPosition; }
+    void setOffsetPosition(LengthPoint&& position) { SET_VAR(m_rareNonInheritedData, offsetPosition, WTFMove(position)); }
+    static LengthPoint initialOffsetPosition() { return LengthPoint(Length(LengthType::Auto), Length(LengthType::Auto)); }
+
+    LengthPoint offsetAnchor() const { return m_rareNonInheritedData->offsetAnchor; }
+    void setOffsetAnchor(LengthPoint&& position) { SET_VAR(m_rareNonInheritedData, offsetAnchor, WTFMove(position)); }
+    static LengthPoint initialOffsetAnchor() { return LengthPoint(Length(LengthType::Auto), Length(LengthType::Auto)); }
 
 private:
     struct NonInheritedFlags {
@@ -1917,6 +1934,7 @@ private:
         unsigned firstChildState : 1;
         unsigned lastChildState : 1;
         unsigned isLink : 1;
+        unsigned hasExplicitlyClearedContent : 1;
 
         unsigned styleType : 4; // PseudoId
         unsigned pseudoBits : (static_cast<unsigned>(PseudoId::FirstInternalPseudoId) - static_cast<unsigned>(PseudoId::FirstPublicPseudoId));
@@ -2055,6 +2073,7 @@ inline bool RenderStyle::NonInheritedFlags::operator==(const NonInheritedFlags& 
         && firstChildState == other.firstChildState
         && lastChildState == other.lastChildState
         && isLink == other.isLink
+        && hasExplicitlyClearedContent == other.hasExplicitlyClearedContent
         && styleType == other.styleType
         && pseudoBits == other.pseudoBits;
 }

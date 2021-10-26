@@ -103,7 +103,7 @@ RefPtr<MediaRecorderPrivateWriter> MediaRecorderPrivateWriter::create(bool hasAu
 
 void MediaRecorderPrivateWriter::compressedVideoOutputBufferCallback(void *mediaRecorderPrivateWriter, CMBufferQueueTriggerToken)
 {
-    callOnMainThread([weakWriter = makeWeakPtr(static_cast<MediaRecorderPrivateWriter*>(mediaRecorderPrivateWriter))] {
+    callOnMainThread([weakWriter = WeakPtr { static_cast<MediaRecorderPrivateWriter*>(mediaRecorderPrivateWriter) }] {
         if (weakWriter)
             weakWriter->processNewCompressedVideoSampleBuffers();
     });
@@ -111,7 +111,7 @@ void MediaRecorderPrivateWriter::compressedVideoOutputBufferCallback(void *media
 
 void MediaRecorderPrivateWriter::compressedAudioOutputBufferCallback(void *mediaRecorderPrivateWriter, CMBufferQueueTriggerToken)
 {
-    callOnMainThread([weakWriter = makeWeakPtr(static_cast<MediaRecorderPrivateWriter*>(mediaRecorderPrivateWriter))] {
+    callOnMainThread([weakWriter = WeakPtr { static_cast<MediaRecorderPrivateWriter*>(mediaRecorderPrivateWriter) }] {
         if (weakWriter)
             weakWriter->processNewCompressedAudioSampleBuffers();
     });
@@ -453,7 +453,7 @@ void MediaRecorderPrivateWriter::stopRecording()
 
     m_isStopping = true;
     // We hop to the main thread since finishing the video compressor might trigger starting the writer asynchronously.
-    callOnMainThread([this, weakThis = makeWeakPtr(this)]() mutable {
+    callOnMainThread([this, weakThis = WeakPtr { *this }]() mutable {
         if (!weakThis)
             return;
 
@@ -507,7 +507,7 @@ void MediaRecorderPrivateWriter::fetchData(CompletionHandler<void(RefPtr<SharedB
         return;
     }
 
-    flushCompressedSampleBuffers([weakThis = makeWeakPtr(this)]() mutable {
+    flushCompressedSampleBuffers([weakThis = WeakPtr { *this }]() mutable {
         if (!weakThis)
             return;
 

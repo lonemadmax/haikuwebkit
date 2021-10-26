@@ -55,8 +55,6 @@ list(APPEND WebCore_LIBRARIES
     ${SYSTEMCONFIGURATION_LIBRARY}
     ${VIDEOTOOLBOX_LIBRARY}
     ${XML2_LIBRARY}
-    WTF
-    bmalloc
     opus
     usrsctp
     vpx
@@ -101,6 +99,7 @@ list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/layout/tableformatting"
     "${WEBCORE_DIR}/loader/archive/cf"
     "${WEBCORE_DIR}/loader/cf"
+    "${WEBCORE_DIR}/loader/cocoa"
     "${WEBCORE_DIR}/loader/mac"
     "${WEBCORE_DIR}/page/cocoa"
     "${WEBCORE_DIR}/page/mac"
@@ -186,6 +185,8 @@ list(APPEND WebCore_SOURCES
     editing/mac/UniversalAccessZoom.mm
 
     html/HTMLSlotElement.cpp
+
+    loader/cocoa/PrivateClickMeasurementCocoa.mm
 
     page/PageDebuggable.cpp
 
@@ -332,6 +333,7 @@ list(APPEND WebCore_SOURCES
     platform/graphics/cocoa/WebCoreDecompressionSession.mm
     platform/graphics/cocoa/WebGLLayer.mm
     platform/graphics/cocoa/WebMAudioUtilitiesCocoa.mm
+    platform/graphics/cocoa/WebProcessGraphicsContextGLOpenGLCocoa.mm
 
     platform/graphics/coretext/FontCascadeCoreText.cpp
     platform/graphics/coretext/FontCoreText.cpp
@@ -528,6 +530,8 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     loader/archive/cf/LegacyWebArchive.h
 
+    loader/cache/CachedRawResource.h
+
     loader/mac/LoaderNSURLExtras.h
 
     Modules/webauthn/AuthenticatorAssertionResponse.h
@@ -553,6 +557,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/scrolling/cocoa/ScrollingTreePositionedNode.h
     page/scrolling/cocoa/ScrollingTreeStickyNode.h
 
+    page/scrolling/mac/ScrollingCoordinatorMac.h
     page/scrolling/mac/ScrollingTreeFrameScrollingNodeMac.h
     page/scrolling/mac/ScrollingTreeOverflowScrollingNodeMac.h
     page/scrolling/mac/ScrollingTreeScrollingNodeDelegateMac.h
@@ -937,8 +942,6 @@ list(APPEND WebCoreTestSupport_IDL_FILES
     testing/MockPaymentError.idl
     testing/MockWebAuthenticationConfiguration.idl
 )
-
-set(CMAKE_SHARED_LINKER_FLAGS ${CMAKE_SHARED_LINKER_FLAGS} "-compatibility_version 1 -current_version ${WEBKIT_MAC_VERSION} -force_load ${CMAKE_BINARY_DIR}/lib/libPAL.a")
 
 if (NOT EXISTS ${CMAKE_BINARY_DIR}/WebCore/WebKitAvailability.h)
     file(COPY platform/cocoa/WebKitAvailability.h DESTINATION ${CMAKE_BINARY_DIR}/WebCore)

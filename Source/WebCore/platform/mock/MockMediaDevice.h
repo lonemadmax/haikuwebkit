@@ -188,12 +188,12 @@ struct MockMediaDevice {
             return CaptureDevice::DeviceType::Camera;
 
         ASSERT(isDisplay());
-        return WTF::get<MockDisplayProperties>(properties).type;
+        return std::get<MockDisplayProperties>(properties).type;
     }
 
     const MockSpeakerProperties* speakerProperties() const
     {
-        return isSpeaker() ? &WTF::get<MockSpeakerProperties>(properties) : nullptr;
+        return isSpeaker() ? &std::get<MockSpeakerProperties>(properties) : nullptr;
     }
 
     template<class Encoder>
@@ -259,7 +259,7 @@ struct MockMediaDevice {
 
     String persistentId;
     String label;
-    Variant<MockMicrophoneProperties, MockSpeakerProperties, MockCameraProperties, MockDisplayProperties> properties;
+    std::variant<MockMicrophoneProperties, MockSpeakerProperties, MockCameraProperties, MockDisplayProperties> properties;
 };
 
 } // namespace WebCore

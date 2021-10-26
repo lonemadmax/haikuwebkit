@@ -89,7 +89,7 @@ private:
 
 void AudioMediaStreamTrackRendererInternalUnitManager::add(Proxy& proxy)
 {
-    m_proxies.add(proxy.identifier(), makeWeakPtr(proxy));
+    m_proxies.add(proxy.identifier(), proxy);
 }
 
 void AudioMediaStreamTrackRendererInternalUnitManager::remove(Proxy& proxy)
@@ -127,7 +127,7 @@ AudioMediaStreamTrackRendererInternalUnitManager::Proxy::~Proxy()
 
 void AudioMediaStreamTrackRendererInternalUnitManager::Proxy::createRemoteUnit()
 {
-    WebProcess::singleton().ensureGPUProcessConnection().connection().sendWithAsyncReply(Messages::RemoteAudioMediaStreamTrackRendererInternalUnitManager::CreateUnit { m_identifier }, [weakThis = makeWeakPtr(this)](auto&& description, auto frameChunkSize) {
+    WebProcess::singleton().ensureGPUProcessConnection().connection().sendWithAsyncReply(Messages::RemoteAudioMediaStreamTrackRendererInternalUnitManager::CreateUnit { m_identifier }, [weakThis = WeakPtr { *this }](auto&& description, auto frameChunkSize) {
         if (weakThis && frameChunkSize)
             weakThis->initialize(description, frameChunkSize);
     }, 0);

@@ -153,6 +153,16 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _preferences->setTextInteractionEnabled(textInteractionEnabled);
 }
 
+- (BOOL)isSiteSpecificQuirksModeEnabled
+{
+    return _preferences->needsSiteSpecificQuirks();
+}
+
+- (void)setSiteSpecificQuirksModeEnabled:(BOOL)enabled
+{
+    _preferences->setNeedsSiteSpecificQuirks(enabled);
+}
+
 #pragma mark OS X-specific methods
 
 #if PLATFORM(MAC)
@@ -1515,6 +1525,36 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 - (void)_setRequiresPageVisibilityToPlayAudio:(BOOL)requires
 {
     _preferences->setRequiresPageVisibilityToPlayAudio(requires);
+}
+
+- (BOOL)_fileSystemAccessEnabled
+{
+    return _preferences->fileSystemAccessEnabled();
+}
+
+- (void)_setFileSystemAccessEnabled:(BOOL)fileSystemAccessEnabled
+{
+    _preferences->setFileSystemAccessEnabled(fileSystemAccessEnabled);
+}
+
+- (BOOL)_storageAPIEnabled
+{
+    return _preferences->storageAPIEnabled();
+}
+
+- (void)_setStorageAPIEnabled:(BOOL)storageAPIEnabled
+{
+    _preferences->setStorageAPIEnabled(storageAPIEnabled);
+}
+
+- (BOOL)_accessHandleEnabled
+{
+    return _preferences->accessHandleEnabled();
+}
+
+- (void)_setAccessHandleEnabled:(BOOL)accessHandleEnabled
+{
+    _preferences->setAccessHandleEnabled(accessHandleEnabled);
 }
 
 @end

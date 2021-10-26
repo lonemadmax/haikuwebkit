@@ -1420,10 +1420,15 @@ endif ()
 list(APPEND WebCore_NON_SVG_IDL_FILES
     Modules/webxr/Navigator+WebXR.idl
     Modules/webxr/WebXRBoundedReferenceSpace.idl
+    Modules/webxr/WebXRFrame+HandInput.idl
     Modules/webxr/WebXRFrame.idl
+    Modules/webxr/WebXRHand.idl
     Modules/webxr/WebXRInputSource+Gamepad.idl
+    Modules/webxr/WebXRInputSource+HandInput.idl
     Modules/webxr/WebXRInputSource.idl
     Modules/webxr/WebXRInputSourceArray.idl
+    Modules/webxr/WebXRJointPose.idl
+    Modules/webxr/WebXRJointSpace.idl
     Modules/webxr/WebXRLayer.idl
     Modules/webxr/WebXRPose.idl
     Modules/webxr/WebXRReferenceSpace.idl
@@ -1440,6 +1445,7 @@ list(APPEND WebCore_NON_SVG_IDL_FILES
     Modules/webxr/XREnvironmentBlendMode.idl
     Modules/webxr/XREye.idl
     Modules/webxr/XRFrameRequestCallback.idl
+    Modules/webxr/XRHandJoint.idl
     Modules/webxr/XRHandedness.idl
     Modules/webxr/XRInputSourceEvent.idl
     Modules/webxr/XRInputSourcesChangeEvent.idl
@@ -2224,6 +2230,23 @@ list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/XMLNSNames.cpp)
 GENERATE_DOM_NAMES(XML ${WEBCORE_DIR}/xml/xmlattrs.in)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/XMLNames.cpp)
 
+list(APPEND WebCore_SOURCES
+    loader/PrivateClickMeasurement.cpp
+
+    platform/Logging.cpp
+    platform/MIMETypeRegistry.cpp
+    platform/RuntimeApplicationChecks.cpp
+
+    platform/network/HTTPHeaderMap.cpp
+    platform/network/HTTPHeaderValues.cpp
+
+    platform/sql/SQLiteDatabase.cpp
+    platform/sql/SQLiteDatabaseTracker.cpp
+    platform/sql/SQLiteStatement.cpp
+    platform/sql/SQLiteStatementAutoResetScope.cpp
+    platform/sql/SQLiteTransaction.cpp
+)
+
 WEBKIT_COMPUTE_SOURCES(WebCore)
 
 IF (HAIKU)
@@ -2278,7 +2301,7 @@ endif ()
 
 WEBKIT_COPY_FILES(Copy_WebCoreTestSupportPrivateHeaders
     DESTINATION ${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}/WebCoreTestSupport
-    FILES testing/js/WebCoreTestSupport.h
+    FILES testing/js/WebCoreTestSupport.h testing/cocoa/WebArchiveDumpSupport.h
     FLATTENED
 )
 list(APPEND WebCoreTestSupport_INTERFACE_DEPENDENCIES Copy_WebCoreTestSupportPrivateHeaders)
@@ -2288,7 +2311,7 @@ list(APPEND WebCoreTestSupport_PRIVATE_INCLUDE_DIRECTORIES ${WebCore_PRIVATE_INC
 list(APPEND WebCoreTestSupport_SYSTEM_INCLUDE_DIRECTORIES ${WebCore_SYSTEM_INCLUDE_DIRECTORIES})
 
 if (WebCore_LIBRARY_TYPE STREQUAL SHARED)
-    list(APPEND WebCoreTestSupport_LIBRARIES WebCore)
+    list(APPEND WebCoreTestSupport_PRIVATE_LIBRARIES WebCore)
 else ()
     list(APPEND WebCoreTestSupport_LIBRARIES ${WebCore_LIBRARIES})
     list(APPEND WebCoreTestSupport_PRIVATE_LIBRARIES ${WebCore_PRIVATE_LIBRARIES})
