@@ -455,7 +455,11 @@ void SWServer::resolveUnregistrationJob(const ServiceWorkerJobData& jobData, con
 
 URL static inline originURL(const SecurityOrigin& origin)
 {
-    return URL(URL(), origin.data().toString());
+    URL url;
+    url.setProtocol(origin.protocol());
+    url.setHost(origin.host());
+    url.setPort(origin.port());
+    return url;
 }
 
 void SWServer::startScriptFetch(const ServiceWorkerJobData& jobData, SWServerRegistration& registration)
@@ -600,7 +604,7 @@ void SWServer::matchAll(SWServerWorker& worker, const ServiceWorkerClientQueryOp
     callback(WTFMove(matchingClients));
 }
 
-void SWServer::forEachClientForOrigin(const ClientOrigin& origin, const WTF::Function<void(ServiceWorkerClientData&)>& apply)
+void SWServer::forEachClientForOrigin(const ClientOrigin& origin, const Function<void(ServiceWorkerClientData&)>& apply)
 {
     auto iterator = m_clientIdentifiersPerOrigin.find(origin);
     if (iterator == m_clientIdentifiersPerOrigin.end())

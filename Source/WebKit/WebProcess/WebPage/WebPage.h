@@ -126,6 +126,7 @@ typedef struct _AtkObject AtkObject;
 #endif
 
 #if PLATFORM(IOS_FAMILY)
+#include "DynamicViewportSizeUpdate.h"
 #include "GestureTypes.h"
 #include <WebCore/InspectorOverlay.h>
 #include <WebCore/IntPointHash.h>
@@ -159,7 +160,6 @@ typedef struct _AtkObject AtkObject;
 #endif
 
 #if PLATFORM(COCOA)
-#include "DynamicViewportSizeUpdate.h"
 #include <WebCore/VisibleSelection.h>
 #include <wtf/RetainPtr.h>
 OBJC_CLASS CALayer;
@@ -1081,9 +1081,10 @@ public:
     void updateVisibilityState(bool isInitialState = false);
 
 #if PLATFORM(IOS_FAMILY)
+    void setMinimumUnobscuredSize(const WebCore::FloatSize&);
     void setMaximumUnobscuredSize(const WebCore::FloatSize&);
     void setDeviceOrientation(int32_t);
-    void dynamicViewportSizeUpdate(const WebCore::FloatSize& viewLayoutSize, const WebCore::FloatSize& maximumUnobscuredSize, const WebCore::FloatRect& targetExposedContentRect, const WebCore::FloatRect& targetUnobscuredRect, const WebCore::FloatRect& targetUnobscuredRectInScrollViewCoordinates, const WebCore::FloatBoxExtent& targetUnobscuredSafeAreaInsets, double scale, int32_t deviceOrientation, double minimumEffectiveDeviceWidth, DynamicViewportSizeUpdateID);
+    void dynamicViewportSizeUpdate(const WebCore::FloatSize& viewLayoutSize, const WebCore::FloatSize& minimumUnobscuredSize, const WebCore::FloatSize& maximumUnobscuredSize, const WebCore::FloatRect& targetExposedContentRect, const WebCore::FloatRect& targetUnobscuredRect, const WebCore::FloatRect& targetUnobscuredRectInScrollViewCoordinates, const WebCore::FloatBoxExtent& targetUnobscuredSafeAreaInsets, double scale, int32_t deviceOrientation, double minimumEffectiveDeviceWidth, DynamicViewportSizeUpdateID);
     bool scaleWasSetByUIProcess() const { return m_scaleWasSetByUIProcess; }
     void willStartUserTriggeredZooming();
     void applicationWillResignActive();
@@ -2258,6 +2259,7 @@ private:
 
     std::optional<WebCore::SimpleRange> m_initialSelection;
     WebCore::VisibleSelection m_storedSelectionForAccessibility { WebCore::VisibleSelection() };
+    WebCore::FloatSize m_minimumUnobscuredSize;
     WebCore::FloatSize m_maximumUnobscuredSize;
     int32_t m_deviceOrientation { 0 };
     bool m_keyboardIsAttached { false };

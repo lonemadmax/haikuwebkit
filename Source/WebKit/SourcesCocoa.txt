@@ -161,6 +161,9 @@ Shared/Authentication/cocoa/AuthenticationChallengeDispositionCocoa.mm
 Shared/Authentication/cocoa/AuthenticationManagerCocoa.mm
 Shared/Authentication/cocoa/ClientCertificateAuthenticationXPCConstants.cpp
 
+Shared/EntryPointUtilities/Cocoa/Daemon/PCMDaemonConnectionSet.mm
+Shared/EntryPointUtilities/Cocoa/Daemon/PCMDaemonEntryPoint.mm
+
 Shared/Cocoa/APIDataCocoa.mm
 Shared/Cocoa/APIObject.mm
 Shared/Cocoa/ArgumentCodersCocoa.mm
@@ -453,8 +456,6 @@ UIProcess/Inspector/mac/WKInspectorWKWebView.mm
 
 UIProcess/Network/NetworkProcessProxyCocoa.mm
 
-UIProcess/Notifications/Cocoa/WebNotificationProviderCocoa.mm
-
 UIProcess/ios/forms/WKAirPlayRoutePicker.mm
 UIProcess/ios/forms/WKDatePickerViewController.mm
 UIProcess/ios/forms/WKDateTimeInputControl.mm
@@ -614,6 +615,7 @@ WebProcess/ApplePay/cocoa/WebPaymentCoordinatorCocoa.mm
 WebProcess/cocoa/PlaybackSessionManager.mm
 WebProcess/cocoa/RemoteCaptureSampleManager.cpp
 WebProcess/cocoa/RemoteRealtimeAudioSource.cpp
+WebProcess/cocoa/RemoteRealtimeDisplaySource.cpp
 WebProcess/cocoa/RemoteRealtimeMediaSourceProxy.cpp
 WebProcess/cocoa/RemoteRealtimeVideoSource.cpp
 WebProcess/cocoa/UserMediaCaptureManager.cpp

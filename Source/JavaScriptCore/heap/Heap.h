@@ -621,8 +621,6 @@ private:
     size_t m_extraMemorySize { 0 };
     size_t m_deprecatedExtraMemorySize { 0 };
 
-    HashSet<const JSCell*> m_copyingRememberedSet;
-
     ProtectCountSet m_protectedValues;
     std::unique_ptr<HashSet<MarkedArgumentBufferBase*>> m_markListSet;
     SentinelLinkedList<MarkedJSValueRefArray, BasicRawSentinelNode<MarkedJSValueRefArray>> m_markedJSValueRefArrays;
@@ -657,7 +655,6 @@ private:
 
     unsigned m_barrierThreshold { Options::forceFencedBarrier() ? tautologicalThreshold : blackThreshold };
 
-    VM& m_vm;
     Seconds m_lastFullGCLength { 10_ms };
     Seconds m_lastEdenGCLength { 10_ms };
 

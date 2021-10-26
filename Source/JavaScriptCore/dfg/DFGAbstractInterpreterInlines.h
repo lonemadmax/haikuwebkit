@@ -2245,7 +2245,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                         Structure* objectPrototypeStructure = globalObject->objectPrototype()->structure(m_vm);
                         if (arrayPrototypeStructure->transitionWatchpointSetIsStillValid()
                             && objectPrototypeStructure->transitionWatchpointSetIsStillValid()
-                            && globalObject->arrayPrototypeChainIsSane()) {
+                            && globalObject->arrayPrototypeChainIsSaneConcurrently(arrayPrototypeStructure, objectPrototypeStructure)) {
                             m_graph.registerAndWatchStructureTransition(arrayPrototypeStructure);
                             m_graph.registerAndWatchStructureTransition(objectPrototypeStructure);
                             if (node->arrayMode().type() == Array::Double && node->arrayMode().isOutOfBoundsSaneChain() && !(node->flags() & NodeBytecodeUsesAsOther))
@@ -3042,8 +3042,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                         Structure* structure = rareData->internalFunctionAllocationStructure();
                         if (structure
                             && structure->classInfo() == (node->isInternalPromise() ? JSInternalPromise::info() : JSPromise::info())
-                            && structure->globalObject() == globalObject
-                            && rareData->allocationProfileWatchpointSet().isStillValid()) {
+                            && structure->globalObject() == globalObject) {
                             m_graph.freeze(rareData);
                             m_graph.watchpoints().addLazily(rareData->allocationProfileWatchpointSet());
                             m_state.setShouldTryConstantFolding(true);
@@ -3071,8 +3070,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                             Structure* structure = rareData->internalFunctionAllocationStructure();
                             if (structure
                                 && structure->classInfo() == classInfo
-                                && structure->globalObject() == globalObject
-                                && rareData->allocationProfileWatchpointSet().isStillValid()) {
+                                && structure->globalObject() == globalObject) {
                                 m_graph.freeze(rareData);
                                 m_graph.watchpoints().addLazily(rareData->allocationProfileWatchpointSet());
                                 m_state.setShouldTryConstantFolding(true);
@@ -3126,8 +3124,17 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             Structure* structure = nullptr;
             if (base.isNull())
                 structure = globalObject->nullPrototypeObjectStructure();
-            else if (base.isObject())
+            else if (base.isObject()) {
+                // Having a bad time clears the structureCache, and so it should invalidate this structure.
+                bool isHavingABadTime = globalObject->isHavingABadTime();
+                // Normally, we would always install a watchpoint. In this case, however, if we haveABadTime, we
+                // still want to optimize. There is no watchpoint for that case though, so we need to make sure this load
+                // does not get hoisted above the check.
+                WTF::loadLoadFence();
+                if (!isHavingABadTime)
+                    m_graph.watchpoints().addLazily(globalObject->havingABadTimeWatchpoint());
                 structure = m_vm.structureCache.emptyObjectStructureConcurrently(globalObject, base.getObject(), JSFinalObject::defaultInlineCapacity());
+            }
             
             if (structure) {
                 m_state.setShouldTryConstantFolding(true);

@@ -224,6 +224,10 @@
 #include <WebCore/VP9UtilitiesCocoa.h>
 #endif
 
+#if OS(LINUX)
+#include <wtf/linux/RealTimeThreads.h>
+#endif
+
 #undef WEBPROCESS_RELEASE_LOG
 #define RELEASE_LOG_SESSION_ID (m_sessionID ? m_sessionID->toUInt64() : 0)
 #if RELEASE_LOG_DISABLED
@@ -359,7 +363,7 @@ void WebProcess::initializeConnection(IPC::Connection* connection)
     // and AuxiliaryProcess::didClose() does not get called.
     connection->setDidCloseOnConnectionWorkQueueCallback(callExit);
 
-#if !PLATFORM(GTK) && !PLATFORM(WPE)
+#if !PLATFORM(GTK) && !PLATFORM(WPE) && !ENABLE(IPC_TESTING_API)
     connection->setShouldExitOnSyncMessageSendFailure(true);
 #endif
 
@@ -809,6 +813,9 @@ void WebProcess::createWebPage(PageIdentifier pageID, WebPageCreationParameters&
         // Balanced by an enableTermination in removeWebPage.
         disableTermination();
         updateCPULimit();
+#if OS(LINUX)
+        RealTimeThreads::singleton().setEnabled(hasVisibleWebPage());
+#endif
     } else
         result.iterator->value->reinitializeWebPage(WTFMove(parameters));
 
@@ -826,6 +833,9 @@ void WebProcess::removeWebPage(PageIdentifier pageID)
 
     enableTermination();
     updateCPULimit();
+#if OS(LINUX)
+    RealTimeThreads::singleton().setEnabled(hasVisibleWebPage());
+#endif
 }
 
 bool WebProcess::shouldTerminate()
@@ -1300,7 +1310,7 @@ void WebProcess::gpuProcessConnectionClosed(GPUProcessConnection& connection)
 
 #if ENABLE(MEDIA_STREAM) && PLATFORM(COCOA)
     if (m_audioMediaStreamTrackRendererInternalUnitManager)
-        m_audioMediaStreamTrackRendererInternalUnitManager->gpuProcessConnectionClosed();
+        m_audioMediaStreamTrackRendererInternalUnitManager->restartAllUnits();
 #endif
 }
 
@@ -1466,10 +1476,6 @@ void WebProcess::initializeSandbox(const AuxiliaryProcessInitializationParameter
 {
 }
 
-void WebProcess::platformInitializeProcess(const AuxiliaryProcessInitializationParameters&)
-{
-}
-
 void WebProcess::updateActivePages(const String& overrideDisplayName)
 {
 }
@@ -1491,8 +1497,12 @@ void WebProcess::updateCPUMonitorState(CPUMonitorUpdateReason)
 
 void WebProcess::pageActivityStateDidChange(PageIdentifier, OptionSet<WebCore::ActivityState::Flag> changed)
 {
-    if (changed & WebCore::ActivityState::IsVisible)
+    if (changed & WebCore::ActivityState::IsVisible) {
         updateCPUMonitorState(CPUMonitorUpdateReason::VisibilityHasChanged);
+#if OS(LINUX)
+        RealTimeThreads::singleton().setEnabled(hasVisibleWebPage());
+#endif
+    }
 }
 
 #if PLATFORM(IOS_FAMILY)

@@ -46,6 +46,9 @@ fast/forms/ios/disabled-options-in-multi-select-picker.html
 media/modern-media-controls/media-documents/media-document-audio-ios-sizing.html [ Skip ]
 media/modern-media-controls/media-documents/media-document-video-iphone-sizing.html [ Skip ]
 
+# This test is designed for iPhone and would timeout on iPad
+media/video-element-fullscreen-not-in-dom-accelerated-iphone.html [ Skip ]
+
 # This test is iPad-specific
 media/modern-media-controls/media-documents/media-document-video-ipad-sizing.html [ Pass ]
 
@@ -105,8 +108,6 @@ webkit.org/b/229566 imported/w3c/web-platform-tests/html/semantics/interactive-e
 webkit.org/b/228663 fast/canvas/canvas-color-space-display-p3.html [ ImageOnlyFailure ]
 
 webkit.org/b/230419 platform/ipad/media/modern-media-controls/media-documents/media-document-video-ios-sizing.html [ Pass Timeout Crash ]
-
-webkit.org/b/231609 imported/w3c/web-platform-tests/webmessaging/MessagePort_onmessage_start.any.worker.html [ Pass Failure ]
 
 webkit.org/b/231611 [ Debug ] imported/w3c/web-platform-tests/webrtc-encoded-transform/sframe-transform-in-worker.https.html [ Pass Failure ]
 

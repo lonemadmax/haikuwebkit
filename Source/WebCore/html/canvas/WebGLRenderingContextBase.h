@@ -537,7 +537,7 @@ protected:
     bool enableSupportedExtension(ASCIILiteral extensionNameLiteral);
     void loseExtensions(LostContextMode);
 
-    virtual void uncacheDeletedBuffer(const WTF::AbstractLocker&, WebGLBuffer*);
+    virtual void uncacheDeletedBuffer(const AbstractLocker&, WebGLBuffer*);
 
     bool compositingResultsNeedUpdating() const final { return m_compositingResultsNeedUpdating; }
     bool needsPreparationForDisplay() const final { return true; }
@@ -560,7 +560,7 @@ protected:
     RefPtr<WebGLVertexArrayObjectBase> m_defaultVertexArrayObject;
     RefPtr<WebGLVertexArrayObjectBase> m_boundVertexArrayObject;
 
-    void setBoundVertexArrayObject(const WTF::AbstractLocker&, WebGLVertexArrayObjectBase*);
+    void setBoundVertexArrayObject(const AbstractLocker&, WebGLVertexArrayObjectBase*);
     
     class VertexAttribValue {
     public:
@@ -621,10 +621,10 @@ protected:
         LRUImageBufferCache(int capacity);
         // Returns pointer to a cleared image buffer that is owned by the cache. The pointer is valid until next call.
         // Using fillOperator == CompositeOperator::Copy can be used to omit the clear of the buffer.
-        ImageBuffer* imageBuffer(const IntSize&, CompositeOperator fillOperator = CompositeOperator::SourceOver);
+        ImageBuffer* imageBuffer(const IntSize&, DestinationColorSpace, CompositeOperator fillOperator = CompositeOperator::SourceOver);
     private:
         void bubbleToFront(size_t idx);
-        Vector<RefPtr<ImageBuffer>> m_buffers;
+        Vector<std::optional<std::pair<DestinationColorSpace, Ref<ImageBuffer>>>> m_buffers;
     };
     LRUImageBufferCache m_generatedImageCache { 0 };
 
@@ -1061,7 +1061,7 @@ protected:
 
     // Helper function for delete* (deleteBuffer, deleteProgram, etc) functions.
     // Return false if caller should return without further processing.
-    bool deleteObject(const WTF::AbstractLocker&, WebGLObject*);
+    bool deleteObject(const AbstractLocker&, WebGLObject*);
 
     // Helper function for APIs which can legally receive null objects, including
     // the bind* calls (bindBuffer, bindTexture, etc.) and useProgram. Checks that
@@ -1079,7 +1079,7 @@ protected:
     // Return the current bound buffer to target, or 0 if the target is invalid.
     virtual WebGLBuffer* validateBufferDataTarget(const char* functionName, GCGLenum target);
 
-    virtual bool validateAndCacheBufferBinding(const WTF::AbstractLocker&, const char* functionName, GCGLenum target, WebGLBuffer*);
+    virtual bool validateAndCacheBufferBinding(const AbstractLocker&, const char* functionName, GCGLenum target, WebGLBuffer*);
 
 #if !USE(ANGLE)
     // Helpers for simulating vertexAttrib0.
@@ -1108,7 +1108,7 @@ protected:
     virtual GCGLint getMaxColorAttachments() = 0;
 
     void setBackDrawBuffer(GCGLenum);
-    void setFramebuffer(const WTF::AbstractLocker&, GCGLenum, WebGLFramebuffer*);
+    void setFramebuffer(const AbstractLocker&, GCGLenum, WebGLFramebuffer*);
 
     virtual void restoreCurrentFramebuffer();
     void restoreCurrentTexture2D();

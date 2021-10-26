@@ -30,6 +30,7 @@
 
 #include "AXIsolatedTree.h"
 #include "AXLogger.h"
+#include <pal/SessionID.h>
 
 #if PLATFORM(COCOA)
 #include <pal/spi/cocoa/AccessibilitySupportSoftLink.h>
@@ -162,7 +163,6 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& object, bool isRoot
     setProperty(AXPropertyName::LayoutCount, object.layoutCount());
     setProperty(AXPropertyName::EstimatedLoadingProgress, object.estimatedLoadingProgress());
     setProperty(AXPropertyName::SupportsARIAOwns, object.supportsARIAOwns());
-    setProperty(AXPropertyName::HasChildren, object.hasChildren());
     setProperty(AXPropertyName::HasPopup, object.hasPopup());
     setProperty(AXPropertyName::PopupValue, object.popupValue().isolatedCopy());
     setProperty(AXPropertyName::PressedIsPresent, object.pressedIsPresent());
@@ -412,7 +412,7 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& object, bool isRoot
 
     if (isRoot) {
         setObjectProperty(AXPropertyName::WebArea, object.webAreaObject());
-        setProperty(AXPropertyName::SessionID, object.sessionID());
+        setProperty(AXPropertyName::SessionID, object.sessionID().isolatedCopy());
         setProperty(AXPropertyName::DocumentURI, object.documentURI().isolatedCopy());
         setProperty(AXPropertyName::DocumentEncoding, object.documentEncoding().isolatedCopy());
         setObjectVectorProperty(AXPropertyName::DocumentLinks, object.documentLinks());
@@ -610,11 +610,11 @@ void AXIsolatedObject::classList(Vector<String>& list) const
     list.appendVector(classList.split(" "));
 }
 
-uint64_t AXIsolatedObject::sessionID() const
+PAL::SessionID AXIsolatedObject::sessionID() const
 {
     if (auto root = tree()->rootNode())
-        return root->uint64AttributeValue(AXPropertyName::SessionID);
-    return 0;
+        return root->sessionIDAttributeValue(AXPropertyName::SessionID);
+    return PAL::SessionID(PAL::SessionID::SessionConstants::HashTableEmptyValueID);
 }
 
 String AXIsolatedObject::documentURI() const
@@ -824,6 +824,15 @@ AXCoreObject* AXIsolatedObject::objectAttributeValue(AXPropertyName propertyName
     );
 
     return tree()->nodeForID(nodeID).get();
+}
+
+PAL::SessionID AXIsolatedObject::sessionIDAttributeValue(AXPropertyName propertyName) const
+{
+    auto value = m_propertyMap.get(propertyName);
+    return WTF::switchOn(value,
+        [] (PAL::SessionID& typedValue) -> PAL::SessionID { return typedValue; },
+        [] (auto&) { return PAL::SessionID(PAL::SessionID::SessionConstants::HashTableEmptyValueID); }
+    );
 }
 
 template<typename T>
@@ -2133,12 +2142,12 @@ void AXIsolatedObject::addChildren()
     ASSERT_NOT_REACHED();
 }
 
-void AXIsolatedObject::addChild(AXCoreObject*)
+void AXIsolatedObject::addChild(AXCoreObject*, DescendIfIgnored)
 {
     ASSERT_NOT_REACHED();
 }
 
-void AXIsolatedObject::insertChild(AXCoreObject*, unsigned)
+void AXIsolatedObject::insertChild(AXCoreObject*, unsigned, DescendIfIgnored)
 {
     ASSERT_NOT_REACHED();
 }

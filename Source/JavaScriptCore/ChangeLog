@@ -1,3 +1,768 @@
+2021-10-25  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix stale assertion in InternalFunctionAllocationProfile after r284757
+        https://bugs.webkit.org/show_bug.cgi?id=232269
+
+        Reviewed by Robin Morisset.
+
+        Now, condition in InternalFunction is changed in r284757. We need to update
+        this assertion accordingly. It is tested (and crashing) in the existing stress test[1].
+
+        [1]: InternalFunctionAllocationProfile-createAllocationStructureFromBase-should-allow-for-same-classInfo-from-different-globals.js
+
+        * bytecode/InternalFunctionAllocationProfile.h:
+        (JSC::InternalFunctionAllocationProfile::createAllocationStructureFromBase):
+
+2021-10-25  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Don't branch around register allocation in DFG enumerator get by val
+        https://bugs.webkit.org/show_bug.cgi?id=232260
+        rdar://84544469
+
+        Reviewed by Robin Morisset.
+
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compileGetByValOnString):
+        (JSC::DFG::SpeculativeJIT::compileGetByValOnIntTypedArray):
+        (JSC::DFG::SpeculativeJIT::compileGetByValOnFloatTypedArray):
+        (JSC::DFG::SpeculativeJIT::compileGetByValForObjectWithString):
+        (JSC::DFG::SpeculativeJIT::compileGetByValForObjectWithSymbol):
+        (JSC::DFG::SpeculativeJIT::compileGetByValOnDirectArguments):
+        (JSC::DFG::SpeculativeJIT::compileGetByValOnScopedArguments):
+        (JSC::DFG::SpeculativeJIT::compileEnumeratorGetByVal):
+        * dfg/DFGSpeculativeJIT.h:
+        * dfg/DFGSpeculativeJIT32_64.cpp:
+        (JSC::DFG::SpeculativeJIT::compileGetByVal):
+        (JSC::DFG::SpeculativeJIT::compile):
+        * dfg/DFGSpeculativeJIT64.cpp:
+        (JSC::DFG::SpeculativeJIT::compileGetByVal):
+        (JSC::DFG::SpeculativeJIT::compile):
+
+2021-10-25  Mikhail R. Gadelha  <mikhail@igalia.com>
+
+        [JSC][32bit] Don't speculate Cell on PutByVal
+        https://bugs.webkit.org/show_bug.cgi?id=232242
+
+        Reviewed by Yusuke Suzuki.
+
+        This patch is similar to https://bugs.webkit.org/show_bug.cgi?id=232052
+        but smaller: given that we have more registers available, we don't have
+        to speculate Cells anymore.
+
+        This patch removes the Cell speculation during the DFG FixUp phase and
+        adjust the operationPutByVal* calls to use the generic version (instead
+        of the Cell versions).
+
+        * dfg/DFGFixupPhase.cpp:
+        (JSC::DFG::FixupPhase::fixupNode):
+        * dfg/DFGSpeculativeJIT32_64.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+
+2021-10-25  Geza Lore  <gezalore@gmail.com>
+
+        [JSC][32bit] Use DataIC in Baseline JIT
+        https://bugs.webkit.org/show_bug.cgi?id=232079
+
+        Reviewed by Yusuke Suzuki.
+
+        This patch ports the JSVALUE32_64 baseline JIT to use DataICs.
+
+        The majority of the involved opcodes (all but one) could be easily
+        modified to use a common implementation between JSVALUE64 and
+        JSVALUE32_64 platforms by abstracting over machine registers holding a
+        JSValue using JSValueReg types instead of GPRReg.
+
+        The only non-trivial additional abstraction needed was over the ideal
+        argument registers used in a function call, so loading the arguments
+        from memory can put them straight in the ABI specific argument
+        register whenever possible, or appropriate temporaries otherwise. For
+        this I added CCallHelpers::preferredArgumentGPR (for passing host
+        pointers and other primitive types that fit in a machine register on
+        the host platform), and CCallHelpers::preferredArgumentJSR (for
+        passing JSValue/EncodedJSValue). Please see the description of these
+        in the code.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * Sources.txt:
+        * assembler/ARMv7Assembler.h:
+        (JSC::ARMv7Assembler::strb):
+        * bytecode/CallLinkInfo.cpp:
+        (JSC::CallLinkInfo::emitFastPathImpl):
+        (JSC::CallLinkInfo::emitDataICFastPath):
+        * bytecode/StructureStubInfo.cpp:
+        (JSC::StructureStubInfo::initializeFromUnlinkedStructureStubInfo):
+        * jit/AssemblyHelpers.h:
+        (JSC::AssemblyHelpers::branchIfNotObject):
+        * jit/CCallHelpers.h:
+        (JSC::CCallHelpers::sizeOfArg):
+        (JSC::CCallHelpers::pickJSR):
+        (JSC::CCallHelpers::preferredArgumentJSR):
+        (JSC::CCallHelpers::preferredArgumentGPR):
+        * jit/CallFrameShuffler.h:
+        * jit/GPRInfo.h:
+        (JSC::JSValueRegs::operator== const):
+        (JSC::JSValueRegs::operator!= const):
+        (JSC::JSValueRegs::tagGPR const):
+        (JSC::JSValueRegs::payloadGPR const):
+        (JSC::JSValueRegs::uses const):
+        (JSC::JSValueRegs::overlaps const):
+        (JSC::JSValueRegs::JSValueRegs):
+        (JSC::JSValueRegs::payloadOnly):
+        * jit/JIT.cpp:
+        (JSC::JIT::compileAndLinkWithoutFinalizing):
+        (JSC::JIT::link):
+        * jit/JIT.h:
+        * jit/JITCall.cpp:
+        (JSC::JIT::emit_op_ret):
+        (JSC::JIT::emitPutCallResult):
+        (JSC::JIT::compileSetupFrame):
+        (JSC::JIT::compileCallEval):
+        (JSC::JIT::compileCallEvalSlowCase):
+        (JSC::JIT::compileTailCall):
+        (JSC::JIT::compileOpCall):
+        (JSC::JIT::emit_op_iterator_open):
+        (JSC::JIT::emitSlow_op_iterator_open):
+        (JSC::JIT::emit_op_iterator_next):
+        (JSC::JIT::emitSlow_op_iterator_next):
+        * jit/JITCall32_64.cpp: Removed.
+        * jit/JITCode.h:
+        (JSC::JITCode::useDataIC):
+        * jit/JITInlineCacheGenerator.cpp:
+        (JSC::generateGetByIdInlineAccess):
+        (JSC::JITGetByIdGenerator::generateBaselineDataICFastPath):
+        (JSC::JITGetByIdWithThisGenerator::generateBaselineDataICFastPath):
+        (JSC::JITPutByIdGenerator::generateBaselineDataICFastPath):
+        (JSC::JITInByIdGenerator::generateBaselineDataICFastPath):
+        * jit/JITInlineCacheGenerator.h:
+        * jit/JITInlines.h:
+        (JSC::JIT::emitArrayProfilingSiteWithCell):
+        (JSC::JIT::emitJumpSlowCaseIfNotJSCell):
+        * jit/JITOpcodes.cpp:
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_instanceof):
+        (JSC::JIT::emitSlow_op_instanceof):
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::emit_op_get_by_val):
+        (JSC::JIT::generateGetByValSlowCase):
+        (JSC::JIT::slow_op_get_by_val_prepareCallGenerator):
+        (JSC::JIT::emit_op_get_private_name):
+        (JSC::JIT::emitSlow_op_get_private_name):
+        (JSC::JIT::emit_op_set_private_brand):
+        (JSC::JIT::emitSlow_op_set_private_brand):
+        (JSC::JIT::emit_op_check_private_brand):
+        (JSC::JIT::emitSlow_op_check_private_brand):
+        (JSC::JIT::emit_op_put_by_val):
+        (JSC::JIT::emit_op_put_by_val_direct):
+        (JSC::JIT::emitSlow_op_put_by_val):
+        (JSC::JIT::slow_op_put_by_val_prepareCallGenerator):
+        (JSC::JIT::emit_op_put_private_name):
+        (JSC::JIT::emitSlow_op_put_private_name):
+        (JSC::JIT::slow_op_put_private_name_prepareCallGenerator):
+        (JSC::JIT::emit_op_del_by_id):
+        (JSC::JIT::emitSlow_op_del_by_id):
+        (JSC::JIT::emit_op_del_by_val):
+        (JSC::JIT::emitSlow_op_del_by_val):
+        (JSC::JIT::emit_op_try_get_by_id):
+        (JSC::JIT::emitSlow_op_try_get_by_id):
+        (JSC::JIT::emit_op_get_by_id_direct):
+        (JSC::JIT::emitSlow_op_get_by_id_direct):
+        (JSC::JIT::emit_op_get_by_id):
+        (JSC::JIT::emitSlow_op_get_by_id):
+        (JSC::JIT::emit_op_get_by_id_with_this):
+        (JSC::JIT::emitSlow_op_get_by_id_with_this):
+        (JSC::JIT::emit_op_put_by_id):
+        (JSC::JIT::emitSlow_op_put_by_id):
+        (JSC::JIT::emit_op_in_by_id):
+        (JSC::JIT::emitSlow_op_in_by_id):
+        (JSC::JIT::emit_op_in_by_val):
+        (JSC::JIT::emitSlow_op_in_by_val):
+        (JSC::JIT::emitHasPrivate):
+        (JSC::JIT::emitHasPrivateSlow):
+        (JSC::JIT::emit_op_enumerator_get_by_val):
+        * jit/JITPropertyAccess32_64.cpp:
+
+2021-10-24  Alexey Shvayka  <ashvayka@apple.com>
+
+        InternalFunction::createSubclassStructure() should use prototype's global object
+        https://bugs.webkit.org/show_bug.cgi?id=231874
+
+        Reviewed by Yusuke Suzuki.
+
+        In case NewTarget has a cross-realm "prototype" object, even though the instance
+        structure is created with correct [[Prototype]], it's m_globalObject is of NewTarget's
+        realm instead of prototype's.
+
+        That is observable in various places, including when calling CustomAccessor, fast paths
+        for iteration protocol / collection constructors, isHavingABadTime() handling etc.
+
+        This patch fixes structure's global object to be correct: per spec [1], we fallback to
+        NewTarget's realm only if "prototype" is a primitive.
+
+        [1]: https://tc39.es/ecma262/#sec-getprototypefromconstructor (step 3.b)
+
+        * runtime/InternalFunction.cpp:
+        (JSC::InternalFunction::createSubclassStructure):
+
+2021-10-22  Justin Michaud  <justin_michaud@apple.com>
+
+        Fix nits from 232019
+        https://bugs.webkit.org/show_bug.cgi?id=232180
+
+        Reviewed by Saam Barati.
+
+        We only need one write barrier, since we only need to guarantee that we read the status of the write barrier before we read from the structure cache.
+        If we are delayed in watching the watchpoint, it does not change any of the interleavings.
+
+        * dfg/DFGAbstractInterpreterInlines.h:
+        (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+        * dfg/DFGConstantFoldingPhase.cpp:
+        (JSC::DFG::ConstantFoldingPhase::foldConstants):
+
+2021-10-22  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] GetTypedArrayLengthAsInt52 must be inserted only when we ensure that input is TypedArray via array-mode-based filtering
+        https://bugs.webkit.org/show_bug.cgi?id=232168
+        rdar://84366658
+
+        Reviewed by Robin Morisset.
+
+        GetTypedArrayLengthAsInt52 works only when input is TypedArray, which should be validated via array-mode (and already inserted checks in fixup).
+        Accidentally we were inserting it without checking typed-array condition in SSA lowering phase. This patch adds a condition which ensures it
+        is TypedArray.
+
+        * dfg/DFGSSALoweringPhase.cpp:
+        (JSC::DFG::SSALoweringPhase::handleNode):
+        (JSC::DFG::SSALoweringPhase::lowerBoundsCheck):
+
+2021-10-22  Mark Lam  <mark.lam@apple.com>
+
+        Change Heap::writeBarrier() to do the cheaper check first.
+        https://bugs.webkit.org/show_bug.cgi?id=232172
+
+        Reviewed by Robin Morisset.
+
+        It's cheaper to do a check using incoming args (which are already loaded in
+        registers) than to do a check which requires memory loads.
+
+        * heap/HeapInlines.h:
+        (JSC::Heap::writeBarrier):
+
+2021-10-22  Asumu Takikawa  <asumu@igalia.com>
+
+        Change WebAssembly module import linking time to evaluate step.
+        https://bugs.webkit.org/show_bug.cgi?id=231114
+
+        Reviewed by Yusuke Suzuki.
+
+        Moves the Wasm module import linking code to execute in the
+        module evaluation step, which is the behavior specified in the
+        Wasm/ESM-integration proposal:
+
+          https://github.com/WebAssembly/esm-integration/tree/main/proposals/esm-integration#evaluate
+
+        * runtime/AbstractModuleRecord.cpp:
+        (JSC::AbstractModuleRecord::link):
+        (JSC::AbstractModuleRecord::evaluate):
+        * wasm/js/JSWebAssemblyInstance.cpp:
+        (JSC::JSWebAssemblyInstance::finalizeCreation):
+        * wasm/js/WebAssemblyModuleRecord.cpp:
+        (JSC::WebAssemblyModuleRecord::link):
+        (JSC::WebAssemblyModuleRecord::initializeImportsAndExports):
+        (JSC::WebAssemblyModuleRecord::linkImpl): Deleted.
+        * wasm/js/WebAssemblyModuleRecord.h:
+
+2021-10-22  Mikhail R. Gadelha  <mikhail@igalia.com>
+
+        [JSC][32bit] Re-enable compileEnumeratorGetByVal fast path
+        https://bugs.webkit.org/show_bug.cgi?id=232052
+
+        Reviewed by Yusuke Suzuki.
+
+        In https://bugs.webkit.org/show_bug.cgi?id=229543, the compileEnumeratorGetByVal
+        fast path had to be disabled in 32 bits due to not having enough registers.
+        There are enough registers available now, so we can re-enable the fast path and
+        removed the speculation that the baseEdge of both enumeratorGetByVal and
+        getByVal is a Cell in 32 bits.
+
+        I've also updated the 32 bits version of compileGetByVal to be closer to the 64
+        bits version: using DFG_CRASH instead of RELEASE_ASSERT_NOT_REACHED, using nullptr
+        instead of 0, and removed some whitespaces.
+
+        * dfg/DFGFixupPhase.cpp:
+        (JSC::DFG::FixupPhase::fixupNode):
+        * dfg/DFGOperations.cpp:
+        (JSC::DFG::JSC_DEFINE_JIT_OPERATION):
+        * dfg/DFGOperations.h:
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compileEnumeratorGetByVal):
+        * dfg/DFGSpeculativeJIT32_64.cpp:
+        (JSC::DFG::SpeculativeJIT::compileGetByVal):
+        (JSC::DFG::SpeculativeJIT::compileEnumeratorGetByVal): Deleted.
+        * dfg/DFGSpeculativeJIT64.cpp:
+        (JSC::DFG::SpeculativeJIT::compileEnumeratorGetByVal): Deleted.
+
+2021-10-22  Saam Barati  <sbarati@apple.com>
+
+        canDoFastSpread should also check that the Structure is from the global object we're watching
+        https://bugs.webkit.org/show_bug.cgi?id=231976
+        <rdar://84340372>
+
+        Reviewed by Keith Miller.
+
+        Just reorder the checks for clarity.
+
+        * dfg/DFGGraph.cpp:
+        (JSC::DFG::Graph::canDoFastSpread):
+
+2021-10-22  Robin Morisset  <rmorisset@apple.com>
+
+        --reportBytecodeCompileTimes=1 should correctly report the bytecode size
+        https://bugs.webkit.org/show_bug.cgi?id=232118
+
+        Reviewed by Michael Saboff.
+
+        generate() calls m_writer.finalize() which moves m_instructions, so when we later query its size we get 0.
+        The solution is simply to put the size in an out-parameter just before calling finalize().
+
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::generate):
+        * bytecompiler/BytecodeGenerator.h:
+        (JSC::BytecodeGenerator::generate):
+
+2021-10-22  Mark Lam  <mark.lam@apple.com>
+
+        Remove unneeded Heap::m_vm.
+        https://bugs.webkit.org/show_bug.cgi?id=232132
+
+        Reviewed by Yusuke Suzuki.
+
+        Heap::vm() already computes the associated VM& using offset math.  This entails
+        subtracting a constant from Heap's this pointer, which is faster than loading from
+        a field.
+
+        * heap/Heap.cpp:
+        (JSC::Heap::Heap):
+        (JSC::Heap::lastChanceToFinalize):
+        (JSC::Heap::releaseDelayedReleasedObjects):
+        (JSC::Heap::protect):
+        (JSC::Heap::unprotect):
+        (JSC::Heap::finalizeUnconditionalFinalizers):
+        (JSC::Heap::completeAllJITPlans):
+        (JSC::Heap::iterateExecutingAndCompilingCodeBlocks):
+        (JSC::Heap::gatherJSStackRoots):
+        (JSC::Heap::gatherScratchBufferRoots):
+        (JSC::Heap::removeDeadCompilerWorklistEntries):
+        (JSC::Heap::gatherExtraHeapData):
+        (JSC::Heap::deleteAllCodeBlocks):
+        (JSC::Heap::deleteAllUnlinkedCodeBlocks):
+        (JSC::Heap::finishChangingPhase):
+        (JSC::Heap::collectInMutatorThread):
+        (JSC::Heap::finishRelinquishingConn):
+        (JSC::Heap::deleteSourceProviderCaches):
+        (JSC::Heap::didFinishCollection):
+        (JSC::Heap::isValidAllocation):
+        (JSC::Heap::addCoreConstraints):
+        * heap/Heap.h:
+
+2021-10-21  Saam Barati  <sbarati@apple.com>
+
+        Clean up some code around checking the state of Watchpoints
+        https://bugs.webkit.org/show_bug.cgi?id=232111
+
+        Reviewed by Yusuke Suzuki.
+
+        No need to have state() and stateOnJSThread(), since they're now the same.
+        Also, there is no need to check the allocation watchpoint twice for the
+        function/internal function allocation profiles.
+
+        * bytecode/Watchpoint.h:
+        (JSC::WatchpointSet::isStillValid const):
+        (JSC::WatchpointSet::stateOnJSThread const): Deleted.
+        (JSC::WatchpointSet::isStillValidOnJSThread const): Deleted.
+        (JSC::InlineWatchpointSet::stateOnJSThread const): Deleted.
+        * dfg/DFGAbstractInterpreterInlines.h:
+        (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::parseBlock):
+        (JSC::DFG::ByteCodeParser::handleCreateInternalFieldObject):
+        * dfg/DFGConstantFoldingPhase.cpp:
+        (JSC::DFG::ConstantFoldingPhase::foldConstants):
+        * runtime/ArrayPrototype.cpp:
+        (JSC::speciesWatchpointIsValid):
+        (JSC::canUseDefaultArrayJoinForToString):
+        * runtime/InferredValue.h:
+        (JSC::InferredValue::notifyWrite):
+        (JSC::InferredValue::stateOnJSThread const): Deleted.
+        * runtime/JSArrayBufferPrototypeInlines.h:
+        (JSC::speciesWatchpointIsValid):
+        * runtime/ObjectPropertyChangeAdaptiveWatchpoint.h:
+
+2021-10-21  Mark Lam  <mark.lam@apple.com>
+
+        Remove an unused field: Heap::m_copyingRememberedSet.
+        https://bugs.webkit.org/show_bug.cgi?id=232119
+
+        Reviewed by Robin Morisset.
+
+        * heap/Heap.h:
+
+2021-10-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Make GetTypedArrayLengthAsInt52 and GetTypedArrayByteOffsetAsInt52 NodeResultInt52
+        https://bugs.webkit.org/show_bug.cgi?id=232100
+
+        Reviewed by Robin Morisset.
+
+        This patch makes GetTypedArrayLengthAsInt52 and GetTypedArrayByteOffsetAsInt52 have NodeResultInt52 by default.
+        And DFG validation should skip Int52 validation before fixup phase, as we are doing for double results.
+
+        * dfg/DFGFixupPhase.cpp:
+        (JSC::DFG::FixupPhase::fixupNode):
+        * dfg/DFGNodeType.h:
+        * dfg/DFGSSALoweringPhase.cpp:
+        (JSC::DFG::SSALoweringPhase::handleNode):
+        (JSC::DFG::SSALoweringPhase::lowerBoundsCheck):
+        * dfg/DFGValidate.cpp:
+
+2021-10-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Inserted GetTypedArrayLengthAsInt52 for PutByVal should have NodeResultInt52
+        https://bugs.webkit.org/show_bug.cgi?id=232059
+
+        Reviewed by Saam Barati.
+
+        When inserting GetTypedArrayLengthAsInt52 after fixup phase, we must set NodeResultInt52.
+
+        * dfg/DFGSSALoweringPhase.cpp:
+        (JSC::DFG::SSALoweringPhase::handleNode):
+
+2021-10-21  Michael Saboff  <msaboff@apple.com>
+
+        Add missing overflow check to DFGIntegerRangeOptimizationPhase::filterConstant()
+        https://bugs.webkit.org/show_bug.cgi?id=232058
+
+        Reviewed by Robin Morisset.
+
+        Added overflow check.
+
+        * dfg/DFGIntegerRangeOptimizationPhase.cpp:
+
+2021-10-20  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        *IsSane API's could take in the Structure's we're consulting, or they can be out parameters, so we don't rely on the CPU's memory ordering
+        https://bugs.webkit.org/show_bug.cgi?id=231996
+
+        Reviewed by Filip Pizlo.
+
+        objectPrototypeIsSane, arrayPrototypeChainIsSane, and stringPrototypeChainIsSane reloads structures from prototype objects while the caller
+        is already getting them and validating them. This introduces a race condition where structure transition happens just before calling these
+        APIs and we will see different structures which are already validated. This is simply wrong: if we validate one structure, then we should
+        continue using that and we should put a watchpoint on this structure. We should not reload structures from the prototype again.
+
+        We add Concurrently postfix to these functions, and passing structures to these APIs to continue using these structures instead of reloading
+        it from prototype objects. This eliminate the race condition we had, and this removes the necessity of load-load-fence on watchpoint state
+        retrieval.
+
+        * dfg/DFGAbstractInterpreterInlines.h:
+        (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+        * dfg/DFGArgumentsEliminationPhase.cpp:
+        * dfg/DFGArrayMode.cpp:
+        (JSC::DFG::ArrayMode::refine const):
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::handleIntrinsicCall):
+        * dfg/DFGFixupPhase.cpp:
+        (JSC::DFG::FixupPhase::fixupNode):
+        (JSC::DFG::FixupPhase::setSaneChainIfPossible):
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compileGetByValOnString):
+        * ftl/FTLLowerDFGToB3.cpp:
+        (JSC::FTL::DFG::LowerDFGToB3::compileStringCharAtImpl):
+        * runtime/JSGlobalObject.h:
+        * runtime/JSGlobalObjectInlines.h:
+        (JSC::JSGlobalObject::objectPrototypeIsSane):
+        (JSC::JSGlobalObject::arrayPrototypeChainIsSaneConcurrently):
+        (JSC::JSGlobalObject::stringPrototypeChainIsSaneConcurrently):
+        (JSC::JSGlobalObject::arrayPrototypeChainIsSane):
+        (JSC::JSGlobalObject::stringPrototypeChainIsSane):
+
+2021-10-20  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] ArithAbs should care about INT32_MIN
+        https://bugs.webkit.org/show_bug.cgi?id=232051
+        rdar://84338648
+
+        Reviewed by Michael Saboff.
+
+        ArithAbs (without overflow check) can return negative value if the input is INT32_MIN with Int32Use.
+
+        * dfg/DFGIntegerRangeOptimizationPhase.cpp:
+
+2021-10-20  Justin Michaud  <justin_michaud@apple.com>
+
+        We should watch isHavingABadTime if we read from the structureCache
+        https://bugs.webkit.org/show_bug.cgi?id=232019
+
+        Reviewed by Yusuke Suzuki.
+
+        We should lock the structure cache when we clear it, and the compiler thread should
+        watch isHavingABadTime in the case that the cache might get cleared.
+
+        * dfg/DFGAbstractInterpreterInlines.h:
+        (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+        * dfg/DFGConstantFoldingPhase.cpp:
+        (JSC::DFG::ConstantFoldingPhase::foldConstants):
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::haveABadTime):
+        * runtime/StructureCache.cpp:
+        (JSC::StructureCache::clear):
+        * runtime/StructureCache.h:
+        (JSC::StructureCache::clear): Deleted.
+
+2021-10-20  Michael Saboff  <msaboff@apple.com>
+
+        Add missing overflow checks to DFGIntegerRangeOptimizationPhase::isEquivalentTo()
+        https://bugs.webkit.org/show_bug.cgi?id=232024
+
+        Reviewed by Tadeu Zagallo.
+
+        Added overflow check before comparing for equality.
+
+        * dfg/DFGIntegerRangeOptimizationPhase.cpp:
+
+2021-10-20  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        Do not use strerror()
+        https://bugs.webkit.org/show_bug.cgi?id=231913
+
+        Reviewed by Chris Dumez.
+
+        * API/JSScript.mm:
+        (-[JSScript writeCache:]):
+        * API/tests/testapi.mm:
+        (resolvePathToScripts):
+        * jsc.cpp:
+        * runtime/BytecodeCacheError.cpp:
+        (JSC::BytecodeCacheError::StandardError::message const):
+        * tools/FunctionAllowlist.cpp:
+        (JSC::FunctionAllowlist::FunctionAllowlist):
+        * tools/FunctionOverrides.cpp:
+        (JSC::FunctionOverrides::parseOverridesInFile):
+        * wasm/WasmMemory.cpp:
+        (JSC::Wasm::MemoryHandle::~MemoryHandle):
+        (JSC::Wasm::Memory::tryCreate):
+        (JSC::Wasm::Memory::growShared):
+        (JSC::Wasm::Memory::grow):
+
+2021-10-20  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        Suppress a -Wreturn-type warning
+        https://bugs.webkit.org/show_bug.cgi?id=229681
+        <rdar://81603387>
+
+        Unreviewed.
+
+        * wasm/WasmFormat.h:
+        (JSC::Wasm::typeToString):
+
+2021-10-19  Tadeu Zagallo  <tzagallo@apple.com>
+
+        Address post-landing feedback to wasm exceptions
+        https://bugs.webkit.org/show_bug.cgi?id=231973
+
+        Reviewed by Saam Barati.
+
+        Address comments left by Saam in https://bugs.webkit.org/show_bug.cgi?id=229681
+        after the patch landed. This includes deleting some unused code, and renaming a
+        couple variables and methods, but the biggest change is copying the callee saves
+        to VMEntry in the llint rethrow.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::CatchInfo::CatchInfo):
+        (JSC::UnwindFunctor::operator() const):
+        * interpreter/Interpreter.h:
+        (JSC::CatchInfo::CatchInfo): Deleted.
+        * jit/JSInterfaceJIT.h:
+        (JSC::JSInterfaceJIT::convertCalleeToVM): Deleted.
+        * llint/WebAssembly.asm:
+        * wasm/WasmB3IRGenerator.cpp:
+        (JSC::Wasm::B3IRGenerator::ControlData::ControlData):
+        (JSC::Wasm::B3IRGenerator::ControlData::tryDepth const):
+        (JSC::Wasm::B3IRGenerator::connectControlAtEntrypoint):
+        (JSC::Wasm::B3IRGenerator::addLoop):
+        (JSC::Wasm::B3IRGenerator::addTry):
+        (JSC::Wasm::B3IRGenerator::preparePatchpointForExceptions):
+        (JSC::Wasm::B3IRGenerator::emitCatchImpl):
+        (JSC::Wasm::B3IRGenerator::addDelegateToUnreachable):
+        (JSC::Wasm::B3IRGenerator::addThrow):
+        (JSC::Wasm::B3IRGenerator::addRethrow):
+        (JSC::Wasm::B3IRGenerator::addEndToUnreachable):
+        (JSC::Wasm::B3IRGenerator::connectControlEntry): Deleted.
+        * wasm/WasmCallee.h:
+        (JSC::Wasm::Callee::llintFunctionCodeBlock const):
+        (JSC::Wasm::Callee::functionCodeBlock const): Deleted.
+        * wasm/WasmLLIntGenerator.cpp:
+        (JSC::Wasm::LLIntGenerator::unifyValuesWithBlock):
+        (JSC::Wasm::LLIntGenerator::addTry):
+        (JSC::Wasm::LLIntGenerator::addThrow):
+        (JSC::Wasm::LLIntGenerator::repatch): Deleted.
+        * wasm/WasmOperations.cpp:
+        (JSC::Wasm::JSC_DEFINE_JIT_OPERATION):
+        * wasm/WasmOperations.h:
+
+2021-10-19  Alexey Proskuryakov  <ap@apple.com>
+
+        Eagerly resolve python3 path in Makefiles
+        https://bugs.webkit.org/show_bug.cgi?id=231979
+
+        Reviewed by Jonathan Bedard.
+
+        * DerivedSources.make:
+
+2021-10-19  Saam Barati  <sbarati@apple.com>
+
+        canDoFastSpread should also check that the Structure is from the global object we're watching
+        https://bugs.webkit.org/show_bug.cgi?id=231976
+        <rdar://84340372>
+
+        Reviewed by Keith Miller.
+
+        * dfg/DFGGraph.cpp:
+        (JSC::DFG::Graph::canDoFastSpread):
+
+2021-10-19  Chris Dumez  <cdumez@apple.com>
+
+        [clang 13] Suppress sign comparison warnings
+        https://bugs.webkit.org/show_bug.cgi?id=231188
+        <rdar://problem/84110570>
+
+        Reviewed by Alex Christensen.
+
+        * inspector/remote/socket/RemoteInspectorSocket.cpp:
+        (Inspector::RemoteInspector::backendCommands const):
+
+2021-10-18  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Wasm Table can take arbitrary default value
+        https://bugs.webkit.org/show_bug.cgi?id=231933
+        rdar://84327812
+
+        Reviewed by Robin Morisset.
+
+        * wasm/WasmTable.cpp:
+        (JSC::Wasm::Table::grow):
+
+2021-10-19  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed build fix.
+
+        * DerivedSources-input.xcfilelist:
+
+2021-10-18  Phillip Mates  <pmates@igalia.com>
+
+        shadow realms implementation
+        https://bugs.webkit.org/show_bug.cgi?id=230602
+
+        Reviewed by Yusuke Suzuki.
+
+        Implementation of the Shadow Realms proposal (stage 3 in TC39) [1]
+
+        Main APIs added are
+         - `new ShadowRealm()`
+           creates an object that has its own global object and module graph.
+         - ShadowRealm.prototype.evaluate(sourceText)
+           this allows for evaluating code in the context of the realm, which
+           has its own module graph and global object.
+         - ShadowRealm.prototype.importValue(specifier, exportName)
+           this allows importing module exports in the the context of the
+           realm, which has its own module graph and global object.
+
+        The main detail of the Shadow Realm implementation is that values
+        passed between realms must be either primitives or wrapped callables.
+        Wrapped callables themselves are callables that check that their
+        arguments and return values are also either primitives or wrapped
+        callables. This detail is implemented via JS builtins + a few new
+        intrinsics.
+
+        Can be enabled using `--useShadowRealm=true`
+
+        [1]: https://github.com/tc39/proposal-shadowrealm
+
+        * CMakeLists.txt:
+        * DerivedSources-input.xcfilelist:
+        * DerivedSources-output.xcfilelist:
+        * DerivedSources.make:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * Sources.txt:
+        * builtins/BuiltinNames.h:
+        * builtins/ShadowRealmPrototype.js: Added.
+        (globalPrivate.wrap.wrapped):
+        (globalPrivate.wrap):
+        (evaluate):
+        (importValue):
+        * bytecode/BytecodeIntrinsicRegistry.h:
+        * bytecode/LinkTimeConstant.h:
+        * bytecompiler/BytecodeGenerator.h:
+        (JSC::BytecodeGenerator::emitIsShadowRealm):
+        * bytecompiler/NodesCodegen.cpp:
+        * jsc.cpp:
+        (JSC_DEFINE_HOST_FUNCTION):
+        * parser/Parser.cpp:
+        (JSC::Parser<LexerType>::parseMemberExpression):
+        * runtime/CommonIdentifiers.h:
+        * runtime/IndirectEvalExecutable.cpp:
+        (JSC::IndirectEvalExecutable::createImpl):
+        (JSC::IndirectEvalExecutable::create):
+        (JSC::IndirectEvalExecutable::tryCreate):
+        * runtime/IndirectEvalExecutable.h:
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::init):
+        (JSC::JSGlobalObject::visitChildrenImpl):
+        (JSC::JSGlobalObject::createWithCustomMethodTable):
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::shadowRealmPrototype const):
+        (JSC::JSGlobalObject::shadowRealmStructure const):
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+        * runtime/JSType.cpp:
+        (WTF::printInternal):
+        * runtime/JSType.h:
+        * runtime/OptionsList.h:
+        * runtime/ShadowRealmConstructor.cpp: Added.
+        (JSC::ShadowRealmConstructor::ShadowRealmConstructor):
+        (JSC::ShadowRealmConstructor::finishCreation):
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+        * runtime/ShadowRealmConstructor.h: Added.
+        * runtime/ShadowRealmObject.cpp: Added.
+        (JSC::ShadowRealmObject::ShadowRealmObject):
+        (JSC::ShadowRealmObject::visitChildrenImpl):
+        (JSC::ShadowRealmObject::create):
+        (JSC::ShadowRealmObject::finishCreation):
+        * runtime/ShadowRealmObject.h: Added.
+        * runtime/ShadowRealmPrototype.cpp: Added.
+        (JSC::ShadowRealmPrototype::ShadowRealmPrototype):
+        (JSC::ShadowRealmPrototype::finishCreation):
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+        * runtime/ShadowRealmPrototype.h: Added.
+        * runtime/VM.cpp:
+        * runtime/VM.h:
+
+2021-10-18  Saam Barati  <sbarati@apple.com>
+
+        Don't load metadata base pointer in EXTRA_CTI_THUNKS
+        https://bugs.webkit.org/show_bug.cgi?id=231850
+
+        Reviewed by Yusuke Suzuki.
+
+        We were loading the metadata table base pointer dynamically. But in
+        unlinked baseline JIT, it's already pinned in a register. Let's just
+        use the register instead of recomputing what's already there. This is
+        a small speedup in throughput of unlinked baseline JIT code for scope
+        operations.
+
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::generateOpResolveScopeThunk):
+        (JSC::JIT::generateOpGetFromScopeThunk):
+
 2021-10-18  Yusuke Suzuki  <ysuzuki@apple.com>
 
         [JSC] Use USE(LARGE_TYPED_ARRAY)

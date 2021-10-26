@@ -34,7 +34,7 @@
 #import "CSSValueKey.h"
 #import "CSSValueKeywords.h"
 #import "ColorBlending.h"
-#import "ColorIOS.h"
+#import "ColorCocoa.h"
 #import "DateComponents.h"
 #import "Document.h"
 #import "DrawGlyphsRecorder.h"
@@ -376,7 +376,7 @@ static CGPoint shortened(CGPoint start, CGPoint end, float width)
 static void drawJoinedLines(CGContextRef context, const Vector<CGPoint>& points, CGLineCap lineCap, float lineWidth, Color strokeColor)
 {
     CGContextSetLineWidth(context, lineWidth);
-    CGContextSetStrokeColorWithColor(context, cachedCGColor(strokeColor));
+    CGContextSetStrokeColorWithColor(context, cachedCGColor(strokeColor).get());
     CGContextSetShouldAntialias(context, true);
     CGContextBeginPath(context);
     CGContextSetLineCap(context, lineCap);
@@ -1392,7 +1392,7 @@ Color RenderThemeIOS::systemFocusRingColor()
 {
     if (!cachedFocusRingColor().has_value()) {
         // FIXME: Should be using -keyboardFocusIndicatorColor. For now, work around <rdar://problem/50838886>.
-        cachedFocusRingColor() = colorFromUIColor([PAL::getUIColorClass() systemBlueColor]);
+        cachedFocusRingColor() = colorFromCocoaColor([PAL::getUIColorClass() systemBlueColor]);
     }
     return *cachedFocusRingColor();
 }
@@ -1630,9 +1630,9 @@ static RetainPtr<CTFontRef> attachmentActionFont()
     return adoptCF(CTFontCreateWithFontDescriptor(emphasizedFontDescriptor.get(), 0, nullptr));
 }
 
-static UIColor *attachmentActionColor(const RenderAttachment& attachment)
+static RetainPtr<UIColor> attachmentActionColor(const RenderAttachment& attachment)
 {
-    return [PAL::getUIColorClass() colorWithCGColor:cachedCGColor(attachment.style().visitedDependentColor(CSSPropertyColor))];
+    return cocoaColor(attachment.style().visitedDependentColor(CSSPropertyColor));
 }
 
 static RetainPtr<CTFontRef> attachmentTitleFont()
@@ -1870,7 +1870,7 @@ RenderAttachmentInfo::RenderAttachmentInfo(const RenderAttachment& attachment)
             yOffset += iconRect.height() + attachmentItemMargin;
         }
     } else
-        buildWrappedLines(action, attachmentActionFont().get(), attachmentActionColor(attachment), attachmentWrappingTextMaximumLineCount);
+        buildWrappedLines(action, attachmentActionFont().get(), attachmentActionColor(attachment).get(), attachmentWrappingTextMaximumLineCount);
 
     bool forceSingleLineTitle = !action.isEmpty() || !subtitle.isEmpty() || hasProgress;
     buildWrappedLines(title, attachmentTitleFont().get(), attachmentTitleColor(), forceSingleLineTitle ? 1 : attachmentWrappingTextMaximumLineCount);

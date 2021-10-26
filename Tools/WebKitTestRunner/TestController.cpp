@@ -491,6 +491,14 @@ WKPageRef TestController::createOtherPage(PlatformWebView* parentView, WKPageCon
     };
     WKPageSetPageNavigationClient(newPage, &pageNavigationClient.base);
 
+    WKPageInjectedBundleClientV1 injectedBundleClient = {
+        { 1, this },
+        didReceivePageMessageFromInjectedBundle,
+        nullptr,
+        didReceiveSynchronousPageMessageFromInjectedBundleWithListener,
+    };
+    WKPageSetPageInjectedBundleClient(newPage, &injectedBundleClient.base);
+
     view->didInitializeClients();
 
     TestController::singleton().updateWindowScaleForTest(view.ptr(), *TestController::singleton().m_currentInvocation);
@@ -896,6 +904,9 @@ void TestController::resetPreferencesToConsistentValues(const TestOptions& optio
 
         if (enableAllExperimentalFeatures)
             WKPreferencesEnableAllExperimentalFeatures(preferences);
+
+        // FIXME: We disable rvfc by default. Enable it when the video backend support is good enough.
+        WKPreferencesSetRequestVideoFrameCallbackEnabled(preferences, false);
 
         WKPreferencesResetAllInternalDebugFeatures(preferences);
 
@@ -1569,7 +1580,16 @@ WKTypeRef TestController::getInjectedBundleInitializationUserData(WKContextRef, 
 
 void TestController::didReceivePageMessageFromInjectedBundle(WKPageRef page, WKStringRef messageName, WKTypeRef messageBody, const void* clientInfo)
 {
-    static_cast<TestController*>(const_cast<void*>(clientInfo))->didReceiveMessageFromInjectedBundle(messageName, messageBody);
+    auto* testController = static_cast<TestController*>(const_cast<void*>(clientInfo));
+    if (page != testController->mainWebView()->page()) {
+        // If this is a Done message from an auxiliary view in its own WebProcess (due to process-swapping), we need to notify the injected bundle of the main WebView
+        // that the test is done.
+        if (WKStringIsEqualToUTF8CString(messageName, "Done") && testController->m_currentInvocation)
+            WKPagePostMessageToInjectedBundle(testController->mainWebView()->page(), toWK("NotifyDone").get(), nullptr);
+        if (!WKStringIsEqualToUTF8CString(messageName, "TextOutput"))
+            return;
+    }
+    testController->didReceiveMessageFromInjectedBundle(messageName, messageBody);
 }
 
 void TestController::didReceiveSynchronousPageMessageFromInjectedBundleWithListener(WKPageRef page, WKStringRef messageName, WKTypeRef messageBody, WKMessageListenerRef listener, const void* clientInfo)
@@ -1595,6 +1615,16 @@ void TestController::gpuProcessDidCrash(WKContextRef context, WKProcessID proces
 void TestController::didReceiveKeyDownMessageFromInjectedBundle(WKDictionaryRef dictionary, bool synchronous)
 {
     m_eventSenderProxy->keyDown(stringValue(dictionary, "Key"), uint64Value(dictionary, "Modifiers"), uint64Value(dictionary, "Location"));
+}
+
+void TestController::didReceiveRawKeyDownMessageFromInjectedBundle(WKDictionaryRef dictionary, bool synchronous)
+{
+    m_eventSenderProxy->rawKeyDown(stringValue(dictionary, "Key"), uint64Value(dictionary, "Modifiers"), uint64Value(dictionary, "Location"));
+}
+
+void TestController::didReceiveRawKeyUpMessageFromInjectedBundle(WKDictionaryRef dictionary, bool synchronous)
+{
+    m_eventSenderProxy->rawKeyUp(stringValue(dictionary, "Key"), uint64Value(dictionary, "Modifiers"), uint64Value(dictionary, "Location"));
 }
 
 void TestController::didReceiveLiveDocumentsList(WKArrayRef liveDocumentList)
@@ -1654,6 +1684,16 @@ void TestController::didReceiveMessageFromInjectedBundle(WKStringRef messageName
             return;
         }
 
+        if (WKStringIsEqualToUTF8CString(subMessageName, "RawKeyDown")) {
+            didReceiveRawKeyDownMessageFromInjectedBundle(dictionary, false);
+            return;
+        }
+
+        if (WKStringIsEqualToUTF8CString(subMessageName, "RawKeyUp")) {
+            didReceiveRawKeyUpMessageFromInjectedBundle(dictionary, false);
+            return;
+        }
+        
         if (WKStringIsEqualToUTF8CString(subMessageName, "MouseScrollBy")) {
             m_eventSenderProxy->mouseScrollBy(doubleValue(dictionary, "X"), doubleValue(dictionary, "Y"));
             return;
@@ -1710,6 +1750,16 @@ void TestController::didReceiveSynchronousMessageFromInjectedBundle(WKStringRef 
 
         if (WKStringIsEqualToUTF8CString(subMessageName, "MouseUp")) {
             m_eventSenderProxy->mouseUp(uint64Value(dictionary, "Button"), uint64Value(dictionary, "Modifiers"), stringValue(dictionary, "PointerType"));
+            return completionHandler(nullptr);
+        }
+
+        if (WKStringIsEqualToUTF8CString(subMessageName, "RawKeyDown")) {
+            didReceiveRawKeyDownMessageFromInjectedBundle(dictionary, true);
+            return completionHandler(nullptr);
+        }
+
+        if (WKStringIsEqualToUTF8CString(subMessageName, "RawKeyUp")) {
+            didReceiveRawKeyUpMessageFromInjectedBundle(dictionary, true);
             return completionHandler(nullptr);
         }
 

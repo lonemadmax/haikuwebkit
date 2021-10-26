@@ -224,6 +224,8 @@ media/video-does-not-loop.html [ WontFix ]
 # This test uses movie matricies, which AVFoundation and QTKit64 do not support.
 media/video-size-intrinsic-scale.html [ WontFix ]
 
+media/video-element-fullscreen-not-in-dom-accelerated-iphone.html [ Pass ]
+
 # MediaSource is not currently supported on iOS.
 media/media-source
 http/tests/media/media-source [ Skip ]
@@ -2741,6 +2743,7 @@ fast/mediastream/screencapture-user-gesture.html [ Skip ]
 fast/mediastream/getDisplayMedia-max-constraints1.html [ Skip ]
 fast/mediastream/getDisplayMedia-max-constraints2.html [ Skip ]
 fast/mediastream/getDisplayMedia-max-constraints3.html [ Skip ]
+fast/mediastream/getDisplayMedia-size.html [ Skip ]
 
 webkit.org/b/177401 webrtc/captureCanvas-webrtc.html [ Pass Timeout Failure ]
 
@@ -3488,6 +3491,8 @@ imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/can
 imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-canvas.html [ Pass ]
 imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-cloned.html [ Pass ]
 imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-image.html [ Pass ]
+imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-video.html [ Pass ]
+imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-video.html [ Pass ]
 imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-pattern-canvas.html [ Pass ]
 imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-pattern-image.html [ Pass ]
 imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-settings.html [ Pass ]
@@ -3544,6 +3549,8 @@ webkit.org/b/229397 imported/w3c/web-platform-tests/css/css-writing-modes/clip-r
 webkit.org/b/229397 imported/w3c/web-platform-tests/css/css-writing-modes/clip-rect-vrl-004.xht [ ImageOnlyFailure ]
 webkit.org/b/229397 imported/w3c/web-platform-tests/css/css-writing-modes/clip-rect-vrl-006.xht [ ImageOnlyFailure ]
 webkit.org/b/229397 imported/w3c/web-platform-tests/css/css-writing-modes/clip-rect-vrl-008.xht [ ImageOnlyFailure ]
+
+webkit.org/b/232181 imported/w3c/web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-close.https.tentative.worker.html [ Pass Failure ]
 
 # These three tests will be fixed by rdar://80384564.
 editing/selection/ios/change-selection-by-tapping-with-existing-selection.html  [ Failure ]

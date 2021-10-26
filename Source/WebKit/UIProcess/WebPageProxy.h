@@ -69,6 +69,7 @@
 #include "WebCoreArgumentCoders.h"
 #include "WebDataListSuggestionsDropdown.h"
 #include "WebFrameProxy.h"
+#include "WebNotificationManagerMessageHandler.h"
 #include "WebPageCreationParameters.h"
 #include "WebPageDiagnosticLoggingClient.h"
 #include "WebPageInjectedBundleClient.h"
@@ -137,6 +138,7 @@
 #endif
 
 #if PLATFORM(IOS_FAMILY)
+#include "DynamicViewportSizeUpdate.h"
 #include "GestureTypes.h"
 #include "WebAutocorrectionContext.h"
 #include <WebCore/InspectorOverlay.h>
@@ -155,7 +157,6 @@
 #endif
 
 #if PLATFORM(COCOA)
-#include "DynamicViewportSizeUpdate.h"
 #include "RemoteLayerTreeNode.h"
 #include <wtf/WeakObjCPtr.h>
 #endif
@@ -556,7 +557,7 @@ public:
     void remoteInspectorInformationDidChange();
 #endif
 
-    void loadServiceWorker(const URL&);
+    void loadServiceWorker(const URL&, CompletionHandler<void(bool success)>&&);
 
 #if ENABLE(FULLSCREEN_API)
     WebFullScreenManagerProxy* fullScreenManager();
@@ -817,9 +818,11 @@ public:
     void scrollingNodeScrollWillStartScroll();
     void scrollingNodeScrollDidEndScroll();
 
-    void dynamicViewportSizeUpdate(const WebCore::FloatSize& viewLayoutSize, const WebCore::FloatSize& maximumUnobscuredSize, const WebCore::FloatRect& targetExposedContentRect, const WebCore::FloatRect& targetUnobscuredRect, const WebCore::FloatRect& targetUnobscuredRectInScrollViewCoordinates, const WebCore::FloatBoxExtent& unobscuredSafeAreaInsets, double targetScale, int32_t deviceOrientation, double minimumEffectiveDeviceWidth, DynamicViewportSizeUpdateID);
+    void dynamicViewportSizeUpdate(const WebCore::FloatSize& viewLayoutSize, const WebCore::FloatSize& minimumUnobscuredSize, const WebCore::FloatSize& maximumUnobscuredSize, const WebCore::FloatRect& targetExposedContentRect, const WebCore::FloatRect& targetUnobscuredRect, const WebCore::FloatRect& targetUnobscuredRectInScrollViewCoordinates, const WebCore::FloatBoxExtent& unobscuredSafeAreaInsets, double targetScale, int32_t deviceOrientation, double minimumEffectiveDeviceWidth, DynamicViewportSizeUpdateID);
 
     void setViewportConfigurationViewLayoutSize(const WebCore::FloatSize&, double scaleFactor, double minimumEffectiveDeviceWidth);
+    void setMinimumUnobscuredSize(const WebCore::FloatSize&);
+    WebCore::FloatSize minimumUnobscuredSize() const { return m_minimumUnobscuredSize; }
     void setMaximumUnobscuredSize(const WebCore::FloatSize&);
     WebCore::FloatSize maximumUnobscuredSize() const { return m_maximumUnobscuredSize; }
     void setDeviceOrientation(int32_t);
@@ -1222,7 +1225,7 @@ public:
     class PolicyDecisionSender;
     enum class WillContinueLoadInNewProcess : bool { No, Yes };
     void receivedPolicyDecision(WebCore::PolicyAction, API::Navigation*, RefPtr<API::WebsitePolicies>&&, std::variant<Ref<API::NavigationResponse>, Ref<API::NavigationAction>>&&, Ref<PolicyDecisionSender>&&, std::optional<SandboxExtension::Handle> = { }, WillContinueLoadInNewProcess = WillContinueLoadInNewProcess::No);
-    void receivedNavigationPolicyDecision(WebCore::PolicyAction, API::Navigation*, Ref<API::NavigationAction>&&, ProcessSwapRequestedByClient, WebFrameProxy&, RefPtr<API::WebsitePolicies>&&, Ref<PolicyDecisionSender>&&);
+    void receivedNavigationPolicyDecision(WebCore::PolicyAction, API::Navigation*, Ref<API::NavigationAction>&&, ProcessSwapRequestedByClient, WebFrameProxy&, const FrameInfoData&, RefPtr<API::WebsitePolicies>&&, Ref<PolicyDecisionSender>&&);
 
     void backForwardRemovedItem(const WebCore::BackForwardItemIdentifier&);
 
@@ -1938,7 +1941,11 @@ public:
     bool acceptsFirstMouse(int eventNumber, const WebMouseEvent&);
 #endif
 
+#if ENABLE(SERVICE_WORKER)
     bool isServiceWorkerPage() const { return m_isServiceWorkerPage; }
+#else
+    bool isServiceWorkerPage() const { return false; }
+#endif
 
     void dispatchWheelEventWithoutScrolling(const WebWheelEvent&, CompletionHandler<void(bool)>&&);
 
@@ -1986,9 +1993,17 @@ public:
     bool isQuarantinedAndNotUserApproved(const String&);
 #endif
 
+    void showNotification(const String& title, const String& body, const String& iconURL, const String& tag, const String& lang, WebCore::NotificationDirection, const String& originString, uint64_t notificationID);
+    void cancelNotification(uint64_t notificationID);
+    void clearNotifications(const Vector<uint64_t>& notificationIDs);
+    void didDestroyNotification(uint64_t notificationID);
+
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
     void platformInitialize();
+
+    void addAllMessageReceivers();
+    void removeAllMessageReceivers();
 
     void notifyProcessPoolToPrewarm();
     bool shouldUseBackForwardCache() const;
@@ -2181,10 +2196,6 @@ private:
     RefPtr<API::Navigation> launchProcessForReload();
 
     void requestNotificationPermission(const String& originString, CompletionHandler<void(bool allowed)>&&);
-    void showNotification(const String& title, const String& body, const String& iconURL, const String& tag, const String& lang, WebCore::NotificationDirection, const String& originString, uint64_t notificationID);
-    void cancelNotification(uint64_t notificationID);
-    void clearNotifications(const Vector<uint64_t>& notificationIDs);
-    void didDestroyNotification(uint64_t notificationID);
 
     void didChangeContentSize(const WebCore::IntSize&);
     void didChangeIntrinsicContentSize(const WebCore::IntSize&);
@@ -2519,6 +2530,11 @@ private:
     SpeechSynthesisData& speechSynthesisData();
     void resetSpeechSynthesizer();
 #endif
+
+#if ENABLE(SERVICE_WORKER)
+    void didFinishServiceWorkerPageRegistration(bool success);
+#endif
+    void callServiceWorkerLaunchCompletionHandlerIfNecessary();
 
 #if PLATFORM(IOS_FAMILY)
     static bool isInHardwareKeyboardMode();
@@ -2975,6 +2991,7 @@ private:
 #if PLATFORM(IOS_FAMILY)
     Function<bool()> m_deviceOrientationUserPermissionHandlerForTesting;
     bool m_waitingForPostLayoutEditorStateUpdateAfterFocusingElement { false };
+    WebCore::FloatSize m_minimumUnobscuredSize;
     WebCore::FloatSize m_maximumUnobscuredSize;
     bool m_lastObservedStateWasBackground { false };
 #endif
@@ -3014,7 +3031,10 @@ private:
 
     bool m_needsFontAttributes { false };
     bool m_mayHaveUniversalFileReadSandboxExtension { false };
+#if ENABLE(SERVICE_WORKER)
     bool m_isServiceWorkerPage { false };
+    CompletionHandler<void(bool)> m_serviceWorkerLaunchCompletionHandler;
+#endif
 
     RunLoop::Timer<WebPageProxy> m_tryCloseTimeoutTimer;
 
@@ -3110,6 +3130,8 @@ private:
 #endif
 
     WindowKind m_windowKind { WindowKind::Unparented };
+
+    WebNotificationManagerMessageHandler m_notificationManagerMessageHandler;
 };
 
 #ifdef __OBJC__

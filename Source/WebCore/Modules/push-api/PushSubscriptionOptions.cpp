@@ -34,9 +34,8 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(PushSubscriptionOptions);
 
-PushSubscriptionOptions::PushSubscriptionOptions(bool userVisibleOnly, Vector<uint8_t>&& serverVAPIDPublicKey)
-    : m_userVisibleOnly(userVisibleOnly)
-    , m_serverVAPIDPublicKey(WTFMove(serverVAPIDPublicKey))
+PushSubscriptionOptions::PushSubscriptionOptions(Vector<uint8_t>&& serverVAPIDPublicKey)
+    : m_serverVAPIDPublicKey(WTFMove(serverVAPIDPublicKey))
 {
 }
 
@@ -44,7 +43,7 @@ PushSubscriptionOptions::~PushSubscriptionOptions() = default;
 
 bool PushSubscriptionOptions::userVisibleOnly() const
 {
-    return m_userVisibleOnly;
+    return true;
 }
 
 const Vector<uint8_t>& PushSubscriptionOptions::serverVAPIDPublicKey() const

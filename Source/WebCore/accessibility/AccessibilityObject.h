@@ -491,11 +491,10 @@ public:
     void updateAccessibilityRole() override { }
     const AccessibilityChildrenVector& children(bool updateChildrenIfNeeded = true) override;
     void addChildren() override { }
-    void addChild(AXCoreObject*) override;
-    void insertChild(AXCoreObject*, unsigned) override;
+    void addChild(AXCoreObject*, DescendIfIgnored = DescendIfIgnored::Yes) override;
+    void insertChild(AXCoreObject*, unsigned, DescendIfIgnored = DescendIfIgnored::Yes) override;
 
     bool canHaveChildren() const override { return true; }
-    bool hasChildren() const override { return m_haveChildren; }
     void updateChildrenIfNecessary() override;
     void setNeedsToUpdateChildren() override { }
     void setNeedsToUpdateSubtree() override { }
@@ -761,7 +760,7 @@ public:
     void clearIsIgnoredFromParentData() override { m_isIgnoredFromParentData = { }; }
     void setIsIgnoredFromParentDataForChild(AXCoreObject*) override;
 
-    uint64_t sessionID() const override;
+    PAL::SessionID sessionID() const override;
     String documentURI() const override;
     String documentEncoding() const override;
     AccessibilityChildrenVector documentLinks() override { return AccessibilityChildrenVector(); }
@@ -810,8 +809,9 @@ private:
 
     AXID m_id { 0 };
 protected: // FIXME: Make the data members private.
+    bool childrenInitialized() const { return m_childrenInitialized; }
     AccessibilityChildrenVector m_children;
-    mutable bool m_haveChildren { false };
+    mutable bool m_childrenInitialized { false };
     AccessibilityRole m_role { AccessibilityRole::Unknown };
 private:
     AccessibilityObjectInclusion m_lastKnownIsIgnoredValue { AccessibilityObjectInclusion::DefaultBehavior };
@@ -833,12 +833,12 @@ inline void AccessibilityObject::updateBackingStore() { }
 inline void AccessibilityObject::detachPlatformWrapper(AccessibilityDetachmentType) { }
 #endif
 
-#if !(ENABLE(ACCESSIBILITY) && USE(ATK))
+#if !(ENABLE(ACCESSIBILITY) && (USE(ATK) || USE(ATSPI)))
 inline bool AccessibilityObject::allowsTextRanges() const { return true; }
 inline unsigned AccessibilityObject::getLengthForTextRange() const { return text().length(); }
 #endif
 
-AccessibilityObject* firstAccessibleObjectFromNode(const Node*, const WTF::Function<bool(const AccessibilityObject&)>& isAccessible);
+AccessibilityObject* firstAccessibleObjectFromNode(const Node*, const Function<bool(const AccessibilityObject&)>& isAccessible);
 
 namespace Accessibility {
 

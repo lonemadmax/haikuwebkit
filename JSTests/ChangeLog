@@ -1,3 +1,243 @@
+2021-10-25  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Don't branch around register allocation in DFG enumerator get by val
+        https://bugs.webkit.org/show_bug.cgi?id=232260
+        rdar://84544469
+
+        Reviewed by Robin Morisset.
+
+        * stress/dont-branch-around-regalloc-enumerator-get-by-val-float.js: Added.
+        (foo):
+
+2021-10-24  Alexey Shvayka  <ashvayka@apple.com>
+
+        InternalFunction::createSubclassStructure() should use prototype's global object
+        https://bugs.webkit.org/show_bug.cgi?id=231874
+
+        Reviewed by Yusuke Suzuki.
+
+        * stress/internal-function-subclass-structure-realm.js: Added.
+
+2021-10-23  Phillip Mates  <pmates@igalia.com>
+
+        update test262
+        https://bugs.webkit.org/show_bug.cgi?id=232005
+
+        Reviewed by Yusuke Suzuki.
+
+        * test262/expectations.yaml:
+        * test262/latest-changes-summary.txt:
+        * test262/test/built-ins/Array/prototype/concat/Array.prototype.concat_large-typed-array.js:
+        (concatTypedArray):
+        * test262/test/built-ins/Array/prototype/concat/Array.prototype.concat_small-typed-array.js:
+        (concatTypedArray):
+        * test262/test/built-ins/Array/prototype/copyWithin/non-negative-target-and-start.js:
+        * test262/test/built-ins/Function/internals/Call/class-ctor-realm.js:
+        * test262/test/built-ins/Object/getOwnPropertyNames/15.2.3.4-4-44.js:
+        * test262/test/built-ins/Object/getOwnPropertyNames/15.2.3.4-4-49.js:
+        * test262/test/built-ins/Object/getOwnPropertyNames/15.2.3.4-4-b-2.js:
+        * test262/test/built-ins/ShadowRealm/prototype/evaluate/globalthis-available-properties.js: Added.
+        * test262/test/built-ins/ShadowRealm/prototype/evaluate/globalthis-config-only-properties.js: Added.
+        (const.remainingNames.names.filter.name.esNonConfigValues.includes):
+        (hasOwn.call):
+        * test262/test/built-ins/ShadowRealm/prototype/evaluate/globalthis-orginary-object.js: Added.
+        * test262/test/built-ins/ShadowRealm/prototype/evaluate/throws-error-from-ctor-realm.js: Added.
+        * test262/test/built-ins/ShadowRealm/prototype/evaluate/validates-realm-object.js:
+        * test262/test/built-ins/ShadowRealm/prototype/evaluate/wrapped-function-proto-from-caller-realm.js:
+        (checkArgWrapperFn.realm.evaluate.string_appeared_here.assert.sameValue.checkArgWrapperFn):
+        * test262/test/built-ins/ShadowRealm/prototype/importValue/not-constructor.js:
+        * test262/test/built-ins/Temporal/PlainDate/prototype/since/largestunit-higher-units.js:
+        * test262/test/built-ins/Temporal/PlainMonthDay/prototype/toPlainDate/basic.js:
+        * test262/test/intl402/NumberFormat/prototype/format/signDisplay-currency-de-DE.js:
+        * test262/test/intl402/NumberFormat/prototype/format/signDisplay-currency-en-US.js:
+        * test262/test/intl402/NumberFormat/prototype/format/signDisplay-currency-ja-JP.js:
+        * test262/test/intl402/NumberFormat/prototype/format/signDisplay-currency-ko-KR.js:
+        * test262/test/intl402/NumberFormat/prototype/format/signDisplay-currency-zh-TW.js:
+        * test262/test/intl402/NumberFormat/prototype/formatToParts/signDisplay-currency-de-DE.js:
+        * test262/test/intl402/NumberFormat/prototype/formatToParts/signDisplay-currency-en-US.js:
+        * test262/test/intl402/NumberFormat/prototype/formatToParts/signDisplay-currency-ja-JP.js:
+        * test262/test/intl402/NumberFormat/prototype/formatToParts/signDisplay-currency-ko-KR.js:
+        * test262/test/intl402/NumberFormat/prototype/formatToParts/signDisplay-currency-zh-TW.js:
+        * test262/test/intl402/Temporal/Instant/prototype/toLocaleString/locales-undefined.js: Renamed from JSTests/test262/test/built-ins/Temporal/Instant/prototype/toLocaleString/locales-undefined.js.
+        * test262/test/intl402/Temporal/Instant/prototype/toLocaleString/options-undefined.js: Renamed from JSTests/test262/test/built-ins/Temporal/Instant/prototype/toLocaleString/options-undefined.js.
+        * test262/test/intl402/Temporal/PlainDate/prototype/toLocaleString/locales-undefined.js: Renamed from JSTests/test262/test/built-ins/Temporal/PlainDate/prototype/toLocaleString/locales-undefined.js.
+        * test262/test/intl402/Temporal/PlainDate/prototype/toLocaleString/options-undefined.js: Renamed from JSTests/test262/test/built-ins/Temporal/PlainDate/prototype/toLocaleString/options-undefined.js.
+        * test262/test/intl402/Temporal/PlainDateTime/prototype/toLocaleString/locales-undefined.js: Renamed from JSTests/test262/test/built-ins/Temporal/PlainDateTime/prototype/toLocaleString/locales-undefined.js.
+        * test262/test/intl402/Temporal/PlainDateTime/prototype/toLocaleString/options-undefined.js: Renamed from JSTests/test262/test/built-ins/Temporal/PlainDateTime/prototype/toLocaleString/options-undefined.js.
+        * test262/test/intl402/Temporal/PlainMonthDay/prototype/toLocaleString/locales-undefined.js: Renamed from JSTests/test262/test/built-ins/Temporal/PlainMonthDay/prototype/toLocaleString/locales-undefined.js.
+        * test262/test/intl402/Temporal/PlainMonthDay/prototype/toLocaleString/options-undefined.js: Renamed from JSTests/test262/test/built-ins/Temporal/PlainMonthDay/prototype/toLocaleString/options-undefined.js.
+        * test262/test/intl402/Temporal/PlainTime/prototype/toLocaleString/locales-undefined.js: Renamed from JSTests/test262/test/built-ins/Temporal/PlainTime/prototype/toLocaleString/locales-undefined.js.
+        * test262/test/intl402/Temporal/PlainTime/prototype/toLocaleString/options-undefined.js: Renamed from JSTests/test262/test/built-ins/Temporal/PlainTime/prototype/toLocaleString/options-undefined.js.
+        * test262/test/intl402/Temporal/PlainYearMonth/prototype/toLocaleString/locales-undefined.js: Renamed from JSTests/test262/test/built-ins/Temporal/PlainYearMonth/prototype/toLocaleString/locales-undefined.js.
+        * test262/test/intl402/Temporal/PlainYearMonth/prototype/toLocaleString/options-undefined.js: Renamed from JSTests/test262/test/built-ins/Temporal/PlainYearMonth/prototype/toLocaleString/options-undefined.js.
+        * test262/test/intl402/Temporal/ZonedDateTime/prototype/toLocaleString/locales-undefined.js: Renamed from JSTests/test262/test/built-ins/Temporal/ZonedDateTime/prototype/toLocaleString/locales-undefined.js.
+        * test262/test/intl402/Temporal/ZonedDateTime/prototype/toLocaleString/options-undefined.js: Renamed from JSTests/test262/test/built-ins/Temporal/ZonedDateTime/prototype/toLocaleString/options-undefined.js.
+        * test262/test/language/computed-property-names/basics/number.js:
+        * test262/test/language/computed-property-names/basics/string.js:
+        * test262/test/language/computed-property-names/basics/symbol.js:
+        * test262/test/language/computed-property-names/class/method/generator.js:
+        * test262/test/language/computed-property-names/class/method/number.js:
+        * test262/test/language/computed-property-names/class/method/string.js:
+        * test262/test/language/computed-property-names/class/method/symbol.js:
+        * test262/test/language/computed-property-names/object/method/generator.js:
+        * test262/test/language/computed-property-names/object/method/number.js:
+        * test262/test/language/computed-property-names/object/method/string.js:
+        * test262/test/language/computed-property-names/object/method/symbol.js:
+        * test262/test/language/computed-property-names/to-name-side-effects/numbers-object.js:
+        * test262/test/language/computed-property-names/to-name-side-effects/object.js:
+        * test262/test/language/identifiers/part-unicode-14.0.0-escaped.js: Added.
+        * test262/test/language/identifiers/part-unicode-14.0.0.js: Added.
+        * test262/test/language/identifiers/start-unicode-14.0.0-escaped.js: Added.
+        * test262/test/language/identifiers/start-unicode-14.0.0.js: Added.
+        * test262/test/language/rest-parameters/arrow-function.js:
+        * test262/test/language/rest-parameters/no-alias-arguments.js:
+        (f):
+        * test262/test/language/rest-parameters/with-new-target.js:
+        (Base):
+        (Child):
+        * test262/test/language/statements/class/definition/fn-length-static-precedence-order.js:
+        * test262/test/language/statements/class/definition/fn-name-static-precedence-order.js:
+        * test262/test/language/statements/class/static-init-arguments-functions.js:
+        * test262/test/language/statements/class/static-init-arguments-methods.js:
+        * test262/test/language/statements/class/subclass/builtin-objects/Array/contructor-calls-super-multiple-arguments.js:
+        * test262/test/language/statements/class/subclass/builtin-objects/Array/regular-subclassing.js:
+        * test262/test262-Revision.txt:
+
+2021-10-22  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] GetTypedArrayLengthAsInt52 must be inserted only when we ensure that input is TypedArray via array-mode-based filtering
+        https://bugs.webkit.org/show_bug.cgi?id=232168
+        rdar://84366658
+
+        Reviewed by Robin Morisset.
+
+        * stress/gettypedarraylengthasint52-must-be-emitted-for-typedarray.js: Added.
+        (foo):
+
+2021-10-22  Asumu Takikawa  <asumu@igalia.com>
+
+        Change WebAssembly module import linking time to evaluate step.
+        https://bugs.webkit.org/show_bug.cgi?id=231114
+
+        Reviewed by Yusuke Suzuki.
+
+        Added test cases based on Wasm/ESM proposal examples from:
+
+          https://github.com/WebAssembly/esm-integration/blob/main/proposals/esm-integration/EXAMPLES.md
+
+        The new tests cases cover the bindings made for both JS<->Wasm
+        and Wasm<->JS cyclic module cases, and importing values from JS
+        into Wasm modules. The tests do not cover importing memory values
+        as this does not work yet.
+
+        * wasm/modules/wasm-js-cycle.js:
+        * wasm/modules/wasm-js-cycle/entry-global.wasm:
+        * wasm/modules/wasm-js-cycle/entry-global.wat:
+        * wasm/modules/wasm-js-cycle/entry-table.wasm:
+        * wasm/modules/wasm-js-cycle/entry-table.wat:
+        * wasm/modules/wasm-js-cycle/global.js:
+        (from.string_appeared_here.export.incrementGlobal): Deleted.
+        * wasm/modules/wasm-js-cycle/table.js:
+        (from.string_appeared_here.export.setTable): Deleted.
+
+        * wasm/modules/js-wasm-cycle.js:
+        (then):
+        * wasm/modules/js-wasm-cycle/entry-function.js: Added.
+        (f):
+        * wasm/modules/js-wasm-cycle/entry-i32-global.js: Added.
+        * wasm/modules/js-wasm-cycle/entry-i32-value.js: Added.
+        * wasm/modules/js-wasm-cycle/entry-memory.js: Added.
+        * wasm/modules/js-wasm-cycle/entry-table.js: Added.
+        * wasm/modules/js-wasm-cycle/entry-wasm-global.js: Added.
+        (f):
+        * wasm/modules/js-wasm-cycle/entry-wasm-memory.js: Added.
+        (f):
+        * wasm/modules/js-wasm-cycle/entry-wasm-table.js: Added.
+        (f):
+        * wasm/modules/js-wasm-cycle/function.wasm: Added.
+        * wasm/modules/js-wasm-cycle/function.wat: Added.
+        * wasm/modules/js-wasm-cycle/i32-global.wasm: Added.
+        * wasm/modules/js-wasm-cycle/i32-global.wat: Added.
+        * wasm/modules/js-wasm-cycle/i32-value.wasm: Added.
+        * wasm/modules/js-wasm-cycle/i32-value.wat: Added.
+        * wasm/modules/js-wasm-cycle/memory.wasm: Added.
+        * wasm/modules/js-wasm-cycle/memory.wat: Added.
+        * wasm/modules/js-wasm-cycle/table.wasm: Added.
+        * wasm/modules/js-wasm-cycle/table.wat: Added.
+        * wasm/modules/js-wasm-cycle/wasm-global.wasm: Added.
+        * wasm/modules/js-wasm-cycle/wasm-global.wat: Added.
+        * wasm/modules/js-wasm-cycle/wasm-memory.wasm: Added.
+        * wasm/modules/js-wasm-cycle/wasm-memory.wat: Added.
+        * wasm/modules/js-wasm-cycle/wasm-table.wasm: Added.
+        * wasm/modules/js-wasm-cycle/wasm-table.wat: Added.
+        * wasm/modules/wasm-imports-js-exports.js:
+        * wasm/modules/wasm-imports-js-exports/global.js: Added.
+        * wasm/modules/wasm-imports-js-exports/global.wasm: Added.
+        * wasm/modules/wasm-imports-js-exports/global.wat: Added.
+        * wasm/modules/wasm-imports-js-exports/table.js: Added.
+        * wasm/modules/wasm-imports-js-exports/table.wasm: Added.
+        * wasm/modules/wasm-imports-js-exports/table.wat: Added.
+        * wasm/modules/wasm-js-cycle.js:
+        * wasm/modules/wasm-js-cycle/entry-global.wasm: Added.
+        * wasm/modules/wasm-js-cycle/entry-global.wat: Added.
+        * wasm/modules/wasm-js-cycle/entry-memory.wasm: Added.
+        * wasm/modules/wasm-js-cycle/entry-memory.wat: Added.
+        * wasm/modules/wasm-js-cycle/entry-table.wasm: Added.
+        * wasm/modules/wasm-js-cycle/entry-table.wat: Added.
+        * wasm/modules/wasm-js-cycle/global.js: Added.
+        (export.incrementGlobal):
+        * wasm/modules/wasm-js-cycle/memory.js: Added.
+        (from.string_appeared_here.export.setMemory):
+        * wasm/modules/wasm-js-cycle/table.js: Added.
+        (export.setTable):
+
+2021-10-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Inserted GetTypedArrayLengthAsInt52 for PutByVal should have NodeResultInt52
+        https://bugs.webkit.org/show_bug.cgi?id=232059
+
+        Reviewed by Saam Barati.
+
+        * stress/inserted-gettypedarraylengthasint52-should-have-int52-result-for-put-by-val.js: Added.
+        (foo.bar):
+        (foo):
+
+2021-10-18  Phillip Mates  <pmates@igalia.com>
+
+        Test coverage for JSC shadow realms implementation
+        https://bugs.webkit.org/show_bug.cgi?id=230602
+
+        Reviewed by Yusuke Suzuki.
+
+        * modules/import-meta-syntax.js:
+        (shouldThrow):
+        * stress/eval-indirect.js: Added.
+        (shouldBe):
+        (shouldThrow):
+        * stress/import-syntax.js:
+        * stress/resources/shadow-realm-example-module.js: Added.
+        (putInGlobal):
+        (getFromGlobal):
+        (getAnObject):
+        (getCallCount):
+        * stress/shadow-realm-evaluate.js: Added.
+        (shouldBe):
+        (shouldThrow):
+        (assertionFn):
+        (shouldBe.String):
+        (shouldBe.globalObjectFor.doEval):
+        (shouldBe.globalObjectFor):
+        * stress/shadow-realm-import-value.js: Added.
+        (shouldBe):
+        (shouldThrow):
+        (async shouldThrowAsync):
+        (async const):
+        (doImport):
+        * stress/shadow-realm.js: Added.
+        (shouldBe):
+        (throw.new.Error):
+        * test262/config.yaml:
+
 2021-10-18  Yusuke Suzuki  <ysuzuki@apple.com>
 
         [JSC] PutByVal's child5 should be KnownInt32Use / Int52RepUse in FTL

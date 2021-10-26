@@ -69,9 +69,6 @@
 #import <WebKit/DOMElement.h>
 #import <WebKit/DOMExtensions.h>
 #import <WebKit/DOMRange.h>
-#import <WebKit/WKRetainPtr.h>
-#import <WebKit/WKString.h>
-#import <WebKit/WKStringCF.h>
 #import <WebKit/WebArchive.h>
 #import <WebKit/WebBackForwardList.h>
 #import <WebKit/WebCache.h>
@@ -866,8 +863,11 @@ static void setWebPreferencesForTestOptions(WebPreferences *preferences, const W
         [preferences _resetForTesting];
 
         if (enableAllExperimentalFeatures) {
-            for (WebFeature *feature in [WebPreferences _experimentalFeatures])
-                [preferences _setEnabled:YES forFeature:feature];
+            for (WebFeature *feature in [WebPreferences _experimentalFeatures]) {
+                // FIXME: We disable rvfc by default. Enable it when the video backend support is good enough.
+                auto enabled = [feature.name isEqual:@"RequestVideoFrameCallback"] ? NO : YES;
+                [preferences _setEnabled:enabled forFeature:feature];
+            }
         }
 
         if (persistentUserStyleSheetLocation()) {
@@ -1397,16 +1397,17 @@ static RetainPtr<NSString> dumpFramesAsText(WebFrame *frame)
         result = adoptNS([[NSMutableString alloc] init]);
 
     NSString *innerText = [documentElement innerText];
-    // We use WKStringGetUTF8CStringNonStrict() to convert innerText to a WK String since
-    // WKStringGetUTF8CStringNonStrict() can handle dangling surrogates and the NSString
+
+    // We use WTF::String::tryGetUtf8 to convert innerText to a UTF8 buffer since
+    // it can handle dangling surrogates and the NSString
     // conversion methods cannot. After the conversion to a buffer, we turn that buffer into
     // a CFString via fromUTF8WithLatin1Fallback().createCFString() which can be appended to
     // the result without any conversion.
-    WKRetainPtr<WKStringRef> stringRef = adoptWK(WKStringCreateWithCFString((__bridge CFStringRef)innerText));
-    size_t bufferSize = WKStringGetMaximumUTF8CStringSize(stringRef.get());
-    auto buffer = makeUniqueArray<char>(bufferSize);
-    size_t stringLength = WKStringGetUTF8CStringNonStrict(stringRef.get(), buffer.get(), bufferSize);
-    [result appendFormat:@"%@\n", String::fromUTF8WithLatin1Fallback(buffer.get(), stringLength - 1).createCFString().get()];
+    if (auto utf8Result = WTF::String(innerText).tryGetUtf8()) {
+        auto string = WTFMove(utf8Result.value());
+        [result appendFormat:@"%@\n", String::fromUTF8WithLatin1Fallback(string.data(), string.length()).createCFString().get()];
+    } else
+        [result appendString:@"\n"];
 
     if (gTestRunner->dumpChildFramesAsText()) {
         NSArray *kids = [frame childFrames];

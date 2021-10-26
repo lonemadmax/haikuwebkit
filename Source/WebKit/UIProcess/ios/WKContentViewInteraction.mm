@@ -99,8 +99,7 @@
 #import <MobileCoreServices/UTCoreTypes.h>
 #import <UniformTypeIdentifiers/UTCoreTypes.h>
 #import <WebCore/AppHighlight.h>
-#import <WebCore/Color.h>
-#import <WebCore/ColorIOS.h>
+#import <WebCore/ColorCocoa.h>
 #import <WebCore/ColorSerialization.h>
 #import <WebCore/CompositionHighlight.h>
 #import <WebCore/DOMPasteAccess.h>
@@ -2012,7 +2011,7 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
     if (![_highlightView superview])
         return;
 
-    [_highlightView setColor:adoptNS([[UIColor alloc] initWithCGColor:cachedCGColor(_tapHighlightInformation.color)]).get()];
+    [_highlightView setColor:cocoaColor(_tapHighlightInformation.color).get()];
 
     auto& highlightedQuads = _tapHighlightInformation.quads;
     bool allRectilinear = true;
@@ -2887,7 +2886,7 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
         return YES;
 #endif
 
-    return _positionInformation.isSelectable;
+    return _positionInformation.isSelectable();
 }
 
 - (BOOL)pointIsNearMarkedText:(CGPoint)point
@@ -2953,6 +2952,9 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
 
     WebKit::InteractionInformationRequest request(WebCore::roundedIntPoint(point));
     if (![self ensurePositionInformationIsUpToDate:request])
+        return NO;
+
+    if (gesture == UIWKGestureLoupe && _positionInformation.selectability == WebKit::InteractionInformationAtPosition::Selectability::UnselectableDueToUserSelectNone)
         return NO;
 
 #if ENABLE(DATALIST_ELEMENT)
@@ -3689,10 +3691,10 @@ WEBCORE_COMMAND_FOR_WEBVIEW(pasteAndMatchStyle);
         return [UIColor clearColor];
 
     if (!_page->editorState().isMissingPostLayoutData) {
-        WebCore::Color caretColor = _page->editorState().postLayoutData().caretColor;
-        if (caretColor.isValid())
-            return [UIColor colorWithCGColor:cachedCGColor(caretColor)];
+        if (auto caretColor = _page->editorState().postLayoutData().caretColor; caretColor.isValid())
+            return cocoaColor(caretColor).autorelease();
     }
+
     return [self _inheritedInteractionTintColor];
 }
 
@@ -5115,7 +5117,7 @@ static Vector<WebCore::CompositionHighlight> compositionHighlights(NSAttributedS
 
         WebCore::Color highlightColor { WebCore::CompositionHighlight::defaultCompositionFillColor };
         if (UIColor *uiColor = attributes[NSBackgroundColorAttributeName])
-            highlightColor = WebCore::colorFromUIColor(uiColor);
+            highlightColor = WebCore::colorFromCocoaColor(uiColor);
         highlights.append({ static_cast<unsigned>(range.location), static_cast<unsigned>(NSMaxRange(range)), highlightColor });
     }];
 
@@ -5255,7 +5257,7 @@ static WebKit::WritingDirection coreWritingDirection(NSWritingDirection directio
 #if PLATFORM(MACCATALYST)
     WebKit::InteractionInformationRequest request(WebCore::roundedIntPoint(point));
     [self requestAsynchronousPositionInformationUpdate:request];
-    if ([self _currentPositionInformationIsApproximatelyValidForRequest:request radiusForApproximation:2] && _positionInformation.isSelectable)
+    if ([self _currentPositionInformationIsApproximatelyValidForRequest:request radiusForApproximation:2] && _positionInformation.isSelectable())
         return [WKTextPosition textPositionWithRect:_positionInformation.caretRect];
 #endif
     return nil;
@@ -8597,7 +8599,7 @@ static RetainPtr<UITargetedPreview> createFallbackTargetedPreview(UIView *rootVi
     if (_positionInformation.isLink && _positionInformation.linkIndicator.contentImage) {
         auto indicator = _positionInformation.linkIndicator;
         auto textIndicatorImage = uiImageForImage(indicator.contentImage.get());
-        targetedPreview = createTargetedPreview(textIndicatorImage.get(), self, self.containerForContextMenuHintPreviews, indicator.textBoundingRectInRootViewCoordinates, indicator.textRectsInBoundingRectCoordinates, [UIColor colorWithCGColor:cachedCGColor(indicator.estimatedBackgroundColor)]);
+        targetedPreview = createTargetedPreview(textIndicatorImage.get(), self, self.containerForContextMenuHintPreviews, indicator.textBoundingRectInRootViewCoordinates, indicator.textRectsInBoundingRectCoordinates, cocoaColor(indicator.estimatedBackgroundColor).get());
     } else if ((_positionInformation.isAttachment || _positionInformation.isImage) && _positionInformation.image) {
         auto cgImage = _positionInformation.image->makeCGImageCopy();
         auto image = adoptNS([[UIImage alloc] initWithCGImage:cgImage.get()]);
@@ -8858,9 +8860,9 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
 
     [self cleanUpDragSourceSessionState];
 
-    auto prepareForSession = [weakSelf = WeakObjCPtr<WKContentView>(self), session = retainPtr(session), completion = makeBlockPtr(completion)] (WebKit::ProceedWithTextSelectionInImage ProceedWithTextSelectionInImage) {
+    auto prepareForSession = [weakSelf = WeakObjCPtr<WKContentView>(self), session = retainPtr(session), completion = makeBlockPtr(completion)] (WebKit::ProceedWithTextSelectionInImage proceedWithTextSelectionInImage) {
         auto strongSelf = weakSelf.get();
-        if (!strongSelf || ProceedWithTextSelectionInImage == WebKit::ProceedWithTextSelectionInImage::Yes)
+        if (!strongSelf || proceedWithTextSelectionInImage == WebKit::ProceedWithTextSelectionInImage::Yes)
             return;
 
         auto dragOrigin = [session locationInView:strongSelf.get()];
@@ -9819,7 +9821,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     [_imageAnalysisDeferringGestureRecognizer endDeferral:shouldPreventGestures];
 }
 
-- (void)_doAfterPendingImageAnalysis:(void(^)(WebKit::ProceedWithTextSelectionInImage ProceedWithTextSelectionInImage))block
+- (void)_doAfterPendingImageAnalysis:(void(^)(WebKit::ProceedWithTextSelectionInImage))block
 {
     if (self.hasPendingImageAnalysisRequest)
         _actionsToPerformAfterPendingImageAnalysis.append(makeBlockPtr(block));
@@ -9827,12 +9829,12 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
         block(WebKit::ProceedWithTextSelectionInImage::No);
 }
 
-- (void)_invokeAllActionsToPerformAfterPendingImageAnalysis:(WebKit::ProceedWithTextSelectionInImage)ProceedWithTextSelectionInImage
+- (void)_invokeAllActionsToPerformAfterPendingImageAnalysis:(WebKit::ProceedWithTextSelectionInImage)proceedWithTextSelectionInImage
 {
     _pendingImageAnalysisRequestIdentifier = std::nullopt;
     _elementPendingImageAnalysis = std::nullopt;
     for (auto block : std::exchange(_actionsToPerformAfterPendingImageAnalysis, { }))
-        block(ProceedWithTextSelectionInImage);
+        block(proceedWithTextSelectionInImage);
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS)
@@ -10858,9 +10860,9 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
     if (!self.webView.configuration._longPressActionsEnabled)
         return completion(nil);
 
-    auto getConfigurationAndContinue = [weakSelf = WeakObjCPtr<WKContentView>(self), interaction = retainPtr(interaction), completion = makeBlockPtr(completion), triggeredByImageAnalysisTimeout] (WebKit::ProceedWithTextSelectionInImage ProceedWithTextSelectionInImage) {
+    auto getConfigurationAndContinue = [weakSelf = WeakObjCPtr<WKContentView>(self), interaction = retainPtr(interaction), completion = makeBlockPtr(completion), triggeredByImageAnalysisTimeout] (WebKit::ProceedWithTextSelectionInImage proceedWithTextSelectionInImage) {
         auto strongSelf = weakSelf.get();
-        if (!strongSelf || ProceedWithTextSelectionInImage == WebKit::ProceedWithTextSelectionInImage::Yes) {
+        if (!strongSelf || proceedWithTextSelectionInImage == WebKit::ProceedWithTextSelectionInImage::Yes) {
             completion(nil);
             return;
         }

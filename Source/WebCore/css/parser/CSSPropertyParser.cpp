@@ -132,7 +132,7 @@ static bool isAppleLegacyCssValueKeyword(const char* valueKeyword, unsigned leng
     && !hasPrefix(valueKeyword, length, appleSystemPrefix)
     && !hasPrefix(valueKeyword, length, applePayPrefix)
 #if PLATFORM(COCOA)
-    && !WTF::equal(reinterpret_cast<const LChar*>(valueKeyword), reinterpret_cast<const LChar*>(appleWirelessPlaybackTargetActive), length)
+    && !equal(reinterpret_cast<const LChar*>(valueKeyword), reinterpret_cast<const LChar*>(appleWirelessPlaybackTargetActive), length)
 #endif
     ;
 }
@@ -146,7 +146,7 @@ static CSSValueID cssValueKeywordID(const CharacterType* valueKeyword, unsigned 
         CharacterType c = valueKeyword[i];
         if (!c || c >= 0x7F)
             return CSSValueInvalid; // illegal keyword.
-        buffer[i] = WTF::toASCIILower(c);
+        buffer[i] = toASCIILower(c);
     }
     buffer[length] = '\0';
     
@@ -2241,7 +2241,7 @@ static RefPtr<CSSValue> consumeNoneOrURI(CSSParserTokenRange& range)
 static RefPtr<CSSValue> consumeFlexBasis(CSSParserTokenRange& range, CSSParserMode cssParserMode)
 {
     // FIXME: Support intrinsic dimensions too.
-    if (range.peek().id() == CSSValueAuto)
+    if (range.peek().id() == CSSValueAuto || range.peek().id() == CSSValueContent)
         return consumeIdent(range);
     return consumeLengthOrPercent(range, cssParserMode, ValueRange::NonNegative);
 }
@@ -3867,7 +3867,7 @@ static RefPtr<CSSValue> consumeContain(CSSParserTokenRange& range)
     if (auto singleValue = consumeIdent<CSSValueNone, CSSValueStrict, CSSValueContent>(range))
         return singleValue;
     auto list = CSSValueList::createSpaceSeparated();
-    RefPtr<CSSPrimitiveValue> size, layout, paint;
+    RefPtr<CSSPrimitiveValue> size, layout, paint, style;
     while (!range.atEnd()) {
         switch (range.peek().id()) {
         case CSSValueSize:
@@ -3885,6 +3885,11 @@ static RefPtr<CSSValue> consumeContain(CSSParserTokenRange& range)
                 return nullptr;
             paint = consumeIdent(range);
             break;
+        case CSSValueStyle:
+            if (style)
+                return nullptr;
+            style = consumeIdent(range);
+            break;
         default:
             return nullptr;
         }
@@ -3893,6 +3898,8 @@ static RefPtr<CSSValue> consumeContain(CSSParserTokenRange& range)
         list->append(size.releaseNonNull());
     if (layout)
         list->append(layout.releaseNonNull());
+    if (style)
+        list->append(style.releaseNonNull());
     if (paint)
         list->append(paint.releaseNonNull());
     if (!list->length())
@@ -5227,7 +5234,7 @@ bool CSSPropertyParser::consumeFlex(bool important)
                 else
                     return false;
             } else if (!flexBasis) {
-                if (m_range.peek().id() == CSSValueAuto)
+                if (m_range.peek().id() == CSSValueAuto || m_range.peek().id() == CSSValueContent)
                     flexBasis = consumeIdent(m_range);
                 if (!flexBasis)
                     flexBasis = consumeLengthOrPercent(m_range, m_context.mode, ValueRange::NonNegative);

@@ -726,6 +726,9 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     if (parameters.mediaPlaybackIsSuspended)
         m_page->suspendAllMediaPlayback();
 
+    if (parameters.openedByDOM)
+        m_page->setOpenedByDOM();
+
     m_page->setGroupName(m_pageGroup->identifier());
     m_page->setDeviceScaleFactor(parameters.deviceScaleFactor);
     m_page->setUserInterfaceLayoutDirection(m_userInterfaceLayoutDirection);
@@ -868,6 +871,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 
 #if PLATFORM(IOS_FAMILY)
     setViewportConfigurationViewLayoutSize(parameters.viewportConfigurationViewLayoutSize, parameters.viewportConfigurationLayoutSizeScaleFactor, parameters.viewportConfigurationMinimumEffectiveDeviceWidth);
+    setMinimumUnobscuredSize(parameters.minimumUnobscuredSize);
     setMaximumUnobscuredSize(parameters.maximumUnobscuredSize);
 #endif
 
@@ -1732,6 +1736,9 @@ void WebPage::loadRequest(LoadParameters&& loadParameters)
     frameLoadRequest.setLockBackForwardList(loadParameters.lockBackForwardList);
     frameLoadRequest.setClientRedirectSourceForHistory(loadParameters.clientRedirectSourceForHistory);
     frameLoadRequest.setIsRequestFromClientOrUserInput();
+
+    if (loadParameters.effectiveSandboxFlags)
+        corePage()->mainFrame().loader().forceSandboxFlags(loadParameters.effectiveSandboxFlags);
 
     corePage()->userInputBridge().loadRequest(WTFMove(frameLoadRequest));
 
@@ -6260,7 +6267,7 @@ void WebPage::setViewportSizeForCSSViewportUnits(std::optional<WebCore::IntSize>
 
     m_viewportSizeForCSSViewportUnits = viewportSize;
     if (m_viewportSizeForCSSViewportUnits)
-        corePage()->mainFrame().view()->setViewportSizeForCSSViewportUnits(*m_viewportSizeForCSSViewportUnits);
+        corePage()->mainFrame().view()->setSizeForCSSLargeViewportUnits(*m_viewportSizeForCSSViewportUnits);
 }
 
 bool WebPage::isSmartInsertDeleteEnabled()

@@ -122,6 +122,7 @@
 #include "InternalsSetLike.h"
 #include "JSDOMPromiseDeferred.h"
 #include "JSImageData.h"
+#include "JSServiceWorkerRegistration.h"
 #include "LegacySchemeRegistry.h"
 #include "LibWebRTCProvider.h"
 #include "LoaderStrategy.h"
@@ -1614,6 +1615,22 @@ void Internals::setWebRTCVP9VTBSupport(bool value)
         page->libWebRTCProvider().clearFactory();
     }
 #endif
+}
+
+bool Internals::isSupportingVP9VTB() const
+{
+#if USE(LIBWEBRTC)
+    if (auto* page = contextDocument()->page())
+        return page->libWebRTCProvider().isSupportingVP9VTB();
+#endif
+    return false;
+}
+
+void Internals::isVP9VTBDeccoderUsed(RTCPeerConnection& connection, DOMPromiseDeferred<IDLBoolean>&& promise)
+{
+    connection.gatherDecoderImplementationName([promise = WTFMove(promise)](auto&& name) mutable {
+        promise.resolve(name.contains("VideoToolBox"));
+    });
 }
 
 void Internals::setSFrameCounter(RTCRtpSFrameTransform& transform, const String& counter)
@@ -3942,6 +3959,11 @@ void Internals::endSimulatedHDCPError(HTMLMediaElement& element)
         player->endSimulatedHDCPError();
 }
 
+ExceptionOr<bool> Internals::mediaPlayerRenderingCanBeAccelerated(HTMLMediaElement& element)
+{
+    return element.mediaPlayerRenderingCanBeAccelerated();
+}
+
 bool Internals::elementShouldBufferData(HTMLMediaElement& element)
 {
     return element.bufferingPolicy() < MediaPlayer::BufferingPolicy::LimitReadAhead;
@@ -6001,7 +6023,7 @@ String Internals::highlightPseudoElementColor(const String& highlightName, Eleme
     if (!parentStyle)
         return { };
 
-    auto style = styleResolver.pseudoStyleForElement(element, { PseudoId::Highlight, highlightName }, *parentStyle);
+    auto style = styleResolver.pseudoStyleForElement(element, { PseudoId::Highlight, highlightName }, { parentStyle });
     if (!style)
         return { };
 
@@ -6540,14 +6562,14 @@ void Internals::retainTextIteratorForDocumentContent()
 }
 
 #if ENABLE(SERVICE_WORKER)
-RefPtr<PushSubscription> Internals::createPushSubscription(const String& endpoint, std::optional<EpochTimeStamp> expirationTime, bool userVisibleOnly, const ArrayBuffer& serverVAPIDPublicKey, const ArrayBuffer& clientECDHPublicKey, const ArrayBuffer& auth)
+RefPtr<PushSubscription> Internals::createPushSubscription(Ref<ServiceWorkerRegistration>&& registration, const String& endpoint, std::optional<EpochTimeStamp> expirationTime, const ArrayBuffer& serverVAPIDPublicKey, const ArrayBuffer& clientECDHPublicKey, const ArrayBuffer& auth)
 {
     auto myEndpoint = endpoint;
     Vector<uint8_t> myServerVAPIDPublicKey { static_cast<const uint8_t*>(serverVAPIDPublicKey.data()), serverVAPIDPublicKey.byteLength() };
     Vector<uint8_t> myClientECDHPublicKey { static_cast<const uint8_t*>(clientECDHPublicKey.data()), clientECDHPublicKey.byteLength() };
     Vector<uint8_t> myAuth { static_cast<const uint8_t*>(auth.data()), auth.byteLength() };
 
-    return PushSubscription::create(WTFMove(myEndpoint), expirationTime, PushSubscriptionOptions::create(userVisibleOnly, WTFMove(myServerVAPIDPublicKey)), WTFMove(myClientECDHPublicKey), WTFMove(myAuth));
+    return PushSubscription::create(WTFMove(registration), WTFMove(myEndpoint), expirationTime, WTFMove(myServerVAPIDPublicKey), WTFMove(myClientECDHPublicKey), WTFMove(myAuth));
 }
 #endif
 

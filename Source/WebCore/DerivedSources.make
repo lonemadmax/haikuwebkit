@@ -26,10 +26,13 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-PYTHON = python3
-PERL = perl
-RUBY = ruby
-DELETE = rm -f
+# Workaround for rdar://84212106.
+find_tool = $(realpath $(shell xcrun --sdk $(SDK_NAME) -f $(1)))
+
+PYTHON := $(call find_tool,python3)
+PERL := perl
+RUBY := ruby
+DELETE := rm -f
 
 ifneq ($(SDKROOT),)
     SDK_FLAGS = -isysroot $(SDKROOT)
@@ -203,6 +206,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/mediacapabilities/Navigator+MediaCapabilities.idl \
     $(WebCore)/Modules/mediacapabilities/TransferFunction.idl \
     $(WebCore)/Modules/mediacapabilities/VideoConfiguration.idl \
+    $(WebCore)/Modules/mediacapabilities/WorkerNavigator+MediaCapabilities.idl \
     $(WebCore)/Modules/mediacontrols/MediaControlsHost.idl \
     $(WebCore)/Modules/mediarecorder/BlobEvent.idl \
     $(WebCore)/Modules/mediarecorder/MediaRecorder.idl \
@@ -902,6 +906,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/html/HTMLUListElement.idl \
     $(WebCore)/html/HTMLUnknownElement.idl \
     $(WebCore)/html/HTMLVideoElement.idl \
+    $(WebCore)/html/HTMLVideoElement+RequestVideoFrameCallback.idl \
     $(WebCore)/html/ImageBitmap.idl \
     $(WebCore)/html/ImageBitmapOptions.idl \
     $(WebCore)/html/ImageData.idl \
@@ -916,6 +921,8 @@ JS_BINDING_IDLS := \
     $(WebCore)/html/TimeRanges.idl \
     $(WebCore)/html/URLSearchParams.idl \
     $(WebCore)/html/ValidityState.idl \
+    $(WebCore)/html/VideoFrameMetadata.idl \
+    $(WebCore)/html/VideoFrameRequestCallback.idl \
     $(WebCore)/html/VoidCallback.idl \
     $(WebCore)/html/WebKitMediaKeyError.idl \
     $(WebCore)/html/canvas/ANGLEInstancedArrays.idl \

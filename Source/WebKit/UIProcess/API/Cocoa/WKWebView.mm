@@ -83,8 +83,6 @@
 #import "WKUserContentControllerInternal.h"
 #import "WKWebViewConfigurationInternal.h"
 #import "WKWebViewContentProvider.h"
-#import "WKWebViewPrivateForTestingIOS.h"
-#import "WKWebViewIOS.h"
 #import "WKWebViewMac.h"
 #import "WKWebpagePreferencesInternal.h"
 #import "WKWebsiteDataStoreInternal.h"
@@ -168,6 +166,8 @@
 #import "WKContentViewInteraction.h"
 #import "WKScrollView.h"
 #import "WKWebViewContentProviderRegistry.h"
+#import "WKWebViewIOS.h"
+#import "WKWebViewPrivateForTestingIOS.h"
 #import <MobileCoreServices/MobileCoreServices.h>
 #import <UIKit/UIApplication.h>
 #import <pal/spi/cf/CFNotificationCenterSPI.h>
@@ -1222,8 +1222,9 @@ static WKMediaPlaybackState toWKMediaPlaybackState(WebKit::MediaPlaybackState me
     CGFloat deviceScale = useIntrinsicDeviceScaleFactor ? UIScreen.mainScreen.scale : _page->deviceScaleFactor();
     CGFloat imageWidth = useIntrinsicDeviceScaleFactor ? snapshotWidth : snapshotWidth * deviceScale;
     RetainPtr<WKWebView> strongSelf = self;
-    auto callSnapshotRect = [strongSelf, rectInViewCoordinates, imageWidth, deviceScale, handler] {
-        [strongSelf _snapshotRect:rectInViewCoordinates intoImageOfWidth:imageWidth completionHandler:[strongSelf, handler, deviceScale](CGImageRef snapshotImage) {
+    BOOL afterScreenUpdates = snapshotConfiguration && snapshotConfiguration.afterScreenUpdates;
+    auto callSnapshotRect = [strongSelf, afterScreenUpdates, rectInViewCoordinates, imageWidth, deviceScale, handler] {
+        [strongSelf _snapshotRectAfterScreenUpdates:afterScreenUpdates rectInViewCoordinates:rectInViewCoordinates intoImageOfWidth:imageWidth completionHandler:[strongSelf, handler, deviceScale](CGImageRef snapshotImage) {
             RetainPtr<NSError> error;
             RetainPtr<UIImage> image;
             
@@ -1767,15 +1768,12 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
 
 - (CocoaColor *)themeColor
 {
-    auto themeColor = _page->themeColor();
-    if (!themeColor.isValid())
-        return nil;
-    return WebCore::platformColor(themeColor);
+    return cocoaColorOrNil(_page->themeColor()).autorelease();
 }
 
 - (CocoaColor *)underPageBackgroundColor
 {
-    return WebCore::platformColor(_page->underPageBackgroundColor());
+    return cocoaColor(_page->underPageBackgroundColor()).autorelease();
 }
 
 - (void)setUnderPageBackgroundColor:(CocoaColor *)underPageBackgroundColorOverride
@@ -2399,13 +2397,20 @@ static void convertAndAddHighlight(Vector<Ref<WebKit::SharedMemory>>& buffers, N
     return wrapper(_page->loadRequest(request, policy));
 }
 
-- (void)_loadServiceWorker:(NSURL *)url
+- (void)_loadServiceWorker:(NSURL *)url  completionHandler:(void (^)(BOOL success))completionHandler
 {
     THROW_IF_SUSPENDED;
     if (_page->isServiceWorkerPage())
         [NSException raise:NSInternalInconsistencyException format:@"The WKWebView was already used to load a service worker"];
 
-    _page->loadServiceWorker(url);
+    _page->loadServiceWorker(url, [completionHandler = makeBlockPtr(completionHandler)](bool success) mutable {
+        completionHandler(success);
+    });
+}
+
+- (void)_loadServiceWorker:(NSURL *)url
+{
+    [self _loadServiceWorker:url completionHandler:^(BOOL) { }];
 }
 
 - (void)_grantAccessToAssetServices
@@ -3262,18 +3267,12 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
 // FIXME: Remove old `-[WKWebView _pageExtendedBackgroundColor]` SPI <rdar://77789732>
 - (CocoaColor *)_pageExtendedBackgroundColor
 {
-    auto pageExtendedBackgroundColor = _page->pageExtendedBackgroundColor();
-    if (!pageExtendedBackgroundColor.isValid())
-        return nil;
-    return WebCore::platformColor(pageExtendedBackgroundColor);
+    return cocoaColorOrNil(_page->pageExtendedBackgroundColor()).autorelease();
 }
 
 - (CocoaColor *)_sampledPageTopColor
 {
-    auto sampledPageTopColor = _page->sampledPageTopColor();
-    if (!sampledPageTopColor.isValid())
-        return nil;
-    return WebCore::platformColor(sampledPageTopColor);
+    return cocoaColorOrNil(_page->sampledPageTopColor()).autorelease();
 }
 
 - (id <_WKInputDelegate>)_inputDelegate

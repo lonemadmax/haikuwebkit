@@ -154,6 +154,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/plugins/PluginReplacement.h
     Modules/plugins/YouTubePluginReplacement.h
 
+    Modules/push-api/PushPermissionState.h
+    Modules/push-api/PushSubscriptionData.h
+
     Modules/speech/SpeechRecognitionCaptureSource.h
     Modules/speech/SpeechRecognitionCaptureSourceImpl.h
     Modules/speech/SpeechRecognitionConnection.h
@@ -758,6 +761,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/URLDecomposition.h
     html/URLRegistry.h
     html/ValidityState.h
+    html/VideoFrameRequestCallback.h
     html/VoidCallback.h
 
     html/canvas/ImageBitmapRenderingContextSettings.h
@@ -1184,6 +1188,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/UserAgent.h
     platform/UserInterfaceLayoutDirection.h
     platform/ValidationBubble.h
+    platform/VideoFrameMetadata.h
     platform/WebGLStateTracker.h
     platform/Widget.h
     platform/WindowsKeyboardCodes.h
@@ -1585,7 +1590,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     plugins/nptypes.h
 
     rendering/BreakLines.h
-    rendering/ClipPathOperation.h
     rendering/ClipRect.h
     rendering/EventRegion.h
     rendering/FloatingObjects.h
@@ -1609,6 +1613,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/PaintFrequencyTracker.h
     rendering/PaintInfo.h
     rendering/PaintPhase.h
+    rendering/PathOperation.h
     rendering/RenderAttachment.h
     rendering/RenderBlock.h
     rendering/RenderBlockFlow.h

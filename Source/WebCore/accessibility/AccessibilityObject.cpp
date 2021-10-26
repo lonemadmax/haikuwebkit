@@ -84,6 +84,7 @@
 #include "TextIterator.h"
 #include "UserGestureIndicator.h"
 #include "VisibleUnits.h"
+#include <pal/SessionID.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RobinHoodHashSet.h>
 #include <wtf/StdLibExtras.h>
@@ -432,7 +433,7 @@ AccessibilityObject* AccessibilityObject::firstAccessibleObjectFromNode(const No
     });
 }
 
-AccessibilityObject* firstAccessibleObjectFromNode(const Node* node, const WTF::Function<bool(const AccessibilityObject&)>& isAccessible)
+AccessibilityObject* firstAccessibleObjectFromNode(const Node* node, const Function<bool(const AccessibilityObject&)>& isAccessible)
 {
     if (!node)
         return nullptr;
@@ -482,8 +483,15 @@ static void appendAccessibilityObject(AXCoreObject* object, AccessibilityObject:
     if (object)
         results.append(object);
 }
-    
-void AccessibilityObject::insertChild(AXCoreObject* child, unsigned index)
+
+#ifndef NDEBUG
+static bool isTableComponent(AXCoreObject& axObject)
+{
+    return axObject.isTable() || axObject.isTableColumn() || axObject.isTableRow() || axObject.isTableCell();
+}
+#endif
+
+void AccessibilityObject::insertChild(AXCoreObject* child, unsigned index, DescendIfIgnored descendIfIgnored)
 {
     if (!child)
         return;
@@ -510,12 +518,16 @@ void AccessibilityObject::insertChild(AXCoreObject* child, unsigned index)
     
     setIsIgnoredFromParentDataForChild(child);
     if (child->accessibilityIsIgnored()) {
-        const auto& children = child->children();
-        size_t length = children.size();
-        for (size_t i = 0; i < length; ++i)
-            m_children.insert(index + i, children[i]);
+        if (descendIfIgnored == DescendIfIgnored::Yes) {
+            const auto& children = child->children();
+            size_t length = children.size();
+            for (size_t i = 0; i < length; ++i)
+                m_children.insert(index + i, children[i]);
+        }
     } else {
-        ASSERT(child->parentObject() == this);
+        // Table component child-parent relationships often don't line up properly, hence the need for methods
+        // like parentTable() and parentRow(). Exclude them from this ASSERT.
+        ASSERT((!isTableComponent(*child) && !isTableComponent(*this)) ? child->parentObject() == this : true);
         m_children.insert(index, child);
     }
     
@@ -523,9 +535,9 @@ void AccessibilityObject::insertChild(AXCoreObject* child, unsigned index)
     child->clearIsIgnoredFromParentData();
 }
     
-void AccessibilityObject::addChild(AXCoreObject* child)
+void AccessibilityObject::addChild(AXCoreObject* child, DescendIfIgnored descendIfIgnored)
 {
-    insertChild(child, m_children.size());
+    insertChild(child, m_children.size(), descendIfIgnored);
 }
     
 void AccessibilityObject::findMatchingObjects(AccessibilitySearchCriteria* criteria, AccessibilityChildrenVector& results)
@@ -1674,7 +1686,7 @@ const AccessibilityObject::AccessibilityChildrenVector& AccessibilityObject::chi
 
 void AccessibilityObject::updateChildrenIfNecessary()
 {
-    if (!hasChildren()) {
+    if (!childrenInitialized()) {
         // Enable the cache in case we end up adding a lot of children, we don't want to recompute axIsIgnored each time.
         AXAttributeCacheEnabler enableCache(axObjectCache());
         addChildren();
@@ -1688,7 +1700,7 @@ void AccessibilityObject::clearChildren()
         child->detachFromParent();
     
     m_children.clear();
-    m_haveChildren = false;
+    m_childrenInitialized = false;
 }
 
 AccessibilityObject* AccessibilityObject::anchorElementForNode(Node* node)
@@ -2107,8 +2119,8 @@ static void initializeRoleMap()
         { "deletion"_s, AccessibilityRole::Deletion },
         { "dialog"_s, AccessibilityRole::ApplicationDialog },
         { "directory"_s, AccessibilityRole::Directory },
-        // The 'doc-*' roles are defined the ARIA DPUB mobile: https://www.w3.org/TR/dpub-aam-1.0/ 
-        // Editor's draft is currently at https://rawgit.com/w3c/aria/master/dpub-aam/dpub-aam.html 
+        // The 'doc-*' roles are defined the ARIA DPUB mobile: https://www.w3.org/TR/dpub-aam-1.0
+        // Editor's draft is currently at https://w3c.github.io/dpub-aam
         { "doc-abstract"_s, AccessibilityRole::ApplicationTextGroup },
         { "doc-acknowledgments"_s, AccessibilityRole::LandmarkDocRegion },
         { "doc-afterword"_s, AccessibilityRole::LandmarkDocRegion },
@@ -3263,8 +3275,8 @@ bool AccessibilityObject::pressedIsPresent() const
 TextIteratorBehaviors AccessibilityObject::textIteratorBehaviorForTextRange() const
 {
     TextIteratorBehaviors behaviors { TextIteratorBehavior::IgnoresStyleVisibility };
-    
-#if USE(ATK)
+
+#if USE(ATK) || USE(ATSPI)
     // We need to emit replaced elements for GTK, and present
     // them with the 'object replacement character' (0xFFFC).
     behaviors.add(TextIteratorBehavior::EmitsObjectReplacementCharacters);
@@ -3276,7 +3288,7 @@ TextIteratorBehaviors AccessibilityObject::textIteratorBehaviorForTextRange() co
 AccessibilityRole AccessibilityObject::buttonRoleType() const
 {
     // If aria-pressed is present, then it should be exposed as a toggle button.
-    // http://www.w3.org/TR/wai-aria/states_and_properties#aria-pressed
+    // https://www.w3.org/TR/wai-aria#aria-pressed
     if (pressedIsPresent())
         return AccessibilityRole::ToggleButton;
     if (hasPopup())
@@ -3300,7 +3312,7 @@ bool AccessibilityObject::accessibilityIsIgnoredByDefault() const
 }
 
 // ARIA component of hidden definition.
-// http://www.w3.org/TR/wai-aria/terms#def_hidden
+// https://www.w3.org/TR/wai-aria/#dfn-hidden
 bool AccessibilityObject::isAXHidden() const
 {
     if (isFocused())
@@ -3312,7 +3324,7 @@ bool AccessibilityObject::isAXHidden() const
 }
 
 // DOM component of hidden definition.
-// http://www.w3.org/TR/wai-aria/terms#def_hidden
+// https://www.w3.org/TR/wai-aria/#dfn-hidden
 bool AccessibilityObject::isDOMHidden() const
 {
     RenderObject* renderer = this->renderer();
@@ -3469,13 +3481,13 @@ String AccessibilityObject::documentEncoding() const
     return String();
 }
 
-uint64_t AccessibilityObject::sessionID() const
+PAL::SessionID AccessibilityObject::sessionID() const
 {
     if (auto* document = topDocument()) {
         if (auto* page = document->page())
-            return page->sessionID().toUInt64();
+            return page->sessionID();
     }
-    return 0;
+    return PAL::SessionID(PAL::SessionID::SessionConstants::HashTableEmptyValueID);
 }
 
 String AccessibilityObject::tagName() const
@@ -3904,9 +3916,9 @@ static void appendChildrenToArray(AXCoreObject* object, bool isForward, AXCoreOb
             startObject = isForward ? startObject->previousSibling() : startObject->nextSibling();
     }
 
-    size_t searchPosition = startObject ? searchChildren.find(startObject) : WTF::notFound;
+    size_t searchPosition = startObject ? searchChildren.find(startObject) : notFound;
 
-    if (searchPosition != WTF::notFound) {
+    if (searchPosition != notFound) {
         if (isForward)
             endIndex = searchPosition + 1;
         else

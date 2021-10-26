@@ -35,7 +35,6 @@
 #import "MediaUtilities.h"
 #import "NativeWebWheelEvent.h"
 #import "NavigationActionData.h"
-#import "TapHandlingResult.h"
 #import "UserMediaPermissionCheckProxy.h"
 #import "UserMediaPermissionRequestManagerProxy.h"
 #import "UserMediaPermissionRequestProxy.h"
@@ -46,9 +45,8 @@
 #import "WKOpenPanelParametersInternal.h"
 #import "WKSecurityOriginInternal.h"
 #import "WKStorageAccessAlert.h"
-#import <WebKit/WKUIDelegatePrivate.h>
+#import "WKUIDelegatePrivate.h"
 #import "WKWebViewConfigurationInternal.h"
-#import "WKWebViewIOS.h"
 #import "WKWebViewInternal.h"
 #import "WKWindowFeaturesInternal.h"
 #import "WebEventFactory.h"
@@ -66,6 +64,11 @@
 #import <WebCore/SecurityOrigin.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/URL.h>
+
+#if PLATFORM(IOS_FAMILY)
+#import "TapHandlingResult.h"
+#import "WKWebViewIOS.h"
+#endif
 
 #import <pal/cocoa/AVFoundationSoftLink.h>
 
@@ -113,7 +116,6 @@ void UIDelegate::setDelegate(id <WKUIDelegate> delegate)
     m_delegateMethods.webViewDidResignInputElementStrongPasswordAppearanceWithUserInfo = [delegate respondsToSelector:@selector(_webView:didResignInputElementStrongPasswordAppearanceWithUserInfo:)];
     m_delegateMethods.webViewTakeFocus = [delegate respondsToSelector:@selector(_webView:takeFocus:)];
     m_delegateMethods.webViewHandleAutoplayEventWithFlags = [delegate respondsToSelector:@selector(_webView:handleAutoplayEvent:withFlags:)];
-    m_delegateMethods.webViewRequestNotificationPermissionForSecurityOriginDecisionHandler = [delegate respondsToSelector:@selector(_webView:requestNotificationPermissionForSecurityOrigin:decisionHandler:)];
 
 #if PLATFORM(MAC)
     m_delegateMethods.showWebView = [delegate respondsToSelector:@selector(_showWebView:)];
@@ -136,6 +138,7 @@ void UIDelegate::setDelegate(id <WKUIDelegate> delegate)
     m_delegateMethods.webViewDidExceedBackgroundResourceLimitWhileInForeground = [delegate respondsToSelector:@selector(_webView:didExceedBackgroundResourceLimitWhileInForeground:)];
     m_delegateMethods.webViewSaveDataToFileSuggestedFilenameMimeTypeOriginatingURL = [delegate respondsToSelector:@selector(_webView:saveDataToFile:suggestedFilename:mimeType:originatingURL:)];
     m_delegateMethods.webViewRunOpenPanelWithParametersInitiatedByFrameCompletionHandler = [delegate respondsToSelector:@selector(webView:runOpenPanelWithParameters:initiatedByFrame:completionHandler:)];
+    m_delegateMethods.webViewRequestNotificationPermissionForSecurityOriginDecisionHandler = [delegate respondsToSelector:@selector(_webView:requestNotificationPermissionForSecurityOrigin:decisionHandler:)];
     m_delegateMethods.webViewConfigurationForLocalInspector = [delegate respondsToSelector:@selector(_webView:configurationForLocalInspector:)];
     m_delegateMethods.webViewDidAttachLocalInspector = [delegate respondsToSelector:@selector(_webView:didAttachLocalInspector:)];
     m_delegateMethods.webViewWillCloseLocalInspector = [delegate respondsToSelector:@selector(_webView:willCloseLocalInspector:)];
@@ -616,27 +619,6 @@ void UIDelegate::UIClient::handleAutoplayEvent(WebPageProxy&, WebCore::AutoplayE
     [(id <WKUIDelegatePrivate>)delegate _webView:m_uiDelegate->m_webView.get().get() handleAutoplayEvent:toWKAutoplayEvent(event) withFlags:toWKAutoplayEventFlags(flags)];
 }
 
-void UIDelegate::UIClient::decidePolicyForNotificationPermissionRequest(WebKit::WebPageProxy&, API::SecurityOrigin& securityOrigin, CompletionHandler<void(bool allowed)>&& completionHandler)
-{
-    if (!m_uiDelegate)
-        return completionHandler(false);
-
-    if (!m_uiDelegate->m_delegateMethods.webViewRequestNotificationPermissionForSecurityOriginDecisionHandler)
-        return completionHandler(false);
-
-    auto delegate = m_uiDelegate->m_delegate.get();
-    if (!delegate)
-        return completionHandler(false);
-
-    auto checker = CompletionHandlerCallChecker::create(delegate.get(), @selector(_webView:requestNotificationPermissionForSecurityOrigin:decisionHandler:));
-    [(id <WKUIDelegatePrivate>)delegate _webView:m_uiDelegate->m_webView.get().get() requestNotificationPermissionForSecurityOrigin:wrapper(securityOrigin) decisionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler), checker = WTFMove(checker)] (BOOL result) mutable {
-        if (checker->completionHandlerHasBeenCalled())
-            return;
-        checker->didCallCompletionHandler();
-        completionHandler(result);
-    }).get()];
-}
-
 #if PLATFORM(MAC)
 bool UIDelegate::UIClient::canRunModal() const
 {
@@ -968,6 +950,27 @@ void UIDelegate::UIClient::saveDataToFileInDownloadsFolder(WebPageProxy*, const 
     [(id <WKUIDelegatePrivate>)delegate _webView:m_uiDelegate->m_webView.get().get() saveDataToFile:wrapper(data) suggestedFilename:suggestedFilename mimeType:mimeType originatingURL:originatingURL];
 }
 
+void UIDelegate::UIClient::decidePolicyForNotificationPermissionRequest(WebKit::WebPageProxy&, API::SecurityOrigin& securityOrigin, CompletionHandler<void(bool allowed)>&& completionHandler)
+{
+    if (!m_uiDelegate)
+        return completionHandler(false);
+
+    if (!m_uiDelegate->m_delegateMethods.webViewRequestNotificationPermissionForSecurityOriginDecisionHandler)
+        return completionHandler(false);
+    
+    auto delegate = m_uiDelegate->m_delegate.get();
+    if (!delegate)
+        return completionHandler(false);
+
+    auto checker = CompletionHandlerCallChecker::create(delegate.get(), @selector(_webView:requestNotificationPermissionForSecurityOrigin:decisionHandler:));
+    [(id <WKUIDelegatePrivate>)delegate _webView:m_uiDelegate->m_webView.get().get() requestNotificationPermissionForSecurityOrigin:wrapper(securityOrigin) decisionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler), checker = WTFMove(checker)] (BOOL result) mutable {
+        if (checker->completionHandlerHasBeenCalled())
+            return;
+        checker->didCallCompletionHandler();
+        completionHandler(result);
+    }).get()];
+}
+
 Ref<API::InspectorConfiguration> UIDelegate::UIClient::configurationForLocalInspector(WebPageProxy&, WebInspectorUIProxy& inspector)
 {
     if (!m_uiDelegate)
@@ -1149,7 +1152,7 @@ void UIDelegate::UIClient::decidePolicyForUserMediaPermissionRequest(WebPageProx
         std::optional<WebCore::FrameIdentifier> mainFrameID;
         if (auto* mainFrame = frame.page() ? frame.page()->mainFrame() : nullptr)
             mainFrameID = mainFrame->frameID();
-        FrameInfoData frameInfo { frame.isMainFrame(), { }, userMediaOrigin.securityOrigin(), frame.frameID(), mainFrameID };
+        FrameInfoData frameInfo { frame.isMainFrame(), { }, userMediaOrigin.securityOrigin(), { }, frame.frameID(), mainFrameID };
         RetainPtr<WKFrameInfo> frameInfoWrapper = wrapper(API::FrameInfo::create(WTFMove(frameInfo), frame.page()));
 
         WKMediaCaptureType type = WKMediaCaptureTypeCamera;

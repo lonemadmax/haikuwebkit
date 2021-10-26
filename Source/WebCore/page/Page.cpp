@@ -212,7 +212,7 @@ unsigned Page::nonUtilityPageCount()
 
 DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, pageCounter, ("Page"));
 
-void Page::forEachPage(const WTF::Function<void(Page&)>& function)
+void Page::forEachPage(const Function<void(Page&)>& function)
 {
     for (auto* page : allPages())
         function(*page);
@@ -1556,7 +1556,7 @@ void Page::updateRendering()
         initialDocuments.append(document);
     });
 
-    auto runProcessingStep = [&](RenderingUpdateStep step, const WTF::Function<void(Document&)>& perDocumentFunction) {
+    auto runProcessingStep = [&](RenderingUpdateStep step, const Function<void(Document&)>& perDocumentFunction) {
         m_renderingUpdateRemainingSteps.last().remove(step);
         forEachDocument(perDocumentFunction);
     };
@@ -1584,6 +1584,10 @@ void Page::updateRendering()
 
     // FIXME: Run the fullscreen steps.
     m_renderingUpdateRemainingSteps.last().remove(RenderingUpdateStep::Fullscreen);
+
+    runProcessingStep(RenderingUpdateStep::VideoFrameCallbacks, [] (Document& document) {
+        document.serviceRequestVideoFrameCallbacks();
+    });
 
     runProcessingStep(RenderingUpdateStep::AnimationFrameCallbacks, [] (Document& document) {
         document.serviceRequestAnimationFrameCallbacks();
@@ -1647,7 +1651,7 @@ void Page::doAfterUpdateRendering()
     }
 #endif
 
-    auto runProcessingStep = [&](RenderingUpdateStep step, const WTF::Function<void(Document&)>& perDocumentFunction) {
+    auto runProcessingStep = [&](RenderingUpdateStep step, const Function<void(Document&)>& perDocumentFunction) {
         m_renderingUpdateRemainingSteps.last().remove(step);
         forEachDocument(perDocumentFunction);
     };
@@ -2362,11 +2366,34 @@ void Page::setActivityState(OptionSet<ActivityState::Flag> activityState)
     for (auto& observer : m_activityStateChangeObservers)
         observer.activityStateDidChange(oldActivityState, m_activityState);
 
-    if (wasVisibleAndActive != isVisibleAndActive())
+    if (wasVisibleAndActive != isVisibleAndActive()) {
         PlatformMediaSessionManager::updateNowPlayingInfoIfNecessary();
+        stopKeyboardScrollAnimation();
+    }
 
     if (m_performanceMonitor)
         m_performanceMonitor->activityStateChanged(oldActivityState, activityState);
+}
+
+void Page::stopKeyboardScrollAnimation()
+{
+    for (auto* frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
+        auto* frameView = frame->view();
+        if (!frameView)
+            continue;
+
+        frameView->stopKeyboardScrollAnimation();
+
+        auto scrollableAreas = frameView->scrollableAreas();
+        if (!scrollableAreas)
+            continue;
+
+        for (auto& scrollableArea : *scrollableAreas) {
+            // First call stopAsyncAnimatedScroll() to prepare for the keyboard scroller running on the scrolling thread.
+            scrollableArea->stopAsyncAnimatedScroll();
+            scrollableArea->stopKeyboardScrollAnimation();
+        }
+    }
 }
 
 bool Page::isVisibleAndActive() const
@@ -2540,7 +2567,7 @@ void Page::decrementNestedRunLoopCount()
     }
 }
 
-void Page::whenUnnested(WTF::Function<void()>&& callback)
+void Page::whenUnnested(Function<void()>&& callback)
 {
     ASSERT(!m_unnestCallback);
 
@@ -3626,6 +3653,7 @@ WTF::TextStream& operator<<(WTF::TextStream& ts, RenderingUpdateStep step)
 #if ENABLE(ASYNC_SCROLLING)
     case RenderingUpdateStep::ScrollingTreeUpdate: ts << "ScrollingTreeUpdate"; break;
 #endif
+    case RenderingUpdateStep::VideoFrameCallbacks: ts << "VideoFrameCallbacks"; break;
     }
     return ts;
 }

@@ -184,6 +184,21 @@ void AsyncScrollingCoordinator::frameViewVisualViewportChanged(FrameView& frameV
     frameScrollingNode.setVisualViewportIsSmallerThanLayoutViewport(visualViewportIsSmallerThanLayoutViewport(frameView));
 }
 
+void AsyncScrollingCoordinator::frameViewWillBeDetached(FrameView& frameView)
+{
+    ASSERT(isMainThread());
+    ASSERT(m_page);
+
+    if (!coordinatesScrollingForFrameView(frameView))
+        return;
+
+    auto* scrollingNode = downcast<ScrollingStateScrollingNode>(m_scrollingStateTree->stateNodeForID(frameView.scrollingNodeID()));
+    if (!scrollingNode)
+        return;
+
+    scrollingNode->setScrollPosition(frameView.scrollPosition());
+}
+
 void AsyncScrollingCoordinator::updateIsMonitoringWheelEventsForFrameView(const FrameView& frameView)
 {
     auto* page = frameView.frame().page();
@@ -927,7 +942,7 @@ ScrollingNodeID AsyncScrollingCoordinator::scrollableContainerNodeID(const Rende
     return 0;
 }
 
-String AsyncScrollingCoordinator::scrollingStateTreeAsText(ScrollingStateTreeAsTextBehavior behavior) const
+String AsyncScrollingCoordinator::scrollingStateTreeAsText(OptionSet<ScrollingStateTreeAsTextBehavior> behavior) const
 {
     if (m_scrollingStateTree->rootStateNode()) {
         if (m_eventTrackingRegionsDirty)
@@ -938,7 +953,7 @@ String AsyncScrollingCoordinator::scrollingStateTreeAsText(ScrollingStateTreeAsT
     return emptyString();
 }
 
-String AsyncScrollingCoordinator::scrollingTreeAsText(ScrollingStateTreeAsTextBehavior behavior) const
+String AsyncScrollingCoordinator::scrollingTreeAsText(OptionSet<ScrollingStateTreeAsTextBehavior> behavior) const
 {
     if (!m_scrollingTree)
         return emptyString();

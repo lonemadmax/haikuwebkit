@@ -39,6 +39,7 @@
 #include "MediaPlayer.h"
 #include "MediaProducer.h"
 #include "MediaUniqueIdentifier.h"
+#include "ReducedResolutionSeconds.h"
 #include "TextTrackClient.h"
 #include "VideoTrackClient.h"
 #include "VisibilityChangeClient.h"
@@ -179,10 +180,10 @@ public:
     PlatformLayer* platformLayer() const;
     bool isVideoLayerInline();
     void setPreparedToReturnVideoLayerToInline(bool);
-    void waitForPreparedForInlineThen(WTF::Function<void()>&& completionHandler = [] { });
+    void waitForPreparedForInlineThen(Function<void()>&& completionHandler = [] { });
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     RetainPtr<PlatformLayer> createVideoFullscreenLayer();
-    WEBCORE_EXPORT void setVideoFullscreenLayer(PlatformLayer*, WTF::Function<void()>&& completionHandler = [] { });
+    WEBCORE_EXPORT void setVideoFullscreenLayer(PlatformLayer*, Function<void()>&& completionHandler = [] { });
 #ifdef __OBJC__
     PlatformLayer* videoFullscreenLayer() const { return m_videoFullscreenLayer.get(); }
 #endif
@@ -602,6 +603,8 @@ public:
     using EventTarget::dispatchEvent;
     void dispatchEvent(Event&) override;
 
+    WEBCORE_EXPORT bool mediaPlayerRenderingCanBeAccelerated() final;
+
 protected:
     HTMLMediaElement(const QualifiedName&, Document&, bool createdByParser);
     virtual ~HTMLMediaElement();
@@ -687,7 +690,6 @@ private:
     void mediaPlayerResourceNotSupported() final;
     void mediaPlayerRepaint() final;
     void mediaPlayerSizeChanged() final;
-    bool mediaPlayerRenderingCanBeAccelerated() final;
     void mediaPlayerRenderingModeChanged() final;
     bool mediaPlayerAcceleratedCompositingEnabled() final;
     void mediaPlayerEngineUpdated() final;
@@ -924,7 +926,7 @@ private:
     void updateCaptionContainer();
     void ensureMediaControlsShadowRoot();
 
-    using JSSetupFunction = WTF::Function<bool(JSDOMGlobalObject&, JSC::JSGlobalObject&, ScriptController&, DOMWrapperWorld&)>;
+    using JSSetupFunction = Function<bool(JSDOMGlobalObject&, JSC::JSGlobalObject&, ScriptController&, DOMWrapperWorld&)>;
     bool setupAndCallJS(const JSSetupFunction&);
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -1041,7 +1043,7 @@ private:
     VideoFullscreenMode m_videoFullscreenMode { VideoFullscreenModeNone };
     bool m_videoFullscreenStandby { false };
     bool m_preparedForInline;
-    WTF::Function<void()> m_preparedForInlineCompletionHandler;
+    Function<void()> m_preparedForInlineCompletionHandler;
 
     bool m_temporarilyAllowingInlinePlaybackAfterFullscreen { false };
 

@@ -68,7 +68,7 @@ using namespace HTMLNames;
 
 HTMLImageElement::HTMLImageElement(const QualifiedName& tagName, Document& document, HTMLFormElement* form)
     : HTMLElement(tagName, document)
-    , m_imageLoader(WTF::makeUnique<HTMLImageLoader>(*this))
+    , m_imageLoader(makeUnique<HTMLImageLoader>(*this))
     , m_form(nullptr)
     , m_formSetByParser(form)
     , m_compositeOperator(CompositeOperator::SourceOver)
@@ -681,6 +681,8 @@ void HTMLImageElement::didMoveToNewDocument(Document& oldDocument, Document& new
 
     m_imageLoader->elementDidMoveToNewDocument(oldDocument);
     HTMLElement::didMoveToNewDocument(oldDocument, newDocument);
+    if (RefPtr element = pictureElement())
+        element->sourcesChanged();
 }
 
 bool HTMLImageElement::isServerMap() const

@@ -117,6 +117,7 @@
 #include "HTMLStyleElement.h"
 #include "HTMLTitleElement.h"
 #include "HTMLUnknownElement.h"
+#include "HTMLVideoElement.h"
 #include "HTTPHeaderNames.h"
 #include "HTTPParsers.h"
 #include "HashChangeEvent.h"
@@ -2261,9 +2262,9 @@ std::unique_ptr<RenderStyle> Document::styleForElementIgnoringPendingStylesheets
     auto& resolver = element.styleResolver();
 
     if (pseudoElementSpecifier != PseudoId::None)
-        return resolver.pseudoStyleForElement(element, { pseudoElementSpecifier }, *parentStyle);
+        return resolver.pseudoStyleForElement(element, { pseudoElementSpecifier }, { parentStyle });
 
-    auto elementStyle = resolver.styleForElement(element, parentStyle);
+    auto elementStyle = resolver.styleForElement(element, { parentStyle });
     if (elementStyle.relations) {
         Style::Update emptyUpdate(*this);
         Style::commitRelations(WTFMove(elementStyle.relations), emptyUpdate);
@@ -2916,21 +2917,21 @@ ExceptionOr<RefPtr<WindowProxy>> Document::openForBindings(DOMWindow& activeWind
     return m_domWindow->open(activeWindow, firstWindow, url, name, features);
 }
 
-ExceptionOr<Document&> Document::openForBindings(Document* responsibleDocument, const String&, const String&)
+ExceptionOr<Document&> Document::openForBindings(Document* entryDocument, const String&, const String&)
 {
     if (!isHTMLDocument() || m_throwOnDynamicMarkupInsertionCount)
         return Exception { InvalidStateError };
 
-    auto result = open(responsibleDocument);
+    auto result = open(entryDocument);
     if (UNLIKELY(result.hasException()))
         return result.releaseException();
 
     return *this;
 }
 
-ExceptionOr<void> Document::open(Document* responsibleDocument)
+ExceptionOr<void> Document::open(Document* entryDocument)
 {
-    if (responsibleDocument && !responsibleDocument->securityOrigin().isSameOriginAs(securityOrigin()))
+    if (entryDocument && !entryDocument->securityOrigin().isSameOriginAs(securityOrigin()))
         return Exception { SecurityError };
 
     if (m_ignoreOpensDuringUnloadCount)
@@ -2959,16 +2960,16 @@ ExceptionOr<void> Document::open(Document* responsibleDocument)
 
     removeAllEventListeners();
 
-    if (responsibleDocument && isFullyActive()) {
-        auto newURL = responsibleDocument->url();
-        if (responsibleDocument != this)
+    if (entryDocument && isFullyActive()) {
+        auto newURL = entryDocument->url();
+        if (entryDocument != this)
             newURL.removeFragmentIdentifier();
         setURL(newURL);
-        auto newCookieURL = responsibleDocument->cookieURL();
-        if (responsibleDocument != this)
+        auto newCookieURL = entryDocument->cookieURL();
+        if (entryDocument != this)
             newCookieURL.removeFragmentIdentifier();
         setCookieURL(newCookieURL);
-        setSecurityOriginPolicy(responsibleDocument->securityOriginPolicy());
+        setSecurityOriginPolicy(entryDocument->securityOriginPolicy());
     }
 
     implicitOpen();
@@ -3307,7 +3308,7 @@ void Document::enqueuePaintTimingEntryIfNeeded()
     m_didEnqueueFirstContentfulPaint = true;
 }
 
-ExceptionOr<void> Document::write(Document* responsibleDocument, SegmentedString&& text)
+ExceptionOr<void> Document::write(Document* entryDocument, SegmentedString&& text)
 {
     if (m_activeParserWasAborted)
         return { };
@@ -3325,7 +3326,7 @@ ExceptionOr<void> Document::write(Document* responsibleDocument, SegmentedString
         return { };
 
     if (!hasInsertionPoint) {
-        auto result = open(responsibleDocument);
+        auto result = open(entryDocument);
         if (UNLIKELY(result.hasException()))
             return result.releaseException();
     }
@@ -3335,7 +3336,7 @@ ExceptionOr<void> Document::write(Document* responsibleDocument, SegmentedString
     return { };
 }
 
-ExceptionOr<void> Document::write(Document* responsibleDocument, Vector<String>&& strings)
+ExceptionOr<void> Document::write(Document* entryDocument, Vector<String>&& strings)
 {
     if (!isHTMLDocument() || m_throwOnDynamicMarkupInsertionCount)
         return Exception { InvalidStateError };
@@ -3344,10 +3345,10 @@ ExceptionOr<void> Document::write(Document* responsibleDocument, Vector<String>&
     for (auto& string : strings)
         text.append(WTFMove(string));
 
-    return write(responsibleDocument, WTFMove(text));
+    return write(entryDocument, WTFMove(text));
 }
 
-ExceptionOr<void> Document::writeln(Document* responsibleDocument, Vector<String>&& strings)
+ExceptionOr<void> Document::writeln(Document* entryDocument, Vector<String>&& strings)
 {
     if (!isHTMLDocument() || m_throwOnDynamicMarkupInsertionCount)
         return Exception { InvalidStateError };
@@ -3357,7 +3358,7 @@ ExceptionOr<void> Document::writeln(Document* responsibleDocument, Vector<String
         text.append(WTFMove(string));
 
     text.append("\n"_s);
-    return write(responsibleDocument, WTFMove(text));
+    return write(entryDocument, WTFMove(text));
 }
 
 Seconds Document::minimumDOMTimerInterval() const
@@ -3962,7 +3963,7 @@ void Document::themeColorChanged()
 }
 
 #if ENABLE(DARK_MODE_CSS)
-static void processColorSchemeString(StringView colorScheme, const WTF::Function<void(StringView key)>& callback)
+static void processColorSchemeString(StringView colorScheme, const Function<void(StringView key)>& callback)
 {
     unsigned length = colorScheme.length();
     for (unsigned i = 0; i < length; ) {
@@ -6739,6 +6740,32 @@ void Document::serviceRequestAnimationFrameCallbacks()
         m_scriptedAnimationController->serviceRequestAnimationFrameCallbacks(domWindow()->frozenNowTimestamp());
 }
 
+void Document::serviceRequestVideoFrameCallbacks()
+{
+#if ENABLE(VIDEO)
+    if (!domWindow())
+        return;
+
+    bool isServicingRequestVideoFrameCallbacks = false;
+    forEachMediaElement([now = domWindow()->frozenNowTimestamp(), &isServicingRequestVideoFrameCallbacks](auto& element) {
+        if (!is<HTMLVideoElement>(element))
+            return;
+
+        auto& videoElement = downcast<HTMLVideoElement>(element);
+        if (videoElement.shouldServiceRequestVideoFrameCallbacks()) {
+            isServicingRequestVideoFrameCallbacks = true;
+            videoElement.serviceRequestVideoFrameCallbacks(now);
+        }
+    });
+
+    if (!isServicingRequestVideoFrameCallbacks)
+        return;
+
+    if (auto* page = this->page())
+        page->scheduleRenderingUpdate(RenderingUpdateStep::VideoFrameCallbacks);
+#endif
+}
+
 void Document::windowScreenDidChange(PlatformDisplayID displayID)
 {
     if (RenderView* view = renderView()) {
@@ -8486,7 +8513,7 @@ Vector<RefPtr<WebAnimation>> Document::getAnimations()
     });
 }
 
-Vector<RefPtr<WebAnimation>> Document::matchingAnimations(const WTF::Function<bool(Element&)>& function)
+Vector<RefPtr<WebAnimation>> Document::matchingAnimations(const Function<bool(Element&)>& function)
 {
     // For the list of animations to be current, we need to account for any pending CSS changes,
     // such as updates to CSS Animations and CSS Transitions.

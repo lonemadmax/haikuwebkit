@@ -68,6 +68,7 @@ class BuilderConverter {
 public:
     static Length convertLength(const BuilderState&, const CSSValue&);
     static Length convertLengthOrAuto(const BuilderState&, const CSSValue&);
+    static Length convertLengthOrAutoOrContent(const BuilderState&, const CSSValue&);
     static Length convertLengthSizing(const BuilderState&, const CSSValue&);
     static Length convertLengthMaxSizing(const BuilderState&, const CSSValue&);
     static TabSize convertTabSize(const BuilderState&, const CSSValue&);
@@ -97,7 +98,7 @@ public:
     static String convertStringOrNone(BuilderState&, const CSSValue&);
     static OptionSet<TextEmphasisPosition> convertTextEmphasisPosition(BuilderState&, const CSSValue&);
     static TextAlignMode convertTextAlign(BuilderState&, const CSSValue&);
-    static RefPtr<ClipPathOperation> convertClipPath(BuilderState&, const CSSValue&);
+    static RefPtr<PathOperation> convertClipPath(BuilderState&, const CSSValue&);
     static Resize convertResize(BuilderState&, const CSSValue&);
     static int convertMarqueeRepetition(BuilderState&, const CSSValue&);
     static int convertMarqueeSpeed(BuilderState&, const CSSValue&);
@@ -244,6 +245,8 @@ inline Length BuilderConverter::convertLengthSizing(const BuilderState& builderS
         return Length(LengthType::FitContent);
     case CSSValueAuto:
         return Length(LengthType::Auto);
+    case CSSValueContent:
+        return Length(LengthType::Content);
     default:
         ASSERT_NOT_REACHED();
         return Length();
@@ -616,7 +619,7 @@ inline TextAlignMode BuilderConverter::convertTextAlign(BuilderState& builderSta
     return parentStyle.textAlign();
 }
 
-inline RefPtr<ClipPathOperation> BuilderConverter::convertClipPath(BuilderState& builderState, const CSSValue& value)
+inline RefPtr<PathOperation> BuilderConverter::convertClipPath(BuilderState& builderState, const CSSValue& value)
 {
     if (is<CSSPrimitiveValue>(value)) {
         auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
@@ -624,20 +627,20 @@ inline RefPtr<ClipPathOperation> BuilderConverter::convertClipPath(BuilderState&
             String cssURLValue = primitiveValue.stringValue();
             String fragment = SVGURIReference::fragmentIdentifierFromIRIString(cssURLValue, builderState.document());
             // FIXME: It doesn't work with external SVG references (see https://bugs.webkit.org/show_bug.cgi?id=126133)
-            return ReferenceClipPathOperation::create(cssURLValue, fragment);
+            return ReferencePathOperation::create(cssURLValue, fragment);
         }
         ASSERT(primitiveValue.valueID() == CSSValueNone);
         return nullptr;
     }
 
     CSSBoxType referenceBox = CSSBoxType::BoxMissing;
-    RefPtr<ClipPathOperation> operation;
+    RefPtr<PathOperation> operation;
 
     for (auto& currentValue : downcast<CSSValueList>(value)) {
         auto& primitiveValue = downcast<CSSPrimitiveValue>(currentValue.get());
         if (primitiveValue.isShape()) {
             ASSERT(!operation);
-            operation = ShapeClipPathOperation::create(
+            operation = ShapePathOperation::create(
                 basicShapeForValue(builderState.cssToLengthConversionData(), 
                 *primitiveValue.shapeValue(),
                 builderState.style().effectiveZoom()));
@@ -654,10 +657,10 @@ inline RefPtr<ClipPathOperation> BuilderConverter::convertClipPath(BuilderState&
         }
     }
     if (operation)
-        downcast<ShapeClipPathOperation>(*operation).setReferenceBox(referenceBox);
+        downcast<ShapePathOperation>(*operation).setReferenceBox(referenceBox);
     else {
         ASSERT(referenceBox != CSSBoxType::BoxMissing);
-        operation = BoxClipPathOperation::create(referenceBox);
+        operation = BoxPathOperation::create(referenceBox);
     }
 
     return operation;

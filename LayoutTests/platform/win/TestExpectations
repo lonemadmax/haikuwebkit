@@ -274,6 +274,7 @@ http/tests/misc/image-checks-for-accept.html [ Skip ]
 accessibility/aria-listbox-clear-selection-crash.html [ Skip ]
 accessibility/listbox-clear-selection.html [ Skip ]
 accessibility/embedded-image-description.html [ Skip ]
+accessibility/img-no-alt-not-ignored-with-title.html [ Skip ]
 
 # TODO Conic gradients
 http/wpt/css/css-images-4/conic-gradient-parsing.html [ Skip ]
@@ -1247,6 +1248,8 @@ webkit.org/b/23925 editing/selection/extend-selection-bidi.html [ Failure ]
 webkit.org/b/21796 editing/selection/drag-in-iframe.html [ Skip ]
 # These test fail due to 'notifyDone' not being executed.
 webkit.org/b/121509 editing/spelling/grammar-paste.html [ Skip ]
+
+webkit.org/b/231962 editing/selection/modal-dialog-select-paragraph.html [ Failure ]
 
 ###### Command enabling
 editing/execCommand/enabling-and-selection-2.html [ Failure ]
@@ -2912,6 +2915,7 @@ fast/repaint/block-inputrange-repaint.html [ Pass Failure ]
 
 fast/inline/padding-ellipsis-right.html [ ImageOnlyFailure ]
 fast/inline/inline-background-clip-text.html [ ImageOnlyFailure ]
+fast/inline/inline-background-clip-text-multiline.html [ ImageOnlyFailure ]
 
 # This test hardcodes the result of a platform-dependent font lookup algorithm.
 fast/text/fallback-language-han.html [ Skip ]
@@ -4718,4 +4722,8 @@ http/tests/webshare/ [ Skip ]
 webkit.org/b/230727 fast/images/exif-orientation-composited.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/230838 svg/as-background-image/svg-as-background-body.html [ Pass Crash ]
+
+webkit.org/b/231921 http/wpt/webxr/xrHandInput_gc.html [ Pass Failure ]
+
+webkit.org/b/232188 fast/ruby/generated-before-counter-doesnt-crash.html [ Pass Failure ]
 

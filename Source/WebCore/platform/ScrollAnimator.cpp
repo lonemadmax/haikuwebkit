@@ -89,6 +89,9 @@ bool ScrollAnimator::scroll(ScrollbarOrientation orientation, ScrollGranularity 
     }
 
     if (m_scrollableArea.scrollAnimatorEnabled() && platformAllowsScrollAnimation() && !behavior.contains(ScrollBehavior::NeverAnimate)) {
+        if (m_scrollController.retargetAnimatedScrollBy(delta))
+            return true;
+
         auto startOffset = offsetFromPosition(m_currentPosition);
         auto extents = scrollExtents();
         auto destinationOffset = (startOffset + delta).constrainedBetween(extents.minimumScrollOffset(), extents.maximumScrollOffset());
@@ -234,6 +237,11 @@ bool ScrollAnimator::handleWheelEvent(const PlatformWheelEvent& e)
 #endif
 }
 
+void ScrollAnimator::stopKeyboardScrollAnimation()
+{
+    m_scrollController.stopKeyboardScrolling();
+}
+
 #if ENABLE(TOUCH_EVENTS)
 bool ScrollAnimator::handleTouchEvent(const PlatformTouchEvent&)
 {
@@ -367,7 +375,7 @@ float ScrollAnimator::pageScaleFactor() const
 
 std::unique_ptr<ScrollingEffectsControllerTimer> ScrollAnimator::createTimer(Function<void()>&& function)
 {
-    return WTF::makeUnique<ScrollingEffectsControllerTimer>(RunLoop::current(), [function = WTFMove(function), weakScrollableArea = WeakPtr { m_scrollableArea }] {
+    return makeUnique<ScrollingEffectsControllerTimer>(RunLoop::current(), [function = WTFMove(function), weakScrollableArea = WeakPtr { m_scrollableArea }] {
         if (!weakScrollableArea)
             return;
         function();

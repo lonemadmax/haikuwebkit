@@ -1,3 +1,70 @@
+2021-10-21  David Kilzer  <ddkilzer@apple.com>
+
+        [WebRTC] Simplify libwebtc Xcode project
+        <https://webkit.org/b/232044>
+        <rdar://problem/82743710>
+
+        Reviewed by Youenn Fablet.
+
+        * Configurations/libwebm.xcconfig:
+        (INSTALL_HEADERS_PATH):
+        (LIBWEBM_HEADERS_FOLDER_PATH):
+        (LIBWEBM_HEADERS_FOLDER_PATH_NO):
+        (LIBWEBM_HEADERS_FOLDER_PATH_YES):
+        - Remove variables used by now-removed build phase scripts.
+        (PUBLIC_HEADERS_FOLDER_PATH): Add.
+        - This determines where webm public headers are installed.
+
+        * libwebrtc.xcodeproj/project.pbxproj:
+        (Recovered References): Remove.
+        - The two source files were added back at the correct path
+          elsewhere, so these references can be removed.
+        (webm target):
+        - Remove "Copy webm headers" and "Copy common headers" build
+          phase scripts since headers are installed by Xcode's built-in
+          "Headers" phase.
+        - Remove duplicate C++ source files (noticed after reviewing
+          "Recovered References" files).
+        - Install webm headers as public headers since their is no
+          subdirectory structure, and this fixes the bug in the radar
+          where webm headers were not installed consistently.
+
+2021-10-20  Youenn Fablet  <youenn@apple.com>
+
+        WebRTC p2p call, VP9-SVC only low layer decoded on receiver side
+        https://bugs.webkit.org/show_bug.cgi?id=231071
+        <rdar://problem/83763291>
+
+        Reviewed by Eric Carlson.
+
+        In case VP9 SVC is used, fallback to software decoder for now.
+
+        * Source/webrtc/sdk/WebKit/WebKitDecoder.mm:
+
+2021-10-18  Cameron McCormack  <heycam@apple.com>
+
+        Always set color space for incoming H.264/265 streams
+        https://bugs.webkit.org/show_bug.cgi?id=231881
+        <rdar://problem/84350707>
+
+        Reviewed by Youenn Fablet.
+
+        Followup from https://bugs.webkit.org/show_bug.cgi?id=231353. In some
+        configurations, the "ColorInfoGuessedBy" attachment is not set on the
+        CVPixelBuffers coming out of the VTDecompressionSession, but the
+        guessed, incorrect color space attachments are still there. Since we
+        currently always have an sRGB stream, don't bother looking for
+        "ColorInfoGuessedBy".
+
+        * Source/webrtc/sdk/objc/components/video_codec/RTCVideoDecoderH264.mm:
+        (overrideColorSpaceAttachments):
+        (decompressionOutputCallback):
+        (overrideColorSpaceAttachmentsIfNeeded): Deleted.
+        * Source/webrtc/sdk/objc/components/video_codec/RTCVideoDecoderH265.mm:
+        (overrideColorSpaceAttachments):
+        (h265DecompressionOutputCallback):
+        (overrideColorSpaceAttachmentsIfNeeded): Deleted.
+
 2021-10-14  Chris Dumez  <cdumez@apple.com>
 
         Unreviewed, fix up r284190 build fix.

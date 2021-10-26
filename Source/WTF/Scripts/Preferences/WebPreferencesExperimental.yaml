@@ -32,10 +32,13 @@ AccentColorEnabled:
   humanReadableDescription: "Enable accent-color CSS property"
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(COCOA)" : true
       default: false
     WebKit:
+      "PLATFORM(COCOA)" : true
       default: false
     WebCore:
+      "PLATFORM(COCOA)" : true
       default: false
 
 AccessHandleEnabled:
@@ -137,6 +140,18 @@ BroadcastChannelOriginPartitioningEnabled:
       default: true
     WebCore:
       default: true
+
+BuiltInNotificationsEnabled:
+  type: bool
+  humanReadableName: "Built-In Web Notifications"
+  humanReadableDescription: "Enable built-in WebKit managed notifications"
+  webcoreBinding: RuntimeEnabledFeatures
+  condition: ENABLE(BUILT_IN_NOTIFICATIONS)
+  defaultValue:
+    WebCore:
+      default: false
+    WebKit:
+      default: false
 
 CFNetworkNetworkLoaderEnabled:
   type: bool
@@ -1119,6 +1134,18 @@ RequestSubmitEnabled:
   type: bool
   humanReadableName: "Form requestSubmit"
   humanReadableDescription: "Form requestSubmit method"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+RequestVideoFrameCallbackEnabled:
+  type: bool
+  humanReadableName: "RequestVideoFrameCallback"
+  humanReadableDescription: "Enable RequestVideoFrameCallback API"
   defaultValue:
     WebKitLegacy:
       default: false

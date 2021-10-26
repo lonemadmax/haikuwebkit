@@ -47,6 +47,7 @@ VPATH = \
     $(WebKit2)/Shared/ApplePay \
     $(WebKit2)/Shared/Authentication \
     $(WebKit2)/Shared/mac \
+    $(WebKit2)/Shared/Notifications \
     $(WebKit2)/WebAuthnProcess \
     $(WebKit2)/WebAuthnProcess/mac \
     $(WebKit2)/WebProcess/ApplePay \
@@ -108,9 +109,12 @@ VPATH = \
     $(WEBKITADDITIONS_HEADER_SEARCH_PATHS) \
 #
 
-PYTHON = python3
-PERL = perl
-RUBY = ruby
+# Workaround for rdar://84212106.
+find_tool = $(realpath $(shell xcrun --sdk $(SDK_NAME) -f $(1)))
+
+PYTHON := $(call find_tool,python3)
+PERL := perl
+RUBY := ruby
 
 ifeq ($(OS),Windows_NT)
     DELETE = cmd //C del
@@ -144,6 +148,7 @@ MESSAGE_RECEIVERS = \
 	Shared/API/Cocoa/RemoteObjectRegistry \
 	Shared/ApplePay/WebPaymentCoordinatorProxy \
 	Shared/Authentication/AuthenticationManager \
+	Shared/Notifications/NotificationManagerMessageHandler \
 	Shared/WebConnection \
 	UIProcess/WebFullScreenManagerProxy \
 	UIProcess/RemoteLayerTree/RemoteLayerTreeDrawingAreaProxy \

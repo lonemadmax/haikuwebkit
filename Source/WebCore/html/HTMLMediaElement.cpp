@@ -5212,12 +5212,14 @@ void HTMLMediaElement::mediaPlayerSizeChanged()
 
 bool HTMLMediaElement::mediaPlayerRenderingCanBeAccelerated()
 {
+#if ENABLE(VIDEO_PRESENTATION_MODE)
     // This function must return "true" when the video is playing in the
-    // picture-in-picture window. Otherwise, the MediaPlayerPrivate* may
-    // destroy the video layer.
-    if (m_videoFullscreenMode == VideoFullscreenModePictureInPicture)
+    // picture-in-picture window or if it is in fullscreen.
+    // Otherwise, the MediaPlayerPrivate* may destroy the video layer if
+    // the no longer in the DOM.
+    if (m_videoFullscreenLayer)
         return true;
-
+#endif
     auto* renderer = this->renderer();
     return is<RenderVideo>(renderer)
         && downcast<RenderVideo>(*renderer).view().compositor().canAccelerateVideoRendering(downcast<RenderVideo>(*renderer));
@@ -6477,7 +6479,7 @@ void HTMLMediaElement::setPreparedToReturnVideoLayerToInline(bool value)
     }
 }
 
-void HTMLMediaElement::waitForPreparedForInlineThen(WTF::Function<void()>&& completionHandler)
+void HTMLMediaElement::waitForPreparedForInlineThen(Function<void()>&& completionHandler)
 {
     INFO_LOG(LOGIDENTIFIER);
     ASSERT(!m_preparedForInlineCompletionHandler);
@@ -6509,7 +6511,7 @@ RetainPtr<PlatformLayer> HTMLMediaElement::createVideoFullscreenLayer()
     return nullptr;
 }
 
-void HTMLMediaElement::setVideoFullscreenLayer(PlatformLayer* platformLayer, WTF::Function<void()>&& completionHandler)
+void HTMLMediaElement::setVideoFullscreenLayer(PlatformLayer* platformLayer, Function<void()>&& completionHandler)
 {
     INFO_LOG(LOGIDENTIFIER);
     m_videoFullscreenLayer = platformLayer;

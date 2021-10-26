@@ -126,7 +126,7 @@ public:
     
     WEBCORE_EXPORT ScrollingTreeNode* nodeForID(ScrollingNodeID) const;
 
-    using VisitorFunction = WTF::Function<void (ScrollingNodeID, ScrollingNodeType, std::optional<FloatPoint> scrollPosition, std::optional<FloatPoint> layoutViewportOrigin, bool scrolledSinceLastCommit)>;
+    using VisitorFunction = Function<void(ScrollingNodeID, ScrollingNodeType, std::optional<FloatPoint> scrollPosition, std::optional<FloatPoint> layoutViewportOrigin, bool scrolledSinceLastCommit)>;
     void traverseScrollingTree(VisitorFunction&&);
 
     // Called after a scrolling tree node has handled a scroll and updated its layers.
@@ -207,7 +207,7 @@ public:
     HashSet<Ref<ScrollingTreeOverflowScrollProxyNode>>& activeOverflowScrollProxyNodes() { return m_activeOverflowScrollProxyNodes; }
     HashSet<Ref<ScrollingTreePositionedNode>>& activePositionedNodes() { return m_activePositionedNodes; }
 
-    WEBCORE_EXPORT String scrollingTreeAsText(ScrollingStateTreeAsTextBehavior = ScrollingStateTreeAsTextBehaviorNormal);
+    WEBCORE_EXPORT String scrollingTreeAsText(OptionSet<ScrollingStateTreeAsTextBehavior> = { });
 
     bool isMonitoringWheelEvents() const { return m_isMonitoringWheelEvents; }
     bool inCommitTreeState() const { return m_inCommitTreeState; }

@@ -399,6 +399,11 @@ void GPUProcessProxy::terminateForTesting()
     processIsReadyToExit();
 }
 
+void GPUProcessProxy::webProcessConnectionCountForTesting(CompletionHandler<void(uint64_t)>&& completionHandler)
+{
+    sendWithAsyncReply(Messages::GPUProcess::WebProcessConnectionCountForTesting(), WTFMove(completionHandler));
+}
+
 void GPUProcessProxy::didClose(IPC::Connection&)
 {
     RELEASE_LOG_ERROR(Process, "%p - GPUProcessProxy::didClose:", this);
@@ -431,6 +436,18 @@ void GPUProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connect
 #if PLATFORM(IOS_FAMILY)
     if (xpc_connection_t connection = this->connection()->xpcConnection())
         m_throttler.didConnectToProcess(xpc_connection_get_pid(connection));
+#endif
+
+#if PLATFORM(COCOA)
+    // Use any session ID to get any Website data store. It is OK to use any Website data store,
+    // since we are using it to access any Networking process, which all have the XPC endpoint.
+    // The XPC endpoint is used to receive the Launch Services database from the Network process.
+    if (m_sessionIDs.isEmpty())
+        return;
+    auto store = WebsiteDataStore::existingDataStoreForSessionID(*m_sessionIDs.begin());
+    if (!store)
+        return;
+    m_hasSentNetworkProcessXPCEndpoint = store->sendNetworkProcessXPCEndpointToProcess(*this);
 #endif
 }
 
@@ -498,7 +515,8 @@ void GPUProcessProxy::addSession(const WebsiteDataStore& store)
     m_sessionIDs.add(store.sessionID());
 
 #if PLATFORM(COCOA)
-    store.sendNetworkProcessXPCEndpointToProcess(*this);
+    if (!m_hasSentNetworkProcessXPCEndpoint)
+        m_hasSentNetworkProcessXPCEndpoint = store.sendNetworkProcessXPCEndpointToProcess(*this);
 #endif
 }
 

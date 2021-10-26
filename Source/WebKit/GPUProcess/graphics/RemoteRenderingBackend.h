@@ -125,7 +125,7 @@ private:
     void releaseRemoteResourceWithQualifiedIdentifier(QualifiedRenderingResourceIdentifier, uint64_t useCount);
     void cacheFontWithQualifiedIdentifier(Ref<WebCore::Font>&&, QualifiedRenderingResourceIdentifier);
 
-    IPC::StreamConnectionWorkQueue m_workQueue;
+    Ref<IPC::StreamConnectionWorkQueue> m_workQueue;
     Ref<IPC::StreamServerConnection> m_streamConnection;
     RemoteResourceCache m_remoteResourceCache;
     Ref<GPUConnectionToWebProcess> m_gpuConnectionToWebProcess;
@@ -133,7 +133,10 @@ private:
     IPC::Semaphore m_getPixelBufferSemaphore;
     RefPtr<SharedMemory> m_getPixelBufferSharedMemory;
     ScopedRenderingResourcesRequest m_renderingResourcesRequest;
-    WeakHashSet<RemoteDisplayListRecorder> m_remoteDisplayLists;
+
+    Lock m_remoteDisplayListsLock;
+    bool m_canRegisterRemoteDisplayLists WTF_GUARDED_BY_LOCK(m_remoteDisplayListsLock) { false };
+    HashMap<QualifiedRenderingResourceIdentifier, Ref<RemoteDisplayListRecorder>> m_remoteDisplayLists WTF_GUARDED_BY_LOCK(m_remoteDisplayListsLock);
 };
 
 } // namespace WebKit

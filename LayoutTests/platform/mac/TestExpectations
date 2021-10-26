@@ -1382,9 +1382,8 @@ webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/i18n/css3-text-
 webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/i18n/css3-text-line-break-opclns-115.html [ ImageOnlyFailure ]
 webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/i18n/css3-text-line-break-opclns-116.html [ ImageOnlyFailure ]
 webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/word-break/word-break-break-all-006.html [ ImageOnlyFailure ]
-webkit.org/b/196169 imported/w3c/web-platform-tests/css/css-text/overflow-wrap/overflow-wrap-break-word-003.html [ ImageOnlyFailure ]
 
-webkit.org/b/198543 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-001.html [ ImageOnlyFailure ]
+[ Catalina ] imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-001.html [ ImageOnlyFailure ]
 
 http/tests/cookies/same-site [ Pass ]
 
@@ -1930,9 +1929,6 @@ webkit.org/b/230411 http/tests/media/hls/video-controller-getStartDate.html [ Pa
 
 webkit.org/b/227891 http/tests/appcache/fail-on-update.html [ Pass Timeout DumpJSConsoleLogInStdErr ]
 
-# rdar://66660680 (REGRESSION (20A2327a-20A2348b): media/video-canvas-createPattern.html is failing)
-[ BigSur+ ] media/video-canvas-createPattern.html [ Failure ]
-
 # Remove this once <rdar://problem/66734187> hits the bots
 [ BigSur+ ] fast/text/locale-shaping.html [ Pass ImageOnlyFailure ]
 
@@ -2262,9 +2258,6 @@ webkit.org/b/226299 [ BigSur ] http/tests/performance/performance-resource-timin
 [ Monterey ] imported/w3c/web-platform-tests/css/css-text-decor/text-underline-offset-variable.html [ Pass ImageOnlyFailure ]
 [ Monterey ] imported/w3c/web-platform-tests/css/css-text-decor/text-underline-position-from-font-variable.html [ Pass ImageOnlyFailure ]
 
-# rdar://80333758 (REGRESSION: [ Monterey ] crypto/subtle/rsaes-pkcs1-v1_5-import-jwk-public-key-leading-zero.html is a constant timeout)
-[ Monterey ] crypto/subtle/rsaes-pkcs1-v1_5-import-jwk-public-key-leading-zero.html [ Timeout ]
-
 # rdar://80340581 ([ Monterey ] http/tests/preload/onload_event.html is a flaky failure)
 [ Monterey ] http/tests/preload/onload_event.html [ Pass Failure ]
 
@@ -2296,6 +2289,8 @@ webkit.org/b/228011 inspector/canvas/setRecordingAutoCaptureFrameCount.html [ Pa
 webkit.org/b/214574 svg/animations/smil-leak-list-property-instances.svg [ Pass Failure ]
 
 webkit.org/b/222385 imported/w3c/web-platform-tests/xhr/event-upload-progress-crossorigin.any.worker.html [ Pass Failure ]
+
+webkit.org/b/223804 imported/w3c/web-platform-tests/xhr/event-upload-progress-crossorigin.any.html [ Pass Failure ]
 
 webkit.org/b/227998 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-embed-element/embed-network-error.sub.html [ Pass Failure ]
 
@@ -2365,6 +2360,8 @@ webkit.org/b/231463 fast/css/accent-color/range.html [ ImageOnlyFailure ]
 [ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-canvas.html [ Pass ]
 [ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-cloned.html [ Pass ]
 [ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-image.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-video.html [ Pass ]
+[ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-video.html [ Pass ]
 [ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-pattern-canvas.html [ Pass ]
 [ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-pattern-image.html [ Pass ]
 [ Monterey+ ] imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-settings.html [ Pass ]
@@ -2437,3 +2434,5 @@ webkit.org/b/230862 [ Catalina BigSur ] imported/w3c/web-platform-tests/resource
 webkit.org/b/230984 [ BigSur Debug arm64 ] streams/readableStream-then.html [ Pass Crash ]
 
 webkit.org/b/231757 [ BigSur ] inspector/canvas/updateShader-webgl.html [ Pass Failure ]
+
+webkit.org/b/231924 inspector/css/modify-css-property.html [ Pass Failure ]

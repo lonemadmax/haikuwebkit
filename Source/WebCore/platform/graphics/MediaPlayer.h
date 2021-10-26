@@ -36,6 +36,7 @@
 #include "PlatformLayer.h"
 #include "SecurityOriginData.h"
 #include "Timer.h"
+#include "VideoFrameMetadata.h"
 #include "VideoPlaybackQualityMetrics.h"
 #include <JavaScriptCore/Forward.h>
 #include <wtf/CompletionHandler.h>
@@ -324,7 +325,7 @@ public:
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     RetainPtr<PlatformLayer> createVideoFullscreenLayer();
-    void setVideoFullscreenLayer(PlatformLayer*, WTF::Function<void()>&& completionHandler = [] { });
+    void setVideoFullscreenLayer(PlatformLayer*, Function<void()>&& completionHandler = [] { });
     void setVideoFullscreenFrame(FloatRect);
     void updateVideoFullscreenInlineImage();
     using MediaPlayerEnums::VideoGravity;
@@ -469,6 +470,7 @@ public:
 #endif
 
     RefPtr<NativeImage> nativeImageForCurrentTime();
+    DestinationColorSpace colorSpace();
 
     using MediaPlayerEnums::NetworkState;
     NetworkState networkState();
@@ -678,6 +680,8 @@ public:
     MediaPlayerIdentifier identifier() const;
     bool hasMediaEngine() const;
 
+    std::optional<VideoFrameMetadata> videoFrameMetadata();
+
 private:
     MediaPlayer(MediaPlayerClient&);
     MediaPlayer(MediaPlayerClient&, MediaPlayerEnums::MediaEngineIdentifier);
@@ -750,7 +754,7 @@ public:
 
 class RemoteMediaPlayerSupport {
 public:
-    using RegisterRemotePlayerCallback = WTF::Function<void(MediaEngineRegistrar, MediaPlayerEnums::MediaEngineIdentifier)>;
+    using RegisterRemotePlayerCallback = Function<void(MediaEngineRegistrar, MediaPlayerEnums::MediaEngineIdentifier)>;
     WEBCORE_EXPORT static void setRegisterRemotePlayerCallback(RegisterRemotePlayerCallback&&);
 };
 

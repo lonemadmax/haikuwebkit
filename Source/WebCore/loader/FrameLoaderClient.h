@@ -109,7 +109,7 @@ enum class UsedLegacyTLS : bool;
 
 struct StringWithDirection;
 
-typedef WTF::Function<void (PolicyAction, PolicyCheckIdentifier)> FramePolicyFunction;
+typedef Function<void (PolicyAction, PolicyCheckIdentifier)> FramePolicyFunction;
 
 class WEBCORE_EXPORT FrameLoaderClient {
     WTF_MAKE_FAST_ALLOCATED;
@@ -331,6 +331,10 @@ public:
     virtual void dispatchWillDestroyGlobalObjectForDOMWindowExtension(DOMWindowExtension*) { }
 
     virtual void willInjectUserScript(DOMWrapperWorld&) { }
+
+#if ENABLE(SERVICE_WORKER)
+    virtual void didFinishServiceWorkerPageRegistration(bool success) { UNUSED_PARAM(success); }
+#endif
 
 #if ENABLE(WEB_RTC)
     virtual void dispatchWillStartUsingPeerConnectionHandler(RTCPeerConnectionHandler*) { }

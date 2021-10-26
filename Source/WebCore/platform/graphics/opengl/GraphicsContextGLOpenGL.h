@@ -99,7 +99,7 @@ class PixelBuffer;
 class TextureMapperGCGLPlatformLayer;
 #endif
 
-typedef WTF::HashMap<CString, uint64_t> ShaderNameHash;
+typedef HashMap<CString, uint64_t> ShaderNameHash;
 
 class WEBCORE_EXPORT GraphicsContextGLOpenGL : public GraphicsContextGL
 {
@@ -110,13 +110,13 @@ public:
     PlatformLayer* platformLayer() const override;
     PlatformGraphicsContextGLDisplay platformDisplay() const { return m_displayObj; }
     PlatformGraphicsContextGLConfig platformConfig() const { return m_configObj; }
-    static GCGLenum drawingBufferTextureTargetQuery();
-    static GCGLint EGLDrawingBufferTextureTarget();
+    static GCGLenum drawingBufferTextureTargetQueryForDrawingTarget(GCGLenum drawingTarget);
+    static GCGLint EGLDrawingBufferTextureTargetForDrawingTarget(GCGLenum drawingTarget);
 #else
     PlatformLayer* platformLayer() const final;
 #endif
 #if USE(ANGLE)
-    static GCGLenum drawingBufferTextureTarget();
+    GCGLenum drawingBufferTextureTarget();
 #endif
     enum class ReleaseThreadResourceBehavior {
         // Releases current context after GraphicsContextGLOpenGL calls done in the thread.
@@ -538,6 +538,14 @@ public:
 #endif
 #endif
 
+#if USE(ANGLE)
+    constexpr static EGLNativeDisplayType defaultDisplay = EGL_DEFAULT_DISPLAY;
+#if PLATFORM(COCOA)
+    constexpr static EGLNativeDisplayType lowPowerDisplay = EGL_CAST(EGLNativeDisplayType, -1);
+    constexpr static EGLNativeDisplayType highPerformanceDisplay = EGL_CAST(EGLNativeDisplayType, -2);
+#endif
+#endif
+
 protected:
     GraphicsContextGLOpenGL(GraphicsContextGLAttributes);
     bool isValid() const;
@@ -709,9 +717,9 @@ private:
 
         using BoundTextureMap = HashMap<GCGLenum,
             std::pair<GCGLuint, GCGLenum>,
-            WTF::IntHash<GCGLenum>,
+            IntHash<GCGLenum>,
             WTF::UnsignedWithZeroKeyHashTraits<GCGLuint>,
-            WTF::PairHashTraits<WTF::UnsignedWithZeroKeyHashTraits<GCGLuint>, WTF::UnsignedWithZeroKeyHashTraits<GCGLuint>>
+            PairHashTraits<WTF::UnsignedWithZeroKeyHashTraits<GCGLuint>, WTF::UnsignedWithZeroKeyHashTraits<GCGLuint>>
         >;
         BoundTextureMap boundTextureMap;
         GCGLuint currentBoundTexture() const { return boundTexture(activeTextureUnit); }
@@ -737,7 +745,7 @@ private:
             boundTextureMap.set(textureUnit, std::make_pair(texture, target));
         }
 
-        using TextureSeedCount = HashCountedSet<GCGLuint, WTF::IntHash<GCGLuint>, WTF::UnsignedWithZeroKeyHashTraits<GCGLuint>>;
+        using TextureSeedCount = HashCountedSet<GCGLuint, IntHash<GCGLuint>, WTF::UnsignedWithZeroKeyHashTraits<GCGLuint>>;
         TextureSeedCount textureSeedCount;
     };
 
@@ -753,6 +761,9 @@ private:
     GCGLuint m_preserveDrawingBufferTexture { 0 };
     // Attaches m_texture when m_preserveDrawingBufferTexture is non-zero.
     GCGLuint m_preserveDrawingBufferFBO { 0 };
+    // Queried at display startup.
+    EGLint m_drawingBufferTextureTarget { -1 };
+
 #endif
 
     // A bitmask of GL buffer bits (GL_COLOR_BUFFER_BIT,
@@ -789,7 +800,7 @@ private:
     void* m_displayBufferPbuffer { nullptr };
 #endif
 #if PLATFORM(MAC)
-    bool m_supportsPowerPreference { false };
+    bool m_switchesGPUOnDisplayReconfiguration { false };
     ScopedHighPerformanceGPURequest m_highPerformanceGPURequest;
 #endif
 #if ENABLE(VIDEO) && USE(AVFOUNDATION)

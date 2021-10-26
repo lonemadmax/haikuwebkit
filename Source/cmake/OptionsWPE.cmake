@@ -64,7 +64,6 @@ WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_OFFSCREEN_CANVAS_IN_WORKERS PRIVATE ${EN
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_PERIODIC_MEMORY_MONITOR PRIVATE ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_SERVICE_WORKER PRIVATE ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_SHAREABLE_RESOURCE PRIVATE ON)
-WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_SMOOTH_SCROLLING PRIVATE OFF)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_TOUCH_EVENTS PRIVATE ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEBGL2 PRIVATE OFF)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEB_RTC PRIVATE ${ENABLE_EXPERIMENTAL_FEATURES})
@@ -74,12 +73,12 @@ WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEBXR PRIVATE ${ENABLE_EXPERIMENTAL_FEAT
 # there is a strong reason we should support changing the value of the option,
 # and the option is not relevant to any other WebKit ports.
 WEBKIT_OPTION_DEFINE(ENABLE_GTKDOC "Whether or not to use generate gtkdoc." PUBLIC OFF)
+WEBKIT_OPTION_DEFINE(ENABLE_JOURNALD_LOG "Whether to enable journald logging" PUBLIC ON)
 WEBKIT_OPTION_DEFINE(ENABLE_WPE_QT_API "Whether to enable support for the Qt5/QML plugin" PUBLIC ${ENABLE_DEVELOPER_MODE})
 WEBKIT_OPTION_DEFINE(USE_AVIF "Whether to enable support for AVIF images." PUBLIC ${ENABLE_EXPERIMENTAL_FEATURES})
 WEBKIT_OPTION_DEFINE(USE_LCMS "Whether to enable support for image color management using libcms2." PUBLIC ON)
 WEBKIT_OPTION_DEFINE(USE_OPENJPEG "Whether to enable support for JPEG2000 images." PUBLIC ON)
 WEBKIT_OPTION_DEFINE(USE_SOUP2 "Whether to enable usage of Soup 2 instead of Soup 3." PUBLIC OFF)
-WEBKIT_OPTION_DEFINE(USE_SYSTEMD "Whether to enable journald logging" PUBLIC ON)
 WEBKIT_OPTION_DEFINE(USE_WOFF2 "Whether to enable support for WOFF2 Web Fonts." PUBLIC ON)
 
 # Private options specific to the WPE port.
@@ -145,6 +144,13 @@ if (WPE_API_VERSION VERSION_EQUAL "1.0")
 else ()
     CALCULATE_LIBRARY_VERSIONS_FROM_LIBTOOL_TRIPLE(WEBKIT 0 0 0)
 endif ()
+
+set(CMAKE_C_VISIBILITY_PRESET hidden)
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
+set(bmalloc_LIBRARY_TYPE OBJECT)
+set(WTF_LIBRARY_TYPE OBJECT)
+set(JavaScriptCore_LIBRARY_TYPE OBJECT)
 
 # These are shared variables, but we special case their definition so that we can use the
 # CMAKE_INSTALL_* variables that are populated by the GNUInstallDirs macro.
@@ -226,13 +232,13 @@ if (USE_AVIF)
     endif ()
 endif ()
 
-if (USE_SYSTEMD)
-    find_package(Systemd)
-    if (Systemd_FOUND)
-        message(STATUS "Release logs will be sent to the Systemd journal")
-        SET_AND_EXPOSE_TO_BUILD(USE_JOURNALD TRUE)
+if (ENABLE_JOURNALD_LOG)
+    find_package(Journald)
+    if (Journald_FOUND)
+        message(STATUS "Release logs will be sent using journald logging interface")
+        SET_AND_EXPOSE_TO_BUILD(ENABLE_JOURNALD_LOG TRUE)
     else ()
-        message(FATAL_ERROR "libsystemd is needed for USE_SYSTEMD")
+        message(FATAL_ERROR "libsystemd or libelogind are needed for ENABLE_JOURNALD_LOG")
     endif ()
 endif ()
 

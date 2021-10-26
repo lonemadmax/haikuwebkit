@@ -976,6 +976,7 @@ void WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const Navigat
         navigationAction.initiatedByMainFrame() == InitiatedByMainFrame::Yes,
         ResourceRequest { requester.url },
         requester.securityOrigin->data(),
+        { },
         WTFMove(originatingFrameID),
         WTFMove(parentFrameID),
     };
@@ -1020,6 +1021,7 @@ void WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const Navigat
         documentLoader = static_cast<WebDocumentLoader*>(coreFrame->loader().documentLoader());
 
     navigationActionData.clientRedirectSourceForHistory = documentLoader->clientRedirectSourceForHistory();
+    navigationActionData.effectiveSandboxFlags = coreFrame->loader().effectiveSandboxFlags();
 
     // Notify the UIProcess.
     Ref protector { *coreFrame };
@@ -1565,7 +1567,7 @@ void WebFrameLoaderClient::transitionToCommittedForNewPage()
     }
 
     if (auto viewportSizeForViewportUnits = webPage->viewportSizeForCSSViewportUnits())
-        view->setViewportSizeForCSSViewportUnits(*viewportSizeForViewportUnits);
+        view->setSizeForCSSLargeViewportUnits(*viewportSizeForViewportUnits);
     view->setProhibitsScrolling(shouldDisableScrolling);
     view->setVisualUpdatesAllowedByClient(!webPage->shouldExtendIncrementalRenderingSuppression());
 #if PLATFORM(COCOA)
@@ -1946,6 +1948,17 @@ void WebFrameLoaderClient::didCreateWindow(DOMWindow& window)
 
     webPage->send(Messages::WebPageProxy::DidCreateWindow(m_frame->frameID(), window.identifier()));
 }
+
+#if ENABLE(SERVICE_WORKER)
+void WebFrameLoaderClient::didFinishServiceWorkerPageRegistration(bool success)
+{
+    auto* webPage = m_frame->page();
+    if (!webPage)
+        return;
+
+    webPage->send(Messages::WebPageProxy::DidFinishServiceWorkerPageRegistration(success));
+}
+#endif
 
 #if ENABLE(APP_BOUND_DOMAINS)
 bool WebFrameLoaderClient::shouldEnableInAppBrowserPrivacyProtections() const

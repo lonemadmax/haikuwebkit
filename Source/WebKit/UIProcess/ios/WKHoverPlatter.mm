@@ -28,13 +28,10 @@
 
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT) || ENABLE(HOVER_GESTURE_RECOGNIZER)
 
-#import "InteractionInformationAtPosition.h"
-#import "InteractionInformationRequest.h"
 #import "WKHoverPlatterParameters.h"
 #import <WebCore/PathUtilities.h>
 #import <WebCore/WebCoreCALayerExtras.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
-#import <wtf/WeakObjCPtr.h>
 
 static RetainPtr<CABasicAnimation> createBaseAnimation()
 {
@@ -237,7 +234,7 @@ static void addAdditionalDismissalAnimations(CALayer *) { }
     RetainPtr<CGColorRef> oldBackgroundColor = [_lastBackgroundLayer presentationLayer].backgroundColor;
     RetainPtr<CALayer> background = _lastBackgroundLayer ?: adoptNS([[CALayer alloc] init]);
     [background setFrame:[platter bounds]];
-    [background setBackgroundColor:cachedCGColor(information.linkIndicator.estimatedBackgroundColor)];
+    [background setBackgroundColor:cachedCGColor(information.linkIndicator.estimatedBackgroundColor).get()];
     [background setMask:mask.get()];
     [background web_disableAllActions];
     [platter addSublayer:background.get()];

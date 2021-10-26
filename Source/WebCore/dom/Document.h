@@ -668,10 +668,10 @@ public:
     WEBCORE_EXPORT DocumentLoader* loader() const;
 
     WEBCORE_EXPORT ExceptionOr<RefPtr<WindowProxy>> openForBindings(DOMWindow& activeWindow, DOMWindow& firstDOMWindow, const String& url, const AtomString& name, const String& features);
-    WEBCORE_EXPORT ExceptionOr<Document&> openForBindings(Document* responsibleDocument, const String&, const String&);
+    WEBCORE_EXPORT ExceptionOr<Document&> openForBindings(Document* entryDocument, const String&, const String&);
 
     // FIXME: We should rename this at some point and give back the name 'open' to the HTML specified ones.
-    WEBCORE_EXPORT ExceptionOr<void> open(Document* responsibleDocument = nullptr);
+    WEBCORE_EXPORT ExceptionOr<void> open(Document* entryDocument = nullptr);
     void implicitOpen();
 
     WEBCORE_EXPORT ExceptionOr<void> closeForBindings();
@@ -687,9 +687,9 @@ public:
 
     void cancelParsing();
 
-    ExceptionOr<void> write(Document* responsibleDocument, SegmentedString&&);
-    WEBCORE_EXPORT ExceptionOr<void> write(Document* responsibleDocument, Vector<String>&&);
-    WEBCORE_EXPORT ExceptionOr<void> writeln(Document* responsibleDocument, Vector<String>&&);
+    ExceptionOr<void> write(Document* entryDocument, SegmentedString&&);
+    WEBCORE_EXPORT ExceptionOr<void> write(Document* entryDocument, Vector<String>&&);
+    WEBCORE_EXPORT ExceptionOr<void> writeln(Document* entryDocument, Vector<String>&&);
 
     bool wellFormed() const { return m_wellFormed; }
 
@@ -1114,6 +1114,7 @@ public:
     void resumeScriptedAnimationControllerCallbacks();
 
     void serviceRequestAnimationFrameCallbacks();
+    void serviceRequestVideoFrameCallbacks();
 
     void windowScreenDidChange(PlatformDisplayID);
 
@@ -1530,7 +1531,7 @@ public:
     WEBCORE_EXPORT DocumentTimeline& timeline();
     DocumentTimeline* existingTimeline() const { return m_timeline.get(); }
     Vector<RefPtr<WebAnimation>> getAnimations();
-    Vector<RefPtr<WebAnimation>> matchingAnimations(const WTF::Function<bool(Element&)>&);
+    Vector<RefPtr<WebAnimation>> matchingAnimations(const Function<bool(Element&)>&);
     DocumentTimelinesController* timelinesController() const { return m_timelinesController.get(); }
     WEBCORE_EXPORT DocumentTimelinesController& ensureTimelinesController();
 

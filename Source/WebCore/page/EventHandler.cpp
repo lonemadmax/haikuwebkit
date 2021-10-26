@@ -120,6 +120,7 @@
 #include "WindowsKeyboardCodes.h"
 #include <wtf/Assertions.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/SetForScope.h>
 #include <wtf/StdLibExtras.h>
 
 #if ENABLE(IOS_TOUCH_EVENTS)
@@ -2542,8 +2543,10 @@ RefPtr<Element> EventHandler::textRecognitionCandidateElement() const
         return candidateElement;
 #endif
 
+#if ENABLE(VIDEO)
     if (is<HTMLVideoElement>(*candidateElement))
         return nullptr;
+#endif // ENABLE(VIDEO)
 
     return candidateElement;
 }
@@ -2625,7 +2628,7 @@ void EventHandler::updateMouseEventTargetNode(const AtomString& eventType, Node*
             if (auto elementUnderMouse = m_elementUnderMouse)
                 elementUnderMouse->dispatchMouseEvent(platformMouseEvent, eventNames().mouseoverEvent, 0, m_lastElementUnderMouse.get());
 
-            for (auto& chain : WTF::makeReversedRange(enteredElementsChain)) {
+            for (auto& chain : makeReversedRange(enteredElementsChain)) {
                 if (hasCapturingMouseEnterListener || chain->hasEventListeners(eventNames().pointerenterEvent) || chain->hasEventListeners(eventNames().mouseenterEvent))
                     chain->dispatchMouseEvent(platformMouseEvent, eventNames().mouseenterEvent, 0, m_lastElementUnderMouse.get());
             }

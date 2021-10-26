@@ -262,6 +262,11 @@ public:
     bool mediaSourceInlinePaintingEnabled() const { return m_mediaSourceInlinePaintingEnabled; }
 #endif
 
+#if ENABLE(BUILT_IN_NOTIFICATIONS)
+    void setBuiltInNotificationsEnabled(bool isEnabled) { m_builtInNotificationsEnabled = isEnabled; }
+    bool builtInNotificationsEnabled() const { return m_builtInNotificationsEnabled; }
+#endif
+
 private:
     // Never instantiate.
     RuntimeEnabledFeatures();
@@ -402,7 +407,11 @@ private:
     bool m_mediaSourceInlinePaintingEnabled { false };
 #endif
 
-    friend class WTF::NeverDestroyed<RuntimeEnabledFeatures>;
+#if ENABLE(BUILT_IN_NOTIFICATIONS)
+    bool m_builtInNotificationsEnabled { false };
+#endif
+
+    friend class NeverDestroyed<RuntimeEnabledFeatures>;
 };
 
 } // namespace WebCore

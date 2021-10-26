@@ -47,6 +47,7 @@
 #include "JSKeyframeEffect.h"
 #include "KeyframeEffectStack.h"
 #include "Logging.h"
+#include "PropertyAllowlist.h"
 #include "PseudoElement.h"
 #include "RenderBox.h"
 #include "RenderBoxModelObject.h"
@@ -811,7 +812,7 @@ ExceptionOr<void> KeyframeEffect::processKeyframes(JSGlobalObject& lexicalGlobal
     return { };
 }
 
-void KeyframeEffect::updateBlendingKeyframes(RenderStyle& elementStyle, const RenderStyle* parentElementStyle)
+void KeyframeEffect::updateBlendingKeyframes(RenderStyle& elementStyle, const Style::ResolutionContext& resolutionContext)
 {
     if (!m_blendingKeyframes.isEmpty() || !m_target)
         return;
@@ -828,7 +829,7 @@ void KeyframeEffect::updateBlendingKeyframes(RenderStyle& elementStyle, const Re
             keyframeList.addProperty(styleProperties->propertyAt(i).id());
 
         auto keyframeRule = StyleRuleKeyframe::create(WTFMove(styleProperties));
-        keyframeValue.setStyle(styleResolver.styleForKeyframe(*m_target, &elementStyle, parentElementStyle, keyframeRule.ptr(), keyframeValue));
+        keyframeValue.setStyle(styleResolver.styleForKeyframe(*m_target, &elementStyle, resolutionContext, keyframeRule.ptr(), keyframeValue));
         keyframeList.insert(WTFMove(keyframeValue));
     }
 
@@ -1002,16 +1003,16 @@ void KeyframeEffect::checkForMatchingColorFilterFunctionLists()
     });
 }
 
-void KeyframeEffect::computeDeclarativeAnimationBlendingKeyframes(const RenderStyle* oldStyle, const RenderStyle& newStyle, const RenderStyle* parentElementStyle)
+void KeyframeEffect::computeDeclarativeAnimationBlendingKeyframes(const RenderStyle* oldStyle, const RenderStyle& newStyle, const Style::ResolutionContext& resolutionContext)
 {
     ASSERT(is<DeclarativeAnimation>(animation()));
     if (is<CSSAnimation>(animation()))
-        computeCSSAnimationBlendingKeyframes(newStyle, parentElementStyle);
+        computeCSSAnimationBlendingKeyframes(newStyle, resolutionContext);
     else if (is<CSSTransition>(animation()))
         computeCSSTransitionBlendingKeyframes(oldStyle, newStyle);
 }
 
-void KeyframeEffect::computeCSSAnimationBlendingKeyframes(const RenderStyle& unanimatedStyle, const RenderStyle* parentElementStyle)
+void KeyframeEffect::computeCSSAnimationBlendingKeyframes(const RenderStyle& unanimatedStyle, const Style::ResolutionContext& resolutionContext)
 {
     ASSERT(is<CSSAnimation>(animation()));
     ASSERT(document());
@@ -1021,7 +1022,7 @@ void KeyframeEffect::computeCSSAnimationBlendingKeyframes(const RenderStyle& una
 
     KeyframeList keyframeList(backingAnimation.name().string);
     if (auto* styleScope = Style::Scope::forOrdinal(*m_target, backingAnimation.nameStyleScopeOrdinal()))
-        styleScope->resolver().keyframeStylesForAnimation(*m_target, &unanimatedStyle, parentElementStyle, keyframeList);
+        styleScope->resolver().keyframeStylesForAnimation(*m_target, &unanimatedStyle, resolutionContext, keyframeList);
 
     // Ensure resource loads for all the frames.
     for (auto& keyframe : keyframeList.keyframes()) {
@@ -1265,12 +1266,12 @@ void KeyframeEffect::didChangeTargetStyleable(const std::optional<const Styleabl
         m_inTargetEffectStack = newTargetStyleable->ensureKeyframeEffectStack().addEffect(*this);
 }
 
-void KeyframeEffect::apply(RenderStyle& targetStyle, const RenderStyle* parentElementStyle, std::optional<Seconds> startTime)
+void KeyframeEffect::apply(RenderStyle& targetStyle, const Style::ResolutionContext& resolutionContext, std::optional<Seconds> startTime)
 {
     if (!m_target)
         return;
 
-    updateBlendingKeyframes(targetStyle, parentElementStyle);
+    updateBlendingKeyframes(targetStyle, resolutionContext);
 
     auto computedTiming = getComputedTiming(startTime);
     if (!startTime) {
@@ -1291,6 +1292,9 @@ bool KeyframeEffect::isCurrentlyAffectingProperty(CSSPropertyID property, Accele
         return false;
 
     if (!m_blendingKeyframes.properties().contains(property))
+        return false;
+
+    if (m_pseudoId == PseudoId::Marker && !Style::isValidMarkerStyleProperty(property))
         return false;
 
     return m_phaseAtLastApplication == AnimationEffectPhase::Active;
@@ -1419,7 +1423,7 @@ void KeyframeEffect::setAnimatedPropertiesInStyle(RenderStyle& targetStyle, doub
     // progress which already accounts for the transition's timing function.
     if (m_blendingKeyframesSource == BlendingKeyframesSource::CSSTransition) {
         ASSERT(properties.size() == 1);
-        CSSPropertyAnimation::blendProperties(this, *properties.begin(), targetStyle, *m_blendingKeyframes[0].style(), *m_blendingKeyframes[1].style(), iterationProgress);
+        CSSPropertyAnimation::blendProperties(this, *properties.begin(), targetStyle, *m_blendingKeyframes[0].style(), *m_blendingKeyframes[1].style(), iterationProgress, CompositeOperation::Replace);
         return;
     }
 
@@ -1429,7 +1433,7 @@ void KeyframeEffect::setAnimatedPropertiesInStyle(RenderStyle& targetStyle, doub
     // The effect value of a single property referenced by a keyframe effect as one of its target properties,
     // for a given iteration progress, current iteration and underlying value is calculated as follows.
 
-    updateBlendingKeyframes(targetStyle, nullptr);
+    updateBlendingKeyframes(targetStyle, { nullptr });
     if (m_blendingKeyframes.isEmpty())
         return;
 
@@ -1533,7 +1537,7 @@ void KeyframeEffect::setAnimatedPropertiesInStyle(RenderStyle& targetStyle, doub
         if (intervalEndpoints.size() == 1) {
             auto keyframeIndex = intervalEndpoints[0];
             auto keyframeStyle = !keyframeIndex ? &targetStyle : m_blendingKeyframes[keyframeIndex.value()].style();
-            CSSPropertyAnimation::blendProperties(this, cssPropertyId, targetStyle, *keyframeStyle, *keyframeStyle, 0);
+            CSSPropertyAnimation::blendProperties(this, cssPropertyId, targetStyle, *keyframeStyle, *keyframeStyle, 0, CompositeOperation::Replace);
             continue;
         }
 
@@ -1564,7 +1568,7 @@ void KeyframeEffect::setAnimatedPropertiesInStyle(RenderStyle& targetStyle, doub
         //     distance as the interpolation parameter p.
         auto startStyle = !startKeyframeIndex ? &targetStyle : m_blendingKeyframes[startKeyframeIndex.value()].style();
         auto endStyle = !endKeyframeIndex ? &targetStyle : m_blendingKeyframes[endKeyframeIndex.value()].style();
-        CSSPropertyAnimation::blendProperties(this, cssPropertyId, targetStyle, *startStyle, *endStyle, transformedDistance);
+        CSSPropertyAnimation::blendProperties(this, cssPropertyId, targetStyle, *startStyle, *endStyle, transformedDistance, CompositeOperation::Replace);
     }
 }
 

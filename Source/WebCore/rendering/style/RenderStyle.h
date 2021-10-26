@@ -531,6 +531,7 @@ public:
     OptionSet<Containment> contain() const { return m_rareNonInheritedData->contain; }
     bool containsLayout() const { return m_rareNonInheritedData->contain.contains(Containment::Layout); }
     bool containsSize() const { return m_rareNonInheritedData->contain.contains(Containment::Size); }
+    bool containsStyle() const { return m_rareNonInheritedData->contain.contains(Containment::Style); }
     BoxAlignment boxAlign() const { return static_cast<BoxAlignment>(m_rareNonInheritedData->deprecatedFlexibleBox->align); }
     BoxDirection boxDirection() const { return static_cast<BoxDirection>(m_inheritedFlags.boxDirection); }
     float boxFlex() const { return m_rareNonInheritedData->deprecatedFlexibleBox->flex; }
@@ -1467,9 +1468,9 @@ public:
     void setShapeImageThreshold(float);
     static float initialShapeImageThreshold() { return 0; }
 
-    void setClipPath(RefPtr<ClipPathOperation>&&);
-    ClipPathOperation* clipPath() const { return m_rareNonInheritedData->clipPath.get(); }
-    static ClipPathOperation* initialClipPath() { return nullptr; }
+    void setClipPath(RefPtr<PathOperation>&&);
+    PathOperation* clipPath() const { return m_rareNonInheritedData->clipPath.get(); }
+    static PathOperation* initialClipPath() { return nullptr; }
 
     bool hasContent() const { return contentData(); }
     const ContentData* contentData() const { return m_rareNonInheritedData->content.get(); }
@@ -2353,7 +2354,7 @@ inline void RenderStyle::setShapeImageThreshold(float shapeImageThreshold)
     SET_VAR(m_rareNonInheritedData, shapeImageThreshold, clampedShapeImageThreshold);
 }
 
-inline void RenderStyle::setClipPath(RefPtr<ClipPathOperation>&& operation)
+inline void RenderStyle::setClipPath(RefPtr<PathOperation>&& operation)
 {
     if (m_rareNonInheritedData->clipPath != operation)
         m_rareNonInheritedData.access().clipPath = WTFMove(operation);

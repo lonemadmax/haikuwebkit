@@ -99,7 +99,7 @@ private:
             if (lowerBoundsCheck(base, index, storage))
                 break;
             
-            if (m_node->arrayMode().typedArrayType() != NotTypedArray && m_node->arrayMode().isOutOfBounds()) {
+            if (m_node->arrayMode().isSomeTypedArrayView() && m_node->arrayMode().isOutOfBounds()) {
 #if USE(LARGE_TYPED_ARRAYS)
                 if (m_node->arrayMode().mayBeLargeTypedArray() || m_graph.hasExitSite(m_node->origin.semantic, Overflow)) {
                     Node* length = m_insertionSet.insertNode(
@@ -149,11 +149,10 @@ private:
 
         Node* checkInBounds;
 #if USE(LARGE_TYPED_ARRAYS)
-        if ((op == GetArrayLength) && (m_node->arrayMode().mayBeLargeTypedArray() || m_graph.hasExitSite(m_node->origin.semantic, Overflow))) {
+        if ((op == GetArrayLength) && m_node->arrayMode().isSomeTypedArrayView() && (m_node->arrayMode().mayBeLargeTypedArray() || m_graph.hasExitSite(m_node->origin.semantic, Overflow))) {
             Node* length = m_insertionSet.insertNode(
                 m_nodeIndex, SpecInt52Any, GetTypedArrayLengthAsInt52, m_node->origin,
                 OpInfo(m_node->arrayMode().asWord()), Edge(base.node(), KnownCellUse), storage);
-            length->setResult(NodeResultInt52);
             // The return type is a dummy since this node does not actually return anything.
             checkInBounds = m_insertionSet.insertNode(
                 m_nodeIndex, SpecInt32Only, CheckInBoundsInt52, m_node->origin,

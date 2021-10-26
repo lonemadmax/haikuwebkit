@@ -135,11 +135,12 @@ public:
 
     bool startAnimatedScrollToDestination(FloatPoint startOffset, FloatPoint destinationOffset);
     bool retargetAnimatedScroll(FloatPoint newDestinationOffset);
+    bool retargetAnimatedScrollBy(FloatSize);
     void stopAnimatedScroll();
 
     void stopKeyboardScrolling();
 
-    bool startMomentumScrollWithInitialVelocity(const FloatPoint& initialOffset, const FloatSize& initialVelocity, const FloatSize& initialDelta, const WTF::Function<FloatPoint(const FloatPoint&)>& destinationModifier);
+    bool startMomentumScrollWithInitialVelocity(const FloatPoint& initialOffset, const FloatSize& initialVelocity, const FloatSize& initialDelta, const Function<FloatPoint(const FloatPoint&)>& destinationModifier);
 
     void willBeginKeyboardScrolling();
     void didStopKeyboardScrolling();

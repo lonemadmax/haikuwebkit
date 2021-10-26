@@ -12,6 +12,7 @@ list(APPEND WTF_PUBLIC_HEADERS
 
     linux/ProcessMemoryFootprint.h
     linux/CurrentProcessMemoryStatus.h
+    linux/RealTimeThreads.h
 )
 
 list(APPEND WTF_SOURCES
@@ -29,6 +30,7 @@ list(APPEND WTF_SOURCES
     glib/URLGLib.cpp
 
     linux/CurrentProcessMemoryStatus.cpp
+    linux/RealTimeThreads.cpp
 
     posix/CPUTimePOSIX.cpp
     posix/OSAllocatorPOSIX.cpp
@@ -50,8 +52,8 @@ list(APPEND WTF_LIBRARIES
     ZLIB::ZLIB
 )
 
-if (Systemd_FOUND)
-    list(APPEND WTF_LIBRARIES Systemd::Systemd)
+if (Journald_FOUND)
+    list(APPEND WTF_LIBRARIES Journald::Journald)
 endif ()
 
 list(APPEND WTF_SYSTEM_INCLUDE_DIRECTORIES

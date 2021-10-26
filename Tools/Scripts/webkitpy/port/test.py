@@ -34,6 +34,7 @@ from webkitpy.port import Port, Driver, DriverOutput
 from webkitpy.layout_tests.models.test_configuration import TestConfiguration
 from webkitpy.common.system.crashlogs import CrashLogs
 from webkitpy.common.version_name_map import PUBLIC_TABLE, VersionNameMap
+from webkitpy.port.image_diff import ImageDiffResult
 
 
 # This sets basic expectations for a test. Each individual expectation
@@ -407,17 +408,23 @@ class TestPort(Port):
         actual_contents = string_utils.encode(actual_contents)
         diffed = actual_contents != expected_contents
         if not actual_contents and not expected_contents:
-            return (None, 0, None)
+            return ImageDiffResult(passed=True, diff_image=None, difference=0)
+
         if not actual_contents or not expected_contents:
-            return (True, 0, None)
+            return ImageDiffResult(passed=False, diff_image=b'', difference=0)
+
         if b'ref' in expected_contents:
             assert tolerance == 0
         if diffed:
-            return ("< {}\n---\n> {}\n".format(
-                string_utils.decode(expected_contents, target_type=str),
-                string_utils.decode(actual_contents, target_type=str),
-            ), 1, None)
-        return (None, 0, None)
+            return ImageDiffResult(
+                passed=False,
+                diff_image="< {}\n---\n> {}\n".format(
+                    string_utils.decode(expected_contents, target_type=str),
+                    string_utils.decode(actual_contents, target_type=str),
+                ),
+                difference=1)
+
+        return ImageDiffResult(passed=True, diff_image=None, difference=0)
 
     def layout_tests_dir(self):
         return LAYOUT_TEST_DIR

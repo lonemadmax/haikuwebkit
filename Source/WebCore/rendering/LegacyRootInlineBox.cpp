@@ -56,7 +56,7 @@ COMPILE_ASSERT(sizeof(LegacyRootInlineBox) == sizeof(SameSizeAsLegacyRootInlineB
 COMPILE_ASSERT(sizeof(WeakPtr<RenderObject>) == sizeof(void*), WeakPtr_should_be_same_size_as_raw_pointer);
 #endif
 
-typedef WTF::HashMap<const LegacyRootInlineBox*, std::unique_ptr<LegacyEllipsisBox>> EllipsisBoxMap;
+typedef HashMap<const LegacyRootInlineBox*, std::unique_ptr<LegacyEllipsisBox>> EllipsisBoxMap;
 static EllipsisBoxMap* gEllipsisBoxMap;
 
 static ContainingFragmentMap& containingFragmentMap(RenderBlockFlow& block)
@@ -513,10 +513,8 @@ LayoutUnit LegacyRootInlineBox::selectionTop(ForHitTesting forHitTesting) const
     LayoutUnit prevBottom;
     if (auto* previousBox = prevRootBox())
         prevBottom = previousBox->selectionBottom();
-    else {
-        auto borderAndPaddingBefore = blockFlow().borderAndPaddingBefore();
-        prevBottom = forHitTesting == ForHitTesting::Yes ? borderAndPaddingBefore : std::max(borderAndPaddingBefore, selectionTop);
-    }
+    else
+        prevBottom = forHitTesting == ForHitTesting::Yes ? blockFlow().borderAndPaddingBefore() : selectionTop;
 
     if (prevBottom < selectionTop && blockFlow().containsFloats()) {
         // This line has actually been moved further down, probably from a large line-height, but possibly because the

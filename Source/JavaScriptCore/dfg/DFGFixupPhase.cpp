@@ -1124,9 +1124,6 @@ private:
                         break;
                     }
                 }
-#if USE(JSVALUE32_64)
-                fixEdge<CellUse>(m_graph.varArgChild(node, 0)); // Speculating cell due to register pressure on 32-bit.
-#endif
                 break;
             case Array::ForceExit:
                 break;
@@ -1255,12 +1252,6 @@ private:
                         break;
                     }
                 }
-#if USE(JSVALUE32_64)
-                // Due to register pressure on 32-bit, we speculate cell and
-                // ignore the base-is-not-cell case entirely by letting the
-                // baseline JIT handle it.
-                fixEdge<CellUse>(child1);
-#endif
                 break;
             case Array::Int32:
                 fixEdge<KnownCellUse>(child1);
@@ -1679,7 +1670,7 @@ private:
             if (node->child1()->shouldSpeculateArray()
                 && arrayPrototypeStructure->transitionWatchpointSetIsStillValid()
                 && objectPrototypeStructure->transitionWatchpointSetIsStillValid()
-                && globalObject->arrayPrototypeChainIsSane()
+                && globalObject->arrayPrototypeChainIsSaneConcurrently(arrayPrototypeStructure, objectPrototypeStructure)
                 && m_graph.isWatchingArrayIteratorProtocolWatchpoint(node->child1().node())
                 && m_graph.isWatchingHavingABadTimeWatchpoint(node->child1().node())) {
                 m_graph.registerAndWatchStructureTransition(objectPrototypeStructure);
@@ -2174,13 +2165,11 @@ private:
             blessArrayOperation(node->child1(), Edge(), node->child2(), lengthNeedsStorage);
 
             fixEdge<KnownCellUse>(node->child1());
-            node->setResult(NodeResultInt52);
             break;
         }
 
         case GetTypedArrayByteOffsetAsInt52: {
             fixEdge<KnownCellUse>(node->child1());
-            node->setResult(NodeResultInt52);
             break;
         }
 
@@ -3783,7 +3772,7 @@ private:
         Structure* objectPrototypeStructure = globalObject->objectPrototype()->structure(vm());
         if (arrayPrototypeStructure->transitionWatchpointSetIsStillValid()
             && objectPrototypeStructure->transitionWatchpointSetIsStillValid()
-            && globalObject->arrayPrototypeChainIsSane()) {
+            && globalObject->arrayPrototypeChainIsSaneConcurrently(arrayPrototypeStructure, objectPrototypeStructure)) {
             m_graph.registerAndWatchStructureTransition(arrayPrototypeStructure);
             m_graph.registerAndWatchStructureTransition(objectPrototypeStructure);
             node->setArrayMode(node->arrayMode().withSpeculation(speculation));

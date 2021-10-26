@@ -11,6 +11,8 @@ list(APPEND WTF_PUBLIC_HEADERS
     glib/Sandbox.h
     glib/SocketConnection.h
     glib/WTFGType.h
+
+    linux/RealTimeThreads.h
 )
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
@@ -52,6 +54,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     list(APPEND WTF_SOURCES
         linux/CurrentProcessMemoryStatus.cpp
         linux/MemoryFootprintLinux.cpp
+        linux/RealTimeThreads.cpp
 
         unix/MemoryPressureHandlerUnix.cpp
     )
@@ -76,8 +79,8 @@ list(APPEND WTF_LIBRARIES
     ZLIB::ZLIB
 )
 
-if (Systemd_FOUND)
-    list(APPEND WTF_LIBRARIES Systemd::Systemd)
+if (Journald_FOUND)
+    list(APPEND WTF_LIBRARIES Journald::Journald)
 endif ()
 
 list(APPEND WTF_SYSTEM_INCLUDE_DIRECTORIES

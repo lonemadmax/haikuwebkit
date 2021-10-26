@@ -232,8 +232,6 @@ media/media-controller-time-constant.html [ Pass ]
 media/media-controller-time.html [ Pass ]
 media/media-controller-unpause.html [ Pass ]
 media/mediacapabilities/mediacapabilities-types.html [ Pass ]
-media/video-canvas-createPattern.html [ Pass ]
-media/video-canvas-drawing-output.html [ Pass ]
 media/video-controller-currentTime-rate.html [ Pass ]
 webaudio/codec-tests/aac/vbr-128kbps-44khz.html [ Pass ]
 webaudio/codec-tests/mp3/128kbps-44khz.html [ Pass ]
@@ -364,6 +362,12 @@ accessibility/embedded-image-description.html [ Skip ]
 accessibility/nested-textareas-value-changed-notifications.html [ Skip ]
 
 webkit.org/b/229261 accessibility/element-line-rects-and-text.html [ Missing ]
+
+webkit.org/b/232249 accessibility/video-element-url-attribute.html [ Failure ]
+
+webkit.org/b/232255 accessibility/math-has-non-presentational-children.html [ Failure ]
+
+webkit.org/b/232256 accessibility/auto-fill-crash.html [ Failure ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Accessibility-related bugs
@@ -2512,8 +2516,6 @@ webkit.org/b/229738 fast/text/word-break.html [ Failure ]
 webkit.org/b/206753 imported/w3c/web-platform-tests/css/css-backgrounds/background-clip-content-box-002.html [ ImageOnlyFailure ]
 
 webkit.org/b/229764 animations/background-position.html [ ImageOnlyFailure Pass ]
-
-webkit.org/b/229979 media/media-source/media-source-stalled-holds-sleep-assertion.html [ Timeout ]
 
 webkit.org/b/230315 imported/w3c/web-platform-tests/mathml/presentation-markup/direction/direction-006.html [ ImageOnlyFailure ]
 

@@ -66,6 +66,10 @@ typedef struct _WebKitAccessible AccessibilityObjectWrapper;
 class AccessibilityObjectWrapper;
 #endif
 
+namespace PAL {
+class SessionID;
+}
+
 namespace WTF {
 class TextStream;
 }
@@ -246,7 +250,7 @@ enum class AccessibilityRole {
     Window,
 };
 
-using AccessibilityRoleSet = WTF::HashSet<AccessibilityRole, WTF::IntHash<AccessibilityRole>, WTF::StrongEnumHashTraits<AccessibilityRole>>;
+using AccessibilityRoleSet = HashSet<AccessibilityRole, IntHash<AccessibilityRole>, WTF::StrongEnumHashTraits<AccessibilityRole>>;
 
 ALWAYS_INLINE String accessibilityRoleToString(AccessibilityRole role)
 {
@@ -1234,13 +1238,17 @@ public:
     virtual void updateAccessibilityRole() = 0;
 
     virtual const AccessibilityChildrenVector& children(bool updateChildrenIfNeeded = true) = 0;
+
+    enum class DescendIfIgnored : uint8_t {
+        No,
+        Yes
+    };
     virtual void addChildren() = 0;
-    virtual void addChild(AXCoreObject*) = 0;
-    virtual void insertChild(AXCoreObject*, unsigned) = 0;
+    virtual void addChild(AXCoreObject*, DescendIfIgnored = DescendIfIgnored::Yes) = 0;
+    virtual void insertChild(AXCoreObject*, unsigned, DescendIfIgnored = DescendIfIgnored::Yes) = 0;
     Vector<AXID> childrenIDs();
 
     virtual bool canHaveChildren() const = 0;
-    virtual bool hasChildren() const = 0;
     virtual void updateChildrenIfNecessary() = 0;
     virtual void setNeedsToUpdateChildren() = 0;
     virtual void setNeedsToUpdateSubtree() = 0;
@@ -1503,7 +1511,7 @@ public:
     virtual void clearIsIgnoredFromParentData() = 0;
     virtual void setIsIgnoredFromParentDataForChild(AXCoreObject*) = 0;
     
-    virtual uint64_t sessionID() const = 0;
+    virtual PAL::SessionID sessionID() const = 0;
     virtual String documentURI() const = 0;
     virtual String documentEncoding() const = 0;
     virtual AccessibilityChildrenVector documentLinks() = 0;
@@ -1616,8 +1624,7 @@ template<typename T, typename U> inline T retrieveAutoreleasedValueFromMainThrea
 
 inline bool AXCoreObject::isDescendantOfObject(const AXCoreObject* axObject) const
 {
-    return axObject && axObject->hasChildren()
-        && Accessibility::findAncestor<AXCoreObject>(*this, false, [axObject] (const AXCoreObject& object) {
+    return axObject && Accessibility::findAncestor<AXCoreObject>(*this, false, [axObject] (const AXCoreObject& object) {
             return &object == axObject;
         }) != nullptr;
 }

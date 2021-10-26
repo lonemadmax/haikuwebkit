@@ -30,6 +30,7 @@
 #include "DOMWindow.h"
 #include "Document.h"
 #include "Element.h"
+#include "Event.h"
 #include "EventLoop.h"
 #include "FetchResponse.h"
 #include "Frame.h"
@@ -334,16 +335,6 @@ DOMWindow& legacyActiveDOMWindowForAccessor(JSGlobalObject& fallbackGlobalObject
 DOMWindow& legacyActiveDOMWindowForAccessor(JSGlobalObject& fallbackGlobalObject)
 {
     return asJSDOMWindow(&legacyActiveGlobalObjectForAccessor(fallbackGlobalObject, fallbackGlobalObject.vm().topCallFrame))->wrapped();
-}
-
-Document* responsibleDocument(VM& vm, CallFrame& callFrame)
-{
-    CallerFunctor functor;
-    callFrame.iterate(vm, functor);
-    auto* callerFrame = functor.callerFrame();
-    if (!callerFrame)
-        return nullptr;
-    return asJSDOMWindow(callerFrame->lexicalGlobalObject(vm))->wrapped().document();
 }
 
 void JSDOMWindowBase::fireFrameClearedWatchpointsForWindow(DOMWindow* window)

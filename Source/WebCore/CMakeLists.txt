@@ -349,6 +349,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediacapabilities/Navigator+MediaCapabilities.idl
     Modules/mediacapabilities/TransferFunction.idl
     Modules/mediacapabilities/VideoConfiguration.idl
+    Modules/mediacapabilities/WorkerNavigator+MediaCapabilities.idl
 
     Modules/mediacontrols/MediaControlsHost.idl
 
@@ -1040,6 +1041,7 @@ set(WebCore_NON_SVG_IDL_FILES
     html/HTMLTrackElement.idl
     html/HTMLUListElement.idl
     html/HTMLUnknownElement.idl
+    html/HTMLVideoElement+RequestVideoFrameCallback.idl
     html/HTMLVideoElement.idl
     html/ImageBitmap.idl
     html/ImageBitmapOptions.idl
@@ -1055,6 +1057,8 @@ set(WebCore_NON_SVG_IDL_FILES
     html/TimeRanges.idl
     html/URLSearchParams.idl
     html/ValidityState.idl
+    html/VideoFrameMetadata.idl
+    html/VideoFrameRequestCallback.idl
     html/VoidCallback.idl
 
     html/canvas/CanvasCompositing.idl
@@ -2229,23 +2233,6 @@ list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/XMLNSNames.cpp)
 
 GENERATE_DOM_NAMES(XML ${WEBCORE_DIR}/xml/xmlattrs.in)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/XMLNames.cpp)
-
-list(APPEND WebCore_SOURCES
-    loader/PrivateClickMeasurement.cpp
-
-    platform/Logging.cpp
-    platform/MIMETypeRegistry.cpp
-    platform/RuntimeApplicationChecks.cpp
-
-    platform/network/HTTPHeaderMap.cpp
-    platform/network/HTTPHeaderValues.cpp
-
-    platform/sql/SQLiteDatabase.cpp
-    platform/sql/SQLiteDatabaseTracker.cpp
-    platform/sql/SQLiteStatement.cpp
-    platform/sql/SQLiteStatementAutoResetScope.cpp
-    platform/sql/SQLiteTransaction.cpp
-)
 
 WEBKIT_COMPUTE_SOURCES(WebCore)
 

@@ -412,11 +412,14 @@
    },
    {
       "emails" : [
+         "ashvayka@apple.com",
          "shvaikalesh@gmail.com"
       ],
       "expertise" : "JavaScript/ECMAScript, JavaScript DOM Bindings",
+      "github" : "shvaikalesh",
       "name" : "Alexey Shvayka",
       "nicks" : [
+         "ashvayka",
          "shvaikalesh"
       ],
       "status" : "reviewer"
@@ -619,6 +622,7 @@
          "andresg_22@apple.com"
       ],
       "expertise" : "Accessibility",
+      "github" : "AndresGonzalezApple",
       "name" : "Andres Gonzalez",
       "nicks" : [
          "andresg"
@@ -1102,6 +1106,7 @@
          "beidson@apple.com"
       ],
       "expertise" : "Networking, Storage, WebCore icon database, Back/forward cache, History",
+      "github" : "beidson",
       "name" : "Brady Eidson",
       "nicks" : [
          "bradee-oh"
@@ -1416,6 +1421,7 @@
          "cfleizach@apple.com"
       ],
       "expertise" : "Accessibility",
+      "github" : "fleizach",
       "name" : "Chris Fleizach",
       "nicks" : [
          "cfleizach"
@@ -1677,6 +1683,7 @@
          "darin@apple.com"
       ],
       "expertise" : "HTML Forms, WebKit API (Mac, Win), HTML Editing, Performance, JavaScript/ECMAScript, Text Encoding, Core DOM, HTML DOM, Canvas, JavaScript DOM Bindings, ObjC DOM Bindings, Basic types and data structures, Tools, New Features / Standards Support, General (probably a good backup on most topics even if not specifically an expert)",
+      "github" : "darinadler",
       "name" : "Darin Adler",
       "nicks" : [
          "darin"
@@ -2252,6 +2259,7 @@
          "eric.carlson@apple.com"
       ],
       "expertise" : "HTML5 Media Elements",
+      "github" : "eric-carlson",
       "name" : "Eric Carlson",
       "nicks" : [
          "eric_carlson"
@@ -2638,6 +2646,7 @@
          "guijemont@igalia.com"
       ],
       "expertise" : "JavaScriptCore",
+      "github" : "guijemont",
       "name" : "Guillaume Emont",
       "nicks" : [
          "guijemont"
@@ -4491,6 +4500,7 @@
          "martin.james.robinson@gmail.com"
       ],
       "expertise" : "The WebKitGTK port, scroll snap, position:sticky",
+      "github" : "mrobinson",
       "name" : "Martin Robinson",
       "nicks" : [
          "mrobinson"
@@ -5825,7 +5835,8 @@
          "svillar@igalia.com",
          "sergio@webkit.org"
       ],
-      "expertise" : "WebKitGTK port, WebKit2, CSS Grid Layout, libsoup",
+      "expertise" : "WebKitGTK port, CSS Grid Layout, Flexbox",
+      "github" : "svillar",
       "name" : "Sergio Villar Senin",
       "nicks" : [
          "svillar"
@@ -6432,6 +6443,21 @@
    },
    {
       "emails" : [
+         "tyler.wilcock@protonmail.com",
+         "twilco.o@protonmail.com",
+         "tyler.l.wilcock@gmail.com",
+         "tyler_w@apple.com",
+         "tylerw_22@apple.com"
+      ],
+      "expertise" : "Accessibility",
+      "github" : "twilco",
+      "name" : "Tyler Wilcock",
+      "nicks" : [
+         "twilco"
+      ]
+   },
+   {
+      "emails" : [
          "ich@liebefonts.com"
       ],
       "name" : "Ulrike Rausch"
@@ -6652,7 +6678,7 @@
          "xlopez@igalia.com"
       ],
       "expertise" : "JSC, WebKitGTK/WPE",
-      "github": "xanlpz",
+      "github" : "xanlpz",
       "name" : "Xan Lopez",
       "nicks" : [
          "xan"
@@ -6966,6 +6992,7 @@
          "zan@falconsigh.net",
          "zandobersek@gmail.com"
       ],
+      "github" : "zdobersek",
       "name" : "\u017dan Dober\u0161ek",
       "nicks" : [
          "zdobersek"

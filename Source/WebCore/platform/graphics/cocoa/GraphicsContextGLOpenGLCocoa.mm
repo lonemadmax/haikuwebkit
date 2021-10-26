@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -103,7 +103,7 @@ static bool checkVolatileContextSupportIfDeviceExists(EGLDisplay display, const 
 
 static bool platformSupportsMetal(bool isWebGL2)
 {
-    auto device = MTLCreateSystemDefaultDevice();
+    auto device = adoptNS(MTLCreateSystemDefaultDevice());
 
     if (device) {
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR)
@@ -146,24 +146,25 @@ static EGLDisplay initializeEGLDisplay(const GraphicsContextGLAttributes& attrs)
     }
 
     LOG(WebGL, "Attempting to use ANGLE's %s backend.", attrs.useMetal ? "Metal" : "OpenGL");
+    EGLNativeDisplayType nativeDisplay = GraphicsContextGLOpenGL::defaultDisplay;
     if (attrs.useMetal) {
         displayAttributes.append(EGL_PLATFORM_ANGLE_TYPE_ANGLE);
         displayAttributes.append(EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE);
-    }
-
-    if (attrs.powerPreference != GraphicsContextGLAttributes::PowerPreference::Default || attrs.forceRequestForHighPerformanceGPU) {
-        displayAttributes.append(EGL_POWER_PREFERENCE_ANGLE);
-        if (attrs.powerPreference == GraphicsContextGLAttributes::PowerPreference::LowPower && !attrs.forceRequestForHighPerformanceGPU) {
-            LOG(WebGL, "Requesting low power GPU.");
+        // These properties are defined for EGL_ANGLE_power_preference as EGLContext attributes,
+        // but Metal backend uses EGLDisplay attributes.
+        auto powerPreference = attrs.forceRequestForHighPerformanceGPU ? GraphicsContextGLAttributes::PowerPreference::HighPerformance : attrs.powerPreference;
+        if (powerPreference == GraphicsContextGLAttributes::PowerPreference::LowPower) {
+            displayAttributes.append(EGL_POWER_PREFERENCE_ANGLE);
             displayAttributes.append(EGL_LOW_POWER_ANGLE);
-        } else {
-            ASSERT(attrs.powerPreference == GraphicsContextGLAttributes::PowerPreference::HighPerformance || attrs.forceRequestForHighPerformanceGPU);
-            LOG(WebGL, "Requesting high power GPU if available.");
+            nativeDisplay = GraphicsContextGLOpenGL::lowPowerDisplay;
+        } else if (powerPreference == GraphicsContextGLAttributes::PowerPreference::HighPerformance) {
+            displayAttributes.append(EGL_POWER_PREFERENCE_ANGLE);
             displayAttributes.append(EGL_HIGH_POWER_ANGLE);
+            nativeDisplay = GraphicsContextGLOpenGL::highPerformanceDisplay;
         }
     }
     displayAttributes.append(EGL_NONE);
-    display = EGL_GetPlatformDisplayEXT(EGL_PLATFORM_ANGLE_ANGLE, reinterpret_cast<void*>(EGL_DEFAULT_DISPLAY), displayAttributes.data());
+    display = EGL_GetPlatformDisplayEXT(EGL_PLATFORM_ANGLE_ANGLE, reinterpret_cast<void*>(nativeDisplay), displayAttributes.data());
 
     if (EGL_Initialize(display, &majorVersion, &minorVersion) == EGL_FALSE) {
         LOG(WebGL, "EGLDisplay Initialization failed.");
@@ -172,7 +173,7 @@ static EGLDisplay initializeEGLDisplay(const GraphicsContextGLAttributes& attrs)
     LOG(WebGL, "ANGLE initialised Major: %d Minor: %d", majorVersion, minorVersion);
     if (shouldInitializeWithVolatileContextSupport) {
         // After initialization, EGL_DEFAULT_DISPLAY will return the platform-customized display.
-        ASSERT(display == EGL_GetDisplay(EGL_DEFAULT_DISPLAY));
+        ASSERT(display == EGL_GetDisplay(nativeDisplay));
         ASSERT(checkVolatileContextSupportIfDeviceExists(display, "EGL_ANGLE_platform_device_context_volatile_eagl", "EGL_ANGLE_device_eagl", EGL_EAGL_CONTEXT_ANGLE));
         ASSERT(checkVolatileContextSupportIfDeviceExists(display, "EGL_ANGLE_platform_device_context_volatile_cgl", "EGL_ANGLE_device_cgl", EGL_CGL_CONTEXT_ANGLE));
     }
@@ -218,16 +219,25 @@ GraphicsContextGLOpenGL::GraphicsContextGLOpenGL(GraphicsContextGLAttributes att
     if (!m_displayObj)
         return;
 
-    bool supportsPowerPreference = false;
 #if PLATFORM(MAC)
-    const char *displayExtensions = EGL_QueryString(m_displayObj, EGL_EXTENSIONS);
-    m_supportsPowerPreference = strstr(displayExtensions, "EGL_ANGLE_power_preference");
-    supportsPowerPreference = m_supportsPowerPreference;
-#endif
-    if (!supportsPowerPreference && attrs.powerPreference == GraphicsContextGLPowerPreference::HighPerformance) {
-        attrs.powerPreference = GraphicsContextGLPowerPreference::Default;
-        setContextAttributes(attrs);
+    if (!attrs.useMetal) {
+        // For OpenGL, EGL_ANGLE_power_preference is used. The context is initialized with the
+        // default, low-power device. For high-performance contexts, we request the high-performance
+        // GPU in setContextVisibility. When the request is fullfilled by the system, we get the
+        // display reconfiguration callback. Upon this, we update the CGL contexts inside ANGLE.
+        const char *displayExtensions = EGL_QueryString(m_displayObj, EGL_EXTENSIONS);
+        bool supportsPowerPreference = strstr(displayExtensions, "EGL_ANGLE_power_preference");
+        if (supportsPowerPreference) {
+            m_switchesGPUOnDisplayReconfiguration = attrs.powerPreference == GraphicsContextGLPowerPreference::HighPerformance
+                || attrs.forceRequestForHighPerformanceGPU;
+        } else {
+            if (attrs.powerPreference == GraphicsContextGLPowerPreference::HighPerformance) {
+                attrs.powerPreference = GraphicsContextGLPowerPreference::Default;
+                setContextAttributes(attrs);
+            }
+        }
     }
+#endif
 
     EGLint configAttributes[] = {
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
@@ -415,6 +425,7 @@ GraphicsContextGLOpenGL::~GraphicsContextGLOpenGL()
         EGL_DestroyContext(m_displayObj, m_contextObj);
     }
     ASSERT(currentContext != this);
+    m_drawingBufferTextureTarget = -1;
     LOG(WebGL, "Destroyed a GraphicsContextGLOpenGL (%p).", this);
 }
 
@@ -430,41 +441,42 @@ PlatformLayer* GraphicsContextGLOpenGL::platformLayer() const
 
 GCGLenum GraphicsContextGLOpenGL::drawingBufferTextureTarget()
 {
-#if PLATFORM(MACCATALYST)
-    if (needsEAGLOnMac())
+    if (m_drawingBufferTextureTarget == -1)
+        EGL_GetConfigAttrib(m_displayObj, m_configObj, EGL_BIND_TO_TEXTURE_TARGET_ANGLE, &m_drawingBufferTextureTarget);
+
+    switch (m_drawingBufferTextureTarget) {
+    case EGL_TEXTURE_2D:
         return TEXTURE_2D;
-    return TEXTURE_RECTANGLE_ARB;
-#elif PLATFORM(MAC)
-    return TEXTURE_RECTANGLE_ARB;
-#else
-    return TEXTURE_2D;
-#endif
+    case EGL_TEXTURE_RECTANGLE_ANGLE:
+        return TEXTURE_RECTANGLE_ARB;
+
+    }
+    ASSERT_WITH_MESSAGE(false, "Invalid enum returned from EGL_GetConfigAttrib");
+    return 0;
 }
 
-GCGLenum GraphicsContextGLOpenGL::drawingBufferTextureTargetQuery()
+GCGLenum GraphicsContextGLOpenGL::drawingBufferTextureTargetQueryForDrawingTarget(GCGLenum drawingTarget)
 {
-#if PLATFORM(MACCATALYST)
-    if (needsEAGLOnMac())
+    switch (drawingTarget) {
+    case TEXTURE_2D:
         return TEXTURE_BINDING_2D;
-    return TEXTURE_BINDING_RECTANGLE_ARB;
-#elif PLATFORM(MAC)
-    return TEXTURE_BINDING_RECTANGLE_ARB;
-#else
-    return TEXTURE_BINDING_2D;
-#endif
+    case TEXTURE_RECTANGLE_ARB:
+        return TEXTURE_BINDING_RECTANGLE_ARB;
+    }
+    ASSERT_WITH_MESSAGE(false, "Invalid drawing target");
+    return -1;
 }
 
-GCGLint GraphicsContextGLOpenGL::EGLDrawingBufferTextureTarget()
+GCGLint GraphicsContextGLOpenGL::EGLDrawingBufferTextureTargetForDrawingTarget(GCGLenum drawingTarget)
 {
-#if PLATFORM(MACCATALYST)
-    if (needsEAGLOnMac())
+    switch (drawingTarget) {
+    case TEXTURE_2D:
         return EGL_TEXTURE_2D;
-    return EGL_TEXTURE_RECTANGLE_ANGLE;
-#elif PLATFORM(MAC)
-    return EGL_TEXTURE_RECTANGLE_ANGLE;
-#else
-    return EGL_TEXTURE_2D;
-#endif
+    case TEXTURE_RECTANGLE_ARB:
+        return EGL_TEXTURE_RECTANGLE_ANGLE;
+    }
+    ASSERT_WITH_MESSAGE(false, "Invalid drawing target");
+    return 0;
 }
 
 bool GraphicsContextGLOpenGL::makeContextCurrent()
@@ -509,7 +521,7 @@ void GraphicsContextGLOpenGL::checkGPUStatus()
 void GraphicsContextGLOpenGL::setContextVisibility(bool isVisible)
 {
 #if PLATFORM(MAC)
-    if (contextAttributes().powerPreference != GraphicsContextGLPowerPreference::HighPerformance)
+    if (!m_switchesGPUOnDisplayReconfiguration)
         return;
     if (isVisible)
         m_highPerformanceGPURequest = ScopedHighPerformanceGPURequest::acquire();
@@ -523,7 +535,7 @@ void GraphicsContextGLOpenGL::setContextVisibility(bool isVisible)
 void GraphicsContextGLOpenGL::displayWasReconfigured()
 {
 #if PLATFORM(MAC)
-    if (m_supportsPowerPreference)
+    if (m_switchesGPUOnDisplayReconfiguration)
         EGL_HandleGPUSwitchANGLE(m_displayObj);
 #endif
     dispatchContextChangedNotification();
@@ -562,7 +574,7 @@ bool GraphicsContextGLOpenGL::allocateAndBindDisplayBufferBacking()
         EGL_WIDTH, size.width(),
         EGL_HEIGHT, size.height(),
         EGL_IOSURFACE_PLANE_ANGLE, 0,
-        EGL_TEXTURE_TARGET, WebCore::GraphicsContextGLOpenGL::EGLDrawingBufferTextureTarget(),
+        EGL_TEXTURE_TARGET, EGLDrawingBufferTextureTargetForDrawingTarget(drawingBufferTextureTarget()),
         EGL_TEXTURE_INTERNAL_FORMAT_ANGLE, usingAlpha ? GL_BGRA_EXT : GL_RGB,
         EGL_TEXTURE_FORMAT, EGL_TEXTURE_RGBA,
         EGL_TEXTURE_TYPE_ANGLE, GL_UNSIGNED_BYTE,
@@ -579,7 +591,7 @@ bool GraphicsContextGLOpenGL::allocateAndBindDisplayBufferBacking()
 bool GraphicsContextGLOpenGL::bindDisplayBufferBacking(std::unique_ptr<IOSurface> backing, void* pbuffer)
 {
     GCGLenum textureTarget = drawingBufferTextureTarget();
-    ScopedRestoreTextureBinding restoreBinding(drawingBufferTextureTargetQuery(), textureTarget, textureTarget != TEXTURE_RECTANGLE_ARB);
+    ScopedRestoreTextureBinding restoreBinding(drawingBufferTextureTargetQueryForDrawingTarget(drawingBufferTextureTarget()), textureTarget, textureTarget != TEXTURE_RECTANGLE_ARB);
     gl::BindTexture(textureTarget, m_texture);
     if (!EGL_BindTexImage(m_displayObj, pbuffer, EGL_BACK_BUFFER)) {
         EGL_DestroySurface(m_displayObj, pbuffer);
@@ -746,7 +758,7 @@ std::optional<PixelBuffer> GraphicsContextGLOpenGL::readCompositedResults()
     // the IOSurface be unrefenced after the draw call finishes.
     ScopedTexture texture;
     GCGLenum textureTarget = drawingBufferTextureTarget();
-    ScopedRestoreTextureBinding restoreBinding(drawingBufferTextureTargetQuery(), textureTarget, textureTarget != TEXTURE_RECTANGLE_ARB);
+    ScopedRestoreTextureBinding restoreBinding(drawingBufferTextureTargetQueryForDrawingTarget(drawingBufferTextureTarget()), textureTarget, textureTarget != TEXTURE_RECTANGLE_ARB);
     gl::BindTexture(textureTarget, texture);
     if (!EGL_BindTexImage(m_displayObj, displayBuffer.handle, EGL_BACK_BUFFER))
         return std::nullopt;

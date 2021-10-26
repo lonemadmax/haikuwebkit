@@ -30,12 +30,12 @@
 ;; Silence spurious logging due to rdar://20117923 and rdar://72366475
 (deny system-privilege (privilege-id PRIV_GLOBAL_PROC_INFO) (with no-report))
 
-#include "Shared/Sandbox/util.sb"
-
 ;;;
 ;;; The following rules were originally contained in 'common.sb'. We are duplicating them here so we can
 ;;; remove unneeded sandbox extensions.
 ;;;
+
+(import "util.sb")
 
 (define-once (allow-read-and-issue-generic-extensions . filters)
     (allow file-read*
@@ -1230,6 +1230,7 @@
         (syscall-number SYS_guarded_pwrite_np)
         (syscall-number SYS_issetugid)
         (syscall-number SYS_kdebug_trace64)
+        (syscall-number SYS_kdebug_typefilter)
         (syscall-number SYS_kevent_id)
         (syscall-number SYS_kevent_qos)
         (syscall-number SYS_kqueue) ;; <rdar://problem/49609201>
@@ -1358,8 +1359,7 @@
 (with-filter (system-attribute apple-internal)
     (when (defined? 'syscall-unix)
         (allow syscall-unix
-            (syscall-number SYS_kdebug_trace_string) ;; Needed for performance sampling, see <rdar://problem/48829655>.
-            (syscall-number SYS_kdebug_typefilter))))
+            (syscall-number SYS_kdebug_trace_string)))) ;; Needed for performance sampling, see <rdar://problem/48829655>.
 
 (deny file-ioctl (with telemetry))
 

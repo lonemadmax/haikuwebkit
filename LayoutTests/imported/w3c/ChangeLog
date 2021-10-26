@@ -1,3 +1,511 @@
+2021-10-26  Antti Koivisto  <antti@apple.com>
+
+        Serialize :part() argument as identifier
+        https://bugs.webkit.org/show_bug.cgi?id=232297
+
+        Reviewed by Youenn Fablet.
+
+        * web-platform-tests/css/css-shadow-parts/serialization-expected.txt:
+
+2021-10-26  Antti Koivisto  <antti@apple.com>
+
+        [CSS Cascade Layers] Media queries should be able to affect layer order
+        https://bugs.webkit.org/show_bug.cgi?id=232238
+
+        Reviewed by Simon Fraser.
+
+        Also import some additional @layer WPTs.
+
+        * web-platform-tests/css/css-cascade/layer-media-query-expected.txt: Added.
+        * web-platform-tests/css/css-cascade/layer-media-query.html: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-001-expected.xht: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-001.html: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-002-expected.xht: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-002.html: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-003-expected.xht: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-003.html: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-004-expected.xht: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-004.html: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-005-expected.xht: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-005.html: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-006-expected.xht: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-006.html: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-007-expected.xht: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-007.html: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-008-expected.txt: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-008.html: Added.
+        * web-platform-tests/css/css-cascade/w3c-import.log:
+
+2021-10-25  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        Fix issue for transform-origin in SVG
+        https://bugs.webkit.org/show_bug.cgi?id=232189
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/svg/styling/render/transform-origin-not-explicit-style-ref.svg: Added.
+        * web-platform-tests/svg/styling/render/transform-origin-not-explicit-style.svg: Added.
+
+2021-10-25  Chris Dumez  <cdumez@apple.com>
+
+        Form navigations with target=_blank should not have an opener
+        https://bugs.webkit.org/show_bug.cgi?id=232243
+
+        Reviewed by Sam Weinig.
+
+        Merge https://github.com/web-platform-tests/wpt/pull/31368 from upstream WPT to fix outdated expectations in
+        WPT tests.
+
+        * web-platform-tests/content-security-policy/form-action/form-action-self-allowed-target-blank.html:
+        * web-platform-tests/content-security-policy/form-action/form-action-src-allowed-target-blank.sub.html:
+        * web-platform-tests/content-security-policy/form-action/form-action-src-redirect-allowed-target-blank.sub.html:
+        * web-platform-tests/html/semantics/forms/form-submission-target/resources/reltester.js:
+        (formUsesTargetBlank):
+        (relTester):
+
+2021-10-25  Chris Dumez  <cdumez@apple.com>
+
+        imported/w3c/web-platform-tests/html/semantics/forms/form-submission-0/form-submission-algorithm.html is timing out
+        https://bugs.webkit.org/show_bug.cgi?id=232117
+
+        Reviewed by Alex Christensen.
+
+        Merge https://github.com/web-platform-tests/wpt/pull/31359 from upstream WPT to address the timeout and
+        rebaseline the test now that it is fully passing.
+
+        * web-platform-tests/html/semantics/forms/form-submission-0/form-submission-algorithm-expected.txt:
+        * web-platform-tests/html/semantics/forms/form-submission-0/resources/targetted-form.js:
+        (populateForm):
+
+2021-10-25  Alex Christensen  <achristensen@webkit.org>
+
+        WebKit ought to be able to play videos without Content-Length HTTP header fields and without range support
+        https://bugs.webkit.org/show_bug.cgi?id=232174
+
+        Reviewed by Geoff Garen.
+
+        * web-platform-tests/service-workers/service-worker/fetch-audio-tainting.https-expected.txt:
+
+2021-10-25  Ziran Sun  <zsun@igalia.com>
+
+        [CSS-grid] Need to set prefer width dirty for the child that has constraints to the grid area
+        https://bugs.webkit.org/show_bug.cgi?id=232140
+
+        Reviewed by Sergio Villar Senin.
+
+        Update the test expectation file for the following tests. These tests are now passing.
+        * web-platform-tests/css/css-grid/grid-items/grid-items-percentage-paddings-002-expected.txt:
+        * web-platform-tests/css/css-grid/grid-items/grid-items-percentage-paddings-vertical-lr-002-expected.txt:
+        * web-platform-tests/css/css-grid/grid-items/grid-items-percentage-paddings-vertical-rl-002-expected.txt:
+
+2021-10-25  Tim Nguyen  <ntim@apple.com>
+
+        Fix imported/w3c/web-platform-tests/css/selectors/focus-visible-009.html flaky failure on macOS wk1
+        https://bugs.webkit.org/show_bug.cgi?id=231647
+
+        Reviewed by Antti Koivisto.
+
+        This only tests a CSS selector feature, use `waitUntilStableAutofocusState()` helper which is more stable on wk1
+        to make this test pass.
+
+        * web-platform-tests/css/selectors/focus-visible-009.html:
+
+2021-10-24  Alexey Shvayka  <shvaikalesh@gmail.com>
+
+        Assertions in IDBTransaction::request*() methods fail on cross-realm methods
+        https://bugs.webkit.org/show_bug.cgi?id=230128
+
+        Reviewed by Sihui Liu.
+
+        * web-platform-tests/IndexedDB/idbindex-cross-realm-methods-expected.txt: Added.
+        * web-platform-tests/IndexedDB/idbindex-cross-realm-methods.html: Added.
+        * web-platform-tests/IndexedDB/idbobjectstore-cross-realm-methods-expected.txt: Added.
+        * web-platform-tests/IndexedDB/idbobjectstore-cross-realm-methods.html: Added.
+
+2021-10-24  Alexey Shvayka  <shvaikalesh@gmail.com>
+
+        document.open() and friends use incorrect document as a source for reseted document's URL
+        https://bugs.webkit.org/show_bug.cgi?id=230131
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/html/webappapis/dynamic-markup-insertion/opening-the-input-stream/origin-check-in-document-open-same-origin-domain.sub-expected.txt:
+        * web-platform-tests/html/webappapis/dynamic-markup-insertion/opening-the-input-stream/resources/url-entry-document-incumbent-frame.html: Added.
+        * web-platform-tests/html/webappapis/dynamic-markup-insertion/opening-the-input-stream/url-entry-document-sync-call.window-expected.txt: Added.
+        * web-platform-tests/html/webappapis/dynamic-markup-insertion/opening-the-input-stream/url-entry-document-sync-call.window.html: Added.
+        * web-platform-tests/html/webappapis/dynamic-markup-insertion/opening-the-input-stream/url-entry-document-sync-call.window.js: Added.
+
+2021-10-23  Cameron McCormack  <heycam@apple.com>
+
+        Tweak test tolerance
+        https://bugs.webkit.org/show_bug.cgi?id=231959
+        <rdar://problem/84417651>
+
+        Unreviewed.
+
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-drawImage.html:
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-flipY.html:
+
+2021-10-23  Chris Dumez  <cdumez@apple.com>
+
+        Add support for rel="noopener/noreferrer" on <form> elements
+        https://bugs.webkit.org/show_bug.cgi?id=232170
+
+        Reviewed by Darin Adler.
+
+        Rebaseline WPT tests that are now passing.
+
+        * web-platform-tests/html/semantics/forms/form-submission-target/rel-base-target-expected.txt:
+        * web-platform-tests/html/semantics/forms/form-submission-target/rel-button-target-expected.txt:
+        * web-platform-tests/html/semantics/forms/form-submission-target/rel-form-target-expected.txt:
+        * web-platform-tests/html/semantics/forms/form-submission-target/rel-input-target-expected.txt:
+
+2021-10-22  Joonghun Park  <pjh0718@gmail.com>
+
+        Integer interpolation in animations should be rounded towards positive infinity, not away from zero.
+        https://bugs.webkit.org/show_bug.cgi?id=232013
+
+        Currently, interpolation of <integer> is rounding away from 0.
+        The interpolation's result should be rounded according to the spec,
+        https://drafts.csswg.org/css-values-4/#combine-integers, which is
+
+        "the result is converted to an <integer> by rounding
+        to the nearest integer, with values halfway between
+        adjacent integers rounded towards positive infinity."
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/css/css-values/integer_interpolation_round_half_towards_positive_infinity_order-expected.txt: Added.
+        * web-platform-tests/css/css-values/integer_interpolation_round_half_towards_positive_infinity_order.html: Added.
+        * web-platform-tests/css/css-values/integer_interpolation_round_half_towards_positive_infinity_z_index-expected.txt: Added.
+        * web-platform-tests/css/css-values/integer_interpolation_round_half_towards_positive_infinity_z_index.html: Added.
+
+2021-10-22  Chris Dumez  <cdumez@apple.com>
+
+        Regression (r284610?): [ iOS BigSur wk2 ]imported/w3c/web-platform-tests/html/cross-origin-opener-policy/coop-csp-sandbox.https.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=232184
+        <rdar://problem/84567378>
+
+        Unreviewed, rebaseline test.
+
+        * web-platform-tests/html/cross-origin-opener-policy/coop-csp-sandbox.https-expected.txt:
+
+2021-10-22  Chris Dumez  <cdumez@apple.com>
+
+        [ iOS15 iPad Debug ] imported/w3c/web-platform-tests/webmessaging/MessagePort_onmessage_start.any.worker.html is a flaky failure (reached unreachable code)
+        https://bugs.webkit.org/show_bug.cgi?id=231609
+        <rdar://problem/84164701>
+
+        Reviewed by Youenn Fablet.
+
+        Merge https://github.com/web-platform-tests/wpt/pull/31317 from upstream WPT to address
+        test flakiness.
+
+        * web-platform-tests/webmessaging/MessagePort_onmessage_start.any.js:
+        (async_test):
+
+2021-10-21  Cathie Chen  <cathiechen@igalia.com>
+
+        The intrisic size of picture image inside a template is always zero
+        https://bugs.webkit.org/show_bug.cgi?id=227682
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/adoption-expected.txt:
+
+2021-10-21  Sihui Liu  <sihui_liu@apple.com>
+
+        FileSystemSyncAccessHandle should close platform file handle on close()
+        https://bugs.webkit.org/show_bug.cgi?id=232067
+        <rdar://problem/84517013>
+
+        Reviewed by Youenn Fablet.
+
+        * web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-close.https.tentative.worker-expected.txt:
+
+2021-10-21  Rob Buis  <rbuis@igalia.com>
+
+        [css-contain] Support contain:style for counters
+        https://bugs.webkit.org/show_bug.cgi?id=226458
+
+        Reviewed by Antti Koivisto.
+
+        Update improved test results.
+
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-026-expected.txt:
+        * web-platform-tests/css/css-contain/parsing/contain-computed-expected.txt:
+        * web-platform-tests/css/css-contain/parsing/contain-valid-expected.txt:
+
+2021-10-21  Chris Dumez  <cdumez@apple.com>
+
+        WebKit should process-swap for initial navigation of a popup if it has no opener
+        https://bugs.webkit.org/show_bug.cgi?id=231990
+        <rdar://84425504>
+
+        Reviewed by Brent Fulgham.
+
+        * web-platform-tests/html/cross-origin-opener-policy/coop-coep-sandbox.https-expected.txt:
+        * web-platform-tests/html/cross-origin-opener-policy/coop-sandbox.https-expected.txt:
+        Rebaseline tests due to minor logging differences.
+
+2021-10-20  Alex Christensen  <achristensen@webkit.org>
+
+        URLParser should reject hosts with C0 control characters or U+007F
+        https://bugs.webkit.org/show_bug.cgi?id=232034
+
+        Reviewed by Tim Horton.
+
+        * web-platform-tests/url/a-element-origin-expected.txt:
+        * web-platform-tests/url/a-element-origin-xhtml-expected.txt:
+        * web-platform-tests/url/failure-expected.txt:
+        * web-platform-tests/url/resources/urltestdata.json:
+        * web-platform-tests/url/url-character-sets.any-expected.txt: Added.
+        * web-platform-tests/url/url-character-sets.any.html: Added.
+        * web-platform-tests/url/url-character-sets.any.js: Added.
+        (cp.test):
+        * web-platform-tests/url/url-character-sets.any.worker-expected.txt: Added.
+        * web-platform-tests/url/url-character-sets.any.worker.html: Added.
+        * web-platform-tests/url/url-origin.any-expected.txt:
+        * web-platform-tests/url/url-origin.any.worker-expected.txt:
+        * web-platform-tests/url/url-setters-stripping.any.js:
+
+2021-10-20  Youenn Fablet  <youenn@apple.com>
+
+        Add support for requestVideoFrameCallback API and MediaStreamTrack-based backend support
+        https://bugs.webkit.org/show_bug.cgi?id=231803
+
+        Reviewed by Eric Carlson.
+
+        * resources/import-expectations.json:
+        * web-platform-tests/video-rvfc/META.yml: Added.
+        * web-platform-tests/video-rvfc/README.md: Added.
+        * web-platform-tests/video-rvfc/idlharness.window-expected.txt: Added.
+        * web-platform-tests/video-rvfc/idlharness.window.html: Added.
+        * web-platform-tests/video-rvfc/idlharness.window.js: Added.
+        * web-platform-tests/video-rvfc/request-video-frame-callback-before-xr-session.https-expected.txt: Added.
+        * web-platform-tests/video-rvfc/request-video-frame-callback-before-xr-session.https.html: Added.
+        * web-platform-tests/video-rvfc/request-video-frame-callback-dom-expected.txt: Added.
+        * web-platform-tests/video-rvfc/request-video-frame-callback-dom.html: Added.
+        * web-platform-tests/video-rvfc/request-video-frame-callback-during-xr-session.https-expected.txt: Added.
+        * web-platform-tests/video-rvfc/request-video-frame-callback-during-xr-session.https.html: Added.
+        * web-platform-tests/video-rvfc/request-video-frame-callback-expected.txt: Added.
+        * web-platform-tests/video-rvfc/request-video-frame-callback-parallel-expected.txt: Added.
+        * web-platform-tests/video-rvfc/request-video-frame-callback-parallel.html: Added.
+        * web-platform-tests/video-rvfc/request-video-frame-callback-repeating-expected.txt: Added.
+        * web-platform-tests/video-rvfc/request-video-frame-callback-repeating.html: Added.
+        * web-platform-tests/video-rvfc/request-video-frame-callback-webrtc.https-expected.txt: Added.
+        * web-platform-tests/video-rvfc/request-video-frame-callback-webrtc.https.html: Added.
+        * web-platform-tests/video-rvfc/request-video-frame-callback.html: Added.
+        * web-platform-tests/video-rvfc/w3c-import.log: Added.
+
+2021-10-19  Antoine Quint  <graouts@webkit.org>
+
+        Support more CSS properties for ::marker
+        https://bugs.webkit.org/show_bug.cgi?id=231972
+
+        Reviewed by Simon Fraser.
+
+        Mark WPT progressions.
+
+        * web-platform-tests/css/css-pseudo/marker-computed-content-expected.txt:
+        * web-platform-tests/css/css-pseudo/marker-default-styles-expected.txt:
+        * web-platform-tests/css/css-pseudo/parsing/marker-supported-properties-expected.txt:
+        * web-platform-tests/css/css-pseudo/parsing/marker-supported-properties-in-animation-expected.txt:
+
+2021-10-19  Chris Dumez  <cdumez@apple.com>
+
+        Resync COOP /COEP WPT tests from upstream WPT
+        https://bugs.webkit.org/show_bug.cgi?id=231746
+
+        Reviewed by Geoffrey Garen.
+
+        Resync COOP /COEP WPT tests from upstream WPT 207e223d74fdc1f1.
+
+        * web-platform-tests/html/cross-origin-embedder-policy/*: Updated.
+        * web-platform-tests/html/cross-origin-opener-policy/*: Updated.
+
+2021-10-19  Alex Christensen  <achristensen@webkit.org>
+
+        Origin of opaque blob: URLs ends up as empty string
+        https://bugs.webkit.org/show_bug.cgi?id=231942
+
+        Reviewed by Tim Horton.
+
+        * web-platform-tests/url/a-element-expected.txt:
+        * web-platform-tests/url/a-element-origin-expected.txt:
+        * web-platform-tests/url/a-element-origin-xhtml-expected.txt:
+        * web-platform-tests/url/a-element-xhtml-expected.txt:
+        * web-platform-tests/url/resources/urltestdata.json:
+        * web-platform-tests/url/url-constructor.any-expected.txt:
+        * web-platform-tests/url/url-constructor.any.worker-expected.txt:
+        * web-platform-tests/url/url-origin.any-expected.txt:
+        * web-platform-tests/url/url-origin.any.worker-expected.txt:
+
+2021-10-19  Chris Dumez  <cdumez@apple.com>
+
+        Resync web-platform-tests/reporting from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=231957
+
+        Reviewed by Alex Christensen.
+
+        Resync web-platform-tests/reporting from upstream 207e223d74fdc1f1.
+
+        * web-platform-tests/reporting/*: Updated.
+
+2021-10-19  Youenn Fablet  <youenn@apple.com>
+
+        Guarantee order of WebSocket events in case of being resumed
+        https://bugs.webkit.org/show_bug.cgi?id=231664
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/websockets/interfaces/WebSocket/close/close-nested-expected.txt:
+        * web-platform-tests/websockets/interfaces/WebSocket/readyState/003-expected.txt:
+
+2021-10-19  Antoine Quint  <graouts@webkit.org>
+
+        REGRESSION(r284313): ::marker accelerated animations are broken
+        https://bugs.webkit.org/show_bug.cgi?id=231906
+        <rdar://problem/84383279>
+
+        Reviewed by Antti Koivisto.
+
+        WPT now reflect that we correctly do not animate the opacity property and correctly account for
+        other ineffective properties on ::marker, such as line-height.
+
+        * web-platform-tests/css/css-pseudo/marker-animate-expected.txt:
+        * web-platform-tests/css/css-pseudo/parsing/marker-supported-properties-in-animation-expected.txt:
+
+2021-10-19  Rob Buis  <rbuis@igalia.com>
+
+        Remove support for some SVG properties
+        https://bugs.webkit.org/show_bug.cgi?id=227897
+
+        Reviewed by Simon Fraser.
+
+        Adjust test expectations to removed properties.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/cssom/cssstyledeclaration-csstext-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
+2021-10-19  Youenn Fablet  <youenn@apple.com>
+
+        Expose MediaCapabilities to Workers
+        https://bugs.webkit.org/show_bug.cgi?id=231574
+
+        Reviewed by Eric Carlson.
+
+        Allow running encoding tests in workers as well as in window.
+
+        * web-platform-tests/media-capabilities/decodingInfo.any.worker-expected.txt:
+        * web-platform-tests/media-capabilities/encodingInfo.any-expected.txt: Added.
+        * web-platform-tests/media-capabilities/encodingInfo.any.html: Added.
+        * web-platform-tests/media-capabilities/encodingInfo.any.js: Added.
+        * web-platform-tests/media-capabilities/encodingInfo.any.worker-expected.txt: Added.
+        * web-platform-tests/media-capabilities/encodingInfo.any.worker.html: Added.
+        * web-platform-tests/media-capabilities/encodingInfo-expected: Removed.
+        * web-platform-tests/media-capabilities/encodingInfo.html: Removed.
+        * web-platform-tests/media-capabilities/idlharness.any.worker-expected.txt:
+
+2021-10-18  Sergio Villar Senin  <svillar@igalia.com>
+
+        [css-flexbox] Add flex-basis: content support
+        https://bugs.webkit.org/show_bug.cgi?id=221479
+
+        Reviewed by Javier Fernandez.
+
+        Fixed 6 subtest expectations. All of them working fine now.
+
+        * web-platform-tests/css/css-flexbox/parsing/flex-basis-computed-expected.txt:
+        * web-platform-tests/css/css-flexbox/parsing/flex-basis-valid-expected.txt:
+        * web-platform-tests/css/css-flexbox/parsing/flex-shorthand-expected.txt:
+
+2021-10-19  Cameron McCormack  <heycam@apple.com>
+
+        Ensure CanvasRenderingContext2D.drawImage(video) uses the right color space
+        https://bugs.webkit.org/show_bug.cgi?id=229025
+        <rdar://problem/81828490>
+
+        Reviewed by Sam Weinig.
+
+        Add some new WPTs for drawImage(video).
+
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-drawImage.html:
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-flipY.html:
+        Updated tests to check that video color space conversion is done
+        correctly.
+
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-video-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-video.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-video-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-video.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3.js:
+        (pixelsApproximatelyEqual): Tweaked threshold to pass video tests on iOS.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Rec2020-222000000.mp4: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Rec2020-222000000.webm: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Rec2020-3FF000000.mp4: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Rec2020-3FF000000.webm: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-BB0000.mp4: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-BB0000.webm: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-FF0100.mp4: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-FF0100.webm: Added.
+
+2021-10-18  Antoine Quint  <graouts@webkit.org>
+
+        box-shadow and text-shadow do not yield float values while interpolating
+        https://bugs.webkit.org/show_bug.cgi?id=230347
+        <rdar://problem/83319111>
+
+        Reviewed by Simon Fraser.
+
+        Add some new WPT tests for float and calc() values for box-shadow and text-shadow while
+        interpolating and update output for still-failing composite operations tests. The new tests
+        have already landed in WPT with https://github.com/web-platform-tests/wpt/pull/30823.
+
+        * web-platform-tests/css/css-backgrounds/animations/box-shadow-composition-expected.txt:
+        * web-platform-tests/css/css-backgrounds/animations/box-shadow-interpolation-expected.txt:
+        * web-platform-tests/css/css-backgrounds/animations/box-shadow-interpolation.html:
+        * web-platform-tests/css/css-backgrounds/box-shadow-calc-expected.html: Added.
+        * web-platform-tests/css/css-backgrounds/box-shadow-calc.html: Added.
+        * web-platform-tests/css/css-transitions/animations/text-shadow-composition-expected.txt:
+        * web-platform-tests/css/css-transitions/animations/text-shadow-interpolation-expected.txt:
+        * web-platform-tests/css/css-transitions/animations/text-shadow-interpolation.html:
+
+2021-10-18  Cameron McCormack  <heycam@apple.com>
+
+        Make createImageBitmap() take EXIF orientation into account correctly
+        https://bugs.webkit.org/show_bug.cgi?id=231063
+        <rdar://problem/83753956>
+
+        Reviewed by Myles Maxfield and Said Abou-Hallawa.
+
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-exif-orientation-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-exif-orientation.html: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/resources/squares.jpg: Added.
+
+2021-10-18  Chris Dumez  <cdumez@apple.com>
+
+        Resync web-platform-tests/tools from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=231907
+
+        Reviewed by Alex Christensen.
+
+        Resync web-platform-tests/tools from upstream 4250f160c0cb9ef2caba63.
+
+        * web-platform-tests/tools/*: Updated.
+
+2021-10-18  Chris Dumez  <cdumez@apple.com>
+
+        Resync web-platform-tests/common from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=231908
+
+        Reviewed by Alex Christensen.
+
+        Resync web-platform-tests/common from upstream 4250f160c0cb9ef2caba63.
+
+        * web-platform-tests/common/*: Updated.
+
 2021-10-18  Kiet Ho  <tho22@apple.com>
 
         Implement parsing and animation support for offset-distance, offset-position, offset-anchor
@@ -1187,18 +1695,6 @@
         * web-platform-tests/html/semantics/forms/the-textarea-element/placeholder-white-space-notref.html: Added.
         * web-platform-tests/html/semantics/forms/the-textarea-element/placeholder-white-space.tentative-expected.html: Added.
         * web-platform-tests/html/semantics/forms/the-textarea-element/placeholder-white-space.tentative.html: Added.
-
-2021-10-04  Chris Dumez  <cdumez@apple.com>
-
-        Use isolated NSURLSessions for each first party registrable domain
-        https://bugs.webkit.org/show_bug.cgi?id=230750
-        <rdar://83159358>
-
-        Reviewed by Alex Christensen.
-
-        Rebaseline WPT test that is now passing more checks.
-
-        * web-platform-tests/fetch/connection-pool/network-partition-key-expected.txt:
 
 2021-10-04  Sergio Villar Senin  <svillar@igalia.com>
 

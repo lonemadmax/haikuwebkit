@@ -24,6 +24,7 @@ set(WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/NetworkProcess/Downloads"
     "${WEBKIT_DIR}/NetworkProcess/FileAPI"
     "${WEBKIT_DIR}/NetworkProcess/IndexedDB"
+    "${WEBKIT_DIR}/NetworkProcess/Notifications"
     "${WEBKIT_DIR}/NetworkProcess/PrivateClickMeasurement"
     "${WEBKIT_DIR}/NetworkProcess/ServiceWorker"
     "${WEBKIT_DIR}/NetworkProcess/WebStorage"
@@ -44,6 +45,7 @@ set(WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/Shared/Databases/IndexedDB"
     "${WEBKIT_DIR}/Shared/FileAPI"
     "${WEBKIT_DIR}/Shared/Gamepad"
+    "${WEBKIT_DIR}/Shared/Notifications"
     "${WEBKIT_DIR}/Shared/Plugins"
     "${WEBKIT_DIR}/Shared/Plugins/Netscape"
     "${WEBKIT_DIR}/Shared/Plugins/Netscape/x11"
@@ -195,6 +197,8 @@ set(WebKit_MESSAGES_IN_FILES
     Shared/WebConnection
 
     Shared/Authentication/AuthenticationManager
+
+    Shared/Notifications/NotificationManagerMessageHandler
 
     Shared/Plugins/NPObjectMessageReceiver
 
@@ -629,6 +633,10 @@ if (COMPILER_IS_GCC_OR_CLANG)
     if (ENABLE_WEB_AUTHN)
         WEBKIT_ADD_TARGET_CXX_FLAGS(WebAuthnProcess -Wno-unused-parameter)
     endif ()
+endif ()
+
+if (APPLE)
+    WEBKIT_ADD_TARGET_CXX_FLAGS(WebKit -fobjc-weak)
 endif ()
 
 if ("${PORT}" STREQUAL "Mac")

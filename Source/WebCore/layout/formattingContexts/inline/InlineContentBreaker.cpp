@@ -42,7 +42,7 @@ namespace Layout {
 #if ASSERT_ENABLED
 static inline bool hasTrailingTextContent(const InlineContentBreaker::ContinuousContent& continuousContent)
 {
-    for (auto& run : WTF::makeReversedRange(continuousContent.runs())) {
+    for (auto& run : makeReversedRange(continuousContent.runs())) {
         auto& inlineItem = run.inlineItem;
         if (inlineItem.isInlineBoxStart() || inlineItem.isInlineBoxEnd())
             continue;
@@ -84,28 +84,23 @@ static inline std::optional<size_t> nextTextRunIndex(const InlineContentBreaker:
     return { };
 }
 
-static inline std::optional<size_t> previousTextRunIndex(const InlineContentBreaker::ContinuousContent::RunList& runs, size_t startIndex)
-{
-    for (auto index = startIndex; index--;) {
-        if (runs[index].inlineItem.isText())
-            return index;
-    }
-    return { };
-}
-
 static inline bool isVisuallyEmptyWhitespaceContent(const InlineContentBreaker::ContinuousContent& continuousContent)
 {
     // [<span></span> ] [<span> </span>] [ <span style="padding: 0px;"></span>] are all considered visually empty whitespace content.
     // [<span style="border: 1px solid red"></span> ] while this is whitespace content only, it is not considered visually empty.
-    // Due to commit boundary rules, we just need to check the first non-typeless inline item (can't have both [img] and [text])
+    ASSERT(!continuousContent.runs().isEmpty());
+    auto hasWhitespace = false;
     for (auto& run : continuousContent.runs()) {
         auto& inlineItem = run.inlineItem;
-        // FIXME: check for padding border etc.
+        // FIXME: check if visual decoration makes a difference here e.g. padding border.
         if (inlineItem.isInlineBoxStart() || inlineItem.isInlineBoxEnd())
             continue;
-        return inlineItem.isText() && downcast<InlineTextItem>(inlineItem).isWhitespace();
+        auto isWhitespace = inlineItem.isText() && downcast<InlineTextItem>(inlineItem).isWhitespace();
+        if (!isWhitespace)
+            return false;
+        hasWhitespace = true;
     }
-    return false;
+    return hasWhitespace;
 }
 
 static inline bool isNonContentRunsOnly(const InlineContentBreaker::ContinuousContent& continuousContent)
@@ -146,13 +141,6 @@ InlineContentBreaker::Result InlineContentBreaker::processInlineContent(const Co
     auto processCandidateContent = [&] {
         if (candidateContent.logicalWidth() <= lineStatus.availableWidth)
             return Result { Result::Action::Keep };
-#if USE_FLOAT_AS_INLINE_LAYOUT_UNIT
-        // 1. Preferred width computation sums up floats while line breaker subtracts them.
-        // 2. Available space is inherently a LayoutUnit based value (coming from block/flex etc layout) and it is the result of a floored float.
-        // These can all lead to epsilon-scale differences.
-        if (candidateContent.logicalWidth() <= lineStatus.availableWidth + LayoutUnit::epsilon())
-            return Result { Result::Action::Keep };
-#endif
         return processOverflowingContent(candidateContent, lineStatus);
     };
 
@@ -173,16 +161,17 @@ InlineContentBreaker::Result InlineContentBreaker::processOverflowingContent(con
     ASSERT(!continuousContent.runs().isEmpty());
 
     ASSERT(continuousContent.logicalWidth() > lineStatus.availableWidth);
-    if (continuousContent.hasTrailingCollapsibleContent()) {
-        ASSERT(hasTrailingTextContent(overflowContent));
-        // First check if the content fits without the trailing collapsible part.
-        if (continuousContent.nonCollapsibleLogicalWidth() <= lineStatus.availableWidth)
-            return { Result::Action::Keep, IsEndOfLine::No };
-        // Now check if we can trim the line too.
-        if (lineStatus.hasFullyCollapsibleTrailingRun && continuousContent.isFullyCollapsible()) {
+    if (continuousContent.hasCollapsibleContent()) {
+        if (lineStatus.hasFullyCollapsibleTrailingContent && continuousContent.isFullyCollapsible()) {
             // If this new content is fully collapsible, it should surely fit.
             return { Result::Action::Keep, IsEndOfLine::No };
         }
+        // Check if the content fits if we collapsed it.
+        auto spaceRequired = continuousContent.logicalWidth() - continuousContent.trailingCollapsibleWidth();
+        if (lineStatus.hasFullyCollapsibleTrailingContent)
+            spaceRequired -= continuousContent.leadingCollapsibleWidth();
+        if (spaceRequired <= lineStatus.availableWidth)
+            return { Result::Action::Keep, IsEndOfLine::No };
     } else if (lineStatus.collapsibleWidth && isNonContentRunsOnly(continuousContent)) {
         // Let's see if the non-content runs fit when the line has trailing collapsible content.
         // "text content <span style="padding: 1px"></span>" <- the <span></span> runs could fit after collapsing the trailing whitespace.
@@ -297,6 +286,82 @@ static bool isWrappableRun(const InlineContentBreaker::ContinuousContent::Run& r
     return TextUtil::isWrappingAllowed(run.style);
 }
 
+static inline bool canBreakBefore(UChar32 character, LineBreak lineBreak)
+{
+    // FIXME: This should include all the cases from https://unicode.org/reports/tr14
+    // Use a breaking matrix similar to lineBreakTable in BreakLines.cpp
+    // Also see kBreakAllLineBreakClassTable in third_party/blink/renderer/platform/text/text_break_iterator.cc
+    if (lineBreak != LineBreak::Loose) {
+        // The following breaks are allowed for loose line breaking if the preceding character belongs to the Unicode
+        // line breaking class ID, and are otherwise forbidden:
+        // ‐ U+2010, – U+2013
+        // https://drafts.csswg.org/css-text/#line-break-property
+        if (character == hyphen || character == enDash)
+            return false;
+    }
+    if (character == noBreakSpace)
+        return false;
+    auto isPunctuation = U_GET_GC_MASK(character) & (U_GC_PS_MASK | U_GC_PE_MASK | U_GC_PI_MASK | U_GC_PF_MASK | U_GC_PO_MASK);
+    return character == reverseSolidus || !isPunctuation;
+}
+
+static inline std::optional<size_t> lastValidBreakingPosition(const InlineContentBreaker::ContinuousContent::RunList& runs, size_t textRunIndex)
+{
+    auto& textRun = runs[textRunIndex];
+    auto& inlineTextItem = downcast<InlineTextItem>(textRun.inlineItem);
+    ASSERT(inlineTextItem.length());
+    auto lineBreak = textRun.style.lineBreak();
+
+    auto adjactentTextRunIndex = nextTextRunIndex(runs, textRunIndex);
+    if (!adjactentTextRunIndex)
+        return inlineTextItem.end();
+
+    auto& nextInlineTextItem = downcast<InlineTextItem>(runs[*adjactentTextRunIndex].inlineItem);
+    auto canBreakAtRunBoundary = nextInlineTextItem.isWhitespace() ? nextInlineTextItem.style().whiteSpace() != WhiteSpace::BreakSpaces :
+        canBreakBefore(nextInlineTextItem.inlineTextBox().content()[nextInlineTextItem.start()], lineBreak);
+    if (canBreakAtRunBoundary)
+        return inlineTextItem.end();
+
+    // Find out if the candidate position for arbitrary breaking is valid. We can't always break between any characters.
+    auto text = inlineTextItem.inlineTextBox().content();
+    auto left = inlineTextItem.start();
+    for (auto index = inlineTextItem.end() - 1; index > left; --index) {
+        U16_SET_CP_START(text, left, index);
+        // We should never find surrogates/segments across inline items.
+        ASSERT(index > inlineTextItem.start());
+        if (canBreakBefore(text[index], lineBreak))
+            return index;
+    }
+    return { };
+}
+
+static std::optional<TextUtil::WordBreakLeft> midWordBreak(const InlineContentBreaker::ContinuousContent::Run& textRun, InlineLayoutUnit runLogicalLeft, InlineLayoutUnit availableWidth)
+{
+    ASSERT(textRun.style.wordBreak() == WordBreak::BreakAll);
+    auto& inlineTextItem = downcast<InlineTextItem>(textRun.inlineItem);
+
+    auto wordBreak = TextUtil::breakWord(inlineTextItem, textRun.style.fontCascade(), textRun.logicalWidth, availableWidth, runLogicalLeft);
+    if (!wordBreak.length || wordBreak.length == inlineTextItem.length())
+        return { };
+
+    // Find out if the candidate position for arbitrary breaking is valid. We can't always break between any characters.
+    auto lineBreak = textRun.style.lineBreak();
+    auto text = inlineTextItem.inlineTextBox().content();
+    if (canBreakBefore(text[inlineTextItem.start() + wordBreak.length], lineBreak))
+        return wordBreak;
+
+    const auto left = inlineTextItem.start();
+    auto right = left + wordBreak.length;
+    for (; right > left; --right) {
+        U16_SET_CP_START(text, left, right);
+        if (canBreakBefore(text[right], lineBreak))
+            break;
+    }
+    if (left == right)
+        return { };
+    return TextUtil::WordBreakLeft { right - left, TextUtil::width(inlineTextItem, textRun.style.fontCascade(), left, right, runLogicalLeft) };
+}
+
 struct CandidateTextRunForBreaking {
     size_t index { 0 };
     bool isOverflowingRun { true };
@@ -326,42 +391,31 @@ std::optional<InlineContentBreaker::PartialRun> InlineContentBreaker::tryBreakin
             }
 
             if (!inlineTextItem.length()) {
-                // Empty text runs may be breakable based on style, but in practice we can't really split them any further.
-                return PartialRun { };
+                // Empty/single character text runs may be breakable based on style, but in practice we can't really split them any further.
+                return { };
             }
 
-            if (!candidateTextRun.isOverflowingRun) {
-                // When the run can be split at arbitrary position we would normally just return the entire run when it is intended to fit on the line
-                // but here we have to check for mid-word break.
-                auto nextIndex = nextTextRunIndex(runs, candidateTextRun.index);
-                if (!nextIndex || !downcast<InlineTextItem>(runs[*nextIndex].inlineItem).isWhitespace())
-                    return PartialRun { inlineTextItem.length(), TextUtil::width(inlineTextItem, fontCascade, candidateTextRun.logicalLeft) };
-                // We've got room for the run but we have to try to break it mid-word.
-                if (inlineTextItem.length() == 1) {
-                    // We can't mid-word break a single character.
-                    return { };
+            if (candidateTextRun.isOverflowingRun) {
+                if (lineHasRoomForContent) {
+                    // Try to break the overflowing run mid-word.
+                    if (auto wordBreak = midWordBreak(candidateRun, candidateTextRun.logicalLeft, availableWidth))
+                        return PartialRun { wordBreak->length, wordBreak->logicalWidth };
                 }
-                auto startPosition = inlineTextItem.start();
-                auto endPosition = inlineTextItem.end() - 1;
-                return PartialRun { inlineTextItem.length() - 1, TextUtil::width(inlineTextItem, fontCascade, startPosition, endPosition, candidateTextRun.logicalLeft) };
-            }
-
-            if (!lineHasRoomForContent) {
-                auto previousIndex = previousTextRunIndex(runs, candidateTextRun.index);
-                if (!previousIndex || !downcast<InlineTextItem>(runs[*previousIndex].inlineItem).isWhitespace()) {
-                    // Fast path for cases when there's no room at all. We can break this content at the start.
+                if (canBreakBefore(inlineTextItem.inlineTextBox().content()[inlineTextItem.start()], style.lineBreak()))
                     return PartialRun { };
-                }
-                if (inlineTextItem.length() == 1) {
-                    // We can't mid-word break a single character.
-                    return { };
-                }
-                auto startPosition = inlineTextItem.start() + 1;
-                auto endPosition = inlineTextItem.end();
-                return PartialRun { inlineTextItem.length() - 1, TextUtil::width(inlineTextItem, fontCascade, startPosition, endPosition, candidateTextRun.logicalLeft) };
+                return { };
             }
-            auto midWordBreak = TextUtil::midWordBreak(inlineTextItem, fontCascade, candidateRun.logicalWidth, availableWidth, candidateTextRun.logicalLeft);
-            return PartialRun { midWordBreak.length, midWordBreak.logicalWidth };
+
+            // This is a non-overflowing content.
+            ASSERT(lineHasRoomForContent);
+            if (auto breakingPosition = lastValidBreakingPosition(runs, candidateTextRun.index)) {
+                ASSERT(*breakingPosition <= inlineTextItem.end());
+                auto trailingLength = *breakingPosition - inlineTextItem.start();
+                auto startPosition = inlineTextItem.start();
+                auto endPosition = startPosition + trailingLength;
+                return PartialRun { trailingLength, TextUtil::width(inlineTextItem, fontCascade, startPosition, endPosition, candidateTextRun.logicalLeft) };
+            }
+            return { };
         };
         return tryBreakingAtArbitraryPositionWithinWords();
     }
@@ -388,7 +442,7 @@ std::optional<InlineContentBreaker::PartialRun> InlineContentBreaker::tryBreakin
                 auto availableWidthExcludingHyphen = availableWidth - hyphenWidth;
                 if (availableWidthExcludingHyphen <= 0 || !enoughWidthForHyphenation(availableWidthExcludingHyphen, fontCascade.pixelSize()))
                     return { };
-                leftSideLength = TextUtil::midWordBreak(inlineTextItem, fontCascade, candidateRun.logicalWidth, availableWidthExcludingHyphen, candidateTextRun.logicalLeft).length;
+                leftSideLength = TextUtil::breakWord(inlineTextItem, fontCascade, candidateRun.logicalWidth, availableWidthExcludingHyphen, candidateTextRun.logicalLeft).length;
             }
             if (leftSideLength < limitBefore)
                 return { };
@@ -430,8 +484,8 @@ std::optional<InlineContentBreaker::PartialRun> InlineContentBreaker::tryBreakin
                 // Fast path for cases when there's no room at all. The content is breakable but we don't have space for it.
                 return { };
             }
-            auto midWordBreak = TextUtil::midWordBreak(inlineTextItem, fontCascade, candidateRun.logicalWidth, availableWidth, candidateTextRun.logicalLeft);
-            return { midWordBreak.length, midWordBreak.logicalWidth };
+            auto wordBreak = TextUtil::breakWord(inlineTextItem, fontCascade, candidateRun.logicalWidth, availableWidth, candidateTextRun.logicalLeft);
+            return { wordBreak.length, wordBreak.logicalWidth };
         };
         // With arbitrary breaking there's always a valid breaking position (even if it is before the first position).
         return tryBreakingAtArbitraryPosition();
@@ -541,7 +595,7 @@ InlineContentBreaker::OverflowingTextContent InlineContentBreaker::processOverfl
     auto overflowingRunIndex = runs.size(); 
     for (size_t index = 0; index < runs.size(); ++index) {
         auto runLogicalWidth = runs[index].logicalWidth;
-        if (nonOverflowingContentWidth + runLogicalWidth  > lineStatus.availableWidth) {
+        if (nonOverflowingContentWidth + runLogicalWidth > lineStatus.availableWidth) {
             overflowingRunIndex = index;
             break;
         }
@@ -609,29 +663,30 @@ OptionSet<InlineContentBreaker::WordBreakRule> InlineContentBreaker::wordBreakBe
 void InlineContentBreaker::ContinuousContent::append(const InlineItem& inlineItem, const RenderStyle& style, InlineLayoutUnit logicalWidth, std::optional<InlineLayoutUnit> collapsibleWidth)
 {
     ASSERT(inlineItem.isText() || inlineItem.isBox() || inlineItem.isInlineBoxStart() || inlineItem.isInlineBoxEnd());
+    auto isLeadingCollapsible = collapsibleWidth && (m_runs.isEmpty() || isFullyCollapsible());
     m_runs.append({ inlineItem, style, logicalWidth });
     m_logicalWidth = clampTo<InlineLayoutUnit>(m_logicalWidth + logicalWidth);
     if (!collapsibleWidth) {
         if (inlineItem.isText() || inlineItem.isBox()) {
             // Inline boxes do not prevent the trailing content from getting collapsed.
-            m_collapsibleLogicalWidth = { };
+            m_trailingCollapsibleWidth = { };
         }
         return;
     }
     ASSERT(*collapsibleWidth <= logicalWidth);
-    if (*collapsibleWidth == logicalWidth) {
-        // Fully collapsible run.
-        m_collapsibleLogicalWidth += logicalWidth;
+    if (isLeadingCollapsible) {
+        ASSERT(!m_trailingCollapsibleWidth);
+        m_leadingCollapsibleWidth += *collapsibleWidth;
         return;
     }
-    // Partially collapsible run.
-    m_collapsibleLogicalWidth = *collapsibleWidth;
+    m_trailingCollapsibleWidth = *collapsibleWidth == logicalWidth ? m_trailingCollapsibleWidth + logicalWidth : *collapsibleWidth;
 }
 
 void InlineContentBreaker::ContinuousContent::reset()
 {
     m_logicalWidth = { };
-    m_collapsibleLogicalWidth = { };
+    m_leadingCollapsibleWidth = { };
+    m_trailingCollapsibleWidth = { };
     m_runs.clear();
 }
 }

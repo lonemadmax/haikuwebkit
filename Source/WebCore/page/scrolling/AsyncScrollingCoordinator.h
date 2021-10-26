@@ -82,8 +82,8 @@ protected:
 
     RefPtr<ScrollingTree> releaseScrollingTree() { return WTFMove(m_scrollingTree); }
 
-    WEBCORE_EXPORT String scrollingStateTreeAsText(ScrollingStateTreeAsTextBehavior = ScrollingStateTreeAsTextBehaviorNormal) const override;
-    WEBCORE_EXPORT String scrollingTreeAsText(ScrollingStateTreeAsTextBehavior = ScrollingStateTreeAsTextBehaviorNormal) const override;
+    WEBCORE_EXPORT String scrollingStateTreeAsText(OptionSet<ScrollingStateTreeAsTextBehavior> = { }) const override;
+    WEBCORE_EXPORT String scrollingTreeAsText(OptionSet<ScrollingStateTreeAsTextBehavior> = { }) const override;
     WEBCORE_EXPORT void willCommitTree() override;
     void synchronizeStateFromScrollingTree();
     void scheduleRenderingUpdate();
@@ -101,6 +101,7 @@ private:
     WEBCORE_EXPORT void frameViewRootLayerDidChange(FrameView&) override;
     WEBCORE_EXPORT void frameViewVisualViewportChanged(FrameView&) override;
     WEBCORE_EXPORT void frameViewEventTrackingRegionsChanged(FrameView&) override;
+    WEBCORE_EXPORT void frameViewWillBeDetached(FrameView&) override;
 
     WEBCORE_EXPORT bool requestScrollPositionUpdate(ScrollableArea&, const ScrollPosition&, ScrollType, ScrollClamping) final;
     WEBCORE_EXPORT bool requestAnimatedScrollToPosition(ScrollableArea&, const ScrollPosition&, ScrollClamping) final;

@@ -1,3 +1,481 @@
+2021-10-26  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [WebCore] Remove unneeded WTF:: namespace prefix
+        https://bugs.webkit.org/show_bug.cgi?id=232226
+
+        Reviewed by Myles C. Maxfield.
+
+        * wtf/Forward.h:
+
+2021-10-25  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [WTF] Make Int128 operator* constexpr
+        https://bugs.webkit.org/show_bug.cgi?id=232270
+
+        Reviewed by Mark Lam.
+
+        We remove MSVC X64 (so, Windows only) switching in Int128 operator* since
+        it breaks constexpr-ness of operator*, which makes writing code difficult.
+        We can bring this kind of optimization back when C++20 std::is_constant_evaluated()
+        becomes available.
+
+        * wtf/Int128.h:
+        (WTF::operator*):
+
+2021-10-25  Alex Christensen  <achristensen@webkit.org>
+
+        Use xpc_connection_copy_invalidation_reason where available for debugging daemon connection failures
+        https://bugs.webkit.org/show_bug.cgi?id=232152
+
+        Reviewed by Brady Eidson.
+
+        * wtf/PlatformHave.h:
+        * wtf/spi/darwin/XPCSPI.h:
+
+2021-10-25  Ayumi Kojima  <ayumi_kojima@apple.com>
+
+        Unreviewed, reverting r284742.
+
+        Reverting because this commit may have casued a regression on
+        imported/w3c/web-platform-tests/speech-api/SpeechSynthesis-
+        speak-events.html
+
+        Reverted changeset:
+
+        "AX: Unify speech synthesizer platform usage for Mac/iOS"
+        https://bugs.webkit.org/show_bug.cgi?id=231895
+        https://commits.webkit.org/r284742
+
+2021-10-24  Darin Adler  <darin@apple.com>
+
+        [Cocoa] Adopt bridge_cast and makeVector in a few more places, including cases where adoptCF/NS was used incorrectly
+        https://bugs.webkit.org/show_bug.cgi?id=232200
+
+        Reviewed by Anders Carlsson.
+
+        * wtf/cocoa/URLCocoa.mm:
+        (WTF::URL::URL): Use bridge_cast.
+        (WTF::URL::createCFURL const): Ditto, using the RetainPtr version to avoid
+        retain count churn.
+
+2021-10-23  Alan Bujtas  <zalan@apple.com>
+
+        Addressing post-commit review (r284744).
+
+        * wtf/unicode/CharacterNames.h:
+
+2021-10-23  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [WTF] Replace current LLVM flang's Int128 with abseil-cpp's Int128
+        https://bugs.webkit.org/show_bug.cgi?id=232129
+
+        Reviewed by Darin Adler.
+
+        We found that flang's signed Int128 implementation is not tested,
+        and it has several issues about sign extension and division.
+
+        Instead, we import abseil-cpp[1]'s int128 implementation.
+        abseil-cpp is more battle-tested, and abseil is already used
+        in WebKit too (ANGLE and libwebrtc use abseil-cpp as their utility
+        library).
+
+        For Apple readers, abseil-cpp for WebKit is approved in OSS-351.
+
+        [1]: https://github.com/abseil/abseil-cpp
+
+        * WTF.xcodeproj/project.pbxproj:
+        * wtf/CMakeLists.txt:
+        * wtf/Int128.cpp: Added.
+        (WTF::UInt128Impl::UInt128Impl):
+        (WTF::operator/):
+        (WTF::operator%):
+        (WTF::operator<<):
+        (WTF::Int128Impl::Int128Impl):
+        * wtf/Int128.h:
+        (WTF::UInt128Max):
+        (std::numeric_limits<WTF::UInt128Impl>::min):
+        (std::numeric_limits<WTF::UInt128Impl>::lowest):
+        (std::numeric_limits<WTF::UInt128Impl>::max):
+        (std::numeric_limits<WTF::UInt128Impl>::epsilon):
+        (std::numeric_limits<WTF::UInt128Impl>::round_error):
+        (std::numeric_limits<WTF::UInt128Impl>::infinity):
+        (std::numeric_limits<WTF::UInt128Impl>::quiet_NaN):
+        (std::numeric_limits<WTF::UInt128Impl>::signaling_NaN):
+        (std::numeric_limits<WTF::UInt128Impl>::denorm_min):
+        (WTF::Int128Max):
+        (WTF::Int128Min):
+        (std::numeric_limits<WTF::Int128Impl>::min):
+        (std::numeric_limits<WTF::Int128Impl>::lowest):
+        (std::numeric_limits<WTF::Int128Impl>::max):
+        (std::numeric_limits<WTF::Int128Impl>::epsilon):
+        (std::numeric_limits<WTF::Int128Impl>::round_error):
+        (std::numeric_limits<WTF::Int128Impl>::infinity):
+        (std::numeric_limits<WTF::Int128Impl>::quiet_NaN):
+        (std::numeric_limits<WTF::Int128Impl>::signaling_NaN):
+        (std::numeric_limits<WTF::Int128Impl>::denorm_min):
+        (WTF::MakeUInt128):
+        (WTF::UInt128Impl::operator=):
+        (WTF::UInt128Impl::operator<<=):
+        (WTF::UInt128Impl::operator>>=):
+        (WTF::UInt128Impl::operator+=):
+        (WTF::UInt128Impl::operator-=):
+        (WTF::UInt128Impl::operator*=):
+        (WTF::UInt128Impl::operator/=):
+        (WTF::UInt128Impl::operator%=):
+        (WTF::UInt128Low64):
+        (WTF::UInt128High64):
+        (WTF::UInt128Impl::UInt128Impl):
+        (WTF::UInt128Impl::operator bool const):
+        (WTF::UInt128Impl::operator char const):
+        (WTF::UInt128Impl::operator signed char const):
+        (WTF::UInt128Impl::operator unsigned char const):
+        (WTF::UInt128Impl::operator char16_t const):
+        (WTF::UInt128Impl::operator char32_t const):
+        (WTF::UInt128Impl::operator ABSL_INTERNAL_WCHAR_T const):
+        (WTF::UInt128Impl::operator short const):
+        (WTF::UInt128Impl::operator unsigned short const):
+        (WTF::UInt128Impl::operator int const):
+        (WTF::UInt128Impl::operator unsigned int const):
+        (WTF::UInt128Impl::operator long const):
+        (WTF::UInt128Impl::operator unsigned long const):
+        (WTF::UInt128Impl::operator long long const):
+        (WTF::UInt128Impl::operator unsigned long long const):
+        (WTF::UInt128Impl::operator float const):
+        (WTF::UInt128Impl::operator double const):
+        (WTF::UInt128Impl::operator long double const):
+        (WTF::operator==):
+        (WTF::operator!=):
+        (WTF::operator<):
+        (WTF::operator>):
+        (WTF::operator<=):
+        (WTF::operator>=):
+        (WTF::operator+):
+        (WTF::operator-):
+        (WTF::operator!):
+        (WTF::operator~):
+        (WTF::operator|):
+        (WTF::operator&):
+        (WTF::operator^):
+        (WTF::UInt128Impl::operator|=):
+        (WTF::UInt128Impl::operator&=):
+        (WTF::UInt128Impl::operator^=):
+        (WTF::operator<<):
+        (WTF::operator>>):
+        (WTF::int128_internal::AddResult):
+        (WTF::int128_internal::SubstructResult):
+        (WTF::operator*):
+        (WTF::UInt128Impl::operator++):
+        (WTF::UInt128Impl::operator--):
+        (WTF::MakeInt128):
+        (WTF::Int128Impl::operator=):
+        (WTF::Int128Impl::operator+=):
+        (WTF::Int128Impl::operator-=):
+        (WTF::Int128Impl::operator*=):
+        (WTF::Int128Impl::operator/=):
+        (WTF::Int128Impl::operator%=):
+        (WTF::Int128Impl::operator|=):
+        (WTF::Int128Impl::operator&=):
+        (WTF::Int128Impl::operator^=):
+        (WTF::Int128Impl::operator<<=):
+        (WTF::Int128Impl::operator>>=):
+        (WTF::int128_internal::BitCastToSigned):
+        (WTF::Int128Low64):
+        (WTF::Int128High64):
+        (WTF::Int128Impl::Int128Impl):
+        (WTF::Int128Impl::operator bool const):
+        (WTF::Int128Impl::operator char const):
+        (WTF::Int128Impl::operator signed char const):
+        (WTF::Int128Impl::operator unsigned char const):
+        (WTF::Int128Impl::operator char16_t const):
+        (WTF::Int128Impl::operator char32_t const):
+        (WTF::Int128Impl::operator ABSL_INTERNAL_WCHAR_T const):
+        (WTF::Int128Impl::operator short const):
+        (WTF::Int128Impl::operator unsigned short const):
+        (WTF::Int128Impl::operator int const):
+        (WTF::Int128Impl::operator unsigned int const):
+        (WTF::Int128Impl::operator long const):
+        (WTF::Int128Impl::operator unsigned long const):
+        (WTF::Int128Impl::operator long long const):
+        (WTF::Int128Impl::operator unsigned long long const):
+        (WTF::Int128Impl::operator float const):
+        (WTF::Int128Impl::operator double const):
+        (WTF::Int128Impl::operator long double const):
+        (WTF::int128_internal::SignedAddResult):
+        (WTF::int128_internal::SignedSubstructResult):
+        (WTF::Int128Impl::operator++):
+        (WTF::Int128Impl::operator--):
+        (WTF::Int128Impl::operator+ const): Deleted.
+        (WTF::Int128Impl::operator~ const): Deleted.
+        (WTF::Int128Impl::operator- const): Deleted.
+        (WTF::Int128Impl::operator! const): Deleted.
+        (WTF::Int128Impl::operator std::uint64_t const): Deleted.
+        (WTF::Int128Impl::operator std::int64_t const): Deleted.
+        (WTF::Int128Impl::high const): Deleted.
+        (WTF::Int128Impl::low const): Deleted.
+        (WTF::Int128Impl::operator& const): Deleted.
+        (WTF::Int128Impl::operator |  const): Deleted.
+        (WTF::Int128Impl::operator^ const): Deleted.
+        (WTF::Int128Impl::operator<< const): Deleted.
+        (WTF::Int128Impl::operator>> const): Deleted.
+        (WTF::Int128Impl::operator* const): Deleted.
+        (WTF::Int128Impl::operator/ const): Deleted.
+        (WTF::Int128Impl::operator% const): Deleted.
+        (WTF::Int128Impl::operator< const): Deleted.
+        (WTF::Int128Impl::operator<= const): Deleted.
+        (WTF::Int128Impl::operator== const): Deleted.
+        (WTF::Int128Impl::operator!= const): Deleted.
+        (WTF::Int128Impl::operator>= const): Deleted.
+        (WTF::Int128Impl::operator> const): Deleted.
+        (WTF::Int128Impl::leadingZeroes const): Deleted.
+        * wtf/LeadingZeroBitCount.cpp: Removed.
+        * wtf/LeadingZeroBitCount.h: Removed.
+
+2021-10-23  Alan Bujtas  <zalan@apple.com>
+
+        [LFC][IFC] Breaking before hyphen is only allowed when line-break is loose
+        https://bugs.webkit.org/show_bug.cgi?id=232191
+
+        Reviewed by Antti Koivisto.
+
+        * wtf/unicode/CharacterNames.h:
+
+2021-10-23  Chris Fleizach  <cfleizach@apple.com>
+
+        AX: Unify speech synthesizer platform usage for Mac/iOS
+        https://bugs.webkit.org/show_bug.cgi?id=231895
+        <rdar://problem/84372479>
+
+        Reviewed by Andres Gonzalez.
+
+        * wtf/PlatformHave.h:
+
+2021-10-22  Joonghun Park  <pjh0718@gmail.com>
+
+        Integer interpolation in animations should be rounded towards positive infinity, not away from zero.
+        https://bugs.webkit.org/show_bug.cgi?id=232013
+
+        Currently, interpolation of <integer> is rounding away from 0.
+        The interpolation's result should be rounded according to the spec,
+        https://drafts.csswg.org/css-values-4/#combine-integers, which is
+
+        "the result is converted to an <integer> by rounding
+        to the nearest integer, with values halfway between
+        adjacent integers rounded towards positive infinity."
+
+        Reviewed by Darin Adler.
+
+        * wtf/MathExtras.h:
+        (roundTowardsPositiveInfinity):
+
+2021-10-22  Pablo Correa Gómez  <ablocorrea@hotmail.com>
+
+        Enable logging in under non-systemd linux distros
+        https://bugs.webkit.org/show_bug.cgi?id=232080
+
+        Reviewed by Michael Catanzaro.
+
+        * wtf/Assertions.h: Rename USE(JOURNALD) to ENABLE(JOURNALD_LOG)
+        * wtf/Logger.h:
+        (WTF::Logger::willLog const): Rename USE(JOURNALD) to
+        ENABLE(JOURNALD_LOG)
+        * wtf/PlatformGTK.cmake: Use renamed Journald library
+        * wtf/PlatformWPE.cmake: Use renamed Journald library
+
+2021-10-21  Aditya Keerthi  <akeerthi@apple.com>
+
+        [Cocoa] Enable accent-color by default
+        https://bugs.webkit.org/show_bug.cgi?id=232032
+        rdar://84474404
+
+        Reviewed by Wenson Hsieh.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+        Enable only on Cocoa platforms, as other platforms do not support
+        painting accent colors yet.
+
+2021-10-21  Aditya Keerthi  <akeerthi@apple.com>
+
+        [Cocoa] Enable 'accent-color' by default
+        https://bugs.webkit.org/show_bug.cgi?id=232032
+        rdar://84474404
+
+        Reviewed by Wenson Hsieh.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-10-21  Chris Lord  <clord@igalia.com>
+
+        [WPE][GTK] Enable smooth scrolling by default
+        https://bugs.webkit.org/show_bug.cgi?id=220512
+
+        Reviewed by Carlos Garcia Campos.
+
+        Enable smooth scrolling by default on GTK and WPE platforms.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
+2021-10-20  Brady Eidson  <beidson@apple.com>
+
+        WebKit Managed Notifications: Skeleton NotificationProvider
+        https://bugs.webkit.org/show_bug.cgi?id=231786
+
+        Reviewed by Alex Christensen.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+        * wtf/PlatformEnableCocoa.h:
+
+2021-10-20  Alex Christensen  <achristensen@webkit.org>
+
+        URLParser should reject hosts with C0 control characters or U+007F
+        https://bugs.webkit.org/show_bug.cgi?id=232034
+
+        Reviewed by Tim Horton.
+
+        This matches Chrome and Firefox and was proposed to the standard at
+        https://github.com/whatwg/url/issues/627
+
+        * wtf/URLParser.cpp:
+        (WTF::isC0Control):
+        (WTF::isForbiddenHostCodePoint):
+
+2021-10-20  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        Do not use strerror()
+        https://bugs.webkit.org/show_bug.cgi?id=231913
+
+        Reviewed by Chris Dumez.
+
+        Add a new safeStrerror function that we can use without worrying about thread safety.
+
+        * WTF.xcodeproj/project.pbxproj:
+        * wtf/CMakeLists.txt:
+        * wtf/SafeStrerror.cpp: Added.
+        (WTF::safeStrerror):
+        * wtf/SafeStrerror.h: Added.
+        * wtf/linux/RealTimeThreads.cpp:
+        (WTF::RealTimeThreads::promoteThreadToRealTime):
+        * wtf/playstation/FileSystemPlayStation.cpp:
+        (WTF::FileSystemImpl::deleteFile):
+        * wtf/posix/FileSystemPOSIX.cpp:
+        (WTF::FileSystemImpl::deleteFile):
+        * wtf/posix/ThreadingPOSIX.cpp:
+        (WTF::Thread::establishHandle):
+        * wtf/threads/Signals.cpp:
+        (WTF::jscSignalHandler):
+
+2021-10-20  Youenn Fablet  <youenn@apple.com>
+
+        Add support for requestVideoFrameCallback API and MediaStreamTrack-based backend support
+        https://bugs.webkit.org/show_bug.cgi?id=231803
+
+        Reviewed by Eric Carlson.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-10-20  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][WPE] UserInteractive threads are not Real-time in Linux
+        https://bugs.webkit.org/show_bug.cgi?id=220115
+
+        Reviewed by Michael Catanzaro.
+
+        Add RealTimeThreads singleton to register real time threads.
+
+        * wtf/PlatformGTK.cmake:
+        * wtf/PlatformJSCOnly.cmake:
+        * wtf/PlatformWPE.cmake:
+        * wtf/Threading.cpp:
+        (WTF::Thread::setCurrentThreadIsUserInteractive):
+        * wtf/generic/WorkQueueGeneric.cpp:
+        (WTF::WorkQueueBase::platformInitialize):
+        * wtf/linux/RealTimeThreads.cpp: Added.
+        (WTF::RealTimeThreads::singleton):
+        (WTF::RealTimeThreads::RealTimeThreads):
+        (WTF::RealTimeThreads::registerThread):
+        (WTF::RealTimeThreads::setEnabled):
+        (WTF::RealTimeThreads::promoteThreadToRealTime):
+        (WTF::RealTimeThreads::demoteThreadFromRealTime):
+        (WTF::RealTimeThreads::demoteAllThreadsFromRealTime):
+        (WTF::isRunningInSandbox):
+        (WTF::realTimeKitGetProperty):
+        (WTF::RealTimeThreads::realTimeKitMakeThreadRealTime):
+        (WTF::RealTimeThreads::scheduleDiscardRealTimeKitProxy):
+        (WTF::RealTimeThreads::discardRealTimeKitProxyTimerFired):
+        * wtf/linux/RealTimeThreads.h: Added.
+        * wtf/posix/ThreadingPOSIX.cpp:
+        (WTF::schedPolicy):
+        (WTF::Thread::establishHandle):
+
+2021-10-19  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Remove old GCC workaround for Allocator
+        https://bugs.webkit.org/show_bug.cgi?id=231978
+
+        Reviewed by Darin Adler.
+
+        This is for old GCC. Since our GCC baseline is 8.3.0, this is no longer necessary.
+
+        * wtf/FastMalloc.h:
+        (WTF::FastAllocator::deallocate):
+        (WTF::FastAllocator::construct): Deleted.
+        (WTF::FastAllocator::destroy): Deleted.
+        (WTF::FastAllocator::max_size const): Deleted.
+        (WTF::FastAllocator::select_on_container_copy_construction const): Deleted.
+
+2021-10-18  Filip Pizlo  <fpizlo@apple.com>
+
+        StringBuffer should really know that strings might be 8-bit
+        https://bugs.webkit.org/show_bug.cgi?id=231937
+
+        Reviewed by Yusuke Suzuki.
+
+        We somehow forgot to change this to use CharType instead of UChar.
+
+        * wtf/text/StringBuffer.h:
+        (WTF::StringBuffer::resize):
+
+2021-10-19  Cameron McCormack  <heycam@apple.com>
+
+        Ensure CanvasRenderingContext2D.drawImage(video) uses the right color space
+        https://bugs.webkit.org/show_bug.cgi?id=229025
+        <rdar://problem/81828490>
+
+        Reviewed by Sam Weinig.
+
+        * wtf/PlatformHave.h: Add HAVE_CVBUFFERCOPYATTACHMENTS.
+
+2021-10-18  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r284240.
+        https://bugs.webkit.org/show_bug.cgi?id=231931
+
+        NeedDifferentArchitectureToWorkWithWebpushd
+
+        Reverted changeset:
+
+        "WebKit Managed Notifications: Skeleton NotificationProvider."
+        https://bugs.webkit.org/show_bug.cgi?id=231786
+        https://commits.webkit.org/r284240
+
+2021-10-18  Alex Christensen  <achristensen@webkit.org>
+
+        Remove TCPServer
+        https://bugs.webkit.org/show_bug.cgi?id=231912
+
+        Reviewed by Chris Dumez.
+
+        * wtf/PlatformHave.h:
+
+2021-10-18  Alex Christensen  <achristensen@webkit.org>
+
+        [ iOS15 Monterey ] TestWTF.WTF_URLExtras.URLExtras is a constant failure
+        https://bugs.webkit.org/show_bug.cgi?id=231454
+
+        Reviewed by Chris Dumez.
+
+        * wtf/PlatformHave.h:
+
 2021-10-18  Carlos Garcia Campos  <cgarcia@igalia.com>
 
         [GLIB] Simplify SleepDisabler by checking if we are under sandbox

@@ -42,6 +42,7 @@ from webkitpy.common.host_mock import MockHost
 from webkitpy.layout_tests import run_webkit_tests
 from webkitpy.layout_tests.models.test_run_results import INTERRUPTED_EXIT_STATUS
 from webkitpy.port import test
+from webkitpy.port.image_diff import ImageDiffResult
 from webkitpy.xcode.device_type import DeviceType
 
 
@@ -751,7 +752,7 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
         class ImageDiffTestPort(test.TestPort):
             def diff_image(self, expected_contents, actual_contents, tolerance=None):
                 self.tolerance_used_for_diff_image = self._options.tolerance
-                return (True, 1, None)
+                return ImageDiffResult(passed=False, diff_image=b'', difference=1)
 
         def get_port_for_run(args):
             options, parsed_args = run_webkit_tests.parse_args(args)
@@ -822,9 +823,9 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
         details, _, _ = logging_run(['failures/expected/timeout.html',
                                      'failures/unexpected/timeout.html'],
                                     host=host)
-        self.assertEquals(details.initial_results.slow_tests,
+        self.assertEqual(details.initial_results.slow_tests,
                           {'failures/unexpected/timeout.html'})
-        self.assertEquals(details.retry_results.slow_tests,
+        self.assertEqual(details.retry_results.slow_tests,
                           {'failures/unexpected/timeout.html'})
 
     def serial_test_no_http_and_force(self):
@@ -938,7 +939,7 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
             by_type[current_type].append(line)
 
         self.assertEqual(3, len(by_type.keys()))
-        self.assertEqual(2, len(by_type[DeviceType.from_string('iPhone SE')]))
+        self.assertEqual(2, len(by_type[DeviceType.from_string('iPhone 12')]))
         self.assertEqual(1, len(by_type[DeviceType.from_string('iPad (5th generation)')]))
         self.assertEqual(0, len(by_type[DeviceType.from_string('iPhone 7')]))
 

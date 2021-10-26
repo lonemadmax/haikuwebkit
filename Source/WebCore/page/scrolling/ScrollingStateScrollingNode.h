@@ -78,6 +78,8 @@ public:
     const RequestedScrollData& requestedScrollData() const { return m_requestedScrollData; }
     WEBCORE_EXPORT void setRequestedScrollData(const RequestedScrollData&);
 
+    WEBCORE_EXPORT bool hasScrollPositionRequest() const;
+
     bool isMonitoringWheelEvents() const { return m_isMonitoringWheelEvents; }
     WEBCORE_EXPORT void setIsMonitoringWheelEvents(bool);
 
@@ -105,7 +107,7 @@ protected:
     ScrollingStateScrollingNode(const ScrollingStateScrollingNode&, ScrollingStateTree&);
 
     OptionSet<Property> applicableProperties() const override;
-    void dumpProperties(WTF::TextStream&, ScrollingStateTreeAsTextBehavior) const override;
+    void dumpProperties(WTF::TextStream&, OptionSet<ScrollingStateTreeAsTextBehavior>) const override;
 
 private:
     FloatSize m_scrollableAreaSize;

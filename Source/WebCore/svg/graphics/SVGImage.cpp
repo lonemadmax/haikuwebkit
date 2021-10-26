@@ -320,6 +320,7 @@ ImageDrawResult SVGImage::drawInternal(GraphicsContext& context, const FloatRect
         context.setCompositeOperation(CompositeOperator::SourceOver, BlendMode::Normal);
     }
 
+    // FIXME: We should honor options.orientation(), since ImageBitmap's flipY handling relies on it. https://bugs.webkit.org/show_bug.cgi?id=231001
     FloatSize scale(dstRect.size() / srcRect.size());
     
     // We can only draw the entire frame, clipped to the rect we want. So compute where the top left
@@ -360,7 +361,25 @@ ImageDrawResult SVGImage::drawAsNativeImage(GraphicsContext& context, const Floa
 {
     ASSERT(!context.hasPlatformContext());
 
-    auto rectInNativeImage = FloatRect { { }, destination.size() };
+    auto transform = context.getCTM();
+    if (!transform.isInvertible())
+        return ImageDrawResult::DidNothing;
+
+    // Consider the scaling of the context only.
+    auto contextScale = FloatSize(transform.xScale(), transform.yScale());
+    auto scaledDestination = destination;
+    scaledDestination.scale(contextScale);
+
+    // Check if we need to clamp the temporary ImageBuffer.
+    auto clampingScale = FloatSize(1, 1);
+    ImageBuffer::sizeNeedsClamping(scaledDestination.size(), clampingScale);
+
+    // contextScale * clampingScale is the scaling factor.
+    auto scale = contextScale * clampingScale;
+    scaledDestination.scale(clampingScale);
+
+    auto rectInNativeImage = FloatRect { { }, flooredIntSize(scaledDestination.size()) };
+
     auto nativeImage = this->nativeImage(rectInNativeImage.size(), source, colorSpace);
     if (!nativeImage)
         return ImageDrawResult::DidNothing;
@@ -370,7 +389,12 @@ ImageDrawResult SVGImage::drawAsNativeImage(GraphicsContext& context, const Floa
     if (orientation == ImageOrientation::Orientation::FromImage)
         localImagePaintingOptions = ImagePaintingOptions(options, ImageOrientation::Orientation::None);
 
-    context.drawNativeImage(*nativeImage, rectInNativeImage.size(), destination, rectInNativeImage, localImagePaintingOptions);
+    // Change the coordinate system to reflect the scaling factor.
+    context.scale(FloatSize(1 / scale.width(), 1 / scale.height()));
+    
+    context.drawNativeImage(*nativeImage, rectInNativeImage.size(), scaledDestination, rectInNativeImage, localImagePaintingOptions);
+    
+    context.scale(scale);
 
     if (imageObserver())
         imageObserver()->didDraw(*this);

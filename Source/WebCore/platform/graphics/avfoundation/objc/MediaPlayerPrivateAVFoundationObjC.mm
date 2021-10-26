@@ -36,6 +36,7 @@
 #import "AuthenticationChallenge.h"
 #import "CDMInstanceFairPlayStreamingAVFObjC.h"
 #import "CDMSessionAVFoundationObjC.h"
+#import "CVUtilities.h"
 #import "ColorSpaceCG.h"
 #import "Cookie.h"
 #import "DeprecatedGlobalSettings.h"
@@ -636,6 +637,8 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayerLayer()
     if (!m_avPlayer)
         return;
 
+    ALWAYS_LOG(LOGIDENTIFIER);
+
     m_videoLayer = adoptNS([PAL::allocAVPlayerLayerInstance() init]);
     [m_videoLayer setPlayer:m_avPlayer.get()];
 
@@ -689,7 +692,7 @@ MediaTime MediaPlayerPrivateAVFoundationObjC::getStartDate() const
 
 bool MediaPlayerPrivateAVFoundationObjC::hasAvailableVideoFrame() const
 {
-    if (currentRenderingMode() == MediaRenderingToLayer)
+    if (currentRenderingMode() == MediaRenderingMode::MediaRenderingToLayer)
         return m_cachedIsReadyForDisplay;
 
     if (m_videoOutput && (m_lastPixelBuffer || [m_videoOutput hasNewPixelBufferForItemTime:[m_avPlayerItem currentTime]]))
@@ -1833,7 +1836,7 @@ void MediaPlayerPrivateAVFoundationObjC::paint(GraphicsContext& context, const F
         return;
 
     // We can ignore the request if we are already rendering to a layer.
-    if (currentRenderingMode() == MediaRenderingToLayer)
+    if (currentRenderingMode() == MediaRenderingMode::MediaRenderingToLayer)
         return;
 
     // paint() is best effort, so only paint if we already have an image generator or video output available.
@@ -2373,7 +2376,7 @@ void MediaPlayerPrivateAVFoundationObjC::updateVideoTracks()
     if (m_visualGroup)
         determineChangedTracksFromNewTracksAndOldItems(m_visualGroup.get(), m_videoTracks, Vector<String>(), &VideoTrackPrivateAVFObjC::create, player(), &MediaPlayer::removeVideoTrack, &MediaPlayer::addVideoTrack);
 
-    for (auto& track : m_audioTracks)
+    for (auto& track : m_videoTracks)
         track->resetPropertiesFromTrack();
 
     // In case the video track content changed, we may be able to perform a readback again.
@@ -2496,6 +2499,8 @@ bool MediaPlayerPrivateAVFoundationObjC::updateLastPixelBuffer()
     if (!m_avPlayerItem || readyState() < MediaPlayer::ReadyState::HaveCurrentData)
         return false;
 
+    m_haveBeenAskedToPaint = true;
+
     if (!m_videoOutput)
         createVideoOutput();
     ASSERT(m_videoOutput);
@@ -2589,6 +2594,15 @@ RefPtr<NativeImage> MediaPlayerPrivateAVFoundationObjC::nativeImageForCurrentTim
 {
     updateLastImage(UpdateType::UpdateSynchronously);
     return m_lastImage;
+}
+
+DestinationColorSpace MediaPlayerPrivateAVFoundationObjC::colorSpace()
+{
+    updateLastImage(UpdateType::UpdateSynchronously);
+    if (!m_lastPixelBuffer)
+        return DestinationColorSpace::SRGB();
+
+    return DestinationColorSpace(createCGColorSpaceForCVPixelBuffer(m_lastPixelBuffer.get()));
 }
 
 void MediaPlayerPrivateAVFoundationObjC::waitForVideoOutputMediaDataWillChange()

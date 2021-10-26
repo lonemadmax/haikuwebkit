@@ -41,7 +41,6 @@
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/SystemTracing.h>
-#include <wtf/WorkQueue.h>
 
 #if ENABLE(IPC_TESTING_API)
 #define WEB_PROCESS_TERMINATE_CONDITION !m_gpuConnectionToWebProcess->connection().ignoreInvalidMessageForTesting()
@@ -80,39 +79,54 @@ Ref<RemoteRenderingBackend> RemoteRenderingBackend::create(GPUConnectionToWebPro
 }
 
 RemoteRenderingBackend::RemoteRenderingBackend(GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackendCreationParameters&& creationParameters, IPC::StreamConnectionBuffer&& streamBuffer)
-    : m_workQueue("RemoteRenderingBackend work queue")
-    , m_streamConnection(IPC::StreamServerConnection::create(gpuConnectionToWebProcess.connection(), WTFMove(streamBuffer), m_workQueue))
+    : m_workQueue(IPC::StreamConnectionWorkQueue::create("RemoteRenderingBackend work queue"))
+    , m_streamConnection(IPC::StreamServerConnection::create(gpuConnectionToWebProcess.connection(), WTFMove(streamBuffer), m_workQueue.get()))
     , m_remoteResourceCache(gpuConnectionToWebProcess.webProcessIdentifier())
     , m_gpuConnectionToWebProcess(gpuConnectionToWebProcess)
     , m_renderingBackendIdentifier(creationParameters.identifier)
 {
     ASSERT(RunLoop::isMain());
-    send(Messages::RemoteRenderingBackendProxy::DidCreateWakeUpSemaphoreForDisplayListStream(m_workQueue.wakeUpSemaphore()), m_renderingBackendIdentifier);
+    send(Messages::RemoteRenderingBackendProxy::DidCreateWakeUpSemaphoreForDisplayListStream(m_workQueue->wakeUpSemaphore()), m_renderingBackendIdentifier);
 }
+
+RemoteRenderingBackend::~RemoteRenderingBackend() = default;
 
 void RemoteRenderingBackend::startListeningForIPC()
 {
-    m_streamConnection->startReceivingMessages(*this, Messages::RemoteRenderingBackend::messageReceiverName(), m_renderingBackendIdentifier.toUInt64());
-}
+    {
+        Locker locker { m_remoteDisplayListsLock };
+        m_canRegisterRemoteDisplayLists = true;
+    }
 
-RemoteRenderingBackend::~RemoteRenderingBackend()
-{
-    // Make sure we destroy the ResourceCache on the WorkQueue since it gets populated on the WorkQueue.
-    // Make sure rendering resource request is released after destroying the cache.
-    m_workQueue.dispatch([renderingResourcesRequest = WTFMove(m_renderingResourcesRequest), remoteResourceCache = WTFMove(m_remoteResourceCache)] { });
+    m_streamConnection->startReceivingMessages(*this, Messages::RemoteRenderingBackend::messageReceiverName(), m_renderingBackendIdentifier.toUInt64());
+    // RemoteDisplayListRecorder messages depend on RemoteRenderingBackend, because RemoteRenderingBackend creates RemoteDisplayListRecorder and
+    // makes a receive queue for it. In order to guarantee correct ordering, ensure that all RemoteDisplayListRecorder messages are processed in
+    // the same sequence as RemoteRenderingBackend messages.
+    m_streamConnection->startReceivingMessages(Messages::RemoteDisplayListRecorder::messageReceiverName());
 }
 
 void RemoteRenderingBackend::stopListeningForIPC()
 {
     ASSERT(RunLoop::isMain());
+    // Make sure we destroy the ResourceCache on the WorkQueue since it gets populated on the WorkQueue.
+    // Make sure rendering resource request is released after destroying the cache.
+    m_workQueue->dispatch([renderingResourcesRequest = WTFMove(m_renderingResourcesRequest), remoteResourceCache = WTFMove(m_remoteResourceCache)] { });
+    m_workQueue->stopAndWaitForCompletion();
+
     m_streamConnection->stopReceivingMessages(Messages::RemoteRenderingBackend::messageReceiverName(), m_renderingBackendIdentifier.toUInt64());
-    for (auto& remoteContext : std::exchange(m_remoteDisplayLists, { }))
-        remoteContext.stopListeningForIPC();
+    m_streamConnection->stopReceivingMessages(Messages::RemoteDisplayListRecorder::messageReceiverName());
+
+    {
+        Locker locker { m_remoteDisplayListsLock };
+        m_canRegisterRemoteDisplayLists = false;
+        for (auto& remoteContext : std::exchange(m_remoteDisplayLists, { }))
+            remoteContext.value->stopListeningForIPC();
+    }
 }
 
 void RemoteRenderingBackend::dispatch(Function<void()>&& task)
 {
-    m_workQueue.dispatch(WTFMove(task));
+    m_workQueue->dispatch(WTFMove(task));
 }
 
 IPC::Connection* RemoteRenderingBackend::messageSenderConnection() const
@@ -127,7 +141,11 @@ uint64_t RemoteRenderingBackend::messageSenderDestinationID() const
 
 void RemoteRenderingBackend::didCreateImageBufferBackend(ImageBufferBackendHandle handle, QualifiedRenderingResourceIdentifier renderingResourceIdentifier, RemoteDisplayListRecorder& remoteDisplayList)
 {
-    m_remoteDisplayLists.add(remoteDisplayList);
+    {
+        Locker locker { m_remoteDisplayListsLock };
+        if (m_canRegisterRemoteDisplayLists)
+            m_remoteDisplayLists.add(renderingResourceIdentifier, remoteDisplayList);
+    }
     MESSAGE_CHECK(renderingResourceIdentifier.processIdentifier() == m_gpuConnectionToWebProcess->webProcessIdentifier(), "Sending didCreateImageBufferBackend() message to the wrong web process.");
     send(Messages::RemoteRenderingBackendProxy::DidCreateImageBufferBackend(WTFMove(handle), renderingResourceIdentifier.object()), m_renderingBackendIdentifier);
 }
@@ -358,6 +376,9 @@ void RemoteRenderingBackend::releaseRemoteResourceWithQualifiedIdentifier(Qualif
     auto success = m_remoteResourceCache.releaseRemoteResource(renderingResourceIdentifier, useCount);
     MESSAGE_CHECK(success, "Resource is being released before being cached.");
     updateRenderingResourceRequest();
+
+    Locker locker { m_remoteDisplayListsLock };
+    m_remoteDisplayLists.remove(renderingResourceIdentifier);
 }
 
 void RemoteRenderingBackend::finalizeRenderingUpdate(RenderingUpdateID renderingUpdateID)

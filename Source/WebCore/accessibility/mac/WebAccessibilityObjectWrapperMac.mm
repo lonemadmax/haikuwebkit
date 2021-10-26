@@ -78,6 +78,7 @@
 #import "TextIterator.h"
 #import "VisibleUnits.h"
 #import "WebCoreFrameView.h"
+#import <pal/SessionID.h>
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
@@ -854,8 +855,8 @@ static void AXAttributeStringSetStyle(NSMutableAttributedString* attrString, Ren
     AXAttributeStringSetFont(attrString, NSAccessibilityFontTextAttribute, style.fontCascade().primaryFont().getCTFont(), range);
     
     // set basic colors
-    AXAttributeStringSetColor(attrString, NSAccessibilityForegroundColorTextAttribute, nsColor(style.visitedDependentColor(CSSPropertyColor)), range);
-    AXAttributeStringSetColor(attrString, NSAccessibilityBackgroundColorTextAttribute, nsColor(style.visitedDependentColor(CSSPropertyBackgroundColor)), range);
+    AXAttributeStringSetColor(attrString, NSAccessibilityForegroundColorTextAttribute, cocoaColor(style.visitedDependentColor(CSSPropertyColor)).get(), range);
+    AXAttributeStringSetColor(attrString, NSAccessibilityBackgroundColorTextAttribute, cocoaColor(style.visitedDependentColor(CSSPropertyBackgroundColor)).get(), range);
     
     // set super/sub scripting
     VerticalAlign alignment = style.verticalAlign();
@@ -890,12 +891,12 @@ static void AXAttributeStringSetStyle(NSMutableAttributedString* attrString, Ren
 
         if (decor & TextDecoration::Underline) {
             AXAttributeStringSetNumber(attrString, NSAccessibilityUnderlineTextAttribute, @YES, range);
-            AXAttributeStringSetColor(attrString, NSAccessibilityUnderlineColorTextAttribute, nsColor(decorationStyles.underlineColor), range);
+            AXAttributeStringSetColor(attrString, NSAccessibilityUnderlineColorTextAttribute, cocoaColor(decorationStyles.underlineColor).get(), range);
         }
         
         if (decor & TextDecoration::LineThrough) {
             AXAttributeStringSetNumber(attrString, NSAccessibilityStrikethroughTextAttribute, @YES, range);
-            AXAttributeStringSetColor(attrString, NSAccessibilityStrikethroughColorTextAttribute, nsColor(decorationStyles.linethroughColor), range);
+            AXAttributeStringSetColor(attrString, NSAccessibilityStrikethroughColorTextAttribute, cocoaColor(decorationStyles.linethroughColor).get(), range);
         }
     }
     
@@ -1842,6 +1843,10 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (backingObject->isMeter())
         return @"AXMeter";
 
+    // Treat any group without exposed children as empty.
+    if ([[self role] isEqual:NSAccessibilityGroupRole] && !backingObject->children().size())
+        return @"AXEmptyGroup";
+
     AccessibilityRole role = backingObject->roleValue();
     if (role == AccessibilityRole::HorizontalRule)
         return NSAccessibilityContentSeparatorSubrole;
@@ -2235,7 +2240,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         if ([attributeName isEqualToString:NSAccessibilityCaretBrowsingEnabledAttribute])
             return [NSNumber numberWithBool:backingObject->caretBrowsingEnabled()];
         if ([attributeName isEqualToString:NSAccessibilityWebSessionIDAttribute])
-            return @(backingObject->sessionID());
+            return @(backingObject->sessionID().toUInt64());
     }
 
     if (backingObject->isTextControl()) {

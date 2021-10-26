@@ -80,15 +80,12 @@ static NEVER_INLINE MemoryCompactLookupOnlyRobinHoodHashMap<AtomString, CSSPrope
         &SVGNames::colorAttr.get(),
         &color_interpolationAttr.get(),
         &color_interpolation_filtersAttr.get(),
-        &color_profileAttr.get(),
-        &color_renderingAttr.get(),
         &cursorAttr.get(),
         &cxAttr.get(),
         &cyAttr.get(),
         &SVGNames::directionAttr.get(),
         &displayAttr.get(),
         &dominant_baselineAttr.get(),
-        &enable_backgroundAttr.get(),
         &fillAttr.get(),
         &fill_opacityAttr.get(),
         &fill_ruleAttr.get(),
@@ -641,16 +638,19 @@ void SVGElement::animatorWillBeDeleted(const QualifiedName& attributeName)
     propertyAnimatorFactory().animatorWillBeDeleted(attributeName);
 }
 
-std::optional<Style::ElementStyle> SVGElement::resolveCustomStyle(const RenderStyle& parentStyle, const RenderStyle*)
+std::optional<Style::ElementStyle> SVGElement::resolveCustomStyle(const Style::ResolutionContext& resolutionContext, const RenderStyle*)
 {
     // If the element is in a <use> tree we get the style from the definition tree.
     if (RefPtr styleElement = this->correspondingElement()) {
-        auto style = styleElement->resolveStyle(&parentStyle);
+        auto styleElementResolutionContext = resolutionContext;
+        // Can't use the selector filter since we are going to another part of the tree.
+        styleElementResolutionContext.selectorFilter = nullptr;
+        auto style = styleElement->resolveStyle(styleElementResolutionContext);
         Style::Adjuster::adjustSVGElementStyle(*style.renderStyle, *this);
         return style;
     }
 
-    return resolveStyle(&parentStyle);
+    return resolveStyle(resolutionContext);
 }
 
 MutableStyleProperties* SVGElement::animatedSMILStyleProperties() const

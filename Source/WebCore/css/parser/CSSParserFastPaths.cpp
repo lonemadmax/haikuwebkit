@@ -630,8 +630,6 @@ bool CSSParserFastPaths::isValidKeywordPropertyAndValue(CSSPropertyID propertyId
     case CSSPropertyColorInterpolation:
     case CSSPropertyColorInterpolationFilters:
         return valueID == CSSValueAuto || valueID == CSSValueSRGB || valueID == CSSValueLinearRGB;
-    case CSSPropertyColorRendering:
-        return valueID == CSSValueAuto || valueID == CSSValueOptimizeSpeed || valueID == CSSValueOptimizeQuality;
     case CSSPropertyDirection: // ltr | rtl
         return valueID == CSSValueLtr || valueID == CSSValueRtl;
     case CSSPropertyDominantBaseline:
@@ -1008,7 +1006,6 @@ bool CSSParserFastPaths::isKeywordPropertyID(CSSPropertyID propertyId)
     case CSSPropertyClipRule:
     case CSSPropertyColorInterpolation:
     case CSSPropertyColorInterpolationFilters:
-    case CSSPropertyColorRendering:
     case CSSPropertyDominantBaseline:
     case CSSPropertyFillRule:
     case CSSPropertyMaskType:
@@ -1138,7 +1135,7 @@ template <typename CharType>
 static bool parseTransformTranslateArguments(CharType*& pos, CharType* end, unsigned expectedCount, CSSFunctionValue* transformValue)
 {
     while (expectedCount) {
-        size_t delimiter = WTF::find(pos, end - pos, expectedCount == 1 ? ')' : ',');
+        size_t delimiter = find(pos, end - pos, expectedCount == 1 ? ')' : ',');
         if (delimiter == notFound)
             return false;
         unsigned argumentLength = static_cast<unsigned>(delimiter);
@@ -1160,7 +1157,7 @@ static bool parseTransformTranslateArguments(CharType*& pos, CharType* end, unsi
 template <typename CharType>
 static bool parseTransformAngleArgument(CharType*& pos, CharType* end, CSSFunctionValue* transformValue)
 {
-    size_t delimiter = WTF::find(pos, end - pos, ')');
+    size_t delimiter = find(pos, end - pos, ')');
     if (delimiter == notFound)
         return false;
 
@@ -1182,7 +1179,7 @@ template <typename CharType>
 static bool parseTransformNumberArguments(CharType*& pos, CharType* end, unsigned expectedCount, CSSFunctionValue* transformValue)
 {
     while (expectedCount) {
-        size_t delimiter = WTF::find(pos, end - pos, expectedCount == 1 ? ')' : ',');
+        size_t delimiter = find(pos, end - pos, expectedCount == 1 ? ')' : ',');
         if (delimiter == notFound)
             return false;
         unsigned argumentLength = static_cast<unsigned>(delimiter);
@@ -1356,7 +1353,7 @@ static bool transformCanLikelyUseFastPath(const CharType* chars, unsigned length
         default:
             return false;
         }
-        size_t argumentsEnd = WTF::find(chars, length, ')', i);
+        size_t argumentsEnd = find(chars, length, ')', i);
         if (argumentsEnd == notFound)
             return false;
         // Advance to the end of the arguments.

@@ -125,8 +125,6 @@ imported/w3c/web-platform-tests/service-workers/service-worker/fetch-audio-taint
 
 # Accessibility
 webkit.org/b/214341 [ Debug ] accessibility/datalist.html [ Crash ]
-webkit.org/b/215405 accessibility/gtk/caret-browsing-select-focus.html [ Failure ]
-webkit.org/b/215405 accessibility/gtk/combobox-descendants-orientation-crash.html [ Failure ]
 webkit.org/b/215405 accessibility/gtk/text-for-range-combo-box.html [ Failure ]
 webkit.org/b/223862 accessibility/gtk/text-for-range-embedded-objects.html [ Failure ]
 webkit.org/b/223862 accessibility/gtk/text-for-range-entry-and-password.html [ Failure ]
@@ -149,6 +147,8 @@ webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/line-breaking/l
 webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/line-breaking/line-breaking-007.html [ ImageOnlyFailure ]
 webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/line-breaking/line-breaking-009.html [ ImageOnlyFailure ]
 webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/line-breaking/line-breaking-011.html [ ImageOnlyFailure ]
+webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-strict-011.xht [ ImageOnlyFailure ]
+webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-strict-012.xht [ ImageOnlyFailure ]
 
 # Download
 
@@ -880,6 +880,9 @@ webkit.org/b/209328 imported/w3c/web-platform-tests/css/css-text/line-break/line
 webkit.org/b/209328 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-strict-015a.xht [ ImageOnlyFailure ]
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-auto-010.html [ Pass ]
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-auto-inline-010.html [ Pass ]
+webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-and-white-space-004.html [ ImageOnlyFailure ]
+webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-and-white-space-006.html [ ImageOnlyFailure ]
+webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-and-white-space-007.html [ ImageOnlyFailure ]
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-overrides-uax-behavior-016.html [ ImageOnlyFailure ]
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-normal-hyphens-001.html [ ImageOnlyFailure ]
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-strict-hyphens-001.html [ ImageOnlyFailure ]
@@ -912,6 +915,8 @@ webkit.org/b/217821 imported/w3c/web-platform-tests/density-size-correction/ [ S
 webkit.org/b/209403 fast/forms/placeholder-content-center.html [ ImageOnlyFailure ]
 
 webkit.org/b/209727 fast/forms/placeholder-content-line-height.html [ ImageOnlyFailure ]
+
+webkit.org/b/210487 http/tests/resourceLoadStatistics/switch-session-on-navigation-to-prevalent-with-interaction.py [ Failure ]
 
 webkit.org/b/210796 http/tests/resourceLoadStatistics/standalone-web-application-exempt-from-website-data-deletion.html [ Failure ]
 
@@ -1800,6 +1805,18 @@ webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/boundary-shapin
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/hanging-punctuation/hanging-punctuation-force-end-001.xht [ ImageOnlyFailure ]
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/hanging-punctuation/hanging-punctuation-first-001.xht [ Timeout ImageOnlyFailure ]
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/hanging-punctuation/hanging-punctuation-last-001.xht [ Timeout ImageOnlyFailure ]
+webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-loose-013.xht [ ImageOnlyFailure ]
+webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-loose-014.xht [ ImageOnlyFailure ]
+webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-loose-015.xht [ ImageOnlyFailure ]
+webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-loose-016a.xht [ ImageOnlyFailure ]
+webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-loose-016b.xht [ ImageOnlyFailure ]
+webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-loose-017a.xht [ ImageOnlyFailure ]
+webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-loose-017b.xht [ ImageOnlyFailure ]
+webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-loose-018.xht [ ImageOnlyFailure ]
+webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-normal-013.xht [ ImageOnlyFailure ]
+webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/white-space/line-edge-white-space-collapse-001.html [ ImageOnlyFailure ]
+webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/white-space/line-edge-white-space-collapse-002.html [ ImageOnlyFailure ]
+webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/white-space/pre-wrap-014.html [ ImageOnlyFailure ]
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/white-space/white-space-pre-wrap-trailing-spaces-002.html [ ImageOnlyFailure ]
 
 webkit.org/b/185939 imported/w3c/web-platform-tests/css/WOFF2 [ Pass ]
