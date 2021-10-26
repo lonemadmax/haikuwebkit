@@ -38,6 +38,7 @@
 #include "NotImplemented.h"
 #include "Pasteboard.h"
 #include "RenderImage.h"
+#include "SVGElementTypeHelpers.h"
 #include "SVGImageElement.h"
 #include "XLinkNames.h"
 #include "markup.h"

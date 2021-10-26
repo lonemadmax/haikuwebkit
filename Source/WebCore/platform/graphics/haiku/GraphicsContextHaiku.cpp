@@ -526,7 +526,7 @@ void GraphicsContextHaiku::setCTM(const AffineTransform& transform)
     m_view->SetTransform(transform);
 }
 
-void GraphicsContextHaiku::updateState(const GraphicsContextState& state, GraphicsContextState::StateChangeFlags flags)
+void GraphicsContextHaiku::didUpdateState(const GraphicsContextState& state, GraphicsContextState::StateChangeFlags flags)
 {
 #if 0
         StrokeGradientChange                    = 1 << 0,
