@@ -266,7 +266,8 @@ void FrameLoaderClientHaiku::dispatchDidReceiveResponse(DocumentLoader* loader,
                                                         ResourceLoaderIdentifier identifier,
                                                         const ResourceResponse& coreResponse)
 {
-    loader->writer().setEncoding(coreResponse.textEncodingName(), false);
+    loader->writer().setEncoding(coreResponse.textEncodingName(),
+        WebCore::DocumentWriter::IsEncodingUserChosen::No);
 
     BMessage message(RESPONSE_RECEIVED);
     message.AddInt32("status", coreResponse.httpStatusCode());

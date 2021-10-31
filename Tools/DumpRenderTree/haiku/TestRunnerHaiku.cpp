@@ -364,6 +364,11 @@ JSValueRef TestRunner::originsWithApplicationCache(JSContextRef context)
     return JSValueMakeUndefined(context);
 }
 
+void TestRunner::stopLoading()
+{
+    // FIXME: Not implemented.
+}
+
 long long TestRunner::applicationCacheDiskUsageForOrigin(JSStringRef)
 {
     notImplemented();

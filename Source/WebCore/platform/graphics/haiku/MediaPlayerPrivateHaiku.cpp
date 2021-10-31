@@ -174,7 +174,7 @@ void MediaPlayerPrivate::playCallback(void* cookie, void* buffer,
             player->m_currentTime = player->m_audioTrack->Duration() / 1000000.f;
             player->m_soundPlayer->Stop(false);
 
-            WeakPtr<MediaPlayerPrivate> p = makeWeakPtr(player);
+            WeakPtr<MediaPlayerPrivate> p = WeakPtr(player);
             callOnMainThread([p] {
                 if (!p)
                     return;
@@ -196,7 +196,7 @@ void MediaPlayerPrivate::playCallback(void* cookie, void* buffer,
                 player->m_videoTrack = nullptr;
             }
 
-            WeakPtr<MediaPlayerPrivate> p = makeWeakPtr(player);
+            WeakPtr<MediaPlayerPrivate> p = WeakPtr(player);
             callOnMainThread([p] {
                 if (!p)
                     return;
@@ -424,6 +424,11 @@ MediaPlayer::SupportsType MediaPlayerPrivate::supportsType(const MediaEngineSupp
     }
 
     return MediaPlayer::SupportsType::IsNotSupported;
+}
+
+DestinationColorSpace MediaPlayerPrivate::colorSpace()
+{
+    return DestinationColorSpace::SRGB();
 }
 
 }

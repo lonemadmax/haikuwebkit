@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2019 Haiku, inc.
+ * Copyright (C) 2013-2021 Haiku, inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 
 #include <interface/Bitmap.h>
 #include <BitmapStream.h>
+#include <File.h>
 #include <TranslationUtils.h>
 #include <TranslatorRoster.h>
 
@@ -51,6 +52,18 @@ std::unique_ptr<PlatformImage> PlatformImage::createFromStdin(size_t imageSize)
     BBitmap* image = BTranslationUtils::GetBitmap(&imageData);
 
     delete[] imageBuffer;
+
+    if (image == NULL)
+		return nullptr;
+
+    return std::make_unique<PlatformImage>(image);
+}
+
+
+std::unique_ptr<PlatformImage> PlatformImage::createFromFile(const char* filePath)
+{
+    BFile imageData(filePath, B_READ_ONLY);
+    BBitmap* image = BTranslationUtils::GetBitmap(&imageData);
 
     if (image == NULL)
 		return nullptr;

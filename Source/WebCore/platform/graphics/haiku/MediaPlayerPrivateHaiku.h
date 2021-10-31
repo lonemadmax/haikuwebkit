@@ -89,6 +89,7 @@ class MediaPlayerPrivate : public MediaPlayerPrivateInterface,
         void setSize(const IntSize&) override;
 
         void paint(GraphicsContext&, const FloatRect&) override;
+        DestinationColorSpace colorSpace() override;
 
     private:
 

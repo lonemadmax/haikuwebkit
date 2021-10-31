@@ -34,8 +34,10 @@
 #include <signal.h>
 #elif OS(WINDOWS)
 #include <windows.h>
-#elif OS(OPENBSD) || OS(HAIKU)
+#elif OS(OPENBSD)
 typedef ucontext_t mcontext_t;
+#elif OS(HAIKU)
+// ucontext is available, no specific include needed
 #else
 #include <sys/ucontext.h>
 #endif
