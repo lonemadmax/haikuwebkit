@@ -28,16 +28,24 @@
 #if ENABLE(BUILT_IN_NOTIFICATIONS)
 
 #include "NotificationManagerMessageHandler.h"
+#include "WebPushDaemonConnection.h"
 #include <WebCore/NotificationDirection.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
+
+namespace WebPushD {
+enum class MessageType : uint8_t;
+}
 
 class NetworkSession;
 
 class NetworkNotificationManager : public NotificationManagerMessageHandler {
     WTF_MAKE_FAST_ALLOCATED;
     friend class NetworkSession;
+public:
+    NetworkSession& networkSession() const { return m_networkSession; }
+
 private:
     NetworkNotificationManager(NetworkSession&, const String& webPushMachServiceName);
 
@@ -47,6 +55,12 @@ private:
     void didDestroyNotification(uint64_t notificationID) final;
 
     NetworkSession& m_networkSession;
+    std::unique_ptr<WebPushD::Connection> m_connection;
+
+    template<WebPushD::MessageType messageType, typename... Args>
+    void sendMessage(Args&&...) const;
+    template<WebPushD::MessageType messageType, typename... Args, typename... ReplyArgs>
+    void sendMessageWithReply(CompletionHandler<void(ReplyArgs...)>&&, Args&&...) const;
 };
 
 } // namespace WebKit

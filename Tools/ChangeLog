@@ -1,3 +1,848 @@
+2021-10-30  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Layer tree should not be stuck in frozen state after explicitly stopping a page load
+        https://bugs.webkit.org/show_bug.cgi?id=232532
+        rdar://84522357
+
+        Reviewed by Tim Horton.
+
+        Add support for `TestRunner.stopLoading()`, which immediately stops the page load, emulating what would normally
+        happen if the user taps or clicks the "x" button to cancel loading in Safari. See the layout test for more
+        details.
+
+        * DumpRenderTree/TestRunner.cpp:
+        (stopLoadingCallback):
+        (TestRunner::staticFunctions):
+        * DumpRenderTree/TestRunner.h:
+        * DumpRenderTree/mac/TestRunnerMac.mm:
+        (TestRunner::stopLoading):
+        * DumpRenderTree/win/TestRunnerWin.cpp:
+        (TestRunner::stopLoading):
+        * WebKitTestRunner/InjectedBundle/Bindings/TestRunner.idl:
+        * WebKitTestRunner/InjectedBundle/TestRunner.cpp:
+        (WTR::TestRunner::stopLoading):
+        * WebKitTestRunner/InjectedBundle/TestRunner.h:
+
+2021-10-30  Chris Dumez  <cdumez@apple.com>
+
+        Improve error handling in sendWithAsyncReply()
+        https://bugs.webkit.org/show_bug.cgi?id=232508
+
+        Reviewed by Darin Adler.
+
+        Add API test coverage.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/WKWebViewGetContents.mm:
+        (TEST):
+
+2021-10-30  Sam Sneddon  <gsnedders@apple.com>
+
+        Ensure we stop LayoutTest servers without them becoming zombies
+        https://bugs.webkit.org/show_bug.cgi?id=225189
+        <rdar://problem/77604119>
+
+        Reviewed by Jonathan Bedard.
+
+        Also increase the polling frequency in HttpServerBase._wait_for_action, as this is a major
+        source of delay when running run-webkit-tests --dry-run due to the number of servers we're
+        starting nowadays.
+
+        * Scripts/webkitpy/common/system/executive_mock.py:
+        (MockProcess.__init__): Rename self.returncode to _returncode
+        (MockProcess.returncode): returncode should be None if process is still running
+        * Scripts/webkitpy/layout_tests/servers/http_server.py:
+        (Lighttpd._spawn_process): Store Popen object
+        (Lighttpd._check_and_kill): Skip "kill" if process has returned
+        (Lighttpd._is_server_running_on_all_ports): Correctly raise ServerError if it has returned
+        * Scripts/webkitpy/layout_tests/servers/http_server_base.py:
+        (HttpServerBase.start): Change polling frequency for cygwin from 0.1Hz to default
+        (HttpServerBase._wait_for_action): Increase default polling frequency to 10Hz from 1Hz
+        * Scripts/webkitpy/layout_tests/servers/web_platform_test_server.py:
+        (WebPlatformTestServer._stop_running_server): Poll first so we don't have zombies keeping references to pipes
+
+2021-10-30  Kate Cheney  <katherine_cheney@apple.com>
+
+        [iOS 15] Loads after WKWebView session restore are marked as app-initiated 
+        https://bugs.webkit.org/show_bug.cgi?id=232486
+        <rdar://problem/84811692>
+
+        Reviewed by Brent Fulgham.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/AppPrivacyReport.mm:
+
+2021-10-29  Stephan Szabo  <stephan.szabo@sony.com>
+
+        [PlayStation] Build fix after r285020
+        https://bugs.webkit.org/show_bug.cgi?id=232494
+
+        Unreviewed temporary Build Fix
+
+        Remove test that requires unsupported WTF::FileSystem functions.
+
+        * TestWebKitAPI/PlatformPlayStation.cmake:
+
+2021-10-29  Alex Christensen  <achristensen@webkit.org>
+
+        Revert r285034
+        webkit.org/b/232166
+
+        The test still times out in EWS.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/AppPrivacyReport.mm:
+
+2021-10-29  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed, reverting r284917.
+
+        Likely caused significant performance regression
+
+        Reverted changeset:
+
+        "Remove properties set by NSURLProtocol on NSURLRequest before
+        serializing"
+        https://bugs.webkit.org/show_bug.cgi?id=232332
+        https://commits.webkit.org/r284917
+
+2021-10-29  Alex Christensen  <achristensen@webkit.org>
+
+        Fix AppleWin build after r285051
+       ​https://bugs.webkit.org/show_bug.cgi?id=232462
+
+        * DumpRenderTree/CMakeLists.txt:
+
+2021-10-29  Alex Christensen  <achristensen@webkit.org>
+
+        [ Monterey iOS15 ] TestWebKitAPI.URLSchemeHandler.Ranges is a constant timeout
+        https://bugs.webkit.org/show_bug.cgi?id=231394
+
+        Reviewed by Jer Noble.
+
+        For some reason, AVFoundation used to play videos from custom schemes when you respond to range requests with 1 fewer byte than requested.
+        They stopped successfully playing videos in such circumstances, which is fine.  I had accidentally done that in my test.
+        When I respond properly, the test starts passing again.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/WKURLSchemeHandler-1.mm:
+
+2021-10-29  John Pascoe  <j_pascoe@apple.com>
+
+        Add last modified and creation time to +[_WKWebAuthenticationPanel getAllLocalAuthenticatorCredentials]
+        https://bugs.webkit.org/show_bug.cgi?id=232390
+        <rdar://problem/84689277>
+
+        Reviewed by Darin Adler.
+
+        These fields (creation time and last modified) are useful for providing context about credentials.
+        The modifications to the tests verify they are properly added.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/_WKWebAuthenticationPanel.mm:
+        (TestWebKitAPI::TEST):
+
+2021-10-29  Alex Christensen  <achristensen@webkit.org>
+
+        Fix macOS clean build after r285047
+        https://bugs.webkit.org/show_bug.cgi?id=232462
+
+        * DumpRenderTree/DumpRenderTree.xcodeproj/project.pbxproj:
+        * DumpRenderTree/TestNetscapePlugIn: Removed.
+
+2021-10-29  Jonathan Bedard  <jbedard@apple.com>
+
+        [webkitscmpy] Assign PR to author
+        https://bugs.webkit.org/show_bug.cgi?id=232348
+        <rdar://problem/84685313>
+
+        Reviewed by Dewei Zhu.
+
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/mocks/remote/git_hub.py:
+        (GitHub.request): Add assignees.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/remote/git_hub.py:
+        (GitHub.PRGenerator.create): Assign created PR to it's author.
+        (GitHub.PRGenerator.update): Assign modified PR to it's editor.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/pull_request_unittest.py: Add assignees.
+
+2021-10-29  Alex Christensen  <achristensen@webkit.org>
+
+        Re-enable two AppPrivacyReport tests
+        webkit.org/b/232166
+
+        I ran them locally on iOS simulator and they ran fine.
+        They were disabled during a tumultuous time, and the cause of their timeouts is likely resolved.
+        I'll watch the bots and see if they agree.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/AppPrivacyReport.mm:
+
+2021-10-29  Jonathan Bedard  <jbedard@apple.com>
+
+        [webkitscmpy] Add fetch and rebase
+        https://bugs.webkit.org/show_bug.cgi?id=232447
+        <rdar://problem/84770221>
+
+        Reviewed by Dewei Zhu.
+
+        To land commits, we need to be able to rebase a branch against another.
+        Additionally, when rebasing, we need to discard stale cache bits. This
+        is also true when pulling and rebasing against main.
+
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/local/git.py:
+        (Git.Cache.clear): Clear cache of a specific branch.
+        (Git.rebase): Rebase a branch on top of another.
+        (Git.fetch): Fetch specific branch ref.
+        (Git.pull): Use generalized fetch command, clear cache for updated branch
+        if that branch is not the default branch.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/mocks/local/git.py:
+        (Git.__init__): Add rebase mock.
+        (Git.rebase):
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/pull_request.py:
+        (PullRequest.main): Recompute branch-point after rebase.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/pull_request_unittest.py:
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/git_unittest.py:
+        (test_rebase):
+
+2021-10-29  Takashi Komori  <Takashi.Komori@sony.com>
+
+        WKAPI does not have any APIs to set cookie path to WKWebsiteDataStoreConfigurationRef
+        https://bugs.webkit.org/show_bug.cgi?id=232336
+
+        Reviewed by Alex Christensen.
+
+        Add cookie-path setting API for WKWebasiteDataStoreConfigurationRef.
+
+        * TestWebKitAPI/PlatformPlayStation.cmake:
+        * TestWebKitAPI/PlatformWin.cmake:
+        * TestWebKitAPI/Tests/WebKit/CookieStorageFile.cpp: Added.
+        (TestWebKitAPI::didFinishNavigation):
+        (TestWebKitAPI::TEST_F):
+
+2021-10-28  Jonathan Bedard  <jbedard@apple.com>
+
+        [webkitscmpy] Fix commits set on branch
+        https://bugs.webkit.org/show_bug.cgi?id=232443
+        <rdar://problem/84763432>
+
+        Reviewed by Darin Adler.
+
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/local/git.py:
+        (Git.commits): We are appending to list of commits, not pre-pending.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/git_unittest.py:
+        (TestGitHub.test_commits_branch_ref):
+
+2021-10-28  Andres Gonzalez  <andresg_22@apple.com>
+
+        Isolated tree mode: Dispatch all calls to [WebAccessibilityObjectWrapper accessibilityAttributeValue] in WTR::AccessibilityUIElement to the AX thread.
+        https://bugs.webkit.org/show_bug.cgi?id=232415
+        <rdar://problem/84738483>
+
+        Reviewed by Chris Fleizach.
+
+        This is necessary to simulate running accessibility layout tests on the
+        secondary AX thread.
+
+        * WebKitTestRunner/InjectedBundle/AccessibilityUIElement.h:
+        * WebKitTestRunner/InjectedBundle/mac/AccessibilityUIElementMac.mm:
+        (WTR::AccessibilityUIElement::descriptionOfValue const):
+        (WTR::descriptionOfElements):
+        (WTR::AccessibilityUIElement::attributeValue const):
+        (WTR::AccessibilityUIElement::domIdentifier const):
+        (WTR::AccessibilityUIElement::getLinkedUIElements):
+        (WTR::AccessibilityUIElement::getDocumentLinks):
+        (WTR::AccessibilityUIElement::getUIElementsWithAttribute const):
+        (WTR::AccessibilityUIElement::children const):
+        (WTR::AccessibilityUIElement::getChildren):
+        (WTR::AccessibilityUIElement::rowHeaders const):
+        (WTR::AccessibilityUIElement::columnHeaders const):
+        (WTR::AccessibilityUIElement::elementForAttribute const):
+        (WTR::AccessibilityUIElement::elementForAttributeAtIndex const):
+        (WTR::AccessibilityUIElement::detailsElements const):
+        (WTR::AccessibilityUIElement::errorMessageElements const):
+        (WTR::AccessibilityUIElement::allAttributes):
+        (WTR::AccessibilityUIElement::stringDescriptionOfAttributeValue):
+        (WTR::AccessibilityUIElement::stringAttributeValue):
+        (WTR::AccessibilityUIElement::numberAttributeValue):
+        (WTR::AccessibilityUIElement::uiElementAttributeValue const):
+        (WTR::AccessibilityUIElement::boolAttributeValue):
+        (WTR::AccessibilityUIElement::role):
+        (WTR::AccessibilityUIElement::subrole):
+        (WTR::AccessibilityUIElement::roleDescription):
+        (WTR::AccessibilityUIElement::computedRoleString):
+        (WTR::AccessibilityUIElement::title):
+        (WTR::AccessibilityUIElement::description):
+        (WTR::AccessibilityUIElement::orientation const):
+        (WTR::AccessibilityUIElement::stringValue):
+        (WTR::AccessibilityUIElement::language):
+        (WTR::AccessibilityUIElement::helpText const):
+        (WTR::AccessibilityUIElement::x):
+        (WTR::AccessibilityUIElement::y):
+        (WTR::AccessibilityUIElement::width):
+        (WTR::AccessibilityUIElement::height):
+        (WTR::AccessibilityUIElement::clickPointX):
+        (WTR::AccessibilityUIElement::clickPointY):
+        (WTR::AccessibilityUIElement::lineRectsAndText const):
+        (WTR::AccessibilityUIElement::intValue const):
+        (WTR::AccessibilityUIElement::minValue):
+        (WTR::AccessibilityUIElement::maxValue):
+        (WTR::AccessibilityUIElement::valueDescription):
+        (WTR::AccessibilityUIElement::insertionPointLineNumber):
+        (WTR::AccessibilityUIElement::isEnabled):
+        (WTR::AccessibilityUIElement::isRequired const):
+        (WTR::AccessibilityUIElement::isFocused const):
+        (WTR::AccessibilityUIElement::isSelected const):
+        (WTR::AccessibilityUIElement::isIndeterminate const):
+        (WTR::AccessibilityUIElement::isExpanded const):
+        (WTR::AccessibilityUIElement::currentStateValue const):
+        (WTR::AccessibilityUIElement::sortDirection const):
+        (WTR::AccessibilityUIElement::hierarchicalLevel const):
+        (WTR::AccessibilityUIElement::classList const):
+        (WTR::AccessibilityUIElement::speakAs):
+        (WTR::AccessibilityUIElement::ariaIsGrabbed const):
+        (WTR::AccessibilityUIElement::ariaDropEffects const):
+        (WTR::AccessibilityUIElement::attributesOfColumnHeaders):
+        (WTR::AccessibilityUIElement::attributesOfRowHeaders):
+        (WTR::AccessibilityUIElement::attributesOfColumns):
+        (WTR::AccessibilityUIElement::attributesOfRows):
+        (WTR::AccessibilityUIElement::attributesOfVisibleCells):
+        (WTR::AccessibilityUIElement::attributesOfHeader):
+        (WTR::AccessibilityUIElement::indexInTable):
+        (WTR::AccessibilityUIElement::rowIndexRange):
+        (WTR::AccessibilityUIElement::columnIndexRange):
+        (WTR::AccessibilityUIElement::horizontalScrollbar const):
+        (WTR::AccessibilityUIElement::verticalScrollbar const):
+        (WTR::AccessibilityUIElement::selectedTextRange):
+        (WTR::AccessibilityUIElement::setSelectedChildAtIndex const):
+        (WTR::AccessibilityUIElement::removeSelectionAtIndex const):
+        (WTR::AccessibilityUIElement::documentEncoding):
+        (WTR::AccessibilityUIElement::documentURI):
+        (WTR::AccessibilityUIElement::url):
+        (WTR::AccessibilityUIElement::isMultiSelectable const):
+        (WTR::AccessibilityUIElement::isOnScreen const):
+        (WTR::AccessibilityUIElement::embeddedImageDescription const):
+        (WTR::AccessibilityUIElement::imageOverlayElements const):
+        (WTR::AccessibilityUIElement::hasPopup const):
+        (WTR::AccessibilityUIElement::popupValue const):
+        (WTR::AccessibilityUIElement::selectedTextMarkerRange):
+        (WTR::AccessibilityUIElement::resetSelectedTextMarkerRange):
+        (WTR::AccessibilityUIElement::startTextMarker):
+        (WTR::AccessibilityUIElement::endTextMarker):
+        (WTR::_convertMathMultiscriptPairsToString):
+        (WTR::AccessibilityUIElement::mathPostscriptsDescription const):
+        (WTR::AccessibilityUIElement::mathPrescriptsDescription const):
+        (WTR::AccessibilityUIElement::mathRootRadicand const):
+        (WTR::AccessibilityUIElement::pathDescription const):
+        (WTR::descriptionOfValue): Deleted.
+        (WTR::attributesOfElement): Deleted.
+
+2021-10-28  Simon Fraser  <simon.fraser@apple.com>
+
+        Prepare SingleTestRunnerTest to read fuzzy pixel matching data
+        https://bugs.webkit.org/show_bug.cgi?id=232410
+
+        Reviewed by Martin Robinson.
+
+        Add code to SingleTestRunnerTest to get fuzzy pixel matching data from the <meta name=fuzzy>
+        tag in a test in the case of a hash match failure[1]. In future this will be used to
+        determine if the test can pass with acceptable fuzziness.
+        
+        [1] Strictly speaking this can result in wrong behavior; a test with <meta name=fuzzy> is
+        supposed to fail if the differences are below the minimum specified values, so for correct
+        WPT behavior we would need to always look for the meta tag. But to avoid the perf impact of
+        always parsing tests, for now only look for the tag in the case of hash failure.
+
+        Add unit tests for the new functionality in SingleTestRunner.
+
+        * Scripts/webkitpy/layout_tests/controllers/single_test_runner.py:
+        (SingleTestRunner):
+        (SingleTestRunner._relative_reference_path):
+        (SingleTestRunner._fuzzy_matching_values):
+        (SingleTestRunner._test_passes_fuzzy_matching):
+        (SingleTestRunner._compare_output_with_reference):
+        * Scripts/webkitpy/layout_tests/controllers/single_test_runner_unittest.py: Added.
+        (TestDriver):
+        (TestDriver.run_test):
+        (TestDriver.start):
+        (TestDriver.stop):
+        (SingleTestRunnerTest):
+        (SingleTestRunnerTest._add_file):
+        (SingleTestRunnerTest._make_test_runner):
+        (SingleTestRunnerTest.test_fuzzy_matching_values):
+        (SingleTestRunnerTest.test_fuzzy_matching_values_for_ref):
+
+2021-10-28  Youenn Fablet  <youenn@apple.com>
+
+        Fix CARingBuffer mix mode
+        https://bugs.webkit.org/show_bug.cgi?id=232427
+        <rdar://problem/84747657>
+
+        Reviewed by Eric Carlson.
+
+        * TestWebKitAPI/Tests/WebCore/CARingBuffer.cpp:
+
+2021-10-28  Simon Fraser  <simon.fraser@apple.com>
+
+        Enhance test_parser.py to find fuzzy matching metadata
+        https://bugs.webkit.org/show_bug.cgi?id=232399
+
+        Reviewed by Martin Robinson.
+
+        w3c/test_parser is used by wpt import code, and it knows how to parse a file for various
+        meta tags. Enhance it to find <meta name=fuzzy> and return the data in test_info for future
+        use by layout tests, using code copied from wpt/tools/manifest/sourcefile.py.
+
+        Tested by new unit tests in test_parser_unittest.py
+
+        * Scripts/webkitpy/w3c/test_parser.py:
+        (TestParser.analyze_test):
+        (TestParser.has_fuzzy_metadata):
+        (TestParser):
+        (TestParser.fuzzy_metadata):
+        * Scripts/webkitpy/w3c/test_parser_unittest.py:
+        (_test_info_from_test_with_contents):
+        (test_simple_fuzzy_data):
+        (test_nameless_fuzzy_data):
+        (test_range_fuzzy_data):
+        (test_nameless_range_fuzzy_data):
+        (test_per_ref_fuzzy_data):
+
+2021-10-28  David Kilzer  <ddkilzer@apple.com>
+
+        [Tools] Enable -Wformat=2 warnings
+        <https://webkit.org/b/232404>
+        <rdar://problem/84728058>
+
+        Reviewed by Darin Adler.
+
+        * DumpRenderTree/mac/Configurations/Base.xcconfig:
+        (WARNINGS_CFLAGS):
+        * ImageDiff/cg/Configurations/Base.xcconfig:
+        (WARNINGS_CFLAGS):
+        * MiniBrowser/Configurations/Base.xcconfig:
+        (WARNINGS_CFLAGS):
+        * MobileMiniBrowser/Configurations/Base.xcconfig:
+        (WARNINGS_CFLAGS):
+        * TestWebKitAPI/Configurations/Base.xcconfig:
+        (WARNINGS_CFLAGS):
+        - Add -Wformat=2 switch, which includes -Wformat-nonliteral.
+
+        * TestWebKitAPI/PlatformUtilities.h:
+        (TestWebKitAPI::Util::waitForConditionWithLogging):
+        - Add NS_FORMAT_FUNCTION() attribute.
+        * TestWebKitAPI/Tests/WebKitCocoa/LoadAlternateHTMLString.mm:
+        (TEST):
+        * TestWebKitAPI/Tests/WebKitCocoa/OpenAndCloseWindow.mm:
+        (TEST):
+        - Change type of format string to `NSString *const`.
+        * TestWebKitAPI/Tests/WebKitCocoa/ServiceWorkerTCPServer.h:
+        (ServiceWorkerTCPServer::request):
+        (ServiceWorkerTCPServer::requestWithLocalhost):
+        (ServiceWorkerTCPServer::requestWithFragment):
+        - Call -[NSString initWithFormat:] in each method so the format
+          string is used directly in the method call.
+        (ServiceWorkerTCPServer::respondToRequests):
+        - Change type of format string to `NSString *const`, and fix
+          placeholder for strlen() return value.
+        (ServiceWorkerTCPServer::requestWithFormat): Delete.
+        (ServiceWorkerTCPServer::requestWithURLString):
+        - Rename from requestWithFormat() and take a `url` parameter
+          instead of a `format` parameter.
+        * TestWebKitAPI/cocoa/HTTPServer.mm:
+        (TestWebKitAPI::HTTPServer::request const):
+        - Change switch statement to set the scheme for the URL, and
+          move the format string into +[NSString stringWithFormat:].
+
+        * WebEditingTester/Configurations/Base.xcconfig:
+        (WARNINGS_CFLAGS):
+        * WebKitTestRunner/Configurations/Base.xcconfig:
+        (WARNINGS_CFLAGS):
+        - Add -Wformat=2 switch, which includes -Wformat-nonliteral.
+
+2021-10-27  Jonathan Bedard  <jbedard@apple.com>
+
+        [webkitscmpy] Generate commit message template
+        https://bugs.webkit.org/show_bug.cgi?id=231023
+        <rdar://problem/83722871>
+
+        Unreviewed follow-up fix.
+
+        * Scripts/git-webkit: Match repository base, not folder containing repository.
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/setup.py:
+        (Setup.git): Mark hook as executable.
+
+2021-10-27  Alexey Proskuryakov  <ap@apple.com>
+
+        AutoInstall should have separate install directories per CPU architecture
+        https://bugs.webkit.org/show_bug.cgi?id=232403
+
+        Reviewed by Jonathan Bedard.
+
+        * Scripts/webkitpy/__init__.py:
+
+2021-10-27  Alex Christensen  <achristensen@webkit.org>
+
+        Use correct String constructor in PrivateClickMeasurement.FraudPrevention API test
+        https://bugs.webkit.org/show_bug.cgi?id=232362
+
+        Reviewed by Darin Adler.
+
+        The Vector<char> received in the CompletionHandler given to Connection::receiveHTTPRequest is not null terminated,
+        so we need to call the String constructor that takes a length instead of assuming the byte after the Vector buffer is 0.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/EventAttribution.mm:
+        (TestWebKitAPI::TEST):
+
+2021-10-27  Kate Cheney  <katherine_cheney@apple.com>
+
+        REGRESSION: [iOS] TestWebKitAPI.InAppBrowserPrivacy.AppBoundDomainAllowsServiceWorkers is failing
+        https://bugs.webkit.org/show_bug.cgi?id=227918
+
+        Unreviewed fix to unskip failing test that was fixed by
+        https://commits.webkit.org/239967@main.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/InAppBrowserPrivacy.mm:
+
+2021-10-27  Simon Fraser  <simon.fraser@apple.com>
+
+        Preserve image diff precision until display time
+        https://bugs.webkit.org/show_bug.cgi?id=232365
+
+        Reviewed by Martin Robinson.
+
+        Keep the precise image diff percentage value, saving it in full_results.json, and
+        only round it at presentation time in results.html.
+
+        * Scripts/webkitpy/port/image_diff.py:
+        (ImageDiffer._read):
+        * Scripts/webkitpy/port/port_testcase.py:
+        (PortTestCase.test_diff_image_failed_with_rounded_diff):
+
+2021-10-27  Dmitry Bezhetskov  <dbezhetskov@igalia.com>
+
+        [WASM-Function-References] Add call_ref spec tests
+        https://bugs.webkit.org/show_bug.cgi?id=229710
+
+        Reviewed by Yusuke Suzuki.
+        
+        Add a new routine to run typed function references spec tests.
+
+        * Scripts/run-jsc-stress-tests:
+
+2021-10-27  Simon Fraser  <simon.fraser@apple.com>
+
+        Store WPT-style fuzzy pixel matching data in ImageDiffResult
+        https://bugs.webkit.org/show_bug.cgi?id=232352
+
+        Reviewed by Martin Robinson.
+
+        Always run ImageDiff with `--difference` so that it prints the "maxDifference=; totalPixels="
+        output, and parse and store this output in ImageDiffResult.
+
+        * Scripts/webkitpy/layout_tests/run_webkit_tests_integrationtest.py:
+        (RunTest.test_tolerance.ImageDiffTestPort.diff_image):
+        * Scripts/webkitpy/port/image_diff.py:
+        (ImageDiffResult.__init__):
+        (ImageDiffResult.__eq__):
+        (ImageDiffResult.__repr__):
+        (ImageDiffer._start):
+        (ImageDiffer._read):
+        * Scripts/webkitpy/port/port_testcase.py:
+        (PortTestCase.test_diff_image.make_proc):
+        (PortTestCase.test_diff_image):
+        (PortTestCase.test_diff_image_passed):
+        (PortTestCase.test_diff_image_passed_with_tolerance):
+        (PortTestCase.test_diff_image_failed_with_rounded_diff):
+        (PortTestCase.test_diff_image_failed):
+        * Scripts/webkitpy/port/test.py:
+
+2021-10-27  Jonathan Bedard  <jbedard@apple.com>
+
+        [webkitscmpy] Ensure empty line before canonicalization
+        https://bugs.webkit.org/show_bug.cgi?id=232103
+        <rdar://problem/84521382>
+
+        Reviewed by Stephanie Lewis.
+
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/canonicalize/message.py:
+        (main): Handle empty lines around identifier links, add empty line before identifier links.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/canonicalize_unittest.py:
+        (TestCanonicalize.test_formated_identifier):
+        (TestCanonicalize.test_existing_identifier):
+        (TestCanonicalize.test_git_svn):
+        (TestCanonicalize.test_git_svn_existing):
+        (TestCanonicalize.test_branch_commits):
+        (TestCanonicalize.test_number):
+
+2021-10-27  Alexey Proskuryakov  <ap@apple.com>
+
+        webkitdirs.pm should use JSON::XS when available
+        https://bugs.webkit.org/show_bug.cgi?id=232354
+
+        Reviewed by Dewei Zhu.
+
+        JSON::XS is faster than JSON::PP. While it doesn't matter for webkitdirs' own use,
+        where JSONs are tiny, other scripts that import webkitdirs.pm do care.
+
+        * Scripts/webkitdirs.pm:
+
+2021-10-26  Alex Christensen  <achristensen@webkit.org>
+
+        Remove properties set by NSURLProtocol on NSURLRequest before serializing
+        https://bugs.webkit.org/show_bug.cgi?id=232332
+        <rdar://79227845>
+
+        Reviewed by Geoff Garen.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/LoadInvalidURLRequest.mm:
+        (TestWebKitAPI::TEST):
+
+2021-10-26  Roy Reapor  <rreapor@apple.com>
+
+        webkitpy/autoinstalled/pyobjc_frameworks.py should not autoinstall frameworks if they can be imported without exceptions
+        https://bugs.webkit.org/show_bug.cgi?id=232331
+
+        Reviewed by Jonathan Bedard.
+ 
+        Avoid autointalling pyobjc frameworks if the installed frameworks can be imported without generating an exception.
+
+        * Scripts/webkitpy/autoinstalled/pyobjc_frameworks.py:
+        (_import_modules):
+
+2021-10-26  Tim Horton  <timothy_horton@apple.com>
+
+        [GPU Process] `DisplayList::Recorder::getCTM` should include the device scale factor
+        https://bugs.webkit.org/show_bug.cgi?id=230647
+
+        Reviewed by Simon Fraser.
+
+        * TestWebKitAPI/Tests/WebCore/cg/BifurcatedGraphicsContextTestsCG.cpp:
+        (TestWebKitAPI::TEST):
+        Add a test that getCTM returns the correct scale after applyDeviceScaleFactor is called.
+
+2021-10-26  Jonathan Bedard  <jbedard@apple.com>
+
+        [webkitscmpy] Comment and close pull-requests
+        https://bugs.webkit.org/show_bug.cgi?id=232095
+        <rdar://problem/84515738>
+
+        Reviewed by Dewei Zhu.
+
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/mocks/remote/bitbucket.py:
+        (BitBucket.request): Add support for activities, opening and closing pull-request.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/mocks/remote/git_hub.py:
+        (GitHub.__init__): Add issues.
+        (GitHub.request): Access issue underlying pull-request (which includes global comments).
+        * Scripts/libraries/webkitscmpy/webkitscmpy/pull_request.py:
+        (PullRequest.Exception): Added.
+        (PullRequest.Comment): Added.
+        (PullRequest.__init__): Add list of pull-request comments, metadata used by generator.
+        (PullRequest.open): Re-open the pull-request.
+        (PullRequest.close): Close the pull-request.
+        (PullRequest.comment): Make a comment on the pull-request.
+        (PullRequest.comments): List all comments on a pull-request.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/remote/bitbucket.py:
+        (BitBucket.PRGenerator.update): Handle closing and opening of the pull-request.
+        (BitBucket.PRGenerator.comment): Make a comment on a pull-request.
+        (BitBucket.PRGenerator.comments): List all comments on a pull-request.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/remote/git_hub.py:
+        (GitHub.PRGenerator.update): Handle closing and opening of the pull-request.
+        (GitHub.PRGenerator.comment): Make a comment on a issue underpinning a pull-request.
+        (GitHub.PRGenerator.comments): List all comments on the pull-request.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/remote/scm.py:
+        (Scm.PRGenerator.update): Add support for opening and closing a pull-request.
+        (Scm.PRGenerator.comment): Make a comment on a pull-request.
+        (Scm.PRGenerator.comments): List all comments for a pull-request
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/pull_request_unittest.py:
+
+2021-10-26  Simon Fraser  <simon.fraser@apple.com>
+
+        The script should decide when an image diff cases, not ImageDiff
+        https://bugs.webkit.org/show_bug.cgi?id=232225
+
+        Unreviewed; respond to review feedback.
+
+        * Scripts/webkitpy/port/image_diff.py:
+        (ImageDiffer._read):
+
+2021-10-26  Alex Christensen  <achristensen@webkit.org>
+
+        Update PCM test public key to one with RSA-PSS OID
+        https://bugs.webkit.org/show_bug.cgi?id=231048
+
+        Reviewed by John Wilander.
+
+        In rdar://79069615 support for public keys with rsaEncryption OIDs was removed as stated on the blog at
+        https://webkit.org/blog/11940/pcm-click-fraud-prevention-and-attribution-sent-to-advertiser/
+        This implements enough ASN1 serialization to serialize a public key in the form accepted by WebKit now,
+        which is described at https://datatracker.ietf.org/doc/html/rfc8017#appendix-A.2.3
+
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/Tests/WebCore/ASN1Utilities.cpp: Added.
+        (ASN1::Object::sizeSerializedSize const):
+        (ASN1::Object::serializeSize const):
+        (ASN1::ObjectIdentifier::ObjectIdentifier):
+        (ASN1::ObjectIdentifier::bytes const):
+        (ASN1::Sequence::create):
+        (ASN1::Sequence::Sequence):
+        (ASN1::Sequence::elementEncodedLengthBytes const):
+        (ASN1::IndexWrapper::IndexWrapper):
+        (ASN1::Integer::Integer):
+        (ASN1::BitString::BitString):
+        (TestWebKitAPI::wrapPublicKeyWithRSAPSSOID):
+        * TestWebKitAPI/Tests/WebCore/ASN1Utilities.h: Added.
+        * TestWebKitAPI/Tests/WebCore/PrivateClickMeasurement.cpp:
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/WebCore/cocoa/PrivateClickMeasurementCocoa.mm:
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/WebKitCocoa/EventAttribution.mm:
+        (TestWebKitAPI::TEST):
+
+2021-10-26  Tim Horton  <timothy_horton@apple.com>
+
+        DisplayList::Recorder's clipBounds() becomes empty if a flip is applied to the CTM
+        https://bugs.webkit.org/show_bug.cgi?id=232134
+
+        Reviewed by Darin Adler.
+
+        * TestWebKitAPI/Tests/WebCore/cg/BifurcatedGraphicsContextTestsCG.cpp:
+        (TestWebKitAPI::TEST):
+        Add a test ensuring that our clipBounds and CG's match through a series
+        of simple transforms.
+
+2021-10-26  Brady Eidson  <beidson@apple.com>
+
+        Add helper classes and messaging infrastructure to launch webpushd and round trip a message to it
+        https://bugs.webkit.org/show_bug.cgi?id=232262
+
+        Reviewed by Alex Christensen.
+
+        * MiniBrowser/mac/AppDelegate.m:
+        (persistentDataStore):
+        * MiniBrowser/mac/WK2BrowserWindowController.m:
+        (-[WK2BrowserWindowController _webView:requestNotificationPermissionForSecurityOrigin:decisionHandler:]):
+
+2021-10-26  Simon Fraser  <simon.fraser@apple.com>
+
+        The script should decide when an image diff cases, not ImageDiff
+        https://bugs.webkit.org/show_bug.cgi?id=232225
+
+        Reviewed by Martin Robinson.
+
+        Rather than have ImageDiff decide if the comparison passes or fails (with some built-in
+        tolerance), have it just print the percentage difference, and have the script compare it
+        against the tolerance.
+
+        Code to prettify diff_percent is moved into the script (but should eventually
+        move closer to display time).
+
+        * ImageDiff/ImageDiff.cpp:
+        (processImages):
+        * Scripts/webkitpy/port/image_diff.py:
+        (ImageDiffer._read):
+        * Scripts/webkitpy/port/port_testcase.py:
+        (PortTestCase.test_diff_image.make_proc):
+        (PortTestCase.test_diff_image_passed):
+        (PortTestCase):
+        (PortTestCase.test_diff_image_passed_with_tolerance):
+        (PortTestCase.test_diff_image_failed_with_rounded_diff):
+        (PortTestCase.test_diff_image_failed):
+
+2021-10-26  Kate Cheney  <katherine_cheney@apple.com>
+
+        [ App Privacy Report ] Restoring a session after clearing the cache results in app initiated loads in Safari
+        https://bugs.webkit.org/show_bug.cgi?id=232292
+        <rdar://problem/84597422>
+
+        Reviewed by Brent Fulgham.
+
+        Update API test in 2 ways. First, close the original WebView to
+        destroy the page's document loader as if the application was being
+        quit. Second, clear history to make sure there are no cached loads.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/AppPrivacyReport.mm:
+
+2021-10-26  Simon Fraser  <simon.fraser@apple.com>
+
+        Have ImageDiff print the diff image when any pixel is different
+        https://bugs.webkit.org/show_bug.cgi?id=232294
+
+        Reviewed by Martin Robinson.
+        
+        ImageDiff currently only outputs the diff image when any pixel exceeds its built-in
+        tolerance.
+
+        To prepare for moving the "pass/fail" decision to script, have ImageDiff output the diff
+        image when any pixel is different. Also have it write "#EOF" so that we're not reliant on
+        the "diff:" line to terminate reading the output.
+
+        Fix up webkitpy unit tests for #EOF parsing, presence of image when the test passes via
+        tolerance, and to actually test which image data is present in the ImageDiffResult.
+
+        * ImageDiff/ImageDiff.cpp:
+        (processImages):
+        (main):
+        * ImageDiff/PlatformImage.cpp:
+        (ImageDiff::PlatformImage::difference): Track legacyDistanceMax if any pixel diff is non-zero,
+        since it's needed to scale the diff image.
+        * Scripts/webkitpy/port/image_diff.py:
+        (ImageDiffer._read): Look for "#EOF" to terminate the output. Save the diff image, even
+        if the test passed.
+        * Scripts/webkitpy/port/port_testcase.py:
+        (PortTestCase.test_diff_image.make_proc):
+        (PortTestCase.test_diff_image):
+        (PortTestCase.test_diff_image_passed):
+        (PortTestCase.test_diff_image_failed):
+        (PortTestCase.test_diff_image_crashed):
+
+2021-10-26  Simon Fraser  <simon.fraser@apple.com>
+
+        Don't run ImageDiff a second time to generate diff images
+        https://bugs.webkit.org/show_bug.cgi?id=232288
+
+        Reviewed by Martin Robinson.
+
+        Currently, for a ref test failure (which is always run with tolerance=0), we run ImageDiff a
+        second time in FailureReftestMismatch.write_failure() with the intent of generating a diff
+        image with zero tolerance.
+
+        Fix by storing the ImageDiffResult in FailureReftestMismatch and FailureImageHashMismatch so
+        we already have the diff image. We only regenerate it when the first diff was run with a
+        non-zero tolerance (only relevant for pixel tests). To faciliate this, store the tolerance
+        that was used inside ImageDiffResult too.
+
+        * ImageDiff/ImageDiff.cpp:
+        (main): Show tolerance in verbose logging.
+        * Scripts/webkitpy/layout_tests/controllers/single_test_runner.py:
+        (SingleTestRunner._compare_image):
+        (SingleTestRunner._compare_output_with_reference):
+        * Scripts/webkitpy/layout_tests/controllers/test_result_writer_unittest.py:
+        (TestResultWriterTest.test_reftest_diff_image.ImageDiffTestPort.diff_image):
+        (TestResultWriterTest):
+        (TestResultWriterTest.test_reftest_diff_image):
+        * Scripts/webkitpy/layout_tests/models/test_failures.py:
+        (FailureImageHashMismatch.__init__):
+        (FailureReftestMismatch.__init__):
+        (FailureReftestMismatch.write_failure):
+        * Scripts/webkitpy/layout_tests/models/test_run_results.py:
+        (_interpret_test_failures):
+        * Scripts/webkitpy/layout_tests/models/test_run_results_unittest.py:
+        (InterpretTestFailuresTest.test_interpret_test_failures):
+        * Scripts/webkitpy/layout_tests/run_webkit_tests_integrationtest.py:
+        (RunTest.test_tolerance.ImageDiffTestPort.diff_image):
+        * Scripts/webkitpy/port/image_diff.py:
+        (ImageDiffResult.__init__):
+        (ImageDiffResult.__repr__):
+        (ImageDiffer._read):
+        * Scripts/webkitpy/port/port_testcase.py:
+        (PortTestCase.test_diff_image):
+
 2021-10-25  Ryan Haddad  <ryanhaddad@apple.com>
 
         Change default iOS simulator to one with a larger screen size

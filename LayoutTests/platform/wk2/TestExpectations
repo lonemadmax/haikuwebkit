@@ -413,7 +413,6 @@ http/tests/security/dataURL/xss-DENIED-from-data-url-in-foreign-domain-window-op
 http/tests/security/dataURL/xss-DENIED-from-javascript-url-window-open.html
 http/tests/security/dataURL/xss-DENIED-to-data-url-in-foreign-domain-window-open.html
 http/tests/security/dataURL/xss-DENIED-to-data-url-window-open.html
-http/tests/security/frameNavigation/xss-DENIED-plugin-navigation.html
 http/tests/security/frameNavigation/xss-DENIED-targeted-link-navigation.html
 http/tests/security/javascriptURL/xss-ALLOWED-to-javascript-url-window-open.html
 http/tests/security/javascriptURL/xss-DENIED-from-javascript-url-in-foreign-domain-window-open.html
@@ -843,6 +842,9 @@ webkit.org/b/187766 http/wpt/service-workers/update-service-worker.https.html [ 
 
 # Newly imported test that is flaky on WebKit2 only.
 imported/w3c/web-platform-tests/html/browsers/the-window-object/apis-for-creating-and-navigating-browsing-contexts-by-name/no_window_open_when_term_nesting_level_nonzero.window.html [ Pass Failure ]
+
+# The test is failing and it is causing it to produce different output on every run.
+imported/w3c/web-platform-tests/web-locks/clientids.tentative.https.html [ Failure Pass ]
 
 webkit.org/b/231348 imported/w3c/web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-windows.https.window.html [ Pass Failure ]
 webkit.org/b/231349 imported/w3c/web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-MessagePort-windows.https.window.html [ Pass Failure ]

@@ -71,6 +71,7 @@ public:
 
     virtual RenderingMode renderingMode() const = 0;
     virtual bool canMapBackingStore() const = 0;
+    virtual bool isRemote() const { return false; }
     virtual RenderingResourceIdentifier renderingResourceIdentifier() const { return { }; }
 
     virtual GraphicsContext& context() const = 0;
@@ -85,7 +86,8 @@ public:
     virtual void changeDestinationImageBuffer(RenderingResourceIdentifier) { }
     virtual void prepareToAppendDisplayListItems(DisplayList::ItemBufferHandle&&) { }
 
-    virtual IntSize logicalSize() const = 0;
+    virtual FloatSize logicalSize() const = 0;
+    virtual IntSize truncatedLogicalSize() const = 0; // This truncates the real size. You probably should be calling logicalSize() instead.
     virtual float resolutionScale() const = 0;
     virtual DestinationColorSpace colorSpace() const = 0;
     virtual PixelFormat pixelFormat() const = 0;

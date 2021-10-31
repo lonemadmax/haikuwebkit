@@ -35,6 +35,7 @@ namespace DisplayList {
 template<typename BackendType>
 class ImageBuffer : public ConcreteImageBuffer<BackendType> {
     using BaseConcreteImageBuffer = ConcreteImageBuffer<BackendType>;
+    using BaseConcreteImageBuffer::truncatedLogicalSize;
     using BaseConcreteImageBuffer::logicalSize;
     using BaseConcreteImageBuffer::baseTransform;
 

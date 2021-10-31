@@ -809,6 +809,7 @@ svg/text/foreignObject-repaint.xml [ Skip ]
 svg/text/select-text-svgfont.html [ Skip ]
 svg/text/selection-doubleclick.svg [ Skip ]
 svg/text/selection-tripleclick.svg [ Skip ]
+imported/w3c/web-platform-tests/css/css-shadow-parts/invalidation-part-pseudo.html [ Skip ]
 
 # IOS does not implement setAutomaticLinkDetectionEnabled
 editing/inserting/typing-space-to-trigger-smart-link.html [ Skip ]
@@ -1167,7 +1168,6 @@ http/tests/navigation/scrollstate-after-http-equiv-refresh-fragment-identifier.h
 http/tests/navigation/scrollstate-after-http-equiv-refresh.html
 http/tests/navigation/scrollstate-after-location-reload.html
 http/tests/security/contentSecurityPolicy/media-src-allowed.html
-http/tests/security/frameNavigation/xss-DENIED-plugin-navigation.html
 http/tests/canvas/webgl/origin-clean-conformance.html
 
 # HTTP tests that fail:

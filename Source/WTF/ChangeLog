@@ -1,3 +1,147 @@
+2021-10-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Clean up Baseline StructureStubInfo management
+        https://bugs.webkit.org/show_bug.cgi?id=232513
+
+        Reviewed by Saam Barati.
+
+        * wtf/SegmentedVector.h:
+
+2021-10-29  Darin Adler  <darin@apple.com>
+
+        Create constants for all special frame names used in anchor target attribute values and elsewhere
+        https://bugs.webkit.org/show_bug.cgi?id=232488
+
+        Reviewed by Anders Carlsson.
+
+        * wtf/Forward.h: Declare ASCIILiteral.
+        * wtf/text/ASCIILiteral.h: Update for above.
+
+2021-10-29  Alex Christensen  <achristensen@webkit.org>
+
+        Remove code inside ENABLE(NETSCAPE_PLUGIN_API)
+        https://bugs.webkit.org/show_bug.cgi?id=232462
+
+        Reviewed by Anders Carlsson.
+
+        It is not used anywhere since https://trac.webkit.org/changeset/285003/webkit
+
+        * wtf/PlatformEnable.h:
+        * wtf/PlatformEnableCocoa.h:
+
+2021-10-29  Ayumi Kojima  <ayumi_kojima@apple.com>
+
+        Unreviewed, reverting r285038.
+
+        Reverting the commit because it broke the open source test
+        runs and also caused an impanct on EWS queues
+
+        Reverted changeset:
+
+        "Create constants for all special frame names used in anchor
+        target attribute values and elsewhere"
+        https://bugs.webkit.org/show_bug.cgi?id=232488
+        https://commits.webkit.org/r285038
+
+2021-10-29  Darin Adler  <darin@apple.com>
+
+        Create constants for all special frame names used in anchor target attribute values and elsewhere
+        https://bugs.webkit.org/show_bug.cgi?id=232488
+
+        Reviewed by Anders Carlsson.
+
+        * wtf/Forward.h: Declare ASCIILiteral.
+        * wtf/text/ASCIILiteral.h: Update for above.
+
+2021-10-29  Saam Barati  <sbarati@apple.com>
+
+        Disable ENABLE_JIT on arm64_32
+        https://bugs.webkit.org/show_bug.cgi?id=232468
+
+        Reviewed by Yusuke Suzuki.
+
+        We were disabling JIT via a runtime configuration before since we haven't
+        yet implemented the JIT on arm64_32. However, not compiling ENABLE(JIT)
+        code on arm64_32 saves 11MB in the binary size of JavaScriptCore.
+        
+        In my local compiles, I'm going from 24M to 13M.
+
+        * wtf/PlatformEnable.h:
+
+2021-10-28  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [WTF] Use mcontext_t on OpenBSD
+        https://bugs.webkit.org/show_bug.cgi?id=232451
+
+        In OpenBSD there is no mcontext_t, but the needed information
+        is contained directly in ucontext_t, so use the latter instead.
+
+        This is essentially these two patches from the OpenBSD packaging
+        of WebKitGTK:
+
+        https://github.com/openbsd/ports/blob/865bd13/www/webkitgtk4/patches/patch-Source_WTF_wtf_PlatformRegisters_h
+        https://github.com/openbsd/ports/blob/865bd13/www/webkitgtk4/patches/patch-Source_WTF_wtf_PlatformHave_h
+
+        Reviewed by Carlos Garcia Campos.
+
+        * wtf/PlatformHave.h:
+        * wtf/PlatformRegisters.h:
+        (WTF::registersFromUContext):
+
+2021-10-28  Chris Dumez  <cdumez@apple.com>
+
+        Add stubs for the Web Locks API
+        https://bugs.webkit.org/show_bug.cgi?id=232438
+
+        Reviewed by Geoffrey Garen.
+
+        Add experimental feature flag, off by default.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-10-28  Alex Christensen  <achristensen@webkit.org>
+
+        Disable NETSCAPE_PLUGIN_API at build time on macOS and Windows
+        https://bugs.webkit.org/show_bug.cgi?id=232396
+
+        Reviewed by Geoff Garen.
+
+        It has been disabled at run time since https://trac.webkit.org/changeset/276720/webkit
+        and https://trac.webkit.org/changeset/275910/webkit but is still able to be reached by tests.
+        This begins the removal of the code and tests with what is close to the smallest change possible.
+
+        * wtf/PlatformEnable.h:
+
+2021-10-28  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        Enable lazy image loading by default
+        https://bugs.webkit.org/show_bug.cgi?id=208094
+
+        Reviewed by Simon Fraser.
+
+        Fix merge error of commit queue.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-10-28  Youenn Fablet  <youenn@apple.com>
+
+        [ Mac wk1 ] 2 media-capabilities/webrtc tests are flaky failures
+        https://bugs.webkit.org/show_bug.cgi?id=232283
+        <rdar://problem/84637007>
+
+        Reviewed by Eric Carlson.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-10-26  Alex Christensen  <achristensen@webkit.org>
+
+        Update PCM test public key to one with RSA-PSS OID
+        https://bugs.webkit.org/show_bug.cgi?id=231048
+
+        Reviewed by John Wilander.
+
+        * wtf/PlatformHave.h:
+
 2021-10-26  Fujii Hironori  <Hironori.Fujii@sony.com>
 
         [WebCore] Remove unneeded WTF:: namespace prefix

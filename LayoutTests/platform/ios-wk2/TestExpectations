@@ -1292,7 +1292,7 @@ webkit.org/b/181821 fast/visual-viewport/ios/caret-after-focus-in-fixed.html [ P
 
 webkit.org/b/182144 [ Debug ] webgl/1.0.3/conformance/rendering/many-draw-calls.html [ Skip ]
 
-webkit.org/b/231514 webgl/1.0.3/conformance/uniforms/uniform-default-values.html [ Pass Timeout ]
+webkit.org/b/231514 webgl/1.0.3/conformance/uniforms/uniform-default-values.html [ Slow ]
 
 webkit.org/b/231541 webgl/1.0.3/conformance/glsl/bugs/long-expressions-should-not-crash.html [ Pass Timeout ]
 
@@ -1340,7 +1340,7 @@ webkit.org/b/230653 imported/w3c/web-platform-tests/webrtc/simulcast/setParamete
 
 webkit.org/b/231602 imported/w3c/web-platform-tests/webrtc/simulcast/getStats.https.html [ Pass Failure ]
 
-webkit.org/b/176030 http/tests/websocket/tests/hybi/send-object-tostring-check.html [ Pass Failure ]
+webkit.org/b/176030 http/tests/websocket/tests/hybi/send-object-tostring-check.html [ Pass Failure Timeout ]
 
 webkit.org/b/196495 fast/viewport/ios/viewport-shrink-to-fit-on-new-navigation.html [ Failure ]
 
@@ -1355,6 +1355,8 @@ webkit.org/b/199213 [ Release ] imported/blink/editing/selection/deleteFromDocum
 webkit.org/b/199370 [ Release ] imported/mozilla/svg/text/selectSubString.svg [ Pass ImageOnlyFailure ]
 
 webkit.org/b/199387 imported/blink/fast/multicol/span/overflow-on-viewport.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/232412 imported/blink/compositing/video/video-controls-layer-creation-squashing.html [ Pass Timeout Crash ]
 
 # Skip tests timing out for <rdar://problem/48616298>
 fast/viewport/ios/constant-width-viewport-after-changing-view-scale.html [ Skip ]
@@ -1913,6 +1915,9 @@ webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-values/ch-unit-002.h
 
 webkit.org/b/229874 imported/w3c/web-platform-tests/css/css-sizing/percentage-height-in-flexbox.html [ Pass Failure ]
 
+webkit.org/b/232518 imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-021.html [ ImageOnlyFailure ]
+webkit.org/b/232518 imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-022.html [ ImageOnlyFailure ]
+
 webkit.org/b/214512 imported/w3c/web-platform-tests/css/geometry/DOMMatrix2DInit-validate-fixup.html [ Pass Failure ]
 
 webkit.org/b/230959 fast/scrolling/ios/click-events-after-long-press-during-momentum-scroll-in-overflow.html [ Pass Timeout ]
@@ -2232,12 +2237,17 @@ webkit.org/b/230509 fast/events/ios/dom-update-on-keydown-quirk.html [ Pass Fail
 
 webkit.org/b/231714 fast/scrolling/ios/click-events-during-momentum-scroll-in-overflow.html [ Pass Timeout ]
 
+webkit.org/b/232310 [ Release ] fast/flexbox/aspect-ratio-intrinsic-adjust.html [ Pass ImageOnlyFailure ]
+
 webkit.org/b/231780 [ Debug ] imported/w3c/web-platform-tests/webrtc/simulcast/basic.https.html [ Pass Failure ]
 
 webkit.org/b/232099 imported/w3c/web-platform-tests/websockets/Close-1000.any.html [ Pass Crash ]
 
-webkit.org/b/232120 imported/w3c/web-platform-tests/content-security-policy/script-src/script-src-multiple-policies-multiple-hashing-algorithms.html [ Pass Failure DumpJSConsoleLogInStdErr ]
-
 webkit.org/b/225528 http/wpt/fetch/fetch-response-body-stop-in-worker.html [ Pass Crash ]
 
 webkit.org/b/232252 [ Release ] imported/w3c/web-platform-tests/webrtc/RTCDtlsTransport-state.html [ Pass Failure ]
+
+webkit.org/b/232337 [ Release ] imported/w3c/web-platform-tests/html/cross-origin-opener-policy/reporting/navigation-reporting/reporting-coop-navigated-opener.https.html [ Pass Failure  DumpJSConsoleLogInStdErr ]
+
+webkit.org/b/232456 fast/css/style-element-process-crash.html [ Pass Failure ]
+

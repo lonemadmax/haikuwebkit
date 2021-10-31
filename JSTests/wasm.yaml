@@ -137,6 +137,11 @@
 - path: wasm/threads-spec-tests/wait-large.wast.js
   cmd: runWebAssemblySpecTest :normal
 
+- path: wasm/function-references-spec-tests/call_ref.wast.js
+  cmd: runWebAssemblyFunctionReferenceSpecTest :normal
+- path: wasm/function-references-spec-tests/ref_null.wast.js
+  cmd: runWebAssemblyFunctionReferenceSpecTest :normal
+
 - path: wasm/spec-tests/address.wast.js
   cmd: runWebAssemblySpecTest :normal
 - path: wasm/spec-tests/align.wast.js

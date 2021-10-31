@@ -1,3 +1,698 @@
+2021-10-30  Brandon Stewart  <brandonstewart@apple.com>
+
+        Selection extend() should trigger exception with no ranges
+        https://bugs.webkit.org/show_bug.cgi?id=232420
+
+        Reviewed by Chris Dumez.
+
+        Verify extend() will throw an exception when the Selection object
+        contains no Range objects. Chrome and Firefox will also throw an
+        exception in this scenario.
+
+        https://w3c.github.io/selection-api/#dom-selection-extend
+
+        * web-platform-tests/selection/extend-exception-expected.txt: Added.
+        * web-platform-tests/selection/extend-exception.html: Added.
+
+2021-10-29  Antti Koivisto  <antti@apple.com>
+
+        Allow :is/:where after all pseudo elements
+        https://bugs.webkit.org/show_bug.cgi?id=232434
+
+        Reviewed by Dean Jackson.
+
+        * web-platform-tests/css/css-scoping/slotted-parsing-expected.txt:
+
+2021-10-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, revert r284440, r284397, r284359
+
+        * web-platform-tests/css/css-flexbox/parsing/flex-basis-computed-expected.txt:
+        * web-platform-tests/css/css-flexbox/parsing/flex-basis-valid-expected.txt:
+        * web-platform-tests/css/css-flexbox/parsing/flex-shorthand-expected.txt:
+
+2021-10-29  Chris Dumez  <cdumez@apple.com>
+
+        [ iOS ] imported/w3c/web-platform-tests/dom/events/scrolling/iframe-chains.html is missing its results
+        https://bugs.webkit.org/show_bug.cgi?id=232484
+        <rdar://problem/84809167>
+
+        Unreviewed, land expected.txt for new test introduced in r285010 during the WPT resync.
+
+        * web-platform-tests/dom/events/scrolling/iframe-chains-expected.txt: Added.
+
+2021-10-29  Martin Robinson  <mrobinson@webkit.org>
+
+        opacity should flatten when combined with transform-style: preserve-3d
+        https://bugs.webkit.org/show_bug.cgi?id=73267
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-transforms/preserve-3d-flat-grouping-properties-expected.txt: Update expectations to
+        show newly passing test.
+
+2021-10-28  Chris Dumez  <cdumez@apple.com>
+
+        Add stubs for the Web Locks API
+        https://bugs.webkit.org/show_bug.cgi?id=232438
+
+        Reviewed by Geoffrey Garen.
+
+        Rebaseline WPT tests now that more checks are passing or failing later on.
+
+        * web-platform-tests/web-locks/acquire.tentative.https.any-expected.txt:
+        * web-platform-tests/web-locks/acquire.tentative.https.any.worker-expected.txt:
+        * web-platform-tests/web-locks/clientids.tentative.https-expected.txt:
+        * web-platform-tests/web-locks/frames.tentative.https-expected.txt:
+        * web-platform-tests/web-locks/held.tentative.https.any-expected.txt:
+        * web-platform-tests/web-locks/held.tentative.https.any.worker-expected.txt:
+        * web-platform-tests/web-locks/idlharness.tentative.https.any-expected.txt:
+        * web-platform-tests/web-locks/idlharness.tentative.https.any.worker-expected.txt:
+        * web-platform-tests/web-locks/ifAvailable.tentative.https.any-expected.txt:
+        * web-platform-tests/web-locks/ifAvailable.tentative.https.any.worker-expected.txt:
+        * web-platform-tests/web-locks/lock-attributes.tentative.https.any-expected.txt:
+        * web-platform-tests/web-locks/lock-attributes.tentative.https.any.worker-expected.txt:
+        * web-platform-tests/web-locks/mode-exclusive.tentative.https.any-expected.txt:
+        * web-platform-tests/web-locks/mode-exclusive.tentative.https.any.worker-expected.txt:
+        * web-platform-tests/web-locks/mode-mixed.tentative.https.any-expected.txt:
+        * web-platform-tests/web-locks/mode-mixed.tentative.https.any.worker-expected.txt:
+        * web-platform-tests/web-locks/mode-shared.tentative.https.any-expected.txt:
+        * web-platform-tests/web-locks/mode-shared.tentative.https.any.worker-expected.txt:
+        * web-platform-tests/web-locks/opaque-origin.tentative.https-expected.txt:
+        * web-platform-tests/web-locks/query-empty.tentative.https.any-expected.txt:
+        * web-platform-tests/web-locks/query-empty.tentative.https.any.worker-expected.txt:
+        * web-platform-tests/web-locks/query-ordering.tentative.https-expected.txt:
+        * web-platform-tests/web-locks/query.tentative.https.any-expected.txt:
+        * web-platform-tests/web-locks/query.tentative.https.any.worker-expected.txt:
+        * web-platform-tests/web-locks/resource-names.tentative.https.any-expected.txt:
+        * web-platform-tests/web-locks/resource-names.tentative.https.any.worker-expected.txt:
+        * web-platform-tests/web-locks/secure-context.tentative.https.any-expected.txt:
+        * web-platform-tests/web-locks/secure-context.tentative.https.any.worker-expected.txt:
+        * web-platform-tests/web-locks/signal.tentative.https.any-expected.txt:
+        * web-platform-tests/web-locks/signal.tentative.https.any.worker-expected.txt:
+        * web-platform-tests/web-locks/steal.tentative.https.any-expected.txt:
+        * web-platform-tests/web-locks/steal.tentative.https.any.worker-expected.txt:
+        * web-platform-tests/web-locks/workers.tentative.https-expected.txt:
+
+2021-10-28  Chris Dumez  <cdumez@apple.com>
+
+        Resync web-platform-tests/dom from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=232441
+
+        Reviewed by Darin Adler.
+
+        Resync web-platform-tests/dom from upstream 038de3e0ddeaf9e.
+
+        * web-platform-tests/dom/*: Updated.
+
+2021-10-28  Chris Dumez  <cdumez@apple.com>
+
+        Import web-platform-tests/web-locks API tests from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=232406
+
+        Reviewed by Youenn Fablet.
+
+        Import web-platform-tests/web-locks API tests from upstream a8e7d294c626dceb6.
+
+        * resources/import-expectations.json:
+        * web-platform-tests/web-locks/*: Added.
+
+2021-10-28  Antti Koivisto  <antti@apple.com>
+
+        Support ::before and ::after pseudo elements after ::slotted
+        https://bugs.webkit.org/show_bug.cgi?id=178237
+
+        Reviewed by Ryosuke Niwa.
+
+        Update the tests from WPT repo.
+
+        * web-platform-tests/css/css-scoping/host-context-parsing-expected.txt: Added.
+        * web-platform-tests/css/css-scoping/host-context-parsing.html: Added.
+        * web-platform-tests/css/css-scoping/host-parsing-expected.txt: Added.
+        * web-platform-tests/css/css-scoping/host-parsing.html: Added.
+        * web-platform-tests/css/css-scoping/keyframes-001-expected.txt:
+        * web-platform-tests/css/css-scoping/shadow-shared-style-cache-001-expected.txt: Added.
+        * web-platform-tests/css/css-scoping/shadow-shared-style-cache-001.html: Added.
+        * web-platform-tests/css/css-scoping/slotted-link-expected.txt:
+        * web-platform-tests/css/css-scoping/slotted-parsing-expected.txt:
+        * web-platform-tests/css/css-scoping/slotted-parsing.html:
+        * web-platform-tests/css/css-scoping/w3c-import.log:
+
+2021-10-27  Kiet Ho  <tho22@apple.com>
+
+        Add discrete animation support between PathOperations
+        https://bugs.webkit.org/show_bug.cgi?id=232366
+
+        Reviewed by Simon Fraser.
+
+        Updated relevant test expectations.
+
+        * web-platform-tests/css/css-masking/animations/clip-path-composition-expected.txt:
+        * web-platform-tests/css/css-masking/animations/clip-path-interpolation-001-expected.txt:
+        * web-platform-tests/css/css-masking/animations/clip-path-interpolation-002-expected.txt:
+
+2021-10-27  Chris Dumez  <cdumez@apple.com>
+
+        autofocus IDL attribute should be exposed on all HTML or SVG elements
+        https://bugs.webkit.org/show_bug.cgi?id=232349
+
+        Reviewed by Darin Adler.
+
+        Rebaseline some WPT tests now that more checks are passing.
+
+        * web-platform-tests/html/dom/reflection-embedded-expected.txt:
+        * web-platform-tests/html/dom/reflection-grouping-expected.txt:
+        * web-platform-tests/html/dom/reflection-metadata-expected.txt:
+        * web-platform-tests/html/dom/reflection-misc-expected.txt:
+        * web-platform-tests/html/dom/reflection-obsolete-expected.txt:
+        * web-platform-tests/html/dom/reflection-sections-expected.txt:
+        * web-platform-tests/html/dom/reflection-tabular-expected.txt:
+        * web-platform-tests/html/dom/reflection-text-expected.txt:
+        * web-platform-tests/html/interaction/focus/the-autofocus-attribute/supported-elements-expected.txt:
+        * web-platform-tests/svg/struct/scripted/autofocus-attribute-expected.txt:
+
+2021-10-27  Kate Cheney  <katherine_cheney@apple.com>
+
+        REGRESSION (r284650-284661): [iOS15 Sim] imported/w3c/web-platform-tests/content-security-policy/script-src/script-src-multiple-policies-multiple-hashing-algorithms.html is a text failure
+        https://bugs.webkit.org/show_bug.cgi?id=232120
+        <rdar://problem/84529888>
+
+        Reviewed by Brent Fulgham.
+
+        * web-platform-tests/content-security-policy/script-src/script-src-multiple-policies-multiple-hashing-algorithms-expected.txt:
+
+2021-10-27  Chris Dumez  <cdumez@apple.com>
+
+        JavaScript URL result should be treated as UTF-8 bytes
+        https://bugs.webkit.org/show_bug.cgi?id=232380
+
+        Reviewed by Darin Adler.
+
+        Rebaseline WPT test now that more checks are passing. The remaining failures are due to the fact that we ignore the JavaScript URL result
+        when the URL is set as href on an anchor (as opposed to the src of an iframe). This will be addressed separately.
+
+        * web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/javascript-url-return-value-handling-dynamic-expected.txt:
+
+2021-10-26  Chris Dumez  <cdumez@apple.com>
+
+        Changing the src attribute of the <img> element inside an ImageDocument does not trigger a load
+        https://bugs.webkit.org/show_bug.cgi?id=232323
+
+        Reviewed by Alex Christensen.
+
+        Rebaseline test that is now passing.
+
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/decode/image-decode-image-document-expected.txt:
+
+2021-10-26  Chris Dumez  <cdumez@apple.com>
+
+        error event should be fired at <style> element when @import rule fails parsing due to MIME type
+        https://bugs.webkit.org/show_bug.cgi?id=232313
+
+        Reviewed by Darin Adler.
+
+        Rebaseline WPT tests now that more checks are passing.
+
+        * web-platform-tests/html/semantics/document-metadata/the-link-element/link-load-error-events-expected.txt:
+        * web-platform-tests/html/semantics/document-metadata/the-link-element/link-load-error-events.https-expected.txt:
+        * web-platform-tests/html/semantics/document-metadata/the-link-element/link-style-error-01-expected.txt:
+        * web-platform-tests/html/semantics/document-metadata/the-link-element/link-style-error-limited-quirks-expected.txt:
+        * web-platform-tests/html/semantics/document-metadata/the-link-element/link-style-error-quirks-expected.txt:
+        * web-platform-tests/html/semantics/document-metadata/the-style-element/style-error-01-expected.txt:
+
+2021-10-26  Chris Dumez  <cdumez@apple.com>
+
+        html/semantics/embedded-content/the-img-element/adoption.html is timing out
+        https://bugs.webkit.org/show_bug.cgi?id=232320
+
+        Reviewed by Darin Adler.
+
+        Rebaseline WPT test that is now passing.
+
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/adoption-expected.txt:
+
+2021-10-26  Chris Dumez  <cdumez@apple.com>
+
+        <link> elements should be able to fire more than one load / error event
+        https://bugs.webkit.org/show_bug.cgi?id=232309
+
+        Reviewed by Darin Adler.
+
+        Rebaseline WPT tests that are now passing.
+
+        * web-platform-tests/html/semantics/document-metadata/the-link-element/link-multiple-error-events-expected.txt:
+        * web-platform-tests/html/semantics/document-metadata/the-link-element/link-multiple-load-events-expected.txt:
+
+2021-10-26  Ziran Sun  <zsun@igalia.com>
+
+        Fix CSS serialization affecting grid-auto-flow
+        https://bugs.webkit.org/show_bug.cgi?id=232240
+
+        Reviewed by Sergio Villar Senin.
+
+        Update the following test and expectation files -
+        * LayoutTests/fast/css-grid-layout/grid-auto-flow-get-set-expected.txt:
+        * LayoutTests/fast/css-grid-layout/grid-auto-flow-get-set.html:
+        * LayoutTests/fast/css-grid-layout/grid-shorthand-get-set-expected.txt:
+        * LayoutTests/fast/css-grid-layout/grid-shorthand-get-set.html:
+        * web-platform-tests/css/css-grid/grid-layout-properties-expected.txt:
+        * web-platform-tests/css/css-grid/parsing/grid-auto-flow-computed-expected.txt:
+        * web-platform-tests/css/css-grid/parsing/grid-auto-flow-valid-expected.txt:
+        * web-platform-tests/css/css-typed-om/the-stylepropertymap/properties/grid-auto-flow.html:
+
+2021-10-26  Martin Robinson  <mrobinson@webkit.org>
+
+        Update import of css/css-transform WPT tests
+        https://bugs.webkit.org/show_bug.cgi?id=231799
+
+        Reviewed by Simon Fraser.
+
+        Update CSS transform tests from WPT upstream.
+
+        * resources/import-expectations.json:
+        * resources/resource-files.json:
+        * web-platform-tests/css/css-transforms/2d-rotate-001.html:
+        * web-platform-tests/css/css-transforms/animation/rotate-composition-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/rotate-composition.html:
+        * web-platform-tests/css/css-transforms/animation/rotate-transform-equivalent.html:
+        * web-platform-tests/css/css-transforms/animation/scale-composition-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/scale-composition.html:
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-001.html:
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-computed-value.html:
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-rotate.html:
+        * web-platform-tests/css/css-transforms/animation/translate-composition-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/translate-composition.html:
+        * web-platform-tests/css/css-transforms/animation/w3c-import.log:
+        * web-platform-tests/css/css-transforms/backface-visibility-001.html:
+        * web-platform-tests/css/css-transforms/backface-visibility-hidden-001.html:
+        * web-platform-tests/css/css-transforms/crashtests/large-scale3d-001.html: Added.
+        * web-platform-tests/css/css-transforms/crashtests/w3c-import.log:
+        * web-platform-tests/css/css-transforms/css-skew-002.html:
+        * web-platform-tests/css/css-transforms/css-transforms-transformlist.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-001-expected.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-001.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-002-expected.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-002.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-003-expected.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-003.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-004-expected.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-004.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-005-expected.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-005.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-006-expected.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-006.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-007-expected.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-007.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-008-expected.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-008.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-009-expected.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-009.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-010-expected.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-010.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-011-expected.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-011.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-012-expected.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-012.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-013-expected.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-013.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-014-expected.html:
+        * web-platform-tests/css/css-transforms/document-styles/svg-document-styles-014.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-001-expected.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-001.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-002-expected.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-002.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-003-expected.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-003.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-004-expected.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-004.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-005-expected.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-005.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-006-expected.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-006.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-007-expected.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-007.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-008-expected.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-008.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-009-expected.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-009.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-010-expected.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-010.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-011-expected.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-011.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-013-expected.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-013.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-014-expected.html:
+        * web-platform-tests/css/css-transforms/external-styles/svg-external-styles-014.html:
+        * web-platform-tests/css/css-transforms/gradientTransform/svg-gradientTransform-001.html:
+        * web-platform-tests/css/css-transforms/gradientTransform/svg-gradientTransform-combination-001.html:
+        * web-platform-tests/css/css-transforms/gradientTransform/svg-gradientTransform-combination-003.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-group-002.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-group-005.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-group-006.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-group-011.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-nested-005.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-nested-006.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-nested-009.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-nested-012.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-nested-015.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-nested-016.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-nested-018.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-nested-020.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-nested-021.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-nested-022.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-nested-023.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-nested-024.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-nested-025.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-nested-026.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-nested-027.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-nested-028.html:
+        * web-platform-tests/css/css-transforms/group/svg-transform-nested-029.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-001-expected.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-001.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-002-expected.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-002.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-003-expected.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-003.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-004-expected.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-004.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-005-expected.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-005.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-006-expected.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-006.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-007-expected.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-007.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-008-expected.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-008.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-009-expected.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-009.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-010-expected.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-010.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-011-expected.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-011.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-012-expected.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-012.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-013-expected.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-013.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-014-expected.html:
+        * web-platform-tests/css/css-transforms/inline-styles/svg-inline-styles-014.html:
+        * web-platform-tests/css/css-transforms/matrix/svg-matrix-036.html:
+        * web-platform-tests/css/css-transforms/matrix/svg-matrix-037.html:
+        * web-platform-tests/css/css-transforms/matrix/svg-matrix-038.html:
+        * web-platform-tests/css/css-transforms/matrix/svg-matrix-039.html:
+        * web-platform-tests/css/css-transforms/matrix/svg-matrix-040.html:
+        * web-platform-tests/css/css-transforms/matrix/svg-matrix-041.html:
+        * web-platform-tests/css/css-transforms/matrix/svg-matrix-042.html:
+        * web-platform-tests/css/css-transforms/matrix/svg-matrix-043.html:
+        * web-platform-tests/css/css-transforms/matrix/svg-matrix-044.html:
+        * web-platform-tests/css/css-transforms/matrix/svg-matrix-045.html:
+        * web-platform-tests/css/css-transforms/matrix/svg-matrix-046.html:
+        * web-platform-tests/css/css-transforms/matrix/svg-matrix-047.html:
+        * web-platform-tests/css/css-transforms/matrix/svg-matrix-048.html:
+        * web-platform-tests/css/css-transforms/matrix/svg-matrix-064.html:
+        * web-platform-tests/css/css-transforms/matrix/svg-matrix-065.html:
+        * web-platform-tests/css/css-transforms/matrix/svg-matrix-068.html:
+        * web-platform-tests/css/css-transforms/matrix/svg-matrix-069.html:
+        * web-platform-tests/css/css-transforms/perspective-transforms-equivalence.html:
+        * web-platform-tests/css/css-transforms/preserve-3d-flat-grouping-properties-containing-block.html:
+        * web-platform-tests/css/css-transforms/preserve-3d-flat-grouping-properties-expected.txt:
+        * web-platform-tests/css/css-transforms/preserve-3d-flat-grouping-properties.html:
+        * web-platform-tests/css/css-transforms/rotate/svg-rotate-3args-invalid-001.html:
+        * web-platform-tests/css/css-transforms/rotate/svg-rotate-3args-invalid-002.html:
+        * web-platform-tests/css/css-transforms/rotate/svg-rotate-3args-invalid-003.html:
+        * web-platform-tests/css/css-transforms/rotate/svg-rotate-3args-invalid-004.html:
+        * web-platform-tests/css/css-transforms/rotate/svg-rotate-3args-invalid-005.html:
+        * web-platform-tests/css/css-transforms/rotate_45deg.html:
+        * web-platform-tests/css/css-transforms/rotate_x_45deg.html:
+        * web-platform-tests/css/css-transforms/rotate_y_45deg.html:
+        * web-platform-tests/css/css-transforms/skew-test1-expected.html:
+        * web-platform-tests/css/css-transforms/skew-test1.html:
+        * web-platform-tests/css/css-transforms/transform-3d-rotateY-stair-below-001.xht:
+        * web-platform-tests/css/css-transforms/transform-3d-scales-different-x-y-dynamic-001.html:
+        * web-platform-tests/css/css-transforms/transform-applies-to-002.xht:
+        * web-platform-tests/css/css-transforms/transform-background-001.html:
+        * web-platform-tests/css/css-transforms/transform-background-002.html:
+        * web-platform-tests/css/css-transforms/transform-background-005.html:
+        * web-platform-tests/css/css-transforms/transform-background-007.html:
+        * web-platform-tests/css/css-transforms/transform-background-008.html:
+        * web-platform-tests/css/css-transforms/transform-box/view-box-mutation-003.html:
+        * web-platform-tests/css/css-transforms/transform-fixed-bg-001-expected.html:
+        * web-platform-tests/css/css-transforms/transform-fixed-bg-001.html:
+        * web-platform-tests/css/css-transforms/transform-fixed-bg-002-expected.html:
+        * web-platform-tests/css/css-transforms/transform-fixed-bg-002.html:
+        * web-platform-tests/css/css-transforms/transform-fixed-bg-003-expected.html:
+        * web-platform-tests/css/css-transforms/transform-fixed-bg-003.html:
+        * web-platform-tests/css/css-transforms/transform-fixed-bg-004-expected.html:
+        * web-platform-tests/css/css-transforms/transform-fixed-bg-004.html:
+        * web-platform-tests/css/css-transforms/transform-fixed-bg-005-expected.html:
+        * web-platform-tests/css/css-transforms/transform-fixed-bg-005.html:
+        * web-platform-tests/css/css-transforms/transform-fixed-bg-006-expected.html:
+        * web-platform-tests/css/css-transforms/transform-fixed-bg-006.html:
+        * web-platform-tests/css/css-transforms/transform-fixed-bg-007-expected.html:
+        * web-platform-tests/css/css-transforms/transform-fixed-bg-007.html:
+        * web-platform-tests/css/css-transforms/transform-getBoundingClientRect-001-expected.txt: Added.
+        * web-platform-tests/css/css-transforms/transform-getBoundingClientRect-001.html: Added.
+        * web-platform-tests/css/css-transforms/transform-image-001.html:
+        * web-platform-tests/css/css-transforms/transform-input-001.html:
+        * web-platform-tests/css/css-transforms/transform-input-002.html:
+        * web-platform-tests/css/css-transforms/transform-input-003.html:
+        * web-platform-tests/css/css-transforms/transform-input-004.html:
+        * web-platform-tests/css/css-transforms/transform-input-005.html:
+        * web-platform-tests/css/css-transforms/transform-input-006.html:
+        * web-platform-tests/css/css-transforms/transform-input-007.html:
+        * web-platform-tests/css/css-transforms/transform-input-008.html:
+        * web-platform-tests/css/css-transforms/transform-input-009.html:
+        * web-platform-tests/css/css-transforms/transform-input-010.html:
+        * web-platform-tests/css/css-transforms/transform-input-011.html:
+        * web-platform-tests/css/css-transforms/transform-input-012.html:
+        * web-platform-tests/css/css-transforms/transform-input-013.html:
+        * web-platform-tests/css/css-transforms/transform-input-014.html:
+        * web-platform-tests/css/css-transforms/transform-input-016.html:
+        * web-platform-tests/css/css-transforms/transform-input-019.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-001-expected.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-001.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-002-expected.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-002.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-003-expected.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-003.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-004-expected.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-004.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-005-expected.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-005.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-006-expected.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-006.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-007-expected.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-007.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-008-expected.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-008.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-009-expected.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-009.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-010-expected.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-010.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-011-expected.html:
+        * web-platform-tests/css/css-transforms/transform-list-separation/svg-transform-list-separations-011.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-001-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-001.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-002-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-002.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-003-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-003.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-004-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-004.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-005-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-005.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-006-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-006.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-007-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-007.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-008-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-008.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-cm-001-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-cm-001.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-cm-002-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-cm-002.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-cm-003-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-cm-003.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-cm-004-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-cm-004.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-cm-005-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-cm-005.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-in-001-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-in-001.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-in-002-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-in-002.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-in-003-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-in-003.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-in-004-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-in-004.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-in-005-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-in-005.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-pt-001-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-pt-001.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-pt-002-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-pt-002.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-pt-003-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-pt-003.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-pt-004-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-pt-004.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-pt-005-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-length-pt-005.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-001-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-001.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-002-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-002.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-003-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-003.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-004-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-004.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-005-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-005.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-006-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-006.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-007-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-007.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-008-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-008.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-009-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-009.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-010-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-010.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-011-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-011.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-012-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-012.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-013-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-013.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-014-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-014.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-015-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-015.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-016-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-016.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-017-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-017.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-018-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-018.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-019-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-019.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-020-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-020.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-021-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-021.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-022-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-022.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-023-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-023.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-024-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-024.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-025-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-025.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-026-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-026.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-027-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-027.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-028-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-028.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-029-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-029.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-030-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-030.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-031-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-031.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-032-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-032.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-033-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-033.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-034-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-034.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-035-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-035.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-036-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-036.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-037-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-037.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-038-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-038.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-039-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-039.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-040-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-040.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-041-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-041.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-042-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-042.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-043-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-043.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-044-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-044.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-045-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-045.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-046-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-046.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-001-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-001.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-002-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-002.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-003-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-003.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-004-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-004.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-005-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-005.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-006-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-006.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-007-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-007.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-008-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-008.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-009-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-009.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-010-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-010.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-011-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-011.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-012-expected.html:
+        * web-platform-tests/css/css-transforms/transform-origin/svg-origin-relative-length-invalid-012.html:
+        * web-platform-tests/css/css-transforms/transform-percent-008.html:
+        * web-platform-tests/css/css-transforms/transform-root-bg-003-expected.html:
+        * web-platform-tests/css/css-transforms/transform-rotate-003.html:
+        * web-platform-tests/css/css-transforms/transform-rotate-004.html:
+        * web-platform-tests/css/css-transforms/transform-rotate-006.html:
+        * web-platform-tests/css/css-transforms/transform-rotate-007.html:
+        * web-platform-tests/css/css-transforms/transform-scale-001-expected.html:
+        * web-platform-tests/css/css-transforms/transform-scale-001.html:
+        * web-platform-tests/css/css-transforms/transform-scale-002-expected.html:
+        * web-platform-tests/css/css-transforms/transform-scale-002.html:
+        * web-platform-tests/css/css-transforms/transform-scaley-001-expected.html:
+        * web-platform-tests/css/css-transforms/transform-scaley-001.html:
+        * web-platform-tests/css/css-transforms/transform-table-008.html:
+        * web-platform-tests/css/css-transforms/transform-translatex-006-expected.html:
+        * web-platform-tests/css/css-transforms/transform-translatex-006.html:
+        * web-platform-tests/css/css-transforms/transform3d-rotatex-perspective-003.html:
+        * web-platform-tests/css/css-transforms/transforms-rotate-degree-45.html:
+        * web-platform-tests/css/css-transforms/transforms-skewX.html:
+        * web-platform-tests/css/css-transforms/transforms-skewY.html:
+        * web-platform-tests/css/css-transforms/ttwf-css-3d-polygon-cycle.html:
+        * web-platform-tests/css/css-transforms/ttwf-transform-skewx-001.html:
+        * web-platform-tests/css/css-transforms/ttwf-transform-skewy-001.html:
+        * web-platform-tests/css/css-transforms/ttwf-transform-translatex-001-expected.html:
+        * web-platform-tests/css/css-transforms/ttwf-transform-translatex-001.html:
+        * web-platform-tests/css/css-transforms/w3c-import.log:
+
+2021-10-26  Antti Koivisto  <antti@apple.com>
+
+        Fix ::part(foo):hover
+        https://bugs.webkit.org/show_bug.cgi?id=232301
+
+        Reviewed by Alan Bujtas.
+
+        * web-platform-tests/css/css-shadow-parts/interaction-with-nested-pseudo-class-expected.html: Added.
+        * web-platform-tests/css/css-shadow-parts/interaction-with-nested-pseudo-class.html: Added.
+        * web-platform-tests/css/css-shadow-parts/invalidation-part-pseudo-expected.txt: Added.
+        * web-platform-tests/css/css-shadow-parts/invalidation-part-pseudo.html: Added.
+        * web-platform-tests/css/css-shadow-parts/part-nested-pseudo-expected.html: Added.
+        * web-platform-tests/css/css-shadow-parts/part-nested-pseudo.html: Added.
+        * web-platform-tests/css/css-shadow-parts/w3c-import.log:
+
 2021-10-26  Antti Koivisto  <antti@apple.com>
 
         Serialize :part() argument as identifier

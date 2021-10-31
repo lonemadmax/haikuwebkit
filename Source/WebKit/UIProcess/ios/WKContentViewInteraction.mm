@@ -1028,6 +1028,9 @@ static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> se
     _needsDeferredEndScrollingSelectionUpdate = NO;
     _isChangingFocus = NO;
     _isBlurringFocusedElement = NO;
+#if USE(UICONTEXTMENU)
+    _isDisplayingContextMenuWithAnimation = NO;
+#endif
 
 #if USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS)
     _contextMenuWasTriggeredByImageAnalysisTimeout = NO;
@@ -2161,18 +2164,18 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
     // We check both the system preference and the page preference, because we only want this
     // to apply in "desktop" mode.
     if (preferences.preferFasterClickOverDoubleTap() && _page->preferFasterClickOverDoubleTap()) {
-        RELEASE_LOG(ViewGestures, "Potential tap found an element and fast taps are preferred. Trigger click. (%p)", self);
+        RELEASE_LOG(ViewGestures, "Potential tap found an element and fast taps are preferred. Trigger click. (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
         if (preferences.zoomOnDoubleTapWhenRoot() && nodeIsRootLevel) {
-            RELEASE_LOG(ViewGestures, "The click handler was on a root-level element, so don't disable double-tap. (%p)", self);
+            RELEASE_LOG(ViewGestures, "The click handler was on a root-level element, so don't disable double-tap. (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
             return;
         }
 
         if (preferences.alwaysZoomOnDoubleTap()) {
-            RELEASE_LOG(ViewGestures, "DTTZ is forced on, so don't disable double-tap. (%p)", self);
+            RELEASE_LOG(ViewGestures, "DTTZ is forced on, so don't disable double-tap. (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
             return;
         }
 
-        RELEASE_LOG(ViewGestures, "Give preference to click by disabling double-tap. (%p)", self);
+        RELEASE_LOG(ViewGestures, "Give preference to click by disabling double-tap. (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
         [self _setDoubleTapGesturesEnabled:NO];
         return;
     }
@@ -2180,11 +2183,11 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
     auto currentScale = self._contentZoomScale;
     auto targetScale = _smartMagnificationController->zoomFactorForTargetRect(renderRect, fitEntireRect, viewportMinimumScale, viewportMaximumScale);
     if (std::min(targetScale, currentScale) / std::max(targetScale, currentScale) > fasterTapSignificantZoomThreshold) {
-        RELEASE_LOG(ViewGestures, "Potential tap would not cause a significant zoom. Trigger click. (%p)", self);
+        RELEASE_LOG(ViewGestures, "Potential tap would not cause a significant zoom. Trigger click. (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
         [self _setDoubleTapGesturesEnabled:NO];
         return;
     }
-    RELEASE_LOG(ViewGestures, "Potential tap may cause significant zoom. Wait. (%p)", self);
+    RELEASE_LOG(ViewGestures, "Potential tap may cause significant zoom. Wait. (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
 }
 
 - (void)_cancelLongPressGestureRecognizer
@@ -3081,12 +3084,12 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
 - (void)_endPotentialTapAndEnableDoubleTapGesturesIfNecessary
 {
     if (self.webView._allowsDoubleTapGestures) {
-        RELEASE_LOG(ViewGestures, "ending potential tap - double taps are back. (%p)", self);
+        RELEASE_LOG(ViewGestures, "ending potential tap - double taps are back. (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
 
         [self _setDoubleTapGesturesEnabled:YES];
     }
 
-    RELEASE_LOG(ViewGestures, "Ending potential tap. (%p)", self);
+    RELEASE_LOG(ViewGestures, "Ending potential tap. (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
 
     _potentialTapInProgress = NO;
 }
@@ -3102,7 +3105,7 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
 
     bool shouldRequestMagnificationInformation = _page->preferences().fasterClicksEnabled();
     if (shouldRequestMagnificationInformation)
-        RELEASE_LOG(ViewGestures, "Single tap identified. Request details on potential zoom. (%p)", self);
+        RELEASE_LOG(ViewGestures, "Single tap identified. Request details on potential zoom. (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
 
     _page->potentialTapAtPosition(gestureRecognizer.location, shouldRequestMagnificationInformation, [self nextTapIdentifier]);
     _potentialTapInProgress = YES;
@@ -3125,7 +3128,7 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
     cancelPotentialTapIfNecessary(self);
     if (auto* singleTapTouchIdentifier = [_singleTapGestureRecognizer lastActiveTouchIdentifier]) {
         WebCore::PointerID pointerId = [singleTapTouchIdentifier unsignedIntValue];
-        if (m_commitPotentialTapPointerId != pointerId)
+        if (_commitPotentialTapPointerId != pointerId)
             _page->touchWithIdentifierWasRemoved(pointerId);
     }
 
@@ -3135,14 +3138,14 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
 
 - (void)_doubleTapDidFail:(UITapGestureRecognizer *)gestureRecognizer
 {
-    RELEASE_LOG(ViewGestures, "Double tap was not recognized. (%p)", self);
+    RELEASE_LOG(ViewGestures, "Double tap was not recognized. (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
     ASSERT(gestureRecognizer == _doubleTapGestureRecognizer);
 }
 
 - (void)_commitPotentialTapFailed
 {
-    _page->touchWithIdentifierWasRemoved(m_commitPotentialTapPointerId);
-    m_commitPotentialTapPointerId = 0;
+    _page->touchWithIdentifierWasRemoved(_commitPotentialTapPointerId);
+    _commitPotentialTapPointerId = 0;
 
     [self _cancelInteraction];
     
@@ -3162,10 +3165,10 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
 
 - (void)_didCompleteSyntheticClick
 {
-    _page->touchWithIdentifierWasRemoved(m_commitPotentialTapPointerId);
-    m_commitPotentialTapPointerId = 0;
+    _page->touchWithIdentifierWasRemoved(_commitPotentialTapPointerId);
+    _commitPotentialTapPointerId = 0;
 
-    RELEASE_LOG(ViewGestures, "Synthetic click completed. (%p)", self);
+    RELEASE_LOG(ViewGestures, "Synthetic click completed. (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
     [self _resetInputViewDeferral];
 }
 
@@ -3190,12 +3193,12 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
     if ([_inputPeripheral singleTapShouldEndEditing])
         [_inputPeripheral endEditing];
 
-    RELEASE_LOG(ViewGestures, "Single tap recognized - commit potential tap (%p)", self);
+    RELEASE_LOG(ViewGestures, "Single tap recognized - commit potential tap (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
 
     WebCore::PointerID pointerId = WebCore::mousePointerID;
     if (auto* singleTapTouchIdentifier = [_singleTapGestureRecognizer lastActiveTouchIdentifier]) {
         pointerId = [singleTapTouchIdentifier unsignedIntValue];
-        m_commitPotentialTapPointerId = pointerId;
+        _commitPotentialTapPointerId = pointerId;
     }
     _page->commitPotentialTap(WebKit::webEventModifierFlags(gestureRecognizer.modifierFlags), _layerTreeTransactionIdAtLastInteractionStart, pointerId);
 
@@ -3205,7 +3208,7 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
 
 - (void)_doubleTapRecognized:(UITapGestureRecognizer *)gestureRecognizer
 {
-    RELEASE_LOG(ViewGestures, "Identified a double tap (%p)", self);
+    RELEASE_LOG(ViewGestures, "Identified a double tap (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
 
     [self _resetIsDoubleTapPending];
     _lastInteractionLocation = gestureRecognizer.location;
@@ -7969,6 +7972,11 @@ static WebCore::DataOwnerType coreDataOwnerType(_UIDataOwner platformType)
             return YES;
 #endif
 
+#if ENABLE(IMAGE_ANALYSIS)
+        if (gestureRecognizer == _imageAnalysisGestureRecognizer || gestureRecognizer == _imageAnalysisTimeoutGestureRecognizer)
+            return YES;
+#endif
+
         if (gestureRecognizer._wk_isTapAndAHalf)
             return YES;
 
@@ -8625,6 +8633,8 @@ static RetainPtr<UITargetedPreview> createFallbackTargetedPreview(UIView *rootVi
     if (_contextMenuElementInfo)
         return;
 #endif
+    if (_isDisplayingContextMenuWithAnimation)
+        return;
 #if ENABLE(DATA_DETECTION)
     // We are also using this container for the action sheet assistant...
     if ([_actionSheetAssistant hasContextMenuInteraction])
@@ -10524,13 +10534,14 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
 #if HAVE(LINK_PREVIEW)
     if ([userInterfaceItem isEqualToString:@"contextMenu"]) {
-        if (self._shouldUseContextMenus)
+        if (self._shouldUseContextMenus) {
             return @{ userInterfaceItem: @{
                 @"url": _positionInformation.url.isValid() ? WTF::userVisibleString(_positionInformation.url) : @"",
                 @"isLink": [NSNumber numberWithBool:_positionInformation.isLink],
                 @"isImage": [NSNumber numberWithBool:_positionInformation.isImage],
                 @"imageURL": _positionInformation.imageURL.isValid() ? WTF::userVisibleString(_positionInformation.imageURL) : @""
             } };
+        }
         NSString *url = [_previewItemController previewData][UIPreviewDataLink];
         return @{ userInterfaceItem: @{
             @"url": url,
@@ -11132,9 +11143,19 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
 {
     if (!_webView)
         return;
+
+    _isDisplayingContextMenuWithAnimation = YES;
+    [animator addCompletion:[weakSelf = WeakObjCPtr<WKContentView>(self)] {
+        if (auto strongSelf = weakSelf.get()) {
+            ASSERT_IMPLIES(strongSelf->_isDisplayingContextMenuWithAnimation, [strongSelf->_contextMenuHintContainerView window]);
+            strongSelf->_isDisplayingContextMenuWithAnimation = NO;
+        }
+    }];
+
     auto uiDelegate = static_cast<id<WKUIDelegatePrivate>>(self.webView.UIDelegate);
     if (!uiDelegate)
         return;
+
     if ([uiDelegate respondsToSelector:@selector(webView:contextMenuWillPresentForElement:)])
         [uiDelegate webView:self.webView contextMenuWillPresentForElement:_contextMenuElementInfo.get()];
     else if ([uiDelegate respondsToSelector:@selector(_webView:contextMenuWillPresentForElement:)]) {
@@ -11293,6 +11314,8 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
         auto strongSelf = weakSelf.get();
         if (!strongSelf)
             return;
+
+        strongSelf->_isDisplayingContextMenuWithAnimation = NO;
         [strongSelf _removeContextMenuHintContainerIfPossible];
         [strongSelf->_webView _didDismissContextMenu];
     }];

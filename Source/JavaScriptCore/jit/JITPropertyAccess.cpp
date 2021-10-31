@@ -72,16 +72,14 @@ void JIT::emit_op_get_by_val(const Instruction* currentInstruction)
         emitArrayProfilingSiteWithCell(bytecode, baseJSR.payloadGPR(), scratchGPR);
 
         JITGetByValGenerator gen(
-            nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::GetByVal, RegisterSet::stubUnavailableRegisters(),
+            nullptr, nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::GetByVal, RegisterSet::stubUnavailableRegisters(),
             baseJSR, propertyJSR, resultJSR, stubInfoGPR);
 
-        if (isOperandConstantInt(property))
-            gen.stubInfo()->propertyIsInt32 = true;
-
-        UnlinkedStructureStubInfo* stubInfo = m_unlinkedStubInfos.add();
+        auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
         stubInfo->accessType = AccessType::GetByVal;
         stubInfo->bytecodeIndex = m_bytecodeIndex;
-        JITConstantPool::Constant stubInfoIndex = addToConstantPool(JITConstantPool::Type::StructureStubInfo, stubInfo);
+        if (isOperandConstantInt(property))
+            stubInfo->propertyIsInt32 = true;
         gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
         gen.m_unlinkedStubInfo = stubInfo;
 
@@ -149,7 +147,6 @@ void JIT::generateGetByValSlowCase(const OpcodeType& bytecode, Vector<SlowCaseEn
     loadConstant(gen.m_unlinkedStubInfoConstantIndex, stubInfoGPR);
     materializePointerIntoMetadata(bytecode, OpcodeType::Metadata::offsetOfArrayProfile(), profileGPR);
     emitNakedNearCall(vm.getCTIStub(slow_op_get_by_val_prepareCallGenerator).retaggedCode<NoPtrTag>());
-
     emitNakedNearCall(vm.getCTIStub(checkExceptionGenerator).retaggedCode<NoPtrTag>());
 
     emitValueProfilingSite(bytecode, returnValueGPR);
@@ -221,13 +218,12 @@ void JIT::emit_op_get_private_name(const Instruction* currentInstruction)
     emitJumpSlowCaseIfNotJSCell(baseJSR, base);
 
     JITGetByValGenerator gen(
-        nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::GetPrivateName,
+        nullptr, nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::GetPrivateName,
         RegisterSet::stubUnavailableRegisters(), baseJSR, propertyJSR, resultJSR, stubInfoGPR);
 
-    UnlinkedStructureStubInfo* stubInfo = m_unlinkedStubInfos.add();
+    auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
     stubInfo->accessType = AccessType::GetPrivateName;
     stubInfo->bytecodeIndex = m_bytecodeIndex;
-    JITConstantPool::Constant stubInfoIndex = addToConstantPool(JITConstantPool::Type::StructureStubInfo, stubInfo);
     gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
     gen.m_unlinkedStubInfo = stubInfo;
 
@@ -344,13 +340,12 @@ void JIT::emit_op_set_private_brand(const Instruction* currentInstruction)
     emitJumpSlowCaseIfNotJSCell(baseJSR, base);
 
     JITPrivateBrandAccessGenerator gen(
-        nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::SetPrivateBrand, RegisterSet::stubUnavailableRegisters(),
+        nullptr, nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::SetPrivateBrand, RegisterSet::stubUnavailableRegisters(),
         baseJSR, brandJSR, stubInfoGPR);
 
-    UnlinkedStructureStubInfo* stubInfo = m_unlinkedStubInfos.add();
+    auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
     stubInfo->accessType = AccessType::SetPrivateBrand;
     stubInfo->bytecodeIndex = m_bytecodeIndex;
-    JITConstantPool::Constant stubInfoIndex = addToConstantPool(JITConstantPool::Type::StructureStubInfo, stubInfo);
     gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
     gen.m_unlinkedStubInfo = stubInfo;
 
@@ -429,13 +424,12 @@ void JIT::emit_op_check_private_brand(const Instruction* currentInstruction)
     emitJumpSlowCaseIfNotJSCell(baseJSR, base);
 
     JITPrivateBrandAccessGenerator gen(
-        nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::CheckPrivateBrand, RegisterSet::stubUnavailableRegisters(),
+        nullptr, nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::CheckPrivateBrand, RegisterSet::stubUnavailableRegisters(),
         baseJSR, brandJSR, stubInfoGPR);
 
-    UnlinkedStructureStubInfo* stubInfo = m_unlinkedStubInfos.add();
+    auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
     stubInfo->accessType = AccessType::CheckPrivateBrand;
     stubInfo->bytecodeIndex = m_bytecodeIndex;
-    JITConstantPool::Constant stubInfoIndex = addToConstantPool(JITConstantPool::Type::StructureStubInfo, stubInfo);
     gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
     gen.m_unlinkedStubInfo = stubInfo;
 
@@ -514,18 +508,16 @@ void JIT::emit_op_put_by_val(const Instruction* currentInstruction)
     materializePointerIntoMetadata(bytecode, Op::Metadata::offsetOfArrayProfile(), profileGPR);
 
     JITPutByValGenerator gen(
-        nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::PutByVal, RegisterSet::stubUnavailableRegisters(),
+        nullptr, nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::PutByVal, RegisterSet::stubUnavailableRegisters(),
         baseJSR, propertyJSR, valueJSR, profileGPR, stubInfoGPR);
 
-    if (isOperandConstantInt(property))
-        gen.stubInfo()->propertyIsInt32 = true;
-
-    UnlinkedStructureStubInfo* stubInfo = m_unlinkedStubInfos.add();
+    auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
     stubInfo->accessType = AccessType::PutByVal;
     stubInfo->putKind = std::is_same_v<Op, OpPutByValDirect> ? PutKind::Direct : PutKind::NotDirect;
     stubInfo->ecmaMode = ecmaMode(bytecode);
     stubInfo->bytecodeIndex = m_bytecodeIndex;
-    JITConstantPool::Constant stubInfoIndex = addToConstantPool(JITConstantPool::Type::StructureStubInfo, stubInfo);
+    if (isOperandConstantInt(property))
+        stubInfo->propertyIsInt32 = true;
     gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
     gen.m_unlinkedStubInfo = stubInfo;
 
@@ -609,12 +601,6 @@ void JIT::emitSlow_op_put_by_val(const Instruction* currentInstruction, Vector<S
     move(TrustedImm32(bytecodeOffset), bytecodeOffsetGPR);
     loadConstant(gen.m_unlinkedStubInfoConstantIndex, stubInfoGPR);
     emitNakedNearCall(vm.getCTIStub(slow_op_put_by_val_prepareCallGenerator).retaggedCode<NoPtrTag>());
-    Call call;
-    auto operation = isDirect ? (ecmaMode.isStrict() ? operationDirectPutByValStrictOptimize : operationDirectPutByValNonStrictOptimize) : (ecmaMode.isStrict() ? operationPutByValStrictOptimize : operationPutByValNonStrictOptimize);
-    if (JITCode::useDataIC(JITType::BaselineJIT))
-        gen.stubInfo()->m_slowOperation = operation;
-    else
-        call = appendCall(operation);
     emitNakedNearCall(vm.getCTIStub(checkExceptionGenerator).retaggedCode<NoPtrTag>());
 #endif // ENABLE(EXTRA_CTI_THUNKS)
 
@@ -683,14 +669,13 @@ void JIT::emit_op_put_private_name(const Instruction* currentInstruction)
     emitJumpSlowCaseIfNotJSCell(baseJSR, base);
 
     JITPutByValGenerator gen(
-        nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::PutPrivateName, RegisterSet::stubUnavailableRegisters(),
+        nullptr, nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::PutPrivateName, RegisterSet::stubUnavailableRegisters(),
         baseJSR, propertyJSR, valueJSR, InvalidGPRReg, stubInfoGPR);
 
-    UnlinkedStructureStubInfo* stubInfo = m_unlinkedStubInfos.add();
+    auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
     stubInfo->accessType = AccessType::PutPrivateName;
     stubInfo->privateFieldPutKind = bytecode.m_putKind;
     stubInfo->bytecodeIndex = m_bytecodeIndex;
-    JITConstantPool::Constant stubInfoIndex = addToConstantPool(JITConstantPool::Type::StructureStubInfo, stubInfo);
     gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
     gen.m_unlinkedStubInfo = stubInfo;
 
@@ -862,14 +847,13 @@ void JIT::emit_op_del_by_id(const Instruction* currentInstruction)
     emitGetVirtualRegister(base, baseJSR);
     emitJumpSlowCaseIfNotJSCell(baseJSR, base);
     JITDelByIdGenerator gen(
-        nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
+        nullptr, nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
         CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_unlinkedCodeBlock, *ident),
         baseJSR, resultJSR, stubInfoGPR, scratchGPR);
 
-    UnlinkedStructureStubInfo* stubInfo = m_unlinkedStubInfos.add();
+    auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
     stubInfo->accessType = AccessType::DeleteByID;
     stubInfo->bytecodeIndex = m_bytecodeIndex;
-    JITConstantPool::Constant stubInfoIndex = addToConstantPool(JITConstantPool::Type::StructureStubInfo, stubInfo);
     gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
     gen.m_unlinkedStubInfo = stubInfo;
 
@@ -931,7 +915,6 @@ void JIT::emitSlow_op_del_by_id(const Instruction* currentInstruction, Vector<Sl
     move(TrustedImmPtr(CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_unlinkedCodeBlock, *ident).rawBits()), propertyGPR);
     move(TrustedImm32(bytecode.m_ecmaMode.value()), ecmaModeGPR);
     emitNakedNearCall(vm.getCTIStub(slow_op_del_by_id_prepareCallGenerator).retaggedCode<NoPtrTag>());
-
     emitNakedNearCall(vm.getCTIStub(checkExceptionGenerator).retaggedCode<NoPtrTag>());
     static_assert(returnValueGPR == regT0);
 #endif // ENABLE(EXTRA_CTI_THUNKS)
@@ -1000,13 +983,12 @@ void JIT::emit_op_del_by_val(const Instruction* currentInstruction)
     emitJumpSlowCaseIfNotJSCell(propertyJSR, property);
 
     JITDelByValGenerator gen(
-        nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
+        nullptr, nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
         baseJSR, propertyJSR, resultJSR, stubInfoGPR, scratchGPR);
 
-    UnlinkedStructureStubInfo* stubInfo = m_unlinkedStubInfos.add();
+    auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
     stubInfo->accessType = AccessType::DeleteByVal;
     stubInfo->bytecodeIndex = m_bytecodeIndex;
-    JITConstantPool::Constant stubInfoIndex = addToConstantPool(JITConstantPool::Type::StructureStubInfo, stubInfo);
     gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
     gen.m_unlinkedStubInfo = stubInfo;
 
@@ -1069,7 +1051,6 @@ void JIT::emitSlow_op_del_by_val(const Instruction* currentInstruction, Vector<S
     emitGetVirtualRegister(property, propertyGPR);
     move(TrustedImm32(bytecode.m_ecmaMode.value()), ecmaModeGPR);
     emitNakedNearCall(vm.getCTIStub(slow_op_del_by_val_prepareCallGenerator).retaggedCode<NoPtrTag>());
-
     emitNakedNearCall(vm.getCTIStub(checkExceptionGenerator).retaggedCode<NoPtrTag>());
     static_assert(returnValueGPR == regT0);
 #endif // ENABLE(EXTRA_CTI_THUNKS)
@@ -1134,13 +1115,12 @@ void JIT::emit_op_try_get_by_id(const Instruction* currentInstruction)
     emitJumpSlowCaseIfNotJSCell(baseJSR, baseVReg);
 
     JITGetByIdGenerator gen(
-        nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
+        nullptr, nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
         CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_unlinkedCodeBlock, *ident), baseJSR, resultJSR, stubInfoGPR, AccessType::TryGetById);
 
-    UnlinkedStructureStubInfo* stubInfo = m_unlinkedStubInfos.add();
+    auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
     stubInfo->accessType = AccessType::TryGetById;
     stubInfo->bytecodeIndex = m_bytecodeIndex;
-    JITConstantPool::Constant stubInfoIndex = addToConstantPool(JITConstantPool::Type::StructureStubInfo, stubInfo);
     gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
     gen.m_unlinkedStubInfo = stubInfo;
 
@@ -1218,13 +1198,12 @@ void JIT::emit_op_get_by_id_direct(const Instruction* currentInstruction)
     emitJumpSlowCaseIfNotJSCell(baseJSR, baseVReg);
 
     JITGetByIdGenerator gen(
-        nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
+        nullptr, nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
         CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_unlinkedCodeBlock, *ident), baseJSR, resultJSR, stubInfoGPR, AccessType::GetByIdDirect);
 
-    UnlinkedStructureStubInfo* stubInfo = m_unlinkedStubInfos.add();
+    auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
     stubInfo->accessType = AccessType::GetByIdDirect;
     stubInfo->bytecodeIndex = m_bytecodeIndex;
-    JITConstantPool::Constant stubInfoIndex = addToConstantPool(JITConstantPool::Type::StructureStubInfo, stubInfo);
     gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
     gen.m_unlinkedStubInfo = stubInfo;
 
@@ -1315,13 +1294,12 @@ void JIT::emit_op_get_by_id(const Instruction* currentInstruction)
     }
 
     JITGetByIdGenerator gen(
-        nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
+        nullptr, nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
         CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_unlinkedCodeBlock, *ident), baseJSR, resultJSR, stubInfoGPR, AccessType::GetById);
 
-    UnlinkedStructureStubInfo* stubInfo = m_unlinkedStubInfos.add();
+    auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
     stubInfo->accessType = AccessType::GetById;
     stubInfo->bytecodeIndex = m_bytecodeIndex;
-    JITConstantPool::Constant stubInfoIndex = addToConstantPool(JITConstantPool::Type::StructureStubInfo, stubInfo);
     gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
     gen.m_unlinkedStubInfo = stubInfo;
 
@@ -1405,13 +1383,12 @@ void JIT::emit_op_get_by_id_with_this(const Instruction* currentInstruction)
     emitJumpSlowCaseIfNotJSCell(thisJSR, thisVReg);
 
     JITGetByIdWithThisGenerator gen(
-        nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
+        nullptr, nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
         CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_unlinkedCodeBlock, *ident), resultJSR, baseJSR, thisJSR, stubInfoGPR);
 
-    UnlinkedStructureStubInfo* stubInfo = m_unlinkedStubInfos.add();
+    auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
     stubInfo->accessType = AccessType::GetByIdWithThis;
     stubInfo->bytecodeIndex = m_bytecodeIndex;
-    JITConstantPool::Constant stubInfoIndex = addToConstantPool(JITConstantPool::Type::StructureStubInfo, stubInfo);
     gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
     gen.m_unlinkedStubInfo = stubInfo;
 
@@ -1586,17 +1563,16 @@ void JIT::emit_op_put_by_id(const Instruction* currentInstruction)
     emitJumpSlowCaseIfNotJSCell(baseJSR, baseVReg);
 
     JITPutByIdGenerator gen(
-        nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
+        nullptr, nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
         CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_unlinkedCodeBlock, *ident),
         baseJSR, valueJSR, stubInfoGPR, scratchGPR, ecmaMode(bytecode),
         direct ? PutKind::Direct : PutKind::NotDirect);
 
-    UnlinkedStructureStubInfo* stubInfo = m_unlinkedStubInfos.add();
+    auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
     stubInfo->accessType = AccessType::PutById;
     stubInfo->putKind = direct ? PutKind::Direct : PutKind::NotDirect;
     stubInfo->ecmaMode = ecmaMode(bytecode);
     stubInfo->bytecodeIndex = m_bytecodeIndex;
-    JITConstantPool::Constant stubInfoIndex = addToConstantPool(JITConstantPool::Type::StructureStubInfo, stubInfo);
     gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
     gen.m_unlinkedStubInfo = stubInfo;
 
@@ -1715,13 +1691,12 @@ void JIT::emit_op_in_by_id(const Instruction* currentInstruction)
     emitJumpSlowCaseIfNotJSCell(baseJSR, baseVReg);
 
     JITInByIdGenerator gen(
-        nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
+        nullptr, nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), RegisterSet::stubUnavailableRegisters(),
         CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_unlinkedCodeBlock, *ident), baseJSR, resultJSR, stubInfoGPR);
 
-    UnlinkedStructureStubInfo* stubInfo = m_unlinkedStubInfos.add();
+    auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
     stubInfo->accessType = AccessType::InById;
     stubInfo->bytecodeIndex = m_bytecodeIndex;
-    JITConstantPool::Constant stubInfoIndex = addToConstantPool(JITConstantPool::Type::StructureStubInfo, stubInfo);
     gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
     gen.m_unlinkedStubInfo = stubInfo;
 
@@ -1804,13 +1779,12 @@ void JIT::emit_op_in_by_val(const Instruction* currentInstruction)
     emitArrayProfilingSiteWithCell(bytecode, baseJSR.payloadGPR(), scratchGPR);
 
     JITInByValGenerator gen(
-        nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::InByVal, RegisterSet::stubUnavailableRegisters(),
+        nullptr, nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::InByVal, RegisterSet::stubUnavailableRegisters(),
         baseJSR, propertyJSR, resultJSR, stubInfoGPR);
 
-    UnlinkedStructureStubInfo* stubInfo = m_unlinkedStubInfos.add();
+    auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
     stubInfo->accessType = AccessType::InByVal;
     stubInfo->bytecodeIndex = m_bytecodeIndex;
-    JITConstantPool::Constant stubInfoIndex = addToConstantPool(JITConstantPool::Type::StructureStubInfo, stubInfo);
     gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
     gen.m_unlinkedStubInfo = stubInfo;
 
@@ -1870,7 +1844,6 @@ void JIT::emitSlow_op_in_by_val(const Instruction* currentInstruction, Vector<Sl
     // So, there's no point in creating a duplicate thunk just to give it a different name.
     static_assert(std::is_same<decltype(operationInByValOptimize), decltype(operationGetByValOptimize)>::value);
     emitNakedNearCall(vm.getCTIStub(slow_op_get_by_val_prepareCallGenerator).retaggedCode<NoPtrTag>());
-
     emitNakedNearCall(vm.getCTIStub(checkExceptionGenerator).retaggedCode<NoPtrTag>());
 
     emitPutVirtualRegister(dst, returnValueGPR);
@@ -1891,13 +1864,12 @@ void JIT::emitHasPrivate(VirtualRegister dst, VirtualRegister base, VirtualRegis
     emitJumpSlowCaseIfNotJSCell(baseJSR, base);
 
     JITInByValGenerator gen(
-        nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), type, RegisterSet::stubUnavailableRegisters(),
+        nullptr, nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), type, RegisterSet::stubUnavailableRegisters(),
         baseJSR, propertyJSR, resultJSR, stubInfoGPR);
 
-    UnlinkedStructureStubInfo* stubInfo = m_unlinkedStubInfos.add();
+    auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
     stubInfo->accessType = type;
     stubInfo->bytecodeIndex = m_bytecodeIndex;
-    JITConstantPool::Constant stubInfoIndex = addToConstantPool(JITConstantPool::Type::StructureStubInfo, stubInfo);
     gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
     gen.m_unlinkedStubInfo = stubInfo;
 
@@ -3224,13 +3196,12 @@ void JIT::emit_op_enumerator_get_by_val(const Instruction* currentInstruction)
     emitArrayProfilingSiteWithCell(bytecode, baseGPR, scratch1);
 
     JITGetByValGenerator gen(
-        nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::GetByVal, RegisterSet::stubUnavailableRegisters(),
+        nullptr, nullptr, JITType::BaselineJIT, CodeOrigin(m_bytecodeIndex), CallSiteIndex(m_bytecodeIndex), AccessType::GetByVal, RegisterSet::stubUnavailableRegisters(),
         JSValueRegs(baseGPR), JSValueRegs(propertyGPR), JSValueRegs(resultGPR), stubInfoGPR);
 
-    UnlinkedStructureStubInfo* stubInfo = m_unlinkedStubInfos.add();
+    auto [ stubInfo, stubInfoIndex ] = addUnlinkedStructureStubInfo();
     stubInfo->accessType = AccessType::GetByVal;
     stubInfo->bytecodeIndex = m_bytecodeIndex;
-    JITConstantPool::Constant stubInfoIndex = addToConstantPool(JITConstantPool::Type::StructureStubInfo, stubInfo);
     gen.m_unlinkedStubInfoConstantIndex = stubInfoIndex;
     gen.m_unlinkedStubInfo = stubInfo;
 

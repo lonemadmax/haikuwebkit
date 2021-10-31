@@ -1,3 +1,75 @@
+2021-10-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, reduce # of iterations in stress/validate-int-52-ai-state.js due to Debug timeout
+
+        * stress/validate-int-52-ai-state.js:
+
+2021-10-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, skip stress/unlinked-code-block-destructor.js when it is debug build
+
+        The bug was not related to Debug build. And it is timing out on Debug build due to
+        heavy test load.
+
+        * stress/unlinked-code-block-destructor.js:
+
+2021-10-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, reduce # of iteration since it is timing out on Debug JSC bot
+
+        * stress/put-private-name-ic-write-barrier.js:
+        (PutPrivateNameIC):
+
+2021-10-29  Dmitry Bezhetskov  <dbezhetskov@igalia.com>
+
+        [WASM-Function-References] Add support for (ref.null heaptype)
+        https://bugs.webkit.org/show_bug.cgi?id=229707
+
+        Reviewed by Yusuke Suzuki.
+
+        Added spec tests for (ref.null $t) : https://github.com/WebAssembly/function-references/blob/master/test/core/ref_null.wast.
+
+        * wasm.yaml:
+        * wasm/function-references-spec-tests/call_ref.wast.js:
+        * wasm/function-references-spec-tests/ref_null.wast.js: Added.
+
+2021-10-27  Dmitry Bezhetskov  <dbezhetskov@igalia.com>
+
+        [WASM-Function-References] Add call_ref spec tests
+        https://bugs.webkit.org/show_bug.cgi?id=229710
+
+        Reviewed by Yusuke Suzuki.
+        
+        Add tests for call_ref instruction from the spec repo:
+        https://github.com/WebAssembly/function-references/blob/master/test/core/call_ref.wast.
+        Also added tests for Funcref/Externref in Wasm tables and globals to test
+        new internal representation of Funcref = (ref null funcref).
+        
+        * wasm.yaml:
+        * wasm/function-references-spec-tests/call_ref.wast.js: Added.
+        * wasm/function-references/ref_types.js:
+        (async testRefGlobalCheck):
+        (async testNonNullExternrefIncompatible):
+        (async testNonNullFuncrefIncompatible):
+        (async testWasmJSGlobals):
+        (async testRefTypesInTables):
+        * wasm/wasm.json:
+
+2021-10-26  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreivewed, fix CLoop build and test failure
+
+        CLoop is running Yarr interpreter instead of Yarr JIT.
+
+        * mozilla/ecma_3/RegExp/regress-85721.js:
+
+2021-10-26  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, fix test262 bot failures
+        https://bugs.webkit.org/show_bug.cgi?id=232005
+
+        * test262/expectations.yaml:
+
 2021-10-25  Yusuke Suzuki  <ysuzuki@apple.com>
 
         [JSC] Don't branch around register allocation in DFG enumerator get by val

@@ -49,13 +49,10 @@
 #include "MediaKeySystemPermissionRequestManager.h"
 #include "MediaPlaybackState.h"
 #include "MediaRecorderProvider.h"
-#include "NetscapePlugin.h"
 #include "NetworkConnectionToWebProcessMessages.h"
 #include "NetworkProcessConnection.h"
 #include "NotificationPermissionRequestManager.h"
 #include "PageBanner.h"
-#include "PluginProcessAttributes.h"
-#include "PluginProxy.h"
 #include "PluginView.h"
 #include "PrintInfo.h"
 #include "RemoteRenderingBackendProxy.h"
@@ -1154,49 +1151,14 @@ void WebPage::initializeInjectedBundleFullScreenClient(WKBundlePageFullScreenCli
 }
 #endif
 
-#if ENABLE(NETSCAPE_PLUGIN_API)
-
+#if ENABLE(PDFKIT_PLUGIN)
 RefPtr<Plugin> WebPage::createPlugin(WebFrame* frame, HTMLPlugInElement* pluginElement, const Plugin::Parameters& parameters, String& newMIMEType)
 {
-    String frameURLString = frame->coreFrame()->loader().documentLoader()->responseURL().string();
-    String pageURLString = m_page->mainFrame().loader().documentLoader()->responseURL().string();
-
-    bool allowOnlyApplicationPlugins = !frame->coreFrame()->arePluginsEnabled();
-
-    uint64_t pluginProcessToken;
-    uint32_t pluginLoadPolicy;
-    String unavailabilityDescription;
-    bool isUnsupported;
-    if (!sendSync(Messages::WebPageProxy::FindPlugin(parameters.mimeType, parameters.url.string(), frameURLString, pageURLString, allowOnlyApplicationPlugins), Messages::WebPageProxy::FindPlugin::Reply(pluginProcessToken, newMIMEType, pluginLoadPolicy, unavailabilityDescription, isUnsupported)))
-        return nullptr;
-
-    PluginModuleLoadPolicy loadPolicy = static_cast<PluginModuleLoadPolicy>(pluginLoadPolicy);
-    bool isBlockedPlugin = (loadPolicy == PluginModuleBlockedForSecurity) || (loadPolicy == PluginModuleBlockedForCompatibility);
-
-    if (isUnsupported || isBlockedPlugin || !pluginProcessToken) {
-#if ENABLE(PDFKIT_PLUGIN)
-        if (shouldUsePDFPlugin(parameters.mimeType, parameters.url.path()))
-            return PDFPlugin::create(*frame, pluginElement);
-#endif
-    }
-
-    if (isUnsupported) {
-        pluginElement->setReplacement(RenderEmbeddedObject::UnsupportedPlugin, unavailabilityDescription);
-        return nullptr;
-    }
-
-    if (isBlockedPlugin) {
-        bool isReplacementObscured = pluginElement->setReplacement(RenderEmbeddedObject::InsecurePluginVersion, unavailabilityDescription);
-        send(Messages::WebPageProxy::DidBlockInsecurePluginVersion(parameters.mimeType, parameters.url.string(), frameURLString, pageURLString, isReplacementObscured));
-        return nullptr;
-    }
-
-    if (!pluginProcessToken)
-        return nullptr;
-
-    return PluginProxy::create(pluginProcessToken);
+    if (shouldUsePDFPlugin(parameters.mimeType, parameters.url.path()))
+        return PDFPlugin::create(*frame, pluginElement);
+    return nullptr;
 }
-#endif // ENABLE(NETSCAPE_PLUGIN_API)
+#endif // ENABLE(PDFKIT_PLUGIN)
 
 #if ENABLE(WEBGL) && !PLATFORM(MAC)
 WebCore::WebGLLoadPolicy WebPage::webGLPolicyForURL(WebFrame*, const URL&)
@@ -1856,7 +1818,10 @@ void WebPage::stopLoading()
         return;
 
     SendStopResponsivenessTimer stopper;
-    m_page->userInputBridge().stopLoadingFrame(*m_mainFrame->coreFrame());
+
+    Ref coreFrame = *m_mainFrame->coreFrame();
+    m_page->userInputBridge().stopLoadingFrame(coreFrame.get());
+    coreFrame->loader().completePageTransitionIfNeeded();
 }
 
 bool WebPage::defersLoading() const
@@ -1894,6 +1859,8 @@ void WebPage::goToBackForwardItem(uint64_t navigationID, const BackForwardItemId
     SendStopResponsivenessTimer stopper;
 
     m_lastNavigationWasAppInitiated = lastNavigationWasAppInitiated;
+    if (auto* documentLoader = corePage()->mainFrame().loader().documentLoader())
+        documentLoader->setLastNavigationWasAppInitiated(lastNavigationWasAppInitiated);
 
     ASSERT(isBackForwardLoadType(backForwardType));
 
@@ -4029,12 +3996,6 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
     if (m_drawingArea)
         m_drawingArea->updatePreferences(store);
 
-#if USE(LIBWEBRTC)
-    m_page->libWebRTCProvider().setH265Support(RuntimeEnabledFeatures::sharedFeatures().webRTCH265CodecEnabled());
-    m_page->libWebRTCProvider().setVP9Support(RuntimeEnabledFeatures::sharedFeatures().webRTCVP9Profile0CodecEnabled(), RuntimeEnabledFeatures::sharedFeatures().webRTCVP9Profile2CodecEnabled());
-    LibWebRTCProvider::setH264HardwareEncoderAllowed(store.getBoolValueForKey(WebPreferencesKey::webRTCH264HardwareEncoderEnabledKey()));
-#endif
-
 #if ENABLE(GPU_PROCESS)
     // FIXME: useGPUProcessForMediaEnabled should be a RuntimeEnabledFeature since it's global.
     static_cast<WebMediaStrategy&>(platformStrategies()->mediaStrategy()).setUseGPUProcess(m_shouldPlayMediaInGPUProcess);
@@ -4075,6 +4036,8 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
 #if ENABLE(OPUS)
     PlatformMediaSessionManager::setOpusDecoderEnabled(RuntimeEnabledFeatures::sharedFeatures().opusDecoderEnabled());
 #endif
+
+    m_page->settingsDidChange();
 }
 
 #if ENABLE(DATA_DETECTION)
@@ -5782,24 +5745,8 @@ FrameView* WebPage::mainFrameView() const
 
 bool WebPage::canPluginHandleResponse(const ResourceResponse& response)
 {
-#if ENABLE(NETSCAPE_PLUGIN_API)
-    uint32_t pluginLoadPolicy;
-    bool allowOnlyApplicationPlugins = !m_mainFrame->coreFrame()->arePluginsEnabled();
-
-    uint64_t pluginProcessToken;
-    String newMIMEType;
-    String unavailabilityDescription;
-    bool isUnsupported = false;
-    if (!sendSync(Messages::WebPageProxy::FindPlugin(response.mimeType(), response.url().string(), response.url().string(), response.url().string(), allowOnlyApplicationPlugins), Messages::WebPageProxy::FindPlugin::Reply(pluginProcessToken, newMIMEType, pluginLoadPolicy, unavailabilityDescription, isUnsupported)))
-        return false;
-
-    ASSERT(!isUnsupported);
-    bool isBlockedPlugin = (pluginLoadPolicy == PluginModuleBlockedForSecurity) || (pluginLoadPolicy == PluginModuleBlockedForCompatibility);
-    return !isUnsupported && !isBlockedPlugin && pluginProcessToken;
-#else
     UNUSED_PARAM(response);
     return false;
-#endif
 }
 
 bool WebPage::shouldUseCustomContentProviderForResponse(const ResourceResponse& response)

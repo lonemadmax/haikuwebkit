@@ -1,8 +1,10 @@
 [
    {
       "emails" : [
-         "aakash_jain@apple.com"
+         "aakash_jain@apple.com",
+         "aj355@cornell.edu"
       ],
+      "github" : "aakashja",
       "name" : "Aakash Jain",
       "nicks" : [
          "aakash_jain"
@@ -164,11 +166,12 @@
          "akeerthi@apple.com",
          "pxlcoder@gmail.com"
       ],
+      "github" : "pxlcoder",
       "name" : "Aditya Keerthi",
       "nicks" : [
          "akeerthi"
       ],
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -2435,6 +2438,12 @@
          "forms-bugs@chromium.org"
       ],
       "name" : "Forms Bugs"
+   },
+   {
+      "emails" : [
+         "fgriessh@adobe.com"
+      ],
+      "name" : "Frank Grie\u00dfhammer"
    },
    {
       "emails" : [
@@ -5094,6 +5103,7 @@
       "emails" : [
          "obrufau@igalia.com"
       ],
+      "github": "Loirooriol",
       "name" : "Oriol Brufau",
       "nicks" : [
          "obrufau"
@@ -5622,6 +5632,18 @@
          "rkirsling"
       ],
       "status" : "reviewer"
+   },
+   {
+      "emails" : [
+         "rreapor@apple.com",
+         "roynos@gmail.com"
+      ],
+      "github" : "roynos",
+      "name" : "Roy Reapor",
+      "nicks" : [
+         "rreapor",
+         "roynos"
+      ]
    },
    {
       "emails" : [

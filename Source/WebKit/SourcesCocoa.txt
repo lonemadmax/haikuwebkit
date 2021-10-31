@@ -41,6 +41,8 @@ NetworkProcess/Downloads/cocoa/DownloadCocoa.mm
 NetworkProcess/EntryPoint/Cocoa/Daemon/DaemonEntryPoint.mm
 NetworkProcess/EntryPoint/Cocoa/XPCService/NetworkServiceEntryPoint.mm
 
+NetworkProcess/Notifications/Cocoa/WebPushDaemonConnectionCocoa.mm
+
 NetworkProcess/PrivateClickMeasurement/cocoa/PrivateClickMeasurementConnectionCocoa.mm
 NetworkProcess/PrivateClickMeasurement/cocoa/PrivateClickMeasurementNetworkLoaderCocoa.mm
 NetworkProcess/PrivateClickMeasurement/cocoa/PrivateClickMeasurementXPCUtilities.mm
@@ -106,11 +108,6 @@ Platform/mac/MenuUtilities.mm
 Platform/mac/StringUtilities.mm
 
 Platform/unix/EnvironmentUtilities.cpp
-
-PluginProcess/EntryPoint/Cocoa/XPCService/PluginServiceEntryPoint.mm @no-unify
-
-PluginProcess/mac/PluginControllerProxyMac.mm @no-unify
-PluginProcess/mac/PluginProcessMac.mm @no-unify
 
 Shared/API/c/cf/WKErrorCF.cpp
 Shared/API/c/cf/WKStringCF.mm
@@ -237,11 +234,6 @@ Shared/mac/MediaFormatReader/MediaFormatReader.cpp
 Shared/mac/MediaFormatReader/MediaSampleByteRange.cpp
 Shared/mac/MediaFormatReader/MediaSampleCursor.cpp
 Shared/mac/MediaFormatReader/MediaTrackReader.cpp
-
-Shared/Plugins/mac/PluginSandboxProfile.mm
-
-Shared/Plugins/Netscape/mac/NetscapePluginModuleMac.mm
-Shared/Plugins/Netscape/mac/PluginInformationMac.mm
 
 Shared/RemoteLayerTree/RemoteLayerBackingStore.mm
 Shared/RemoteLayerTree/RemoteLayerBackingStoreCollection.mm
@@ -555,10 +547,6 @@ UIProcess/Media/cocoa/MediaUsageManagerCocoa.mm
 
 UIProcess/Network/CustomProtocols/LegacyCustomProtocolManagerProxy.cpp
 
-UIProcess/Plugins/mac/PluginInfoStoreMac.mm
-UIProcess/Plugins/mac/PluginProcessManagerMac.mm
-UIProcess/Plugins/mac/PluginProcessProxyMac.mm
-
 UIProcess/RemoteLayerTree/cocoa/RemoteLayerTreeLayers.mm
 
 UIProcess/RemoteLayerTree/mac/ScrollerMac.mm
@@ -666,9 +654,6 @@ WebProcess/InjectedBundle/mac/InjectedBundleMac.mm
 WebProcess/Inspector/mac/WebInspectorUIMac.mm
 
 WebProcess/MediaCache/WebMediaKeyStorageManager.cpp
-
-WebProcess/Plugins/Netscape/mac/NetscapePluginMac.mm
-WebProcess/Plugins/Netscape/mac/PluginProxyMac.mm
 
 WebProcess/Plugins/PDF/PDFPlugin.mm
 WebProcess/Plugins/PDF/PDFPluginAnnotation.mm

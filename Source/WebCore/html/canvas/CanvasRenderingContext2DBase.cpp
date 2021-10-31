@@ -1677,17 +1677,19 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(HTMLVideoElement& vide
     checkOrigin(&video);
 
 #if USE(CG)
-    if (auto image = video.nativeImageForCurrentTime()) {
-        c->drawNativeImage(*image, FloatSize(video.videoWidth(), video.videoHeight()), dstRect, srcRect);
+    if (!canvasBase().buffer()->isRemote()) {
+        if (auto image = video.nativeImageForCurrentTime()) {
+            c->drawNativeImage(*image, FloatSize(video.videoWidth(), video.videoHeight()), dstRect, srcRect);
 
-        if (isEntireBackingStoreDirty())
-            didDraw(std::nullopt);
-        else if (rectContainsCanvas(dstRect))
-            didDrawEntireCanvas();
-        else
-            didDraw(dstRect);
+            if (isEntireBackingStoreDirty())
+                didDraw(std::nullopt);
+            else if (rectContainsCanvas(dstRect))
+                didDrawEntireCanvas();
+            else
+                didDraw(dstRect);
 
-        return { };
+            return { };
+        }
     }
 #endif
 
@@ -2246,7 +2248,7 @@ void CanvasRenderingContext2DBase::putImageData(ImageData& data, int dx, int dy,
     IntSize destOffset { dx, dy };
     IntRect destRect = clipRect;
     destRect.move(destOffset);
-    destRect.intersect(IntRect { { }, buffer->logicalSize() });
+    destRect.intersect(IntRect { { }, buffer->truncatedLogicalSize() });
     if (destRect.isEmpty())
         return;
     IntRect sourceRect { destRect };

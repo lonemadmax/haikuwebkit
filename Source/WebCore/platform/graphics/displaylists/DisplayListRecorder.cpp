@@ -43,13 +43,13 @@ namespace DisplayList {
 Recorder::Recorder(const GraphicsContextState& state, const FloatRect& initialClip, const AffineTransform& initialCTM, DrawGlyphsRecorder::DeconstructDrawGlyphs deconstructDrawGlyphs)
     : m_drawGlyphsRecorder(*this, deconstructDrawGlyphs)
 {
-    m_stateStack.append({ state, initialCTM, initialClip });
+    m_stateStack.append({ state, initialCTM, initialCTM.mapRect(initialClip) });
 }
 
 Recorder::Recorder(Recorder& parent, const GraphicsContextState& state, const FloatRect& initialClip, const AffineTransform& initialCTM)
     : m_drawGlyphsRecorder(*this, parent.m_drawGlyphsRecorder.deconstructDrawGlyphs())
 {
-    m_stateStack.append({ state, initialCTM, initialClip });
+    m_stateStack.append({ state, initialCTM, initialCTM.mapRect(initialClip) });
 }
 
 Recorder::~Recorder()
@@ -232,7 +232,6 @@ void Recorder::setCTM(const AffineTransform& transform)
 
 AffineTransform Recorder::getCTM(GraphicsContext::IncludeDeviceScale) const
 {
-    // FIXME: <https://webkit.org/b/230647> ([GPU Process] add support for `IncludeDeviceScale` inside `DisplayList::Recorder::getCTM`)
     return currentState().ctm;
 }
 
@@ -424,7 +423,7 @@ void Recorder::applyFillPattern()
 
 void Recorder::clip(const FloatRect& rect)
 {
-    currentState().clipBounds.intersect(rect);
+    currentState().clipBounds.intersect(currentState().ctm.mapRect(rect));
     recordClip(rect);
 }
 
@@ -440,12 +439,17 @@ void Recorder::clipOut(const Path& path)
 
 void Recorder::clipPath(const Path& path, WindRule windRule)
 {
-    currentState().clipBounds.intersect(path.fastBoundingRect());
+    currentState().clipBounds.intersect(currentState().ctm.mapRect(path.fastBoundingRect()));
     recordClipPath(path, windRule);
 }
 
 IntRect Recorder::clipBounds() const
 {
+    if (auto inverse = currentState().ctm.inverse())
+        return enclosingIntRect(inverse->mapRect(currentState().clipBounds));
+
+    // If the CTM is not invertible, return the original rect.
+    // This matches CGRectApplyInverseAffineTransform behavior.
     return enclosingIntRect(currentState().clipBounds);
 }
 
@@ -490,6 +494,10 @@ void Recorder::paintFrameForMedia(MediaPlayer& player, const FloatRect& destinat
 
 void Recorder::applyDeviceScaleFactor(float deviceScaleFactor)
 {
+    // We modify the state directly here instead of calling GraphicsContext::scale()
+    // because the recorded item will scale() when replayed.
+    currentState().scale({ deviceScaleFactor, deviceScaleFactor });
+
     // FIXME: this changes the baseCTM, which will invalidate all of our cached extents.
     // Assert that it's only called early on?
     recordApplyDeviceScaleFactor(deviceScaleFactor);
@@ -521,7 +529,6 @@ const AffineTransform& Recorder::ctm() const
 void Recorder::ContextState::translate(float x, float y)
 {
     ctm.translate(x, y);
-    clipBounds.move(-x, -y);
 }
 
 void Recorder::ContextState::rotate(float angleInRadians)
@@ -531,35 +538,21 @@ void Recorder::ContextState::rotate(float angleInRadians)
     
     AffineTransform rotation;
     rotation.rotate(angleInDegrees);
-
-    if (std::optional<AffineTransform> inverse = rotation.inverse())
-        clipBounds = inverse.value().mapRect(clipBounds);
 }
 
 void Recorder::ContextState::scale(const FloatSize& size)
 {
     ctm.scale(size);
-    clipBounds.scale(1 / size.width(), 1 / size.height());
 }
 
 void Recorder::ContextState::setCTM(const AffineTransform& matrix)
 {
-    std::optional<AffineTransform> inverseTransformForClipBounds;
-    if (auto originalCTMInverse = ctm.inverse())
-        inverseTransformForClipBounds = originalCTMInverse->multiply(matrix).inverse();
-
     ctm = matrix;
-
-    if (inverseTransformForClipBounds)
-        clipBounds = inverseTransformForClipBounds->mapRect(clipBounds);
 }
 
 void Recorder::ContextState::concatCTM(const AffineTransform& matrix)
 {
     ctm *= matrix;
-
-    if (std::optional<AffineTransform> inverse = matrix.inverse())
-        clipBounds = inverse.value().mapRect(clipBounds);
 }
 
 } // namespace DisplayList

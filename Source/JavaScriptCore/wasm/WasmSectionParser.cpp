@@ -618,7 +618,17 @@ auto SectionParser::parseInitExpr(uint8_t& opcode, uint64_t& bitsOrImportNumber,
 
     case RefNull: {
         Type typeOfNull;
-        WASM_PARSER_FAIL_IF(!parseRefType(m_info, typeOfNull), "ref.null type must be a reference type");
+        if (Options::useWebAssemblyTypedFunctionReferences()) {
+            int32_t heapType;
+            WASM_PARSER_FAIL_IF(!parseHeapType(m_info, heapType), "ref.null heaptype must be funcref, externref or type_idx");
+            if (isTypeIndexHeapType(heapType)) {
+                SignatureIndex signatureIndex = SignatureInformation::get(m_info->usedSignatures[heapType].get());
+                typeOfNull = Type { TypeKind::RefNull, Nullable::Yes, signatureIndex };
+            } else
+                typeOfNull = Type { TypeKind::RefNull, Nullable::Yes, static_cast<SignatureIndex>(heapType) };
+        } else
+            WASM_PARSER_FAIL_IF(!parseRefType(m_info, typeOfNull), "ref.null type must be a reference type");
+
         resultType = typeOfNull;
         bitsOrImportNumber = JSValue::encode(jsNull());
         break;
@@ -631,7 +641,7 @@ auto SectionParser::parseInitExpr(uint8_t& opcode, uint64_t& bitsOrImportNumber,
 
         if (Options::useWebAssemblyTypedFunctionReferences()) {
             SignatureIndex signatureIndex = m_info->signatureIndexFromFunctionIndexSpace(index);
-            resultType = { TypeKind::TypeIdx, Nullable::No, signatureIndex };
+            resultType = { TypeKind::Ref, Nullable::No, signatureIndex };
         } else
             resultType = Types::Funcref;
 

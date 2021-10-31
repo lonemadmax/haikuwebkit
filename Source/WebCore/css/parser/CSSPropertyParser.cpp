@@ -2241,7 +2241,7 @@ static RefPtr<CSSValue> consumeNoneOrURI(CSSParserTokenRange& range)
 static RefPtr<CSSValue> consumeFlexBasis(CSSParserTokenRange& range, CSSParserMode cssParserMode)
 {
     // FIXME: Support intrinsic dimensions too.
-    if (range.peek().id() == CSSValueAuto || range.peek().id() == CSSValueContent)
+    if (range.peek().id() == CSSValueAuto)
         return consumeIdent(range);
     return consumeLengthOrPercent(range, cssParserMode, ValueRange::NonNegative);
 }
@@ -3135,8 +3135,11 @@ static RefPtr<CSSValueList> consumeGridAutoFlow(CSSParserTokenRange& range)
             return nullptr;
     }
     RefPtr<CSSValueList> parsedValues = CSSValueList::createSpaceSeparated();
-    if (rowOrColumnValue)
-        parsedValues->append(rowOrColumnValue.releaseNonNull());
+    if (rowOrColumnValue) {
+        CSSValueID value = rowOrColumnValue->valueID();
+        if (value == CSSValueID::CSSValueColumn || (value == CSSValueID::CSSValueRow && !denseAlgorithm))
+            parsedValues->append(rowOrColumnValue.releaseNonNull());
+    }
     if (denseAlgorithm)
         parsedValues->append(denseAlgorithm.releaseNonNull());
     return parsedValues;
@@ -5234,7 +5237,7 @@ bool CSSPropertyParser::consumeFlex(bool important)
                 else
                     return false;
             } else if (!flexBasis) {
-                if (m_range.peek().id() == CSSValueAuto || m_range.peek().id() == CSSValueContent)
+                if (m_range.peek().id() == CSSValueAuto)
                     flexBasis = consumeIdent(m_range);
                 if (!flexBasis)
                     flexBasis = consumeLengthOrPercent(m_range, m_context.mode, ValueRange::NonNegative);

@@ -198,6 +198,29 @@ class Git(Scm):
             except (IOError, OSError):
                 self.repo.log("Failed to write identifier cache to '{}'".format(self.path))
 
+        def clear(self, branch):
+            for d in [self._ordered_commits, self._ordered_revisions, self._last_populated]:
+                if branch in d:
+                    del d[branch]
+
+            self._hash_to_identifiers = NestedFuzzyDict(primary_size=6)
+            self._revisions_to_identifiers = {}
+
+            self._fill(self.repo.default_branch)
+            for branch in self._ordered_commits.keys():
+                if branch == self.repo.default_branch:
+                    continue
+                self._fill(branch)
+
+            try:
+                with open(self.path, 'w') as file:
+                    json.dump(dict(
+                        hashes=self._ordered_commits,
+                        revisions=self._ordered_revisions,
+                    ), file, indent=4)
+            except (IOError, OSError):
+                self.repo.log("Failed to write identifier cache to '{}'".format(self.path))
+
         def to_hash(self, revision=None, identifier=None, populate=True, branch=None):
             if revision:
                 identifier = self.to_identifier(revision=revision, populate=populate, branch=branch)
@@ -688,10 +711,10 @@ class Git(Scm):
             while line:
                 if not line.startswith('commit '):
                     raise OSError('Failed to parse `git log` format')
-                branch_point = previous[0].branch_point
-                identifier = previous[0].identifier
+                branch_point = previous[-1].branch_point
+                identifier = previous[-1].identifier
                 hash = line.split(' ')[-1].rstrip()
-                if hash != previous[0].hash:
+                if hash != previous[-1].hash:
                     identifier -= 1
 
                 if not identifier:
@@ -715,12 +738,12 @@ class Git(Scm):
                 )
 
                 # Ensure that we don't duplicate the first and last commits
-                if commit.hash == previous[0].hash:
-                    previous[0] = commit
+                if commit.hash == previous[-1].hash:
+                    previous[-1] = commit
 
                 # If we share a timestamp with the previous commit, that means that this commit has an order
                 # less than the set of commits cached in previous
-                elif commit.timestamp == previous[0].timestamp:
+                elif commit.timestamp == previous[-1].timestamp:
                     for cached in previous:
                         cached.order += 1
                     previous.append(commit)
@@ -802,6 +825,28 @@ class Git(Scm):
             cwd=self.root_path,
         ).returncode else self.commit()
 
+    def rebase(self, target, base=None, head='HEAD', recommit=True):
+        if head == self.default_branch or self.prod_branches.match(head):
+            raise RuntimeError("Rebasing production branch '{}' banned in tooling!".format(head))
+
+        code = run([self.executable(), 'rebase', '--onto', target, base or target, head], cwd=self.root_path).returncode
+        if self.cache:
+            self.cache.clear(head if head != 'HEAD' else self.branch)
+        if code or not recommit:
+            return code
+        return run([
+            self.executable(), 'filter-branch', '-f',
+            '--env-filter', "GIT_AUTHOR_DATE='{date}';GIT_COMMITTER_DATE='{date}'".format(
+                date='{} -{}'.format(int(time.time()), int(time.localtime().tm_gmtoff * 100 / (60 * 60)))
+            ), '{}...{}'.format(target, head),
+        ], cwd=self.root_path, env={'FILTER_BRANCH_SQUELCH_WARNING': '1'}, capture_output=True).returncode
+
+    def fetch(self, branch, remote='origin'):
+        return run(
+            [self.executable(), 'fetch', remote, '{}:{}'.format(branch, branch)],
+            cwd=self.root_path,
+        ).returncode
+
     def pull(self, rebase=None, branch=None, remote='origin'):
         commit = self.commit() if self.is_svn or branch else None
         code = run(
@@ -811,12 +856,11 @@ class Git(Scm):
                 [] if rebase is None else ['--rebase={}'.format('True' if rebase else 'False')]
             ), cwd=self.root_path,
         ).returncode
+        if self.cache and rebase and branch != self.branch:
+            self.cache.clear(self.branch)
 
         if not code and branch:
-            code = run(
-                [self.executable(), 'fetch', remote, '{}:{}'.format(branch, branch)],
-                cwd=self.root_path,
-            ).returncode
+            code = self.fetch(branch=branch, remote=remote)
 
         if not code and branch and rebase:
             result = run([self.executable(), 'rev-parse', 'HEAD'], cwd=self.root_path, capture_output=True, encoding='utf-8')

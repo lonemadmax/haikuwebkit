@@ -932,9 +932,6 @@ webkit.org/b/212350 fast/dom/timer-throttling-hidden-page.html [ Timeout ]
 
 webkit.org/b/118220 http/tests/cache/partitioned-cache.html [ Failure ]
 
-# Content extensions, the failures need up-to-date expectations.
-http/tests/contentextensions/plugin-doesnt-crash.html [ Timeout Failure ]
-
 # Unknown
 webkit.org/b/120839 animations/cross-fade-background-image.html [ ImageOnlyFailure ]
 
@@ -1389,8 +1386,6 @@ webkit.org/b/212155 imported/mozilla/svg/svg-integration/clipPath-html-05.xhtml 
 webkit.org/b/212155 imported/mozilla/svg/symbol-01.svg [ ImageOnlyFailure ]
 
 webkit.org/b/212157 imported/blink/editing/execCommand/4128080-2.html [ Failure ]
-
-webkit.org/b/141699 fast/attachment/attachment-respects-css-size.html [ ImageOnlyFailure ]
 
 webkit.org/b/212200 fast/spatial-navigation/snav-input.html [ Failure ]
 webkit.org/b/212200 fast/spatial-navigation/snav-textarea.html [ Failure ]

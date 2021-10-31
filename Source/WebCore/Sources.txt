@@ -250,6 +250,8 @@ Modules/storage/WorkerStorageConnection.cpp
 Modules/streams/ReadableStreamSink.cpp
 Modules/streams/ReadableStreamSource.cpp
 Modules/streams/WritableStream.cpp
+Modules/web-locks/WebLock.cpp
+Modules/web-locks/WebLockManager.cpp
 Modules/webaudio/AnalyserNode.cpp
 Modules/webaudio/AsyncAudioDecoder.cpp
 Modules/webaudio/AudioBasicInspectorNode.cpp
@@ -596,14 +598,7 @@ bindings/js/WebCoreTypedArrayController.cpp
 bindings/js/WorkerModuleScriptLoader.cpp
 bindings/js/WindowProxy.cpp
 bridge/IdentifierRep.cpp
-bridge/NP_jsobject.cpp
-bridge/c/CRuntimeObject.cpp
-bridge/c/c_class.cpp
-bridge/c/c_instance.cpp
-bridge/c/c_runtime.cpp
-bridge/c/c_utility.cpp
 bridge/jsc/BridgeJSC.cpp
-bridge/npruntime.cpp
 bridge/runtime_array.cpp
 bridge/runtime_method.cpp
 bridge/runtime_object.cpp
@@ -1516,6 +1511,7 @@ layout/formattingContexts/inline/InlineFormattingGeometry.cpp
 layout/formattingContexts/inline/InlineFormattingQuirks.cpp
 layout/formattingContexts/inline/InlineFormattingState.cpp
 layout/formattingContexts/inline/InlineItem.cpp
+layout/formattingContexts/inline/InlineItemsBuilder.cpp
 layout/formattingContexts/inline/InlineLine.cpp
 layout/formattingContexts/inline/InlineLineBox.cpp
 layout/formattingContexts/inline/InlineLineBoxBuilder.cpp
@@ -1799,6 +1795,7 @@ page/scrolling/ScrollingTreeNode.cpp
 page/scrolling/ScrollingTreeOverflowScrollingNode.cpp
 page/scrolling/ScrollingTreeScrollingNode.cpp
 page/scrolling/ScrollingTreeScrollingNodeDelegate.cpp
+page/scrolling/ScrollingTreeStickyNode.cpp
 page/scrolling/ThreadedScrollingTree.cpp
 platform/ContentType.cpp
 platform/ContextMenu.cpp
@@ -3799,6 +3796,10 @@ JSWebKitNamespace.cpp
 JSWebKitPlaybackTargetAvailabilityEvent.cpp
 JSWebKitPoint.cpp
 JSWebKitTransitionEvent.cpp
+JSWebLock.cpp
+JSWebLockGrantedCallback.cpp
+JSWebLockManager.cpp
+JSWebLockMode.cpp
 JSWebSocket.cpp
 JSWebXRBoundedReferenceSpace.cpp
 JSWebXRFrame.cpp

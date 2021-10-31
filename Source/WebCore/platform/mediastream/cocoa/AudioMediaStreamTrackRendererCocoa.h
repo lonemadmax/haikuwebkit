@@ -39,12 +39,13 @@ namespace WebCore {
 
 class AudioSampleDataSource;
 class AudioSampleBufferList;
+class BaseAudioMediaStreamTrackRendererUnit;
 class CAAudioStreamDescription;
 
 class AudioMediaStreamTrackRendererCocoa : public AudioMediaStreamTrackRenderer, public CanMakeWeakPtr<AudioMediaStreamTrackRendererCocoa, WeakPtrFactoryInitialization::Eager> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    AudioMediaStreamTrackRendererCocoa();
+    AudioMediaStreamTrackRendererCocoa(Init&&);
     ~AudioMediaStreamTrackRendererCocoa();
 
 private:
@@ -57,9 +58,13 @@ private:
     void setAudioOutputDevice(const String&) final;
 
     void reset();
+    void setRegisteredDataSource(RefPtr<AudioSampleDataSource>&&);
+
+    BaseAudioMediaStreamTrackRendererUnit& rendererUnit();
 
     std::unique_ptr<CAAudioStreamDescription> m_outputDescription;
-    RefPtr<AudioSampleDataSource> m_dataSource;
+    RefPtr<AudioSampleDataSource> m_dataSource; // Used in background thread.
+    RefPtr<AudioSampleDataSource> m_registeredDataSource; // Used in main thread.
     bool m_shouldRecreateDataSource { false };
     WebCore::AudioMediaStreamTrackRendererUnit::ResetObserver m_resetObserver;
 };

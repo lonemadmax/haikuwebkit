@@ -60,7 +60,7 @@ bool GPUConnectionToWebProcess::setCaptureAttributionString()
     if (!visibleName)
         visibleName = gpuProcess().applicationVisibleName();
 
-    RetainPtr<NSString> formatString = [NSString stringWithFormat:WEB_UI_STRING("“%@” in “%%@”", "The domain and application using the camera and/or microphone. The first argument is domain, the second is the application name (iOS only)."), visibleName];
+    RetainPtr<NSString> formatString = [NSString stringWithFormat:WEB_UI_NSSTRING(@"“%@” in “%%@”", "The domain and application using the camera and/or microphone. The first argument is domain, the second is the application name (iOS only)."), visibleName];
 
     [PAL::getSTDynamicActivityAttributionPublisherClass() setCurrentAttributionStringWithFormat:formatString.get() auditToken:auditToken.value()];
 #endif
@@ -86,7 +86,7 @@ void GPUConnectionToWebProcess::setTCCIdentity()
     if (!identity)
         return;
 
-    WebCore::RealtimeMediaSourceCenter::singleton().setIdentity(identity.get());
+    WebCore::RealtimeMediaSourceCenter::singleton().setIdentity(WTFMove(identity));
 #endif // !PLATFORM(MACCATALYST)
 }
 #endif // ENABLE(APP_PRIVACY_REPORT)

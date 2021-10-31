@@ -288,7 +288,8 @@ class TestDoPullRequest(testing.PathTestCase):
 Creating commit...
     Found 1 commit...
 Rebasing 'eng/pr-branch' on 'main'...
-Rebased 'eng/pr-branch' on 'main!'""")
+Rebased 'eng/pr-branch' on 'main!'
+    Found 1 commit...""")
         self.assertEqual(captured.stderr.getvalue(), "'{}' doesn't have a recognized remote\n".format(self.path))
 
     def test_modified(self):
@@ -310,7 +311,8 @@ Rebased 'eng/pr-branch' on 'main!'""")
 Creating commit...
     Found 1 commit...
 Rebasing 'eng/pr-branch' on 'main'...
-Rebased 'eng/pr-branch' on 'main!'""")
+Rebased 'eng/pr-branch' on 'main!'
+    Found 1 commit...""")
 
     def test_github(self):
         with OutputCapture() as captured, mocks.remote.GitHub() as remote, \
@@ -331,6 +333,7 @@ Rebased 'eng/pr-branch' on 'main!'""")
                 '    Found 1 commit...',
                 "Rebasing 'eng/pr-branch' on 'main'...",
                 "Rebased 'eng/pr-branch' on 'main!'",
+                "    Found 1 commit...",
                 "Pushing 'eng/pr-branch' to 'fork'...",
                 "Creating pull-request for 'eng/pr-branch'...",
                 "Created 'PR 1 | Created commit'!",
@@ -362,6 +365,7 @@ Rebased 'eng/pr-branch' on 'main!'""")
                 '    Found 1 commit...',
                 "Rebasing 'eng/pr-branch' on 'main'...",
                 "Rebased 'eng/pr-branch' on 'main!'",
+                "    Found 1 commit...",
                 "Pushing 'eng/pr-branch' to 'fork'...",
                 "Updating pull-request for 'eng/pr-branch'...",
                 "Updated 'PR 1 | Amended commit'!",
@@ -388,6 +392,7 @@ Rebased 'eng/pr-branch' on 'main!'""")
                 '    Found 1 commit...',
                 "Rebasing 'eng/pr-branch' on 'main'...",
                 "Rebased 'eng/pr-branch' on 'main!'",
+                "    Found 1 commit...",
                 "Pushing 'eng/pr-branch' to 'origin'...",
                 "Creating pull-request for 'eng/pr-branch'...",
                 "Created 'PR 1 | Created commit'!",
@@ -420,6 +425,7 @@ Rebased 'eng/pr-branch' on 'main!'""")
                 '    Found 1 commit...',
                 "Rebasing 'eng/pr-branch' on 'main'...",
                 "Rebased 'eng/pr-branch' on 'main!'",
+                "    Found 1 commit...",
                 "Pushing 'eng/pr-branch' to 'origin'...",
                 "Updating pull-request for 'eng/pr-branch'...",
                 "Updated 'PR 1 | Amended commit'!",
@@ -439,6 +445,12 @@ class TestNetworkPullRequestGitHub(unittest.TestCase):
             sreviewer=Contributor('Suspicious Reviewer', ['sreviewer@webkit.org'], github='sreviewer'),
             tcontributor=Contributor('Tim Contributor', ['tcontributor@webkit.org']),
         )
+        result.issues = {
+            1: dict(
+                comments=[],
+                assignees=[],
+            )
+        }
         result.pull_requests = [dict(
             number=1,
             state='open',
@@ -460,7 +472,9 @@ Reviewed by NOBODY (OOPS!).
             reviews=[
                 dict(user=dict(login='ereviewer'), state='APPROVED'),
                 dict(user=dict(login='sreviewer'), state='CHANGES_REQUESTED'),
-            ],
+            ], _links=dict(
+                issue=dict(href='https://{}/issues/1'.format(result.api_remote)),
+            ),
         )]
         return result
 
@@ -509,6 +523,24 @@ Reviewed by NOBODY (OOPS!).
             self.assertEqual(pr.approvers, [])
             self.assertEqual(pr.blockers, [Contributor('Suspicious Reviewer', ['sreviewer@webkit.org'])])
 
+    def test_comments(self):
+        with self.webserver():
+            repo = remote.GitHub(self.remote)
+            pr = repo.pull_requests.get(1)
+            self.assertEqual(pr.comments, [])
+            pr.comment('Commenting!')
+            self.assertEqual([c.content for c in pr.comments], ['Commenting!'])
+
+    def test_open_close(self):
+        with self.webserver():
+            repo = remote.GitHub(self.remote)
+            pr = repo.pull_requests.get(1)
+            self.assertTrue(pr.opened)
+            pr.close()
+            self.assertFalse(pr.opened)
+            pr.open()
+            self.assertTrue(pr.opened)
+
 
 class TestNetworkPullRequestBitBucket(unittest.TestCase):
     remote = 'https://bitbucket.example.com/projects/WEBKIT/repos/webkit'
@@ -521,6 +553,7 @@ class TestNetworkPullRequestBitBucket(unittest.TestCase):
             state='OPEN',
             open=True,
             closed=False,
+            activities=[],
             title='Example Change',
             author=dict(
                 user=dict(
@@ -606,3 +639,21 @@ Reviewed by NOBODY (OOPS!).
             ])
             self.assertEqual(pr.approvers, [])
             self.assertEqual(pr.blockers, [Contributor('Suspicious Reviewer', ['sreviewer@webkit.org'])])
+
+    def test_comments(self):
+        with self.webserver():
+            repo = remote.BitBucket(self.remote)
+            pr = repo.pull_requests.get(1)
+            self.assertEqual(pr.comments, [])
+            pr.comment('Commenting!')
+            self.assertEqual([c.content for c in pr.comments], ['Commenting!'])
+
+    def test_open_close(self):
+        with self.webserver():
+            repo = remote.BitBucket(self.remote)
+            pr = repo.pull_requests.get(1)
+            self.assertTrue(pr.opened)
+            pr.close()
+            self.assertFalse(pr.opened)
+            pr.open()
+            self.assertTrue(pr.opened)

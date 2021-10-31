@@ -75,8 +75,9 @@ public:
 
     ImageBufferBackendHandle createImageBufferBackendHandle()
     {
-        ensureBackendCreated();
-        return m_backend->createImageBufferBackendHandle();
+        if (ensureBackendCreated())
+            return m_backend->createImageBufferBackendHandle();
+        return { };
     }
 
     WebCore::GraphicsContextFlushIdentifier lastSentFlushIdentifier() const { return m_sentFlushIdentifier; }
@@ -94,6 +95,8 @@ public:
         // while waiting for this ImageBuffer to be flushed.
         ASSERT(m_sentFlushIdentifier == targetFlushIdentifier);
     }
+
+    bool isRemote() const final { return true; }
 
 protected:
     RemoteImageBufferProxy(const WebCore::ImageBufferBackend::Parameters& parameters, RemoteRenderingBackendProxy& remoteRenderingBackendProxy)

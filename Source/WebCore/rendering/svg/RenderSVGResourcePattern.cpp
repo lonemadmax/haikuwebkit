@@ -111,7 +111,7 @@ PatternData* RenderSVGResourcePattern::buildPattern(RenderElement& renderer, Opt
     if (!tileImage)
         return nullptr;
 
-    const IntSize tileImageSize = tileImage->logicalSize();
+    auto tileImageSize = tileImage->logicalSize();
 
     auto copiedImage = ImageBuffer::sinkIntoNativeImage(WTFMove(tileImage));
     if (!copiedImage)

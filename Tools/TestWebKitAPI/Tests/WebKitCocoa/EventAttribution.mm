@@ -25,6 +25,7 @@
 
 #import "config.h"
 
+#import "ASN1Utilities.h"
 #import "DaemonTestUtilities.h"
 #import "HTTPServer.h"
 #import "PlatformUtilities.h"
@@ -216,11 +217,10 @@ TEST(PrivateClickMeasurement, FraudPrevention)
         (__bridge id)kSecAttrKeyType: (__bridge id)kSecAttrKeyTypeRSA,
         (__bridge id)kSecAttrKeyClass: (__bridge id)kSecAttrKeyClassPublic
     }, nil));
+    Vector<uint8_t> rawKeyBytes(static_cast<const uint8_t*>(publicKey.get().bytes), publicKey.get().length);
+    auto wrappedKeyBytes = wrapPublicKeyWithRSAPSSOID(WTFMove(rawKeyBytes));
 
-    auto spkiData = adoptCF(SecKeyCopySubjectPublicKeyInfo(secKey.get()));
-    auto *nsSpkiData = (__bridge NSData *)spkiData.get();
-
-    auto keyData = base64URLEncodeToString(nsSpkiData.bytes, nsSpkiData.length);
+    auto keyData = base64URLEncodeToString(wrappedKeyBytes.data(), wrappedKeyBytes.size());
 
     // The server.
     HTTPServer server([&done, connectionCount = 0, &rsaPrivateKey, &modulusNBytes, &rng, &keyData, &secKey] (Connection connection) mutable {
@@ -238,7 +238,7 @@ TEST(PrivateClickMeasurement, FraudPrevention)
                     connection.receiveHTTPRequest([connection, &rsaPrivateKey, &modulusNBytes, &rng, &keyData, &done, &secKey] (Vector<char>&& request2) {
                         EXPECT_TRUE(strnstr(request2.data(), "POST / HTTP/1.1\r\n", request2.size()));
 
-                        auto request2String = String(request2.data());
+                        auto request2String = String(request2.data(), request2.size());
                         auto key = String("source_unlinkable_token");
                         auto start = request2String.find(key);
                         start += key.length() + 3;
@@ -275,7 +275,7 @@ TEST(PrivateClickMeasurement, FraudPrevention)
                                         EXPECT_FALSE(strnstr(request4.data(), token.utf8().data(), request4.size()));
                                         EXPECT_FALSE(strnstr(request4.data(), unlinkableToken.utf8().data(), request4.size()));
 
-                                        auto request4String = String(request4.data());
+                                        auto request4String = String(request4.data(), request4.size());
 
                                         auto key = String("source_secret_token");
                                         auto start = request4String.find(key);

@@ -41,23 +41,6 @@ namespace StructureStubInfoInternal {
 static constexpr bool verbose = false;
 }
 
-StructureStubInfo::StructureStubInfo(AccessType accessType, CodeOrigin codeOrigin)
-    : codeOrigin(codeOrigin)
-    , accessType(accessType)
-    , bufferingCountdown(Options::repatchBufferingCountdown())
-    , resetByGC(false)
-    , tookSlowPath(false)
-    , everConsidered(false)
-    , prototypeIsKnownObject(false)
-    , sawNonCell(false)
-    , hasConstantIdentifier(true)
-    , propertyIsString(false)
-    , propertyIsInt32(false)
-    , propertyIsSymbol(false)
-{
-    regs.thisGPR = InvalidGPRReg;
-}
-
 StructureStubInfo::~StructureStubInfo()
 {
 }
@@ -443,6 +426,7 @@ void StructureStubInfo::initializeFromUnlinkedStructureStubInfo(CodeBlock*, Unli
     callSiteIndex = CallSiteIndex(BytecodeIndex(unlinkedStubInfo.bytecodeIndex.offset()));
     codeOrigin = CodeOrigin(unlinkedStubInfo.bytecodeIndex);
     m_codePtr = slowPathStartLocation;
+    propertyIsInt32 = unlinkedStubInfo.propertyIsInt32;
 
     usedRegisters = RegisterSet::stubUnavailableRegisters();
     if (accessType == AccessType::GetById && unlinkedStubInfo.bytecodeIndex.checkpoint()) {
