@@ -157,32 +157,29 @@ if(CMAKE_HAIKU_SECONDARY_ARCH)
     set(PACKAGE_SUFFIX _${CMAKE_HAIKU_SECONDARY_ARCH})
 endif()
 
-SET(CPACK_SOURCE_GENERATOR TBZ2)
-set(CPACK_GENERATOR HPKG)
-
 # Optimize binary size for release builds by removing dead sections
 if (CMAKE_BUILD_TYPE STREQUAL Release AND CMAKE_COMPILER_IS_GNUCC)
-    set(CMAKE_C_FLAGS "-ffunction-sections -fdata-sections ${CMAKE_C_FLAGS}")
-    set(CMAKE_CXX_FLAGS "-ffunction-sections -fdata-sections ${CMAKE_CXX_FLAGS}")
-    set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--gc-sections ${CMAKE_SHARED_LINKER_FLAGS}")
+	string(APPEND CMAKE_C_FLAGS   " -ffunction-sections -fdata-sections")
+	string(APPEND CMAKE_CXX_FLAGS " -ffunction-sections -fdata-sections")
+	string(APPEND CMAKE_SHARED_LINKER_FLAGS " -Wl,--gc-sections")
 endif ()
 
 # Haiku actually make use of rtti in several places, so we can't really disable
 # it, unlike on other platforms...
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -frtti")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -frtti")
+string(APPEND CMAKE_CXX_FLAGS_DEBUG   " -frtti")
+string(APPEND CMAKE_CXX_FLAGS_RELEASE " -frtti")
 
 string(TOLOWER ${CMAKE_HOST_SYSTEM_PROCESSOR} LOWERCASE_CMAKE_HOST_SYSTEM_PROCESSOR)
 if (CMAKE_COMPILER_IS_GNUCC AND "${LOWERCASE_CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "x86")
-    # i686 is the official requirement for Haiku, let's try to keep this working
-    # for everyone.
-    set(CMAKE_C_FLAGS "-march=i686 ${CMAKE_C_FLAGS}")
-    set(CMAKE_CXX_FLAGS "-march=i686 ${CMAKE_CXX_FLAGS}")
+    # i686 is the official requirement for Haiku, but WebKit really wants to use SSE2, so use
+	# a 'newer' architecture here.
+	string(APPEND CMAKE_C_FLAGS   " -march=pentium4")
+	string(APPEND CMAKE_CXX_FLAGS " -march=pentium4")
 endif()
 
 if (CMAKE_COMPILER_IS_GNUCC AND "${LOWERCASE_CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "x86_64")
     # GCC port issue? This is not needed for other platforms.
-    set(CMAKE_EXE_LINKER_FLAGS "-pie ${CMAKE_EXE_LINKER_FLAGS}")
+	string(APPEND CMAKE_EXE_LINKER_FLAGS " -pie")
 endif()
 
 SET_AND_EXPOSE_TO_BUILD(USE_TEXTURE_MAPPER OFF)
@@ -232,52 +229,3 @@ endif ()
 
 set(JavaScriptCore_LIBRARY_TYPE SHARED)
 set(SHOULD_INSTALL_JS_SHELL ON)
-
-set(WEBKIT_CPACK_ALL_PORTS 1) # Until we can safely extract only the sources used by Haiku
-set(WEBKIT_CPACK_ADD_TOOLS 1) # Mainly for generate_webkit_info.sh
-
-set(CPACK_PACKAGE_NAME "haikuwebkit${PACKAGE_SUFFIX}")
-set(CPACK_PACKAGE_VENDOR "Haiku Project")
-set(CPACK_HAIKU_PACKAGE_COPYRIGHT "1998-2013 Apple Inc., Google Inc., Haiku Inc., et al")
-set(CPACK_HAIKU_PACKAGE_LICENSES "GNU LGPL v2" "GNU LGPL v2.1" "MIT")
-    # TODO apple webkit (needs to be added inside package)
-set(CPACK_HAIKU_PACKAGE_REVISION "1")
-
-set(CPACK_HAIKU_PACKAGE_PROVIDES
-    "lib:libWebKit${PACKAGE_SUFFIX} = ${PROJECT_VERSION}"
-)
-set(CPACK_HAIKU_PACKAGE_REQUIRES
-    "haiku${PACKAGE_SUFFIX} >= r1~alpha4_pm-1"
-    "icu${PACKAGE_SUFFIX} >= 4.8.1.1"
-    "lib:libjpeg${PACKAGE_SUFFIX} >= 9"
-    "lib:libpng${PACKAGE_SUFFIX} >= 15.12.0"
-    "lib:libsqlite3${PACKAGE_SUFFIX} >= 0.8.6"
-    "lib:libxml2${PACKAGE_SUFFIX} >= 2.8.0"
-    "lib:libxslt${PACKAGE_SUFFIX} >= 1.1.18"
-)
-
-set(CPACK_HAIKU_devel_PACKAGE_PROVIDES
-    "devel:libWebKit${PACKAGE_SUFFIX} = ${PROJECT_VERSION}"
-)
-set(CPACK_HAIKU_devel_PACKAGE_REQUIRES
-    "haiku${PACKAGE_SUFFIX}_devel >= r1~alpha4_pm-1"
-    "icu${PACKAGE_SUFFIX}_devel >= 4.8.1.1"
-    "devel:libjpeg${PACKAGE_SUFFIX} >= 9"
-    "devel:libpng${PACKAGE_SUFFIX} >= 15.12.0"
-    "devel:libsqlite3${PACKAGE_SUFFIX} >= 0.8.6"
-    "devel:libxml2${PACKAGE_SUFFIX} >= 2.8.0"
-    "devel:libxslt${PACKAGE_SUFFIX} >= 1.1.18"
-)
-
-include(CPackComponent)
-cpack_add_component(devel)
-
-# These could be shared with other flavors of CPack, if they are used anywhere.
-# Maybe move them to non-Haiku specific place.
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Open source web browser engine")
-set(CPACK_PACKAGE_DESCRIPTION "WebKit is an open source web browser engine.
-WebKit is also the name of the Mac OS X system framework version of the engine
-that's used by Safari, Dashboard, Mail, and many other OS X applications.
-WebKit's HTML and JavaScript code began as a branch of the KHTML and KJS
-libraries from KDE.")
-set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
