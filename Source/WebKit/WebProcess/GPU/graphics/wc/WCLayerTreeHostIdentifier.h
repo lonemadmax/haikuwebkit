@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,37 +23,17 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "WHLSLProgram.h"
+#pragma once
 
-#if ENABLE(WHLSL_COMPILER)
+#if USE(GRAPHICS_LAYER_WC)
 
-namespace WebCore {
+#include <wtf/ObjectIdentifier.h>
 
-namespace WHLSL {
+namespace WebKit {
 
-bool Program::isValidVectorProperty(String property)
-{
-    if (property.length() < 1 || property.length() > 4)
-        return false;
+enum WCLayerTreeHostIdentifierType { };
+using WCLayerTreeHostIdentifier = ObjectIdentifier<WCLayerTreeHostIdentifierType>;
 
-    for (size_t i = 0; i < property.length(); ++i) {
-        switch (property[i]) {
-        case 'x':
-        case 'y':
-        case 'z':
-        case 'w':
-            break;
-        default:
-            return false;
-        }
-    }
+} // namespace WebKit
 
-    return true;
-}
-
-} // namespace WHLSL
-
-} // namespace WebCore
-
-#endif // ENABLE(WHLSL_COMPILER)
+#endif // USE(GRAPHICS_LAYER_WC)

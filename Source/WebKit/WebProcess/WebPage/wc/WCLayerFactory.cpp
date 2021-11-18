@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2021 Sony Interactive Entertainment Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,46 +23,22 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#include "config.h"
+#include "WCLayerFactory.h"
 
-#if ENABLE(WHLSL_COMPILER)
+#include "GraphicsLayerWC.h"
 
-#include "WHLSLCodeLocation.h"
-#include "WHLSLStatement.h"
-#include <wtf/FastMalloc.h>
-#include <wtf/Vector.h>
+namespace WebKit {
+using namespace WebCore;
 
-namespace WebCore {
-
-namespace WHLSL {
-
-namespace AST {
-
-class StatementList final : public Statement {
-    WTF_MAKE_FAST_ALLOCATED;
-    using Base = Statement;
-public:
-    StatementList(CodeLocation location, Statements&& statements)
-        : Base(location, Kind::StatementList)
-        , m_statements(WTFMove(statements))
-    { }
-
-    ~StatementList() = default;
-
-    Statements& statements() { return m_statements; }
-
-private:
-    Statements m_statements;
-};
-
-} // namespace AST
-
+WCLayerFactory::WCLayerFactory(GraphicsLayerWC::Observer& observer)
+    : m_observer(observer)
+{
 }
 
+Ref<WebCore::GraphicsLayer> WCLayerFactory::createGraphicsLayer(WebCore::GraphicsLayer::Type layerType, WebCore::GraphicsLayerClient& client)
+{
+    return adoptRef(*new GraphicsLayerWC(layerType, client, m_observer));
 }
 
-DEFINE_DEFAULT_DELETE(StatementList)
-
-SPECIALIZE_TYPE_TRAITS_WHLSL_STATEMENT(StatementList, isStatementList())
-
-#endif // ENABLE(WHLSL_COMPILER)
+} // namespace WebKit
