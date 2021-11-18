@@ -105,8 +105,10 @@
 #import <WebCore/HTMLSelectElement.h>
 #import <WebCore/HTMLSummaryElement.h>
 #import <WebCore/HTMLTextAreaElement.h>
+#import <WebCore/HTMLVideoElement.h>
 #import <WebCore/HistoryItem.h>
 #import <WebCore/HitTestResult.h>
+#import <WebCore/ImageOverlay.h>
 #import <WebCore/InputMode.h>
 #import <WebCore/KeyboardEvent.h>
 #import <WebCore/LibWebRTCProvider.h>
@@ -129,6 +131,7 @@
 #import <WebCore/RenderImage.h>
 #import <WebCore/RenderLayer.h>
 #import <WebCore/RenderThemeIOS.h>
+#import <WebCore/RenderVideo.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/RenderedDocumentMarker.h>
 #import <WebCore/RuntimeApplicationChecks.h>
@@ -627,10 +630,9 @@ WKAccessibilityWebPageObject* WebPage::accessibilityRemoteObject()
     return 0;
 }
 
-bool WebPage::platformCanHandleRequest(const WebCore::ResourceRequest&)
+bool WebPage::platformCanHandleRequest(const WebCore::ResourceRequest& request)
 {
-    notImplemented();
-    return false;
+    return [NSURLConnection canHandleRequest:request.nsURLRequest(HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody)];
 }
 
 void WebPage::shouldDelayWindowOrderingEvent(const WebKit::WebMouseEvent&, CompletionHandler<void(bool)>&& completionHandler)
@@ -1348,7 +1350,7 @@ static IntPoint constrainPoint(const IntPoint& point, const Frame& frame, const 
 static bool insideImageOverlay(const VisiblePosition& position)
 {
     RefPtr container = position.deepEquivalent().containerNode();
-    return container && HTMLElement::isInsideImageOverlay(*container);
+    return container && ImageOverlay::isInsideOverlay(*container);
 }
 
 static std::optional<SimpleRange> expandForImageOverlay(const SimpleRange& range)
@@ -1585,7 +1587,7 @@ static std::pair<std::optional<SimpleRange>, SelectionWasFlipped> rangeForPointI
             range = makeSimpleRange(result, selectionEnd);
     }
     
-    if (range && HTMLElement::isInsideImageOverlay(*range))
+    if (range && ImageOverlay::isInsideOverlay(*range))
         return { expandForImageOverlay(*range), SelectionWasFlipped::No };
 
     return { range, selectionFlipped };
@@ -2785,6 +2787,38 @@ static std::optional<std::pair<RenderImage&, Image&>> imageRendererAndImage(Elem
     return {{ renderImage, *image }};
 }
 
+static void videoPositionInformation(WebPage& page, HTMLVideoElement& element, const InteractionInformationRequest& request, InteractionInformationAtPosition& info)
+{
+    if (!element.paused())
+        return;
+
+    auto renderVideo = element.renderer();
+    if (!renderVideo)
+        return;
+
+    info.isPausedVideo = true;
+
+    if (request.includeImageData)
+        info.image = createShareableBitmap(*renderVideo);
+
+    info.hostImageOrVideoElementContext = page.contextForElement(element);
+}
+
+static RefPtr<HTMLVideoElement> hostVideoElementIgnoringImageOverlay(Node& node)
+{
+    if (ImageOverlay::isInsideOverlay(node))
+        return { };
+
+    if (is<HTMLVideoElement>(node))
+        return downcast<HTMLVideoElement>(&node);
+
+    RefPtr shadowHost = node.shadowHost();
+    if (!is<HTMLVideoElement>(shadowHost.get()))
+        return { };
+
+    return downcast<HTMLVideoElement>(shadowHost.get());
+}
+
 static void imagePositionInformation(WebPage& page, Element& element, const InteractionInformationRequest& request, InteractionInformationAtPosition& info)
 {
     auto rendererAndImage = imageRendererAndImage(element);
@@ -2799,7 +2833,7 @@ static void imagePositionInformation(WebPage& page, Element& element, const Inte
     if (request.includeSnapshot || request.includeImageData)
         info.image = createShareableBitmap(renderImage, { screenSize() * page.corePage()->deviceScaleFactor(), AllowAnimatedImages::Yes, UseSnapshotForTransparentImages::Yes });
 
-    info.imageElementContext = page.contextForElement(element);
+    info.hostImageOrVideoElementContext = page.contextForElement(element);
 }
 
 static void boundsPositionInformation(RenderObject& renderer, InteractionInformationAtPosition& info)
@@ -2825,7 +2859,7 @@ static void elementPositionInformation(WebPage& page, Element& element, const In
 
     info.isElement = true;
     info.idAttribute = element.getIdAttribute();
-    info.isImageOverlayText = HTMLElement::isImageOverlayText(innerNonSharedNode);
+    info.isImageOverlayText = ImageOverlay::isOverlayText(innerNonSharedNode);
 
     info.title = element.attributeWithoutSynchronization(HTMLNames::titleAttr).string();
     if (linkElement && info.title.isEmpty())
@@ -2863,14 +2897,18 @@ static void elementPositionInformation(WebPage& page, Element& element, const In
                 }
             }
         }
-        if (shouldCollectImagePositionInformation)
-            imagePositionInformation(page, element, request, info);
+        if (shouldCollectImagePositionInformation) {
+            if (auto video = hostVideoElementIgnoringImageOverlay(element))
+                videoPositionInformation(page, *video, request, info);
+            else
+                imagePositionInformation(page, element, request, info);
+        }
         boundsPositionInformation(*renderer, info);
     }
 
 #if ENABLE(DATA_DETECTION)
     if (info.isImageOverlayText && innerNonSharedNode->shadowHost() == &element && is<HTMLElement>(element)) {
-        if (Ref htmlElement = downcast<HTMLElement>(element); htmlElement->hasImageOverlay())
+        if (Ref htmlElement = downcast<HTMLElement>(element); ImageOverlay::hasOverlay(htmlElement.get()))
             dataDetectorImageOverlayPositionInformation(htmlElement.get(), request, info);
     }
 #endif
@@ -2903,6 +2941,9 @@ static void selectionPositionInformation(WebPage& page, const InteractionInforma
                 // FIXME: Is this heuristic still needed, now that block selection has been removed?
                 return InteractionInformationAtPosition::Selectability::UnselectableDueToLargeElementBounds;
             }
+
+            if (hostVideoElementIgnoringImageOverlay(*hitNode))
+                return InteractionInformationAtPosition::Selectability::UnselectableDueToMediaControls;
         }
 
         return InteractionInformationAtPosition::Selectability::Selectable;
@@ -3100,8 +3141,12 @@ InteractionInformationAtPosition WebPage::positionInformation(const InteractionI
             info.image = shareableBitmapSnapshotForNode(element);
     }
 
-    if (!info.isImage && request.includeImageData && is<HTMLImageElement>(hitTestNode))
-        imagePositionInformation(*this, downcast<HTMLImageElement>(*hitTestNode), request, info);
+    if (!info.isImage && request.includeImageData) {
+        if (auto video = hostVideoElementIgnoringImageOverlay(*hitTestNode))
+            videoPositionInformation(*this, *video, request, info);
+        else if (is<HTMLImageElement>(hitTestNode))
+            imagePositionInformation(*this, downcast<HTMLImageElement>(*hitTestNode), request, info);
+    }
 
     selectionPositionInformation(*this, request, info);
 
@@ -3880,8 +3925,8 @@ void WebPage::updateViewportSizeForCSSViewportUnits()
     FrameView& frameView = *mainFrameView();
     smallestUnobscuredSize.scale(1 / m_viewportConfiguration.initialScaleIgnoringContentSize());
     largestUnobscuredSize.scale(1 / m_viewportConfiguration.initialScaleIgnoringContentSize());
-    frameView.setSizeForCSSSmallViewportUnits(roundedIntSize(smallestUnobscuredSize));
-    frameView.setSizeForCSSLargeViewportUnits(roundedIntSize(largestUnobscuredSize));
+    frameView.setSizeForCSSSmallViewportUnits(smallestUnobscuredSize);
+    frameView.setSizeForCSSLargeViewportUnits(largestUnobscuredSize);
 }
 
 void WebPage::applicationWillResignActive()

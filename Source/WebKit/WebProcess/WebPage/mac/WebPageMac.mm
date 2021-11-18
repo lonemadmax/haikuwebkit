@@ -73,6 +73,7 @@
 #import <WebCore/HTMLConverter.h>
 #import <WebCore/HTMLPlugInImageElement.h>
 #import <WebCore/HitTestResult.h>
+#import <WebCore/ImageOverlay.h>
 #import <WebCore/KeyboardEvent.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/NetworkStorageSession.h>
@@ -467,27 +468,27 @@ bool WebPage::performNonEditingBehaviorForSelector(const String& selector, Keybo
     
     if (!frame->settings().eventHandlerDrivenSmoothKeyboardScrollingEnabled()) {
         if (selector == "moveUp:")
-            didPerformAction = scroll(m_page.get(), ScrollUp, ScrollByLine);
+            didPerformAction = scroll(m_page.get(), ScrollUp, ScrollGranularity::Line);
         else if (selector == "moveToBeginningOfParagraph:")
-            didPerformAction = scroll(m_page.get(), ScrollUp, ScrollByPage);
+            didPerformAction = scroll(m_page.get(), ScrollUp, ScrollGranularity::Page);
         else if (selector == "moveToBeginningOfDocument:") {
-            didPerformAction = scroll(m_page.get(), ScrollUp, ScrollByDocument);
-            didPerformAction |= scroll(m_page.get(), ScrollLeft, ScrollByDocument);
+            didPerformAction = scroll(m_page.get(), ScrollUp, ScrollGranularity::Document);
+            didPerformAction |= scroll(m_page.get(), ScrollLeft, ScrollGranularity::Document);
         } else if (selector == "moveDown:")
-            didPerformAction = scroll(m_page.get(), ScrollDown, ScrollByLine);
+            didPerformAction = scroll(m_page.get(), ScrollDown, ScrollGranularity::Line);
         else if (selector == "moveToEndOfParagraph:")
-            didPerformAction = scroll(m_page.get(), ScrollDown, ScrollByPage);
+            didPerformAction = scroll(m_page.get(), ScrollDown, ScrollGranularity::Page);
         else if (selector == "moveToEndOfDocument:") {
-            didPerformAction = scroll(m_page.get(), ScrollDown, ScrollByDocument);
-            didPerformAction |= scroll(m_page.get(), ScrollLeft, ScrollByDocument);
+            didPerformAction = scroll(m_page.get(), ScrollDown, ScrollGranularity::Document);
+            didPerformAction |= scroll(m_page.get(), ScrollLeft, ScrollGranularity::Document);
         } else if (selector == "moveLeft:")
-            didPerformAction = scroll(m_page.get(), ScrollLeft, ScrollByLine);
+            didPerformAction = scroll(m_page.get(), ScrollLeft, ScrollGranularity::Line);
         else if (selector == "moveWordLeft:")
-            didPerformAction = scroll(m_page.get(), ScrollLeft, ScrollByPage);
+            didPerformAction = scroll(m_page.get(), ScrollLeft, ScrollGranularity::Page);
         else if (selector == "moveRight:")
-            didPerformAction = scroll(m_page.get(), ScrollRight, ScrollByLine);
+            didPerformAction = scroll(m_page.get(), ScrollRight, ScrollGranularity::Line);
         else if (selector == "moveWordRight:")
-            didPerformAction = scroll(m_page.get(), ScrollRight, ScrollByPage);
+            didPerformAction = scroll(m_page.get(), ScrollRight, ScrollGranularity::Page);
     }
 
     if (selector == "moveToLeftEndOfLine:")
@@ -885,7 +886,7 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FloatPoint locati
 
     auto indicatorOptions = [&](const SimpleRange& range) {
         OptionSet<TextIndicatorOption> options { TextIndicatorOption::UseBoundingRectAndPaintAllContentForComplexRanges };
-        if (HTMLElement::isInsideImageOverlay(range))
+        if (ImageOverlay::isInsideOverlay(range))
             options.add({ TextIndicatorOption::PaintAllContent, TextIndicatorOption::PaintBackgrounds });
         return options;
     };

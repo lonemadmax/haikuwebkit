@@ -27,7 +27,7 @@ messages -> WebPage LegacyReceiver {
 
     SetBackgroundColor(std::optional<WebCore::Color> color)
 
-    AddConsoleMessage(WebCore::FrameIdentifier frameID, enum:uint8_t JSC::MessageSource messageSource, enum:uint8_t JSC::MessageLevel messageLevel, String message, WebCore::ResourceLoaderIdentifier requestID)
+    AddConsoleMessage(WebCore::FrameIdentifier frameID, enum:uint8_t JSC::MessageSource messageSource, enum:uint8_t JSC::MessageLevel messageLevel, String message, std::optional<WebCore::ResourceLoaderIdentifier> requestID)
     SendCSPViolationReport(WebCore::FrameIdentifier frameID, URL reportURL, IPC::FormDataReference reportData)
     SendCOEPPolicyInheritenceViolation(WebCore::FrameIdentifier frameID, struct WebCore::SecurityOriginData embedderOrigin, String endpoint, enum:bool WebCore::COEPDisposition disposition, String type, URL blockedURL)
     SendCOEPCORPViolation(WebCore::FrameIdentifier frameID, struct WebCore::SecurityOriginData embedderOrigin, String endpoint, enum:bool WebCore::COEPDisposition disposition, enum:uint8_t WebCore::FetchOptions::Destination destination, URL blockedURL)
@@ -168,7 +168,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     DidEndDateTimePicker();
 #endif
 
-    ScrollBy(uint32_t scrollDirection, uint32_t scrollGranularity)
+    ScrollBy(uint32_t scrollDirection, enum:uint8_t WebCore::ScrollGranularity scrollGranularity)
     CenterSelectionInVisibleArea()
 
     GoToBackForwardItem(uint64_t navigationID, struct WebCore::BackForwardItemIdentifier backForwardItemID, enum:uint8_t WebCore::FrameLoadType backForwardType, enum:uint8_t WebCore::ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad, std::optional<WebKit::WebsitePoliciesData> websitePolicies, bool lastNavigationWasAppInitiated)
@@ -386,6 +386,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     CaptureDevicesChanged()
 #if USE(GSTREAMER)
     SetOrientationForMediaCapture(int rotation)
+    SetMockCameraIsInterrupted(bool isInterrupted)
 #endif
 #endif
 
@@ -480,7 +481,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     SetSizeToContentAutoSizeMaximumSize(WebCore::IntSize size)
     SetAutoSizingShouldExpandToViewHeight(bool shouldExpand)
 
-    SetViewportSizeForCSSViewportUnits(std::optional<WebCore::IntSize> viewportSize)
+    SetViewportSizeForCSSViewportUnits(std::optional<WebCore::FloatSize> viewportSize)
 
 #if PLATFORM(COCOA)
     HandleAlternativeTextUIResult(String result)
@@ -646,8 +647,4 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 #endif
 
     ScrollToRect(WebCore::FloatRect targetRect, WebCore::FloatPoint origin)
-
-#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
-    ModelElementPreviewDidObtainContextId(struct WebCore::ElementContext elementContext, String uuid, uint32_t contextId)
-#endif
 }

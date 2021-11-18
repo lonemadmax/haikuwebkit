@@ -17,8 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef SourceAlpha_h
-#define SourceAlpha_h
+#pragma once
 
 #include "FilterEffect.h"
 
@@ -28,19 +27,18 @@ class SourceAlpha : public FilterEffect {
 public:        
     static Ref<SourceAlpha> create(FilterEffect&);
 
-    static const AtomString& effectName();
+    static AtomString effectName() { return FilterEffect::sourceAlphaName(); }
 
 private:
     explicit SourceAlpha(FilterEffect&);
-    FilterEffectType filterEffectType() const override { return FilterEffectTypeSourceInput; }
 
-    const char* filterName() const final { return "SourceAlpha"; }
+    void determineAbsolutePaintRect(const Filter&) override;
 
-    void platformApplySoftware() override;
-    void determineAbsolutePaintRect() override;
+    void platformApplySoftware(const Filter&) override;
+
     WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
 };
 
 } //namespace WebCore
 
-#endif // SourceAlpha_h
+SPECIALIZE_TYPE_TRAITS_FILTER_EFFECT(SourceAlpha)

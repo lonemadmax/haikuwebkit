@@ -69,6 +69,9 @@
 
 namespace WebCore {
 
+#define ENABLE_MODERN_PREFERRED_WIDTH_COMPUTATION 0
+#define ENABLE_MODERN_PREFERRED_WIDTH_COMPUTATION_FOR_INLINE_BOXES 0
+
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderBlockFlow);
 
 bool RenderBlock::s_canPropagateFloatIntoSibling = false;
@@ -577,8 +580,6 @@ void RenderBlockFlow::layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalH
     // Add overflow from children (unless we're multi-column, since in that case all our child overflow is clipped anyway).
     computeOverflow(oldClientAfterEdge);
 
-    fitBorderToLinesIfNeeded();
-
     auto* state = view().frameView().layoutContext().layoutState();
     if (state && state->pageLogicalHeight())
         setPageLogicalOffset(state->pageLogicalOffset(this, logicalTop()));
@@ -683,9 +684,12 @@ void RenderBlockFlow::layoutBlockChildren(bool relayoutChildren, LayoutUnit& max
     handleAfterSideOfBlock(beforeEdge, afterEdge, marginInfo);
 }
 
-void RenderBlockFlow::layoutInlineChildren(bool relayoutChildren, LayoutUnit& repaintLogicalTop, LayoutUnit& repaintLogicalBottom)
+void RenderBlockFlow::computeAndSetLineLayoutPath()
 {
-    auto computeLineLayoutPath = [&] {
+    if (lineLayoutPath() != UndeterminedPath)
+        return;
+
+    auto compute = [&] {
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
         if (LayoutIntegration::LineLayout::canUseFor(*this))
             return ModernPath;
@@ -693,8 +697,12 @@ void RenderBlockFlow::layoutInlineChildren(bool relayoutChildren, LayoutUnit& re
         return LegacyPath;
     };
 
-    if (lineLayoutPath() == UndeterminedPath)
-        setLineLayoutPath(computeLineLayoutPath());
+    setLineLayoutPath(compute());
+}
+
+void RenderBlockFlow::layoutInlineChildren(bool relayoutChildren, LayoutUnit& repaintLogicalTop, LayoutUnit& repaintLogicalBottom)
+{
+    computeAndSetLineLayoutPath();
 
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
     if (lineLayoutPath() == ModernPath) {
@@ -3036,73 +3044,6 @@ void RenderBlockFlow::addOverflowFromInlineChildren()
         legacyLineLayout()->addOverflowFromInlineChildren();
 }
 
-void RenderBlockFlow::adjustForBorderFit(LayoutUnit x, LayoutUnit& left, LayoutUnit& right) const
-{
-    if (style().visibility() != Visibility::Visible)
-        return;
-
-    // We don't deal with relative positioning.  Our assumption is that you shrink to fit the lines without accounting
-    // for either overflow or translations via relative positioning.
-    if (childrenInline()) {
-        for (auto line = InlineIterator::firstLineFor(*this); line; line.traverseNext()) {
-            left = std::min(left, x + LayoutUnit(line->contentLogicalLeft()));
-            right = std::max(right, x + LayoutUnit(ceilf(line->contentLogicalRight())));
-        }
-    } else {
-        for (RenderBox* obj = firstChildBox(); obj; obj = obj->nextSiblingBox()) {
-            if (!obj->isFloatingOrOutOfFlowPositioned()) {
-                if (is<RenderBlockFlow>(*obj) && !obj->hasNonVisibleOverflow())
-                    downcast<RenderBlockFlow>(*obj).adjustForBorderFit(x + obj->x(), left, right);
-                else if (obj->style().visibility() == Visibility::Visible) {
-                    // We are a replaced element or some kind of non-block-flow object.
-                    left = std::min(left, x + obj->x());
-                    right = std::max(right, x + obj->x() + obj->width());
-                }
-            }
-        }
-    }
-
-    if (m_floatingObjects) {
-        const FloatingObjectSet& floatingObjectSet = m_floatingObjects->set();
-        auto end = floatingObjectSet.end();
-        for (auto it = floatingObjectSet.begin(); it != end; ++it) {
-            const auto& floatingObject = *it->get();
-            if (floatingObject.paintsFloat()) {
-                LayoutUnit floatLeft = floatingObject.translationOffsetToAncestor().width();
-                LayoutUnit floatRight = floatLeft + floatingObject.renderer().width();
-                left = std::min(left, floatLeft);
-                right = std::max(right, floatRight);
-            }
-        }
-    }
-}
-
-void RenderBlockFlow::fitBorderToLinesIfNeeded()
-{
-    if (style().borderFit() == BorderFit::Border || hasOverridingLogicalWidth())
-        return;
-
-    // Walk any normal flow lines to snugly fit.
-    LayoutUnit left = LayoutUnit::max();
-    LayoutUnit right = LayoutUnit::min();
-    LayoutUnit oldWidth = contentWidth();
-    adjustForBorderFit(0, left, right);
-    
-    // Clamp to our existing edges. We can never grow. We only shrink.
-    LayoutUnit leftEdge = borderLeft() + paddingLeft();
-    LayoutUnit rightEdge = leftEdge + oldWidth;
-    left = std::min(rightEdge, std::max(leftEdge, left));
-    right = std::max(leftEdge, std::min(rightEdge, right));
-    
-    LayoutUnit newContentWidth = right - left;
-    if (newContentWidth == oldWidth)
-        return;
-
-    setOverridingLogicalWidth(newContentWidth + borderAndPaddingLogicalWidth());
-    layoutBlock(false);
-    clearOverridingLogicalWidth();
-}
-
 void RenderBlockFlow::markLinesDirtyInBlockRange(LayoutUnit logicalTop, LayoutUnit logicalBottom, LegacyRootInlineBox* highest)
 {
     if (logicalTop >= logicalBottom)
@@ -4261,6 +4202,11 @@ static inline LayoutUnit preferredWidth(LayoutUnit preferredWidth, float result)
 
 void RenderBlockFlow::computeInlinePreferredLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const
 {
+#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+    if (const_cast<RenderBlockFlow&>(*this).tryComputePreferredWidthsUsingModernPath(minLogicalWidth, maxLogicalWidth))
+        return;
+#endif
+
     float inlineMax = 0;
     float inlineMin = 0;
 
@@ -4598,6 +4544,47 @@ void RenderBlockFlow::computeInlinePreferredLogicalWidths(LayoutUnit& minLogical
     minLogicalWidth = preferredWidth(minLogicalWidth, inlineMin);
     maxLogicalWidth = preferredWidth(maxLogicalWidth, inlineMax);
 }
+
+#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+bool RenderBlockFlow::tryComputePreferredWidthsUsingModernPath(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth)
+{
+#if ENABLE_MODERN_PREFERRED_WIDTH_COMPUTATION
+    computeAndSetLineLayoutPath();
+
+    // FIXME: Pass the replaced and inline block constrainst to IFC.
+    auto canUseModernPathForPreferredWidthComputation = [&] {
+        if (lineLayoutPath() != ModernPath)
+            return false;
+        for (auto walker = InlineWalker(*this); !walker.atEnd(); walker.advance()) {
+            auto& renderer = *walker.current();
+            if (renderer.isText())
+                continue;
+            if (is<RenderLineBreak>(renderer))
+                continue;
+#if ENABLE_MODERN_PREFERRED_WIDTH_COMPUTATION_FOR_INLINE_BOXES
+            if (is<RenderInline>(renderer))
+                continue;
+#endif
+            return false;
+        }
+        return true;
+    };
+
+    if (!canUseModernPathForPreferredWidthComputation())
+        return false;
+
+    if (!modernLineLayout())
+        m_lineLayout = makeUnique<LayoutIntegration::LineLayout>(*this);
+
+    std::tie(minLogicalWidth, maxLogicalWidth) = modernLineLayout()->computeIntrinsicWidthConstraints();
+    return true;
+#else
+    UNUSED_PARAM(minLogicalWidth);
+    UNUSED_PARAM(maxLogicalWidth);
+    return false;
+#endif
+}
+#endif
 
 }
 // namespace WebCore

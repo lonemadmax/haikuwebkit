@@ -972,6 +972,12 @@ webkit.org/b/229732 fast/text/font-promises-gc.html [ Failure ]
 
 webkit.org/b/229740 fast/box-shadow/box-shadow-huge-area-crash.html [ ImageOnlyFailure Crash ]
 
+# Failures due to LFC not being used on GTK.
+webkit.org/b/232910 fast/inline/no-soft-wrap-opportunity-at-inline-box.html [ ImageOnlyFailure ]
+webkit.org/b/232910 fast/inline/wordbreak-at-inline-box-boundary.html [ ImageOnlyFailure ]
+webkit.org/b/232910 fast/text/apply-start-width-after-skipped-text.html [ Failure ]
+webkit.org/b/232910 imported/w3c/web-platform-tests/css/css-text/line-breaking/line-breaking-ic-003.html [ ImageOnlyFailure ]
+
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Expected failures.
 #////////////////////////////////////////////////////////////////////////////////////////
@@ -1242,8 +1248,6 @@ webkit.org/b/178472 http/tests/resourceLoadStatistics/prevalent-resource-handled
 webkit.org/b/229268 media/media-fragments/TC0009.html [ Failure Pass ]
 webkit.org/b/229268 media/media-fragments/TC0014.html [ Failure Pass ]
 
-webkit.org/b/229964 webaudio/silent-audio-interrupted-in-background.html [ Pass Timeout ]
-
 # Flaky on skip-failing-test bot (EWS)
 webkit.org/b/229270 fast/events/monotonic-event-time.html [ Failure Pass ]
 
@@ -1282,7 +1286,6 @@ Bug(GTK) [ Debug ] js/dfg-uint8clampedarray.html [ Pass Slow ]
 Bug(GTK) js/dom/string-replacement-outofmemory.html [ Pass Slow ]
 Bug(GTK) [ Debug ] js/dom/toString-and-valueOf-override.html [ Pass Slow ]
 Bug(GTK) jquery/event.html [ Pass Slow ]
-Bug(GTK) jquery/manipulation.html [ Pass Slow ]
 Bug(GTK) jquery/offset.html [ Pass Slow ]
 Bug(GTK) jquery/traversing.html [ Pass Slow ]
 Bug(GTK) tables/mozilla/other/slashlogo.html [ Pass Slow ]
@@ -1366,7 +1369,6 @@ webkit.org/b/207711 imported/blink/storage/indexeddb/blob-valid-after-deletion.h
 
 # Timing out due to missing functionality.
 webkit.org/b/212202 webkit.org/b/168189 fast/scrolling/arrow-key-scroll-in-rtl-document.html [ Skip ] # Failure Timeout.
-webkit.org/b/212202 webkit.org/b/197507 fast/scrolling/momentum-scroll-with-borders.html [ Skip ] # Timeout Pass.
 webkit.org/b/212202 webkit.org/b/158917 fast/scrolling/overflow-scroll-past-max.html [ Skip ] # Failure Pass Timeout.
 webkit.org/b/212202 fast/scrolling/programmatic-scroll-to-zero-zero.html [ Skip ]
 webkit.org/b/212202 fast/scrolling/rtl-point-in-iframe.html [ Skip ]

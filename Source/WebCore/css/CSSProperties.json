@@ -2432,7 +2432,7 @@
                 "aliases": [
                     "-webkit-clip-path"
                 ],
-                "converter": "ClipPath"
+                "converter": "PathOperation"
             }
         },
         "clip-rule": {
@@ -3514,6 +3514,16 @@
             "specification": {
                 "category": "css-images",
                 "url": "https://www.w3.org/TR/css3-images/#object-position"
+            }
+        },
+        "offset-path": {
+            "codegen-properties": {
+                "converter": "PathOperation",
+                "settings-flag": "cssMotionPathEnabled"
+            },
+            "specification": {
+                "category": "css-motion-path",
+                "url": "https://drafts.fxtf.org/motion-1/#offset-path-property"
             }
         },
         "offset-distance": {
@@ -5093,13 +5103,6 @@
                 "comment": "Differs from background-size only in the interpretation of a single value: '-webkit-background-size: l;' is equivalent to 'background-size: l l;' whereas 'background-size: l;' is equivalent to 'background-size: l auto;'"
             }
         },
-        "-webkit-border-fit": {
-            "values": [
-                "border",
-                "lines"
-            ],
-            "status": "non-standard"
-        },
         "-webkit-border-horizontal-spacing": {
             "inherited": true,
             "codegen-properties": {
@@ -5630,7 +5633,7 @@
                 "aliases": [
                     "-webkit-flex-basis"
                 ],
-                "converter": "LengthOrAuto"
+                "converter": "LengthSizing"
             },
             "specification": {
                 "category": "css-flexbox",

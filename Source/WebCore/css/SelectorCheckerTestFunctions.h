@@ -72,6 +72,11 @@ ALWAYS_INLINE bool isAutofilledStrongPasswordViewable(const Element& element)
     return is<HTMLInputElement>(element) && downcast<HTMLInputElement>(element).isAutoFilledAndViewable();
 }
 
+ALWAYS_INLINE bool isAutofilledAndObscured(const Element& element)
+{
+    return is<HTMLInputElement>(element) && downcast<HTMLInputElement>(element).isAutoFilledAndObscured();
+}
+
 ALWAYS_INLINE bool matchesDefaultPseudoClass(const Element& element)
 {
     return element.matchesDefaultPseudoClass();
@@ -295,12 +300,12 @@ ALWAYS_INLINE bool scrollbarMatchesActivePseudoClass(const SelectorChecker::Chec
 
 ALWAYS_INLINE bool scrollbarMatchesHorizontalPseudoClass(const SelectorChecker::CheckingContext& context)
 {
-    return context.scrollbarState && context.scrollbarState->orientation == HorizontalScrollbar;
+    return context.scrollbarState && context.scrollbarState->orientation == ScrollbarOrientation::Horizontal;
 }
 
 ALWAYS_INLINE bool scrollbarMatchesVerticalPseudoClass(const SelectorChecker::CheckingContext& context)
 {
-    return context.scrollbarState && context.scrollbarState->orientation == VerticalScrollbar;
+    return context.scrollbarState && context.scrollbarState->orientation == ScrollbarOrientation::Vertical;
 }
 
 ALWAYS_INLINE bool scrollbarMatchesDecrementPseudoClass(const SelectorChecker::CheckingContext& context)

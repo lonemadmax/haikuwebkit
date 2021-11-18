@@ -195,7 +195,8 @@ void ContentSecurityPolicy::didReceiveHeader(const String& header, ContentSecuri
     if (policyFrom == PolicyFrom::API) {
         ASSERT(m_policies.isEmpty());
         m_hasAPIPolicy = true;
-    }
+    } else if (policyFrom == PolicyFrom::HTTPHeader)
+        m_isHeaderDelivered = true;
 
     m_cachedResponseHeaders = std::nullopt;
 
@@ -620,15 +621,16 @@ bool ContentSecurityPolicy::allowChildFrameFromSource(const URL& url, RedirectRe
     return allPoliciesAllow(WTFMove(handleViolatedDirective), &ContentSecurityPolicyDirectiveList::violatedDirectiveForFrame, url, redirectResponseReceived == RedirectResponseReceived::Yes);
 }
 
-bool ContentSecurityPolicy::allowResourceFromSource(const URL& url, RedirectResponseReceived redirectResponseReceived, const char* name, ResourcePredicate resourcePredicate) const
+bool ContentSecurityPolicy::allowResourceFromSource(const URL& url, RedirectResponseReceived redirectResponseReceived, const char* name, ResourcePredicate resourcePredicate, const URL& preRedirectURL) const
 {
     if (LegacySchemeRegistry::schemeShouldBypassContentSecurityPolicy(url.protocol().toStringWithoutCopying()))
         return true;
     String sourceURL;
+    const auto& blockedURL = !preRedirectURL.isNull() ? preRedirectURL : url;
     TextPosition sourcePosition(OrdinalNumber::beforeFirst(), OrdinalNumber());
     auto handleViolatedDirective = [&] (const ContentSecurityPolicyDirective& violatedDirective) {
-        String consoleMessage = consoleMessageForViolation(name, violatedDirective, url, "Refused to load");
-        reportViolation(name, violatedDirective, url.string(), consoleMessage, sourceURL, sourcePosition);
+        String consoleMessage = consoleMessageForViolation(name, violatedDirective, blockedURL, "Refused to load");
+        reportViolation(name, violatedDirective, blockedURL.string(), consoleMessage, sourceURL, sourcePosition);
     };
     return allPoliciesAllow(WTFMove(handleViolatedDirective), resourcePredicate, url, redirectResponseReceived == RedirectResponseReceived::Yes);
 }
@@ -686,9 +688,9 @@ bool ContentSecurityPolicy::allowConnectToSource(const URL& url, RedirectRespons
     return allPoliciesAllow(WTFMove(handleViolatedDirective), &ContentSecurityPolicyDirectiveList::violatedDirectiveForConnectSource, url, redirectResponseReceived == RedirectResponseReceived::Yes);
 }
 
-bool ContentSecurityPolicy::allowFormAction(const URL& url, RedirectResponseReceived redirectResponseReceived) const
+bool ContentSecurityPolicy::allowFormAction(const URL& url, RedirectResponseReceived redirectResponseReceived, const URL& preRedirectURL) const
 {
-    return allowResourceFromSource(url, redirectResponseReceived, ContentSecurityPolicyDirectiveNames::formAction, &ContentSecurityPolicyDirectiveList::violatedDirectiveForFormAction);
+    return allowResourceFromSource(url, redirectResponseReceived, ContentSecurityPolicyDirectiveNames::formAction, &ContentSecurityPolicyDirectiveList::violatedDirectiveForFormAction, preRedirectURL);
 }
 
 bool ContentSecurityPolicy::allowBaseURI(const URL& url, bool overrideContentSecurityPolicy) const
@@ -749,6 +751,8 @@ void ContentSecurityPolicy::reportViolation(const String& effectiveViolatedDirec
 
     auto blockedURL = URL(URL(), blockedURLString);
     info.documentURI = m_documentURL ? m_documentURL.value().strippedForUseAsReferrer() : deprecatedURLForReporting(blockedURL);
+    info.lineNumber = sourcePosition.m_line.oneBasedInt();
+    info.columnNumber = sourcePosition.m_column.oneBasedInt();
 
     if (m_client)
         m_client->willSendCSPViolationReport(info);

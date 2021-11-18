@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -1623,8 +1623,8 @@ TEST(WebAuthenticationPanel, PublicKeyCredentialCreationOptionsMinimun)
 
     EXPECT_WK_STREQ(result.user.name, "jappleseed@example.com");
     EXPECT_TRUE(result.user.icon.isNull());
-    EXPECT_EQ(result.user.idVector.size(), sizeof(identifier));
-    EXPECT_EQ(memcmp(result.user.idVector.data(), identifier, sizeof(identifier)), 0);
+    EXPECT_EQ(result.user.id.length(), sizeof(identifier));
+    EXPECT_EQ(memcmp(result.user.id.data(), identifier, sizeof(identifier)), 0);
     EXPECT_WK_STREQ(result.user.displayName, "J Appleseed");
 
     EXPECT_EQ(result.pubKeyCredParams.size(), 1lu);
@@ -1667,8 +1667,8 @@ TEST(WebAuthenticationPanel, PublicKeyCredentialCreationOptionsMaximumDefault)
 
     EXPECT_WK_STREQ(result.user.name, "jappleseed@example.com");
     EXPECT_TRUE(result.user.icon.isNull());
-    EXPECT_EQ(result.user.idVector.size(), sizeof(identifier));
-    EXPECT_EQ(memcmp(result.user.idVector.data(), identifier, sizeof(identifier)), 0);
+    EXPECT_EQ(result.user.id.length(), sizeof(identifier));
+    EXPECT_EQ(memcmp(result.user.id.data(), identifier, sizeof(identifier)), 0);
     EXPECT_WK_STREQ(result.user.displayName, "J Appleseed");
 
     EXPECT_EQ(result.pubKeyCredParams.size(), 2lu);
@@ -1681,8 +1681,8 @@ TEST(WebAuthenticationPanel, PublicKeyCredentialCreationOptionsMaximumDefault)
 
     EXPECT_EQ(result.excludeCredentials.size(), 1lu);
     EXPECT_EQ(result.excludeCredentials[0].type, WebCore::PublicKeyCredentialType::PublicKey);
-    EXPECT_EQ(result.excludeCredentials[0].idVector.size(), sizeof(identifier));
-    EXPECT_EQ(memcmp(result.excludeCredentials[0].idVector.data(), identifier, sizeof(identifier)), 0);
+    EXPECT_EQ(result.excludeCredentials[0].id.length(), sizeof(identifier));
+    EXPECT_EQ(memcmp(result.excludeCredentials[0].id.data(), identifier, sizeof(identifier)), 0);
 
     EXPECT_EQ(result.authenticatorSelection->authenticatorAttachment, std::nullopt);
     EXPECT_EQ(result.authenticatorSelection->requireResidentKey, false);
@@ -1734,8 +1734,8 @@ TEST(WebAuthenticationPanel, PublicKeyCredentialCreationOptionsMaximum1)
 
     EXPECT_WK_STREQ(result.user.name, "jappleseed@example.com");
     EXPECT_WK_STREQ(result.user.icon, @"https//www.example.com/icon.jpg");
-    EXPECT_EQ(result.user.idVector.size(), sizeof(identifier));
-    EXPECT_EQ(memcmp(result.user.idVector.data(), identifier, sizeof(identifier)), 0);
+    EXPECT_EQ(result.user.id.length(), sizeof(identifier));
+    EXPECT_EQ(memcmp(result.user.id.data(), identifier, sizeof(identifier)), 0);
     EXPECT_WK_STREQ(result.user.displayName, "J Appleseed");
 
     EXPECT_EQ(result.pubKeyCredParams.size(), 2lu);
@@ -1748,8 +1748,8 @@ TEST(WebAuthenticationPanel, PublicKeyCredentialCreationOptionsMaximum1)
 
     EXPECT_EQ(result.excludeCredentials.size(), 2lu);
     EXPECT_EQ(result.excludeCredentials[0].type, WebCore::PublicKeyCredentialType::PublicKey);
-    EXPECT_EQ(result.excludeCredentials[0].idVector.size(), sizeof(identifier));
-    EXPECT_EQ(memcmp(result.excludeCredentials[0].idVector.data(), identifier, sizeof(identifier)), 0);
+    EXPECT_EQ(result.excludeCredentials[0].id.length(), sizeof(identifier));
+    EXPECT_EQ(memcmp(result.excludeCredentials[0].id.data(), identifier, sizeof(identifier)), 0);
     EXPECT_EQ(result.excludeCredentials[0].transports.size(), 3lu);
     EXPECT_EQ(result.excludeCredentials[0].transports[0], AuthenticatorTransport::Usb);
     EXPECT_EQ(result.excludeCredentials[0].transports[1], AuthenticatorTransport::Nfc);
@@ -1804,8 +1804,8 @@ TEST(WebAuthenticationPanel, PublicKeyCredentialCreationOptionsMaximum2)
 
     EXPECT_WK_STREQ(result.user.name, "jappleseed@example.com");
     EXPECT_WK_STREQ(result.user.icon, @"https//www.example.com/icon.jpg");
-    EXPECT_EQ(result.user.idVector.size(), sizeof(identifier));
-    EXPECT_EQ(memcmp(result.user.idVector.data(), identifier, sizeof(identifier)), 0);
+    EXPECT_EQ(result.user.id.length(), sizeof(identifier));
+    EXPECT_EQ(memcmp(result.user.id.data(), identifier, sizeof(identifier)), 0);
     EXPECT_WK_STREQ(result.user.displayName, "J Appleseed");
 
     EXPECT_EQ(result.pubKeyCredParams.size(), 2lu);
@@ -1818,8 +1818,8 @@ TEST(WebAuthenticationPanel, PublicKeyCredentialCreationOptionsMaximum2)
 
     EXPECT_EQ(result.excludeCredentials.size(), 2lu);
     EXPECT_EQ(result.excludeCredentials[0].type, WebCore::PublicKeyCredentialType::PublicKey);
-    EXPECT_EQ(result.excludeCredentials[0].idVector.size(), sizeof(identifier));
-    EXPECT_EQ(memcmp(result.excludeCredentials[0].idVector.data(), identifier, sizeof(identifier)), 0);
+    EXPECT_EQ(result.excludeCredentials[0].id.length(), sizeof(identifier));
+    EXPECT_EQ(memcmp(result.excludeCredentials[0].id.data(), identifier, sizeof(identifier)), 0);
     EXPECT_EQ(result.excludeCredentials[0].transports.size(), 3lu);
     EXPECT_EQ(result.excludeCredentials[0].transports[0], AuthenticatorTransport::Usb);
     EXPECT_EQ(result.excludeCredentials[0].transports[1], AuthenticatorTransport::Nfc);
@@ -1891,7 +1891,7 @@ TEST(WebAuthenticationPanel, MakeCredentialLA)
         EXPECT_NULL(error);
 
         EXPECT_NOT_NULL(response);
-        EXPECT_WK_STREQ([[NSString alloc] initWithData:response.clientDataJSON encoding:NSUTF8StringEncoding], "{\"challenge\":\"AQIDBAECAwQBAgMEAQIDBAECAwQBAgMEAQIDBAECAwQ\",\"origin\":\"https://example.com\",\"type\":\"webauthn.create\"}");
+        EXPECT_WK_STREQ([[NSString alloc] initWithData:response.clientDataJSON encoding:NSUTF8StringEncoding], "{\"type\":\"webauthn.create\",\"challenge\":\"AQIDBAECAwQBAgMEAQIDBAECAwQBAgMEAQIDBAECAwQ\",\"origin\":\"https://example.com\"}");
         EXPECT_WK_STREQ([response.rawId base64EncodedStringWithOptions:0], "SMSXHngF7hEOsElA73C3RY+8bR4=");
         EXPECT_NULL(response.extensions);
         EXPECT_WK_STREQ([response.attestationObject base64EncodedStringWithOptions:0], "o2NmbXRkbm9uZWdhdHRTdG10oGhhdXRoRGF0YViYo3mm9u6vuaVeN4wRgDTidR5oL6ufLTCrE9ISVYbOGUdFAAAAAAAAAAAAAAAAAAAAAAAAAAAAFEjElx54Be4RDrBJQO9wt0WPvG0epQECAyYgASFYIDj/zxSkzKgaBuS3cdWDF558of8AaIpgFpsjF/Qm1749IlggVBJPgqUIwfhWHJ91nb7UPH76c0+WFOzZKslPyyFse4g=");
@@ -1931,8 +1931,8 @@ TEST(WebAuthenticationPanel, PublicKeyCredentialRequestOptionsMaximumDefault)
 
     EXPECT_EQ(result.allowCredentials.size(), 1lu);
     EXPECT_EQ(result.allowCredentials[0].type, WebCore::PublicKeyCredentialType::PublicKey);
-    EXPECT_EQ(result.allowCredentials[0].idVector.size(), sizeof(identifier));
-    EXPECT_EQ(memcmp(result.allowCredentials[0].idVector.data(), identifier, sizeof(identifier)), 0);
+    EXPECT_EQ(result.allowCredentials[0].id.length(), sizeof(identifier));
+    EXPECT_EQ(memcmp(result.allowCredentials[0].id.data(), identifier, sizeof(identifier)), 0);
 
     EXPECT_EQ(result.userVerification, UserVerificationRequirement::Preferred);
     EXPECT_TRUE(result.extensions->appid.isNull());
@@ -1965,8 +1965,8 @@ TEST(WebAuthenticationPanel, PublicKeyCredentialRequestOptionsMaximum)
 
     EXPECT_EQ(result.allowCredentials.size(), 2lu);
     EXPECT_EQ(result.allowCredentials[0].type, WebCore::PublicKeyCredentialType::PublicKey);
-    EXPECT_EQ(result.allowCredentials[0].idVector.size(), sizeof(identifier));
-    EXPECT_EQ(memcmp(result.allowCredentials[0].idVector.data(), identifier, sizeof(identifier)), 0);
+    EXPECT_EQ(result.allowCredentials[0].id.length(), sizeof(identifier));
+    EXPECT_EQ(memcmp(result.allowCredentials[0].id.data(), identifier, sizeof(identifier)), 0);
     EXPECT_EQ(result.allowCredentials[0].transports.size(), 3lu);
     EXPECT_EQ(result.allowCredentials[0].transports[0], AuthenticatorTransport::Usb);
     EXPECT_EQ(result.allowCredentials[0].transports[1], AuthenticatorTransport::Nfc);
@@ -2024,7 +2024,7 @@ TEST(WebAuthenticationPanel, GetAssertionLA)
         EXPECT_NULL(error);
 
         EXPECT_NOT_NULL(response);
-        EXPECT_WK_STREQ([[NSString alloc] initWithData:response.clientDataJSON encoding:NSUTF8StringEncoding], "{\"challenge\":\"AQIDBAECAwQBAgMEAQIDBAECAwQBAgMEAQIDBAECAwQ\",\"origin\":\"https://example.com\",\"type\":\"webauthn.get\"}");
+        EXPECT_WK_STREQ([[NSString alloc] initWithData:response.clientDataJSON encoding:NSUTF8StringEncoding], "{\"type\":\"webauthn.get\",\"challenge\":\"AQIDBAECAwQBAgMEAQIDBAECAwQBAgMEAQIDBAECAwQ\",\"origin\":\"https://example.com\"}");
         EXPECT_WK_STREQ([response.rawId base64EncodedStringWithOptions:0], "SMSXHngF7hEOsElA73C3RY+8bR4=");
         EXPECT_NULL(response.extensions);
 
@@ -2147,12 +2147,20 @@ TEST(WebAuthenticationPanel, DeleteOneCredential)
 
 TEST(WebAuthenticationPanel, RecoverAfterAuthNProcessCrash)
 {
+    TestWebKitAPI::HTTPServer server({
+        { "/", { "FOO"_str } }
+    });
+
     auto *configuration = [WKWebViewConfiguration _test_configurationWithTestPlugInClassName:@"WebProcessPlugInWithInternals" configureJSCForTesting:YES];
     [[configuration preferences] _setEnabled:YES forExperimentalFeature:webAuthenticationExperimentalFeature()];
     [[configuration preferences] _setEnabled:YES forExperimentalFeature:webAuthenticationModernExperimentalFeature()];
 
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSZeroRect configuration:configuration]);
     EXPECT_EQ([WKProcessPool _webAuthnProcessIdentifier], 0);
+
+    [webView synchronouslyLoadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:[NSString stringWithFormat:@"http://localhost:%d/", server.port()]]]];
+    [webView focus];
+
     [webView objectByEvaluatingJavaScript:@"internals.setMockWebAuthenticationConfiguration({ })"];
     auto firstWebPID = [webView _webProcessIdentifier];
     auto firstWebAuthnPID = [WKProcessPool _webAuthnProcessIdentifier];
@@ -2160,15 +2168,32 @@ TEST(WebAuthenticationPanel, RecoverAfterAuthNProcessCrash)
     EXPECT_NE(firstWebAuthnPID, 0);
 
     kill(firstWebAuthnPID, SIGKILL);
-    while ([WKProcessPool _webAuthnProcessIdentifier] || [webView _webProcessIdentifier])
+    while ([WKProcessPool _webAuthnProcessIdentifier])
         Util::spinRunLoop();
-    [webView objectByEvaluatingJavaScript:@"internals.setMockWebAuthenticationConfiguration({ })"];
-    auto secondWebPID = [webView _webProcessIdentifier];
+
+    [webView objectByEvaluatingJavaScript:@"internals.setMockWebAuthenticationConfiguration({ hid: { stage: 'request', subStage: 'msg', error: 'success', isU2f: true, payloadBase64: ['AQAAADswRAIge94KUqwfTIsn4AOjcM1mpMcRjdItVEeDX0W5nGhCP/cCIDxRe0eHf4V4LeEAhqeD0effTjY553H19q+jWq1Tc4WOkAA='] } });"];
+
+    while (![WKProcessPool _webAuthnProcessIdentifier])
+        Util::spinRunLoop();
+
     auto secondWebAuthnPID = [WKProcessPool _webAuthnProcessIdentifier];
-    EXPECT_NE(secondWebAuthnPID, 0);
     EXPECT_NE(secondWebAuthnPID, firstWebAuthnPID);
-    EXPECT_NE(secondWebPID, 0);
-    EXPECT_NE(secondWebPID, firstWebPID);
+    EXPECT_EQ([webView _webProcessIdentifier], firstWebPID);
+
+    __block bool gotMessage = false;
+    [webView performAfterReceivingAnyMessage:^(NSString *message) {
+        EXPECT_WK_STREQ(@"public-key", message);
+        gotMessage = true;
+    }];
+
+    __block bool executedScript = false;
+    [webView evaluateJavaScript:@"navigator.credentials.get({ publicKey: { challenge: new Uint8Array([49, 50, 51, 52, 53, 54]), allowCredentials: [{ type: 'public-key', id: new Uint8Array(Array.prototype.map.call(atob('Pr2Jv3fsUJdV7pwmNe+qrHsrnFzvFzbDcX2khTTIxrZU1/+UX1C1zE54BVvdOWtk942ixfliAMzUFc0I/kIAOA'), function (c) { return c.charCodeAt(0) })) }], timeout: 100 } }).then(credential => { webkit.messageHandlers.testHandler.postMessage(credential.type); }, e => { webkit.messageHandlers.testHandler.postMessage('' + e); }) && true" completionHandler:^(id result, NSError *error) {
+        ASSERT_FALSE(error);
+        executedScript = true;
+    }];
+    Util::run(&executedScript);
+
+    Util::run(&gotMessage);
 }
 
 } // namespace TestWebKitAPI

@@ -403,6 +403,8 @@ public:
     WebCore::AccessibilityAtspi& accessibilityAtspi() const { return *m_accessibility; }
 #endif
 
+    bool isCaptivePortalModeEnabled() const { return m_isCaptivePortalModeEnabled; }
+
 private:
     WebProcess();
     ~WebProcess();
@@ -707,6 +709,8 @@ private:
 #endif
 
     bool m_suppressMemoryPressureHandler { false };
+    bool m_loggedProcessLimitWarningMemoryStatistics { false };
+    bool m_loggedProcessLimitCriticalMemoryStatistics { false };
 #if PLATFORM(MAC)
     std::unique_ptr<WebCore::CPUMonitor> m_cpuMonitor;
     std::optional<double> m_cpuLimit;
@@ -732,6 +736,7 @@ private:
 
     bool m_hasSuspendedPageProxy { false };
     bool m_isSuspending { false };
+    bool m_isCaptivePortalModeEnabled { false };
 
 #if ENABLE(MEDIA_STREAM) && ENABLE(SANDBOX_EXTENSIONS)
     HashMap<String, RefPtr<SandboxExtension>> m_mediaCaptureSandboxExtensions;

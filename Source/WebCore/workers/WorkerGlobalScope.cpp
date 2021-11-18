@@ -77,6 +77,12 @@ static HashSet<ScriptExecutionContextIdentifier>& allWorkerGlobalScopeIdentifier
     return identifiers;
 }
 
+static WorkQueue& sharedFileSystemStorageQueue()
+{
+    static NeverDestroyed<Ref<WorkQueue>> queue(WorkQueue::create("Shared File System Storage Queue",  WorkQueue::QOS::Default));
+    return queue.get();
+}
+
 WTF_MAKE_ISO_ALLOCATED_IMPL(WorkerGlobalScope);
 
 WorkerGlobalScope::WorkerGlobalScope(WorkerThreadType type, const WorkerParameters& params, Ref<SecurityOrigin>&& origin, WorkerThread& thread, Ref<SecurityOrigin>&& topOrigin, IDBClient::IDBConnectionProxy* connectionProxy, SocketProvider* socketProvider)
@@ -230,6 +236,11 @@ WorkerStorageConnection& WorkerGlobalScope::storageConnection()
         m_storageConnection = WorkerStorageConnection::create(*this);
 
     return *m_storageConnection;
+}
+
+void WorkerGlobalScope::postFileSystemStorageTask(Function<void()>&& task)
+{
+    sharedFileSystemStorageQueue().dispatch(WTFMove(task));
 }
 
 WorkerFileSystemStorageConnection& WorkerGlobalScope::getFileSystemStorageConnection(Ref<FileSystemStorageConnection>&& mainThreadConnection)
@@ -564,14 +575,14 @@ void WorkerGlobalScope::deleteJSCodeAndGC(Synchronous synchronous)
     vm().deleteAllCode(JSC::DeleteAllCodeIfNotCollecting);
 
     if (synchronous == Synchronous::Yes) {
-        if (!vm().heap.isCurrentThreadBusy()) {
+        if (!vm().heap.currentThreadIsDoingGCWork()) {
             vm().heap.collectNow(JSC::Sync, JSC::CollectionScope::Full);
             WTF::releaseFastMallocFreeMemory();
             return;
         }
     }
 #if PLATFORM(IOS_FAMILY)
-    if (!vm().heap.isCurrentThreadBusy()) {
+    if (!vm().heap.currentThreadIsDoingGCWork()) {
         vm().heap.collectNowFullIfNotDoneRecently(JSC::Async);
         return;
     }

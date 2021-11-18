@@ -53,6 +53,141 @@ FEATURE_AND_PLATFORM_DEFINE_DEPENDENCIES = $(WebCore)/DerivedSources.make
 # --------
 
 JS_BINDING_IDLS := \
+    $(WebCore)/Modules/WebGPU/GPU.idl \
+    $(WebCore)/Modules/WebGPU/GPUAdapter.idl \
+    $(WebCore)/Modules/WebGPU/GPUAddressMode.idl \
+    $(WebCore)/Modules/WebGPU/GPUBindGroup.idl \
+    $(WebCore)/Modules/WebGPU/GPUBindGroupDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPUBindGroupEntry.idl \
+    $(WebCore)/Modules/WebGPU/GPUBindGroupLayout.idl \
+    $(WebCore)/Modules/WebGPU/GPUBindGroupLayoutDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPUBindGroupLayoutEntry.idl \
+    $(WebCore)/Modules/WebGPU/GPUBlendComponent.idl \
+    $(WebCore)/Modules/WebGPU/GPUBlendFactor.idl \
+    $(WebCore)/Modules/WebGPU/GPUBlendOperation.idl \
+    $(WebCore)/Modules/WebGPU/GPUBlendState.idl \
+    $(WebCore)/Modules/WebGPU/GPUBuffer.idl \
+    $(WebCore)/Modules/WebGPU/GPUBufferBinding.idl \
+    $(WebCore)/Modules/WebGPU/GPUBufferBindingLayout.idl \
+    $(WebCore)/Modules/WebGPU/GPUBufferBindingType.idl \
+    $(WebCore)/Modules/WebGPU/GPUBufferDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPUBufferUsage.idl \
+    $(WebCore)/Modules/WebGPU/GPUCanvasCompositingAlphaMode.idl \
+    $(WebCore)/Modules/WebGPU/GPUCanvasConfiguration.idl \
+    $(WebCore)/Modules/WebGPU/GPUCanvasContext.idl \
+    $(WebCore)/Modules/WebGPU/GPUColorDict.idl \
+    $(WebCore)/Modules/WebGPU/GPUColorTargetState.idl \
+    $(WebCore)/Modules/WebGPU/GPUColorWrite.idl \
+    $(WebCore)/Modules/WebGPU/GPUCommandBuffer.idl \
+    $(WebCore)/Modules/WebGPU/GPUCommandBufferDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPUCommandEncoder.idl \
+    $(WebCore)/Modules/WebGPU/GPUCommandEncoderDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPUCompareFunction.idl \
+    $(WebCore)/Modules/WebGPU/GPUCompilationInfo.idl \
+    $(WebCore)/Modules/WebGPU/GPUCompilationMessage.idl \
+    $(WebCore)/Modules/WebGPU/GPUCompilationMessageType.idl \
+    $(WebCore)/Modules/WebGPU/GPUComputePassDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPUComputePassEncoder.idl \
+    $(WebCore)/Modules/WebGPU/GPUComputePassTimestampLocation.idl \
+    $(WebCore)/Modules/WebGPU/GPUComputePassTimestampWrite.idl \
+    $(WebCore)/Modules/WebGPU/GPUComputePipeline.idl \
+    $(WebCore)/Modules/WebGPU/GPUComputePipelineDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPUCullMode.idl \
+    $(WebCore)/Modules/WebGPU/GPUDepthStencilState.idl \
+    $(WebCore)/Modules/WebGPU/GPUDevice.idl \
+    $(WebCore)/Modules/WebGPU/GPUDeviceDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPUDeviceError.idl \
+    $(WebCore)/Modules/WebGPU/GPUDeviceLost.idl \
+    $(WebCore)/Modules/WebGPU/GPUDeviceLostInfo.idl \
+    $(WebCore)/Modules/WebGPU/GPUDeviceLostReason.idl \
+    $(WebCore)/Modules/WebGPU/GPUDeviceUncapturedError.idl \
+    $(WebCore)/Modules/WebGPU/GPUErrorFilter.idl \
+    $(WebCore)/Modules/WebGPU/GPUExtent3DDict.idl \
+    $(WebCore)/Modules/WebGPU/GPUExternalTexture.idl \
+    $(WebCore)/Modules/WebGPU/GPUExternalTextureBindingLayout.idl \
+    $(WebCore)/Modules/WebGPU/GPUExternalTextureDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPUFeatureName.idl \
+    $(WebCore)/Modules/WebGPU/GPUFilterMode.idl \
+    $(WebCore)/Modules/WebGPU/GPUFragmentState.idl \
+    $(WebCore)/Modules/WebGPU/GPUFrontFace.idl \
+    $(WebCore)/Modules/WebGPU/GPUImageCopyBuffer.idl \
+    $(WebCore)/Modules/WebGPU/GPUImageCopyExternalImage.idl \
+    $(WebCore)/Modules/WebGPU/GPUImageCopyTexture.idl \
+    $(WebCore)/Modules/WebGPU/GPUImageCopyTextureTagged.idl \
+    $(WebCore)/Modules/WebGPU/GPUImageDataLayout.idl \
+    $(WebCore)/Modules/WebGPU/GPUIndexFormat.idl \
+    $(WebCore)/Modules/WebGPU/GPULoadOp.idl \
+    $(WebCore)/Modules/WebGPU/GPUMapMode.idl \
+    $(WebCore)/Modules/WebGPU/GPUMultisampleState.idl \
+    $(WebCore)/Modules/WebGPU/GPUObjectBase.idl \
+    $(WebCore)/Modules/WebGPU/GPUObjectDescriptorBase.idl \
+    $(WebCore)/Modules/WebGPU/GPUOrigin2DDict.idl \
+    $(WebCore)/Modules/WebGPU/GPUOrigin3DDict.idl \
+    $(WebCore)/Modules/WebGPU/GPUOutOfMemoryError.idl \
+    $(WebCore)/Modules/WebGPU/GPUPipelineBase.idl \
+    $(WebCore)/Modules/WebGPU/GPUPipelineDescriptorBase.idl \
+    $(WebCore)/Modules/WebGPU/GPUPipelineLayout.idl \
+    $(WebCore)/Modules/WebGPU/GPUPipelineLayoutDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPUPipelineStatisticName.idl \
+    $(WebCore)/Modules/WebGPU/GPUPowerPreference.idl \
+    $(WebCore)/Modules/WebGPU/GPUPredefinedColorSpace.idl \
+    $(WebCore)/Modules/WebGPU/GPUPrimitiveState.idl \
+    $(WebCore)/Modules/WebGPU/GPUPrimitiveTopology.idl \
+    $(WebCore)/Modules/WebGPU/GPUProgrammablePassEncoder.idl \
+    $(WebCore)/Modules/WebGPU/GPUProgrammableStage.idl \
+    $(WebCore)/Modules/WebGPU/GPUQuerySet.idl \
+    $(WebCore)/Modules/WebGPU/GPUQuerySetDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPUQueryType.idl \
+    $(WebCore)/Modules/WebGPU/GPUQueue.idl \
+    $(WebCore)/Modules/WebGPU/GPURenderBundle.idl \
+    $(WebCore)/Modules/WebGPU/GPURenderBundleDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPURenderBundleEncoder.idl \
+    $(WebCore)/Modules/WebGPU/GPURenderBundleEncoderDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPURenderEncoderBase.idl \
+    $(WebCore)/Modules/WebGPU/GPURenderPassColorAttachment.idl \
+    $(WebCore)/Modules/WebGPU/GPURenderPassDepthStencilAttachment.idl \
+    $(WebCore)/Modules/WebGPU/GPURenderPassDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPURenderPassEncoder.idl \
+    $(WebCore)/Modules/WebGPU/GPURenderPassLayout.idl \
+    $(WebCore)/Modules/WebGPU/GPURenderPassTimestampLocation.idl \
+    $(WebCore)/Modules/WebGPU/GPURenderPassTimestampWrite.idl \
+    $(WebCore)/Modules/WebGPU/GPURenderPipeline.idl \
+    $(WebCore)/Modules/WebGPU/GPURenderPipelineDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPURequestAdapterOptions.idl \
+    $(WebCore)/Modules/WebGPU/GPUSampler.idl \
+    $(WebCore)/Modules/WebGPU/GPUSamplerBindingLayout.idl \
+    $(WebCore)/Modules/WebGPU/GPUSamplerBindingType.idl \
+    $(WebCore)/Modules/WebGPU/GPUSamplerDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPUShaderModule.idl \
+    $(WebCore)/Modules/WebGPU/GPUShaderModuleDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPUShaderStage.idl \
+    $(WebCore)/Modules/WebGPU/GPUStencilFaceState.idl \
+    $(WebCore)/Modules/WebGPU/GPUStencilOperation.idl \
+    $(WebCore)/Modules/WebGPU/GPUStorageTextureAccess.idl \
+    $(WebCore)/Modules/WebGPU/GPUStorageTextureBindingLayout.idl \
+    $(WebCore)/Modules/WebGPU/GPUStoreOp.idl \
+    $(WebCore)/Modules/WebGPU/GPUSupportedFeatures.idl \
+    $(WebCore)/Modules/WebGPU/GPUSupportedLimits.idl \
+    $(WebCore)/Modules/WebGPU/GPUTexture.idl \
+    $(WebCore)/Modules/WebGPU/GPUTextureAspect.idl \
+    $(WebCore)/Modules/WebGPU/GPUTextureBindingLayout.idl \
+    $(WebCore)/Modules/WebGPU/GPUTextureDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPUTextureDimension.idl \
+    $(WebCore)/Modules/WebGPU/GPUTextureFormat.idl \
+    $(WebCore)/Modules/WebGPU/GPUTextureSampleType.idl \
+    $(WebCore)/Modules/WebGPU/GPUTextureUsage.idl \
+    $(WebCore)/Modules/WebGPU/GPUTextureView.idl \
+    $(WebCore)/Modules/WebGPU/GPUTextureViewDescriptor.idl \
+    $(WebCore)/Modules/WebGPU/GPUTextureViewDimension.idl \
+    $(WebCore)/Modules/WebGPU/GPUUncapturedErrorEvent.idl \
+    $(WebCore)/Modules/WebGPU/GPUUncapturedErrorEventInit.idl \
+    $(WebCore)/Modules/WebGPU/GPUValidationError.idl \
+    $(WebCore)/Modules/WebGPU/GPUVertexAttribute.idl \
+    $(WebCore)/Modules/WebGPU/GPUVertexBufferLayout.idl \
+    $(WebCore)/Modules/WebGPU/GPUVertexFormat.idl \
+    $(WebCore)/Modules/WebGPU/GPUVertexState.idl \
+    $(WebCore)/Modules/WebGPU/GPUVertexStepMode.idl \
+    $(WebCore)/Modules/WebGPU/NavigatorGPU.idl \
     $(WebCore)/Modules/airplay/WebKitPlaybackTargetAvailabilityEvent.idl \
     $(WebCore)/Modules/applepay/ApplePayCancelEvent.idl \
     $(WebCore)/Modules/applepay/ApplePayContactField.idl \
@@ -101,6 +236,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/applepay/ApplePayValidateMerchantEvent.idl \
     $(WebCore)/Modules/applepay/paymentrequest/ApplePayModifier.idl \
     $(WebCore)/Modules/applepay/paymentrequest/ApplePayRequest.idl \
+    $(WebCore)/Modules/applepay-ams-ui/ApplePayAMSUIRequest.idl \
     $(WebCore)/Modules/async-clipboard/Clipboard.idl \
     $(WebCore)/Modules/async-clipboard/ClipboardItem.idl \
     $(WebCore)/Modules/async-clipboard/Navigator+Clipboard.idl \
@@ -352,7 +488,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/pictureinpicture/EnterPictureInPictureEvent.idl \
     $(WebCore)/Modules/pictureinpicture/HTMLVideoElement+PictureInPicture.idl \
     $(WebCore)/Modules/pictureinpicture/PictureInPictureWindow.idl \
-    $(WebCore)/Modules/plugins/QuickTimePluginReplacement.idl \
     $(WebCore)/Modules/push-api/PushEncryptionKeyName.idl \
     $(WebCore)/Modules/push-api/PushEvent.idl \
     $(WebCore)/Modules/push-api/PushEventInit.idl \
@@ -360,6 +495,8 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/push-api/PushMessageData.idl \
     $(WebCore)/Modules/push-api/PushPermissionState.idl \
     $(WebCore)/Modules/push-api/PushSubscription.idl \
+    $(WebCore)/Modules/push-api/PushSubscriptionChangeEvent.idl \
+    $(WebCore)/Modules/push-api/PushSubscriptionChangeEventInit.idl \
     $(WebCore)/Modules/push-api/PushSubscriptionJSON.idl \
     $(WebCore)/Modules/push-api/PushSubscriptionOptions.idl \
     $(WebCore)/Modules/push-api/PushSubscriptionOptionsInit.idl \
@@ -1623,7 +1760,6 @@ USER_AGENT_STYLE_SHEETS = \
     $(WebCore)/css/svg.css \
     $(WebCore)/html/shadow/imageOverlay.css \
     $(WebCore)/html/shadow/meterElementShadow.css \
-    $(WebCore)/Modules/plugins/QuickTimePluginReplacement.css \
     ModernMediaControls.css \
     $(POSSIBLE_ADDITIONAL_USER_AGENT_STYLE_SHEETS) \
 #
@@ -1732,7 +1868,6 @@ ModernMediaControls.js : $(MODERN_MEDIA_CONTROLS_SCRIPTS)
 # user agent scripts
 
 USER_AGENT_SCRIPTS = \
-    $(WebCore)/Modules/plugins/QuickTimePluginReplacement.js \
     ModernMediaControls.js \
 #
 

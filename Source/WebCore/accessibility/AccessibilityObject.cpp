@@ -124,6 +124,104 @@ bool AccessibilityObject::isDetached() const
 #endif
 }
 
+OptionSet<AXAncestorFlag> AccessibilityObject::computeAncestorFlags() const
+{
+    OptionSet<AXAncestorFlag> computedFlags;
+
+    if (hasAncestorFlag(AXAncestorFlag::HasDocumentRoleAncestor) || matchesAncestorFlag(AXAncestorFlag::HasDocumentRoleAncestor))
+        computedFlags.set(AXAncestorFlag::HasDocumentRoleAncestor, 1);
+
+    if (hasAncestorFlag(AXAncestorFlag::HasWebApplicationAncestor) || matchesAncestorFlag(AXAncestorFlag::HasWebApplicationAncestor))
+        computedFlags.set(AXAncestorFlag::HasWebApplicationAncestor, 1);
+
+    if (hasAncestorFlag(AXAncestorFlag::IsInDescriptionListDetail) || matchesAncestorFlag(AXAncestorFlag::IsInDescriptionListDetail))
+        computedFlags.set(AXAncestorFlag::IsInDescriptionListDetail, 1);
+
+    if (hasAncestorFlag(AXAncestorFlag::IsInDescriptionListTerm) || matchesAncestorFlag(AXAncestorFlag::IsInDescriptionListTerm))
+        computedFlags.set(AXAncestorFlag::IsInDescriptionListTerm, 1);
+
+    if (hasAncestorFlag(AXAncestorFlag::IsInCell) || matchesAncestorFlag(AXAncestorFlag::IsInCell))
+        computedFlags.set(AXAncestorFlag::IsInCell, 1);
+
+    return computedFlags;
+}
+
+void AccessibilityObject::initializeAncestorFlags(const OptionSet<AXAncestorFlag>& flags)
+{
+    m_ancestorFlags.set(AXAncestorFlag::FlagsInitialized, true);
+    m_ancestorFlags.add(flags);
+}
+
+bool AccessibilityObject::matchesAncestorFlag(AXAncestorFlag flag) const
+{
+    auto role = roleValue();
+    switch (flag) {
+    case AXAncestorFlag::HasDocumentRoleAncestor:
+        return role == AccessibilityRole::Document || role == AccessibilityRole::GraphicsDocument;
+    case AXAncestorFlag::HasWebApplicationAncestor:
+        return role == AccessibilityRole::WebApplication;
+    case AXAncestorFlag::IsInDescriptionListDetail:
+        return role == AccessibilityRole::DescriptionListDetail;
+    case AXAncestorFlag::IsInDescriptionListTerm:
+        return role == AccessibilityRole::DescriptionListTerm;
+    case AXAncestorFlag::IsInCell:
+        return role == AccessibilityRole::Cell;
+    default:
+        ASSERT_NOT_REACHED();
+        return false;
+    }
+}
+
+bool AccessibilityObject::hasAncestorMatchingFlag(AXAncestorFlag flag) const
+{
+    return Accessibility::findAncestor<AccessibilityObject>(*this, false, [flag] (const AccessibilityObject& object) {
+        if (object.ancestorFlagsAreInitialized())
+            return object.ancestorFlags().contains(flag);
+
+        return object.matchesAncestorFlag(flag);
+    }) != nullptr;
+}
+
+bool AccessibilityObject::hasDocumentRoleAncestor() const
+{
+    if (ancestorFlagsAreInitialized())
+        return m_ancestorFlags.contains(AXAncestorFlag::HasDocumentRoleAncestor);
+
+    return hasAncestorMatchingFlag(AXAncestorFlag::HasDocumentRoleAncestor);
+}
+
+bool AccessibilityObject::hasWebApplicationAncestor() const
+{
+    if (ancestorFlagsAreInitialized())
+        return m_ancestorFlags.contains(AXAncestorFlag::HasWebApplicationAncestor);
+
+    return hasAncestorMatchingFlag(AXAncestorFlag::HasWebApplicationAncestor);
+}
+
+bool AccessibilityObject::isInDescriptionListDetail() const
+{
+    if (ancestorFlagsAreInitialized())
+        return m_ancestorFlags.contains(AXAncestorFlag::IsInDescriptionListDetail);
+
+    return hasAncestorMatchingFlag(AXAncestorFlag::IsInDescriptionListDetail);
+}
+
+bool AccessibilityObject::isInDescriptionListTerm() const
+{
+    if (ancestorFlagsAreInitialized())
+        return m_ancestorFlags.contains(AXAncestorFlag::IsInDescriptionListTerm);
+
+    return hasAncestorMatchingFlag(AXAncestorFlag::IsInDescriptionListTerm);
+}
+
+bool AccessibilityObject::isInCell() const
+{
+    if (ancestorFlagsAreInitialized())
+        return m_ancestorFlags.contains(AXAncestorFlag::IsInCell);
+
+    return hasAncestorMatchingFlag(AXAncestorFlag::IsInCell);
+}
+
 // ARIA marks elements as having their accessible name derive from either their contents, or their author provide name.
 bool AccessibilityObject::accessibleNameDerivesFromContent() const
 {
@@ -190,38 +288,6 @@ bool AccessibilityObject::accessibleNameDerivesFromContent() const
     }
     
     return true;
-}
-
-AXCoreObject::AXValue AccessibilityObject::value()
-{
-    if (supportsRangeValue())
-        return valueForRange();
-
-    if (roleValue() == AccessibilityRole::SliderThumb)
-        return parentObject()->valueForRange();
-
-    if (isHeading())
-        return headingLevel();
-
-    if (supportsCheckedState())
-        return checkboxOrRadioValue();
-
-    // Radio groups return the selected radio button as the AXValue.
-    if (isRadioGroup())
-        return selectedRadioButton();
-
-    if (isTabList())
-        return selectedTabItem();
-
-    if (isTabItem())
-        return isSelected();
-
-    if (isColorWell()) {
-        auto color = convertColor<SRGBA<float>>(colorValue());
-        return makeString("rgb ", String::numberToStringFixedPrecision(color.red, 6, KeepTrailingZeros), " ", String::numberToStringFixedPrecision(color.green, 6, KeepTrailingZeros), " ", String::numberToStringFixedPrecision(color.blue, 6, KeepTrailingZeros), " 1");
-    }
-
-    return stringValue();
 }
 
 String AccessibilityObject::computedLabel()
@@ -458,6 +524,7 @@ AccessibilityObject* firstAccessibleObjectFromNode(const Node* node, const Funct
     return accessibleObject;
 }
 
+// FIXME: Usages of this function should be replaced by a new flag in AccessibilityObject::m_ancestorFlags.
 bool AccessibilityObject::isDescendantOfRole(AccessibilityRole role) const
 {
     return Accessibility::findAncestor<AccessibilityObject>(*this, false, [&role] (const AccessibilityObject& object) {
@@ -491,11 +558,16 @@ static bool isTableComponent(AXCoreObject& axObject)
 }
 #endif
 
-void AccessibilityObject::insertChild(AXCoreObject* child, unsigned index, DescendIfIgnored descendIfIgnored)
+void AccessibilityObject::insertChild(AXCoreObject* newChild, unsigned index, DescendIfIgnored descendIfIgnored)
 {
-    if (!child)
+    if (!newChild)
         return;
     
+    ASSERT(is<AccessibilityObject>(newChild));
+    if (!is<AccessibilityObject>(newChild))
+        return;
+
+    auto* child = downcast<AccessibilityObject>(newChild);
     // If the parent is asking for this child's children, then either it's the first time (and clearing is a no-op),
     // or its visibility has changed. In the latter case, this child may have a stale child cached.
     // This can prevent aria-hidden changes from working correctly. Hence, whenever a parent is getting children, ensure data is not stale.
@@ -516,13 +588,26 @@ void AccessibilityObject::insertChild(AXCoreObject* child, unsigned index, Desce
         }
     }
     
+    auto thisAncestorFlags = computeAncestorFlags();
+    child->initializeAncestorFlags(thisAncestorFlags);
     setIsIgnoredFromParentDataForChild(child);
     if (child->accessibilityIsIgnored()) {
         if (descendIfIgnored == DescendIfIgnored::Yes) {
-            const auto& children = child->children();
-            size_t length = children.size();
-            for (size_t i = 0; i < length; ++i)
-                m_children.insert(index + i, children[i]);
+            unsigned insertionIndex = index;
+            auto childAncestorFlags = child->computeAncestorFlags();
+            for (auto grandchildCoreObject : child->children()) {
+                if (grandchildCoreObject) {
+                    ASSERT(is<AccessibilityObject>(grandchildCoreObject));
+                    if (!is<AccessibilityObject>(grandchildCoreObject))
+                        continue;
+                    auto* grandchild = downcast<AccessibilityObject>(grandchildCoreObject.get());
+                    // Even though `child` is ignored, we still need to set ancestry flags based on it.
+                    grandchild->initializeAncestorFlags(childAncestorFlags);
+                    grandchild->addAncestorFlags(thisAncestorFlags);
+                    m_children.insert(insertionIndex, grandchild);
+                    ++insertionIndex;
+                }
+            }
         }
     } else {
         // Table component child-parent relationships often don't line up properly, hence the need for methods
@@ -1800,7 +1885,7 @@ const String AccessibilityObject::defaultLiveRegionStatusForRole(AccessibilityRo
 }
     
 #if ENABLE(ACCESSIBILITY)
-String AccessibilityObject::actionVerb() const
+String AccessibilityObject::localizedActionVerb() const
 {
 #if !PLATFORM(IOS_FAMILY)
     // FIXME: Need to add verbs for select elements.
@@ -1841,6 +1926,36 @@ String AccessibilityObject::actionVerb() const
 #else
     return nullAtom();
 #endif
+}
+
+String AccessibilityObject::actionVerb() const
+{
+#if !PLATFORM(IOS_FAMILY)
+    // FIXME: Need to add verbs for select elements.
+    switch (roleValue()) {
+    case AccessibilityRole::Button:
+    case AccessibilityRole::ToggleButton:
+        return "press"_s;
+    case AccessibilityRole::TextField:
+    case AccessibilityRole::TextArea:
+        return "activate"_s;
+    case AccessibilityRole::RadioButton:
+        return "select"_s;
+    case AccessibilityRole::CheckBox:
+    case AccessibilityRole::Switch:
+        return isChecked() ? "uncheck"_s : "check"_s;
+    case AccessibilityRole::Link:
+    case AccessibilityRole::WebCoreLink:
+        return "jump"_s;
+    case AccessibilityRole::PopUpButton:
+    case AccessibilityRole::MenuListPopup:
+    case AccessibilityRole::ListItem:
+        return "select"_s;
+    default:
+        break;
+    }
+#endif
+    return { };
 }
 #endif
 

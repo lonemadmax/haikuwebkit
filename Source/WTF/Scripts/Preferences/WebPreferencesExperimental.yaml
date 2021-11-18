@@ -127,7 +127,7 @@ BroadcastChannelEnabled:
     WebKit:
       default: true
     WebCore:
-      default: false
+      default: true
 
 BroadcastChannelOriginPartitioningEnabled:
   type: bool
@@ -440,8 +440,6 @@ DialogElementEnabled:
   type: bool
   humanReadableName: "Dialog Element"
   humanReadableDescription: "Enable the Dialog Element"
-  webKitLegacyPreferenceKey: WebKitDialogElementEnabledPreferenceKey
-  webcoreBinding: RuntimeEnabledFeatures
   defaultValue:
     WebKitLegacy:
       default: true
@@ -875,26 +873,25 @@ MediaSessionPlaylistEnabled:
   type: bool
   humanReadableName: "Experimental MediaSession playlist API"
   humanReadableDescription: "Enable experimental MediaSession playlist API"
-  condition: ENABLE(MEDIA_SESSION_PLAYLIST)
+  condition: ENABLE(MEDIA_SESSION_COORDINATOR) && ENABLE(MEDIA_SESSION_PLAYLIST)
   defaultValue:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: WebKit::defaultMediaSessionCoordinatorEnabled()
     WebCore:
-      default: false
+      default: true
 
 MediaSourceInlinePaintingEnabled:
   type: bool
   humanReadableName: "Experimental MediaSource Inline Painting"
   humanReadableDescription: "Experimental MediaSource Inline Painting"
   condition: ENABLE(MEDIA_SOURCE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
+  webcoreBinding: RuntimeEnabledFeatures
   defaultValue:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
-    WebCore:
       default: false
 
 ModelElementEnabled:
@@ -1035,6 +1032,18 @@ PermissionsAPIEnabled:
       default: false
     WebCore:
       default: false
+
+PreferPageRenderingUpdatesNear60FPSEnabled:
+  type: bool
+  humanReadableName: "Prefer Page Rendering Updates near 60fps"
+  humanReadableDescription: "Prefer page rendering updates near 60 frames per second rather than using the display's refresh rate"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
 
 PrivateClickMeasurementDebugModeEnabled:
   type: bool
@@ -1191,6 +1200,18 @@ ScreenCaptureEnabled:
       default: false
     WebKit:
       "PLATFORM(MAC) || USE(GSTREAMER)": true
+      default: false
+    WebCore:
+      default: false
+      
+ScrollToTextFragmentEnabled:
+  type: bool
+  humanReadableName: "Scroll To Text Fragment"
+  humanReadableDescription: "Enable Scroll To Text Fragment"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
       default: false
     WebCore:
       default: false

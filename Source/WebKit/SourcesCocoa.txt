@@ -506,12 +506,12 @@ UIProcess/ios/WKScrollView.mm
 UIProcess/ios/WKStylusDeviceObserver.mm
 UIProcess/ios/WKSyntheticFlagsChangedWebEvent.mm
 UIProcess/ios/WKSyntheticTapGestureRecognizer.mm
-UIProcess/ios/WKSystemPreviewView.mm
 UIProcess/ios/WKTouchActionGestureRecognizer.mm
 UIProcess/ios/WKTextSelectionRect.mm
+UIProcess/ios/WKUSDPreviewView.mm
 UIProcess/ios/WKWebEvent.mm
 
-UIProcess/Launcher/mac/ProcessLauncherMac.mm
+UIProcess/Launcher/cocoa/ProcessLauncherCocoa.mm
 
 UIProcess/mac/CorrectionPanel.mm
 UIProcess/mac/DisplayLink.cpp
@@ -654,6 +654,8 @@ WebProcess/InjectedBundle/mac/InjectedBundleMac.mm
 WebProcess/Inspector/mac/WebInspectorUIMac.mm
 
 WebProcess/MediaCache/WebMediaKeyStorageManager.cpp
+
+WebProcess/Model/mac/ARKitInlinePreviewModelPlayer.mm
 
 WebProcess/Plugins/PDF/PDFPlugin.mm
 WebProcess/Plugins/PDF/PDFPluginAnnotation.mm

@@ -534,8 +534,9 @@ bool AccessibilityRenderObject::isAttachment() const
     if (!renderer)
         return false;
 
-    // Although plugins are also a type of widget, we need to treat them differently than attachments.
-    if (is<PluginViewBase>(widget()))
+    // WebKit2 plugins need to be treated differently than attachments, so return false here.
+    // Only WebKit1 plugins have an associated platformWidget.
+    if (is<PluginViewBase>(widget()) && !widget()->platformWidget())
         return false;
 
     // Widgets are the replaced elements that we represent to AX as attachments
@@ -2145,7 +2146,12 @@ VisiblePosition AccessibilityRenderObject::visiblePositionForIndex(int index) co
     if (!node)
         return VisiblePosition();
 
+#if USE(ATSPI)
+    // We need to consider replaced elements for GTK, as they will be presented with the 'object replacement character' (0xFFFC).
+    return WebCore::visiblePositionForIndex(index, node, TextIteratorBehavior::EmitsObjectReplacementCharacters);
+#else
     return visiblePositionForIndexUsingCharacterIterator(*node, index);
+#endif
 }
     
 int AccessibilityRenderObject::indexForVisiblePosition(const VisiblePosition& position) const
@@ -2163,15 +2169,16 @@ int AccessibilityRenderObject::indexForVisiblePosition(const VisiblePosition& po
     if (!node)
         return 0;
 
-#if USE(ATK) || USE(ATSPI)
     // We need to consider replaced elements for GTK, as they will be
     // presented with the 'object replacement character' (0xFFFC).
-    bool forSelectionPreservation = true;
-#else
-    bool forSelectionPreservation = false;
+    TextIteratorBehaviors behaviors;
+#if USE(ATSPI)
+    behaviors.add(TextIteratorBehavior::EmitsObjectReplacementCharacters);
+#elif USE(ATK)
+    behaviors.add(TextIteratorBehavior::EmitsCharactersBetweenAllVisiblePositions);
 #endif
 
-    return WebCore::indexForVisiblePosition(*node, position, forSelectionPreservation);
+    return WebCore::indexForVisiblePosition(*node, position, behaviors);
 }
 
 Element* AccessibilityRenderObject::rootEditableElementForPosition(const Position& position) const
@@ -3722,40 +3729,7 @@ void AccessibilityRenderObject::tabChildren(AccessibilityChildrenVector& result)
             result.append(child);
     }
 }
-    
-String AccessibilityRenderObject::actionVerb() const
-{
-#if !PLATFORM(IOS_FAMILY)
-    // FIXME: Need to add verbs for select elements.
-    static NeverDestroyed<const String> buttonAction(AXButtonActionVerb());
-    static NeverDestroyed<const String> textFieldAction(AXTextFieldActionVerb());
-    static NeverDestroyed<const String> radioButtonAction(AXRadioButtonActionVerb());
-    static NeverDestroyed<const String> checkedCheckBoxAction(AXUncheckedCheckBoxActionVerb());
-    static NeverDestroyed<const String> uncheckedCheckBoxAction(AXUncheckedCheckBoxActionVerb());
-    static NeverDestroyed<const String> linkAction(AXLinkActionVerb());
 
-    switch (roleValue()) {
-    case AccessibilityRole::Button:
-    case AccessibilityRole::ToggleButton:
-        return buttonAction;
-    case AccessibilityRole::TextField:
-    case AccessibilityRole::TextArea:
-        return textFieldAction;
-    case AccessibilityRole::RadioButton:
-        return radioButtonAction;
-    case AccessibilityRole::CheckBox:
-        return isChecked() ? checkedCheckBoxAction : uncheckedCheckBoxAction;
-    case AccessibilityRole::Link:
-    case AccessibilityRole::WebCoreLink:
-        return linkAction;
-    default:
-        return nullAtom();
-    }
-#else
-    return nullAtom();
-#endif
-}
-    
 void AccessibilityRenderObject::setAccessibleName(const AtomString& name)
 {
     // Setting the accessible name can store the value in the DOM

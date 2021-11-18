@@ -717,6 +717,7 @@ void ArgumentCoder<Length>::encode(Encoder& encoder, const Length& length)
 
     switch (length.type()) {
     case LengthType::Auto:
+    case LengthType::Content:
     case LengthType::Undefined:
         break;
     case LengthType::Fixed:
@@ -752,6 +753,7 @@ bool ArgumentCoder<Length>::decode(Decoder& decoder, Length& length)
 
     switch (type) {
     case LengthType::Auto:
+    case LengthType::Content:
     case LengthType::Undefined:
         length = Length(type);
         return true;
@@ -1188,6 +1190,14 @@ bool ArgumentCoder<Cursor>::decode(Decoder& decoder, Cursor& cursor)
 
 void ArgumentCoder<ResourceRequest>::encode(Encoder& encoder, const ResourceRequest& resourceRequest)
 {
+    if (resourceRequest.encodingRequiresPlatformData()) {
+        encoder << true;
+        encodePlatformData(encoder, resourceRequest);
+    } else {
+        encoder << false;
+        resourceRequest.encodeWithoutPlatformData(encoder);
+    }
+
     encoder << resourceRequest.cachePartition();
     encoder << resourceRequest.hiddenFromInspector();
 
@@ -1198,18 +1208,18 @@ void ArgumentCoder<ResourceRequest>::encode(Encoder& encoder, const ResourceRequ
     } else
         encoder << false;
 #endif
-
-    if (resourceRequest.encodingRequiresPlatformData()) {
-        encoder << true;
-        encodePlatformData(encoder, resourceRequest);
-        return;
-    }
-    encoder << false;
-    resourceRequest.encodeWithoutPlatformData(encoder);
 }
 
 bool ArgumentCoder<ResourceRequest>::decode(Decoder& decoder, ResourceRequest& resourceRequest)
 {
+    bool hasPlatformData;
+    if (!decoder.decode(hasPlatformData))
+        return false;
+
+    bool decodeSuccess = hasPlatformData ? decodePlatformData(decoder, resourceRequest) : resourceRequest.decodeWithoutPlatformData(decoder);
+    if (!decodeSuccess)
+        return false;
+
     String cachePartition;
     if (!decoder.decode(cachePartition))
         return false;
@@ -1233,13 +1243,7 @@ bool ArgumentCoder<ResourceRequest>::decode(Decoder& decoder, ResourceRequest& r
     }
 #endif
 
-    bool hasPlatformData;
-    if (!decoder.decode(hasPlatformData))
-        return false;
-    if (hasPlatformData)
-        return decodePlatformData(decoder, resourceRequest);
-
-    return resourceRequest.decodeWithoutPlatformData(decoder);
+    return true;
 }
 
 void ArgumentCoder<ResourceError>::encode(Encoder& encoder, const ResourceError& resourceError)

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2021 Sony Interactive Entertainment Inc.
+ * Copyright (C) 2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +31,7 @@
 #include "JSCInlines.h"
 #include "TemporalObject.h"
 #include <wtf/text/StringBuilder.h>
+#include <wtf/text/StringConcatenate.h>
 
 namespace JSC {
 
@@ -39,7 +41,7 @@ const ClassInfo TemporalDuration::s_info = { "Object", &Base::s_info, nullptr, n
 
 TemporalDuration* TemporalDuration::create(VM& vm, Structure* structure, ISO8601::Duration&& duration)
 {
-    auto* object = new (NotNull, allocateCell<TemporalDuration>(vm.heap)) TemporalDuration(vm, structure, WTFMove(duration));
+    auto* object = new (NotNull, allocateCell<TemporalDuration>(vm)) TemporalDuration(vm, structure, WTFMove(duration));
     object->finishCreation(vm);
     return object;
 }
@@ -162,6 +164,31 @@ TemporalDuration* TemporalDuration::toTemporalDuration(JSGlobalObject* globalObj
     RETURN_IF_EXCEPTION(scope, nullptr);
 
     return TemporalDuration::create(vm, globalObject->durationStructure(), WTFMove(result));
+}
+
+// ToLimitedTemporalDuration ( temporalDurationLike, disallowedFields )
+// https://tc39.es/proposal-temporal/#sec-temporal-tolimitedtemporalduration
+ISO8601::Duration TemporalDuration::toLimitedDuration(JSGlobalObject* globalObject, JSValue itemValue, std::initializer_list<TemporalUnit> disallowedUnits)
+{
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    ISO8601::Duration duration = toISO8601Duration(globalObject, itemValue);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    if (!isValidDuration(duration)) {
+        throwRangeError(globalObject, scope, "Temporal.Duration properties must be finite and of consistent sign"_s);
+        return { };
+    }
+
+    for (TemporalUnit unit : disallowedUnits) {
+        if (duration[unit]) {
+            throwRangeError(globalObject, scope, makeString("Adding "_s, temporalUnitPluralPropertyName(vm, unit).publicName(), " not supported by Temporal.Instant. Try Temporal.ZonedDateTime instead"_s));
+            return { };
+        }
+    }
+
+    return duration;
 }
 
 TemporalDuration* TemporalDuration::from(JSGlobalObject* globalObject, JSValue itemValue)

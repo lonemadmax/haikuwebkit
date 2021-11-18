@@ -675,14 +675,26 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         }
         return;
     }
-        
+
+    case TryGetById:
+        read(World);
+#define ABSTRACT_HEAP_NOT_RegExpObject_lastIndex(name) if (name != InvalidAbstractHeap && \
+    name != InvalidAbstractHeap && \
+    name != World && \
+    name != Stack && \
+    name != Heap && \
+    name != RegExpObject_lastIndex) \
+        write(name);
+    FOR_EACH_ABSTRACT_HEAP_KIND(ABSTRACT_HEAP_NOT_RegExpObject_lastIndex)
+#undef ABSTRACT_HEAP_NOT_RegExpObject_lastIndex
+        return;
+
     case GetById:
     case GetByIdFlush:
     case GetByIdWithThis:
     case GetByIdDirect:
     case GetByIdDirectFlush:
     case GetByValWithThis:
-    case TryGetById:
     case PutById:
     case PutByIdWithThis:
     case PutByValWithThis:
@@ -1552,6 +1564,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case NewTypedArray:
         switch (node->child1().useKind()) {
         case Int32Use:
+        case Int52RepUse:
             read(HeapObjectCount);
             write(HeapObjectCount);
             return;
@@ -1731,12 +1744,19 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         }
     }
 
+    case NewSymbol:
+        if (!node->child1() || node->child1().useKind() == StringUse) {
+            read(HeapObjectCount);
+            write(HeapObjectCount);
+        } else
+            clobberTop();
+        return;
+
     case NewObject:
     case NewGenerator:
     case NewAsyncGenerator:
     case NewInternalFieldObject:
     case NewRegexp:
-    case NewSymbol:
     case NewStringObject:
     case PhantomNewObject:
     case MaterializeNewObject:
@@ -1765,6 +1785,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
 
     case RegExpExec:
     case RegExpTest:
+    case RegExpTestInline:
         // Even if we've proven known input types as RegExpObject and String,
         // accessing lastIndex is effectful if it's a global regexp.
         clobberTop();

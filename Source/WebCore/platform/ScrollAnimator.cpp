@@ -54,7 +54,6 @@ std::unique_ptr<ScrollAnimator> ScrollAnimator::create(ScrollableArea& scrollabl
 ScrollAnimator::ScrollAnimator(ScrollableArea& scrollableArea)
     : m_scrollableArea(scrollableArea)
     , m_scrollController(*this)
-    , m_scrollControllerAnimationTimer(*this, &ScrollAnimator::scrollControllerAnimationTimerFired)
     , m_keyboardScrollingAnimator(makeUnique<KeyboardScrollingAnimator>(*this, m_scrollController))
 {
 }
@@ -76,16 +75,16 @@ bool ScrollAnimator::scroll(ScrollbarOrientation orientation, ScrollGranularity 
 
         auto currentOffset = offsetFromPosition(currentPosition());
         auto newOffset = currentOffset + delta;
-        if (orientation == HorizontalScrollbar)
+        if (orientation == ScrollbarOrientation::Horizontal)
             newOffset.setX(m_scrollController.adjustedScrollDestination(ScrollEventAxis::Horizontal, newOffset, multiplier, currentOffset.x()));
         else
             newOffset.setY(m_scrollController.adjustedScrollDestination(ScrollEventAxis::Vertical, newOffset, multiplier, currentOffset.y()));
 
         auto newDelta = newOffset - currentOffset;
-        if (orientation == HorizontalScrollbar)
-            return scroll(HorizontalScrollbar, granularity, newDelta.width(), 1.0, behavior);
+        if (orientation == ScrollbarOrientation::Horizontal)
+            return scroll(ScrollbarOrientation::Horizontal, granularity, newDelta.width(), 1.0, behavior);
 
-        return scroll(VerticalScrollbar, granularity, newDelta.height(), 1.0, behavior);
+        return scroll(ScrollbarOrientation::Vertical, granularity, newDelta.height(), 1.0, behavior);
     }
 
     if (m_scrollableArea.scrollAnimatorEnabled() && platformAllowsScrollAnimation() && !behavior.contains(ScrollBehavior::NeverAnimate)) {
@@ -145,7 +144,7 @@ FloatPoint ScrollAnimator::positionFromOffset(const FloatPoint& offset) const
 FloatSize ScrollAnimator::deltaFromStep(ScrollbarOrientation orientation, float step, float multiplier)
 {
     FloatSize delta;
-    if (orientation == HorizontalScrollbar)
+    if (orientation == ScrollbarOrientation::Horizontal)
         delta.setWidth(step * multiplier);
     else
         delta.setHeight(step * multiplier);
@@ -218,7 +217,7 @@ bool ScrollAnimator::handleWheelEvent(const PlatformWheelEvent& e)
                 if (negative)
                     deltaY = -deltaY;
             }
-            scroll(VerticalScrollbar, ScrollByPixel, verticalScrollbar->pixelStep(), -deltaY, behavior);
+            scroll(ScrollbarOrientation::Vertical, ScrollGranularity::Pixel, verticalScrollbar->pixelStep(), -deltaY, behavior);
         }
 
         if (deltaX) {
@@ -228,7 +227,7 @@ bool ScrollAnimator::handleWheelEvent(const PlatformWheelEvent& e)
                 if (negative)
                     deltaX = -deltaX;
             }
-            scroll(HorizontalScrollbar, ScrollByPixel, horizontalScrollbar->pixelStep(), -deltaX, behavior);
+            scroll(ScrollbarOrientation::Horizontal, ScrollGranularity::Pixel, horizontalScrollbar->pixelStep(), -deltaX, behavior);
         }
     }
     return handled;
@@ -384,20 +383,15 @@ std::unique_ptr<ScrollingEffectsControllerTimer> ScrollAnimator::createTimer(Fun
 
 void ScrollAnimator::startAnimationCallback(ScrollingEffectsController&)
 {
-    if (m_scrollControllerAnimationTimer.isActive())
-        return;
-
-    m_scrollControllerAnimationTimer.startRepeating(1_s / 60.);
+    if (!m_scrollAnimationScheduled) {
+        m_scrollAnimationScheduled = true;
+        m_scrollableArea.didStartScrollAnimation();
+    }
 }
 
 void ScrollAnimator::stopAnimationCallback(ScrollingEffectsController&)
 {
-    m_scrollControllerAnimationTimer.stop();
-}
-
-void ScrollAnimator::scrollControllerAnimationTimerFired()
-{
-    m_scrollController.animationCallback(MonotonicTime::now());
+    m_scrollAnimationScheduled = false;
 }
 
 #if PLATFORM(MAC)
@@ -463,6 +457,13 @@ float ScrollAnimator::scrollOffsetAdjustedForSnapping(ScrollEventAxis axis, cons
     }
 
     return m_scrollController.adjustedScrollDestination(axis, newOffset, velocityInScrollAxis, originalOffset);
+}
+
+ScrollAnimationStatus ScrollAnimator::serviceScrollAnimation(MonotonicTime time)
+{
+    if (m_scrollAnimationScheduled)
+        m_scrollController.animationCallback(time);
+    return m_scrollAnimationScheduled ? ScrollAnimationStatus::Animating : ScrollAnimationStatus::NotAnimating;
 }
 
 } // namespace WebCore

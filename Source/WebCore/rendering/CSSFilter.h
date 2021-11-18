@@ -38,69 +38,49 @@ class FilterOperations;
 class GraphicsContext;
 class ReferenceFilterOperation;
 class RenderElement;
-class SourceAlpha;
 class SourceGraphic;
 
 enum class FilterConsumer { FilterProperty, FilterFunction };
 
 class CSSFilter final : public Filter {
     WTF_MAKE_FAST_ALLOCATED;
-    friend class RenderLayerFilters;
 public:
-    static Ref<CSSFilter> create();
+    static RefPtr<CSSFilter> create(const FilterOperations&, RenderingMode, float scaleFactor = 1);
 
     void setSourceImageRect(const FloatRect&);
-    void setFilterRegion(const FloatRect& filterRegion) { m_filterRegion = filterRegion; }
-
-    ImageBuffer* output() const;
-
-    bool build(RenderElement&, const FilterOperations&, FilterConsumer);
-    void clearIntermediateResults();
-    void apply();
+    bool buildFilterFunctions(RenderElement&, const FilterOperations&, FilterConsumer);
+    void determineFilterPrimitiveSubregion();
 
     bool hasFilterThatMovesPixels() const { return m_hasFilterThatMovesPixels; }
     bool hasFilterThatShouldBeRestrictedBySecurityOrigin() const { return m_hasFilterThatShouldBeRestrictedBySecurityOrigin; }
 
-    void determineFilterPrimitiveSubregion();
-    IntOutsets outsets() const;
-
-private:
-    CSSFilter();
-    virtual ~CSSFilter();
-
-    bool isCSSFilter() const final { return true; }
-
-    FloatRect sourceImageRect() const final { return m_sourceDrawingRegion; }
-
-    FloatRect filterRegion() const final { return m_filterRegion; }
-    FloatRect filterRegionInUserSpace() const final { return m_filterRegion; }
-
-    RefPtr<FilterEffect> buildReferenceFilter(RenderElement&, FilterEffect& previousEffect, ReferenceFilterOperation&);
-
-    void setMaxEffectRects(const FloatRect&);
-
+    RefPtr<FilterEffect> lastEffect();
     GraphicsContext* inputContext();
+    IntOutsets outsets() const override;
+
+    void clearIntermediateResults();
+    void apply() override;
+
+    ImageBuffer* output();
 
     bool updateBackingStoreRect(const FloatRect& filterRect);
     void allocateBackingStoreIfNeeded(const GraphicsContext&);
 
-    IntRect outputRect() const;
+    IntRect outputRect();
 
     LayoutRect computeSourceImageRectForDirtyRect(const LayoutRect& filterBoxRect, const LayoutRect& dirtyRect);
 
-    FloatRect m_sourceDrawingRegion;
-    FloatRect m_filterRegion;
-
-    Vector<Ref<FilterEffect>> m_effects;
-    Ref<SourceGraphic> m_sourceGraphic;
-    RefPtr<FilterEffect> m_sourceAlpha;
-
-    mutable IntOutsets m_outsets;
+private:
+    CSSFilter(bool hasFilterThatMovesPixels, bool hasFilterThatShouldBeRestrictedBySecurityOrigin, float scaleFactor);
 
     bool m_graphicsBufferAttached { false };
     bool m_hasFilterThatMovesPixels { false };
     bool m_hasFilterThatShouldBeRestrictedBySecurityOrigin { false };
-    
+
+    Vector<Ref<FilterFunction>> m_functions;
+
+    mutable IntOutsets m_outsets;
+
     std::unique_ptr<FilterEffectRenderer> m_filterRenderer;
 };
 

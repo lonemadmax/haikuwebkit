@@ -2628,6 +2628,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         break;
 
     case RegExpTest:
+    case RegExpTestInline:
         // Even if we've proven known input types as RegExpObject and String,
         // accessing lastIndex is effectful if it's a global regexp.
         clobberWorld();
@@ -2888,6 +2889,8 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     }
 
     case NewSymbol: {
+        if (node->child1() && node->child1().useKind() != StringUse)
+            clobberWorld();
         setForNode(node, m_vm.symbolStructure.get());
         break;
     }
@@ -2958,6 +2961,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     case NewTypedArray:
         switch (node->child1().useKind()) {
         case Int32Use:
+        case Int52RepUse:
             break;
         case UntypedUse:
             clobberWorld();
@@ -4245,7 +4249,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         if (JSValue constant = property.value()) {
             if (constant.isString()) {
                 JSString* string = asString(constant);
-                if (CacheableIdentifier::isCacheableIdentifierCell(string))
+                if (CacheableIdentifier::isCacheableIdentifierCell(string) && !parseIndex(CacheableIdentifier::createFromCell(string).uid()))
                     m_state.setShouldTryConstantFolding(true);
             }
         }

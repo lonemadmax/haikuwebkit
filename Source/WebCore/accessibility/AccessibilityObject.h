@@ -87,6 +87,24 @@ public:
     void setObjectID(AXID id) override { m_id = id; }
     void init() override { }
 
+    // Prefer using the dedicated functions over consuming these flag values directly, as the flags can sometimes be uninitialized.
+    // Also, the dedicated functions traverse for you if the flags aren't yet initialized.
+    // For example, use `hasDocumentRoleAncestor()` instead of `ancestorFlags().contains(AXAncestorFlag::HasDocumentRoleAncestor)`.
+    OptionSet<AXAncestorFlag> ancestorFlags() const { return m_ancestorFlags; }
+
+    void addAncestorFlags(const OptionSet<AXAncestorFlag>& flags) { m_ancestorFlags.add(flags); }
+    bool ancestorFlagsAreInitialized() const { return m_ancestorFlags.contains(AXAncestorFlag::FlagsInitialized); }
+    OptionSet<AXAncestorFlag> computeAncestorFlags() const;
+    void initializeAncestorFlags(const OptionSet<AXAncestorFlag>&);
+    bool hasAncestorMatchingFlag(AXAncestorFlag) const;
+    bool matchesAncestorFlag(AXAncestorFlag) const;
+
+    bool hasDocumentRoleAncestor() const override;
+    bool hasWebApplicationAncestor() const override;
+    bool isInDescriptionListDetail() const override;
+    bool isInDescriptionListTerm() const override;
+    bool isInCell() const override;
+
     bool isDetached() const override;
 
     bool isAccessibilityNodeObject() const override { return false; }
@@ -373,8 +391,6 @@ public:
     bool ariaRoleHasPresentationalChildren() const override { return false; }
     bool inheritsPresentationalRole() const override { return false; }
 
-    AXValue value() override;
-
     // Accessibility Text
     void accessibilityText(Vector<AccessibilityText>&) const override { };
     // A single method for getting a computed label for an AXObject. It condenses the nuances of accessibilityText. Used by Inspector.
@@ -441,6 +457,7 @@ public:
     VisibleSelection selection() const override { return VisibleSelection(); }
     String selectedText() const override { return String(); }
     String accessKey() const override { return nullAtom(); }
+    String localizedActionVerb() const override;
     String actionVerb() const override;
 
     bool isWidget() const override { return false; }
@@ -800,19 +817,22 @@ protected:
     String outerHTML() const override;
 
 private:
+    bool hasAncestorFlag(AXAncestorFlag flag) const { return ancestorFlagsAreInitialized() && m_ancestorFlags.contains(flag); }
     std::optional<SimpleRange> rangeOfStringClosestToRangeInDirection(const SimpleRange&, AccessibilitySearchDirection, const Vector<String>&) const;
     std::optional<SimpleRange> selectionRange() const;
     std::optional<SimpleRange> findTextRange(const Vector<String>& searchStrings, const SimpleRange& start, AccessibilitySearchTextDirection) const;
 
-    AXID m_id { 0 };
 protected: // FIXME: Make the data members private.
     bool childrenInitialized() const { return m_childrenInitialized; }
     AccessibilityChildrenVector m_children;
     mutable bool m_childrenInitialized { false };
     AccessibilityRole m_role { AccessibilityRole::Unknown };
 private:
+    AXID m_id { 0 };
+    OptionSet<AXAncestorFlag> m_ancestorFlags;
     AccessibilityObjectInclusion m_lastKnownIsIgnoredValue { AccessibilityObjectInclusion::DefaultBehavior };
 protected: // FIXME: Make the data members private.
+    // FIXME: This can be replaced by AXAncestorFlags.
     AccessibilityIsIgnoredFromParentData m_isIgnoredFromParentData;
     bool m_childrenDirty { false };
     bool m_subtreeDirty { false };
@@ -824,6 +844,7 @@ private:
 
 #if !ENABLE(ACCESSIBILITY)
 inline const AccessibilityObject::AccessibilityChildrenVector& AccessibilityObject::children(bool) { return m_children; }
+inline String AccessibilityObject::localizedActionVerb() const { return emptyString(); }
 inline String AccessibilityObject::actionVerb() const { return emptyString(); }
 inline int AccessibilityObject::lineForPosition(const VisiblePosition&) const { return -1; }
 inline void AccessibilityObject::updateBackingStore() { }

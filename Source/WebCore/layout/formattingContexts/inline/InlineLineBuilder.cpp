@@ -46,10 +46,18 @@ static inline bool endsWithSoftWrapOpportunity(const InlineTextItem& currentText
     // We are at the position after a whitespace.
     if (currentTextItem.isWhitespace())
         return true;
-    // When both these non-whitespace runs belong to the same layout box, it's guaranteed that
-    // they are split at a soft breaking opportunity. See InlineTextItem::moveToNextBreakablePosition.
-    if (&currentTextItem.inlineTextBox() == &nextInlineTextItem.inlineTextBox())
-        return true;
+    // When both these non-whitespace runs belong to the same layout box with the same bidi level, it's guaranteed that
+    // they are split at a soft breaking opportunity. See InlineItemsBuilder::moveToNextBreakablePosition.
+    if (&currentTextItem.inlineTextBox() == &nextInlineTextItem.inlineTextBox()) {
+        if (currentTextItem.bidiLevel() == nextInlineTextItem.bidiLevel())
+            return true;
+        // The bidi boundary may or may not be the reason for splitting the inline text box content.
+        // FIXME: We could add a "reason flag" to InlineTextItem to tell why the split happened.
+        auto& style = currentTextItem.style();
+        auto lineBreakIterator = LazyLineBreakIterator { currentTextItem.inlineTextBox().content(), style.computedLocale(), TextUtil::lineBreakIteratorMode(style.lineBreak()) };
+        auto softWrapOpportunityCandidate = nextInlineTextItem.start();
+        return TextUtil::findNextBreakablePosition(lineBreakIterator, softWrapOpportunityCandidate, style) == softWrapOpportunityCandidate;
+    }
     // Now we need to collect at least 3 adjacent characters to be able to make a decision whether the previous text item ends with breaking opportunity.
     // [ex-][ample] <- second to last[x] last[-] current[a]
     // We need at least 1 character in the current inline text item and 2 more from previous inline items.
@@ -283,24 +291,47 @@ LineBuilder::LineContent LineBuilder::layoutInlineContent(const InlineItemRange&
 
     auto committedContent = placeInlineContent(needsLayoutRange);
     auto committedRange = close(needsLayoutRange, committedContent);
+    auto& lineRuns = m_line.runs();
+
+    auto computedVisualOrder = [&]() -> Vector<int32_t> {
+        if (!m_line.contentNeedsBidiReordering())
+            return { };
+
+        Vector<UBiDiLevel> runLevels(lineRuns.size());
+        // FIXME: We may cache these values in Line, if it turns out to be a perf hit.
+        for (size_t i = 0; i < lineRuns.size(); ++i)
+            runLevels[i] = lineRuns[i].bidiLevel();
+
+        Vector<int32_t> visualOrderList(lineRuns.size());
+        ubidi_reorderVisual(runLevels.data(), runLevels.size(), visualOrderList.data());
+        return visualOrderList;
+    };
 
     auto isLastLine = isLastLineWithInlineContent(committedRange, needsLayoutRange.end, committedContent.partialTrailingContentLength);
-    return LineContent { committedRange, committedContent.partialTrailingContentLength, committedContent.overflowLogicalWidth, m_floats, m_contentIsConstrainedByFloat
+    return LineContent { committedRange
+        , committedContent.partialTrailingContentLength
+        , committedContent.overflowLogicalWidth
+        , m_floats
+        , m_contentIsConstrainedByFloat
         , m_lineLogicalRect.topLeft()
         , m_lineLogicalRect.width()
         , m_line.contentLogicalWidth()
         , m_line.hangingWhitespaceWidth()
         , isLastLine
         , m_line.nonSpanningInlineLevelBoxCount()
-        , m_line.runs()};
+        , computedVisualOrder()
+        , lineRuns };
 }
 
-LineBuilder::IntrinsicContent LineBuilder::computedIntrinsicWidth(const InlineItemRange& needsLayoutRange, InlineLayoutUnit availableWidth)
+LineBuilder::IntrinsicContent LineBuilder::computedIntrinsicWidth(const InlineItemRange& needsLayoutRange, InlineLayoutUnit availableWidth, bool isFirstLine)
 {
-    initialize({ { { }, { availableWidth, maxInlineLayoutUnit() } }, false }, false, { }, { }, { });
+    auto lineConstraints = initialConstraintsForLine({ 0, 0, availableWidth, 0 }, isFirstLine);
+    initialize(lineConstraints, isFirstLine, needsLayoutRange.start, { }, { });
+
     auto committedContent = placeInlineContent(needsLayoutRange);
     auto committedRange = close(needsLayoutRange, committedContent);
-    return { committedRange, m_line.contentLogicalWidth(), m_floats };
+    auto lineWidth = lineConstraints.logicalRect.left() + m_line.contentLogicalWidth();
+    return { committedRange, lineWidth, m_floats };
 }
 
 void LineBuilder::initialize(const UsedConstraints& lineConstraints, bool isFirstLine, size_t leadingInlineItemIndex, size_t partialLeadingContentLength, std::optional<InlineLayoutUnit> overflowingLogicalWidth)
@@ -319,6 +350,8 @@ void LineBuilder::initialize(const UsedConstraints& lineConstraints, bool isFirs
         // We need to make sure that there's an [InlineBoxStart] for every inline box that's present on the current line.
         // We only have to do it on the first run as any subsequent inline content is either at the same/higher nesting level.
         auto& firstInlineItem = m_inlineItems[leadingInlineItemIndex];
+        // Let's treat these spanning inline items as opaque bidi content. They should not change the bidi levels on adjacent content.
+        auto bidiLevelForOpaqueInlineItem = firstInlineItem.bidiLevel();
         // If the parent is the formatting root, we can stop here. This is root inline box content, there's no nesting inline box from the previous line(s)
         // unless the inline box closing is forced over to the current line.
         // e.g.
@@ -336,7 +369,7 @@ void LineBuilder::initialize(const UsedConstraints& lineConstraints, bool isFirs
             ancestor = &ancestor->parent();
         }
         for (auto* spanningInlineBox : makeReversedRange(spanningLayoutBoxList))
-            m_lineSpanningInlineBoxes.append({ *spanningInlineBox, InlineItem::Type::InlineBoxStart });
+            m_lineSpanningInlineBoxes.append({ *spanningInlineBox, InlineItem::Type::InlineBoxStart, bidiLevelForOpaqueInlineItem });
     };
     createLineSpanningInlineBoxes();
     m_line.initialize(m_lineSpanningInlineBoxes);

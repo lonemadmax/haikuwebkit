@@ -46,6 +46,7 @@ imported/w3c/web-platform-tests/css/css-properties-values-api/ [ Skip ]
 css-custom-properties-api [ Skip ]
 css-typedom [ Skip ]
 css-dark-mode [ Skip ]
+model-element [ Skip ]
 
 # Media Stream API testing is not supported for WK1 yet.
 fast/mediastream
@@ -124,6 +125,8 @@ webkit.org/b/156069 http/tests/security/anchor-download-block-crossorigin.html [
 webkit.org/b/156069 http/tests/download/anchor-download-no-value.html [ Skip ]
 webkit.org/b/156069 imported/w3c/web-platform-tests/html/semantics/text-level-semantics/the-a-element/a-download-click.html [ Skip ]
 webkit.org/b/156069 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-area-element/area-download-click.html [ Skip ]
+webkit.org/b/156069 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/iframe_sandbox_anchor_download_allow_downloads.tentative.html [ Skip ]
+webkit.org/b/156069 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/iframe_sandbox_anchor_download_block_downloads.tentative.html [ Skip ]
 
 webkit.org/b/156069 http/tests/download/anchor-download-attribute-content-disposition-no-extension-octet-stream.html [ Skip ]
 webkit.org/b/156069 http/tests/download/anchor-download-attribute-content-disposition-no-extension-text-plain.html [ Skip ]
@@ -360,6 +363,9 @@ imported/w3c/web-platform-tests/fetch/range/sw.https.window.html [ Skip ]
 imported/w3c/web-platform-tests/server-timing/service_worker_idl.html [ Skip ]
 imported/w3c/web-platform-tests/push-api [ Skip ]
 imported/w3c/web-platform-tests/service-workers [ Skip ]
+imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/messagechannel.any.serviceworker.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/json-module-service-worker-test.https.html [ Skip ]
+imported/w3c/web-platform-tests/html/webappapis/microtask-queuing/queue-microtask.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/infrastructure/server/context.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/infrastructure/server/secure-context.https.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/IndexedDB/key-generators/reading-autoincrement-indexes-cursors.any.serviceworker.html [ Skip ]
@@ -382,6 +388,7 @@ imported/w3c/web-platform-tests/web-locks/resource-names.tentative.https.any.ser
 imported/w3c/web-platform-tests/web-locks/secure-context.tentative.https.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/web-locks/signal.tentative.https.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/web-locks/steal.tentative.https.any.serviceworker.html [ Skip ]
+imported/w3c/web-platform-tests/webmessaging/broadcastchannel/service-worker.https.html [ Skip ]
 imported/w3c/web-platform-tests/worklets/animation-worklet-service-worker-interception.https.html [ Skip ]
 imported/w3c/web-platform-tests/worklets/audio-worklet-service-worker-interception.https.html [ Skip ]
 imported/w3c/web-platform-tests/worklets/layout-worklet-service-worker-interception.https.html [ Skip ]
@@ -588,9 +595,6 @@ editing/spelling/spelling-insert-html.html [ Pass Timeout ]
 editing/spelling/spellcheck-async.html [ Failure ]
 editing/spelling/spelling-unified-emulation.html [ Failure ]
 
-# Skip due to lack of DumpRenderTree `AccessibilityUIElement::domIdentifer` implementation.
-accessibility/mac/search-predicate-for-adhoc-radio-groups.html [ Skip ]
-
 # <rdar://problem/26050923> The result is probably still a pass, but we don't have a way
 # to have platform specific results that are different between WK1 and WK2.
 accessibility/mac/document-attributes.html [ Failure ]
@@ -778,10 +782,7 @@ imported/w3c/web-platform-tests/css/selectors/selector-placeholder-shown-type-ch
 
 webkit.org/b/184456 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-embed-element/embed-in-object-fallback.html [ Pass Failure ]
 
-webkit.org/b/231918 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-autofocus-multiple-times.html [ Pass Failure ]
 webkit.org/b/231918 imported/w3c/web-platform-tests/html/semantics/selectors/pseudo-classes/focus-autofocus.html [ Pass Failure ]
-
-webkit.org/b/232042 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-autofocus.html [ Pass Failure ] 
 
 webkit.org/b/184569 [ Debug ] animations/missing-from-to.html [ Skip ]
 
@@ -1385,8 +1386,6 @@ webkit.org/b/227845 [ Debug ] webaudio/audioworket-out-of-memory.html [ Pass Tim
 webkit.org/b/228796 [ BigSur+ ] webaudio/silent-audio-interrupted-in-background.html [ Pass Timeout ]
 webkit.org/b/228796 [ Catalina Debug ] webaudio/silent-audio-interrupted-in-background.html [ Pass Timeout ]
 
-webkit.org/b/232244 [ Debug ] webaudio/AudioBuffer/huge-buffer.html [ Pass Timeout ]
-
 webkit.org/b/227136 media/video-pause-immediately.html [ Pass Failure ]
 
 webkit.org/b/228084 [ BigSur Release ] media/video-restricted-no-preload-auto.html [ Pass Failure ]
@@ -1512,3 +1511,7 @@ webkit.org/b/232315 [ Catalina Debug ] media/track/track-disabled.html [ Pass Cr
 
 webkit.org/b/232446 [ Catalina Debug ] media/track/track-element-dom-change-crash.html [ Pass Crash ]
 
+webkit.org/b/232585 [ Catalina Debug ] media/track/track-element-load-event.html [ Pass Crash ]
+
+# DumpRenderTree doesn't invoke inspector instrumentation when repainting.
+webkit.org/b/232852 inspector/page/setShowPaintRects.html [ Skip ]

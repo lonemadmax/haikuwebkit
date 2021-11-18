@@ -68,6 +68,7 @@ enum class AXPropertyName : uint16_t {
     AccessibilityDescription,
     AccessibilityText,
     ActionVerb,
+    AncestorFlags,
     AutoCompleteValue,
     BlockquoteLevel,
     BoundingBoxRect,
@@ -237,6 +238,7 @@ enum class AXPropertyName : uint16_t {
     LiveRegionAtomic,
     LiveRegionRelevant,
     LiveRegionStatus,
+    LocalizedActionVerb,
     MathFencedOpenString,
     MathFencedCloseString,
     MathLineThickness,
@@ -317,7 +319,7 @@ enum class AXPropertyName : uint16_t {
     WebArea,
 };
 
-using AXPropertyValueVariant = std::variant<std::nullptr_t, String, bool, int, unsigned, double, float, uint64_t, Color, URL, LayoutRect, FloatRect, PAL::SessionID, IntPoint, OptionSet<SpeakAs>, std::pair<unsigned, unsigned>, Vector<AccessibilityText>, Vector<AXID>, Vector<std::pair<AXID, AXID>>, Vector<String>, Path>;
+using AXPropertyValueVariant = std::variant<std::nullptr_t, AXID, String, bool, int, unsigned, double, float, uint64_t, Color, URL, LayoutRect, FloatRect, PAL::SessionID, IntPoint, OptionSet<SpeakAs>, std::pair<unsigned, unsigned>, Vector<AccessibilityText>, Vector<AXID>, Vector<std::pair<AXID, AXID>>, Vector<String>, Path, OptionSet<AXAncestorFlag>>;
 using AXPropertyMap = HashMap<AXPropertyName, AXPropertyValueVariant, IntHash<AXPropertyName>, WTF::StrongEnumHashTraits<AXPropertyName>>;
 
 struct AXPropertyChange {

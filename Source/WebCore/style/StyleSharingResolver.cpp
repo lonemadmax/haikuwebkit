@@ -57,10 +57,10 @@ struct SharingResolver::Context {
     InsideLink elementLinkState;
 };
 
-SharingResolver::SharingResolver(const Document& document, const ScopeRuleSets& ruleSets, const SelectorFilter& selectorFilter)
+SharingResolver::SharingResolver(const Document& document, const ScopeRuleSets& ruleSets, SelectorMatchingState& selectorMatchingState)
     : m_document(document)
     , m_ruleSets(ruleSets)
-    , m_selectorFilter(selectorFilter)
+    , m_selectorMatchingState(selectorMatchingState)
 {
 }
 
@@ -260,7 +260,7 @@ bool SharingResolver::canShareStyleWithElement(const Context& context, const Sty
     if (isControl && !canShareStyleWithControl(downcast<HTMLFormControlElement>(element), downcast<HTMLFormControlElement>(candidateElement)))
         return false;
 
-    if (style->transitions() || style->animations())
+    if (candidateElement.hasKeyframeEffects(PseudoId::None))
         return false;
 
     // Turn off style sharing for elements that can gain layers for reasons outside of the style system.
@@ -326,7 +326,7 @@ bool SharingResolver::styleSharingCandidateMatchesRuleSet(const StyledElement& e
     if (!ruleSet)
         return false;
 
-    ElementRuleCollector collector(const_cast<StyledElement&>(element), m_ruleSets, &m_selectorFilter);
+    ElementRuleCollector collector(element, m_ruleSets, &m_selectorMatchingState);
     return collector.hasAnyMatchingRules(ruleSet);
 }
 

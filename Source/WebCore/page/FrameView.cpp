@@ -47,6 +47,7 @@
 #include "EventNames.h"
 #include "FloatRect.h"
 #include "FocusController.h"
+#include "FragmentDirectiveParser.h"
 #include "Frame.h"
 #include "FrameFlattening.h"
 #include "FrameLoader.h"
@@ -196,14 +197,14 @@ FrameView::FrameView(Frame& frame)
     init();
 
 #if HAVE(RUBBER_BANDING)
-    ScrollElasticity verticalElasticity = ScrollElasticityNone;
-    ScrollElasticity horizontalElasticity = ScrollElasticityNone;
+    auto verticalElasticity = ScrollElasticity::None;
+    auto horizontalElasticity = ScrollElasticity::None;
     if (m_frame->isMainFrame()) {
-        verticalElasticity = m_frame->page() ? m_frame->page()->verticalScrollElasticity() : ScrollElasticityAllowed;
-        horizontalElasticity = m_frame->page() ? m_frame->page()->horizontalScrollElasticity() : ScrollElasticityAllowed;
+        verticalElasticity = m_frame->page() ? m_frame->page()->verticalScrollElasticity() : ScrollElasticity::Allowed;
+        horizontalElasticity = m_frame->page() ? m_frame->page()->horizontalScrollElasticity() : ScrollElasticity::Allowed;
     } else if (m_frame->settings().rubberBandingForSubScrollableRegionsEnabled()) {
-        verticalElasticity = ScrollElasticityAutomatic;
-        horizontalElasticity = ScrollElasticityAutomatic;
+        verticalElasticity = ScrollElasticity::Automatic;
+        horizontalElasticity = ScrollElasticity::Automatic;
     }
 
     ScrollableArea::setVerticalScrollElasticity(verticalElasticity);
@@ -297,9 +298,9 @@ void FrameView::resetScrollbars()
     // Reset the document's scrollbars back to our defaults before we yield the floor.
     setScrollbarsSuppressed(true);
     if (m_canHaveScrollbars)
-        setScrollbarModes(ScrollbarAuto, ScrollbarAuto);
+        setScrollbarModes(ScrollbarMode::Auto, ScrollbarMode::Auto);
     else
-        setScrollbarModes(ScrollbarAlwaysOff, ScrollbarAlwaysOff);
+        setScrollbarModes(ScrollbarMode::AlwaysOff, ScrollbarMode::AlwaysOff);
     setScrollbarsSuppressed(false);
 }
 
@@ -322,7 +323,7 @@ void FrameView::init()
 
     // Propagate the scrolling mode to the view.
     auto* ownerElement = frame().ownerElement();
-    if (is<HTMLFrameElementBase>(ownerElement) && downcast<HTMLFrameElementBase>(*ownerElement).scrollingMode() == ScrollbarAlwaysOff)
+    if (is<HTMLFrameElementBase>(ownerElement) && downcast<HTMLFrameElementBase>(*ownerElement).scrollingMode() == ScrollbarMode::AlwaysOff)
         setCanHaveScrollbars(false);
 
     Page* page = frame().page();
@@ -521,7 +522,7 @@ void FrameView::updateCanHaveScrollbars()
     ScrollbarMode hMode;
     ScrollbarMode vMode;
     scrollbarModes(hMode, vMode);
-    if (hMode == ScrollbarAlwaysOff && vMode == ScrollbarAlwaysOff)
+    if (hMode == ScrollbarMode::AlwaysOff && vMode == ScrollbarMode::AlwaysOff)
         setCanHaveScrollbars(false);
     else
         setCanHaveScrollbars(true);
@@ -659,15 +660,15 @@ void FrameView::applyOverflowToViewport(const RenderElement& renderer, Scrollbar
     case Overflow::Hidden:
     case Overflow::Clip:
         if (overrideHidden)
-            hMode = ScrollbarAuto;
+            hMode = ScrollbarMode::Auto;
         else
-            hMode = ScrollbarAlwaysOff;
+            hMode = ScrollbarMode::AlwaysOff;
         break;
     case Overflow::Scroll:
-        hMode = ScrollbarAlwaysOn;
+        hMode = ScrollbarMode::AlwaysOn;
         break;
     case Overflow::Auto:
-        hMode = ScrollbarAuto;
+        hMode = ScrollbarMode::Auto;
         break;
     default:
         // Don't set it at all.
@@ -678,15 +679,15 @@ void FrameView::applyOverflowToViewport(const RenderElement& renderer, Scrollbar
     case Overflow::Hidden:
     case Overflow::Clip:
         if (overrideHidden)
-            vMode = ScrollbarAuto;
+            vMode = ScrollbarMode::Auto;
         else
-            vMode = ScrollbarAlwaysOff;
+            vMode = ScrollbarMode::AlwaysOff;
         break;
     case Overflow::Scroll:
-        vMode = ScrollbarAlwaysOn;
+        vMode = ScrollbarMode::AlwaysOn;
         break;
     case Overflow::Auto:
-        vMode = ScrollbarAuto;
+        vMode = ScrollbarMode::Auto;
         break;
     default:
         // Don't set it at all. Values of Overflow::PagedX and Overflow::PagedY are handled by applyPaginationToViewPort().
@@ -731,18 +732,18 @@ void FrameView::calculateScrollbarModesForLayout(ScrollbarMode& hMode, Scrollbar
     m_viewportRendererType = ViewportRendererType::None;
 
     const HTMLFrameOwnerElement* owner = frame().ownerElement();
-    if (owner && (owner->scrollingMode() == ScrollbarAlwaysOff)) {
-        hMode = ScrollbarAlwaysOff;
-        vMode = ScrollbarAlwaysOff;
+    if (owner && (owner->scrollingMode() == ScrollbarMode::AlwaysOff)) {
+        hMode = ScrollbarMode::AlwaysOff;
+        vMode = ScrollbarMode::AlwaysOff;
         return;
     }  
     
     if (m_canHaveScrollbars || strategy == RulesFromWebContentOnly) {
-        hMode = ScrollbarAuto;
-        vMode = ScrollbarAuto;
+        hMode = ScrollbarMode::Auto;
+        vMode = ScrollbarMode::Auto;
     } else {
-        hMode = ScrollbarAlwaysOff;
-        vMode = ScrollbarAlwaysOff;
+        hMode = ScrollbarMode::AlwaysOff;
+        vMode = ScrollbarMode::AlwaysOff;
     }
     
     if (layoutContext().subtreeLayoutRoot())
@@ -767,8 +768,8 @@ void FrameView::calculateScrollbarModesForLayout(ScrollbarMode& hMode, Scrollbar
     }
     
     if (is<HTMLFrameSetElement>(*bodyOrFrameset) && !frameFlatteningEnabled()) {
-        vMode = ScrollbarAlwaysOff;
-        hMode = ScrollbarAlwaysOff;
+        vMode = ScrollbarMode::AlwaysOff;
+        hMode = ScrollbarMode::AlwaysOff;
         return;
     }
 
@@ -1254,11 +1255,11 @@ void FrameView::adjustScrollbarsForLayout(bool isFirstLayout)
     if (isFirstLayout && !layoutContext().isLayoutNested()) {
         setScrollbarsSuppressed(true);
         // Set the initial vMode to AlwaysOn if we're auto.
-        if (vMode == ScrollbarAuto)
-            setVerticalScrollbarMode(ScrollbarAlwaysOn); // This causes a vertical scrollbar to appear.
+        if (vMode == ScrollbarMode::Auto)
+            setVerticalScrollbarMode(ScrollbarMode::AlwaysOn); // This causes a vertical scrollbar to appear.
         // Set the initial hMode to AlwaysOff if we're auto.
-        if (hMode == ScrollbarAuto)
-            setHorizontalScrollbarMode(ScrollbarAlwaysOff); // This causes a horizontal scrollbar to disappear.
+        if (hMode == ScrollbarMode::Auto)
+            setHorizontalScrollbarMode(ScrollbarMode::AlwaysOff); // This causes a horizontal scrollbar to disappear.
         ASSERT(frame().page());
         if (frame().page()->isMonitoringWheelEvents())
             scrollAnimator().setWheelEventTestMonitor(frame().page()->wheelEventTestMonitor());
@@ -1494,7 +1495,7 @@ bool FrameView::horizontalScrollbarHiddenByStyle() const
         return scrollbar && scrollbar->isHiddenByStyle();
     }
 
-    return styleHidesScrollbarWithOrientation(HorizontalScrollbar);
+    return styleHidesScrollbarWithOrientation(ScrollbarOrientation::Horizontal);
 }
 
 bool FrameView::verticalScrollbarHiddenByStyle() const
@@ -1504,7 +1505,7 @@ bool FrameView::verticalScrollbarHiddenByStyle() const
         return scrollbar && scrollbar->isHiddenByStyle();
     }
     
-    return styleHidesScrollbarWithOrientation(VerticalScrollbar);
+    return styleHidesScrollbarWithOrientation(ScrollbarOrientation::Vertical);
 }
 
 void FrameView::setCannotBlitToWindow()
@@ -2216,7 +2217,25 @@ void FrameView::restoreScrollbar()
 
 bool FrameView::scrollToFragment(const URL& url)
 {
+    ASSERT(frame().document());
+    Ref document = *frame().document();
+    
     auto fragmentIdentifier = url.fragmentIdentifier();
+    
+    if (document->settings().scrollToTextFragmentEnabled()) {
+        FragmentDirectiveParser fragmentDirectiveParser(url);
+        
+        if (fragmentDirectiveParser.isValid()) {
+            auto fragmentDirective = fragmentDirectiveParser.fragmentDirective().toString();
+            document->setFragmentDirective(fragmentDirective);
+            
+            auto parsedTextDirectives = fragmentDirectiveParser.parsedTextDirectives();
+            // FIXME: Scroll to the range specified by the directive.
+            
+        } else
+            fragmentIdentifier = fragmentDirectiveParser.remainingURLFragment();
+    }
+    
     if (scrollToFragmentInternal(fragmentIdentifier))
         return true;
 
@@ -3521,8 +3540,8 @@ void FrameView::performFixedWidthAutoSize()
     auto* renderView = document->renderView();
     auto* firstChild = renderView->firstChild();
 
-    ScrollbarMode horizonalScrollbarMode = ScrollbarAlwaysOff;
-    ScrollbarMode verticalScrollbarMode = ScrollbarAlwaysOff;
+    auto horizonalScrollbarMode = ScrollbarMode::AlwaysOff;
+    auto verticalScrollbarMode = ScrollbarMode::AlwaysOff;
     setVerticalScrollbarLock(false);
     setHorizontalScrollbarLock(false);
     setScrollbarModes(horizonalScrollbarMode, verticalScrollbarMode, true, true);
@@ -3588,14 +3607,14 @@ void FrameView::performSizeToContentAutoSize()
         if (newSize.width() > m_autoSizeConstraint.width()) {
             RefPtr<Scrollbar> localHorizontalScrollbar = horizontalScrollbar();
             if (!localHorizontalScrollbar)
-                localHorizontalScrollbar = createScrollbar(HorizontalScrollbar);
+                localHorizontalScrollbar = createScrollbar(ScrollbarOrientation::Horizontal);
             newSize.expand(0, localHorizontalScrollbar->occupiedHeight());
             // Don't bother checking for a vertical scrollbar because the width is at
             // already greater the maximum.
         } else if (newSize.height() > m_autoSizeConstraint.height()) {
             RefPtr<Scrollbar> localVerticalScrollbar = verticalScrollbar();
             if (!localVerticalScrollbar)
-                localVerticalScrollbar = createScrollbar(VerticalScrollbar);
+                localVerticalScrollbar = createScrollbar(ScrollbarOrientation::Vertical);
             newSize.expand(localVerticalScrollbar->occupiedWidth(), 0);
             // Don't bother checking for a horizontal scrollbar because the height is
             // already greater the maximum.
@@ -3605,15 +3624,15 @@ void FrameView::performSizeToContentAutoSize()
         newSize = newSize.expandedTo(minAutoSize);
 
         // Bound the dimensions by the max bounds and determine what scrollbars to show.
-        ScrollbarMode horizonalScrollbarMode = ScrollbarAlwaysOff;
+        ScrollbarMode horizonalScrollbarMode = ScrollbarMode::AlwaysOff;
         if (newSize.width() > m_autoSizeConstraint.width()) {
             newSize.setWidth(m_autoSizeConstraint.width());
-            horizonalScrollbarMode = ScrollbarAlwaysOn;
+            horizonalScrollbarMode = ScrollbarMode::AlwaysOn;
         }
-        ScrollbarMode verticalScrollbarMode = ScrollbarAlwaysOff;
+        ScrollbarMode verticalScrollbarMode = ScrollbarMode::AlwaysOff;
         if (newSize.height() > m_autoSizeConstraint.height()) {
             newSize.setHeight(m_autoSizeConstraint.height());
-            verticalScrollbarMode = ScrollbarAlwaysOn;
+            verticalScrollbarMode = ScrollbarMode::AlwaysOn;
         }
 
         if (newSize == size)
@@ -3817,7 +3836,7 @@ void FrameView::scrollToPositionWithAnimation(const ScrollPosition& position, Sc
 
 float FrameView::adjustScrollStepForFixedContent(float step, ScrollbarOrientation orientation, ScrollGranularity granularity)
 {
-    if (granularity != ScrollByPage || orientation == HorizontalScrollbar)
+    if (granularity != ScrollGranularity::Page || orientation == ScrollbarOrientation::Horizontal)
         return step;
 
     TrackedRendererListHashSet* positionedObjects = nullptr;
@@ -3950,7 +3969,7 @@ bool FrameView::isScrollable(Scrollability definitionOfScrollable)
     ScrollbarMode horizontalMode;
     ScrollbarMode verticalMode;
     calculateScrollbarModesForLayout(horizontalMode, verticalMode, RulesFromWebContentOnly);
-    if (horizontalMode == ScrollbarAlwaysOff && verticalMode == ScrollbarAlwaysOff)
+    if (horizontalMode == ScrollbarMode::AlwaysOff && verticalMode == ScrollbarMode::AlwaysOff)
         return false;
 
     return true;
@@ -4722,7 +4741,7 @@ void FrameView::enableAutoSizeMode(bool enable, const IntSize& viewSize, AutoSiz
     // Since autosize mode forces the scrollbar mode, change them to being auto.
     setVerticalScrollbarLock(false);
     setHorizontalScrollbarLock(false);
-    setScrollbarModes(ScrollbarAuto, ScrollbarAuto);
+    setScrollbarModes(ScrollbarMode::Auto, ScrollbarMode::Auto);
 }
 
 void FrameView::forceLayout(bool allowSubtreeLayout)
@@ -5557,12 +5576,12 @@ void FrameView::clearSizeOverrideForCSSSmallViewportUnits()
         document->styleScope().didChangeStyleSheetEnvironment();
 }
 
-void FrameView::setSizeForCSSSmallViewportUnits(IntSize size)
+void FrameView::setSizeForCSSSmallViewportUnits(FloatSize size)
 {
     overrideSizeForCSSSmallViewportUnits({ size.width(), size.height() });
 }
 
-void FrameView::overrideWidthForCSSSmallViewportUnits(int width)
+void FrameView::overrideWidthForCSSSmallViewportUnits(float width)
 {
     overrideSizeForCSSSmallViewportUnits({ width, m_smallViewportSizeOverride ? m_smallViewportSizeOverride->height : std::nullopt });
 }
@@ -5583,7 +5602,7 @@ void FrameView::overrideSizeForCSSSmallViewportUnits(OverrideViewportSize size)
         document->styleScope().didChangeStyleSheetEnvironment();
 }
 
-IntSize FrameView::sizeForCSSSmallViewportUnits() const
+FloatSize FrameView::sizeForCSSSmallViewportUnits() const
 {
     return calculateSizeForCSSViewportUnitsOverride(m_smallViewportSizeOverride);
 }
@@ -5598,12 +5617,12 @@ void FrameView::clearSizeOverrideForCSSLargeViewportUnits()
         document->styleScope().didChangeStyleSheetEnvironment();
 }
 
-void FrameView::setSizeForCSSLargeViewportUnits(IntSize size)
+void FrameView::setSizeForCSSLargeViewportUnits(FloatSize size)
 {
     overrideSizeForCSSLargeViewportUnits({ size.width(), size.height() });
 }
 
-void FrameView::overrideWidthForCSSLargeViewportUnits(int width)
+void FrameView::overrideWidthForCSSLargeViewportUnits(float width)
 {
     overrideSizeForCSSLargeViewportUnits({ width, m_largeViewportSizeOverride ? m_largeViewportSizeOverride->height : std::nullopt });
 }
@@ -5624,30 +5643,22 @@ void FrameView::overrideSizeForCSSLargeViewportUnits(OverrideViewportSize size)
         document->styleScope().didChangeStyleSheetEnvironment();
 }
 
-IntSize FrameView::sizeForCSSLargeViewportUnits() const
+FloatSize FrameView::sizeForCSSLargeViewportUnits() const
 {
     return calculateSizeForCSSViewportUnitsOverride(m_largeViewportSizeOverride);
 }
 
-IntSize FrameView::calculateSizeForCSSViewportUnitsOverride(std::optional<OverrideViewportSize> override) const
+FloatSize FrameView::calculateSizeForCSSViewportUnitsOverride(std::optional<OverrideViewportSize> override) const
 {
     OverrideViewportSize viewportSize;
 
-    if (override)
+    if (override) {
         viewportSize = *override;
 
-    // Use the large size if no override is given since it's considered the default size.
-    // if (m_largeViewportSizeOverride) {
-    //     if (!viewportSize.width)
-    //         viewportSize.width = m_largeViewportSizeOverride->width;
-
-    //     if (!viewportSize.height)
-    //         viewportSize.height = m_largeViewportSizeOverride->height;
-    // }
-
-    // auto-size overrides the width only, so we can't always bail out early here.
-    if (viewportSize.width && viewportSize.height)
-        return { *viewportSize.width, *viewportSize.height };
+        // auto-size overrides the width only, so we can't always bail out early here.
+        if (viewportSize.width && viewportSize.height)
+            return { *viewportSize.width, *viewportSize.height };
+    }
 
     if (useFixedLayout()) {
         auto fixedLayoutSize = this->fixedLayoutSize();
@@ -5664,12 +5675,12 @@ IntSize FrameView::calculateSizeForCSSViewportUnitsOverride(std::optional<Overri
     return { *viewportSize.width, *viewportSize.height };
 }
 
-IntSize FrameView::sizeForCSSDynamicViewportUnits() const
+FloatSize FrameView::sizeForCSSDynamicViewportUnits() const
 {
-    return visibleContentRectIncludingScrollbars().size();
+    return unobscuredContentRectIncludingScrollbars().size();
 }
 
-IntSize FrameView::sizeForCSSDefaultViewportUnits() const
+FloatSize FrameView::sizeForCSSDefaultViewportUnits() const
 {
     return sizeForCSSLargeViewportUnits();
 }
@@ -5698,6 +5709,12 @@ void FrameView::didFinishProhibitingScrollingWhenChangingContentSize()
 float FrameView::pageScaleFactor() const
 {
     return frame().frameScaleFactor();
+}
+
+void FrameView::didStartScrollAnimation()
+{
+    if (auto* page = frame().page())
+        page->scheduleRenderingUpdate({ RenderingUpdateStep::Scroll });
 }
 
 void FrameView::updateScrollbarSteps()

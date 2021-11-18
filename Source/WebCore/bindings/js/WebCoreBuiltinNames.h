@@ -126,6 +126,42 @@ namespace WebCore {
     macro(FileSystemFileHandle) \
     macro(FileSystemHandle) \
     macro(FileSystemSyncAccessHandle) \
+    macro(GPU) \
+    macro(GPUAdapter) \
+    macro(GPUBindGroup) \
+    macro(GPUBindGroupLayout) \
+    macro(GPUBuffer) \
+    macro(GPUBufferUsage) \
+    macro(GPUCanvasContext) \
+    macro(GPUColorWrite) \
+    macro(GPUCommandBuffer) \
+    macro(GPUCommandEncoder) \
+    macro(GPUCompilationInfo) \
+    macro(GPUCompilationMessage) \
+    macro(GPUComputePassEncoder) \
+    macro(GPUComputePipeline) \
+    macro(GPUDevice) \
+    macro(GPUDeviceLostInfo) \
+    macro(GPUExternalTexture) \
+    macro(GPUMapMode) \
+    macro(GPUOutOfMemoryError) \
+    macro(GPUPipelineLayout) \
+    macro(GPUQuerySet) \
+    macro(GPUQueue) \
+    macro(GPURenderBundle) \
+    macro(GPURenderBundleEncoder) \
+    macro(GPURenderPassEncoder) \
+    macro(GPURenderPipeline) \
+    macro(GPUSampler) \
+    macro(GPUShaderModule) \
+    macro(GPUShaderStage) \
+    macro(GPUSupportedFeatures) \
+    macro(GPUSupportedLimits) \
+    macro(GPUTexture) \
+    macro(GPUTextureUsage) \
+    macro(GPUTextureView) \
+    macro(GPUUncapturedErrorEvent) \
+    macro(GPUValidationError) \
     macro(Gamepad) \
     macro(GamepadButton) \
     macro(GamepadEvent) \
@@ -161,6 +197,8 @@ namespace WebCore {
     macro(KeyframeEffect) \
     macro(Lock) \
     macro(LockManager) \
+    macro(MathMLElement) \
+    macro(MathMLMathElement) \
     macro(MediaCapabilities) \
     macro(MediaCapabilitiesInfo) \
     macro(MediaDevices) \
@@ -183,6 +221,7 @@ namespace WebCore {
     macro(NavigatorMediaDevices) \
     macro(NavigatorPermissions) \
     macro(NavigatorUserMedia) \
+    macro(Notification) \
     macro(OfflineAudioContext) \
     macro(OffscreenCanvas) \
     macro(OffscreenCanvasRenderingContext2D) \
@@ -215,6 +254,7 @@ namespace WebCore {
     macro(PushManager) \
     macro(PushMessageData) \
     macro(PushSubscription) \
+    macro(PushSubscriptionChangeEvent) \
     macro(PushSubscriptionOptions) \
     macro(ResizeObserver) \
     macro(ResizeObserverEntry) \

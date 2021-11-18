@@ -54,8 +54,8 @@ enum class WheelScrollGestureState : uint8_t;
 inline int offsetForOrientation(ScrollOffset offset, ScrollbarOrientation orientation)
 {
     switch (orientation) {
-    case HorizontalScrollbar: return offset.x();
-    case VerticalScrollbar: return offset.y();
+    case ScrollbarOrientation::Horizontal: return offset.x();
+    case ScrollbarOrientation::Vertical: return offset.y();
     }
     ASSERT_NOT_REACHED();
     return 0;
@@ -121,9 +121,9 @@ public:
     void setHorizontalScrollElasticity(ScrollElasticity scrollElasticity) { m_horizontalScrollElasticity = scrollElasticity; }
     ScrollElasticity horizontalScrollElasticity() const { return m_horizontalScrollElasticity; }
 
-    virtual ScrollbarMode horizontalScrollbarMode() const { return ScrollbarAuto; }
-    virtual ScrollbarMode verticalScrollbarMode() const { return ScrollbarAuto; }
-    bool canHaveScrollbars() const { return horizontalScrollbarMode() != ScrollbarAlwaysOff || verticalScrollbarMode() != ScrollbarAlwaysOff; }
+    virtual ScrollbarMode horizontalScrollbarMode() const { return ScrollbarMode::Auto; }
+    virtual ScrollbarMode verticalScrollbarMode() const { return ScrollbarMode::Auto; }
+    bool canHaveScrollbars() const { return horizontalScrollbarMode() != ScrollbarMode::AlwaysOff || verticalScrollbarMode() != ScrollbarMode::AlwaysOff; }
 
     virtual bool horizontalScrollbarHiddenByStyle() const { return false; }
     virtual bool verticalScrollbarHiddenByStyle() const { return false; }
@@ -353,6 +353,8 @@ public:
         return 1.0f;
     }
 
+    virtual void didStartScrollAnimation() { }
+
 protected:
     WEBCORE_EXPORT ScrollableArea();
     WEBCORE_EXPORT virtual ~ScrollableArea();
@@ -402,8 +404,8 @@ private:
 
     ScrollClamping m_scrollClamping { ScrollClamping::Clamped };
 
-    ScrollElasticity m_verticalScrollElasticity { ScrollElasticityNone };
-    ScrollElasticity m_horizontalScrollElasticity { ScrollElasticityNone };
+    ScrollElasticity m_verticalScrollElasticity { ScrollElasticity::None };
+    ScrollElasticity m_horizontalScrollElasticity { ScrollElasticity::None };
 
     ScrollbarOverlayStyle m_scrollbarOverlayStyle { ScrollbarOverlayStyle::ScrollbarOverlayStyleDefault };
 
@@ -413,6 +415,7 @@ private:
     bool m_inLiveResize { false };
     bool m_scrollOriginChanged { false };
     bool m_scrollShouldClearLatchedState { false };
+    bool m_hasActiveScrollAnimation { false };
 };
 
 WTF::TextStream& operator<<(WTF::TextStream&, const ScrollableArea&);

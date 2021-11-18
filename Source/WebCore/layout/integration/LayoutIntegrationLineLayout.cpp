@@ -217,6 +217,14 @@ void LineLayout::updateStyle(const RenderBoxModelObject& renderer, const RenderS
     m_boxTree.updateStyle(renderer);
 }
 
+std::pair<LayoutUnit, LayoutUnit> LineLayout::computeIntrinsicWidthConstraints()
+{
+    auto inlineFormattingContext = Layout::InlineFormattingContext { rootLayoutBox(), m_inlineFormattingState, nullptr };
+    auto constraints = inlineFormattingContext.computedIntrinsicWidthConstraints();
+
+    return { constraints.minimum, constraints.maximum };
+}
+
 void LineLayout::layout()
 {
     auto& rootLayoutBox = this->rootLayoutBox();
@@ -626,7 +634,7 @@ Layout::InlineDamage& LineLayout::ensureLineDamage()
 #if ENABLE(TREE_DEBUGGING)
 void LineLayout::outputLineTree(WTF::TextStream& stream, size_t depth) const
 {
-    showInlineTreeAndRuns(stream, m_layoutState, rootLayoutBox(), depth);
+    showInlineContent(stream, *m_inlineContent, depth);
 }
 #endif
 

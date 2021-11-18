@@ -46,6 +46,12 @@
 #include <stdint.h>
 #include <string.h>
 
+#ifdef __APPLE__
+#include <Availability.h>
+#include <AvailabilityMacros.h>
+#include <TargetConditionals.h>
+#endif
+
 #include "pas_utils_prefix.h"
 
 #define pas_zero_memory bzero
@@ -83,6 +89,69 @@ PAS_BEGIN_EXTERN_C;
 
 #define PAS_ARM __PAS_ARM
 
+#define PAS_PLATFORM(PLATFORM) (defined PAS_PLATFORM_##PLATFORM && PAS_PLATFORM_##PLATFORM)
+#define PAS_OS(OS) (defined PAS_OS_##OS && PAS_OS_##OS)
+
+#ifdef __APPLE__
+#define PAS_OS_DARWIN 1
+#endif
+
+#if defined(__unix) || defined(__unix__)
+#define PAS_OS_UNIX 1
+#endif
+
+#ifdef __linux__
+#define PAS_OS_LINUX 1
+#endif
+
+#if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__FreeBSD_kernel__)
+#define PAS_OS_FREEBSD 1
+#endif
+
+#if defined(WIN32) || defined(_WIN32)
+#define PAS_OS_WINDOWS 1
+#endif
+
+#if PAS_OS(DARWIN) && !defined(BUILDING_WITH_CMAKE)
+#if TARGET_OS_IOS
+#define PAS_OS_IOS 1
+#define PAS_PLATFORM_IOS 1
+#if TARGET_OS_SIMULATOR
+#define PAS_PLATFORM_IOS_SIMULATOR 1
+#endif
+#if defined(TARGET_OS_MACCATALYST) && TARGET_OS_MACCATALYST
+#define PAS_PLATFORM_MACCATALYST 1
+#endif
+#endif
+#if TARGET_OS_IPHONE
+#define PAS_PLATFORM_IOS_FAMILY 1
+#if TARGET_OS_SIMULATOR
+#define PAS_PLATFORM_IOS_FAMILY_SIMULATOR 1
+#endif
+#elif TARGET_OS_MAC
+#define PAS_OS_MAC 1
+#define PAS_PLATFORM_MAC 1
+#endif
+#endif
+
+#if PAS_PLATFORM(MAC) || PAS_PLATFORM(IOS_FAMILY)
+#define PAS_PLATFORM_COCOA 1
+#endif
+
+#if defined(TARGET_OS_WATCH) && TARGET_OS_WATCH
+#define PAS_OS_WATCHOS 1
+#define PAS_PLATFORM_WATCHOS 1
+#endif
+
+#if defined(TARGET_OS_TV) && TARGET_OS_TV
+#define PAS_OS_APPLETV 1
+#define PAS_PLATFORM_APPLETV 1
+#endif
+
+#if defined(__SCE__)
+#define PAS_PLATFORM_PLAYSTATION 1
+#endif
+
 /* NOTE: panic format string must have \n at the end. */
 PAS_API PAS_NO_RETURN void pas_panic(const char* format, ...) PAS_FORMAT_PRINTF(1, 2);
 
@@ -96,7 +165,7 @@ PAS_API PAS_NO_RETURN PAS_NEVER_INLINE void pas_reallocation_did_fail(const char
                                                                       void* target_heap,
                                                                       void* old_ptr,
                                                                       size_t old_size,
-                                                                      size_t new_count);
+                                                                      size_t new_size);
 
 PAS_API PAS_NO_RETURN void pas_assertion_failed(const char* filename, int line, const char* function, const char* expression);
 
@@ -221,6 +290,11 @@ static inline bool pas_compare_and_swap_bool_strong(bool* ptr, bool old_value, b
 {
     __c11_atomic_compare_exchange_strong((_Atomic bool*)ptr, &old_value, new_value, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
     return old_value;
+}
+
+static inline bool pas_compare_and_swap_uint8_weak(uint8_t* ptr, uint8_t old_value, uint8_t new_value)
+{
+    return __c11_atomic_compare_exchange_weak((_Atomic uint8_t*)ptr, &old_value, new_value, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
 }
 
 static inline bool pas_compare_and_swap_uint16_weak(uint16_t* ptr, uint16_t old_value, uint16_t new_value)

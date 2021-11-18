@@ -2152,12 +2152,12 @@ class TestRunWebKitTestsWithoutPatch(BuildStepMixinAdditions, unittest.TestCase)
         self.expectOutcome(result=SUCCESS, state_string='layout-tests')
         return self.runStep()
 
-    def test_success_retry_only_subset(self):
+    def test_run_subtest_tests_success(self):
         self.configureStep()
         self.setProperty('fullPlatform', 'ios-simulator')
         self.setProperty('configuration', 'release')
-        self.setProperty('first_run_failures', ['test1', 'test2', 'test3'])
-        self.setProperty('second_run_failures', ['test1', 'test3', 'test4'])
+        self.setProperty('first_run_failures', ['test1.html', 'test2.html', 'test3.html'])
+        self.setProperty('second_run_failures', ['test3.html', 'test4.html', 'test5.html'])
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logfiles={'json': self.jsonFileName},
@@ -2173,77 +2173,80 @@ class TestRunWebKitTestsWithoutPatch(BuildStepMixinAdditions, unittest.TestCase)
                                  '--debug-rwt-logging',
                                  '--exit-after-n-failures', '30',
                                  '--skip-failing-tests',
-                                 'test1', 'test2', 'test3', 'test4'],
+                                 '--skipped=always',
+                                 'test1.html', 'test2.html', 'test3.html', 'test4.html', 'test5.html'],
                         )
             + 0,
         )
         self.expectOutcome(result=SUCCESS, state_string='layout-tests')
         return self.runStep()
 
-    def test_success_retry_only_subset_limit_exceeded(self):
+    def test_run_subtest_tests_removes_skipped_that_fails(self):
         self.configureStep()
         self.setProperty('fullPlatform', 'ios-simulator')
         self.setProperty('configuration', 'release')
-        self.setProperty('first_run_failures', ['test1', 'test2', 'test3'])
+        self.setProperty('first_run_failures', ['test-was-skipped-patch-removed-expectation-but-still-fails.html'])
+        self.setProperty('second_run_failures', ['test-was-skipped-patch-removed-expectation-but-still-fails.html'])
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        logfiles={'json': self.jsonFileName},
+                        logEnviron=False,
+                        command=['python',
+                                 'Tools/Scripts/run-webkit-tests',
+                                 '--no-build',
+                                 '--no-show-results',
+                                 '--no-new-test-results',
+                                 '--clobber-old-results',
+                                 '--release',
+                                 '--results-directory', 'layout-test-results',
+                                 '--debug-rwt-logging',
+                                 '--exit-after-n-failures', '30',
+                                 '--skip-failing-tests',
+                                 '--skipped=always',
+                                 'test-was-skipped-patch-removed-expectation-but-still-fails.html'],
+                        )
+            + 0,
+        )
+        self.expectOutcome(result=SUCCESS, state_string='layout-tests')
+        return self.runStep()
+
+    def test_run_subtest_tests_fail(self):
+        self.configureStep()
+        self.setProperty('fullPlatform', 'ios-simulator')
+        self.setProperty('configuration', 'release')
+        self.setProperty('first_run_failures', ['test-fails-withpatch1.html', 'test-pre-existent-failure1.html'])
+        self.setProperty('second_run_failures', ['test-fails-withpatch2.html', 'test-pre-existent-failure2.html'])
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        logfiles={'json': self.jsonFileName},
+                        logEnviron=False,
+                        command=['python',
+                                 'Tools/Scripts/run-webkit-tests',
+                                 '--no-build',
+                                 '--no-show-results',
+                                 '--no-new-test-results',
+                                 '--clobber-old-results',
+                                 '--release',
+                                 '--results-directory', 'layout-test-results',
+                                 '--debug-rwt-logging',
+                                 '--exit-after-n-failures', '30',
+                                 '--skip-failing-tests',
+                                 '--skipped=always',
+                                 'test-fails-withpatch1.html', 'test-fails-withpatch2.html', 'test-pre-existent-failure1.html', 'test-pre-existent-failure2.html'],
+                        )
+            + ExpectShell.log('stdio', stdout='2 failures found.')
+            + 2,
+        )
+        self.expectOutcome(result=FAILURE, state_string='layout-tests (failure)')
+        return self.runStep()
+
+    def test_run_subtest_tests_limit_exceeded(self):
+        self.configureStep()
+        self.setProperty('fullPlatform', 'ios-simulator')
+        self.setProperty('configuration', 'release')
+        self.setProperty('first_run_failures', ['test1.html', 'test2.html', 'test3.html'])
         self.setProperty('second_results_exceed_failure_limit', True)
-        self.setProperty('second_run_failures', ['test{}'.format(i) for i in range(0, 30)])
-        self.expectRemoteCommands(
-            ExpectShell(workdir='wkdir',
-                        logfiles={'json': self.jsonFileName},
-                        logEnviron=False,
-                        command=['python',
-                                 'Tools/Scripts/run-webkit-tests',
-                                 '--no-build',
-                                 '--no-show-results',
-                                 '--no-new-test-results',
-                                 '--clobber-old-results',
-                                 '--release',
-                                 '--results-directory', 'layout-test-results',
-                                 '--debug-rwt-logging',
-                                 '--exit-after-n-failures', '30',
-                                 '--skip-failing-tests'],
-                        )
-            + 0,
-        )
-        self.expectOutcome(result=SUCCESS, state_string='layout-tests')
-        return self.runStep()
-
-    def test_success_retry_only_subset_patch_no_modifies_expectations(self):
-        self.configureStep()
-        self.setProperty('fullPlatform', 'ios-simulator')
-        self.setProperty('configuration', 'release')
-        self.setProperty('first_run_failures', ['test1', 'test2', 'test3'])
-        self.setProperty('second_run_failures', ['test1', 'test3', 'test4'])
-        RunWebKitTests._get_patch = lambda x: b'+++ Tools/ChangeLog\n+++ Tools/WebKitTestRunner/Options.cpp\n'
-        self.expectRemoteCommands(
-            ExpectShell(workdir='wkdir',
-                        logfiles={'json': self.jsonFileName},
-                        logEnviron=False,
-                        command=['python',
-                                 'Tools/Scripts/run-webkit-tests',
-                                 '--no-build',
-                                 '--no-show-results',
-                                 '--no-new-test-results',
-                                 '--clobber-old-results',
-                                 '--release',
-                                 '--results-directory', 'layout-test-results',
-                                 '--debug-rwt-logging',
-                                 '--exit-after-n-failures', '30',
-                                 '--skip-failing-tests',
-                                 'test1', 'test2', 'test3', 'test4'],
-                        )
-            + 0,
-        )
-        self.expectOutcome(result=SUCCESS, state_string='layout-tests')
-        return self.runStep()
-
-    def test_success_retry_only_subset_patch_modifies_expectations(self):
-        self.configureStep()
-        self.setProperty('fullPlatform', 'ios-simulator')
-        self.setProperty('configuration', 'release')
-        self.setProperty('first_run_failures', ['test1', 'test2', 'test3'])
-        self.setProperty('second_run_failures', ['test1', 'test3', 'test4'])
-        RunWebKitTests._get_patch = lambda x: b'+++ LayoutTests/Changelog\n+++ LayoutTests/platform/gtk/TestExpectations\n'
+        self.setProperty('second_run_failures', ['test{}.html'.format(i) for i in range(0, 30)])
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logfiles={'json': self.jsonFileName},
@@ -2540,6 +2543,15 @@ class TestAnalyzeLayoutTestsResults(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('clean_tree_run_failures', [])
         self.setProperty('clean_tree_run_status', SUCCESS)
         self.expectOutcome(result=FAILURE, state_string='Found unexpected failure with patch (failure)')
+        return self.runStep()
+
+    def test_patch_removes_skipped_test_that_fails(self):
+        self.configureStep()
+        self.setProperty('first_run_failures', ['test-was-skipped-patch-removed-expectation-but-still-fails.html'])
+        self.setProperty('second_run_failures', ['test-was-skipped-patch-removed-expectation-but-still-fails.html'])
+        self.setProperty('clean_tree_run_failures', [])
+        self.setProperty('clean_tree_run_status', SUCCESS)
+        self.expectOutcome(result=FAILURE, state_string='Found 1 new test failure: test-was-skipped-patch-removed-expectation-but-still-fails.html (failure)')
         return self.runStep()
 
 
@@ -3800,105 +3812,108 @@ class TestPrintConfiguration(BuildStepMixinAdditions, unittest.TestCase):
     def tearDown(self):
         return self.tearDownBuildStep()
 
-    def test_success_mac(self):
-        self.setupStep(PrintConfiguration())
-        self.setProperty('buildername', 'macOS-High-Sierra-Release-WK2-Tests-EWS')
-        self.setProperty('platform', 'mac-highsierra')
+        def test_success_mac(self):
+            self.setupStep(PrintConfiguration())
+            self.setProperty('buildername', 'macOS-Monterey-Release-WK2-Tests-EWS')
+            self.setProperty('platform', 'mac-monterey')
 
-        self.expectRemoteCommands(
-            ExpectShell(command=['hostname'], workdir='wkdir', timeout=60, logEnviron=False) + 0
-            + ExpectShell.log('stdio', stdout='ews150.apple.com'),
-            ExpectShell(command=['df', '-hl'], workdir='wkdir', timeout=60, logEnviron=False) + 0
-            + ExpectShell.log('stdio', stdout='''Filesystem     Size   Used  Avail Capacity iused  ifree %iused  Mounted on
-/dev/disk1s1  119Gi   95Gi   23Gi    81%  937959 9223372036853837848    0%   /
-/dev/disk1s4  119Gi   20Ki   23Gi     1%       0 9223372036854775807    0%   /private/var/vm
-/dev/disk0s3  119Gi   22Gi   97Gi    19%  337595          4294629684    0%   /Volumes/Data'''),
-            ExpectShell(command=['date'], workdir='wkdir', timeout=60, logEnviron=False) + 0
-            + ExpectShell.log('stdio', stdout='Tue Apr  9 15:30:52 PDT 2019'),
-            ExpectShell(command=['sw_vers'], workdir='wkdir', timeout=60, logEnviron=False) + 0
-            + ExpectShell.log('stdio', stdout='''ProductName:	Mac OS X
-ProductVersion:	10.13.4
-BuildVersion:	17E199'''),
-            ExpectShell(command=['xcodebuild', '-sdk', '-version'], workdir='wkdir', timeout=60, logEnviron=False)
-            + ExpectShell.log('stdio', stdout='''MacOSX10.13.sdk - macOS 10.13 (macosx10.13)
-SDKVersion: 10.13
-Path: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk
-PlatformVersion: 1.1
-PlatformPath: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform
-ProductBuildVersion: 17E189
-ProductCopyright: 1983-2018 Apple Inc.
-ProductName: Mac OS X
-ProductUserVisibleVersion: 10.13.4
-ProductVersion: 10.13.4
+            self.expectRemoteCommands(
+                ExpectShell(command=['hostname'], workdir='wkdir', timeout=60, logEnviron=False) + 0
+                + ExpectShell.log('stdio', stdout='ews150.apple.com'),
+                ExpectShell(command=['df', '-hl'], workdir='wkdir', timeout=60, logEnviron=False) + 0
+                + ExpectShell.log('stdio', stdout='''Filesystem     Size   Used  Avail Capacity iused  ifree %iused  Mounted on
+    /dev/disk1s1  119Gi   95Gi   23Gi    81%  937959 9223372036853837848    0%   /
+    /dev/disk1s4  119Gi   20Ki   23Gi     1%       0 9223372036854775807    0%   /private/var/vm
+    /dev/disk0s3  119Gi   22Gi   97Gi    19%  337595          4294629684    0%   /Volumes/Data'''),
+                ExpectShell(command=['date'], workdir='wkdir', timeout=60, logEnviron=False) + 0
+                + ExpectShell.log('stdio', stdout='Tue Apr  9 15:30:52 PDT 2019'),
+                ExpectShell(command=['sw_vers'], workdir='wkdir', timeout=60, logEnviron=False) + 0
+                + ExpectShell.log('stdio', stdout='''ProductName:	macOS
+    ProductVersion:	12.0.1
+    BuildVersion:	21A558'''),
+                ExpectShell(command=['xcodebuild', '-sdk', '-version'], workdir='wkdir', timeout=60, logEnviron=False)
+                + ExpectShell.log('stdio', stdout='''MacOSX12.0.sdk - macOS 12.0 (macosx12.0)
+    SDKVersion: 12.0
+    Path: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.sdk
+    PlatformVersion: 12.0
+    PlatformPath: /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform
+    ProductBuildVersion: 21A344
+    ProductCopyright: 1983-2021 Apple Inc.
+    ProductName: macOS
+    ProductUserVisibleVersion: 12.0
+    ProductVersion: 12.0
+    iOSSupportVersion: 15.0
 
-Xcode 9.4.1
-Build version 9F2000''')
-            + 0,
-            ExpectShell(command=['uptime'], workdir='wkdir', timeout=60, logEnviron=False) + 0
-            + ExpectShell.log('stdio', stdout=' 6:31  up 1 day, 19:05, 24 users, load averages: 4.17 7.23 5.45'),
-        )
-        self.expectOutcome(result=SUCCESS, state_string='OS: High Sierra (10.13.4), Xcode: 9.4.1')
-        return self.runStep()
+    Xcode 13.1
+    Build version 13A1030d''')
+                + 0,
+                ExpectShell(command=['uptime'], workdir='wkdir', timeout=60, logEnviron=False) + 0
+                + ExpectShell.log('stdio', stdout=' 6:31  up 1 day, 19:05, 24 users, load averages: 4.17 7.23 5.45'),
+            )
+            self.expectOutcome(result=SUCCESS, state_string='OS: Monterey (12.0.1), Xcode: 13.1')
+            return self.runStep()
 
-    def test_success_ios_simulator(self):
-        self.setupStep(PrintConfiguration())
-        self.setProperty('buildername', 'macOS-Sierra-Release-WK2-Tests-EWS')
-        self.setProperty('platform', 'ios-simulator-12')
+        def test_success_ios_simulator(self):
+            self.setupStep(PrintConfiguration())
+            self.setProperty('buildername', 'Apple-iOS-15-Simulator-Release-WK2-Tests')
+            self.setProperty('platform', 'ios-simulator-15')
 
-        self.expectRemoteCommands(
-            ExpectShell(command=['hostname'], workdir='wkdir', timeout=60, logEnviron=False) + 0
-            + ExpectShell.log('stdio', stdout='ews152.apple.com'),
-            ExpectShell(command=['df', '-hl'], workdir='wkdir', timeout=60, logEnviron=False) + 0
-            + ExpectShell.log('stdio', stdout='''Filesystem     Size   Used  Avail Capacity iused  ifree %iused  Mounted on
-/dev/disk1s1  119Gi   95Gi   23Gi    81%  937959 9223372036853837848    0%   /
-/dev/disk1s4  119Gi   20Ki   23Gi     1%       0 9223372036854775807    0%   /private/var/vm
-/dev/disk0s3  119Gi   22Gi   97Gi    19%  337595          4294629684    0%   /Volumes/Data'''),
-            ExpectShell(command=['date'], workdir='wkdir', timeout=60, logEnviron=False) + 0
-            + ExpectShell.log('stdio', stdout='Tue Apr  9 15:30:52 PDT 2019'),
-            ExpectShell(command=['sw_vers'], workdir='wkdir', timeout=60, logEnviron=False) + 0
-            + ExpectShell.log('stdio', stdout='''ProductName:	Mac OS X
-ProductVersion:	10.15.6
-BuildVersion:	19H2'''),
-            ExpectShell(command=['xcodebuild', '-sdk', '-version'], workdir='wkdir', timeout=60, logEnviron=False)
-            + ExpectShell.log('stdio', stdout='''iPhoneSimulator13.4.sdk - Simulator - iOS 13.4 (iphonesimulator13.4)
-SDKVersion: 13.4
-Path: /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator13.4.sdk
-PlatformVersion: 13.4
-PlatformPath: /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform
-BuildID: BB4C82AE-5F8A-11EA-A1A5-838AD03DDE06
-ProductBuildVersion: 17E255
-ProductCopyright: 1983-2020 Apple Inc.
-ProductName: iPhone OS
-ProductVersion: 13.4
+            self.expectRemoteCommands(
+                ExpectShell(command=['hostname'], workdir='wkdir', timeout=60, logEnviron=False) + 0
+                + ExpectShell.log('stdio', stdout='ews152.apple.com'),
+                ExpectShell(command=['df', '-hl'], workdir='wkdir', timeout=60, logEnviron=False) + 0
+                + ExpectShell.log('stdio', stdout='''Filesystem     Size   Used  Avail Capacity iused  ifree %iused  Mounted on
+    /dev/disk1s1  119Gi   95Gi   23Gi    81%  937959 9223372036853837848    0%   /
+    /dev/disk1s4  119Gi   20Ki   23Gi     1%       0 9223372036854775807    0%   /private/var/vm
+    /dev/disk0s3  119Gi   22Gi   97Gi    19%  337595          4294629684    0%   /Volumes/Data'''),
+                ExpectShell(command=['date'], workdir='wkdir', timeout=60, logEnviron=False) + 0
+                + ExpectShell.log('stdio', stdout='Tue Apr  9 15:30:52 PDT 2019'),
+                ExpectShell(command=['sw_vers'], workdir='wkdir', timeout=60, logEnviron=False) + 0
+                + ExpectShell.log('stdio', stdout='''ProductName:	macOS
+    ProductVersion:	11.6
+    BuildVersion:	20G165'''),
+                ExpectShell(command=['xcodebuild', '-sdk', '-version'], workdir='wkdir', timeout=60, logEnviron=False)
+                + ExpectShell.log('stdio', stdout='''iPhoneSimulator15.0.sdk - Simulator - iOS 15.0 (iphonesimulator15.0)
+    SDKVersion: 15.0
+    Path: /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator15.0.sdk
+    PlatformVersion: 15.0
+    PlatformPath: /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform
+    BuildID: 84856584-0587-11EC-B99C-6807972BB3D4
+    ProductBuildVersion: 19A339
+    ProductCopyright: 1983-2021 Apple Inc.
+    ProductName: iPhone OS
+    ProductVersion: 15.0
 
-Xcode 11.7
-Build version 10E125''')
-            + 0,
-            ExpectShell(command=['uptime'], workdir='wkdir', timeout=60, logEnviron=False) + 0
-            + ExpectShell.log('stdio', stdout=' 6:31  up 1 day, 19:05, 24 users, load averages: 4.17 7.23 5.45'),
-        )
-        self.expectOutcome(result=SUCCESS, state_string='OS: Catalina (10.15.6), Xcode: 11.7')
-        return self.runStep()
+    Xcode 13.0
+    Build version 13A233''')
+                + 0,
+                ExpectShell(command=['uptime'], workdir='wkdir', timeout=60, logEnviron=False) + 0
+                + ExpectShell.log('stdio', stdout=' 6:31  up 1 day, 19:05, 24 users, load averages: 4.17 7.23 5.45'),
+            )
+            self.expectOutcome(result=SUCCESS, state_string='OS: Big Sur (11.6), Xcode: 13.0')
+            return self.runStep()
 
-    def test_success_webkitpy(self):
-        self.setupStep(PrintConfiguration())
-        self.setProperty('platform', '*')
+        def test_success_webkitpy(self):
+            self.setupStep(PrintConfiguration())
+            self.setProperty('platform', '*')
 
-        self.expectRemoteCommands(
-            ExpectShell(command=['hostname'], workdir='wkdir', timeout=60, logEnviron=False) + 0,
-            ExpectShell(command=['df', '-hl'], workdir='wkdir', timeout=60, logEnviron=False) + 0,
-            ExpectShell(command=['date'], workdir='wkdir', timeout=60, logEnviron=False) + 0,
-            ExpectShell(command=['sw_vers'], workdir='wkdir', timeout=60, logEnviron=False) + 0
-            + ExpectShell.log('stdio', stdout='''ProductName:	Mac OS X
-ProductVersion:	10.13.6
-BuildVersion:	17G7024'''),
-            ExpectShell(command=['xcodebuild', '-sdk', '-version'], workdir='wkdir', timeout=60, logEnviron=False) + 0
-            + ExpectShell.log('stdio', stdout='''Xcode 10.2\nBuild version 10E125'''),
-            ExpectShell(command=['uptime'], workdir='wkdir', timeout=60, logEnviron=False) + 0
-            + ExpectShell.log('stdio', stdout=' 6:31  up 22 seconds, 12:05, 2 users, load averages: 3.17 7.23 5.45'),
-        )
-        self.expectOutcome(result=SUCCESS, state_string='OS: High Sierra (10.13.6), Xcode: 10.2')
-        return self.runStep()
+            self.expectRemoteCommands(
+                ExpectShell(command=['hostname'], workdir='wkdir', timeout=60, logEnviron=False) + 0,
+                ExpectShell(command=['df', '-hl'], workdir='wkdir', timeout=60, logEnviron=False) + 0,
+                ExpectShell(command=['date'], workdir='wkdir', timeout=60, logEnviron=False) + 0,
+                ExpectShell(command=['sw_vers'], workdir='wkdir', timeout=60, logEnviron=False) + 0
+                + ExpectShell.log('stdio', stdout='''ProductName:	macOS
+    ProductVersion:	11.6
+    BuildVersion:	20G165'''),
+                ExpectShell(command=['xcodebuild', '-sdk', '-version'], workdir='wkdir', timeout=60,
+                            logEnviron=False) + 0
+                + ExpectShell.log('stdio', stdout='''Xcode 13.0\nBuild version 13A233'''),
+                ExpectShell(command=['uptime'], workdir='wkdir', timeout=60, logEnviron=False) + 0
+                + ExpectShell.log('stdio',
+                                  stdout=' 6:31  up 22 seconds, 12:05, 2 users, load averages: 3.17 7.23 5.45'),
+            )
+            self.expectOutcome(result=SUCCESS, state_string='OS: Big Sur (11.6), Xcode: 13.0')
+            return self.runStep()
 
     def test_success_linux_wpe(self):
         self.setupStep(PrintConfiguration())

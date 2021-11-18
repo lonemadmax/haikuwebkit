@@ -26,6 +26,7 @@
 #pragma once
 
 #include "ExecutableToCodeBlockEdge.h"
+#include "JSFunction.h"
 #include "ScriptExecutable.h"
 #include "SourceCode.h"
 #include <wtf/Box.h>
@@ -50,7 +51,7 @@ public:
 
     static FunctionExecutable* create(VM& vm, ScriptExecutable* topLevelExecutable, const SourceCode& source, UnlinkedFunctionExecutable* unlinkedExecutable, Intrinsic intrinsic, bool isInsideOrdinaryFunction)
     {
-        FunctionExecutable* executable = new (NotNull, allocateCell<FunctionExecutable>(vm.heap)) FunctionExecutable(vm, source, unlinkedExecutable, intrinsic, isInsideOrdinaryFunction);
+        FunctionExecutable* executable = new (NotNull, allocateCell<FunctionExecutable>(vm)) FunctionExecutable(vm, source, unlinkedExecutable, intrinsic, isInsideOrdinaryFunction);
         executable->finishCreation(vm, topLevelExecutable);
         return executable;
     }

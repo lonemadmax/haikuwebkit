@@ -113,6 +113,8 @@ set(JavaScriptCore_OBJECT_LUT_SOURCES
     runtime/TemporalCalendarPrototype.cpp
     runtime/TemporalDurationConstructor.cpp
     runtime/TemporalDurationPrototype.cpp
+    runtime/TemporalInstantConstructor.cpp
+    runtime/TemporalInstantPrototype.cpp
     runtime/TemporalNow.cpp
     runtime/TemporalObject.cpp
     runtime/TemporalPlainTimeConstructor.cpp
@@ -657,7 +659,6 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     bytecode/InternalFunctionAllocationProfile.h
     bytecode/IterationModeMetadata.h
     bytecode/JumpTable.h
-    bytecode/LLIntCallLinkInfo.h
     bytecode/LLIntPrototypeLoadAdaptiveStructureWatchpoint.h
     bytecode/LazyOperandValueProfile.h
     bytecode/LinkTimeConstant.h
@@ -728,6 +729,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     heap/ConstraintParallelism.h
     heap/ConstraintVolatility.h
     heap/DeferGC.h
+    heap/DeferGCInlines.h
     heap/DeleteAllCodeEffort.h
     heap/DestructionMode.h
     heap/FastMallocAlignedMemoryAllocator.h

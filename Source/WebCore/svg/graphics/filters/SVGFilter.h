@@ -20,41 +20,45 @@
 
 #pragma once
 
-#include "AffineTransform.h"
 #include "Filter.h"
-#include "FilterEffect.h"
 #include "FloatRect.h"
 #include <wtf/Ref.h>
 #include <wtf/TypeCasts.h>
 
 namespace WebCore {
 
+class SVGFilterBuilder;
+class SVGFilterElement;
+
 class SVGFilter final : public Filter {
 public:
-    static Ref<SVGFilter> create(const AffineTransform&, const FloatRect&, const FloatRect&, const FloatRect&, bool);
+    static RefPtr<SVGFilter> create(SVGFilterElement&, SVGFilterBuilder&, const FloatSize& filterScale, const FloatRect& sourceImageRect, const FloatRect& filterRegion, FilterEffect& previousEffect);
+    static RefPtr<SVGFilter> create(SVGFilterElement&, SVGFilterBuilder&, const FloatSize& filterScale, const FloatRect& sourceImageRect, const FloatRect& filterRegion, const FloatRect& targetBoundingBox);
+    static RefPtr<SVGFilter> create(SVGFilterElement&, SVGFilterBuilder&, const FloatSize& filterScale, const FloatRect& sourceImageRect, const FloatRect& filterRegion, const FloatRect& targetBoundingBox, FilterEffect* previousEffect);
 
-    FloatRect filterRegionInUserSpace() const final { return m_filterRegion; }
-    FloatRect filterRegion() const final { return m_absoluteFilterRegion; }
+    FloatSize scaledByFilterScale(FloatSize) const final;
 
-    FloatSize scaledByFilterResolution(FloatSize) const final;
-
-    FloatRect sourceImageRect() const final { return m_absoluteSourceDrawingRegion; }
     FloatRect targetBoundingBox() const { return m_targetBoundingBox; }
+    void apply() override;
 
-    bool isSVGFilter() const final { return true; }
+    RefPtr<FilterEffect> lastEffect() { return m_lastEffect; }
+    void setLastEffect(RefPtr<FilterEffect>&& lastEffect) { m_lastEffect = WTFMove(lastEffect); }
 
 private:
-    SVGFilter(const AffineTransform& absoluteTransform, const FloatRect& absoluteSourceDrawingRegion, const FloatRect& targetBoundingBox, const FloatRect& filterRegion, bool effectBBoxMode);
+    SVGFilter(const FloatSize& filterScale, const FloatRect& sourceImageRect, const FloatRect& targetBoundingBox, const FloatRect& filterRegion, bool effectBBoxMode);
 
-    FloatRect m_absoluteSourceDrawingRegion;
+    IntOutsets outsets() const override;
+    void clearResult() override;
+
     FloatRect m_targetBoundingBox;
-    FloatRect m_absoluteFilterRegion;
-    FloatRect m_filterRegion;
     bool m_effectBBoxMode;
+
+    RefPtr<FilterEffect> m_lastEffect;
 };
 
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::SVGFilter)
     static bool isType(const WebCore::Filter& filter) { return filter.isSVGFilter(); }
+    static bool isType(const WebCore::FilterFunction& function) { return function.isSVGFilter(); }
 SPECIALIZE_TYPE_TRAITS_END()

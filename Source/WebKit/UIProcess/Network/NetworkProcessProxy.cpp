@@ -86,11 +86,34 @@
 namespace WebKit {
 using namespace WebCore;
 
+static constexpr Seconds networkProcessResponsivenessTimeout = 6_s;
+static constexpr int unresponsivenessCountLimit = 3;
+static constexpr Seconds unresponsivenessCheckPeriod = 15_s;
+
 static HashSet<NetworkProcessProxy*>& networkProcessesSet()
 {
     ASSERT(RunLoop::isMain());
     static NeverDestroyed<HashSet<NetworkProcessProxy*>> set;
     return set;
+}
+
+static bool shouldTerminateNetworkProcessBySendingMessage()
+{
+    static WallTime unresponsivenessPeriodStartTime = WallTime::now();
+    static int unresponsivenessCountDuringThisPeriod = 0;
+    auto now = WallTime::now();
+
+    if (now - unresponsivenessPeriodStartTime > unresponsivenessCheckPeriod) {
+        unresponsivenessCountDuringThisPeriod = 1;
+        unresponsivenessPeriodStartTime = now;
+        return false;
+    }
+
+    ++unresponsivenessCountDuringThisPeriod;
+    if (unresponsivenessCountDuringThisPeriod >= unresponsivenessCountLimit)
+        return true;
+
+    return false;
 }
 
 Vector<Ref<NetworkProcessProxy>> NetworkProcessProxy::allNetworkProcesses()
@@ -126,6 +149,19 @@ void NetworkProcessProxy::terminate()
 void NetworkProcessProxy::didBecomeUnresponsive()
 {
     RELEASE_LOG_ERROR(Process, "NetworkProcessProxy::didBecomeUnresponsive: NetworkProcess with PID %d became unresponsive, terminating it", processIdentifier());
+
+    // Let network process terminates itself and generate crash report for investigation of hangs.
+    // We currently only do this when network process becomes unresponsive multiple times in a short
+    // time period to avoid generating too many crash reports with same back trace on user's device.
+    if (shouldTerminateNetworkProcessBySendingMessage()) {
+        sendMessage(makeUniqueRef<IPC::Encoder>(IPC::MessageName::Terminate, 0), { });
+        RunLoop::main().dispatchAfter(1_s, [weakThis = WeakPtr { *this }] () mutable {
+            if (weakThis)
+                weakThis->terminate();
+        });
+        return;
+    }
+
     terminate();
 }
 
@@ -201,7 +237,7 @@ static bool anyProcessPoolShouldTakeUIBackgroundAssertion()
 }
 
 NetworkProcessProxy::NetworkProcessProxy()
-    : AuxiliaryProcessProxy(anyProcessPoolAlwaysRunsAtBackgroundPriority())
+    : AuxiliaryProcessProxy(anyProcessPoolAlwaysRunsAtBackgroundPriority(), networkProcessResponsivenessTimeout)
 #if ENABLE(LEGACY_CUSTOM_PROTOCOL_MANAGER)
     , m_customProtocolManagerClient(makeUniqueRef<LegacyCustomProtocolManagerClient>())
     , m_customProtocolManagerProxy(*this)
@@ -255,8 +291,7 @@ void NetworkProcessProxy::processWillShutDown(IPC::Connection& connection)
 void NetworkProcessProxy::getNetworkProcessConnection(WebProcessProxy& webProcessProxy, Messages::WebProcessProxy::GetNetworkProcessConnection::DelayedReply&& reply)
 {
     RELEASE_LOG(ProcessSuspension, "%p - NetworkProcessProxy is taking a background assertion because a web process is requesting a connection", this);
-    if (!isLaunching())
-        startResponsivenessTimer(UseLazyStop::No);
+    startResponsivenessTimer(UseLazyStop::No);
     sendWithAsyncReply(Messages::NetworkProcess::CreateNetworkConnectionToWebProcess { webProcessProxy.coreProcessIdentifier(), webProcessProxy.sessionID() }, [this, weakThis = WeakPtr { *this }, reply = WTFMove(reply)](auto&& identifier, auto cookieAcceptPolicy) mutable {
         if (!weakThis) {
             RELEASE_LOG_ERROR(Process, "NetworkProcessProxy::getNetworkProcessConnection: NetworkProcessProxy deallocated during connection establishment");
@@ -1656,6 +1691,16 @@ void NetworkProcessProxy::processPushMessage(PAL::SessionID sessionID, std::opti
     sendWithAsyncReply(Messages::NetworkProcess::ProcessPushMessage { sessionID, ipcData, registrationURL }, WTFMove(callback));
 }
 #endif // ENABLE(SERVICE_WORKER)
+
+void NetworkProcessProxy::deletePushAndNotificationRegistration(PAL::SessionID sessionID, const SecurityOriginData& origin, CompletionHandler<void(const String&)>&& callback)
+{
+    sendWithAsyncReply(Messages::NetworkProcess::DeletePushAndNotificationRegistration { sessionID, origin }, WTFMove(callback));
+}
+
+void NetworkProcessProxy::getOriginsWithPushAndNotificationPermissions(PAL::SessionID sessionID, CompletionHandler<void(const Vector<SecurityOriginData>&)>&& callback)
+{
+    sendWithAsyncReply(Messages::NetworkProcess::GetOriginsWithPushAndNotificationPermissions { sessionID }, WTFMove(callback));
+}
 
 } // namespace WebKit
 

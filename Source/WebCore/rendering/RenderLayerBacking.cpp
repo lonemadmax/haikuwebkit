@@ -403,10 +403,10 @@ static TiledBacking::TileCoverage computePageTiledBackingCoverage(const RenderLa
     bool useMinimalTilesDuringLiveResize = frameView.inLiveResize();
     if (frameView.speculativeTilingEnabled() && !useMinimalTilesDuringLiveResize) {
         bool clipsToExposedRect = static_cast<bool>(frameView.viewExposedRect());
-        if (frameView.horizontalScrollbarMode() != ScrollbarAlwaysOff || clipsToExposedRect)
+        if (frameView.horizontalScrollbarMode() != ScrollbarMode::AlwaysOff || clipsToExposedRect)
             tileCoverage |= TiledBacking::CoverageForHorizontalScrolling;
 
-        if (frameView.verticalScrollbarMode() != ScrollbarAlwaysOff || clipsToExposedRect)
+        if (frameView.verticalScrollbarMode() != ScrollbarMode::AlwaysOff || clipsToExposedRect)
             tileCoverage |= TiledBacking::CoverageForVerticalScrolling;
     }
     return tileCoverage;
@@ -1097,13 +1097,13 @@ bool RenderLayerBacking::updateConfiguration(const RenderLayer* compositingAnces
 #if ENABLE(MODEL_ELEMENT)
     else if (is<RenderModel>(renderer())) {
         auto element = downcast<HTMLModelElement>(renderer().element());
-#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
-        if (auto* platformLayer = element->platformLayer())
-            m_graphicsLayer->setContentsToPlatformLayer(platformLayer, GraphicsLayer::ContentsLayerPurpose::Model);
-#else
-        if (auto model = element->model())
+
+        // Some ModelPlayers use a platformLayer() and some pass the Model to the layer as contents,
+        // but this is a runtime decision.
+        if (element->usesPlatformLayer()) {
+            m_graphicsLayer->setContentsToPlatformLayer(element->platformLayer(), GraphicsLayer::ContentsLayerPurpose::Model);
+        } else if (auto model = element->model())
             m_graphicsLayer->setContentsToModel(WTFMove(model));
-#endif
 
         layerConfigChanged = true;
     }
@@ -2138,9 +2138,9 @@ bool RenderLayerBacking::updateOverflowControlsLayers(bool needsHorizontalScroll
     if (auto* scrollingCoordinator = m_owningLayer.page().scrollingCoordinator()) {
         if (auto* scrollableArea = m_owningLayer.scrollableArea()) {
             if (horizontalScrollbarLayerChanged)
-                scrollingCoordinator->scrollableAreaScrollbarLayerDidChange(*scrollableArea, HorizontalScrollbar);
+                scrollingCoordinator->scrollableAreaScrollbarLayerDidChange(*scrollableArea, ScrollbarOrientation::Horizontal);
             if (verticalScrollbarLayerChanged)
-                scrollingCoordinator->scrollableAreaScrollbarLayerDidChange(*scrollableArea, VerticalScrollbar);
+                scrollingCoordinator->scrollableAreaScrollbarLayerDidChange(*scrollableArea, ScrollbarOrientation::Vertical);
         }
     }
 

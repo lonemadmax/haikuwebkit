@@ -121,7 +121,7 @@ public:
     bool allowChildFrameFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
     WEBCORE_EXPORT bool allowChildContextFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
     WEBCORE_EXPORT bool allowConnectToSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No, const URL& requestedURL = URL()) const;
-    bool allowFormAction(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
+    bool allowFormAction(const URL&, RedirectResponseReceived = RedirectResponseReceived::No, const URL& preRedirectURL = URL()) const;
 
     bool allowObjectFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
     bool allowBaseURI(const URL&, bool overrideContentSecurityPolicy = false) const;
@@ -185,6 +185,8 @@ public:
 
     SandboxFlags sandboxFlags() const { return m_sandboxFlags; }
 
+    bool isHeaderDelivered() const { return m_isHeaderDelivered; }
+
 private:
     void logToConsole(const String& message, const String& contextURL = String(), const OrdinalNumber& contextLine = OrdinalNumber::beforeFirst(), const OrdinalNumber& contextColumn = OrdinalNumber::beforeFirst(), JSC::JSGlobalObject* = nullptr) const;
     void applyPolicyToScriptExecutionContext();
@@ -213,7 +215,7 @@ private:
     bool shouldPerformEarlyCSPCheck() const;
     
     using ResourcePredicate = const ContentSecurityPolicyDirective *(ContentSecurityPolicyDirectiveList::*)(const URL &, bool) const;
-    bool allowResourceFromSource(const URL&, RedirectResponseReceived, const char*, ResourcePredicate) const;
+    bool allowResourceFromSource(const URL&, RedirectResponseReceived, const char*, ResourcePredicate, const URL& preRedirectURL = URL()) const;
 
     using HashInEnforcedAndReportOnlyPoliciesPair = std::pair<bool, bool>;
     template<typename Predicate> HashInEnforcedAndReportOnlyPoliciesPair findHashOfContentInPolicies(const Predicate&, StringView content, OptionSet<ContentSecurityPolicyHashAlgorithm>) const WARN_UNUSED_RETURN;
@@ -247,6 +249,7 @@ private:
     OptionSet<ContentSecurityPolicyHashAlgorithm> m_hashAlgorithmsForInlineStylesheets;
     HashSet<SecurityOriginData> m_insecureNavigationRequestsToUpgrade;
     mutable std::optional<ContentSecurityPolicyResponseHeaders> m_cachedResponseHeaders;
+    bool m_isHeaderDelivered { false };
 };
 
 }

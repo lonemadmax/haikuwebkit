@@ -185,7 +185,6 @@
         (allow user-preference-read
             (preference-domain "com.apple.coremedia"))
         (allow file-read* (subpath "/Library/CoreMediaIO/Plug-Ins/DAL"))
-        (allow mach-lookup (extension "com.apple.app-sandbox.mach"))
         (allow device-camera))
 )
 
@@ -262,14 +261,18 @@
                     iokit-external-method
                 )
                 (allow iokit-async-external-method
-#if PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED < 150500
+#if PLATFORM(IOS)
                     (iokit-method-number
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < 150500
                         43
+#else
+                        44
+#endif
                     )
 #endif
                 )
                 (allow iokit-external-method
-#if PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED < 150500
+#if PLATFORM(IOS)
                     (iokit-method-number
                         0
                         2
@@ -289,12 +292,21 @@
                         25
                         26
                         27
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < 150500
                         36
                         38
                         39
                         40
                         42
                         44
+#else
+                        37
+                        39
+                        40
+                        41
+                        43
+                        45
+#endif
                     )
 #endif
                 )
@@ -1087,6 +1099,11 @@
     )
 )
 
+(with-filter (system-attribute apple-internal)
+    (allow mach-lookup
+        (global-name "com.apple.diagnosticd")
+        (global-name "com.apple.osanalytics.osanalyticshelper")))
+
 (allow mach-lookup
     (require-all
         (extension "com.apple.webkit.extension.mach")
@@ -1094,13 +1111,11 @@
             "com.apple.cfprefsd.agent"
             "com.apple.cfprefsd.daemon"
             "com.apple.containermanagerd"
-            "com.apple.diagnosticd"
             "com.apple.iphone.axserver-systemwide"
             "com.apple.mobileassetd.v2"
             "com.apple.mobilegestalt.xpc"
             "com.apple.nehelper"
             "com.apple.nesessionmanager.content-filter"
-            "com.apple.osanalytics.osanalyticshelper"
             "com.apple.tccd"
             "com.apple.uikit.viewservice.com.apple.WebContentFilter.remoteUI"
             "com.apple.webinspector"
@@ -1245,6 +1260,7 @@
         (syscall-number SYS_mprotect)
         (syscall-number SYS_msync)
         (syscall-number SYS_munmap)
+        (syscall-number SYS_objc_bp_assist_cfg_np)
         (syscall-number SYS_os_fault_with_payload)
         (syscall-number SYS_pathconf)
         (syscall-number SYS_pread)
@@ -1271,9 +1287,6 @@
         (syscall-number SYS_ulock_wake)
         (syscall-number SYS_workq_kernreturn)
         (syscall-number SYS_workq_open))
-
-    (allow syscall-unix (with telemetry)
-        (syscall-number SYS_objc_bp_assist_cfg_np))
 
     (allow syscall-unix (with telemetry-backtrace)
         (syscall-number SYS___pthread_kill)
@@ -1512,6 +1525,11 @@
         (machtrap-number MSC_task_name_for_pid)
         (machtrap-number MSC_task_self_trap)
         (machtrap-number MSC_thread_get_special_reply_port))
+    (when (defined? 'MSC_mach_msg2_trap)
+        (allow syscall-mach
+            (machtrap-number MSC_mach_msg2_trap)
+        )
+    )
 
     (allow syscall-mach (with telemetry-backtrace)
         (machtrap-number MSC_mach_msg_overwrite_trap)

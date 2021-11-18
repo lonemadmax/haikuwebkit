@@ -108,6 +108,25 @@ window.UIHelper = class UIHelper {
         await UIHelper.animationFrame();
     }
 
+    static async mouseWheelSequence(eventStream, { waitForCompletion = true } = {})
+    {
+        if (waitForCompletion)
+            eventSender.monitorWheelEvents();
+        const eventStreamAsString = JSON.stringify(eventStream);
+        await new Promise(resolve => {
+            testRunner.runUIScript(`
+                (function() {
+                    uiController.sendEventStream(\`${eventStreamAsString}\`, () => {
+                        uiController.uiScriptComplete();
+                    });
+                })();
+            `, resolve);
+        });
+
+        if (waitForCompletion)
+            await UIHelper.waitForScrollCompletion();
+    }
+
     static async waitForScrollCompletion()
     {
         return new Promise(resolve => {

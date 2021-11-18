@@ -27,9 +27,7 @@
 
 #if ENABLE(GAMEPAD)
 
-namespace WTF {
-class String;
-};
+#include <wtf/Forward.h>
 
 namespace WebCore {
 

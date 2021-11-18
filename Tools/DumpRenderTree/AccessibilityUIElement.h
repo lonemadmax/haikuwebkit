@@ -72,6 +72,12 @@ public:
     void getDocumentLinks(Vector<AccessibilityUIElement>&);
     void getChildren(Vector<AccessibilityUIElement>&);
     void getChildrenWithRange(Vector<AccessibilityUIElement>&, unsigned location, unsigned length);
+
+    bool hasDocumentRoleAncestor() const;
+    bool hasWebApplicationAncestor() const;
+    bool isInDescriptionListDetail() const;
+    bool isInDescriptionListTerm() const;
+    bool isInCell() const;
     
     AccessibilityUIElement elementAtPoint(int x, int y);
     AccessibilityUIElement getChildAtIndex(unsigned);
@@ -169,6 +175,7 @@ public:
     JSRetainPtr<JSStringRef> documentURI();
     JSRetainPtr<JSStringRef> url();
     JSRetainPtr<JSStringRef> classList() const;
+    JSRetainPtr<JSStringRef> domIdentifier() const;
 
     // CSS3-speech properties.
     JSRetainPtr<JSStringRef> speakAs();

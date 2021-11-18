@@ -31,18 +31,17 @@
 
 namespace WebCore {
 
-FEDisplacementMap::FEDisplacementMap(Filter& filter, ChannelSelectorType xChannelSelector, ChannelSelectorType yChannelSelector, float scale)
-    : FilterEffect(filter, Type::DisplacementMap)
+Ref<FEDisplacementMap> FEDisplacementMap::create(ChannelSelectorType xChannelSelector, ChannelSelectorType yChannelSelector, float scale)
+{
+    return adoptRef(*new FEDisplacementMap(xChannelSelector, yChannelSelector, scale));
+}
+
+FEDisplacementMap::FEDisplacementMap(ChannelSelectorType xChannelSelector, ChannelSelectorType yChannelSelector, float scale)
+    : FilterEffect(FilterEffect::Type::FEDisplacementMap)
     , m_xChannelSelector(xChannelSelector)
     , m_yChannelSelector(yChannelSelector)
     , m_scale(scale)
 {
-}
-
-Ref<FEDisplacementMap> FEDisplacementMap::create(Filter& filter, ChannelSelectorType xChannelSelector,
-    ChannelSelectorType yChannelSelector, float scale)
-{
-    return adoptRef(*new FEDisplacementMap(filter, xChannelSelector, yChannelSelector, scale));
 }
 
 bool FEDisplacementMap::setXChannelSelector(const ChannelSelectorType xChannelSelector)
@@ -91,7 +90,7 @@ static inline unsigned byteOffsetOfPixel(unsigned x, unsigned y, unsigned rowByt
     return x * bytesPerPixel + y * rowBytes;
 }
 
-void FEDisplacementMap::platformApplySoftware()
+void FEDisplacementMap::platformApplySoftware(const Filter& filter)
 {
     FilterEffect* in = inputEffect(0);
     FilterEffect* in2 = inputEffect(1);
@@ -117,11 +116,9 @@ void FEDisplacementMap::platformApplySoftware()
 
     ASSERT(inputImage->length() == displacementImage->length());
 
-    Filter& filter = this->filter();
     IntSize paintSize = absolutePaintRect().size();
-    paintSize.scale(filter.filterScale());
 
-    FloatSize scale = filter.scaledByFilterResolution({ m_scale, m_scale });
+    FloatSize scale = filter.scaledByFilterScale({ m_scale, m_scale });
     float scaleForColorX = scale.width() / 255.0;
     float scaleForColorY = scale.height() / 255.0;
     float scaledOffsetX = 0.5 - scale.width() * 0.5;

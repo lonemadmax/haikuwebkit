@@ -78,7 +78,7 @@
 
 namespace WebCore {
 
-static ExceptionOr<ApplePayRequest> convertAndValidate(ScriptExecutionContext& context, JSC::JSValue data)
+static ExceptionOr<ApplePayRequest> convertAndValidateApplePayRequest(ScriptExecutionContext& context, JSC::JSValue data)
 {
     if (data.isEmpty())
         return Exception { TypeError, "Missing payment method data." };
@@ -93,7 +93,7 @@ static ExceptionOr<ApplePayRequest> convertAndValidate(ScriptExecutionContext& c
 
 ExceptionOr<void> ApplePayPaymentHandler::validateData(Document& document, JSC::JSValue data)
 {
-    auto requestOrException = convertAndValidate(document, data);
+    auto requestOrException = convertAndValidateApplePayRequest(document, data);
     if (requestOrException.hasException())
         return requestOrException.releaseException();
 
@@ -202,7 +202,7 @@ static ExceptionOr<ApplePayShippingMethod> convertAndValidate(const PaymentShipp
 
 ExceptionOr<void> ApplePayPaymentHandler::convertData(JSC::JSValue data)
 {
-    auto requestOrException = convertAndValidate(*scriptExecutionContext(), data);
+    auto requestOrException = convertAndValidateApplePayRequest(*scriptExecutionContext(), data);
     if (requestOrException.hasException())
         return requestOrException.releaseException();
 
@@ -299,10 +299,18 @@ ExceptionOr<Vector<ApplePayShippingMethod>> ApplePayPaymentHandler::computeShipp
 
         shippingOptions.reserveInitialCapacity(details.shippingOptions->size());
         for (auto& shippingOption : *details.shippingOptions) {
-            auto shippingMethod = convertAndValidate(shippingOption, currency);
-            if (shippingMethod.hasException())
-                return shippingMethod.releaseException();
-            shippingOptions.uncheckedAppend(shippingMethod.releaseReturnValue());
+            auto shippingMethodOrException = convertAndValidate(shippingOption, currency);
+            if (shippingMethodOrException.hasException())
+                return shippingMethodOrException.releaseException();
+
+            auto shippingMethod = shippingMethodOrException.releaseReturnValue();
+
+#if ENABLE(APPLE_PAY_SELECTED_SHIPPING_METHOD)
+            if (shippingMethod.identifier == m_paymentRequest->shippingOption())
+                shippingMethod.selected = true;
+#endif
+
+            shippingOptions.uncheckedAppend(WTFMove(shippingMethod));
         }
     }
 

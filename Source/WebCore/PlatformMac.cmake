@@ -87,7 +87,6 @@ list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${CMAKE_BINARY_DIR}/libwebrtc/PrivateHeaders"
     "${CMAKE_SOURCE_DIR}/Source/ThirdParty/libwebrtc/Source"
     "${WEBCORE_DIR}/Modules/webauthn/apdu"
-    "${WEBCORE_DIR}/Modules/webgpu/WHLSL/Metal"
     "${WEBCORE_DIR}/accessibility/isolatedtree/mac"
     "${WEBCORE_DIR}/accessibility/mac"
     "${WEBCORE_DIR}/bridge/objc"
@@ -590,6 +589,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/cocoa/LocalCurrentGraphicsContext.h
     platform/cocoa/NetworkExtensionContentFilter.h
     platform/cocoa/PlatformView.h
+    platform/cocoa/PlatformViewController.h
     platform/cocoa/PlaybackSessionModel.h
     platform/cocoa/PlaybackSessionModelMediaElement.h
     platform/cocoa/PowerSourceNotifier.h
@@ -794,6 +794,8 @@ list(APPEND WebCore_IDL_FILES
 
     Modules/applepay/paymentrequest/ApplePayModifier.idl
     Modules/applepay/paymentrequest/ApplePayRequest.idl
+
+    Modules/applepay-ams-ui/ApplePayAMSUIRequest.idl
 
     Modules/plugins/QuickTimePluginReplacement.idl
 )

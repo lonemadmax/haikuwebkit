@@ -130,28 +130,28 @@ inline ScrollDirection logicalToPhysical(ScrollLogicalDirection direction, bool 
     return ScrollUp;
 }
 
-enum ScrollGranularity : uint8_t {
-    ScrollByLine,
-    ScrollByPage,
-    ScrollByDocument,
-    ScrollByPixel
+enum class ScrollGranularity : uint8_t {
+    Line,
+    Page,
+    Document,
+    Pixel
 };
 
-enum ScrollElasticity : uint8_t {
-    ScrollElasticityAutomatic,
-    ScrollElasticityNone,
-    ScrollElasticityAllowed
+enum class ScrollElasticity : uint8_t {
+    Automatic,
+    None,
+    Allowed
 };
 
-enum ScrollbarOrientation : uint8_t {
-    HorizontalScrollbar,
-    VerticalScrollbar
+enum class ScrollbarOrientation : uint8_t {
+    Horizontal,
+    Vertical
 };
 
-enum ScrollbarMode : uint8_t {
-    ScrollbarAuto,
-    ScrollbarAlwaysOff,
-    ScrollbarAlwaysOn
+enum class ScrollbarMode : uint8_t {
+    Auto,
+    AlwaysOff,
+    AlwaysOn
 };
 
 enum class ScrollbarControlSize : uint8_t {
@@ -260,6 +260,8 @@ using ScrollingNodeID = uint64_t;
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, ScrollType);
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, ScrollClamping);
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, ScrollBehaviorForFixedElements);
+WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, ScrollElasticity);
+WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, ScrollbarMode);
 
 struct ScrollPositionChangeOptions {
     ScrollType type;
@@ -303,18 +305,18 @@ template<> struct EnumTraits<WebCore::ScrollIsAnimated> {
 template<> struct EnumTraits<WebCore::ScrollbarMode> {
     using values = EnumValues<
         WebCore::ScrollbarMode,
-        WebCore::ScrollbarMode::ScrollbarAuto,
-        WebCore::ScrollbarMode::ScrollbarAlwaysOff,
-        WebCore::ScrollbarMode::ScrollbarAlwaysOn
+        WebCore::ScrollbarMode::Auto,
+        WebCore::ScrollbarMode::AlwaysOff,
+        WebCore::ScrollbarMode::AlwaysOn
     >;
 };
 
 template<> struct EnumTraits<WebCore::ScrollElasticity> {
     using values = EnumValues<
         WebCore::ScrollElasticity,
-        WebCore::ScrollElasticity::ScrollElasticityAutomatic,
-        WebCore::ScrollElasticity::ScrollElasticityNone,
-        WebCore::ScrollElasticity::ScrollElasticityAllowed
+        WebCore::ScrollElasticity::Automatic,
+        WebCore::ScrollElasticity::None,
+        WebCore::ScrollElasticity::Allowed
     >;
 };
 
@@ -328,4 +330,13 @@ template<> struct EnumTraits<WebCore::ScrollPinningBehavior> {
     >;
 };
 
+template<> struct EnumTraits<WebCore::ScrollGranularity> {
+    using values = EnumValues<
+        WebCore::ScrollGranularity,
+        WebCore::ScrollGranularity::Line,
+        WebCore::ScrollGranularity::Page,
+        WebCore::ScrollGranularity::Document,
+        WebCore::ScrollGranularity::Pixel
+    >;
+};
 } // namespace WTF

@@ -7,7 +7,7 @@ PASS Animation of font-size in ::marker
 FAIL Animation of font-size-adjust in ::marker assert_true: font-size-adjust doesn't seem to be supported in the computed style expected true got false
 PASS Animation of font-stretch in ::marker
 PASS Animation of font-style in ::marker
-FAIL Animation of font-synthesis in ::marker assert_equals: expected "none" but got "style weight small-caps"
+FAIL Animation of font-synthesis in ::marker assert_equals: expected "none" but got "weight style small-caps"
 FAIL Animation of font-variant in ::marker assert_equals: expected "small-caps" but got "tabular-nums"
 FAIL Animation of font-variant-caps in ::marker assert_equals: expected "small-caps" but got "normal"
 FAIL Animation of font-variant-east-asian in ::marker assert_equals: expected "full-width" but got "normal"
@@ -21,7 +21,7 @@ FAIL Animation of color in ::marker assert_equals: expected "rgb(50, 150, 100)" 
 FAIL Animation of text-combine-upright in ::marker assert_true: text-combine-upright doesn't seem to be supported in the computed style expected true got false
 PASS Animation of unicode-bidi in ::marker
 PASS Animation of direction in ::marker
-FAIL Animation of content in ::marker assert_equals: expected "\"bar\"" but got ""
+FAIL Animation of content in ::marker assert_equals: expected "\"bar\"" but got "normal"
 FAIL Animation of hyphens in ::marker assert_true: hyphens doesn't seem to be supported in the computed style expected true got false
 FAIL Animation of letter-spacing in ::marker assert_equals: expected "10px" but got "normal"
 FAIL Animation of line-break in ::marker assert_equals: expected "anywhere" but got "auto"

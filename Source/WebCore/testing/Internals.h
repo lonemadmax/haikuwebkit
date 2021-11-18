@@ -127,7 +127,6 @@ class TextTrackCueGeneric;
 #if ENABLE(SERVICE_WORKER)
 class PushSubscription;
 class ServiceWorker;
-class ServiceWorkerRegistration;
 #endif
 
 #if ENABLE(WEB_RTC)
@@ -287,6 +286,7 @@ public:
 
     ExceptionOr<Ref<DOMRectList>> inspectorHighlightRects();
     ExceptionOr<unsigned> inspectorGridOverlayCount();
+    ExceptionOr<unsigned> inspectorPaintRectCount();
 
     ExceptionOr<unsigned> markerCountForNode(Node&, const String&);
     ExceptionOr<RefPtr<Range>> markerRangeForNode(Node&, const String& markerType, unsigned index);
@@ -320,6 +320,7 @@ public:
     bool elementShouldAutoComplete(HTMLInputElement&);
     void setAutofilled(HTMLInputElement&, bool enabled);
     void setAutoFilledAndViewable(HTMLInputElement&, bool enabled);
+    void setAutoFilledAndObscured(HTMLInputElement&, bool enabled);
     enum class AutoFillButtonType { None, Contacts, Credentials, StrongPassword, CreditCard };
     void setShowAutoFillButton(HTMLInputElement&, AutoFillButtonType);
     AutoFillButtonType autoFillButtonType(const HTMLInputElement&);
@@ -1205,7 +1206,7 @@ public:
     void retainTextIteratorForDocumentContent();
 
 #if ENABLE(SERVICE_WORKER)
-    RefPtr<PushSubscription> createPushSubscription(Ref<ServiceWorkerRegistration>&&, const String& endpoint, std::optional<EpochTimeStamp> expirationTime, const ArrayBuffer& serverVAPIDPublicKey, const ArrayBuffer& clientECDHPublicKey, const ArrayBuffer& auth);
+    RefPtr<PushSubscription> createPushSubscription(const String& endpoint, std::optional<EpochTimeStamp> expirationTime, const ArrayBuffer& serverVAPIDPublicKey, const ArrayBuffer& clientECDHPublicKey, const ArrayBuffer& auth);
 #endif
 
 private:

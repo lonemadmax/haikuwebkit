@@ -152,10 +152,6 @@ using namespace WebCore;
 #define NSAccessibilityBlockQuoteLevelAttribute @"AXBlockQuoteLevel"
 #endif
 
-#ifndef NSAccessibilityChildrenInNavigationOrderAttribute
-#define NSAccessibilityChildrenInNavigationOrderAttribute @"AXChildrenInNavigationOrder"
-#endif
-
 #ifndef NSAccessibilityAccessKeyAttribute
 #define NSAccessibilityAccessKeyAttribute @"AXAccessKey"
 #endif
@@ -549,6 +545,14 @@ using namespace WebCore;
 #define NSAccessibilityImageOverlayElementsAttribute @"AXImageOverlayElements"
 #endif
 
+#ifndef AXHasDocumentRoleAncestorAttribute
+#define AXHasDocumentRoleAncestorAttribute @"AXHasDocumentRoleAncestor"
+#endif
+
+#ifndef AXHasWebApplicationAncestorAttribute
+#define AXHasWebApplicationAncestorAttribute @"AXHasWebApplicationAncestor"
+#endif
+
 extern "C" AXUIElementRef NSAccessibilityCreateAXUIElementRef(id element);
 
 @implementation WebAccessibilityObjectWrapper
@@ -900,6 +904,7 @@ static void AXAttributeStringSetStyle(NSMutableAttributedString* attrString, Ren
         }
     }
     
+    // FIXME: This traversal should be replaced by a flag in AccessibilityObject::m_ancestorFlags (e.g., AXAncestorFlag::HasHTMLMarkAncestor)
     // Indicate background highlighting.
     for (Node* node = renderer->node(); node; node = node->parentNode()) {
         if (node->hasTagName(HTMLNames::markTag))
@@ -1298,10 +1303,13 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         return [[self attachmentView] accessibilityAttributeNames];
 
     static NeverDestroyed<RetainPtr<NSArray>> attributes = @[
+        AXHasDocumentRoleAncestorAttribute,
+        AXHasWebApplicationAncestorAttribute,
         NSAccessibilityRoleAttribute,
         NSAccessibilitySubroleAttribute,
         NSAccessibilityRoleDescriptionAttribute,
         NSAccessibilityChildrenAttribute,
+        NSAccessibilityChildrenInNavigationOrderAttribute,
         NSAccessibilityHelpAttribute,
         NSAccessibilityParentAttribute,
         NSAccessibilityPositionAttribute,
@@ -1844,7 +1852,7 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         return @"AXMeter";
 
     // Treat any group without exposed children as empty.
-    if ([[self role] isEqual:NSAccessibilityGroupRole] && !backingObject->children().size())
+    if ([[self role] isEqual:NSAccessibilityGroupRole] && !backingObject->children().size() && ![[self renderWidgetChildren] count])
         return @"AXEmptyGroup";
 
     AccessibilityRole role = backingObject->roleValue();
@@ -2819,6 +2827,21 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     if ([attributeName isEqualToString:@"AXIsActiveDescendantOfFocusedContainer"])
         return [NSNumber numberWithBool:backingObject->isActiveDescendantOfFocusedContainer()];
+
+    if ([attributeName isEqualToString:AXHasDocumentRoleAncestorAttribute])
+        return [NSNumber numberWithBool:backingObject->hasDocumentRoleAncestor()];
+
+    if ([attributeName isEqualToString:AXHasWebApplicationAncestorAttribute])
+        return [NSNumber numberWithBool:backingObject->hasWebApplicationAncestor()];
+
+    if ([attributeName isEqualToString:@"AXIsInDescriptionListDetail"])
+        return [NSNumber numberWithBool:backingObject->isInDescriptionListDetail()];
+
+    if ([attributeName isEqualToString:@"AXIsInDescriptionListTerm"])
+        return [NSNumber numberWithBool:backingObject->isInDescriptionListTerm()];
+
+    if ([attributeName isEqualToString:@"AXIsInCell"])
+        return [NSNumber numberWithBool:backingObject->isInCell()];
 
     if ([attributeName isEqualToString:@"AXDetailsElements"]) {
         AccessibilityObject::AccessibilityChildrenVector details;

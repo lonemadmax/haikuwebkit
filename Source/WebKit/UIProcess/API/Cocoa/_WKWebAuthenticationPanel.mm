@@ -45,14 +45,16 @@
 #import <WebCore/AuthenticatorAttachment.h>
 #import <WebCore/AuthenticatorResponse.h>
 #import <WebCore/AuthenticatorResponseData.h>
+#import <WebCore/BufferSource.h>
 #import <WebCore/CBORReader.h>
 #import <WebCore/CBORWriter.h>
+#import <WebCore/DeviceRequestConverter.h>
 #import <WebCore/FidoConstants.h>
 #import <WebCore/MockWebAuthenticationConfiguration.h>
 #import <WebCore/PublicKeyCredentialCreationOptions.h>
 #import <WebCore/PublicKeyCredentialRequestOptions.h>
 #import <WebCore/WebAuthenticationConstants.h>
-#import <WebCore/WebCoreObjCExtras.h>
+#import <WebCore/WebAuthenticationUtils.h>
 #import <objc/runtime.h>
 #import <pal/crypto/CryptoDigest.h>
 #import <wtf/BlockPtr.h>
@@ -73,19 +75,20 @@ static void updateQueryIfNecessary(NSMutableDictionary *)
 
 static RetainPtr<NSData> produceClientDataJson(_WKWebAuthenticationType type, NSData *challenge, NSString *origin)
 {
-    auto dictionary = adoptNS([[NSMutableDictionary alloc] init]);
+    WebCore::ClientDataType clientDataType;
     switch (type) {
     case _WKWebAuthenticationTypeCreate:
-        [dictionary setObject:@"webauthn.create" forKey:@"type"];
+        clientDataType = WebCore::ClientDataType::Create;
         break;
     case _WKWebAuthenticationTypeGet:
-        [dictionary setObject:@"webauthn.get" forKey:@"type"];
+        clientDataType = WebCore::ClientDataType::Get;
         break;
     }
-    [dictionary setObject:base64URLEncodeToString(challenge.bytes, challenge.length) forKey:@"challenge"];
-    [dictionary setObject:origin forKey:@"origin"];
+    auto challengeBuffer = ArrayBuffer::tryCreate(reinterpret_cast<const uint8_t*>(challenge.bytes), challenge.length);
+    auto securityOrigin = WebCore::SecurityOrigin::createFromString(origin);
 
-    return [NSJSONSerialization dataWithJSONObject:dictionary.get() options:(NSJSONWritingSortedKeys | NSJSONWritingWithoutEscapingSlashes) error:nil];
+    auto clientDataJson = buildClientDataJson(clientDataType, WebCore::BufferSource(challengeBuffer), securityOrigin);
+    return adoptNS([[NSData alloc] initWithBytes:clientDataJson->data() length:clientDataJson->byteLength()]);
 }
 
 static Vector<uint8_t> produceClientDataJsonHash(NSData *clientDataJson)
@@ -190,6 +193,21 @@ static _WKWebAuthenticationType wkWebAuthenticationType(WebCore::ClientDataType 
         ASSERT_NOT_REACHED();
         return _WKWebAuthenticationTypeCreate;
     }
+}
+
+static fido::AuthenticatorSupportedOptions::UserVerificationAvailability coreUserVerificationAvailability(_WKWebAuthenticationUserVerificationAvailability wkAvailability)
+{
+    switch (wkAvailability) {
+    case _WKWebAuthenticationUserVerificationAvailabilitySupportedAndConfigured:
+        return fido::AuthenticatorSupportedOptions::UserVerificationAvailability::kSupportedAndConfigured;
+    case _WKWebAuthenticationUserVerificationAvailabilitySupportedButNotConfigured:
+        return fido::AuthenticatorSupportedOptions::UserVerificationAvailability::kSupportedButNotConfigured;
+    case _WKWebAuthenticationUserVerificationAvailabilityNotSupported:
+        return fido::AuthenticatorSupportedOptions::UserVerificationAvailability::kNotSupported;
+    }
+
+    ASSERT_NOT_REACHED();
+    return fido::AuthenticatorSupportedOptions::UserVerificationAvailability::kNotSupported;
 }
 
 - (_WKWebAuthenticationType)type
@@ -387,7 +405,7 @@ static WebCore::PublicKeyCredentialCreationOptions::UserEntity publicKeyCredenti
     WebCore::PublicKeyCredentialCreationOptions::UserEntity result;
     result.name = userEntity.name;
     result.icon = userEntity.icon;
-    result.idVector = vectorFromNSData(userEntity.identifier);
+    result.id = WebCore::toBufferSource(userEntity.identifier);
     result.displayName = userEntity.displayName;
 
     return result;
@@ -436,7 +454,7 @@ static Vector<WebCore::PublicKeyCredentialDescriptor> publicKeyCredentialDescrip
     result.reserveInitialCapacity(credentials.count);
 
     for (_WKPublicKeyCredentialDescriptor *credential : credentials)
-        result.uncheckedAppend({ WebCore::PublicKeyCredentialType::PublicKey, { }, vectorFromNSData(credential.identifier), authenticatorTransports(credential.transports) });
+        result.uncheckedAppend({ WebCore::PublicKeyCredentialType::PublicKey, WebCore::toBufferSource(credential.identifier), authenticatorTransports(credential.transports) });
 
     return result;
 }
@@ -619,6 +637,43 @@ static RetainPtr<_WKAuthenticatorAssertionResponse> wkAuthenticatorAssertionResp
 #else
     return NO;
 #endif
+}
+
++ (NSData *)getClientDataJSONForAuthenticationType:(_WKWebAuthenticationType)type challenge:(NSData *)challenge origin:(NSString *)origin
+{
+    RetainPtr<NSData> clientDataJSON;
+
+#if ENABLE(WEB_AUTHN)
+    clientDataJSON = produceClientDataJson(type, challenge, origin);
+#endif
+
+    return clientDataJSON.autorelease();
+}
+
++ (NSData *)encodeMakeCredentialCommandWithClientDataJSON:(NSData *)clientDataJSON options:(_WKPublicKeyCredentialCreationOptions *)options userVerificationAvailability:(_WKWebAuthenticationUserVerificationAvailability)userVerificationAvailability
+{
+    RetainPtr<NSData> encodedCommand;
+#if ENABLE(WEB_AUTHN)
+    auto hash = produceClientDataJsonHash(clientDataJSON);
+
+    auto encodedVector = fido::encodeMakeCredenitalRequestAsCBOR(hash, [_WKWebAuthenticationPanel convertToCoreCreationOptionsWithOptions:options], coreUserVerificationAvailability(userVerificationAvailability), std::nullopt);
+    encodedCommand = adoptNS([[NSData alloc] initWithBytes:encodedVector.data() length:encodedVector.size()]);
+#endif
+
+    return encodedCommand.autorelease();
+}
+
++ (NSData *)encodeGetAssertionCommandWithClientDataJSON:(NSData *)clientDataJSON options:(_WKPublicKeyCredentialRequestOptions *)options userVerificationAvailability:(_WKWebAuthenticationUserVerificationAvailability)userVerificationAvailability
+{
+    RetainPtr<NSData> encodedCommand;
+#if ENABLE(WEB_AUTHN)
+    auto hash = produceClientDataJsonHash(clientDataJSON);
+
+    auto encodedVector = fido::encodeGetAssertionRequestAsCBOR(hash, [_WKWebAuthenticationPanel convertToCoreRequestOptionsWithOptions:options], coreUserVerificationAvailability(userVerificationAvailability), std::nullopt);
+    encodedCommand = adoptNS([[NSData alloc] initWithBytes:encodedVector.data() length:encodedVector.size()]);
+#endif
+
+    return encodedCommand.autorelease();
 }
 
 - (void)setMockConfiguration:(NSDictionary *)configuration

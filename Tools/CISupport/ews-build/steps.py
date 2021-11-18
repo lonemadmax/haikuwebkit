@@ -2218,31 +2218,6 @@ class RunWebKitTests(shell.Test):
         if self.ENABLE_GUARD_MALLOC:
             self.setCommand(self.command + ['--guard-malloc'])
 
-        if self.name == 'run-layout-tests-without-patch':
-            # In order to speed up testing, on the step that retries running the layout tests without patch
-            # only run the subset of tests that failed on the previous steps.
-            # But only do that if the previous steps didn't exceed the test failure limit and the patch doesn't
-            # modify the TestExpectations files (there are corner cases where we can't guarantee the correctnes
-            # of this optimization if the patch modifies the TestExpectations files, for example, if the patch
-            # removes skipped tests but those tests still fail).
-            first_results_did_exceed_test_failure_limit = self.getProperty('first_results_exceed_failure_limit', False)
-            second_results_did_exceed_test_failure_limit = self.getProperty('second_results_exceed_failure_limit', False)
-            if not first_results_did_exceed_test_failure_limit and not second_results_did_exceed_test_failure_limit:
-                patch_modifies_expectation_files = False
-                patch = self._get_patch()
-                if patch:
-                    for line in patch.splitlines():
-                        line = line.strip()
-                        # patch is stored by buildbot as bytes: https://github.com/buildbot/buildbot/issues/5812#issuecomment-790175979
-                        if (b'LayoutTests/' in line and b'TestExpectations' in line) and (line.startswith(b'---') or line.startswith(b'+++')):
-                            patch_modifies_expectation_files = True
-                            break
-                if not patch_modifies_expectation_files:
-                    first_results_failing_tests = set(self.getProperty('first_run_failures', set()))
-                    second_results_failing_tests = set(self.getProperty('second_run_failures', set()))
-                    list_retry_tests = sorted(first_results_failing_tests.union(second_results_failing_tests))
-                    self.setCommand(self.command + list_retry_tests)
-
     def start(self):
         self.log_observer = logobserver.BufferLogObserver(wantStderr=True)
         self.addLogObserver('stdio', self.log_observer)
@@ -2497,6 +2472,25 @@ class RunWebKitTestsWithoutPatch(RunWebKitTests):
             if clean_tree_results.failing_tests:
                 self._addToLog(self.test_failures_log_name, '\n'.join(clean_tree_results.failing_tests))
         self._parseRunWebKitTestsOutput(logText)
+
+    def setLayoutTestCommand(self):
+        super(RunWebKitTestsWithoutPatch, self).setLayoutTestCommand()
+        # In order to speed up testing, on the step that retries running the layout tests without patch
+        # only run the subset of tests that failed on the previous steps.
+        # But only do that if the previous steps didn't exceed the test failure limit
+        # Also pass '--skipped=always' to avoid running a test that is skipped on the clean tree and that
+        # the patch removed from the TestExpectations file meanwhile it still fails with the patch (so
+        # it is passed as an argument on the command-line)
+        # The flag '--skip-failing-tests' that is passed by default (in combination with '--skipped=always')
+        # avoids running tests marked as failing on the Expectation files even when those are passed as arguments.
+        first_results_did_exceed_test_failure_limit = self.getProperty('first_results_exceed_failure_limit', False)
+        second_results_did_exceed_test_failure_limit = self.getProperty('second_results_exceed_failure_limit', False)
+        if not first_results_did_exceed_test_failure_limit and not second_results_did_exceed_test_failure_limit:
+            first_results_failing_tests = set(self.getProperty('first_run_failures', set()))
+            second_results_failing_tests = set(self.getProperty('second_run_failures', set()))
+            list_failed_tests_with_patch = sorted(first_results_failing_tests.union(second_results_failing_tests))
+            if list_failed_tests_with_patch:
+                self.setCommand(self.command + ['--skipped=always'] + list_failed_tests_with_patch)
 
 
 class AnalyzeLayoutTestsResults(buildstep.BuildStep, BugzillaMixin):
@@ -3193,18 +3187,9 @@ class PrintConfiguration(steps.ShellSequence):
             return 'Unknown'
 
         build_to_name_mapping = {
+            '12': 'Monterey',
             '11': 'Big Sur',
             '10.15': 'Catalina',
-            '10.14': 'Mojave',
-            '10.13': 'High Sierra',
-            '10.12': 'Sierra',
-            '10.11': 'El Capitan',
-            '10.10': 'Yosemite',
-            '10.9': 'Maverick',
-            '10.8': 'Mountain Lion',
-            '10.7': 'Lion',
-            '10.6': 'Snow Leopard',
-            '10.5': 'Leopard',
         }
 
         for key, value in build_to_name_mapping.items():

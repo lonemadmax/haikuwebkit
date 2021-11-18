@@ -1342,6 +1342,17 @@ MainContentUserGestureOverrideEnabled:
     WebCore:
       default: false
 
+MathMLEnabled:
+  type: bool
+  condition: ENABLE(MATHML)
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
+
 MaxParseDuration:
   type: double
   webKitLegacyPreferenceKey: WebKitMaxParseDurationPreferenceKey
@@ -2538,6 +2549,16 @@ WebGLEnabled:
       default: true
     WebKit:
       default: true
+    WebCore:
+      default: false
+
+WebGPU:
+  type: bool
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
     WebCore:
       default: false
 

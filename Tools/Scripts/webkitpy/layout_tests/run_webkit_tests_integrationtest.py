@@ -174,8 +174,7 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
 
         # FIXME: Remove this when we fix test-webkitpy to work
         # properly on cygwin (bug 63846).
-        # FIXME: Multiprocessing doesn't do well when nested in Python 3 (https://bugs.webkit.org/show_bug.cgi?id=205280)
-        self.should_test_processes = not self._platform.is_win() and sys.version_info < (3, 0)
+        self.should_test_processes = not self._platform.is_win()
 
     def serial_test_basic(self):
         options, args = parse_args(tests_included=True)
@@ -223,7 +222,7 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
     def test_child_processes_min(self):
         if self.should_test_processes:
             _, regular_output, _ = logging_run(
-                ['--debug-rwt-logging', '--child-processes', '2', '-i', 'passes/passes', 'passes'],
+                ['--debug-rwt-logging', '--child-processes', '2', '-i', 'passes/passes', '-i', 'platform', 'passes'],
                 tests_included=True, shared_port=False)
             self.assertTrue(any(['Running 1 ' in line for line in regular_output.getvalue().splitlines()]))
 
@@ -349,6 +348,39 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
 
         # Now check that we don't run anything.
         self.assertEqual(get_tests_run(['--skipped=always', 'passes/skipped/skip.html']), [])
+
+    def test_ews_corner_case_failing_test(self):
+        # We should skip running tests marked as failures (or flakies) when passing '--skip-failing-tests'
+        self.assertEqual(get_tests_run(['--skip-failing-tests', 'failures/expected']), [])
+        # But if we specify the name of the individual tests, then those tests should run
+        list_of_tests_failing = ['failures/expected/timeout.html', 'failures/expected/text.html', 'failures/expected/crash.html', 'failures/expected/missing_image.html']
+        self.assertEqual(get_tests_run(['--skip-failing-tests'] + list_of_tests_failing), list_of_tests_failing)
+        # Unless we specify also '--skipped=always', then they should be skipped even when we list them individually on the command line
+        self.assertEqual(get_tests_run(['--skip-failing-tests', '--skipped=always'] + list_of_tests_failing), [])
+
+    def test_ews_corner_case_failing_directory(self):
+        # When a whole directory is is marked as failing (or flaky), then the tests inside should not run if we specify the name of the directory and we pass '--skip-failing-tests'
+        self.assertEqual(get_tests_run(['--skip-failing-tests', 'corner-cases/ews/directory-flaky']), [])
+        # But if we specify on the command-line the name of individual tests inside that directory the tests should run (even with '--skip-failing-tests')
+        list_of_tests_failing = ['corner-cases/ews/directory-skipped/failure.html', 'corner-cases/ews/directory-skipped/timeout.html']
+        self.assertEqual(get_tests_run(['--no-retry-failures', '--skip-failing-tests'] + list_of_tests_failing), list_of_tests_failing)
+        # Unless we specify also '--skipped=always' (in combination with '--skip-failing-tests'), then they should be skipped even when we list them individually on the command line
+        self.assertEqual(get_tests_run(['--no-retry-failures',  '--skip-failing-tests', '--skipped=always'] + list_of_tests_failing), [])
+
+    def test_ews_corner_case_skipped_test(self):
+        # When we specify on the command line the name of a test skipped this test should run
+        self.assertEqual(get_tests_run(['passes/skipped/skip.html']), ['passes/skipped/skip.html'])
+        # Unless we specify also '--skipped=always', then it should be skipped even when we list it on the command line
+        self.assertEqual(get_tests_run(['--skipped=always', 'passes/skipped/skip.html']), [])
+
+    def test_ews_corner_case_skipped_directory(self):
+        # When a whole directory is skipped, then the tests inside should not run if we specify the name of the directory
+        self.assertEqual(get_tests_run(['corner-cases/ews/directory-skipped']), [])
+        # But if we specify on the command-line the name of individual tests inside that directory the tests should run
+        list_of_tests_failing = ['corner-cases/ews/directory-skipped/failure.html', 'corner-cases/ews/directory-skipped/timeout.html']
+        self.assertEqual(get_tests_run(['--no-retry-failures'] + list_of_tests_failing), list_of_tests_failing)
+        # Unless we specify also '--skipped=always', then they should be skipped even when we list them individually on the command line
+        self.assertEqual(get_tests_run(['--no-retry-failures', '--skipped=always'] + list_of_tests_failing), [])
 
     def test_iterations(self):
         tests_to_run = ['passes/image.html', 'passes/text.html']
@@ -518,16 +550,20 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
     def test_pixel_test_directories(self):
         host = MockHost()
 
-        """Both tests have faling checksum. We include only the first in pixel tests so only that should fail."""
+        """Both tests have failing checksum. We include only the first in pixel tests so only that should fail."""
         args = ['--pixel-tests', '--pixel-test-directory', 'failures/unexpected/pixeldir',
                 'failures/unexpected/pixeldir/image_in_pixeldir.html',
                 'failures/unexpected/image_not_in_pixeldir.html']
         details, err, _ = logging_run(extra_args=args, host=host, tests_included=True)
 
         self.assertEqual(details.exit_code, 1)
-        expected_token = '"unexpected":{"pixeldir":{"image_in_pixeldir.html":{"report":"REGRESSION","expected":"PASS","actual":"IMAGE"'
+
         json_string = host.filesystem.read_text_file('/tmp/layout-test-results/full_results.json')
-        self.assertTrue(json_string.find(expected_token) != -1)
+        json = parse_full_results(json_string)
+        test_data = json["tests"]["failures"]["unexpected"]["pixeldir"]["image_in_pixeldir.html"]
+        self.assertEqual(test_data["expected"], "PASS")
+        self.assertEqual(test_data["actual"], "IMAGE")
+        self.assertEqual(test_data["report"], "REGRESSION")
 
     def test_missing_and_unexpected_results_with_custom_exit_code(self):
         # Test that we update expectations in place. If the expectation
@@ -711,7 +747,7 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
         json_string = host.filesystem.read_text_file('/tmp/layout-test-results/full_results.json')
         json = parse_full_results(json_string)
         self.assertEqual(json["tests"]["failures"]["unexpected"]["text-image-checksum.html"],
-            {"expected": "PASS", "actual": "TEXT IMAGE+TEXT", "image_diff_percent": 1, "report": "REGRESSION"})
+                         {"expected": "PASS", "actual": "TEXT IMAGE+TEXT", "image_diff_percent": 1, 'image_difference': {'max_difference': 10, 'total_pixels': 20}, "report": "REGRESSION"})
         self.assertFalse(json["pixel_tests_enabled"])
         self.assertEqual(details.enabled_pixel_tests_in_retry, True)
 
@@ -724,9 +760,15 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
             tests_included=True, host=host)
         file_list = host.filesystem.written_files.keys()
         self.assertEqual(details.exit_code, 1)
-        expected_token = '"unexpected":{"text-image-missing.html":{"report":"REGRESSION","expected":"PASS","actual":"TEXT MISSING","is_missing_image":true}}'
         json_string = host.filesystem.read_text_file('/tmp/layout-test-results/full_results.json')
-        self.assertTrue(json_string.find(expected_token) != -1)
+
+        json = parse_full_results(json_string)
+        test_data = json["tests"]["failures"]["unexpected"]["text-image-missing.html"]
+        self.assertEqual(test_data["expected"], "PASS")
+        self.assertEqual(test_data["actual"], "TEXT MISSING")
+        self.assertEqual(test_data["report"], "REGRESSION")
+        self.assertEqual(test_data["is_missing_image"], True)
+
         self.assertTrue(json_string.find('"num_regressions":1') != -1)
         self.assertTrue(json_string.find('"num_flaky":0') != -1)
         self.assertTrue(json_string.find('"num_missing":1') != -1)

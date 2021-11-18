@@ -35,17 +35,17 @@
 
 namespace WebCore {
 
-FEMorphology::FEMorphology(Filter& filter, MorphologyOperatorType type, float radiusX, float radiusY)
-    : FilterEffect(filter, Type::Morphology)
+Ref<FEMorphology> FEMorphology::create(MorphologyOperatorType type, float radiusX, float radiusY)
+{
+    return adoptRef(*new FEMorphology(type, radiusX, radiusY));
+}
+
+FEMorphology::FEMorphology(MorphologyOperatorType type, float radiusX, float radiusY)
+    : FilterEffect(FilterEffect::Type::FEMorphology)
     , m_type(type)
     , m_radiusX(radiusX)
     , m_radiusY(radiusY)
 {
-}
-
-Ref<FEMorphology> FEMorphology::create(Filter& filter, MorphologyOperatorType type, float radiusX, float radiusY)
-{
-    return adoptRef(*new FEMorphology(filter, type, radiusX, radiusY));
 }
 
 bool FEMorphology::setMorphologyOperator(MorphologyOperatorType type)
@@ -72,11 +72,10 @@ bool FEMorphology::setRadiusY(float radiusY)
     return true;
 }
 
-void FEMorphology::determineAbsolutePaintRect()
+void FEMorphology::determineAbsolutePaintRect(const Filter& filter)
 {
     FloatRect paintRect = inputEffect(0)->absolutePaintRect();
-    Filter& filter = this->filter();
-    paintRect.inflate(filter.scaledByFilterResolution({ m_radiusX, m_radiusY }));
+    paintRect.inflate(filter.scaledByFilterScale({ m_radiusX, m_radiusY }));
     if (clipsToBounds())
         paintRect.intersect(maxEffectRect());
     else
@@ -240,7 +239,7 @@ bool FEMorphology::platformApplyDegenerate(Uint8ClampedArray& dstPixelArray, con
     return false;
 }
 
-void FEMorphology::platformApplySoftware()
+void FEMorphology::platformApplySoftware(const Filter& filter)
 {
     FilterEffect* in = inputEffect(0);
 
@@ -258,12 +257,11 @@ void FEMorphology::platformApplySoftware()
     if (platformApplyDegenerate(destinationPixelArray, effectDrawingRect, radius.width(), radius.height()))
         return;
 
-    Filter& filter = this->filter();
     auto sourcePixelArray = in->premultipliedResult(effectDrawingRect, operatingColorSpace());
     if (!sourcePixelArray)
         return;
 
-    radius = flooredIntSize(filter.scaledByFilterResolution({ m_radiusX, m_radiusY }));
+    radius = flooredIntSize(filter.scaledByFilterScale({ m_radiusX, m_radiusY }));
     int radiusX = std::min(effectDrawingRect.width() - 1, radius.width());
     int radiusY = std::min(effectDrawingRect.height() - 1, radius.height());
 
@@ -273,10 +271,10 @@ void FEMorphology::platformApplySoftware()
     PaintingData paintingData;
     paintingData.srcPixelArray = sourcePixelArray.get();
     paintingData.dstPixelArray = &destinationPixelArray;
-    paintingData.width = ceilf(effectDrawingRect.width() * filter.filterScale());
-    paintingData.height = ceilf(effectDrawingRect.height() * filter.filterScale());
-    paintingData.radiusX = ceilf(radiusX * filter.filterScale());
-    paintingData.radiusY = ceilf(radiusY * filter.filterScale());
+    paintingData.width = ceilf(effectDrawingRect.width());
+    paintingData.height = ceilf(effectDrawingRect.height());
+    paintingData.radiusX = ceilf(radiusX);
+    paintingData.radiusY = ceilf(radiusY);
 
     platformApply(paintingData);
 }

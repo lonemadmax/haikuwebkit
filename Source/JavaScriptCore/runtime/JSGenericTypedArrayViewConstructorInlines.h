@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2021 Apple Inc. All rights reserved.
  * Copyright (C) 2020 Sony Interactive Entertainment Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -60,7 +60,7 @@ JSGenericTypedArrayViewConstructor<ViewClass>::create(
     const String& name)
 {
     JSGenericTypedArrayViewConstructor* result =
-        new (NotNull, allocateCell<JSGenericTypedArrayViewConstructor>(vm.heap))
+        new (NotNull, allocateCell<JSGenericTypedArrayViewConstructor>(vm))
         JSGenericTypedArrayViewConstructor(vm, structure);
     result->finishCreation(vm, globalObject, prototype, name);
     return result;
@@ -278,7 +278,7 @@ ALWAYS_INLINE EncodedJSValue constructGenericTypedArrayViewImpl(JSGlobalObject* 
     size_t offset = 0;
     std::optional<size_t> length = std::nullopt;
     if (jsDynamicCast<JSArrayBuffer*>(vm, firstValue) && argCount > 1) {
-        offset = callFrame->uncheckedArgument(1).toIndex(globalObject, "byteOffset");
+        offset = callFrame->uncheckedArgument(1).toTypedArrayIndex(globalObject, "byteOffset");
         RETURN_IF_EXCEPTION(scope, encodedJSValue());
 
         if (argCount > 2) {

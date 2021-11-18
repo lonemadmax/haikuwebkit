@@ -24,7 +24,6 @@
 
 #include "FilterEffect.h"
 #include "FloatPoint.h"
-#include "Filter.h"
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -38,9 +37,7 @@ enum EdgeModeType {
 
 class FEConvolveMatrix : public FilterEffect {
 public:
-    static Ref<FEConvolveMatrix> create(Filter&, const IntSize&,
-            float, float, const IntPoint&, EdgeModeType, const FloatPoint&,
-            bool, const Vector<float>&);
+    static Ref<FEConvolveMatrix> create(const IntSize& kernelSize, float divisor, float bias, const IntPoint& targetOffset, EdgeModeType, const FloatPoint& kernelUnitLength, bool preserveAlpha, const Vector<float>& kernelMatrix);
 
     IntSize kernelSize() const { return m_kernelSize; }
     void setKernelSize(const IntSize&);
@@ -77,14 +74,11 @@ private:
         Vector<float> kernelMatrix;
     };
 
-    FEConvolveMatrix(Filter&, const IntSize&, float, float,
-            const IntPoint&, EdgeModeType, const FloatPoint&, bool, const Vector<float>&);
+    FEConvolveMatrix(const IntSize& kernelSize, float divisor, float bias, const IntPoint& targetOffset, EdgeModeType, const FloatPoint& kernelUnitLength, bool preserveAlpha, const Vector<float>& kernelMatrix);
 
-    const char* filterName() const final { return "FEConvolveMatrix"; }
+    void determineAbsolutePaintRect(const Filter&) override { setAbsolutePaintRect(enclosingIntRect(maxEffectRect())); }
 
-    void determineAbsolutePaintRect() override { setAbsolutePaintRect(enclosingIntRect(maxEffectRect())); }
-
-    void platformApplySoftware() override;
+    void platformApplySoftware(const Filter&) override;
 
     WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
 
@@ -115,3 +109,4 @@ private:
 
 } // namespace WebCore
 
+SPECIALIZE_TYPE_TRAITS_FILTER_EFFECT(FEConvolveMatrix)

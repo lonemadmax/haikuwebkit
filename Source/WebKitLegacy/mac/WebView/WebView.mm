@@ -149,6 +149,7 @@
 #import <WebCore/DragController.h>
 #import <WebCore/DragData.h>
 #import <WebCore/DragItem.h>
+#import <WebCore/DummyModelPlayerProvider.h>
 #import <WebCore/DummySpeechRecognitionProvider.h>
 #import <WebCore/DummyStorageProvider.h>
 #import <WebCore/Editing.h>
@@ -1543,7 +1544,8 @@ static void WebKitInitializeGamepadProviderIfNecessary()
         makeUniqueRef<WebCore::MediaRecorderProvider>(),
         WebBroadcastChannelRegistry::getOrCreate([[self preferences] privateBrowsingEnabled]),
         WebCore::DummyPermissionController::create(),
-        makeUniqueRef<WebCore::DummyStorageProvider>()
+        makeUniqueRef<WebCore::DummyStorageProvider>(),
+        makeUniqueRef<WebCore::DummyModelPlayerProvider>()
     );
 #if !PLATFORM(IOS_FAMILY)
     pageConfiguration.chromeClient = new WebChromeClient(self);
@@ -1823,7 +1825,8 @@ static void WebKitInitializeGamepadProviderIfNecessary()
         makeUniqueRef<WebCore::MediaRecorderProvider>(),
         WebBroadcastChannelRegistry::getOrCreate([[self preferences] privateBrowsingEnabled]),
         WebCore::DummyPermissionController::create(),
-        makeUniqueRef<WebCore::DummyStorageProvider>()
+        makeUniqueRef<WebCore::DummyStorageProvider>(),
+        makeUniqueRef<WebCore::DummyModelPlayerProvider>()
     );
     pageConfiguration.chromeClient = new WebChromeClientIOS(self);
 #if ENABLE(DRAG_SUPPORT)
@@ -3658,27 +3661,27 @@ IGNORE_WARNINGS_END
 {
     WebDynamicScrollBarsView *scrollview = [[[self mainFrame] frameView] _scrollView];
     if (flag) {
-        [scrollview setVerticalScrollingMode:WebCore::ScrollbarAlwaysOn andLock:YES];
+        [scrollview setVerticalScrollingMode:WebCore::ScrollbarMode::AlwaysOn andLock:YES];
     } else {
         [scrollview setVerticalScrollingModeLocked:NO];
-        [scrollview setVerticalScrollingMode:WebCore::ScrollbarAuto andLock:NO];
+        [scrollview setVerticalScrollingMode:WebCore::ScrollbarMode::Auto andLock:NO];
     }
 }
 
 - (BOOL)alwaysShowVerticalScroller
 {
     WebDynamicScrollBarsView *scrollview = [[[self mainFrame] frameView] _scrollView];
-    return [scrollview verticalScrollingModeLocked] && [scrollview verticalScrollingMode] == WebCore::ScrollbarAlwaysOn;
+    return [scrollview verticalScrollingModeLocked] && [scrollview verticalScrollingMode] == WebCore::ScrollbarMode::AlwaysOn;
 }
 
 - (void)setAlwaysShowHorizontalScroller:(BOOL)flag
 {
     WebDynamicScrollBarsView *scrollview = [[[self mainFrame] frameView] _scrollView];
     if (flag) {
-        [scrollview setHorizontalScrollingMode:WebCore::ScrollbarAlwaysOn andLock:YES];
+        [scrollview setHorizontalScrollingMode:WebCore::ScrollbarMode::AlwaysOn andLock:YES];
     } else {
         [scrollview setHorizontalScrollingModeLocked:NO];
-        [scrollview setHorizontalScrollingMode:WebCore::ScrollbarAuto andLock:NO];
+        [scrollview setHorizontalScrollingMode:WebCore::ScrollbarMode::Auto andLock:NO];
     }
 }
 
@@ -3691,7 +3694,7 @@ IGNORE_WARNINGS_END
 - (BOOL)alwaysShowHorizontalScroller
 {
     WebDynamicScrollBarsView *scrollview = [[[self mainFrame] frameView] _scrollView];
-    return [scrollview horizontalScrollingModeLocked] && [scrollview horizontalScrollingMode] == WebCore::ScrollbarAlwaysOn;
+    return [scrollview horizontalScrollingModeLocked] && [scrollview horizontalScrollingMode] == WebCore::ScrollbarMode::AlwaysOn;
 }
 #endif // !PLATFORM(IOS_FAMILY)
 

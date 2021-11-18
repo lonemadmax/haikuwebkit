@@ -38,7 +38,7 @@
 #include "GPUProcessCreationParameters.h"
 #include "GPUProcessProxyMessages.h"
 #include "GPUProcessSessionParameters.h"
-#include "Logging.h"
+#include "LogInitialization.h"
 #include "SandboxExtension.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcessPoolMessages.h"
@@ -75,7 +75,6 @@
 #endif
 
 namespace WebKit {
-using namespace WebCore;
 
 // We wouldn't want the GPUProcess to repeatedly exit then relaunch when under memory pressure. In particular, we need to make sure the
 // WebProcess has a change to schedule work after the GPUProcess get launched. For this reason, we make sure that the GPUProcess never
@@ -107,7 +106,7 @@ void GPUProcess::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& de
     didReceiveGPUProcessMessage(connection, decoder);
 }
 
-void GPUProcess::createGPUConnectionToWebProcess(ProcessIdentifier identifier, PAL::SessionID sessionID, GPUProcessConnectionParameters&& parameters, CompletionHandler<void(std::optional<IPC::Attachment>&&, GPUProcessConnectionInitializationParameters&&)>&& completionHandler)
+void GPUProcess::createGPUConnectionToWebProcess(WebCore::ProcessIdentifier identifier, PAL::SessionID sessionID, GPUProcessConnectionParameters&& parameters, CompletionHandler<void(std::optional<IPC::Attachment>&&, GPUProcessConnectionInitializationParameters&&)>&& completionHandler)
 {
     RELEASE_LOG(Process, "%p - GPUProcess::createGPUConnectionToWebProcess: processIdentifier=%" PRIu64, this, identifier.toUInt64());
     auto ipcConnection = createIPCConnectionPair();
@@ -284,7 +283,7 @@ void GPUProcess::resume()
 {
 }
 
-GPUConnectionToWebProcess* GPUProcess::webProcessConnection(ProcessIdentifier identifier) const
+GPUConnectionToWebProcess* GPUProcess::webProcessConnection(WebCore::ProcessIdentifier identifier) const
 {
     return m_webProcessConnections.get(identifier);
 }
@@ -302,7 +301,7 @@ void GPUProcess::setOrientationForMediaCapture(uint64_t orientation)
         connection->setOrientationForMediaCapture(orientation);
 }
 
-void GPUProcess::updateCaptureAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture, ProcessIdentifier processID, CompletionHandler<void()>&& completionHandler)
+void GPUProcess::updateCaptureAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture, WebCore::ProcessIdentifier processID, CompletionHandler<void()>&& completionHandler)
 {
     if (auto* connection = webProcessConnection(processID)) {
         connection->updateCaptureAccess(allowAudioCapture, allowVideoCapture, allowDisplayCapture);
@@ -317,7 +316,7 @@ void GPUProcess::updateCaptureAccess(bool allowAudioCapture, bool allowVideoCapt
     completionHandler();
 }
 
-void GPUProcess::updateCaptureOrigin(const WebCore::SecurityOriginData& originData, ProcessIdentifier processID)
+void GPUProcess::updateCaptureOrigin(const WebCore::SecurityOriginData& originData, WebCore::ProcessIdentifier processID)
 {
     if (auto* connection = webProcessConnection(processID))
         connection->updateCaptureOrigin(originData);
@@ -400,10 +399,10 @@ const String& GPUProcess::mediaKeysStorageDirectory(PAL::SessionID sessionID) co
 }
 #endif
 
-NowPlayingManager& GPUProcess::nowPlayingManager()
+WebCore::NowPlayingManager& GPUProcess::nowPlayingManager()
 {
     if (!m_nowPlayingManager)
-        m_nowPlayingManager = makeUnique<NowPlayingManager>();
+        m_nowPlayingManager = makeUnique<WebCore::NowPlayingManager>();
     return *m_nowPlayingManager;
 }
 
@@ -411,7 +410,7 @@ NowPlayingManager& GPUProcess::nowPlayingManager()
 RemoteAudioSessionProxyManager& GPUProcess::audioSessionManager() const
 {
     if (!m_audioSessionManager)
-        m_audioSessionManager = WTF::makeUnique<RemoteAudioSessionProxyManager>();
+        m_audioSessionManager = WTF::makeUnique<RemoteAudioSessionProxyManager>(const_cast<GPUProcess&>(*this));
     return *m_audioSessionManager;
 }
 #endif
@@ -495,6 +494,16 @@ void GPUProcess::setVorbisDecoderEnabled(bool enabled)
         return;
     m_vorbisEnabled = enabled;
     PlatformMediaSessionManager::setVorbisDecoderEnabled(m_vorbisEnabled);
+}
+#endif
+
+#if ENABLE(MEDIA_SOURCE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
+void GPUProcess::setMediaSourceInlinePaintingEnabled(bool enabled)
+{
+    if (m_mediaSourceInlinePaintingEnabled == enabled)
+        return;
+    m_mediaSourceInlinePaintingEnabled = enabled;
+    WebCore::RuntimeEnabledFeatures::sharedFeatures().setMediaSourceInlinePaintingEnabled(m_mediaSourceInlinePaintingEnabled);
 }
 #endif
 

@@ -28,6 +28,7 @@
 #include "FloatPoint.h"
 #include "ScrollTypes.h"
 #include <wtf/EnumTraits.h>
+#include <wtf/OptionSet.h>
 
 namespace WebCore {
 
@@ -70,11 +71,11 @@ enum class ScrollingLayerPositionAction {
 };
 
 struct ScrollableAreaParameters {
-    ScrollElasticity horizontalScrollElasticity { ScrollElasticityNone };
-    ScrollElasticity verticalScrollElasticity { ScrollElasticityNone };
+    ScrollElasticity horizontalScrollElasticity { ScrollElasticity::None };
+    ScrollElasticity verticalScrollElasticity { ScrollElasticity::None };
 
-    ScrollbarMode horizontalScrollbarMode { ScrollbarAuto };
-    ScrollbarMode verticalScrollbarMode { ScrollbarAuto };
+    ScrollbarMode horizontalScrollbarMode { ScrollbarMode::Auto };
+    ScrollbarMode verticalScrollbarMode { ScrollbarMode::Auto };
 
     bool allowsHorizontalScrolling { false };
     bool allowsVerticalScrolling { false };

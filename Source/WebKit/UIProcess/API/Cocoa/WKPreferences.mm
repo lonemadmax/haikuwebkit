@@ -163,6 +163,16 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _preferences->setNeedsSiteSpecificQuirks(enabled);
 }
 
+- (BOOL)isElementFullscreenEnabled
+{
+    return _preferences->fullScreenEnabled();
+}
+
+- (void)setElementFullscreenEnabled:(BOOL)elementFullscreenEnabled
+{
+    _preferences->setFullScreenEnabled(elementFullscreenEnabled);
+}
+
 #pragma mark OS X-specific methods
 
 #if PLATFORM(MAC)
@@ -1153,16 +1163,6 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
     return _preferences->standardFontFamily();
 }
 
-- (void)_setNotificationsEnabled:(BOOL)enabled
-{
-    _preferences->setNotificationsEnabled(enabled);
-}
-
-- (BOOL)_notificationsEnabled
-{
-    return _preferences->notificationsEnabled();
-}
-
 - (void)_setBackspaceKeyNavigationEnabled:(BOOL)enabled
 {
     _preferences->setBackspaceKeyNavigationEnabled(enabled);
@@ -1552,6 +1552,16 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 - (void)_setAccessHandleEnabled:(BOOL)accessHandleEnabled
 {
     _preferences->setAccessHandleEnabled(accessHandleEnabled);
+}
+
+- (void)_setNotificationsEnabled:(BOOL)enabled
+{
+    _preferences->setNotificationsEnabled(enabled);
+}
+
+- (BOOL)_notificationsEnabled
+{
+    return _preferences->notificationsEnabled();
 }
 
 @end

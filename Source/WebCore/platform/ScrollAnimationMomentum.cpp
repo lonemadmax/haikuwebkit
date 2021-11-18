@@ -27,6 +27,7 @@
 
 #include "Logging.h"
 #include "ScrollingMomentumCalculator.h"
+#include <wtf/text/TextStream.h>
 
 namespace WebCore {
 
@@ -40,16 +41,24 @@ ScrollAnimationMomentum::~ScrollAnimationMomentum() = default;
 bool ScrollAnimationMomentum::startAnimatedScrollWithInitialVelocity(const FloatPoint& initialOffset, const FloatSize& initialVelocity, const FloatSize& initialDelta, const Function<FloatPoint(const FloatPoint&)>& destinationModifier)
 {
     auto extents = m_client.scrollExtentsForAnimation(*this);
+    m_currentOffset = initialOffset;
 
     m_momentumCalculator = ScrollingMomentumCalculator::create(extents, initialOffset, initialDelta, initialVelocity);
-    auto predictedScrollOffset = m_momentumCalculator->predictedDestinationOffset();
+    auto destinationScrollOffset = m_momentumCalculator->destinationScrollOffset();
 
     if (destinationModifier) {
-        predictedScrollOffset = destinationModifier(predictedScrollOffset);
-        m_momentumCalculator->setRetargetedScrollOffset(predictedScrollOffset);
+        auto modifiedOffset = destinationModifier(destinationScrollOffset);
+        if (modifiedOffset != destinationScrollOffset) {
+            LOG_WITH_STREAM(ScrollAnimations, stream << "ScrollAnimationMomentum " << this << " startAnimatedScrollWithInitialVelocity - predicted offset " << destinationScrollOffset << " modified to " << modifiedOffset);
+            destinationScrollOffset = modifiedOffset;
+            m_momentumCalculator->setRetargetedScrollOffset(destinationScrollOffset);
+        }
     }
 
-    if (predictedScrollOffset == initialOffset) {
+    LOG(ScrollAnimations, "ScrollAnimationMomentum::startAnimatedScrollWithInitialVelocity: velocity %.2f,%.2f from %.2f,%.2f to %.2f,%.2f",
+        initialVelocity.width(), initialVelocity.height(), initialOffset.x(), initialOffset.y(), destinationScrollOffset.x(), destinationScrollOffset.y());
+
+    if (destinationScrollOffset == initialOffset) {
         m_momentumCalculator = nullptr;
         return false;
     }
@@ -75,6 +84,8 @@ bool ScrollAnimationMomentum::retargetActiveAnimation(const FloatPoint& newDesti
 
 void ScrollAnimationMomentum::stop()
 {
+    LOG(ScrollAnimations, "ScrollAnimationMomentum::stop: offset %.2f,%.2f", m_currentOffset.x(), m_currentOffset.y());
+
     m_momentumCalculator = nullptr;
     ScrollAnimation::stop();
 }
@@ -92,6 +103,8 @@ void ScrollAnimationMomentum::serviceAnimation(MonotonicTime currentTime)
 
     m_client.scrollAnimationDidUpdate(*this, m_currentOffset);
 
+    LOG(ScrollAnimations, "ScrollAnimationMomentum::serviceAnimation: offset %.2f,%.2f complete %d", m_currentOffset.x(), m_currentOffset.y(), animationComplete);
+
     if (animationComplete)
         didEnd();
 }
@@ -99,10 +112,17 @@ void ScrollAnimationMomentum::serviceAnimation(MonotonicTime currentTime)
 void ScrollAnimationMomentum::updateScrollExtents()
 {
     auto extents = m_client.scrollExtentsForAnimation(*this);
-    auto predictedScrollOffset = m_momentumCalculator->predictedDestinationOffset();
+    auto predictedScrollOffset = m_momentumCalculator->destinationScrollOffset();
     auto constrainedOffset = predictedScrollOffset.constrainedBetween(extents.minimumScrollOffset(), extents.maximumScrollOffset());
     if (constrainedOffset != predictedScrollOffset)
         retargetActiveAnimation(constrainedOffset);
+}
+
+String ScrollAnimationMomentum::debugDescription() const
+{
+    TextStream textStream;
+    textStream << "ScrollAnimationMomentum " << this << " active " << isActive() << " destination " << (m_momentumCalculator ? m_momentumCalculator->destinationScrollOffset() : FloatPoint()) << " current offset " << currentOffset();
+    return textStream.release();
 }
 
 } // namespace WebCore

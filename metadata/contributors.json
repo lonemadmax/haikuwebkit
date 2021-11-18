@@ -939,6 +939,7 @@
          "burg@cs.washington.edu"
       ],
       "expertise" : "Developer Tools, Web Inspector, WebDriver, Cocoa API",
+      "github" : "burg",
       "name" : "BJ Burg",
       "nicks" : [
          "bburg",
@@ -1088,6 +1089,7 @@
          "bdakin@apple.com"
       ],
       "expertise" : "CSS (Cascading Style Sheets), Layout and Rendering, Resolution-Independence, HTML Parsing, Tables, Web Accessibility",
+      "github" : "dethbakin",
       "name" : "Beth Dakin",
       "nicks" : [
          "dethbakin"
@@ -1254,7 +1256,7 @@
       "nicks" : [
          "heycam"
       ],
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -1807,6 +1809,7 @@
          "ddkilzer@apple.com"
       ],
       "expertise" : "iPhone port, Xcode build system, Tools, Perl, git, WebArchive",
+      "github" : "ddkilzer",
       "name" : "David Kilzer",
       "nicks" : [
          "ddkilzer"
@@ -2970,6 +2973,17 @@
          "ike@apple.com"
       ],
       "name" : "Ivan Ivan Krsti\u0107"
+   },
+   {
+      "emails" : [
+         "j_pascoe@apple.com"
+      ],
+      "github" : "pascoej",
+      "name" : "J Pascoe",
+      "nicks" : [
+         "j_pascoe"
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -5019,6 +5033,7 @@
          "nzimmermann@igalia.com"
       ],
       "expertise" : "Core KHTML contributor, The QtWebKit Port, Text Layout, JavaScript DOM bindings, Code generation in general, XML, SVG (Scalable Vector Graphics)",
+      "github" : "nikolaszimmermann",
       "name" : "Nikolas Zimmermann",
       "nicks" : [
          "nzimmermann"
@@ -5103,7 +5118,7 @@
       "emails" : [
          "obrufau@igalia.com"
       ],
-      "github": "Loirooriol",
+      "github" : "Loirooriol",
       "name" : "Oriol Brufau",
       "nicks" : [
          "obrufau"
@@ -5209,13 +5224,14 @@
    },
    {
       "emails" : [
-         "peng.liu6@apple.com"
+         "peng.liu6@apple.com",
+         "peng.liu6@icloud.com"
       ],
       "name" : "Peng Liu",
       "nicks" : [
          "peng"
       ],
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -5562,6 +5578,7 @@
       "emails" : [
          "jenner@apple.com"
       ],
+      "github" : "robert-jenner",
       "name" : "Robert Jenner",
       "status" : "committer"
    },
@@ -5641,9 +5658,9 @@
       "github" : "roynos",
       "name" : "Roy Reapor",
       "nicks" : [
-         "rreapor",
-         "roynos"
-      ]
+         "rreapor"
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [

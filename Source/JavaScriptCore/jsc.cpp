@@ -500,7 +500,7 @@ public:
 
     static GlobalObject* create(VM& vm, Structure* structure, const Vector<String>& arguments)
     {
-        GlobalObject* object = new (NotNull, allocateCell<GlobalObject>(vm.heap)) GlobalObject(vm, structure);
+        GlobalObject* object = new (NotNull, allocateCell<GlobalObject>(vm)) GlobalObject(vm, structure);
         object->finishCreation(vm, arguments);
         return object;
     }
@@ -1444,7 +1444,7 @@ public:
     static JSCMemoryFootprint* create(VM& vm, JSGlobalObject* globalObject)
     {
         Structure* structure = createStructure(vm, globalObject, jsNull());
-        JSCMemoryFootprint* footprint = new (NotNull, allocateCell<JSCMemoryFootprint>(vm.heap)) JSCMemoryFootprint(vm, structure);
+        JSCMemoryFootprint* footprint = new (NotNull, allocateCell<JSCMemoryFootprint>(vm)) JSCMemoryFootprint(vm, structure);
         footprint->finishCreation(vm);
         return footprint;
     }
@@ -1773,7 +1773,7 @@ public:
     static JSFileDescriptor* create(VM& vm, JSGlobalObject* globalObject, FILE*&& descriptor)
     {
         Structure* structure = createStructure(vm, globalObject, jsNull());
-        auto* file = new (NotNull, allocateCell<JSFileDescriptor>(vm.heap)) JSFileDescriptor(vm, structure);
+        auto* file = new (NotNull, allocateCell<JSFileDescriptor>(vm)) JSFileDescriptor(vm, structure);
         file->finishCreation(vm, descriptor);
         return file;
     }
@@ -2708,7 +2708,7 @@ JSC_DEFINE_HOST_FUNCTION(functionGenerateHeapSnapshotForGCDebugging, (JSGlobalOb
     auto scope = DECLARE_THROW_SCOPE(vm);
     String jsonString;
     {
-        DeferGCForAWhile deferGC(vm.heap); // Prevent concurrent GC from interfering with the full GC that the snapshot does.
+        DeferGCForAWhile deferGC(vm); // Prevent concurrent GC from interfering with the full GC that the snapshot does.
 
         HeapSnapshotBuilder snapshotBuilder(vm.ensureHeapProfiler(), HeapSnapshotBuilder::SnapshotType::GCDebuggingSnapshot);
         snapshotBuilder.buildSnapshot();
@@ -3765,7 +3765,7 @@ int jscmain(int argc, char** argv)
         WTF::releaseFastMallocFreeMemory();
         vm.deleteAllCode(DeleteAllCodeIfNotCollecting);
 
-        if (!vm.heap.isCurrentThreadBusy()) {
+        if (!vm.heap.currentThreadIsDoingGCWork()) {
             if (isSynchronous) {
                 vm.heap.collectNow(Sync, CollectionScope::Full);
                 WTF::releaseFastMallocFreeMemory();

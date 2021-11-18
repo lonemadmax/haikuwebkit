@@ -52,6 +52,7 @@
 #include "HTMLSelectElement.h"
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
+#include "ImageOverlay.h"
 #include "InlineRunAndOffset.h"
 #include "LegacyInlineTextBox.h"
 #include "Logging.h"
@@ -498,8 +499,8 @@ void FrameSelection::updateAndRevealSelection(const AXTextStateChangeIntent& int
 
         revealSelection(m_selectionRevealMode, alignment, revealExtent, scrollBehavior);
     }
-
-    notifyAccessibilityForSelectionChange(intent);
+    if (!m_document->editor().ignoreSelectionChanges())
+        notifyAccessibilityForSelectionChange(intent);
 }
 
 void FrameSelection::updateDataDetectorsForSelection()
@@ -1917,7 +1918,7 @@ bool FrameSelection::contains(const LayoutPoint& point) const
     if (!innerNode || !innerNode->renderer())
         return false;
 
-    if (HTMLElement::isInsideImageOverlay(*range) && HTMLElement::isInsideImageOverlay(*innerNode)) {
+    if (ImageOverlay::isInsideOverlay(*range) && ImageOverlay::isInsideOverlay(*innerNode)) {
         for (auto quad : RenderObject::absoluteTextQuads(*range, { RenderObject::BoundingRectBehavior::UseSelectionHeight })) {
             if (!quad.isEmpty() && quad.containsPoint(point))
                 return true;

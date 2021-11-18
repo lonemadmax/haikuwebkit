@@ -314,6 +314,38 @@ int Element::defaultTabIndex() const
     return -1;
 }
 
+const AtomString& Element::nonce() const
+{
+    return hasRareData() ? elementRareData()->nonce() : emptyAtom();
+}
+
+void Element::setNonce(const AtomString& newValue)
+{
+    if (newValue == emptyAtom() && !hasRareData())
+        return;
+
+    ensureElementRareData().setNonce(newValue);
+}
+
+void Element::hideNonce()
+{
+    // https://html.spec.whatwg.org/multipage/urls-and-fetching.html#nonce-attributes
+    if (!isConnected())
+        return;
+
+    const auto& csp = document().contentSecurityPolicy();
+    if (!csp->isHeaderDelivered())
+        return;
+
+    // Retain previous IDL nonce.
+    AtomString currentNonce = nonce();
+
+    if (!getAttribute(nonceAttr).isEmpty())
+        setAttribute(nonceAttr, emptyAtom());
+
+    setNonce(currentNonce);
+}
+
 bool Element::supportsFocus() const
 {
     return !!tabIndexSetExplicitly();
@@ -1096,12 +1128,12 @@ void Element::scrollByUnits(int units, ScrollGranularity granularity)
 
 void Element::scrollByLines(int lines)
 {
-    scrollByUnits(lines, ScrollByLine);
+    scrollByUnits(lines, ScrollGranularity::Line);
 }
 
 void Element::scrollByPages(int pages)
 {
-    scrollByUnits(pages, ScrollByPage);
+    scrollByUnits(pages, ScrollGranularity::Page);
 }
 
 static double localZoomForRenderer(const RenderElement& renderer)
@@ -1860,7 +1892,10 @@ void Element::attributeChanged(const QualifiedName& name, const AtomString& oldV
                 treeScope().idTargetObserverRegistry().notifyObservers(*newValue.impl());
         } else if (name == HTMLNames::nameAttr)
             elementData()->setHasNameAttribute(!newValue.isNull());
-        else if (name == HTMLNames::pseudoAttr) {
+        else if (name == HTMLNames::nonceAttr) {
+            if (is<HTMLElement>(*this) || is<SVGElement>(*this))
+                setNonce(newValue.isNull() ? emptyAtom() : newValue);
+        } else if (name == HTMLNames::pseudoAttr) {
             if (needsStyleInvalidation() && isInShadowTree())
                 invalidateStyleForSubtree();
         } else if (name == HTMLNames::slotAttr) {
@@ -2450,7 +2485,20 @@ static bool canAttachAuthorShadowRoot(const Element& element)
         return false;
 
     const auto& localName = element.localName();
-    return tagNames.get().contains(localName) || Document::validateCustomElementName(localName) == CustomElementNameValidationStatus::Valid;
+    if (tagNames.get().contains(localName))
+        return true;
+
+    if (Document::validateCustomElementName(localName) == CustomElementNameValidationStatus::Valid) {
+        if (auto* window = element.document().domWindow()) {
+            auto* registry = window->customElementRegistry();
+            if (registry && registry->isShadowDisabled(localName))
+                return false;
+        }
+
+        return true;
+    }
+
+    return false;
 }
 
 ExceptionOr<ShadowRoot&> Element::attachShadow(const ShadowRootInit& init)
@@ -4483,6 +4531,8 @@ void Element::cloneAttributesFromElement(const Element& other)
 
     for (const Attribute& attribute : attributesIterator())
         attributeChanged(attribute.name(), nullAtom(), attribute.value(), ModifiedByCloning);
+
+    setNonce(other.nonce());
 }
 
 void Element::cloneDataFromElement(const Element& other)

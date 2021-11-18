@@ -36,7 +36,6 @@ from collections import defaultdict
 from webkitcorepy import run, decorators, NestedFuzzyDict
 from webkitscmpy.local import Scm
 from webkitscmpy import remote, Commit, Contributor, log
-from webkitscmpy import Commit, Contributor, log
 
 
 class Git(Scm):
@@ -127,7 +126,7 @@ class Git(Scm):
             log = None
             try:
                 kwargs = dict()
-                if sys.version_info >= (3, 0):
+                if sys.version_info >= (3, 6):
                     kwargs = dict(encoding='utf-8')
                 self._last_populated[branch] = time.time()
                 log = subprocess.Popen(
@@ -135,7 +134,7 @@ class Git(Scm):
                     cwd=self.repo.root_path,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
-                    ** kwargs
+                    **kwargs
                 )
                 if log.poll():
                     raise self.repo.Exception("Failed to construct branch history for '{}'".format(branch))
@@ -300,6 +299,7 @@ class Git(Scm):
     SSH_REMOTE = re.compile('(ssh://)?git@(?P<host>[^:/]+)[:/](?P<path>.+).git')
     HTTP_REMOTE = re.compile(r'(?P<protocol>https?)://(?P<host>[^\/]+)/(?P<path>.+).git')
     REMOTE_BRANCH = re.compile(r'remotes\/(?P<remote>[^\/]+)\/(?P<branch>.+)')
+    USER_REMOTE = re.compile(r'(?P<username>[^:/]+):(?P<branch>.+)')
 
     @classmethod
     @decorators.Memoize()
@@ -701,7 +701,7 @@ class Git(Scm):
                 cwd=self.root_path,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                **(dict(encoding='utf-8') if sys.version_info > (3, 0) else dict())
+                **(dict(encoding='utf-8') if sys.version_info > (3, 6) else dict())
             )
             if log.poll():
                 raise self.Exception("Failed to construct history for '{}'".format(end.branch))
@@ -794,10 +794,24 @@ class Git(Scm):
             raise ValueError("'{}' is not an argument recognized by git".format(argument))
         return self.commit(hash=output.stdout.rstrip(), include_log=include_log, include_identifier=include_identifier)
 
-    def checkout(self, argument):
+    def _to_git_ref(self, argument):
+        if not argument:
+            return None
         if not isinstance(argument, six.string_types):
             raise ValueError("Expected 'argument' to be a string, not '{}'".format(type(argument)))
+        parsed_commit = Commit.parse(argument, do_assert=False)
+        if parsed_commit and not parsed_commit.hash:
+            return self.commit(
+                hash=parsed_commit.hash,
+                revision=parsed_commit.revision,
+                identifier=parsed_commit.identifier,
+                branch=parsed_commit.branch,
+                include_log=False,
+                include_identifier=False,
+            ).hash
+        return argument
 
+    def checkout(self, argument):
         self._branch = None
 
         if log.level > logging.WARNING:
@@ -807,27 +821,52 @@ class Git(Scm):
         else:
             log_arg = []
 
-        parsed_commit = Commit.parse(argument, do_assert=False)
-        if parsed_commit:
-            commit = self.commit(
-                hash=parsed_commit.hash,
-                revision=parsed_commit.revision,
-                identifier=parsed_commit.identifier,
-                branch=parsed_commit.branch,
-            )
-            return None if run(
-                [self.executable(), 'checkout'] + [commit.hash] + log_arg,
+        match = self.USER_REMOTE.match(argument)
+        rmt = self.remote()
+        if match and isinstance(rmt, remote.GitHub):
+            username = match.group('username')
+            if not self.url(match.group('username')):
+                url = self.url()
+                if '://' in url:
+                    rmt = '{}://{}/{}/{}.git'.format(url.split(':')[0], url.split('/')[2], username, rmt.name)
+                elif ':' in url:
+                    rmt = '{}:{}/{}.git'.format(url.split(':')[0], username, rmt.name)
+                else:
+                    sys.stderr.write("Failed to convert '{}' to '{}' remote\n".format(url, username))
+                    return None
+                if run(
+                    [self.executable(), 'remote', 'add', username, rmt],
+                    capture_output=True, cwd=self.root_path,
+                ).returncode:
+                    sys.stderr.write("Failed to add remote '{}' as '{}'\n".format(rmt, username))
+                    return None
+                self.url.clear()
+            branch = match.group('branch')
+            rc = run(
+                [self.executable(), 'checkout'] + ['-B', branch, '{}/{}'.format(username, branch)] + log_arg,
                 cwd=self.root_path,
-            ).returncode else commit
+            ).returncode
+            if not rc:
+                return self.commit()
+            if rc == 128:
+                run([self.executable(), 'fetch', username], cwd=self.root_path)
+            return None if run(
+                [self.executable(), 'checkout'] + ['-B', branch, '{}/{}'.format(username, branch)] + log_arg,
+                cwd=self.root_path,
+            ).returncode else self.commit()
 
         return None if run(
-            [self.executable(), 'checkout'] + [argument] + log_arg,
+            [self.executable(), 'checkout'] + [self._to_git_ref(argument)] + log_arg,
             cwd=self.root_path,
         ).returncode else self.commit()
 
     def rebase(self, target, base=None, head='HEAD', recommit=True):
         if head == self.default_branch or self.prod_branches.match(head):
             raise RuntimeError("Rebasing production branch '{}' banned in tooling!".format(head))
+
+        target = self._to_git_ref(target)
+        base = self._to_git_ref(base)
+        head = self._to_git_ref(head)
 
         code = run([self.executable(), 'rebase', '--onto', target, base or target, head], cwd=self.root_path).returncode
         if self.cache:
@@ -837,7 +876,7 @@ class Git(Scm):
         return run([
             self.executable(), 'filter-branch', '-f',
             '--env-filter', "GIT_AUTHOR_DATE='{date}';GIT_COMMITTER_DATE='{date}'".format(
-                date='{} -{}'.format(int(time.time()), int(time.localtime().tm_gmtoff * 100 / (60 * 60)))
+                date='{} -{}'.format(int(time.time()), self.gmtoffset())
             ), '{}...{}'.format(target, head),
         ], cwd=self.root_path, env={'FILTER_BRANCH_SQUELCH_WARNING': '1'}, capture_output=True).returncode
 
@@ -869,7 +908,7 @@ class Git(Scm):
                     self.executable(),
                     'filter-branch', '-f',
                     '--env-filter', "GIT_AUTHOR_DATE='{date}';GIT_COMMITTER_DATE='{date}'".format(
-                        date='{} -{}'.format(int(time.time()), int(time.localtime().tm_gmtoff * 100 / (60 * 60)))
+                        date='{} -{}'.format(int(time.time()), self.gmtoffset())
                     ), 'HEAD...{}'.format('{}/{}'.format(remote, branch)),
                 ], cwd=self.root_path, env={'FILTER_BRANCH_SQUELCH_WARNING': '1'}).returncode
 
@@ -912,3 +951,27 @@ class Git(Scm):
         if set(staged) - added:
             return staged
         return staged + self.modified(staged=False)
+
+    def diff_lines(self, base, head=None):
+        base = self._to_git_ref(base)
+        head = self._to_git_ref(head)
+
+        kwargs = dict()
+        if sys.version_info >= (3, 6):
+            kwargs = dict(encoding='utf-8')
+        target = '{}..{}'.format(base, head) if head else base
+        proc = subprocess.Popen(
+            [self.executable(), 'diff', target],
+            cwd=self.root_path,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            **kwargs
+        )
+
+        if proc.poll():
+            sys.stderr.write("Failed to generate diff for '{}'\n".format(target))
+
+        line = proc.stdout.readline()
+        while line:
+            yield line.rstrip()
+            line = proc.stdout.readline()

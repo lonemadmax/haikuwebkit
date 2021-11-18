@@ -64,7 +64,7 @@ class AccessibilityUIElement : public JSWrappable {
 #if PLATFORM(COCOA)
     // Helper functions that dispatch the corresponding AccessibilityObjectWrapper method to the AX secondary thread when appropriate.
     friend RetainPtr<NSArray> supportedAttributes(id);
-    friend id attributeValue(id, NSString *);
+    friend RetainPtr<id> attributeValue(id, NSString *);
     friend void setAttributeValue(id, NSString *, id, bool synchronous);
 #endif
 
@@ -169,7 +169,8 @@ public:
     JSRetainPtr<JSStringRef> selectedTextRange();
     bool isEnabled();
     bool isRequired() const;
-    
+
+    RefPtr<AccessibilityUIElement> focusedElement() const;
     bool isFocused() const;
     bool isFocusable() const;
     bool isSelected() const;
@@ -218,7 +219,7 @@ public:
     JSRetainPtr<JSStringRef> attributesOfRows();
     JSRetainPtr<JSStringRef> attributesOfVisibleCells();
     JSRetainPtr<JSStringRef> attributesOfHeader();
-    bool isInTableCell() const;
+    bool isInCell() const;
     bool isInTable() const;
     bool isInList() const;
     bool isInLandmark() const;
@@ -380,15 +381,17 @@ public:
     void assistiveTechnologySimulatedFocus();
     bool isSearchField() const;
     bool isTextArea() const;
-    bool isInDefinitionListDefinition() const;
-    bool isInDefinitionListTerm() const;
 
     bool scrollPageUp();
     bool scrollPageDown();
     bool scrollPageLeft();
     bool scrollPageRight();
     
-    // Fieldset
+    bool hasDocumentRoleAncestor() const;
+    bool hasWebApplicationAncestor() const;
+    bool isInDescriptionListDetail() const;
+    bool isInDescriptionListTerm() const;
+
     bool hasContainedByFieldsetTrait();
     RefPtr<AccessibilityUIElement> fieldsetAncestorElement();
 
@@ -398,7 +401,7 @@ private:
     AccessibilityUIElement(const AccessibilityUIElement&);
 
 #if PLATFORM(MAC)
-    id attributeValue(NSString *) const;
+    RetainPtr<id> attributeValue(NSString *) const;
     NSString *descriptionOfValue(id valueObject) const;
 #endif
 

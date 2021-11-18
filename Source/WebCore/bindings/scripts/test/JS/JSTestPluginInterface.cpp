@@ -54,7 +54,7 @@ public:
     using Base = JSC::JSNonFinalObject;
     static JSTestPluginInterfacePrototype* create(JSC::VM& vm, JSDOMGlobalObject* globalObject, JSC::Structure* structure)
     {
-        JSTestPluginInterfacePrototype* ptr = new (NotNull, JSC::allocateCell<JSTestPluginInterfacePrototype>(vm.heap)) JSTestPluginInterfacePrototype(vm, globalObject, structure);
+        JSTestPluginInterfacePrototype* ptr = new (NotNull, JSC::allocateCell<JSTestPluginInterfacePrototype>(vm)) JSTestPluginInterfacePrototype(vm, globalObject, structure);
         ptr->finishCreation(vm);
         return ptr;
     }
@@ -265,9 +265,6 @@ void JSTestPluginInterface::visitChildrenImpl(JSCell* cell, Visitor& visitor)
     auto* thisObject = jsCast<JSTestPluginInterface*>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     Base::visitChildren(thisObject, visitor);
-#if PLATFORM(COCOA)
-    thisObject->wrapped().pluginReplacementScriptObject().visit(visitor);
-#endif
 }
 
 DEFINE_VISIT_CHILDREN(JSTestPluginInterface);

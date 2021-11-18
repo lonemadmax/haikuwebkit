@@ -26,7 +26,6 @@
 #pragma once
 
 #include "ArrayBufferView.h"
-#include "DeferGC.h"
 #include "Error.h"
 #include "ExceptionHelpers.h"
 #include "JSArrayBuffer.h"
@@ -58,7 +57,7 @@ JSGenericTypedArrayView<Adaptor>* JSGenericTypedArrayView<Adaptor>::create(
         return nullptr;
     }
     JSGenericTypedArrayView* result =
-        new (NotNull, allocateCell<JSGenericTypedArrayView>(vm.heap))
+        new (NotNull, allocateCell<JSGenericTypedArrayView>(vm))
         JSGenericTypedArrayView(vm, context);
     result->finishCreation(vm);
     return result;
@@ -72,7 +71,7 @@ JSGenericTypedArrayView<Adaptor>* JSGenericTypedArrayView<Adaptor>::createWithFa
     ConstructionContext context(structure, length, vector);
     RELEASE_ASSERT(context);
     JSGenericTypedArrayView* result =
-        new (NotNull, allocateCell<JSGenericTypedArrayView>(vm.heap))
+        new (NotNull, allocateCell<JSGenericTypedArrayView>(vm))
         JSGenericTypedArrayView(vm, context);
     result->finishCreation(vm);
     return result;
@@ -91,7 +90,7 @@ JSGenericTypedArrayView<Adaptor>* JSGenericTypedArrayView<Adaptor>::createUninit
         return nullptr;
     }
     JSGenericTypedArrayView* result =
-        new (NotNull, allocateCell<JSGenericTypedArrayView>(vm.heap))
+        new (NotNull, allocateCell<JSGenericTypedArrayView>(vm))
         JSGenericTypedArrayView(vm, context);
     result->finishCreation(vm);
     return result;
@@ -117,7 +116,7 @@ JSGenericTypedArrayView<Adaptor>* JSGenericTypedArrayView<Adaptor>::create(
     ConstructionContext context(vm, structure, WTFMove(buffer), byteOffset, length);
     ASSERT(context);
     JSGenericTypedArrayView* result =
-        new (NotNull, allocateCell<JSGenericTypedArrayView>(vm.heap))
+        new (NotNull, allocateCell<JSGenericTypedArrayView>(vm))
         JSGenericTypedArrayView(vm, context);
     result->finishCreation(vm);
     return result;
@@ -130,7 +129,7 @@ JSGenericTypedArrayView<Adaptor>* JSGenericTypedArrayView<Adaptor>::create(
     ConstructionContext context(vm, structure, impl->possiblySharedBuffer(), impl->byteOffset(), impl->length());
     ASSERT(context);
     JSGenericTypedArrayView* result =
-        new (NotNull, allocateCell<JSGenericTypedArrayView>(vm.heap))
+        new (NotNull, allocateCell<JSGenericTypedArrayView>(vm))
         JSGenericTypedArrayView(vm, context);
     result->finishCreation(vm);
     return result;
@@ -313,19 +312,33 @@ bool JSGenericTypedArrayView<Adaptor>::set(
         if (!success)
             return false;
 
-        // Verify that we won't ever call object->get() with an index of UINT_MAX or more
-        RELEASE_ASSERT(isSumSmallerThanOrEqual(static_cast<uint64_t>(length), static_cast<uint64_t>(objectOffset), static_cast<uint64_t>(std::numeric_limits<unsigned>::max())));
-        // We could optimize this case. But right now, we don't.
-        for (size_t i = 0; i < length; ++i) {
-            JSValue value = object->get(globalObject, static_cast<unsigned>(i + objectOffset));
-            RETURN_IF_EXCEPTION(scope, false);
-            bool success = setIndex(globalObject, offset + i, value);
+        auto trySetIndex = [&](size_t index, JSValue value) -> bool {
+            bool success = setIndex(globalObject, index, value);
             EXCEPTION_ASSERT(!scope.exception() || !success);
             if (!success) {
                 if (isDetached())
                     throwTypeError(globalObject, scope, typedArrayBufferHasBeenDetachedErrorMessage);
                 return false;
             }
+            return true;
+        };
+        // It is not valid to ever call object->get() with an index of more than MAX_ARRAY_INDEX.
+        // So we iterate in the optimized loop up to MAX_ARRAY_INDEX, then if there is anything to do beyond this, we rely on slower code.
+        size_t safeUnadjustedLength = std::min(length, static_cast<size_t>(MAX_ARRAY_INDEX) + 1);
+        size_t safeLength = objectOffset <= safeUnadjustedLength ? safeUnadjustedLength - objectOffset : 0;
+        for (size_t i = 0; i < safeLength; ++i) {
+            ASSERT(i + objectOffset <= MAX_ARRAY_INDEX);
+            JSValue value = object->get(globalObject, static_cast<unsigned>(i + objectOffset));
+            RETURN_IF_EXCEPTION(scope, false);
+            if (!trySetIndex(offset + i, value))
+                return false;
+        }
+        for (size_t i = safeLength; i < length; ++i) {
+            Identifier ident = Identifier::from(vm, static_cast<uint64_t>(i + objectOffset));
+            JSValue value = object->get(globalObject, ident);
+            RETURN_IF_EXCEPTION(scope, false);
+            if (!trySetIndex(offset + i, value))
+                return false;
         }
         return true;
     } }

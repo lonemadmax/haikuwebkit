@@ -21,9 +21,11 @@ skip:
     - json-modules
     - class-static-block
     - callable-boundary-realms
+    - FinalizationRegistry.prototype.cleanupSome
   paths:
     - test/built-ins/Temporal/Calendar
-    - test/built-ins/Temporal/Instant
+    - test/built-ins/Temporal/Instant/prototype/toZonedDateTime
+    - test/built-ins/Temporal/Instant/prototype/toZonedDateTimeISO
     - test/built-ins/Temporal/Now
     - test/built-ins/Temporal/PlainDate
     - test/built-ins/Temporal/PlainDateTime
@@ -34,7 +36,8 @@ skip:
     - test/built-ins/Temporal/TimeZone
     - test/built-ins/Temporal/ZonedDateTime
     - test/intl402/Temporal/Calendar
-    - test/intl402/Temporal/Instant
+    - test/intl402/Temporal/Instant/prototype/toZonedDateTime
+    - test/intl402/Temporal/Instant/prototype/toZonedDateTimeISO
     - test/intl402/Temporal/Now
     - test/intl402/Temporal/PlainDate
     - test/intl402/Temporal/PlainDateTime
@@ -100,6 +103,12 @@ skip:
     # ICU canonicalization bug
     # https://unicode-org.atlassian.net/browse/ICU-21367
     - test/intl402/Intl/getCanonicalLocales/unicode-ext-canonicalize-yes-to-true.js
+
+    # Intl.NumberFormat v3 changes the behavior.
+    - test/intl402/PluralRules/prototype/resolvedOptions/order.js
+    - test/intl402/NumberFormat/prototype/resolvedOptions/basic.js
+    - test/intl402/NumberFormat/prototype/resolvedOptions/order.js
+    - test/intl402/NumberFormat/test-option-useGrouping.js
 
     # Failing because we are building WebKit with very old ICU headers
     - test/intl402/ListFormat/constructor/constructor/locales-invalid.js
@@ -192,44 +201,54 @@ skip:
     - test/built-ins/Temporal/Duration/compare/relativeto-propertybag-timezone-getoffsetnanosecondsfor-wrong-type.js
     - test/built-ins/Temporal/Duration/compare/relativeto-string-plaindatetime.js
     - test/built-ins/Temporal/Duration/compare/relativeto-string-zoneddatetime.js
+    - test/built-ins/Temporal/Duration/compare/relativeto-sub-minute-offset.js
     - test/built-ins/Temporal/Duration/compare/timezone-getpossibleinstantsfor-iterable.js
     - test/built-ins/Temporal/Duration/compare/timezone-string-datetime.js
     - test/built-ins/Temporal/Duration/prototype/add/calendar-fields-iterable.js
     - test/built-ins/Temporal/Duration/prototype/add/read-time-fields-before-datefromfields.js
     - test/built-ins/Temporal/Duration/prototype/add/relativeto-infinity-throws-rangeerror.js
+    - test/built-ins/Temporal/Duration/prototype/add/relativeto-propertybag-no-time-units.js
     - test/built-ins/Temporal/Duration/prototype/add/relativeto-propertybag-timezone-getoffsetnanosecondsfor-wrong-type.js
     - test/built-ins/Temporal/Duration/prototype/add/relativeto-string-datetime.js
     - test/built-ins/Temporal/Duration/prototype/add/relativeto-string-plaindatetime.js
     - test/built-ins/Temporal/Duration/prototype/add/relativeto-string-zoneddatetime.js
+    - test/built-ins/Temporal/Duration/prototype/add/relativeto-sub-minute-offset.js
     - test/built-ins/Temporal/Duration/prototype/add/timezone-getpossibleinstantsfor-iterable.js
     - test/built-ins/Temporal/Duration/prototype/add/timezone-string-datetime.js
     - test/built-ins/Temporal/Duration/prototype/round/calendar-fields-iterable.js
     - test/built-ins/Temporal/Duration/prototype/round/read-time-fields-before-datefromfields.js
     - test/built-ins/Temporal/Duration/prototype/round/relativeto-infinity-throws-rangeerror.js
+    - test/built-ins/Temporal/Duration/prototype/round/relativeto-propertybag-no-time-units.js
     - test/built-ins/Temporal/Duration/prototype/round/relativeto-propertybag-timezone-getoffsetnanosecondsfor-non-integer.js
     - test/built-ins/Temporal/Duration/prototype/round/relativeto-propertybag-timezone-getoffsetnanosecondsfor-out-of-range.js
     - test/built-ins/Temporal/Duration/prototype/round/relativeto-propertybag-timezone-getoffsetnanosecondsfor-wrong-type.js
     - test/built-ins/Temporal/Duration/prototype/round/relativeto-string-datetime.js
     - test/built-ins/Temporal/Duration/prototype/round/relativeto-string-plaindatetime.js
+    - test/built-ins/Temporal/Duration/prototype/round/relativeto-string-zoneddatetime-wrong-offset.js
     - test/built-ins/Temporal/Duration/prototype/round/relativeto-string-zoneddatetime.js
+    - test/built-ins/Temporal/Duration/prototype/round/relativeto-sub-minute-offset.js
     - test/built-ins/Temporal/Duration/prototype/round/timezone-getpossibleinstantsfor-iterable.js
     - test/built-ins/Temporal/Duration/prototype/round/timezone-string-datetime.js
     - test/built-ins/Temporal/Duration/prototype/subtract/calendar-fields-iterable.js
     - test/built-ins/Temporal/Duration/prototype/subtract/read-time-fields-before-datefromfields.js
     - test/built-ins/Temporal/Duration/prototype/subtract/relativeto-infinity-throws-rangeerror.js
+    - test/built-ins/Temporal/Duration/prototype/subtract/relativeto-propertybag-no-time-units.js
     - test/built-ins/Temporal/Duration/prototype/subtract/relativeto-propertybag-timezone-getoffsetnanosecondsfor-wrong-type.js
     - test/built-ins/Temporal/Duration/prototype/subtract/relativeto-string-datetime.js
     - test/built-ins/Temporal/Duration/prototype/subtract/relativeto-string-plaindatetime.js
     - test/built-ins/Temporal/Duration/prototype/subtract/relativeto-string-zoneddatetime.js
+    - test/built-ins/Temporal/Duration/prototype/subtract/relativeto-sub-minute-offset.js
     - test/built-ins/Temporal/Duration/prototype/subtract/timezone-getpossibleinstantsfor-iterable.js
     - test/built-ins/Temporal/Duration/prototype/subtract/timezone-string-datetime.js
     - test/built-ins/Temporal/Duration/prototype/total/calendar-fields-iterable.js
     - test/built-ins/Temporal/Duration/prototype/total/read-time-fields-before-datefromfields.js
     - test/built-ins/Temporal/Duration/prototype/total/relativeto-infinity-throws-rangeerror.js
+    - test/built-ins/Temporal/Duration/prototype/total/relativeto-propertybag-no-time-units.js
     - test/built-ins/Temporal/Duration/prototype/total/relativeto-propertybag-timezone-getoffsetnanosecondsfor-wrong-type.js
     - test/built-ins/Temporal/Duration/prototype/total/relativeto-string-datetime.js
     - test/built-ins/Temporal/Duration/prototype/total/relativeto-string-plaindatetime.js
     - test/built-ins/Temporal/Duration/prototype/total/relativeto-string-zoneddatetime.js
+    - test/built-ins/Temporal/Duration/prototype/total/relativeto-sub-minute-offset.js
     - test/built-ins/Temporal/Duration/prototype/total/timezone-getpossibleinstantsfor-iterable.js
     - test/built-ins/Temporal/Duration/prototype/total/timezone-string-datetime.js
     - test/intl402/Temporal/Duration/prototype/add/relativeto-infinity-throws-rangeerror.js
@@ -247,6 +266,7 @@ skip:
     - test/built-ins/Temporal/Duration/prototype/toString/smallestunit-plurals-accepted.js
     - test/built-ins/Temporal/Duration/prototype/total/calendar-temporal-object.js
     - test/built-ins/Temporal/Duration/prototype/total/unit-plurals-accepted.js
+    - test/built-ins/Temporal/Instant/prototype/toString/smallestunit-plurals-accepted.js
     - test/built-ins/Temporal/PlainTime/compare/calendar-temporal-object.js
     - test/built-ins/Temporal/PlainTime/from/calendar-temporal-object.js
     - test/built-ins/Temporal/PlainTime/prototype/equals/calendar-temporal-object.js
@@ -271,6 +291,13 @@ skip:
     - test/built-ins/Temporal/Duration/prototype/subtract/negative-infinity-throws-rangeerror.js
     - test/built-ins/Temporal/Duration/prototype/subtract/order-of-operations.js
     - test/built-ins/Temporal/Duration/prototype/total/dateuntil-field.js
+
+    # Depends on Temporal.TimeZone
+    - test/built-ins/Temporal/Instant/prototype/toString/timezone-getoffsetnanosecondsfor-non-integer.js
+    - test/built-ins/Temporal/Instant/prototype/toString/timezone-getoffsetnanosecondsfor-out-of-range.js
+    - test/built-ins/Temporal/Instant/prototype/toString/timezone-getoffsetnanosecondsfor-wrong-type.js
+    - test/built-ins/Temporal/Instant/prototype/toString/timezone-string-datetime.js
+    - test/built-ins/Temporal/Instant/prototype/toString/timezone.js
 
     # Depends on Temporal.ZonedDateTime
     - test/built-ins/Temporal/Duration/compare/relativeto-zoneddatetime-negative-epochnanoseconds.js
@@ -299,6 +326,11 @@ skip:
     - test/built-ins/Temporal/Duration/prototype/total/relativeto-zoneddatetime-timezone-getoffsetnanosecondsfor-non-integer.js
     - test/built-ins/Temporal/Duration/prototype/total/relativeto-zoneddatetime-timezone-getoffsetnanosecondsfor-out-of-range.js
     - test/built-ins/Temporal/Duration/prototype/total/relativeto-zoneddatetime-timezone-getoffsetnanosecondsfor-wrong-type.js
+    - test/built-ins/Temporal/Instant/compare/argument-zoneddatetime.js
+    - test/built-ins/Temporal/Instant/from/argument-zoneddatetime.js
+    - test/built-ins/Temporal/Instant/prototype/equals/argument-zoneddatetime.js
+    - test/built-ins/Temporal/Instant/prototype/since/argument-zoneddatetime.js
+    - test/built-ins/Temporal/Instant/prototype/until/argument-zoneddatetime.js
     - test/built-ins/Temporal/PlainTime/compare/argument-zoneddatetime-negative-epochnanoseconds.js
     - test/built-ins/Temporal/PlainTime/compare/argument-zoneddatetime-timezone-getoffsetnanosecondsfor-non-integer.js
     - test/built-ins/Temporal/PlainTime/compare/argument-zoneddatetime-timezone-getoffsetnanosecondsfor-out-of-range.js
@@ -334,5 +366,6 @@ skip:
     - test/built-ins/Temporal/Duration/prototype/round/balance-negative-result.js
     - test/built-ins/Temporal/Duration/prototype/round/round-negative-result.js
     - test/built-ins/Temporal/Duration/prototype/subtract/balance-negative-result.js
+    - test/built-ins/Temporal/Instant/prototype/until/instant-string.js
     - test/built-ins/Temporal/PlainTime/prototype/since/balance-negative-time-units.js
     - test/built-ins/Temporal/PlainTime/prototype/until/balance-negative-time-units.js

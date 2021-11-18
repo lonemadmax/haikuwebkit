@@ -118,23 +118,13 @@ void RenderLayerFilters::removeReferenceFilterClients()
 
 void RenderLayerFilters::buildFilter(RenderElement& renderer, float scaleFactor, RenderingMode renderingMode)
 {
-    if (!m_filter) {
-        m_filter = CSSFilter::create();
-        m_filter->setFilterScale(scaleFactor);
-        m_filter->setRenderingMode(renderingMode);
-    } else if (m_filter->filterScale() != scaleFactor) {
-        m_filter->setFilterScale(scaleFactor);
-        m_filter->clearIntermediateResults();
-    }
-
     // If the filter fails to build, remove it from the layer. It will still attempt to
     // go through regular processing (e.g. compositing), but never apply anything.
     // FIXME: this rebuilds the entire effects chain even if the filter style didn't change.
-    if (!m_filter->build(renderer, renderer.style().filter(), FilterConsumer::FilterProperty))
-        m_filter = nullptr;
+    m_filter = CSSFilter::create(renderer.style().filter(), renderingMode, scaleFactor);
 }
 
-GraphicsContext* RenderLayerFilters::beginFilterEffect(GraphicsContext& destinationContext, const LayoutRect& filterBoxRect, const LayoutRect& dirtyRect, const LayoutRect& layerRepaintRect)
+GraphicsContext* RenderLayerFilters::beginFilterEffect(GraphicsContext& destinationContext, RenderElement& renderer, const LayoutRect& filterBoxRect, const LayoutRect& dirtyRect, const LayoutRect& layerRepaintRect)
 {
     if (!m_filter)
         return nullptr;
@@ -145,6 +135,15 @@ GraphicsContext* RenderLayerFilters::beginFilterEffect(GraphicsContext& destinat
         return nullptr;
 
     bool hasUpdatedBackingStore = filter.updateBackingStoreRect(filterSourceRect);
+
+    // FIXME: this call should be moved to CSSFilter::create() when FilterEffect does not store its geometry.
+    if (hasUpdatedBackingStore || !m_filter->lastEffect()) {
+        // If the filter fails to build, remove it from the layer. It will still attempt to
+        // go through regular processing (e.g. compositing), but never apply anything.
+        if (!m_filter->buildFilterFunctions(renderer, renderer.style().filter(), FilterConsumer::FilterProperty))
+            return nullptr;
+    }
+    
     if (!filter.hasFilterThatMovesPixels())
         m_repaintRect = dirtyRect;
     else {
@@ -190,8 +189,11 @@ void RenderLayerFilters::applyFilterEffect(GraphicsContext& destinationContext)
     LayoutRect destRect = filter.outputRect();
     destRect.move(m_paintOffset.x(), m_paintOffset.y());
 
-    if (auto* outputBuffer = filter.output())
+    if (auto* outputBuffer = filter.output()) {
+        destinationContext.scale({ 1 / filter.filterScale().width(), 1 / filter.filterScale().height() });
         destinationContext.drawImageBuffer(*outputBuffer, snapRectToDevicePixels(destRect, m_layer.renderer().document().deviceScaleFactor()));
+        destinationContext.scale(filter.filterScale());
+    }
 
     filter.clearIntermediateResults();
 

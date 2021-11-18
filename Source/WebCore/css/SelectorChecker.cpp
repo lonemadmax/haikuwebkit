@@ -45,6 +45,7 @@
 #include "RenderElement.h"
 #include "SelectorCheckerTestFunctions.h"
 #include "ShadowRoot.h"
+#include "StyleScope.h"
 #include "Text.h"
 #include "TypedElementDescendantIterator.h"
 
@@ -76,7 +77,7 @@ struct SelectorChecker::LocalContext {
     bool pseudoElementEffective { true };
     bool hasScrollbarPseudo { false };
     bool hasSelectionPseudo { false };
-    bool mayMatchHostPseudoClass { false };
+    bool mustMatchHostPseudoClass { false };
 };
 
 static inline void addStyleRelation(SelectorChecker::CheckingContext& checkingContext, const Element& element, Style::Relation::Type type, unsigned value = 1)
@@ -175,9 +176,10 @@ bool SelectorChecker::match(const CSSSelector& selector, const Element& element,
 {
     LocalContext context(selector, element, checkingContext.resolvingMode == SelectorChecker::Mode::QueryingRules ? VisitedMatchType::Disabled : VisitedMatchType::Enabled, checkingContext.pseudoId);
 
-    if (checkingContext.isMatchingHostPseudoClass) {
+    if (checkingContext.styleScopeOrdinal == Style::ScopeOrdinal::Shadow) {
         ASSERT(element.shadowRoot());
-        context.mayMatchHostPseudoClass = true;
+        // Rules coming from the element's shadow tree must match :host pseudo class.
+        context.mustMatchHostPseudoClass = true;
     }
 
     PseudoIdSet pseudoIdSet;
@@ -201,8 +203,8 @@ bool SelectorChecker::match(const CSSSelector& selector, const Element& element,
 
 bool SelectorChecker::matchHostPseudoClass(const CSSSelector& selector, const Element& element, CheckingContext& checkingContext) const
 {
-    ASSERT(element.shadowRoot());
-    ASSERT(selector.match() == CSSSelector::PseudoClass && selector.pseudoClassType() == CSSSelector::PseudoClassHost);
+    if (!element.shadowRoot())
+        return false;
 
     if (auto* selectorList = selector.selectorList()) {
         LocalContext context(*selectorList->first(), element, VisitedMatchType::Enabled, PseudoId::None);
@@ -236,7 +238,7 @@ static SelectorChecker::LocalContext localContextForParent(const SelectorChecker
     updatedContext.isMatchElement = false;
     updatedContext.isSubjectOrAdjacentElement = false;
 
-    if (updatedContext.mayMatchHostPseudoClass) {
+    if (updatedContext.mustMatchHostPseudoClass) {
         updatedContext.element = nullptr;
         return updatedContext;
     }
@@ -244,7 +246,7 @@ static SelectorChecker::LocalContext localContextForParent(const SelectorChecker
     // Move to the shadow host if matching :host and the parent is the shadow root.
     if (context.selector->match() == CSSSelector::PseudoClass && context.selector->pseudoClassType() == CSSSelector::PseudoClassHost && is<ShadowRoot>(context.element->parentNode())) {
         updatedContext.element = downcast<ShadowRoot>(*context.element->parentNode()).host();
-        updatedContext.mayMatchHostPseudoClass = true;
+        updatedContext.mustMatchHostPseudoClass = true;
         return updatedContext;
     }
 
@@ -316,8 +318,7 @@ SelectorChecker::MatchResult SelectorChecker::matchRecursively(CheckingContext& 
 
         nextContext.pseudoId = PseudoId::None;
 
-        bool nextIsPart = leftSelector->match() == CSSSelector::PseudoElement && leftSelector->pseudoElementType() == CSSSelector::PseudoElementPart;
-        bool allowMultiplePseudoElements = relation == CSSSelector::ShadowDescendant && nextIsPart;
+        bool allowMultiplePseudoElements = relation == CSSSelector::ShadowDescendant;
         // Virtual pseudo element is only effective in the rightmost fragment.
         if (!allowMultiplePseudoElements)
             nextContext.pseudoElementEffective = false;
@@ -407,13 +408,12 @@ SelectorChecker::MatchResult SelectorChecker::matchRecursively(CheckingContext& 
 
             return MatchResult::updateWithMatchType(result, matchType);
         }
-    case CSSSelector::ShadowDescendant:
-    case CSSSelector::ShadowPartDescendant: {
-        // When matching foo::part(bar) we skip directly to the tree of element 'foo'.
-        auto* shadowHost = relation == CSSSelector::ShadowPartDescendant ? checkingContext.shadowHostInPartRuleScope : context.element->shadowHost();
-        if (!shadowHost)
+    case CSSSelector::ShadowDescendant:  {
+        auto* host = context.element->shadowHost();
+        if (!host)
             return MatchResult::fails(Match::SelectorFailsCompletely);
-        nextContext.element = shadowHost;
+
+        nextContext.element = host;
         nextContext.firstSelectorOfTheFragment = nextContext.selector;
         nextContext.isSubjectOrAdjacentElement = false;
         PseudoIdSet ignoreDynamicPseudo;
@@ -421,15 +421,28 @@ SelectorChecker::MatchResult SelectorChecker::matchRecursively(CheckingContext& 
 
         return MatchResult::updateWithMatchType(result, matchType);
     }
-    case CSSSelector::ShadowSlotted: {
-        auto* slot = context.element->assignedSlot();
-        if (!slot)
+    case CSSSelector::ShadowPartDescendant: {
+        // Continue matching in the scope where this rule came from.
+        auto* host = checkingContext.styleScopeOrdinal == Style::ScopeOrdinal::Element
+            ? context.element->shadowHost()
+            : Style::hostForScopeOrdinal(*context.element, checkingContext.styleScopeOrdinal);
+        if (!host)
             return MatchResult::fails(Match::SelectorFailsCompletely);
+
+        nextContext.element = host;
+        nextContext.firstSelectorOfTheFragment = nextContext.selector;
+        nextContext.isSubjectOrAdjacentElement = false;
+        // ::part rules from the element's own scope can only match if they apply to :host.
+        nextContext.mustMatchHostPseudoClass = checkingContext.styleScopeOrdinal == Style::ScopeOrdinal::Element;
+        PseudoIdSet ignoreDynamicPseudo;
+        MatchResult result = matchRecursively(checkingContext, nextContext, ignoreDynamicPseudo);
+
+        return MatchResult::updateWithMatchType(result, matchType);
+    }
+    case CSSSelector::ShadowSlotted: {
         // We continue matching in the scope where this rule came from.
-        auto scopeDepth = static_cast<int>(checkingContext.styleScopeOrdinal);
-        while (--scopeDepth && slot->assignedSlot())
-            slot = slot->assignedSlot();
-        if (scopeDepth)
+        auto slot = Style::assignedSlotForScopeOrdinal(*context.element, checkingContext.styleScopeOrdinal);
+        if (!slot)
             return MatchResult::fails(Match::SelectorFailsCompletely);
 
         nextContext.element = slot;
@@ -644,7 +657,7 @@ bool SelectorChecker::checkOne(CheckingContext& checkingContext, const LocalCont
     const Element& element = *context.element;
     const CSSSelector& selector = *context.selector;
 
-    if (context.mayMatchHostPseudoClass) {
+    if (context.mustMatchHostPseudoClass) {
         // :host doesn't combine with anything except pseudo elements.
         bool isHostPseudoClass = selector.match() == CSSSelector::PseudoClass && selector.pseudoClassType() == CSSSelector::PseudoClassHost;
         bool isPseudoElement = selector.match() == CSSSelector::PseudoElement;
@@ -969,6 +982,8 @@ bool SelectorChecker::checkOne(CheckingContext& checkingContext, const LocalCont
             break;
         case CSSSelector::PseudoClassAutofill:
             return isAutofilled(element);
+        case CSSSelector::PseudoClassAutofillAndObscured:
+            return isAutofilledAndObscured(element);
         case CSSSelector::PseudoClassAutofillStrongPassword:
             return isAutofilledStrongPassword(element);
         case CSSSelector::PseudoClassAutofillStrongPasswordViewable:
@@ -1092,7 +1107,7 @@ bool SelectorChecker::checkOne(CheckingContext& checkingContext, const LocalCont
             break;
         }
         case CSSSelector::PseudoClassHost: {
-            if (!context.mayMatchHostPseudoClass)
+            if (!context.mustMatchHostPseudoClass)
                 return false;
             return matchHostPseudoClass(selector, element, checkingContext);
         }
@@ -1159,6 +1174,9 @@ bool SelectorChecker::checkOne(CheckingContext& checkingContext, const LocalCont
         case CSSSelector::PseudoElementSlotted: {
             if (!context.element->assignedSlot())
                 return false;
+            // ::slotted matches after flattening so it can't match an active <slot>.
+            if (is<HTMLSlotElement>(*context.element) && context.element->containingShadowRoot())
+                return false;
             auto* subselector = context.selector->selectorList()->first();
             LocalContext subcontext(context);
             subcontext.selector = subselector;
@@ -1171,11 +1189,17 @@ bool SelectorChecker::checkOne(CheckingContext& checkingContext, const LocalCont
         case CSSSelector::PseudoElementPart: {
             auto translatePartNameToRuleScope = [&](AtomString partName) {
                 Vector<AtomString, 1> mappedNames { partName };
+
+                if (checkingContext.styleScopeOrdinal == Style::ScopeOrdinal::Element)
+                    return mappedNames;
+
+                auto* ruleScopeHost = Style::hostForScopeOrdinal(*context.element, checkingContext.styleScopeOrdinal);
+
                 for (auto* shadowRoot = element.containingShadowRoot(); shadowRoot; shadowRoot = shadowRoot->host()->containingShadowRoot()) {
                     // Apply mappings up to the scope the rules are coming from.
-                    if (shadowRoot->host() == checkingContext.shadowHostInPartRuleScope)
+                    if (shadowRoot->host() == ruleScopeHost)
                         break;
-                    
+
                     Vector<AtomString, 1> newMappedNames;
                     for (auto& name : mappedNames)
                         newMappedNames.appendVector(shadowRoot->partMappings().get(name));

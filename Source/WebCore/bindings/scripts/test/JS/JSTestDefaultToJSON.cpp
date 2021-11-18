@@ -114,7 +114,7 @@ public:
     using Base = JSC::JSNonFinalObject;
     static JSTestDefaultToJSONPrototype* create(JSC::VM& vm, JSDOMGlobalObject* globalObject, JSC::Structure* structure)
     {
-        JSTestDefaultToJSONPrototype* ptr = new (NotNull, JSC::allocateCell<JSTestDefaultToJSONPrototype>(vm.heap)) JSTestDefaultToJSONPrototype(vm, globalObject, structure);
+        JSTestDefaultToJSONPrototype* ptr = new (NotNull, JSC::allocateCell<JSTestDefaultToJSONPrototype>(vm)) JSTestDefaultToJSONPrototype(vm, globalObject, structure);
         ptr->finishCreation(vm);
         return ptr;
     }
@@ -319,7 +319,7 @@ static inline bool setJSTestDefaultToJSON_eventHandlerAttributeSetter(JSGlobalOb
 {
     auto& vm = JSC::getVM(&lexicalGlobalObject);
     setEventHandlerAttribute(lexicalGlobalObject, thisObject, thisObject.wrapped(), eventNames().entHandlerAttributeEvent, value);
-    vm.heap.writeBarrier(&thisObject, value);
+    vm.writeBarrier(&thisObject, value);
     ensureStillAliveHere(value);
 
     return true;

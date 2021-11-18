@@ -62,7 +62,7 @@ using namespace ImageDiff;
 #define FORMAT_SIZE_T "zu"
 #endif
 
-static int processImages(std::unique_ptr<PlatformImage>&& actualImage, std::unique_ptr<PlatformImage>&& baselineImage, float tolerance, bool printDifference)
+static int processImages(std::unique_ptr<PlatformImage>&& actualImage, std::unique_ptr<PlatformImage>&& baselineImage, bool exact, bool printDifference)
 {
     if (!actualImage->isCompatible(*baselineImage)) {
         if (actualImage->width() != baselineImage->width() || actualImage->height() != baselineImage->height()) {
@@ -77,14 +77,14 @@ static int processImages(std::unique_ptr<PlatformImage>&& actualImage, std::uniq
     }
 
     PlatformImage::Difference differenceData = { 100, 0, 0 };
-    auto diffImage = actualImage->difference(*baselineImage, differenceData);
+    auto diffImage = actualImage->difference(*baselineImage, exact, differenceData);
     if (diffImage)
         diffImage->writeAsPNGToStdout();
 
     fprintf(stdout, "diff: %01.8f%%\n", differenceData.percentageDifference);
 
     if (printDifference)
-        fprintf(stdout, "maxDifference=%u; totalPixels=%lu\n", differenceData.maxDifference, differenceData.totalPixels);
+        fprintf(stdout, "maxDifference=%u; totalPixels=%zu\n", differenceData.maxDifference, differenceData.totalPixels);
 
     fprintf(stdout, "#EOF\n");
     fflush(stdout);
@@ -106,25 +106,11 @@ int main(int argc, const char* argv[])
 	receive_data(&appthread, NULL, 0);
 #endif
 
-    float tolerance = 0.0f;
     bool verbose = false;
+    bool exact = false;
     bool printDifference = false;
 
     for (int i = 1; i < argc; ++i) {
-        if (!strcmp(argv[i], "-t") || !strcmp(argv[i], "--tolerance")) {
-            if (i >= argc - 1)
-                return EXIT_FAILURE;
-            
-            char* readEnd = NULL;
-            tolerance = strtof(argv[i + 1], &readEnd);
-            if (readEnd == argv[i + 1]) {
-                fprintf(stderr, "Failed to read numberic tolerance value from %s\n", argv[i + 1]);
-                return EXIT_FAILURE;
-            }
-            ++i;
-            continue;
-        }
-
         if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose")) {
             verbose = true;
             continue;
@@ -135,9 +121,14 @@ int main(int argc, const char* argv[])
             continue;
         }
 
+        if (!strcmp(argv[i], "-e") || !strcmp(argv[i], "--exact")) {
+            exact = true;
+            continue;
+        }
+
         if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
             fprintf(stdout,
-                "usage: ImageDiff [-h] [-v] [-d] [-t TOLERANCE] ([actualImage baselineImage] | <stdin>)\n" \
+                "usage: ImageDiff [-h] [-v] [-d] [-e] ([actualImage baselineImage] | <stdin>)\n" \
                 "\n" \
                 "Reads two PNG-encoded images and compares them. If two file path arguments are supplied, \n" \
                 "reads from the specified files, otherwise from <stdin> where each file is preceded by \n" \
@@ -147,8 +138,7 @@ int main(int argc, const char* argv[])
                 "  -h, --help            show this help message and exit\n" \
                 "  -v, --verbose         print diagnostic information to stderr\n" \
                 "  -d, --difference      print WPT-style maxDifference and totalPixels data\n" \
-                "  -t, --tolerance TOLERANCE\n" \
-                "                        compare the images with the given tolerance\n"
+                "  -e, --exact           use exact matching (no built-in per-component tolerance)\n"
             );
             return EXIT_SUCCESS;
         }
@@ -183,7 +173,7 @@ int main(int argc, const char* argv[])
             if (verbose)
                 fprintf(stderr, "Comparing files actual: %s and baseline: %s\n", file1Path, file2Path);
 
-            return processImages(std::move(actualImage), std::move(baselineImage), tolerance, printDifference);
+            return processImages(std::move(actualImage), std::move(baselineImage), exact, printDifference);
         }
     }
 
@@ -229,9 +219,7 @@ int main(int argc, const char* argv[])
         }
 
         if (actualImage && baselineImage) {
-            if (verbose)
-                fprintf(stderr, "ImageDiff: processing images with tolerance %01.2f%%\n", tolerance);
-            auto result = processImages(std::exchange(actualImage, { }), std::exchange(baselineImage, { }), tolerance, printDifference);
+            auto result = processImages(std::exchange(actualImage, { }), std::exchange(baselineImage, { }), exact, printDifference);
             if (result != EXIT_SUCCESS)
                 return result;
         }

@@ -63,6 +63,10 @@
 #include "Counter.h"
 #include "FontFace.h"
 #include "HashTools.h"
+// FIXME-NEWPARSER: CSSPrimitiveValue is a large class that holds many unrelated objects,
+// switching behavior on the type of the object it is holding.
+// Since CSSValue is already a class hierarchy, this adds an unnecessary second level to the hierarchy that complicates code.
+// So we need to remove the various behaviors from CSSPrimitiveValue and split them into separate subclasses of CSSValue.
 // FIXME-NEWPARSER: Replace Pair and Rect with actual CSSValue subclasses (CSSValuePair and CSSQuadValue).
 #include "Pair.h"
 #include "Rect.h"
@@ -254,20 +258,11 @@ static RefPtr<CSSValue> maybeConsumeCSSWideKeyword(CSSParserTokenRange& range)
     if (!rangeCopy.atEnd())
         return nullptr;
 
-    RefPtr<CSSValue> value;
-    if (valueID == CSSValueInherit)
-        value = CSSValuePool::singleton().createInheritedValue();
-    else if (valueID == CSSValueInitial)
-        value = CSSValuePool::singleton().createExplicitInitialValue();
-    else if (valueID == CSSValueUnset)
-        value = CSSValuePool::singleton().createUnsetValue();
-    else if (valueID == CSSValueRevert)
-        value = CSSValuePool::singleton().createRevertValue();
-    else
+    if (!isCSSWideKeyword(valueID))
         return nullptr;
 
     range = rangeCopy;
-    return value;
+    return CSSValuePool::singleton().createIdentifierValue(valueID);
 }
 
 RefPtr<CSSValue> CSSPropertyParser::parseSingleValue(CSSPropertyID property, const CSSParserTokenRange& range, const CSSParserContext& context)
@@ -493,40 +488,35 @@ static RefPtr<CSSValue> consumeWillChange(CSSParserTokenRange& range)
     RefPtr<CSSValueList> values = CSSValueList::createCommaSeparated();
     // Every comma-separated list of identifiers is a valid will-change value,
     // unless the list includes an explicitly disallowed identifier.
-    while (true) {
-        if (range.peek().type() != IdentToken)
+    while (!range.atEnd()) {
+        switch (range.peek().id()) {
+        case CSSValueContents:
+        case CSSValueScrollPosition:
+            values->append(consumeIdent(range).releaseNonNull());
+            break;
+        case CSSValueNone:
+        case CSSValueAll:
+        case CSSValueAuto:
             return nullptr;
-        CSSPropertyID propertyID = cssPropertyID(range.peek().value());
-        if (propertyID != CSSPropertyInvalid) {
-            // Now "all" is used by both CSSValue and CSSPropertyValue.
-            // Need to return nullptr when currentValue is CSSPropertyAll.
-            if (propertyID == CSSPropertyWillChange || propertyID == CSSPropertyAll)
+        default:
+            CSSPropertyID propertyID = cssPropertyID(range.peek().value());
+            if (propertyID == CSSPropertyWillChange)
                 return nullptr;
-            values->append(CSSValuePool::singleton().createIdentifierValue(propertyID));
-            range.consumeIncludingWhitespace();
-        } else {
-            switch (range.peek().id()) {
-            case CSSValueNone:
-            case CSSValueAll:
-            case CSSValueAuto:
-            case CSSValueDefault:
-            case CSSValueInitial:
-            case CSSValueInherit:
-                return nullptr;
-            case CSSValueContents:
-            case CSSValueScrollPosition:
-                values->append(consumeIdent(range).releaseNonNull());
-                break;
-            default:
-                // Append properties we don't recognize, but that are legal, as strings.
-                values->append(consumeCustomIdent(range).releaseNonNull());
+            if (propertyID != CSSPropertyInvalid) {
+                values->append(CSSValuePool::singleton().createIdentifierValue(propertyID));
+                range.consumeIncludingWhitespace();
                 break;
             }
+            if (auto customIdent = consumeCustomIdent(range)) {
+                // Append properties we don't recognize, but that are legal, as strings.
+                values->append(customIdent.releaseNonNull());
+                break;
+            }
+            return nullptr;
         }
 
-        if (range.atEnd())
-            break;
-        if (!consumeCommaIncludingWhitespace(range))
+        // This is a comma separated list
+        if (!range.atEnd() && !consumeCommaIncludingWhitespace(range))
             return nullptr;
     }
 
@@ -987,19 +977,51 @@ static RefPtr<CSSValue> consumeFontSynthesis(CSSParserTokenRange& range)
     CSSValueID id = range.peek().id();
     if (id == CSSValueNone)
         return consumeIdent(range);
-    
-    RefPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
+
+    bool foundWeight = false;
+    bool foundStyle = false;
+    bool foundSmallCaps = false;
+
+    auto checkAndMarkExistence = [](bool* found) {
+        if (*found)
+            return false;
+        return *found = true;
+    };
+
     while (true) {
         auto ident = consumeIdent<CSSValueWeight, CSSValueStyle, CSSValueSmallCaps>(range);
         if (!ident)
             break;
-        if (list->hasValue(ident.get()))
+        switch (ident->valueID()) {
+        case CSSValueWeight:
+            if (!checkAndMarkExistence(&foundWeight))
+                return nullptr;
+            break;
+        case CSSValueStyle:
+            if (!checkAndMarkExistence(&foundStyle))
+                return nullptr;
+            break;
+        case CSSValueSmallCaps:
+            if (!checkAndMarkExistence(&foundSmallCaps))
+                return nullptr;
+            break;
+        default:
+            ASSERT_NOT_REACHED();
             return nullptr;
-        list->append(ident.releaseNonNull());
+        }
     }
-    
+
+    RefPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
+    if (foundWeight)
+        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueWeight));
+    if (foundStyle)
+        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueStyle));
+    if (foundSmallCaps)
+        list->append(CSSValuePool::singleton().createIdentifierValue(CSSValueSmallCaps));
+
     if (!list->length())
         return nullptr;
+
     return list;
 }
 
@@ -1827,16 +1849,22 @@ static bool consumeNumbersOrPercents(CSSParserTokenRange& args, RefPtr<CSSFuncti
 
 static bool consumePerspective(CSSParserTokenRange& args, CSSParserMode cssParserMode, RefPtr<CSSFunctionValue>& transformValue)
 {
+    if (args.peek().id() == CSSValueNone) {
+        transformValue->append(consumeIdent(args).releaseNonNull());
+        return true;
+    }
+
     if (auto parsedValue = consumeLength(args, cssParserMode, ValueRange::NonNegative)) {
         transformValue->append(parsedValue.releaseNonNull());
         return true;
     }
 
-    auto perspective = consumeNumberRaw(args);
-    if (!perspective || *perspective < 0)
-        return false;
-    transformValue->append(CSSPrimitiveValue::create(*perspective, CSSUnitType::CSS_PX));
-    return true;
+    if (auto perspective = consumeNumberRaw(args, ValueRange::NonNegative)) {
+        transformValue->append(CSSPrimitiveValue::create(*perspective, CSSUnitType::CSS_PX));
+        return true;
+    }
+
+    return false;
 }
 
 static RefPtr<CSSValue> consumeTransformValue(CSSParserTokenRange& range, CSSParserMode cssParserMode)
@@ -2241,7 +2269,7 @@ static RefPtr<CSSValue> consumeNoneOrURI(CSSParserTokenRange& range)
 static RefPtr<CSSValue> consumeFlexBasis(CSSParserTokenRange& range, CSSParserMode cssParserMode)
 {
     // FIXME: Support intrinsic dimensions too.
-    if (range.peek().id() == CSSValueAuto)
+    if (range.peek().id() == CSSValueAuto || range.peek().id() == CSSValueContent)
         return consumeIdent(range);
     return consumeLengthOrPercent(range, cssParserMode, ValueRange::NonNegative);
 }
@@ -2737,8 +2765,10 @@ static RefPtr<CSSValue> consumeBasicShapeOrBox(CSSParserTokenRange& range, const
     
     return list;
 }
-    
-static RefPtr<CSSValue> consumeClipPath(CSSParserTokenRange& range, const CSSParserContext& context)
+
+// Consumes shapes accepted by clip-path and offset-path.
+// FIXME: implement support for ray() shape accepted by offset-path.
+static RefPtr<CSSValue> consumePathOperation(CSSParserTokenRange& range, const CSSParserContext& context)
 {
     if (range.peek().id() == CSSValueNone)
         return consumeIdent(range);
@@ -4349,6 +4379,8 @@ RefPtr<CSSValue> CSSPropertyParser::parseSingleValue(CSSPropertyID property, CSS
         if (auto parsedValue = consumeNumber(m_range, ValueRange::All))
             return parsedValue;
         return consumePercent(m_range, ValueRange::All);
+    case CSSPropertyOffsetPath:
+        return consumePathOperation(m_range, m_context);
     case CSSPropertyOffsetDistance:
         return consumeLengthOrPercent(m_range, m_context.mode, ValueRange::All, UnitlessQuirk::Forbid);
     case CSSPropertyOffsetPosition:
@@ -4409,7 +4441,7 @@ RefPtr<CSSValue> CSSPropertyParser::parseSingleValue(CSSPropertyID property, CSS
     case CSSPropertyShapeOutside:
         return consumeShapeOutside(m_range, m_context);
     case CSSPropertyClipPath:
-        return consumeClipPath(m_range, m_context);
+        return consumePathOperation(m_range, m_context);
     case CSSPropertyJustifyContent:
         // justify-content property does not allow the <baseline-position> values.
         if (isBaselineKeyword(m_range.peek().id()))
@@ -4528,8 +4560,7 @@ bool CSSPropertyParser::canParseTypedCustomPropertyValue(const String& syntax)
         m_range.consumeWhitespace();
 
         // First check for keywords
-        CSSValueID id = m_range.peek().id();
-        if (id == CSSValueInherit || id == CSSValueInitial || id == CSSValueRevert)
+        if (isCSSWideKeyword(m_range.peek().id()))
             return true;
 
         auto localRange = m_range;
@@ -5237,7 +5268,7 @@ bool CSSPropertyParser::consumeFlex(bool important)
                 else
                     return false;
             } else if (!flexBasis) {
-                if (m_range.peek().id() == CSSValueAuto)
+                if (m_range.peek().id() == CSSValueAuto || m_range.peek().id() == CSSValueContent)
                     flexBasis = consumeIdent(m_range);
                 if (!flexBasis)
                     flexBasis = consumeLengthOrPercent(m_range, m_context.mode, ValueRange::NonNegative);

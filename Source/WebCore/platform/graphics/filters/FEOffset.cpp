@@ -26,20 +26,21 @@
 
 #include "Filter.h"
 #include "GraphicsContext.h"
+#include "ImageBuffer.h"
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
 
-FEOffset::FEOffset(Filter& filter, float dx, float dy)
-    : FilterEffect(filter, Type::Offset)
+Ref<FEOffset> FEOffset::create(float dx, float dy)
+{
+    return adoptRef(*new FEOffset(dx, dy));
+}
+
+FEOffset::FEOffset(float dx, float dy)
+    : FilterEffect(FilterEffect::Type::FEOffset)
     , m_dx(dx)
     , m_dy(dy)
 {
-}
-
-Ref<FEOffset> FEOffset::create(Filter& filter, float dx, float dy)
-{
-    return adoptRef(*new FEOffset(filter, dx, dy));
 }
 
 void FEOffset::setDx(float dx)
@@ -52,11 +53,10 @@ void FEOffset::setDy(float dy)
     m_dy = dy;
 }
 
-void FEOffset::determineAbsolutePaintRect()
+void FEOffset::determineAbsolutePaintRect(const Filter& filter)
 {
     FloatRect paintRect = inputEffect(0)->absolutePaintRect();
-    Filter& filter = this->filter();
-    paintRect.move(filter.scaledByFilterResolution({ m_dx, m_dy }));
+    paintRect.move(filter.scaledByFilterScale({ m_dx, m_dy }));
     if (clipsToBounds())
         paintRect.intersect(maxEffectRect());
     else
@@ -64,7 +64,7 @@ void FEOffset::determineAbsolutePaintRect()
     setAbsolutePaintRect(enclosingIntRect(paintRect));
 }
 
-void FEOffset::platformApplySoftware()
+void FEOffset::platformApplySoftware(const Filter& filter)
 {
     FilterEffect* in = inputEffect(0);
 
@@ -76,8 +76,7 @@ void FEOffset::platformApplySoftware()
     setIsAlphaImage(in->isAlphaImage());
 
     FloatRect drawingRegion = drawingRegionOfInputImage(in->absolutePaintRect());
-    Filter& filter = this->filter();
-    drawingRegion.move(filter.scaledByFilterResolution({ m_dx, m_dy }));
+    drawingRegion.move(filter.scaledByFilterScale({ m_dx, m_dy }));
     resultImage->context().drawImageBuffer(*inBuffer, drawingRegion);
 }
 

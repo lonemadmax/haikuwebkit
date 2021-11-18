@@ -49,6 +49,8 @@ public:
 
     bool hasContent() const { return !m_runs.isEmpty() && !m_runs.last().isLineSpanningInlineBoxStart(); }
 
+    bool contentNeedsBidiReordering() const { return m_hasNonDefaultBidiLevelRun; }
+
     InlineLayoutUnit contentLogicalWidth() const { return m_contentLogicalWidth; }
     InlineLayoutUnit contentLogicalRight() const { return lastRunLogicalRight() + m_clonedEndDecorationWidthForInlineBoxRuns; }
     size_t nonSpanningInlineLevelBoxCount() const { return m_nonSpanningInlineLevelBoxCount; }
@@ -227,6 +229,7 @@ private:
     std::optional<InlineLayoutUnit> m_trailingSoftHyphenWidth { 0 };
     InlineBoxListWithClonedDecorationEnd m_inlineBoxListWithClonedDecorationEnd;
     InlineLayoutUnit m_clonedEndDecorationWidthForInlineBoxRuns { 0 };
+    bool m_hasNonDefaultBidiLevelRun { false };
 };
 
 inline void Line::TrimmableTrailingContent::reset()

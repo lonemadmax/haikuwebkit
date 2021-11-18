@@ -196,6 +196,7 @@ PASS object-fit
 PASS object-position
 PASS offset-anchor
 PASS offset-distance
+PASS offset-path
 PASS offset-position
 PASS opacity
 PASS order
@@ -325,7 +326,6 @@ PASS -webkit-background-clip
 PASS -webkit-background-composite
 PASS -webkit-background-origin
 PASS -webkit-background-size
-PASS -webkit-border-fit
 PASS -webkit-border-horizontal-spacing
 PASS -webkit-border-image
 PASS -webkit-border-vertical-spacing

@@ -6,7 +6,7 @@ include(OptionsWin)
 set(ENABLE_WEBKIT ON)
 
 find_package(Cairo 1.15.12 REQUIRED)
-find_package(CURL 7.71.0 REQUIRED)
+find_package(CURL 7.77.0 REQUIRED)
 find_package(ICU 61.2 REQUIRED COMPONENTS data i18n uc)
 find_package(JPEG 1.5.2 REQUIRED)
 find_package(LibXml2 2.9.7 REQUIRED)
@@ -21,6 +21,11 @@ if (ENABLE_XSLT)
 endif ()
 
 # Optional packages
+find_package(LCMS2)
+if (LCMS2_FOUND)
+    SET_AND_EXPOSE_TO_BUILD(USE_LCMS ON)
+endif ()
+
 find_package(OpenJPEG 2.3.1)
 if (OpenJPEG_FOUND)
     SET_AND_EXPOSE_TO_BUILD(USE_OPENJPEG ON)

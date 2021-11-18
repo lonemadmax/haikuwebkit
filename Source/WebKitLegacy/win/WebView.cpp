@@ -95,6 +95,7 @@
 #include <WebCore/DocumentMarkerController.h>
 #include <WebCore/DragController.h>
 #include <WebCore/DragData.h>
+#include <WebCore/DummyModelPlayerProvider.h>
 #include <WebCore/DummySpeechRecognitionProvider.h>
 #include <WebCore/DummyStorageProvider.h>
 #include <WebCore/Editor.h>
@@ -2084,19 +2085,19 @@ bool WebView::verticalScroll(WPARAM wParam, LPARAM /*lParam*/)
     ScrollGranularity granularity;
     switch (LOWORD(wParam)) {
     case SB_LINEDOWN:
-        granularity = ScrollByLine;
+        granularity = ScrollGranularity::Line;
         direction = ScrollDown;
         break;
     case SB_LINEUP:
-        granularity = ScrollByLine;
+        granularity = ScrollGranularity::Line;
         direction = ScrollUp;
         break;
     case SB_PAGEDOWN:
-        granularity = ScrollByDocument;
+        granularity = ScrollGranularity::Document;
         direction = ScrollDown;
         break;
     case SB_PAGEUP:
-        granularity = ScrollByDocument;
+        granularity = ScrollGranularity::Document;
         direction = ScrollUp;
         break;
     default:
@@ -2114,19 +2115,19 @@ bool WebView::horizontalScroll(WPARAM wParam, LPARAM /*lParam*/)
     ScrollGranularity granularity;
     switch (LOWORD(wParam)) {
     case SB_LINELEFT:
-        granularity = ScrollByLine;
+        granularity = ScrollGranularity::Line;
         direction = ScrollLeft;
         break;
     case SB_LINERIGHT:
-        granularity = ScrollByLine;
+        granularity = ScrollGranularity::Line;
         direction = ScrollRight;
         break;
     case SB_PAGELEFT:
-        granularity = ScrollByDocument;
+        granularity = ScrollGranularity::Document;
         direction = ScrollLeft;
         break;
     case SB_PAGERIGHT:
-        granularity = ScrollByDocument;
+        granularity = ScrollGranularity::Document;
         direction = ScrollRight;
         break;
     default:
@@ -2359,35 +2360,35 @@ bool WebView::keyDown(WPARAM virtualKeyCode, LPARAM keyData, bool systemKeyDown)
     ScrollGranularity granularity { };
     switch (virtualKeyCode) {
         case VK_LEFT:
-            granularity = ScrollByLine;
+            granularity = ScrollGranularity::Line;
             direction = ScrollLeft;
             break;
         case VK_RIGHT:
-            granularity = ScrollByLine;
+            granularity = ScrollGranularity::Line;
             direction = ScrollRight;
             break;
         case VK_UP:
-            granularity = ScrollByLine;
+            granularity = ScrollGranularity::Line;
             direction = ScrollUp;
             break;
         case VK_DOWN:
-            granularity = ScrollByLine;
+            granularity = ScrollGranularity::Line;
             direction = ScrollDown;
             break;
         case VK_HOME:
-            granularity = ScrollByDocument;
+            granularity = ScrollGranularity::Document;
             direction = ScrollUp;
             break;
         case VK_END:
-            granularity = ScrollByDocument;
+            granularity = ScrollGranularity::Document;
             direction = ScrollDown;
             break;
         case VK_PRIOR:
-            granularity = ScrollByPage;
+            granularity = ScrollGranularity::Page;
             direction = ScrollUp;
             break;
         case VK_NEXT:
-            granularity = ScrollByPage;
+            granularity = ScrollGranularity::Page;
             direction = ScrollDown;
             break;
         default:
@@ -3065,7 +3066,8 @@ HRESULT WebView::initWithFrame(RECT frame, _In_ BSTR frameName, _In_ BSTR groupN
         makeUniqueRef<MediaRecorderProvider>(),
         WebBroadcastChannelRegistry::getOrCreate(false),
         WebCore::DummyPermissionController::create(),
-        makeUniqueRef<WebCore::DummyStorageProvider>()
+        makeUniqueRef<WebCore::DummyStorageProvider>(),
+        makeUniqueRef<WebCore::DummyModelPlayerProvider>()
     );
     configuration.chromeClient = new WebChromeClient(this);
 #if ENABLE(CONTEXT_MENUS)

@@ -1,3 +1,144 @@
+2021-11-12  Razvan Caliman  <rcaliman@apple.com>
+
+        Web Inspector: Extract reusable logic from ResourceQueryController, ResourceQueryResult and ResourceQueryMatch
+        https://bugs.webkit.org/show_bug.cgi?id=231604
+        <rdar://problem/84160281>
+
+        Reviewed by Devin Rousso.
+
+        Extract reusable logic from `ResourceQueryController` into a generic `QueryController`
+        to enable subclassing for other specialized use cases.
+
+        * UserInterface/Controllers/QueryController.js: Added.
+        (WI.QueryController.prototype.executeQuery):
+        (WI.QueryController.prototype.findQueryMatches.pushMatch):
+        (WI.QueryController.prototype.findQueryMatches.matchNextSpecialCharacter):
+        (WI.QueryController.prototype.findQueryMatches.backtrack):
+        (WI.QueryController.prototype.findQueryMatches):
+        (WI.QueryController):
+
+        Keep only the reusable matching logic in `QueryController`.
+        Subclasses like `ResourceQueryController` are responsible for agregating
+        the data to be queried, customization for special characters and sorting results.
+
+        * UserInterface/Controllers/ResourceQueryController.js:
+        (WI.ResourceQueryController.prototype.executeQuery):
+        (WI.ResourceQueryController.prototype._findQueryMatches.pushMatch): Deleted.
+        (WI.ResourceQueryController.prototype._findQueryMatches.matchNextSpecialCharacter): Deleted.
+        (WI.ResourceQueryController.prototype._findQueryMatches.backtrack): Deleted.
+        (WI.ResourceQueryController.prototype._findQueryMatches): Deleted.
+
+        * UserInterface/Main.html:
+
+        * UserInterface/Models/QueryMatch.js: Renamed from Source/WebInspectorUI/UserInterface/Models/ResourceQueryMatch.js.
+
+        `ResourceQueryMatch` doesn't contain any resource-specific logic. It can be generalized to `QueryMatch`.
+
+        * UserInterface/Models/QueryResult.js: Copied from Source/WebInspectorUI/UserInterface/Models/ResourceQueryResult.js.
+        (WI.QueryResult):
+        (WI.QueryResult.prototype.get value):
+        (WI.QueryResult.prototype.get rank):
+        (WI.QueryResult.prototype.get matchingTextRanges):
+        (WI.QueryResult.prototype._calculateRank.getMultiplier):
+        (WI.QueryResult.prototype._calculateRank):
+        (WI.QueryResult.prototype._createMatchingTextRanges):
+
+        A generic `QueryResult` can be extracted from `ResourceQueryResult` containing
+        the reusable logic for ranking results and identifing matching text ranges.
+
+        * UserInterface/Models/ResourceQueryResult.js:
+        (WI.ResourceQueryResult):
+        (WI.ResourceQueryResult.prototype.get resource):
+        (WI.ResourceQueryResult.prototype.__test_createMatchesMask):
+        (WI.ResourceQueryResult.prototype.get rank): Deleted.
+        (WI.ResourceQueryResult.prototype.get matchingTextRanges): Deleted.
+        (WI.ResourceQueryResult.prototype._calculateRank.getMultiplier): Deleted.
+        (WI.ResourceQueryResult.prototype._calculateRank): Deleted.
+        (WI.ResourceQueryResult.prototype._createMatchingTextRanges): Deleted.
+
+        `ResourceQueryResult` extends `QueryResult` with resource-specifc members:
+        - the `cookie` property which holds the optional line and column info used when jumping to matched files
+        - the `resource` property which maps to the generic `QueryResult.value`; this is used in tests and when sorting in `ResourceQueryController`
+
+        * UserInterface/Test.html:
+
+2021-11-10  Tim Nguyen  <ntim@apple.com>
+
+        Remove non-standard -webkit-border-fit CSS property
+        https://bugs.webkit.org/show_bug.cgi?id=229564
+
+        Reviewed by Simon Fraser.
+
+        * UserInterface/Models/CSSKeywordCompletions.js:
+
+2021-11-10  Alexey Proskuryakov  <ap@apple.com>
+
+        WebInspectorUI needs to support InstallAPI
+        https://bugs.webkit.org/show_bug.cgi?id=232955
+
+        Reviewed by BJ Burg.
+
+        * Configurations/WebInspectorUIFramework.xcconfig:
+
+2021-11-09  Razvan Caliman  <rcaliman@apple.com>
+
+        Web Inspector: Add script to update CSSDocumentation.js
+        https://bugs.webkit.org/show_bug.cgi?id=232433
+        <rdar://problem/84753008>
+
+        Reviewed by Devin Rousso.
+
+        * Scripts/update-inspector-css-documentation: Added.
+
+        Add a script to update the contextual CSS documentation data source at
+        `Source/WebInspectorUI/UserInterface/External/CSSDocumentation/CSSDocumentation.js`
+        with the latest information from the upstream data source.
+
+        * UserInterface/Controllers/CSSManager.js:
+        (WI.CSSManager.prototype.canonicalNameForPropertyName):
+
+        Add a comment to keep the list of accepted prefixes in sync with the one from the script.
+
+2021-11-08  Razvan Caliman  <rcaliman@apple.com>
+
+        Update CSSDocumentation.js with latest upstream data to fix wrong documentation for block-size
+        https://bugs.webkit.org/show_bug.cgi?id=231566
+        <rdar://problem/84406443>
+
+        Reviewed by Devin Rousso.
+
+        Update CSSDocumentation.js with latest upstream data source which contains
+        fixes for descriptions of logical properties for sizing:
+        block-size, inline-size, min-/max-block-size, min-/max-inline-size
+
+        * UserInterface/External/CSSDocumentation/CSSDocumentation.js:
+
+2021-11-03  Alex Christensen  <achristensen@webkit.org>
+
+        Remove QuickTimePluginReplacement and YouTubePluginReplacement
+        https://bugs.webkit.org/show_bug.cgi?id=232400
+
+        Reviewed by Chris Dumez.
+
+        * UserInterface/Models/NativeFunctionParameters.js:
+
+2021-11-03  Nikita Vasilyev  <nvasilyev@apple.com>
+
+        Web Inspector: Display swatch popovers below the swatch by default, not on the left side
+        https://bugs.webkit.org/show_bug.cgi?id=232577
+
+        Reviewed by Devin Rousso.
+
+        The new defaults are: below, above, left.
+
+        Displaying the swatch popover on the left side covers the relevant property name.
+        Displaying it below or above doesn't have this problem; below is preferred because
+        it doesn't hide the CSS selector of the relevant rule.
+
+        * UserInterface/Views/InlineSwatch.js:
+        (WI.InlineSwatch.prototype._presentPopover):
+        Introduce a method to remove code duplication.
+
 2021-10-29  David Kilzer  <ddkilzer@apple.com>
 
         Web Inspector: Enable -Wformat=2 warnings

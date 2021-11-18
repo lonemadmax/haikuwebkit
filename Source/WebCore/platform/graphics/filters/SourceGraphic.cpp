@@ -22,36 +22,29 @@
 
 #include "Filter.h"
 #include "GraphicsContext.h"
-#include <wtf/NeverDestroyed.h>
-#include <wtf/StdLibExtras.h>
 #include <wtf/text/TextStream.h>
-#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-Ref<SourceGraphic> SourceGraphic::create(Filter& filter)
+Ref<SourceGraphic> SourceGraphic::create()
 {
-    return adoptRef(*new SourceGraphic(filter));
+    return adoptRef(*new SourceGraphic());
 }
 
-const AtomString& SourceGraphic::effectName()
+SourceGraphic::SourceGraphic()
+    : FilterEffect(FilterEffect::Type::SourceGraphic)
 {
-    static MainThreadNeverDestroyed<const AtomString> s_effectName("SourceGraphic", AtomString::ConstructFromLiteral);
-    return s_effectName;
+    setOperatingColorSpace(DestinationColorSpace::SRGB());
 }
 
-void SourceGraphic::determineAbsolutePaintRect()
+void SourceGraphic::determineAbsolutePaintRect(const Filter& filter)
 {
-    Filter& filter = this->filter();
     FloatRect paintRect = filter.sourceImageRect();
-    paintRect.scale(filter.filterResolution().width(), filter.filterResolution().height());
     setAbsolutePaintRect(enclosingIntRect(paintRect));
 }
 
-void SourceGraphic::platformApplySoftware()
+void SourceGraphic::platformApplySoftware(const Filter& filter)
 {
-    Filter& filter = this->filter();
-
     ImageBuffer* resultImage = createImageBufferResult();
     ImageBuffer* sourceImage = filter.sourceImage();
     if (!resultImage || !sourceImage)

@@ -120,11 +120,11 @@ public:
         return copy;
     }
 
-    PlatformWheelEvent copyWithDeltasAndVelocity(float deltaX, float deltaY, const FloatSize& velocity) const
+    PlatformWheelEvent copyWithDeltaAndVelocity(FloatSize delta, FloatSize velocity) const
     {
         PlatformWheelEvent copy = *this;
-        copy.m_deltaX = deltaX;
-        copy.m_deltaY = deltaY;
+        copy.m_deltaX = delta.width();
+        copy.m_deltaY = delta.height();
         copy.m_scrollingVelocity = velocity;
         return copy;
     }
@@ -151,6 +151,8 @@ public:
 #if PLATFORM(COCOA)
     unsigned scrollCount() const { return m_scrollCount; }
     FloatSize unacceleratedScrollingDelta() const { return { m_unacceleratedScrollingDeltaX, m_unacceleratedScrollingDeltaY }; }
+    
+    WallTime ioHIDEventTimestamp() const { return m_ioHIDEventTimestamp; }
 #endif
 
 #if ENABLE(ASYNC_SCROLLING)
@@ -199,6 +201,7 @@ protected:
     PlatformWheelEventPhase m_momentumPhase { PlatformWheelEventPhase::None };
 #endif
 #if PLATFORM(COCOA)
+    WallTime m_ioHIDEventTimestamp;
     unsigned m_scrollCount { 0 };
     float m_unacceleratedScrollingDeltaX { 0 };
     float m_unacceleratedScrollingDeltaY { 0 };

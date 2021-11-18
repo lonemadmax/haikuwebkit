@@ -46,7 +46,7 @@ public:
 
     static RegExpObject* create(VM& vm, Structure* structure, RegExp* regExp, bool areLegacyFeaturesEnabled = true)
     {
-        RegExpObject* object = new (NotNull, allocateCell<RegExpObject>(vm.heap)) RegExpObject(vm, structure, regExp, areLegacyFeaturesEnabled);
+        RegExpObject* object = new (NotNull, allocateCell<RegExpObject>(vm)) RegExpObject(vm, structure, regExp, areLegacyFeaturesEnabled);
         object->finishCreation(vm);
         return object;
     }
@@ -63,7 +63,7 @@ public:
     {
         uintptr_t result = (m_regExpAndFlags & flagsMask) | bitwise_cast<uintptr_t>(regExp);
         m_regExpAndFlags = result;
-        vm.heap.writeBarrier(this, regExp);
+        vm.writeBarrier(this, regExp);
     }
 
     RegExp* regExp() const

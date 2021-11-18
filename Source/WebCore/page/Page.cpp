@@ -76,6 +76,7 @@
 #include "HistoryController.h"
 #include "HistoryItem.h"
 #include "IDBConnectionToServer.h"
+#include "ImageOverlay.h"
 #include "ImageOverlayController.h"
 #include "InspectorClient.h"
 #include "InspectorController.h"
@@ -89,6 +90,7 @@
 #include "LowPowerModeNotifier.h"
 #include "MediaCanStartListener.h"
 #include "MediaRecorderProvider.h"
+#include "ModelPlayerProvider.h"
 #include "Navigator.h"
 #include "PageColorSampler.h"
 #include "PageConfiguration.h"
@@ -167,6 +169,10 @@
 #include <wtf/text/Base64.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/TextStream.h>
+
+#if ENABLE(APPLE_PAY_AMS_UI)
+#include "ApplePayAMSUIPaymentHandler.h"
+#endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 #include "HTMLVideoElement.h"
@@ -281,8 +287,6 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_speechRecognitionProvider((WTFMove(pageConfiguration.speechRecognitionProvider)))
     , m_mediaRecorderProvider((WTFMove(pageConfiguration.mediaRecorderProvider)))
     , m_libWebRTCProvider(WTFMove(pageConfiguration.libWebRTCProvider))
-    , m_verticalScrollElasticity(ScrollElasticityAllowed)
-    , m_horizontalScrollElasticity(ScrollElasticityAllowed)
     , m_domTimerAlignmentInterval(DOMTimer::defaultAlignmentInterval())
     , m_domTimerAlignmentIntervalIncreaseTimer(*this, &Page::domTimerAlignmentIntervalIncreaseTimerFired)
     , m_activityState(pageInitialActivityState())
@@ -335,6 +339,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_permissionController(WTFMove(pageConfiguration.permissionController))
     , m_reportingEndpointsCache(WTFMove(pageConfiguration.reportingEndpointsCache))
     , m_storageProvider(WTFMove(pageConfiguration.storageProvider))
+    , m_modelPlayerProvider(WTFMove(pageConfiguration.modelPlayerProvider))
 {
     updateTimerThrottlingState();
 
@@ -3484,6 +3489,42 @@ void Page::setPaymentCoordinator(std::unique_ptr<PaymentCoordinator>&& paymentCo
 }
 #endif
 
+#if ENABLE(APPLE_PAY_AMS_UI)
+
+bool Page::startApplePayAMSUISession(Document& document, ApplePayAMSUIPaymentHandler& paymentHandler, const ApplePayAMSUIRequest& request)
+{
+    if (hasActiveApplePayAMSUISession())
+        return false;
+
+    m_activeApplePayAMSUIPaymentHandler = &paymentHandler;
+
+    chrome().client().startApplePayAMSUISession(document.url(), request, [weakThis = WeakPtr { *this }, paymentHandlerPtr = &paymentHandler] (std::optional<bool>&& result) {
+        auto strongThis = weakThis.get();
+        if (!strongThis)
+            return;
+
+        if (paymentHandlerPtr != strongThis->m_activeApplePayAMSUIPaymentHandler)
+            return;
+
+        if (auto activePaymentHandler = std::exchange(strongThis->m_activeApplePayAMSUIPaymentHandler, nullptr))
+            activePaymentHandler->finishSession(WTFMove(result));
+    });
+    return true;
+}
+
+void Page::abortApplePayAMSUISession(ApplePayAMSUIPaymentHandler& paymentHandler)
+{
+    if (&paymentHandler != m_activeApplePayAMSUIPaymentHandler)
+        return;
+
+    chrome().client().abortApplePayAMSUISession();
+
+    if (auto activePaymentHandler = std::exchange(m_activeApplePayAMSUIPaymentHandler, nullptr))
+        activePaymentHandler->finishSession(std::nullopt);
+}
+
+#endif // ENABLE(APPLE_PAY_AMS_UI)
+
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
 void Page::setMediaSessionCoordinator(Ref<MediaSessionCoordinatorPrivate>&& mediaSessionCoordinator)
 {
@@ -3683,7 +3724,7 @@ void Page::updateElementsWithTextRecognitionResults()
             continue;
 
         auto& [result, containerRect] = entry.value;
-        auto newContainerRect = protectedElement->containerRectForTextRecognition();
+        auto newContainerRect = ImageOverlay::containerRect(protectedElement.get());
         if (containerRect == newContainerRect)
             continue;
 
@@ -3693,11 +3734,8 @@ void Page::updateElementsWithTextRecognitionResults()
 
     for (auto& [element, result] : elementsToUpdate) {
         element->document().eventLoop().queueTask(TaskSource::InternalAsyncTask, [result = TextRecognitionResult { result }, weakElement = WeakPtr { element }] {
-            RefPtr element { weakElement.get() };
-            if (!element)
-                return;
-
-            element->updateWithTextRecognitionResult(result, HTMLElement::CacheTextRecognitionResults::No);
+            if (RefPtr element = weakElement.get())
+                ImageOverlay::updateWithTextRecognitionResult(*element, result, ImageOverlay::CacheTextRecognitionResults::No);
         });
     }
 }
@@ -3715,6 +3753,11 @@ void Page::cacheTextRecognitionResult(const HTMLElement& element, const IntRect&
 void Page::resetTextRecognitionResults()
 {
     m_textRecognitionResults.clear();
+}
+
+void Page::resetTextRecognitionResult(const HTMLElement& element)
+{
+    m_textRecognitionResults.remove(element);
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS)
@@ -3750,6 +3793,11 @@ PermissionController& Page::permissionController()
 StorageConnection& Page::storageConnection()
 {
     return m_storageProvider->storageConnection();
+}
+
+ModelPlayerProvider& Page::modelPlayerProvider()
+{
+    return m_modelPlayerProvider.get();
 }
 
 } // namespace WebCore

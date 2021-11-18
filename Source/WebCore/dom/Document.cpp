@@ -211,6 +211,7 @@
 #include "ScriptSourceCode.h"
 #include "ScriptState.h"
 #include "ScriptedAnimationController.h"
+#include "ScrollAnimator.h"
 #include "ScrollbarTheme.h"
 #include "ScrollingCoordinator.h"
 #include "SecurityOrigin.h"
@@ -1255,7 +1256,7 @@ Ref<Element> Document::createElement(const QualifiedName& name, bool createdByPa
     } else if (name.namespaceURI() == SVGNames::svgNamespaceURI)
         element = SVGElementFactory::createElement(name, *this, createdByParser);
 #if ENABLE(MATHML)
-    else if (name.namespaceURI() == MathMLNames::mathmlNamespaceURI)
+    else if (settings().mathMLEnabled() && name.namespaceURI() == MathMLNames::mathmlNamespaceURI)
         element = MathMLElementFactory::createElement(name, *this, createdByParser);
 #endif
 
@@ -4347,9 +4348,35 @@ void Document::setNeedsVisualViewportScrollEvent()
     m_needsVisualViewportScrollEvent = true;
 }
 
+static bool serviceScrollAnimationForScrollableArea(ScrollableArea* scrollableArea, MonotonicTime time)
+{
+    if (!scrollableArea)
+        return false;
+
+    if (auto* animator = scrollableArea->existingScrollAnimator())
+        return animator->serviceScrollAnimation(time) == ScrollAnimationStatus::Animating;
+
+    return false;
+}
+
 // https://drafts.csswg.org/cssom-view/#run-the-scroll-steps
 void Document::runScrollSteps()
 {
+    // Service user scroll animations before scroll event dispatch.
+    RefPtr<FrameView> frameView = view();
+    if (frameView) {
+        MonotonicTime now = MonotonicTime::now();
+        bool scrollAnimationsInProgress = serviceScrollAnimationForScrollableArea(frameView.get(), now);
+        if (auto* scrollableAreas = frameView->scrollableAreas()) {
+            for (auto* scrollableArea : *scrollableAreas) {
+                if (serviceScrollAnimationForScrollableArea(scrollableArea, now))
+                    scrollAnimationsInProgress = true;
+            }
+        }
+        if (scrollAnimationsInProgress)
+            page()->scheduleRenderingUpdate({ RenderingUpdateStep::Scroll });
+    }
+
     // FIXME: The order of dispatching is not specified: https://github.com/WICG/visual-viewport/issues/66.
     if (m_pendingScrollEventTargetList && !m_pendingScrollEventTargetList->targets.isEmpty()) {
         LOG_WITH_STREAM(Events, stream << "Document " << this << " sending scroll events to pending scroll event targets");
@@ -4499,11 +4526,14 @@ void Document::flushAutofocusCandidates()
     if (m_isAutofocusProcessed)
         return;
     while (!m_autofocusCandidates.isEmpty()) {
-        RefPtr element = m_autofocusCandidates.takeFirst().get();
-        if (!element || !element->document().isFullyActive() || &element->document().topDocument() != this)
+        RefPtr element = m_autofocusCandidates.first().get();
+        if (!element || !element->document().isFullyActive() || &element->document().topDocument() != this) {
+            m_autofocusCandidates.removeFirst();
             continue;
+        }
         if (auto* parser = scriptableDocumentParser(); parser && parser->hasScriptsWaitingForStylesheets())
             break;
+        m_autofocusCandidates.removeFirst();
         // FIXME: Need to ignore if the inclusive ancestor documents has a target element.
         // FIXME: Use the result of getting the focusable area for element if element is not focusable.
         if (element->isFocusable()) {

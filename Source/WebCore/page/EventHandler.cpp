@@ -69,6 +69,7 @@
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "Image.h"
+#include "ImageOverlay.h"
 #include "ImageOverlayController.h"
 #include "InspectorInstrumentation.h"
 #include "KeyboardEvent.h"
@@ -298,13 +299,13 @@ static inline ScrollGranularity wheelGranularityToScrollGranularity(unsigned del
 {
     switch (deltaMode) {
     case WheelEvent::DOM_DELTA_PAGE:
-        return ScrollByPage;
+        return ScrollGranularity::Page;
     case WheelEvent::DOM_DELTA_LINE:
-        return ScrollByLine;
+        return ScrollGranularity::Line;
     case WheelEvent::DOM_DELTA_PIXEL:
-        return ScrollByPixel;
+        return ScrollGranularity::Pixel;
     default:
-        return ScrollByPixel;
+        return ScrollGranularity::Pixel;
     }
 }
 
@@ -449,7 +450,7 @@ static inline bool dispatchSelectStart(Node* node)
 
 static Node* nodeToSelectOnMouseDownForNode(Node& targetNode)
 {
-    if (HTMLElement::isInsideImageOverlay(targetNode))
+    if (ImageOverlay::isInsideOverlay(targetNode))
         return nullptr;
 
     if (RefPtr rootUserSelectAll = Position::rootUserSelectAllForNode(&targetNode))
@@ -720,7 +721,7 @@ bool EventHandler::canMouseDownStartSelect(const MouseEventWithHitTestResults& e
     if (!node || !node->renderer())
         return true;
 
-    if (HTMLElement::isImageOverlayText(*node))
+    if (ImageOverlay::isOverlayText(*node))
         return node->renderer()->style().userSelectIncludingInert() != UserSelect::None;
 
     return node->canStartSelection() || Position::nodeIsUserSelectAll(node.get());
@@ -766,7 +767,7 @@ bool EventHandler::handleMousePressEvent(const MouseEventWithHitTestResults& eve
     // Bug: https://bugs.webkit.org/show_bug.cgi?id=155390
 
     // Single mouse down on links or images can always trigger drag-n-drop.
-    bool isImageOverlayText = HTMLElement::isImageOverlayText(event.targetNode());
+    bool isImageOverlayText = ImageOverlay::isOverlayText(event.targetNode());
     bool isMouseDownOnLinkOrImage = event.isOverLink() || (event.hitTestResult().image() && !isImageOverlayText);
     m_mouseDownMayStartDrag = singleClick && (!event.event().shiftKey() || isMouseDownOnLinkOrImage) && shouldAllowMouseDownToStartDrag();
 #endif
@@ -1023,7 +1024,7 @@ void EventHandler::updateSelectionForMouseDrag(const HitTestResult& hitTestResul
     m_frame.selection().setSelectionByMouseIfDifferent(newSelection, m_frame.selection().granularity(),
         FrameSelection::EndPointsAdjustmentMode::AdjustAtBidiBoundary);
 
-    if (oldSelection != newSelection && HTMLElement::isImageOverlayText(newSelection.start().containerNode()) && HTMLElement::isImageOverlayText(newSelection.end().containerNode()))
+    if (oldSelection != newSelection && ImageOverlay::isOverlayText(newSelection.start().containerNode()) && ImageOverlay::isOverlayText(newSelection.end().containerNode()))
         invalidateClick();
 }
 #endif // ENABLE(DRAG_SUPPORT)
@@ -1200,7 +1201,7 @@ HitTestResult EventHandler::hitTestResultAtPoint(const LayoutPoint& point, Optio
 
     RefPtr innerNode = result.innerNode();
     if (request.disallowsUserAgentShadowContent()
-        || (request.disallowsUserAgentShadowContentExceptForImageOverlays() && innerNode && !HTMLElement::isInsideImageOverlay(*innerNode)))
+        || (request.disallowsUserAgentShadowContentExceptForImageOverlays() && innerNode && !ImageOverlay::isInsideOverlay(*innerNode)))
         result.setToNonUserAgentShadowAncestor();
 
     return result;
@@ -1287,7 +1288,7 @@ bool EventHandler::logicalScrollRecursively(ScrollLogicalDirection direction, Sc
     bool scrolled = false;
 #if PLATFORM(COCOA)
     // Mac also resets the scroll position in the inline direction.
-    if (granularity == ScrollByDocument && view && view->logicalScroll(ScrollInlineDirectionBackward, ScrollByDocument))
+    if (granularity == ScrollGranularity::Document && view && view->logicalScroll(ScrollInlineDirectionBackward, ScrollGranularity::Document))
         scrolled = true;
 #endif
     if (view && view->logicalScroll(direction, granularity))
@@ -1521,7 +1522,7 @@ std::optional<Cursor> EventHandler::selectCursor(const HitTestResult& result, bo
 
     switch (style ? style->cursor() : CursorType::Auto) {
     case CursorType::Auto: {
-        if (HTMLElement::isImageOverlayText(node.get())) {
+        if (ImageOverlay::isOverlayText(node.get())) {
             auto* renderer = node->renderer();
             if (renderer && renderer->style().userSelectIncludingInert() != UserSelect::None)
                 return iBeam;
@@ -2813,12 +2814,6 @@ void EventHandler::determineWheelEventTarget(const PlatformWheelEvent&, RefPtr<E
 {
 }
 
-void EventHandler::recordWheelEventForDeltaFilter(const PlatformWheelEvent& event)
-{
-    if (auto* page = m_frame.page())
-        page->wheelEventDeltaFilter()->updateFromDelta(FloatSize(event.deltaX(), event.deltaY()));
-}
-
 bool EventHandler::processWheelEventForScrolling(const PlatformWheelEvent& event, const WeakPtr<ScrollableArea>&, OptionSet<EventHandling> eventHandling)
 {
     Ref<Frame> protectedFrame(m_frame);
@@ -2972,7 +2967,7 @@ bool EventHandler::handleWheelEventInternal(const PlatformWheelEvent& event, Opt
 #if ENABLE(WHEEL_EVENT_LATCHING)
         m_frame.page()->scrollLatchingController().receivedWheelEvent(event);
 #endif
-        recordWheelEventForDeltaFilter(event);
+        m_frame.page()->wheelEventDeltaFilter()->updateFromEvent(event);
     }
 
     HitTestRequest request;
@@ -3086,7 +3081,7 @@ bool EventHandler::handleWheelEventInAppropriateEnclosingBox(Node* startNode, co
             auto platformEvent = wheelEvent.underlyingPlatformEvent();
             bool scrollingWasHandled;
             if (platformEvent) {
-                auto copiedEvent = platformEvent->copyWithDeltasAndVelocity(filteredPlatformDelta.width(), filteredPlatformDelta.height(), filteredVelocity);
+                auto copiedEvent = platformEvent->copyWithDeltaAndVelocity(filteredPlatformDelta, filteredVelocity);
                 scrollingWasHandled = scrollableAreaCanHandleEvent(copiedEvent, *boxScrollableArea) && handleWheelEventInScrollableArea(copiedEvent, *boxScrollableArea, eventHandling);
             } else
                 scrollingWasHandled = didScrollInScrollableArea(*boxScrollableArea, wheelEvent);
@@ -3153,8 +3148,6 @@ void EventHandler::clearLatchedState()
     if (auto* scrollLatchingController = page->scrollLatchingControllerIfExists())
         scrollLatchingController->removeLatchingStateForFrame(m_frame);
 #endif
-    if (auto* filter = page->wheelEventDeltaFilter())
-        filter->endFilteringDeltas();
 }
 
 void EventHandler::defaultWheelEventHandler(Node* startNode, WheelEvent& wheelEvent)
@@ -3175,21 +3168,20 @@ void EventHandler::defaultWheelEventHandler(Node* startNode, WheelEvent& wheelEv
 
     FloatSize filteredPlatformDelta(wheelEvent.deltaX(), wheelEvent.deltaY());
     FloatSize filteredVelocity;
-    if (auto platformWheelEvent = wheelEvent.underlyingPlatformEvent()) {
-        filteredPlatformDelta.setWidth(platformWheelEvent->deltaX());
-        filteredPlatformDelta.setHeight(platformWheelEvent->deltaY());
-    }
+    if (platformEvent)
+        filteredPlatformDelta = platformEvent->delta();
 
     OptionSet<EventHandling> eventHandling = { EventHandling::DispatchedToDOM };
     if (wheelEvent.defaultPrevented())
         eventHandling.add(EventHandling::DefaultPrevented);
 
-#if ENABLE(WHEEL_EVENT_LATCHING)
-    if (m_frame.page()->wheelEventDeltaFilter()->isFilteringDeltas()) {
-        filteredPlatformDelta = m_frame.page()->wheelEventDeltaFilter()->filteredDelta();
-        filteredVelocity = m_frame.page()->wheelEventDeltaFilter()->filteredVelocity();
+    auto* deltaFilter = m_frame.page()->wheelEventDeltaFilter();
+    if (platformEvent && deltaFilter && WheelEventDeltaFilter::shouldApplyFilteringForEvent(*platformEvent)) {
+        filteredPlatformDelta = deltaFilter->filteredDelta();
+        filteredVelocity = deltaFilter->filteredVelocity();
     }
 
+#if ENABLE(WHEEL_EVENT_LATCHING)
     WeakPtr<ScrollableArea> latchedScroller;
     if (!m_frame.page()->scrollLatchingController().latchingAllowsScrollingInFrame(m_frame, latchedScroller))
         return;
@@ -3201,7 +3193,7 @@ void EventHandler::defaultWheelEventHandler(Node* startNode, WheelEvent& wheelEv
         }
 
         if (platformEvent) {
-            auto copiedEvent = platformEvent->copyWithDeltasAndVelocity(filteredPlatformDelta.width(), filteredPlatformDelta.height(), filteredVelocity);
+            auto copiedEvent = platformEvent->copyWithDeltaAndVelocity(filteredPlatformDelta, filteredVelocity);
             if (handleWheelEventInScrollableArea(copiedEvent, *latchedScroller, eventHandling))
                 wheelEvent.setDefaultHandled();
             return;
@@ -4257,7 +4249,7 @@ void EventHandler::defaultSpaceEventHandler(KeyboardEvent& event)
         return;
 
     ScrollLogicalDirection direction = event.shiftKey() ? ScrollBlockDirectionBackward : ScrollBlockDirectionForward;
-    if (logicalScrollOverflow(direction, ScrollByPage)) {
+    if (logicalScrollOverflow(direction, ScrollGranularity::Page)) {
         event.setDefaultHandled();
         return;
     }
@@ -4266,7 +4258,7 @@ void EventHandler::defaultSpaceEventHandler(KeyboardEvent& event)
     if (!view)
         return;
 
-    bool defaultHandled = m_frame.settings().eventHandlerDrivenSmoothKeyboardScrollingEnabled() ? startKeyboardScrolling(event) : view->logicalScroll(direction, ScrollByPage);
+    bool defaultHandled = m_frame.settings().eventHandlerDrivenSmoothKeyboardScrollingEnabled() ? startKeyboardScrolling(event) : view->logicalScroll(direction, ScrollGranularity::Page);
     if (defaultHandled)
         event.setDefaultHandled();
 }
@@ -4308,13 +4300,13 @@ float EventHandler::scrollDistance(ScrollDirection direction, ScrollGranularity 
     }();
 
     switch (granularity) {
-    case ScrollGranularity::ScrollByLine:
+    case ScrollGranularity::Line:
         return scrollbar->lineStep();
-    case ScrollGranularity::ScrollByPage:
+    case ScrollGranularity::Page:
         return scrollbar->pageStep();
-    case ScrollGranularity::ScrollByDocument:
+    case ScrollGranularity::Document:
         return scrollbar->totalSize();
-    case ScrollGranularity::ScrollByPixel:
+    case ScrollGranularity::Pixel:
         return scrollbar->pixelStep();
     }
 

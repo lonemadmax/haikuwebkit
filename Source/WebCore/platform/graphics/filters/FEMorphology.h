@@ -22,7 +22,6 @@
 #pragma once
 
 #include "FilterEffect.h"
-#include "Filter.h"
 
 namespace WebCore {
 
@@ -34,7 +33,7 @@ enum MorphologyOperatorType {
 
 class FEMorphology : public FilterEffect {
 public:
-    static Ref<FEMorphology> create(Filter&, MorphologyOperatorType, float radiusX, float radiusY);
+    static Ref<FEMorphology> create(MorphologyOperatorType, float radiusX, float radiusY);
 
     MorphologyOperatorType morphologyOperator() const { return m_type; }
     bool setMorphologyOperator(MorphologyOperatorType);
@@ -46,13 +45,11 @@ public:
     bool setRadiusY(float);
 
 private:
-    FEMorphology(Filter&, MorphologyOperatorType, float radiusX, float radiusY);
+    FEMorphology(MorphologyOperatorType, float radiusX, float radiusY);
 
-    const char* filterName() const final { return "FEMorphology"; }
+    void determineAbsolutePaintRect(const Filter&) override;
 
-    void platformApplySoftware() override;
-
-    void determineAbsolutePaintRect() override;
+    void platformApplySoftware(const Filter&) override;
 
     WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
 
@@ -86,3 +83,4 @@ private:
 
 } // namespace WebCore
 
+SPECIALIZE_TYPE_TRAITS_FILTER_EFFECT(FEMorphology)

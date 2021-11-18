@@ -27,8 +27,7 @@ namespace WebCore {
 
 class FESpecularLighting : public FELighting {
 public:
-    static Ref<FESpecularLighting> create(Filter&, const Color&, float, float, float, float, float, Ref<LightSource>&&);
-    virtual ~FESpecularLighting();
+    static Ref<FESpecularLighting> create(const Color& lightingColor, float surfaceScale, float specularConstant, float specularExponent, float kernelUnitLengthX, float kernelUnitLengthY, Ref<LightSource>&&);
 
     float specularConstant() const { return m_specularConstant; }
     bool setSpecularConstant(float);
@@ -39,8 +38,9 @@ public:
     WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
 
 private:
-    FESpecularLighting(Filter&, const Color&, float, float, float, float, float, Ref<LightSource>&&);
+    FESpecularLighting(const Color& lightingColor, float surfaceScale, float specularConstant, float specularExponent, float kernelUnitLengthX, float kernelUnitLengthY, Ref<LightSource>&&);
 };
 
 } // namespace WebCore
 
+SPECIALIZE_TYPE_TRAITS_FILTER_EFFECT(FESpecularLighting)

@@ -23,22 +23,21 @@
 #pragma once
 
 #include "FilterEffect.h"
-
-#include "Filter.h"
+#include "GraphicsTypes.h"
 
 namespace WebCore {
 
 class FEBlend : public FilterEffect {
 public:
-    static Ref<FEBlend> create(Filter&, BlendMode);
+    static Ref<FEBlend> create(BlendMode);
 
     BlendMode blendMode() const { return m_mode; }
     bool setBlendMode(BlendMode);
 
 private:
-    const char* filterName() const final { return "FEBlend"; }
+    FEBlend(BlendMode);
 
-    void platformApplySoftware() override;
+    void platformApplySoftware(const Filter&) override;
     void platformApplyGeneric(unsigned char* srcPixelArrayA, unsigned char* srcPixelArrayB, unsigned char* dstPixelArray,
                            unsigned colorArrayLength);
     void platformApplyNEON(unsigned char* srcPixelArrayA, unsigned char* srcPixelArrayB, unsigned char* dstPixelArray,
@@ -46,10 +45,9 @@ private:
 
     WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
 
-    FEBlend(Filter&, BlendMode);
-
     BlendMode m_mode;
 };
 
 } // namespace WebCore
 
+SPECIALIZE_TYPE_TRAITS_FILTER_EFFECT(FEBlend)

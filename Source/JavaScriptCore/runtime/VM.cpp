@@ -138,6 +138,7 @@
 #include "JSWebAssemblyTag.h"
 #include "JSWithScope.h"
 #include "LLIntData.h"
+#include "LLIntExceptions.h"
 #include "MinimumReservedZoneSize.h"
 #include "ModuleProgramCodeBlock.h"
 #include "ModuleProgramExecutable.h"
@@ -167,6 +168,7 @@
 #include "SymbolObject.h"
 #include "TemporalCalendar.h"
 #include "TemporalDuration.h"
+#include "TemporalInstant.h"
 #include "TemporalPlainTime.h"
 #include "TemporalTimeZone.h"
 #include "TestRunnerUtils.h"
@@ -909,6 +911,41 @@ MacroAssemblerCodePtr<JSEntryPtrTag> VM::getCTIInternalFunctionTrampolineFor(Cod
     return LLInt::getCodePtr<JSEntryPtrTag>(llint_internal_function_construct_trampoline);
 }
 
+MacroAssemblerCodeRef<JSEntryPtrTag> VM::getCTILinkCall()
+{
+#if ENABLE(JIT)
+    if (Options::useJIT())
+        return getCTIStub(linkCallThunkGenerator).template retagged<JSEntryPtrTag>();
+#endif
+    return LLInt::getCodeRef<JSEntryPtrTag>(llint_link_call_trampoline);
+}
+
+MacroAssemblerCodeRef<JSEntryPtrTag> VM::getCTIThrowExceptionFromCallSlowPath()
+{
+#if ENABLE(JIT)
+    if (Options::useJIT())
+        return getCTIStub(throwExceptionFromCallSlowPathGenerator).template retagged<JSEntryPtrTag>();
+#endif
+    return LLInt::callToThrow(*this).template retagged<JSEntryPtrTag>();
+}
+
+MacroAssemblerCodeRef<JITStubRoutinePtrTag> VM::getCTIVirtualCall(CallMode callMode)
+{
+#if ENABLE(JIT)
+    if (Options::useJIT())
+        return virtualThunkFor(*this, callMode);
+#endif
+    switch (callMode) {
+    case CallMode::Regular:
+        return LLInt::getCodeRef<JITStubRoutinePtrTag>(llint_virtual_call_trampoline);
+    case CallMode::Tail:
+        return LLInt::getCodeRef<JITStubRoutinePtrTag>(llint_virtual_tail_call_trampoline);
+    case CallMode::Construct:
+        return LLInt::getCodeRef<JITStubRoutinePtrTag>(llint_virtual_construct_trampoline);
+    }
+    return LLInt::getCodeRef<JITStubRoutinePtrTag>(llint_virtual_call_trampoline);
+}
+
 VM::ClientData::~ClientData()
 {
 }
@@ -1597,6 +1634,7 @@ DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER_SLOW(symbolObjectSpace, cellHeapCellType.get(
 DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER_SLOW(templateObjectDescriptorSpace, destructibleCellHeapCellType.get(), JSTemplateObjectDescriptor)
 DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER_SLOW(temporalCalendarSpace, cellHeapCellType.get(), TemporalCalendar)
 DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER_SLOW(temporalDurationSpace, cellHeapCellType.get(), TemporalDuration)
+DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER_SLOW(temporalInstantSpace, cellHeapCellType.get(), TemporalInstant)
 DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER_SLOW(temporalPlainTimeSpace, cellHeapCellType.get(), TemporalPlainTime)
 DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER_SLOW(temporalTimeZoneSpace, cellHeapCellType.get(), TemporalTimeZone)
 DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER_SLOW(uint8ArraySpace, cellHeapCellType.get(), JSUint8Array)

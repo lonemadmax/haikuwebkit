@@ -49,6 +49,7 @@
 namespace WebCore {
 class NowPlayingManager;
 struct MockMediaDevice;
+struct ScreenProperties;
 struct SecurityOriginData;
 }
 
@@ -147,6 +148,7 @@ private:
 #endif
 #if PLATFORM(MAC)
     void displayConfigurationChanged(CGDirectDisplayID, CGDisplayChangeSummaryFlags);
+    void setScreenProperties(const WebCore::ScreenProperties&);
 #endif
 
 #if USE(OS_STATE)
@@ -167,6 +169,10 @@ private:
 
 #if ENABLE(VORBIS)
     void setVorbisDecoderEnabled(bool);
+#endif
+
+#if ENABLE(MEDIA_SOURCE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
+    void setMediaSourceInlinePaintingEnabled(bool);
 #endif
 
 #if ENABLE(CFPREFS_DIRECT_MODE)
@@ -226,6 +232,9 @@ private:
 #endif
 #if ENABLE(VORBIS)
     bool m_vorbisEnabled { false };
+#endif
+#if ENABLE(MEDIA_SOURCE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
+    bool m_mediaSourceInlinePaintingEnabled { false };
 #endif
     String m_applicationVisibleName;
 };

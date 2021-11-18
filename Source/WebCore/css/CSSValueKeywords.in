@@ -5,6 +5,7 @@ inherit
 initial
 unset
 revert
+revert-layer
 
 //
 // CSS_PROP_OUTLINE_STYLE
@@ -961,11 +962,6 @@ cover
 //
 logical
 visual
-
-//
-// CSS_PROP__WEBKIT_BORDER_FIT
-//
-lines
 
 //
 // CSS_PROP__WEBKIT_ANIMATION_DIRECTION

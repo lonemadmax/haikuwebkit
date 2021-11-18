@@ -40,6 +40,7 @@
 #include "DateTimeChooser.h"
 #include "DocumentInlines.h"
 #include "Editor.h"
+#include "ElementInlines.h"
 #include "EventNames.h"
 #include "FileInputType.h"
 #include "FileList.h"
@@ -115,6 +116,7 @@ HTMLInputElement::HTMLInputElement(const QualifiedName& tagName, Document& docum
     , m_autocomplete(Uninitialized)
     , m_isAutoFilled(false)
     , m_isAutoFilledAndViewable(false)
+    , m_isAutoFilledAndObscured(false)
     , m_autoFillButtonType(static_cast<uint8_t>(AutoFillButtonType::None))
     , m_lastAutoFillButtonType(static_cast<uint8_t>(AutoFillButtonType::None))
     , m_isAutoFillAvailable(false)
@@ -959,6 +961,7 @@ void HTMLInputElement::reset()
 
     setAutoFilled(false);
     setAutoFilledAndViewable(false);
+    setAutoFilledAndObscured(false);
     setShowAutoFillButton(AutoFillButtonType::None);
     setChecked(hasAttributeWithoutSynchronization(checkedAttr));
     m_dirtyCheckednessFlag = false;
@@ -1393,6 +1396,15 @@ void HTMLInputElement::setAutoFilledAndViewable(bool autoFilledAndViewable)
         return;
 
     m_isAutoFilledAndViewable = autoFilledAndViewable;
+    invalidateStyleForSubtree();
+}
+
+void HTMLInputElement::setAutoFilledAndObscured(bool autoFilledAndObscured)
+{
+    if (autoFilledAndObscured == m_isAutoFilledAndObscured)
+        return;
+
+    m_isAutoFilledAndObscured = autoFilledAndObscured;
     invalidateStyleForSubtree();
 }
 

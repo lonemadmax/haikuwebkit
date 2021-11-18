@@ -1,3 +1,641 @@
+2021-11-13  Simon Fraser  <simon.fraser@apple.com>
+
+        Run a ScrollAnimationMomentum for the momentum phase of a scroll
+        https://bugs.webkit.org/show_bug.cgi?id=232897
+
+        Reviewed by Tim Horton.
+
+        Set the MomentumScrollingAnimatorEnabled internal setting to off by default
+        while we bring up tests.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2021-11-12  Chris Dumez  <cdumez@apple.com>
+
+        Disable MathML when in Captive Portal Mode
+        https://bugs.webkit.org/show_bug.cgi?id=233013
+        <rdar://84567129>
+
+        Reviewed by Brent Fulgham.
+
+        Add runtime feature flag for MathML.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
+2021-11-12  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed, partial revert of r285565 to resolve a PLT5 regression.
+        <rdar://85269156>
+
+        * wtf/PlatformHave.h:
+
+2021-11-11  Michael Saboff  <msaboff@apple.com>
+
+        Inline RegExp.test JIT code in DFG and FTL
+        https://bugs.webkit.org/show_bug.cgi?id=230469
+
+        Reviewed by Saam Barati.
+
+        Added a new enablement: ENABLE_YARR_JIT_ALL_PARENS_EXPRESSIONS.
+
+        * wtf/PlatformEnable.h:
+
+2021-11-11  Ben Nham  <nham@apple.com>
+
+        Log memory usage metadata when WebContent crosses critical or warning level memory thresholds
+        https://bugs.webkit.org/show_bug.cgi?id=232976
+
+        Reviewed by Darin Adler.
+
+        Fixed several issues with memory usage tracking:
+
+         - pagesPerVMTag now properly accounts for swapped-out pages in its footprint calculation,
+           as footprint(1) already does.
+         - displayNamePerVMTag now includes all of the most common VM tags associated with WebKit.
+         - MemoryPressureHandler now knows the specific type of pressure event that occurred. This
+           allows it to differentiate between the entire system being at a warning pressure level
+           vs. just this process hitting its warning memory level limit.
+
+        * wtf/MemoryPressureHandler.cpp:
+        (WTF::MemoryPressureHandler::setMemoryPressureStatus):
+        (WTF::MemoryPressureHandler::memoryPressureStatusChanged):
+        (WTF::MemoryPressureHandler::setUnderMemoryPressure): Deleted.
+        * wtf/MemoryPressureHandler.h:
+        (WTF::MemoryPressureHandler::setMemoryPressureStatusChangedCallback):
+        (WTF::MemoryPressureHandler::isUnderMemoryPressure const):
+        * wtf/ResourceUsage.h:
+        * wtf/cocoa/MemoryPressureHandlerCocoa.mm:
+        (WTF::MemoryPressureHandler::install):
+        * wtf/cocoa/ResourceUsageCocoa.cpp:
+        (WTF::displayNameForVMTag):
+        (WTF::pagesPerVMTag):
+        * wtf/unix/MemoryPressureHandlerUnix.cpp:
+        (WTF::MemoryPressureHandler::triggerMemoryPressureEvent):
+        * wtf/win/MemoryPressureHandlerWin.cpp:
+        (WTF::MemoryPressureHandler::windowsMeasurementTimerFired):
+
+2021-11-11  Jer Noble  <jer.noble@apple.com>
+
+        [iOS] Adopt -[AVAudioSession setAuditTokensForProcessAssertion:]
+        https://bugs.webkit.org/show_bug.cgi?id=232909
+        <rdar://68184444>
+
+        Reviewed by Chris Dumez.
+
+        * wtf/PlatformHave.h:
+
+2021-11-10  Darin Adler  <darin@apple.com>
+
+        [CF] Reduce duplication and unneeded buffer allocations and copying in URL code, also remove unused methods and functions
+        https://bugs.webkit.org/show_bug.cgi?id=232220
+
+        Reviewed by Alex Christensen.
+
+        * wtf/URL.h: Removed unneeded includes. Use default instead of { }
+        for empty destructor. Added emptyCFURL function.
+
+        * wtf/cf/CFURLExtras.cpp:
+        (WTF::bytesAsCFData): Added. Replaces originalURLData from NSURLExtras.mm,
+        but with a simpler implementation and more error checking. Here it's also
+        alongside the other nearly identical functions.
+        (WTF::bytesAsString): Added. Replaces getURLBytes for callers that are
+        going to turn the bytes into a WTF::String. Before this patch, the callers
+        were converting from CFURLRef to WTF::CString and then to WTF::String, so
+        this eliminates the malloc/free pair for CString.
+        (WTF::bytesAsVector): Added. Replaces getURLBytes using a return value
+        instead of an out argument. Adds the optimization of filling the buffer if
+        the inline capacity is sufficient, which was in originalURLData, but not
+        here in getURLBytes before.
+        (WTF::isSameOrigin): Renamed from isCFURLSameOrigin and rewrote this to
+        have fewer type casts and more parallel structure so it's easier to read,
+        while adapting it to use bytesAsVector.
+
+        * wtf/cf/CFURLExtras.h: Replaced URLCharBuffer, getURLBytes, and
+        isCFURLSameOrigin with URLBytesVectorInlineCapacity, bytesAsCFData,
+        bytesAsString, bytesAsVector, and isSameOrigin. Got rid of unneeded
+        includes.
+
+        * wtf/cf/URLCF.cpp:
+        (WTF::URL::URL): Use bytesAsString to streamline implementation and
+        remove allocation/deallcation of a CString.
+        (WTF::URL::emptyCFURL): Added. Used to refactor createCFURL so we can
+        share it across Foundation and non-Foundation versions.
+        (WTF::URL::createCFURL const): Added the logic that was in the version
+        in URLCocoa.mm so we can share this single version, and removed the #if
+        surrounding this.
+        (WTF::URL::fileSystemPath const): Use auto.
+
+        * wtf/cocoa/NSURLExtras.h: Changed URLWithUserTypedString to ignore
+        the baseURL argument. It's not used, but the function is exported and
+        currently used in Safari source code, which, like all callers passes
+        a nil for baseURL. so, for now left the argument. Removed the baseURL
+        argument from URLWithUserTypedStringDeprecated. Removed unused functions
+        rangeOfURLScheme and looksLikeAbsoluteURL.
+
+        * wtf/cocoa/NSURLExtras.mm: Removed "using namespace URLHelpers".
+        (WTF::readIDNAllowedScriptListFile): Use URLHelpers explicitly.
+        (WTF::decodeHostName): Ditto.
+        (WTF::encodeHostName): Ditto.
+        (WTF::URLByTruncatingOneCharacterBeforeComponent): Simplified by using
+        the bytesAsVector function.
+        (WTF::URLByRemovingResourceSpecifier): Deleted.
+        (WTF::URLWithData): Call URLByTruncatingOneCharacterBeforeComponent
+        directly.
+        (WTF::URLWithUserTypedString): Removed the unneeded support for a
+        base URL. Use URLHelpers explicitly.
+        (WTF::URLWithUserTypedStringDeprecated): Ditto.
+        (WTF::hasQuestionMarkOnlyQueryString): Use bridge_cast.
+        (WTF::dataForURLComponentType): Rearranged to simplify a bit, remove support
+        for special value for CFURLComponentType that means the complete URL, since
+        no callers were using that, and use bytesAsVector.
+        (WTF::URLByRemovingComponentAndSubsequentCharacter): Use bridge_cast and
+        bytesAsVector.
+        (WTF::originalURLData): Use bridge_cast and bytesAsCFData.
+        (WTF::userVisibleString): Use URLHelpers explicitly.
+        (WTF::isUserVisibleURL): Rewrote for simplicity and coding style; since
+        the local characters are a null-terminated C string, we don't need
+        length checks as long as we validate characters first, since a '\0'
+        character can be read and will not be valid.
+        (WTF::rangeOfURLScheme): Deleted.
+        (WTF::looksLikeAbsoluteURL): Deleted.
+
+        * wtf/cocoa/URLCocoa.mm:
+        (WTF::URL::URL): Changed to just call the CFURLRef constructor so we
+        don't need to repeat things twice.
+        (WTF::URL::emptyCFURL): Added. This is the one part of the createCFURL
+        function that depends on Objective-C.
+        (WTF::URL::createCFURL const): Merged into the function in URLCF.cpp.
+        (WTF::makeNSArrayElement): Use bridge_cast instead of the trickier
+        idiom with explicit calls to leakRef and __bridge_transfer.
+
+        * wtf/mac/FileSystemMac.mm:
+        (WTF::FileSystem::setMetadataURL): Updated since URLWithUserTypedString
+        no longer requires a baseURL of nil to be passed. Also removed explicit
+        WTF namespace since this code itself is in the WTF namespace.
+
+        * wtf/text/cocoa/StringCocoa.mm:
+        (WTF::String::String): Use bridge_cast.
+        (WTF::makeNSArrayElement): Use bridge_cast.
+
+2021-11-10  Tim Nguyen  <ntim@apple.com>
+
+        Migrate DialogElementEnabled from RuntimeFlags to Settings
+        https://bugs.webkit.org/show_bug.cgi?id=232926
+
+        Reviewed by Youenn Fablet.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-11-10  Antti Koivisto  <antti@apple.com>
+
+        Hasher should be able to hash pointers
+        https://bugs.webkit.org/show_bug.cgi?id=232927
+
+        Reviewed by Kimmo Kinnunen.
+
+        * wtf/Hasher.h:
+        (WTF::add):
+
+2021-11-09  Chris Dumez  <cdumez@apple.com>
+
+        [macOS] Enable NSURLSession partitioning based on first-party domain at CFNetwork level
+        https://bugs.webkit.org/show_bug.cgi?id=230750
+        <rdar://problem/83159358>
+
+        Reviewed by Alex Christensen.
+
+        Add HAVE(CFNETWORK_SESSION_PARTITIONING_BASED_ON_FIRST_PARTY_DOMAIN) build time flag that is true
+        on newer Apple OSes where CFNetwork does NSURLSession partitioning based on first-party domain for
+        us.
+
+        * wtf/PlatformHave.h:
+
+2021-11-09  Megan Gardner  <megan_gardner@apple.com>
+
+        Turn on selection flipping by default.
+        https://bugs.webkit.org/show_bug.cgi?id=232853
+
+        Reviewed by Wenson Hsieh.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2021-11-09  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r285536.
+        https://bugs.webkit.org/show_bug.cgi?id=232915
+
+        causes API test crashes
+
+        Reverted changeset:
+
+        "[CF] Reduce duplication and unneeded buffer allocations and
+        copying in URL code, also remove unused methods and functions"
+        https://bugs.webkit.org/show_bug.cgi?id=232220
+        https://commits.webkit.org/r285536
+
+2021-11-09  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r285246.
+        https://bugs.webkit.org/show_bug.cgi?id=232907
+
+        Broke FixedVector
+
+        Reverted changeset:
+
+        "[JSC] Clean up StructureStubInfo initialization"
+        https://bugs.webkit.org/show_bug.cgi?id=232652
+        https://commits.webkit.org/r285246
+
+2021-10-28  Darin Adler  <darin@apple.com>
+
+        [CF] Reduce duplication and unneeded buffer allocations and copying in URL code, also remove unused methods and functions
+        https://bugs.webkit.org/show_bug.cgi?id=232220
+
+        Reviewed by Alex Christensen.
+
+        * wtf/URL.h: Removed unneeded includes. Use default instead of { }
+        for empty destructor. Added emptyCFURL function.
+
+        * wtf/cf/CFURLExtras.cpp:
+        (WTF::bytesAsCFData): Added. Replaces originalURLData from NSURLExtras.mm,
+        but with a simpler implementation and more error checking. Here it's also
+        alongside the other nearly identical functions.
+        (WTF::bytesAsString): Added. Replaces getURLBytes for callers that are
+        going to turn the bytes into a WTF::String. Before this patch, the callers
+        were converting from CFURLRef to WTF::CString and then to WTF::String, so
+        this eliminates the malloc/free pair for CString.
+        (WTF::bytesAsVector): Added. Replaces getURLBytes using a return value
+        instead of an out argument. Adds the optimization of filling the buffer if
+        the inline capacity is sufficient, which was in originalURLData, but not
+        here in getURLBytes before.
+        (WTF::isSameOrigin): Renamed from isCFURLSameOrigin and rewrote this to
+        have fewer type casts and more parallel structure so it's easier to read,
+        while adapting it to use bytesAsVector.
+
+        * wtf/cf/CFURLExtras.h: Replaced URLCharBuffer, getURLBytes, and
+        isCFURLSameOrigin with URLBytesVectorInlineCapacity, bytesAsCFData,
+        bytesAsString, bytesAsVector, and isSameOrigin. Got rid of unneeded
+        includes.
+
+        * wtf/cf/URLCF.cpp:
+        (WTF::URL::URL): Use bytesAsString to streamline implementation and
+        remove allocation/deallcation of a CString.
+        (WTF::URL::emptyCFURL): Added. Used to refactor createCFURL so we can
+        share it across Foundation and non-Foundation versions.
+        (WTF::URL::createCFURL const): Added the logic that was in the version
+        in URLCocoa.mm so we can share this single version, and removed the #if
+        surrounding this.
+        (WTF::URL::fileSystemPath const): Use auto.
+
+        * wtf/cocoa/NSURLExtras.h: Changed URLWithUserTypedString to ignore
+        the baseURL argument. It's not used, but the function is exported and
+        currently used in Safari source code, which, like all callers passes
+        a nil for baseURL. so, for now left the argument. Removed the baseURL
+        argument from URLWithUserTypedStringDeprecated. Removed unused functions
+        rangeOfURLScheme and looksLikeAbsoluteURL.
+
+        * wtf/cocoa/NSURLExtras.mm: Removed "using namespace URLHelpers".
+        (WTF::readIDNAllowedScriptListFile): Use URLHelpers explicitly.
+        (WTF::decodeHostName): Ditto.
+        (WTF::encodeHostName): Ditto.
+        (WTF::URLByTruncatingOneCharacterBeforeComponent): Simplified by using
+        the bytesAsVector function.
+        (WTF::URLByRemovingResourceSpecifier): Deleted.
+        (WTF::URLWithData): Call URLByTruncatingOneCharacterBeforeComponent
+        directly.
+        (WTF::URLWithUserTypedString): Removed the unneeded support for a
+        base URL. Use URLHelpers explicitly.
+        (WTF::URLWithUserTypedStringDeprecated): Ditto.
+        (WTF::hasQuestionMarkOnlyQueryString): Use bridge_cast.
+        (WTF::dataForURLComponentType): Rearranged to simplify a bit, remove support
+        for special value for CFURLComponentType that means the complete URL, since
+        no callers were using that, and use bytesAsVector.
+        (WTF::URLByRemovingComponentAndSubsequentCharacter): Use bridge_cast and
+        bytesAsVector.
+        (WTF::originalURLData): Use bridge_cast and bytesAsCFData.
+        (WTF::userVisibleString): Use URLHelpers explicitly.
+        (WTF::isUserVisibleURL): Rewrote for simplicity and coding style; since
+        the local characters are a null-terminated C string, we don't need
+        length checks as long as we validate characters first, since a '\0'
+        character can be read and will not be valid.
+        (WTF::rangeOfURLScheme): Deleted.
+        (WTF::looksLikeAbsoluteURL): Deleted.
+
+        * wtf/cocoa/URLCocoa.mm:
+        (WTF::URL::URL): Changed to just call the CFURLRef constructor so we
+        don't need to repeat things twice.
+        (WTF::URL::emptyCFURL): Added. This is the one part of the createCFURL
+        function that depends on Objective-C.
+        (WTF::URL::createCFURL const): Merged into the function in URLCF.cpp.
+        (WTF::makeNSArrayElement): Use bridge_cast instead of the trickier
+        idiom with explicit calls to leakRef and __bridge_transfer.
+
+        * wtf/mac/FileSystemMac.mm:
+        (WTF::FileSystem::setMetadataURL): Updated since URLWithUserTypedString
+        no longer requires a baseURL of nil to be passed. Also removed explicit
+        WTF namespace since this code itself is in the WTF namespace.
+
+        * wtf/text/cocoa/StringCocoa.mm:
+        (WTF::String::String): Use bridge_cast.
+        (WTF::makeNSArrayElement): Use bridge_cast.
+
+2021-11-09  Chris Dumez  <cdumez@apple.com>
+
+        BroadcastChannel is still disabled in service workers
+        https://bugs.webkit.org/show_bug.cgi?id=232855
+
+        Reviewed by Darin Adler.
+
+        Turn on BroadcastChannel experimental feature in WebCore since this is the value that Service Workers
+        end up using. We only need to disable it in WebKitLegacy.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-11-09  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Add assembly, disassembly infrastructure
+        https://bugs.webkit.org/show_bug.cgi?id=232870
+
+        Reviewed by Yusuke Suzuki.
+
+        * wtf/PlatformEnable.h: Enable RISCV64_DISASSEMBLER when necessary.
+
+2021-11-09  Megan Gardner  <megan_gardner@apple.com>
+
+        Scroll To Text Fragment directive parsing
+        https://bugs.webkit.org/show_bug.cgi?id=231410
+
+        Reviewed by Chris Dumez.
+
+        Text directive parsing for 
+        https://wicg.github.io/scroll-to-text-fragment/
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-11-09  Tim Horton  <timothy_horton@apple.com>
+
+        Add runtime flag for momentum scrolling
+        https://bugs.webkit.org/show_bug.cgi?id=232898
+        <rdar://problem/85211338>
+
+        Reviewed by Simon Fraser.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+        Add the preference.
+
+2021-11-09  Devin Rousso  <drousso@apple.com>
+
+        REGRESSION(r271735): PaymentShippingOption.selected ignored
+        https://bugs.webkit.org/show_bug.cgi?id=221960
+        <rdar://problem/73464404>
+
+        Reviewed by Tim Horton.
+
+        Leverage new `PKShippingMethods` SPI to provide both the general list of `PKShippingMethod`
+        and the default selected `PKShippingMethods` when creating/updating a payment request.
+
+        * wtf/PlatformEnableCocoa.h:
+        * wtf/PlatformHave.h:
+
+2021-11-08  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Make WebGPU.xcodeproj and WebGPU.framework
+        https://bugs.webkit.org/show_bug.cgi?id=231661
+
+        Reviewed by Dean Jackson and Robin Morisset.
+
+        * wtf/DisallowCType.h:
+
+2021-11-08  Alex Christensen  <achristensen@webkit.org>
+
+        Parse redirect and modify-headers actions for WKContentRuleList
+        https://bugs.webkit.org/show_bug.cgi?id=232838
+
+        Reviewed by Tim Hatcher.
+
+        * wtf/JSONValues.cpp:
+        (WTF::JSONImpl::Value::asObject const):
+        (WTF::JSONImpl::ObjectBase::asObject const):
+        * wtf/JSONValues.h:
+
+2021-11-08  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Enabling "media source inline painting" by default should work when using GPU Process for media
+        https://bugs.webkit.org/show_bug.cgi?id=232802
+
+        Reviewed by Eric Carlson.
+
+        Clean up this experimental feature -- since it's backed by a global RuntimeEnabledFeature, we should:
+        1. Add `webcoreBinding: RuntimeEnabledFeatures`, and also:
+        2. Not be adding the corresponding page-scoped WebCore setting as well.
+
+        This adjustment makes it possible to enable this experimental feature when the GPU process is disabled, since
+        we now actually call into RuntimeEnabledFeatures to set the value (instead of just setting the WebCore setting
+        which wasn't consulted by anything).
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-11-08  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [libpas] Enable libpas on macOS
+        https://bugs.webkit.org/show_bug.cgi?id=231815
+
+        Reviewed by Filip Pizlo.
+
+        * WTF.xcodeproj/project.pbxproj:
+
+2021-11-08  Kate Cheney  <katherine_cheney@apple.com>
+
+        trustd network connections occasionally omitted from App Privacy report
+        https://bugs.webkit.org/show_bug.cgi?id=232770
+        <rdar://problem/83840427>
+
+        Reviewed by Alex Christensen.
+
+        * wtf/spi/cocoa/SecuritySPI.h:
+
+2021-11-04  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Bindings part 1: Bring back Adapter/Device bindings code
+        https://bugs.webkit.org/show_bug.cgi?id=232550
+
+        Reviewed by Alex Christensen.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
+2021-11-05  Alex Christensen  <achristensen@webkit.org>
+
+        Restructure WKContentRuleList Action storage during compilation and interpretation
+        https://bugs.webkit.org/show_bug.cgi?id=232692
+
+        Reviewed by Brady Eidson.
+
+        * wtf/CrossThreadCopier.h:
+        * wtf/StdLibExtras.h:
+
+2021-11-04  Diego Pino Garcia  <dpino@igalia.com>
+
+        Require MediaSession enabled to enable MediaSession PlayList API
+        https://bugs.webkit.org/show_bug.cgi?id=232694
+
+        Reviewed by Žan Doberšek.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-11-04  Antoine Quint  <graouts@webkit.org>
+
+        Make PreferPageRenderingUpdatesNear60FPSEnabled experimental rather than internal
+        https://bugs.webkit.org/show_bug.cgi?id=232702
+
+        Reviewed by Tim Horton.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2021-11-03  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Clean up StructureStubInfo initialization
+        https://bugs.webkit.org/show_bug.cgi?id=232652
+
+        Reviewed by Saam Barati.
+
+        * wtf/FixedVector.h:
+        (WTF::FixedVector::FixedVector):
+        (WTF::FixedVector::operator=):
+        * wtf/RefCountedArray.h:
+        (WTF::RefCountedArray::RefCountedArray):
+        (WTF::RefCountedArray::operator=):
+        * wtf/SegmentedVector.h:
+        * wtf/Vector.h:
+        (WTF::VectorTypeOperations::uninitializedCopy):
+
+2021-11-03  David Kilzer  <ddkilzer@apple.com>
+
+        Disable WebXR on tvOS and watchOS
+        <https://webkit.org/b/232672>
+        <rdar://problem/84982378>
+
+        Reviewed by Brent Fulgham.
+
+        * wtf/PlatformEnableCocoa.h:
+        (ENABLE_WEBXR):
+        (ENABLE_WEBXR_HANDS):
+        - Disable features on tvOS and watchOS.
+
+2021-11-03  Jer Noble  <jer.noble@apple.com>
+
+        [macOS] MediaSession coordinator enabled in UIProcess, disabled in WebContent
+        https://bugs.webkit.org/show_bug.cgi?id=232687
+        <rdar://84990898>
+
+        Reviewed by Eric Carlson.
+
+        Have the MediaSessionPlaylistEnabled preference use the same defaults as MediaSessionCoordinatorEnabled.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-11-03  Chris Dumez  <cdumez@apple.com>
+
+        _pasteboardWithName should be thread-safe
+        https://bugs.webkit.org/show_bug.cgi?id=232670
+
+        Reviewed by Tim Horton.
+
+        wtf/Atomics.h uses WTF_MAKE_STRUCT_FAST_ALLOCATED which is declared in
+        wtf/FastMalloc.h but was failing to include it. This was leading to a
+        build error when I tried including wtf/Lock.h in WKTR.
+
+        * wtf/Atomics.h:
+
+2021-11-02  Brady Eidson  <beidson@apple.com>
+
+        Notifications on iOS enabled at compile-time, disabled at runtime
+        https://bugs.webkit.org/show_bug.cgi?id=232649
+
+        Reviewed by Tim Horton.
+
+        * wtf/PlatformEnableCocoa.h:
+
+2021-11-02  David Kilzer  <ddkilzer@apple.com>
+
+        [WTF] Minor clean-up for format-related functions
+        <https://webkit.org/b/232514>
+
+        Reviewed by Yusuke Suzuki.
+
+        * wtf/Assertions.cpp:
+        (WTF::createWithFormatAndArguments):
+        - Put WTF_ATTRIBUTE_PRINTF() on its own line to match other
+          functions.
+        (WTF::vprintf_stderr_with_prefix):
+        (WTF::vprintf_stderr_with_trailing_newline):
+        - Move ALLOW_NONLITERAL_FORMAT_{BEGIN,END} around specific
+          function calls that need them.
+
+2021-11-02  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        Fails to execute JavaScript when soft stack limit is unlimited
+        https://bugs.webkit.org/show_bug.cgi?id=232328
+
+        Reviewed by Yusuke Suzuki.
+
+        Fall back to assuming an 8 MB stack limit when the real limit is unlimited. JSC needs to
+        have some maximum stack size to work with, and this is as good as any.
+
+        * wtf/StackBounds.cpp:
+        (WTF::StackBounds::currentThreadStackBoundsInternal):
+
+2021-11-02  Philip Chimento  <pchimento@igalia.com>
+
+        [JSC] Implement Temporal.Instant
+        https://bugs.webkit.org/show_bug.cgi?id=229826
+
+        Reviewed by Yusuke Suzuki.
+
+        * wtf/CheckedArithmetic.h: Don't use builtin operations if __int128 is
+          being emulated using WTF::Int128. Also work around Clang/Linux bug
+          where __builtin_mul_overflow() doesn't work on __int128.
+          See https://bugs.llvm.org/show_bug.cgi?id=16404
+        * wtf/DateMath.h:
+        (WTF::timeToMS): Moved from JSDateMath.h.
+
+2021-11-02  Chris Dumez  <cdumez@apple.com>
+
+        Use higher QoS for WheelEvent and DisplayWasRefreshed IPCs
+        https://bugs.webkit.org/show_bug.cgi?id=232458
+        <rdar://82657744>
+
+        Reviewed by Simon Fraser.
+
+        Add dispatchWithQOS() function to WorkQueue to dispatch a task with a given QoS.
+
+        * wtf/WorkQueue.cpp:
+        (WTF::WorkQueueBase::dispatchWithQOS):
+        * wtf/WorkQueue.h:
+        * wtf/cocoa/WorkQueueCocoa.cpp:
+        (WTF::WorkQueueBase::dispatchWithQOS):
+
+2021-11-01  Per Arne  <pvollan@apple.com>
+
+        [macOS] Opening local html files is failing
+        https://bugs.webkit.org/show_bug.cgi?id=232572
+        <rdar://81330442>
+
+        Reviewed by Brent Fulgham.
+
+        Declare sandbox flag.
+
+        * wtf/spi/darwin/SandboxSPI.h:
+
+2021-11-01  Tim Horton  <timothy_horton@apple.com>
+
+        Add a testing preference to replay CG display lists manually
+        https://bugs.webkit.org/show_bug.cgi?id=232566
+
+        Reviewed by Wenson Hsieh.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
 2021-10-29  Yusuke Suzuki  <ysuzuki@apple.com>
 
         [JSC] Clean up Baseline StructureStubInfo management

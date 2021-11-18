@@ -49,6 +49,7 @@ namespace WebCore {
 
 ScrollingEffectsController::ScrollingEffectsController(ScrollingEffectsControllerClient& client)
     : m_client(client)
+    , m_momentumScrollingAnimatorEnabled(client.momentumScrollingAnimatorEnabled())
 {
 }
 
@@ -99,12 +100,12 @@ bool ScrollingEffectsController::startAnimatedScrollToDestination(FloatPoint sta
     if (m_currentAnimation)
         m_currentAnimation->stop();
 
-    LOG_WITH_STREAM(ScrollAnimations, stream << "ScrollingEffectsController " << this << " startAnimatedScrollToDestination start " << startOffset << " end " << destinationOffset);
-
     // We always create and attempt to start the animation. If it turns out to not need animating, then the animation
     // remains inactive, and we'll remove it on the next animationCallback().
     m_currentAnimation = makeUnique<ScrollAnimationSmooth>(*this);
-    return downcast<ScrollAnimationSmooth>(*m_currentAnimation).startAnimatedScrollToDestination(startOffset, destinationOffset);
+    bool started = downcast<ScrollAnimationSmooth>(*m_currentAnimation).startAnimatedScrollToDestination(startOffset, destinationOffset);
+    LOG_WITH_STREAM(ScrollAnimations, stream << "ScrollingEffectsController " << this << " startAnimatedScrollToDestination " << *m_currentAnimation << " started " << started);
+    return started;
 }
 
 bool ScrollingEffectsController::retargetAnimatedScroll(FloatPoint newDestinationOffset)
@@ -120,16 +121,39 @@ bool ScrollingEffectsController::retargetAnimatedScroll(FloatPoint newDestinatio
 
 bool ScrollingEffectsController::retargetAnimatedScrollBy(FloatSize offset)
 {
-    if (!is<ScrollAnimationSmooth>(m_currentAnimation.get()))
+    if (!is<ScrollAnimationSmooth>(m_currentAnimation.get()) || !m_currentAnimation->isActive())
         return false;
 
     LOG_WITH_STREAM(ScrollAnimations, stream << "ScrollingEffectsController " << this << " retargetAnimatedScrollBy " << offset);
 
-    ASSERT(m_currentAnimation->isActive());
     if (auto destinationOffset = m_currentAnimation->destinationOffset())
         return m_currentAnimation->retargetActiveAnimation(*destinationOffset + offset);
 
     return false;
+}
+
+void ScrollingEffectsController::stopAnimatedNonRubberbandingScroll()
+{
+    LOG_WITH_STREAM(ScrollAnimations, stream << "ScrollingEffectsController " << this << " stopAnimatedNonRubberbandingScroll");
+
+    if (!m_currentAnimation)
+        return;
+
+#if HAVE(RUBBER_BANDING)
+    if (is<ScrollAnimationRubberBand>(m_currentAnimation))
+        return;
+#endif
+
+    if (is<ScrollAnimationMomentum>(m_currentAnimation)) {
+        // If the animation is currently triggering rubberbanding, let it run. Ideally we'd check if the animation will cause rubberbanding at any time in the future.
+        auto currentOffset = m_currentAnimation->currentOffset();
+        auto extents = m_client.scrollExtents();
+        auto constrainedOffset = currentOffset.constrainedBetween(extents.minimumScrollOffset(), extents.maximumScrollOffset());
+        if (currentOffset != constrainedOffset)
+            return;
+    }
+
+    m_currentAnimation->stop();
 }
 
 void ScrollingEffectsController::stopAnimatedScroll()
@@ -151,8 +175,9 @@ bool ScrollingEffectsController::startMomentumScrollWithInitialVelocity(const Fl
     if (!m_currentAnimation)
         m_currentAnimation = makeUnique<ScrollAnimationMomentum>(*this);
 
-    LOG_WITH_STREAM(ScrollAnimations, stream << "ScrollingEffectsController " << this << " startMomentumScrollWithInitialVelocity " << initialVelocity << " from " << initialOffset);
-    return downcast<ScrollAnimationMomentum>(*m_currentAnimation).startAnimatedScrollWithInitialVelocity(initialOffset, initialVelocity, initialDelta, destinationModifier);
+    bool started = downcast<ScrollAnimationMomentum>(*m_currentAnimation).startAnimatedScrollWithInitialVelocity(initialOffset, initialVelocity, initialDelta, destinationModifier);
+    LOG_WITH_STREAM(ScrollAnimations, stream << "ScrollingEffectsController::startMomentumScrollWithInitialVelocity() - animation " << *m_currentAnimation << " initialVelocity " << initialVelocity << " initialDelta " << initialDelta << " started " << started);
+    return started;
 }
 
 void ScrollingEffectsController::setIsAnimatingRubberBand(bool isAnimatingRubberBand)

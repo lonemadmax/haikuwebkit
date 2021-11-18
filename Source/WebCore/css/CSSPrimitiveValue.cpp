@@ -26,6 +26,7 @@
 #include "CSSFontFamily.h"
 #include "CSSHelper.h"
 #include "CSSMarkup.h"
+#include "CSSParserIdioms.h"
 #include "CSSPrimitiveValueMappings.h"
 #include "CSSPropertyNames.h"
 #include "CSSToLengthConversionData.h"
@@ -37,6 +38,7 @@
 #include "Counter.h"
 #include "DeprecatedCSSOMPrimitiveValue.h"
 #include "FontCascade.h"
+#include "Length.h"
 #include "Node.h"
 #include "Pair.h"
 #include "Rect.h"
@@ -314,6 +316,7 @@ CSSPrimitiveValue::CSSPrimitiveValue(const Length& length, const RenderStyle& st
 {
     switch (length.type()) {
     case LengthType::Auto:
+    case LengthType::Content:
     case LengthType::Intrinsic:
     case LengthType::MinIntrinsic:
     case LengthType::MinContent:
@@ -362,12 +365,23 @@ CSSPrimitiveValue::CSSPrimitiveValue(StaticCSSValueTag, double num, CSSUnitType 
     makeStatic();
 }
 
+CSSPrimitiveValue::CSSPrimitiveValue(StaticCSSValueTag, ImplicitInitialValueTag)
+    : CSSPrimitiveValue(CSSValueInitial)
+{
+    m_isImplicit = true;
+    makeStatic();
+}
+
 void CSSPrimitiveValue::init(const Length& length)
 {
     switch (length.type()) {
     case LengthType::Auto:
         setPrimitiveUnitType(CSSUnitType::CSS_VALUE_ID);
         m_value.valueID = CSSValueAuto;
+        return;
+    case LengthType::Content:
+        setPrimitiveUnitType(CSSUnitType::CSS_VALUE_ID);
+        m_value.valueID = CSSValueContent;
         return;
     case LengthType::Fixed:
         setPrimitiveUnitType(CSSUnitType::CSS_PX);
@@ -1436,6 +1450,11 @@ void CSSPrimitiveValue::collectDirectRootComputationalDependencies(HashSet<CSSPr
     default:
         break;
     }
+}
+
+bool CSSPrimitiveValue::isCSSWideKeyword() const
+{
+    return WebCore::isCSSWideKeyword(valueID());
 }
 
 } // namespace WebCore

@@ -97,6 +97,18 @@
 
 namespace WebCore {
 
+static WeakHashSet<AudioSessionIOS::CategoryChangedObserver>& audioSessionCategoryChangedObservers()
+{
+    static NeverDestroyed<WeakHashSet<AudioSessionIOS::CategoryChangedObserver>> observers;
+    return observers;
+}
+
+void AudioSessionIOS::addAudioSessionCategoryChangedObserver(const CategoryChangedObserver& observer)
+{
+    audioSessionCategoryChangedObservers().add(observer);
+    observer(AudioSession::sharedSession(), AudioSession::sharedSession().category());
+}
+
 static void setEligibleForSmartRouting(bool eligible)
 {
 #if PLATFORM(IOS)
@@ -155,6 +167,27 @@ void AudioSessionIOS::setHostProcessAttribution(audit_token_t auditToken)
 #endif
 };
 
+void AudioSessionIOS::setPresentingProcesses(Vector<audit_token_t>&& auditTokens)
+{
+#if HAVE(AUDIOSESSION_PROCESSASSERTION)
+    auto session = [PAL::getAVAudioSessionClass() sharedInstance];
+    if (![session respondsToSelector:@selector(setAuditTokensForProcessAssertion:error:)])
+        return;
+
+    auto nsAuditTokens = adoptNS([[NSMutableArray alloc] init]);
+    for (auto& token : auditTokens) {
+        auto nsToken = adoptNS([[NSData alloc] initWithBytes:token.val length:sizeof(token.val)]);
+        [nsAuditTokens addObject:nsToken.get()];
+    }
+
+    NSError *error = nil;
+    [session setAuditTokensForProcessAssertion:nsAuditTokens.get() error:&error];
+    if (error)
+        RELEASE_LOG_ERROR(Media, "Failed to set audit tokens for process assertion with error: %@", error.localizedDescription);
+#else
+    UNUSED_PARAM(auditTokens);
+#endif
+}
 
 void AudioSessionIOS::setCategory(CategoryType newCategory, RouteSharingPolicy policy)
 {
@@ -205,6 +238,8 @@ void AudioSessionIOS::setCategory(CategoryType newCategory, RouteSharingPolicy p
 #if !PLATFORM(IOS_FAMILY_SIMULATOR) && !PLATFORM(MACCATALYST)
     ASSERT(!error);
 #endif
+    for (auto& observer : audioSessionCategoryChangedObservers())
+        observer(*this, category());
 }
 
 AudioSession::CategoryType AudioSessionIOS::category() const

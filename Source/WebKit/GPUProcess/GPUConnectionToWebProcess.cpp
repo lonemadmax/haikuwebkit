@@ -234,6 +234,9 @@ GPUConnectionToWebProcess::GPUConnectionToWebProcess(GPUProcess& gpuProcess, Web
 #if ENABLE(MEDIA_STREAM)
     , m_captureOrigin(SecurityOrigin::createUnique())
 #endif
+#if HAVE(AUDIT_TOKEN)
+    , m_presentingApplicationAuditToken(WTFMove(parameters.presentingApplicationAuditToken))
+#endif
 #if ENABLE(ROUTING_ARBITRATION) && HAVE(AVAUDIO_ROUTING_ARBITER)
     , m_routingArbitrator(LocalAudioSessionRoutingArbitrator::create(*this))
 #endif
@@ -355,10 +358,7 @@ void GPUConnectionToWebProcess::releaseWCLayerTreeHost(WebKit::WCLayerTreeHostId
 RefPtr<RemoteGraphicsContextGL> GPUConnectionToWebProcess::findRemoteGraphicsContextGL(GraphicsContextGLIdentifier identifier)
 {
     ASSERT(RunLoop::isMain());
-    auto iter = m_remoteGraphicsContextGLMap.find(identifier);
-    if (iter == m_remoteGraphicsContextGLMap.end())
-        return nullptr;
-    return iter->value.get();
+    return m_remoteGraphicsContextGLMap.get(identifier);
 }
 #endif
 

@@ -96,6 +96,19 @@ struct ScrollRectToVisibleOptions;
 using AXID = size_t;
 extern const AXID InvalidAXID;
 
+enum class AXAncestorFlag : uint8_t {
+    // When the flags aren't initialized, it means the object hasn't been inserted into the tree,
+    // and thus we haven't set any of these ancestry flags.
+    FlagsInitialized = 1 << 0,
+    HasDocumentRoleAncestor = 1 << 1,
+    HasWebApplicationAncestor = 1 << 2,
+    IsInDescriptionListDetail = 1 << 3,
+    IsInDescriptionListTerm = 1 << 4,
+    IsInCell = 1 << 5,
+
+    // Bits 6 and 7 are free.
+};
+
 enum class AccessibilityRole {
     Annotation = 1,
     Application,
@@ -124,8 +137,8 @@ enum class AccessibilityRole {
     Definition,
     Deletion,
     DescriptionList,
-    DescriptionListTerm,
     DescriptionListDetail,
+    DescriptionListTerm,
     Details,
     Directory,
     DisclosureTriangle,
@@ -1107,6 +1120,12 @@ public:
     virtual bool isDescendantOfBarrenParent() const = 0;
     virtual bool isDescendantOfRole(AccessibilityRole) const = 0;
 
+    virtual bool hasDocumentRoleAncestor() const = 0;
+    virtual bool hasWebApplicationAncestor() const = 0;
+    virtual bool isInDescriptionListDetail() const = 0;
+    virtual bool isInDescriptionListTerm() const = 0;
+    virtual bool isInCell() const = 0;
+
     // Text selection
     virtual Vector<SimpleRange> findTextRanges(const AccessibilitySearchTextCriteria&) const = 0;
     virtual Vector<String> performTextOperation(AccessibilityTextOperation const&) = 0;
@@ -1124,7 +1143,7 @@ public:
     virtual bool inheritsPresentationalRole() const = 0;
 
     using AXValue = std::variant<bool, unsigned, float, String, AccessibilityButtonState, AXCoreObject*>;
-    virtual AXValue value() = 0;
+    AXValue value();
 
     // Accessibility Text
     virtual void accessibilityText(Vector<AccessibilityText>&) const = 0;
@@ -1189,6 +1208,7 @@ public:
     virtual VisibleSelection selection() const = 0;
     virtual String selectedText() const = 0;
     virtual String accessKey() const = 0;
+    virtual String localizedActionVerb() const = 0;
     virtual String actionVerb() const = 0;
 
     // Widget support.
@@ -1525,6 +1545,38 @@ private:
 #endif
     virtual void detachPlatformWrapper(AccessibilityDetachmentType) = 0;
 };
+
+inline AXCoreObject::AXValue AXCoreObject::value()
+{
+    if (supportsRangeValue())
+        return valueForRange();
+
+    if (roleValue() == AccessibilityRole::SliderThumb)
+        return parentObject()->valueForRange();
+
+    if (isHeading())
+        return headingLevel();
+
+    if (supportsCheckedState())
+        return checkboxOrRadioValue();
+
+    // Radio groups return the selected radio button as the AXValue.
+    if (isRadioGroup())
+        return selectedRadioButton();
+
+    if (isTabList())
+        return selectedTabItem();
+
+    if (isTabItem())
+        return isSelected();
+
+    if (isColorWell()) {
+        auto color = convertColor<SRGBA<float>>(colorValue());
+        return makeString("rgb ", String::numberToStringFixedPrecision(color.red, 6, KeepTrailingZeros), " ", String::numberToStringFixedPrecision(color.green, 6, KeepTrailingZeros), " ", String::numberToStringFixedPrecision(color.blue, 6, KeepTrailingZeros), " 1");
+    }
+
+    return stringValue();
+}
 
 inline void AXCoreObject::detach(AccessibilityDetachmentType detachmentType)
 {

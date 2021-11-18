@@ -18,6 +18,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${CMAKE_BINARY_DIR}"
     "${WebCore_DERIVED_SOURCES_DIR}"
     "${WEBCORE_DIR}"
+    "${WEBCORE_DIR}/Modules/WebGPU"
     "${WEBCORE_DIR}/Modules/airplay"
     "${WEBCORE_DIR}/Modules/applepay"
     "${WEBCORE_DIR}/Modules/applepay/paymentrequest"
@@ -46,6 +47,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/mediastream"
     "${WEBCORE_DIR}/Modules/mediastream/libwebrtc"
     "${WEBCORE_DIR}/Modules/model-element"
+    "${WEBCORE_DIR}/Modules/model-element/dummy"
     "${WEBCORE_DIR}/Modules/navigatorcontentutils"
     "${WEBCORE_DIR}/Modules/notifications"
     "${WEBCORE_DIR}/Modules/paymentrequest"
@@ -64,9 +66,6 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/webauthn/fido"
     "${WEBCORE_DIR}/Modules/webdatabase"
     "${WEBCORE_DIR}/Modules/webdriver"
-    "${WEBCORE_DIR}/Modules/webgpu"
-    "${WEBCORE_DIR}/Modules/webgpu/WHLSL"
-    "${WEBCORE_DIR}/Modules/webgpu/WHLSL/AST"
     "${WEBCORE_DIR}/Modules/websockets"
     "${WEBCORE_DIR}/Modules/webxr"
     "${WEBCORE_DIR}/accessibility"
@@ -198,6 +197,7 @@ set(WebCore_IDL_INCLUDES
     workers
     xml
 
+    Modules/WebGPU
     Modules/airplay
     Modules/cache
     Modules/credentialmanagement
@@ -222,7 +222,6 @@ set(WebCore_IDL_INCLUDES
     Modules/web-locks
     Modules/webaudio
     Modules/webdatabase
-    Modules/webgpu
     Modules/websockets
 
     bindings/js
@@ -515,6 +514,8 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/push-api/PushMessageData.idl
     Modules/push-api/PushPermissionState.idl
     Modules/push-api/PushSubscription.idl
+    Modules/push-api/PushSubscriptionChangeEvent.idl
+    Modules/push-api/PushSubscriptionChangeEventInit.idl
     Modules/push-api/PushSubscriptionJSON.idl
     Modules/push-api/PushSubscriptionOptions.idl
     Modules/push-api/PushSubscriptionOptionsInit.idl
@@ -1473,6 +1474,144 @@ list(APPEND WebCore_NON_SVG_IDL_FILES
     Modules/webxr/XRWebGLLayerInit.idl
 )
 
+list(APPEND WebCore_NON_SVG_IDL_FILES
+    Modules/WebGPU/GPU.idl
+    Modules/WebGPU/GPUAdapter.idl
+    Modules/WebGPU/GPUAddressMode.idl
+    Modules/WebGPU/GPUBindGroup.idl
+    Modules/WebGPU/GPUBindGroupDescriptor.idl
+    Modules/WebGPU/GPUBindGroupEntry.idl
+    Modules/WebGPU/GPUBindGroupLayout.idl
+    Modules/WebGPU/GPUBindGroupLayoutDescriptor.idl
+    Modules/WebGPU/GPUBindGroupLayoutEntry.idl
+    Modules/WebGPU/GPUBlendComponent.idl
+    Modules/WebGPU/GPUBlendFactor.idl
+    Modules/WebGPU/GPUBlendOperation.idl
+    Modules/WebGPU/GPUBlendState.idl
+    Modules/WebGPU/GPUBuffer.idl
+    Modules/WebGPU/GPUBufferBinding.idl
+    Modules/WebGPU/GPUBufferBindingLayout.idl
+    Modules/WebGPU/GPUBufferBindingType.idl
+    Modules/WebGPU/GPUBufferDescriptor.idl
+    Modules/WebGPU/GPUBufferUsage.idl
+    Modules/WebGPU/GPUCanvasCompositingAlphaMode.idl
+    Modules/WebGPU/GPUCanvasConfiguration.idl
+    Modules/WebGPU/GPUCanvasContext.idl
+    Modules/WebGPU/GPUColorDict.idl
+    Modules/WebGPU/GPUColorTargetState.idl
+    Modules/WebGPU/GPUColorWrite.idl
+    Modules/WebGPU/GPUCommandBuffer.idl
+    Modules/WebGPU/GPUCommandBufferDescriptor.idl
+    Modules/WebGPU/GPUCommandEncoder.idl
+    Modules/WebGPU/GPUCommandEncoderDescriptor.idl
+    Modules/WebGPU/GPUCompareFunction.idl
+    Modules/WebGPU/GPUCompilationInfo.idl
+    Modules/WebGPU/GPUCompilationMessage.idl
+    Modules/WebGPU/GPUCompilationMessageType.idl
+    Modules/WebGPU/GPUComputePassDescriptor.idl
+    Modules/WebGPU/GPUComputePassEncoder.idl
+    Modules/WebGPU/GPUComputePassTimestampLocation.idl
+    Modules/WebGPU/GPUComputePassTimestampWrite.idl
+    Modules/WebGPU/GPUComputePipeline.idl
+    Modules/WebGPU/GPUComputePipelineDescriptor.idl
+    Modules/WebGPU/GPUCullMode.idl
+    Modules/WebGPU/GPUDepthStencilState.idl
+    Modules/WebGPU/GPUDevice.idl
+    Modules/WebGPU/GPUDeviceDescriptor.idl
+    Modules/WebGPU/GPUDeviceError.idl
+    Modules/WebGPU/GPUDeviceLost.idl
+    Modules/WebGPU/GPUDeviceLostInfo.idl
+    Modules/WebGPU/GPUDeviceLostReason.idl
+    Modules/WebGPU/GPUDeviceUncapturedError.idl
+    Modules/WebGPU/GPUErrorFilter.idl
+    Modules/WebGPU/GPUExtent3DDict.idl
+    Modules/WebGPU/GPUExternalTexture.idl
+    Modules/WebGPU/GPUExternalTextureBindingLayout.idl
+    Modules/WebGPU/GPUExternalTextureDescriptor.idl
+    Modules/WebGPU/GPUFeatureName.idl
+    Modules/WebGPU/GPUFilterMode.idl
+    Modules/WebGPU/GPUFragmentState.idl
+    Modules/WebGPU/GPUFrontFace.idl
+    Modules/WebGPU/GPUImageCopyBuffer.idl
+    Modules/WebGPU/GPUImageCopyExternalImage.idl
+    Modules/WebGPU/GPUImageCopyTexture.idl
+    Modules/WebGPU/GPUImageCopyTextureTagged.idl
+    Modules/WebGPU/GPUImageDataLayout.idl
+    Modules/WebGPU/GPUIndexFormat.idl
+    Modules/WebGPU/GPULoadOp.idl
+    Modules/WebGPU/GPUMapMode.idl
+    Modules/WebGPU/GPUMultisampleState.idl
+    Modules/WebGPU/GPUObjectBase.idl
+    Modules/WebGPU/GPUObjectDescriptorBase.idl
+    Modules/WebGPU/GPUOrigin2DDict.idl
+    Modules/WebGPU/GPUOrigin3DDict.idl
+    Modules/WebGPU/GPUOutOfMemoryError.idl
+    Modules/WebGPU/GPUPipelineBase.idl
+    Modules/WebGPU/GPUPipelineDescriptorBase.idl
+    Modules/WebGPU/GPUPipelineLayout.idl
+    Modules/WebGPU/GPUPipelineLayoutDescriptor.idl
+    Modules/WebGPU/GPUPipelineStatisticName.idl
+    Modules/WebGPU/GPUPowerPreference.idl
+    Modules/WebGPU/GPUPredefinedColorSpace.idl
+    Modules/WebGPU/GPUPrimitiveState.idl
+    Modules/WebGPU/GPUPrimitiveTopology.idl
+    Modules/WebGPU/GPUProgrammablePassEncoder.idl
+    Modules/WebGPU/GPUProgrammableStage.idl
+    Modules/WebGPU/GPUQuerySet.idl
+    Modules/WebGPU/GPUQuerySetDescriptor.idl
+    Modules/WebGPU/GPUQueryType.idl
+    Modules/WebGPU/GPUQueue.idl
+    Modules/WebGPU/GPURenderBundle.idl
+    Modules/WebGPU/GPURenderBundleDescriptor.idl
+    Modules/WebGPU/GPURenderBundleEncoder.idl
+    Modules/WebGPU/GPURenderBundleEncoderDescriptor.idl
+    Modules/WebGPU/GPURenderEncoderBase.idl
+    Modules/WebGPU/GPURenderPassColorAttachment.idl
+    Modules/WebGPU/GPURenderPassDepthStencilAttachment.idl
+    Modules/WebGPU/GPURenderPassDescriptor.idl
+    Modules/WebGPU/GPURenderPassEncoder.idl
+    Modules/WebGPU/GPURenderPassLayout.idl
+    Modules/WebGPU/GPURenderPassTimestampLocation.idl
+    Modules/WebGPU/GPURenderPassTimestampWrite.idl
+    Modules/WebGPU/GPURenderPipeline.idl
+    Modules/WebGPU/GPURenderPipelineDescriptor.idl
+    Modules/WebGPU/GPURequestAdapterOptions.idl
+    Modules/WebGPU/GPUSampler.idl
+    Modules/WebGPU/GPUSamplerBindingLayout.idl
+    Modules/WebGPU/GPUSamplerBindingType.idl
+    Modules/WebGPU/GPUSamplerDescriptor.idl
+    Modules/WebGPU/GPUShaderModule.idl
+    Modules/WebGPU/GPUShaderModuleDescriptor.idl
+    Modules/WebGPU/GPUShaderStage.idl
+    Modules/WebGPU/GPUStencilFaceState.idl
+    Modules/WebGPU/GPUStencilOperation.idl
+    Modules/WebGPU/GPUStorageTextureAccess.idl
+    Modules/WebGPU/GPUStorageTextureBindingLayout.idl
+    Modules/WebGPU/GPUStoreOp.idl
+    Modules/WebGPU/GPUSupportedFeatures.idl
+    Modules/WebGPU/GPUSupportedLimits.idl
+    Modules/WebGPU/GPUTexture.idl
+    Modules/WebGPU/GPUTextureAspect.idl
+    Modules/WebGPU/GPUTextureBindingLayout.idl
+    Modules/WebGPU/GPUTextureDescriptor.idl
+    Modules/WebGPU/GPUTextureDimension.idl
+    Modules/WebGPU/GPUTextureFormat.idl
+    Modules/WebGPU/GPUTextureSampleType.idl
+    Modules/WebGPU/GPUTextureUsage.idl
+    Modules/WebGPU/GPUTextureView.idl
+    Modules/WebGPU/GPUTextureViewDescriptor.idl
+    Modules/WebGPU/GPUTextureViewDimension.idl
+    Modules/WebGPU/GPUUncapturedErrorEvent.idl
+    Modules/WebGPU/GPUUncapturedErrorEventInit.idl
+    Modules/WebGPU/GPUValidationError.idl
+    Modules/WebGPU/GPUVertexAttribute.idl
+    Modules/WebGPU/GPUVertexBufferLayout.idl
+    Modules/WebGPU/GPUVertexFormat.idl
+    Modules/WebGPU/GPUVertexState.idl
+    Modules/WebGPU/GPUVertexStepMode.idl
+    Modules/WebGPU/NavigatorGPU.idl
+)
+
 set(WebCore_IDL_FILES
     ${WebCore_NON_SVG_IDL_FILES}
     ${WebCore_SVG_IDL_FILES}
@@ -1799,6 +1938,10 @@ if (ENABLE_USER_MESSAGE_HANDLERS)
         page/UserMessageHandlersNamespace.cpp
         page/WebKitNamespace.cpp
     )
+endif ()
+
+if (USE_LCMS)
+    list(APPEND WebCore_LIBRARIES LCMS2::LCMS2)
 endif ()
 
 if (USE_WOFF2)
@@ -2325,11 +2468,4 @@ if (MSVC)
     set_target_properties(WebCore PROPERTIES
         COMPILE_PDB_NAME ${WebCore_OUTPUT_NAME}
     )
-endif ()
-
-# Special compiler flags may be used for individual files only if the file is excluded from unified
-# build.
-if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    # This warning cannot be suppressed with a pragma.
-    set_source_files_properties(Modules/websockets/WebSocket.cpp PROPERTIES COMPILE_FLAGS -Wno-stringop-overread)
 endif ()

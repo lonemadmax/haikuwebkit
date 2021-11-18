@@ -27,57 +27,168 @@
 
 #if ENABLE(CONTENT_EXTENSIONS)
 
-#include <wtf/Vector.h>
-#include <wtf/text/WTFString.h>
+#include "ContentExtensionStringSerialization.h"
+#include <wtf/JSONValues.h>
 
-namespace WebCore {
-
-class Page;
-class ResourceRequest;
-
-struct ContentRuleListResults;
-
-namespace ContentExtensions {
+namespace WebCore::ContentExtensions {
 
 struct Action;
 
 using SerializedActionByte = uint8_t;
 
-enum class ActionType : uint8_t {
-    BlockLoad,
-    BlockCookies,
-    CSSDisplayNoneSelector,
-    Notify,
-    IgnorePreviousRules,
-    MakeHTTPS,
+template<typename T> struct ActionWithoutMetadata {
+    T isolatedCopy() const { return { }; }
+    bool operator==(const T&) const { return true; }
+    void serialize(Vector<uint8_t>&) const { }
+    static T deserialize(Span<const uint8_t>) { return { }; }
+    static size_t serializedLength(Span<const uint8_t>) { return 0; }
 };
 
-static inline bool hasStringArgument(ActionType actionType)
-{
-    switch (actionType) {
-    case ActionType::CSSDisplayNoneSelector:
-    case ActionType::Notify:
-        return true;
-    case ActionType::BlockLoad:
-    case ActionType::BlockCookies:
-    case ActionType::IgnorePreviousRules:
-    case ActionType::MakeHTTPS:
-        return false;
-    }
-    ASSERT_NOT_REACHED();
-    return false;
-}
-
-struct ActionsFromContentRuleList {
-    String contentRuleListIdentifier;
-    bool sawIgnorePreviousRules { false };
-    Vector<Action> actions;
+template<typename T> struct ActionWithStringMetadata {
+    const String string;
+    T isolatedCopy() const { return { { string.isolatedCopy() } }; }
+    bool operator==(const T& other) const { return other.string == this->string; }
+    void serialize(Vector<uint8_t>& vector) const { serializeString(vector, string); }
+    static T deserialize(Span<const uint8_t> span) { return { { deserializeString(span) } }; }
+    static size_t serializedLength(Span<const uint8_t> span) { return stringSerializedLength(span); }
 };
 
-WEBCORE_EXPORT void applyResultsToRequest(ContentRuleListResults&&, Page*, ResourceRequest&);
+struct BlockLoadAction : public ActionWithoutMetadata<BlockLoadAction> { };
+struct BlockCookiesAction : public ActionWithoutMetadata<BlockCookiesAction> { };
+struct CSSDisplayNoneSelectorAction : public ActionWithStringMetadata<CSSDisplayNoneSelectorAction> { };
+struct NotifyAction : public ActionWithStringMetadata<NotifyAction> { };
+struct IgnorePreviousRulesAction : public ActionWithoutMetadata<IgnorePreviousRulesAction> { };
+struct MakeHTTPSAction : public ActionWithoutMetadata<MakeHTTPSAction> { };
 
-} // namespace ContentExtensions
+struct WEBCORE_EXPORT ModifyHeadersAction {
+    struct ModifyHeaderInfo {
+        struct AppendOperation {
+            String header;
+            String value;
 
-} // namespace WebCore
+            AppendOperation isolatedCopy() const { return { header.isolatedCopy(), value.isolatedCopy() }; }
+            bool operator==(const AppendOperation& other) const { return other.header == this->header && other.value == this->value; }
+        };
+        struct SetOperation {
+            String header;
+            String value;
+
+            SetOperation isolatedCopy() const { return { header.isolatedCopy(), value.isolatedCopy() }; }
+            bool operator==(const SetOperation& other) const { return other.header == this->header && other.value == this->value; }
+        };
+        struct RemoveOperation {
+            String header;
+
+            RemoveOperation isolatedCopy() const { return { header.isolatedCopy() }; }
+            bool operator==(const RemoveOperation& other) const { return other.header == this->header; }
+        };
+        using OperationVariant = std::variant<AppendOperation, SetOperation, RemoveOperation>;
+        OperationVariant operation;
+
+        static Expected<ModifyHeaderInfo, std::error_code> parse(const JSON::Value&);
+        ModifyHeaderInfo isolatedCopy() const;
+        bool operator==(const ModifyHeaderInfo&) const;
+        void serialize(Vector<uint8_t>&) const;
+        static ModifyHeaderInfo deserialize(Span<const uint8_t>);
+        static size_t serializedLength(Span<const uint8_t>);
+    };
+
+    Vector<ModifyHeaderInfo> requestHeaders;
+    Vector<ModifyHeaderInfo> responseHeaders;
+
+    static Expected<ModifyHeadersAction, std::error_code> parse(const JSON::Object&);
+    ModifyHeadersAction isolatedCopy() const;
+    bool operator==(const ModifyHeadersAction&) const;
+    void serialize(Vector<uint8_t>&) const;
+    static ModifyHeadersAction deserialize(Span<const uint8_t>);
+    static size_t serializedLength(Span<const uint8_t>);
+};
+
+struct WEBCORE_EXPORT RedirectAction {
+    struct ExtensionPathAction {
+        String extensionPath;
+
+        ExtensionPathAction isolatedCopy() const { return { extensionPath.isolatedCopy() }; }
+        bool operator==(const ExtensionPathAction& other) const { return other.extensionPath == this->extensionPath; }
+    };
+    struct RegexSubstitutionAction {
+        String regexSubstitution;
+
+        RegexSubstitutionAction isolatedCopy() const { return { regexSubstitution.isolatedCopy() }; }
+        bool operator==(const RegexSubstitutionAction& other) const { return other.regexSubstitution == this->regexSubstitution; }
+    };
+    struct URLTransformAction {
+        struct QueryTransform {
+            struct QueryKeyValue {
+                String key;
+                bool replaceOnly { false };
+                String value;
+
+                static Expected<QueryKeyValue, std::error_code> parse(const JSON::Value&);
+                QueryKeyValue isolatedCopy() const;
+                bool operator==(const QueryKeyValue&) const;
+                void serialize(Vector<uint8_t>&) const;
+                static QueryKeyValue deserialize(Span<const uint8_t>);
+                static size_t serializedLength(Span<const uint8_t>);
+            };
+
+            Vector<QueryKeyValue> addOrReplaceParams;
+            Vector<String> removeParams;
+
+            static Expected<QueryTransform, std::error_code> parse(const JSON::Object&);
+            QueryTransform isolatedCopy() const;
+            bool operator==(const QueryTransform&) const;
+            void serialize(Vector<uint8_t>&) const;
+            static QueryTransform deserialize(Span<const uint8_t>);
+            static size_t serializedLength(Span<const uint8_t>);
+        };
+
+        String fragment;
+        String host;
+        String password;
+        String path;
+        String port;
+        using QueryTransformVariant = std::variant<String, QueryTransform>;
+        QueryTransformVariant queryTransform;
+        String scheme;
+        String username;
+
+        static Expected<URLTransformAction, std::error_code> parse(const JSON::Object&, const HashSet<String>&);
+        URLTransformAction isolatedCopy() const;
+        bool operator==(const URLTransformAction&) const;
+        void serialize(Vector<uint8_t>&) const;
+        static URLTransformAction deserialize(Span<const uint8_t>);
+        static size_t serializedLength(Span<const uint8_t>);
+    };
+    struct URLAction {
+        String url;
+
+        URLAction isolatedCopy() const { return { url.isolatedCopy() }; }
+        bool operator==(const URLAction& other) const { return other.url == this->url; }
+    };
+
+    using ActionVariant = std::variant<ExtensionPathAction, RegexSubstitutionAction, URLTransformAction, URLAction>;
+    ActionVariant action;
+
+    static Expected<RedirectAction, std::error_code> parse(const JSON::Object&, const HashSet<String>&);
+    RedirectAction isolatedCopy() const;
+    bool operator==(const RedirectAction&) const;
+    void serialize(Vector<uint8_t>&) const;
+    static RedirectAction deserialize(Span<const uint8_t>);
+    static size_t serializedLength(Span<const uint8_t>);
+};
+
+using ActionData = std::variant<
+    BlockLoadAction,
+    BlockCookiesAction,
+    CSSDisplayNoneSelectorAction,
+    NotifyAction,
+    IgnorePreviousRulesAction,
+    MakeHTTPSAction,
+    ModifyHeadersAction,
+    RedirectAction
+>;
+
+} // namespace WebCore::ContentExtensions
 
 #endif // ENABLE(CONTENT_EXTENSIONS)

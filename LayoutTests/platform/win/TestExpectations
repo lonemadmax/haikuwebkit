@@ -276,6 +276,11 @@ accessibility/listbox-clear-selection.html [ Skip ]
 accessibility/embedded-image-description.html [ Skip ]
 accessibility/img-no-alt-not-ignored-with-title.html [ Skip ]
 
+# Need to implement AccessibilityUIElement::hasDocumentRoleAncestor(), AccessibilityUIElement::hasWebApplicationAncestor(),
+# AccessibilityUIElement::isInDescriptionListDetail(), AccessibilityUIElement::isInDescriptionListTerm(), and
+# AccessibilityUIElement::isInCell().
+accessibility/ancestor-computation.html [ Skip ]
+
 # TODO Conic gradients
 http/wpt/css/css-images-4/conic-gradient-parsing.html [ Skip ]
 fast/gradients/conic-repeating.html [ Skip ]
@@ -535,6 +540,8 @@ http/tests/download/anchor-download-no-value.html [ Skip ]
 http/tests/download/anchor-download-attribute-content-disposition-no-extension-octet-stream.html [ Skip ]
 http/tests/download/anchor-download-attribute-content-disposition-no-extension-text-plain.html [ Skip ]
 http/tests/security/anchor-download-octet-stream-no-extension.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/iframe_sandbox_anchor_download_allow_downloads.tentative.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/iframe_sandbox_anchor_download_block_downloads.tentative.html [ Skip ]
 
 # testRunner.setShouldDownloadUndisplayableMIMETypes() is not supported on WK1.
 fast/dom/HTMLAnchorElement/anchor-file-blob-convert-to-download.html [ Skip ]
@@ -1248,8 +1255,6 @@ webkit.org/b/23925 editing/selection/extend-selection-bidi.html [ Failure ]
 webkit.org/b/21796 editing/selection/drag-in-iframe.html [ Skip ]
 # These test fail due to 'notifyDone' not being executed.
 webkit.org/b/121509 editing/spelling/grammar-paste.html [ Skip ]
-
-webkit.org/b/231962 editing/selection/modal-dialog-select-paragraph.html [ Failure ]
 
 ###### Command enabling
 editing/execCommand/enabling-and-selection-2.html [ Failure ]
@@ -3262,7 +3267,6 @@ js/regress-141098.html [ Failure ]
 pageoverlay/overlay-installation.html [ Failure ]
 pageoverlay/overlay-large-document-scrolled.html [ Failure ]
 pageoverlay/overlay-large-document.html [ Failure ]
-security/contentSecurityPolicy/plugins-types-allows-youtube-plugin-replacement.html [ Failure ]
 storage/indexeddb/modern/blob-cursor.html [ Failure ]
 streams/readable-byte-stream-controller.html [ Failure ]
 streams/readable-byte-stream-controller-worker.html [ Failure ]
@@ -3409,7 +3413,6 @@ http/tests/xmlhttprequest/resetting-timeout-to-zero.html [ Skip ]
 http/tests/xmlhttprequest/timeout-greater-than-default-network-timeout.html [ Skip ]
 imported/blink/storage/indexeddb/blob-valid-after-deletion.html [ Skip ]
 imported/blink/storage/indexeddb/blob-valid-before-commit.html [ Skip ]
-security/contentSecurityPolicy/plugins-types-allows-quicktime-plugin-replacement.html [ Skip ]
 security/contentSecurityPolicy/video-with-blob-url-allowed-by-media-src-star.html [ Skip ]
 security/contentSecurityPolicy/video-with-data-url-allowed-by-media-src-star.html [ Skip ]
 fast/events/ghostly-mousemoves-in-subframe.html [ Missing ]
@@ -3735,6 +3738,9 @@ imported/w3c/web-platform-tests/fetch/cross-origin-resource-policy [ Skip ]
 imported/w3c/web-platform-tests/push-api [ Skip ]
 imported/w3c/web-platform-tests/server-timing/service_worker_idl.html [ Skip ]
 imported/w3c/web-platform-tests/service-workers [ Skip ]
+imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/messagechannel.any.serviceworker.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/json-module-service-worker-test.https.html [ Skip ]
+imported/w3c/web-platform-tests/html/webappapis/microtask-queuing/queue-microtask.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/html/webappapis/scripting/processing-model-2/integration-with-the-javascript-agent-formalism/requires-failure.https.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/web-locks/acquire.tentative.https.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/web-locks/clientids.tentative.https.html [ Skip ]
@@ -3750,6 +3756,7 @@ imported/w3c/web-platform-tests/web-locks/resource-names.tentative.https.any.ser
 imported/w3c/web-platform-tests/web-locks/secure-context.tentative.https.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/web-locks/signal.tentative.https.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/web-locks/steal.tentative.https.any.serviceworker.html [ Skip ]
+imported/w3c/web-platform-tests/webmessaging/broadcastchannel/service-worker.https.html [ Skip ]
 imported/w3c/web-platform-tests/worklets/animation-worklet-service-worker-interception.https.html [ Skip ]
 imported/w3c/web-platform-tests/worklets/audio-worklet-service-worker-interception.https.html [ Skip ]
 imported/w3c/web-platform-tests/worklets/layout-worklet-service-worker-interception.https.html [ Skip ]
@@ -3888,6 +3895,7 @@ webkit.org/b/181501 accessibility/table-header-calculation-for-header-rows.html 
 webkit.org/b/181662 fast/forms/auto-fill-button/input-strong-password-auto-fill-button.html [ Failure ]
 webkit.org/b/200037 fast/forms/auto-fill-button/hide-auto-fill-strong-password-viewable-treatment-when-form-is-reset.html [ Missing Failure ]
 webkit.org/b/200037 fast/forms/auto-fill-button/input-strong-password-viewable.html [ Missing Failure ]
+webkit.org/b/232967 fast/forms/auto-fill-button/input-auto-filled-and-obscured.html [ Missing Failure ]
 
 webkit.org/b/181854 svg/filters/feDiffuseLighting-bottomRightPixel.html [ ImageOnlyFailure ]
 
@@ -4382,7 +4390,6 @@ webkit.org/b/202952 http/tests/security/navigate-when-restoring-cached-page.html
 
 webkit.org/b/202953 http/tests/websocket/tests/hybi/non-document-mixed-content-blocked-https-with-embedded-http-with-embedded-https.https.html [ Timeout ]
 
-webkit.org/b/204153 fast/scrolling/momentum-scroll-with-borders.html [ Failure Timeout ]
 webkit.org/b/204153 fast/scrolling/overflow-scroll-past-max.html [ Failure Timeout ]
 webkit.org/b/204153 http/tests/navigation/page-cache-mediakeysession.html [ Failure ]
 webkit.org/b/204153 http/tests/xmlhttprequest/access-control-and-redirects-async.html [ Failure ]
@@ -4643,8 +4650,6 @@ fast/forms/form-submission-crash-3.html [ Timeout ]
 
 webkit.org/b/227896 fast/text/pua-charactersTreatedAsSpace.html [ ImageOnlyFailure ]
 
-webkit.org/b/227802 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-display-none.html [ ImageOnlyFailure ]
-
 webkit.org/b/228110 fast/forms/basic-selects.html [ Skip ]
 webkit.org/b/228110 fast/forms/indeterminate.html [ Skip ]
 
@@ -4749,3 +4754,5 @@ webkit.org/b/232317 js/function-apply-aliased.html [ Pass Crash ]
 webkit.org/b/232319 fast/ruby/before-block-doesnt-crash.html [ Pass Failure ]
 
 webkit.org/b/232321 imported/mozilla/svg/viewBox-and-pattern-03.svg [ Pass Crash ]
+
+webkit.org/b/232703 webanimations/no-style-updates-for-animated-sibling-elements-accelerated.html [ Failure ]

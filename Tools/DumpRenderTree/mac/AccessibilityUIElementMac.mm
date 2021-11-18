@@ -38,6 +38,10 @@
 #import <wtf/Vector.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
+#ifndef NSAccessibilityDOMIdentifierAttribute
+#define NSAccessibilityDOMIdentifierAttribute @"AXDOMIdentifier"
+#endif
+
 #ifndef NSAccessibilityOwnsAttribute
 #define NSAccessibilityOwnsAttribute @"AXOwns"
 #endif
@@ -655,6 +659,17 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::description()
     BEGIN_AX_OBJC_EXCEPTIONS
     id description = descriptionOfValue([m_element accessibilityAttributeValue:NSAccessibilityDescriptionAttribute], m_element.get());
     return concatenateAttributeAndValue(@"AXDescription", description);
+    END_AX_OBJC_EXCEPTIONS
+
+    return nullptr;
+}
+
+JSRetainPtr<JSStringRef> AccessibilityUIElement::domIdentifier() const
+{
+    BEGIN_AX_OBJC_EXCEPTIONS
+    id value = [m_element accessibilityAttributeValue:NSAccessibilityDOMIdentifierAttribute];
+    if ([value isKindOfClass:[NSString class]])
+        return [value createJSStringRef];
     END_AX_OBJC_EXCEPTIONS
 
     return nullptr;
@@ -1622,6 +1637,61 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::popupValue() const
     END_AX_OBJC_EXCEPTIONS
 
     return [@"false" createJSStringRef];
+}
+
+bool AccessibilityUIElement::hasDocumentRoleAncestor() const
+{
+    BEGIN_AX_OBJC_EXCEPTIONS
+    id value = [m_element accessibilityAttributeValue:@"AXHasDocumentRoleAncestor"];
+    if ([value isKindOfClass:[NSNumber class]])
+        return [value boolValue];
+    END_AX_OBJC_EXCEPTIONS
+
+    return false;
+}
+
+bool AccessibilityUIElement::hasWebApplicationAncestor() const
+{
+    BEGIN_AX_OBJC_EXCEPTIONS
+    id value = [m_element accessibilityAttributeValue:@"AXHasWebApplicationAncestor"];
+    if ([value isKindOfClass:[NSNumber class]])
+        return [value boolValue];
+    END_AX_OBJC_EXCEPTIONS
+
+    return false;
+}
+
+bool AccessibilityUIElement::isInDescriptionListDetail() const
+{
+    BEGIN_AX_OBJC_EXCEPTIONS
+    id value = [m_element accessibilityAttributeValue:@"AXIsInDescriptionListDetail"];
+    if ([value isKindOfClass:[NSNumber class]])
+        return [value boolValue];
+    END_AX_OBJC_EXCEPTIONS
+
+    return false;
+}
+
+bool AccessibilityUIElement::isInDescriptionListTerm() const
+{
+    BEGIN_AX_OBJC_EXCEPTIONS
+    id value = [m_element accessibilityAttributeValue:@"AXIsInDescriptionListTerm"];
+    if ([value isKindOfClass:[NSNumber class]])
+        return [value boolValue];
+    END_AX_OBJC_EXCEPTIONS
+
+    return false;
+}
+
+bool AccessibilityUIElement::isInCell() const
+{
+    BEGIN_AX_OBJC_EXCEPTIONS
+    id value = [m_element accessibilityAttributeValue:@"AXIsInCell"];
+    if ([value isKindOfClass:[NSNumber class]])
+        return [value boolValue];
+    END_AX_OBJC_EXCEPTIONS
+
+    return false;
 }
 
 void AccessibilityUIElement::takeFocus()

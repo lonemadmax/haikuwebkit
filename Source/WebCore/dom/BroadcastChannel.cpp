@@ -38,6 +38,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/MainThread.h>
+#include <wtf/Scope.h>
 
 namespace WebCore {
 
@@ -180,6 +181,9 @@ String BroadcastChannel::name() const
 
 ExceptionOr<void> BroadcastChannel::postMessage(JSC::JSGlobalObject& globalObject, JSC::JSValue message)
 {
+    if (!isEligibleForMessaging())
+        return { };
+
     if (m_isClosed)
         return Exception { InvalidStateError, "This BroadcastChannel is closed" };
 
@@ -205,12 +209,15 @@ void BroadcastChannel::close()
 void BroadcastChannel::dispatchMessageTo(BroadcastChannelIdentifier channelIdentifier, Ref<SerializedScriptValue>&& message, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(isMainThread());
+    auto completionHandlerCallingScope = makeScopeExit([completionHandler = WTFMove(completionHandler)]() mutable {
+        callOnMainThread(WTFMove(completionHandler));
+    });
+
     auto contextIdentifier = channelToContextIdentifier().get(channelIdentifier);
     if (!contextIdentifier)
-        return completionHandler();
+        return;
 
-    auto callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
-    ScriptExecutionContext::ensureOnContextThread(contextIdentifier, [channelIdentifier, message = WTFMove(message), callbackAggregator = WTFMove(callbackAggregator)](auto&) mutable {
+    ScriptExecutionContext::ensureOnContextThread(contextIdentifier, [channelIdentifier, message = WTFMove(message), completionHandlerCallingScope = WTFMove(completionHandlerCallingScope)](auto&) mutable {
         RefPtr<BroadcastChannel> channel;
         {
             Locker locker { allBroadcastChannelsLock };
@@ -218,13 +225,14 @@ void BroadcastChannel::dispatchMessageTo(BroadcastChannelIdentifier channelIdent
         }
         if (channel)
             channel->dispatchMessage(WTFMove(message));
-
-        callOnMainThread([callbackAggregator = WTFMove(callbackAggregator)] { });
     });
 }
 
 void BroadcastChannel::dispatchMessage(Ref<SerializedScriptValue>&& message)
 {
+    if (!isEligibleForMessaging())
+        return;
+
     if (m_isClosed)
         return;
 
@@ -247,6 +255,19 @@ void BroadcastChannel::eventListenersDidChange()
 bool BroadcastChannel::virtualHasPendingActivity() const
 {
     return !m_isClosed && m_hasRelevantEventListener;
+}
+
+// https://html.spec.whatwg.org/#eligible-for-messaging
+bool BroadcastChannel::isEligibleForMessaging() const
+{
+    auto* context = scriptExecutionContext();
+    if (!context)
+        return false;
+
+    if (is<Document>(*context))
+        return downcast<Document>(*context).isFullyActive();
+
+    return !downcast<WorkerGlobalScope>(*context).isClosing();
 }
 
 } // namespace WebCore

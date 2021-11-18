@@ -98,6 +98,7 @@
 #include "SuperSampler.h"
 #include "ThunkGenerators.h"
 #include "VirtualRegister.h"
+#include "YarrJITRegisters.h"
 #include <atomic>
 #include <wtf/Box.h>
 #include <wtf/RecursableLambda.h>
@@ -720,7 +721,7 @@ private:
         if constexpr (validateDFGDoesGC) {
             if (Options::validateDoesGC()) {
                 bool expectDoesGC = doesGC(m_graph, m_node);
-                m_out.store(m_out.constInt64(DoesGCCheck::encode(expectDoesGC, m_node->index(), m_node->op())), m_out.absolute(vm().heap.addressOfDoesGC()));
+                m_out.store(m_out.constInt64(DoesGCCheck::encode(expectDoesGC, m_node->index(), m_node->op())), m_out.absolute(vm().addressOfDoesGC()));
             }
         }
 
@@ -1590,6 +1591,9 @@ private:
             break;
         case RegExpTest:
             compileRegExpTest();
+            break;
+        case RegExpTestInline:
+            compileRegExpTestInline();
             break;
         case RegExpMatchFast:
             compileRegExpMatchFast();
@@ -7473,8 +7477,11 @@ IGNORE_CLANG_WARNINGS_END
             setJSValue(vmCall(pointerType(), operationNewSymbol, m_vmValue));
             return;
         }
-        ASSERT(m_node->child1().useKind() == KnownStringUse);
-        setJSValue(vmCall(pointerType(), operationNewSymbolWithDescription, weakPointer(globalObject), lowString(m_node->child1())));
+
+        if (m_node->child1().useKind() == StringUse)
+            setJSValue(vmCall(pointerType(), operationNewSymbolWithStringDescription, weakPointer(globalObject), lowString(m_node->child1())));
+        else
+            setJSValue(vmCall(pointerType(), operationNewSymbolWithDescription, weakPointer(globalObject), lowJSValue(m_node->child1())));
     }
 
     void compileNewArray()
@@ -10396,10 +10403,10 @@ IGNORE_CLANG_WARNINGS_END
                     jit.store32(
                         CCallHelpers::TrustedImm32(callSiteIndex.bits()),
                         CCallHelpers::tagFor(VirtualRegister(CallFrameSlot::argumentCountIncludingThis)));
-                    callLinkInfo->emitDirectTailCallFastPath(jit, [&] {
+                    callLinkInfo->emitDirectTailCallFastPath(jit, scopedLambda<void()>([&]{
                         callLinkInfo->setFrameShuffleData(shuffleData);
                         CallFrameShuffler(jit, shuffleData).prepareForTailCall();
-                    });
+                    }));
                     
                     jit.abortWithReason(JITDidReturnFromTailCall);
                     
@@ -10552,10 +10559,10 @@ IGNORE_CLANG_WARNINGS_END
                 CallLinkInfo* callLinkInfo = state->jitCode->common.addCallLinkInfo(codeOrigin);
                 callLinkInfo->setUpCall(CallLinkInfo::TailCall, GPRInfo::regT0);
 
-                auto slowPath = callLinkInfo->emitTailCallFastPath(jit, GPRInfo::regT0, [&] {
+                auto slowPath = callLinkInfo->emitTailCallFastPath(jit, GPRInfo::regT0, scopedLambda<void()>([&]{
                     callLinkInfo->setFrameShuffleData(shuffleData);
                     CallFrameShuffler(jit, shuffleData).prepareForTailCall();
-                });
+                }));
 
                 slowPath.link(&jit);
                 auto slowPathStart = jit.label();
@@ -10895,10 +10902,10 @@ IGNORE_CLANG_WARNINGS_END
                 CCallHelpers::JumpList slowPath;
                 CCallHelpers::Jump done;
                 if (isTailCall) {
-                    slowPath = callLinkInfo->emitTailCallFastPath(jit, GPRInfo::regT0, [&] {
+                    slowPath = callLinkInfo->emitTailCallFastPath(jit, GPRInfo::regT0, scopedLambda<void()>([&]{
                         jit.emitRestoreCalleeSaves();
                         jit.prepareForTailCallSlow();
-                    });
+                    }));
                 } else {
                     slowPath = callLinkInfo->emitFastPath(jit, GPRInfo::regT0, InvalidGPRReg, CallLinkInfo::UseDataIC::No);
                     done = jit.jump();
@@ -11176,10 +11183,10 @@ IGNORE_CLANG_WARNINGS_END
                 CCallHelpers::JumpList slowPath;
                 CCallHelpers::Jump done;
                 if (isTailCall) {
-                    slowPath = callLinkInfo->emitTailCallFastPath(jit, GPRInfo::regT0, [&] {
+                    slowPath = callLinkInfo->emitTailCallFastPath(jit, GPRInfo::regT0, scopedLambda<void()>([&]{
                         jit.emitRestoreCalleeSaves();
                         jit.prepareForTailCallSlow();
-                    });
+                    }));
                 } else {
                     slowPath = callLinkInfo->emitFastPath(jit, GPRInfo::regT0, InvalidGPRReg, CallLinkInfo::UseDataIC::No);
                     done = jit.jump();
@@ -13681,6 +13688,14 @@ IGNORE_CLANG_WARNINGS_END
         LBasicBlock outOfLineLoadBlock = m_out.newBlock();
         LBasicBlock genericICBlock = m_out.newBlock();
         LBasicBlock continuation = m_out.newBlock();
+        LBasicBlock genericOrRecover;
+
+        // FIXME: This is not the cleanest way to say we're using IndexedMode+OwnStructureMode mode. 
+        bool indexedAndOwnStructureMode = indexEdge.node() == propertyNameEdge.node();
+        if (indexedAndOwnStructureMode)
+            genericOrRecover = m_out.newBlock();
+        else
+            genericOrRecover = genericICBlock;
 
         Vector<ValueFromBlock, 4> results;
 
@@ -13688,7 +13703,7 @@ IGNORE_CLANG_WARNINGS_END
         m_out.branch(isNotNamed, unsure(genericICBlock), unsure(checkIsCellBlock));
 
         m_out.appendTo(checkIsCellBlock);
-        m_out.branch(isCell(base, provenType(baseEdge)), usually(checkStructureBlock), rarely(genericICBlock));
+        m_out.branch(isCell(base, provenType(baseEdge)), usually(checkStructureBlock), rarely(genericOrRecover));
 
         m_out.appendTo(checkStructureBlock);
         LValue structureID;
@@ -13700,15 +13715,7 @@ IGNORE_CLANG_WARNINGS_END
 
         LValue hasEnumeratorStructure = m_out.equal(structureID, m_out.load32(enumerator, m_heaps.JSPropertyNameEnumerator_cachedStructureID));
 
-        if (indexEdge.node() == propertyNameEdge.node()) {
-            JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
-            LBasicBlock badStructureSlowPath = m_out.newBlock();
-            m_out.branch(hasEnumeratorStructure, usually(checkInlineOrOutOfLineBlock), rarely(genericICBlock));
-
-            m_out.appendTo(badStructureSlowPath);
-            results.append(m_out.anchor(vmCall(Int64, operationEnumeratorRecoverNameAndGetByVal, weakPointer(globalObject), base, index, enumerator)));
-        } else
-            m_out.branch(hasEnumeratorStructure, usually(checkInlineOrOutOfLineBlock), rarely(genericICBlock));
+        m_out.branch(hasEnumeratorStructure, usually(checkInlineOrOutOfLineBlock), rarely(genericOrRecover));
 
         m_out.appendTo(checkInlineOrOutOfLineBlock);
         LValue inlineCapacity = nullptr;
@@ -13752,6 +13759,12 @@ IGNORE_CLANG_WARNINGS_END
 
         results.append(m_out.anchor(genericResult));
         m_out.jump(continuation);
+
+        if (indexedAndOwnStructureMode) {
+            m_out.appendTo(genericOrRecover);
+            results.append(m_out.anchor(vmCall(Int64, operationEnumeratorRecoverNameAndGetByVal, weakPointer(m_graph.globalObjectFor(m_origin.semantic)), base, index, enumerator)));
+            m_out.jump(continuation);
+        }
 
         m_out.appendTo(continuation);
         ASSERT(results.size());
@@ -14354,6 +14367,163 @@ IGNORE_CLANG_WARNINGS_END
         LValue result = vmCall(Int32, operationRegExpTestGeneric, globalObject, base, argument);
         setBoolean(result);
     }
+
+#if ENABLE(YARR_JIT_REGEXP_TEST_INLINE)
+    void compileRegExpTestInline()
+    {
+        RegExp* regExp = jsCast<RegExp*>(m_node->cellOperand2()->value());
+
+        ASSERT(!regExp->globalOrSticky());
+
+        auto jitCodeBlock = regExp->getRegExpJITCodeBlock();
+        ASSERT(jitCodeBlock);
+        auto inlineCodeStats8Bit = jitCodeBlock->get8BitInlineStats();
+
+        JSGlobalObject* globalObjectConst = jsCast<JSGlobalObject*>(m_node->cellOperand()->value());
+
+        unsigned alignedFrameSize = WTF::roundUpToMultipleOf(stackAlignmentBytes(), inlineCodeStats8Bit.stackSize());
+
+        m_proc.requestCallArgAreaSizeInBytes(alignedFrameSize);
+
+        LBasicBlock check8BitString = m_out.newBlock();
+        LBasicBlock inlineCase = m_out.newBlock();
+        LBasicBlock operationCase = m_out.newBlock();
+        LBasicBlock continuation = m_out.newBlock();
+        LBasicBlock lastNext = nullptr;
+
+        LValue globalObject = lowCell(m_node->child1());
+        LValue base = lowRegExpObject(m_node->child2());
+        LValue argument = nullptr;
+        bool haveStringArg = m_node->child3().useKind() == StringUse;
+
+        if (haveStringArg)
+            argument = lowString(m_node->child3());
+        else
+            argument = lowJSValue(m_node->child3());
+
+        auto vm = &this->vm();
+        auto stackChecker = &m_graph.m_stackChecker;
+
+        if (!haveStringArg) {
+            LBasicBlock isCellCase = m_out.newBlock();
+            LBasicBlock isStringCase = m_out.newBlock();
+
+            m_out.branch(isCell(argument), usually(isCellCase), rarely(operationCase));
+
+            lastNext = m_out.appendTo(isCellCase, isStringCase);
+            m_out.branch(isString(argument), usually(isStringCase), unsure(operationCase));
+
+            m_out.appendTo(isStringCase, check8BitString);
+
+            m_out.branch(isRopeString(argument, m_node->child3()), unsure(operationCase), unsure(check8BitString));
+
+            m_out.appendTo(check8BitString, inlineCase);
+        } else {
+            m_out.branch(isRopeString(argument, m_node->child3()), unsure(operationCase), unsure(check8BitString));
+
+            lastNext = m_out.appendTo(check8BitString, inlineCase);
+        }
+
+        LValue stringImpl = m_out.loadPtr(argument, m_heaps.JSString_value);
+        m_out.branch(
+            m_out.testIsZero32(
+                m_out.load32(stringImpl, m_heaps.StringImpl_hashAndFlags),
+                m_out.constInt32(StringImpl::flagIs8Bit())),
+            unsure(operationCase), unsure(inlineCase));
+
+        m_out.appendTo(inlineCase, operationCase);
+        LValue stringLength = m_out.zeroExt(m_out.load32(stringImpl, m_heaps.StringImpl_length), Int64);
+        LValue stringData = m_out.loadPtr(stringImpl, m_heaps.StringImpl_data);
+
+        auto commonData = m_ftlState.jitCode->dfgCommon();
+
+        PatchpointValue* patchpoint = m_out.patchpoint(Int32);
+        patchpoint->append(ConstrainedValue(stringData, ValueRep::SomeLateRegister));
+        patchpoint->append(ConstrainedValue(stringLength, ValueRep::SomeLateRegister));
+        patchpoint->append(ConstrainedValue(argument, ValueRep::SomeLateRegister));
+        patchpoint->numGPScratchRegisters = inlineCodeStats8Bit.needsTemp2() ? 6 : 5;
+        patchpoint->clobber(RegisterSet::macroScratchRegisters());
+        patchpoint->setGenerator(
+            [=] (CCallHelpers& jit, const StackmapGenerationParams& params) {
+                AllowMacroScratchRegisterUsage allowScratch(jit);
+
+                GPRReg returnGPR = params[0].gpr();
+                GPRReg stringDataGPR = params[1].gpr();
+                GPRReg stringLengthGPR = params[2].gpr();
+                GPRReg stringGPR = params[3].gpr();
+                GPRReg indexGPR = params.gpScratch(0);
+                GPRReg return2GPR = params.gpScratch(1);
+                GPRReg outputGPR = params.gpScratch(2);
+                GPRReg temp0GPR = params.gpScratch(3);
+                GPRReg temp1GPR = params.gpScratch(4);
+                GPRReg temp2GPR = inlineCodeStats8Bit.needsTemp2() ? params.gpScratch(5) : InvalidGPRReg;
+
+                jit.move(CCallHelpers::TrustedImm32(0), indexGPR);
+
+                Yarr::YarrJITRegisters yarrRegisters;
+
+                yarrRegisters.input = stringDataGPR;
+                yarrRegisters.index = indexGPR;
+                yarrRegisters.length = stringLengthGPR;
+                yarrRegisters.output = outputGPR;
+                yarrRegisters.regT0 = temp0GPR;
+                yarrRegisters.regT1 = temp1GPR;
+                if (inlineCodeStats8Bit.needsTemp2())
+                    yarrRegisters.regT2 = temp2GPR;
+                yarrRegisters.returnRegister = returnGPR;
+                yarrRegisters.returnRegister2 = return2GPR;
+
+                Yarr::jitCompileInlinedTest(stackChecker, regExp->pattern(), regExp->flags(), Yarr::CharSize::Char8, vm, commonData->m_boyerMooreData, jit, yarrRegisters);
+
+                CCallHelpers::JumpList done;
+
+                auto failedMatch = jit.branch32(CCallHelpers::LessThan, returnGPR, CCallHelpers::TrustedImm32(0));
+
+                // Saved cached result.
+                GPRReg globalObjectGPR = temp0GPR;
+                jit.move(CCallHelpers::TrustedImmPtr(globalObjectConst), globalObjectGPR);
+                ptrdiff_t offset = JSGlobalObject::regExpGlobalDataOffset() + RegExpGlobalData::offsetOfCachedResult();
+
+                jit.storePtr(CCallHelpers::TrustedImmPtr(regExp), CCallHelpers::Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfLastRegExp()));
+                jit.storePtr(stringGPR, CCallHelpers::Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfLastInput()));
+                jit.store32(returnGPR, CCallHelpers::Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfResult() + OBJECT_OFFSETOF(MatchResult, start)));
+                jit.store32(return2GPR, CCallHelpers::Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfResult() + OBJECT_OFFSETOF(MatchResult, end)));
+                jit.store8(CCallHelpers::TrustedImm32(0), CCallHelpers::Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfReified()));
+
+                jit.move(CCallHelpers::TrustedImm32(1), returnGPR);
+                done.append(jit.jump());
+
+                failedMatch.link(&jit);
+                jit.move(CCallHelpers::TrustedImm32(0), returnGPR);
+                done.link(&jit);
+
+            });
+        patchpoint->effects = Effects::none();
+        patchpoint->effects.controlDependent = true;
+        patchpoint->effects.reads = HeapRange::top();
+        patchpoint->effects.writes = HeapRange::top();
+
+        ValueFromBlock inlineresult = m_out.anchor(patchpoint);
+        m_out.jump(continuation);
+
+        m_out.appendTo(operationCase, continuation);
+        ValueFromBlock operationResult;
+
+        if (haveStringArg)
+            operationResult = m_out.anchor(vmCall(Int32, operationRegExpTestString, globalObject, base, argument));
+        else
+            operationResult = m_out.anchor(vmCall(Int32, operationRegExpTest, globalObject, base, argument));
+        m_out.jump(continuation);
+
+        m_out.appendTo(continuation, lastNext);
+        setBoolean(m_out.phi(Int32, inlineresult, operationResult));
+    }
+#else
+    NO_RETURN void compileRegExpTestInline()
+    {
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+#endif
 
     void compileRegExpMatchFast()
     {
@@ -16123,7 +16293,7 @@ IGNORE_CLANG_WARNINGS_END
             if constexpr (validateDFGDoesGC) {
                 if (Options::validateDoesGC()) {
                     // We need to mock what a Return does: claims to GC.
-                    jit.move(CCallHelpers::TrustedImmPtr(vm->heap.addressOfDoesGC()), GPRInfo::regT0);
+                    jit.move(CCallHelpers::TrustedImmPtr(vm->addressOfDoesGC()), GPRInfo::regT0);
                     jit.move(CCallHelpers::TrustedImm64(DoesGCCheck::encode(true, DoesGCCheck::Special::Uninitialized)), GPRInfo::regT1);
                     jit.store64(GPRInfo::regT1, CCallHelpers::Address(GPRInfo::regT0));
                 }

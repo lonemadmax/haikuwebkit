@@ -20,12 +20,13 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import os
 import sys
 
 from .command import Command
 from .branch import Branch
 
-from webkitcorepy import arguments, run
+from webkitcorepy import arguments, run, Terminal
 from webkitscmpy import local, log, remote
 
 
@@ -48,6 +49,10 @@ class PullRequest(Command):
             dest='rebase', default=None,
             help='Rebase (or do not rebase) the pull-request on the source branch before pushing',
             action=arguments.NoAction,
+        )
+        parser.add_argument(
+            '--defaults', '--no-defaults', action=arguments.NoAction, default=None,
+            help='Do not prompt the user for defaults, always use (or do not use) them',
         )
 
     @classmethod
@@ -80,6 +85,14 @@ class PullRequest(Command):
             return 1
 
         return 0
+
+    @classmethod
+    def title_for(cls, commits):
+        title = os.path.commonprefix([commit.message.splitlines()[0] for commit in commits])
+        if not title:
+            title = commits[0].message.splitlines()[0]
+        title = title.rstrip().lstrip()
+        return title[:-5].rstrip() if title.endswith('(Part') else title
 
     @classmethod
     def main(cls, args, repository, **kwargs):
@@ -121,29 +134,28 @@ class PullRequest(Command):
         if not rmt.pull_requests:
             sys.stderr.write("'{}' cannot generate pull-requests\n".format(rmt.url))
             return 1
-        user, _ = rmt.credentials(required=True) if isinstance(rmt, remote.GitHub) else (repository.config()['user.email'], None)
-        candidates = list(rmt.pull_requests.find(opened=None, head=repository.branch))
+        existing_pr = None
+        for pr in rmt.pull_requests.find(opened=None, head=repository.branch):
+            existing_pr = pr
+            if existing_pr.opened:
+                continue
+        if existing_pr and not existing_pr.opened and not args.defaults and (args.defaults is False or Terminal.choose(
+            "'{}' is already associated with '{}', which is closed.\nWould you like to create a new pull-request?".format(
+                repository.branch, existing_pr,
+            ), default='No',
+        ) == 'Yes'):
+            existing_pr = None
         commits = list(repository.commits(begin=dict(hash=branch_point.hash), end=dict(branch=repository.branch)))
 
-        title = commits[0].message.splitlines()[0]
-        for commit in commits[1:]:
-            title_candidate = commit.message.splitlines()[0]
-            while title and not title_candidate.startswith(title):
-                title = title[:-1]
-        if not title:
-            title = commits[0].message.splitlines()[0]
-        title = title.rstrip().lstrip()
-        if title.endswith('(Part'):
-            title = title[:-5].rstrip()
-
-        if candidates:
+        if existing_pr:
             log.warning("Updating pull-request for '{}'...".format(repository.branch))
             pr = rmt.pull_requests.update(
-                pull_request=candidates[0],
-                title=title,
+                pull_request=existing_pr,
+                title=cls.title_for(commits),
                 commits=commits,
                 base=branch_point.branch,
                 head=repository.branch,
+                opened=None if existing_pr.opened else True
             )
             if not pr:
                 sys.stderr.write("Failed to update pull-request '{}'\n".format(candidates[0]))
@@ -152,7 +164,7 @@ class PullRequest(Command):
         else:
             log.warning("Creating pull-request for '{}'...".format(repository.branch))
             pr = rmt.pull_requests.create(
-                title=title,
+                title=cls.title_for(commits),
                 commits=commits,
                 base=branch_point.branch,
                 head=repository.branch,

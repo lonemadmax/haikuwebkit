@@ -22,27 +22,23 @@
 #pragma once
 
 #include "FilterEffect.h"
-#include "Filter.h"
 
 namespace WebCore {
     
 class FETile : public FilterEffect {
 public:
-    static Ref<FETile> create(Filter&);
+    static Ref<FETile> create();
 
 private:
-    FETile(Filter&);
+    FETile();
 
-    const char* filterName() const final { return "FETile"; }
+    void determineAbsolutePaintRect(const Filter&) override { setAbsolutePaintRect(enclosingIntRect(maxEffectRect())); }
 
-    FilterEffectType filterEffectType() const override { return FilterEffectTypeTile; }
-
-    void platformApplySoftware() override;
-
-    void determineAbsolutePaintRect() override { setAbsolutePaintRect(enclosingIntRect(maxEffectRect())); }
+    void platformApplySoftware(const Filter&) override;
 
     WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
 };
 
 } // namespace WebCore
 
+SPECIALIZE_TYPE_TRAITS_FILTER_EFFECT(FETile)

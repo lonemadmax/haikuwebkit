@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "MatchResult.h"
 #include "StyleScopeRuleSets.h"
 #include <wtf/Forward.h>
 

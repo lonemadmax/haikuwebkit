@@ -24,6 +24,7 @@
 #include "AffineTransform.h"
 #include "Filter.h"
 #include "GraphicsContext.h"
+#include "ImageBuffer.h"
 #include "Pattern.h"
 #include "RenderTreeAsText.h"
 #include "SVGRenderingContext.h"
@@ -31,17 +32,17 @@
 
 namespace WebCore {
 
-FETile::FETile(Filter& filter)
-    : FilterEffect(filter, Type::Tile)
+Ref<FETile> FETile::create()
+{
+    return adoptRef(*new FETile());
+}
+
+FETile::FETile()
+    : FilterEffect(FilterEffect::Type::FETile)
 {
 }
 
-Ref<FETile> FETile::create(Filter& filter)
-{
-    return adoptRef(*new FETile(filter));
-}
-
-void FETile::platformApplySoftware()
+void FETile::platformApplySoftware(const Filter& filter)
 {
 // FIXME: See bug 47315. This is a hack to work around a compile failure, but is incorrect behavior otherwise.
     FilterEffect* in = inputEffect(0);
@@ -58,13 +59,12 @@ void FETile::platformApplySoftware()
     FloatRect tileRect = in->maxEffectRect();
     FloatPoint inMaxEffectLocation = tileRect.location();
     FloatPoint maxEffectLocation = maxEffectRect().location();
-    if (in->filterEffectType() == FilterEffectTypeSourceInput) {
-        Filter& filter = this->filter();
+    if (in->filterType() == FilterEffect::Type::SourceGraphic || in->filterType() == FilterEffect::Type::SourceAlpha) {
         tileRect = filter.filterRegion();
-        tileRect.scale(filter.filterResolution().width(), filter.filterResolution().height());
+        tileRect.scale(filter.filterScale());
     }
 
-    auto tileImage = SVGRenderingContext::createImageBuffer(tileRect, tileRect, DestinationColorSpace::SRGB(), filter().renderingMode());
+    auto tileImage = SVGRenderingContext::createImageBuffer(tileRect, tileRect, DestinationColorSpace::SRGB(), filter.renderingMode());
     if (!tileImage)
         return;
 

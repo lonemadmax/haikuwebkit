@@ -62,6 +62,7 @@ public:
         virtual bool shouldConfigureJSCForTesting() const { return false; }
         virtual bool isJITEnabled() const { return true; }
         virtual bool shouldEnableSharedArrayBuffer() const { return false; }
+        virtual bool shouldEnableCaptivePortalMode() const { return false; }
 #if PLATFORM(COCOA)
         virtual RefPtr<XPCEventHandler> xpcEventHandler() const { return nullptr; }
 #endif
@@ -120,6 +121,10 @@ private:
     void didFinishLaunchingProcess(ProcessID, IPC::Connection::Identifier);
 
     void platformInvalidate();
+
+#if PLATFORM(COCOA)
+    void terminateXPCConnection();
+#endif
 
     Client* m_client;
 

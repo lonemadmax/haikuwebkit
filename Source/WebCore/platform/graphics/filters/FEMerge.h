@@ -22,23 +22,21 @@
 #pragma once
 
 #include "FilterEffect.h"
-#include "Filter.h"
 
 namespace WebCore {
 
 class FEMerge : public FilterEffect {
 public:
-    static Ref<FEMerge> create(Filter&);
+    static Ref<FEMerge> create();
 
 private:
-    FEMerge(Filter&);
+    FEMerge();
 
-    const char* filterName() const final { return "FEMerge"; }
-
-    void platformApplySoftware() override;
+    void platformApplySoftware(const Filter&) override;
 
     WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
 };
 
 } // namespace WebCore
 
+SPECIALIZE_TYPE_TRAITS_FILTER_EFFECT(FEMerge)

@@ -226,6 +226,19 @@ static void *WKContentViewKVOTransformContext = &WKContentViewKVOTransformContex
 
 #endif // ENABLE(IMAGE_ANALYSIS)
 
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WKContentViewInteractionAdditions.mm>
+#else
+
+#if ENABLE(IMAGE_ANALYSIS)
+static bool canAttemptTextRecognitionForNonImageElements(const WebKit::InteractionInformationAtPosition& information, const WebKit::WebPreferences&)
+{
+    return false;
+}
+#endif // ENABLE(IMAGE_ANALYSIS)
+
+#endif
+
 namespace WebKit {
 using namespace WebCore;
 using namespace WebKit;
@@ -2885,7 +2898,7 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
         return NO;
 
 #if ENABLE(IMAGE_ANALYSIS)
-    if (_elementPendingImageAnalysis && _positionInformation.imageElementContext == _elementPendingImageAnalysis)
+    if (_elementPendingImageAnalysis && _positionInformation.hostImageOrVideoElementContext == _elementPendingImageAnalysis)
         return YES;
 #endif
 
@@ -2966,7 +2979,7 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS)
-    if (_elementPendingImageAnalysis && _positionInformation.imageElementContext == _elementPendingImageAnalysis)
+    if (_elementPendingImageAnalysis && _positionInformation.hostImageOrVideoElementContext == _elementPendingImageAnalysis)
         return YES;
 #endif
 
@@ -5919,17 +5932,17 @@ static NSString *contentTypeFromFieldName(WebCore::AutofillFieldName fieldName)
     BOOL directionIsHorizontal = direction == WebCore::ScrollDirection::ScrollLeft || direction == WebCore::ScrollDirection::ScrollRight;
 
     switch (increment) {
-    case WebCore::ScrollGranularity::ScrollByDocument: {
+    case WebCore::ScrollGranularity::Document: {
         CGSize documentSize = [self convertRect:self.bounds toView:self.webView].size;
         return directionIsHorizontal ? documentSize.width : documentSize.height;
     }
-    case WebCore::ScrollGranularity::ScrollByPage: {
+    case WebCore::ScrollGranularity::Page: {
         CGSize pageSize = [self convertSize:CGSizeMake(0, WebCore::Scrollbar::pageStep(_page->unobscuredContentRect().height(), self.bounds.size.height)) toView:self.webView];
         return directionIsHorizontal ? pageSize.width : pageSize.height;
     }
-    case WebCore::ScrollGranularity::ScrollByLine:
+    case WebCore::ScrollGranularity::Line:
         return [self convertSize:CGSizeMake(0, WebCore::Scrollbar::pixelsPerLineStep()) toView:self.webView].height;
-    case WebCore::ScrollGranularity::ScrollByPixel:
+    case WebCore::ScrollGranularity::Pixel:
         return 0;
     }
     ASSERT_NOT_REACHED();
@@ -10187,13 +10200,13 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
             return;
 
         bool shouldAnalyzeImageAtLocation = ([&] {
-            if (!information.isImage)
+            if (!information.isImage && !canAttemptTextRecognitionForNonImageElements(information, strongSelf->_page->preferences()))
                 return false;
 
             if (!information.image)
                 return false;
 
-            if (!information.imageElementContext)
+            if (!information.hostImageOrVideoElementContext)
                 return false;
 
             if (information.isAnimatedImage)
@@ -10218,10 +10231,10 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
         RELEASE_LOG(Images, "Image analysis preflight gesture initiated (request %" PRIu64 ").", requestIdentifier.toUInt64());
 
-        strongSelf->_elementPendingImageAnalysis = information.imageElementContext;
+        strongSelf->_elementPendingImageAnalysis = information.hostImageOrVideoElementContext;
 
         auto requestLocation = information.request.point;
-        WebCore::ElementContext elementContext = *information.imageElementContext;
+        WebCore::ElementContext elementContext = *information.hostImageOrVideoElementContext;
 
         auto requestForTextSelection = [strongSelf createImageAnalyzerRequest:VKAnalysisTypeText image:cgImage.get()];
         auto requestForContextMenu = [strongSelf createImageAnalyzerRequest:VKAnalysisTypeVisualSearch | VKAnalysisTypeMachineReadableCode | VKAnalysisTypeAppClip image:cgImage.get()];

@@ -138,22 +138,6 @@ size_t proportionalHeapSize(size_t heapSize, size_t ramSize)
     return Options::largeHeapGrowthFactor() * heapSize;
 }
 
-bool isValidSharedInstanceThreadState(VM& vm)
-{
-    return vm.currentThreadIsHoldingAPILock();
-}
-
-bool isValidThreadState(VM& vm)
-{
-    if (vm.atomStringTable() != Thread::current().atomStringTable())
-        return false;
-
-    if (vm.isSharedInstance() && !isValidSharedInstanceThreadState(vm))
-        return false;
-
-    return true;
-}
-
 void recordType(VM& vm, TypeCountSet& set, JSCell* cell)
 {
     const char* typeName = "[unknown]";
@@ -1064,7 +1048,7 @@ void Heap::collect(Synchronousness synchronousness, GCRequest request)
 void Heap::collectNow(Synchronousness synchronousness, GCRequest request)
 {
     if constexpr (validateDFGDoesGC)
-        verifyCanGC();
+        vm().verifyCanGC();
 
     switch (synchronousness) {
     case Async: {
@@ -1076,7 +1060,7 @@ void Heap::collectNow(Synchronousness synchronousness, GCRequest request)
     case Sync: {
         collectSync(request);
         
-        DeferGCForAWhile deferGC(*this);
+        DeferGCForAWhile deferGC(vm());
         if (UNLIKELY(Options::useImmortalObjects()))
             sweeper().stopSweeping();
         
@@ -1097,7 +1081,7 @@ void Heap::collectNow(Synchronousness synchronousness, GCRequest request)
 void Heap::collectAsync(GCRequest request)
 {
     if constexpr (validateDFGDoesGC)
-        verifyCanGC();
+        vm().verifyCanGC();
 
     if (!m_isSafeToCollect)
         return;
@@ -1121,7 +1105,7 @@ void Heap::collectAsync(GCRequest request)
 void Heap::collectSync(GCRequest request)
 {
     if constexpr (validateDFGDoesGC)
-        verifyCanGC();
+        vm().verifyCanGC();
 
     if (!m_isSafeToCollect)
         return;
@@ -1784,7 +1768,7 @@ NEVER_INLINE void Heap::resumeTheMutator()
 void Heap::stopIfNecessarySlow()
 {
     if constexpr (validateDFGDoesGC)
-        verifyCanGC();
+        vm().verifyCanGC();
 
     while (stopIfNecessarySlow(m_worldState.load())) { }
     
@@ -1798,7 +1782,7 @@ void Heap::stopIfNecessarySlow()
 bool Heap::stopIfNecessarySlow(unsigned oldState)
 {
     if constexpr (validateDFGDoesGC)
-        verifyCanGC();
+        vm().verifyCanGC();
 
     RELEASE_ASSERT(oldState & hasAccessBit);
     RELEASE_ASSERT(!(oldState & stoppedBit));
@@ -2042,7 +2026,6 @@ void Heap::clearMutatorWaiting()
 
 void Heap::notifyThreadStopping(const AbstractLocker&)
 {
-    m_threadIsStopping = true;
     clearMutatorWaiting();
     ParkingLot::unparkAll(&m_worldState);
 }
@@ -2380,17 +2363,6 @@ void Heap::didAllocate(size_t bytes)
     performIncrement(bytes);
 }
 
-bool Heap::isValidAllocation(size_t)
-{
-    if (!isValidThreadState(vm()))
-        return false;
-
-    if (isCurrentThreadBusy())
-        return false;
-    
-    return true;
-}
-
 void Heap::addFinalizer(JSCell* cell, CFinalizer finalizer)
 {
     WeakSet::allocate(cell, &m_cFinalizerOwner, bitwise_cast<void*>(finalizer)); // Balanced by CFinalizerOwner::finalize().
@@ -2537,7 +2509,7 @@ void Heap::writeBarrierSlowPath(const JSCell* from)
     addToRememberedSet(from);
 }
 
-bool Heap::isCurrentThreadBusy()
+bool Heap::currentThreadIsDoingGCWork()
 {
     return Thread::mayBeGCThread() || mutatorState() != MutatorState::Running;
 }
@@ -2575,7 +2547,7 @@ void Heap::collectIfNecessaryOrDefer(GCDeferralContext* deferralContext)
 {
     ASSERT(deferralContext || isDeferred() || !DisallowGC::isInEffectOnCurrentThread());
     if constexpr (validateDFGDoesGC)
-        verifyCanGC();
+        vm().verifyCanGC();
 
     if (!m_isSafeToCollect)
         return;

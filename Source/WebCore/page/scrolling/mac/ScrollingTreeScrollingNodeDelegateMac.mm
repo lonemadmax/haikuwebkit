@@ -106,11 +106,6 @@ bool ScrollingTreeScrollingNodeDelegateMac::handleWheelEvent(const PlatformWheel
     if (isInUserScroll != wasInUserScroll)
         scrollingNode().setUserScrollInProgress(isInUserScroll);
 
-    // PlatformWheelEventPhase::MayBegin fires when two fingers touch the trackpad, and is used to flash overlay scrollbars.
-    // We know we're scrollable at this point, so handle the event.
-    if (wheelEvent.phase() == PlatformWheelEventPhase::MayBegin)
-        return true;
-
     return m_scrollController.handleWheelEvent(wheelEvent);
 }
 
@@ -213,15 +208,15 @@ void ScrollingTreeScrollingNodeDelegateMac::serviceScrollAnimation()
 bool ScrollingTreeScrollingNodeDelegateMac::allowsHorizontalStretching(const PlatformWheelEvent& wheelEvent) const
 {
     switch (horizontalScrollElasticity()) {
-    case ScrollElasticityAutomatic: {
+    case ScrollElasticity::Automatic: {
         bool scrollbarsAllowStretching = allowsHorizontalScrolling() || !allowsVerticalScrolling();
         auto relevantSide = ScrollableArea::targetSideForScrollDelta(-wheelEvent.delta(), ScrollEventAxis::Horizontal);
         bool eventPreventsStretching = wheelEvent.isGestureStart() && relevantSide && isPinnedOnSide(*relevantSide);
         return scrollbarsAllowStretching && !eventPreventsStretching;
     }
-    case ScrollElasticityNone:
+    case ScrollElasticity::None:
         return false;
-    case ScrollElasticityAllowed: {
+    case ScrollElasticity::Allowed: {
         auto relevantSide = ScrollableArea::targetSideForScrollDelta(-wheelEvent.delta(), ScrollEventAxis::Horizontal);
         if (relevantSide)
             return shouldRubberBandOnSide(*relevantSide);
@@ -236,15 +231,15 @@ bool ScrollingTreeScrollingNodeDelegateMac::allowsHorizontalStretching(const Pla
 bool ScrollingTreeScrollingNodeDelegateMac::allowsVerticalStretching(const PlatformWheelEvent& wheelEvent) const
 {
     switch (verticalScrollElasticity()) {
-    case ScrollElasticityAutomatic: {
+    case ScrollElasticity::Automatic: {
         bool scrollbarsAllowStretching = allowsVerticalScrolling() || !allowsHorizontalScrolling();
         auto relevantSide = ScrollableArea::targetSideForScrollDelta(-wheelEvent.delta(), ScrollEventAxis::Vertical);
         bool eventPreventsStretching = wheelEvent.isGestureStart() && relevantSide && isPinnedOnSide(*relevantSide);
         return scrollbarsAllowStretching && !eventPreventsStretching;
     }
-    case ScrollElasticityNone:
+    case ScrollElasticity::None:
         return false;
-    case ScrollElasticityAllowed: {
+    case ScrollElasticity::Allowed: {
         auto relevantSide = ScrollableArea::targetSideForScrollDelta(-wheelEvent.delta(), ScrollEventAxis::Vertical);
         if (relevantSide)
             return shouldRubberBandOnSide(*relevantSide);
@@ -440,6 +435,11 @@ void ScrollingTreeScrollingNodeDelegateMac::releaseReferencesToScrollerImpsOnThe
         WTF::callOnMainThread([verticalScrollerImp = WTFMove(m_verticalScrollerImp), horizontalScrollerImp = WTFMove(m_horizontalScrollerImp)] {
         });
     }
+}
+
+bool ScrollingTreeScrollingNodeDelegateMac::momentumScrollingAnimatorEnabled() const
+{
+    return scrollingNode().momentumScrollingAnimatorEnabled();
 }
 
 } // namespace WebCore

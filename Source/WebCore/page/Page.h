@@ -91,6 +91,7 @@ namespace IDBClient {
 class IDBConnectionToServer;
 }
 
+class ApplePayAMSUIPaymentHandler;
 class ActivityStateChangeObserver;
 class AlternativeTextClient;
 class ApplicationCacheStorage;
@@ -124,6 +125,7 @@ class MediaCanStartListener;
 class MediaPlaybackTarget;
 class MediaRecorderProvider;
 class MediaSessionCoordinatorPrivate;
+class ModelPlayerProvider;
 class PageConfiguration;
 class PageConsoleClient;
 class PageDebuggable;
@@ -167,6 +169,7 @@ class WebGLStateTracker;
 class WheelEventDeltaFilter;
 class WheelEventTestMonitor;
 
+struct ApplePayAMSUIRequest;
 struct SimpleRange;
 struct TextRecognitionResult;
 
@@ -541,6 +544,12 @@ public:
     WEBCORE_EXPORT void setPaymentCoordinator(std::unique_ptr<PaymentCoordinator>&&);
 #endif
 
+#if ENABLE(APPLE_PAY_AMS_UI)
+    bool hasActiveApplePayAMSUISession() const { return m_activeApplePayAMSUIPaymentHandler; }
+    bool startApplePayAMSUISession(Document&, ApplePayAMSUIPaymentHandler&, const ApplePayAMSUIRequest&);
+    void abortApplePayAMSUISession(ApplePayAMSUIPaymentHandler&);
+#endif
+
 #if ENABLE(WEB_AUTHN)
     AuthenticatorCoordinator& authenticatorCoordinator() { return m_authenticatorCoordinator.get(); }
 #endif
@@ -890,10 +899,13 @@ public:
 #if ENABLE(IMAGE_ANALYSIS)
     WEBCORE_EXPORT bool hasCachedTextRecognitionResult(const HTMLElement&) const;
     void cacheTextRecognitionResult(const HTMLElement&, const IntRect& containerRect, const TextRecognitionResult&);
+    void resetTextRecognitionResult(const HTMLElement&);
 #endif
 
     WEBCORE_EXPORT PermissionController& permissionController();
     WEBCORE_EXPORT StorageConnection& storageConnection();
+
+    ModelPlayerProvider& modelPlayerProvider();
 
 private:
     struct Navigation {
@@ -1039,8 +1051,8 @@ private:
     
     bool m_suppressScrollbarAnimations { false };
     
-    unsigned m_verticalScrollElasticity : 2; // ScrollElasticity
-    unsigned m_horizontalScrollElasticity : 2; // ScrollElasticity    
+    ScrollElasticity m_verticalScrollElasticity { ScrollElasticity::Allowed };
+    ScrollElasticity m_horizontalScrollElasticity { ScrollElasticity::Allowed };
 
     Pagination m_pagination;
     bool m_paginationLineGridEnabled { false };
@@ -1187,6 +1199,10 @@ private:
     std::unique_ptr<PaymentCoordinator> m_paymentCoordinator;
 #endif
 
+#if ENABLE(APPLE_PAY_AMS_UI)
+    RefPtr<ApplePayAMSUIPaymentHandler> m_activeApplePayAMSUIPaymentHandler;
+#endif
+
 #if ENABLE(WEB_AUTHN)
     UniqueRef<AuthenticatorCoordinator> m_authenticatorCoordinator;
 #endif
@@ -1227,6 +1243,7 @@ private:
     Ref<PermissionController> m_permissionController;
     RefPtr<ReportingEndpointsCache> m_reportingEndpointsCache;
     UniqueRef<StorageProvider> m_storageProvider;
+    UniqueRef<ModelPlayerProvider> m_modelPlayerProvider;
 
 #if ENABLE(IMAGE_ANALYSIS)
     using CachedTextRecognitionResult = std::pair<TextRecognitionResult, IntRect>;

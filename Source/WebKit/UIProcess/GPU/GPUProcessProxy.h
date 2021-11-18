@@ -49,6 +49,7 @@
 
 namespace WebCore {
 struct MockMediaDevice;
+struct ScreenProperties;
 struct SecurityOriginData;
 }
 
@@ -89,9 +90,11 @@ public:
 
 #if PLATFORM(MAC)
     void displayConfigurationChanged(CGDirectDisplayID, CGDisplayChangeSummaryFlags);
+    void setScreenProperties(const WebCore::ScreenProperties&);
 #endif
 
-    void updatePreferences();
+    void updatePreferences(WebProcessProxy&);
+    void updateScreenPropertiesIfNeeded();
 
     void terminateForTesting();
     void webProcessConnectionCountForTesting(CompletionHandler<void(uint64_t)>&&);
@@ -149,6 +152,27 @@ private:
     bool m_hasSentMicrophoneSandboxExtension { false };
     bool m_hasSentNetworkProcessXPCEndpoint { false };
 #endif
+
+#if ENABLE(MEDIA_SOURCE) && ENABLE(VP9)
+    bool m_hasEnabledWebMParser { false };
+#endif
+
+#if ENABLE(WEBM_FORMAT_READER)
+    bool m_hasEnabledWebMFormatReader { false };
+#endif
+
+#if ENABLE(OPUS)
+    bool m_hasEnabledOpus { false };
+#endif
+
+#if ENABLE(VORBIS)
+    bool m_hasEnabledVorbis { false };
+#endif
+
+#if ENABLE(MEDIA_SOURCE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
+    bool m_hasEnabledMediaSourceInlinePainting { false };
+#endif
+
     HashSet<PAL::SessionID> m_sessionIDs;
 };
 

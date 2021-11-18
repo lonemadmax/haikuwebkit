@@ -107,6 +107,7 @@
 #include "WebMediaKeyStorageManager.h"
 #include "WebMediaKeySystemClient.h"
 #include "WebMediaStrategy.h"
+#include "WebModelPlayerProvider.h"
 #include "WebMouseEvent.h"
 #include "WebNotificationClient.h"
 #include "WebOpenPanelResultListener.h"
@@ -201,6 +202,7 @@
 #include <WebCore/HistoryController.h>
 #include <WebCore/HistoryItem.h>
 #include <WebCore/HitTestResult.h>
+#include <WebCore/ImageOverlay.h>
 #include <WebCore/InspectorController.h>
 #include <WebCore/JSDOMExceptionHandling.h>
 #include <WebCore/JSDOMWindow.h>
@@ -273,10 +275,6 @@
 #include <WebCore/AppHighlightStorage.h>
 #endif
 
-#if ENABLE(ARKIT_INLINE_PREVIEW)
-#include <WebCore/HTMLModelElement.h>
-#endif
-
 #if ENABLE(DATA_DETECTION)
 #include "DataDetectionResult.h"
 #endif
@@ -345,6 +343,10 @@
 
 #if ENABLE(VIDEO) && USE(GSTREAMER)
 #include <WebCore/MediaPlayerRequestInstallMissingPluginsCallback.h>
+#endif
+
+#if ENABLE(MEDIA_STREAM) && USE(GSTREAMER)
+#include <WebCore/MockRealtimeMediaSourceCenter.h>
 #endif
 
 #if ENABLE(WEB_AUTHN)
@@ -571,7 +573,8 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         makeUniqueRef<MediaRecorderProvider>(*this),
         WebProcess::singleton().broadcastChannelRegistry(),
         WebPermissionController::create(*this),
-        makeUniqueRef<WebStorageProvider>()
+        makeUniqueRef<WebStorageProvider>(),
+        makeUniqueRef<WebModelPlayerProvider>(*this)
     );
     pageConfiguration.chromeClient = new WebChromeClient(*this);
 #if ENABLE(CONTEXT_MENUS)
@@ -1211,7 +1214,7 @@ EditorState WebPage::editorState(ShouldPerformLayout shouldPerformLayout) const
 
     if (result.selectionIsRange) {
         auto selectionRange = selection.range();
-        result.selectionIsRangeInsideImageOverlay = selectionRange && HTMLElement::isInsideImageOverlay(*selectionRange);
+        result.selectionIsRangeInsideImageOverlay = selectionRange && ImageOverlay::isInsideOverlay(*selectionRange);
     }
 
     m_lastEditorStateWasContentEditable = result.isContentEditable ? EditorStateIsContentEditable::Yes : EditorStateIsContentEditable::No;
@@ -2394,12 +2397,12 @@ void WebPage::setSuppressScrollbarAnimations(bool suppressAnimations)
     
 void WebPage::setEnableVerticalRubberBanding(bool enableVerticalRubberBanding)
 {
-    m_page->setVerticalScrollElasticity(enableVerticalRubberBanding ? ScrollElasticityAllowed : ScrollElasticityNone);
+    m_page->setVerticalScrollElasticity(enableVerticalRubberBanding ? ScrollElasticity::Allowed : ScrollElasticity::None);
 }
     
 void WebPage::setEnableHorizontalRubberBanding(bool enableHorizontalRubberBanding)
 {
-    m_page->setHorizontalScrollElasticity(enableHorizontalRubberBanding ? ScrollElasticityAllowed : ScrollElasticityNone);
+    m_page->setHorizontalScrollElasticity(enableHorizontalRubberBanding ? ScrollElasticity::Allowed : ScrollElasticity::None);
 }
 
 void WebPage::setBackgroundExtendsBeyondPage(bool backgroundExtendsBeyondPage)
@@ -3303,7 +3306,7 @@ bool WebPage::logicalScroll(Page* page, ScrollLogicalDirection direction, Scroll
     return page->userInputBridge().logicalScrollRecursively(direction, granularity);
 }
 
-bool WebPage::scrollBy(uint32_t scrollDirection, uint32_t scrollGranularity)
+bool WebPage::scrollBy(uint32_t scrollDirection, WebCore::ScrollGranularity scrollGranularity)
 {
     return scroll(m_page.get(), static_cast<ScrollDirection>(scrollDirection), static_cast<ScrollGranularity>(scrollGranularity));
 }
@@ -4037,6 +4040,45 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
     PlatformMediaSessionManager::setOpusDecoderEnabled(RuntimeEnabledFeatures::sharedFeatures().opusDecoderEnabled());
 #endif
 
+    if (WebProcess::singleton().isCaptivePortalModeEnabled()) {
+        settings.setWebGLEnabled(false);
+#if ENABLE(WEBGL2)
+        settings.setWebGL2Enabled(false);
+#endif
+#if ENABLE(GAMEPAD)
+        settings.setGamepadsEnabled(false);
+#endif
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
+        settings.setRemotePlaybackEnabled(false);
+#endif
+        settings.setFileSystemAccessEnabled(false);
+        settings.setAllowsPictureInPictureMediaPlayback(false);
+#if ENABLE(PICTURE_IN_PICTURE_API)
+        settings.setPictureInPictureAPIEnabled(false);
+#endif
+        settings.setSpeechRecognitionEnabled(false);
+#if ENABLE(NOTIFICATIONS)
+        settings.setNotificationsEnabled(false);
+#endif
+#if ENABLE(WEBXR)
+        settings.setWebXREnabled(false);
+        settings.setWebXRAugmentedRealityModuleEnabled(false);
+#endif
+#if ENABLE(MEDIA_STREAM)
+        settings.setMediaDevicesEnabled(false);
+#endif
+#if ENABLE(WEB_AUDIO)
+        settings.setWebAudioEnabled(false);
+#endif
+        settings.setDownloadableBinaryFontsEnabled(false);
+#if ENABLE(WEB_RTC)
+        settings.setPeerConnectionEnabled(false);
+#endif
+#if ENABLE(MATHML)
+        settings.setMathMLEnabled(false);
+#endif
+    }
+
     m_page->settingsDidChange();
 }
 
@@ -4086,7 +4128,7 @@ std::optional<std::pair<Ref<WebCore::HTMLElement>, WebCore::IntRect>> WebPage::f
 {
     Vector<Ref<HTMLElement>> dataDetectorElements;
     for (auto& child : descendantsOfType<HTMLElement>(*imageOverlayHost.shadowRoot())) {
-        if (child.isImageOverlayDataDetectorResult())
+        if (ImageOverlay::isDataDetectorResult(child))
             dataDetectorElements.append(child);
     }
 
@@ -4302,10 +4344,10 @@ WebFullScreenManager* WebPage::fullScreenManager()
 }
 #endif
 
-void WebPage::addConsoleMessage(FrameIdentifier frameID, MessageSource messageSource, MessageLevel messageLevel, const String& message, WebCore::ResourceLoaderIdentifier requestID)
+void WebPage::addConsoleMessage(FrameIdentifier frameID, MessageSource messageSource, MessageLevel messageLevel, const String& message, std::optional<WebCore::ResourceLoaderIdentifier> requestID)
 {
     if (auto* frame = WebProcess::singleton().webFrame(frameID))
-        frame->addConsoleMessage(messageSource, messageLevel, message, requestID.toUInt64());
+        frame->addConsoleMessage(messageSource, messageLevel, message, requestID ? requestID->toUInt64() : 0);
 }
 
 void WebPage::sendCSPViolationReport(FrameIdentifier frameID, const URL& reportURL, IPC::FormDataReference&& reportData)
@@ -4319,13 +4361,13 @@ void WebPage::sendCSPViolationReport(FrameIdentifier frameID, const URL& reportU
 
 void WebPage::sendCOEPPolicyInheritenceViolation(FrameIdentifier frameID, const SecurityOriginData& embedderOrigin, const String& endpoint, COEPDisposition disposition, const String& type, const URL& blockedURL)
 {
-    if (auto* frame = WebProcess::singleton().webFrame(frameID); frame->coreFrame())
+    if (auto* frame = WebProcess::singleton().webFrame(frameID); frame && frame->coreFrame())
         WebCore::sendCOEPPolicyInheritenceViolation(*frame->coreFrame(), embedderOrigin, endpoint, disposition, type, blockedURL);
 }
 
 void WebPage::sendCOEPCORPViolation(FrameIdentifier frameID, const SecurityOriginData& embedderOrigin, const String& endpoint, COEPDisposition disposition, FetchOptions::Destination destination, const URL& blockedURL)
 {
-    if (auto* frame = WebProcess::singleton().webFrame(frameID); frame->coreFrame())
+    if (auto* frame = WebProcess::singleton().webFrame(frameID); frame && frame->coreFrame())
         WebCore::sendCOEPCORPViolation(*frame->coreFrame(), embedderOrigin, endpoint, disposition, destination, blockedURL);
 }
 
@@ -4338,7 +4380,7 @@ void WebPage::sendViolationReportWhenNavigatingToCOOPResponse(FrameIdentifier fr
     if (Page::nonUtilityPageCount() <= 1)
         return;
 
-    if (auto* frame = WebProcess::singleton().webFrame(frameID); frame->coreFrame())
+    if (auto* frame = WebProcess::singleton().webFrame(frameID); frame && frame->coreFrame())
         WebCore::sendViolationReportWhenNavigatingToCOOPResponse(*frame->coreFrame(), coop, disposition, coopURL, previousResponseURL, coopOrigin.securityOrigin(), previousResponseOrigin.securityOrigin(), referrer, userAgent);
 }
 
@@ -4348,7 +4390,7 @@ void WebPage::sendViolationReportWhenNavigatingAwayFromCOOPResponse(FrameIdentif
     if (Page::nonUtilityPageCount() <= 1)
         return;
 
-    if (auto* frame = WebProcess::singleton().webFrame(frameID); frame->coreFrame())
+    if (auto* frame = WebProcess::singleton().webFrame(frameID); frame && frame->coreFrame())
         WebCore::sendViolationReportWhenNavigatingAwayFromCOOPResponse(*frame->coreFrame(), coop, disposition, coopURL, nextResponseURL, coopOrigin.securityOrigin(), nextResponseOrigin.securityOrigin(), isCOOPResponseNavigationSource, userAgent);
 }
 
@@ -4788,6 +4830,11 @@ void WebPage::setOrientationForMediaCapture(uint64_t rotation)
     m_page->forEachDocument([&](auto& document) {
         document.orientationChanged(rotation);
     });
+}
+
+void WebPage::setMockCameraIsInterrupted(bool isInterrupted)
+{
+    MockRealtimeMediaSourceCenter::setMockCameraIsInterrupted(isInterrupted);
 }
 #endif // USE(GSTREAMER)
 
@@ -6154,7 +6201,7 @@ void WebPage::setAlwaysShowsHorizontalScroller(bool alwaysShowsHorizontalScrolle
     auto view = corePage()->mainFrame().view();
     if (!alwaysShowsHorizontalScroller)
         view->setHorizontalScrollbarLock(false);
-    view->setHorizontalScrollbarMode(alwaysShowsHorizontalScroller ? ScrollbarAlwaysOn : m_mainFrameIsScrollable ? ScrollbarAuto : ScrollbarAlwaysOff, alwaysShowsHorizontalScroller || !m_mainFrameIsScrollable);
+    view->setHorizontalScrollbarMode(alwaysShowsHorizontalScroller ? ScrollbarMode::AlwaysOn : m_mainFrameIsScrollable ? ScrollbarMode::Auto : ScrollbarMode::AlwaysOff, alwaysShowsHorizontalScroller || !m_mainFrameIsScrollable);
 }
 
 void WebPage::setAlwaysShowsVerticalScroller(bool alwaysShowsVerticalScroller)
@@ -6166,7 +6213,7 @@ void WebPage::setAlwaysShowsVerticalScroller(bool alwaysShowsVerticalScroller)
     auto view = corePage()->mainFrame().view();
     if (!alwaysShowsVerticalScroller)
         view->setVerticalScrollbarLock(false);
-    view->setVerticalScrollbarMode(alwaysShowsVerticalScroller ? ScrollbarAlwaysOn : m_mainFrameIsScrollable ? ScrollbarAuto : ScrollbarAlwaysOff, alwaysShowsVerticalScroller || !m_mainFrameIsScrollable);
+    view->setVerticalScrollbarMode(alwaysShowsVerticalScroller ? ScrollbarMode::AlwaysOn : m_mainFrameIsScrollable ? ScrollbarMode::Auto : ScrollbarMode::AlwaysOff, alwaysShowsVerticalScroller || !m_mainFrameIsScrollable);
 }
 
 void WebPage::setMinimumSizeForAutoLayout(const IntSize& size)
@@ -6207,7 +6254,7 @@ void WebPage::setAutoSizingShouldExpandToViewHeight(bool shouldExpand)
     corePage()->mainFrame().view()->setAutoSizeFixedMinimumHeight(shouldExpand ? m_viewSize.height() : 0);
 }
 
-void WebPage::setViewportSizeForCSSViewportUnits(std::optional<WebCore::IntSize> viewportSize)
+void WebPage::setViewportSizeForCSSViewportUnits(std::optional<WebCore::FloatSize> viewportSize)
 {
     if (m_viewportSizeForCSSViewportUnits == viewportSize)
         return;
@@ -7457,7 +7504,7 @@ void WebPage::requestTextRecognition(WebCore::Element& element, CompletionHandle
     if (corePage()->hasCachedTextRecognitionResult(htmlElement.get())) {
         if (completion) {
             RefPtr<Element> imageOverlayHost;
-            if (htmlElement->hasImageOverlay())
+            if (ImageOverlay::hasOverlay(htmlElement.get()))
                 imageOverlayHost = &element;
             completion(WTFMove(imageOverlayHost));
         }
@@ -7524,7 +7571,7 @@ void WebPage::requestTextRecognition(WebCore::Element& element, CompletionHandle
             return;
 
         auto& htmlElement = downcast<HTMLElement>(*protectedElement);
-        htmlElement.updateWithTextRecognitionResult(result);
+        ImageOverlay::updateWithTextRecognitionResult(htmlElement, result);
 
         auto matchIndex = protectedPage->m_elementsPendingTextRecognition.findMatching([&] (auto& elementAndCompletionHandlers) {
             return elementAndCompletionHandlers.first == &htmlElement;
@@ -7533,7 +7580,7 @@ void WebPage::requestTextRecognition(WebCore::Element& element, CompletionHandle
         if (matchIndex == notFound)
             return;
 
-        RefPtr imageOverlayHost = htmlElement.hasImageOverlay() ? &htmlElement : nullptr;
+        RefPtr imageOverlayHost = ImageOverlay::hasOverlay(htmlElement) ? &htmlElement : nullptr;
         for (auto& completionHandler : protectedPage->m_elementsPendingTextRecognition[matchIndex].second)
             completionHandler(imageOverlayHost.copyRef());
 
@@ -7549,7 +7596,7 @@ void WebPage::updateWithTextRecognitionResult(const TextRecognitionResult& resul
         return;
     }
 
-    downcast<HTMLElement>(*elementToUpdate).updateWithTextRecognitionResult(result);
+    ImageOverlay::updateWithTextRecognitionResult(downcast<HTMLElement>(*elementToUpdate), result);
     auto hitTestResult = corePage()->mainFrame().eventHandler().hitTestResultAtPoint(roundedIntPoint(location), {
         HitTestRequest::Type::ReadOnly,
         HitTestRequest::Type::Active,
@@ -7558,7 +7605,7 @@ void WebPage::updateWithTextRecognitionResult(const TextRecognitionResult& resul
 
     RefPtr nodeAtLocation = hitTestResult.innerNonSharedNode();
     auto updateResult = ([&] {
-        if (!nodeAtLocation || nodeAtLocation->shadowHost() != elementToUpdate || !HTMLElement::isInsideImageOverlay(*nodeAtLocation))
+        if (!nodeAtLocation || nodeAtLocation->shadowHost() != elementToUpdate || !ImageOverlay::isInsideOverlay(*nodeAtLocation))
             return TextRecognitionUpdateResult::NoText;
 
 #if ENABLE(DATA_DETECTION)
@@ -7566,7 +7613,7 @@ void WebPage::updateWithTextRecognitionResult(const TextRecognitionResult& resul
             return TextRecognitionUpdateResult::DataDetector;
 #endif
 
-        if (HTMLElement::isImageOverlayText(*nodeAtLocation))
+        if (ImageOverlay::isOverlayText(*nodeAtLocation))
             return TextRecognitionUpdateResult::Text;
 
         return TextRecognitionUpdateResult::NoText;
@@ -7727,21 +7774,6 @@ void WebPage::handleContextMenuTranslation(const TranslationContextMenuInfo& inf
 void WebPage::takeModelElementFullscreen(WebCore::GraphicsLayer::PlatformLayerID contentLayerId)
 {
     send(Messages::WebPageProxy::TakeModelElementFullscreen(contentLayerId));
-}
-#endif
-
-#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
-void WebPage::modelElementDidCreatePreview(WebCore::HTMLModelElement& element, const URL& url, const String& uuid, const WebCore::FloatSize& size)
-{
-    if (auto elementContext = contextForElement(element))
-        send(Messages::WebPageProxy::ModelElementDidCreatePreview(*elementContext, url, uuid, size));
-}
-
-void WebPage::modelElementPreviewDidObtainContextId(const WebCore::ElementContext& elementContext, const String& uuid, uint32_t contextId)
-{
-    auto element = elementForContext(elementContext);
-    if (is<WebCore::HTMLModelElement>(element))
-        downcast<WebCore::HTMLModelElement>(*element).inlinePreviewDidObtainContextId(uuid, contextId);
 }
 #endif
 

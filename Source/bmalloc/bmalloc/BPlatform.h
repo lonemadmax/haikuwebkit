@@ -99,7 +99,7 @@
 #endif
 
 #if defined(__SCE__)
-#define BPLATORM_PLAYSTATION 1
+#define BPLATFORM_PLAYSTATION 1
 #endif
 
 /* ==== Feature decision macros: these define feature choices for a particular port. ==== */
@@ -139,6 +139,9 @@
 /* BCPU(ARM64) */
 #if defined(__arm64__) || defined(__aarch64__)
 #define BCPU_ARM64 1
+#if defined(__arm64e__)
+#define BCPU_ARM64E 1
+#endif
 #endif
 
 /* BCPU(ARM) - ARM, any version*/
@@ -317,7 +320,8 @@
 
 /* BENABLE(LIBPAS) is enabling libpas build. But this does not mean we use libpas for bmalloc replacement. */
 #if !defined(BENABLE_LIBPAS)
-#if BCPU(ARM64) && BOS(MAC)
+/* Currently not enabling libpas on ARM64 (not ARM64E) on iOS family due to performance reason. */
+#if BCPU(ADDRESS64) && (BOS(MAC) || (BPLATFORM(COCOA) && (BCPU(X86_64) || BCPU(ARM64E))))
 #define BENABLE_LIBPAS 1
 #else
 #define BENABLE_LIBPAS 0

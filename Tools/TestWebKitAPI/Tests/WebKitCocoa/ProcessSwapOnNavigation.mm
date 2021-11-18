@@ -25,6 +25,7 @@
 
 #import "config.h"
 
+#import "DeprecatedGlobalValues.h"
 #import "HTTPServer.h"
 #import "PlatformUtilities.h"
 #import "Test.h"
@@ -44,6 +45,7 @@
 #import <WebKit/WKWebViewConfigurationPrivate.h>
 #import <WebKit/WKWebViewPrivateForTesting.h>
 #import <WebKit/WKWebpagePreferences.h>
+#import <WebKit/WKWebpagePreferencesPrivate.h>
 #import <WebKit/WKWebsiteDataStorePrivate.h>
 #import <WebKit/WKWebsiteDataStoreRef.h>
 #import <WebKit/WebKit.h>
@@ -65,10 +67,8 @@
 - (WKContextRef)_contextForTesting;
 @end
 
-static bool done;
 static bool didStartProvisionalLoad;
 static bool failed;
-static bool didCreateWebView;
 static int numberOfDecidePolicyCalls;
 static bool didRepondToPolicyDecisionCall;
 
@@ -78,7 +78,6 @@ static bool didStartQuickLookLoad;
 static bool didFinishQuickLookLoad;
 #endif
 
-static RetainPtr<NSMutableArray> receivedMessages = adoptNS([@[] mutableCopy]);
 bool didReceiveAlert;
 static bool receivedMessage;
 static bool serverRedirected;
@@ -143,20 +142,20 @@ static RetainPtr<NSURL> clientRedirectDestinationURL;
     done = true;
 }
 
-- (void)webView:(WKWebView *)webView didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential * _Nullable credential))completionHandler
+- (void)webView:(WKWebView *)webView didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential *credential))completionHandler
 {
     EXPECT_WK_STREQ(challenge.protectionSpace.authenticationMethod, NSURLAuthenticationMethodServerTrust);
     completionHandler(NSURLSessionAuthChallengeUseCredential, [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust]);
 }
 
-- (void)webView:(WKWebView *)webView didStartProvisionalNavigation:(null_unspecified WKNavigation *)navigation
+- (void)webView:(WKWebView *)webView didStartProvisionalNavigation:(WKNavigation *)navigation
 {
     didStartProvisionalLoad = true;
     if (didStartProvisionalNavigationHandler)
         didStartProvisionalNavigationHandler();
 }
 
-- (void)webView:(WKWebView *)webView didCommitNavigation:(null_unspecified WKNavigation *)navigation
+- (void)webView:(WKWebView *)webView didCommitNavigation:(WKNavigation *)navigation
 {
     if (didCommitNavigationHandler)
         didCommitNavigationHandler();
@@ -238,7 +237,7 @@ static RetainPtr<WKWebView> createdWebView;
     return self;
 }
 
-- (nullable WKWebView *)webView:(WKWebView *)webView createWebViewWithConfiguration:(WKWebViewConfiguration *)configuration forNavigationAction:(WKNavigationAction *)navigationAction windowFeatures:(WKWindowFeatures *)windowFeatures
+- (WKWebView *)webView:(WKWebView *)webView createWebViewWithConfiguration:(WKWebViewConfiguration *)configuration forNavigationAction:(WKNavigationAction *)navigationAction windowFeatures:(WKWindowFeatures *)windowFeatures
 {
     createdWebView = adoptNS([[WKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:configuration]);
     [createdWebView setNavigationDelegate:_navigationDelegate.get()];
@@ -7626,3 +7625,182 @@ TEST(ProcessSwap, NavigatingCrossOriginFromCOOPSameOriginAllowPopup4)
 {
     runCOOPProcessSwapTest("same-origin-allow-popup", "unsafe-none", "unsafe-none", "unsafe-none", IsSameOrigin::No, DoServerSideRedirect::No, ExpectSwap::No);
 }
+
+// On iOS, toggling the captive portal mode requires the browser entitlement, which TestWebKit API doesn't have.
+// Also, some API tests rely on the browser entitlement not being present.
+#if !PLATFORM(IOS)
+
+static bool isJITEnabled(WKWebView *webView)
+{
+    __block bool gotResponse = false;
+    __block bool isJITEnabledResult = false;
+    [webView _isJITEnabled:^(BOOL isJITEnabled) {
+        isJITEnabledResult = isJITEnabled;
+        gotResponse = true;
+    }];
+    TestWebKitAPI::Util::run(&gotResponse);
+    EXPECT_NE([webView _webProcessIdentifier], 0);
+    return isJITEnabledResult;
+}
+
+enum class ShouldBeEnabled : bool { No, Yes };
+enum class IsShowingInitialEmptyDocument : bool { No, Yes };
+static void checkSettingsControlledByCaptivePortalMode(WKWebView *webView, ShouldBeEnabled shouldBeEnabled, IsShowingInitialEmptyDocument isShowingInitialEmptyDocument = IsShowingInitialEmptyDocument::No)
+{
+    auto runJSCheck = [&](const String& js) -> bool {
+        bool finishedRunningScript = false;
+        bool checkResult = false;
+        [webView evaluateJavaScript:js completionHandler:[&] (id result, NSError *error) {
+            EXPECT_NULL(error);
+            checkResult = [result boolValue];
+            finishedRunningScript = true;
+        }];
+        TestWebKitAPI::Util::run(&finishedRunningScript);
+        return checkResult;
+    };
+
+    EXPECT_EQ(runJSCheck("!!window.WebGL2RenderingContext"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // WebGL2.
+    EXPECT_EQ(runJSCheck("!!window.Gamepad"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // Gamepad API.
+    EXPECT_EQ(runJSCheck("!!window.RemotePlayback"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // Remote Playback.
+    EXPECT_EQ(runJSCheck("!!window.FileSystemHandle"_s), isShowingInitialEmptyDocument != IsShowingInitialEmptyDocument::Yes && shouldBeEnabled == ShouldBeEnabled::Yes); // File System Access.
+    EXPECT_EQ(runJSCheck("!!window.EnterPictureInPictureEvent"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // Picture in Picture API.
+    EXPECT_EQ(runJSCheck("!!window.SpeechRecognitionEvent"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // Speech recognition.
+    EXPECT_EQ(runJSCheck("!!window.Notification"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // Notification API.
+    EXPECT_EQ(runJSCheck("!!window.WebXRSystem"_s), false); // WebXR (currently always disabled).
+    EXPECT_EQ(runJSCheck("!!window.AudioContext"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // WebAudio.
+    EXPECT_EQ(runJSCheck("!!window.RTCPeerConnection"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // WebRTC Peer Connection.
+    EXPECT_EQ(runJSCheck("!!navigator.mediaDevices"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // GetUserMedia (Media Capture).
+    EXPECT_EQ(runJSCheck("!!navigator.getUserMedia"_s), false); // Legacy GetUserMedia (currently always disabled).
+    EXPECT_EQ(runJSCheck("!!window.MathMLElement"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // MathML.
+    EXPECT_EQ(runJSCheck("!!window.MathMLMathElement"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // MathML.
+    String mathMLCheck = makeString("document.createElementNS('http://www.w3.org/1998/Math/MathML','mspace').__proto__ == ", shouldBeEnabled == ShouldBeEnabled::Yes ? "MathMLElement" : "Element", ".prototype");
+    EXPECT_EQ(runJSCheck(mathMLCheck), true); // MathML.
+}
+
+TEST(ProcessSwap, NavigatingToCaptivePortalMode)
+{
+    auto webViewConfiguration = adoptNS([WKWebViewConfiguration new]);
+    EXPECT_FALSE(webViewConfiguration.get().defaultWebpagePreferences._captivePortalModeEnabled);
+    [webViewConfiguration.get().preferences _setMediaDevicesEnabled:YES];
+    webViewConfiguration.get().preferences._mediaCaptureRequiresSecureConnection = NO;
+
+    auto webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:webViewConfiguration.get()]);
+    auto delegate = adoptNS([TestNavigationDelegate new]);
+    [webView setNavigationDelegate:delegate.get()];
+
+    EXPECT_TRUE(isJITEnabled(webView.get()));
+    checkSettingsControlledByCaptivePortalMode(webView.get(), ShouldBeEnabled::Yes, IsShowingInitialEmptyDocument::Yes);
+
+    __block bool finishedNavigation = false;
+    delegate.get().didFinishNavigation = ^(WKWebView *, WKNavigation *) {
+        finishedNavigation = true;
+    };
+
+    NSURL *url = [[NSBundle mainBundle] URLForResource:@"simple" withExtension:@"html" subdirectory:@"TestWebKitAPI.resources"];
+    [webView loadRequest:[NSURLRequest requestWithURL:url]];
+    TestWebKitAPI::Util::run(&finishedNavigation);
+
+    pid_t pid1 = [webView _webProcessIdentifier];
+    EXPECT_NE(pid1, 0);
+
+    EXPECT_TRUE(isJITEnabled(webView.get()));
+    checkSettingsControlledByCaptivePortalMode(webView.get(), ShouldBeEnabled::Yes);
+
+    delegate.get().decidePolicyForNavigationActionWithPreferences = ^(WKNavigationAction *action, WKWebpagePreferences *preferences, void (^completionHandler)(WKNavigationActionPolicy, WKWebpagePreferences *)) {
+        EXPECT_FALSE(preferences._captivePortalModeEnabled);
+        [preferences _setCaptivePortalModeEnabled:YES];
+        completionHandler(WKNavigationActionPolicyAllow, preferences);
+    };
+
+    finishedNavigation = false;
+    url = [[NSBundle mainBundle] URLForResource:@"simple2" withExtension:@"html" subdirectory:@"TestWebKitAPI.resources"];
+    [webView loadRequest:[NSURLRequest requestWithURL:url]];
+    TestWebKitAPI::Util::run(&finishedNavigation);
+
+    // We should have process-swap for transitioning to captive portal mode.
+    EXPECT_NE(pid1, [webView _webProcessIdentifier]);
+    EXPECT_FALSE(isJITEnabled(webView.get()));
+    checkSettingsControlledByCaptivePortalMode(webView.get(), ShouldBeEnabled::No);
+}
+
+TEST(ProcessSwap, CaptivePortalModeEnabledByDefaultThenOptOut)
+{
+    auto webViewConfiguration = adoptNS([WKWebViewConfiguration new]);
+    EXPECT_FALSE(webViewConfiguration.get().defaultWebpagePreferences._captivePortalModeEnabled);
+    [webViewConfiguration.get().defaultWebpagePreferences _setCaptivePortalModeEnabled:YES];
+    [webViewConfiguration.get().preferences _setMediaDevicesEnabled:YES];
+    webViewConfiguration.get().preferences._mediaCaptureRequiresSecureConnection = NO;
+
+    auto webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:webViewConfiguration.get()]);
+    auto delegate = adoptNS([TestNavigationDelegate new]);
+    [webView setNavigationDelegate:delegate.get()];
+
+    EXPECT_FALSE(isJITEnabled(webView.get()));
+    checkSettingsControlledByCaptivePortalMode(webView.get(), ShouldBeEnabled::No, IsShowingInitialEmptyDocument::Yes);
+    pid_t pid1 = [webView _webProcessIdentifier];
+
+    __block bool finishedNavigation = false;
+    delegate.get().didFinishNavigation = ^(WKWebView *, WKNavigation *) {
+        finishedNavigation = true;
+    };
+
+    delegate.get().decidePolicyForNavigationActionWithPreferences = ^(WKNavigationAction *action, WKWebpagePreferences *preferences, void (^completionHandler)(WKNavigationActionPolicy, WKWebpagePreferences *)) {
+        EXPECT_TRUE(preferences._captivePortalModeEnabled);
+        completionHandler(WKNavigationActionPolicyAllow, preferences);
+    };
+
+    NSURL *url = [[NSBundle mainBundle] URLForResource:@"simple" withExtension:@"html" subdirectory:@"TestWebKitAPI.resources"];
+    [webView loadRequest:[NSURLRequest requestWithURL:url]];
+    TestWebKitAPI::Util::run(&finishedNavigation);
+
+    EXPECT_FALSE(isJITEnabled(webView.get()));
+    checkSettingsControlledByCaptivePortalMode(webView.get(), ShouldBeEnabled::No);
+    EXPECT_EQ(pid1, [webView _webProcessIdentifier]);
+
+    finishedNavigation = false;
+    url = [[NSBundle mainBundle] URLForResource:@"simple2" withExtension:@"html" subdirectory:@"TestWebKitAPI.resources"];
+    [webView loadRequest:[NSURLRequest requestWithURL:url]];
+    TestWebKitAPI::Util::run(&finishedNavigation);
+
+    EXPECT_EQ(pid1, [webView _webProcessIdentifier]); // Shouldn't have process-swapped since we're staying in captive portal mode.
+    EXPECT_FALSE(isJITEnabled(webView.get()));
+    checkSettingsControlledByCaptivePortalMode(webView.get(), ShouldBeEnabled::No);
+
+    delegate.get().decidePolicyForNavigationActionWithPreferences = ^(WKNavigationAction *action, WKWebpagePreferences *preferences, void (^completionHandler)(WKNavigationActionPolicy, WKWebpagePreferences *)) {
+        EXPECT_TRUE(preferences._captivePortalModeEnabled);
+        [preferences _setCaptivePortalModeEnabled:NO]; // Opt out of captive portal mode for this load.
+        completionHandler(WKNavigationActionPolicyAllow, preferences);
+    };
+
+    finishedNavigation = false;
+    url = [[NSBundle mainBundle] URLForResource:@"simple3" withExtension:@"html" subdirectory:@"TestWebKitAPI.resources"];
+    [webView loadRequest:[NSURLRequest requestWithURL:url]];
+    TestWebKitAPI::Util::run(&finishedNavigation);
+
+    // We should have process-swapped to get out of captive portal mode.
+    EXPECT_NE(pid1, [webView _webProcessIdentifier]);
+    EXPECT_TRUE(isJITEnabled(webView.get()));
+    checkSettingsControlledByCaptivePortalMode(webView.get(), ShouldBeEnabled::Yes);
+
+    // captive portal mode should be disabled in new WebViews since it is not enabled globally.
+    auto webViewConfiguration2 = adoptNS([WKWebViewConfiguration new]);
+    [webViewConfiguration2.get().preferences _setMediaDevicesEnabled:YES];
+    webViewConfiguration2.get().preferences._mediaCaptureRequiresSecureConnection = NO;
+    auto webView2 = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:webViewConfiguration2.get()]);
+    [webView2 setNavigationDelegate:delegate.get()];
+    EXPECT_TRUE(isJITEnabled(webView2.get()));
+    checkSettingsControlledByCaptivePortalMode(webView2.get(), ShouldBeEnabled::Yes, IsShowingInitialEmptyDocument::Yes);
+    pid_t pid2 = [webView2 _webProcessIdentifier];
+
+    delegate.get().decidePolicyForNavigationActionWithPreferences = nil;
+
+    finishedNavigation = false;
+    url = [[NSBundle mainBundle] URLForResource:@"simple" withExtension:@"html" subdirectory:@"TestWebKitAPI.resources"];
+    [webView2 loadRequest:[NSURLRequest requestWithURL:url]];
+    TestWebKitAPI::Util::run(&finishedNavigation);
+    EXPECT_TRUE(isJITEnabled(webView2.get()));
+    checkSettingsControlledByCaptivePortalMode(webView2.get(), ShouldBeEnabled::Yes);
+    EXPECT_EQ(pid2, [webView2 _webProcessIdentifier]);
+}
+
+#endif

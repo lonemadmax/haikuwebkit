@@ -29,6 +29,7 @@
 
 #import "APIContextMenuClient.h"
 #import "APIUIClient.h"
+#import <WebCore/PlatformViewController.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/WeakObjCPtr.h>
 #import <wtf/WeakPtr.h>
@@ -104,6 +105,8 @@ private:
         void didResignInputElementStrongPasswordAppearance(WebPageProxy&, API::Object*) final;
         bool takeFocus(WebPageProxy*, WKFocusDirection) final;
         void handleAutoplayEvent(WebPageProxy&, WebCore::AutoplayEvent, OptionSet<WebCore::AutoplayEventFlags>) final;
+        void decidePolicyForNotificationPermissionRequest(WebPageProxy&, API::SecurityOrigin&, CompletionHandler<void(bool allowed)>&&) final;
+
 #if PLATFORM(MAC)
         void showPage(WebPageProxy*) final;
         void focus(WebPageProxy*) final;
@@ -122,7 +125,6 @@ private:
         void drawHeader(WebPageProxy&, WebFrameProxy&, WebCore::FloatRect&&) final;
         void drawFooter(WebPageProxy&, WebFrameProxy&, WebCore::FloatRect&&) final;
 
-        void decidePolicyForNotificationPermissionRequest(WebPageProxy&, API::SecurityOrigin&, CompletionHandler<void(bool allowed)>&&) final;
         void mouseDidMoveOverElement(WebPageProxy&, const WebHitTestResultData&, OptionSet<WebEvent::Modifier>, API::Object*);
         void didClickAutoFillButton(WebPageProxy&, API::Object*) final;
         void toolbarsAreVisible(WebPageProxy&, Function<void(bool)>&&) final;
@@ -148,8 +150,8 @@ private:
 #endif
         RetainPtr<NSArray> actionsForElement(_WKActivatedElementInfo *, RetainPtr<NSArray> defaultActions) final;
         void didNotHandleTapAsClick(const WebCore::IntPoint&) final;
-        UIViewController *presentingViewController() final;
 #endif // PLATFORM(IOS_FAMILY)
+        PlatformViewController *presentingViewController() final;
 
         NSDictionary *dataDetectionContext() final;
 
@@ -214,7 +216,6 @@ private:
         bool webViewDidExceedBackgroundResourceLimitWhileInForeground : 1;
         bool webViewSaveDataToFileSuggestedFilenameMimeTypeOriginatingURL : 1;
         bool webViewRunOpenPanelWithParametersInitiatedByFrameCompletionHandler : 1;
-        bool webViewRequestNotificationPermissionForSecurityOriginDecisionHandler : 1;
         bool webViewConfigurationForLocalInspector : 1;
         bool webViewDidAttachLocalInspector : 1;
         bool webViewWillCloseLocalInspector : 1;
@@ -241,8 +242,8 @@ private:
 #endif
         bool webViewActionsForElementDefaultActions : 1;
         bool webViewDidNotHandleTapAsClickAtPoint : 1;
-        bool presentingViewControllerForWebView : 1;
 #endif
+        bool presentingViewControllerForWebView : 1;
         bool dataDetectionContextForWebView : 1;
         bool webViewImageOrMediaDocumentSizeChanged : 1;
 #if ENABLE(POINTER_LOCK)
@@ -266,6 +267,7 @@ private:
 #if ENABLE(WEBXR) && PLATFORM(COCOA)
         bool webViewStartXRSessionWithCompletionHandler : 1;
 #endif
+        bool webViewRequestNotificationPermissionForSecurityOriginDecisionHandler : 1;
     } m_delegateMethods;
 };
 

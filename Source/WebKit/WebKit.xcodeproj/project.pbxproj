@@ -748,7 +748,7 @@
 		31312621148FF82C00BA2A39 /* WebNotificationManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 3131261C148FF82B00BA2A39 /* WebNotificationManager.h */; };
 		3155EE0D2673F4F00085E59A /* VisionKitSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 3155EE0C2673F4EF0085E59A /* VisionKitSPI.h */; };
 		3157135F2040A9B20084F9CF /* SystemPreviewController.h in Headers */ = {isa = PBXBuildFile; fileRef = 3157135D2040A9B20084F9CF /* SystemPreviewController.h */; };
-		316B8B642054B55800BD4A62 /* WKSystemPreviewView.h in Headers */ = {isa = PBXBuildFile; fileRef = 316B8B622054B55800BD4A62 /* WKSystemPreviewView.h */; };
+		316B8B642054B55800BD4A62 /* WKUSDPreviewView.h in Headers */ = {isa = PBXBuildFile; fileRef = 316B8B622054B55800BD4A62 /* WKUSDPreviewView.h */; };
 		317FE7C51C487A6C00A0CA89 /* APIExperimentalFeature.h in Headers */ = {isa = PBXBuildFile; fileRef = 317FE7C21C487A6600A0CA89 /* APIExperimentalFeature.h */; };
 		317FE7CD1C487DAE00A0CA89 /* _WKExperimentalFeatureInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 317FE7C91C487D9D00A0CA89 /* _WKExperimentalFeatureInternal.h */; };
 		317FE7CF1C487DBD00A0CA89 /* _WKExperimentalFeature.h in Headers */ = {isa = PBXBuildFile; fileRef = 317FE7C71C487D9D00A0CA89 /* _WKExperimentalFeature.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1049,6 +1049,13 @@
 		51FD18B61651FBAD00DBE1CE /* NetworkResourceLoader.h in Headers */ = {isa = PBXBuildFile; fileRef = 51FD18B41651FBAD00DBE1CE /* NetworkResourceLoader.h */; };
 		5272D4C91E735F0900EB4290 /* WKProtectionSpaceNS.h in Headers */ = {isa = PBXBuildFile; fileRef = 5272D4C71E735F0900EB4290 /* WKProtectionSpaceNS.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		528C37C1195CBB1A00D8B9CC /* WKBackForwardListPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A9F28101958F478008CAC72 /* WKBackForwardListPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		52CDC5C42731DA0D00A3E3EB /* VirtualAuthenticatorConfiguration.h in Headers */ = {isa = PBXBuildFile; fileRef = 52CDC5BD2731DA0C00A3E3EB /* VirtualAuthenticatorConfiguration.h */; };
+		52CDC5C52731DA0D00A3E3EB /* VirtualService.mm in Sources */ = {isa = PBXBuildFile; fileRef = 52CDC5BE2731DA0C00A3E3EB /* VirtualService.mm */; };
+		52CDC5C62731DA0D00A3E3EB /* VirtualAuthenticatorManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 52CDC5BF2731DA0C00A3E3EB /* VirtualAuthenticatorManager.cpp */; };
+		52CDC5C72731DA0D00A3E3EB /* VirtualLocalConnection.h in Headers */ = {isa = PBXBuildFile; fileRef = 52CDC5C02731DA0C00A3E3EB /* VirtualLocalConnection.h */; };
+		52CDC5C82731DA0D00A3E3EB /* VirtualService.h in Headers */ = {isa = PBXBuildFile; fileRef = 52CDC5C12731DA0C00A3E3EB /* VirtualService.h */; };
+		52CDC5C92731DA0D00A3E3EB /* VirtualLocalConnection.mm in Sources */ = {isa = PBXBuildFile; fileRef = 52CDC5C22731DA0C00A3E3EB /* VirtualLocalConnection.mm */; };
+		52CDC5CA2731DA0D00A3E3EB /* VirtualAuthenticatorManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 52CDC5C32731DA0C00A3E3EB /* VirtualAuthenticatorManager.h */; };
 		52D5A1B01C57495A00DE34A3 /* VideoFullscreenManagerProxy.h in Headers */ = {isa = PBXBuildFile; fileRef = 52D5A1AA1C57494E00DE34A3 /* VideoFullscreenManagerProxy.h */; };
 		52F060E11654318500F3281B /* NetworkContentRuleListManagerMessageReceiver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 52F060DD1654317500F3281B /* NetworkContentRuleListManagerMessageReceiver.cpp */; };
 		532159551DBAE7290054AA3C /* NetworkSessionCocoa.h in Headers */ = {isa = PBXBuildFile; fileRef = 532159501DBAE6D70054AA3C /* NetworkSessionCocoa.h */; };
@@ -1459,6 +1466,8 @@
 		93E6A4EE1BC5DD3900F8A0E7 /* _WKHitTestResult.h in Headers */ = {isa = PBXBuildFile; fileRef = 93E6A4ED1BC5DD3900F8A0E7 /* _WKHitTestResult.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		93F549B41E3174B7000E7239 /* WKSnapshotConfiguration.h in Headers */ = {isa = PBXBuildFile; fileRef = 93F549B31E3174B7000E7239 /* WKSnapshotConfiguration.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		950F2880252414EA00B74F1C /* WKMouseDeviceObserver.h in Headers */ = {isa = PBXBuildFile; fileRef = 950F287E252414E900B74F1C /* WKMouseDeviceObserver.h */; };
+		9565083926D87A2B00E15CB7 /* AppleMediaServicesSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 9565083726D87A2B00E15CB7 /* AppleMediaServicesSPI.h */; };
+		9565083A26D87A2B00E15CB7 /* AppleMediaServicesUISPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 9565083826D87A2B00E15CB7 /* AppleMediaServicesUISPI.h */; };
 		9593675F252E5E3100D3F0A0 /* WKStylusDeviceObserver.h in Headers */ = {isa = PBXBuildFile; fileRef = 9593675D252E5E3000D3F0A0 /* WKStylusDeviceObserver.h */; };
 		95C943912523C0D00054F3D5 /* BaseBoardSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 95C943902523C0D00054F3D5 /* BaseBoardSPI.h */; };
 		99036AE223A949CF0000B06A /* _WKInspectorDebuggableInfoInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 99036AE123A949CE0000B06A /* _WKInspectorDebuggableInfoInternal.h */; };
@@ -3428,8 +3437,8 @@
 		3157135C2040A9B20084F9CF /* SystemPreviewControllerCocoa.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = SystemPreviewControllerCocoa.mm; sourceTree = "<group>"; };
 		3157135D2040A9B20084F9CF /* SystemPreviewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SystemPreviewController.h; sourceTree = "<group>"; };
 		31607F3819627002009B87DA /* LegacySessionStateCoding.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LegacySessionStateCoding.h; sourceTree = "<group>"; };
-		316B8B612054B55800BD4A62 /* WKSystemPreviewView.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = WKSystemPreviewView.mm; path = ios/WKSystemPreviewView.mm; sourceTree = "<group>"; };
-		316B8B622054B55800BD4A62 /* WKSystemPreviewView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = WKSystemPreviewView.h; path = ios/WKSystemPreviewView.h; sourceTree = "<group>"; };
+		316B8B612054B55800BD4A62 /* WKUSDPreviewView.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = WKUSDPreviewView.mm; path = ios/WKUSDPreviewView.mm; sourceTree = "<group>"; };
+		316B8B622054B55800BD4A62 /* WKUSDPreviewView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = WKUSDPreviewView.h; path = ios/WKUSDPreviewView.h; sourceTree = "<group>"; };
 		3178AF9720E2A7F80074DE94 /* PDFKitSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PDFKitSPI.h; sourceTree = "<group>"; };
 		317FE7C11C487A6600A0CA89 /* APIExperimentalFeature.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = APIExperimentalFeature.cpp; sourceTree = "<group>"; };
 		317FE7C21C487A6600A0CA89 /* APIExperimentalFeature.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = APIExperimentalFeature.h; sourceTree = "<group>"; };
@@ -3779,6 +3788,7 @@
 		46809A7B23D9225300C297D0 /* WebCookieCache.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WebCookieCache.cpp; sourceTree = "<group>"; };
 		4683569A21E81CC7006E27A3 /* ProvisionalPageProxy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ProvisionalPageProxy.h; sourceTree = "<group>"; };
 		4683569B21E81CC7006E27A3 /* ProvisionalPageProxy.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ProvisionalPageProxy.cpp; sourceTree = "<group>"; };
+		469DE802273ECC5D00930276 /* ProcessLauncherCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = ProcessLauncherCocoa.mm; sourceTree = "<group>"; };
 		46A2B6061E5675A200C3DEDA /* BackgroundProcessResponsivenessTimer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = BackgroundProcessResponsivenessTimer.cpp; sourceTree = "<group>"; };
 		46A2B6071E5675A200C3DEDA /* BackgroundProcessResponsivenessTimer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BackgroundProcessResponsivenessTimer.h; sourceTree = "<group>"; };
 		46AC532425DED81E003B57EC /* GPUProcessConnectionParameters.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GPUProcessConnectionParameters.h; sourceTree = "<group>"; };
@@ -4069,6 +4079,13 @@
 		51FD18B41651FBAD00DBE1CE /* NetworkResourceLoader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NetworkResourceLoader.h; sourceTree = "<group>"; };
 		5272D4C71E735F0900EB4290 /* WKProtectionSpaceNS.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = WKProtectionSpaceNS.h; path = mac/WKProtectionSpaceNS.h; sourceTree = "<group>"; };
 		5272D4C81E735F0900EB4290 /* WKProtectionSpaceNS.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = WKProtectionSpaceNS.mm; path = mac/WKProtectionSpaceNS.mm; sourceTree = "<group>"; };
+		52CDC5BD2731DA0C00A3E3EB /* VirtualAuthenticatorConfiguration.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VirtualAuthenticatorConfiguration.h; sourceTree = "<group>"; };
+		52CDC5BE2731DA0C00A3E3EB /* VirtualService.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = VirtualService.mm; sourceTree = "<group>"; };
+		52CDC5BF2731DA0C00A3E3EB /* VirtualAuthenticatorManager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = VirtualAuthenticatorManager.cpp; sourceTree = "<group>"; };
+		52CDC5C02731DA0C00A3E3EB /* VirtualLocalConnection.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VirtualLocalConnection.h; sourceTree = "<group>"; };
+		52CDC5C12731DA0C00A3E3EB /* VirtualService.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VirtualService.h; sourceTree = "<group>"; };
+		52CDC5C22731DA0C00A3E3EB /* VirtualLocalConnection.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = VirtualLocalConnection.mm; sourceTree = "<group>"; };
+		52CDC5C32731DA0C00A3E3EB /* VirtualAuthenticatorManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VirtualAuthenticatorManager.h; sourceTree = "<group>"; };
 		52D5A1AA1C57494E00DE34A3 /* VideoFullscreenManagerProxy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VideoFullscreenManagerProxy.h; sourceTree = "<group>"; };
 		52D5A1AB1C57494E00DE34A3 /* VideoFullscreenManagerProxy.messages.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = VideoFullscreenManagerProxy.messages.in; sourceTree = "<group>"; };
 		52D5A1AC1C57494E00DE34A3 /* VideoFullscreenManagerProxy.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = VideoFullscreenManagerProxy.mm; sourceTree = "<group>"; };
@@ -4861,6 +4878,8 @@
 		93F549B51E3174DA000E7239 /* WKSnapshotConfiguration.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WKSnapshotConfiguration.mm; sourceTree = "<group>"; };
 		950F287E252414E900B74F1C /* WKMouseDeviceObserver.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = WKMouseDeviceObserver.h; path = ios/WKMouseDeviceObserver.h; sourceTree = "<group>"; };
 		950F287F252414EA00B74F1C /* WKMouseDeviceObserver.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = WKMouseDeviceObserver.mm; path = ios/WKMouseDeviceObserver.mm; sourceTree = "<group>"; };
+		9565083726D87A2B00E15CB7 /* AppleMediaServicesSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleMediaServicesSPI.h; sourceTree = "<group>"; };
+		9565083826D87A2B00E15CB7 /* AppleMediaServicesUISPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleMediaServicesUISPI.h; sourceTree = "<group>"; };
 		9593675D252E5E3000D3F0A0 /* WKStylusDeviceObserver.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = WKStylusDeviceObserver.h; path = ios/WKStylusDeviceObserver.h; sourceTree = "<group>"; };
 		9593675E252E5E3100D3F0A0 /* WKStylusDeviceObserver.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = WKStylusDeviceObserver.mm; path = ios/WKStylusDeviceObserver.mm; sourceTree = "<group>"; };
 		95C943902523C0D00054F3D5 /* BaseBoardSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BaseBoardSPI.h; sourceTree = "<group>"; };
@@ -5169,7 +5188,6 @@
 		BC111B0A112F5E4F00337BAB /* WebFrameProxy.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WebFrameProxy.cpp; sourceTree = "<group>"; };
 		BC111B0B112F5E4F00337BAB /* WebPageProxy.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; path = WebPageProxy.cpp; sourceTree = "<group>"; };
 		BC111B0D112F5E4F00337BAB /* WebProcessProxy.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WebProcessProxy.cpp; sourceTree = "<group>"; };
-		BC111B1B112F5FE600337BAB /* ProcessLauncherMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = ProcessLauncherMac.mm; sourceTree = "<group>"; };
 		BC111B5B112F629800337BAB /* WebEventFactory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebEventFactory.h; sourceTree = "<group>"; };
 		BC111B5C112F629800337BAB /* WebEventFactory.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebEventFactory.mm; sourceTree = "<group>"; };
 		BC14DF75120B5B7900826C0C /* InjectedBundleScriptWorld.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = InjectedBundleScriptWorld.h; sourceTree = "<group>"; };
@@ -5202,6 +5220,10 @@
 		BC20528011C94284008F3375 /* WKBundlePage.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WKBundlePage.cpp; sourceTree = "<group>"; };
 		BC2652121182608100243E12 /* DrawingAreaProxy.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = DrawingAreaProxy.cpp; sourceTree = "<group>"; };
 		BC2652131182608100243E12 /* DrawingAreaProxy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DrawingAreaProxy.h; sourceTree = "<group>"; };
+		BC2B410C2732EF9600A2D191 /* ARKitInlinePreviewModelPlayer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ARKitInlinePreviewModelPlayer.h; sourceTree = "<group>"; };
+		BC2B410D2732EF9600A2D191 /* ARKitInlinePreviewModelPlayer.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = ARKitInlinePreviewModelPlayer.mm; sourceTree = "<group>"; };
+		BC2B411A2732F66E00A2D191 /* WebModelPlayerProvider.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebModelPlayerProvider.h; sourceTree = "<group>"; };
+		BC2B411B2732F66E00A2D191 /* WebModelPlayerProvider.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WebModelPlayerProvider.cpp; sourceTree = "<group>"; };
 		BC2D021612AC41CB00E732A3 /* SameDocumentNavigationType.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SameDocumentNavigationType.h; sourceTree = "<group>"; };
 		BC2D021812AC426C00E732A3 /* WKPageLoadTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WKPageLoadTypes.h; sourceTree = "<group>"; };
 		BC3065F91259344E00E71278 /* CacheModel.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CacheModel.h; sourceTree = "<group>"; };
@@ -7655,14 +7677,14 @@
 				CE5B4C8721B73D870022E64F /* WKSyntheticFlagsChangedWebEvent.mm */,
 				26F10BE619187E2E001D0E68 /* WKSyntheticTapGestureRecognizer.h */,
 				26F10BE719187E2E001D0E68 /* WKSyntheticTapGestureRecognizer.mm */,
-				316B8B622054B55800BD4A62 /* WKSystemPreviewView.h */,
-				316B8B612054B55800BD4A62 /* WKSystemPreviewView.mm */,
 				CE21215D240EE571006ED443 /* WKTextPlaceholder.h */,
 				CE21215E240EE571006ED443 /* WKTextPlaceholder.mm */,
 				CE45945A240F85B90078019F /* WKTextSelectionRect.h */,
 				CE45945B240F85B90078019F /* WKTextSelectionRect.mm */,
 				71A676A422C62318007D6295 /* WKTouchActionGestureRecognizer.h */,
 				71A676A522C62318007D6295 /* WKTouchActionGestureRecognizer.mm */,
+				316B8B622054B55800BD4A62 /* WKUSDPreviewView.h */,
+				316B8B612054B55800BD4A62 /* WKUSDPreviewView.mm */,
 				2D1E8221216FFF5000A15265 /* WKWebEvent.h */,
 				2D1E8222216FFF5100A15265 /* WKWebEvent.mm */,
 			);
@@ -7769,6 +7791,8 @@
 			children = (
 				E3CAAA432413278A00CED2E2 /* AccessibilitySupportSPI.h */,
 				572EBBDC25392181000552B3 /* AppAttestSPI.h */,
+				9565083726D87A2B00E15CB7 /* AppleMediaServicesSPI.h */,
+				9565083826D87A2B00E15CB7 /* AppleMediaServicesUISPI.h */,
 				57FABB0E25817CF00059DC95 /* AuthenticationServicesCoreSPI.h */,
 				1A5705101BE410E500874AF1 /* BlockSPI.h */,
 				E50620912542102000C43091 /* ContactsUISPI.h */,
@@ -8393,6 +8417,14 @@
 			path = cocoa;
 			sourceTree = "<group>";
 		};
+		469DE801273ECC5D00930276 /* cocoa */ = {
+			isa = PBXGroup;
+			children = (
+				469DE802273ECC5D00930276 /* ProcessLauncherCocoa.mm */,
+			);
+			path = cocoa;
+			sourceTree = "<group>";
+		};
 		4A410F4119AF7B27002EBAB5 /* MediaStream */ = {
 			isa = PBXGroup;
 			children = (
@@ -8740,6 +8772,20 @@
 			path = ios;
 			sourceTree = "<group>";
 		};
+		52CDC5BC2731DA0C00A3E3EB /* Virtual */ = {
+			isa = PBXGroup;
+			children = (
+				52CDC5BD2731DA0C00A3E3EB /* VirtualAuthenticatorConfiguration.h */,
+				52CDC5BF2731DA0C00A3E3EB /* VirtualAuthenticatorManager.cpp */,
+				52CDC5C32731DA0C00A3E3EB /* VirtualAuthenticatorManager.h */,
+				52CDC5C02731DA0C00A3E3EB /* VirtualLocalConnection.h */,
+				52CDC5C22731DA0C00A3E3EB /* VirtualLocalConnection.mm */,
+				52CDC5C12731DA0C00A3E3EB /* VirtualService.h */,
+				52CDC5BE2731DA0C00A3E3EB /* VirtualService.mm */,
+			);
+			path = Virtual;
+			sourceTree = "<group>";
+		};
 		5506409C240715AA00AAE045 /* graphics */ = {
 			isa = PBXGroup;
 			children = (
@@ -8939,6 +8985,7 @@
 				57DCED9E2148F9D10016B847 /* Cocoa */,
 				57597EBF218184B20037F924 /* fido */,
 				57DCEDBD214C9FA90016B847 /* Mock */,
+				52CDC5BC2731DA0C00A3E3EB /* Virtual */,
 				57DCEDA42149E64A0016B847 /* Authenticator.cpp */,
 				57DCED8B21485BD70016B847 /* Authenticator.h */,
 				57DCED852147363A0016B847 /* AuthenticatorManager.cpp */,
@@ -9739,6 +9786,7 @@
 				33D3A3BD1339609800709BE4 /* MediaCache */,
 				0736B752260D039F00E06994 /* MediaSession */,
 				4A410F4119AF7B27002EBAB5 /* MediaStream */,
+				BC2B410A2732EF6500A2D191 /* Model */,
 				5105B0D2162F7A5E00E27709 /* Network */,
 				31099974146C8AA80029DEB9 /* Notifications (User) */,
 				1A6FB7AA11E64B4900DB1371 /* Plugins */,
@@ -10386,19 +10434,11 @@
 		BC111B18112F5FB400337BAB /* Launcher */ = {
 			isa = PBXGroup;
 			children = (
-				BC111B19112F5FC500337BAB /* mac */,
+				469DE801273ECC5D00930276 /* cocoa */,
 				1AE117F511DBB30900981615 /* ProcessLauncher.cpp */,
 				BC1A7C571136E19C00FB7167 /* ProcessLauncher.h */,
 			);
 			path = Launcher;
-			sourceTree = "<group>";
-		};
-		BC111B19112F5FC500337BAB /* mac */ = {
-			isa = PBXGroup;
-			children = (
-				BC111B1B112F5FE600337BAB /* ProcessLauncherMac.mm */,
-			);
-			path = mac;
 			sourceTree = "<group>";
 		};
 		BC111B47112F616900337BAB /* mac */ = {
@@ -10566,6 +10606,25 @@
 				BC14DF9D120B635F00826C0C /* WKBundleScriptWorld.h */,
 			);
 			path = c;
+			sourceTree = "<group>";
+		};
+		BC2B410A2732EF6500A2D191 /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				BC2B410B2732EF7500A2D191 /* mac */,
+				BC2B411B2732F66E00A2D191 /* WebModelPlayerProvider.cpp */,
+				BC2B411A2732F66E00A2D191 /* WebModelPlayerProvider.h */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		BC2B410B2732EF7500A2D191 /* mac */ = {
+			isa = PBXGroup;
+			children = (
+				BC2B410C2732EF9600A2D191 /* ARKitInlinePreviewModelPlayer.h */,
+				BC2B410D2732EF9600A2D191 /* ARKitInlinePreviewModelPlayer.mm */,
+			);
+			path = mac;
 			sourceTree = "<group>";
 		};
 		BC2E6E74114196F000A63B1E /* Platform */ = {
@@ -11829,6 +11888,8 @@
 				572EBBDD25392181000552B3 /* AppAttestSPI.h in Headers */,
 				074879B92373A90900F5678E /* AppKitSoftLink.h in Headers */,
 				F48D2A8521583A7E00C6752B /* AppKitSPI.h in Headers */,
+				9565083926D87A2B00E15CB7 /* AppleMediaServicesSPI.h in Headers */,
+				9565083A26D87A2B00E15CB7 /* AppleMediaServicesUISPI.h in Headers */,
 				F4EC94E32356CC57000BB614 /* ApplicationServicesSPI.h in Headers */,
 				1AD4C1931B39F33200ABC28E /* ApplicationStateTracker.h in Headers */,
 				493102BD2683F3D0002BB885 /* AppPrivacyReport.h in Headers */,
@@ -12335,6 +12396,10 @@
 				2D819BA21862800E001F03D1 /* ViewGestureGeometryCollectorMessages.h in Headers */,
 				2D6CD119189058A500E5A4A0 /* ViewSnapshotStore.h in Headers */,
 				2684055318B86ED60022C38B /* ViewUpdateDispatcherMessages.h in Headers */,
+				52CDC5C42731DA0D00A3E3EB /* VirtualAuthenticatorConfiguration.h in Headers */,
+				52CDC5CA2731DA0D00A3E3EB /* VirtualAuthenticatorManager.h in Headers */,
+				52CDC5C72731DA0D00A3E3EB /* VirtualLocalConnection.h in Headers */,
+				52CDC5C82731DA0D00A3E3EB /* VirtualService.h in Headers */,
 				2684054418B85A630022C38B /* VisibleContentRectUpdateInfo.h in Headers */,
 				2DD5A7291EBF08D5009BA597 /* VisibleWebPageCounter.h in Headers */,
 				3155EE0D2673F4F00085E59A /* VisionKitSPI.h in Headers */,
@@ -12924,7 +12989,6 @@
 				9593675F252E5E3100D3F0A0 /* WKStylusDeviceObserver.h in Headers */,
 				CE5B4C8821B73D870022E64F /* WKSyntheticFlagsChangedWebEvent.h in Headers */,
 				26F10BE819187E2E001D0E68 /* WKSyntheticTapGestureRecognizer.h in Headers */,
-				316B8B642054B55800BD4A62 /* WKSystemPreviewView.h in Headers */,
 				51F886A61F2C228100C193EF /* WKTestingSupport.h in Headers */,
 				31D755C11D91B81500843BD1 /* WKTextChecker.h in Headers */,
 				2DD67A351BD861060053B251 /* WKTextFinderClient.h in Headers */,
@@ -12947,6 +13011,7 @@
 				51D124341E6DF643002B2820 /* WKURLSchemeHandler.h in Headers */,
 				51D124351E6DF652002B2820 /* WKURLSchemeTask.h in Headers */,
 				5C62FDF91EFC271C00CE072E /* WKURLSchemeTaskPrivate.h in Headers */,
+				316B8B642054B55800BD4A62 /* WKUSDPreviewView.h in Headers */,
 				1AFA3AC918E61C61003CCBAE /* WKUserContentController.h in Headers */,
 				1AAF08A4192682DA00B6390C /* WKUserContentControllerInternal.h in Headers */,
 				7C89D2B61A6B0DD9003A5FDE /* WKUserContentControllerPrivate.h in Headers */,
@@ -13173,6 +13238,7 @@
 				1D12CC4E2414265300FDA0A3 /* Copy Feature Flags Plist */,
 				5379C7AC21E5288500E4A8F6 /* Check .xcfilelists */,
 				933170072234674500B32554 /* Create symlinks to XPC services for engineering builds */,
+				512B81CA273CAFBE00D87D49 /* Create symlinks to Daemons for engineering builds */,
 				0FB94836239F31B700926A8F /* Copy Testing Headers */,
 				DFD03A29270D5F57001A996E /* Copy Daemon Plists */,
 			);
@@ -13666,6 +13732,24 @@
 			shellPath = /bin/sh;
 			shellScript = "Scripts/process-entitlements.sh\n";
 		};
+		512B81CA273CAFBE00D87D49 /* Create symlinks to Daemons for engineering builds */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Create symlinks to Daemons for engineering builds";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [[ \"${DEPLOYMENT_LOCATION}\" == \"YES\" ]]; then\n    exit\nfi\n\n# If we move the Mac Daemons path to WebKit.framework/Versions/A/Daemons,\n# in addition to a Mac-specific plists, the Mac paths below have to be updated as well.\nif [[ ${WK_PLATFORM_NAME} != \"macosx\" ]]; then\n    DAEMONS_PATH=\"${BUILT_PRODUCTS_DIR}/WebKit.framework/Daemons\"\n    BUILT_PRODUCTS_DIR_RELATIVE_PATH_FROM_DAEMONS=\"../..\"\nelse\n    DAEMONS_PATH=\"${BUILT_PRODUCTS_DIR}/WebKit.framework/Daemons\"\n    BUILT_PRODUCTS_DIR_RELATIVE_PATH_FROM_DAEMONS=\"../..\"\nfi\n\nmkdir -p \"${DAEMONS_PATH}\"\nln -sFh \"${BUILT_PRODUCTS_DIR_RELATIVE_PATH_FROM_DAEMONS}/webpushd\" \"${DAEMONS_PATH}/webpushd\"\nln -sFh \"${BUILT_PRODUCTS_DIR_RELATIVE_PATH_FROM_DAEMONS}/adattributiond\" \"${DAEMONS_PATH}/adattributiond\"\n";
+		};
 		5325BDD221DFF47C00A0DEE1 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -13958,7 +14042,7 @@
 		};
 		DFD03A29270D5F57001A996E /* Copy Daemon Plists */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 12;
+			buildActionMask = 8;
 			files = (
 			);
 			inputFileListPaths = (
@@ -13972,7 +14056,7 @@
 			outputPaths = (
 				"$(DSTROOT)/System/Library/LaunchDaemons/com.apple.webkit.adattributiond.plist",
 			);
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "if [[ \"${WK_PLATFORM_NAME}\" == iphoneos ]]; then\n    ADATTRIBUTIOND_PLIST_SOURCE=\"${SRCROOT}/Shared/EntryPointUtilities/Cocoa/Daemon/com.apple.webkit.adattributiond.plist\"\n    ADATTRIBUTIOND_PLIST_DESTINATION=\"${DSTROOT}/System/Library/LaunchDaemons/com.apple.webkit.adattributiond.plist\"\n    echo \"copying adattributiond plist\"\n    echo plutil -convert binary1 -o \"${ADATTRIBUTIOND_PLIST_DESTINATION}\" \"${ADATTRIBUTIOND_PLIST_SOURCE}\"\n    plutil -convert binary1 -o \"${ADATTRIBUTIOND_PLIST_DESTINATION}\" \"${ADATTRIBUTIOND_PLIST_SOURCE}\"\nelse\n    echo \"not copying adattributiond plist\"\nfi\n\nif [[ \"${WK_PLATFORM_NAME}\" == iphoneos || \"${WK_PLATFORM_NAME}\" == macosx ]]; then\n    WEBPUSHD_PLIST_SOURCE=\"${SRCROOT}/webpushd/com.apple.webkit.webpushd.plist\"\n    WEBPUSHD_PLIST_DESTINATION=\"${DSTROOT}/System/Library/LaunchDaemons/com.apple.webkit.webpushd.plist\"\n    echo \"copying webpushd plist\"\n    echo plutil -convert binary1 -o \"${WEBPUSHD_PLIST_DESTINATION}\" \"${WEBPUSHD_PLIST_SOURCE}\"\n    plutil -convert binary1 -o \"${WEBPUSHD_PLIST_DESTINATION}\" \"${WEBPUSHD_PLIST_SOURCE}\"\nelse\n    echo \"not copying webpushd plist\"\nfi\n";
 		};
@@ -14204,24 +14288,24 @@
 				2D92A783212B6A7100F493FD /* StringReference.cpp in Sources */,
 				2D11B7512126A282006F8878 /* UnifiedSource1-mm.mm in Sources */,
 				2D11B7522126A282006F8878 /* UnifiedSource1.cpp in Sources */,
-				2D11B7542126A282006F8878 /* UnifiedSource2.cpp in Sources */,
 				2D11B7532126A282006F8878 /* UnifiedSource2-mm.mm in Sources */,
-				2D11B7562126A282006F8878 /* UnifiedSource3.cpp in Sources */,
+				2D11B7542126A282006F8878 /* UnifiedSource2.cpp in Sources */,
 				2D11B7552126A282006F8878 /* UnifiedSource3-mm.mm in Sources */,
+				2D11B7562126A282006F8878 /* UnifiedSource3.cpp in Sources */,
 				2D11B7572126A282006F8878 /* UnifiedSource4-mm.mm in Sources */,
 				2D11B7582126A282006F8878 /* UnifiedSource4.cpp in Sources */,
-				2D11B75A2126A282006F8878 /* UnifiedSource5.cpp in Sources */,
 				2D11B7592126A282006F8878 /* UnifiedSource5-mm.mm in Sources */,
+				2D11B75A2126A282006F8878 /* UnifiedSource5.cpp in Sources */,
 				2D11B75B2126A282006F8878 /* UnifiedSource6-mm.mm in Sources */,
 				2D11B75C2126A282006F8878 /* UnifiedSource6.cpp in Sources */,
-				2D11B75E2126A282006F8878 /* UnifiedSource7.cpp in Sources */,
 				2D11B75D2126A282006F8878 /* UnifiedSource7-mm.mm in Sources */,
-				2D11B7602126A282006F8878 /* UnifiedSource8.cpp in Sources */,
+				2D11B75E2126A282006F8878 /* UnifiedSource7.cpp in Sources */,
 				2D11B75F2126A282006F8878 /* UnifiedSource8-mm.mm in Sources */,
+				2D11B7602126A282006F8878 /* UnifiedSource8.cpp in Sources */,
 				2D11B7612126A282006F8878 /* UnifiedSource9-mm.mm in Sources */,
 				2D11B7622126A282006F8878 /* UnifiedSource9.cpp in Sources */,
-				2D11B7642126A282006F8878 /* UnifiedSource10.cpp in Sources */,
 				2D11B7632126A282006F8878 /* UnifiedSource10-mm.mm in Sources */,
+				2D11B7642126A282006F8878 /* UnifiedSource10.cpp in Sources */,
 				2D11B7652126A282006F8878 /* UnifiedSource11-mm.mm in Sources */,
 				2D11B7662126A282006F8878 /* UnifiedSource11.cpp in Sources */,
 				2D11B7672126A282006F8878 /* UnifiedSource12-mm.mm in Sources */,
@@ -14230,24 +14314,24 @@
 				2D11B76A2126A282006F8878 /* UnifiedSource13.cpp in Sources */,
 				2D11B76B2126A282006F8878 /* UnifiedSource14-mm.mm in Sources */,
 				2D11B76C2126A282006F8878 /* UnifiedSource14.cpp in Sources */,
-				2D11B76E2126A282006F8878 /* UnifiedSource15.cpp in Sources */,
 				2D11B76D2126A282006F8878 /* UnifiedSource15-mm.mm in Sources */,
-				2D11B7702126A282006F8878 /* UnifiedSource16.cpp in Sources */,
+				2D11B76E2126A282006F8878 /* UnifiedSource15.cpp in Sources */,
 				2D11B76F2126A282006F8878 /* UnifiedSource16-mm.mm in Sources */,
-				2D11B7722126A282006F8878 /* UnifiedSource17.cpp in Sources */,
+				2D11B7702126A282006F8878 /* UnifiedSource16.cpp in Sources */,
 				2D11B7712126A282006F8878 /* UnifiedSource17-mm.mm in Sources */,
+				2D11B7722126A282006F8878 /* UnifiedSource17.cpp in Sources */,
 				2D11B7732126A282006F8878 /* UnifiedSource18-mm.mm in Sources */,
 				2D11B7742126A282006F8878 /* UnifiedSource18.cpp in Sources */,
-				2D11B7762126A282006F8878 /* UnifiedSource19.cpp in Sources */,
 				2D11B7752126A282006F8878 /* UnifiedSource19-mm.mm in Sources */,
-				2D11B7782126A282006F8878 /* UnifiedSource20.cpp in Sources */,
+				2D11B7762126A282006F8878 /* UnifiedSource19.cpp in Sources */,
 				2D11B7772126A282006F8878 /* UnifiedSource20-mm.mm in Sources */,
-				2D11B77A2126A282006F8878 /* UnifiedSource21.cpp in Sources */,
+				2D11B7782126A282006F8878 /* UnifiedSource20.cpp in Sources */,
 				2D11B7792126A282006F8878 /* UnifiedSource21-mm.mm in Sources */,
-				2D11B77C2126A283006F8878 /* UnifiedSource22.cpp in Sources */,
+				2D11B77A2126A282006F8878 /* UnifiedSource21.cpp in Sources */,
 				2D11B77B2126A283006F8878 /* UnifiedSource22-mm.mm in Sources */,
-				2D11B77E2126A283006F8878 /* UnifiedSource23.cpp in Sources */,
+				2D11B77C2126A283006F8878 /* UnifiedSource22.cpp in Sources */,
 				2D11B77D2126A283006F8878 /* UnifiedSource23-mm.mm in Sources */,
+				2D11B77E2126A283006F8878 /* UnifiedSource23.cpp in Sources */,
 				2D11B77F2126A283006F8878 /* UnifiedSource24-mm.mm in Sources */,
 				2D11B7802126A283006F8878 /* UnifiedSource24.cpp in Sources */,
 				2D11B7812126A283006F8878 /* UnifiedSource25-mm.mm in Sources */,
@@ -14262,30 +14346,30 @@
 				2D11B78A2126A283006F8878 /* UnifiedSource29.cpp in Sources */,
 				2D11B78B2126A283006F8878 /* UnifiedSource30-mm.mm in Sources */,
 				2D11B78C2126A283006F8878 /* UnifiedSource30.cpp in Sources */,
-				2D11B78E2126A283006F8878 /* UnifiedSource31.cpp in Sources */,
 				2D11B78D2126A283006F8878 /* UnifiedSource31-mm.mm in Sources */,
+				2D11B78E2126A283006F8878 /* UnifiedSource31.cpp in Sources */,
 				2D11B78F2126A283006F8878 /* UnifiedSource32-mm.mm in Sources */,
 				2D11B7902126A283006F8878 /* UnifiedSource32.cpp in Sources */,
 				2D11B7912126A283006F8878 /* UnifiedSource33-mm.mm in Sources */,
 				2D11B7922126A283006F8878 /* UnifiedSource33.cpp in Sources */,
-				2D11B7942126A283006F8878 /* UnifiedSource34.cpp in Sources */,
 				2D11B7932126A283006F8878 /* UnifiedSource34-mm.mm in Sources */,
-				2D11B7962126A283006F8878 /* UnifiedSource35.cpp in Sources */,
+				2D11B7942126A283006F8878 /* UnifiedSource34.cpp in Sources */,
 				2D11B7952126A283006F8878 /* UnifiedSource35-mm.mm in Sources */,
-				2D11B7982126A283006F8878 /* UnifiedSource36.cpp in Sources */,
+				2D11B7962126A283006F8878 /* UnifiedSource35.cpp in Sources */,
 				2D11B7972126A283006F8878 /* UnifiedSource36-mm.mm in Sources */,
+				2D11B7982126A283006F8878 /* UnifiedSource36.cpp in Sources */,
 				2D11B7992126A283006F8878 /* UnifiedSource37-mm.mm in Sources */,
 				2D11B79A2126A283006F8878 /* UnifiedSource37.cpp in Sources */,
 				2D11B79B2126A283006F8878 /* UnifiedSource38-mm.mm in Sources */,
 				2D11B79C2126A283006F8878 /* UnifiedSource38.cpp in Sources */,
 				2D11B79D2126A283006F8878 /* UnifiedSource39-mm.mm in Sources */,
 				2D11B79E2126A283006F8878 /* UnifiedSource39.cpp in Sources */,
-				2D11B7A02126A283006F8878 /* UnifiedSource40.cpp in Sources */,
 				2D11B79F2126A283006F8878 /* UnifiedSource40-mm.mm in Sources */,
+				2D11B7A02126A283006F8878 /* UnifiedSource40.cpp in Sources */,
 				2D11B7A12126A283006F8878 /* UnifiedSource41-mm.mm in Sources */,
 				2D11B7A22126A283006F8878 /* UnifiedSource41.cpp in Sources */,
-				2D11B7A42126A283006F8878 /* UnifiedSource42.cpp in Sources */,
 				2D11B7A32126A283006F8878 /* UnifiedSource42-mm.mm in Sources */,
+				2D11B7A42126A283006F8878 /* UnifiedSource42.cpp in Sources */,
 				2D11B7A52126A283006F8878 /* UnifiedSource43-mm.mm in Sources */,
 				2D11B7A62126A283006F8878 /* UnifiedSource43.cpp in Sources */,
 				2D11B7A72126A283006F8878 /* UnifiedSource44-mm.mm in Sources */,
@@ -14296,44 +14380,44 @@
 				2D11B7AC2126A283006F8878 /* UnifiedSource46.cpp in Sources */,
 				2D11B7AD2126A283006F8878 /* UnifiedSource47-mm.mm in Sources */,
 				2D11B7AE2126A283006F8878 /* UnifiedSource47.cpp in Sources */,
-				2D11B7B02126A283006F8878 /* UnifiedSource48.cpp in Sources */,
 				2D11B7AF2126A283006F8878 /* UnifiedSource48-mm.mm in Sources */,
-				2D11B7B22126A283006F8878 /* UnifiedSource49.cpp in Sources */,
+				2D11B7B02126A283006F8878 /* UnifiedSource48.cpp in Sources */,
 				2D11B7B12126A283006F8878 /* UnifiedSource49-mm.mm in Sources */,
+				2D11B7B22126A283006F8878 /* UnifiedSource49.cpp in Sources */,
 				2D11B7B32126A283006F8878 /* UnifiedSource50-mm.mm in Sources */,
 				2D11B7B42126A283006F8878 /* UnifiedSource50.cpp in Sources */,
 				2D11B7B52126A283006F8878 /* UnifiedSource51-mm.mm in Sources */,
 				2D11B7B62126A283006F8878 /* UnifiedSource51.cpp in Sources */,
-				2D11B7B82126A283006F8878 /* UnifiedSource52.cpp in Sources */,
 				2D11B7B72126A283006F8878 /* UnifiedSource52-mm.mm in Sources */,
-				2D11B7BA2126A283006F8878 /* UnifiedSource53.cpp in Sources */,
+				2D11B7B82126A283006F8878 /* UnifiedSource52.cpp in Sources */,
 				2D11B7B92126A283006F8878 /* UnifiedSource53-mm.mm in Sources */,
+				2D11B7BA2126A283006F8878 /* UnifiedSource53.cpp in Sources */,
 				2D11B7BB2126A283006F8878 /* UnifiedSource54-mm.mm in Sources */,
 				2D11B7BC2126A283006F8878 /* UnifiedSource54.cpp in Sources */,
 				2D11B7BD2126A283006F8878 /* UnifiedSource55-mm.mm in Sources */,
 				2D11B7BE2126A283006F8878 /* UnifiedSource55.cpp in Sources */,
-				2D11B7C02126A283006F8878 /* UnifiedSource56.cpp in Sources */,
 				2D11B7BF2126A283006F8878 /* UnifiedSource56-mm.mm in Sources */,
+				2D11B7C02126A283006F8878 /* UnifiedSource56.cpp in Sources */,
 				2D11B7C12126A283006F8878 /* UnifiedSource57-mm.mm in Sources */,
 				2D11B7C22126A283006F8878 /* UnifiedSource57.cpp in Sources */,
 				2D11B7C32126A283006F8878 /* UnifiedSource58-mm.mm in Sources */,
 				2D11B7C42126A283006F8878 /* UnifiedSource58.cpp in Sources */,
-				2D11B7C62126A283006F8878 /* UnifiedSource59.cpp in Sources */,
 				2D11B7C52126A283006F8878 /* UnifiedSource59-mm.mm in Sources */,
-				2D11B7C82126A283006F8878 /* UnifiedSource60.cpp in Sources */,
+				2D11B7C62126A283006F8878 /* UnifiedSource59.cpp in Sources */,
 				2D11B7C72126A283006F8878 /* UnifiedSource60-mm.mm in Sources */,
+				2D11B7C82126A283006F8878 /* UnifiedSource60.cpp in Sources */,
 				2D54C31A212F3B330049C174 /* UnifiedSource61-mm.mm in Sources */,
 				2D11B7CA2126A283006F8878 /* UnifiedSource61.cpp in Sources */,
 				2D54C319212F3B330049C174 /* UnifiedSource62-mm.mm in Sources */,
 				2D11B7CB2126A283006F8878 /* UnifiedSource62.cpp in Sources */,
-				2D11B7CC2126A283006F8878 /* UnifiedSource63.cpp in Sources */,
 				2D54C308212F3B330049C174 /* UnifiedSource63-mm.mm in Sources */,
-				2D11B7CD2126A283006F8878 /* UnifiedSource64.cpp in Sources */,
+				2D11B7CC2126A283006F8878 /* UnifiedSource63.cpp in Sources */,
 				2D54C30C212F3B330049C174 /* UnifiedSource64-mm.mm in Sources */,
+				2D11B7CD2126A283006F8878 /* UnifiedSource64.cpp in Sources */,
 				2D54C307212F3B330049C174 /* UnifiedSource65-mm.mm in Sources */,
 				2D11B7CE2126A283006F8878 /* UnifiedSource65.cpp in Sources */,
-				2D11B7CF2126A283006F8878 /* UnifiedSource66.cpp in Sources */,
 				2D54C314212F3B330049C174 /* UnifiedSource66-mm.mm in Sources */,
+				2D11B7CF2126A283006F8878 /* UnifiedSource66.cpp in Sources */,
 				2D54C313212F3B330049C174 /* UnifiedSource67-mm.mm in Sources */,
 				2D11B7D02126A283006F8878 /* UnifiedSource67.cpp in Sources */,
 				2D54C309212F3B330049C174 /* UnifiedSource68-mm.mm in Sources */,
@@ -14342,26 +14426,26 @@
 				2D11B7D22126A283006F8878 /* UnifiedSource69.cpp in Sources */,
 				2D54C30D212F3B330049C174 /* UnifiedSource70-mm.mm in Sources */,
 				2D11B7D32126A283006F8878 /* UnifiedSource70.cpp in Sources */,
-				2D11B7D42126A283006F8878 /* UnifiedSource71.cpp in Sources */,
 				2D54C318212F3B330049C174 /* UnifiedSource71-mm.mm in Sources */,
-				2D11B7D52126A283006F8878 /* UnifiedSource72.cpp in Sources */,
+				2D11B7D42126A283006F8878 /* UnifiedSource71.cpp in Sources */,
 				2D54C311212F3B330049C174 /* UnifiedSource72-mm.mm in Sources */,
+				2D11B7D52126A283006F8878 /* UnifiedSource72.cpp in Sources */,
 				2D54C310212F3B330049C174 /* UnifiedSource73-mm.mm in Sources */,
 				2D11B7D62126A283006F8878 /* UnifiedSource73.cpp in Sources */,
 				2D54C315212F3B330049C174 /* UnifiedSource74-mm.mm in Sources */,
 				2D11B7D72126A283006F8878 /* UnifiedSource74.cpp in Sources */,
-				2D11B7D82126A283006F8878 /* UnifiedSource75.cpp in Sources */,
 				2D54C312212F3B330049C174 /* UnifiedSource75-mm.mm in Sources */,
-				2D11B7D92126A283006F8878 /* UnifiedSource76.cpp in Sources */,
+				2D11B7D82126A283006F8878 /* UnifiedSource75.cpp in Sources */,
 				2D54C30A212F3B330049C174 /* UnifiedSource76-mm.mm in Sources */,
-				2D11B7DA2126A283006F8878 /* UnifiedSource77.cpp in Sources */,
+				2D11B7D92126A283006F8878 /* UnifiedSource76.cpp in Sources */,
 				2D54C316212F3B330049C174 /* UnifiedSource77-mm.mm in Sources */,
+				2D11B7DA2126A283006F8878 /* UnifiedSource77.cpp in Sources */,
 				2D54C30B212F3B330049C174 /* UnifiedSource78-mm.mm in Sources */,
 				2D11B7DB2126A283006F8878 /* UnifiedSource78.cpp in Sources */,
 				2D54C30F212F3B330049C174 /* UnifiedSource79-mm.mm in Sources */,
 				2D11B7DC2126A283006F8878 /* UnifiedSource79.cpp in Sources */,
-				2D11B7DD2126A283006F8878 /* UnifiedSource80.cpp in Sources */,
 				2D54C30E212F3B330049C174 /* UnifiedSource80-mm.mm in Sources */,
+				2D11B7DD2126A283006F8878 /* UnifiedSource80.cpp in Sources */,
 				2D8508C9212E33ED000EF46C /* UnifiedSource81.cpp in Sources */,
 				2D8508CE212E33ED000EF46C /* UnifiedSource82.cpp in Sources */,
 				2D8508D5212E33ED000EF46C /* UnifiedSource83.cpp in Sources */,
@@ -14390,6 +14474,9 @@
 				2D1B5D5D185869C8006C6596 /* ViewGestureControllerMessageReceiver.cpp in Sources */,
 				2D819BA11862800E001F03D1 /* ViewGestureGeometryCollectorMessageReceiver.cpp in Sources */,
 				2684055218B86ED60022C38B /* ViewUpdateDispatcherMessageReceiver.cpp in Sources */,
+				52CDC5C62731DA0D00A3E3EB /* VirtualAuthenticatorManager.cpp in Sources */,
+				52CDC5C92731DA0D00A3E3EB /* VirtualLocalConnection.mm in Sources */,
+				52CDC5C52731DA0D00A3E3EB /* VirtualService.mm in Sources */,
 				1A60224C18C16B9F00C3E8C9 /* VisitedLinkStoreMessageReceiver.cpp in Sources */,
 				1A8E7D3C18C15149005A702A /* VisitedLinkTableControllerMessageReceiver.cpp in Sources */,
 				57DCED702142EE680016B847 /* WebAuthenticatorCoordinatorProxyMessageReceiver.cpp in Sources */,

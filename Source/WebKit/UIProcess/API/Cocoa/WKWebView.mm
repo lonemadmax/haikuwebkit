@@ -70,7 +70,7 @@
 #import "WKLayoutMode.h"
 #import "WKNSData.h"
 #import "WKNSURLExtras.h"
-#import <WebKit/WKNavigationDelegate.h>
+#import "WKNavigationDelegate.h"
 #import "WKNavigationInternal.h"
 #import "WKPDFConfiguration.h"
 #import "WKPreferencesInternal.h"
@@ -78,8 +78,8 @@
 #import "WKSafeBrowsingWarning.h"
 #import "WKSharedAPICast.h"
 #import "WKSnapshotConfiguration.h"
-#import <WebKit/WKUIDelegate.h>
-#import <WebKit/WKUIDelegatePrivate.h>
+#import "WKUIDelegate.h"
+#import "WKUIDelegatePrivate.h"
 #import "WKUserContentControllerInternal.h"
 #import "WKWebViewConfigurationInternal.h"
 #import "WKWebViewContentProvider.h"
@@ -1763,7 +1763,12 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
     if (![readAccessURL isFileURL])
         [NSException raise:NSInvalidArgumentException format:@"%@ is not a file URL", readAccessURL];
 
-    return wrapper(_page->loadFile(URL.absoluteString, readAccessURL.absoluteString));
+    bool isAppInitiated = true;
+#if ENABLE(APP_PRIVACY_REPORT)
+    isAppInitiated = request.attribution == NSURLRequestAttributionDeveloper;
+#endif
+
+    return wrapper(_page->loadFile(URL.absoluteString, readAccessURL.absoluteString, isAppInitiated));
 }
 
 - (CocoaColor *)themeColor
@@ -1784,6 +1789,35 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
 + (BOOL)automaticallyNotifiesObserversOfUnderPageBackgroundColor
 {
     return NO;
+}
+
+- (WKFullscreenState)fullscreenState
+{
+#if ENABLE(FULLSCREEN_API)
+    auto* fullscreenManager = _page->fullScreenManager();
+    if (!fullscreenManager)
+        return WKFullscreenStateNotInFullscreen;
+
+    WKFullscreenState state = WKFullscreenStateNotInFullscreen;
+    switch (fullscreenManager->fullscreenState()) {
+    case WebKit::WebFullScreenManagerProxy::FullscreenState::EnteringFullscreen:
+        state = WKFullscreenStateEnteringFullscreen;
+        break;
+    case WebKit::WebFullScreenManagerProxy::FullscreenState::InFullscreen:
+        state = WKFullscreenStateInFullscreen;
+        break;
+    case WebKit::WebFullScreenManagerProxy::FullscreenState::ExitingFullscreen:
+        state = WKFullscreenStateExitingFullscreen;
+        break;
+    default:
+        state = WKFullscreenStateNotInFullscreen;
+        break;
+    }
+
+    return state;
+#else
+    return WKFullscreenStateNotInFullscreen;
+#endif
 }
 
 @end
@@ -1886,7 +1920,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKCONTENTVIEW)
 - (void)_setViewportSizeForCSSViewportUnits:(CGSize)viewportSize
 {
     THROW_IF_SUSPENDED;
-    auto viewportSizeForViewportUnits = WebCore::IntSize(viewportSize);
+    auto viewportSizeForViewportUnits = WebCore::FloatSize(viewportSize);
     if (viewportSizeForViewportUnits.isEmpty())
         [NSException raise:NSInvalidArgumentException format:@"Viewport size should not be empty"];
 
@@ -2408,11 +2442,6 @@ static void convertAndAddHighlight(Vector<Ref<WebKit::SharedMemory>>& buffers, N
     });
 }
 
-- (void)_loadServiceWorker:(NSURL *)url
-{
-    [self _loadServiceWorker:url completionHandler:^(BOOL) { }];
-}
-
 - (void)_grantAccessToAssetServices
 {
     THROW_IF_SUSPENDED;
@@ -2646,7 +2675,7 @@ static void convertAndAddHighlight(Vector<Ref<WebKit::SharedMemory>>& buffers, N
 - (WKNavigation *)_restoreSessionState:(_WKSessionState *)sessionState andNavigate:(BOOL)navigate
 {
     THROW_IF_SUSPENDED;
-    return wrapper(_page->restoreFromSessionState(sessionState ? sessionState._sessionStateWithAppInitiatedValue : WebKit::SessionState { }, navigate));
+    return wrapper(_page->restoreFromSessionState(sessionState ? sessionState->_sessionState : WebKit::SessionState { }, navigate));
 }
 
 - (void)_close
@@ -3560,6 +3589,7 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
 #endif
 }
 
+// FIXME: Remove this after Safari adopts the new API
 - (void)_setFullscreenDelegate:(id<_WKFullscreenDelegate>)delegate
 {
 #if ENABLE(FULLSCREEN_API)
@@ -3568,6 +3598,7 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
 #endif
 }
 
+// FIXME: Remove this after Safari adopts the new API
 - (id<_WKFullscreenDelegate>)_fullscreenDelegate
 {
 #if ENABLE(FULLSCREEN_API)
@@ -3577,6 +3608,7 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
     return nil;
 }
 
+// FIXME: Remove this after Safari adopts the new API
 - (BOOL)_isInFullscreen
 {
 #if ENABLE(FULLSCREEN_API)

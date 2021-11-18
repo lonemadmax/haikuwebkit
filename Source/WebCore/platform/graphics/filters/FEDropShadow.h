@@ -20,14 +20,13 @@
 #pragma once
 
 #include "Color.h"
-#include "Filter.h"
 #include "FilterEffect.h"
 
 namespace WebCore {
     
 class FEDropShadow : public FilterEffect {
 public:
-    static Ref<FEDropShadow> create(Filter&, float, float, float, float, const Color&, float);
+    static Ref<FEDropShadow> create(float stdX, float stdY, float dx, float dy, const Color& shadowColor, float shadowOpacity);
 
     float stdDeviationX() const { return m_stdX; }
     void setStdDeviationX(float stdX) { m_stdX = stdX; }
@@ -48,15 +47,13 @@ public:
     void setShadowOpacity(float shadowOpacity) { m_shadowOpacity = shadowOpacity; }
 
 private:
-    FEDropShadow(Filter&, float, float, float, float, const Color&, float);
+    FEDropShadow(float stdX, float stdY, float dx, float dy, const Color& shadowColor, float shadowOpacity);
 
-    const char* filterName() const final { return "FEDropShadow"; }
-
-    void platformApplySoftware() override;
-
-    void determineAbsolutePaintRect() override;
+    void determineAbsolutePaintRect(const Filter&) override;
 
     IntOutsets outsets() const override;
+
+    void platformApplySoftware(const Filter&) override;
 
     WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
 
@@ -70,3 +67,4 @@ private:
     
 } // namespace WebCore
 
+SPECIALIZE_TYPE_TRAITS_FILTER_EFFECT(FEDropShadow)

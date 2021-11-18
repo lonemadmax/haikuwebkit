@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "MatchResult.h"
 #include "MediaQueryEvaluator.h"
 #include "PropertyAllowlist.h"
 #include "RuleSet.h"
@@ -30,14 +31,11 @@
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
-namespace WebCore {
-
-class SelectorFilter;
-
-namespace Style {
+namespace WebCore::Style {
 
 class MatchRequest;
 class ScopeRuleSets;
+struct SelectorMatchingState;
 
 class PseudoElementRequest {
 public:
@@ -63,38 +61,13 @@ struct MatchedRule {
     const RuleData* ruleData;
     unsigned specificity;
     ScopeOrdinal styleScopeOrdinal;
-    unsigned cascadeLayerPriority;
-};
-
-struct MatchedProperties {
-    RefPtr<const StyleProperties> properties;
-    uint16_t linkMatchType { SelectorChecker::MatchAll };
-    PropertyAllowlist allowlistType { PropertyAllowlist::None };
-    ScopeOrdinal styleScopeOrdinal { ScopeOrdinal::Element };
-};
-
-struct MatchResult {
-    bool isCacheable { true };
-    Vector<MatchedProperties> userAgentDeclarations;
-    Vector<MatchedProperties> userDeclarations;
-    Vector<MatchedProperties> authorDeclarations;
-
-    bool operator==(const MatchResult& other) const
-    {
-        return isCacheable == other.isCacheable
-            && userAgentDeclarations == other.userAgentDeclarations
-            && userDeclarations == other.userDeclarations
-            && authorDeclarations == other.authorDeclarations;
-    }
-    bool operator!=(const MatchResult& other) const { return !(*this == other); }
-
-    bool isEmpty() const { return userAgentDeclarations.isEmpty() && userDeclarations.isEmpty() && authorDeclarations.isEmpty(); }
+    CascadeLayerPriority cascadeLayerPriority;
 };
 
 class ElementRuleCollector {
 public:
-    ElementRuleCollector(const Element&, const ScopeRuleSets&, const SelectorFilter*);
-    ElementRuleCollector(const Element&, const RuleSet& authorStyle, const SelectorFilter*);
+    ElementRuleCollector(const Element&, const ScopeRuleSets&, SelectorMatchingState*);
+    ElementRuleCollector(const Element&, const RuleSet& authorStyle, SelectorMatchingState*);
 
     void setIncludeEmptyRules(bool value) { m_shouldIncludeEmptyRules = value; }
 
@@ -121,7 +94,7 @@ public:
     bool didMatchUncommonAttributeSelector() const { return m_didMatchUncommonAttributeSelector; }
 
 private:
-    void addElementStyleProperties(const StyleProperties*, bool isCacheable = true);
+    void addElementStyleProperties(const StyleProperties*, bool isCacheable = true, FromStyleAttribute = FromStyleAttribute::No);
 
     void matchUARules(const RuleSet&);
 
@@ -132,7 +105,7 @@ private:
     void matchHostPseudoClassRules();
     void matchSlottedPseudoElementRules();
     void matchPartPseudoElementRules();
-    void matchPartPseudoElementRulesForScope(const ShadowRoot& scopeShadowRoot);
+    void matchPartPseudoElementRulesForScope(const Element& partMatchingElement);
 
     void collectMatchingShadowPseudoElementRules(const MatchRequest&);
 
@@ -156,14 +129,12 @@ private:
     Ref<const RuleSet> m_authorStyle;
     RefPtr<const RuleSet> m_userStyle;
     RefPtr<const RuleSet> m_userAgentMediaQueryStyle;
-    const SelectorFilter* m_selectorFilter;
+    SelectorMatchingState* m_selectorMatchingState;
 
     bool m_shouldIncludeEmptyRules { false };
     bool m_isPrintStyle { false };
     PseudoElementRequest m_pseudoElementRequest { PseudoId::None };
     SelectorChecker::Mode m_mode { SelectorChecker::Mode::ResolvingStyle };
-    bool m_isMatchingHostPseudoClass { false };
-    RefPtr<const Element> m_shadowHostInPartRuleScope;
 
     Vector<MatchedRule, 64> m_matchedRules;
     size_t m_matchedRuleTransferIndex { 0 };
@@ -176,15 +147,4 @@ private:
     PseudoIdSet m_matchedPseudoElementIds;
 };
 
-inline bool operator==(const MatchedProperties& a, const MatchedProperties& b)
-{
-    return a.properties == b.properties && a.linkMatchType == b.linkMatchType;
 }
-
-inline bool operator!=(const MatchedProperties& a, const MatchedProperties& b)
-{
-    return !(a == b);
-}
-
-} // namespace Style
-} // namespace WebCore

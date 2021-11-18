@@ -135,6 +135,7 @@
 #include <WebCore/ServiceWorkerContextData.h>
 #include <WebCore/Settings.h>
 #include <WebCore/UserGestureIndicator.h>
+#include <pal/Logging.h>
 #include <wtf/Algorithms.h>
 #include <wtf/CallbackAggregator.h>
 #include <wtf/Language.h>
@@ -144,8 +145,8 @@
 #include <wtf/URLParser.h>
 #include <wtf/text/StringHash.h>
 
-#if ENABLE(ARKIT_INLINE_PREVIEW)
-#include <WebCore/HTMLModelElement.h>
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
+#include "ARKitInlinePreviewModelPlayer.h"
 #endif
 
 #if !OS(WINDOWS)
@@ -376,6 +377,14 @@ void WebProcess::initializeConnection(IPC::Connection* connection)
     m_webConnection = WebConnectionToUIProcess::create(this);
 }
 
+static void scheduleLogMemoryStatistics(LogMemoryStatisticsReason reason)
+{
+    // Log stats in the next turn of the run loop so that it runs after the low memory handler.
+    RunLoop::main().dispatch([reason] {
+        WebCore::logMemoryStatistics(reason);
+    });
+}
+
 void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
 {    
     TraceScope traceScope(InitializeWebProcessStart, InitializeWebProcessEnd);
@@ -429,7 +438,7 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
 #if ENABLE(PERIODIC_MEMORY_MONITOR)
         memoryPressureHandler.setShouldUsePeriodicMemoryMonitor(true);
         memoryPressureHandler.setMemoryKillCallback([this] () {
-            WebCore::logMemoryStatisticsAtTimeOfDeath();
+            WebCore::logMemoryStatistics(LogMemoryStatisticsReason::OutOfMemoryDeath);
             if (MemoryPressureHandler::singleton().processState() == WebsamProcessState::Active)
                 parentProcessConnection()->send(Messages::WebProcessProxy::DidExceedActiveMemoryLimit(), 0);
             else
@@ -437,13 +446,30 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
         });
         memoryPressureHandler.setDidExceedInactiveLimitWhileActiveCallback([this] () {
             parentProcessConnection()->send(Messages::WebProcessProxy::DidExceedInactiveMemoryLimitWhileActive(), 0);
+
+            if (!m_loggedProcessLimitCriticalMemoryStatistics) {
+                m_loggedProcessLimitCriticalMemoryStatistics = true;
+                scheduleLogMemoryStatistics(LogMemoryStatisticsReason::CriticalMemoryPressureNotification);
+            }
         });
 #endif
-        memoryPressureHandler.setMemoryPressureStatusChangedCallback([this](bool isUnderMemoryPressure) {
+        memoryPressureHandler.setMemoryPressureStatusChangedCallback([this](WTF::MemoryPressureStatus memoryPressureStatus) {
             if (parentProcessConnection())
-                parentProcessConnection()->send(Messages::WebProcessProxy::MemoryPressureStatusChanged(isUnderMemoryPressure), 0);
+                parentProcessConnection()->send(Messages::WebProcessProxy::MemoryPressureStatusChanged(MemoryPressureHandler::singleton().isUnderMemoryPressure()), 0);
+
+            if (memoryPressureStatus == WTF::MemoryPressureStatus::ProcessLimitWarning && !m_loggedProcessLimitWarningMemoryStatistics) {
+                m_loggedProcessLimitWarningMemoryStatistics = true;
+                scheduleLogMemoryStatistics(LogMemoryStatisticsReason::WarningMemoryPressureNotification);
+            } else if (memoryPressureStatus == WTF::MemoryPressureStatus::ProcessLimitCritical && !m_loggedProcessLimitCriticalMemoryStatistics) {
+                m_loggedProcessLimitCriticalMemoryStatistics = true;
+                scheduleLogMemoryStatistics(LogMemoryStatisticsReason::CriticalMemoryPressureNotification);
+            }
         });
         memoryPressureHandler.install();
+
+        PAL::registerNotifyCallback("com.apple.WebKit.logMemStats", [] {
+            WebCore::logMemoryStatistics(LogMemoryStatisticsReason::DebugNotification);
+        });
     }
 
     SandboxExtension::consumePermanently(parameters.additionalSandboxExtensionHandles);
@@ -524,6 +550,7 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
     commonVM().setGlobalConstRedeclarationShouldThrow(parameters.shouldThrowExceptionForGlobalConstantRedeclaration);
 
     ScriptExecutionContext::setCrossOriginMode(parameters.crossOriginMode);
+    m_isCaptivePortalModeEnabled = parameters.isCaptivePortalModeEnabled;
 
 #if ENABLE(SERVICE_CONTROLS)
     setEnabledServices(parameters.hasImageServices, parameters.hasSelectionServices, parameters.hasRichContentServices);
@@ -576,9 +603,9 @@ void WebProcess::setWebsiteDataStoreParameters(WebProcessDataStoreParameters&& p
         WebCore::HTMLMediaElement::setMediaCacheDirectory(parameters.mediaCacheDirectory);
 #endif
 
-#if ENABLE(ARKIT_INLINE_PREVIEW)
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
     if (!parameters.modelElementCacheDirectory.isEmpty())
-        WebCore::HTMLModelElement::setModelElementCacheDirectory(parameters.modelElementCacheDirectory);
+        ARKitInlinePreviewModelPlayer::setModelElementCacheDirectory(parameters.modelElementCacheDirectory);
 #endif
 
     setResourceLoadStatisticsEnabled(parameters.resourceLoadStatisticsEnabled);

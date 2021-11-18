@@ -123,6 +123,7 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << attrStyleEnabled;
     encoder << shouldThrowExceptionForGlobalConstantRedeclaration;
     encoder << crossOriginMode;
+    encoder << isCaptivePortalModeEnabled;
 
 #if ENABLE(SERVICE_CONTROLS)
     encoder << hasImageServices;
@@ -171,7 +172,6 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << videoDecoderExtensionHandles;
 #endif
 
-    encoder << diagnosticsExtensionHandles;
 #if PLATFORM(IOS_FAMILY)
     encoder << dynamicMachExtensionHandles;
     encoder << dynamicIOKitExtensionHandles;
@@ -401,6 +401,8 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
     if (!decoder.decode(parameters.crossOriginMode))
         return false;
+    if (!decoder.decode(parameters.isCaptivePortalModeEnabled))
+        return false;
 
 #if ENABLE(SERVICE_CONTROLS)
     if (!decoder.decode(parameters.hasImageServices))
@@ -490,12 +492,6 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
     parameters.videoDecoderExtensionHandles = WTFMove(*videoDecoderExtensionHandles);
 #endif
-
-    std::optional<Vector<SandboxExtension::Handle>> diagnosticsExtensionHandles;
-    decoder >> diagnosticsExtensionHandles;
-    if (!diagnosticsExtensionHandles)
-        return false;
-    parameters.diagnosticsExtensionHandles = WTFMove(*diagnosticsExtensionHandles);
 
 #if PLATFORM(IOS_FAMILY)
     std::optional<Vector<SandboxExtension::Handle>> dynamicMachExtensionHandles;

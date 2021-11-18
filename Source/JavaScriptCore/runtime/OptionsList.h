@@ -287,6 +287,7 @@ bool canUseWebAssemblyFastMemory();
     \
     v(Unsigned, maximumBinaryStringSwitchCaseLength, 50, Normal, nullptr) \
     v(Unsigned, maximumBinaryStringSwitchTotalLength, 2000, Normal, nullptr) \
+    v(Unsigned, maximumRegExpTestInlineCodesize, 500, Normal, "Maximum code size in bytes for inlined RegExp.test JIT code.") \
     \
     v(Double, jitPolicyScale, 1.0, Normal, "scale JIT thresholds to this specified ratio between 0.0 (compile ASAP) and 1.0 (compile like normal).") \
     v(Bool, forceEagerCompilation, false, Normal, nullptr) \
@@ -423,7 +424,7 @@ bool canUseWebAssemblyFastMemory();
     \
     v(Bool, logPhaseTimes, false, Normal, nullptr) \
     v(Double, rareBlockPenalty, 0.001, Normal, nullptr) \
-    v(Unsigned, maximumTmpsForGraphColoring, 25000, Normal, "The maximum number of tmps an Air program can have before always register allocating with Linear Scan") \
+    v(Unsigned, maximumTmpsForGraphColoring, 60000, Normal, "The maximum number of tmps an Air program can have before always register allocating with Linear Scan") \
     v(Bool, airLinearScanVerbose, false, Normal, nullptr) \
     v(Bool, airLinearScanSpillsEverything, false, Normal, nullptr) \
     v(Bool, airForceBriggsAllocator, false, Normal, nullptr) \

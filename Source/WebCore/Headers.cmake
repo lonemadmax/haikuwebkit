@@ -137,6 +137,12 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/mediastream/libwebrtc/LibWebRTCUtils.h
 
     Modules/model-element/HTMLModelElement.h
+    Modules/model-element/ModelPlayer.h
+    Modules/model-element/ModelPlayerClient.h
+    Modules/model-element/ModelPlayerProvider.h
+
+    Modules/model-element/dummy/DummyModelPlayer.h
+    Modules/model-element/dummy/DummyModelPlayerProvider.h
 
     Modules/notifications/Notification.h
     Modules/notifications/NotificationClient.h
@@ -150,9 +156,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/permissions/PermissionName.h
     Modules/permissions/PermissionObserver.h
     Modules/permissions/PermissionState.h
-
-    Modules/plugins/PluginReplacement.h
-    Modules/plugins/YouTubePluginReplacement.h
 
     Modules/push-api/PushPermissionState.h
     Modules/push-api/PushSubscriptionData.h
@@ -345,6 +348,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     contentextensions/ContentExtensionError.h
     contentextensions/ContentExtensionParser.h
     contentextensions/ContentExtensionRule.h
+    contentextensions/ContentExtensionStringSerialization.h
     contentextensions/ContentExtensionsBackend.h
     contentextensions/ContentExtensionsDebugging.h
     contentextensions/ContentRuleListResults.h
@@ -509,6 +513,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/FragmentScriptingPermission.h
     dom/FullscreenManager.h
     dom/GCReachableRef.h
+    dom/ImageOverlay.h
     dom/InlineStyleSheetOwner.h
     dom/KeyboardEvent.h
     dom/LiveNodeList.h
@@ -1376,6 +1381,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/RenderingResourceIdentifier.h
     platform/graphics/RenderingMode.h
     platform/graphics/RoundedRect.h
+    platform/graphics/ShouldLocalizeAxisNames.h
     platform/graphics/SourceBufferPrivate.h
     platform/graphics/SourceBufferPrivateClient.h
     platform/graphics/StringTruncator.h

@@ -359,7 +359,8 @@ void InlineFormattingContext::computeStaticPositionForOutOfFlowContent(const For
 IntrinsicWidthConstraints InlineFormattingContext::computedIntrinsicWidthConstraints()
 {
     auto& layoutState = this->layoutState();
-    ASSERT(!formattingState().intrinsicWidthConstraints());
+    if (formattingState().intrinsicWidthConstraints())
+        return *formattingState().intrinsicWidthConstraints();
 
     if (!root().hasInFlowOrFloatingChild()) {
         auto constraints = formattingGeometry().constrainByMinMaxWidth(root(), { });
@@ -421,10 +422,12 @@ InlineLayoutUnit InlineFormattingContext::computedIntrinsicWidthForConstraint(In
     auto layoutRange = LineBuilder::InlineItemRange { 0 , inlineItems.size() };
     auto maximumLineWidth = InlineLayoutUnit { };
     auto maximumFloatWidth = LayoutUnit { };
+    auto isFirstLine = true;
     while (!layoutRange.isEmpty()) {
-        auto intrinsicContent = lineBuilder.computedIntrinsicWidth(layoutRange, availableWidth);
+        auto intrinsicContent = lineBuilder.computedIntrinsicWidth(layoutRange, availableWidth, isFirstLine);
         layoutRange.start = intrinsicContent.inlineItemRange.end;
         maximumLineWidth = std::max(maximumLineWidth, intrinsicContent.logicalWidth);
+        isFirstLine = false;
         // FIXME: Add support for clear.
         for (auto* floatBox : intrinsicContent.floats)
             maximumFloatWidth += geometryForBox(*floatBox).marginBoxWidth();

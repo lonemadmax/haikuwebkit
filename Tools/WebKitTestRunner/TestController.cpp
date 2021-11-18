@@ -1311,6 +1311,7 @@ TestOptions TestController::testOptionsForTest(const TestCommand& command) const
     merge(features, m_globalFeatures);
     merge(features, hardcodedFeaturesBasedOnPathForTest(command));
     merge(features, platformSpecificFeatureDefaultsForTest(command));
+    merge(features, featureDefaultsFromSelfComparisonHeader(command, TestOptions::keyTypeMapping()));
     merge(features, featureDefaultsFromTestHeaderForTest(command, TestOptions::keyTypeMapping()));
     merge(features, platformSpecificFeatureOverridesDefaultsForTest(command));
 
@@ -1478,6 +1479,9 @@ bool TestController::runTest(const char* inputLine)
 
     if (command.shouldDumpPixels || m_shouldDumpPixelsForAllTests)
         m_currentInvocation->setIsPixelTest(command.expectedPixelHash);
+
+    if (command.forceDumpPixels)
+        m_currentInvocation->setForceDumpPixels(true);
 
     if (command.timeout > 0_s)
         m_currentInvocation->setCustomTimeout(command.timeout);

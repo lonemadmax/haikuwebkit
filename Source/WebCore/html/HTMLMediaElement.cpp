@@ -61,6 +61,7 @@
 #include "HTMLSourceElement.h"
 #include "HTMLTrackElement.h"
 #include "HTMLVideoElement.h"
+#include "ImageOverlay.h"
 #include "InbandGenericTextTrack.h"
 #include "InbandTextTrackPrivate.h"
 #include "InbandWebVTTTextTrack.h"
@@ -1472,10 +1473,12 @@ void HTMLMediaElement::loadResource(const URL& initialURL, ContentType& contentT
     }
 
     URL url = initialURL;
-    if (!url.isEmpty() && !frame->loader().willLoadMediaElementURL(url, *this)) {
+#if PLATFORM(COCOA)
+    if (url.isLocalFile() && !frame->loader().willLoadMediaElementURL(url, *this)) {
         mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
         return;
     }
+#endif
 
 #if ENABLE(CONTENT_EXTENSIONS)
     if (RefPtr documentLoader = frame->loader().documentLoader()) {
@@ -2503,6 +2506,15 @@ void HTMLMediaElement::setReadyState(MediaPlayer::ReadyState state)
             scheduleEvent(eventNames().durationchangeEvent);
             scheduleResizeEvent();
             scheduleEvent(eventNames().loadedmetadataEvent);
+
+            if (m_defaultPlaybackStartPosition > MediaTime::zeroTime()) {
+                // We reset it before to cause currentMediaTime() to return the actual current time (not
+                // defaultPlaybackPosition) and avoid the seek code to think that the seek was already done.
+                MediaTime seekTarget = m_defaultPlaybackStartPosition;
+                m_defaultPlaybackStartPosition = MediaTime::zeroTime();
+                seekInternal(seekTarget);
+            }
+
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
             if (hasEventListeners(eventNames().webkitplaybacktargetavailabilitychangedEvent))
                 enqueuePlaybackTargetAvailabilityChangedEvent();
@@ -3128,6 +3140,8 @@ void HTMLMediaElement::seekWithTolerance(const MediaTime& inTime, const MediaTim
 
     if (processingUserGestureForMedia())
         mediaSession().removeBehaviorRestriction(MediaElementSession::RequireUserGestureToControlControlsManager);
+
+    ImageOverlay::removeOverlaySoonIfNeeded(*this);
 }
 
 void HTMLMediaElement::seekTask()
@@ -3333,6 +3347,9 @@ MediaTime HTMLMediaElement::currentMediaTime() const
     if (!m_player)
         return MediaTime::zeroTime();
 
+    if (m_defaultPlaybackStartPosition != MediaTime::zeroTime())
+        return m_defaultPlaybackStartPosition;
+
     if (m_seeking) {
         ALWAYS_LOG(LOGIDENTIFIER, "seeking, returning", m_lastSeekTime);
         return m_lastSeekTime;
@@ -3405,6 +3422,12 @@ ExceptionOr<void> HTMLMediaElement::setCurrentTimeForBindings(double time)
 {
     if (m_mediaController)
         return Exception { InvalidStateError };
+
+    if (m_readyState == HAVE_NOTHING || !m_player) {
+        m_defaultPlaybackStartPosition = MediaTime::createWithDouble(time);
+        return { };
+    }
+
     seek(MediaTime::createWithDouble(time));
     return { };
 }
@@ -3711,6 +3734,8 @@ void HTMLMediaElement::playInternal()
 
     m_autoplaying = false;
     updatePlayState();
+
+    ImageOverlay::removeOverlaySoonIfNeeded(*this);
 }
 
 void HTMLMediaElement::pause()

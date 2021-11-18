@@ -794,10 +794,14 @@ void RenderLayer::rebuildZOrderLists(std::unique_ptr<Vector<RenderLayer*>>& posZ
             auto backdropRenderer = renderer->backdropRenderer();
             if (backdropRenderer && backdropRenderer->hasLayer()) {
                 RenderLayer* layer = backdropRenderer->layer();
+                if (!posZOrderList)
+                    posZOrderList = makeUnique<Vector<RenderLayer*>>();
                 posZOrderList->append(layer);
             }
             if (renderer->hasLayer()) {
                 RenderLayer* layer = downcast<RenderLayerModelObject>(*renderer).layer();
+                if (!posZOrderList)
+                    posZOrderList = makeUnique<Vector<RenderLayer*>>();
                 posZOrderList->append(layer);
             }
         }
@@ -2074,9 +2078,9 @@ RenderLayer* RenderLayer::transparentPaintingAncestor()
     if (isComposited())
         return nullptr;
 
-    for (RenderLayer* curr = parent(); curr; curr = curr->parent()) {
+    for (RenderLayer* curr = stackingContext(); curr; curr = curr->stackingContext()) {
         if (curr->isComposited())
-            return nullptr;
+            break;
         if (curr->isTransparent())
             return curr;
     }
@@ -2397,7 +2401,7 @@ LayoutSize RenderLayer::offsetFromAncestor(const RenderLayer* ancestorLayer, Col
 static inline bool frameElementAndViewPermitScroll(HTMLFrameElementBase* frameElementBase, FrameView& frameView)
 {
     // If scrollbars aren't explicitly forbidden, permit scrolling.
-    if (frameElementBase && frameElementBase->scrollingMode() != ScrollbarAlwaysOff)
+    if (frameElementBase && frameElementBase->scrollingMode() != ScrollbarMode::AlwaysOff)
         return true;
 
     // If scrollbars are forbidden, user initiated scrolls should obviously be ignored.
@@ -3046,7 +3050,8 @@ void RenderLayer::paintLayerWithEffects(GraphicsContext& context, const LayerPai
         // If we have a transparency layer enclosing us and we are the root of a transform, then we need to establish the transparency
         // layer from the parent now, assuming there is a parent
         if (paintFlags & PaintLayerFlag::HaveTransparency) {
-            if (parent())
+            // Top layer elements are not affected by ancestor opacities
+            if (!establishesTopLayer() && parent())
                 parent()->beginTransparencyLayers(context, paintingInfo, paintingInfo.paintDirtyRect);
             else
                 beginTransparencyLayers(context, paintingInfo, paintingInfo.paintDirtyRect);
@@ -3226,7 +3231,7 @@ GraphicsContext* RenderLayer::setupFilters(GraphicsContext& destinationContext, 
 
     auto rootRelativeBounds = calculateLayerBounds(paintingInfo.rootLayer, offsetFromRoot, { });
 
-    GraphicsContext* filterContext = paintingFilters->beginFilterEffect(destinationContext, enclosingIntRect(rootRelativeBounds), enclosingIntRect(paintingInfo.paintDirtyRect), enclosingIntRect(filterRepaintRect));
+    GraphicsContext* filterContext = paintingFilters->beginFilterEffect(destinationContext, renderer(), enclosingIntRect(rootRelativeBounds), enclosingIntRect(paintingInfo.paintDirtyRect), enclosingIntRect(filterRepaintRect));
     if (!filterContext)
         return nullptr;
 

@@ -25,7 +25,6 @@
 #include "CellState.h"
 #include "CollectionScope.h"
 #include "CollectorPhase.h"
-#include "DFGDoesGCCheck.h"
 #include "DeleteAllCodeEffort.h"
 #include "GCConductor.h"
 #include "GCIncomingRefCountedSet.h"
@@ -99,14 +98,6 @@ namespace DFG {
 class SpeculativeJIT;
 }
 
-#if ENABLE(DFG_JIT) && ASSERT_ENABLED
-#define ENABLE_DFG_DOES_GC_VALIDATION 1
-#else
-#define ENABLE_DFG_DOES_GC_VALIDATION 0
-#endif
-
-constexpr bool validateDFGDoesGC = ENABLE_DFG_DOES_GC_VALIDATION;
-
 typedef HashCountedSet<JSCell*> ProtectCountSet;
 typedef HashCountedSet<const char*> TypeCountSet;
 
@@ -136,9 +127,7 @@ public:
     void writeBarrier(const JSCell* from);
     void writeBarrier(const JSCell* from, JSValue to);
     void writeBarrier(const JSCell* from, JSCell* to);
-    
-    void writeBarrierWithoutFence(const JSCell* from);
-    
+
     void mutatorFence();
     
     // Take this if you know that from->cellState() < barrierThreshold.
@@ -173,7 +162,7 @@ public:
 
     // We're always busy on the collection threads. On the main thread, this returns true if we're
     // helping heap.
-    JS_EXPORT_PRIVATE bool isCurrentThreadBusy();
+    JS_EXPORT_PRIVATE bool currentThreadIsDoingGCWork();
     
     typedef void (*CFinalizer)(JSCell*);
     JS_EXPORT_PRIVATE void addFinalizer(JSCell*, CFinalizer);
@@ -307,18 +296,6 @@ public:
     unsigned barrierThreshold() const { return m_barrierThreshold; }
     const unsigned* addressOfBarrierThreshold() const { return &m_barrierThreshold; }
 
-#if ENABLE(DFG_DOES_GC_VALIDATION)
-    DoesGCCheck* addressOfDoesGC() { return &m_doesGC; }
-    void setDoesGCExpectation(bool expectDoesGC, unsigned nodeIndex, unsigned nodeOp) { m_doesGC.set(expectDoesGC, nodeIndex, nodeOp); }
-    void setDoesGCExpectation(bool expectDoesGC, DoesGCCheck::Special special) { m_doesGC.set(expectDoesGC, special); }
-    void verifyCanGC() { m_doesGC.verifyCanGC(vm()); }
-#else
-    DoesGCCheck* addressOfDoesGC() { UNREACHABLE_FOR_PLATFORM(); return nullptr; }
-    void setDoesGCExpectation(bool, unsigned, unsigned) { }
-    void setDoesGCExpectation(bool, DoesGCCheck::Special) { }
-    void verifyCanGC() { }
-#endif
-
     // If true, the GC believes that the mutator is currently messing with the heap. We call this
     // "having heap access". The GC may block if the mutator is in this state. If false, the GC may
     // currently be doing things to the heap that make the heap unsafe to access for the mutator.
@@ -447,7 +424,6 @@ private:
         void finalize(Handle<Unknown>, void* context) final;
     };
 
-    JS_EXPORT_PRIVATE bool isValidAllocation(size_t);
     JS_EXPORT_PRIVATE void reportExtraMemoryAllocatedSlowCase(size_t);
     JS_EXPORT_PRIVATE void deprecatedReportExtraMemorySlowCase(size_t);
     
@@ -611,9 +587,6 @@ private:
     Markable<CollectionScope, EnumMarkableTraits<CollectionScope>> m_collectionScope;
     Markable<CollectionScope, EnumMarkableTraits<CollectionScope>> m_lastCollectionScope;
     Lock m_raceMarkStackLock;
-#if ENABLE(DFG_DOES_GC_VALIDATION)
-    DoesGCCheck m_doesGC;
-#endif
 
     StructureIDTable m_structureIDTable;
     MarkedSpace m_objectSpace;
@@ -709,7 +682,6 @@ private:
     static constexpr unsigned mutatorWaitingBit = 1u << 4u; // Allows the mutator to use this as a condition variable.
     Atomic<unsigned> m_worldState;
     bool m_worldIsStopped { false };
-    Lock m_visitRaceLock;
     Lock m_markingMutex;
     Condition m_markingConditionVariable;
 
@@ -727,7 +699,6 @@ private:
     CollectorPhase m_nextPhase { CollectorPhase::NotRunning };
     bool m_collectorThreadIsRunning { false };
     bool m_threadShouldStop { false };
-    bool m_threadIsStopping { false };
     bool m_mutatorDidRun { true };
     bool m_didDeferGCWork { false };
     bool m_shouldStopCollectingContinuously { false };

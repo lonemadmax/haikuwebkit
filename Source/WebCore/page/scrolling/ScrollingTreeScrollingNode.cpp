@@ -225,6 +225,11 @@ void ScrollingTreeScrollingNode::setScrollSnapInProgress(bool isSnapping)
     scrollingTree().setNodeScrollSnapInProgress(scrollingNodeID(), isSnapping);
 }
 
+bool ScrollingTreeScrollingNode::momentumScrollingAnimatorEnabled() const
+{
+    return scrollingTree().momentumScrollingAnimatorEnabled();
+}
+
 void ScrollingTreeScrollingNode::willStartAnimatedScroll()
 {
 }
@@ -246,8 +251,10 @@ void ScrollingTreeScrollingNode::handleScrollPositionRequest(const RequestedScro
 
     stopAnimatedScroll();
 
-    if (requestedScrollData.requestType == ScrollRequestType::CancelAnimatedScroll)
+    if (requestedScrollData.requestType == ScrollRequestType::CancelAnimatedScroll) {
+        scrollingTree().removePendingScrollAnimationForNode(scrollingNodeID());
         return;
+    }
 
     if (scrollingTree().scrollingTreeNodeRequestsScroll(scrollingNodeID(), requestedScrollData))
         return;

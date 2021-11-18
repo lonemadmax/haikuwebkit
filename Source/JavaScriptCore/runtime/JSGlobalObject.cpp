@@ -210,6 +210,8 @@
 #include "TemporalCalendarPrototype.h"
 #include "TemporalDuration.h"
 #include "TemporalDurationPrototype.h"
+#include "TemporalInstant.h"
+#include "TemporalInstantPrototype.h"
 #include "TemporalObject.h"
 #include "TemporalPlainTime.h"
 #include "TemporalPlainTimePrototype.h"
@@ -1254,6 +1256,13 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
                 init.set(TemporalDuration::createStructure(init.vm, globalObject, durationPrototype));
             });
 
+        m_instantStructure.initLater(
+            [] (const Initializer<Structure>& init) {
+                JSGlobalObject* globalObject = jsCast<JSGlobalObject*>(init.owner);
+                TemporalInstantPrototype* instantPrototype = TemporalInstantPrototype::create(init.vm, TemporalInstantPrototype::createStructure(init.vm, globalObject, globalObject->objectPrototype()));
+                init.set(TemporalInstant::createStructure(init.vm, globalObject, instantPrototype));
+            });
+
         m_plainTimeStructure.initLater(
             [] (const Initializer<Structure>& init) {
                 auto* globalObject = jsCast<JSGlobalObject*>(init.owner);
@@ -1995,7 +2004,7 @@ void JSGlobalObject::haveABadTime(VM& vm)
     // W_SC, W_BT, R_BT, R_SC: No watchpoint is installed, but we could not see old structures from the cache.
     vm.structureCache.clear(); // We may be caching array structures in here.
 
-    DeferGC deferGC(vm.heap);
+    DeferGC deferGC(vm);
 
     // Consider the following objects and prototype chains:
     //    O (of global G1) -> A (of global G1)
@@ -2166,6 +2175,7 @@ void JSGlobalObject::visitChildrenImpl(JSCell* cell, Visitor& visitor)
 
     thisObject->m_calendarStructure.visit(visitor);
     thisObject->m_durationStructure.visit(visitor);
+    thisObject->m_instantStructure.visit(visitor);
     thisObject->m_plainTimeStructure.visit(visitor);
     thisObject->m_timeZoneStructure.visit(visitor);
 
@@ -2594,14 +2604,14 @@ WatchpointSet& JSGlobalObject::ensureReferencedPropertyWatchpointSet(UniquedStri
 
 JSGlobalObject* JSGlobalObject::create(VM& vm, Structure* structure)
 {
-    JSGlobalObject* globalObject = new (NotNull, allocateCell<JSGlobalObject>(vm.heap)) JSGlobalObject(vm, structure);
+    JSGlobalObject* globalObject = new (NotNull, allocateCell<JSGlobalObject>(vm)) JSGlobalObject(vm, structure);
     globalObject->finishCreation(vm);
     return globalObject;
 }
 
 JSGlobalObject* JSGlobalObject::createWithCustomMethodTable(VM& vm, Structure* structure, const GlobalObjectMethodTable* methodTable)
 {
-    JSGlobalObject* globalObject = new (NotNull, allocateCell<JSGlobalObject>(vm.heap)) JSGlobalObject(vm, structure, methodTable);
+    JSGlobalObject* globalObject = new (NotNull, allocateCell<JSGlobalObject>(vm)) JSGlobalObject(vm, structure, methodTable);
     globalObject->finishCreation(vm);
     return globalObject;
 }

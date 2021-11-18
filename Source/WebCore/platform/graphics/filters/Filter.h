@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
  * Copyright (C) 2013 Google Inc. All rights reserved.
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -20,59 +21,58 @@
 
 #pragma once
 
-#include "AffineTransform.h"
+#include "FilterFunction.h"
 #include "FloatRect.h"
 #include "GraphicsTypes.h"
 #include "ImageBuffer.h"
-#include <wtf/RefCounted.h>
+#include "RenderingMode.h"
 
 namespace WebCore {
 
 class FilterEffect;
 
-class Filter : public RefCounted<Filter> {
+class Filter : public FilterFunction {
 public:
-    Filter(const AffineTransform& absoluteTransform, float filterScale = 1)
-        : m_absoluteTransform(absoluteTransform)
-        , m_filterScale(filterScale)
-    { }
-    virtual ~Filter() = default;
+    FloatSize filterScale() const { return m_filterScale; }
+    void setFilterScale(const FloatSize& filterScale) { m_filterScale = filterScale; }
 
+    FloatRect sourceImageRect() const { return m_sourceImageRect; }
+    void setSourceImageRect(const FloatRect& sourceImageRect) { m_sourceImageRect = sourceImageRect; }
+
+    FloatRect filterRegion() const { return m_filterRegion; }
+    void setFilterRegion(const FloatRect& filterRegion) { m_filterRegion = filterRegion; }
+
+    virtual FloatSize scaledByFilterScale(FloatSize size) const { return size * m_filterScale; }
+    virtual void apply() = 0;
+
+    ImageBuffer* sourceImage() const { return m_sourceImage.get(); }
     void setSourceImage(RefPtr<ImageBuffer>&& sourceImage) { m_sourceImage = WTFMove(sourceImage); }
-    ImageBuffer* sourceImage() { return m_sourceImage.get(); }
-
-    FloatSize filterResolution() const { return m_filterResolution; }
-    void setFilterResolution(const FloatSize& filterResolution) { m_filterResolution = filterResolution; }
-
-    float filterScale() const { return m_filterScale; }
-    void setFilterScale(float scale) { m_filterScale = scale; }
-
-    const AffineTransform& absoluteTransform() const { return m_absoluteTransform; }
 
     RenderingMode renderingMode() const { return m_renderingMode; }
     void setRenderingMode(RenderingMode renderingMode) { m_renderingMode = renderingMode; }
 
-    virtual bool isSVGFilter() const { return false; }
-    virtual bool isCSSFilter() const { return false; }
-
-    virtual FloatSize scaledByFilterResolution(FloatSize size) const { return size * m_filterResolution; }
-    
-    virtual FloatRect sourceImageRect() const = 0;
-    virtual FloatRect filterRegion() const = 0;
-    virtual FloatRect filterRegionInUserSpace() const = 0;
-
 protected:
-    explicit Filter(const FloatSize& filterResolution)
-        : m_filterResolution(filterResolution)
+    Filter(Filter::Type filterType, const FloatSize& filterScale)
+        : FilterFunction(filterType)
+        , m_filterScale(filterScale)
+    {
+    }
+
+    Filter(Filter::Type filterType, const FloatSize& filterScale, const FloatRect& sourceImageRect, const FloatRect& filterRegion)
+        : FilterFunction(filterType)
+        , m_filterScale(filterScale)
+        , m_sourceImageRect(sourceImageRect)
+        , m_filterRegion(filterRegion)
     {
     }
 
 private:
+    FloatSize m_filterScale;
+    FloatRect m_sourceImageRect;
+    FloatRect m_filterRegion;
+
     RefPtr<ImageBuffer> m_sourceImage;
-    FloatSize m_filterResolution;
-    AffineTransform m_absoluteTransform;
     RenderingMode m_renderingMode { RenderingMode::Unaccelerated };
-    float m_filterScale { 1 };
 };
 
 } // namespace WebCore

@@ -1,3 +1,38 @@
+2021-11-11  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        Make scroll granularity an enum class
+        https://bugs.webkit.org/show_bug.cgi?id=232641
+
+        Reviewed by Cameron McCormack.
+
+        * WebView.cpp:
+        (WebView::verticalScroll):
+        (WebView::horizontalScroll):
+        (WebView::keyDown):
+
+2021-11-11  Sam Weinig  <weinig@apple.com>
+
+        Factor platform specific code out of HTMLModelElement
+        https://bugs.webkit.org/show_bug.cgi?id=232848
+
+        Reviewed by Dean Jackson.
+
+        * WebView.cpp:
+        (WebView::initWithFrame):
+        Use DummyModelPlayerProvider for the DummyModelPlayerProvider since the feature
+        is not supported for WebKitLegacy at the moment.
+
+2021-11-05  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        AX: rename actionVerb() as localizedActionVerb()
+        https://bugs.webkit.org/show_bug.cgi?id=232711
+        <rdar://problem/85015496>
+
+        Reviewed by Andres Gonzalez.
+
+        * AccessibleBase.cpp:
+        (AccessibleBase::get_accDefaultAction): Use localizedActionVerb().
+
 2021-10-11  Chris Dumez  <cdumez@apple.com>
 
         DOMTimeStamp is now EpochTimeStamp

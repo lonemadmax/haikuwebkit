@@ -93,20 +93,29 @@ Ref<AccessibilityUIElement> AccessibilityController::rootElement()
 Ref<AccessibilityUIElement> AccessibilityController::focusedElement()
 {
     auto page = InjectedBundle::singleton().page()->page();
-    PlatformUIElement focusedElement = static_cast<PlatformUIElement>(WKAccessibilityFocusedObject(page));
-    return AccessibilityUIElement::create(focusedElement);
+    auto root = static_cast<PlatformUIElement>(WKAccessibilityRootObject(page));
+    auto rootElement = AccessibilityUIElement::create(root);
+    if (auto focusedElement = rootElement->focusedElement())
+        return *focusedElement;
+    return AccessibilityUIElement::create(nullptr);
 }
 
 void AccessibilityController::executeOnAXThreadAndWait(Function<void()>&& function)
 {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     if (m_useMockAXThread) {
-        AXThread::dispatch([&function, this] {
+        bool complete = false;
+        AXThread::dispatch([&function, &complete] {
             function();
-            m_semaphore.signal();
+            complete = true;
         });
 
-        m_semaphore.wait();
+        // Spin the main run loop so that any required DOM processing can be
+        // executed in the main thread. That is the case of most parameterized
+        // attributes, where the attribute value has to be calculated back in
+        // the main thread.
+        while (!complete)
+            spinMainRunLoop();
     } else
 #endif
         function();
@@ -135,6 +144,15 @@ void AccessibilityController::executeOnMainThread(Function<void()>&& function)
         function();
     });
 }
+
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+void AccessibilityController::spinMainRunLoop() const
+{
+    ASSERT(isMainThread());
+    CFRunLoopRunInMode(kCFRunLoopDefaultMode, .01, false);
+}
+#endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+
 #endif // PLATFORM(COCOA)
 
 RefPtr<AccessibilityUIElement> AccessibilityController::elementAtPoint(int x, int y)

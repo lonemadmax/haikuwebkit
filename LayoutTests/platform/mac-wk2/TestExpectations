@@ -120,6 +120,8 @@ fast/forms/file/entries-api/image-no-transcode-open-panel.html [ Pass ]
 storage/indexeddb/database-transaction-cycle.html [ Pass ]
 
 imported/w3c/web-platform-tests/video-rvfc [ Pass ]
+fast/mediastream/getUserMedia-rvfc.html [ Pass ]
+webrtc/peerConnection-rvfc.html [ Pass ]
 # Timing out tests until we add regular video streaming backend support.
 imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-before-xr-session.https.html [ Skip ]
 imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-dom.html [ Skip ]
@@ -323,6 +325,10 @@ webkit.org/b/96438 fast/spatial-navigation
 [ Monterey+ ] http/wpt/mediarecorder/pause-recording.html [ Pass Crash Timeout ]
 http/wpt/mediarecorder/set-srcObject-MediaStream-Blob.html [ Pass Failure Timeout ]
 [ BigSur+ ] http/wpt/mediarecorder/video-rotation.html [ Pass Failure Timeout ]
+
+# On Monterey+, CFNetwork does full NSURLSession partitioning based on first-party domains and ITP session partitioning is thus disabled.
+[ Monterey+ ] http/tests/resourceLoadStatistics/do-not-switch-session-on-navigation-to-prevalent-without-interaction.py [ Skip ]
+[ Monterey+ ] http/tests/resourceLoadStatistics/switch-session-on-navigation-to-prevalent-with-interaction.py [ Skip ]
 
 # rdar://76909385
 [ Monterey+ ] http/tests/websocket/tests/hybi/interleaved-fragments.html [ Pass Failure Timeout ]
@@ -1672,9 +1678,6 @@ webkit.org/b/230866 [ Catalina BigSur ] imported/w3c/web-platform-tests/mediacap
 webkit.org/b/231083 [ Debug ] imported/w3c/web-platform-tests/content-security-policy/generic/policy-inherited-correctly-by-plznavigate.html [ Pass Failure ]
 
 webkit.org/b/231386 [ BigSur ] http/tests/resourceLoadStatistics/website-data-removal-for-site-with-user-interaction.html [ Pass Timeout ]
-
-webkit.org/b/231600 [ Release ] imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-main-frame-window.html [ Pass Failure ]
-webkit.org/b/231600 [ Release ] imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-main-frame-root.html [ Failure ]
 
 webkit.org/b/231765 [ Release ] http/tests/resourceLoadStatistics/website-data-removal-for-site-navigated-to-with-link-decoration.html [ Pass Timeout ]
 

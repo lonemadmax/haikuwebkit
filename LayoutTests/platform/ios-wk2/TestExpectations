@@ -68,6 +68,8 @@ webkit.org/b/231187 media/modern-media-controls/tracks-support/off-text-track.ht
 webkit.org/b/231187 media/modern-media-controls/tracks-support/hidden-tracks.html [ Timeout ]
 webkit.org/b/231187 media/modern-media-controls/tracks-support/click-track-in-contextmenu.html [ Timeout ]
 webkit.org/b/231187 media/modern-media-controls/tracks-support/auto-text-track.html [ Timeout ]
+webkit.org/b/231187 media/modern-media-controls/tracks-support/audio-multiple-tracks.html [ Timeout ]
+webkit.org/b/231187 media/modern-media-controls/tracks-support/audio-single-track.html [ Timeout ]
 
 fast/images/text-recognition [ Pass ]
 fast/images/text-recognition/ios [ Pass ]
@@ -139,6 +141,8 @@ http/tests/resourceLoadStatistics/cname-cloaking-top-no-cname-sub-3p-cname.html 
 http/tests/resourceLoadStatistics/cname-cloaking-top-no-cname-sub-no-cname.html [ Pass ]
 
 imported/w3c/web-platform-tests/video-rvfc [ Pass ]
+fast/mediastream/getUserMedia-rvfc.html [ Pass ]
+webrtc/peerConnection-rvfc.html [ Pass ]
 # Timing out tests until we add regular video streaming backend support.
 imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-before-xr-session.https.html [ Skip ]
 imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-dom.html [ Skip ]
@@ -1093,7 +1097,7 @@ http/tests/appcache/load-from-appcache-defer-resume-crash.html [ Skip ]
 
 webkit.org/b/227891 http/tests/appcache/fail-on-update.html [ Pass Timeout DumpJSConsoleLogInStdErr ]
 
-webkit.org/b/225665 http/tests/appcache/fail-on-update-2.html [ DumpJSConsoleLogInStdErr Slow ]
+webkit.org/b/225665 http/tests/appcache/fail-on-update-2.html [ DumpJSConsoleLogInStdErr Timeout ]
 
 webkit.org/b/228588 http/tests/appcache/main-resource-redirect-with-sw.html [ Pass Timeout ]
 
@@ -1167,6 +1171,8 @@ webkit.org/b/153809 transitions/clip-path-transitions.html [ Pass Failure ]
 webkit.org/b/153809 transitions/clip-path-path-transitions.html [ Pass Failure ]
 webkit.org/b/153029 fast/css-generated-content/details-summary-before-after.html [ Failure ]
 
+imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/iframe_sandbox_anchor_download_block_downloads.tentative.html [ Pass Failure ]
+imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/sandbox_004.htm [ Pass Failure ]
 webkit.org/b/165815 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/scroll-to-fragid/scroll-frag-percent-encoded.html [ Pass Failure ]
 webkit.org/b/165814 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/scroll-to-fragid/scroll-to-anchor-name.html [ Pass Failure ]
 webkit.org/b/161359 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/scroll-to-fragid/scroll-to-top.html [ Pass Failure ]
@@ -1180,6 +1186,7 @@ webkit.org/b/232028 imported/w3c/web-platform-tests/html/cross-origin-opener-pol
 
 # Newly imported WPT tests that are timing out on iOS.
 imported/w3c/web-platform-tests/html/semantics/forms/the-button-element/button-activate-keyup-prevented.html [ Skip ]
+imported/w3c/web-platform-tests/html/user-activation/activation-trigger-mouse-right.html [ Skip ]
 imported/w3c/web-platform-tests/uievents/click/auxclick_event.html [ Skip ]
 imported/w3c/web-platform-tests/uievents/click/click_event_target_child_parent.html [ Skip ]
 imported/w3c/web-platform-tests/uievents/click/click_event_target_siblings.html [ Skip ]
@@ -1188,7 +1195,6 @@ imported/w3c/web-platform-tests/uievents/mouse/layout_change_should_fire_mouseov
 imported/w3c/web-platform-tests/uievents/mouse/mouseevent_move_button.html [ Skip ]
 imported/w3c/web-platform-tests/uievents/order-of-events/focus-events/focus.html [ Skip ]
 imported/w3c/web-platform-tests/uievents/order-of-events/mouse-events/mouseover-out.html [ Skip ]
-imported/w3c/web-platform-tests/html/user-activation/activation-thru-contextmenu-event.html [ Skip ]
 
 imported/w3c/web-platform-tests/html/webappapis/scripting/processing-model-2/unhandled-promise-rejections/promise-rejection-events-onerror.html [ Pass Failure ]
 imported/w3c/web-platform-tests/uievents/click/click_events_on_input.html [ Pass Failure ]
@@ -1971,6 +1977,10 @@ webkit.org/b/228670 http/wpt/service-workers/navigation-redirect-main-frame.http
 
 webkit.org/b/228165 http/wpt/webrtc/transfer-datachannel-service-worker.https.html [ Pass Failure ]
 
+webkit.org/b/232570 [ Debug ] http/wpt/push-api/pushEvent.any.serviceworker.html [ Pass Failure ]
+webkit.org/b/232570 [ Debug ] http/wpt/push-api/pushManager.any.html [ Pass Failure ]
+webkit.org/b/232570 [ Debug ] http/wpt/push-api/pushManager.any.serviceworker.html [ Pass Failure ]
+
 webkit.org/b/215398 [ Release ] imported/w3c/web-platform-tests/css/css-images/idlharness.html [ Pass Timeout ]
 
 webkit.org/b/215403 imported/w3c/web-platform-tests/css/css-grid/layout-algorithm/flex-and-intrinsic-sizes-001.html [ Pass Timeout ]
@@ -1983,14 +1993,8 @@ webkit.org/b/215773 http/tests/websocket/tests/hybi/client-close-2.html [ Pass F
 
 webkit.org/b/209461 imported/w3c/web-platform-tests/css/css-grid/grid-items/grid-item-dynamic-min-contribution-001.html [ Failure ]
 
-webkit.org/b/227283 imported/w3c/web-platform-tests/css/css-grid/grid-items/aspect-ratio-001.html [ ImageOnlyFailure ]
-webkit.org/b/227283 imported/w3c/web-platform-tests/css/css-grid/grid-items/aspect-ratio-002.html [ ImageOnlyFailure ]
-webkit.org/b/227283 imported/w3c/web-platform-tests/css/css-grid/grid-items/aspect-ratio-003.html [ ImageOnlyFailure ]
 webkit.org/b/227283 imported/w3c/web-platform-tests/css/css-grid/grid-items/grid-item-inline-contribution-001.html [ ImageOnlyFailure ]
 webkit.org/b/227283 imported/w3c/web-platform-tests/css/css-grid/grid-items/grid-item-inline-contribution-002.html [ ImageOnlyFailure ]
-webkit.org/b/227283 imported/w3c/web-platform-tests/css/css-grid/grid-items/replaced-element-011.html [ ImageOnlyFailure ]
-webkit.org/b/227283 imported/w3c/web-platform-tests/css/css-grid/grid-items/replaced-element-012.html [ ImageOnlyFailure ]
-webkit.org/b/227283 imported/w3c/web-platform-tests/css/css-grid/grid-items/replaced-element-013.html [ ImageOnlyFailure ]
 
 webkit.org/b/215929 compositing/video/poster.html [ Pass Timeout ]
 
@@ -2042,8 +2046,6 @@ webkit.org/b/217263 imported/w3c/web-platform-tests/mediacapture-record/MediaRec
 
 webkit.org/b/196403 imported/w3c/web-platform-tests/mediacapture-record/MediaRecorder-stop.html [ Pass Failure Slow ]
 
-webkit.org/b/217268 imported/w3c/web-platform-tests/mathml/relations/html5-tree/dynamic-childlist-001.html [ Failure ]
-
 webkit.org/b/217641 [ Debug ] imported/w3c/web-platform-tests/xhr/event-timeout.any.worker.html [ Pass Failure ]
 
 webkit.org/b/219438 [ Release ] fast/canvas/canvas-overflow-hidden-animation.html [ Pass ImageOnlyFailure ]
@@ -2071,8 +2073,6 @@ imported/w3c/web-platform-tests/css/css-counter-styles/lower-greek/css3-counter-
 webkit.org/b/223586 webgl/conformance/extensions/khr-parallel-shader-compile.html [ Skip ]
 
 webkit.org/b/214955 fast/parser/xml-colon-entity.html [ Failure ]
-
-webkit.org/b/223750 [ Debug ] security/contentSecurityPolicy/plugins-types-allows-youtube-plugin-replacement.html [ Pass Crash ]
 
 webkit.org/b/155196 security/contentSecurityPolicy/video-with-file-url-allowed-by-media-src-star-with-AllowContentSecurityPolicySourceStarToMatchAnyProtocol-enabled.html [ Pass ImageOnlyFailure ]
 webkit.org/b/155196 security/contentSecurityPolicy/video-with-file-url-allowed-by-media-src-star.html [ Pass ImageOnlyFailure ]
@@ -2147,6 +2147,8 @@ webkit.org/b/231315 fast/events/ios/rotation/safe-area-insets-during-safari-type
 
 webkit.org/b/230987 fast/events/ios/viewport-shrink-to-fit-allows-double-tap.html [ Pass Timeout ]
 
+webkit.org/b/232568 fast/events/ios/viewport-device-width-allows-double-tap-zoom-out.html [ Pass Timeout ]
+
 webkit.org/b/231311 fast/events/ios/fast-click-double-tap-to-zoom-in-on-text-and-then-again-to-zoom-out.html [ Pass Failure ]
 
 webkit.org/b/229558 http/tests/navigation/page-cache-getUserMedia-pending-promise.html [ Pass Failure ]
@@ -2163,6 +2165,10 @@ webkit.org/b/229585 imported/w3c/web-platform-tests/navigation-timing/test_perfo
 
 #rdar://82183980 ([ iOS 15 ]editing/selection/ios/hide-selection-in-tiny-contenteditable.html is a flaky failure)
 editing/selection/ios/hide-selection-in-tiny-contenteditable.html [ Pass Failure ]
+
+# On iOS15+, CFNetwork does full NSURLSession partitioning based on first-party domains and ITP session partitioning is thus disabled.
+http/tests/resourceLoadStatistics/do-not-switch-session-on-navigation-to-prevalent-without-interaction.py [ Skip ]
+http/tests/resourceLoadStatistics/switch-session-on-navigation-to-prevalent-with-interaction.py [ Skip ]
 
 # These tests fail/timeout on iPhone 12 simulator
 fast/events/ios/viewport-no-width-value-allows-double-tap.html [ Skip ]

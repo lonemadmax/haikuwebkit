@@ -1,3 +1,1263 @@
+2021-11-15  Andreu Botella  <andreu@andreubotella.com>
+
+        Null bytes aren't percent-encoded on urlencoded over POST
+        https://bugs.webkit.org/show_bug.cgi?id=220780
+
+        Reviewed by Alex Christensen.
+
+        * web-platform-tests/html/semantics/forms/form-submission-0/urlencoded2.window-expected.txt:
+
+2021-11-15  Andreu Botella  <andreu@andreubotella.com>
+
+        Empty <input type=file> controls don't show up in the urlencoded and text/plain enctypes
+        https://bugs.webkit.org/show_bug.cgi?id=221549
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/html/semantics/forms/form-submission-0/form-data-set-empty-file.window-expected.txt:
+
+2021-11-15  Cathie Chen  <cathiechen@igalia.com>
+
+        [CSS contain] Update css-contain tests from WPT
+        https://bugs.webkit.org/show_bug.cgi?id=233121
+
+        Reviewed by Rob Buis.
+
+        Update css/css-contain/ tests to commit 625a2df832.
+
+        * resources/resource-files.json:
+        * web-platform-tests/css/css-contain/contain-body-bg-001-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-bg-001.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-bg-002-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-bg-002.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-bg-003-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-bg-003.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-bg-004-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-bg-004.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-dir-001-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-dir-001.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-dir-002-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-dir-002.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-dir-003-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-dir-003.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-dir-004-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-dir-004.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-overflow-001-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-overflow-001.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-overflow-002-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-overflow-002.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-overflow-003-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-overflow-003.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-overflow-004-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-overflow-004.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-t-o-001-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-t-o-001.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-t-o-002-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-t-o-002.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-t-o-003-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-t-o-003.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-t-o-004-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-t-o-004.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-w-m-001-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-w-m-001.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-w-m-002-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-w-m-002.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-w-m-003-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-w-m-003.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-w-m-004-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-body-w-m-004.html: Added.
+        * web-platform-tests/css/css-contain/contain-content-011-expected.html:
+        * web-platform-tests/css/css-contain/contain-content-011.html:
+        * web-platform-tests/css/css-contain/contain-html-bg-001-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-bg-001.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-bg-002-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-bg-002.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-bg-003-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-bg-003.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-bg-004-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-bg-004.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-dir-001-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-dir-001.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-dir-002-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-dir-002.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-dir-003-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-dir-003.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-dir-004-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-dir-004.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-overflow-001-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-overflow-001.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-overflow-002-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-overflow-002.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-overflow-003-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-overflow-003.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-overflow-004-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-overflow-004.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-t-o-001-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-t-o-001.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-t-o-002-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-t-o-002.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-t-o-003-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-t-o-003.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-t-o-004-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-t-o-004.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-w-m-001-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-w-m-001.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-w-m-002-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-w-m-002.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-w-m-003-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-w-m-003.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-w-m-004-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-html-w-m-004.html: Added.
+        * web-platform-tests/css/css-contain/contain-layout-019-expected.xht: Added.
+        * web-platform-tests/css/css-contain/contain-layout-019.html: Added.
+        * web-platform-tests/css/css-contain/contain-paint-010.html:
+        * web-platform-tests/css/css-contain/contain-paint-026-expected.xht: Added.
+        * web-platform-tests/css/css-contain/contain-paint-026.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/contain-paint-010.html.
+        * web-platform-tests/css/css-contain/contain-paint-change-opacity-expected.xht: Added.
+        * web-platform-tests/css/css-contain/contain-paint-change-opacity.html: Added.
+        * web-platform-tests/css/css-contain/contain-paint-clip-005.html:
+        * web-platform-tests/css/css-contain/contain-strict-011-expected.html:
+        * web-platform-tests/css/css-contain/contain-strict-011.html:
+        * web-platform-tests/css/css-contain/crashtests/contain-nested-crash-001.html: Added.
+        * web-platform-tests/css/css-contain/crashtests/w3c-import.log: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/parsing/w3c-import.log.
+        * web-platform-tests/css/css-contain/parsing/contain-computed-children-expected.txt: Added.
+        * web-platform-tests/css/css-contain/parsing/contain-computed-children.html: Added.
+        * web-platform-tests/css/css-contain/parsing/contain-computed-expected.txt:
+        * web-platform-tests/css/css-contain/parsing/contain-computed.html:
+        * web-platform-tests/css/css-contain/parsing/contain-invalid-expected.txt:
+        * web-platform-tests/css/css-contain/parsing/contain-invalid.html:
+        * web-platform-tests/css/css-contain/parsing/w3c-import.log:
+        * web-platform-tests/css/css-contain/w3c-import.log:
+
+2021-11-15  Patrick Griffis  <pgriffis@igalia.com>
+
+        CSP: Fix missing lineNumber and columnNumber in inline violation reports
+        https://bugs.webkit.org/show_bug.cgi?id=233102
+
+        Reviewed by Carlos Garcia Campos.
+
+        Update expectations as passing.
+
+        * web-platform-tests/content-security-policy/securitypolicyviolation/blockeduri-inline-expected.txt:
+
+2021-11-14  Tim Nguyen  <ntim@apple.com>
+
+        Modal dialogs should make the root element unfocusable
+        https://bugs.webkit.org/show_bug.cgi?id=233099
+
+        Reviewed by Simon Fraser.
+
+        From https://html.spec.whatwg.org/multipage/interaction.html#inert,
+
+        > A Document document is blocked by a modal dialog subject if subject is
+        > the topmost dialog element in document's top layer. While document is
+        > so blocked, every node that is connected to document, with the
+        > exception of the subject element and its shadow-including descendants,
+        > must be marked inert.
+
+        RenderStyle::effectiveInert() already matches this definition, Node::deprecatedIsInert() does not.
+
+        Main reason the removed check was there is to prevent the whole document from being inert to hit-testing, but with the RenderStyle
+        approach, we instead override effectiveInert to false for the modal dialog. Removing this check for focus is absolutely fine
+        however, since focusability isn't inherited (Node::deprecatedIsInert is only used for focus).
+
+        Tests added by this Chromium WPT: https://github.com/web-platform-tests/wpt/commit/0457111e7109ec3d9e575aa421b96d8c36ce2ae8
+
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-node-is-unfocusable-expected.txt:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-node-is-unfocusable.html:
+
+2021-11-12  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, reverting r285583.
+
+        Seems to have caused many layout tests to become flaky
+        failures
+
+        Reverted changeset:
+
+        "[css-contain] Support contain:paint"
+        https://bugs.webkit.org/show_bug.cgi?id=224742
+        https://commits.webkit.org/r285583
+
+2021-11-12  Alexey Shvayka  <ashvayka@apple.com>
+
+        Implement custom element definition's *disable shadow* flag
+        https://bugs.webkit.org/show_bug.cgi?id=233023
+
+        Reviewed by Geoffrey Garen.
+
+        Rebaseline WPT tests now that more checks are passing or failing later on.
+
+        * web-platform-tests/custom-elements/CustomElementRegistry-expected.txt:
+        * web-platform-tests/custom-elements/upgrading-expected.txt:
+        * web-platform-tests/shadow-dom/Element-interface-attachShadow-custom-element-expected.txt:
+
+2021-11-12  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r285639.
+        https://bugs.webkit.org/show_bug.cgi?id=233065
+
+        Causes Geolocation test crashes
+
+        Reverted changeset:
+
+        "JSCallbackData should use lexical global object for errors
+        and lifecycle"
+        https://bugs.webkit.org/show_bug.cgi?id=232387
+        https://commits.webkit.org/r285639
+
+2021-11-11  Sergio Villar Senin  <svillar@igalia.com>
+
+        [css-flexbox] Add flex-basis: content support
+        https://bugs.webkit.org/show_bug.cgi?id=221479
+
+        Reviewed by Javier Fernandez.
+
+        * web-platform-tests/css/css-flexbox/parsing/flex-basis-computed-expected.txt: Replaced FAIL
+        by PASS expectations.
+        * web-platform-tests/css/css-flexbox/parsing/flex-basis-valid-expected.txt: Ditto.
+        * web-platform-tests/css/css-flexbox/parsing/flex-shorthand-expected.txt: Ditto.
+
+2021-11-11  Alexey Shvayka  <ashvayka@apple.com>
+
+        JSCallbackData should use lexical global object for errors and lifecycle
+        https://bugs.webkit.org/show_bug.cgi?id=232387
+
+        Reviewed by Geoff Garen.
+
+        * web-platform-tests/dom/traversal/TreeWalker-acceptNode-filter-cross-realm-expected.txt: Added.
+        * web-platform-tests/dom/traversal/TreeWalker-acceptNode-filter-cross-realm-null-browsing-context-expected.txt: Added.
+        * web-platform-tests/dom/traversal/TreeWalker-acceptNode-filter-cross-realm-null-browsing-context.html: Added.
+        * web-platform-tests/dom/traversal/TreeWalker-acceptNode-filter-cross-realm.html: Added.
+        * web-platform-tests/dom/traversal/support/TreeWalker-acceptNode-filter-cross-realm-null-browsing-context-subframe.html: Added.
+        * web-platform-tests/dom/traversal/support/TreeWalker-acceptNode-filter-cross-realm-subframe.html: Added.
+
+2021-11-11  Tim Nguyen  <ntim@apple.com>
+
+        Drop support for <object usemap> making <object> interactive
+        https://bugs.webkit.org/show_bug.cgi?id=222642
+
+        Reviewed by Antti Koivisto.
+
+        As per https://github.com/whatwg/html/pull/6283, <object usemap> should no longer be supported.
+
+        IDL support is kept per spec like other obsolete attributes.
+
+        * web-platform-tests/html/semantics/forms/the-label-element/clicking-noninteractive-unlabelable-content-expected.txt:
+
+2021-11-11  Antoine Quint  <graouts@webkit.org>
+
+        Improve additivity support when animating the transform property
+        https://bugs.webkit.org/show_bug.cgi?id=232990
+
+        Reviewed by Dean Jackson.
+
+        Mark 91 new PASS results.
+
+        * web-platform-tests/css/css-transforms/animation/composited-transform-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-composition-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-matrix-composition-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-perspective-composition-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-rotate-composition-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-skew-composition-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-translate-composition-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/addition-per-property-002-expected.txt:
+
+2021-11-11  Antti Koivisto  <antti@apple.com>
+
+        [CSS Cascade Layers] Support 'revert-layer' value
+        https://bugs.webkit.org/show_bug.cgi?id=232236
+        <rdar://problem/84879369>
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-cascade/revert-layer-008-expected.txt:
+        * web-platform-tests/css/css-will-change/parsing/will-change-invalid:
+
+2021-11-11  Antoine Quint  <graouts@webkit.org>
+
+        Default computed value for "content" should be "none" for ::before and ::after
+        https://bugs.webkit.org/show_bug.cgi?id=232932
+
+        Reviewed by Antti Koivisto.
+
+        * web-platform-tests/css/css-content/computed-value-expected.txt:
+        * web-platform-tests/css/css-pseudo/marker-computed-content-expected.txt:
+        * web-platform-tests/css/css-pseudo/parsing/marker-supported-properties-in-animation-expected.txt:
+
+2021-11-10  Tim Nguyen  <ntim@apple.com>
+
+        Remove non-standard -webkit-border-fit CSS property
+        https://bugs.webkit.org/show_bug.cgi?id=229564
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
+2021-11-10  Antoine Quint  <graouts@webkit.org>
+
+        The cssText property for a computed style should return an empty string
+        https://bugs.webkit.org/show_bug.cgi?id=232943
+
+        Reviewed by Antti Koivisto.
+
+        * web-platform-tests/css/cssom/cssstyledeclaration-csstext-expected.txt:
+
+2021-11-10  Rob Buis  <rbuis@igalia.com>
+
+        [css-contain] Support contain:paint
+        https://bugs.webkit.org/show_bug.cgi?id=224742
+
+        Reviewed by Alan Bujtas.
+
+        Adjust test expectation now that contain: strict is supported.
+
+        * web-platform-tests/css/css-flexbox/flex-item-contains-strict-expected.txt:
+
+2021-11-10  Youenn Fablet  <youenn@apple.com>
+
+        Update libwebrtc to M96
+        https://bugs.webkit.org/show_bug.cgi?id=232873
+
+        Reviewed by Alex Christensen.
+
+        * web-platform-tests/webrtc/RTCPeerConnection-addTrack.https-expected.txt:
+        * web-platform-tests/webrtc/RTCPeerConnection-mandatory-getStats.https-expected.txt:
+        * web-platform-tests/webrtc/RTCRtpTransceiver.https-expected.txt:
+        * web-platform-tests/webrtc/protocol/dtls-setup.https-expected.txt:
+
+2021-11-10  Manuel Rego Casasnovas  <rego@igalia.com>
+
+        Wavy decorations don't cover the whole line length
+        https://bugs.webkit.org/show_bug.cgi?id=232663
+
+        Reviewed by Myles C. Maxfield.
+
+        Import WPT tests from https://github.com/web-platform-tests/wpt/pull/31540.
+
+        * web-platform-tests/css/css-text-decor/text-decoration-line-through-wavy-covers-whole-line-length-001-expected-mismatch.html: Added.
+        * web-platform-tests/css/css-text-decor/text-decoration-line-through-wavy-covers-whole-line-length-001.html: Added.
+        * web-platform-tests/css/css-text-decor/text-decoration-overline-wavy-covers-whole-line-length-001-expected-mismatch.html: Added.
+        * web-platform-tests/css/css-text-decor/text-decoration-overline-wavy-covers-whole-line-length-001.html: Added.
+        * web-platform-tests/css/css-text-decor/text-decoration-underline-wavy-covers-whole-line-length-001-expected-mismatch.html: Added.
+        * web-platform-tests/css/css-text-decor/text-decoration-underline-wavy-covers-whole-line-length-001.html: Added.
+        * web-platform-tests/css/css-text-decor/w3c-import.log:
+
+2021-11-09  Ben Nham  <nham@apple.com>
+
+        Add support for PushSubscriptionChangeEvent
+        https://bugs.webkit.org/show_bug.cgi?id=232455
+
+        Reviewed by Youenn Fablet.
+
+        Rebaseline WPT tests that are now passing.
+
+        * web-platform-tests/push-api/idlharness.https.any.serviceworker-expected.txt:
+
+2021-11-09  Chris Dumez  <cdumez@apple.com>
+
+        BroadcastChannel is still disabled in service workers
+        https://bugs.webkit.org/show_bug.cgi?id=232855
+
+        Reviewed by Darin Adler.
+
+        Rebaseline WPT test that is now passing.
+
+        * web-platform-tests/webmessaging/broadcastchannel/service-worker.https-expected.txt:
+
+2021-11-09  Rob Buis  <rbuis@igalia.com>
+
+        Import css/css-sizing/aspect-ratio tests from WPT
+        https://bugs.webkit.org/show_bug.cgi?id=232783
+
+        Reviewed by Manuel Rego Casasnovas.
+
+        Import based on SHA d91cc9b3a0.
+
+        * web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-002.html:
+        * web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-004.html:
+        * web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-031-expected.xht: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-031.html: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-032-expected.xht: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-032.html: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-033-expected.xht: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/flex-aspect-ratio-033.html: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/w3c-import.log:
+
+2021-11-09  Chris Dumez  <cdumez@apple.com>
+
+        Ignore BroadcastChannel::postMessage from detached iframe / closing worker contexts
+        https://bugs.webkit.org/show_bug.cgi?id=232693
+
+        Reviewed by Darin Adler.
+
+        Resync BroadcastChannel WPT tests from upstream to gain test coverage.
+
+        * web-platform-tests/webmessaging/broadcastchannel/basics.any.serviceworker.html: Added.
+        * web-platform-tests/webmessaging/broadcastchannel/cross-origin-expected.txt: Added.
+        * web-platform-tests/webmessaging/broadcastchannel/cross-origin.html: Added.
+        * web-platform-tests/webmessaging/broadcastchannel/detached-iframe-expected.txt: Added.
+        * web-platform-tests/webmessaging/broadcastchannel/detached-iframe.html: Added.
+        * web-platform-tests/webmessaging/broadcastchannel/ordering-expected.txt: Added.
+        * web-platform-tests/webmessaging/broadcastchannel/ordering.html: Added.
+        * web-platform-tests/webmessaging/broadcastchannel/resources/cross-origin.html: Added.
+        * web-platform-tests/webmessaging/broadcastchannel/resources/ordering.html: Added.
+        * web-platform-tests/webmessaging/broadcastchannel/resources/service-worker.js: Added.
+        * web-platform-tests/webmessaging/broadcastchannel/resources/w3c-import.log:
+        * web-platform-tests/webmessaging/broadcastchannel/resources/worker.js:
+        (handler):
+        * web-platform-tests/webmessaging/broadcastchannel/service-worker.https-expected.txt: Added.
+        * web-platform-tests/webmessaging/broadcastchannel/service-worker.https.html: Added.
+        * web-platform-tests/webmessaging/broadcastchannel/w3c-import.log:
+        * web-platform-tests/webmessaging/broadcastchannel/workers-expected.txt:
+        * web-platform-tests/webmessaging/broadcastchannel/workers.html:
+
+2021-11-09  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r285488.
+        https://bugs.webkit.org/show_bug.cgi?id=232884
+
+        Linked with r285486 which was also reverted.
+
+        Reverted changeset:
+
+        "Rebaseline will-change-invalid.html after r285487 & r285486"
+        https://commits.webkit.org/r285488
+
+2021-11-09  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r285486.
+        https://bugs.webkit.org/show_bug.cgi?id=232876
+
+        Made fast/ruby/generated-before-counter-doesnt-crash.html
+        flaky, possibly indicating perf problem
+
+        Reverted changeset:
+
+        "[CSS Cascade Layers] Support 'revert-layer' value"
+        https://bugs.webkit.org/show_bug.cgi?id=232236
+        https://commits.webkit.org/r285486
+
+2021-11-09  Tim Nguyen  <ntim@apple.com>
+
+        Rebaseline will-change-invalid.html after r285487 & r285486
+
+        Unreviewed test gardening
+
+        * web-platform-tests/css/css-will-change/parsing/will-change-invalid-expected.txt:
+
+2021-11-09  Tim Nguyen  <ntim@apple.com>
+
+        Use isValidCustomIdentifier in consumeWillChange
+        https://bugs.webkit.org/show_bug.cgi?id=232868
+
+        Reviewed by Antti Koivisto.
+
+        Edit existing WPT to be more exaustive: https://github.com/web-platform-tests/wpt/pull/31556
+
+        * web-platform-tests/css/css-will-change/parsing/will-change-invalid.html:
+        * web-platform-tests/css/css-will-change/parsing/will-change-invalid-expected.txt:
+
+2021-11-09  Antti Koivisto  <antti@apple.com>
+
+        [CSS Cascade Layers] Support 'revert-layer' value
+        https://bugs.webkit.org/show_bug.cgi?id=232236
+        <rdar://problem/84879369>
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-cascade/revert-layer-008-expected.txt:
+
+2021-11-09  Arcady Goldmints-Orlov  <agoldmints@igalia.com>
+
+        [GLIB] Update test expectations and baselines. Unreviewed test gardening.
+        https://bugs.webkit.org/show_bug.cgi?id=232862
+
+        * web-platform-tests/html/canvas/offscreen/text/2d.text.setFont.mathFont-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/text/2d.text.setFont.mathFont.worker-expected.txt: Added.
+
+2021-11-09  Martin Robinson  <mrobinson@webkit.org>
+
+        A mask or isolation should set transform-style to flat
+        https://bugs.webkit.org/show_bug.cgi?id=232491
+
+        Reviewed by Simon Fraser.
+
+        Update test results showing newly passing test.
+
+        * web-platform-tests/css/css-transforms/preserve-3d-flat-grouping-properties-expected.txt:
+
+2021-11-08  Patrick Griffis  <pgriffis@igalia.com>
+
+        Implement nonce-hiding
+        https://bugs.webkit.org/show_bug.cgi?id=179728
+
+        Reviewed by Chris Dumez.
+
+        Update all nonce-hiding expectations as passing.
+        Update reflection-misc as script.nonce not being reflected, this matches Chromiums results.
+
+        * web-platform-tests/content-security-policy/nonce-hiding/nonces-expected.txt:
+        * web-platform-tests/content-security-policy/nonce-hiding/script-nonces-hidden-expected.txt:
+        * web-platform-tests/content-security-policy/nonce-hiding/script-nonces-hidden-meta.sub-expected.txt:
+        * web-platform-tests/content-security-policy/nonce-hiding/svgscript-nonces-hidden-expected.txt:
+        * web-platform-tests/content-security-policy/nonce-hiding/svgscript-nonces-hidden-meta.sub-expected.txt:
+        * web-platform-tests/html/dom/idlharness.https-expected.txt:
+        * web-platform-tests/html/dom/reflection-misc-expected.txt:
+
+2021-11-08  Chris Dumez  <cdumez@apple.com>
+
+        Add abort reason to AbortSignal
+        https://bugs.webkit.org/show_bug.cgi?id=232299
+        <rdar://problem/84921281>
+
+        Reviewed by Alexey Shvayka.
+
+        Import https://github.com/web-platform-tests/wpt/commit/9c7dfd2809b6c3a209a2c4df43c1d6816e6bfc1b from
+        upstream WPT to gain layout test coverage and rebaseline the test.
+
+        * web-platform-tests/dom/abort/event.any-expected.txt:
+        * web-platform-tests/dom/abort/event.any.js:
+        * web-platform-tests/dom/abort/event.any.worker-expected.txt:
+
+2021-11-08  Tim Nguyen  <ntim@apple.com>
+
+        Stop skipping html/semantics/interactive-elements/the-details-element/toggleEvent.html in import-expectations.json
+
+        Unreviewed.
+
+        No point skipping it, WebKit passes the test, and we want that test to be up to date.
+        Also, with directory-wide imports, that test will no longer be wrongly deleted.
+
+        * resources/import-expectations.json:
+
+2021-11-08  Antoine Quint  <graouts@webkit.org>
+
+        Discrete animation of content property does not work
+        https://bugs.webkit.org/show_bug.cgi?id=183544
+        <rdar://problem/38360395>
+
+        Reviewed by Antti Koivisto.
+
+        Add a new test to check that we can animate the "content" property using a discrete animation.
+
+        * web-platform-tests/css/css-content/content-animation-expected.txt: Added.
+        * web-platform-tests/css/css-content/content-animation.html: Added.
+
+2021-11-08  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r285408.
+        https://bugs.webkit.org/show_bug.cgi?id=232829
+
+        Depending on r285392, which caused 4% Speedometer2 regression
+
+        Reverted changeset:
+
+        "[CSS Cascade Layers] Support 'revert-layer' value"
+        https://bugs.webkit.org/show_bug.cgi?id=232236
+        https://commits.webkit.org/r285408
+
+2021-11-08  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed, reverting r284883.
+
+        Caused high energy use on wsj.com <rdar://85156874>
+
+        Reverted changeset:
+
+        "<link> elements should be able to fire more than one load /
+        error event"
+        https://bugs.webkit.org/show_bug.cgi?id=232309
+        https://commits.webkit.org/r284883
+
+2021-11-08  Manuel Rego Casasnovas  <rego@igalia.com>
+
+        WPT test importer imports rel="mismatch" as the reference
+        https://bugs.webkit.org/show_bug.cgi?id=207175
+        <rdar://problem/69332102>
+
+        Reviewed by Jonathan Bedard.
+
+        Re-imported css/css-fonts/standard-font-family-5.html from WPT, so the -expected.html file gets renamed to -expected-mismatch.html.
+
+        * web-platform-tests/css/css-fonts/standard-font-family-5-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-fonts/standard-font-family-5-expected.html.
+        * web-platform-tests/css/css-fonts/w3c-import.log:
+
+2021-11-08  Antti Koivisto  <antti@apple.com>
+
+        [CSS Cascade Layers] Support 'revert-layer' value
+        https://bugs.webkit.org/show_bug.cgi?id=232236
+        <rdar://problem/84879369>
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-cascade/revert-layer-008-expected.txt:
+
+2021-11-08  Antoine Quint  <graouts@webkit.org>
+
+        [Web Animations] Add support for composite operations for software animations
+        https://bugs.webkit.org/show_bug.cgi?id=230404
+        <rdar://problem/83495091>
+
+        Reviewed by Dean Jackson.
+
+        Mark 1546 new PASS results among tests for composite operations. There are technically 10
+        new FAIL results for a few transform-related tests, but these were only passing because the
+        entire feature of composite operations was missing and will be fixed before this feature
+        is enabled.
+
+        * web-platform-tests/css/css-align/animation/column-gap-composition-expected.txt:
+        * web-platform-tests/css/css-align/animation/row-gap-composition-expected.txt:
+        * web-platform-tests/css/css-backgrounds/animations/border-bottom-left-radius-composition-expected.txt:
+        * web-platform-tests/css/css-backgrounds/animations/border-bottom-right-radius-composition-expected.txt:
+        * web-platform-tests/css/css-backgrounds/animations/border-image-outset-composition-expected.txt:
+        * web-platform-tests/css/css-backgrounds/animations/border-image-slice-composition-expected.txt:
+        * web-platform-tests/css/css-backgrounds/animations/border-image-width-composition-expected.txt:
+        * web-platform-tests/css/css-backgrounds/animations/border-top-left-radius-composition-expected.txt:
+        * web-platform-tests/css/css-backgrounds/animations/border-top-right-radius-composition-expected.txt:
+        * web-platform-tests/css/css-backgrounds/animations/box-shadow-composition-expected.txt:
+        * web-platform-tests/css/css-box/animation/margin-bottom-composition-expected.txt:
+        * web-platform-tests/css/css-box/animation/margin-left-composition-expected.txt:
+        * web-platform-tests/css/css-box/animation/margin-right-composition-expected.txt:
+        * web-platform-tests/css/css-box/animation/margin-top-composition-expected.txt:
+        * web-platform-tests/css/css-box/animation/padding-bottom-composition-expected.txt:
+        * web-platform-tests/css/css-box/animation/padding-left-composition-expected.txt:
+        * web-platform-tests/css/css-box/animation/padding-right-composition-expected.txt:
+        * web-platform-tests/css/css-box/animation/padding-top-composition-expected.txt:
+        * web-platform-tests/css/css-color/animation/color-composition-expected.txt:
+        * web-platform-tests/css/css-flexbox/animation/flex-basis-composition-expected.txt:
+        * web-platform-tests/css/css-masking/animations/clip-path-composition-expected.txt:
+        * web-platform-tests/css/css-masking/animations/clip-path-interpolation-002-expected.txt:
+        * web-platform-tests/css/css-masking/clip-path/interpolation-expected.txt:
+        * web-platform-tests/css/css-position/animations/bottom-composition-expected.txt:
+        * web-platform-tests/css/css-position/animations/left-composition-expected.txt:
+        * web-platform-tests/css/css-position/animations/right-composition-expected.txt:
+        * web-platform-tests/css/css-position/animations/top-composition-expected.txt:
+        * web-platform-tests/css/css-shapes/animation/shape-margin-composition-expected.txt:
+        * web-platform-tests/css/css-shapes/animation/shape-outside-composition-expected.txt:
+        * web-platform-tests/css/css-shapes/basic-shape-interpolation-expected.txt:
+        * web-platform-tests/css/css-sizing/animation/aspect-ratio-interpolation-expected.txt:
+        * web-platform-tests/css/css-sizing/animation/height-composition-expected.txt:
+        * web-platform-tests/css/css-sizing/animation/max-height-composition-expected.txt:
+        * web-platform-tests/css/css-sizing/animation/max-width-composition-expected.txt:
+        * web-platform-tests/css/css-sizing/animation/min-height-composition-expected.txt:
+        * web-platform-tests/css/css-sizing/animation/min-width-composition-expected.txt:
+        * web-platform-tests/css/css-sizing/animation/width-composition-expected.txt:
+        * web-platform-tests/css/css-text/animations/letter-spacing-composition-expected.txt:
+        * web-platform-tests/css/css-text/animations/text-indent-composition-expected.txt:
+        * web-platform-tests/css/css-text/animations/word-spacing-composition-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/perspective-composition-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/rotate-composition-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/scale-composition-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-composition-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-rotate-composition-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-scale-composition-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-skew-composition-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-translate-composition-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/translate-composition-expected.txt:
+        * web-platform-tests/css/css-transitions/KeyframeEffect-setKeyframes.tentative-expected.txt:
+        * web-platform-tests/css/css-transitions/animations/text-shadow-composition-expected.txt:
+        * web-platform-tests/css/css-transitions/animations/vertical-align-composition-expected.txt:
+        * web-platform-tests/css/css-ui/animation/caret-color-composition-expected.txt:
+        * web-platform-tests/css/css-ui/animation/outline-offset-composition-expected.txt:
+        * web-platform-tests/css/css-ui/animation/outline-width-composition-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-anchor-composition-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-distance-composition-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-position-composition-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/accumulation-per-property-001-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/accumulation-per-property-002-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/addition-per-property-001-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/addition-per-property-002-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/interpolation-per-property-001-expected.txt:
+        * web-platform-tests/web-animations/animation-model/combining-effects/effect-composition-expected.txt:
+        * web-platform-tests/web-animations/animation-model/keyframe-effects/effect-value-context-filling-expected.txt:
+        * web-platform-tests/web-animations/animation-model/keyframe-effects/effect-value-replaced-animations-expected.txt:
+        * web-platform-tests/web-animations/interfaces/Animation/commitStyles-expected.txt:
+
+2021-11-07  Cameron McCormack  <heycam@apple.com>
+
+        Restore canvas WPTs removed in bug 232449
+        https://bugs.webkit.org/show_bug.cgi?id=232795
+        <rdar://problem/85108161>
+
+        Rubber-stamped by Ryosuke Niwa.
+
+        * web-platform-tests/html/canvas/element/manual/README.md: Added.
+        * web-platform-tests/html/canvas/element/manual/building-paths/canvas_complexshapes_arcto_001-expected.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/building-paths/canvas_complexshapes_arcto_001.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/building-paths/canvas_complexshapes_beziercurveto_001-expected.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/building-paths/canvas_complexshapes_beziercurveto_001.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/building-paths/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/compositing/canvas_compositing_globalcompositeoperation_001-expected.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/compositing/canvas_compositing_globalcompositeoperation_001.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/compositing/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/context-attributes/canvas-with-padding-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/context-attributes/canvas-with-padding.html: Added.
+        * web-platform-tests/html/canvas/element/manual/context-attributes/getContextAttributes-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/context-attributes/getContextAttributes.html: Added.
+        * web-platform-tests/html/canvas/element/manual/context-attributes/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/drawimage_canvas-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/drawimage_canvas.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/drawimage_canvas_self-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/drawimage_canvas_self.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/drawimage_canvas_self_ref.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/drawimage_crossorigin.sub-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/drawimage_crossorigin.sub.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/drawimage_html_image-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/drawimage_html_image.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/drawimage_svg_image_1-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/drawimage_svg_image_1.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/drawimage_svg_image_with_foreign_object_does_not_taint-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/drawimage_svg_image_with_foreign_object_does_not_taint.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-from-bitmap-orientation-none.tentative-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-from-bitmap-orientation-none.tentative.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-from-bitmap-swap-width-height-orientation-none.tentative-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-from-bitmap-swap-width-height-orientation-none.tentative.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-from-bitmap-swap-width-height.tentative-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-from-bitmap-swap-width-height.tentative.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-from-bitmap.tentative-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-from-bitmap.tentative.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-from-blob.tentative-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-from-blob.tentative.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-from-element-orientation-none.tentative-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-from-element-orientation-none.tentative.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-from-element-swap-width-height-orientation-none.tentative-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-from-element-swap-width-height-orientation-none.tentative.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-from-element-swap-width-height.tentative-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-from-element-swap-width-height.tentative.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-from-element.tentative-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-from-element.tentative.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-with-src-rect.tentative-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-with-src-rect.tentative.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-paths-to-the-canvas/canvas_complexshapes_ispointInpath_001-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-paths-to-the-canvas/canvas_complexshapes_ispointInpath_001.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-paths-to-the-canvas/drawFocusIfNeeded_001-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-paths-to-the-canvas/drawFocusIfNeeded_001.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-paths-to-the-canvas/drawFocusIfNeeded_002-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-paths-to-the-canvas/drawFocusIfNeeded_002.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-paths-to-the-canvas/drawFocusIfNeeded_003-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-paths-to-the-canvas/drawFocusIfNeeded_003.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-paths-to-the-canvas/drawFocusIfNeeded_004-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-paths-to-the-canvas/drawFocusIfNeeded_004.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-paths-to-the-canvas/drawFocusIfNeeded_005-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-paths-to-the-canvas/drawFocusIfNeeded_005.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-paths-to-the-canvas/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.fontStretch.condensed-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.fontStretch.condensed.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.fontStretch.expanded-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.fontStretch.expanded.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.fontStretch.extra-condensed-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.fontStretch.extra-condensed.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.fontStretch.extra-expanded-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.fontStretch.extra-expanded.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.fontStretch.normal-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.fontStretch.normal.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.fontStretch.semi-condensed-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.fontStretch.semi-condensed.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.fontStretch.semi-expanded-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.fontStretch.semi-expanded.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.fontStretch.ultra-condensed-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.fontStretch.ultra-condensed.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.fontStretch.ultra-expanded-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.fontStretch.ultra-expanded.html: Added.
+        * web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/fill-and-stroke-styles/2d.fillStyle.parse.current.notrendered-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/fill-and-stroke-styles/2d.fillStyle.parse.current.notrendered.html: Added.
+        * web-platform-tests/html/canvas/element/manual/fill-and-stroke-styles/canvas_colorsandstyles_createlineargradient_001-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/fill-and-stroke-styles/canvas_colorsandstyles_createlineargradient_001.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/fill-and-stroke-styles/conic-gradient-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/fill-and-stroke-styles/conic-gradient-rotation-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/fill-and-stroke-styles/conic-gradient-rotation.html: Added.
+        * web-platform-tests/html/canvas/element/manual/fill-and-stroke-styles/conic-gradient.html: Added.
+        * web-platform-tests/html/canvas/element/manual/fill-and-stroke-styles/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/filters/canvas-filter-object-blur-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/filters/canvas-filter-object-blur.html: Added.
+        * web-platform-tests/html/canvas/element/manual/filters/canvas-filter-object-component-transfer-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/filters/canvas-filter-object-component-transfer.html: Added.
+        * web-platform-tests/html/canvas/element/manual/filters/canvas-filter-object-convolve-matrix-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/filters/canvas-filter-object-convolve-matrix.html: Added.
+        * web-platform-tests/html/canvas/element/manual/filters/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/image-smoothing/imagesmoothing-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/image-smoothing/imagesmoothing.html: Added.
+        * web-platform-tests/html/canvas/element/manual/image-smoothing/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/canvas-ImageBitmap-close-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/canvas-ImageBitmap-close.html: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/canvas-createImageBitmap-resize-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/canvas-createImageBitmap-resize.html: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/canvas-createImageBitmap-video-resize-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/canvas-createImageBitmap-video-resize.html: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/common.sub.js: Added.
+        (makeCanvas):
+        (imageBitmapVideoPromise.new.Promise.video.oncanplaythrough):
+        (imageBitmapVideoPromise.new.Promise):
+        (makeVideo):
+        (response.arrayBuffer.then.):
+        (response.arrayBuffer.then):
+        (makeMakeHTMLImage.):
+        (makeMakeHTMLImage):
+        (makeBlob.):
+        (factory.makeMakeHTMLImage):
+        (factory.makeMakeSVGImage):
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-blob-invalidtype-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-blob-invalidtype.html: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-bounds-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-bounds.html: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-drawImage-closed-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-drawImage-closed.html: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-drawImage-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-drawImage.html: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-exif-orientation-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-exif-orientation.html: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-flipY-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-flipY.html: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-in-worker-transfer-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-in-worker-transfer.html: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-invalid-args-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-invalid-args.html: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-origin.sub-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-origin.sub.html: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-serializable-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-serializable.html: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-sizeOverflow-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-sizeOverflow.html: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-transfer-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-transfer.html: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-worker.js: Added.
+        (makeBlob.):
+        (makeBlob):
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/imageBitmap-from-imageData-no-image-rotation-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/imageBitmap-from-imageData-no-image-rotation.html: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/resources/squares.jpg: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/transfer-worker.js: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/worker-onmessage-noop.js: Added.
+        (self.onmessage):
+        * web-platform-tests/html/canvas/element/manual/line-styles/canvas_linestyles_linecap_001-expected.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/line-styles/canvas_linestyles_linecap_001.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/line-styles/lineto_a-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/line-styles/lineto_a.html: Added.
+        * web-platform-tests/html/canvas/element/manual/line-styles/lineto_ref.html: Added.
+        * web-platform-tests/html/canvas/element/manual/line-styles/setLineDash-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/line-styles/setLineDash.html: Added.
+        * web-platform-tests/html/canvas/element/manual/line-styles/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/shadows/canvas_shadows_001-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/shadows/canvas_shadows_001.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/shadows/canvas_shadows_002-expected.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/shadows/canvas_shadows_002.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/shadows/canvas_shadows_system_colors-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/shadows/canvas_shadows_system_colors.html: Added.
+        * web-platform-tests/html/canvas/element/manual/shadows/shadowBlur_gaussian_tolerance.1-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/shadows/shadowBlur_gaussian_tolerance.1.html: Added.
+        * web-platform-tests/html/canvas/element/manual/shadows/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/text-styles/canvas_text_font_001-expected.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/text-styles/canvas_text_font_001.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/text-styles/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/the-canvas-state/2d.state.saverestore.imageSmoothingEnabled-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/the-canvas-state/2d.state.saverestore.imageSmoothingEnabled.html: Added.
+        * web-platform-tests/html/canvas/element/manual/the-canvas-state/2d.zero.size.canvas-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/the-canvas-state/2d.zero.size.canvas.html: Added.
+        * web-platform-tests/html/canvas/element/manual/the-canvas-state/canvas_state_restore_001-expected.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/the-canvas-state/canvas_state_restore_001.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/the-canvas-state/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/transformations/2d.transformation.getTransform-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/transformations/2d.transformation.getTransform.html: Added.
+        * web-platform-tests/html/canvas/element/manual/transformations/canvas_transformations_reset_001-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/transformations/canvas_transformations_reset_001.html: Added.
+        * web-platform-tests/html/canvas/element/manual/transformations/canvas_transformations_scale_001-expected.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/transformations/canvas_transformations_scale_001.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/transformations/transform_a-expected.html: Added.
+        * web-platform-tests/html/canvas/element/manual/transformations/transform_a.html: Added.
+        * web-platform-tests/html/canvas/element/manual/transformations/transform_ref.html: Added.
+        * web-platform-tests/html/canvas/element/manual/transformations/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/unclosed-canvas-1-expected.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/unclosed-canvas-1.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/unclosed-canvas-2-expected.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/unclosed-canvas-2.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/unclosed-canvas-3-expected.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/unclosed-canvas-3.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/unclosed-canvas-4-expected.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/unclosed-canvas-4.htm: Added.
+        * web-platform-tests/html/canvas/element/manual/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/ImageData-fidelity-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/ImageData-fidelity.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-colorManaged-convertToBlob-roundtrip-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-colorManaged-convertToBlob-roundtrip.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-colorManaged-toBlob-toDataURL-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-colorManaged-toBlob-toDataURL.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-colorspace-arguments-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-colorspace-arguments.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-createImageBitmap-e_srgb-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-createImageBitmap-e_srgb.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-createPutGetImageData-colorManaged-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-createPutGetImageData-colorManaged.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-Blob-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-Blob.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-ImageBitmap-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-ImageBitmap.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-ImageData-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-ImageData.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-canvas-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-canvas.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-cloned-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-cloned.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-image-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-image.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-video-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-video.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-video-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-video.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage.https-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage.https.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-pattern-canvas-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-pattern-canvas.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-pattern-image-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-pattern-image.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-settings-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-settings.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3.js: Added.
+        (pixelsApproximatelyEqual):
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-draw-high-bit-depth-images-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-draw-high-bit-depth-images.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-drawImage-e_srgb-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-drawImage-e_srgb.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-drawImage-offscreenCanvas-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-drawImage-offscreenCanvas.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-getImageData-e_srgb-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-getImageData-e_srgb.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/imageData-colorManagedBehavior-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/imageData-colorManagedBehavior.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/imagedata-no-color-settings-crash-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/imagedata-no-color-settings-crash.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Adobe-RGB-BB0000CC.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Adobe-RGB-BB0000FF.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Adobe-RGB-BBBC00000000CCCC.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Adobe-RGB-BBBC00000000FFFF.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Adobe-RGB-FF0000CC.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Adobe-RGB-FF0000FF.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Adobe-RGB-FFFF00000000CCCC.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Adobe-RGB-FFFF00000000FFFF.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Display-P3-0.7333-0-0.svg: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Display-P3-1-0-0.svg: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Display-P3-BB0000CC.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Display-P3-BB0000FF.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Display-P3-BBBC00000000CCCC.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Display-P3-BBBC00000000FFFF.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Display-P3-FF0000CC.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Display-P3-FF0000FF.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Display-P3-FFFF00000000CCCC.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Display-P3-FFFF00000000FFFF.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Generic-CMYK-BE000000.jpg: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Generic-CMYK-FF000000.jpg: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Rec2020-222000000.mp4: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Rec2020-222000000.webm: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Rec2020-3FF000000.mp4: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Rec2020-3FF000000.webm: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/pattern-semitransparent-p3d65.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/pattern-semitransparent-rec2020.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/pattern-semitransparent-srgb.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/pattern-srgb-fullcolor.ogv: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/pattern-srgb-transparent.avif: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/pattern-srgb-transparent.bmp: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/pattern-srgb-transparent.ico: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/pattern-srgb-transparent.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/pattern-srgb-transparent.webp: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/pattern-srgb.avif: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/pattern-srgb.bmp: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/pattern-srgb.gif: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/pattern-srgb.ico: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/pattern-srgb.jpg: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/pattern-srgb.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/pattern-srgb.svg: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/pattern-srgb.webp: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_AdobeRGB_opaque.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_AdobeRGB_transparent.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_DisplayP3_opaque.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_DisplayP3_transparent.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_ProPhoto_opaque.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_ProPhoto_transparent.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_Rec2020_opaque.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_Rec2020_transparent.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_interlaced_AdobeRGB_opaque.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_interlaced_AdobeRGB_transparent.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_interlaced_DisplayP3_opaque.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_interlaced_DisplayP3_transparent.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_interlaced_ProPhoto_opaque.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_interlaced_ProPhoto_transparent.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_interlaced_Rec2020_opaque.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_interlaced_Rec2020_transparent.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_interlaced_sRGB_opaque.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_interlaced_sRGB_transparent.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_sRGB_opaque.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_16bit_sRGB_transparent.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_8bit_AdobeRGB_opaque.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_8bit_AdobeRGB_transparent.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_8bit_DisplayP3_opaque.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_8bit_DisplayP3_transparent.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_8bit_ProPhoto_opaque.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_8bit_ProPhoto_transparent.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_8bit_Rec2020_opaque.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_8bit_Rec2020_transparent.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_8bit_sRGB_opaque.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/2x2_8bit_sRGB_transparent.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/png-16bit/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-BB0000.mp4: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-BB0000.svg: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-BB0000.webm: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-BB0000CC.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-BB0000FF.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-BBBC00000000CCCC.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-BBBC00000000FFFF.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-FF0000.svg: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-FF0000CC.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-FF0000FF.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-FF0100.mp4: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-FF0100.webm: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-FFFF00000000CCCC.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-FFFF00000000FFFF.png: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/transferFromImageBitmap-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/transferFromImageBitmap.html: Added.
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/convert-to-blob/offscreencanvas.convert.to.blob-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/convert-to-blob/offscreencanvas.convert.to.blob.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/convert-to-blob/offscreencanvas.convert.to.blob.w-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/convert-to-blob/offscreencanvas.convert.to.blob.w.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/convert-to-blob/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/draw-generic-family/2d.text.draw.generic.family-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/draw-generic-family/2d.text.draw.generic.family.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/draw-generic-family/2d.text.draw.generic.family.w-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/draw-generic-family/2d.text.draw.generic.family.w.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/draw-generic-family/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/filter/offscreencanvas.filter-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/filter/offscreencanvas.filter.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/filter/offscreencanvas.filter.js: Added.
+        (getRegularContextForFilter):
+        (matchImageDataResults):
+        (createPatternCanvas):
+        * web-platform-tests/html/canvas/offscreen/manual/filter/offscreencanvas.filter.w-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/filter/offscreencanvas.filter.w.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/filter/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/image-smoothing/image.smoothing-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/image-smoothing/image.smoothing.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/image-smoothing/image.smoothing.worker-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/image-smoothing/image.smoothing.worker.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/image-smoothing/image.smoothing.worker.js: Added.
+        (createTestImage):
+        (test):
+        (test.draw):
+        * web-platform-tests/html/canvas/offscreen/manual/image-smoothing/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.commit-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.commit.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.commit.w-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.commit.w.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.constructor-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.constructor.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.constructor.worker-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.constructor.worker.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.constructor.worker.js: Added.
+        (t1.step):
+        (t2.step):
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.getcontext-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.getcontext.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.getcontext.worker-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.getcontext.worker.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.getcontext.worker.js: Added.
+        (test):
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.resize-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.resize.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transfer.to.imagebitmap-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transfer.to.imagebitmap.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transfer.to.imagebitmap.w-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transfer.to.imagebitmap.w.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transfercontrol.to.offscreen-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transfercontrol.to.offscreen.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transfercontrol.to.offscreen.w-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transfercontrol.to.offscreen.w.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transferrable-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transferrable.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transferrable.w-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transferrable.w.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/w3c-import.log: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/transformations/2d.transformation.getTransform-expected.txt: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/transformations/2d.transformation.getTransform.html: Added.
+        * web-platform-tests/html/canvas/offscreen/manual/transformations/w3c-import.log: Added.
+
+2021-11-06  Joonghun Park  <jh718.park@samsung.com>
+
+        font-synthesis inline/computed style should be in canonical order.
+        https://bugs.webkit.org/show_bug.cgi?id=186344
+
+        Reviewed by Myles C. Maxfield.
+
+        Per the spec, https://drafts.csswg.org/css-fonts/#font-synthesis.
+
+        * web-platform-tests/css/css-fonts/inheritance-expected.txt:
+        * web-platform-tests/css/css-fonts/parsing/font-synthesis-computed-expected.txt:
+        * web-platform-tests/css/css-fonts/parsing/font-synthesis-valid-expected.txt:
+        * web-platform-tests/css/css-pseudo/parsing/marker-supported-properties-in-animation-expected.txt:
+        * web-platform-tests/css/cssom/cssstyledeclaration-csstext-expected.txt:
+
+2021-11-06  Tim Nguyen  <ntim@apple.com>
+
+        Unreviewed, add missing green-dialog-and-backdrop.html
+        https://bugs.webkit.org/show_bug.cgi?id=232784
+
+        This should have been part of r285368 to avoid resource-files.json referencing an non-existing file.
+
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/green-dialog-and-backdrop.html: Added.
+
+2021-11-06  Tim Nguyen  <ntim@apple.com>
+
+        Re-import html/semantics/interactive-elements/the-dialog-element WPT
+        https://bugs.webkit.org/show_bug.cgi?id=232784
+
+        Unreviewed, reverting some changes made by r285346, and upstreamed them.
+
+        Upstream commit: https://github.com/web-platform-tests/wpt/commit/301143db2eced1c387ca4927c03cf2be41056a83
+
+        * resources/resource-files.json:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/resources/green-dialog-and-backdrop.html: Removed.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/resources/w3c-import.log:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-clip-expected.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-clip.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-filter-expected.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-filter.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-mask-expected.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-mask.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-opacity-expected.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-opacity.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-overflow-clip-expected.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-overflow-clip.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-overflow-hidden-expected.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-overflow-hidden.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-overflow-scroll-expected.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-overflow-scroll.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-transform-expected.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-transform.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/w3c-import.log:
+
+2021-11-05  Chris Dumez  <cdumez@apple.com>
+
+        Resync web-platform-tests/html from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=232449
+
+        Reviewed by Alex Christensen.
+
+        Resync web-platform-tests/html from upstream 038de3e0ddeaf9e20b.
+
+        * resources/resource-files.json:
+        * web-platform-tests/html/*: Updated.
+
+2021-11-05  Kiet Ho  <tho22@apple.com>
+
+        Implement parsing and animation support for offset-path
+        https://bugs.webkit.org/show_bug.cgi?id=231801
+
+        Reviewed by Simon Fraser.
+
+        Updated relevant test expectations.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/cssom/cssstyledeclaration-csstext-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-path-interpolation-001-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-path-interpolation-002-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-path-interpolation-003-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-path-interpolation-004-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-path-interpolation-005-expected.txt:
+        * web-platform-tests/css/motion/inheritance-expected.txt:
+        * web-platform-tests/css/motion/offset-path-serialization-expected.txt:
+        * web-platform-tests/css/motion/offset-supports-calc-expected.txt:
+        * web-platform-tests/css/motion/parsing/offset-path-computed-expected.txt:
+        * web-platform-tests/css/motion/parsing/offset-path-parsing-valid-expected.txt:
+        * web-platform-tests/css/motion/parsing/offset-shorthand-expected.txt:
+
+2021-11-04  Martin Robinson  <mrobinson@webkit.org>
+
+        implement transform: perspective(none)
+        https://bugs.webkit.org/show_bug.cgi?id=231361
+        <rdar://problem/84124161>
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-001-expected.txt:
+        * web-platform-tests/css/css-transforms/parsing/transform-valid-expected.txt:
+
+2021-11-03  Joonghun Park  <jh718.park@samsung.com>
+
+        border-radius inline style should serialize with valid syntax
+        https://bugs.webkit.org/show_bug.cgi?id=183994
+
+        This patch have border-radius property serializes in canonical order
+        as specified in https://drafts.csswg.org/css-backgrounds/#border-radius.
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/css/css-backgrounds/parsing/border-radius-valid-expected.txt: Add more test case results.
+        * web-platform-tests/css/css-backgrounds/parsing/border-radius-valid.html: Add more test cases.
+
+2021-11-03  Chris Dumez  <cdumez@apple.com>
+
+        Javascript URLs do not run in the right context when using frame targeting
+        https://bugs.webkit.org/show_bug.cgi?id=232382
+
+        Reviewed by Alex Christensen.
+
+        * web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/010-expected.txt:
+        The test is no longer timing out now that we run the javascript URL contained in the <form>'s action in the context
+        of the "test" iframe instead of the top frame. However, the test is still failing, possibly because the JavaScript
+        URL is run synchronously.
+
+2021-11-03  Antti Koivisto  <antti@apple.com>
+
+        ::slotted element style not invalidated correctly in nested case
+        https://bugs.webkit.org/show_bug.cgi?id=232665
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-scoping/slotted-nested-expected.txt:
+
+2021-11-03  Antti Koivisto  <antti@apple.com>
+
+        ::slotted shouldn't match an active <slot>
+        https://bugs.webkit.org/show_bug.cgi?id=232664
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-scoping/slotted-slot-expected.txt:
+
+2021-11-01  Michael[tm] Smith  <mike@w3.org>
+
+        [WebInspector][CORS] Show HTTP status code in CORS messages.
+        https://bugs.webkit.org/show_bug.cgi?id=231928
+
+        Reviewed by Darin Adler
+
+        Update tests with CORS messages, by adding the status code.
+
+        * web-platform-tests/html/semantics/embedded-content/media-elements/track/track-element/track-data-url-expected.txt:
+        * web-platform-tests/html/semantics/embedded-content/the-iframe-element/sandbox_032-expected.txt:
+        * web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-crossorigin-change.sub-expected.txt:
+        * web-platform-tests/referrer-policy/generic/sandboxed-iframe-with-opaque-origin-expected.txt:
+        * web-platform-tests/workers/modules/dedicated-worker-import-data-url-cross-origin-expected.txt:
+        * web-platform-tests/worklets/audio-worklet-credentials.https-expected.txt:
+        * web-platform-tests/worklets/audio-worklet-import.https-expected.txt:
+        * web-platform-tests/worklets/audio-worklet-referrer.https-expected.txt:
+
+2021-11-01  Chris Dumez  <cdumez@apple.com>
+
+        Align XSLTProcessor with Blink and get closer to Gecko in the process
+        https://bugs.webkit.org/show_bug.cgi?id=232485
+
+        Reviewed by Alex Christensen.
+
+        Rebaseline WPT test now that more checks are passing.
+
+        * web-platform-tests/dom/idlharness.window-expected.txt:
+
 2021-10-31  Antti Koivisto  <antti@apple.com>
 
         Fix :host invalidation when combined with pseudo classes in descendant position

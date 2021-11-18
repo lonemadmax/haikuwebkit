@@ -1477,7 +1477,8 @@ private:
             break;
             
         case RegExpExec:
-        case RegExpTest: {
+        case RegExpTest:
+        case RegExpTestInline: {
             fixEdge<KnownCellUse>(node->child1());
             
             if (node->child2()->shouldSpeculateRegExpObject()) {
@@ -1637,8 +1638,11 @@ private:
         }
 
         case NewSymbol: {
-            if (node->child1())
-                fixEdge<KnownStringUse>(node->child1());
+            if (node->child1() && node->child1()->shouldSpeculateString())
+                fixEdge<StringUse>(node->child1());
+
+            if (!node->child1() || node->child1().useKind() == StringUse)
+                node->clearFlags(NodeMustGenerate);
             break;
         }
 

@@ -536,11 +536,6 @@ webkit.org/b/39725 fast/events/drag-and-drop-autoscroll.html [ Skip ]
 # Need support for ResourceHandle::didChangePriority and DRT support
 webkit.org/b/111016 http/tests/loading/promote-img-preload-priority.html [ Failure ]
 
-webkit.org/b/111606 fast/borders/border-fit-2.html [ Failure Pass ]
-webkit.org/b/111606 fast/borders/border-fit.html [ Failure Pass ]
-webkit.org/b/111606 fast/repaint/border-fit-lines.html [ Failure Pass ]
-
-
 # The following tests only fail on Mac EWS bots. Unfortunately, we haven't been able to figure out the cause of these failures.
 webkit.org/b/112176 compositing/overflow/composited-scrolling-paint-phases.html [ Failure Pass ]
 webkit.org/b/112176 compositing/overflow/scrolling-without-painting.html [ Failure Pass ]
@@ -1413,18 +1408,6 @@ fast/dom/HTMLMeterElement/meter-styles.html [ Failure ]
 imported/blink/fast/text/international/vertical-positioning-with-combining-marks.html [ ImageOnlyFailure ]
 
 # < Mojave doesn't support the CG needed for Conic Gradients
-http/wpt/css/css-images-4/conic-gradient-parsing.html [ Pass ]
-fast/gradients/conic-repeating.html [ Pass ]
-fast/gradients/conic.html [ Pass ]
-fast/gradients/conic-off-center.html [ Pass ]
-fast/gradients/conic-center-outside-box.html [ Pass ]
-fast/gradients/conic-extended-stops.html [ Pass ]
-fast/gradients/conic-from-angle.html [ Pass ]
-fast/gradients/conic-repeating-last-stop.html [ Pass ]
-fast/gradients/conic-gradient-alpha.html [ Pass ]
-fast/gradients/conic-gradient-extended-stops.html [ Pass ]
-fast/gradients/conic-gradient.html [ Pass ]
-fast/gradients/conic-two-hints.html [ Pass ]
 [ Mojave ] imported/w3c/web-platform-tests/css/css-images/multiple-position-color-stop-conic.html [ Pass ]
 
 # Dark Mode is Mojave and later.
@@ -1552,7 +1535,8 @@ webkit.org/b/212172 [ Catalina ] fast/text/font-collection.html [ ImageOnlyFailu
 
 webkit.org/b/200128 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-video-element/video_timeupdate_on_seek.html [ Timeout Pass ]
 
-webkit.org/b/231084 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-video-element/resize-during-playback.html [ Pass Failure ]
+# See bug 232916; this test can't pass as we do not support mid-stream resolution change.
+webkit.org/b/231084 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-video-element/resize-during-playback.html [ Skip ]
 
 # The test runner is failing in an unrelated, unexplained, invisible to the human eye, 2 pixels difference.
 webkit.org/b/201401 imported/w3c/web-platform-tests/media-source/mediasource-video-is-visible.html [ Skip ]
@@ -2055,9 +2039,6 @@ webkit.org/b/217669 http/wpt/service-workers/service-worker-spinning-message.htt
 
 webkit.org/b/217994 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioworklet-interface/audioworkletnode-output-channel-count.https.html [ Pass Failure ]
 
-# rdar://70550210 REGRESSION (r267531): [ Big Sur iOS 14 ] imported/w3c/web-platform-tests/mathml/relations/html5-tree/dynamic-childlist-001.htm is a constant failure
-[ BigSur+ ] imported/w3c/web-platform-tests/mathml/relations/html5-tree/dynamic-childlist-001.html [ Failure ]
-
 # Mojave doesn't support COLR fonts.
 webkit.org/b/218346 [ Mojave ] fast/text/canvas-color-fonts [ Skip ]
 
@@ -2311,8 +2292,6 @@ webkit.org/b/228311 imported/w3c/web-platform-tests/css/css-scoping/css-scoping-
 [ Monterey ] model-element/model-element-graphics-layers-opacity.html [ Pass Failure ]
 [ Monterey Debug arm64 ] imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-restartIce.https.html [ Pass Failure Crash ]
 
-webkit.org/b/228640 [ Debug ] imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/credentialless/dedicated-worker.tentative.https.html [ Pass Failure ]
-
 #rdar://82053210 ([Guard-Malloc] imported/w3c/web-platform-tests/mathml/relations/html5-tree/display-2.html is a flaky failure)
 imported/w3c/web-platform-tests/mathml/relations/html5-tree/display-2.html [ Pass ImageOnlyFailure ]
 
@@ -2444,6 +2423,8 @@ webkit.org/b/230984 [ BigSur Debug arm64 ] streams/readableStream-then.html [ Pa
 webkit.org/b/231757 [ BigSur ] inspector/canvas/updateShader-webgl.html [ Pass Failure ]
 
 webkit.org/b/231924 inspector/css/modify-css-property.html [ Pass Failure ]
+
+webkit.org/b/233047 inspector/page/setShowPaintRects.html [ Pass Failure ]
 
 # Plugins
 # FIXME: Remove these tests.

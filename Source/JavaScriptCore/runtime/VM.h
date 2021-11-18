@@ -33,6 +33,7 @@
 #include "CodeSpecializationKind.h"
 #include "CompleteSubspace.h"
 #include "ConcurrentJSLock.h"
+#include "DFGDoesGCCheck.h"
 #include "DeleteAllCodeEffort.h"
 #include "DisallowVMEntry.h"
 #include "ExceptionEventLocation.h"
@@ -105,6 +106,8 @@ class BasicBlockLocation;
 class BuiltinExecutables;
 class BytecodeIntrinsicRegistry;
 class CallFrame;
+class CallLinkInfo;
+enum class CallMode;
 struct CheckpointOSRExitSideState;
 class CodeBlock;
 class CodeCache;
@@ -187,6 +190,7 @@ class RegExp;
 #endif
 class Symbol;
 class TemporalDuration;
+class TemporalInstant;
 class TypedArrayController;
 class UnlinkedCodeBlock;
 class UnlinkedEvalCodeBlock;
@@ -206,6 +210,14 @@ class Watchpoint;
 class WatchpointSet;
 class WebAssemblyFunction;
 class WebAssemblyModuleRecord;
+
+#if ENABLE(DFG_JIT) && ASSERT_ENABLED
+#define ENABLE_DFG_DOES_GC_VALIDATION 1
+#else
+#define ENABLE_DFG_DOES_GC_VALIDATION 0
+#endif
+
+constexpr bool validateDFGDoesGC = ENABLE_DFG_DOES_GC_VALIDATION;
 
 class IsoHeapCellType;
 template<typename CellType> class IsoInlinedHeapCellType;
@@ -601,6 +613,7 @@ public:
     DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(templateObjectDescriptorSpace)
     DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(temporalCalendarSpace)
     DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(temporalDurationSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(temporalInstantSpace)
     DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(temporalPlainTimeSpace)
     DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(temporalTimeZoneSpace)
     DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(uint8ArraySpace)
@@ -891,6 +904,9 @@ public:
     NativeExecutable* getBoundFunction(bool isJSFunction, bool canConstruct);
 
     MacroAssemblerCodePtr<JSEntryPtrTag> getCTIInternalFunctionTrampolineFor(CodeSpecializationKind);
+    MacroAssemblerCodeRef<JSEntryPtrTag> getCTILinkCall();
+    MacroAssemblerCodeRef<JSEntryPtrTag> getCTIThrowExceptionFromCallSlowPath();
+    MacroAssemblerCodeRef<JITStubRoutinePtrTag> getCTIVirtualCall(CallMode);
 
     static ptrdiff_t exceptionOffset()
     {
@@ -1075,7 +1091,7 @@ public:
 #endif
     JS_EXPORT_PRIVATE void dumpRegExpTrace();
 
-    bool isCollectorBusyOnCurrentThread() { return heap.isCurrentThreadBusy(); }
+    bool isCollectorBusyOnCurrentThread() { return heap.currentThreadIsDoingGCWork(); }
 
 #if ENABLE(GC_VALIDATION)
     bool isInitializingObject() const; 
@@ -1192,6 +1208,25 @@ public:
     void addLoopHintExecutionCounter(const Instruction*);
     uintptr_t* getLoopHintExecutionCounter(const Instruction*);
     void removeLoopHintExecutionCounter(const Instruction*);
+
+    ALWAYS_INLINE void writeBarrier(const JSCell* from) { heap.writeBarrier(from); }
+    ALWAYS_INLINE void writeBarrier(const JSCell* from, JSValue to) { heap.writeBarrier(from, to); }
+    ALWAYS_INLINE void writeBarrier(const JSCell* from, JSCell* to) { heap.writeBarrier(from, to); }
+    ALWAYS_INLINE void writeBarrierSlowPath(const JSCell* from) { heap.writeBarrierSlowPath(from); }
+
+    ALWAYS_INLINE void mutatorFence() { heap.mutatorFence(); }
+
+#if ENABLE(DFG_DOES_GC_VALIDATION)
+    DoesGCCheck* addressOfDoesGC() { return &m_doesGC; }
+    void setDoesGCExpectation(bool expectDoesGC, unsigned nodeIndex, unsigned nodeOp) { m_doesGC.set(expectDoesGC, nodeIndex, nodeOp); }
+    void setDoesGCExpectation(bool expectDoesGC, DoesGCCheck::Special special) { m_doesGC.set(expectDoesGC, special); }
+    void verifyCanGC() { m_doesGC.verifyCanGC(*this); }
+#else
+    DoesGCCheck* addressOfDoesGC() { UNREACHABLE_FOR_PLATFORM(); return nullptr; }
+    void setDoesGCExpectation(bool, unsigned, unsigned) { }
+    void setDoesGCExpectation(bool, DoesGCCheck::Special) { }
+    void verifyCanGC() { }
+#endif
 
 private:
     friend class LLIntOffsetsExtractor;
@@ -1315,6 +1350,10 @@ private:
 
     Lock m_loopHintExecutionCountLock;
     HashMap<const Instruction*, std::pair<unsigned, std::unique_ptr<uintptr_t>>> m_loopHintExecutionCounts;
+
+#if ENABLE(DFG_DOES_GC_VALIDATION)
+    DoesGCCheck m_doesGC;
+#endif
 
     VM* m_prev; // Required by DoublyLinkedListNode.
     VM* m_next; // Required by DoublyLinkedListNode.
