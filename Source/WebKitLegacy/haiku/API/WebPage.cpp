@@ -53,6 +53,7 @@
 #include "WebCore/DeviceOrientationClientMock.h"
 #include "WebCore/DiagnosticLoggingClient.h"
 #include "WebCore/DOMTimer.h"
+#include <WebCore/DummyModelPlayerProvider.h>
 #include <WebCore/DummyStorageProvider.h>
 #include "WebCore/DummySpeechRecognitionProvider.h"
 #include "WebCore/Editor.h"
@@ -280,7 +281,8 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         makeUniqueRef<MediaRecorderProviderHaiku>(),
         WebBroadcastChannelRegistry::getOrCreate(false),
         WebCore::DummyPermissionController::create(),
-        makeUniqueRef<WebCore::DummyStorageProvider>()
+        makeUniqueRef<WebCore::DummyStorageProvider>(),
+        makeUniqueRef<WebCore::DummyModelPlayerProvider>()
     );
 
     // alternativeText
@@ -1347,35 +1349,35 @@ void BWebPage::handleKeyEvent(BMessage* message)
 		BString bytes = message->FindString("bytes");
 		switch (bytes.ByteAt(0)) {
 			case B_UP_ARROW:
-				granularity = ScrollByLine;
+				granularity = ScrollGranularity::Line;
 				direction = ScrollUp;
 				break;
 			case B_DOWN_ARROW:
-				granularity = ScrollByLine;
+				granularity = ScrollGranularity::Line;
 				direction = ScrollDown;
 				break;
 			case B_LEFT_ARROW:
-				granularity = ScrollByLine;
+				granularity = ScrollGranularity::Line;
 				direction = ScrollLeft;
 				break;
 			case B_RIGHT_ARROW:
-				granularity = ScrollByLine;
+				granularity = ScrollGranularity::Line;
 				direction = ScrollRight;
 				break;
 			case B_HOME:
-				granularity = ScrollByDocument;
+				granularity = ScrollGranularity::Document;
 				direction = ScrollUp;
 				break;
 			case B_END:
-				granularity = ScrollByDocument;
+				granularity = ScrollGranularity::Document;
 				direction = ScrollDown;
 				break;
 			case B_PAGE_UP:
-				granularity = ScrollByPage;
+				granularity = ScrollGranularity::Page;
 				direction = ScrollUp;
 				break;
 			case B_PAGE_DOWN:
-				granularity = ScrollByPage;
+				granularity = ScrollGranularity::Page;
 				direction = ScrollDown;
 				break;
 			default:

@@ -90,7 +90,7 @@ IntRect ScrollbarThemeHaiku::backButtonRect(Scrollbar& scrollbar, ScrollbarPart 
 
     int thickness = scrollbarThickness();
     IntPoint buttonOrigin(scrollbar.x(), scrollbar.y());
-    IntSize buttonSize = scrollbar.orientation() == HorizontalScrollbar
+    IntSize buttonSize = scrollbar.orientation() == ScrollbarOrientation::Horizontal
         ? IntSize(buttonWidth(scrollbar.width(), thickness), thickness)
         : IntSize(thickness, buttonWidth(scrollbar.height(), thickness));
     IntRect buttonRect(buttonOrigin, buttonSize);
@@ -104,7 +104,7 @@ IntRect ScrollbarThemeHaiku::forwardButtonRect(Scrollbar& scrollbar, ScrollbarPa
         return IntRect();
 
     int thickness = scrollbarThickness();
-    if (scrollbar.orientation() == HorizontalScrollbar) {
+    if (scrollbar.orientation() == ScrollbarOrientation::Horizontal) {
         int width = buttonWidth(scrollbar.width(), thickness);
         return IntRect(scrollbar.x() + scrollbar.width() - width, scrollbar.y(), width, thickness);
     }
@@ -116,7 +116,7 @@ IntRect ScrollbarThemeHaiku::forwardButtonRect(Scrollbar& scrollbar, ScrollbarPa
 IntRect ScrollbarThemeHaiku::trackRect(Scrollbar& scrollbar, bool)
 {
     int thickness = scrollbarThickness();
-    if (scrollbar.orientation() == HorizontalScrollbar) {
+    if (scrollbar.orientation() == ScrollbarOrientation::Horizontal) {
         if (scrollbar.width() < 2 * thickness)
             return IntRect();
         return IntRect(scrollbar.x() + thickness, scrollbar.y(), scrollbar.width() - 2 * thickness, thickness);
@@ -159,7 +159,7 @@ void ScrollbarThemeHaiku::paintScrollbarBackground(GraphicsContext& context, Scr
     view->SetHighColor(tint_color(base, B_DARKEN_2_TINT));
 
     enum orientation orientation;
-    if (scrollbar.orientation() == HorizontalScrollbar) {
+    if (scrollbar.orientation() == ScrollbarOrientation::Horizontal) {
         orientation = B_HORIZONTAL;
         view->StrokeLine(rect.LeftTop(), rect.RightTop());
         if (m_drawOuterFrame)
@@ -201,7 +201,7 @@ void ScrollbarThemeHaiku::paintButton(GraphicsContext& context, Scrollbar& scrol
 
     enum orientation orientation;
     int arrowDirection;
-    if (scrollbar.orientation() == VerticalScrollbar) {
+    if (scrollbar.orientation() == ScrollbarOrientation::Vertical) {
         orientation = B_VERTICAL;
         arrowDirection = part == BackButtonStartPart ? BControlLook::B_UP_ARROW : BControlLook::B_DOWN_ARROW;
         view->SetHighColor(dark2);
@@ -243,7 +243,7 @@ void ScrollbarThemeHaiku::paintThumb(GraphicsContext& context, Scrollbar& scroll
     view->PushState();
 
     enum orientation orientation;
-    if (scrollbar.orientation() == VerticalScrollbar) {
+    if (scrollbar.orientation() == ScrollbarOrientation::Vertical) {
         orientation = B_VERTICAL;
         drawRect.InsetBy(1, -1);
         if (!m_drawOuterFrame)
