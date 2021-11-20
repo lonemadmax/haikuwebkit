@@ -670,6 +670,7 @@ IntersectionObserverEnabled:
   humanReadableDescription: "Enable Intersection Observer support"
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(HAIKU)": true
       default: false
     WebKit:
       default: true
