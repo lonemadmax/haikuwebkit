@@ -38,6 +38,7 @@
 #include <wtf/CompletionHandler.h>
 #include <wtf/text/CString.h>
 
+#include <Autolock.h>
 #include <Debug.h>
 #include <File.h>
 #include <Url.h>
@@ -75,7 +76,7 @@ RefPtr<BUrlRequestWrapper> BUrlRequestWrapper::create(BUrlProtocolHandler* handl
 BUrlRequestWrapper::BUrlRequestWrapper(BUrlProtocolHandler* handler, NetworkStorageSession* storageSession, ResourceRequest& request)
     : BUrlProtocolAsynchronousListener(true)
     , m_handler(handler)
-    , m_receiveMutex()
+    , m_receiveMutex("http data locker")
 {
     ASSERT(isMainThread());
     ASSERT(m_handler);
@@ -115,7 +116,7 @@ BUrlRequestWrapper::BUrlRequestWrapper(BUrlProtocolHandler* handler, NetworkStor
     ref();
 
     // Block the receiving thread until headers are parsed.
-    m_receiveMutex.lock();
+    m_receiveMutex.Lock();
 
     if (m_request->Run() < B_OK) {
         deref();
@@ -141,14 +142,14 @@ void BUrlRequestWrapper::abort()
 
     // Lock if we have already unblocked the receive thread to
     // synchronize cancellation status.
-    if (!m_receiveMutex.isHeld())
-        m_receiveMutex.lock();
+    if (!m_receiveMutex.IsLocked())
+        m_receiveMutex.Lock();
 
     m_handler = nullptr;
 
     // If the receive thread is still blocked, unblock it so that it
     // become aware of the state change.
-    m_receiveMutex.unlock();
+    m_receiveMutex.Unlock();
 
     if (m_request)
         m_request->Stop();
@@ -198,8 +199,8 @@ void BUrlRequestWrapper::HeadersReceived(BPrivate::Network::BUrlRequest* caller)
     m_handler->didReceiveResponse(WTFMove(responseCopy));
 
     // Unblock receive thread
-    if (m_receiveMutex.isHeld()) {
-        m_receiveMutex.unlock();
+    if (m_receiveMutex.IsLocked()) {
+        m_receiveMutex.Unlock();
     }
 }
 
@@ -264,7 +265,7 @@ bool BUrlRequestWrapper::CertificateVerificationFailed(BPrivate::Network::BUrlRe
 
 ssize_t BUrlRequestWrapper::Write(const void* data, size_t size)
 {
-    Locker locker { m_receiveMutex };
+    BAutolock locker(m_receiveMutex);
 
     if (!m_handler)
         return size;

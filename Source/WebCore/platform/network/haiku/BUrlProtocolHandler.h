@@ -70,7 +70,7 @@ private:
     // This lock is in charge of two things:
     // - Whether data can be received.
     // - Synchronizing cancellation via m_handler.
-    Lock m_receiveMutex;
+    BLocker m_receiveMutex;
 };
 
 class BUrlProtocolHandler {
