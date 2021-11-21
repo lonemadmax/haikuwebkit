@@ -374,7 +374,7 @@ void BUrlProtocolHandler::continueAfterWillSendRequest(ResourceRequest&& request
     ASSERT(isMainThread());
 
     // willSendRequestAsync might cancel the request
-    if (!m_resourceHandle->client() || request.isNull())
+    if (!m_resourceHandle || !m_resourceHandle->client() || request.isNull())
         return;
 
     m_resourceRequest = request;
