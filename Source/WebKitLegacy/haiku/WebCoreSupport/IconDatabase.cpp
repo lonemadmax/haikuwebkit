@@ -1692,8 +1692,8 @@ inline void readySQLiteStatement(std::unique_ptr<SQLiteStatement>& statement, SQ
     }
     if (!statement) {
         auto temp = db.prepareHeapStatement(str);
-        if (!statement)
-            LOG_ERROR("Preparing statement %s failed", str.ascii().data());
+        if (statement)
+            LOG_ERROR("Preparing statement %s failed", str.characters());
         else
             statement = temp.value().moveToUniquePtr();
     }

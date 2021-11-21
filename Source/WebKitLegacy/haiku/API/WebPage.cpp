@@ -166,13 +166,15 @@ class EmptyPluginInfoProvider final : public PluginInfoProvider {
 };
 
 BMessenger BWebPage::sDownloadListener;
+void WebKitInitializeLogChannelsIfNecessary();
 
 /*static*/ void BWebPage::InitializeOnce()
 {
 	// NOTE: This needs to be called when the BApplication is ready.
 	// It won't work as static initialization.
 #if !LOG_DISABLED
-    WebCore::initializeLogChannelsIfNecessary();
+    logChannels().initializeLogChannelsIfNecessary("all=all");
+    WebKitInitializeLogChannelsIfNecessary();
 #endif
     PlatformStrategiesHaiku::initialize();
 
