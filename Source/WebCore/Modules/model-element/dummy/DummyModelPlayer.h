@@ -41,8 +41,24 @@ private:
     DummyModelPlayer(ModelPlayerClient&);
 
     // ModelPlayer overrides.
-    virtual void load(Model&, LayoutSize) override;
-    virtual PlatformLayer* layer() override;
+    void load(Model&, LayoutSize) override;
+    PlatformLayer* layer() override;
+    void enterFullscreen() override;
+    void handleMouseDown(const LayoutPoint&, MonotonicTime) override;
+    void handleMouseMove(const LayoutPoint&, MonotonicTime) override;
+    void handleMouseUp(const LayoutPoint&, MonotonicTime) override;
+    void getCamera(CompletionHandler<void(std::optional<WebCore::HTMLModelElementCamera>&&)>&&) override;
+    void setCamera(WebCore::HTMLModelElementCamera, CompletionHandler<void(bool success)>&&) override;
+    void isPlayingAnimation(CompletionHandler<void(std::optional<bool>&&)>&&) override;
+    void setAnimationIsPlaying(bool, CompletionHandler<void(bool success)>&&) override;
+    void isLoopingAnimation(CompletionHandler<void(std::optional<bool>&&)>&&) override;
+    void setIsLoopingAnimation(bool, CompletionHandler<void(bool success)>&&) override;
+    void animationDuration(CompletionHandler<void(std::optional<Seconds>&&)>&&) override;
+    void animationCurrentTime(CompletionHandler<void(std::optional<Seconds>&&)>&&) override;
+    void setAnimationCurrentTime(Seconds, CompletionHandler<void(bool success)>&&) override;
+    void hasAudio(CompletionHandler<void(std::optional<bool>&&)>&&) override;
+    void isMuted(CompletionHandler<void(std::optional<bool>&&)>&&) override;
+    void setIsMuted(bool, CompletionHandler<void(bool success)>&&) override;
 
     WeakPtr<ModelPlayerClient> m_client;
 };

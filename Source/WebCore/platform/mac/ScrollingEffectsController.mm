@@ -30,8 +30,8 @@
 #import "PlatformWheelEvent.h"
 #import "ScrollAnimationRubberBand.h"
 #import "ScrollExtents.h"
+#import "ScrollableArea.h"
 #import "WheelEventDeltaFilter.h"
-#import "WheelEventTestMonitor.h"
 #import <pal/spi/mac/NSScrollViewSPI.h>
 #import <sys/sysctl.h>
 #import <sys/time.h>
@@ -127,11 +127,30 @@ static const char* phaseToString(PlatformWheelEventPhase phase)
 }
 #endif
 
+static FloatSize adjustedVelocity(FloatSize velocity)
+{
+    auto applyCurve = ^(float originalValue) {
+        if (!originalValue)
+            return originalValue;
+
+        float value = fabs(originalValue);
+        float powerLow = 6.7 * pow(value, -.166);
+        float powerHigh = 36.3 * pow(value, -.392);
+        const float transitionVelocity = 2000;
+
+        auto interpolate = ^(float v0, float v1, float t) {
+            return (1 - t) * v0 + t * v1;
+        };
+        
+        float multiplier = interpolate(powerLow, powerHigh, std::min(value, transitionVelocity) / transitionVelocity);
+        return copysign(value * multiplier, originalValue);
+    };
+
+    return { applyCurve(velocity.width()), applyCurve(velocity.height()) };
+}
+
 bool ScrollingEffectsController::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
 {
-    if (WheelEventDeltaFilter::shouldApplyFilteringForEvent(wheelEvent))
-        m_scrollingVelocityForMomentumAnimation = -wheelEvent.scrollingVelocity(); // Note that event delta is reversed from scroll direction.
-
     if (processWheelEventForScrollSnap(wheelEvent))
         return true;
 
@@ -180,6 +199,24 @@ bool ScrollingEffectsController::handleWheelEvent(const PlatformWheelEvent& whee
         return true;
     }
 
+#if !LOG_DISABLED
+    if (wheelEvent.momentumPhase() == PlatformWheelEventPhase::Began)
+        m_momentumBeganEventTime = wheelEvent.timestamp();
+#endif
+
+    if (wheelEvent.momentumPhase() == PlatformWheelEventPhase::Ended && momentumScrollingAnimatorEnabled()) {
+#if !LOG_DISABLED
+        auto timeSinceStart = wheelEvent.timestamp() - m_momentumBeganEventTime;
+        auto distance = m_eventDrivenScrollOffset - m_eventDrivenScrollMomentumStartOffset;
+#endif
+        // FIXME: We can't distinguish between the natural end of a momentum sequence, and a two-finger tap on the trackpad (rdar://85414238),
+        // so we always have to end the animation here.
+        LOG(ScrollAnimations, "Event (%s, %s): stopping event scroll duration %.2fms distance %.2f %.2f",
+            phaseToString(wheelEvent.phase()), phaseToString(wheelEvent.momentumPhase()), timeSinceStart.milliseconds(),
+            fabs(distance.width()), fabs(distance.height()));
+        stopAnimatedNonRubberbandingScroll();
+    }
+
     bool isMomentumScrollEvent = (wheelEvent.momentumPhase() != PlatformWheelEventPhase::None);
     if (m_ignoreMomentumScrolls && (isMomentumScrollEvent || m_isAnimatingRubberBand)) {
         if (wheelEvent.momentumPhase() == PlatformWheelEventPhase::Ended) {
@@ -210,9 +247,10 @@ bool ScrollingEffectsController::handleWheelEvent(const PlatformWheelEvent& whee
     if (!m_momentumScrollInProgress && (momentumPhase == PlatformWheelEventPhase::Began || momentumPhase == PlatformWheelEventPhase::Changed)) {
         m_momentumScrollInProgress = true;
         if (momentumScrollingAnimatorEnabled()) {
-            startMomentumScrollWithInitialVelocity(m_client.scrollOffset(), m_scrollingVelocityForMomentumAnimation, -wheelEvent.delta(), [](const FloatPoint& targetOffset) { return targetOffset; });
+            startMomentumScrollWithInitialVelocity(m_client.scrollOffset(), -adjustedVelocity(wheelEvent.scrollingVelocity()), -wheelEvent.delta(), [](const FloatPoint& targetOffset) { return targetOffset; });
 #if !LOG_DISABLED
             m_eventDrivenScrollOffset = m_client.scrollOffset();
+            m_eventDrivenScrollMomentumStartOffset = m_eventDrivenScrollOffset;
 #endif
         }
     }
@@ -642,7 +680,7 @@ void ScrollingEffectsController::scheduleStatelessScrollSnap()
         statelessSnapTransitionTimerFired();
     });
     m_statelessSnapTransitionTimer->startOneShot(statelessScrollSnapDelay);
-    startDeferringWheelEventTestCompletionDueToScrollSnapping();
+    startDeferringWheelEventTestCompletion(WheelEventTestMonitor::ScrollSnapInProgress);
 }
 
 void ScrollingEffectsController::statelessSnapTransitionTimerFired()
@@ -654,16 +692,6 @@ void ScrollingEffectsController::statelessSnapTransitionTimerFired()
 
     if (m_scrollSnapState->transitionToSnapAnimationState(m_client.scrollExtents(), m_client.pageScaleFactor(), m_client.scrollOffset()))
         startScrollSnapAnimation();
-}
-
-void ScrollingEffectsController::startDeferringWheelEventTestCompletionDueToScrollSnapping()
-{
-    m_client.deferWheelEventTestCompletionForReason(reinterpret_cast<WheelEventTestMonitor::ScrollableAreaIdentifier>(this), WheelEventTestMonitor::ScrollSnapInProgress);
-}
-
-void ScrollingEffectsController::stopDeferringWheelEventTestCompletionDueToScrollSnapping()
-{
-    m_client.removeWheelEventTestCompletionDeferralForReason(reinterpret_cast<WheelEventTestMonitor::ScrollableAreaIdentifier>(this), WheelEventTestMonitor::ScrollSnapInProgress);
 }
 
 bool ScrollingEffectsController::processWheelEventForScrollSnap(const PlatformWheelEvent& wheelEvent)

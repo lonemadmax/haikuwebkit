@@ -87,6 +87,9 @@
     (allow user-preference-read
         (preference-domain "com.apple.opengl")
         (preference-domain "com.nvidia.OpenGL"))
+    ;; CVMS
+    (allow mach-lookup (with telemetry)
+        (global-name "com.apple.cvmsServ"))
     (allow file-read* (with telemetry)
         (prefix "/private/var/db/CVMS/cvmsCodeSignObj"))
     ;; OpenCL
@@ -625,8 +628,10 @@
 (allow ipc-posix-shm-read* ipc-posix-shm-write-data
     (ipc-posix-name-prefix "AudioIO"))
 
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 120000
 (allow mach-lookup
     (global-name "com.apple.audio.AudioComponentRegistrar"))
+#endif
 
 #if !ENABLE(CFPREFS_DIRECT_MODE)
 (allow mach-lookup (with telemetry)
@@ -636,6 +641,10 @@
 
 (allow mach-lookup
     (global-name "com.apple.powerlog.plxpclogger.xpc"))
+
+(with-filter (uid 0)
+    (allow mach-lookup
+        (global-name "com.apple.system.logger")))
 
 (with-filter (system-attribute apple-internal)
     (allow mach-lookup
@@ -856,7 +865,8 @@
     )
 )
 
-(when (defined? 'mach-kernel-endpoint)
+#if HAVE(SANDBOX_MESSAGE_FILTERING)
+(when (and (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES") (defined? 'mach-kernel-endpoint))
     (allow mach-kernel-endpoint
         (apply-message-filter
             (allow mach-message-send (with telemetry)))))
@@ -890,6 +900,7 @@
         MSC_swtch_pri
         MSC_syscall_thread_switch
         MSC_thread_get_special_reply_port)))
+#endif // HAVE(SANDBOX_MESSAGE_FILTERING)
 
 (when (defined? 'syscall-unix)
     (allow syscall-unix (with telemetry))

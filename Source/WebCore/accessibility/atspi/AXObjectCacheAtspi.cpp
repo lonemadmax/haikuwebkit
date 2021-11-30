@@ -82,10 +82,27 @@ void AXObjectCache::postPlatformNotification(AXCoreObject* coreObject, AXNotific
     case AXSelectedStateChanged:
         wrapper->stateChanged("selected", coreObject->isSelected());
         break;
-    case AXSelectedChildrenChanged:
-    case AXMenuListValueChanged:
+    case AXMenuListItemSelected: {
+        // Menu list popup items are handled by AXSelectedStateChanged.
+        auto* parent = coreObject->parentObjectUnignored();
+        if (parent && !parent->isMenuListPopup())
+            wrapper->stateChanged("selected", coreObject->isSelected());
         break;
+    }
+    case AXSelectedChildrenChanged:
+        wrapper->selectionChanged();
+        break;
+    case AXMenuListValueChanged: {
+        const auto& children = coreObject->children();
+        if (children.size() == 1) {
+            if (auto* childWrapper = children[0]->wrapper())
+                childWrapper->selectionChanged();
+        }
+        break;
+    }
     case AXValueChanged:
+        if (wrapper->interfaces().contains(AccessibilityObjectAtspi::Interface::Value))
+            wrapper->valueChanged(coreObject->valueForRange());
         break;
     case AXInvalidStatusChanged:
         wrapper->stateChanged("invalid-entry", coreObject->invalidStatus() != "false");
@@ -156,8 +173,6 @@ void AXObjectCache::postPlatformNotification(AXCoreObject* coreObject, AXNotific
     case AXLiveRegionCreated:
         break;
     case AXLiveRegionChanged:
-        break;
-    case AXMenuListItemSelected:
         break;
     case AXMenuClosed:
         break;

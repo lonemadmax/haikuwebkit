@@ -1856,7 +1856,7 @@ void WebProcessProxy::endBackgroundActivityForFullscreenInput()
 #endif
 
 #if ENABLE(SERVICE_WORKER)
-void WebProcessProxy::establishServiceWorkerContext(const WebPreferencesStore& store, const RegistrableDomain& registrableDomain, std::optional<ServiceWorkerClientIdentifier> serviceWorkerPageIdentifier, CompletionHandler<void()>&& completionHandler)
+void WebProcessProxy::establishServiceWorkerContext(const WebPreferencesStore& store, const RegistrableDomain& registrableDomain, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, CompletionHandler<void()>&& completionHandler)
 {
     WEBPROCESSPROXY_RELEASE_LOG(Loading, "establishServiceWorkerContext: Started");
     markProcessAsRecentlyUsed();
@@ -1983,7 +1983,7 @@ void WebProcessProxy::disableServiceWorkers()
 }
 
 #if ENABLE(CONTENT_EXTENSIONS)
-static Vector<std::pair<String, WebCompiledContentRuleListData>> contentRuleListsFromIdentifier(const std::optional<UserContentControllerIdentifier>& userContentControllerIdentifier)
+static Vector<std::pair<WebCompiledContentRuleListData, URL>> contentRuleListsFromIdentifier(const std::optional<UserContentControllerIdentifier>& userContentControllerIdentifier)
 {
     if (!userContentControllerIdentifier) {
         ASSERT_NOT_REACHED();

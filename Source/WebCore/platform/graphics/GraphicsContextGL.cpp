@@ -347,21 +347,16 @@ static bool packPixels(const uint8_t* sourceData, GraphicsContextGL::DataFormat 
     return true;
 }
 
-RefPtr<GraphicsContextGL> GraphicsContextGL::create(const GraphicsContextGLAttributes& attributes, HostWindow* hostWindow)
-{
-    RefPtr<GraphicsContextGL> result;
-    if (hostWindow)
-        result = hostWindow->createGraphicsContextGL(attributes);
-    if (!result)
-        result = GraphicsContextGLOpenGL::create(attributes, hostWindow);
-    return result;
-}
+GraphicsContextGL::Client::Client() = default;
+
+GraphicsContextGL::Client::~Client() = default;
 
 GraphicsContextGL::GraphicsContextGL(GraphicsContextGLAttributes attrs)
     : m_attrs(attrs)
 {
 }
 
+GraphicsContextGL::~GraphicsContextGL() = default;
 
 bool GraphicsContextGL::computeFormatAndTypeParameters(GCGLenum format, GCGLenum type, unsigned* componentsPerPixel, unsigned* bytesPerComponent)
 {
@@ -605,6 +600,42 @@ bool GraphicsContextGL::extractTextureData(unsigned width, unsigned height, GCGL
         return false;
 
     return true;
+}
+
+void GraphicsContextGL::markContextChanged()
+{
+    m_layerComposited = false;
+}
+
+bool GraphicsContextGL::layerComposited() const
+{
+    return m_layerComposited;
+}
+
+void GraphicsContextGL::setBuffersToAutoClear(GCGLbitfield buffers)
+{
+    if (!contextAttributes().preserveDrawingBuffer)
+        m_buffersToAutoClear = buffers;
+}
+
+GCGLbitfield GraphicsContextGL::getBuffersToAutoClear() const
+{
+    return m_buffersToAutoClear;
+}
+
+void GraphicsContextGL::markLayerComposited()
+{
+    m_layerComposited = true;
+    auto attrs = contextAttributes();
+    if (!attrs.preserveDrawingBuffer) {
+        m_buffersToAutoClear = GraphicsContextGL::COLOR_BUFFER_BIT;
+        if (attrs.depth)
+            m_buffersToAutoClear |= GraphicsContextGL::DEPTH_BUFFER_BIT;
+        if (attrs.stencil)
+            m_buffersToAutoClear |= GraphicsContextGL::STENCIL_BUFFER_BIT;
+    }
+    for (auto* client : copyToVector(m_clients))
+        client->didComposite();
 }
 
 } // namespace WebCore

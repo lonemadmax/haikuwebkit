@@ -48,6 +48,7 @@
 
 #if ENABLE(SCROLLING_THREAD)
 #include <WebCore/ScrollingThread.h>
+#include <WebCore/ScrollingTreeNode.h>
 #include <WebCore/ThreadedScrollingTree.h>
 #endif
 
@@ -106,6 +107,8 @@ void EventDispatcher::wheelEvent(PageIdentifier pageID, const WebWheelEvent& whe
         m_recentWheelEventDeltaFilter->updateFromEvent(platformWheelEvent);
         if (WheelEventDeltaFilter::shouldApplyFilteringForEvent(platformWheelEvent))
             platformWheelEvent = m_recentWheelEventDeltaFilter->eventCopyWithFilteredDeltas(platformWheelEvent);
+        else if (WheelEventDeltaFilter::shouldIncludeVelocityForEvent(platformWheelEvent))
+            platformWheelEvent = m_recentWheelEventDeltaFilter->eventCopyWithVelocity(platformWheelEvent);
 #endif
 
         Locker locker { m_scrollingTreesLock };
@@ -123,17 +126,24 @@ void EventDispatcher::wheelEvent(PageIdentifier pageID, const WebWheelEvent& whe
             scrollingTree->setMainFrameCanRubberBand(rubberBandableEdges);
 
         auto processingSteps = scrollingTree->determineWheelEventProcessing(platformWheelEvent);
+        bool useMainThreadForScrolling = processingSteps.contains(WheelEventProcessingSteps::MainThreadForScrolling);
+
+#if !PLATFORM(COCOA)
+        // Deliver continuing scroll gestures directly to the scrolling thread.
+        if (platformWheelEvent.phase() == PlatformWheelEventPhase::Changed && scrollingTree->isUserScrollInProgressAtEventLocation(platformWheelEvent))
+            useMainThreadForScrolling = false;
+#endif
 
         scrollingTree->willProcessWheelEvent();
 
-        ScrollingThread::dispatch([scrollingTree, wheelEvent, platformWheelEvent, processingSteps, pageID, protectedThis = Ref { *this }] {
-            if (processingSteps.contains(WheelEventProcessingSteps::MainThreadForScrolling)) {
+        ScrollingThread::dispatch([scrollingTree, wheelEvent, platformWheelEvent, processingSteps, useMainThreadForScrolling, pageID, protectedThis = Ref { *this }] {
+            if (useMainThreadForScrolling) {
                 scrollingTree->willSendEventToMainThread(platformWheelEvent);
                 protectedThis->dispatchWheelEventViaMainThread(pageID, wheelEvent, processingSteps);
                 scrollingTree->waitForEventToBeProcessedByMainThread(platformWheelEvent);
                 return;
             }
-        
+
             auto result = scrollingTree->handleWheelEvent(platformWheelEvent, processingSteps);
 
             if (result.needsMainThreadProcessing()) {

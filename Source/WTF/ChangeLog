@@ -1,3 +1,152 @@
+2021-11-29  Nikolas Zimmermann  <nzimmermann@igalia.com>
+
+        [LBSE] Add runtime flag for Layer-based SVG engine (LBSE)
+        https://bugs.webkit.org/show_bug.cgi?id=233211
+        <rdar://problem/85711597>
+
+        Reviewed by Sam Weinig.
+
+        Add build option ('build-webkit --(no-)layer-based-svg-engine') and
+        runtime flag ('LayerBasedSVGEngineEnabled' in LBSE enabled builds) to
+        switch between the SVG engines.
+
+        The actual SVG code changes will follow in subsequent patches,
+        this just adds the infrastructure for LBSE.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml: Add 'LayerBasedSVGEngineEnabled' option.
+        * wtf/PlatformEnable.h: Disable LBSE by default. (Toggable with build settings in CMake-based builds)
+        * wtf/PlatformEnableCocoa.h: Enable for PLATFORM(MAC).
+
+2021-11-19  Antoine Quint  <graouts@webkit.org>
+
+        [Model] add audio support
+        https://bugs.webkit.org/show_bug.cgi?id=233365
+        <rdar://problem/85428982>
+
+        Reviewed by Wenson Hsieh.
+
+        Add a new compile-time flag for the new autio-related ARQL SPIs we are using.
+
+        * wtf/PlatformEnableCocoa.h:
+
+2021-11-19  Alex Christensen  <achristensen@webkit.org>
+
+        Remove allocation in JSON::Value::parseJSON
+        https://bugs.webkit.org/show_bug.cgi?id=233346
+
+        Reviewed by Yusuke Suzuki.
+
+        Parse the characters as Latin1 characters if we have an 8 bit string rather than converting them to UTF-16 just to be parsed.
+
+        * wtf/JSONValues.cpp:
+        (WTF::JSONImpl::Value::parseJSON):
+
+2021-11-18  Antoine Quint  <graouts@webkit.org>
+
+        [Model] add support for pausing and resuming animations
+        https://bugs.webkit.org/show_bug.cgi?id=233319
+        <rdar://problem/85428464>
+
+        Reviewed by Wenson Hsieh.
+
+        Add a new compile-time flag for the new ARQL SPIs we are using.
+
+        * wtf/PlatformEnableCocoa.h:
+
+2021-11-18  Antoine Quint  <graouts@webkit.org>
+
+        [Model] add support for getting and setting the camera
+        https://bugs.webkit.org/show_bug.cgi?id=233265
+        <rdar://problem/85426290>
+
+        Reviewed by Darin Adler.
+
+        Add a new compile-time flag for the new ARQL SPIs we are using.
+
+        * wtf/PlatformEnableCocoa.h:
+
+2021-11-17  John Wilander  <wilander@apple.com>
+
+        PCM: Add capability for click destination to fire triggering event without cross-site requests to the click source
+        https://bugs.webkit.org/show_bug.cgi?id=233173
+        <rdar://79426605>
+
+        Reviewed by Alex Christensen.
+
+        * wtf/URL.cpp:
+        (WTF::queryParameters):
+            New convenience getter.
+        * wtf/URL.h:
+
+2021-11-17  Chris Dumez  <cdumez@apple.com>
+
+        Web Locks API does get enabled in Service Workers when running layout tests
+        https://bugs.webkit.org/show_bug.cgi?id=233273
+
+        Reviewed by Geoffrey Garen.
+
+        Use RuntimeEnabledFeatures to back the Web Lock API since regular settings do not get
+        properly propagated to service workers at the moment.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-11-17  Dean Jackson  <dino@apple.com>
+
+        Add ModelDocument for directly showing content that can be handled by <model>
+        https://bugs.webkit.org/show_bug.cgi?id=233057
+        rdar://85265880
+
+        Reviewed by Darin Adler.
+
+        Add a experimental feature: ModelDocumentEnabled
+        for loading content that can be handled by <model>.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-11-16  Devin Rousso  <drousso@apple.com>
+
+        [iOS] use PhotosUIPrivate instead of PhotosUI
+        https://bugs.webkit.org/show_bug.cgi?id=233213
+        <rdar://problem/85300427>
+
+        Reviewed by Aditya Keerthi.
+
+        * wtf/PlatformHave.h:
+
+2021-11-15  Sam Weinig  <weinig@apple.com>
+
+        Add another <model> backend backed by SceneKit to prove out ModelPlayer infrastructure a bit more
+        https://bugs.webkit.org/show_bug.cgi?id=233112
+
+        Reviewed by Dean Jackson.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+        Add some internal settings to enable/disable the ARKit and SceneKit based
+        <model> backends.
+
+        * wtf/PlatformHave.h:
+        Add HAVE macro for SceneKit. Only enabled for macOS at the moment, but could
+        probably be enabled for iOS if it is useful.
+
+2021-11-15  Eric Liang  <ericliang@apple.com>
+
+        _AXSCopyPathForAccessibilityBundle is going to be deprecated.
+        https://bugs.webkit.org/show_bug.cgi?id=233081
+
+        Reviewed by Andres Gonzalez.
+
+        To support macOS Accessibility v2 runtime, on macOS there are two places where bundles can live. By doing so, `_AXSCopyPathForAccessibilityBundle` will going to be deprecated because it won’t always return the correct path you would expect.
+
+        * wtf/PlatformHave.h:
+
+2021-11-15  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Unreviewed, fix the internal iOS 15 build
+
+        Add a new compile-time flag.
+
+        * wtf/PlatformHave.h:
+
 2021-11-13  Simon Fraser  <simon.fraser@apple.com>
 
         Run a ScrollAnimationMomentum for the momentum phase of a scroll

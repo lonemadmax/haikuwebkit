@@ -138,7 +138,10 @@ public:
 
     bool isVariableReferenceValue() const { return m_classType == VariableReferenceClass; }
     bool isPendingSubstitutionValue() const { return m_classType == PendingSubstitutionValueClass; }
-    
+
+    bool isOffsetRotateValue() const { return m_classType == OffsetRotateClass; }
+    bool isRayValue() const { return m_classType == RayClass; }
+
     bool hasVariableReferences() const { return isVariableReferenceValue() || isPendingSubstitutionValue(); }
 
     Ref<DeprecatedCSSOMValue> createDeprecatedCSSOMWrapper(CSSStyleDeclaration&) const;
@@ -152,6 +155,10 @@ public:
 
     bool equals(const CSSValue&) const;
     bool operator==(const CSSValue& other) const { return equals(other); }
+
+    // https://www.w3.org/TR/css-values-4/#local-urls
+    // Empty URLs and fragment-only URLs should not be resolved relative to the base URL.
+    static bool isCSSLocalURL(StringView relativeURL);
 
 protected:
 
@@ -205,6 +212,9 @@ protected:
         CustomPropertyClass,
         VariableReferenceClass,
         PendingSubstitutionValueClass,
+
+        OffsetRotateClass,
+        RayClass,
 
         // List class types must appear after ValueListClass. Note CSSFunctionValue
         // is deliberately excluded, since we don't want it exposed to the CSS OM

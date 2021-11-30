@@ -42,18 +42,25 @@ public:
     static Ref<AccessibilityObjectAtspi> create(AXCoreObject*);
     ~AccessibilityObjectAtspi() = default;
 
-    enum class Interface : uint8_t {
+    enum class Interface : uint16_t {
         Accessible = 1 << 0,
         Component = 1 << 1,
-        Text = 1 << 2
+        Text = 1 << 2,
+        Value = 1 << 3,
+        Hyperlink = 1 << 4,
+        Hypertext = 1 << 5,
+        Action = 1 << 6,
+        Document = 1 << 7,
+        Image = 1 << 8,
+        Selection = 1 << 9
     };
     const OptionSet<Interface>& interfaces() const { return m_interfaces; }
 
     void setRoot(AccessibilityRootAtspi*);
-    AccessibilityRootAtspi* root() const;
+    WEBCORE_EXPORT AccessibilityRootAtspi* root() const;
     void setParent(std::optional<AccessibilityObjectAtspi*>);
-    std::optional<AccessibilityObjectAtspi*> parent() const;
-    void updateBackingStore();
+    WEBCORE_EXPORT std::optional<AccessibilityObjectAtspi*> parent() const;
+    WEBCORE_EXPORT void updateBackingStore();
 
     void attach(AXCoreObject*);
     void detach();
@@ -64,26 +71,28 @@ public:
 
     const String& path();
     GVariant* reference();
+    GVariant* hyperlinkReference();
     void serialize(GVariantBuilder*) const;
 
-    String id() const;
-    CString name() const;
-    CString description() const;
-    unsigned role() const;
-    unsigned childCount() const;
-    Vector<RefPtr<AccessibilityObjectAtspi>> children() const;
-    AccessibilityObjectAtspi* childAt(unsigned) const;
-    uint64_t state() const;
+    WEBCORE_EXPORT String id() const;
+    WEBCORE_EXPORT CString name() const;
+    WEBCORE_EXPORT CString description() const;
+    WEBCORE_EXPORT String locale() const;
+    WEBCORE_EXPORT unsigned role() const;
+    WEBCORE_EXPORT unsigned childCount() const;
+    WEBCORE_EXPORT Vector<RefPtr<AccessibilityObjectAtspi>> children() const;
+    WEBCORE_EXPORT AccessibilityObjectAtspi* childAt(unsigned) const;
+    WEBCORE_EXPORT uint64_t state() const;
     void stateChanged(const char*, bool);
-    HashMap<String, String> attributes() const;
-    HashMap<uint32_t, Vector<RefPtr<AccessibilityObjectAtspi>>> relationMap() const;
+    WEBCORE_EXPORT HashMap<String, String> attributes() const;
+    WEBCORE_EXPORT HashMap<uint32_t, Vector<RefPtr<AccessibilityObjectAtspi>>> relationMap() const;
 
-    AccessibilityObjectAtspi* hitTest(const IntPoint&, uint32_t) const;
-    IntRect elementRect(uint32_t) const;
-    void scrollToMakeVisible(uint32_t) const;
-    void scrollToPoint(const IntPoint&, uint32_t) const;
+    WEBCORE_EXPORT AccessibilityObjectAtspi* hitTest(const IntPoint&, uint32_t) const;
+    WEBCORE_EXPORT IntRect elementRect(uint32_t) const;
+    WEBCORE_EXPORT void scrollToMakeVisible(uint32_t) const;
+    WEBCORE_EXPORT void scrollToPoint(const IntPoint&, uint32_t) const;
 
-    String text() const;
+    WEBCORE_EXPORT String text() const;
     enum class TextGranularity {
         Character,
         WordStart,
@@ -94,20 +103,40 @@ public:
         LineEnd,
         Paragraph
     };
-    IntPoint boundaryOffset(unsigned, TextGranularity) const;
-    IntRect boundsForRange(unsigned, unsigned, uint32_t) const;
+    WEBCORE_EXPORT IntPoint boundaryOffset(unsigned, TextGranularity) const;
+    WEBCORE_EXPORT IntRect boundsForRange(unsigned, unsigned, uint32_t) const;
     struct TextAttributes {
         HashMap<String, String> attributes;
         int startOffset;
         int endOffset;
     };
-    TextAttributes textAttributes(std::optional<unsigned> = std::nullopt, bool = false) const;
-    IntPoint selectedRange() const;
-    void setSelectedRange(unsigned, unsigned);
+    WEBCORE_EXPORT TextAttributes textAttributes(std::optional<unsigned> = std::nullopt, bool = false) const;
+    WEBCORE_EXPORT IntPoint selectedRange() const;
+    WEBCORE_EXPORT void setSelectedRange(unsigned, unsigned);
     void textInserted(const String&, const VisiblePosition&);
     void textDeleted(const String&, const VisiblePosition&);
     void textAttributesChanged();
     void selectionChanged(const VisibleSelection&);
+
+    WEBCORE_EXPORT double currentValue() const;
+    WEBCORE_EXPORT bool setCurrentValue(double);
+    WEBCORE_EXPORT double minimumValue() const;
+    WEBCORE_EXPORT double maximumValue() const;
+    WEBCORE_EXPORT double minimumIncrement() const;
+    void valueChanged(double);
+
+    WEBCORE_EXPORT URL url() const;
+
+    WEBCORE_EXPORT String actionName() const;
+    WEBCORE_EXPORT bool doAction() const;
+
+    WEBCORE_EXPORT String documentAttribute(const String&) const;
+
+    WEBCORE_EXPORT unsigned selectionCount() const;
+    WEBCORE_EXPORT AccessibilityObjectAtspi* selectedChild(unsigned) const;
+    WEBCORE_EXPORT bool setChildSelected(unsigned, bool) const;
+    WEBCORE_EXPORT bool clearSelection() const;
+    void selectionChanged();
 
 private:
     explicit AccessibilityObjectAtspi(AXCoreObject*);
@@ -131,6 +160,8 @@ private:
     CString text(int, int) const;
     CString textAtOffset(int, TextGranularity, int&, int&) const;
     int characterAtOffset(int) const;
+    std::optional<unsigned> characterOffset(UChar, int) const;
+    std::optional<unsigned> characterIndex(UChar, unsigned) const;
     IntRect textExtents(int, int, uint32_t) const;
     int offsetAtPoint(const IntPoint&, uint32_t) const;
     IntPoint boundsForSelection(const VisibleSelection&) const;
@@ -140,11 +171,36 @@ private:
     bool scrollToMakeVisible(int, int, uint32_t) const;
     bool scrollToPoint(int, int, uint32_t, int, int) const;
 
+    unsigned offsetInParent() const;
+
+    unsigned hyperlinkCount() const;
+    AccessibilityObjectAtspi* hyperlink(unsigned) const;
+    std::optional<unsigned> hyperlinkIndex(unsigned) const;
+
+    String localizedActionName() const;
+    String actionKeyBinding() const;
+
+    HashMap<String, String> documentAttributes() const;
+    String documentLocale() const;
+
+    String imageDescription() const;
+
+    bool deselectSelectedChild(unsigned) const;
+    bool isChildSelected(unsigned) const;
+    bool selectAll() const;
+
     static OptionSet<Interface> interfacesForObject(AXCoreObject&);
 
     static GDBusInterfaceVTable s_accessibleFunctions;
     static GDBusInterfaceVTable s_componentFunctions;
     static GDBusInterfaceVTable s_textFunctions;
+    static GDBusInterfaceVTable s_valueFunctions;
+    static GDBusInterfaceVTable s_hyperlinkFunctions;
+    static GDBusInterfaceVTable s_hypertextFunctions;
+    static GDBusInterfaceVTable s_actionFunctions;
+    static GDBusInterfaceVTable s_documentFunctions;
+    static GDBusInterfaceVTable s_imageFunctions;
+    static GDBusInterfaceVTable s_selectionFunctions;
 
     AXCoreObject* m_axObject { nullptr };
     AXCoreObject* m_coreObject { nullptr };
@@ -153,6 +209,7 @@ private:
     std::optional<AccessibilityObjectAtspi*> m_parent;
     Atomic<bool> m_isRegistered { false };
     String m_path;
+    String m_hyperlinkPath;
     mutable int m_indexInParent { -1 };
     mutable Lock m_rootLock;
 };

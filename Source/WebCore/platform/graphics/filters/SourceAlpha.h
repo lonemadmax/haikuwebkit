@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -34,7 +35,7 @@ private:
 
     void determineAbsolutePaintRect(const Filter&) override;
 
-    void platformApplySoftware(const Filter&) override;
+    std::unique_ptr<FilterEffectApplier> createApplier(const Filter&) const override;
 
     WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
 };

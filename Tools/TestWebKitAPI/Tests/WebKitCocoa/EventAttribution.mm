@@ -354,7 +354,12 @@ TEST(PrivateClickMeasurement, Basic)
     });
 }
 
+// FIXME: Re-enable this test for Monterey+ once webkit.org/b/233345 is resolved.
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000
+TEST(PrivateClickMeasurement, DISABLED_EphemeralWithAttributedBundleIdentifier)
+#else
 TEST(PrivateClickMeasurement, EphemeralWithAttributedBundleIdentifier)
+#endif
 {
     auto configuration = configurationWithoutUsingDaemon();
     configuration.get()._attributedBundleIdentifier = @"other.test.bundle.id";
@@ -407,8 +412,7 @@ TEST(PrivateClickMeasurement, DatabaseLocation)
     EXPECT_EQ(webViewToKeepNetworkProcessAlive.get().configuration.websiteDataStore._networkProcessIdentifier, originalNetworkProcessPid);
 }
 
-// FIXME: Get this working in the iOS simulator.
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(IOS)
 
 static RetainPtr<NSURL> testPCMDaemonLocation()
 {
@@ -422,6 +426,7 @@ static RetainPtr<xpc_object_t> testDaemonPList(NSURL *storageLocation)
     auto plist = adoptNS(xpc_dictionary_create(nullptr, nullptr, 0));
     xpc_dictionary_set_string(plist.get(), "_ManagedBy", "TestWebKitAPI");
     xpc_dictionary_set_string(plist.get(), "Label", "org.webkit.pcmtestdaemon");
+    xpc_dictionary_set_bool(plist.get(), "RootedSimulatorPath", true);
     xpc_dictionary_set_bool(plist.get(), "LaunchOnlyOnce", true);
     xpc_dictionary_set_string(plist.get(), "StandardErrorPath", [storageLocation URLByAppendingPathComponent:@"daemon_stderr"].path.fileSystemRepresentation);
 
@@ -479,7 +484,7 @@ static std::pair<NSURL *, WKWebViewConfiguration *> setUpDaemon(WKWebViewConfigu
         [fileManager removeItemAtURL:tempDir error:&error];
     EXPECT_NULL(error);
 
-    system("killall adattributiond -9 2> /dev/null");
+    killFirstInstanceOfDaemon(@"adattributiond");
 
     auto plist = testDaemonPList(tempDir);
 #if HAVE(OS_LAUNCHD_JOB)
@@ -496,7 +501,7 @@ static std::pair<NSURL *, WKWebViewConfiguration *> setUpDaemon(WKWebViewConfigu
 
 static void cleanUpDaemon(NSURL *tempDir)
 {
-    system("killall adattributiond -9");
+    killFirstInstanceOfDaemon(@"adattributiond");
 
     EXPECT_TRUE([[NSFileManager defaultManager] fileExistsAtPath:tempDir.path]);
     NSError *error = nil;
@@ -520,7 +525,12 @@ static void attemptConnectionInProcessWithoutEntitlement()
 #endif
 }
 
+// FIXME: Re-enable this test for Monterey+ once webkit.org/232890 is resolved.
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000
+TEST(PrivateClickMeasurement, DISABLED_DaemonBasicFunctionality)
+#else
 TEST(PrivateClickMeasurement, DaemonBasicFunctionality)
+#endif
 {
     auto [tempDir, configuration] = setUpDaemon(configurationWithoutUsingDaemon().autorelease());
     attemptConnectionInProcessWithoutEntitlement();
@@ -530,6 +540,7 @@ TEST(PrivateClickMeasurement, DaemonBasicFunctionality)
     cleanUpDaemon(tempDir);
 }
 
+#if PLATFORM(MAC)
 static void setInjectedBundleClient(WKWebView *webView, Vector<String>& consoleMessages)
 {
     WKPageInjectedBundleClientV0 injectedBundleClient = {
@@ -554,7 +565,12 @@ static RetainPtr<TestWKWebView> webViewWithOpenInspector(WKWebViewConfiguration 
     return webView;
 }
 
+// FIXME: Re-enable this test for Monterey+ once webkit.org/232890 is resolved.
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000
+TEST(PrivateClickMeasurement, DISABLED_DaemonDebugMode)
+#else
 TEST(PrivateClickMeasurement, DaemonDebugMode)
+#endif
 {
     auto [tempDir, configuration] = setUpDaemon([WKWebViewConfiguration _test_configurationWithTestPlugInClassName:@"BundlePageConsoleMessage"]);
     Vector<String> consoleMessages;
@@ -586,8 +602,9 @@ TEST(PrivateClickMeasurement, NetworkProcessDebugMode)
         Util::spinRunLoop();
     EXPECT_WK_STREQ(consoleMessages[1], "[Private Click Measurement] Turned Debug Mode off.");
 }
-
 #endif // PLATFORM(MAC)
+
+#endif // PLATFORM(MAC) || PLATFORM(IOS)
 
 #if HAVE(UI_EVENT_ATTRIBUTION)
 

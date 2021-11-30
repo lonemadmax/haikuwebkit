@@ -31,6 +31,7 @@
 #include "Document.h"
 #include "FetchIdentifier.h"
 #include "Page.h"
+#include "PushSubscriptionData.h"
 #include "ServiceWorkerDebuggable.h"
 #include "ServiceWorkerIdentifier.h"
 #include "ServiceWorkerInspectorProxy.h"
@@ -72,7 +73,7 @@ public:
 
     WEBCORE_EXPORT void notifyNetworkStateChange(bool isOnline);
 
-    WEBCORE_EXPORT void startFetch(SWServerConnectionIdentifier, FetchIdentifier, Ref<ServiceWorkerFetch::Client>&&, std::optional<ServiceWorkerClientIdentifier>&&, ResourceRequest&&, String&& referrer, FetchOptions&&);
+    WEBCORE_EXPORT void startFetch(SWServerConnectionIdentifier, FetchIdentifier, Ref<ServiceWorkerFetch::Client>&&, std::optional<ScriptExecutionContextIdentifier>&&, ResourceRequest&&, String&& referrer, FetchOptions&&);
     WEBCORE_EXPORT void cancelFetch(SWServerConnectionIdentifier, FetchIdentifier);
     WEBCORE_EXPORT void continueDidReceiveFetchResponse(SWServerConnectionIdentifier, FetchIdentifier);
     WEBCORE_EXPORT void removeFetch(SWServerConnectionIdentifier, FetchIdentifier);
@@ -81,6 +82,7 @@ public:
     void fireInstallEvent();
     void fireActivateEvent();
     void firePushEvent(std::optional<Vector<uint8_t>>&&, CompletionHandler<void(bool)>&&);
+    void firePushSubscriptionChangeEvent(std::optional<PushSubscriptionData>&& newSubscriptionData, std::optional<PushSubscriptionData>&& oldSubscriptionData);
 
     void didSaveScriptsToDisk(ScriptBuffer&&, HashMap<URL, ScriptBuffer>&& importedScripts);
 

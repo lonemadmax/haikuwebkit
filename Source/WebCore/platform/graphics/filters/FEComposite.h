@@ -2,6 +2,7 @@
  * Copyright (C) 2004, 2005, 2006, 2007 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -59,13 +60,11 @@ public:
 private:
     FEComposite(const CompositeOperationType&, float k1, float k2, float k3, float k4);
 
-    void correctFilterResultIfNeeded() override;
-
-    bool requiresValidPreMultipliedPixels() override { return m_type != FECOMPOSITE_OPERATOR_ARITHMETIC; }
-
     void determineAbsolutePaintRect(const Filter&) override;
 
-    void platformApplySoftware(const Filter&) override;
+    bool mayProduceInvalidPremultipliedPixels() const override { return m_type == FECOMPOSITE_OPERATOR_ARITHMETIC; }
+
+    std::unique_ptr<FilterEffectApplier> createApplier(const Filter&) const override;
 
     WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
 

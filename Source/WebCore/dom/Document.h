@@ -34,7 +34,6 @@
 #include "CrossOriginOpenerPolicy.h"
 #include "DisabledAdaptations.h"
 #include "DocumentEventTiming.h"
-#include "DocumentIdentifier.h"
 #include "ElementIdentifier.h"
 #include "FocusOptions.h"
 #include "FontSelectorClient.h"
@@ -292,19 +291,6 @@ const int numNodeListInvalidationTypes = InvalidateOnAnyAttrChange + 1;
 enum class EventHandlerRemoval { One, All };
 using EventTargetSet = HashCountedSet<Node*>;
 
-enum DocumentClass {
-    DefaultDocumentClass = 0,
-    HTMLDocumentClass = 1,
-    XHTMLDocumentClass = 1 << 1,
-    ImageDocumentClass = 1 << 2,
-    PluginDocumentClass = 1 << 3,
-    MediaDocumentClass = 1 << 4,
-    SVGDocumentClass = 1 << 5,
-    TextDocumentClass = 1 << 6,
-    XMLDocumentClass = 1 << 7,
-};
-using DocumentClassFlags = unsigned char;
-
 enum class DocumentCompatibilityMode : unsigned char {
     NoQuirksMode = 1,
     QuirksMode = 1 << 1,
@@ -397,9 +383,7 @@ public:
 
     void removedLastRef();
 
-    DocumentIdentifier identifier() const { return m_identifier; }
-
-    using DocumentsMap = HashMap<DocumentIdentifier, Document*>;
+    using DocumentsMap = HashMap<ScriptExecutionContextIdentifier, Document*>;
     WEBCORE_EXPORT static DocumentsMap::ValuesIteratorRange allDocuments();
     WEBCORE_EXPORT static DocumentsMap& allDocumentsMap();
 
@@ -532,19 +516,39 @@ public:
 
     // Other methods (not part of DOM)
     bool isSynthesized() const { return m_isSynthesized; }
-    bool isHTMLDocument() const { return m_documentClasses & HTMLDocumentClass; }
-    bool isXHTMLDocument() const { return m_documentClasses & XHTMLDocumentClass; }
-    bool isXMLDocument() const { return m_documentClasses & XMLDocumentClass; }
-    bool isImageDocument() const { return m_documentClasses & ImageDocumentClass; }
-    bool isSVGDocument() const { return m_documentClasses & SVGDocumentClass; }
-    bool isPluginDocument() const { return m_documentClasses & PluginDocumentClass; }
-    bool isMediaDocument() const { return m_documentClasses & MediaDocumentClass; }
-    bool isTextDocument() const { return m_documentClasses & TextDocumentClass; }
+
+    enum class DocumentClass : uint16_t {
+        HTML = 1,
+        XHTML = 1 << 1,
+        Image = 1 << 2,
+        Plugin = 1 << 3,
+        Media = 1 << 4,
+        SVG = 1 << 5,
+        Text = 1 << 6,
+        XML = 1 << 7,
+#if ENABLE(MODEL_ELEMENT)
+        Model = 1 << 8,
+#endif
+    };
+
+    using DocumentClasses = OptionSet<DocumentClass>;
+
+    bool isHTMLDocument() const { return m_documentClasses.contains(DocumentClass::HTML); }
+    bool isXHTMLDocument() const { return m_documentClasses.contains(DocumentClass::XHTML); }
+    bool isXMLDocument() const { return m_documentClasses.contains(DocumentClass::XML); }
+    bool isImageDocument() const { return m_documentClasses.contains(DocumentClass::Image); }
+    bool isSVGDocument() const { return m_documentClasses.contains(DocumentClass::SVG); }
+    bool isPluginDocument() const { return m_documentClasses.contains(DocumentClass::Plugin); }
+    bool isMediaDocument() const { return m_documentClasses.contains(DocumentClass::Media); }
+    bool isTextDocument() const { return m_documentClasses.contains(DocumentClass::Text); }
+#if ENABLE(MODEL_ELEMENT)
+    bool isModelDocument() const { return m_documentClasses.contains(DocumentClass::Model); }
+#endif
     bool hasSVGRootNode() const;
     virtual bool isFrameSet() const { return false; }
 
     static ptrdiff_t documentClassesMemoryOffset() { return OBJECT_OFFSETOF(Document, m_documentClasses); }
-    static uint32_t isHTMLDocumentClassFlag() { return HTMLDocumentClass; }
+    static uint32_t isHTMLDocumentClassFlag() { return static_cast<uint32_t>(DocumentClass::HTML); }
 
     bool isSrcdocDocument() const { return m_isSrcdocDocument; }
 
@@ -1661,7 +1665,7 @@ public:
 
 protected:
     enum ConstructionFlags { Synthesized = 1, NonRenderedPlaceholder = 1 << 1 };
-    WEBCORE_EXPORT Document(Frame*, const Settings&, const URL&, DocumentClassFlags = DefaultDocumentClass, unsigned constructionFlags = 0);
+    WEBCORE_EXPORT Document(Frame*, const Settings&, const URL&, DocumentClasses = { }, unsigned constructionFlags = 0);
 
     void clearXMLVersion() { m_xmlVersion = String(); }
 
@@ -1934,7 +1938,7 @@ private:
 
     std::unique_ptr<SelectorQueryCache> m_selectorQueryCache;
 
-    DocumentClassFlags m_documentClasses;
+    DocumentClasses m_documentClasses;
 
     RenderPtr<RenderView> m_renderView;
 
@@ -2187,8 +2191,6 @@ private:
 
     RefPtr<DocumentTimeline> m_timeline;
     std::unique_ptr<DocumentTimelinesController> m_timelinesController;
-
-    DocumentIdentifier m_identifier;
 
     RefPtr<WindowEventLoop> m_eventLoop;
     std::unique_ptr<EventLoopTaskGroup> m_documentTaskGroup;

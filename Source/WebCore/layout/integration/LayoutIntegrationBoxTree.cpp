@@ -39,6 +39,10 @@
 #include "RenderLineBreak.h"
 #include "TextUtil.h"
 
+#if ENABLE(TREE_DEBUGGING)
+#include "LayoutIntegrationLineLayout.h"
+#endif
+
 namespace WebCore {
 namespace LayoutIntegration {
 
@@ -92,17 +96,12 @@ void BoxTree::buildTree()
         if (is<RenderText>(childRenderer)) {
             auto& textRenderer = downcast<RenderText>(childRenderer);
             auto style = RenderStyle::createAnonymousStyleWithDisplay(textRenderer.style(), DisplayType::Inline);
-            auto canUseSimplifiedTextMeasuring = [&] {
-                if (!textRenderer.canUseSimplifiedTextMeasuring())
-                    return false;
-                return !firstLineStyle || Layout::TextUtil::canUseSimplifiedTextMeasuringForFirstLine(style, *firstLineStyle);
-            }();
             auto text = style.textSecurity() == TextSecurity::None ? textRenderer.text() : RenderBlock::updateSecurityDiscCharacters(style, textRenderer.text());
             auto containsBidiText = Layout::TextUtil::containsBidiText(text);
             if (containsBidiText)
                 textRenderer.setContainsBidiText();
-
-            return makeUnique<Layout::InlineTextBox>(text, canUseSimplifiedTextMeasuring, containsBidiText, WTFMove(style), WTFMove(firstLineStyle));
+            auto useSimplifiedTextMeasuring = textRenderer.canUseSimplifiedTextMeasuring() && (!firstLineStyle || firstLineStyle->fontCascade() == style.fontCascade());
+            return makeUnique<Layout::InlineTextBox>(text, useSimplifiedTextMeasuring, containsBidiText, WTFMove(style), WTFMove(firstLineStyle));
         }
 
         auto style = RenderStyle::clone(childRenderer.style());

@@ -141,6 +141,32 @@ static WebCore::MouseEventPolicy coreMouseEventPolicy(_WKWebsiteMouseEventPolicy
     return _websitePolicies->contentBlockersEnabled();
 }
 
+- (void)_setActiveContentRuleListActionPatterns:(NSSet<NSString *> *)patterns
+{
+    if (!patterns) {
+        _websitePolicies->setActiveContentRuleListActionPatterns(std::nullopt);
+        return;
+    }
+
+    HashSet<String> patternHashSet;
+    patternHashSet.reserveInitialCapacity(patterns.count);
+    for (NSString *pattern in patterns)
+        patternHashSet.add(pattern);
+    _websitePolicies->setActiveContentRuleListActionPatterns(WTFMove(patternHashSet));
+}
+
+- (NSSet<NSString *> *)_activeContentRuleListActionPatterns
+{
+    const auto& patterns = _websitePolicies->activeContentRuleListActionPatterns();
+    if (!patterns)
+        return nil;
+
+    NSMutableSet<NSString *> *set = [NSMutableSet set];
+    for (const auto& pattern : *patterns)
+        [set addObject:pattern];
+    return set;
+}
+
 - (void)_setAllowedAutoplayQuirks:(_WKWebsiteAutoplayQuirk)allowedQuirks
 {
     OptionSet<WebKit::WebsiteAutoplayQuirk> quirks;
@@ -393,10 +419,15 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 
 - (void)_setCaptivePortalModeEnabled:(BOOL)captivePortalModeEnabled
 {
-#if PLATFORM(IOS_FAMILY)
-    if (!WTF::processHasEntitlement("com.apple.developer.web-browser"))
+    if (_websitePolicies->captivePortalModeEnabled() == captivePortalModeEnabled)
         return;
+
+#if PLATFORM(IOS_FAMILY)
+    // On iOS, the web browser entitlement is required to disable captive portal mode.
+    if (!captivePortalModeEnabled && !WTF::processHasEntitlement("com.apple.developer.web-browser"))
+        [NSException raise:NSInternalInconsistencyException format:@"The 'com.apple.developer.web-browser' restricted entitlement is required to disable captive portal mode"];
 #endif
+
     _websitePolicies->setCaptivePortalModeEnabled(!!captivePortalModeEnabled);
 }
 

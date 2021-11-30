@@ -28,15 +28,15 @@
 #include "WebGPUColor.h"
 #include "WebGPUIndexFormat.h"
 #include "WebGPUIntegralTypes.h"
+#include <cstdint>
+#include <functional>
 #include <optional>
-#include <utility>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 class BindGroup;
 class Buffer;
@@ -117,5 +117,4 @@ private:
     String m_label;
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU

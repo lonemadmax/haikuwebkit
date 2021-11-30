@@ -2204,6 +2204,18 @@ static RetainPtr<NSArray> wkTextManipulationErrors(NSArray<_WKTextManipulationIt
     });
 }
 
+- (void)_startImageAnalysis:(NSString *)identifier
+{
+#if ENABLE(IMAGE_ANALYSIS)
+    THROW_IF_SUSPENDED;
+
+    if (!_page || !_page->preferences().textRecognitionEnhancementsEnabled())
+        return;
+
+    _page->startImageAnalysis(identifier);
+#endif
+}
+
 - (void)_takeFindStringFromSelection:(id)sender
 {
     THROW_IF_SUSPENDED;
@@ -2754,7 +2766,11 @@ static void convertAndAddHighlight(Vector<Ref<WebKit::SharedMemory>>& buffers, N
 
 + (BOOL)_willUpgradeToHTTPS:(NSURL *)url
 {
+#if ENABLE(CONTENT_EXTENSIONS)
     return WebCore::ContentExtensions::ContentExtensionsBackend::shouldBeMadeSecure(url);
+#else
+    return NO;
+#endif
 }
 
 - (void)_showSafeBrowsingWarningWithTitle:(NSString *)title warning:(NSString *)warning details:(NSAttributedString *)details completionHandler:(void(^)(BOOL))completionHandler

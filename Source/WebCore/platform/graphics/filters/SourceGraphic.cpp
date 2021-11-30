@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,8 +22,12 @@
 #include "SourceGraphic.h"
 
 #include "Filter.h"
-#include "GraphicsContext.h"
+#include "SourceGraphicSoftwareApplier.h"
 #include <wtf/text/TextStream.h>
+
+#if USE(CORE_IMAGE)
+#include "SourceGraphicCoreImageApplier.h"
+#endif
 
 namespace WebCore {
 
@@ -34,7 +39,6 @@ Ref<SourceGraphic> SourceGraphic::create()
 SourceGraphic::SourceGraphic()
     : FilterEffect(FilterEffect::Type::SourceGraphic)
 {
-    setOperatingColorSpace(DestinationColorSpace::SRGB());
 }
 
 void SourceGraphic::determineAbsolutePaintRect(const Filter& filter)
@@ -43,14 +47,14 @@ void SourceGraphic::determineAbsolutePaintRect(const Filter& filter)
     setAbsolutePaintRect(enclosingIntRect(paintRect));
 }
 
-void SourceGraphic::platformApplySoftware(const Filter& filter)
+std::unique_ptr<FilterEffectApplier> SourceGraphic::createApplier(const Filter& filter) const
 {
-    ImageBuffer* resultImage = createImageBufferResult();
-    ImageBuffer* sourceImage = filter.sourceImage();
-    if (!resultImage || !sourceImage)
-        return;
-
-    resultImage->context().drawImageBuffer(*sourceImage, IntPoint());
+#if USE(CORE_IMAGE)
+    // FIXME: return SourceGraphicCoreImageApplier.
+    if (filter.renderingMode() == RenderingMode::Accelerated)
+        return FilterEffectApplier::create<SourceGraphicCoreImageApplier>(*this);
+#endif
+    return FilterEffectApplier::create<SourceGraphicSoftwareApplier>(*this);
 }
 
 TextStream& SourceGraphic::externalRepresentation(TextStream& ts, RepresentationType) const

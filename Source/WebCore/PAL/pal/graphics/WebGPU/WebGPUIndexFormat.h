@@ -26,14 +26,25 @@
 #pragma once
 
 #include <cstdint>
+#include <wtf/EnumTraits.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 enum class IndexFormat : uint8_t {
     Uint16,
     Uint32,
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU
+
+namespace WTF {
+
+template<> struct EnumTraits<PAL::WebGPU::IndexFormat> {
+    using values = EnumValues<
+        PAL::WebGPU::IndexFormat,
+        PAL::WebGPU::IndexFormat::Uint16,
+        PAL::WebGPU::IndexFormat::Uint32
+    >;
+};
+
+} // namespace WTF

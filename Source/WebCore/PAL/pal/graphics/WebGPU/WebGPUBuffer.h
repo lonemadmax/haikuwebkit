@@ -29,13 +29,12 @@
 #include "WebGPUMapMode.h"
 #include <cstdint>
 #include <optional>
-#include <utility>
+#include <wtf/Function.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 class Buffer : public RefCounted<Buffer> {
 public:
@@ -49,10 +48,10 @@ public:
         setLabelInternal(m_label);
     }
 
-    virtual void mapAsync(MapModeFlags, std::optional<Size64> offset, std::optional<Size64>, std::function<void()>&&) = 0;
+    virtual void mapAsync(MapModeFlags, std::optional<Size64> offset, std::optional<Size64>, WTF::Function<void()>&&) = 0;
     struct MappedRange {
-        const void* source;
-        size_t byteLength;
+        void* source { nullptr };
+        size_t byteLength { 0 };
     };
     virtual MappedRange getMappedRange(std::optional<Size64> offset, std::optional<Size64>) = 0;
     virtual void unmap() = 0;
@@ -73,5 +72,4 @@ private:
     String m_label;
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU

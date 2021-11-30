@@ -2,6 +2,7 @@
  * Copyright (C) 2004, 2005, 2006, 2007 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -39,8 +40,7 @@ public:
 #if !USE(CG)
     // feFlood does not perform color interpolation of any kind, so the result is always in the current
     // color space regardless of the value of color-interpolation-filters.
-    void setOperatingColorSpace(const DestinationColorSpace&) override { FilterEffect::setResultColorSpace(DestinationColorSpace::SRGB()); }
-    void setResultColorSpace(const DestinationColorSpace&) override { FilterEffect::setResultColorSpace(DestinationColorSpace::SRGB()); }
+    void setOperatingColorSpace(const DestinationColorSpace&) override { }
 #endif
 
 private:
@@ -48,7 +48,7 @@ private:
 
     void determineAbsolutePaintRect(const Filter&) override { setAbsolutePaintRect(enclosingIntRect(maxEffectRect())); }
 
-    void platformApplySoftware(const Filter&) override;
+    std::unique_ptr<FilterEffectApplier> createApplier(const Filter&) const override;
 
     WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
 

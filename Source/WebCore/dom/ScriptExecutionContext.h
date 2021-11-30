@@ -283,7 +283,7 @@ public:
     WEBCORE_EXPORT static bool postTaskTo(ScriptExecutionContextIdentifier, Task&&);
     WEBCORE_EXPORT static bool ensureOnContextThread(ScriptExecutionContextIdentifier, Task&&);
 
-    ScriptExecutionContextIdentifier contextIdentifier() const;
+    ScriptExecutionContextIdentifier identifier() const { return m_identifier; }
 
 protected:
     class AddConsoleMessageTask : public Task {
@@ -361,7 +361,7 @@ private:
 #endif
 
     String m_domainForCachePartition;
-    mutable ScriptExecutionContextIdentifier m_contextIdentifier;
+    mutable ScriptExecutionContextIdentifier m_identifier;
 };
 
 } // namespace WebCore

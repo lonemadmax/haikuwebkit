@@ -161,7 +161,14 @@ void RenderGrid::repeatTracksSizingIfNeeded(LayoutUnit availableSpaceForColumns,
     // a new cycle of the sizing algorithm; there may be more. In addition, not all the
     // cases with orthogonal flows require this extra cycle; we need a more specific
     // condition to detect whether child's min-content contribution has changed or not.
-    if (m_hasAnyOrthogonalItem || m_trackSizingAlgorithm.hasAnyPercentSizedRowsIndefiniteHeight() || m_hasAspectRatioBlockSizeDependentItem) {
+    // The complication with repeating the track sizing algorithm for flex max-sizing is that
+    // it might change a grid item's status of participating in Baseline Alignment for
+    // a cyclic sizing dependncy case, which should be definitively excluded. See
+    // https://github.com/w3c/csswg-drafts/issues/3046 for details.
+    // FIXME: we are avoiding repeating the track sizing algorithm for grid item with baseline alignment
+    // here in the case of using flex max-sizing functions. We probably also need to investigate whether
+    // it is applicable for the case of percent-sized rows with indefinite height as well.
+    if (m_hasAnyOrthogonalItem || m_trackSizingAlgorithm.hasAnyPercentSizedRowsIndefiniteHeight() || (m_trackSizingAlgorithm.hasAnyFlexibleMaxTrackBreadth() && !m_trackSizingAlgorithm.hasAnyBaselineAlignmentItem()) || m_hasAspectRatioBlockSizeDependentItem) {
         computeTrackSizesForDefiniteSize(ForColumns, availableSpaceForColumns);
         computeContentPositionAndDistributionOffset(ForColumns, m_trackSizingAlgorithm.freeSpace(ForColumns).value(), nonCollapsedTracks(ForColumns));
         computeTrackSizesForDefiniteSize(ForRows, availableSpaceForRows);
@@ -960,8 +967,12 @@ void RenderGrid::updateGridAreaForAspectRatioItems(const Vector<RenderBox*>& aut
     populateGridPositionsForDirection(ForColumns);
     populateGridPositionsForDirection(ForRows);
 
-    for (auto& autoGridItem : autoGridItems) 
+    for (auto& autoGridItem : autoGridItems) {
         updateGridAreaLogicalSize(*autoGridItem, gridAreaBreadthForChildIncludingAlignmentOffsets(*autoGridItem, ForColumns), gridAreaBreadthForChildIncludingAlignmentOffsets(*autoGridItem, ForRows));
+        // For an item wtih aspect-ratio, if it has stretch alignment that stretches to the definite row, we also need to transfer the size before laying out the grid item.
+        if (autoGridItem->hasStretchedLogicalHeight())
+            applyStretchAlignmentToChildIfNeeded(*autoGridItem);
+    }
 }
 
 void RenderGrid::layoutGridItems()
@@ -1205,7 +1216,7 @@ void RenderGrid::applyStretchAlignmentToChildIfNeeded(RenderBox& child)
         }
     } else if (!allowedToStretchChildBlockSize && allowedToStretchChildAlongRowAxis(child)) {
         LayoutUnit stretchedLogicalWidth = availableAlignmentSpaceForChildBeforeStretching(GridLayoutFunctions::overridingContainingBlockContentSizeForChild(child, childInlineDirection).value(), child);
-        LayoutUnit desiredLogicalWidth = constrainLogicalWidthInFragmentByMinMax(stretchedLogicalWidth, contentWidth(), *this, nullptr);
+        LayoutUnit desiredLogicalWidth = child.constrainLogicalWidthInFragmentByMinMax(stretchedLogicalWidth, contentWidth(), *this, nullptr);
         child.setOverridingLogicalWidth(desiredLogicalWidth);
         if (desiredLogicalWidth != child.logicalWidth())
             child.setNeedsLayout(MarkOnlyThis);

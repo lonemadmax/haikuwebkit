@@ -104,6 +104,10 @@ fast/text/emoji-gender-6.html [ Pass ]
 fast/text/emoji-gender-8.html [ Pass ]
 fast/text/emoji-gender-9.html [ Pass ]
 
+# JPEG-XL tests
+fast/images/jpegxl-as-image.html [ Pass ]
+fast/images/jpegxl-image-decoding.html [ Pass ]
+
 # Some Apple ports don't support RTL scrollbars.
 fast/scrolling/rtl-scrollbars-elementFromPoint-static.html [ Pass ]
 fast/scrolling/rtl-scrollbars-iframe-offset.html [ Pass ]
@@ -287,6 +291,8 @@ imported/w3c/web-platform-tests/css/css-transforms/transform3d-translate3d-001.h
 
 # GLIB PASS since r281724
 imported/mozilla/svg/as-image/border-image-simple-1.html [ Pass ]
+
+fast/css/accent-color/text.html [ Pass ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of PASSING tests.
@@ -591,7 +597,6 @@ webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-9
 webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-add.html [ ImageOnlyFailure ]
 webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-modify.html [ ImageOnlyFailure ]
 webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette-remove.html [ ImageOnlyFailure ]
-webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/font-palette.html [ ImageOnlyFailure ]
 webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/palette-values-rule-add.html [ ImageOnlyFailure ]
 webkit.org/b/230926 imported/w3c/web-platform-tests/css/css-fonts/palette-values-rule-delete.html [ ImageOnlyFailure ]
 
@@ -1576,6 +1581,9 @@ webkit.org/b/232346 imported/w3c/web-platform-tests/html/canvas/element/manual/i
 webkit.org/b/232346 imported/w3c/web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-flipY.html [ Failure ]
 webkit.org/b/232346 fast/canvas/canvas-createPattern-video-loading.html [ Failure ]
 webkit.org/b/232346 fast/canvas/canvas-createPattern-video-modify.html [ Failure ]
+webkit.org/b/232346 media/video-canvas-createPattern.html [ Failure ]
+webkit.org/b/232346 media/video-canvas-drawing-output.html [ Failure ]
+webkit.org/b/232346 media/video-orientation-canvas.html [ Failure ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of WPT-related bugs
@@ -2013,7 +2021,7 @@ webkit.org/b/160248 fast/text/combining-mark-paint.html [ ImageOnlyFailure ]
 webkit.org/b/160248 fast/text/synthetic-bold-transformed.html [ ImageOnlyFailure ]
 webkit.org/b/160248 fast/text/trailing-word-detection.html [ Failure ]
 webkit.org/b/160249 fast/shrink-wrap/rect-shrink-wrap.html [ ImageOnlyFailure ]
-webkit.org/b/161583 accessibility/auto-fill-types.html [ Failure ]
+webkit.org/b/161583 accessibility/auto-fill-types.html [ Timeout ]
 webkit.org/b/161589 css3/masking/mask-repeat-space-padding.html [ ImageOnlyFailure ]
 webkit.org/b/162815 fast/text/variations/font-face-clamp.html [ ImageOnlyFailure ]
 webkit.org/b/162815 fast/text/variations/font-selection-properties.html [ ImageOnlyFailure ]
@@ -2046,7 +2054,6 @@ webkit.org/b/168426 fast/multicol/columns-on-body.html [ ImageOnlyFailure ]
 webkit.org/b/168426 svg/clip-path/clip-opacity.html [ ImageOnlyFailure ]
 
 webkit.org/b/168430 fast/inline/outline-corners-with-offset.html [ ImageOnlyFailure ]
-webkit.org/b/168433 http/tests/xmlhttprequest/redirections-and-user-headers.html [ Failure ]
 webkit.org/b/168551 http/tests/misc/slow-loading-animated-image.html [ ImageOnlyFailure ]
 webkit.org/b/168719 fast/css/paint-order-shadow.html [ ImageOnlyFailure ]
 webkit.org/b/169909 fast/block/lineboxcontain/block-with-ideographs.xhtml [ Failure ]
@@ -2349,7 +2356,6 @@ webkit.org/b/108925 http/tests/media/video-play-stall.html [ Failure Timeout ]
 
 webkit.org/b/137698 media/video-controls-drag.html [ Timeout ]
 webkit.org/b/141959 http/tests/media/clearkey/clear-key-hls-aes128.html [ Crash Timeout ]
-webkit.org/b/142489 http/tests/media/video-play-waiting.html [ Timeout ]
 webkit.org/b/130971 media/track/track-remove-track.html [ Timeout ]
 webkit.org/b/113127 media/track/track-prefer-captions.html [ Timeout ]
 
@@ -2376,8 +2382,6 @@ http/tests/cache-storage/page-cache-domcache-pending-promise.html [ DumpJSConsol
 
 # Added in r276357. Also marked as ImageOnlyFailure in iOS TestExpectations.
 fast/text/line-break-with-locale.html [ ImageOnlyFailure ]
-
-fast/replaced/pdf-as-embed-with-no-mime-type-is-not-blank.html [ ImageOnlyFailure ]
 
 # It was a flaky crash until r275516, but it's still a timeout flaky.
 webkit.org/b/224112 media/video-as-img-output-pts.html [ Timeout Pass ]
@@ -2481,6 +2485,7 @@ webkit.org/b/231818 imported/w3c/web-platform-tests/file-system-access/sandboxed
 webkit.org/b/231818 imported/w3c/web-platform-tests/file-system-access/sandboxed_FileSystemSyncAccessHandle-truncate.https.tentative.worker.html [ Failure ]
 webkit.org/b/231818 storage/filesystemaccess/handle-move-worker.html [ Failure ]
 webkit.org/b/231818 storage/filesystemaccess/sync-access-handle-basics-worker.html [ Failure ]
+webkit.org/b/231818 storage/filesystemaccess/sync-access-handle-close-worker.html [ Failure ]
 webkit.org/b/231818 storage/filesystemaccess/sync-access-handle-read-write-worker.html [ Failure ]
 
 # Tests failing due to HTML being interpreted as XHTML
@@ -2554,6 +2559,7 @@ webkit.org/b/232386 fast/inline/line-break-loose-with-inline-box-boundary.html [
 webkit.org/b/232386 fast/inline/vertical-align-text-bottom.html [ Failure ]
 webkit.org/b/232386 fast/multicol/float-adjacent-to-overflow-block.html [ ImageOnlyFailure ]
 webkit.org/b/232386 fast/overflow/clip-rects-fixed-ancestor.html [ Failure ]
+webkit.org/b/232386 fast/overflow/dynamic-hidden.html [ Failure ]
 webkit.org/b/232386 fast/parser/changing-attrbutes-crash.html [ Failure ]
 webkit.org/b/232386 fast/parser/comment-in-script.html [ Failure ]
 webkit.org/b/232386 fast/parser/comments.html [ Failure ]
@@ -2566,6 +2572,7 @@ webkit.org/b/232386 fast/repaint/text-selection-rect-in-overflow.html [ Failure 
 webkit.org/b/232386 fast/selectors/empty-namespace-with-element-selector.html [ Failure ]
 webkit.org/b/232386 fast/table/Rowspan-value-more-than-number-of-rows-present.html [ Failure ]
 webkit.org/b/232386 fast/text/crash-font-family-parsed.html [ Failure ]
+webkit.org/b/232386 fast/text/line-breaks-after-white-space.html [ Failure ]
 webkit.org/b/232386 fast/text/text-shadow-no-default-color.html [ Failure ]
 webkit.org/b/232386 fast/text/text-underline-first-line-decoration.html [ ImageOnlyFailure ]
 webkit.org/b/232386 fast/text/text-underline-style.html [ ImageOnlyFailure ]
@@ -2578,6 +2585,7 @@ webkit.org/b/232386 ietestcenter/css3/bordersbackgrounds/background-size-aspect-
 webkit.org/b/232386 imported/blink/css3/filters/effect-reference-add-hw.html [ ImageOnlyFailure ]
 webkit.org/b/232386 imported/blink/css3/filters/effect-reference-source-alpha-hw.html [ ImageOnlyFailure ]
 webkit.org/b/232386 imported/blink/svg/as-image/zero-size-buffered-image-nopaint.html [ ImageOnlyFailure ]
+webkit.org/b/232386 scrollbars/scrollbar-drag-thumb-with-large-content.html [ Failure ]
 webkit.org/b/232386 svg/as-object/mutate-on-load.html [ ImageOnlyFailure ]
 webkit.org/b/232386 svg/as-object/deep-nested-embedded-svg-size-changes-no-layout-triggers-1.html [ Failure ]
 webkit.org/b/232386 svg/as-object/deep-nested-embedded-svg-size-changes-no-layout-triggers-2.html [ Failure ]

@@ -1,3 +1,318 @@
+2021-11-24  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [libpas] Unreviewed, speculative libpas Linux fix, libpas requires libatomic in Linux etc., part 2
+
+        * CMakeLists.txt:
+
+2021-11-24  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [libpas] Unreviewed, libpas requires libatomic in Linux etc.
+
+        * CMakeLists.txt:
+
+2021-11-19  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [libpas] Unreviewed, build fix for relatively old clang on oss-fuzz
+        https://bugs.webkit.org/show_bug.cgi?id=233097
+
+        * libpas/src/libpas/pas_utils.h:
+        * libpas/src/libpas/pas_utils_prefix.h:
+        (__pas_depend_impl):
+        (__pas_depend):
+        (__pas_depend_cpu_only):
+
+2021-11-18  Basuke Suzuki  <basuke.suzuki@sony.com>
+
+        [bmalloc] freeableMemory and footprint of Heap are completely broken
+        https://bugs.webkit.org/show_bug.cgi?id=230245
+        <rdar://problem/83339024>
+
+        Reviewed by Geoffrey Garen.
+
+        This introduced in r279922. The physical size of the newly allocated range was changed from zero
+        to the size of the range on that commit and that causes the numbers wrong. That change itself is
+        correct fix because the range has physical pages attached. That simply activated the bug which was
+        there for a long time.
+
+        I've added the correction to adjust both numbers with newly allocated region. Also added an optional
+        assertion to check the overflow of those values and the option to log those value change to the console.
+
+        Fortunately those numbers are used for debugging purpose. Scavenger will dump out those to stderr
+        with its verbose mode. There's no practical cases affected by this bug.
+
+        Here is the example of footprint logging before fixing the bug:
+
+                >>> footprint: 18446744073709535232 (-16384) scavenge
+                footprint: 18446744073709518848 (-16384) scavenge
+                footprint: 18446744073709502464 (-16384) scavenge
+                footprint: 18446744073709486080 (-16384) scavenge
+                footprint: 18446744073709469696 (-16384) scavenge
+                footprint: 18446744073709453312 (-16384) scavenge
+                ...
+
+        It just began with negative number which overflows on unsigned. And following is the one with fix:
+
+                footprint: 1048576 (1048576) allocateLarge
+                footprint: 2097152 (1048576) allocateLarge
+                footprint: 3145728 (1048576) allocateLarge
+                footprint: 4194304 (1048576) allocateLarge
+                footprint: 5242880 (1048576) allocateLarge
+                footprint: 6291456 (1048576) allocateLarge
+                >>> footprint: 6275072 (-16384) scavenge
+                footprint: 6258688 (-16384) scavenge
+                footprint: 6242304 (-16384) scavenge
+                footprint: 6225920 (-16384) scavenge
+                footprint: 6209536 (-16384) scavenge
+                footprint: 6193152 (-16384) scavenge
+                ...
+
+        * bmalloc/Heap.cpp:
+        (bmalloc::Heap::adjustStat):
+        (bmalloc::Heap::logStat):
+        (bmalloc::Heap::adjustFreeableMemory):
+        (bmalloc::Heap::adjustFootprint):
+        (bmalloc::Heap::decommitLargeRange):
+        (bmalloc::Heap::scavenge):
+        (bmalloc::Heap::allocateSmallChunk):
+        (bmalloc::Heap::allocateSmallPage):
+        (bmalloc::Heap::deallocateSmallLine):
+        (bmalloc::Heap::splitAndAllocate):
+        (bmalloc::Heap::allocateLarge):
+        (bmalloc::Heap::deallocateLarge):
+        (bmalloc::Heap::externalCommit):
+        (bmalloc::Heap::externalDecommit):
+        * bmalloc/Heap.h:
+
+2021-11-16  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, -latomic is only available for GCC
+        https://bugs.webkit.org/show_bug.cgi?id=233097
+
+        * CMakeLists.txt:
+
+2021-11-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [libpas] Build and enable libpas on 64bit JSCOnly
+        https://bugs.webkit.org/show_bug.cgi?id=233097
+
+        Reviewed by Filip Pizlo.
+
+        This patch makes libpas built on 64bit Linux. And now enabling it on JSCOnly port.
+        libpas is built in C and tailored to the current clang. It made building libpas on
+        GCC hard since GCC is stricter on C languages.
+
+        1. C does not handle `const` variables as constants. So libpas's config is not strictly constant
+           in the C spec, and GCC actually rejects it. To make it built correctly, we need to build them
+           in C++. In this patch, when building libpas via CMake, we build some libpas C files as C++.
+        2. GCC C++ does not allow designated initializer for array. We work-around this problem by adding
+           cpp_initialization_t constexpr constructors only when building these headers in C++ compiler.
+        3. Atomic operations are using clang extension, so they cannot be built with GCC. This patch adds
+           GCC version of these implementations.
+        4. Add PAS_OS(DARWIN) ifdefs for Darwin specific code (e.g. malloc handling).
+        5. Add explicit cast / PAS_UNUSED_PARAM since GCC emits warnings
+        6. Use (unsigned long long) explicit cast for printing uint64_t via `%llx` / `%llu` since uint64_t
+           definition is `unsigned long int` in GCC (while clang's one is `unsigned long long`).
+        7. Reorder designated initializer for structures since not following to the definition ordering
+           becomes compile error in GCC.
+        8. Use __uint128_t for pas_pair in GCC to avoid compile error.
+
+        * CMakeLists.txt:
+        * bmalloc.xcodeproj/project.pbxproj:
+        * bmalloc/BCompiler.h:
+        * bmalloc/BPlatform.h:
+        * bmalloc/Heap.cpp:
+        * bmalloc/IsoHeapImplInlines.h:
+        (bmalloc::IsoHeapImpl<Config>::IsoHeapImpl):
+        * libpas/src/libpas/bmalloc_heap.c:
+        * libpas/src/libpas/bmalloc_heap_config.c:
+        (bmalloc_heap_config_activate):
+        * libpas/src/libpas/bmalloc_heap_inlines.h:
+        * libpas/src/libpas/jit_heap.c:
+        * libpas/src/libpas/jit_heap_config.c:
+        (jit_page_header_for_boundary_remote):
+        (jit_prepare_to_enumerate):
+        * libpas/src/libpas/jit_heap_config.h:
+        * libpas/src/libpas/pas_basic_heap_config_enumerator_data.c:
+        (pas_basic_heap_config_enumerator_data_add_page_header_table):
+        * libpas/src/libpas/pas_bitfit_page.c:
+        (pas_bitfit_page_deallocation_did_fail):
+        * libpas/src/libpas/pas_bitfit_page_config_kind.c:
+        * libpas/src/libpas/pas_bitfit_page_inlines.h:
+        (pas_bitfit_page_finish_allocation):
+        (pas_bitfit_page_allocate):
+        (pas_bitfit_page_deallocate_with_page_impl):
+        * libpas/src/libpas/pas_cartesian_tree.h:
+        (pas_cartesian_tree_construct):
+        * libpas/src/libpas/pas_compact_ptr.h:
+        * libpas/src/libpas/pas_debug_spectrum.c:
+        (pas_debug_spectrum_dump):
+        * libpas/src/libpas/pas_dyld_state.c:
+        (pas_dyld_is_libsystem_initialized):
+        * libpas/src/libpas/pas_enumerator.c:
+        (pas_enumerator_record_page_payload_and_meta):
+        * libpas/src/libpas/pas_epoch.c:
+        (pas_get_epoch):
+        * libpas/src/libpas/pas_fast_large_free_heap.c:
+        (get_x_key_callback):
+        (insert_node):
+        (dump_heap):
+        (fast_write_cursor):
+        (fast_merge):
+        * libpas/src/libpas/pas_fast_megapage_cache.c:
+        (table_set_by_index):
+        * libpas/src/libpas/pas_fast_megapage_table.c:
+        (pas_fast_megapage_table_set_by_index):
+        * libpas/src/libpas/pas_fast_megapage_table.h:
+        (pas_fast_megapage_table::pas_fast_megapage_table):
+        * libpas/src/libpas/pas_generic_large_free_heap.h:
+        (pas_generic_large_free_heap_try_allocate):
+        * libpas/src/libpas/pas_heap_config.h:
+        * libpas/src/libpas/pas_heap_config_inlines.h:
+        * libpas/src/libpas/pas_heap_config_kind.c:
+        * libpas/src/libpas/pas_heap_config_kind.def:
+        * libpas/src/libpas/pas_heap_config_kind.h:
+        (pas_heap_config_kind_get_config):
+        (pas_heap_config_kind_is_active):
+        * libpas/src/libpas/pas_heap_config_utils.h:
+        * libpas/src/libpas/pas_internal_config.h:
+        * libpas/src/libpas/pas_intrinsic_heap_support.h:
+        (pas_intrinsic_heap_support::pas_intrinsic_heap_support):
+        * libpas/src/libpas/pas_large_expendable_memory.h:
+        * libpas/src/libpas/pas_large_free_inlines.h:
+        (pas_large_free_create_merged):
+        * libpas/src/libpas/pas_large_sharing_pool.c:
+        (validate_min_heap):
+        (create_node):
+        (try_splat_impl):
+        (pas_large_sharing_pool_decommit_least_recently_used):
+        (pas_large_sharing_pool_validate):
+        (pas_large_sharing_pool_compute_summary):
+        * libpas/src/libpas/pas_local_allocator_inlines.h:
+        (pas_local_allocator_scan_bits_to_set_up_free_bits):
+        (pas_local_allocator_try_allocate_with_free_bits):
+        * libpas/src/libpas/pas_lock.h:
+        (pas_lock_unlock):
+        * libpas/src/libpas/pas_lock_free_read_ptr_ptr_hashtable.c:
+        (pas_lock_free_read_ptr_ptr_hashtable_set):
+        * libpas/src/libpas/pas_lock_free_read_ptr_ptr_hashtable.h:
+        (pas_lock_free_read_ptr_ptr_hashtable_find):
+        * libpas/src/libpas/pas_min_heap.h:
+        * libpas/src/libpas/pas_monotonic_time.c:
+        (pas_get_current_monotonic_time_nanoseconds):
+        * libpas/src/libpas/pas_page_base_config_utils_inlines.h:
+        * libpas/src/libpas/pas_page_malloc.c:
+        (pas_page_malloc_commit):
+        (decommit_impl):
+        * libpas/src/libpas/pas_page_sharing_participant.c:
+        (pas_page_sharing_participant_get_parent_pool):
+        * libpas/src/libpas/pas_page_sharing_pool.c:
+        (verify_participants):
+        (dump_min_heap):
+        (get_current_participant):
+        (pas_page_sharing_pool_take_least_recently_used):
+        (pas_physical_page_sharing_pool_scavenge):
+        * libpas/src/libpas/pas_platform.h: Added.
+        * libpas/src/libpas/pas_root.c:
+        * libpas/src/libpas/pas_root.h:
+        * libpas/src/libpas/pas_scavenger.c:
+        (scavenger_thread_main):
+        * libpas/src/libpas/pas_scavenger.h:
+        * libpas/src/libpas/pas_segregated_directory.c:
+        (pas_segregated_directory_get_use_epoch):
+        * libpas/src/libpas/pas_segregated_directory.h:
+        * libpas/src/libpas/pas_segregated_exclusive_view_inlines.h:
+        (pas_segregated_exclusive_view_did_start_allocating):
+        * libpas/src/libpas/pas_segregated_page.c:
+        (pas_segregated_page_construct):
+        (pas_segregated_page_take_empty_granules):
+        * libpas/src/libpas/pas_segregated_page.h:
+        (pas_segregated_page_offset_from_page_boundary_to_first_object_for_hugging_mode):
+        (pas_segregated_page_offset_from_page_boundary_to_end_of_last_object_for_hugging_mode):
+        * libpas/src/libpas/pas_segregated_page_config_kind.c:
+        * libpas/src/libpas/pas_segregated_page_config_kind.h:
+        * libpas/src/libpas/pas_segregated_page_inlines.h:
+        (pas_segregated_page_deallocate_with_page):
+        * libpas/src/libpas/pas_segregated_partial_view.c:
+        (pas_segregated_partial_view_set_is_in_use_for_allocation):
+        * libpas/src/libpas/pas_segregated_shared_handle.c:
+        (pas_segregated_shared_handle_create):
+        * libpas/src/libpas/pas_segregated_shared_page_directory.c:
+        (take_last_empty_consider_view):
+        * libpas/src/libpas/pas_segregated_shared_view.c:
+        (compute_summary):
+        * libpas/src/libpas/pas_segregated_size_directory.c:
+        (pas_segregated_size_directory_select_allocator_slow):
+        (take_last_empty_should_consider_view_parallel):
+        (take_last_empty_consider_view):
+        * libpas/src/libpas/pas_segregated_size_directory.h:
+        * libpas/src/libpas/pas_segregated_view_allocator_inlines.h:
+        (pas_segregated_view_will_start_allocating):
+        * libpas/src/libpas/pas_simple_large_free_heap.c:
+        (dump_free_list):
+        (append):
+        (merge):
+        (simple_write_cursor):
+        * libpas/src/libpas/pas_status_reporter.c:
+        (report_segregated_directory_contents):
+        (dump_large_sharing_pool_node_callback):
+        * libpas/src/libpas/pas_thread_local_cache.c:
+        (destructor):
+        (allocate_cache):
+        (dump_thread_diagnostics):
+        (pas_thread_local_cache_create):
+        (pas_thread_local_cache_get_local_allocator_slow):
+        (stop_local_allocators_if_necessary_set_bit_source):
+        (stop_local_allocators_if_necessary_set_bit_callback):
+        (pas_thread_local_cache_for_all):
+        * libpas/src/libpas/pas_try_allocate_intrinsic.h:
+        * libpas/src/libpas/pas_utility_heap_config.c:
+        * libpas/src/libpas/pas_utility_heap_config.h:
+        * libpas/src/libpas/pas_utils.h:
+        (pas_compare_and_swap_uintptr_weak):
+        (pas_compare_and_swap_uintptr_strong):
+        (pas_compare_and_swap_bool_weak):
+        (pas_compare_and_swap_bool_strong):
+        (pas_compare_and_swap_uint8_weak):
+        (pas_compare_and_swap_uint16_weak):
+        (pas_compare_and_swap_uint32_weak):
+        (pas_compare_and_swap_uint32_strong):
+        (pas_compare_and_swap_uint64_weak):
+        (pas_compare_and_swap_uint64_strong):
+        (pas_compare_and_swap_ptr_weak):
+        (pas_compare_and_swap_ptr_strong):
+        (pas_pair_create):
+        (pas_compare_and_swap_pair_weak):
+        (pas_compare_and_swap_pair_strong):
+        (pas_atomic_load_pair):
+        (pas_atomic_store_pair):
+        * libpas/src/libpas/pas_utils_prefix.h:
+
+2021-11-15  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        Make valgrind work properly without extra environment variables
+        https://bugs.webkit.org/show_bug.cgi?id=230460
+
+        Reviewed by Carlos Garcia Campos.
+
+        Currently to run WebKit under valgrind, we have to manually disable bmalloc with Malloc=1,
+        or else the Gigacage breaks everything, because valgrind shadows the entire address space in
+        resident memory, and it just can't handle that much address space. Even with
+        GIGACAGE_ENABLED=0, diagnostics are worse because bmalloc does not use valgrind's
+        annotations.
+
+        Using valgrind.h, we can automatically disable bmalloc when running under valgrind to avoid
+        needing to use the environment variable.
+
+        * CMakeLists.txt:
+        * bmalloc.xcodeproj/project.pbxproj:
+        * bmalloc/Environment.cpp:
+        (bmalloc::isRunningOnValgrind):
+        (bmalloc::Environment::computeIsDebugHeapEnabled):
+        * bmalloc/valgrind.h: Added.
+        (valgrind_do_client_request_expr):
+        (VALGRIND_PRINTF):
+        (VALGRIND_PRINTF_BACKTRACE):
+
 2021-11-13  Filip Pizlo  <fpizlo@apple.com>
 
         [libpas] update to 48d608bf31ba92f8059d2c76488f00c52aaca15a: changes to support universal isoheaps

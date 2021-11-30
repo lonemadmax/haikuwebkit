@@ -1,3 +1,724 @@
+2021-11-27  Sam Weinig  <weinig@apple.com>
+
+        [CSS Color 4] Add support for oklab() and oklch() colors
+        https://bugs.webkit.org/show_bug.cgi?id=233507
+
+        Reviewed by Cameron McCormack.
+
+        Add new tests for oklab() and oklch() based on the existing lab()
+        and lch() tests.
+
+        * web-platform-tests/css/css-color/oklab-001-expected.html: Added.
+        * web-platform-tests/css/css-color/oklab-001.html: Added.
+        * web-platform-tests/css/css-color/oklab-002-expected.html: Added.
+        * web-platform-tests/css/css-color/oklab-002.html: Added.
+        * web-platform-tests/css/css-color/oklab-003-expected.html: Added.
+        * web-platform-tests/css/css-color/oklab-003.html: Added.
+        * web-platform-tests/css/css-color/oklab-004-expected.html: Added.
+        * web-platform-tests/css/css-color/oklab-004.html: Added.
+        * web-platform-tests/css/css-color/oklab-005-expected.html: Added.
+        * web-platform-tests/css/css-color/oklab-005.html: Added.
+        * web-platform-tests/css/css-color/oklab-006-expected.html: Added.
+        * web-platform-tests/css/css-color/oklab-006.html: Added.
+        * web-platform-tests/css/css-color/oklab-007-expected.html: Added.
+        * web-platform-tests/css/css-color/oklab-007.html: Added.
+        * web-platform-tests/css/css-color/oklab-008-expected.html: Added.
+        * web-platform-tests/css/css-color/oklab-008.html: Added.
+        * web-platform-tests/css/css-color/oklch-001-expected.html: Added.
+        * web-platform-tests/css/css-color/oklch-001.html: Added.
+        * web-platform-tests/css/css-color/oklch-002-expected.html: Added.
+        * web-platform-tests/css/css-color/oklch-002.html: Added.
+        * web-platform-tests/css/css-color/oklch-003-expected.html: Added.
+        * web-platform-tests/css/css-color/oklch-003.html: Added.
+        * web-platform-tests/css/css-color/oklch-004-expected.html: Added.
+        * web-platform-tests/css/css-color/oklch-004.html: Added.
+        * web-platform-tests/css/css-color/oklch-005-expected.html: Added.
+        * web-platform-tests/css/css-color/oklch-005.html: Added.
+        * web-platform-tests/css/css-color/oklch-006-expected.html: Added.
+        * web-platform-tests/css/css-color/oklch-006.html: Added.
+        * web-platform-tests/css/css-color/oklch-007-expected.html: Added.
+        * web-platform-tests/css/css-color/oklch-007.html: Added.
+        * web-platform-tests/css/css-color/oklch-008-expected.html: Added.
+        * web-platform-tests/css/css-color/oklch-008.html: Added.
+
+2021-11-26  Tim Nguyen  <ntim@apple.com>
+
+        Update dialog focusing steps inert/disconnected handling
+        https://bugs.webkit.org/show_bug.cgi?id=233514
+
+        Reviewed by Antti Koivisto.
+
+        Updated tests to reflect new behavior.
+
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focus-shadow-expected.txt:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focusing-steps-disconnected-expected.txt:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focusing-steps-disconnected.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focusing-steps-inert-expected.txt:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focusing-steps-inert.html:
+
+2021-11-25  Antti Koivisto  <antti@apple.com>
+
+        [:has() pseudo-class] Invalidation support for adding and removing nodes
+        https://bugs.webkit.org/show_bug.cgi?id=233489
+
+        Reviewed by Alan Bujtas.
+
+        Add some additional cases to an existing test.
+
+        * web-platform-tests/css/selectors/invalidation/attribute-or-elemental-selectors-in-has-expected.txt:
+        * web-platform-tests/css/selectors/invalidation/attribute-or-elemental-selectors-in-has.html:
+
+2021-11-25  Sam Weinig  <weinig@apple.com>
+
+        [CSS Color 4] Add support for new srgb-linear, xyz-d50 and xyz-d65 colorspaces
+        https://bugs.webkit.org/show_bug.cgi?id=233475
+
+        Reviewed by Dean Jackson.
+
+        Update existing color(xyz ...) tests for new d65 whitepoint and add new tests
+        for color(srgb-linear ...), color(xyz-d50 ...) and color(xyz-d65 ...).
+
+        * web-platform-tests/css/css-color/predefined-016.html:
+        * web-platform-tests/css/css-color/srgb-linear-001-expected.html: Added.
+        * web-platform-tests/css/css-color/srgb-linear-001.html: Added.
+        * web-platform-tests/css/css-color/srgb-linear-002-expected.html: Added.
+        * web-platform-tests/css/css-color/srgb-linear-002.html: Added.
+        * web-platform-tests/css/css-color/srgb-linear-003-expected.html: Added.
+        * web-platform-tests/css/css-color/srgb-linear-003.html: Added.
+        * web-platform-tests/css/css-color/srgb-linear-004-expected.html: Added.
+        * web-platform-tests/css/css-color/srgb-linear-004.html: Added.
+        * web-platform-tests/css/css-color/xyz-001.html:
+        * web-platform-tests/css/css-color/xyz-003-expected.html:
+        * web-platform-tests/css/css-color/xyz-003.html:
+        * web-platform-tests/css/css-color/xyz-004-expected.html:
+        * web-platform-tests/css/css-color/xyz-004.html:
+        * web-platform-tests/css/css-color/xyz-005.html:
+        * web-platform-tests/css/css-color/xyz-d50-001-expected.html: Added.
+        * web-platform-tests/css/css-color/xyz-d50-001.html: Added.
+        * web-platform-tests/css/css-color/xyz-d50-002-expected.html: Added.
+        * web-platform-tests/css/css-color/xyz-d50-002.html: Added.
+        * web-platform-tests/css/css-color/xyz-d50-003-expected.html: Added.
+        * web-platform-tests/css/css-color/xyz-d50-003.html: Added.
+        * web-platform-tests/css/css-color/xyz-d50-004-expected.html: Added.
+        * web-platform-tests/css/css-color/xyz-d50-004.html: Added.
+        * web-platform-tests/css/css-color/xyz-d50-005-expected.html: Added.
+        * web-platform-tests/css/css-color/xyz-d50-005.html: Added.
+        * web-platform-tests/css/css-color/xyz-d65-001-expected.html: Added.
+        * web-platform-tests/css/css-color/xyz-d65-001.html: Added.
+        * web-platform-tests/css/css-color/xyz-d65-002-expected.html: Added.
+        * web-platform-tests/css/css-color/xyz-d65-002.html: Added.
+        * web-platform-tests/css/css-color/xyz-d65-003-expected.html: Added.
+        * web-platform-tests/css/css-color/xyz-d65-003.html: Added.
+        * web-platform-tests/css/css-color/xyz-d65-004-expected.html: Added.
+        * web-platform-tests/css/css-color/xyz-d65-004.html: Added.
+        * web-platform-tests/css/css-color/xyz-d65-005-expected.html: Added.
+        * web-platform-tests/css/css-color/xyz-d65-005.html: Added.
+
+2021-11-24  Tim Nguyen  <ntim@apple.com>
+
+        Re-import html/semantics/interactive-elements/the-dialog-element WPT
+        https://bugs.webkit.org/show_bug.cgi?id=233482
+
+        Reviewed by Cameron McCormack.
+
+        Upstream commit: https://github.com/web-platform-tests/wpt/commit/71c864f8bd7f855f12c81bfc7a1fc3ebf18657f3
+
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focus-shadow-delegatesfocus-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focus-shadow-delegatesfocus.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focus-shadow-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focus-shadow.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/w3c-import.log:
+
+2021-11-24  Patrick Griffis  <pgriffis@igalia.com>
+
+        CSP: Implement submitting samples in violation reports
+        https://bugs.webkit.org/show_bug.cgi?id=233398
+
+        Reviewed by Kate Cheney.
+
+        Update expectations with more passes.
+
+        * web-platform-tests/content-security-policy/securitypolicyviolation/script-sample-expected.txt:
+        * web-platform-tests/content-security-policy/securitypolicyviolation/script-sample-no-opt-in-expected.txt:
+        * web-platform-tests/content-security-policy/securitypolicyviolation/style-sample-expected.txt:
+
+2021-11-24  Manuel Rego Casasnovas  <rego@igalia.com>
+
+        [selectors] Import 2 new :focus-visible tests from WPT
+        https://bugs.webkit.org/show_bug.cgi?id=233446
+
+        Reviewed by Antti Koivisto.
+
+        We're slightly tweaking the tests due to bug webkit.org/b/233470.
+
+        * web-platform-tests/css/selectors/focus-visible-017-2-expected.txt: Added.
+        * web-platform-tests/css/selectors/focus-visible-017-2.html: Added.
+        * web-platform-tests/css/selectors/focus-visible-018-2-expected.txt: Added.
+        * web-platform-tests/css/selectors/focus-visible-018-2.html: Added.
+        * web-platform-tests/css/selectors/w3c-import.log:
+
+2021-11-23  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        CSP: security policy violation event is always using document as target
+        https://bugs.webkit.org/show_bug.cgi?id=233182
+
+        Reviewed by Kate Cheney.
+
+        Update test expectations.
+
+        * web-platform-tests/content-security-policy/script-src/javascript-window-open-blocked-expected.txt:
+        * web-platform-tests/content-security-policy/securitypolicyviolation/source-file-blob-scheme-expected.txt:
+        * web-platform-tests/content-security-policy/securitypolicyviolation/source-file-data-scheme-expected.txt:
+        * web-platform-tests/content-security-policy/securitypolicyviolation/style-sample-expected.txt:
+        * web-platform-tests/content-security-policy/securitypolicyviolation/style-sample-no-opt-in-expected.txt:
+
+2021-11-23  Antti Koivisto  <antti@apple.com>
+
+        [:has() pseudo-class] Basic invalidation support
+        https://bugs.webkit.org/show_bug.cgi?id=233443
+
+        Reviewed by Alan Bujtas.
+
+        * web-platform-tests/css/selectors/invalidation/attribute-or-elemental-selectors-in-has-expected.txt:
+
+2021-11-20  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Report the initiating url instead of the redirected one
+        https://bugs.webkit.org/show_bug.cgi?id=233037
+
+        Reviewed by Brent Fulgham.
+
+        * web-platform-tests/content-security-policy/securitypolicyviolation/img-src-redirect.sub-expected.txt:
+
+2021-11-19  Arcady Goldmints-Orlov  <agoldmints@igalia.com>
+
+        [GLIB] Update test expectations and baselines. Unreviewed test gardening.
+        https://bugs.webkit.org/show_bug.cgi?id=233385
+
+        * web-platform-tests/html/canvas/offscreen/text/2d.text.drawing.style.fontVariant.settings-expected.txt:
+
+2021-11-19  Kiet Ho  <tho22@apple.com>
+
+        Implement parsing and animation support for ray() shape accepted by offset-path
+        https://bugs.webkit.org/show_bug.cgi?id=233153
+
+        Reviewed by Dean Jackson.
+
+        Rebaselined tests that now should pass.
+
+        * web-platform-tests/css/motion/animation/offset-path-composition-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-path-interpolation-005-expected.txt:
+        * web-platform-tests/css/motion/offset-supports-calc-expected.txt:
+        * web-platform-tests/css/motion/parsing/offset-path-computed-expected.txt:
+        * web-platform-tests/css/motion/parsing/offset-path-computed.html:
+        * web-platform-tests/css/motion/parsing/offset-path-parsing-valid-expected.txt:
+
+2021-11-19  Matt Woodrow  <matt.woodrow@gmail.com>
+
+        Import css/css-values/urls web-platform-tests
+        Don't modify fragment-only or empty image URLs
+        https://bugs.webkit.org/show_bug.cgi?id=229917
+
+        Reviewed by Darin Adler.
+
+        Change handling of empty and fragment url()s for images to not convert to a fully resolved
+        path, and instead preserve them as-is, to match css-values4 requirements.
+
+        Import new tests in css/css-values/urls from 5e3187856a311f583124735cad5a03baa61951b3 and
+        add expectations for the new tests.
+
+        * resources/import-expectations.json:
+        * web-platform-tests/css/css-values/urls/empty-expected.txt:
+        * web-platform-tests/css/css-values/urls/empty.html:
+        * web-platform-tests/css/css-values/urls/fragment-only-expected.txt: Added.
+        * web-platform-tests/css/css-values/urls/fragment-only.html: Added.
+        * web-platform-tests/css/css-values/urls/resolve-relative-to-base-expected.txt: Added.
+        * web-platform-tests/css/css-values/urls/resolve-relative-to-base.html: Added.
+        * web-platform-tests/css/css-values/urls/resolve-relative-to-stylesheet-expected.txt: Added.
+        * web-platform-tests/css/css-values/urls/resolve-relative-to-stylesheet.html: Added.
+        * web-platform-tests/css/css-values/urls/support/fragment-only-urls.css: Added.
+        (:root):
+        (#external-unquoted):
+        (#external-quoted):
+        (#external-variable):
+        * web-platform-tests/css/css-values/urls/support/relative-urls.css: Added.
+        (:root):
+        (#stylesheet-relative-image):
+        (#stylesheet-relative-variable-image):
+        (#stylesheet-relative-document-variable-image):
+        * web-platform-tests/css/css-values/urls/support/w3c-import.log:
+        * web-platform-tests/css/css-values/urls/w3c-import.log:
+
+2021-11-18  Ben Nham  <nham@apple.com>
+
+        Add support for onpushsubscriptionchange event handler
+        https://bugs.webkit.org/show_bug.cgi?id=233088
+
+        Reviewed by Youenn Fablet.
+
+        Rebaseline test results since we now support onpushsubscriptionchange.
+
+        * web-platform-tests/push-api/idlharness.https.any.serviceworker-expected.txt:
+
+2021-11-18  Martin Robinson  <mrobinson@webkit.org>
+
+        Update css-transforms WPT tests
+        https://bugs.webkit.org/show_bug.cgi?id=233188
+
+        Reviewed by Sergio Villar Senin.
+
+        Update WPT transform tests and expectations.
+
+        * resources/import-expectations.json:
+        * web-platform-tests/css/css-transforms/2d-rotate-001.html:
+        * web-platform-tests/css/css-transforms/2d-rotate-notref-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-transforms/2d-rotate-notref-expected.html.
+        * web-platform-tests/css/css-transforms/2d-rotate-ref-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-transforms/2d-rotate-ref-expected.html.
+        * web-platform-tests/css/css-transforms/animation/rotate-composition-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/rotate-composition.html:
+        * web-platform-tests/css/css-transforms/animation/support/transform-interpolation-reftests.js:
+        (async createTests):
+        (async createRefs):
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-computed-value-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-computed-value.html:
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-inline-value-expected.txt: Added.
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-inline-value.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-transforms/animation/transform-interpolation-computed-value.html.
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-matrix-expected.html: Added.
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-matrix-expected.txt: Removed.
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-perspective-expected.html: Added.
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-perspective.html: Added.
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-rotate-expected.html: Added.
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-rotate-slerp-expected.html: Added.
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-rotate-slerp-expected.txt: Removed.
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-scale-expected.html: Added.
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-scale-expected.txt: Removed.
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-skew-expected.html: Added.
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-skew-expected.txt: Removed.
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-translate-em-expected.html: Added.
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-translate-em-expected.txt: Removed.
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-translate-expected.html: Added.
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-translate-expected.txt: Removed.
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-verify-reftests-expected.txt: Added.
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-verify-reftests.html: Added.
+        * web-platform-tests/css/css-transforms/animation/translate-interpolation-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/translate-interpolation.html:
+        * web-platform-tests/css/css-transforms/animation/w3c-import.log:
+        * web-platform-tests/css/css-transforms/backface-visibility-hidden-child-translate-expected.xht: Added.
+        * web-platform-tests/css/css-transforms/backface-visibility-hidden-child-translate.html: Added.
+        * web-platform-tests/css/css-transforms/backface-visibility-hidden-child-will-change-transform-expected.xht: Added.
+        * web-platform-tests/css/css-transforms/backface-visibility-hidden-child-will-change-transform.html: Added.
+        * web-platform-tests/css/css-transforms/css-skew-002.html:
+        * web-platform-tests/css/css-transforms/inheritance-expected.txt:
+        * web-platform-tests/css/css-transforms/inheritance.html:
+        * web-platform-tests/css/css-transforms/parsing/scale-parsing-invalid-expected.txt:
+        * web-platform-tests/css/css-transforms/parsing/scale-parsing-invalid.html:
+        * web-platform-tests/css/css-transforms/parsing/transform-computed-expected.txt: Added.
+        * web-platform-tests/css/css-transforms/parsing/transform-computed.html: Added.
+        * web-platform-tests/css/css-transforms/parsing/translate-parsing-invalid-expected.txt:
+        * web-platform-tests/css/css-transforms/parsing/translate-parsing-invalid.html:
+        * web-platform-tests/css/css-transforms/parsing/w3c-import.log:
+        * web-platform-tests/css/css-transforms/perspective-transforms-equivalence.html:
+        * web-platform-tests/css/css-transforms/preserve-3d-flat-grouping-properties.html:
+        * web-platform-tests/css/css-transforms/preserve3d-overflow-percent-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-transforms/preserve3d-overflow-percent-expected.html.
+        * web-platform-tests/css/css-transforms/transform-abspos-005-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-transforms/transform-abspos-005-expected.html.
+        * web-platform-tests/css/css-transforms/transform-and-individual-transform-properties-computed-style.html:
+        * web-platform-tests/css/css-transforms/transform-background-007.html:
+        * web-platform-tests/css/css-transforms/transform-background-008.html:
+        * web-platform-tests/css/css-transforms/transform-input-015.html:
+        * web-platform-tests/css/css-transforms/transform-input-016.html:
+        * web-platform-tests/css/css-transforms/transform-input-017.html:
+        * web-platform-tests/css/css-transforms/transform-origin-001-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-transforms/transform-origin-001-expected.html.
+        * web-platform-tests/css/css-transforms/transform-origin-002-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-transforms/transform-origin-002-expected.html.
+        * web-platform-tests/css/css-transforms/transform-scale-hittest-expected.txt:
+        * web-platform-tests/css/css-transforms/transform-scale-hittest.html:
+        * web-platform-tests/css/css-transforms/transform3d-perspective-origin-ref-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-transforms/transform3d-perspective-origin-ref-expected.html.
+        * web-platform-tests/css/css-transforms/transform3d-rotatex-perspective-001-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-transforms/transform3d-rotatex-perspective-001-expected.html.
+        * web-platform-tests/css/css-transforms/transform3d-rotatex-perspective-002-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-transforms/transform3d-rotatex-perspective-002-expected.html.
+        * web-platform-tests/css/css-transforms/transform3d-rotatex-ref-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-transforms/transform3d-rotatex-ref-expected.html.
+        * web-platform-tests/css/css-transforms/transform3d-sorting-006.html:
+        * web-platform-tests/css/css-transforms/transforms-rotate-degree-45.html:
+        * web-platform-tests/css/css-transforms/ttwf-css-3d-polygon-cycle-mismatch-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-transforms/ttwf-css-3d-polygon-cycle-mismatch-expected.html.
+        * web-platform-tests/css/css-transforms/ttwf-css-3d-polygon-cycle.html:
+        * web-platform-tests/css/css-transforms/w3c-import.log:
+
+2021-11-18  Ziran Sun  <zsun@igalia.com>
+
+        Images as grid items should use the overridingLogicalWidth when defined to compute the logical Height
+        https://bugs.webkit.org/show_bug.cgi?id=228022
+
+        Reviewed by Javier Fernandez.
+
+        * web-platform-tests/css/css-grid/alignment/grid-alignment-implies-size-change-029-expected.txt:
+        * web-platform-tests/css/css-grid/alignment/grid-alignment-implies-size-change-030-expected.txt:
+        * web-platform-tests/css/css-grid/alignment/grid-alignment-implies-size-change-031-expected.txt:
+        * web-platform-tests/css/css-grid/alignment/grid-alignment-implies-size-change-035-expected.txt:
+        * web-platform-tests/css/css-grid/alignment/grid-alignment-implies-size-change-036-expected.txt:
+
+2021-11-18  Arcady Goldmints-Orlov  <agoldmints@igalia.com>
+
+        Update test expectations after r285346
+        https://bugs.webkit.org/show_bug.cgi?id=233290
+
+        Unreviewed test gardening.
+
+        * web-platform-tests/html/canvas/offscreen/filters/2d.filter.canvasFilterObject.blur.exceptions-expected.txt:
+        * web-platform-tests/html/canvas/offscreen/filters/2d.filter.canvasFilterObject.blur.exceptions.worker-expected.txt:
+        * web-platform-tests/html/canvas/offscreen/filters/2d.filter.canvasFilterObject.colorMatrix-expected.txt:
+        * web-platform-tests/html/canvas/offscreen/filters/2d.filter.canvasFilterObject.colorMatrix.worker-expected.txt:
+        * web-platform-tests/html/canvas/offscreen/filters/2d.filter.canvasFilterObject.convolveMatrix.exceptions-expected.txt:
+        * web-platform-tests/html/canvas/offscreen/filters/2d.filter.canvasFilterObject.convolveMatrix.exceptions.worker-expected.txt:
+        * web-platform-tests/html/canvas/offscreen/text/2d.text.drawing.style.fontKerning-expected.txt:
+        * web-platform-tests/html/canvas/offscreen/text/2d.text.drawing.style.fontKerning.with.uppercase-expected.txt:
+        * web-platform-tests/html/canvas/offscreen/text/2d.text.drawing.style.fontKerning.with.uppercase.worker-expected.txt:
+        * web-platform-tests/html/canvas/offscreen/text/2d.text.drawing.style.fontKerning.worker-expected.txt:
+        * web-platform-tests/html/canvas/offscreen/text/2d.text.drawing.style.fontVariant.settings.worker-expected.txt:
+        * web-platform-tests/html/canvas/offscreen/text/2d.text.drawing.style.nonfinite.spacing-expected.txt:
+        * web-platform-tests/html/canvas/offscreen/text/2d.text.drawing.style.nonfinite.spacing.worker-expected.txt:
+        * web-platform-tests/html/canvas/offscreen/text/2d.text.drawing.style.spacing-expected.txt:
+        * web-platform-tests/html/canvas/offscreen/text/2d.text.drawing.style.spacing.measure-expected.txt:
+        * web-platform-tests/html/canvas/offscreen/text/2d.text.drawing.style.spacing.measure.worker-expected.txt:
+        * web-platform-tests/html/canvas/offscreen/text/2d.text.drawing.style.spacing.worker-expected.txt:
+        * web-platform-tests/html/canvas/offscreen/text/2d.text.drawing.style.textRendering.settings-expected.txt:
+        * web-platform-tests/html/canvas/offscreen/text/2d.text.drawing.style.textRendering.settings.worker-expected.txt:
+
+2021-11-18  Youenn Fablet  <youenn@apple.com>
+
+        MediaPlayerAVFoundation should support rvfc
+        https://bugs.webkit.org/show_bug.cgi?id=231945
+        <rdar://problem/84657372>
+
+        Reviewed by Eric Carlson.
+
+        Transforming tests from async to promise based so that there is only one video playing at a time, to make it work smoothly in iOS.
+
+        * web-platform-tests/video-rvfc/request-video-frame-callback-dom-expected.txt:
+        * web-platform-tests/video-rvfc/request-video-frame-callback-dom.html:
+        * web-platform-tests/video-rvfc/request-video-frame-callback-parallel-expected.txt:
+        * web-platform-tests/video-rvfc/request-video-frame-callback-parallel.html:
+        * web-platform-tests/video-rvfc/request-video-frame-callback-repeating-expected.txt:
+        * web-platform-tests/video-rvfc/request-video-frame-callback-repeating.html:
+        * web-platform-tests/video-rvfc/request-video-frame-callback-expected.txt:
+        * web-platform-tests/video-rvfc/request-video-frame-callback.html:
+
+2021-11-18  Sergio Villar Senin  <svillar@igalia.com>
+
+        [css-flexbox] Import WPT tests. November 2021 edition.
+        https://bugs.webkit.org/show_bug.cgi?id=233197
+
+        Reviewed by Martin Robinson.
+
+        * web-platform-tests/css/css-flexbox/baseline-synthesis-001-expected.xht: Added.
+        * web-platform-tests/css/css-flexbox/baseline-synthesis-001.html: Added.
+        * web-platform-tests/css/css-flexbox/baseline-synthesis-002-expected.xht: Added.
+        * web-platform-tests/css/css-flexbox/baseline-synthesis-002.html: Added.
+        * web-platform-tests/css/css-flexbox/column-intrinsic-size-aspect-ratio-crash.html: Added.
+        * web-platform-tests/css/css-flexbox/column-intrinsic-size-aspect-ratio-crash-expected.txt: Added.
+        * web-platform-tests/css/css-flexbox/flex-aspect-ratio-img-column-011-expected.txt:
+        * web-platform-tests/css/css-flexbox/flex-aspect-ratio-img-column-011.html:
+        * web-platform-tests/css/css-flexbox/flex-aspect-ratio-img-row-016-expected.xht: Added.
+        * web-platform-tests/css/css-flexbox/flex-aspect-ratio-img-row-016.html: Added.
+        * web-platform-tests/css/css-flexbox/flex-minimum-height-flex-items-023.html:
+        * web-platform-tests/css/css-flexbox/flex-minimum-width-flex-items-013.html:
+        * web-platform-tests/css/css-flexbox/flexbox-align-self-vert-001-expected.xhtml:
+        * web-platform-tests/css/css-flexbox/flexbox-align-self-vert-001.xhtml:
+        * web-platform-tests/css/css-flexbox/flexbox-align-self-vert-rtl-001-expected.xhtml:
+        * web-platform-tests/css/css-flexbox/flexbox-align-self-vert-rtl-001.xhtml:
+        * web-platform-tests/css/css-flexbox/percentage-heights-016-expected.xht: Added.
+        * web-platform-tests/css/css-flexbox/percentage-heights-016.html: Added.
+        * web-platform-tests/css/css-flexbox/percentage-heights-017-expected.xht: Added.
+        * web-platform-tests/css/css-flexbox/percentage-heights-017.html: Added.
+        * web-platform-tests/css/css-flexbox/percentage-heights-018-expected.xht: Added.
+        * web-platform-tests/css/css-flexbox/percentage-heights-018.html: Added.
+        * web-platform-tests/css/css-flexbox/percentage-heights-019-expected.xht: Added.
+        * web-platform-tests/css/css-flexbox/percentage-heights-019.html: Added.
+        * web-platform-tests/css/css-flexbox/table-as-item-large-intrinsic-size-expected.xht: Added.
+        * web-platform-tests/css/css-flexbox/table-as-item-large-intrinsic-size.html: Added.
+        * web-platform-tests/css/css-flexbox/w3c-import.log:
+
+2021-11-17  Youenn Fablet  <youenn@apple.com>
+
+        Add support for more rvfc metadata
+        https://bugs.webkit.org/show_bug.cgi?id=233185
+
+        Reviewed by Eric Carlson.
+
+        * web-platform-tests/video-rvfc/request-video-frame-callback-webrtc.https-expected.txt:
+
+2021-11-17  Chris Dumez  <cdumez@apple.com>
+
+        Web Locks API does get enabled in Service Workers when running layout tests
+        https://bugs.webkit.org/show_bug.cgi?id=233273
+
+        Reviewed by Geoffrey Garen.
+
+        Rebaseline WPT tests now that more checks are passing in service workers.
+
+        * web-platform-tests/web-locks/acquire.tentative.https.any.serviceworker-expected.txt:
+        * web-platform-tests/web-locks/clientids.tentative.https-expected.txt:
+        * web-platform-tests/web-locks/held.tentative.https.any.serviceworker-expected.txt:
+        * web-platform-tests/web-locks/idlharness.tentative.https.any.serviceworker-expected.txt:
+        * web-platform-tests/web-locks/ifAvailable.tentative.https.any.serviceworker-expected.txt:
+        * web-platform-tests/web-locks/lock-attributes.tentative.https.any.serviceworker-expected.txt:
+        * web-platform-tests/web-locks/mode-exclusive.tentative.https.any.serviceworker-expected.txt:
+        * web-platform-tests/web-locks/mode-mixed.tentative.https.any.serviceworker-expected.txt:
+        * web-platform-tests/web-locks/mode-shared.tentative.https.any.serviceworker-expected.txt:
+        * web-platform-tests/web-locks/query-empty.tentative.https.any.serviceworker-expected.txt:
+        * web-platform-tests/web-locks/resource-names.tentative.https.any.serviceworker-expected.txt:
+        * web-platform-tests/web-locks/secure-context.tentative.https.any.serviceworker-expected.txt:
+        * web-platform-tests/web-locks/signal.tentative.https.any.serviceworker-expected.txt:
+        * web-platform-tests/web-locks/steal.tentative.https.any.serviceworker-expected.txt:
+
+2021-11-17  Antti Koivisto  <antti@apple.com>
+
+        Update web-platform-tests/css/selectors
+        https://bugs.webkit.org/show_bug.cgi?id=233246
+
+        Reviewed by Alexey Shvayka.
+
+        WPT updates.
+
+        * resources/import-expectations.json:
+        * web-platform-tests/css/selectors/first-letter-flag-001-expected.html: Added.
+        * web-platform-tests/css/selectors/first-letter-flag-001.html: Added.
+        * web-platform-tests/css/selectors/focus-visible-004.html:
+        * web-platform-tests/css/selectors/has-argument-with-explicit-scope.tentative-expected.txt: Added.
+        * web-platform-tests/css/selectors/has-argument-with-explicit-scope.tentative.html: Added.
+        * web-platform-tests/css/selectors/has-basic-expected.txt:
+        * web-platform-tests/css/selectors/has-basic.html:
+        * web-platform-tests/css/selectors/has-matches-to-uninserted-elements-expected.txt: Added.
+        * web-platform-tests/css/selectors/has-matches-to-uninserted-elements.html: Added.
+        * web-platform-tests/css/selectors/has-relative-argument-expected.txt:
+        * web-platform-tests/css/selectors/has-relative-argument.html:
+        * web-platform-tests/css/selectors/invalidation/attribute-or-elemental-selectors-in-has-expected.txt: Added.
+        * web-platform-tests/css/selectors/invalidation/attribute-or-elemental-selectors-in-has.html: Added.
+        * web-platform-tests/css/selectors/invalidation/w3c-import.log:
+        * web-platform-tests/css/selectors/nesting-expected.html: Added.
+        * web-platform-tests/css/selectors/nesting-parsing-expected.txt: Added.
+        * web-platform-tests/css/selectors/nesting-parsing.html: Added.
+        * web-platform-tests/css/selectors/nesting.html: Added.
+        * web-platform-tests/css/selectors/parsing/parse-has-expected.txt:
+        * web-platform-tests/css/selectors/parsing/parse-has.html:
+        * web-platform-tests/css/selectors/selection-image-001-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selection-image-001-expected.html.
+        * web-platform-tests/css/selectors/selection-image-002-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/selection-image-002-expected.html.
+        * web-platform-tests/css/selectors/w3c-import.log:
+        * web-platform-tests/css/selectors/xml-class-selector-expected.xml: Added.
+        * web-platform-tests/css/selectors/xml-class-selector.xml: Added.
+
+2021-11-16  Rob Buis  <rbuis@igalia.com>
+
+        Re-add 'style' to contain:strict and contain:content CSS properties
+        https://bugs.webkit.org/show_bug.cgi?id=233193
+
+        Reviewed by Brent Fulgham.
+
+        Now contain-computed-expected.txt is all PASS.
+
+        * web-platform-tests/css/css-contain/parsing/contain-computed-expected.txt:
+
+2021-11-16  Joonghun Park  <jh718.park@samsung.com>
+
+        border-radius inline style should serialize with valid syntax
+        https://bugs.webkit.org/show_bug.cgi?id=183994
+
+        This patch have border-radius property serializes in canonical order
+        as specified in https://drafts.csswg.org/css-backgrounds/#border-radius.
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/css/css-backgrounds/parsing/border-radius-valid-expected.txt: Add css wide keywords test case results.
+        * web-platform-tests/css/css-backgrounds/parsing/border-radius-valid.html: Add css wide keywords test cases.
+
+2021-11-16  Sihui Liu  <sihui_liu@apple.com>
+
+        Implement FileSystemFileHandle.getFile()
+        https://bugs.webkit.org/show_bug.cgi?id=232716
+        <rdar://problem/85022453>
+
+        Reviewed by Youenn Fablet.
+
+        Rebaselined existing tests as some tests are passed and the others can run further due to the new support.
+
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-IndexedDB.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-IndexedDB.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-isSameEntry.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-isSameEntry.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-BroadcastChannel.https.window-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-Error.https.window-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-MessagePort-frames.https.window-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-MessagePort-windows.https.window-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-MessagePort-workers.https.window-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-frames.https.window-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-windows.https.window-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-workers.https.window-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-remove.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-remove.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-getDirectoryHandle.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-getDirectoryHandle.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-getFileHandle.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-getFileHandle.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-iteration.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-iteration.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-removeEntry.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-removeEntry.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-resolve.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemDirectoryHandle-resolve.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemFileHandle-getFile.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemFileHandle-getFile.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream-piped.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream-piped.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream-write.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream-write.https.any.worker-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream.https.any-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemWritableFileStream.https.any.worker-expected.txt:
+
+2021-11-16  Rob Buis  <rbuis@igalia.com>
+
+        [css-contain] Support contain:paint
+        https://bugs.webkit.org/show_bug.cgi?id=224742
+
+        Reviewed by Alan Bujtas.
+
+        Adjust test expectation now that contain: strict is supported.
+
+        * web-platform-tests/css/css-flexbox/flex-item-contains-strict-expected.txt:
+
+2021-11-16  Andreu Botella  <andreu@andreubotella.com>
+
+        Empty <input type=file> is represented incorrectly in FormData
+        https://bugs.webkit.org/show_bug.cgi?id=185416
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/html/semantics/forms/form-submission-0/form-data-set-empty-file.window-expected.txt:
+
+2021-11-16  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r280078, r280290 and r282008.
+        https://bugs.webkit.org/show_bug.cgi?id=233184
+
+        Caused a crash in grid
+
+        Reverted changesets:
+
+        "Images as grid items should use the overridingLogicalWidth
+        when defined to compute the logical Height"
+        https://bugs.webkit.org/show_bug.cgi?id=228022
+        https://commits.webkit.org/r280078
+
+        "[css-grid] svg image as grid items should use the overriding
+        logical width/height when defined to compute the logical
+        height/width"
+        https://bugs.webkit.org/show_bug.cgi?id=228105
+        https://commits.webkit.org/r280290
+
+        "REGRESSION(r280078): broke fast/images/exif-orientation-
+        composited.html on windows"
+        https://bugs.webkit.org/show_bug.cgi?id=228325
+        https://commits.webkit.org/r282008
+
+2021-11-15  Tim Nguyen  <ntim@apple.com>
+
+        Re-import css/css-text-decor WPT
+        https://bugs.webkit.org/show_bug.cgi?id=233154
+
+        Reviewed by Cameron McCormack.
+
+        Since mismatches are now properly renamed to `-expected-mismatch.html` on import since bug 207175,
+        re-import this directory to reduce numbers of false negatives/positives.
+
+        Some tests have also been added/updated/removed since.
+
+        * web-platform-tests/css/css-text-decor/text-decoration-propagation-display-contents-expected.html: Added.
+        * web-platform-tests/css/css-text-decor/text-decoration-propagation-display-contents.html: Added.
+        * web-platform-tests/css/css-text-decor/text-decoration-skip-ink-001-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-decoration-skip-ink-001-expected.html.
+        * web-platform-tests/css/css-text-decor/text-decoration-skip-ink-004-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-decoration-skip-ink-004-expected.html.
+        * web-platform-tests/css/css-text-decor/text-decoration-skip-ink-005-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-decoration-skip-ink-005-expected.html.
+        * web-platform-tests/css/css-text-decor/text-decoration-skip-ink-sidewayslr-001-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-decoration-skip-ink-sidewayslr-001-expected.html.
+        * web-platform-tests/css/css-text-decor/text-decoration-skip-ink-sidewaysrl-001-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-decoration-skip-ink-sidewaysrl-001-expected.html.
+        * web-platform-tests/css/css-text-decor/text-decoration-skip-ink-upright-001-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-decoration-skip-ink-upright-001-expected.html.
+        * web-platform-tests/css/css-text-decor/text-decoration-skip-ink-vertical-001-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-decoration-skip-ink-vertical-001-expected.html.
+        * web-platform-tests/css/css-text-decor/text-decoration-subelements-001-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-decoration-subelements-001-expected.html.
+        * web-platform-tests/css/css-text-decor/text-decoration-thickness-001-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-decoration-thickness-001-expected.html.
+        * web-platform-tests/css/css-text-decor/text-decoration-thickness-single-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-decoration-thickness-single-expected.html.
+        * web-platform-tests/css/css-text-decor/text-emphasis-color-001-expected.xht:
+        * web-platform-tests/css/css-text-decor/text-emphasis-color-001.xht:
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-above-left-002-expected.xht: Removed.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-above-right-002-expected.xht: Removed.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-below-left-002-expected.xht: Removed.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-below-right-002-expected.xht: Removed.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-over-left-001-expected.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-emphasis-position-above-right-001-expected.xht.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-over-left-001.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-emphasis-position-above-left-001.xht.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-over-left-002-expected.xht: Added.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-over-left-002.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-emphasis-position-above-left-002.xht.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-over-right-001-expected.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-emphasis-position-below-left-001-expected.xht.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-over-right-001.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-emphasis-position-above-right-001.xht.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-over-right-002-expected.xht: Added.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-over-right-002.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-emphasis-position-above-right-002.xht.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-under-left-001-expected.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-emphasis-position-above-left-001-expected.xht.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-under-left-001.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-emphasis-position-below-left-001.xht.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-under-left-002-expected.xht: Added.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-under-left-002.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-emphasis-position-below-left-002.xht.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-under-right-001-expected.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-emphasis-position-below-right-001-expected.xht.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-under-right-001.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-emphasis-position-below-right-001.xht.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-under-right-002-expected.xht: Added.
+        * web-platform-tests/css/css-text-decor/text-emphasis-position-under-right-002.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-emphasis-position-below-right-002.xht.
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-002-expected.html:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-002.html:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-006-expected.html: Removed.
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-006.html: Removed.
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-007-expected.html:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-007.html:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-008-expected.html:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-008.html:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-010-expected.html:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-010.html:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-012-expected.html:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-012.html:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-016-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-emphasis-style-002-expected.html.
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-016.html:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-021-expected.html:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-021.html:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-filled-001-expected.xht:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-filled-001.xht:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-none-001-expected.xht:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-none-001.xht:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-open-001-expected.xht:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-open-001.xht:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-shape-001-expected.xht:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-shape-001.xht:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-string-001-expected.xht:
+        * web-platform-tests/css/css-text-decor/text-emphasis-style-string-001.xht:
+        * web-platform-tests/css/css-text-decor/text-underline-offset-001-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-underline-offset-001-expected.html.
+        * web-platform-tests/css/css-text-decor/text-underline-offset-negative-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-text-decor/text-underline-offset-negative-expected.html.
+        * web-platform-tests/css/css-text-decor/w3c-import.log:
+
+2021-11-15  Antti Koivisto  <antti@apple.com>
+
+        Revert r285235
+        https://bugs.webkit.org/show_bug.cgi?id=233142
+
+        Unreviewed.
+
+        * web-platform-tests/css/css-backgrounds/parsing/border-radius-valid-expected.txt:
+
+2021-11-15  Kiet Ho  <tho22@apple.com>
+
+        Implement parsing and animation support for offset-rotate
+        https://bugs.webkit.org/show_bug.cgi?id=232752
+
+        Reviewed by Myles C. Maxfield.
+
+        Rebaselined tests that now should pass.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-rotate-composition-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-rotate-interpolation-expected.txt:
+        * web-platform-tests/css/motion/inheritance-expected.txt:
+        * web-platform-tests/css/motion/offset-supports-calc-expected.txt:
+        * web-platform-tests/css/motion/parsing/offset-rotate-computed-expected.txt:
+        * web-platform-tests/css/motion/parsing/offset-rotate-parsing-valid-expected.txt:
+        * web-platform-tests/css/motion/parsing/offset-shorthand-expected.txt:
+
 2021-11-15  Andreu Botella  <andreu@andreubotella.com>
 
         Null bytes aren't percent-encoded on urlencoded over POST

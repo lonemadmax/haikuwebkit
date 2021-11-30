@@ -1430,8 +1430,9 @@ public:
     void isPlayingMediaDidChange(WebCore::MediaProducerMediaStateFlags);
 
 #if ENABLE(IMAGE_ANALYSIS)
-    void requestTextRecognition(WebCore::Element&, CompletionHandler<void(RefPtr<WebCore::Element>&&)>&&);
+    void requestTextRecognition(WebCore::Element&, const String& identifier = { }, CompletionHandler<void(RefPtr<WebCore::Element>&&)>&& = { });
     void updateWithTextRecognitionResult(const WebCore::TextRecognitionResult&, const WebCore::ElementContext&, const WebCore::FloatPoint& location, CompletionHandler<void(TextRecognitionUpdateResult)>&&);
+    void startImageAnalysis(const String& identifier);
 #endif
 
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
@@ -1489,14 +1490,17 @@ public:
     PlatformXRSystemProxy& xrSystemProxy();
 #endif
 
-#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
-    void takeModelElementFullscreen(WebCore::GraphicsLayer::PlatformLayerID contentLayerId);
-#endif
-
     void prepareToRunModalJavaScriptDialog();
 
 #if USE(ATSPI)
     const WebCore::AccessibilityRootAtspi& accessibilityRootObject() const { return *m_accessibilityRootObject; }
+#endif
+
+#if ENABLE(ARKIT_INLINE_PREVIEW)
+    bool useARKitForModel() const { return m_useARKitForModel; };
+#endif
+#if HAVE(SCENEKIT)
+    bool useSceneKitForModel() const { return m_useSceneKitForModel; };
 #endif
 
 private:
@@ -2367,6 +2371,13 @@ private:
     bool m_canUseCredentialStorage { true };
 
     bool m_didUpdateRenderingAfterCommittingLoad { false };
+
+#if ENABLE(ARKIT_INLINE_PREVIEW)
+    bool m_useARKitForModel { false };
+#endif
+#if HAVE(SCENEKIT)
+    bool m_useSceneKitForModel { false };
+#endif
 
     Vector<String> m_corsDisablingPatterns;
 

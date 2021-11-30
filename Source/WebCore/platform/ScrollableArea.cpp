@@ -91,23 +91,14 @@ void ScrollableArea::setScrollOrigin(const IntPoint& origin)
     }
 }
 
-float ScrollableArea::adjustScrollStepForFixedContent(float step, ScrollbarOrientation, ScrollGranularity)
+float ScrollableArea::adjustVerticalPageScrollStepForFixedContent(float step)
 {
     return step;
 }
 
-bool ScrollableArea::scroll(ScrollDirection direction, ScrollGranularity granularity, float multiplier)
+bool ScrollableArea::scroll(ScrollDirection direction, ScrollGranularity granularity, unsigned stepCount)
 {
-    ScrollbarOrientation orientation;
-    Scrollbar* scrollbar;
-    if (direction == ScrollUp || direction == ScrollDown) {
-        orientation = ScrollbarOrientation::Vertical;
-        scrollbar = verticalScrollbar();
-    } else {
-        orientation = ScrollbarOrientation::Horizontal;
-        scrollbar = horizontalScrollbar();
-    }
-
+    auto* scrollbar = scrollbarForDirection(direction);
     if (!scrollbar)
         return false;
 
@@ -127,11 +118,17 @@ bool ScrollableArea::scroll(ScrollDirection direction, ScrollGranularity granula
         break;
     }
 
-    if (direction == ScrollUp || direction == ScrollLeft)
-        multiplier = -multiplier;
+    auto axis = axisFromDirection(direction);
 
-    step = adjustScrollStepForFixedContent(step, orientation, granularity);
-    return scrollAnimator().scroll(orientation, granularity, step, multiplier, ScrollAnimator::ScrollBehavior::DoDirectionalSnapping);
+    if (granularity == ScrollGranularity::Page && axis == ScrollEventAxis::Vertical)
+        step = adjustVerticalPageScrollStepForFixedContent(step);
+
+    auto scrollDelta = step * stepCount;
+    
+    if (direction == ScrollUp || direction == ScrollLeft)
+        scrollDelta = -scrollDelta;
+
+    return scrollAnimator().singleAxisScroll(axis, scrollDelta, ScrollAnimator::ScrollBehavior::RespectScrollSnap);
 }
 
 void ScrollableArea::scrollToPositionWithoutAnimation(const FloatPoint& position, ScrollClamping clamping)
@@ -146,7 +143,7 @@ void ScrollableArea::scrollToPositionWithAnimation(const FloatPoint& position, S
 
     bool startedAnimation = requestAnimatedScrollToPosition(roundedIntPoint(position), clamping);
     if (!startedAnimation)
-        startedAnimation = scrollAnimator().scrollToPositionWithAnimation(position);
+        startedAnimation = scrollAnimator().scrollToPositionWithAnimation(position, clamping);
 
     if (startedAnimation)
         setScrollAnimationStatus(ScrollAnimationStatus::Animating);

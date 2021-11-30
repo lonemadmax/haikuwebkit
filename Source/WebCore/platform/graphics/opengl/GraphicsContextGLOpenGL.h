@@ -104,20 +104,14 @@ typedef HashMap<CString, uint64_t> ShaderNameHash;
 class WEBCORE_EXPORT GraphicsContextGLOpenGL : public GraphicsContextGL
 {
 public:
-    static RefPtr<GraphicsContextGLOpenGL> create(GraphicsContextGLAttributes, HostWindow*);
     virtual ~GraphicsContextGLOpenGL();
-#if PLATFORM(COCOA)
     PlatformLayer* platformLayer() const override;
-    PlatformGraphicsContextGLDisplay platformDisplay() const { return m_displayObj; }
-    PlatformGraphicsContextGLConfig platformConfig() const { return m_configObj; }
+#if USE(ANGLE)
+    PlatformGraphicsContextGLDisplay platformDisplay() const;
+    PlatformGraphicsContextGLConfig platformConfig() const;
+    GCGLenum drawingBufferTextureTarget();
     static GCGLenum drawingBufferTextureTargetQueryForDrawingTarget(GCGLenum drawingTarget);
     static GCGLint EGLDrawingBufferTextureTargetForDrawingTarget(GCGLenum drawingTarget);
-#else
-    PlatformLayer* platformLayer() const final;
-#endif
-#if USE(ANGLE)
-    GCGLenum drawingBufferTextureTarget();
-#endif
     enum class ReleaseThreadResourceBehavior {
         // Releases current context after GraphicsContextGLOpenGL calls done in the thread.
         ReleaseCurrentContext,
@@ -128,6 +122,7 @@ public:
         TerminateAndReleaseThreadResources
     };
     static bool releaseThreadResources(ReleaseThreadResourceBehavior);
+#endif
 
     // With multisampling on, blit from multisampleFBO to regular FBO.
     void prepareTexture();
@@ -446,18 +441,8 @@ public:
     void multiDrawElementsInstancedANGLE(GCGLenum mode, GCGLSpan<const GCGLsizei> counts, GCGLenum type, GCGLSpan<const GCGLint> offsets, GCGLSpan<const GCGLsizei> instanceCounts, GCGLsizei drawcount) override;
 
     // Helper methods.
-    void markContextChanged() final;
-    void markLayerComposited() final;
-    bool layerComposited() const final;
     void forceContextLost();
     void recycleContext();
-
-    // Maintenance of auto-clearing of color/depth/stencil buffers. The
-    // reset method is present to keep calling code simpler, so it
-    // doesn't have to know which buffers were allocated.
-    void resetBuffersToAutoClear();
-    void setBuffersToAutoClear(GCGLbitfield) final;
-    GCGLbitfield getBuffersToAutoClear() const final;
 
     void dispatchContextChangedNotification();
 
@@ -470,10 +455,6 @@ public:
 
     std::optional<PixelBuffer> readRenderingResultsForPainting();
     std::optional<PixelBuffer> readCompositedResultsForPainting();
-
-#if ENABLE(VIDEO)
-    bool copyTextureFromMedia(MediaPlayer&, PlatformGLObject texture, GCGLenum target, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY) final;
-#endif
 
 #if USE(OPENGL) && ENABLE(WEBGL2)
     void primitiveRestartIndex(GCGLuint);
@@ -526,18 +507,6 @@ public:
 
     static void paintToCanvas(const GraphicsContextGLAttributes&, PixelBuffer&&, const IntSize& canvasSize, GraphicsContext&);
 
-#if PLATFORM(COCOA)
-    enum class PbufferAttachmentUsage { Read, Write, ReadWrite };
-    // Returns a handle which, if non-null, must be released via the
-    // detach call below.
-    void* createPbufferAndAttachIOSurface(GCGLenum target, PbufferAttachmentUsage, GCGLenum internalFormat, GCGLsizei width, GCGLsizei height, GCGLenum type, IOSurfaceRef, GCGLuint plane);
-    void destroyPbufferAndDetachIOSurface(void* handle);
-#if !PLATFORM(IOS_FAMILY_SIMULATOR)
-    void* attachIOSurfaceToSharedTexture(GCGLenum target, IOSurface*);
-    void detachIOSurfaceFromSharedTexture(void* handle);
-#endif
-#endif
-
 #if USE(ANGLE)
     constexpr static EGLNativeDisplayType defaultDisplay = EGL_DEFAULT_DISPLAY;
 #if PLATFORM(COCOA)
@@ -548,10 +517,14 @@ public:
 
 protected:
     GraphicsContextGLOpenGL(GraphicsContextGLAttributes);
-    bool isValid() const;
 #if PLATFORM(COCOA)
     GraphicsContextGLIOSurfaceSwapChain m_swapChain;
+    EGLDisplay m_displayObj { nullptr };
+    PlatformGraphicsContextGL m_contextObj { nullptr };
+    PlatformGraphicsContextGLConfig m_configObj { nullptr };
 #endif
+    GCGLuint m_texture { 0 };
+
 private:
     // Called once by all the public entry points that eventually call OpenGL.
     // Called once by all the public entry points of ExtensionsGL that eventually call OpenGL.
@@ -578,8 +551,10 @@ private:
     void resolveMultisamplingIfNecessary(const IntRect& = IntRect());
     void attachDepthAndStencilBufferIfNeeded(GCGLuint internalDepthStencilFormat, int width, int height);
 
-#if PLATFORM(COCOA)
+#if USE(ANGLE)
     bool reshapeDisplayBufferBacking();
+#endif
+#if PLATFORM(COCOA)
     bool allocateAndBindDisplayBufferBacking();
     bool bindDisplayBufferBacking(std::unique_ptr<IOSurface> backing, void* pbuffer);
     static bool makeCurrent(PlatformGraphicsContextGLDisplay, PlatformGraphicsContextGL);
@@ -588,20 +563,9 @@ private:
 #if USE(ANGLE)
     // Returns false if context should be lost due to timeout.
     bool waitAndUpdateOldestFrame() WARN_UNUSED_RETURN;
-#endif
+
     // Platform specific behavior for releaseResources();
     static void platformReleaseThreadResources();
-
-
-#if PLATFORM(COCOA)
-    // TODO: this should be removed once the context draws to a image buffer. See https://bugs.webkit.org/show_bug.cgi?id=218179 .
-    EGLDisplay m_displayObj { nullptr };
-    PlatformGraphicsContextGL m_contextObj { nullptr };
-    PlatformGraphicsContextGLConfig m_configObj { nullptr };
-#endif // PLATFORM(COCOA)
-
-#if PLATFORM(WIN) && USE(CA)
-    RefPtr<PlatformCALayer> m_webGLLayer;
 #endif
 
 #if !USE(ANGLE)
@@ -692,7 +656,6 @@ private:
     ANGLEWebKitBridge m_compiler;
 #endif
 
-    GCGLuint m_texture { 0 };
     GCGLuint m_fbo { 0 };
 #if USE(COORDINATED_GRAPHICS)
     GCGLuint m_compositorTexture { 0 };
@@ -705,7 +668,6 @@ private:
 #endif
     GCGLuint m_depthStencilBuffer { 0 };
 
-    bool m_layerComposited { false };
     GCGLuint m_internalColorFormat { 0 };
 #if USE(ANGLE)
     GCGLuint m_internalDepthStencilFormat { 0 };
@@ -765,11 +727,6 @@ private:
     EGLint m_drawingBufferTextureTarget { -1 };
 
 #endif
-
-    // A bitmask of GL buffer bits (GL_COLOR_BUFFER_BIT,
-    // GL_DEPTH_BUFFER_BIT, GL_STENCIL_BUFFER_BIT) which need to be
-    // auto-cleared.
-    GCGLbitfield m_buffersToAutoClear { 0 };
 
     // Errors raised by synthesizeGLError().
     ListHashSet<GCGLenum> m_syntheticErrors;

@@ -165,6 +165,7 @@
 #include "PrintContext.h"
 #include "PseudoElement.h"
 #include "PushSubscription.h"
+#include "PushSubscriptionData.h"
 #include "RTCRtpSFrameTransform.h"
 #include "Range.h"
 #include "ReadableStream.h"
@@ -194,6 +195,7 @@
 #include "SerializedScriptValue.h"
 #include "ServiceWorker.h"
 #include "ServiceWorkerProvider.h"
+#include "ServiceWorkerRegistration.h"
 #include "ServiceWorkerRegistrationData.h"
 #include "Settings.h"
 #include "ShadowRoot.h"
@@ -2754,12 +2756,12 @@ unsigned Internals::numberOfResizeObservers(const Document& document) const
 
 uint64_t Internals::documentIdentifier(const Document& document) const
 {
-    return document.identifier().toUInt64();
+    return document.identifier().object().toUInt64();
 }
 
 bool Internals::isDocumentAlive(uint64_t documentIdentifier) const
 {
-    return Document::allDocumentsMap().contains(makeObjectIdentifier<DocumentIdentifierType>(documentIdentifier));
+    return Document::allDocumentsMap().contains({ makeObjectIdentifier<ScriptExecutionContextIdentifierType>(documentIdentifier), Process::identifier() });
 }
 
 uint64_t Internals::storageAreaMapCount() const
@@ -2800,12 +2802,7 @@ bool Internals::isAnyWorkletGlobalScopeAlive() const
 
 String Internals::serviceWorkerClientIdentifier(const Document& document) const
 {
-#if ENABLE(SERVICE_WORKER)
-    return ServiceWorkerClientIdentifier { ServiceWorkerProvider::singleton().serviceWorkerConnection().serverConnectionIdentifier(), document.identifier() }.toString();
-#else
-    UNUSED_PARAM(document);
-    return String();
-#endif
+    return document.identifier().toString();
 }
 
 RefPtr<WindowProxy> Internals::openDummyInspectorFrontend(const String& url)
@@ -5477,7 +5474,7 @@ void Internals::grabNextMediaStreamTrackFrame(TrackFramePromise&& promise)
     m_nextTrackFramePromise = makeUnique<TrackFramePromise>(WTFMove(promise));
 }
 
-void Internals::videoSampleAvailable(MediaSample& sample)
+void Internals::videoSampleAvailable(MediaSample& sample, VideoSampleMetadata)
 {
     callOnMainThread([this, weakThis = WeakPtr { *this }, sample = Ref { sample }] {
         if (!weakThis)
@@ -5780,8 +5777,6 @@ static TextRecognitionLineData makeDataForLine(const Internals::ImageOverlayLine
     };
 }
 
-#endif // ENABLE(IMAGE_ANALYSIS)
-
 void Internals::requestTextRecognition(Element& element, RefPtr<VoidCallback>&& callback)
 {
     auto page = contextDocument()->page();
@@ -5790,17 +5785,21 @@ void Internals::requestTextRecognition(Element& element, RefPtr<VoidCallback>&& 
             callback->handleEvent();
     }
 
-#if ENABLE(IMAGE_ANALYSIS)
-    page->chrome().client().requestTextRecognition(element, [callback = WTFMove(callback)] (auto&&) {
+    page->chrome().client().requestTextRecognition(element, { }, [callback = WTFMove(callback)] (auto&&) {
         if (callback)
             callback->handleEvent();
     });
-#else
-    UNUSED_PARAM(element);
-    if (callback)
-        callback->handleEvent();
-#endif
 }
+
+RefPtr<Element> Internals::textRecognitionCandidate() const
+{
+    if (RefPtr frame = contextDocument()->frame())
+        return frame->eventHandler().textRecognitionCandidateElement();
+
+    return nullptr;
+}
+
+#endif // ENABLE(IMAGE_ANALYSIS)
 
 void Internals::installImageOverlay(Element& element, Vector<ImageOverlayLine>&& lines)
 {
@@ -6597,7 +6596,7 @@ RefPtr<PushSubscription> Internals::createPushSubscription(const String& endpoin
     Vector<uint8_t> myClientECDHPublicKey { static_cast<const uint8_t*>(clientECDHPublicKey.data()), clientECDHPublicKey.byteLength() };
     Vector<uint8_t> myAuth { static_cast<const uint8_t*>(auth.data()), auth.byteLength() };
 
-    return PushSubscription::create(WTFMove(myEndpoint), expirationTime, WTFMove(myServerVAPIDPublicKey), WTFMove(myClientECDHPublicKey), WTFMove(myAuth));
+    return PushSubscription::create(PushSubscriptionData { WTFMove(myEndpoint), expirationTime, WTFMove(myServerVAPIDPublicKey), WTFMove(myClientECDHPublicKey), WTFMove(myAuth) });
 }
 #endif
 

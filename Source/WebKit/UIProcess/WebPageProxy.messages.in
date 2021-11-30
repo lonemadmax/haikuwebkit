@@ -216,7 +216,7 @@ messages -> WebPageProxy {
     SetHasHadSelectionChangesFromUserInteraction(bool hasHadUserSelectionChanges)
 
 #if ENABLE(IMAGE_ANALYSIS)
-    RequestTextRecognition(URL imageURL, WebKit::ShareableBitmap::Handle imageData) -> (struct WebCore::TextRecognitionResult result) Async
+    RequestTextRecognition(URL imageURL, WebKit::ShareableBitmap::Handle imageData, String identifier) -> (struct WebCore::TextRecognitionResult result) Async
 #endif
 
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
@@ -464,7 +464,9 @@ messages -> WebPageProxy {
 
     DidResignInputElementStrongPasswordAppearance(WebKit::UserData userData)
 
+#if ENABLE(CONTENT_EXTENSIONS)
     ContentRuleListNotification(URL url, struct WebCore::ContentRuleListResults results)
+#endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
     AddPlaybackTargetPickerClient(WebCore::PlaybackTargetClientContextIdentifier contextId)
@@ -584,10 +586,27 @@ messages -> WebPageProxy {
 #endif
 
 #if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
-    TakeModelElementFullscreen(uint64_t contentLayerID)
+    TakeModelElementFullscreen(struct WebKit::ModelIdentifier modelIdentifier)
 #endif
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
     ModelElementDidCreatePreview(URL url, String uuid, WebCore::FloatSize size) -> (Expected<std::pair<String, uint32_t>, WebCore::ResourceError> result) Async
+    HandleMouseDownForModelElement(String uuid, WebCore::LayoutPoint locationInPageCoordinates, MonotonicTime timestamp)
+    HandleMouseMoveForModelElement(String uuid, WebCore::LayoutPoint locationInPageCoordinates, MonotonicTime timestamp)
+    HandleMouseUpForModelElement(String uuid, WebCore::LayoutPoint locationInPageCoordinates, MonotonicTime timestamp)
+#endif
+#if ENABLE(ARKIT_INLINE_PREVIEW)
+    ModelElementGetCamera(struct WebKit::ModelIdentifier modelIdentifier) -> (Expected<WebCore::HTMLModelElementCamera, WebCore::ResourceError> result) Async
+    ModelElementSetCamera(struct WebKit::ModelIdentifier modelIdentifier, struct WebCore::HTMLModelElementCamera camera) -> (bool success) Async
+    ModelElementIsPlayingAnimation(struct WebKit::ModelIdentifier modelIdentifier) -> (Expected<bool, WebCore::ResourceError> result) Async
+    ModelElementSetAnimationIsPlaying(struct WebKit::ModelIdentifier modelIdentifier, bool isPlaying) -> (bool success) Async
+    ModelElementIsLoopingAnimation(struct WebKit::ModelIdentifier modelIdentifier) -> (Expected<bool, WebCore::ResourceError> result) Async
+    ModelElementSetIsLoopingAnimation(struct WebKit::ModelIdentifier modelIdentifier, bool isLooping) -> (bool success) Async
+    ModelElementAnimationDuration(struct WebKit::ModelIdentifier modelIdentifier) -> (Expected<Seconds, WebCore::ResourceError> result) Async
+    ModelElementAnimationCurrentTime(struct WebKit::ModelIdentifier modelIdentifier) -> (Expected<Seconds, WebCore::ResourceError> result) Async
+    ModelElementSetAnimationCurrentTime(struct WebKit::ModelIdentifier modelIdentifier, Seconds currentTime) -> (bool success) Async
+    ModelElementHasAudio(struct WebKit::ModelIdentifier modelIdentifier) -> (Expected<bool, WebCore::ResourceError> result) Async
+    ModelElementIsMuted(struct WebKit::ModelIdentifier modelIdentifier) -> (Expected<bool, WebCore::ResourceError> result) Async
+    ModelElementSetIsMuted(struct WebKit::ModelIdentifier modelIdentifier, bool isMuted) -> (bool success) Async
 #endif
 
     requestPermission(struct WebCore::ClientOrigin origin, struct WebCore::PermissionDescriptor descriptor) -> (enum:uint8_t WebCore::PermissionState state) Async

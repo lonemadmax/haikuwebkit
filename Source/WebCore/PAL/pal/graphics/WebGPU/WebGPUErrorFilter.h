@@ -26,14 +26,25 @@
 #pragma once
 
 #include <cstdint>
+#include <wtf/EnumTraits.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 enum class ErrorFilter : uint8_t {
     OutOfMemory,
     Validation,
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU
+
+namespace WTF {
+
+template<> struct EnumTraits<PAL::WebGPU::ErrorFilter> {
+    using values = EnumValues<
+        PAL::WebGPU::ErrorFilter,
+        PAL::WebGPU::ErrorFilter::OutOfMemory,
+        PAL::WebGPU::ErrorFilter::Validation
+    >;
+};
+
+} // namespace WTF

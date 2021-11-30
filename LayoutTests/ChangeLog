@@ -1,3 +1,1181 @@
+2021-10-27  Sergio Villar Senin  <svillar@igalia.com>
+
+        [css-flexbox] Do not shrink tables bellow their intrinsic sizes
+        https://bugs.webkit.org/show_bug.cgi?id=232383
+
+        Reviewed by Manuel Rego Casasnovas.
+
+        * TestExpectations: Unskip table-as-item-fixed-min-width-3.html which works fine now.
+
+2021-10-27  Sergio Villar Senin  <svillar@igalia.com>
+
+        [css-flexbox] Add support for replaced elements with intrinsic ratio and no intrinsic size
+        https://bugs.webkit.org/show_bug.cgi?id=231952
+        <rdar://problem/84662305>
+
+        Reviewed by Manuel Rego Casasnovas.
+
+        * TestExpectations: Unskipped a test case that is now passing.
+
+2021-11-28  Matt Woodrow  <matt.woodrow@gmail.com>
+
+        Serialize computed style of background shorthand with multiple layers correctly.
+        https://bugs.webkit.org/show_bug.cgi?id=111121
+
+        Reviewed by Cameron McCormack.
+
+        * fast/css/getComputedStyle/getComputedStyle-background-shorthand-expected.txt:
+        * fast/css/getComputedStyle/getComputedStyle-background-shorthand.html:
+
+2021-11-28  Sihui Liu  <sihui_liu@apple.com>
+
+        Convert error to string before passing to testFailed() in FileSystemAccess layout tests
+        https://bugs.webkit.org/show_bug.cgi?id=233241
+
+        Reviewed by Youenn Fablet.
+
+        testFailed() in js-test.js expects string, but finishTest() may receive Error object as parameter.
+
+        * storage/filesystemaccess/directory-handle-basics.html:
+        * storage/filesystemaccess/directory-handle-iteration.html:
+        * storage/filesystemaccess/file-handle-getfile.html:
+        * storage/filesystemaccess/handle-move.html:
+        * storage/filesystemaccess/resources/directory-handle-basics.js:
+        (getDirectory):
+        (finishTest): Deleted.
+        * storage/filesystemaccess/resources/directory-handle-iteration.js:
+        (finishTest): Deleted.
+        * storage/filesystemaccess/resources/file-handle-getfile.js:
+        (async read):
+        (async test):
+        (finishTest): Deleted.
+        * storage/filesystemaccess/resources/handle-move.js:
+        (async test):
+        (finishTest): Deleted.
+        * storage/filesystemaccess/resources/shared.js: Added. Move finishTest() function here so the code can be shared.
+        (finishTest):
+        * storage/filesystemaccess/resources/sync-access-handle-basics.js:
+        (getDirectory):
+        (finishTest): Deleted.
+        * storage/filesystemaccess/resources/sync-access-handle-close.js:
+        (finishTest): Deleted.
+        * storage/filesystemaccess/resources/sync-access-handle-read-write.js:
+        (async test):
+        (finishTest): Deleted.
+
+2021-11-28  Sam Weinig  <weinig@apple.com>
+
+        [CSS Color 5] Update color-mix() to latest spec (again)
+        https://bugs.webkit.org/show_bug.cgi?id=233527
+
+        Reviewed by Dean Jackson.
+
+        * fast/css/parsing-color-mix-expected.txt:
+        * fast/css/parsing-color-mix.html:
+        Update tests to include testing of hue interpolation methods, new
+        restrictions on percentage ranges and the new alpha multiplier.
+
+2021-11-28  Philippe Normand  <pnormand@igalia.com>
+
+        Weird JS usage in webrtc/multi-video.html
+        https://bugs.webkit.org/show_bug.cgi?id=233540
+
+        Reviewed by Youenn Fablet.
+
+        * webrtc/multi-video.html: MediaStream.getVideoTracks() accepts no argument and returns a
+        sequence. The MediaStream constructor needs a sequence of tracks.
+
+2021-11-27  Sam Weinig  <weinig@apple.com>
+
+        [CSS Color 4] Add support for oklab() and oklch() colors
+        https://bugs.webkit.org/show_bug.cgi?id=233507
+
+        Reviewed by Cameron McCormack.
+
+        Update existing tests for lab() and lch() to also test oklab() and oklch().
+        As they have the same parsing rules, this is mostly done by templatizing
+        the tests and running them in a loop.
+
+        * fast/css/parsing-color-mix-expected.txt:
+        * fast/css/parsing-color-mix.html:
+        * fast/css/parsing-lab-colors-expected.txt:
+        * fast/css/parsing-lab-colors.html:
+        * fast/css/parsing-relative-color-syntax-expected.txt:
+        * fast/css/parsing-relative-color-syntax.html:
+
+2021-11-26  Tim Nguyen  <ntim@apple.com>
+
+        Remove focus-after-close-expected.txt for glib as it is identical as the cross-platform file
+
+        Unreviewed test gardening
+
+        * platform/glib/imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/focus-after-close-expected.txt: Removed.
+
+2021-11-26  Antti Koivisto  <antti@apple.com>
+
+        REGRESSION(r286112): Style invalidation for text mutation happening after event dispatch
+        https://bugs.webkit.org/show_bug.cgi?id=233501
+        <rdar://problem/85754810>
+
+        Reviewed by Alan Bujtas.
+
+        * fast/events/mutation-in-DOMCharacterDataModified-expected.txt: Added.
+        * fast/events/mutation-in-DOMCharacterDataModified.html: Added.
+
+2021-11-25  Sam Weinig  <weinig@apple.com>
+
+        [CSS Color 4] Add support for new srgb-linear, xyz-d50 and xyz-d65 colorspaces
+        https://bugs.webkit.org/show_bug.cgi?id=233475
+
+        Reviewed by Dean Jackson.
+
+        Update tests for new srgb-linear, xyz-d50 and xyz-d65 colorspaces
+
+        * fast/css/parsing-color-function-expected.txt:
+        * fast/css/parsing-color-function.html:
+        * fast/css/parsing-color-mix-expected.txt:
+        * fast/css/parsing-color-mix.html:
+        * fast/css/parsing-relative-color-syntax-expected.txt:
+        * fast/css/parsing-relative-color-syntax.html:
+
+2021-11-25  Enrique Ocaña González  <eocanha@igalia.com>
+
+        [GTK] Layout Test http/tests/media/video-play-waiting.html is timing out
+        https://bugs.webkit.org/show_bug.cgi?id=142489
+
+        Reviewed by Philippe Normand.
+
+        The test was failing with a timeout even after properly calling TestRunner.notifyDone()
+        internally because there was still an injectedBundle.topLoadingFrame() in InjectedBundlePage,
+        which means that the web page hadn't completely finished to be downloaded. This was caused
+        by the stalled video download that the test wants to exercise.
+
+        The solution is to set the video src to empty in order to convince TestRunner that the page
+        has finished downloading.
+
+        * http/tests/media/video-play-waiting.html: Set the video src to empty.
+        * platform/mac/TestExpectations: The test now just fails (for reasons unrelated to this fix) on mac instead of timing out.
+        * platform/glib/TestExpectations: Unskipped test.
+        * platform/win/TestExpectations: Unskipped test.
+
+2021-11-24  Ziran Sun  <zsun@igalia.com>
+
+        [css-grid] Track sizing algorithm not repeated even if used flex fraction would change
+        https://bugs.webkit.org/show_bug.cgi?id=232617
+
+        Reviewed by Javier Fernandez.
+
+        Unskip two tests that are passing.
+ 
+        * TestExpectations:
+
+2021-11-24  Manuel Rego Casasnovas  <rego@igalia.com>
+
+        [selectors] Import 2 new :focus-visible tests from WPT
+        https://bugs.webkit.org/show_bug.cgi?id=233446
+
+        Reviewed by Antti Koivisto.
+
+        * platform/ios/TestExpectations: Skip one test in iOS.
+        * tests-options.json:
+
+2021-11-23  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        CSP: security policy violation event is always using document as target
+        https://bugs.webkit.org/show_bug.cgi?id=233182
+
+        Reviewed by Kate Cheney.
+
+        Unskip tests that no longer time out.
+
+        * TestExpectations:
+
+2021-11-23  Alan Bujtas  <zalan@apple.com>
+
+        [IFC][Integration] Inflate ink overflow with box-shadow
+        https://bugs.webkit.org/show_bug.cgi?id=233437
+
+        Reviewed by Antti Koivisto.
+
+        * platform/mac/fast/box-shadow/basic-shadows-expected.txt:
+
+2021-11-23  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [WPE][GTK] Allow enabling JPEG-XL support at build time
+        https://bugs.webkit.org/show_bug.cgi?id=233325
+
+        Reviewed by Michael Catanzaro.
+
+        * platform/glib/TestExpectations: Unskip JPEG-XL tests for the GTK and WPE ports.
+
+2021-11-22  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        rem in media queries should be calculated using font-size:initial, not root element font-size
+        https://bugs.webkit.org/show_bug.cgi?id=156684
+        <rdar://problem/25778616>
+
+        Reviewed by Antti Koivisto.
+
+        * TestExpectations:
+
+2021-11-22  Chris Fleizach  <cfleizach@apple.com>
+
+        AX: WebKit: need a method to get visible text and frame of an element on screen
+        https://bugs.webkit.org/show_bug.cgi?id=233336
+
+        Reviewed by Andres Gonzalez.
+
+        * accessibility/ios-simulator/visible-character-range-expected.txt: Added.
+        * accessibility/visible-character-range-expected.txt: Added.
+        * accessibility/visible-character-range.html: Added.
+        * platform/ios/TestExpectations:
+        * platform/mac-wk1/TestExpectations:
+        * platform/win/TestExpectations:
+
+2021-11-22  Antti Koivisto  <antti@apple.com>
+
+        [LFC][Integration] Remove dirOverride
+        https://bugs.webkit.org/show_bug.cgi?id=233423
+
+        Reviewed by Alan Bujtas.
+
+        * platform/glib/imported/w3c/web-platform-tests/svg/import/text-intro-09-b-manual-expected.txt:
+        * platform/glib/svg/W3C-I18N/text-dirLTR-ubOverride-expected.txt:
+        * platform/glib/svg/W3C-I18N/text-dirRTL-ubOverride-expected.txt:
+        * platform/glib/svg/W3C-I18N/tspan-dirLTR-ubOverride-in-rtl-context-expected.txt:
+        * platform/glib/svg/W3C-I18N/tspan-dirNone-ubOverride-in-default-context-expected.txt:
+        * platform/glib/svg/W3C-I18N/tspan-dirNone-ubOverride-in-ltr-context-expected.txt:
+        * platform/glib/svg/W3C-I18N/tspan-dirNone-ubOverride-in-rtl-context-expected.txt:
+        * platform/glib/svg/W3C-I18N/tspan-dirRTL-ubOverride-in-rtl-context-expected.txt:
+        * platform/glib/svg/custom/glyph-selection-bidi-mirror-expected.txt:
+        * platform/glib/svg/custom/glyph-selection-non-bmp-expected.txt:
+        * platform/glib/svg/text/bidi-embedded-direction-expected.txt:
+        * platform/glib/svg/text/bidi-text-query-expected.txt:
+        * platform/gtk/fast/block/positioning/absolute-in-inline-rtl-2-expected.txt:
+        * platform/gtk/fast/block/positioning/absolute-in-inline-rtl-3-expected.txt:
+        * platform/gtk/fast/block/positioning/absolute-in-inline-rtl-expected.txt:
+        * platform/gtk/fast/block/positioning/absolute-in-inline-short-rtl-expected.txt:
+        * platform/gtk/fast/borders/bidi-002-expected.txt:
+        * platform/gtk/fast/borders/bidi-009a-expected.txt:
+        * platform/gtk/fast/borders/bidi-012-expected.txt:
+        * platform/gtk/fast/borders/rtl-border-02-expected.txt:
+        * platform/gtk/fast/css/bidi-override-in-anonymous-block-expected.txt:
+        * platform/gtk/fast/css/rtl-ordering-expected.txt:
+        * platform/gtk/fast/css/text-overflow-ellipsis-expected.txt:
+        * platform/gtk/fast/css/text-overflow-ellipsis-strict-expected.txt:
+        * platform/gtk/fast/css/text-overflow-ellipsis-text-align-center-expected.txt:
+        * platform/gtk/fast/css/text-overflow-ellipsis-text-align-justify-expected.txt:
+        * platform/gtk/fast/css/text-overflow-ellipsis-text-align-left-expected.txt:
+        * platform/gtk/fast/css/text-overflow-ellipsis-text-align-right-expected.txt:
+        * platform/gtk/fast/css/textCapitalizeEdgeCases-expected.txt:
+        * platform/gtk/fast/css/vertical-text-overflow-ellipsis-text-align-center-expected.txt:
+        * platform/gtk/fast/css/vertical-text-overflow-ellipsis-text-align-center-mixed-expected.txt:
+        * platform/gtk/fast/css/vertical-text-overflow-ellipsis-text-align-justify-expected.txt:
+        * platform/gtk/fast/css/vertical-text-overflow-ellipsis-text-align-justify-mixed-expected.txt:
+        * platform/gtk/fast/css/vertical-text-overflow-ellipsis-text-align-left-expected.txt:
+        * platform/gtk/fast/css/vertical-text-overflow-ellipsis-text-align-left-mixed-expected.txt:
+        * platform/gtk/fast/css/vertical-text-overflow-ellipsis-text-align-right-expected.txt:
+        * platform/gtk/fast/css/vertical-text-overflow-ellipsis-text-align-right-mixed-expected.txt:
+        * platform/gtk/fast/dom/HTMLElement/bdo-expected.txt:
+        * platform/gtk/fast/forms/select-visual-hebrew-expected.txt:
+        * platform/gtk/fast/forms/visual-hebrew-text-field-expected.txt:
+        * platform/gtk/fast/inline/inline-borders-with-bidi-override-expected.txt:
+        * platform/gtk/fast/text/atsui-rtl-override-selection-expected.txt:
+        * platform/gtk/fast/text/embed-at-end-of-pre-wrap-line-expected.txt:
+        * platform/gtk/fast/text/international/bidi-AN-after-L-expected.txt:
+        * platform/gtk/fast/text/international/bidi-LDB-2-CSS-expected.txt:
+        * platform/gtk/fast/text/international/bidi-LDB-2-HTML-expected.txt:
+        * platform/gtk/fast/text/international/bidi-LDB-2-formatting-characters-expected.txt:
+        * platform/gtk/fast/text/international/bidi-control-chars-treated-as-ZWS-expected.txt:
+        * platform/gtk/fast/text/international/bidi-european-terminators-expected.txt:
+        * platform/gtk/fast/text/international/bidi-ignored-for-first-child-inline-expected.txt:
+        * platform/gtk/fast/text/international/bidi-layout-across-linebreak-expected.txt:
+        * platform/gtk/fast/text/international/bidi-override-expected.txt:
+        * platform/gtk/fast/text/international/pop-up-button-text-alignment-and-direction-expected.txt:
+        * platform/gtk/fast/text/shaping/shaping-script-order-expected.txt:
+        * platform/gtk/fast/text/shaping/shaping-selection-rect-expected.txt:
+        * platform/gtk/fast/text/text-letter-spacing-expected.txt:
+        * platform/gtk/imported/w3c/web-platform-tests/svg/import/text-intro-02-b-manual-expected.txt:
+        * platform/gtk/svg/W3C-I18N/tspan-dirLTR-ubOverride-in-default-context-expected.txt:
+        * platform/gtk/svg/W3C-I18N/tspan-dirLTR-ubOverride-in-ltr-context-expected.txt:
+        * platform/gtk/svg/W3C-I18N/tspan-dirRTL-ubOverride-in-default-context-expected.txt:
+        * platform/gtk/svg/W3C-I18N/tspan-dirRTL-ubOverride-in-ltr-context-expected.txt:
+        * platform/gtk/svg/W3C-SVG-1.1-SE/text-intro-02-b-expected.txt:
+        * platform/gtk/svg/W3C-SVG-1.1-SE/text-intro-09-b-expected.txt:
+        * platform/gtk/svg/W3C-SVG-1.1/text-intro-02-b-expected.txt:
+        * platform/gtk/svg/text/bidi-text-anchor-direction-expected.txt:
+        * platform/ios-simulator/imported/w3c/web-platform-tests/svg/import/text-intro-02-b-manual-expected.txt:
+        * platform/ios-simulator/imported/w3c/web-platform-tests/svg/import/text-intro-09-b-manual-expected.txt:
+        * platform/ios-wk1/fast/borders/bidi-002-expected.txt:
+        * platform/ios-wk2/fast/text/atsui-rtl-override-selection-expected.txt:
+        * platform/ios-wk2/fast/text/international/bidi-layout-across-linebreak-expected.txt:
+        * platform/ios/fast/block/positioning/absolute-in-inline-rtl-2-expected.txt:
+        * platform/ios/fast/block/positioning/absolute-in-inline-rtl-3-expected.txt:
+        * platform/ios/fast/block/positioning/absolute-in-inline-rtl-expected.txt:
+        * platform/ios/fast/block/positioning/absolute-in-inline-short-rtl-expected.txt:
+        * platform/ios/fast/borders/bidi-009a-expected.txt:
+        * platform/ios/fast/borders/bidi-012-expected.txt:
+        * platform/ios/fast/borders/rtl-border-02-expected.txt:
+        * platform/ios/fast/css/bidi-override-in-anonymous-block-expected.txt:
+        * platform/ios/fast/css/rtl-ordering-expected.txt:
+        * platform/ios/fast/css/text-overflow-ellipsis-expected.txt:
+        * platform/ios/fast/css/text-overflow-ellipsis-strict-expected.txt:
+        * platform/ios/fast/css/text-overflow-ellipsis-text-align-center-expected.txt:
+        * platform/ios/fast/css/text-overflow-ellipsis-text-align-justify-expected.txt:
+        * platform/ios/fast/css/text-overflow-ellipsis-text-align-left-expected.txt:
+        * platform/ios/fast/css/text-overflow-ellipsis-text-align-right-expected.txt:
+        * platform/ios/fast/css/textCapitalizeEdgeCases-expected.txt:
+        * platform/ios/fast/css/vertical-text-overflow-ellipsis-text-align-center-expected.txt:
+        * platform/ios/fast/css/vertical-text-overflow-ellipsis-text-align-center-mixed-expected.txt:
+        * platform/ios/fast/css/vertical-text-overflow-ellipsis-text-align-justify-expected.txt:
+        * platform/ios/fast/css/vertical-text-overflow-ellipsis-text-align-justify-mixed-expected.txt:
+        * platform/ios/fast/css/vertical-text-overflow-ellipsis-text-align-left-expected.txt:
+        * platform/ios/fast/css/vertical-text-overflow-ellipsis-text-align-left-mixed-expected.txt:
+        * platform/ios/fast/css/vertical-text-overflow-ellipsis-text-align-right-expected.txt:
+        * platform/ios/fast/css/vertical-text-overflow-ellipsis-text-align-right-mixed-expected.txt:
+        * platform/ios/fast/dom/HTMLElement/bdo-expected.txt:
+        * platform/ios/fast/forms/select-visual-hebrew-expected.txt:
+        * platform/ios/fast/forms/visual-hebrew-text-field-expected.txt:
+        * platform/ios/fast/inline/inline-borders-with-bidi-override-expected.txt:
+        * platform/ios/fast/text/atsui-rtl-override-selection-expected.txt:
+        * platform/ios/fast/text/embed-at-end-of-pre-wrap-line-expected.txt:
+        * platform/ios/fast/text/international/bidi-AN-after-L-expected.txt:
+        * platform/ios/fast/text/international/bidi-LDB-2-CSS-expected.txt:
+        * platform/ios/fast/text/international/bidi-LDB-2-HTML-expected.txt:
+        * platform/ios/fast/text/international/bidi-LDB-2-formatting-characters-expected.txt:
+        * platform/ios/fast/text/international/bidi-control-chars-treated-as-ZWS-expected.txt:
+        * platform/ios/fast/text/international/bidi-european-terminators-expected.txt:
+        * platform/ios/fast/text/international/bidi-ignored-for-first-child-inline-expected.txt:
+        * platform/ios/fast/text/international/bidi-layout-across-linebreak-expected.txt:
+        * platform/ios/fast/text/international/bidi-override-expected.txt:
+        * platform/ios/fast/text/international/pop-up-button-text-alignment-and-direction-expected.txt:
+        * platform/ios/fast/text/shaping/shaping-script-order-expected.txt:
+        * platform/ios/fast/text/shaping/shaping-selection-rect-expected.txt:
+        * platform/ios/fast/text/text-letter-spacing-expected.txt:
+        * platform/ios/svg/W3C-I18N/text-dirLTR-ubOverride-expected.txt:
+        * platform/ios/svg/W3C-I18N/text-dirRTL-ubOverride-expected.txt:
+        * platform/ios/svg/W3C-I18N/tspan-dirLTR-ubOverride-in-default-context-expected.txt:
+        * platform/ios/svg/W3C-I18N/tspan-dirLTR-ubOverride-in-ltr-context-expected.txt:
+        * platform/ios/svg/W3C-I18N/tspan-dirLTR-ubOverride-in-rtl-context-expected.txt:
+        * platform/ios/svg/W3C-I18N/tspan-dirNone-ubOverride-in-default-context-expected.txt:
+        * platform/ios/svg/W3C-I18N/tspan-dirNone-ubOverride-in-ltr-context-expected.txt:
+        * platform/ios/svg/W3C-I18N/tspan-dirNone-ubOverride-in-rtl-context-expected.txt:
+        * platform/ios/svg/W3C-I18N/tspan-dirRTL-ubOverride-in-default-context-expected.txt:
+        * platform/ios/svg/W3C-I18N/tspan-dirRTL-ubOverride-in-ltr-context-expected.txt:
+        * platform/ios/svg/W3C-I18N/tspan-dirRTL-ubOverride-in-rtl-context-expected.txt:
+        * platform/ios/svg/W3C-SVG-1.1-SE/text-intro-09-b-expected.txt:
+        * platform/ios/svg/W3C-SVG-1.1/text-intro-02-b-expected.txt:
+        * platform/ios/svg/custom/glyph-selection-bidi-mirror-expected.txt:
+        * platform/ios/svg/text/bidi-embedded-direction-expected.txt:
+        * platform/mac-catalina/fast/css/rtl-ordering-expected.txt:
+        * platform/mac-catalina/fast/forms/select-visual-hebrew-expected.txt:
+        * platform/mac-catalina/fast/forms/visual-hebrew-text-field-expected.txt:
+        * platform/mac-catalina/fast/text/international/pop-up-button-text-alignment-and-direction-expected.txt:
+        * platform/mac-mojave/fast/css/rtl-ordering-expected.txt:
+        * platform/mac-mojave/fast/text/international/pop-up-button-text-alignment-and-direction-expected.txt:
+        * platform/mac/fast/block/positioning/absolute-in-inline-rtl-2-expected.txt:
+        * platform/mac/fast/block/positioning/absolute-in-inline-rtl-3-expected.txt:
+        * platform/mac/fast/block/positioning/absolute-in-inline-rtl-expected.txt:
+        * platform/mac/fast/block/positioning/absolute-in-inline-short-rtl-expected.txt:
+        * platform/mac/fast/borders/bidi-002-expected.txt:
+        * platform/mac/fast/borders/bidi-009a-expected.txt:
+        * platform/mac/fast/borders/bidi-012-expected.txt:
+        * platform/mac/fast/borders/rtl-border-02-expected.txt:
+        * platform/mac/fast/css/bidi-override-in-anonymous-block-expected.txt:
+        * platform/mac/fast/css/rtl-ordering-expected.txt:
+        * platform/mac/fast/css/text-overflow-ellipsis-expected.txt:
+        * platform/mac/fast/css/text-overflow-ellipsis-strict-expected.txt:
+        * platform/mac/fast/css/text-overflow-ellipsis-text-align-center-expected.txt:
+        * platform/mac/fast/css/text-overflow-ellipsis-text-align-justify-expected.txt:
+        * platform/mac/fast/css/text-overflow-ellipsis-text-align-left-expected.txt:
+        * platform/mac/fast/css/text-overflow-ellipsis-text-align-right-expected.txt:
+        * platform/mac/fast/css/textCapitalizeEdgeCases-expected.txt:
+        * platform/mac/fast/css/vertical-text-overflow-ellipsis-text-align-center-expected.txt:
+        * platform/mac/fast/css/vertical-text-overflow-ellipsis-text-align-center-mixed-expected.txt:
+        * platform/mac/fast/css/vertical-text-overflow-ellipsis-text-align-justify-expected.txt:
+        * platform/mac/fast/css/vertical-text-overflow-ellipsis-text-align-justify-mixed-expected.txt:
+        * platform/mac/fast/css/vertical-text-overflow-ellipsis-text-align-left-expected.txt:
+        * platform/mac/fast/css/vertical-text-overflow-ellipsis-text-align-left-mixed-expected.txt:
+        * platform/mac/fast/css/vertical-text-overflow-ellipsis-text-align-right-expected.txt:
+        * platform/mac/fast/css/vertical-text-overflow-ellipsis-text-align-right-mixed-expected.txt:
+        * platform/mac/fast/dom/HTMLElement/bdo-expected.txt:
+        * platform/mac/fast/forms/select-visual-hebrew-expected.txt:
+        * platform/mac/fast/forms/visual-hebrew-text-field-expected.txt:
+        * platform/mac/fast/inline/inline-borders-with-bidi-override-expected.txt:
+        * platform/mac/fast/text/atsui-rtl-override-selection-expected.txt:
+        * platform/mac/fast/text/embed-at-end-of-pre-wrap-line-expected.txt:
+        * platform/mac/fast/text/international/bidi-AN-after-L-expected.txt:
+        * platform/mac/fast/text/international/bidi-LDB-2-CSS-expected.txt:
+        * platform/mac/fast/text/international/bidi-LDB-2-HTML-expected.txt:
+        * platform/mac/fast/text/international/bidi-LDB-2-formatting-characters-expected.txt:
+        * platform/mac/fast/text/international/bidi-control-chars-treated-as-ZWS-expected.txt:
+        * platform/mac/fast/text/international/bidi-european-terminators-expected.txt:
+        * platform/mac/fast/text/international/bidi-ignored-for-first-child-inline-expected.txt:
+        * platform/mac/fast/text/international/bidi-layout-across-linebreak-expected.txt:
+        * platform/mac/fast/text/international/bidi-override-expected.txt:
+        * platform/mac/fast/text/international/pop-up-button-text-alignment-and-direction-expected.txt:
+        * platform/mac/fast/text/text-letter-spacing-expected.txt:
+        * platform/mac/imported/w3c/web-platform-tests/svg/import/text-intro-02-b-manual-expected.txt:
+        * platform/mac/imported/w3c/web-platform-tests/svg/import/text-intro-09-b-manual-expected.txt:
+        * platform/mac/svg/W3C-I18N/text-dirLTR-ubOverride-expected.txt:
+        * platform/mac/svg/W3C-I18N/text-dirRTL-ubOverride-expected.txt:
+        * platform/mac/svg/W3C-I18N/tspan-dirLTR-ubOverride-in-default-context-expected.txt:
+        * platform/mac/svg/W3C-I18N/tspan-dirLTR-ubOverride-in-ltr-context-expected.txt:
+        * platform/mac/svg/W3C-I18N/tspan-dirLTR-ubOverride-in-rtl-context-expected.txt:
+        * platform/mac/svg/W3C-I18N/tspan-dirNone-ubOverride-in-default-context-expected.txt:
+        * platform/mac/svg/W3C-I18N/tspan-dirNone-ubOverride-in-ltr-context-expected.txt:
+        * platform/mac/svg/W3C-I18N/tspan-dirNone-ubOverride-in-rtl-context-expected.txt:
+        * platform/mac/svg/W3C-I18N/tspan-dirRTL-ubOverride-in-default-context-expected.txt:
+        * platform/mac/svg/W3C-I18N/tspan-dirRTL-ubOverride-in-ltr-context-expected.txt:
+        * platform/mac/svg/W3C-I18N/tspan-dirRTL-ubOverride-in-rtl-context-expected.txt:
+        * platform/mac/svg/W3C-SVG-1.1-SE/text-intro-02-b-expected.txt:
+        * platform/mac/svg/W3C-SVG-1.1-SE/text-intro-09-b-expected.txt:
+        * platform/mac/svg/W3C-SVG-1.1/text-intro-02-b-expected.txt:
+        * platform/mac/svg/batik/text/textBiDi-expected.txt:
+        * platform/mac/svg/custom/glyph-selection-bidi-mirror-expected.txt:
+        * platform/mac/svg/text/bidi-embedded-direction-expected.txt:
+        * platform/mac/svg/text/bidi-text-anchor-direction-expected.txt:
+        * platform/mac/svg/text/bidi-text-query-expected.txt:
+        * platform/win-7sp0/svg/W3C-I18N/tspan-dirLTR-ubOverride-in-default-context-expected.txt:
+        * platform/win-7sp0/svg/W3C-I18N/tspan-dirLTR-ubOverride-in-ltr-context-expected.txt:
+        * platform/win-7sp0/svg/W3C-I18N/tspan-dirNone-ubOverride-in-default-context-expected.txt:
+        * platform/win-7sp0/svg/W3C-I18N/tspan-dirNone-ubOverride-in-ltr-context-expected.txt:
+        * platform/win-7sp0/svg/text/bidi-text-query-expected.txt:
+        * platform/win/fast/block/positioning/absolute-in-inline-rtl-2-expected.txt:
+        * platform/win/fast/block/positioning/absolute-in-inline-rtl-3-expected.txt:
+        * platform/win/fast/block/positioning/absolute-in-inline-rtl-expected.txt:
+        * platform/win/fast/block/positioning/absolute-in-inline-short-rtl-expected.txt:
+        * platform/win/fast/borders/bidi-002-expected.txt:
+        * platform/win/fast/borders/bidi-009a-expected.txt:
+        * platform/win/fast/borders/bidi-012-expected.txt:
+        * platform/win/fast/borders/rtl-border-02-expected.txt:
+        * platform/win/fast/css/bidi-override-in-anonymous-block-expected.txt:
+        * platform/win/fast/css/rtl-ordering-expected.txt:
+        * platform/win/fast/css/text-overflow-ellipsis-expected.txt:
+        * platform/win/fast/css/text-overflow-ellipsis-strict-expected.txt:
+        * platform/win/fast/css/text-overflow-ellipsis-text-align-center-expected.txt:
+        * platform/win/fast/css/text-overflow-ellipsis-text-align-justify-expected.txt:
+        * platform/win/fast/css/text-overflow-ellipsis-text-align-left-expected.txt:
+        * platform/win/fast/css/text-overflow-ellipsis-text-align-right-expected.txt:
+        * platform/win/fast/css/textCapitalizeEdgeCases-expected.txt:
+        * platform/win/fast/css/vertical-text-overflow-ellipsis-text-align-center-expected.txt:
+        * platform/win/fast/css/vertical-text-overflow-ellipsis-text-align-center-mixed-expected.txt:
+        * platform/win/fast/css/vertical-text-overflow-ellipsis-text-align-justify-expected.txt:
+        * platform/win/fast/css/vertical-text-overflow-ellipsis-text-align-justify-mixed-expected.txt:
+        * platform/win/fast/css/vertical-text-overflow-ellipsis-text-align-left-expected.txt:
+        * platform/win/fast/css/vertical-text-overflow-ellipsis-text-align-left-mixed-expected.txt:
+        * platform/win/fast/css/vertical-text-overflow-ellipsis-text-align-right-expected.txt:
+        * platform/win/fast/css/vertical-text-overflow-ellipsis-text-align-right-mixed-expected.txt:
+        * platform/win/fast/dom/HTMLElement/bdo-expected.txt:
+        * platform/win/fast/forms/select-visual-hebrew-expected.txt:
+        * platform/win/fast/forms/visual-hebrew-text-field-expected.txt:
+        * platform/win/fast/inline/inline-borders-with-bidi-override-expected.txt:
+        * platform/win/fast/text/atsui-rtl-override-selection-expected.txt:
+        * platform/win/fast/text/embed-at-end-of-pre-wrap-line-expected.txt:
+        * platform/win/fast/text/international/bidi-AN-after-L-expected.txt:
+        * platform/win/fast/text/international/bidi-LDB-2-CSS-expected.txt:
+        * platform/win/fast/text/international/bidi-LDB-2-HTML-expected.txt:
+        * platform/win/fast/text/international/bidi-LDB-2-formatting-characters-expected.txt:
+        * platform/win/fast/text/international/bidi-control-chars-treated-as-ZWS-expected.txt:
+        * platform/win/fast/text/international/bidi-european-terminators-expected.txt:
+        * platform/win/fast/text/international/bidi-ignored-for-first-child-inline-expected.txt:
+        * platform/win/fast/text/international/bidi-layout-across-linebreak-expected.txt:
+        * platform/win/fast/text/international/bidi-override-expected.txt:
+        * platform/win/fast/text/international/pop-up-button-text-alignment-and-direction-expected.txt:
+        * platform/win/fast/text/shaping/shaping-script-order-expected.txt:
+        * platform/win/fast/text/shaping/shaping-selection-rect-expected.txt:
+        * platform/win/fast/text/text-letter-spacing-expected.txt:
+        * platform/win/svg/W3C-I18N/text-dirLTR-ubOverride-expected.txt:
+        * platform/win/svg/W3C-I18N/text-dirRTL-ubOverride-expected.txt:
+        * platform/win/svg/W3C-I18N/tspan-dirLTR-ubOverride-in-default-context-expected.txt:
+        * platform/win/svg/W3C-I18N/tspan-dirLTR-ubOverride-in-ltr-context-expected.txt:
+        * platform/win/svg/W3C-I18N/tspan-dirLTR-ubOverride-in-rtl-context-expected.txt:
+        * platform/win/svg/W3C-I18N/tspan-dirNone-ubOverride-in-default-context-expected.txt:
+        * platform/win/svg/W3C-I18N/tspan-dirNone-ubOverride-in-ltr-context-expected.txt:
+        * platform/win/svg/W3C-I18N/tspan-dirNone-ubOverride-in-rtl-context-expected.txt:
+        * platform/win/svg/W3C-I18N/tspan-dirRTL-ubOverride-in-default-context-expected.txt:
+        * platform/win/svg/W3C-I18N/tspan-dirRTL-ubOverride-in-ltr-context-expected.txt:
+        * platform/win/svg/W3C-I18N/tspan-dirRTL-ubOverride-in-rtl-context-expected.txt:
+        * platform/win/svg/W3C-SVG-1.1-SE/text-intro-02-b-expected.txt:
+        * platform/win/svg/W3C-SVG-1.1-SE/text-intro-09-b-expected.txt:
+        * platform/win/svg/W3C-SVG-1.1/text-intro-02-b-expected.txt:
+        * platform/win/svg/custom/glyph-selection-bidi-mirror-expected.txt:
+        * platform/win/svg/custom/glyph-selection-non-bmp-expected.txt:
+        * platform/win/svg/text/bidi-embedded-direction-expected.txt:
+        * platform/win/svg/text/bidi-text-anchor-direction-expected.txt:
+        * platform/win/svg/text/bidi-text-query-expected.txt:
+        * platform/wincairo/fast/block/positioning/absolute-in-inline-rtl-2-expected.txt:
+        * platform/wincairo/fast/block/positioning/absolute-in-inline-rtl-3-expected.txt:
+        * platform/wincairo/fast/block/positioning/absolute-in-inline-rtl-expected.txt:
+        * platform/wincairo/fast/block/positioning/absolute-in-inline-short-rtl-expected.txt:
+        * platform/wincairo/fast/borders/bidi-002-expected.txt:
+        * platform/wincairo/fast/borders/bidi-009a-expected.txt:
+        * platform/wincairo/fast/borders/bidi-012-expected.txt:
+        * platform/wincairo/fast/borders/rtl-border-02-expected.txt:
+        * platform/wincairo/fast/css/bidi-override-in-anonymous-block-expected.txt:
+        * platform/wincairo/fast/css/rtl-ordering-expected.txt:
+        * platform/wincairo/fast/css/text-overflow-ellipsis-expected.txt:
+        * platform/wincairo/fast/css/text-overflow-ellipsis-strict-expected.txt:
+        * platform/wincairo/fast/css/text-overflow-ellipsis-text-align-center-expected.txt:
+        * platform/wincairo/fast/css/text-overflow-ellipsis-text-align-justify-expected.txt:
+        * platform/wincairo/fast/css/text-overflow-ellipsis-text-align-left-expected.txt:
+        * platform/wincairo/fast/css/text-overflow-ellipsis-text-align-right-expected.txt:
+        * platform/wincairo/fast/css/textCapitalizeEdgeCases-expected.txt:
+        * platform/wincairo/fast/css/vertical-text-overflow-ellipsis-text-align-center-expected.txt:
+        * platform/wincairo/fast/css/vertical-text-overflow-ellipsis-text-align-justify-expected.txt:
+        * platform/wincairo/fast/css/vertical-text-overflow-ellipsis-text-align-left-expected.txt:
+        * platform/wincairo/fast/css/vertical-text-overflow-ellipsis-text-align-right-expected.txt:
+        * platform/wincairo/fast/dom/HTMLElement/bdo-expected.txt:
+        * platform/wincairo/fast/forms/select-visual-hebrew-expected.txt:
+        * platform/wincairo/fast/forms/visual-hebrew-text-field-expected.txt:
+        * platform/wincairo/fast/inline/inline-borders-with-bidi-override-expected.txt:
+        * platform/wincairo/fast/text/atsui-rtl-override-selection-expected.txt:
+        * platform/wincairo/fast/text/embed-at-end-of-pre-wrap-line-expected.txt:
+        * platform/wincairo/fast/text/international/bidi-AN-after-L-expected.txt:
+        * platform/wincairo/fast/text/international/bidi-LDB-2-CSS-expected.txt:
+        * platform/wincairo/fast/text/international/bidi-LDB-2-HTML-expected.txt:
+        * platform/wincairo/fast/text/international/bidi-LDB-2-formatting-characters-expected.txt:
+        * platform/wincairo/fast/text/international/bidi-control-chars-treated-as-ZWS-expected.txt:
+        * platform/wincairo/fast/text/international/bidi-european-terminators-expected.txt:
+        * platform/wincairo/fast/text/international/bidi-ignored-for-first-child-inline-expected.txt:
+        * platform/wincairo/fast/text/international/bidi-layout-across-linebreak-expected.txt:
+        * platform/wincairo/fast/text/international/bidi-override-expected.txt:
+        * platform/wincairo/fast/text/international/pop-up-button-text-alignment-and-direction-expected.txt:
+        * platform/wincairo/fast/text/shaping/shaping-script-order-expected.txt:
+        * platform/wincairo/fast/text/shaping/shaping-selection-rect-expected.txt:
+        * platform/wincairo/fast/text/text-letter-spacing-expected.txt:
+        * platform/wincairo/svg/custom/glyph-selection-bidi-mirror-expected.txt:
+        * platform/wpe/fast/block/positioning/absolute-in-inline-rtl-2-expected.txt:
+        * platform/wpe/fast/block/positioning/absolute-in-inline-rtl-3-expected.txt:
+        * platform/wpe/fast/block/positioning/absolute-in-inline-rtl-expected.txt:
+        * platform/wpe/fast/block/positioning/absolute-in-inline-short-rtl-expected.txt:
+        * platform/wpe/fast/borders/bidi-002-expected.txt:
+        * platform/wpe/fast/borders/bidi-009a-expected.txt:
+        * platform/wpe/fast/borders/bidi-012-expected.txt:
+        * platform/wpe/fast/borders/rtl-border-02-expected.txt:
+        * platform/wpe/fast/css/bidi-override-in-anonymous-block-expected.txt:
+        * platform/wpe/fast/css/rtl-ordering-expected.txt:
+        * platform/wpe/fast/css/text-overflow-ellipsis-expected.txt:
+        * platform/wpe/fast/css/text-overflow-ellipsis-strict-expected.txt:
+        * platform/wpe/fast/css/text-overflow-ellipsis-text-align-center-expected.txt:
+        * platform/wpe/fast/css/text-overflow-ellipsis-text-align-justify-expected.txt:
+        * platform/wpe/fast/css/text-overflow-ellipsis-text-align-left-expected.txt:
+        * platform/wpe/fast/css/text-overflow-ellipsis-text-align-right-expected.txt:
+        * platform/wpe/fast/css/textCapitalizeEdgeCases-expected.txt:
+        * platform/wpe/fast/css/vertical-text-overflow-ellipsis-text-align-center-expected.txt:
+        * platform/wpe/fast/css/vertical-text-overflow-ellipsis-text-align-center-mixed-expected.txt:
+        * platform/wpe/fast/css/vertical-text-overflow-ellipsis-text-align-justify-expected.txt:
+        * platform/wpe/fast/css/vertical-text-overflow-ellipsis-text-align-justify-mixed-expected.txt:
+        * platform/wpe/fast/css/vertical-text-overflow-ellipsis-text-align-left-expected.txt:
+        * platform/wpe/fast/css/vertical-text-overflow-ellipsis-text-align-left-mixed-expected.txt:
+        * platform/wpe/fast/css/vertical-text-overflow-ellipsis-text-align-right-expected.txt:
+        * platform/wpe/fast/css/vertical-text-overflow-ellipsis-text-align-right-mixed-expected.txt:
+        * platform/wpe/fast/dom/HTMLElement/bdo-expected.txt:
+        * platform/wpe/fast/inline/inline-borders-with-bidi-override-expected.txt:
+        * platform/wpe/fast/text/atsui-rtl-override-selection-expected.txt:
+        * platform/wpe/fast/text/embed-at-end-of-pre-wrap-line-expected.txt:
+        * platform/wpe/fast/text/international/bidi-AN-after-L-expected.txt:
+        * platform/wpe/fast/text/international/bidi-LDB-2-CSS-expected.txt:
+        * platform/wpe/fast/text/international/bidi-LDB-2-HTML-expected.txt:
+        * platform/wpe/fast/text/international/bidi-LDB-2-formatting-characters-expected.txt:
+        * platform/wpe/fast/text/international/bidi-control-chars-treated-as-ZWS-expected.txt:
+        * platform/wpe/fast/text/international/bidi-european-terminators-expected.txt:
+        * platform/wpe/fast/text/international/bidi-ignored-for-first-child-inline-expected.txt:
+        * platform/wpe/fast/text/international/bidi-layout-across-linebreak-expected.txt:
+        * platform/wpe/fast/text/international/bidi-override-expected.txt:
+        * platform/wpe/fast/text/international/pop-up-button-text-alignment-and-direction-expected.txt:
+        * platform/wpe/fast/text/text-letter-spacing-expected.txt:
+        * platform/wpe/imported/w3c/web-platform-tests/svg/import/text-intro-02-b-manual-expected.txt:
+        * platform/wpe/svg/W3C-I18N/tspan-dirLTR-ubOverride-in-default-context-expected.txt:
+        * platform/wpe/svg/W3C-I18N/tspan-dirLTR-ubOverride-in-ltr-context-expected.txt:
+        * platform/wpe/svg/W3C-I18N/tspan-dirRTL-ubOverride-in-default-context-expected.txt:
+        * platform/wpe/svg/W3C-I18N/tspan-dirRTL-ubOverride-in-ltr-context-expected.txt:
+        * platform/wpe/svg/W3C-SVG-1.1-SE/text-intro-02-b-expected.txt:
+        * platform/wpe/svg/W3C-SVG-1.1-SE/text-intro-09-b-expected.txt:
+        * platform/wpe/svg/W3C-SVG-1.1/text-intro-02-b-expected.txt:
+        * platform/wpe/svg/text/bidi-text-anchor-direction-expected.txt:
+
+2021-11-21  Alan Bujtas  <zalan@apple.com>
+
+        [LFC][Integration] Enable bidi content for non-inline-box cases
+        https://bugs.webkit.org/show_bug.cgi?id=232980
+        <rdar://problem/85281410>
+
+        Reviewed by Antti Koivisto.
+
+        * platform/ios/fast/dom/52776-expected.txt: progression
+        * platform/ios/fast/text/international/bidi-ignored-for-first-child-inline-expected.txt: progression
+        * platform/ios/fast/text/international/bidi-neutral-run-expected.txt: rebaseline
+        * platform/ios/fast/text/international/bidi-override-expected.txt: see FIXME
+        * platform/ios/fast/text/international/bidi-LDB-2-formatting-characters-expected.txt: see FIXME
+
+        * platform/mac/fast/dom/52776-expected.txt:
+        * platform/mac/fast/text/international/bidi-ignored-for-first-child-inline-expected.txt:
+        * platform/mac/fast/text/international/bidi-neutral-run-expected.txt:
+
+2021-11-21  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [WinCairo] Unreviewed test gardening
+
+        * platform/wincairo-wk1/TestExpectations:
+        * platform/wincairo/TestExpectations:
+
+2021-11-21  Ziran Sun  <zsun@igalia.com>
+
+        [css-grid] svg image as grid items should use the overriding logical width/height when defined to compute the logical height/width
+        https://bugs.webkit.org/show_bug.cgi?id=228105
+
+        Reviewed by Javier Fernandez.
+
+        * TestExpectations: unskip two tests that are now passing.
+
+2021-11-20  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Report the initiating url instead of the redirected one
+        https://bugs.webkit.org/show_bug.cgi?id=233037
+
+        Reviewed by Brent Fulgham.
+
+        * TestExpectations: Unskip imported/w3c/web-platform-tests/content-security-policy/securitypolicyviolation/img-src-redirect.sub.html
+        * http/tests/security/contentSecurityPolicy/1.1/child-src/worker-redirect-blocked-expected.txt:
+        * http/tests/security/contentSecurityPolicy/audio-redirect-blocked-expected.txt:
+        * http/tests/security/contentSecurityPolicy/font-redirect-blocked-expected.txt:
+        * http/tests/security/contentSecurityPolicy/image-redirect-blocked-expected.txt:
+        * http/tests/security/contentSecurityPolicy/script-redirect-blocked-expected.txt:
+        * http/tests/security/contentSecurityPolicy/stylesheet-redirect-blocked-expected.txt:
+        * http/tests/security/contentSecurityPolicy/svg-font-redirect-blocked-expected.txt:
+        * http/tests/security/contentSecurityPolicy/svg-image-redirect-blocked-expected.txt:
+        * http/tests/security/contentSecurityPolicy/track-redirect-blocked-expected.txt:
+        * http/tests/security/contentSecurityPolicy/video-redirect-blocked-expected.txt:
+        * http/tests/security/contentSecurityPolicy/worker-blob-inherits-csp-importScripts-redirect-cross-origin-blocked-expected.txt:
+        * http/tests/security/contentSecurityPolicy/worker-csp-importScripts-redirect-cross-origin-blocked-expected.txt:
+        * http/tests/security/contentSecurityPolicy/xsl-redirect-blocked-expected.txt:
+
+2021-11-19  Arcady Goldmints-Orlov  <agoldmints@igalia.com>
+
+        [GLIB] Update test expectations and baselines. Unreviewed test gardening.
+        https://bugs.webkit.org/show_bug.cgi?id=233385
+
+        * platform/glib/TestExpectations:
+        * platform/glib/imported/w3c/web-platform-tests/css/css-transforms/animation/transform-interpolation-computed-value-expected.txt:
+        * platform/glib/imported/w3c/web-platform-tests/html/interaction/focus/chrome-object-tab-focus-bug-expected.txt: Added.
+        * platform/glib/imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/iframe_sandbox_anchor_download_block_downloads.tentative-expected.txt: Added.
+        * platform/gtk/TestExpectations:
+        * transitions/clip-path-path-transitions-expected.txt:
+
+2021-11-19  Kiet Ho  <tho22@apple.com>
+
+        Integrate motion path transforms in transformation pipeline
+        https://bugs.webkit.org/show_bug.cgi?id=233144
+
+        Reviewed by Dean Jackson.
+
+        Removed ImageOnlyFailure expectations for tests that should now pass.
+
+        * TestExpectations:
+
+2021-11-19  Antti Koivisto  <antti@apple.com>
+
+        [CSS Cascade Layers] [Debug] ASSERTION FAILED: m_childRules.isEmpty() when using @import with layer name
+        https://bugs.webkit.org/show_bug.cgi?id=233283
+        <rdar://problem/85520733>
+
+        Reviewed by Antoine Quint.
+
+        * fast/css/layer-illegal-import-expected.html: Added.
+        * fast/css/layer-illegal-import.html: Added.
+
+2021-11-19  Antti Koivisto  <antti@apple.com>
+
+        :hover with descendant selector not invalidated correctly in shadow tree
+        https://bugs.webkit.org/show_bug.cgi?id=233354
+
+        Reviewed by Antoine Quint.
+
+        * fast/selectors/hover-descendant-shadow-tree-expected.html: Added.
+        * fast/selectors/hover-descendant-shadow-tree.html: Added.
+        * platform/ios/TestExpectations:
+
+2021-11-19  Arcady Goldmints-Orlov  <agoldmints@igalia.com>
+
+        REGRESSION(r285859) [GTK][WPE] a number of accessibility/* tests crash on GTK and WPE
+        https://bugs.webkit.org/show_bug.cgi?id=233221
+
+        Reviewed by Carlos Garcia Campos.
+
+        * platform/glib/TestExpectations:
+        * platform/glib/accessibility/add-children-pseudo-element-expected.txt:
+        * platform/glib/accessibility/aria-modal-text-descendants-expected.txt: Added.
+        * platform/glib/accessibility/table-cell-display-block-expected.txt: Added.
+
+2021-11-18  Frédéric Wang  <fwang@igalia.com>
+
+        Nullptr crash in SimplifiedBackwardsTextIterator::range() via previousSentencePosition
+        https://bugs.webkit.org/show_bug.cgi?id=229282
+
+        Reviewed by Darin Adler.
+
+        Add regression test.
+
+        * editing/text-iterator/backward-textiterator-object-crash-expected.txt: Added.
+        * editing/text-iterator/backward-textiterator-object-crash.html: Added.
+
+2021-11-18  Ben Nham  <nham@apple.com>
+
+        Add support for onpushsubscriptionchange event handler
+        https://bugs.webkit.org/show_bug.cgi?id=233088
+
+        Reviewed by Youenn Fablet.
+
+         - Modified the pushsubscriptionchange test to send a real event to the service worker.
+         - Modified the service worker spinning tests to test for guarding against infinite loops in
+           the push and pushsubscriptionchange event handlers.
+
+        Note that the existing spinning tests are marked as flaky on ios-wk2. We do the same here
+        since the test passes locally but is flaky in EWS.
+
+        * http/wpt/push-api/pushSubscriptionChangeEvent.any.js:
+        (promise_test):
+        (assertSubscriptionsAreEqual):
+        (test): Deleted.
+        (promise_test.async newSubscription): Deleted.
+        (promise_test.async return): Deleted.
+        * http/wpt/push-api/pushSubscriptionChangeEvent.any.serviceworker-expected.txt:
+        * http/wpt/service-workers/resources/routines.js:
+        (async sendSyncMessage):
+        * http/wpt/service-workers/service-worker-spinning-push.https-expected.txt: Added.
+        * http/wpt/service-workers/service-worker-spinning-push.https.html: Added.
+        * http/wpt/service-workers/service-worker-spinning-pushsubscriptionchange.https-expected.txt: Added.
+        * http/wpt/service-workers/service-worker-spinning-pushsubscriptionchange.https.html: Added.
+        * http/wpt/service-workers/service-worker-spinning-worker.js:
+        (respondToPendingEvent):
+        (pushTest):
+        * platform/ios-simulator-wk2/TestExpectations:
+
+2021-11-18  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [macOS] [Live Text] Avoid analyzing images in editable content
+        https://bugs.webkit.org/show_bug.cgi?id=233317
+
+        Reviewed by Megan Gardner.
+
+        Add a layout test to exercise the change.
+
+        * fast/images/text-recognition/mac/text-recognition-candidates-expected.txt: Added.
+        * fast/images/text-recognition/mac/text-recognition-candidates.html: Added.
+
+2021-11-18  Yoshiaki Jitsukawa  <yoshiaki.jitsukawa@sony.com>
+
+        Implement JPEG XL image decoder using libjxl
+        https://bugs.webkit.org/show_bug.cgi?id=233113
+
+        Reviewed by Michael Catanzaro.
+
+        This patch introduces the initial version of JPEG XL image decoder.
+        JPEG XL is a royalty-free raster-graphics file format that supports
+        both lossy and lossless compression and is experimentally supported by
+        Chrome, FireFox, and Edge.
+        The image decoder implemented by this patch uses libjxl, a reference
+        implementation of JPEG XL decoder (and encoder). JPEG XL animations
+        will be supported later.
+
+        * TestExpectations: Skip JPEG XL tests by default.
+        * fast/images/jpegxl-as-image-expected.html: Added.
+        * fast/images/jpegxl-as-image.html: Added.
+        * fast/images/jpegxl-image-decoding-expected.txt: Added.
+        * fast/images/jpegxl-image-decoding.html: Added.
+        * fast/images/resources/green-313x313.jxl: Added.
+        * platform/wincairo/TestExpectations: Skip JPEG XL tests until
+        WebKitReqirements release with libjxl.
+
+2021-11-18  Martin Robinson  <mrobinson@webkit.org>
+
+        Update css-transforms WPT tests
+        https://bugs.webkit.org/show_bug.cgi?id=233188
+
+        Reviewed by Sergio Villar Senin.
+
+        Update WPT transform tests and expectations.
+
+        * TestExpectations:
+        * platform/ios-wk2/TestExpectations:
+
+2021-11-18  Alan Bujtas  <zalan@apple.com>
+
+        [LFC][IFC] Inline boxes with unbreakable decoration can produce a breaking position with no trailing run
+        https://bugs.webkit.org/show_bug.cgi?id=233302
+
+        Reviewed by Antti Koivisto.
+
+        * fast/inline/inline-box-with-unbreakable-decoration-and-word-break-expected.html: Added.
+        * fast/inline/inline-box-with-unbreakable-decoration-and-word-break.html: Added.
+
+2021-11-18  Ziran Sun  <zsun@igalia.com>
+
+        Images as grid items should use the overridingLogicalWidth when defined to compute the logical Height
+        https://bugs.webkit.org/show_bug.cgi?id=228022
+
+        Reviewed by Javier Fernandez.
+
+        * TestExpectations: unskip tests that are now passing.
+
+2021-11-18  Youenn Fablet  <youenn@apple.com>
+
+        MediaPlayerAVFoundation should support rvfc
+        https://bugs.webkit.org/show_bug.cgi?id=231945
+
+        Reviewed by Eric Carlson.
+
+        Unskipped some tests.
+
+        * platform/ios-wk2/TestExpectations:
+        * platform/mac-wk1/TestExpectations:
+        * platform/mac-wk2/TestExpectations:
+
+2021-11-18  Sergio Villar Senin  <svillar@igalia.com>
+
+        [css-flexbox] Import WPT tests. November 2021 edition.
+        https://bugs.webkit.org/show_bug.cgi?id=233197
+
+        Reviewed by Martin Robinson.
+
+        * TestExpectations: Added tests that fail since the import.
+
+2021-11-18  Ziran Sun  <zsun@igalia.com>
+
+        [css-grid] Transfer size for grid item with an aspect-ratio and stretch alignment against the definite row
+        https://bugs.webkit.org/show_bug.cgi?id=232987
+
+        Reviewed by Javier Fernandez.
+
+        * TestExpectations: unskip the test that is now passing.
+
+2021-11-17  Youenn Fablet  <youenn@apple.com>
+
+        Add support for more rvfc metadata
+        https://bugs.webkit.org/show_bug.cgi?id=233185
+
+        Reviewed by Eric Carlson.
+
+        * platform/ios-wk2/TestExpectations:
+        * platform/mac-wk1/TestExpectations:
+        * platform/mac-wk2/TestExpectations:
+
+2021-11-17  Ricky Mondello  <rmondello@apple.com>
+
+        When an "autofilled and viewable" field becomes empty, turn "autofilled and viewable" off
+        https://bugs.webkit.org/show_bug.cgi?id=233239
+
+        Reviewed by Darin Adler.
+
+        * fast/forms/input-autofilled-and-viewable-expected.txt: Added.
+        * fast/forms/input-autofilled-and-viewable.html: Added.
+
+2021-11-17  John Wilander  <wilander@apple.com>
+
+        PCM: Add capability for click destination to fire triggering event without cross-site requests to the click source
+        https://bugs.webkit.org/show_bug.cgi?id=233173
+        <rdar://79426605>
+
+        Reviewed by Alex Christensen.
+
+        * http/tests/privateClickMeasurement/resources/redirectToConversionWithAttributionSource.py: Added.
+        * http/tests/privateClickMeasurement/triggering-event-with-attribution-source-through-fetch-keepalive-expected.txt: Added.
+        * http/tests/privateClickMeasurement/triggering-event-with-attribution-source-through-fetch-keepalive.html: Added.
+
+2021-11-17  Ryan Haddad  <ryanhaddad@apple.com>
+
+        [iOS] imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/iframe_sandbox_window_open_download_block_downloads.tentative.html is frequently failing
+        https://bugs.webkit.org/show_bug.cgi?id=233267
+
+        Unreviewed test gardening.
+
+        * platform/ios/TestExpectations: Mark test as flaky.
+
+2021-11-17  Tyler Wilcock  <tyler_w@apple.com>
+
+        AX: Fix 5 tests in --release --accessibility-isolated-tree mode
+        https://bugs.webkit.org/show_bug.cgi?id=233232
+
+        Reviewed by Chris Fleizach.
+
+        Fix all of these tests in --release --accessibility-isolated-tree
+        mode by asynchronously waiting for document changes (when necessary).
+        Some tests are changed to use accessibleElementById instead of
+        element.focus() + accessibilityController.focusedElement for selecting
+        elements in JS, as the former doesn't require asynchronous waiting for static elements.
+
+        * accessibility/add-children-pseudo-element-expected.txt:
+        * accessibility/add-children-pseudo-element.html:
+        * accessibility/aria-checkbox-checked.html:
+        * accessibility/aria-checkbox-text.html:
+        * accessibility/aria-toggle-button-with-title.html:
+        * accessibility/auto-fill-types-expected.txt:
+        * accessibility/auto-fill-types.html:
+        * accessibility/ax-value-with-search-expected.txt:
+        * accessibility/ax-value-with-search.html:
+
+2021-11-17  Dean Jackson  <dino@apple.com>
+
+        Add ModelDocument for directly showing content that can be handled by <model>
+        https://bugs.webkit.org/show_bug.cgi?id=233057
+        rdar://85265880
+
+        Reviewed by Darin Adler.
+
+        New test for ModelDocument.
+
+        * http/conf/mime.types: Configure the testing Apache server to serve USDZ files
+        with the correct MIME type.
+        * http/tests/model/UnitBox.usdz: Sample file.
+        * http/tests/model/model-document-expected.txt: Added.
+        * http/tests/model/model-document.html: New test for a ModelDocument.
+
+2021-11-17  Youenn Fablet  <youenn@apple.com>
+
+        Safari 15.1 H264 FullHD video encode/decode fails
+        https://bugs.webkit.org/show_bug.cgi?id=233036
+        <rdar://80345048>
+
+        Reviewed by Eric Carlson.
+
+        * platform/mac-wk2/TestExpectations:
+
+2021-11-17  Andres Gonzalez  <andresg_22@apple.com>
+
+        Fix for accessibility/notification-listeners.html in isolated tree mode.
+        https://bugs.webkit.org/show_bug.cgi?id=233228
+        <rdar://problem/85484341>
+
+        Reviewed by Chris Fleizach.
+
+        Made this test async in order to pass in isolated tree mode.
+        The first accessible element needs to be retrieved with waitForElementById,
+        otherwise if we use accessibilityController.accessibleElementById, the
+        test would fail randomly (~10 out of 1000 flakiness). It requires
+        further investigation to determine if this is an issue with the <select>
+        element or with the first accessible element the test retrieves.
+
+        * accessibility/notification-listeners.html:
+        * platform/mac/accessibility/notification-listeners-expected.txt:
+
+2021-11-17  Rob Buis  <rbuis@igalia.com>
+
+        Limit logical width over-constrained direction check
+        https://bugs.webkit.org/show_bug.cgi?id=233189
+
+        Reviewed by Sergio Villar Senin.
+
+        * TestExpectations: Removed 4 tests that are now passing.
+        * platform/ios/TestExpectations: Skipped several tests that show 1px diff in the result.
+
+2021-11-17  Antti Koivisto  <antti@apple.com>
+
+        Update web-platform-tests/css/selectors
+        https://bugs.webkit.org/show_bug.cgi?id=233246
+
+        Reviewed by Alexey Shvayka.
+
+        * TestExpectations:
+
+2021-11-17  Rob Buis  <rbuis@igalia.com>
+
+        Null check clonedParent
+        https://bugs.webkit.org/show_bug.cgi?id=230713
+
+        Reviewed by Wenson Hsieh.
+
+        * editing/execCommand/insert-newline-in-quoted-content-crash-expected.txt: Added.
+        * editing/execCommand/insert-newline-in-quoted-content-crash.html: Added.
+
+2021-11-16  Rob Buis  <rbuis@igalia.com>
+
+        Re-add 'style' to contain:strict and contain:content CSS properties
+        https://bugs.webkit.org/show_bug.cgi?id=233193
+
+        Reviewed by Brent Fulgham.
+
+        * TestExpectations:
+
+2021-11-16  Simon Fraser  <simon.fraser@apple.com>
+
+        Stop a momentum scroll animation when receiving a momentum end event
+        https://bugs.webkit.org/show_bug.cgi?id=233236
+
+        Reviewed by Tim Horton.
+
+        New test, and skip one that breaks now because we need a fix for webkit.org/b/233234.
+
+        * fast/scrolling/mac/momentum-animator-end-event-stops-expected.txt: Added.
+        * fast/scrolling/mac/momentum-animator-end-event-stops.html: Added.
+        * platform/mac-wk2/TestExpectations:
+
+2021-11-16  Sihui Liu  <sihui_liu@apple.com>
+
+        Implement FileSystemFileHandle.getFile()
+        https://bugs.webkit.org/show_bug.cgi?id=232716
+        <rdar://problem/85022453>
+
+        Reviewed by Youenn Fablet.
+
+        * storage/filesystemaccess/file-handle-getfile-expected.txt: Added.
+        * storage/filesystemaccess/file-handle-getfile-worker-expected.txt: Added.
+        * storage/filesystemaccess/file-handle-getfile-worker.html: Added.
+        * storage/filesystemaccess/file-handle-getfile.html: Added.
+        * storage/filesystemaccess/resources/file-handle-getfile.js: Added.
+        (finishTest):
+        (async read):
+        (async test):
+
+2021-11-16  Nikita Vasilyev  <nvasilyev@apple.com>
+
+        Web Inspector: Remove unused `dontCreateIfMissing` argument from CSSStyleDeclaration.prototype.propertyForName
+        https://bugs.webkit.org/show_bug.cgi?id=233198
+
+        Reviewed by Devin Rousso.
+
+        * inspector/css/overridden-property.html:
+        * inspector/css/pseudo-element-matches-for-pseudo-element-node.html:
+
+2021-11-16  Rob Buis  <rbuis@igalia.com>
+
+        [css-contain] Support contain:paint
+        https://bugs.webkit.org/show_bug.cgi?id=224742
+
+        Reviewed by Alan Bujtas.
+
+        Unskip tests that pass now.
+
+        * TestExpectations:
+
+2021-11-16  Tyler Wilcock  <tyler_w@apple.com>
+
+        AX: Simplify tests changed in https://bugs.webkit.org/show_bug.cgi?id=233085
+        https://bugs.webkit.org/show_bug.cgi?id=233167
+
+        Reviewed by Andres Gonzalez.
+
+        In https://bugs.webkit.org/show_bug.cgi?id=233085 and https://bugs.webkit.org/show_bug.cgi?id=233017,
+        we made some tests async so that they passed in --release --accessibility-isolated-tree mode. However,
+        we can make these tests simpler and still pass — i.e., only wait for elements and expressions asynchronously
+        when it's absolutely necessary.
+
+        * accessibility/color-well.html:
+        * accessibility/mac/header-expected.txt:
+        * accessibility/mac/header.html:
+        * accessibility/mac/scrollbars.html:
+        * accessibility/placeholder.html:
+        * accessibility/progressbar.html:
+        * accessibility/range-alter-by-percent-expected.txt:
+        * accessibility/range-alter-by-percent.html:
+        * accessibility/range-alter-by-step-expected.txt:
+        * accessibility/range-alter-by-step.html:
+        * accessibility/spinbutton-value-expected.txt:
+        * accessibility/spinbutton-value.html:
+        Simplify these tests by only use async waiting when
+        necessary (i.e. dynamic mutation via JS)
+
+        * resources/accessibility-helper.js:
+        (async expectAsyncExpression):
+        (async waitForExpression): Renamed to expectAsyncExpression.
+
+2021-11-16  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r280078, r280290 and r282008.
+        https://bugs.webkit.org/show_bug.cgi?id=233184
+
+        Caused a crash in grid
+
+        Reverted changesets:
+
+        "Images as grid items should use the overridingLogicalWidth
+        when defined to compute the logical Height"
+        https://bugs.webkit.org/show_bug.cgi?id=228022
+        https://commits.webkit.org/r280078
+
+        "[css-grid] svg image as grid items should use the overriding
+        logical width/height when defined to compute the logical
+        height/width"
+        https://bugs.webkit.org/show_bug.cgi?id=228105
+        https://commits.webkit.org/r280290
+
+        "REGRESSION(r280078): broke fast/images/exif-orientation-
+        composited.html on windows"
+        https://bugs.webkit.org/show_bug.cgi?id=228325
+        https://commits.webkit.org/r282008
+
+2021-11-16  Arcady Goldmints-Orlov  <agoldmints@igalia.com>
+
+        [GLIB] Update test expectations and baselines. Unreviewed test gardening.
+        https://bugs.webkit.org/show_bug.cgi?id=233156
+
+        * platform/glib/TestExpectations:
+        * platform/glib/fast/css/getComputedStyle/computed-style-expected.txt:
+        * platform/glib/fast/xmlhttprequest/xmlhttprequest-nonexistent-file-expected.txt: Added.
+        * platform/glib/http/wpt/push-api/pushManager.any-expected.txt: Added.
+        * platform/glib/http/wpt/push-api/pushManager.any.serviceworker-expected.txt: Added.
+        * platform/glib/imported/w3c/web-platform-tests/content-security-policy/connect-src/connect-src-eventsource-allowed.sub-expected.txt: Added.
+        * platform/gtk/accessibility/color-well-expected.txt:
+        * platform/gtk/ietestcenter/css3/bordersbackgrounds/border-radius-different-width-001-expected.txt:
+        * platform/wpe/accessibility/color-well-expected.txt:
+
+2021-11-16  Cathie Chen  <cathiechen@igalia.com>
+
+        [CSS contain] The size should be updated if layout containment is inside a fit-content parent
+        https://bugs.webkit.org/show_bug.cgi?id=233046
+
+        Reviewed by Rob Buis.
+
+        * TestExpectations:
+
+2021-11-15  Tim Nguyen  <ntim@apple.com>
+
+        Re-import css/css-text-decor WPT
+        https://bugs.webkit.org/show_bug.cgi?id=233154
+
+        Reviewed by Cameron McCormack.
+
+        Since mismatches are now properly renamed to `-expected-mismatch.html` on import since bug 207175,
+        re-import this directory to reduce numbers of false negatives/positives.
+
+        Some tests have also been added/updated/removed since.
+
+        * TestExpectations:
+
+2021-11-15  Tim Nguyen  <ntim@apple.com>
+
+        Remove redundant [ Pass ] from TestExpectations
+        https://bugs.webkit.org/show_bug.cgi?id=233157
+
+        Reviewed by Cameron McCormack.
+
+        * TestExpectations:
+
+2021-11-15  Chris Dumez  <cdumez@apple.com>
+
+        `Cross-Origin-Embedder-Policy: require-corp` prevents loading of data URL images
+        https://bugs.webkit.org/show_bug.cgi?id=233131
+        <rdar://85236459>
+
+        Reviewed by Geoffrey Garen.
+
+        Add layout test coverage. This test is based on a reduce test case from Cameron McCormack.
+
+        * http/wpt/html/cross-origin-embedder-policy/require-corp-data-url-expected.txt: Added.
+        * http/wpt/html/cross-origin-embedder-policy/require-corp-data-url.html: Added.
+        * http/wpt/html/cross-origin-embedder-policy/require-corp-data-url.html.headers: Added.
+
+2021-11-15  Kiet Ho  <tho22@apple.com>
+
+        Implement parsing and animation support for offset-rotate
+        https://bugs.webkit.org/show_bug.cgi?id=232752
+
+        Reviewed by Myles C. Maxfield.
+
+        Rebaselined test to account for new CSS property.
+
+        * platform/ios/imported/w3c/web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
 2021-11-15  Gabriel Nava Marino  <gnavamarino@apple.com>
 
         nullptr deref in CompositeEditCommand::insertNodeAt

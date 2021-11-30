@@ -29,14 +29,18 @@
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 class SupportedFeatures final : public RefCounted<SupportedFeatures> {
 public:
     static Ref<SupportedFeatures> create(Vector<String>&& features)
     {
         return adoptRef(*new SupportedFeatures(WTFMove(features)));
+    }
+
+    static Ref<SupportedFeatures> create(const Vector<String>& features)
+    {
+        return adoptRef(*new SupportedFeatures(features));
     }
 
     static Ref<SupportedFeatures> clone(const SupportedFeatures& features)
@@ -46,13 +50,17 @@ public:
 
     const Vector<String>& features() const { return m_features; }
 
-protected:
+private:
     SupportedFeatures(Vector<String>&& features)
         : m_features(WTFMove(features))
     {
     }
 
-private:
+    SupportedFeatures(const Vector<String>& features)
+        : m_features(features)
+    {
+    }
+
     SupportedFeatures(const SupportedFeatures&) = delete;
     SupportedFeatures(SupportedFeatures&&) = delete;
     SupportedFeatures& operator=(const SupportedFeatures&) = delete;
@@ -61,5 +69,4 @@ private:
     Vector<String> m_features;
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU

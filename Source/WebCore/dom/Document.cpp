@@ -563,7 +563,7 @@ void Document::configureSharedLogger()
 
 void Document::addToDocumentsMap()
 {
-    auto addResult = allDocumentsMap().add(m_identifier, this);
+    auto addResult = allDocumentsMap().add(identifier(), this);
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
 
     configureSharedLogger();
@@ -571,8 +571,8 @@ void Document::addToDocumentsMap()
 
 void Document::removeFromDocumentsMap()
 {
-    ASSERT(allDocumentsMap().contains(m_identifier));
-    allDocumentsMap().remove(m_identifier);
+    ASSERT(allDocumentsMap().contains(identifier()));
+    allDocumentsMap().remove(identifier());
     configureSharedLogger();
 }
 
@@ -607,7 +607,7 @@ static Ref<CachedResourceLoader> createCachedResourceLoader(Frame* frame)
     return CachedResourceLoader::create(nullptr);
 }
 
-Document::Document(Frame* frame, const Settings& settings, const URL& url, DocumentClassFlags documentClasses, unsigned constructionFlags)
+Document::Document(Frame* frame, const Settings& settings, const URL& url, DocumentClasses documentClasses, unsigned constructionFlags)
     : ContainerNode(*this, CreateDocument)
     , TreeScope(*this)
     , FrameDestructionObserver(frame)
@@ -653,7 +653,6 @@ Document::Document(Frame* frame, const Settings& settings, const URL& url, Docum
     , m_isSynthesized(constructionFlags & Synthesized)
     , m_isNonRenderedPlaceholder(constructionFlags & NonRenderedPlaceholder)
     , m_orientationNotifier(currentOrientation(frame))
-    , m_identifier(DocumentIdentifier::generate())
     , m_undoManager(UndoManager::create(*this))
     , m_editor(makeUniqueRef<Editor>(*this))
     , m_selection(makeUniqueRef<FrameSelection>(this))
@@ -688,7 +687,7 @@ Document::Document(Frame* frame, const Settings& settings, const URL& url, Docum
 
 Ref<Document> Document::create(Document& contextDocument)
 {
-    auto document = adoptRef(*new Document(nullptr, contextDocument.m_settings, URL()));
+    auto document = adoptRef(*new Document(nullptr, contextDocument.m_settings, URL(), { }));
     document->setContextDocument(contextDocument);
     document->setSecurityOriginPolicy(contextDocument.securityOriginPolicy());
     return document;
@@ -696,7 +695,7 @@ Ref<Document> Document::create(Document& contextDocument)
 
 Ref<Document> Document::createNonRenderedPlaceholder(Frame& frame, const URL& url)
 {
-    return adoptRef(*new Document(&frame, frame.settings(), url, DefaultDocumentClass, NonRenderedPlaceholder));
+    return adoptRef(*new Document(&frame, frame.settings(), url, { }, NonRenderedPlaceholder));
 }
 
 Document::~Document()
@@ -5592,11 +5591,13 @@ void Document::setDecoder(RefPtr<TextResourceDecoder>&& decoder)
 
 URL Document::completeURL(const String& url, const URL& baseURLOverride, ForceUTF8 forceUTF8) const
 {
+    // See also CSSParserContext::completeURL(const String&)
+
     // Always return a null URL when passed a null string.
     // FIXME: Should we change the URL constructor to have this behavior?
-    // See also [CSS]StyleSheet::completeURL(const String&)
     if (url.isNull())
         return URL();
+
     const URL& baseURL = ((baseURLOverride.isEmpty() || baseURLOverride == aboutBlankURL()) && parentDocument()) ? parentDocument()->baseURL() : baseURLOverride;
     if (!m_decoder || forceUTF8 == ForceUTF8::Yes)
         return URL(baseURL, url);
@@ -7479,7 +7480,16 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
     auto changeState = [](auto& elements, auto pseudoClassType, auto&& setter) {
         if (elements.isEmpty())
             return;
+
         Style::PseudoClassChangeInvalidation styleInvalidation { *elements.last(), pseudoClassType, Style::InvalidationScope::Descendants };
+
+        // We need to do descendant invalidation for each shadow tree separately as the style is per-scope.
+        Vector<Style::PseudoClassChangeInvalidation> shadowDescendantStyleInvalidations;
+        for (auto& element : elements) {
+            if (hasShadowRootParent(*element))
+                shadowDescendantStyleInvalidations.append({ *element, pseudoClassType, Style::InvalidationScope::Descendants });
+        }
+
         for (auto& element : elements)
             setter(*element);
     };
@@ -8734,7 +8744,7 @@ void Document::setServiceWorkerConnection(SWClientConnection* serviceWorkerConne
         return;
 
     auto controllingServiceWorkerRegistrationIdentifier = activeServiceWorker() ? std::make_optional<ServiceWorkerRegistrationIdentifier>(activeServiceWorker()->registrationIdentifier()) : std::nullopt;
-    m_serviceWorkerConnection->registerServiceWorkerClient(topOrigin(), ServiceWorkerClientData::from(*this, *serviceWorkerConnection), controllingServiceWorkerRegistrationIdentifier, userAgent(url()));
+    m_serviceWorkerConnection->registerServiceWorkerClient(topOrigin(), ServiceWorkerClientData::from(*this), controllingServiceWorkerRegistrationIdentifier, userAgent(url()));
 }
 #endif
 

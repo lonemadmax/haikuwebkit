@@ -5527,6 +5527,48 @@ TEST(ProcessSwap, TerminatedSuspendedPageProcess)
     EXPECT_NE(pid3, pid4);
 }
 
+TEST(ProcessSwap, CommittedProcessCrashDuringCrossSiteNavigation)
+{
+    auto processPoolConfiguration = psonProcessPoolConfiguration();
+    auto processPool = adoptNS([[WKProcessPool alloc] _initWithConfiguration:processPoolConfiguration.get()]);
+
+    auto webViewConfiguration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    [webViewConfiguration setProcessPool:processPool.get()];
+    auto handler = adoptNS([[PSONScheme alloc] init]);
+    [webViewConfiguration setURLSchemeHandler:handler.get() forURLScheme:@"PSON"];
+
+    auto webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:webViewConfiguration.get()]);
+    auto navigationDelegate = adoptNS([[PSONNavigationDelegate alloc] init]);
+    [webView setNavigationDelegate:navigationDelegate.get()];
+
+    done = false;
+    NSURLRequest *request = [NSURLRequest requestWithURL:[NSURL URLWithString:@"pson://www.webkit.org/main.html"]];
+    [webView loadRequest:request];
+
+    TestWebKitAPI::Util::run(&done);
+    done = false;
+
+    auto pid1 = [webView _webProcessIdentifier];
+
+    static bool didKill = false;
+    navigationDelegate->decidePolicyForNavigationAction = ^(WKNavigationAction *, void (^decisionHandler)(WKNavigationActionPolicy)) {
+        decisionHandler(WKNavigationActionPolicyAllow); // Will ask the load to proceed in a new provisional WebProcess since the navigation is cross-site.
+
+        // Simulate a crash of the committed WebProcess while the provisional navigation starts in the new provisional WebProcess.
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 0.2 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+            kill(pid1, 9);
+            didKill = true;
+        });
+    };
+
+    request = [NSURLRequest requestWithURL:[NSURL URLWithString:@"pson://www.apple.com/main.html"]];
+    [webView loadRequest:request];
+
+    TestWebKitAPI::Util::run(&didKill);
+
+    TestWebKitAPI::Util::sleep(0.5);
+}
+
 TEST(ProcessSwap, NavigateBackAndForth)
 {
     auto processPoolConfiguration = psonProcessPoolConfiguration();
@@ -7626,10 +7668,6 @@ TEST(ProcessSwap, NavigatingCrossOriginFromCOOPSameOriginAllowPopup4)
     runCOOPProcessSwapTest("same-origin-allow-popup", "unsafe-none", "unsafe-none", "unsafe-none", IsSameOrigin::No, DoServerSideRedirect::No, ExpectSwap::No);
 }
 
-// On iOS, toggling the captive portal mode requires the browser entitlement, which TestWebKit API doesn't have.
-// Also, some API tests rely on the browser entitlement not being present.
-#if !PLATFORM(IOS)
-
 static bool isJITEnabled(WKWebView *webView)
 {
     __block bool gotResponse = false;
@@ -7722,6 +7760,53 @@ TEST(ProcessSwap, NavigatingToCaptivePortalMode)
     EXPECT_FALSE(isJITEnabled(webView.get()));
     checkSettingsControlledByCaptivePortalMode(webView.get(), ShouldBeEnabled::No);
 }
+
+#if PLATFORM(IOS)
+
+TEST(ProcessSwap, CannotDisableCaptivePortalModeWithoutBrowserEntitlement)
+{
+    auto webViewConfiguration = adoptNS([WKWebViewConfiguration new]);
+    EXPECT_FALSE(webViewConfiguration.get().defaultWebpagePreferences._captivePortalModeEnabled);
+    [webViewConfiguration.get().defaultWebpagePreferences _setCaptivePortalModeEnabled:YES];
+    [webViewConfiguration.get().preferences _setMediaDevicesEnabled:YES];
+    webViewConfiguration.get().preferences._mediaCaptureRequiresSecureConnection = NO;
+
+    auto webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:webViewConfiguration.get()]);
+    auto delegate = adoptNS([TestNavigationDelegate new]);
+    [webView setNavigationDelegate:delegate.get()];
+
+    EXPECT_FALSE(isJITEnabled(webView.get()));
+    checkSettingsControlledByCaptivePortalMode(webView.get(), ShouldBeEnabled::No, IsShowingInitialEmptyDocument::Yes);
+    pid_t pid1 = [webView _webProcessIdentifier];
+
+    __block bool finishedNavigation = false;
+    delegate.get().didFinishNavigation = ^(WKWebView *, WKNavigation *) {
+        finishedNavigation = true;
+    };
+
+    delegate.get().decidePolicyForNavigationActionWithPreferences = ^(WKNavigationAction *action, WKWebpagePreferences *preferences, void (^completionHandler)(WKNavigationActionPolicy, WKWebpagePreferences *)) {
+        EXPECT_TRUE(preferences._captivePortalModeEnabled);
+        bool didThrowWhenTryingToDisableCaptivePortalMode = false;
+        // TestWebKitAPI doesn't have the web browser entitlement and thus shouldn't be able to disable captive portal mode.
+        @try {
+            [preferences _setCaptivePortalModeEnabled:NO];
+        } @catch (NSException *exception) {
+            didThrowWhenTryingToDisableCaptivePortalMode = true;
+        }
+        EXPECT_TRUE(didThrowWhenTryingToDisableCaptivePortalMode);
+        completionHandler(WKNavigationActionPolicyAllow, preferences);
+    };
+
+    NSURL *url = [[NSBundle mainBundle] URLForResource:@"simple" withExtension:@"html" subdirectory:@"TestWebKitAPI.resources"];
+    [webView loadRequest:[NSURLRequest requestWithURL:url]];
+    TestWebKitAPI::Util::run(&finishedNavigation);
+
+    EXPECT_EQ(pid1, [webView _webProcessIdentifier]); // Shouldn't have process-swapped since we're staying in captive portal mode.
+    EXPECT_FALSE(isJITEnabled(webView.get()));
+    checkSettingsControlledByCaptivePortalMode(webView.get(), ShouldBeEnabled::No);
+}
+
+#else
 
 TEST(ProcessSwap, CaptivePortalModeEnabledByDefaultThenOptOut)
 {

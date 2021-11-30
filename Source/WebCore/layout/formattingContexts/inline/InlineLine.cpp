@@ -32,7 +32,6 @@
 #include "InlineFormattingContext.h"
 #include "InlineSoftLineBreakItem.h"
 #include "LayoutBoxGeometry.h"
-#include "RuntimeEnabledFeatures.h"
 #include "TextFlags.h"
 #include "TextUtil.h"
 #include <wtf/IsoMallocInlines.h>
@@ -88,12 +87,6 @@ void Line::resetTrailingContent()
     m_trimmableTrailingContent.reset();
     m_hangingTrailingContent.reset();
     m_trailingSoftHyphenWidth = { };
-}
-
-void Line::removeTrimmableContent(InlineLayoutUnit horizontalAvailableSpace)
-{
-    removeTrailingTrimmableContent();
-    visuallyCollapseHangingOverflow(horizontalAvailableSpace);
 }
 
 void Line::applyRunExpansion(InlineLayoutUnit horizontalAvailableSpace)
@@ -179,13 +172,12 @@ void Line::applyRunExpansion(InlineLayoutUnit horizontalAvailableSpace)
     m_contentLogicalWidth += accumulatedExpansion;
 }
 
-void Line::removeTrailingTrimmableContent()
+void Line::removeTrailingTrimmableContent(ShouldApplyTrailingWhiteSpaceFollowedByBRQuirk shouldApplyTrailingWhiteSpaceFollowedByBRQuirk)
 {
     if (m_trimmableTrailingContent.isEmpty() || m_runs.isEmpty())
         return;
 
-    // Complex line layout quirk: keep the trailing whitespace around when it is followed by a line break, unless the content overflows the line.
-    if (RuntimeEnabledFeatures::sharedFeatures().layoutFormattingContextIntegrationEnabled()) {
+    if (shouldApplyTrailingWhiteSpaceFollowedByBRQuirk == ShouldApplyTrailingWhiteSpaceFollowedByBRQuirk::Yes) {
         auto isTextAlignRight = [&] {
             auto textAlign = formattingContext().root().style().textAlign();
             return textAlign == TextAlignMode::Right
@@ -198,11 +190,17 @@ void Line::removeTrailingTrimmableContent()
             return;
         }
     }
-
     m_contentLogicalWidth -= m_trimmableTrailingContent.remove();
 }
 
-void Line::visuallyCollapseHangingOverflow(InlineLayoutUnit horizontalAvailableSpace)
+void Line::removeHangingGlyphs()
+{
+    ASSERT(m_trimmableTrailingContent.isEmpty());
+    m_contentLogicalWidth -= m_hangingTrailingContent.width();
+    m_hangingTrailingContent.reset();
+}
+
+void Line::visuallyCollapseHangingOverflowingGlyphs(InlineLayoutUnit horizontalAvailableSpace)
 {
     ASSERT(m_trimmableTrailingContent.isEmpty());
     // If white-space is set to pre-wrap, the UA must
@@ -342,10 +340,28 @@ void Line::appendTextContent(const InlineTextItem& inlineTextItem, const RenderS
         // Note that the _content_ logical right may be larger than the _run_ logical right.
         auto contentLogicalRight = runLogicalLeft + logicalWidth + m_clonedEndDecorationWidthForInlineBoxRuns;
         m_contentLogicalWidth = std::max(oldContentLogicalWidth, contentLogicalRight);
+    } else if (style.letterSpacing() >= 0) {
+        auto& lastRun = m_runs.last();
+        lastRun.expand(inlineTextItem, logicalWidth);
+        // Ensure that property values that act like negative margin are not making the line wider.
+        m_contentLogicalWidth = std::max(oldContentLogicalWidth, lastRun.logicalRight());
     } else {
-        m_runs.last().expand(inlineTextItem, logicalWidth);
-        // Do not let negative letter spacing make the content shorter than it already is.
-        m_contentLogicalWidth += std::max(0.0f, logicalWidth);
+        auto& lastRun = m_runs.last();
+        ASSERT(lastRun.isText());
+        // Negative letter spacing should only shorten the content to the boundary of the previous run.
+        // FIXME: We may need to traverse all the way to the previous non-text run (or even across inline boxes).
+        auto contentWidthWithoutLastTextRun = [&] {
+            if (style.fontCascade().wordSpacing() >= 0)
+                return m_contentLogicalWidth - std::max(0.f, lastRun.logicalWidth());
+            // FIXME: Let's see if we need to optimize for this is the rare case of both letter and word spacing being negative.
+            auto rightMostPosition = InlineLayoutUnit { };
+            for (auto& run : makeReversedRange(m_runs))
+                rightMostPosition = std::max(rightMostPosition, run.logicalRight());
+            return std::max(0.f, rightMostPosition);
+        }();
+        auto lastRunLogicalRight = lastRun.logicalRight();
+        lastRun.expand(inlineTextItem, logicalWidth);
+        m_contentLogicalWidth = std::max(contentWidthWithoutLastTextRun, lastRunLogicalRight + logicalWidth);
     }
 
     // Handle trailing content, specifically whitespace and letter spacing.

@@ -1388,8 +1388,8 @@ void NetworkProcessProxy::contentExtensionRules(UserContentControllerIdentifier 
         m_webUserContentControllerProxies.add(webUserContentControllerProxy);
         webUserContentControllerProxy->addNetworkProcess(*this);
 
-        auto rules = WTF::map(webUserContentControllerProxy->contentExtensionRules(), [](auto&& keyValue) -> std::pair<String, WebCompiledContentRuleListData> {
-            return std::make_pair(keyValue.value->name(), keyValue.value->compiledRuleList().data());
+        auto rules = WTF::map(webUserContentControllerProxy->contentExtensionRules(), [](auto&& keyValue) -> std::pair<WebCompiledContentRuleListData, URL> {
+            return { keyValue.value.first->compiledRuleList().data(), keyValue.value.second };
         });
         send(Messages::NetworkContentRuleListManager::AddContentRuleLists { identifier, rules }, 0);
         return;
@@ -1405,7 +1405,7 @@ void NetworkProcessProxy::didDestroyWebUserContentControllerProxy(WebUserContent
 #endif
 
 #if ENABLE(SERVICE_WORKER)
-void NetworkProcessProxy::establishWorkerContextConnectionToNetworkProcess(RegistrableDomain&& registrableDomain, std::optional<ServiceWorkerClientIdentifier> serviceWorkerPageIdentifier, PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
+void NetworkProcessProxy::establishWorkerContextConnectionToNetworkProcess(RegistrableDomain&& registrableDomain, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
 {
     WebProcessPool::establishWorkerContextConnectionToNetworkProcess(*this, WTFMove(registrableDomain), serviceWorkerPageIdentifier, sessionID, WTFMove(completionHandler));
 }

@@ -48,6 +48,11 @@ AccessibilityAtspi::AccessibilityAtspi(const String& busAddress)
     });
 }
 
+RunLoop& AccessibilityAtspi::runLoop() const
+{
+    return m_queue->runLoop();
+}
+
 const char* AccessibilityAtspi::uniqueName() const
 {
     RELEASE_ASSERT(!isMainThread());
@@ -130,6 +135,12 @@ void AccessibilityAtspi::unregisterObject(AccessibilityObjectAtspi& atspiObject)
         if (!m_connection)
             return;
 
+        if (m_atspiHyperlinks.contains(atspiObject.ptr())) {
+            auto registeredObjects = m_atspiHyperlinks.take(atspiObject.ptr());
+            for (auto id : registeredObjects)
+                g_dbus_connection_unregister_object(m_connection.get(), id);
+        }
+
         g_dbus_connection_emit_signal(m_connection.get(), nullptr, atspiObject->path().utf8().data(), "org.a11y.atspi.Event.Object", "StateChanged",
             g_variant_new("(siiva{sv})", "defunct", TRUE, 0, g_variant_new_string("0"), nullptr), nullptr);
 
@@ -139,6 +150,24 @@ void AccessibilityAtspi::unregisterObject(AccessibilityObjectAtspi& atspiObject)
         for (auto id : registeredObjects)
             g_dbus_connection_unregister_object(m_connection.get(), id);
     });
+}
+
+String AccessibilityAtspi::registerHyperlink(AccessibilityObjectAtspi& atspiObject, Vector<std::pair<GDBusInterfaceInfo*, GDBusInterfaceVTable*>>&& interfaces)
+{
+    RELEASE_ASSERT(!isMainThread());
+    if (!m_connection)
+        return { };
+
+    String path = makeString("/org/a11y/atspi/accessible/", createCanonicalUUIDString().replace('-', '_'));
+    Vector<unsigned, 1> registeredObjects;
+    registeredObjects.reserveInitialCapacity(interfaces.size());
+    for (const auto& interface : interfaces) {
+        auto id = g_dbus_connection_register_object(m_connection.get(), path.utf8().data(), interface.first, interface.second, &atspiObject, nullptr, nullptr);
+        registeredObjects.uncheckedAppend(id);
+    }
+    m_atspiHyperlinks.add(&atspiObject, WTFMove(registeredObjects));
+
+    return path;
 }
 
 void AccessibilityAtspi::childrenChanged(AccessibilityObjectAtspi& atspiObject, AccessibilityObjectAtspi& child, ChildrenChanged change)
@@ -211,6 +240,30 @@ void AccessibilityAtspi::textSelectionChanged(AccessibilityObjectAtspi& atspiObj
             return;
 
         g_dbus_connection_emit_signal(m_connection.get(), nullptr, atspiObject->path().utf8().data(), "org.a11y.atspi.Event.Object", "TextSelectionChanged",
+            g_variant_new("(siiva{sv})", "", 0, 0, g_variant_new_string(""), nullptr), nullptr);
+    });
+}
+
+void AccessibilityAtspi::valueChanged(AccessibilityObjectAtspi& atspiObject, double value)
+{
+    RELEASE_ASSERT(isMainThread());
+    m_queue->dispatch([this, atspiObject = Ref { atspiObject }, value] {
+        if (!m_connection)
+            return;
+
+        g_dbus_connection_emit_signal(m_connection.get(), nullptr, atspiObject->path().utf8().data(), "org.a11y.atspi.Event.Object", "PropertyChange",
+            g_variant_new("(siiva{sv})", "accessible-value", 0, 0, g_variant_new_double(value), nullptr), nullptr);
+    });
+}
+
+void AccessibilityAtspi::selectionChanged(AccessibilityObjectAtspi& atspiObject)
+{
+    RELEASE_ASSERT(isMainThread());
+    m_queue->dispatch([this, atspiObject = Ref { atspiObject }] {
+        if (!m_connection)
+            return;
+
+        g_dbus_connection_emit_signal(m_connection.get(), nullptr, atspiObject->path().utf8().data(), "org.a11y.atspi.Event.Object", "SelectionChanged",
             g_variant_new("(siiva{sv})", "", 0, 0, g_variant_new_string(""), nullptr), nullptr);
     });
 }
@@ -295,6 +348,8 @@ static constexpr std::pair<AccessibilityRole, RoleNameEntry> roleNames[] = {
     { AccessibilityRole::MenuItem, { "menu item", N_("menu item") } },
     { AccessibilityRole::MenuItemCheckbox, { "check menu item", N_("check menu item") } },
     { AccessibilityRole::MenuItemRadio, { "radio menu item", N_("radio menu item") } },
+    { AccessibilityRole::MenuListPopup, { "menu", N_("menu") } },
+    { AccessibilityRole::MenuListOption, { "menu item", N_("menu item") } },
     { AccessibilityRole::Meter, { "level bar", N_("level bar") } },
     { AccessibilityRole::Outline, { "tree", N_("tree") } },
     { AccessibilityRole::Paragraph, { "paragraph", N_("paragraph") } },

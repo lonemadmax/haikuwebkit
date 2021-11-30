@@ -132,6 +132,9 @@ webkit.org/b/74716 css3/filters/backdrop [ Skip ]
 fast/harness/platform-layer-tree-as-text.html [ Skip ]
 model-element/model-element-graphics-layers-opacity.html [ Skip ]
 
+# Apple Cocoa only for the moment.
+http/tests/model [ Skip ]
+
 # color-filters are off by default
 webkit.org/b/185076 css3/color-filters [ Skip ]
 
@@ -275,6 +278,7 @@ accessibility/aria-listbox-clear-selection-crash.html [ Skip ]
 accessibility/listbox-clear-selection.html [ Skip ]
 accessibility/embedded-image-description.html [ Skip ]
 accessibility/img-no-alt-not-ignored-with-title.html [ Skip ]
+accessibility/visible-character-range.html [ Skip ]
 
 # Need to implement AccessibilityUIElement::hasDocumentRoleAncestor(), AccessibilityUIElement::hasWebApplicationAncestor(),
 # AccessibilityUIElement::isInDescriptionListDetail(), AccessibilityUIElement::isInDescriptionListTerm(), and
@@ -1093,7 +1097,6 @@ media/video-timeupdate-reverse-play.html [ Skip ] # Timeout
 # HTTP Timeouts
 http/tests/media/hls/video-cookie.html [ Skip ] # Timeout
 http/tests/media/video-buffered-range-contains-currentTime.html [ Skip ] # Timeout
-http/tests/media/video-play-waiting.html [ Skip ] # Timeout
 
 # Extra whitespace in the output
 #media/W3C/video/canPlayType/canPlayType_codecs_order_2.html [ Failure ]

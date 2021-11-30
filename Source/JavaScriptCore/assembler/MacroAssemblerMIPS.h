@@ -1192,30 +1192,6 @@ public:
         }
     }
 
-    DataLabel32 load32WithAddressOffsetPatch(Address address, RegisterID dest)
-    {
-        m_fixedWidth = true;
-        /*
-            lui addrTemp, address.offset >> 16
-            ori addrTemp, addrTemp, address.offset & 0xffff
-            addu        addrTemp, addrTemp, address.base
-            lw  dest, 0(addrTemp)
-        */
-        DataLabel32 dataLabel(this);
-        move(TrustedImm32(address.offset), addrTempRegister);
-        m_assembler.addu(addrTempRegister, addrTempRegister, address.base);
-        m_assembler.lw(dest, addrTempRegister, 0);
-        m_fixedWidth = false;
-        return dataLabel;
-    }
-    
-    DataLabelCompact load32WithCompactAddressOffsetPatch(Address address, RegisterID dest)
-    {
-        DataLabelCompact dataLabel(this);
-        load32WithAddressOffsetPatch(address, dest);
-        return dataLabel;
-    }
-
     void load16(const void* address, RegisterID dest)
     {
         if (m_fixedWidth) {
@@ -1272,6 +1248,29 @@ public:
         }
     }
 
+    ALWAYS_INLINE void load16(AbsoluteAddress address, RegisterID dest)
+    {
+        load16(address.m_ptr, dest);
+    }
+
+    /* Need to use zero-extened load half-word for load16.  */
+    void load16SignedExtendTo32(Address address, RegisterID dest)
+    {
+        if (address.offset >= -32768 && address.offset <= 32767
+            && !m_fixedWidth)
+            m_assembler.lh(dest, address.base, address.offset);
+        else {
+            /*
+                lui     addrTemp, (offset + 0x8000) >> 16
+                addu    addrTemp, addrTemp, base
+                lh      dest, (offset & 0xffff)(addrTemp)
+              */
+            m_assembler.lui(addrTempRegister, (address.offset + 0x8000) >> 16);
+            m_assembler.addu(addrTempRegister, addrTempRegister, address.base);
+            m_assembler.lh(dest, addrTempRegister, address.offset);
+        }
+    }
+
     void load16SignedExtendTo32(BaseIndex address, RegisterID dest)
     {
         if (!m_fixedWidth) {
@@ -1293,6 +1292,28 @@ public:
         }
     }
 
+    ALWAYS_INLINE void load16SignedExtendTo32(AbsoluteAddress address, RegisterID dest)
+    {
+        load16SignedExtendTo32(address.m_ptr, dest);
+    }
+
+    void load16SignedExtendTo32(const void* address, RegisterID dest)
+    {
+        if (m_fixedWidth) {
+            /*
+                li  addrTemp, address
+                lh dest, 0(addrTemp)
+            */
+            move(TrustedImmPtr(address), addrTempRegister);
+            m_assembler.lh(dest, addrTempRegister, 0);
+        } else {
+            uintptr_t adr = reinterpret_cast<uintptr_t>(address);
+            m_assembler.lui(addrTempRegister, (adr + 0x8000) >> 16);
+            m_assembler.lh(dest, addrTempRegister, adr & 0xffff);
+        }
+    }
+
+
     void loadPair32(RegisterID src, RegisterID dest1, RegisterID dest2)
     {
         loadPair32(src, TrustedImm32(0), dest1, dest2);
@@ -1308,23 +1329,6 @@ public:
             load32(Address(src, offset.m_value), dest1);
             load32(Address(src, offset.m_value + 4), dest2);
         }
-    }
-
-    DataLabel32 store32WithAddressOffsetPatch(RegisterID src, Address address)
-    {
-        m_fixedWidth = true;
-        /*
-            lui addrTemp, address.offset >> 16
-            ori addrTemp, addrTemp, address.offset & 0xffff
-            addu        addrTemp, addrTemp, address.base
-            sw  src, 0(addrTemp)
-        */
-        DataLabel32 dataLabel(this);
-        move(TrustedImm32(address.offset), addrTempRegister);
-        m_assembler.addu(addrTempRegister, addrTempRegister, address.base);
-        m_assembler.sw(src, addrTempRegister, 0);
-        m_fixedWidth = false;
-        return dataLabel;
     }
 
     void store8(RegisterID src, Address address)
@@ -2041,6 +2045,34 @@ public:
         TrustedImm32 mask8 = mask8OnTest(cond, mask);
         MacroAssemblerHelpers::load8OnCondition(*this, cond, address, dataTempRegister);
         return branchTest32(cond, dataTempRegister, mask8);
+    }
+
+    TrustedImm32 mask16OnTest(ResultCondition cond, TrustedImm32 mask)
+    {
+        if (mask.m_value == -1 && !m_fixedWidth)
+            return TrustedImm32(-1);
+        return MacroAssemblerHelpers::mask16OnCondition(*this, cond, mask);
+    }
+
+    Jump branchTest16(ResultCondition cond, BaseIndex address, TrustedImm32 mask = TrustedImm32(-1))
+    {
+        TrustedImm32 mask16 = mask16OnTest(cond, mask);
+        MacroAssemblerHelpers::load16OnCondition(*this, cond, address, dataTempRegister);
+        return branchTest32(cond, dataTempRegister, mask16);
+    }
+
+    Jump branchTest16(ResultCondition cond, Address address, TrustedImm32 mask = TrustedImm32(-1))
+    {
+        TrustedImm32 mask16 = mask16OnTest(cond, mask);
+        MacroAssemblerHelpers::load16OnCondition(*this, cond, address, dataTempRegister);
+        return branchTest32(cond, dataTempRegister, mask16);
+    }
+
+    Jump branchTest16(ResultCondition cond, AbsoluteAddress address, TrustedImm32 mask = TrustedImm32(-1))
+    {
+        TrustedImm32 mask16 = mask16OnTest(cond, mask);
+        MacroAssemblerHelpers::load16OnCondition(*this, cond, address, dataTempRegister);
+        return branchTest32(cond, dataTempRegister, mask16);
     }
 
     Jump jump()

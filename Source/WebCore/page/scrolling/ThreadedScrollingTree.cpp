@@ -337,8 +337,6 @@ void ThreadedScrollingTree::willStartRenderingUpdate()
 {
     ASSERT(isMainThread());
 
-    LOG_WITH_STREAM(ScrollAnimations, stream << "ThreadedScrollingTree::willStartRenderingUpdate - scrollingThreadIsActive " << scrollingThreadIsActive());
-
     if (!scrollingThreadIsActive())
         return;
 
@@ -488,10 +486,8 @@ void ThreadedScrollingTree::displayDidRefresh(PlatformDisplayID displayID)
     if (displayID != this->displayID())
         return;
 
-#if !PLATFORM(WPE) && !PLATFORM(GTK)
     if (!scrollingThreadIsActive)
         return;
-#endif
 
     ScrollingThread::dispatch([protectedThis = Ref { *this }]() {
         protectedThis->displayDidRefreshOnScrollingThread();

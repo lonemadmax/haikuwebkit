@@ -146,7 +146,7 @@
 #include <wtf/text/StringHash.h>
 
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
-#include "ARKitInlinePreviewModelPlayer.h"
+#include "ARKitInlinePreviewModelPlayerMac.h"
 #endif
 
 #if !OS(WINDOWS)
@@ -605,7 +605,7 @@ void WebProcess::setWebsiteDataStoreParameters(WebProcessDataStoreParameters&& p
 
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
     if (!parameters.modelElementCacheDirectory.isEmpty())
-        ARKitInlinePreviewModelPlayer::setModelElementCacheDirectory(parameters.modelElementCacheDirectory);
+        ARKitInlinePreviewModelPlayerMac::setModelElementCacheDirectory(parameters.modelElementCacheDirectory);
 #endif
 
     setResourceLoadStatisticsEnabled(parameters.resourceLoadStatisticsEnabled);
@@ -1928,7 +1928,7 @@ LibWebRTCNetwork& WebProcess::libWebRTCNetwork()
 }
 
 #if ENABLE(SERVICE_WORKER)
-void WebProcess::establishWorkerContextConnectionToNetworkProcess(PageGroupIdentifier pageGroupID, WebPageProxyIdentifier webPageProxyID, PageIdentifier pageID, const WebPreferencesStore& store, RegistrableDomain&& registrableDomain, std::optional<ServiceWorkerClientIdentifier> serviceWorkerPageIdentifier, ServiceWorkerInitializationData&& initializationData, CompletionHandler<void()>&& completionHandler)
+void WebProcess::establishWorkerContextConnectionToNetworkProcess(PageGroupIdentifier pageGroupID, WebPageProxyIdentifier webPageProxyID, PageIdentifier pageID, const WebPreferencesStore& store, RegistrableDomain&& registrableDomain, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, ServiceWorkerInitializationData&& initializationData, CompletionHandler<void()>&& completionHandler)
 {
     // We are in the Service Worker context process and the call below establishes our connection to the Network Process
     // by calling ensureNetworkProcessConnection. SWContextManager needs to use the same underlying IPC::Connection as the

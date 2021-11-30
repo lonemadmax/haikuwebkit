@@ -42,6 +42,7 @@
 #include "LengthSize.h"
 #include "LineClampValue.h"
 #include "NinePieceImage.h"
+#include "OffsetRotation.h"
 #include "Pagination.h"
 #include "RenderStyleConstants.h"
 #include "RotateTransformOperation.h"
@@ -331,8 +332,6 @@ public:
     
     Overflow overflowX() const { return static_cast<Overflow>(m_nonInheritedFlags.overflowX); }
     Overflow overflowY() const { return static_cast<Overflow>(m_nonInheritedFlags.overflowY); }
-    Overflow overflowInlineDirection() const { return isHorizontalWritingMode() ? overflowX() : overflowY(); }
-    Overflow overflowBlockDirection() const { return isHorizontalWritingMode() ? overflowY() : overflowX(); }
     bool isOverflowVisible() const { return overflowX() == Overflow::Visible || overflowY() == Overflow::Visible; }
 
     OverscrollBehavior overscrollBehaviorX() const { return static_cast<OverscrollBehavior>(m_rareNonInheritedData->overscrollBehaviorX); }
@@ -372,8 +371,8 @@ public:
     const Length& textIndent() const { return m_rareInheritedData->indent; }
     TextAlignMode textAlign() const { return static_cast<TextAlignMode>(m_inheritedFlags.textAlign); }
     TextTransform textTransform() const { return static_cast<TextTransform>(m_inheritedFlags.textTransform); }
-    OptionSet<TextDecoration> textDecorationsInEffect() const { return OptionSet<TextDecoration>::fromRaw(m_inheritedFlags.textDecorations); }
-    OptionSet<TextDecoration> textDecoration() const { return OptionSet<TextDecoration>::fromRaw(m_visualData->textDecoration); }
+    OptionSet<TextDecorationLine> textDecorationsInEffect() const { return OptionSet<TextDecorationLine>::fromRaw(m_inheritedFlags.textDecorations); }
+    OptionSet<TextDecorationLine> textDecoration() const { return OptionSet<TextDecorationLine>::fromRaw(m_visualData->textDecoration); }
     TextDecorationStyle textDecorationStyle() const { return static_cast<TextDecorationStyle>(m_rareNonInheritedData->textDecorationStyle); }
     TextDecorationSkipInk textDecorationSkipInk() const { return static_cast<TextDecorationSkipInk>(m_rareInheritedData->textDecorationSkipInk); }
     TextUnderlinePosition textUnderlinePosition() const { return static_cast<TextUnderlinePosition>(m_rareInheritedData->textUnderlinePosition); }
@@ -532,6 +531,7 @@ public:
     bool containsLayout() const { return m_rareNonInheritedData->contain.contains(Containment::Layout); }
     bool containsSize() const { return m_rareNonInheritedData->contain.contains(Containment::Size); }
     bool containsStyle() const { return m_rareNonInheritedData->contain.contains(Containment::Style); }
+    bool containsPaint() const { return m_rareNonInheritedData->contain.contains(Containment::Paint); }
     BoxAlignment boxAlign() const { return static_cast<BoxAlignment>(m_rareNonInheritedData->deprecatedFlexibleBox->align); }
     BoxDirection boxDirection() const { return static_cast<BoxDirection>(m_inheritedFlags.boxDirection); }
     float boxFlex() const { return m_rareNonInheritedData->deprecatedFlexibleBox->flex; }
@@ -645,7 +645,7 @@ public:
     ColumnSpan columnSpan() const { return static_cast<ColumnSpan>(m_rareNonInheritedData->multiCol->columnSpan); }
 
     const TransformOperations& transform() const { return m_rareNonInheritedData->transform->operations; }
-    bool hasTransform() const { return !m_rareNonInheritedData->transform->operations.operations().isEmpty(); }
+    bool hasTransform() const { return !m_rareNonInheritedData->transform->operations.operations().isEmpty() || offsetPath(); }
     const Length& transformOriginX() const { return m_rareNonInheritedData->transform->x; }
     const Length& transformOriginY() const { return m_rareNonInheritedData->transform->y; }
     float transformOriginZ() const { return m_rareNonInheritedData->transform->z; }
@@ -684,12 +684,14 @@ public:
         TransformOrigin = 1 << 0,
         Translate       = 1 << 1,
         Rotate          = 1 << 2,
-        Scale           = 1 << 3
+        Scale           = 1 << 3,
+        Offset          = 1 << 4
     };
 
-    static constexpr OptionSet<TransformOperationOption> allTransformOperations = { TransformOperationOption::TransformOrigin, TransformOperationOption::Translate, TransformOperationOption::Rotate, TransformOperationOption::Scale };
-    static constexpr OptionSet<TransformOperationOption> individualTransformOperations = { TransformOperationOption::Translate, TransformOperationOption::Rotate, TransformOperationOption::Scale };
+    static constexpr OptionSet<TransformOperationOption> allTransformOperations = { TransformOperationOption::TransformOrigin, TransformOperationOption::Translate, TransformOperationOption::Rotate, TransformOperationOption::Scale , TransformOperationOption::Offset };
+    static constexpr OptionSet<TransformOperationOption> individualTransformOperations = { TransformOperationOption::Translate, TransformOperationOption::Rotate, TransformOperationOption::Scale, TransformOperationOption::Offset };
     void applyTransform(TransformationMatrix&, const FloatRect& boundingBox, OptionSet<TransformOperationOption> = allTransformOperations) const;
+    void applyMotionPathTransform(TransformationMatrix&, const FloatRect& boundingBox) const;
     void setPageScaleTransform(float);
 
     bool hasMask() const { return m_rareNonInheritedData->mask->hasImage() || m_rareNonInheritedData->maskBoxImage.hasImage(); }
@@ -984,9 +986,9 @@ public:
     void setTextIndent(Length&& length) { SET_VAR(m_rareInheritedData, indent, WTFMove(length)); }
     void setTextAlign(TextAlignMode v) { m_inheritedFlags.textAlign = static_cast<unsigned>(v); }
     void setTextTransform(TextTransform v) { m_inheritedFlags.textTransform = static_cast<unsigned>(v); }
-    void addToTextDecorationsInEffect(OptionSet<TextDecoration> v) { m_inheritedFlags.textDecorations |= static_cast<unsigned>(v.toRaw()); }
-    void setTextDecorationsInEffect(OptionSet<TextDecoration> v) { m_inheritedFlags.textDecorations = v.toRaw(); }
-    void setTextDecoration(OptionSet<TextDecoration> v) { SET_VAR(m_visualData, textDecoration, v.toRaw()); }
+    void addToTextDecorationsInEffect(OptionSet<TextDecorationLine> v) { m_inheritedFlags.textDecorations |= static_cast<unsigned>(v.toRaw()); }
+    void setTextDecorationsInEffect(OptionSet<TextDecorationLine> v) { m_inheritedFlags.textDecorations = v.toRaw(); }
+    void setTextDecoration(OptionSet<TextDecorationLine> v) { SET_VAR(m_visualData, textDecoration, v.toRaw()); }
     void setTextDecorationStyle(TextDecorationStyle v) { SET_VAR(m_rareNonInheritedData, textDecorationStyle, static_cast<unsigned>(v)); }
     void setTextDecorationSkipInk(TextDecorationSkipInk skipInk) { SET_VAR(m_rareInheritedData, textDecorationSkipInk, static_cast<unsigned>(skipInk)); }
     void setTextUnderlinePosition(TextUnderlinePosition position) { SET_VAR(m_rareInheritedData, textUnderlinePosition, static_cast<unsigned>(position)); }
@@ -1613,7 +1615,7 @@ public:
     // Returning -100% percent here means the line-height is not set.
     static Length initialLineHeight() { return Length(-100.0f, LengthType::Percent); }
     static TextAlignMode initialTextAlign() { return TextAlignMode::Start; }
-    static OptionSet<TextDecoration> initialTextDecoration() { return OptionSet<TextDecoration> { }; }
+    static OptionSet<TextDecorationLine> initialTextDecoration() { return OptionSet<TextDecorationLine> { }; }
     static TextDecorationStyle initialTextDecorationStyle() { return TextDecorationStyle::Solid; }
     static TextDecorationSkipInk initialTextDecorationSkipInk() { return TextDecorationSkipInk::Auto; }
     static TextUnderlinePosition initialTextUnderlinePosition() { return TextUnderlinePosition::Auto; }
@@ -1669,8 +1671,8 @@ public:
     static ControlPart initialAppearance() { return NoControlPart; }
     static AspectRatioType initialAspectRatioType() { return AspectRatioType::Auto; }
     static OptionSet<Containment> initialContainment() { return OptionSet<Containment> { }; }
-    static OptionSet<Containment> strictContainment() { return OptionSet<Containment> { Containment::Size, Containment::Layout, Containment::Paint }; }
-    static OptionSet<Containment> contentContainment() { return OptionSet<Containment> { Containment::Layout, Containment::Paint }; }
+    static OptionSet<Containment> strictContainment() { return OptionSet<Containment> { Containment::Size, Containment::Layout, Containment::Paint, Containment::Style }; }
+    static OptionSet<Containment> contentContainment() { return OptionSet<Containment> { Containment::Layout, Containment::Paint, Containment::Style }; }
     static double initialAspectRatioWidth() { return 1.0; }
     static double initialAspectRatioHeight() { return 1.0; }
     static Order initialRTLOrdering() { return Order::Logical; }
@@ -1900,6 +1902,10 @@ public:
     LengthPoint offsetAnchor() const { return m_rareNonInheritedData->offsetAnchor; }
     void setOffsetAnchor(LengthPoint&& position) { SET_VAR(m_rareNonInheritedData, offsetAnchor, WTFMove(position)); }
     static LengthPoint initialOffsetAnchor() { return LengthPoint(Length(LengthType::Auto), Length(LengthType::Auto)); }
+
+    OffsetRotation offsetRotate() const { return m_rareNonInheritedData->offsetRotate; }
+    void setOffsetRotate(OffsetRotation&& rotation) { SET_VAR(m_rareNonInheritedData, offsetRotate, WTFMove(rotation)); }
+    static OffsetRotation initialOffsetRotate() { return OffsetRotation(true, 0); }
 
 private:
     struct NonInheritedFlags {

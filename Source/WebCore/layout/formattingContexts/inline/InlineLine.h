@@ -63,7 +63,10 @@ public:
     std::optional<InlineLayoutUnit> trailingSoftHyphenWidth() const { return m_trailingSoftHyphenWidth; }
     void addTrailingHyphen(InlineLayoutUnit hyphenLogicalWidth);
 
-    void removeTrimmableContent(InlineLayoutUnit horizontalAvailableSpace);
+    enum class ShouldApplyTrailingWhiteSpaceFollowedByBRQuirk { No, Yes };
+    void removeTrailingTrimmableContent(ShouldApplyTrailingWhiteSpaceFollowedByBRQuirk);
+    void removeHangingGlyphs();
+    void visuallyCollapseHangingOverflowingGlyphs(InlineLayoutUnit horizontalAvailableSpace);
     void applyRunExpansion(InlineLayoutUnit horizontalAvailableSpace);
 
     struct Run {
@@ -178,8 +181,6 @@ private:
 
     InlineLayoutUnit addBorderAndPaddingEndForInlineBoxDecorationClone(const InlineItem& inlineBoxStartItem);
     InlineLayoutUnit removeBorderAndPaddingEndForInlineBoxDecorationClone(const InlineItem& inlineBoxEndItem);
-    void removeTrailingTrimmableContent();
-    void visuallyCollapseHangingOverflow(InlineLayoutUnit horizontalAvailableSpace);
 
     void resetTrailingContent();
 

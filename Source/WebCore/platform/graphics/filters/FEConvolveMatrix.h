@@ -3,6 +3,7 @@
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2010 Zoltan Herczeg <zherczeg@webkit.org>
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,11 +29,11 @@
 
 namespace WebCore {
 
-enum EdgeModeType {
-    EDGEMODE_UNKNOWN   = 0,
-    EDGEMODE_DUPLICATE = 1,
-    EDGEMODE_WRAP      = 2,
-    EDGEMODE_NONE      = 3
+enum class EdgeModeType {
+    Unknown,
+    Duplicate,
+    Wrap,
+    None
 };
 
 class FEConvolveMatrix : public FilterEffect {
@@ -64,38 +65,13 @@ public:
     bool setPreserveAlpha(bool);
 
 private:
-
-    struct PaintingData {
-        const Uint8ClampedArray& srcPixelArray;
-        Uint8ClampedArray& dstPixelArray;
-        int width;
-        int height;
-        float bias;
-        Vector<float> kernelMatrix;
-    };
-
     FEConvolveMatrix(const IntSize& kernelSize, float divisor, float bias, const IntPoint& targetOffset, EdgeModeType, const FloatPoint& kernelUnitLength, bool preserveAlpha, const Vector<float>& kernelMatrix);
 
     void determineAbsolutePaintRect(const Filter&) override { setAbsolutePaintRect(enclosingIntRect(maxEffectRect())); }
 
-    void platformApplySoftware(const Filter&) override;
+    std::unique_ptr<FilterEffectApplier> createApplier(const Filter&) const override;
 
     WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
-
-    template<bool preserveAlphaValues>
-    ALWAYS_INLINE void fastSetInteriorPixels(PaintingData&, int clipRight, int clipBottom, int yStart, int yEnd);
-
-    ALWAYS_INLINE int getPixelValue(PaintingData&, int x, int y);
-
-    template<bool preserveAlphaValues>
-    void fastSetOuterPixels(PaintingData&, int x1, int y1, int x2, int y2);
-
-    // Wrapper functions
-    ALWAYS_INLINE void setInteriorPixels(PaintingData&, int clipRight, int clipBottom, int yStart, int yEnd);
-    ALWAYS_INLINE void setOuterPixels(PaintingData&, int x1, int y1, int x2, int y2);
-
-    // Parallelization parts
-    static const int s_minimalRectDimension = (100 * 100); // Empirical data limit for parallel jobs
 
     IntSize m_kernelSize;
     float m_divisor;

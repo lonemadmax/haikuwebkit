@@ -43,6 +43,8 @@ public:
     AccessibilityAtspi(const String&);
     ~AccessibilityAtspi() = default;
 
+    WEBCORE_EXPORT RunLoop& runLoop() const;
+
     const char* uniqueName() const;
     GVariant* nullReference() const;
 
@@ -50,6 +52,7 @@ public:
     void unregisterRoot(AccessibilityRootAtspi&);
     String registerObject(AccessibilityObjectAtspi&, Vector<std::pair<GDBusInterfaceInfo*, GDBusInterfaceVTable*>>&&);
     void unregisterObject(AccessibilityObjectAtspi&);
+    String registerHyperlink(AccessibilityObjectAtspi&, Vector<std::pair<GDBusInterfaceInfo*, GDBusInterfaceVTable*>>&&);
 
     enum class ChildrenChanged { Added, Removed };
     void childrenChanged(AccessibilityObjectAtspi&, AccessibilityObjectAtspi&, ChildrenChanged);
@@ -60,6 +63,10 @@ public:
     void textAttributesChanged(AccessibilityObjectAtspi&);
     void textCaretMoved(AccessibilityObjectAtspi&, unsigned);
     void textSelectionChanged(AccessibilityObjectAtspi&);
+
+    void valueChanged(AccessibilityObjectAtspi&, double);
+
+    void selectionChanged(AccessibilityObjectAtspi&);
 
     static const char* localizedRoleName(AccessibilityRole);
 
@@ -74,6 +81,7 @@ private:
     GRefPtr<GDBusConnection> m_connection;
     HashMap<AccessibilityRootAtspi*, Vector<unsigned, 2>> m_rootObjects;
     HashMap<AccessibilityObjectAtspi*, Vector<unsigned, 20>> m_atspiObjects;
+    HashMap<AccessibilityObjectAtspi*, Vector<unsigned, 20>> m_atspiHyperlinks;
     unsigned m_cacheID { 0 };
     HashMap<String, AccessibilityObjectAtspi*> m_cache;
 };

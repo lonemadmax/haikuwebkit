@@ -1,0 +1,102 @@
+/*
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#pragma once
+
+#include "IntRect.h"
+#include "PixelBuffer.h"
+#include "RenderingMode.h"
+#include <JavaScriptCore/Forward.h>
+#include <wtf/RefCounted.h>
+#include <wtf/Vector.h>
+
+#if USE(CORE_IMAGE)
+OBJC_CLASS CIImage;
+#endif
+
+namespace WebCore {
+
+class Filter;
+class FloatRect;
+class ImageBuffer;
+
+class FilterImage : public RefCounted<FilterImage> {
+public:
+    static RefPtr<FilterImage> create(const FloatRect& primitiveSubregion, const IntRect& absoluteImageRect, bool isAlphaImage, RenderingMode, const DestinationColorSpace&);
+
+    FloatRect primitiveSubregion() const { return m_primitiveSubregion; }
+    FloatRect maxEffectRect(const Filter&) const;
+
+    IntRect absoluteImageRect() const { return m_absoluteImageRect; }
+    IntRect absoluteImageRectRelativeTo(const FilterImage& origin) const;
+
+    bool isAlphaImage() const { return m_isAlphaImage; }
+    RenderingMode renderingMode() const { return m_renderingMode; }
+    const DestinationColorSpace& colorSpace() const { return m_colorSpace; }
+
+    WEBCORE_EXPORT ImageBuffer* imageBuffer();
+    PixelBuffer* pixelBuffer(AlphaPremultiplication);
+
+    std::optional<PixelBuffer> getPixelBuffer(AlphaPremultiplication, const IntRect& sourceRect, std::optional<DestinationColorSpace> = std::nullopt);
+    void copyPixelBuffer(PixelBuffer& destinationPixelBuffer, const IntRect& sourceRect);
+
+    void correctPremultipliedPixelBuffer();
+    void transformToColorSpace(const DestinationColorSpace&);
+
+#if USE(CORE_IMAGE)
+    RetainPtr<CIImage> ciImage() const { return m_ciImage; }
+    void setCIImage(RetainPtr<CIImage>&&);
+#endif
+
+private:
+    FilterImage(const FloatRect& primitiveSubregion, const IntRect& absoluteImageRect, bool isAlphaImage, RenderingMode, const DestinationColorSpace&);
+
+    std::optional<PixelBuffer>& pixelBufferSlot(AlphaPremultiplication);
+
+    ImageBuffer* imageBufferFromPixelBuffer();
+
+#if USE(CORE_IMAGE)
+    ImageBuffer* imageBufferFromCIImage();
+#endif
+
+    bool requiresPixelBufferColorSpaceConversion(std::optional<DestinationColorSpace>) const;
+
+    FloatRect m_primitiveSubregion;
+    IntRect m_absoluteImageRect;
+
+    bool m_isAlphaImage { false };
+    RenderingMode m_renderingMode;
+    DestinationColorSpace m_colorSpace;
+
+    RefPtr<ImageBuffer> m_imageBuffer;
+    std::optional<PixelBuffer> m_unpremultipliedPixelBuffer;
+    std::optional<PixelBuffer> m_premultipliedPixelBuffer;
+
+#if USE(CORE_IMAGE)
+    RetainPtr<CIImage> m_ciImage;
+#endif
+};
+
+} // namespace WebCore

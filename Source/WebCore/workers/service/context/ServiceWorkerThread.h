@@ -27,6 +27,8 @@
 
 #if ENABLE(SERVICE_WORKER)
 
+#include "PushSubscriptionData.h"
+#include "ScriptExecutionContextIdentifier.h"
 #include "ServiceWorkerContextData.h"
 #include "ServiceWorkerFetch.h"
 #include "ServiceWorkerIdentifier.h"
@@ -44,7 +46,6 @@ class MessagePortChannel;
 class SerializedScriptValue;
 class WorkerObjectProxy;
 struct MessageWithMessagePorts;
-struct ServiceWorkerClientIdentifier;
 
 class ServiceWorkerThread : public WorkerThread, public CanMakeWeakPtr<ServiceWorkerThread, WeakPtrFactoryInitialization::Eager> {
 public:
@@ -61,12 +62,14 @@ public:
     void willPostTaskToFireInstallEvent();
     void willPostTaskToFireActivateEvent();
     void willPostTaskToFireMessageEvent();
+    void willPostTaskToFirePushSubscriptionChangeEvent();
 
-    void queueTaskToFireFetchEvent(Ref<ServiceWorkerFetch::Client>&&, std::optional<ServiceWorkerClientIdentifier>&&, ResourceRequest&&, String&& referrer, FetchOptions&&);
+    void queueTaskToFireFetchEvent(Ref<ServiceWorkerFetch::Client>&&, std::optional<ScriptExecutionContextIdentifier>&&, ResourceRequest&&, String&& referrer, FetchOptions&&);
     void queueTaskToPostMessage(MessageWithMessagePorts&&, ServiceWorkerOrClientData&& sourceData);
     void queueTaskToFireInstallEvent();
     void queueTaskToFireActivateEvent();
     void queueTaskToFirePushEvent(std::optional<Vector<uint8_t>>&&, Function<void(bool)>&&);
+    void queueTaskToFirePushSubscriptionChangeEvent(std::optional<PushSubscriptionData>&& newSubscriptionData, std::optional<PushSubscriptionData>&& oldSubscriptionData);
 
     ServiceWorkerIdentifier identifier() const { return m_serviceWorkerIdentifier; }
     std::optional<ServiceWorkerJobDataIdentifier> jobDataIdentifier() const { return m_jobDataIdentifier; }
@@ -90,6 +93,7 @@ private:
     void finishedFiringInstallEvent(bool hasRejectedAnyPromise);
     void finishedFiringActivateEvent();
     void finishedFiringMessageEvent();
+    void finishedFiringPushSubscriptionChangeEvent();
     void finishedStarting();
 
     void startHeartBeatTimer();
@@ -105,6 +109,7 @@ private:
 
     bool m_isHandlingFetchEvent { false };
     bool m_isHandlingPushEvent { false };
+    uint64_t m_pushSubscriptionChangeEventCount { 0 };
     uint64_t m_messageEventCount { 0 };
     enum class State { Idle, Starting, Installing, Activating };
     State m_state { State::Idle };

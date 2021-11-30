@@ -1,5 +1,6 @@
 /*
  * Copyright (C) Research In Motion Limited 2011. All rights reserved.
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,13 +22,9 @@
 #include "FEDropShadow.h"
 
 #include "ColorSerialization.h"
+#include "FEDropShadowSoftwareApplier.h"
 #include "FEGaussianBlur.h"
 #include "Filter.h"
-#include "GraphicsContext.h"
-#include "ImageBuffer.h"
-#include "PixelBuffer.h"
-#include "ShadowBlur.h"
-#include <wtf/MathExtras.h>
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
@@ -69,50 +66,6 @@ void FEDropShadow::determineAbsolutePaintRect(const Filter& filter)
     setAbsolutePaintRect(enclosingIntRect(absolutePaintRect));
 }
 
-void FEDropShadow::platformApplySoftware(const Filter& filter)
-{
-    FilterEffect* in = inputEffect(0);
-
-    ImageBuffer* resultImage = createImageBufferResult();
-    if (!resultImage)
-        return;
-
-    FloatSize blurRadius = 2 * filter.scaledByFilterScale({ m_stdX, m_stdY });
-    FloatSize offset = filter.scaledByFilterScale({ m_dx, m_dy });
-
-    FloatRect drawingRegion = drawingRegionOfInputImage(in->absolutePaintRect());
-    FloatRect drawingRegionWithOffset(drawingRegion);
-    drawingRegionWithOffset.move(offset);
-
-    ImageBuffer* sourceImage = in->imageBufferResult();
-    if (!sourceImage)
-        return;
-
-    GraphicsContext& resultContext = resultImage->context();
-    resultContext.setAlpha(m_shadowOpacity);
-    resultContext.drawImageBuffer(*sourceImage, drawingRegionWithOffset);
-    resultContext.setAlpha(1);
-
-    ShadowBlur contextShadow(blurRadius, offset, m_shadowColor);
-
-    PixelBufferFormat format { AlphaPremultiplication::Premultiplied, PixelFormat::RGBA8, resultColorSpace() };
-    IntRect shadowArea(IntPoint(), resultImage->truncatedLogicalSize());
-    auto pixelBuffer = resultImage->getPixelBuffer(format, shadowArea);
-    if (!pixelBuffer)
-        return;
-
-    auto& sourcePixelArray = pixelBuffer->data();
-    contextShadow.blurLayerImage(sourcePixelArray.data(), pixelBuffer->size(), 4 * pixelBuffer->size().width());
-    
-    resultImage->putPixelBuffer(*pixelBuffer, shadowArea);
-
-    resultContext.setCompositeOperation(CompositeOperator::SourceIn);
-    resultContext.fillRect(FloatRect(FloatPoint(), absolutePaintRect().size()), m_shadowColor);
-    resultContext.setCompositeOperation(CompositeOperator::DestinationOver);
-
-    resultImage->context().drawImageBuffer(*sourceImage, drawingRegion);
-}
-
 IntOutsets FEDropShadow::outsets() const
 {
     IntSize outsetSize = FEGaussianBlur::calculateOutsetSize({ m_stdX, m_stdY });
@@ -124,6 +77,11 @@ IntOutsets FEDropShadow::outsets() const
     };
 }
 
+std::unique_ptr<FilterEffectApplier> FEDropShadow::createApplier(const Filter&) const
+{
+    return FilterEffectApplier::create<FEDropShadowSoftwareApplier>(*this);
+}
+    
 TextStream& FEDropShadow::externalRepresentation(TextStream& ts, RepresentationType representation) const
 {
     ts << indent <<"[feDropShadow";

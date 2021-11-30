@@ -26,13 +26,23 @@
 #pragma once
 
 #include <cstdint>
+#include <wtf/EnumTraits.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 enum class StorageTextureAccess : uint8_t {
     WriteOnly,
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU
+
+namespace WTF {
+
+template<> struct EnumTraits<PAL::WebGPU::StorageTextureAccess> {
+    using values = EnumValues<
+        PAL::WebGPU::StorageTextureAccess,
+        PAL::WebGPU::StorageTextureAccess::WriteOnly
+    >;
+};
+
+} // namespace WTF

@@ -745,8 +745,7 @@ webkit.org/b/112492 media/track/track-prefer-captions.html [ Skip ]
 webkit.org/b/136708 http/tests/media/video-play-stall-seek.html
 webkit.org/b/136708 media/media-fullscreen-not-in-document.html
 
-webkit.org/b/140639 http/tests/media/video-play-waiting.html [ Pass Timeout ]
-
+webkit.org/b/140639 http/tests/media/video-play-waiting.html [ Failure ]
 # This test requires generation of progress events during loading
 webkit.org/b/100984 media/progress-events-generated-correctly.html [ Failure ]
 
@@ -1713,6 +1712,7 @@ webkit.org/b/214155 imported/w3c/web-platform-tests/html/cross-origin-embedder-p
 [ Catalina Mojave BigSur ] webaudio/decode-audio-data-webm-opus.html [ Skip ]
 [ Catalina Mojave BigSur ] webaudio/decode-audio-data-webm-opus-resample.html [ Skip ]
 [ Catalina Mojave BigSur ] webaudio/decode-audio-data-webm-vorbis.html [ Skip ]
+[ Catalina Mojave BigSur ] http/tests/model/model-document.html [ Skip ]
 
 webkit.org/b/214422 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiocontext-interface/suspend-after-construct.html [ Pass Failure ]
 
@@ -2417,6 +2417,8 @@ webkit.org/b/230711 [ BigSur ] http/tests/inspector/network/resource-initiatorNo
 webkit.org/b/230780 [ Catalina BigSur Debug ] fast/workers/use-machine-stack.html [ Pass Crash ]
 
 webkit.org/b/230862 [ Catalina BigSur ] imported/w3c/web-platform-tests/resource-timing/sizes-redirect-img.html [ Pass Failure ]
+
+webkit.org/b/233393 [ BigSur ] imported/w3c/web-platform-tests/html/semantics/forms/the-textarea-element/textarea-newline-bidi.html [ ImageOnlyFailure ]
 
 webkit.org/b/230984 [ BigSur Debug arm64 ] streams/readableStream-then.html [ Pass Crash ]
 

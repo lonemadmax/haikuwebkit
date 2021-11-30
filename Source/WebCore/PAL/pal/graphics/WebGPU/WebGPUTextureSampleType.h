@@ -26,9 +26,9 @@
 #pragma once
 
 #include <cstdint>
+#include <wtf/EnumTraits.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 enum class TextureSampleType : uint8_t {
     Float,
@@ -38,5 +38,19 @@ enum class TextureSampleType : uint8_t {
     Uint,
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU
+
+namespace WTF {
+
+template<> struct EnumTraits<PAL::WebGPU::TextureSampleType> {
+    using values = EnumValues<
+        PAL::WebGPU::TextureSampleType,
+        PAL::WebGPU::TextureSampleType::Float,
+        PAL::WebGPU::TextureSampleType::UnfilterableFloat,
+        PAL::WebGPU::TextureSampleType::Depth,
+        PAL::WebGPU::TextureSampleType::Sint,
+        PAL::WebGPU::TextureSampleType::Uint
+    >;
+};
+
+} // namespace WTF

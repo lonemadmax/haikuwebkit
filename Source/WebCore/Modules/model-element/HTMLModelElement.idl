@@ -33,4 +33,22 @@
     readonly attribute Promise<HTMLModelElement> ready;
 
     undefined enterFullscreen();
+
+    Promise<HTMLModelElementCamera> getCamera();
+    Promise<undefined> setCamera(HTMLModelElementCamera camera);
+
+    Promise<boolean> isPlayingAnimation();
+    Promise<undefined> playAnimation();
+    Promise<undefined> pauseAnimation();
+
+    Promise<boolean> isLoopingAnimation();
+    Promise<undefined> setIsLoopingAnimation(boolean looping);
+
+    Promise<double> animationDuration();
+    Promise<double> animationCurrentTime();
+    Promise<undefined> setAnimationCurrentTime(double currentTime);
+
+    Promise<boolean> hasAudio();
+    Promise<boolean> isMuted();
+    Promise<undefined> setIsMuted(boolean isMuted);
 };

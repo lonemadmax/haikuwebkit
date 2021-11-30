@@ -26,9 +26,9 @@
 #pragma once
 
 #include <cstdint>
+#include <wtf/EnumTraits.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 enum class PrimitiveTopology : uint8_t {
     PointList,
@@ -38,5 +38,19 @@ enum class PrimitiveTopology : uint8_t {
     TriangleStrip,
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU
+
+namespace WTF {
+
+template<> struct EnumTraits<PAL::WebGPU::PrimitiveTopology> {
+    using values = EnumValues<
+        PAL::WebGPU::PrimitiveTopology,
+        PAL::WebGPU::PrimitiveTopology::PointList,
+        PAL::WebGPU::PrimitiveTopology::LineList,
+        PAL::WebGPU::PrimitiveTopology::LineStrip,
+        PAL::WebGPU::PrimitiveTopology::TriangleList,
+        PAL::WebGPU::PrimitiveTopology::TriangleStrip
+    >;
+};
+
+} // namespace WTF

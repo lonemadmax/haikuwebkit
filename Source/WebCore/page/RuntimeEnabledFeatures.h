@@ -258,6 +258,14 @@ public:
     bool builtInNotificationsEnabled() const { return m_builtInNotificationsEnabled; }
 #endif
 
+#if ENABLE(MODEL_ELEMENT)
+    void setModelDocumentEnabled(bool isEnabled) { m_modelDocumentEnabled = isEnabled; }
+    bool modelDocumentEnabled() const { return m_modelDocumentEnabled; }
+#endif
+
+    void setWebLocksAPIEnabled(bool isEnabled) { m_webLocksAPIEnabled = isEnabled; }
+    bool webLocksAPIEnabled() const { return m_webLocksAPIEnabled; }
+
 private:
     // Never instantiate.
     RuntimeEnabledFeatures();
@@ -397,6 +405,12 @@ private:
 #if ENABLE(BUILT_IN_NOTIFICATIONS)
     bool m_builtInNotificationsEnabled { false };
 #endif
+
+#if ENABLE(MODEL_ELEMENT)
+    bool m_modelDocumentEnabled { false };
+#endif
+
+    bool m_webLocksAPIEnabled { false };
 
     friend class NeverDestroyed<RuntimeEnabledFeatures>;
 };

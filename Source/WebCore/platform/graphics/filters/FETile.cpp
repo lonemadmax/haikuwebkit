@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2008 Alex Mathews <possessedpenguinbob@gmail.com>
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,13 +22,7 @@
 #include "config.h"
 #include "FETile.h"
 
-#include "AffineTransform.h"
-#include "Filter.h"
-#include "GraphicsContext.h"
-#include "ImageBuffer.h"
-#include "Pattern.h"
-#include "RenderTreeAsText.h"
-#include "SVGRenderingContext.h"
+#include "FETileSoftwareApplier.h"
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
@@ -42,48 +37,14 @@ FETile::FETile()
 {
 }
 
-void FETile::platformApplySoftware(const Filter& filter)
+bool FETile::resultIsAlphaImage() const
 {
-// FIXME: See bug 47315. This is a hack to work around a compile failure, but is incorrect behavior otherwise.
-    FilterEffect* in = inputEffect(0);
+    return inputEffect(0)->resultIsAlphaImage();
+}
 
-    ImageBuffer* resultImage = createImageBufferResult();
-    ImageBuffer* inBuffer = in->imageBufferResult();
-    if (!resultImage || !inBuffer)
-        return;
-
-    setIsAlphaImage(in->isAlphaImage());
-
-    // Source input needs more attention. It has the size of the filterRegion but gives the
-    // size of the cutted sourceImage back. This is part of the specification and optimization.
-    FloatRect tileRect = in->maxEffectRect();
-    FloatPoint inMaxEffectLocation = tileRect.location();
-    FloatPoint maxEffectLocation = maxEffectRect().location();
-    if (in->filterType() == FilterEffect::Type::SourceGraphic || in->filterType() == FilterEffect::Type::SourceAlpha) {
-        tileRect = filter.filterRegion();
-        tileRect.scale(filter.filterScale());
-    }
-
-    auto tileImage = SVGRenderingContext::createImageBuffer(tileRect, tileRect, DestinationColorSpace::SRGB(), filter.renderingMode());
-    if (!tileImage)
-        return;
-
-    GraphicsContext& tileImageContext = tileImage->context();
-    tileImageContext.translate(-inMaxEffectLocation.x(), -inMaxEffectLocation.y());
-    tileImageContext.drawImageBuffer(*inBuffer, in->absolutePaintRect().location());
-
-    auto tileImageCopy = ImageBuffer::sinkIntoNativeImage(WTFMove(tileImage));
-    if (!tileImageCopy)
-        return;
-
-    AffineTransform patternTransform;
-    patternTransform.translate(inMaxEffectLocation - maxEffectLocation);
-
-    auto pattern = Pattern::create(tileImageCopy.releaseNonNull(), { true, true, patternTransform });
-
-    GraphicsContext& filterContext = resultImage->context();
-    filterContext.setFillPattern(WTFMove(pattern));
-    filterContext.fillRect(FloatRect(FloatPoint(), absolutePaintRect().size()));
+std::unique_ptr<FilterEffectApplier> FETile::createApplier(const Filter&) const
+{
+    return FilterEffectApplier::create<FETileSoftwareApplier>(*this);
 }
 
 TextStream& FETile::externalRepresentation(TextStream& ts, RepresentationType representation) const

@@ -2524,6 +2524,8 @@ static bool hierarchyHasCapturingEventListeners(Element* element, const AtomStri
     return false;
 }
 
+#if ENABLE(IMAGE_ANALYSIS)
+
 RefPtr<Element> EventHandler::textRecognitionCandidateElement() const
 {
     RefPtr candidateElement = m_elementUnderMouse;
@@ -2533,6 +2535,9 @@ RefPtr<Element> EventHandler::textRecognitionCandidateElement() const
     }
 
     if (!candidateElement)
+        return nullptr;
+
+    if (candidateElement->hasEditableStyle())
         return nullptr;
 
     auto renderer = candidateElement->renderer();
@@ -2551,6 +2556,8 @@ RefPtr<Element> EventHandler::textRecognitionCandidateElement() const
 
     return candidateElement;
 }
+
+#endif // ENABLE(IMAGE_ANALYSIS)
 
 void EventHandler::updateMouseEventTargetNode(const AtomString& eventType, Node* targetNode, const PlatformMouseEvent& platformMouseEvent, FireMouseOverOut fireMouseOverOut)
 {
@@ -4293,11 +4300,7 @@ void EventHandler::defaultBackspaceEventHandler(KeyboardEvent& event)
 
 float EventHandler::scrollDistance(ScrollDirection direction, ScrollGranularity granularity)
 {
-    auto scrollbar = [&] {
-        if (direction == ScrollDirection::ScrollUp || direction == ScrollDirection::ScrollDown)
-            return m_frame.view()->verticalScrollbar();
-        return m_frame.view()->horizontalScrollbar();
-    }();
+    auto scrollbar = m_frame.view()->scrollbarForDirection(direction);
 
     switch (granularity) {
     case ScrollGranularity::Line:

@@ -201,8 +201,6 @@ private:
     bool shouldOverrideMomentumScrolling() const;
     void statelessSnapTransitionTimerFired();
     void scheduleStatelessScrollSnap();
-    void startDeferringWheelEventTestCompletionDueToScrollSnapping();
-    void stopDeferringWheelEventTestCompletionDueToScrollSnapping();
 
     bool modifyScrollDeltaForStretching(const PlatformWheelEvent&, FloatSize&, bool isHorizontallyStretched, bool isVerticallyStretched);
     bool applyScrollDeltaWithStretching(const PlatformWheelEvent&, FloatSize, bool isHorizontallyStretched, bool isVerticallyStretched);
@@ -224,6 +222,9 @@ private:
     void startOrStopAnimationCallbacks();
 
     bool momentumScrollingAnimatorEnabled() const { return m_momentumScrollingAnimatorEnabled; }
+
+    void startDeferringWheelEventTestCompletion(WheelEventTestMonitor::DeferReason);
+    void stopDeferringWheelEventTestCompletion(WheelEventTestMonitor::DeferReason);
 
     // ScrollAnimationClient
     void scrollAnimationDidUpdate(ScrollAnimation&, const FloatPoint& /* currentOffset */) final;
@@ -260,10 +261,11 @@ private:
     FloatSize m_stretchScrollForce;
     FloatSize m_momentumVelocity;
 
-    FloatSize m_scrollingVelocityForMomentumAnimation; // Do we need both this, m_scrollingVelocityForScrollSnap and m_momentumVelocity?
     FloatSize m_scrollingVelocityForScrollSnap;
 #if !LOG_DISABLED
+    FloatPoint m_eventDrivenScrollMomentumStartOffset;
     FloatPoint m_eventDrivenScrollOffset;
+    WallTime m_momentumBeganEventTime;
 #endif
 
     bool m_momentumScrollInProgress { false };

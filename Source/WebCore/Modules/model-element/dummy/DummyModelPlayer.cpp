@@ -54,4 +54,68 @@ PlatformLayer* DummyModelPlayer::layer()
     return nullptr;
 }
 
+void DummyModelPlayer::enterFullscreen()
+{
+}
+
+void DummyModelPlayer::handleMouseDown(const LayoutPoint&, MonotonicTime)
+{
+}
+
+void DummyModelPlayer::handleMouseMove(const LayoutPoint&, MonotonicTime)
+{
+}
+
+void DummyModelPlayer::handleMouseUp(const LayoutPoint&, MonotonicTime)
+{
+}
+
+void DummyModelPlayer::getCamera(CompletionHandler<void(std::optional<WebCore::HTMLModelElementCamera>&&)>&&)
+{
+}
+
+void DummyModelPlayer::setCamera(WebCore::HTMLModelElementCamera, CompletionHandler<void(bool success)>&&)
+{
+}
+
+void DummyModelPlayer::isPlayingAnimation(CompletionHandler<void(std::optional<bool>&&)>&&)
+{
+}
+
+void DummyModelPlayer::setAnimationIsPlaying(bool, CompletionHandler<void(bool success)>&&)
+{
+}
+
+void DummyModelPlayer::isLoopingAnimation(CompletionHandler<void(std::optional<bool>&&)>&&)
+{
+}
+
+void DummyModelPlayer::setIsLoopingAnimation(bool, CompletionHandler<void(bool success)>&&)
+{
+}
+
+void DummyModelPlayer::animationDuration(CompletionHandler<void(std::optional<Seconds>&&)>&&)
+{
+}
+
+void DummyModelPlayer::animationCurrentTime(CompletionHandler<void(std::optional<Seconds>&&)>&&)
+{
+}
+
+void DummyModelPlayer::setAnimationCurrentTime(Seconds, CompletionHandler<void(bool success)>&&)
+{
+}
+
+void DummyModelPlayer::hasAudio(CompletionHandler<void(std::optional<bool>&&)>&&)
+{
+}
+
+void DummyModelPlayer::isMuted(CompletionHandler<void(std::optional<bool>&&)>&&)
+{
+}
+
+void DummyModelPlayer::setIsMuted(bool, CompletionHandler<void(bool success)>&&)
+{
+}
+
 }

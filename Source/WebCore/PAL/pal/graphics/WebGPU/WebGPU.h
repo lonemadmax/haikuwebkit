@@ -27,12 +27,11 @@
 
 #include "WebGPURequestAdapterOptions.h"
 #include <optional>
-#include <utility>
+#include <wtf/Function.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 class Adapter;
 
@@ -40,7 +39,7 @@ class GPU : public RefCounted<GPU> {
 public:
     virtual ~GPU() = default;
 
-    virtual void requestAdapter(const RequestAdapterOptions&, std::function<void(RefPtr<Adapter>&&)>&&) = 0;
+    virtual void requestAdapter(const RequestAdapterOptions&, WTF::Function<void(RefPtr<Adapter>&&)>&&) = 0;
 
 protected:
     GPU() = default;
@@ -52,5 +51,4 @@ private:
     GPU& operator=(GPU&&) = delete;
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU

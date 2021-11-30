@@ -26,9 +26,9 @@
 #pragma once
 
 #include <cstdint>
+#include <wtf/EnumTraits.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 enum class CompareFunction : uint8_t {
     Never,
@@ -41,5 +41,22 @@ enum class CompareFunction : uint8_t {
     Always,
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU
+
+namespace WTF {
+
+template<> struct EnumTraits<PAL::WebGPU::CompareFunction> {
+    using values = EnumValues<
+        PAL::WebGPU::CompareFunction,
+        PAL::WebGPU::CompareFunction::Never,
+        PAL::WebGPU::CompareFunction::Less,
+        PAL::WebGPU::CompareFunction::Equal,
+        PAL::WebGPU::CompareFunction::LessEqual,
+        PAL::WebGPU::CompareFunction::Greater,
+        PAL::WebGPU::CompareFunction::NotEqual,
+        PAL::WebGPU::CompareFunction::GreaterEqual,
+        PAL::WebGPU::CompareFunction::Always
+    >;
+};
+
+} // namespace WTF

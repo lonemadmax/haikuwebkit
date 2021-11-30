@@ -1284,6 +1284,8 @@ hsla
 hwb
 lab
 lch
+oklab
+oklch
 //color
 
 // relative color identifiers
@@ -1465,11 +1467,13 @@ sRGB
 // color() function
 a98-rgb
 display-p3
-// lab
 prophoto-rgb
 // rec2020
 // sRGB
+srgb-linear
 xyz
+xyz-d50
+xyz-d65
 
 // color-contast()
 color-contrast
@@ -1481,7 +1485,25 @@ AAA-large
 
 // color-mix()
 color-mix
+
+// color-space-interpolation
 in
+// srgb
+// lab
+// oklab
+// xyz
+// xyz-d50
+// xyz-d65
+// hsl
+// hwb
+// lch
+// oklch
+shorter
+longer
+increasing
+decreasing
+specified
+// hue
 
 // prefers-default-appearance
 prefers
@@ -1577,3 +1599,13 @@ layout
 #if !(defined(ENABLE_CSS_PAINTING_API) && ENABLE_CSS_PAINTING_API)
 paint
 #endif
+
+// offset-path
+// https://drafts.fxtf.org/motion-1/#offset-path-property
+ray
+// closest-side
+// closest-corner
+// farthest-side
+// farthest-corner
+sides
+// contain

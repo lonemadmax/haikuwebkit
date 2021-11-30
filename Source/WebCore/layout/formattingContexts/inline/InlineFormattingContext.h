@@ -54,6 +54,7 @@ public:
     InlineFormattingState& formattingState() { return downcast<InlineFormattingState>(FormattingContext::formattingState()); }
 
     void lineLayoutForIntergration(const ConstraintsForInFlowContent&);
+    IntrinsicWidthConstraints computedIntrinsicWidthConstraintsForIntegration();
 
     const InlineFormattingGeometry& formattingGeometry() const final { return m_inlineFormattingGeometry; }
     const InlineFormattingQuirks& formattingQuirks() const final { return m_inlineFormattingQuirks; }
@@ -65,7 +66,7 @@ private:
     void computeStaticPositionForOutOfFlowContent(const FormattingState::OutOfFlowBoxList&);
 
     void computeIntrinsicWidthForFormattingRoot(const Box&);
-    InlineLayoutUnit computedIntrinsicWidthForConstraint(InlineLayoutUnit availableWidth) const;
+    InlineLayoutUnit computedIntrinsicWidthForConstraint(IntrinsicWidthMode) const;
 
     void computeHorizontalMargin(const Box&, const HorizontalConstraints&);
     void computeHeightAndMargin(const Box&, const HorizontalConstraints&);

@@ -102,7 +102,6 @@
 #import <wtf/LogInitialization.h>
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/SoftLinking.h>
-#import <wtf/cocoa/Entitlements.h>
 #import <wtf/cocoa/NSURLExtras.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
@@ -548,15 +547,11 @@ void WebProcess::updateProcessName(IsInProcessInitialization isInProcessInitiali
 #if PLATFORM(IOS_FAMILY)
 static NSString *webProcessLoaderAccessibilityBundlePath()
 {
-#if HAVE(ACCESSIBILITY_BUNDLES_PATH)
-    return adoptCF(_AXSCopyPathForAccessibilityBundle(CFSTR("WebProcessLoader"))).bridgingAutorelease();
-#else
     NSString *path = (__bridge NSString *)GSSystemRootDirectory();
 #if PLATFORM(MACCATALYST)
     path = [path stringByAppendingPathComponent:@"System/iOSSupport"];
 #endif
     return [path stringByAppendingPathComponent:@"System/Library/AccessibilityBundles/WebProcessLoader.axbundle"];
-#endif // HAVE(ACCESSIBILITY_BUNDLES_PATH)
 }
 #endif
 
@@ -699,12 +694,6 @@ void WebProcess::initializeSandbox(const AuxiliaryProcessInitializationParameter
 #endif
 
     sandboxParameters.setOverrideSandboxProfilePath(makeString(String([webKitBundle resourcePath]), "/com.apple.WebProcess.sb"));
-
-    bool enableMessageFilter = false;
-#if HAVE(SANDBOX_MESSAGE_FILTERING)
-    enableMessageFilter = WTF::processHasEntitlement("com.apple.private.security.message-filter");
-#endif
-    sandboxParameters.addParameter("ENABLE_SANDBOX_MESSAGE_FILTER", enableMessageFilter ? "YES" : "NO");
 
     AuxiliaryProcess::initializeSandbox(parameters, sandboxParameters);
 #endif

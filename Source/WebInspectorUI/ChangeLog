@@ -1,3 +1,230 @@
+2021-11-17  Nikita Vasilyev  <nvasilyev@apple.com>
+
+        Web Inspector: Add a swatch for align-content
+        https://bugs.webkit.org/show_bug.cgi?id=230065
+        <rdar://problem/82891361>
+
+        Reviewed by Devin Rousso.
+
+        Introduce an inline swatch for `align-content`, that shows icons for common align-content values:
+        start, center, end, space-between, space-around, space-evenly, and stretch.
+
+        * UserInterface/Images/AlignmentCenter.svg: Added.
+        * UserInterface/Images/AlignmentEnd.svg: Added.
+        * UserInterface/Images/AlignmentSpaceAround.svg: Added.
+        * UserInterface/Images/AlignmentSpaceBetween.svg: Added.
+        * UserInterface/Images/AlignmentSpaceEvenly.svg: Added.
+        * UserInterface/Images/AlignmentStart.svg: Added.
+        * UserInterface/Images/AlignmentStretch.svg: Added.
+        * UserInterface/Images/AlignmentUnknown.svg: Added.
+
+        * UserInterface/Main.html:
+        * UserInterface/Views/AlignmentEditor.css: Added.
+        (.alignment-editor .glyph):
+        (.alignment-editor .glyph:not(:last-child)):
+        (.alignment-editor .glyph:active):
+        (.alignment-editor .glyph.selected):
+        (.alignment-editor .glyph.selected + .glyph):
+        (.alignment-editor .glyph.selected:active):
+
+        * UserInterface/Views/AlignmentEditor.js: Added.
+        (WI.AlignmentEditor):
+        (WI.AlignmentEditor.isAlignContentValue):
+        (WI.AlignmentEditor.prototype.get element):
+        (WI.AlignmentEditor.prototype.get value):
+        (WI.AlignmentEditor.prototype.set value):
+        (WI.AlignmentEditor.prototype._updateSelected):
+
+        * UserInterface/Views/InlineSwatch.css:
+        (.inline-swatch:not(.read-only):matches(.bezier, .box-shadow, .spring, .variable, .alignment):hover):
+        (.inline-swatch:not(.read-only):matches(.bezier, .box-shadow, .spring, .variable, .alignment):active):
+        (.inline-swatch:is(.image, .alignment) > span):
+        (@media (prefers-color-scheme: dark) .inline-swatch.box-shadow > svg,):
+
+        * UserInterface/Views/InlineSwatch.js:
+        (WI.InlineSwatch):
+        (WI.InlineSwatch.prototype.didDismissPopover):
+        (WI.InlineSwatch.prototype._updateSwatch):
+        (WI.InlineSwatch.prototype._valueEditorValueDidChange):
+
+        * UserInterface/Views/SpreadsheetStyleProperty.js:
+        (WI.SpreadsheetStyleProperty.prototype._replaceSpecialTokens):
+        (WI.SpreadsheetStyleProperty.prototype._addAlignmentTokens):
+
+2021-11-17  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: assertion failures in `WI.GridOverlayConfigurationDiagnosticEventRecorder`
+        https://bugs.webkit.org/show_bug.cgi?id=233298
+
+        Reviewed by Patrick Angle.
+
+        * UserInterface/Controllers/GridOverlayConfigurationDiagnosticEventRecorder.js:
+        (WI.GridOverlayConfigurationDiagnosticEventRecorder.prototype.teardown):
+
+2021-11-17  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: allow left docking when in LTR and right docking when in RTL
+        https://bugs.webkit.org/show_bug.cgi?id=233294
+
+        Reviewed by Patrick Angle.
+
+        Some developers prefer docking to the left even when in LTR and/or docking to the right when
+        in RTL. There's no technical reason to disallow this, so let's make it possible.
+
+        * UserInterface/Base/Main.js:
+        (WI.contentLoaded):
+        (WI.contentLoaded.addDockButton): Added.
+        (WI.contentLoaded.addDockLeftButton): Added.
+        (WI.contentLoaded.addDockRightButton): Added.
+        (WI._updateDockNavigationItems):
+        (WI._updateTabBarDividers):
+        (WI.setLayoutDirection):
+        Instead of having a single `_dockToSideTabBarButton` that looks at the layout direction to
+        decide its image, tooltip, and action, split it into two distinct `_dockLeftTabBarButton`
+        and `_dockRightTabBarButton` buttons that are both always visible (unless Web Inspector is
+        already in the corresponding docking state).
+
+        * UserInterface/Images/DockBottom.svg:
+        * UserInterface/Images/DockLeft.svg:
+        * UserInterface/Images/DockRight.svg:
+        Fill in the area representing Web Inspector and make it a bit smaller so it's not as heavy.
+
+        * Localizations/en.lproj/localizedStrings.js:
+
+2021-11-16  Nikita Vasilyev  <nvasilyev@apple.com>
+
+        Web Inspector: Remove unused `dontCreateIfMissing` argument from CSSStyleDeclaration.prototype.propertyForName
+        https://bugs.webkit.org/show_bug.cgi?id=233198
+
+        Reviewed by Devin Rousso.
+
+        `dontCreateIfMissing` was always set to `true`.
+
+        * UserInterface/Models/CSSStyleDeclaration.js:
+        (WI.CSSStyleDeclaration.prototype.propertyForName):
+        Drive-by: inline findMatch function, which was only used once.
+
+        * UserInterface/Models/DOMNodeStyles.js:
+        (WI.DOMNodeStyles.prototype._parseStylePropertyPayload):
+        * UserInterface/Models/Font.js:
+        (WI.Font):
+        * UserInterface/Views/BoxModelDetailsSectionRow.js:
+        (WI.BoxModelDetailsSectionRow.prototype._getPropertyValue):
+        * UserInterface/Views/SpreadsheetStyleProperty.js:
+        (WI.SpreadsheetStyleProperty.prototype._addVariableTokens):
+
+2021-11-15  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: Styles: Autocomplete should support mid-line completions
+        https://bugs.webkit.org/show_bug.cgi?id=227411
+
+        Reviewed by Devin Rousso.
+
+        Autocompletion for CSS property values was lacking in the ability to perform mid-line completions, including
+        within functions, and a lack of support for multi-line CSS property values. This resolves those pain points by
+        making SpreadsheetTextField multi-line aware and allowing mid-line autocompletion.
+
+        * UserInterface/Views/SpreadsheetStyleProperty.js:
+        (WI.SpreadsheetStyleProperty.prototype._nameCompletionDataProvider):
+        (WI.SpreadsheetStyleProperty.prototype._valueCompletionDataProvider):
+
+        * UserInterface/Views/SpreadsheetTextField.js:
+        (WI.SpreadsheetTextField):
+        (WI.SpreadsheetTextField.prototype.valueWithoutSuggestion):
+        Because suggestions can occur anywhere within the value, we need to iterate through each of the nodes and
+        collect the text of any of them that are not the completion suggestion.
+
+        (WI.SpreadsheetTextField.prototype.set suggestionHint):
+        When removing the suggestion hint element, we should recombine the text nodes we may have split upon insertion
+        to prevent the text content from becoming endlessly fragmented into multiple text nodes unnecessarily.
+
+        (WI.SpreadsheetTextField.prototype.startEditing):
+        Reset the last known caret position when editing starts so that we don't mistake keys that are already down as
+        having moved the cursor to its initial position.
+
+        (WI.SpreadsheetTextField.prototype.completionSuggestionsSelectedCompletion):
+        We should only attempt to reattach the suggestion hint element if we have a suggestion hint to show, otherwise
+        we could end up with a phantom empty suggestion hint that isn't properly placed later.
+
+        (WI.SpreadsheetTextField.prototype.completionSuggestionsClickedCompletion):
+        Updated to use existing completion committing path to reduce duplicated logic.
+
+        (WI.SpreadsheetTextField.prototype._handleMouseDown):
+        When the user clicks inside the text field while suggestions are visible treat that as intent to stop
+        autocompletion similar to the escape key, since the new cursor location could be anywhere in the text field.
+        This behavior also matches other code editors like Xcode, where clicking outside a completion popup will dismiss
+        the completions list.
+
+        (WI.SpreadsheetTextField.prototype._handleKeyDown):
+        Keep track of where the caret was as well as if the the key event was handled by the suggestion view at the time
+        a key is pressed so that we can later compare the position to that of when the key is released to determine if
+        completions should be discarded.
+
+        (WI.SpreadsheetTextField.prototype._handleKeyDownForSuggestionView):
+        We can no longer assume that the current selection's offset will match the value's length, as the offset could
+        be on any line, or the suggestion could be in middle of a line. Because a suggestionHint only contains text when
+        we are in middle of autocompletion, it alone is an indicator that pressing the right arrow key should commit the
+        completion. `document.execCommand` is deprecated, so instead we now use the existing completion committing path
+        to reduce duplicated logic here.
+
+        Note that the left arrow key is still explicitly handled for dismissing autocompletion, as the new mechanism for
+        dismissing autocompletion won't trigger unless the caret has moved, and the caret will not move if you press the
+        left arrow key at the start of the text field.
+
+        (WI.SpreadsheetTextField.prototype._handleKeyUp):
+        When a key is released, we should check to see if the caret has moved as a result of the keystroke that we have
+        not already explicitly handled. If it has moved and was not handled, we dismiss the autocompletion suggestions.
+
+        (WI.SpreadsheetTextField.prototype._handleInput):
+
+        (WI.SpreadsheetTextField.prototype._updateCompletions):
+        Provide the current caret position to the completion provided.
+
+        (WI.SpreadsheetTextField.prototype._showSuggestionsView):
+        In order to correctly align the completion list with the current text content, it must be offset from the caret
+        position excluding the current prefix.
+
+        (WI.SpreadsheetTextField.prototype._getCaretPosition):
+        Added to get the index of the caret in the complete text value, accounting for multi-line values and mid-line
+        suggestions.
+
+        (WI.SpreadsheetTextField.prototype._getCaretRect):
+
+        (WI.SpreadsheetTextField.prototype._rangeAtCaretPosition):
+        Find the range for a caret at the given position. This compliments `_getCaretPosition`, and allows us to count
+        back some number of characters and create a range of which we later get the client rectangle.
+
+        (WI.SpreadsheetTextField.prototype._applyCompletionHint):
+        Add optional support for updating the caret position to be at the end of the newly inserted text.
+
+        (WI.SpreadsheetTextField.prototype._combineEditorElementChildren):
+        Added to handle combining the fragmented text nodes (and possibly a suggestion hint element) back into a single
+        text node while maintaining the current cursor position or optionally moving the cursor to a new location (e.g.
+        the end of a completion).
+
+        (WI.SpreadsheetTextField.prototype._reAttachSuggestionHint):
+        Now that completions are not guaranteed to be at the end of the value, we may need to split the text node to
+        insert the suggestion hint node.
+
+2021-11-15  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        Web Inspector: Layers Tab: the position of composited layer with box-shadow is wrong
+        https://bugs.webkit.org/show_bug.cgi?id=233026
+
+        Reviewed by Devin Rousso.
+
+        If an element has box-shadow, Layers Tab showed the composited
+        layer positioned wrongly. It assumed the composited layer position
+        was same with its element position. This isn't true. If an element
+        has box-shadow, its composited layer includes the surrounding
+        box-shadow.
+
+        * UserInterface/Models/Layer.js:
+        (WI.Layer):
+        * UserInterface/Views/Layers3DContentView.js:
+        (WI.Layers3DContentView.prototype._updateLayers):
+        (WI.Layers3DContentView.prototype._createLayerMesh):
+
 2021-11-12  Razvan Caliman  <rcaliman@apple.com>
 
         Web Inspector: Extract reusable logic from ResourceQueryController, ResourceQueryResult and ResourceQueryMatch

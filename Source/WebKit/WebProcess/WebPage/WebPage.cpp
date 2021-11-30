@@ -202,6 +202,7 @@
 #include <WebCore/HistoryController.h>
 #include <WebCore/HistoryItem.h>
 #include <WebCore/HitTestResult.h>
+#include <WebCore/ImageAnalysisQueue.h>
 #include <WebCore/ImageOverlay.h>
 #include <WebCore/InspectorController.h>
 #include <WebCore/JSDOMExceptionHandling.h>
@@ -989,6 +990,8 @@ void WebPage::reinitializeWebPage(WebPageCreationParameters&& parameters)
 #if PLATFORM(GTK)
     GtkSettingsManagerProxy::singleton().applySettings(WTFMove(parameters.gtkSettings));
 #endif
+
+    effectiveAppearanceDidChange(parameters.useDarkAppearance, parameters.useElevatedUserInterfaceLevel);
 
     platformReinitialize();
 }
@@ -4040,6 +4043,8 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
     PlatformMediaSessionManager::setOpusDecoderEnabled(RuntimeEnabledFeatures::sharedFeatures().opusDecoderEnabled());
 #endif
 
+    // FIXME: This should be automated by adding a new field in WebPreferences*.yaml
+    // that indicates override state for captive portal mode. https://webkit.org/b/233100.
     if (WebProcess::singleton().isCaptivePortalModeEnabled()) {
         settings.setWebGLEnabled(false);
 #if ENABLE(WEBGL2)
@@ -4078,6 +4083,13 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
         settings.setMathMLEnabled(false);
 #endif
     }
+
+#if ENABLE(ARKIT_INLINE_PREVIEW)
+    m_useARKitForModel = store.getBoolValueForKey(WebPreferencesKey::useARKitForModelKey());
+#endif
+#if HAVE(SCENEKIT)
+    m_useSceneKitForModel = store.getBoolValueForKey(WebPreferencesKey::useSceneKitForModelKey());
+#endif
 
     m_page->settingsDidChange();
 }
@@ -7492,7 +7504,7 @@ void WebPage::removeMediaUsageManagerSession(MediaSessionIdentifier identifier)
 
 #if ENABLE(IMAGE_ANALYSIS)
 
-void WebPage::requestTextRecognition(WebCore::Element& element, CompletionHandler<void(RefPtr<WebCore::Element>&&)>&& completion)
+void WebPage::requestTextRecognition(Element& element, const String& identifier, CompletionHandler<void(RefPtr<Element>&&)>&& completion)
 {
     if (!is<HTMLElement>(element)) {
         if (completion)
@@ -7551,7 +7563,7 @@ void WebPage::requestTextRecognition(WebCore::Element& element, CompletionHandle
 
     auto cachedImage = renderImage.cachedImage();
     auto imageURL = cachedImage ? element.document().completeURL(cachedImage->url().string()) : URL { };
-    sendWithAsyncReply(Messages::WebPageProxy::RequestTextRecognition(WTFMove(imageURL), WTFMove(bitmapHandle)), [webPage = WeakPtr { *this }, weakElement = WeakPtr { element }] (auto&& result) {
+    sendWithAsyncReply(Messages::WebPageProxy::RequestTextRecognition(WTFMove(imageURL), WTFMove(bitmapHandle), identifier), [webPage = WeakPtr { *this }, weakElement = WeakPtr { element }] (auto&& result) {
         RefPtr protectedPage { webPage.get() };
         if (!protectedPage)
             return;
@@ -7620,6 +7632,15 @@ void WebPage::updateWithTextRecognitionResult(const TextRecognitionResult& resul
     })();
 
     completionHandler(updateResult);
+}
+
+void WebPage::startImageAnalysis(const String& identifier)
+{
+    if (RefPtr document = m_mainFrame->coreFrame()->document()) {
+        // We only consider main document content for now, to match the behavior of the corresponding feature
+        // that will trigger this codepath.
+        corePage()->imageAnalysisQueue().enqueueAllImages(*document, identifier);
+    }
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS)
@@ -7767,13 +7788,6 @@ void WebPage::lastNavigationWasAppInitiated(CompletionHandler<void(bool)>&& comp
 void WebPage::handleContextMenuTranslation(const TranslationContextMenuInfo& info)
 {
     send(Messages::WebPageProxy::HandleContextMenuTranslation(info));
-}
-#endif
-
-#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
-void WebPage::takeModelElementFullscreen(WebCore::GraphicsLayer::PlatformLayerID contentLayerId)
-{
-    send(Messages::WebPageProxy::TakeModelElementFullscreen(contentLayerId));
 }
 #endif
 

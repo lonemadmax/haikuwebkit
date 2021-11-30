@@ -26,14 +26,25 @@
 #pragma once
 
 #include <cstdint>
+#include <wtf/EnumTraits.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 enum class FilterMode : uint8_t {
     Nearest,
     Linear,
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU
+
+namespace WTF {
+
+template<> struct EnumTraits<PAL::WebGPU::FilterMode> {
+    using values = EnumValues<
+        PAL::WebGPU::FilterMode,
+        PAL::WebGPU::FilterMode::Nearest,
+        PAL::WebGPU::FilterMode::Linear
+    >;
+};
+
+} // namespace WTF

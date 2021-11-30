@@ -353,11 +353,8 @@ static inline void writeSVGInlineTextBox(TextStream& ts, SVGInlineTextBox* textB
         else
             ts << " width " << fragment.width;
 
-        if (!textBox->isLeftToRightDirection() || textBox->dirOverride()) {
-            ts << (textBox->isLeftToRightDirection() ? " LTR" : " RTL");
-            if (textBox->dirOverride())
-                ts << " override";
-        }
+        if (!textBox->isLeftToRightDirection())
+            ts << " RTL";
 
         ts << ": " << quoteAndEscapeNonPrintables(text.substring(fragment.characterOffset, fragment.length)) << "\n";
     }
@@ -434,7 +431,7 @@ void writeSVGResourceContainer(TextStream& ts, const RenderSVGResourceContainer&
         FloatRect dummyRect;
         FloatSize dummyScale(1, 1);
         SVGFilterBuilder builder;
-        auto dummyFilter = SVGFilter::create(filter.filterElement(), builder, dummyScale, dummyRect, dummyRect, dummyRect);
+        auto dummyFilter = SVGFilter::create(filter.filterElement(), builder, RenderingMode::Unaccelerated, dummyScale, dummyRect, dummyRect, dummyRect);
         if (dummyFilter) {
             TextStream::IndentScope indentScope(ts);
 

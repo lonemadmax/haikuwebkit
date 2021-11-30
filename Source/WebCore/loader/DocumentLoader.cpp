@@ -94,6 +94,7 @@
 #include "SubresourceLoader.h"
 #include "TextResourceDecoder.h"
 #include "UserContentProvider.h"
+#include "UserContentURLPattern.h"
 #include <wtf/Assertions.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/NeverDestroyed.h>
@@ -150,13 +151,13 @@ static void setAllDefersLoading(const ResourceLoaderMap& loaders, bool defers)
         loader->setDefersLoading(defers);
 }
 
-static HashMap<DocumentIdentifier, DocumentLoader*>& temporaryIdentifierToLoaderMap()
+static HashMap<ScriptExecutionContextIdentifier, DocumentLoader*>& temporaryIdentifierToLoaderMap()
 {
-    static NeverDestroyed<HashMap<DocumentIdentifier, DocumentLoader*>> map;
+    static NeverDestroyed<HashMap<ScriptExecutionContextIdentifier, DocumentLoader*>> map;
     return map.get();
 }
 
-DocumentLoader* DocumentLoader::fromTemporaryDocumentIdentifier(DocumentIdentifier identifier)
+DocumentLoader* DocumentLoader::fromTemporaryDocumentIdentifier(ScriptExecutionContextIdentifier identifier)
 {
     return temporaryIdentifierToLoaderMap().get(identifier);
 }
@@ -173,7 +174,10 @@ DocumentLoader::DocumentLoader(const ResourceRequest& request, const SubstituteD
     , m_originalSubstituteDataWasValid(substituteData.isValid())
     , m_substituteResourceDeliveryTimer(*this, &DocumentLoader::substituteResourceDeliveryTimerFired)
     , m_applicationCacheHost(makeUnique<ApplicationCacheHost>(*this))
+    , m_activeContentRuleListActionPatterns(Vector<UserContentURLPattern>())
 {
+    // FIXME: Vector default constructor shouldn't need to know the size of the elements,
+    // so m_activeContentRuleListActionPatterns ought to be able to be initialized with an initializer list in the header without including UserContentURLPattern.h.
 }
 
 FrameLoader* DocumentLoader::frameLoader() const
@@ -2106,7 +2110,7 @@ void DocumentLoader::loadMainResource(ResourceRequest&& request)
 #if ENABLE(SERVICE_WORKER)
     if (!m_temporaryServiceWorkerClient) {
         // The main navigation load will trigger the registration of the temp client.
-        m_temporaryServiceWorkerClient = DocumentIdentifier::generate();
+        m_temporaryServiceWorkerClient = ScriptExecutionContextIdentifier::generateThreadSafe();
         ASSERT(!temporaryIdentifierToLoaderMap().contains(*m_temporaryServiceWorkerClient));
         temporaryIdentifierToLoaderMap().add(*m_temporaryServiceWorkerClient, this);
     }
@@ -2432,6 +2436,34 @@ ResourceError DocumentLoader::contentFilterDidBlock(ContentFilterUnblockHandler 
     return frameLoader()->blockedByContentFilterError(request());
 }
 #endif // ENABLE(CONTENT_FILTERING)
+
+void DocumentLoader::setActiveContentRuleListActionPatterns(const std::optional<HashSet<String>>& patterns)
+{
+    if (!patterns) {
+        m_activeContentRuleListActionPatterns = std::nullopt;
+        return;
+    }
+    Vector<WebCore::UserContentURLPattern> patternVector;
+    patternVector.reserveInitialCapacity(patterns->size());
+    for (auto& patternString : *patterns) {
+        WebCore::UserContentURLPattern parsedPattern(patternString);
+        if (parsedPattern.isValid())
+            patternVector.uncheckedAppend(WTFMove(parsedPattern));
+    }
+
+    m_activeContentRuleListActionPatterns = WTFMove(patternVector);
+}
+
+bool DocumentLoader::allowsActiveContentRuleListActionsForURL(const URL& url) const
+{
+    if (!m_activeContentRuleListActionPatterns)
+        return true;
+    for (const auto& pattern : *m_activeContentRuleListActionPatterns) {
+        if (pattern.matches(url))
+            return true;
+    }
+    return false;
+}
 
 } // namespace WebCore
 

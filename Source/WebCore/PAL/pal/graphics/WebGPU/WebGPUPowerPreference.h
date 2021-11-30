@@ -26,14 +26,25 @@
 #pragma once
 
 #include <cstdint>
+#include <wtf/EnumTraits.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 enum class PowerPreference : uint8_t {
     LowPower,
     HighPerformance,
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU
+
+namespace WTF {
+
+template<> struct EnumTraits<PAL::WebGPU::PowerPreference> {
+    using values = EnumValues<
+        PAL::WebGPU::PowerPreference,
+        PAL::WebGPU::PowerPreference::LowPower,
+        PAL::WebGPU::PowerPreference::HighPerformance
+    >;
+};
+
+} // namespace WTF

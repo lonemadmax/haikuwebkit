@@ -5680,10 +5680,12 @@ void WebPageProxy::willSubmitForm(FrameIdentifier frameID, FrameIdentifier sourc
     });
 }
 
+#if ENABLE(CONTENT_EXTENSIONS)
 void WebPageProxy::contentRuleListNotification(URL&& url, ContentRuleListResults&& results)
 {
     m_navigationClient->contentRuleListNotification(*this, WTFMove(url), WTFMove(results));
 }
+#endif
     
 void WebPageProxy::didNavigateWithNavigationData(const WebNavigationDataStore& store, FrameIdentifier frameID)
 {
@@ -7936,6 +7938,9 @@ void WebPageProxy::resetStateAfterProcessExited(ProcessTerminationReason termina
     m_editorState = EditorState();
     m_cachedFontAttributesAtSelectionStart.reset();
 
+    if (terminationReason != ProcessTerminationReason::NavigationSwap)
+        m_provisionalPage = nullptr;
+
     if (terminationReason == ProcessTerminationReason::NavigationSwap)
         pageClient().processWillSwap();
     else
@@ -8613,9 +8618,9 @@ void WebPageProxy::shouldAllowDeviceOrientationAndMotionAccess(FrameIdentifier f
 
 #if ENABLE(IMAGE_ANALYSIS)
 
-void WebPageProxy::requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&& completionHandler)
+void WebPageProxy::requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, const String& identifier, CompletionHandler<void(TextRecognitionResult&&)>&& completionHandler)
 {
-    pageClient().requestTextRecognition(imageURL, imageData, WTFMove(completionHandler));
+    pageClient().requestTextRecognition(imageURL, imageData, identifier, WTFMove(completionHandler));
 }
 
 void WebPageProxy::computeHasImageAnalysisResults(const URL& imageURL, ShareableBitmap& imageBitmap, ImageAnalysisType type, CompletionHandler<void(bool)>&& completion)
@@ -8631,6 +8636,12 @@ void WebPageProxy::updateWithTextRecognitionResult(TextRecognitionResult&& resul
     }
 
     sendWithAsyncReply(Messages::WebPage::UpdateWithTextRecognitionResult(WTFMove(results), context, location), WTFMove(completionHandler));
+}
+
+void WebPageProxy::startImageAnalysis(const String& identifier)
+{
+    if (hasRunningProcess())
+        send(Messages::WebPage::StartImageAnalysis(identifier));
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS)
@@ -10821,17 +10832,94 @@ WebCore::CaptureSourceOrError WebPageProxy::createRealtimeMediaSourceForSpeechRe
 
 #endif
 
-#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
-void WebPageProxy::takeModelElementFullscreen(WebCore::GraphicsLayer::PlatformLayerID contentLayerId)
+#if ENABLE(ARKIT_INLINE_PREVIEW)
+void WebPageProxy::modelElementGetCamera(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<WebCore::HTMLModelElementCamera, ResourceError>)>&& completionHandler)
 {
-    modelElementController()->takeModelElementFullscreen(contentLayerId);
+    modelElementController()->getCameraForModelElement(modelIdentifier, WTFMove(completionHandler));
+}
+
+void WebPageProxy::modelElementSetCamera(ModelIdentifier modelIdentifier, WebCore::HTMLModelElementCamera camera, CompletionHandler<void(bool)>&& completionHandler)
+{
+    modelElementController()->setCameraForModelElement(modelIdentifier, camera, WTFMove(completionHandler));
+}
+
+void WebPageProxy::modelElementIsPlayingAnimation(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<bool, ResourceError>)>&& completionHandler)
+{
+    modelElementController()->isPlayingAnimationForModelElement(modelIdentifier, WTFMove(completionHandler));
+}
+
+void WebPageProxy::modelElementSetAnimationIsPlaying(ModelIdentifier modelIdentifier, bool isPlaying, CompletionHandler<void(bool)>&& completionHandler)
+{
+    modelElementController()->setAnimationIsPlayingForModelElement(modelIdentifier, isPlaying, WTFMove(completionHandler));
+}
+
+void WebPageProxy::modelElementIsLoopingAnimation(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<bool, ResourceError>)>&& completionHandler)
+{
+    modelElementController()->isLoopingAnimationForModelElement(modelIdentifier, WTFMove(completionHandler));
+}
+
+void WebPageProxy::modelElementSetIsLoopingAnimation(ModelIdentifier modelIdentifier, bool isLooping, CompletionHandler<void(bool)>&& completionHandler)
+{
+    modelElementController()->setIsLoopingAnimationForModelElement(modelIdentifier, isLooping, WTFMove(completionHandler));
+}
+
+void WebPageProxy::modelElementAnimationDuration(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<Seconds, WebCore::ResourceError>)>&& completionHandler)
+{
+    modelElementController()->animationDurationForModelElement(modelIdentifier, WTFMove(completionHandler));
+}
+
+void WebPageProxy::modelElementAnimationCurrentTime(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<Seconds, WebCore::ResourceError>)>&& completionHandler)
+{
+    modelElementController()->animationCurrentTimeForModelElement(modelIdentifier, WTFMove(completionHandler));
+}
+
+void WebPageProxy::modelElementSetAnimationCurrentTime(ModelIdentifier modelIdentifier, Seconds currentTime, CompletionHandler<void(bool)>&& completionHandler)
+{
+    modelElementController()->setAnimationCurrentTimeForModelElement(modelIdentifier, currentTime, WTFMove(completionHandler));
+}
+
+void WebPageProxy::modelElementHasAudio(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<bool, ResourceError>)>&& completionHandler)
+{
+    modelElementController()->hasAudioForModelElement(modelIdentifier, WTFMove(completionHandler));
+}
+
+void WebPageProxy::modelElementIsMuted(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<bool, ResourceError>)>&& completionHandler)
+{
+    modelElementController()->isMutedForModelElement(modelIdentifier, WTFMove(completionHandler));
+}
+
+void WebPageProxy::modelElementSetIsMuted(ModelIdentifier modelIdentifier, bool isMuted, CompletionHandler<void(bool)>&& completionHandler)
+{
+    modelElementController()->setIsMutedForModelElement(modelIdentifier, isMuted, WTFMove(completionHandler));
+}
+#endif
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
+void WebPageProxy::takeModelElementFullscreen(ModelIdentifier modelIdentifier)
+{
+    modelElementController()->takeModelElementFullscreen(modelIdentifier);
 }
 #endif
 
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
-void WebPageProxy::modelElementDidCreatePreview(const URL& url, const String& uuid, const FloatSize& size, CompletionHandler<void(Expected<std::pair<String, uint32_t>, WebCore::ResourceError>)>&& completionHandler)
+void WebPageProxy::modelElementDidCreatePreview(const URL& url, const String& uuid, const FloatSize& size, CompletionHandler<void(Expected<std::pair<String, uint32_t>, ResourceError>)>&& completionHandler)
 {
     modelElementController()->modelElementDidCreatePreview(url, uuid, size, WTFMove(completionHandler));
+}
+
+void WebPageProxy::handleMouseDownForModelElement(const String& uuid, const WebCore::LayoutPoint& locationInPageCoordinates, MonotonicTime timestamp)
+{
+    modelElementController()->handleMouseDownForModelElement(uuid, locationInPageCoordinates, timestamp);
+}
+
+void WebPageProxy::handleMouseMoveForModelElement(const String& uuid, const WebCore::LayoutPoint& locationInPageCoordinates, MonotonicTime timestamp)
+{
+    modelElementController()->handleMouseMoveForModelElement(uuid, locationInPageCoordinates, timestamp);
+}
+
+void WebPageProxy::handleMouseUpForModelElement(const String& uuid, const WebCore::LayoutPoint& locationInPageCoordinates, MonotonicTime timestamp)
+{
+    modelElementController()->handleMouseUpForModelElement(uuid, locationInPageCoordinates, timestamp);
 }
 #endif
 

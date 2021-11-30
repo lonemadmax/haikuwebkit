@@ -30,6 +30,7 @@
 #include "Attr.h"
 #include "AttributeChangeInvalidation.h"
 #include "CSSParser.h"
+#include "ChildChangeInvalidation.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "ClassChangeInvalidation.h"
@@ -52,6 +53,7 @@
 #include "ElementRareData.h"
 #include "EventDispatcher.h"
 #include "EventHandler.h"
+#include "EventLoop.h"
 #include "EventNames.h"
 #include "FocusController.h"
 #include "FocusEvent.h"
@@ -109,6 +111,7 @@
 #include "ScriptDisallowedScope.h"
 #include "ScrollIntoViewOptions.h"
 #include "ScrollLatchingController.h"
+#include "SecurityPolicyViolationEvent.h"
 #include "SelectorQuery.h"
 #include "Settings.h"
 #include "ShadowRootInit.h"
@@ -1117,13 +1120,9 @@ void Element::scrollByUnits(int units, ScrollGranularity granularity)
     if (!renderer->hasNonVisibleOverflow())
         return;
 
-    ScrollDirection direction = ScrollDown;
-    if (units < 0) {
-        direction = ScrollUp;
-        units = -units;
-    }
-    Element* stopElement = this;
-    downcast<RenderBox>(*renderer).scroll(direction, granularity, units, &stopElement);
+    auto direction = units < 0 ? ScrollUp : ScrollDown;
+    auto* stopElement = this;
+    downcast<RenderBox>(*renderer).scroll(direction, granularity, std::abs(units), &stopElement);
 }
 
 void Element::scrollByLines(int lines)
@@ -2038,7 +2037,7 @@ Style::ElementStyle Element::resolveStyle(const Style::ResolutionContext& resolu
     return styleResolver().styleForElement(*this, resolutionContext);
 }
 
-static void invalidateForSiblingCombinators(Element* sibling)
+void invalidateForSiblingCombinators(Element* sibling)
 {
     for (; sibling; sibling = sibling->nextElementSibling()) {
         if (sibling->styleIsAffectedByPreviousSibling())
@@ -2642,124 +2641,11 @@ bool Element::childTypeAllowed(NodeType type) const
     }
     return false;
 }
-
-static void checkForEmptyStyleChange(Element& element)
-{
-    if (element.styleAffectedByEmpty()) {
-        auto* style = element.renderStyle();
-        if (!style || (!style->emptyState() || element.hasChildNodes()))
-            element.invalidateStyleForSubtree();
-    }
-}
-
-
-static void invalidateForForwardPositionalRules(Element& parent, Element* elementAfterChange)
-{
-    bool childrenAffected = parent.childrenAffectedByForwardPositionalRules();
-    bool descendantsAffected = parent.descendantsAffectedByForwardPositionalRules();
-
-    if (!childrenAffected && !descendantsAffected)
-        return;
-
-    for (auto* sibling = elementAfterChange; sibling; sibling = sibling->nextElementSibling()) {
-        if (childrenAffected)
-            sibling->invalidateStyleInternal();
-        if (descendantsAffected) {
-            for (auto* siblingChild = sibling->firstElementChild(); siblingChild; siblingChild = siblingChild->nextElementSibling())
-                siblingChild->invalidateStyleForSubtreeInternal();
-        }
-    }
-}
-
-static void invalidateForBackwardPositionalRules(Element& parent, Element* elementBeforeChange)
-{
-    bool childrenAffected = parent.childrenAffectedByBackwardPositionalRules();
-    bool descendantsAffected = parent.descendantsAffectedByBackwardPositionalRules();
-
-    if (!childrenAffected && !descendantsAffected)
-        return;
-
-    for (auto* sibling = elementBeforeChange; sibling; sibling = sibling->previousElementSibling()) {
-        if (childrenAffected)
-            sibling->invalidateStyleInternal();
-        if (descendantsAffected) {
-            for (auto* siblingChild = sibling->firstElementChild(); siblingChild; siblingChild = siblingChild->nextElementSibling())
-                siblingChild->invalidateStyleForSubtreeInternal();
-        }
-    }
-}
-
-enum SiblingCheckType { FinishedParsingChildren, SiblingElementRemoved, Other };
-
-static void checkForSiblingStyleChanges(Element& parent, SiblingCheckType checkType, Element* elementBeforeChange, Element* elementAfterChange)
-{
-    // :empty selector.
-    checkForEmptyStyleChange(parent);
-
-    if (parent.styleValidity() >= Style::Validity::SubtreeInvalid)
-        return;
-
-    // :first-child.  In the parser callback case, we don't have to check anything, since we were right the first time.
-    // In the DOM case, we only need to do something if |afterChange| is not 0.
-    // |afterChange| is 0 in the parser case, so it works out that we'll skip this block.
-    if (parent.childrenAffectedByFirstChildRules() && elementAfterChange) {
-        // Find our new first child.
-        RefPtr<Element> newFirstElement = ElementTraversal::firstChild(parent);
-        // Find the first element node following |afterChange|
-
-        // This is the insert/append case.
-        if (newFirstElement != elementAfterChange) {
-            auto* style = elementAfterChange->renderStyle();
-            if (!style || style->firstChildState())
-                elementAfterChange->invalidateStyleForSubtreeInternal();
-        }
-
-        // We also have to handle node removal.
-        if (checkType == SiblingElementRemoved && newFirstElement == elementAfterChange && newFirstElement) {
-            auto* style = newFirstElement->renderStyle();
-            if (!style || !style->firstChildState())
-                newFirstElement->invalidateStyleForSubtreeInternal();
-        }
-    }
-
-    // :last-child.  In the parser callback case, we don't have to check anything, since we were right the first time.
-    // In the DOM case, we only need to do something if |afterChange| is not 0.
-    if (parent.childrenAffectedByLastChildRules() && elementBeforeChange) {
-        // Find our new last child.
-        RefPtr<Element> newLastElement = ElementTraversal::lastChild(parent);
-
-        if (newLastElement != elementBeforeChange) {
-            auto* style = elementBeforeChange->renderStyle();
-            if (!style || style->lastChildState())
-                elementBeforeChange->invalidateStyleForSubtreeInternal();
-        }
-
-        // We also have to handle node removal.  The parser callback case is similar to node removal as well in that we need to change the last child
-        // to match now.
-        if ((checkType == SiblingElementRemoved || checkType == FinishedParsingChildren) && newLastElement == elementBeforeChange && newLastElement) {
-            auto* style = newLastElement->renderStyle();
-            if (!style || !style->lastChildState())
-                newLastElement->invalidateStyleForSubtreeInternal();
-        }
-    }
-
-    invalidateForSiblingCombinators(elementAfterChange);
-
-    invalidateForForwardPositionalRules(parent, elementAfterChange);
-    invalidateForBackwardPositionalRules(parent, elementBeforeChange);
-}
-
 void Element::childrenChanged(const ChildChange& change)
 {
     ContainerNode::childrenChanged(change);
-    if (change.source == ChildChange::Source::Parser)
-        checkForEmptyStyleChange(*this);
-    else {
-        auto checkType = change.type == ChildChange::Type::ElementRemoved ? SiblingElementRemoved : Other;
-        checkForSiblingStyleChanges(*this, checkType, change.previousSiblingElement, change.nextSiblingElement);
-    }
 
-    if (ShadowRoot* shadowRoot = this->shadowRoot()) {
+    if (auto* shadowRoot = this->shadowRoot()) {
         switch (change.type) {
         case ChildChange::Type::ElementInserted:
         case ChildChange::Type::ElementRemoved:
@@ -2802,7 +2688,8 @@ void Element::finishParsingChildren()
 {
     ContainerNode::finishParsingChildren();
     setIsParsingChildrenFinished();
-    checkForSiblingStyleChanges(*this, FinishedParsingChildren, ElementTraversal::lastChild(*this), nullptr);
+
+    Style::ChildChangeInvalidation::invalidateAfterFinishedParsingChildren(*this);
 }
 
 static void appendAttributes(StringBuilder& builder, const Element& element)
@@ -3311,6 +3198,13 @@ bool Element::dispatchMouseForceWillBegin()
 #endif
 
     return false;
+}
+
+void Element::enqueueSecurityPolicyViolationEvent(SecurityPolicyViolationEventInit&& eventInit)
+{
+    document().eventLoop().queueTask(TaskSource::DOMManipulation, [this, protectedThis = Ref { *this }, event = SecurityPolicyViolationEvent::create(eventNames().securitypolicyviolationEvent, WTFMove(eventInit), Event::IsTrusted::Yes)] {
+        dispatchEvent(event);
+    });
 }
 
 ExceptionOr<void> Element::mergeWithNextTextNode(Text& node)

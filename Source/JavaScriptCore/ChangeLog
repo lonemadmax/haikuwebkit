@@ -1,3 +1,958 @@
+2021-11-29  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Populate RISCV64Assembler with instruction-generation methods
+        https://bugs.webkit.org/show_bug.cgi?id=233256
+
+        Reviewed by Yusuke Suzuki.
+
+        Sprinkle RISCV64Assembler class with helper methods for generating the
+        desired instruction values.
+
+        Immediate types from the RISCV64Instructions namespace are introduced
+        into the class for easier usage here and in the MacroAssemblerRISCV64
+        class. Instruction-generating methods roughly match the different
+        instruction types in the RISCV64Instructions namespace.
+
+        A few optimizations are done around floating-point instructions. We can
+        use one base method which expects the desired FP size as a template
+        parameter, and the appropriate RISCV64Instructions type can then be
+        selected based on that size value. Different combinations for FP move
+        and conversion instructions are also grouped behind a single method,
+        with thorough compile-time validation done to prevent generating
+        invalid instructions.
+
+        A few helper methods intended for masking, sign-extension and
+        zero-extension are also added. The Condition enum is fixed to list only
+        RISCV-viable conditions, with the values ordered so that a simple
+        XOR-by-one of a given value will produce the value of the inverted
+        condition.
+
+        * assembler/RISCV64Assembler.h:
+        (JSC::RISCV64Assembler::invert):
+        (JSC::RISCV64Assembler::luiInsn):
+        (JSC::RISCV64Assembler::auipcInsn):
+        (JSC::RISCV64Assembler::jalInsn):
+        (JSC::RISCV64Assembler::jalrInsn):
+        (JSC::RISCV64Assembler::beqInsn):
+        (JSC::RISCV64Assembler::bneInsn):
+        (JSC::RISCV64Assembler::bltInsn):
+        (JSC::RISCV64Assembler::bgeInsn):
+        (JSC::RISCV64Assembler::bltuInsn):
+        (JSC::RISCV64Assembler::bgeuInsn):
+        (JSC::RISCV64Assembler::lbInsn):
+        (JSC::RISCV64Assembler::lhInsn):
+        (JSC::RISCV64Assembler::lwInsn):
+        (JSC::RISCV64Assembler::ldInsn):
+        (JSC::RISCV64Assembler::lbuInsn):
+        (JSC::RISCV64Assembler::lhuInsn):
+        (JSC::RISCV64Assembler::lwuInsn):
+        (JSC::RISCV64Assembler::sbInsn):
+        (JSC::RISCV64Assembler::shInsn):
+        (JSC::RISCV64Assembler::swInsn):
+        (JSC::RISCV64Assembler::sdInsn):
+        (JSC::RISCV64Assembler::addiInsn):
+        (JSC::RISCV64Assembler::sltiInsn):
+        (JSC::RISCV64Assembler::sltiuInsn):
+        (JSC::RISCV64Assembler::xoriInsn):
+        (JSC::RISCV64Assembler::oriInsn):
+        (JSC::RISCV64Assembler::andiInsn):
+        (JSC::RISCV64Assembler::slliInsn):
+        (JSC::RISCV64Assembler::srliInsn):
+        (JSC::RISCV64Assembler::sraiInsn):
+        (JSC::RISCV64Assembler::addInsn):
+        (JSC::RISCV64Assembler::subInsn):
+        (JSC::RISCV64Assembler::sllInsn):
+        (JSC::RISCV64Assembler::sltInsn):
+        (JSC::RISCV64Assembler::sltuInsn):
+        (JSC::RISCV64Assembler::xorInsn):
+        (JSC::RISCV64Assembler::srlInsn):
+        (JSC::RISCV64Assembler::sraInsn):
+        (JSC::RISCV64Assembler::orInsn):
+        (JSC::RISCV64Assembler::andInsn):
+        (JSC::RISCV64Assembler::ecallInsn):
+        (JSC::RISCV64Assembler::ebreakInsn):
+        (JSC::RISCV64Assembler::addiwInsn):
+        (JSC::RISCV64Assembler::slliwInsn):
+        (JSC::RISCV64Assembler::srliwInsn):
+        (JSC::RISCV64Assembler::sraiwInsn):
+        (JSC::RISCV64Assembler::addwInsn):
+        (JSC::RISCV64Assembler::subwInsn):
+        (JSC::RISCV64Assembler::sllwInsn):
+        (JSC::RISCV64Assembler::srlwInsn):
+        (JSC::RISCV64Assembler::srawInsn):
+        (JSC::RISCV64Assembler::mulInsn):
+        (JSC::RISCV64Assembler::mulhInsn):
+        (JSC::RISCV64Assembler::mulhsuInsn):
+        (JSC::RISCV64Assembler::mulhuInsn):
+        (JSC::RISCV64Assembler::divInsn):
+        (JSC::RISCV64Assembler::divuInsn):
+        (JSC::RISCV64Assembler::remInsn):
+        (JSC::RISCV64Assembler::remuInsn):
+        (JSC::RISCV64Assembler::mulwInsn):
+        (JSC::RISCV64Assembler::divwInsn):
+        (JSC::RISCV64Assembler::divuwInsn):
+        (JSC::RISCV64Assembler::remwInsn):
+        (JSC::RISCV64Assembler::remuwInsn):
+        (JSC::RISCV64Assembler::flwInsn):
+        (JSC::RISCV64Assembler::fldInsn):
+        (JSC::RISCV64Assembler::fswInsn):
+        (JSC::RISCV64Assembler::fsdInsn):
+        (JSC::RISCV64Assembler::fmaddInsn):
+        (JSC::RISCV64Assembler::fmsubInsn):
+        (JSC::RISCV64Assembler::fnmsubInsn):
+        (JSC::RISCV64Assembler::fnmaddInsn):
+        (JSC::RISCV64Assembler::faddInsn):
+        (JSC::RISCV64Assembler::fsubInsn):
+        (JSC::RISCV64Assembler::fmulInsn):
+        (JSC::RISCV64Assembler::fdivInsn):
+        (JSC::RISCV64Assembler::fsqrtInsn):
+        (JSC::RISCV64Assembler::fsgnjInsn):
+        (JSC::RISCV64Assembler::fsgnjnInsn):
+        (JSC::RISCV64Assembler::fsgnjxInsn):
+        (JSC::RISCV64Assembler::fminInsn):
+        (JSC::RISCV64Assembler::fmaxInsn):
+        (JSC::RISCV64Assembler::feqInsn):
+        (JSC::RISCV64Assembler::fltInsn):
+        (JSC::RISCV64Assembler::fleInsn):
+        (JSC::RISCV64Assembler::fclassInsn):
+        (JSC::RISCV64Assembler::fcvtInsn):
+        (JSC::RISCV64Assembler::fmvInsn):
+        (JSC::RISCV64Assembler::fenceInsn):
+        (JSC::RISCV64Assembler::lrwInsn):
+        (JSC::RISCV64Assembler::scwInsn):
+        (JSC::RISCV64Assembler::lrdInsn):
+        (JSC::RISCV64Assembler::scdInsn):
+        (JSC::RISCV64Assembler::amoswapwInsn):
+        (JSC::RISCV64Assembler::amoaddwInsn):
+        (JSC::RISCV64Assembler::amoxorwInsn):
+        (JSC::RISCV64Assembler::amoandwInsn):
+        (JSC::RISCV64Assembler::amoorwInsn):
+        (JSC::RISCV64Assembler::amoswapdInsn):
+        (JSC::RISCV64Assembler::amoadddInsn):
+        (JSC::RISCV64Assembler::amoxordInsn):
+        (JSC::RISCV64Assembler::amoanddInsn):
+        (JSC::RISCV64Assembler::amoordInsn):
+        (JSC::RISCV64Assembler::nop):
+        (JSC::RISCV64Assembler::maskRegister):
+        (JSC::RISCV64Assembler::signExtend):
+        (JSC::RISCV64Assembler::zeroExtend):
+        (JSC::RISCV64Assembler::insn):
+        (JSC::RISCV64Assembler::insnFP):
+        (JSC::RISCV64Assembler::isValidShiftAmount):
+
+2021-11-29  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [Cocoa] Stop linking JavaScriptCore.framework with libz because it doesn't use any symbols from it
+        https://bugs.webkit.org/show_bug.cgi?id=233550
+
+        Reviewed by Anders Carlsson.
+
+        Every compile produces a message like:
+
+        Ld /Users/mmaxfield/Build/Products/Debug/JavaScriptCore.framework/Versions/A/JavaScriptCore normal (in target 'JavaScriptCore' from project 'JavaScriptCore')
+        ld: warning: linking with (/usr/lib/libz.1.dylib) but not using any symbols from it
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2021-11-26  Adrian Perez de Castro  <aperez@igalia.com>
+
+        Non-unified build fixes, late November 2021 edition
+        https://bugs.webkit.org/show_bug.cgi?id=233493
+
+        Unreviewed non-unified build fixes.
+
+        * jit/ThunkGenerators.h: Add missing inclusion of CallMode.h header, move header
+        inclusions inside the ENABLE(JIT) guard.
+
+2021-11-24  Zan Dobersek  <zdobersek@igalia.com>
+
+        MacroAssembler: remove unused load/store methods for addresses with patchable offsets
+        https://bugs.webkit.org/show_bug.cgi?id=233251
+
+        Reviewed by Yusuke Suzuki.
+
+        Remove MacroAssembler methods for load and store operations on addresses
+        with patchable offset values as they're not used in any place anymore.
+
+        * assembler/MacroAssembler.h:
+        (JSC::MacroAssembler::loadPtrWithAddressOffsetPatch): Deleted.
+        (JSC::MacroAssembler::loadPtrWithCompactAddressOffsetPatch): Deleted.
+        (JSC::MacroAssembler::storePtrWithAddressOffsetPatch): Deleted.
+        * assembler/MacroAssemblerARM64.h:
+        (JSC::MacroAssemblerARM64::load32WithAddressOffsetPatch): Deleted.
+        (JSC::MacroAssemblerARM64::load32WithCompactAddressOffsetPatch): Deleted.
+        (JSC::MacroAssemblerARM64::store32WithAddressOffsetPatch): Deleted.
+        * assembler/MacroAssemblerARMv7.h:
+        (JSC::MacroAssemblerARMv7::load32WithAddressOffsetPatch): Deleted.
+        (JSC::MacroAssemblerARMv7::load32WithCompactAddressOffsetPatch): Deleted.
+        (JSC::MacroAssemblerARMv7::store32WithAddressOffsetPatch): Deleted.
+        * assembler/MacroAssemblerMIPS.h:
+        (JSC::MacroAssemblerMIPS::load32WithAddressOffsetPatch): Deleted.
+        (JSC::MacroAssemblerMIPS::load32WithCompactAddressOffsetPatch): Deleted.
+        (JSC::MacroAssemblerMIPS::store32WithAddressOffsetPatch): Deleted.
+        * assembler/MacroAssemblerX86Common.h:
+        (JSC::MacroAssemblerX86Common::load32WithAddressOffsetPatch): Deleted.
+        (JSC::MacroAssemblerX86Common::load32WithCompactAddressOffsetPatch): Deleted.
+        (JSC::MacroAssemblerX86Common::store32WithAddressOffsetPatch): Deleted.
+
+2021-11-24  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Fix floating-point register listings in FPRInfo.h
+        https://bugs.webkit.org/show_bug.cgi?id=233243
+
+        Reviewed by Yusuke Suzuki.
+
+        As with general-purpose registers, fpRegT0 to fpRegT7 assignments have
+        to match the argument registers. Index-to-FPRReg mapping functions are
+        updated accordingly.
+
+        * jit/FPRInfo.h:
+        (JSC::FPRInfo::toRegister):
+        (JSC::FPRInfo::toIndex):
+
+2021-11-24  Aditi Singh  <asingh@igalia.com>
+
+        [JSC] Implement Date.prototype.toTemporalInstant()
+        https://bugs.webkit.org/show_bug.cgi?id=232075
+
+        Reviewed by Yusuke Suzuki.
+
+        * runtime/CommonIdentifiers.h:
+        * runtime/DatePrototype.cpp:
+        (JSC::DatePrototype::finishCreation):
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+
+2021-11-23  Don Olmstead  <don.olmstead@sony.com>
+
+        Non-unified build fixes, mid November 2021 edition
+        https://bugs.webkit.org/show_bug.cgi?id=233450
+
+        Unreviewed non-unified build fixes.
+
+        * heap/IsoHeapCellType.h:
+        * jit/ThunkGenerators.h:
+
+2021-11-22  Geza Lore  <glore@igalia.com>
+
+        [JSC] Make sharing of unlinked baseline code possible on JSVALUE32_64
+        https://bugs.webkit.org/show_bug.cgi?id=232624
+
+        Reviewed by Yusuke Suzuki.
+
+        This patch contains a few different changes, which taken together make
+        it possible to share the unlinked baseline JIT code between different
+        CodeBlocks on JSVALUE32_64 platforms. Note that by default, code
+        sharing is disabled on JSVALUE32_64 due to the increased executable
+        memory usage it may cause. The reson the executable memory usage might
+        increase is that the UnlinkedCodeBlock has a longer lifetime than the
+        corresponding linked CodeBlocks (due to the CodeCache I'm told), and
+        when using code sharing, it holds a reference to the JITed code. This
+        then prevents recycling of executable memory while the
+        UnlinkedCodeBlock is live, while without sharing we could have
+        reclaimed some of the executable memory earlier.
+
+        The high level changes in this pach are:
+
+        1. A lot of baseline implementations of the opcodes that needed
+        changing for the unlinked baseline are now unified between the
+        JSVALUE64 and JSVALUE32_64 platforms. Note that while this required
+        adding some abstraction, the code generated by the baseline JIT on
+        JSVALUE64 should be identical using this abstraction compared to
+        before.
+
+        2. I added a JSRInfo class which defines standard names for certain
+        JSValueReg instances. This enables a lot of the unification in the
+        point above to be expressed in a very simple manner, with very little
+        transformation of the existing code. Again, this should have no impact
+        on the generated code on JSVALUE64, apart from some register
+        substitutions.
+
+        3. The sizes of the resolve_scope and get_from_scope ops increased
+        significantly with the unlinked baseline. This can cause issues on
+        some JSVALUE32_64 targets where memory is more precious, so for these
+        two ops I swapped in the implementations under EXTRA_CTI_THUNKS, which
+        implement these using shared stubs. These stubs work on all platforms
+        that support ENABLE(JIT), so they are now the only implementation and
+        I have removed the basic bloated versions.
+
+        4. Removed some unused code and fields I discovered while working on
+        this, strictly speaking this is not necessary for the functional
+        change.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * Sources.txt:
+        * jit/AssemblyHelpers.h:
+        (JSC::AssemblyHelpers::storeValue):
+        (JSC::AssemblyHelpers::isNull):
+        (JSC::AssemblyHelpers::isNotNull):
+        (JSC::AssemblyHelpers::emitTurnUndefinedIntoNull):
+        (JSC::AssemblyHelpers::noOverlap):
+        (JSC::AssemblyHelpers::noOverlapImpl):
+        (JSC::AssemblyHelpers::noOverlapImplRegMask):
+        * jit/GPRInfo.h:
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileSlowCases):
+        (JSC::JIT::compileAndLinkWithoutFinalizing):
+        (JSC::JIT::link):
+        (JSC::JIT::privateCompileExceptionHandlers):
+        * jit/JIT.h:
+        * jit/JITArithmetic.cpp:
+        (JSC::JIT::emit_compareAndJumpImpl):
+        (JSC::JIT::emit_compareUnsignedAndJumpImpl):
+        (JSC::JIT::emit_compareUnsignedImpl):
+        (JSC::JIT::emit_op_mod):
+        (JSC::JIT::emit_compareAndJump):
+        (JSC::JIT::emit_compareUnsignedAndJump):
+        (JSC::JIT::emit_compareUnsigned):
+        (JSC::JIT::emit_compareAndJumpSlow):
+        (JSC::JIT::emitBinaryDoubleOp):
+        * jit/JITArithmetic32_64.cpp:
+        (JSC::JIT::emit_op_unsigned):
+        (JSC::JIT::emit_op_inc):
+        (JSC::JIT::emit_op_dec):
+        * jit/JITCall.cpp:
+        (JSC::JIT::emit_op_ret):
+        (JSC::JIT::compileSetupFrame):
+        (JSC::JIT::compileOpCall):
+        (JSC::JIT::emit_op_iterator_open):
+        (JSC::JIT::emit_op_iterator_next):
+        * jit/JITInlines.h:
+        (JSC::JIT::getConstantOperand):
+        (JSC::JIT::appendCallWithExceptionCheckSetJSValueResult):
+        (JSC::JIT::appendCallWithExceptionCheckSetJSValueResultWithProfile):
+        (JSC::JIT::emitValueProfilingSiteIfProfiledOpcode):
+        (JSC::JIT::emitValueProfilingSite):
+        (JSC::JIT::emitGetVirtualRegister):
+        (JSC::JIT::emitPutVirtualRegister):
+        (JSC::JIT::emitGetVirtualRegisterPayload):
+        (JSC::JIT::emitGetVirtualRegisterTag):
+        (JSC::JIT::emitLoadDouble):
+        (JSC::loadAddrOfCodeBlockConstantBuffer):
+        (JSC::JIT::loadCodeBlockConstant):
+        (JSC::JIT::loadCodeBlockConstantPayload):
+        (JSC::JIT::loadCodeBlockConstantTag):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_mov):
+        (JSC::JIT::emit_op_end):
+        (JSC::JIT::emit_op_new_object):
+        (JSC::JIT::emitSlow_op_new_object):
+        (JSC::JIT::emit_op_typeof_is_undefined):
+        (JSC::JIT::emit_op_is_undefined_or_null):
+        (JSC::JIT::emit_op_set_function_name):
+        (JSC::JIT::emit_op_jfalse):
+        (JSC::JIT::valueIsFalseyGenerator):
+        (JSC::JIT::emit_op_jeq_null):
+        (JSC::JIT::emit_op_jneq_null):
+        (JSC::JIT::emit_op_jeq_ptr):
+        (JSC::JIT::emit_op_jneq_ptr):
+        (JSC::JIT::emit_op_eq):
+        (JSC::JIT::emit_op_jeq):
+        (JSC::JIT::emit_op_jtrue):
+        (JSC::JIT::valueIsTruthyGenerator):
+        (JSC::JIT::emit_op_neq):
+        (JSC::JIT::emit_op_jneq):
+        (JSC::JIT::emit_op_throw):
+        (JSC::JIT::compileOpStrictEq):
+        (JSC::JIT::compileOpStrictEqJump):
+        (JSC::JIT::emit_op_switch_imm):
+        (JSC::JIT::emit_op_switch_char):
+        (JSC::JIT::emit_op_switch_string):
+        (JSC::JIT::emit_op_eq_null):
+        (JSC::JIT::emit_op_neq_null):
+        (JSC::JIT::emit_op_to_this):
+        (JSC::JIT::emit_op_create_this):
+        (JSC::JIT::emit_op_instanceof_custom):
+        (JSC::JIT::emitSlow_op_instanceof_custom):
+        (JSC::JIT::emit_op_loop_hint):
+        (JSC::JIT::emitNewFuncCommon):
+        (JSC::JIT::emitNewFuncExprCommon):
+        (JSC::JIT::emit_op_new_array_with_size):
+        (JSC::JIT::emit_op_profile_type):
+        (JSC::JIT::emit_op_log_shadow_chicken_prologue):
+        (JSC::JIT::emit_op_log_shadow_chicken_tail):
+        (JSC::JIT::emit_op_get_argument):
+        (JSC::JIT::emit_op_get_prototype_of):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_overrides_has_instance):
+        (JSC::JIT::emit_op_instanceof):
+        (JSC::JIT::emitSlow_op_instanceof):
+        (JSC::JIT::emit_op_is_empty):
+        (JSC::JIT::emit_op_is_boolean):
+        (JSC::JIT::emit_op_is_number):
+        (JSC::JIT::emit_op_is_cell_with_type):
+        (JSC::JIT::emit_op_is_object):
+        (JSC::JIT::emit_op_to_primitive):
+        (JSC::JIT::emit_op_to_property_key):
+        (JSC::JIT::emit_op_not):
+        (JSC::JIT::emit_op_jundefined_or_null):
+        (JSC::JIT::emit_op_jnundefined_or_null):
+        (JSC::JIT::emit_op_jeq_ptr):
+        (JSC::JIT::emit_op_jneq_ptr):
+        (JSC::JIT::emit_op_eq):
+        (JSC::JIT::emitSlow_op_eq):
+        (JSC::JIT::emit_op_jeq):
+        (JSC::JIT::compileOpEqJumpSlow):
+        (JSC::JIT::emit_op_neq):
+        (JSC::JIT::emitSlow_op_neq):
+        (JSC::JIT::emit_op_jneq):
+        (JSC::JIT::compileOpStrictEq):
+        (JSC::JIT::compileOpStrictEqJump):
+        (JSC::JIT::emitSlow_op_jstricteq):
+        (JSC::JIT::emitSlow_op_jnstricteq):
+        (JSC::JIT::emit_op_to_number):
+        (JSC::JIT::emit_op_to_numeric):
+        (JSC::JIT::emit_op_to_string):
+        (JSC::JIT::emit_op_to_object):
+        (JSC::JIT::emit_op_get_parent_scope):
+        (JSC::JIT::emit_op_enter):
+        (JSC::JIT::emit_op_check_tdz):
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::emit_op_put_getter_by_id):
+        (JSC::JIT::emit_op_put_setter_by_id):
+        (JSC::JIT::emit_op_put_getter_setter_by_id):
+        (JSC::JIT::emit_op_put_getter_by_val):
+        (JSC::JIT::emit_op_put_setter_by_val):
+        (JSC::JIT::emit_op_resolve_scope):
+        (JSC::JIT::generateOpResolveScopeThunk):
+        (JSC::JIT::slow_op_resolve_scopeGenerator):
+        (JSC::JIT::emit_op_get_from_scope):
+        (JSC::JIT::generateOpGetFromScopeThunk):
+        (JSC::JIT::slow_op_get_from_scopeGenerator):
+        (JSC::JIT::emit_op_put_to_scope):
+        (JSC::JIT::emit_op_get_from_arguments):
+        (JSC::JIT::emit_op_put_to_arguments):
+        (JSC::JIT::emit_op_get_internal_field):
+        (JSC::JIT::emit_op_put_internal_field):
+        (JSC::JIT::emit_op_get_property_enumerator):
+        (JSC::JIT::emit_op_enumerator_next):
+        (JSC::JIT::emit_op_enumerator_get_by_val):
+        (JSC::JIT::emitSlow_op_enumerator_get_by_val):
+        (JSC::JIT::emit_op_enumerator_in_by_val):
+        (JSC::JIT::emit_op_enumerator_has_own_property):
+        (JSC::JIT::emitWriteBarrier):
+        * jit/JITPropertyAccess32_64.cpp: Removed.
+        * jit/JSInterfaceJIT.h:
+        * jit/ThunkGenerators.cpp:
+        (JSC::popThunkStackPreservesAndHandleExceptionGenerator):
+        * jit/ThunkGenerators.h:
+        * runtime/OptionsList.h:
+
+2021-11-20  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Move RepatchXXX from jit to bytecode
+        https://bugs.webkit.org/show_bug.cgi?id=233395
+
+        Reviewed by Mark Lam.
+
+        They are also used by non JIT code too.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * Sources.txt:
+        * bytecode/Repatch.cpp: Renamed from Source/JavaScriptCore/jit/Repatch.cpp.
+        * bytecode/Repatch.h: Renamed from Source/JavaScriptCore/jit/Repatch.h.
+        * bytecode/RepatchInlines.h: Renamed from Source/JavaScriptCore/jit/RepatchInlines.h.
+
+2021-11-19  Asumu Takikawa  <asumu@igalia.com>
+
+        Fix WebAssembly memory.fill out of bounds error message
+        https://bugs.webkit.org/show_bug.cgi?id=233392
+
+        Reviewed by Yusuke Suzuki.
+
+        * wasm/WasmAirIRGenerator.cpp:
+        (JSC::Wasm::AirIRGenerator::addMemoryFill):
+        * wasm/WasmB3IRGenerator.cpp:
+        (JSC::Wasm::B3IRGenerator::addMemoryFill):
+        * wasm/WasmSlowPaths.cpp:
+        (JSC::LLInt::WASM_SLOW_PATH_DECL):
+
+2021-11-19  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r286030.
+        https://bugs.webkit.org/show_bug.cgi?id=233387
+
+        5% JetStream2 regression
+
+        Reverted changeset:
+
+        "DFGByteCodeParser.cpp should avoid resizing the Operands<> of
+        every BasicBlock on every inlining"
+        https://bugs.webkit.org/show_bug.cgi?id=228053
+        https://commits.webkit.org/r286030
+
+2021-11-19  Saam Barati  <sbarati@apple.com>
+
+        Fix assertion added in r285592
+        https://bugs.webkit.org/show_bug.cgi?id=233373
+        rdar://85451012
+
+        Reviewed by Keith Miller.
+
+        The assertion added in r285592 should not apply to Symbols. This patch
+        fixes that error. We don't care if a Symbol can be parsed as an index
+        since the string value in a Symbol is just its description, not the 
+        actual property.
+
+        * dfg/DFGValidate.cpp:
+
+2021-11-19  Joseph Griego  <jgriego@igalia.com>
+
+        [JSC] Shadow realms: set correct Function prototype on wrapped functions
+        https://bugs.webkit.org/show_bug.cgi?id=233143
+
+        Reviewed by Yusuke Suzuki.
+
+        At present, the Function prototype set on each of the returned wrapped
+        functions will be the Function object from the realm the shadow realm
+        builtin is from--to comply with the latest draft of the shadow realms
+        spec [1], wrapped function objects should have the Function prototype
+        from the realm the wrapper object is destined for, instead.
+
+        At present, this requires tracking both the calling (destination) and
+        target (source) realm and switching between the two as function
+        arguments are wrapped (when the notion of source and destination realm
+        also flips)
+
+        Adds a simple builtin (moveFunctionToRealm) that can switch the Function
+        prototype given only the Shadow Realm object corresponding to the
+        correct global object.
+
+        Also marks the corresponding part of test262 as passing.
+
+        [1] https://tc39.es/proposal-shadowrealm/ sections 2.1, 2.2
+
+
+
+        * builtins/BuiltinNames.h:
+        * builtins/ShadowRealmPrototype.js:
+        (wrapped):
+        (globalPrivate.wrap):
+        (evaluate):
+        (importValue):
+        (globalPrivate.wrap.wrapped): Deleted.
+        * bytecode/LinkTimeConstant.h:
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::init):
+        * runtime/ShadowRealmPrototype.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+        * runtime/ShadowRealmPrototype.h:
+
+2021-11-19  Robin Morisset  <rmorisset@apple.com>
+
+        AirFixObviousSpills should be optimized
+        https://bugs.webkit.org/show_bug.cgi?id=228052
+
+        Reviewed by Yusuke Suzuki.
+
+        There were two problems with AirFixObviousSpills:
+        - merge() had a quadratic blow-up, as for each element in a vector, it was searching it in a different vector.
+        - it would visit blocks even when their state at head had not changed.
+
+        I fixed the first problem by making sure that the vectors are sorted before calling merge, and making use of that invariant in the search of the vectors
+        (see filterVectorAgainst)
+        This reduced the total time spent in that phase from 390ms to 230ms, and the worst case time spent in that phase for one function from 100ms to 30ms (all of the results in this Changelog are for JetStream2 on a M1 MBP).
+
+        I fixed the second problem even more easily by adding a m_shouldVisit BitVector. I also moved the m_wasVisited boolean that was in State to a m_notBottom BitVector for simplicity and symmetry.
+        That change further reduced the total/max time from 230ms/30ms to 140ms/16ms.
+
+        * b3/air/AirFixObviousSpills.cpp:
+
+2021-11-18  Robin Morisset  <rmorisset@apple.com>
+
+        [JSC/Air] Optimize enableMovesOnValueAndAdjacents in IRC
+        https://bugs.webkit.org/show_bug.cgi?id=228615
+
+        Reviewed by Saam Barati.
+
+        The Iterated Register Coalescing (IRC) register allocator spends a very significant fraction of its time in JS2 in enableMovesOnValueAndAdjacents (816ms out of 2.07s spent in register allocation for Wasm code in one run I looked at with Instruments).
+        The reason is that if this function is called on N nodes that are neighbors of each other, then enableMovesOnValue (which is kinda expensive as it iterates a SmallSet which is not always small) will be called N times on each of the N nodes. This can trivially be fixed by keeping track of which nodes need enableMovesOnValue called on them and only calling it on them once.
+
+        It is a bit tricky to measure the performance impact of this, as it heavily depends on whether some very large functions reach Air or not, so there is a lot of noise.
+        Here are the numbers out of 4 runs of JS2 (cli version) on an M1 MBP with --airForceIRCAllocator=1:
+        Baseline       : total time in allocateRegistersByGraphColoring ranges from 2090ms to 3018ms, most time for a single function ranges from 631ms to 849ms
+        With this patch: total time in allocateRegistersByGraphColoring ranges from 1580ms to 2333ms, most time for a single function ranges from 337ms to 560ms
+        So despite the noise it seems quite clearly a win.
+
+        * b3/air/AirAllocateRegistersByGraphColoring.cpp:
+
+2021-11-18  Mark Lam  <mark.lam@apple.com>
+
+        SubSpace constructors should take a const HeapCellType& instead of a HeapCellType*.
+        https://bugs.webkit.org/show_bug.cgi?id=233341
+        rdar://85573277
+
+        Reviewed by Yusuke Suzuki.
+
+        This helps document that HeapCellTypes are immutable once they are instantiated,
+        and that SubSpaces won't be modifying them.
+
+        Also remove the const on CellAttributes return values since it is not needed nor
+        meaningful.
+
+        * heap/BlockDirectory.h:
+        (JSC::BlockDirectory::attributes const):
+        * heap/CompleteSubspace.cpp:
+        (JSC::CompleteSubspace::CompleteSubspace):
+        * heap/CompleteSubspace.h:
+        * heap/HeapCellType.cpp:
+        (JSC::HeapCellType::finishSweep const):
+        (JSC::HeapCellType::destroy const):
+        (JSC::HeapCellType::finishSweep): Deleted.
+        (JSC::HeapCellType::destroy): Deleted.
+        * heap/HeapCellType.h:
+        (JSC::HeapCellType::attributes const):
+        * heap/IsoHeapCellType.cpp:
+        (JSC::IsoHeapCellType::finishSweep const):
+        (JSC::IsoHeapCellType::destroy const):
+        (JSC::IsoHeapCellType::finishSweep): Deleted.
+        (JSC::IsoHeapCellType::destroy): Deleted.
+        * heap/IsoHeapCellType.h:
+        * heap/IsoInlinedHeapCellType.h:
+        * heap/IsoSubspace.cpp:
+        (JSC::IsoSubspace::IsoSubspace):
+        * heap/IsoSubspace.h:
+        * heap/IsoSubspacePerVM.cpp:
+        (JSC::IsoSubspacePerVM::forVM):
+        * heap/IsoSubspacePerVM.h:
+        * heap/MarkedBlock.h:
+        (JSC::MarkedBlock::Handle::attributes const):
+        (JSC::MarkedBlock::attributes const):
+        * heap/PreciseAllocation.h:
+        (JSC::PreciseAllocation::attributes const):
+        * heap/Subspace.cpp:
+        (JSC::Subspace::initialize):
+        * heap/Subspace.h:
+        (JSC::Subspace::heapCellType const):
+        * heap/SubspaceInlines.h:
+        (JSC::Subspace::attributes const):
+        * runtime/JSDestructibleObjectHeapCellType.cpp:
+        (JSC::JSDestructibleObjectHeapCellType::finishSweep const):
+        (JSC::JSDestructibleObjectHeapCellType::destroy const):
+        (JSC::JSDestructibleObjectHeapCellType::finishSweep): Deleted.
+        (JSC::JSDestructibleObjectHeapCellType::destroy): Deleted.
+        * runtime/JSDestructibleObjectHeapCellType.h:
+        * runtime/VM.cpp:
+        (JSC::VM::VM):
+
+2021-11-18  Mark Lam  <mark.lam@apple.com>
+
+        Rename PropertyMapHashTable.h to PropertyTable.h to match the class.
+        https://bugs.webkit.org/show_bug.cgi?id=233333
+        rdar://85565760
+
+        Reviewed by Yusuke Suzuki.
+
+        Also renamed some supporting data structures to match.  This is just a refactoring
+        patch.  There are no behavior changes.
+
+        * CMakeLists.txt:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/PropertyMapHashTable.h: Removed.
+        * runtime/PropertyTable.cpp:
+        * runtime/PropertyTable.h: Copied from Source/JavaScriptCore/runtime/PropertyMapHashTable.h.
+        (JSC::PropertyTable::find):
+        (JSC::PropertyTable::get):
+        (JSC::PropertyTable::add):
+        (JSC::PropertyTable::remove):
+        (JSC::PropertyTable::reinsert):
+        (JSC::PropertyTable::rehash):
+        * runtime/Structure.cpp:
+        (JSC::PropertyTableStatisticsExitLogger::PropertyTableStatisticsExitLogger):
+        (JSC::PropertyTableStatisticsExitLogger::~PropertyTableStatisticsExitLogger):
+        (JSC::PropertyMapStatisticsExitLogger::PropertyMapStatisticsExitLogger): Deleted.
+        (JSC::PropertyMapStatisticsExitLogger::~PropertyMapStatisticsExitLogger): Deleted.
+        * runtime/StructureInlines.h:
+        * runtime/VM.cpp:
+
+2021-11-18  Mark Lam  <mark.lam@apple.com>
+
+        CellAttributes should be returned by value.
+        https://bugs.webkit.org/show_bug.cgi?id=233335
+        rdar://85568435
+
+        Reviewed by Yusuke Suzuki.
+
+        CellAttributes fits in 16 bits, and client code never modifies returned CellAttributes
+        values.  Hence, there is no reason to return them by reference.
+
+        Also fixed a bit-rotted comment in SubSpace.h.
+
+        * heap/BlockDirectory.h:
+        (JSC::BlockDirectory::attributes const):
+        * heap/HeapCellType.h:
+        (JSC::HeapCellType::attributes const):
+        * heap/MarkedBlock.h:
+        (JSC::MarkedBlock::Handle::attributes const):
+        (JSC::MarkedBlock::attributes const):
+        * heap/PreciseAllocation.h:
+        (JSC::PreciseAllocation::attributes const):
+        * heap/Subspace.h:
+        * heap/SubspaceInlines.h:
+        (JSC::Subspace::attributes const):
+
+2021-11-18  Robin Morisset  <rmorisset@apple.com>
+
+        DFGByteCodeParser.cpp should avoid resizing the Operands<> of every BasicBlock on every inlining
+        https://bugs.webkit.org/show_bug.cgi?id=228053
+
+        Reviewed by Saam Barati.
+
+        The dfg bytecode parser only makes use of block->variablesAtTail.
+        But currently it updates the size of variablesAtHead, valuesAtHead, valuesAtTail and intersectionOfPastValuesAtHead every single time it changes the number of Tmps and/or Locals.
+        This happens notably whenever it inlines a function.
+
+        It is not nearly as cheap as it looks, as each resizing may reallocate a Vector, requires filling the new slots with zeros, and requires moving the existing values (which are all 0) to the new Vector.
+        This was obvious when looking at profiling of JS2: bzero + memmove are the two hottest C++ functions, and the manipulation of Operands is partly responsible.
+
+        This patch fixes this by only resizing block->variablesAtTail during the execution of the bytecode parser, and initializing all of the other operands at the very end of it.
+        It also merges the adjustment of numLocals and of numTmps for variablesAtTail during inlining, to avoid accidentally moving data twice.
+
+        On JetStream2 on an M1 MBP, it changes the total time spent in the DFGByteCodeParser from 1240-1260ms to 1155-1170ms.
+
+        * bytecode/Operands.h:
+        (JSC::Operands::ensureLocalsAndTmps):
+        * dfg/DFGBasicBlock.cpp:
+        * dfg/DFGBasicBlock.h:
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::ensureLocalsForVariablesAtTail):
+        (JSC::DFG::ByteCodeParser::ensureLocalsAndTmpsForVariablesAtTail):
+        (JSC::DFG::ByteCodeParser::allocateBlock):
+        (JSC::DFG::ByteCodeParser::allocateTargetableBlock):
+        (JSC::DFG::ByteCodeParser::allocateUntargetableBlock):
+        (JSC::DFG::ByteCodeParser::inlineCall):
+        (JSC::DFG::ByteCodeParser::handleVarargsInlining):
+        (JSC::DFG::ByteCodeParser::handleGetById):
+        (JSC::DFG::ByteCodeParser::handlePutById):
+        (JSC::DFG::ByteCodeParser::parse):
+
+2021-11-18  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Add branchTest16 operation
+        https://bugs.webkit.org/show_bug.cgi?id=233275
+
+        Reviewed by Mark Lam.
+
+        This patch adds branchTest16 to all macro assemblers. And it also fixes the existing bug of
+        edge case of branchTest8: when we cannot represent the imm as ARM logical value, then we are
+        failing to emit the right instructions. Probably this bug does not appear since we are not using
+        such a value as an imm for branchTest8. We added tests to testmasm so that these code is stressed
+        now.
+
+        * assembler/MacroAssembler.h:
+        (JSC::MacroAssembler::branchTest16):
+        * assembler/MacroAssemblerARM64.h:
+        (JSC::MacroAssemblerARM64::load16SignedExtendTo32):
+        (JSC::MacroAssemblerARM64::branchTest32):
+        (JSC::MacroAssemblerARM64::branchTest8):
+        (JSC::MacroAssemblerARM64::branchTest16):
+        * assembler/MacroAssemblerARMv7.h:
+        (JSC::MacroAssemblerARMv7::branchTest16):
+        (JSC::MacroAssemblerARMv7::test32):
+        (JSC::MacroAssemblerARMv7::test8):
+        * assembler/MacroAssemblerHelpers.h:
+        (JSC::MacroAssemblerHelpers::mask16OnCondition):
+        (JSC::MacroAssemblerHelpers::load16OnCondition):
+        * assembler/MacroAssemblerMIPS.h:
+        (JSC::MacroAssemblerMIPS::load16):
+        (JSC::MacroAssemblerMIPS::load16SignedExtendTo32):
+        (JSC::MacroAssemblerMIPS::mask16OnTest):
+        (JSC::MacroAssemblerMIPS::branchTest16):
+        * assembler/MacroAssemblerX86Common.h:
+        (JSC::MacroAssemblerX86Common::branchTest16):
+        * assembler/MacroAssemblerX86_64.h:
+        (JSC::MacroAssemblerX86_64::branchTest16):
+        * assembler/X86Assembler.h:
+        (JSC::X86Assembler::cmpw_im):
+        (JSC::X86Assembler::testw_im):
+        * assembler/testmasm.cpp:
+        (JSC::testBranchTest8):
+        (JSC::testBranchTest16):
+
+2021-11-18  David Kilzer  <ddkilzer@apple.com>
+
+        Add missing dependencies for <wtf/Platform.h> when generating derived sources
+        <https://webkit.org/b/233304>
+        <rdar://problem/85533245>
+
+        Reviewed by Darin Adler.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        (Derived Sources : Generate Derived Sources):
+        - Add an input dependency on the script run from the build phase
+          script.
+
+        * DerivedSources-input.xcfilelist:
+        - Update after changes to DerivedSoures.make.  WebKit headers
+          included by <wtf/Platform.h> are now listed.
+        * DerivedSources.make:
+        (platform_h_compiler_command): Add.
+        (FEATURE_AND_PLATFORM_DEFINES):
+        - Extract compiler command into a call routine for reuse.
+        (PLATFORM_HEADER_DIR): Add.
+        (PLATFORM_HEADER_DEPENDENCIES): Add.
+        (FEATURE_AND_PLATFORM_DEFINE_DEPENDENCIES):
+        - Generate a makefile dependency list for <wtf/Platform.h>, then
+          filter it to list only WebKit project headers.
+
+2021-11-18  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GLIB] jsc_value_object_define_property_accessor() throws an exception when called on a value without a wrapper instance
+        https://bugs.webkit.org/show_bug.cgi?id=233253
+
+        Reviewed by Michael Catanzaro.
+
+        We assumed that getter and setter were always methods, so we always try to set the initial parameter as the
+        instance. When called with a value not having an instance we get an exception because the expected instance is
+        nullptr. This patch changes the behavior of jsc_value_object_define_property_accessor() to call the getter and
+        setter as functions, but keeping the behavior of jsc_class_add_property() in which case they are still called as
+        methods.
+
+        * API/glib/JSCClass.cpp:
+        (jsc_class_add_property): Use jscValueAddPropertyAccessor().
+        * API/glib/JSCValue.cpp:
+        (jsObjectCall): Remove useless break after return.
+        (jscValueObjectDefinePropertyAccessor): Helper to define the property accessor using the given function type for
+        the getter and setter.
+        (jsc_value_object_define_property_accessor): Call jscValueObjectDefinePropertyAccessor() with function as
+        function type.
+        (jscValueAddPropertyAccessor): Call jscValueObjectDefinePropertyAccessor() with method as function type.
+        * API/glib/JSCValuePrivate.h:
+
+2021-11-17  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] TypedArray GetArrayLength should not use Reuse
+        https://bugs.webkit.org/show_bug.cgi?id=233299
+        rdar://85502079
+
+        Reviewed by Robin Morisset.
+
+        We should not perform OSR exit after assigning a value to a reused register, otherwise,
+        OSR exit cannot recover the proper value. Now TypedArray GetArrayLength can perform
+        OSR exit after loading a length, so we should not use reused register for length.
+
+        * dfg/DFGSpeculativeJIT.cpp:
+
+2021-11-17  Saam Barati  <sbarati@apple.com>
+
+        Run the memmove fast path in JSGenericTypedArrayView<Adaptor>::set when using a combination of Uint8 and Uint8Clamped
+        https://bugs.webkit.org/show_bug.cgi?id=233271
+        <rdar://85259288>
+
+        Reviewed by Yusuke Suzuki.
+
+        We have a fast path for running memmove when both the thing being
+        copied from and the thing being copied to have the same typed array
+        type. However, when copying from a Uint8Array into a Uint8ClampedArray,
+        or vice versa, we were going down the slow path. In this case,
+        we can still take the fast path, since we're guaranteed that storing
+        into a Uint8ClampedArray from a Uint8Array will never actually need
+        to clamp values. And when storing from a Uint8ClampedArray into a
+        Uint8Array, the values can trivially be copied over.
+
+        This patch is a 100x speedup on the attached microbenchmark.
+
+        * runtime/JSGenericTypedArrayViewInlines.h:
+        (JSC::JSGenericTypedArrayView<Adaptor>::set):
+
+2021-11-17  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Revise JSON.parse atomize policy
+        https://bugs.webkit.org/show_bug.cgi?id=233231
+
+        Reviewed by Mark Lam.
+
+        This patch improves JSON.parse performance by the following two changes.
+
+        1. Introduce JSONAtomStringCache. It is inspired from HTMLAtomStringCache. It offers cheap
+           fixed-sized cache stored in VM. Since it is in VM, we do not need to clear it every time
+           we call JSON.parse. We clear this cache when full GC happens. It contributes to
+           flight-todomvc-json-parse by 5%.
+        2. Do not atomize long string. Profiling of JSON.parse said that most of time is used for
+           atomizing of Strings. There is a tradeoff that, atomizing strings can reduce duplicate string
+           allocations, but it has a performance penalty. V8 limits atomizing for <= 10 length strings,
+           and SpiderMonkey does not atomize strings. In this patch, we aligned our atomizing policy to
+           V8, so we do not atomize strings if the length is longer than 10. It contributes to
+           flight-todomvc-json-parse by 50%.
+
+        Many microbenchmarks show the improvement.
+                                                                 ToT                     Patched
+
+            json-parse-object-reviver-same-value           78.2683+-0.9598           77.7784+-0.9488
+            vanilla-es2015-babel-webpack-todomvc-json-parse
+                                                           99.9129+-0.5508     ^     85.8160+-0.8721        ^ definitely 1.1643x faster
+            json-parse-array-reviver-same-value            63.5891+-0.8066           63.2895+-0.7336
+            flight-todomvc-json-parse                      52.4230+-0.4474     ^     34.1159+-0.2378        ^ definitely 1.5366x faster
+            json-parse-object-reviver                      80.8417+-0.5042           80.6393+-0.8087
+            json-parse-leaf-object                         51.6836+-0.6754     ^     46.8983+-0.1578        ^ definitely 1.1020x faster
+            vanilla-es2015-todomvc-json-parse             100.5916+-0.9399     ^     85.9522+-0.8470        ^ definitely 1.1703x faster
+            vanilla-todomvc-json-parse                     76.4518+-0.4341     ^     64.2318+-0.7621        ^ definitely 1.1902x faster
+            json-parse-array-reviver                       76.1276+-0.8529           75.9747+-0.9002
+
+        And Speedometer2 shows 0.8% improvement.
+
+            ----------------------------------------------------------------------------------------------------------------------------------
+            |               subtest                |     ms      |     ms      |  b / a   | pValue (significance using False Discovery Rate) |
+            ----------------------------------------------------------------------------------------------------------------------------------
+            | Elm-TodoMVC                          |109.046667   |108.546667   |0.995415  | 0.197186                                         |
+            | VueJS-TodoMVC                        |21.813333    |21.566667    |0.988692  | 0.313141                                         |
+            | EmberJS-TodoMVC                      |117.796667   |118.086667   |1.002462  | 0.558244                                         |
+            | Flight-TodoMVC                       |64.273333    |62.260000    |0.968675  | 0.000000 (significant)                           |
+            | BackboneJS-TodoMVC                   |42.856667    |42.863333    |1.000156  | 0.975025                                         |
+            | Preact-TodoMVC                       |16.326667    |16.673333    |1.021233  | 0.298674                                         |
+            | AngularJS-TodoMVC                    |123.146667   |122.413333   |0.994045  | 0.160282                                         |
+            | Inferno-TodoMVC                      |57.510000    |57.533333    |1.000406  | 0.947767                                         |
+            | Vanilla-ES2015-TodoMVC               |61.133333    |59.200000    |0.968375  | 0.000000 (significant)                           |
+            | Angular2-TypeScript-TodoMVC          |38.863333    |38.963333    |1.002573  | 0.860359                                         |
+            | VanillaJS-TodoMVC                    |51.296667    |49.423333    |0.963480  | 0.000000 (significant)                           |
+            | jQuery-TodoMVC                       |210.933333   |210.596667   |0.998404  | 0.590132                                         |
+            | EmberJS-Debug-TodoMVC                |326.093333   |324.890000   |0.996310  | 0.156955                                         |
+            | React-TodoMVC                        |81.113333    |81.360000    |1.003041  | 0.335615                                         |
+            | React-Redux-TodoMVC                  |132.560000   |132.256667   |0.997712  | 0.306072                                         |
+            | Vanilla-ES2015-Babel-Webpack-TodoMVC |60.073333    |59.026667    |0.982577  | 0.000883 (significant)                           |
+            ----------------------------------------------------------------------------------------------------------------------------------
+            a mean = 280.29390
+            b mean = 282.51413
+            pValue = 0.0000083325
+            (Bigger means are better.)
+            1.008 times better
+            Results ARE significant
+
+        * CMakeLists.txt:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * heap/Heap.cpp:
+        (JSC::Heap::finalize):
+        * runtime/JSONAtomStringCache.h: Added.
+        (JSC::JSONAtomStringCache::makeIdentifier):
+        (JSC::JSONAtomStringCache::clear):
+        (JSC::JSONAtomStringCache::cacheSlot):
+        (JSC::JSONAtomStringCache::cache):
+        * runtime/JSONAtomStringCacheInlines.h: Added.
+        (JSC::JSONAtomStringCache::make):
+        (JSC::JSONAtomStringCache::vm const):
+        * runtime/LiteralParser.cpp:
+        (JSC::LiteralParser<CharType>::makeIdentifier):
+        (JSC::LiteralParser<CharType>::makeJSString):
+        (JSC::LiteralParser<CharType>::parsePrimitiveValue):
+        (JSC::LiteralParser<CharType>::parse):
+        * runtime/LiteralParser.h:
+        * runtime/VM.h:
+
+2021-11-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Use operation path when PutByVal child1 is not speculated as a Cell
+        https://bugs.webkit.org/show_bug.cgi?id=233147
+        rdar://85344310
+
+        Reviewed by Mark Lam.
+
+        r285530 removed non CellUse / non KnownCellUse case incorrectly (when we do not have Cell edge,
+        then we should use the slow operation path). This patch recovers it.
+
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compilePutByVal):
+        * ftl/FTLLowerDFGToB3.cpp:
+        (JSC::FTL::DFG::LowerDFGToB3::compilePutByVal):
+
 2021-11-14  Yusuke Suzuki  <ysuzuki@apple.com>
 
         [JSC] Use CallLinkInfo in LLInt

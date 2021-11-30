@@ -2,6 +2,7 @@
  * Copyright (C) 2004, 2005, 2006, 2007 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,6 +23,7 @@
 #include "config.h"
 #include "FESpecularLighting.h"
 
+#include "ImageBuffer.h"
 #include "LightSource.h"
 #include <wtf/text/TextStream.h>
 
@@ -33,7 +35,7 @@ Ref<FESpecularLighting> FESpecularLighting::create(const Color& lightingColor, f
 }
 
 FESpecularLighting::FESpecularLighting(const Color& lightingColor, float surfaceScale, float specularConstant, float specularExponent, float kernelUnitLengthX, float kernelUnitLengthY, Ref<LightSource>&& lightSource)
-    : FELighting(SpecularLighting, lightingColor, surfaceScale, 0, specularConstant, specularExponent, kernelUnitLengthX, kernelUnitLengthY, WTFMove(lightSource), FilterEffect::Type::FESpecularLighting)
+    : FELighting(FilterEffect::Type::FESpecularLighting, lightingColor, surfaceScale, 0, specularConstant, specularExponent, kernelUnitLengthX, kernelUnitLengthY, WTFMove(lightSource))
 {
 }
 

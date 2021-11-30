@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -20,9 +21,8 @@
 #include "config.h"
 #include "SourceAlpha.h"
 
-#include "Color.h"
 #include "Filter.h"
-#include "GraphicsContext.h"
+#include "SourceAlphaSoftwareApplier.h"
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
@@ -45,20 +45,9 @@ void SourceAlpha::determineAbsolutePaintRect(const Filter& filter)
     setAbsolutePaintRect(inputEffect(0)->absolutePaintRect());
 }
 
-void SourceAlpha::platformApplySoftware(const Filter&)
+std::unique_ptr<FilterEffectApplier> SourceAlpha::createApplier(const Filter&) const
 {
-    ImageBuffer* resultImage = createImageBufferResult();
-    if (!resultImage)
-        return;
-    GraphicsContext& filterContext = resultImage->context();
-
-    ImageBuffer* imageBuffer = inputEffect(0)->imageBufferResult();
-    if (!imageBuffer)
-        return;
-
-    FloatRect imageRect(FloatPoint(), absolutePaintRect().size());
-    filterContext.fillRect(imageRect, Color::black);
-    filterContext.drawImageBuffer(*imageBuffer, IntPoint(), CompositeOperator::DestinationIn);
+    return FilterEffectApplier::create<SourceAlphaSoftwareApplier>(*this);
 }
 
 TextStream& SourceAlpha::externalRepresentation(TextStream& ts, RepresentationType) const

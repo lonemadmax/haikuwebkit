@@ -43,8 +43,6 @@ public:
 
     int selectionTop() { return top(); }
     int selectionHeight() { return static_cast<int>(ceilf(m_logicalHeight)); }
-    int offsetForPosition(float x, bool includePartialGlyphs = true) const override;
-    float positionForOffset(unsigned offset) const override;
 
     void paintSelectionBackground(PaintInfo&);
     void paint(PaintInfo&, const LayoutPoint&, LayoutUnit lineTop, LayoutUnit lineBottom) override;
@@ -83,8 +81,8 @@ private:
     bool prepareGraphicsContextForTextPainting(GraphicsContext*&, float scalingFactor, const RenderStyle&);
     void restoreGraphicsContextAfterTextPainting(GraphicsContext*&);
 
-    void paintDecoration(GraphicsContext&, OptionSet<TextDecoration>, const SVGTextFragment&);
-    void paintDecorationWithStyle(GraphicsContext&, OptionSet<TextDecoration>, const SVGTextFragment&, RenderBoxModelObject& decorationRenderer);
+    void paintDecoration(GraphicsContext&, OptionSet<TextDecorationLine>, const SVGTextFragment&);
+    void paintDecorationWithStyle(GraphicsContext&, OptionSet<TextDecorationLine>, const SVGTextFragment&, RenderBoxModelObject& decorationRenderer);
     void paintTextWithShadows(GraphicsContext&, const RenderStyle&, TextRun&, const SVGTextFragment&, unsigned startPosition, unsigned endPosition);
     void paintText(GraphicsContext&, const RenderStyle&, const RenderStyle& selectionStyle, const SVGTextFragment&, bool hasSelection, bool paintSelectedTextOnly);
 

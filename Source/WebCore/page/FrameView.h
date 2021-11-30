@@ -661,7 +661,7 @@ public:
     bool isScrollSnapInProgress() const final;
     void updateScrollingCoordinatorScrollSnapProperties() const;
 
-    float adjustScrollStepForFixedContent(float step, ScrollbarOrientation, ScrollGranularity) final;
+    float adjustVerticalPageScrollStepForFixedContent(float step) final;
 
     void didChangeScrollOffset();
 
@@ -699,6 +699,9 @@ public:
 
     // ScrollView
     void updateScrollbarSteps() override;
+    
+    OverscrollBehavior horizontalOverscrollBehavior() const final;
+    OverscrollBehavior verticalOverscrollBehavior() const final;
 
 private:
     explicit FrameView(Frame&);

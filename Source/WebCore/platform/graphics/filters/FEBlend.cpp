@@ -5,6 +5,7 @@
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
  * Copyright (C) 2012 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2014 Adobe Systems Incorporated. All rights reserved.
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,10 +27,7 @@
 #include "FEBlend.h"
 
 #include "FEBlendNEON.h"
-#include "FloatPoint.h"
-#include "GraphicsContext.h"
-#include "ImageBuffer.h"
-#include <JavaScriptCore/Uint8ClampedArray.h>
+#include "FEBlendSoftwareApplier.h"
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
@@ -53,26 +51,10 @@ bool FEBlend::setBlendMode(BlendMode mode)
     return true;
 }
 
-#if !HAVE(ARM_NEON_INTRINSICS)
-void FEBlend::platformApplySoftware(const Filter&)
+std::unique_ptr<FilterEffectApplier> FEBlend::createApplier(const Filter&) const
 {
-    FilterEffect* in = inputEffect(0);
-    FilterEffect* in2 = inputEffect(1);
-
-    ImageBuffer* resultImage = createImageBufferResult();
-    if (!resultImage)
-        return;
-    GraphicsContext& filterContext = resultImage->context();
-
-    ImageBuffer* imageBuffer = in->imageBufferResult();
-    ImageBuffer* imageBuffer2 = in2->imageBufferResult();
-    if (!imageBuffer || !imageBuffer2)
-        return;
-
-    filterContext.drawImageBuffer(*imageBuffer2, drawingRegionOfInputImage(in2->absolutePaintRect()));
-    filterContext.drawImageBuffer(*imageBuffer, drawingRegionOfInputImage(in->absolutePaintRect()), { { }, imageBuffer->logicalSize() }, { CompositeOperator::SourceOver, m_mode });
+    return FilterEffectApplier::create<FEBlendSoftwareApplier>(*this);
 }
-#endif
 
 TextStream& FEBlend::externalRepresentation(TextStream& ts, RepresentationType representation) const
 {

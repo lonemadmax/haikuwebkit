@@ -120,6 +120,9 @@ constexpr ComparableCaseFoldingASCIILiteral supportedImageMIMETypeArray[] = {
 #if !USE(CG) && USE(OPENJPEG)
     "image/jpeg2000",
 #endif
+#if USE(JPEGXL)
+    "image/jxl",
+#endif
 #if PLATFORM(IOS_FAMILY)
     "image/ms-bmp",
     "image/pipeg",
@@ -684,6 +687,11 @@ bool MIMETypeRegistry::canShowMIMEType(const String& mimeType)
         return true;
 #endif
 
+#if ENABLE(MODEL_ELEMENT)
+    if (isSupportedModelMIMEType(mimeType))
+        return true;
+#endif
+
     if (startsWithLettersIgnoringASCIICase(mimeType, "text/"))
         return !isUnsupportedTextMIMEType(mimeType);
 
@@ -712,6 +720,11 @@ bool MIMETypeRegistry::isUSDMIMEType(const String& mimeType)
 {
     static constexpr SortedArraySet usdMIMETypeSet { usdMIMETypeArray };
     return usdMIMETypeSet.contains(mimeType);
+}
+
+bool MIMETypeRegistry::isSupportedModelMIMEType(const String& mimeType)
+{
+    return MIMETypeRegistry::isUSDMIMEType(mimeType);
 }
 
 // FIXME: Not great that CURL needs this concept; other platforms do not.

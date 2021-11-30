@@ -36,6 +36,7 @@
 #include "Widget.h"
 #include <variant>
 #include <wtf/HashSet.h>
+#include <wtf/ObjectIdentifier.h>
 #include <wtf/RefCounted.h>
 
 #if PLATFORM(WIN)
@@ -93,8 +94,8 @@ class ScrollView;
 struct AccessibilityText;
 struct ScrollRectToVisibleOptions;
 
-using AXID = size_t;
-extern const AXID InvalidAXID;
+enum AXIDType { };
+using AXID = ObjectIdentifier<AXIDType>;
 
 enum class AXAncestorFlag : uint8_t {
     // When the flags aren't initialized, it means the object hasn't been inserted into the tree,
@@ -987,6 +988,7 @@ public:
     virtual void setIsExpanded(bool) = 0;
     virtual FloatRect relativeFrame() const = 0;
     virtual FloatRect convertFrameToSpace(const FloatRect&, AccessibilityConversionSpace) const = 0;
+    virtual FloatRect unobscuredContentRect() const = 0;
     virtual bool supportsCheckedState() const = 0;
     
     // In a multi-select list, many items can be selected but only one is active at a time.
@@ -996,6 +998,7 @@ public:
     virtual bool hasItalicFont() const = 0;
     virtual bool hasMisspelling() const = 0;
     virtual std::optional<SimpleRange> misspellingRange(const SimpleRange& start, AccessibilitySearchDirection) const = 0;
+    virtual std::optional<SimpleRange> visibleCharacterRange() const = 0;
     virtual bool hasPlainText() const = 0;
     virtual bool hasSameFont(const AXCoreObject&) const = 0;
     virtual bool hasSameFontColor(const AXCoreObject&) const = 0;
@@ -1582,7 +1585,7 @@ inline void AXCoreObject::detach(AccessibilityDetachmentType detachmentType)
 {
     detachWrapper(detachmentType);
     detachRemoteParts(detachmentType);
-    setObjectID(InvalidAXID);
+    setObjectID({ });
 }
 
 #if ENABLE(ACCESSIBILITY)

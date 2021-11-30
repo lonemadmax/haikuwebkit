@@ -2,6 +2,7 @@
  * Copyright (C) 2004, 2005, 2006, 2007 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -44,48 +45,26 @@ public:
     const Vector<float>& values() const { return m_values; }
     bool setValues(const Vector<float>&);
 
-    static inline void calculateSaturateComponents(float* components, float value);
-    static inline void calculateHueRotateComponents(float* components, float value);
+    static void calculateSaturateComponents(float* components, float value);
+    static void calculateHueRotateComponents(float* components, float value);
+    static Vector<float> normalizedFloats(const Vector<float>& values);
 
 private:
     FEColorMatrix(ColorMatrixType, Vector<float>&&);
 
-    void platformApplySoftware(const Filter&) override;
+#if USE(CORE_IMAGE)
+    bool supportsCoreImageRendering() const override;
+#endif
+    
+    bool resultIsAlphaImage() const override;
+
+    std::unique_ptr<FilterEffectApplier> createApplier(const Filter&) const override;
 
     WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
 
     ColorMatrixType m_type;
     Vector<float> m_values;
 };
-
-inline void FEColorMatrix::calculateSaturateComponents(float* components, float value)
-{
-    components[0] = (0.213 + 0.787 * value);
-    components[1] = (0.715 - 0.715 * value);
-    components[2] = (0.072 - 0.072 * value);
-    components[3] = (0.213 - 0.213 * value);
-    components[4] = (0.715 + 0.285 * value);
-    components[5] = (0.072 - 0.072 * value);
-    components[6] = (0.213 - 0.213 * value);
-    components[7] = (0.715 - 0.715 * value);
-    components[8] = (0.072 + 0.928 * value);
-}
-
-inline void FEColorMatrix::calculateHueRotateComponents(float* components, float value)
-{
-    float cosHue = cos(value * piFloat / 180);
-    float sinHue = sin(value * piFloat / 180);
-    components[0] = 0.213 + cosHue * 0.787 - sinHue * 0.213;
-    components[1] = 0.715 - cosHue * 0.715 - sinHue * 0.715;
-    components[2] = 0.072 - cosHue * 0.072 + sinHue * 0.928;
-    components[3] = 0.213 - cosHue * 0.213 + sinHue * 0.143;
-    components[4] = 0.715 + cosHue * 0.285 + sinHue * 0.140;
-    components[5] = 0.072 - cosHue * 0.072 - sinHue * 0.283;
-    components[6] = 0.213 - cosHue * 0.213 - sinHue * 0.787;
-    components[7] = 0.715 - cosHue * 0.715 + sinHue * 0.715;
-    components[8] = 0.072 + cosHue * 0.928 + sinHue * 0.072;
-}
-
 
 } // namespace WebCore
 

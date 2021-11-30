@@ -122,13 +122,9 @@ storage/indexeddb/database-transaction-cycle.html [ Pass ]
 imported/w3c/web-platform-tests/video-rvfc [ Pass ]
 fast/mediastream/getUserMedia-rvfc.html [ Pass ]
 webrtc/peerConnection-rvfc.html [ Pass ]
-# Timing out tests until we add regular video streaming backend support.
+# Timing out tests until we add XR session.
 imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-before-xr-session.https.html [ Skip ]
-imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-dom.html [ Skip ]
 imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-during-xr-session.https.html [ Skip ]
-imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-parallel.html [ Skip ]
-imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-repeating.html [ Skip ]
-imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback.html [ Skip ]
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # End platform-specific directories.
@@ -1493,9 +1489,6 @@ webkit.org/b/227536 [ BigSur ] imported/w3c/web-platform-tests/webrtc/simplecall
 
 webkit.org/b/227639 [ BigSur Release ] fast/history/visited-href-mutation.html [ Pass ImageOnlyFailure ]
 
-# rdar://80345048 ([ Monterey wk2 ] webrtc/h264-high.html is a constant timeout)
-[ Monterey ] webrtc/h264-high.html [ Timeout ]
-
 # rdar://80346382 ([ Monterey Release wk2 arm64 ] platform/mac/fast/overflow/overflow-scrollbar-hit-test.html is a flaky crash)
 [ Monterey arm64 ] platform/mac/fast/overflow/overflow-scrollbar-hit-test.html [ Failure Crash ]
 
@@ -1562,6 +1555,7 @@ webkit.org/b/228528 [ BigSur Debug arm64 ] fast/text/emoji-overlap.html [ Pass I
 [ Monterey arm64 ] fast/text/canvas-color-fonts/stroke-gradient-COLR-5.html [ ImageOnlyFailure ]
 
 webkit.org/b/228591 fast/scrolling/mac/programmatic-scroll-overrides-rubberband.html [ Pass Failure ]
+webkit.org/b/233234 fast/scrolling/mac/momentum-animator-in-overflow.html [ Failure ]
 
 webkit.org/b/229156 [ BigSur+ ] webrtc/video-addTrack.html [ Pass Failure ]
 

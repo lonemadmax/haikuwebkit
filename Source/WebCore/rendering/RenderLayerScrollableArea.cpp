@@ -947,6 +947,20 @@ int RenderLayerScrollableArea::horizontalScrollbarHeight(OverlayScrollbarSizeRel
     return m_hBar->height();
 }
 
+OverscrollBehavior RenderLayerScrollableArea::horizontalOverscrollBehavior() const
+{
+    if (m_layer.renderBox() && m_layer.renderBox()->canBeScrolledAndHasScrollableArea())
+        return m_layer.renderer().style().overscrollBehaviorX();
+    return OverscrollBehavior::Auto;
+}
+
+OverscrollBehavior RenderLayerScrollableArea::verticalOverscrollBehavior() const
+{
+    if (m_layer.renderBox() && m_layer.renderBox()->canBeScrolledAndHasScrollableArea())
+        return m_layer.renderer().style().overscrollBehaviorY();
+    return OverscrollBehavior::Auto;
+}
+
 bool RenderLayerScrollableArea::hasOverflowControls() const
 {
     return m_hBar || m_vBar || m_scrollCorner || m_layer.renderer().style().resize() != Resize::None;
@@ -1477,9 +1491,9 @@ bool RenderLayerScrollableArea::hitTestOverflowControls(HitTestResult& result, c
     return false;
 }
 
-bool RenderLayerScrollableArea::scroll(ScrollDirection direction, ScrollGranularity granularity, float multiplier)
+bool RenderLayerScrollableArea::scroll(ScrollDirection direction, ScrollGranularity granularity, unsigned stepCount)
 {
-    return ScrollableArea::scroll(direction, granularity, multiplier);
+    return ScrollableArea::scroll(direction, granularity, stepCount);
 }
 
 bool RenderLayerScrollableArea::isActive() const

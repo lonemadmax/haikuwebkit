@@ -25,9 +25,14 @@
 
 #pragma once
 
+#include "HTMLModelElementCamera.h"
+#include "LayoutPoint.h"
 #include "LayoutSize.h"
 #include "PlatformLayer.h"
+#include <optional>
 #include <wtf/Forward.h>
+#include <wtf/MonotonicTime.h>
+#include <wtf/Seconds.h>
 
 namespace WebCore {
 
@@ -40,6 +45,23 @@ public:
 
     virtual void load(Model&, LayoutSize) = 0;
     virtual PlatformLayer* layer() = 0;
+    virtual void enterFullscreen() = 0;
+    virtual bool supportsMouseInteraction();
+    virtual void handleMouseDown(const LayoutPoint&, MonotonicTime) = 0;
+    virtual void handleMouseMove(const LayoutPoint&, MonotonicTime) = 0;
+    virtual void handleMouseUp(const LayoutPoint&, MonotonicTime) = 0;
+    virtual void getCamera(CompletionHandler<void(std::optional<HTMLModelElementCamera>&&)>&&) = 0;
+    virtual void setCamera(HTMLModelElementCamera, CompletionHandler<void(bool success)>&&) = 0;
+    virtual void isPlayingAnimation(CompletionHandler<void(std::optional<bool>&&)>&&) = 0;
+    virtual void setAnimationIsPlaying(bool, CompletionHandler<void(bool success)>&&) = 0;
+    virtual void isLoopingAnimation(CompletionHandler<void(std::optional<bool>&&)>&&) = 0;
+    virtual void setIsLoopingAnimation(bool, CompletionHandler<void(bool success)>&&) = 0;
+    virtual void animationDuration(CompletionHandler<void(std::optional<Seconds>&&)>&&) = 0;
+    virtual void animationCurrentTime(CompletionHandler<void(std::optional<Seconds>&&)>&&) = 0;
+    virtual void setAnimationCurrentTime(Seconds, CompletionHandler<void(bool success)>&&) = 0;
+    virtual void hasAudio(CompletionHandler<void(std::optional<bool>&&)>&&) = 0;
+    virtual void isMuted(CompletionHandler<void(std::optional<bool>&&)>&&) = 0;
+    virtual void setIsMuted(bool, CompletionHandler<void(bool success)>&&) = 0;
 };
 
 }

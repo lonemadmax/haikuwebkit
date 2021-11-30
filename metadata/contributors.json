@@ -292,9 +292,10 @@
          "alex@webkit.org"
       ],
       "expertise" : "WebKitGTK, Cairo graphics backend, ShadowBlur rendering, Epiphany/WebKit Contributor",
+      "github" : "alexgcastro",
       "name" : "Alejandro G. Castro",
       "nicks" : [
-         "alexg__"
+         "alexg"
       ],
       "status" : "reviewer"
    },
@@ -312,6 +313,14 @@
       "nicks" : [
          "gskachkov"
       ]
+   },
+   {
+      "emails" : [
+         "alexandera_22@apple.com"
+      ],
+      "expertise" : "Python, Services, Kubernetes",
+      "github" : "akath20",
+      "name" : "Alex Atwater"
    },
    {
       "emails" : [
@@ -1468,8 +1477,10 @@
       "emails" : [
          "clord@igalia.com",
          "chris@igalia.com",
-         "contact@chrislord.net"
+         "contact@chrislord.net",
+         "chrislord.net@gmail.com"
       ],
+      "github" : "Cwiiis",
       "name" : "Chris Lord",
       "nicks" : [
          "cwiiis"
@@ -4624,6 +4635,15 @@
    },
    {
       "emails" : [
+         "mattwoodrow@apple.com"
+      ],
+      "name" : "Matt Woodrow",
+      "nicks" : [
+         "mattwoodrow"
+      ]
+   },
+   {
+      "emails" : [
          "mmirman@apple.com"
       ],
       "expertise" : "JavaScript/ECMAScript",
@@ -5160,12 +5180,13 @@
       "emails" : [
          "pangle@apple.com"
       ],
-      "expertise" : "Web Inspector",
+      "expertise" : "Developer Tools, Web Inspector, WebDriver",
+      "github" : "patrickangle",
       "name" : "Patrick Angle",
       "nicks" : [
          "pangle"
       ],
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [

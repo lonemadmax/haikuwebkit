@@ -1715,22 +1715,6 @@ public:
         m_assembler.ldr<32>(dest, src.base, PostIndex(src.index));
     }
 
-    DataLabel32 load32WithAddressOffsetPatch(Address address, RegisterID dest)
-    {
-        DataLabel32 label(this);
-        signExtend32ToPtrWithFixedWidth(address.offset, getCachedMemoryTempRegisterIDAndInvalidate());
-        m_assembler.ldr<32>(dest, address.base, memoryTempRegister, Assembler::SXTW, 0);
-        return label;
-    }
-    
-    DataLabelCompact load32WithCompactAddressOffsetPatch(Address address, RegisterID dest)
-    {
-        ASSERT(isCompactPtrAlignedAddressOffset(address.offset));
-        DataLabelCompact label(this);
-        m_assembler.ldr<32>(dest, address.base, address.offset);
-        return label;
-    }
-
     void load32WithUnalignedHalfWords(BaseIndex address, RegisterID dest)
     {
         load32(address, dest);
@@ -1803,6 +1787,14 @@ public:
         signExtend32ToPtr(TrustedImm32(address.offset), getCachedMemoryTempRegisterIDAndInvalidate());
         m_assembler.add<64>(memoryTempRegister, memoryTempRegister, address.index, indexExtendType(address), address.scale);
         m_assembler.ldrsh<32>(dest, address.base, memoryTempRegister);
+    }
+
+    void load16SignedExtendTo32(const void* address, RegisterID dest)
+    {
+        moveToCachedReg(TrustedImmPtr(address), cachedMemoryTempRegister());
+        m_assembler.ldrsh<32>(dest, memoryTempRegister, ARM64Registers::zr);
+        if (dest == memoryTempRegister)
+            cachedMemoryTempRegister().invalidate();
     }
 
     void zeroExtend16To32(RegisterID src, RegisterID dest)
@@ -2105,14 +2097,6 @@ public:
     void store32(RegisterID src, PostIndexAddress dest)
     {
         m_assembler.str<32>(src, dest.base, PostIndex(dest.index));
-    }
-
-    DataLabel32 store32WithAddressOffsetPatch(RegisterID src, Address address)
-    {
-        DataLabel32 label(this);
-        signExtend32ToPtrWithFixedWidth(address.offset, getCachedMemoryTempRegisterIDAndInvalidate());
-        m_assembler.str<32>(src, address.base, memoryTempRegister, Assembler::SXTW, 0);
-        return label;
     }
 
     void store16(RegisterID src, Address address)
@@ -3410,6 +3394,7 @@ public:
                 return Jump(makeBranch(cond));
             }
 
+            ASSERT(reg != dataTempRegister);
             move(mask, getCachedDataTempRegisterIDAndInvalidate());
             m_assembler.tst<32>(reg, dataTempRegister);
         }
@@ -3514,35 +3499,69 @@ public:
     Jump branchTest8(ResultCondition cond, Address address, TrustedImm32 mask = TrustedImm32(-1))
     {
         TrustedImm32 mask8 = MacroAssemblerHelpers::mask8OnCondition(*this, cond, mask);
-        MacroAssemblerHelpers::load8OnCondition(*this, cond, address, getCachedDataTempRegisterIDAndInvalidate());
-        return branchTest32(cond, dataTempRegister, mask8);
+        MacroAssemblerHelpers::load8OnCondition(*this, cond, address, getCachedMemoryTempRegisterIDAndInvalidate());
+        return branchTest32(cond, memoryTempRegister, mask8);
     }
 
     Jump branchTest8(ResultCondition cond, AbsoluteAddress address, TrustedImm32 mask = TrustedImm32(-1))
     {
         TrustedImm32 mask8 = MacroAssemblerHelpers::mask8OnCondition(*this, cond, mask);
-        MacroAssemblerHelpers::load8OnCondition(*this, cond, address.m_ptr, getCachedDataTempRegisterIDAndInvalidate());
-        return branchTest32(cond, dataTempRegister, mask8);
+        MacroAssemblerHelpers::load8OnCondition(*this, cond, address.m_ptr, getCachedMemoryTempRegisterIDAndInvalidate());
+        return branchTest32(cond, memoryTempRegister, mask8);
     }
 
     Jump branchTest8(ResultCondition cond, ExtendedAddress address, TrustedImm32 mask = TrustedImm32(-1))
     {
         TrustedImm32 mask8 = MacroAssemblerHelpers::mask8OnCondition(*this, cond, mask);
-        move(TrustedImmPtr(reinterpret_cast<void*>(address.offset)), getCachedDataTempRegisterIDAndInvalidate());
+        move(TrustedImmPtr(reinterpret_cast<void*>(address.offset)), getCachedMemoryTempRegisterIDAndInvalidate());
 
         if (MacroAssemblerHelpers::isUnsigned<MacroAssemblerARM64>(cond))
-            m_assembler.ldrb(dataTempRegister, address.base, dataTempRegister);
+            m_assembler.ldrb(memoryTempRegister, address.base, memoryTempRegister);
         else
-            m_assembler.ldrsb<32>(dataTempRegister, address.base, dataTempRegister);
+            m_assembler.ldrsb<32>(memoryTempRegister, address.base, memoryTempRegister);
 
-        return branchTest32(cond, dataTempRegister, mask8);
+        return branchTest32(cond, memoryTempRegister, mask8);
     }
 
     Jump branchTest8(ResultCondition cond, BaseIndex address, TrustedImm32 mask = TrustedImm32(-1))
     {
         TrustedImm32 mask8 = MacroAssemblerHelpers::mask8OnCondition(*this, cond, mask);
-        MacroAssemblerHelpers::load8OnCondition(*this, cond, address, getCachedDataTempRegisterIDAndInvalidate());
-        return branchTest32(cond, dataTempRegister, mask8);
+        MacroAssemblerHelpers::load8OnCondition(*this, cond, address, getCachedMemoryTempRegisterIDAndInvalidate());
+        return branchTest32(cond, memoryTempRegister, mask8);
+    }
+
+    Jump branchTest16(ResultCondition cond, Address address, TrustedImm32 mask = TrustedImm32(-1))
+    {
+        TrustedImm32 mask16 = MacroAssemblerHelpers::mask16OnCondition(*this, cond, mask);
+        MacroAssemblerHelpers::load16OnCondition(*this, cond, address, getCachedMemoryTempRegisterIDAndInvalidate());
+        return branchTest32(cond, memoryTempRegister, mask16);
+    }
+
+    Jump branchTest16(ResultCondition cond, AbsoluteAddress address, TrustedImm32 mask = TrustedImm32(-1))
+    {
+        TrustedImm32 mask16 = MacroAssemblerHelpers::mask16OnCondition(*this, cond, mask);
+        MacroAssemblerHelpers::load16OnCondition(*this, cond, address.m_ptr, getCachedMemoryTempRegisterIDAndInvalidate());
+        return branchTest32(cond, memoryTempRegister, mask16);
+    }
+
+    Jump branchTest16(ResultCondition cond, ExtendedAddress address, TrustedImm32 mask = TrustedImm32(-1))
+    {
+        TrustedImm32 mask16 = MacroAssemblerHelpers::mask16OnCondition(*this, cond, mask);
+        move(TrustedImmPtr(reinterpret_cast<void*>(address.offset)), getCachedMemoryTempRegisterIDAndInvalidate());
+
+        if (MacroAssemblerHelpers::isUnsigned<MacroAssemblerARM64>(cond))
+            m_assembler.ldrh(memoryTempRegister, address.base, memoryTempRegister);
+        else
+            m_assembler.ldrsh<32>(memoryTempRegister, address.base, memoryTempRegister);
+
+        return branchTest32(cond, memoryTempRegister, mask16);
+    }
+
+    Jump branchTest16(ResultCondition cond, BaseIndex address, TrustedImm32 mask = TrustedImm32(-1))
+    {
+        TrustedImm32 mask16 = MacroAssemblerHelpers::mask16OnCondition(*this, cond, mask);
+        MacroAssemblerHelpers::load16OnCondition(*this, cond, address, getCachedMemoryTempRegisterIDAndInvalidate());
+        return branchTest32(cond, memoryTempRegister, mask16);
     }
 
     Jump branch32WithUnalignedHalfWords(RelationalCondition cond, BaseIndex left, TrustedImm32 right)

@@ -2,6 +2,7 @@
  * Copyright (C) 2004, 2005, 2006, 2007 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -61,17 +62,11 @@ public:
 private:
     FEComponentTransfer(const ComponentTransferFunction& redFunc, const ComponentTransferFunction& greenFunc, const ComponentTransferFunction& blueFunc, const ComponentTransferFunction& alphaFunc);
 
-    using LookupTable = std::array<uint8_t, 256>;
+#if USE(CORE_IMAGE)
+    bool supportsCoreImageRendering() const override;
+#endif
 
-    static void computeIdentityTable(LookupTable&, const ComponentTransferFunction&);
-    static void computeTabularTable(LookupTable&, const ComponentTransferFunction&);
-    static void computeDiscreteTable(LookupTable&, const ComponentTransferFunction&);
-    static void computeLinearTable(LookupTable&, const ComponentTransferFunction&);
-    static void computeGammaTable(LookupTable&, const ComponentTransferFunction&);
-
-    void computeLookupTables(LookupTable& redTable, LookupTable& greenTable, LookupTable& blueTable, LookupTable& alphaTable);
-
-    void platformApplySoftware(const Filter&) override;
+    std::unique_ptr<FilterEffectApplier> createApplier(const Filter&) const override;
 
     WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
 

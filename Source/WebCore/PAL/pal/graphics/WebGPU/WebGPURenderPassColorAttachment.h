@@ -28,13 +28,13 @@
 #include "WebGPUColor.h"
 #include "WebGPULoadOp.h"
 #include "WebGPUStoreOp.h"
-#include "WebGPUTextureView.h"
 #include <variant>
 #include <wtf/Ref.h>
 #include <wtf/Vector.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
+
+class TextureView;
 
 struct RenderPassColorAttachment {
     TextureView& view;
@@ -44,5 +44,4 @@ struct RenderPassColorAttachment {
     StoreOp storeOp;
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU

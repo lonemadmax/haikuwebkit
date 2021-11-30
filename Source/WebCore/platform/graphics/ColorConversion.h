@@ -37,8 +37,8 @@ enum class ColorSpace : uint8_t;
 template<typename Output, typename Input> Output convertColor(const Input& color);
 
 // Conversion functions for raw color components with associated color spaces.
-ColorComponents<float, 4> converColorComponents(ColorSpace inputColorSpace, ColorComponents<float, 4> inputColorComponents, ColorSpace outputColorSpace);
-ColorComponents<float, 4> converColorComponents(ColorSpace inputColorSpace, ColorComponents<float, 4> inputColorComponents, const DestinationColorSpace& outputColorSpace);
+ColorComponents<float, 4> convertColorComponents(ColorSpace inputColorSpace, ColorComponents<float, 4> inputColorComponents, ColorSpace outputColorSpace);
+ColorComponents<float, 4> convertColorComponents(ColorSpace inputColorSpace, ColorComponents<float, 4> inputColorComponents, const DestinationColorSpace& outputColorSpace);
 
 
 // All color types, other than XYZA or those inheriting from RGBType, must implement
@@ -114,6 +114,22 @@ template<> struct ColorConversion<Lab<float>, XYZA<float, WhitePoint::D50>> {
     WEBCORE_EXPORT static Lab<float> convert(const XYZA<float, WhitePoint::D50>&);
 };
 
+// MARK: OKLCHA
+template<> struct ColorConversion<OKLab<float>, OKLCHA<float>> {
+    WEBCORE_EXPORT static OKLab<float> convert(const OKLCHA<float>&);
+};
+template<> struct ColorConversion<OKLCHA<float>, OKLab<float>> {
+    WEBCORE_EXPORT static OKLCHA<float> convert(const OKLab<float>&);
+};
+
+// MARK: OKLab
+template<> struct ColorConversion<XYZA<float, WhitePoint::D65>, OKLab<float>> {
+    WEBCORE_EXPORT static XYZA<float, WhitePoint::D65> convert(const OKLab<float>&);
+};
+template<> struct ColorConversion<OKLab<float>, XYZA<float, WhitePoint::D65>> {
+    WEBCORE_EXPORT static OKLab<float> convert(const XYZA<float, WhitePoint::D65>&);
+};
+
 // Identity conversion.
 
 template<typename ColorType> struct ColorConversion<ColorType, ColorType> {
@@ -131,24 +147,24 @@ template<typename ColorType> struct ColorConversion<ColorType, ColorType> {
 //                │                      │ XYZ (D50) │││ XYZ (D65) │                                                                                                                      │
 //                                       └─────▲─────┘│└─────▲─────┘
 //                │                            │      │      │                                                                                                                            │
-//       ┌─────────────────────────┬───────────┘      │      └───────────┬───────────────────────────────┬───────────────────────────────┬───────────────────────────────┐
-//       │        │                │                  │                  │                               │                               │                               │                │
-//       │                         │                  │                  │                               │                               │                               │
-//       │        │                │                  │                  │                               │                               │                               │                │
-//       │          ProPhotoRGB───────────────────┐   │   SRGB──────────────────────────┐ DisplayP3─────────────────────┐ A98RGB────────────────────────┐ Rec2020───────────────────────┐
-//       │        │ │┌────────┐ ┌────────────────┐│   │   │┌────────┐ ┌────────────────┐│ │┌────────┐ ┌────────────────┐│ │┌────────┐ ┌────────────────┐│ │┌────────┐ ┌────────────────┐│ │
-//       │          ││ Linear │ │ LinearExtended ││   │   ││ Linear │ │ LinearExtended ││ ││ Linear │ │ LinearExtended ││ ││ Linear │ │ LinearExtended ││ ││ Linear │ │ LinearExtended ││
-//       │        │ │└────────┘ └────────────────┘│   │   │└────────┘ └────────────────┘│ │└────────┘ └────────────────┘│ │└────────┘ └────────────────┘│ │└────────┘ └────────────────┘│ │
-//       │         ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─ ─│─ ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─
-// ┌───────────┐    │┌────────┐ ┌────────────────┐│   │   │┌────────┐ ┌────────────────┐│ │┌────────┐ ┌────────────────┐│ │┌────────┐ ┌────────────────┐│ │┌────────┐ ┌────────────────┐│
-// │    Lab    │    ││ Gamma  │ │ GammaExtended  ││   │   ││ Gamma  │ │ GammaExtended  ││ ││ Gamma  │ │ GammaExtended  ││ ││ Gamma  │ │ GammaExtended  ││ ││ Gamma  │ │ GammaExtended  ││
-// └─────▲─────┘    │└────────┘ └────────────────┘│   │   │└────▲───┘ └────────────────┘│ │└────────┘ └────────────────┘│ │└────────┘ └────────────────┘│ │└────────┘ └────────────────┘│
-//       │          └─────────────────────────────┘   │   └─────┼───────────────────────┘ └─────────────────────────────┘ └─────────────────────────────┘ └─────────────────────────────┘
-//       │                                            │      ┌──┴──────────┐
-//       │                                            │      │             │
-// ┌───────────┐                                      │┌───────────┐ ┌───────────┐
-// │    LCH    │                                      ││    HSL    │ │    HWB    │
-// └───────────┘                                      │└───────────┘ └───────────┘
+//       ┌─────────────────────────┬───────────┘      │      └───────────┬───────────────────────────────┬───────────────────────────────┬───────────────────────────────┬─────────────────────────┐
+//       │        │                │                  │                  │                               │                               │                               │                │        │
+//       │                         │                  │                  │                               │                               │                               │                         │
+//       │        │                │                  │                  │                               │                               │                               │                │        │
+//       │          ProPhotoRGB───────────────────┐   │   SRGB──────────────────────────┐ DisplayP3─────────────────────┐ A98RGB────────────────────────┐ Rec2020───────────────────────┐          │
+//       │        │ │┌────────┐ ┌────────────────┐│   │   │┌────────┐ ┌────────────────┐│ │┌────────┐ ┌────────────────┐│ │┌────────┐ ┌────────────────┐│ │┌────────┐ ┌────────────────┐│ │        │
+//       │          ││ Linear │ │ LinearExtended ││   │   ││ Linear │ │ LinearExtended ││ ││ Linear │ │ LinearExtended ││ ││ Linear │ │ LinearExtended ││ ││ Linear │ │ LinearExtended ││          │
+//       │        │ │└────────┘ └────────────────┘│   │   │└────────┘ └────────────────┘│ │└────────┘ └────────────────┘│ │└────────┘ └────────────────┘│ │└────────┘ └────────────────┘│ │        │
+//       │         ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─ ─│─ ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─         │
+// ┌───────────┐    │┌────────┐ ┌────────────────┐│   │   │┌────────┐ ┌────────────────┐│ │┌────────┐ ┌────────────────┐│ │┌────────┐ ┌────────────────┐│ │┌────────┐ ┌────────────────┐│    ┌───────────┐
+// │    Lab    │    ││ Gamma  │ │ GammaExtended  ││   │   ││ Gamma  │ │ GammaExtended  ││ ││ Gamma  │ │ GammaExtended  ││ ││ Gamma  │ │ GammaExtended  ││ ││ Gamma  │ │ GammaExtended  ││    │   OKLab   │
+// └─────▲─────┘    │└────────┘ └────────────────┘│   │   │└────▲───┘ └────────────────┘│ │└────────┘ └────────────────┘│ │└────────┘ └────────────────┘│ │└────────┘ └────────────────┘│    └─────▲─────┘
+//       │          └─────────────────────────────┘   │   └─────┼───────────────────────┘ └─────────────────────────────┘ └─────────────────────────────┘ └─────────────────────────────┘          │
+//       │                                            │      ┌──┴──────────┐                                                                                                                       │
+//       │                                            │      │             │                                                                                                                       │
+// ┌───────────┐                                      │┌───────────┐ ┌───────────┐                                                                                                           ┌───────────┐
+// │    LCH    │                                      ││    HSL    │ │    HWB    │                                                                                                           │   OKLCH   │
+// └───────────┘                                      │└───────────┘ └───────────┘                                                                                                           └───────────┘
 
 template<typename Output, typename Input, typename> struct ColorConversion {
 public:

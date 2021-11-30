@@ -4,6 +4,7 @@
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,8 +26,7 @@
 #include "FEOffset.h"
 
 #include "Filter.h"
-#include "GraphicsContext.h"
-#include "ImageBuffer.h"
+#include "FEOffsetSoftwareApplier.h"
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
@@ -64,20 +64,14 @@ void FEOffset::determineAbsolutePaintRect(const Filter& filter)
     setAbsolutePaintRect(enclosingIntRect(paintRect));
 }
 
-void FEOffset::platformApplySoftware(const Filter& filter)
+bool FEOffset::resultIsAlphaImage() const
 {
-    FilterEffect* in = inputEffect(0);
+    return inputEffect(0)->resultIsAlphaImage();
+}
 
-    ImageBuffer* resultImage = createImageBufferResult();
-    ImageBuffer* inBuffer = in->imageBufferResult();
-    if (!resultImage || !inBuffer)
-        return;
-
-    setIsAlphaImage(in->isAlphaImage());
-
-    FloatRect drawingRegion = drawingRegionOfInputImage(in->absolutePaintRect());
-    drawingRegion.move(filter.scaledByFilterScale({ m_dx, m_dy }));
-    resultImage->context().drawImageBuffer(*inBuffer, drawingRegion);
+std::unique_ptr<FilterEffectApplier> FEOffset::createApplier(const Filter&) const
+{
+    return FilterEffectApplier::create<FEOffsetSoftwareApplier>(*this);
 }
 
 TextStream& FEOffset::externalRepresentation(TextStream& ts, RepresentationType representation) const

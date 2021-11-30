@@ -26,14 +26,25 @@
 #pragma once
 
 #include <cstdint>
+#include <wtf/EnumTraits.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 enum class VertexStepMode : uint8_t {
     Vertex,
     Instance,
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU
+
+namespace WTF {
+
+template<> struct EnumTraits<PAL::WebGPU::VertexStepMode> {
+    using values = EnumValues<
+        PAL::WebGPU::VertexStepMode,
+        PAL::WebGPU::VertexStepMode::Vertex,
+        PAL::WebGPU::VertexStepMode::Instance
+    >;
+};
+
+} // namespace WTF

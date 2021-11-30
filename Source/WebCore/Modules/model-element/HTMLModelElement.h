@@ -30,7 +30,9 @@
 #include "CachedRawResource.h"
 #include "CachedRawResourceClient.h"
 #include "CachedResourceHandle.h"
+#include "GraphicsLayer.h"
 #include "HTMLElement.h"
+#include "HTMLModelElementCamera.h"
 #include "IDLTypes.h"
 #include "ModelPlayerClient.h"
 #include "PlatformLayer.h"
@@ -39,9 +41,12 @@
 
 namespace WebCore {
 
+class Event;
 class Model;
 class ModelPlayer;
+class MouseEvent;
 
+template<typename IDLType> class DOMPromiseDeferred;
 template<typename IDLType> class DOMPromiseProxyWithResolveCallback;
 
 class HTMLModelElement final : public HTMLElement, private CachedRawResourceClient, public ModelPlayerClient {
@@ -58,13 +63,37 @@ public:
     using ReadyPromise = DOMPromiseProxyWithResolveCallback<IDLInterface<HTMLModelElement>>;
     ReadyPromise& ready() { return m_readyPromise.get(); }
 
-    RefPtr<SharedBuffer> modelData() const;
     RefPtr<Model> model() const;
 
     bool usesPlatformLayer() const;
     PlatformLayer* platformLayer() const;
 
     void enterFullscreen();
+
+    using CameraPromise = DOMPromiseDeferred<IDLDictionary<HTMLModelElementCamera>>;
+    void getCamera(CameraPromise&&);
+    void setCamera(HTMLModelElementCamera, DOMPromiseDeferred<void>&&);
+
+    using IsPlayingAnimationPromise = DOMPromiseDeferred<IDLBoolean>;
+    void isPlayingAnimation(IsPlayingAnimationPromise&&);
+    void playAnimation(DOMPromiseDeferred<void>&&);
+    void pauseAnimation(DOMPromiseDeferred<void>&&);
+
+    using IsLoopingAnimationPromise = DOMPromiseDeferred<IDLBoolean>;
+    void isLoopingAnimation(IsLoopingAnimationPromise&&);
+    void setIsLoopingAnimation(bool, DOMPromiseDeferred<void>&&);
+
+    using DurationPromise = DOMPromiseDeferred<IDLDouble>;
+    void animationDuration(DurationPromise&&);
+    using CurrentTimePromise = DOMPromiseDeferred<IDLDouble>;
+    void animationCurrentTime(CurrentTimePromise&&);
+    void setAnimationCurrentTime(double, DOMPromiseDeferred<void>&&);
+
+    using HasAudioPromise = DOMPromiseDeferred<IDLBoolean>;
+    void hasAudio(HasAudioPromise&&);
+    using IsMutedPromise = DOMPromiseDeferred<IDLBoolean>;
+    void isMuted(IsMutedPromise&&);
+    void setIsMuted(bool, DOMPromiseDeferred<void>&&);
 
     bool isDraggableIgnoringAttributes() const final { return true; }
 
@@ -89,6 +118,14 @@ private:
     // ModelPlayerClient overrides.
     void didFinishLoading(ModelPlayer&) final;
     void didFailLoading(ModelPlayer&, const ResourceError&) final;
+    GraphicsLayer::PlatformLayerID platformLayerID() final;
+
+    void defaultEventHandler(Event&) final;
+    void dragDidStart(MouseEvent&);
+    void dragDidChange(MouseEvent&);
+    void dragDidEnd(MouseEvent&);
+
+    void setAnimationIsPlaying(bool, DOMPromiseDeferred<void>&&);
 
     URL m_sourceURL;
     CachedResourceHandle<CachedRawResource> m_resource;
@@ -96,6 +133,7 @@ private:
     RefPtr<Model> m_model;
     UniqueRef<ReadyPromise> m_readyPromise;
     bool m_dataComplete { false };
+    bool m_isDragging { false };
 
     RefPtr<ModelPlayer> m_modelPlayer;
 };

@@ -33,6 +33,11 @@ http/tests/security/xss-DENIED-xsl-external-entity-no-logging.xml [ Pass ]
 # rdar://problem/61793884 : Enabling this test for WK1 only.
 fast/shapes/shape-outside-floats/shape-outside-imagedata-overflow.html [ Pass ]
 
+imported/w3c/web-platform-tests/video-rvfc [ Pass ]
+# Timing out tests until we add XR session.
+imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-before-xr-session.https.html [ Skip ]
+imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-during-xr-session.https.html [ Skip ]
+
 #//////////////////////////////////////////////////////////////////////////////////////////
 # End platform-specific directories.
 #//////////////////////////////////////////////////////////////////////////////////////////
@@ -47,6 +52,7 @@ css-custom-properties-api [ Skip ]
 css-typedom [ Skip ]
 css-dark-mode [ Skip ]
 model-element [ Skip ]
+http/tests/model [ Skip ]
 
 # Media Stream API testing is not supported for WK1 yet.
 fast/mediastream
@@ -594,6 +600,9 @@ editing/spelling/spelling-insert-html.html [ Pass Timeout ]
 # <rdar://problem/26399598>
 editing/spelling/spellcheck-async.html [ Failure ]
 editing/spelling/spelling-unified-emulation.html [ Failure ]
+
+# Skip due to lack of DumpRenderTree `AccessibilityUIElement::stringDescriptionOfAttributeValue` implementation.
+accessibility/visible-character-range.html [ Skip ]
 
 # <rdar://problem/26050923> The result is probably still a pass, but we don't have a way
 # to have platform specific results that are different between WK1 and WK2.

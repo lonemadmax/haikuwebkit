@@ -339,8 +339,6 @@ public:
     bool hasAudioCaptureExtension() const { return m_mediaCaptureSandboxExtensions & Audio; }
     void grantAudioCaptureExtension() { m_mediaCaptureSandboxExtensions |= Audio; }
     void revokeAudioCaptureExtension() { m_mediaCaptureSandboxExtensions &= ~Audio; }
-
-    void sendAudioComponentRegistrations();
 #endif
 
 #if ENABLE(REMOTE_INSPECTOR) && PLATFORM(COCOA)
@@ -357,7 +355,7 @@ public:
     void updateAudibleMediaAssertions();
 
 #if ENABLE(SERVICE_WORKER)
-    void establishServiceWorkerContext(const WebPreferencesStore&, const WebCore::RegistrableDomain&, std::optional<WebCore::ServiceWorkerClientIdentifier> serviceWorkerPageIdentifier, CompletionHandler<void()>&&);
+    void establishServiceWorkerContext(const WebPreferencesStore&, const WebCore::RegistrableDomain&, std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, CompletionHandler<void()>&&);
     void setServiceWorkerUserAgent(const String&);
     void updateServiceWorkerPreferencesStore(const WebPreferencesStore&);
     bool hasServiceWorkerPageProxy(WebPageProxyIdentifier pageProxyID) { return m_serviceWorkerInformation && m_serviceWorkerInformation->serviceWorkerPageProxyID == pageProxyID; }

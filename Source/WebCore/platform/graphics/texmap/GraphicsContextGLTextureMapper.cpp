@@ -27,11 +27,13 @@
  */
 
 #include "config.h"
+#include "GraphicsContextGLTextureMapper.h"
 
 #if ENABLE(WEBGL) && USE(TEXTURE_MAPPER)
 
 #include "GLContext.h"
 #include "GraphicsContextGLOpenGLManager.h"
+#include "PixelBuffer.h"
 #include "TextureMapperGCGLPlatformLayer.h"
 #include <wtf/Deque.h>
 #include <wtf/NeverDestroyed.h>
@@ -63,9 +65,35 @@
 #endif
 #endif
 
+#if ENABLE(MEDIA_STREAM)
+#include "MediaSample.h"
+#endif
+
+#if USE(GSTREAMER) && ENABLE(MEDIA_STREAM)
+#include "MediaSampleGStreamer.h"
+#endif
+
+#if ENABLE(VIDEO)
+#include "MediaPlayerPrivate.h"
+#endif
+
 namespace WebCore {
 
-RefPtr<GraphicsContextGLOpenGL> GraphicsContextGLOpenGL::create(GraphicsContextGLAttributes attributes, HostWindow*)
+RefPtr<GraphicsContextGLTextureMapper> GraphicsContextGLTextureMapper::create(GraphicsContextGLAttributes&& attributes)
+{
+    return adoptRef(*new GraphicsContextGLTextureMapper(WTFMove(attributes)));
+}
+
+GraphicsContextGLTextureMapper::~GraphicsContextGLTextureMapper() = default;
+
+GraphicsContextGLTextureMapper::GraphicsContextGLTextureMapper(GraphicsContextGLAttributes&& attributes)
+    : GraphicsContextGLOpenGL(WTFMove(attributes))
+{
+}
+
+// FIXME: Below functionality should be moved to GraphicsContextGLTextureMapper to simplify the base class.
+
+RefPtr<GraphicsContextGL> createWebProcessGraphicsContextGL(const GraphicsContextGLAttributes& attributes)
 {
     static bool initialized = false;
     static bool success = true;
@@ -84,7 +112,7 @@ RefPtr<GraphicsContextGLOpenGL> GraphicsContextGLOpenGL::create(GraphicsContextG
         return nullptr;
 
     // Create the GraphicsContextGLOpenGL object first in order to establist a current context on this thread.
-    auto context = adoptRef(new GraphicsContextGLOpenGL(attributes));
+    auto context = GraphicsContextGLTextureMapper::create(GraphicsContextGLAttributes { attributes });
 
 #if USE(LIBEPOXY) && USE(OPENGL_ES) && ENABLE(WEBGL2)
     // Bail if GLES3 was requested but cannot be provided.
@@ -413,17 +441,6 @@ PlatformLayer* GraphicsContextGLOpenGL::platformLayer() const
 #endif
 }
 
-#if USE(ANGLE)
-GCGLenum GraphicsContextGLOpenGL::drawingBufferTextureTarget()
-{
-#if PLATFORM(WIN)
-    return GL_TEXTURE_2D;
-#else
-    return GL_TEXTURE_RECTANGLE_ANGLE;
-#endif
-}
-#endif
-
 #if PLATFORM(GTK) && !USE(ANGLE)
 ExtensionsGLOpenGLCommon& GraphicsContextGLOpenGL::getExtensions()
 {
@@ -437,6 +454,43 @@ ExtensionsGLOpenGLCommon& GraphicsContextGLOpenGL::getExtensions()
 #endif
     }
     return *m_extensions;
+}
+#endif
+
+void GraphicsContextGLOpenGL::setContextVisibility(bool)
+{
+}
+
+void GraphicsContextGLOpenGL::simulateEventForTesting(SimulatedEventForTesting event)
+{
+    if (event == SimulatedEventForTesting::GPUStatusFailure)
+        m_failNextStatusCheck = true;
+}
+
+void GraphicsContextGLOpenGL::prepareForDisplay()
+{
+}
+
+#if ENABLE(MEDIA_STREAM)
+RefPtr<MediaSample> GraphicsContextGLOpenGL::paintCompositedResultsToMediaSample()
+{
+#if USE(GSTREAMER)
+    if (auto pixelBuffer = readCompositedResults())
+        return MediaSampleGStreamer::createImageSample(WTFMove(*pixelBuffer));
+#endif
+    return nullptr;
+}
+#endif
+
+std::optional<PixelBuffer> GraphicsContextGLOpenGL::readCompositedResults()
+{
+    return readRenderingResults();
+}
+
+#if ENABLE(VIDEO)
+bool GraphicsContextGLTextureMapper::copyTextureFromMedia(MediaPlayer& player, PlatformGLObject outputTexture, GCGLenum outputTarget, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY)
+{
+    return player.copyVideoTextureToPlatformTexture(this, outputTexture, outputTarget, level, internalFormat, format, type, premultiplyAlpha, flipY);
 }
 #endif
 

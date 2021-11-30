@@ -1,3 +1,160 @@
+2021-11-29  Angelos Oikonomopoulos  <angelos@igalia.com>
+
+        Fix ATOMICS_REQUIRE_LIBATOMIC testcase on 32-bits
+        https://bugs.webkit.org/show_bug.cgi?id=233551
+
+        Unreviewed build fix.
+
+        There's a syntax error when compiling the test program
+        on 32-bits. This was not an issue on ARM as atomics are
+        built in on that platform, but broke the MIPS build.
+
+        * Source/cmake/WebKitCompilerFlags.cmake:
+
+2021-11-29  Nikolas Zimmermann  <nzimmermann@igalia.com>
+
+        [LBSE] Add runtime flag for Layer-based SVG engine (LBSE)
+        https://bugs.webkit.org/show_bug.cgi?id=233211
+        <rdar://problem/85711597>
+
+        Reviewed by Sam Weinig.
+
+        Add build option ('build-webkit --(no-)layer-based-svg-engine') and
+        runtime flag ('LayerBasedSVGEngineEnabled' in LBSE enabled builds) to
+        switch between the SVG engines.
+
+        The actual SVG code changes will follow in subsequent patches,
+        this just adds the infrastructure for LBSE.
+
+        * Source/cmake/OptionsFTW.cmake:
+        * Source/cmake/OptionsGTK.cmake:
+        * Source/cmake/OptionsMac.cmake:
+        * Source/cmake/OptionsPlayStation.cmake:
+        * Source/cmake/OptionsWPE.cmake:
+        * Source/cmake/OptionsWin.cmake:
+        * Source/cmake/WebKitFeatures.cmake:
+
+2021-11-28  Matt Woodrow  <matt.woodrow@gmail.com>
+
+        Add mattwoodrow to contributors.json
+        https://bugs.webkit.org/show_bug.cgi?id=233301
+
+        Reviewed by Cameron McCormack.
+
+        * metadata/contributors.json:
+
+2021-11-28  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Add WebGPU to the "All Source" scheme in WebKit.xcworkspace
+        https://bugs.webkit.org/show_bug.cgi?id=233542
+
+        Reviewed by Dean Jackson.
+
+        This scheme should build WebGPU.
+
+        * WebKit.xcworkspace/xcshareddata/xcschemes/All Source.xcscheme:
+
+2021-11-27  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, update atomics detection to make libpas built on Linux
+
+        * Source/cmake/WebKitCompilerFlags.cmake:
+
+2021-11-26  Adrian Perez de Castro  <aperez@igalia.com>
+
+        Unreviewed. Update OptionsWPE.cmake and NEWS for the 2.35.1 release
+
+        * Source/cmake/OptionsWPE.cmake: Bump version numbers.
+
+2021-11-25  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Unreviewed. Update OptionsGTK.cmake and NEWS for 2.35.1 release
+
+        * Source/cmake/OptionsGTK.cmake: Bump version numbers.
+
+2021-11-23  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [WPE][GTK] Allow enabling JPEG-XL support at build time
+        https://bugs.webkit.org/show_bug.cgi?id=233325
+
+        Reviewed by Michael Catanzaro.
+
+        Adds a new USE_JPEGXL build option, disabled by default for release builds and
+        enabled for developer builds.
+
+        * Source/cmake/OptionsGTK.cmake: Add USE_JPEGXL build option.
+        * Source/cmake/OptionsWPE.cmake: Ditto.
+
+2021-11-22  Alejandro G. Castro  <alex@igalia.com>
+
+        Add alexg's GitHub username to contributors.json
+        https://bugs.webkit.org/show_bug.cgi?id=233425
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-11-19  Angelos Oikonomopoulos  <angelos@igalia.com>
+
+        [JSC] Workaround for failing mips tests
+        https://bugs.webkit.org/show_bug.cgi?id=233359
+
+        Reviewed by Adrian Perez de Castro.
+
+        Add a compiler flag on GCC+mips to work around a code generation bug
+        resulting in SIGBUS. This only manifests when running 32-bit mips code
+        on mips64 hardware (which the buildbots do).
+
+        * Source/cmake/WebKitCompilerFlags.cmake:
+
+2021-11-18  Yoshiaki Jitsukawa  <yoshiaki.jitsukawa@sony.com>
+
+        Implement JPEG XL image decoder using libjxl
+        https://bugs.webkit.org/show_bug.cgi?id=233113
+
+        Reviewed by Michael Catanzaro.
+
+        This patch introduces the initial version of JPEG XL image decoder.
+        JPEG XL is a royalty-free raster-graphics file format that supports
+        both lossy and lossless compression and is experimentally supported by
+        Chrome, FireFox, and Edge.
+        The image decoder implemented by this patch uses libjxl, a reference
+        implementation of JPEG XL decoder (and encoder). JPEG XL animations
+        will be supported later.
+
+        * Source/cmake/FindJPEGXL.cmake: Added.
+        * Source/cmake/OptionsWinCairo.cmake: Enable JPEG XL support if
+        libjxl is available.
+
+2021-11-17  Patrick Angle  <pangle@apple.com>
+
+        Update my (Patrick Angle's) status to reviewer
+        https://bugs.webkit.org/show_bug.cgi?id=233270
+
+        Unreviewed.
+
+        Update my status to reviewer, as well as drive-by updates to set my github name and update the area of
+        expertise.
+
+        * metadata/contributors.json:
+
+2021-11-17  Chris Lord  <clord@igalia.com>
+
+        Add Chris Lord's GitHub username to contributors.json
+        https://bugs.webkit.org/show_bug.cgi?id=233254
+
+        Unreviewed
+
+        * metadata/contributors.json:
+
+2021-11-16  Alex Atwater  <alexandera_22@apple.com>
+
+        Add my GitHub username to contributors.json
+
+        Reviewed by Jonathan Bedard
+
+        * metadata/contributors.json:
+
 2021-11-15  Nikolas Zimmermann  <nzimmermann@igalia.com>
 
         Add my GitHub username to contributors.json

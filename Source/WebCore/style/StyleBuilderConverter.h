@@ -39,8 +39,10 @@
 #include "CSSImageGeneratorValue.h"
 #include "CSSImageSetValue.h"
 #include "CSSImageValue.h"
+#include "CSSOffsetRotateValue.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSPrimitiveValueMappings.h"
+#include "CSSRayValue.h"
 #include "CSSReflectValue.h"
 #include "CalcExpressionLength.h"
 #include "CalcExpressionOperation.h"
@@ -78,7 +80,7 @@ public:
     static LengthSize convertRadius(BuilderState&, const CSSValue&);
     static LengthPoint convertPosition(BuilderState&, const CSSValue&);
     static LengthPoint convertPositionOrAuto(BuilderState&, const CSSValue&);
-    static OptionSet<TextDecoration> convertTextDecoration(BuilderState&, const CSSValue&);
+    static OptionSet<TextDecorationLine> convertTextDecoration(BuilderState&, const CSSValue&);
     template<typename T> static T convertNumber(BuilderState&, const CSSValue&);
     template<typename T> static T convertNumberOrAuto(BuilderState&, const CSSValue&);
     static short convertWebkitHyphenateLimitLines(BuilderState&, const CSSValue&);
@@ -168,6 +170,8 @@ public:
     static Length convertPositionComponentY(BuilderState&, const CSSValue&);
 
     static GapLength convertGapLength(BuilderState&, const CSSValue&);
+
+    static OffsetRotation convertOffsetRotate(BuilderState&, const CSSValue&);
     
 private:
     friend class BuilderCustom;
@@ -426,7 +430,7 @@ inline LengthPoint BuilderConverter::convertPositionOrAuto(BuilderState& builder
     return LengthPoint(Length(LengthType::Auto), Length(LengthType::Auto));
 }
 
-inline OptionSet<TextDecoration> BuilderConverter::convertTextDecoration(BuilderState&, const CSSValue& value)
+inline OptionSet<TextDecorationLine> BuilderConverter::convertTextDecoration(BuilderState&, const CSSValue& value)
 {
     auto result = RenderStyle::initialTextDecoration();
     if (is<CSSValueList>(value)) {
@@ -631,6 +635,34 @@ inline RefPtr<PathOperation> BuilderConverter::convertPathOperation(BuilderState
         }
         ASSERT(primitiveValue.valueID() == CSSValueNone);
         return nullptr;
+    }
+
+    if (is<CSSRayValue>(value)) {
+        auto& rayValue = downcast<CSSRayValue>(value);
+
+        RayPathOperation::Size size = RayPathOperation::Size::ClosestCorner;
+        switch (rayValue.size()->valueID()) {
+        case CSSValueClosestCorner:
+            size = RayPathOperation::Size::ClosestCorner;
+            break;
+        case CSSValueClosestSide:
+            size = RayPathOperation::Size::ClosestSide;
+            break;
+        case CSSValueFarthestCorner:
+            size = RayPathOperation::Size::FarthestCorner;
+            break;
+        case CSSValueFarthestSide:
+            size = RayPathOperation::Size::FarthestSide;
+            break;
+        case CSSValueSides:
+            size = RayPathOperation::Size::Sides;
+            break;
+        default:
+            ASSERT_NOT_REACHED();
+            return nullptr;
+        }
+
+        return RayPathOperation::create(rayValue.angle()->computeDegrees(), size, rayValue.isContaining());
     }
 
     CSSBoxType referenceBox = CSSBoxType::BoxMissing;
@@ -1604,6 +1636,33 @@ inline OptionSet<HangingPunctuation> BuilderConverter::convertHangingPunctuation
 inline GapLength BuilderConverter::convertGapLength(BuilderState& builderState, const CSSValue& value)
 {
     return (downcast<CSSPrimitiveValue>(value).valueID() == CSSValueNormal) ? GapLength() : GapLength(convertLength(builderState, value));
+}
+
+inline OffsetRotation BuilderConverter::convertOffsetRotate(BuilderState&, const CSSValue& value)
+{
+    bool hasAuto = false;
+    float angleInDegrees = 0;
+
+    const auto& offsetRotateValue = downcast<CSSOffsetRotateValue>(value);
+
+    if (auto* angleValue = offsetRotateValue.angle())
+        angleInDegrees = static_cast<float>(angleValue->computeDegrees());
+
+    if (auto* modifierValue = offsetRotateValue.modifier()) {
+        switch (modifierValue->valueID()) {
+        case CSSValueAuto:
+            hasAuto = true;
+            break;
+        case CSSValueReverse:
+            hasAuto = true;
+            angleInDegrees += 180.0;
+            break;
+        default:
+            ASSERT_NOT_REACHED();
+        }
+    }
+
+    return OffsetRotation(hasAuto, angleInDegrees);
 }
 
 }

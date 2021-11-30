@@ -27,13 +27,13 @@
 
 #include "WebGPUIntegralTypes.h"
 #include "WebGPUOrigin3D.h"
-#include "WebGPUTexture.h"
 #include "WebGPUTextureAspect.h"
 #include <optional>
 #include <wtf/Ref.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
+
+class Texture;
 
 struct ImageCopyTexture {
     Texture& texture;
@@ -42,5 +42,4 @@ struct ImageCopyTexture {
     TextureAspect aspect;
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU

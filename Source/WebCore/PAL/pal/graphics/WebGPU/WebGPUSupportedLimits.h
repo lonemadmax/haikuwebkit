@@ -29,8 +29,7 @@
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 class SupportedLimits final : public RefCounted<SupportedLimits> {
 public:
@@ -149,7 +148,7 @@ public:
     uint32_t maxComputeWorkgroupSizeZ() const { return m_maxComputeWorkgroupSizeZ; }
     uint32_t maxComputeWorkgroupsPerDimension() const { return m_maxComputeWorkgroupsPerDimension; }
 
-protected:
+private:
     SupportedLimits(
         uint32_t maxTextureDimension1D,
         uint32_t maxTextureDimension2D,
@@ -206,7 +205,6 @@ protected:
     {
     }
 
-private:
     SupportedLimits(const SupportedLimits&) = delete;
     SupportedLimits(SupportedLimits&&) = delete;
     SupportedLimits& operator=(const SupportedLimits&) = delete;
@@ -240,5 +238,4 @@ private:
     uint32_t m_maxComputeWorkgroupsPerDimension { 0 };
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU

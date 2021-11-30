@@ -86,6 +86,10 @@ class HTMLModelElement;
 #include "PlatformXR.h"
 #endif
 
+#if ENABLE(WEBGL)
+#include "GraphicsContextGL.h"
+#endif
+
 OBJC_CLASS NSResponder;
 
 namespace WebCore {
@@ -353,7 +357,7 @@ public:
     virtual RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, RenderingMode, RenderingPurpose, float, const DestinationColorSpace&, PixelFormat) const { return nullptr; }
 
 #if ENABLE(WEBGL)
-    virtual RefPtr<GraphicsContextGL> createGraphicsContextGL(const GraphicsContextGLAttributes&, WebCore::PlatformDisplayID) const { return nullptr; }
+    virtual RefPtr<GraphicsContextGL> createGraphicsContextGL(const GraphicsContextGLAttributes& attributes, WebCore::PlatformDisplayID) const { return createWebProcessGraphicsContextGL(attributes); }
 #endif
 
     // Pass nullptr as the GraphicsLayer to detatch the root layer.
@@ -585,7 +589,7 @@ public:
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS)
-    virtual void requestTextRecognition(Element&, CompletionHandler<void(RefPtr<Element>&&)>&& completion = { })
+    virtual void requestTextRecognition(Element&, const String& = { }, CompletionHandler<void(RefPtr<Element>&&)>&& completion = { })
     {
         if (completion)
             completion({ });
@@ -603,10 +607,6 @@ public:
 
 #if ENABLE(TEXT_AUTOSIZING)
     virtual void textAutosizingUsesIdempotentModeChanged() { }
-#endif
-
-#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
-    virtual void takeModelElementFullscreen(WebCore::GraphicsLayer::PlatformLayerID) const { }
 #endif
 
 #if ENABLE(APPLE_PAY_AMS_UI)

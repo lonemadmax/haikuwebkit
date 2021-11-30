@@ -26,9 +26,9 @@
 #pragma once
 
 #include <cstdint>
+#include <wtf/EnumTraits.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 enum class AddressMode : uint8_t {
     ClampToEdge,
@@ -36,5 +36,17 @@ enum class AddressMode : uint8_t {
     MirrorRepeat,
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU
+
+namespace WTF {
+
+template<> struct EnumTraits<PAL::WebGPU::AddressMode> {
+    using values = EnumValues<
+        PAL::WebGPU::AddressMode,
+        PAL::WebGPU::AddressMode::ClampToEdge,
+        PAL::WebGPU::AddressMode::Repeat,
+        PAL::WebGPU::AddressMode::MirrorRepeat
+    >;
+};
+
+} // namespace WTF

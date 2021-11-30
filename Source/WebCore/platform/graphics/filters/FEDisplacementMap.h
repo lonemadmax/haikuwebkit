@@ -2,6 +2,7 @@
  * Copyright (C) 2004, 2005, 2006, 2007 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -47,18 +48,15 @@ public:
     float scale() const { return m_scale; }
     bool setScale(float);
 
-    void setResultColorSpace(const DestinationColorSpace&) override;
-    void transformResultColorSpace(FilterEffect*, const int) override;
-
 private:
     FEDisplacementMap(ChannelSelectorType xChannelSelector, ChannelSelectorType yChannelSelector, float);
 
-    void platformApplySoftware(const Filter&) override;
+    const DestinationColorSpace& resultColorSpace() const override;
+    void transformResultColorSpace(FilterEffect*, const int) override;
 
     void determineAbsolutePaintRect(const Filter&) override { setAbsolutePaintRect(enclosingIntRect(maxEffectRect())); }
 
-    int xChannelIndex() const { return m_xChannelSelector - 1; }
-    int yChannelIndex() const { return m_yChannelSelector - 1; }
+    std::unique_ptr<FilterEffectApplier> createApplier(const Filter&) const override;
 
     WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
 

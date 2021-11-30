@@ -29,7 +29,6 @@
 #if ENABLE(GPU_PROCESS) && ENABLE(WEBGL) && PLATFORM(COCOA)
 
 #include "GPUConnectionToWebProcess.h"
-#include <WebCore/GraphicsContextGLIOSurfaceSwapChain.h>
 #include <wtf/MachSendRight.h>
 
 namespace WebKit {
@@ -46,7 +45,6 @@ public:
     void platformWorkQueueInitialize(WebCore::GraphicsContextGLAttributes&&) final;
     void prepareForDisplay(CompletionHandler<void(WTF::MachSendRight&&)>&&) final;
 private:
-    WebCore::GraphicsContextGLIOSurfaceSwapChain m_swapChain WTF_GUARDED_BY_LOCK(m_streamThread);
 #if HAVE(IOSURFACE_SET_OWNERSHIP_IDENTITY)
     task_id_token_t m_webProcessIdentityToken;
 #endif
@@ -73,7 +71,7 @@ RemoteGraphicsContextGLCocoa::RemoteGraphicsContextGLCocoa(GPUConnectionToWebPro
 void RemoteGraphicsContextGLCocoa::platformWorkQueueInitialize(WebCore::GraphicsContextGLAttributes&& attributes)
 {
     assertIsCurrent(m_streamThread);
-    m_context = GPUProcessGraphicsContextGLOpenGL::create(WTFMove(attributes));
+    m_context = GraphicsContextGLCocoa::create(WTFMove(attributes));
 }
 
 void RemoteGraphicsContextGLCocoa::prepareForDisplay(CompletionHandler<void(WTF::MachSendRight&&)>&& completionHandler)

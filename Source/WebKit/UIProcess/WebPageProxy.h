@@ -196,6 +196,7 @@ interface ID3D11Device1;
 
 #if ENABLE(ARKIT_INLINE_PREVIEW)
 #include "ModelElementController.h"
+#include "ModelIdentifier.h"
 #endif
 
 namespace API {
@@ -587,12 +588,27 @@ public:
 
 #if ENABLE(ARKIT_INLINE_PREVIEW)
     ModelElementController* modelElementController() { return m_modelElementController.get(); }
+    void modelElementGetCamera(ModelIdentifier, CompletionHandler<void(Expected<WebCore::HTMLModelElementCamera, WebCore::ResourceError>)>&&);
+    void modelElementSetCamera(ModelIdentifier, WebCore::HTMLModelElementCamera, CompletionHandler<void(bool)>&&);
+    void modelElementIsPlayingAnimation(ModelIdentifier, CompletionHandler<void(Expected<bool, WebCore::ResourceError>)>&&);
+    void modelElementSetAnimationIsPlaying(ModelIdentifier, bool, CompletionHandler<void(bool)>&&);
+    void modelElementIsLoopingAnimation(ModelIdentifier, CompletionHandler<void(Expected<bool, WebCore::ResourceError>)>&&);
+    void modelElementSetIsLoopingAnimation(ModelIdentifier, bool, CompletionHandler<void(bool)>&&);
+    void modelElementAnimationDuration(ModelIdentifier, CompletionHandler<void(Expected<Seconds, WebCore::ResourceError>)>&&);
+    void modelElementAnimationCurrentTime(ModelIdentifier, CompletionHandler<void(Expected<Seconds, WebCore::ResourceError>)>&&);
+    void modelElementSetAnimationCurrentTime(ModelIdentifier, Seconds, CompletionHandler<void(bool)>&&);
+    void modelElementHasAudio(ModelIdentifier, CompletionHandler<void(Expected<bool, WebCore::ResourceError>)>&&);
+    void modelElementIsMuted(ModelIdentifier, CompletionHandler<void(Expected<bool, WebCore::ResourceError>)>&&);
+    void modelElementSetIsMuted(ModelIdentifier, bool, CompletionHandler<void(bool)>&&);
 #endif
 #if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
-    void takeModelElementFullscreen(WebCore::GraphicsLayer::PlatformLayerID contentLayerId);
+    void takeModelElementFullscreen(ModelIdentifier);
 #endif
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
     void modelElementDidCreatePreview(const URL&, const String&, const WebCore::FloatSize&, CompletionHandler<void(Expected<std::pair<String, uint32_t>, WebCore::ResourceError>)>&&);
+    void handleMouseDownForModelElement(const String&, const WebCore::LayoutPoint&, MonotonicTime);
+    void handleMouseMoveForModelElement(const String&, const WebCore::LayoutPoint&, MonotonicTime);
+    void handleMouseUpForModelElement(const String&, const WebCore::LayoutPoint&, MonotonicTime);
 #endif
 
 #if ENABLE(APPLE_PAY_AMS_UI)
@@ -1698,9 +1714,10 @@ public:
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS)
-    void requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&);
+    void requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, const String& identifier, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&);
     void updateWithTextRecognitionResult(WebCore::TextRecognitionResult&&, const WebCore::ElementContext&, const WebCore::FloatPoint& location, CompletionHandler<void(TextRecognitionUpdateResult)>&&);
     void computeHasImageAnalysisResults(const URL& imageURL, ShareableBitmap& imageBitmap, ImageAnalysisType, CompletionHandler<void(bool)>&&);
+    void startImageAnalysis(const String& identifier);
 #endif
 
 #if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
@@ -2107,7 +2124,9 @@ private:
 
     void willSubmitForm(WebCore::FrameIdentifier, WebCore::FrameIdentifier sourceFrameID, const Vector<std::pair<String, String>>& textFieldValues, FormSubmitListenerIdentifier, const UserData&);
 
+#if ENABLE(CONTENT_EXTENSIONS)
     void contentRuleListNotification(URL&&, WebCore::ContentRuleListResults&&);
+#endif
 
     // History client
     void didNavigateWithNavigationData(const WebNavigationDataStore&, WebCore::FrameIdentifier);

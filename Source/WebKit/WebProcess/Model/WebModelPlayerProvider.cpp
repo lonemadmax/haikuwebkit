@@ -26,10 +26,19 @@
 #include "config.h"
 #include "WebModelPlayerProvider.h"
 
+#include "WebPage.h"
 #include <WebCore/ModelPlayer.h>
 
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
-#include "ARKitInlinePreviewModelPlayer.h"
+#include "ARKitInlinePreviewModelPlayerMac.h"
+#endif
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
+#include "ARKitInlinePreviewModelPlayerIOS.h"
+#endif
+
+#if HAVE(SCENEKIT)
+#include <WebCore/SceneKitModelPlayer.h>
 #endif
 
 namespace WebKit {
@@ -47,11 +56,19 @@ WebModelPlayerProvider::~WebModelPlayerProvider() = default;
 RefPtr<WebCore::ModelPlayer> WebModelPlayerProvider::createModelPlayer(WebCore::ModelPlayerClient& client)
 {
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
-    return ARKitInlinePreviewModelPlayer::create(m_page, client);
-#else
+    if (m_page.useARKitForModel())
+        return ARKitInlinePreviewModelPlayerMac::create(m_page, client);
+#endif
+#if HAVE(SCENEKIT)
+    if (m_page.useSceneKitForModel())
+        return WebCore::SceneKitModelPlayer::create(client);
+#endif
+#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
+    return ARKitInlinePreviewModelPlayerIOS::create(m_page, client);
+#endif
+
     UNUSED_PARAM(client);
     return nullptr;
-#endif
 }
 
 }

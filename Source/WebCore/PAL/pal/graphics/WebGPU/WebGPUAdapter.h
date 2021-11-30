@@ -29,13 +29,12 @@
 #include "WebGPUSupportedFeatures.h"
 #include "WebGPUSupportedLimits.h"
 #include <optional>
-#include <utility>
+#include <wtf/Function.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 class Device;
 
@@ -48,7 +47,7 @@ public:
     SupportedLimits& limits() const { return m_limits; }
     bool isFallbackAdapter() const { return m_isFallbackAdapter; }
 
-    virtual void requestDevice(const DeviceDescriptor&, std::function<void(Ref<Device>)>&&) = 0;
+    virtual void requestDevice(const DeviceDescriptor&, WTF::Function<void(Ref<Device>&&)>&&) = 0;
 
 protected:
     Adapter(String&& name, SupportedFeatures& features, SupportedLimits& limits, bool isFallbackAdapter)
@@ -71,5 +70,4 @@ private:
     bool m_isFallbackAdapter;
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU

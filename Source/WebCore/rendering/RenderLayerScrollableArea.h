@@ -103,6 +103,9 @@ public:
     bool hasVerticalScrollbar() const { return verticalScrollbar(); }
     void setHasHorizontalScrollbar(bool);
     void setHasVerticalScrollbar(bool);
+    
+    OverscrollBehavior horizontalOverscrollBehavior() const final;
+    OverscrollBehavior verticalOverscrollBehavior() const final;
 
     bool requiresScrollPositionReconciliation() const { return m_requiresScrollPositionReconciliation; }
     void setRequiresScrollPositionReconciliation(bool requiresReconciliation = true) { m_requiresScrollPositionReconciliation = requiresReconciliation; }
@@ -127,7 +130,7 @@ public:
     void updateScrollInfoAfterLayout();
     void updateScrollbarSteps();
 
-    bool scroll(ScrollDirection, ScrollGranularity, float multiplier = 1);
+    bool scroll(ScrollDirection, ScrollGranularity, unsigned stepCount = 1);
 
 public:
     // All methods in this section override ScrollableaArea methods (final).

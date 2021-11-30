@@ -803,26 +803,6 @@ public:
         load8(Address(dest), dest);
     }
 
-    DataLabel32 load32WithAddressOffsetPatch(Address address, RegisterID dest)
-    {
-        DataLabel32 label = moveWithPatch(TrustedImm32(address.offset), dataTempRegister);
-        load32(ArmAddress(address.base, dataTempRegister), dest);
-        return label;
-    }
-    
-    DataLabelCompact load32WithCompactAddressOffsetPatch(Address address, RegisterID dest)
-    {
-        padBeforePatch();
-
-        RegisterID base = address.base;
-        
-        DataLabelCompact label(this);
-        ASSERT(isCompactPtrAlignedAddressOffset(address.offset));
-
-        m_assembler.ldr(dest, base, address.offset, true, false);
-        return label;
-    }
-
     void load16(const void* address, RegisterID dest)
     {
         move(TrustedImmPtr(address), addressTempRegister);
@@ -871,13 +851,6 @@ public:
             load32(Address(src, offset.m_value), dest1);
             load32(Address(src, offset.m_value + 4), dest2);
         }
-    }
-
-    DataLabel32 store32WithAddressOffsetPatch(RegisterID src, Address address)
-    {
-        DataLabel32 label = moveWithPatch(TrustedImm32(address.offset), dataTempRegister);
-        store32(src, ArmAddress(address.base, dataTempRegister));
-        return label;
     }
 
     void store32(RegisterID src, Address address)
@@ -1772,7 +1745,7 @@ public:
 
     Jump branchTest8(ResultCondition cond, BaseIndex address, TrustedImm32 mask = TrustedImm32(-1))
     {
-        // use addressTempRegister incase the branchTest8 we call uses dataTempRegister. :-/
+        // use addressTempRegister incase the branchTest32 we call uses dataTempRegister. :-/
         TrustedImm32 mask8 = MacroAssemblerHelpers::mask8OnCondition(*this, cond, mask);
         MacroAssemblerHelpers::load8OnCondition(*this, cond, address, addressTempRegister);
         return branchTest32(cond, addressTempRegister, mask8);
@@ -1780,7 +1753,7 @@ public:
 
     Jump branchTest8(ResultCondition cond, Address address, TrustedImm32 mask = TrustedImm32(-1))
     {
-        // use addressTempRegister incase the branchTest8 we call uses dataTempRegister. :-/
+        // use addressTempRegister incase the branchTest32 we call uses dataTempRegister. :-/
         TrustedImm32 mask8 = MacroAssemblerHelpers::mask8OnCondition(*this, cond, mask);
         MacroAssemblerHelpers::load8OnCondition(*this, cond, address, addressTempRegister);
         return branchTest32(cond, addressTempRegister, mask8);
@@ -1788,11 +1761,36 @@ public:
 
     Jump branchTest8(ResultCondition cond, AbsoluteAddress address, TrustedImm32 mask = TrustedImm32(-1))
     {
-        // use addressTempRegister incase the branchTest8 we call uses dataTempRegister. :-/
+        // use addressTempRegister incase the branchTest32 we call uses dataTempRegister. :-/
         TrustedImm32 mask8 = MacroAssemblerHelpers::mask8OnCondition(*this, cond, mask);
         move(TrustedImmPtr(address.m_ptr), addressTempRegister);
         MacroAssemblerHelpers::load8OnCondition(*this, cond, Address(addressTempRegister), addressTempRegister);
         return branchTest32(cond, addressTempRegister, mask8);
+    }
+
+    Jump branchTest16(ResultCondition cond, BaseIndex address, TrustedImm32 mask = TrustedImm32(-1))
+    {
+        // use addressTempRegister incase the branchTest32 we call uses dataTempRegister. :-/
+        TrustedImm32 mask16 = MacroAssemblerHelpers::mask16OnCondition(*this, cond, mask);
+        MacroAssemblerHelpers::load16OnCondition(*this, cond, address, addressTempRegister);
+        return branchTest32(cond, addressTempRegister, mask16);
+    }
+
+    Jump branchTest16(ResultCondition cond, Address address, TrustedImm32 mask = TrustedImm32(-1))
+    {
+        // use addressTempRegister incase the branchTest32 we call uses dataTempRegister. :-/
+        TrustedImm32 mask16 = MacroAssemblerHelpers::mask16OnCondition(*this, cond, mask);
+        MacroAssemblerHelpers::load16OnCondition(*this, cond, address, addressTempRegister);
+        return branchTest32(cond, addressTempRegister, mask16);
+    }
+
+    Jump branchTest16(ResultCondition cond, AbsoluteAddress address, TrustedImm32 mask = TrustedImm32(-1))
+    {
+        // use addressTempRegister incase the branchTest32 we call uses dataTempRegister. :-/
+        TrustedImm32 mask16 = MacroAssemblerHelpers::mask16OnCondition(*this, cond, mask);
+        move(TrustedImmPtr(address.m_ptr), addressTempRegister);
+        MacroAssemblerHelpers::load16OnCondition(*this, cond, Address(addressTempRegister), addressTempRegister);
+        return branchTest32(cond, addressTempRegister, mask16);
     }
 
     void farJump(RegisterID target, PtrTag)
@@ -2041,8 +2039,8 @@ public:
     // asm ops like test, or pseudo ops like pop().
     void test32(ResultCondition cond, Address address, TrustedImm32 mask, RegisterID dest)
     {
-        load32(address, dataTempRegister);
-        test32(dataTempRegister, mask);
+        load32(address, addressTempRegister);
+        test32(addressTempRegister, mask);
         m_assembler.it(armV7Condition(cond), false);
         m_assembler.mov(dest, ARMThumbImmediate::makeUInt16(1));
         m_assembler.mov(dest, ARMThumbImmediate::makeUInt16(0));
@@ -2051,8 +2049,8 @@ public:
     void test8(ResultCondition cond, Address address, TrustedImm32 mask, RegisterID dest)
     {
         TrustedImm32 mask8 = MacroAssemblerHelpers::mask8OnCondition(*this, cond, mask);
-        MacroAssemblerHelpers::load8OnCondition(*this, cond, address, dataTempRegister);
-        test32(dataTempRegister, mask8);
+        MacroAssemblerHelpers::load8OnCondition(*this, cond, address, addressTempRegister);
+        test32(addressTempRegister, mask8);
         m_assembler.it(armV7Condition(cond), false);
         m_assembler.mov(dest, ARMThumbImmediate::makeUInt16(1));
         m_assembler.mov(dest, ARMThumbImmediate::makeUInt16(0));

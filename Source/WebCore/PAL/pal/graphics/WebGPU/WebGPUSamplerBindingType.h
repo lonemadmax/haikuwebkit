@@ -26,9 +26,9 @@
 #pragma once
 
 #include <cstdint>
+#include <wtf/EnumTraits.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 enum class SamplerBindingType : uint8_t {
     Filtering,
@@ -36,5 +36,17 @@ enum class SamplerBindingType : uint8_t {
     Comparison,
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU
+
+namespace WTF {
+
+template<> struct EnumTraits<PAL::WebGPU::SamplerBindingType> {
+    using values = EnumValues<
+        PAL::WebGPU::SamplerBindingType,
+        PAL::WebGPU::SamplerBindingType::Filtering,
+        PAL::WebGPU::SamplerBindingType::NonFiltering,
+        PAL::WebGPU::SamplerBindingType::Comparison
+    >;
+};
+
+} // namespace WTF

@@ -58,9 +58,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) QLItem *thumbnailItem;
 @property (nonatomic) CGSize maxThumbnailSize;
 @end
-#endif
 
 NS_ASSUME_NONNULL_END
+
+#endif
 
 #if HAVE(ARKIT_QUICK_LOOK_PREVIEW_ITEM)
 #import <ARKit/ARKit.h>
@@ -77,9 +78,15 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setDelegate:(id <ARQuickLookWebKitItemDelegate>)delegate;
 @end
 
+NS_ASSUME_NONNULL_END
+
 #endif
 
 #if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
+
+#import <simd/simd.h>
+
+NS_ASSUME_NONNULL_BEGIN
 
 @class ASVInlinePreview;
 @class CAFenceHandle;
@@ -97,10 +104,24 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(nullable UIEvent *)event;
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(nullable UIEvent *)event;
 
+typedef void (^ASVCameraTransformReplyBlock) (simd_float3 cameraTransform, NSError * _Nullable error);
+- (void)getCameraTransform:(ASVCameraTransformReplyBlock)reply;
+- (void)setCameraTransform:(simd_float3)transform;
+
+@property (nonatomic, readwrite) NSTimeInterval currentTime;
+@property (nonatomic, readonly) NSTimeInterval duration;
+@property (nonatomic, readwrite) BOOL isLooping;
+@property (nonatomic, readonly) BOOL isPlaying;
+typedef void (^ASVSetIsPlayingReplyBlock) (BOOL isPlaying, NSError * _Nullable error);
+- (void)setIsPlaying:(BOOL)isPlaying reply:(ASVSetIsPlayingReplyBlock)reply;
+
+@property (nonatomic, readonly) BOOL hasAudio;
+@property (nonatomic, readwrite) BOOL isMuted;
+
 @end
 
-#endif
-
 NS_ASSUME_NONNULL_END
+
+#endif
 
 #endif

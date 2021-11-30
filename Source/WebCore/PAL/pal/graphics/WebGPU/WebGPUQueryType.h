@@ -26,9 +26,9 @@
 #pragma once
 
 #include <cstdint>
+#include <wtf/EnumTraits.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 enum class QueryType : uint8_t {
     Occlusion,
@@ -36,5 +36,17 @@ enum class QueryType : uint8_t {
     Timestamp,
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU
+
+namespace WTF {
+
+template<> struct EnumTraits<PAL::WebGPU::QueryType> {
+    using values = EnumValues<
+        PAL::WebGPU::QueryType,
+        PAL::WebGPU::QueryType::Occlusion,
+        PAL::WebGPU::QueryType::PipelineStatistics,
+        PAL::WebGPU::QueryType::Timestamp
+    >;
+};
+
+} // namespace WTF

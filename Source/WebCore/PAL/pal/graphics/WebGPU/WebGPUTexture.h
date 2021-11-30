@@ -30,8 +30,7 @@
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 class TextureView;
 struct TextureViewDescriptor;
@@ -48,7 +47,7 @@ public:
         setLabelInternal(m_label);
     }
 
-    virtual Ref<TextureView> createView(const std::optional<TextureViewDescriptor>&) const = 0;
+    virtual Ref<TextureView> createView(const std::optional<TextureViewDescriptor>&) = 0;
 
     virtual void destroy() = 0;
 
@@ -66,5 +65,4 @@ private:
     String m_label;
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU

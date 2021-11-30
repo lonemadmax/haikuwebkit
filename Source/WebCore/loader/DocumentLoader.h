@@ -35,7 +35,6 @@
 #include "ContentSecurityPolicyClient.h"
 #include "CrossOriginOpenerPolicy.h"
 #include "DeviceOrientationOrMotionPermissionState.h"
-#include "DocumentIdentifier.h"
 #include "DocumentLoadTiming.h"
 #include "DocumentWriter.h"
 #include "FrameDestructionObserver.h"
@@ -46,6 +45,7 @@
 #include "ResourceLoaderOptions.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
+#include "ScriptExecutionContextIdentifier.h"
 #include "SecurityPolicyViolationEvent.h"
 #include "ServiceWorkerRegistrationData.h"
 #include "StringWithDirection.h"
@@ -87,6 +87,7 @@ class SharedBuffer;
 class SWClientConnection;
 class SubresourceLoader;
 class SubstituteResource;
+class UserContentURLPattern;
 
 enum class ShouldContinue;
 
@@ -160,7 +161,7 @@ public:
         return adoptRef(*new DocumentLoader(request, data));
     }
 
-    WEBCORE_EXPORT static DocumentLoader* fromTemporaryDocumentIdentifier(DocumentIdentifier);
+    WEBCORE_EXPORT static DocumentLoader* fromTemporaryDocumentIdentifier(ScriptExecutionContextIdentifier);
 
     WEBCORE_EXPORT virtual ~DocumentLoader();
 
@@ -300,6 +301,9 @@ public:
 
     bool userContentExtensionsEnabled() const { return m_userContentExtensionsEnabled; }
     void setUserContentExtensionsEnabled(bool enabled) { m_userContentExtensionsEnabled = enabled; }
+
+    bool allowsActiveContentRuleListActionsForURL(const URL&) const;
+    WEBCORE_EXPORT void setActiveContentRuleListActionPatterns(const std::optional<HashSet<String>>&);
 
 #if ENABLE(DEVICE_ORIENTATION)
     DeviceOrientationOrMotionPermissionState deviceOrientationAndMotionAccessState() const { return m_deviceOrientationAndMotionAccessState; }
@@ -651,6 +655,7 @@ private:
     bool m_idempotentModeAutosizingOnlyHonorsPercentages { false };
     String m_customNavigatorPlatform;
     bool m_userContentExtensionsEnabled { true };
+    std::optional<Vector<UserContentURLPattern>> m_activeContentRuleListActionPatterns;
 #if ENABLE(DEVICE_ORIENTATION)
     DeviceOrientationOrMotionPermissionState m_deviceOrientationAndMotionAccessState { DeviceOrientationOrMotionPermissionState::Prompt };
 #endif
@@ -665,7 +670,7 @@ private:
 
 #if ENABLE(SERVICE_WORKER)
     std::optional<ServiceWorkerRegistrationData> m_serviceWorkerRegistrationData;
-    std::optional<DocumentIdentifier> m_temporaryServiceWorkerClient;
+    std::optional<ScriptExecutionContextIdentifier> m_temporaryServiceWorkerClient;
 #endif
 
 #if ASSERT_ENABLED

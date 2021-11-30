@@ -35,6 +35,8 @@
 namespace WebCore {
 namespace InlineIterator {
 
+enum class CreateTextRunMode { Painting, Editing };
+
 class BoxLegacyPath {
 public:
     BoxLegacyPath(const LegacyInlineBox* inlineBox)
@@ -48,7 +50,6 @@ public:
     FloatRect rect() const { return m_inlineBox->frameRect(); }
 
     bool isHorizontal() const { return m_inlineBox->isHorizontal(); }
-    bool dirOverride() const { return m_inlineBox->dirOverride(); }
     bool isLineBreak() const { return m_inlineBox->isLineBreak(); }
 
     unsigned minimumCaretOffset() const { return m_inlineBox->caretMinOffset(); }
@@ -62,12 +63,14 @@ public:
     unsigned end() const { return inlineTextBox()->end(); }
     unsigned length() const { return inlineTextBox()->len(); }
 
-    unsigned offsetForPosition(float x) const { return inlineTextBox()->offsetForPosition(x); }
-    float positionForOffset(unsigned offset) const { return inlineTextBox()->positionForOffset(offset); }
-
     TextBoxSelectableRange selectableRange() const { return inlineTextBox()->selectableRange(); }
 
-    TextRun createTextRun() const { return inlineTextBox()->createTextRun(); }
+    TextRun createTextRun(CreateTextRunMode mode) const
+    {
+        bool ignoreCombinedText = mode == CreateTextRunMode::Editing;
+        bool ignoreHyphen = mode == CreateTextRunMode::Editing;
+        return inlineTextBox()->createTextRun(ignoreCombinedText, ignoreHyphen);
+    }
 
     const RenderObject& renderer() const
     {

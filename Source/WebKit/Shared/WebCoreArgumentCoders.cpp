@@ -75,6 +75,7 @@
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/ScriptBuffer.h>
+#include <WebCore/ScriptExecutionContextIdentifier.h>
 #include <WebCore/ScrollingConstraints.h>
 #include <WebCore/ScrollingCoordinator.h>
 #include <WebCore/SearchPopupMenu.h>
@@ -82,7 +83,6 @@
 #include <WebCore/SerializedAttachmentData.h>
 #include <WebCore/SerializedPlatformDataCueValue.h>
 #include <WebCore/ServiceWorkerClientData.h>
-#include <WebCore/ServiceWorkerClientIdentifier.h>
 #include <WebCore/ServiceWorkerData.h>
 #include <WebCore/ShareData.h>
 #include <WebCore/TextCheckerClient.h>
@@ -2021,6 +2021,9 @@ void ArgumentCoder<ScrollableAreaParameters>::encode(Encoder& encoder, const Scr
 
     encoder << parameters.horizontalScrollbarMode;
     encoder << parameters.verticalScrollbarMode;
+    
+    encoder << parameters.horizontalOverscrollBehavior;
+    encoder << parameters.verticalOverscrollBehavior;
 
     encoder << parameters.allowsHorizontalScrolling;
     encoder << parameters.allowsVerticalScrolling;
@@ -2041,6 +2044,11 @@ bool ArgumentCoder<ScrollableAreaParameters>::decode(Decoder& decoder, Scrollabl
     if (!decoder.decode(params.horizontalScrollbarMode))
         return false;
     if (!decoder.decode(params.verticalScrollbarMode))
+        return false;
+    
+    if (!decoder.decode(params.horizontalOverscrollBehavior))
+        return false;
+    if (!decoder.decode(params.verticalOverscrollBehavior))
         return false;
 
     if (!decoder.decode(params.allowsHorizontalScrolling))
@@ -2814,7 +2822,7 @@ void ArgumentCoder<ServiceWorkerOrClientIdentifier>::encode(Encoder& encoder, co
     if (isServiceWorkerIdentifier)
         encoder << std::get<ServiceWorkerIdentifier>(identifier);
     else
-        encoder << std::get<ServiceWorkerClientIdentifier>(identifier);
+        encoder << std::get<ScriptExecutionContextIdentifier>(identifier);
 }
 
 bool ArgumentCoder<ServiceWorkerOrClientIdentifier>::decode(Decoder& decoder, ServiceWorkerOrClientIdentifier& identifier)
@@ -2830,7 +2838,7 @@ bool ArgumentCoder<ServiceWorkerOrClientIdentifier>::decode(Decoder& decoder, Se
 
         identifier = WTFMove(*workerIdentifier);
     } else {
-        std::optional<ServiceWorkerClientIdentifier> clientIdentifier;
+        std::optional<ScriptExecutionContextIdentifier> clientIdentifier;
         decoder >> clientIdentifier;
         if (!clientIdentifier)
             return false;

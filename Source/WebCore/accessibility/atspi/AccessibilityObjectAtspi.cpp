@@ -30,6 +30,7 @@
 #include "RenderAncestorIterator.h"
 #include "RenderBlock.h"
 #include "RenderObject.h"
+#include "TextIterator.h"
 #include <glib/gi18n-lib.h>
 #include <wtf/MainThread.h>
 #include <wtf/UUID.h>
@@ -59,7 +60,7 @@ static inline bool roleIsTextType(AccessibilityRole role)
 
 OptionSet<AccessibilityObjectAtspi::Interface> AccessibilityObjectAtspi::interfacesForObject(AXCoreObject& coreObject)
 {
-    OptionSet<Interface> interfaces = { Interface::Accessible, Interface::Component };
+    OptionSet<Interface> interfaces = { Interface::Accessible, Interface::Component, Interface::Action };
 
     RenderObject* renderer = coreObject.isAccessibilityRenderObject() ? coreObject.renderer() : nullptr;
     if (coreObject.roleValue() == AccessibilityRole::StaticText || coreObject.roleValue() == AccessibilityRole::ColorWell)
@@ -68,6 +69,7 @@ OptionSet<AccessibilityObjectAtspi::Interface> AccessibilityObjectAtspi::interfa
         interfaces.add(Interface::Text);
     else if (!coreObject.isWebArea()) {
         if (coreObject.roleValue() != AccessibilityRole::Table) {
+            interfaces.add(Interface::Hypertext);
             if ((renderer && renderer->childrenInline()) || roleIsTextType(coreObject.roleValue()) || coreObject.isMathToken())
                 interfaces.add(Interface::Text);
         }
@@ -82,6 +84,21 @@ OptionSet<AccessibilityObjectAtspi::Interface> AccessibilityObjectAtspi::interfa
             }
         }
     }
+
+    if (coreObject.supportsRangeValue())
+        interfaces.add(Interface::Value);
+
+    if (coreObject.isLink() || (isRendererReplacedElement(renderer)))
+        interfaces.add(Interface::Hyperlink);
+
+    if (coreObject.roleValue() == AccessibilityRole::WebArea)
+        interfaces.add(Interface::Document);
+
+    if (coreObject.isImage())
+        interfaces.add(Interface::Image);
+
+    if (coreObject.canHaveSelectedChildren())
+        interfaces.add(Interface::Selection);
 
     return interfaces;
 }
@@ -437,9 +454,9 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_accessibleFunctions = {
         if (!g_strcmp0(propertyName, "Description"))
             return g_variant_new_string(atspiObject->description().data());
         if (!g_strcmp0(propertyName, "Locale"))
-            return g_variant_new_string(setlocale(LC_MESSAGES, nullptr));
+            return g_variant_new_string(atspiObject->locale().utf8().data());
         if (!g_strcmp0(propertyName, "AccessibleId"))
-            return g_variant_new_string(atspiObject->m_axObject ? String::number(atspiObject->m_axObject->objectID()).utf8().data() : "");
+            return g_variant_new_string(atspiObject->m_axObject ? String::number(atspiObject->m_axObject->objectID().toUInt64()).utf8().data() : "");
         if (!g_strcmp0(propertyName, "Parent"))
             return atspiObject->parentReference();
         if (!g_strcmp0(propertyName, "ChildCount"))
@@ -469,6 +486,20 @@ const String& AccessibilityObjectAtspi::path()
             interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_component_interface), &s_componentFunctions });
         if (m_interfaces.contains(Interface::Text))
             interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_text_interface), &s_textFunctions });
+        if (m_interfaces.contains(Interface::Value))
+            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_value_interface), &s_valueFunctions });
+        if (m_interfaces.contains(Interface::Hyperlink))
+            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_hyperlink_interface), &s_hyperlinkFunctions });
+        if (m_interfaces.contains(Interface::Hypertext))
+            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_hypertext_interface), &s_hypertextFunctions });
+        if (m_interfaces.contains(Interface::Action))
+            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_action_interface), &s_actionFunctions });
+        if (m_interfaces.contains(Interface::Document))
+            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_document_interface), &s_documentFunctions });
+        if (m_interfaces.contains(Interface::Image))
+            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_image_interface), &s_imageFunctions });
+        if (m_interfaces.contains(Interface::Selection))
+            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_selection_interface), &s_selectionFunctions });
         m_path = atspiRoot->atspi().registerObject(*this, WTFMove(interfaces));
     }
 
@@ -479,6 +510,17 @@ GVariant* AccessibilityObjectAtspi::reference()
 {
     RELEASE_ASSERT(!isMainThread());
     return g_variant_new("(so)", root()->atspi().uniqueName(), path().utf8().data());
+}
+
+GVariant* AccessibilityObjectAtspi::hyperlinkReference()
+{
+    RELEASE_ASSERT(!isMainThread());
+    if (m_hyperlinkPath.isNull()) {
+        path();
+        m_hyperlinkPath = root()->atspi().registerHyperlink(*this, { { const_cast<GDBusInterfaceInfo*>(&webkit_hyperlink_interface), &s_hyperlinkFunctions } });
+    }
+
+    return g_variant_new("(so)", root()->atspi().uniqueName(), m_hyperlinkPath.utf8().data());
 }
 
 void AccessibilityObjectAtspi::setRoot(AccessibilityRootAtspi* root)
@@ -620,6 +662,12 @@ CString AccessibilityObjectAtspi::name() const
     if (!m_axObject)
         return "";
 
+    if (m_axObject->roleValue() == AccessibilityRole::ListBoxOption || m_axObject->roleValue() == AccessibilityRole::MenuListOption) {
+        auto value = m_axObject->stringValue();
+        if (!value.isEmpty())
+            return value.utf8();
+    }
+
     Vector<AccessibilityText> textOrder;
     m_axObject->accessibilityText(textOrder);
 
@@ -666,6 +714,12 @@ CString AccessibilityObjectAtspi::description() const
     }
 
     return "";
+}
+
+String AccessibilityObjectAtspi::locale() const
+{
+    auto* axObject = isMainThread() ? m_coreObject : m_axObject;
+    return axObject ? axObject->language() : String();
 }
 
 static bool shouldIncludeOrientationState(const AXCoreObject& coreObject)
@@ -1084,6 +1138,20 @@ void AccessibilityObjectAtspi::buildInterfaces(GVariantBuilder* builder) const
         g_variant_builder_add(builder, "s", webkit_component_interface.name);
     if (m_interfaces.contains(Interface::Text))
         g_variant_builder_add(builder, "s", webkit_text_interface.name);
+    if (m_interfaces.contains(Interface::Value))
+        g_variant_builder_add(builder, "s", webkit_value_interface.name);
+    if (m_interfaces.contains(Interface::Hyperlink))
+        g_variant_builder_add(builder, "s", webkit_hyperlink_interface.name);
+    if (m_interfaces.contains(Interface::Hypertext))
+        g_variant_builder_add(builder, "s", webkit_hypertext_interface.name);
+    if (m_interfaces.contains(Interface::Action))
+        g_variant_builder_add(builder, "s", webkit_action_interface.name);
+    if (m_interfaces.contains(Interface::Document))
+        g_variant_builder_add(builder, "s", webkit_document_interface.name);
+    if (m_interfaces.contains(Interface::Image))
+        g_variant_builder_add(builder, "s", webkit_image_interface.name);
+    if (m_interfaces.contains(Interface::Selection))
+        g_variant_builder_add(builder, "s", webkit_selection_interface.name);
 }
 
 void AccessibilityObjectAtspi::serialize(GVariantBuilder* builder) const

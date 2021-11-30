@@ -137,6 +137,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/mediastream/libwebrtc/LibWebRTCUtils.h
 
     Modules/model-element/HTMLModelElement.h
+    Modules/model-element/HTMLModelElementCamera.h
     Modules/model-element/ModelPlayer.h
     Modules/model-element/ModelPlayerClient.h
     Modules/model-element/ModelPlayerProvider.h
@@ -954,6 +955,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/FrameViewLayoutContext.h
     page/GlobalFrameIdentifier.h
     page/GlobalWindowIdentifier.h
+    page/ImageAnalysisQueue.h
     page/LayoutMilestone.h
     page/MediaCanStartListener.h
     page/MediaControlsContextMenuItem.h
@@ -1081,7 +1083,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/DateTimeChooserParameters.h
     platform/Decimal.h
     platform/DeferrableTask.h
-    platform/DocumentIdentifier.h
     platform/DragData.h
     platform/DragImage.h
     platform/DragItem.h
@@ -1170,6 +1171,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/SerializedPlatformDataCue.h
     platform/SerializedPlatformDataCueValue.h
     platform/SharedBuffer.h
+    platform/SharedBufferChunkReader.h
     platform/SharedStringHash.h
     platform/SleepDisabler.h
     platform/SleepDisablerClient.h
@@ -1189,6 +1191,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/UserInterfaceLayoutDirection.h
     platform/ValidationBubble.h
     platform/VideoFrameMetadata.h
+    platform/VideoSampleMetadata.h
     platform/WebGLStateTracker.h
     platform/Widget.h
     platform/WindowsKeyboardCodes.h
@@ -1420,6 +1423,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/graphics/cv/ImageTransferSessionVT.h
 
+    platform/graphics/filters/Filter.h
+    platform/graphics/filters/FilterFunction.h
+    platform/graphics/filters/FilterImage.h
     platform/graphics/filters/FilterOperation.h
     platform/graphics/filters/FilterOperations.h
 
@@ -1671,6 +1677,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/style/GridTrackSize.h
     rendering/style/LineClampValue.h
     rendering/style/NinePieceImage.h
+    rendering/style/OffsetRotation.h
     rendering/style/OutlineValue.h
     rendering/style/RenderStyle.h
     rendering/style/RenderStyleConstants.h
@@ -1758,7 +1765,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     workers/service/SWClientConnection.h
     workers/service/ServiceWorkerClientData.h
-    workers/service/ServiceWorkerClientIdentifier.h
     workers/service/ServiceWorkerClientQueryOptions.h
     workers/service/ServiceWorkerClientType.h
     workers/service/ServiceWorkerContextData.h

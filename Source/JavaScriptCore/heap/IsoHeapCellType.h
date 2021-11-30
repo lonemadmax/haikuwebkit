@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,7 @@
 #pragma once
 
 #include "HeapCellType.h"
-#include "MarkedBlockInlines.h"
+#include <wtf/PtrTag.h>
 
 namespace JSC {
 
@@ -44,8 +44,8 @@ public:
         return makeUnique<IsoHeapCellType>(CellType::needsDestruction ? NeedsDestruction : DoesNotNeedDestruction, &CellType::destroy);
     }
 
-    JS_EXPORT_PRIVATE void finishSweep(MarkedBlock::Handle&, FreeList*) final;
-    JS_EXPORT_PRIVATE void destroy(VM&, JSCell*) final;
+    JS_EXPORT_PRIVATE void finishSweep(MarkedBlock::Handle&, FreeList*) const final;
+    JS_EXPORT_PRIVATE void destroy(VM&, JSCell*) const final;
 
     ALWAYS_INLINE void operator()(VM&, JSCell* cell) const
     {

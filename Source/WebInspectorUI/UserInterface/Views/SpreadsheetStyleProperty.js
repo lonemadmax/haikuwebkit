@@ -627,9 +627,14 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
     _replaceSpecialTokens(tokens)
     {
         // FIXME: <https://webkit.org/b/178636> Web Inspector: Styles: Make inline widgets work with CSS functions (var(), calc(), etc.)
+        // FIXME: <https://webkit.org/b/233054> Web Inspector: Add a swatch for align-items and align-self
+        // FIXME: <https://webkit.org/b/233055> Web Inspector: Add a swatch for justify-content, justify-items, and justify-self
 
         if (this._property.name === "box-shadow")
             return this._addBoxShadowTokens(tokens);
+
+        if (this._property.name === "align-content")
+            return this._addAlignmentTokens(tokens);
 
         if (this._property.isVariable || WI.CSSKeywordCompletions.isColorAwareProperty(this._property.name)) {
             tokens = this._addGradientTokens(tokens);
@@ -844,6 +849,14 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         return newTokens;
     }
 
+    _addAlignmentTokens(tokens)
+    {
+        // FIXME: <https://webkit.org/b/233281> Web Inspector: Alignment swatch should handle multi-token values better
+        let text = this._resolveVariables(tokens.map((token) => token.value).join(""));
+        let swatch = this._createInlineSwatch(WI.InlineSwatch.Type.Alignment, this._addVariableTokens(tokens), text);
+        return [swatch];
+    }
+
     _addVariableTokens(tokens)
     {
         let newTokens = [];
@@ -870,8 +883,7 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
                     let contents = rawTokens.slice(0, variableNameIndex + 1);
 
                     if (WI.settings.experimentalEnableStylesJumpToVariableDeclaration.value && this._property.ownerStyle.type !== WI.CSSStyleDeclaration.Type.Computed && this._delegate && this._delegate.spreadsheetStylePropertySelectByProperty) {
-                        const dontCreateIfMissing = true;
-                        let effectiveVariableProperty = this._property.ownerStyle.nodeStyles.effectivePropertyForName(rawTokens[variableNameIndex].value, dontCreateIfMissing);
+                        let effectiveVariableProperty = this._property.ownerStyle.nodeStyles.effectivePropertyForName(rawTokens[variableNameIndex].value);
                         if (effectiveVariableProperty) {
                             let arrowElement = WI.createGoToArrowButton();
                             arrowElement.classList.add("select-variable-property");
@@ -963,9 +975,9 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         }
     }
 
-    _nameCompletionDataProvider(text, {allowEmptyPrefix} = {})
+    _nameCompletionDataProvider(text, {caretPosition, allowEmptyPrefix} = {})
     {
-        return WI.CSSKeywordCompletions.forPartialPropertyName(text, {allowEmptyPrefix});
+        return WI.CSSKeywordCompletions.forPartialPropertyName(text, {caretPosition, allowEmptyPrefix});
     }
 
     _handleValueBeforeInput(event)
@@ -987,10 +999,9 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         this.spreadsheetTextFieldDidCommit(this._valueTextField, {direction: "forward"});
     }
 
-    _valueCompletionDataProvider(text, {allowEmptyPrefix} = {})
+    _valueCompletionDataProvider(text, {caretPosition, allowEmptyPrefix} = {})
     {
-        // FIXME: <webkit.org/b/227411> Styles sidebar panel should support midline and multiline completions.
-        return WI.CSSKeywordCompletions.forPartialPropertyValue(text, this._nameElement.textContent.trim(), {additionalFunctionValueCompletionsProvider: this.additionalFunctionValueCompletionsProvider.bind(this)});
+        return WI.CSSKeywordCompletions.forPartialPropertyValue(text, this._nameElement.textContent.trim(), {caretPosition, additionalFunctionValueCompletionsProvider: this.additionalFunctionValueCompletionsProvider.bind(this)});
     }
 
     _setupJumpToSymbol(element)

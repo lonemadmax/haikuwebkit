@@ -32,15 +32,16 @@
 #include "WebGPUImageCopyTextureTagged.h"
 #include "WebGPUImageDataLayout.h"
 #include "WebGPUIntegralTypes.h"
+#include <cstdint>
+#include <functional>
 #include <optional>
-#include <utility>
+#include <wtf/Function.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 class Buffer;
 
@@ -58,7 +59,7 @@ public:
 
     virtual void submit(Vector<std::reference_wrapper<CommandBuffer>>&&) = 0;
 
-    virtual void onSubmittedWorkDone(std::function<void()>&&) = 0;
+    virtual void onSubmittedWorkDone(WTF::Function<void()>&&) = 0;
 
     virtual void writeBuffer(
         const Buffer&,
@@ -94,5 +95,4 @@ private:
     String m_label;
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU

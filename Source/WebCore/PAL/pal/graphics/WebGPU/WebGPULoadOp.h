@@ -26,13 +26,23 @@
 #pragma once
 
 #include <cstdint>
+#include <wtf/EnumTraits.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 enum class LoadOp : uint8_t {
     Load,
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU
+
+namespace WTF {
+
+template<> struct EnumTraits<PAL::WebGPU::LoadOp> {
+    using values = EnumValues<
+        PAL::WebGPU::LoadOp,
+        PAL::WebGPU::LoadOp::Load
+    >;
+};
+
+} // namespace WTF

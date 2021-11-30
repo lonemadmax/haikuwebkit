@@ -29,8 +29,7 @@
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 class ValidationError final : public RefCounted<ValidationError> {
 public:
@@ -39,11 +38,21 @@ public:
         return adoptRef(*new ValidationError(WTFMove(message)));
     }
 
+    static Ref<ValidationError> create(const String& message)
+    {
+        return adoptRef(*new ValidationError(message));
+    }
+
     const String& message() const { return m_message; }
 
 private:
     ValidationError(String&& message)
         : m_message(WTFMove(message))
+    {
+    }
+
+    ValidationError(const String& message)
+        : m_message(message)
     {
     }
 
@@ -55,5 +64,4 @@ private:
     String m_message;
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU

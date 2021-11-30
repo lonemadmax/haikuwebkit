@@ -32,13 +32,11 @@
 #include <wtf/KeyValuePair.h>
 #include <wtf/Vector.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 struct DeviceDescriptor : public ObjectDescriptorBase {
     Vector<FeatureName> requiredFeatures;
-    // Vector<KeyValuePair<String, uint64_t>> requiredLimits;
+    // FIXME: Add support for requiredLimits.
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU

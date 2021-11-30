@@ -25,6 +25,8 @@
 
 #include "config.h"
 
+#if ENABLE(CONTENT_EXTENSIONS)
+
 #include "Utilities.h"
 #include <JavaScriptCore/InitializeThreading.h>
 #include <WebCore/CombinedURLFilters.h>
@@ -129,7 +131,7 @@ public:
     {
         CompiledContentExtensionData extensionData;
         InMemoryContentExtensionCompilationClient client(extensionData);
-        auto parsedRules = ContentExtensions::parseRuleList(filter, { });
+        auto parsedRules = ContentExtensions::parseRuleList(filter);
         auto compilerError = ContentExtensions::compileRuleList(client, WTFMove(filter), WTFMove(parsedRules.value()));
 
         // Compiling should always succeed here. We have other tests for compile failures.
@@ -199,7 +201,7 @@ ContentExtensions::ContentExtensionsBackend makeBackend(const char* json)
     AtomString::init();
     auto extension = InMemoryCompiledContentExtension::create(json);
     ContentExtensions::ContentExtensionsBackend backend;
-    backend.addContentExtension("testFilter", WTFMove(extension));
+    backend.addContentExtension("testFilter", WTFMove(extension), { });
     return backend;
 }
 
@@ -846,8 +848,8 @@ TEST_F(ContentExtensionTest, MultipleExtensions)
     auto extension1 = InMemoryCompiledContentExtension::create("[{\"action\":{\"type\":\"block\"},\"trigger\":{\"url-filter\":\"block_load\"}}]");
     auto extension2 = InMemoryCompiledContentExtension::create("[{\"action\":{\"type\":\"block-cookies\"},\"trigger\":{\"url-filter\":\"block_cookies\"}}]");
     ContentExtensions::ContentExtensionsBackend backend;
-    backend.addContentExtension("testFilter1", WTFMove(extension1));
-    backend.addContentExtension("testFilter2", WTFMove(extension2));
+    backend.addContentExtension("testFilter1", WTFMove(extension1), { });
+    backend.addContentExtension("testFilter2", WTFMove(extension2), { });
     
     testRequest(backend, mainDocumentRequest("http://webkit.org"), { }, 2);
     testRequest(backend, mainDocumentRequest("http://webkit.org/block_load.html"), { variantIndex<ContentExtensions::BlockLoadAction> }, 2);
@@ -860,8 +862,8 @@ TEST_F(ContentExtensionTest, MultipleExtensions)
     auto ignoreExtension2 = InMemoryCompiledContentExtension::create("[{\"action\":{\"type\":\"block-cookies\"},\"trigger\":{\"url-filter\":\"block_cookies\"}},"
         "{\"action\":{\"type\":\"ignore-previous-rules\"},\"trigger\":{\"url-filter\":\"ignore2\"}}]");
     ContentExtensions::ContentExtensionsBackend backendWithIgnore;
-    backendWithIgnore.addContentExtension("testFilter1", WTFMove(ignoreExtension1));
-    backendWithIgnore.addContentExtension("testFilter2", WTFMove(ignoreExtension2));
+    backendWithIgnore.addContentExtension("testFilter1", WTFMove(ignoreExtension1), { });
+    backendWithIgnore.addContentExtension("testFilter2", WTFMove(ignoreExtension2), { });
 
     testRequest(backendWithIgnore, mainDocumentRequest("http://webkit.org"), { }, 2);
     testRequest(backendWithIgnore, mainDocumentRequest("http://webkit.org/block_load/ignore1.html"), { }, 1);
@@ -1360,11 +1362,11 @@ TEST_F(ContentExtensionTest, DeepNFA)
     EXPECT_EQ(1ul, createNFAs(combinedURLFilters).size());
 }
 
-void checkCompilerError(const char* json, std::error_code expectedError, const HashSet<String>& allowedRedirectURLSchemes = { })
+void checkCompilerError(const char* json, std::error_code expectedError)
 {
     CompiledContentExtensionData extensionData;
     InMemoryContentExtensionCompilationClient client(extensionData);
-    auto parsedRules = ContentExtensions::parseRuleList(json, allowedRedirectURLSchemes);
+    auto parsedRules = ContentExtensions::parseRuleList(json);
     std::error_code compilerError;
     if (parsedRules.has_value())
         compilerError = ContentExtensions::compileRuleList(client, json, WTFMove(parsedRules.value()));
@@ -1558,12 +1560,18 @@ TEST_F(ContentExtensionTest, InvalidJSON)
     checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"transform\":{\"query-transform\":{\"add-or-replace-parameters\":[{}]}}}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", ContentExtensionError::JSONAddOrReplaceParametersKeyValueMissingKeyString);
     checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"transform\":{\"query-transform\":{\"add-or-replace-parameters\":[{\"key\":5}]}}}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", ContentExtensionError::JSONAddOrReplaceParametersKeyValueMissingKeyString);
     checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"transform\":{\"query-transform\":{\"add-or-replace-parameters\":[{\"key\":\"k\",\"value\":5}]}}}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", ContentExtensionError::JSONAddOrReplaceParametersKeyValueMissingValueString);
-    checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"url\":\"about:blank\"}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", ContentExtensionError::JSONRedirectURLSchemeNotAllowed);
-    checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"url\":\"about:blank\"}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", { }, { "about" });
-    checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"extension-path\":\"does/not/start/with/slash/\"}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", ContentExtensionError::JSONRedirectExtensionPathDoesNotStartWithSlash);
+    checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"url\":\"https://127..1/\"}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", ContentExtensionError::JSONRedirectURLInvalid);
+    checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"url\":\"JaVaScRiPt:dostuff\"}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", ContentExtensionError::JSONRedirectToJavaScriptURL);
+    checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"transform\":{\"port\":\"not a number\"}}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", ContentExtensionError::JSONRedirectInvalidPort);
+    checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"transform\":{\"port\":\"65536\"}}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", ContentExtensionError::JSONRedirectInvalidPort);
+    checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"transform\":{\"query\":\"no-question-mark\"}}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", ContentExtensionError::JSONRedirectInvalidQuery);
+    checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"transform\":{\"fragment\":\"no-number-sign\"}}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", ContentExtensionError::JSONRedirectInvalidFragment);
+    checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"transform\":{\"port\":\"65535\"}}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", { });
+    checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"transform\":{\"port\":\"\"}}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", { });
     checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"extension-path\":\"/does/start/with/slash/\"}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", { });
-    checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"transform\":{\"scheme\":\"about\"}}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", ContentExtensionError::JSONRedirectURLSchemeNotAllowed);
-    checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"transform\":{\"scheme\":\"about\"}}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", { }, { "about" });
+    checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"transform\":{\"scheme\":\"!@#$%\"}}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", ContentExtensionError::JSONRedirectURLSchemeInvalid);
+    checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"transform\":{\"scheme\":\"JaVaScRiPt\"}}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", ContentExtensionError::JSONRedirectToJavaScriptURL);
+    checkCompilerError("[{\"action\":{\"type\":\"redirect\",\"redirect\":{\"transform\":{\"scheme\":\"About\"}}},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", { });
     checkCompilerError("[{\"action\":{\"type\":\"modify-headers\",\"request-headers\":5},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", ContentExtensionError::JSONModifyHeadersNotArray);
     checkCompilerError("[{\"action\":{\"type\":\"modify-headers\",\"request-headers\":[5]},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", ContentExtensionError::JSONModifyHeadersInfoNotADictionary);
     checkCompilerError("[{\"action\":{\"type\":\"modify-headers\",\"request-headers\":[{}]},\"trigger\":{\"url-filter\":\"webkit.org\"}}]", ContentExtensionError::JSONModifyHeadersMissingOperation);
@@ -3024,11 +3032,11 @@ TEST_F(ContentExtensionTest, Serialization)
         "host",
         "password",
         { /* path */ },
-        "port",
+        123,
         { /* query */ },
         "scheme",
         "username"
-    } } }, 75);
+    } } }, 70);
     checkRedirectActionSerialization({ { RedirectAction::URLTransformAction { { }, { }, { }, { }, { }, { "query" }, { }, { } } } }, 20);
     checkRedirectActionSerialization({ { RedirectAction::URLTransformAction { { }, { }, { }, { }, { },
         { RedirectAction::URLTransformAction::QueryTransform { { { "key1", false, "value1" }, { "key💩", false, "value2" } }, { "testString1", "testString2" } } }, { }, { },
@@ -3048,3 +3056,5 @@ TEST_F(ContentExtensionTest, Serialization)
 }
 
 } // namespace TestWebKitAPI
+
+#endif // ENABLE(CONTENT_EXTENSIONS)

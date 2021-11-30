@@ -136,6 +136,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/graphics/cpu/arm/filters"
     "${WEBCORE_DIR}/platform/graphics/displaylists"
     "${WEBCORE_DIR}/platform/graphics/filters"
+    "${WEBCORE_DIR}/platform/graphics/filters/software"
     "${WEBCORE_DIR}/platform/graphics/iso"
     "${WEBCORE_DIR}/platform/graphics/opentype"
     "${WEBCORE_DIR}/platform/mediacapabilities"
@@ -467,6 +468,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediastream/RTCTransformEvent.idl
 
     Modules/model-element/HTMLModelElement.idl
+    Modules/model-element/HTMLModelElementCamera.idl
 
     Modules/notifications/Notification.idl
     Modules/notifications/NotificationPermission.idl
@@ -1702,6 +1704,7 @@ endif ()
 
 set(WebCoreTestSupport_FRAMEWORKS ${WebCore_FRAMEWORKS})
 set(WebCoreTestSupport_DEPENDENCIES WebCoreTestSupportBindings)
+set(WebCoreTestSupport_PRIVATE_HEADERS testing/js/WebCoreTestSupport.h)
 
 if (ENABLE_LEGACY_ENCRYPTED_MEDIA)
     list(APPEND WebCore_SOURCES
@@ -2439,7 +2442,7 @@ endif ()
 
 WEBKIT_COPY_FILES(Copy_WebCoreTestSupportPrivateHeaders
     DESTINATION ${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}/WebCoreTestSupport
-    FILES testing/js/WebCoreTestSupport.h testing/cocoa/WebArchiveDumpSupport.h
+    FILES ${WebCoreTestSupport_PRIVATE_HEADERS}
     FLATTENED
 )
 list(APPEND WebCoreTestSupport_INTERFACE_DEPENDENCIES Copy_WebCoreTestSupportPrivateHeaders)

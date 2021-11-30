@@ -441,9 +441,11 @@ private:
     AXCoreObject* accessibilityObjectForPosition(const VisiblePosition&) const override;
     int lineForPosition(const VisiblePosition&) const override;
     PlainTextRange plainTextRangeForVisiblePositionRange(const VisiblePositionRange&) const override;
+    std::optional<SimpleRange> visibleCharacterRange() const override;
     int index(const VisiblePosition&) const override;
     void lineBreaks(Vector<int>&) const override;
-
+    FloatRect unobscuredContentRect() const override;
+    
     // Attribute setters.
     void setARIAGrabbed(bool) override;
     void setIsExpanded(bool) override;
@@ -667,8 +669,8 @@ private:
     String outerHTML() const override;
 
     RefPtr<AXIsolatedTree> m_cachedTree;
-    AXID m_parentID { InvalidAXID };
-    AXID m_id { InvalidAXID };
+    AXID m_parentID;
+    AXID m_id;
     Vector<AXID> m_childrenIDs;
     Vector<RefPtr<AXCoreObject>> m_children;
     AXPropertyMap m_propertyMap;

@@ -2,6 +2,7 @@
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  * Copyright (C) 2013 Google Inc. All rights reserved.
+ * Copyright (C) 2021 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,21 +29,21 @@
 
 namespace WebCore {
 
-RefPtr<SVGFilter> SVGFilter::create(SVGFilterElement& filterElement, SVGFilterBuilder& builder, const FloatSize& filterScale, const FloatRect& sourceImageRect, const FloatRect& filterRegion, FilterEffect& previousEffect)
+RefPtr<SVGFilter> SVGFilter::create(SVGFilterElement& filterElement, SVGFilterBuilder& builder, RenderingMode renderingMode, const FloatSize& filterScale, const FloatRect& sourceImageRect, const FloatRect& filterRegion, FilterEffect& previousEffect)
 {
-    return create(filterElement, builder, filterScale, sourceImageRect, filterRegion, filterRegion, &previousEffect);
+    return create(filterElement, builder, renderingMode, filterScale, sourceImageRect, filterRegion, filterRegion, &previousEffect);
 }
 
-RefPtr<SVGFilter> SVGFilter::create(SVGFilterElement& filterElement, SVGFilterBuilder& builder, const FloatSize& filterScale, const FloatRect& sourceImageRect, const FloatRect& filterRegion, const FloatRect& targetBoundingBox)
+RefPtr<SVGFilter> SVGFilter::create(SVGFilterElement& filterElement, SVGFilterBuilder& builder, RenderingMode renderingMode, const FloatSize& filterScale, const FloatRect& sourceImageRect, const FloatRect& filterRegion, const FloatRect& targetBoundingBox)
 {
-    return create(filterElement, builder, filterScale, sourceImageRect, filterRegion, targetBoundingBox, nullptr);
+    return create(filterElement, builder, renderingMode, filterScale, sourceImageRect, filterRegion, targetBoundingBox, nullptr);
 }
 
-RefPtr<SVGFilter> SVGFilter::create(SVGFilterElement& filterElement, SVGFilterBuilder& builder, const FloatSize& filterScale, const FloatRect& sourceImageRect, const FloatRect& filterRegion, const FloatRect& targetBoundingBox, FilterEffect* previousEffect)
+RefPtr<SVGFilter> SVGFilter::create(SVGFilterElement& filterElement, SVGFilterBuilder& builder, RenderingMode renderingMode, const FloatSize& filterScale, const FloatRect& sourceImageRect, const FloatRect& filterRegion, const FloatRect& targetBoundingBox, FilterEffect* previousEffect)
 {
     bool primitiveBoundingBoxMode = filterElement.primitiveUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX;
 
-    auto filter = adoptRef(*new SVGFilter(filterScale, sourceImageRect, filterRegion, targetBoundingBox, primitiveBoundingBoxMode));
+    auto filter = adoptRef(*new SVGFilter(renderingMode, filterScale, sourceImageRect, filterRegion, targetBoundingBox, primitiveBoundingBoxMode));
 
     if (!previousEffect)
         builder.setupBuiltinEffects(SourceGraphic::create());
@@ -56,12 +57,23 @@ RefPtr<SVGFilter> SVGFilter::create(SVGFilterElement& filterElement, SVGFilterBu
     if (!lastEffect)
         return nullptr;
 
-    filter->setLastEffect(WTFMove(lastEffect));
+    FilterEffectVector expression;
+    if (!builder.buildExpression(expression))
+        return nullptr;
+
+    ASSERT(!expression.isEmpty());
+    filter->setExpression(WTFMove(expression));
+    
+#if USE(CORE_IMAGE)
+    if (!filter->supportsCoreImageRendering())
+        filter->setRenderingMode(RenderingMode::Unaccelerated);
+#endif
+
     return filter;
 }
 
-SVGFilter::SVGFilter(const FloatSize& filterScale, const FloatRect& sourceImageRect, const FloatRect& filterRegion, const FloatRect& targetBoundingBox, bool effectBBoxMode)
-    : Filter(Filter::Type::SVGFilter, filterScale, sourceImageRect, filterRegion)
+SVGFilter::SVGFilter(RenderingMode renderingMode, const FloatSize& filterScale, const FloatRect& sourceImageRect, const FloatRect& filterRegion, const FloatRect& targetBoundingBox, bool effectBBoxMode)
+    : Filter(Filter::Type::SVGFilter, renderingMode, filterScale, sourceImageRect, filterRegion)
     , m_targetBoundingBox(targetBoundingBox)
     , m_effectBBoxMode(effectBBoxMode)
 {
@@ -75,19 +87,49 @@ FloatSize SVGFilter::scaledByFilterScale(FloatSize size) const
     return Filter::scaledByFilterScale(size);
 }
 
-void SVGFilter::apply()
+#if USE(CORE_IMAGE)
+bool SVGFilter::supportsCoreImageRendering() const
 {
-    m_lastEffect->apply(*this);
+    if (renderingMode() == RenderingMode::Unaccelerated)
+        return false;
+
+    ASSERT(!m_expression.isEmpty());
+    for (auto& effect : m_expression) {
+        if (!effect->supportsCoreImageRendering())
+            return false;
+    }
+
+    return true;
+}
+#endif
+
+bool SVGFilter::apply(const Filter& filter)
+{
+    setSourceImage({ filter.sourceImage() });
+    return apply();
+}
+
+RefPtr<FilterImage> SVGFilter::apply()
+{
+    ASSERT(!m_expression.isEmpty());
+    for (auto& effect : m_expression) {
+        if (!effect->apply(*this))
+            return nullptr;
+    }
+    return lastEffect()->filterImage();
 }
 
 IntOutsets SVGFilter::outsets() const
 {
-    return m_lastEffect->outsets();
+    ASSERT(lastEffect());
+    return lastEffect()->outsets();
 }
 
 void SVGFilter::clearResult()
 {
-    m_lastEffect->clearResultsRecursive();
+    ASSERT(!m_expression.isEmpty());
+    for (auto& effect : m_expression)
+        effect->clearResult();
 }
 
 } // namespace WebCore

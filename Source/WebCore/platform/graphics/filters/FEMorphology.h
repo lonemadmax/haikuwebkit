@@ -2,6 +2,7 @@
  * Copyright (C) 2004, 2005, 2006, 2007 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
+ * Copyright (C) Apple Inc. 2021 All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,10 +26,10 @@
 
 namespace WebCore {
 
-enum MorphologyOperatorType {
-    FEMORPHOLOGY_OPERATOR_UNKNOWN = 0,
-    FEMORPHOLOGY_OPERATOR_ERODE = 1,
-    FEMORPHOLOGY_OPERATOR_DILATE = 2
+enum class MorphologyOperatorType {
+    Unknown,
+    Erode,
+    Dilate
 };
 
 class FEMorphology : public FilterEffect {
@@ -49,32 +50,11 @@ private:
 
     void determineAbsolutePaintRect(const Filter&) override;
 
-    void platformApplySoftware(const Filter&) override;
+    bool resultIsAlphaImage() const override;
+
+    std::unique_ptr<FilterEffectApplier> createApplier(const Filter&) const override;
 
     WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
-
-    bool platformApplyDegenerate(Uint8ClampedArray& dstPixelArray, const IntRect& imageRect, int radiusX, int radiusY);
-
-    struct PaintingData {
-        const Uint8ClampedArray* srcPixelArray;
-        Uint8ClampedArray* dstPixelArray;
-        int width;
-        int height;
-        int radiusX;
-        int radiusY;
-    };
-
-    struct PlatformApplyParameters {
-        FEMorphology* filter;
-        int startY;
-        int endY;
-        const PaintingData* paintingData;
-    };
-
-    static void platformApplyWorker(PlatformApplyParameters*);
-
-    void platformApply(const PaintingData&);
-    void platformApplyGeneric(const PaintingData&, int startY, int endY);
 
     MorphologyOperatorType m_type;
     float m_radiusX;

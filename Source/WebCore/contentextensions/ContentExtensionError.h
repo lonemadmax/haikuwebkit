@@ -60,8 +60,13 @@ enum class ContentExtensionError {
 
     JSONRedirectMissing,
     JSONRedirectExtensionPathDoesNotStartWithSlash,
-    JSONRedirectURLSchemeNotAllowed,
+    JSONRedirectURLSchemeInvalid,
+    JSONRedirectToJavaScriptURL,
+    JSONRedirectURLInvalid,
     JSONRedirectInvalidType,
+    JSONRedirectInvalidPort,
+    JSONRedirectInvalidQuery,
+    JSONRedirectInvalidFragment,
 
     JSONRemoveParametersNotStringArray,
 

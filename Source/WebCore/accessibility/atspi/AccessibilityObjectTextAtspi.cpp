@@ -21,13 +21,18 @@
 #include "AccessibilityObjectAtspi.h"
 
 #if ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#include "AXObjectCache.h"
 #include "AccessibilityAtspiEnums.h"
+#include "AccessibilityObject.h"
 #include "AccessibilityObjectInterface.h"
+#include "AccessibilityRootAtspi.h"
 #include "Editing.h"
 #include "PlatformScreen.h"
+#include "RenderLayer.h"
 #include "SurrogatePairAwareTextIterator.h"
 #include "TextIterator.h"
 #include "VisibleUnits.h"
+#include <gio/gio.h>
 
 namespace WebCore {
 
@@ -484,6 +489,57 @@ int AccessibilityObjectAtspi::characterAtOffset(int offset) const
     return g_utf8_get_char(g_utf8_offset_to_pointer(utf8Text.data(), offset));
 }
 
+std::optional<unsigned> AccessibilityObjectAtspi::characterOffset(UChar character, int index) const
+{
+    auto utf16Text = text();
+    unsigned start = 0;
+    size_t offset;
+    while ((offset = utf16Text.find(character, start)) != notFound) {
+        start = offset + 1;
+        if (!index)
+            break;
+        index--;
+    }
+
+    if (offset == notFound)
+        return std::nullopt;
+
+    auto mapping = offsetMapping(utf16Text);
+    return UTF16OffsetToUTF8(mapping, offset);
+}
+
+std::optional<unsigned> AccessibilityObjectAtspi::characterIndex(UChar character, unsigned offset) const
+{
+    auto utf16Text = text();
+    auto utf8Text = utf16Text.utf8();
+    if (utf8Text.isNull())
+        return std::nullopt;
+
+    auto length = g_utf8_strlen(utf8Text.data(), -1);
+    if (offset >= length)
+        return std::nullopt;
+
+    auto mapping = offsetMapping(utf16Text);
+    auto utf16Offset = UTF8OffsetToUTF16(mapping, offset);
+    if (utf16Text[utf16Offset] != character)
+        return std::nullopt;
+
+    unsigned start = 0;
+    int index = -1;
+    size_t position;
+    while ((position = utf16Text.find(character, start)) != notFound) {
+        index++;
+        if (static_cast<unsigned>(position) == utf16Offset)
+            break;
+        start = position + 1;
+    }
+
+    if (index == -1)
+        return std::nullopt;
+
+    return index;
+}
+
 IntRect AccessibilityObjectAtspi::boundsForRange(unsigned utf16Offset, unsigned length, uint32_t coordinateType) const
 {
     return Accessibility::retrieveValueFromMainThread<IntRect>([this, utf16Offset, length, coordinateType]() -> IntRect {
@@ -757,8 +813,8 @@ AccessibilityObjectAtspi::TextAttributes AccessibilityObjectAtspi::textAttribute
             addAttributeIfNeeded("size"_s, makeString(std::round(style.computedFontPixelSize() * 72 / WebCore::screenDPI()), "pt"));
             addAttributeIfNeeded("weight"_s, makeString(static_cast<float>(style.fontCascade().weight())));
             addAttributeIfNeeded("style"_s, style.fontCascade().italic() ? "italic" : "normal");
-            addAttributeIfNeeded("strikethrough"_s, style.textDecoration() & TextDecoration::LineThrough ? "true" : "false");
-            addAttributeIfNeeded("underline"_s, style.textDecoration() & TextDecoration::Underline ? "single" : "none");
+            addAttributeIfNeeded("strikethrough"_s, style.textDecoration() & TextDecorationLine::LineThrough ? "true" : "false");
+            addAttributeIfNeeded("underline"_s, style.textDecoration() & TextDecorationLine::Underline ? "single" : "none");
             addAttributeIfNeeded("invisible"_s, style.visibility() == Visibility::Hidden ? "true" : "false");
             addAttributeIfNeeded("editable"_s, m_coreObject->canSetValueAttribute() ? "true" : "false");
             addAttributeIfNeeded("direction"_s, style.direction() == TextDirection::LTR ? "ltr" : "rtl");

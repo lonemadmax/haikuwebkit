@@ -30,11 +30,10 @@
 #include "WebGPUIntegralTypes.h"
 #include "WebGPUSampler.h"
 #include "WebGPUTextureView.h"
-#include <utility>
+#include <functional>
 #include <variant>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 using BindingResource = std::variant<std::reference_wrapper<Sampler>, std::reference_wrapper<TextureView>, BufferBinding, std::reference_wrapper<ExternalTexture>>;
 
@@ -43,5 +42,4 @@ struct BindGroupEntry {
     BindingResource resource;
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU

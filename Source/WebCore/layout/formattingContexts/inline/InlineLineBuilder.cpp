@@ -34,6 +34,7 @@
 #include "LayoutBox.h"
 #include "LayoutBoxGeometry.h"
 #include "LayoutState.h"
+#include "RuntimeEnabledFeatures.h"
 #include "TextUtil.h"
 #include <wtf/unicode/CharacterNames.h>
 
@@ -268,8 +269,9 @@ InlineLayoutUnit LineBuilder::inlineItemWidth(const InlineItem& inlineItem, Inli
     return boxGeometry.marginBoxWidth();
 }
 
-LineBuilder::LineBuilder(InlineFormattingContext& inlineFormattingContext, FloatingState& floatingState, HorizontalConstraints rootHorizontalConstraints, const InlineItems& inlineItems)
-    : m_inlineFormattingContext(inlineFormattingContext)
+LineBuilder::LineBuilder(InlineFormattingContext& inlineFormattingContext, FloatingState& floatingState, HorizontalConstraints rootHorizontalConstraints, const InlineItems& inlineItems, std::optional<IntrinsicWidthMode> intrinsicWidthMode)
+    : m_intrinsicWidthMode(intrinsicWidthMode)
+    , m_inlineFormattingContext(inlineFormattingContext)
     , m_inlineFormattingState(&inlineFormattingContext.formattingState())
     , m_floatingState(&floatingState)
     , m_rootHorizontalConstraints(rootHorizontalConstraints)
@@ -278,8 +280,9 @@ LineBuilder::LineBuilder(InlineFormattingContext& inlineFormattingContext, Float
 {
 }
 
-LineBuilder::LineBuilder(const InlineFormattingContext& inlineFormattingContext, const InlineItems& inlineItems)
-    : m_inlineFormattingContext(inlineFormattingContext)
+LineBuilder::LineBuilder(const InlineFormattingContext& inlineFormattingContext, const InlineItems& inlineItems, std::optional<IntrinsicWidthMode> intrinsicWidthMode)
+    : m_intrinsicWidthMode(intrinsicWidthMode)
+    , m_inlineFormattingContext(inlineFormattingContext)
     , m_line(inlineFormattingContext)
     , m_inlineItems(inlineItems)
 {
@@ -323,9 +326,11 @@ LineBuilder::LineContent LineBuilder::layoutInlineContent(const InlineItemRange&
         , lineRuns };
 }
 
-LineBuilder::IntrinsicContent LineBuilder::computedIntrinsicWidth(const InlineItemRange& needsLayoutRange, InlineLayoutUnit availableWidth, bool isFirstLine)
+LineBuilder::IntrinsicContent LineBuilder::computedIntrinsicWidth(const InlineItemRange& needsLayoutRange, bool isFirstLine)
 {
-    auto lineConstraints = initialConstraintsForLine({ 0, 0, availableWidth, 0 }, isFirstLine);
+    ASSERT(isInIntrinsicWidthMode());
+    auto lineLogicalWidth = *intrinsicWidthMode() == IntrinsicWidthMode::Maximum ? maxInlineLayoutUnit() : 0.f;
+    auto lineConstraints = initialConstraintsForLine({ 0, 0, lineLogicalWidth, 0 }, isFirstLine);
     initialize(lineConstraints, isFirstLine, needsLayoutRange.start, { }, { });
 
     auto committedContent = placeInlineContent(needsLayoutRange);
@@ -390,7 +395,7 @@ void LineBuilder::initialize(const UsedConstraints& lineConstraints, bool isFirs
 LineBuilder::CommittedContent LineBuilder::placeInlineContent(const InlineItemRange& needsLayoutRange)
 {
     auto lineCandidate = LineCandidate { layoutState().shouldIgnoreTrailingLetterSpacing() };
-    auto inlineContentBreaker = InlineContentBreaker { };
+    auto inlineContentBreaker = InlineContentBreaker { intrinsicWidthMode() };
 
     auto currentItemIndex = needsLayoutRange.start;
     size_t committedInlineItemCount = 0;
@@ -454,10 +459,33 @@ LineBuilder::InlineItemRange LineBuilder::close(const InlineItemRange& needsLayo
         // Line is empty, we only managed to place float boxes.
         return lineRange;
     }
+    auto isLastLine = isLastLineWithInlineContent(lineRange, needsLayoutRange.end, committedContent.partialTrailingContentLength);
     auto horizontalAvailableSpace = m_lineLogicalRect.width();
-    m_line.removeTrimmableContent(horizontalAvailableSpace);
+    auto isInIntrinsicWidthMode = this->isInIntrinsicWidthMode();
+    // Legacy line layout quirk: keep the trailing whitespace around when it is followed by a line break, unless the content overflows the line.
+    // This quirk however should not be applied when running intrinsic width computation.
+    // FIXME: webkit.org/b/233261
+    auto shouldApplyTrailingWhiteSpaceFollowedByBRQuirk = isInIntrinsicWidthMode || !RuntimeEnabledFeatures::sharedFeatures().layoutFormattingContextIntegrationEnabled()
+        ? Line::ShouldApplyTrailingWhiteSpaceFollowedByBRQuirk::No
+        : Line::ShouldApplyTrailingWhiteSpaceFollowedByBRQuirk::Yes;
+    m_line.removeTrailingTrimmableContent(shouldApplyTrailingWhiteSpaceFollowedByBRQuirk);
+
+    if (isInIntrinsicWidthMode) {
+        // When a glyph at the start or end edge of a line hangs, it is not considered when measuring the line’s contents for fit.
+        // https://drafts.csswg.org/css-text/#hanging
+        if (*intrinsicWidthMode() == IntrinsicWidthMode::Minimum)
+            m_line.removeHangingGlyphs();
+        else {
+            // Glyphs that conditionally hang are not taken into account when computing min-content sizes and any sizes derived thereof, but they are taken into account for max-content sizes and any sizes derived thereof.
+            auto isConditionalHanging = isLastLine || (!m_line.runs().isEmpty() && m_line.runs().last().isLineBreak());
+            if (!isConditionalHanging)
+                m_line.removeHangingGlyphs();
+        }
+    } else
+        m_line.visuallyCollapseHangingOverflowingGlyphs(horizontalAvailableSpace);
+
     auto horizontalAlignment = root().style().textAlign();
-    auto runsExpandHorizontally = horizontalAlignment == TextAlignMode::Justify && !isLastLineWithInlineContent(lineRange, needsLayoutRange.end, committedContent.partialTrailingContentLength);
+    auto runsExpandHorizontally = horizontalAlignment == TextAlignMode::Justify && !isLastLine;
     if (runsExpandHorizontally)
         m_line.applyRunExpansion(horizontalAvailableSpace);
     auto lineEndsWithHyphen = false;
@@ -547,6 +575,11 @@ LineBuilder::UsedConstraints LineBuilder::initialConstraintsForLine(const Inline
         auto textIndent = root.style().textIndent();
         if (textIndent == RenderStyle::initialTextIndent())
             return { };
+        if (isInIntrinsicWidthMode() && textIndent.isPercent()) {
+            // Percentages must be treated as 0 for the purpose of calculating intrinsic size contributions.
+            // https://drafts.csswg.org/css-text/#text-indent-property
+            return { };
+        }
         return { minimumValueForLength(textIndent, initialLineLogicalRect.width()) };
     };
     lineLogicalLeft += computedTextIndent();

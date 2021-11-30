@@ -41,11 +41,22 @@ class InlineDisplayContentBuilder {
 public:
     InlineDisplayContentBuilder(const ContainerBox& formattingContextRoot, InlineFormattingState&);
 
-    DisplayBoxes build(const LineBuilder::LineContent&, const LineBox&, const InlineLayoutPoint& lineBoxLogicalTopLeft, const size_t lineIndex);
+    DisplayBoxes build(const LineBuilder::LineContent&, const LineBox&, const InlineRect& lineBoxLogicalRect, const size_t lineIndex);
 
 private:
-    void createBoxesAndUpdateGeometryForLineContent(const LineBuilder::LineContent&, const LineBox&, const InlineLayoutPoint& lineBoxLogicalTopLeft, const size_t lineIndex, DisplayBoxes&);
+    void processNonBidiContent(const LineBuilder::LineContent&, const LineBox&, const InlineLayoutPoint& lineBoxLogicalTopLeft, DisplayBoxes&);
+    void processBidiContent(const LineBuilder::LineContent&, const LineBox&, const InlineLayoutPoint& lineBoxLogicalTopLeft, DisplayBoxes&);
+    void processOverflownRunsForEllipsis(DisplayBoxes&, InlineLayoutUnit lineBoxLogicalRight);
     void collectInkOverflowForInlineBoxes(const LineBox&, DisplayBoxes&);
+
+    void appendTextDisplayBox(const Line::Run&, const InlineRect&, DisplayBoxes&);
+    void appendSoftLineBreakDisplayBox(const Line::Run&, const InlineRect&, DisplayBoxes&);
+    void appendHardLineBreakDisplayBox(const Line::Run&, const InlineRect&, DisplayBoxes&);
+    void appendAtomicInlineLevelDisplayBox(const Line::Run&, const InlineRect& , DisplayBoxes&);
+    void appendInlineBoxDisplayBox(const Line::Run&, const InlineLevelBox&, const InlineRect&, bool linehasContent, DisplayBoxes&);
+    void appendSpanningInlineBoxDisplayBox(const Line::Run&, const InlineLevelBox&, const InlineRect&, DisplayBoxes&);
+    void appendInlineBoxDisplayBoxForBidiBoundary(const Box&, const InlineRect&, DisplayBoxes&);
+    void adjustInlineBoxDisplayBoxForBidiBoundary(InlineDisplay::Box&, const InlineRect&);
 
     const ContainerBox& root() const { return m_formattingContextRoot; }
     InlineFormattingState& formattingState() const { return m_formattingState; } 
@@ -53,6 +64,7 @@ private:
     const ContainerBox& m_formattingContextRoot;
     InlineFormattingState& m_formattingState;
     HashMap<const Box*, size_t> m_inlineBoxIndexMap;
+    size_t m_lineIndex { 0 };
 };
 
 }

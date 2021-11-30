@@ -88,6 +88,7 @@ struct KeyframeAnimationOptions;
 struct ResizeObserverData;
 struct ScrollIntoViewOptions;
 struct ScrollToOptions;
+struct SecurityPolicyViolationEventInit;
 struct ShadowRootInit;
 
 namespace Style {
@@ -175,6 +176,7 @@ public:
     virtual void scrollTo(const ScrollToOptions&, ScrollClamping = ScrollClamping::Clamped, ScrollSnapPointSelectionMethod = ScrollSnapPointSelectionMethod::Closest);
     void scrollTo(double x, double y);
 
+    // These are only used by WebKitLegacy DOM API.
     WEBCORE_EXPORT void scrollByLines(int lines);
     WEBCORE_EXPORT void scrollByPages(int pages);
 
@@ -570,6 +572,8 @@ public:
 
     WEBCORE_EXPORT bool dispatchMouseForceWillBegin();
 
+    void enqueueSecurityPolicyViolationEvent(SecurityPolicyViolationEventInit&&);
+
     virtual void willRecalcStyle(Style::Change);
     virtual void didRecalcStyle(Style::Change);
     virtual void willResetComputedStyle();
@@ -762,6 +766,8 @@ private:
     QualifiedName m_tagName;
     RefPtr<ElementData> m_elementData;
 };
+
+void invalidateForSiblingCombinators(Element* sibling);
 
 } // namespace WebCore
 

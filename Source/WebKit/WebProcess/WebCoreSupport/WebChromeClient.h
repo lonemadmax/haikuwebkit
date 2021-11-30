@@ -247,9 +247,9 @@ private:
 
 #if ENABLE(GPU_PROCESS)
     RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, WebCore::RenderingMode, WebCore::RenderingPurpose, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::PixelFormat) const final;
+#endif
 #if ENABLE(WEBGL)
     RefPtr<WebCore::GraphicsContextGL> createGraphicsContextGL(const WebCore::GraphicsContextGLAttributes&, WebCore::PlatformDisplayID hostWindowDisplayID) const final;
-#endif
 #endif
 
 
@@ -431,7 +431,7 @@ private:
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS)
-    void requestTextRecognition(WebCore::Element&, CompletionHandler<void(RefPtr<WebCore::Element>&&)>&& = { }) final;
+    void requestTextRecognition(WebCore::Element&, const String& identifier = { }, CompletionHandler<void(RefPtr<WebCore::Element>&&)>&& = { }) final;
 #endif
 
     bool needsImageOverlayControllerForSelectionPainting() const final
@@ -453,10 +453,6 @@ private:
 
 #if ENABLE(WEBXR) && !USE(OPENXR)
     void enumerateImmersiveXRDevices(CompletionHandler<void(const PlatformXR::Instance::DeviceList&)>&&) final;
-#endif
-
-#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
-    void takeModelElementFullscreen(WebCore::GraphicsLayer::PlatformLayerID contentLayerId) const final;
 #endif
 
 #if ENABLE(APPLE_PAY_AMS_UI)

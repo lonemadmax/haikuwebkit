@@ -41,6 +41,7 @@
 #include "CSSPropertyAnimation.h"
 #include "CSSPropertyNames.h"
 #include "CSSPropertyParser.h"
+#include "CSSRayValue.h"
 #include "CSSReflectValue.h"
 #include "CSSSelector.h"
 #include "CSSShadowValue.h"
@@ -1456,6 +1457,25 @@ static Ref<CSSValue> valueForPositionOrAuto(const RenderStyle& style, const Leng
     return valueForPosition(style, position);
 }
 
+static CSSValueID valueIDForRaySize(RayPathOperation::Size size)
+{
+    switch (size) {
+    case RayPathOperation::Size::ClosestCorner:
+        return CSSValueClosestCorner;
+    case RayPathOperation::Size::ClosestSide:
+        return CSSValueClosestSide;
+    case RayPathOperation::Size::FarthestCorner:
+        return CSSValueFarthestCorner;
+    case RayPathOperation::Size::FarthestSide:
+        return CSSValueFarthestSide;
+    case RayPathOperation::Size::Sides:
+        return CSSValueSides;
+    }
+
+    ASSERT_NOT_REACHED();
+    return CSSValueInvalid;
+}
+
 static Ref<CSSValue> valueForPathOperation(const RenderStyle& style, const PathOperation* operation, SVGPathConversion conversion = SVGPathConversion::None)
 {
     auto& cssValuePool = CSSValuePool::singleton();
@@ -1463,21 +1483,37 @@ static Ref<CSSValue> valueForPathOperation(const RenderStyle& style, const PathO
     if (!operation)
         return cssValuePool.createIdentifierValue(CSSValueNone);
 
-    if (is<ReferencePathOperation>(*operation))
+    switch (operation->type()) {
+    case PathOperation::Reference:
         return CSSPrimitiveValue::create(downcast<ReferencePathOperation>(*operation).url(), CSSUnitType::CSS_URI);
 
-    auto list = CSSValueList::createSpaceSeparated();
-    if (is<ShapePathOperation>(*operation)) {
+    case PathOperation::Shape: {
+        auto list = CSSValueList::createSpaceSeparated();
+
         auto& shapeOperation = downcast<ShapePathOperation>(*operation);
         list->append(valueForBasicShape(style, shapeOperation.basicShape(), conversion));
+
         if (shapeOperation.referenceBox() != CSSBoxType::BoxMissing)
             list->append(cssValuePool.createValue(shapeOperation.referenceBox()));
+
+        return list;
     }
 
-    if (is<BoxPathOperation>(*operation))
-        list->append(cssValuePool.createValue(downcast<BoxPathOperation>(*operation).referenceBox()));
+    case PathOperation::Box:
+        return cssValuePool.createValue(downcast<BoxPathOperation>(*operation).referenceBox());
 
-    return list;
+    case PathOperation::Ray: {
+        auto& ray = downcast<RayPathOperation>(*operation);
+
+        auto angle = cssValuePool.createValue(ray.angle(), CSSUnitType::CSS_DEG);
+        auto size = cssValuePool.createIdentifierValue(valueIDForRaySize(ray.size()));
+
+        return CSSRayValue::create(WTFMove(angle), WTFMove(size), ray.isContaining());
+    }
+    }
+
+    ASSERT_NOT_REACHED();
+    return cssValuePool.createIdentifierValue(CSSValueNone);
 }
 
 ComputedStyleExtractor::ComputedStyleExtractor(Node* node, bool allowVisitedStyle, PseudoId pseudoElementSpecifier)
@@ -1613,16 +1649,16 @@ static Ref<CSSValue> touchActionFlagsToCSSValue(OptionSet<TouchAction> touchActi
     return list;
 }
 
-static Ref<CSSValue> renderTextDecorationFlagsToCSSValue(OptionSet<TextDecoration> textDecoration)
+static Ref<CSSValue> renderTextDecorationLineFlagsToCSSValue(OptionSet<TextDecorationLine> textDecorationLine)
 {
     auto& cssValuePool = CSSValuePool::singleton();
     // Blink value is ignored.
     auto list = CSSValueList::createSpaceSeparated();
-    if (textDecoration & TextDecoration::Underline)
+    if (textDecorationLine & TextDecorationLine::Underline)
         list->append(cssValuePool.createIdentifierValue(CSSValueUnderline));
-    if (textDecoration & TextDecoration::Overline)
+    if (textDecorationLine & TextDecorationLine::Overline)
         list->append(cssValuePool.createIdentifierValue(CSSValueOverline));
-    if (textDecoration & TextDecoration::LineThrough)
+    if (textDecorationLine & TextDecorationLine::LineThrough)
         list->append(cssValuePool.createIdentifierValue(CSSValueLineThrough));
 
     if (!list->length())
@@ -2496,6 +2532,19 @@ static Ref<CSSValueList> valueForContentPositionAndDistributionWithOverflowAlign
     return result;
 }
 
+static Ref<CSSValueList> valueForOffsetRotate(const OffsetRotation& rotation)
+{
+    auto& cssValuePool = CSSValuePool::singleton();
+
+    auto result = CSSValueList::createSpaceSeparated();
+
+    if (rotation.hasAuto())
+        result->append(cssValuePool.createIdentifierValue(CSSValueAuto));
+    result->append(cssValuePool.createValue(rotation.angle(), CSSUnitType::CSS_DEG));
+
+    return result;
+}
+
 static Ref<CSSValue> paintOrder(PaintOrder paintOrder)
 {
     if (paintOrder == PaintOrder::Normal)
@@ -3207,6 +3256,8 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
             return valueForPositionOrAuto(style, style.offsetPosition());
         case CSSPropertyOffsetAnchor:
             return valueForPositionOrAuto(style, style.offsetAnchor());
+        case CSSPropertyOffsetRotate:
+            return valueForOffsetRotate(style.offsetRotate());
         case CSSPropertyOpacity:
             return cssValuePool.createValue(style.opacity(), CSSUnitType::CSS_NUMBER);
         case CSSPropertyOrphans:
@@ -3276,7 +3327,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertyTextAlign:
             return cssValuePool.createValue(style.textAlign());
         case CSSPropertyTextDecoration:
-            return renderTextDecorationFlagsToCSSValue(style.textDecoration());
+            return renderTextDecorationLineFlagsToCSSValue(style.textDecoration());
 #if ENABLE(CSS3_TEXT)
         case CSSPropertyWebkitTextAlignLast:
             return cssValuePool.createValue(style.textAlignLast());
@@ -3286,7 +3337,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertyWebkitTextDecoration:
             return getCSSPropertyValuesForShorthandProperties(webkitTextDecorationShorthand());
         case CSSPropertyTextDecorationLine:
-            return renderTextDecorationFlagsToCSSValue(style.textDecoration());
+            return renderTextDecorationLineFlagsToCSSValue(style.textDecoration());
         case CSSPropertyTextDecorationStyle:
             return renderTextDecorationStyleFlagsToCSSValue(style.textDecorationStyle());
         case CSSPropertyTextDecorationColor:
@@ -3302,7 +3353,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         case CSSPropertyTextDecorationThickness:
             return textDecorationThicknessToCSSValue(style.textDecorationThickness());
         case CSSPropertyWebkitTextDecorationsInEffect:
-            return renderTextDecorationFlagsToCSSValue(style.textDecorationsInEffect());
+            return renderTextDecorationLineFlagsToCSSValue(style.textDecorationsInEffect());
         case CSSPropertyWebkitTextFillColor:
             return currentColorOrValidColor(&style, style.textFillColor());
         case CSSPropertyWebkitTextEmphasisColor:
@@ -4396,15 +4447,76 @@ ExceptionOr<void> CSSComputedStyleDeclaration::setPropertyInternal(CSSPropertyID
     return Exception { NoModificationAllowedError };
 }
 
+size_t ComputedStyleExtractor::getLayerCount(CSSPropertyID property)
+{
+    ASSERT(property == CSSPropertyBackground || property == CSSPropertyMask);
+    if (!styledElement())
+        return 0;
+
+    std::unique_ptr<RenderStyle> ownedStyle;
+    const RenderStyle* style = computeRenderStyleForProperty(*styledElement(), m_pseudoElementSpecifier, property, ownedStyle);
+    if (!style)
+        return 0;
+
+    auto& layers = property == CSSPropertyMask ? style->maskLayers() : style->backgroundLayers();
+
+    size_t layerCount = 0;
+    for (auto* currLayer = &layers; currLayer; currLayer = currLayer->next())
+        layerCount++;
+    return layerCount;
+}
+
+Ref<CSSValueList> ComputedStyleExtractor::getFillLayerPropertyShorthandValue(CSSPropertyID property, const StylePropertyShorthand& propertiesBeforeSlashSeparator, const StylePropertyShorthand& propertiesAfterSlashSeparator, CSSPropertyID lastLayerProperty)
+{
+    ASSERT(property == CSSPropertyBackground || property == CSSPropertyMask);
+    size_t layerCount = getLayerCount(property);
+    ASSERT(layerCount);
+
+    auto lastValue = lastLayerProperty != CSSPropertyInvalid ? propertyValue(lastLayerProperty, DoNotUpdateLayout) : nullptr;
+    auto before = getCSSPropertyValuesForShorthandProperties(propertiesBeforeSlashSeparator);
+    auto after = getCSSPropertyValuesForShorthandProperties(propertiesAfterSlashSeparator);
+
+    // The computed properties are returned as lists of properties, with a list of layers in each.
+    // We want to swap that around to have a list of layers, with a list of properties in each.
+
+    auto layers = CSSValueList::createCommaSeparated();
+
+    for (size_t i = 0; i < layerCount; i++) {
+        auto list = CSSValueList::createSlashSeparated();
+        auto beforeList = CSSValueList::createSpaceSeparated();
+
+        if (i == layerCount - 1 && lastValue)
+            beforeList->append(*lastValue);
+
+        for (size_t j = 0; j < propertiesBeforeSlashSeparator.length(); j++) {
+            auto& value = *before->item(j);
+            beforeList->append(layerCount == 1 ? value : *downcast<CSSValueList>(value).item(i));
+        }
+        list->append(beforeList);
+
+        auto afterList = CSSValueList::createSpaceSeparated();
+        for (size_t j = 0; j < propertiesAfterSlashSeparator.length(); j++) {
+            auto& value = *after->item(j);
+            afterList->append(layerCount == 1 ? value : *downcast<CSSValueList>(value).item(i));
+        }
+        list->append(afterList);
+
+        if (layerCount == 1)
+            return list;
+
+        layers->append(list);
+    }
+
+    return layers;
+}
+
+
 Ref<CSSValueList> ComputedStyleExtractor::getBackgroundShorthandValue()
 {
-    static const CSSPropertyID propertiesBeforeSlashSeperator[5] = { CSSPropertyBackgroundColor, CSSPropertyBackgroundImage, CSSPropertyBackgroundRepeat, CSSPropertyBackgroundAttachment, CSSPropertyBackgroundPosition };
-    static const CSSPropertyID propertiesAfterSlashSeperator[3] = { CSSPropertyBackgroundSize, CSSPropertyBackgroundOrigin, CSSPropertyBackgroundClip };
+    static const CSSPropertyID propertiesBeforeSlashSeparator[] = { CSSPropertyBackgroundImage, CSSPropertyBackgroundRepeat, CSSPropertyBackgroundAttachment, CSSPropertyBackgroundPosition };
+    static const CSSPropertyID propertiesAfterSlashSeparator[] = { CSSPropertyBackgroundSize, CSSPropertyBackgroundOrigin, CSSPropertyBackgroundClip };
 
-    auto list = CSSValueList::createSlashSeparated();
-    list->append(getCSSPropertyValuesForShorthandProperties(StylePropertyShorthand(CSSPropertyBackground, propertiesBeforeSlashSeperator)));
-    list->append(getCSSPropertyValuesForShorthandProperties(StylePropertyShorthand(CSSPropertyBackground, propertiesAfterSlashSeperator)));
-    return list;
+    return getFillLayerPropertyShorthandValue(CSSPropertyBackground, StylePropertyShorthand(CSSPropertyBackground, propertiesBeforeSlashSeparator), StylePropertyShorthand(CSSPropertyBackground, propertiesAfterSlashSeparator), CSSPropertyBackgroundColor);
 }
 
 } // namespace WebCore

@@ -644,8 +644,8 @@ void FrameView::applyOverflowToViewport(const RenderElement& renderer, Scrollbar
 
     bool overrideHidden = frame().isMainFrame() && ((frame().frameScaleFactor() > 1) || headerHeight() || footerHeight());
 
-    Overflow overflowX = renderer.style().overflowX();
-    Overflow overflowY = renderer.style().overflowY();
+    Overflow overflowX = renderer.effectiveOverflowX();
+    Overflow overflowY = renderer.effectiveOverflowY();
 
     if (is<RenderSVGRoot>(renderer)) {
         // FIXME: evaluate if we can allow overflow for these cases too.
@@ -709,12 +709,12 @@ void FrameView::applyPaginationToViewport()
 
     auto* body = document->body();
     if (body && body->renderer()) {
-        documentOrBodyRenderer = documentRenderer.style().overflowX() == Overflow::Visible && is<HTMLHtmlElement>(*documentElement) ?
+        documentOrBodyRenderer = documentRenderer.effectiveOverflowX() == Overflow::Visible && is<HTMLHtmlElement>(*documentElement) ?
             body->renderer() : &documentRenderer;
     }
 
     Pagination pagination;
-    Overflow overflowY = documentOrBodyRenderer->style().overflowY();
+    Overflow overflowY = documentOrBodyRenderer->effectiveOverflowY();
     if (overflowY == Overflow::PagedX || overflowY == Overflow::PagedY) {
         pagination.mode = WebCore::paginationModeForRenderStyle(documentOrBodyRenderer->style());
         GapLength columnGapLength = documentOrBodyRenderer->style().columnGap();
@@ -776,7 +776,7 @@ void FrameView::calculateScrollbarModesForLayout(ScrollbarMode& hMode, Scrollbar
     if (is<HTMLBodyElement>(*bodyOrFrameset) && rootRenderer) {
         // It's sufficient to just check the X overflow,
         // since it's illegal to have visible in only one direction.
-        if (rootRenderer->style().overflowX() == Overflow::Visible && is<HTMLHtmlElement>(documentElement)) {
+        if (rootRenderer->effectiveOverflowX() == Overflow::Visible && is<HTMLHtmlElement>(documentElement)) {
             auto* bodyRenderer = bodyOrFrameset->renderer();
             if (bodyRenderer) {
                 applyOverflowToViewport(*bodyRenderer, hMode, vMode);
@@ -3834,11 +3834,8 @@ void FrameView::scrollToPositionWithAnimation(const ScrollPosition& position, Sc
     setCurrentScrollType(previousScrollType);
 }
 
-float FrameView::adjustScrollStepForFixedContent(float step, ScrollbarOrientation orientation, ScrollGranularity granularity)
+float FrameView::adjustVerticalPageScrollStepForFixedContent(float step)
 {
-    if (granularity != ScrollGranularity::Page || orientation == ScrollbarOrientation::Horizontal)
-        return step;
-
     TrackedRendererListHashSet* positionedObjects = nullptr;
     if (RenderView* root = frame().contentRenderer()) {
         if (!root->hasPositionedObjects())
@@ -5738,6 +5735,24 @@ void FrameView::updateScrollbarSteps()
         int pageStep = Scrollbar::pageStep(paddedViewRect.height());
         verticalScrollbar()->setSteps(Scrollbar::pixelsPerLineStep(), pageStep);
     }
+}
+
+OverscrollBehavior FrameView::horizontalOverscrollBehavior() const
+{
+    auto* document = frame().document();
+    auto scrollingObject = document && document->documentElement() ? document->documentElement()->renderer() : nullptr;
+    if (scrollingObject && renderView() && renderView()->canBeScrolledAndHasScrollableArea())
+        return scrollingObject->style().overscrollBehaviorX();
+    return OverscrollBehavior::Auto;
+}
+
+OverscrollBehavior FrameView::verticalOverscrollBehavior()  const
+{
+    auto* document = frame().document();
+    auto scrollingObject = document && document->documentElement() ? document->documentElement()->renderer() : nullptr;
+    if (scrollingObject && renderView() && renderView()->canBeScrolledAndHasScrollableArea())
+        return scrollingObject->style().overscrollBehaviorY();
+    return OverscrollBehavior::Auto;
 }
 } // namespace WebCore
 

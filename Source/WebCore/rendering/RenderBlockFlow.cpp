@@ -69,7 +69,7 @@
 
 namespace WebCore {
 
-#define ENABLE_MODERN_PREFERRED_WIDTH_COMPUTATION 0
+#define ENABLE_MODERN_PREFERRED_WIDTH_COMPUTATION 1
 #define ENABLE_MODERN_PREFERRED_WIDTH_COMPUTATION_FOR_INLINE_BOXES 0
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderBlockFlow);
@@ -3682,6 +3682,10 @@ void RenderBlockFlow::invalidateLineLayoutPath()
         if (modernLineLayout() && modernLineLayout()->shouldSwitchToLegacyOnInvalidation())
             path = ForcedLegacyPath;
 #endif
+#if ENABLE_MODERN_PREFERRED_WIDTH_COMPUTATION
+        for (auto walker = InlineWalker(*this); !walker.atEnd(); walker.advance())
+            walker.current()->setPreferredLogicalWidthsDirty(true);
+#endif
         m_lineLayout = std::monostate();
         setLineLayoutPath(path);
         if (needsLayout())
@@ -4576,7 +4580,24 @@ bool RenderBlockFlow::tryComputePreferredWidthsUsingModernPath(LayoutUnit& minLo
     if (!modernLineLayout())
         m_lineLayout = makeUnique<LayoutIntegration::LineLayout>(*this);
 
+#if ENABLE_MODERN_PREFERRED_WIDTH_COMPUTATION_FOR_INLINE_BOXES
+    auto& layoutFormattingContextLineLayout = *this->modernLineLayout();
+    for (auto walker = InlineWalker(*this); !walker.atEnd(); walker.advance()) {
+        auto& renderer = *walker.current();
+        if (renderer.isText() || is<RenderLineBreak>(renderer))
+            continue;
+        if (is<RenderInline>(renderer)) {
+            layoutFormattingContextLineLayout.updateInlineBoxDimensions(downcast<RenderInline>(renderer));
+            continue;
+        }
+        // FIXME: Add other, inline level box cases.
+        ASSERT_NOT_IMPLEMENTED_YET();
+    }
+#endif
+
     std::tie(minLogicalWidth, maxLogicalWidth) = modernLineLayout()->computeIntrinsicWidthConstraints();
+    for (auto walker = InlineWalker(*this); !walker.atEnd(); walker.advance())
+        walker.current()->setPreferredLogicalWidthsDirty(false);
     return true;
 #else
     UNUSED_PARAM(minLogicalWidth);

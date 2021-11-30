@@ -41,8 +41,15 @@ accessibility/atk/WebKitAccessibleUtil.cpp
 
 accessibility/atspi/AccessibilityAtspi.cpp
 accessibility/atspi/AccessibilityObjectAtspi.cpp
+accessibility/atspi/AccessibilityObjectActionAtspi.cpp
 accessibility/atspi/AccessibilityObjectComponentAtspi.cpp
+accessibility/atspi/AccessibilityObjectDocumentAtspi.cpp
+accessibility/atspi/AccessibilityObjectHyperlinkAtspi.cpp
+accessibility/atspi/AccessibilityObjectHypertextAtspi.cpp
+accessibility/atspi/AccessibilityObjectImageAtspi.cpp
+accessibility/atspi/AccessibilityObjectSelectionAtspi.cpp
 accessibility/atspi/AccessibilityObjectTextAtspi.cpp
+accessibility/atspi/AccessibilityObjectValueAtspi.cpp
 accessibility/atspi/AccessibilityRootAtspi.cpp
 accessibility/atspi/AXObjectCacheAtspi.cpp
 

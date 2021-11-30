@@ -68,7 +68,7 @@ public:
     virtual bool isListBox() const { return false; }
     virtual bool isPDFPlugin() const { return false; }
 
-    WEBCORE_EXPORT bool scroll(ScrollDirection, ScrollGranularity, float multiplier = 1);
+    WEBCORE_EXPORT bool scroll(ScrollDirection, ScrollGranularity, unsigned stepCount = 1);
     WEBCORE_EXPORT void scrollToPositionWithAnimation(const FloatPoint&, ScrollClamping = ScrollClamping::Clamped);
     WEBCORE_EXPORT void scrollToPositionWithoutAnimation(const FloatPoint&, ScrollClamping = ScrollClamping::Clamped);
 
@@ -127,6 +127,9 @@ public:
 
     virtual bool horizontalScrollbarHiddenByStyle() const { return false; }
     virtual bool verticalScrollbarHiddenByStyle() const { return false; }
+    
+    virtual OverscrollBehavior horizontalOverscrollBehavior() const { return OverscrollBehavior::Auto; }
+    virtual OverscrollBehavior verticalOverscrollBehavior() const { return OverscrollBehavior::Auto; }
 
     bool allowsHorizontalScrolling() const;
     bool allowsVerticalScrolling() const;
@@ -213,6 +216,19 @@ public:
     virtual Scrollbar* horizontalScrollbar() const { return nullptr; }
     virtual Scrollbar* verticalScrollbar() const { return nullptr; }
 
+    Scrollbar* scrollbarForDirection(ScrollDirection direction) const
+    {
+        switch (direction) {
+        case ScrollUp:
+        case ScrollDown:
+            return verticalScrollbar();
+        case ScrollLeft:
+        case ScrollRight:
+            return horizontalScrollbar();
+        }
+        return nullptr;
+    }
+
     const IntPoint& scrollOrigin() const { return m_scrollOrigin; }
     bool scrollOriginChanged() const { return m_scrollOriginChanged; }
 
@@ -220,7 +236,7 @@ public:
     virtual ScrollPosition minimumScrollPosition() const;
     virtual ScrollPosition maximumScrollPosition() const;
 
-    ScrollPosition constrainScrollPosition(const ScrollPosition& position) const
+    ScrollPosition constrainedScrollPosition(const ScrollPosition& position) const
     {
         return position.constrainedBetween(minimumScrollPosition(), maximumScrollPosition());
     }
@@ -362,7 +378,7 @@ protected:
     void setScrollOrigin(const IntPoint&);
     void resetScrollOriginChanged() { m_scrollOriginChanged = false; }
 
-    WEBCORE_EXPORT virtual float adjustScrollStepForFixedContent(float step, ScrollbarOrientation, ScrollGranularity);
+    WEBCORE_EXPORT virtual float adjustVerticalPageScrollStepForFixedContent(float step);
     virtual void invalidateScrollbarRect(Scrollbar&, const IntRect&) = 0;
     virtual void invalidateScrollCornerRect(const IntRect&) = 0;
 

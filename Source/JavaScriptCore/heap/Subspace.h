@@ -39,19 +39,18 @@ class HeapCellType;
 
 // The idea of subspaces is that you can provide some custom behavior for your objects if you
 // allocate them from a custom Subspace in which you override some of the virtual methods. This
-// class is the baseclass of Subspaces. Usually you will use either Subspace or FixedSizeSubspace.
+// class is the baseclass of all subspaces e.g. CompleteSubspace, IsoSubspace.
 class Subspace {
     WTF_MAKE_NONCOPYABLE(Subspace);
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    JS_EXPORT_PRIVATE Subspace(CString name, Heap&);
     JS_EXPORT_PRIVATE virtual ~Subspace();
 
     const char* name() const { return m_name.data(); }
     MarkedSpace& space() const { return m_space; }
-    
-    const CellAttributes& attributes() const;
-    HeapCellType* heapCellType() const { return m_heapCellType; }
+
+    CellAttributes attributes() const;
+    const HeapCellType* heapCellType() const { return m_heapCellType; }
     AlignedMemoryAllocator* alignedMemoryAllocator() const { return m_alignedMemoryAllocator; }
     
     void finishSweep(MarkedBlock::Handle&, FreeList*);
@@ -104,11 +103,13 @@ public:
     bool isIsoSubspace() const { return m_isIsoSubspace; }
 
 protected:
-    void initialize(HeapCellType*, AlignedMemoryAllocator*);
+    Subspace(CString name, Heap&);
+
+    void initialize(const HeapCellType&, AlignedMemoryAllocator*);
     
     MarkedSpace& m_space;
     
-    HeapCellType* m_heapCellType { nullptr };
+    const HeapCellType* m_heapCellType { nullptr };
     AlignedMemoryAllocator* m_alignedMemoryAllocator { nullptr };
     
     BlockDirectory* m_firstDirectory { nullptr };

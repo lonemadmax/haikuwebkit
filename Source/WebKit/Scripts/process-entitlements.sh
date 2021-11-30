@@ -32,6 +32,10 @@ function mac_process_webcontent_entitlements()
         then
             plistbuddy add :com.apple.coreaudio.allow-vorbis-decode bool YES
         fi
+        if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 130000 ))
+        then
+            plistbuddy Add :com.apple.private.gpu-restricted bool YES
+        fi
     fi
 
     mac_process_webcontent_or_plugin_entitlements
@@ -59,6 +63,11 @@ function mac_process_gpu_entitlements()
         then
             plistbuddy Add :com.apple.private.security.message-filter bool YES
             plistbuddy Add :com.apple.security.cs.jit-write-allowlist bool YES
+        fi
+
+        if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 130000 ))
+        then
+            plistbuddy Add :com.apple.private.gpu-restricted bool YES
         fi
 
         plistbuddy Add :com.apple.private.memory.ownership_transfer bool YES
@@ -105,6 +114,7 @@ function mac_process_network_entitlements()
 
         if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 110000 ))
         then
+            plistbuddy Add :com.apple.private.security.message-filter bool YES
             plistbuddy Add :com.apple.private.tcc.manager.check-by-audit-token array
             plistbuddy Add :com.apple.private.tcc.manager.check-by-audit-token:0 string kTCCServiceWebKitIntelligentTrackingPrevention
         fi
@@ -121,6 +131,7 @@ function mac_process_network_entitlements()
         plistbuddy Add :com.apple.rootless.storage.WebKitNetworkingSandbox bool YES
         plistbuddy Add :com.apple.symptom_analytics.configure bool YES
         plistbuddy Add :com.apple.private.webkit.adattributiond bool YES
+        plistbuddy Add :com.apple.private.webkit.webpush bool YES
     fi
 }
 
@@ -280,6 +291,7 @@ function ios_family_process_webcontent_entitlements()
     plistbuddy Add :com.apple.private.allow-explicit-graphics-priority bool YES
     plistbuddy Add :com.apple.private.coremedia.extensions.audiorecording.allow bool YES
     plistbuddy Add :com.apple.private.coremedia.pidinheritance.allow bool YES
+    plistbuddy Add :com.apple.private.gpu-restricted bool YES
     plistbuddy Add :com.apple.private.memorystatus bool YES
     plistbuddy Add :com.apple.private.network.socket-delegate bool YES
     plistbuddy Add :com.apple.private.pac.exception bool YES
@@ -308,12 +320,14 @@ function ios_family_process_gpu_entitlements()
     plistbuddy Add :com.apple.mediaremote.set-playback-state bool YES
     plistbuddy Add :com.apple.private.allow-explicit-graphics-priority bool YES
     plistbuddy Add :com.apple.private.coremedia.extensions.audiorecording.allow bool YES
+    plistbuddy Add :com.apple.private.gpu-restricted bool YES
     plistbuddy Add :com.apple.private.mediaexperience.startrecordinginthebackground.allow bool YES
     plistbuddy Add :com.apple.private.mediaexperience.processassertionaudittokens.allow bool YES
     plistbuddy Add :com.apple.private.coremedia.pidinheritance.allow bool YES
     plistbuddy Add :com.apple.private.memorystatus bool YES
     plistbuddy Add :com.apple.private.memory.ownership_transfer bool YES
     plistbuddy Add :com.apple.private.network.socket-delegate bool YES
+    plistbuddy Add :com.apple.private.security.message-filter bool YES
     plistbuddy Add :com.apple.private.webkit.use-xpc-endpoint bool YES
     plistbuddy Add :com.apple.runningboard.assertions.webkit bool YES
 
@@ -388,6 +402,7 @@ function ios_family_process_webpushd_entitlements()
 function ios_family_process_network_entitlements()
 {
     plistbuddy Add :com.apple.private.webkit.adattributiond bool YES
+    plistbuddy Add :com.apple.private.webkit.webpush bool YES
     plistbuddy Add :com.apple.multitasking.systemappassertions bool YES
     plistbuddy Add :com.apple.payment.all-access bool YES
     plistbuddy Add :com.apple.private.accounts.bundleidspoofing bool YES
@@ -395,6 +410,7 @@ function ios_family_process_network_entitlements()
     plistbuddy Add :com.apple.private.memorystatus bool YES
     plistbuddy Add :com.apple.private.network.socket-delegate bool YES
     plistbuddy Add :com.apple.private.webkit.use-xpc-endpoint bool YES
+    plistbuddy Add :com.apple.private.security.message-filter bool YES
     plistbuddy Add :com.apple.runningboard.assertions.webkit bool YES
 
     plistbuddy Add :com.apple.private.tcc.manager.check-by-audit-token array

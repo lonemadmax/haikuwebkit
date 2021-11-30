@@ -1,3 +1,49 @@
+2021-11-21  Cathie Chen  <cathiechen@igalia.com>
+
+        [Performance test][css-contain] Add case to test contain: layout inside a complex document
+        https://bugs.webkit.org/show_bug.cgi?id=232883
+
+        Reviewed by Rob Buis.
+
+        This case test the performance of changing the content of a layout containment which is
+        inside a complex document.
+
+        * Layout/css-contain-layout-size-inside-complex-document.html: Added.
+
+2021-11-19  Alan Bujtas  <zalan@apple.com>
+
+        Add layout performance test for simple bidi content
+        (this is not about inline axis direction, just mixed, bidirectional content)
+
+        Unreviewed.
+
+        * Layout/line-layout-simple-bidi.html: Added.
+
+2021-11-19  Angelos Oikonomopoulos  <angelos@igalia.com>
+
+        [JSC] Workaround for failing mips tests
+        https://bugs.webkit.org/show_bug.cgi?id=233359
+
+        Reviewed by Adrian Perez de Castro.
+
+        Re-enable tests skipped on mips after adding workaround.
+
+        * ARES-6/Basic/basic-tests.yaml:
+
+2021-11-15  Angelos Oikonomopoulos  <angelos@igalia.com>
+
+        Skip tests newly-failing on mips
+        https://bugs.webkit.org/show_bug.cgi?id=233124
+
+        Unreviewed gardening.
+
+        After 3f59d2aa489ec843e055fc3104c275851d7fbd35, these tests started
+        failing with a SIGBUS on MIPS (on fuloong hardware, they pass on the
+        ci20 boards). Temporarily skip them on this arch until we can track
+        down the issue.
+
+        * ARES-6/Basic/basic-tests.yaml:
+
 2021-11-10  Sergio Villar Senin  <svillar@igalia.com>
 
         [css-flexbox] Improve & simplify the flex-basis computation

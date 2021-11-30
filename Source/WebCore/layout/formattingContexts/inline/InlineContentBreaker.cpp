@@ -125,6 +125,11 @@ static inline std::optional<size_t> firstTextRunIndex(const InlineContentBreaker
     return { };
 }
 
+InlineContentBreaker::InlineContentBreaker(std::optional<IntrinsicWidthMode> intrinsicWidthMode)
+    : m_intrinsicWidthMode(intrinsicWidthMode)
+{
+}
+
 bool InlineContentBreaker::shouldKeepEndOfLineWhitespace(const ContinuousContent& continuousContent) const
 {
     // Grab the style and check for white-space property to decide whether we should let this whitespace content overflow the current line.
@@ -216,8 +221,13 @@ InlineContentBreaker::Result InlineContentBreaker::processOverflowingContent(con
                     return endOfCodePoint;
                 }();
 
-                if (inlineTextItem.length() <= firstCodePointLength)
-                    return Result { Result::Action::Keep, IsEndOfLine::Yes };
+                if (inlineTextItem.length() <= firstCodePointLength) {
+                    if (continuousContent.runs().size() == 1) {
+                        // Let's return single, leading text items as is.
+                        return Result { Result::Action::Keep, IsEndOfLine::Yes };
+                    }
+                    return Result { Result::Action::Break, IsEndOfLine::Yes, Result::PartialTrailingContent { leadingTextRunIndex, { } } };
+                }
 
                 auto firstCodePointWidth = TextUtil::width(inlineTextItem, leadingTextRun.style.fontCascade(), inlineTextItem.start(), inlineTextItem.start() + firstCodePointLength, lineStatus.contentLogicalRight);
                 return Result { Result::Action::Break, IsEndOfLine::Yes, Result::PartialTrailingContent { leadingTextRunIndex, PartialRun { firstCodePointLength, firstCodePointWidth } } };
@@ -572,10 +582,13 @@ std::optional<InlineContentBreaker::OverflowingTextContent::BreakingPosition> In
                 // We managed to break this text run mid content. It has to be either an arbitrary mid-word or a hyphen break.
                 return OverflowingTextContent::BreakingPosition { index, OverflowingTextContent::BreakingPosition::TrailingContent { true, partialRun } };
             }
-            auto trailingRunIndex = *findTrailingRunIndex(runs, index);
-            // At worst we are back to the overflowing run, like in the example above.
-            ASSERT(trailingRunIndex >= overflowingRunIndex);
-            return OverflowingTextContent::BreakingPosition { trailingRunIndex, OverflowingTextContent::BreakingPosition::TrailingContent { true } };
+            if (auto trailingRunIndex = findTrailingRunIndex(runs, index)) {
+                // At worst we are back to the overflowing run, like in the example above.
+                ASSERT(*trailingRunIndex >= overflowingRunIndex);
+                return OverflowingTextContent::BreakingPosition { *trailingRunIndex, OverflowingTextContent::BreakingPosition::TrailingContent { true } };
+            }
+            // This happens when the overflowing run is also the first run in this set, no trailing run.
+            return OverflowingTextContent::BreakingPosition { overflowingRunIndex, { } };
         }
         nextContentWidth += run.logicalWidth;
     }
@@ -646,13 +659,16 @@ OptionSet<InlineContentBreaker::WordBreakRule> InlineContentBreaker::wordBreakBe
             return *wordBreakRule;
         return { };
     };
+
     // For compatibility with legacy content, the word-break property also supports a deprecated break-word keyword.
     // When specified, this has the same effect as word-break: normal and overflow-wrap: anywhere, regardless of the actual value of the overflow-wrap property.
     if (style.wordBreak() == WordBreak::BreakWord && !hasWrapOpportunityAtPreviousPosition)
         return includeHyphenationIfAllowed(WordBreakRule::AtArbitraryPosition);
     // OverflowWrap::BreakWord/Anywhere An otherwise unbreakable sequence of characters may be broken at an arbitrary point if there are no otherwise-acceptable break points in the line.
     // Note that this applies to content where CSS properties (e.g. WordBreak::KeepAll) make it unbreakable. 
-    if ((style.overflowWrap() == OverflowWrap::BreakWord || style.overflowWrap() == OverflowWrap::Anywhere) && !hasWrapOpportunityAtPreviousPosition)
+    // Soft wrap opportunities introduced by overflow-wrap/word-wrap: break-word are not considered when calculating min-content intrinsic sizes.
+    auto overflowWrapBreakWordIsApplicable = !isInIntrinsicWidthMode();
+    if (((overflowWrapBreakWordIsApplicable && style.overflowWrap() == OverflowWrap::BreakWord) || style.overflowWrap() == OverflowWrap::Anywhere) && !hasWrapOpportunityAtPreviousPosition)
         return includeHyphenationIfAllowed(WordBreakRule::AtArbitraryPosition);
     // Breaking is forbidden within “words”.
     if (style.wordBreak() == WordBreak::KeepAll)

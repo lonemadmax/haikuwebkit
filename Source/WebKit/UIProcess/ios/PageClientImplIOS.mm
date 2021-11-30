@@ -463,9 +463,9 @@ void PageClientImpl::doneDeferringTouchEnd(bool preventNativeGestures)
 
 #if ENABLE(IMAGE_ANALYSIS)
 
-void PageClientImpl::requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, CompletionHandler<void(WebCore::TextRecognitionResult&&)>&& completion)
+void PageClientImpl::requestTextRecognition(const URL& imageURL, const ShareableBitmap::Handle& imageData, const String& identifier, CompletionHandler<void(TextRecognitionResult&&)>&& completion)
 {
-    [m_contentView requestTextRecognition:imageURL imageData:imageData completionHandler:WTFMove(completion)];
+    [m_contentView requestTextRecognition:imageURL imageData:imageData identifier:identifier completionHandler:WTFMove(completion)];
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS)
@@ -910,7 +910,10 @@ void PageClientImpl::didHandleAdditionalDragItemsRequest(bool added)
 
 void PageClientImpl::startDrag(const DragItem& item, const ShareableBitmap::Handle& image)
 {
-    [m_contentView _startDrag:ShareableBitmap::create(image)->makeCGImageCopy() item:item];
+    auto bitmap = ShareableBitmap::create(image);
+    if (!bitmap)
+        return;
+    [m_contentView _startDrag:bitmap->makeCGImageCopy() item:item];
 }
 
 void PageClientImpl::willReceiveEditDragSnapshot()

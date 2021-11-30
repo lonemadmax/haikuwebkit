@@ -171,7 +171,7 @@ bool FileInputType::appendFormData(DOMFormData& formData, bool multipart) const
         // 4.10.16.4 and 4.10.16.6 sections in HTML5.
 
         if (fileList->isEmpty())
-            formData.append(name, "");
+            formData.append(name, emptyString());
 
         for (auto& file : fileList->files())
             formData.append(name, file->name());
@@ -182,7 +182,8 @@ bool FileInputType::appendFormData(DOMFormData& formData, bool multipart) const
     // Null would be more logical, but Netscape posts an empty file. Argh.
     if (fileList->isEmpty()) {
         auto* document = element() ? &element()->document() : nullptr;
-        formData.append(name, File::create(document, emptyString()));
+        auto file = File::create(document, Blob::create(document, { }, defaultMIMEType()), emptyString());
+        formData.append(name, file);
         return true;
     }
 

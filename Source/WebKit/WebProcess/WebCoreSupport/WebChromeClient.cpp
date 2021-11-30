@@ -117,8 +117,12 @@
 #include <WebCore/MockWebAuthenticationConfiguration.h>
 #endif
 
-#if PLATFORM(COCOA) || PLATFORM(WIN)
+#if ENABLE(WEBGL) && ENABLE(GPU_PROCESS) && (PLATFORM(COCOA) || PLATFORM(WIN))
 #include "RemoteGraphicsContextGLProxy.h"
+#endif
+
+#if ENABLE(WEBGL)
+#include <WebCore/GraphicsContextGL.h>
 #endif
 
 #if PLATFORM(MAC)
@@ -921,7 +925,6 @@ WebCore::DisplayRefreshMonitorFactory* WebChromeClient::displayRefreshMonitorFac
 }
 
 #if ENABLE(GPU_PROCESS)
-
 RefPtr<ImageBuffer> WebChromeClient::createImageBuffer(const FloatSize& size, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, PixelFormat pixelFormat) const
 {
     if (!WebProcess::singleton().shouldUseRemoteRenderingFor(purpose))
@@ -929,24 +932,18 @@ RefPtr<ImageBuffer> WebChromeClient::createImageBuffer(const FloatSize& size, Re
 
     return m_page.ensureRemoteRenderingBackendProxy().createImageBuffer(size, renderingMode, resolutionScale, colorSpace, pixelFormat);
 }
+#endif
 
 #if ENABLE(WEBGL)
-
-RefPtr<GraphicsContextGL> WebChromeClient::createGraphicsContextGL(const GraphicsContextGLAttributes& attributes, PlatformDisplayID hostWindowDisplayID) const
+RefPtr<GraphicsContextGL> WebChromeClient::createGraphicsContextGL(const GraphicsContextGLAttributes& attributes, PlatformDisplayID) const
 {
-    if (!WebProcess::singleton().shouldUseRemoteRenderingForWebGL())
-        return nullptr;
-    UNUSED_VARIABLE(hostWindowDisplayID);
-#if PLATFORM(COCOA) || PLATFORM(WIN)
-    return RemoteGraphicsContextGLProxy::create(attributes, m_page.ensureRemoteRenderingBackendProxy().ensureBackendCreated());
-#else
-    return nullptr;
+#if ENABLE(GPU_PROCESS) && (PLATFORM(COCOA) || PLATFORM(WIN))
+    if (WebProcess::singleton().shouldUseRemoteRenderingForWebGL())
+        return RemoteGraphicsContextGLProxy::create(attributes, m_page.ensureRemoteRenderingBackendProxy().ensureBackendCreated());
 #endif
+    return WebCore::createWebProcessGraphicsContextGL(attributes);
 }
-
 #endif
-
-#endif // ENABLE(GPU_PROCESS)
 
 void WebChromeClient::attachRootGraphicsLayer(Frame&, GraphicsLayer* layer)
 {
@@ -1492,9 +1489,9 @@ void WebChromeClient::changeUniversalAccessZoomFocus(const WebCore::IntRect& vie
 
 #if ENABLE(IMAGE_ANALYSIS)
 
-void WebChromeClient::requestTextRecognition(Element& element, CompletionHandler<void(RefPtr<Element>&&)>&& completion)
+void WebChromeClient::requestTextRecognition(Element& element, const String& identifier, CompletionHandler<void(RefPtr<Element>&&)>&& completion)
 {
-    m_page.requestTextRecognition(element, WTFMove(completion));
+    m_page.requestTextRecognition(element, identifier, WTFMove(completion));
 }
 
 #endif
@@ -1521,13 +1518,6 @@ void WebChromeClient::showMediaControlsContextMenu(FloatRect&& targetFrame, Vect
 void WebChromeClient::enumerateImmersiveXRDevices(CompletionHandler<void(const PlatformXR::Instance::DeviceList&)>&& completionHandler)
 {
     m_page.xrSystemProxy().enumerateImmersiveXRDevices(WTFMove(completionHandler));
-}
-#endif
-
-#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
-void WebChromeClient::takeModelElementFullscreen(WebCore::GraphicsLayer::PlatformLayerID contentLayerId) const
-{
-    m_page.takeModelElementFullscreen(contentLayerId);
 }
 #endif
 

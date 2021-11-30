@@ -388,28 +388,23 @@ String StyleProperties::borderRadiusValue(const StylePropertyShorthand& shorthan
     PropertyReference bottomLeft = propertyAt(bottomLeftValueIndex);
 
     auto* topLeftValue = topLeft.value();
+    if (!topLeftValue)
+        return String();
+    if (topLeftValue->isCSSWideKeyword())
+        return topLeftValue->cssText();
+
     auto* topRightValue = topRight.value();
     auto* bottomRightValue = bottomRight.value();
     auto* bottomLeftValue = bottomLeft.value();
 
-    // All 4 properties must be specified.
-    if (!topLeftValue || !topRightValue || !bottomRightValue || !bottomLeftValue)
+    // All 4 properties must be specified and the remaining ones other than topLeftValue are checked here.
+    if (!topRightValue || !bottomRightValue || !bottomLeftValue)
         return String();
 
     // Important flags must be the same
-    if (topLeft.isImportant() != topRight.isImportant() || topRight.isImportant() != bottomRight.isImportant() || bottomRight.isImportant() != bottomLeft.isImportant())
+    bool isImportant = topLeft.isImportant();
+    if (topRight.isImportant() != isImportant || bottomRight.isImportant() != isImportant || bottomLeft.isImportant() != isImportant)
         return String();
-
-    if (topLeftValue->isInheritValue() && topRightValue->isInheritValue() && bottomRightValue->isInheritValue() && bottomLeftValue->isInheritValue())
-        return getValueName(CSSValueInherit);
-
-    if (topLeftValue->isInitialValue() || topRightValue->isInitialValue() || bottomRightValue->isInitialValue() || bottomLeftValue->isInitialValue()) {
-        if (topLeftValue->isInitialValue() && topRightValue->isInitialValue() && bottomRightValue->isInitialValue() && bottomLeftValue->isInitialValue() && !topLeft.isImplicit()) {
-            // All components are "initial" and "topLeft" is not implicit.
-            return getValueName(CSSValueInitial);
-        }
-        return String();
-    }
 
     auto& topLeftPair = *downcast<CSSPrimitiveValue>(*topLeftValue).pairValue();
     auto& topRightPair = *downcast<CSSPrimitiveValue>(*topRightValue).pairValue();

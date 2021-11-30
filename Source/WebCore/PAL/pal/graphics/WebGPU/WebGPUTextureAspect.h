@@ -26,9 +26,9 @@
 #pragma once
 
 #include <cstdint>
+#include <wtf/EnumTraits.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 enum class TextureAspect : uint8_t {
     All,
@@ -36,5 +36,17 @@ enum class TextureAspect : uint8_t {
     DepthOnly,
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU
+
+namespace WTF {
+
+template<> struct EnumTraits<PAL::WebGPU::TextureAspect> {
+    using values = EnumValues<
+        PAL::WebGPU::TextureAspect,
+        PAL::WebGPU::TextureAspect::All,
+        PAL::WebGPU::TextureAspect::StencilOnly,
+        PAL::WebGPU::TextureAspect::DepthOnly
+    >;
+};
+
+} // namespace WTF

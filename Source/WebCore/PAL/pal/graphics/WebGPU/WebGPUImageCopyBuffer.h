@@ -25,16 +25,15 @@
 
 #pragma once
 
-#include "WebGPUBuffer.h"
 #include "WebGPUImageDataLayout.h"
 #include <wtf/Ref.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
+
+class Buffer;
 
 struct ImageCopyBuffer : public ImageDataLayout {
     Buffer& buffer;
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU

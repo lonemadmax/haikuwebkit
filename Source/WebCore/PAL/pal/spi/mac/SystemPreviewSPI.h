@@ -31,9 +31,11 @@
 
 #else // USE(APPLE_INTERNAL_SDK)
 
-NS_ASSUME_NONNULL_BEGIN
-
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
+
+#import <simd/simd.h>
+
+NS_ASSUME_NONNULL_BEGIN
 
 @class ASVInlinePreview;
 
@@ -48,10 +50,28 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)preparePreviewOfFileAtURL:(NSURL *)url completionHandler:(void (^)(NSError * _Nullable error))handler;
 - (void)setRemoteContext:(uint32_t)contextId;
 
+- (void)mouseDownAtLocation:(CGPoint)location timestamp:(NSTimeInterval)timestamp;
+- (void)mouseDraggedAtLocation:(CGPoint)location timestamp:(NSTimeInterval)timestamp;
+- (void)mouseUpAtLocation:(CGPoint)location timestamp:(NSTimeInterval)timestamp;
+
+typedef void (^ASVCameraTransformReplyBlock) (simd_float3 cameraTransform, NSError * _Nullable error);
+- (void)getCameraTransform:(ASVCameraTransformReplyBlock)reply;
+- (void)setCameraTransform:(simd_float3)transform;
+
+@property (nonatomic, readwrite) NSTimeInterval currentTime;
+@property (nonatomic, readonly) NSTimeInterval duration;
+@property (nonatomic, readwrite) BOOL isLooping;
+@property (nonatomic, readonly) BOOL isPlaying;
+typedef void (^ASVSetIsPlayingReplyBlock) (BOOL isPlaying, NSError * _Nullable error);
+- (void)setIsPlaying:(BOOL)isPlaying reply:(ASVSetIsPlayingReplyBlock)reply;
+
+@property (nonatomic, readonly) BOOL hasAudio;
+@property (nonatomic, readwrite) BOOL isMuted;
+
 @end
 
-#endif // ENABLE(ARKIT_INLINE_PREVIEW_MAC)
-
 NS_ASSUME_NONNULL_END
+
+#endif // ENABLE(ARKIT_INLINE_PREVIEW_MAC)
 
 #endif // USE(APPLE_INTERNAL_SDK)

@@ -30,7 +30,6 @@
 #include "FrameLoaderClient.h"
 #include "Logging.h"
 #include "MessageWithMessagePorts.h"
-#include "ServiceWorkerClientIdentifier.h"
 #include "ServiceWorkerGlobalScope.h"
 
 namespace WebCore {
@@ -118,6 +117,15 @@ void SWContextManager::firePushEvent(ServiceWorkerIdentifier identifier, std::op
     }
 
     serviceWorker->firePushEvent(WTFMove(data), WTFMove(callback));
+}
+
+void SWContextManager::firePushSubscriptionChangeEvent(ServiceWorkerIdentifier identifier, std::optional<PushSubscriptionData>&& newSubscriptionData, std::optional<PushSubscriptionData>&& oldSubscriptionData)
+{
+    auto* serviceWorker = m_workerMap.get(identifier);
+    if (!serviceWorker)
+        return;
+
+    serviceWorker->firePushSubscriptionChangeEvent(WTFMove(newSubscriptionData), WTFMove(oldSubscriptionData));
 }
 
 

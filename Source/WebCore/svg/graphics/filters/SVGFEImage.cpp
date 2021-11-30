@@ -25,6 +25,7 @@
 #include "SVGFEImage.h"
 
 #include "Filter.h"
+#include "FilterEffectApplier.h"
 #include "GraphicsContext.h"
 #include <wtf/text/TextStream.h>
 
@@ -74,35 +75,50 @@ void FEImage::determineAbsolutePaintRect(const Filter& filter)
     setAbsolutePaintRect(enclosingIntRect(imageRect));
 }
 
-void FEImage::platformApplySoftware(const Filter& filter)
+// FIXME: Move the class FEImageSoftwareApplier to separate source and header files.
+class FEImageSoftwareApplier : public FilterEffectConcreteApplier<FEImage> {
+    WTF_MAKE_FAST_ALLOCATED;
+    using Base = FilterEffectConcreteApplier<FEImage>;
+
+public:
+    using Base::Base;
+
+    bool apply(const Filter&, const FilterImageVector& inputs, FilterImage& result) const override;
+};
+
+bool FEImageSoftwareApplier::apply(const Filter& filter, const FilterImageVector&, FilterImage& result) const
 {
-    // FEImage results are always in DestinationColorSpace::SRGB()
-    setResultColorSpace(DestinationColorSpace::SRGB());
-
-    ImageBuffer* resultImage = createImageBufferResult();
+    auto resultImage = result.imageBuffer();
     if (!resultImage)
-        return;
+        return false;
 
-    auto primitiveSubregion = filterPrimitiveSubregion();
+    auto primitiveSubregion = result.primitiveSubregion();
     auto& context = resultImage->context();
 
-    WTF::switchOn(m_sourceImage,
+    WTF::switchOn(m_effect.sourceImage(),
         [&] (const Ref<Image>& image) {
             auto imageRect = primitiveSubregion;
-            auto srcRect = m_sourceImageRect;
-            m_preserveAspectRatio.transformRect(imageRect, srcRect);
+            auto srcRect = m_effect.sourceImageRect();
+            m_effect.preserveAspectRatio().transformRect(imageRect, srcRect);
             imageRect.scale(filter.filterScale());
-            imageRect = drawingRegionOfInputImage(IntRect(imageRect));
+            imageRect = IntRect(imageRect) - result.absoluteImageRect().location();
             context.drawImage(image, imageRect, srcRect);
         },
         [&] (const Ref<ImageBuffer>& imageBuffer) {
             auto imageRect = primitiveSubregion;
-            imageRect.moveBy(m_sourceImageRect.location());
+            imageRect.moveBy(m_effect.sourceImageRect().location());
             imageRect.scale(filter.filterScale());
-            imageRect = drawingRegionOfInputImage(IntRect(imageRect));
+            imageRect = IntRect(imageRect) - result.absoluteImageRect().location();
             context.drawImageBuffer(imageBuffer, imageRect.location());
         }
     );
+
+    return true;
+}
+
+std::unique_ptr<FilterEffectApplier> FEImage::createApplier(const Filter&) const
+{
+    return FilterEffectApplier::create<FEImageSoftwareApplier>(*this);
 }
 
 TextStream& FEImage::externalRepresentation(TextStream& ts, RepresentationType representation) const

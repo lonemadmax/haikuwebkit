@@ -29,16 +29,14 @@
 #include "WebGPUExtent3D.h"
 #include "WebGPUPredefinedColorSpace.h"
 #include "WebGPUTextureFormat.h"
+#include "WebGPUTextureUsage.h"
 #include <cstdint>
 #include <optional>
 #include <wtf/Ref.h>
 
-namespace PAL {
-namespace WebGPU {
+namespace PAL::WebGPU {
 
 class Device;
-
-using TextureUsageFlags = uint32_t; // FIXME: This doesn't need to be here.
 
 struct CanvasConfiguration {
     Device& device;
@@ -49,5 +47,4 @@ struct CanvasConfiguration {
     std::optional<Extent3D> size;
 };
 
-} // namespace PAL
-} // namespace WebGPU
+} // namespace PAL::WebGPU
