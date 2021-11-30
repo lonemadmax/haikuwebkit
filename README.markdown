@@ -116,8 +116,8 @@ well as some other issues.
 ### JSC ###
     $ perl Tools/Scripts/run-javascriptcore-tests
 
-Add the --no-build argument if you already compiled JSC. It is built by default
-for the Haiku port, so it is a good idea to always add this.
+This will recompile jsc as well as some additional test tools. Currently this doesn't work on
+32bit systems, because it tries to build testb3 which is 64bit only.
 
 Current results:
 - 9258 tests are run (some are excluded because of missing features in our Ruby port)
