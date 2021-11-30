@@ -38,11 +38,14 @@
 class BWebPage;
 
 namespace WebCore {
+    class AcceleratedCompositingContext;
     class ChromeClientHaiku;
     class DumpRenderTreeClient;
     class GraphicsLayer;
-    class AcceleratedCompositingContext;
+    class HTMLVideoElement;
 }
+
+class FullscreenVideoController;
 
 
 class __attribute__ ((visibility ("default"))) BWebView : public BView {
@@ -137,6 +140,9 @@ private:
 
             bool                IsComposited();
 
+			void				EnterVideoFullscreenForVideoElement(WebCore::HTMLVideoElement& element);
+			void				ExitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement& element);
+
 private:
             void                _ResizeOffscreenView(int width, int height);
 			void				_DispatchMouseEvent(const BPoint& where,
@@ -155,6 +161,8 @@ private:
 
 			UserData*			fUserData;
             BWebView*           fInspectorView;
+
+			std::unique_ptr<FullscreenVideoController> fFullScreenVideoController;
 };
 
 #endif // _WEB_VIEW_H_

@@ -36,21 +36,15 @@ foreach(inc ${WebKitLegacy_LOCAL_INCLUDE_DIRECTORIES})
 endforeach(inc)
 
 IF (ENABLE_VIDEO_TRACK)
-	LIST(APPEND WebKitLegacy_INCLUDE_DIRECTORIES
-    "${WEBCORE_DIR}/html/track"
-  )
-ENDIF ()
-
-IF (ENABLE_NOTIFICATIONS)
-	LIST(APPEND WebKitLegacy_LOCAL_INCLUDE_DIRECTORIES
-      "${WEBCORE_DIR}/Modules/notifications"
-  )
+    LIST(APPEND WebKitLegacy_INCLUDE_DIRECTORIES
+        "${WEBCORE_DIR}/html/track"
+    )
 ENDIF ()
 
 add_definitions("-include WebKitPrefix.h")
 
 LIST(APPEND WebKitLegacy_SOURCES
-	haiku/WebCoreSupport/BackForwardList.cpp
+    haiku/WebCoreSupport/BackForwardList.cpp
     haiku/WebCoreSupport/ChromeClientHaiku.cpp
     haiku/WebCoreSupport/ContextMenuClientHaiku.cpp
     haiku/WebCoreSupport/DragClientHaiku.cpp
@@ -58,15 +52,16 @@ LIST(APPEND WebKitLegacy_SOURCES
     haiku/WebCoreSupport/EditorClientHaiku.cpp
     haiku/WebCoreSupport/FrameLoaderClientHaiku.cpp
     haiku/WebCoreSupport/FrameNetworkingContextHaiku.cpp
-	haiku/WebCoreSupport/IconDatabase.cpp
+    haiku/WebCoreSupport/FullscreenVideoController.cpp
+    haiku/WebCoreSupport/IconDatabase.cpp
     haiku/WebCoreSupport/InspectorClientHaiku.cpp
     haiku/WebCoreSupport/NotificationClientHaiku.cpp
     haiku/WebCoreSupport/PlatformStrategiesHaiku.cpp
     haiku/WebCoreSupport/ProgressTrackerHaiku.cpp
-	haiku/WebCoreSupport/WebApplicationCache.cpp
-	haiku/WebCoreSupport/WebDatabaseProvider.cpp
-	haiku/WebCoreSupport/WebDiagnosticLoggingClient.cpp
-	haiku/WebCoreSupport/WebKitLogging.cpp
+    haiku/WebCoreSupport/WebApplicationCache.cpp
+    haiku/WebCoreSupport/WebDatabaseProvider.cpp
+    haiku/WebCoreSupport/WebDiagnosticLoggingClient.cpp
+    haiku/WebCoreSupport/WebKitLogging.cpp
     haiku/WebCoreSupport/WebVisitedLinkStore.cpp
 
     haiku/API/WebDownload.cpp

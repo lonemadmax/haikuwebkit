@@ -29,6 +29,7 @@
 #include <config.h>
 #include "WebView.h"
 
+#include "FullscreenVideoController.h"
 #include "WebCore/Frame.h"
 #include "WebCore/FrameView.h"
 #include "WebCore/GraphicsContextHaiku.h"
@@ -513,6 +514,37 @@ void BWebView::SetOffscreenViewClean(BRect cleanRect, bool immediate)
 bool BWebView::IsComposited()
 {
     return false;
+}
+
+void BWebView::EnterVideoFullscreenForVideoElement(HTMLVideoElement& videoElement)
+{
+    if (fFullScreenVideoController) {
+        if (fFullScreenVideoController->videoElement() == &videoElement) {
+            // The backend may just warn us that the underlaying plaftormMovie()
+            // has changed. Just force an update.
+            fFullScreenVideoController->setVideoElement(&videoElement);
+            return; // No more to do.
+        }
+
+        // First exit Fullscreen for the old videoElement.
+        fFullScreenVideoController->videoElement()->exitFullscreen();
+        // This previous call has to trigger exitFullscreen,
+        // which has to clear fFullScreenVideoController.
+        ASSERT(!fFullScreenVideoController);
+    }
+
+    fFullScreenVideoController = makeUnique<FullscreenVideoController>();
+    fFullScreenVideoController->setVideoElement(&videoElement);
+    fFullScreenVideoController->enterFullscreen();
+}
+
+void BWebView::ExitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&)
+{
+    if (!fFullScreenVideoController)
+        return;
+    
+    fFullScreenVideoController->exitFullscreen();
+    fFullScreenVideoController = nullptr;
 }
 
 // #pragma mark - private

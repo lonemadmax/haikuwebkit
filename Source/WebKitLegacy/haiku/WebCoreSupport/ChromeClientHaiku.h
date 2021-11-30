@@ -38,6 +38,7 @@
 
 #include <wtf/RefCounted.h>
 #include "WebPage.h"
+#include "WebView.h"
 
 namespace WebCore {
 
@@ -176,6 +177,17 @@ namespace WebCore {
         std::unique_ptr<WebCore::DateTimeChooser> createDateTimeChooser(WebCore::DateTimeChooserClient&) override;
 
         void setTextIndicator(const TextIndicatorData&) const final {};
+
+        bool supportsVideoFullscreen(HTMLMediaElementEnums::VideoFullscreenMode) override { return true; }
+        void enterVideoFullscreenForVideoElement(HTMLVideoElement& element, HTMLMediaElementEnums::VideoFullscreenMode, bool) override
+        {
+            m_webView->EnterVideoFullscreenForVideoElement(element);
+        }
+        void exitVideoFullscreenForVideoElement(HTMLVideoElement& element, CompletionHandler<void(bool)>&& completionHandler) override
+        {
+            m_webView->ExitVideoFullscreenForVideoElement(element);
+            completionHandler(true);
+        }
     private:
         BWebPage* m_webPage;
         BWebView* m_webView;
