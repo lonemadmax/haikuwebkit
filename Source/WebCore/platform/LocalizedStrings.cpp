@@ -89,7 +89,7 @@ String formatLocalizedString(const char* format, ...)
 	va_list arguments;
     va_start(arguments, format);
 
-	formatted.SetToFormatVarArgs(format.utf8().data(), arguments);
+	formatted.SetToFormatVarArgs(format, arguments);
 
     va_end(arguments);
 
