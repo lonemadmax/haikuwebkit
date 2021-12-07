@@ -49,22 +49,6 @@ const float MaxDragLabelStringWidth = (MaxDragLabelWidth - 2 * DragLabelBorderX)
 const float DragLinkLabelFontsize = 11;
 const float DragLinkUrlFontSize = 10;
 
-static FontCascade dragLabelFont(int size, bool bold, FontRenderingMode renderingMode)
-{
-    FontCascade result;
-
-    FontCascadeDescription description;
-    description.setWeight(bold ? boldWeightValue() : normalWeightValue());
-    //description.setOneFamily(metrics.lfSmCaptionFont.lfFaceName);
-    description.setSpecifiedSize((float)size);
-    description.setComputedSize((float)size);
-    description.setRenderingMode(renderingMode);
-    result = FontCascade(WTFMove(description), 0, 0);
-    result.update(0);
-    return result;
-}
-
-
 DragImageRef createDragImageForColor(const Color&, const FloatRect&, float, Path&)
 {
     return nullptr;
