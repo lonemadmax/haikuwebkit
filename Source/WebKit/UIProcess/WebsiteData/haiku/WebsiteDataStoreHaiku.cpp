@@ -33,20 +33,37 @@ namespace WebKit {
 
 void WebsiteDataStore::platformInitialize()
 {
-    notImplemented();
 }
 
 void WebsiteDataStore::platformDestroy()
 {
-    notImplemented();
 }
 
-void WebsiteDataStore::platformRemoveRecentSearches(WallTime)
-{
-    notImplemented();
-}
-
+#if !USE(CURL)
 void WebsiteDataStore::platformSetNetworkParameters(WebsiteDataStoreParameters&)
 {
 }
+#endif
+
+String WebsiteDataStore::cacheDirectoryFileSystemRepresentation(const String& directoryName,
+    const WTF::String& baseCacheDirectory, WebsiteDataStore::ShouldCreateDirectory)
+{
+    if (!baseCacheDirectory.isNull())
+        return FileSystem::pathByAppendingComponent(baseCacheDirectory, directoryName);
+    return FileSystem::pathByAppendingComponent("/app0"_s, directoryName);
+}
+
+String WebsiteDataStore::websiteDataDirectoryFileSystemRepresentation(const String& directoryName,
+    const WTF::String& baseDataDirectory, WebsiteDataStore::ShouldCreateDirectory)
+{
+    if (!baseDataDirectory.isNull())
+        return FileSystem::pathByAppendingComponent(baseDataDirectory, directoryName);
+    return FileSystem::pathByAppendingComponent("/app0"_s, directoryName);
+}
+
+UnifiedOriginStorageLevel WebsiteDataStore::defaultUnifiedOriginStorageLevel()
+{
+    return UnifiedOriginStorageLevel::None;
+}
+
 } // namespace WebKit
