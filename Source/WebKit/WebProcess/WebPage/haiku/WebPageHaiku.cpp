@@ -26,12 +26,13 @@
 #include "config.h"
 #include "WebPage.h"
 
-#include "EventHandler.h"
-#include "NotImplemented.h"
-#include "WindowsKeyboardCodes.h"
 #include <WebCore/BackForwardController.h>
+#include <WebCore/EventHandler.h>
 #include <WebCore/KeyboardEvent.h>
+#include <WebCore/NotImplemented.h>
 #include <WebCore/PlatformKeyboardEvent.h>
+#include <WebCore/UserAgent.h>
+#include <WebCore/WindowsKeyboardCodes.h>
 
 #include "WebKeyboardEvent.h"
 
@@ -39,7 +40,7 @@ using namespace WebCore;
 
 namespace WebKit {
 
-void WebPage::platformInitialize()
+void WebPage::platformInitialize(WebKit::WebPageCreationParameters const&)
 {
 }
 
@@ -61,52 +62,6 @@ void WebPage::updateAccessibilityTree()
 }
 #endif
 
-bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboardEvent)
-{
-    if (keyboardEvent.type() != WebEvent::KeyDown && keyboardEvent.type() != WebEvent::RawKeyDown)
-        return false;
-
-    switch (keyboardEvent.windowsVirtualKeyCode()) {
-    case VK_BACK:
-        if (keyboardEvent.shiftKey())
-            m_page->backForward().goForward();
-        else
-            m_page->backForward().goBack();
-        break;
-    case VK_SPACE:
-        scroll(m_page.get(), keyboardEvent.shiftKey() ? ScrollUp : ScrollDown, ScrollGranularity::Page);
-        break;
-    case VK_LEFT:
-        scroll(m_page.get(), ScrollLeft, ScrollGranularity::Line);
-        break;
-    case VK_RIGHT:
-        scroll(m_page.get(), ScrollRight, ScrollGranularity::Line);
-        break;
-    case VK_UP:
-        scroll(m_page.get(), ScrollUp, ScrollGranularity::Line);
-        break;
-    case VK_DOWN:
-        scroll(m_page.get(), ScrollDown, ScrollGranularity::Line);
-        break;
-    case VK_HOME:
-        scroll(m_page.get(), ScrollUp, ScrollGranularity::Document);
-        break;
-    case VK_END:
-        scroll(m_page.get(), ScrollDown, ScrollGranularity::Document);
-        break;
-    case VK_PRIOR:
-        scroll(m_page.get(), ScrollUp, ScrollGranularity::Page);
-        break;
-    case VK_NEXT:
-        scroll(m_page.get(), ScrollDown, ScrollGranularity::Page);
-        break;
-    default:
-        return false;
-    }
-
-    return true;
-}
-
 bool WebPage::platformCanHandleRequest(const ResourceRequest&)
 {
     notImplemented();
@@ -121,9 +76,41 @@ const char* WebPage::interpretKeyEvent(const KeyboardEvent* event)
 
 String WebPage::platformUserAgent(const URL& url) const
 {
-    notImplemented();
-    return String();
+    if (url.isNull() || !m_page->settings().needsSiteSpecificQuirks())
+        return emptyString();
+
+    return WebCore::standardUserAgentForURL(url);
 }
 
+bool WebPage::hoverSupportedByPrimaryPointingDevice() const
+{
+    return true;
+}
+
+bool WebPage::hoverSupportedByAnyAvailablePointingDevice() const
+{
+    return true;
+}
+
+std::optional<PointerCharacteristics> WebPage::pointerCharacteristicsOfPrimaryPointingDevice() const
+{
+    return PointerCharacteristics::Fine;
+}
+
+OptionSet<PointerCharacteristics> WebPage::pointerCharacteristicsOfAllAvailablePointingDevices() const
+{
+    return PointerCharacteristics::Fine;
+}
+
+bool WebPage::handleEditingKeyboardEvent(WebCore::KeyboardEvent& event)
+{
+    notImplemented();
+    return false;
+}
+
+void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) const
+{
+    notImplemented();
+}
 
 } // namespace WebKit
