@@ -89,6 +89,8 @@
 #include "WebCore/SocketProvider.h"
 #include "WebCore/TextEncoding.h"
 #include "WebCore/UserContentController.h"
+#include <WebCore/WebLockRegistry.h>
+
 #include "WebApplicationCache.h"
 #include "WebBroadcastChannelRegistry.h"
 #include "WebDatabaseProvider.h"
@@ -240,6 +242,16 @@ class MediaRecorderProviderHaiku: public MediaRecorderProvider
 };
 
 
+static Ref<WebCore::LocalWebLockRegistry> getOrCreateWebLockRegistry()
+{
+    static NeverDestroyed<WeakPtr<WebCore::LocalWebLockRegistry>> existingRegistry;
+    if (existingRegistry.get())
+        return *existingRegistry.get();
+    auto registry = WebCore::LocalWebLockRegistry::create();
+    existingRegistry.get() = registry;
+    return registry;
+}
+
 BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
     : BHandler("BWebPage")
     , fWebView(webView)
@@ -282,6 +294,7 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         makeUniqueRef<WebCore::DummySpeechRecognitionProvider>(),
         makeUniqueRef<MediaRecorderProviderHaiku>(),
         WebBroadcastChannelRegistry::getOrCreate(false),
+        getOrCreateWebLockRegistry(),
         WebCore::DummyPermissionController::create(),
         makeUniqueRef<WebCore::DummyStorageProvider>(),
         makeUniqueRef<WebCore::DummyModelPlayerProvider>()
