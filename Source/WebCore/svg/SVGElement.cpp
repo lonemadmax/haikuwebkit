@@ -524,11 +524,37 @@ void SVGElement::finishParsingChildren()
     invalidateInstances();
 }
 
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+static MemoryCompactLookupOnlyRobinHoodHashSet<AtomString> createSVGLayerAwareElementSet()
+{
+    // List of all SVG elements whose renderers support the layer aware layout / painting / hit-testing mode ('LBSE-mode').
+    using namespace SVGNames;
+    MemoryCompactLookupOnlyRobinHoodHashSet<AtomString> set;
+    for (auto& tag : { rectTag.get() })
+        set.add(tag.localName());
+    return set;
+}
+
+static inline bool isSVGLayerAwareElement(const SVGElement& element)
+{
+    static NeverDestroyed<MemoryCompactLookupOnlyRobinHoodHashSet<AtomString>> set = createSVGLayerAwareElementSet();
+    return set.get().contains(element.localName());
+}
+#endif
+
 bool SVGElement::childShouldCreateRenderer(const Node& child) const
 {
     if (!child.isSVGElement())
         return false;
     auto& svgChild = downcast<SVGElement>(child);
+
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+    // If the layer based SVG engine is enabled, all renderers that do not support the
+    // RenderLayer aware layout / painting / hit-testing mode ('LBSE-mode') have to be skipped.
+    // FIXME: [LBSE] Upstream support for all elements, and remove 'isSVGLayerAwareElement' check afterwards.
+    if (document().settings().layerBasedSVGEngineEnabled())
+        return isSVGLayerAwareElement(svgChild);
+#endif
 
     static const QualifiedName* const invalidTextContent[] {
         &SVGNames::altGlyphTag.get(),

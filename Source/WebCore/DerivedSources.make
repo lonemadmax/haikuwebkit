@@ -254,6 +254,8 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/contact-picker/ContactsManager.idl \
     $(WebCore)/Modules/contact-picker/ContactsSelectOptions.idl \
     $(WebCore)/Modules/contact-picker/Navigator+Contacts.idl \
+    $(WebCore)/Modules/cookie-consent/Navigator+CookieConsent.idl \
+    $(WebCore)/Modules/cookie-consent/RequestCookieConsentOptions.idl \
     $(WebCore)/Modules/credentialmanagement/BasicCredential.idl \
     $(WebCore)/Modules/credentialmanagement/CredentialCreationOptions.idl \
     $(WebCore)/Modules/credentialmanagement/CredentialRequestOptions.idl \
@@ -635,6 +637,11 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/webauthn/PublicKeyCredentialRequestOptions.idl \
     $(WebCore)/Modules/webauthn/PublicKeyCredentialType.idl \
     $(WebCore)/Modules/webauthn/UserVerificationRequirement.idl \
+	$(WebCore)/Modules/webcodecs/VideoColorPrimaries.idl \
+	$(WebCore)/Modules/webcodecs/VideoColorSpace.idl \
+	$(WebCore)/Modules/webcodecs/VideoColorSpaceInit.idl \
+	$(WebCore)/Modules/webcodecs/VideoMatrixCoefficients.idl \
+	$(WebCore)/Modules/webcodecs/VideoTransferCharacteristics.idl \
     $(WebCore)/Modules/webdatabase/DOMWindow+WebDatabase.idl \
     $(WebCore)/Modules/webdatabase/Database.idl \
     $(WebCore)/Modules/webdatabase/DatabaseCallback.idl \
@@ -695,6 +702,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/animation/Animatable.idl \
     $(WebCore)/animation/AnimationEffect.idl \
     $(WebCore)/animation/AnimationFrameProvider.idl \
+    $(WebCore)/animation/AnimationFrameRatePreset.idl \
     $(WebCore)/animation/AnimationPlaybackEvent.idl \
     $(WebCore)/animation/AnimationPlaybackEventInit.idl \
     $(WebCore)/animation/AnimationTimeline.idl \
@@ -756,7 +764,9 @@ JS_BINDING_IDLS := \
     $(WebCore)/css/CSSFontPaletteValuesRule.idl \
     $(WebCore)/css/CSSGroupingRule.idl \
     $(WebCore)/css/CSSImportRule.idl \
-    $(WebCore)/css/CSSLayerRule.idl \
+    $(WebCore)/css/CSSImportRule+Layer.idl \
+    $(WebCore)/css/CSSLayerBlockRule.idl \
+    $(WebCore)/css/CSSLayerStatementRule.idl \
     $(WebCore)/css/CSSKeyframeRule.idl \
     $(WebCore)/css/CSSKeyframesRule.idl \
     $(WebCore)/css/CSSMediaRule.idl \
@@ -1163,6 +1173,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/html/canvas/WebGLVertexArrayObject.idl \
     $(WebCore)/html/canvas/WebGLVertexArrayObjectOES.idl \
     $(WebCore)/html/track/AudioTrack.idl \
+    $(WebCore)/html/track/AudioTrackConfiguration.idl \
     $(WebCore)/html/track/AudioTrackList.idl \
     $(WebCore)/html/track/DataCue.idl \
     $(WebCore)/html/track/TextTrack.idl \
@@ -1175,6 +1186,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/html/track/VTTRegion.idl \
     $(WebCore)/html/track/VTTRegionList.idl \
     $(WebCore)/html/track/VideoTrack.idl \
+	$(WebCore)/html/track/VideoTrackConfiguration.idl \
     $(WebCore)/html/track/VideoTrackList.idl \
     $(WebCore)/mathml/MathMLElement.idl \
     $(WebCore)/mathml/MathMLMathElement.idl \

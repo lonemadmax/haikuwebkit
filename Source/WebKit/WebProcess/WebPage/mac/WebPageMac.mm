@@ -509,7 +509,7 @@ static String& replaceSelectionPasteboardName()
 void WebPage::replaceSelectionWithPasteboardData(const Vector<String>& types, const IPC::DataReference& data)
 {
     for (auto& type : types)
-        WebPasteboardOverrides::sharedPasteboardOverrides().addOverride(replaceSelectionPasteboardName(), type, data.vector());
+        WebPasteboardOverrides::sharedPasteboardOverrides().addOverride(replaceSelectionPasteboardName(), type, { data });
 
     readSelectionFromPasteboard(replaceSelectionPasteboardName(), [](bool) { });
 
@@ -566,7 +566,7 @@ void WebPage::getDataSelectionForPasteboard(const String pasteboardType, Complet
     if (frame.selection().isNone())
         return completionHandler({ });
 
-    RefPtr<SharedBuffer> buffer = frame.editor().dataSelectionForPasteboard(pasteboardType);
+    auto buffer = frame.editor().dataSelectionForPasteboard(pasteboardType);
     if (!buffer)
         return completionHandler({ });
     auto sharedMemoryBuffer = SharedMemory::copyBuffer(*buffer);
@@ -826,6 +826,11 @@ void WebPage::handleSelectionServiceClick(FrameSelection& selection, const Vecto
 
     flushPendingEditorStateUpdate();
     send(Messages::WebPageProxy::ShowContextMenu(ContextMenuContextData(point, selectionDataVector, phoneNumbers, selection.selection().isContentEditable()), UserData()));
+}
+
+void WebPage::handleImageServiceClick(const IntPoint& point, Image& image, bool isEditable, const IntRect& imageRect, const String& attachmentID)
+{
+    send(Messages::WebPageProxy::ShowContextMenu(ContextMenuContextData(point, image, isEditable, imageRect, attachmentID), UserData()));
 }
 
 #endif

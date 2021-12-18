@@ -1544,9 +1544,14 @@ void WebPageProxy::isUserFacingChanged(bool isUserFacing)
 }
 #endif
 
-void WebPageProxy::willPerformPasteCommand()
+void WebPageProxy::willPerformPasteCommand(DOMPasteAccessCategory pasteAccessCategory)
 {
-    grantAccessToCurrentPasteboardData(UIPasteboardNameGeneral);
+    switch (pasteAccessCategory) {
+    case DOMPasteAccessCategory::General:
+    case DOMPasteAccessCategory::Fonts:
+        grantAccessToCurrentPasteboardData(UIPasteboardNameGeneral);
+        return;
+    }
 }
 
 void WebPageProxy::setDeviceHasAGXCompilerServiceForTesting() const

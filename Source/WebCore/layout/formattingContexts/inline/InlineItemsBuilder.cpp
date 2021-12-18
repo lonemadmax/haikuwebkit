@@ -86,7 +86,7 @@ InlineItems InlineItemsBuilder::build()
 {
     InlineItems inlineItems;
     collectInlineItems(inlineItems);
-    if (hasSeenBidiContent())
+    if (needsVisualReordering())
         breakAndComputeBidiLevels(inlineItems);
     computeInlineTextItemWidths(inlineItems);
     return inlineItems;
@@ -170,9 +170,44 @@ static void replaceNonPreservedNewLineCharactersAndAppend(const InlineTextBox& i
         paragraphContentBuilder.append(textContent.right(contentLength - nonReplacedContentStartPosition));
 }
 
-using InlineItemOffsetList = Vector<std::optional<size_t>>;
-static inline void buildBidiParagraph(const InlineItems& inlineItems,  StringBuilder& paragraphContentBuilder, InlineItemOffsetList& inlineItemOffsetList)
+static inline void handleEnterExitBidiContext(StringBuilder& paragraphContentBuilder, EUnicodeBidi unicodeBidi, bool isLTR, bool isEnteringBidi)
 {
+    switch (unicodeBidi) {
+    case EUnicodeBidi::UBNormal:
+        // The box does not open an additional level of embedding with respect to the bidirectional algorithm.
+        // For inline boxes, implicit reordering works across box boundaries.
+        break;
+    case EUnicodeBidi::Embed:
+        paragraphContentBuilder.append(isEnteringBidi ? (isLTR ? leftToRightEmbed : rightToLeftEmbed) : popDirectionalFormatting);
+        break;
+    case EUnicodeBidi::Override:
+        paragraphContentBuilder.append(isEnteringBidi ? (isLTR ? leftToRightOverride : rightToLeftOverride) : popDirectionalFormatting);
+        break;
+    case EUnicodeBidi::Isolate:
+        paragraphContentBuilder.append(isEnteringBidi ? (isLTR ? leftToRightIsolate : rightToLeftIsolate) : popDirectionalIsolate);
+        break;
+    case EUnicodeBidi::Plaintext:
+        paragraphContentBuilder.append(isEnteringBidi ? firstStrongIsolate : popDirectionalIsolate);
+        break;
+    case EUnicodeBidi::IsolateOverride:
+        if (isEnteringBidi) {
+            paragraphContentBuilder.append(firstStrongIsolate);
+            paragraphContentBuilder.append(isLTR ? leftToRightOverride : rightToLeftOverride);
+        } else {
+            paragraphContentBuilder.append(popDirectionalFormatting);
+            paragraphContentBuilder.append(popDirectionalIsolate);
+        }
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+    }
+}
+
+using InlineItemOffsetList = Vector<std::optional<size_t>>;
+static inline void buildBidiParagraph(const RenderStyle& rootStyle, const InlineItems& inlineItems,  StringBuilder& paragraphContentBuilder, InlineItemOffsetList& inlineItemOffsetList)
+{
+    handleEnterExitBidiContext(paragraphContentBuilder, rootStyle.unicodeBidi(), rootStyle.isLeftToRightDirection(), true);
+
     const Box* lastInlineTextBox = nullptr;
     size_t inlineTextBoxOffset = 0;
     for (size_t index = 0; index < inlineItems.size(); ++index) {
@@ -201,36 +236,7 @@ static inline void buildBidiParagraph(const InlineItems& inlineItems,  StringBui
             }
             inlineItemOffsetList.uncheckedAppend({ paragraphContentBuilder.length() });
             auto isEnteringBidi = inlineItem.isInlineBoxStart();
-            switch (style.unicodeBidi()) {
-            case EUnicodeBidi::UBNormal:
-                // The box does not open an additional level of embedding with respect to the bidirectional algorithm.
-                // For inline boxes, implicit reordering works across box boundaries.
-                ASSERT_NOT_REACHED();
-                break;
-            case EUnicodeBidi::Embed:
-                paragraphContentBuilder.append(isEnteringBidi ? (style.isLeftToRightDirection() ? leftToRightEmbed : rightToLeftEmbed) : popDirectionalFormatting);
-                break;
-            case EUnicodeBidi::Override:
-                paragraphContentBuilder.append(isEnteringBidi ? (style.isLeftToRightDirection() ? leftToRightOverride : rightToLeftOverride) : popDirectionalFormatting);
-                break;
-            case EUnicodeBidi::Isolate:
-                paragraphContentBuilder.append(isEnteringBidi ? (style.isLeftToRightDirection() ? leftToRightIsolate : rightToLeftIsolate) : popDirectionalIsolate);
-                break;
-            case EUnicodeBidi::Plaintext:
-                paragraphContentBuilder.append(isEnteringBidi ? firstStrongIsolate : popDirectionalIsolate);
-                break;
-            case EUnicodeBidi::IsolateOverride:
-                if (isEnteringBidi) {
-                    paragraphContentBuilder.append(firstStrongIsolate);
-                    paragraphContentBuilder.append(style.isLeftToRightDirection() ? leftToRightOverride : rightToLeftOverride);
-                } else {
-                    paragraphContentBuilder.append(popDirectionalFormatting);
-                    paragraphContentBuilder.append(popDirectionalIsolate);
-                }
-                break;
-            default:
-                ASSERT_NOT_REACHED();
-            }
+            handleEnterExitBidiContext(paragraphContentBuilder, style.unicodeBidi(), style.isLeftToRightDirection(), isEnteringBidi);
         } else if (inlineItem.isLineBreak()) {
             inlineItemOffsetList.uncheckedAppend({ paragraphContentBuilder.length() });
             paragraphContentBuilder.append(newlineCharacter);
@@ -244,14 +250,21 @@ static inline void buildBidiParagraph(const InlineItems& inlineItems,  StringBui
 
 void InlineItemsBuilder::breakAndComputeBidiLevels(InlineItems& inlineItems)
 {
-    ASSERT(hasSeenBidiContent());
+    ASSERT(needsVisualReordering());
     ASSERT(!inlineItems.isEmpty());
 
     StringBuilder paragraphContentBuilder;
     InlineItemOffsetList inlineItemOffsets;
     inlineItemOffsets.reserveInitialCapacity(inlineItems.size());
-    buildBidiParagraph(inlineItems, paragraphContentBuilder, inlineItemOffsets);
+    buildBidiParagraph(root().style(), inlineItems, paragraphContentBuilder, inlineItemOffsets);
     ASSERT(inlineItemOffsets.size() == inlineItems.size());
+    if (paragraphContentBuilder.is8Bit()) {
+        // Simple content with RTL inline base direction could just follow the logical order.
+        // Note that inline level elements produce 16bit paragraph content by appending objectReplacementCharacter.
+        // e.g. <div dir=rtl>this initiates 8bit paragraph builder</div> while
+        //      <div dir=rtl><img> <- turns the paragraph builder to 16bit</div> 
+        return;
+    }
 
     // 1. Setup the bidi boundary loop by calling ubidi_setPara with the paragraph text.
     // 2. Call ubidi_getLogicalRun to advance to the next bidi boundary until we hit the end of the content.
@@ -288,16 +301,17 @@ void InlineItemsBuilder::breakAndComputeBidiLevels(InlineItems& inlineItems)
             // Start of the range is always where we left off (bidi ranges do not have gaps).
             for (; inlineItemIndex < inlineItemOffsets.size(); ++inlineItemIndex) {
                 auto offset = inlineItemOffsets[inlineItemIndex];
+                auto& inlineItem = inlineItems[inlineItemIndex];
                 if (!offset) {
                     // This is an opaque item. Let's post-process it.
                     hasSeenOpaqueItem = true;
+                    inlineItem.setBidiLevel(bidiLevelForRange);
                     continue;
                 }
                 if (*offset >= bidiEnd) {
                     // This inline item is outside of the bidi range.
                     break;
                 }
-                auto& inlineItem = inlineItems[inlineItemIndex];
                 inlineItem.setBidiLevel(bidiLevelForRange);
                 if (!inlineItem.isText())
                     continue;
@@ -321,27 +335,30 @@ void InlineItemsBuilder::breakAndComputeBidiLevels(InlineItems& inlineItems)
         if (!hasSeenOpaqueItem)
             return;
         // Opaque items (inline items with no paragraph content) get their bidi level values from their adjacent items.
-        auto lastBidiLevel = rootBidiLevel;
+        enum class InlineBoxHasContent : bool { No, Yes };
+        Vector<InlineBoxHasContent> inlineBoxContentFlagStack;
+        inlineBoxContentFlagStack.reserveInitialCapacity(inlineItems.size());
         for (auto index = inlineItems.size(); index--;) {
+            auto& inlineItem = inlineItems[index];
             if (inlineItemOffsets[index]) {
-                lastBidiLevel = inlineItems[index].bidiLevel();
+                inlineBoxContentFlagStack.fill(InlineBoxHasContent::Yes);
                 continue;
             }
-            if (inlineItems[index].isInlineBoxStart()) {
+            if (inlineItem.isInlineBoxStart()) {
+                ASSERT(!inlineBoxContentFlagStack.isEmpty());
                 // Inline box start (e.g <span>) uses its content bidi level (next inline item).
-                inlineItems[index].setBidiLevel(lastBidiLevel);
+                if (inlineBoxContentFlagStack.takeLast() == InlineBoxHasContent::Yes)
+                    inlineItems[index].setBidiLevel(InlineItem::opaqueBidiLevel);
                 continue;
             }
-            if (inlineItems[index].isInlineBoxEnd()) {
-                // Inline box end (e.g. </span>) also uses the content bidi level, but in this case it's the previous content.
-                auto previousBidiLevel = [&]() -> std::optional<UBiDiLevel> {
-                    for (auto i = index; i--;) {
-                        if (inlineItemOffsets[i])
-                            return inlineItems[i].bidiLevel();
-                    }
-                    return { };
-                }();
-                inlineItems[index].setBidiLevel(previousBidiLevel.value_or(rootBidiLevel));
+            if (inlineItem.isInlineBoxEnd()) {
+                inlineBoxContentFlagStack.append(InlineBoxHasContent::No);
+                // Let's not confuse ubidi with non-content entries. Opaque runs are excluded from the visual list.
+                inlineItem.setBidiLevel(InlineItem::opaqueBidiLevel);
+                continue;
+            }
+            if (inlineItem.isWordBreakOpportunity()) {
+                inlineItem.setBidiLevel(InlineItem::opaqueBidiLevel);
                 continue;
             }
             ASSERT_NOT_REACHED();

@@ -345,35 +345,37 @@ void RenderBox::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle
     bool isDocElementRenderer = isDocumentElementRenderer();
 
     if (isDocElementRenderer || isBodyRenderer) {
-        // Propagate the new writing mode and direction up to the RenderView.
         auto* documentElementRenderer = document().documentElement()->renderer();
         auto& viewStyle = view().mutableStyle();
         bool rootStyleChanged = false;
         bool viewDirectionOrWritingModeChanged = false;
         auto* rootRenderer = isBodyRenderer ? documentElementRenderer : nullptr;
-        if (viewStyle.direction() != newStyle.direction() && (isDocElementRenderer || !documentElementRenderer->style().hasExplicitlySetDirection())) {
-            viewStyle.setDirection(newStyle.direction());
-            viewDirectionOrWritingModeChanged = true;
-            if (isBodyRenderer) {
-                rootRenderer->mutableStyle().setDirection(newStyle.direction());
-                rootStyleChanged = true;
-            }
-            setNeedsLayoutAndPrefWidthsRecalc();
+        if (!isBodyRenderer || !(shouldApplyAnyContainment(*this) || shouldApplyAnyContainment(*documentElementRenderer))) {
+            // Propagate the new writing mode and direction up to the RenderView.
+            if (viewStyle.direction() != newStyle.direction() && (isDocElementRenderer || !documentElementRenderer->style().hasExplicitlySetDirection())) {
+                viewStyle.setDirection(newStyle.direction());
+                viewDirectionOrWritingModeChanged = true;
+                if (isBodyRenderer) {
+                    rootRenderer->mutableStyle().setDirection(newStyle.direction());
+                    rootStyleChanged = true;
+                }
+                setNeedsLayoutAndPrefWidthsRecalc();
 
-            view().frameView().topContentDirectionDidChange();
-        }
-
-        if (viewStyle.writingMode() != newStyle.writingMode() && (isDocElementRenderer || !documentElementRenderer->style().hasExplicitlySetWritingMode())) {
-            viewStyle.setWritingMode(newStyle.writingMode());
-            viewDirectionOrWritingModeChanged = true;
-            view().setHorizontalWritingMode(newStyle.isHorizontalWritingMode());
-            view().markAllDescendantsWithFloatsForLayout();
-            if (isBodyRenderer) {
-                rootStyleChanged = true;
-                rootRenderer->mutableStyle().setWritingMode(newStyle.writingMode());
-                rootRenderer->setHorizontalWritingMode(newStyle.isHorizontalWritingMode());
+                view().frameView().topContentDirectionDidChange();
             }
-            setNeedsLayoutAndPrefWidthsRecalc();
+
+            if (viewStyle.writingMode() != newStyle.writingMode() && (isDocElementRenderer || !documentElementRenderer->style().hasExplicitlySetWritingMode())) {
+                viewStyle.setWritingMode(newStyle.writingMode());
+                viewDirectionOrWritingModeChanged = true;
+                view().setHorizontalWritingMode(newStyle.isHorizontalWritingMode());
+                view().markAllDescendantsWithFloatsForLayout();
+                if (isBodyRenderer) {
+                    rootStyleChanged = true;
+                    rootRenderer->mutableStyle().setWritingMode(newStyle.writingMode());
+                    rootRenderer->setHorizontalWritingMode(newStyle.isHorizontalWritingMode());
+                }
+                setNeedsLayoutAndPrefWidthsRecalc();
+            }
         }
 
 #if ENABLE(DARK_MODE_CSS)
@@ -415,7 +417,7 @@ void RenderBox::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle
     // Changing the position from/to absolute can potentially create/remove flex/grid items, as absolutely positioned
     // children of a flex/grid box are out-of-flow, and thus, not flex/grid items. This means that we need to clear
     // any override content size set by our container, because it would likely be incorrect after the style change.
-    if (isOutOfFlowPositioned() && parent() && parent()->style().isDisplayFlexibleOrGridBox())
+    if (isOutOfFlowPositioned() && parent() && parent()->style().isDisplayFlexibleBoxIncludingDeprecatedOrGridBox())
         clearOverridingContentSize();
 
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
@@ -683,7 +685,7 @@ LayoutUnit RenderBox::constrainLogicalHeightByMinMax(LayoutUnit logicalHeight, s
     }
     auto logicalMinHeight = styleToUse.logicalMinHeight();
     if (logicalMinHeight.isAuto() && shouldComputeLogicalHeightFromAspectRatio() && intrinsicContentHeight && effectiveOverflowBlockDirection() == Overflow::Visible) {
-        auto heightFromAspectRatio = blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), LayoutUnit(style().logicalAspectRatio()), style().boxSizingForAspectRatio(), logicalWidth()) - borderAndPaddingLogicalHeight();
+        auto heightFromAspectRatio = blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth()) - borderAndPaddingLogicalHeight();
         if (firstChild())
             heightFromAspectRatio = std::max(heightFromAspectRatio, *intrinsicContentHeight);
         logicalMinHeight = Length(heightFromAspectRatio, LengthType::Fixed);
@@ -3097,7 +3099,7 @@ RenderBox::LogicalExtentComputedValues RenderBox::computeLogicalHeight(LayoutUni
         // For tables, calculate margins only.
         if (isTable()) {
             if (shouldComputeLogicalHeightFromAspectRatio())
-                computedValues.m_extent = blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), LayoutUnit(style().logicalAspectRatio()), style().boxSizingForAspectRatio(), logicalWidth());
+                computedValues.m_extent = blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth());
             if (hasPerpendicularContainingBlock) {
                 bool shouldFlipBeforeAfter = shouldFlipBeforeAfterMargins(cb.style(), &style());
                 computeInlineDirectionMargins(cb, containingBlockLogicalWidthForContent(), computedValues.m_extent,
@@ -3147,7 +3149,7 @@ RenderBox::LogicalExtentComputedValues RenderBox::computeLogicalHeight(LayoutUni
             if (shouldComputeLogicalHeightFromAspectRatio()) {
                 if (intrinsicHeight && style().boxSizingForAspectRatio() == BoxSizing::ContentBox)
                     *intrinsicHeight -= borderAndPaddingLogicalHeight();
-                heightResult = blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), LayoutUnit(style().logicalAspectRatio()), style().boxSizingForAspectRatio(), logicalWidth());
+                heightResult = blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth());
             } else {
                 if (intrinsicHeight)
                     *intrinsicHeight -= borderAndPaddingLogicalHeight();
@@ -3593,7 +3595,7 @@ LayoutUnit RenderBox::availableLogicalHeightUsing(const Length& h, AvailableLogi
         return overridingContentLogicalHeight();
 
     if (shouldComputeLogicalHeightFromAspectRatio())
-        return blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), LayoutUnit(style().logicalAspectRatio()), style().boxSizingForAspectRatio(), logicalWidth());
+        return blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth());
 
     if (h.isPercentOrCalculated() && isOutOfFlowPositioned() && !isRenderFragmentedFlow()) {
         // FIXME: This is wrong if the containingBlock has a perpendicular writing mode.
@@ -4407,7 +4409,7 @@ void RenderBox::computePositionedLogicalHeightUsing(SizeType heightType, Length 
         if (logicalHeightLength.isIntrinsic())
             resolvedLogicalHeight = adjustContentBoxLogicalHeightForBoxSizing(computeIntrinsicLogicalContentHeightUsing(logicalHeightLength, contentLogicalHeight, bordersPlusPadding).value());
         else if (fromAspectRatio) {
-            resolvedLogicalHeight = blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), LayoutUnit(style().logicalAspectRatio()), style().boxSizingForAspectRatio(), logicalWidth());
+            resolvedLogicalHeight = blockSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth());
             resolvedLogicalHeight = std::max(LayoutUnit(), resolvedLogicalHeight - bordersPlusPadding);
         } else
             resolvedLogicalHeight = adjustContentBoxLogicalHeightForBoxSizing(valueForLength(logicalHeightLength, containerLogicalHeight));
@@ -5408,7 +5410,7 @@ LayoutUnit RenderBox::computeLogicalWidthFromAspectRatioInternal() const
     auto computedValues = computeLogicalHeight(logicalHeight(), logicalTop());
     LayoutUnit logicalHeightforAspectRatio = computedValues.m_extent;
 
-    return inlineSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), LayoutUnit(style().logicalAspectRatio()), style().boxSizingForAspectRatio(), logicalHeightforAspectRatio);
+    return inlineSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalHeightforAspectRatio);
 }
 
 LayoutUnit RenderBox::computeLogicalWidthFromAspectRatio(RenderFragmentContainer* fragment) const
@@ -5420,15 +5422,14 @@ LayoutUnit RenderBox::computeLogicalWidthFromAspectRatio(RenderFragmentContainer
 
 std::pair<LayoutUnit, LayoutUnit> RenderBox::computeMinMaxLogicalWidthFromAspectRatio() const
 {
-    auto ratio = LayoutUnit { style().logicalAspectRatio() };
     LayoutUnit blockMinSize = constrainLogicalHeightByMinMax(LayoutUnit(), std::nullopt);
     LayoutUnit blockMaxSize = constrainLogicalHeightByMinMax(LayoutUnit::max(), std::nullopt);
     LayoutUnit transferredMinSize = LayoutUnit();
     LayoutUnit transferredMaxSize = LayoutUnit::max();
     if (blockMinSize > LayoutUnit())
-        transferredMinSize = inlineSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), ratio, style().boxSizingForAspectRatio(), blockMinSize);
+        transferredMinSize = inlineSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), blockMinSize);
     if (blockMaxSize != LayoutUnit::max())
-        transferredMaxSize = inlineSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), ratio, style().boxSizingForAspectRatio(), blockMaxSize);
+        transferredMaxSize = inlineSizeFromAspectRatio(horizontalBorderAndPaddingExtent(), verticalBorderAndPaddingExtent(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), blockMaxSize);
     // Minimum size wins over maximum size.
     transferredMaxSize = std::max(transferredMaxSize, transferredMinSize);
     return { transferredMinSize, transferredMaxSize };

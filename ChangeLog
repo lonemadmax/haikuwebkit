@@ -1,3 +1,37 @@
+2021-12-11  Aakash Jain  <aakash_jain@apple.com>
+
+        Update my github username.
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-12-10  Mikhail R. Gadelha  <mikhail@igalia.com>
+
+        Mark myself (Mikhail R. Gadelha) as committer
+        https://bugs.webkit.org/show_bug.cgi?id=234157
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-12-10  Chris Lord  <clord@igalia.com>
+
+        Change contributor status of Chris Lord from committer to reviewer
+        https://bugs.webkit.org/show_bug.cgi?id=234136
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-12-09  Lauro Moura  <lmoura@igalia.com>
+
+        Adds Lauro Moura's GitHub username to constributors.json
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
 2021-11-30  Tyler Wilcock  <tyler_w@apple.com>
 
         Move tyler_w@apple.com to first entry in "emails" key

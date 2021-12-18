@@ -97,8 +97,8 @@ void LibWebRTCDataChannelHandler::setClient(RTCDataChannelHandlerClient& client,
     m_contextIdentifier = contextIdentifier;
 
     for (auto& message : m_bufferedMessages) {
-        switchOn(message, [&](Ref<SharedBuffer>& data) {
-            client.didReceiveRawData(data->data(), data->size());
+        switchOn(message, [&](Ref<FragmentedSharedBuffer>& data) {
+            client.didReceiveRawData(data->makeContiguous()->data(), data->size());
         }, [&](String& text) {
             client.didReceiveStringData(text);
         }, [&](StateChange stateChange) {

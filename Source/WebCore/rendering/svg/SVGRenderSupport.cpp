@@ -40,6 +40,7 @@
 #include "RenderSVGResourceFilter.h"
 #include "RenderSVGResourceMarker.h"
 #include "RenderSVGResourceMasker.h"
+#include "RenderSVGRoot.h"
 #include "RenderSVGText.h"
 #include "RenderSVGTransformableContainer.h"
 #include "RenderSVGViewportContainer.h"
@@ -211,6 +212,10 @@ static inline bool layoutSizeOfNearestViewportChanged(const RenderElement& rende
     if (is<RenderSVGViewportContainer>(*start))
         return downcast<RenderSVGViewportContainer>(*start).isLayoutSizeChanged();
 
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+    if (is<RenderSVGRoot>(*start))
+        return downcast<RenderSVGRoot>(*start).isLayoutSizeChanged();
+#endif
     return downcast<LegacyRenderSVGRoot>(*start).isLayoutSizeChanged();
 }
 
@@ -509,7 +514,7 @@ void SVGRenderSupport::styleChanged(RenderElement& renderer, const RenderStyle* 
 
 bool SVGRenderSupport::isolatesBlending(const RenderStyle& style)
 {
-    return style.svgStyle().isolatesBlending() || style.hasFilter() || style.hasBlendMode() || style.opacity() < 1.0f;
+    return style.hasPositionedMask() || style.hasFilter() || style.hasBlendMode() || style.opacity() < 1.0f;
 }
 
 void SVGRenderSupport::updateMaskedAncestorShouldIsolateBlending(const RenderElement& renderer)
@@ -521,7 +526,7 @@ void SVGRenderSupport::updateMaskedAncestorShouldIsolateBlending(const RenderEle
         auto* style = ancestor.computedStyle();
         if (!style || !isolatesBlending(*style))
             continue;
-        if (style->svgStyle().hasMasker())
+        if (style->hasPositionedMask())
             ancestor.setShouldIsolateBlending(renderer.style().hasBlendMode());
         return;
     }

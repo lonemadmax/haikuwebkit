@@ -51,7 +51,11 @@
         },
         "CallWith": {
             "contextsAllowed": ["attribute", "operation"],
-            "values": ["Document", "ExecState", "ScriptExecutionContext", "GlobalObject", "ActiveWindow", "FirstWindow", "EntryDocument", "World", "PropertyName"],
+            "values": ["Document", "RelevantDocument", "ExecState", "ScriptExecutionContext", "RelevantScriptExecutionContext", "GlobalObject", "RelevantGlobalObject", "ActiveWindow", "FirstWindow", "EntryDocument", "World", "PropertyName"],
+            "standard": {
+                "url": "https://html.spec.whatwg.org/multipage/webappapis.html#concept-current-everything",
+                "note": "Currently, Document / ScriptExecutionContext / GlobalObject values denote current realm, which is a [[Realm]] of the currently-running function object."
+            },
             "supportsConjunction": true
         },
         "CheckSecurity": {
@@ -82,6 +86,10 @@
             "supportsConjunction": true
         },
         "ConstantsScope": {
+            "contextsAllowed": ["interface"],
+            "values": ["*"]
+        },
+        "ConstantsEnum": {
             "contextsAllowed": ["interface"],
             "values": ["*"]
         },
@@ -219,13 +227,21 @@
                 "url": "https://webidl.spec.whatwg.org/#Exposed"
             }
         },
-        "GenerateIsReachable": {
-            "contextsAllowed": ["interface"],
-            "values": ["", "Impl", "ImplWebGLRenderingContext", "ImplCanvasBase", "ImplDocument", "ImplElementRoot", "ImplOwnerNodeRoot", "ImplScriptExecutionContext", "ReachableFromDOMWindow", "ReachableFromNavigator"]
-        },
         "GenerateAddOpaqueRoot": {
             "contextsAllowed": ["interface"],
             "values": ["*"]
+        },
+        "GenerateForEachEventHandlerContentAttribute": {
+            "contextsAllowed": ["interface"],
+            "values": ["*"]
+        },
+        "GenerateForEachWindowEventHandlerContentAttribute": {
+            "contextsAllowed": ["interface"],
+            "values": ["*"]
+        },
+        "GenerateIsReachable": {
+            "contextsAllowed": ["interface"],
+            "values": ["", "Impl", "ImplWebGLRenderingContext", "ImplCanvasBase", "ImplDocument", "ImplElementRoot", "ImplOwnerNodeRoot", "ImplScriptExecutionContext", "ReachableFromDOMWindow", "ReachableFromNavigator"]
         },
         "Global": {
             "contextsAllowed": ["interface"],

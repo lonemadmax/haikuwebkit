@@ -2924,10 +2924,13 @@ void AirIRGenerator::emitLoopTierUpCheck(uint32_t loopIndex, const Stack& enclos
         CCallHelpers::Jump tierUp = jit.branchAdd32(CCallHelpers::PositiveOrZero, CCallHelpers::TrustedImm32(TierUpCount::loopIncrement()), CCallHelpers::Address(params[0].gpr()));
         MacroAssembler::Label tierUpResume = jit.label();
 
-        OSREntryData& osrEntryData = m_tierUp->addOSREntryData(m_functionIndex, loopIndex);
         // First argument is the countdown location.
-        for (unsigned index = 1; index < params.value()->numChildren(); ++index)
-            osrEntryData.values().constructAndAppend(params[index], params.value()->child(index)->type());
+        ASSERT(params.value()->numChildren() >= 1);
+        StackMap values(params.value()->numChildren() - 1);
+        for (unsigned i = 1; i < params.value()->numChildren(); ++i)
+            values[i - 1] = OSREntryValue(params[i], params.value()->child(i)->type());
+
+        OSREntryData& osrEntryData = m_tierUp->addOSREntryData(m_functionIndex, loopIndex, WTFMove(values));
         OSREntryData* osrEntryDataPtr = &osrEntryData;
 
         params.addLatePath([=] (CCallHelpers& jit) {
@@ -3580,7 +3583,8 @@ void AirIRGenerator::dump(const ControlStack& controlStack, const Stack* stack)
 
 auto AirIRGenerator::origin() -> B3::Origin
 {
-    // FIXME: We should implement a way to give Inst's an origin.
+    // FIXME: We should implement a way to give Inst's an origin, and pipe that
+    // information into the sampling profiler: https://bugs.webkit.org/show_bug.cgi?id=234182
     return B3::Origin();
 }
 
@@ -3596,7 +3600,7 @@ Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileAir(Compilati
 
     procedure.setOriginPrinter([] (PrintStream& out, B3::Origin origin) {
         if (origin.data())
-            out.print("Wasm: ", bitwise_cast<OpcodeOrigin>(origin));
+            out.print("Wasm: ", OpcodeOrigin(origin));
     });
     
     // This means we cannot use either StackmapGenerationParams::usedRegisters() or

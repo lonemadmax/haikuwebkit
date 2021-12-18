@@ -130,6 +130,11 @@
 #import <UIKit/_UITextDragCaretView.h>
 #endif
 
+#if HAVE(UIFINDINTERACTION)
+#import <UIKit/_UIFindInteraction.h>
+#import <UIKit/_UITextSearching.h>
+#endif
+
 #if __has_include(<UIKit/UITargetedPreview_Private.h>)
 #import <UIKit/UITargetedPreview_Private.h>
 #endif
@@ -283,6 +288,52 @@ typedef NS_OPTIONS(NSInteger, UIEventButtonMask) {
 - (BOOL)_isKeyDown;
 - (UIEventButtonMask)_buttonMask;
 @end
+
+#if HAVE(UIFINDINTERACTION)
+
+typedef NS_ENUM(NSUInteger, _UIFoundTextStyle) {
+    _UIFoundTextStyleNormal,
+    _UIFoundTextStyleFound,
+    _UIFoundTextStyleHighlighted,
+};
+
+typedef NS_ENUM(NSInteger, _UITextSearchMatchMethod) {
+    _UITextSearchMatchMethodContains,
+    _UITextSearchMatchMethodStartsWith,
+    _UITextSearchMatchMethodFullWord,
+};
+
+typedef id<NSCoding, NSCopying> _UITextSearchDocumentIdentifier;
+
+@interface _UITextSearchOptions : NSObject
+@property (nonatomic, readonly) _UITextSearchMatchMethod wordMatchMethod;
+@property (nonatomic, readonly) NSStringCompareOptions stringCompareOptions;
+@end
+
+@protocol _UITextSearchAggregator <NSObject>
+- (void)foundRange:(UITextRange *)range forSearchString:(NSString *)string inDocument:(_UITextSearchDocumentIdentifier)document;
+- (void)finishedSearching;
+@end
+
+@protocol _UITextSearching <NSObject>
+
+@property (readonly) UITextRange *selectedTextRange;
+
+- (NSInteger)offsetFromPosition:(UITextPosition *)from toPosition:(UITextPosition *)toPosition inDocument:(_UITextSearchDocumentIdentifier)document;
+
+- (void)performTextSearchWithQueryString:(NSString *)string usingOptions:(_UITextSearchOptions *)options resultAggregator:(id<_UITextSearchAggregator>)aggregator;
+
+- (void)decorateFoundTextRange:(UITextRange *)range inDocument:(_UITextSearchDocumentIdentifier)document usingStyle:(_UIFoundTextStyle)style;
+
+- (void)clearAllDecoratedFoundText;
+
+@end
+
+@interface _UIFindInteraction : NSObject <UIInteraction>
+@property (nonatomic, strong) id<_UITextSearching> searchableObject;
+@end
+
+#endif // HAVE(UIFINDINTERACTION)
 
 typedef enum {
     UIFontTraitPlain = 0,
@@ -1468,6 +1519,19 @@ typedef NS_ENUM(NSUInteger, _UIContextMenuLayout) {
 @interface UIView (Staging_75759822)
 @property (nonatomic, readwrite, copy) UIFocusEffect *focusEffect;
 @end
+#endif
+
+#if HAVE(UIFINDINTERACTION)
+
+@interface _UIFindInteraction (Staging_84486967)
+
+- (void)presentFindNavigatorShowingReplace:(BOOL)replaceVisible;
+
+- (void)findNext;
+- (void)findPrevious;
+
+@end
+
 #endif
 
 WTF_EXTERN_C_BEGIN

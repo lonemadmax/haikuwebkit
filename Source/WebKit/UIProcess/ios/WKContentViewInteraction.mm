@@ -401,6 +401,27 @@ constexpr double fasterTapSignificantZoomThreshold = 0.8;
 
 @end
 
+#if HAVE(UIFINDINTERACTION)
+
+@interface WKFoundTextRange : UITextRange
+
+@property (nonatomic) CGRect rect;
+@property (nonatomic) NSUInteger index;
+
++ (WKFoundTextRange *)foundTextRangeWithRect:(CGRect)rect index:(NSUInteger)index;
+
+@end
+
+@interface WKFoundTextPosition : UITextPosition
+
+@property (nonatomic) NSUInteger index;
+
++ (WKFoundTextPosition *)textPositionWithIndex:(NSUInteger)index;
+
+@end
+
+#endif
+
 @interface WKAutocorrectionRects : UIWKAutocorrectionRects
 + (WKAutocorrectionRects *)autocorrectionRectsWithFirstCGRect:(CGRect)firstRect lastCGRect:(CGRect)lastRect;
 @end
@@ -3948,6 +3969,11 @@ WEBCORE_COMMAND_FOR_WEBVIEW(pasteAndMatchStyle);
     }
 #endif // ENABLE(IMAGE_ANALYSIS)
 
+#if HAVE(UIFINDINTERACTION)
+    if (action == @selector(find:) || action == @selector(findNext:) || action == @selector(findPrevious:))
+        return self.webView._findInteractionEnabled;
+#endif
+
     return [super canPerformAction:action withSender:sender];
 }
 
@@ -4143,10 +4169,30 @@ WEBCORE_COMMAND_FOR_WEBVIEW(pasteAndMatchStyle);
     _page->storeSelectionForAccessibility(false);
 }
 
+static UIPasteboardName pasteboardNameForAccessCategory(WebCore::DOMPasteAccessCategory pasteAccessCategory)
+{
+    switch (pasteAccessCategory) {
+    case WebCore::DOMPasteAccessCategory::General:
+    case WebCore::DOMPasteAccessCategory::Fonts:
+        return UIPasteboardNameGeneral;
+    }
+}
+
+static UIPasteboard *pasteboardForAccessCategory(WebCore::DOMPasteAccessCategory pasteAccessCategory)
+{
+    switch (pasteAccessCategory) {
+    case WebCore::DOMPasteAccessCategory::General:
+    case WebCore::DOMPasteAccessCategory::Fonts:
+        return UIPasteboard.generalPasteboard;
+    }
+}
+
 - (BOOL)_handleDOMPasteRequestWithResult:(WebCore::DOMPasteAccessResponse)response
 {
-    if (response == WebCore::DOMPasteAccessResponse::GrantedForCommand || response == WebCore::DOMPasteAccessResponse::GrantedForGesture)
-        _page->grantAccessToCurrentPasteboardData(UIPasteboardNameGeneral);
+    if (auto pasteAccessCategory = std::exchange(_domPasteRequestCategory, std::nullopt)) {
+        if (response == WebCore::DOMPasteAccessResponse::GrantedForCommand || response == WebCore::DOMPasteAccessResponse::GrantedForGesture)
+            _page->grantAccessToCurrentPasteboardData(pasteboardNameForAccessCategory(*pasteAccessCategory));
+    }
 
     if (auto pasteHandler = WTFMove(_domPasteRequestHandler)) {
         [UIMenuController.sharedMenuController hideMenuFromView:self];
@@ -5217,6 +5263,11 @@ static Vector<WebCore::CompositionHighlight> compositionHighlights(NSAttributedS
 
 - (NSInteger)offsetFromPosition:(UITextPosition *)from toPosition:(UITextPosition *)toPosition
 {
+#if HAVE(UIFINDINTERACTION)
+    if ([from isKindOfClass:[WKFoundTextPosition class]] && [toPosition isKindOfClass:[WKFoundTextPosition class]])
+        return ((WKFoundTextPosition *)from).index - ((WKFoundTextPosition *)toPosition).index;
+#endif
+
     return 0;
 }
 
@@ -6609,14 +6660,16 @@ static BOOL allPasteboardItemOriginsMatchOrigin(UIPasteboard *pasteboard, const 
     return foundAtLeastOneMatchingIdentifier;
 }
 
-- (void)_requestDOMPasteAccessWithElementRect:(const WebCore::IntRect&)elementRect originIdentifier:(const String&)originIdentifier completionHandler:(CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&)completionHandler
+- (void)_requestDOMPasteAccessForCategory:(WebCore::DOMPasteAccessCategory)pasteAccessCategory elementRect:(const WebCore::IntRect&)elementRect originIdentifier:(const String&)originIdentifier completionHandler:(CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&)completionHandler
 {
     if (auto existingCompletionHandler = std::exchange(_domPasteRequestHandler, WTFMove(completionHandler))) {
         ASSERT_NOT_REACHED();
         existingCompletionHandler(WebCore::DOMPasteAccessResponse::DeniedForGesture);
     }
 
-    if (allPasteboardItemOriginsMatchOrigin(UIPasteboard.generalPasteboard, originIdentifier)) {
+    _domPasteRequestCategory = pasteAccessCategory;
+
+    if (allPasteboardItemOriginsMatchOrigin(pasteboardForAccessCategory(pasteAccessCategory), originIdentifier)) {
         [self _handleDOMPasteRequestWithResult:WebCore::DOMPasteAccessResponse::GrantedForCommand];
         return;
     }
@@ -9928,6 +9981,80 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     }];
 }
 
+#if HAVE(UIFINDINTERACTION)
+
+- (void)findForWebView:(id)sender
+{
+    [self.webView._findInteraction presentFindNavigatorShowingReplace:NO];
+}
+
+- (void)findNextForWebView:(id)sender
+{
+    [self.webView._findInteraction findNext];
+}
+
+- (void)findPreviousForWebView:(id)sender
+{
+    [self.webView._findInteraction findPrevious];
+}
+
+- (void)performTextSearchWithQueryString:(NSString *)string usingOptions:(_UITextSearchOptions *)options resultAggregator:(id<_UITextSearchAggregator>)aggregator
+{
+    OptionSet<WebKit::FindOptions> findOptions;
+    findOptions.add(WebKit::FindOptions::ShowOverlay);
+
+    switch (options.wordMatchMethod) {
+    case _UITextSearchMatchMethodStartsWith:
+        findOptions.add(WebKit::FindOptions::AtWordStarts);
+        break;
+    case _UITextSearchMatchMethodFullWord:
+        findOptions.add({ WebKit::FindOptions::AtWordStarts, WebKit::FindOptions::AtWordEnds });
+        break;
+    default:
+        break;
+    }
+
+    if (options.stringCompareOptions & NSCaseInsensitiveSearch)
+        findOptions.add(WebKit::FindOptions::CaseInsensitive);
+
+    _page->findRectsForStringMatches(string, findOptions, 1000, [string, aggregator = retainPtr(aggregator)](const Vector<WebCore::FloatRect>& rects) {
+        NSUInteger index = 0;
+        for (auto& rect : rects) {
+            WKFoundTextRange *range = [WKFoundTextRange foundTextRangeWithRect:rect index:index];
+            [aggregator foundRange:range forSearchString:string inDocument:nil];
+            index++;
+        }
+
+        [aggregator finishedSearching];
+    });
+}
+
+- (void)decorateFoundTextRange:(UITextRange *)range inDocument:(_UITextSearchDocumentIdentifier)document usingStyle:(_UIFoundTextStyle)style
+{
+    if (![range isKindOfClass:[WKFoundTextRange class]])
+        return;
+
+    if (style == _UIFoundTextStyleHighlighted) {
+        _foundHighlightedTextRange = range;
+        WKFoundTextRange *foundRange = (WKFoundTextRange *)range;
+        _page->indicateFindMatch(foundRange.index);
+    } else if (style == _UIFoundTextStyleFound && _foundHighlightedTextRange == range)
+        _page->hideFindIndicator();
+}
+
+- (void)clearAllDecoratedFoundText
+{
+    _foundHighlightedTextRange = nil;
+    _page->hideFindUI();
+}
+
+- (NSInteger)offsetFromPosition:(UITextPosition *)from toPosition:(UITextPosition *)toPosition inDocument:(_UITextSearchDocumentIdentifier)document
+{
+    return [self offsetFromPosition:from toPosition:toPosition];
+}
+
+#endif // HAVE(UIFINDINTERACTION)
+
 #if ENABLE(IMAGE_ANALYSIS)
 
 #if USE(QUICK_LOOK)
@@ -11783,6 +11910,49 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
 }
 
 @end
+
+#if HAVE(UIFINDINTERACTION)
+
+@implementation WKFoundTextRange
+
++ (WKFoundTextRange *)foundTextRangeWithRect:(CGRect)rect index:(NSUInteger)index
+{
+    auto range = adoptNS([[WKFoundTextRange alloc] init]);
+    [range setRect:rect];
+    [range setIndex:index];
+    return range.autorelease();
+}
+
+- (WKFoundTextPosition *)start
+{
+    WKFoundTextPosition *position = [WKFoundTextPosition textPositionWithIndex:self.index];
+    return position;
+}
+
+- (UITextPosition *)end
+{
+    return self.start;
+}
+
+- (BOOL)isEmpty
+{
+    return NO;
+}
+
+@end
+
+@implementation WKFoundTextPosition
+
++ (WKFoundTextPosition *)textPositionWithIndex:(NSUInteger)index
+{
+    auto pos = adoptNS([[WKFoundTextPosition alloc] init]);
+    [pos setIndex:index];
+    return pos.autorelease();
+}
+
+@end
+
+#endif
 
 @implementation WKAutocorrectionRects
 

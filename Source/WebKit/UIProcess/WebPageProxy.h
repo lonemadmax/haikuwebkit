@@ -265,7 +265,9 @@ class TextIndicator;
 class ValidationBubble;
 
 enum class AutoplayEvent : uint8_t;
+enum class CookieConsentDecisionResult : uint8_t;
 enum class CreateNewGroupForHighlight : bool;
+enum class DOMPasteAccessCategory : uint8_t;
 enum class DOMPasteAccessResponse : uint8_t;
 enum class EventMakesGamepadsVisible : bool;
 enum class LockBackForwardList : bool;
@@ -1103,6 +1105,7 @@ public:
     void setIntrinsicDeviceScaleFactor(float);
     void setCustomDeviceScaleFactor(float);
     void windowScreenDidChange(WebCore::PlatformDisplayID, std::optional<unsigned> nominalFramesPerSecond);
+    std::optional<WebCore::PlatformDisplayID> displayId() const { return m_displayID; }
     void accessibilitySettingsDidChange();
 
     void setUseFixedLayout(bool);
@@ -1198,11 +1201,13 @@ public:
     // Find.
     void findString(const String&, OptionSet<FindOptions>, unsigned maxMatchCount, CompletionHandler<void(bool)>&& = [](bool) { });
     void findStringMatches(const String&, OptionSet<FindOptions>, unsigned maxMatchCount);
+    void findRectsForStringMatches(const String&, OptionSet<WebKit::FindOptions>, unsigned maxMatchCount, CompletionHandler<void(Vector<WebCore::FloatRect>&&)>&&);
     void getImageForFindMatch(int32_t matchIndex);
     void selectFindMatch(int32_t matchIndex);
     void indicateFindMatch(int32_t matchIndex);
     void didGetImageForFindMatch(const ShareableBitmap::Handle& contentImageHandle, uint32_t matchIndex);
     void hideFindUI();
+    void hideFindIndicator();
     void countStringMatches(const String&, OptionSet<FindOptions>, unsigned maxMatchCount);
     void replaceMatches(Vector<uint32_t>&& matchIndices, const String& replacementText, bool selectionOnly, CompletionHandler<void(uint64_t)>&&);
     void didCountStringMatches(const String&, uint32_t matchCount);
@@ -1370,6 +1375,7 @@ public:
     void handleDownloadRequest(DownloadProxy&);
     void resumeDownload(const API::Data& resumeData, const String& path, CompletionHandler<void(DownloadProxy*)>&&);
     void downloadRequest(WebCore::ResourceRequest&&, CompletionHandler<void(DownloadProxy*)>&&);
+    void requestResource(WebCore::ResourceRequest&&, CompletionHandler<void(Ref<WebCore::SharedBuffer>&&, WebCore::ResourceResponse&&, WebCore::ResourceError&&)>&&);
 
     void advanceToNextMisspelling(bool startBeforeSelection);
     void changeSpellingToWord(const String& word);
@@ -2031,6 +2037,8 @@ public:
     void clearNotifications(const Vector<uint64_t>& notificationIDs);
     void didDestroyNotification(uint64_t notificationID);
 
+    void requestCookieConsent(CompletionHandler<void(WebCore::CookieConsentDecisionResult)>&&);
+
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
     void platformInitialize();
@@ -2255,8 +2263,8 @@ private:
     void setIsNeverRichlyEditableForTouchBar(bool);
 #endif
 
-    void requestDOMPasteAccess(const WebCore::IntRect&, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&);
-    void willPerformPasteCommand();
+    void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, const WebCore::IntRect&, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&);
+    void willPerformPasteCommand(WebCore::DOMPasteAccessCategory);
 
     // Back/Forward list management
     void backForwardAddItem(BackForwardListItemState&&);
@@ -2282,7 +2290,7 @@ private:
 #endif
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
-    void bindAccessibilityTree(const String&, CompletionHandler<void(String&&)>&&);
+    void bindAccessibilityTree(const String&);
 #endif
 
 #if PLATFORM(GTK)

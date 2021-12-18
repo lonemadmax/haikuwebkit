@@ -315,7 +315,7 @@ bool CSSFilter::buildFilterFunctions(RenderElement& renderer, const FilterOperat
 
         if (effect) {
             effect->setOperatingColorSpace(DestinationColorSpace::SRGB());
-            effect->inputEffects() = { WTFMove(previousEffect) };
+            effect->inputEffects() = { previousEffect.releaseNonNull() };
             m_functions.append({ *effect });
             previousEffect = WTFMove(effect);
         }
@@ -347,6 +347,25 @@ RefPtr<FilterEffect> CSSFilter::lastEffect() const
     return downcast<FilterEffect>(function.ptr());
 }
 
+FilterEffectVector CSSFilter::effectsOfType(FilterFunction::Type filterType) const
+{
+    FilterEffectVector effects;
+
+    for (auto& function : m_functions) {
+        if (function->filterType() == filterType) {
+            effects.append({ downcast<FilterEffect>(function.get()) });
+            continue;
+        }
+
+        if (function->isSVGFilter()) {
+            auto& filter = downcast<SVGFilter>(function.get());
+            effects.appendVector(filter.effectsOfType(filterType));
+        }
+    }
+
+    return effects;
+}
+
 #if USE(CORE_IMAGE)
 bool CSSFilter::supportsCoreImageRendering() const
 {
@@ -368,15 +387,20 @@ void CSSFilter::clearIntermediateResults()
         function->clearResult();
 }
 
-RefPtr<FilterImage> CSSFilter::apply()
+RefPtr<FilterImage> CSSFilter::apply(FilterImage* sourceImage)
 {
+    if (!sourceImage)
+        return nullptr;
+    
+    RefPtr<FilterImage> result = sourceImage;
+
     for (auto& function : m_functions) {
-        if (function->isSVGFilter())
-            downcast<SVGFilter>(function.ptr())->setSourceImageRect(sourceImageRect());
-        if (!function->apply(*this))
+        result = function->apply(*this, *result);
+        if (!result)
             return nullptr;
     }
-    return lastEffect()->filterImage();
+
+    return result;
 }
 
 void CSSFilter::setFilterRegion(const FloatRect& filterRegion)

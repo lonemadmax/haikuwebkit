@@ -68,6 +68,7 @@ Modules/cache/WindowOrWorkerGlobalScopeCaches.cpp
 Modules/cache/WorkerCacheStorageConnection.cpp
 Modules/contact-picker/ContactsManager.cpp
 Modules/contact-picker/NavigatorContacts.cpp
+Modules/cookie-consent/NavigatorCookieConsent.cpp
 Modules/credentialmanagement/BasicCredential.cpp
 Modules/credentialmanagement/CredentialsContainer.cpp
 Modules/credentialmanagement/NavigatorCredentials.cpp
@@ -256,7 +257,9 @@ Modules/pictureinpicture/DocumentPictureInPicture.cpp
 Modules/pictureinpicture/EnterPictureInPictureEvent.cpp
 Modules/pictureinpicture/HTMLVideoElementPictureInPicture.cpp
 Modules/pictureinpicture/PictureInPictureWindow.cpp
+Modules/push-api/PushCrypto.cpp
 Modules/push-api/PushEvent.cpp
+Modules/push-api/PushMessageCrypto.cpp
 Modules/push-api/PushMessageData.cpp
 Modules/push-api/PushSubscription.cpp
 Modules/push-api/PushSubscriptionChangeEvent.cpp
@@ -732,7 +735,8 @@ css/CSSImageValue.cpp
 css/CSSImportRule.cpp
 css/CSSKeyframeRule.cpp
 css/CSSKeyframesRule.cpp
-css/CSSLayerRule.cpp
+css/CSSLayerBlockRule.cpp
+css/CSSLayerStatementRule.cpp
 css/CSSLineBoxContainValue.cpp
 css/CSSMarkup.cpp
 css/CSSMediaRule.cpp
@@ -1096,6 +1100,7 @@ editing/EditingStyle.cpp
 editing/Editor.cpp
 editing/EditorCommand.cpp
 editing/FontAttributeChanges.cpp
+editing/FontShadow.cpp
 editing/FormatBlockCommand.cpp
 editing/FrameSelection.cpp
 editing/HTMLInterchange.cpp
@@ -1883,6 +1888,7 @@ platform/PlatformStrategies.cpp
 platform/PlatformWheelEvent.cpp
 platform/PreviewConverter.cpp
 platform/ProcessIdentifier.cpp
+platform/ProcessIdentity.cpp
 platform/ReferrerPolicy.cpp
 platform/RemoteCommandListener.cpp
 platform/RuntimeApplicationChecks.cpp
@@ -2241,24 +2247,11 @@ platform/sql/SQLiteStatementAutoResetScope.cpp
 platform/sql/SQLiteTransaction.cpp
 platform/text/BidiContext.cpp
 platform/text/DateTimeFormat.cpp
-platform/text/EncodingTables.cpp
 platform/text/LocaleToScriptMapping.cpp
 platform/text/PlatformLocale.cpp
 platform/text/QuotedPrintable.cpp
 platform/text/SegmentedString.cpp
 platform/text/TextBoundaries.cpp
-platform/text/TextCodec.cpp
-platform/text/TextCodecCJK.cpp
-platform/text/TextCodecICU.cpp
-platform/text/TextCodecLatin1.cpp
-platform/text/TextCodecReplacement.cpp
-platform/text/TextCodecSingleByte.cpp
-platform/text/TextCodecUTF16.cpp
-platform/text/TextCodecUTF8.cpp
-platform/text/TextCodecUserDefined.cpp
-platform/text/TextEncoding.cpp
-platform/text/TextEncodingDetectorICU.cpp
-platform/text/TextEncodingRegistry.cpp
 platform/xr/openxr/OpenXRInput.cpp
 platform/xr/openxr/OpenXRInputSource.cpp
 platform/xr/openxr/OpenXRInstance.cpp
@@ -2470,6 +2463,7 @@ rendering/style/StyleTransformData.cpp
 rendering/style/StyleVisualData.cpp
 rendering/style/TextSizeAdjustment.cpp
 rendering/style/WillChangeData.cpp
+rendering/svg/LegacyRenderSVGModelObject.cpp
 rendering/svg/LegacyRenderSVGRoot.cpp
 rendering/svg/RenderSVGBlock.cpp
 rendering/svg/RenderSVGContainer.cpp
@@ -2480,7 +2474,6 @@ rendering/svg/RenderSVGHiddenContainer.cpp
 rendering/svg/RenderSVGImage.cpp
 rendering/svg/RenderSVGInline.cpp
 rendering/svg/RenderSVGInlineText.cpp
-rendering/svg/RenderSVGModelObject.cpp
 rendering/svg/RenderSVGPath.cpp
 rendering/svg/RenderSVGRect.cpp
 rendering/svg/RenderSVGResource.cpp
@@ -2495,6 +2488,7 @@ rendering/svg/RenderSVGResourceMasker.cpp
 rendering/svg/RenderSVGResourcePattern.cpp
 rendering/svg/RenderSVGResourceRadialGradient.cpp
 rendering/svg/RenderSVGResourceSolidColor.cpp
+rendering/svg/RenderSVGRoot.cpp
 rendering/svg/RenderSVGShape.cpp
 rendering/svg/RenderSVGTSpan.cpp
 rendering/svg/RenderSVGText.cpp
@@ -2779,6 +2773,10 @@ workers/service/server/SWServerToContextConnection.cpp
 workers/service/server/SWServerWorker.cpp
 workers/shared/SharedWorker.cpp
 workers/shared/SharedWorkerGlobalScope.cpp
+workers/shared/SharedWorkerManager.cpp
+workers/shared/SharedWorkerProxy.cpp
+workers/shared/SharedWorkerScriptLoader.cpp
+workers/shared/SharedWorkerThread.cpp
 worklets/PaintWorkletGlobalScope.cpp
 worklets/Worklet.cpp
 worklets/WorkletGlobalScope.cpp
@@ -2857,6 +2855,7 @@ JSAnalyserNode.cpp
 JSAnalyserOptions.cpp
 JSAnimationEffect.cpp
 JSAnimationEvent.cpp
+JSAnimationFrameRatePreset.cpp
 JSAnimationPlaybackEvent.cpp
 JSAnimationPlaybackEventInit.cpp
 JSAnimationTimeline.cpp
@@ -2884,6 +2883,7 @@ JSAudioProcessingEventInit.cpp
 JSAudioScheduledSourceNode.cpp
 JSAudioTimestamp.cpp
 JSAudioTrack.cpp
+JSAudioTrackConfiguration.cpp
 JSAudioTrackList.cpp
 JSAudioWorklet.cpp
 JSAudioWorkletGlobalScope.cpp
@@ -2923,7 +2923,8 @@ JSCSSGroupingRule.cpp
 JSCSSImportRule.cpp
 JSCSSKeyframeRule.cpp
 JSCSSKeyframesRule.cpp
-JSCSSLayerRule.cpp
+JSCSSLayerBlockRule.cpp
+JSCSSLayerStatementRule.cpp
 JSCSSMediaRule.cpp
 JSCSSNamespaceRule.cpp
 JSCSSPageRule.cpp
@@ -3672,6 +3673,7 @@ JSRemoteDOMWindow.cpp
 JSRemotePlayback.cpp
 JSRemotePlaybackAvailabilityCallback.cpp
 JSRequestAnimationFrameCallback.cpp
+JSRequestCookieConsentOptions.cpp
 JSResizeObserver.cpp
 JSResizeObserverBoxOptions.cpp
 JSResizeObserverCallback.cpp
@@ -3949,12 +3951,18 @@ JSVTTCue.cpp
 JSVTTRegion.cpp
 JSVTTRegionList.cpp
 JSValidityState.cpp
+JSVideoColorPrimaries.cpp
+JSVideoColorSpace.cpp
+JSVideoColorSpaceInit.cpp
 JSVideoConfiguration.cpp
 JSVideoFrameMetadata.cpp
 JSVideoFrameRequestCallback.cpp
+JSVideoMatrixCoefficients.cpp
 JSVideoPlaybackQuality.cpp
 JSVideoTrack.cpp
+JSVideoTrackConfiguration.cpp
 JSVideoTrackList.cpp
+JSVideoTransferCharacteristics.cpp
 JSVisibilityState.cpp
 JSVisualViewport.cpp
 JSVoidCallback.cpp

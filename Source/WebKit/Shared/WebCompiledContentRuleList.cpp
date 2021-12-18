@@ -44,19 +44,9 @@ WebCompiledContentRuleList::~WebCompiledContentRuleList()
 {
 }
 
-bool WebCompiledContentRuleList::conditionsApplyOnlyToDomain() const
+Span<const uint8_t> WebCompiledContentRuleList::urlFiltersBytecode() const
 {
-    return m_data.conditionsApplyOnlyToDomain;
-}
-
-Span<const uint8_t> WebCompiledContentRuleList::filtersWithoutConditionsBytecode() const
-{
-    return spanWithOffsetAndLength(m_data.filtersWithoutConditionsBytecodeOffset, m_data.filtersWithoutConditionsBytecodeSize);
-}
-
-Span<const uint8_t> WebCompiledContentRuleList::filtersWithConditionsBytecode() const
-{
-    return spanWithOffsetAndLength(m_data.filtersWithConditionsBytecodeOffset, m_data.filtersWithConditionsBytecodeSize);
+    return spanWithOffsetAndLength(m_data.urlFiltersBytecodeOffset, m_data.urlFiltersBytecodeSize);
 }
 
 Span<const uint8_t> WebCompiledContentRuleList::topURLFiltersBytecode() const

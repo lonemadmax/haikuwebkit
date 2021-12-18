@@ -38,7 +38,7 @@ namespace WebCore {
 
 class Model final : public RefCounted<Model> {
 public:
-    WEBCORE_EXPORT static Ref<Model> create(Ref<SharedBuffer>, String, URL);
+    WEBCORE_EXPORT static Ref<Model> create(Ref<SharedBuffer>&&, String, URL);
     WEBCORE_EXPORT ~Model();
 
     Ref<SharedBuffer> data() const { return m_data; }
@@ -49,7 +49,7 @@ public:
     template<class Decoder> static RefPtr<Model> decode(Decoder&);
 
 private:
-    explicit Model(Ref<SharedBuffer>, String, URL);
+    explicit Model(Ref<SharedBuffer>&&, String, URL);
 
     Ref<SharedBuffer> m_data;
     String m_mimeType;
@@ -60,7 +60,7 @@ template<class Encoder>
 void Model::encode(Encoder& encoder) const
 {
     encoder << static_cast<size_t>(m_data->size());
-    encoder.encodeFixedLengthData(m_data->data(), m_data->size(), 1);
+    encoder.encodeFixedLengthData(m_data->makeContiguous()->data(), m_data->size(), 1);
     encoder << m_mimeType;
     encoder << m_url;
 }

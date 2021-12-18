@@ -43,6 +43,7 @@
 #include "HTMLTableElement.h"
 #include "HitTestResult.h"
 #include "LayoutIntegrationLineLayout.h"
+#include "LegacyRenderSVGModelObject.h"
 #include "LegacyRenderSVGRoot.h"
 #include "LogicalSelectionOffsetCaches.h"
 #include "Page.h"
@@ -63,7 +64,6 @@
 #include "RenderRuby.h"
 #include "RenderSVGBlock.h"
 #include "RenderSVGInline.h"
-#include "RenderSVGModelObject.h"
 #include "RenderSVGResourceContainer.h"
 #include "RenderScrollbarPart.h"
 #include "RenderTableRow.h"
@@ -238,7 +238,7 @@ RenderObject::FragmentedFlowState RenderObject::computedFragmentedFlowState(cons
     auto inheritedFlowState = RenderObject::NotInsideFragmentedFlow;
     if (is<RenderText>(renderer))
         inheritedFlowState = renderer.parent()->fragmentedFlowState();
-    else if (is<RenderSVGBlock>(renderer) || is<RenderSVGInline>(renderer) || is<RenderSVGModelObject>(renderer)) {
+    else if (is<RenderSVGBlock>(renderer) || is<RenderSVGInline>(renderer) || is<LegacyRenderSVGModelObject>(renderer)) {
         // containingBlock() skips svg boundary (SVG root is a RenderReplaced).
         if (auto* svgRoot = SVGRenderSupport::findTreeRootObject(downcast<RenderElement>(renderer)))
             inheritedFlowState = svgRoot->fragmentedFlowState();
@@ -1454,6 +1454,11 @@ LayoutSize RenderObject::offsetFromAncestorContainer(RenderElement& container) c
     return offset;
 }
 
+HostWindow* RenderObject::hostWindow() const
+{
+    return view().frameView().root() ? view().frameView().root()->hostWindow() : nullptr;
+}
+
 bool RenderObject::isRooted() const
 {
     return isDescendantOf(&view());
@@ -2557,5 +2562,14 @@ bool WebCore::shouldApplyStyleContainment(const WebCore::RenderObject& renderer)
 bool WebCore::shouldApplyPaintContainment(const WebCore::RenderObject& renderer)
 {
     return renderer.style().containsPaint() && (!renderer.isInline() || renderer.isAtomicInlineLevelBox()) && !renderer.isRubyText() && (!renderer.isTablePart() || renderer.isRenderBlockFlow());
+}
+
+bool WebCore::shouldApplyAnyContainment(const WebCore::RenderObject& renderer)
+{
+    if (renderer.style().contain().isEmpty())
+        return false;
+    if ((renderer.style().containsLayout() || renderer.style().containsPaint()) && (!renderer.isInline() || renderer.isAtomicInlineLevelBox()) && !renderer.isRubyText() && (!renderer.isTablePart() || renderer.isRenderBlockFlow()))
+        return true;
+    return (renderer.style().containsSize() || renderer.style().containsStyle()) && (!renderer.isInline() || renderer.isAtomicInlineLevelBox()) && !renderer.isRubyText() && (!renderer.isTablePart() || renderer.isTableCaption()) && !renderer.isTable();
 }
 

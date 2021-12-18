@@ -277,7 +277,7 @@ void WebPageProxy::setPromisedDataForImage(const String& pasteboardName, const S
         return;
     auto imageBuffer = sharedMemoryImage->createSharedBuffer(imageHandle.dataSize);
 
-    RefPtr<SharedBuffer> archiveBuffer;
+    RefPtr<FragmentedSharedBuffer> archiveBuffer;
     if (!archiveHandle.handle.isNull()) {
         auto sharedMemoryArchive = SharedMemory::map(archiveHandle.handle, SharedMemory::Protection::ReadOnly);
         if (!sharedMemoryArchive)
@@ -460,7 +460,7 @@ static NSString *pathToPDFOnDisk(const String& suggestedFilename)
 
 void WebPageProxy::savePDFToTemporaryFolderAndOpenWithNativeApplication(const String& suggestedFilename, FrameInfoData&& frameInfo, const IPC::DataReference& data, const String& pdfUUID)
 {
-    if (data.isEmpty()) {
+    if (data.empty()) {
         WTFLogAlways("Cannot save empty PDF file to the temporary directory.");
         return;
     }
@@ -651,9 +651,17 @@ void WebPageProxy::platformDidSelectItemFromActiveContextMenu(const WebContextMe
 
 #endif
 
-void WebPageProxy::willPerformPasteCommand()
+void WebPageProxy::willPerformPasteCommand(DOMPasteAccessCategory pasteAccessCategory)
 {
-    grantAccessToCurrentPasteboardData(NSPasteboardNameGeneral);
+    switch (pasteAccessCategory) {
+    case DOMPasteAccessCategory::General:
+        grantAccessToCurrentPasteboardData(NSPasteboardNameGeneral);
+        return;
+
+    case DOMPasteAccessCategory::Fonts:
+        grantAccessToCurrentPasteboardData(NSPasteboardNameFont);
+        return;
+    }
 }
 
 PlatformView* WebPageProxy::platformView() const
@@ -751,7 +759,9 @@ void WebPageProxy::closeSharedPreviewPanelIfNecessary()
 
 void WebPageProxy::handleContextMenuQuickLookImage(QuickLookPreviewActivity activity)
 {
-    auto& result = m_activeContextMenuContextData.webHitTestResultData();
+    ASSERT(m_activeContextMenuContextData.webHitTestResultData());
+    
+    auto result = m_activeContextMenuContextData.webHitTestResultData().value();
     if (!result.imageBitmap)
         return;
 

@@ -31,10 +31,11 @@ typedef struct FT_FaceRec_*  FT_Face;
 
 namespace WebCore {
 
+class SharedBuffer;
 class FontCreationContext;
 class FontDescription;
 class FontPlatformData;
-class SharedBuffer;
+class FragmentedSharedBuffer;
 struct FontSelectionSpecifiedCapabilities;
 struct FontVariantSettings;
 
@@ -45,7 +46,7 @@ struct FontCustomPlatformData {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(FontCustomPlatformData);
 public:
-    FontCustomPlatformData(FT_Face, SharedBuffer&);
+    FontCustomPlatformData(FT_Face, FragmentedSharedBuffer&);
     ~FontCustomPlatformData() = default;
     FontPlatformData fontPlatformData(const FontDescription&, bool bold, bool italic, const FontCreationContext&);
     static bool supportsFormat(const String&);

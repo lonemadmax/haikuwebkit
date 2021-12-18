@@ -222,7 +222,7 @@ AccessGenerationResult StructureStubInfo::addAccessCase(
         // we're buffered is because we rely on it to reset during GC if m_inlineAccessBaseStructure
         // is collected.
         m_identifier = nullptr;
-        m_inlineAccessBaseStructure = StructureID();
+        m_inlineAccessBaseStructure = 0;
         
         // If we generated some code then we don't want to attempt to repatch in the future until we
         // gather enough cases.
@@ -237,7 +237,7 @@ void StructureStubInfo::reset(const ConcurrentJSLockerBase& locker, CodeBlock* c
 {
     clearBufferedStructures();
     m_identifier = nullptr;
-    m_inlineAccessBaseStructure = StructureID();
+    m_inlineAccessBaseStructure = 0;
 
     if (m_cacheType == CacheType::Unset)
         return;

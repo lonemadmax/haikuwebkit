@@ -357,13 +357,13 @@ public:
     union {
         PolymorphicAccess* stub;
     } u;
-    Structure* inlineAccessBaseStructure(VM&)
+    Structure* inlineAccessBaseStructure(VM& vm)
     {
         if (!m_inlineAccessBaseStructure)
             return nullptr;
-        return m_inlineAccessBaseStructure.decode();
+        return vm.getStructure(m_inlineAccessBaseStructure);
     }
-    StructureID m_inlineAccessBaseStructure;
+    StructureID m_inlineAccessBaseStructure { 0 };
 private:
     CacheableIdentifier m_identifier;
     // Represents those structures that already have buffered AccessCases in the PolymorphicAccess.

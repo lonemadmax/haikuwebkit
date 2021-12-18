@@ -54,7 +54,7 @@ class ResourceHandle;
 class ResourceError;
 class ResourceRequest;
 class ResourceResponse;
-class SharedBuffer;
+class FragmentedSharedBuffer;
 
 enum CacheStoragePolicy {
     StorageAllowed,
@@ -70,7 +70,7 @@ public:
     virtual void didSendData(ResourceHandle*, unsigned long long /*bytesSent*/, unsigned long long /*totalBytesToBeSent*/) { }
 
     virtual void didReceiveData(ResourceHandle*, const uint8_t*, unsigned, int /*encodedDataLength*/) { }
-    WEBCORE_EXPORT virtual void didReceiveBuffer(ResourceHandle*, Ref<SharedBuffer>&&, int encodedDataLength);
+    WEBCORE_EXPORT virtual void didReceiveBuffer(ResourceHandle*, Ref<FragmentedSharedBuffer>&&, int encodedDataLength);
     
     virtual void didFinishLoading(ResourceHandle*, const NetworkLoadMetrics&) { }
     virtual void didFail(ResourceHandle*, const ResourceError&) { }

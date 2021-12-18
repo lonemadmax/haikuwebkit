@@ -68,8 +68,8 @@
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/SecurityPolicy.h>
 #include <WebCore/Settings.h>
-#include <WebCore/TextEncoding.h>
 #include <WebCore/UserGestureIndicator.h>
+#include <pal/text/TextEncoding.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -403,10 +403,7 @@ void PluginView::manualLoadDidReceiveData(const uint8_t* bytes, int length)
 
     if (!m_isInitialized) {
         ASSERT(m_manualStreamState == ManualStreamState::HasReceivedResponse);
-        if (!m_manualStreamData)
-            m_manualStreamData = SharedBuffer::create();
-
-        m_manualStreamData->append(bytes, length);
+        m_manualStreamData.append(bytes, length);
         return;
     }
 
@@ -437,7 +434,7 @@ void PluginView::manualLoadDidFail(const ResourceError& error)
     if (!m_isInitialized) {
         m_manualStreamState = ManualStreamState::Finished;
         m_manualStreamError = error;
-        m_manualStreamData = nullptr;
+        m_manualStreamData.reset();
         return;
     }
 
@@ -926,11 +923,11 @@ void PluginView::willDetachRenderer()
     m_plugin->willDetachRenderer();
 }
 
-RefPtr<SharedBuffer> PluginView::liveResourceData() const
+RefPtr<FragmentedSharedBuffer> PluginView::liveResourceData() const
 {
     if (!m_isInitialized || !m_plugin) {
-        if (m_manualStreamData && m_manualStreamState == ManualStreamState::Finished)
-            return m_manualStreamData;
+        if (m_manualStreamState == ManualStreamState::Finished)
+            return m_manualStreamData.get();
 
         return nullptr;
     }
@@ -1169,7 +1166,7 @@ void PluginView::performJavaScriptURLRequest(URLRequest* request)
     if (!frame)
         return;
     
-    String jsString = decodeURLEscapeSequences(request->request().url().string().substring(sizeof("javascript:") - 1));
+    String jsString = PAL::decodeURLEscapeSequences(request->request().url().string().substring(sizeof("javascript:") - 1));
 
     if (!request->target().isNull()) {
         // For security reasons, only allow JS requests to be made on the frame that contains the plug-in.
@@ -1243,9 +1240,9 @@ void PluginView::redeliverManualStream()
 
     // Deliver the data.
     if (m_manualStreamData) {
-        for (const auto& element : *m_manualStreamData)
+        auto buffer = m_manualStreamData.take();
+        for (const auto& element : buffer.get())
             manualLoadDidReceiveData(element.segment->data(), element.segment->size());
-        m_manualStreamData = nullptr;
     }
 
     if (m_manualStreamState == ManualStreamState::Finished)

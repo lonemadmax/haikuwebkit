@@ -99,7 +99,7 @@ class ResourceHandle;
 class ResourceRequest;
 class ResourceResponse;
 class SecurityOrigin;
-class SharedBuffer;
+class FragmentedSharedBuffer;
 class SubstituteData;
 class Widget;
 

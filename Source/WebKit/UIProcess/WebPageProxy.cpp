@@ -988,8 +988,9 @@ void WebPageProxy::swapToProvisionalPage(std::unique_ptr<ProvisionalPageProxy> p
         registerWebProcessAccessibilityToken({ accessibilityToken.data(), accessibilityToken.size() });
 #endif
 #if PLATFORM(GTK) || PLATFORM(WPE)
-    if (auto completionHandler = provisionalPage->takeAccessibilityBindCompletionHandler())
-        bindAccessibilityTree(provisionalPage->accessibilityPlugID(), WTFMove(completionHandler));
+    auto accessibilityPlugID = provisionalPage->accessibilityPlugID();
+    if (!accessibilityPlugID.isEmpty())
+        bindAccessibilityTree(accessibilityPlugID);
 #endif
 }
 
@@ -1423,8 +1424,7 @@ void WebPageProxy::loadRequestWithNavigationShared(Ref<WebProcessProxy>&& proces
 
     addPlatformLoadParameters(process, loadParameters);
 
-    if (shouldTreatAsContinuingLoad == ShouldTreatAsContinuingLoad::No)
-        preconnectTo(url);
+    preconnectTo(url);
 
     navigation.setIsLoadedWithNavigationShared(true);
 
@@ -1522,7 +1522,7 @@ RefPtr<API::Navigation> WebPageProxy::loadData(const IPC::DataReference& data, c
     if (!hasRunningProcess())
         launchProcess({ }, ProcessLaunchReason::InitialProcess);
 
-    auto navigation = m_navigationState->createLoadDataNavigation(makeUnique<API::SubstituteData>(data.vector(), MIMEType, encoding, baseURL, userData));
+    auto navigation = m_navigationState->createLoadDataNavigation(makeUnique<API::SubstituteData>(Vector(data), MIMEType, encoding, baseURL, userData));
 
     if (shouldForceForegroundPriorityForClientNavigation())
         navigation->setClientNavigationActivity(process().throttler().foregroundActivity("Client navigation"_s));
@@ -1583,7 +1583,7 @@ RefPtr<API::Navigation> WebPageProxy::loadSimulatedRequest(WebCore::ResourceRequ
     if (!hasRunningProcess())
         launchProcess(RegistrableDomain { simulatedRequest.url() }, ProcessLaunchReason::InitialProcess);
 
-    auto navigation = m_navigationState->createSimulatedLoadWithDataNavigation(ResourceRequest(simulatedRequest), makeUnique<API::SubstituteData>(data.vector(), ResourceResponse(simulatedResponse), WebCore::SubstituteData::SessionHistoryVisibility::Visible), m_backForwardList->currentItem());
+    auto navigation = m_navigationState->createSimulatedLoadWithDataNavigation(ResourceRequest(simulatedRequest), makeUnique<API::SubstituteData>(Vector(data), ResourceResponse(simulatedResponse), WebCore::SubstituteData::SessionHistoryVisibility::Visible), m_backForwardList->currentItem());
 
     if (shouldForceForegroundPriorityForClientNavigation())
         navigation->setClientNavigationActivity(process().throttler().foregroundActivity("Client navigation"_s));
@@ -2510,15 +2510,21 @@ void WebPageProxy::selectAll()
     send(Messages::WebPage::SelectAll());
 }
 
-static bool isPasteCommandName(const String& commandName)
+static std::optional<DOMPasteAccessCategory> pasteAccessCategoryForCommand(const String& commandName)
 {
-    static NeverDestroyed<HashSet<String, ASCIICaseInsensitiveHash>> pasteCommandNames = HashSet<String, ASCIICaseInsensitiveHash> {
-        "Paste",
-        "PasteAndMatchStyle",
-        "PasteAsQuotation",
-        "PasteAsPlainText"
+    static NeverDestroyed<HashMap<String, DOMPasteAccessCategory, ASCIICaseInsensitiveHash>> pasteCommandNames = HashMap<String, DOMPasteAccessCategory, ASCIICaseInsensitiveHash> {
+        { "Paste", DOMPasteAccessCategory::General },
+        { "PasteAndMatchStyle", DOMPasteAccessCategory::General },
+        { "PasteAsQuotation", DOMPasteAccessCategory::General },
+        { "PasteAsPlainText", DOMPasteAccessCategory::General },
+        { "PasteFont", DOMPasteAccessCategory::Fonts },
     };
-    return pasteCommandNames->contains(commandName);
+
+    auto it = pasteCommandNames->find(commandName);
+    if (it != pasteCommandNames->end())
+        return it->value;
+
+    return std::nullopt;
 }
 
 void WebPageProxy::executeEditCommand(const String& commandName, const String& argument, CompletionHandler<void()>&& callbackFunction)
@@ -2528,8 +2534,8 @@ void WebPageProxy::executeEditCommand(const String& commandName, const String& a
         return;
     }
 
-    if (isPasteCommandName(commandName))
-        willPerformPasteCommand();
+    if (auto pasteAccessCategory = pasteAccessCategoryForCommand(commandName))
+        willPerformPasteCommand(*pasteAccessCategory);
 
     sendWithAsyncReply(Messages::WebPage::ExecuteEditCommandWithCallback(commandName, argument), [callbackFunction = WTFMove(callbackFunction), backgroundActivity = m_process->throttler().backgroundActivity("WebPageProxy::executeEditCommand"_s)] () mutable {
         callbackFunction();
@@ -2543,8 +2549,8 @@ void WebPageProxy::executeEditCommand(const String& commandName, const String& a
     if (!hasRunningProcess())
         return;
 
-    if (isPasteCommandName(commandName))
-        willPerformPasteCommand();
+    if (auto pasteAccessCategory = pasteAccessCategoryForCommand(commandName))
+        willPerformPasteCommand(*pasteAccessCategory);
 
     if (commandName == ignoreSpellingCommandName)
         ++m_pendingLearnOrIgnoreWordMessageCount;
@@ -2952,7 +2958,7 @@ void WebPageProxy::sendWheelEvent(const WebWheelEvent& event)
 
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER)
     if (event.momentumPhase() == WebWheelEvent::PhaseBegan && m_scrollingAccelerationCurve != m_lastSentScrollingAccelerationCurve) {
-        connection->send(Messages::EventDispatcher::SetScrollingAccelerationCurve(m_webPageID, *m_scrollingAccelerationCurve), 0, { }, Thread::QOS::UserInteractive);
+        connection->send(Messages::EventDispatcher::SetScrollingAccelerationCurve(m_webPageID, m_scrollingAccelerationCurve), 0, { }, Thread::QOS::UserInteractive);
         m_lastSentScrollingAccelerationCurve = m_scrollingAccelerationCurve;
     }
 #endif
@@ -3452,7 +3458,7 @@ void WebPageProxy::receivedNavigationPolicyDecision(PolicyAction policyAction, A
         }
     }
 
-    m_isCaptivePortalModeExplicitlySet = policies ? policies->isCaptivePortalModeExplicitlySet() : m_configuration->isCaptivePortalModeExplicitlySet();
+    m_isCaptivePortalModeExplicitlySet = (policies && policies->isCaptivePortalModeExplicitlySet()) || m_configuration->isCaptivePortalModeExplicitlySet();
     auto captivePortalMode = (policies ? policies->captivePortalModeEnabled() : shouldEnableCaptivePortalMode()) ? WebProcessProxy::CaptivePortalMode::Enabled : WebProcessProxy::CaptivePortalMode::Disabled;
     process().processPool().processForNavigation(*this, *navigation, sourceProcess.copyRef(), sourceURL, processSwapRequestedByClient, captivePortalMode, frameInfo, WTFMove(websiteDataStore), [this, protectedThis = Ref { *this }, policyAction, navigation = Ref { *navigation }, navigationAction = WTFMove(navigationAction), sourceProcess = sourceProcess.copyRef(),
         policies = WTFMove(policies), sender = WTFMove(sender), processSwapRequestedByClient] (Ref<WebProcessProxy>&& processForNavigation, SuspendedPageProxy* destinationSuspendedPage, const String& reason) mutable {
@@ -3958,13 +3964,23 @@ void WebPageProxy::setIntrinsicDeviceScaleFactor(float scaleFactor)
 
 void WebPageProxy::windowScreenDidChange(PlatformDisplayID displayID, std::optional<unsigned> nominalFramesPerSecond)
 {
+#if HAVE(CVDISPLAYLINK)
+    if (hasRunningProcess() && m_displayID && m_registeredForFullSpeedUpdates)
+        process().processPool().setDisplayLinkForDisplayWantsFullSpeedUpdates(*m_process->connection(), *m_displayID, false);
+
+    m_registeredForFullSpeedUpdates = false;
+#endif
+
     m_displayID = displayID;
 
     if (!hasRunningProcess())
         return;
 
-    send(Messages::EventDispatcher::PageScreenDidChange(m_webPageID, displayID));
+    send(Messages::EventDispatcher::PageScreenDidChange(m_webPageID, displayID, nominalFramesPerSecond));
     send(Messages::WebPage::WindowScreenDidChange(displayID, nominalFramesPerSecond));
+#if HAVE(CVDISPLAYLINK)
+    updateDisplayLinkFrequency();
+#endif
 }
 
 float WebPageProxy::deviceScaleFactor() const
@@ -4258,6 +4274,11 @@ void WebPageProxy::findString(const String& string, OptionSet<FindOptions> optio
     sendWithAsyncReply(Messages::WebPage::FindString(string, options, maxMatchCount), WTFMove(callbackFunction));
 }
 
+void WebPageProxy::findRectsForStringMatches(const String& string, OptionSet<WebKit::FindOptions> options, unsigned maxMatchCount, CompletionHandler<void(Vector<WebCore::FloatRect>&&)>&& callbackFunction)
+{
+    sendWithAsyncReply(Messages::WebPage::FindRectsForStringMatches(string, options, maxMatchCount), WTFMove(callbackFunction));
+}
+
 void WebPageProxy::getImageForFindMatch(int32_t matchIndex)
 {
     send(Messages::WebPage::GetImageForFindMatch(matchIndex));
@@ -4276,6 +4297,11 @@ void WebPageProxy::indicateFindMatch(int32_t matchIndex)
 void WebPageProxy::hideFindUI()
 {
     send(Messages::WebPage::HideFindUI());
+}
+
+void WebPageProxy::hideFindIndicator()
+{
+    send(Messages::WebPage::HideFindIndicator());
 }
 
 void WebPageProxy::countStringMatches(const String& string, OptionSet<FindOptions> options, unsigned maxMatchCount)
@@ -4319,7 +4345,7 @@ void WebPageProxy::runJavaScriptInFrameInScriptWorld(RunJavaScriptParameters&& p
     sendWithAsyncReply(Messages::WebPage::RunJavaScriptInFrameInScriptWorld(parameters, frameID, world.worldData()), [activity = WTFMove(activity), callbackFunction = WTFMove(callbackFunction)] (const IPC::DataReference& dataReference, std::optional<ExceptionDetails>&& details) mutable {
         if (details)
             return callbackFunction(makeUnexpected(WTFMove(*details)));
-        if (dataReference.isEmpty())
+        if (dataReference.empty())
             return callbackFunction({ nullptr });
         Vector<uint8_t> data;
         data.reserveInitialCapacity(dataReference.size());
@@ -6352,6 +6378,11 @@ void WebPageProxy::downloadRequest(WebCore::ResourceRequest&& request, Completio
     download.setDidStartCallback(WTFMove(completionHandler));
 }
 
+void WebPageProxy::requestResource(WebCore::ResourceRequest&& request, CompletionHandler<void(Ref<WebCore::SharedBuffer>&&, WebCore::ResourceResponse&&, WebCore::ResourceError&&)>&& completionHandler)
+{
+    websiteDataStore().networkProcess().requestResource(identifier(), sessionID(), WTFMove(request), WTFMove(completionHandler));
+}
+
 void WebPageProxy::didChangeContentSize(const IntSize& size)
 {
     pageClient().didChangeContentSize(size);
@@ -6591,9 +6622,9 @@ void WebPageProxy::setIsNeverRichlyEditableForTouchBar(bool isNeverRichlyEditabl
 
 #endif
 
-void WebPageProxy::requestDOMPasteAccess(const WebCore::IntRect& elementRect, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&& completionHandler)
+void WebPageProxy::requestDOMPasteAccess(WebCore::DOMPasteAccessCategory pasteAccessCategory, const WebCore::IntRect& elementRect, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&& completionHandler)
 {
-    m_pageClient->requestDOMPasteAccess(elementRect, originIdentifier, WTFMove(completionHandler));
+    m_pageClient->requestDOMPasteAccess(pasteAccessCategory, elementRect, originIdentifier, WTFMove(completionHandler));
 }
 
 // BackForwardList
@@ -6905,6 +6936,10 @@ void WebPageProxy::contextMenuItemSelected(const WebContextMenuItemData& item)
         String suggestedFilename;
     };
     std::optional<DownloadInfo> downloadInfo;
+    
+    ASSERT(m_activeContextMenuContextData.webHitTestResultData());
+    
+    auto hitTestData = m_activeContextMenuContextData.webHitTestResultData().value();
 
     switch (item.action()) {
 #if PLATFORM(COCOA)
@@ -6943,17 +6978,16 @@ void WebPageProxy::contextMenuItemSelected(const WebContextMenuItemData& item)
 #endif
 
     case ContextMenuItemTagDownloadImageToDisk:
-        downloadInfo = {{ m_activeContextMenuContextData.webHitTestResultData().absoluteImageURL, { } }};
+        downloadInfo = { { hitTestData.absoluteImageURL, { } } };
         break;
 
     case ContextMenuItemTagDownloadLinkToDisk: {
-        auto& hitTestResult = m_activeContextMenuContextData.webHitTestResultData();
-        downloadInfo = {{ hitTestResult.absoluteLinkURL, hitTestResult.linkSuggestedFilename }};
+        downloadInfo = { { hitTestData.absoluteLinkURL, hitTestData.linkSuggestedFilename } };
         break;
     }
 
     case ContextMenuItemTagDownloadMediaToDisk:
-        downloadInfo = {{ m_activeContextMenuContextData.webHitTestResultData().absoluteMediaURL, { } }};
+        downloadInfo = { { hitTestData.absoluteMediaURL, { } } };
         break;
 
     case ContextMenuItemTagCheckSpellingWhileTyping:
@@ -8106,7 +8140,7 @@ static const Vector<ASCIILiteral>& mediaRelatedMachServices()
         "com.apple.audio.audiohald"_s, "com.apple.audio.SandboxHelper"_s, "com.apple.coremedia.endpointstream.xpc"_s, "com.apple.coremedia.endpointplaybacksession.xpc"_s,
         "com.apple.coremedia.endpointremotecontrolsession.xpc"_s, "com.apple.coremedia.videodecoder"_s,
         "com.apple.coremedia.videoencoder"_s, "com.apple.lskdd"_s, "com.apple.trustd.agent"_s,
-#if __MAC_OS_X_VERSION_MIN_REQUIRED > 120000
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED > 120000
         "com.apple.coremedia.samplebufferconsumer.xpc"_s,
 #endif
 #endif
@@ -9222,7 +9256,7 @@ void WebPageProxy::wrapCryptoKey(const Vector<uint8_t>& key, CompletionHandler<v
     Vector<uint8_t> masterKey;
 
     if (auto keyData = m_navigationClient->webCryptoMasterKey(*this))
-        masterKey = keyData->dataReference().vector();
+        masterKey = Vector(keyData->dataReference());
 
     Vector<uint8_t> wrappedKey;
     bool succeeded = wrapSerializedCryptoKey(masterKey, key, wrappedKey);
@@ -9236,7 +9270,7 @@ void WebPageProxy::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Completion
     Vector<uint8_t> masterKey;
 
     if (auto keyData = m_navigationClient->webCryptoMasterKey(*this))
-        masterKey = keyData->dataReference().vector();
+        masterKey = Vector(keyData->dataReference());
 
     Vector<uint8_t> key;
     bool succeeded = unwrapSerializedCryptoKey(masterKey, wrappedKey, key);
@@ -10794,7 +10828,7 @@ void WebPageProxy::platformDidSelectItemFromActiveContextMenu(const WebContextMe
 
 #if !PLATFORM(COCOA)
 
-void WebPageProxy::willPerformPasteCommand()
+void WebPageProxy::willPerformPasteCommand(DOMPasteAccessCategory)
 {
 }
 
@@ -11008,6 +11042,11 @@ void WebPageProxy::clearAppPrivacyReportTestingData(CompletionHandler<void()>&& 
     websiteDataStore().networkProcess().sendWithAsyncReply(Messages::NetworkProcess::ClearAppPrivacyReportTestingData(m_websiteDataStore->sessionID()), WTFMove(completionHandler));
 }
 #endif
+
+void WebPageProxy::requestCookieConsent(CompletionHandler<void(CookieConsentDecisionResult)>&& completion)
+{
+    m_uiClient->requestCookieConsent(WTFMove(completion));
+}
 
 } // namespace WebKit
 

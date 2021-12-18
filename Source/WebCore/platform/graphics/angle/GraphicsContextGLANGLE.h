@@ -36,11 +36,13 @@
 #if PLATFORM(COCOA)
 #include "GraphicsContextGLIOSurfaceSwapChain.h"
 #include "IOSurface.h"
+#include "ProcessIdentity.h"
 #endif
 
 
 #if USE(NICOSIA)
 namespace Nicosia {
+class GCGLANGLELayer;
 class GCGLLayer;
 }
 #endif
@@ -427,6 +429,7 @@ protected:
     std::unique_ptr<ExtensionsGLANGLE> m_extensions;
 
 #if PLATFORM(COCOA)
+    // FIXME: Move these to GraphicsContextGLCocoa.
     GraphicsContextGLIOSurfaceSwapChain m_swapChain;
     EGLDisplay m_displayObj { nullptr };
     PlatformGraphicsContextGL m_contextObj { nullptr };
@@ -436,13 +439,14 @@ protected:
     // When preserveDrawingBuffer == true, this is blitted to during display prepare.
     std::unique_ptr<IOSurface> m_displayBufferBacking;
     void* m_displayBufferPbuffer { nullptr };
+    ProcessIdentity m_resourceOwner;
 #endif
 #if USE(COORDINATED_GRAPHICS)
     GCGLuint m_compositorTexture { 0 };
     GCGLuint m_intermediateTexture { 0 };
 #endif
 #if USE(NICOSIA)
-    std::unique_ptr<Nicosia::GCGLLayer> m_nicosiaLayer;
+    std::unique_ptr<Nicosia::GCGLANGLELayer> m_nicosiaLayer;
 #elif USE(TEXTURE_MAPPER)
     std::unique_ptr<TextureMapperGCGLPlatformLayer> m_texmapLayer;
 #endif

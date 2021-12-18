@@ -74,7 +74,7 @@ void PingLoad::initialize(NetworkProcess& networkProcess)
     m_networkLoadChecker->setParentCrossOriginEmbedderPolicy(m_parameters.parentCrossOriginEmbedderPolicy);
     m_networkLoadChecker->setCrossOriginEmbedderPolicy(m_parameters.crossOriginEmbedderPolicy);
 #if ENABLE(CONTENT_EXTENSIONS)
-    m_networkLoadChecker->setContentExtensionController(WTFMove(m_parameters.mainDocumentURL), m_parameters.userContentControllerIdentifier);
+    m_networkLoadChecker->setContentExtensionController(WTFMove(m_parameters.mainDocumentURL), WTFMove(m_parameters.frameURL), m_parameters.userContentControllerIdentifier);
 #endif
 
     // If the server never responds, this object will hang around forever.
@@ -172,7 +172,7 @@ void PingLoad::didReceiveResponse(ResourceResponse&& response, NegotiatedLegacyT
     didFinish({ }, response);
 }
 
-void PingLoad::didReceiveData(Ref<SharedBuffer>&&)
+void PingLoad::didReceiveData(Ref<FragmentedSharedBuffer>&&)
 {
     PING_RELEASE_LOG("didReceiveData");
     ASSERT_NOT_REACHED();
@@ -208,6 +208,12 @@ void PingLoad::wasBlockedByRestrictions()
 {
     PING_RELEASE_LOG("wasBlockedByRestrictions");
     didFinish(wasBlockedByRestrictionsError(ResourceRequest { currentURL() }));
+}
+
+void PingLoad::wasBlockedByDisabledFTP()
+{
+    PING_RELEASE_LOG("wasBlockedByDisabledFTP");
+    didFinish(ftpDisabledError(ResourceRequest(currentURL())));
 }
 
 void PingLoad::timeoutTimerFired()

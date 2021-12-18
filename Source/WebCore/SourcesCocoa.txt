@@ -106,6 +106,7 @@ Modules/model-element/scenekit/SceneKitModelLoader.mm
 Modules/model-element/scenekit/SceneKitModelLoaderClient.mm
 Modules/model-element/scenekit/SceneKitModelLoaderUSD.mm
 Modules/model-element/scenekit/SceneKitModelPlayer.mm
+Modules/push-api/cocoa/PushCryptoCocoa.cpp
 Modules/speech/cocoa/SpeechRecognizerCocoa.mm
 Modules/speech/cocoa/WebSpeechRecognizerTask.mm
 Modules/speech/cocoa/WebSpeechRecognizerTaskMock.mm
@@ -289,6 +290,7 @@ platform/graphics/MediaPlaybackTargetPicker.cpp
 platform/graphics/avfoundation/AVTrackPrivateAVFObjCImpl.mm @no-unify
 platform/graphics/avfoundation/AudioSourceProviderAVFObjC.mm @no-unify
 platform/graphics/avfoundation/CDMPrivateMediaSourceAVFObjC.mm
+platform/graphics/avfoundation/FormatDescriptionUtilities.cpp
 platform/graphics/avfoundation/ISOFairPlayStreamingPsshBox.cpp
 platform/graphics/avfoundation/InbandMetadataTextTrackPrivateAVF.cpp
 platform/graphics/avfoundation/InbandTextTrackPrivateAVF.cpp
@@ -592,10 +594,8 @@ platform/network/mac/WebCoreURLResponse.mm
 platform/text/cf/HyphenationCF.cpp
 platform/text/cocoa/LocaleCocoa.mm
 platform/text/cocoa/LocalizedDateCache.mm
-platform/text/ios/TextEncodingRegistryIOS.mm
 platform/text/mac/TextBoundaries.mm
 platform/text/mac/TextCheckingMac.mm
-platform/text/mac/TextEncodingRegistryMac.mm
 platform/xr/cocoa/PlatformXRCocoa.mm
 rendering/RenderThemeCocoa.mm
 rendering/RenderThemeIOS.mm

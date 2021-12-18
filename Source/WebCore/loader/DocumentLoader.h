@@ -75,6 +75,7 @@ class ArchiveResourceCollection;
 class CachedRawResource;
 class CachedResourceLoader;
 class ContentFilter;
+class SharedBuffer;
 struct CustomHeaderFields;
 class FormState;
 class Frame;
@@ -83,7 +84,7 @@ class IconLoader;
 class Page;
 class PreviewConverter;
 class ResourceLoader;
-class SharedBuffer;
+class FragmentedSharedBuffer;
 class SWClientConnection;
 class SubresourceLoader;
 class SubstituteResource;
@@ -144,6 +145,19 @@ enum class MouseEventPolicy : uint8_t {
 #endif
 };
 
+enum class ModalContainerObservationPolicy : uint8_t {
+    Disabled,
+    Prompt,
+    Allow,
+    Disallow,
+};
+
+enum class ColorSchemePreference : uint8_t {
+    NoPreference,
+    Light,
+    Dark
+};
+
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(DocumentLoader);
 class DocumentLoader
     : public RefCounted<DocumentLoader>
@@ -171,7 +185,7 @@ public:
 
     WEBCORE_EXPORT FrameLoader* frameLoader() const;
     WEBCORE_EXPORT SubresourceLoader* mainResourceLoader() const;
-    WEBCORE_EXPORT RefPtr<SharedBuffer> mainResourceData() const;
+    WEBCORE_EXPORT RefPtr<FragmentedSharedBuffer> mainResourceData() const;
     
     DocumentWriter& writer() const { return m_writer; }
 
@@ -343,6 +357,12 @@ public:
     WEBCORE_EXPORT MouseEventPolicy mouseEventPolicy() const;
     void setMouseEventPolicy(MouseEventPolicy policy) { m_mouseEventPolicy = policy; }
 
+    ModalContainerObservationPolicy modalContainerObservationPolicy() const { return m_modalContainerObservationPolicy; }
+    void setModalContainerObservationPolicy(ModalContainerObservationPolicy policy) { m_modalContainerObservationPolicy = policy; }
+
+    WEBCORE_EXPORT ColorSchemePreference colorSchemePreference() const;
+    void setColorSchemePreference(ColorSchemePreference preference) { m_colorSchemePreference = preference; }
+
     void addSubresourceLoader(ResourceLoader&);
     void removeSubresourceLoader(LoadCompletionType, ResourceLoader*);
     void addPlugInStreamLoader(ResourceLoader&);
@@ -392,8 +412,8 @@ public:
 #endif
 
     void startIconLoading();
-    WEBCORE_EXPORT void didGetLoadDecisionForIcon(bool decision, uint64_t loadIdentifier, CompletionHandler<void(SharedBuffer*)>&&);
-    void finishedLoadingIcon(IconLoader&, SharedBuffer*);
+    WEBCORE_EXPORT void didGetLoadDecisionForIcon(bool decision, uint64_t loadIdentifier, CompletionHandler<void(FragmentedSharedBuffer*)>&&);
+    void finishedLoadingIcon(IconLoader&, FragmentedSharedBuffer*);
 
     const Vector<LinkIcon>& linkIcons() const { return m_linkIcons; }
 
@@ -621,7 +641,7 @@ private:
     bool m_waitingForNavigationPolicy { false };
 
     HashMap<uint64_t, LinkIcon> m_iconsPendingLoadDecision;
-    HashMap<std::unique_ptr<IconLoader>, CompletionHandler<void(SharedBuffer*)>> m_iconLoaders;
+    HashMap<std::unique_ptr<IconLoader>, CompletionHandler<void(FragmentedSharedBuffer*)>> m_iconLoaders;
     Vector<LinkIcon> m_linkIcons;
 
 #if ENABLE(APPLICATION_MANIFEST)
@@ -667,6 +687,8 @@ private:
     SimulatedMouseEventsDispatchPolicy m_simulatedMouseEventsDispatchPolicy { SimulatedMouseEventsDispatchPolicy::Default };
     LegacyOverflowScrollingTouchPolicy m_legacyOverflowScrollingTouchPolicy { LegacyOverflowScrollingTouchPolicy::Default };
     MouseEventPolicy m_mouseEventPolicy { MouseEventPolicy::Default };
+    ModalContainerObservationPolicy m_modalContainerObservationPolicy { ModalContainerObservationPolicy::Disabled };
+    ColorSchemePreference m_colorSchemePreference { ColorSchemePreference::NoPreference };
 
 #if ENABLE(SERVICE_WORKER)
     std::optional<ServiceWorkerRegistrationData> m_serviceWorkerRegistrationData;
@@ -779,6 +801,25 @@ template<> struct EnumTraits<WebCore::MouseEventPolicy> {
 #if ENABLE(IOS_TOUCH_EVENTS)
         , WebCore::MouseEventPolicy::SynthesizeTouchEvents
 #endif
+    >;
+};
+
+template<> struct EnumTraits<WebCore::ModalContainerObservationPolicy> {
+    using values = EnumValues<
+        WebCore::ModalContainerObservationPolicy,
+        WebCore::ModalContainerObservationPolicy::Disabled,
+        WebCore::ModalContainerObservationPolicy::Prompt,
+        WebCore::ModalContainerObservationPolicy::Allow,
+        WebCore::ModalContainerObservationPolicy::Disallow
+    >;
+};
+
+template<> struct EnumTraits<WebCore::ColorSchemePreference> {
+    using values = EnumValues<
+        WebCore::ColorSchemePreference,
+        WebCore::ColorSchemePreference::NoPreference,
+        WebCore::ColorSchemePreference::Light,
+        WebCore::ColorSchemePreference::Dark
     >;
 };
 

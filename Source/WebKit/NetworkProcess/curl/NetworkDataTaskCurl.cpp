@@ -39,7 +39,7 @@
 #include <WebCore/SameSiteInfo.h>
 #include <WebCore/ShouldRelaxThirdPartyCookieBlocking.h>
 #include <WebCore/SynchronousLoaderClient.h>
-#include <WebCore/TextEncoding.h>
+#include <pal/text/TextEncoding.h>
 
 namespace WebKit {
 
@@ -172,7 +172,7 @@ void NetworkDataTaskCurl::curlDidReceiveResponse(CurlRequest& request, CurlRespo
     invokeDidReceiveResponse();
 }
 
-void NetworkDataTaskCurl::curlDidReceiveBuffer(CurlRequest&, Ref<SharedBuffer>&& buffer)
+void NetworkDataTaskCurl::curlDidReceiveBuffer(CurlRequest&, Ref<FragmentedSharedBuffer>&& buffer)
 {
     Ref protectedThis { *this };
     if (state() == State::Canceling || state() == State::Completed || (!m_client && !isDownload()))
@@ -472,7 +472,7 @@ String NetworkDataTaskCurl::suggestedFilename() const
     if (!suggestedFilename.isEmpty())
         return suggestedFilename;
 
-    return decodeURLEscapeSequences(m_response.url().lastPathComponent());
+    return PAL::decodeURLEscapeSequences(m_response.url().lastPathComponent());
 }
 
 void NetworkDataTaskCurl::blockCookies()

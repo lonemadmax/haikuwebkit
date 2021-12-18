@@ -130,7 +130,7 @@ class AudioFileReaderWebMData {
     WTF_MAKE_FAST_ALLOCATED;
 
 public:
-    Ref<SharedBuffer> m_buffer;
+    Ref<FragmentedSharedBuffer> m_buffer;
 #if ENABLE(MEDIA_SOURCE)
     Ref<AudioTrackPrivateWebM> m_track;
 #endif
@@ -521,7 +521,7 @@ AudioStreamBasicDescription AudioFileReader::clientDataFormat(const AudioStreamB
     const int bytesPerFloat = sizeof(Float32);
     const int bitsPerByte = 8;
     outFormat.mFormatID = kAudioFormatLinearPCM;
-    outFormat.mFormatFlags = kAudioFormatFlagsNativeFloatPacked | kAudioFormatFlagIsNonInterleaved;
+    outFormat.mFormatFlags = static_cast<AudioFormatFlags>(kAudioFormatFlagsNativeFloatPacked) | static_cast<AudioFormatFlags>(kAudioFormatFlagIsNonInterleaved);
     outFormat.mBytesPerPacket = outFormat.mBytesPerFrame = bytesPerFloat;
     outFormat.mFramesPerPacket = 1;
     outFormat.mBitsPerChannel = bitsPerByte * bytesPerFloat;

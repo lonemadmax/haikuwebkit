@@ -44,8 +44,8 @@
 #include <WebCore/ShouldRelaxThirdPartyCookieBlocking.h>
 #include <WebCore/SoupNetworkSession.h>
 #include <WebCore/SoupVersioning.h>
-#include <WebCore/TextEncoding.h>
 #include <WebCore/TimingAllowOrigin.h>
+#include <pal/text/TextEncoding.h>
 #include <wtf/MainThread.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
 
@@ -103,7 +103,7 @@ String NetworkDataTaskSoup::suggestedFilename() const
     if (!suggestedFilename.isEmpty())
         return suggestedFilename;
 
-    return decodeURLEscapeSequences(m_response.url().lastPathComponent());
+    return PAL::decodeURLEscapeSequences(m_response.url().lastPathComponent());
 }
 
 void NetworkDataTaskSoup::setPriority(ResourceLoadPriority priority)
@@ -151,7 +151,7 @@ void NetworkDataTaskSoup::createRequest(ResourceRequest&& request, WasBlockingCo
         return;
 
     if (!m_currentRequest.url().protocolIsInHTTPFamily()) {
-        scheduleFailure(InvalidURLFailure);
+        scheduleFailure(FailureType::InvalidURL);
         return;
     }
 
@@ -159,7 +159,7 @@ void NetworkDataTaskSoup::createRequest(ResourceRequest&& request, WasBlockingCo
 
     m_soupMessage = m_currentRequest.createSoupMessage(m_session->blobRegistry());
     if (!m_soupMessage) {
-        scheduleFailure(InvalidURLFailure);
+        scheduleFailure(FailureType::InvalidURL);
         return;
     }
 

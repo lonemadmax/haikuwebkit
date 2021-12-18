@@ -28,6 +28,7 @@
 
 #if ENABLE(SERVICE_WORKER)
 
+#include "DownloadManager.h"
 #include "Logging.h"
 #include "NetworkCache.h"
 #include "NetworkLoad.h"
@@ -174,10 +175,10 @@ void ServiceWorkerNavigationPreloader::didReceiveResponse(ResourceResponse&& res
         callback();
 }
 
-void ServiceWorkerNavigationPreloader::didReceiveBuffer(Ref<SharedBuffer>&& buffer, int reportedEncodedDataLength)
+void ServiceWorkerNavigationPreloader::didReceiveBuffer(Ref<FragmentedSharedBuffer>&& buffer, int reportedEncodedDataLength)
 {
     if (m_bodyCallback)
-        m_bodyCallback(WTFMove(buffer), reportedEncodedDataLength);
+        m_bodyCallback(buffer->makeContiguous(), reportedEncodedDataLength);
 }
 
 void ServiceWorkerNavigationPreloader::didFinishLoading(const NetworkLoadMetrics& networkLoadMetrics)
@@ -240,6 +241,15 @@ void ServiceWorkerNavigationPreloader::waitForBody(BodyCallback&& callback)
     if (m_responseCompletionHandler)
         m_responseCompletionHandler(PolicyAction::Use);
     m_bodyCallback = WTFMove(callback);
+}
+
+bool ServiceWorkerNavigationPreloader::convertToDownload(DownloadManager& manager, DownloadID downloadID, const WebCore::ResourceRequest& request, const WebCore::ResourceResponse& response)
+{
+    if (!m_networkLoad)
+        return false;
+
+    manager.convertNetworkLoadToDownload(downloadID, std::exchange(m_networkLoad, nullptr), WTFMove(m_responseCompletionHandler), { }, request, response);
+    return true;
 }
 
 } // namespace WebKit

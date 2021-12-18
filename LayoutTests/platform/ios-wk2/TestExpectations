@@ -2022,8 +2022,6 @@ media/modern-media-controls/playback-support/playback-support-autoplay.html [ Pa
 
 http/tests/resourceLoadStatistics/exemptDomains/ [ Pass ]
 
-webkit.org/b/228164 [ Debug ] http/tests/resourceLoadStatistics/website-data-removal-for-site-with-user-interaction.html [ Pass Crash ]
-
 webkit.org/b/216492 [ Debug ] imported/w3c/web-platform-tests/selection/extend-20.html [ Slow ]
 
 webkit.org/b/231299 [ Debug ] imported/w3c/web-platform-tests/selection/extend-00.html [ Slow ]
@@ -2034,8 +2032,6 @@ webkit.org/b/216292 [ Release ] imported/w3c/web-platform-tests/css/css-flexbox/
 
 webkit.org/b/186045 imported/w3c/web-platform-tests/css/css-ui/text-overflow-017.html [ Skip ]
 webkit.org/b/186045 imported/w3c/web-platform-tests/css/css-values/vh_not_refreshing_on_chrome.html [ Skip ]
-
-webkit.org/b/217258 svg/W3C-I18N/tspan-direction-rtl.svg [ Failure ]
 
 webkit.org/b/229743 [ Release ] svg/W3C-SVG-1.1/struct-dom-06-b.svg [ Pass Failure ]
 
@@ -2254,3 +2250,16 @@ webkit.org/b/232252 [ Release ] imported/w3c/web-platform-tests/webrtc/RTCDtlsTr
 
 webkit.org/b/232337 [ Release ] imported/w3c/web-platform-tests/html/cross-origin-opener-policy/reporting/navigation-reporting/reporting-coop-navigated-opener.https.html [ Pass Failure  DumpJSConsoleLogInStdErr ]
 
+# webkit.org/b/234090 The two folloing tests are constant failures on iOS15 and EWS
+media/track/track-webvtt-no-snap-to-lines-overlap.html [ ImageOnlyFailure ]
+media/track/track-webvtt-snap-to-lines-left-right.html [ ImageOnlyFailure ]
+
+# webkit.org/b/234278 The following 8 tests are flakey failures on iOS 15
+imported/w3c/web-platform-tests/fetch/api/policies/referrer-no-referrer-service-worker.https.html [ Pass Failure ]
+imported/w3c/web-platform-tests/fetch/api/request/destination/fetch-destination-frame.https.html [ Pass Failure ]
+imported/w3c/web-platform-tests/fetch/api/request/destination/fetch-destination-iframe.https.html [ Pass Failure ]
+imported/w3c/web-platform-tests/fetch/api/request/request-reset-attributes.https.html [ Pass Failure ]
+imported/w3c/web-platform-tests/fetch/api/policies/referrer-origin-service-worker.https.html [ Pass Failure ]
+imported/w3c/web-platform-tests/fetch/api/policies/referrer-origin-when-cross-origin-service-worker.https.html [ Pass Failure ]
+imported/w3c/web-platform-tests/fetch/api/policies/referrer-unsafe-url-service-worker.https.html [ Pass Failure ]
+imported/w3c/web-platform-tests/fetch/api/request/destination/fetch-destination-worker.https.html [ Pass Failure ]

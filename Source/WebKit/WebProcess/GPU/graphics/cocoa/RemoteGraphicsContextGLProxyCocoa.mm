@@ -81,14 +81,14 @@ public:
 
 private:
     DisplayBufferDisplayDelegate(bool isOpaque, float contentsScale)
-        : m_isOpaque(isOpaque)
-        , m_contentsScale(contentsScale)
+        : m_contentsScale(contentsScale)
+        , m_isOpaque(isOpaque)
     {
     }
 
-    const bool m_isOpaque;
-    const float m_contentsScale;
     MachSendRight m_displayBuffer;
+    const float m_contentsScale;
+    const bool m_isOpaque;
 };
 
 class RemoteGraphicsContextGLProxyCocoa final : public RemoteGraphicsContextGLProxy {

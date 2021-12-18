@@ -216,7 +216,7 @@ class ResourceRequest;
 class ResourceResponse;
 class SelectionData;
 class SelectionGeometry;
-class SharedBuffer;
+class FragmentedSharedBuffer;
 class SubstituteData;
 class TextCheckingRequest;
 class VisiblePosition;
@@ -224,6 +224,7 @@ class VisiblePosition;
 enum SyntheticClickType : int8_t;
 enum class COEPDisposition : bool;
 enum class CreateNewGroupForHighlight : bool;
+enum class DOMPasteAccessCategory : uint8_t;
 enum class DOMPasteAccessResponse : uint8_t;
 enum class DragApplicationFlags : uint8_t;
 enum class DragHandlingMethod : uint8_t;
@@ -664,6 +665,11 @@ public:
 #endif
 
     void didUpdateRendering();
+
+    // A "platform rendering update" here describes the work done by the system graphics framework before work is submitted to the system compositor.
+    // On macOS, this is a CoreAnimation commit.
+    void willStartPlatformRenderingUpdate();
+    void didCompletePlatformRenderingUpdate();
 
 #if PLATFORM(MAC)
     void setTopOverhangImage(WebImage*);
@@ -1203,6 +1209,7 @@ public:
 #if ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION)
     void handleTelephoneNumberClick(const String& number, const WebCore::IntPoint&);
     void handleSelectionServiceClick(WebCore::FrameSelection&, const Vector<String>& telephoneNumbers, const WebCore::IntPoint&);
+    void handleImageServiceClick(const WebCore::IntPoint&, WebCore::Image&, bool isEditable, const WebCore::IntRect&, const String& attachmentID);
 #endif
 
     void didChangeScrollOffsetForFrame(WebCore::Frame*);
@@ -1339,7 +1346,7 @@ public:
         return sendSync(WTFMove(message), WTFMove(reply), Seconds::infinity(), sendSyncOptions);
     }
 
-    WebCore::DOMPasteAccessResponse requestDOMPasteAccess(const String& originIdentifier);
+    WebCore::DOMPasteAccessResponse requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, const String& originIdentifier);
     WebCore::IntRect rectForElementAtInteractionLocation() const;
 
     const std::optional<WebCore::Color>& backgroundColor() const { return m_backgroundColor; }
@@ -1396,7 +1403,7 @@ public:
 
 #if USE(QUICK_LOOK)
     void didStartLoadForQuickLookDocumentInMainFrame(const String& fileName, const String& uti);
-    void didFinishLoadForQuickLookDocumentInMainFrame(const WebCore::SharedBuffer&);
+    void didFinishLoadForQuickLookDocumentInMainFrame(const WebCore::FragmentedSharedBuffer&);
     void requestPasswordForQuickLookDocumentInMainFrame(const String& fileName, CompletionHandler<void(const String&)>&&);
 #endif
 
@@ -1495,10 +1502,6 @@ public:
 #endif
 
     void prepareToRunModalJavaScriptDialog();
-
-#if USE(ATSPI)
-    const WebCore::AccessibilityRootAtspi& accessibilityRootObject() const { return *m_accessibilityRootObject; }
-#endif
 
 #if ENABLE(ARKIT_INLINE_PREVIEW)
     bool useARKitForModel() const { return m_useARKitForModel; };
@@ -1599,7 +1602,7 @@ private:
 
     String sourceForFrame(WebFrame*);
 
-    void loadDataImpl(uint64_t navigationID, WebCore::ShouldTreatAsContinuingLoad, std::optional<WebsitePoliciesData>&&, Ref<WebCore::SharedBuffer>&&, WebCore::ResourceRequest&&, WebCore::ResourceResponse&&, const URL& failingURL, const UserData&, std::optional<NavigatingToAppBoundDomain>, WebCore::SubstituteData::SessionHistoryVisibility, WebCore::ShouldOpenExternalURLsPolicy = WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow);
+    void loadDataImpl(uint64_t navigationID, WebCore::ShouldTreatAsContinuingLoad, std::optional<WebsitePoliciesData>&&, Ref<WebCore::FragmentedSharedBuffer>&&, WebCore::ResourceRequest&&, WebCore::ResourceResponse&&, const URL& failingURL, const UserData&, std::optional<NavigatingToAppBoundDomain>, WebCore::SubstituteData::SessionHistoryVisibility, WebCore::ShouldOpenExternalURLsPolicy = WebCore::ShouldOpenExternalURLsPolicy::ShouldNotAllow);
 
     // Actions
     void tryClose(CompletionHandler<void(bool)>&&);
@@ -1762,6 +1765,8 @@ private:
     void hideFindUI();
     void countStringMatches(const String&, OptionSet<FindOptions>, uint32_t maxMatchCount);
     void replaceMatches(const Vector<uint32_t>& matchIndices, const String& replacementText, bool selectionOnly, CompletionHandler<void(uint64_t)>&&);
+    void findRectsForStringMatches(const String&, OptionSet<FindOptions>, uint32_t maxMatchCount, CompletionHandler<void(Vector<WebCore::FloatRect>&&)>&&);
+    void hideFindIndicator();
 
 #if USE(COORDINATED_GRAPHICS)
     void sendViewportAttributesChanged(const WebCore::ViewportArguments&);

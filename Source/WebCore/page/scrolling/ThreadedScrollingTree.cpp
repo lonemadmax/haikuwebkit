@@ -389,7 +389,7 @@ void ThreadedScrollingTree::serviceScrollAnimations(MonotonicTime currentTime)
 }
 
 // This code allows the main thread about half a frame to complete its rendering udpate. If the main thread
-// is responsive (i.e. managing to render every frame), then we expect to get a didCompleteRenderingUpdate()
+// is responsive (i.e. managing to render every frame), then we expect to get a didCompletePlatformRenderingUpdate()
 // within 8ms of willStartRenderingUpdate(). We time this via m_stateCondition, which blocks the scrolling
 // thread (with m_treeLock locked at the start and end) so that we don't handle wheel events while waiting.
 // If the condition times out, we know the main thread is being slow, and allow the scrolling thread to
@@ -430,7 +430,21 @@ void ThreadedScrollingTree::waitForRenderingUpdateCompletionOrTimeout()
 
 void ThreadedScrollingTree::didCompleteRenderingUpdate()
 {
+    // macOS needs to wait for the CA commit (the "platform rendering update").
+#if !PLATFORM(MAC)
+    renderingUpdateComplete();
+#endif
+}
+
+void ThreadedScrollingTree::didCompletePlatformRenderingUpdate()
+{
+    renderingUpdateComplete();
+}
+
+void ThreadedScrollingTree::renderingUpdateComplete()
+{
     ASSERT(isMainThread());
+
     Locker locker { m_treeLock };
 
     if (m_state == SynchronizationState::InRenderingUpdate)
@@ -486,6 +500,8 @@ void ThreadedScrollingTree::displayDidRefreshOnScrollingThread()
     case SynchronizationState::Desynchronized:
         break;
     }
+    
+    storeScrollPositionsAtLastDisplayRefresh();
 }
 
 void ThreadedScrollingTree::displayDidRefresh(PlatformDisplayID displayID)
@@ -509,6 +525,14 @@ void ThreadedScrollingTree::displayDidRefresh(PlatformDisplayID displayID)
 void ThreadedScrollingTree::removePendingScrollAnimationForNode(ScrollingNodeID nodeID)
 {
     m_nodesWithPendingScrollAnimations.remove(nodeID);
+}
+
+void ThreadedScrollingTree::storeScrollPositionsAtLastDisplayRefresh()
+{
+    // Ideally this would be a tree walk for every scrolling node, but scrolling trees can get big so for now just do this for the root;
+    // ScrollingTreeFrameScrollingNodeMac::repositionScrollingLayers() uses the state to know whether it should force a commit.
+    if (auto* rootNode = this->rootNode())
+        rootNode->updateScrollPositionAtLastDisplayRefresh();
 }
 
 } // namespace WebCore

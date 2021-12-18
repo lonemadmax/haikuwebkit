@@ -28,7 +28,7 @@
 #include "CSSParserMode.h"
 #include "CSSPropertyNames.h"
 #include "StyleRuleType.h"
-#include "TextEncoding.h"
+#include <pal/text/TextEncoding.h>
 #include <wtf/HashFunctions.h>
 #include <wtf/Hasher.h>
 #include <wtf/URL.h>
@@ -84,6 +84,7 @@ struct CSSParserContext {
     bool focusVisibleEnabled { false };
     bool hasPseudoClassEnabled { false };
     bool cascadeLayersEnabled { false };
+    bool containerQueriesEnabled { false };
 
     // RuntimeEnabledFeatures.
 #if ENABLE(ATTACHMENT_ELEMENT)

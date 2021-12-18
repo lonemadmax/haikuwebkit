@@ -64,10 +64,15 @@ void CachedFont::didAddClient(CachedResourceClient& client)
         static_cast<CachedFontClient&>(client).fontLoaded(*this);
 }
 
-void CachedFont::finishLoading(SharedBuffer* data, const NetworkLoadMetrics& metrics)
+void CachedFont::finishLoading(const FragmentedSharedBuffer* data, const NetworkLoadMetrics& metrics)
 {
-    m_data = data;
-    setEncodedSize(m_data.get() ? m_data->size() : 0);
+    if (data) {
+        m_data = data->makeContiguous();
+        setEncodedSize(m_data->size());
+    } else {
+        m_data = nullptr;
+        setEncodedSize(0);
+    }
     setLoading(false);
     checkNotify(metrics);
 }
@@ -105,7 +110,7 @@ bool CachedFont::ensureCustomFontData(SharedBuffer* data)
 
 std::unique_ptr<FontCustomPlatformData> CachedFont::createCustomFontData(SharedBuffer& bytes, const String& itemInCollection, bool& wrapping)
 {
-    RefPtr buffer { &bytes };
+    RefPtr buffer = { &bytes };
     wrapping = !convertWOFFToSfntIfNecessary(buffer);
     return buffer ? createFontCustomPlatformData(*buffer, itemInCollection) : nullptr;
 }
@@ -135,7 +140,7 @@ void CachedFont::checkNotify(const NetworkLoadMetrics&)
 {
     if (isLoading())
         return;
-    
+
     CachedResourceClientWalker<CachedFontClient> walker(m_clients);
     while (CachedFontClient* client = walker.next())
         client->fontLoaded(*this);

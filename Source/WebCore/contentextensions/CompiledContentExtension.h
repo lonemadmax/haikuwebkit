@@ -38,12 +38,10 @@ class WEBCORE_EXPORT CompiledContentExtension : public ThreadSafeRefCounted<Comp
 public:
     virtual ~CompiledContentExtension();
 
-    virtual Span<const uint8_t> filtersWithoutConditionsBytecode() const = 0;
-    virtual Span<const uint8_t> filtersWithConditionsBytecode() const = 0;
+    virtual Span<const uint8_t> urlFiltersBytecode() const = 0;
     virtual Span<const uint8_t> topURLFiltersBytecode() const = 0;
     virtual Span<const uint8_t> frameURLFiltersBytecode() const = 0;
     virtual Span<const uint8_t> serializedActions() const = 0;
-    virtual bool conditionsApplyOnlyToDomain() const = 0;
 };
 
 } // namespace WebCore::ContentExtensions

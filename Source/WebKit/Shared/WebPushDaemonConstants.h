@@ -42,6 +42,8 @@ enum class MessageType : uint8_t {
     GetOriginsWithPushAndNotificationPermissions,
     SetDebugModeIsEnabled,
     UpdateConnectionConfiguration,
+    InjectPushMessageForTesting,
+    GetPendingPushMessages,
 };
 
 inline bool messageTypeSendsReply(MessageType messageType)
@@ -51,6 +53,8 @@ inline bool messageTypeSendsReply(MessageType messageType)
     case MessageType::GetOriginsWithPushAndNotificationPermissions:
     case MessageType::DeletePushAndNotificationRegistration:
     case MessageType::RequestSystemNotificationPermission:
+    case MessageType::GetPendingPushMessages:
+    case MessageType::InjectPushMessageForTesting:
         return true;
     case MessageType::SetDebugModeIsEnabled:
     case MessageType::UpdateConnectionConfiguration:

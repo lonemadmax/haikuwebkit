@@ -171,7 +171,7 @@ private:
         if (description) {
             m_originalCodec = PAL::softLink_CoreMedia_CMFormatDescriptionGetMediaSubType(description);
             CFStringRef originalFormatKey = PAL::canLoad_CoreMedia_kCMFormatDescriptionExtension_ProtectedContentOriginalFormat() ? PAL::get_CoreMedia_kCMFormatDescriptionExtension_ProtectedContentOriginalFormat() : CFSTR("CommonEncryptionOriginalFormat");
-            if (auto originalFormat = dynamic_cf_cast<CFNumberRef>(CMFormatDescriptionGetExtension(description, originalFormatKey)))
+            if (auto originalFormat = dynamic_cf_cast<CFNumberRef>(PAL::CMFormatDescriptionGetExtension(description, originalFormatKey)))
                 CFNumberGetValue(originalFormat, kCFNumberSInt32Type, &m_originalCodec);
         }
     }
@@ -213,7 +213,7 @@ SourceBufferParserAVFObjC::~SourceBufferParserAVFObjC()
 void SourceBufferParserAVFObjC::appendData(Segment&& segment, CompletionHandler<void()>&& completionHandler, AppendFlags flags)
 {
     auto sharedBuffer = segment.takeSharedBuffer();
-    auto nsData = sharedBuffer->createNSData();
+    auto nsData = sharedBuffer->makeContiguous()->createNSData();
     if (m_parserStateWasReset || flags == AppendFlags::Discontinuity)
         [m_parser appendStreamData:nsData.get() withFlags:AVStreamDataParserStreamDataDiscontinuity];
     else

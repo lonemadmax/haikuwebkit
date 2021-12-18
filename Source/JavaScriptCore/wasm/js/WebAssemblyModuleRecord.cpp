@@ -121,7 +121,6 @@ void WebAssemblyModuleRecord::initializeImportsAndExports(JSGlobalObject* global
 
     RELEASE_ASSERT(m_instance);
 
-    Wasm::CodeBlock* codeBlock = m_instance->instance().codeBlock();
     JSWebAssemblyModule* module = m_instance->module();
     const Wasm::ModuleInformation& moduleInformation = module->moduleInformation();
 
@@ -143,7 +142,9 @@ void WebAssemblyModuleRecord::initializeImportsAndExports(JSGlobalObject* global
         case Wasm::ExternalKind::Exception:
             break;
         case Wasm::ExternalKind::Memory:
-            continue;
+            if (creationMode == Wasm::CreationMode::FromJS)
+                continue;
+            break;
         }
 
         Identifier moduleName = Identifier::fromString(vm, String::fromUTF8(import.module));
@@ -404,11 +405,50 @@ void WebAssemblyModuleRecord::initializeImportsAndExports(JSGlobalObject* global
             if (expectedSignatureIndex != tag->tag().signature().index())
                 return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "imported Tag", "signature doesn't match the imported WebAssembly Tag's signature")));
 
-            m_instance->instance().addTag(tag->tag());
+            m_instance->instance().setTag(import.kindIndex, tag->tag());
             break;
         }
 
+        // Memory initialization will only occur here if the creation mode was through the module loader.
         case Wasm::ExternalKind::Memory:
+            JSWebAssemblyMemory* memory = jsDynamicCast<JSWebAssemblyMemory*>(vm, value);
+            // i. If v is not a WebAssembly.Memory object, throw a WebAssembly.LinkError.
+            if (!memory)
+                return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "Memory import", "is not an instance of WebAssembly.Memory")));
+
+            Wasm::PageCount declaredInitial = moduleInformation.memory.initial();
+            Wasm::PageCount importedInitial = memory->memory().initial();
+            if (importedInitial < declaredInitial)
+                return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "Memory import", "provided an 'initial' that is smaller than the module's declared 'initial' import memory size")));
+
+            if (Wasm::PageCount declaredMaximum = moduleInformation.memory.maximum()) {
+                Wasm::PageCount importedMaximum = memory->memory().maximum();
+                if (!importedMaximum)
+                    return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "Memory import", "did not have a 'maximum' but the module requires that it does")));
+
+                if (importedMaximum > declaredMaximum)
+                    return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "Memory import", "provided a 'maximum' that is larger than the module's declared 'maximum' import memory size")));
+            }
+
+            if ((memory->memory().sharingMode() == Wasm::MemorySharingMode::Shared) != moduleInformation.memory.isShared())
+                return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "Memory import", "provided a 'shared' that is different from the module's declared 'shared' import memory attribute")));
+
+            // ii. Append v to memories.
+            // iii. Append v.[[Memory]] to imports.
+            m_instance->setMemory(vm, memory);
+            RETURN_IF_EXCEPTION(scope, void());
+
+            // Usually at this point the module's code block in any memory mode should be
+            // runnable due to the LLint tier code being shared among all modes. However,
+            // if LLInt is disabled, it is possible that the code needs to be compiled at
+            // this point when we know which memory mode to use.
+            Wasm::CodeBlock* codeBlock = m_instance->instance().codeBlock();
+            if (!codeBlock || !codeBlock->runnable()) {
+                codeBlock = m_instance->module()->module().compileSync(&vm.wasmContext, memory->memory().mode()).ptr();
+                if (!codeBlock->runnable())
+                    return exception(createJSWebAssemblyLinkError(globalObject, vm, codeBlock->errorMessage()));
+            }
+            RELEASE_ASSERT(codeBlock->isSafeToRun(memory->memory().mode()));
             break;
         }
     }
@@ -435,8 +475,13 @@ void WebAssemblyModuleRecord::initializeImportsAndExports(JSGlobalObject* global
         }
     }
 
-    for (Wasm::SignatureIndex signatureIndex : moduleInformation.internalExceptionSignatureIndices)
-        m_instance->instance().addTag(Wasm::Tag::create(Wasm::SignatureInformation::get(signatureIndex)));
+    // This needs to be looked up after the memory is initialized, as the codeBlock depends on the memory mode.
+    Wasm::CodeBlock* codeBlock = m_instance->instance().codeBlock();
+
+    for (unsigned index = 0; index < moduleInformation.internalExceptionSignatureIndices.size(); ++index) {
+        Wasm::SignatureIndex signatureIndex = moduleInformation.internalExceptionSignatureIndices[index];
+        m_instance->instance().setTag(moduleInformation.importExceptionCount() + index, Wasm::Tag::create(Wasm::SignatureInformation::get(signatureIndex)));
+    }
 
     unsigned functionImportCount = codeBlock->functionImportCount();
     auto makeFunctionWrapper = [&] (uint32_t index) -> JSValue {

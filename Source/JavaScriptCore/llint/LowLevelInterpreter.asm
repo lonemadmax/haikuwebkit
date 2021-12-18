@@ -212,6 +212,11 @@ else
     const LowestTag = constexpr JSValue::LowestTag
 end
 
+if JSVALUE64
+    const NumberOfStructureIDEntropyBits = constexpr StructureIDTable::s_numberOfEntropyBits
+    const StructureEntropyBitsShift = constexpr StructureIDTable::s_entropyBitsShiftForStructurePointer
+end
+
 if LARGE_TYPED_ARRAYS
     const SmallTypedArrayMaxLength = constexpr ArrayProfile::s_smallTypedArrayMaxLength
 end
@@ -2180,7 +2185,6 @@ llintSlowPathOp(set_function_name)
 llintSlowPathOp(super_sampler_begin)
 llintSlowPathOp(super_sampler_end)
 llintSlowPathOp(throw)
-llintSlowPathOp(try_get_by_id)
 llintSlowPathOp(get_by_id_with_this)
 
 llintOp(op_switch_string, unused, macro (unused, unused, unused)

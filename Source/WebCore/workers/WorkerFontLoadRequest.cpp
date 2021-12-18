@@ -34,7 +34,6 @@
 #include "FontSelectionAlgorithm.h"
 #include "ResourceLoaderOptions.h"
 #include "ServiceWorker.h"
-#include "SharedBuffer.h"
 #include "WOFFFileFormat.h"
 #include "WorkerGlobalScope.h"
 #include "WorkerThreadableLoader.h"
@@ -78,9 +77,13 @@ void WorkerFontLoadRequest::load(WorkerGlobalScope& workerGlobalScope)
 bool WorkerFontLoadRequest::ensureCustomFontData(const AtomString&)
 {
     if (!m_fontCustomPlatformData && !m_errorOccurred && !m_isLoading) {
-        convertWOFFToSfntIfNecessary(m_data);
-        if (m_data) {
-            m_fontCustomPlatformData = createFontCustomPlatformData(*m_data, m_url.fragmentIdentifier().toString());
+        RefPtr<SharedBuffer> contiguousData;
+        if (m_data)
+            contiguousData = m_data.takeAsContiguous();
+        convertWOFFToSfntIfNecessary(contiguousData);
+        if (contiguousData) {
+            m_fontCustomPlatformData = createFontCustomPlatformData(*contiguousData, m_url.fragmentIdentifier().toString());
+            m_data = WTFMove(contiguousData);
             if (!m_fontCustomPlatformData)
                 m_errorOccurred = true;
         }
@@ -93,7 +96,7 @@ RefPtr<Font> WorkerFontLoadRequest::createFont(const FontDescription& fontDescri
 {
     ASSERT(m_fontCustomPlatformData);
     ASSERT(m_context);
-    return Font::create(m_fontCustomPlatformData->fontPlatformData(fontDescription, syntheticBold, syntheticItalic, fontCreationContext), Font::Origin::Remote, &m_context->fontCache());
+    return Font::create(m_fontCustomPlatformData->fontPlatformData(fontDescription, syntheticBold, syntheticItalic, fontCreationContext), Font::Origin::Remote);
 }
 
 void WorkerFontLoadRequest::setClient(FontLoadRequestClient* client)
@@ -117,10 +120,7 @@ void WorkerFontLoadRequest::didReceiveData(const uint8_t* data, int dataLength)
     if (m_errorOccurred)
         return;
 
-    if (!m_data)
-        m_data = SharedBuffer::create();
-
-    m_data->append(data, dataLength);
+    m_data.append(data, dataLength);
 }
 
 void WorkerFontLoadRequest::didFinishLoading(ResourceLoaderIdentifier)

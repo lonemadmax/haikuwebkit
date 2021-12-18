@@ -29,7 +29,8 @@
 #include "CSSImportRule.h"
 #include "CSSKeyframeRule.h"
 #include "CSSKeyframesRule.h"
-#include "CSSLayerRule.h"
+#include "CSSLayerBlockRule.h"
+#include "CSSLayerStatementRule.h"
 #include "CSSMediaRule.h"
 #include "CSSNamespaceRule.h"
 #include "CSSPageRule.h"
@@ -99,9 +100,14 @@ void StyleRuleBase::destroy()
     case StyleRuleType::CounterStyle:
         delete downcast<StyleRuleCounterStyle>(this);
         return;
-    case StyleRuleType::Layer:
+    case StyleRuleType::LayerBlock:
+    case StyleRuleType::LayerStatement:
         delete downcast<StyleRuleLayer>(this);
         return;
+    case StyleRuleType::Container:
+        delete downcast<StyleRuleContainer>(this);
+        return;
+    case StyleRuleType::Margin:
     case StyleRuleType::Unknown:
         ASSERT_NOT_REACHED();
         return;
@@ -128,8 +134,11 @@ Ref<StyleRuleBase> StyleRuleBase::copy() const
         return downcast<StyleRuleKeyframes>(*this).copy();
     case StyleRuleType::CounterStyle:
         return downcast<StyleRuleCounterStyle>(*this).copy();
-    case StyleRuleType::Layer:
+    case StyleRuleType::LayerBlock:
+    case StyleRuleType::LayerStatement:
         return downcast<StyleRuleLayer>(*this).copy();
+    case StyleRuleType::Container:
+        return downcast<StyleRuleContainer>(*this).copy();
     case StyleRuleType::Import:
     case StyleRuleType::Namespace:
         // FIXME: Copy import and namespace rules.
@@ -137,6 +146,7 @@ Ref<StyleRuleBase> StyleRuleBase::copy() const
     case StyleRuleType::Unknown:
     case StyleRuleType::Charset:
     case StyleRuleType::Keyframe:
+    case StyleRuleType::Margin:
         break;
     }
     CRASH();
@@ -177,12 +187,19 @@ Ref<CSSRule> StyleRuleBase::createCSSOMWrapper(CSSStyleSheet* parentSheet, CSSRu
     case StyleRuleType::CounterStyle:
         rule = CSSCounterStyleRule::create(downcast<StyleRuleCounterStyle>(self), parentSheet);
         break;
-    case StyleRuleType::Layer:
-        rule = CSSLayerRule::create(downcast<StyleRuleLayer>(self), parentSheet);
+    case StyleRuleType::LayerBlock:
+        rule = CSSLayerBlockRule::create(downcast<StyleRuleLayer>(self), parentSheet);
+        break;
+    case StyleRuleType::LayerStatement:
+        rule = CSSLayerStatementRule::create(downcast<StyleRuleLayer>(self), parentSheet);
+        break;
+    case StyleRuleType::Container:
+        // FIXME: Implement CSSOM.
         break;
     case StyleRuleType::Unknown:
     case StyleRuleType::Charset:
     case StyleRuleType::Keyframe:
+    case StyleRuleType::Margin:
         ASSERT_NOT_REACHED();
         break;
     }
@@ -356,6 +373,8 @@ DeferredStyleGroupRuleList::DeferredStyleGroupRuleList(const CSSParserTokenRange
     m_tokens.append(range.begin(), length);
 }
 
+DeferredStyleGroupRuleList::~DeferredStyleGroupRuleList() = default;
+
 void DeferredStyleGroupRuleList::parseDeferredRules(Vector<RefPtr<StyleRuleBase>>& childRules)
 {
     m_parser->parseRuleList(m_tokens, childRules);
@@ -479,19 +498,19 @@ Ref<StyleRuleSupports> StyleRuleSupports::create(const String& conditionText, bo
 }
 
 StyleRuleLayer::StyleRuleLayer(Vector<CascadeLayerName>&& nameList)
-    : StyleRuleGroup(StyleRuleType::Layer, Vector<RefPtr<StyleRuleBase>> { })
+    : StyleRuleGroup(StyleRuleType::LayerStatement, Vector<RefPtr<StyleRuleBase>> { })
     , m_nameVariant(WTFMove(nameList))
 {
 }
 
 StyleRuleLayer::StyleRuleLayer(CascadeLayerName&& name, Vector<RefPtr<StyleRuleBase>>&& rules)
-    : StyleRuleGroup(StyleRuleType::Layer, WTFMove(rules))
+    : StyleRuleGroup(StyleRuleType::LayerBlock, WTFMove(rules))
     , m_nameVariant(WTFMove(name))
 {
 }
 
 StyleRuleLayer::StyleRuleLayer(CascadeLayerName&& name, std::unique_ptr<DeferredStyleGroupRuleList>&& rules)
-    : StyleRuleGroup(StyleRuleType::Layer, WTFMove(rules))
+    : StyleRuleGroup(StyleRuleType::LayerBlock, WTFMove(rules))
     , m_nameVariant(WTFMove(name))
 {
 }
@@ -515,6 +534,34 @@ Ref<StyleRuleLayer> StyleRuleLayer::createBlock(CascadeLayerName&& name, Vector<
 Ref<StyleRuleLayer> StyleRuleLayer::createBlock(CascadeLayerName&& name, std::unique_ptr<DeferredStyleGroupRuleList>&& rules)
 {
     return adoptRef(*new StyleRuleLayer(WTFMove(name), WTFMove(rules)));
+}
+
+StyleRuleContainer::StyleRuleContainer(ContainerQuery&& query, Vector<RefPtr<StyleRuleBase>>&& rules)
+    : StyleRuleGroup(StyleRuleType::Container, WTFMove(rules))
+    , m_query(WTFMove(query))
+{
+}
+
+StyleRuleContainer::StyleRuleContainer(ContainerQuery&& query, std::unique_ptr<DeferredStyleGroupRuleList>&& rules)
+    : StyleRuleGroup(StyleRuleType::Container, WTFMove(rules))
+    , m_query(WTFMove(query))
+{
+}
+
+StyleRuleContainer::StyleRuleContainer(const StyleRuleContainer& other)
+    : StyleRuleGroup(other)
+    , m_query(other.m_query)
+{
+}
+
+Ref<StyleRuleContainer> StyleRuleContainer::create(ContainerQuery&& query, Vector<RefPtr<StyleRuleBase>>&& rules)
+{
+    return adoptRef(*new StyleRuleContainer(WTFMove(query), WTFMove(rules)));
+}
+
+Ref<StyleRuleContainer> StyleRuleContainer::create(ContainerQuery&& query, std::unique_ptr<DeferredStyleGroupRuleList>&& rules)
+{
+    return adoptRef(*new StyleRuleContainer(WTFMove(query), WTFMove(rules)));
 }
 
 StyleRuleCharset::StyleRuleCharset()

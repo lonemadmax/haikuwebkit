@@ -30,6 +30,7 @@
 #include "WebEvent.h"
 #include "WebHitTestResultData.h"
 #include "WebPageProxy.h"
+#include <WebCore/CookieConsentDecisionResult.h>
 #include <WebCore/FloatRect.h>
 #include <wtf/CompletionHandler.h>
 
@@ -144,6 +145,7 @@ public:
     virtual void checkUserMediaPermissionForOrigin(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, SecurityOrigin&, SecurityOrigin&, WebKit::UserMediaPermissionCheckProxy& request) { request.deny(); }
     virtual void decidePolicyForNotificationPermissionRequest(WebKit::WebPageProxy&, SecurityOrigin&, CompletionHandler<void(bool allowed)>&& completionHandler) { completionHandler(false); }
     virtual void requestStorageAccessConfirm(WebKit::WebPageProxy&, WebKit::WebFrameProxy*, const WebCore::RegistrableDomain& requestingDomain, const WebCore::RegistrableDomain& currentDomain, CompletionHandler<void(bool)>&& completionHandler) { completionHandler(true); }
+    virtual void requestCookieConsent(CompletionHandler<void(WebCore::CookieConsentDecisionResult)>&& completionHandler) { completionHandler(WebCore::CookieConsentDecisionResult::NotSupported); }
 
     // Printing.
     virtual float headerHeight(WebKit::WebPageProxy&, WebKit::WebFrameProxy&) { return 0; }
@@ -198,6 +200,11 @@ public:
 
 #if ENABLE(WEB_AUTHN)
     virtual void runWebAuthenticationPanel(WebKit::WebPageProxy&, WebAuthenticationPanel&, WebKit::WebFrameProxy&, WebKit::FrameInfoData&&, CompletionHandler<void(WebKit::WebAuthenticationPanelResult)>&& completionHandler) { completionHandler(WebKit::WebAuthenticationPanelResult::Unavailable); }
+
+    virtual void requestWebAuthenticationNoGesture(API::SecurityOrigin& origin, CompletionHandler<void(bool)>&& completionHandler)
+    {
+        completionHandler(true);
+    }
 #endif
 
     virtual void didAttachLocalInspector(WebKit::WebPageProxy&, WebKit::WebInspectorUIProxy&) { }

@@ -49,13 +49,10 @@ void WebCompiledContentRuleListData::encode(IPC::Encoder& encoder) const
 #endif
     encoder << SharedMemory::IPCHandle { WTFMove(handle), dataSize };
 
-    encoder << conditionsApplyOnlyToDomain;
     encoder << actionsOffset;
     encoder << actionsSize;
-    encoder << filtersWithoutConditionsBytecodeOffset;
-    encoder << filtersWithoutConditionsBytecodeSize;
-    encoder << filtersWithConditionsBytecodeOffset;
-    encoder << filtersWithConditionsBytecodeSize;
+    encoder << urlFiltersBytecodeOffset;
+    encoder << urlFiltersBytecodeSize;
     encoder << topURLFiltersBytecodeOffset;
     encoder << topURLFiltersBytecodeSize;
     encoder << frameURLFiltersBytecodeOffset;
@@ -76,11 +73,6 @@ std::optional<WebCompiledContentRuleListData> WebCompiledContentRuleListData::de
     if (!data)
         return std::nullopt;
 
-    std::optional<bool> conditionsApplyOnlyToDomain;
-    decoder >> conditionsApplyOnlyToDomain;
-    if (!conditionsApplyOnlyToDomain)
-        return std::nullopt;
-
     std::optional<size_t> actionsOffset;
     decoder >> actionsOffset;
     if (!actionsOffset)
@@ -91,24 +83,14 @@ std::optional<WebCompiledContentRuleListData> WebCompiledContentRuleListData::de
     if (!actionsSize)
         return std::nullopt;
 
-    std::optional<size_t> filtersWithoutConditionsBytecodeOffset;
-    decoder >> filtersWithoutConditionsBytecodeOffset;
-    if (!filtersWithoutConditionsBytecodeOffset)
+    std::optional<size_t> urlFiltersBytecodeOffset;
+    decoder >> urlFiltersBytecodeOffset;
+    if (!urlFiltersBytecodeOffset)
         return std::nullopt;
 
-    std::optional<size_t> filtersWithoutConditionsBytecodeSize;
-    decoder >> filtersWithoutConditionsBytecodeSize;
-    if (!filtersWithoutConditionsBytecodeSize)
-        return std::nullopt;
-
-    std::optional<size_t> filtersWithConditionsBytecodeOffset;
-    decoder >> filtersWithConditionsBytecodeOffset;
-    if (!filtersWithConditionsBytecodeOffset)
-        return std::nullopt;
-
-    std::optional<size_t> filtersWithConditionsBytecodeSize;
-    decoder >> filtersWithConditionsBytecodeSize;
-    if (!filtersWithConditionsBytecodeSize)
+    std::optional<size_t> urlFiltersBytecodeSize;
+    decoder >> urlFiltersBytecodeSize;
+    if (!urlFiltersBytecodeSize)
         return std::nullopt;
 
     std::optional<size_t> topURLFiltersBytecodeOffset;
@@ -134,13 +116,10 @@ std::optional<WebCompiledContentRuleListData> WebCompiledContentRuleListData::de
     return {{
         WTFMove(*identifier),
         data.releaseNonNull(),
-        WTFMove(*conditionsApplyOnlyToDomain),
         WTFMove(*actionsOffset),
         WTFMove(*actionsSize),
-        WTFMove(*filtersWithoutConditionsBytecodeOffset),
-        WTFMove(*filtersWithoutConditionsBytecodeSize),
-        WTFMove(*filtersWithConditionsBytecodeOffset),
-        WTFMove(*filtersWithConditionsBytecodeSize),
+        WTFMove(*urlFiltersBytecodeOffset),
+        WTFMove(*urlFiltersBytecodeSize),
         WTFMove(*topURLFiltersBytecodeOffset),
         WTFMove(*topURLFiltersBytecodeSize),
         WTFMove(*frameURLFiltersBytecodeOffset),

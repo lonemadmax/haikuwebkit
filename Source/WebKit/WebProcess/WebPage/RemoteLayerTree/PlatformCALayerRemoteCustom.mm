@@ -39,10 +39,10 @@
 
 #import <pal/cocoa/AVFoundationSoftLink.h>
 
-static NSString * const platformCALayerPointer = @"WKPlatformCALayer";
-
 namespace WebKit {
 using namespace WebCore;
+
+static NSString * const platformCALayerPointer = @"WKPlatformCALayer";
 
 Ref<PlatformCALayerRemote> PlatformCALayerRemoteCustom::create(PlatformLayer *platformLayer, PlatformCALayerClient* owner, RemoteLayerTreeContext& context)
 {

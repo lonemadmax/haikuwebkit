@@ -60,7 +60,7 @@ StringView CachedScript::script()
         return emptyString();
 
     if (m_decodingState == NeverDecoded
-        && TextEncoding(encoding()).isByteBasedEncoding()
+        && PAL::TextEncoding(encoding()).isByteBasedEncoding()
         && m_data->size()
         && charactersAreAllASCII(m_data->data(), m_data->size())) {
 
@@ -96,10 +96,15 @@ unsigned CachedScript::scriptHash()
     return m_scriptHash;
 }
 
-void CachedScript::finishLoading(SharedBuffer* data, const NetworkLoadMetrics& metrics)
+void CachedScript::finishLoading(const FragmentedSharedBuffer* data, const NetworkLoadMetrics& metrics)
 {
-    m_data = data;
-    setEncodedSize(data ? data->size() : 0);
+    if (data) {
+        m_data = data->makeContiguous();
+        setEncodedSize(data->size());
+    } else {
+        m_data = nullptr;
+        setEncodedSize(0);
+    }
     CachedResource::finishLoading(data, metrics);
 }
 

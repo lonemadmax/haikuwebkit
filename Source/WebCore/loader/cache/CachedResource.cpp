@@ -241,8 +241,10 @@ void CachedResource::load(CachedResourceLoader& cachedResourceLoader)
 
     // Navigation algorithm is setting up the request before sending it to CachedResourceLoader?CachedResource.
     // So no need for extra fields for MainResource.
-    if (type() != Type::MainResource)
-        frameLoader.updateRequestAndAddExtraFields(m_resourceRequest, IsMainResource::No);
+    if (type() != Type::MainResource) {
+        bool isServiceWorkerNavigationLoad = type() != Type::SVGDocumentResource && m_options.serviceWorkersMode == ServiceWorkersMode::None && (m_options.destination == FetchOptions::Destination::Document || m_options.destination == FetchOptions::Destination::Iframe);
+        frameLoader.updateRequestAndAddExtraFields(m_resourceRequest, IsMainResource::No, FrameLoadType::Standard, ShouldUpdateAppInitiatedValue::Yes, isServiceWorkerNavigationLoad ? FrameLoader::IsServiceWorkerNavigationLoad::Yes : FrameLoader::IsServiceWorkerNavigationLoad::No);
+    }
 
     // FIXME: It's unfortunate that the cache layer and below get to know anything about fragment identifiers.
     // We should look into removing the expectation of that knowledge from the platform network stacks.
@@ -334,7 +336,7 @@ void CachedResource::checkNotify(const NetworkLoadMetrics& metrics)
         client->notifyFinished(*this, metrics);
 }
 
-void CachedResource::updateBuffer(SharedBuffer&)
+void CachedResource::updateBuffer(const FragmentedSharedBuffer&)
 {
     ASSERT(dataBufferingPolicy() == DataBufferingPolicy::BufferData);
 }
@@ -344,7 +346,7 @@ void CachedResource::updateData(const uint8_t*, unsigned)
     ASSERT(dataBufferingPolicy() == DataBufferingPolicy::DoNotBufferData);
 }
 
-void CachedResource::finishLoading(SharedBuffer*, const NetworkLoadMetrics& metrics)
+void CachedResource::finishLoading(const FragmentedSharedBuffer*, const NetworkLoadMetrics& metrics)
 {
     setLoading(false);
     checkNotify(metrics);
@@ -927,8 +929,7 @@ void CachedResource::tryReplaceEncodedData(SharedBuffer& newBuffer)
     if (*m_data != newBuffer)
         return;
 
-    m_data->clear();
-    m_data->append(newBuffer);
+    m_data = Ref { newBuffer };
     didReplaceSharedBufferContents();
 }
 

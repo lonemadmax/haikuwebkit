@@ -153,6 +153,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/contact-picker/ContactProperty.h
     Modules/contact-picker/ContactsRequestData.h
 
+    Modules/cookie-consent/CookieConsentDecisionResult.h
+
     Modules/encryptedmedia/CDMClient.h
     Modules/encryptedmedia/MediaKeySystemClient.h
     Modules/encryptedmedia/MediaKeySystemController.h
@@ -288,6 +290,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/permissions/PermissionObserver.h
     Modules/permissions/PermissionState.h
 
+    Modules/push-api/PushCrypto.h
+    Modules/push-api/PushMessageCrypto.h
     Modules/push-api/PushPermissionState.h
     Modules/push-api/PushSubscriptionData.h
 
@@ -383,6 +387,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     accessibility/isolatedtree/AXIsolatedObject.h
     accessibility/isolatedtree/AXIsolatedTree.h
 
+    animation/AnimationFrameRatePreset.h
     animation/CSSPropertyBlendingClient.h
     animation/CustomAnimationOptions.h
     animation/CompositeOperation.h
@@ -1289,6 +1294,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/PopupMenuClient.h
     platform/PopupMenuStyle.h
     platform/ProcessIdentifier.h
+    platform/ProcessIdentity.h
     platform/ProcessQualified.h
     platform/PromisedAttachmentInfo.h
     platform/PublicSuffix.h
@@ -1396,6 +1402,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ColorConversion.h
     platform/graphics/ColorHash.h
     platform/graphics/ColorInterpolation.h
+    platform/graphics/ColorInterpolationMethod.h
     platform/graphics/ColorLuminance.h
     platform/graphics/ColorMatrix.h
     platform/graphics/ColorModels.h
@@ -1523,6 +1530,10 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/PlatformMediaResourceLoader.h
     platform/graphics/PlatformTextTrack.h
     platform/graphics/PlatformTimeRanges.h
+    platform/graphics/PlatformVideoColorPrimaries.h
+    platform/graphics/PlatformVideoColorSpace.h
+    platform/graphics/PlatformVideoMatrixCoefficients.h
+    platform/graphics/PlatformVideoTransferCharacteristics.h
     platform/graphics/Region.h
     platform/graphics/RemoteGraphicsContextGLProxyBase.h
     platform/graphics/RemoteVideoSample.h
@@ -1569,6 +1580,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/graphics/cv/ImageTransferSessionVT.h
 
+    platform/graphics/filters/DistantLightSource.h
     platform/graphics/filters/FEBlend.h
     platform/graphics/filters/FEColorMatrix.h
     platform/graphics/filters/FEComponentTransfer.h
@@ -1596,7 +1608,10 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/filters/FilterOperation.h
     platform/graphics/filters/FilterOperations.h
     platform/graphics/filters/LightSource.h
+    platform/graphics/filters/PointLightSource.h
+    platform/graphics/filters/SourceAlpha.h
     platform/graphics/filters/SourceGraphic.h
+    platform/graphics/filters/SpotLightSource.h
 
     platform/graphics/iso/ISOBox.h
     platform/graphics/iso/ISOOriginalFormatBox.h
@@ -1747,10 +1762,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/text/TextBoundaries.h
     platform/text/TextCheckerClient.h
     platform/text/TextChecking.h
-    platform/text/TextCodec.h
     platform/text/TextDirection.h
-    platform/text/TextEncoding.h
-    platform/text/TextEncodingRegistry.h
     platform/text/TextFlags.h
     platform/text/UnicodeBidi.h
     platform/text/WritingMode.h
@@ -1904,12 +1916,14 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     svg/SVGLengthValue.h
     svg/SVGParserUtilities.h
     svg/SVGParsingError.h
+    svg/SVGPreserveAspectRatioValue.h
     svg/SVGStringList.h
     svg/SVGTests.h
     svg/SVGUnitTypes.h
 
     svg/graphics/SVGImageCache.h
 
+    svg/graphics/filters/SVGFEImage.h
     svg/graphics/filters/SVGFilter.h
     svg/graphics/filters/SVGFilterExpression.h
 

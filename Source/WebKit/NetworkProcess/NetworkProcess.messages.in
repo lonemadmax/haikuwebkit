@@ -53,6 +53,7 @@ messages -> NetworkProcess LegacyReceiver {
 #if PLATFORM(COCOA)
     PublishDownloadProgress(WebKit::DownloadID downloadID, URL url, WebKit::SandboxExtension::Handle sandboxExtensionHandle)
 #endif
+    RequestResource(WebKit::WebPageProxyIdentifier pageID, PAL::SessionID sessionID, WebCore::ResourceRequest request, IPC::FormDataReference requestBody) -> (IPC::DataReference data, WebCore::ResourceResponse response, WebCore::ResourceError error) Async
     ApplicationDidEnterBackground()
     ApplicationWillEnterForeground()
 
@@ -172,7 +173,6 @@ messages -> NetworkProcess LegacyReceiver {
     MarkPrivateClickMeasurementsAsExpiredForTesting(PAL::SessionID sessionID) -> () Async
     SetPCMFraudPreventionValuesForTesting(PAL::SessionID sessionID, String secretToken, String unlinkableToken, String signature, String keyID) -> () Async
     SetPrivateClickMeasurementAppBundleIDForTesting(PAL::SessionID sessionID, String appBundleIDForTesting) -> () Async
-    GetLocalStorageOriginDetails(PAL::SessionID sessionID) -> (Vector<WebKit::LocalStorageDatabaseTracker::OriginDetails> details) Async
 
     SetServiceWorkerFetchTimeoutForTesting(Seconds seconds) -> () Synchronous
     ResetServiceWorkerFetchTimeoutForTesting() -> () Synchronous
@@ -206,7 +206,8 @@ messages -> NetworkProcess LegacyReceiver {
 #endif
 
 #if ENABLE(SERVICE_WORKER)
-    ProcessPushMessage(PAL::SessionID sessionID, std::optional<IPC::DataReference> data, URL registrationURL) -> (bool didSucceed) Async
+    GetPendingPushMessages(PAL::SessionID sessionID) -> (Vector<WebKit::WebPushMessage> messages) Async
+    ProcessPushMessage(PAL::SessionID sessionID, struct WebKit::WebPushMessage pushMessage) -> (bool didSucceed) Async
 #endif
     DeletePushAndNotificationRegistration(PAL::SessionID sessionID, struct WebCore::SecurityOriginData origin) -> (String errorMessage) Async
     GetOriginsWithPushAndNotificationPermissions(PAL::SessionID sessionID) -> (Vector<WebCore::SecurityOriginData> origins) Async

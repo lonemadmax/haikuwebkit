@@ -142,6 +142,7 @@ struct TextIndicatorData;
 struct ViewportArguments;
 struct WindowFeatures;
 
+enum class CookieConsentDecisionResult : uint8_t;
 enum class RouteSharingPolicy : uint8_t;
 
 class ChromeClient {
@@ -531,6 +532,7 @@ public:
 #if ENABLE(SERVICE_CONTROLS)
     virtual void handleSelectionServiceClick(FrameSelection&, const Vector<String>&, const IntPoint&) { }
     virtual bool hasRelevantSelectionServices(bool /*isTextOnly*/) const { return false; }
+    virtual void handleImageServiceClick(const IntPoint&, Image&, bool /*isEditable*/, const IntRect&, const String& /*attachmentID*/) { }
 #endif
 
     virtual bool shouldDispatchFakeMouseMoveEvents() const { return true; }
@@ -618,6 +620,8 @@ public:
     virtual void startApplePayAMSUISession(const URL&, const ApplePayAMSUIRequest&, CompletionHandler<void(std::optional<bool>&&)>&& completionHandler) { completionHandler(std::nullopt); }
     virtual void abortApplePayAMSUISession() { }
 #endif
+
+    virtual void requestCookieConsent(CompletionHandler<void(CookieConsentDecisionResult)>&&) = 0;
 
 protected:
     virtual ~ChromeClient() = default;

@@ -108,7 +108,7 @@ bool RenderSVGResourceFilter::applyResource(RenderElement& renderer, const Rende
     }
 
     // Determine absolute transformation matrix for filter. 
-    AffineTransform absoluteTransform = SVGRenderingContext::calculateTransformationToOutermostCoordinateSystem(renderer);
+    auto absoluteTransform = SVGRenderingContext::calculateTransformationToOutermostCoordinateSystem(renderer);
     if (!absoluteTransform.isInvertible()) {
         m_rendererFilterDataMap.remove(&renderer);
         return false;
@@ -147,21 +147,21 @@ bool RenderSVGResourceFilter::applyResource(RenderElement& renderer, const Rende
     }
 
     // Change the coordinate transformation applied to the filtered element to reflect the resolution of the filter.
-    AffineTransform effectiveTransform = AffineTransform(filterScale.width(), 0, 0, filterScale.height(), 0, 0);
+    auto effectiveTransform = AffineTransform(filterScale.width(), 0, 0, filterScale.height(), 0, 0);
 
 #if ENABLE(DESTINATION_COLOR_SPACE_LINEAR_SRGB)
     auto colorSpace = DestinationColorSpace::LinearSRGB();
 #else
     auto colorSpace = DestinationColorSpace::SRGB();
 #endif
-    auto sourceGraphic = SVGRenderingContext::createImageBuffer(filterData->drawingRegion, effectiveTransform, colorSpace, filterData->filter->renderingMode(), context);
+    auto sourceGraphic = SVGRenderingContext::createImageBuffer(filterData->drawingRegion, effectiveTransform, colorSpace, filterData->filter->renderingMode(), renderer.hostWindow(), context);
     if (!sourceGraphic) {
         ASSERT(m_rendererFilterDataMap.contains(&renderer));
         filterData->savedContext = context;
         return false;
     }
     
-    GraphicsContext& sourceGraphicContext = sourceGraphic->context();
+    auto& sourceGraphicContext = sourceGraphic->context();
   
     filterData->sourceGraphicBuffer = WTFMove(sourceGraphic);
     filterData->savedContext = context;
@@ -218,8 +218,6 @@ void RenderSVGResourceFilter::postApplyResource(RenderElement& renderer, Graphic
         context->drawFilteredImageBuffer(filterData.sourceGraphicBuffer.get(), filterData.drawingRegion, *filterData.filter);
     }
 
-    filterData.sourceGraphicBuffer = nullptr;
-
     LOG_WITH_STREAM(Filters, stream << "RenderSVGResourceFilter " << this << " postApplyResource done\n");
 }
 
@@ -247,7 +245,7 @@ void RenderSVGResourceFilter::primitiveAttributeChanged(RenderObject* object, co
         // or none of them will be changed.
         if (!primitve->setFilterEffectAttribute(effect, attribute))
             return;
-        builder->clearResultsRecursive(effect);
+        builder->clearResultsRecursive(*effect);
 
         // Repaint the image on the screen.
         markClientForInvalidation(*objectFilterDataPair.key, RepaintInvalidation);

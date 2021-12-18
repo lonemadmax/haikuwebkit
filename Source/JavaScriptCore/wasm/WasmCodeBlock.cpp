@@ -37,8 +37,28 @@ namespace JSC { namespace Wasm {
 
 Ref<CodeBlock> CodeBlock::create(Context* context, MemoryMode mode, ModuleInformation& moduleInformation, RefPtr<LLIntCallees> llintCallees)
 {
-    auto* result = new (NotNull, fastMalloc(sizeof(CodeBlock))) CodeBlock(context, mode, moduleInformation, llintCallees);
-    return adoptRef(*result);
+    return adoptRef(*new CodeBlock(context, mode, moduleInformation, llintCallees));
+}
+
+Ref<CodeBlock> CodeBlock::createFromExisting(MemoryMode mode, const CodeBlock& other)
+{
+    return adoptRef(*new CodeBlock(mode, other));
+}
+
+CodeBlock::CodeBlock(MemoryMode mode, const CodeBlock& other)
+    : m_calleeCount(other.m_calleeCount)
+    , m_mode(mode)
+#if ENABLE(WEBASSEMBLY_B3JIT)
+    , m_omgCallees(m_calleeCount)
+    , m_bbqCallees(m_calleeCount)
+#endif
+    , m_llintCallees(other.m_llintCallees)
+    , m_embedderCallees(other.m_embedderCallees)
+    , m_wasmIndirectCallEntryPoints(other.m_wasmIndirectCallEntryPoints)
+    , m_wasmToWasmCallsites(other.m_wasmToWasmCallsites)
+    , m_wasmToWasmExitStubs(other.m_wasmToWasmExitStubs)
+{
+    setCompilationFinished();
 }
 
 CodeBlock::CodeBlock(Context* context, MemoryMode mode, ModuleInformation& moduleInformation, RefPtr<LLIntCallees> llintCallees)
@@ -59,10 +79,10 @@ CodeBlock::CodeBlock(Context* context, MemoryMode mode, ModuleInformation& modul
 
 #if ENABLE(WEBASSEMBLY_B3JIT)
             // FIXME: we should eventually collect the BBQ code.
-            m_bbqCallees.resize(m_calleeCount);
-            m_omgCallees.resize(m_calleeCount);
+            m_bbqCallees = FixedVector<RefPtr<BBQCallee>>(m_calleeCount);
+            m_omgCallees = FixedVector<RefPtr<OMGCallee>>(m_calleeCount);
 #endif
-            m_wasmIndirectCallEntryPoints.resize(m_calleeCount);
+            m_wasmIndirectCallEntryPoints = FixedVector<MacroAssemblerCodePtr<WasmEntryPtrTag>>(m_calleeCount);
 
             for (unsigned i = 0; i < m_calleeCount; ++i)
                 m_wasmIndirectCallEntryPoints[i] = m_llintCallees->at(i)->entrypoint();
@@ -85,9 +105,9 @@ CodeBlock::CodeBlock(Context* context, MemoryMode mode, ModuleInformation& modul
             }
 
             // FIXME: we should eventually collect the BBQ code.
-            m_bbqCallees.resize(m_calleeCount);
-            m_omgCallees.resize(m_calleeCount);
-            m_wasmIndirectCallEntryPoints.resize(m_calleeCount);
+            m_bbqCallees = FixedVector<RefPtr<BBQCallee>>(m_calleeCount);
+            m_omgCallees = FixedVector<RefPtr<OMGCallee>>(m_calleeCount);
+            m_wasmIndirectCallEntryPoints = FixedVector<MacroAssemblerCodePtr<WasmEntryPtrTag>>(m_calleeCount);
 
             BBQPlan* bbqPlan = static_cast<BBQPlan*>(m_plan.get());
             bbqPlan->initializeCallees([&] (unsigned calleeIndex, RefPtr<EmbedderEntrypointCallee>&& embedderEntrypointCallee, RefPtr<BBQCallee>&& wasmEntrypoint) {

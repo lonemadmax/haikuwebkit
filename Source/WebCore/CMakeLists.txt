@@ -27,6 +27,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/beacon"
     "${WEBCORE_DIR}/Modules/cache"
     "${WEBCORE_DIR}/Modules/contact-picker"
+    "${WEBCORE_DIR}/Modules/cookie-consent"
     "${WEBCORE_DIR}/Modules/credentialmanagement"
     "${WEBCORE_DIR}/Modules/encryptedmedia"
     "${WEBCORE_DIR}/Modules/encryptedmedia/legacy"
@@ -64,6 +65,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/webauthn"
     "${WEBCORE_DIR}/Modules/webauthn/cbor"
     "${WEBCORE_DIR}/Modules/webauthn/fido"
+    "${WEBCORE_DIR}/Modules/webcodecs"
     "${WEBCORE_DIR}/Modules/webdatabase"
     "${WEBCORE_DIR}/Modules/webdriver"
     "${WEBCORE_DIR}/Modules/websockets"
@@ -259,6 +261,9 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/contact-picker/ContactsManager.idl
     Modules/contact-picker/ContactsSelectOptions.idl
     Modules/contact-picker/Navigator+Contacts.idl
+
+    Modules/cookie-consent/Navigator+CookieConsent.idl
+    Modules/cookie-consent/RequestCookieConsentOptions.idl
 
     Modules/credentialmanagement/BasicCredential.idl
     Modules/credentialmanagement/CredentialCreationOptions.idl
@@ -660,6 +665,12 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/webauthn/PublicKeyCredentialType.idl
     Modules/webauthn/UserVerificationRequirement.idl
 
+    Modules/webcodecs/VideoColorPrimaries.idl
+    Modules/webcodecs/VideoColorSpace.idl
+    Modules/webcodecs/VideoColorSpaceInit.idl
+    Modules/webcodecs/VideoMatrixCoefficients.idl
+    Modules/webcodecs/VideoTransferCharacteristics.idl
+
     Modules/webdatabase/DOMWindow+WebDatabase.idl
     Modules/webdatabase/Database.idl
     Modules/webdatabase/DatabaseCallback.idl
@@ -683,6 +694,7 @@ set(WebCore_NON_SVG_IDL_FILES
     animation/Animatable.idl
     animation/AnimationEffect.idl
     animation/AnimationFrameProvider.idl
+    animation/AnimationFrameRatePreset.idl
     animation/AnimationPlaybackEvent.idl
     animation/AnimationPlaybackEventInit.idl
     animation/AnimationTimeline.idl
@@ -750,7 +762,8 @@ set(WebCore_NON_SVG_IDL_FILES
     css/CSSImportRule.idl
     css/CSSKeyframeRule.idl
     css/CSSKeyframesRule.idl
-    css/CSSLayerRule.idl
+    css/CSSLayerBlockRule.idl
+    css/CSSLayerStatementRule.idl
     css/CSSMediaRule.idl
     css/CSSNamespaceRule.idl
     css/CSSPaintCallback.idl
@@ -1112,6 +1125,7 @@ set(WebCore_NON_SVG_IDL_FILES
     html/canvas/PredefinedColorSpace.idl
 
     html/track/AudioTrack.idl
+    html/track/AudioTrackConfiguration.idl
     html/track/AudioTrackList.idl
     html/track/DataCue.idl
     html/track/TextTrack.idl
@@ -1124,6 +1138,7 @@ set(WebCore_NON_SVG_IDL_FILES
     html/track/VTTRegion.idl
     html/track/VTTRegionList.idl
     html/track/VideoTrack.idl
+    html/track/VideoTrackConfiguration.idl
     html/track/VideoTrackList.idl
 
     inspector/CommandLineAPIHost.idl

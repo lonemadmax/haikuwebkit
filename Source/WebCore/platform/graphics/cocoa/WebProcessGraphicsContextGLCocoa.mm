@@ -30,6 +30,7 @@
 #import "GraphicsContextGLCocoa.h" // NOLINT
 #import "GraphicsContextGLOpenGLManager.h"
 #import "PlatformCALayer.h"
+#import "ProcessIdentity.h"
 
 #if PLATFORM(MAC)
 #import "DisplayConfigurationMonitor.h"
@@ -78,14 +79,14 @@ public:
 
 private:
     DisplayBufferDisplayDelegate(bool isOpaque, float contentsScale)
-        : m_isOpaque(isOpaque)
-        , m_contentsScale(contentsScale)
+        : m_contentsScale(contentsScale)
+        , m_isOpaque(isOpaque)
     {
     }
 
-    const bool m_isOpaque;
-    const float m_contentsScale;
     std::unique_ptr<IOSurface> m_displayBuffer;
+    const float m_contentsScale;
+    const bool m_isOpaque;
 };
 
 // GraphicsContextGL type that is used when WebGL is run in-process in WebContent process.
@@ -113,7 +114,7 @@ private:
 };
 
 WebProcessGraphicsContextGLCocoa::WebProcessGraphicsContextGLCocoa(GraphicsContextGLAttributes&& attributes)
-    : GraphicsContextGLCocoa(WTFMove(attributes))
+    : GraphicsContextGLCocoa(WTFMove(attributes), { })
     , m_layerContentsDisplayDelegate(DisplayBufferDisplayDelegate::create(!attributes.alpha, attributes.devicePixelRatio))
 {
 #if PLATFORM(MAC)

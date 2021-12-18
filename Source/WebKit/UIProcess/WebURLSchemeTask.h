@@ -43,7 +43,6 @@ class FrameInfo;
 namespace WebCore {
 class ResourceError;
 class ResourceResponse;
-class SharedBuffer;
 }
 
 namespace WebKit {
@@ -84,7 +83,7 @@ public:
     ExceptionType willPerformRedirection(WebCore::ResourceResponse&&, WebCore::ResourceRequest&&,  Function<void(WebCore::ResourceRequest&&)>&&);
     ExceptionType didPerformRedirection(WebCore::ResourceResponse&&, WebCore::ResourceRequest&&);
     ExceptionType didReceiveResponse(const WebCore::ResourceResponse&);
-    ExceptionType didReceiveData(Ref<WebCore::SharedBuffer>&&);
+    ExceptionType didReceiveData(Ref<WebCore::FragmentedSharedBuffer>&&);
     ExceptionType didComplete(const WebCore::ResourceError&);
 
     void stop();
@@ -115,7 +114,7 @@ private:
 
     SyncLoadCompletionHandler m_syncCompletionHandler;
     WebCore::ResourceResponse m_syncResponse;
-    RefPtr<WebCore::SharedBuffer> m_syncData;
+    WebCore::SharedBufferBuilder m_syncData;
 
     bool m_waitingForRedirectCompletionHandlerCallback { false };
 };

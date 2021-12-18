@@ -53,10 +53,12 @@ public:
     bool hasFilterThatShouldBeRestrictedBySecurityOrigin() const { return m_hasFilterThatShouldBeRestrictedBySecurityOrigin; }
 
     RefPtr<FilterEffect> lastEffect() const final;
+    FilterEffectVector effectsOfType(FilterFunction::Type) const final;
+
     IntOutsets outsets() const final;
 
     void clearIntermediateResults();
-    RefPtr<FilterImage> apply() final;
+    RefPtr<FilterImage> apply(FilterImage* sourceImage) final;
 
 private:
     CSSFilter(RenderingMode, const FloatSize& filterScale, ClipOperation, bool hasFilterThatMovesPixels, bool hasFilterThatShouldBeRestrictedBySecurityOrigin);

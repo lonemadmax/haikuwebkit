@@ -25,15 +25,15 @@
 namespace WebCore {
 
 class SourceAlpha : public FilterEffect {
-public:        
+public:
+    WEBCORE_EXPORT static Ref<SourceAlpha> create();
     static Ref<SourceAlpha> create(FilterEffect&);
 
     static AtomString effectName() { return FilterEffect::sourceAlphaName(); }
 
 private:
+    SourceAlpha();
     explicit SourceAlpha(FilterEffect&);
-
-    FloatRect calculateImageRect(const Filter&, const FilterImageVector& inputs, const FloatRect& primitiveSubregion) const override;
 
     std::unique_ptr<FilterEffectApplier> createApplier(const Filter&) const override;
 

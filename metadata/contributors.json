@@ -4,7 +4,7 @@
          "aakash_jain@apple.com",
          "aj355@cornell.edu"
       ],
-      "github" : "aakashja",
+      "github" : "jain-aakash",
       "name" : "Aakash Jain",
       "nicks" : [
          "aakash_jain"
@@ -1485,7 +1485,7 @@
       "nicks" : [
          "cwiiis"
       ],
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -4246,6 +4246,7 @@
          "lmoura@igalia.com",
          "lauro.neto@openbossa.org"
       ],
+      "github" : "lauromoura",
       "name" : "Lauro Moura",
       "nicks" : [
          "lmoura"
@@ -4895,6 +4896,18 @@
       "nicks" : [
          "MPozdnyakov"
       ]
+   },
+   {
+      "emails" : [
+         "mikhail@igalia.com",
+         "mikhail.ramalho@gmail.com"
+      ],
+      "github" : "mikhailramalho",
+      "name" : "Mikhail R. Gadelha",
+      "nicks" : [
+         "mgadelha"
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [

@@ -27,10 +27,12 @@
 #import <WebKit/WKWebpagePreferences.h>
 
 #import "APICustomHeaderFields.h"
+#import "CaptivePortalModeObserver.h"
 #import "WKUserContentControllerInternal.h"
 #import "WKWebpagePreferencesInternal.h"
 #import "WKWebsiteDataStoreInternal.h"
 #import "WebContentMode.h"
+#import "WebProcessPool.h"
 #import "_WKCustomHeaderFieldsInternal.h"
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/WebCoreObjCExtras.h>
@@ -102,6 +104,72 @@ static WebCore::MouseEventPolicy coreMouseEventPolicy(_WKWebsiteMouseEventPolicy
     return WebCore::MouseEventPolicy::Default;
 }
 
+static _WKWebsiteModalContainerObservationPolicy modalContainerObservationPolicy(WebCore::ModalContainerObservationPolicy policy)
+{
+    switch (policy) {
+    case WebCore::ModalContainerObservationPolicy::Disabled:
+        return _WKWebsiteModalContainerObservationPolicyDisabled;
+    case WebCore::ModalContainerObservationPolicy::Prompt:
+        return _WKWebsiteModalContainerObservationPolicyPrompt;
+    case WebCore::ModalContainerObservationPolicy::Allow:
+        return _WKWebsiteModalContainerObservationPolicyAllow;
+    case WebCore::ModalContainerObservationPolicy::Disallow:
+        return _WKWebsiteModalContainerObservationPolicyDisallow;
+    }
+    ASSERT_NOT_REACHED();
+    return _WKWebsiteModalContainerObservationPolicyDisabled;
+}
+
+static WebCore::ModalContainerObservationPolicy coreModalContainerObservationPolicy(_WKWebsiteModalContainerObservationPolicy policy)
+{
+    switch (policy) {
+    case _WKWebsiteModalContainerObservationPolicyDisabled:
+        return WebCore::ModalContainerObservationPolicy::Disabled;
+    case _WKWebsiteModalContainerObservationPolicyPrompt:
+        return WebCore::ModalContainerObservationPolicy::Prompt;
+    case _WKWebsiteModalContainerObservationPolicyAllow:
+        return WebCore::ModalContainerObservationPolicy::Allow;
+    case _WKWebsiteModalContainerObservationPolicyDisallow:
+        return WebCore::ModalContainerObservationPolicy::Disallow;
+    }
+    ASSERT_NOT_REACHED();
+    return WebCore::ModalContainerObservationPolicy::Disabled;
+}
+
+class WebPagePreferencesCaptivePortalModeObserver final : public CaptivePortalModeObserver {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    WebPagePreferencesCaptivePortalModeObserver(id object)
+        : m_object(object)
+    {
+        addCaptivePortalModeObserver(*this);
+    }
+
+    ~WebPagePreferencesCaptivePortalModeObserver()
+    {
+        removeCaptivePortalModeObserver(*this);
+    }
+
+private:
+    void willChangeCaptivePortalMode() final
+    {
+        if (auto object = m_object.get()) {
+            [object willChangeValueForKey:@"_captivePortalModeEnabled"];
+            [object _willChangeCaptivePortalMode];
+        }
+    }
+
+    void didChangeCaptivePortalMode() final
+    {
+        if (auto object = m_object.get()) {
+            [object didChangeValueForKey:@"_captivePortalModeEnabled"];
+            [object _didChangeCaptivePortalMode];
+        }
+    }
+
+    WeakObjCPtr<id> m_object;
+};
+
 } // namespace WebKit
 
 @implementation WKWebpagePreferences
@@ -127,6 +195,7 @@ static WebCore::MouseEventPolicy coreMouseEventPolicy(_WKWebsiteMouseEventPolicy
         return nil;
 
     API::Object::constructInWrapper<API::WebsitePolicies>(self);
+    _captivePortalModeObserver = makeUnique<WebKit::WebPagePreferencesCaptivePortalModeObserver>(self);
 
     return self;
 }
@@ -418,9 +487,6 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 
 - (void)_setCaptivePortalModeEnabled:(BOOL)captivePortalModeEnabled
 {
-    if (_websitePolicies->captivePortalModeEnabled() == captivePortalModeEnabled)
-        return;
-
 #if PLATFORM(IOS_FAMILY)
     // On iOS, the web browser entitlement is required to disable captive portal mode.
     if (!captivePortalModeEnabled && !WTF::processHasEntitlement("com.apple.developer.web-browser"))
@@ -433,6 +499,33 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 - (BOOL)_captivePortalModeEnabled
 {
     return _websitePolicies->captivePortalModeEnabled();
+}
+
+- (_WKWebsiteColorSchemePreference)_colorSchemePreference
+{
+    switch (_websitePolicies->colorSchemePreference()) {
+    case WebCore::ColorSchemePreference::NoPreference:
+        return _WKWebsiteColorSchemePreferenceNoPreference;
+    case WebCore::ColorSchemePreference::Light:
+        return _WKWebsiteColorSchemePreferenceLight;
+    case WebCore::ColorSchemePreference::Dark:
+        return _WKWebsiteColorSchemePreferenceDark;
+    }
+}
+
+- (void)_setColorSchemePreference:(_WKWebsiteColorSchemePreference)value
+{
+    switch (value) {
+    case _WKWebsiteColorSchemePreferenceNoPreference:
+        _websitePolicies->setColorSchemePreference(WebCore::ColorSchemePreference::NoPreference);
+        break;
+    case _WKWebsiteColorSchemePreferenceLight:
+        _websitePolicies->setColorSchemePreference(WebCore::ColorSchemePreference::Light);
+        break;
+    case _WKWebsiteColorSchemePreferenceDark:
+        _websitePolicies->setColorSchemePreference(WebCore::ColorSchemePreference::Dark);
+        break;
+    }
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -459,8 +552,25 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
     return WebKit::mouseEventPolicy(_websitePolicies->mouseEventPolicy());
 }
 
+- (void)_setModalContainerObservationPolicy:(_WKWebsiteModalContainerObservationPolicy)policy
+{
+    _websitePolicies->setModalContainerObservationPolicy(WebKit::coreModalContainerObservationPolicy(policy));
+}
+
+- (_WKWebsiteModalContainerObservationPolicy)_modalContainerObservationPolicy
+{
+    return WebKit::modalContainerObservationPolicy(_websitePolicies->modalContainerObservationPolicy());
+}
+
 #if USE(APPLE_INTERNAL_SDK)
 #import <WebKitAdditions/WKWebpagePreferencesAdditions.mm>
+#else
+- (void)_willChangeCaptivePortalMode
+{
+}
+- (void)_didChangeCaptivePortalMode
+{
+}
 #endif
 
 @end

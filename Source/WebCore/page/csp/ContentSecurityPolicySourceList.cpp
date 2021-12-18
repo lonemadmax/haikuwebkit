@@ -30,7 +30,7 @@
 #include "ContentSecurityPolicy.h"
 #include "ContentSecurityPolicyDirectiveNames.h"
 #include "ParsingUtilities.h"
-#include "TextEncoding.h"
+#include <pal/text/TextEncoding.h>
 #include <wtf/ASCIICType.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/URL.h>
@@ -153,6 +153,19 @@ bool ContentSecurityPolicySourceList::matches(const Vector<ContentSecurityPolicy
     }
 
     return false;
+}
+
+bool ContentSecurityPolicySourceList::matchesAll(const Vector<ContentSecurityPolicyHash>& hashes) const
+{
+    if (hashes.isEmpty())
+        return false;
+
+    for (auto& hash : hashes) {
+        if (!m_hashes.contains(hash))
+            return false;
+    }
+
+    return true;
 }
 
 bool ContentSecurityPolicySourceList::matches(const String& nonce) const
@@ -435,7 +448,7 @@ template<typename CharacterType> std::optional<String> ContentSecurityPolicySour
     ASSERT(buffer.position() <= buffer.end());
     ASSERT(buffer.atEnd() || (*buffer == '#' || *buffer == '?'));
 
-    return decodeURLEscapeSequences(StringView(begin, buffer.position() - begin));
+    return PAL::decodeURLEscapeSequences(StringView(begin, buffer.position() - begin));
 }
 
 // port              = ":" ( 1*DIGIT / "*" )

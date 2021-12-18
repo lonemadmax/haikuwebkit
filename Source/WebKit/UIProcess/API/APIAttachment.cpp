@@ -98,7 +98,7 @@ std::optional<uint64_t> Attachment::fileSizeForDisplay() const
     return std::nullopt;
 }
 
-RefPtr<WebCore::SharedBuffer> Attachment::enclosingImageData() const
+RefPtr<WebCore::FragmentedSharedBuffer> Attachment::enclosingImageData() const
 {
     return nullptr;
 }

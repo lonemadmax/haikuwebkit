@@ -1,3 +1,365 @@
+2021-12-14  Darin Adler  <darin@apple.com>
+
+        Automatically generate event handler content attribute maps so they are easier to maintain
+        https://bugs.webkit.org/show_bug.cgi?id=234254
+
+        Reviewed by Alexey Shvayka.
+
+        * wtf/NeverDestroyed.h: Add a deduction guide for NeverDestroyed.
+        In the future we can use this instead of makeNeverDestroyed or writing
+        out the entire template class type including template arguments.
+
+2021-12-13  Saam Barati  <sbarati@apple.com>
+
+        Roll back r286345, r286387, r286471, r286667, r286849
+        https://bugs.webkit.org/show_bug.cgi?id=234268
+
+        Reviewed by Mark Lam.
+
+        * wtf/OSAllocator.h:
+        * wtf/posix/OSAllocatorPOSIX.cpp:
+        (WTF::OSAllocator::reserveUncommittedAligned): Deleted.
+
+2021-12-13  Antoine Quint  <graouts@webkit.org>
+
+        CustomEffect and animation frame rate should be disabled by default in STP
+        https://bugs.webkit.org/show_bug.cgi?id=234251
+
+        Reviewed by Dean Jackson.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-12-13  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed build fix after r286971.
+
+        * wtf/spi/darwin/dyldSPI.h:
+
+2021-12-13  Chris Dumez  <cdumez@apple.com>
+
+        Regression(r283565) Unable to report private messages as Spam in Twitter app
+        https://bugs.webkit.org/show_bug.cgi?id=234253
+        <rdar://86043227>
+
+        Reviewed by Alex Christensen.
+
+        Add some new iOS / macOS versions.
+
+        * wtf/spi/darwin/dyldSPI.h:
+
+2021-12-13  Elliott Williams  <emw@apple.com>
+
+        Deployment target for macOS 11+ does not follow minor version bumps
+        https://bugs.webkit.org/show_bug.cgi?id=233906
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/DebugRelease.xcconfig:
+        * wtf/PlatformHave.h: Add feature define which has been public since macOS 11.0
+
+2021-12-11  Don Olmstead  <don.olmstead@sony.com>
+
+        Add a std::nullptr_t constructor for RefPtr
+        https://bugs.webkit.org/show_bug.cgi?id=234192
+
+        Reviewed by Yusuke Suzuki.
+
+        Add the constexpr constructor RefPtr(std::nullptr_t) with the same behavior as the default
+        constructor. Both std::unique_ptr and std::shared_ptr have this same overload to optimize
+        for the nullptr case. As an added bonus this also makes it so `0` can't fill in as a
+        nullptr since the ambiguity will cause a compilation error.
+
+        * wtf/RefPtr.h:
+        (WTF::RefPtr::RefPtr):
+
+2021-12-11  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r286893.
+        https://bugs.webkit.org/show_bug.cgi?id=234197
+
+        Breaks the build
+
+        Reverted changeset:
+
+        "[macOS] Add new screen and window capture backend"
+        https://bugs.webkit.org/show_bug.cgi?id=234029
+        https://commits.webkit.org/r286893
+
+2021-12-11  Jer Noble  <jer.noble@apple.com>
+
+        Add an experimental VideoTrackConfiguration class and accessor on VideoTrack
+        https://bugs.webkit.org/show_bug.cgi?id=230841
+
+        Reviewed by Eric Carlson.
+
+        Drive-by change: add a Vector::reverseFindMatching convenience method.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+        * wtf/Vector.h:
+        (WTF::Malloc>::reverseFindMatching const):
+
+2021-12-10  Eric Carlson  <eric.carlson@apple.com>
+
+        [macOS] Add new screen and window capture backend
+        https://bugs.webkit.org/show_bug.cgi?id=234029
+
+        Reviewed by Jer Noble and Youenn Fablet.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml: Add UseScreenCaptureKit.
+        * wtf/PlatformHave.h: Define HAVE_SCREEN_CAPTURE_KIT.
+        * wtf/cocoa/SoftLinking.h: Add softlink macros that take an API_AVAILABLE check.
+
+2021-12-10  Don Olmstead  <don.olmstead@sony.com>
+
+        Add FileSystem function to read a file at a path
+        https://bugs.webkit.org/show_bug.cgi?id=234103
+
+        Reviewed by Alex Christensen.
+
+        Add FileSystem::readEntireFile which takes a path and attempts to read the whole contents
+        of the file into a Vector<uint8_t>. If the file is not found or is empty then it returns
+        nullopt. Internally it manages the opening and closing of the file to prevent file handles
+        from leaking.
+
+        Modify FileSystem::readEntireFile which takes a handle to continue reading until the entire
+        file has been read. Previously it could've just done a partial read as
+        FileSystem::readFromFile does not guarantee it will read all the bytes requested.
+
+        * wtf/FileSystem.cpp:
+        (WTF::FileSystemImpl::readEntireFile):
+        * wtf/FileSystem.h:
+
+2021-12-10  Antoine Quint  <graouts@webkit.org>
+
+        Expose the maximum device frame rate to the Web Animations model
+        https://bugs.webkit.org/show_bug.cgi?id=234161
+        rdar://85983792
+
+        Reviewed by Simon Fraser.
+
+        Add a new experimental feature controlling the availability of per-animation frame rate.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-12-10  Sam Sneddon  <gsnedders@apple.com>
+
+        Enable the 'resolution' media query by default
+        https://bugs.webkit.org/show_bug.cgi?id=78087
+
+        Reviewed by Simon Fraser.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-12-09  Darin Adler  <darin@apple.com>
+
+        Use simpler idioms for std::less and std::greater possible in modern C++
+        https://bugs.webkit.org/show_bug.cgi?id=234117
+
+        Reviewed by Anders Carlsson.
+
+        * wtf/ListDump.h:
+        (WTF::sortedListDump): Removed unnecessary template arguments to std::less.
+
+2021-12-10  Keith Miller  <keith_miller@apple.com>
+
+        Reduce maximum mmap size for Structure regions to help placate ios
+        https://bugs.webkit.org/show_bug.cgi?id=234091
+
+        Reviewed by Saam Barati.
+
+        Use mach_vm_map since that supports memory alignement so we don't have to map 2x desired address space then free then trim.
+
+        * wtf/PlatformHave.h:
+        * wtf/posix/OSAllocatorPOSIX.cpp:
+        (WTF::OSAllocator::reserveUncommittedAligned):
+
+2021-12-10  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Basic @container at-rule parsing support
+        https://bugs.webkit.org/show_bug.cgi?id=234135
+
+        Reviewed by Antoine Quint.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+        Add preference for container queries, disabled by default.
+
+2021-12-09  Alan Bujtas  <zalan@apple.com>
+
+        Enable the CSS Contain property by default
+        https://bugs.webkit.org/show_bug.cgi?id=234020
+        <rdar://problem/86218835>
+
+        Reviewed by Brent Fulgham.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-12-09  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, reverting r286804.
+
+        Breaks internal builds.
+
+        Reverted changeset:
+
+        "Reduce maximum mmap size for Structure regions to help
+        placate ios"
+        https://bugs.webkit.org/show_bug.cgi?id=234091
+        https://commits.webkit.org/r286804
+
+2021-12-09  Alex Christensen  <achristensen@webkit.org>
+
+        Prepare for transition to C++20
+        https://bugs.webkit.org/show_bug.cgi?id=234022
+
+        Reviewed by Yusuke Suzuki.
+
+        In C++20, volitile is deprecated, operator== is stricter (related to the introduction of operator <=>),
+        and operations on enums of different types are stricter too.  This does the changes we can do before
+        the transition, which will be done in bug 233963.
+
+        * wtf/DateMath.h:
+        (WTF::LocalTimeOffset::operator== const):
+        (WTF::LocalTimeOffset::operator!= const):
+        (WTF::LocalTimeOffset::operator==): Deleted.
+        (WTF::LocalTimeOffset::operator!=): Deleted.
+        * wtf/FastBitVector.h:
+        (WTF::FastBitVectorImpl::operator== const):
+        (WTF::FastBitVectorImpl::operator!= const):
+        * wtf/GenericTimeMixin.h:
+        (WTF::GenericTimeMixin::operator== const):
+        (WTF::GenericTimeMixin::operator!= const):
+        (WTF::GenericTimeMixin::operator< const):
+        (WTF::GenericTimeMixin::operator> const):
+        (WTF::GenericTimeMixin::operator<= const):
+        (WTF::GenericTimeMixin::operator>= const):
+        * wtf/IteratorAdaptors.h:
+        (WTF::FilterIterator::operator== const):
+        (WTF::FilterIterator::operator!= const):
+        (WTF::TransformIterator::operator== const):
+        (WTF::TransformIterator::operator!= const):
+        * wtf/Liveness.h:
+        (WTF::Liveness::LocalCalc::Iterable::iterator::operator== const):
+        (WTF::Liveness::LocalCalc::Iterable::iterator::operator!= const):
+        (WTF::Liveness::LocalCalc::Iterable::iterator::operator==): Deleted.
+        (WTF::Liveness::LocalCalc::Iterable::iterator::operator!=): Deleted.
+
+2021-12-09  Alex Christensen  <achristensen@webkit.org>
+
+        Use Span for IPC::ArrayReference and DataReference
+        https://bugs.webkit.org/show_bug.cgi?id=233931
+
+        Reviewed by Wenson Hsieh.
+
+        * wtf/Vector.h:
+        (WTF::Vector::Vector):
+        (WTF::Vector::span const):
+
+2021-12-09  Robert Jenner  <Jenner@apple.com>
+
+        Unreviewed, reverting r286754.
+
+        Broke 2 tests on all mac an iOS
+
+        Reverted changeset:
+
+        "Add an experimental trackConfiguration accessor on AudioTrack
+        & VideoTrack."
+        https://bugs.webkit.org/show_bug.cgi?id=230841
+        https://commits.webkit.org/r286754
+
+2021-12-09  Keith Miller  <keith_miller@apple.com>
+
+        Reduce maximum mmap size for Structure regions to help placate ios
+        https://bugs.webkit.org/show_bug.cgi?id=234091
+
+        Reviewed by Saam Barati.
+
+        Use mach_vm_map since that supports memory alignement so we don't have to map 2x desired address space then free then trim.
+
+        * wtf/PlatformHave.h:
+        * wtf/posix/OSAllocatorPOSIX.cpp:
+        (WTF::OSAllocator::reserveUncommittedAligned):
+
+2021-12-09  Antti Koivisto  <antti@apple.com>
+
+        Enable :focus-visible pseudo-class by default
+        https://bugs.webkit.org/show_bug.cgi?id=234019
+        <rdar://problem/86218583>
+
+        Reviewed by Brent Fulgham.
+
+        This enables :focus-visible pseudo-class for authors.
+
+        It also changes :focus-visible behavior in the user agent stylesheet so that
+
+        - <div tabindex> (or any element with 'tabindex' attribute that is not focusable otherwise) will not show focus
+          indicator when focused via click/tap/script.
+        - <details> element will not show focus indicator when focused via click/tap/script.
+
+        Both still show focus indicator when focused via keyboard (tab) navigation.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-12-09  Myles C. Maxfield  <mmaxfield@apple.com> and Don Olmstead  <don.olmstead@sony.com>
+
+        Move TextCodec files from WebCore/platform/text to WebCore/PAL/text
+        https://bugs.webkit.org/show_bug.cgi?id=233683
+
+        Reviewed by Yusuke Suzuki.
+
+        Update to use the new PAL files.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
+2021-12-08  Jer Noble  <jer.noble@apple.com>
+
+        Add an experimental VideoTrackConfiguration class and accessor on VideoTrack
+        https://bugs.webkit.org/show_bug.cgi?id=230841
+
+        Reviewed by Eric Carlson.
+
+        Drive-by change: add a Vector::reverseFindMatching convenience method.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+        * wtf/Vector.h:
+        (WTF::Malloc>::reverseFindMatching const):
+
+2021-12-08  Philippe Normand  <pnormand@igalia.com>
+
+        [GStreamer] Enable mediaSourceInlinePainting
+        https://bugs.webkit.org/show_bug.cgi?id=233813
+
+        Reviewed by Xabier Rodriguez-Calvar.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml: GStreamer ports can already run tests
+        requiring this setting, without change in the platform layer, until we migrate to the
+        GPUProcess.
+
+2021-12-07  Aditya Keerthi  <akeerthi@apple.com>
+
+        [iOS] Add initial support for find-in-page SPI
+        https://bugs.webkit.org/show_bug.cgi?id=233915
+        rdar://86140501
+
+        Reviewed by Wenson Hsieh.
+
+        * wtf/PlatformHave.h:
+
+2021-12-07  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Add support for `navigator.requestCookieConsent()` behind a disabled feature flag
+        https://bugs.webkit.org/show_bug.cgi?id=233890
+        rdar://86117718
+
+        Reviewed by Darin Adler.
+
+        Add the new feature flag (off by default). Note that this is also only an internal feature flag for the time
+        being (rather than an experimental feature flag), such that it cannot (yet) be turned on by non-Apple internal
+        users.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
 2021-12-07  Sihui Liu  <sihui_liu@apple.com>
 
         Fetch and remove file system data via WKWebsiteDataStore

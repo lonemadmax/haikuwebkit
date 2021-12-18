@@ -1,3 +1,50 @@
+2021-12-14  Jean-Yves Avenard  <jya@apple.com>
+
+        Distinguish contiguous SharedBuffer from non-contiguous one and guarantee immutability: part 3
+        https://bugs.webkit.org/show_bug.cgi?id=233677
+
+        Reviewed by Youenn Fablet.
+
+        * DecoderTest/DecoderTest/main.mm:
+        (main):
+
+2021-12-13  Cathie Chen  <cathiechen@igalia.com>
+
+        [Performance test] Add test lots-of-self-painting-layers.html
+        https://bugs.webkit.org/show_bug.cgi?id=233684
+
+        Reviewed by Rob Buis.
+
+        This test is a transform of the test [1] in blink. It uses position: relative to create
+        lots of self-painting layers. By changing the first layer's height, it tracks the repaint
+        performance of these self-painting layers.
+
+        [1] third_party/blink/perf_tests/layout/contain-content-style-change.html
+
+        * Paint/lots-of-self-painting-layers.html: Added.
+
+2021-12-08  Alan Bujtas  <zalan@apple.com>
+
+        Add layout performance test for simple bidi content with inline boxes
+        https://bugs.webkit.org/show_bug.cgi?id=234062
+
+        Unreviewed.
+
+        This is in preparation for enabling IFC bidi handling.
+
+        * Layout/line-layout-simple-bidi-with-inline-boxes.html: Added.
+
+2021-12-08  Alan Bujtas  <zalan@apple.com>
+
+        Add layout performance test for bidi content with direction override inside inline boxes
+        https://bugs.webkit.org/show_bug.cgi?id=234064
+
+        Unreviewed.
+
+        This is in preparation for enabling IFC bidi handling.
+
+        * Layout/line-layout-simple-bidi-with-direction-overrides-in-inline-boxes.html: Added.
+
 2021-12-07  Cathie Chen  <cathiechen@igalia.com>
 
         [Performance test][css-contain] Add test large-grid.html

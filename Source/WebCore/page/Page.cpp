@@ -1792,6 +1792,24 @@ void Page::renderingUpdateCompleted()
     }
 }
 
+void Page::willStartPlatformRenderingUpdate()
+{
+    // Inspector's use of "composite" is rather innacurate. On Apple platforms, the "composite" step happens
+    // in another process; these hooks wrap the non-WebKit CA commit time which is mostly painting-related.
+    m_inspectorController->willComposite(mainFrame());
+
+    if (m_scrollingCoordinator)
+        m_scrollingCoordinator->willStartPlatformRenderingUpdate();
+}
+
+void Page::didCompletePlatformRenderingUpdate()
+{
+    if (m_scrollingCoordinator)
+        m_scrollingCoordinator->didCompletePlatformRenderingUpdate();
+
+    m_inspectorController->didComposite(mainFrame());
+}
+
 void Page::prioritizeVisibleResources()
 {
     if (loadSchedulingMode() == LoadSchedulingMode::Direct)
@@ -1916,7 +1934,7 @@ void Page::userStyleSheetLocationChanged()
     if (url.protocolIsData() && url.string().startsWith("data:text/css;charset=utf-8;base64,")) {
         m_didLoadUserStyleSheet = true;
 
-        if (auto styleSheetAsUTF8 = base64Decode(decodeURLEscapeSequences(url.string().substring(35)), Base64DecodeOptions::IgnoreSpacesAndNewLines))
+        if (auto styleSheetAsUTF8 = base64Decode(PAL::decodeURLEscapeSequences(url.string().substring(35)), Base64DecodeOptions::IgnoreSpacesAndNewLines))
             m_userStyleSheet = String::fromUTF8(styleSheetAsUTF8->data(), styleSheetAsUTF8->size());
     }
 

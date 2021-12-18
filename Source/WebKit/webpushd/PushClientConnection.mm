@@ -73,6 +73,7 @@ void ClientConnection::setHostAppAuditTokenData(const Vector<uint8_t>& tokenData
     }
 
     m_hostAppAuditToken = WTFMove(token);
+    Daemon::singleton().broadcastAllConnectionIdentities();
 }
 
 const String& ClientConnection::hostAppCodeSigningIdentifier()
@@ -89,13 +90,22 @@ const String& ClientConnection::hostAppCodeSigningIdentifier()
 
 bool ClientConnection::hostAppHasPushEntitlement()
 {
-    if (!m_hostAppHasPushEntitlement) {
-        if (!m_hostAppAuditToken)
-            return false;
-        m_hostAppHasPushEntitlement = WTF::hasEntitlement(*m_hostAppAuditToken, "com.apple.private.webkit.webpush");
-    }
+    if (!m_hostAppHasPushEntitlement)
+        m_hostAppHasPushEntitlement = hostHasEntitlement("com.apple.private.webkit.webpush"_s);
 
     return *m_hostAppHasPushEntitlement;
+}
+
+bool ClientConnection::hostAppHasPushInjectEntitlement()
+{
+    return hostHasEntitlement("com.apple.private.webkit.webpush.inject"_s);
+}
+
+bool ClientConnection::hostHasEntitlement(const char* entitlement)
+{
+    if (!m_hostAppAuditToken)
+        return false;
+    return WTF::hasEntitlement(*m_hostAppAuditToken, entitlement);
 }
 
 void ClientConnection::setDebugModeIsEnabled(bool enabled)
@@ -112,9 +122,9 @@ void ClientConnection::broadcastDebugMessage(const String& message)
     String messageIdentifier;
     auto signingIdentifer = hostAppCodeSigningIdentifier();
     if (signingIdentifer.isEmpty())
-        messageIdentifier = makeString ("[(0x", hex(reinterpret_cast<uint64_t>(m_xpcConnection.get()), WTF::HexConversionMode::Lowercase), ")] ");
+        messageIdentifier = makeString("[(0x", hex(reinterpret_cast<uint64_t>(m_xpcConnection.get()), WTF::HexConversionMode::Lowercase), ") (", String::number(identifier()), " )] ");
     else
-        messageIdentifier = makeString ("[", signingIdentifer, " (0x", hex(reinterpret_cast<uint64_t>(m_xpcConnection.get()), WTF::HexConversionMode::Lowercase), ")] ");
+        messageIdentifier = makeString("[", signingIdentifer, " (", String::number(identifier()), ")] ");
 
     Daemon::singleton().broadcastDebugMessage(JSC::MessageLevel::Info, makeString(messageIdentifier, message));
 }

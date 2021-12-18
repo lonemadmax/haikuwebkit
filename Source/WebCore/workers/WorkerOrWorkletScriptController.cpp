@@ -37,6 +37,7 @@
 #include "JSExecState.h"
 #include "JSPaintWorkletGlobalScope.h"
 #include "JSServiceWorkerGlobalScope.h"
+#include "JSSharedWorkerGlobalScope.h"
 #include "ModuleFetchFailureKind.h"
 #include "ModuleFetchParameters.h"
 #include "ScriptSourceCode.h"
@@ -76,6 +77,7 @@ WorkerOrWorkletScriptController::WorkerOrWorkletScriptController(WorkerThreadTyp
         {
             JSLockHolder lock(m_vm.get());
             m_vm->ensureTerminationException();
+            m_vm->forbidExecutionOnTermination();
         }
 
         JSVMClientData::initNormalWorld(m_vm.get(), type);
@@ -530,6 +532,11 @@ void WorkerOrWorkletScriptController::initScript()
 
     if (is<DedicatedWorkerGlobalScope>(m_globalScope)) {
         initScriptWithSubclass<JSDedicatedWorkerGlobalScopePrototype, JSDedicatedWorkerGlobalScope, DedicatedWorkerGlobalScope>();
+        return;
+    }
+
+    if (is<SharedWorkerGlobalScope>(m_globalScope)) {
+        initScriptWithSubclass<JSSharedWorkerGlobalScopePrototype, JSSharedWorkerGlobalScope, SharedWorkerGlobalScope>();
         return;
     }
 

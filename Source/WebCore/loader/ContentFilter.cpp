@@ -233,7 +233,7 @@ void ContentFilter::deliverResourceData(CachedResource& resource)
     ASSERT(m_state == State::Allowed);
     ASSERT(resource.dataBufferingPolicy() == DataBufferingPolicy::BufferData);
     if (auto* resourceBuffer = resource.resourceBuffer())
-        m_client.dataReceivedThroughContentFilter(resourceBuffer->data(), resourceBuffer->size());
+        m_client.dataReceivedThroughContentFilter(resourceBuffer->makeContiguous()->data(), resourceBuffer->size());
 }
 
 static const URL& blockedPageURL()
@@ -276,7 +276,7 @@ void ContentFilter::handleProvisionalLoadFailure(const ResourceError& error)
 {
     ASSERT(willHandleProvisionalLoadFailure(error));
 
-    RefPtr<SharedBuffer> replacementData { m_blockingContentFilter->replacementData() };
+    RefPtr<FragmentedSharedBuffer> replacementData { m_blockingContentFilter->replacementData() };
     ResourceResponse response { URL(), "text/html"_s, static_cast<long long>(replacementData->size()), "UTF-8"_s };
     SubstituteData substituteData { WTFMove(replacementData), error.failingURL(), response, SubstituteData::SessionHistoryVisibility::Hidden };
     SetForScope<bool> loadingBlockedPage { m_isLoadingBlockedPage, true };

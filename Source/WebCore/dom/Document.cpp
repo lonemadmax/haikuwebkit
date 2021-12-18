@@ -1521,13 +1521,13 @@ String Document::characterSetWithUTF8Fallback() const
     AtomString name = encoding();
     if (!name.isNull())
         return name;
-    return UTF8Encoding().domName();
+    return PAL::UTF8Encoding().domName();
 }
 
 String Document::defaultCharsetForLegacyBindings() const
 {
     if (!frame())
-        UTF8Encoding().domName();
+        PAL::UTF8Encoding().domName();
     return settings().defaultTextEncodingName();
 }
 
@@ -7593,6 +7593,12 @@ bool Document::useDarkAppearance(const RenderStyle* style) const
 #else
     UNUSED_PARAM(style);
 #endif
+
+    if (DocumentLoader* documentLoader = loader()) {
+        auto colorSchemePreference = documentLoader->colorSchemePreference();
+        if (colorSchemePreference != ColorSchemePreference::NoPreference)
+            return colorSchemePreference == ColorSchemePreference::Dark;
+    }
 
     bool pageUsesDarkAppearance = false;
     if (Page* documentPage = page())

@@ -56,19 +56,17 @@ NetworkLoad::NetworkLoad(NetworkLoadClient& client, BlobRegistryImpl* blobRegist
         m_task = NetworkDataTask::create(networkSession, *this, m_parameters);
 }
 
+NetworkLoad::NetworkLoad(NetworkLoadClient& client, NetworkSession& networkSession, const Function<RefPtr<NetworkDataTask>(NetworkDataTaskClient&)>& createTask)
+    : m_client(client)
+    , m_networkProcess(networkSession.networkProcess())
+    , m_task(createTask(*this))
+{
+}
+
 void NetworkLoad::start()
 {
     if (!m_task)
         return;
-
-    if (!m_networkProcess->ftpEnabled() && m_parameters.request.url().protocolIsInFTPFamily()) {
-        m_task->clearClient();
-        m_task = nullptr;
-        WebCore::NetworkLoadMetrics emptyMetrics;
-        didCompleteWithError(ResourceError { errorDomainWebKitInternal, 0, url(), "FTP URLs are disabled"_s, ResourceError::Type::AccessControl }, emptyMetrics);
-        return;
-    }
-
     m_task->resume();
 }
 
@@ -256,7 +254,7 @@ void NetworkLoad::notifyDidReceiveResponse(ResourceResponse&& response, Negotiat
     m_client.get().didReceiveResponse(WTFMove(response), WTFMove(completionHandler));
 }
 
-void NetworkLoad::didReceiveData(Ref<SharedBuffer>&& buffer)
+void NetworkLoad::didReceiveData(Ref<FragmentedSharedBuffer>&& buffer)
 {
     // FIXME: This should be the encoded data length, not the decoded data length.
     auto size = buffer->size();
@@ -294,6 +292,11 @@ void NetworkLoad::cannotShowURL()
 void NetworkLoad::wasBlockedByRestrictions()
 {
     m_client.get().didFailLoading(wasBlockedByRestrictionsError(m_currentRequest));
+}
+
+void NetworkLoad::wasBlockedByDisabledFTP()
+{
+    m_client.get().didFailLoading(ftpDisabledError(m_currentRequest));
 }
 
 void NetworkLoad::didNegotiateModernTLS(const URL& url)

@@ -107,7 +107,6 @@ class NetworkProximityManager;
 class NetworkResourceLoader;
 class NetworkStorageManager;
 class ProcessAssertion;
-class StorageManagerSet;
 class WebPageNetworkParameters;
 class WebSWServerConnection;
 class WebSWServerToContextConnection;
@@ -117,6 +116,7 @@ enum class StorageAccessStatus : uint8_t;
 enum class WebsiteDataFetchOption : uint8_t;
 enum class WebsiteDataType : uint32_t;
 struct NetworkProcessCreationParameters;
+struct WebPushMessage;
 struct WebsiteDataStoreParameters;
 
 #if ENABLE(SERVICE_WORKER)
@@ -295,7 +295,6 @@ public:
     bool sessionIsControlledByAutomation(PAL::SessionID) const;
 
     void connectionToWebProcessClosed(IPC::Connection&, PAL::SessionID);
-    void getLocalStorageOriginDetails(PAL::SessionID, CompletionHandler<void(Vector<LocalStorageDatabaseTracker::OriginDetails>&&)>&&);
 
 #if ENABLE(CONTENT_EXTENSIONS)
     NetworkContentRuleListManager& networkContentRuleListManager() { return m_networkContentRuleListManager; }
@@ -396,7 +395,8 @@ public:
     bool ftpEnabled() const { return m_ftpEnabled; }
 
 #if ENABLE(SERVICE_WORKER)
-    void processPushMessage(PAL::SessionID, const std::optional<IPC::DataReference>&, URL&&, CompletionHandler<void(bool)>&&);
+    void getPendingPushMessages(PAL::SessionID, CompletionHandler<void(const Vector<WebPushMessage>&)>&&);
+    void processPushMessage(PAL::SessionID, WebPushMessage&&, CompletionHandler<void(bool)>&&);
 #endif
 
     void deletePushAndNotificationRegistration(PAL::SessionID, const WebCore::SecurityOriginData&, CompletionHandler<void(const String&)>&&);
@@ -455,6 +455,7 @@ private:
     void publishDownloadProgress(DownloadID, const URL&, SandboxExtension::Handle&&);
 #endif
     void continueWillSendRequest(DownloadID, WebCore::ResourceRequest&&);
+    void requestResource(WebPageProxyIdentifier, PAL::SessionID, WebCore::ResourceRequest&&, IPC::FormDataReference&&, CompletionHandler<void(IPC::DataReference, WebCore::ResourceResponse, WebCore::ResourceError)>&&);
     void applicationDidEnterBackground();
     void applicationWillEnterForeground();
 
@@ -551,7 +552,7 @@ private:
     void addSessionStorageQuotaManager(PAL::SessionID, uint64_t defaultQuota, uint64_t defaultThirdPartyQuota, const String& cacheRootPath, SandboxExtension::Handle&);
     void removeSessionStorageQuotaManager(PAL::SessionID);
 
-    void addStorageManagerForSession(PAL::SessionID, const String& path, SandboxExtension::Handle&);
+    void addStorageManagerForSession(PAL::SessionID, const String& path, SandboxExtension::Handle&, const String& localStoragePath, SandboxExtension::Handle&);
     void removeStorageManagerForSession(PAL::SessionID);
 
     // Connections to WebProcesses.
@@ -573,8 +574,6 @@ private:
 
     HashMap<PAL::SessionID, std::unique_ptr<NetworkSession>> m_networkSessions;
     HashMap<PAL::SessionID, std::unique_ptr<WebCore::NetworkStorageSession>> m_networkStorageSessions;
-
-    Ref<StorageManagerSet> m_storageManagerSet;
 
 #if PLATFORM(COCOA)
     void platformInitializeNetworkProcessCocoa(const NetworkProcessCreationParameters&);

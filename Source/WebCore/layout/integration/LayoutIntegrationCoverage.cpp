@@ -46,7 +46,7 @@
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 
 #define ALLOW_BIDI_CONTENT 1
-#define ALLOW_BIDI_CONTENT_WITH_INLINE_BOX 0
+#define ALLOW_BIDI_CONTENT_WITH_INLINE_BOX 1
 
 #ifndef NDEBUG
 #define SET_REASON_AND_RETURN_IF_NEEDED(reason, reasons, includeReasons) { \
@@ -116,17 +116,14 @@ static void printReason(AvoidanceReason reason, TextStream& stream)
     case AvoidanceReason::FlowHasOverflowNotVisible:
         stream << "overflow: hidden | scroll | auto";
         break;
-    case AvoidanceReason::FlowIsNotLTR:
-        stream << "dir is not LTR";
+    case AvoidanceReason::FlowMayNotBeLTR:
+        stream << "dir may not be LTR";
         break;
     case AvoidanceReason::FlowHasLineBoxContainProperty:
         stream << "line-box-contain value indicates variable line height";
         break;
     case AvoidanceReason::FlowIsNotTopToBottom:
         stream << "non top-to-bottom flow";
-        break;
-    case AvoidanceReason::FlowHasNonNormalUnicodeBiDi:
-        stream << "non-normal Unicode bidi";
         break;
     case AvoidanceReason::FlowHasRTLOrdering:
         stream << "-webkit-rtl-ordering";
@@ -428,20 +425,19 @@ static OptionSet<AvoidanceReason> canUseForFontAndText(const RenderBoxModelObjec
     return reasons;
 }
 
-static OptionSet<AvoidanceReason> canUseForStyle(const RenderStyle& style, IncludeReasons includeReasons)
+static OptionSet<AvoidanceReason> canUseForStyle(const RenderElement& renderer, IncludeReasons includeReasons)
 {
+    auto& style = renderer.style();
     OptionSet<AvoidanceReason> reasons;
     if ((style.overflowX() != Overflow::Visible && style.overflowX() != Overflow::Hidden)
         || (style.overflowY() != Overflow::Visible && style.overflowY() != Overflow::Hidden))
         SET_REASON_AND_RETURN_IF_NEEDED(FlowHasOverflowNotVisible, reasons, includeReasons);
     if (style.textOverflow() == TextOverflow::Ellipsis)
         SET_REASON_AND_RETURN_IF_NEEDED(FlowHasTextOverflow, reasons, includeReasons);
-    if (!style.isLeftToRightDirection())
-        SET_REASON_AND_RETURN_IF_NEEDED(FlowIsNotLTR, reasons, includeReasons);
+    if (!style.isLeftToRightDirection() || (is<RenderBlockFlow>(renderer) && style.unicodeBidi() == EUnicodeBidi::Plaintext))
+        SET_REASON_AND_RETURN_IF_NEEDED(FlowMayNotBeLTR, reasons, includeReasons);
     if (style.writingMode() != WritingMode::TopToBottom)
         SET_REASON_AND_RETURN_IF_NEEDED(FlowIsNotTopToBottom, reasons, includeReasons);
-    if (style.unicodeBidi() != UBNormal)
-        SET_REASON_AND_RETURN_IF_NEEDED(FlowHasNonNormalUnicodeBiDi, reasons, includeReasons);
     if (style.rtlOrdering() != Order::Logical)
         SET_REASON_AND_RETURN_IF_NEEDED(FlowHasRTLOrdering, reasons, includeReasons);
     if (style.textEmphasisFill() != TextEmphasisFill::Filled || style.textEmphasisMark() != TextEmphasisMark::None)
@@ -497,7 +493,7 @@ static OptionSet<AvoidanceReason> canUseForRenderInlineChild(const RenderInline&
     if (fontAndTextReasons)
         ADD_REASONS_AND_RETURN_IF_NEEDED(fontAndTextReasons, reasons, includeReasons);
 
-    auto styleReasons = canUseForStyle(style, includeReasons);
+    auto styleReasons = canUseForStyle(renderInline, includeReasons);
     if (styleReasons)
         ADD_REASONS_AND_RETURN_IF_NEEDED(styleReasons, reasons, includeReasons);
 
@@ -637,7 +633,7 @@ OptionSet<AvoidanceReason> canUseForLineLayoutWithReason(const RenderBlockFlow& 
             ADD_REASONS_AND_RETURN_IF_NEEDED(childReasons, reasons, includeReasons);
         hasSeenInlineBox = hasSeenInlineBox || is<RenderInline>(*walker.current());
     }
-    auto styleReasons = canUseForStyle(flow.style(), includeReasons);
+    auto styleReasons = canUseForStyle(flow, includeReasons);
     if (styleReasons)
         ADD_REASONS_AND_RETURN_IF_NEEDED(styleReasons, reasons, includeReasons);
     // We can't use the code path if any lines would need to be shifted below floats. This is because we don't keep per-line y coordinates.
@@ -679,12 +675,12 @@ bool canUseForLineLayoutAfterStyleChange(const RenderBlockFlow& blockContainer, 
     case StyleDifference::RepaintIfTextOrBorderOrOutline:
     case StyleDifference::RepaintLayer:
         // FIXME: We could do a more focused style check by matching RendererStyle::changeRequiresRepaint&co.
-        return canUseForStyle(blockContainer.style(), IncludeReasons::First).isEmpty();
+        return canUseForStyle(blockContainer, IncludeReasons::First).isEmpty();
     case StyleDifference::LayoutPositionedMovementOnly:
         return true;
     case StyleDifference::SimplifiedLayout:
     case StyleDifference::SimplifiedLayoutAndPositionedMovement:
-        return canUseForStyle(blockContainer.style(), IncludeReasons::First).isEmpty();
+        return canUseForStyle(blockContainer, IncludeReasons::First).isEmpty();
     case StyleDifference::Layout:
     case StyleDifference::NewStyle:
         return canUseForLineLayout(blockContainer);

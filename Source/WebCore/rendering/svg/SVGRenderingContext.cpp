@@ -92,8 +92,6 @@ void SVGRenderingContext::prepareToRenderSVGContent(RenderElement& renderer, Pai
 
     auto& style = m_renderer->style();
 
-    const SVGRenderStyle& svgStyle = style.svgStyle();
-
     // Setup transparency layers before setting up SVG resources!
     bool isRenderingMask = isRenderingMaskImage(*m_renderer);
     // RenderLayer takes care of root opacity.
@@ -103,7 +101,7 @@ void SVGRenderingContext::prepareToRenderSVGContent(RenderElement& renderer, Pai
     bool isolateMaskForBlending = false;
 
 #if ENABLE(CSS_COMPOSITING)
-    if (svgStyle.hasMasker() && is<SVGGraphicsElement>(downcast<SVGElement>(*renderer.element()))) {
+    if (style.hasPositionedMask() && is<SVGGraphicsElement>(downcast<SVGElement>(*renderer.element()))) {
         SVGGraphicsElement& graphicsElement = downcast<SVGGraphicsElement>(*renderer.element());
         isolateMaskForBlending = graphicsElement.shouldIsolateBlending();
     }
@@ -228,7 +226,7 @@ AffineTransform SVGRenderingContext::calculateTransformationToOutermostCoordinat
     return absoluteTransform;
 }
 
-RefPtr<ImageBuffer> SVGRenderingContext::createImageBuffer(const FloatRect& targetRect, const AffineTransform& absoluteTransform, const DestinationColorSpace& colorSpace, RenderingMode renderingMode, const GraphicsContext* context)
+RefPtr<ImageBuffer> SVGRenderingContext::createImageBuffer(const FloatRect& targetRect, const AffineTransform& absoluteTransform, const DestinationColorSpace& colorSpace, RenderingMode renderingMode, const HostWindow* hostWindow, const GraphicsContext* context)
 {
     IntRect paintRect = calculateImageBufferRect(targetRect, absoluteTransform);
     // Don't create empty ImageBuffers.
@@ -244,7 +242,7 @@ RefPtr<ImageBuffer> SVGRenderingContext::createImageBuffer(const FloatRect& targ
     auto imageBuffer = ImageBuffer::create(clampedSize, renderingMode, context, 1, colorSpace, PixelFormat::BGRA8);
 #else
     UNUSED_PARAM(context);
-    auto imageBuffer = ImageBuffer::create(clampedSize, renderingMode, 1, colorSpace, PixelFormat::BGRA8);
+    auto imageBuffer = ImageBuffer::create(clampedSize, renderingMode, ShouldUseDisplayList::No, RenderingPurpose::DOM, 1, colorSpace, PixelFormat::BGRA8, hostWindow);
 #endif
     if (!imageBuffer)
         return nullptr;

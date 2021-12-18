@@ -24,6 +24,7 @@
 #pragma once
 
 #include "FilterEffect.h"
+#include "Image.h"
 #include "SVGPreserveAspectRatioValue.h"
 
 namespace WebCore {
@@ -33,10 +34,14 @@ class ImageBuffer;
 
 class FEImage final : public FilterEffect {
 public:
-    using SourceImage = std::variant<Ref<Image>, Ref<ImageBuffer>>;
+    using SourceImage = std::variant<
+        Ref<Image>,
+        Ref<ImageBuffer>,
+        RenderingResourceIdentifier
+    >;
 
     static Ref<FEImage> create(Ref<Image>&&, const SVGPreserveAspectRatioValue&);
-    static Ref<FEImage> create(SourceImage&&, const FloatRect& sourceImageRect, const SVGPreserveAspectRatioValue&);
+    WEBCORE_EXPORT static Ref<FEImage> create(SourceImage&&, const FloatRect& sourceImageRect, const SVGPreserveAspectRatioValue&);
 
     const SourceImage& sourceImage() const { return m_sourceImage; }
     void setImageSource(SourceImage&& sourceImage) { m_sourceImage = WTFMove(sourceImage); }
@@ -44,8 +49,13 @@ public:
     FloatRect sourceImageRect() const { return m_sourceImageRect; }
     const SVGPreserveAspectRatioValue& preserveAspectRatio() const { return m_preserveAspectRatio; }
 
+    template<class Encoder> void encode(Encoder&) const;
+    template<class Decoder> static std::optional<Ref<FEImage>> decode(Decoder&);
+
 private:
     FEImage(SourceImage&&, const FloatRect& sourceImageRect, const SVGPreserveAspectRatioValue&);
+
+    unsigned numberOfEffectInputs() const override { return 0; }
 
     // FEImage results are always in DestinationColorSpace::SRGB()
     void setOperatingColorSpace(const DestinationColorSpace&) override { }
@@ -60,6 +70,47 @@ private:
     FloatRect m_sourceImageRect;
     SVGPreserveAspectRatioValue m_preserveAspectRatio;
 };
+
+template<class Encoder>
+void FEImage::encode(Encoder& encoder) const
+{
+    WTF::switchOn(m_sourceImage,
+        [&] (const Ref<Image>& image) {
+            if (auto nativeImage = image->nativeImage())
+                encoder << nativeImage->renderingResourceIdentifier();
+        },
+        [&] (const Ref<ImageBuffer>& imageBuffer) {
+            encoder << imageBuffer->renderingResourceIdentifier();
+        },
+        [&] (RenderingResourceIdentifier renderingResourceIdentifier) {
+            encoder << renderingResourceIdentifier;
+        }
+    );
+
+    encoder << m_sourceImageRect;
+    encoder << m_preserveAspectRatio;
+}
+
+template<class Decoder>
+std::optional<Ref<FEImage>> FEImage::decode(Decoder& decoder)
+{
+    std::optional<RenderingResourceIdentifier> imageIdentifier;
+    decoder >> imageIdentifier;
+    if (!imageIdentifier)
+        return std::nullopt;
+
+    std::optional<FloatRect> sourceImageRect;
+    decoder >> sourceImageRect;
+    if (!sourceImageRect)
+        return std::nullopt;
+
+    std::optional<SVGPreserveAspectRatioValue> preserveAspectRatio;
+    decoder >> preserveAspectRatio;
+    if (!preserveAspectRatio)
+        return std::nullopt;
+
+    return FEImage::create(*imageIdentifier, *sourceImageRect, *preserveAspectRatio);
+}
 
 } // namespace WebCore
 

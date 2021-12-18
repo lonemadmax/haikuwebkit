@@ -46,7 +46,7 @@ SpeculativeLoad::SpeculativeLoad(Cache& cache, const GlobalFrameID& globalFrameI
     : m_cache(cache)
     , m_completionHandler(WTFMove(completionHandler))
     , m_originalRequest(request)
-    , m_bufferedDataForCache(SharedBuffer::create())
+    , m_bufferedDataForCache(FragmentedSharedBuffer::create())
     , m_cacheEntry(WTFMove(cacheEntryForValidation))
 {
     ASSERT(!m_cacheEntry || m_cacheEntry->needsValidation());
@@ -109,7 +109,7 @@ void SpeculativeLoad::didReceiveResponse(ResourceResponse&& receivedResponse, Re
     m_response = receivedResponse;
 
     if (m_response.isMultipart())
-        m_bufferedDataForCache = nullptr;
+        m_bufferedDataForCache.reset();
 
     bool validationSucceeded = m_response.httpStatusCode() == 304; // 304 Not Modified
     if (validationSucceeded && m_cacheEntry)
@@ -120,17 +120,17 @@ void SpeculativeLoad::didReceiveResponse(ResourceResponse&& receivedResponse, Re
     completionHandler(PolicyAction::Use);
 }
 
-void SpeculativeLoad::didReceiveBuffer(Ref<SharedBuffer>&& buffer, int reportedEncodedDataLength)
+void SpeculativeLoad::didReceiveBuffer(Ref<FragmentedSharedBuffer>&& buffer, int reportedEncodedDataLength)
 {
     ASSERT(!m_cacheEntry);
 
     if (m_bufferedDataForCache) {
         // Prevent memory growth in case of streaming data.
         const size_t maximumCacheBufferSize = 10 * 1024 * 1024;
-        if (m_bufferedDataForCache->size() + buffer->size() <= maximumCacheBufferSize)
-            m_bufferedDataForCache->append(buffer.get());
+        if (m_bufferedDataForCache.size() + buffer->size() <= maximumCacheBufferSize)
+            m_bufferedDataForCache.append(buffer.get());
         else
-            m_bufferedDataForCache = nullptr;
+            m_bufferedDataForCache.reset();
     }
 }
 
@@ -139,10 +139,10 @@ void SpeculativeLoad::didFinishLoading(const WebCore::NetworkLoadMetrics&)
     if (m_didComplete)
         return;
     if (!m_cacheEntry && m_bufferedDataForCache) {
-        m_cacheEntry = m_cache->store(m_originalRequest, m_response, m_bufferedDataForCache.copyRef(), [](auto& mappedBody) { });
+        m_cacheEntry = m_cache->store(m_originalRequest, m_response, m_bufferedDataForCache.get(), [](auto& mappedBody) { });
         // Create a synthetic cache entry if we can't store.
         if (!m_cacheEntry && isStatusCodeCacheableByDefault(m_response.httpStatusCode()))
-            m_cacheEntry = m_cache->makeEntry(m_originalRequest, m_response, WTFMove(m_bufferedDataForCache));
+            m_cacheEntry = m_cache->makeEntry(m_originalRequest, m_response, m_bufferedDataForCache.take());
     }
 
     didComplete();

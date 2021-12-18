@@ -29,11 +29,13 @@
 #include "DisplayList.h"
 #include "DisplayListDrawingContext.h"
 #include "DisplayListItems.h"
+#include "Filter.h"
 #include "GraphicsContext.h"
 #include "ImageBuffer.h"
 #include "Logging.h"
 #include "MediaPlayer.h"
 #include "NotImplemented.h"
+#include "SVGFEImage.h"
 #include <wtf/MathExtras.h>
 #include <wtf/text/TextStream.h>
 
@@ -148,13 +150,40 @@ void Recorder::drawFilteredImageBuffer(ImageBuffer* sourceImage, const FloatRect
 {
     appendStateChangeItemIfNecessary();
 
-    if (!sourceImage) {
-        recordDrawFilteredImageBuffer({ }, sourceImageRect, filter);
+    if (sourceImage && !canDrawImageBuffer(*sourceImage)) {
+        GraphicsContext::drawFilteredImageBuffer(sourceImage, sourceImageRect, filter);
         return;
     }
 
-    if (!canDrawImageBuffer(*sourceImage)) {
-        GraphicsContext::drawFilteredImageBuffer(sourceImage, sourceImageRect, filter);
+    for (auto& effect : filter.effectsOfType(FilterEffect::Type::FEImage)) {
+        bool isRecorded = WTF::switchOn(downcast<FEImage>(effect.get()).sourceImage(),
+            [&] (const Ref<Image>& image) {
+                if (auto nativeImage = image->nativeImage()) {
+                    recordResourceUse(*nativeImage);
+                    return true;
+                }
+                return false;
+            },
+            [&] (const Ref<ImageBuffer>& imageBuffer) {
+                if (canDrawImageBuffer(imageBuffer)) {
+                    recordResourceUse(imageBuffer);
+                    return true;
+                }
+                return false;
+            },
+            [&] (RenderingResourceIdentifier) {
+                return true;
+            }
+        );
+
+        if (!isRecorded) {
+            GraphicsContext::drawFilteredImageBuffer(sourceImage, sourceImageRect, filter);
+            return;
+        }
+    }
+
+    if (!sourceImage) {
+        recordDrawFilteredImageBuffer({ }, sourceImageRect, filter);
         return;
     }
 

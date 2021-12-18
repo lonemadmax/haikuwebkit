@@ -33,7 +33,9 @@
 namespace WebCore {
 namespace Layout {
 
+struct AncestorStack;
 class ContainerBox;
+struct DisplayBoxTree;
 class InlineFormattingState;
 class LineBox;
 
@@ -49,7 +51,7 @@ private:
     void processNonBidiContent(const LineBuilder::LineContent&, const LineBox&, const InlineLayoutPoint& lineBoxLogicalTopLeft, DisplayBoxes&);
     void processBidiContent(const LineBuilder::LineContent&, const LineBox&, const InlineLayoutPoint& lineBoxLogicalTopLeft, DisplayBoxes&);
     void processOverflownRunsForEllipsis(DisplayBoxes&, InlineLayoutUnit lineBoxLogicalRight);
-    void collectInkOverflowForInlineBoxes(const LineBox&, DisplayBoxes&);
+    void collectInkOverflowForInlineBoxes(DisplayBoxes&);
 
     void appendTextDisplayBox(const Line::Run&, const InlineRect&, DisplayBoxes&);
     void appendSoftLineBreakDisplayBox(const Line::Run&, const InlineRect&, DisplayBoxes&);
@@ -57,18 +59,19 @@ private:
     void appendAtomicInlineLevelDisplayBox(const Line::Run&, const InlineRect& , DisplayBoxes&);
     void appendInlineBoxDisplayBox(const Line::Run&, const InlineLevelBox&, const InlineRect&, bool linehasContent, DisplayBoxes&);
     void appendSpanningInlineBoxDisplayBox(const Line::Run&, const InlineLevelBox&, const InlineRect&, DisplayBoxes&);
-    void insertInlineBoxDisplayBoxForBidiBoundary(const InlineLevelBox&, const InlineRect&, bool isFirstInlineBoxFragment, size_t insertionPoint, DisplayBoxes&);
-    void adjustInlineBoxDisplayBoxForBidiBoundary(InlineDisplay::Box&, const InlineRect&);
+    void appendInlineDisplayBoxAtBidiBoundary(const Box&, DisplayBoxes&);
 
     void setInlineBoxGeometry(const Box&, const InlineRect&, bool isFirstInlineBoxFragment);
+    void adjustVisualGeometryForDisplayBox(size_t displayBoxNodeIndex, InlineLayoutUnit& accumulatedOffset, InlineLayoutUnit lineBoxLogicalTop, const DisplayBoxTree&, DisplayBoxes&, const LineBox&);
+    size_t ensureDisplayBoxForContainer(const ContainerBox&, DisplayBoxTree&, AncestorStack&, DisplayBoxes&);
 
     const ContainerBox& root() const { return m_formattingContextRoot; }
     InlineFormattingState& formattingState() const { return m_formattingState; } 
 
     const ContainerBox& m_formattingContextRoot;
     InlineFormattingState& m_formattingState;
-    HashMap<const Box*, size_t> m_inlineBoxIndexMap;
     size_t m_lineIndex { 0 };
+    bool m_contentHasInkOverflow { false };
 };
 
 }

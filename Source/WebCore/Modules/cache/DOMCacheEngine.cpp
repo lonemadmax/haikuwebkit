@@ -132,7 +132,7 @@ ResponseBody isolatedResponseBody(const ResponseBody& body)
     return WTF::switchOn(body, [](const Ref<FormData>& formData) -> ResponseBody {
         return formData->isolatedCopy();
     }, [](const Ref<SharedBuffer>& buffer) -> ResponseBody {
-        return buffer->copy();
+        return buffer.copyRef(); // SharedBuffer are immutable and can be returned as-is.
     }, [](const std::nullptr_t&) -> ResponseBody {
         return DOMCacheEngine::ResponseBody { };
     });

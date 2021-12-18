@@ -100,8 +100,8 @@ private:
     void executeUndoRedo(UndoOrRedo) override;
     bool executeSavedCommandBySelector(const String& selector) override;
     void startDrag(const WebCore::DragItem&, const ShareableBitmap::Handle& image) override;
-    void setPromisedDataForImage(const String& pasteboardName, Ref<WebCore::SharedBuffer>&& imageBuffer, const String& filename, const String& extension, const String& title,
-        const String& url, const String& visibleURL, RefPtr<WebCore::SharedBuffer>&& archiveBuffer, const String& originIdentifier) override;
+    void setPromisedDataForImage(const String& pasteboardName, Ref<WebCore::FragmentedSharedBuffer>&& imageBuffer, const String& filename, const String& extension, const String& title,
+        const String& url, const String& visibleURL, RefPtr<WebCore::FragmentedSharedBuffer>&& archiveBuffer, const String& originIdentifier) override;
     void updateSecureInputState() override;
     void resetSecureInputState() override;
     void notifyInputContextAboutDiscardedComposition() override;
@@ -225,7 +225,7 @@ private:
     void willRecordNavigationSnapshot(WebBackForwardListItem&) override;
     void didRemoveNavigationGestureSnapshot() override;
 
-    void requestDOMPasteAccess(const WebCore::IntRect&, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) final;
+    void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, const WebCore::IntRect&, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) final;
 
     void makeViewBlank(bool) final;
 

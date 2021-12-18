@@ -26,6 +26,9 @@
 #import "config.h"
 #import "WebPushToolConnection.h"
 
+#import "DaemonEncoder.h"
+#import "DaemonUtilities.h"
+#import "WebPushDaemonConstants.h"
 #import <mach/mach_init.h>
 #import <mach/task.h>
 #import <pal/spi/cocoa/ServersSPI.h>
@@ -63,7 +66,7 @@ Connection::Connection(Action action, PreferTestService preferTestService, Recon
         m_serviceName = "com.apple.webkit.webpushd.service";
 }
 
-void Connection::connectToService()
+void Connection::connectToService(WaitForServiceToExist waitForServiceToExist)
 {
     if (m_connection)
         return;
@@ -96,13 +99,15 @@ void Connection::connectToService()
         RELEASE_ASSERT_NOT_REACHED();
     });
 
-    auto result = maybeConnectToService(m_serviceName);
-    if (result == MACH_PORT_NULL)
-        printf("Waiting for service '%s' to be available\n", m_serviceName);
+    if (waitForServiceToExist == WaitForServiceToExist::Yes) {
+        auto result = maybeConnectToService(m_serviceName);
+        if (result == MACH_PORT_NULL)
+            printf("Waiting for service '%s' to be available\n", m_serviceName);
 
-    while (result == MACH_PORT_NULL) {
-        usleep(1000);
-        result = maybeConnectToService(m_serviceName);
+        while (result == MACH_PORT_NULL) {
+            usleep(1000);
+            result = maybeConnectToService(m_serviceName);
+        }
     }
 
     xpc_connection_activate(m_connection.get());
@@ -118,6 +123,26 @@ void Connection::startAction()
         startDebugStreamAction();
         break;
     };
+
+    if (m_pushMessage)
+        sendPushMessage();
+}
+
+void Connection::sendPushMessage()
+{
+    ASSERT(m_pushMessage);
+
+    WebKit::Daemon::Encoder encoder;
+    encoder << *m_pushMessage;
+
+    auto dictionary = adoptNS(xpc_dictionary_create(nullptr, nullptr, 0));
+    xpc_dictionary_set_uint64(dictionary.get(), WebKit::WebPushD::protocolVersionKey, WebKit::WebPushD::protocolVersionValue);
+    xpc_dictionary_set_value(dictionary.get(), WebKit::WebPushD::protocolEncodedMessageKey, WebKit::vectorToXPCData(encoder.takeBuffer()).get());
+    xpc_dictionary_set_uint64(dictionary.get(), WebKit::WebPushD::protocolMessageTypeKey, static_cast<uint64_t>(WebKit::WebPushD::MessageType::InjectPushMessageForTesting));
+
+    xpc_connection_send_message_with_reply(m_connection.get(), dictionary.get(), dispatch_get_main_queue(), ^(xpc_object_t resultMessage) {
+        // This reply handler intentionally left blank
+    });
 }
 
 void Connection::startDebugStreamAction()
@@ -161,7 +186,7 @@ void Connection::connectionDropped()
     if (m_reconnect) {
         callOnMainRunLoop([this, weakThis = WeakPtr { this }] {
             if (weakThis)
-                connectToService();
+                connectToService(WaitForServiceToExist::Yes);
         });
         return;
     }

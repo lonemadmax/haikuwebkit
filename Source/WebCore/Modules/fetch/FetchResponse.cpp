@@ -169,16 +169,24 @@ FetchResponse::FetchResponse(ScriptExecutionContext& context, std::optional<Fetc
 {
 }
 
-ExceptionOr<Ref<FetchResponse>> FetchResponse::clone(ScriptExecutionContext& context)
+ExceptionOr<Ref<FetchResponse>> FetchResponse::clone()
 {
+    if (isContextStopped())
+        return Exception { InvalidStateError, "Context is stopped"_s };
+
     if (isDisturbedOrLocked())
         return Exception { TypeError, "Body is disturbed or locked"_s };
 
     ASSERT(scriptExecutionContext());
+    auto& context = *scriptExecutionContext();
 
     // If loading, let's create a stream so that data is teed on both clones.
     if (isLoading() && !m_readableStreamSource) {
-        auto voidOrException = createReadableStream(*context.globalObject());
+        auto* globalObject = context.globalObject();
+        if (!globalObject)
+            return Exception { InvalidStateError, "Context is stopped"_s };
+
+        auto voidOrException = createReadableStream(*globalObject);
         if (UNLIKELY(voidOrException.hasException()))
             return voidOrException.releaseException();
     }
@@ -400,7 +408,8 @@ void FetchResponse::BodyLoader::consumeDataByChunk(ConsumeDataByChunkCallback&& 
     if (!data)
         return;
 
-    Span chunk { data->data(), data->size() };
+    auto contiguousBuffer = data->makeContiguous();
+    Span chunk { contiguousBuffer->data(), data->size() };
     m_consumeDataCallback(&chunk);
 }
 
@@ -503,7 +512,7 @@ void FetchResponse::feedStream()
     closeStream();
 }
 
-RefPtr<SharedBuffer> FetchResponse::BodyLoader::startStreaming()
+RefPtr<FragmentedSharedBuffer> FetchResponse::BodyLoader::startStreaming()
 {
     ASSERT(m_loader);
     return m_loader->startStreaming();

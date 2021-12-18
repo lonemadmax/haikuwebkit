@@ -69,10 +69,23 @@ RefPtr<SVGFilter> SVGFilter::create(SVGFilterElement& filterElement, SVGFilterBu
     return filter;
 }
 
+RefPtr<SVGFilter> SVGFilter::create(const FloatRect& targetBoundingBox, SVGUnitTypes::SVGUnitType primitiveUnits, SVGFilterExpression&& expression)
+{
+    return adoptRef(*new SVGFilter(targetBoundingBox, primitiveUnits, WTFMove(expression)));
+}
+
 SVGFilter::SVGFilter(RenderingMode renderingMode, const FloatSize& filterScale, ClipOperation clipOperation, const FloatRect& filterRegion, const FloatRect& targetBoundingBox, SVGUnitTypes::SVGUnitType primitiveUnits)
     : Filter(Filter::Type::SVGFilter, renderingMode, filterScale, clipOperation, filterRegion)
     , m_targetBoundingBox(targetBoundingBox)
     , m_primitiveUnits(primitiveUnits)
+{
+}
+
+SVGFilter::SVGFilter(const FloatRect& targetBoundingBox, SVGUnitTypes::SVGUnitType primitiveUnits, SVGFilterExpression&& expression)
+    : Filter(Filter::Type::SVGFilter)
+    , m_targetBoundingBox(targetBoundingBox)
+    , m_primitiveUnits(primitiveUnits)
+    , m_expression(WTFMove(expression))
 {
 }
 
@@ -104,20 +117,64 @@ RefPtr<FilterEffect> SVGFilter::lastEffect() const
     return m_expression.last().effect.ptr();
 }
 
-bool SVGFilter::apply(const Filter& filter, const std::optional<FilterEffectGeometry>&)
+FilterEffectVector SVGFilter::effectsOfType(FilterFunction::Type filterType) const
 {
-    setSourceImage({ filter.sourceImage() });
-    return apply();
+    HashSet<Ref<FilterEffect>> effects;
+
+    for (auto& term : m_expression) {
+        auto& effect = term.effect;
+        if (effect->filterType() == filterType)
+            effects.add(effect);
+    }
+
+    return copyToVector(effects);
 }
 
-RefPtr<FilterImage> SVGFilter::apply()
+RefPtr<FilterImage> SVGFilter::apply(const Filter&, FilterImage& sourceImage)
+{
+    return apply(&sourceImage);
+}
+
+RefPtr<FilterImage> SVGFilter::apply(FilterImage* sourceImage)
 {
     ASSERT(!m_expression.isEmpty());
+
+    FilterImageVector stack;
+
     for (auto& term : m_expression) {
-        if (!term.effect->apply(*this, term.geometry))
+        auto& effect = term.effect;
+        auto geometry = term.geometry;
+
+        if (effect->filterType() == FilterEffect::Type::SourceGraphic) {
+            if (auto result = effect->filterImage()) {
+                stack.append(result.releaseNonNull());
+                continue;
+            }
+
+            if (!sourceImage)
+                return nullptr;
+
+            // Add sourceImage as an input to the SourceGraphic.
+            stack.append(Ref { *sourceImage });
+        }
+
+        // Need to remove the inputs here in case the effect already has a result.
+        auto inputs = effect->takeImageInputs(stack);
+
+        if (auto result = effect->filterImage()) {
+            stack.append(result.releaseNonNull());
+            continue;
+        }
+
+        auto result = term.effect->apply(*this, inputs, geometry);
+        if (!result)
             return nullptr;
+
+        stack.append(result.releaseNonNull());
     }
-    return lastEffect()->filterImage();
+    
+    ASSERT(stack.size() == 1);
+    return stack.takeLast();
 }
 
 IntOutsets SVGFilter::outsets() const

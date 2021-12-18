@@ -100,10 +100,10 @@ void RemoteLayerBackingStore::ensureBackingStore(Type type, WebCore::FloatSize s
 
 void RemoteLayerBackingStore::clearBackingStore()
 {
-    m_bufferHandle = std::nullopt;
     m_frontBuffer.discard();
     m_backBuffer.discard();
     m_secondaryBackBuffer.discard();
+    m_contentsBufferHandle = std::nullopt;
 }
 
 void RemoteLayerBackingStore::encode(IPC::Encoder& encoder) const
@@ -113,7 +113,30 @@ void RemoteLayerBackingStore::encode(IPC::Encoder& encoder) const
     encoder << m_scale;
     encoder << m_isOpaque;
     encoder << m_includeDisplayList;
-    encoder << m_bufferHandle;
+    // FIXME: For simplicity this should be moved to the end of display() once the buffer handles can be created once
+    // and stored in m_bufferHandle. http://webkit.org/b/234169
+    std::optional<ImageBufferBackendHandle> handle;
+    if (m_contentsBufferHandle) {
+        ASSERT(m_type == Type::IOSurface);
+        handle = m_contentsBufferHandle;
+    } else if (m_frontBuffer.imageBuffer) {
+        switch (m_type) {
+        case Type::IOSurface:
+            if (auto* backend = m_frontBuffer.imageBuffer->ensureBackendCreated()) {
+                if (m_frontBuffer.imageBuffer->canMapBackingStore())
+                    handle = static_cast<AcceleratedImageBufferShareableMappedBackend&>(*backend).createImageBufferBackendHandle();
+                else
+                    handle = static_cast<AcceleratedImageBufferShareableBackend&>(*backend).createImageBufferBackendHandle();
+            }
+            break;
+        case Type::Bitmap:
+            if (auto* backend = m_frontBuffer.imageBuffer->ensureBackendCreated())
+                handle = static_cast<UnacceleratedImageBufferShareableBackend&>(*backend).createImageBufferBackendHandle();
+            break;
+        }
+    }
+
+    encoder << handle;
 
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
     std::optional<ImageBufferBackendHandle> displayListHandle;
@@ -202,7 +225,7 @@ void RemoteLayerBackingStore::swapToValidFrontBuffer()
         }
     }
 
-    m_bufferHandle = std::nullopt;
+    m_contentsBufferHandle = std::nullopt;
     std::swap(m_frontBuffer, m_backBuffer);
 
     if (m_frontBuffer.imageBuffer) {
@@ -242,7 +265,7 @@ bool RemoteLayerBackingStore::supportsPartialRepaint()
 
 void RemoteLayerBackingStore::setContents(WTF::MachSendRight&& contents)
 {
-    m_bufferHandle = WTFMove(contents);
+    m_contentsBufferHandle = WTFMove(contents);
     m_dirtyRegion = WebCore::Region();
     m_paintingRects.clear();
 }
@@ -323,20 +346,6 @@ bool RemoteLayerBackingStore::display()
         m_frontBufferFlushers.append(m_frontBuffer.displayListImageBuffer->createFlusher());
 #endif
 
-    switch (m_type) {
-    case Type::IOSurface:
-        if (auto* backend = m_frontBuffer.imageBuffer->ensureBackendCreated()) {
-            if (m_frontBuffer.imageBuffer->canMapBackingStore())
-                m_bufferHandle = static_cast<AcceleratedImageBufferShareableMappedBackend&>(*backend).createImageBufferBackendHandle();
-            else
-                m_bufferHandle = static_cast<AcceleratedImageBufferShareableBackend&>(*backend).createImageBufferBackendHandle();
-        }
-        break;
-    case Type::Bitmap:
-        if (auto* backend = m_frontBuffer.imageBuffer->ensureBackendCreated())
-            m_bufferHandle = static_cast<UnacceleratedImageBufferShareableBackend&>(*backend).createImageBufferBackendHandle();
-        break;
-    }
     return true;
 }
 

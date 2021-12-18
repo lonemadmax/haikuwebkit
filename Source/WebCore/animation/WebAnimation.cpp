@@ -66,6 +66,7 @@ HashSet<WebAnimation*>& WebAnimation::instances()
 Ref<WebAnimation> WebAnimation::create(Document& document, AnimationEffect* effect)
 {
     auto result = adoptRef(*new WebAnimation(document));
+    result->initialize();
     result->setEffect(effect);
     result->setTimeline(&document.timeline());
 
@@ -77,6 +78,7 @@ Ref<WebAnimation> WebAnimation::create(Document& document, AnimationEffect* effe
 Ref<WebAnimation> WebAnimation::create(Document& document, AnimationEffect* effect, AnimationTimeline* timeline)
 {
     auto result = adoptRef(*new WebAnimation(document));
+    result->initialize();
     result->setEffect(effect);
     if (timeline)
         result->setTimeline(timeline);
@@ -86,14 +88,17 @@ Ref<WebAnimation> WebAnimation::create(Document& document, AnimationEffect* effe
     return result;
 }
 
+void WebAnimation::initialize()
+{
+    suspendIfNeeded();
+    m_readyPromise->resolve(*this);
+}
+
 WebAnimation::WebAnimation(Document& document)
     : ActiveDOMObject(document)
     , m_readyPromise(makeUniqueRef<ReadyPromise>(*this, &WebAnimation::readyPromiseResolve))
     , m_finishedPromise(makeUniqueRef<FinishedPromise>(*this, &WebAnimation::finishedPromiseResolve))
 {
-    m_readyPromise->resolve(*this);
-    suspendIfNeeded();
-
     instances().add(this);
 }
 
@@ -578,6 +583,53 @@ void WebAnimation::applyPendingPlaybackRate()
 
     // 3. Clear animation's pending playback rate.
     m_pendingPlaybackRate = std::nullopt;
+}
+
+void WebAnimation::setBindingsFrameRate(std::variant<FramesPerSecond, AnimationFrameRatePreset>&& frameRate)
+{
+    m_bindingsFrameRate = WTFMove(frameRate);
+
+    if (std::holds_alternative<FramesPerSecond>(m_bindingsFrameRate)) {
+        setEffectiveFrameRate(std::get<FramesPerSecond>(m_bindingsFrameRate));
+        return;
+    }
+
+    switch (std::get<AnimationFrameRatePreset>(m_bindingsFrameRate)) {
+    case AnimationFrameRatePreset::Auto:
+        setEffectiveFrameRate(std::nullopt);
+        break;
+    case AnimationFrameRatePreset::High:
+        setEffectiveFrameRate(AnimationFrameRatePresetHigh);
+        break;
+    case AnimationFrameRatePreset::Low:
+        setEffectiveFrameRate(AnimationFrameRatePresetLow);
+        break;
+    case AnimationFrameRatePreset::Highest:
+        setEffectiveFrameRate(std::numeric_limits<FramesPerSecond>::max());
+        break;
+    }
+}
+
+void WebAnimation::setEffectiveFrameRate(std::optional<FramesPerSecond> effectiveFrameRate)
+{
+    if (m_effectiveFrameRate == effectiveFrameRate)
+        return;
+
+    std::optional<FramesPerSecond> maximumFrameRate = std::nullopt;
+    if (is<DocumentTimeline>(m_timeline))
+        maximumFrameRate = downcast<DocumentTimeline>(*m_timeline).maximumFrameRate();
+
+    std::optional<FramesPerSecond> adjustedEffectiveFrameRate;
+    if (maximumFrameRate && effectiveFrameRate)
+        adjustedEffectiveFrameRate = std::min<FramesPerSecond>(*maximumFrameRate, *effectiveFrameRate);
+
+    if (adjustedEffectiveFrameRate && !*adjustedEffectiveFrameRate)
+        adjustedEffectiveFrameRate = std::nullopt;
+
+    if (m_effectiveFrameRate == adjustedEffectiveFrameRate)
+        return;
+
+    m_effectiveFrameRate = adjustedEffectiveFrameRate;
 }
 
 auto WebAnimation::playState() const -> PlayState

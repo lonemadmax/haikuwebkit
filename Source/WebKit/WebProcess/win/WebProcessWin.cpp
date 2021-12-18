@@ -28,9 +28,9 @@
 
 #include <WebCore/SharedBuffer.h>
 
-RefPtr<WebCore::SharedBuffer> loadResourceIntoBuffer(const char* name)
+RefPtr<WebCore::FragmentedSharedBuffer> loadResourceIntoBuffer(const char* name)
 {
-    return 0;
+    return nullptr;
 }
 
 namespace WebKit {

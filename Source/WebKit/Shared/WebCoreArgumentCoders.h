@@ -114,6 +114,7 @@ class AuthenticationChallenge;
 class BlobPart;
 class CertificateInfo;
 class Color;
+class SharedBuffer;
 class Credential;
 class CubicBezierTimingFunction;
 class Cursor;
@@ -138,7 +139,7 @@ class ResourceRequest;
 class ResourceResponse;
 class ScriptBuffer;
 class SecurityOrigin;
-class SharedBuffer;
+class FragmentedSharedBuffer;
 class SpringTimingFunction;
 class StepsTimingFunction;
 class StickyPositionViewportConstraints;
@@ -750,6 +751,16 @@ template<> struct ArgumentCoder<WebCore::SerializedPlatformDataCueValue> {
     static std::optional<WebCore::SerializedPlatformDataCueValue> decodePlatformData(Decoder&, WebCore::SerializedPlatformDataCueValue::PlatformType);
 };
 #endif
+
+template<> struct ArgumentCoder<RefPtr<WebCore::FragmentedSharedBuffer>> {
+    static void encode(Encoder&, const RefPtr<WebCore::FragmentedSharedBuffer>&);
+    static std::optional<RefPtr<WebCore::FragmentedSharedBuffer>> decode(Decoder&);
+};
+
+template<> struct ArgumentCoder<Ref<WebCore::FragmentedSharedBuffer>> {
+    static void encode(Encoder&, const Ref<WebCore::FragmentedSharedBuffer>&);
+    static std::optional<Ref<WebCore::FragmentedSharedBuffer>> decode(Decoder&);
+};
 
 template<> struct ArgumentCoder<RefPtr<WebCore::SharedBuffer>> {
     static void encode(Encoder&, const RefPtr<WebCore::SharedBuffer>&);

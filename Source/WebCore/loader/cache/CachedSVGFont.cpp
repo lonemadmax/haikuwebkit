@@ -80,7 +80,7 @@ bool CachedSVGFont::ensureCustomFontData(const AtomString& remoteURI)
 
             ScriptDisallowedScope::DisableAssertionsInScope disabledScope;
 
-            m_externalSVGDocument->setContent(decoder->decodeAndFlush(m_data->data(), m_data->size()));
+            m_externalSVGDocument->setContent(decoder->decodeAndFlush(m_data->makeContiguous()->data(), m_data->size()));
             sawError = decoder->sawError();
         }
 

@@ -187,6 +187,7 @@ void UIDelegate::setDelegate(id <WKUIDelegate> delegate)
 
 #if ENABLE(WEB_AUTHN)
     m_delegateMethods.webViewRunWebAuthenticationPanelInitiatedByFrameCompletionHandler = [delegate respondsToSelector:@selector(_webView:runWebAuthenticationPanel:initiatedByFrame:completionHandler:)];
+    m_delegateMethods.webViewRequestWebAuthenticationNoGestureForOriginCompletionHandler = [delegate respondsToSelector:@selector(_webView:requestWebAuthenticationNoGestureForOrigin:completionHandler:)];
 #endif
     
     m_delegateMethods.webViewDidEnableInspectorBrowserDomain = [delegate respondsToSelector:@selector(_webViewDidEnableInspectorBrowserDomain:)];
@@ -197,6 +198,7 @@ void UIDelegate::setDelegate(id <WKUIDelegate> delegate)
     m_delegateMethods.webViewStartXRSessionWithCompletionHandler = [delegate respondsToSelector:@selector(_webView:startXRSessionWithCompletionHandler:)];
 #endif
     m_delegateMethods.webViewRequestNotificationPermissionForSecurityOriginDecisionHandler = [delegate respondsToSelector:@selector(_webView:requestNotificationPermissionForSecurityOrigin:decisionHandler:)];
+    m_delegateMethods.webViewRequestCookieConsentWithMoreInfoHandlerDecisionHandler = [delegate respondsToSelector:@selector(_webView:requestCookieConsentWithMoreInfoHandler:decisionHandler:)];
 }
 
 #if ENABLE(CONTEXT_MENUS)
@@ -638,6 +640,28 @@ void UIDelegate::UIClient::decidePolicyForNotificationPermissionRequest(WebKit::
             return;
         checker->didCallCompletionHandler();
         completionHandler(result);
+    }).get()];
+}
+
+void UIDelegate::UIClient::requestCookieConsent(CompletionHandler<void(WebCore::CookieConsentDecisionResult)>&& completion)
+{
+    if (!m_uiDelegate)
+        return completion(WebCore::CookieConsentDecisionResult::NotSupported);
+
+    if (!m_uiDelegate->m_delegateMethods.webViewRequestCookieConsentWithMoreInfoHandlerDecisionHandler)
+        return completion(WebCore::CookieConsentDecisionResult::NotSupported);
+
+    auto delegate = m_uiDelegate->m_delegate.get();
+    if (!delegate)
+        return completion(WebCore::CookieConsentDecisionResult::NotSupported);
+
+    // FIXME: Add support for the 'more info' handler.
+    auto checker = CompletionHandlerCallChecker::create(delegate.get(), @selector(_webView:requestCookieConsentWithMoreInfoHandler:decisionHandler:));
+    [(id <WKUIDelegatePrivate>)delegate _webView:m_uiDelegate->m_webView.get().get() requestCookieConsentWithMoreInfoHandler:nil decisionHandler:makeBlockPtr([completion = WTFMove(completion), checker = WTFMove(checker)] (BOOL decision) mutable {
+        if (checker->completionHandlerHasBeenCalled())
+            return;
+        checker->didCallCompletionHandler();
+        completion(decision ? WebCore::CookieConsentDecisionResult::Consent : WebCore::CookieConsentDecisionResult::Dissent);
     }).get()];
 }
 
@@ -1548,6 +1572,27 @@ void UIDelegate::UIClient::runWebAuthenticationPanel(WebPageProxy& page, API::We
             return;
         checker->didCallCompletionHandler();
         completionHandler(webAuthenticationPanelResult(result));
+    }).get()];
+}
+
+void UIDelegate::UIClient::requestWebAuthenticationNoGesture(API::SecurityOrigin& origin, CompletionHandler<void(bool)>&& completionHandler)
+{
+    if (!m_uiDelegate)
+        return completionHandler(false);
+
+    if (!m_uiDelegate->m_delegateMethods.webViewRequestWebAuthenticationNoGestureForOriginCompletionHandler)
+        return completionHandler(false);
+
+    auto delegate = m_uiDelegate->m_delegate.get();
+    if (!delegate)
+        return completionHandler(false);
+
+    auto checker = CompletionHandlerCallChecker::create(delegate.get(), @selector(_webView:requestWebAuthenticationNoGestureForOrigin:completionHandler:));
+    [(id <WKUIDelegatePrivate>)delegate _webView:m_uiDelegate->m_webView.get().get() requestWebAuthenticationNoGestureForOrigin: wrapper(origin) completionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler), checker = WTFMove(checker)] (BOOL result) mutable {
+        if (checker->completionHandlerHasBeenCalled())
+            return;
+        checker->didCallCompletionHandler();
+        completionHandler(result);
     }).get()];
 }
 

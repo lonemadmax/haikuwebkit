@@ -1220,7 +1220,7 @@ void NavigationState::NavigationClient::didStartLoadForQuickLookDocumentInMainFr
     [static_cast<id <WKNavigationDelegatePrivate>>(navigationDelegate.get()) _webView:m_navigationState->m_webView didStartLoadForQuickLookDocumentInMainFrameWithFileName:fileName uti:uti];
 }
 
-void NavigationState::NavigationClient::didFinishLoadForQuickLookDocumentInMainFrame(const SharedBuffer& buffer)
+void NavigationState::NavigationClient::didFinishLoadForQuickLookDocumentInMainFrame(const FragmentedSharedBuffer& buffer)
 {
     if (!m_navigationState)
         return;
@@ -1232,7 +1232,7 @@ void NavigationState::NavigationClient::didFinishLoadForQuickLookDocumentInMainF
     if (!navigationDelegate)
         return;
 
-    [static_cast<id <WKNavigationDelegatePrivate>>(navigationDelegate.get()) _webView:m_navigationState->m_webView didFinishLoadForQuickLookDocumentInMainFrame:buffer.createNSData().get()];
+    [static_cast<id <WKNavigationDelegatePrivate>>(navigationDelegate.get()) _webView:m_navigationState->m_webView didFinishLoadForQuickLookDocumentInMainFrame:buffer.makeContiguous()->createNSData().get()];
 }
 #endif
 

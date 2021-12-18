@@ -57,7 +57,7 @@ bool ShareableResource::Handle::decode(IPC::Decoder& decoder, Handle& handle)
 
 RefPtr<SharedBuffer> ShareableResource::wrapInSharedBuffer()
 {
-    return SharedBuffer::create(SharedBuffer::DataSegment::Provider {
+    return SharedBuffer::create(DataSegment::Provider {
         [self = Ref { *this }]() { return self->data(); },
         [self = Ref { *this }]() { return self->size(); }
     });

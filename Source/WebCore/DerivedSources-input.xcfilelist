@@ -232,6 +232,8 @@ $(PROJECT_DIR)/Modules/contact-picker/ContactProperty.idl
 $(PROJECT_DIR)/Modules/contact-picker/ContactsManager.idl
 $(PROJECT_DIR)/Modules/contact-picker/ContactsSelectOptions.idl
 $(PROJECT_DIR)/Modules/contact-picker/Navigator+Contacts.idl
+$(PROJECT_DIR)/Modules/cookie-consent/Navigator+CookieConsent.idl
+$(PROJECT_DIR)/Modules/cookie-consent/RequestCookieConsentOptions.idl
 $(PROJECT_DIR)/Modules/credentialmanagement/BasicCredential.idl
 $(PROJECT_DIR)/Modules/credentialmanagement/CredentialCreationOptions.idl
 $(PROJECT_DIR)/Modules/credentialmanagement/CredentialRequestOptions.idl
@@ -739,6 +741,11 @@ $(PROJECT_DIR)/Modules/webauthn/PublicKeyCredentialDescriptor.idl
 $(PROJECT_DIR)/Modules/webauthn/PublicKeyCredentialRequestOptions.idl
 $(PROJECT_DIR)/Modules/webauthn/PublicKeyCredentialType.idl
 $(PROJECT_DIR)/Modules/webauthn/UserVerificationRequirement.idl
+$(PROJECT_DIR)/Modules/webcodecs/VideoColorPrimaries.idl
+$(PROJECT_DIR)/Modules/webcodecs/VideoColorSpace.idl
+$(PROJECT_DIR)/Modules/webcodecs/VideoColorSpaceInit.idl
+$(PROJECT_DIR)/Modules/webcodecs/VideoMatrixCoefficients.idl
+$(PROJECT_DIR)/Modules/webcodecs/VideoTransferCharacteristics.idl
 $(PROJECT_DIR)/Modules/webdatabase/DOMWindow+WebDatabase.idl
 $(PROJECT_DIR)/Modules/webdatabase/Database.idl
 $(PROJECT_DIR)/Modules/webdatabase/DatabaseCallback.idl
@@ -806,6 +813,7 @@ $(PROJECT_DIR)/accessibility/AriaAttributes.idl
 $(PROJECT_DIR)/animation/Animatable.idl
 $(PROJECT_DIR)/animation/AnimationEffect.idl
 $(PROJECT_DIR)/animation/AnimationFrameProvider.idl
+$(PROJECT_DIR)/animation/AnimationFrameRatePreset.idl
 $(PROJECT_DIR)/animation/AnimationPlaybackEvent.idl
 $(PROJECT_DIR)/animation/AnimationPlaybackEventInit.idl
 $(PROJECT_DIR)/animation/AnimationTimeline.idl
@@ -876,10 +884,12 @@ $(PROJECT_DIR)/css/CSSCounterStyleRule.idl
 $(PROJECT_DIR)/css/CSSFontFaceRule.idl
 $(PROJECT_DIR)/css/CSSFontPaletteValuesRule.idl
 $(PROJECT_DIR)/css/CSSGroupingRule.idl
+$(PROJECT_DIR)/css/CSSImportRule+Layer.idl
 $(PROJECT_DIR)/css/CSSImportRule.idl
 $(PROJECT_DIR)/css/CSSKeyframeRule.idl
 $(PROJECT_DIR)/css/CSSKeyframesRule.idl
-$(PROJECT_DIR)/css/CSSLayerRule.idl
+$(PROJECT_DIR)/css/CSSLayerBlockRule.idl
+$(PROJECT_DIR)/css/CSSLayerStatementRule.idl
 $(PROJECT_DIR)/css/CSSMediaRule.idl
 $(PROJECT_DIR)/css/CSSNamespaceRule.idl
 $(PROJECT_DIR)/css/CSSPageRule.idl
@@ -1323,9 +1333,10 @@ $(PROJECT_DIR)/html/canvas/WebGLVertexArrayObjectOES.idl
 $(PROJECT_DIR)/html/parser/HTMLEntityNames.in
 $(PROJECT_DIR)/html/parser/create-html-entity-table
 $(PROJECT_DIR)/html/shadow/imageOverlay.css
-$(PROJECT_DIR)/html/shadow/meterElementShadow.css
 $(PROJECT_DIR)/html/shadow/mac/imageControlsMac.css
+$(PROJECT_DIR)/html/shadow/meterElementShadow.css
 $(PROJECT_DIR)/html/track/AudioTrack.idl
+$(PROJECT_DIR)/html/track/AudioTrackConfiguration.idl
 $(PROJECT_DIR)/html/track/AudioTrackList.idl
 $(PROJECT_DIR)/html/track/DataCue.idl
 $(PROJECT_DIR)/html/track/TextTrack.idl
@@ -1338,6 +1349,7 @@ $(PROJECT_DIR)/html/track/VTTCue.idl
 $(PROJECT_DIR)/html/track/VTTRegion.idl
 $(PROJECT_DIR)/html/track/VTTRegionList.idl
 $(PROJECT_DIR)/html/track/VideoTrack.idl
+$(PROJECT_DIR)/html/track/VideoTrackConfiguration.idl
 $(PROJECT_DIR)/html/track/VideoTrackList.idl
 $(PROJECT_DIR)/inspector/CommandLineAPIHost.idl
 $(PROJECT_DIR)/inspector/CommandLineAPIModuleSource.js

@@ -34,6 +34,9 @@
 
 namespace WebCore {
 
+static constexpr unsigned maxTotalNumberFilterEffects = 100;
+static constexpr unsigned maxCountChildNodes = 200;
+
 void SVGFilterBuilder::setupBuiltinEffects(Ref<FilterEffect> sourceGraphic)
 {
     m_builtinEffects.add(SourceGraphic::effectName(), sourceGraphic.ptr());
@@ -76,28 +79,8 @@ static ColorInterpolation colorInterpolationForElement(SVGElement& element)
 }
 #endif
 
-static unsigned collectEffects(const FilterEffect* effect, HashSet<const FilterEffect*>& allEffects)
-{
-    allEffects.add(effect);
-    unsigned size = effect->numberOfEffectInputs();
-    for (unsigned i = 0; i < size; ++i) {
-        FilterEffect* in = effect->inputEffect(i);
-        collectEffects(in, allEffects);
-    }
-    return allEffects.size();
-}
-
-static unsigned totalNumberFilterEffects(const FilterEffect& lastEffect)
-{
-    HashSet<const FilterEffect*> allEffects;
-    return collectEffects(&lastEffect, allEffects);
-}
-
 RefPtr<FilterEffect> SVGFilterBuilder::buildFilterEffects(SVGFilterElement& filterElement)
 {
-    static constexpr unsigned maxCountChildNodes = 200;
-    static constexpr unsigned maxTotalNumberFilterEffects = 100;
-
     if (filterElement.countChildNodes() > maxCountChildNodes)
         return nullptr;
 
@@ -124,10 +107,8 @@ RefPtr<FilterEffect> SVGFilterBuilder::buildFilterEffects(SVGFilterElement& filt
         add(effectElement.result(), effect);
     }
 
-    if (!effect || totalNumberFilterEffects(*effect) > maxTotalNumberFilterEffects) {
+    if (!effect)
         clearEffects();
-        return nullptr;
-    }
 
     return effect;
 }
@@ -190,15 +171,15 @@ void SVGFilterBuilder::clearEffects()
     addBuiltinEffects();
 }
 
-void SVGFilterBuilder::clearResultsRecursive(FilterEffect* effect)
+void SVGFilterBuilder::clearResultsRecursive(FilterEffect& effect)
 {
-    if (!effect->hasResult())
+    if (!effect.hasResult())
         return;
 
-    effect->clearResult();
+    effect.clearResult();
 
     for (auto& reference : effectReferences(effect))
-        clearResultsRecursive(reference);
+        clearResultsRecursive(*reference);
 }
 
 std::optional<FilterEffectGeometry> SVGFilterBuilder::effectGeometry(FilterEffect& effect) const
@@ -209,7 +190,7 @@ std::optional<FilterEffectGeometry> SVGFilterBuilder::effectGeometry(FilterEffec
     return std::nullopt;
 }
 
-bool SVGFilterBuilder::buildEffectExpression(const RefPtr<FilterEffect>& effect, FilterEffectVector& stack, unsigned level, SVGFilterExpression& expression) const
+bool SVGFilterBuilder::buildEffectExpression(FilterEffect& effect, FilterEffectVector& stack, unsigned level, SVGFilterExpression& expression) const
 {
     // A cycle is detected.
     if (stack.contains(effect))
@@ -217,9 +198,9 @@ bool SVGFilterBuilder::buildEffectExpression(const RefPtr<FilterEffect>& effect,
 
     stack.append(effect);
     
-    expression.append({ *effect, effectGeometry(*effect), level });
+    expression.append({ effect, effectGeometry(effect), level });
 
-    for (auto& inputEffect : effect->inputEffects()) {
+    for (auto& inputEffect : effect.inputEffects()) {
         if (!buildEffectExpression(inputEffect, stack, level + 1, expression))
             return false;
     }
@@ -237,7 +218,10 @@ bool SVGFilterBuilder::buildExpression(SVGFilterExpression& expression) const
         return false;
 
     FilterEffectVector stack;
-    if (!buildEffectExpression(m_lastEffect, stack, 0, expression))
+    if (!buildEffectExpression(*m_lastEffect, stack, 0, expression))
+        return false;
+
+    if (expression.size() > maxTotalNumberFilterEffects)
         return false;
 
     expression.reverse();

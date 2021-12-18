@@ -37,6 +37,7 @@
 #include <WebCore/PluginViewBase.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceResponse.h>
+#include <WebCore/SharedBuffer.h>
 #include <WebCore/Timer.h>
 #include <memory>
 #include <wtf/Deque.h>
@@ -115,7 +116,7 @@ public:
 
     bool shouldAllowScripting();
 
-    RefPtr<WebCore::SharedBuffer> liveResourceData() const;
+    RefPtr<WebCore::FragmentedSharedBuffer> liveResourceData() const;
     bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&);
     String getSelectionForWordAtPoint(const WebCore::FloatPoint&) const;
     bool existingSelectionContainsPoint(const WebCore::FloatPoint&) const;
@@ -252,7 +253,7 @@ private:
 
     WebCore::ResourceResponse m_manualStreamResponse;
     WebCore::ResourceError m_manualStreamError;
-    RefPtr<WebCore::SharedBuffer> m_manualStreamData;
+    WebCore::SharedBufferBuilder m_manualStreamData;
 
     // This snapshot is used to avoid side effects should the plugin run JS during painting.
     RefPtr<ShareableBitmap> m_transientPaintingSnapshot;

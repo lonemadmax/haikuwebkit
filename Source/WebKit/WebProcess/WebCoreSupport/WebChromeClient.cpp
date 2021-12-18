@@ -1002,7 +1002,6 @@ unsigned WebChromeClient::remoteImagesCountForTesting() const
 void WebChromeClient::contentRuleListNotification(const URL& url, const ContentRuleListResults& results)
 {
 #if ENABLE(CONTENT_EXTENSIONS)
-    ASSERT(results.shouldNotifyApplication());
     m_page.send(Messages::WebPageProxy::ContentRuleListNotification(url, results));
 #endif
 }
@@ -1347,6 +1346,11 @@ bool WebChromeClient::hasRelevantSelectionServices(bool isTextOnly) const
     return (isTextOnly && WebProcess::singleton().hasSelectionServices()) || WebProcess::singleton().hasRichContentServices();
 }
 
+void WebChromeClient::handleImageServiceClick(const IntPoint& point, Image& image, bool isEditable, const IntRect& imageRect, const String& attachmentID)
+{
+    m_page.handleImageServiceClick(point, image, isEditable, imageRect, attachmentID);
+}
+
 #endif
 
 bool WebChromeClient::shouldDispatchFakeMouseMoveEvents() const
@@ -1558,5 +1562,10 @@ void WebChromeClient::abortApplePayAMSUISession()
 }
 
 #endif // ENABLE(APPLE_PAY_AMS_UI)
+
+void WebChromeClient::requestCookieConsent(CompletionHandler<void(WebCore::CookieConsentDecisionResult)>&& completion)
+{
+    m_page.sendWithAsyncReply(Messages::WebPageProxy::RequestCookieConsent(), WTFMove(completion));
+}
 
 } // namespace WebKit

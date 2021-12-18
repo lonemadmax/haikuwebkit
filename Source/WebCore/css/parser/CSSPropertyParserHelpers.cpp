@@ -118,7 +118,7 @@ static bool canConsumeCalcValue(CalculationCategory category, CSSParserMode pars
 // FIXME: consider pulling in the parsing logic from CSSCalcExpressionNodeParser.
 class CalcParser {
 public:
-    explicit CalcParser(CSSParserTokenRange& range, CalculationCategory destinationCategory, ValueRange valueRange = ValueRange::All, const CSSCalcSymbolTable& symbolTable = { }, CSSValuePool& pool = CSSValuePool::singleton())
+    explicit CalcParser(CSSParserTokenRange& range, CalculationCategory destinationCategory, ValueRange valueRange = ValueRange::All, const CSSCalcSymbolTable& symbolTable = { }, CSSValuePool& pool = CSSValuePool::singleton(), bool allowsNegativePercentage = false)
         : m_sourceRange(range)
         , m_range(range)
         , m_pool(pool)
@@ -126,7 +126,7 @@ public:
         const CSSParserToken& token = range.peek();
         auto functionId = token.functionId();
         if (CSSCalcValue::isCalcFunction(functionId))
-            m_calcValue = CSSCalcValue::create(functionId, consumeFunction(m_range), destinationCategory, valueRange, symbolTable);
+            m_calcValue = CSSCalcValue::create(functionId, consumeFunction(m_range), destinationCategory, valueRange, symbolTable, allowsNegativePercentage);
     }
 
     const CSSCalcValue* value() const { return m_calcValue.get(); }
@@ -1008,14 +1008,14 @@ std::optional<LengthOrPercentRaw> consumeLengthOrPercentRaw(CSSParserTokenRange&
     return std::nullopt;
 }
 
-RefPtr<CSSPrimitiveValue> consumeLengthOrPercent(CSSParserTokenRange& range, CSSParserMode parserMode, ValueRange valueRange, UnitlessQuirk unitless)
+RefPtr<CSSPrimitiveValue> consumeLengthOrPercent(CSSParserTokenRange& range, CSSParserMode parserMode, ValueRange valueRange, UnitlessQuirk unitless, bool allowsNegativePercentage)
 {
     auto& token = range.peek();
 
     switch (token.type()) {
     case FunctionToken: {
         // FIXME: Should this be using trying to generate the calc with both Length and Percent destination category types?
-        CalcParser parser(range, CalculationCategory::Length, valueRange);
+        CalcParser parser(range, CalculationCategory::Length, valueRange, { }, CSSValuePool::singleton(), allowsNegativePercentage);
         if (auto calculation = parser.value(); calculation && canConsumeCalcValue(calculation->category(), parserMode))
             return parser.consumeValue();
         break;
@@ -2661,11 +2661,11 @@ RefPtr<CSSPrimitiveValue> consumeColor(CSSParserTokenRange& range, const CSSPars
     return CSSValuePool::singleton().createValue(color);
 }
 
-static RefPtr<CSSPrimitiveValue> consumePositionComponent(CSSParserTokenRange& range, CSSParserMode parserMode, UnitlessQuirk unitless)
+static RefPtr<CSSPrimitiveValue> consumePositionComponent(CSSParserTokenRange& range, CSSParserMode parserMode, UnitlessQuirk unitless, bool allowsNegativePercentage = false)
 {
     if (range.peek().type() == IdentToken)
         return consumeIdent<CSSValueLeft, CSSValueTop, CSSValueBottom, CSSValueRight, CSSValueCenter>(range);
-    return consumeLengthOrPercent(range, parserMode, ValueRange::All, unitless);
+    return consumeLengthOrPercent(range, parserMode, ValueRange::All, unitless, allowsNegativePercentage);
 }
 
 static bool isHorizontalPositionKeywordOnly(const CSSPrimitiveValue& value)
@@ -2814,21 +2814,23 @@ static std::optional<PositionCoordinates> positionFromFourValues(const std::arra
 
 // FIXME: This may consume from the range upon failure. The background
 // shorthand works around it, but we should just fix it here.
-std::optional<PositionCoordinates> consumePositionCoordinates(CSSParserTokenRange& range, CSSParserMode parserMode, UnitlessQuirk unitless, PositionSyntax positionSyntax)
+std::optional<PositionCoordinates> consumePositionCoordinates(CSSParserTokenRange& range, CSSParserMode parserMode, UnitlessQuirk unitless, PositionSyntax positionSyntax, NegativePercentagePolicy policy)
 {
-    auto value1 = consumePositionComponent(range, parserMode, unitless);
+    bool allowsNegative = policy == NegativePercentagePolicy::Allow;
+
+    auto value1 = consumePositionComponent(range, parserMode, unitless, allowsNegative);
     if (!value1)
         return std::nullopt;
 
-    auto value2 = consumePositionComponent(range, parserMode, unitless);
+    auto value2 = consumePositionComponent(range, parserMode, unitless, allowsNegative);
     if (!value2)
         return positionFromOneValue(*value1);
-
-    auto value3 = consumePositionComponent(range, parserMode, unitless);
+    
+    auto value3 = consumePositionComponent(range, parserMode, unitless, allowsNegative);
     if (!value3)
         return positionFromTwoValues(*value1, *value2);
-
-    auto value4 = consumePositionComponent(range, parserMode, unitless);
+    
+    auto value4 = consumePositionComponent(range, parserMode, unitless, allowsNegative);
     
     std::array<CSSPrimitiveValue*, 5> values {
         value1.get(),
@@ -2950,9 +2952,9 @@ static RefPtr<CSSValue> consumeDeprecatedGradient(CSSParserTokenRange& args, con
     CSSValueID id = args.consumeIncludingWhitespace().id();
     bool isDeprecatedRadialGradient = (id == CSSValueRadial);
     if (isDeprecatedRadialGradient)
-        result = CSSRadialGradientValue::create(NonRepeating, CSSDeprecatedRadialGradient);
+        result = CSSRadialGradientValue::create(NonRepeating, CSSDeprecatedRadialGradient, { ColorInterpolationMethod::SRGB { }, AlphaPremultiplication::Unpremultiplied });
     else if (id == CSSValueLinear)
-        result = CSSLinearGradientValue::create(NonRepeating, CSSDeprecatedLinearGradient);
+        result = CSSLinearGradientValue::create(NonRepeating, CSSDeprecatedLinearGradient, { ColorInterpolationMethod::SRGB { }, AlphaPremultiplication::Unpremultiplied });
     if (!result || !consumeCommaIncludingWhitespace(args))
         return nullptr;
 
@@ -3052,7 +3054,7 @@ static bool consumeGradientColorStops(CSSParserTokenRange& range, const CSSParse
 
 static RefPtr<CSSValue> consumeDeprecatedRadialGradient(CSSParserTokenRange& args, const CSSParserContext& context, CSSGradientRepeat repeating)
 {
-    auto result = CSSRadialGradientValue::create(repeating, CSSPrefixedRadialGradient);
+    auto result = CSSRadialGradientValue::create(repeating, CSSPrefixedRadialGradient, { ColorInterpolationMethod::SRGB { }, AlphaPremultiplication::Unpremultiplied });
 
     auto centerCoordinate = consumeOneOrTwoValuedPositionCoordinates(args, context.mode, UnitlessQuirk::Forbid);
     if (centerCoordinate && !consumeCommaIncludingWhitespace(args))
@@ -3096,7 +3098,7 @@ static RefPtr<CSSValue> consumeDeprecatedRadialGradient(CSSParserTokenRange& arg
 
 static RefPtr<CSSValue> consumeRadialGradient(CSSParserTokenRange& args, const CSSParserContext& context, CSSGradientRepeat repeating)
 {
-    RefPtr<CSSRadialGradientValue> result = CSSRadialGradientValue::create(repeating, CSSRadialGradient);
+    RefPtr<CSSRadialGradientValue> result = CSSRadialGradientValue::create(repeating, CSSRadialGradient, { ColorInterpolationMethod::SRGB { }, AlphaPremultiplication::Unpremultiplied });
 
     RefPtr<CSSPrimitiveValue> shape;
     RefPtr<CSSPrimitiveValue> sizeKeyword;
@@ -3184,7 +3186,7 @@ static RefPtr<CSSValue> consumeRadialGradient(CSSParserTokenRange& args, const C
 
 static RefPtr<CSSValue> consumeLinearGradient(CSSParserTokenRange& args, const CSSParserContext& context, CSSGradientRepeat repeating, CSSGradientType gradientType)
 {
-    RefPtr<CSSLinearGradientValue> result = CSSLinearGradientValue::create(repeating, gradientType);
+    RefPtr<CSSLinearGradientValue> result = CSSLinearGradientValue::create(repeating, gradientType, { ColorInterpolationMethod::SRGB { }, AlphaPremultiplication::Unpremultiplied });
 
     bool expectComma = true;
     RefPtr<CSSPrimitiveValue> angle = consumeAngle(args, context.mode, UnitlessQuirk::Forbid, UnitlessZeroQuirk::Allow);
@@ -3218,7 +3220,7 @@ static RefPtr<CSSValue> consumeLinearGradient(CSSParserTokenRange& args, const C
 static RefPtr<CSSValue> consumeConicGradient(CSSParserTokenRange& args, const CSSParserContext& context, CSSGradientRepeat repeating)
 {
 #if ENABLE(CSS_CONIC_GRADIENTS)
-    RefPtr<CSSConicGradientValue> result = CSSConicGradientValue::create(repeating);
+    RefPtr<CSSConicGradientValue> result = CSSConicGradientValue::create(repeating, { ColorInterpolationMethod::SRGB { }, AlphaPremultiplication::Unpremultiplied });
 
     bool expectComma = false;
     if (args.peek().type() == IdentToken) {

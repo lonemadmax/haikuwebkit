@@ -32,6 +32,7 @@
 #import <Metal/Metal.h>
 #import <WebCore/Color.h>
 #import <WebCore/GraphicsContextGLCocoa.h>
+#import <WebCore/ProcessIdentity.h>
 #import <optional>
 #import <wtf/HashSet.h>
 #import <wtf/MemoryFootprint.h>
@@ -50,7 +51,7 @@ public:
     RefPtr<WebCore::GraphicsLayerContentsDisplayDelegate> layerContentsDisplayDelegate() final { return nullptr; }
 private:
     TestedGraphicsContextGLCocoa(WebCore::GraphicsContextGLAttributes attributes)
-        : WebCore::GraphicsContextGLCocoa(WTFMove(attributes))
+        : WebCore::GraphicsContextGLCocoa(WTFMove(attributes), { })
     {
     }
 };

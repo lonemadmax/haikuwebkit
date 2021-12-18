@@ -132,8 +132,14 @@ public:
     void setCaptivePortalModeEnabled(std::optional<bool> captivePortalModeEnabled) { m_captivePortalModeEnabled = captivePortalModeEnabled; }
     bool isCaptivePortalModeExplicitlySet() const { return !!m_captivePortalModeEnabled; }
 
+    WebCore::ColorSchemePreference colorSchemePreference() const { return m_colorSchemePreference; }
+    void setColorSchemePreference(WebCore::ColorSchemePreference colorSchemePreference) { m_colorSchemePreference = colorSchemePreference; }
+
     WebCore::MouseEventPolicy mouseEventPolicy() const { return m_mouseEventPolicy; }
     void setMouseEventPolicy(WebCore::MouseEventPolicy policy) { m_mouseEventPolicy = policy; }
+
+    WebCore::ModalContainerObservationPolicy modalContainerObservationPolicy() const { return m_modalContainerObservationPolicy; }
+    void setModalContainerObservationPolicy(WebCore::ModalContainerObservationPolicy policy) { m_modalContainerObservationPolicy = policy; }
 
     bool idempotentModeAutosizingOnlyHonorsPercentages() const { return m_idempotentModeAutosizingOnlyHonorsPercentages; }
     void setIdempotentModeAutosizingOnlyHonorsPercentages(bool idempotentModeAutosizingOnlyHonorsPercentages) { m_idempotentModeAutosizingOnlyHonorsPercentages = idempotentModeAutosizingOnlyHonorsPercentages; }
@@ -165,8 +171,10 @@ private:
     bool m_allowContentChangeObserverQuirk { false };
     WebCore::AllowsContentJavaScript m_allowsContentJavaScript { WebCore::AllowsContentJavaScript::Yes };
     WebCore::MouseEventPolicy m_mouseEventPolicy { WebCore::MouseEventPolicy::Default };
+    WebCore::ModalContainerObservationPolicy m_modalContainerObservationPolicy { WebCore::ModalContainerObservationPolicy::Disabled };
     bool m_idempotentModeAutosizingOnlyHonorsPercentages { false };
     std::optional<bool> m_captivePortalModeEnabled;
+    WebCore::ColorSchemePreference m_colorSchemePreference { WebCore::ColorSchemePreference::NoPreference };
 };
 
 } // namespace API

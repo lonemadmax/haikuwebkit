@@ -156,14 +156,14 @@ private:
     void redirectReceived(PlatformMediaResource&, ResourceRequest&& request, const ResourceResponse&, CompletionHandler<void(ResourceRequest&&)>&& completionHandler) final { completionHandler(WTFMove(request)); }
     bool shouldCacheResponse(PlatformMediaResource&, const ResourceResponse&) final { return false; }
     void dataSent(PlatformMediaResource&, unsigned long long, unsigned long long) final { }
-    void dataReceived(PlatformMediaResource&, Ref<SharedBuffer>&&) final;
+    void dataReceived(PlatformMediaResource&, Ref<FragmentedSharedBuffer>&&) final;
     void accessControlCheckFailed(PlatformMediaResource&, const ResourceError& error) final { loadFailed(error); }
     void loadFailed(PlatformMediaResource&, const ResourceError& error) final { loadFailed(error); }
     void loadFinished(PlatformMediaResource&, const NetworkLoadMetrics&) final { loadFinished(); }
 
     WebCoreAVFResourceLoader& m_parent;
     RefPtr<PlatformMediaResource> m_resource;
-    RefPtr<SharedBuffer> m_buffer;
+    SharedBufferBuilder m_buffer;
 };
 
 WeakPtr<PlatformResourceMediaLoader> PlatformResourceMediaLoader::create(WebCoreAVFResourceLoader& parent, PlatformMediaResourceLoader& loader, ResourceRequest&& request)
@@ -211,13 +211,10 @@ void PlatformResourceMediaLoader::loadFinished()
     m_parent.loadFinished();
 }
 
-void PlatformResourceMediaLoader::dataReceived(PlatformMediaResource&, Ref<SharedBuffer>&& buffer)
+void PlatformResourceMediaLoader::dataReceived(PlatformMediaResource&, Ref<FragmentedSharedBuffer>&& buffer)
 {
-    if (!m_buffer)
-        m_buffer = WTFMove(buffer);
-    else
-        m_buffer->append(WTFMove(buffer));
-    m_parent.newDataStoredInSharedBuffer(*m_buffer);
+    m_buffer.append(WTFMove(buffer));
+    m_parent.newDataStoredInSharedBuffer(*m_buffer.get());
 }
 
 class DataURLResourceMediaLoader : public CanMakeWeakPtr<DataURLResourceMediaLoader> {
@@ -388,7 +385,7 @@ void WebCoreAVFResourceLoader::loadFinished()
     stopLoading();
 }
 
-void WebCoreAVFResourceLoader::newDataStoredInSharedBuffer(SharedBuffer& data)
+void WebCoreAVFResourceLoader::newDataStoredInSharedBuffer(const FragmentedSharedBuffer& data)
 {
     AVAssetResourceLoadingDataRequest* dataRequest = [m_avRequest dataRequest];
     if (!dataRequest)

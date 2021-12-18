@@ -367,6 +367,10 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     _allowsViewportShrinkToFit = defaultAllowsViewportShrinkToFit;
     _allowsLinkPreview = linkedOnOrAfter(WebCore::SDKVersion::FirstWithLinkPreviewEnabledByDefault);
 
+#if HAVE(UIFINDINTERACTION)
+    _findInteractionEnabled = NO;
+#endif
+
     auto fastClickingEnabled = []() {
         if (NSNumber *enabledValue = [[NSUserDefaults standardUserDefaults] objectForKey:@"WebKitFastClickingDisabled"])
             return enabledValue.boolValue;
@@ -1596,7 +1600,7 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
     if (highlight.text)
         text = highlight.text.value();
 
-    auto wkHighlight = adoptNS([[_WKAppHighlight alloc] initWithHighlight:highlight.highlight->createNSData().get() text:text image:nil]);
+    auto wkHighlight = adoptNS([[_WKAppHighlight alloc] initWithHighlight:highlight.highlight->makeContiguous()->createNSData().get() text:text image:nil]);
 
     if ([delegate respondsToSelector:@selector(_webView:storeAppHighlight:inNewGroup:requestOriginatedInApp:)])
         [delegate _webView:self storeAppHighlight:wkHighlight.get() inNewGroup:highlight.isNewGroup == WebCore::CreateNewGroupForHighlight::Yes requestOriginatedInApp:highlight.requestOriginatedInApp == WebCore::HighlightRequestOriginatedInApp::Yes];
@@ -1640,7 +1644,7 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
         floatRect = WebCore::FloatRect(pdfConfiguration.rect);
 
     _page->drawToPDF(frameID, floatRect, [handler = makeBlockPtr(completionHandler)](const IPC::DataReference& pdfData) {
-        if (pdfData.isEmpty()) {
+        if (pdfData.empty()) {
             handler(nil, createNSError(WKErrorUnknown).get());
             return;
         }
@@ -2215,6 +2219,15 @@ static RetainPtr<NSArray> wkTextManipulationErrors(NSArray<_WKTextManipulationIt
 
     _page->startImageAnalysis(identifier);
 #endif
+}
+
+- (void)_requestResource:(NSURLRequest *)request completionHandler:(void(^)(NSData *, NSURLResponse *, NSError *))completionHandler
+{
+    _page->requestResource(request, [completionHandler = makeBlockPtr(completionHandler)] (Ref<WebCore::SharedBuffer>&& buffer, WebCore::ResourceResponse&& response, WebCore::ResourceError&& error) {
+        if (error.isNull())
+            return completionHandler(buffer->createNSData().get(), response.nsURLResponse(), nil);
+        completionHandler(nil, nil, error.nsError());
+    });
 }
 
 - (void)_takeFindStringFromSelection:(id)sender

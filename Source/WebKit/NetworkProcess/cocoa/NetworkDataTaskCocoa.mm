@@ -41,6 +41,7 @@
 #import <WebCore/RegistrableDomain.h>
 #import <WebCore/ResourceRequest.h>
 #import <WebCore/TimingAllowOrigin.h>
+#import <WebCore/VersionChecks.h>
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/FileSystem.h>
@@ -442,7 +443,7 @@ void NetworkDataTaskCocoa::didCompleteWithError(const WebCore::ResourceError& er
         m_client->didCompleteWithError(error, networkLoadMetrics);
 }
 
-void NetworkDataTaskCocoa::didReceiveData(Ref<WebCore::SharedBuffer>&& data)
+void NetworkDataTaskCocoa::didReceiveData(Ref<WebCore::FragmentedSharedBuffer>&& data)
 {
     WTFEmitSignpost(m_task.get(), "DataTask", "received %zd bytes", data->size());
 
@@ -495,7 +496,7 @@ void NetworkDataTaskCocoa::willPerformHTTPRedirection(WebCore::ResourceResponse&
         request.clearHTTPOrigin();
 
     } else {
-        if (auto authorization = m_firstRequest.httpHeaderField(WebCore::HTTPHeaderName::Authorization); !authorization.isNull())
+        if (auto authorization = m_firstRequest.httpHeaderField(WebCore::HTTPHeaderName::Authorization); !authorization.isNull() && linkedOnOrAfter(WebCore::SDKVersion::FirstWithAuthorizationHeaderOnSameOriginRedirects))
             request.setHTTPHeaderField(WebCore::HTTPHeaderName::Authorization, authorization);
 
 #if USE(CREDENTIAL_STORAGE_WITH_NETWORK_SESSION)
@@ -638,12 +639,15 @@ void NetworkDataTaskCocoa::resume()
 {
     WTFEmitSignpost(m_task.get(), "DataTask", "resume");
 
+    if (m_failureScheduled)
+        return;
+
     auto& cocoaSession = static_cast<NetworkSessionCocoa&>(*m_session);
     if (cocoaSession.deviceManagementRestrictionsEnabled() && m_isForMainResourceNavigationForAnyFrame) {
         auto didDetermineDeviceRestrictionPolicyForURL = makeBlockPtr([this, protectedThis = Ref { *this }](BOOL isBlocked) mutable {
             callOnMainRunLoop([this, protectedThis = WTFMove(protectedThis), isBlocked] {
                 if (isBlocked) {
-                    scheduleFailure(RestrictedURLFailure);
+                    scheduleFailure(FailureType::RestrictedURL);
                     return;
                 }
 

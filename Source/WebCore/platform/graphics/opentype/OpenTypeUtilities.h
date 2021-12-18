@@ -35,9 +35,10 @@
 namespace WebCore {
 
 struct BigEndianUShort;
+class SharedBuffer;
 struct EOTPrefix;
 class FontMemoryResource;
-class SharedBuffer;
+class FragmentedSharedBuffer;
 
 struct EOTHeader {
     EOTHeader();

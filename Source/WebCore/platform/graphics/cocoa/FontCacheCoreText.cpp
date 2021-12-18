@@ -305,10 +305,7 @@ static RetainPtr<CFArrayRef> variationAxes(CTFontRef font, ShouldLocalizeAxisNam
 #if defined(HAVE_CTFontCopyVariationAxesInternal) // This macro is defined inside CoreText, not WebKit.
     if (shouldLocalizeAxisNames == ShouldLocalizeAxisNames::Yes)
         return adoptCF(CTFontCopyVariationAxes(font));
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunguarded-availability-new"
     return adoptCF(CTFontCopyVariationAxesInternal(font));
-#pragma clang diagnostic pop
 #else
     UNUSED_PARAM(shouldLocalizeAxisNames);
     return adoptCF(CTFontCopyVariationAxes(font));
@@ -757,7 +754,7 @@ static void invalidateFontCache();
 
 static void fontCacheRegisteredFontsChangedNotificationCallback(CFNotificationCenterRef, void* observer, CFStringRef, const void *, CFDictionaryRef)
 {
-    ASSERT_UNUSED(observer, observer == &FontCache::singleton());
+    ASSERT_UNUSED(observer, isMainThread() && observer == &FontCache::forCurrentThread());
 
     invalidateFontCache();
 }
@@ -1249,13 +1246,16 @@ static FontLookup platformFontLookupWithFamily(const AtomString& family, FontSel
 static void invalidateFontCache()
 {
     ensureOnMainThread([] {
+        // FIXME: Workers need to access SystemFontDatabaseCoreText.
         SystemFontDatabaseCoreText::singleton().clear();
+        // FIXME: Workers need to access FontFamilySpecificationCoreTextCache.
         clearFontFamilySpecificationCoreTextCache();
 
+        // FIXME: Workers need to access FontDatabase.
         FontDatabase::singletonAllowingUserInstalledFonts().clear();
         FontDatabase::singletonDisallowingUserInstalledFonts().clear();
 
-        FontCache::singleton().invalidate();
+        FontCache::invalidateAllFontCaches();
     });
 }
 
@@ -1287,7 +1287,7 @@ static RetainPtr<CTFontRef> fontWithFamilySpecialCase(const AtomString& family, 
 
     if (family.startsWith("UICTFontTextStyle")) {
         const auto& request = fontDescription.fontSelectionRequest();
-        CTFontSymbolicTraits traits = (isFontWeightBold(request.weight) || FontCache::singleton().shouldMockBoldSystemFontForAccessibility() ? kCTFontTraitBold : 0) | (isItalic(request.slope) ? kCTFontTraitItalic : 0);
+        CTFontSymbolicTraits traits = (isFontWeightBold(request.weight) || FontCache::forCurrentThread().shouldMockBoldSystemFontForAccessibility() ? kCTFontTraitBold : 0) | (isItalic(request.slope) ? kCTFontTraitItalic : 0);
         auto descriptor = adoptCF(CTFontDescriptorCreateWithTextStyle(family.string().createCFString().get(), RenderThemeCocoa::singleton().contentSizeCategory(), fontDescription.computedLocale().string().createCFString().get()));
         if (traits)
             descriptor = adoptCF(CTFontDescriptorCreateCopyWithSymbolicTraits(descriptor.get(), traits, traits));
@@ -1335,23 +1335,15 @@ static RetainPtr<CTFontRef> fontWithFamily(const AtomString& family, const FontD
 }
 
 #if PLATFORM(MAC)
-static bool shouldAutoActivateFontIfNeeded(const AtomString& family)
+bool FontCache::shouldAutoActivateFontIfNeeded(const AtomString& family)
 {
-#ifndef NDEBUG
-    // This cache is not thread safe so the following assertion is there to
-    // make sure this function is always called from the same thread.
-    static Thread* initThread = &Thread::current();
-    ASSERT(initThread == &Thread::current());
-#endif
-
-    static NeverDestroyed<HashSet<AtomString>> knownFamilies;
     static const unsigned maxCacheSize = 128;
-    ASSERT(knownFamilies.get().size() <= maxCacheSize);
-    if (knownFamilies.get().size() == maxCacheSize)
-        knownFamilies.get().remove(knownFamilies.get().random());
+    ASSERT(m_knownFamilies.size() <= maxCacheSize);
+    if (m_knownFamilies.size() == maxCacheSize)
+        m_knownFamilies.remove(m_knownFamilies.random());
 
     // Only attempt to auto-activate fonts once for performance reasons.
-    return knownFamilies.get().add(family).isNewEntry;
+    return m_knownFamilies.add(family).isNewEntry;
 }
 
 static void autoActivateFont(const String& name, CGFloat size)
@@ -1696,7 +1688,7 @@ void FontCache::prewarmGlobally()
 
     FontCache::PrewarmInformation prewarmInfo;
     prewarmInfo.seenFamilies = WTFMove(families);
-    FontCache::singleton().prewarm(prewarmInfo);
+    FontCache::forCurrentThread().prewarm(prewarmInfo);
 #endif
 }
 

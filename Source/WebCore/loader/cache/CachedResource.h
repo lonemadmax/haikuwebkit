@@ -49,7 +49,7 @@ class CookieJar;
 class MemoryCache;
 class NetworkLoadMetrics;
 class SecurityOrigin;
-class SharedBuffer;
+class FragmentedSharedBuffer;
 class SubresourceLoader;
 class TextResourceDecoder;
 
@@ -112,9 +112,9 @@ public:
     virtual void setEncoding(const String&) { }
     virtual String encoding() const { return String(); }
     virtual const TextResourceDecoder* textResourceDecoder() const { return nullptr; }
-    virtual void updateBuffer(SharedBuffer&);
+    virtual void updateBuffer(const FragmentedSharedBuffer&);
     virtual void updateData(const uint8_t* data, unsigned length);
-    virtual void finishLoading(SharedBuffer*, const NetworkLoadMetrics&);
+    virtual void finishLoading(const FragmentedSharedBuffer*, const NetworkLoadMetrics&);
     virtual void error(CachedResource::Status);
 
     void setResourceError(const ResourceError& error) { m_error = error; }

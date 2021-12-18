@@ -35,11 +35,11 @@
 #import <wtf/cocoa/VectorCocoa.h>
 
 @interface WebCoreSharedBufferData : NSData
-- (instancetype)initWithDataSegment:(const WebCore::SharedBuffer::DataSegment&)dataSegment position:(NSUInteger)position size:(NSUInteger)size;
+- (instancetype)initWithDataSegment:(const WebCore::DataSegment&)dataSegment position:(NSUInteger)position size:(NSUInteger)size;
 @end
 
 @implementation WebCoreSharedBufferData {
-    RefPtr<const WebCore::SharedBuffer::DataSegment> _dataSegment;
+    RefPtr<const WebCore::DataSegment> _dataSegment;
     NSUInteger _position;
     NSUInteger _size;
 }
@@ -61,7 +61,7 @@
     [super dealloc];
 }
 
-- (instancetype)initWithDataSegment:(const WebCore::SharedBuffer::DataSegment&)dataSegment position:(NSUInteger)position size:(NSUInteger)size
+- (instancetype)initWithDataSegment:(const WebCore::DataSegment&)dataSegment position:(NSUInteger)position size:(NSUInteger)size
 {
     if (!(self = [super init]))
         return nil;
@@ -88,13 +88,14 @@
 
 namespace WebCore {
 
-Ref<SharedBuffer> SharedBuffer::create(NSData *data)
+Ref<FragmentedSharedBuffer> FragmentedSharedBuffer::create(NSData *data)
 {
-    return adoptRef(*new SharedBuffer(bridge_cast(data)));
+    return adoptRef(*new FragmentedSharedBuffer(bridge_cast(data)));
 }
 
-void SharedBuffer::append(NSData *data)
+void FragmentedSharedBuffer::append(NSData *data)
 {
+    ASSERT(!m_contiguous);
     return append(bridge_cast(data));
 }
 
@@ -105,28 +106,19 @@ RetainPtr<NSData> SharedBuffer::createNSData() const
 
 RetainPtr<CFDataRef> SharedBuffer::createCFData() const
 {
-    combineIntoOneSegment();
     if (!m_segments.size())
         return adoptCF(CFDataCreate(nullptr, nullptr, 0));
-    ASSERT(m_segments.size() == 1);
     return bridge_cast(m_segments[0].segment->createNSData());
 }
 
-RefPtr<SharedBuffer> SharedBuffer::createFromReadingFile(const String& filePath)
-{
-    if (auto resourceData = [NSData dataWithContentsOfFile:filePath])
-        return SharedBuffer::create(resourceData);
-    return nullptr;
-}
-
-RetainPtr<NSArray> SharedBuffer::createNSDataArray() const
+RetainPtr<NSArray> FragmentedSharedBuffer::createNSDataArray() const
 {
     return createNSArray(m_segments, [] (auto& segment) {
         return segment.segment->createNSData();
     });
 }
 
-RetainPtr<NSData> SharedBuffer::DataSegment::createNSData() const
+RetainPtr<NSData> DataSegment::createNSData() const
 {
     return adoptNS([[WebCoreSharedBufferData alloc] initWithDataSegment:*this position:0 size:size()]);
 }

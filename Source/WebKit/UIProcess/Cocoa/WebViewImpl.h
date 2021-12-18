@@ -135,8 +135,6 @@ struct TranslationContextMenuInfo;
 - (void)_web_didPerformDragOperation:(BOOL)handled;
 #endif
 
-- (void)_web_grantDOMPasteAccess;
-
 @optional
 - (void)_web_didAddMediaControlsManager:(id)controlsManager;
 - (void)_web_didRemoveMediaControlsManager;
@@ -506,7 +504,7 @@ public:
 
     void startDrag(const WebCore::DragItem&, const ShareableBitmap::Handle& image);
     void setFileAndURLTypes(NSString *filename, NSString *extension, NSString *title, NSString *url, NSString *visibleURL, NSPasteboard *);
-    void setPromisedDataForImage(WebCore::Image*, NSString *filename, NSString *extension, NSString *title, NSString *url, NSString *visibleURL, WebCore::SharedBuffer* archiveBuffer, NSString *pasteboardName, NSString *pasteboardOrigin);
+    void setPromisedDataForImage(WebCore::Image*, NSString *filename, NSString *extension, NSString *title, NSString *url, NSString *visibleURL, WebCore::FragmentedSharedBuffer* archiveBuffer, NSString *pasteboardName, NSString *pasteboardOrigin);
     void pasteboardChangedOwner(NSPasteboard *);
     void provideDataForPasteboard(NSPasteboard *, NSString *type);
     NSArray *namesOfPromisedFilesDroppedAtDestination(NSURL *dropDestination);
@@ -652,9 +650,10 @@ public:
     void takeFocus(WebCore::FocusDirection);
     void clearPromisedDragImage();
 
-    void requestDOMPasteAccess(const WebCore::IntRect&, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&);
-    void handleDOMPasteRequestWithResult(WebCore::DOMPasteAccessResponse);
+    void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, const WebCore::IntRect&, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&);
+    void handleDOMPasteRequestForCategoryWithResult(WebCore::DOMPasteAccessCategory, WebCore::DOMPasteAccessResponse);
     NSMenu *domPasteMenu() const { return m_domPasteMenu.get(); }
+    void hideDOMPasteMenuWithResult(WebCore::DOMPasteAccessResponse);
 
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
     bool canHandleContextMenuTranslation() const;

@@ -185,11 +185,11 @@ void FetchBody::consumeAsStream(FetchBodyOwner& owner, FetchBodySource& source)
         closeStream = source.enqueue(ArrayBuffer::tryCreate(arrayBufferViewBody().baseAddress(), arrayBufferViewBody().byteLength()));
         m_data = nullptr;
     } else if (isText()) {
-        auto data = UTF8Encoding().encode(textBody(), UnencodableHandling::Entities);
+        auto data = PAL::UTF8Encoding().encode(textBody(), PAL::UnencodableHandling::Entities);
         closeStream = source.enqueue(ArrayBuffer::tryCreate(data.data(), data.size()));
         m_data = nullptr;
     } else if (isURLSearchParams()) {
-        auto data = UTF8Encoding().encode(urlSearchParamsBody().toString(), UnencodableHandling::Entities);
+        auto data = PAL::UTF8Encoding().encode(urlSearchParamsBody().toString(), PAL::UnencodableHandling::Entities);
         closeStream = source.enqueue(ArrayBuffer::tryCreate(data.data(), data.size()));
         m_data = nullptr;
     } else if (isBlob()) {
@@ -220,7 +220,7 @@ void FetchBody::consumeArrayBufferView(FetchBodyOwner& owner, Ref<DeferredPromis
 
 void FetchBody::consumeText(FetchBodyOwner& owner, Ref<DeferredPromise>&& promise, const String& text)
 {
-    auto data = UTF8Encoding().encode(text, UnencodableHandling::Entities);
+    auto data = PAL::UTF8Encoding().encode(text, PAL::UnencodableHandling::Entities);
     m_consumer.resolveWithData(WTFMove(promise), owner.contentType(), data.data(), data.size());
     m_data = nullptr;
 }
@@ -235,7 +235,7 @@ void FetchBody::consumeBlob(FetchBodyOwner& owner, Ref<DeferredPromise>&& promis
 void FetchBody::consumeFormData(FetchBodyOwner& owner, Ref<DeferredPromise>&& promise)
 {
     if (auto sharedBuffer = formDataBody().asSharedBuffer()) {
-        m_consumer.resolveWithData(WTFMove(promise), owner.contentType(), sharedBuffer->data(), sharedBuffer->size());
+        m_consumer.resolveWithData(WTFMove(promise), owner.contentType(), sharedBuffer->makeContiguous()->data(), sharedBuffer->size());
         m_data = nullptr;
     } else {
         // FIXME: If the form data contains blobs, load them like we do other blobs.
@@ -257,9 +257,9 @@ void FetchBody::loadingSucceeded(const String& contentType)
 RefPtr<FormData> FetchBody::bodyAsFormData() const
 {
     if (isText())
-        return FormData::create(UTF8Encoding().encode(textBody(), UnencodableHandling::Entities));
+        return FormData::create(PAL::UTF8Encoding().encode(textBody(), PAL::UnencodableHandling::Entities));
     if (isURLSearchParams())
-        return FormData::create(UTF8Encoding().encode(urlSearchParamsBody().toString(), UnencodableHandling::Entities));
+        return FormData::create(PAL::UTF8Encoding().encode(urlSearchParamsBody().toString(), PAL::UnencodableHandling::Entities));
     if (isBlob()) {
         auto body = FormData::create();
         body->appendBlob(blobBody().url());
@@ -272,7 +272,7 @@ RefPtr<FormData> FetchBody::bodyAsFormData() const
     if (isFormData())
         return &const_cast<FormData&>(formDataBody());
     if (auto* data = m_consumer.data())
-        return FormData::create(data->data(), data->size());
+        return FormData::create(data->makeContiguous()->data(), data->size());
 
     ASSERT_NOT_REACHED();
     return nullptr;
@@ -284,7 +284,7 @@ FetchBody::TakenData FetchBody::take()
         auto buffer = m_consumer.takeData();
         if (!buffer)
             return nullptr;
-        return buffer.releaseNonNull();
+        return buffer->makeContiguous();
     }
 
     if (isBlob()) {
@@ -297,9 +297,9 @@ FetchBody::TakenData FetchBody::take()
         return formDataBody();
 
     if (isText())
-        return SharedBuffer::create(UTF8Encoding().encode(textBody(), UnencodableHandling::Entities));
+        return SharedBuffer::create(PAL::UTF8Encoding().encode(textBody(), PAL::UnencodableHandling::Entities));
     if (isURLSearchParams())
-        return SharedBuffer::create(UTF8Encoding().encode(urlSearchParamsBody().toString(), UnencodableHandling::Entities));
+        return SharedBuffer::create(PAL::UTF8Encoding().encode(urlSearchParamsBody().toString(), PAL::UnencodableHandling::Entities));
 
     if (isArrayBuffer())
         return SharedBuffer::create(static_cast<const char*>(arrayBufferBody().data()), arrayBufferBody().byteLength());

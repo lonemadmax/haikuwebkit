@@ -37,6 +37,10 @@
 #include <wtf/SetForScope.h>
 #include <wtf/StdLibExtras.h>
 
+#if ENABLE(SERVICE_CONTROLS)
+#include "ImageControlsMac.h"
+#endif
+
 namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLButtonElement);
@@ -128,6 +132,10 @@ void HTMLButtonElement::parseAttribute(const QualifiedName& name, const AtomStri
 
 void HTMLButtonElement::defaultEventHandler(Event& event)
 {
+#if ENABLE(SERVICE_CONTROLS)
+    if (ImageControlsMac::handleEvent(*this, event))
+        return;
+#endif
     if (event.type() == eventNames().DOMActivateEvent && !isDisabledFormControl()) {
         RefPtr<HTMLFormElement> protectedForm(form());
 
@@ -138,7 +146,6 @@ void HTMLButtonElement::defaultEventHandler(Event& event)
 
             if (auto currentForm = form()) {
                 if (m_type == SUBMIT) {
-                    SetForScope<bool> activatedSubmitState(m_isActivatedSubmit, true);
                     currentForm->submitIfPossible(&event, this);
                 }
 

@@ -231,6 +231,11 @@ static bool laContextRequested = false;
     return self;
 }
 
+- (void)_webView:(WKWebView *)webView requestWebAuthenticationNoGestureForOrigin:(WKSecurityOrigin *)orgin completionHandler:(void (^)(BOOL))completionHandler
+{
+    completionHandler(true);
+}
+
 - (void)_webView:(WKWebView *)webView runWebAuthenticationPanel:(_WKWebAuthenticationPanel *)panel initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(_WKWebAuthenticationPanelResult))completionHandler
 {
     webAuthenticationPanelRan = true;
@@ -2189,6 +2194,26 @@ TEST(WebAuthenticationPanel, GetAllCredential)
     EXPECT_GE([[credentials firstObject][_WKLocalAuthenticatorCredentialLastModificationDateKey] compare:before.get()], 0);
     EXPECT_LE([[credentials firstObject][_WKLocalAuthenticatorCredentialLastModificationDateKey] compare:after.get()], 0);
     EXPECT_EQ([[credentials firstObject][_WKLocalAuthenticatorCredentialLastModificationDateKey] compare:[credentials firstObject][_WKLocalAuthenticatorCredentialCreationDateKey]], 0);
+
+    cleanUpKeychain("example.com");
+}
+
+TEST(WebAuthenticationPanel, GetAllCredentialWithDisplayName)
+{
+    reset();
+
+    // {"id": h'00010203040506070809', "name": "John", "displayName": "Johnny"}
+    ASSERT_TRUE(addKeyToKeychain(testES256PrivateKeyBase64, "example.com", "o2JpZEoAAQIDBAUGBwgJZG5hbWVkSm9obmtkaXNwbGF5TmFtZWZKb2hubnk="));
+
+    auto after = adoptNS([[NSDate alloc] init]);
+
+    auto *credentials = [_WKWebAuthenticationPanel getAllLocalAuthenticatorCredentialsWithAccessGroup:@"com.apple.TestWebKitAPI"];
+    EXPECT_NOT_NULL(credentials);
+    EXPECT_EQ([credentials count], 1lu);
+
+    EXPECT_NOT_NULL([credentials firstObject]);
+    EXPECT_WK_STREQ([credentials firstObject][_WKLocalAuthenticatorCredentialNameKey], "John");
+    EXPECT_WK_STREQ([credentials firstObject][_WKLocalAuthenticatorCredentialDisplayNameKey], "Johnny");
 
     cleanUpKeychain("example.com");
 }

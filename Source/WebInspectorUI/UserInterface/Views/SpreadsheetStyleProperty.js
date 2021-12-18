@@ -300,13 +300,9 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         if (!this._property.valid && this._property.hasOtherVendorNameOrKeyword())
             classNames.push("other-vendor");
         else if (this._hasInvalidVariableValue || (!this._property.valid && this._property.value !== "")) {
-            let propertyNameIsValid = false;
-            if (WI.CSSCompletions.cssNameCompletions)
-                propertyNameIsValid = WI.CSSCompletions.cssNameCompletions.isValidPropertyName(this._property.name);
-
             classNames.push("has-warning");
 
-            if (!propertyNameIsValid) {
+            if (!WI.cssManager.propertyNameCompletions?.isValidPropertyName(this._property.name)) {
                 classNames.push("invalid-name");
                 elementTitle = WI.UIString("Unsupported property name");
             } else {
@@ -539,7 +535,7 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         if (this.property.isVariable)
             return;
 
-        if (!WI.CSSCompletions.cssNameCompletions.isValidPropertyName(this._property.name))
+        if (!WI.cssManager.propertyNameCompletions?.isValidPropertyName(this._property.name))
             return;
 
         if (!CSSDocumentation.hasOwnProperty(this._property.name) && !CSSDocumentation.hasOwnProperty(this._property.canonicalName))
@@ -627,14 +623,13 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
     _replaceSpecialTokens(tokens)
     {
         // FIXME: <https://webkit.org/b/178636> Web Inspector: Styles: Make inline widgets work with CSS functions (var(), calc(), etc.)
-        // FIXME: <https://webkit.org/b/233054> Web Inspector: Add a swatch for align-items and align-self
         // FIXME: <https://webkit.org/b/233055> Web Inspector: Add a swatch for justify-content, justify-items, and justify-self
 
         if (this._property.name === "box-shadow")
             return this._addBoxShadowTokens(tokens);
 
-        if (this._property.name === "align-content")
-            return this._addAlignmentTokens(tokens);
+        if (WI.AlignmentData.isAlignmentAwarePropertyName(this._property.name))
+            return this._addAlignmentTokens(tokens, this._property.name);
 
         if (this._property.isVariable || WI.CSSKeywordCompletions.isColorAwareProperty(this._property.name)) {
             tokens = this._addGradientTokens(tokens);
@@ -849,11 +844,11 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         return newTokens;
     }
 
-    _addAlignmentTokens(tokens)
+    _addAlignmentTokens(tokens, propertyName)
     {
         // FIXME: <https://webkit.org/b/233281> Web Inspector: Alignment swatch should handle multi-token values better
         let text = this._resolveVariables(tokens.map((token) => token.value).join(""));
-        let swatch = this._createInlineSwatch(WI.InlineSwatch.Type.Alignment, this._addVariableTokens(tokens), text);
+        let swatch = this._createInlineSwatch(WI.InlineSwatch.Type.Alignment, this._addVariableTokens(tokens), new WI.AlignmentData(propertyName, text));
         return [swatch];
     }
 
@@ -936,12 +931,12 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
 
     _handleNameChange()
     {
-        this._property.name = this._nameElement.textContent.trim();
+        this._property.name = this._nameTextField.value;
     }
 
     _handleValueChange()
     {
-        let value = this._valueElement.textContent;
+        let value = this._valueTextField.value;
 
         this._property.rawValue = value.trim();
 
@@ -975,9 +970,9 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         }
     }
 
-    _nameCompletionDataProvider(text, {caretPosition, allowEmptyPrefix} = {})
+    _nameCompletionDataProvider(text, options = {})
     {
-        return WI.CSSKeywordCompletions.forPartialPropertyName(text, {caretPosition, allowEmptyPrefix});
+        return WI.CSSKeywordCompletions.forPartialPropertyName(text, options);
     }
 
     _handleValueBeforeInput(event)
@@ -999,9 +994,10 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         this.spreadsheetTextFieldDidCommit(this._valueTextField, {direction: "forward"});
     }
 
-    _valueCompletionDataProvider(text, {caretPosition, allowEmptyPrefix} = {})
+    _valueCompletionDataProvider(text, options = {})
     {
-        return WI.CSSKeywordCompletions.forPartialPropertyValue(text, this._nameElement.textContent.trim(), {caretPosition, additionalFunctionValueCompletionsProvider: this.additionalFunctionValueCompletionsProvider.bind(this)});
+        options.additionalFunctionValueCompletionsProvider = this.additionalFunctionValueCompletionsProvider.bind(this);
+        return WI.CSSKeywordCompletions.forPartialPropertyValue(text, this._nameElement.textContent.trim(), options);
     }
 
     _setupJumpToSymbol(element)

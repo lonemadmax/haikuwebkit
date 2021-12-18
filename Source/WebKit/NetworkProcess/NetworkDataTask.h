@@ -43,7 +43,7 @@ namespace WebCore {
 class AuthenticationChallenge;
 class ResourceError;
 class ResourceResponse;
-class SharedBuffer;
+class FragmentedSharedBuffer;
 }
 
 namespace WebKit {
@@ -63,12 +63,13 @@ public:
     virtual void willPerformHTTPRedirection(WebCore::ResourceResponse&&, WebCore::ResourceRequest&&, RedirectCompletionHandler&&) = 0;
     virtual void didReceiveChallenge(WebCore::AuthenticationChallenge&&, NegotiatedLegacyTLS, ChallengeCompletionHandler&&) = 0;
     virtual void didReceiveResponse(WebCore::ResourceResponse&&, NegotiatedLegacyTLS, ResponseCompletionHandler&&) = 0;
-    virtual void didReceiveData(Ref<WebCore::SharedBuffer>&&) = 0;
+    virtual void didReceiveData(Ref<WebCore::FragmentedSharedBuffer>&&) = 0;
     virtual void didCompleteWithError(const WebCore::ResourceError&, const WebCore::NetworkLoadMetrics&) = 0;
     virtual void didSendData(uint64_t totalBytesSent, uint64_t totalBytesExpectedToSend) = 0;
     virtual void wasBlocked() = 0;
     virtual void cannotShowURL() = 0;
     virtual void wasBlockedByRestrictions() = 0;
+    virtual void wasBlockedByDisabledFTP() = 0;
 
     virtual bool shouldCaptureExtraNetworkLoadMetrics() const { return false; }
 
@@ -145,10 +146,11 @@ public:
 protected:
     NetworkDataTask(NetworkSession&, NetworkDataTaskClient&, const WebCore::ResourceRequest&, WebCore::StoredCredentialsPolicy, bool shouldClearReferrerOnHTTPSToHTTPRedirect, bool dataTaskIsForMainFrameNavigation);
 
-    enum FailureType {
-        BlockedFailure,
-        InvalidURLFailure,
-        RestrictedURLFailure
+    enum class FailureType : uint8_t {
+        Blocked,
+        InvalidURL,
+        RestrictedURL,
+        FTPDisabled
     };
     void scheduleFailure(FailureType);
 
@@ -172,6 +174,7 @@ protected:
     bool m_shouldClearReferrerOnHTTPSToHTTPRedirect { true };
     String m_suggestedFilename;
     bool m_dataTaskIsForMainFrameNavigation { false };
+    bool m_failureScheduled { false };
 };
 
 } // namespace WebKit

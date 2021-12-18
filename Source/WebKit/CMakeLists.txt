@@ -201,6 +201,7 @@ set(WebKit_MESSAGES_IN_FILES
     NetworkProcess/NetworkSocketChannel
     NetworkProcess/NetworkSocketStream
 
+    NetworkProcess/ServiceWorker/ServiceWorkerDownloadTask
     NetworkProcess/ServiceWorker/ServiceWorkerFetchTask
     NetworkProcess/ServiceWorker/WebSWServerConnection
     NetworkProcess/ServiceWorker/WebSWServerToContextConnection

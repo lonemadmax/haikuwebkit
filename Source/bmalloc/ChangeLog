@@ -1,3 +1,105 @@
+2021-12-14  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, fix Xcode build of libpas
+        https://bugs.webkit.org/show_bug.cgi?id=233821
+
+        r286934 broke build.sh for Xcode. This patch fixes it.
+
+        * libpas/build.sh:
+
+2021-12-13  Elliott Williams  <emw@apple.com>
+
+        Deployment target for macOS 11+ does not follow minor version bumps
+        https://bugs.webkit.org/show_bug.cgi?id=233906
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/DebugRelease.xcconfig:
+
+2021-12-12  Zan Dobersek  <zdobersek@igalia.com>
+
+        [libpas] make build.sh, test.sh, build_and_test.sh, and clean.sh work on Linux
+        https://bugs.webkit.org/show_bug.cgi?id=233821
+
+        Reviewed by Yusuke Suzuki.
+
+        Adjust and enhance the shell scripts for building and testing CMake
+        builds of libpas. In build.sh, the 'cmake' SDK option handling is added,
+        invoking CMake to produce a libpas build of the desired variant and
+        configuration. The Debug and Release configuration possibilities map
+        exactly to the CMAKE_BUILD_TYPE option. The ENABLE_PAS_TESTING option
+        used for the testing variant is converted into a macro definition that's
+        passed to both CMAKE_C_FLAGS and CMAKE_CXX_FLAGS.
+
+        The function declarations are adjusted to use the "fname()" form, making
+        things runnable on shells that don't support the "function" keyword.
+
+        * libpas/build.sh:
+        * libpas/common.sh:
+        * libpas/test.sh:
+
+2021-12-09  Alex Christensen  <achristensen@webkit.org>
+
+        Prepare for transition to C++20
+        https://bugs.webkit.org/show_bug.cgi?id=234022
+
+        Reviewed by Yusuke Suzuki.
+
+        * bmalloc/List.h:
+        (bmalloc::List::iterator::operator!= const):
+        (bmalloc::List::iterator::operator!=): Deleted.
+
+2021-12-09  Zan Dobersek  <zdobersek@igalia.com>
+
+        [libpas] Fix up missing header includes and build guards in unit tests
+        https://bugs.webkit.org/show_bug.cgi?id=234007
+
+        Reviewed by Yusuke Suzuki.
+
+        Add missing header inclusions in different libpas unit test sources
+        to avoid build problems.
+
+        In IsoHeapChaosTests.cpp, Mach-specific thread-related header inclusion
+        and usage is put inside PAS_OS(DARWIN) build guards. On Linux, the
+        enumerator sub-tests that utilize this thread suspension and resuming
+        functionality are disabled.
+
+        * libpas/src/test/ExpendableMemoryTests.cpp:
+        * libpas/src/test/IsoHeapChaosTests.cpp:
+        (std::testAllocationChaos):
+        * libpas/src/test/IsoHeapPageSharingTests.cpp:
+        * libpas/src/test/IsoHeapPartialAndBaselineTests.cpp:
+        * libpas/src/test/RaceTests.cpp:
+        * libpas/src/test/TestHarness.cpp:
+        * libpas/src/test/ThingyAndUtilityHeapAllocationTests.cpp:
+
+2021-12-08  Zan Dobersek  <zdobersek@igalia.com>
+
+        [libpas] Guard Darwin-specific malloc zone usage in mbmalloc sources
+        https://bugs.webkit.org/show_bug.cgi?id=234005
+
+        Reviewed by Yusuke Suzuki.
+
+        Use PAS_OS(DARWIN) build guards for the Darwin-specific malloc header
+        inclusions and malloc_zone_pressure_relief() calls.
+
+        * libpas/src/mbmalloc/mbmalloc_bmalloc.c:
+        (mbscavenge):
+        * libpas/src/mbmalloc/mbmalloc_hotbit.c:
+        (mbscavenge):
+        * libpas/src/mbmalloc/mbmalloc_iso_common_primitive.c:
+        (mbscavenge):
+
+2021-12-08  Zan Dobersek  <zdobersek@igalia.com>
+
+        [libpas] Remove the stale SkipListTests.cpp file
+        https://bugs.webkit.org/show_bug.cgi?id=234000
+
+        Unreviewed, removing the redundant test file that's not been built (and
+        cannot be built anymore) since the libpas update done in r285789.
+
+        * libpas/src/test/SkipListTests.cpp: Removed.
+
 2021-12-06  Filip Pizlo  <fpizlo@apple.com>
 
         [libpas] Clean up what the machine code looks like under LTO

@@ -42,6 +42,7 @@ class ApplicationCache;
 class ApplicationCacheGroup;
 class ApplicationCacheResource;
 class ApplicationCacheStorage;
+class SharedBuffer;
 class DOMApplicationCache;
 class DocumentLoader;
 class Frame;
@@ -49,7 +50,6 @@ class ResourceError;
 class ResourceLoader;
 class ResourceRequest;
 class ResourceResponse;
-class SharedBuffer;
 class SubstituteData;
 
 class ApplicationCacheHost {

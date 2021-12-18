@@ -84,7 +84,7 @@ public:
 
     bool hasFrontBuffer() const
     {
-        return m_bufferHandle.has_value();
+        return m_contentsBufferHandle || !!m_frontBuffer.imageBuffer;
     }
 
     Vector<std::unique_ptr<WebCore::ThreadSafeImageBufferFlusher>> takePendingFlushers();
@@ -136,6 +136,9 @@ private:
     Buffer m_backBuffer;
     Buffer m_secondaryBackBuffer;
     std::optional<ImageBufferBackendHandle> m_bufferHandle;
+    // FIXME: This should be removed and m_bufferHandle should be used to ref the buffer once ShareableBitmap::Handle
+    // can be encoded multiple times. http://webkit.org/b/234169
+    std::optional<MachSendRight> m_contentsBufferHandle;
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
     std::optional<ImageBufferBackendHandle> m_displayListBufferHandle;
 #endif

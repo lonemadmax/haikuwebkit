@@ -34,6 +34,7 @@ namespace WebCore {
 
 class CSSFontFace;
 class CSSFontSelector;
+class SharedBuffer;
 class Document;
 class Font;
 class FontCreationContext;
@@ -42,7 +43,6 @@ class FontDescription;
 struct FontSelectionSpecifiedCapabilities;
 struct FontVariantSettings;
 class SVGFontFaceElement;
-class SharedBuffer;
 
 template <typename T> class FontTaggedSettings;
 typedef FontTaggedSettings<int> FontFeatureSettings;

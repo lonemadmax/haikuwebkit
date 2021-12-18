@@ -79,7 +79,7 @@ public:
 
     const FetchHeaders& headers() const { return m_headers; }
     FetchHeaders& headers() { return m_headers; }
-    ExceptionOr<Ref<FetchResponse>> clone(ScriptExecutionContext&);
+    ExceptionOr<Ref<FetchResponse>> clone();
 
     void consumeBodyAsStream() final;
     void feedStream() final;
@@ -134,7 +134,7 @@ private:
 
         void consumeDataByChunk(ConsumeDataByChunkCallback&&);
 
-        RefPtr<SharedBuffer> startStreaming();
+        RefPtr<FragmentedSharedBuffer> startStreaming();
         NotificationCallback takeNotificationCallback() { return WTFMove(m_responseCallback); }
         ConsumeDataByChunkCallback takeConsumeDataCallback() { return WTFMove(m_consumeDataCallback); }
 

@@ -63,7 +63,7 @@
 #include "SecurityOrigin.h"
 #include "Settings.h"
 #include "StyleScope.h"
-#include "TextEncoding.h"
+#include <pal/text/TextEncoding.h>
 #include "UserGestureIndicator.h"
 #include <JavaScriptCore/ContentSearchUtilities.h>
 #include <JavaScriptCore/IdentifiersFactory.h>
@@ -89,9 +89,9 @@ using namespace Inspector;
 static bool decodeBuffer(const uint8_t* buffer, unsigned size, const String& textEncodingName, String* result)
 {
     if (buffer) {
-        TextEncoding encoding(textEncodingName);
+        PAL::TextEncoding encoding(textEncodingName);
         if (!encoding.isValid())
-            encoding = WindowsLatin1Encoding();
+            encoding = PAL::WindowsLatin1Encoding();
         *result = encoding.decode(buffer, size);
         return true;
     }
@@ -100,15 +100,15 @@ static bool decodeBuffer(const uint8_t* buffer, unsigned size, const String& tex
 
 bool InspectorPageAgent::mainResourceContent(Frame* frame, bool withBase64Encode, String* result)
 {
-    RefPtr<SharedBuffer> buffer = frame->loader().documentLoader()->mainResourceData();
+    RefPtr<FragmentedSharedBuffer> buffer = frame->loader().documentLoader()->mainResourceData();
     if (!buffer)
         return false;
-    return InspectorPageAgent::dataContent(buffer->data(), buffer->size(), frame->document()->encoding(), withBase64Encode, result);
+    return InspectorPageAgent::dataContent(buffer->makeContiguous()->data(), buffer->size(), frame->document()->encoding(), withBase64Encode, result);
 }
 
-bool InspectorPageAgent::sharedBufferContent(RefPtr<SharedBuffer>&& buffer, const String& textEncodingName, bool withBase64Encode, String* result)
+bool InspectorPageAgent::sharedBufferContent(RefPtr<FragmentedSharedBuffer>&& buffer, const String& textEncodingName, bool withBase64Encode, String* result)
 {
-    return dataContent(buffer ? buffer->data() : nullptr, buffer ? buffer->size() : 0, textEncodingName, withBase64Encode, result);
+    return dataContent(buffer ? buffer->makeContiguous()->data() : nullptr, buffer ? buffer->size() : 0, textEncodingName, withBase64Encode, result);
 }
 
 bool InspectorPageAgent::dataContent(const uint8_t* data, unsigned size, const String& textEncodingName, bool withBase64Encode, String* result)
@@ -156,7 +156,7 @@ void InspectorPageAgent::resourceContent(Protocol::ErrorString& errorString, Fra
     if (!loader)
         return;
 
-    RefPtr<SharedBuffer> buffer;
+    RefPtr<FragmentedSharedBuffer> buffer;
     bool success = false;
     if (equalIgnoringFragmentIdentifier(url, loader->url())) {
         *base64Encoded = false;

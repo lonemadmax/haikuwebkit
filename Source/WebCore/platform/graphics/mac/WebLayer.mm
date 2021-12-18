@@ -106,7 +106,6 @@
                 [super setNeedsDisplayInRect:indicatorRect];
             }
         }
-        
     }
 }
 

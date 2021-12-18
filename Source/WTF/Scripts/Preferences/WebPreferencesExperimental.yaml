@@ -224,10 +224,10 @@ CSSColorMixEnabled:
     WebCore:
       default: false
 
-CSSContainmentEnabled:
+CSSContainerQueriesEnabled:
   type: bool
-  humanReadableName: "CSS Containment"
-  humanReadableDescription: "Enable contain CSS property"
+  humanReadableName: "CSS Container Queries"
+  humanReadableDescription: "Enable CSS Container Queries"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -235,6 +235,18 @@ CSSContainmentEnabled:
       default: false
     WebCore:
       default: false
+
+CSSContainmentEnabled:
+  type: bool
+  humanReadableName: "CSS Containment"
+  humanReadableDescription: "Enable contain CSS property"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
 
 CSSCounterStyleAtRuleImageSymbolsEnabled:
   type: bool
@@ -535,11 +547,11 @@ FocusVisibleEnabled:
   humanReadableDescription: "Enable the focus-indicated pseudo-class :focus-visible"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 # FIXME: This is on by default in WebKit2. Perhaps we should consider turning it on for WebKitLegacy as well.
 GenericCueAPIEnabled:
@@ -888,7 +900,7 @@ MediaSourceInlinePaintingEnabled:
   type: bool
   humanReadableName: "Experimental MediaSource Inline Painting"
   humanReadableDescription: "Experimental MediaSource Inline Painting"
-  condition: ENABLE(MEDIA_SOURCE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
+  condition: ENABLE(MEDIA_SOURCE) && (HAVE(AVSAMPLEBUFFERVIDEOOUTPUT) || USE(GSTREAMER))
   webcoreBinding: RuntimeEnabledFeatures
   defaultValue:
     WebKitLegacy:
@@ -1202,11 +1214,11 @@ ResolutionMediaFeatureEnabled:
   humanReadableDescription: "Enable resolution media feature support"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 # FIXME: This should have it's own ENABLE.
@@ -1350,6 +1362,18 @@ ThirdPartyIframeRedirectBlockingEnabled:
     WebCore:
       default: true
 
+TrackConfigurationEnabled:
+  type: bool
+  humanReadableName: "Track Configuration API"
+  humanReadableDescription: "Track Configuration API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 TransformStreamAPIEnabled:
   type: bool
   humanReadableName: "TransformStream API"
@@ -1480,7 +1504,18 @@ WebAnimationsCustomEffectsEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      "ENABLE(EXPERIMENTAL_FEATURES)" : true
+      default: false
+    WebCore:
+      default: false
+
+WebAnimationsCustomFrameRateEnabled:
+  type: bool
+  humanReadableName: "Web Animations custom frame rate"
+  humanReadableDescription: "Support for specifying a custom frame rate for Web Animations"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
       default: false
     WebCore:
       default: false

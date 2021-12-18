@@ -164,7 +164,7 @@ DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE(DisplayList::SetInlineStrokeColor)
 
 #undef DEFINE_SIMPLE_ARGUMENT_CODER_FOR_SOURCE
 
-static void encodeSharedBuffer(Encoder& encoder, const SharedBuffer* buffer)
+static void encodeSharedBuffer(Encoder& encoder, const FragmentedSharedBuffer* buffer)
 {
     bool isNull = !buffer;
     encoder << isNull;
@@ -177,7 +177,7 @@ static void encodeSharedBuffer(Encoder& encoder, const SharedBuffer* buffer)
         return;
 
 #if USE(UNIX_DOMAIN_SOCKETS)
-    // Do not use shared memory for SharedBuffer encoding in Unix, because it's easy to reach the
+    // Do not use shared memory for FragmentedSharedBuffer encoding in Unix, because it's easy to reach the
     // maximum number of file descriptors open per process when sending large data in small chunks
     // over the IPC. ConnectionUnix.cpp already uses shared memory to send any IPC message that is
     // too large. See https://bugs.webkit.org/show_bug.cgi?id=208571.
@@ -264,7 +264,7 @@ static WARN_UNUSED_RETURN bool decodeTypesAndData(Decoder& decoder, Vector<Strin
         RefPtr<SharedBuffer> buffer;
         if (!decodeSharedBuffer(decoder, buffer))
             return false;
-        data.append(WTFMove(buffer));
+        data.append(buffer);
     }
 
     return true;
@@ -2976,7 +2976,7 @@ std::optional<SerializedAttachmentData> ArgumentCoder<WebCore::SerializedAttachm
     if (!decoder.decode(data))
         return std::nullopt;
 
-    return {{ WTFMove(identifier), WTFMove(mimeType), WebCore::SharedBuffer::create(data.data(), data.size()) }};
+    return { { WTFMove(identifier), WTFMove(mimeType), WebCore::SharedBuffer::create(data.data(), data.size()) } };
 }
 
 #endif // ENABLE(ATTACHMENT_ELEMENT)
@@ -3009,6 +3009,34 @@ std::optional<SerializedPlatformDataCueValue> ArgumentCoder<WebCore::SerializedP
 
 }
 #endif
+
+void ArgumentCoder<RefPtr<WebCore::FragmentedSharedBuffer>>::encode(Encoder& encoder, const RefPtr<WebCore::FragmentedSharedBuffer>& buffer)
+{
+    encodeSharedBuffer(encoder, buffer.get());
+}
+
+std::optional<RefPtr<FragmentedSharedBuffer>> ArgumentCoder<RefPtr<WebCore::FragmentedSharedBuffer>>::decode(Decoder& decoder)
+{
+    RefPtr<SharedBuffer> buffer;
+    if (!decodeSharedBuffer(decoder, buffer))
+        return std::nullopt;
+
+    return buffer;
+}
+
+void ArgumentCoder<Ref<WebCore::FragmentedSharedBuffer>>::encode(Encoder& encoder, const Ref<WebCore::FragmentedSharedBuffer>& buffer)
+{
+    encodeSharedBuffer(encoder, buffer.ptr());
+}
+
+std::optional<Ref<FragmentedSharedBuffer>> ArgumentCoder<Ref<WebCore::FragmentedSharedBuffer>>::decode(Decoder& decoder)
+{
+    RefPtr<SharedBuffer> buffer;
+    if (!decodeSharedBuffer(decoder, buffer) || !buffer)
+        return std::nullopt;
+
+    return buffer.releaseNonNull();
+}
 
 void ArgumentCoder<RefPtr<WebCore::SharedBuffer>>::encode(Encoder& encoder, const RefPtr<WebCore::SharedBuffer>& buffer)
 {
@@ -3107,7 +3135,7 @@ void ArgumentCoder<WebCore::CDMInstanceSession::Message>::encode(Encoder& encode
 {
     encoder << message.first;
 
-    RefPtr<SharedBuffer> messageData = message.second.copyRef();
+    RefPtr<FragmentedSharedBuffer> messageData = message.second.copyRef();
     encoder << messageData;
 }
 
@@ -3117,7 +3145,7 @@ std::optional<WebCore::CDMInstanceSession::Message>  ArgumentCoder<WebCore::CDMI
     if (!decoder.decode(type))
         return std::nullopt;
 
-    RefPtr<SharedBuffer> buffer;
+    RefPtr<FragmentedSharedBuffer> buffer;
     if (!decoder.decode(buffer) || !buffer)
         return std::nullopt;
 

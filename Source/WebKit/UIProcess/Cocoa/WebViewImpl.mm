@@ -1007,19 +1007,21 @@ static const NSUInteger orderedListSegment = 2;
 @end
 
 @interface WKDOMPasteMenuDelegate : NSObject<NSMenuDelegate>
-- (instancetype)initWithWebViewImpl:(WebKit::WebViewImpl&)impl;
+- (instancetype)initWithWebViewImpl:(WebKit::WebViewImpl&)impl pasteAccessCategory:(WebCore::DOMPasteAccessCategory)category;
 @end
 
 @implementation WKDOMPasteMenuDelegate {
     WeakPtr<WebKit::WebViewImpl> _impl;
+    WebCore::DOMPasteAccessCategory _category;
 }
 
-- (instancetype)initWithWebViewImpl:(WebKit::WebViewImpl&)impl
+- (instancetype)initWithWebViewImpl:(WebKit::WebViewImpl&)impl pasteAccessCategory:(WebCore::DOMPasteAccessCategory)category
 {
     if (!(self = [super init]))
         return nil;
 
     _impl = impl;
+    _category = category;
     return self;
 }
 
@@ -1027,7 +1029,7 @@ static const NSUInteger orderedListSegment = 2;
 {
     RunLoop::main().dispatch([impl = _impl] {
         if (impl)
-            impl->handleDOMPasteRequestWithResult(WebCore::DOMPasteAccessResponse::DeniedForGesture);
+            impl->hideDOMPasteMenuWithResult(WebCore::DOMPasteAccessResponse::DeniedForGesture);
     });
 }
 
@@ -1041,6 +1043,11 @@ static const NSUInteger orderedListSegment = 2;
     auto confinementRect = WebCore::enclosingIntRect(NSRect { NSEvent.mouseLocation, menu.size });
     confinementRect.move(0, -confinementRect.height());
     return confinementRect;
+}
+
+- (void)_web_grantDOMPasteAccess
+{
+    _impl->handleDOMPasteRequestForCategoryWithResult(_category, WebCore::DOMPasteAccessResponse::GrantedForGesture);
 }
 
 @end
@@ -1603,7 +1610,7 @@ void WebViewImpl::handleProcessSwapOrExit()
 
     updateRemoteAccessibilityRegistration(false);
 
-    handleDOMPasteRequestWithResult(WebCore::DOMPasteAccessResponse::DeniedForGesture);
+    hideDOMPasteMenuWithResult(WebCore::DOMPasteAccessResponse::DeniedForGesture);
 }
 
 void WebViewImpl::processWillSwap()
@@ -4449,7 +4456,7 @@ void WebViewImpl::setFileAndURLTypes(NSString *filename, NSString *extension, NS
     m_promisedURL = url;
 }
 
-void WebViewImpl::setPromisedDataForImage(WebCore::Image* image, NSString *filename, NSString *extension, NSString *title, NSString *url, NSString *visibleURL, WebCore::SharedBuffer* archiveBuffer, NSString *pasteboardName, NSString *originIdentifier)
+void WebViewImpl::setPromisedDataForImage(WebCore::Image* image, NSString *filename, NSString *extension, NSString *title, NSString *url, NSString *visibleURL, WebCore::FragmentedSharedBuffer* archiveBuffer, NSString *pasteboardName, NSString *originIdentifier)
 {
     NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:pasteboardName];
     RetainPtr<NSMutableArray> types = adoptNS([[NSMutableArray alloc] initWithObjects:WebCore::legacyFilesPromisePasteboardType(), nil]);
@@ -4470,7 +4477,7 @@ void WebViewImpl::setPromisedDataForImage(WebCore::Image* image, NSString *filen
     setFileAndURLTypes(filename, extension, title, url, visibleURL, pasteboard);
 
     if (archiveBuffer) {
-        auto nsData = archiveBuffer->createNSData();
+        auto nsData = archiveBuffer->makeContiguous()->createNSData();
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         [pasteboard setData:nsData.get() forType:(__bridge NSString *)kUTTypeWebArchive];
 ALLOW_DEPRECATED_DECLARATIONS_END
@@ -4501,7 +4508,7 @@ void WebViewImpl::provideDataForPasteboard(NSPasteboard *pasteboard, NSString *t
         return;
 
     if ([type isEqual:m_promisedImage->uti()] && m_promisedImage->data()) {
-        if (auto platformData = m_promisedImage->data()->createNSData())
+        if (auto platformData = m_promisedImage->data()->makeContiguous()->createNSData())
             [pasteboard setData:(__bridge NSData *)platformData.get() forType:type];
     }
 
@@ -4554,7 +4561,7 @@ NSArray *WebViewImpl::namesOfPromisedFilesDroppedAtDestination(NSURL *dropDestin
     RetainPtr<NSData> data;
 
     if (m_promisedImage) {
-        data = m_promisedImage->data()->createNSData();
+        data = m_promisedImage->data()->makeContiguous()->createNSData();
         wrapper = adoptNS([[NSFileWrapper alloc] initRegularFileWithContents:data.get()]);
     } else
         wrapper = adoptNS([[NSFileWrapper alloc] initWithURL:[NSURL URLWithString:m_promisedURL] options:NSFileWrapperReadingImmediate error:nil]);
@@ -4578,34 +4585,64 @@ NSArray *WebViewImpl::namesOfPromisedFilesDroppedAtDestination(NSURL *dropDestin
     return @[[path lastPathComponent]];
 }
 
-void WebViewImpl::requestDOMPasteAccess(const WebCore::IntRect&, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&& completion)
+static NSPasteboardName pasteboardNameForAccessCategory(WebCore::DOMPasteAccessCategory pasteAccessCategory)
+{
+    switch (pasteAccessCategory) {
+    case WebCore::DOMPasteAccessCategory::General:
+        return NSPasteboardNameGeneral;
+
+    case WebCore::DOMPasteAccessCategory::Fonts:
+        return NSPasteboardNameFont;
+    }
+}
+
+static NSPasteboard *pasteboardForAccessCategory(WebCore::DOMPasteAccessCategory pasteAccessCategory)
+{
+    switch (pasteAccessCategory) {
+    case WebCore::DOMPasteAccessCategory::General:
+        return NSPasteboard.generalPasteboard;
+
+    case WebCore::DOMPasteAccessCategory::Fonts:
+        return [NSPasteboard pasteboardWithName:NSPasteboardNameFont];
+    }
+}
+
+void WebViewImpl::requestDOMPasteAccess(WebCore::DOMPasteAccessCategory pasteAccessCategory, const WebCore::IntRect&, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&& completion)
 {
     ASSERT(!m_domPasteRequestHandler);
-    handleDOMPasteRequestWithResult(WebCore::DOMPasteAccessResponse::DeniedForGesture);
+    hideDOMPasteMenuWithResult(WebCore::DOMPasteAccessResponse::DeniedForGesture);
 
-    NSData *data = [NSPasteboard.generalPasteboard dataForType:@(WebCore::PasteboardCustomData::cocoaType())];
+    NSData *data = [pasteboardForAccessCategory(pasteAccessCategory) dataForType:@(WebCore::PasteboardCustomData::cocoaType())];
     auto buffer = WebCore::SharedBuffer::create(data);
     if (WebCore::PasteboardCustomData::fromSharedBuffer(buffer.get()).origin() == originIdentifier) {
-        m_page->grantAccessToCurrentPasteboardData(NSPasteboardNameGeneral);
+        m_page->grantAccessToCurrentPasteboardData(pasteboardNameForAccessCategory(pasteAccessCategory));
         completion(WebCore::DOMPasteAccessResponse::GrantedForGesture);
         return;
     }
 
-    m_domPasteMenuDelegate = adoptNS([[WKDOMPasteMenuDelegate alloc] initWithWebViewImpl:*this]);
+    m_domPasteMenuDelegate = adoptNS([[WKDOMPasteMenuDelegate alloc] initWithWebViewImpl:*this pasteAccessCategory:pasteAccessCategory]);
     m_domPasteRequestHandler = WTFMove(completion);
     m_domPasteMenu = adoptNS([[NSMenu alloc] initWithTitle:WebCore::contextMenuItemTagPaste()]);
 
     [m_domPasteMenu setDelegate:m_domPasteMenuDelegate.get()];
     [m_domPasteMenu setAllowsContextMenuPlugIns:NO];
-    [m_domPasteMenu insertItemWithTitle:WebCore::contextMenuItemTagPaste() action:@selector(_web_grantDOMPasteAccess) keyEquivalent:emptyString() atIndex:0];
+
+    auto pasteMenuItem = RetainPtr([m_domPasteMenu insertItemWithTitle:WebCore::contextMenuItemTagPaste() action:@selector(_web_grantDOMPasteAccess) keyEquivalent:emptyString() atIndex:0]);
+    [pasteMenuItem setTarget:m_domPasteMenuDelegate.get()];
+
     [NSMenu popUpContextMenu:m_domPasteMenu.get() withEvent:m_lastMouseDownEvent.get() forView:m_view.getAutoreleased()];
 }
 
-void WebViewImpl::handleDOMPasteRequestWithResult(WebCore::DOMPasteAccessResponse response)
+void WebViewImpl::handleDOMPasteRequestForCategoryWithResult(WebCore::DOMPasteAccessCategory pasteAccessCategory, WebCore::DOMPasteAccessResponse response)
 {
     if (response == WebCore::DOMPasteAccessResponse::GrantedForCommand || response == WebCore::DOMPasteAccessResponse::GrantedForGesture)
-        m_page->grantAccessToCurrentPasteboardData(NSPasteboardNameGeneral);
+        m_page->grantAccessToCurrentPasteboardData(pasteboardNameForAccessCategory(pasteAccessCategory));
 
+    hideDOMPasteMenuWithResult(response);
+}
+
+void WebViewImpl::hideDOMPasteMenuWithResult(WebCore::DOMPasteAccessResponse response)
+{
     if (auto handler = std::exchange(m_domPasteRequestHandler, { }))
         handler(response);
     [m_domPasteMenu removeAllItems];

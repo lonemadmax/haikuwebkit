@@ -272,9 +272,10 @@ media/airplay-autoplay.html [ Skip ]
 # PLATFORM(MAC), internals.rangeForDictionaryLookupAtLocation()
 fast/layers/prevent-hit-test-during-layout.html [ Skip ]
 
-# JPEG XL is disabled until WebKitRequirements is released with libjxl
-fast/images/jpegxl-as-image.html [ Skip ]
-fast/images/jpegxl-image-decoding.html [ Skip ]
+# JPEG-XL Tests
+fast/images/jpegxl-as-image.html [ Pass ]
+fast/images/jpegxl-image-decoding.html [ Pass ]
+fast/images/animated-jpegxl-loop-count.html [ Pass ]
 
 # DataTransferItems is not yet implemented
 fast/events/clipboard-dataTransferItemList.html [ Skip ]
@@ -1065,8 +1066,6 @@ css2.1/20110323/replaced-intrinsic-002.htm [ Pass ]
 css3/flexbox/csswg/ttwf-reftest-flex-wrap-reverse.html [ Pass ]
 css3/flexbox/csswg/ttwf-reftest-flex-wrap.html [ Pass ]
 
-imported/w3c/web-platform-tests/css/css-flexbox/flex-item-contains-strict.html [ Failure ]
-
 fast/css/apple-system-colors.html [ Failure ]
 fast/css/image-rendering-parsing.html [ Failure Pass ]
 fast/css/paint-order-shadow.html [ ImageOnlyFailure ]
@@ -1428,6 +1427,35 @@ storage/indexeddb/modern/objectstore-rename-1.html [ Timeout Pass ]
 storage/indexeddb/modern/aborted-put.html [ Timeout Pass ]
 [ Debug ] storage/indexeddb/modern/index-rename-1.html [ Skip ]
 
+# Flaky values in WPT cookie expectations
+imported/w3c/web-platform-tests/cookies/prefix/__secure.header.https.html [ Pass Failure ]
+imported/w3c/web-platform-tests/cookies/samesite-none-secure/cookies-without-samesite-must-be-secure.https.tentative.html [ Pass Failure ]
+imported/w3c/web-platform-tests/cookies/samesite/iframe.document.https.html [ Pass Failure ]
+imported/w3c/web-platform-tests/cookies/samesite/multiple-samesite-attributes.https.html [ Pass Failure ]
+imported/w3c/web-platform-tests/cookies/samesite/sandbox-iframe-nested.https.html [ Pass Failure ]
+imported/w3c/web-platform-tests/cookies/samesite/sandbox-iframe-subresource.https.html [ Pass Failure ]
+imported/w3c/web-platform-tests/cookies/samesite/setcookie-lax.https.html [ Pass Failure ]
+imported/w3c/web-platform-tests/cookies/samesite/setcookie-navigation.https.html [ Pass Failure ]
+imported/w3c/web-platform-tests/cookies/schemeful-same-site/schemeful-iframe-subresource.tentative.html [ Pass Failure ]
+imported/w3c/web-platform-tests/cookies/schemeful-same-site/schemeful-navigation.tentative.html [ Pass Failure ]
+imported/w3c/web-platform-tests/cookies/schemeful-same-site/schemeful-subresource.tentative.html [ Pass Failure ]
+
+# WPT diff failures that need more investigation
+imported/w3c/web-platform-tests/cookies/domain/domain-attribute-host-with-leading-period.sub.https.html [ Failure ]
+imported/w3c/web-platform-tests/cookies/encoding/charset.html [ Failure ]
+imported/w3c/web-platform-tests/cookies/name/name-ctl.html [ Failure ]
+imported/w3c/web-platform-tests/cookies/secure/set-from-dom.sub.html [ Failure ]
+imported/w3c/web-platform-tests/cookies/secure/set-from-http.sub.html [ Failure ]
+imported/w3c/web-platform-tests/cookies/secure/set-from-ws.sub.html [ Failure ]
+imported/w3c/web-platform-tests/cookies/value/value-ctl.html [ Failure ]
+imported/w3c/web-platform-tests/cookies/value/value.html [ Failure ]
+
+# Skip WPT tests that timeout
+imported/w3c/web-platform-tests/cookies/samesite/form-get-blank-reload.https.html [ Skip ]
+imported/w3c/web-platform-tests/cookies/samesite/form-get-blank.https.html [ Skip ]
+imported/w3c/web-platform-tests/cookies/samesite/form-post-blank-reload.https.html [ Skip ]
+imported/w3c/web-platform-tests/cookies/samesite/form-post-blank.https.html [ Skip ]
+
 ################################################################################
 ############################   End Storage Issues   ############################
 ################################################################################
@@ -1549,7 +1577,6 @@ imported/w3c/web-platform-tests/common [ Skip ]
 imported/w3c/web-platform-tests/compat [ Skip ]
 imported/w3c/web-platform-tests/console [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy [ Skip ]
-imported/w3c/web-platform-tests/cookies [ Skip ]
 imported/w3c/web-platform-tests/cors [ Skip ]
 imported/w3c/web-platform-tests/credential-management [ Skip ]
 imported/w3c/web-platform-tests/css [ Skip ]
@@ -2092,9 +2119,6 @@ fast/text/undefined-glyph-with-ligature.html [ ImageOnlyFailure ]
 fast/text/soft-hyphen-2.html [ Failure ]
 fast/text/soft-hyphen-3.html [ Failure ]
 fast/text/soft-hyphen-4.html [ Failure ]
-http/tests/xmlhttprequest/onabort-response-getters.html [ Failure ]
-http/tests/xmlhttprequest/onload-progressevent-attributes.html [ Failure ]
-http/tests/xmlhttprequest/xmlhttprequest-LSProgressEvent-ProgressEvent-should-match.html [ Failure ]
 
 fast/box-shadow/hidpi-box-shadow-inset-on-subpixel-position.html [ ImageOnlyFailure ]
 fast/text/hanging-punctuation-allow-end-basic.html [ ImageOnlyFailure ]
@@ -2102,3 +2126,18 @@ fast/text/whitespace-with-zero-width-space-in-between.html [ ImageOnlyFailure ]
 webgl/gl-clear-preserve-drawing-buffer-bug.html [ ImageOnlyFailure ]
 
 fast/text/preserved-white-space-with-word-spacing.html [ ImageOnlyFailure ]
+
+dom/xhtml/level3/core/canonicalform06.xhtml [ Failure ]
+dom/xhtml/level3/core/infoset06.xhtml [ Failure ]
+dom/xhtml/level3/core/infoset07.xhtml [ Failure ]
+dom/xhtml/level3/core/wellformed01.xhtml [ Failure ]
+dom/xhtml/level3/core/wellformed02.xhtml [ Failure ]
+dom/xhtml/level3/core/wellformed03.xhtml [ Failure ]
+dom/xhtml/level3/core/wellformed04.xhtml [ Failure ]
+fast/css/contain-invalidate-if-disabled.html [ Failure ]
+
+fast/filter-image/filter-image-blur.html [ ImageOnlyFailure ]
+fast/text/otsvg-canvas.html [ ImageOnlyFailure ]
+
+accessibility/aria-roledescription.html [ Timeout ]
+accessibility/visible-elements.html [ Timeout ]

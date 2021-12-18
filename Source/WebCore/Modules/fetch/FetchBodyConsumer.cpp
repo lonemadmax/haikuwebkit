@@ -181,7 +181,7 @@ RefPtr<DOMFormData> FetchBodyConsumer::packageFormData(ScriptExecutionContext* c
         return std::nullopt;
     };
 
-    auto form = DOMFormData::create(UTF8Encoding());
+    auto form = DOMFormData::create(PAL::UTF8Encoding());
     auto mimeType = parseMIMEType(contentType);
     if (auto multipartBoundary = parseMultipartBoundary(mimeType)) {
         auto boundaryWithDashes = makeString("--", *multipartBoundary);
@@ -242,7 +242,7 @@ static void resolveWithTypeAndData(Ref<DeferredPromise>&& promise, FetchBodyCons
 
 void FetchBodyConsumer::clean()
 {
-    m_buffer = nullptr;
+    m_buffer.reset();
     resetConsumePromise();
     if (m_sink) {
         m_sink->clearCallback();
@@ -266,16 +266,18 @@ void FetchBodyConsumer::resolve(Ref<DeferredPromise>&& promise, const String& co
 {
     if (stream) {
         ASSERT(!m_sink);
-        m_sink = ReadableStreamToSharedBufferSink::create([promise = WTFMove(promise), data = SharedBuffer::create(), type = m_type, contentType](auto&& result) mutable {
+        m_sink = ReadableStreamToSharedBufferSink::create([promise = WTFMove(promise), data = SharedBufferBuilder(), type = m_type, contentType](auto&& result) mutable {
             if (result.hasException()) {
                 promise->reject(result.releaseException());
                 return;
             }
 
             if (auto* chunk = result.returnValue())
-                data->append(chunk->data(), chunk->size());
-            else
-                resolveWithTypeAndData(WTFMove(promise), type, contentType, data->data(), data->size());
+                data.append(chunk->data(), chunk->size());
+            else {
+                auto buffer = data.takeAsContiguous();
+                resolveWithTypeAndData(WTFMove(promise), type, contentType, buffer->data(), buffer->size());
+            }
         });
         m_sink->pipeFrom(*stream);
         return;
@@ -306,7 +308,7 @@ void FetchBodyConsumer::resolve(Ref<DeferredPromise>&& promise, const String& co
         return;
     case FetchBodyConsumer::Type::FormData: {
         auto buffer = takeData();
-        if (auto formData = packageFormData(context, contentType, buffer ? buffer->data() : nullptr, buffer ? buffer->size() : 0))
+        if (auto formData = packageFormData(context, contentType, buffer ? buffer->makeContiguous()->data() : nullptr, buffer ? buffer->size() : 0))
             promise->resolve<IDLInterface<DOMFormData>>(*formData);
         else
             promise->reject(TypeError);
@@ -324,26 +326,24 @@ void FetchBodyConsumer::append(const uint8_t* data, unsigned size)
         m_source->enqueue(ArrayBuffer::tryCreate(data, size));
         return;
     }
-    if (!m_buffer) {
-        m_buffer = SharedBuffer::create(data, size);
-        return;
-    }
-    m_buffer->append(data, size);
+    m_buffer.append(data, size);
 }
 
-RefPtr<SharedBuffer> FetchBodyConsumer::takeData()
+void FetchBodyConsumer::setData(Ref<FragmentedSharedBuffer>&& data)
 {
-    return WTFMove(m_buffer);
+    m_buffer = WTFMove(data);
+}
+
+RefPtr<FragmentedSharedBuffer> FetchBodyConsumer::takeData()
+{
+    if (!m_buffer)
+        return nullptr;
+    return m_buffer.take();
 }
 
 RefPtr<JSC::ArrayBuffer> FetchBodyConsumer::takeAsArrayBuffer()
 {
-    if (!m_buffer)
-        return ArrayBuffer::tryCreate(nullptr, 0);
-
-    auto arrayBuffer = m_buffer->tryCreateArrayBuffer();
-    m_buffer = nullptr;
-    return arrayBuffer;
+    return m_buffer.takeAsArrayBuffer();
 }
 
 Ref<Blob> FetchBodyConsumer::takeAsBlob(ScriptExecutionContext* context)
@@ -351,9 +351,7 @@ Ref<Blob> FetchBodyConsumer::takeAsBlob(ScriptExecutionContext* context)
     if (!m_buffer)
         return Blob::create(context, Vector<uint8_t>(), Blob::normalizedContentType(m_contentType));
 
-    auto buffer = std::exchange(m_buffer, nullptr);
-    auto data = buffer->extractData();
-    return blobFromData(context, WTFMove(data), m_contentType);
+    return blobFromData(context, m_buffer.take()->extractData(), m_contentType);
 }
 
 String FetchBodyConsumer::takeAsText()
@@ -362,8 +360,8 @@ String FetchBodyConsumer::takeAsText()
     if (!m_buffer)
         return String();
 
-    auto text = TextResourceDecoder::textFromUTF8(m_buffer->data(), m_buffer->size());
-    m_buffer = nullptr;
+    auto buffer = m_buffer.takeAsContiguous();
+    auto text = TextResourceDecoder::textFromUTF8(buffer->data(), buffer->size());
     return text;
 }
 
@@ -383,10 +381,8 @@ void FetchBodyConsumer::resetConsumePromise()
 void FetchBodyConsumer::setSource(Ref<FetchBodySource>&& source)
 {
     m_source = WTFMove(source);
-    if (m_buffer) {
-        m_source->enqueue(m_buffer->tryCreateArrayBuffer());
-        m_buffer = nullptr;
-    }
+    if (m_buffer)
+        m_source->enqueue(m_buffer.takeAsArrayBuffer());
 }
 
 void FetchBodyConsumer::loadingFailed(const Exception& exception)

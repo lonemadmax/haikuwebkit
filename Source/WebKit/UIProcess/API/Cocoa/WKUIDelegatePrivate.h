@@ -162,6 +162,8 @@ struct UIEdgeInsets;
 
 - (void)_webView:(WKWebView *)webView takeFocus:(_WKFocusDirection)direction WK_API_AVAILABLE(macos(10.13.4), ios(12.2));
 
+- (void)_webView:(WKWebView *)webView requestWebAuthenticationNoGestureForOrigin:(WKSecurityOrigin *)orgin completionHandler:(void (^)(BOOL))completionHandler WK_API_AVAILABLE(macos(10.15.4), ios(13.4));
+
 - (void)_webView:(WKWebView *)webView runWebAuthenticationPanel:(_WKWebAuthenticationPanel *)panel initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(_WKWebAuthenticationPanelResult))completionHandler WK_API_AVAILABLE(macos(10.15.4), ios(13.4));
 
 - (void)_webView:(WKWebView *)webView handleAutoplayEvent:(_WKAutoplayEvent)event withFlags:(_WKAutoplayEventFlags)flags WK_API_AVAILABLE(macos(10.13.4), ios(14.0));
@@ -176,6 +178,8 @@ struct UIEdgeInsets;
 - (void)_webView:(WKWebView *)webView requestPermissionForXRSessionOrigin:(NSString *)originString mode:(_WKXRSessionMode)mode grantedFeatures:(_WKXRSessionFeatureFlags)grantedFeatures consentRequiredFeatures:(_WKXRSessionFeatureFlags)consentRequiredFeatures consentOptionalFeatures:(_WKXRSessionFeatureFlags)consentOptionalFeatures completionHandler:(void (^)(_WKXRSessionFeatureFlags))completionHandler;
 - (void)_webView:(WKWebView *)webView startXRSessionWithCompletionHandler:(void (^)(id))completionHandler WK_API_AVAILABLE(macos(12.0), ios(15.0));
 - (void)_webView:(WKWebView *)webView requestNotificationPermissionForSecurityOrigin:(WKSecurityOrigin *)securityOrigin decisionHandler:(void (^)(BOOL))decisionHandler WK_API_AVAILABLE(macos(10.13.4), ios(WK_IOS_TBA));
+
+- (void)_webView:(WKWebView *)webView requestCookieConsentWithMoreInfoHandler:(void (^)(void))moreInfoHandler decisionHandler:(void (^)(BOOL))decisionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 #if TARGET_OS_IPHONE
 

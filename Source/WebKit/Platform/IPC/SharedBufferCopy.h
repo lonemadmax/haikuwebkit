@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// Encodes a SharedBuffer that is received as a copy of the decoded data in a new SharedBuffer.
+// Encodes a FragmentedSharedBuffer that is received as a copy of the decoded data in a new FragmentedSharedBuffer.
 // To avoid copying from the Decoder, use SharedBufferDataReference to receive a DataReference instead.
 
 #pragma once
@@ -43,11 +43,12 @@ public:
         : m_buffer(WTFMove(buffer)) { }
     SharedBufferCopy(Ref<WebCore::SharedBuffer>&& buffer)
         : m_buffer(WTFMove(buffer)) { }
-    SharedBufferCopy(const WebCore::SharedBuffer& buffer)
-        : m_buffer(WebCore::SharedBuffer::create())
-    {
-        m_buffer->append(buffer);
-    }
+    SharedBufferCopy(RefPtr<WebCore::FragmentedSharedBuffer>&& buffer)
+        : m_buffer(buffer ? buffer->makeContiguous() : RefPtr<WebCore::SharedBuffer>()) { }
+    SharedBufferCopy(Ref<WebCore::FragmentedSharedBuffer>&& buffer)
+        : m_buffer(buffer->makeContiguous()) { }
+    SharedBufferCopy(const WebCore::FragmentedSharedBuffer& buffer)
+        : m_buffer(buffer.makeContiguous()) { }
 
     RefPtr<WebCore::SharedBuffer>& buffer() { return m_buffer; }
     const RefPtr<WebCore::SharedBuffer>& buffer() const { return m_buffer; }

@@ -72,10 +72,9 @@ public:
 
     Structure* cachedStructure(VM& vm) const
     {
-        UNUSED_PARAM(vm);
         if (!m_cachedStructureID)
             return nullptr;
-        return m_cachedStructureID.decode();
+        return vm.heap.structureIDTable().get(m_cachedStructureID);
     }
     StructureID cachedStructureID() const { return m_cachedStructureID; }
     uint32_t indexedLength() const { return m_indexedLength; }

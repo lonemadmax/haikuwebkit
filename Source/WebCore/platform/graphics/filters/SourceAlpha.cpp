@@ -21,27 +21,32 @@
 #include "config.h"
 #include "SourceAlpha.h"
 
-#include "Filter.h"
+#include "ImageBuffer.h"
 #include "SourceAlphaSoftwareApplier.h"
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
+
+Ref<SourceAlpha> SourceAlpha::create()
+{
+    return adoptRef(*new SourceAlpha());
+}
 
 Ref<SourceAlpha> SourceAlpha::create(FilterEffect& sourceEffect)
 {
     return adoptRef(*new SourceAlpha(sourceEffect));
 }
 
+SourceAlpha::SourceAlpha()
+    : FilterEffect(FilterEffect::Type::SourceAlpha)
+{
+}
+
 SourceAlpha::SourceAlpha(FilterEffect& sourceEffect)
     : FilterEffect(FilterEffect::Type::SourceAlpha)
 {
     setOperatingColorSpace(sourceEffect.operatingColorSpace());
-    inputEffects().append(&sourceEffect);
-}
-
-FloatRect SourceAlpha::calculateImageRect(const Filter&, const FilterImageVector& inputs, const FloatRect&) const
-{
-    return inputs[0]->imageRect();
+    inputEffects().append(sourceEffect);
 }
 
 std::unique_ptr<FilterEffectApplier> SourceAlpha::createApplier(const Filter&) const

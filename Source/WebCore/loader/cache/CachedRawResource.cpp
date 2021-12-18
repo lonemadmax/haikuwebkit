@@ -48,7 +48,7 @@ CachedRawResource::CachedRawResource(CachedResourceRequest&& request, Type type,
     ASSERT(isMainOrMediaOrIconOrRawResource());
 }
 
-std::optional<SharedBufferDataView> CachedRawResource::calculateIncrementalDataChunk(const SharedBuffer* data) const
+std::optional<SharedBufferDataView> CachedRawResource::calculateIncrementalDataChunk(const FragmentedSharedBuffer* data) const
 {
     size_t previousDataLength = encodedSize();
     if (!data || data->size() <= previousDataLength)
@@ -56,7 +56,7 @@ std::optional<SharedBufferDataView> CachedRawResource::calculateIncrementalDataC
     return data->getSomeData(previousDataLength);
 }
 
-void CachedRawResource::updateBuffer(SharedBuffer& data)
+void CachedRawResource::updateBuffer(const FragmentedSharedBuffer& data)
 {
     // Skip any updateBuffers triggered from nested runloops. We'll have the complete buffer in finishLoading.
     if (m_inIncrementalDataNotify)
@@ -64,24 +64,24 @@ void CachedRawResource::updateBuffer(SharedBuffer& data)
 
     CachedResourceHandle<CachedRawResource> protectedThis(this);
     ASSERT(dataBufferingPolicy() == DataBufferingPolicy::BufferData);
-    m_data = &data;
+    m_data = data.makeContiguous();
 
     auto previousDataSize = encodedSize();
-    while (data.size() > previousDataSize) {
-        auto incrementalData = data.getSomeData(previousDataSize);
+    while (m_data->size() > previousDataSize) {
+        auto incrementalData = m_data->getSomeData(previousDataSize);
         previousDataSize += incrementalData.size();
 
         SetForScope<bool> notifyScope(m_inIncrementalDataNotify, true);
         notifyClientsDataWasReceived(incrementalData.data(), incrementalData.size());
     }
-    setEncodedSize(data.size());
+    setEncodedSize(m_data->size());
 
     if (dataBufferingPolicy() == DataBufferingPolicy::DoNotBufferData) {
         if (m_loader)
             m_loader->setDataBufferingPolicy(DataBufferingPolicy::DoNotBufferData);
         clear();
     } else
-        CachedResource::updateBuffer(data);
+        CachedResource::updateBuffer(*m_data);
 
     if (m_delayedFinishLoading) {
         auto delayedFinishLoading = std::exchange(m_delayedFinishLoading, std::nullopt);
@@ -96,7 +96,7 @@ void CachedRawResource::updateData(const uint8_t* data, unsigned length)
     CachedResource::updateData(data, length);
 }
 
-void CachedRawResource::finishLoading(SharedBuffer* data, const NetworkLoadMetrics& metrics)
+void CachedRawResource::finishLoading(const FragmentedSharedBuffer* data, const NetworkLoadMetrics& metrics)
 {
     if (m_inIncrementalDataNotify) {
         // We may get here synchronously from updateBuffer() if the callback there ends up spinning a runloop.
@@ -107,12 +107,15 @@ void CachedRawResource::finishLoading(SharedBuffer* data, const NetworkLoadMetri
     CachedResourceHandle<CachedRawResource> protectedThis(this);
     DataBufferingPolicy dataBufferingPolicy = this->dataBufferingPolicy();
     if (dataBufferingPolicy == DataBufferingPolicy::BufferData) {
-        m_data = data;
-
-        if (auto incrementalData = calculateIncrementalDataChunk(data)) {
-            setEncodedSize(data->size());
-            notifyClientsDataWasReceived(incrementalData->data(), incrementalData->size());
-        }
+        if (data) {
+            if (data != m_data.get())
+                m_data = data->makeContiguous();
+            if (auto incrementalData = calculateIncrementalDataChunk(data)) {
+                setEncodedSize(data->size());
+                notifyClientsDataWasReceived(incrementalData->data(), incrementalData->size());
+            }
+        } else
+            m_data = nullptr;
     }
 
 #if USE(QUICK_LOOK)

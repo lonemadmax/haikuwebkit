@@ -56,6 +56,7 @@ class AudioTrack;
 class BaseAudioContext;
 class Blob;
 class CacheStorageConnection;
+class CaptionUserPreferencesTestingModeToken;
 class DOMPointReadOnly;
 class DOMRect;
 class DOMRectList;
@@ -1025,7 +1026,9 @@ public:
     bool capsLockIsOn();
         
     using HEVCParameterSet = WebCore::HEVCParameters;
+    using HEVCParameterCodec = WebCore::HEVCParameters::Codec;
     std::optional<HEVCParameterSet> parseHEVCCodecParameters(StringView);
+    String createHEVCCodecParametersString(const HEVCParameterSet& parameters);
 
     struct DoViParameterSet {
         String codecName;
@@ -1033,6 +1036,7 @@ public:
         uint16_t bitstreamLevelID;
     };
     std::optional<DoViParameterSet> parseDoViCodecParameters(StringView);
+    String createDoViCodecParametersString(const DoViParameterSet& parameters);
 
     using VPCodecConfigurationRecord = WebCore::VPCodecConfigurationRecord;
     std::optional<VPCodecConfigurationRecord> parseVPCodecParameters(StringView);
@@ -1261,6 +1265,9 @@ private:
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
     RefPtr<MockMediaSessionCoordinator> m_mockMediaSessionCoordinator;
+#endif
+#if ENABLE(VIDEO)
+    std::unique_ptr<CaptionUserPreferencesTestingModeToken> m_testingModeToken;
 #endif
 };
 

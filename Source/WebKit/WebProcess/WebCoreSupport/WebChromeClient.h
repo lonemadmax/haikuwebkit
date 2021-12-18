@@ -31,6 +31,7 @@
 namespace WebCore {
 class HTMLImageElement;
 class RegistrableDomain;
+enum class CookieConsentDecisionResult : uint8_t;
 enum class StorageAccessPromptWasShown : bool;
 enum class StorageAccessWasGranted : bool;
 }
@@ -380,6 +381,7 @@ private:
 #if ENABLE(SERVICE_CONTROLS)
     void handleSelectionServiceClick(WebCore::FrameSelection&, const Vector<String>& telephoneNumbers, const WebCore::IntPoint&) final;
     bool hasRelevantSelectionServices(bool isTextOnly) const final;
+    void handleImageServiceClick(const WebCore::IntPoint&, WebCore::Image&, bool isEditable, const WebCore::IntRect&, const String& /*attachmentID*/) final;
 #endif
 
     bool shouldDispatchFakeMouseMoveEvents() const final;
@@ -461,6 +463,8 @@ private:
     void startApplePayAMSUISession(const URL&, const WebCore::ApplePayAMSUIRequest&, CompletionHandler<void(std::optional<bool>&&)>&&) final;
     void abortApplePayAMSUISession() final;
 #endif
+
+    void requestCookieConsent(CompletionHandler<void(WebCore::CookieConsentDecisionResult)>&&) final;
 
     mutable bool m_cachedMainFrameHasHorizontalScrollbar { false };
     mutable bool m_cachedMainFrameHasVerticalScrollbar { false };

@@ -24,7 +24,6 @@
 #include "AccessibilityObjectInterface.h"
 #include "IntRect.h"
 #include <wtf/Atomics.h>
-#include <wtf/Lock.h>
 #include <wtf/OptionSet.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/text/CString.h>
@@ -39,8 +38,10 @@ class AccessibilityRootAtspi;
 
 class AccessibilityObjectAtspi final : public ThreadSafeRefCounted<AccessibilityObjectAtspi> {
 public:
-    static Ref<AccessibilityObjectAtspi> create(AXCoreObject*);
+    static Ref<AccessibilityObjectAtspi> create(AXCoreObject*, AccessibilityRootAtspi&);
     ~AccessibilityObjectAtspi() = default;
+
+    bool registerObject();
 
     enum class Interface : uint16_t {
         Accessible = 1 << 0,
@@ -58,10 +59,10 @@ public:
     };
     const OptionSet<Interface>& interfaces() const { return m_interfaces; }
 
-    void setRoot(AccessibilityRootAtspi*);
-    WEBCORE_EXPORT AccessibilityRootAtspi* root() const;
+    const AccessibilityRootAtspi& root() const { return m_root; }
     void setParent(std::optional<AccessibilityObjectAtspi*>);
     WEBCORE_EXPORT std::optional<AccessibilityObjectAtspi*> parent() const;
+    GVariant* parentReference() const;
     WEBCORE_EXPORT void updateBackingStore();
 
     void attach(AXCoreObject*);
@@ -85,6 +86,7 @@ public:
     WEBCORE_EXPORT Vector<RefPtr<AccessibilityObjectAtspi>> children() const;
     WEBCORE_EXPORT AccessibilityObjectAtspi* childAt(unsigned) const;
     WEBCORE_EXPORT uint64_t state() const;
+    bool isDefunct() const;
     void stateChanged(const char*, bool);
     WEBCORE_EXPORT HashMap<String, String> attributes() const;
     WEBCORE_EXPORT HashMap<uint32_t, Vector<RefPtr<AccessibilityObjectAtspi>>> relationMap() const;
@@ -155,11 +157,10 @@ public:
     WEBCORE_EXPORT std::pair<std::optional<unsigned>, std::optional<unsigned>> cellPosition() const;
 
 private:
-    explicit AccessibilityObjectAtspi(AXCoreObject*);
+    explicit AccessibilityObjectAtspi(AXCoreObject*, AccessibilityRootAtspi&);
 
     Vector<RefPtr<AccessibilityObjectAtspi>> wrapperVector(const Vector<RefPtr<AXCoreObject>>&) const;
     int indexInParent() const;
-    GVariant* parentReference() const;
     void childAdded(AccessibilityObjectAtspi&);
     void childRemoved(AccessibilityObjectAtspi&);
 
@@ -236,7 +237,7 @@ private:
     AXCoreObject* m_axObject { nullptr };
     AXCoreObject* m_coreObject { nullptr };
     OptionSet<Interface> m_interfaces;
-    AccessibilityRootAtspi* m_root WTF_GUARDED_BY_LOCK(m_rootLock) { nullptr };
+    AccessibilityRootAtspi& m_root;
     std::optional<AccessibilityObjectAtspi*> m_parent;
     Atomic<bool> m_isRegistered { false };
     String m_path;

@@ -204,7 +204,7 @@ void WebInspectorUIExtensionController::createTabForExtension(const Inspector::E
         }
 
         auto* frontendGlobalObject = weakThis->m_frontendClient->frontendAPIDispatcher().frontendGlobalObject();
-        JSC::JSValue foundProperty = objectResult->get(frontendGlobalObject, JSC::Identifier::fromString(frontendGlobalObject->vm(), "extensionTabID"_s));
+        JSC::JSValue foundProperty = objectResult->get(frontendGlobalObject, JSC::Identifier::fromString(frontendGlobalObject->vm(), "result"_s));
         if (!foundProperty || !foundProperty.isString()) {
             completionHandler(makeUnexpected(Inspector::ExtensionError::InternalError));
             return;
@@ -250,8 +250,12 @@ void WebInspectorUIExtensionController::evaluateScriptForExtension(const Inspect
         JSC::JSLockHolder lock(frontendGlobalObject);
 
         if (auto parsedError = weakThis->parseExtensionErrorFromEvaluationResult(result)) {
-            auto exceptionDetails = result.value().error();
-            LOG(Inspector, "Internal error encountered while evaluating upon the frontend: at %s:%d:%d: %s", exceptionDetails.sourceURL.utf8().data(), exceptionDetails.lineNumber, exceptionDetails.columnNumber, exceptionDetails.message.utf8().data());
+            if (!result.value().has_value()) {
+                auto exceptionDetails = result.value().error();
+                LOG(Inspector, "Internal error encountered while evaluating upon the frontend at %s:%d:%d: %s", exceptionDetails.sourceURL.utf8().data(), exceptionDetails.lineNumber, exceptionDetails.columnNumber, exceptionDetails.message.utf8().data());
+            } else
+                LOG(Inspector, "Internal error encountered while evaluating upon the frontend: %s", extensionErrorToString(parsedError.value()).utf8().data());
+
             completionHandler({ }, std::nullopt, parsedError);
             return;
         }
@@ -259,7 +263,7 @@ void WebInspectorUIExtensionController::evaluateScriptForExtension(const Inspect
         // Expected result is either an ErrorString or {result: <any>}.
         auto objectResult = weakThis->unwrapEvaluationResultAsObject(result);
         if (!objectResult) {
-            LOG(Inspector, "Unexpected non-object value returned from InspectorFrontendAPI.createTabForExtension().");
+            LOG(Inspector, "Unexpected non-object value returned from InspectorFrontendAPI.evaluateScriptForExtension().");
             completionHandler({ }, std::nullopt, Inspector::ExtensionError::InternalError);
             return;
         }
@@ -353,10 +357,18 @@ void WebInspectorUIExtensionController::showExtensionTab(const Inspector::Extens
         }
 
         if (auto parsedError = weakThis->parseExtensionErrorFromEvaluationResult(result)) {
-            LOG(Inspector, "Internal error encountered while evaluating upon the frontend: %s", Inspector::extensionErrorToString(*parsedError).utf8().data());
+            if (!result.value().has_value()) {
+                auto exceptionDetails = result.value().error();
+                LOG(Inspector, "Internal error encountered while showing extension tab at %s:%d:%d: %s", exceptionDetails.sourceURL.utf8().data(), exceptionDetails.lineNumber, exceptionDetails.columnNumber, exceptionDetails.message.utf8().data());
+            } else
+                LOG(Inspector, "Internal error encountered while showing extension tab.");
+
             completionHandler(makeUnexpected(*parsedError));
             return;
         }
+
+        // If this assertion fails, then a `result.error()` was not handled above as expected.
+        ASSERT(result.has_value());
 
         completionHandler({ });
     });
@@ -438,6 +450,11 @@ void WebInspectorUIExtensionController::didShowExtensionTab(const Inspector::Ext
 void WebInspectorUIExtensionController::didHideExtensionTab(const Inspector::ExtensionID& extensionID, const Inspector::ExtensionTabID& extensionTabID)
 {
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorUIExtensionControllerProxy::DidHideExtensionTab { extensionID, extensionTabID }, m_inspectorPageIdentifier);
+}
+
+void WebInspectorUIExtensionController::didNavigateExtensionTab(const Inspector::ExtensionID& extensionID, const Inspector::ExtensionTabID& extensionTabID, const URL& newURL)
+{
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorUIExtensionControllerProxy::DidNavigateExtensionTab { extensionID, extensionTabID, newURL }, m_inspectorPageIdentifier);
 }
 
 void WebInspectorUIExtensionController::inspectedPageDidNavigate(const URL& newURL)

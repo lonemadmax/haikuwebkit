@@ -400,7 +400,7 @@ void PageClientImpl::startDrag(const WebCore::DragItem& item, const ShareableBit
     m_impl->startDrag(item, image);
 }
 
-void PageClientImpl::setPromisedDataForImage(const String& pasteboardName, Ref<SharedBuffer>&& imageBuffer, const String& filename, const String& extension, const String& title, const String& url, const String& visibleURL, RefPtr<SharedBuffer>&& archiveBuffer, const String& originIdentifier)
+void PageClientImpl::setPromisedDataForImage(const String& pasteboardName, Ref<FragmentedSharedBuffer>&& imageBuffer, const String& filename, const String& extension, const String& title, const String& url, const String& visibleURL, RefPtr<FragmentedSharedBuffer>&& archiveBuffer, const String& originIdentifier)
 {
     auto image = BitmapImage::create();
     image->setData(WTFMove(imageBuffer), true);
@@ -1000,9 +1000,9 @@ void PageClientImpl::takeFocus(WebCore::FocusDirection direction)
     m_impl->takeFocus(direction);
 }
 
-void PageClientImpl::requestDOMPasteAccess(const WebCore::IntRect& elementRect, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&& completion)
+void PageClientImpl::requestDOMPasteAccess(WebCore::DOMPasteAccessCategory pasteAccessCategory, const WebCore::IntRect& elementRect, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&& completion)
 {
-    m_impl->requestDOMPasteAccess(elementRect, originIdentifier, WTFMove(completion));
+    m_impl->requestDOMPasteAccess(pasteAccessCategory, elementRect, originIdentifier, WTFMove(completion));
 }
 
 

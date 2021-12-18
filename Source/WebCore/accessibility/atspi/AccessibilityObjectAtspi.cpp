@@ -37,9 +37,9 @@
 
 namespace WebCore {
 
-Ref<AccessibilityObjectAtspi> AccessibilityObjectAtspi::create(AXCoreObject* coreObject)
+Ref<AccessibilityObjectAtspi> AccessibilityObjectAtspi::create(AXCoreObject* coreObject, AccessibilityRootAtspi& root)
 {
-    return adoptRef(*new AccessibilityObjectAtspi(coreObject));
+    return adoptRef(*new AccessibilityObjectAtspi(coreObject, root));
 }
 
 static inline bool roleIsTextType(AccessibilityRole role)
@@ -112,9 +112,10 @@ OptionSet<AccessibilityObjectAtspi::Interface> AccessibilityObjectAtspi::interfa
     return interfaces;
 }
 
-AccessibilityObjectAtspi::AccessibilityObjectAtspi(AXCoreObject* coreObject)
+AccessibilityObjectAtspi::AccessibilityObjectAtspi(AXCoreObject* coreObject, AccessibilityRootAtspi& root)
     : m_coreObject(coreObject)
     , m_interfaces(interfacesForObject(*m_coreObject))
+    , m_root(root)
 {
     RELEASE_ASSERT(isMainThread());
 }
@@ -137,7 +138,7 @@ void AccessibilityObjectAtspi::cacheDestroyed()
     if (!m_isRegistered.load())
         return;
 
-    root()->atspi().unregisterObject(*this);
+    m_root.atspi().unregisterObject(*this);
 }
 
 void AccessibilityObjectAtspi::elementDestroyed()
@@ -150,7 +151,7 @@ void AccessibilityObjectAtspi::elementDestroyed()
     if (m_parent && *m_parent)
         m_parent.value()->childRemoved(*this);
 
-    root()->atspi().unregisterObject(*this);
+    m_root.atspi().unregisterObject(*this);
 }
 
 static unsigned atspiRole(AccessibilityRole role)
@@ -429,12 +430,12 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_accessibleFunctions = {
 
             g_dbus_method_invocation_return_value(invocation, g_variant_builder_end(&builder));
         } else if (!g_strcmp0(methodName, "GetApplication"))
-            g_dbus_method_invocation_return_value(invocation, g_variant_new("(@(so))", atspiObject->root()->applicationReference()));
+            g_dbus_method_invocation_return_value(invocation, g_variant_new("(@(so))", atspiObject->m_root.applicationReference()));
         else if (!g_strcmp0(methodName, "GetChildAtIndex")) {
             int index;
             g_variant_get(parameters, "(i)", &index);
             auto* wrapper = index >= 0 ? atspiObject->childAt(index) : nullptr;
-            g_dbus_method_invocation_return_value(invocation, g_variant_new("(@(so))", wrapper ? wrapper->reference() : atspiObject->root()->atspi().nullReference()));
+            g_dbus_method_invocation_return_value(invocation, g_variant_new("(@(so))", wrapper ? wrapper->reference() : atspiObject->m_root.atspi().nullReference()));
         } else if (!g_strcmp0(methodName, "GetChildren")) {
             GVariantBuilder builder = G_VARIANT_BUILDER_INIT(G_VARIANT_TYPE("a(so)"));
             for (const auto& wrapper : atspiObject->children())
@@ -480,72 +481,73 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_accessibleFunctions = {
     nullptr
 };
 
+bool AccessibilityObjectAtspi::registerObject()
+{
+    RELEASE_ASSERT(!isMainThread());
+    if (!m_path.isNull())
+        return false;
+
+    m_isRegistered.store(true);
+    Vector<std::pair<GDBusInterfaceInfo*, GDBusInterfaceVTable*>> interfaces;
+    if (m_interfaces.contains(Interface::Accessible))
+        interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_accessible_interface), &s_accessibleFunctions });
+    if (m_interfaces.contains(Interface::Component))
+        interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_component_interface), &s_componentFunctions });
+    if (m_interfaces.contains(Interface::Text))
+        interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_text_interface), &s_textFunctions });
+    if (m_interfaces.contains(Interface::Value))
+        interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_value_interface), &s_valueFunctions });
+    if (m_interfaces.contains(Interface::Hyperlink))
+        interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_hyperlink_interface), &s_hyperlinkFunctions });
+    if (m_interfaces.contains(Interface::Hypertext))
+        interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_hypertext_interface), &s_hypertextFunctions });
+    if (m_interfaces.contains(Interface::Action))
+        interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_action_interface), &s_actionFunctions });
+    if (m_interfaces.contains(Interface::Document))
+        interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_document_interface), &s_documentFunctions });
+    if (m_interfaces.contains(Interface::Image))
+        interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_image_interface), &s_imageFunctions });
+    if (m_interfaces.contains(Interface::Selection))
+        interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_selection_interface), &s_selectionFunctions });
+    if (m_interfaces.contains(Interface::Table))
+        interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_table_interface), &s_tableFunctions });
+    if (m_interfaces.contains(Interface::TableCell))
+        interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_table_cell_interface), &s_tableCellFunctions });
+    if (!m_axObject) {
+        // Isolated tree hasn't been created yet, call AccessibilityRootAtspi::child()
+        // to create it before registering the object.
+        Accessibility::performFunctionOnMainThread([this] {
+            m_root.child();
+        });
+    }
+    m_path = m_root.atspi().registerObject(*this, WTFMove(interfaces));
+    m_root.atspi().addAccessible(*this);
+
+    return true;
+}
+
 const String& AccessibilityObjectAtspi::path()
 {
     RELEASE_ASSERT(!isMainThread());
-    if (m_path.isNull()) {
-        auto* atspiRoot = root();
-        RELEASE_ASSERT(atspiRoot);
-        m_isRegistered.store(true);
-
-        Vector<std::pair<GDBusInterfaceInfo*, GDBusInterfaceVTable*>> interfaces;
-        if (m_interfaces.contains(Interface::Accessible))
-            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_accessible_interface), &s_accessibleFunctions });
-        if (m_interfaces.contains(Interface::Component))
-            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_component_interface), &s_componentFunctions });
-        if (m_interfaces.contains(Interface::Text))
-            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_text_interface), &s_textFunctions });
-        if (m_interfaces.contains(Interface::Value))
-            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_value_interface), &s_valueFunctions });
-        if (m_interfaces.contains(Interface::Hyperlink))
-            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_hyperlink_interface), &s_hyperlinkFunctions });
-        if (m_interfaces.contains(Interface::Hypertext))
-            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_hypertext_interface), &s_hypertextFunctions });
-        if (m_interfaces.contains(Interface::Action))
-            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_action_interface), &s_actionFunctions });
-        if (m_interfaces.contains(Interface::Document))
-            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_document_interface), &s_documentFunctions });
-        if (m_interfaces.contains(Interface::Image))
-            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_image_interface), &s_imageFunctions });
-        if (m_interfaces.contains(Interface::Selection))
-            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_selection_interface), &s_selectionFunctions });
-        if (m_interfaces.contains(Interface::Table))
-            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_table_interface), &s_tableFunctions });
-        if (m_interfaces.contains(Interface::TableCell))
-            interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_table_cell_interface), &s_tableCellFunctions });
-        m_path = atspiRoot->atspi().registerObject(*this, WTFMove(interfaces));
-    }
-
+    registerObject();
     return m_path;
 }
 
 GVariant* AccessibilityObjectAtspi::reference()
 {
     RELEASE_ASSERT(!isMainThread());
-    return g_variant_new("(so)", root()->atspi().uniqueName(), path().utf8().data());
+    return g_variant_new("(so)", m_root.atspi().uniqueName(), path().utf8().data());
 }
 
 GVariant* AccessibilityObjectAtspi::hyperlinkReference()
 {
     RELEASE_ASSERT(!isMainThread());
     if (m_hyperlinkPath.isNull()) {
-        path();
-        m_hyperlinkPath = root()->atspi().registerHyperlink(*this, { { const_cast<GDBusInterfaceInfo*>(&webkit_hyperlink_interface), &s_hyperlinkFunctions } });
+        registerObject();
+        m_hyperlinkPath = m_root.atspi().registerHyperlink(*this, { { const_cast<GDBusInterfaceInfo*>(&webkit_hyperlink_interface), &s_hyperlinkFunctions } });
     }
 
-    return g_variant_new("(so)", root()->atspi().uniqueName(), m_hyperlinkPath.utf8().data());
-}
-
-void AccessibilityObjectAtspi::setRoot(AccessibilityRootAtspi* root)
-{
-    Locker locker { m_rootLock };
-    m_root = root;
-}
-
-AccessibilityRootAtspi* AccessibilityObjectAtspi::root() const
-{
-    Locker locker { m_rootLock };
-    return m_root;
+    return g_variant_new("(so)", m_root.atspi().uniqueName(), m_hyperlinkPath.utf8().data());
 }
 
 void AccessibilityObjectAtspi::setParent(std::optional<AccessibilityObjectAtspi*> atspiParent)
@@ -555,6 +557,10 @@ void AccessibilityObjectAtspi::setParent(std::optional<AccessibilityObjectAtspi*
         return;
 
     m_parent = atspiParent;
+    if (!m_coreObject || m_coreObject->accessibilityIsIgnored())
+        return;
+
+    m_root.atspi().parentChanged(*this);
     if (m_parent && *m_parent)
         m_parent.value()->childAdded(*this);
 }
@@ -569,24 +575,21 @@ std::optional<AccessibilityObjectAtspi*> AccessibilityObjectAtspi::parent() cons
     if (!axParent)
         return nullptr;
 
-    if (auto* atspiParent = axParent->wrapper()) {
-        atspiParent->setRoot(root());
+    if (auto* atspiParent = axParent->wrapper())
         return atspiParent;
-    }
 
     return std::nullopt;
 }
 
 GVariant* AccessibilityObjectAtspi::parentReference() const
 {
-    auto parentAtspi = parent();
-    if (!parentAtspi)
-        return root()->atspi().nullReference();
+    if (!m_parent)
+        return m_root.atspi().nullReference();
 
-    if (!parentAtspi.value())
-        return root()->reference();
+    if (!m_parent.value())
+        return m_root.reference();
 
-    return parentAtspi.value()->reference();
+    return m_parent.value()->reference();
 }
 
 unsigned AccessibilityObjectAtspi::childCount() const
@@ -608,21 +611,16 @@ AccessibilityObjectAtspi* AccessibilityObjectAtspi::childAt(unsigned index) cons
     if (index >= children.size())
         return nullptr;
 
-    auto* wrapper = children[index]->wrapper();
-    wrapper->setRoot(root());
-    return wrapper;
+    return children[index]->wrapper();
 }
 
 Vector<RefPtr<AccessibilityObjectAtspi>> AccessibilityObjectAtspi::wrapperVector(const Vector<RefPtr<AXCoreObject>>& elements) const
 {
     Vector<RefPtr<AccessibilityObjectAtspi>> wrappers;
     wrappers.reserveInitialCapacity(elements.size());
-    auto* root = this->root();
     for (const auto& element : elements) {
-        if (auto* wrapper = element->wrapper()) {
-            wrapper->setRoot(root);
+        if (auto* wrapper = element->wrapper())
             wrappers.uncheckedAppend(wrapper);
-        }
     }
     return wrappers;
 }
@@ -866,6 +864,13 @@ uint64_t AccessibilityObjectAtspi::state() const
             addState(Atspi::State::SupportsAutocompletion);
 
         return states;
+    });
+}
+
+bool AccessibilityObjectAtspi::isDefunct() const
+{
+    return Accessibility::retrieveValueFromMainThread<bool>([this]() -> bool {
+        return !m_coreObject;
     });
 }
 
@@ -1140,10 +1145,8 @@ void AccessibilityObjectAtspi::buildRelationSet(GVariantBuilder* builder) const
 
     for (const auto& it : relationMap) {
         GVariantBuilder arrayBuilder = G_VARIANT_BUILDER_INIT(G_VARIANT_TYPE("a(so)"));
-        for (const auto& atspiObject : it.value) {
-            atspiObject->setRoot(root());
+        for (const auto& atspiObject : it.value)
             g_variant_builder_add(&arrayBuilder, "@(so)", atspiObject->reference());
-        }
         g_variant_builder_add(builder, "(ua(so))", it.key, &arrayBuilder);
     }
 }
@@ -1180,9 +1183,8 @@ void AccessibilityObjectAtspi::buildInterfaces(GVariantBuilder* builder) const
 void AccessibilityObjectAtspi::serialize(GVariantBuilder* builder) const
 {
     RELEASE_ASSERT(!isMainThread());
-    auto* atspiRoot = root();
-    g_variant_builder_add(builder, "(so)", atspiRoot->atspi().uniqueName(), m_path.utf8().data());
-    g_variant_builder_add(builder, "(so)", atspiRoot->parentUniqueName().utf8().data(), "/org/a11y/atspi/accessible/root");
+    g_variant_builder_add(builder, "(so)", m_root.atspi().uniqueName(), m_path.utf8().data());
+    g_variant_builder_add(builder, "(so)", m_root.parentUniqueName().utf8().data(), "/org/a11y/atspi/accessible/root");
     g_variant_builder_add(builder, "@(so)", parentReference());
 
     g_variant_builder_add(builder, "i", indexInParent());
@@ -1211,11 +1213,7 @@ void AccessibilityObjectAtspi::childAdded(AccessibilityObjectAtspi& child)
     if (!m_isRegistered.load())
         return;
 
-    RunLoop::main().dispatch([this, protectedThis = Ref { *this }, child = Ref { child }] {
-        if (!m_coreObject)
-            return;
-        root()->atspi().childrenChanged(*this, child, AccessibilityAtspi::ChildrenChanged::Added);
-    });
+    m_root.atspi().childrenChanged(*this, child, AccessibilityAtspi::ChildrenChanged::Added);
 }
 
 void AccessibilityObjectAtspi::childRemoved(AccessibilityObjectAtspi& child)
@@ -1224,7 +1222,7 @@ void AccessibilityObjectAtspi::childRemoved(AccessibilityObjectAtspi& child)
     if (!m_isRegistered.load())
         return;
 
-    root()->atspi().childrenChanged(*this, child, AccessibilityAtspi::ChildrenChanged::Removed);
+    m_root.atspi().childrenChanged(*this, child, AccessibilityAtspi::ChildrenChanged::Removed);
 }
 
 void AccessibilityObjectAtspi::stateChanged(const char* name, bool value)
@@ -1233,7 +1231,7 @@ void AccessibilityObjectAtspi::stateChanged(const char* name, bool value)
     if (!m_isRegistered.load())
         return;
 
-    root()->atspi().stateChanged(*this, name, value);
+    m_root.atspi().stateChanged(*this, name, value);
 }
 
 unsigned AccessibilityObjectAtspi::role() const

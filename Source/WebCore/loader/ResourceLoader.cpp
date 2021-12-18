@@ -50,7 +50,6 @@
 #include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "SecurityOrigin.h"
-#include "SharedBuffer.h"
 #include "SubresourceLoader.h"
 #include <wtf/CompletionHandler.h>
 #include <wtf/Ref.h>
@@ -118,7 +117,7 @@ void ResourceLoader::releaseResources()
 
     m_identifier = { };
 
-    m_resourceData = nullptr;
+    m_resourceData.reset();
     m_deferredRequest = ResourceRequest();
 }
 
@@ -189,7 +188,7 @@ void ResourceLoader::init(ResourceRequest&& clientRequest, CompletionHandler<voi
     });
 }
 
-void ResourceLoader::deliverResponseAndData(const ResourceResponse& response, RefPtr<SharedBuffer>&& buffer)
+void ResourceLoader::deliverResponseAndData(const ResourceResponse& response, RefPtr<FragmentedSharedBuffer>&& buffer)
 {
     didReceiveResponse(response, [this, protectedThis = Ref { *this }, buffer = WTFMove(buffer)]() mutable {
         if (reachedTerminalState())
@@ -318,7 +317,7 @@ void ResourceLoader::setDataBufferingPolicy(DataBufferingPolicy dataBufferingPol
 
     // Reset any already buffered data
     if (dataBufferingPolicy == DataBufferingPolicy::DoNotBufferData)
-        m_resourceData = nullptr;
+        m_resourceData.reset();
 }
 
 void ResourceLoader::willSwitchToSubstituteResource()
@@ -329,29 +328,29 @@ void ResourceLoader::willSwitchToSubstituteResource()
         m_handle->cancel();
 }
 
-void ResourceLoader::addDataOrBuffer(const uint8_t* data, unsigned length, SharedBuffer* buffer, DataPayloadType dataPayloadType)
+void ResourceLoader::addDataOrBuffer(const uint8_t* data, unsigned length, FragmentedSharedBuffer* buffer, DataPayloadType dataPayloadType)
 {
     if (m_options.dataBufferingPolicy == DataBufferingPolicy::DoNotBufferData)
         return;
 
-    if (!m_resourceData || dataPayloadType == DataPayloadWholeResource) {
-        if (buffer)
-            m_resourceData = buffer;
-        else
-            m_resourceData = SharedBuffer::create(data, length);
-        return;
-    }
-    
+    if (dataPayloadType == DataPayloadWholeResource)
+        m_resourceData.reset();
+
     if (buffer)
-        m_resourceData->append(*buffer);
+        m_resourceData.append(*buffer);
     else
-        m_resourceData->append(data, length);
+        m_resourceData.append(data, length);
+}
+
+const FragmentedSharedBuffer* ResourceLoader::resourceData() const
+{
+    return m_resourceData.get().get();
 }
 
 void ResourceLoader::clearResourceData()
 {
     if (m_resourceData)
-        m_resourceData->clear();
+        m_resourceData.empty();
 }
 
 bool ResourceLoader::isSubresourceLoader() const
@@ -551,14 +550,14 @@ void ResourceLoader::didReceiveData(const uint8_t* data, unsigned length, long l
     didReceiveDataOrBuffer(data, length, nullptr, encodedDataLength, dataPayloadType);
 }
 
-void ResourceLoader::didReceiveBuffer(Ref<SharedBuffer>&& buffer, long long encodedDataLength, DataPayloadType dataPayloadType)
+void ResourceLoader::didReceiveBuffer(Ref<FragmentedSharedBuffer>&& buffer, long long encodedDataLength, DataPayloadType dataPayloadType)
 {
     didReceiveDataOrBuffer(nullptr, 0, WTFMove(buffer), encodedDataLength, dataPayloadType);
 }
 
-void ResourceLoader::didReceiveDataOrBuffer(const uint8_t* data, unsigned length, RefPtr<SharedBuffer>&& buffer, long long encodedDataLength, DataPayloadType dataPayloadType)
+void ResourceLoader::didReceiveDataOrBuffer(const uint8_t* data, unsigned length, RefPtr<FragmentedSharedBuffer>&& buffer, long long encodedDataLength, DataPayloadType dataPayloadType)
 {
-    // This method should only get data+length *OR* a SharedBuffer.
+    // This method should only get data+length *OR* a FragmentedSharedBuffer.
     ASSERT(!buffer || (!data && !length));
 
     // Protect this in this delegate method since the additional processing can do
@@ -571,7 +570,7 @@ void ResourceLoader::didReceiveDataOrBuffer(const uint8_t* data, unsigned length
     // However, with today's computers and networking speeds, this won't happen in practice.
     // Could be an issue with a giant local file.
     if (m_options.sendLoadCallbacks == SendCallbackPolicy::SendCallbacks && m_frame)
-        frameLoader()->notifier().didReceiveData(this, buffer ? buffer->data() : data, buffer ? buffer->size() : length, static_cast<int>(encodedDataLength));
+        frameLoader()->notifier().didReceiveData(this, buffer ? buffer->makeContiguous()->data() : data, buffer ? buffer->size() : length, static_cast<int>(encodedDataLength));
 }
 
 void ResourceLoader::didFinishLoading(const NetworkLoadMetrics& networkLoadMetrics)
@@ -735,7 +734,7 @@ void ResourceLoader::didReceiveData(ResourceHandle*, const uint8_t* data, unsign
     didReceiveData(data, length, encodedDataLength, DataPayloadBytes);
 }
 
-void ResourceLoader::didReceiveBuffer(ResourceHandle*, Ref<SharedBuffer>&& buffer, int encodedDataLength)
+void ResourceLoader::didReceiveBuffer(ResourceHandle*, Ref<FragmentedSharedBuffer>&& buffer, int encodedDataLength)
 {
     didReceiveBuffer(WTFMove(buffer), encodedDataLength, DataPayloadBytes);
 }

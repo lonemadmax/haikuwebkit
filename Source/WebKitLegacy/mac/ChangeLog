@@ -1,3 +1,209 @@
+2021-12-14  Jean-Yves Avenard  <jya@apple.com>
+
+        Rename SharedBuffer classes.
+        https://bugs.webkit.org/show_bug.cgi?id=233677
+        rdar://problem/85963900
+
+        Reviewed by Youenn Fablet.
+
+        SharedBuffer are renamed FragmentedSharedBuffer and
+        ContiguousSharedBuffer to SharedBuffer to better reflect their actual
+        types.
+
+        * WebCoreSupport/WebEditorClient.h:
+        * WebCoreSupport/WebEditorClient.mm:
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        * WebView/WebDataSource.mm:
+        * WebView/WebHTMLView.mm:
+        * WebView/WebResource.mm:
+
+2021-12-13  Jean-Yves Avenard  <jya@apple.com>
+
+        Distinguish contiguous SharedBuffer from non-contiguous one and guarantee immutability
+        https://bugs.webkit.org/show_bug.cgi?id=233030
+        rdar://85333814
+
+        Reviewed by Darin Adler.
+
+        * DOM/DOMUIKitExtensions.mm:
+        (-[DOMHTMLImageElement dataRepresentation:]):
+        * WebCoreSupport/WebEditorClient.h:
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::getClientPasteboardData):
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::bufferForType):
+        (WebPlatformStrategies::readBufferFromPasteboard):
+        * WebView/WebDataSource.mm:
+        (-[WebDataSource data]):
+        * WebView/WebHTMLRepresentation.mm:
+        (-[WebHTMLRepresentation documentSource]):
+        * WebView/WebHTMLView.mm:
+        (createShareMenuItem):
+        * WebView/WebResource.mm:
+        (-[WebResource encodeWithCoder:]):
+        (-[WebResource data]):
+        (-[WebResource _stringValue]):
+
+2021-12-11  Antti Koivisto  <antti@apple.com>
+
+        Remove redundant StyleRule::Type enum
+        https://bugs.webkit.org/show_bug.cgi?id=234156
+
+        Reviewed by Alan Bujtas.
+
+        * DOM/DOMCSS.mm:
+        (kitClass):
+        * DOM/DOMCSSRule.mm:
+        (-[DOMCSSRule type]):
+
+2021-12-10  Michael Saboff  <msaboff@apple.com>
+
+        https://bugs.webkit.org/show_bug.cgi?id=234173
+        Update Install Paths for build system changes
+
+        Reviewed by Yusuke Suzuki.
+
+        Updated install paths for changes in the build system that use a system path prefix.
+
+        * Configurations/WebKitLegacy.xcconfig:
+
+2021-12-10  Devin Rousso  <drousso@apple.com>
+
+        Allow `Pasteboard::readBuffer` to read from the pasteboard as a whole instead of a specific item
+        https://bugs.webkit.org/show_bug.cgi?id=233940
+
+        Reviewed by Wenson Hsieh.
+
+        In order to match the WK1 implementation of `-pasteFont:` <https://webkit.org/b/191379>, we
+        need to read from the font pasteboard as a whole, not a specific item. Make the `index` into
+        an `std::optional` so that we can have this behavior without needing to have a new method.
+
+        No change in behavior.
+
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::readBufferFromPasteboard):
+
+2021-12-09  Devin Rousso  <drousso@apple.com>
+
+        Add a `DOMPasteAccessCategory` to control which pasteboard the WebProcess is granted access to when pasting
+        https://bugs.webkit.org/show_bug.cgi?id=233939
+
+        Reviewed by Wenson Hsieh.
+
+        Implementing `-pasteFont:` <https://webkit.org/b/191379> requires that we read from the font
+        pasteboard instead of the general pasteboard. In order to allow web content to trigger this
+        (e.g. `document.execCommand("PasteFont"))`) we must have a way for the WebProcess to signal
+        that it wishes to read from the font pasteboard instead of the general pasteboard. As such,
+        create and pass along a `DOMPasteAccessCategory` to `requestDOMPasteAccess`.
+
+        No change in behavior.
+
+        * WebCoreSupport/WebEditorClient.h:
+        (WebEditorClient::requestDOMPasteAccess):
+
+2021-12-09  Myles C. Maxfield  <mmaxfield@apple.com> and Don Olmstead  <don.olmstead@sony.com>
+
+        Move TextCodec files from WebCore/platform/text to WebCore/PAL/text
+        https://bugs.webkit.org/show_bug.cgi?id=233683
+
+        Reviewed by Yusuke Suzuki.
+
+        Update to use the new PAL files.
+
+        * Misc/WebNSURLExtras.mm:
+        (-[NSString _webkit_stringByReplacingValidPercentEscapes]):
+        * WebView/WebFrame.mm:
+        (+[WebFrame stringWithData:textEncodingName:]):
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences _systemCFStringEncoding]):
+        (+[WebPreferences _setInitialDefaultTextEncodingToSystemEncoding]):
+        * WebView/WebResource.mm:
+        (-[WebResource _stringValue]):
+
+2021-12-09  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] [MacCatalyst] Fix WebGPU Mac Catalyst build in Apple's internal build system
+        https://bugs.webkit.org/show_bug.cgi?id=234072
+
+        Unreviewed.
+
+        * Configurations/WebKitLegacy.xcconfig:
+
+2021-12-09  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Fix WebGPU build in Apple's internal build system
+        https://bugs.webkit.org/show_bug.cgi?id=234070
+
+        Unreviewed.
+
+        The PAL headers get put in a different place.
+
+        * Configurations/WebKitLegacy.xcconfig:
+
+2021-12-08  Truitt Savell  <tsavell@apple.com>
+
+        Unreviewed, reverting r286632.
+
+        Broke 3 tests on iOS
+
+        Reverted changeset:
+
+        "Add a `DOMPasteAccessCategory` to control which pasteboard
+        the WebProcess is granted access to when pasting"
+        https://bugs.webkit.org/show_bug.cgi?id=233939
+        https://commits.webkit.org/r286632
+
+2021-12-07  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Add support for `navigator.requestCookieConsent()` behind a disabled feature flag
+        https://bugs.webkit.org/show_bug.cgi?id=233890
+        rdar://86117718
+
+        Reviewed by Darin Adler.
+
+        Add an implementation stub for the new chrome client hook, `requestCookieConsent()`.
+
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::requestCookieConsent):
+
+2021-12-07  Devin Rousso  <drousso@apple.com>
+
+        Add a `DOMPasteAccessCategory` to control which pasteboard the WebProcess is granted access to when pasting
+        https://bugs.webkit.org/show_bug.cgi?id=233939
+
+        Reviewed by Wenson Hsieh.
+
+        Implementing `-pasteFont:` <https://webkit.org/b/191379> requires that we read from the font
+        pasteboard instead of the general pasteboard. In order to allow web content to trigger this
+        (e.g. `document.execCommand("PasteFont"))`) we must have a way for the WebProcess to signal
+        that it wishes to read from the font pasteboard instead of the general pasteboard. As such,
+        create and pass along a `DOMPasteAccessCategory` to `requestDOMPasteAccess`.
+
+        No change in behavior.
+
+        * WebCoreSupport/WebEditorClient.h:
+        (WebEditorClient::requestDOMPasteAccess):
+
+2021-12-07  Cameron McCormack  <heycam@apple.com>
+
+        Move FontCache singleton and instance on WorkerGlobalScope to ThreadGlobalData
+        https://bugs.webkit.org/show_bug.cgi?id=233747
+
+        Reviewed by Darin Adler.
+
+        * Misc/WebCoreStatistics.mm:
+        (+[WebCoreStatistics cachedFontDataCount]):
+        (+[WebCoreStatistics cachedFontDataInactiveCount]):
+        (+[WebCoreStatistics purgeInactiveFontData]):
+        Update existing main thread callers of FontCache::singleton() to use
+        FontCache::forCurrentThread().
+
 2021-12-06  Devin Rousso  <drousso@apple.com>
 
         Change IDL `Date` to be backed by `WallTime` to avoid confusion when converting to native dates

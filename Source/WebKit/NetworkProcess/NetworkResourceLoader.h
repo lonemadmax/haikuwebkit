@@ -38,6 +38,7 @@
 #include <WebCore/PrivateClickMeasurement.h>
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/SecurityPolicyViolationEvent.h>
+#include <WebCore/SharedBuffer.h>
 #include <WebCore/Timer.h>
 #include <wtf/WeakPtr.h>
 
@@ -114,7 +115,7 @@ public:
     bool isAllowedToAskUserForCredentials() const final { return m_isAllowedToAskUserForCredentials; }
     void willSendRedirectedRequest(WebCore::ResourceRequest&&, WebCore::ResourceRequest&& redirectRequest, WebCore::ResourceResponse&&) final;
     void didReceiveResponse(WebCore::ResourceResponse&&, ResponseCompletionHandler&&) final;
-    void didReceiveBuffer(Ref<WebCore::SharedBuffer>&&, int reportedEncodedDataLength) final;
+    void didReceiveBuffer(Ref<WebCore::FragmentedSharedBuffer>&&, int reportedEncodedDataLength) final;
     void didFinishLoading(const WebCore::NetworkLoadMetrics&) final;
     void didFailLoading(const WebCore::ResourceError&) final;
     void didBlockAuthenticationChallenge() final;
@@ -192,7 +193,7 @@ private:
 
     void startBufferingTimerIfNeeded();
     void bufferingTimerFired();
-    void sendBuffer(WebCore::SharedBuffer&, size_t encodedDataLength);
+    void sendBuffer(WebCore::FragmentedSharedBuffer&, size_t encodedDataLength);
 
     void consumeSandboxExtensions();
     void invalidateSandboxExtensions();
@@ -225,7 +226,7 @@ private:
     WebCore::ResourceResponse m_response;
 
     size_t m_bufferedDataEncodedDataLength { 0 };
-    RefPtr<WebCore::SharedBuffer> m_bufferedData;
+    WebCore::SharedBufferBuilder m_bufferedData;
     unsigned m_redirectCount { 0 };
 
     std::unique_ptr<SynchronousLoadData> m_synchronousLoadData;
@@ -240,7 +241,7 @@ private:
 
     WebCore::Timer m_bufferingTimer;
     RefPtr<NetworkCache::Cache> m_cache;
-    RefPtr<WebCore::SharedBuffer> m_bufferedDataForCache;
+    WebCore::SharedBufferBuilder m_bufferedDataForCache;
     std::unique_ptr<NetworkCache::Entry> m_cacheEntryForValidation;
     std::unique_ptr<NetworkCache::Entry> m_cacheEntryForMaxAgeCapValidation;
     bool m_isWaitingContinueWillSendRequestForCachedRedirect { false };

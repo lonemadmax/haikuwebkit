@@ -61,6 +61,8 @@ public:
     void willStartRenderingUpdate();
     void didCompleteRenderingUpdate();
 
+    void didCompletePlatformRenderingUpdate();
+
     Lock& treeLock() WTF_RETURNS_LOCK(m_treeLock) { return m_treeLock; }
 
     bool scrollAnimatorEnabled() const { return m_scrollAnimatorEnabled; }
@@ -96,6 +98,7 @@ private:
 
     void displayDidRefreshOnScrollingThread();
     void waitForRenderingUpdateCompletionOrTimeout() WTF_REQUIRES_LOCK(m_treeLock);
+    void renderingUpdateComplete();
 
     bool canUpdateLayersOnScrollingThread() const WTF_REQUIRES_LOCK(m_treeLock);
 
@@ -103,6 +106,8 @@ private:
     void delayedRenderingUpdateDetectionTimerFired();
 
     void hasNodeWithAnimatedScrollChanged(bool) final;
+    
+    void storeScrollPositionsAtLastDisplayRefresh() WTF_REQUIRES_LOCK(m_treeLock);
     
     void serviceScrollAnimations(MonotonicTime) WTF_REQUIRES_LOCK(m_treeLock);
 

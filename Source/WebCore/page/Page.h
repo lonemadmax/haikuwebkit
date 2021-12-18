@@ -91,6 +91,7 @@ namespace IDBClient {
 class IDBConnectionToServer;
 }
 
+class AccessibilityRootAtspi;
 class ApplePayAMSUIPaymentHandler;
 class ActivityStateChangeObserver;
 class AlternativeTextClient;
@@ -619,6 +620,11 @@ public:
     WEBCORE_EXPORT void startTrackingRenderingUpdates();
     WEBCORE_EXPORT unsigned renderingUpdateCount() const;
 
+    // A "platform rendering update" here describes the work done by the system graphics framework before work is submitted to the system compositor.
+    // On macOS, this is a CoreAnimation commit.
+    WEBCORE_EXPORT void willStartPlatformRenderingUpdate();
+    WEBCORE_EXPORT void didCompletePlatformRenderingUpdate();
+
     WEBCORE_EXPORT void suspendScriptedAnimations();
     WEBCORE_EXPORT void resumeScriptedAnimations();
     bool scriptedAnimationsSuspended() const { return m_scriptedAnimationsSuspended; }
@@ -915,6 +921,11 @@ public:
     WEBCORE_EXPORT StorageConnection& storageConnection();
 
     ModelPlayerProvider& modelPlayerProvider();
+
+#if ENABLE(ACCESSIBILITY) && USE(ATSPI)
+    AccessibilityRootAtspi* accessibilityRootObject() const { return m_accessibilityRootObject; }
+    void setAccessibilityRootObject(AccessibilityRootAtspi* rootObject) { m_accessibilityRootObject = rootObject; }
+#endif
 
 private:
     struct Navigation {
@@ -1262,6 +1273,10 @@ private:
 #if ENABLE(IMAGE_ANALYSIS)
     using CachedTextRecognitionResult = std::pair<TextRecognitionResult, IntRect>;
     WeakHashMap<HTMLElement, CachedTextRecognitionResult> m_textRecognitionResults;
+#endif
+
+#if ENABLE(ACCESSIBILITY) && USE(ATSPI)
+    AccessibilityRootAtspi* m_accessibilityRootObject { nullptr };
 #endif
 };
 

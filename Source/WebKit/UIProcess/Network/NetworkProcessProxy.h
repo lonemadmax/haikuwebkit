@@ -65,6 +65,7 @@ class SessionID;
 
 namespace WebCore {
 class AuthenticationChallenge;
+class SharedBuffer;
 class ProtectionSpace;
 class ResourceRequest;
 enum class ShouldSample : bool;
@@ -92,6 +93,7 @@ enum class WebsiteDataType : uint32_t;
 struct FrameInfoData;
 struct NetworkProcessCreationParameters;
 struct ResourceLoadInfo;
+struct WebPushMessage;
 struct WebsiteData;
 struct WebsiteDataStoreParameters;
 
@@ -122,6 +124,7 @@ public:
     void getNetworkProcessConnection(WebProcessProxy&, Messages::WebProcessProxy::GetNetworkProcessConnectionDelayedReply&&);
 
     DownloadProxy& createDownloadProxy(WebsiteDataStore&, WebProcessPool&, const WebCore::ResourceRequest&, const FrameInfoData&, WebPageProxy* originatingPage);
+    void requestResource(WebPageProxyIdentifier, PAL::SessionID, WebCore::ResourceRequest&&, CompletionHandler<void(Ref<WebCore::SharedBuffer>&&, WebCore::ResourceResponse&&, WebCore::ResourceError&&)>&&);
 
     void fetchWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, CompletionHandler<void(WebsiteData)>&&);
     void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, CompletionHandler<void()>&& completionHandler);
@@ -272,7 +275,8 @@ public:
 #endif
 
 #if ENABLE(SERVICE_WORKER)
-    void processPushMessage(PAL::SessionID, std::optional<Span<const uint8_t>>, const URL&, CompletionHandler<void(bool wasProcessed)>&&);
+    void getPendingPushMessages(PAL::SessionID, CompletionHandler<void(const Vector<WebPushMessage>&)>&&);
+    void processPushMessage(PAL::SessionID, const WebPushMessage&, CompletionHandler<void(bool wasProcessed)>&&);
 #endif
 
     void deletePushAndNotificationRegistration(PAL::SessionID, const WebCore::SecurityOriginData&, CompletionHandler<void(const String&)>&&);

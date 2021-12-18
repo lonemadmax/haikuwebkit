@@ -222,7 +222,7 @@ static bool isICCMarker(jpeg_saved_marker_ptr marker)
 
 static RefPtr<SharedBuffer> readICCProfile(jpeg_decompress_struct* info)
 {
-    auto buffer = SharedBuffer::create();
+    SharedBufferBuilder buffer;
     for (jpeg_saved_marker_ptr marker = info->marker_list; marker; marker = marker->next) {
         if (!isICCMarker(marker))
             continue;
@@ -236,13 +236,13 @@ static RefPtr<SharedBuffer> readICCProfile(jpeg_decompress_struct* info)
             return nullptr;
 
         unsigned markerSize = marker->data_length - iccHeaderSize;
-        buffer->append(reinterpret_cast<const uint8_t*>(marker->data + iccHeaderSize), markerSize);
+        buffer.append(reinterpret_cast<const uint8_t*>(marker->data + iccHeaderSize), markerSize);
     }
 
-    if (buffer->isEmpty())
+    if (buffer.isEmpty())
         return nullptr;
 
-    return buffer;
+    return buffer.takeAsContiguous();
 }
 #endif
 
@@ -320,7 +320,7 @@ public:
         m_bytesToSkip = std::max(numBytes - bytesToSkip, static_cast<long>(0));
     }
 
-    bool decode(const SharedBuffer::DataSegment& data, bool onlySize)
+    bool decode(const FragmentedSharedBuffer::DataSegment& data, bool onlySize)
     {
         m_decodingSizeOnly = onlySize;
 

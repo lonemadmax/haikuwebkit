@@ -30,6 +30,7 @@
 #include "CompilationResult.h"
 #include "ExecutionCounter.h"
 #include "Options.h"
+#include "WasmOSREntryData.h"
 #include <wtf/Atomics.h>
 #include <wtf/SegmentedVector.h>
 #include <wtf/StdLibExtras.h>
@@ -68,7 +69,7 @@ public:
     Vector<uint32_t>& outerLoops() { return m_outerLoops; }
     Lock& getLock() { return m_lock; }
 
-    OSREntryData& addOSREntryData(uint32_t functionIndex, uint32_t loopIndex);
+    OSREntryData& addOSREntryData(uint32_t functionIndex, uint32_t loopIndex, StackMap&&);
 
     void optimizeAfterWarmUp(uint32_t functionIndex)
     {

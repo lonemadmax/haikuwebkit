@@ -1,3 +1,199 @@
+2021-12-14  Andreu Botella  <andreu@andreubotella.com>
+
+        TextDecoder doesn't detect invalid UTF-8 sequences early enough
+        https://bugs.webkit.org/show_bug.cgi?id=233921
+
+        Reviewed by Darin Adler.
+
+        In streaming mode, when TextCodecUTF8 found a lead byte for which a
+        valid sequence would span longer than the currently available bytes, it
+        used to defer any processing of that sequence until all such bytes were
+        available, even if errors could be detected earlier. Additionally, if
+        the stream was flushed at that point, it would emit a single replacement
+        character, regardless of whether the remaining bytes formed a valid
+        sequence, even if they had lead bytes, resulting in skipped characters.
+        Both issues are solved by always checking the validity of partial
+        sequences.
+
+        The approach used in this patch uses `decodeNonASCIISequence` to find
+        the length of the maximal subpart of a partial sequence, and if the
+        length is equal to the partial sequence size and we're not at EOF, we
+        don't emit the error. This is enough to handle the missing characters at
+        EOF, and when combined with changing the condition of the outer do-while
+        loops in the `decode` method from `flush && m_partialSequenceSize` to
+        only `m_partialSequenceSize`, it also fixes the streaming issue.
+
+        This patch is a port of
+        https://chromium-review.googlesource.com/c/chromium/src/+/3263938
+
+        Tests: imported/w3c/web-platform-tests/encoding/textdecoder-eof.any.html
+               imported/w3c/web-platform-tests/encoding/textdecoder-stream.any.html
+
+        * pal/text/TextCodecUTF8.cpp:
+        (PAL::TextCodecUTF8::handlePartialSequence): Changed to always process
+        partial sequences.
+        (PAL::TextCodecUTF8::decode): Changed the loop condition of the outer
+        do-while loops to not depend on `flush`.
+
+2021-12-14  Ben Nham  <nham@apple.com>
+
+        Add web push message decryption routines
+        https://bugs.webkit.org/show_bug.cgi?id=233903
+
+        Reviewed by Brady Eidson.
+
+        * pal/spi/cocoa/CommonCryptoSPI.h: Add AES-GCM decryption SPI.
+
+2021-12-11  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r286893.
+        https://bugs.webkit.org/show_bug.cgi?id=234197
+
+        Breaks the build
+
+        Reverted changeset:
+
+        "[macOS] Add new screen and window capture backend"
+        https://bugs.webkit.org/show_bug.cgi?id=234029
+        https://commits.webkit.org/r286893
+
+2021-12-11  Jer Noble  <jer.noble@apple.com>
+
+        Add an experimental trackConfiguration accessor on AudioTrack & VideoTrack.
+        https://bugs.webkit.org/show_bug.cgi?id=230841
+
+        Reviewed by Eric Carlson.
+
+        * pal/cf/CoreMediaSoftLink.cpp:
+        * pal/cf/CoreMediaSoftLink.h:
+        * pal/spi/cocoa/AVFoundationSPI.h:
+
+2021-12-10  Eric Carlson  <eric.carlson@apple.com>
+
+        [macOS] Add new screen and window capture backend
+        https://bugs.webkit.org/show_bug.cgi?id=234029
+
+        Reviewed by Jer Noble and Youenn Fablet.
+
+        * PAL.xcodeproj/project.pbxproj:
+        * pal/mac/ScreenCaptureKitSoftLink.h: Added.
+        * pal/mac/ScreenCaptureKitSoftLink.mm: Added.
+
+2021-12-10  Brady Eidson  <beidson@apple.com>
+
+        Teach webpushd to launch an app in response to an injected message.
+        https://bugs.webkit.org/show_bug.cgi?id=234122
+
+        Reviewed by Alex Christensen.
+
+        * pal/spi/cocoa/LaunchServicesSPI.h:
+
+2021-12-10  Antoine Quint  <graouts@webkit.org>
+
+        Expose the maximum device frame rate to the Web Animations model
+        https://bugs.webkit.org/show_bug.cgi?id=234161
+        rdar://85983792
+
+        Reviewed by Simon Fraser.
+
+        Add a newly-used CADisplayLink SPI.
+
+        * pal/spi/cocoa/QuartzCoreSPI.h:
+
+2021-12-09  Robert Jenner  <Jenner@apple.com>
+
+        Unreviewed, reverting r286754.
+
+        Broke 2 tests on all mac an iOS
+
+        Reverted changeset:
+
+        "Add an experimental trackConfiguration accessor on AudioTrack
+        & VideoTrack."
+        https://bugs.webkit.org/show_bug.cgi?id=230841
+        https://commits.webkit.org/r286754
+
+2021-12-09  Myles C. Maxfield  <mmaxfield@apple.com> and Don Olmstead  <don.olmstead@sony.com>
+
+        Move TextCodec files from WebCore/platform/text to WebCore/PAL/text
+        https://bugs.webkit.org/show_bug.cgi?id=233683
+
+        Reviewed by Yusuke Suzuki.
+
+        This is a purely mechanical move. The TextCodec files don't have any dependencies
+        except for ICU, so they're good candidates to move.
+
+        * PAL.xcodeproj/project.pbxproj:
+        * pal/CMakeLists.txt:
+        * pal/PlatformMac.cmake:
+        * pal/ThreadGlobalData.cpp: Copied from Source/WebCore/PAL/pal/text/UnencodableHandling.h.
+        (PAL::ThreadGlobalData::ThreadGlobalData):
+        (PAL::ThreadGlobalData::destroy):
+        * pal/ThreadGlobalData.h: Copied from Source/WebCore/html/parser/HTMLMetaCharsetParser.h.
+        (PAL::ThreadGlobalData::ThreadGlobalData::cachedConverterICU):
+        * pal/text/DecodeEscapeSequences.h: Renamed from Source/WebCore/platform/text/DecodeEscapeSequences.h.
+        (PAL::Unicode16BitEscapeSequence::findEndOfRun):
+        (PAL::Unicode16BitEscapeSequence::decodeRun):
+        (PAL::URLEscapeSequence::findEndOfRun):
+        (PAL::URLEscapeSequence::decodeRun):
+        (PAL::decodeURLEscapeSequencesAsData):
+        * pal/text/EncodingTables.cpp: Renamed from Source/WebCore/platform/text/EncodingTables.cpp.
+        (PAL::big5):
+        (PAL::eucKR):
+        * pal/text/EncodingTables.h: Renamed from Source/WebCore/platform/text/EncodingTables.h.
+        (PAL::findInSortedPairs):
+        * pal/text/TextCodec.cpp: Renamed from Source/WebCore/platform/text/TextCodec.cpp.
+        * pal/text/TextCodec.h: Renamed from Source/WebCore/platform/text/TextCodec.h.
+        * pal/text/TextCodecASCIIFastPath.h: Renamed from Source/WebCore/platform/text/TextCodecASCIIFastPath.h.
+        * pal/text/TextCodecCJK.cpp: Renamed from Source/WebCore/platform/text/TextCodecCJK.cpp.
+        (PAL::gb18030Ranges):
+        * pal/text/TextCodecCJK.h: Renamed from Source/WebCore/platform/text/TextCodecCJK.h.
+        * pal/text/TextCodecICU.cpp: Renamed from Source/WebCore/platform/text/TextCodecICU.cpp.
+        (PAL::TextCodecICU::decode):
+        * pal/text/TextCodecICU.h: Renamed from Source/WebCore/platform/text/TextCodecICU.h.
+        * pal/text/TextCodecLatin1.cpp: Renamed from Source/WebCore/platform/text/TextCodecLatin1.cpp.
+        * pal/text/TextCodecLatin1.h: Renamed from Source/WebCore/platform/text/TextCodecLatin1.h.
+        * pal/text/TextCodecReplacement.cpp: Renamed from Source/WebCore/platform/text/TextCodecReplacement.cpp.
+        * pal/text/TextCodecReplacement.h: Renamed from Source/WebCore/platform/text/TextCodecReplacement.h.
+        * pal/text/TextCodecSingleByte.cpp: Renamed from Source/WebCore/platform/text/TextCodecSingleByte.cpp.
+        (PAL::TextCodecSingleByte::encode const):
+        (PAL::TextCodecSingleByte::decode):
+        * pal/text/TextCodecSingleByte.h: Renamed from Source/WebCore/platform/text/TextCodecSingleByte.h.
+        * pal/text/TextCodecUTF16.cpp: Renamed from Source/WebCore/platform/text/TextCodecUTF16.cpp.
+        * pal/text/TextCodecUTF16.h: Renamed from Source/WebCore/platform/text/TextCodecUTF16.h.
+        * pal/text/TextCodecUTF8.cpp: Renamed from Source/WebCore/platform/text/TextCodecUTF8.cpp.
+        (PAL::TextCodecUTF8::decode):
+        * pal/text/TextCodecUTF8.h: Renamed from Source/WebCore/platform/text/TextCodecUTF8.h.
+        * pal/text/TextCodecUserDefined.cpp: Renamed from Source/WebCore/platform/text/TextCodecUserDefined.cpp.
+        * pal/text/TextCodecUserDefined.h: Renamed from Source/WebCore/platform/text/TextCodecUserDefined.h.
+        * pal/text/TextEncoding.cpp: Renamed from Source/WebCore/platform/text/TextEncoding.cpp.
+        (PAL::TextEncoding::encode const):
+        * pal/text/TextEncoding.h: Renamed from Source/WebCore/platform/text/TextEncoding.h.
+        * pal/text/TextEncodingDetector.h: Renamed from Source/WebCore/platform/text/TextEncodingDetector.h.
+        * pal/text/TextEncodingDetectorICU.cpp: Renamed from Source/WebCore/platform/text/TextEncodingDetectorICU.cpp.
+        (PAL::detectTextEncoding):
+        * pal/text/TextEncodingRegistry.cpp: Renamed from Source/WebCore/platform/text/TextEncodingRegistry.cpp.
+        (PAL::isUndesiredAlias):
+        * pal/text/TextEncodingRegistry.h: Renamed from Source/WebCore/platform/text/TextEncodingRegistry.h.
+        * pal/text/UnencodableHandling.h:
+        * pal/text/ios/TextEncodingRegistryIOS.mm: Renamed from Source/WebCore/platform/text/ios/TextEncodingRegistryIOS.mm.
+        (PAL::webDefaultCFStringEncoding):
+        * pal/text/mac/TextEncodingRegistryMac.mm: Renamed from Source/WebCore/platform/text/mac/TextEncodingRegistryMac.mm.
+        * pal/text/win/TextCodecWin.cpp: Renamed from Source/WebCore/platform/text/win/TextCodecWin.cpp.
+        (PAL::getCodePageFlags):
+        * pal/text/win/TextCodecWin.h: Renamed from Source/WebCore/platform/text/win/TextCodecWin.h.
+
+2021-12-08  Jer Noble  <jer.noble@apple.com>
+
+        Add an experimental trackConfiguration accessor on AudioTrack & VideoTrack.
+        https://bugs.webkit.org/show_bug.cgi?id=230841
+
+        Reviewed by Eric Carlson.
+
+        * pal/cf/CoreMediaSoftLink.cpp:
+        * pal/cf/CoreMediaSoftLink.h:
+        * pal/spi/cocoa/AVFoundationSPI.h:
+
 2021-12-02  Megan Gardner  <megan_gardner@apple.com>
 
         Re-add support of image control menus.

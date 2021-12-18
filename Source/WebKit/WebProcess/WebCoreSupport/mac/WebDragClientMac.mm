@@ -150,7 +150,7 @@ void WebDragClient::declareAndWriteDragImage(const String& pasteboardName, Eleme
 
     NSURLResponse *response = image->response().nsURLResponse();
     
-    RefPtr<SharedBuffer> imageBuffer = image->image()->data();
+    auto imageBuffer = image->image()->data();
     size_t imageSize = imageBuffer->size();
 
     auto sharedMemoryBuffer = SharedMemory::copyBuffer(*imageBuffer);

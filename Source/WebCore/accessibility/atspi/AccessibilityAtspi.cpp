@@ -26,6 +26,7 @@
 #include <gio/gio.h>
 #include <glib/gi18n-lib.h>
 #include <wtf/MainThread.h>
+#include <wtf/SetForScope.h>
 #include <wtf/SortedArrayMap.h>
 #include <wtf/UUID.h>
 #include <wtf/glib/GUniquePtr.h>
@@ -73,7 +74,7 @@ void AccessibilityAtspi::registerRoot(AccessibilityRootAtspi& rootObject, Vector
         if (m_connection) {
             ensureCache();
             String path = makeString("/org/a11y/webkit/accessible/", createCanonicalUUIDString().replace('-', '_'));
-            Vector<unsigned, 2> registeredObjects;
+            Vector<unsigned, 3> registeredObjects;
             registeredObjects.reserveInitialCapacity(interfaces.size());
             for (const auto& interface : interfaces) {
                 auto id = g_dbus_connection_register_object(m_connection.get(), path.utf8().data(), interface.first, interface.second, rootObject.ptr(), nullptr, nullptr);
@@ -123,8 +124,6 @@ String AccessibilityAtspi::registerObject(AccessibilityObjectAtspi& atspiObject,
     }
     m_atspiObjects.add(&atspiObject, WTFMove(registeredObjects));
 
-    addAccessible(atspiObject, path);
-
     return path;
 }
 
@@ -170,6 +169,24 @@ String AccessibilityAtspi::registerHyperlink(AccessibilityObjectAtspi& atspiObje
     return path;
 }
 
+void AccessibilityAtspi::parentChanged(AccessibilityObjectAtspi& atspiObject)
+{
+    RELEASE_ASSERT(isMainThread());
+    m_queue->dispatch([this, atspiObject = Ref { atspiObject }] {
+        if (!m_connection)
+            return;
+
+        // Always emit parentChanged when the tree is registered because the atspi cache always consumes it.
+        if (!atspiObject->root().isTreeRegistered())
+            return;
+
+        // We call path here to ensure it happens before parentReference() in case objects are not registered yet.
+        auto path = atspiObject->path();
+        g_dbus_connection_emit_signal(m_connection.get(), nullptr, path.utf8().data(), "org.a11y.atspi.Event.Object", "PropertyChange",
+            g_variant_new("(siiva{sv})", "accessible-parent", 0, 0, atspiObject->parentReference(), nullptr), nullptr);
+    });
+}
+
 void AccessibilityAtspi::childrenChanged(AccessibilityObjectAtspi& atspiObject, AccessibilityObjectAtspi& child, ChildrenChanged change)
 {
     RELEASE_ASSERT(isMainThread());
@@ -177,7 +194,10 @@ void AccessibilityAtspi::childrenChanged(AccessibilityObjectAtspi& atspiObject, 
         if (!m_connection)
             return;
 
-        child->setRoot(atspiObject->root());
+        // Always emit ChildrenChanged when the tree is registered because the atspi cache always consumes it.
+        if (!atspiObject->root().isTreeRegistered())
+            return;
+
         g_dbus_connection_emit_signal(m_connection.get(), nullptr, atspiObject->path().utf8().data(), "org.a11y.atspi.Event.Object", "ChildrenChanged",
             g_variant_new("(siiv(so))", change == ChildrenChanged::Added ? "add" : "remove", child->indexInParentForChildrenChanged(change),
             0, g_variant_new("(so)", uniqueName(), child->path().utf8().data()), uniqueName(), atspiObject->path().utf8().data()), nullptr);
@@ -416,10 +436,12 @@ GDBusInterfaceVTable AccessibilityAtspi::s_cacheFunctions = {
         RELEASE_ASSERT(!isMainThread());
         if (!g_strcmp0(methodName, "GetItems")) {
             auto& atspi = *static_cast<AccessibilityAtspi*>(userData);
+            SetForScope<bool> inGetItems(atspi.m_inGetItems, true);
             GVariantBuilder builder = G_VARIANT_BUILDER_INIT(G_VARIANT_TYPE("(" GET_ITEMS_SIGNATURE ")"));
             g_variant_builder_open(&builder, G_VARIANT_TYPE(GET_ITEMS_SIGNATURE));
-            for (const auto* rootObject : atspi.m_rootObjects.keys()) {
+            for (auto* rootObject : atspi.m_rootObjects.keys()) {
                 g_variant_builder_open(&builder, G_VARIANT_TYPE("(" ITEM_SIGNATURE ")"));
+                rootObject->registerTree();
                 rootObject->serialize(&builder);
                 g_variant_builder_close(&builder);
             }
@@ -430,7 +452,7 @@ GDBusInterfaceVTable AccessibilityAtspi::s_cacheFunctions = {
             for (const auto& path : paths) {
                 auto wrapper = atspi.m_cache.get(path);
                 wrapper->updateBackingStore();
-                if (!atspi.m_cache.contains(path))
+                if (!atspi.m_cache.contains(path) || wrapper->isDefunct())
                     continue;
                 g_variant_builder_open(&builder, G_VARIANT_TYPE("(" ITEM_SIGNATURE ")"));
                 wrapper->serialize(&builder);
@@ -460,27 +482,23 @@ void AccessibilityAtspi::ensureCache()
     m_cacheID = g_dbus_connection_register_object(m_connection.get(), "/org/a11y/atspi/cache", const_cast<GDBusInterfaceInfo*>(&webkit_cache_interface), &s_cacheFunctions, this, nullptr, nullptr);
 }
 
-void AccessibilityAtspi::addAccessible(AccessibilityObjectAtspi& atspiObject, const String& path)
+void AccessibilityAtspi::addAccessible(AccessibilityObjectAtspi& atspiObject)
 {
     RELEASE_ASSERT(!isMainThread());
     if (!m_connection)
         return;
 
-    auto addResult = m_cache.add(path, &atspiObject);
+    auto addResult = m_cache.add(atspiObject.path(), &atspiObject);
     if (!addResult.isNewEntry)
         return;
 
-    // AddAccessible needs to be emitted after ChildrenChanged.
-    RunLoop::current().dispatch([this, atspiObject = Ref { atspiObject }, path = path.isolatedCopy()] {
-        atspiObject->updateBackingStore();
-        if (!m_cache.contains(path))
-            return;
+    if (m_inGetItems)
+        return;
 
-        GVariantBuilder builder = G_VARIANT_BUILDER_INIT(G_VARIANT_TYPE("(" ITEM_SIGNATURE ")"));
-        atspiObject->serialize(&builder);
-        g_dbus_connection_emit_signal(m_connection.get(), nullptr, "/org/a11y/atspi/cache", "org.a11y.atspi.Cache", "AddAccessible",
-            g_variant_new("(@(" ITEM_SIGNATURE "))", g_variant_builder_end(&builder)), nullptr);
-    });
+    GVariantBuilder builder = G_VARIANT_BUILDER_INIT(G_VARIANT_TYPE("(" ITEM_SIGNATURE ")"));
+    atspiObject.serialize(&builder);
+    g_dbus_connection_emit_signal(m_connection.get(), nullptr, "/org/a11y/atspi/cache", "org.a11y.atspi.Cache", "AddAccessible",
+        g_variant_new("(@(" ITEM_SIGNATURE "))", g_variant_builder_end(&builder)), nullptr);
 }
 
 void AccessibilityAtspi::removeAccessible(AccessibilityObjectAtspi& atspiObject)

@@ -33,6 +33,7 @@
 #include "B3BasicBlockInlines.h"
 #include "B3CCallValue.h"
 #include "B3ConstPtrValue.h"
+#include "B3EstimateStaticExecutionCounts.h"
 #include "B3FixSSA.h"
 #include "B3Generate.h"
 #include "B3InsertionSet.h"
@@ -46,6 +47,7 @@
 #include "B3VariableValue.h"
 #include "B3WasmAddressValue.h"
 #include "B3WasmBoundsCheckValue.h"
+#include "FunctionAllowlist.h"
 #include "JSCJSValueInlines.h"
 #include "JSWebAssemblyInstance.h"
 #include "ProbeContext.h"
@@ -582,8 +584,11 @@ void PatchpointExceptionHandle::generate(CCallHelpers& jit, const B3::StackmapGe
         return;
 
     StackMap values;
-    for (unsigned i = m_offset; i < params.value()->numChildren(); ++i)
-        values.constructAndAppend(params[i], params.value()->child(i)->type());
+    if (params.value()->numChildren() >= m_offset) {
+        values = StackMap(params.value()->numChildren() - m_offset);
+        for (unsigned i = m_offset; i < params.value()->numChildren(); ++i)
+            values[i - m_offset] = OSREntryValue(params[i], params.value()->child(i)->type());
+    }
     generator->addStackMap(m_callSiteIndex, WTFMove(values));
     jit.store32(CCallHelpers::TrustedImm32(m_callSiteIndex), CCallHelpers::tagFor(CallFrameSlot::argumentCountIncludingThis));
 }
@@ -2425,10 +2430,13 @@ void B3IRGenerator::emitLoopTierUpCheck(uint32_t loopIndex, const Stack& enclosi
         CCallHelpers::Jump tierUp = jit.branchAdd32(CCallHelpers::PositiveOrZero, CCallHelpers::TrustedImm32(TierUpCount::loopIncrement()), CCallHelpers::Address(params[0].gpr()));
         MacroAssembler::Label tierUpResume = jit.label();
 
-        OSREntryData& osrEntryData = m_tierUp->addOSREntryData(m_functionIndex, loopIndex);
         // First argument is the countdown location.
+        ASSERT(params.value()->numChildren() >= 1);
+        StackMap values(params.value()->numChildren() - 1);
         for (unsigned i = 1; i < params.value()->numChildren(); ++i)
-            osrEntryData.values().constructAndAppend(params[i], params.value()->child(i)->type());
+            values[i - 1] = OSREntryValue(params[i], params.value()->child(i)->type());
+
+        OSREntryData& osrEntryData = m_tierUp->addOSREntryData(m_functionIndex, loopIndex, WTFMove(values));
         OSREntryData* osrEntryDataPtr = &osrEntryData;
 
         params.addLatePath([=] (CCallHelpers& jit) {
@@ -3228,6 +3236,17 @@ auto B3IRGenerator::origin() -> Origin
     return bitwise_cast<Origin>(origin);
 }
 
+static bool shouldDumpIRFor(uint32_t functionIndex)
+{
+    static LazyNeverDestroyed<FunctionAllowlist> dumpAllowlist;
+    static std::once_flag initializeAllowlistFlag;
+    std::call_once(initializeAllowlistFlag, [] {
+        const char* functionAllowlistFile = Options::wasmB3FunctionsToDump();
+        dumpAllowlist.construct(functionAllowlistFile);
+    });
+    return dumpAllowlist->shouldDumpWasmFunction(functionIndex);
+}
+
 Expected<std::unique_ptr<InternalFunction>, String> parseAndCompile(CompilationContext& compilationContext, const FunctionData& function, const Signature& signature, Vector<UnlinkedWasmToWasmCall>& unlinkedWasmToWasmCalls, unsigned& osrEntryScratchBufferSize, const ModuleInformation& info, MemoryMode mode, CompilationMode compilationMode, uint32_t functionIndex, uint32_t loopIndexForOSREntry, TierUpCount* tierUp)
 {
     auto result = makeUnique<InternalFunction>();
@@ -3237,12 +3256,22 @@ Expected<std::unique_ptr<InternalFunction>, String> parseAndCompile(CompilationC
     compilationContext.procedure = makeUnique<Procedure>();
 
     Procedure& procedure = *compilationContext.procedure;
+    if (shouldDumpIRFor(functionIndex + info.importFunctionCount()))
+        procedure.setShouldDumpIR();
 
     compilationContext.wasmEntrypointJIT = makeUnique<CCallHelpers>();
 
+    if (Options::useSamplingProfiler()) {
+        // FIXME: We should do this based on VM relevant info.
+        // But this is good enough for our own profiling for now.
+        // When we start to show this data in web inspector, we'll
+        // need other hooks into this besides the JSC option.
+        procedure.setNeedsPCToOriginMap();
+    }
+
     procedure.setOriginPrinter([] (PrintStream& out, Origin origin) {
         if (origin.data())
-            out.print("Wasm: ", bitwise_cast<OpcodeOrigin>(origin));
+            out.print("Wasm: ", OpcodeOrigin(origin));
     });
     
     // This means we cannot use either StackmapGenerationParams::usedRegisters() or
@@ -3266,6 +3295,8 @@ Expected<std::unique_ptr<InternalFunction>, String> parseAndCompile(CompilationC
     if (ASSERT_ENABLED)
         validate(procedure, "After parsing:\n");
 
+    estimateStaticExecutionCounts(procedure);
+
     dataLogIf(WasmB3IRGeneratorInternal::verbose, "Pre SSA: ", procedure);
     fixSSA(procedure);
     dataLogIf(WasmB3IRGeneratorInternal::verbose, "Post SSA: ", procedure);
@@ -3283,6 +3314,14 @@ Expected<std::unique_ptr<InternalFunction>, String> parseAndCompile(CompilationC
     result->exceptionHandlers = irGenerator.takeExceptionHandlers();
 
     return result;
+}
+
+void computePCToCodeOriginMap(CompilationContext& context, LinkBuffer& linkBuffer)
+{
+    if (context.procedure && context.procedure->needsPCToOriginMap()) {
+        B3::PCToOriginMap originMap = context.procedure->releasePCToOriginMap();
+        context.pcToCodeOriginMap = Box<PCToCodeOriginMap>::create(PCToCodeOriginMapBuilder(PCToCodeOriginMapBuilder::WasmCodeOriginMap, WTFMove(originMap)), linkBuffer);
+    }
 }
 
 void computeExceptionHandlerLocations(Vector<CodeLocationLabel<ExceptionHandlerPtrTag>>& handlers, const InternalFunction* function, const CompilationContext& context, LinkBuffer& linkBuffer)

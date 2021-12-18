@@ -245,7 +245,7 @@ static bool supportsClientSideAttachmentData(const Frame& frame)
 
 #endif
 
-static Ref<DocumentFragment> createFragmentForImageAttachment(Frame& frame, Document& document, Ref<SharedBuffer>&& buffer, const String& contentType, PresentationSize preferredSize)
+static Ref<DocumentFragment> createFragmentForImageAttachment(Frame& frame, Document& document, Ref<FragmentedSharedBuffer>&& buffer, const String& contentType, PresentationSize preferredSize)
 {
 #if ENABLE(ATTACHMENT_ELEMENT)
     auto attachment = HTMLAttachmentElement::create(HTMLNames::attachmentTag, document);
@@ -309,7 +309,7 @@ static void replaceRichContentWithAttachments(Frame& frame, DocumentFragment& fr
             continue;
 
         auto& resource = resourceEntry->value;
-        serializedAttachmentData.append({ attachment.uniqueIdentifier(), resource->mimeType(), resource->data() });
+        serializedAttachmentData.append({ attachment.uniqueIdentifier(), resource->mimeType(), resource->data().makeContiguous() });
     }
 
     if (!serializedAttachmentData.isEmpty())
@@ -332,7 +332,7 @@ static void replaceRichContentWithAttachments(Frame& frame, DocumentFragment& fr
         if (name.isEmpty())
             name = "media"_s;
 
-        attachmentInsertionInfo.append({ WTFMove(name), resource->value->mimeType(), resource->value->data(), image });
+        attachmentInsertionInfo.append({ WTFMove(name), resource->value->mimeType(), resource->value->data().makeContiguous(), image });
     }
 
     for (auto& object : descendantsOfType<HTMLObjectElement>(fragment)) {
@@ -350,7 +350,7 @@ static void replaceRichContentWithAttachments(Frame& frame, DocumentFragment& fr
         if (name.isEmpty())
             name = "file"_s;
 
-        attachmentInsertionInfo.append({ WTFMove(name), resource->value->mimeType(), resource->value->data(), object });
+        attachmentInsertionInfo.append({ WTFMove(name), resource->value->mimeType(), resource->value->data().makeContiguous(), object });
     }
 
     for (auto& info : attachmentInsertionInfo) {
@@ -442,7 +442,7 @@ static std::optional<MarkupAndArchive> extractMarkupAndArchive(SharedBuffer& buf
     if (!canShowMIMETypeAsHTML(type))
         return std::nullopt;
 
-    return MarkupAndArchive { String::fromUTF8(mainResource->data().data(), mainResource->data().size()), mainResource.releaseNonNull(), archive.releaseNonNull() };
+    return MarkupAndArchive { String::fromUTF8(mainResource->data().makeContiguous()->data(), mainResource->data().size()), mainResource.releaseNonNull(), archive.releaseNonNull() };
 }
 
 static String sanitizeMarkupWithArchive(Frame& frame, Document& destinationDocument, MarkupAndArchive& markupAndArchive, MSOListQuirks msoListQuirks, const std::function<bool(const String)>& canShowMIMETypeAsHTML)
@@ -481,7 +481,7 @@ static String sanitizeMarkupWithArchive(Frame& frame, Document& destinationDocum
         if (!shouldReplaceSubresourceURL(subframeURL))
             continue;
 
-        MarkupAndArchive subframeContent = { String::fromUTF8(subframeMainResource->data().data(), subframeMainResource->data().size()),
+        MarkupAndArchive subframeContent = { String::fromUTF8(subframeMainResource->data().makeContiguous()->data(), subframeMainResource->data().size()),
             subframeMainResource.releaseNonNull(), subframeArchive.copyRef() };
         auto subframeMarkup = sanitizeMarkupWithArchive(frame, destinationDocument, subframeContent, MSOListQuirks::Disabled, canShowMIMETypeAsHTML);
 
@@ -676,7 +676,7 @@ bool WebContentReader::readPlainText(const String& text)
     return true;
 }
 
-bool WebContentReader::readImage(Ref<SharedBuffer>&& buffer, const String& type, PresentationSize preferredPresentationSize)
+bool WebContentReader::readImage(Ref<FragmentedSharedBuffer>&& buffer, const String& type, PresentationSize preferredPresentationSize)
 {
     ASSERT(frame.document());
     auto& document = *frame.document();
@@ -746,7 +746,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return attachment;
 }
 
-static Ref<HTMLElement> attachmentForData(Frame& frame, SharedBuffer& buffer, const String& contentType, const String& name, PresentationSize preferredSize)
+static Ref<HTMLElement> attachmentForData(Frame& frame, FragmentedSharedBuffer& buffer, const String& contentType, const String& name, PresentationSize preferredSize)
 {
     Ref document = *frame.document();
     auto attachment = HTMLAttachmentElement::create(HTMLNames::attachmentTag, document);

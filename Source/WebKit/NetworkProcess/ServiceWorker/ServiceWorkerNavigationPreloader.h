@@ -27,6 +27,7 @@
 
 #if ENABLE(SERVICE_WORKER)
 
+#include "DownloadID.h"
 #include "NetworkCacheEntry.h"
 #include "NetworkLoadClient.h"
 #include "NetworkLoadParameters.h"
@@ -39,6 +40,7 @@ class NetworkLoadMetrics;
 
 namespace WebKit {
 
+class DownloadManager;
 class NetworkLoad;
 class NetworkSession;
 
@@ -60,6 +62,8 @@ public:
     const WebCore::NetworkLoadMetrics& networkLoadMetrics() const { return m_networkLoadMetrics; }
     bool isServiceWorkerNavigationPreloadEnabled() const { return m_state.enabled; }
 
+    bool convertToDownload(DownloadManager&, DownloadID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
+
 private:
     // NetworkLoadClient.
     void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent) final { }
@@ -67,7 +71,7 @@ private:
     bool isAllowedToAskUserForCredentials() const final { return false; }
     void willSendRedirectedRequest(WebCore::ResourceRequest&&, WebCore::ResourceRequest&& redirectRequest, WebCore::ResourceResponse&& redirectResponse) final;
     void didReceiveResponse(WebCore::ResourceResponse&&, ResponseCompletionHandler&&) final;
-    void didReceiveBuffer(Ref<WebCore::SharedBuffer>&&, int reportedEncodedDataLength) final;
+    void didReceiveBuffer(Ref<WebCore::FragmentedSharedBuffer>&&, int reportedEncodedDataLength) final;
     void didFinishLoading(const WebCore::NetworkLoadMetrics&) final;
     void didFailLoading(const WebCore::ResourceError&) final;
     bool shouldCaptureExtraNetworkLoadMetrics() const final { return m_shouldCaptureExtraNetworkLoadMetrics; }

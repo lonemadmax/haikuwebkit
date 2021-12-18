@@ -26,6 +26,7 @@
 #include "ExceptionOr.h"
 #include "FormData.h"
 #include "ResourceResponse.h"
+#include "SharedBuffer.h"
 #include "ThreadableLoaderClient.h"
 #include "UserGestureIndicator.h"
 #include <wtf/URL.h>
@@ -45,7 +46,6 @@ class Blob;
 class Document;
 class DOMFormData;
 class SecurityOrigin;
-class SharedBuffer;
 class TextResourceDecoder;
 class ThreadableLoader;
 class URLSearchParams;
@@ -143,7 +143,7 @@ private:
     // EventTarget.
     void eventListenersDidChange() final;
 
-    TextEncoding finalResponseCharset() const;
+    PAL::TextEncoding finalResponseCharset() const;
 
     // ActiveDOMObject
     void contextDestroyed() override;
@@ -237,7 +237,7 @@ private:
 
     RefPtr<Document> m_responseDocument;
 
-    RefPtr<SharedBuffer> m_binaryResponseBuilder;
+    SharedBufferBuilder m_binaryResponseBuilder;
 
     StringBuilder m_responseBuilder;
 

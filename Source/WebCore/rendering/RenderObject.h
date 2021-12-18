@@ -54,6 +54,7 @@ class DocumentTimeline;
 class HitTestLocation;
 class HitTestRequest;
 class HitTestResult;
+class HostWindow;
 class LegacyInlineBox;
 class Path;
 class Position;
@@ -269,6 +270,7 @@ public:
     virtual bool isRenderMultiColumnSpannerPlaceholder() const { return false; }
 
     virtual bool isRenderScrollbarPart() const { return false; }
+    virtual bool isRenderVTTCue() const { return false; }
 
     bool isDocumentElementRenderer() const { return document().documentElement() == &m_node; }
     bool isBody() const { return node() && node()->hasTagName(HTMLNames::bodyTag); }
@@ -322,8 +324,7 @@ public:
     virtual bool isRenderMathMLUnderOver() const { return false; }
 #endif // ENABLE(MATHML)
 
-    // FIXME: Until all SVG renders can be subclasses of RenderSVGModelObject we have
-    // to add SVG renderer methods to RenderObject with an ASSERT_NOT_REACHED() default implementation.
+    virtual bool isLegacyRenderSVGModelObject() const { return false; }
     virtual bool isRenderSVGModelObject() const { return false; }
     virtual bool isRenderSVGBlock() const { return false; };
     virtual bool isLegacySVGRoot() const { return false; }
@@ -347,6 +348,7 @@ public:
     virtual bool isSVGResourceClipper() const { return false; }
     virtual bool isSVGResourceFilterPrimitive() const { return false; }
     bool isSVGRootOrLegacySVGRoot() const { return isSVGRoot() || isLegacySVGRoot(); }
+    bool isRenderOrLegacyRenderSVGModelObject() const { return isRenderSVGModelObject() || isLegacyRenderSVGModelObject(); }
 
     // FIXME: Those belong into a SVG specific base-class for all renderers (see above)
     // Unfortunately we don't have such a class yet, because it's not possible for all renderers
@@ -451,6 +453,7 @@ public:
     inline bool preservesNewline() const;
 
     RenderView& view() const { return *document().renderView(); };
+    HostWindow* hostWindow() const;
 
     // Returns true if this renderer is rooted.
     bool isRooted() const;
@@ -1215,6 +1218,7 @@ bool shouldApplyLayoutContainment(const RenderObject&);
 bool shouldApplySizeContainment(const RenderObject&);
 bool shouldApplyStyleContainment(const RenderObject&);
 bool shouldApplyPaintContainment(const RenderObject&);
+bool shouldApplyAnyContainment(const RenderObject&);
 
 } // namespace WebCore
 

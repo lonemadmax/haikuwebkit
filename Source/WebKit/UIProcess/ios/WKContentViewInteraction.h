@@ -90,6 +90,7 @@ struct ContactsRequestData;
 struct PromisedAttachmentInfo;
 struct ShareDataWithParsedURL;
 struct TextRecognitionResult;
+enum class DOMPasteAccessCategory : uint8_t;
 enum class DOMPasteAccessResponse : uint8_t;
 enum class MouseEventPolicy : uint8_t;
 enum class RouteSharingPolicy : uint8_t;
@@ -158,8 +159,18 @@ typedef std::pair<WebKit::InteractionInformationRequest, InteractionInformationC
 #define FOR_EACH_INSERT_TEXT_FROM_CAMERA_WKCONTENTVIEW_ACTION(M)
 #endif
 
+#if HAVE(UIFINDINTERACTION)
+#define FOR_EACH_FIND_WKCONTENTVIEW_ACTION(M) \
+    M(find) \
+    M(findNext) \
+    M(findPrevious)
+#else
+#define FOR_EACH_FIND_WKCONTENTVIEW_ACTION(M)
+#endif
+
 #define FOR_EACH_WKCONTENTVIEW_ACTION(M) \
     FOR_EACH_INSERT_TEXT_FROM_CAMERA_WKCONTENTVIEW_ACTION(M) \
+    FOR_EACH_FIND_WKCONTENTVIEW_ACTION(M) \
     M(_addShortcut) \
     M(_define) \
     M(_lookup) \
@@ -408,6 +419,10 @@ using ImageAnalysisRequestIdentifier = ObjectIdentifier<ImageAnalysisRequestIden
     WeakObjCPtr<WKDataListSuggestionsControl> _dataListSuggestionsControl;
 #endif
 
+#if HAVE(UIFINDINTERACTION)
+    RetainPtr<UITextRange> _foundHighlightedTextRange;
+#endif
+
     BOOL _isEditable;
     BOOL _showingTextStyleOptions;
     BOOL _hasValidPositionInformation;
@@ -455,6 +470,7 @@ using ImageAnalysisRequestIdentifier = ObjectIdentifier<ImageAnalysisRequestIden
     NSUInteger _activeTextInteractionCount;
     NSInteger _suppressNonEditableSingleTapTextInteractionCount;
     CompletionHandler<void(WebCore::DOMPasteAccessResponse)> _domPasteRequestHandler;
+    std::optional<WebCore::DOMPasteAccessCategory> _domPasteRequestCategory;
     BlockPtr<void(UIWKAutocorrectionContext *)> _pendingAutocorrectionContextHandler;
     CompletionHandler<void()> _pendingRunModalJavaScriptDialogCallback;
 
@@ -532,6 +548,9 @@ using ImageAnalysisRequestIdentifier = ObjectIdentifier<ImageAnalysisRequestIden
     , WKTouchActionGestureRecognizerDelegate
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT) || ENABLE(HOVER_GESTURE_RECOGNIZER)
     , WKHoverPlatterDelegate
+#endif
+#if HAVE(UIFINDINTERACTION)
+    , _UITextSearching
 #endif
 >
 
@@ -671,7 +690,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (void)updateFocusedElementSelectedIndex:(uint32_t)index allowsMultipleSelection:(bool)allowsMultipleSelection;
 - (void)updateFocusedElementFocusedWithDataListDropdown:(BOOL)value;
 
-- (void)_requestDOMPasteAccessWithElementRect:(const WebCore::IntRect&)elementRect originIdentifier:(const String&)originIdentifier completionHandler:(CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&)completionHandler;
+- (void)_requestDOMPasteAccessForCategory:(WebCore::DOMPasteAccessCategory)pasteAccessCategory elementRect:(const WebCore::IntRect&)elementRect originIdentifier:(const String&)originIdentifier completionHandler:(CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&)completionHandler;
 
 - (void)doAfterPositionInformationUpdate:(void (^)(WebKit::InteractionInformationAtPosition))action forRequest:(WebKit::InteractionInformationRequest)request;
 - (BOOL)ensurePositionInformationIsUpToDate:(WebKit::InteractionInformationRequest)request;

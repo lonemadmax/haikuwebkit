@@ -31,6 +31,7 @@
 #include "WasmCallee.h"
 #include "WasmEmbedder.h"
 #include <wtf/CrossThreadCopier.h>
+#include <wtf/FixedVector.h>
 #include <wtf/Lock.h>
 #include <wtf/RefPtr.h>
 #include <wtf/SharedTask.h>
@@ -54,6 +55,7 @@ public:
     typedef void CallbackType(Ref<CodeBlock>&&);
     using AsyncCompilationCallback = RefPtr<WTF::SharedTask<CallbackType>>;
     static Ref<CodeBlock> create(Context*, MemoryMode, ModuleInformation&, RefPtr<LLIntCallees>);
+    static Ref<CodeBlock> createFromExisting(MemoryMode, const CodeBlock&);
 
     void waitUntilFinished();
     void compileAsync(Context*, AsyncCompilationCallback&&);
@@ -137,18 +139,19 @@ private:
 #endif
 
     CodeBlock(Context*, MemoryMode, ModuleInformation&, RefPtr<LLIntCallees>);
+    CodeBlock(MemoryMode, const CodeBlock&);
     void setCompilationFinished();
     unsigned m_calleeCount;
     MemoryMode m_mode;
 #if ENABLE(WEBASSEMBLY_B3JIT)
-    Vector<RefPtr<OMGCallee>> m_omgCallees;
-    Vector<RefPtr<BBQCallee>> m_bbqCallees;
+    FixedVector<RefPtr<OMGCallee>> m_omgCallees;
+    FixedVector<RefPtr<BBQCallee>> m_bbqCallees;
 #endif
     RefPtr<LLIntCallees> m_llintCallees;
     HashMap<uint32_t, RefPtr<EmbedderEntrypointCallee>, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_embedderCallees;
-    Vector<MacroAssemblerCodePtr<WasmEntryPtrTag>> m_wasmIndirectCallEntryPoints;
-    Vector<Vector<UnlinkedWasmToWasmCall>> m_wasmToWasmCallsites;
-    Vector<MacroAssemblerCodeRef<WasmEntryPtrTag>> m_wasmToWasmExitStubs;
+    FixedVector<MacroAssemblerCodePtr<WasmEntryPtrTag>> m_wasmIndirectCallEntryPoints;
+    FixedVector<Vector<UnlinkedWasmToWasmCall>> m_wasmToWasmCallsites;
+    FixedVector<MacroAssemblerCodeRef<WasmEntryPtrTag>> m_wasmToWasmExitStubs;
     RefPtr<EntryPlan> m_plan;
     std::atomic<bool> m_compilationFinished { false };
     String m_errorMessage;

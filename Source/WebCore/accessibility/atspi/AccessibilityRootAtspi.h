@@ -22,6 +22,7 @@
 #if ENABLE(ACCESSIBILITY) && USE(ATSPI)
 #include "AccessibilityAtspi.h"
 #include "IntRect.h"
+#include <wtf/Atomics.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/WeakPtr.h>
@@ -40,8 +41,9 @@ public:
 
     void registerObject(CompletionHandler<void(const String&)>&&);
     void unregisterObject();
+    void registerTree();
+    bool isTreeRegistered() const { return m_isTreeRegistered.load(); }
     void setPath(String&&);
-    void setParentPath(String&&);
 
     const String& path() const { return m_path; }
     const String& parentUniqueName() const { return m_parentUniqueName; }
@@ -49,16 +51,17 @@ public:
     GVariant* applicationReference() const;
     AccessibilityAtspi& atspi() const { return m_atspi; }
     AccessibilityObjectAtspi* child() const;
-    AccessibilityObjectAtspi* focusedObject() const;
 
     void serialize(GVariantBuilder*) const;
 
 private:
     AccessibilityRootAtspi(Page&, AccessibilityAtspi&);
 
+    void embedded(const char* parentUniqueName, const char* parentPath);
     IntRect frameRect(uint32_t) const;
 
     static GDBusInterfaceVTable s_accessibleFunctions;
+    static GDBusInterfaceVTable s_socketFunctions;
     static GDBusInterfaceVTable s_componentFunctions;
 
     AccessibilityAtspi& m_atspi;
@@ -66,6 +69,7 @@ private:
     String m_path;
     String m_parentUniqueName;
     String m_parentPath;
+    Atomic<bool> m_isTreeRegistered { false };
 };
 
 } // namespace WebCore

@@ -83,7 +83,6 @@ interface IDWriteFontFace;
 namespace WebCore {
 
 class FontDescription;
-class SharedBuffer;
 
 // This class is conceptually immutable. Once created, no instances should ever change (in an observable way).
 class FontPlatformData {

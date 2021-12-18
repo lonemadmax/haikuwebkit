@@ -49,6 +49,7 @@ CSSParserContext::CSSParserContext(CSSParserMode mode, const URL& baseURL)
     // FIXME: We should turn all of the features on from their WebCore Settings defaults.
     if (mode == UASheetMode) {
         individualTransformPropertiesEnabled = true;
+        focusVisibleEnabled = true;
 #if ENABLE(CSS_TRANSFORM_STYLE_OPTIMIZED_3D)
         transformStyleOptimized3DEnabled = true;
 #endif
@@ -104,6 +105,7 @@ CSSParserContext::CSSParserContext(const Document& document, const URL& sheetBas
     , focusVisibleEnabled { document.settings().focusVisibleEnabled() }
     , hasPseudoClassEnabled { document.settings().hasPseudoClassEnabled() }
     , cascadeLayersEnabled { document.settings().cssCascadeLayersEnabled() }
+    , containerQueriesEnabled { document.settings().cssContainerQueriesEnabled() }
 #if ENABLE(ATTACHMENT_ELEMENT)
     , attachmentEnabled { RuntimeEnabledFeatures::sharedFeatures().attachmentElementEnabled() }
 #endif
@@ -150,6 +152,7 @@ bool operator==(const CSSParserContext& a, const CSSParserContext& b)
         && a.focusVisibleEnabled == b.focusVisibleEnabled
         && a.hasPseudoClassEnabled == b.hasPseudoClassEnabled
         && a.cascadeLayersEnabled == b.cascadeLayersEnabled
+        && a.containerQueriesEnabled == b.containerQueriesEnabled
 #if ENABLE(ATTACHMENT_ELEMENT)
         && a.attachmentEnabled == b.attachmentEnabled
 #endif
@@ -189,12 +192,13 @@ void add(Hasher& hasher, const CSSParserContext& context)
         | context.focusVisibleEnabled                       << 21
         | context.hasPseudoClassEnabled                     << 22
         | context.cascadeLayersEnabled                      << 23
+        | context.containerQueriesEnabled                   << 24
 #if ENABLE(ATTACHMENT_ELEMENT)
-        | context.attachmentEnabled                         << 24
+        | context.attachmentEnabled                         << 25
 #endif
-        | context.overflowClipEnabled                       << 25
-        | context.accentColorEnabled                        << 26
-        | context.mode                                      << 27; // This is multiple bits, so keep it last.
+        | context.overflowClipEnabled                       << 26
+        | context.accentColorEnabled                        << 27
+        | context.mode                                      << 28; // This is multiple bits, so keep it last.
     add(hasher, context.baseURL, context.charset, bits);
 }
 
@@ -254,8 +258,8 @@ ResolvedURL CSSParserContext::completeURL(const String& string) const
 
         if (charset.isEmpty())
             return { string, { baseURL, string } };
-        auto encodingForURLParsing = TextEncoding { charset }.encodingForFormSubmissionOrURLParsing();
-        return { string, { baseURL, string, encodingForURLParsing == UTF8Encoding() ? nullptr : &encodingForURLParsing } };
+        auto encodingForURLParsing = PAL::TextEncoding { charset }.encodingForFormSubmissionOrURLParsing();
+        return { string, { baseURL, string, encodingForURLParsing == PAL::UTF8Encoding() ? nullptr : &encodingForURLParsing } };
     }();
 
     if (mode == WebVTTMode && !result.resolvedURL.protocolIsData())

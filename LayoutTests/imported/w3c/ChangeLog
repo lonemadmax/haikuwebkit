@@ -1,3 +1,581 @@
+2021-12-14  Andreu Botella  <andreu@andreubotella.com>
+
+        TextDecoder doesn't detect invalid UTF-8 sequences early enough
+        https://bugs.webkit.org/show_bug.cgi?id=233921
+
+        Reviewed by Darin Adler.
+
+        Import WPT tests from
+        https://github.com/web-platform-tests/wpt/pull/31537.
+
+        * web-platform-tests/encoding/textdecoder-eof.any.js:
+        (test):
+        * web-platform-tests/encoding/textdecoder-streaming.any-expected.txt:
+        * web-platform-tests/encoding/textdecoder-streaming.any.js:
+        (string_appeared_here.forEach.):
+        (string_appeared_here.forEach.test):
+        (string_appeared_here.forEach):
+        * web-platform-tests/encoding/textdecoder-streaming.any.worker-expected.txt:
+
+2021-12-14  Rob Buis  <rbuis@igalia.com>
+
+        Incorrect aspect ratio size
+        https://bugs.webkit.org/show_bug.cgi?id=234148
+
+        Reviewed by Manuel Rego Casasnovas.
+
+        * web-platform-tests/css/css-sizing/aspect-ratio/block-aspect-ratio-036-expected.xht: Added.
+        * web-platform-tests/css/css-sizing/aspect-ratio/block-aspect-ratio-036.html: Added.
+
+2021-12-13  Andreu Botella  <andreu@andreubotella.com>
+
+        A FormData constructed in the form's submit event listener shouldn't include the submitter
+        https://bugs.webkit.org/show_bug.cgi?id=234069
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/html/semantics/forms/form-submission-0/constructing-form-data-set-expected.txt:
+
+2021-12-13  Antti Koivisto  <antti@apple.com>
+
+        [CSS Cascade Layers] Layers specified in import rules can not be reordered on media query evaluation
+        https://bugs.webkit.org/show_bug.cgi?id=234158
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-cascade/layer-media-query-expected.txt:
+
+2021-12-13  Sergio Villar Senin  <svillar@igalia.com>
+
+        [css-writing-modes] Use the correct margins in computeInlinePreferredLogicalWidths in orthogonal flows
+        https://bugs.webkit.org/show_bug.cgi?id=233562
+        <rdar://problem/86105904>
+
+        Reviewed by Rob Buis.
+
+        * web-platform-tests/css/css-writing-modes/inline-box-orthogonal-child-with-margins-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/inline-box-orthogonal-child-with-margins.html: Added.
+
+2021-12-13  Antti Koivisto  <antti@apple.com>
+
+        [CSS Cascade Layers] Unflake and fix web-platform-tests/css/css-cascade/layer-statement-before-import.html
+        https://bugs.webkit.org/show_bug.cgi?id=233944
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-cascade/layer-statement-before-import-expected.txt:
+        * web-platform-tests/css/css-cascade/layer-statement-before-import.html:
+
+        Data URLs in @imports are not guaranteed to decode synchronously so make the test async.
+        Also catch exceptions from asserts for cleanup so failures don't affect other subtests.
+
+2021-12-13  Youenn Fablet  <youenn@apple.com>
+
+        Implement step 17 of main fetch algorithm
+        https://bugs.webkit.org/show_bug.cgi?id=234140
+
+        Reviewed by Brent Fulgham.
+
+        * web-platform-tests/service-workers/service-worker/fetch-csp.https.html:
+        * web-platform-tests/service-workers/service-worker/resources/fetch-csp-iframe.html.sub.headers:
+
+2021-12-11  Antoine Quint  <graouts@webkit.org>
+
+        Expose a frameRate property to Web Animations
+        https://bugs.webkit.org/show_bug.cgi?id=234174
+        rdar://86338983
+
+        Reviewed by Dean Jackson.
+
+        Rebaseline the output of a Web Animations WPT which lists all enumerable Animation properties.
+
+        * web-platform-tests/web-animations/interfaces/Animation/style-change-events-expected.txt:
+
+2021-12-10  Chris Dumez  <cdumez@apple.com>
+
+        Implement AbortSignal.throwIfAborted
+        https://bugs.webkit.org/show_bug.cgi?id=234127
+
+        Reviewed by Darin Adler.
+
+        Resync WPT test from upstream to gain test coverage and rebaseline it.
+
+        * web-platform-tests/dom/abort/event.any-expected.txt:
+        * web-platform-tests/dom/abort/event.any.js:
+        * web-platform-tests/dom/abort/event.any.worker-expected.txt:
+
+2021-12-10  Alexey Shvayka  <ashvayka@apple.com>
+
+        Setting "onselectionchange" content attribute should add an event listener
+        https://bugs.webkit.org/show_bug.cgi?id=234167
+
+        Reviewed by Darin Adler.
+
+        Import WPT tests from https://github.com/web-platform-tests/wpt/pull/32013.
+
+        * web-platform-tests/selection/textcontrols: Added.
+        * web-platform-tests/selection/textcontrols/onselectionchange-content-attribute-expected.txt: Added.
+        * web-platform-tests/selection/textcontrols/onselectionchange-content-attribute.html: Added.
+
+2021-12-10  Joonghun Park  <jh718.park@samsung.com>
+
+        Don't do simplification for percentage comparison resolution against negative reference values.
+        https://bugs.webkit.org/show_bug.cgi?id=233987
+
+        Reviewed by Darin Adler.
+
+        A percentage may be resolved against a negative value, which is allowed only in 'background-position' property.
+
+        Currently in CSSCalcExpressionNodeParser::parseCalc,
+        it creates CSSCalcExpressionNode tree result and does simplification for it.
+        But during it, e.g. min(50%, 10%) is simplified to min(10%) and max(50%, 10%) is simplified to max(50%),
+        which is the opposite result what should be done against negative basis.
+
+        With this patch, the percentage comparison resolution against nagative basis is done correctly.
+
+        The corresponding spec is step 4's note described below in
+        https://drafts.csswg.org/css-values-4/#simplify-a-calculation-tree.
+
+        'If a percentage is left at this point, it will usually block simplification of the node,
+        since it needs to be resolved against another value using information not currently available.
+        (Otherwise, it would have been converted to a different value in an earlier step.)
+        This includes operations such as "min", since percentages might resolve against a negative basis,
+        and thus end up with an opposite comparative relationship than the raw percentage value would seem to indicate.'
+
+        * web-platform-tests/css/css-values/minmax-percentage-serialize-expected.txt:
+
+2021-12-10  Alexey Shvayka  <ashvayka@apple.com>
+
+        Some WebIDL operations / attributes incorrectly use _current_ realm instead of _relevant_
+        https://bugs.webkit.org/show_bug.cgi?id=230941
+
+        Reviewed by Sam Weinig.
+
+        Import WPT tests from https://github.com/web-platform-tests/wpt/pull/32012.
+
+        * web-platform-tests/dom/events/Event-timestamp-cross-realm-getter-expected.txt: Added.
+        * web-platform-tests/dom/events/Event-timestamp-cross-realm-getter.html: Added.
+        * web-platform-tests/html/browsers/history/the-history-interface/history_back_cross_realm_method-expected.txt: Added.
+        * web-platform-tests/html/browsers/history/the-history-interface/history_back_cross_realm_method.html: Added.
+        * web-platform-tests/html/browsers/history/the-history-interface/history_forward_cross_realm_method-expected.txt: Added.
+        * web-platform-tests/html/browsers/history/the-history-interface/history_forward_cross_realm_method.html: Added.
+        * web-platform-tests/html/browsers/history/the-history-interface/history_go_cross_realm_method-expected.txt: Added.
+        * web-platform-tests/html/browsers/history/the-history-interface/history_go_cross_realm_method.html: Added.
+        * web-platform-tests/html/webappapis/scripting/reporterror-cross-realm-method-expected.txt: Added.
+        * web-platform-tests/html/webappapis/scripting/reporterror-cross-realm-method.html: Added.
+        * web-platform-tests/html/webappapis/structured-clone/structured-clone-cross-realm-method-expected.txt: Added.
+        * web-platform-tests/html/webappapis/structured-clone/structured-clone-cross-realm-method.html: Added.
+        * web-platform-tests/requestidlecallback/callback-timeRemaining-cross-realm-method-expected.txt: Added.
+        * web-platform-tests/requestidlecallback/callback-timeRemaining-cross-realm-method.html: Added.
+
+2021-12-10  Alexey Shvayka  <ashvayka@apple.com>
+
+        Extend the scope where the Window's current event is set
+        https://bugs.webkit.org/show_bug.cgi?id=233833
+
+        Reviewed by Ryosuke Niwa.
+
+        Import WPT tests from https://github.com/web-platform-tests/wpt/pull/31894.
+
+        * web-platform-tests/dom/events/event-global-is-still-set-when-coercing-beforeunload-result-expected.txt: Added.
+        * web-platform-tests/dom/events/event-global-is-still-set-when-coercing-beforeunload-result.html: Added.
+        * web-platform-tests/dom/events/event-global-set-before-handleEvent-lookup.any-expected.txt: Added.
+        * web-platform-tests/dom/events/event-global-set-before-handleEvent-lookup.any.html: Added.
+        * web-platform-tests/dom/events/event-global-set-before-handleEvent-lookup.any.js: Added.
+        * web-platform-tests/dom/events/resources/event-global-is-still-set-when-coercing-beforeunload-result-frame.html: Added.
+
+2021-12-10  Alexey Shvayka  <ashvayka@apple.com>
+
+        JSErrorHandler should not set window.event if invocation target is in shadow tree
+        https://bugs.webkit.org/show_bug.cgi?id=233834
+
+        Reviewed by Ryosuke Niwa.
+
+        Update the test per https://github.com/web-platform-tests/wpt/pull/31893 as well as its expectations.
+
+        * web-platform-tests/dom/events/event-global-expected.txt:
+        * web-platform-tests/dom/events/event-global.html:
+
+2021-12-10  Patrick Griffis  <pgriffis@igalia.com>
+
+        CSP: Implement protections against nonce-hijacking
+        https://bugs.webkit.org/show_bug.cgi?id=233087
+
+        Reviewed by Brent Fulgham.
+
+        Update expectations.
+
+        * web-platform-tests/content-security-policy/script-src/nonce-enforce-blocked-expected.txt:
+
+2021-12-10  Chris Dumez  <cdumez@apple.com>
+
+        Radio buttons with no form owner are not grouped
+        https://bugs.webkit.org/show_bug.cgi?id=220502
+        <rdar://problem/73300895>
+
+        Reviewed by Darin Adler.
+
+        Rebaseline WPT tests now that more checks are passing.
+
+        * web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valid-expected.txt:
+        * web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valueMissing-expected.txt:
+        * web-platform-tests/html/semantics/forms/the-input-element/radio-expected.txt:
+
+2021-12-10  Patrick Griffis  <pgriffis@igalia.com>
+
+        CSP: Allow external scripts with SRI hashes matching CSP
+        https://bugs.webkit.org/show_bug.cgi?id=233911
+
+        Reviewed by Kate Cheney.
+
+        Update expectations with more passes.
+
+        * web-platform-tests/content-security-policy/script-src/script-src-report-only-policy-works-with-external-hash-policy-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/script-src-sri_hash.sub-expected.txt:
+
+2021-12-10  Manuel Rego Casasnovas  <rego@igalia.com>
+
+        [WPT] Import resources/accesskey.js
+        https://bugs.webkit.org/show_bug.cgi?id=234137
+
+        Reviewed by Rob Buis.
+
+        This just imports the changes from this WPT PR:
+        https://github.com/web-platform-tests/wpt/pull/32000
+
+        Which will allow to write other WPT tests using pressAccessKey() method.
+
+        * web-platform-tests/resources/accesskey.js: Added.
+        (pressAccessKey):
+        * web-platform-tests/resources/w3c-import.log:
+        * web-platform-tests/shadow-dom/accesskey.tentative.html:
+
+2021-12-09  Chris Dumez  <cdumez@apple.com>
+
+        Add basic support for launching a SharedWorker
+        https://bugs.webkit.org/show_bug.cgi?id=233895
+
+        Reviewed by Alex Christensen.
+
+        Rebaseline WPT tests now that tests involving Shared Workers are actually running.
+
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-self/sharedworker-classic.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-self/sharedworker-classic.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-self/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-self/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-self/sharedworker-import.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-self/sharedworker-import.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-self/sharedworker-module.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-self/sharedworker-module.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-wildcard/sharedworker-classic.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-wildcard/sharedworker-classic.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-wildcard/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-wildcard/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-wildcard/sharedworker-import.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-wildcard/sharedworker-import.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-wildcard/sharedworker-module.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-wildcard/sharedworker-module.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/sharedworker-classic.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/sharedworker-classic.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/sharedworker-import.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/sharedworker-import.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/sharedworker-module.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/sharedworker-module.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-self/sharedworker-classic.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-self/sharedworker-classic.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-self/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-self/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-self/sharedworker-import.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-self/sharedworker-import.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-self/sharedworker-module.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-self/sharedworker-module.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-wildcard/sharedworker-classic.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-wildcard/sharedworker-classic.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-wildcard/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-wildcard/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-wildcard/sharedworker-import.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-wildcard/sharedworker-import.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-wildcard/sharedworker-module.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-wildcard/sharedworker-module.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-self/sharedworker-classic.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-self/sharedworker-classic.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-self/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-self/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-self/sharedworker-import.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-self/sharedworker-import.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-self/sharedworker-module.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-self/sharedworker-module.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-wildcard/sharedworker-classic.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-wildcard/sharedworker-classic.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-wildcard/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-wildcard/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-wildcard/sharedworker-import.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-wildcard/sharedworker-import.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-wildcard/sharedworker-module.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-wildcard/sharedworker-module.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/sharedworker-classic.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/sharedworker-classic.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/sharedworker-import.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/sharedworker-import.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/sharedworker-module.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/sharedworker-module.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-self/sharedworker-classic.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-self/sharedworker-classic.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-self/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-self/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-self/sharedworker-import.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-self/sharedworker-import.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-self/sharedworker-module.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-self/sharedworker-module.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-wildcard/sharedworker-classic.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-wildcard/sharedworker-classic.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-wildcard/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-wildcard/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-wildcard/sharedworker-import.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-wildcard/sharedworker-import.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-wildcard/sharedworker-module.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-wildcard/sharedworker-module.https-expected.txt:
+        * web-platform-tests/content-security-policy/inside-worker/sharedworker-connect-src.sub-expected.txt:
+        * web-platform-tests/content-security-policy/inside-worker/sharedworker-report-only.sub-expected.txt:
+        * web-platform-tests/content-security-policy/inside-worker/sharedworker-script-src.sub-expected.txt:
+        * web-platform-tests/content-security-policy/sandbox/shared-worker-sandbox-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/script-src-strict_dynamic_worker.https-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/worker-data-set-timeout.sub-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/worker-importscripts.sub-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/worker-set-timeout.sub-expected.txt:
+        * web-platform-tests/fetch/api/cors/data-url-shared-worker-expected.txt:
+        * web-platform-tests/fetch/api/request/destination/fetch-destination-worker.https-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-MessagePort-workers.https.window-expected.txt:
+        * web-platform-tests/file-system-access/sandboxed_FileSystemBaseHandle-postMessage-workers.https.window-expected.txt:
+        * web-platform-tests/html/browsers/offline/appcache/workers/appcache-worker.https-expected.txt:
+        * web-platform-tests/html/browsers/offline/no-appcache-in-shared-workers-historical.https-expected.txt:
+        * web-platform-tests/html/cross-origin-embedder-policy/anonymous-iframe/sharedworker-partitioning.tentative.https.window-expected.txt:
+        * web-platform-tests/html/cross-origin-embedder-policy/cache-storage-reporting-shared-worker.https-expected.txt:
+        * web-platform-tests/html/cross-origin-embedder-policy/cross-origin-isolated-permission.https-expected.txt:
+        * web-platform-tests/html/cross-origin-embedder-policy/reporting-subresource-corp.https-expected.txt:
+        * web-platform-tests/html/cross-origin-embedder-policy/reporting-to-endpoint.https-expected.txt:
+        * web-platform-tests/html/cross-origin-embedder-policy/shared-workers.https-expected.txt:
+        * web-platform-tests/html/cross-origin-embedder-policy/worker-inheritance.sub.https-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/evaluation-order-1-nothrow-sharedworker-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/evaluation-order-1-sharedworker-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/evaluation-order-1-nothrow-sharedworker-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/evaluation-order-1-sharedworker-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/evaluation-order-2-import-sharedworker-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/evaluation-order-3-dynamic-sharedworker-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/import-meta/import-meta-url-expected.txt:
+        * web-platform-tests/html/webappapis/scripting/processing-model-2/unhandled-promise-rejections/promise-rejection-events.sharedworker-expected.txt:
+        * web-platform-tests/html/webappapis/the-windoworworkerglobalscope-mixin/Worker_Self_Origin-expected.txt:
+        * web-platform-tests/service-workers/service-worker/clients-get-client-types.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/worker-interception-redirect.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/worker-interception.https-expected.txt:
+        * web-platform-tests/wasm/serialization/module/broadcastchannel-success-and-failure-expected.txt:
+        * web-platform-tests/wasm/serialization/module/window-sharedworker-failure-expected.txt:
+        * web-platform-tests/webmessaging/broadcastchannel/workers-expected.txt:
+        * web-platform-tests/workers/SharedWorkerPerformanceNow-expected.txt:
+        * web-platform-tests/workers/SharedWorker_dataUrl-expected.txt:
+        * web-platform-tests/workers/abrupt-completion-expected.txt:
+        * web-platform-tests/workers/baseurl/alpha/importScripts-in-sharedworker-expected.txt:
+        * web-platform-tests/workers/baseurl/alpha/xhr-in-sharedworker-expected.txt:
+        * web-platform-tests/workers/interfaces/SharedWorkerGlobalScope/name/getting-expected.txt:
+        * web-platform-tests/workers/interfaces/SharedWorkerGlobalScope/name/setting-expected.txt:
+        * web-platform-tests/workers/interfaces/SharedWorkerGlobalScope/onconnect-expected.txt:
+        * web-platform-tests/workers/interfaces/WorkerGlobalScope/location/redirect-sharedworker-expected.txt:
+        * web-platform-tests/workers/modules/shared-worker-import-blob-url.window-expected.txt:
+        * web-platform-tests/workers/modules/shared-worker-import-data-url-cross-origin-expected.txt:
+        * web-platform-tests/workers/modules/shared-worker-import-data-url.window-expected.txt:
+        * web-platform-tests/workers/modules/shared-worker-import-failure-expected.txt:
+        * web-platform-tests/workers/modules/shared-worker-import-meta-expected.txt:
+        * web-platform-tests/workers/modules/shared-worker-import.window-expected.txt:
+        * web-platform-tests/workers/modules/shared-worker-options-credentials-expected.txt:
+        * web-platform-tests/workers/modules/shared-worker-options-type-expected.txt:
+        * web-platform-tests/workers/modules/shared-worker-parse-error-failure-expected.txt:
+        * web-platform-tests/workers/semantics/encodings/002-expected.txt:
+        * web-platform-tests/workers/semantics/encodings/004-expected.txt:
+        * web-platform-tests/workers/semantics/multiple-workers/001-expected.txt:
+        * web-platform-tests/workers/semantics/multiple-workers/004-expected.txt:
+        * web-platform-tests/workers/semantics/multiple-workers/008-expected.txt:
+        * web-platform-tests/workers/semantics/reporting-errors/001-expected.txt:
+        * web-platform-tests/workers/semantics/reporting-errors/002-expected.txt:
+        * web-platform-tests/workers/semantics/reporting-errors/003-expected.txt:
+        * web-platform-tests/workers/semantics/reporting-errors/004-expected.txt:
+        * web-platform-tests/workers/semantics/run-a-worker/002-expected.txt:
+        * web-platform-tests/workers/semantics/run-a-worker/003-expected.txt:
+        * web-platform-tests/workers/semantics/structured-clone/shared-expected.txt:
+        * web-platform-tests/workers/semantics/xhr/003-expected.txt:
+        * web-platform-tests/workers/semantics/xhr/004-expected.txt:
+        * web-platform-tests/workers/semantics/xhr/006-expected.txt:
+        * web-platform-tests/workers/shared-worker-from-blob-url.window-expected.txt:
+        * web-platform-tests/workers/shared-worker-name-via-options-expected.txt:
+        * web-platform-tests/workers/shared-worker-parse-error-failure-expected.txt:
+        * web-platform-tests/xhr/open-url-redirected-sharedworker-origin-expected.txt:
+
+2021-12-09  Brent Fulgham  <bfulgham@apple.com>
+
+        Unprefix CSS value text-align: -webkit-match-parent
+        https://bugs.webkit.org/show_bug.cgi?id=229496
+        <rdar://problem/82628618>
+
+        Reviewed by Darin Adler.
+
+        Rebaseline to show new passing tests.
+
+        * web-platform-tests/css/css-text/parsing/text-align-computed-expected.txt:
+        * web-platform-tests/css/css-text/parsing/text-align-valid-expected.txt:
+
+2021-12-09  Matt Woodrow  <matt.woodrow@gmail.com>
+
+        Unprefix -webkit-mask
+        https://bugs.webkit.org/show_bug.cgi?id=229082
+
+        Reviewed by Antti Koivisto.
+
+        * web-platform-tests/css/css-masking/animations/mask-image-interpolation-expected.txt:
+        * web-platform-tests/css/css-masking/animations/mask-position-interpolation-expected.txt:
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-expected.html:
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-filter-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-expected.html.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-filter.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation.html.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-incompatible-shapes1-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-expected.html.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-incompatible-shapes1.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation.html.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-incompatible-shapes2-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-expected.html.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-incompatible-shapes2.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation.html.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-overflow-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-overflow.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation.html.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-three-keyframes1-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-expected.html.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-three-keyframes1.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation.html.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-three-keyframes2-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-expected.html.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-three-keyframes2.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation.html.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation.html:
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-transition-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-expected.html.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-transition.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation.html.
+        * web-platform-tests/css/css-masking/clip-path/animations/w3c-import.log:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-columns-shape-002.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-descendant-text-mutated-001.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-element-userSpaceOnUse-001.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-element-userSpaceOnUse-002.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-element-userSpaceOnUse-003.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-element-userSpaceOnUse-004.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-fixed-scroll-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-fixed-scroll.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-path-001-expected.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-path-002-expected.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-path-interpolation-001-expected.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-path-interpolation-002-expected.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-reference-restore.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-svg-invalidate-expected.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-svg-invalidate.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-svg-text-backdrop-filter.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-svg-text-font-loading.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-transform-mutated-001.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-transform-mutated-002.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-url-reference-change-from-empty.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-url-reference-change.html:
+        * web-platform-tests/css/css-masking/clip-path/reference-local-url-with-base-001.html:
+        * web-platform-tests/css/css-masking/clip-path/reference-mutated.html:
+        * web-platform-tests/css/css-masking/clip-path/reference-nonexisting-existing-local.html:
+        * web-platform-tests/css/css-masking/clip-path/w3c-import.log:
+        * web-platform-tests/css/css-masking/clip-rule/clip-rule-001.html:
+        * web-platform-tests/css/css-masking/clip-rule/clip-rule-002.html:
+        * web-platform-tests/css/css-masking/hit-test/clip-path-element-objectboundingbox-001.html:
+        * web-platform-tests/css/css-masking/hit-test/clip-path-element-objectboundingbox-002.html:
+        * web-platform-tests/css/css-masking/hit-test/clip-path-element-userspaceonuse-001.html:
+        * web-platform-tests/css/css-masking/idlharness.html:
+        * web-platform-tests/css/css-masking/inheritance.sub-expected.txt:
+        * web-platform-tests/css/css-masking/parsing/mask-position-valid-expected.txt:
+        * web-platform-tests/css/css-masking/parsing/mask-valid.sub-expected.txt:
+
+2021-12-09  Antti Koivisto  <antti@apple.com>
+
+        [selectors] Use :focus-visible in the user agent style sheet
+        https://bugs.webkit.org/show_bug.cgi?id=221925
+        <rdar://problem/74613552>
+
+        Reviewed by Manuel Rego Casasnovas.
+
+        * web-platform-tests/css/selectors/focus-visible-018-2-expected.txt:
+        * web-platform-tests/css/selectors/focus-visible-018-expected.txt:
+
+2021-12-08  Patrick Griffis  <pgriffis@igalia.com>
+
+        CSP: Skip whitespace at beginning of policy header
+        https://bugs.webkit.org/show_bug.cgi?id=233951
+
+        Reviewed by Kate Cheney.
+
+        Update expectations as passing.
+
+        * web-platform-tests/content-security-policy/script-src/script-src-strict_dynamic_double_policy_honor_source_expressions.sub-expected.txt:
+
+2021-12-08  Antti Koivisto  <antti@apple.com>
+
+        [CSS Cascade Layers] CSSImportRule.cssText doesn't include layer parameter
+        https://bugs.webkit.org/show_bug.cgi?id=234010
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-cascade/parsing/layer-import-parsing-expected.txt:
+
+2021-12-08  Antti Koivisto  <antti@apple.com>
+
+        [CSS Cascade Layers] Update CSSOM to the spec
+        https://bugs.webkit.org/show_bug.cgi?id=231340
+        <rdar://problem/83958697>
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-cascade/idlharness-expected.txt:
+        * web-platform-tests/css/css-cascade/layer-rules-cssom-expected.txt:
+
+2021-12-08  Antoine Quint  <graouts@webkit.org>
+
+        'border-radius shorthand is getting expanded in WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=233960
+
+        Reviewed by Antti Koivisto.
+
+        Add a new WPT to check the behavior of border-radius when serializing using cssText.
+
+        * web-platform-tests/css/css-backgrounds/border-radius-css-text-expected.txt: Added.
+        * web-platform-tests/css/css-backgrounds/border-radius-css-text.html: Added.
+
+2021-12-08  Antti Koivisto  <antti@apple.com>
+
+        [CSS Cascade Layers] import some new WPTs
+        https://bugs.webkit.org/show_bug.cgi?id=233947
+
+        Reviewed by Kimmo Kinnunen.
+
+        * web-platform-tests/css/css-cascade/idlharness-expected.txt: Added.
+        * web-platform-tests/css/css-cascade/idlharness.html: Added.
+        * web-platform-tests/css/css-cascade/layer-cssom-order-reverse-expected.txt: Added.
+        * web-platform-tests/css/css-cascade/layer-cssom-order-reverse.html: Added.
+        * web-platform-tests/css/css-cascade/layer-import-expected.txt:
+        * web-platform-tests/css/css-cascade/layer-import.html:
+        * web-platform-tests/css/css-cascade/layer-media-query-expected.txt:
+        * web-platform-tests/css/css-cascade/layer-media-query.html:
+        * web-platform-tests/css/css-cascade/layer-rules-cssom-expected.txt: Added.
+        * web-platform-tests/css/css-cascade/layer-rules-cssom.html: Added.
+        * web-platform-tests/css/css-cascade/layer-slotted-rule-expected.xht: Added.
+        * web-platform-tests/css/css-cascade/layer-slotted-rule.html: Added.
+        * web-platform-tests/css/css-cascade/layer-statement-before-import-expected.txt: Added.
+        * web-platform-tests/css/css-cascade/layer-statement-before-import.html: Added.
+        * web-platform-tests/css/css-cascade/parsing/layer-import-parsing-expected.txt: Added.
+        * web-platform-tests/css/css-cascade/parsing/layer-import-parsing.html: Added.
+        * web-platform-tests/css/css-cascade/parsing/w3c-import.log:
+        * web-platform-tests/css/css-cascade/revert-layer-009-expected.xht: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-009.html: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-010-expected.xht: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-010.html: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-011-expected.xht: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-011.html: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-012-expected.xht: Added.
+        * web-platform-tests/css/css-cascade/revert-layer-012.html: Added.
+        * web-platform-tests/css/css-cascade/w3c-import.log:
+        * web-platform-tests/interfaces/css-cascade-5.idl: Added.
+
 2021-12-07  Martin Robinson  <mrobinson@webkit.org>
 
         perspective() <= 1px should be clamped to 1px

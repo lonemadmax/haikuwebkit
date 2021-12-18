@@ -10263,7 +10263,7 @@ IGNORE_CLANG_WARNINGS_END
                     CCallHelpers::TrustedImm32(callSiteIndex.bits()),
                     CCallHelpers::tagFor(VirtualRegister(CallFrameSlot::argumentCountIncludingThis)));
 
-                CallLinkInfo* callLinkInfo = state->jitCode->common.addCallLinkInfo(nodeSemanticOrigin);
+                auto* callLinkInfo = state->jitCode->common.addCallLinkInfo(nodeSemanticOrigin);
                 callLinkInfo->setUpCall(
                     nodeOp == Construct ? CallLinkInfo::Construct : CallLinkInfo::Call, GPRInfo::regT0);
 
@@ -10397,7 +10397,7 @@ IGNORE_CLANG_WARNINGS_END
                     shuffleData.numParameters = jit.codeBlock()->numParameters();
                     shuffleData.setupCalleeSaveRegisters(jit.codeBlock());
                     
-                    CallLinkInfo* callLinkInfo = state->jitCode->common.addCallLinkInfo(semanticNodeOrigin);
+                    auto* callLinkInfo = state->jitCode->common.addCallLinkInfo(semanticNodeOrigin);
                     callLinkInfo->setUpCall(CallLinkInfo::DirectTailCall, InvalidGPRReg);
                     
                     CCallHelpers::Label mainPath = jit.label();
@@ -10429,7 +10429,7 @@ IGNORE_CLANG_WARNINGS_END
                     return;
                 }
                 
-                CallLinkInfo* callLinkInfo = state->jitCode->common.addCallLinkInfo(semanticNodeOrigin);
+                auto* callLinkInfo = state->jitCode->common.addCallLinkInfo(semanticNodeOrigin);
                 callLinkInfo->setUpCall(
                     isConstruct ? CallLinkInfo::DirectConstruct : CallLinkInfo::DirectCall, InvalidGPRReg);
 
@@ -10557,7 +10557,7 @@ IGNORE_CLANG_WARNINGS_END
                 
                 shuffleData.setupCalleeSaveRegisters(jit.codeBlock());
 
-                CallLinkInfo* callLinkInfo = state->jitCode->common.addCallLinkInfo(codeOrigin);
+                auto* callLinkInfo = state->jitCode->common.addCallLinkInfo(codeOrigin);
                 callLinkInfo->setUpCall(CallLinkInfo::TailCall, GPRInfo::regT0);
 
                 auto slowPath = callLinkInfo->emitTailCallFastPath(jit, GPRInfo::regT0, scopedLambda<void()>([&]{
@@ -10762,7 +10762,7 @@ IGNORE_CLANG_WARNINGS_END
                     CCallHelpers::TrustedImm32(callSiteIndex.bits()),
                     CCallHelpers::tagFor(VirtualRegister(CallFrameSlot::argumentCountIncludingThis)));
 
-                CallLinkInfo* callLinkInfo = state->jitCode->common.addCallLinkInfo(semanticNodeOrigin);
+                auto* callLinkInfo = state->jitCode->common.addCallLinkInfo(semanticNodeOrigin);
 
                 RegisterSet usedRegisters = RegisterSet::allRegisters();
                 usedRegisters.exclude(RegisterSet::volatileRegistersForJSCall());
@@ -11046,7 +11046,7 @@ IGNORE_CLANG_WARNINGS_END
                     CCallHelpers::TrustedImm32(callSiteIndex.bits()),
                     CCallHelpers::tagFor(VirtualRegister(CallFrameSlot::argumentCountIncludingThis)));
 
-                CallLinkInfo* callLinkInfo = state->jitCode->common.addCallLinkInfo(semanticNodeOrigin);
+                auto* callLinkInfo = state->jitCode->common.addCallLinkInfo(semanticNodeOrigin);
 
                 unsigned argIndex = 1;
                 GPRReg calleeGPR = params[argIndex++].gpr();
@@ -11288,7 +11288,7 @@ IGNORE_CLANG_WARNINGS_END
                     CCallHelpers::TrustedImm32(callSiteIndex.bits()),
                     CCallHelpers::tagFor(VirtualRegister(CallFrameSlot::argumentCountIncludingThis)));
                 
-                CallLinkInfo* callLinkInfo = state->jitCode->common.addCallLinkInfo(semanticNodeOrigin);
+                auto* callLinkInfo = state->jitCode->common.addCallLinkInfo(semanticNodeOrigin);
                 callLinkInfo->setUpCall(CallLinkInfo::Call, GPRInfo::regT0);
                 
                 jit.addPtr(CCallHelpers::TrustedImm32(-static_cast<ptrdiff_t>(sizeof(CallerFrameAndPC))), CCallHelpers::stackPointerRegister, GPRInfo::regT1);
@@ -13710,7 +13710,7 @@ IGNORE_CLANG_WARNINGS_END
         LValue structureID;
         auto structure = m_state.forNode(baseEdge.node()).m_structure.onlyStructure();
         if (structure)
-            structureID = m_out.constInt32(structure->id().bits());
+            structureID = m_out.constInt32(structure->id());
         else
             structureID = m_out.load32(base, m_heaps.JSCell_structureID);
 
@@ -16789,7 +16789,7 @@ IGNORE_CLANG_WARNINGS_END
     
     void storeStructure(LValue object, Structure* structure)
     {
-        m_out.store32(m_out.constInt32(structure->id().bits()), object, m_heaps.JSCell_structureID);
+        m_out.store32(m_out.constInt32(structure->id()), object, m_heaps.JSCell_structureID);
         m_out.store32(
             m_out.constInt32(structure->objectInitializationBlob()),
             object, m_heaps.JSCell_usefulBytes);
@@ -19570,7 +19570,7 @@ IGNORE_CLANG_WARNINGS_END
             return proven;
         return m_out.notEqual(
             m_out.load32(cell, m_heaps.JSCell_structureID),
-            m_out.constInt32(vm().stringStructure->id().bits()));
+            m_out.constInt32(vm().stringStructure->id()));
     }
     
     LValue isString(LValue cell, SpeculatedType type = SpecFullTop)
@@ -19579,7 +19579,7 @@ IGNORE_CLANG_WARNINGS_END
             return proven;
         return m_out.equal(
             m_out.load32(cell, m_heaps.JSCell_structureID),
-            m_out.constInt32(vm().stringStructure->id().bits()));
+            m_out.constInt32(vm().stringStructure->id()));
     }
 
     LValue isRopeString(LValue string, Edge edge = Edge())
@@ -19626,7 +19626,7 @@ IGNORE_CLANG_WARNINGS_END
             return proven;
         return m_out.notEqual(
             m_out.load32(cell, m_heaps.JSCell_structureID),
-            m_out.constInt32(vm().symbolStructure->id().bits()));
+            m_out.constInt32(vm().symbolStructure->id()));
     }
     
     LValue isSymbol(LValue cell, SpeculatedType type = SpecFullTop)
@@ -19635,7 +19635,7 @@ IGNORE_CLANG_WARNINGS_END
             return proven;
         return m_out.equal(
             m_out.load32(cell, m_heaps.JSCell_structureID),
-            m_out.constInt32(vm().symbolStructure->id().bits()));
+            m_out.constInt32(vm().symbolStructure->id()));
     }
 
     LValue isNotHeapBigIntUnknownWhetherCell(LValue value, SpeculatedType type = SpecFullTop)
@@ -19664,7 +19664,7 @@ IGNORE_CLANG_WARNINGS_END
             return proven;
         return m_out.notEqual(
             m_out.load32(cell, m_heaps.JSCell_structureID),
-            m_out.constInt32(vm().bigIntStructure->id().bits()));
+            m_out.constInt32(vm().bigIntStructure->id()));
     }
 
     LValue isHeapBigInt(LValue cell, SpeculatedType type = SpecFullTop)
@@ -19673,7 +19673,7 @@ IGNORE_CLANG_WARNINGS_END
             return proven;
         return m_out.equal(
             m_out.load32(cell, m_heaps.JSCell_structureID),
-            m_out.constInt32(vm().bigIntStructure->id().bits()));
+            m_out.constInt32(vm().bigIntStructure->id()));
     }
 
     LValue isArrayTypeForArrayify(LValue cell, ArrayMode arrayMode)
@@ -20400,7 +20400,7 @@ IGNORE_CLANG_WARNINGS_END
             m_out.store32(
                 m_out.bitOr(
                     m_out.load32(object, m_heaps.JSCell_structureID),
-                    m_out.constInt32(StructureID::nukedStructureIDBit)),
+                    m_out.constInt32(nukedStructureIDBit())),
                 object, m_heaps.JSCell_structureID);
             m_out.fence(&m_heaps.root, nullptr);
             m_out.storePtr(butterfly, object, m_heaps.JSObject_butterfly);
@@ -20428,7 +20428,7 @@ IGNORE_CLANG_WARNINGS_END
         m_out.store32(
             m_out.bitOr(
                 m_out.load32(object, m_heaps.JSCell_structureID),
-                m_out.constInt32(StructureID::nukedStructureIDBit)),
+                m_out.constInt32(nukedStructureIDBit())),
             object, m_heaps.JSCell_structureID);
         m_out.fence(&m_heaps.root, nullptr);
         m_out.storePtr(butterfly, object, m_heaps.JSObject_butterfly);
@@ -20976,8 +20976,12 @@ IGNORE_CLANG_WARNINGS_END
     LValue loadStructure(LValue value)
     {
         LValue structureID = m_out.load32(value, m_heaps.JSCell_structureID);
-        LValue maskedStructureID = m_out.bitAnd(structureID, m_out.constInt32(structureIDMask));
-        return m_out.add(m_out.constIntPtr(g_jscConfig.startOfStructureHeap), m_out.zeroExtPtr(maskedStructureID));
+        LValue tableBase = m_out.loadPtr(m_out.absolute(vm().heap.structureIDTable().base()));
+        LValue tableIndex = m_out.aShr(structureID, m_out.constInt32(StructureIDTable::s_numberOfEntropyBits));
+        LValue entropyBits = m_out.shl(m_out.zeroExtPtr(structureID), m_out.constInt32(StructureIDTable::s_entropyBitsShiftForStructurePointer));
+        TypedPointer address = m_out.baseIndex(m_heaps.structureTable, tableBase, m_out.zeroExtPtr(tableIndex));
+        LValue encodedStructureBits = m_out.loadPtr(address);
+        return m_out.bitXor(encodedStructureBits, entropyBits);
     }
 
     LValue weakPointer(JSCell* pointer)
@@ -20993,7 +20997,7 @@ IGNORE_CLANG_WARNINGS_END
 
     LValue weakStructureID(RegisteredStructure structure)
     {
-        return m_out.constInt32(structure->id().bits());
+        return m_out.constInt32(structure->id());
     }
     
     LValue weakStructure(RegisteredStructure structure)

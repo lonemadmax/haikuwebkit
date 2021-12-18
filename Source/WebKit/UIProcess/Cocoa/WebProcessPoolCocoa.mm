@@ -29,6 +29,7 @@
 #import "APINavigation.h"
 #import "AccessibilityPreferences.h"
 #import "AccessibilitySupportSPI.h"
+#import "CaptivePortalModeObserver.h"
 #import "CookieStorageUtilsCF.h"
 #import "DefaultWebBrowserChecks.h"
 #import "LegacyCustomProtocolManagerClient.h"
@@ -290,17 +291,6 @@ void WebProcessPool::platformResolvePathsForSandboxExtensions()
 #endif
 }
 
-static bool requiresContainerManagerAccess()
-{
-#if PLATFORM(MAC)
-    return WebCore::MacApplication::isAppleMail();
-#elif PLATFORM(IOS)
-    return WebCore::IOSApplication::isMobileMail();
-#else
-    return false;
-#endif
-}
-
 void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process, WebProcessCreationParameters& parameters)
 {
     parameters.mediaMIMETypes = process.mediaMIMETypes();
@@ -425,11 +415,6 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 
     parameters.systemHasBattery = systemHasBattery();
     parameters.systemHasAC = cachedSystemHasAC().value_or(true);
-
-    if (requiresContainerManagerAccess()) {
-        if (auto handle = SandboxExtension::createHandleForMachLookup("com.apple.containermanagerd"_s, std::nullopt))
-            parameters.containerManagerExtensionHandle = WTFMove(*handle);
-    }
 
 #if PLATFORM(IOS_FAMILY)
     parameters.currentUserInterfaceIdiomIsSmallScreen = currentUserInterfaceIdiomIsSmallScreen();
@@ -945,10 +930,35 @@ int webProcessThroughputQOS()
     return qos;
 }
 
+static WeakHashSet<CaptivePortalModeObserver>& captivePortalModeObservers()
+{
+    RELEASE_ASSERT(isMainRunLoop());
+    static NeverDestroyed<WeakHashSet<CaptivePortalModeObserver>> observers;
+    return observers;
+}
+
+static std::optional<bool>& isCaptivePortalModeEnabledGloballyForTesting()
+{
+    static NeverDestroyed<std::optional<bool>> enabledForTesting;
+    return enabledForTesting;
+}
+
+static bool isCaptivePortalModeEnabledBySystemIgnoringCaching()
+{
+    if (auto& enabledForTesting = isCaptivePortalModeEnabledGloballyForTesting())
+        return *enabledForTesting;
+
+    return [[NSUserDefaults standardUserDefaults] boolForKey:[NSString stringWithUTF8String:WebKitCaptivePortalModeChangedNotification]];
+}
+
 void WebProcessPool::captivePortalModeStateChanged()
 {
-    cachedCaptivePortalModeEnabledGlobally() = std::nullopt;
-    auto isNowEnabled = captivePortalModeEnabledBySystem();
+    auto isNowEnabled = isCaptivePortalModeEnabledBySystemIgnoringCaching();
+    if (cachedCaptivePortalModeEnabledGlobally() != isNowEnabled) {
+        captivePortalModeObservers().forEach([](auto& observer) { observer.willChangeCaptivePortalMode(); });
+        cachedCaptivePortalModeEnabledGlobally() = isNowEnabled;
+        captivePortalModeObservers().forEach([](auto& observer) { observer.didChangeCaptivePortalMode(); });
+    }
 
     WEBPROCESSPOOL_RELEASE_LOG(Loading, "WebProcessPool::captivePortalModeStateChanged() isNowEnabled=%d", isNowEnabled);
 
@@ -969,14 +979,38 @@ void WebProcessPool::captivePortalModeStateChanged()
     }
 }
 
+void addCaptivePortalModeObserver(CaptivePortalModeObserver& observer)
+{
+    // Make sure cachedCaptivePortalModeEnabledGlobally() gets initialized so captivePortalModeStateChanged() can track changes.
+    auto& cachedState = cachedCaptivePortalModeEnabledGlobally();
+    if (!cachedState)
+        cachedState = isCaptivePortalModeEnabledBySystemIgnoringCaching();
+
+    captivePortalModeObservers().add(observer);
+}
+
+void removeCaptivePortalModeObserver(CaptivePortalModeObserver& observer)
+{
+    captivePortalModeObservers().remove(observer);
+}
+
 bool captivePortalModeEnabledBySystem()
 {
     auto& cachedState = cachedCaptivePortalModeEnabledGlobally();
-    if (!cachedState) {
-        // FIXME: Using NSUserDefaults is a temporary workaround. This setting should be stored elsewhere (TCC?).
-        cachedState = [[NSUserDefaults standardUserDefaults] boolForKey:[NSString stringWithUTF8String:WebKitCaptivePortalModeChangedNotification]];
-    }
+    if (!cachedState)
+        cachedState = isCaptivePortalModeEnabledBySystemIgnoringCaching();
     return *cachedState;
+}
+
+void setCaptivePortalModeEnabledGloballyForTesting(std::optional<bool> enabledForTesting)
+{
+    if (isCaptivePortalModeEnabledGloballyForTesting() == enabledForTesting)
+        return;
+
+    isCaptivePortalModeEnabledGloballyForTesting() = enabledForTesting;
+
+    for (auto& processPool : WebProcessPool::allProcessPools())
+        processPool->captivePortalModeStateChanged();
 }
 
 #if PLATFORM(IOS_FAMILY)

@@ -110,6 +110,7 @@ enum class RouteSharingPolicy : uint8_t;
 enum class ScrollbarStyle : uint8_t;
 enum class TextIndicatorLifetime : uint8_t;
 enum class TextIndicatorDismissalAnimation : uint8_t;
+enum class DOMPasteAccessCategory : uint8_t;
 enum class DOMPasteAccessResponse : uint8_t;
 enum class ScrollIsAnimated : uint8_t;
 
@@ -328,7 +329,7 @@ public:
 #endif
 
 #if USE(APPKIT)
-    virtual void setPromisedDataForImage(const String& pasteboardName, Ref<WebCore::SharedBuffer>&& imageBuffer, const String& filename, const String& extension, const String& title, const String& url, const String& visibleURL, RefPtr<WebCore::SharedBuffer>&& archiveBuffer, const String& originIdentifier) = 0;
+    virtual void setPromisedDataForImage(const String& pasteboardName, Ref<WebCore::FragmentedSharedBuffer>&& imageBuffer, const String& filename, const String& extension, const String& title, const String& url, const String& visibleURL, RefPtr<WebCore::FragmentedSharedBuffer>&& archiveBuffer, const String& originIdentifier) = 0;
 #endif
 
     virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&) = 0;
@@ -599,7 +600,7 @@ public:
     virtual void didChangeDragCaretRect(const WebCore::IntRect& previousCaretRect, const WebCore::IntRect& caretRect) = 0;
 #endif
 
-    virtual void requestDOMPasteAccess(const WebCore::IntRect& elementRect, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) = 0;
+    virtual void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, const WebCore::IntRect& elementRect, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) = 0;
 
 #if ENABLE(ATTACHMENT_ELEMENT)
     virtual void didInsertAttachment(API::Attachment&, const String& source) { }

@@ -41,6 +41,10 @@ class CallFrame;
 class JSGlobalObject;
 }
 
+namespace PAL {
+class TextEncoding;
+}
+
 namespace WTF {
 class OrdinalNumber;
 }
@@ -57,7 +61,6 @@ class JSWindowProxy;
 class ResourceRequest;
 class ScriptExecutionContext;
 class SecurityOrigin;
-class TextEncoding;
 struct ContentSecurityPolicyClient;
 
 enum class ParserInserted : bool { No, Yes };
@@ -110,7 +113,7 @@ public:
     WEBCORE_EXPORT bool overridesXFrameOptions() const;
 
     enum class RedirectResponseReceived { No, Yes };
-    WEBCORE_EXPORT bool allowScriptFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No, const URL& preRedirectURL = URL()) const;
+    WEBCORE_EXPORT bool allowScriptFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No, const URL& preRedirectURL = URL(), const String& = nullString()) const;
     bool allowImageFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No, const URL& preRedirectURL = URL()) const;
     bool allowStyleFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No, const URL& preRedirectURL = URL()) const;
     bool allowFontFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No, const URL& preRedirectURL = URL()) const;
@@ -194,7 +197,7 @@ private:
 
     String createURLForReporting(const URL&, const String&) const;
 
-    const TextEncoding& documentEncoding() const;
+    const PAL::TextEncoding documentEncoding() const;
 
     enum class Disposition {
         Enforce,

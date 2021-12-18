@@ -27,8 +27,6 @@
 
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER)
 
-// FIXME: Remove this once we decide which version we want.
-#define ENABLE_MOMENTUM_EVENT_DISPATCHER_PREMATURE_ROUNDING 0
 #define ENABLE_MOMENTUM_EVENT_DISPATCHER_TEMPORARY_LOGGING 1
 
 #include "DisplayLinkObserverID.h"
@@ -44,6 +42,7 @@
 
 namespace WebCore {
 struct DisplayUpdate;
+using FramesPerSecond = unsigned;
 using PlatformDisplayID = uint32_t;
 }
 
@@ -64,7 +63,7 @@ public:
 
     void displayWasRefreshed(WebCore::PlatformDisplayID, const WebCore::DisplayUpdate&);
 
-    void pageScreenDidChange(WebCore::PageIdentifier, WebCore::PlatformDisplayID);
+    void pageScreenDidChange(WebCore::PageIdentifier, WebCore::PlatformDisplayID, std::optional<unsigned> nominalFramesPerSecond);
 
 private:
     void didStartMomentumPhase(WebCore::PageIdentifier, const WebWheelEvent&);
@@ -75,11 +74,16 @@ private:
     void startDisplayLink();
     void stopDisplayLink();
 
-    WebCore::PlatformDisplayID displayID() const;
+    struct DisplayProperties {
+        WebCore::PlatformDisplayID displayID;
+        WebCore::FramesPerSecond nominalFrameRate;
+    };
+    std::optional<DisplayProperties> displayProperties(WebCore::PageIdentifier) const;
 
     void dispatchSyntheticMomentumEvent(WebWheelEvent::Phase, WebCore::FloatSize delta);
 
     void buildOffsetTableWithInitialDelta(WebCore::FloatSize);
+    void equalizeTailGaps();
 
     // Once consumed, this delta *must* be dispatched in an event.
     WebCore::FloatSize consumeDeltaForCurrentTime();
@@ -91,7 +95,7 @@ private:
     void didReceiveScrollEvent(const WebWheelEvent&);
 
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER_TEMPORARY_LOGGING)
-    void pushLogEntry();
+    void pushLogEntry(uint32_t generatedPhase, uint32_t eventPhase);
     void flushLog();
 
     WebCore::FloatSize m_lastActivePhaseDelta;
@@ -102,8 +106,8 @@ private:
         float totalGeneratedOffset { 0 };
         float totalEventOffset { 0 };
 
-        uint32_t latestGeneratedPhase { 0 };
-        uint32_t latestEventPhase { 0 };
+        uint32_t generatedPhase { 0 };
+        uint32_t eventPhase { 0 };
     };
     LogEntry m_currentLogState;
     Vector<LogEntry> m_log;
@@ -119,7 +123,6 @@ private:
     HistoricalDeltas m_deltaHistoryY;
 
     std::optional<WallTime> m_lastScrollTimestamp;
-    WallTime m_lastEndedEventTimestamp;
     std::optional<WebWheelEvent> m_lastIncomingEvent;
     WebCore::RectEdges<bool> m_lastRubberBandableEdges;
 
@@ -133,7 +136,12 @@ private:
         WebCore::FloatSize currentOffset;
         MonotonicTime startTime;
 
-        Vector<WebCore::FloatSize> offsetTable;
+        Vector<WebCore::FloatSize> offsetTable; // Always at 60Hz intervals.
+        Vector<WebCore::FloatSize> tailDeltaTable; // Always at event dispatch intervals.
+        Seconds tailStartDelay;
+        unsigned currentTailDeltaIndex { 0 };
+
+        WebCore::FramesPerSecond displayNominalFrameRate { 0 };
 
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER_TEMPORARY_LOGGING)
         WebCore::FloatSize accumulatedEventOffset;
@@ -146,7 +154,8 @@ private:
     } m_currentGesture;
 
     DisplayLinkObserverID m_observerID;
-    HashMap<WebCore::PageIdentifier, WebCore::PlatformDisplayID> m_displayIDs;
+
+    HashMap<WebCore::PageIdentifier, DisplayProperties> m_displayProperties;
     HashMap<WebCore::PageIdentifier, std::optional<ScrollingAccelerationCurve>> m_accelerationCurves;
     EventDispatcher& m_dispatcher;
 };

@@ -167,8 +167,10 @@ void WebSWContextManagerConnection::installServiceWorker(ServiceWorkerContextDat
     
     auto lastNavigationWasAppInitiated = contextData.lastNavigationWasAppInitiated;
     auto page = makeUniqueRef<Page>(WTFMove(pageConfiguration));
-    if (m_preferencesStore)
+    if (m_preferencesStore) {
         WebPage::updateSettingsGenerated(*m_preferencesStore, page->settings());
+        page->settings().setStorageBlockingPolicy(static_cast<StorageBlockingPolicy>(m_preferencesStore->getUInt32ValueForKey(WebPreferencesKey::storageBlockingPolicyKey())));
+    }
     ServiceWorkerThreadProxy::setupPageForServiceWorker(page.get(), contextData);
     auto serviceWorkerThreadProxy = ServiceWorkerThreadProxy::create(WTFMove(page), WTFMove(contextData), WTFMove(workerData), WTFMove(effectiveUserAgent), workerThreadMode, WebProcess::singleton().cacheStorageProvider());
 
@@ -389,6 +391,12 @@ void WebSWContextManagerConnection::setThrottleState(bool isThrottleable)
 bool WebSWContextManagerConnection::isThrottleable() const
 {
     return m_isThrottleable;
+}
+
+void WebSWContextManagerConnection::convertFetchToDownload(SWServerConnectionIdentifier serverConnectionIdentifier, ServiceWorkerIdentifier serviceWorkerIdentifier, FetchIdentifier fetchIdentifier)
+{
+    if (auto* serviceWorkerThreadProxy = SWContextManager::singleton().serviceWorkerThreadProxy(serviceWorkerIdentifier))
+        serviceWorkerThreadProxy->convertFetchToDownload(serverConnectionIdentifier, fetchIdentifier);
 }
 
 void WebSWContextManagerConnection::didFailHeartBeatCheck(ServiceWorkerIdentifier serviceWorkerIdentifier)

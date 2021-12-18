@@ -536,14 +536,14 @@ bool AccessCase::needsScratchFPR() const
 }
 
 template<typename Functor>
-void AccessCase::forEachDependentCell(VM&, const Functor& functor) const
+void AccessCase::forEachDependentCell(VM& vm, const Functor& functor) const
 {
     m_conditionSet.forEachDependentCell(functor);
     if (m_structure)
         functor(m_structure.get());
     if (m_polyProtoAccessChain) {
         for (StructureID structureID : m_polyProtoAccessChain->chain())
-            functor(structureID.decode());
+            functor(vm.getStructure(structureID));
     }
 
     switch (type()) {
@@ -909,7 +909,7 @@ void AccessCase::propagateTransitions(Visitor& visitor) const
 
     if (m_polyProtoAccessChain) {
         for (StructureID structureID : m_polyProtoAccessChain->chain())
-            structureID.decode()->markIfCheap(visitor);
+            visitor.vm().getStructure(structureID)->markIfCheap(visitor);
     }
 
     switch (m_type) {
@@ -1720,7 +1720,7 @@ void AccessCase::generateWithGuard(
         JSValueRegs resultRegs(scratchGPR, scratch2GPR);
 #endif
 
-        jit.emitLoadPrototype(vm, valueGPR, resultRegs, failAndIgnore);
+        jit.emitLoadPrototype(vm, valueGPR, resultRegs, scratchGPR, failAndIgnore);
         jit.move(scratch2GPR, valueGPR);
         
         CCallHelpers::Jump isInstance = jit.branchPtr(CCallHelpers::Equal, valueGPR, prototypeGPR);
@@ -1997,7 +1997,7 @@ void AccessCase::generateImpl(AccessGenerationState& state)
             state.setSpillStateForJSGetterSetter(spillState);
 
             RELEASE_ASSERT(!access.callLinkInfo());
-            CallLinkInfo* callLinkInfo = state.m_callLinkInfos.add(stubInfo.codeOrigin);
+            auto* callLinkInfo = state.m_callLinkInfos.add(stubInfo.codeOrigin);
             access.m_callLinkInfo = callLinkInfo;
 
             // FIXME: If we generated a polymorphic call stub that jumped back to the getter
