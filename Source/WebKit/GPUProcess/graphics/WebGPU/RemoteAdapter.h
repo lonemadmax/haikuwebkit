@@ -36,42 +36,50 @@ namespace PAL::WebGPU {
 class Adapter;
 }
 
+namespace IPC {
+class StreamServerConnection;
+}
+
 namespace WebKit {
 
 namespace WebGPU {
 struct DeviceDescriptor;
 class ObjectHeap;
-class ObjectRegistry;
 struct SupportedFeatures;
 struct SupportedLimits;
 }
 
 class RemoteAdapter final : public IPC::StreamMessageReceiver {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<RemoteAdapter> create(PAL::WebGPU::Adapter& adapter, WebGPU::ObjectRegistry& objectRegistry, WebGPU::ObjectHeap& objectHeap, WebGPUIdentifier identifier)
+    static Ref<RemoteAdapter> create(PAL::WebGPU::Adapter& adapter, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteAdapter(adapter, objectRegistry, objectHeap, identifier));
+        return adoptRef(*new RemoteAdapter(adapter, objectHeap, WTFMove(streamConnection), identifier));
     }
 
     virtual ~RemoteAdapter();
 
-private:
-    friend class ObjectRegistry;
+    void stopListeningForIPC();
 
-    RemoteAdapter(PAL::WebGPU::Adapter&, WebGPU::ObjectRegistry&, WebGPU::ObjectHeap&, WebGPUIdentifier);
+private:
+    friend class WebGPU::ObjectHeap;
+
+    RemoteAdapter(PAL::WebGPU::Adapter&, WebGPU::ObjectHeap&, Ref<IPC::StreamServerConnection>&&, WebGPUIdentifier);
 
     RemoteAdapter(const RemoteAdapter&) = delete;
     RemoteAdapter(RemoteAdapter&&) = delete;
     RemoteAdapter& operator=(const RemoteAdapter&) = delete;
     RemoteAdapter& operator=(RemoteAdapter&&) = delete;
 
+    PAL::WebGPU::Adapter& backing() { return m_backing; }
+
     void didReceiveStreamMessage(IPC::StreamServerConnectionBase&, IPC::Decoder&) final;
 
     void requestDevice(const WebGPU::DeviceDescriptor&, WebGPUIdentifier, WTF::CompletionHandler<void(WebGPU::SupportedFeatures&&, WebGPU::SupportedLimits&&)>&&);
 
     Ref<PAL::WebGPU::Adapter> m_backing;
-    WebGPU::ObjectRegistry& m_objectRegistry;
     WebGPU::ObjectHeap& m_objectHeap;
+    Ref<IPC::StreamServerConnection> m_streamConnection;
     WebGPUIdentifier m_identifier;
 };
 

@@ -288,6 +288,7 @@ Modules/streams/ReadableStreamSource.cpp
 Modules/streams/WritableStream.cpp
 Modules/web-locks/WebLock.cpp
 Modules/web-locks/WebLockManager.cpp
+Modules/web-locks/WebLockRegistry.cpp
 Modules/webaudio/AnalyserNode.cpp
 Modules/webaudio/AsyncAudioDecoder.cpp
 Modules/webaudio/AudioBasicInspectorNode.cpp
@@ -468,6 +469,7 @@ animation/AnimationTimeline.cpp
 animation/CSSAnimation.cpp
 animation/CSSPropertyAnimation.cpp
 animation/CSSTransition.cpp
+animation/CustomEffect.cpp
 animation/DeclarativeAnimation.cpp
 animation/DocumentTimeline.cpp
 animation/DocumentTimelinesController.cpp
@@ -1062,6 +1064,7 @@ dom/WebKitTransitionEvent.cpp
 dom/WheelEvent.cpp
 dom/WindowEventLoop.cpp
 dom/XMLDocument.cpp
+dom/mac/ImageControlsMac.cpp
 dom/messageports/MessagePortChannel.cpp
 dom/messageports/MessagePortChannelProvider.cpp
 dom/messageports/MessagePortChannelProviderImpl.cpp
@@ -2024,6 +2027,7 @@ platform/graphics/GraphicsContext.cpp
 platform/graphics/GraphicsContextGL.cpp
 platform/graphics/GraphicsContextGLImageExtractor.cpp
 platform/graphics/GraphicsLayer.cpp
+platform/graphics/GraphicsLayerContentsDisplayDelegate.cpp
 platform/graphics/GraphicsLayerTransform.cpp
 platform/graphics/GraphicsLayerUpdater.cpp
 platform/graphics/GraphicsTypes.cpp
@@ -2136,7 +2140,6 @@ platform/graphics/iso/ISOSchemeInformationBox.cpp
 platform/graphics/iso/ISOSchemeTypeBox.cpp
 platform/graphics/iso/ISOTrackEncryptionBox.cpp
 platform/graphics/iso/ISOVTTCue.cpp
-platform/graphics/opengl/GraphicsContextGLOpenGL.cpp
 platform/graphics/opengl/GraphicsContextGLOpenGLManager.cpp
 platform/graphics/opentype/OpenTypeMathData.cpp
 platform/graphics/transforms/AffineTransform.cpp
@@ -2467,6 +2470,7 @@ rendering/style/StyleTransformData.cpp
 rendering/style/StyleVisualData.cpp
 rendering/style/TextSizeAdjustment.cpp
 rendering/style/WillChangeData.cpp
+rendering/svg/LegacyRenderSVGRoot.cpp
 rendering/svg/RenderSVGBlock.cpp
 rendering/svg/RenderSVGContainer.cpp
 rendering/svg/RenderSVGEllipse.cpp
@@ -2491,7 +2495,6 @@ rendering/svg/RenderSVGResourceMasker.cpp
 rendering/svg/RenderSVGResourcePattern.cpp
 rendering/svg/RenderSVGResourceRadialGradient.cpp
 rendering/svg/RenderSVGResourceSolidColor.cpp
-rendering/svg/RenderSVGRoot.cpp
 rendering/svg/RenderSVGShape.cpp
 rendering/svg/RenderSVGTSpan.cpp
 rendering/svg/RenderSVGText.cpp
@@ -2722,8 +2725,6 @@ workers/AbstractWorker.cpp
 workers/DedicatedWorkerGlobalScope.cpp
 workers/DedicatedWorkerThread.cpp
 workers/ScriptBuffer.cpp
-workers/SharedWorker.cpp
-workers/SharedWorkerGlobalScope.cpp
 workers/Worker.cpp
 workers/WorkerAnimationController.cpp
 workers/WorkerConsoleClient.cpp
@@ -2742,6 +2743,7 @@ workers/WorkerThread.cpp
 workers/service/ExtendableEvent.cpp
 workers/service/ExtendableMessageEvent.cpp
 workers/service/FetchEvent.cpp
+workers/service/NavigationPreloadManager.cpp
 workers/service/SWClientConnection.cpp
 workers/service/ServiceWorker.cpp
 workers/service/ServiceWorkerClient.cpp
@@ -2775,6 +2777,8 @@ workers/service/server/SWServerJobQueue.cpp
 workers/service/server/SWServerRegistration.cpp
 workers/service/server/SWServerToContextConnection.cpp
 workers/service/server/SWServerWorker.cpp
+workers/shared/SharedWorker.cpp
+workers/shared/SharedWorkerGlobalScope.cpp
 worklets/PaintWorkletGlobalScope.cpp
 worklets/Worklet.cpp
 worklets/WorkletGlobalScope.cpp
@@ -3003,6 +3007,9 @@ JSCryptoKeyPair.cpp
 JSCryptoKeyUsage.cpp
 JSCryptoRsaHashedKeyAlgorithm.cpp
 JSCryptoRsaKeyAlgorithm.cpp
+JSCustomAnimationOptions.cpp
+JSCustomEffect.cpp
+JSCustomEffectCallback.cpp
 JSCustomElementRegistry.cpp
 JSCustomEvent.cpp
 JSDOMApplicationCache.cpp
@@ -3477,6 +3484,8 @@ JSNavigatorGPU.cpp
 JSNode.cpp
 JSNodeFilter.cpp
 JSCustomXPathNSResolver.cpp
+JSNavigationPreloadManager.cpp
+JSNavigationPreloadState.cpp
 JSNodeIterator.cpp
 JSNodeList.cpp
 JSNonDocumentTypeChildNode.cpp
@@ -3999,6 +4008,7 @@ JSWebKitTransitionEvent.cpp
 JSWebLock.cpp
 JSWebLockGrantedCallback.cpp
 JSWebLockManager.cpp
+JSWebLockManagerSnapshot.cpp
 JSWebLockMode.cpp
 JSWebSocket.cpp
 JSWebXRBoundedReferenceSpace.cpp

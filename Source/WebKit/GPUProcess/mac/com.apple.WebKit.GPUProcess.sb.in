@@ -628,10 +628,8 @@
 (allow ipc-posix-shm-read* ipc-posix-shm-write-data
     (ipc-posix-name-prefix "AudioIO"))
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 120000
 (allow mach-lookup
     (global-name "com.apple.audio.AudioComponentRegistrar"))
-#endif
 
 #if !ENABLE(CFPREFS_DIRECT_MODE)
 (allow mach-lookup (with telemetry)
@@ -1004,3 +1002,6 @@
         SYS_ulock_wake
         SYS_work_interval_ctl
         SYS_workq_kernreturn)))
+
+(when (defined? 'SYS__map_with_linking_np)
+    (allow syscall-unix SYS__map_with_linking_np))

@@ -28,6 +28,7 @@
 #if ENABLE(SERVICE_WORKER)
 
 #include "ExceptionOr.h"
+#include "NavigationPreloadState.h"
 #include "PushPermissionState.h"
 #include "PushSubscriptionData.h"
 #include "ScriptExecutionContextIdentifier.h"
@@ -100,7 +101,15 @@ public:
     using GetPushPermissionStateCallback = CompletionHandler<void(ExceptionOr<PushPermissionState>&&)>;
     virtual void getPushPermissionState(ServiceWorkerRegistrationIdentifier, GetPushPermissionStateCallback&&) = 0;
 
+    using ExceptionOrVoidCallback = CompletionHandler<void(ExceptionOr<void>&&)>;
+    virtual void enableNavigationPreload(ServiceWorkerRegistrationIdentifier, ExceptionOrVoidCallback&&) = 0;
+    virtual void disableNavigationPreload(ServiceWorkerRegistrationIdentifier, ExceptionOrVoidCallback&&) = 0;
+    virtual void setNavigationPreloadHeaderValue(ServiceWorkerRegistrationIdentifier, String&&, ExceptionOrVoidCallback&&) = 0;
+    using ExceptionOrNavigationPreloadStateCallback = CompletionHandler<void(ExceptionOr<NavigationPreloadState>&&)>;
+    virtual void getNavigationPreloadState(ServiceWorkerRegistrationIdentifier, ExceptionOrNavigationPreloadStateCallback&&) = 0;
+
     WEBCORE_EXPORT void registerServiceWorkerClients();
+    bool isClosed() const { return m_isClosed; }
 
 protected:
     WEBCORE_EXPORT SWClientConnection();
@@ -117,6 +126,7 @@ protected:
     WEBCORE_EXPORT void notifyClientsOfControllerChange(const HashSet<ScriptExecutionContextIdentifier>& contextIdentifiers, ServiceWorkerData&& newController);
 
     WEBCORE_EXPORT void clearPendingJobs();
+    void setIsClosed() { m_isClosed = true; }
 
 private:
     virtual void scheduleJobInServer(const ServiceWorkerJobData&) = 0;
@@ -124,6 +134,7 @@ private:
     enum class IsJobComplete { No, Yes };
     bool postTaskForJob(ServiceWorkerJobIdentifier, IsJobComplete, Function<void(ServiceWorkerJob&)>&&);
 
+    bool m_isClosed { false };
     HashMap<ServiceWorkerJobIdentifier, ServiceWorkerOrClientIdentifier> m_scheduledJobSources;
 };
 

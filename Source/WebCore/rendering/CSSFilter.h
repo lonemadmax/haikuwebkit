@@ -39,36 +39,36 @@ class ReferenceFilterOperation;
 class RenderElement;
 class SourceGraphic;
 
-enum class FilterConsumer { FilterProperty, FilterFunction };
-
 class CSSFilter final : public Filter {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static RefPtr<CSSFilter> create(const FilterOperations&, RenderingMode, float scaleFactor = 1);
+    static RefPtr<CSSFilter> create(RenderElement&, const FilterOperations&, RenderingMode, const FloatSize& filterScale, ClipOperation, const FloatRect& targetBoundingBox);
+    WEBCORE_EXPORT static RefPtr<CSSFilter> create(Vector<Ref<FilterFunction>>&&);
 
-    void setSourceImageRect(const FloatRect&);
-    bool buildFilterFunctions(RenderElement&, const FilterOperations&, FilterConsumer);
-    void determineFilterPrimitiveSubregion();
+    const Vector<Ref<FilterFunction>>& functions() const { return m_functions; }
+
+    void setFilterRegion(const FloatRect&);
 
     bool hasFilterThatMovesPixels() const { return m_hasFilterThatMovesPixels; }
     bool hasFilterThatShouldBeRestrictedBySecurityOrigin() const { return m_hasFilterThatShouldBeRestrictedBySecurityOrigin; }
 
-    RefPtr<FilterEffect> lastEffect();
-    IntOutsets outsets() const override;
+    RefPtr<FilterEffect> lastEffect() const final;
+    IntOutsets outsets() const final;
 
     void clearIntermediateResults();
-    RefPtr<FilterImage> apply() override;
-
-    bool updateBackingStoreRect(const FloatRect& filterRect);
-
-    LayoutRect computeSourceImageRectForDirtyRect(const LayoutRect& filterBoxRect, const LayoutRect& dirtyRect);
+    RefPtr<FilterImage> apply() final;
 
 private:
-    CSSFilter(RenderingMode, float scaleFactor, bool hasFilterThatMovesPixels, bool hasFilterThatShouldBeRestrictedBySecurityOrigin);
+    CSSFilter(RenderingMode, const FloatSize& filterScale, ClipOperation, bool hasFilterThatMovesPixels, bool hasFilterThatShouldBeRestrictedBySecurityOrigin);
+    CSSFilter(Vector<Ref<FilterFunction>>&&);
+    
+    bool buildFilterFunctions(RenderElement&, const FilterOperations&, const FloatRect& targetBoundingBox);
 
 #if USE(CORE_IMAGE)
-    bool supportsCoreImageRendering() const override;
+    bool supportsCoreImageRendering() const final;
 #endif
+
+    WTF::TextStream& externalRepresentation(WTF::TextStream&, FilterRepresentation) const final;
 
     bool m_hasFilterThatMovesPixels { false };
     bool m_hasFilterThatShouldBeRestrictedBySecurityOrigin { false };

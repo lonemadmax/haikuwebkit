@@ -26,13 +26,15 @@
 #import "config.h"
 #import "WebPushDaemon.h"
 
+#import "AppBundleRequest.h"
 #import "DaemonDecoder.h"
 #import "DaemonEncoder.h"
 #import "DaemonUtilities.h"
 #import "HandleMessage.h"
-#import "WebPushDaemonConstants.h"
+#import "MockAppBundleRegistry.h"
 
 #import <wtf/CompletionHandler.h>
+#import <wtf/HexNumber.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/Span.h>
 
@@ -68,12 +70,12 @@ ARGUMENTS(String)
 REPLY(bool)
 END
 
-FUNCTION(setHostAppAuditToken)
-ARGUMENTS(Vector<uint8_t>)
-END
-
 FUNCTION(setDebugModeIsEnabled)
 ARGUMENTS(bool)
+END
+
+FUNCTION(updateConnectionConfiguration)
+ARGUMENTS(WebPushDaemonConnectionConfiguration)
 END
 
 #undef FUNCTION
@@ -179,14 +181,17 @@ void Daemon::connectionEventHandler(xpc_object_t request)
 
 void Daemon::connectionAdded(xpc_connection_t connection)
 {
+    broadcastDebugMessage((JSC::MessageLevel)0, makeString("New connection: 0x", hex(reinterpret_cast<uint64_t>(connection), WTF::HexConversionMode::Lowercase)));
+
     RELEASE_ASSERT(!m_connectionMap.contains(connection));
-    m_connectionMap.set(connection, WTF::makeUnique<ClientConnection>(connection));
+    m_connectionMap.set(connection, ClientConnection::create(connection));
 }
 
 void Daemon::connectionRemoved(xpc_connection_t connection)
 {
     RELEASE_ASSERT(m_connectionMap.contains(connection));
-    m_connectionMap.remove(connection);
+    auto clientConnection = m_connectionMap.take(connection);
+    clientConnection->connectionClosed();
 }
 
 CompletionHandler<void(EncodedMessage&&)> Daemon::createReplySender(MessageType messageType, OSObjectPtr<xpc_object_t>&& request)
@@ -222,11 +227,11 @@ void Daemon::decodeAndHandleMessage(xpc_connection_t connection, MessageType mes
     case MessageType::RequestSystemNotificationPermission:
         handleWebPushDMessageWithReply<MessageInfo::requestSystemNotificationPermission>(clientConnection, encodedMessage, WTFMove(replySender));
         break;
-    case MessageType::SetHostAppAuditToken:
-        handleWebPushDMessage<MessageInfo::setHostAppAuditToken>(clientConnection, encodedMessage);
-        break;
     case MessageType::SetDebugModeIsEnabled:
         handleWebPushDMessage<MessageInfo::setDebugModeIsEnabled>(clientConnection, encodedMessage);
+        break;
+    case MessageType::UpdateConnectionConfiguration:
+        handleWebPushDMessage<MessageInfo::updateConnectionConfiguration>(clientConnection, encodedMessage);
         break;
     }
 }
@@ -253,10 +258,7 @@ void Daemon::requestSystemNotificationPermission(ClientConnection* connection, c
         return;
     }
 
-    // FIXME: This is for an API testing checkpoint
-    // Next step is actually perform a persistent permissions request on a per-platform basis
-    m_inMemoryOriginStringsWithPermissionForTesting.add(originString);
-    replySender(true);
+    connection->enqueueAppBundleRequest(makeUnique<AppBundlePermissionsRequest>(*connection, originString, WTFMove(replySender)));
 }
 
 void Daemon::getOriginsWithPushAndNotificationPermissions(ClientConnection* connection, CompletionHandler<void(const Vector<String>&)>&& replySender)
@@ -266,9 +268,13 @@ void Daemon::getOriginsWithPushAndNotificationPermissions(ClientConnection* conn
         return;
     }
 
-    // FIXME: This is for an API testing checkpoint
-    // Next step is actually gather persistent permissions from the system on a per-platform basis
-    replySender(copyToVector(m_inMemoryOriginStringsWithPermissionForTesting));
+    if (connection->useMockBundlesForTesting()) {
+        replySender(MockAppBundleRegistry::singleton().getOriginsWithRegistrations(connection->hostAppCodeSigningIdentifier()));
+        return;
+    }
+
+    // FIXME: This will need platform-specific implementations for real world bundles once implemented.
+    replySender({ });
 }
 
 void Daemon::deletePushAndNotificationRegistration(ClientConnection* connection, const String& originString, CompletionHandler<void(const String&)>&& replySender)
@@ -278,22 +284,17 @@ void Daemon::deletePushAndNotificationRegistration(ClientConnection* connection,
         return;
     }
 
-    // FIXME: This is for an API testing checkpoint
-    // Next step is actually delete any persistent permissions on a per-platform basis
-    if (m_inMemoryOriginStringsWithPermissionForTesting.remove(originString))
-        replySender("");
-    else
-        replySender(makeString("Origin ", originString, " not registered for push or notifications"));
-}
-
-void Daemon::setHostAppAuditToken(ClientConnection* clientConnection, const Vector<uint8_t>& tokenData)
-{
-    clientConnection->setHostAppAuditTokenData(tokenData);
+    connection->enqueueAppBundleRequest(makeUnique<AppBundleDeletionRequest>(*connection, originString, WTFMove(replySender)));
 }
 
 void Daemon::setDebugModeIsEnabled(ClientConnection* clientConnection, bool enabled)
 {
     clientConnection->setDebugModeIsEnabled(enabled);
+}
+
+void Daemon::updateConnectionConfiguration(ClientConnection* clientConnection, const WebPushDaemonConnectionConfiguration& configuration)
+{
+    clientConnection->updateConnectionConfiguration(configuration);
 }
 
 ClientConnection* Daemon::toClientConnection(xpc_connection_t connection)

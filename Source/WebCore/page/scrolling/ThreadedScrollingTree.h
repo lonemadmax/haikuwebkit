@@ -104,8 +104,9 @@ private:
 
     void hasNodeWithAnimatedScrollChanged(bool) final;
     
-    void serviceScrollAnimations() WTF_REQUIRES_LOCK(m_treeLock);
+    void serviceScrollAnimations(MonotonicTime) WTF_REQUIRES_LOCK(m_treeLock);
 
+    Seconds frameDuration();
     Seconds maxAllowableRenderingUpdateDurationForSynchronization();
     
     bool scrollingThreadIsActive();
@@ -122,6 +123,8 @@ private:
 
     bool m_receivedBeganEventFromMainThread WTF_GUARDED_BY_LOCK(m_treeLock) { false };
     Condition m_waitingForBeganEventCondition;
+    
+    MonotonicTime m_lastDisplayDidRefreshTime;
 
     // Dynamically allocated because it has to use the ScrollingThread's runloop.
     std::unique_ptr<RunLoop::Timer<ThreadedScrollingTree>> m_delayedRenderingUpdateDetectionTimer WTF_GUARDED_BY_LOCK(m_treeLock);

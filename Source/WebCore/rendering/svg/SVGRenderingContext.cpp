@@ -97,7 +97,7 @@ void SVGRenderingContext::prepareToRenderSVGContent(RenderElement& renderer, Pai
     // Setup transparency layers before setting up SVG resources!
     bool isRenderingMask = isRenderingMaskImage(*m_renderer);
     // RenderLayer takes care of root opacity.
-    float opacity = (renderer.isSVGRoot() || isRenderingMask) ? 1 : style.opacity();
+    float opacity = (renderer.isLegacySVGRoot() || isRenderingMask) ? 1 : style.opacity();
     bool hasBlendMode = style.hasBlendMode();
     bool hasIsolation = style.hasIsolation();
     bool isolateMaskForBlending = false;
@@ -206,7 +206,7 @@ AffineTransform SVGRenderingContext::calculateTransformationToOutermostCoordinat
     const RenderObject* ancestor = &renderer;
     while (ancestor) {
         absoluteTransform = ancestor->localToParentTransform() * absoluteTransform;
-        if (ancestor->isSVGRoot())
+        if (ancestor->isSVGRootOrLegacySVGRoot())
             break;
         ancestor = ancestor->parent();
     }
@@ -235,8 +235,10 @@ RefPtr<ImageBuffer> SVGRenderingContext::createImageBuffer(const FloatRect& targ
     if (paintRect.isEmpty())
         return nullptr;
 
-    FloatSize scale;
-    FloatSize clampedSize = ImageBuffer::clampedSize(paintRect.size(), scale);
+    FloatSize scale(1, 1);
+    FloatSize clampedSize = paintRect.size();
+    if (ImageBuffer::sizeNeedsClamping(clampedSize, scale))
+        clampedSize = clampedSize * scale;
 
 #if USE(DIRECT2D)
     auto imageBuffer = ImageBuffer::create(clampedSize, renderingMode, context, 1, colorSpace, PixelFormat::BGRA8);

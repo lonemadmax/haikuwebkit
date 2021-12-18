@@ -28,76 +28,127 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "GPUConnectionToWebProcessMessages.h"
 #include "GPUProcessConnection.h"
 #include "RemoteAdapterProxy.h"
+#include "RemoteGPU.h"
 #include "RemoteGPUMessages.h"
+#include "RemoteGPUProxyMessages.h"
 #include "WebGPUConvertToBackingContext.h"
 #include <pal/graphics/WebGPU/WebGPUSupportedFeatures.h>
 #include <pal/graphics/WebGPU/WebGPUSupportedLimits.h>
 
-namespace WebKit::WebGPU {
+namespace WebKit {
 
 static constexpr size_t defaultStreamSize = 1 << 21;
 
-RemoteGPUProxy::RemoteGPUProxy(GPUProcessConnection& gpuProcessConnection, ConvertToBackingContext& convertToBackingContext, WebGPUIdentifier identifier)
+RemoteGPUProxy::RemoteGPUProxy(GPUProcessConnection& gpuProcessConnection, WebGPU::ConvertToBackingContext& convertToBackingContext, WebGPUIdentifier identifier, RenderingBackendIdentifier renderingBackend)
     : m_backing(identifier)
     , m_convertToBackingContext(convertToBackingContext)
+    , m_gpuProcessConnection(&gpuProcessConnection)
     , m_streamConnection(gpuProcessConnection.connection(), defaultStreamSize)
 {
+    m_gpuProcessConnection->addClient(*this);
+    m_gpuProcessConnection->messageReceiverMap().addMessageReceiver(Messages::RemoteGPUProxy::messageReceiverName(), identifier.toUInt64(), *this);
+    connection().send(Messages::GPUConnectionToWebProcess::CreateRemoteGPU(identifier, renderingBackend, m_streamConnection.streamBuffer()), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
+    // TODO: We must wait until initialized, because at the moment we cannot receive IPC messages
+    // during wait while in synchronous stream send. Should be fixed as part of https://bugs.webkit.org/show_bug.cgi?id=217211.
+    waitUntilInitialized();
 }
 
-RemoteGPUProxy::~RemoteGPUProxy()
+RemoteGPUProxy::~RemoteGPUProxy() = default;
+
+void RemoteGPUProxy::gpuProcessConnectionDidClose(GPUProcessConnection& connection)
 {
+    ASSERT(m_gpuProcessConnection);
+    ASSERT(&connection == m_gpuProcessConnection);
+    abandonGPUProcess();
+}
+
+void RemoteGPUProxy::abandonGPUProcess()
+{
+    auto gpuProcessConnection = std::exchange(m_gpuProcessConnection, nullptr);
+    gpuProcessConnection->messageReceiverMap().removeMessageReceiver(Messages::RemoteGPUProxy::messageReceiverName(), m_backing.toUInt64());
+    m_gpuProcessConnection = nullptr;
+    m_lost = true;
+}
+
+void RemoteGPUProxy::wasCreated(bool didSucceed, IPC::Semaphore&& semaphore)
+{
+    ASSERT(!m_didInitialize);
+    m_streamConnection.setWakeUpSemaphore(WTFMove(semaphore));
+    m_didInitialize = true;
+    m_lost = !didSucceed;
+}
+
+void RemoteGPUProxy::waitUntilInitialized()
+{
+    if (m_didInitialize)
+        return;
+    if (connection().waitForAndDispatchImmediately<Messages::RemoteGPUProxy::WasCreated>(m_backing, defaultSendTimeout))
+        return;
+    m_lost = true;
 }
 
 void RemoteGPUProxy::requestAdapter(const PAL::WebGPU::RequestAdapterOptions& options, WTF::Function<void(RefPtr<PAL::WebGPU::Adapter>&&)>&& callback)
 {
+    if (m_lost) {
+        callback(nullptr);
+        return;
+    }
+
     auto convertedOptions = m_convertToBackingContext->convertToBacking(options);
     ASSERT(convertedOptions);
-    if (!convertedOptions)
+    if (!convertedOptions) {
+        callback(nullptr);
         return;
+    }
 
     auto identifier = WebGPUIdentifier::generate();
-    String name;
-    SupportedFeatures supportedFeatures;
-    SupportedLimits supportedLimits;
-    bool isFallbackAdapter;
-    auto sendResult = sendSync(Messages::RemoteGPU::RequestAdapter(*convertedOptions, identifier), { name, supportedFeatures, supportedLimits, isFallbackAdapter });
-    if (!sendResult)
+    std::optional<RemoteGPU::RequestAdapterResponse> response;
+    auto sendResult = sendSync(Messages::RemoteGPU::RequestAdapter(*convertedOptions, identifier), { response });
+    if (!sendResult) {
+        m_lost = true;
+        callback(nullptr);
         return;
+    }
+    if (!response) {
+        callback(nullptr);
+        return;
+    }
 
-    auto resultSupportedFeatures = PAL::WebGPU::SupportedFeatures::create(WTFMove(supportedFeatures.features));
+    auto resultSupportedFeatures = PAL::WebGPU::SupportedFeatures::create(WTFMove(response->features.features));
     auto resultSupportedLimits = PAL::WebGPU::SupportedLimits::create(
-        supportedLimits.maxTextureDimension1D,
-        supportedLimits.maxTextureDimension2D,
-        supportedLimits.maxTextureDimension3D,
-        supportedLimits.maxTextureArrayLayers,
-        supportedLimits.maxBindGroups,
-        supportedLimits.maxDynamicUniformBuffersPerPipelineLayout,
-        supportedLimits.maxDynamicStorageBuffersPerPipelineLayout,
-        supportedLimits.maxSampledTexturesPerShaderStage,
-        supportedLimits.maxSamplersPerShaderStage,
-        supportedLimits.maxStorageBuffersPerShaderStage,
-        supportedLimits.maxStorageTexturesPerShaderStage,
-        supportedLimits.maxUniformBuffersPerShaderStage,
-        supportedLimits.maxUniformBufferBindingSize,
-        supportedLimits.maxStorageBufferBindingSize,
-        supportedLimits.minUniformBufferOffsetAlignment,
-        supportedLimits.minStorageBufferOffsetAlignment,
-        supportedLimits.maxVertexBuffers,
-        supportedLimits.maxVertexAttributes,
-        supportedLimits.maxVertexBufferArrayStride,
-        supportedLimits.maxInterStageShaderComponents,
-        supportedLimits.maxComputeWorkgroupStorageSize,
-        supportedLimits.maxComputeInvocationsPerWorkgroup,
-        supportedLimits.maxComputeWorkgroupSizeX,
-        supportedLimits.maxComputeWorkgroupSizeY,
-        supportedLimits.maxComputeWorkgroupSizeZ,
-        supportedLimits.maxComputeWorkgroupsPerDimension
+        response->limits.maxTextureDimension1D,
+        response->limits.maxTextureDimension2D,
+        response->limits.maxTextureDimension3D,
+        response->limits.maxTextureArrayLayers,
+        response->limits.maxBindGroups,
+        response->limits.maxDynamicUniformBuffersPerPipelineLayout,
+        response->limits.maxDynamicStorageBuffersPerPipelineLayout,
+        response->limits.maxSampledTexturesPerShaderStage,
+        response->limits.maxSamplersPerShaderStage,
+        response->limits.maxStorageBuffersPerShaderStage,
+        response->limits.maxStorageTexturesPerShaderStage,
+        response->limits.maxUniformBuffersPerShaderStage,
+        response->limits.maxUniformBufferBindingSize,
+        response->limits.maxStorageBufferBindingSize,
+        response->limits.minUniformBufferOffsetAlignment,
+        response->limits.minStorageBufferOffsetAlignment,
+        response->limits.maxVertexBuffers,
+        response->limits.maxVertexAttributes,
+        response->limits.maxVertexBufferArrayStride,
+        response->limits.maxInterStageShaderComponents,
+        response->limits.maxComputeWorkgroupStorageSize,
+        response->limits.maxComputeInvocationsPerWorkgroup,
+        response->limits.maxComputeWorkgroupSizeX,
+        response->limits.maxComputeWorkgroupSizeY,
+        response->limits.maxComputeWorkgroupSizeZ,
+        response->limits.maxComputeWorkgroupsPerDimension
     );
-    callback(RemoteAdapterProxy::create(WTFMove(name), WTFMove(resultSupportedFeatures), WTFMove(resultSupportedLimits), isFallbackAdapter, *this, m_convertToBackingContext, identifier));
+    callback(WebGPU::RemoteAdapterProxy::create(WTFMove(response->name), WTFMove(resultSupportedFeatures), WTFMove(resultSupportedLimits), response->isFallbackAdapter, *this, m_convertToBackingContext, identifier));
 }
 
-} // namespace WebKit::WebGPU
+} // namespace WebKit
 
 #endif // ENABLE(GPU_PROCESS)

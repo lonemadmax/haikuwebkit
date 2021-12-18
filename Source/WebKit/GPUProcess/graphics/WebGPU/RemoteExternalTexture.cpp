@@ -28,24 +28,27 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "RemoteExternalTextureMessages.h"
+#include "StreamServerConnection.h"
 #include "WebGPUObjectHeap.h"
-#include "WebGPUObjectRegistry.h"
 #include <pal/graphics/WebGPU/WebGPUExternalTexture.h>
 
 namespace WebKit {
 
-RemoteExternalTexture::RemoteExternalTexture(PAL::WebGPU::ExternalTexture& externalTexture, WebGPU::ObjectRegistry& objectRegistry, WebGPU::ObjectHeap& objectHeap, WebGPUIdentifier identifier)
+RemoteExternalTexture::RemoteExternalTexture(PAL::WebGPU::ExternalTexture& externalTexture, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     : m_backing(externalTexture)
-    , m_objectRegistry(objectRegistry)
     , m_objectHeap(objectHeap)
+    , m_streamConnection(WTFMove(streamConnection))
     , m_identifier(identifier)
 {
-    m_objectRegistry.addObject(m_identifier, m_backing);
+    m_streamConnection->startReceivingMessages(*this, Messages::RemoteExternalTexture::messageReceiverName(), m_identifier.toUInt64());
 }
 
-RemoteExternalTexture::~RemoteExternalTexture()
+RemoteExternalTexture::~RemoteExternalTexture() = default;
+
+void RemoteExternalTexture::stopListeningForIPC()
 {
-    m_objectRegistry.removeObject(m_identifier);
+    m_streamConnection->stopReceivingMessages(Messages::RemoteExternalTexture::messageReceiverName(), m_identifier.toUInt64());
 }
 
 void RemoteExternalTexture::setLabel(String&& label)

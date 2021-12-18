@@ -28,12 +28,12 @@
 #if ENABLE(WEBGL)
 
 #include "GraphicsContextGLAttributes.h"
+#include "GraphicsLayerContentsDisplayDelegate.h"
 #include "GraphicsTypesGL.h"
 #include "Image.h"
 #include "IntRect.h"
 #include "IntSize.h"
 #include "MediaPlayer.h"
-#include "PlatformLayer.h"
 #include <wtf/HashSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
@@ -786,7 +786,7 @@ public:
         Yes
     };
 
-    virtual PlatformLayer* platformLayer() const = 0;
+    virtual RefPtr<GraphicsLayerContentsDisplayDelegate> layerContentsDisplayDelegate() = 0;
 
     ALWAYS_INLINE static bool hasAlpha(DataFormat format)
     {
@@ -1351,6 +1351,7 @@ public:
     // Returns true upon success.
     static bool packImageData(Image*, const void* pixels, GCGLenum format, GCGLenum type, bool flipY, AlphaOp, DataFormat sourceFormat, unsigned sourceImageWidth, unsigned sourceImageHeight, const IntRect& sourceImageSubRectangle, int depth, unsigned sourceUnpackAlignment, int unpackImageHeight, Vector<uint8_t>& data);
 
+    WEBCORE_EXPORT static void paintToCanvas(const GraphicsContextGLAttributes&, PixelBuffer&&, const IntSize& canvasSize, GraphicsContext&);
 protected:
     int m_currentWidth { 0 };
     int m_currentHeight { 0 };

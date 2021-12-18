@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "FilterEffectGeometry.h"
 #include "FloatRect.h"
 #include "IntRectExtent.h"
 #include <wtf/RefCounted.h>
@@ -37,6 +38,11 @@ class TextStream;
 namespace WebCore {
 
 class Filter;
+
+enum class FilterRepresentation : uint8_t {
+    TestOutput,
+    Debugging
+};
 
 class FilterFunction : public RefCounted<FilterFunction> {
 public:
@@ -88,9 +94,11 @@ public:
     virtual bool supportsCoreImageRendering() const { return false; }
 #endif
 
-    virtual bool apply(const Filter&) { return false; }
+    virtual bool apply(const Filter&, const std::optional<FilterEffectGeometry>& = std::nullopt) { return false; }
     virtual IntOutsets outsets() const { return { }; }
     virtual void clearResult() { }
+
+    virtual WTF::TextStream& externalRepresentation(WTF::TextStream&, FilterRepresentation = FilterRepresentation::TestOutput) const = 0;
 
 private:
     Type m_filterType;

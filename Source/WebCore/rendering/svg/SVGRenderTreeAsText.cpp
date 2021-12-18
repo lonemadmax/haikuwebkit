@@ -31,6 +31,7 @@
 
 #include "ColorSerialization.h"
 #include "GraphicsTypes.h"
+#include "LegacyRenderSVGRoot.h"
 #include "NodeRenderStyle.h"
 #include "RenderImage.h"
 #include "RenderIterator.h"
@@ -46,7 +47,6 @@
 #include "RenderSVGResourcePattern.h"
 #include "RenderSVGResourceRadialGradientInlines.h"
 #include "RenderSVGResourceSolidColor.h"
-#include "RenderSVGRoot.h"
 #include "RenderSVGShapeInlines.h"
 #include "RenderSVGText.h"
 #include "SVGCircleElement.h"
@@ -431,12 +431,10 @@ void writeSVGResourceContainer(TextStream& ts, const RenderSVGResourceContainer&
         FloatRect dummyRect;
         FloatSize dummyScale(1, 1);
         SVGFilterBuilder builder;
-        auto dummyFilter = SVGFilter::create(filter.filterElement(), builder, RenderingMode::Unaccelerated, dummyScale, dummyRect, dummyRect, dummyRect);
+        auto dummyFilter = SVGFilter::create(filter.filterElement(), builder, RenderingMode::Unaccelerated, dummyScale, dummyRect, dummyRect);
         if (dummyFilter) {
             TextStream::IndentScope indentScope(ts);
-
-            if (auto lastEffect = dummyFilter->lastEffect())
-                lastEffect->externalRepresentation(ts);
+            dummyFilter->externalRepresentation(ts, FilterRepresentation::TestOutput);
         }
     } else if (resource.resourceType() == ClipperResourceType) {
         const auto& clipper = static_cast<const RenderSVGResourceClipper&>(resource);
@@ -508,7 +506,7 @@ void writeSVGContainer(TextStream& ts, const RenderSVGContainer& container, Opti
     writeChildren(ts, container, behavior);
 }
 
-void write(TextStream& ts, const RenderSVGRoot& root, OptionSet<RenderAsTextFlag> behavior)
+void write(TextStream& ts, const LegacyRenderSVGRoot& root, OptionSet<RenderAsTextFlag> behavior)
 {
     writeStandardPrefix(ts, root, behavior);
     writePositionAndStyle(ts, root, behavior);

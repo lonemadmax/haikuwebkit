@@ -55,7 +55,7 @@ public:
     bool startAnimatedScrollToPosition(FloatPoint) final;
     void stopAnimatedScroll() final;
 
-    void serviceScrollAnimation() final;
+    void serviceScrollAnimation(MonotonicTime) final;
 
     void willDoProgrammaticScroll(const FloatPoint&);
     void currentScrollPositionChanged();
@@ -92,8 +92,6 @@ private:
     void didStopRubberBandAnimation() final;
     void rubberBandingStateChanged(bool) final;
     void adjustScrollPositionToBoundsIfNecessary() final;
-
-    bool momentumScrollingAnimatorEnabled() const final;
 
     bool scrollPositionIsNotRubberbandingEdge(const FloatPoint&) const;
 

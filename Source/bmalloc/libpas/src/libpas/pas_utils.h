@@ -83,6 +83,8 @@ PAS_BEGIN_EXTERN_C;
 
 #define PAS_ARM __PAS_ARM
 
+#define PAS_RISCV __PAS_RISCV
+
 #ifdef __cplusplus
 #define PAS_TYPEOF(a) decltype (a)
 #else
@@ -104,7 +106,28 @@ PAS_API PAS_NO_RETURN PAS_NEVER_INLINE void pas_reallocation_did_fail(const char
                                                                       size_t old_size,
                                                                       size_t new_size);
 
-PAS_API PAS_NO_RETURN void pas_assertion_failed(const char* filename, int line, const char* function, const char* expression);
+#if PAS_ENABLE_TESTING
+PAS_API PAS_NO_RETURN void pas_assertion_failed(
+    const char* filename, int line, const char* function, const char* expression);
+#else /* PAS_ENABLE_TESTING -> so !PAS_ENABLE_TESTING */
+static PAS_ALWAYS_INLINE PAS_NO_RETURN void pas_assertion_failed(
+    const char* filename, int line, const char* function, const char* expression)
+{
+    PAS_UNUSED_PARAM(filename);
+    PAS_UNUSED_PARAM(line);
+    PAS_UNUSED_PARAM(function);
+    PAS_UNUSED_PARAM(expression);
+    __builtin_trap();
+}
+#endif /* PAS_ENABLE_TESTING -> so end of !PAS_ENABLE_TESTING */
+
+PAS_IGNORE_WARNINGS_BEGIN("missing-noreturn")
+static PAS_ALWAYS_INLINE void pas_assertion_failed_noreturn_silencer(
+    const char* filename, int line, const char* function, const char* expression)
+{
+    pas_assertion_failed(filename, line, function, expression);
+}
+PAS_IGNORE_WARNINGS_END
 
 #define PAS_LIKELY(x) __PAS_LIKELY(x)
 #define PAS_UNLIKELY(x) __PAS_UNLIKELY(x)
@@ -113,7 +136,7 @@ PAS_API PAS_NO_RETURN void pas_assertion_failed(const char* filename, int line, 
     do { \
         if (PAS_LIKELY(exp)) \
             break; \
-        pas_assertion_failed(__FILE__, __LINE__, __PRETTY_FUNCTION__, #exp); \
+        pas_assertion_failed_noreturn_silencer(__FILE__, __LINE__, __PRETTY_FUNCTION__, #exp); \
     } while (0)
 
 #define PAS_TESTING_ASSERT(exp) \
@@ -122,7 +145,7 @@ PAS_API PAS_NO_RETURN void pas_assertion_failed(const char* filename, int line, 
             break; \
         if (PAS_LIKELY(exp)) \
             break; \
-        pas_assertion_failed(__FILE__, __LINE__, __PRETTY_FUNCTION__, #exp); \
+        pas_assertion_failed_noreturn_silencer(__FILE__, __LINE__, __PRETTY_FUNCTION__, #exp); \
     } while (0)
 
 static inline bool pas_is_power_of_2(uintptr_t value)

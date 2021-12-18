@@ -29,7 +29,7 @@ namespace WebCore {
 
 class FEGaussianBlur : public FilterEffect {
 public:
-    static Ref<FEGaussianBlur> create(float x, float y, EdgeModeType);
+    WEBCORE_EXPORT static Ref<FEGaussianBlur> create(float x, float y, EdgeModeType);
 
     float stdDeviationX() const { return m_stdX; }
     void setStdDeviationX(float);
@@ -44,23 +44,55 @@ public:
     static IntSize calculateUnscaledKernelSize(FloatSize stdDeviation);
     static IntSize calculateOutsetSize(FloatSize stdDeviation);
 
+    template<class Encoder> void encode(Encoder&) const;
+    template<class Decoder> static std::optional<Ref<FEGaussianBlur>> decode(Decoder&);
+
 private:
     FEGaussianBlur(float x, float y, EdgeModeType);
 
-    void determineAbsolutePaintRect(const Filter&) override;
+    FloatRect calculateImageRect(const Filter&, const FilterImageVector& inputs, const FloatRect& primitiveSubregion) const override;
 
     IntOutsets outsets() const override;
 
-    bool resultIsAlphaImage() const override;
+    bool resultIsAlphaImage(const FilterImageVector& inputs) const override;
 
     std::unique_ptr<FilterEffectApplier> createApplier(const Filter&) const override;
 
-    WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
+    WTF::TextStream& externalRepresentation(WTF::TextStream&, FilterRepresentation) const override;
 
     float m_stdX;
     float m_stdY;
     EdgeModeType m_edgeMode;
 };
+
+template<class Encoder>
+void FEGaussianBlur::encode(Encoder& encoder) const
+{
+    encoder << m_stdX;
+    encoder << m_stdY;
+    encoder << m_edgeMode;
+}
+
+template<class Decoder>
+std::optional<Ref<FEGaussianBlur>> FEGaussianBlur::decode(Decoder& decoder)
+{
+    std::optional<float> stdX;
+    decoder >> stdX;
+    if (!stdX)
+        return std::nullopt;
+
+    std::optional<float> stdY;
+    decoder >> stdY;
+    if (!stdY)
+        return std::nullopt;
+
+    std::optional<EdgeModeType> edgeMode;
+    decoder >> edgeMode;
+    if (!edgeMode)
+        return std::nullopt;
+
+    return FEGaussianBlur::create(*stdX, *stdY, *edgeMode);
+}
 
 } // namespace WebCore
 

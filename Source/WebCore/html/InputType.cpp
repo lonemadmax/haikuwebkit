@@ -196,7 +196,7 @@ bool InputType::isFormDataAppendable() const
     return !element()->name().isEmpty();
 }
 
-bool InputType::appendFormData(DOMFormData& formData, bool) const
+bool InputType::appendFormData(DOMFormData& formData) const
 {
     ASSERT(element());
     // Always successful.
@@ -204,12 +204,12 @@ bool InputType::appendFormData(DOMFormData& formData, bool) const
     return true;
 }
 
-double InputType::valueAsDate() const
+WallTime InputType::valueAsDate() const
 {
-    return DateComponents::invalidMilliseconds();
+    return WallTime::nan();
 }
 
-ExceptionOr<void> InputType::setValueAsDate(double) const
+ExceptionOr<void> InputType::setValueAsDate(WallTime) const
 {
     return Exception { InvalidStateError };
 }
@@ -269,7 +269,12 @@ bool InputType::rangeUnderflow(const String& value) const
     if (!numericValue.isFinite())
         return false;
 
-    return numericValue < createStepRange(AnyStepHandling::Reject).minimum();
+    auto range = createStepRange(AnyStepHandling::Reject);
+
+    if (range.isReversible() && range.maximum() < range.minimum())
+        return numericValue > range.maximum() && numericValue < range.minimum();
+
+    return numericValue < range.minimum();
 }
 
 bool InputType::rangeOverflow(const String& value) const
@@ -281,7 +286,12 @@ bool InputType::rangeOverflow(const String& value) const
     if (!numericValue.isFinite())
         return false;
 
-    return numericValue > createStepRange(AnyStepHandling::Reject).maximum();
+    auto range = createStepRange(AnyStepHandling::Reject);
+
+    if (range.isReversible() && range.maximum() < range.minimum())
+        return numericValue > range.maximum() && numericValue < range.minimum();
+
+    return numericValue > range.maximum();
 }
 
 bool InputType::isInvalid(const String& value) const

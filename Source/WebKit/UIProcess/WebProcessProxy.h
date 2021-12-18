@@ -93,6 +93,7 @@ class VisitedLinkStore;
 class WebBackForwardListItem;
 class WebCompiledContentRuleListData;
 class WebFrameProxy;
+class WebLockRegistryProxy;
 class WebPageGroup;
 class WebPageProxy;
 class WebProcessPool;
@@ -339,6 +340,8 @@ public:
     bool hasAudioCaptureExtension() const { return m_mediaCaptureSandboxExtensions & Audio; }
     void grantAudioCaptureExtension() { m_mediaCaptureSandboxExtensions |= Audio; }
     void revokeAudioCaptureExtension() { m_mediaCaptureSandboxExtensions &= ~Audio; }
+
+    void sendAudioComponentRegistrations();
 #endif
 
 #if ENABLE(REMOTE_INSPECTOR) && PLATFORM(COCOA)
@@ -672,6 +675,7 @@ private:
 #if ENABLE(MEDIA_STREAM)
     std::unique_ptr<SpeechRecognitionRemoteRealtimeMediaSourceManager> m_speechRecognitionRemoteRealtimeMediaSourceManager;
 #endif
+    std::unique_ptr<WebLockRegistryProxy> m_webLockRegistry;
 };
 
 } // namespace WebKit

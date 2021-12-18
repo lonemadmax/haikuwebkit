@@ -38,6 +38,7 @@
 #include "FrameLoaderClient.h"
 #include "IDLTypes.h"
 #include "JSDOMPromiseDeferred.h"
+#include "JSNavigationPreloadState.h"
 #include "JSPushSubscription.h"
 #include "JSServiceWorkerRegistration.h"
 #include "LegacySchemeRegistry.h"
@@ -526,7 +527,7 @@ const char* ServiceWorkerContainer::activeDOMObjectName() const
 SWClientConnection& ServiceWorkerContainer::ensureSWClientConnection()
 {
     ASSERT(scriptExecutionContext());
-    if (!m_swConnection) {
+    if (!m_swConnection || m_swConnection->isClosed()) {
         auto& context = *scriptExecutionContext();
         if (is<WorkerGlobalScope>(context))
             m_swConnection = &downcast<WorkerGlobalScope>(context).swClientConnection();
@@ -644,6 +645,34 @@ bool ServiceWorkerContainer::addEventListener(const AtomString& eventType, Ref<E
         startMessages();
 
     return EventTargetWithInlineData::addEventListener(eventType, WTFMove(eventListener), options);
+}
+
+void ServiceWorkerContainer::enableNavigationPreload(ServiceWorkerRegistrationIdentifier identifier, VoidPromise&& promise)
+{
+    ensureSWClientConnection().enableNavigationPreload(identifier, [promise = WTFMove(promise)](auto&& result) mutable {
+        promise.settle(WTFMove(result));
+    });
+}
+
+void ServiceWorkerContainer::disableNavigationPreload(ServiceWorkerRegistrationIdentifier identifier, VoidPromise&& promise)
+{
+    ensureSWClientConnection().disableNavigationPreload(identifier, [promise = WTFMove(promise)](auto&& result) mutable {
+        promise.settle(WTFMove(result));
+    });
+}
+
+void ServiceWorkerContainer::setNavigationPreloadHeaderValue(ServiceWorkerRegistrationIdentifier identifier, String&& headerValue, VoidPromise&& promise)
+{
+    ensureSWClientConnection().setNavigationPreloadHeaderValue(identifier, WTFMove(headerValue), [promise = WTFMove(promise)](auto&& result) mutable {
+        promise.settle(WTFMove(result));
+    });
+}
+
+void ServiceWorkerContainer::getNavigationPreloadState(ServiceWorkerRegistrationIdentifier identifier, NavigationPreloadStatePromise&& promise)
+{
+    ensureSWClientConnection().getNavigationPreloadState(identifier, [promise = WTFMove(promise)](auto&& result) mutable {
+        promise.settle(WTFMove(result));
+    });
 }
 
 } // namespace WebCore

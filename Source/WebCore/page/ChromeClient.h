@@ -52,6 +52,7 @@
 #include "SearchPopupMenu.h"
 #include "WebCoreKeyboardUIMode.h"
 #include <JavaScriptCore/ConsoleTypes.h>
+#include <pal/graphics/WebGPU/WebGPU.h>
 #include <wtf/Assertions.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
@@ -135,6 +136,7 @@ struct DataDetectorElementInfo;
 struct DateTimeChooserParameters;
 struct GraphicsDeviceAdapter;
 struct MockWebAuthenticationConfiguration;
+struct SecurityOriginData;
 struct ShareDataWithParsedURL;
 struct TextIndicatorData;
 struct ViewportArguments;
@@ -359,6 +361,8 @@ public:
 #if ENABLE(WEBGL)
     virtual RefPtr<GraphicsContextGL> createGraphicsContextGL(const GraphicsContextGLAttributes& attributes, WebCore::PlatformDisplayID) const { return createWebProcessGraphicsContextGL(attributes); }
 #endif
+
+    virtual RefPtr<PAL::WebGPU::GPU> createGPUForWebGPU() const { return nullptr; }
 
     // Pass nullptr as the GraphicsLayer to detatch the root layer.
     virtual void attachRootGraphicsLayer(Frame&, GraphicsLayer*) = 0;
@@ -603,6 +607,7 @@ public:
 
 #if ENABLE(WEBXR)
     virtual void enumerateImmersiveXRDevices(CompletionHandler<void(const PlatformXR::Instance::DeviceList&)>&& completionHandler) { PlatformXR::Instance::singleton().enumerateImmersiveXRDevices(WTFMove(completionHandler)); }
+    virtual void requestPermissionOnXRSessionFeatures(const SecurityOriginData&, PlatformXR::SessionMode, const PlatformXR::Device::FeatureList& granted, const PlatformXR::Device::FeatureList& /* consentRequired */, const PlatformXR::Device::FeatureList& /* consentOptional */, CompletionHandler<void(std::optional<PlatformXR::Device::FeatureList>&&)>&& completionHandler) { completionHandler(granted); }
 #endif
 
 #if ENABLE(TEXT_AUTOSIZING)

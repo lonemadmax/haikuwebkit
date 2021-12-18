@@ -51,6 +51,7 @@
 #include "ProcessTerminationReason.h"
 #include "ProcessThrottler.h"
 #include "SandboxExtension.h"
+#include "ScrollingAccelerationCurve.h"
 #include "ShareableBitmap.h"
 #include "ShareableResource.h"
 #include "SpeechRecognitionPermissionRequest.h"
@@ -495,6 +496,7 @@ public:
 
     void addPreviouslyVisitedPath(const String&);
 
+    bool isCaptivePortalModeExplicitlySet() const { return m_isCaptivePortalModeExplicitlySet; }
     bool shouldEnableCaptivePortalMode() const;
 
 #if ENABLE(DATA_DETECTION)
@@ -1501,6 +1503,8 @@ public:
     void setOverlayScrollbarStyle(std::optional<WebCore::ScrollbarOverlayStyle>);
     std::optional<WebCore::ScrollbarOverlayStyle> overlayScrollbarStyle() const { return m_scrollbarOverlayStyle; }
 
+    void isLayerTreeFrozen(CompletionHandler<void(bool)>&&);
+
     // When the state of the window changes such that the WebPage needs immediate update, the UIProcess sends a new
     // ActivityStateChangeID to the WebProcess through the SetActivityState message. The UIProcess will wait till it
     // receives a CommitLayerTree which has an ActivityStateChangeID equal to or greater than the one it sent.
@@ -1769,6 +1773,7 @@ public:
 
     ProvisionalPageProxy* provisionalPageProxy() const { return m_provisionalPage.get(); }
     void commitProvisionalPage(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, const String& mimeType, bool frameHasCustomContentProvider, WebCore::FrameLoadType, const WebCore::CertificateInfo&, bool usedLegacyTLS, bool containsPluginDocument, std::optional<WebCore::HasInsecureContent> forcedHasInsecureContent, WebCore::MouseEventPolicy, const UserData&);
+    void destroyProvisionalPage();
 
     // Logic shared between the WebPageProxy and the ProvisionalPageProxy.
     void didStartProvisionalLoadForFrameShared(Ref<WebProcessProxy>&&, WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, URL&&, URL&& unreachableURL, const UserData&);
@@ -1812,6 +1817,7 @@ public:
     void speechSynthesisCancel();
     void speechSynthesisPause(CompletionHandler<void()>&&);
     void speechSynthesisResume(CompletionHandler<void()>&&);
+    void speechSynthesisResetState();
 #endif
 
     void configureLoggingChannel(const String&, WTFLogChannelState, WTFLogLevel);
@@ -3134,6 +3140,7 @@ private:
     bool m_lastNavigationWasAppInitiated { true };
     bool m_isRunningModalJavaScriptDialog { false };
     bool m_isSuspended { false };
+    bool m_isCaptivePortalModeExplicitlySet { false };
 
     std::optional<PrivateClickMeasurementAndMetadata> m_privateClickMeasurement;
 
@@ -3152,6 +3159,11 @@ private:
     WindowKind m_windowKind { WindowKind::Unparented };
 
     WebNotificationManagerMessageHandler m_notificationManagerMessageHandler;
+
+#if ENABLE(MOMENTUM_EVENT_DISPATCHER)
+    std::optional<ScrollingAccelerationCurve> m_scrollingAccelerationCurve;
+    std::optional<ScrollingAccelerationCurve> m_lastSentScrollingAccelerationCurve;
+#endif
 };
 
 #ifdef __OBJC__

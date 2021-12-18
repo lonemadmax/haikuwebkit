@@ -6503,18 +6503,19 @@
    },
    {
       "emails" : [
+         "tyler_w@apple.com",
+         "tylerw_22@apple.com",
          "tyler.wilcock@protonmail.com",
          "twilco.o@protonmail.com",
-         "tyler.l.wilcock@gmail.com",
-         "tyler_w@apple.com",
-         "tylerw_22@apple.com"
+         "tyler.l.wilcock@gmail.com"
       ],
       "expertise" : "Accessibility",
       "github" : "twilco",
       "name" : "Tyler Wilcock",
       "nicks" : [
          "twilco"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [

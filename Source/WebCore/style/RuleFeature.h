@@ -36,7 +36,23 @@ namespace Style {
 
 class RuleData;
 
-enum class MatchElement : uint8_t { Subject, Parent, Ancestor, DirectSibling, IndirectSibling, AnySibling, ParentSibling, AncestorSibling, HasChild, HasDescendant, HasSibling, Host };
+// FIXME: Has* values should be separated so we could describe both the :has() argument and its position in the selector.
+enum class MatchElement : uint8_t {
+    Subject,
+    Parent,
+    Ancestor,
+    DirectSibling,
+    IndirectSibling,
+    AnySibling,
+    ParentSibling,
+    AncestorSibling,
+    HasChild,
+    HasDescendant,
+    HasSibling,
+    HasSiblingDescendant,
+    HasNonSubject, // FIXME: This is a catch-all for cases where :has() is in non-subject position.
+    Host
+};
 constexpr unsigned matchElementCount = static_cast<unsigned>(MatchElement::Host) + 1;
 
 struct RuleFeature {
@@ -57,6 +73,8 @@ struct RuleFeatureWithInvalidationSelector : public RuleFeature {
 
     const CSSSelector* invalidationSelector { nullptr };
 };
+
+using PseudoClassInvalidationKey = std::tuple<unsigned, uint8_t, AtomString>;
 
 using RuleFeatureVector = Vector<RuleFeature>;
 
@@ -79,12 +97,14 @@ struct RuleFeatureSet {
     RuleFeatureVector uncommonAttributeRules;
 
     HashMap<AtomString, std::unique_ptr<RuleFeatureVector>> tagRules;
+    HashMap<AtomString, std::unique_ptr<RuleFeatureVector>> idRules;
     HashMap<AtomString, std::unique_ptr<RuleFeatureVector>> classRules;
     HashMap<AtomString, std::unique_ptr<Vector<RuleFeatureWithInvalidationSelector>>> attributeRules;
-    HashMap<CSSSelector::PseudoClassType, std::unique_ptr<RuleFeatureVector>, IntHash<CSSSelector::PseudoClassType>, WTF::StrongEnumHashTraits<CSSSelector::PseudoClassType>> pseudoClassRules;
+    HashMap<PseudoClassInvalidationKey, std::unique_ptr<RuleFeatureVector>> pseudoClassRules;
     HashSet<AtomString> classesAffectingHost;
     HashSet<AtomString> attributesAffectingHost;
     HashSet<CSSSelector::PseudoClassType, IntHash<CSSSelector::PseudoClassType>, WTF::StrongEnumHashTraits<CSSSelector::PseudoClassType>> pseudoClassesAffectingHost;
+    HashSet<CSSSelector::PseudoClassType, IntHash<CSSSelector::PseudoClassType>, WTF::StrongEnumHashTraits<CSSSelector::PseudoClassType>> pseudoClassTypes;
 
     std::array<bool, matchElementCount> usedMatchElements { };
 
@@ -96,15 +116,24 @@ private:
         bool hasSiblingSelector { false };
 
         Vector<std::pair<AtomString, MatchElement>, 32> tags;
+        Vector<std::pair<AtomString, MatchElement>, 32> ids;
         Vector<std::pair<AtomString, MatchElement>, 32> classes;
         Vector<std::pair<const CSSSelector*, MatchElement>, 32> attributes;
-        Vector<std::pair<CSSSelector::PseudoClassType, MatchElement>, 32> pseudoClasses;
+        Vector<std::pair<const CSSSelector*, MatchElement>, 32> pseudoClasses;
     };
     void recursivelyCollectFeaturesFromSelector(SelectorFeatures&, const CSSSelector&, MatchElement = MatchElement::Subject);
 };
 
 bool isHasPseudoClassMatchElement(MatchElement);
 MatchElement computeHasPseudoClassMatchElement(const CSSSelector&);
+
+enum class InvalidationKeyType : uint8_t { Universal = 1, Class, Id, Tag };
+PseudoClassInvalidationKey makePseudoClassInvalidationKey(CSSSelector::PseudoClassType, InvalidationKeyType, const AtomString& = starAtom());
+
+inline bool isUniversalInvalidation(const PseudoClassInvalidationKey& key)
+{
+    return static_cast<InvalidationKeyType>(std::get<1>(key)) == InvalidationKeyType::Universal;
+}
 
 } // namespace Style
 } // namespace WebCore

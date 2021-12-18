@@ -303,7 +303,6 @@ onselect
 onselectstart
 onselectionchange
 onslotchange
-onwebkitspeechchange
 onwheel
 onstalled
 onstorage
@@ -342,10 +341,6 @@ onwebkitsourceclose
 onwebkitsourceended
 onwebkitsourceopen
 onwebkittransitionend
-onwebkitwillrevealbottom
-onwebkitwillrevealleft
-onwebkitwillrevealright
-onwebkitwillrevealtop
 open
 optimum
 part
@@ -434,6 +429,7 @@ autocapitalize
 onwebkitcurrentplaybacktargetiswirelesschanged
 onwebkitplaybacktargetavailabilitychanged
 onwebkitpresentationmodechanged
+x-webkit-imagemenu
 webkit-playsinline
 x-webkit-airplay
 x-webkit-wirelessvideoplaybackdisabled

@@ -83,6 +83,7 @@
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "HitTestingTransformState.h"
+#include "LegacyRenderSVGRoot.h"
 #include "Logging.h"
 #include "OverflowEvent.h"
 #include "OverlapTestRequestClient.h"
@@ -106,7 +107,6 @@
 #include "RenderReplica.h"
 #include "RenderSVGForeignObject.h"
 #include "RenderSVGResourceClipper.h"
-#include "RenderSVGRoot.h"
 #include "RenderScrollbar.h"
 #include "RenderScrollbarPart.h"
 #include "RenderTableCell.h"
@@ -1764,7 +1764,7 @@ TransformationMatrix RenderLayer::perspectiveTransform(const LayoutRect& layerRe
 
     TransformationMatrix t;
     t.translate(perspectiveOrigin.x(), perspectiveOrigin.y());
-    t.applyPerspective(style.perspective());
+    t.applyPerspective(style.usedPerspective(renderer()));
     t.translate(-perspectiveOrigin.x(), -perspectiveOrigin.y());
 
     return t;
@@ -2205,7 +2205,7 @@ void RenderLayer::beginTransparencyLayers(GraphicsContext& context, const LayerP
         context.clip(pixelSnappedClipRect);
 
 #if ENABLE(CSS_COMPOSITING)
-        bool usesCompositeOperation = hasBlendMode() && !(renderer().isSVGRoot() && parent() && parent()->isRenderViewLayer());
+        bool usesCompositeOperation = hasBlendMode() && !(renderer().isLegacySVGRoot() && parent() && parent()->isRenderViewLayer());
         if (usesCompositeOperation)
             context.setCompositeOperation(context.compositeOperation(), blendMode());
 #endif
@@ -3178,7 +3178,7 @@ void RenderLayer::setupClipPath(GraphicsContext& context, GraphicsContextStateSa
         return;
 
     // SVG elements get clipped in SVG code.
-    if (is<RenderSVGRoot>(renderer()))
+    if (is<LegacyRenderSVGRoot>(renderer()))
         return;
 
     auto clippedContentBounds = calculateLayerBounds(paintingInfo.rootLayer, offsetFromRoot, { UseLocalClipRectIfPossible });
@@ -5541,7 +5541,7 @@ void RenderLayer::updateFiltersAfterStyleChange()
 
     // Add the filter as a client to this renderer, unless we are a RenderLayer accommodating
     // an SVG. In that case it takes care of its own resource management for filters.
-    if (renderer().style().filter().hasReferenceFilter() && !renderer().isSVGRoot()) {
+    if (renderer().style().filter().hasReferenceFilter() && !renderer().isSVGRootOrLegacySVGRoot()) {
         ensureLayerFilters();
         m_filters->updateReferenceFilterClients(renderer().style().filter());
     } else if (m_filters)

@@ -28,6 +28,12 @@
 
 #include <windows.h>
 #include <wtf/Assertions.h>
+#include <wtf/MathExtras.h>
+#include <wtf/PageBlock.h>
+#include <wtf/SoftLinking.h>
+
+SOFT_LINK_LIBRARY(kernelbase)
+SOFT_LINK_OPTIONAL(kernelbase, VirtualAlloc2, void*, WINAPI, (HANDLE, PVOID, SIZE_T, ULONG, ULONG, MEM_EXTENDED_PARAMETER *, ULONG))
 
 namespace WTF {
 
@@ -44,6 +50,26 @@ void* OSAllocator::reserveUncommitted(size_t bytes, Usage, bool writable, bool e
     if (!result)
         CRASH();
     return result;
+}
+
+void* OSAllocator::reserveUncommittedAligned(size_t bytes, Usage usage, bool writable, bool executable, bool, bool)
+{
+    ASSERT(hasOneBitSet(bytes) && bytes >= pageSize());
+    if (VirtualAlloc2Ptr()) {
+        MEM_ADDRESS_REQUIREMENTS addressReqs = { };
+        MEM_EXTENDED_PARAMETER param = { };
+        addressReqs.Alignment = bytes;
+        param.Type = MemExtendedParameterAddressRequirements;
+        param.Pointer = &addressReqs;
+        void* result = VirtualAlloc2Ptr()(nullptr, nullptr, bytes, MEM_RESERVE, protection(writable, executable), &param, 1);
+        if (!result)
+            CRASH();
+        return result;
+    }
+    void* result = reserveUncommitted(2 * bytes, usage, writable, executable);
+
+    char* aligned = reinterpret_cast<char*>(roundUpToMultipleOf(bytes, reinterpret_cast<uintptr_t>(result)));
+    return aligned;
 }
 
 void* OSAllocator::reserveAndCommit(size_t bytes, Usage, bool writable, bool executable, bool, bool)

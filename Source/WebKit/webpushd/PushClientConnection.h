@@ -26,20 +26,33 @@
 #pragma once
 
 #include <optional>
+#include <wtf/Deque.h>
 #include <wtf/Forward.h>
 #include <wtf/OSObjectPtr.h>
+#include <wtf/RefCounted.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/spi/darwin/XPCSPI.h>
 #include <wtf/text/WTFString.h>
 
+namespace WebKit {
+namespace WebPushD {
+struct WebPushDaemonConnectionConfiguration;
+}
+}
+using WebKit::WebPushD::WebPushDaemonConnectionConfiguration;
+
 namespace WebPushD {
 
-class ClientConnection {
+class AppBundleRequest;
+
+class ClientConnection : public RefCounted<ClientConnection>, public CanMakeWeakPtr<ClientConnection> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    ClientConnection(xpc_connection_t);
+    static Ref<ClientConnection> create(xpc_connection_t);
+
+    void updateConnectionConfiguration(const WebPushDaemonConnectionConfiguration&);
 
     bool hasHostAppAuditToken() const { return !!m_hostAppAuditToken; }
-    void setHostAppAuditTokenData(const Vector<uint8_t>&);
 
     const String& hostAppCodeSigningIdentifier();
     bool hostAppHasPushEntitlement();
@@ -47,14 +60,32 @@ public:
     bool debugModeIsEnabled() const { return m_debugModeEnabled; }
     void setDebugModeIsEnabled(bool);
 
+    bool useMockBundlesForTesting() const { return m_useMockBundlesForTesting; }
+
+    void enqueueAppBundleRequest(std::unique_ptr<AppBundleRequest>&&);
+    void didCompleteAppBundleRequest(AppBundleRequest&);
+
+    void connectionClosed();
+
+    void broadcastDebugMessage(const String&);
+
 private:
+    ClientConnection(xpc_connection_t);
+
+    void maybeStartNextAppBundleRequest();
+    void setHostAppAuditTokenData(const Vector<uint8_t>&);
+
     OSObjectPtr<xpc_connection_t> m_xpcConnection;
 
     std::optional<audit_token_t> m_hostAppAuditToken;
     std::optional<String> m_hostAppCodeSigningIdentifier;
     std::optional<bool> m_hostAppHasPushEntitlement;
 
+    Deque<std::unique_ptr<AppBundleRequest>> m_pendingBundleRequests;
+    std::unique_ptr<AppBundleRequest> m_currentBundleRequest;
+
     bool m_debugModeEnabled { false };
+    bool m_useMockBundlesForTesting { false };
 };
 
 } // namespace WebPushD

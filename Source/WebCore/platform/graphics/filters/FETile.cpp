@@ -23,6 +23,7 @@
 #include "FETile.h"
 
 #include "FETileSoftwareApplier.h"
+#include "Filter.h"
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
@@ -37,9 +38,14 @@ FETile::FETile()
 {
 }
 
-bool FETile::resultIsAlphaImage() const
+FloatRect FETile::calculateImageRect(const Filter& filter, const FilterImageVector&, const FloatRect& primitiveSubregion) const
 {
-    return inputEffect(0)->resultIsAlphaImage();
+    return filter.maxEffectRect(primitiveSubregion);
+}
+
+bool FETile::resultIsAlphaImage(const FilterImageVector& inputs) const
+{
+    return inputs[0]->isAlphaImage();
 }
 
 std::unique_ptr<FilterEffectApplier> FETile::createApplier(const Filter&) const
@@ -47,15 +53,11 @@ std::unique_ptr<FilterEffectApplier> FETile::createApplier(const Filter&) const
     return FilterEffectApplier::create<FETileSoftwareApplier>(*this);
 }
 
-TextStream& FETile::externalRepresentation(TextStream& ts, RepresentationType representation) const
+TextStream& FETile::externalRepresentation(TextStream& ts, FilterRepresentation representation) const
 {
     ts << indent << "[feTile";
     FilterEffect::externalRepresentation(ts, representation);
     ts << "]\n";
-
-    TextStream::IndentScope indentScope(ts);
-    inputEffect(0)->externalRepresentation(ts, representation);
-
     return ts;
 }
 

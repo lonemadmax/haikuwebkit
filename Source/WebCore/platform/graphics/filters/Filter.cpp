@@ -26,29 +26,65 @@
 #include "config.h"
 #include "Filter.h"
 
+#include "FilterEffect.h"
 #include "FilterImage.h"
+#include "ImageBuffer.h"
 
 namespace WebCore {
 
-Filter::Filter(Filter::Type filterType, RenderingMode renderingMode, const FloatSize& filterScale)
+Filter::Filter(Filter::Type filterType, RenderingMode renderingMode, const FloatSize& filterScale, ClipOperation clipOperation, const FloatRect& filterRegion)
     : FilterFunction(filterType)
     , m_renderingMode(renderingMode)
     , m_filterScale(filterScale)
-{
-}
-
-Filter::Filter(Filter::Type filterType, RenderingMode renderingMode, const FloatSize& filterScale, const FloatRect& sourceImageRect, const FloatRect& filterRegion)
-    : FilterFunction(filterType)
-    , m_renderingMode(renderingMode)
-    , m_filterScale(filterScale)
-    , m_sourceImageRect(sourceImageRect)
+    , m_clipOperation(clipOperation)
     , m_filterRegion(filterRegion)
 {
 }
 
-RefPtr<FilterImage> Filter::apply(ImageBuffer* sourceImage)
+FloatPoint Filter::scaledByFilterScale(const FloatPoint& point) const
+{
+    return point.scaled(m_filterScale.width(), m_filterScale.height());
+}
+
+FloatSize Filter::scaledByFilterScale(const FloatSize& size) const
+{
+    return size * m_filterScale;
+}
+
+FloatRect Filter::scaledByFilterScale(const FloatRect& rect) const
+{
+    auto scaledRect = rect;
+    scaledRect.scale(m_filterScale);
+    return scaledRect;
+}
+
+FloatRect Filter::maxEffectRect(const FloatRect& primitiveSubregion) const
+{
+    return intersection(primitiveSubregion, m_filterRegion);
+}
+
+FloatRect Filter::clipToMaxEffectRect(const FloatRect& imageRect, const FloatRect& primitiveSubregion) const
+{
+    auto maxEffectRect = this->maxEffectRect(primitiveSubregion);
+    return m_clipOperation == ClipOperation::Intersect ? intersection(imageRect, maxEffectRect) : unionRect(imageRect, maxEffectRect);
+}
+
+bool Filter::clampFilterRegionIfNeeded()
+{
+    auto scaledFilterRegion = scaledByFilterScale(m_filterRegion);
+
+    FloatSize clampingScale(1, 1);
+    if (!ImageBuffer::sizeNeedsClamping(scaledFilterRegion.size(), clampingScale))
+        return false;
+
+    m_filterScale = m_filterScale * clampingScale;
+    return true;
+}
+
+RefPtr<FilterImage> Filter::apply(ImageBuffer* sourceImage, const FloatRect& sourceImageRect)
 {
     setSourceImage(sourceImage);
+    setSourceImageRect(sourceImageRect);
 
     auto result = apply();
     if (!result)

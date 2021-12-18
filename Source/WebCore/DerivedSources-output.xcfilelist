@@ -530,6 +530,12 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCryptoRsaHashedKeyAlgorithm.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCryptoRsaHashedKeyAlgorithm.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCryptoRsaKeyAlgorithm.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCryptoRsaKeyAlgorithm.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCustomAnimationOptions.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCustomAnimationOptions.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCustomEffect.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCustomEffect.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCustomEffectCallback.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCustomEffectCallback.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCustomElementRegistry.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCustomElementRegistry.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCustomEvent.cpp
@@ -1631,6 +1637,10 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSMutationRecord.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSMutationRecord.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNamedNodeMap.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNamedNodeMap.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigationPreloadManager.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigationPreloadManager.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigationPreloadState.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigationPreloadState.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigator+Beacon.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigator+Beacon.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSNavigator+Clipboard.cpp
@@ -2713,6 +2723,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSWebLockGrantedCallback.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSWebLockGrantedCallback.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSWebLockManager.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSWebLockManager.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSWebLockManagerSnapshot.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSWebLockManagerSnapshot.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSWebLockMode.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSWebLockMode.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSWebSocket.cpp

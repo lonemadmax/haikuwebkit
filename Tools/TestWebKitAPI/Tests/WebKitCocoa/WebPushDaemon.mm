@@ -26,11 +26,16 @@
 #import "config.h"
 
 #import "DaemonTestUtilities.h"
+#import "Test.h"
 #import "TestURLSchemeHandler.h"
 #import "TestWKWebView.h"
+#import "Utilities.h"
 #import <WebKit/WKPreferencesPrivate.h>
 #import <WebKit/WKUIDelegatePrivate.h>
+#import <WebKit/WKWebsiteDataStorePrivate.h>
 #import <WebKit/_WKExperimentalFeature.h>
+#import <WebKit/_WKWebsiteDataStoreConfiguration.h>
+#import <array>
 #import <mach/mach_init.h>
 #import <mach/task.h>
 
@@ -157,8 +162,8 @@ static void cleanUpTestWebPushD(NSURL *tempDir)
     EXPECT_NULL(error);
 }
 
-// FIXME: Re-enable this test for Monterey+ once webkit.org/232857 is resolved.
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 110000 || __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000
+// FIXME: Re-enable this test on Mac once webkit.org/232857 is resolved.
+#if PLATFORM(MAC)
 TEST(WebPushD, DISABLED_BasicCommunication)
 #else
 TEST(WebPushD, BasicCommunication)
@@ -176,9 +181,14 @@ TEST(WebPushD, BasicCommunication)
         if (!debugMessage)
             return;
 
-        bool stringMatches = !strcmp(debugMessage, "[webpushd - TestWebKitAPI] Turned Debug Mode on");
-        if (!stringMatches)
-            stringMatches = !strcmp(debugMessage, "[webpushd - com.apple.WebKit.TestWebKitAPI] Turned Debug Mode on");
+        NSString *nsMessage = [NSString stringWithUTF8String:debugMessage];
+
+        // Ignore possible connections/messages from webpushtool
+        if ([nsMessage hasPrefix:@"[webpushtool "])
+            return;
+
+        bool stringMatches = [nsMessage hasPrefix:@"[com.apple.WebKit.TestWebKitAPI"] || [nsMessage hasPrefix:@"[TestWebKitAPI"];
+        stringMatches = stringMatches && [nsMessage hasSuffix:@" Turned Debug Mode on"];
 
         EXPECT_TRUE(stringMatches);
 
@@ -195,15 +205,16 @@ TEST(WebPushD, BasicCommunication)
         return;
     }
 
-    // Send audit token
+    // Send configuration with audit token
     {
-        std::array<uint8_t, 40> encodedMessage;
+        std::array<uint8_t, 42> encodedMessage;
         encodedMessage.fill(0);
-        encodedMessage[0] = 32;
-        memcpy(&encodedMessage[8], &token, sizeof(token));
+        encodedMessage[1] = 1;
+        encodedMessage[2] = 32;
+        memcpy(&encodedMessage[10], &token, sizeof(token));
         auto dictionary = adoptNS(xpc_dictionary_create(nullptr, nullptr, 0));
         xpc_dictionary_set_uint64(dictionary.get(), "protocol version", 1);
-        xpc_dictionary_set_uint64(dictionary.get(), "message type", 5);
+        xpc_dictionary_set_uint64(dictionary.get(), "message type", 6);
         xpc_dictionary_set_data(dictionary.get(), "encoded message", encodedMessage.data(), encodedMessage.size());
         xpc_connection_send_message(connection.get(), dictionary.get());
     }
@@ -213,7 +224,7 @@ TEST(WebPushD, BasicCommunication)
         auto dictionary = adoptNS(xpc_dictionary_create(nullptr, nullptr, 0));
         std::array<uint8_t, 1> encodedMessage { 1 };
         xpc_dictionary_set_uint64(dictionary.get(), "protocol version", 1);
-        xpc_dictionary_set_uint64(dictionary.get(), "message type", 6);
+        xpc_dictionary_set_uint64(dictionary.get(), "message type", 5);
         xpc_dictionary_set_data(dictionary.get(), "encoded message", encodedMessage.data(), encodedMessage.size());
 
         xpc_connection_send_message(connection.get(), dictionary.get());
@@ -254,8 +265,8 @@ static const char* mainBytes = R"WEBPUSHRESOURCE(
 </script>
 )WEBPUSHRESOURCE";
 
-// FIXME: Re-enable this test for Monterey+ once webkit.org/232857 is resolved.
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 110000 || __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000
+// FIXME: Re-enable this test on Mac once webkit.org/232857 is resolved.
+#if PLATFORM(MAC)
 TEST(WebPushD, DISABLED_PermissionManagement)
 #else
 TEST(WebPushD, PermissionManagement)
@@ -265,6 +276,7 @@ TEST(WebPushD, PermissionManagement)
 
     auto dataStoreConfiguration = adoptNS([_WKWebsiteDataStoreConfiguration new]);
     dataStoreConfiguration.get().webPushMachServiceName = @"org.webkit.webpushtestdaemon.service";
+    dataStoreConfiguration.get().webPushDaemonUsesMockBundlesForTesting = YES;
     auto dataStore = adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:dataStoreConfiguration.get()]);
 
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);

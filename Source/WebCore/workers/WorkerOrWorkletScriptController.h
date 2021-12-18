@@ -38,6 +38,7 @@
 namespace JSC {
 class Exception;
 class JSGlobalObject;
+class JSModuleRecord;
 class VM;
 }
 
@@ -55,7 +56,6 @@ class WorkerOrWorkletScriptController {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     WorkerOrWorkletScriptController(WorkerThreadType, Ref<JSC::VM>&&, WorkerOrWorkletGlobalScope*);
-    explicit WorkerOrWorkletScriptController(WorkerThreadType, WorkerOrWorkletGlobalScope*);
     ~WorkerOrWorkletScriptController();
 
     void releaseHeapAccess();

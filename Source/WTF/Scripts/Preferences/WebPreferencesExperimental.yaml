@@ -164,6 +164,18 @@ CFNetworkNetworkLoaderEnabled:
     WebKit:
       default: false
 
+CSS3DTransformInteroperabilityEnabled:
+  type: bool
+  humanReadableName: "CSS 3D Transform Interoperability"
+  humanReadableDescription: "Enable 3D transform behavior that is specification-compliant but backwards incompatible"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSCascadeLayersEnabled:
   type: bool
   humanReadableName: "CSS Cascade Layers"
@@ -348,17 +360,6 @@ CanvasColorSpaceEnabled:
       default: false
     WebCore:
       default: false
-
-CaptureVideoInGPUProcessEnabled:
-  type: bool
-  humanReadableName: "GPU Process: Video Capture"
-  humanReadableDescription: "Enable video capture in GPU Process"
-  webcoreBinding: none
-  condition: ENABLE(MEDIA_STREAM)
-  exposed: [ WebKit ]
-  defaultValue:
-    WebKit:
-      default: WebKit::defaultCaptureVideoInGPUProcessEnabled()
 
 ContactPickerAPIEnabled:
   type: bool
@@ -596,11 +597,11 @@ HasPseudoClassEnabled:
   humanReadableDescription: "Enable :has() pseudo-class"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 HighlightAPIEnabled:
   type: bool
@@ -1171,10 +1172,15 @@ RequestVideoFrameCallbackEnabled:
   humanReadableDescription: "Enable RequestVideoFrameCallback API"
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(COCOA) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)" : true
       default: false
     WebKit:
+      "PLATFORM(COCOA) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)" : true
+      "USE(GSTREAMER)": true
       default: false
     WebCore:
+      "PLATFORM(COCOA) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)" : true
+      "USE(GSTREAMER)": true
       default: false
 
 # FIXME: This is on by default in WebKit2. Perhaps we should consider turning it on for WebKitLegacy as well.
@@ -1241,6 +1247,19 @@ ServerTimingEnabled:
     WebKit:
       "ENABLE(EXPERIMENTAL_FEATURES) && (PLATFORM(GTK) || PLATFORM(WPE))": true
       default: false
+
+ServiceWorkerNavigationPreloadEnabled:
+  type: bool
+  humanReadableName: "Service Worker Navigation Preload"
+  humanReadableDescription: "Enable Service Worker Navigation Preload API"
+  condition: ENABLE(SERVICE_WORKER)
+  defaultValue:
+    WebCore:
+      default: true
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: true
 
 SharedWorkerEnabled:
   type: bool
@@ -1335,34 +1354,24 @@ TransformStreamAPIEnabled:
   type: bool
   humanReadableName: "TransformStream API"
   humanReadableDescription: "Enable Transform Stream API"
-  webcoreBinding: RuntimeEnabledFeatures
   defaultValue:
+    WebCore:
+      default: true
     WebKitLegacy:
       default: true
     WebKit:
       default: true
 
-UseGPUProcessForCanvasRenderingEnabled:
+UseGPUProcessForDOMRenderingEnabled:
   type: bool
-  humanReadableName: "GPU Process: Canvas Rendering"
-  humanReadableDescription: "Enable canvas rendering in GPU Process"
+  humanReadableName: "GPU Process: DOM Rendering"
+  humanReadableDescription: "Enable DOM rendering in GPU Process"
   webcoreBinding: none
-  condition: ENABLE(GPU_PROCESS) && !(PLATFORM(GTK) || PLATFORM(WPE))
+  condition: ENABLE(GPU_PROCESS)
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
-      default: defaultUseGPUProcessForCanvasRenderingEnabled()
-
-UseGPUProcessForMediaEnabled:
-  type: bool
-  humanReadableName: "GPU Process: Media"
-  humanReadableDescription: "Do all media loading and playback in the GPU Process"
-  webcoreBinding: none
-  condition: ENABLE(GPU_PROCESS) && !USE(GSTREAMER)
-  exposed: [ WebKit ]
-  defaultValue:
-    WebKit:
-      default: WebKit::defaultUseGPUProcessForMediaEnabled()
+      default: defaultUseGPUProcessForDOMRenderingEnabled()
 
 UseGPUProcessForWebGLEnabled:
   type: bool
@@ -1463,6 +1472,19 @@ WebAnimationsCompositeOperationsEnabled:
     WebCore:
       default: false
 
+WebAnimationsCustomEffectsEnabled:
+  type: bool
+  humanReadableName: "Web Animations custom effects"
+  humanReadableDescription: "Support for the CustomEffect interface"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      "ENABLE(EXPERIMENTAL_FEATURES)" : true
+      default: false
+    WebCore:
+      default: false
+
 # FIXME: This is enabled when ENABLE(EXPERIMENTAL_FEATURES) is true in WebKit2. Perhaps we should consider using that for WebKitLegacy as well.
 WebAnimationsMutableTimelinesEnabled:
   type: bool
@@ -1540,14 +1562,13 @@ WebLocksAPIEnabled:
   type: bool
   humanReadableName: "Web Locks API"
   humanReadableDescription: "Web Locks API"
-  webcoreBinding: RuntimeEnabledFeatures
   defaultValue:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 WebMFormatReaderEnabled:
   type: bool
@@ -1608,20 +1629,6 @@ WebRTCH265CodecEnabled:
       default: false
     WebKit:
       default: false
-    WebCore:
-      default: false
-
-# FIXME: This is not relevent for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
-WebRTCPlatformCodecsInGPUProcessEnabled:
-  type: bool
-  humanReadableName: "WebRTC Platform Codecs in GPU Process"
-  humanReadableDescription: "Enable WebRTC Platform Codecs in GPU Process"
-  condition: ENABLE(WEB_RTC)
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: WebKit::defaultWebRTCCodecsInGPUProcess()
     WebCore:
       default: false
 

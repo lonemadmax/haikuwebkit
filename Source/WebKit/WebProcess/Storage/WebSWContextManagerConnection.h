@@ -35,6 +35,7 @@
 #include "ShareableResource.h"
 #include "UserContentControllerIdentifier.h"
 #include "WebPageProxyIdentifier.h"
+#include "WebPreferencesStore.h"
 #include "WebSWContextManagerConnectionMessagesReplies.h"
 #include <WebCore/EmptyFrameLoaderClient.h>
 #include <WebCore/SWContextManager.h>
@@ -57,7 +58,6 @@ namespace WebKit {
 
 class ServiceWorkerFrameLoaderClient;
 struct ServiceWorkerInitializationData;
-struct WebPreferencesStore;
 class WebUserContentController;
 
 class WebSWContextManagerConnection final : public WebCore::SWContextManager::Connection, public IPC::MessageReceiver {
@@ -90,7 +90,7 @@ private:
     void serviceWorkerFailedToStart(std::optional<WebCore::ServiceWorkerJobDataIdentifier>, WebCore::ServiceWorkerIdentifier, const String& exceptionMessage) final;
     void installServiceWorker(WebCore::ServiceWorkerContextData&&, WebCore::ServiceWorkerData&&, String&& userAgent, WebCore::WorkerThreadMode);
     void updateAppInitiatedValue(WebCore::ServiceWorkerIdentifier, WebCore::LastNavigationWasAppInitiated);
-    void startFetch(WebCore::SWServerConnectionIdentifier, WebCore::ServiceWorkerIdentifier, WebCore::FetchIdentifier, WebCore::ResourceRequest&&, WebCore::FetchOptions&&, IPC::FormDataReference&&, String&& referrer);
+    void startFetch(WebCore::SWServerConnectionIdentifier, WebCore::ServiceWorkerIdentifier, WebCore::FetchIdentifier, WebCore::ResourceRequest&&, WebCore::FetchOptions&&, IPC::FormDataReference&&, String&& referrer, bool isServiceWorkerNavigationPreloadEnabled);
     void cancelFetch(WebCore::SWServerConnectionIdentifier, WebCore::ServiceWorkerIdentifier, WebCore::FetchIdentifier);
     void continueDidReceiveFetchResponse(WebCore::SWServerConnectionIdentifier, WebCore::ServiceWorkerIdentifier, WebCore::FetchIdentifier);
     void postMessageToServiceWorker(WebCore::ServiceWorkerIdentifier destinationIdentifier, WebCore::MessageWithMessagePorts&&, WebCore::ServiceWorkerOrClientData&& sourceData);
@@ -114,8 +114,6 @@ private:
     WebPageProxyIdentifier m_webPageProxyID;
     WebCore::PageIdentifier m_pageID;
 
-    WebCore::StorageBlockingPolicy m_storageBlockingPolicy { WebCore::StorageBlockingPolicy::AllowAll };
-
     HashSet<std::unique_ptr<ServiceWorkerFrameLoaderClient>> m_loaders;
     HashMap<uint64_t, FindClientByIdentifierCallback> m_findClientByIdentifierRequests;
     HashMap<uint64_t, WebCore::ServiceWorkerClientsMatchAllCallback> m_matchAllRequests;
@@ -123,6 +121,7 @@ private:
     String m_userAgent;
     bool m_isThrottleable { true };
     Ref<WebUserContentController> m_userContentController;
+    std::optional<WebPreferencesStore> m_preferencesStore;
 };
 
 class ServiceWorkerFrameLoaderClient final : public WebCore::EmptyFrameLoaderClient {

@@ -31,6 +31,7 @@
 #include "AttributeChangeInvalidation.h"
 #include "CSSParser.h"
 #include "ChildChangeInvalidation.h"
+#include "ChildListMutationScope.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "ClassChangeInvalidation.h"
@@ -815,20 +816,21 @@ void Element::setFocus(bool flag, FocusVisibility visibility)
         return;
     {
         Style::PseudoClassChangeInvalidation focusStyleInvalidation(*this, CSSSelector::PseudoClassFocus);
+        Style::PseudoClassChangeInvalidation focusVisibleStyleInvalidation(*this, CSSSelector::PseudoClassFocusVisible);
         Style::PseudoClassChangeInvalidation directFocusStyleInvalidation(*this, CSSSelector::PseudoClassDirectFocus);
         document().userActionElements().setFocused(*this, flag);
+
+        // Shadow host with a slot that contain focused element is not considered focused.
+        for (auto* root = containingShadowRoot(); root; root = root->host()->containingShadowRoot()) {
+            root->setContainsFocusedElement(flag);
+            root->host()->invalidateStyle();
+        }
+
+        for (auto* element = this; element; element = element->parentElementInComposedTree())
+            element->setHasFocusWithin(flag);
+
+        setHasFocusVisible(flag && (visibility == FocusVisibility::Visible || shouldAlwaysHaveFocusVisibleWhenFocused(*this)));
     }
-
-    // Shadow host with a slot that contain focused element is not considered focused.
-    for (auto* root = containingShadowRoot(); root; root = root->host()->containingShadowRoot()) {
-        root->setContainsFocusedElement(flag);
-        root->host()->invalidateStyle();
-    }
-
-    for (auto* element = this; element; element = element->parentElementInComposedTree())
-        element->setHasFocusWithin(flag);
-
-    setHasFocusVisible(flag && (visibility == FocusVisibility::Visible || shouldAlwaysHaveFocusVisibleWhenFocused(*this)));
 }
 
 void Element::setHasFocusVisible(bool flag)
@@ -844,7 +846,6 @@ void Element::setHasFocusVisible(bool flag)
     if (hasFocusVisible() == flag)
         return;
 
-    Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassFocusVisible);
     document().userActionElements().setHasFocusVisible(*this, flag);
 }
 
@@ -1713,7 +1714,7 @@ std::optional<std::pair<RenderObject*, FloatRect>> Element::boundingAbsoluteRect
 {
     RenderObject* renderer = this->renderer();
     Vector<FloatQuad> quads;
-    if (isSVGElement() && renderer && !renderer->isSVGRoot()) {
+    if (isSVGElement() && renderer && !renderer->isSVGRootOrLegacySVGRoot()) {
         // Get the bounding rectangle from the SVG model.
         SVGElement& svgElement = downcast<SVGElement>(*this);
         if (auto localRect = svgElement.getBoundingBox())
@@ -3266,15 +3267,23 @@ ExceptionOr<void> Element::setOuterHTML(const String& html)
 
 ExceptionOr<void> Element::setInnerHTML(const String& html)
 {
-    auto fragment = createFragmentForInnerOuterHTML(*this, html, AllowScriptingContent);
-    if (fragment.hasException())
-        return fragment.releaseException();
-
     ContainerNode* container;
     if (!is<HTMLTemplateElement>(*this))
         container = this;
     else
         container = &downcast<HTMLTemplateElement>(*this).content();
+
+    // Parsing empty string creates additional elements only inside <html> container
+    // https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inhtml
+    if (html.isEmpty() && !is<HTMLHtmlElement>(*container)) {
+        ChildListMutationScope mutation(*container);
+        container->removeChildren();
+        return { };
+    }
+
+    auto fragment = createFragmentForInnerOuterHTML(*this, html, AllowScriptingContent);
+    if (fragment.hasException())
+        return fragment.releaseException();
 
     return replaceChildrenWithFragment(*container, fragment.releaseReturnValue());
 }

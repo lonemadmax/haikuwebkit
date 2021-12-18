@@ -294,6 +294,7 @@
 		4450FCA021F5F602004DFA56 /* QuickLookSoftLink.h in Headers */ = {isa = PBXBuildFile; fileRef = 4450FC9E21F5F602004DFA56 /* QuickLookSoftLink.h */; };
 		44E1A8AF21FA54E600C3048E /* LookupSoftLink.h in Headers */ = {isa = PBXBuildFile; fileRef = 44E1A8AD21FA54DA00C3048E /* LookupSoftLink.h */; };
 		44E1A8B021FA54EB00C3048E /* LookupSoftLink.mm in Sources */ = {isa = PBXBuildFile; fileRef = 44E1A8AE21FA54DA00C3048E /* LookupSoftLink.mm */; };
+		44EEA0FF2747438A00594A83 /* NSServicesRolloverButtonCellSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 44EEA0FE2747438900594A83 /* NSServicesRolloverButtonCellSPI.h */; };
 		4996C0F32717644C002C125D /* TCCSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 4996C0F22717642B002C125D /* TCCSPI.h */; };
 		517E03F924B7C0070054895A /* IOKitSPIMac.h in Headers */ = {isa = PBXBuildFile; fileRef = 517E03F824B7C0060054895A /* IOKitSPIMac.h */; };
 		570AB8F120AE2E8D00B8BE87 /* SecKeyProxySPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 570AB8F020AE2E8D00B8BE87 /* SecKeyProxySPI.h */; };
@@ -323,7 +324,6 @@
 		A10826F91F576292004772AC /* WebPanel.h in Headers */ = {isa = PBXBuildFile; fileRef = A10826F71F576292004772AC /* WebPanel.h */; };
 		A10826FA1F576292004772AC /* WebPanel.mm in Sources */ = {isa = PBXBuildFile; fileRef = A10826F81F576292004772AC /* WebPanel.mm */; };
 		A10826FE1F58A433004772AC /* NSGraphicsSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = A10826FD1F58A433004772AC /* NSGraphicsSPI.h */; };
-		A1175B491F6AFF8E00C4B9F0 /* SpeechSynthesisSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = A1175B481F6AFF8E00C4B9F0 /* SpeechSynthesisSPI.h */; };
 		A1175B4B1F6B2D7E00C4B9F0 /* NSCellSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = A1175B4A1F6B2D7E00C4B9F0 /* NSCellSPI.h */; };
 		A1175B4E1F6B337300C4B9F0 /* PopupMenu.h in Headers */ = {isa = PBXBuildFile; fileRef = A1175B4C1F6B337300C4B9F0 /* PopupMenu.h */; };
 		A1175B4F1F6B337300C4B9F0 /* PopupMenu.mm in Sources */ = {isa = PBXBuildFile; fileRef = A1175B4D1F6B337300C4B9F0 /* PopupMenu.mm */; };
@@ -698,6 +698,7 @@
 		4450FC9E21F5F602004DFA56 /* QuickLookSoftLink.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QuickLookSoftLink.h; sourceTree = "<group>"; };
 		44E1A8AD21FA54DA00C3048E /* LookupSoftLink.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LookupSoftLink.h; sourceTree = "<group>"; };
 		44E1A8AE21FA54DA00C3048E /* LookupSoftLink.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = LookupSoftLink.mm; sourceTree = "<group>"; };
+		44EEA0FE2747438900594A83 /* NSServicesRolloverButtonCellSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NSServicesRolloverButtonCellSPI.h; sourceTree = "<group>"; };
 		4996C0F22717642B002C125D /* TCCSPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TCCSPI.h; sourceTree = "<group>"; };
 		517E03F824B7C0060054895A /* IOKitSPIMac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOKitSPIMac.h; sourceTree = "<group>"; };
 		570AB8F020AE2E8D00B8BE87 /* SecKeyProxySPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecKeyProxySPI.h; sourceTree = "<group>"; };
@@ -728,7 +729,6 @@
 		A10826F71F576292004772AC /* WebPanel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebPanel.h; sourceTree = "<group>"; };
 		A10826F81F576292004772AC /* WebPanel.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = WebPanel.mm; sourceTree = "<group>"; };
 		A10826FD1F58A433004772AC /* NSGraphicsSPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NSGraphicsSPI.h; sourceTree = "<group>"; };
-		A1175B481F6AFF8E00C4B9F0 /* SpeechSynthesisSPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SpeechSynthesisSPI.h; sourceTree = "<group>"; };
 		A1175B4A1F6B2D7E00C4B9F0 /* NSCellSPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NSCellSPI.h; sourceTree = "<group>"; };
 		A1175B4C1F6B337300C4B9F0 /* PopupMenu.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PopupMenu.h; sourceTree = "<group>"; };
 		A1175B4D1F6B337300C4B9F0 /* PopupMenu.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = PopupMenu.mm; sourceTree = "<group>"; };
@@ -968,6 +968,7 @@
 				0C77857D1F45130F00F4EBB6 /* NSScrollingInputFilterSPI.h */,
 				0C77857E1F45130F00F4EBB6 /* NSScrollingMomentumCalculatorSPI.h */,
 				A1175B591F6B4A8400C4B9F0 /* NSScrollViewSPI.h */,
+				44EEA0FE2747438900594A83 /* NSServicesRolloverButtonCellSPI.h */,
 				0C77857F1F45130F00F4EBB6 /* NSSharingServicePickerSPI.h */,
 				0C7785801F45130F00F4EBB6 /* NSSharingServiceSPI.h */,
 				0C7785811F45130F00F4EBB6 /* NSSpellCheckerSPI.h */,
@@ -978,7 +979,6 @@
 				0C7785841F45130F00F4EBB6 /* NSWindowSPI.h */,
 				0C7785851F45130F00F4EBB6 /* PIPSPI.h */,
 				0C7785871F45130F00F4EBB6 /* QuickLookMacSPI.h */,
-				A1175B481F6AFF8E00C4B9F0 /* SpeechSynthesisSPI.h */,
 				71B1141F26823ACD004D6701 /* SystemPreviewSPI.h */,
 				0C7785881F45130F00F4EBB6 /* TelephonyUtilitiesSPI.h */,
 			);
@@ -1507,6 +1507,7 @@
 				0C7785961F45130F00F4EBB6 /* NSScrollingInputFilterSPI.h in Headers */,
 				0C7785971F45130F00F4EBB6 /* NSScrollingMomentumCalculatorSPI.h in Headers */,
 				A1175B5A1F6B4A8400C4B9F0 /* NSScrollViewSPI.h in Headers */,
+				44EEA0FF2747438A00594A83 /* NSServicesRolloverButtonCellSPI.h in Headers */,
 				0C7785981F45130F00F4EBB6 /* NSSharingServicePickerSPI.h in Headers */,
 				0C7785991F45130F00F4EBB6 /* NSSharingServiceSPI.h in Headers */,
 				0C77859A1F45130F00F4EBB6 /* NSSpellCheckerSPI.h in Headers */,
@@ -1549,7 +1550,6 @@
 				A3788E981F05B6CE00679425 /* Sound.h in Headers */,
 				93B38EBE25821CB600198E63 /* SpeechSoftLink.h in Headers */,
 				93B38EC225821D2200198E63 /* SpeechSPI.h in Headers */,
-				A1175B491F6AFF8E00C4B9F0 /* SpeechSynthesisSPI.h in Headers */,
 				0C5AF9211F43A4C7002EAC02 /* SQLite3SPI.h in Headers */,
 				71B1142026823ACD004D6701 /* SystemPreviewSPI.h in Headers */,
 				31308B1420A21705003FB929 /* SystemPreviewSPI.h in Headers */,

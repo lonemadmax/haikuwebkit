@@ -106,6 +106,11 @@ bool ScrollingTreeScrollingNodeDelegateMac::handleWheelEvent(const PlatformWheel
     if (isInUserScroll != wasInUserScroll)
         scrollingNode().setUserScrollInProgress(isInUserScroll);
 
+    // PlatformWheelEventPhase::MayBegin fires when two fingers touch the trackpad, and is used to flash overlay scrollbars.
+    // We know we're scrollable at this point, so handle the event.
+    if (wheelEvent.phase() == PlatformWheelEventPhase::MayBegin)
+        return true;
+
     return m_scrollController.handleWheelEvent(wheelEvent);
 }
 
@@ -200,9 +205,9 @@ void ScrollingTreeScrollingNodeDelegateMac::stopAnimationCallback(ScrollingEffec
     scrollingNode().setScrollAnimationInProgress(false);
 }
 
-void ScrollingTreeScrollingNodeDelegateMac::serviceScrollAnimation()
+void ScrollingTreeScrollingNodeDelegateMac::serviceScrollAnimation(MonotonicTime currentTime)
 {
-    m_scrollController.animationCallback(MonotonicTime::now());
+    m_scrollController.animationCallback(currentTime);
 }
 
 bool ScrollingTreeScrollingNodeDelegateMac::allowsHorizontalStretching(const PlatformWheelEvent& wheelEvent) const
@@ -435,11 +440,6 @@ void ScrollingTreeScrollingNodeDelegateMac::releaseReferencesToScrollerImpsOnThe
         WTF::callOnMainThread([verticalScrollerImp = WTFMove(m_verticalScrollerImp), horizontalScrollerImp = WTFMove(m_horizontalScrollerImp)] {
         });
     }
-}
-
-bool ScrollingTreeScrollingNodeDelegateMac::momentumScrollingAnimatorEnabled() const
-{
-    return scrollingNode().momentumScrollingAnimatorEnabled();
 }
 
 } // namespace WebCore

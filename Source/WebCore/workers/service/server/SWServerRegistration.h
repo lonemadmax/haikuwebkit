@@ -27,6 +27,7 @@
 
 #if ENABLE(SERVICE_WORKER)
 
+#include "NavigationPreloadState.h"
 #include "SWServer.h"
 #include "ScriptExecutionContextIdentifier.h"
 #include "ServiceWorkerRegistrationData.h"
@@ -52,7 +53,7 @@ enum class IsAppInitiated : bool { No, Yes };
 class SWServerRegistration : public CanMakeWeakPtr<SWServerRegistration> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    SWServerRegistration(SWServer&, const ServiceWorkerRegistrationKey&, ServiceWorkerUpdateViaCache, const URL& scopeURL, const URL& scriptURL, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier);
+    SWServerRegistration(SWServer&, const ServiceWorkerRegistrationKey&, ServiceWorkerUpdateViaCache, const URL& scopeURL, const URL& scriptURL, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, NavigationPreloadState&&);
     ~SWServerRegistration();
 
     const ServiceWorkerRegistrationKey& key() const { return m_registrationKey; }
@@ -110,6 +111,11 @@ public:
     bool isAppInitiated() const { return m_isAppInitiated; }
     std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier() const { return m_serviceWorkerPageIdentifier; }
 
+    WEBCORE_EXPORT std::optional<ExceptionData> enableNavigationPreload();
+    WEBCORE_EXPORT std::optional<ExceptionData> disableNavigationPreload();
+    WEBCORE_EXPORT std::optional<ExceptionData> setNavigationPreloadHeaderValue(String&&);
+    const NavigationPreloadState& navigationPreloadState() const { return m_preloadState; }
+
 private:
     void activate();
     void handleClientUnload();
@@ -138,6 +144,7 @@ private:
     WebCore::Timer m_softUpdateTimer;
     
     bool m_isAppInitiated { true };
+    NavigationPreloadState m_preloadState;
 };
 
 } // namespace WebCore

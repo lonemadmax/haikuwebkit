@@ -43,6 +43,7 @@
 #include "HTMLTableElement.h"
 #include "HitTestResult.h"
 #include "LayoutIntegrationLineLayout.h"
+#include "LegacyRenderSVGRoot.h"
 #include "LogicalSelectionOffsetCaches.h"
 #include "Page.h"
 #include "PseudoElement.h"
@@ -64,7 +65,6 @@
 #include "RenderSVGInline.h"
 #include "RenderSVGModelObject.h"
 #include "RenderSVGResourceContainer.h"
-#include "RenderSVGRoot.h"
 #include "RenderScrollbarPart.h"
 #include "RenderTableRow.h"
 #include "RenderTheme.h"
@@ -508,7 +508,7 @@ static inline bool objectIsRelayoutBoundary(const RenderElement* object)
     if (shouldApplyLayoutContainment(*object) && shouldApplySizeContainment(*object))
         return true;
 
-    if (object->isSVGRoot())
+    if (object->isSVGRootOrLegacySVGRoot())
         return true;
 
     if (!object->hasNonVisibleOverflow())
@@ -1389,7 +1389,7 @@ void RenderObject::getTransformFromContainer(const RenderObject* containerObject
         FloatPoint perspectiveOrigin = downcast<RenderLayerModelObject>(*containerObject).layer()->perspectiveOrigin();
 
         TransformationMatrix perspectiveMatrix;
-        perspectiveMatrix.applyPerspective(containerObject->style().perspective());
+        perspectiveMatrix.applyPerspective(containerObject->style().usedPerspective(*this));
         
         transform.translateRight3d(-perspectiveOrigin.x(), -perspectiveOrigin.y(), 0);
         transform = perspectiveMatrix * transform;

@@ -36,39 +36,47 @@ namespace PAL::WebGPU {
 class ExternalTexture;
 }
 
+namespace IPC {
+class StreamServerConnection;
+}
+
 namespace WebKit {
 
 namespace WebGPU {
 class ObjectHeap;
-class ObjectRegistry;
 }
 
 class RemoteExternalTexture final : public IPC::StreamMessageReceiver {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<RemoteExternalTexture> create(PAL::WebGPU::ExternalTexture& externalTexture, WebGPU::ObjectRegistry& objectRegistry, WebGPU::ObjectHeap& objectHeap, WebGPUIdentifier identifier)
+    static Ref<RemoteExternalTexture> create(PAL::WebGPU::ExternalTexture& externalTexture, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteExternalTexture(externalTexture, objectRegistry, objectHeap, identifier));
+        return adoptRef(*new RemoteExternalTexture(externalTexture, objectHeap, WTFMove(streamConnection), identifier));
     }
 
     virtual ~RemoteExternalTexture();
 
-private:
-    friend class ObjectRegistry;
+    void stopListeningForIPC();
 
-    RemoteExternalTexture(PAL::WebGPU::ExternalTexture&, WebGPU::ObjectRegistry&, WebGPU::ObjectHeap&, WebGPUIdentifier);
+private:
+    friend class WebGPU::ObjectHeap;
+
+    RemoteExternalTexture(PAL::WebGPU::ExternalTexture&, WebGPU::ObjectHeap&, Ref<IPC::StreamServerConnection>&&, WebGPUIdentifier);
 
     RemoteExternalTexture(const RemoteExternalTexture&) = delete;
     RemoteExternalTexture(RemoteExternalTexture&&) = delete;
     RemoteExternalTexture& operator=(const RemoteExternalTexture&) = delete;
     RemoteExternalTexture& operator=(RemoteExternalTexture&&) = delete;
 
+    PAL::WebGPU::ExternalTexture& backing() { return m_backing; }
+
     void didReceiveStreamMessage(IPC::StreamServerConnectionBase&, IPC::Decoder&) final;
 
     void setLabel(String&&);
 
     Ref<PAL::WebGPU::ExternalTexture> m_backing;
-    WebGPU::ObjectRegistry& m_objectRegistry;
     WebGPU::ObjectHeap& m_objectHeap;
+    Ref<IPC::StreamServerConnection> m_streamConnection;
     WebGPUIdentifier m_identifier;
 };
 

@@ -43,6 +43,8 @@ public:
 
     DisplayBoxes build(const LineBuilder::LineContent&, const LineBox&, const InlineRect& lineBoxLogicalRect, const size_t lineIndex);
 
+    static void computeIsFirstIsLastBoxForInlineContent(DisplayBoxes&);
+
 private:
     void processNonBidiContent(const LineBuilder::LineContent&, const LineBox&, const InlineLayoutPoint& lineBoxLogicalTopLeft, DisplayBoxes&);
     void processBidiContent(const LineBuilder::LineContent&, const LineBox&, const InlineLayoutPoint& lineBoxLogicalTopLeft, DisplayBoxes&);
@@ -55,8 +57,10 @@ private:
     void appendAtomicInlineLevelDisplayBox(const Line::Run&, const InlineRect& , DisplayBoxes&);
     void appendInlineBoxDisplayBox(const Line::Run&, const InlineLevelBox&, const InlineRect&, bool linehasContent, DisplayBoxes&);
     void appendSpanningInlineBoxDisplayBox(const Line::Run&, const InlineLevelBox&, const InlineRect&, DisplayBoxes&);
-    void appendInlineBoxDisplayBoxForBidiBoundary(const Box&, const InlineRect&, DisplayBoxes&);
+    void insertInlineBoxDisplayBoxForBidiBoundary(const InlineLevelBox&, const InlineRect&, bool isFirstInlineBoxFragment, size_t insertionPoint, DisplayBoxes&);
     void adjustInlineBoxDisplayBoxForBidiBoundary(InlineDisplay::Box&, const InlineRect&);
+
+    void setInlineBoxGeometry(const Box&, const InlineRect&, bool isFirstInlineBoxFragment);
 
     const ContainerBox& root() const { return m_formattingContextRoot; }
     InlineFormattingState& formattingState() const { return m_formattingState; } 

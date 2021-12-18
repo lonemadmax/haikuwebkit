@@ -32,6 +32,7 @@
 #include "ServiceWorkerFetchTask.h"
 #include <WebCore/ExceptionOr.h>
 #include <WebCore/FetchIdentifier.h>
+#include <WebCore/NavigationPreloadState.h>
 #include <WebCore/ProcessIdentifier.h>
 #include <WebCore/PushPermissionState.h>
 #include <WebCore/PushSubscriptionData.h>
@@ -75,7 +76,8 @@ public:
     IPC::Connection& ipcConnection() const { return m_contentConnection.get(); }
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
-    
+
+    NetworkSession* session();
     PAL::SessionID sessionID() const;
 
     std::unique_ptr<ServiceWorkerFetchTask> createFetchTask(NetworkResourceLoader&, const WebCore::ResourceRequest&);
@@ -93,7 +95,6 @@ private:
     void setRegistrationLastUpdateTime(WebCore::ServiceWorkerRegistrationIdentifier, WallTime) final;
     void setRegistrationUpdateViaCache(WebCore::ServiceWorkerRegistrationIdentifier, WebCore::ServiceWorkerUpdateViaCache) final;
     void notifyClientsOfControllerChange(const HashSet<WebCore::ScriptExecutionContextIdentifier>& contextIdentifiers, const WebCore::ServiceWorkerData& newController);
-    void registrationReady(uint64_t registrationReadyRequestIdentifier, WebCore::ServiceWorkerRegistrationData&&) final;
 
     void scheduleJobInServer(WebCore::ServiceWorkerJobData&&);
 
@@ -102,8 +103,8 @@ private:
 
     void startFetch(ServiceWorkerFetchTask&, WebCore::SWServerWorker&);
 
-    void matchRegistration(uint64_t registrationMatchRequestIdentifier, const WebCore::SecurityOriginData& topOrigin, const URL& clientURL);
-    void getRegistrations(uint64_t registrationMatchRequestIdentifier, const WebCore::SecurityOriginData& topOrigin, const URL& clientURL);
+    void matchRegistration(const WebCore::SecurityOriginData& topOrigin, const URL& clientURL, CompletionHandler<void(std::optional<WebCore::ServiceWorkerRegistrationData>&&)>&&);
+    void getRegistrations(const WebCore::SecurityOriginData& topOrigin, const URL& clientURL, CompletionHandler<void(const Vector<WebCore::ServiceWorkerRegistrationData>&)>&&);
 
     void registerServiceWorkerClient(WebCore::SecurityOriginData&& topOrigin, WebCore::ServiceWorkerClientData&&, const std::optional<WebCore::ServiceWorkerRegistrationIdentifier>&, String&& userAgent);
     void unregisterServiceWorkerClient(const WebCore::ScriptExecutionContextIdentifier&);
@@ -127,6 +128,13 @@ private:
 
     void postMessageToServiceWorker(WebCore::ServiceWorkerIdentifier destination, WebCore::MessageWithMessagePorts&&, const WebCore::ServiceWorkerOrClientIdentifier& source);
     void controlClient(WebCore::ScriptExecutionContextIdentifier, WebCore::SWServerRegistration&, const WebCore::ResourceRequest&);
+
+    using ExceptionOrVoidCallback = CompletionHandler<void(std::optional<WebCore::ExceptionData>&&)>;
+    void enableNavigationPreload(WebCore::ServiceWorkerRegistrationIdentifier, ExceptionOrVoidCallback&&);
+    void disableNavigationPreload(WebCore::ServiceWorkerRegistrationIdentifier, ExceptionOrVoidCallback&&);
+    void setNavigationPreloadHeaderValue(WebCore::ServiceWorkerRegistrationIdentifier, String&&, ExceptionOrVoidCallback&&);
+    using ExceptionOrNavigationPreloadStateCallback = CompletionHandler<void(Expected<WebCore::NavigationPreloadState, WebCore::ExceptionData>&&)>;
+    void getNavigationPreloadState(WebCore::ServiceWorkerRegistrationIdentifier, ExceptionOrNavigationPreloadStateCallback&&);
 
     URL clientURLFromIdentifier(WebCore::ServiceWorkerOrClientIdentifier);
 

@@ -39,6 +39,7 @@
 #import "WebProcessMessages.h"
 #import "WebProcessPool.h"
 #import <WebCore/RuntimeApplicationChecks.h>
+#import <WebCore/WebMAudioUtilitiesCocoa.h>
 #import <sys/sysctl.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/Scope.h>
@@ -52,6 +53,7 @@
 #endif
 
 #if ENABLE(REMOTE_INSPECTOR)
+#import "WebInspectorUtilities.h"
 #import <JavaScriptCore/RemoteInspectorConstants.h>
 #endif
 
@@ -62,6 +64,8 @@
 #if PLATFORM(MAC)
 #include "TCCSoftLink.h"
 #endif
+
+#import <pal/cf/AudioToolboxSoftLink.h>
 
 namespace WebKit {
 
@@ -204,10 +208,7 @@ bool WebProcessProxy::shouldEnableRemoteInspector()
 #if PLATFORM(IOS_FAMILY)
     return CFPreferencesGetAppIntegerValue(WIRRemoteInspectorEnabledKey, WIRRemoteInspectorDomainName, nullptr);
 #else
-    auto sandboxBrokerBundleIdentifier = CFSTR("com.apple.Safari.SandboxBroker");
-    if (WebCore::applicationBundleIdentifier() == "com.apple.SafariTechnologyPreview"_s)
-        sandboxBrokerBundleIdentifier = CFSTR("com.apple.SafariTechnologyPreview.SandboxBroker");
-    return CFPreferencesGetAppIntegerValue(CFSTR("ShowDevelopMenu"), sandboxBrokerBundleIdentifier, nullptr);
+    return CFPreferencesGetAppIntegerValue(CFSTR("ShowDevelopMenu"), bundleIdentifierForSandboxBroker(), nullptr);
 #endif
 }
 
@@ -285,6 +286,31 @@ void WebProcessProxy::isAXAuthenticated(audit_token_t auditToken, CompletionHand
     completionHandler(authenticated);
 }
 #endif
+
+void WebProcessProxy::sendAudioComponentRegistrations()
+{
+    using namespace PAL;
+
+    if (!PAL::isAudioToolboxCoreFrameworkAvailable() || !PAL::canLoad_AudioToolboxCore_AudioComponentFetchServerRegistrations())
+        return;
+
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), [weakThis = WeakPtr { *this }] () mutable {
+        CFDataRef registrations { nullptr };
+
+        WebCore::registerOpusDecoderIfNeeded();
+        WebCore::registerVorbisDecoderIfNeeded();
+        if (noErr != AudioComponentFetchServerRegistrations(&registrations) || !registrations)
+            return;
+
+        RunLoop::main().dispatch([weakThis = WTFMove(weakThis), registrations = adoptCF(registrations)] () mutable {
+            if (!weakThis)
+                return;
+
+            auto registrationData = WebCore::SharedBuffer::create(registrations.get());
+            weakThis->send(Messages::WebProcess::ConsumeAudioComponentRegistrations({ registrationData }), 0);
+        });
+    });
+}
 
 bool WebProcessProxy::messageSourceIsValidWebContentProcess()
 {

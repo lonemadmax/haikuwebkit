@@ -33,11 +33,11 @@ public:
 private:
     explicit SourceAlpha(FilterEffect&);
 
-    void determineAbsolutePaintRect(const Filter&) override;
+    FloatRect calculateImageRect(const Filter&, const FilterImageVector& inputs, const FloatRect& primitiveSubregion) const override;
 
     std::unique_ptr<FilterEffectApplier> createApplier(const Filter&) const override;
 
-    WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
+    WTF::TextStream& externalRepresentation(WTF::TextStream&, FilterRepresentation) const override;
 };
 
 } //namespace WebCore

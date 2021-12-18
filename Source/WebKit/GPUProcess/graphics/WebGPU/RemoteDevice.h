@@ -39,6 +39,10 @@ namespace PAL::WebGPU {
 class Device;
 }
 
+namespace IPC {
+class StreamServerConnection;
+}
+
 namespace WebKit {
 
 namespace WebGPU {
@@ -49,7 +53,6 @@ struct CommandEncoderDescriptor;
 struct ComputePipelineDescriptor;
 struct ExternalTextureDescriptor;
 class ObjectHeap;
-class ObjectRegistry;
 struct PipelineLayoutDescriptor;
 struct QuerySetDescriptor;
 struct RenderBundleEncoderDescriptor;
@@ -60,23 +63,28 @@ struct TextureDescriptor;
 }
 
 class RemoteDevice final : public IPC::StreamMessageReceiver {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<RemoteDevice> create(PAL::WebGPU::Device& device, WebGPU::ObjectRegistry& objectRegistry, WebGPU::ObjectHeap& objectHeap, WebGPUIdentifier identifier)
+    static Ref<RemoteDevice> create(PAL::WebGPU::Device& device, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteDevice(device, objectRegistry, objectHeap, identifier));
+        return adoptRef(*new RemoteDevice(device, objectHeap, WTFMove(streamConnection), identifier));
     }
 
     ~RemoteDevice();
 
-private:
-    friend class ObjectRegistry;
+    void stopListeningForIPC();
 
-    RemoteDevice(PAL::WebGPU::Device&, WebGPU::ObjectRegistry&, WebGPU::ObjectHeap&, WebGPUIdentifier);
+private:
+    friend class WebGPU::ObjectHeap;
+
+    RemoteDevice(PAL::WebGPU::Device&, WebGPU::ObjectHeap&, Ref<IPC::StreamServerConnection>&&, WebGPUIdentifier);
 
     RemoteDevice(const RemoteDevice&) = delete;
     RemoteDevice(RemoteDevice&&) = delete;
     RemoteDevice& operator=(const RemoteDevice&) = delete;
     RemoteDevice& operator=(RemoteDevice&&) = delete;
+
+    PAL::WebGPU::Device& backing() { return m_backing; }
 
     void didReceiveStreamMessage(IPC::StreamServerConnectionBase&, IPC::Decoder&) final;
 
@@ -108,8 +116,8 @@ private:
     void setLabel(String&&);
 
     Ref<PAL::WebGPU::Device> m_backing;
-    WebGPU::ObjectRegistry& m_objectRegistry;
     WebGPU::ObjectHeap& m_objectHeap;
+    Ref<IPC::StreamServerConnection> m_streamConnection;
     WebGPUIdentifier m_identifier;
 };
 

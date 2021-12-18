@@ -26,6 +26,7 @@
 #include "FEComposite.h"
 
 #include "FECompositeSoftwareApplier.h"
+#include "Filter.h"
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
@@ -85,25 +86,23 @@ bool FEComposite::setK4(float k4)
     return true;
 }
 
-void FEComposite::determineAbsolutePaintRect(const Filter& filter)
+FloatRect FEComposite::calculateImageRect(const Filter& filter, const FilterImageVector& inputs, const FloatRect& primitiveSubregion) const
 {
     switch (m_type) {
     case FECOMPOSITE_OPERATOR_IN:
     case FECOMPOSITE_OPERATOR_ATOP:
-        // For In and Atop the first effect just influences the result of
-        // the second effect. So just use the absolute paint rect of the second effect here.
-        setAbsolutePaintRect(inputEffect(1)->absolutePaintRect());
-        clipAbsolutePaintRect();
-        return;
+        // For In and Atop the first FilterImage just influences the result of the
+        // second FilterImage. So just use the rect of the second FilterImage here.
+        return filter.clipToMaxEffectRect(inputs[1]->imageRect(), primitiveSubregion);
+
     case FECOMPOSITE_OPERATOR_ARITHMETIC:
-        // Arithmetic may influnce the compele filter primitive region. So we can't
+        // Arithmetic may influnce the entire filter primitive region. So we can't
         // optimize the paint region here.
-        setAbsolutePaintRect(enclosingIntRect(maxEffectRect()));
-        return;
+        return filter.maxEffectRect(primitiveSubregion);
+
     default:
         // Take the union of both input effects.
-        FilterEffect::determineAbsolutePaintRect(filter);
-        return;
+        return FilterEffect::calculateImageRect(filter, inputs, primitiveSubregion);
     }
 }
 
@@ -143,18 +142,16 @@ static TextStream& operator<<(TextStream& ts, const CompositeOperationType& type
     return ts;
 }
 
-TextStream& FEComposite::externalRepresentation(TextStream& ts, RepresentationType representation) const
+TextStream& FEComposite::externalRepresentation(TextStream& ts, FilterRepresentation representation) const
 {
     ts << indent << "[feComposite";
     FilterEffect::externalRepresentation(ts, representation);
+
     ts << " operation=\"" << m_type << "\"";
     if (m_type == FECOMPOSITE_OPERATOR_ARITHMETIC)
         ts << " k1=\"" << m_k1 << "\" k2=\"" << m_k2 << "\" k3=\"" << m_k3 << "\" k4=\"" << m_k4 << "\"";
-    ts << "]\n";
 
-    TextStream::IndentScope indentScope(ts);
-    inputEffect(0)->externalRepresentation(ts, representation);
-    inputEffect(1)->externalRepresentation(ts, representation);
+    ts << "]\n";
     return ts;
 }
 

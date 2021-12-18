@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2008 Alex Mathews <possessedpenguinbob@gmail.com>
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,6 +22,7 @@
 #pragma once
 
 #include "FilterEffect.h"
+#include "SVGFilterExpression.h"
 #include "SVGUnitTypes.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
@@ -67,7 +69,7 @@ public:
 
     void setupBuiltinEffects(Ref<FilterEffect> sourceGraphic);
     RefPtr<FilterEffect> buildFilterEffects(SVGFilterElement&);
-    bool buildExpression(FilterEffectVector& expression) const;
+    bool buildExpression(SVGFilterExpression&) const;
 
 private:
     inline void addBuiltinEffects()
@@ -75,6 +77,9 @@ private:
         for (auto& effect : m_builtinEffects.values())
             m_effectReferences.add(effect, FilterEffectSet());
     }
+
+    std::optional<FilterEffectGeometry> effectGeometry(FilterEffect&) const;
+    bool buildEffectExpression(const RefPtr<FilterEffect>&, FilterEffectVector& stack, unsigned level, SVGFilterExpression&) const;
 
     HashMap<AtomString, RefPtr<FilterEffect>> m_builtinEffects;
     HashMap<AtomString, RefPtr<FilterEffect>> m_namedEffects;
@@ -84,8 +89,10 @@ private:
     HashMap<RenderObject*, FilterEffect*> m_effectRenderer;
 
     RefPtr<FilterEffect> m_lastEffect;
+
     FloatRect m_targetBoundingBox;
     SVGUnitTypes::SVGUnitType m_primitiveUnits { SVGUnitTypes::SVG_UNIT_TYPE_USERSPACEONUSE };
+    FilterEffectGeometryMap m_effectGeometryMap;
 };
     
 } // namespace WebCore

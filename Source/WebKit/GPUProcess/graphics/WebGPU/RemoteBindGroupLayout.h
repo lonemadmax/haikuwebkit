@@ -36,39 +36,47 @@ namespace PAL::WebGPU {
 class BindGroupLayout;
 }
 
+namespace IPC {
+class StreamServerConnection;
+}
+
 namespace WebKit {
 
 namespace WebGPU {
 class ObjectHeap;
-class ObjectRegistry;
 }
 
 class RemoteBindGroupLayout final : public IPC::StreamMessageReceiver {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<RemoteBindGroupLayout> create(PAL::WebGPU::BindGroupLayout& bindGroupLayout, WebGPU::ObjectRegistry& objectRegistry, WebGPU::ObjectHeap& objectHeap, WebGPUIdentifier identifier)
+    static Ref<RemoteBindGroupLayout> create(PAL::WebGPU::BindGroupLayout& bindGroupLayout, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteBindGroupLayout(bindGroupLayout, objectRegistry, objectHeap, identifier));
+        return adoptRef(*new RemoteBindGroupLayout(bindGroupLayout, objectHeap, WTFMove(streamConnection), identifier));
     }
 
     virtual ~RemoteBindGroupLayout();
 
-private:
-    friend class ObjectRegistry;
+    void stopListeningForIPC();
 
-    RemoteBindGroupLayout(PAL::WebGPU::BindGroupLayout&, WebGPU::ObjectRegistry&, WebGPU::ObjectHeap&, WebGPUIdentifier);
+private:
+    friend class WebGPU::ObjectHeap;
+
+    RemoteBindGroupLayout(PAL::WebGPU::BindGroupLayout&, WebGPU::ObjectHeap&, Ref<IPC::StreamServerConnection>&&, WebGPUIdentifier);
 
     RemoteBindGroupLayout(const RemoteBindGroupLayout&) = delete;
     RemoteBindGroupLayout(RemoteBindGroupLayout&&) = delete;
     RemoteBindGroupLayout& operator=(const RemoteBindGroupLayout&) = delete;
     RemoteBindGroupLayout& operator=(RemoteBindGroupLayout&&) = delete;
 
+    PAL::WebGPU::BindGroupLayout& backing() { return m_backing; }
+
     void didReceiveStreamMessage(IPC::StreamServerConnectionBase&, IPC::Decoder&) final;
 
     void setLabel(String&&);
 
     Ref<PAL::WebGPU::BindGroupLayout> m_backing;
-    WebGPU::ObjectRegistry& m_objectRegistry;
     WebGPU::ObjectHeap& m_objectHeap;
+    Ref<IPC::StreamServerConnection> m_streamConnection;
     WebGPUIdentifier m_identifier;
 };
 

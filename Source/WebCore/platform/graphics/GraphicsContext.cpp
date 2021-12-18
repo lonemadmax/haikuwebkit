@@ -631,9 +631,9 @@ void GraphicsContext::drawConsumingImageBuffer(RefPtr<ImageBuffer> image, const 
     ImageBuffer::drawConsuming(WTFMove(image), *this, destination, source, options);
 }
 
-void GraphicsContext::drawFilteredImageBuffer(ImageBuffer* sourceImage, Filter& filter)
+void GraphicsContext::drawFilteredImageBuffer(ImageBuffer* sourceImage, const FloatRect& sourceImageRect, Filter& filter)
 {
-    auto result = filter.apply(sourceImage);
+    auto result = filter.apply(sourceImage, sourceImageRect);
     if (!result)
         return;
     
@@ -641,7 +641,9 @@ void GraphicsContext::drawFilteredImageBuffer(ImageBuffer* sourceImage, Filter& 
     if (!imageBuffer)
         return;
 
+    scale({ 1 / filter.filterScale().width(), 1 / filter.filterScale().height() });
     drawImageBuffer(*imageBuffer, result->absoluteImageRect());
+    scale(filter.filterScale());
 }
 
 void GraphicsContext::clipRoundedRect(const FloatRoundedRect& rect)

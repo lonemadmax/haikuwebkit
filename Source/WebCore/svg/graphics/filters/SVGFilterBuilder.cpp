@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -38,6 +39,25 @@ void SVGFilterBuilder::setupBuiltinEffects(Ref<FilterEffect> sourceGraphic)
     m_builtinEffects.add(SourceGraphic::effectName(), sourceGraphic.ptr());
     m_builtinEffects.add(SourceAlpha::effectName(), SourceAlpha::create(sourceGraphic));
     addBuiltinEffects();
+}
+
+static OptionSet<FilterEffectGeometry::Flags> effectGeometryFlagsForElement(SVGElement& element)
+{
+    OptionSet<FilterEffectGeometry::Flags> flags;
+
+    if (element.hasAttribute(SVGNames::xAttr))
+        flags.add(FilterEffectGeometry::Flags::HasX);
+
+    if (element.hasAttribute(SVGNames::yAttr))
+        flags.add(FilterEffectGeometry::Flags::HasY);
+
+    if (element.hasAttribute(SVGNames::widthAttr))
+        flags.add(FilterEffectGeometry::Flags::HasWidth);
+
+    if (element.hasAttribute(SVGNames::heightAttr))
+        flags.add(FilterEffectGeometry::Flags::HasHeight);
+
+    return flags;
 }
 
 #if ENABLE(DESTINATION_COLOR_SPACE_LINEAR_SRGB)
@@ -85,26 +105,29 @@ RefPtr<FilterEffect> SVGFilterBuilder::buildFilterEffects(SVGFilterElement& filt
 
     for (auto& effectElement : childrenOfType<SVGFilterPrimitiveStandardAttributes>(filterElement)) {
         effect = effectElement.build(*this);
-        if (!effect) {
-            clearEffects();
-            return nullptr;
-        }
+        if (!effect)
+            break;
 
-        effectElement.setStandardAttributes(effect.get());
-        effect->setEffectBoundaries(SVGLengthContext::resolveRectangle<SVGFilterPrimitiveStandardAttributes>(&effectElement, m_primitiveUnits, m_targetBoundingBox));
+        if (auto flags = effectGeometryFlagsForElement(effectElement)) {
+            auto effectBoundaries = SVGLengthContext::resolveRectangle<SVGFilterPrimitiveStandardAttributes>(&effectElement, m_primitiveUnits, m_targetBoundingBox);
+            m_effectGeometryMap.add(*effect, FilterEffectGeometry(effectBoundaries, flags));
+        }
 
 #if ENABLE(DESTINATION_COLOR_SPACE_LINEAR_SRGB)
         if (colorInterpolationForElement(effectElement) == ColorInterpolation::LinearRGB)
             effect->setOperatingColorSpace(DestinationColorSpace::LinearSRGB());
 #endif
+
         if (auto renderer = effectElement.renderer())
             appendEffectToEffectReferences(effect.copyRef(), renderer);
 
         add(effectElement.result(), effect);
     }
 
-    if (!effect || totalNumberFilterEffects(*effect) > maxTotalNumberFilterEffects)
+    if (!effect || totalNumberFilterEffects(*effect) > maxTotalNumberFilterEffects) {
+        clearEffects();
         return nullptr;
+    }
 
     return effect;
 }
@@ -178,7 +201,15 @@ void SVGFilterBuilder::clearResultsRecursive(FilterEffect* effect)
         clearResultsRecursive(reference);
 }
 
-static bool buildEffectExpression(const RefPtr<FilterEffect>& effect, FilterEffectVector& stack, FilterEffectVector& expression)
+std::optional<FilterEffectGeometry> SVGFilterBuilder::effectGeometry(FilterEffect& effect) const
+{
+    auto it = m_effectGeometryMap.find(effect);
+    if (it != m_effectGeometryMap.end())
+        return it->value;
+    return std::nullopt;
+}
+
+bool SVGFilterBuilder::buildEffectExpression(const RefPtr<FilterEffect>& effect, FilterEffectVector& stack, unsigned level, SVGFilterExpression& expression) const
 {
     // A cycle is detected.
     if (stack.contains(effect))
@@ -186,10 +217,10 @@ static bool buildEffectExpression(const RefPtr<FilterEffect>& effect, FilterEffe
 
     stack.append(effect);
     
-    expression.append(effect);
+    expression.append({ *effect, effectGeometry(*effect), level });
 
     for (auto& inputEffect : effect->inputEffects()) {
-        if (!buildEffectExpression(inputEffect, stack, expression))
+        if (!buildEffectExpression(inputEffect, stack, level + 1, expression))
             return false;
     }
 
@@ -200,13 +231,13 @@ static bool buildEffectExpression(const RefPtr<FilterEffect>& effect, FilterEffe
     return true;
 }
 
-bool SVGFilterBuilder::buildExpression(FilterEffectVector& expression) const
+bool SVGFilterBuilder::buildExpression(SVGFilterExpression& expression) const
 {
     if (!m_lastEffect)
         return false;
 
     FilterEffectVector stack;
-    if (!buildEffectExpression(m_lastEffect, stack, expression))
+    if (!buildEffectExpression(m_lastEffect, stack, 0, expression))
         return false;
 
     expression.reverse();

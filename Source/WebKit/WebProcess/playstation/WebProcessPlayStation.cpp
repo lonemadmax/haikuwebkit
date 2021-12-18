@@ -34,13 +34,7 @@ namespace WebKit {
 
 void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& parameters)
 {
-#if !LOG_DISABLED || !RELEASE_LOG_DISABLED
-    WTF::logChannels().initializeLogChannelsIfNecessary(parameters.wtfLoggingChannels);
-    WebCore::logChannels().initializeLogChannelsIfNecessary(parameters.webCoreLoggingChannels);
-    WebKit::logChannels().initializeLogChannelsIfNecessary(parameters.webKitLoggingChannels);
-#else
-    UNUSED_PARAM(parameters);
-#endif
+    applyProcessCreationParameters(parameters.auxiliaryProcessParameters);
 }
 
 void WebProcess::platformInitializeProcess(const AuxiliaryProcessInitializationParameters&)

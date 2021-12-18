@@ -35,11 +35,19 @@ public:
     float diffuseConstant() const { return m_diffuseConstant; }
     bool setDiffuseConstant(float);
 
-    WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
+    WTF::TextStream& externalRepresentation(WTF::TextStream&, FilterRepresentation) const override;
+
+    template<class Decoder> static std::optional<Ref<FEDiffuseLighting>> decode(Decoder&);
 
 private:
     FEDiffuseLighting(const Color& lightingColor, float surfaceScale, float diffuseConstant, float kernelUnitLengthX, float kernelUnitLengthY, Ref<LightSource>&&);
 };
+
+template<class Decoder>
+std::optional<Ref<FEDiffuseLighting>> FEDiffuseLighting::decode(Decoder& decoder)
+{
+    return FELighting::decode<Decoder, FEDiffuseLighting>(decoder);
+}
 
 } // namespace WebCore
 

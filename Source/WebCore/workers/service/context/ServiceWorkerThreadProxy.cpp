@@ -56,13 +56,9 @@ static URL topOriginURL(const SecurityOrigin& origin)
     return URL { URL { }, origin.toRawString() };
 }
 
-static inline UniqueRef<Page> createPageForServiceWorker(PageConfiguration&& configuration, const ServiceWorkerContextData& data, StorageBlockingPolicy storageBlockingPolicy)
+void ServiceWorkerThreadProxy::setupPageForServiceWorker(Page& page, const ServiceWorkerContextData& data)
 {
-    auto page = makeUniqueRef<Page>(WTFMove(configuration));
-
-    page->settings().setStorageBlockingPolicy(storageBlockingPolicy);
-
-    auto& mainFrame = page->mainFrame();
+    auto& mainFrame = page.mainFrame();
     mainFrame.loader().initForSynthesizedDocument({ });
     auto document = Document::createNonRenderedPlaceholder(mainFrame, data.scriptURL);
     document->createDOMWindow();
@@ -70,7 +66,7 @@ static inline UniqueRef<Page> createPageForServiceWorker(PageConfiguration&& con
     document->storageBlockingStateDidChange();
 
     auto origin = data.registration.key.topOrigin().securityOrigin();
-    origin->setStorageBlockingPolicy(storageBlockingPolicy);
+    origin->setStorageBlockingPolicy(page.settings().storageBlockingPolicy());
 
     document->setSiteForCookies(topOriginURL(origin));
     document->setFirstPartyForCookies(topOriginURL(origin));
@@ -80,7 +76,6 @@ static inline UniqueRef<Page> createPageForServiceWorker(PageConfiguration&& con
         document->setReferrerPolicy(*policy);
 
     mainFrame.setDocument(WTFMove(document));
-    return page;
 }
 
 static inline IDBClient::IDBConnectionProxy* idbConnectionProxy(Document& document)
@@ -94,8 +89,8 @@ static HashSet<ServiceWorkerThreadProxy*>& allServiceWorkerThreadProxies()
     return set;
 }
 
-ServiceWorkerThreadProxy::ServiceWorkerThreadProxy(PageConfiguration&& pageConfiguration, ServiceWorkerContextData&& contextData, ServiceWorkerData&& workerData, String&& userAgent, WorkerThreadMode workerThreadMode, CacheStorageProvider& cacheStorageProvider, StorageBlockingPolicy storageBlockingPolicy)
-    : m_page(createPageForServiceWorker(WTFMove(pageConfiguration), contextData, storageBlockingPolicy))
+ServiceWorkerThreadProxy::ServiceWorkerThreadProxy(UniqueRef<Page>&& page, ServiceWorkerContextData&& contextData, ServiceWorkerData&& workerData, String&& userAgent, WorkerThreadMode workerThreadMode, CacheStorageProvider& cacheStorageProvider)
+    : m_page(WTFMove(page))
     , m_document(*m_page->mainFrame().document())
 #if ENABLE(REMOTE_INSPECTOR)
     , m_remoteDebuggable(makeUnique<ServiceWorkerDebuggable>(*this, contextData))
@@ -215,7 +210,7 @@ void ServiceWorkerThreadProxy::notifyNetworkStateChange(bool isOnline)
     }, WorkerRunLoop::defaultMode());
 }
 
-void ServiceWorkerThreadProxy::startFetch(SWServerConnectionIdentifier connectionIdentifier, FetchIdentifier fetchIdentifier, Ref<ServiceWorkerFetch::Client>&& client, std::optional<ScriptExecutionContextIdentifier>&& clientId, ResourceRequest&& request, String&& referrer, FetchOptions&& options)
+void ServiceWorkerThreadProxy::startFetch(SWServerConnectionIdentifier connectionIdentifier, FetchIdentifier fetchIdentifier, Ref<ServiceWorkerFetch::Client>&& client, std::optional<ScriptExecutionContextIdentifier>&& clientId, ResourceRequest&& request, String&& referrer, FetchOptions&& options, bool isServiceWorkerNavigationPreloadEnabled)
 {
     RELEASE_LOG(ServiceWorker, "ServiceWorkerThreadProxy::startFetch %llu", fetchIdentifier.toUInt64());
 
@@ -226,8 +221,8 @@ void ServiceWorkerThreadProxy::startFetch(SWServerConnectionIdentifier connectio
 
     ASSERT(!m_ongoingFetchTasks.contains(key));
     m_ongoingFetchTasks.add(key, client.copyRef());
-    postTaskForModeToWorkerOrWorkletGlobalScope([this, protectedThis = Ref { *this }, client = WTFMove(client), clientId, request = request.isolatedCopy(), referrer = referrer.isolatedCopy(), options = options.isolatedCopy()](auto&) mutable {
-        thread().queueTaskToFireFetchEvent(WTFMove(client), WTFMove(clientId), WTFMove(request), WTFMove(referrer), WTFMove(options));
+    postTaskForModeToWorkerOrWorkletGlobalScope([this, protectedThis = Ref { *this }, client = WTFMove(client), clientId, request = request.isolatedCopy(), referrer = referrer.isolatedCopy(), options = options.isolatedCopy(), fetchIdentifier, isServiceWorkerNavigationPreloadEnabled](auto&) mutable {
+        thread().queueTaskToFireFetchEvent(WTFMove(client), WTFMove(clientId), WTFMove(request), WTFMove(referrer), WTFMove(options), fetchIdentifier, isServiceWorkerNavigationPreloadEnabled);
     }, WorkerRunLoop::defaultMode());
 }
 

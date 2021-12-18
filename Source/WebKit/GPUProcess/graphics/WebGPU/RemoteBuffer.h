@@ -41,31 +41,39 @@ namespace PAL::WebGPU {
 class Buffer;
 }
 
+namespace IPC {
+class StreamServerConnection;
+}
+
 namespace WebKit {
 
 namespace WebGPU {
 class ObjectHeap;
-class ObjectRegistry;
 }
 
 class RemoteBuffer final : public IPC::StreamMessageReceiver {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<RemoteBuffer> create(PAL::WebGPU::Buffer& buffer, WebGPU::ObjectRegistry& objectRegistry, WebGPU::ObjectHeap& objectHeap, WebGPUIdentifier identifier)
+    static Ref<RemoteBuffer> create(PAL::WebGPU::Buffer& buffer, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteBuffer(buffer, objectRegistry, objectHeap, identifier));
+        return adoptRef(*new RemoteBuffer(buffer, objectHeap, WTFMove(streamConnection), identifier));
     }
 
     virtual ~RemoteBuffer();
 
-private:
-    friend class ObjectRegistry;
+    void stopListeningForIPC();
 
-    RemoteBuffer(PAL::WebGPU::Buffer&, WebGPU::ObjectRegistry&, WebGPU::ObjectHeap&, WebGPUIdentifier);
+private:
+    friend class WebGPU::ObjectHeap;
+
+    RemoteBuffer(PAL::WebGPU::Buffer&, WebGPU::ObjectHeap&, Ref<IPC::StreamServerConnection>&&, WebGPUIdentifier);
 
     RemoteBuffer(const RemoteBuffer&) = delete;
     RemoteBuffer(RemoteBuffer&&) = delete;
     RemoteBuffer& operator=(const RemoteBuffer&) = delete;
     RemoteBuffer& operator=(RemoteBuffer&&) = delete;
+
+    PAL::WebGPU::Buffer& backing() { return m_backing; }
 
     void didReceiveStreamMessage(IPC::StreamServerConnectionBase&, IPC::Decoder&) final;
 
@@ -77,8 +85,8 @@ private:
     void setLabel(String&&);
 
     Ref<PAL::WebGPU::Buffer> m_backing;
-    WebGPU::ObjectRegistry& m_objectRegistry;
     WebGPU::ObjectHeap& m_objectHeap;
+    Ref<IPC::StreamServerConnection> m_streamConnection;
     WebGPUIdentifier m_identifier;
     bool m_isMapped { false };
     std::optional<PAL::WebGPU::Buffer::MappedRange> m_mappedRange;

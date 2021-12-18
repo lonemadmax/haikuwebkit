@@ -50,10 +50,8 @@ FEImage::FEImage(SourceImage&& sourceImage, const FloatRect& sourceImageRect, co
 {
 }
 
-void FEImage::determineAbsolutePaintRect(const Filter& filter)
+FloatRect FEImage::calculateImageRect(const Filter& filter, const FilterImageVector&, const FloatRect& primitiveSubregion) const
 {
-    auto primitiveSubregion = filterPrimitiveSubregion();
-
     auto imageRect = WTF::switchOn(m_sourceImage,
         [&] (const Ref<Image>&) {
             auto imageRect = primitiveSubregion;
@@ -65,14 +63,7 @@ void FEImage::determineAbsolutePaintRect(const Filter& filter)
             return primitiveSubregion;
         }
     );
-
-    imageRect.scale(filter.filterScale());
-
-    if (clipsToBounds())
-        imageRect.intersect(maxEffectRect());
-    else
-        imageRect.unite(maxEffectRect());
-    setAbsolutePaintRect(enclosingIntRect(imageRect));
+    return filter.clipToMaxEffectRect(imageRect, primitiveSubregion);
 }
 
 // FIXME: Move the class FEImageSoftwareApplier to separate source and header files.
@@ -121,12 +112,15 @@ std::unique_ptr<FilterEffectApplier> FEImage::createApplier(const Filter&) const
     return FilterEffectApplier::create<FEImageSoftwareApplier>(*this);
 }
 
-TextStream& FEImage::externalRepresentation(TextStream& ts, RepresentationType representation) const
+TextStream& FEImage::externalRepresentation(TextStream& ts, FilterRepresentation representation) const
 {
     ts << indent << "[feImage";
     FilterEffect::externalRepresentation(ts, representation);
-    ts << " image-size=\"" << m_sourceImageRect.width() << "x" << m_sourceImageRect.height() << "\"]\n";
+
+    ts << " image-size=\"" << m_sourceImageRect.width() << "x" << m_sourceImageRect.height() << "\"";
     // FIXME: should this dump also object returned by SVGFEImage::image() ?
+
+    ts << "]\n";
     return ts;
 }
 

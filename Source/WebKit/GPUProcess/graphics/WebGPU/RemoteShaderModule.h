@@ -39,31 +39,39 @@ namespace PAL::WebGPU {
 class ShaderModule;
 }
 
+namespace IPC {
+class StreamServerConnection;
+}
+
 namespace WebKit {
 
 namespace WebGPU {
 class ObjectHeap;
-class ObjectRegistry;
 }
 
 class RemoteShaderModule final : public IPC::StreamMessageReceiver {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<RemoteShaderModule> create(PAL::WebGPU::ShaderModule& shaderModule, WebGPU::ObjectRegistry& objectRegistry, WebGPU::ObjectHeap& objectHeap, WebGPUIdentifier identifier)
+    static Ref<RemoteShaderModule> create(PAL::WebGPU::ShaderModule& shaderModule, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteShaderModule(shaderModule, objectRegistry, objectHeap, identifier));
+        return adoptRef(*new RemoteShaderModule(shaderModule, objectHeap, WTFMove(streamConnection), identifier));
     }
 
     virtual ~RemoteShaderModule();
 
-private:
-    friend class ObjectRegistry;
+    void stopListeningForIPC();
 
-    RemoteShaderModule(PAL::WebGPU::ShaderModule&, WebGPU::ObjectRegistry&, WebGPU::ObjectHeap&, WebGPUIdentifier);
+private:
+    friend class WebGPU::ObjectHeap;
+
+    RemoteShaderModule(PAL::WebGPU::ShaderModule&, WebGPU::ObjectHeap&, Ref<IPC::StreamServerConnection>&&, WebGPUIdentifier);
 
     RemoteShaderModule(const RemoteShaderModule&) = delete;
     RemoteShaderModule(RemoteShaderModule&&) = delete;
     RemoteShaderModule& operator=(const RemoteShaderModule&) = delete;
     RemoteShaderModule& operator=(RemoteShaderModule&&) = delete;
+
+    PAL::WebGPU::ShaderModule& backing() { return m_backing; }
 
     void didReceiveStreamMessage(IPC::StreamServerConnectionBase&, IPC::Decoder&) final;
 
@@ -72,8 +80,8 @@ private:
     void setLabel(String&&);
 
     Ref<PAL::WebGPU::ShaderModule> m_backing;
-    WebGPU::ObjectRegistry& m_objectRegistry;
     WebGPU::ObjectHeap& m_objectHeap;
+    Ref<IPC::StreamServerConnection> m_streamConnection;
     WebGPUIdentifier m_identifier;
 };
 

@@ -51,7 +51,7 @@ public:
     template<typename CellType, SubspaceAccess mode>
     static IsoSubspace* subspaceFor(VM& vm)
     {
-        return &vm.propertyNameEnumeratorSpace;
+        return &vm.propertyNameEnumeratorSpace();
     }
 
     static JSPropertyNameEnumerator* create(VM&, Structure*, uint32_t, uint32_t, PropertyNameArray&&);
@@ -72,9 +72,10 @@ public:
 
     Structure* cachedStructure(VM& vm) const
     {
+        UNUSED_PARAM(vm);
         if (!m_cachedStructureID)
             return nullptr;
-        return vm.heap.structureIDTable().get(m_cachedStructureID);
+        return m_cachedStructureID.decode();
     }
     StructureID cachedStructureID() const { return m_cachedStructureID; }
     uint32_t indexedLength() const { return m_indexedLength; }

@@ -28,6 +28,7 @@
 
 #if ENABLE(ASYNC_SCROLLING) && ENABLE(SCROLLING_THREAD)
 
+#include "AnimationFrameRate.h"
 #include "AsyncScrollingCoordinator.h"
 #include "Logging.h"
 #include "PlatformWheelEvent.h"
@@ -355,12 +356,16 @@ void ThreadedScrollingTree::willStartRenderingUpdate()
     m_state = SynchronizationState::InRenderingUpdate;
 }
 
+Seconds ThreadedScrollingTree::frameDuration()
+{
+    auto displayFPS = nominalFramesPerSecond().value_or(FullSpeedFramesPerSecond);
+    return 1_s / (double)displayFPS;
+}
+
 Seconds ThreadedScrollingTree::maxAllowableRenderingUpdateDurationForSynchronization()
 {
     constexpr double allowableFrameFraction = 0.5;
-    auto displayFPS = nominalFramesPerSecond().value_or(60);
-    Seconds frameDuration = 1_s / (double)displayFPS;
-    return allowableFrameFraction * frameDuration;
+    return allowableFrameFraction * frameDuration();
 }
 
 void ThreadedScrollingTree::hasNodeWithAnimatedScrollChanged(bool hasNodeWithAnimatedScroll)
@@ -370,7 +375,7 @@ void ThreadedScrollingTree::hasNodeWithAnimatedScrollChanged(bool hasNodeWithAni
     });
 }
 
-void ThreadedScrollingTree::serviceScrollAnimations()
+void ThreadedScrollingTree::serviceScrollAnimations(MonotonicTime currentTime)
 {
     ASSERT(ScrollingThread::isCurrentThread());
 
@@ -379,7 +384,7 @@ void ThreadedScrollingTree::serviceScrollAnimations()
         if (!is<ScrollingTreeScrollingNode>(targetNode))
             continue;
 
-        downcast<ScrollingTreeScrollingNode>(*targetNode).serviceScrollAnimation();
+        downcast<ScrollingTreeScrollingNode>(*targetNode).serviceScrollAnimation(currentTime);
     }
 }
 
@@ -397,8 +402,9 @@ void ThreadedScrollingTree::waitForRenderingUpdateCompletionOrTimeout()
     if (m_delayedRenderingUpdateDetectionTimer)
         m_delayedRenderingUpdateDetectionTimer->stop();
 
-    auto startTime = MonotonicTime::now();
-    auto timeoutTime = startTime + maxAllowableRenderingUpdateDurationForSynchronization();
+    auto currentTime = MonotonicTime::now();
+    auto estimatedNextDisplayRefreshTime = std::max(m_lastDisplayDidRefreshTime + frameDuration(), currentTime);
+    auto timeoutTime = std::min(currentTime + maxAllowableRenderingUpdateDurationForSynchronization(), estimatedNextDisplayRefreshTime);
 
     bool becameIdle = m_stateCondition.waitUntil(m_treeLock, timeoutTime, [&] {
         assertIsHeld(m_treeLock);
@@ -411,8 +417,12 @@ void ThreadedScrollingTree::waitForRenderingUpdateCompletionOrTimeout()
         m_state = SynchronizationState::Desynchronized;
         // At this point we know the main thread is taking too long in the rendering update,
         // so we give up trying to sync with the main thread and update layers here on the scrolling thread.
-        if (canUpdateLayersOnScrollingThread())
-            applyLayerPositionsInternal();
+        if (canUpdateLayersOnScrollingThread()) {
+            // Dispatch to allow for the scrolling thread to handle any outstanding wheel events before we commit layers.
+            ScrollingThread::dispatch([protectedThis = Ref { *this }]() {
+                protectedThis->applyLayerPositions();
+            });
+        }
         tracePoint(ScrollingThreadRenderUpdateSyncEnd, 1);
     } else
         tracePoint(ScrollingThreadRenderUpdateSyncEnd);
@@ -457,7 +467,9 @@ void ThreadedScrollingTree::displayDidRefreshOnScrollingThread()
 
     Locker locker { m_treeLock };
     
-    serviceScrollAnimations();
+    auto now = MonotonicTime::now();
+    m_lastDisplayDidRefreshTime = now;
+    serviceScrollAnimations(now);
 
     if (m_state != SynchronizationState::Idle && canUpdateLayersOnScrollingThread())
         applyLayerPositionsInternal();

@@ -38,32 +38,40 @@ namespace PAL::WebGPU {
 class RenderBundleEncoder;
 }
 
+namespace IPC {
+class StreamServerConnection;
+}
+
 namespace WebKit {
 
 namespace WebGPU {
 class ObjectHeap;
-class ObjectRegistry;
 struct RenderBundleDescriptor;
 }
 
 class RemoteRenderBundleEncoder final : public IPC::StreamMessageReceiver {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<RemoteRenderBundleEncoder> create(PAL::WebGPU::RenderBundleEncoder& renderBundleEncoder, WebGPU::ObjectRegistry& objectRegistry, WebGPU::ObjectHeap& objectHeap, WebGPUIdentifier identifier)
+    static Ref<RemoteRenderBundleEncoder> create(PAL::WebGPU::RenderBundleEncoder& renderBundleEncoder, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteRenderBundleEncoder(renderBundleEncoder, objectRegistry, objectHeap, identifier));
+        return adoptRef(*new RemoteRenderBundleEncoder(renderBundleEncoder, objectHeap, WTFMove(streamConnection), identifier));
     }
 
     ~RemoteRenderBundleEncoder();
 
-private:
-    friend class ObjectRegistry;
+    void stopListeningForIPC();
 
-    RemoteRenderBundleEncoder(PAL::WebGPU::RenderBundleEncoder&, WebGPU::ObjectRegistry&, WebGPU::ObjectHeap&, WebGPUIdentifier);
+private:
+    friend class WebGPU::ObjectHeap;
+
+    RemoteRenderBundleEncoder(PAL::WebGPU::RenderBundleEncoder&, WebGPU::ObjectHeap&, Ref<IPC::StreamServerConnection>&&, WebGPUIdentifier);
 
     RemoteRenderBundleEncoder(const RemoteRenderBundleEncoder&) = delete;
     RemoteRenderBundleEncoder(RemoteRenderBundleEncoder&&) = delete;
     RemoteRenderBundleEncoder& operator=(const RemoteRenderBundleEncoder&) = delete;
     RemoteRenderBundleEncoder& operator=(RemoteRenderBundleEncoder&&) = delete;
+
+    PAL::WebGPU::RenderBundleEncoder& backing() { return m_backing; }
 
     void didReceiveStreamMessage(IPC::StreamServerConnectionBase&, IPC::Decoder&) final;
 
@@ -94,8 +102,8 @@ private:
     void setLabel(String&&);
 
     Ref<PAL::WebGPU::RenderBundleEncoder> m_backing;
-    WebGPU::ObjectRegistry& m_objectRegistry;
     WebGPU::ObjectHeap& m_objectHeap;
+    Ref<IPC::StreamServerConnection> m_streamConnection;
     WebGPUIdentifier m_identifier;
 };
 

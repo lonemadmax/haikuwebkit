@@ -156,7 +156,15 @@ RefPtr<AccessibilityUIElement> AccessibilityUIElement::disclosedRowAtIndex(unsig
 
 RefPtr<AccessibilityUIElement> AccessibilityUIElement::rowAtIndex(unsigned index)
 {
-    return nullptr;
+    if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Table))
+        return nullptr;
+
+    m_element->updateBackingStore();
+    auto rows = m_element->rows();
+    if (index >= rows.size())
+        return nullptr;
+
+    return AccessibilityUIElement::create(rows[index].get());
 }
 
 RefPtr<AccessibilityUIElement> AccessibilityUIElement::selectedChildAtIndex(unsigned index) const
@@ -211,12 +219,12 @@ RefPtr<AccessibilityUIElement> AccessibilityUIElement::disclosedByRow()
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::attributesOfLinkedUIElements()
 {
-    return JSStringCreateWithCharacters(0, 0);
+    return JSStringCreateWithCharacters(nullptr, 0);
 }
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::attributesOfDocumentLinks()
 {
-    return JSStringCreateWithCharacters(0, 0);
+    return JSStringCreateWithCharacters(nullptr, 0);
 }
 
 static String attributesOfElement(AccessibilityUIElement& element)
@@ -296,6 +304,21 @@ static String attributesOfElements(Vector<RefPtr<AccessibilityUIElement>>& eleme
     return builder.toString();
 }
 
+static Vector<RefPtr<AccessibilityUIElement>> elementsVector(const Vector<RefPtr<WebCore::AccessibilityObjectAtspi>>& wrappers)
+{
+    Vector<RefPtr<AccessibilityUIElement>> elements;
+    elements.reserveInitialCapacity(wrappers.size());
+    for (auto& wrapper : wrappers)
+        elements.uncheckedAppend(AccessibilityUIElement::create(wrapper.get()));
+    return elements;
+}
+
+static String attributesOfElements(const Vector<RefPtr<WebCore::AccessibilityObjectAtspi>>& wrappers)
+{
+    auto elements = elementsVector(wrappers);
+    return attributesOfElements(elements);
+}
+
 JSRetainPtr<JSStringRef> AccessibilityUIElement::attributesOfChildren()
 {
     m_element->updateBackingStore();
@@ -306,12 +329,7 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::attributesOfChildren()
         children = m_element->children();
     });
 
-    Vector<RefPtr<AccessibilityUIElement>> elements;
-    elements.reserveInitialCapacity(children.size());
-    for (auto& child : children)
-        elements.uncheckedAppend(AccessibilityUIElement::create(child.get()));
-
-    return OpaqueJSString::tryCreate(attributesOfElements(elements)).leakRef();
+    return OpaqueJSString::tryCreate(attributesOfElements(children)).leakRef();
 }
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::allAttributes()
@@ -321,7 +339,7 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::allAttributes()
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::stringDescriptionOfAttributeValue(JSStringRef attribute)
 {
-    return JSStringCreateWithCharacters(0, 0);
+    return JSStringCreateWithCharacters(nullptr, 0);
 }
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::stringAttributeValue(JSStringRef attribute)
@@ -329,7 +347,7 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::stringAttributeValue(JSStringRe
     String attributeName = toWTFString(attribute);
     if (attributeName == "AXSelectedText") {
         if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Text))
-            return JSStringCreateWithCharacters(0, 0);
+            return JSStringCreateWithCharacters(nullptr, 0);
 
         m_element->updateBackingStore();
         auto text = m_element->text();
@@ -341,7 +359,7 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::stringAttributeValue(JSStringRe
     if (attributeName == "AXPlaceholderValue")
         return OpaqueJSString::tryCreate(attributes.get("placeholder-text")).leakRef();
 
-    return JSStringCreateWithCharacters(0, 0);
+    return JSStringCreateWithCharacters(nullptr, 0);
 }
 
 double AccessibilityUIElement::numberAttributeValue(JSStringRef attribute)
@@ -352,6 +370,18 @@ double AccessibilityUIElement::numberAttributeValue(JSStringRef attribute)
         return attributes.get("setsize").toDouble();
     if (attributeName == "AXARIAPosInSet")
         return attributes.get("posinset").toDouble();
+    if (attributeName == "AXARIAColumnCount")
+        return attributes.get("colcount").toDouble();
+    if (attributeName == "AXARIARowCount")
+        return attributes.get("rowcount").toDouble();
+    if (attributeName == "AXARIAColumnIndex")
+        return attributes.get("colindex").toDouble();
+    if (attributeName == "AXARIARowIndex")
+        return attributes.get("rowindex").toDouble();
+    if (attributeName == "AXARIAColumnSpan")
+        return attributes.get("colspan").toDouble();
+    if (attributeName == "AXARIARowSpan")
+        return attributes.get("rowspan").toDouble();
 
     return 0;
 }
@@ -361,14 +391,51 @@ JSValueRef AccessibilityUIElement::uiElementArrayAttributeValue(JSStringRef attr
     return nullptr;
 }
 
+static JSValueRef makeJSArray(const Vector<RefPtr<AccessibilityUIElement>>& elements)
+{
+    WKBundleFrameRef mainFrame = WKBundlePageGetMainFrame(InjectedBundle::singleton().page()->page());
+    JSContextRef context = WKBundleFrameGetJavaScriptContext(mainFrame);
+
+    size_t elementCount = elements.size();
+    auto valueElements = makeUniqueArray<JSValueRef>(elementCount);
+    for (size_t i = 0; i < elementCount; i++)
+        valueElements[i] = JSObjectMake(context, elements[i]->wrapperClass(), elements[i].get());
+
+    return JSObjectMakeArray(context, elementCount, valueElements.get(), nullptr);
+}
+
 JSValueRef AccessibilityUIElement::rowHeaders() const
 {
-    return nullptr;
+    if (m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Table))
+        return makeJSArray(elementsVector(m_element->rowHeaders()));
+
+    if (m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::TableCell)) {
+        Vector<RefPtr<WebCore::AccessibilityObjectAtspi>> headers;
+        s_controller->executeOnAXThreadAndWait([this, &headers] {
+            m_element->updateBackingStore();
+            headers = m_element->cellRowHeaders();
+        });
+        return makeJSArray(elementsVector(headers));
+    }
+
+    return makeJSArray({ });
 }
 
 JSValueRef AccessibilityUIElement::columnHeaders() const
 {
-    return nullptr;
+    if (m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Table))
+        return makeJSArray(elementsVector(m_element->columnHeaders()));
+
+    if (m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::TableCell)) {
+        Vector<RefPtr<WebCore::AccessibilityObjectAtspi>> headers;
+        s_controller->executeOnAXThreadAndWait([this, &headers] {
+            m_element->updateBackingStore();
+            headers = m_element->cellColumnHeaders();
+        });
+        return makeJSArray(elementsVector(headers));
+    }
+
+    return makeJSArray({ });
 }
 
 RefPtr<AccessibilityUIElement> AccessibilityUIElement::uiElementAttributeValue(JSStringRef attribute) const
@@ -434,7 +501,7 @@ bool AccessibilityUIElement::isAttributeSupported(JSStringRef attribute)
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::parameterizedAttributeNames()
 {
-    return JSStringCreateWithCharacters(0, 0);
+    return JSStringCreateWithCharacters(nullptr, 0);
 }
 
 static String roleValueToString(unsigned roleValue)
@@ -617,14 +684,14 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::role()
     });
     auto roleValueString = roleValueToString(roleValue);
     if (roleValueString.isEmpty())
-        return JSStringCreateWithCharacters(0, 0);
+        return JSStringCreateWithCharacters(nullptr, 0);
 
     return OpaqueJSString::tryCreate(makeString("AXRole: ", roleValueString)).leakRef();
 }
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::subrole()
 {
-    return JSStringCreateWithCharacters(0, 0);
+    return JSStringCreateWithCharacters(nullptr, 0);
 }
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::roleDescription()
@@ -637,7 +704,7 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::computedRoleString()
 {
     auto computedRole = m_element->attributes().get("computed-role");
     if (computedRole.isEmpty())
-        return JSStringCreateWithCharacters(0, 0);
+        return JSStringCreateWithCharacters(nullptr, 0);
 
     return OpaqueJSString::tryCreate(computedRole).leakRef();
 }
@@ -683,7 +750,7 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::orientation() const
 JSRetainPtr<JSStringRef> AccessibilityUIElement::stringValue()
 {
     if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Text))
-        return JSStringCreateWithCharacters(0, 0);
+        return JSStringCreateWithCharacters(nullptr, 0);
 
     m_element->updateBackingStore();
     auto value = makeString("AXValue: ", m_element->text().replace("\n", "<\\n>").replace(objectReplacementCharacter, "<obj>"));
@@ -695,7 +762,7 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::language()
     m_element->updateBackingStore();
     auto locale = m_element->locale();
     if (locale.isEmpty())
-        return JSStringCreateWithCharacters(0, 0);
+        return JSStringCreateWithCharacters(nullptr, 0);
 
     return OpaqueJSString::tryCreate(makeString("AXLanguage: ", locale)).leakRef();
 }
@@ -705,7 +772,7 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::helpText() const
     auto relationMap = m_element->relationMap();
     auto targets = relationMap.get(WebCore::Atspi::Relation::DescribedBy);
     if (targets.isEmpty())
-        return JSStringCreateWithCharacters(0, 0);
+        return JSStringCreateWithCharacters(nullptr, 0);
 
     StringBuilder builder;
     builder.append("AXHelp: ");
@@ -873,7 +940,7 @@ int AccessibilityUIElement::hierarchicalLevel() const
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::speakAs()
 {
-    return JSStringCreateWithCharacters(0, 0);
+    return JSStringCreateWithCharacters(nullptr, 0);
 }
 
 bool AccessibilityUIElement::ariaIsGrabbed() const
@@ -885,7 +952,7 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::ariaDropEffects() const
 {
     auto dropEffects = m_element->attributes().get("dropeffect");
     if (dropEffects.isEmpty())
-        return JSStringCreateWithCharacters(0, 0);
+        return JSStringCreateWithCharacters(nullptr, 0);
     return OpaqueJSString::tryCreate(dropEffects).leakRef();
 }
 
@@ -911,7 +978,7 @@ int AccessibilityUIElement::lineForIndex(int index)
 JSRetainPtr<JSStringRef> AccessibilityUIElement::rangeForLine(int line)
 {
     if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Text))
-        return JSStringCreateWithCharacters(0, 0);
+        return JSStringCreateWithCharacters(nullptr, 0);
 
     WebCore::IntPoint offset;
     for (int i = 0; i <= line; ++i)
@@ -923,13 +990,13 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::rangeForLine(int line)
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::rangeForPosition(int x, int y)
 {
-    return JSStringCreateWithCharacters(0, 0);
+    return JSStringCreateWithCharacters(nullptr, 0);
 }
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::boundsForRange(unsigned location, unsigned length)
 {
     if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Text))
-        return JSStringCreateWithCharacters(0, 0);
+        return JSStringCreateWithCharacters(nullptr, 0);
 
     auto rect = m_element->boundsForRange(location, length, WebCore::Atspi::CoordinateType::WindowCoordinates);
     auto bounds = makeString('{', rect.x(), ", ", rect.y(), ", ", rect.width(), ", ", rect.height(), '}');
@@ -939,7 +1006,7 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::boundsForRange(unsigned locatio
 JSRetainPtr<JSStringRef> AccessibilityUIElement::stringForRange(unsigned location, unsigned length)
 {
     if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Text))
-        return JSStringCreateWithCharacters(0, 0);
+        return JSStringCreateWithCharacters(nullptr, 0);
 
     m_element->updateBackingStore();
     return OpaqueJSString::tryCreate(m_element->text().substring(location, length)).leakRef();
@@ -948,7 +1015,7 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::stringForRange(unsigned locatio
 JSRetainPtr<JSStringRef> AccessibilityUIElement::attributedStringForRange(unsigned location, unsigned length)
 {
     if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Text))
-        return JSStringCreateWithCharacters(0, 0);
+        return JSStringCreateWithCharacters(nullptr, 0);
 
     StringBuilder builder;
 
@@ -998,42 +1065,74 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::selectTextWithCriteria(JSContex
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::attributesOfColumnHeaders()
 {
-    return JSStringCreateWithCharacters(0, 0);
+    if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Table))
+        return JSStringCreateWithCharacters(nullptr, 0);
+
+    m_element->updateBackingStore();
+    return OpaqueJSString::tryCreate(attributesOfElements(m_element->columnHeaders())).leakRef();
 }
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::attributesOfRowHeaders()
 {
-    return JSStringCreateWithCharacters(0, 0);
+    if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Table))
+        return JSStringCreateWithCharacters(nullptr, 0);
+
+    m_element->updateBackingStore();
+    return OpaqueJSString::tryCreate(attributesOfElements(m_element->rowHeaders())).leakRef();
 }
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::attributesOfColumns()
 {
-    return JSStringCreateWithCharacters(0, 0);
+    return JSStringCreateWithCharacters(nullptr, 0);
 }
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::attributesOfRows()
 {
-    return JSStringCreateWithCharacters(0, 0);
+    if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Table))
+        return JSStringCreateWithCharacters(nullptr, 0);
+
+    m_element->updateBackingStore();
+    return OpaqueJSString::tryCreate(attributesOfElements(m_element->rows())).leakRef();
 }
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::attributesOfVisibleCells()
 {
-    return JSStringCreateWithCharacters(0, 0);
+    if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Table))
+        return JSStringCreateWithCharacters(nullptr, 0);
+
+    m_element->updateBackingStore();
+    return OpaqueJSString::tryCreate(attributesOfElements(m_element->cells())).leakRef();
 }
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::attributesOfHeader()
 {
-    return JSStringCreateWithCharacters(0, 0);
+    return JSStringCreateWithCharacters(nullptr, 0);
 }
 
 int AccessibilityUIElement::rowCount()
 {
-    return 0;
+    if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Table))
+        return 0;
+
+    int count;
+    s_controller->executeOnAXThreadAndWait([this, &count] {
+        m_element->updateBackingStore();
+        count = m_element->rowCount();
+    });
+    return count;
 }
 
 int AccessibilityUIElement::columnCount()
 {
-    return 0;
+    if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Table))
+        return 0;
+
+    int count;
+    s_controller->executeOnAXThreadAndWait([this, &count] {
+        m_element->updateBackingStore();
+        count = m_element->columnCount();
+    });
+    return count;
 }
 
 int AccessibilityUIElement::indexInTable()
@@ -1043,17 +1142,54 @@ int AccessibilityUIElement::indexInTable()
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::rowIndexRange()
 {
-    return JSStringCreateWithCharacters(0, 0);
+    if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::TableCell))
+        return JSStringCreateWithCharacters(nullptr, 0);
+
+    std::optional<unsigned> position, span;
+    s_controller->executeOnAXThreadAndWait([this, &position, &span] {
+        m_element->updateBackingStore();
+        position = m_element->cellPosition().first;
+        span = m_element->rowSpan();
+    });
+
+    if (!position || !span)
+        return JSStringCreateWithCharacters(nullptr, 0);
+
+    return OpaqueJSString::tryCreate(makeString('{', *position, ", ", *span, '}')).leakRef();
 }
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::columnIndexRange()
 {
-    return JSStringCreateWithCharacters(0, 0);
+    if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::TableCell))
+        return JSStringCreateWithCharacters(nullptr, 0);
+
+    std::optional<unsigned> position, span;
+    s_controller->executeOnAXThreadAndWait([this, &position, &span] {
+        m_element->updateBackingStore();
+        position = m_element->cellPosition().second;
+        span = m_element->columnSpan();
+    });
+
+    if (!position || !span)
+        return JSStringCreateWithCharacters(nullptr, 0);
+
+    return OpaqueJSString::tryCreate(makeString('{', *position, ", ", *span, '}')).leakRef();
 }
 
-RefPtr<AccessibilityUIElement> AccessibilityUIElement::cellForColumnAndRow(unsigned col, unsigned row)
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::cellForColumnAndRow(unsigned column, unsigned row)
 {
-    return nullptr;
+    if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Table))
+        return nullptr;
+
+    RefPtr<WebCore::AccessibilityObjectAtspi> cell;
+    s_controller->executeOnAXThreadAndWait([this, &cell, column, row] {
+        m_element->updateBackingStore();
+        cell = m_element->cell(row, column);
+    });
+    if (!cell)
+        return nullptr;
+
+    return AccessibilityUIElement::create(cell.get());
 }
 
 RefPtr<AccessibilityUIElement> AccessibilityUIElement::horizontalScrollbar() const
@@ -1069,7 +1205,7 @@ RefPtr<AccessibilityUIElement> AccessibilityUIElement::verticalScrollbar() const
 JSRetainPtr<JSStringRef> AccessibilityUIElement::selectedTextRange()
 {
     if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Text))
-        return JSStringCreateWithCharacters(0, 0);
+        return JSStringCreateWithCharacters(nullptr, 0);
 
     auto offset = m_element->selectedRange();
     auto range = makeString('{', offset.x(), ", ", offset.y() - offset.x(), '}');
@@ -1142,13 +1278,13 @@ void AccessibilityUIElement::clearSelectedChildren() const
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::accessibilityValue() const
 {
-    return JSStringCreateWithCharacters(0, 0);
+    return JSStringCreateWithCharacters(nullptr, 0);
 }
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::documentEncoding()
 {
     if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Document))
-        return JSStringCreateWithCharacters(0, 0);
+        return JSStringCreateWithCharacters(nullptr, 0);
 
     return OpaqueJSString::tryCreate(m_element->documentAttribute("Encoding")).leakRef();
 }
@@ -1156,7 +1292,7 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::documentEncoding()
 JSRetainPtr<JSStringRef> AccessibilityUIElement::documentURI()
 {
     if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Document))
-        return JSStringCreateWithCharacters(0, 0);
+        return JSStringCreateWithCharacters(nullptr, 0);
 
     return OpaqueJSString::tryCreate(m_element->documentAttribute("URI")).leakRef();
 }
@@ -1164,7 +1300,7 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::documentURI()
 JSRetainPtr<JSStringRef> AccessibilityUIElement::url()
 {
     if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Hyperlink))
-        return JSStringCreateWithCharacters(0, 0);
+        return JSStringCreateWithCharacters(nullptr, 0);
 
     m_element->updateBackingStore();
     auto axURL = m_element->url();
@@ -1287,12 +1423,12 @@ RefPtr<AccessibilityTextMarker> AccessibilityUIElement::nextTextMarker(Accessibi
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::stringForTextMarkerRange(AccessibilityTextMarkerRange* markerRange)
 {
-    return JSStringCreateWithCharacters(0, 0);
+    return JSStringCreateWithCharacters(nullptr, 0);
 }
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::rectsForTextMarkerRange(AccessibilityTextMarkerRange* markerRange, JSStringRef searchText)
 {
-    return JSStringCreateWithCharacters(0, 0);
+    return JSStringCreateWithCharacters(nullptr, 0);
 }
 
 RefPtr<AccessibilityTextMarkerRange> AccessibilityUIElement::textMarkerRangeForMarkers(AccessibilityTextMarker* startMarker, AccessibilityTextMarker* endMarker)
@@ -1433,12 +1569,12 @@ static String stringAtOffset(WebCore::AccessibilityObjectAtspi* element, int off
 JSRetainPtr<JSStringRef> AccessibilityUIElement::characterAtOffset(int offset)
 {
     if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Text))
-        return JSStringCreateWithCharacters(0, 0);
+        return JSStringCreateWithCharacters(nullptr, 0);
 
     m_element->updateBackingStore();
     auto text = m_element->text();
     if (offset < 0 || offset > static_cast<int>(text.length()))
-        return JSStringCreateWithCharacters(0, 0);
+        return JSStringCreateWithCharacters(nullptr, 0);
 
     auto string = makeString(text.substring(offset, 1), ", ", offset, ", ", offset + 1);
     return OpaqueJSString::tryCreate(string).leakRef();

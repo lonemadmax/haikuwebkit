@@ -37,6 +37,7 @@
 #include "APIPageConfiguration.h"
 #include "APIProcessPoolConfiguration.h"
 #include "AuxiliaryProcessMessages.h"
+#include "AuxiliaryProcessProxy.h"
 #include "DownloadProxy.h"
 #include "DownloadProxyMessages.h"
 #include "GPUProcessConnectionInfo.h"
@@ -130,7 +131,6 @@
 #endif
 
 #if PLATFORM(COCOA)
-#include "AudioComponentRegistration.h"
 #include "DefaultWebBrowserChecks.h"
 #include <WebCore/GameControllerGamepadProvider.h>
 #include <WebCore/HIDGamepadProvider.h>
@@ -777,6 +777,7 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
     });
 
     WebProcessCreationParameters parameters;
+    parameters.auxiliaryProcessParameters = AuxiliaryProcessProxy::auxiliaryProcessParameters();
 
     parameters.injectedBundlePath = m_resolvedPaths.injectedBundlePath;
     if (!parameters.injectedBundlePath.isEmpty()) {
@@ -879,7 +880,7 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
 #endif
 
 #if PLATFORM(COCOA)
-    sendAudioComponentRegistrations<Messages::WebProcess::ConsumeAudioComponentRegistrations>(process);
+    process.sendAudioComponentRegistrations();
 #endif
 
 #if PLATFORM(MAC)

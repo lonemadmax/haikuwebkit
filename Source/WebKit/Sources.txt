@@ -53,7 +53,6 @@ GPUProcess/graphics/WebGPU/RemoteShaderModule.cpp
 GPUProcess/graphics/WebGPU/RemoteTexture.cpp
 GPUProcess/graphics/WebGPU/RemoteTextureView.cpp
 GPUProcess/graphics/WebGPU/WebGPUObjectHeap.cpp
-GPUProcess/graphics/WebGPU/WebGPUObjectRegistry.cpp
 GPUProcess/media/RemoteAudioHardwareListenerProxy.cpp
 GPUProcess/media/RemoteAudioSessionProxy.cpp
 GPUProcess/media/RemoteAudioSessionProxyManager.cpp
@@ -135,6 +134,7 @@ NetworkProcess/PrivateClickMeasurement/PrivateClickMeasurementDaemonClient.cpp
 NetworkProcess/PrivateClickMeasurement/PrivateClickMeasurementManagerProxy.cpp
 
 NetworkProcess/ServiceWorker/ServiceWorkerFetchTask.cpp @no-unify
+NetworkProcess/ServiceWorker/ServiceWorkerNavigationPreloader.cpp
 NetworkProcess/ServiceWorker/ServiceWorkerSoftUpdateLoader.cpp
 NetworkProcess/ServiceWorker/WebSWOriginStore.cpp @no-unify
 NetworkProcess/ServiceWorker/WebSWServerConnection.cpp @no-unify
@@ -208,6 +208,7 @@ Platform/IPC/StringReference.cpp @no-unify
 Shared/AccessibilityPreferences.cpp
 Shared/ActivityAssertion.cpp @no-unify
 Shared/AuxiliaryProcess.cpp @no-unify
+Shared/AuxiliaryProcessCreationParameters.cpp @no-unify
 Shared/BlobDataFileReferenceWithSandboxExtension.cpp @no-unify
 Shared/CacheModel.cpp
 Shared/ContextMenuContextData.cpp
@@ -225,6 +226,7 @@ Shared/PlatformPopupMenuData.cpp
 Shared/PrintInfo.cpp
 Shared/RTCNetwork.cpp
 Shared/RTCPacketOptions.cpp
+Shared/ScrollingAccelerationCurve.cpp
 Shared/ServiceWorkerInitializationData.cpp
 Shared/SessionState.cpp
 Shared/ShareableBitmap.cpp @no-unify
@@ -434,6 +436,7 @@ UIProcess/WebFrameProxy.cpp
 UIProcess/WebFullScreenManagerProxy.cpp
 UIProcess/WebGeolocationManagerProxy.cpp
 UIProcess/WebGeolocationProvider.cpp
+UIProcess/WebLockRegistryProxy.cpp
 UIProcess/WebNavigationState.cpp
 UIProcess/WebOpenPanelResultListenerProxy.cpp
 UIProcess/WebPageDiagnosticLoggingClient.cpp
@@ -780,6 +783,7 @@ WebProcess/UserContent/WebUserContentController.cpp
 WebProcess/WebAuthentication/WebAuthenticatorCoordinator.cpp
 WebProcess/WebAuthentication/WebAuthnProcessConnection.cpp
 
+WebProcess/WebCoreSupport/RemoteWebLockRegistry.cpp
 WebProcess/WebCoreSupport/SessionStateConversion.cpp
 WebProcess/WebCoreSupport/ShareableBitmapUtilities.cpp
 WebProcess/WebCoreSupport/WebBroadcastChannelRegistry.cpp
@@ -813,6 +817,7 @@ WebProcess/WebPage/DrawingArea.cpp
 WebProcess/WebPage/EventDispatcher.cpp
 WebProcess/WebPage/FindController.cpp
 WebProcess/WebPage/IPCTestingAPI.cpp
+WebProcess/WebPage/MomentumEventDispatcher.cpp
 WebProcess/WebPage/PageBanner.cpp
 WebProcess/WebPage/VisitedLinkTableController.cpp
 WebProcess/WebPage/WebBackForwardListProxy.cpp
@@ -845,8 +850,6 @@ RemoteGraphicsContextGLMessageReceiver.cpp
 RemoteGraphicsContextGLProxyMessageReceiver.cpp
 PlatformXRSystemMessageReceiver.cpp
 PlatformXRSystemProxyMessageReceiver.cpp
-WebBroadcastChannelRegistryMessageReceiver.cpp
-
 RemoteAdapterMessageReceiver.cpp
 RemoteBindGroupMessageReceiver.cpp
 RemoteBindGroupLayoutMessageReceiver.cpp
@@ -858,6 +861,7 @@ RemoteComputePipelineMessageReceiver.cpp
 RemoteDeviceMessageReceiver.cpp
 RemoteExternalTextureMessageReceiver.cpp
 RemoteGPUMessageReceiver.cpp
+RemoteGPUProxyMessageReceiver.cpp
 RemotePipelineLayoutMessageReceiver.cpp
 RemoteQuerySetMessageReceiver.cpp
 RemoteQueueMessageReceiver.cpp
@@ -869,3 +873,6 @@ RemoteSamplerMessageReceiver.cpp
 RemoteShaderModuleMessageReceiver.cpp
 RemoteTextureMessageReceiver.cpp
 RemoteTextureViewMessageReceiver.cpp
+RemoteWebLockRegistryMessageReceiver.cpp
+WebBroadcastChannelRegistryMessageReceiver.cpp
+WebLockRegistryProxyMessageReceiver.cpp

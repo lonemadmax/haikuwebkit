@@ -286,32 +286,32 @@ bool HTMLInputElement::isValidValue(const String& value) const
 
 bool HTMLInputElement::tooShort() const
 {
-    return willValidate() && tooShort(value(), CheckDirtyFlag);
+    return tooShort(value(), CheckDirtyFlag);
 }
 
 bool HTMLInputElement::tooLong() const
 {
-    return willValidate() && tooLong(value(), CheckDirtyFlag);
+    return tooLong(value(), CheckDirtyFlag);
 }
 
 bool HTMLInputElement::typeMismatch() const
 {
-    return willValidate() && m_inputType->typeMismatch();
+    return m_inputType->typeMismatch();
 }
 
 bool HTMLInputElement::valueMissing() const
 {
-    return willValidate() && m_inputType->valueMissing(value());
+    return m_inputType->valueMissing(value());
 }
 
 bool HTMLInputElement::hasBadInput() const
 {
-    return willValidate() && m_inputType->hasBadInput();
+    return m_inputType->hasBadInput();
 }
 
 bool HTMLInputElement::patternMismatch() const
 {
-    return willValidate() && m_inputType->patternMismatch(value());
+    return m_inputType->patternMismatch(value());
 }
 
 bool HTMLInputElement::tooShort(StringView value, NeedsToCheckDirtyFlag check) const
@@ -355,12 +355,12 @@ bool HTMLInputElement::tooLong(StringView value, NeedsToCheckDirtyFlag check) co
 
 bool HTMLInputElement::rangeUnderflow() const
 {
-    return willValidate() && m_inputType->rangeUnderflow(value());
+    return m_inputType->rangeUnderflow(value());
 }
 
 bool HTMLInputElement::rangeOverflow() const
 {
-    return willValidate() && m_inputType->rangeOverflow(value());
+    return m_inputType->rangeOverflow(value());
 }
 
 String HTMLInputElement::validationMessage() const
@@ -386,14 +386,11 @@ double HTMLInputElement::maximum() const
 
 bool HTMLInputElement::stepMismatch() const
 {
-    return willValidate() && m_inputType->stepMismatch(value());
+    return m_inputType->stepMismatch(value());
 }
 
 bool HTMLInputElement::isValid() const
 {
-    if (!willValidate())
-        return true;
-
     String value = this->value();
     bool someError = m_inputType->isInvalid(value) || tooShort(value, CheckDirtyFlag) || tooLong(value, CheckDirtyFlag) || customError();
     return !someError;
@@ -948,10 +945,10 @@ void HTMLInputElement::setActivatedSubmit(bool flag)
     m_isActivatedSubmit = flag;
 }
 
-bool HTMLInputElement::appendFormData(DOMFormData& formData, bool multipart)
+bool HTMLInputElement::appendFormData(DOMFormData& formData)
 {
     Ref<InputType> protectedInputType(*m_inputType);
-    return m_inputType->isFormDataAppendable() && m_inputType->appendFormData(formData, multipart);
+    return m_inputType->isFormDataAppendable() && m_inputType->appendFormData(formData);
 }
 
 void HTMLInputElement::reset()
@@ -1111,12 +1108,12 @@ void HTMLInputElement::setValueInternal(const String& sanitizedValue, TextFieldE
     updateValidity();
 }
 
-double HTMLInputElement::valueAsDate() const
+WallTime HTMLInputElement::valueAsDate() const
 {
     return m_inputType->valueAsDate();
 }
 
-ExceptionOr<void> HTMLInputElement::setValueAsDate(double value)
+ExceptionOr<void> HTMLInputElement::setValueAsDate(WallTime value)
 {
     return m_inputType->setValueAsDate(value);
 }

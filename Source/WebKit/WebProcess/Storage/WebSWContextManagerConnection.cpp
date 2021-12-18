@@ -34,6 +34,7 @@
 #include "NetworkConnectionToWebProcessMessages.h"
 #include "NetworkProcessMessages.h"
 #include "RTCDataChannelRemoteManager.h"
+#include "RemoteWebLockRegistry.h"
 #include "ServiceWorkerFetchTaskMessages.h"
 #include "ServiceWorkerInitializationData.h"
 #include "WebBroadcastChannelRegistry.h"
@@ -132,9 +133,7 @@ void WebSWContextManagerConnection::establishConnection(CompletionHandler<void()
 void WebSWContextManagerConnection::updatePreferencesStore(const WebPreferencesStore& store)
 {
     WebPage::updatePreferencesGenerated(store);
-
-    m_storageBlockingPolicy = static_cast<StorageBlockingPolicy>(store.getUInt32ValueForKey(WebPreferencesKey::storageBlockingPolicyKey()));
-    setShouldUseShortTimeout(store.getBoolValueForKey(WebPreferencesKey::shouldUseServiceWorkerShortTimeoutKey()));
+    m_preferencesStore = store;
 }
 
 void WebSWContextManagerConnection::updateAppInitiatedValue(ServiceWorkerIdentifier serviceWorkerIdentifier, WebCore::LastNavigationWasAppInitiated lastNavigationWasAppInitiated)
@@ -150,6 +149,7 @@ void WebSWContextManagerConnection::installServiceWorker(ServiceWorkerContextDat
     pageConfiguration.databaseProvider = WebDatabaseProvider::getOrCreate(m_pageGroupID);
     pageConfiguration.socketProvider = WebSocketProvider::create(m_webPageProxyID);
     pageConfiguration.broadcastChannelRegistry = WebProcess::singleton().broadcastChannelRegistry();
+    pageConfiguration.webLockRegistry = WebProcess::singleton().webLockRegistry();
     pageConfiguration.userContentProvider = m_userContentController;
 #if ENABLE(WEB_RTC)
     pageConfiguration.libWebRTCProvider = makeUniqueRef<ServiceWorkerLibWebRTCProvider>();
@@ -166,7 +166,11 @@ void WebSWContextManagerConnection::installServiceWorker(ServiceWorkerContextDat
 #endif
     
     auto lastNavigationWasAppInitiated = contextData.lastNavigationWasAppInitiated;
-    auto serviceWorkerThreadProxy = ServiceWorkerThreadProxy::create(WTFMove(pageConfiguration), WTFMove(contextData), WTFMove(workerData), WTFMove(effectiveUserAgent), workerThreadMode, WebProcess::singleton().cacheStorageProvider(), m_storageBlockingPolicy);
+    auto page = makeUniqueRef<Page>(WTFMove(pageConfiguration));
+    if (m_preferencesStore)
+        WebPage::updateSettingsGenerated(*m_preferencesStore, page->settings());
+    ServiceWorkerThreadProxy::setupPageForServiceWorker(page.get(), contextData);
+    auto serviceWorkerThreadProxy = ServiceWorkerThreadProxy::create(WTFMove(page), WTFMove(contextData), WTFMove(workerData), WTFMove(effectiveUserAgent), workerThreadMode, WebProcess::singleton().cacheStorageProvider());
 
     if (lastNavigationWasAppInitiated)
         serviceWorkerThreadProxy->setLastNavigationWasAppInitiated(lastNavigationWasAppInitiated == WebCore::LastNavigationWasAppInitiated::Yes);
@@ -235,7 +239,7 @@ void WebSWContextManagerConnection::continueDidReceiveFetchResponse(SWServerConn
         serviceWorkerThreadProxy->continueDidReceiveFetchResponse(serverConnectionIdentifier, fetchIdentifier);
 }
 
-void WebSWContextManagerConnection::startFetch(SWServerConnectionIdentifier serverConnectionIdentifier, ServiceWorkerIdentifier serviceWorkerIdentifier, FetchIdentifier fetchIdentifier, ResourceRequest&& request, FetchOptions&& options, IPC::FormDataReference&& formData, String&& referrer)
+void WebSWContextManagerConnection::startFetch(SWServerConnectionIdentifier serverConnectionIdentifier, ServiceWorkerIdentifier serviceWorkerIdentifier, FetchIdentifier fetchIdentifier, ResourceRequest&& request, FetchOptions&& options, IPC::FormDataReference&& formData, String&& referrer, bool isServiceWorkerNavigationPreloadEnabled)
 {
     auto* serviceWorkerThreadProxy = SWContextManager::singleton().serviceWorkerThreadProxy(serviceWorkerIdentifier);
     if (!serviceWorkerThreadProxy) {
@@ -254,7 +258,7 @@ void WebSWContextManagerConnection::startFetch(SWServerConnectionIdentifier serv
     std::optional<ScriptExecutionContextIdentifier> clientId = options.clientIdentifier;
 
     request.setHTTPBody(formData.takeData());
-    serviceWorkerThreadProxy->startFetch(serverConnectionIdentifier, fetchIdentifier, WTFMove(client), WTFMove(clientId), WTFMove(request), WTFMove(referrer), WTFMove(options));
+    serviceWorkerThreadProxy->startFetch(serverConnectionIdentifier, fetchIdentifier, WTFMove(client), WTFMove(clientId), WTFMove(request), WTFMove(referrer), WTFMove(options), isServiceWorkerNavigationPreloadEnabled);
 }
 
 void WebSWContextManagerConnection::postMessageToServiceWorker(ServiceWorkerIdentifier destinationIdentifier, MessageWithMessagePorts&& message, ServiceWorkerOrClientData&& sourceData)

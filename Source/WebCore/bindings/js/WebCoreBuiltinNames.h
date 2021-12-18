@@ -106,6 +106,7 @@ namespace WebCore {
     macro(CSSUnparsedValue) \
     macro(CSSVariableReferenceValue) \
     macro(CustomElementRegistry) \
+    macro(CustomEffect) \
     macro(Database) \
     macro(DataTransferItem) \
     macro(DataTransferItemList) \
@@ -217,6 +218,7 @@ namespace WebCore {
     macro(MediaStreamTrack) \
     macro(MerchantValidationEvent) \
     macro(MockRTCRtpTransform) \
+    macro(NavigationPreloadManager) \
     macro(NavigatorCredentials) \
     macro(NavigatorMediaDevices) \
     macro(NavigatorPermissions) \

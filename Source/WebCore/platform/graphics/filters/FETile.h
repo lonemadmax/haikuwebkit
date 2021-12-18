@@ -28,18 +28,18 @@ namespace WebCore {
     
 class FETile : public FilterEffect {
 public:
-    static Ref<FETile> create();
+    WEBCORE_EXPORT static Ref<FETile> create();
 
 private:
     FETile();
 
-    void determineAbsolutePaintRect(const Filter&) override { setAbsolutePaintRect(enclosingIntRect(maxEffectRect())); }
+    FloatRect calculateImageRect(const Filter&, const FilterImageVector& inputs, const FloatRect& primitiveSubregion) const override;
 
-    bool resultIsAlphaImage() const override;
+    bool resultIsAlphaImage(const FilterImageVector& inputs) const override;
 
     std::unique_ptr<FilterEffectApplier> createApplier(const Filter&) const override;
 
-    WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
+    WTF::TextStream& externalRepresentation(WTF::TextStream&, FilterRepresentation) const override;
 };
 
 } // namespace WebCore

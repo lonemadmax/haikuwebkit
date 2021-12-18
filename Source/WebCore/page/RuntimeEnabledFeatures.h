@@ -167,8 +167,6 @@ public:
 
     void setReadableByteStreamAPIEnabled(bool isEnabled) { m_isReadableByteStreamAPIEnabled = isEnabled; }
     bool readableByteStreamAPIEnabled() const { return m_isReadableByteStreamAPIEnabled; }
-    void setTransformStreamAPIEnabled(bool isEnabled) { m_isTransformStreamAPIEnabled = isEnabled; }
-    bool transformStreamAPIEnabled() const { return m_isTransformStreamAPIEnabled; }
 
 #if ENABLE(SERVICE_WORKER)
     bool pushAPIEnabled() const { return m_pushAPIEnabled; }
@@ -263,9 +261,6 @@ public:
     bool modelDocumentEnabled() const { return m_modelDocumentEnabled; }
 #endif
 
-    void setWebLocksAPIEnabled(bool isEnabled) { m_webLocksAPIEnabled = isEnabled; }
-    bool webLocksAPIEnabled() const { return m_webLocksAPIEnabled; }
-
 private:
     // Never instantiate.
     RuntimeEnabledFeatures();
@@ -335,7 +330,6 @@ private:
 #endif
 
     bool m_isReadableByteStreamAPIEnabled { false };
-    bool m_isTransformStreamAPIEnabled { false };
 
 #if ENABLE(SERVICE_WORKER)
     bool m_pushAPIEnabled { false };
@@ -409,8 +403,6 @@ private:
 #if ENABLE(MODEL_ELEMENT)
     bool m_modelDocumentEnabled { false };
 #endif
-
-    bool m_webLocksAPIEnabled { false };
 
     friend class NeverDestroyed<RuntimeEnabledFeatures>;
 };

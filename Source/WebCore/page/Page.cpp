@@ -26,6 +26,7 @@
 #include "AppHighlightStorage.h"
 #include "ApplicationCacheStorage.h"
 #include "AuthenticatorCoordinator.h"
+#include "AuthenticatorCoordinatorClient.h"
 #include "BackForwardCache.h"
 #include "BackForwardClient.h"
 #include "BackForwardController.h"
@@ -138,6 +139,7 @@
 #include "SharedBuffer.h"
 #include "SocketProvider.h"
 #include "SpeechRecognitionProvider.h"
+#include "SpeechSynthesisClient.h"
 #include "StorageArea.h"
 #include "StorageNamespace.h"
 #include "StorageNamespaceProvider.h"
@@ -159,6 +161,7 @@
 #include "VisitedLinkStore.h"
 #include "VoidCallback.h"
 #include "WebCoreJSClientData.h"
+#include "WebLockRegistry.h"
 #include "WheelEventDeltaFilter.h"
 #include "WheelEventTestMonitor.h"
 #include "Widget.h"
@@ -306,6 +309,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_userContentProvider(WTFMove(pageConfiguration.userContentProvider))
     , m_visitedLinkStore(*WTFMove(pageConfiguration.visitedLinkStore))
     , m_broadcastChannelRegistry(WTFMove(pageConfiguration.broadcastChannelRegistry))
+    , m_webLockRegistry(WTFMove(pageConfiguration.webLockRegistry))
     , m_sessionID(pageConfiguration.sessionID)
 #if ENABLE(VIDEO)
     , m_playbackControlsManagerUpdateTimer(*this, &Page::playbackControlsManagerUpdateTimerFired)

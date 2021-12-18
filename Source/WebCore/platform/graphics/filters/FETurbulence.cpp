@@ -27,6 +27,7 @@
 #include "FETurbulence.h"
 
 #include "FETurbulenceSoftwareApplier.h"
+#include "Filter.h"
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
@@ -95,6 +96,11 @@ bool FETurbulence::setStitchTiles(bool stitch)
     return true;
 }
 
+FloatRect FETurbulence::calculateImageRect(const Filter& filter, const FilterImageVector&, const FloatRect& primitiveSubregion) const
+{
+    return filter.maxEffectRect(primitiveSubregion);
+}
+
 std::unique_ptr<FilterEffectApplier> FETurbulence::createApplier(const Filter&) const
 {
     return FilterEffectApplier::create<FETurbulenceSoftwareApplier>(*this);
@@ -116,15 +122,18 @@ static TextStream& operator<<(TextStream& ts, TurbulenceType type)
     return ts;
 }
 
-TextStream& FETurbulence::externalRepresentation(TextStream& ts, RepresentationType representation) const
+TextStream& FETurbulence::externalRepresentation(TextStream& ts, FilterRepresentation representation) const
 {
     ts << indent << "[feTurbulence";
     FilterEffect::externalRepresentation(ts, representation);
-    ts << " type=\"" << type() << "\" "
-       << "baseFrequency=\"" << baseFrequencyX() << ", " << baseFrequencyY() << "\" "
-       << "seed=\"" << seed() << "\" "
-       << "numOctaves=\"" << numOctaves() << "\" "
-       << "stitchTiles=\"" << stitchTiles() << "\"]\n";
+    
+    ts << " type=\"" << type() << "\"";
+    ts << " baseFrequency=\"" << baseFrequencyX() << ", " << baseFrequencyY() << "\"";
+    ts << " seed=\"" << seed() << "\"";
+    ts << " numOctaves=\"" << numOctaves() << "\"";
+    ts << " stitchTiles=\"" << stitchTiles() << "\"";
+
+    ts << "]\n";
     return ts;
 }
 

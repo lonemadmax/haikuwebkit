@@ -1,3 +1,144 @@
+2021-12-02  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] shell's $.globalObjectFor is not safe for non object cells
+        https://bugs.webkit.org/show_bug.cgi?id=233794
+
+        Reviewed by Saam Barati.
+
+        * stress/dollar-global-object.js: Added.
+
+2021-12-02  Saam Barati  <sbarati@apple.com>
+
+        Fix OOM crash in JSValue::toWTFStringForConsole
+        https://bugs.webkit.org/show_bug.cgi?id=233775
+        <rdar://85259423>
+
+        Reviewed by Mark Lam.
+
+        * stress/pretty-print-oom.js: Added.
+
+2021-11-30  Saam Barati  <sbarati@apple.com>
+
+        GetMyArgumentByValOutOfBounds needs to check for negative indices
+        https://bugs.webkit.org/show_bug.cgi?id=232966
+        <rdar://problem/85519898>
+
+        Reviewed by Yusuke Suzuki.
+
+        * get-my-argument-by-val-negative-1.js: Added.
+        * get-my-argument-by-val-negative-2.js: Added.
+        * get-my-argument-by-val-negative-3.js: Added.
+
+2021-11-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] jumpForTypedArrayOutOfBounds should use asAnyInt since it uses isAnyInt
+        https://bugs.webkit.org/show_bug.cgi?id=233610
+        rdar://85820476
+
+        Reviewed by Saam Barati.
+
+        * stress/anyint-index.js: Added.
+        (foo):
+
+2021-11-29  Saam Barati  <sbarati@apple.com>
+
+        FTL's implementation of HasIndexedProperty for InBounds accesses checks the inverse of what it should be checking when exiting by seeing a hole
+        https://bugs.webkit.org/show_bug.cgi?id=233408
+        <rdar://problem/85787251>
+
+        Reviewed by Mark Lam.
+
+        * stress/in-by-val-has-indexed-property-ftl-3.js: Added.
+        * stress/in-by-val-has-indexed-property-ftl-2.js: Added.
+        * stress/in-by-val-has-indexed-property-ftl.js: Added.
+
+2021-11-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] slice should be aware of TerminationException
+        https://bugs.webkit.org/show_bug.cgi?id=233593
+        rdar://85823844
+
+        Reviewed by Mark Lam.
+
+        * stress/slice-termination-exception.js: Added.
+        (async infiniteLoop):
+
+2021-11-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Add Intl.NumberFormat.formatRangeToParts
+        https://bugs.webkit.org/show_bug.cgi?id=233539
+
+        Reviewed by Ross Kirsling.
+
+        * stress/intl-numberformat-format-large.js:
+        (nf.formatRangeToParts.shouldBe.JSON.stringify.nf.formatRangeToParts):
+        (nf.formatRangeToParts.shouldBe.JSON.stringify.nf2.formatRangeToParts):
+        * stress/intl-numberformat-format-range-v3.js:
+        (nf.formatRange.nf.formatRangeToParts.methods.forEach):
+        (nf.formatRange.string_appeared_here.forEach): Deleted.
+        * stress/intl-numberformat-format-string-v3.js:
+        (nf.formatRangeToParts.shouldBe.JSON.stringify.nf.formatRangeToParts):
+        (nf.formatRangeToParts.shouldBe.JSON.stringify.nf2.formatRangeToParts):
+        * stress/intl-numberformat-format-string.js:
+        (nf.formatRangeToParts.shouldBe.JSON.stringify.nf.formatRangeToParts):
+        (nf.formatRangeToParts.shouldBe.JSON.stringify.nf2.formatRangeToParts):
+
+2021-11-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Public Class Field initialization is slow
+        https://bugs.webkit.org/show_bug.cgi?id=232479
+
+        Reviewed by Alexey Shvayka.
+
+        * microbenchmarks/class-fields-classic-constructor-assignments.js: Added.
+        (Classic_Constructor_Assignments):
+        (bench):
+        * microbenchmarks/class-fields-private-fields.js: Added.
+        (ES2022_Private_Fields):
+        (bench):
+        * microbenchmarks/class-fields-public-fields.js: Added.
+        (ES2022_Public_Fields):
+        (bench):
+        * stress/class-fields-getter-override.js: Added.
+        (shouldThrow):
+        (defineCGetter.):
+        (B):
+        (define0Getter.):
+        (define0Getter):
+        (D):
+        * stress/custom-get-set-proto-chain-put.js:
+        (let.object.of.getObjects):
+        * stress/freeze-and-seal-should-prevent-extensions.js:
+        * stress/object-assign-fast-path.js:
+        * stress/ordinary-set-exceptions.js:
+        (shouldThrow):
+        * stress/put-non-reified-static-function-or-custom.js:
+        * wasm/js-api/test_basic_api.js:
+        (const.c.in.constructorProperties.switch):
+
+2021-11-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] private name operation should use RETURN_IF_EXCEPTION
+        https://bugs.webkit.org/show_bug.cgi?id=233577
+        rdar://85813869
+
+        Reviewed by Mark Lam.
+
+        * stress/termination-error-in-private-name.js: Added.
+        (C):
+
+2021-11-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] GetTypedArrayLengthAsInt52 can get Array::Generic ArrayMode
+        https://bugs.webkit.org/show_bug.cgi?id=233571
+        rdar://85812164
+
+        Reviewed by Mark Lam.
+
+        * stress/get-typed-array-length-as-int52-generic.js: Added.
+        (foo.bar):
+        (foo):
+
 2021-11-24  Michael Catanzaro  <mcatanzaro@gnome.org>
 
         Skip new stress test get-array-length-reuse.js if memory-limited

@@ -67,17 +67,28 @@ void ChildChangeInvalidation::invalidateForChangedElement(Element& changedElemen
 
     Invalidator::MatchElementRuleSets matchElementRuleSets;
 
+    bool isDescendant = changedElement.parentElement() != &parentElement();
+
     auto addHasInvalidation = [&](const Vector<InvalidationRuleSet>* invalidationRuleSets)  {
         if (!invalidationRuleSets)
             return;
         for (auto& invalidationRuleSet : *invalidationRuleSets) {
-            if (isHasPseudoClassMatchElement(invalidationRuleSet.matchElement))
-                Invalidator::addToMatchElementRuleSets(matchElementRuleSets, invalidationRuleSet);
+            if (!isHasPseudoClassMatchElement(invalidationRuleSet.matchElement))
+                continue;
+            if (isDescendant) {
+                // Elements deeper in the tree can't affect anything except when :has() selector uses descendant combinator.
+                if (invalidationRuleSet.matchElement != MatchElement::HasDescendant && invalidationRuleSet.matchElement != MatchElement::HasNonSubject)
+                    continue;
+            }
+            Invalidator::addToMatchElementRuleSets(matchElementRuleSets, invalidationRuleSet);
         }
     };
 
     auto tagName = changedElement.localName().convertToASCIILowercase();
     addHasInvalidation(ruleSets.tagInvalidationRuleSets(tagName));
+
+    if (changedElement.hasID())
+        addHasInvalidation(ruleSets.idInvalidationRuleSets(changedElement.idForStyleResolution()));
 
     if (changedElement.hasAttributes()) {
         for (auto& attribute : changedElement.attributesIterator()) {
@@ -103,12 +114,18 @@ static bool needsTraversal(const RuleFeatureSet& features, const ContainerNode::
         return true;
     if (features.usesMatchElement(MatchElement::HasDescendant))
         return true;
+    if (features.usesMatchElement(MatchElement::HasSiblingDescendant))
+        return true;
+    if (features.usesMatchElement(MatchElement::HasNonSubject))
+        return true;
     return features.usesMatchElement(MatchElement::HasSibling) && childChange.previousSiblingElement;
 };
 
 static bool needsDescendantTraversal(const RuleFeatureSet& features)
 {
-    return features.usesMatchElement(MatchElement::HasDescendant);
+    if (features.usesMatchElement(MatchElement::HasNonSubject))
+        return true;
+    return features.usesMatchElement(MatchElement::HasDescendant) || features.usesMatchElement(MatchElement::HasSiblingDescendant);
 };
 
 template<typename Function>

@@ -153,6 +153,7 @@ $(PROJECT_DIR)/UIProcess/WebAuthentication/WebAuthnProcessProxy.messages.in
 $(PROJECT_DIR)/UIProcess/WebCookieManagerProxy.messages.in
 $(PROJECT_DIR)/UIProcess/WebFullScreenManagerProxy.messages.in
 $(PROJECT_DIR)/UIProcess/WebGeolocationManagerProxy.messages.in
+$(PROJECT_DIR)/UIProcess/WebLockRegistryProxy.messages.in
 $(PROJECT_DIR)/UIProcess/WebPageProxy.messages.in
 $(PROJECT_DIR)/UIProcess/WebPasteboardProxy.messages.in
 $(PROJECT_DIR)/UIProcess/WebProcessPool.messages.in
@@ -174,6 +175,7 @@ $(PROJECT_DIR)/WebProcess/FullScreen/WebFullScreenManager.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/GPUProcessConnection.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/graphics/RemoteGraphicsContextGLProxy.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/graphics/RemoteRenderingBackendProxy.messages.in
+$(PROJECT_DIR)/WebProcess/GPU/graphics/WebGPU/RemoteGPUProxy.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/media/MediaPlayerPrivateRemote.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/media/MediaSourcePrivateRemote.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/media/RemoteAudioHardwareListener.messages.in
@@ -216,8 +218,10 @@ $(PROJECT_DIR)/WebProcess/Storage/WebSWContextManagerConnection.messages.in
 $(PROJECT_DIR)/WebProcess/UserContent/WebUserContentController.messages.in
 $(PROJECT_DIR)/WebProcess/WebAuthentication/WebAuthenticatorCoordinator.messages.in
 $(PROJECT_DIR)/WebProcess/WebAuthentication/WebAuthnProcessConnection.messages.in
+$(PROJECT_DIR)/WebProcess/WebCoreSupport/RemoteWebLockRegistry.messages.in
 $(PROJECT_DIR)/WebProcess/WebCoreSupport/WebBroadcastChannelRegistry.messages.in
 $(PROJECT_DIR)/WebProcess/WebCoreSupport/WebDeviceOrientationUpdateProvider.messages.in
+$(PROJECT_DIR)/WebProcess/WebCoreSupport/WebFileSystemStorageConnection.messages.in
 $(PROJECT_DIR)/WebProcess/WebCoreSupport/WebSpeechRecognitionConnection.messages.in
 $(PROJECT_DIR)/WebProcess/WebPage/Cocoa/TextCheckingControllerProxy.messages.in
 $(PROJECT_DIR)/WebProcess/WebPage/DrawingArea.messages.in

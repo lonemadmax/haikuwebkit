@@ -656,6 +656,21 @@
 (deny file-write-create (vnode-type SYMLINK))
 (deny file-read-xattr file-write-xattr (xattr-prefix "com.apple.security.private."))
 
+(allow iokit-open
+    (require-all
+        (extension "com.apple.webkit.extension.iokit")
+        (iokit-user-client-class
+            "AGXCommandQueue"
+            "AGXDevice"
+            "AGXSharedUserClient"
+            "IOAccelContext"
+            "IOAccelDevice"
+            "IOAccelSharedUserClient"
+            "IOAccelSubmitter2"
+            "IOAccelContext2"
+            "IOAccelDevice2"
+            "IOAccelSharedUserClient2")))
+
 (deny mach-lookup (with no-log)
     (xpc-service-name "com.apple.audio.toolbox.reporting.service")
 )
@@ -791,6 +806,9 @@
         SYS_workq_open
         SYS_write_nocancel
         SYS_writev)))
+
+(when (defined? 'SYS__map_with_linking_np)
+    (allow syscall-unix SYS__map_with_linking_np))
 
 (when (defined? 'syscall-mach)
     (allow syscall-mach (with telemetry))

@@ -168,6 +168,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/workers/service"
     "${WEBCORE_DIR}/workers/service/context"
     "${WEBCORE_DIR}/workers/service/server"
+    "${WEBCORE_DIR}/workers/shared"
     "${WEBCORE_DIR}/worklets"
     "${WEBCORE_DIR}/xml"
     "${WEBCORE_DIR}/xml/parser"
@@ -564,6 +565,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/web-locks/WebLock.idl
     Modules/web-locks/WebLockGrantedCallback.idl
     Modules/web-locks/WebLockManager.idl
+    Modules/web-locks/WebLockManagerSnapshot.idl
     Modules/web-locks/WebLockMode.idl
 
     Modules/webaudio/AnalyserNode.idl
@@ -681,7 +683,6 @@ set(WebCore_NON_SVG_IDL_FILES
     animation/Animatable.idl
     animation/AnimationEffect.idl
     animation/AnimationFrameProvider.idl
-    animation/EffectTiming.idl
     animation/AnimationPlaybackEvent.idl
     animation/AnimationPlaybackEventInit.idl
     animation/AnimationTimeline.idl
@@ -690,10 +691,14 @@ set(WebCore_NON_SVG_IDL_FILES
     animation/CompositeOperation.idl
     animation/CompositeOperationOrAuto.idl
     animation/ComputedEffectTiming.idl
+    animation/CustomAnimationOptions.idl
+    animation/CustomEffect.idl
+    animation/CustomEffectCallback.idl
     animation/Document+WebAnimations.idl
     animation/DocumentOrShadowRoot+WebAnimations.idl
     animation/DocumentTimeline.idl
     animation/DocumentTimelineOptions.idl
+    animation/EffectTiming.idl
     animation/FillMode.idl
     animation/GetAnimationsOptions.idl
     animation/GlobalEventHandlers+CSSAnimations.idl
@@ -1215,8 +1220,6 @@ set(WebCore_NON_SVG_IDL_FILES
 
     workers/AbstractWorker.idl
     workers/DedicatedWorkerGlobalScope.idl
-    workers/SharedWorker.idl
-    workers/SharedWorkerGlobalScope.idl
     workers/Worker.idl
     workers/WorkerGlobalScope.idl
     workers/WorkerLocation.idl
@@ -1227,6 +1230,8 @@ set(WebCore_NON_SVG_IDL_FILES
     workers/service/ExtendableEventInit.idl
     workers/service/ExtendableMessageEvent.idl
     workers/service/FetchEvent.idl
+    workers/service/NavigationPreloadManager.idl
+    workers/service/NavigationPreloadState.idl
     workers/service/ServiceWorker.idl
     workers/service/ServiceWorkerClient.idl
     workers/service/ServiceWorkerClientType.idl
@@ -1236,6 +1241,9 @@ set(WebCore_NON_SVG_IDL_FILES
     workers/service/ServiceWorkerRegistration.idl
     workers/service/ServiceWorkerUpdateViaCache.idl
     workers/service/ServiceWorkerWindowClient.idl
+
+    workers/shared/SharedWorker.idl
+    workers/shared/SharedWorkerGlobalScope.idl
 
     worklets/PaintWorkletGlobalScope.idl
     worklets/Worklet.idl
@@ -1897,7 +1905,7 @@ if (ENABLE_WEBGL)
             platform/graphics/ANGLEWebKitBridge.cpp
 
             platform/graphics/opengl/ExtensionsGLOpenGLCommon.cpp
-            platform/graphics/opengl/GraphicsContextGLOpenGLCommon.cpp
+            platform/graphics/opengl/GraphicsContextGLOpenGL.cpp
             platform/graphics/opengl/TemporaryOpenGLSetting.cpp
         )
 

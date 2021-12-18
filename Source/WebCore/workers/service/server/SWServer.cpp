@@ -57,6 +57,12 @@ SWServer::Connection::Connection(SWServer& server, Identifier identifier)
 {
 }
 
+SWServer::Connection::~Connection()
+{
+    for (auto& request : std::exchange(m_registrationReadyRequests, { }))
+        request.callback({ });
+}
+
 HashSet<SWServer*>& SWServer::allServers()
 {
     static NeverDestroyed<HashSet<SWServer*>> servers;
@@ -172,7 +178,7 @@ void SWServer::addRegistrationFromStore(ServiceWorkerContextData&& data)
         if (!weakThis)
             return;
         if (m_hasServiceWorkerEntitlement || isValid) {
-            auto registration = makeUnique<SWServerRegistration>(*this, data.registration.key, data.registration.updateViaCache, data.registration.scopeURL, data.scriptURL, data.serviceWorkerPageIdentifier);
+            auto registration = makeUnique<SWServerRegistration>(*this, data.registration.key, data.registration.updateViaCache, data.registration.scopeURL, data.scriptURL, data.serviceWorkerPageIdentifier, WTFMove(data.navigationPreloadState));
             registration->setLastUpdateTime(data.registration.lastUpdateTime);
             auto registrationPtr = registration.get();
             addRegistration(WTFMove(registration));
@@ -577,9 +583,15 @@ void SWServer::didFinishActivation(SWServerWorker& worker)
     if (!registration)
         return;
 
+    storeRegistrationForWorker(worker);
+
+    registration->didFinishActivation(worker.identifier());
+}
+
+void SWServer::storeRegistrationForWorker(SWServerWorker& worker)
+{
     if (m_registrationStore)
         m_registrationStore->updateRegistration(worker.contextData());
-    registration->didFinishActivation(worker.identifier());
 }
 
 // https://w3c.github.io/ServiceWorker/#clients-getall
@@ -669,7 +681,7 @@ void SWServer::removeClientServiceWorkerRegistration(Connection& connection, Ser
 
 void SWServer::updateWorker(const ServiceWorkerJobDataIdentifier& jobDataIdentifier, SWServerRegistration& registration, const URL& url, const ScriptBuffer& script, const CertificateInfo& certificateInfo, const ContentSecurityPolicyResponseHeaders& contentSecurityPolicy, const CrossOriginEmbedderPolicy& coep, const String& referrerPolicy, WorkerType type, HashMap<URL, ServiceWorkerContextData::ImportedScript>&& scriptResourceMap, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier)
 {
-    tryInstallContextData(ServiceWorkerContextData { jobDataIdentifier, registration.data(), ServiceWorkerIdentifier::generate(), script, certificateInfo, contentSecurityPolicy, coep, referrerPolicy, url, type, false, clientIsAppInitiatedForRegistrableDomain(RegistrableDomain(url)), WTFMove(scriptResourceMap), serviceWorkerPageIdentifier });
+    tryInstallContextData(ServiceWorkerContextData { jobDataIdentifier, registration.data(), ServiceWorkerIdentifier::generate(), script, certificateInfo, contentSecurityPolicy, coep, referrerPolicy, url, type, false, clientIsAppInitiatedForRegistrableDomain(RegistrableDomain(url)), WTFMove(scriptResourceMap), serviceWorkerPageIdentifier, { } });
 }
 
 LastNavigationWasAppInitiated SWServer::clientIsAppInitiatedForRegistrableDomain(const RegistrableDomain& domain)
@@ -1058,15 +1070,15 @@ void SWServer::resolveRegistrationReadyRequests(SWServerRegistration& registrati
         connection->resolveRegistrationReadyRequests(registration);
 }
 
-void SWServer::Connection::whenRegistrationReady(uint64_t registrationReadyRequestIdentifier, const SecurityOriginData& topOrigin, const URL& clientURL)
+void SWServer::Connection::whenRegistrationReady(const SecurityOriginData& topOrigin, const URL& clientURL, CompletionHandler<void(std::optional<ServiceWorkerRegistrationData>&&)>&& callback)
 {
     if (auto* registration = doRegistrationMatching(topOrigin, clientURL)) {
         if (registration->activeWorker()) {
-            registrationReady(registrationReadyRequestIdentifier, registration->data());
+            callback(registration->data());
             return;
         }
     }
-    m_registrationReadyRequests.append({ topOrigin, clientURL, registrationReadyRequestIdentifier });
+    m_registrationReadyRequests.append({ topOrigin, clientURL, WTFMove(callback) });
 }
 
 void SWServer::Connection::storeRegistrationsOnDisk(CompletionHandler<void()>&& callback)
@@ -1084,7 +1096,7 @@ void SWServer::Connection::resolveRegistrationReadyRequests(SWServerRegistration
         if (!registration.key().isMatching(request.topOrigin, request.clientURL))
             return false;
 
-        this->registrationReady(request.identifier, registration.data());
+        request.callback(registration.data());
         return true;
     });
 }

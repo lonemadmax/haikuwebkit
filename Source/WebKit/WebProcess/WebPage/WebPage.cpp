@@ -58,6 +58,7 @@
 #include "RemoteRenderingBackendProxy.h"
 #include "RemoteWebInspectorUI.h"
 #include "RemoteWebInspectorUIMessages.h"
+#include "RemoteWebLockRegistry.h"
 #include "SessionState.h"
 #include "SessionStateConversion.h"
 #include "ShareableBitmap.h"
@@ -445,6 +446,13 @@ DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, webPageCounter, ("WebPage")
 
 Ref<WebPage> WebPage::create(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 {
+#if HAVE(SANDBOX_STATE_FLAGS)
+    // This call is not meant to actually read a preference, but is only here to trigger a sandbox rule in the
+    // WebContent process, which will toggle a sandbox variable used to determine if the WebContent process
+    // has finished launching. This call should be replaced with proper API when available.
+    CFPreferencesGetAppIntegerValue(CFSTR("key"), CFSTR("com.apple.WebKit.WebContent.Launch"), nullptr);
+#endif
+
     Ref<WebPage> page = adoptRef(*new WebPage(pageID, WTFMove(parameters)));
 
     if (WebProcess::singleton().injectedBundle())
@@ -573,6 +581,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         makeUniqueRef<WebSpeechRecognitionProvider>(m_identifier),
         makeUniqueRef<MediaRecorderProvider>(*this),
         WebProcess::singleton().broadcastChannelRegistry(),
+        WebProcess::singleton().webLockRegistry(),
         WebPermissionController::create(*this),
         makeUniqueRef<WebStorageProvider>(),
         makeUniqueRef<WebModelPlayerProvider>(*this)
@@ -901,6 +910,15 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 #endif
 
     m_page->setCanUseCredentialStorage(parameters.canUseCredentialStorage);
+
+#if HAVE(SANDBOX_STATE_FLAGS)
+    if (!m_page->settings().offlineWebApplicationCacheEnabled()) {
+        // This call is not meant to actually read a preference, but is only here to trigger a sandbox rule in the
+        // WebContent process, which will toggle a sandbox variable used to determine if AppCache is disabled
+        // This call should be replaced with proper API when available.
+        CFPreferencesGetAppIntegerValue(CFSTR("key"), CFSTR("com.apple.WebKit.WebContent.AppCacheDisabled"), nullptr);
+    }
+#endif
 
     updateThrottleState();
 }
@@ -2769,6 +2787,11 @@ void WebPage::unfreezeLayerTree(LayerTreeFreezeReason reason)
     updateDrawingAreaLayerTreeFreezeState();
 }
 
+void WebPage::isLayerTreeFrozen(CompletionHandler<void(bool)>&& completionHandler)
+{
+    completionHandler(!!m_layerTreeFreezeReasons);
+}
+
 void WebPage::updateDrawingAreaLayerTreeFreezeState()
 {
     if (!m_drawingArea)
@@ -3031,7 +3054,7 @@ static bool handleWheelEvent(const WebWheelEvent& wheelEvent, Page* page, Option
     return page->userInputBridge().handleWheelEvent(platformWheelEvent, processingSteps);
 }
 
-bool WebPage::wheelEvent(const WebWheelEvent& wheelEvent, OptionSet<WheelEventProcessingSteps> processingSteps)
+bool WebPage::wheelEvent(const WebWheelEvent& wheelEvent, OptionSet<WheelEventProcessingSteps> processingSteps, EventDispatcher::WheelEventOrigin wheelEventOrigin)
 {
     m_userActivity.impulse();
 
@@ -3039,7 +3062,7 @@ bool WebPage::wheelEvent(const WebWheelEvent& wheelEvent, OptionSet<WheelEventPr
 
     bool handled = handleWheelEvent(wheelEvent, m_page.get(), processingSteps);
 
-    if (processingSteps.contains(WheelEventProcessingSteps::MainThreadForScrolling))
+    if (processingSteps.contains(WheelEventProcessingSteps::MainThreadForScrolling) && wheelEventOrigin == EventDispatcher::WheelEventOrigin::UIProcess)
         send(Messages::WebPageProxy::DidReceiveEvent(static_cast<uint32_t>(wheelEvent.type()), handled));
 
     return handled;
@@ -3053,7 +3076,7 @@ void WebPage::dispatchWheelEventWithoutScrolling(const WebWheelEvent& wheelEvent
 #else
     bool isCancelable = true;
 #endif
-    bool handled = this->wheelEvent(wheelEvent, { isCancelable ? WheelEventProcessingSteps::MainThreadForBlockingDOMEventDispatch : WheelEventProcessingSteps::MainThreadForNonBlockingDOMEventDispatch });
+    bool handled = this->wheelEvent(wheelEvent, { isCancelable ? WheelEventProcessingSteps::MainThreadForBlockingDOMEventDispatch : WheelEventProcessingSteps::MainThreadForNonBlockingDOMEventDispatch }, EventDispatcher::WheelEventOrigin::UIProcess);
     completionHandler(handled);
 }
 
@@ -3926,9 +3949,10 @@ bool WebPage::isParentProcessAWebBrowser() const
 void WebPage::updatePreferences(const WebPreferencesStore& store)
 {
     updatePreferencesGenerated(store);
-    updateSettingsGenerated(store);
 
     Settings& settings = m_page->settings();
+
+    updateSettingsGenerated(store, settings);
 
 #if !PLATFORM(GTK) && !PLATFORM(WIN) && !PLATFORM(PLAYSTATION)
     if (!settings.acceleratedCompositingEnabled()) {
@@ -7737,7 +7761,7 @@ void WebPage::restoreAppHighlightsAndScrollToIndex(const Vector<SharedMemory::IP
         if (!sharedMemory)
             continue;
 
-        document->appHighlightStorage().restoreAndScrollToAppHighlight(SharedBuffer::create(static_cast<const uint8_t*>(sharedMemory->data()), ipcHandle.dataSize), i == index ? ScrollToHighlight::Yes : ScrollToHighlight::No);
+        document->appHighlightStorage().restoreAndScrollToAppHighlight(sharedMemory->createSharedBuffer(ipcHandle.dataSize), i == index ? ScrollToHighlight::Yes : ScrollToHighlight::No);
         i++;
     }
 }

@@ -50,11 +50,11 @@ private:
     // FEImage results are always in DestinationColorSpace::SRGB()
     void setOperatingColorSpace(const DestinationColorSpace&) override { }
 
-    void determineAbsolutePaintRect(const Filter&) final;
+    FloatRect calculateImageRect(const Filter&, const FilterImageVector& inputs, const FloatRect& primitiveSubregion) const override;
 
     std::unique_ptr<FilterEffectApplier> createApplier(const Filter&) const final;
 
-    WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const final;
+    WTF::TextStream& externalRepresentation(WTF::TextStream&, FilterRepresentation) const final;
 
     SourceImage m_sourceImage;
     FloatRect m_sourceImageRect;

@@ -31,7 +31,6 @@
 #include "FEComponentTransfer.h"
 #include "FEDropShadow.h"
 #include "FEGaussianBlur.h"
-#include "FEMerge.h"
 #include "FilterOperations.h"
 #include "GraphicsContext.h"
 #include "LengthFunctions.h"
@@ -43,31 +42,43 @@
 #include "SVGFilterElement.h"
 #include "SourceGraphic.h"
 
-#if USE(DIRECT2D)
-#include <d2d1.h>
-#endif
-
 namespace WebCore {
 
-RefPtr<CSSFilter> CSSFilter::create(const FilterOperations& operations, RenderingMode renderingMode, float scaleFactor)
+RefPtr<CSSFilter> CSSFilter::create(RenderElement& renderer, const FilterOperations& operations, RenderingMode renderingMode, const FloatSize& filterScale, ClipOperation clipOperation, const FloatRect& targetBoundingBox)
 {
     bool hasFilterThatMovesPixels = operations.hasFilterThatMovesPixels();
     bool hasFilterThatShouldBeRestrictedBySecurityOrigin = operations.hasFilterThatShouldBeRestrictedBySecurityOrigin();
 
-    return adoptRef(*new CSSFilter(renderingMode, scaleFactor, hasFilterThatMovesPixels, hasFilterThatShouldBeRestrictedBySecurityOrigin));
+    auto filter = adoptRef(*new CSSFilter(renderingMode, filterScale, clipOperation, hasFilterThatMovesPixels, hasFilterThatShouldBeRestrictedBySecurityOrigin));
+
+    if (!filter->buildFilterFunctions(renderer, operations, targetBoundingBox))
+        return nullptr;
+
+    return filter;
 }
 
-CSSFilter::CSSFilter(RenderingMode renderingMode, float scaleFactor, bool hasFilterThatMovesPixels, bool hasFilterThatShouldBeRestrictedBySecurityOrigin)
-    : Filter(Filter::Type::CSSFilter, renderingMode, FloatSize { scaleFactor, scaleFactor })
+RefPtr<CSSFilter> CSSFilter::create(Vector<Ref<FilterFunction>>&& functions)
+{
+    return adoptRef(new CSSFilter(WTFMove(functions)));
+}
+
+CSSFilter::CSSFilter(RenderingMode renderingMode, const FloatSize& filterScale, ClipOperation clipOperation, bool hasFilterThatMovesPixels, bool hasFilterThatShouldBeRestrictedBySecurityOrigin)
+    : Filter(Filter::Type::CSSFilter, renderingMode, filterScale, clipOperation)
     , m_hasFilterThatMovesPixels(hasFilterThatMovesPixels)
     , m_hasFilterThatShouldBeRestrictedBySecurityOrigin(hasFilterThatShouldBeRestrictedBySecurityOrigin)
 {
 }
 
-static RefPtr<FilterEffect> createBlurEffect(const BlurFilterOperation& blurOperation, FilterConsumer consumer)
+CSSFilter::CSSFilter(Vector<Ref<FilterFunction>>&& functions)
+    : Filter(Type::CSSFilter)
+    , m_functions(WTFMove(functions))
+{
+}
+
+static RefPtr<FilterEffect> createBlurEffect(const BlurFilterOperation& blurOperation, Filter::ClipOperation clipOperation)
 {
     float stdDeviation = floatValueForLength(blurOperation.stdDeviation(), 0);
-    return FEGaussianBlur::create(stdDeviation, stdDeviation, consumer == FilterConsumer::FilterProperty ? EdgeModeType::None : EdgeModeType::Duplicate);
+    return FEGaussianBlur::create(stdDeviation, stdDeviation, clipOperation == Filter::ClipOperation::Unite ? EdgeModeType::None : EdgeModeType::Duplicate);
 }
 
 static RefPtr<FilterEffect> createBrightnessEffect(const BasicComponentTransferFilterOperation& componentTransferOperation)
@@ -207,7 +218,7 @@ static RefPtr<FilterEffect> createSepiaEffect(const BasicColorMatrixFilterOperat
     return FEColorMatrix::create(FECOLORMATRIX_TYPE_MATRIX, WTFMove(inputParameters));
 }
 
-static RefPtr<SVGFilter> createSVGFilter(CSSFilter& filter, const ReferenceFilterOperation& filterOperation, RenderElement& renderer, FilterEffect& previousEffect)
+static RefPtr<SVGFilter> createSVGFilter(CSSFilter& filter, const ReferenceFilterOperation& filterOperation, RenderElement& renderer, const FloatRect& targetBoundingBox, FilterEffect& previousEffect)
 {
     auto& referencedSVGResources = renderer.ensureReferencedSVGResources();
     auto* filterElement = referencedSVGResources.referencedFilterElement(renderer.document(), filterOperation);
@@ -221,18 +232,10 @@ static RefPtr<SVGFilter> createSVGFilter(CSSFilter& filter, const ReferenceFilte
     }
 
     SVGFilterBuilder builder;
-    return SVGFilter::create(*filterElement, builder, filter.renderingMode(), filter.filterScale(), filter.sourceImageRect(), filter.filterRegion(), previousEffect);
+    return SVGFilter::create(*filterElement, builder, filter.renderingMode(), filter.filterScale(), filter.clipOperation(), targetBoundingBox, previousEffect);
 }
 
-static void setupLastEffectProperties(FilterEffect& effect, FilterConsumer consumer)
-{
-    // Unlike SVG Filters and CSSFilterImages, filter functions on the filter
-    // property applied here should not clip to their primitive subregions.
-    effect.setClipsToBounds(consumer == FilterConsumer::FilterFunction);
-    effect.setOperatingColorSpace(DestinationColorSpace::SRGB());
-}
-
-bool CSSFilter::buildFilterFunctions(RenderElement& renderer, const FilterOperations& operations, FilterConsumer consumer)
+bool CSSFilter::buildFilterFunctions(RenderElement& renderer, const FilterOperations& operations, const FloatRect& targetBoundingBox)
 {
     m_functions.clear();
     m_outsets = { };
@@ -249,7 +252,7 @@ bool CSSFilter::buildFilterFunctions(RenderElement& renderer, const FilterOperat
             break;
 
         case FilterOperation::BLUR:
-            effect = createBlurEffect(downcast<BlurFilterOperation>(*operation), consumer);
+            effect = createBlurEffect(downcast<BlurFilterOperation>(*operation), clipOperation());
             break;
 
         case FilterOperation::BRIGHTNESS:
@@ -289,7 +292,7 @@ bool CSSFilter::buildFilterFunctions(RenderElement& renderer, const FilterOperat
             break;
 
         case FilterOperation::REFERENCE:
-            filter = createSVGFilter(*this, downcast<ReferenceFilterOperation>(*operation), renderer, *previousEffect);
+            filter = createSVGFilter(*this, downcast<ReferenceFilterOperation>(*operation), renderer, targetBoundingBox, *previousEffect);
             effect = nullptr;
             break;
 
@@ -304,14 +307,14 @@ bool CSSFilter::buildFilterFunctions(RenderElement& renderer, const FilterOperat
         
         if (filter) {
             effect = filter->lastEffect();
-            setupLastEffectProperties(*effect, consumer);
+            effect->setOperatingColorSpace(DestinationColorSpace::SRGB());
             m_functions.append(filter.releaseNonNull());
             previousEffect = WTFMove(effect);
             continue;
         }
 
         if (effect) {
-            setupLastEffectProperties(*effect, consumer);
+            effect->setOperatingColorSpace(DestinationColorSpace::SRGB());
             effect->inputEffects() = { WTFMove(previousEffect) };
             m_functions.append({ *effect });
             previousEffect = WTFMove(effect);
@@ -332,19 +335,7 @@ bool CSSFilter::buildFilterFunctions(RenderElement& renderer, const FilterOperat
     return true;
 }
 
-bool CSSFilter::updateBackingStoreRect(const FloatRect& filterRect)
-{
-    if (filterRect.isEmpty() || ImageBuffer::sizeNeedsClamping(filterRect.size()))
-        return false;
-
-    if (filterRect == sourceImageRect())
-        return false;
-
-    setSourceImageRect(filterRect);
-    return true;
-}
-
-RefPtr<FilterEffect> CSSFilter::lastEffect()
+RefPtr<FilterEffect> CSSFilter::lastEffect() const
 {
     if (m_functions.isEmpty())
         return nullptr;
@@ -371,19 +362,6 @@ bool CSSFilter::supportsCoreImageRendering() const
 }
 #endif
 
-void CSSFilter::determineFilterPrimitiveSubregion()
-{
-    auto effect = lastEffect();
-    effect->determineFilterPrimitiveSubregion(*this);
-    FloatRect subRegion = effect->maxEffectRect();
-    // At least one FilterEffect has a too big image size, recalculate the effect sizes with new scale factors.
-    FloatSize filterScale { 1, 1 };
-    if (ImageBuffer::sizeNeedsClamping(subRegion.size(), filterScale)) {
-        setFilterScale(filterScale);
-        effect->determineFilterPrimitiveSubregion(*this);
-    }
-}
-
 void CSSFilter::clearIntermediateResults()
 {
     for (auto& function : m_functions)
@@ -393,36 +371,24 @@ void CSSFilter::clearIntermediateResults()
 RefPtr<FilterImage> CSSFilter::apply()
 {
     for (auto& function : m_functions) {
+        if (function->isSVGFilter())
+            downcast<SVGFilter>(function.ptr())->setSourceImageRect(sourceImageRect());
         if (!function->apply(*this))
             return nullptr;
     }
     return lastEffect()->filterImage();
 }
 
-LayoutRect CSSFilter::computeSourceImageRectForDirtyRect(const LayoutRect& filterBoxRect, const LayoutRect& dirtyRect)
+void CSSFilter::setFilterRegion(const FloatRect& filterRegion)
 {
-    // The result of this function is the area in the "filterBoxRect" that needs to be repainted, so that we fully cover the "dirtyRect".
-    auto rectForRepaint = dirtyRect;
-    if (hasFilterThatMovesPixels())
-        rectForRepaint += outsets();
-    rectForRepaint.intersect(filterBoxRect);
-    return rectForRepaint;
-}
-
-void CSSFilter::setSourceImageRect(const FloatRect& sourceImageRect)
-{
-    auto scaledSourceImageRect = sourceImageRect;
-    scaledSourceImageRect.scale(filterScale());
-
-    Filter::setFilterRegion(sourceImageRect);
-    Filter::setSourceImageRect(scaledSourceImageRect);
+    Filter::setFilterRegion(filterRegion);
 
     for (auto& function : m_functions) {
-        if (function->isSVGFilter()) {
-            downcast<SVGFilter>(function.ptr())->setFilterRegion(sourceImageRect);
-            downcast<SVGFilter>(function.ptr())->setSourceImageRect(scaledSourceImageRect);
-        }
+        if (function->isSVGFilter())
+            downcast<SVGFilter>(function.ptr())->setFilterRegion(filterRegion);
     }
+
+    clampFilterRegionIfNeeded();
 }
 
 IntOutsets CSSFilter::outsets() const
@@ -436,6 +402,24 @@ IntOutsets CSSFilter::outsets() const
     for (auto& function : m_functions)
         m_outsets += function->outsets();
     return m_outsets;
+}
+
+TextStream& CSSFilter::externalRepresentation(TextStream& ts, FilterRepresentation representation) const
+{
+    unsigned level = 0;
+
+    for (auto it = m_functions.rbegin(), end = m_functions.rend(); it != end; ++it) {
+        auto& function = *it;
+        
+        // SourceAlpha is a built-in effect. No need to say SourceGraphic is its input.
+        if (function->filterType() == FilterEffect::Type::SourceAlpha)
+            ++it;
+
+        TextStream::IndentScope indentScope(ts, level++);
+        function->externalRepresentation(ts, representation);
+    }
+
+    return ts;
 }
 
 } // namespace WebCore

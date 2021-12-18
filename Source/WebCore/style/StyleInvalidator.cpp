@@ -322,11 +322,33 @@ void Invalidator::invalidateStyleWithMatchElement(Element& element, MatchElement
         break;
     }
     case MatchElement::HasSibling: {
-        SelectorMatchingState selectorMatchingState;
-        for (auto* sibling = element.previousElementSibling(); sibling; sibling = sibling->previousElementSibling()) {
-            selectorMatchingState.selectorFilter.popParentsUntil(element.parentElement());
-            invalidateStyleForDescendants(*sibling, &selectorMatchingState);
+        if (auto* sibling = element.previousElementSibling()) {
+            SelectorMatchingState selectorMatchingState;
+            selectorMatchingState.selectorFilter.pushParentInitializingIfNeeded(*element.parentElement());
+
+            for (; sibling; sibling = sibling->previousElementSibling())
+                invalidateIfNeeded(*sibling, &selectorMatchingState);
         }
+        break;
+    }
+    case MatchElement::HasSiblingDescendant: {
+        Vector<Element*, 16> elementAndAncestors;
+        elementAndAncestors.append(&element);
+        for (auto* parent = element.parentElement(); parent; parent = parent->parentElement())
+            elementAndAncestors.append(parent);
+
+        SelectorMatchingState selectorMatchingState;
+        for (auto* elementOrAncestor : makeReversedRange(elementAndAncestors)) {
+            for (auto* sibling = elementOrAncestor->previousElementSibling(); sibling; sibling = sibling->previousElementSibling())
+                invalidateIfNeeded(*sibling, &selectorMatchingState);
+
+            selectorMatchingState.selectorFilter.pushParent(elementOrAncestor);
+        }
+        break;
+    }
+    case MatchElement::HasNonSubject: {
+        SelectorMatchingState selectorMatchingState;
+        invalidateStyleForDescendants(*element.document().documentElement(), &selectorMatchingState);
         break;
     }
     case MatchElement::Host:

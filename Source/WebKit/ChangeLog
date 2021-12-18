@@ -1,3 +1,3051 @@
+2021-12-07  Chris Dumez  <cdumez@apple.com>
+
+        Make WebLockRegistryProxy::processDidExit() return early if process never registered any locks
+        https://bugs.webkit.org/show_bug.cgi?id=233832
+
+        Reviewed by Darin Adler.
+
+        Make WebLockRegistryProxy::processDidExit() return early if process never registered any locks.
+        This avoids calling LocalWebLockRegistry::clientsAreGoingAway() (which can be expensive) in the
+        case we know for sure no locks were registered by this process.
+
+        * UIProcess/WebLockRegistryProxy.cpp:
+        (WebKit::WebLockRegistryProxy::requestLock):
+        (WebKit::WebLockRegistryProxy::processDidExit):
+        * UIProcess/WebLockRegistryProxy.h:
+
+2021-12-07  Chris Dumez  <cdumez@apple.com>
+
+        Reload web views when toggling the captive portal mode at system level
+        https://bugs.webkit.org/show_bug.cgi?id=233900
+
+        Reviewed by Brent Fulgham.
+
+        Reload web views when toggling the captive portal mode at system level, so that the views end up
+        being backed by WebProcesses with the proper captive portal mode.
+
+        * UIProcess/Cocoa/WebProcessPoolCocoa.mm:
+        (WebKit::cachedCaptivePortalModeEnabledGlobally):
+        (WebKit::WebProcessPool::captivePortalModeStateChanged):
+        (WebKit::captivePortalModeEnabledBySystem):
+        (WebKit::WebProcessPool::notifyPreferencesChanged):
+        * UIProcess/WebProcessPool.h:
+
+2021-12-07  Sihui Liu  <sihui_liu@apple.com>
+
+        Fetch and remove file system data via WKWebsiteDataStore
+        https://bugs.webkit.org/show_bug.cgi?id=233567
+        <rdar://problem/86029185>
+
+        Reviewed by Youenn Fablet.
+
+        Introduce a new WebsiteDataType value FileSystem for FileSystemAccess data. Network process now can fetch and 
+        delete this type of data when fetching and deleteing website data (if FileSystem type is included in target
+        types).
+
+        To track origins that have FileSystem data, this patch introduces a new file named origin in the origin's 
+        directory. This file will be created when OriginStorageManager is created.
+
+        To delete existing FileSystem data, network process finds origins that are requested to be deleted and have data 
+        on disk, closes active access handles, and deletes the files. The origin file mentioned above will be deleted if 
+        there is no other file left in the same directory, and empty directories will be deleted.
+
+        New API tests: FileSystemAccess.FetchAndRemoveData
+                       FileSystemAccess.RemoveDataByModificationTime
+                       FileSystemAccess.FetchDataForThirdParty
+
+        * CMakeLists.txt:
+        * DerivedSources-input.xcfilelist:
+        * DerivedSources-output.xcfilelist:
+        * DerivedSources.make:
+        * NetworkProcess/Classifier/WebResourceLoadStatisticsStore.cpp:
+        (WebKit::WebResourceLoadStatisticsStore::monitoredDataTypes):
+        * NetworkProcess/NetworkProcess.cpp:
+        (WebKit::NetworkProcess::fetchWebsiteData):
+        (WebKit::NetworkProcess::deleteWebsiteData):
+        (WebKit::NetworkProcess::deleteWebsiteDataForOrigins):
+        (WebKit::NetworkProcess::deleteAndRestrictWebsiteDataForRegistrableDomains):
+        (WebKit::NetworkProcess::registrableDomainsWithWebsiteData):
+        * NetworkProcess/storage/FileSystemStorageHandle.h:
+        (WebKit::FileSystemStorageHandle::activeSyncAccessHandle const):
+        * NetworkProcess/storage/FileSystemStorageManager.cpp:
+        (WebKit::FileSystemStorageManager::~FileSystemStorageManager):
+        (WebKit::FileSystemStorageManager::close):
+        * NetworkProcess/storage/FileSystemStorageManager.h:
+        * NetworkProcess/storage/NetworkStorageManager.cpp:
+        (WebKit::readOriginFromFile):
+        (WebKit::writeOriginToFileIfNecessary):
+        (WebKit::deleteOriginFileIfNecessary):
+        (WebKit::originDirectoryPath):
+        (WebKit::originFilePath):
+        (WebKit::NetworkStorageManager::localOriginStorageManager):
+        (WebKit::NetworkStorageManager::removeOriginStorageManagerIfPossible):
+        (WebKit::NetworkStorageManager::persist):
+        (WebKit::NetworkStorageManager::clearStorageForTesting): Only reset persisted state here as our test bot can run 
+        tests in parallel. If one worker finishes a test and asks to clear storage, while another worker is running a 
+        filesystem test; the test may fail as data is gone. (The workers are using the same network process.)
+        (WebKit::toWebsiteDataType):
+        (WebKit::NetworkStorageManager::forEachOriginDirectory):
+        (WebKit::NetworkStorageManager::fetchDataFromDisk):
+        (WebKit::NetworkStorageManager::fetchData):
+        (WebKit::NetworkStorageManager::deleteDataOnDisk):
+        (WebKit::NetworkStorageManager::deleteData):
+        (WebKit::NetworkStorageManager::deleteDataModifiedSince):
+        (WebKit::NetworkStorageManager::deleteDataForRegistrableDomains):
+        (WebKit::originPath): Deleted.
+        * NetworkProcess/storage/NetworkStorageManager.h:
+        * NetworkProcess/storage/OriginStorageManager.cpp:
+        (WebKit::OriginStorageManager::StorageBucket::toStorageIdentifier):
+        (WebKit::OriginStorageManager::StorageBucket::typeStoragePath const):
+        (WebKit::OriginStorageManager::StorageBucket::fileSystemStorageManager):
+        (WebKit::OriginStorageManager::StorageBucket::isActive):
+        (WebKit::OriginStorageManager::StorageBucket::deleteData):
+        (WebKit::OriginStorageManager::StorageBucket::deleteFileSystemStorageData):
+        (WebKit::OriginStorageManager::OriginStorageManager):
+        (WebKit::OriginStorageManager::fileSystemStorageManager):
+        (WebKit::OriginStorageManager::isActive):
+        (WebKit::OriginStorageManager::deleteData):
+        (WebKit::OriginStorageManager::setPersisted):
+        (WebKit::OriginStorageManager::persist): Deleted.
+        * NetworkProcess/storage/OriginStorageManager.h:
+        * Shared/WebsiteData/WebsiteData.cpp:
+        (WebKit::WebsiteData::ownerProcess):
+        * Shared/WebsiteData/WebsiteDataType.h:
+        * UIProcess/API/Cocoa/WKWebsiteDataRecord.mm:
+        (dataTypesToString):
+        * UIProcess/API/Cocoa/WKWebsiteDataRecordInternal.h:
+        (WebKit::toWebsiteDataType):
+        (WebKit::toWKWebsiteDataTypes):
+        * UIProcess/API/Cocoa/WKWebsiteDataRecordPrivate.h:
+        * UIProcess/API/Cocoa/WKWebsiteDataStore.mm:
+        (+[WKWebsiteDataStore _allWebsiteDataTypesIncludingPrivate]):
+        * WebKit.xcodeproj/project.pbxproj:
+        * WebProcess/Network/NetworkProcessConnection.cpp:
+        (WebKit::NetworkProcessConnection::didReceiveMessage):
+        * WebProcess/WebCoreSupport/WebFileSystemStorageConnection.messages.in: Added.
+
+2021-12-07  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        Cocoa WebGL should support UI side compositing
+        https://bugs.webkit.org/show_bug.cgi?id=231009
+        <rdar://83437059>
+
+        Reviewed by Simon Fraser.
+
+        Implement the capability to assign IOSurfaces
+        to PlatformCALayerRemote contents.
+
+        Make RemoteGraphicsContextGLProxyCocoa use the added
+        GraphicsLayerContentsDisplayDelegate.
+
+        * GPUProcess/graphics/GPUProcessGraphicsContextGL.h:
+        * GPUProcess/graphics/RemoteGraphicsContextGLCocoa.cpp:
+        (WebKit::RemoteGraphicsContextGLCocoa::prepareForDisplay):
+        * Shared/RemoteLayerTree/RemoteLayerBackingStore.h:
+        (WebKit::RemoteLayerBackingStore::hasFrontBuffer const):
+        * Shared/RemoteLayerTree/RemoteLayerBackingStore.mm:
+        (WebKit::RemoteLayerBackingStore::clearBackingStore):
+        (WebKit::RemoteLayerBackingStore::encode const):
+        (WebKit::RemoteLayerBackingStore::swapToValidFrontBuffer):
+        (WebKit::RemoteLayerBackingStore::setContents):
+        (WebKit::RemoteLayerBackingStore::display):
+        Change the contract of what RemoteLayerBackingStore serializes to
+        the transaction. Before, it serialized the front buffer.
+        After, it serializes the m_bufferHandle.
+        The buffer handle is produced by display() phase either by
+        delegated display setting the contents or drawing to
+        front buffer and then assigning the front buffer handle.
+
+        * Shared/RemoteLayerTree/RemoteLayerTreeTransaction.mm:
+        (WebKit::RemoteLayerTreeTransaction::description const):
+        * UIProcess/RemoteLayerTree/RemoteLayerTreeHost.mm:
+        (WebKit::RemoteLayerTreeHost::makeNode):
+        * UIProcess/RemoteLayerTree/ios/RemoteLayerTreeHostIOS.mm:
+        (WebKit::RemoteLayerTreeHost::makeNode):
+        * WebKit.xcodeproj/project.pbxproj:
+        * WebProcess/GPU/graphics/cocoa/RemoteGraphicsContextGLProxyCocoa.mm:
+        (WebKit::RemoteGraphicsContextGLProxy::create):
+        * WebProcess/GPU/graphics/wc/RemoteGraphicsContextGLProxyWC.cpp:
+        (WebKit::RemoteGraphicsContextGLProxy::create): Deleted.
+        * WebProcess/WebPage/RemoteLayerTree/PlatformCALayerRemote.cpp:
+        (WebKit::PlatformCALayerRemote::recursiveBuildTransaction):
+        (WebKit::PlatformCALayerRemote::setContents):
+        * WebProcess/WebPage/RemoteLayerTree/PlatformCALayerRemote.h:
+        * WebProcess/WebPage/RemoteLayerTree/PlatformCALayerRemoteCustom.h:
+        * WebProcess/WebPage/RemoteLayerTree/PlatformCALayerRemoteCustom.mm:
+        (WebKit::PlatformCALayerRemoteCustom::PlatformCALayerRemoteCustom):
+        (WebKit::PlatformCALayerRemoteCustom::clone const):
+        (WebKit::PlatformCALayerRemoteCustom::setNeedsDisplayInRect):
+        (WebKit::PlatformCALayerRemoteCustom::setNeedsDisplay):
+        * WebProcess/WebPage/wc/GraphicsLayerWC.cpp:
+        (WebKit::GraphicsLayerWC::setContentsDisplayDelegate):
+
+2021-12-06  Per Arne  <pvollan@apple.com>
+
+        [iOS] Remove mach service extensions for the WebContent process
+        https://bugs.webkit.org/show_bug.cgi?id=232952
+        <rdar://problem/85259753>
+
+        Reviewed by Brent Fulgham.
+
+        Remove mach service extensions for the WebContent process, which we think are no longer needed, based on local testing.
+
+        * Resources/SandboxProfiles/ios/com.apple.WebKit.WebContent.sb.in:
+        * Shared/WebProcessCreationParameters.cpp:
+        (WebKit::WebProcessCreationParameters::encode const):
+        (WebKit::WebProcessCreationParameters::decode):
+        * Shared/WebProcessCreationParameters.h:
+        * UIProcess/Cocoa/WebProcessPoolCocoa.mm:
+        (WebKit::WebProcessPool::platformInitializeWebProcess):
+        (WebKit::nonBrowserServices): Deleted.
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::attachmentElementServices):
+        * WebProcess/cocoa/WebProcessCocoa.mm:
+        (WebKit::WebProcess::platformInitializeWebProcess):
+
+2021-12-06  Patrick Angle  <pangle@apple.com>
+
+        [Cocoa] Web Inspector: Unify Grid overlay drawing code
+        https://bugs.webkit.org/show_bug.cgi?id=233773
+
+        Reviewed by Devin Rousso.
+
+        Remove the (almost) 1-to-1 duplicated logic currently being used to turn Grid Overlays into a layer hierarchy
+        and instead use a graphics context to draw the overlays straight into the view to take advantage of the existing
+        drawing code we use for macOS in WebCore::InspectorOverlay. To accommodate this, we now correctly set the
+        content scale factor of the view itself (so that our drawing does not appear blurry) and set the frame of the
+        view equal to the current visible portion of the parent scroll view, which helps us to avoid having an
+        incredibly large graphics context to draw into (which we would if the view's frame was just set to match the
+        frame of the webpage's view). This frame will not always be the same size, such as when zooming in where less of
+        the frame is visible. Combined with the current content scale, this actually means that on zoom the effective
+        number of pixels that need to be drawn is consistent.
+
+        * UIProcess/Inspector/ios/WKInspectorHighlightView.h:
+        * UIProcess/Inspector/ios/WKInspectorHighlightView.mm:
+        (-[WKInspectorHighlightView initWithFrame:]):
+        - Explicitly set this view to be non-opaque so that page content can be seen below this view. This wasn't
+        previously necessary because the bounds of this view were a zero-rect, which meant the background was never
+        painted.
+
+        (-[WKInspectorHighlightView _removeAllLayers]):
+        (-[WKInspectorHighlightView _createLayers:]):
+        - Because the view's frame origin is now offset, we need to create the node highlight layers offset by the
+        negation of the frame's origin so that they still line up correctly with page content.
+
+        (-[WKInspectorHighlightView drawRect:]):
+        (-[WKInspectorHighlightView update:scale:frame:]):
+        (-[WKInspectorHighlightView _createGridOverlayLayers:scale:]): Deleted.
+        (createLayoutHatchingLayer): Deleted.
+        (createLayoutLabelLayer): Deleted.
+        (-[WKInspectorHighlightView _createGridOverlayLayer:scale:]): Deleted.
+        (-[WKInspectorHighlightView update:scale:]): Deleted.
+        * UIProcess/ios/WKContentView.mm:
+        (-[WKContentView _showInspectorHighlight:]):
+
+
+2021-12-06  Lauro Moura  <lmoura@igalia.com>
+
+        REGRESSION(r286535) [GTK] Fix clean builds after DerivedSources/WebKit2 move
+        https://bugs.webkit.org/show_bug.cgi?id=233881
+
+        Reviewed by Don Olmstead.
+
+        Build fix. Covered by existing tests
+
+        The previous approach of this patch created the links to the header
+        derived sources into the target webkit2/ folder, which in turn was a
+        link to <repo>/Source/WebKit/UIProcess/API/gtk. So it ended up
+        actually creating the links inside the Source directory.
+
+        This commit instead links a different webkit2/ folder from the
+        generated webkit folder for the WebKitGTK/WPE derived sources headers.
+
+        * PlatformGTK.cmake:
+        * PlatformWPE.cmake:
+
+2021-12-06  Brady Eidson  <beidson@apple.com>
+
+        webpushd/webpushtool debugging additions
+        https://bugs.webkit.org/show_bug.cgi?id=233864
+
+        Reviewed by Alex Christensen.
+
+        Covered by API tests.
+        
+        This patch:
+        - Teaches webpushtool the ability to wait for a reconnect after losing its connection
+        - Starts actually broadcasting meaningful debug messages from webpushd
+
+        * webpushd/AppBundleRequest.mm:
+        (WebPushD::AppBundleRequest::start):
+        (WebPushD::AppBundlePermissionsRequest::didCheckForExistingBundle):
+        (WebPushD::AppBundlePermissionsRequest::didCreateAppBundle):
+        (WebPushD::AppBundleDeletionRequest::didDeleteExistingBundleWithError):
+
+        * webpushd/PushClientConnection.h:
+        * webpushd/PushClientConnection.mm:
+        (WebPushD::ClientConnection::setDebugModeIsEnabled):
+        (WebPushD::ClientConnection::broadcastDebugMessage):
+        (WebPushD::ClientConnection::connectionClosed):
+
+        * webpushd/WebPushDaemon.mm:
+        (WebPushD::Daemon::connectionAdded):
+
+        * webpushd/webpushtool/WebPushToolConnection.h:
+        * webpushd/webpushtool/WebPushToolConnection.mm:
+        (WebPushTool::Connection::create):
+        (WebPushTool::Connection::Connection):
+        (WebPushTool::Connection::connectToService):
+        (WebPushTool::Connection::connectionDropped):
+
+        * webpushd/webpushtool/WebPushToolMain.mm:
+        (printUsageAndTerminate):
+        (main):
+
+2021-12-06  Chris Dumez  <cdumez@apple.com>
+
+        Regression(r286505) imported/w3c/web-platform-tests/html/cross-origin-opener-policy/javascript-url.https.html is a flaky crash
+        https://bugs.webkit.org/show_bug.cgi?id=233874
+
+        Reviewed by Darin Adler.
+
+        r286505 fixed ProvisionalPageProxy so that ProvisionalPageProxy::m_provisionalLoadURL gets properly initialized when the
+        ProvisionalPageProxy gets constructed *after* the provisional load has already started (COOP proces-swap case). One side
+        effect of this though is that ProvisionalPageProxy::cancel() no longer returns early and will try to notify the client
+        that the provisional load failed, dereferencing m_mainFrame in doing so. In the event where the main frame has not yet
+        been created in the new provisional process, this would do a null-dereference of m_mainFrame.
+
+        To address the issue, we now early return in ProvisionalPageProxy::cancel() if m_isProcessSwappingOnNavigationResponse
+        is true (i.e. The ProvisionalPageProxy was created after the provisional load had started). In such situations, we
+        don't want to ProvisionalPageProxy to be the one notifying the client of the provisional load failure anyway. The reason
+        is that there is still a provisional load going on in the committed process/page.
+        
+        No new tests, covered by existing test that is flakily crashing.
+
+        * UIProcess/ProvisionalPageProxy.cpp:
+        (WebKit::ProvisionalPageProxy::cancel):
+
+2021-12-06  Ryan Haddad  <ryanhaddad@apple.com>
+
+        REGRESSION (r286507): [macOS] Many file system access layout tests became flaky failures
+        https://bugs.webkit.org/show_bug.cgi?id=233892
+
+        Unreviewed, revert r286507.
+
+        * CMakeLists.txt:
+        * DerivedSources-input.xcfilelist:
+        * DerivedSources-output.xcfilelist:
+        * DerivedSources.make:
+        * NetworkProcess/Classifier/WebResourceLoadStatisticsStore.cpp:
+        (WebKit::WebResourceLoadStatisticsStore::monitoredDataTypes):
+        * NetworkProcess/NetworkProcess.cpp:
+        (WebKit::NetworkProcess::fetchWebsiteData):
+        (WebKit::NetworkProcess::deleteWebsiteData):
+        (WebKit::NetworkProcess::deleteWebsiteDataForOrigins):
+        (WebKit::NetworkProcess::deleteAndRestrictWebsiteDataForRegistrableDomains):
+        (WebKit::NetworkProcess::registrableDomainsWithWebsiteData):
+        * NetworkProcess/storage/FileSystemStorageHandle.h:
+        (WebKit::FileSystemStorageHandle::activeSyncAccessHandle const): Deleted.
+        * NetworkProcess/storage/FileSystemStorageManager.cpp:
+        (WebKit::FileSystemStorageManager::~FileSystemStorageManager):
+        (WebKit::FileSystemStorageManager::close): Deleted.
+        * NetworkProcess/storage/FileSystemStorageManager.h:
+        * NetworkProcess/storage/NetworkStorageManager.cpp:
+        (WebKit::originPath):
+        (WebKit::NetworkStorageManager::localOriginStorageManager):
+        (WebKit::readOriginFromFile): Deleted.
+        (WebKit::writeOriginToFileIfNecessary): Deleted.
+        (WebKit::deleteOriginFileIfNecessary): Deleted.
+        (WebKit::originDirectoryPath): Deleted.
+        (WebKit::originFilePath): Deleted.
+        (WebKit::NetworkStorageManager::removeOriginStorageManagerIfPossible): Deleted.
+        (WebKit::toWebsiteDataType): Deleted.
+        (WebKit::NetworkStorageManager::forEachOriginDirectory): Deleted.
+        (WebKit::NetworkStorageManager::fetchDataFromDisk): Deleted.
+        (WebKit::NetworkStorageManager::fetchData): Deleted.
+        (WebKit::NetworkStorageManager::deleteDataOnDisk): Deleted.
+        (WebKit::NetworkStorageManager::deleteData): Deleted.
+        (WebKit::NetworkStorageManager::deleteDataModifiedSince): Deleted.
+        (WebKit::NetworkStorageManager::deleteDataForRegistrableDomains): Deleted.
+        * NetworkProcess/storage/NetworkStorageManager.h:
+        * NetworkProcess/storage/OriginStorageManager.cpp:
+        (WebKit::OriginStorageManager::StorageBucket::typeStoragePath const):
+        (WebKit::OriginStorageManager::StorageBucket::fileSystemStorageManager):
+        (WebKit::OriginStorageManager::OriginStorageManager):
+        (WebKit::OriginStorageManager::StorageBucket::toStorageIdentifier): Deleted.
+        (WebKit::OriginStorageManager::StorageBucket::isActive): Deleted.
+        (WebKit::OriginStorageManager::StorageBucket::deleteData): Deleted.
+        (WebKit::OriginStorageManager::StorageBucket::deleteFileSystemStorageData): Deleted.
+        (WebKit::OriginStorageManager::isActive): Deleted.
+        (WebKit::OriginStorageManager::deleteData): Deleted.
+        * NetworkProcess/storage/OriginStorageManager.h:
+        * Shared/WebsiteData/WebsiteData.cpp:
+        (WebKit::WebsiteData::ownerProcess):
+        * Shared/WebsiteData/WebsiteDataType.h:
+        * UIProcess/API/Cocoa/WKWebsiteDataRecord.mm:
+        (dataTypesToString):
+        * UIProcess/API/Cocoa/WKWebsiteDataRecordInternal.h:
+        (WebKit::toWebsiteDataType):
+        (WebKit::toWKWebsiteDataTypes):
+        * UIProcess/API/Cocoa/WKWebsiteDataRecordPrivate.h:
+        * UIProcess/API/Cocoa/WKWebsiteDataStore.mm:
+        (+[WKWebsiteDataStore _allWebsiteDataTypesIncludingPrivate]):
+        * WebKit.xcodeproj/project.pbxproj:
+        * WebProcess/Network/NetworkProcessConnection.cpp:
+        (WebKit::NetworkProcessConnection::didReceiveMessage):
+        * WebProcess/WebCoreSupport/WebFileSystemStorageConnection.messages.in: Removed.
+
+2021-12-06  Mark Lam  <mark.lam@apple.com>
+
+        Reverting local test code that should not have been landed.
+
+        Not reviewed.
+
+        * UIProcess/Cocoa/ModelElementControllerCocoa.mm:
+
+2021-12-06  Tim Horton  <timothy_horton@apple.com>
+
+        Momentum Event Dispatcher: Momentum phase runs backwards with natural scrolling disabled
+        https://bugs.webkit.org/show_bug.cgi?id=233894
+        <rdar://problem/86111948>
+
+        Reviewed by Simon Fraser.
+
+        * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+        (WebKit::MomentumEventDispatcher::consumeDeltaForCurrentTime):
+        Only flip the deltas if the trackpad is configured to use "natural"
+        scrolling (in which "directionInvertedFromDevice" is true).
+
+        (WebKit::MomentumEventDispatcher::computeNextDelta):
+        Fix initial queue state logging to log both axes before setting the "did log" bit.
+
+2021-12-06  Brady Eidson  <beidson@apple.com>
+
+        Put webpushd code in WebKit.framework.
+        https://bugs.webkit.org/show_bug.cgi?id=233886
+
+        Reviewed by Alex Christensen.
+
+        This fixes some build/mastering/linking issues.
+
+        * Configurations/webpushd.xcconfig:
+        * Shared/API/Cocoa/WKMain.h:
+        * Shared/API/Cocoa/WKMain.mm:
+        (WKWebPushDaemonMain):
+        * WebKit.xcodeproj/project.pbxproj:
+        * webpushd/WebPushDaemonMain.h: Copied from Source/WebKit/Shared/API/Cocoa/WKMain.mm.
+        * webpushd/WebPushDaemonMain.mm:
+        (WebKit::WebPushDaemonMain):
+        (main): Deleted.
+        * webpushd/webpushd.cpp: Copied from Source/WebKit/Shared/API/Cocoa/WKMain.mm.
+        (main):
+
+2021-12-06  Brent Fulgham  <bfulgham@apple.com>
+
+        REGRESSION (r286527): Three API tests crashing under WebKit::ProcessLauncher::launchProcess()
+        https://bugs.webkit.org/show_bug.cgi?id=233882
+        <rdar://problem/86111726>
+
+        Reviewed by Brent Fulgham.
+
+        Correct the eventHandler to capture the process name, rather than using a raw pointer to the character string.
+
+        * UIProcess/Launcher/cocoa/ProcessLauncherCocoa.mm:
+        (WebKit::ProcessLauncher::launchProcess):
+
+2021-12-06  Per Arne Vollan  <pvollan@apple.com>
+
+        [iOS][WP] Block access to unused IOKit class
+        https://bugs.webkit.org/show_bug.cgi?id=233866
+        <rdar://problem/86086475>
+
+        Reviewed by Brent Fulgham.
+
+        Block access to IOKit class IOMobileFramebufferUserClient in the WebContent process' sandbox on iOS,
+        which is unused according to telemetry.
+
+        * Resources/SandboxProfiles/ios/com.apple.WebKit.WebContent.sb.in:
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::gpuIOKitClasses):
+
+2021-12-06  Matt Gilligan  <matthew_gilligan@apple.com>
+
+        [iOS] Allow WKWebView clients to override undoManager
+        https://bugs.webkit.org/show_bug.cgi?id=233297
+        <rdar://problem/85526549>
+
+        Reviewed by Wenson Hsieh.
+
+        Move WKContentView's undoManager up the responder chain to WKWebView so web view
+        subclasses can customize the undo manager used when WKContentView is first responder.
+
+        Test: KeyboardInputTests.OverrideUndoManager
+
+        * UIProcess/API/ios/WKWebViewIOS.mm:
+        (-[WKWebView undoManager]):
+        Return the undo manager provided by _contentView when it is current.
+
+        * UIProcess/ios/WKContentView.h:
+        * UIProcess/ios/WKContentView.mm:
+        (-[WKContentView undoManagerForWebView]):
+        Provide the view's undo manager via this property so that -undoManager will look up the
+        responder chain to WKWebView.
+
+        (-[WKContentView undoManager]): Deleted.
+
+2021-12-06  Lauro Moura  <lmoura@igalia.com>
+
+        REGRESSION(r286535) [GTK] Fix clean builds after DerivedSources/WebKit2 move
+        https://bugs.webkit.org/show_bug.cgi?id=233881
+
+        Reviewed by Žan Doberšek.
+
+        Build fix. Covered by exiting tests.
+
+        * PlatformGTK.cmake: Add symbolic links for the public generated like
+        we do for the regular headers. It happened to work before because they
+        were created already in a webkit2 folder.
+
+2021-12-06  Alex Christensen  <achristensen@webkit.org>
+
+        WKWebpagePreferences._activeContentRuleListActionPatterns should be an NSDictionary of identifier to allowed patterns
+        https://bugs.webkit.org/show_bug.cgi?id=233842
+
+        Reviewed by Timothy Hatcher.
+
+        * Shared/WebsitePoliciesData.cpp:
+        (WebKit::WebsitePoliciesData::decode):
+        * Shared/WebsitePoliciesData.h:
+        * UIProcess/API/APIWebsitePolicies.h:
+        * UIProcess/API/Cocoa/WKWebpagePreferences.mm:
+        (-[WKWebpagePreferences _setActiveContentRuleListActionPatterns:]):
+        (-[WKWebpagePreferences _activeContentRuleListActionPatterns]):
+        * UIProcess/API/Cocoa/WKWebpagePreferencesPrivate.h:
+
+2021-12-05  Said Abou-Hallawa  <said@apple.com>
+
+        [GPU Process] Add the encoding/decoding for Filter and FilterEffect
+        https://bugs.webkit.org/show_bug.cgi?id=232844
+
+        Reviewed by Wenson Hsieh.
+
+        * GPUProcess/graphics/RemoteDisplayListRecorder.cpp:
+        (WebKit::RemoteDisplayListRecorder::drawFilteredImageBuffer):
+        * GPUProcess/graphics/RemoteDisplayListRecorder.h:
+        * GPUProcess/graphics/RemoteDisplayListRecorder.messages.in:
+        * GPUProcess/graphics/RemoteRenderingBackend.cpp:
+        (WebKit::RemoteRenderingBackend::getFilteredImageForImageBuffer):
+        * GPUProcess/graphics/RemoteRenderingBackend.h:
+        * GPUProcess/graphics/RemoteRenderingBackend.messages.in:
+        * Platform/IPC/FilterReference.h: Added.
+        (IPC::FilterReference::FilterReference):
+        (IPC::FilterReference::takeFilter):
+        (IPC::FilterReference::encodeFilterEffect):
+        (IPC::FilterReference::decodeFilterEffect):
+        (IPC::FilterReference::encodeSVGFilter):
+        (IPC::FilterReference::decodeSVGFilter):
+        (IPC::FilterReference::encodeCSSFilter):
+        (IPC::FilterReference::decodeCSSFilter):
+        (IPC::FilterReference::encodeFilter):
+        (IPC::FilterReference::decodeFilter):
+        (IPC::FilterReference::encode const):
+        (IPC::FilterReference::decode):
+        * Scripts/webkit/messages.py:
+        (types_that_cannot_be_forward_declared):
+        * WebKit.xcodeproj/project.pbxproj:
+        * WebProcess/GPU/graphics/RemoteDisplayListRecorderProxy.cpp:
+        (WebKit::RemoteDisplayListRecorderProxy::recordDrawFilteredImageBuffer):
+        * WebProcess/GPU/graphics/RemoteDisplayListRecorderProxy.h:
+        * WebProcess/GPU/graphics/RemoteImageBufferProxy.h:
+        * WebProcess/GPU/graphics/RemoteRenderingBackendProxy.cpp:
+        (WebKit::RemoteRenderingBackendProxy::getFilteredImage):
+        * WebProcess/GPU/graphics/RemoteRenderingBackendProxy.h:
+
+2021-12-05  Simon Fraser  <simon.fraser@apple.com>
+
+        Add trace points for generated momentum events
+        https://bugs.webkit.org/show_bug.cgi?id=233857
+
+        Reviewed by Tim Horton.
+
+        Add start/end points for synthetic momentum, and a trace point for each generated event.
+
+        * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+        (WebKit::MomentumEventDispatcher::dispatchSyntheticMomentumEvent):
+        (WebKit::MomentumEventDispatcher::didStartMomentumPhase):
+        (WebKit::MomentumEventDispatcher::didEndMomentumPhase):
+
+2021-12-04  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Rename DerivedSources/WebKit2 to DerivedSources/WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=233803
+
+        Reviewed by Tim Horton.
+
+        Mechanical rename.
+
+        No new tests because there is no behavior change.
+
+        * Configurations/BaseTarget.xcconfig:
+        * DerivedSources-output.xcfilelist:
+        * PlatformGTK.cmake:
+        * Scripts/generate-derived-sources.sh:
+        * Scripts/generate-unified-sources.sh:
+        * UnifiedSources-output.xcfilelist:
+        * WebKit.xcodeproj/project.pbxproj:
+
+2021-12-04  Brady Eidson  <beidson@apple.com>
+
+        Add command line `webpushtool` for daemon development and debugging.
+        https://bugs.webkit.org/show_bug.cgi?id=233845
+
+        Reviewed by Tim Horton.
+
+        No behavior change.
+
+        This utility will eventually be quite fleshed out.
+        
+        For now, it can act as a terminal that prints debug messages from webpushd.
+        
+        * Configurations/webpushtool.xcconfig: Added.
+        * Resources/webpushtool.entitlements: Added.
+        * WebKit.xcodeproj/project.pbxproj:
+        * WebKit.xcodeproj/xcshareddata/xcschemes/webpushtool.xcscheme: Added.
+
+        * webpushd/webpushtool/WebPushToolConnection.h: Added.
+        * webpushd/webpushtool/WebPushToolConnection.mm: Added.
+        (WebPushTool::Connection::create):
+        (WebPushTool::maybeConnectToService):
+        (WebPushTool::Connection::Connection):
+        (WebPushTool::Connection::connectToService):
+        (WebPushTool::Connection::startAction):
+        (WebPushTool::Connection::startDebugStreamAction):
+        (WebPushTool::Connection::sendAuditToken):
+        (WebPushTool::Connection::connectionDropped):
+        (WebPushTool::Connection::messageReceived):
+        * webpushd/webpushtool/WebPushToolMain.mm: Added.
+        (printUsageAndTerminate):
+        (main):
+
+2021-12-04  Brent Fulgham  <bfulgham@apple.com>
+
+        [Cocoa] Launch Captive Portal WebContent process when requested
+        https://bugs.webkit.org/show_bug.cgi?id=233824
+        <rdar://problem/86023898>
+
+        Reviewed by Darin Adler.
+
+        When the WebKit client requests a Captive Portal process, launch the dedicated XPC service
+        with Captive Portal entitlements.
+
+         * UIProcess/Launcher/cocoa/ProcessLauncherCocoa.mm:
+        (WebKit::webContentServiceName): New helper function.
+        (WebKit::serviceName): Update to use new helper.
+        (WebKit::ProcessLauncher::launchProcess): Log errors when launching.
+        * WebKit.xcodeproj/project.pbxproj: Include the CaptivePortal xpc service when creating
+        development symlinks.
+
+2021-12-03  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [iOS] Web content process sometimes crashes under WebPage::positionInformation()
+        https://bugs.webkit.org/show_bug.cgi?id=233841
+        rdar://85917212
+
+        Reviewed by Geoffrey Garen.
+
+        Add a missing null check in the case where the hit-tested node is null in `WebPage::positionInformation`. This
+        can happen in a number of ways (one of which is exercised by the new API test).
+
+        Test: ImageAnalysisTests.DoNotCrashWhenHitTestingOutsideOfWebView
+
+        * WebProcess/WebPage/ios/WebPageIOS.mm:
+        (WebKit::WebPage::positionInformation):
+
+2021-12-03  John Wilander  <wilander@apple.com>
+
+        PCM: Unlinkable tokens for triggering event to prevent fraud
+        https://bugs.webkit.org/show_bug.cgi?id=233673
+        <rdar://79426347>
+
+        Reviewed by Alex Christensen.
+
+        This patch allows triggering events to have an optional query parameter like this:
+        https://destination.example/.well-known/private-click-measurement/trigger-attribution/11?attributionDestinationNonce=ABCDEFabcdef0123456789
+
+        The presence of an attributionDestinationNonce triggers PrivateClickMeasurementManager to
+        ask the server to sign an unlinkable token for the triggering event and then stores the
+        corresponding secret token plus the signature for later inclusion in the attribution report.
+
+        New API/unit test PrivateClickMeasurement.DestinationClickFraudPrevention.
+
+        * NetworkProcess/DatabaseUtilities.cpp:
+        (WebKit::DatabaseUtilities::buildPrivateClickMeasurementFromDatabase const):
+            Now handles destination tokens.
+        * NetworkProcess/NetworkResourceLoader.cpp:
+        (WebKit::NetworkResourceLoader::willSendRedirectedRequest):
+            Now sets destinationSite in WebCore::PrivateClickMeasurement::AttributionTriggerData.
+        * NetworkProcess/PrivateClickMeasurement/PrivateClickMeasurementDatabase.cpp:
+        (WebKit::PCM::Database::Database):
+            Now calls addDestinationTokenColumnsIfNecessary().
+        (WebKit::PCM::Database::insertPrivateClickMeasurement):
+            Now does insertion of optional destination tokens.
+        (WebKit::PCM::Database::addDestinationTokenColumnsIfNecessary):
+            Database migration.
+        (WebKit::PCM::Database::addBundleIDColumnIfNecessary): Deleted.
+            Temporary migration function for non-customer builds. No longer needed.
+        * NetworkProcess/PrivateClickMeasurement/PrivateClickMeasurementDatabase.h:
+        * NetworkProcess/PrivateClickMeasurement/PrivateClickMeasurementManager.cpp:
+        (WebKit::PrivateClickMeasurementManager::storeUnattributed):
+            Just name changes.
+        (WebKit::PrivateClickMeasurementManager::getTokenPublicKey):
+            Not changed afaik. Seems like the diff is confused.
+        (WebKit::PrivateClickMeasurementManager::configureForTokenSigning):
+            New function to extract shared code.
+        (WebKit::PrivateClickMeasurementManager::getSignatureBase64URLFromTokenSignatureResponse):
+            New function to extract shared code.
+        (WebKit::PrivateClickMeasurementManager::getSignedUnlinkableTokenForSource):
+            Renamed to add "ForSource" and all shared code extracted.
+        (WebKit::PrivateClickMeasurementManager::getSignedUnlinkableTokenForDestination):
+            Different than for the source in that it results in an attribution call.
+        (PrivateClickMeasurementManager::handleAttribution):
+            Now does signing of destination token if the optional nonce is in the triggering event.
+        (PrivateClickMeasurementManager::fireConversionRequest):
+        (WebKit::PrivateClickMeasurementManager::setPCMFraudPreventionValuesForTesting):
+            Added empty initializer strings for the destination test token values not in use yet.
+        (WebKit::PrivateClickMeasurementManager::getSignedUnlinkableToken): Deleted.
+            Renamed PrivateClickMeasurementManager::getSignedUnlinkableTokenForSource().
+        * NetworkProcess/PrivateClickMeasurement/PrivateClickMeasurementManager.h:
+
+2021-12-03  ujwal koneru  <ujwal.koneru@sony.com>
+
+        Fix playstation build after r286484
+        https://bugs.webkit.org/show_bug.cgi?id=233823
+
+        unreviewed build fix.
+
+        * UIProcess/playstation/WebProcessPoolPlayStation.cpp:
+        (WebKit::WebProcessPool::platformInitializeWebProcess):
+        * WebProcess/playstation/WebProcessPlayStation.cpp:
+        (WebKit::WebProcess::platformInitializeWebProcess):
+
+2021-12-03  Tim Horton  <timothy_horton@apple.com>
+
+        Fix the build
+
+        * NetworkProcess/storage/NetworkStorageManager.cpp:
+
+2021-12-03  Tim Horton  <timothy_horton@apple.com>
+
+        Add more logging for MomentumEventDispatcher
+        https://bugs.webkit.org/show_bug.cgi?id=233811
+
+        Reviewed by Simon Fraser.
+
+        Add a temporary event log to MomentumEventDispatcher, to debug delta/offset/curve issues.
+
+        * WebProcess/WebPage/EventDispatcher.h:
+        (WebKit::EventDispatcher::queue):
+        * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+        (WebKit::MomentumEventDispatcher::handleWheelEvent):
+        Accumulate event deltas. Also accumulate event deltas for the
+        fingers-down phase in the "generated" offset. Store the phase and 
+        momentum phase smooshed into a single field.
+
+        (WebKit::MomentumEventDispatcher::dispatchSyntheticMomentumEvent):
+        Accumulate generated deltas.
+
+        (WebKit::MomentumEventDispatcher::didEndMomentumPhase):
+        Attempt to dump the log 1 second after each momentum phase. We'll skip
+        it if another scroll has started since.
+
+        (WebKit::MomentumEventDispatcher::setScrollingAccelerationCurve):
+        (WebKit::MomentumEventDispatcher::startDisplayLink):
+        (WebKit::MomentumEventDispatcher::stopDisplayLink):
+        (WebKit::MomentumEventDispatcher::consumeDeltaForCurrentTime):
+        (WebKit::MomentumEventDispatcher::buildOffsetTableWithInitialDelta):
+        (WebKit::MomentumEventDispatcher::computeNextDelta):
+        Adopt more MOMENTUM_EVENT_DISPATCHER_TEMPORARY_LOGGING. Error logging
+        we leave outside of this, because that we'll keep around.
+
+        (WebKit::MomentumEventDispatcher::pushLogEntry):
+        (WebKit::MomentumEventDispatcher::flushLog):
+        Dump the event log in an easy-to-copy-into-a-CSV format.
+
+        * WebProcess/WebPage/MomentumEventDispatcher.h:
+
+2021-12-03  Robert Jenner  <Jenner@apple.com>
+
+        Unreviewed, reverting r286487.
+
+        Broke multiple builds.
+
+        Reverted changeset:
+
+        "Rename DerivedSources/WebKit2 to DerivedSources/WebKit"
+        https://bugs.webkit.org/show_bug.cgi?id=233803
+        https://commits.webkit.org/r286487
+
+2021-12-03  Sihui Liu  <sihui_liu@apple.com>
+
+        Fetch and remove file system data via WKWebsiteDataStore
+        https://bugs.webkit.org/show_bug.cgi?id=233567
+
+        Reviewed by Youenn Fablet.
+
+        Introduce a new WebsiteDataType value FileSystem for FileSystemAccess data. Network process now can fetch and 
+        delete this type of data when fetching and deleteing website data (if FileSystem type is included in target
+        types).
+
+        To track origins that have FileSystem data, this patch introduces a new file named origin in the origin's 
+        directory. This file will be created when OriginStorageManager is created.
+
+        To delete existing FileSystem data, network process finds origins that are requested to be deleted and have data 
+        on disk, closes active access handles, and deletes the files. The origin file mentioned above will be deleted if 
+        there is no other file left in the same directory, and empty directories will be deleted.
+
+        New API tests: FileSystemAccess.FetchAndRemoveData
+                       FileSystemAccess.RemoveDataByModificationTime
+                       FileSystemAccess.FetchDataForThirdParty
+
+        * CMakeLists.txt:
+        * DerivedSources-input.xcfilelist:
+        * DerivedSources-output.xcfilelist:
+        * DerivedSources.make:
+        * NetworkProcess/Classifier/WebResourceLoadStatisticsStore.cpp:
+        (WebKit::WebResourceLoadStatisticsStore::monitoredDataTypes):
+        * NetworkProcess/NetworkProcess.cpp:
+        (WebKit::NetworkProcess::fetchWebsiteData):
+        (WebKit::NetworkProcess::deleteWebsiteData):
+        (WebKit::NetworkProcess::deleteWebsiteDataForOrigins):
+        (WebKit::NetworkProcess::deleteAndRestrictWebsiteDataForRegistrableDomains):
+        (WebKit::NetworkProcess::registrableDomainsWithWebsiteData):
+        * NetworkProcess/storage/FileSystemStorageHandle.h:
+        (WebKit::FileSystemStorageHandle::activeSyncAccessHandle const):
+        * NetworkProcess/storage/FileSystemStorageManager.cpp:
+        (WebKit::FileSystemStorageManager::~FileSystemStorageManager):
+        (WebKit::FileSystemStorageManager::close):
+        * NetworkProcess/storage/FileSystemStorageManager.h:
+        * NetworkProcess/storage/NetworkStorageManager.cpp:
+        (WebKit::readOriginFromFile):
+        (WebKit::writeOriginToFileIfNecessary):
+        (WebKit::deleteOriginFileIfNecessary):
+        (WebKit::originDirectoryPath):
+        (WebKit::originFilePath):
+        (WebKit::NetworkStorageManager::localOriginStorageManager):
+        (WebKit::NetworkStorageManager::removeOriginStorageManagerIfPossible):
+        (WebKit::toWebsiteDataType):
+        (WebKit::NetworkStorageManager::forEachOriginDirectory):
+        (WebKit::NetworkStorageManager::fetchDataFromDisk):
+        (WebKit::NetworkStorageManager::fetchData):
+        (WebKit::NetworkStorageManager::deleteDataOnDisk):
+        (WebKit::NetworkStorageManager::deleteData):
+        (WebKit::NetworkStorageManager::deleteDataModifiedSince):
+        (WebKit::NetworkStorageManager::deleteDataForRegistrableDomains):
+        (WebKit::originPath): Deleted.
+        * NetworkProcess/storage/NetworkStorageManager.h:
+        * NetworkProcess/storage/OriginStorageManager.cpp:
+        (WebKit::OriginStorageManager::StorageBucket::toStorageIdentifier):
+        (WebKit::OriginStorageManager::StorageBucket::typeStoragePath const):
+        (WebKit::OriginStorageManager::StorageBucket::fileSystemStorageManager):
+        (WebKit::OriginStorageManager::StorageBucket::isActive):
+        (WebKit::OriginStorageManager::StorageBucket::deleteData):
+        (WebKit::OriginStorageManager::StorageBucket::deleteFileSystemStorageData):
+        (WebKit::OriginStorageManager::OriginStorageManager):
+        (WebKit::OriginStorageManager::isActive):
+        (WebKit::OriginStorageManager::deleteData):
+        * NetworkProcess/storage/OriginStorageManager.h:
+        * Shared/WebsiteData/WebsiteData.cpp:
+        (WebKit::WebsiteData::ownerProcess):
+        * Shared/WebsiteData/WebsiteDataType.h:
+        * UIProcess/API/Cocoa/WKWebsiteDataRecord.mm:
+        (dataTypesToString):
+        * UIProcess/API/Cocoa/WKWebsiteDataRecordInternal.h:
+        (WebKit::toWebsiteDataType):
+        (WebKit::toWKWebsiteDataTypes):
+        * UIProcess/API/Cocoa/WKWebsiteDataRecordPrivate.h:
+        * UIProcess/API/Cocoa/WKWebsiteDataStore.mm:
+        (+[WKWebsiteDataStore _allWebsiteDataTypesIncludingPrivate]):
+        * WebKit.xcodeproj/project.pbxproj:
+        * WebProcess/Network/NetworkProcessConnection.cpp:
+        (WebKit::NetworkProcessConnection::didReceiveMessage):
+        * WebProcess/WebCoreSupport/WebFileSystemStorageConnection.messages.in: Added.
+
+2021-12-03  Chris Dumez  <cdumez@apple.com>
+
+        Follow-up to r286479 to add API test and address issues found by the test
+        https://bugs.webkit.org/show_bug.cgi?id=233798
+
+        Reviewed by Darin Adler.
+
+        Add functionality needed for API testing and fix issues found by the API test.
+
+        * UIProcess/API/Cocoa/WKWebViewPrivateForTesting.h:
+        * UIProcess/API/Cocoa/WKWebViewTesting.mm:
+        (-[WKWebView _isLayerTreeFrozenForTesting:]):
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::WebPageProxy::destroyProvisionalPage):
+        (WebKit::WebPageProxy::isLayerTreeFrozen):
+        * UIProcess/WebPageProxy.h:
+        * WebProcess/WebPage/WebPage.cpp:
+        (WebKit::WebPage::isLayerTreeFrozen):
+        * WebProcess/WebPage/WebPage.h:
+        * WebProcess/WebPage/WebPage.messages.in:
+        Add new SPI to check if the layer tree is frozen in the WebProcess so that I could
+        write an API test for this.
+
+        * UIProcess/ProvisionalPageProxy.cpp:
+        (WebKit::ProvisionalPageProxy::ProvisionalPageProxy):
+        Make sure m_provisionalLoadURL gets initialized when the ProvisionalPageProxy gets
+        constructed *after* the provisional load has already started (which is the case
+        when the process swap is triggered by COOP).
+
+        (WebKit::ProvisionalPageProxy::didFailProvisionalLoadForFrame):
+        If the provisional load load fails in the provisional process, and the ProvisionalPageProxy
+        was constructed on resource response (COOP case), then no longer forward the
+        didFailProvisionalLoadForFrame() to the WebPageProxy. Instead, we destroy the
+        ProvisionalPageProxy. This is to avoid duplicate calls to didFailProvisionalLoadForFrame().
+        In this case, there is still a provisional load ongoing in the committed process and the
+        ProvisionalPageProxy destructor will take care of stopping that provisional load (due to
+        r286479), which will cause the committed process to send its own
+        didFailProvisionalLoadForFrame IPC.
+
+2021-12-03  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [ Monterey wk2 ] http/tests/media/video-webm-stall.html (layout-test) is a constant text failure
+        https://bugs.webkit.org/show_bug.cgi?id=233717
+        rdar://85933254
+
+        Reviewed by Peng Liu.
+
+        After r274117, we call `PlatformMediaSessionManager::setWebMFormatReaderEnabled` in GPUProcess with
+        `m_webMParserEnabled` instead of the value of `m_webMFormatReaderEnabled`. Since we (arbitrarily) update WebM
+        parser enablement before WebM format reader enablement, this means that the first call to update preferences
+        leaves the WebM format reader disabled on PlatformMediaSessionManager even though it should be enabled. Prior to
+        the more recent change in r285477, this would be corrected on subsequent calls into
+        `GPUProcessProxy::updatePreferences()`, which previously sent `GPUProcess::SetWebMFormatReaderEnabled()`
+        messages even if the value of the preference hadn't changed.
+
+        r285477 removed those redundant IPC messages when the enablement value hasn't changed, so we can no longer
+        rely on PlatformMediaSessionManager being eventually updated to `true` due to `m_webMParserEnabled` being set to
+        true. Simply fix this by using `m_webMFormatReaderEnabled` instead of `m_webMParserEnabled`.
+
+        * GPUProcess/GPUProcess.cpp:
+        (WebKit::GPUProcess::setWebMFormatReaderEnabled):
+
+2021-12-03  BJ Burg  <bburg@apple.com>
+
+        Web Inspector: Web Inspector^2 crashes after closing if Web Inspector^1 closed first
+        https://bugs.webkit.org/show_bug.cgi?id=233293
+        <rdar://problem/85526508>
+
+        Reviewed by Devin Rousso.
+
+        Cache the inspected page's identifier. During frontend teardown, use the cached indentifier
+        to remove the message receiver that was added to receive messages from the inspected page.
+
+        Other operations using m_inspectedPage should be guarded in case that the inspected
+        page already been closed and destroyed.
+
+        * UIProcess/Inspector/WebInspectorUIProxy.cpp:
+        (WebKit::WebInspectorUIProxy::createFrontendPage):
+        (WebKit::WebInspectorUIProxy::closeFrontendPageAndWindow):
+        * UIProcess/Inspector/WebInspectorUIProxy.h:
+
+
+2021-12-03  BJ Burg  <bburg@apple.com>
+
+        [Cocoa] Web Inspector: fix completion handler type signature for _WKInspectorExtension methods
+        https://bugs.webkit.org/show_bug.cgi?id=233792
+        <rdar://problem/85995314>
+
+        Reviewed by Devin Rousso.
+
+        * UIProcess/API/Cocoa/_WKInspectorExtension.h:
+        * UIProcess/API/Cocoa/_WKInspectorExtension.mm:
+        (-[_WKInspectorExtension evaluateScript:frameURL:contextSecurityOrigin:useContentScriptContext:completionHandler:]):
+        (-[_WKInspectorExtension evaluateScript:inTabWithIdentifier:completionHandler:]):
+        Replace the completionHandler's NSDictionary argument type with `id`.
+
+        A dictionary is not necessarily returned here because the implementation deserializes a SerializedScriptValue.
+        This could be a string, number, array, dictionary, or other serializable values.
+
+        While the frontend does return a dictionary payload, this is unpacked on the WebProcess-side
+        before being sent back out via the _WKInspectorExtension APi.
+
+2021-12-03  Alex Christensen  <achristensen@webkit.org>
+
+        Add room for more bytecode in WKContentRuleList file format
+        https://bugs.webkit.org/show_bug.cgi?id=233780
+
+        Reviewed by Tim Hatcher.
+
+        * Shared/WebCompiledContentRuleList.cpp:
+        (WebKit::WebCompiledContentRuleList::frameURLFiltersBytecode const):
+        * Shared/WebCompiledContentRuleList.h:
+        * Shared/WebCompiledContentRuleListData.cpp:
+        (WebKit::WebCompiledContentRuleListData::encode const):
+        (WebKit::WebCompiledContentRuleListData::decode):
+        * Shared/WebCompiledContentRuleListData.h:
+        (WebKit::WebCompiledContentRuleListData::WebCompiledContentRuleListData):
+        * UIProcess/API/APIContentRuleListStore.cpp:
+        (API::ContentRuleListMetaData::fileSize const):
+        (API::encodeContentRuleListMetaData):
+        (API::decodeContentRuleListMetaData):
+        (API::compiledToFile):
+        (API::createExtension):
+        (API::getContentRuleListSourceFromMappedFile):
+        * UIProcess/API/APIContentRuleListStore.h:
+
+2021-12-03  Eric Carlson  <eric.carlson@apple.com>
+
+        DisplayCaptureSource doesn't initialize base class correctly
+        https://bugs.webkit.org/show_bug.cgi?id=233722
+
+        Reviewed by Youenn Fablet.
+
+        * UIProcess/Cocoa/UserMediaCaptureManagerProxy.cpp:
+        (WebKit::UserMediaCaptureManagerProxy::createMediaSourceForCaptureDeviceWithConstraints):
+        Pass the hash salt to the factory.
+
+        * WebProcess/cocoa/RemoteRealtimeDisplaySource.cpp:
+        (WebKit::RemoteRealtimeDisplaySource::create): Remove 'name' parameter because 
+        CaptureDevice already has the name.
+        (WebKit::RemoteRealtimeDisplaySource::RemoteRealtimeDisplaySource): Pass name to
+        base class from device.label().
+        (WebKit::RemoteRealtimeDisplaySource::createRemoteMediaSource): Don't call setName
+        with settings, it was already set in the constructor.
+        * WebProcess/cocoa/RemoteRealtimeDisplaySource.h:
+
+        * WebProcess/cocoa/UserMediaCaptureManager.cpp:
+        (WebKit::UserMediaCaptureManager::DisplayFactory::createDisplayCaptureSource): Pass
+        hash salt to RemoteRealtimeDisplaySource::create.
+        * WebProcess/cocoa/UserMediaCaptureManager.h:
+
+2021-12-03  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Rename DerivedSources/WebKit2 to DerivedSources/WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=233803
+
+        Reviewed by Tim Horton.
+
+        Mechanical rename.
+
+        No new tests because there is no behavior change.
+
+        * Configurations/BaseTarget.xcconfig:
+        * Scripts/generate-derived-sources.sh:
+        * Scripts/generate-unified-sources.sh:
+        * UnifiedSources-output.xcfilelist:
+        * WebKit.xcodeproj/project.pbxproj:
+
+2021-12-03  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        Network process does not seem to initialize logging
+        https://bugs.webkit.org/show_bug.cgi?id=233360
+        <rdar://problem/85765854>
+
+        Reviewed by Fujii Hironori.
+
+        Move GPUProcess and WebProcess process creation arguments
+        related to logging strings to new AuxiliaryProcessCreationParameters.
+        Use this in all auxiliary processes GPUProcess, WebProcess,
+        AuthnProcess and NetworkProcess.
+
+        Use the canonical WTF::logLevelString(), WebCore::logLevelString(),
+        WebKit::logLevelString() to initialize Cocoa WebKit2 logging settings
+        for process creation arguments.
+
+        Fixes bugs where
+         Tools/Scripts/run-minibrowser --debug -WebKit2Logging IPCMessages
+        would not print IPCMessages logging for NetworkProcess.
+
+        * GPUProcess/GPUProcess.cpp:
+        (WebKit::GPUProcess::initializeGPUProcess):
+        * GPUProcess/GPUProcessCreationParameters.cpp:
+        (WebKit::GPUProcessCreationParameters::encode const):
+        (WebKit::GPUProcessCreationParameters::decode):
+        * GPUProcess/GPUProcessCreationParameters.h:
+        * NetworkProcess/NetworkProcess.cpp:
+        (WebKit::NetworkProcess::initializeNetworkProcess):
+        * NetworkProcess/NetworkProcessCreationParameters.cpp:
+        (WebKit::NetworkProcessCreationParameters::encode const):
+        (WebKit::NetworkProcessCreationParameters::decode):
+        * NetworkProcess/NetworkProcessCreationParameters.h:
+        * Shared/AuxiliaryProcess.cpp:
+        (WebKit::AuxiliaryProcess::applyProcessCreationParameters):
+        * Shared/AuxiliaryProcess.h:
+        * Shared/AuxiliaryProcessCreationParameters.cpp: Copied from Source/WebKit/WebAuthnProcess/WebAuthnProcessCreationParameters.cpp.
+        (WebKit::AuxiliaryProcessCreationParameters::encode const):
+        (WebKit::AuxiliaryProcessCreationParameters::decode):
+        * Shared/AuxiliaryProcessCreationParameters.h: Copied from Source/WebKit/WebAuthnProcess/WebAuthnProcessCreationParameters.h.
+        * Shared/WebProcessCreationParameters.cpp:
+        (WebKit::WebProcessCreationParameters::encode const):
+        (WebKit::WebProcessCreationParameters::decode):
+        * Shared/WebProcessCreationParameters.h:
+        * Sources.txt:
+        * UIProcess/AuxiliaryProcessProxy.cpp:
+        (WebKit::AuxiliaryProcessProxy::auxiliaryProcessParameters):
+        * UIProcess/AuxiliaryProcessProxy.h:
+        * UIProcess/Cocoa/GPUProcessProxyCocoa.mm:
+        (WebKit::GPUProcessProxy::platformInitializeGPUProcessParameters):
+        * UIProcess/Cocoa/WebProcessPoolCocoa.mm:
+        (WebKit::WebProcessPool::platformInitializeWebProcess):
+        * UIProcess/GPU/GPUProcessProxy.cpp:
+        (WebKit::GPUProcessProxy::GPUProcessProxy):
+        (WebKit::GPUProcessProxy::platformInitializeGPUProcessParameters):
+        * UIProcess/GPU/GPUProcessProxy.h:
+        * UIProcess/Network/NetworkProcessProxy.cpp:
+        (WebKit::NetworkProcessProxy::sendCreationParametersToNewProcess):
+        * UIProcess/WebAuthentication/WebAuthnProcessProxy.cpp:
+        (WebKit::WebAuthnProcessProxy::singleton):
+        * UIProcess/WebProcessPool.cpp:
+        (WebKit::WebProcessPool::initializeNewWebProcess):
+        * WebAuthnProcess/WebAuthnProcess.cpp:
+        (WebKit::WebAuthnProcess::initializeWebAuthnProcess):
+        * WebAuthnProcess/WebAuthnProcessCreationParameters.cpp:
+        (WebKit::WebAuthnProcessCreationParameters::encode const):
+        (WebKit::WebAuthnProcessCreationParameters::decode):
+        * WebAuthnProcess/WebAuthnProcessCreationParameters.h:
+        * WebKit.xcodeproj/project.pbxproj:
+        * WebProcess/cocoa/WebProcessCocoa.mm:
+        (WebKit::WebProcess::platformInitializeWebProcess):
+        * WebProcess/playstation/WebProcessPlayStation.cpp:
+        (WebKit::WebProcess::platformInitializeWebProcess):
+
+2021-12-02  Tim Horton  <timothy_horton@apple.com>
+
+        MomentumEventDispatcher curve sometimes doesn't match the system curve
+        https://bugs.webkit.org/show_bug.cgi?id=233801
+        <rdar://problem/85870287>
+
+        Reviewed by Simon Fraser.
+
+        Three small changes to get us closer to the system curve:
+
+        1) Fetch the momentum event dispatch interval from the system, and use
+        it to scale the momentum start event's delta (which we use as our
+        initial velocity) into the "ideal" curve's frame rate (which is always
+        60fps regardless).
+
+        2) Back-date the animation start time to the fingers-down phase end event,
+        so that the momentum start phase has a delta. This seems to match what
+        the system does.
+
+        3) Switch to MonotonicTime for the animation time, since it doesn't need
+        to be in the same timebase as events (which are oddly in WallTime), and
+        certainly should be monotonic.
+
+        * Shared/ScrollingAccelerationCurve.cpp:
+        (WebKit::ScrollingAccelerationCurve::ScrollingAccelerationCurve):
+        (WebKit::ScrollingAccelerationCurve::interpolate):
+        (WebKit::ScrollingAccelerationCurve::encode const):
+        (WebKit::ScrollingAccelerationCurve::decode):
+        (WebKit::operator<<):
+        * Shared/ScrollingAccelerationCurve.h:
+        (WebKit::ScrollingAccelerationCurve::frameRate):
+        (WebKit::ScrollingAccelerationCurve::operator== const):
+        * Shared/mac/ScrollingAccelerationCurveMac.mm:
+        (WebKit::fromIOHIDCurve):
+        (WebKit::fromIOHIDCurveArrayWithAcceleration):
+        (WebKit::fromIOHIDDevice):
+        Fetch and propagate the dispatch frame rate. This isn't *really* a
+        ScrollingAccelerationCurve property, but neither is `resolution`;
+        this is just currently the only place we look up HID properties
+        and push them to the Web Content process; some re-architecture is
+        warranted here in the future.
+
+        * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+        (WebKit::MomentumEventDispatcher::handleWheelEvent):
+        Keep track of the last fingers-down phase ended event timestamp.
+
+        (WebKit::MomentumEventDispatcher::didStartMomentumPhase):
+        Backdate the start time so that the first event has the appropriate delta.
+        Divide out the dispatch frame rate so that the initial velocity is
+        as if the curve were running at 60fps (since we *will* run it at 60fps and interpolate).
+
+        (WebKit::MomentumEventDispatcher::didEndMomentumPhase):
+        (WebKit::MomentumEventDispatcher::consumeDeltaForTime):
+        (WebKit::MomentumEventDispatcher::displayWasRefreshed):
+        Factor the consume-a-delta-from-the-ideal-curve code out from displayWasRefreshed
+        so we can use it in the start phase too.
+
+        (WebKit::MomentumEventDispatcher::offsetAtTime):
+        (WebKit::MomentumEventDispatcher::computeNextDelta):
+        Rename idealCurveFrameRate->idealCurveFrameInterval for accuracy.
+
+        * WebProcess/WebPage/MomentumEventDispatcher.h:
+
+2021-12-02  Simon Fraser  <simon.fraser@apple.com>
+
+        A Safari tab can rarely get stuck in a state where rendering updates stop happening
+        https://bugs.webkit.org/show_bug.cgi?id=233784
+        rdar://85445072
+
+        Reviewed by Chris Dumez.
+
+        Sometimes a Safari tab can get into a state where rendering updates cease to happen,
+        which manifests as partially broken scrolling, blank tiles revealed when scrolling,
+        and somewhat broken page updates. I was able to sometimes reproduce this by clicking
+        on links in eBay emails from Mail on a system with two displays.
+
+        From the one time I reproduce with logging, the output indicated that DisplayRefreshMonitor::displayLinkFired()
+        would early return because isPreviousFrameDone() was false. The only way for that to occur,
+        barring memory corruption, is if DisplayRefreshMonitorMac::dispatchDisplayDidRefresh() returned early,
+        which it does if the callback comes twice in a single event loop; this may explain the rarity.
+
+        So fix DisplayRefreshMonitorMac::dispatchDisplayDidRefresh() call setIsPreviousFrameDone(true)
+        so the next callback can make progress
+
+        Also add some locking annotations and fix one missing lock, and some release logging.
+
+        * WebProcess/WebPage/mac/DisplayRefreshMonitorMac.cpp:
+        (WebKit::DisplayRefreshMonitorMac::dispatchDisplayDidRefresh):
+
+2021-12-02  Chris Dumez  <cdumez@apple.com>
+
+        Regression(r283179) Google Drive freezes after downloading a folder
+        https://bugs.webkit.org/show_bug.cgi?id=233783
+        <rdar://85918531>
+
+        Reviewed by Darin Adler.
+
+        When process-swapping on a navigation response due to COOP, we create a new ProvisionalPageProxy
+        to trigger a provisional load in a new WebProcess. In the common case, the ProvisionalPageProxy
+        gets committed, we process-swap and everything works fine. However, if the client decides to
+        convert the navigation into a download (like in the Google Drive case), then the
+        ProvisionalPageProxy gets destroyed without being committed. The issue is that the committed
+        process still thinks at this point that it is in the middle of a navigation and its layer
+        tree is thus frozen with reason=PageTransition. This is what makes Google Drive look frozen
+        after the download. This is not an issue with PSON because the process-swap happens in
+        decidePolicyForNavigationAction() and we tell the previous process to ignore the navigation
+        when we process-swap.
+
+        To address the issue, we now tell the committed process to cancel its navigation if the
+        ProvisionalPageProxy ends up getting destroyed without being committed. This lets the
+        committed process know there is no point in waiting for this navigation to happen and allows
+        it to unfreeze its layer tree.
+
+        * UIProcess/ProvisionalPageProxy.cpp:
+        (WebKit::ProvisionalPageProxy::ProvisionalPageProxy):
+        (WebKit::ProvisionalPageProxy::~ProvisionalPageProxy):
+        * UIProcess/ProvisionalPageProxy.h:
+        (WebKit::ProvisionalPageProxy::isProcessSwappingOnNavigationResponse const):
+        (WebKit::ProvisionalPageProxy::shouldClosePreviousPageAfterCommit const): Deleted.
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::WebPageProxy::commitProvisionalPage):
+        (WebKit::WebPageProxy::continueNavigationInNewProcess):
+
+2021-12-02  Rachel Ginsberg  <rginsberg@apple.com>
+
+        Make enum values consisten in ApplicationManifest::Icon::Purpose
+        and _WKApplicationManifestIconPurpose
+        https://bugs.webkit.org/show_bug.cgi?id=233764
+        rdar://85976270
+
+        Reviewed by Brent Fulgham.
+
+        The ApplicationManifest tests already check for 1, 2, and 4 respectively.
+
+        * UIProcess/API/Cocoa/_WKApplicationManifest.h:
+        Set the _WKApplicationManifestIconPurpose enum values to 
+        1, 2, 4 to match the enum values set in ApplicationManifest::Icon::Purpose.
+        Those values are used in ApplicationManifest because an
+        OptionSet is used.
+
+
+2021-12-02  Per Arne Vollan  <pvollan@apple.com>
+
+        [WP][iOS] Add telemetry to determine which system calls are only used on process launch
+        https://bugs.webkit.org/show_bug.cgi?id=233649
+        <rdar://problem/85875930>
+
+        Reviewed by Brent Fulgham.
+
+        Add telemetry to determine which system calls are only used on WebContent process launch on iOS.
+
+        * Resources/SandboxProfiles/ios/com.apple.WebKit.WebContent.sb.in:
+        * WebProcess/WebPage/WebPage.cpp:
+        (WebKit::WebPage::create):
+
+2021-12-02  Per Arne Vollan  <pvollan@apple.com>
+
+        [WP] Strengthen sandbox when AppCache is disabled
+        https://bugs.webkit.org/show_bug.cgi?id=233746
+        <rdar://problem/85953893>
+
+        Reviewed by Brent Fulgham.
+
+        When AppCache is disabled, we can remove access to some resources in the WebContent process' sandbox.
+        This is implemented using a new sandbox state variable representing the AppCache state.
+
+        * Resources/SandboxProfiles/ios/com.apple.WebKit.WebContent.sb.in:
+        * WebProcess/WebPage/WebPage.cpp:
+        * WebProcess/com.apple.WebProcess.sb.in:
+
+2021-12-02  Megan Gardner  <megan_gardner@apple.com>
+
+        Re-add support of image control menus.
+        https://bugs.webkit.org/show_bug.cgi?id=233305
+
+        Reviewed by Tim Horton.
+
+        Image control menus are needed for mail transition to modern WebKit, so re-add them
+        after the removal in https://trac.webkit.org/changeset/272117/webkit
+
+        * Platform/spi/mac/AppKitSPI.h:
+        * UIProcess/API/C/WKPreferences.cpp:
+        (WKPreferencesSetImageControlsEnabled):
+        (WKPreferencesGetImageControlsEnabled):
+        * UIProcess/API/Cocoa/WKWebView.mm:
+        (-[WKWebView _setupPageConfiguration:]):
+        * UIProcess/API/Cocoa/WKWebViewConfiguration.mm:
+        (-[WKWebViewConfiguration init]):
+        (-[WKWebViewConfiguration copyWithZone:]):
+        (-[WKWebViewConfiguration _imageControlsEnabled]):
+        (-[WKWebViewConfiguration _setImageControlsEnabled:]):
+        * UIProcess/API/Cocoa/WKWebViewConfigurationPrivate.h:
+
+2021-12-02  Per Arne Vollan  <pvollan@apple.com>
+
+        [iOS] Add required system call to WebKit sandboxes
+        https://bugs.webkit.org/show_bug.cgi?id=233730
+        <rdar://85266065>
+
+        Reviewed by Brent Fulgham.
+
+        * GPUProcess/mac/com.apple.WebKit.GPUProcess.sb.in:
+        * NetworkProcess/mac/com.apple.WebKit.NetworkProcess.sb.in:
+        * Resources/SandboxProfiles/ios/com.apple.WebKit.GPU.sb:
+        * Resources/SandboxProfiles/ios/com.apple.WebKit.Networking.sb:
+        * Resources/SandboxProfiles/ios/com.apple.WebKit.WebContent.sb.in:
+        * WebProcess/com.apple.WebProcess.sb.in:
+
+2021-12-02  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Hook up navigator.gpu.requestAdapter()
+        https://bugs.webkit.org/show_bug.cgi?id=233619
+
+        Reviewed by Dean Jackson.
+
+        This hooks up a new message, GPUConnectionToWebProcess::createRemoteGPU(), which starts
+        the whole WebGPU GPU process infrastructure.
+
+        * Configurations/BaseTarget.xcconfig: We have to be able to #include files from WebGPU.
+        * GPUProcess/GPUConnectionToWebProcess.cpp:
+        (WebKit::GPUConnectionToWebProcess::createRemoteGPU): GPUConnectionToWebProcess owns
+        the RemoteGPUs.
+        * GPUProcess/GPUConnectionToWebProcess.h:
+        * GPUProcess/GPUConnectionToWebProcess.messages.in:
+        * Sources.txt:
+        * WebProcess/GPU/graphics/WebGPU/RemoteGPUProxy.cpp:
+        (WebKit::RemoteGPUProxy::RemoteGPUProxy): Creating a RemoteGPUProxy needs to send a
+        message to the GPU process to start the GPU process infrastructure. We block while we're
+        waiting for the reply from the GPU process. This was copied from RemoteGraphicsContextGL.
+        (WebKit::RemoteGPUProxy::gpuProcessConnectionDidClose):
+        * WebProcess/GPU/graphics/WebGPU/RemoteGPUProxy.h:
+        * WebProcess/WebCoreSupport/WebChromeClient.cpp: Hook up RemoteGPUProxy to WebCore.
+        (WebKit::WebChromeClient::createGPUForWebGPU const):
+        * WebProcess/WebCoreSupport/WebChromeClient.h:
+
+2021-12-02  Chris Dumez  <cdumez@apple.com>
+
+        [WK2] Make Web Lock API work across multiple WebProcesses
+        https://bugs.webkit.org/show_bug.cgi?id=233719
+
+        Reviewed by Alex Christensen.
+
+        See WebCore changelog.
+
+        * CMakeLists.txt:
+        * DerivedSources-input.xcfilelist:
+        * DerivedSources-output.xcfilelist:
+        * DerivedSources.make:
+        * Scripts/webkit/messages.py:
+        (types_that_cannot_be_forward_declared):
+        * Sources.txt:
+        * UIProcess/WebLockRegistryProxy.cpp: Added.
+        (WebKit::WebLockRegistryProxy::WebLockRegistryProxy):
+        (WebKit::WebLockRegistryProxy::~WebLockRegistryProxy):
+        (WebKit::WebLockRegistryProxy::requestLock):
+        (WebKit::WebLockRegistryProxy::releaseLock):
+        (WebKit::WebLockRegistryProxy::abortLockRequest):
+        (WebKit::WebLockRegistryProxy::snapshot):
+        (WebKit::WebLockRegistryProxy::clientIsGoingAway):
+        (WebKit::WebLockRegistryProxy::processDidExit):
+        * UIProcess/WebLockRegistryProxy.h: Added.
+        * UIProcess/WebLockRegistryProxy.messages.in: Added.
+        * UIProcess/WebProcessProxy.cpp:
+        (WebKit::m_webLockRegistry):
+        (WebKit::WebProcessProxy::shutDown):
+        * UIProcess/WebProcessProxy.h:
+        * UIProcess/WebsiteData/WebsiteDataStore.cpp:
+        (WebKit::WebsiteDataStore::WebsiteDataStore):
+        * UIProcess/WebsiteData/WebsiteDataStore.h:
+        (WebKit::WebsiteDataStore::webLockRegistry):
+        * WebKit.xcodeproj/project.pbxproj:
+        * WebProcess/Storage/WebSWContextManagerConnection.cpp:
+        (WebKit::WebSWContextManagerConnection::installServiceWorker):
+        * WebProcess/WebCoreSupport/RemoteWebLockRegistry.cpp: Added.
+        (WebKit::RemoteWebLockRegistry::LocksSnapshot::isEmpty const):
+        (WebKit::RemoteWebLockRegistry::RemoteWebLockRegistry):
+        (WebKit::RemoteWebLockRegistry::~RemoteWebLockRegistry):
+        (WebKit::RemoteWebLockRegistry::requestLock):
+        (WebKit::RemoteWebLockRegistry::releaseLock):
+        (WebKit::RemoteWebLockRegistry::abortLockRequest):
+        (WebKit::RemoteWebLockRegistry::snapshot):
+        (WebKit::RemoteWebLockRegistry::clientIsGoingAway):
+        (WebKit::RemoteWebLockRegistry::didCompleteLockRequest):
+        (WebKit::RemoteWebLockRegistry::didStealLock):
+        * WebProcess/WebCoreSupport/RemoteWebLockRegistry.h: Added.
+        * WebProcess/WebCoreSupport/RemoteWebLockRegistry.messages.in: Added.
+        * WebProcess/WebPage/WebPage.cpp:
+        (WebKit::m_appHighlightsVisible):
+        * WebProcess/WebProcess.cpp:
+        (WebKit::WebProcess::WebProcess):
+        * WebProcess/WebProcess.h:
+        (WebKit::WebProcess::webLockRegistry):
+
+2021-12-02  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r286437.
+        https://bugs.webkit.org/show_bug.cgi?id=233776
+
+        Introduced test failure
+
+        Reverted changeset:
+
+        "[WP] Strengthen sandbox when AppCache is disabled"
+        https://bugs.webkit.org/show_bug.cgi?id=233746
+        https://commits.webkit.org/r286437
+
+2021-12-02  Per Arne Vollan  <pvollan@apple.com>
+
+        [WP] Strengthen sandbox when AppCache is disabled
+        https://bugs.webkit.org/show_bug.cgi?id=233746
+        <rdar://problem/85953893>
+
+        Reviewed by Brent Fulgham.
+
+        When AppCache is disabled, we can remove access to some resources in the WebContent process' sandbox.
+        This is implemented using a new sandbox state variable representing the AppCache state.
+
+        * Resources/SandboxProfiles/ios/com.apple.WebKit.WebContent.sb.in:
+        * WebProcess/WebPage/WebPage.cpp:
+        * WebProcess/com.apple.WebProcess.sb.in:
+
+2021-12-02  Youenn Fablet  <youenn@apple.com>
+
+        Add some logging to NetworkRTCProvider
+        https://bugs.webkit.org/show_bug.cgi?id=233759
+
+        Reviewed by Eric Carlson.
+
+        No change of behavior.
+
+        * NetworkProcess/webrtc/NetworkRTCProvider.cpp:
+        (WebKit::NetworkRTCProvider::addSocket):
+        * NetworkProcess/webrtc/NetworkRTCUDPSocketCocoa.mm:
+        (WebKit::NetworkRTCUDPSocketCocoaConnections::NetworkRTCUDPSocketCocoaConnections):
+
+2021-12-02  Per Arne Vollan  <pvollan@apple.com>
+
+        REGRESSION(r285722): Introduced performance regression
+        https://bugs.webkit.org/show_bug.cgi?id=233718
+
+        Unreviewed partial revert of r285722.
+
+        * Resources/SandboxProfiles/ios/com.apple.WebKit.GPU.sb:
+
+2021-12-02  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        GraphicsContextGLANGLE should not have Cocoa Mac specific display reconfiguration code
+        https://bugs.webkit.org/show_bug.cgi?id=233695
+
+        Reviewed by Antti Koivisto.
+
+        Previous GraphicsContextGLANGLE::displayWasReconfigured()
+        was renamed to updateContextOnDisplayReconfiguration().
+        The displayWasReconfigured() was taken into use in the notification interface
+        DisplayConfigurationMonitor::Client::displayWasReconfigured().
+
+        * GPUProcess/graphics/RemoteGraphicsContextGL.cpp:
+        (WebKit::RemoteGraphicsContextGL::displayWasReconfigured):
+        * WebProcess/cocoa/WebProcessCocoa.mm:
+        (WebKit::WebProcess::displayConfigurationChanged):
+
+2021-12-02  Youenn Fablet  <youenn@apple.com>
+
+        Add support for NavigationPreloadManager
+        https://bugs.webkit.org/show_bug.cgi?id=233523
+
+        Reviewed by Chris Dumez.
+
+        Make use of ServiceWorkerNavigationPreloader when preload flag is true.
+        We only start as soon as created the preload in case of main frame navigation when preload flag is true.
+        Update ServiceWorkerNavigationPreloader to differentiate explicit preloads (enabled by NavigationPreloadManager) from implict preloads.
+        Implict preloads can be used when fetch event is not handled, which is not guaranteed for explicit preloads, given the Service-Worker-Navigation-Preload header.
+        Add IPC to read and set preload state (enabled and header value).
+
+        * NetworkProcess/ServiceWorker/ServiceWorkerFetchTask.cpp:
+        * NetworkProcess/ServiceWorker/ServiceWorkerNavigationPreloader.cpp:
+        * NetworkProcess/ServiceWorker/ServiceWorkerNavigationPreloader.h:
+        * NetworkProcess/ServiceWorker/WebSWServerConnection.cpp:
+        * NetworkProcess/ServiceWorker/WebSWServerConnection.h:
+        * NetworkProcess/ServiceWorker/WebSWServerConnection.messages.in:
+        * WebProcess/Storage/WebSWClientConnection.cpp:
+        * WebProcess/Storage/WebSWClientConnection.h:
+        * WebProcess/Storage/WebSWContextManagerConnection.cpp:
+        * WebProcess/Storage/WebSWContextManagerConnection.h:
+        * WebProcess/Storage/WebSWContextManagerConnection.messages.in:
+
+2021-12-01  Sihui Liu  <sihui_liu@apple.com>
+
+        FileSystemSyncAccessHandle should be invalidated when network process crashes
+        https://bugs.webkit.org/show_bug.cgi?id=232605
+        <rdar://problem/85187706>
+
+        Reviewed by Youenn Fablet.
+
+        * WebProcess/WebCoreSupport/WebFileSystemStorageConnection.cpp:
+        (WebKit::WebFileSystemStorageConnection::connectionClosed):
+        (WebKit::WebFileSystemStorageConnection::registerSyncAccessHandle):
+        (WebKit::WebFileSystemStorageConnection::unregisterSyncAccessHandle):
+        (WebKit::WebFileSystemStorageConnection::invalidateAccessHandle):
+        * WebProcess/WebCoreSupport/WebFileSystemStorageConnection.h:
+
+2021-12-01  Jean-Yves Avenard  <jya@apple.com>
+
+        Avoid allocating and copy memory from a SharedMemory into a SharedBuffer
+        https://bugs.webkit.org/show_bug.cgi?id=233401
+        rdar://85637721
+
+        Reviewed by Eric Carlson.
+
+        We can directly wrap a SharedMemory into a SharedBuffer using
+        SharedMemory::createSharedBuffer instead.
+        No change in observable behaviour other than total memory size reduction.
+
+        Fly-by fix: check for null when mapping a SharedMemory to an IPC handle
+        in a couple of spots.
+
+        * Shared/ShareableResource.h: Make ShareableResource use thread-safe refcount.
+        A ShareableResource once created is immutable and the SharedMemory object
+        itself has thread-safe refounting. Deleting the object outside the main thread
+        is safe.
+        Make members const.
+        * Shared/ShareableResource.cpp:
+        (WebKit::ShareableResource::wrapInSharedBuffer): Refactor method, using DataSegment::Provider
+        instead of platfom specific code.
+        * Shared/WebCoreArgumentCoders.cpp:
+        (IPC::decodeSharedBuffer):
+        * UIProcess/Cocoa/WebPasteboardProxyCocoa.mm:
+        (WebKit::WebPasteboardProxy::setPasteboardBufferForType):
+        * UIProcess/ios/WebPageProxyIOS.mm:
+        (WebKit::WebPageProxy::saveImageToLibrary):
+        * UIProcess/mac/WebPageProxyMac.mm:
+        (WebKit::WebPageProxy::dataSelectionForPasteboard):
+        (WebKit::WebPageProxy::setPromisedDataForImage):
+        * WebProcess/WebCoreSupport/WebPlatformStrategies.cpp:
+        (WebKit::WebPlatformStrategies::bufferForType):
+        Hardening code, checking for nullability.
+        (WebKit::WebPlatformStrategies::readBufferFromPasteboard):
+        Hardening code, checking for nullability.
+        * WebProcess/WebPage/WebPage.cpp:
+        (WebKit::WebPage::restoreAppHighlightsAndScrollToIndex):
+
+2021-12-01  Chris Fleizach  <cfleizach@apple.com>
+
+        AX: Support accessibility attributes for <model>
+        https://bugs.webkit.org/show_bug.cgi?id=233620
+        <rdar://problem/85852073>
+
+        Reviewed by Dean Jackson, Andres Gonzalez.
+
+        * WebProcess/Model/ARKitInlinePreviewModelPlayer.h:
+        * WebProcess/Model/ARKitInlinePreviewModelPlayer.mm:
+        (WebKit::ARKitInlinePreviewModelPlayer::accessibilityChildren):
+
+2021-12-01  Alex Christensen  <achristensen@webkit.org>
+
+        Use Span instead of pointer/length in CompiledContentExtension
+        https://bugs.webkit.org/show_bug.cgi?id=233727
+
+        Reviewed by Tim Hatcher.
+
+        * Shared/WebCompiledContentRuleList.cpp:
+        (WebKit::WebCompiledContentRuleList::filtersWithoutConditionsBytecode const):
+        (WebKit::WebCompiledContentRuleList::filtersWithConditionsBytecode const):
+        (WebKit::WebCompiledContentRuleList::topURLFiltersBytecode const):
+        (WebKit::WebCompiledContentRuleList::serializedActions const):
+        (WebKit::WebCompiledContentRuleList::spanWithOffsetAndLength const):
+        (WebKit::WebCompiledContentRuleList::filtersWithoutConditionsBytecodeLength const): Deleted.
+        (WebKit::WebCompiledContentRuleList::filtersWithConditionsBytecodeLength const): Deleted.
+        (WebKit::WebCompiledContentRuleList::topURLFiltersBytecodeLength const): Deleted.
+        (WebKit::WebCompiledContentRuleList::actions const): Deleted.
+        (WebKit::WebCompiledContentRuleList::actionsLength const): Deleted.
+        * Shared/WebCompiledContentRuleList.h:
+
+2021-12-01  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r286037.
+        https://bugs.webkit.org/show_bug.cgi?id=233724
+
+        Introduced WebRTC crash
+
+        Reverted changeset:
+
+        "[macOS][GPUP] Remove access in sandbox to
+        com.apple.audio.AudioComponentRegistrar"
+        https://bugs.webkit.org/show_bug.cgi?id=231694
+        https://commits.webkit.org/r286037
+
+2021-12-01  Per Arne Vollan  <pvollan@apple.com>
+
+        [WP] Sandbox telemetry is missing for some system calls
+        https://bugs.webkit.org/show_bug.cgi?id=233594
+        <rdar://problem/85832755>
+
+        Reviewed by Brent Fulgham.
+
+        Sandbox telemetry is missing for some system calls, since telemetry rules are automatically overridden in some cases.
+        This patch is addressing this by disabling system call inference.
+
+        * WebProcess/com.apple.WebProcess.sb.in:
+
+2021-12-01  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed build fixes after r286346.
+
+        * WebProcess/WebPage/MomentumEventDispatcher.cpp:
+        (WebKit::MomentumEventDispatcher::startDisplayLink):
+        (WebKit::MomentumEventDispatcher::displayWasRefreshed):
+        (WebKit::MomentumEventDispatcher::didReceiveScrollEventWithInterval):
+        (WebKit::MomentumEventDispatcher::buildOffsetTableWithInitialDelta):
+        (WebKit::MomentumEventDispatcher::offsetAtTime):
+        (WebKit::momentumDecayRate):
+        (WebKit::MomentumEventDispatcher::computeNextDelta):
+        * WebProcess/WebPage/MomentumEventDispatcher.h:
+
+2021-12-01  Youenn Fablet  <youenn@apple.com>
+
+        Reuse navigation preload if service worker is fetching the corresponding navigation request
+        https://bugs.webkit.org/show_bug.cgi?id=233490
+
+        Reviewed by Chris Dumez.
+
+        Store navigation preloader in NetworkSession, keyed by the corresponding fetch identifier.
+        When a navigation request is coming from fetch with the corresponding navigation preload identifier
+        we look at ongoing preloads and use it if available to answer the fetch.
+        To do so, we create a new ServiceWorkerFetchTask that will take the preloader of the initial ServiceWorkerFetchTask.
+
+        * NetworkProcess/NetworkResourceLoadParameters.cpp:
+        * NetworkProcess/NetworkResourceLoadParameters.h:
+        * NetworkProcess/NetworkSession.cpp:
+        * NetworkProcess/NetworkSession.h:
+        * NetworkProcess/ServiceWorker/ServiceWorkerFetchTask.cpp:
+        * NetworkProcess/ServiceWorker/ServiceWorkerFetchTask.h:
+        * NetworkProcess/ServiceWorker/WebSWServerConnection.cpp:
+        * WebProcess/Network/WebLoaderStrategy.cpp:
+
+2021-12-01  Youenn Fablet  <youenn@apple.com>
+
+        WebSWServerConnection::createFetchTask does not need to query twice for a registration
+        https://bugs.webkit.org/show_bug.cgi?id=233467
+
+        Reviewed by Chris Dumez.
+
+        Instead of searching for a worker and then searching for a registration,
+        we now search for a registration and, if not null, directly get its active worker.
+        This makes it clear the registration is not null in follow-up code and removes a redundant query.
+
+        No change of behavior, this is a refactoring.
+
+        * NetworkProcess/ServiceWorker/WebSWServerConnection.cpp:
+        (WebKit::WebSWServerConnection::createFetchTask):
+
+2021-12-01  Brady Eidson  <beidson@apple.com>
+
+        Add WKWebsiteDataStore configuration option to enable Mock app bundle testing.
+        https://bugs.webkit.org/show_bug.cgi?id=233679
+
+        Reviewed by Tim Horton.
+
+        Covered by API tests.
+        
+        We're about to land actual implementations of app permissions bundles.
+        But the mock bundles still have a place for testing.
+        We need a way to switch between Mock and Native.
+        
+        This patch takes the opportunity to plumb out a WebPushDaemonConnectionConfiguration object
+        that can easily be augmented in future patches to add new options without messing with messaging directly.
+
+        * NetworkProcess/NetworkSession.h:
+        (WebKit::NetworkSession::webpushdUsesMockBundlesForTesting const):
+
+        * NetworkProcess/NetworkSessionCreationParameters.cpp:
+        (WebKit::NetworkSessionCreationParameters::encode const):
+        (WebKit::NetworkSessionCreationParameters::decode):
+        * NetworkProcess/NetworkSessionCreationParameters.h:
+
+        * NetworkProcess/Notifications/NetworkNotificationManager.cpp:
+        (WebKit::NetworkNotificationManager::maybeSendConnectionConfiguration const):
+        (WebKit::NetworkNotificationManager::sendMessage const):
+        (WebKit::NetworkNotificationManager::sendMessageWithReply const):
+        (WebKit::NetworkNotificationManager::maybeSendHostAppAuditToken const): Deleted.
+        * NetworkProcess/Notifications/NetworkNotificationManager.h:
+
+        * NetworkProcess/cocoa/NetworkSessionCocoa.h:
+        * NetworkProcess/cocoa/NetworkSessionCocoa.mm:
+        (WebKit::NetworkSessionCocoa::NetworkSessionCocoa):
+
+        * Shared/WebPushDaemonConnectionConfiguration.h: Copied from Source/WebKit/Shared/WebPushDaemonConstants.h.
+        (WebKit::WebPushD::WebPushDaemonConnectionConfiguration::encode const):
+        (WebKit::WebPushD::WebPushDaemonConnectionConfiguration::decode):
+
+        * Shared/WebPushDaemonConstants.h:
+        (WebKit::WebPushD::messageTypeSendsReply):
+
+        * UIProcess/API/Cocoa/_WKWebsiteDataStoreConfiguration.h:
+        * UIProcess/API/Cocoa/_WKWebsiteDataStoreConfiguration.mm:
+        (-[_WKWebsiteDataStoreConfiguration webpushdUsesMockBundlesForTesting]):
+        (-[_WKWebsiteDataStoreConfiguration setWebpushdUsesMockBundlesForTesting:]):
+
+        * UIProcess/WebsiteData/WebsiteDataStore.cpp:
+        (WebKit::WebsiteDataStore::parameters):
+
+        * UIProcess/WebsiteData/WebsiteDataStoreConfiguration.cpp:
+        (WebKit::WebsiteDataStoreConfiguration::copy const):
+        (WebKit::WebsiteDataStoreConfiguration::webPushDaemonConnectionConfiguration const):
+        * UIProcess/WebsiteData/WebsiteDataStoreConfiguration.h:
+        (WebKit::WebsiteDataStoreConfiguration::webpushdUsesMockBundlesForTesting const):
+        (WebKit::WebsiteDataStoreConfiguration::setWebpushdUsesMockBundlesForTesting):
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+        * webpushd/AppBundleRequest.mm:
+        (WebPushD::AppBundleRequest::AppBundleRequest):
+        (WebPushD::AppBundleRequest::start):
+
+        * webpushd/PushClientConnection.h:
+        (WebPushD::ClientConnection::hasHostAppAuditToken const):
+        (WebPushD::ClientConnection::useMockBundlesForTesting const):
+        * webpushd/PushClientConnection.mm:
+        (WebPushD::ClientConnection::updateConnectionConfiguration):
+        (WebPushD::ClientConnection::setHostAppAuditTokenData):
+
+        * webpushd/WebPushDaemon.h:
+        * webpushd/WebPushDaemon.mm:
+        (WebPushD::Daemon::decodeAndHandleMessage):
+        (WebPushD::Daemon::getOriginsWithPushAndNotificationPermissions):
+        (WebPushD::Daemon::setDebugModeIsEnabled):
+        (WebPushD::Daemon::updateConnectionConfiguration):
+        (WebPushD::Daemon::setHostAppAuditToken): Deleted.
+
+2021-12-01  Lauro Moura  <lmoura@igalia.com>
+
+        [GTK][GTK4][WebDriver] Flaky crashes exiting many prompty-related webdriver tests
+        https://bugs.webkit.org/show_bug.cgi?id=233505
+
+        Reviewed by Carlos Garcia Campos.
+
+        Covered by existing tests.
+
+        When building for GTK4, upon dialog closure the dialog widgets might
+        be removed with `webkitWebViewDialogSetChild(dialog, NULL)` while
+        the button is still registered as the default widget of the toplevel.
+
+        This commit makes sure we don't have a default widget while the
+        dialog is unmapped, to mirror the map() behavior.
+
+        * UIProcess/API/gtk/WebKitScriptDialogImpl.cpp:
+        (webkitScriptDialogImplUnmap): Added to unset the default widget.
+        (webkit_script_dialog_impl_class_init): Register unmap callback.
+
+2021-11-30  Antoine Quint  <graouts@apple.com>
+
+        replace-webkit-additions-includes should assume unknown or empty deployment targets are supported
+        https://bugs.webkit.org/show_bug.cgi?id=233650
+
+        Reviewed by Tim Horton.
+
+        * mac/replace-webkit-additions-includes.py:
+        (is_supported_os):
+
+2021-11-30  Simon Fraser  <simon.fraser@apple.com>
+
+        Pass the timestamp for scrolling thread animations through all the serviceScrollAnimation() calls
+        https://bugs.webkit.org/show_bug.cgi?id=233678
+
+        Reviewed by Tim Horton.
+
+        * UIProcess/RemoteLayerTree/ios/ScrollingTreeScrollingNodeDelegateIOS.h:
+
+2021-11-30  Simon Fraser  <simon.fraser@apple.com>
+
+        Remove the scrolling tree plumbing of the momentumScrollingAnimatorEnabled() setting, which is no longer needed
+        https://bugs.webkit.org/show_bug.cgi?id=233680
+
+        Reviewed by Tim Horton.
+
+        We no longer consult the momentumScrollingAnimatorEnabled setting in the scrolling tree, so remove
+        the plumbing.
+
+        * Shared/RemoteLayerTree/RemoteScrollingCoordinatorTransaction.cpp:
+        (ArgumentCoder<ScrollingStateFrameScrollingNode>::encode):
+        (ArgumentCoder<ScrollingStateFrameScrollingNode>::decode):
+
+2021-11-30  Tim Horton  <timothy_horton@apple.com>
+
+        Add a momentum event synthesizer
+        https://bugs.webkit.org/show_bug.cgi?id=233653
+        <rdar://problem/85571258>
+
+        Reviewed by Simon Fraser.
+
+        * Platform/Logging.h:
+        Add ScrollAnimations log channel to WebKit (it already exists in WebCore).
+
+        * Shared/ScrollingAccelerationCurve.cpp: Added.
+        (WebKit::ScrollingAccelerationCurve::ScrollingAccelerationCurve):
+        (WebKit::ScrollingAccelerationCurve::interpolate):
+        (WebKit::ScrollingAccelerationCurve::computeIntermediateValuesIfNeeded):
+        (WebKit::ScrollingAccelerationCurve::evaluateQuartic):
+        (WebKit::ScrollingAccelerationCurve::accelerationFactor):
+        (WebKit::ScrollingAccelerationCurve::encode const):
+        (WebKit::ScrollingAccelerationCurve::decode):
+        (WebKit::operator<<):
+        (WebKit::ScrollingAccelerationCurve::fromNativeWheelEvent):
+        * Shared/ScrollingAccelerationCurve.h: Added.
+        (WebKit::ScrollingAccelerationCurve::operator== const):
+        (WebKit::ScrollingAccelerationCurve::operator!= const):
+        Add a class that represents a quartic scrolling acceleration curve with
+        a trailing linear tangent region, and allows interpolation between curves
+        and evaluation of the curve at a point.
+
+        * Shared/mac/ScrollingAccelerationCurveMac.mm: Added.
+        (WebKit::fromFixedPoint):
+        (WebKit::readFixedPointParameter):
+        (WebKit::fromIOHIDCurve):
+        (WebKit::fromIOHIDCurveArrayWithAcceleration):
+        (WebKit::ScrollingAccelerationCurve::fromNativeWheelEvent):
+        Given a NativeWebWheelEvent, extract its underlying platform event
+        and fetch the ScrollingAccelerationCurve for the originating device.
+
+        * Sources.txt:
+        * SourcesCocoa.txt:
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::WebPageProxy::handleWheelEvent):
+        Fetch the current ScrollingAccelerationCurve on each momentum begin event,
+        if the feature is enabled.
+
+        (WebKit::WebPageProxy::sendWheelEvent):
+        Send the ScrollingAccelerationCurve to EventDispatcher just before
+        we send the momentum begin event along, if it has changed.
+
+        (WebKit::WebPageProxy::windowScreenDidChange):
+        Keep EventDispatcher apprised of changes to the current screen of the page.
+
+        (WebKit::WebPageProxy::resetState):
+        * UIProcess/WebPageProxy.h:
+        * WebKit.xcodeproj/project.pbxproj:
+        * WebProcess/WebPage/EventDispatcher.cpp:
+        (WebKit::EventDispatcher::EventDispatcher):
+        (WebKit::EventDispatcher::internalWheelEvent):
+        Factor most of wheelEvent out into internalWheelEvent, so that
+        MomentumEventDispatcher can call internalWheelEvent(), skipping the code
+        in wheelEvent() that forwards the event... to MomentumEventDispatcher.
+
+        Also, keep track of where the event came from (UI process or MomentumEventDispatcher)
+        and avoid sending didReceiveEvent replies to the UI process for synthetic
+        events that it doesn't know about.
+
+        (WebKit::EventDispatcher::wheelEvent):
+        Forward wheel events to MomentumEventDispatcher.
+
+        (WebKit::EventDispatcher::setScrollingAccelerationCurve):
+        Forward scrolling curve changes to MomentumEventDispatcher.
+
+        (WebKit::EventDispatcher::displayWasRefreshed):
+        Forward display refresh callbacks to MomentumEventDispatcher.
+
+        (WebKit::EventDispatcher::windowScreenDidChange):
+        Forward page screen changes to MomentumEventDispatcher.
+
+        * WebProcess/WebPage/EventDispatcher.h:
+        * WebProcess/WebPage/EventDispatcher.messages.in:
+
+        * WebProcess/WebPage/WebPage.cpp:
+        (WebKit::WebPage::wheelEvent):
+        (WebKit::WebPage::dispatchWheelEventWithoutScrolling):
+        * WebProcess/WebPage/WebPage.h:
+        Don't send didReceiveEvent for synthetic events from the main thread either.
+
+        * WebProcess/WebPage/MomentumEventDispatcher.cpp: Added.
+        (WebKit::MomentumEventDispatcher::MomentumEventDispatcher):
+        (WebKit::MomentumEventDispatcher::~MomentumEventDispatcher):
+        (WebKit::MomentumEventDispatcher::eventShouldStartSyntheticMomentumPhase const):
+        If we have everything we need (a scrolling curve - which also implies
+        that the setting is enabled - and raw platform deltas), and the event
+        is a momentum begin event, we can use it to start a synthetic momentum phase. 
+
+        (WebKit::MomentumEventDispatcher::handleWheelEvent):
+        Start or stop the momentum phase as appropriate.
+        Record any incoming fingers-down phase events in a rolling event history structure.
+        Block platform-event-driven events from being further handled by WebKit
+        if we are inside a synthetic momentum phase, since we'll be replacing them.
+
+        (WebKit::appKitScrollMultiplierForEvent):
+        Determine the AppKit scroll muliplier ("accelerated" vs "unaccelerated"
+        deltas in NSEvent parlance) from the event via division.
+
+        (WebKit::MomentumEventDispatcher::dispatchSyntheticMomentumEvent):
+        Dispatch a synthetic event with the given momentum phase and delta.
+        We borrow some properties from the event that initiated the momentum
+        phase (e.g. the position), and some from whatever event we've most
+        recently seen (even if we told the rest of WebKit to ignore it), so
+        that we get the most up-to-date state for e.g. the keyboard modifiers.
+
+        (WebKit::MomentumEventDispatcher::didStartMomentumPhase):
+        Record relevant information about the start event, generate the
+        momentum curve, and start a full-rate display link. Also, send a momentum
+        begin event, since we blocked the real one.
+
+        (WebKit::MomentumEventDispatcher::didEndMomentumPhase):
+        Send a momentum ended event, shut down the display link, and reset all
+        per-gesture state.
+
+        (WebKit::MomentumEventDispatcher::setScrollingAccelerationCurve):
+        Store ScrollingAccelerationCurves on a per-page basis.
+
+        (WebKit::MomentumEventDispatcher::displayID const):
+        Look up the displayID for the current gesture's page.
+
+        (WebKit::MomentumEventDispatcher::startDisplayLink):
+        (WebKit::MomentumEventDispatcher::stopDisplayLink):
+        Start and stop a display link, which will - in a roundabout manner -
+        eventually call back into displayWasRefreshed.
+
+        (WebKit::MomentumEventDispatcher::windowScreenDidChange):
+        Store DisplayIDs on a per-page basis.
+
+        (WebKit::MomentumEventDispatcher::displayWasRefreshed):
+        When the display link calls us back, emit a single momentum changed
+        event of sufficient delta to move us to the desired offset along the curve.
+
+        (WebKit::MomentumEventDispatcher::didScrollWithInterval):
+        (WebKit::MomentumEventDispatcher::didScroll):
+        Record incoming scrolling events into a rolling history deque.
+
+        (WebKit::MomentumEventDispatcher::buildOffsetTableWithInitialDelta):
+        Compute the offsets for the entire "ideal curve" table (at 60Hz) by
+        running the animation and accumulating the deltas.
+
+        (WebKit::interpolate):
+        (WebKit::MomentumEventDispatcher::offsetAtTime):
+        Interpolate along the "ideal curve" to determine the intended offset
+        at a given time.
+
+        (WebKit::momentumDecayRate):
+        (WebKit::MomentumEventDispatcher::computeNextDelta):
+        Compute the next delta given a delta (and the event history) by applying
+        a bit of exponential decay and then passing it through the
+        ScrollingAccelerationCurve. We return both the unaccelerated
+        and accelerated deltas, because the input to the next iteration of
+        computeNextDelta is the unaccelerated delta, but the delta applied
+        to the actual scroll position is the accelerated delta.
+
+        * WebProcess/WebPage/MomentumEventDispatcher.h: Added.
+
+2021-11-30  BJ Burg  <bburg@apple.com>
+
+        Web Inspector: add ExtensionTabActivation diagnostic event
+        https://bugs.webkit.org/show_bug.cgi?id=233101
+        <rdar://85264921>
+
+        Reviewed by Devin Rousso.
+
+        Add plumbing for new argument 'extensionBundleIdentifier' that's
+        passed to WebInspectorUI when registering an extension.
+
+        * UIProcess/API/Cocoa/_WKInspector.mm:
+        (-[_WKInspector registerExtensionWithID:extensionBundleIdentifier:displayName:completionHandler:]):
+        (-[_WKInspector registerExtensionWithID:displayName:completionHandler:]): Deleted.
+        * UIProcess/API/Cocoa/_WKInspectorExtensionHost.h:
+        * UIProcess/API/Cocoa/_WKRemoteWebInspectorViewController.mm:
+        (-[_WKRemoteWebInspectorViewController registerExtensionWithID:extensionBundleIdentifier:displayName:completionHandler:]):
+        (-[_WKRemoteWebInspectorViewController registerExtensionWithID:displayName:completionHandler:]): Deleted.
+        * UIProcess/Inspector/WebInspectorUIExtensionControllerProxy.cpp:
+        (WebKit::WebInspectorUIExtensionControllerProxy::registerExtension):
+        * UIProcess/Inspector/WebInspectorUIExtensionControllerProxy.h:
+        * WebProcess/Inspector/WebInspectorUIExtensionController.cpp:
+        (WebKit::WebInspectorUIExtensionController::registerExtension):
+        * WebProcess/Inspector/WebInspectorUIExtensionController.h:
+        * WebProcess/Inspector/WebInspectorUIExtensionController.messages.in:
+
+2021-11-30  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Hook up StreamServerConnection to Remote*** classes
+        https://bugs.webkit.org/show_bug.cgi?id=233600
+
+        Reviewed by Kimmo Kinnunen.
+
+        In order for all the various Remote*** classes in the GPU process to be able to receive messages,
+        they have to be able to call streamConnection->startReceivingMessages(*this), and when they're done
+        receiving messages, they need to call streamConnection->stopReceivingMessages(). This means that
+        all the Remote*** objects have to have a Ref to the StreamServerConnection so they can call into it
+        when they're done receiving messages.
+
+        The object model for this matches the object model for RemoteRenderingBackend:
+        - RemoteGPU is the WebGPU analogue of RemoteRenderingBackend.
+        - WebGPU::ObjectHeap is the WebGPU analogue of RemoteResourceCache.
+        - The WebGPU::Remote*** objects are the WebGPU analogues of the ImageBuffers, NativeImages, and
+              Fonts retained by the RemoteResourceCache.
+
+        So, here's an ASCII-art diagram of the object model:
+
+                                    +-----------+
+                                    | RemoteGPU |
+                                    +-----------+
+                                   /     |
+                  ----------------       |
+                /                        | 
+               /              +--------------------+
+              /               | WebGPU::ObjectHeap |
+             /                +--------------------+
+            /                  /        |        \ 
+           /                  /         |         \ 
+          |                  /          |          \ 
+          |  +---------------+  +--------------+  +-------------+
+          |  | RemoteTexture |  | RemoteDevice |  | RemoteQueue | ... etc.
+          |  +---------------+  +--------------+  +-------------+
+           \                 \          |          /
+            \                 \         |         /
+              --------------   \        |        /
+                             \  \       |       /
+                           +------------------------+
+                           | StreamServerConnection |
+                           +------------------------+
+
+        Now that the StreamServerConnection is being hooked up, this patch mirrors the design of
+        RemoteGraphicsContextGL. In this design, the web process sends a create() message with the
+        StreamConnectionBuffer to the gpu process, which creates a RemoteGraphicsContextGL. The
+        RemoteGraphicsContextGL owns a StreamConnectionWorkQueue, and upon being created, it starts up the
+        work queue and enqueues an initialization task to the work queue, which then sends a reply to the web
+        process including the wakeUpSemaphore from the work queue. While the GPU process is busy doing this,
+        the web process is blocked, because it can't send any messages through the stream until it has
+        received the semaphore. Once it has received the semaphore, the connection has been established,
+        and messages can start flowing. This patch follows this model, except instead of
+        RemoteGraphicsContextGLProxy communicating with RemoteGraphicsContextGL, RemoteGPUProxy is
+        communicating with RemoteGPU.
+
+        There is one more patch to wire up all the pieces together before we can actually call our first
+        WebGPU command in Javascript.
+
+        * CMakeLists.txt:
+        * DerivedSources-input.xcfilelist:
+        * DerivedSources-output.xcfilelist:
+        * DerivedSources.make:
+        * GPUProcess/graphics/WebGPU/RemoteAdapter.cpp:
+        (WebKit::RemoteAdapter::RemoteAdapter):
+        (WebKit::RemoteAdapter::stopListeningForIPC):
+        (WebKit::RemoteAdapter::requestDevice):
+        * GPUProcess/graphics/WebGPU/RemoteAdapter.h:
+        * GPUProcess/graphics/WebGPU/RemoteBindGroup.cpp:
+        (WebKit::RemoteBindGroup::RemoteBindGroup):
+        (WebKit::RemoteBindGroup::stopListeningForIPC):
+        * GPUProcess/graphics/WebGPU/RemoteBindGroup.h:
+        * GPUProcess/graphics/WebGPU/RemoteBindGroupLayout.cpp:
+        (WebKit::RemoteBindGroupLayout::RemoteBindGroupLayout):
+        (WebKit::RemoteBindGroupLayout::stopListeningForIPC):
+        * GPUProcess/graphics/WebGPU/RemoteBindGroupLayout.h:
+        * GPUProcess/graphics/WebGPU/RemoteBuffer.cpp:
+        (WebKit::RemoteBuffer::RemoteBuffer):
+        (WebKit::RemoteBuffer::stopListeningForIPC):
+        * GPUProcess/graphics/WebGPU/RemoteBuffer.h:
+        * GPUProcess/graphics/WebGPU/RemoteCommandBuffer.cpp:
+        (WebKit::RemoteCommandBuffer::RemoteCommandBuffer):
+        (WebKit::RemoteCommandBuffer::stopListeningForIPC):
+        * GPUProcess/graphics/WebGPU/RemoteCommandBuffer.h:
+        * GPUProcess/graphics/WebGPU/RemoteCommandEncoder.cpp:
+        (WebKit::RemoteCommandEncoder::RemoteCommandEncoder):
+        (WebKit::RemoteCommandEncoder::stopListeningForIPC):
+        (WebKit::RemoteCommandEncoder::beginRenderPass):
+        (WebKit::RemoteCommandEncoder::beginComputePass):
+        (WebKit::RemoteCommandEncoder::finish):
+        * GPUProcess/graphics/WebGPU/RemoteCommandEncoder.h:
+        * GPUProcess/graphics/WebGPU/RemoteComputePassEncoder.cpp:
+        (WebKit::RemoteComputePassEncoder::RemoteComputePassEncoder):
+        (WebKit::RemoteComputePassEncoder::stopListeningForIPC):
+        * GPUProcess/graphics/WebGPU/RemoteComputePassEncoder.h:
+        * GPUProcess/graphics/WebGPU/RemoteComputePipeline.cpp:
+        (WebKit::RemoteComputePipeline::RemoteComputePipeline):
+        (WebKit::RemoteComputePipeline::stopListeningForIPC):
+        (WebKit::RemoteComputePipeline::getBindGroupLayout):
+        * GPUProcess/graphics/WebGPU/RemoteComputePipeline.h:
+        * GPUProcess/graphics/WebGPU/RemoteDevice.cpp:
+        (WebKit::RemoteDevice::RemoteDevice):
+        (WebKit::RemoteDevice::stopListeningForIPC):
+        (WebKit::RemoteDevice::createBuffer):
+        (WebKit::RemoteDevice::createTexture):
+        (WebKit::RemoteDevice::createSampler):
+        (WebKit::RemoteDevice::importExternalTexture):
+        (WebKit::RemoteDevice::createBindGroupLayout):
+        (WebKit::RemoteDevice::createPipelineLayout):
+        (WebKit::RemoteDevice::createBindGroup):
+        (WebKit::RemoteDevice::createShaderModule):
+        (WebKit::RemoteDevice::createComputePipeline):
+        (WebKit::RemoteDevice::createRenderPipeline):
+        (WebKit::RemoteDevice::createComputePipelineAsync):
+        (WebKit::RemoteDevice::createRenderPipelineAsync):
+        (WebKit::RemoteDevice::createCommandEncoder):
+        (WebKit::RemoteDevice::createRenderBundleEncoder):
+        (WebKit::RemoteDevice::createQuerySet):
+        * GPUProcess/graphics/WebGPU/RemoteDevice.h:
+        * GPUProcess/graphics/WebGPU/RemoteExternalTexture.cpp:
+        (WebKit::RemoteExternalTexture::RemoteExternalTexture):
+        (WebKit::RemoteExternalTexture::stopListeningForIPC):
+        * GPUProcess/graphics/WebGPU/RemoteExternalTexture.h:
+        * GPUProcess/graphics/WebGPU/RemoteGPU.cpp:
+        (WebKit::RemoteGPU::RemoteGPU):
+        (WebKit::RemoteGPU::initialize):
+        (WebKit::RemoteGPU::stopListeningForIPC):
+        (WebKit::RemoteGPU::workQueueInitialize):
+        (WebKit::RemoteGPU::workQueueUninitialize):
+        (WebKit::RemoteGPU::requestAdapter):
+        * GPUProcess/graphics/WebGPU/RemoteGPU.h:
+        * GPUProcess/graphics/WebGPU/RemoteGPU.messages.in:
+        * GPUProcess/graphics/WebGPU/RemotePipelineLayout.cpp:
+        (WebKit::RemotePipelineLayout::RemotePipelineLayout):
+        (WebKit::RemotePipelineLayout::stopListeningForIPC):
+        * GPUProcess/graphics/WebGPU/RemotePipelineLayout.h:
+        * GPUProcess/graphics/WebGPU/RemoteQuerySet.cpp:
+        (WebKit::RemoteQuerySet::RemoteQuerySet):
+        (WebKit::RemoteQuerySet::stopListeningForIPC):
+        * GPUProcess/graphics/WebGPU/RemoteQuerySet.h:
+        * GPUProcess/graphics/WebGPU/RemoteQueue.cpp:
+        (WebKit::RemoteQueue::RemoteQueue):
+        (WebKit::RemoteQueue::stopListeningForIPC):
+        * GPUProcess/graphics/WebGPU/RemoteQueue.h:
+        * GPUProcess/graphics/WebGPU/RemoteRenderBundle.cpp:
+        (WebKit::RemoteRenderBundle::RemoteRenderBundle):
+        (WebKit::RemoteRenderBundle::stopListeningForIPC):
+        * GPUProcess/graphics/WebGPU/RemoteRenderBundle.h:
+        * GPUProcess/graphics/WebGPU/RemoteRenderBundleEncoder.cpp:
+        (WebKit::RemoteRenderBundleEncoder::RemoteRenderBundleEncoder):
+        (WebKit::RemoteRenderBundleEncoder::stopListeningForIPC):
+        (WebKit::RemoteRenderBundleEncoder::finish):
+        * GPUProcess/graphics/WebGPU/RemoteRenderBundleEncoder.h:
+        * GPUProcess/graphics/WebGPU/RemoteRenderPassEncoder.cpp:
+        (WebKit::RemoteRenderPassEncoder::RemoteRenderPassEncoder):
+        (WebKit::RemoteRenderPassEncoder::stopListeningForIPC):
+        * GPUProcess/graphics/WebGPU/RemoteRenderPassEncoder.h:
+        * GPUProcess/graphics/WebGPU/RemoteRenderPipeline.cpp:
+        (WebKit::RemoteRenderPipeline::RemoteRenderPipeline):
+        (WebKit::RemoteRenderPipeline::stopListeningForIPC):
+        (WebKit::RemoteRenderPipeline::getBindGroupLayout):
+        * GPUProcess/graphics/WebGPU/RemoteRenderPipeline.h:
+        * GPUProcess/graphics/WebGPU/RemoteSampler.cpp:
+        (WebKit::RemoteSampler::RemoteSampler):
+        (WebKit::RemoteSampler::stopListeningForIPC):
+        * GPUProcess/graphics/WebGPU/RemoteSampler.h:
+        * GPUProcess/graphics/WebGPU/RemoteShaderModule.cpp:
+        (WebKit::RemoteShaderModule::RemoteShaderModule):
+        (WebKit::RemoteShaderModule::stopListeningForIPC):
+        * GPUProcess/graphics/WebGPU/RemoteShaderModule.h:
+        * GPUProcess/graphics/WebGPU/RemoteTexture.cpp:
+        (WebKit::RemoteTexture::RemoteTexture):
+        (WebKit::RemoteTexture::stopListeningForIPC):
+        (WebKit::RemoteTexture::createView):
+        * GPUProcess/graphics/WebGPU/RemoteTexture.h:
+        * GPUProcess/graphics/WebGPU/RemoteTextureView.cpp:
+        (WebKit::RemoteTextureView::RemoteTextureView):
+        (WebKit::RemoteTextureView::stopListeningForIPC):
+        * GPUProcess/graphics/WebGPU/RemoteTextureView.h:
+        * GPUProcess/graphics/WebGPU/WebGPUObjectHeap.cpp:
+        (WebKit::WebGPU::ObjectHeap::addObject):
+        (WebKit::WebGPU::ObjectHeap::convertAdapterFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertBindGroupFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertBindGroupLayoutFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertBufferFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertCommandBufferFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertCommandEncoderFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertComputePassEncoderFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertComputePipelineFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertDeviceFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertExternalTextureFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertPipelineLayoutFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertQuerySetFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertQueueFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertRenderBundleEncoderFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertRenderBundleFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertRenderPassEncoderFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertRenderPipelineFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertSamplerFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertShaderModuleFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertTextureFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertTextureViewFromBacking):
+        * GPUProcess/graphics/WebGPU/WebGPUObjectHeap.h:
+        * WebKit.xcodeproj/project.pbxproj:
+        * WebProcess/GPU/graphics/WebGPU/RemoteGPUProxy.cpp:
+        (WebKit::RemoteGPUProxy::RemoteGPUProxy):
+        (WebKit::RemoteGPUProxy::abandonGPUProcess):
+        (WebKit::RemoteGPUProxy::wasCreated):
+        (WebKit::RemoteGPUProxy::waitUntilInitialized):
+        (WebKit::RemoteGPUProxy::requestAdapter):
+        (WebKit::RemoteGPUProxy::~RemoteGPUProxy): Deleted.
+        * WebProcess/GPU/graphics/WebGPU/RemoteGPUProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteGPUProxy.messages.in: Added.
+
+2021-11-30  Ada Chan  <adachan@apple.com>
+
+        [WebXR] Implement ChromeClient API to allow getting explicit consent from user on session features
+        https://bugs.webkit.org/show_bug.cgi?id=233617
+
+        Reviewed by Dean Jackson.
+
+        Set up WKUIDelegate method for asking user for permission on XR session features.
+
+        * Scripts/webkit/messages.py:
+        (types_that_cannot_be_forward_declared):
+        (headers_for_type):
+        * UIProcess/API/APIUIClient.h:
+        (API::UIClient::requestPermissionOnXRSessionFeatures):
+        * UIProcess/API/Cocoa/WKUIDelegatePrivate.h:
+        Declare a WK enum that represents XR session mode and a WK flag
+        that represents XR session features for use in the new WKUIDelegate method.
+        Declare a new WKUIDelegate method for requesting user permission for
+        XR session features that takes in the security origin, the session mode,
+        the list of device supported features, the list of features that require consent,
+        and the list of features that optionally require consent.
+        * UIProcess/Cocoa/UIDelegate.h:
+        * UIProcess/Cocoa/UIDelegate.mm:
+        (WebKit::UIDelegate::setDelegate):
+        (WebKit::toWKXRSessionMode):
+        (WebKit::toWKXRSessionFeatureFlags):
+        (WebKit::toPlatformXRFeatures):
+        (WebKit::UIDelegate::UIClient::requestPermissionOnXRSessionFeatures):
+        If the WKUIDelegate method for requesting permission is implemented, call it to 
+        get the list of user permitted features. Otherwise, preserve the current behavior
+        by returning the initially granted features based on device support.
+        * UIProcess/XR/PlatformXRCoordinator.h:
+        (WebKit::PlatformXRCoordinator::requestPermissionOnSessionFeatures):
+        Default implementation returns the initially granted features based on device support.
+        * UIProcess/XR/PlatformXRSystem.cpp:
+        (WebKit::PlatformXRSystem::requestPermissionOnSessionFeatures):
+        * UIProcess/XR/PlatformXRSystem.h:
+        * UIProcess/XR/PlatformXRSystem.messages.in:
+        * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+        (WebKit::WebChromeClient::requestPermissionOnXRSessionFeatures):
+        * WebProcess/WebCoreSupport/WebChromeClient.h:
+        * WebProcess/XR/PlatformXRSystemProxy.cpp:
+        (WebKit::PlatformXRSystemProxy::requestPermissionOnSessionFeatures):
+        Send a message to the UI process to request user consent on session features.
+        * WebProcess/XR/PlatformXRSystemProxy.h:
+
+2021-11-30  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r286227.
+        https://bugs.webkit.org/show_bug.cgi?id=233652
+
+        Broke some Apple-internal builds
+
+        Reverted changeset:
+
+        "[Model] clean up compile-time flags and condition IDL methods
+        behind them"
+        https://bugs.webkit.org/show_bug.cgi?id=233407
+        https://commits.webkit.org/r286227
+
+2021-11-30  BJ Burg  <bburg@apple.com>
+
+        [Cocoa] Web Inspector: fix bundle identifier lookup for enabling remote inspection
+        https://bugs.webkit.org/show_bug.cgi?id=233015
+        <rdar://85277115>
+
+        Reviewed by Darin Adler.
+
+        * UIProcess/Inspector/WebInspectorUtilities.h:
+        * UIProcess/Inspector/WebInspectorUtilities.cpp:
+        (WebKit::bundleIdentifierForSandboxBroker):
+        To avoid repeating the logic, extract this code to a helper.
+
+        * UIProcess/Cocoa/WebInspectorPreferenceObserver.mm:
+        (-[WKWebInspectorPreferenceObserver init]):
+        * UIProcess/Cocoa/WebProcessProxyCocoa.mm:
+        (WebKit::WebProcessProxy::shouldEnableRemoteInspector):
+        Use the helper method.
+
+2021-11-30  Brent Fulgham  <bfulgham@apple.com>
+
+        Correct serialization error in _WKApplicationManifestIcon
+        https://bugs.webkit.org/show_bug.cgi?id=233602
+        <rdar://problem/85838843>
+
+        Reviewed by Devin Rousso.
+
+        The 'initWithCoder' method had two mistakes: (1) It attempted to decode the 'purposes'
+        member as an NSArray of NSString, rather than NSNumber, and (2) it attempted to decode
+        the 'src' member as an NSString, when it is in fact an NSURL.
+
+        These errors caused serialization to fail (since NSSecureCoding correctly rejected the
+        serialization).
+
+        This patch corrects both errors and adds a new test to exercise this code path.
+
+        Tested by a new TestWebKitAPI Test: ApplicationManifest.IconCoding
+
+        * UIProcess/API/Cocoa/_WKApplicationManifest.mm:
+        (-[_WKApplicationManifestIcon initWithCoder:]): Correct decoding logic.
+
+2021-11-30  BJ Burg  <bburg@apple.com>
+
+        Web Inspector: fix IPC race between unregistering an extension and Web Inspector closing
+        https://bugs.webkit.org/show_bug.cgi?id=233264
+
+        Reviewed by Devin Rousso.
+
+        * UIProcess/Inspector/WebInspectorUIExtensionControllerProxy.cpp:
+        (WebKit::WebInspectorUIExtensionControllerProxy::inspectorFrontendWillClose):
+        Remaining registrations will not be removed via unregisterExtension() if
+        the frontend is already in the midst of closing. Clear out the registry.
+
+        (WebKit::WebInspectorUIExtensionControllerProxy::registerExtension):
+        (WebKit::WebInspectorUIExtensionControllerProxy::unregisterExtension):
+        Bail out if the inspector has closed between the IPC message being sent
+        and receiving the async response.
+
+2021-11-30  Youenn Fablet  <youenn@apple.com>
+
+        Migrate some WebSWClientConnection messages to async replies
+        https://bugs.webkit.org/show_bug.cgi?id=233627
+
+        Reviewed by Chris Dumez.
+
+        Migrate didMatchRegistration, didGetRegistrations and registrationReady to async replies.
+        This is easier to understand and is more robust to connection closure.
+
+        * NetworkProcess/ServiceWorker/WebSWServerConnection.cpp:
+        (WebKit::WebSWServerConnection::matchRegistration):
+        (WebKit::WebSWServerConnection::getRegistrations):
+        * NetworkProcess/ServiceWorker/WebSWServerConnection.h:
+        * NetworkProcess/ServiceWorker/WebSWServerConnection.messages.in:
+        * WebProcess/Storage/WebSWClientConnection.cpp:
+        (WebKit::WebSWClientConnection::matchRegistration):
+        (WebKit::WebSWClientConnection::whenRegistrationReady):
+        (WebKit::WebSWClientConnection::getRegistrations):
+        (WebKit::WebSWClientConnection::clear):
+        (WebKit::WebSWClientConnection::didMatchRegistration): Deleted.
+        (WebKit::WebSWClientConnection::didGetRegistrations): Deleted.
+        (WebKit::WebSWClientConnection::registrationReady): Deleted.
+        * WebProcess/Storage/WebSWClientConnection.h:
+        * WebProcess/Storage/WebSWClientConnection.messages.in:
+
+2021-11-30  Youenn Fablet  <youenn@apple.com>
+
+        ServiceWorkerContainer does not respond well to network process crash
+        https://bugs.webkit.org/show_bug.cgi?id=233626
+
+        Reviewed by Chris Dumez.
+
+        Set SW client connection as closed when IPC connection gets closed.
+
+        * WebProcess/Storage/WebSWClientConnection.cpp:
+        (WebKit::WebSWClientConnection::connectionToServerLost):
+
+2021-11-30  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        GraphicsContextGL should have ANGLE-specific subclass
+        https://bugs.webkit.org/show_bug.cgi?id=233522
+
+        Reviewed by Antti Koivisto.
+
+        * GPUProcess/graphics/RemoteGraphicsContextGL.cpp:
+        (WebKit::RemoteGraphicsContextGL::paintPixelBufferToImageBuffer):
+        Function paintToCanvas was moved to GraphicsContextGL.
+
+        * GPUProcess/graphics/ScopedWebGLRenderingResourcesRequest.cpp:
+        (WebKit::ScopedWebGLRenderingResourcesRequest::freeWebGLRenderingResources):
+        Use static functions from GraphicsContextGLANGLE.
+
+2021-11-30  Youenn Fablet  <youenn@apple.com>
+
+        Preload navigation request if the service worker is not immediately ready to handle the navigation request fetch event
+        https://bugs.webkit.org/show_bug.cgi?id=233471
+
+        Reviewed by Chris Dumez.
+
+        Launching a service worker might take time due to parsing and running the service worker script.
+        This might delay navigation loads, especially if the service worker is pass through on these loads.
+        To optimize this code path, we preload the navigation request in case service worker is not running or not yet activated.
+        We then wait for the service worker to handle the fetch event, which will tell us to either go to the network, in which
+        case we use the preload, or will provide its own response in which case we use it and cancel the preload.
+
+        Test: http/wpt/service-workers/service-worker-preload-when-not-activated.https.html
+
+        * NetworkProcess/ServiceWorker/ServiceWorkerFetchTask.cpp:
+        * NetworkProcess/ServiceWorker/ServiceWorkerFetchTask.h:
+        * NetworkProcess/ServiceWorker/ServiceWorkerNavigationPreloader.cpp: Added.
+        * NetworkProcess/ServiceWorker/ServiceWorkerNavigationPreloader.h: Added.
+        * NetworkProcess/ServiceWorker/WebSWServerConnection.cpp:
+        * NetworkProcess/ServiceWorker/WebSWServerConnection.h:
+        * NetworkProcess/webrtc/NetworkMDNSRegister.h:
+        * Sources.txt:
+        * WebKit.xcodeproj/project.pbxproj:
+
+2021-11-30  Youenn Fablet  <youenn@apple.com>
+
+        Remove unnecessary service worker page settings handling
+        https://bugs.webkit.org/show_bug.cgi?id=233468
+
+        Reviewed by Chris Dumez.
+
+        Use ServiceWorkerThreadProxy::setupPageForServiceWorker and remove WebPreferences specific handling.
+
+        * WebProcess/Storage/WebSWContextManagerConnection.cpp:
+        (WebKit::WebSWContextManagerConnection::updatePreferencesStore):
+        (WebKit::WebSWContextManagerConnection::installServiceWorker):
+        * WebProcess/Storage/WebSWContextManagerConnection.h:
+
+2021-11-29  Tim Horton  <timothy_horton@apple.com>
+
+        Fix the build
+
+        * Shared/ios/WebIOSEventFactory.mm:
+        (WebIOSEventFactory::createWebWheelEvent):
+
+2021-11-29  Brady Eidson  <beidson@apple.com>
+
+        Make webpushd "fake registration for testing" much more complicated by adding a "mock app bundle" install
+        https://bugs.webkit.org/show_bug.cgi?id=233454
+
+        Reviewed by Alex Christensen.
+
+        Covered by API tests.
+        
+        Before this patch, webpushd remembered "registrations" using a simple in-memory HashMap.
+        
+        In the near future, registrations will actually be represented with a placeholder app bundle on disk.
+        
+        The process of installing placeholders (and checking for existing ones) is complicated and asynchronous.
+        
+        This patch shifts the in-memory testing implementation from a simple HashMap to a "complicated and asynchronous"
+        registration mechanism that simulates how app-bundle installs will work.
+        
+        Once the "real" mechanisms are in place there will be much more in-depth testing that we can do.
+        For now, this is a "no behavior change" patch.
+
+        * NetworkProcess/Notifications/Cocoa/WebPushDaemonConnectionCocoa.mm:
+        (WebKit::WebPushD::Connection::connectionReceivedEvent const):
+        * UIProcess/API/Cocoa/WKUIDelegatePrivate.h:
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+        "PushAppBundle" is an abstract base class for representing a placeholder application bundle for a registration.
+        Eventually there will be a native one for each platform that actually does system operations.
+        For now, the concrete implementation is the in-memory "Mock" app bundle.
+
+        * webpushd/PushAppBundle.h: Copied from Source/WebKit/webpushd/PushClientConnection.h.
+        * webpushd/PushAppBundle.mm: Copied from Source/WebKit/webpushd/PushClientConnection.h.
+        (WebPushD::PushAppBundleClient::~PushAppBundleClient):
+        (WebPushD::PushAppBundle::PushAppBundle):
+        (WebPushD::PushAppBundle::~PushAppBundle):
+        (WebPushD::PushAppBundle::detachFromClient):
+        
+        An "AppBundleRequest" is a queable operation meant to do something with an "App bundle".
+        For now the operations are "create" and "delete"
+        
+        * webpushd/AppBundleRequest.h: Added.
+        (WebPushD::AppBundleRequestImpl::AppBundleRequestImpl):
+        (WebPushD::AppBundleRequestImpl::~AppBundleRequestImpl):
+        (WebPushD::AppBundleRequestImpl::callCompletionHandlerAndCleanup):
+        (WebPushD::AppBundlePermissionsRequest::AppBundlePermissionsRequest):
+        (WebPushD::AppBundleDeletionRequest::AppBundleDeletionRequest):
+        * webpushd/AppBundleRequest.mm: Added.
+        (WebPushD::AppBundleRequest::AppBundleRequest):
+        (WebPushD::AppBundleRequest::~AppBundleRequest):
+        (WebPushD::AppBundleRequest::start):
+        (WebPushD::AppBundleRequest::cancel):
+        (WebPushD::AppBundleRequest::cleanupAfterCompletionHandler):
+        (WebPushD::AppBundlePermissionsRequest::startInternal):
+        (WebPushD::AppBundlePermissionsRequest::didCheckForExistingBundle):
+        (WebPushD::AppBundlePermissionsRequest::didCreateAppBundle):
+        (WebPushD::AppBundleDeletionRequest::startInternal):
+        (WebPushD::AppBundleDeletionRequest::didDeleteExistingBundleWithError):
+
+        * webpushd/MockAppBundleForTesting.h: Copied from Source/WebKit/webpushd/PushClientConnection.h.
+        (WebPushD::MockAppBundleForTesting::create):
+        * webpushd/MockAppBundleForTesting.mm: Added.
+        (WebPushD::MockAppBundleForTesting::MockAppBundleForTesting):
+        (WebPushD::MockAppBundleForTesting::~MockAppBundleForTesting):
+        (WebPushD::MockAppBundleForTesting::checkForExistingBundle):
+        (WebPushD::MockAppBundleForTesting::deleteExistingBundle):
+        (WebPushD::MockAppBundleForTesting::createBundle):
+        (WebPushD::MockAppBundleForTesting::stop):
+
+        * webpushd/MockAppBundleRegistry.h: Copied from Source/WebKit/webpushd/PushClientConnection.h.
+        * webpushd/MockAppBundleRegistry.mm: Added.
+        (WebPushD::MockAppBundleRegistry::singleton):
+        (WebPushD::MockAppBundleRegistry::getOriginsWithRegistrations):
+        (WebPushD::MockAppBundleRegistry::doesBundleExist):
+        (WebPushD::MockAppBundleRegistry::createBundle):
+        (WebPushD::MockAppBundleRegistry::deleteBundle):
+
+        * webpushd/PushClientConnection.h:
+        * webpushd/PushClientConnection.mm:
+        (WebPushD::ClientConnection::create):
+        (WebPushD::ClientConnection::enqueueAppBundleRequest):
+        (WebPushD::ClientConnection::maybeStartNextAppBundleRequest):
+        (WebPushD::ClientConnection::didCompleteAppBundleRequest):
+        (WebPushD::ClientConnection::connectionClosed):
+
+        * webpushd/WebPushDaemon.h:
+        * webpushd/WebPushDaemon.mm:
+        (WebPushD::Daemon::connectionAdded):
+        (WebPushD::Daemon::connectionRemoved):
+        (WebPushD::Daemon::requestSystemNotificationPermission):
+        (WebPushD::Daemon::getOriginsWithPushAndNotificationPermissions):
+        (WebPushD::Daemon::deletePushAndNotificationRegistration):
+
+2021-11-29  David Kilzer  <ddkilzer@apple.com>
+
+        Disable experimental web features on platforms without UI to enable them
+        <https://webkit.org/b/233152>
+        <rdar://problem/85430643>
+
+        Reviewed by Brent Fulgham.
+
+        * UIProcess/RemoteLayerTree/ios/RemoteLayerTreeHostIOS.mm:
+        (WebKit::RemoteLayerTreeHost::makeNode):
+        * WebProcess/WebPage/RemoteLayerTree/PlatformCALayerRemoteModelHosting.h:
+        * WebProcess/WebPage/RemoteLayerTree/PlatformCALayerRemoteModelHosting.mm:
+        - Fix build when ENABLE(MODEL_ELEMENT) is false.
+
+2021-11-29  Tim Horton  <timothy_horton@apple.com>
+
+        Plumb raw platform scrolling deltas along in wheel events
+        https://bugs.webkit.org/show_bug.cgi?id=233583
+
+        Reviewed by Simon Fraser.
+
+        * Shared/WebEventConversion.cpp:
+        (WebKit::WebKit2PlatformWheelEvent::WebKit2PlatformWheelEvent):
+        * Shared/WebWheelEvent.cpp:
+        (WebKit::WebWheelEvent::WebWheelEvent):
+        (WebKit::WebWheelEvent::encode const):
+        (WebKit::WebWheelEvent::decode):
+        * Shared/WebWheelEvent.h:
+        (WebKit::WebWheelEvent::rawPlatformDelta const):
+        * Shared/WebWheelEventCoalescer.cpp:
+        (WebKit::WebWheelEventCoalescer::coalesce):
+        * Shared/mac/WebEventFactory.mm:
+        (WebKit::WebEventFactory::createWebWheelEvent):
+        Extract and plumb raw unaccelerated (in the HID sense) deltas in scroll
+        events for use in a future patch.
+
+2021-11-29  Chris Dumez  <cdumez@apple.com>
+
+        Add WebKitAdditions bits for captive portal mode
+        https://bugs.webkit.org/show_bug.cgi?id=233569
+        <rdar://85819906>
+
+        Reviewed by Geoffrey Garen.
+
+        * UIProcess/API/Cocoa/WKWebpagePreferences.h:
+        * UIProcess/API/Cocoa/WKWebpagePreferences.mm:
+
+2021-11-29  Per Arne Vollan  <pvollan@apple.com>
+
+        [WP] Sandbox telemetry is missing for some system calls
+        https://bugs.webkit.org/show_bug.cgi?id=233594
+        <rdar://problem/85832755>
+
+        Reviewed by Brent Fulgham.
+
+        Sandbox telemetry is missing for some system calls, since telemetry rules are automatically overridden in some cases.
+        This patch is addressing this by disabling system call inference.
+
+        * Resources/SandboxProfiles/ios/com.apple.WebKit.WebContent.sb.in:
+
+2021-11-29  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        WKContentView should allow -captureTextFromCamera: with a caret selection unless the sender is the callout bar
+        https://bugs.webkit.org/show_bug.cgi?id=233378
+        rdar://85478344
+
+        Reviewed by Tim Horton.
+
+        Allow clients to query whether or not the "capture text from camera" action should be enabled on WKWebView in
+        contexts outside of the callout bar. Currently, WKContentView returns NO for this action when there is a non-
+        collapsed selection range, but this behavior is only intended for the callout bar; in the case where the action
+        is (for instance) triggered by a button in the web view chrome, it doesn't make sense to only enable it when the
+        selection is a caret.
+
+        Additionally, adjust the check to use focused element information instead of editor state, such that WebKit
+        clients can easily query this API (`-canPerformAction:withSender:`) inside of input delegate callbacks when
+        beginning an input session to know whether or not "capture text from camera" should be allowed.
+
+        * UIProcess/ios/WKContentViewInteraction.mm:
+        (-[WKContentView canPerformActionForWebView:withSender:]):
+
+2021-11-29  Chris Fleizach  <cfleizach@apple.com>
+
+        AX: Unify speech synthesizer platform usage for Mac/iOS
+        https://bugs.webkit.org/show_bug.cgi?id=231895
+        <rdar://problem/84372479>
+
+        Reviewed by Andres Gonzalez.
+
+        Create a new message for resetting speech synthesis state when the DOMWindow changes
+        but the Page (and its referenced speech synthesis) stays the same.
+
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::WebPageProxy::speechSynthesisResetState):
+        * UIProcess/WebPageProxy.h:
+        * UIProcess/WebPageProxy.messages.in:
+        * WebProcess/WebCoreSupport/WebSpeechSynthesisClient.cpp:
+        (WebKit::WebSpeechSynthesisClient::resetState):
+        * WebProcess/WebCoreSupport/WebSpeechSynthesisClient.h:
+
+2021-11-29  Brent Fulgham  <bfulgham@apple.com>
+
+        REGRESSION(286219): Build fix.
+        https://bugs.webkit.org/show_bug.cgi?id=233388
+        <rdar://problem/84481565>
+
+        Unreviewed build fix after r286219.
+
+        * WebKit.xcodeproj/project.pbxproj: Don't make duplicate copies of WebContent resources when building
+          the CaptivePortal version of the WCP.
+
+2021-11-29  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Delete ObjectRegistry in favor of ObjectHeap
+        https://bugs.webkit.org/show_bug.cgi?id=233549
+
+        Reviewed by Dean Jackson.
+
+        Originally, I made these two classes distinct because I thought there were two separate use cases:
+        1. ObjectHeap is the object that owns all WebGPU objects in the GPU process
+        2. ObjectRegistry is the object that can map between WebGPUIdentifiers and their full objects. This
+               is needed when we receive a message that contains a WebGPUIdentifier, and we need to look up
+               its represented object.
+
+        The original idea was for ObjectHeap to own the objects, and each object would hold a reference to the
+        shared ObjectRegistry. However, this turns out not to be necessary, because new objects are created
+        via creation routines on _other objects_. This means that every object is going to have to know about
+        its owning ObjectHeap anyway (to be able to add newly created objects to it), so there aren't any
+        separation-of-concerns benefits to be had. If the ObjectHeap owned all the objects by just storing
+        them in a HashMap<WebGPUIdentifier, Ref<Object>> map, that would allow it to do double duty - it could
+        own all the objects _and_ be able to look up which WebGPUIdentifier is associated with which object.
+        So there's no point in having two distinct objects, when just one is sufficient.
+
+        So, accepting that, this patch is fairly straightforward, despite being large:
+        - Before, we were doing m_objectRegistry.addObject(m_identifier, m_backing) and
+              m_objectHeap.addObject(remoteRenderPassEncoder). Now, we just do
+              m_objectHeap.addObject(identifier, remoteRenderPassEncoder) instead.
+        - convertFromBacking() calls go from m_objectRegistry.convertFromBacking() to
+              m_objectHeap.convertFromBacking().
+        - objectRegistry.removeObject() calls can be entirely deleted, because the ObjectHeap already knows
+              when objects are deleted, because it owns them in the first place.
+
+        No new tests because there is no behavior change.
+
+        * GPUProcess/graphics/WebGPU/RemoteAdapter.cpp:
+        (WebKit::RemoteAdapter::RemoteAdapter):
+        (WebKit::RemoteAdapter::requestDevice):
+        (WebKit::RemoteAdapter::~RemoteAdapter): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteAdapter.h:
+        * GPUProcess/graphics/WebGPU/RemoteBindGroup.cpp:
+        (WebKit::RemoteBindGroup::RemoteBindGroup):
+        (WebKit::RemoteBindGroup::~RemoteBindGroup): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteBindGroup.h:
+        * GPUProcess/graphics/WebGPU/RemoteBindGroupLayout.cpp:
+        (WebKit::RemoteBindGroupLayout::RemoteBindGroupLayout):
+        (WebKit::RemoteBindGroupLayout::~RemoteBindGroupLayout): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteBindGroupLayout.h:
+        * GPUProcess/graphics/WebGPU/RemoteBuffer.cpp:
+        (WebKit::RemoteBuffer::RemoteBuffer):
+        (WebKit::RemoteBuffer::~RemoteBuffer): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteBuffer.h:
+        * GPUProcess/graphics/WebGPU/RemoteCommandBuffer.cpp:
+        (WebKit::RemoteCommandBuffer::RemoteCommandBuffer):
+        (WebKit::RemoteCommandBuffer::~RemoteCommandBuffer): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteCommandBuffer.h:
+        * GPUProcess/graphics/WebGPU/RemoteCommandEncoder.cpp:
+        (WebKit::RemoteCommandEncoder::RemoteCommandEncoder):
+        (WebKit::RemoteCommandEncoder::beginRenderPass):
+        (WebKit::RemoteCommandEncoder::beginComputePass):
+        (WebKit::RemoteCommandEncoder::copyBufferToBuffer):
+        (WebKit::RemoteCommandEncoder::copyBufferToTexture):
+        (WebKit::RemoteCommandEncoder::copyTextureToBuffer):
+        (WebKit::RemoteCommandEncoder::copyTextureToTexture):
+        (WebKit::RemoteCommandEncoder::fillBuffer):
+        (WebKit::RemoteCommandEncoder::writeTimestamp):
+        (WebKit::RemoteCommandEncoder::resolveQuerySet):
+        (WebKit::RemoteCommandEncoder::finish):
+        (WebKit::RemoteCommandEncoder::~RemoteCommandEncoder): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteCommandEncoder.h:
+        * GPUProcess/graphics/WebGPU/RemoteComputePassEncoder.cpp:
+        (WebKit::RemoteComputePassEncoder::RemoteComputePassEncoder):
+        (WebKit::RemoteComputePassEncoder::setPipeline):
+        (WebKit::RemoteComputePassEncoder::dispatchIndirect):
+        (WebKit::RemoteComputePassEncoder::beginPipelineStatisticsQuery):
+        (WebKit::RemoteComputePassEncoder::setBindGroup):
+        (WebKit::RemoteComputePassEncoder::~RemoteComputePassEncoder): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteComputePassEncoder.h:
+        * GPUProcess/graphics/WebGPU/RemoteComputePipeline.cpp:
+        (WebKit::RemoteComputePipeline::RemoteComputePipeline):
+        (WebKit::RemoteComputePipeline::getBindGroupLayout):
+        (WebKit::RemoteComputePipeline::~RemoteComputePipeline): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteComputePipeline.h:
+        * GPUProcess/graphics/WebGPU/RemoteDevice.cpp:
+        (WebKit::RemoteDevice::RemoteDevice):
+        (WebKit::RemoteDevice::createBuffer):
+        (WebKit::RemoteDevice::createTexture):
+        (WebKit::RemoteDevice::createSampler):
+        (WebKit::RemoteDevice::importExternalTexture):
+        (WebKit::RemoteDevice::createBindGroupLayout):
+        (WebKit::RemoteDevice::createPipelineLayout):
+        (WebKit::RemoteDevice::createBindGroup):
+        (WebKit::RemoteDevice::createShaderModule):
+        (WebKit::RemoteDevice::createComputePipeline):
+        (WebKit::RemoteDevice::createRenderPipeline):
+        (WebKit::RemoteDevice::createComputePipelineAsync):
+        (WebKit::RemoteDevice::createRenderPipelineAsync):
+        (WebKit::RemoteDevice::createCommandEncoder):
+        (WebKit::RemoteDevice::createRenderBundleEncoder):
+        (WebKit::RemoteDevice::createQuerySet):
+        (WebKit::RemoteDevice::~RemoteDevice): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteDevice.h:
+        * GPUProcess/graphics/WebGPU/RemoteExternalTexture.cpp:
+        (WebKit::RemoteExternalTexture::RemoteExternalTexture):
+        (WebKit::RemoteExternalTexture::~RemoteExternalTexture): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteExternalTexture.h:
+        * GPUProcess/graphics/WebGPU/RemoteGPU.cpp:
+        (WebKit::RemoteGPU::RemoteGPU):
+        (WebKit::RemoteGPU::requestAdapter):
+        (WebKit::RemoteGPU::~RemoteGPU): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteGPU.h:
+        * GPUProcess/graphics/WebGPU/RemotePipelineLayout.cpp:
+        (WebKit::RemotePipelineLayout::RemotePipelineLayout):
+        (WebKit::RemotePipelineLayout::~RemotePipelineLayout): Deleted.
+        * GPUProcess/graphics/WebGPU/RemotePipelineLayout.h:
+        * GPUProcess/graphics/WebGPU/RemoteQuerySet.cpp:
+        (WebKit::RemoteQuerySet::RemoteQuerySet):
+        (WebKit::RemoteQuerySet::~RemoteQuerySet): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteQuerySet.h:
+        * GPUProcess/graphics/WebGPU/RemoteQueue.cpp:
+        (WebKit::RemoteQueue::RemoteQueue):
+        (WebKit::RemoteQueue::submit):
+        (WebKit::RemoteQueue::writeBuffer):
+        (WebKit::RemoteQueue::writeTexture):
+        (WebKit::RemoteQueue::copyExternalImageToTexture):
+        (WebKit::RemoteQueue::~RemoteQueue): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteQueue.h:
+        * GPUProcess/graphics/WebGPU/RemoteRenderBundle.cpp:
+        (WebKit::RemoteRenderBundle::RemoteRenderBundle):
+        (WebKit::RemoteRenderBundle::~RemoteRenderBundle): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteRenderBundle.h:
+        * GPUProcess/graphics/WebGPU/RemoteRenderBundleEncoder.cpp:
+        (WebKit::RemoteRenderBundleEncoder::RemoteRenderBundleEncoder):
+        (WebKit::RemoteRenderBundleEncoder::setPipeline):
+        (WebKit::RemoteRenderBundleEncoder::setIndexBuffer):
+        (WebKit::RemoteRenderBundleEncoder::setVertexBuffer):
+        (WebKit::RemoteRenderBundleEncoder::drawIndirect):
+        (WebKit::RemoteRenderBundleEncoder::drawIndexedIndirect):
+        (WebKit::RemoteRenderBundleEncoder::setBindGroup):
+        (WebKit::RemoteRenderBundleEncoder::finish):
+        (WebKit::RemoteRenderBundleEncoder::~RemoteRenderBundleEncoder): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteRenderBundleEncoder.h:
+        * GPUProcess/graphics/WebGPU/RemoteRenderPassEncoder.cpp:
+        (WebKit::RemoteRenderPassEncoder::RemoteRenderPassEncoder):
+        (WebKit::RemoteRenderPassEncoder::setPipeline):
+        (WebKit::RemoteRenderPassEncoder::setIndexBuffer):
+        (WebKit::RemoteRenderPassEncoder::setVertexBuffer):
+        (WebKit::RemoteRenderPassEncoder::drawIndirect):
+        (WebKit::RemoteRenderPassEncoder::drawIndexedIndirect):
+        (WebKit::RemoteRenderPassEncoder::setBindGroup):
+        (WebKit::RemoteRenderPassEncoder::setBlendConstant):
+        (WebKit::RemoteRenderPassEncoder::beginPipelineStatisticsQuery):
+        (WebKit::RemoteRenderPassEncoder::executeBundles):
+        (WebKit::RemoteRenderPassEncoder::~RemoteRenderPassEncoder): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteRenderPassEncoder.h:
+        * GPUProcess/graphics/WebGPU/RemoteRenderPipeline.cpp:
+        (WebKit::RemoteRenderPipeline::RemoteRenderPipeline):
+        (WebKit::RemoteRenderPipeline::getBindGroupLayout):
+        (WebKit::RemoteRenderPipeline::~RemoteRenderPipeline): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteRenderPipeline.h:
+        * GPUProcess/graphics/WebGPU/RemoteSampler.cpp:
+        (WebKit::RemoteSampler::RemoteSampler):
+        (WebKit::RemoteSampler::~RemoteSampler): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteSampler.h:
+        * GPUProcess/graphics/WebGPU/RemoteShaderModule.cpp:
+        (WebKit::RemoteShaderModule::RemoteShaderModule):
+        (WebKit::RemoteShaderModule::~RemoteShaderModule): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteShaderModule.h:
+        * GPUProcess/graphics/WebGPU/RemoteTexture.cpp:
+        (WebKit::RemoteTexture::RemoteTexture):
+        (WebKit::RemoteTexture::createView):
+        (WebKit::RemoteTexture::~RemoteTexture): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteTexture.h:
+        * GPUProcess/graphics/WebGPU/RemoteTextureView.cpp:
+        (WebKit::RemoteTextureView::RemoteTextureView):
+        (WebKit::RemoteTextureView::~RemoteTextureView): Deleted.
+        * GPUProcess/graphics/WebGPU/RemoteTextureView.h:
+        * GPUProcess/graphics/WebGPU/WebGPUObjectHeap.cpp:
+        (WebKit::WebGPU::ObjectHeap::addObject):
+        (WebKit::WebGPU::ObjectHeap::removeObject):
+        (WebKit::WebGPU::ObjectHeap::convertAdapterFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertBindGroupFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertBindGroupLayoutFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertBufferFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertCommandBufferFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertCommandEncoderFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertComputePassEncoderFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertComputePipelineFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertDeviceFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertExternalTextureFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertPipelineLayoutFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertQuerySetFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertQueueFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertRenderBundleEncoderFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertRenderBundleFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertRenderPassEncoderFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertRenderPipelineFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertSamplerFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertShaderModuleFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertTextureFromBacking):
+        (WebKit::WebGPU::ObjectHeap::convertTextureViewFromBacking):
+        * GPUProcess/graphics/WebGPU/WebGPUObjectHeap.h:
+        * GPUProcess/graphics/WebGPU/WebGPUObjectRegistry.cpp: Removed.
+        * GPUProcess/graphics/WebGPU/WebGPUObjectRegistry.h: Removed.
+        * GPUProcess/media/RemoteAudioSourceProviderProxy.cpp:
+        (WebKit::RemoteAudioSourceProviderProxy::create):
+        (WebKit::RemoteAudioSourceProviderProxy::createRingBuffer):
+        (WebKit::RemoteAudioSourceProviderProxy::storageChanged):
+        * Platform/IPC/ScopedActiveMessageReceiveQueue.h:
+        * Shared/WebGPU/WebGPUConvertFromBackingContext.h:
+        * Sources.txt:
+        * WebKit.xcodeproj/project.pbxproj:
+
+2021-11-29  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Provide default values for descriptor struct members
+        https://bugs.webkit.org/show_bug.cgi?id=233431
+
+        Reviewed by Alex Christensen.
+
+        No new tests because there is no behavior change.
+
+        * Shared/WebGPU/WebGPUBindGroupEntry.h:
+        * Shared/WebGPU/WebGPUBindGroupLayoutEntry.h:
+        * Shared/WebGPU/WebGPUBlendComponent.h:
+        * Shared/WebGPU/WebGPUBufferBinding.h:
+        * Shared/WebGPU/WebGPUBufferBindingLayout.h:
+        * Shared/WebGPU/WebGPUBufferDescriptor.h:
+        * Shared/WebGPU/WebGPUCanvasConfiguration.h:
+        * Shared/WebGPU/WebGPUColor.h:
+        * Shared/WebGPU/WebGPUColorTargetState.h:
+        * Shared/WebGPU/WebGPUCompilationMessage.h:
+        * Shared/WebGPU/WebGPUComputePassTimestampWrites.h:
+        * Shared/WebGPU/WebGPUDepthStencilState.h:
+        * Shared/WebGPU/WebGPUExtent3D.h:
+        * Shared/WebGPU/WebGPUExternalTextureDescriptor.h:
+        * Shared/WebGPU/WebGPUImageCopyTexture.h:
+        * Shared/WebGPU/WebGPUImageCopyTextureTagged.h:
+        * Shared/WebGPU/WebGPUImageDataLayout.h:
+        * Shared/WebGPU/WebGPUMultisampleState.h:
+        * Shared/WebGPU/WebGPUOrigin2D.h:
+        * Shared/WebGPU/WebGPUOrigin3D.h:
+        * Shared/WebGPU/WebGPUPrimitiveState.h:
+        * Shared/WebGPU/WebGPUQuerySetDescriptor.h:
+        * Shared/WebGPU/WebGPURenderBundleEncoderDescriptor.h:
+        * Shared/WebGPU/WebGPURenderPassColorAttachment.h:
+        * Shared/WebGPU/WebGPURenderPassDepthStencilAttachment.h:
+        * Shared/WebGPU/WebGPURenderPassLayout.h:
+        * Shared/WebGPU/WebGPURenderPassTimestampWrites.h:
+        * Shared/WebGPU/WebGPURequestAdapterOptions.h:
+        * Shared/WebGPU/WebGPUSamplerBindingLayout.h:
+        * Shared/WebGPU/WebGPUSamplerDescriptor.h:
+        * Shared/WebGPU/WebGPUStencilFaceState.h:
+        * Shared/WebGPU/WebGPUStorageTextureBindingLayout.h:
+        * Shared/WebGPU/WebGPUTextureBindingLayout.h:
+        * Shared/WebGPU/WebGPUTextureDescriptor.h:
+        * Shared/WebGPU/WebGPUTextureViewDescriptor.h:
+        * Shared/WebGPU/WebGPUVertexAttribute.h:
+        * Shared/WebGPU/WebGPUVertexBufferLayout.h:
+
+2021-11-29  Chris Dumez  <cdumez@apple.com>
+
+        Make support for WebKitAdditions in Framework headers conditional based on deployment target
+        https://bugs.webkit.org/show_bug.cgi?id=233566
+
+        Reviewed by Wenson Hsieh.
+
+        Only support using WebKitAdditions in framework headers on macOS 12+, iOS 16+, tvOS 16+ and
+        watchOS 9+.
+
+        * mac/replace-webkit-additions-includes.py:
+        (is_supported_os):
+        (main):
+
+2021-11-24  Antoine Quint  <graouts@webkit.org>
+
+        [Model] clean up compile-time flags and condition IDL methods behind them
+        https://bugs.webkit.org/show_bug.cgi?id=233407
+
+        Reviewed by Tim Horton.
+
+        On top of adopting the changes made to flags in wtf/PlatformEnableCocoa.h and wtf/PlatformHave.h,
+        we condition the definition of code related to IDL methods recently added to HTMLModelElement by
+        the new set of ENABLE_MODEL_ELEMENT_XXX_CONTROL flags, uncluding WebPageProxy messages allowing
+        for this feature to work.
+
+        * Shared/ModelIdentifier.h:
+        (WebKit::ModelIdentifier::encode const):
+        (WebKit::ModelIdentifier::decode):
+        * UIProcess/Cocoa/ModelElementControllerCocoa.mm:
+        (WebKit::previewHasCameraSupport):
+        (WebKit::ModelElementController::getCameraForModelElement):
+        (WebKit::ModelElementController::setCameraForModelElement):
+        (WebKit::previewHasAnimationSupport):
+        (WebKit::ModelElementController::isPlayingAnimationForModelElement):
+        (WebKit::ModelElementController::setAnimationIsPlayingForModelElement):
+        (WebKit::ModelElementController::isLoopingAnimationForModelElement):
+        (WebKit::ModelElementController::setIsLoopingAnimationForModelElement):
+        (WebKit::ModelElementController::animationDurationForModelElement):
+        (WebKit::ModelElementController::animationCurrentTimeForModelElement):
+        (WebKit::ModelElementController::setAnimationCurrentTimeForModelElement):
+        (WebKit::previewHasAudioSupport):
+        (WebKit::ModelElementController::hasAudioForModelElement):
+        (WebKit::ModelElementController::isMutedForModelElement):
+        (WebKit::ModelElementController::setIsMutedForModelElement):
+        * UIProcess/ModelElementController.h:
+        * UIProcess/RemoteLayerTree/ios/RemoteLayerTreeHostIOS.mm:
+        (WebKit::RemoteLayerTreeHost::makeNode):
+        * UIProcess/WebPageProxy.cpp:
+        * UIProcess/WebPageProxy.h:
+        * UIProcess/WebPageProxy.messages.in:
+        * UIProcess/ios/WKModelInteractionGestureRecognizer.h:
+        * UIProcess/ios/WKModelInteractionGestureRecognizer.mm:
+        * UIProcess/ios/WKModelView.h:
+        * UIProcess/ios/WKModelView.mm:
+        * WebProcess/Model/ARKitInlinePreviewModelPlayer.h:
+        * WebProcess/Model/ARKitInlinePreviewModelPlayer.mm:
+        * WebProcess/Model/WebModelPlayerProvider.cpp:
+        (WebKit::WebModelPlayerProvider::createModelPlayer):
+        * WebProcess/Model/ios/ARKitInlinePreviewModelPlayerIOS.h:
+        * WebProcess/Model/ios/ARKitInlinePreviewModelPlayerIOS.mm:
+        * WebProcess/Model/mac/ARKitInlinePreviewModelPlayerMac.h:
+        * WebProcess/Model/mac/ARKitInlinePreviewModelPlayerMac.mm:
+        (WebKit::ARKitInlinePreviewModelPlayerMac::supportsMouseInteraction):
+        * WebProcess/WebProcess.cpp:
+        (WebKit::WebProcess::setWebsiteDataStoreParameters):
+
+2021-11-29  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] IPC class refactorings
+        https://bugs.webkit.org/show_bug.cgi?id=233546
+
+        Reviewed by Dean Jackson.
+
+        Make classes fast allocated. Also, make the root() function recursive, instead of hardcoding
+        each class's distance from the root.
+
+        RemoteGPUProxy has to be in the WebKit namespace, rather than the WebKit::WebGPU namespace,
+        because it will be a message receiver, and our code generator doesn't know anything about the
+        nested namespace.
+
+        Also make sure that async functions call their callbacks in every codepath.
+
+        No new tests because there is no behavior change.
+
+        * GPUProcess/graphics/WebGPU/RemoteAdapter.h:
+        * GPUProcess/graphics/WebGPU/RemoteBindGroup.h:
+        * GPUProcess/graphics/WebGPU/RemoteBindGroupLayout.h:
+        * GPUProcess/graphics/WebGPU/RemoteBuffer.h:
+        * GPUProcess/graphics/WebGPU/RemoteCommandBuffer.h:
+        * GPUProcess/graphics/WebGPU/RemoteCommandEncoder.h:
+        * GPUProcess/graphics/WebGPU/RemoteComputePassEncoder.h:
+        * GPUProcess/graphics/WebGPU/RemoteComputePipeline.h:
+        * GPUProcess/graphics/WebGPU/RemoteDevice.h:
+        * GPUProcess/graphics/WebGPU/RemoteExternalTexture.h:
+        * GPUProcess/graphics/WebGPU/RemoteGPU.h:
+        * GPUProcess/graphics/WebGPU/RemotePipelineLayout.h:
+        * GPUProcess/graphics/WebGPU/RemoteQuerySet.h:
+        * GPUProcess/graphics/WebGPU/RemoteQueue.h:
+        * GPUProcess/graphics/WebGPU/RemoteRenderBundle.h:
+        * GPUProcess/graphics/WebGPU/RemoteRenderBundleEncoder.h:
+        * GPUProcess/graphics/WebGPU/RemoteRenderPassEncoder.h:
+        * GPUProcess/graphics/WebGPU/RemoteRenderPipeline.h:
+        * GPUProcess/graphics/WebGPU/RemoteSampler.h:
+        * GPUProcess/graphics/WebGPU/RemoteShaderModule.h:
+        * GPUProcess/graphics/WebGPU/RemoteTexture.h:
+        * GPUProcess/graphics/WebGPU/RemoteTextureView.h:
+        * GPUProcess/graphics/WebGPU/WebGPUObjectHeap.h:
+        * GPUProcess/graphics/WebGPU/WebGPUObjectRegistry.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteAdapterProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteBindGroupLayoutProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteBindGroupProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteBufferProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteCommandBufferProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteCommandEncoderProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteComputePassEncoderProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteComputePipelineProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteDeviceProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteExternalTextureProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteGPUProxy.cpp:
+        (WebKit::RemoteGPUProxy::requestAdapter):
+        (WebKit::WebGPU::RemoteGPUProxy::RemoteGPUProxy): Deleted.
+        (WebKit::WebGPU::RemoteGPUProxy::~RemoteGPUProxy): Deleted.
+        (WebKit::WebGPU::RemoteGPUProxy::requestAdapter): Deleted.
+        * WebProcess/GPU/graphics/WebGPU/RemoteGPUProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemotePipelineLayoutProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteQuerySetProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteQueueProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteRenderBundleEncoderProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteRenderBundleProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteRenderPassEncoderProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteRenderPipelineProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteSamplerProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteShaderModuleProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteTextureProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteTextureViewProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/WebGPUDowncastConvertToBackingContext.h:
+
+2021-11-29  Brent Fulgham  <bfulgham@apple.com>
+
+        Create a new XPC service with specific entitlements to support Captive Portal use cases
+        https://bugs.webkit.org/show_bug.cgi?id=233388
+        <rdar://problem/84481565>
+
+        Reviewed by Per Arne Vollan.
+
+        This initial patch builds a new XPC service with entitlements tailored to our Captive Portal
+        use case.
+
+        * Configurations/WebContentService.CaptivePortal.xcconfig: Added.
+        * Configurations/WebContentService.xcconfig:
+        * Scripts/process-entitlements.sh: Add new sections for captive portal mode
+        * WebKit.xcodeproj/project.pbxproj: Add new configuration file.
+
+2021-11-29  Youenn Fablet  <youenn@apple.com>
+
+        Apply WebPreferences on ServiceWorker settings
+        https://bugs.webkit.org/show_bug.cgi?id=233466
+
+        Reviewed by Chris Dumez.
+
+        Make WebPage::updateSettingsGenerated as static to reuse it in service worker code path
+        just after creation of the dummy Page attached to each service worker.
+        This allows correct initialization of the settings that are then used by the service worker.
+
+        * Scripts/PreferencesTemplates/WebPageUpdatePreferences.cpp.erb:
+        * WebProcess/Storage/WebSWContextManagerConnection.cpp:
+        * WebProcess/Storage/WebSWContextManagerConnection.h:
+        * WebProcess/WebPage/WebPage.cpp:
+        * WebProcess/WebPage/WebPage.h:
+
 2021-11-29  Chris Dumez  <cdumez@apple.com>
 
         Make WebKitCaptivePortalModeEnabled user default work on macOS

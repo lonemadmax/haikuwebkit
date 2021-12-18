@@ -33,7 +33,7 @@
 
 namespace WebCore {
 
-TextureMapperGCGLPlatformLayer::TextureMapperGCGLPlatformLayer(GraphicsContextGLOpenGL& context)
+TextureMapperGCGLPlatformLayer::TextureMapperGCGLPlatformLayer(GraphicsContextGLANGLE& context)
     : m_context(context)
 {
     auto sharingContext = PlatformDisplay::sharedDisplayForCompositing().sharingGLContext()->platformContext();
@@ -117,7 +117,7 @@ void TextureMapperGCGLPlatformLayer::paintToTextureMapper(TextureMapper& texture
         m_context.makeContextCurrent();
 
         m_context.resolveMultisamplingIfNecessary();
-        gl::BindFramebuffer(GL_FRAMEBUFFER, m_context.m_state.boundDrawFBO);
+        GL_BindFramebuffer(GL_FRAMEBUFFER, m_context.m_state.boundDrawFBO);
 
         if (previousActiveContext)
             previousActiveContext->makeContextCurrent();

@@ -72,6 +72,7 @@
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "Image.h"
+#include "LegacyRenderSVGRoot.h"
 #include "LocalizedStrings.h"
 #include "NodeList.h"
 #include "Page.h"
@@ -93,7 +94,6 @@
 #include "RenderListMarker.h"
 #include "RenderMathMLBlock.h"
 #include "RenderMenuList.h"
-#include "RenderSVGRoot.h"
 #include "RenderSVGShape.h"
 #include "RenderTableCell.h"
 #include "RenderText.h"
@@ -856,7 +856,7 @@ LayoutRect AccessibilityRenderObject::boundingBoxRect() const
     Vector<FloatQuad> quads;
     bool isSVGRoot = false;
 
-    if (obj->isSVGRoot())
+    if (obj->isSVGRootOrLegacySVGRoot())
         isSVGRoot = true;
 
     if (is<RenderText>(*obj))
@@ -951,7 +951,7 @@ Path AccessibilityRenderObject::elementPath() const
         Path path = downcast<RenderSVGShape>(*m_renderer).path();
 
         // The SVG path is in terms of the parent's bounding box. The path needs to be offset to frame coordinates.
-        if (auto svgRoot = ancestorsOfType<RenderSVGRoot>(*m_renderer).first()) {
+        if (auto svgRoot = ancestorsOfType<LegacyRenderSVGRoot>(*m_renderer).first()) {
             LayoutPoint parentOffset = axObjectCache()->getOrCreate(&*svgRoot)->elementRect().location();
             path.transform(AffineTransform().translate(parentOffset.x(), parentOffset.y()));
         }
@@ -2050,13 +2050,23 @@ AXCoreObject::AccessibilityChildrenVector AccessibilityRenderObject::documentLin
         } else {
             auto* parent = current->parentNode();
             if (is<HTMLAreaElement>(*current) && is<HTMLMapElement>(parent)) {
-                auto& areaObject = downcast<AccessibilityImageMapLink>(*axObjectCache()->create(AccessibilityRole::ImageMapLink));
-                HTMLMapElement& map = downcast<HTMLMapElement>(*parent);
-                areaObject.setHTMLAreaElement(downcast<HTMLAreaElement>(current));
-                areaObject.setHTMLMapElement(&map);
-                areaObject.setParent(accessibilityParentForImageMap(&map));
-
-                result.append(&areaObject);
+                auto* parentImage = downcast<HTMLMapElement>(parent)->imageElement();
+                auto* parentImageRenderer = parentImage ? parentImage->renderer() : nullptr;
+                if (auto* parentImageAxObject = document.axObjectCache()->getOrCreate(parentImageRenderer)) {
+                    for (const auto& child : parentImageAxObject->children()) {
+                        if (is<AccessibilityImageMapLink>(child) && !result.contains(child))
+                            result.append(child);
+                    }
+                } else {
+                    // We couldn't retrieve the already existing image-map links from the parent image, so create a new one.
+                    ASSERT_NOT_REACHED("Unexpectedly missing image-map link parent AX object.");
+                    auto& areaObject = downcast<AccessibilityImageMapLink>(*axObjectCache()->create(AccessibilityRole::ImageMapLink));
+                    auto& map = downcast<HTMLMapElement>(*parent);
+                    areaObject.setHTMLAreaElement(downcast<HTMLAreaElement>(current));
+                    areaObject.setHTMLMapElement(&map);
+                    areaObject.setParent(accessibilityParentForImageMap(&map));
+                    result.append(&areaObject);
+                }
             }
         }
     }
@@ -2954,6 +2964,11 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
     if (node && node->hasTagName(canvasTag))
         return AccessibilityRole::Canvas;
 
+#if ENABLE(MODEL_ELEMENT)
+    if (node && node->hasTagName(modelTag))
+        return AccessibilityRole::Model;
+#endif
+
     if (cssBox && cssBox->isRenderView())
         return AccessibilityRole::WebArea;
     
@@ -2996,7 +3011,7 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
     if (headingLevel())
         return AccessibilityRole::Heading;
     
-    if (m_renderer->isSVGRoot())
+    if (m_renderer->isSVGRootOrLegacySVGRoot())
         return AccessibilityRole::SVGRoot;
     
     if (isStyleFormatGroup()) {
@@ -3526,7 +3541,7 @@ void AccessibilityRenderObject::addChildren()
     addTextFieldChildren();
     addCanvasChildren();
     addRemoteSVGChildren();
-    
+
 #if PLATFORM(COCOA)
     updateAttachmentViewParents();
 #endif

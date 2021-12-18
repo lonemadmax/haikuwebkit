@@ -43,6 +43,8 @@
 #include "WebCoreJSClientData.h"
 #include "WorkerConsoleClient.h"
 #include "WorkerModuleScriptLoader.h"
+#include "WorkerOrWorkletThread.h"
+#include "WorkerRunLoop.h"
 #include "WorkerScriptFetcher.h"
 #include <JavaScriptCore/Completion.h>
 #include <JavaScriptCore/DeferTermination.h>
@@ -78,11 +80,6 @@ WorkerOrWorkletScriptController::WorkerOrWorkletScriptController(WorkerThreadTyp
 
         JSVMClientData::initNormalWorld(m_vm.get(), type);
     }
-}
-
-WorkerOrWorkletScriptController::WorkerOrWorkletScriptController(WorkerThreadType type, WorkerOrWorkletGlobalScope* globalScope)
-    : WorkerOrWorkletScriptController(type, JSC::VM::create(), globalScope)
-{
 }
 
 WorkerOrWorkletScriptController::~WorkerOrWorkletScriptController()

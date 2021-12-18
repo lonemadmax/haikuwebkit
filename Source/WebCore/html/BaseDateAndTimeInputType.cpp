@@ -127,15 +127,15 @@ BaseDateAndTimeInputType::~BaseDateAndTimeInputType()
     closeDateTimeChooser();
 }
 
-double BaseDateAndTimeInputType::valueAsDate() const
+WallTime BaseDateAndTimeInputType::valueAsDate() const
 {
-    return valueAsDouble();
+    return WallTime::fromRawSeconds(Seconds::fromMilliseconds(valueAsDouble()).value());
 }
 
-ExceptionOr<void> BaseDateAndTimeInputType::setValueAsDate(double value) const
+ExceptionOr<void> BaseDateAndTimeInputType::setValueAsDate(WallTime value) const
 {
     ASSERT(element());
-    element()->setValue(serializeWithMilliseconds(value));
+    element()->setValue(serializeWithMilliseconds(value.secondsSinceEpoch().milliseconds()));
     return { };
 }
 
@@ -242,7 +242,7 @@ bool BaseDateAndTimeInputType::shouldRespectListAttribute()
 bool BaseDateAndTimeInputType::valueMissing(const String& value) const
 {
     ASSERT(element());
-    return element()->isRequired() && value.isEmpty();
+    return !element()->isDisabledOrReadOnly() && element()->isRequired() && value.isEmpty();
 }
 
 bool BaseDateAndTimeInputType::isKeyboardFocusable(KeyboardEvent*) const

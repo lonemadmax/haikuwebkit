@@ -38,6 +38,7 @@
 #include "DownloadID.h"
 #include "DrawingAreaInfo.h"
 #include "EditingRange.h"
+#include "EventDispatcher.h"
 #include "FocusedElementInformation.h"
 #include "GeolocationIdentifier.h"
 #include "IdentifierTypes.h"
@@ -858,6 +859,8 @@ public:
     void freezeLayerTree(LayerTreeFreezeReason);
     void unfreezeLayerTree(LayerTreeFreezeReason);
 
+    void isLayerTreeFrozen(CompletionHandler<void(bool)>&&);
+
     void markLayersVolatile(CompletionHandler<void(bool)>&& completionHandler = { });
     void cancelMarkLayersVolatile();
 
@@ -1065,7 +1068,7 @@ public:
     void startWaitingForContextMenuToShow() { m_waitingForContextMenuToShow = true; }
 #endif
 
-    bool wheelEvent(const WebWheelEvent&, OptionSet<WebCore::WheelEventProcessingSteps>);
+    bool wheelEvent(const WebWheelEvent&, OptionSet<WebCore::WheelEventProcessingSteps>, EventDispatcher::WheelEventOrigin);
 
     void wheelEventHandlersChanged(bool);
     void recomputeShortCircuitHorizontalWheelEventsState();
@@ -1448,6 +1451,7 @@ public:
 #endif
 
     static void updatePreferencesGenerated(const WebPreferencesStore&);
+    static void updateSettingsGenerated(const WebPreferencesStore&, WebCore::Settings&);
 
     void synchronizeCORSDisablingPatternsWithNetworkProcess();
 
@@ -1700,7 +1704,6 @@ private:
 
     void preferencesDidChange(const WebPreferencesStore&);
     void updatePreferences(const WebPreferencesStore&);
-    void updateSettingsGenerated(const WebPreferencesStore&);
 
 #if PLATFORM(IOS_FAMILY)
     bool parentProcessHasServiceWorkerEntitlement() const;

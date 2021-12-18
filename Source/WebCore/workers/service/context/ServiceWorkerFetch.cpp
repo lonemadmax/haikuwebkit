@@ -139,7 +139,7 @@ static void processResponse(Ref<Client>&& client, Expected<Ref<FetchResponse>, s
     });
 }
 
-void dispatchFetchEvent(Ref<Client>&& client, ServiceWorkerGlobalScope& globalScope, std::optional<ScriptExecutionContextIdentifier> clientId, ResourceRequest&& request, String&& referrer, FetchOptions&& options)
+void dispatchFetchEvent(Ref<Client>&& client, ServiceWorkerGlobalScope& globalScope, std::optional<ScriptExecutionContextIdentifier> clientId, ResourceRequest&& request, String&& referrer, FetchOptions&& options, FetchIdentifier fetchIdentifier, bool isServiceWorkerNavigationPreloadEnabled)
 {
     auto requestHeaders = FetchHeaders::create(FetchHeaders::Guard::Immutable, HTTPHeaderMap { request.httpHeaderFields() });
 
@@ -168,6 +168,10 @@ void dispatchFetchEvent(Ref<Client>&& client, ServiceWorkerGlobalScope& globalSc
     URL requestURL = request.url();
     auto fetchRequest = FetchRequest::create(globalScope, WTFMove(body), WTFMove(requestHeaders),  WTFMove(request), WTFMove(options), WTFMove(referrer));
 
+    // If service worker navigation preload is not enabled, we do not want to reuse any preload directly.
+    if (!isServiceWorkerNavigationPreloadEnabled)
+        fetchRequest->setNavigationPreloadIdentifier(fetchIdentifier);
+
     FetchEvent::Init init;
     init.request = WTFMove(fetchRequest);
     if (isNavigation) {
@@ -178,6 +182,9 @@ void dispatchFetchEvent(Ref<Client>&& client, ServiceWorkerGlobalScope& globalSc
         init.clientId = clientId->toString();
     init.cancelable = true;
     auto event = FetchEvent::create(eventNames().fetchEvent, WTFMove(init), Event::IsTrusted::Yes);
+
+    if (isServiceWorkerNavigationPreloadEnabled)
+        event->setNavigationPreloadIdentifier(fetchIdentifier);
 
     CertificateInfo certificateInfo = globalScope.certificateInfo();
 

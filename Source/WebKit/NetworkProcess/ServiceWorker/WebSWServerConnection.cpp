@@ -152,8 +152,13 @@ void WebSWServerConnection::controlClient(ScriptExecutionContextIdentifier clien
 
 std::unique_ptr<ServiceWorkerFetchTask> WebSWServerConnection::createFetchTask(NetworkResourceLoader& loader, const ResourceRequest& request)
 {
-    if (loader.parameters().serviceWorkersMode == ServiceWorkersMode::None)
+    if (loader.parameters().serviceWorkersMode == ServiceWorkersMode::None) {
+        if (loader.parameters().request.requester() == ResourceRequest::Requester::Fetch && isNavigationRequest(loader.parameters().options.destination)) {
+            if (auto task = ServiceWorkerFetchTask::fromNavigationPreloader(*this, loader, request, session()))
+                return task;
+        }
         return nullptr;
+    }
 
     if (!server().canHandleScheme(loader.originalRequest().url().protocol()))
         return nullptr;
@@ -177,16 +182,15 @@ std::unique_ptr<ServiceWorkerFetchTask> WebSWServerConnection::createFetchTask(N
         serviceWorkerRegistrationIdentifier = *loader.parameters().serviceWorkerRegistrationIdentifier;
     }
 
-    auto* worker = server().activeWorkerFromRegistrationID(*serviceWorkerRegistrationIdentifier);
+    auto* registration = server().getRegistration(*serviceWorkerRegistrationIdentifier);
+    auto* worker = registration ? registration->activeWorker() : nullptr;
     if (!worker) {
         SWSERVERCONNECTION_RELEASE_LOG_ERROR("startFetch: DidNotHandle because no active worker for registration %" PRIu64, serviceWorkerRegistrationIdentifier->toUInt64());
         return nullptr;
     }
 
-    auto* registration = server().getRegistration(*serviceWorkerRegistrationIdentifier);
-    bool shouldSoftUpdate = registration && registration->shouldSoftUpdate(loader.parameters().options);
     if (worker->shouldSkipFetchEvent()) {
-        if (shouldSoftUpdate)
+        if (registration->shouldSoftUpdate(loader.parameters().options))
             registration->scheduleSoftUpdate(loader.isAppInitiated() ? WebCore::IsAppInitiated::Yes : WebCore::IsAppInitiated::No);
 
         return nullptr;
@@ -197,7 +201,8 @@ std::unique_ptr<ServiceWorkerFetchTask> WebSWServerConnection::createFetchTask(N
         return nullptr;
     }
 
-    auto task = makeUnique<ServiceWorkerFetchTask>(*this, loader, ResourceRequest { request }, identifier(), worker->identifier(), *serviceWorkerRegistrationIdentifier, shouldSoftUpdate);
+    bool isWorkerReady = worker->isRunning() && worker->state() == ServiceWorkerState::Activated;
+    auto task = makeUnique<ServiceWorkerFetchTask>(*this, loader, ResourceRequest { request }, identifier(), worker->identifier(), *registration, session(), isWorkerReady);
     startFetch(*task, *worker);
     return task;
 }
@@ -337,24 +342,18 @@ void WebSWServerConnection::postMessageToServiceWorkerClient(ScriptExecutionCont
     send(Messages::WebSWClientConnection::PostMessageToServiceWorkerClient { destinationContextIdentifier, message, sourceServiceWorker->data(), sourceOrigin });
 }
 
-void WebSWServerConnection::matchRegistration(uint64_t registrationMatchRequestIdentifier, const SecurityOriginData& topOrigin, const URL& clientURL)
+void WebSWServerConnection::matchRegistration(const SecurityOriginData& topOrigin, const URL& clientURL, CompletionHandler<void(std::optional<ServiceWorkerRegistrationData>&&)>&& callback)
 {
     if (auto* registration = doRegistrationMatching(topOrigin, clientURL)) {
-        send(Messages::WebSWClientConnection::DidMatchRegistration { registrationMatchRequestIdentifier, registration->data() });
+        callback(registration->data());
         return;
     }
-    send(Messages::WebSWClientConnection::DidMatchRegistration { registrationMatchRequestIdentifier, std::nullopt });
+    callback({ });
 }
 
-void WebSWServerConnection::registrationReady(uint64_t registrationReadyRequestIdentifier, ServiceWorkerRegistrationData&& registrationData)
+void WebSWServerConnection::getRegistrations(const SecurityOriginData& topOrigin, const URL& clientURL, CompletionHandler<void(const Vector<ServiceWorkerRegistrationData>&)>&& callback)
 {
-    send(Messages::WebSWClientConnection::RegistrationReady { registrationReadyRequestIdentifier, WTFMove(registrationData) });
-}
-
-void WebSWServerConnection::getRegistrations(uint64_t registrationMatchRequestIdentifier, const SecurityOriginData& topOrigin, const URL& clientURL)
-{
-    auto registrations = server().getRegistrations(topOrigin, clientURL);
-    send(Messages::WebSWClientConnection::DidGetRegistrations { registrationMatchRequestIdentifier, registrations });
+    callback(server().getRegistrations(topOrigin, clientURL));
 }
 
 void WebSWServerConnection::registerServiceWorkerClient(SecurityOriginData&& topOrigin, ServiceWorkerClientData&& data, const std::optional<ServiceWorkerRegistrationIdentifier>& controllingServiceWorkerRegistrationIdentifier, String&& userAgent)
@@ -503,7 +502,12 @@ PAL::SessionID WebSWServerConnection::sessionID() const
 {
     return server().sessionID();
 }
-    
+
+NetworkSession* WebSWServerConnection::session()
+{
+    return m_networkProcess->networkSession(sessionID());
+}
+
 template<typename U> void WebSWServerConnection::sendToContextProcess(WebCore::SWServerToContextConnection& connection, U&& message)
 {
     static_cast<WebSWServerToContextConnection&>(connection).send(WTFMove(message));
@@ -517,6 +521,46 @@ void WebSWServerConnection::fetchTaskTimedOut(ServiceWorkerIdentifier serviceWor
 
     worker->setHasTimedOutAnyFetchTasks();
     worker->terminate();
+}
+
+void WebSWServerConnection::enableNavigationPreload(WebCore::ServiceWorkerRegistrationIdentifier registrationIdentifier, ExceptionOrVoidCallback&& callback)
+{
+    auto* registration = server().getRegistration(registrationIdentifier);
+    if (!registration) {
+        callback(ExceptionData { InvalidStateError, "No registration"_s });
+        return;
+    }
+    callback(registration->enableNavigationPreload());
+}
+
+void WebSWServerConnection::disableNavigationPreload(WebCore::ServiceWorkerRegistrationIdentifier registrationIdentifier, ExceptionOrVoidCallback&& callback)
+{
+    auto* registration = server().getRegistration(registrationIdentifier);
+    if (!registration) {
+        callback(ExceptionData { InvalidStateError, "No registration"_s });
+        return;
+    }
+    callback(registration->disableNavigationPreload());
+}
+
+void WebSWServerConnection::setNavigationPreloadHeaderValue(WebCore::ServiceWorkerRegistrationIdentifier registrationIdentifier, String&& headerValue, ExceptionOrVoidCallback&& callback)
+{
+    auto* registration = server().getRegistration(registrationIdentifier);
+    if (!registration) {
+        callback(ExceptionData { InvalidStateError, "No registration"_s });
+        return;
+    }
+    callback(registration->setNavigationPreloadHeaderValue(WTFMove(headerValue)));
+}
+
+void WebSWServerConnection::getNavigationPreloadState(WebCore::ServiceWorkerRegistrationIdentifier registrationIdentifier, ExceptionOrNavigationPreloadStateCallback&& callback)
+{
+    auto* registration = server().getRegistration(registrationIdentifier);
+    if (!registration) {
+        callback(makeUnexpected(ExceptionData { InvalidStateError, { } }));
+        return;
+    }
+    callback(registration->navigationPreloadState());
 }
 
 } // namespace WebKit

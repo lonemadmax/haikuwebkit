@@ -63,10 +63,6 @@
 #include <wtf/FileSystem.h>
 #endif
 
-#if PLATFORM(COCOA)
-#include "AudioComponentRegistration.h"
-#endif
-
 #define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, this->connection())
 
 namespace WebKit {
@@ -142,6 +138,8 @@ GPUProcessProxy::GPUProcessProxy()
     connect();
 
     GPUProcessCreationParameters parameters;
+    parameters.auxiliaryProcessParameters = auxiliaryProcessParameters();
+
 #if ENABLE(MEDIA_STREAM)
     parameters.useMockCaptureDevices = m_useMockCaptureDevices;
 #if PLATFORM(MAC)
@@ -443,8 +441,6 @@ void GPUProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connect
 #endif
 
 #if PLATFORM(COCOA)
-    sendAudioComponentRegistrations<Messages::GPUProcess::ConsumeAudioComponentRegistrations>(*this);
-
     // Use any session ID to get any Website data store. It is OK to use any Website data store,
     // since we are using it to access any Networking process, which all have the XPC endpoint.
     // The XPC endpoint is used to receive the Launch Services database from the Network process.
@@ -661,11 +657,6 @@ void GPUProcessProxy::didBecomeUnresponsive()
 #if !PLATFORM(COCOA)
 void GPUProcessProxy::platformInitializeGPUProcessParameters(GPUProcessCreationParameters& parameters)
 {
-#if !LOG_DISABLED || !RELEASE_LOG_DISABLED
-    parameters.wtfLoggingChannels = WTF::logLevelString();
-    parameters.webCoreLoggingChannels = WebCore::logLevelString();
-    parameters.webKitLoggingChannels = WebKit::logLevelString();
-#endif
 }
 #endif
 

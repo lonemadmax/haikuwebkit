@@ -862,7 +862,9 @@ void WebPageProxy::launchProcess(const RegistrableDomain& registrableDomain, Pro
         m_process = relatedPage->ensureRunningProcess();
     else
         m_process = processPool.processForRegistrableDomain(m_websiteDataStore.get(), registrableDomain, shouldEnableCaptivePortalMode() ? WebProcessProxy::CaptivePortalMode::Enabled : WebProcessProxy::CaptivePortalMode::Disabled);
+
     m_hasRunningProcess = true;
+    m_isCaptivePortalModeExplicitlySet = m_configuration->isCaptivePortalModeExplicitlySet();
 
     m_process->addExistingWebPage(*this, WebProcessProxy::BeginsUsingDataStore::Yes);
     addAllMessageReceivers();
@@ -2894,6 +2896,12 @@ void WebPageProxy::handleWheelEvent(const NativeWebWheelEvent& event)
 
     closeOverlayedViews();
 
+#if ENABLE(MOMENTUM_EVENT_DISPATCHER)
+    // FIXME: We should not have to look this up repeatedly, but it can also change occasionally.
+    if (event.momentumPhase() == WebWheelEvent::PhaseBegan && preferences().momentumScrollingAnimatorEnabled())
+        m_scrollingAccelerationCurve = ScrollingAccelerationCurve::fromNativeWheelEvent(event);
+#endif
+
     if (wheelEventCoalescer().shouldDispatchEvent(event)) {
         auto event = wheelEventCoalescer().nextEventToDispatch();
         sendWheelEvent(*event);
@@ -2941,6 +2949,14 @@ void WebPageProxy::sendWheelEvent(const WebWheelEvent& event)
         rubberBandableEdges.setLeft(!m_backForwardList->backItem());
         rubberBandableEdges.setRight(!m_backForwardList->forwardItem());
     }
+
+#if ENABLE(MOMENTUM_EVENT_DISPATCHER)
+    if (event.momentumPhase() == WebWheelEvent::PhaseBegan && m_scrollingAccelerationCurve != m_lastSentScrollingAccelerationCurve) {
+        connection->send(Messages::EventDispatcher::SetScrollingAccelerationCurve(m_webPageID, *m_scrollingAccelerationCurve), 0, { }, Thread::QOS::UserInteractive);
+        m_lastSentScrollingAccelerationCurve = m_scrollingAccelerationCurve;
+    }
+#endif
+
     connection->send(Messages::EventDispatcher::WheelEvent(m_webPageID, event, rubberBandableEdges), 0, { }, Thread::QOS::UserInteractive);
 
     // Manually ping the web process to check for responsiveness since our wheel
@@ -3436,6 +3452,7 @@ void WebPageProxy::receivedNavigationPolicyDecision(PolicyAction policyAction, A
         }
     }
 
+    m_isCaptivePortalModeExplicitlySet = policies ? policies->isCaptivePortalModeExplicitlySet() : m_configuration->isCaptivePortalModeExplicitlySet();
     auto captivePortalMode = (policies ? policies->captivePortalModeEnabled() : shouldEnableCaptivePortalMode()) ? WebProcessProxy::CaptivePortalMode::Enabled : WebProcessProxy::CaptivePortalMode::Disabled;
     process().processPool().processForNavigation(*this, *navigation, sourceProcess.copyRef(), sourceURL, processSwapRequestedByClient, captivePortalMode, frameInfo, WTFMove(websiteDataStore), [this, protectedThis = Ref { *this }, policyAction, navigation = Ref { *navigation }, navigationAction = WTFMove(navigationAction), sourceProcess = sourceProcess.copyRef(),
         policies = WTFMove(policies), sender = WTFMove(sender), processSwapRequestedByClient] (Ref<WebProcessProxy>&& processForNavigation, SuspendedPageProxy* destinationSuspendedPage, const String& reason) mutable {
@@ -3558,7 +3575,7 @@ void WebPageProxy::commitProvisionalPage(FrameIdentifier frameID, FrameInfoData&
 
     removeAllMessageReceivers();
     auto* navigation = navigationState().navigation(m_provisionalPage->navigationID());
-    bool didSuspendPreviousPage = navigation && !m_provisionalPage->shouldClosePreviousPageAfterCommit() ? suspendCurrentPageIfPossible(*navigation, mainFrameIDInPreviousProcess, m_provisionalPage->processSwapRequestedByClient(), shouldDelayClosingUntilFirstLayerFlush) : false;
+    bool didSuspendPreviousPage = navigation && !m_provisionalPage->isProcessSwappingOnNavigationResponse() ? suspendCurrentPageIfPossible(*navigation, mainFrameIDInPreviousProcess, m_provisionalPage->processSwapRequestedByClient(), shouldDelayClosingUntilFirstLayerFlush) : false;
     m_process->removeWebPage(*this, m_websiteDataStore.ptr() == &m_provisionalPage->process().websiteDataStore() ? WebProcessProxy::EndsUsingDataStore::No : WebProcessProxy::EndsUsingDataStore::Yes);
 
     // There is no way we'll be able to return to the page in the previous page so close it.
@@ -3571,6 +3588,11 @@ void WebPageProxy::commitProvisionalPage(FrameIdentifier frameID, FrameInfoData&
     didCommitLoadForFrame(frameID, WTFMove(frameInfo), WTFMove(request), navigationID, mimeType, frameHasCustomContentProvider, frameLoadType, certificateInfo, usedLegacyTLS, containsPluginDocument, forcedHasInsecureContent, mouseEventPolicy, userData);
 
     m_inspectorController->didCommitProvisionalPage(oldWebPageID, m_webPageID);
+}
+
+void WebPageProxy::destroyProvisionalPage()
+{
+    m_provisionalPage = nullptr;
 }
 
 void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, std::unique_ptr<SuspendedPageProxy>&& suspendedPage, Ref<WebProcessProxy>&& newProcess, ProcessSwapRequestedByClient processSwapRequestedByClient, ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad, RefPtr<API::WebsitePolicies>&& websitePolicies, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume)
@@ -3588,8 +3610,8 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, s
     }
 
     bool isServerSideRedirect = shouldTreatAsContinuingLoad == ShouldTreatAsContinuingLoad::YesAfterNavigationPolicyDecision && navigation.currentRequestIsRedirect();
-    bool shouldClosePreviousPageAfterCommit = shouldTreatAsContinuingLoad == ShouldTreatAsContinuingLoad::YesAfterProvisionalLoadStarted;
-    m_provisionalPage = makeUnique<ProvisionalPageProxy>(*this, WTFMove(newProcess), WTFMove(suspendedPage), navigation.navigationID(), isServerSideRedirect, navigation.currentRequest(), processSwapRequestedByClient, shouldClosePreviousPageAfterCommit, websitePolicies.get());
+    bool isProcessSwappingOnNavigationResponse = shouldTreatAsContinuingLoad == ShouldTreatAsContinuingLoad::YesAfterProvisionalLoadStarted;
+    m_provisionalPage = makeUnique<ProvisionalPageProxy>(*this, WTFMove(newProcess), WTFMove(suspendedPage), navigation.navigationID(), isServerSideRedirect, navigation.currentRequest(), processSwapRequestedByClient, isProcessSwappingOnNavigationResponse, websitePolicies.get());
     auto continuation = [this, protectedThis = Ref { *this }, navigation = Ref { navigation }, shouldTreatAsContinuingLoad, websitePolicies = WTFMove(websitePolicies), existingNetworkResourceLoadIdentifierToResume]() mutable {
         if (auto* item = navigation->targetItem()) {
             LOG(Loading, "WebPageProxy %p continueNavigationInNewProcess to back item URL %s", this, item->url().utf8().data());
@@ -3941,6 +3963,7 @@ void WebPageProxy::windowScreenDidChange(PlatformDisplayID displayID, std::optio
     if (!hasRunningProcess())
         return;
 
+    send(Messages::EventDispatcher::PageScreenDidChange(m_webPageID, displayID));
     send(Messages::WebPage::WindowScreenDidChange(displayID, nominalFramesPerSecond));
 }
 
@@ -7899,6 +7922,10 @@ void WebPageProxy::resetState(ResetStateReason resetStateReason)
         m_xrSystem = nullptr;
     }
 #endif
+
+#if ENABLE(MOMENTUM_EVENT_DISPATCHER)
+    m_lastSentScrollingAccelerationCurve = std::nullopt;
+#endif
 }
 
 void WebPageProxy::resetStateAfterProcessExited(ProcessTerminationReason terminationReason)
@@ -7991,9 +8018,6 @@ void WebPageProxy::resetStateAfterProcessExited(ProcessTerminationReason termina
 static const Vector<ASCIILiteral>& attachmentElementServices()
 {
     static const auto services = makeNeverDestroyed(Vector<ASCIILiteral> {
-#if PLATFORM(IOS_FAMILY)
-        "com.apple.frontboard.systemappservices"_s,
-#endif
         "com.apple.iconservices"_s,
 #if PLATFORM(MAC)
         "com.apple.iconservices.store"_s,
@@ -8028,8 +8052,10 @@ static const Vector<ASCIILiteral>& gpuIOKitClasses()
         "IOAudioEngineUserClient"_s,
         "IOSurfaceRootUserClient"_s,
 #endif
-#if (PLATFORM(MAC) && CPU(ARM64)) || PLATFORM(IOS_FAMILY)
+#if PLATFORM(MAC) && CPU(ARM64)
         "IOMobileFramebufferUserClient"_s,
+#endif
+#if PLATFORM(MAC) && CPU(ARM64) || PLATFORM(IOS_FAMILY)
         "IOSurfaceAcceleratorClient"_s,
 #endif
     });
@@ -10515,6 +10541,11 @@ void WebPageProxy::speechSynthesisCancel()
     speechSynthesisData().synthesizer->cancel();
 }
 
+void WebPageProxy::speechSynthesisResetState()
+{
+    speechSynthesisData().synthesizer->resetState();
+}
+
 void WebPageProxy::speechSynthesisPause(CompletionHandler<void()>&& completionHandler)
 {
     speechSynthesisData().speakingPausedCompletionHandler = WTFMove(completionHandler);
@@ -10774,6 +10805,11 @@ void WebPageProxy::dispatchActivityStateUpdateForTesting()
     RunLoop::current().dispatch([protectedThis = Ref { *this }] {
         protectedThis->dispatchActivityStateChange();
     });
+}
+
+void WebPageProxy::isLayerTreeFrozen(CompletionHandler<void(bool)>&& completionHandler)
+{
+    sendWithAsyncReply(Messages::WebPage::IsLayerTreeFrozen(), WTFMove(completionHandler));
 }
 
 void WebPageProxy::requestSpeechRecognitionPermission(WebCore::SpeechRecognitionRequest& request, CompletionHandler<void(std::optional<SpeechRecognitionError>&&)>&& completionHandler)

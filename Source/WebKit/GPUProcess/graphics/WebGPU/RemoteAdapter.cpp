@@ -28,10 +28,11 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "RemoteAdapterMessages.h"
 #include "RemoteDevice.h"
+#include "StreamServerConnection.h"
 #include "WebGPUDeviceDescriptor.h"
 #include "WebGPUObjectHeap.h"
-#include "WebGPUObjectRegistry.h"
 #include "WebGPUSupportedFeatures.h"
 #include "WebGPUSupportedLimits.h"
 #include <pal/graphics/WebGPU/WebGPUAdapter.h>
@@ -39,34 +40,34 @@
 
 namespace WebKit {
 
-RemoteAdapter::RemoteAdapter(PAL::WebGPU::Adapter& adapter, WebGPU::ObjectRegistry& objectRegistry, WebGPU::ObjectHeap& objectHeap, WebGPUIdentifier identifier)
+RemoteAdapter::RemoteAdapter(PAL::WebGPU::Adapter& adapter, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     : m_backing(adapter)
-    , m_objectRegistry(objectRegistry)
     , m_objectHeap(objectHeap)
+    , m_streamConnection(WTFMove(streamConnection))
     , m_identifier(identifier)
 {
-    m_objectRegistry.addObject(m_identifier, m_backing);
+    m_streamConnection->startReceivingMessages(*this, Messages::RemoteAdapter::messageReceiverName(), m_identifier.toUInt64());
 }
 
-RemoteAdapter::~RemoteAdapter()
+RemoteAdapter::~RemoteAdapter() = default;
+
+void RemoteAdapter::stopListeningForIPC()
 {
-    m_objectRegistry.removeObject(m_identifier);
+    m_streamConnection->stopReceivingMessages(Messages::RemoteAdapter::messageReceiverName(), m_identifier.toUInt64());
 }
 
 void RemoteAdapter::requestDevice(const WebGPU::DeviceDescriptor& descriptor, WebGPUIdentifier identifier, WTF::CompletionHandler<void(WebGPU::SupportedFeatures&&, WebGPU::SupportedLimits&&)>&& callback)
 {
-    auto convertedDescriptor = m_objectRegistry.convertFromBacking(descriptor);
+    auto convertedDescriptor = m_objectHeap.convertFromBacking(descriptor);
     ASSERT(convertedDescriptor);
     if (!convertedDescriptor) {
         callback({ { } }, { });
         return;
     }
 
-    m_backing->requestDevice(*convertedDescriptor, [callback = WTFMove(callback), weakObjectHeap = WeakPtr<WebGPU::ObjectHeap>(m_objectHeap), objectRegistry = m_objectRegistry, identifier] (Ref<PAL::WebGPU::Device>&& device) mutable {
-        if (!weakObjectHeap)
-            return;
-        auto remoteDevice = RemoteDevice::create(device, objectRegistry, *weakObjectHeap, identifier);
-        weakObjectHeap->addObject(remoteDevice);
+    m_backing->requestDevice(*convertedDescriptor, [callback = WTFMove(callback), objectHeap = Ref { m_objectHeap }, streamConnection = m_streamConnection.copyRef(), identifier] (Ref<PAL::WebGPU::Device>&& device) mutable {
+        auto remoteDevice = RemoteDevice::create(device, objectHeap, WTFMove(streamConnection), identifier);
+        objectHeap->addObject(identifier, remoteDevice);
         const auto& features = device->features();
         const auto& limits = device->limits();
         callback(WebGPU::SupportedFeatures { features.features() }, WebGPU::SupportedLimits {

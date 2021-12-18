@@ -28,24 +28,27 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "RemoteBindGroupMessages.h"
+#include "StreamServerConnection.h"
 #include "WebGPUObjectHeap.h"
-#include "WebGPUObjectRegistry.h"
 #include <pal/graphics/WebGPU/WebGPUBindGroup.h>
 
 namespace WebKit {
 
-RemoteBindGroup::RemoteBindGroup(PAL::WebGPU::BindGroup& bindGroup, WebGPU::ObjectRegistry& objectRegistry, WebGPU::ObjectHeap& objectHeap, WebGPUIdentifier identifier)
+RemoteBindGroup::RemoteBindGroup(PAL::WebGPU::BindGroup& bindGroup, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     : m_backing(bindGroup)
-    , m_objectRegistry(objectRegistry)
     , m_objectHeap(objectHeap)
+    , m_streamConnection(WTFMove(streamConnection))
     , m_identifier(identifier)
 {
-    m_objectRegistry.addObject(m_identifier, m_backing);
+    m_streamConnection->startReceivingMessages(*this, Messages::RemoteBindGroup::messageReceiverName(), m_identifier.toUInt64());
 }
 
-RemoteBindGroup::~RemoteBindGroup()
+RemoteBindGroup::~RemoteBindGroup() = default;
+
+void RemoteBindGroup::stopListeningForIPC()
 {
-    m_objectRegistry.removeObject(m_identifier);
+    m_streamConnection->stopReceivingMessages(Messages::RemoteBindGroup::messageReceiverName(), m_identifier.toUInt64());
 }
 
 void RemoteBindGroup::setLabel(String&& label)

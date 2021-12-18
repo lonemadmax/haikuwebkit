@@ -39,10 +39,9 @@ SourceAlpha::SourceAlpha(FilterEffect& sourceEffect)
     inputEffects().append(&sourceEffect);
 }
 
-void SourceAlpha::determineAbsolutePaintRect(const Filter& filter)
+FloatRect SourceAlpha::calculateImageRect(const Filter&, const FilterImageVector& inputs, const FloatRect&) const
 {
-    inputEffect(0)->determineAbsolutePaintRect(filter);
-    setAbsolutePaintRect(inputEffect(0)->absolutePaintRect());
+    return inputs[0]->imageRect();
 }
 
 std::unique_ptr<FilterEffectApplier> SourceAlpha::createApplier(const Filter&) const
@@ -50,7 +49,7 @@ std::unique_ptr<FilterEffectApplier> SourceAlpha::createApplier(const Filter&) c
     return FilterEffectApplier::create<SourceAlphaSoftwareApplier>(*this);
 }
 
-TextStream& SourceAlpha::externalRepresentation(TextStream& ts, RepresentationType) const
+TextStream& SourceAlpha::externalRepresentation(TextStream& ts, FilterRepresentation) const
 {
     ts << indent << "[SourceAlpha]\n";
     return ts;

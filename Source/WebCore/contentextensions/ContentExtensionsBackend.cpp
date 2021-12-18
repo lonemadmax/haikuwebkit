@@ -121,15 +121,14 @@ auto ContentExtensionsBackend::actionsForResourceLoad(const ResourceLoadInfo& re
 
         const CompiledContentExtension& compiledExtension = contentExtension->compiledExtension();
         
-        DFABytecodeInterpreter withoutConditionsInterpreter(compiledExtension.filtersWithoutConditionsBytecode(), compiledExtension.filtersWithoutConditionsBytecodeLength());
+        DFABytecodeInterpreter withoutConditionsInterpreter(compiledExtension.filtersWithoutConditionsBytecode());
         DFABytecodeInterpreter::Actions withoutConditionsActions = withoutConditionsInterpreter.interpret(urlCString, flags);
         
         URL topURL = resourceLoadInfo.mainDocumentURL;
-        DFABytecodeInterpreter withConditionsInterpreter(compiledExtension.filtersWithConditionsBytecode(), compiledExtension.filtersWithConditionsBytecodeLength());
+        DFABytecodeInterpreter withConditionsInterpreter(compiledExtension.filtersWithConditionsBytecode());
         DFABytecodeInterpreter::Actions withConditionsActions = withConditionsInterpreter.interpretWithConditions(urlCString, flags, contentExtension->topURLActions(topURL));
         
-        const SerializedActionByte* actions = compiledExtension.actions();
-        const unsigned actionsLength = compiledExtension.actionsLength();
+        auto serializedActions = compiledExtension.serializedActions();
         
         const Vector<uint32_t>& universalWithConditions = contentExtension->universalActionsWithConditions(topURL);
         const Vector<uint32_t>& universalWithoutConditions = contentExtension->universalActionsWithoutConditions();
@@ -148,7 +147,7 @@ auto ContentExtensionsBackend::actionsForResourceLoad(const ResourceLoadInfo& re
 
             // Add actions in reverse order to properly deal with IgnorePreviousRules.
             for (unsigned i = actionLocations.size(); i; i--) {
-                auto action = DeserializedAction::deserialize(actions, actionsLength, actionLocations[i - 1]);
+                auto action = DeserializedAction::deserialize(serializedActions, actionLocations[i - 1]);
                 if (std::holds_alternative<IgnorePreviousRulesAction>(action.data())) {
                     actionsStruct.sawIgnorePreviousRules = true;
                     break;
@@ -229,11 +228,11 @@ ContentRuleListResults ContentExtensionsBackend::processContentRuleListsForLoad(
             }, [&](const IgnorePreviousRulesAction&) {
                 RELEASE_ASSERT_NOT_REACHED();
             }, [&] (const ModifyHeadersAction& action) {
-                if (initiatingDocumentLoader.allowsActiveContentRuleListActionsForURL(url))
+                if (initiatingDocumentLoader.allowsActiveContentRuleListActionsForURL(contentRuleListIdentifier, url))
                     results.summary.modifyHeadersActions.append(action);
             }, [&] (const RedirectAction& redirectAction) {
-                if (initiatingDocumentLoader.allowsActiveContentRuleListActionsForURL(url))
-                    results.summary.redirectActions.append({ redirectAction, m_contentExtensions.get(actionsFromContentRuleList.contentRuleListIdentifier)->extensionBaseURL() });
+                if (initiatingDocumentLoader.allowsActiveContentRuleListActionsForURL(contentRuleListIdentifier, url))
+                    results.summary.redirectActions.append({ redirectAction, m_contentExtensions.get(contentRuleListIdentifier)->extensionBaseURL() });
             }), action.data());
         }
 

@@ -164,8 +164,8 @@ public:
 #if USE(JSVALUE64)
         store64(regs.gpr(), address);
 #else
-        store32(regs.payloadGPR(), address.withOffset(PayloadOffset));
-        store32(regs.tagGPR(), address.withOffset(TagOffset));
+        static_assert(!PayloadOffset && TagOffset == 4, "Assumes little-endian system");
+        storePair32(regs.payloadGPR(), regs.tagGPR(), address);
 #endif
     }
     
@@ -174,8 +174,8 @@ public:
 #if USE(JSVALUE64)
         store64(regs.gpr(), address);
 #else
-        store32(regs.payloadGPR(), address.withOffset(PayloadOffset));
-        store32(regs.tagGPR(), address.withOffset(TagOffset));
+        static_assert(!PayloadOffset && TagOffset == 4, "Assumes little-endian system");
+        storePair32(regs.payloadGPR(), regs.tagGPR(), address);
 #endif
     }
     
@@ -194,13 +194,8 @@ public:
 #if USE(JSVALUE64)
         load64(address, regs.gpr());
 #else
-        if (address.base == regs.payloadGPR()) {
-            load32(address.withOffset(TagOffset), regs.tagGPR());
-            load32(address.withOffset(PayloadOffset), regs.payloadGPR());
-        } else {
-            load32(address.withOffset(PayloadOffset), regs.payloadGPR());
-            load32(address.withOffset(TagOffset), regs.tagGPR());
-        }
+        static_assert(!PayloadOffset && TagOffset == 4, "Assumes little-endian system");
+        loadPair32(address, regs.payloadGPR(), regs.tagGPR());
 #endif
     }
     
@@ -209,18 +204,8 @@ public:
 #if USE(JSVALUE64)
         load64(address, regs.gpr());
 #else
-        if (address.base == regs.payloadGPR() || address.index == regs.payloadGPR()) {
-            // We actually could handle the case where the registers are aliased to both
-            // tag and payload, but we don't for now.
-            RELEASE_ASSERT(address.base != regs.tagGPR());
-            RELEASE_ASSERT(address.index != regs.tagGPR());
-            
-            load32(address.withOffset(TagOffset), regs.tagGPR());
-            load32(address.withOffset(PayloadOffset), regs.payloadGPR());
-        } else {
-            load32(address.withOffset(PayloadOffset), regs.payloadGPR());
-            load32(address.withOffset(TagOffset), regs.tagGPR());
-        }
+        static_assert(!PayloadOffset && TagOffset == 4, "Assumes little-endian system");
+        loadPair32(address, regs.payloadGPR(), regs.tagGPR());
 #endif
     }
 
@@ -821,8 +806,7 @@ public:
     {
 #if USE(JSVALUE64)
         ASSERT(tempGPR != InvalidGPRReg);
-        move(gpr, tempGPR);
-        xor64(TrustedImm32(JSValue::ValueFalse), tempGPR);
+        xor64(TrustedImm32(JSValue::ValueFalse), gpr, tempGPR);
         return branchTest64(Zero, tempGPR, TrustedImm32(static_cast<int32_t>(~1)));
 #else
         UNUSED_PARAM(tempGPR);
@@ -845,8 +829,7 @@ public:
     {
 #if USE(JSVALUE64)
         ASSERT(tempGPR != InvalidGPRReg);
-        move(gpr, tempGPR);
-        xor64(TrustedImm32(JSValue::ValueFalse), tempGPR);
+        xor64(TrustedImm32(JSValue::ValueFalse), gpr, tempGPR);
         return branchTest64(NonZero, tempGPR, TrustedImm32(static_cast<int32_t>(~1)));
 #else
         UNUSED_PARAM(tempGPR);
@@ -1033,6 +1016,15 @@ public:
 #endif
     }
 
+    void isUndefined(JSValueRegs regs, GPRReg dst)
+    {
+#if USE(JSVALUE64)
+        compare64(Equal, regs.payloadGPR(), TrustedImm32(JSValue::ValueUndefined), dst);
+#elif USE(JSVALUE32_64)
+        compare32(Equal, regs.tagGPR(), TrustedImm32(JSValue::UndefinedTag), dst);
+#endif
+    }
+
     // Note that this function does not respect MasqueradesAsUndefined.
     Jump branchIfUndefined(GPRReg gpr)
     {
@@ -1131,7 +1123,7 @@ public:
     Jump branchStructure(RelationalCondition condition, T leftHandSide, Structure* structure)
     {
 #if USE(JSVALUE64)
-        return branch32(condition, leftHandSide, TrustedImm32(structure->id()));
+        return branch32(condition, leftHandSide, TrustedImm32(structure->id().bits()));
 #else
         return branchPtr(condition, leftHandSide, TrustedImmPtr(structure));
 #endif
@@ -1585,8 +1577,8 @@ public:
         return argumentCount(codeOrigin.inlineCallFrame());
     }
     
-    void emitLoadStructure(VM&, RegisterID source, RegisterID dest, RegisterID scratch);
-    void emitLoadPrototype(VM&, GPRReg objectGPR, JSValueRegs resultRegs, GPRReg scratchGPR, JumpList& slowPath);
+    void emitLoadStructure(VM&, RegisterID source, RegisterID dest);
+    void emitLoadPrototype(VM&, GPRReg objectGPR, JSValueRegs resultRegs, JumpList& slowPath);
 
     void emitStoreStructureWithTypeInfo(TrustedImmPtr structure, RegisterID dest, RegisterID)
     {
@@ -1671,13 +1663,13 @@ public:
     void nukeStructureAndStoreButterfly(VM& vm, GPRReg butterfly, GPRReg object)
     {
         if (isX86()) {
-            or32(TrustedImm32(bitwise_cast<int32_t>(nukedStructureIDBit())), Address(object, JSCell::structureIDOffset()));
+            or32(TrustedImm32(bitwise_cast<int32_t>(StructureID::nukedStructureIDBit)), Address(object, JSCell::structureIDOffset()));
             storePtr(butterfly, Address(object, JSObject::butterflyOffset()));
             return;
         }
 
         Jump ok = jumpIfMutatorFenceNotNeeded(vm);
-        or32(TrustedImm32(bitwise_cast<int32_t>(nukedStructureIDBit())), Address(object, JSCell::structureIDOffset()));
+        or32(TrustedImm32(bitwise_cast<int32_t>(StructureID::nukedStructureIDBit)), Address(object, JSCell::structureIDOffset()));
         storeFence();
         storePtr(butterfly, Address(object, JSObject::butterflyOffset()));
         storeFence();
@@ -1828,7 +1820,7 @@ public:
         VM& vm, GPRReg resultGPR, StructureType structure, StorageType storage, GPRReg scratchGPR1,
         GPRReg scratchGPR2, JumpList& slowPath, size_t size)
     {
-        Allocator allocator = allocatorForNonVirtualConcurrently<ClassType>(vm, size, AllocatorForMode::AllocatorIfExists);
+        Allocator allocator = allocatorForConcurrently<ClassType>(vm, size, AllocatorForMode::AllocatorIfExists);
         emitAllocateJSObject(resultGPR, JITAllocator::constant(allocator), scratchGPR1, structure, storage, scratchGPR2, slowPath);
     }
     

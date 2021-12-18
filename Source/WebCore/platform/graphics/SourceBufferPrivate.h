@@ -44,6 +44,7 @@
 #include <wtf/Logger.h>
 #include <wtf/LoggerHelper.h>
 #include <wtf/Ref.h>
+#include <wtf/UniqueRef.h>
 #include <wtf/text/AtomStringHash.h>
 
 namespace WebCore {
@@ -110,6 +111,8 @@ public:
     bool hasVideo() const { return m_hasVideo; }
 
     MediaTime timestampOffset() const { return m_timestampOffset; }
+
+    virtual size_t platformMaximumBufferSize() const { return 0; }
 
     struct TrackBuffer {
         WTF_MAKE_STRUCT_FAST_ALLOCATED;

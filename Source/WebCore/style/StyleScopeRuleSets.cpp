@@ -221,6 +221,7 @@ void ScopeRuleSets::collectFeatures() const
     m_uncommonAttributeRuleSet = makeRuleSet(m_features.uncommonAttributeRules);
 
     m_tagInvalidationRuleSets.clear();
+    m_idInvalidationRuleSets.clear();
     m_classInvalidationRuleSets.clear();
     m_attributeInvalidationRuleSets.clear();
     m_pseudoClassInvalidationRuleSets.clear();
@@ -279,6 +280,11 @@ const Vector<InvalidationRuleSet>* ScopeRuleSets::tagInvalidationRuleSets(const 
     return ensureInvalidationRuleSets(tagName, m_tagInvalidationRuleSets, m_features.tagRules);
 }
 
+const Vector<InvalidationRuleSet>* ScopeRuleSets::idInvalidationRuleSets(const AtomString& id) const
+{
+    return ensureInvalidationRuleSets(id, m_idInvalidationRuleSets, m_features.idRules);
+}
+
 const Vector<InvalidationRuleSet>* ScopeRuleSets::classInvalidationRuleSets(const AtomString& className) const
 {
     return ensureInvalidationRuleSets(className, m_classInvalidationRuleSets, m_features.classRules);
@@ -289,9 +295,9 @@ const Vector<InvalidationRuleSet>* ScopeRuleSets::attributeInvalidationRuleSets(
     return ensureInvalidationRuleSets(attributeName, m_attributeInvalidationRuleSets, m_features.attributeRules);
 }
 
-const Vector<InvalidationRuleSet>* ScopeRuleSets::pseudoClassInvalidationRuleSets(CSSSelector::PseudoClassType pseudoClass) const
+const Vector<InvalidationRuleSet>* ScopeRuleSets::pseudoClassInvalidationRuleSets(const PseudoClassInvalidationKey& pseudoClassKey) const
 {
-    return ensureInvalidationRuleSets(pseudoClass, m_pseudoClassInvalidationRuleSets, m_features.pseudoClassRules);
+    return ensureInvalidationRuleSets(pseudoClassKey, m_pseudoClassInvalidationRuleSets, m_features.pseudoClassRules);
 }
 
 bool ScopeRuleSets::hasComplexSelectorsForStyleAttribute() const

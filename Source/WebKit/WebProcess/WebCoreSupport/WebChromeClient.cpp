@@ -40,6 +40,7 @@
 #include "NetworkProcessConnection.h"
 #include "PageBanner.h"
 #include "PluginView.h"
+#include "RemoteGPUProxy.h"
 #include "RemoteRenderingBackendProxy.h"
 #include "SharedBufferCopy.h"
 #include "UserData.h"
@@ -50,6 +51,7 @@
 #include "WebFrame.h"
 #include "WebFrameLoaderClient.h"
 #include "WebFullScreenManager.h"
+#include "WebGPUDowncastConvertToBackingContext.h"
 #include "WebHitTestResultData.h"
 #include "WebImage.h"
 #include "WebOpenPanelResultListener.h"
@@ -90,6 +92,10 @@
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/Settings.h>
 #include <WebCore/TextIndicator.h>
+
+#if HAVE(WEBGPU_IMPLEMENTATION)
+#import <pal/graphics/WebGPU/Impl/WebGPUImpl.h>
+#endif
 
 #if ENABLE(APPLE_PAY_AMS_UI)
 #include <WebCore/ApplePayAMSUIRequest.h>
@@ -945,6 +951,19 @@ RefPtr<GraphicsContextGL> WebChromeClient::createGraphicsContextGL(const Graphic
 }
 #endif
 
+RefPtr<PAL::WebGPU::GPU> WebChromeClient::createGPUForWebGPU() const
+{
+#if HAVE(WEBGPU_IMPLEMENTATION)
+#if ENABLE(GPU_PROCESS)
+    return RemoteGPUProxy::create(WebProcess::singleton().ensureGPUProcessConnection(), WebGPU::DowncastConvertToBackingContext::create(), WebGPUIdentifier::generate(), m_page.ensureRemoteRenderingBackendProxy().ensureBackendCreated());
+#else
+    return PAL::WebGPU::GPUImpl::create();
+#endif
+#else
+    return nullptr;
+#endif
+}
+
 void WebChromeClient::attachRootGraphicsLayer(Frame&, GraphicsLayer* layer)
 {
     if (layer)
@@ -1518,6 +1537,11 @@ void WebChromeClient::showMediaControlsContextMenu(FloatRect&& targetFrame, Vect
 void WebChromeClient::enumerateImmersiveXRDevices(CompletionHandler<void(const PlatformXR::Instance::DeviceList&)>&& completionHandler)
 {
     m_page.xrSystemProxy().enumerateImmersiveXRDevices(WTFMove(completionHandler));
+}
+
+void WebChromeClient::requestPermissionOnXRSessionFeatures(const SecurityOriginData& origin, PlatformXR::SessionMode mode, const PlatformXR::Device::FeatureList& granted, const PlatformXR::Device::FeatureList& consentRequired, const PlatformXR::Device::FeatureList& consentOptional, CompletionHandler<void(std::optional<PlatformXR::Device::FeatureList>&&)>&& completionHandler)
+{
+    m_page.xrSystemProxy().requestPermissionOnSessionFeatures(origin, mode, granted, consentRequired, consentOptional, WTFMove(completionHandler));
 }
 #endif
 

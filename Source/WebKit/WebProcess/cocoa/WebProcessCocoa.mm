@@ -139,7 +139,7 @@
 #import "AppKitSPI.h"
 #import "WKAccessibilityWebPageObjectMac.h"
 #import "WebSwitchingGPUClient.h"
-#import <WebCore/GraphicsContextGLOpenGLManager.h>
+#import <WebCore/DisplayConfigurationMonitor.h>
 #import <WebCore/ScrollbarThemeMac.h>
 #import <pal/spi/cf/CoreTextSPI.h>
 #import <pal/spi/mac/HIServicesSPI.h>
@@ -224,6 +224,8 @@ static Boolean isAXAuthenticatedCallback(audit_token_t auditToken)
 
 void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& parameters)
 {
+    applyProcessCreationParameters(parameters.auxiliaryProcessParameters);
+
     setQOS(parameters.latencyQOS, parameters.throughputQOS);
     
 #if HAVE(CATALYST_USER_INTERFACE_IDIOM_AND_SCALE_FACTOR)
@@ -266,12 +268,6 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
             ASSERT_UNUSED(ok, ok);
         }
     }
-
-#if !LOG_DISABLED || !RELEASE_LOG_DISABLED
-    WTF::logChannels().initializeLogChannelsIfNecessary(parameters.wtfLoggingChannels);
-    WebCore::logChannels().initializeLogChannelsIfNecessary(parameters.webCoreLoggingChannels);
-    WebKit::logChannels().initializeLogChannelsIfNecessary(parameters.webKitLoggingChannels);
-#endif
 
     m_uiProcessBundleIdentifier = parameters.uiProcessBundleIdentifier;
 
@@ -417,7 +413,6 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
         SandboxExtension::consumePermanently(*parameters.containerManagerExtensionHandle);
     
 #if PLATFORM(IOS_FAMILY)
-    SandboxExtension::consumePermanently(parameters.dynamicMachExtensionHandles);
     SandboxExtension::consumePermanently(parameters.dynamicIOKitExtensionHandles);
 #endif
     
@@ -971,9 +966,9 @@ void WebProcess::scrollerStylePreferenceChanged(bool useOverlayScrollbars)
     [NSScrollerImpPair _updateAllScrollerImpPairsForNewRecommendedScrollerStyle:style];
 }
 
-void WebProcess::displayConfigurationChanged(CGDirectDisplayID displayID, CGDisplayChangeSummaryFlags flags)
+void WebProcess::displayConfigurationChanged(CGDirectDisplayID, CGDisplayChangeSummaryFlags flags)
 {
-    GraphicsContextGLOpenGLManager::displayWasReconfigured(displayID, flags, nullptr);
+    DisplayConfigurationMonitor::singleton().dispatchDisplayWasReconfigured(flags);
 }
 #endif
 

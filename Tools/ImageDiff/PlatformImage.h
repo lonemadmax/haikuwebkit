@@ -47,7 +47,7 @@ public:
 #elif defined(USE_HAIKU)
 	PlatformImage(BBitmap*);
 #else
-    PlatformImage(CGImageRef);
+    PlatformImage(CGImageRef, double scaleFactor = 1);
 #endif
     ~PlatformImage();
 
@@ -55,6 +55,7 @@ public:
     size_t height() const;
     size_t rowBytes() const;
     bool hasAlpha() const;
+    double scaleFactor() const { return m_scaleFactor; }
 
     unsigned char* pixels() const;
     bool isCompatible(const PlatformImage&) const;
@@ -79,6 +80,7 @@ private:
     CGImageRef m_image;
     mutable void* m_buffer { nullptr };
 #endif
+    double m_scaleFactor { 1 }; // Essentially resolution, but not in DPI.
 };
 
 } // namespace ImageDiff

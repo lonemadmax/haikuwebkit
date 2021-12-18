@@ -29,12 +29,15 @@
 
 namespace WebCore {
 
+class FilterEffect;
 class FilterImage;
 
 class Filter : public FilterFunction {
     using FilterFunction::apply;
 
 public:
+    enum class ClipOperation { Intersect, Unite };
+
     RenderingMode renderingMode() const { return m_renderingMode; }
     void setRenderingMode(RenderingMode renderingMode) { m_renderingMode = renderingMode; }
     
@@ -50,23 +53,51 @@ public:
     ImageBuffer* sourceImage() const { return m_sourceImage.get(); }
     void setSourceImage(RefPtr<ImageBuffer>&& sourceImage) { m_sourceImage = WTFMove(sourceImage); }
 
-    virtual FloatSize scaledByFilterScale(FloatSize size) const { return size * m_filterScale; }
+    ClipOperation clipOperation() const { return m_clipOperation; }
+    void setClipOperation(ClipOperation clipOperation) { m_clipOperation = clipOperation; }
 
+    virtual FloatSize resolvedSize(const FloatSize& size) const { return size; }
+
+    FloatPoint scaledByFilterScale(const FloatPoint&) const;
+    FloatSize scaledByFilterScale(const FloatSize&) const;
+    FloatRect scaledByFilterScale(const FloatRect&) const;
+
+    FloatRect maxEffectRect(const FloatRect& primitiveSubregion) const;
+    FloatRect clipToMaxEffectRect(const FloatRect& imageRect, const FloatRect& primitiveSubregion) const;
+
+    virtual RefPtr<FilterEffect> lastEffect() const = 0;
+
+    bool clampFilterRegionIfNeeded();
+    
     virtual RefPtr<FilterImage> apply() = 0;
-    WEBCORE_EXPORT RefPtr<FilterImage> apply(ImageBuffer* sourceImage);
+    WEBCORE_EXPORT RefPtr<FilterImage> apply(ImageBuffer* sourceImage, const FloatRect& sourceImageRect);
 
 protected:
-    Filter(Filter::Type, RenderingMode, const FloatSize& filterScale);
-    Filter(Filter::Type, RenderingMode, const FloatSize& filterScale, const FloatRect& sourceImageRect, const FloatRect& filterRegion);
+    using FilterFunction::FilterFunction;
+    Filter(Filter::Type, RenderingMode, const FloatSize& filterScale, ClipOperation, const FloatRect& filterRegion = { });
 
 private:
     RenderingMode m_renderingMode;
-
     FloatSize m_filterScale;
-    FloatRect m_sourceImageRect;
+    ClipOperation m_clipOperation;
     FloatRect m_filterRegion;
 
+    // FIXME: these should not be members of Filter. They should be passed to Filter::apply().
+    FloatRect m_sourceImageRect;
     RefPtr<ImageBuffer> m_sourceImage;
 };
 
 } // namespace WebCore
+
+namespace WTF {
+
+template<> struct EnumTraits<WebCore::Filter::ClipOperation> {
+    using values = EnumValues<
+        WebCore::Filter::ClipOperation,
+
+        WebCore::Filter::ClipOperation::Intersect,
+        WebCore::Filter::ClipOperation::Unite
+    >;
+};
+
+} // namespace WTF

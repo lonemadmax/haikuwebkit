@@ -743,7 +743,7 @@ const GlobalObjectMethodTable GlobalObject::s_globalObjectMethodTable = {
     &shellSupportsRichSourceInfo,
     &shouldInterruptScript,
     &javaScriptRuntimeFlags,
-    nullptr, // queueTaskToEventLoop
+    nullptr, // queueMicrotaskToEventLoop
     &shouldInterruptScriptBeforeTimeout,
     &moduleLoaderImportModule,
     &moduleLoaderResolve,
@@ -1429,7 +1429,7 @@ public:
     template<typename CellType, SubspaceAccess>
     static CompleteSubspace* subspaceFor(VM& vm)
     {
-        return &vm.destructibleObjectSpace;
+        return &vm.destructibleObjectSpace();
     }
 
     JSCMemoryFootprint(VM& vm, Structure* structure)
@@ -1762,7 +1762,7 @@ public:
     template<typename CellType, SubspaceAccess>
     static CompleteSubspace* subspaceFor(VM& vm)
     {
-        return &vm.destructibleObjectSpace;
+        return &vm.destructibleObjectSpace();
     }
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
@@ -2077,8 +2077,8 @@ JSC_DEFINE_HOST_FUNCTION(functionDollarGlobalObjectFor, (JSGlobalObject* globalO
     if (callFrame->argumentCount() < 1)
         return JSValue::encode(throwException(globalObject, scope, createError(globalObject, "Not enough arguments"_s)));
     JSValue arg = callFrame->argument(0);
-    if (arg.isCell())
-        return JSValue::encode(arg.asCell()->structure(vm)->globalObject()->globalThis());
+    if (arg.isObject())
+        return JSValue::encode(asObject(arg)->globalObject(vm)->globalThis());
 
     return JSValue::encode(jsUndefined());
 }

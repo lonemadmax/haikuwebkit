@@ -640,6 +640,7 @@ $(PROJECT_DIR)/Modules/web-locks/NavigatorLocks.idl
 $(PROJECT_DIR)/Modules/web-locks/WebLock.idl
 $(PROJECT_DIR)/Modules/web-locks/WebLockGrantedCallback.idl
 $(PROJECT_DIR)/Modules/web-locks/WebLockManager.idl
+$(PROJECT_DIR)/Modules/web-locks/WebLockManagerSnapshot.idl
 $(PROJECT_DIR)/Modules/web-locks/WebLockMode.idl
 $(PROJECT_DIR)/Modules/webaudio/AnalyserNode.idl
 $(PROJECT_DIR)/Modules/webaudio/AnalyserOptions.idl
@@ -813,6 +814,9 @@ $(PROJECT_DIR)/animation/CSSTransition.idl
 $(PROJECT_DIR)/animation/CompositeOperation.idl
 $(PROJECT_DIR)/animation/CompositeOperationOrAuto.idl
 $(PROJECT_DIR)/animation/ComputedEffectTiming.idl
+$(PROJECT_DIR)/animation/CustomAnimationOptions.idl
+$(PROJECT_DIR)/animation/CustomEffect.idl
+$(PROJECT_DIR)/animation/CustomEffectCallback.idl
 $(PROJECT_DIR)/animation/Document+WebAnimations.idl
 $(PROJECT_DIR)/animation/DocumentOrShadowRoot+WebAnimations.idl
 $(PROJECT_DIR)/animation/DocumentTimeline.idl
@@ -1320,6 +1324,7 @@ $(PROJECT_DIR)/html/parser/HTMLEntityNames.in
 $(PROJECT_DIR)/html/parser/create-html-entity-table
 $(PROJECT_DIR)/html/shadow/imageOverlay.css
 $(PROJECT_DIR)/html/shadow/meterElementShadow.css
+$(PROJECT_DIR)/html/shadow/mac/imageControlsMac.css
 $(PROJECT_DIR)/html/track/AudioTrack.idl
 $(PROJECT_DIR)/html/track/AudioTrackList.idl
 $(PROJECT_DIR)/html/track/DataCue.idl
@@ -1623,6 +1628,8 @@ $(PROJECT_DIR)/workers/service/ExtendableEvent.idl
 $(PROJECT_DIR)/workers/service/ExtendableEventInit.idl
 $(PROJECT_DIR)/workers/service/ExtendableMessageEvent.idl
 $(PROJECT_DIR)/workers/service/FetchEvent.idl
+$(PROJECT_DIR)/workers/service/NavigationPreloadManager.idl
+$(PROJECT_DIR)/workers/service/NavigationPreloadState.idl
 $(PROJECT_DIR)/workers/service/PushEvent.idl
 $(PROJECT_DIR)/workers/service/PushEventInit.idl
 $(PROJECT_DIR)/workers/service/PushMessageData.idl
@@ -1635,6 +1642,8 @@ $(PROJECT_DIR)/workers/service/ServiceWorkerGlobalScope.idl
 $(PROJECT_DIR)/workers/service/ServiceWorkerRegistration.idl
 $(PROJECT_DIR)/workers/service/ServiceWorkerUpdateViaCache.idl
 $(PROJECT_DIR)/workers/service/ServiceWorkerWindowClient.idl
+$(PROJECT_DIR)/workers/shared/SharedWorker.idl
+$(PROJECT_DIR)/workers/shared/SharedWorkerGlobalScope.idl
 $(PROJECT_DIR)/worklets/PaintWorkletGlobalScope.idl
 $(PROJECT_DIR)/worklets/Worklet.idl
 $(PROJECT_DIR)/worklets/WorkletGlobalScope.idl

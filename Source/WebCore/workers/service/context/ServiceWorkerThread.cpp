@@ -103,7 +103,7 @@ ServiceWorkerThread::ServiceWorkerThread(ServiceWorkerContextData&& contextData,
     , m_contextData(crossThreadCopy(WTFMove(contextData)))
     , m_workerData(crossThreadCopy(WTFMove(workerData)))
     , m_workerObjectProxy(DummyServiceWorkerThreadProxy::shared())
-    , m_heartBeatTimeout(SWContextManager::singleton().connection()->shouldUseShortTimeout() ? heartBeatTimeoutForTest : heartBeatTimeout)
+    , m_heartBeatTimeout(settingsValues.shouldUseServiceWorkerShortTimeout ? heartBeatTimeoutForTest : heartBeatTimeout)
     , m_heartBeatTimer { *this, &ServiceWorkerThread::heartBeatTimerFired }
 {
     ASSERT(isMainThread());
@@ -124,11 +124,11 @@ void ServiceWorkerThread::runEventLoop()
     WorkerThread::runEventLoop();
 }
 
-void ServiceWorkerThread::queueTaskToFireFetchEvent(Ref<ServiceWorkerFetch::Client>&& client, std::optional<ScriptExecutionContextIdentifier>&& clientId, ResourceRequest&& request, String&& referrer, FetchOptions&& options)
+void ServiceWorkerThread::queueTaskToFireFetchEvent(Ref<ServiceWorkerFetch::Client>&& client, std::optional<ScriptExecutionContextIdentifier>&& clientId, ResourceRequest&& request, String&& referrer, FetchOptions&& options, FetchIdentifier fetchIdentifier, bool isServiceWorkerNavigationPreloadEnabled)
 {
     Ref serviceWorkerGlobalScope = downcast<ServiceWorkerGlobalScope>(*globalScope());
-    serviceWorkerGlobalScope->eventLoop().queueTask(TaskSource::DOMManipulation, [serviceWorkerGlobalScope, client = WTFMove(client), clientId, request = WTFMove(request), referrer = WTFMove(referrer), options = WTFMove(options)]() mutable {
-        ServiceWorkerFetch::dispatchFetchEvent(WTFMove(client), serviceWorkerGlobalScope, clientId, WTFMove(request), WTFMove(referrer), WTFMove(options));
+    serviceWorkerGlobalScope->eventLoop().queueTask(TaskSource::DOMManipulation, [serviceWorkerGlobalScope, client = WTFMove(client), clientId, request = WTFMove(request), referrer = WTFMove(referrer), options = WTFMove(options), fetchIdentifier, isServiceWorkerNavigationPreloadEnabled]() mutable {
+        ServiceWorkerFetch::dispatchFetchEvent(WTFMove(client), serviceWorkerGlobalScope, clientId, WTFMove(request), WTFMove(referrer), WTFMove(options), fetchIdentifier, isServiceWorkerNavigationPreloadEnabled);
     });
 }
 

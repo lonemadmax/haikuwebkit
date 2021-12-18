@@ -36,39 +36,47 @@ namespace PAL::WebGPU {
 class BindGroup;
 }
 
+namespace IPC {
+class StreamServerConnection;
+}
+
 namespace WebKit {
 
 namespace WebGPU {
 class ObjectHeap;
-class ObjectRegistry;
 }
 
 class RemoteBindGroup final : public IPC::StreamMessageReceiver {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<RemoteBindGroup> create(PAL::WebGPU::BindGroup& bindGroup, WebGPU::ObjectRegistry& objectRegistry, WebGPU::ObjectHeap& objectHeap, WebGPUIdentifier identifier)
+    static Ref<RemoteBindGroup> create(PAL::WebGPU::BindGroup& bindGroup, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteBindGroup(bindGroup, objectRegistry, objectHeap, identifier));
+        return adoptRef(*new RemoteBindGroup(bindGroup, objectHeap, WTFMove(streamConnection), identifier));
     }
 
     virtual ~RemoteBindGroup();
 
-private:
-    friend class ObjectRegistry;
+    void stopListeningForIPC();
 
-    RemoteBindGroup(PAL::WebGPU::BindGroup&, WebGPU::ObjectRegistry&, WebGPU::ObjectHeap&, WebGPUIdentifier);
+private:
+    friend class WebGPU::ObjectHeap;
+
+    RemoteBindGroup(PAL::WebGPU::BindGroup&, WebGPU::ObjectHeap&, Ref<IPC::StreamServerConnection>&&, WebGPUIdentifier);
 
     RemoteBindGroup(const RemoteBindGroup&) = delete;
     RemoteBindGroup(RemoteBindGroup&&) = delete;
     RemoteBindGroup& operator=(const RemoteBindGroup&) = delete;
     RemoteBindGroup& operator=(RemoteBindGroup&&) = delete;
 
+    PAL::WebGPU::BindGroup& backing() { return m_backing; }
+
     void didReceiveStreamMessage(IPC::StreamServerConnectionBase&, IPC::Decoder&) final;
 
     void setLabel(String&&);
 
     Ref<PAL::WebGPU::BindGroup> m_backing;
-    WebGPU::ObjectRegistry& m_objectRegistry;
     WebGPU::ObjectHeap& m_objectHeap;
+    Ref<IPC::StreamServerConnection> m_streamConnection;
     WebGPUIdentifier m_identifier;
 };
 

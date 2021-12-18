@@ -154,6 +154,17 @@ CaptureAudioInUIProcessEnabled:
     WebKit:
       default: WebKit::defaultCaptureAudioInUIProcessEnabled()
 
+CaptureVideoInGPUProcessEnabled:
+  type: bool
+  humanReadableName: "GPU Process: Video Capture"
+  humanReadableDescription: "Enable video capture in GPU Process"
+  webcoreBinding: none
+  condition: ENABLE(MEDIA_STREAM)
+  exposed: [ WebKit ]
+  defaultValue:
+    WebKit:
+      default: WebKit::defaultCaptureVideoInGPUProcessEnabled()
+
 CaptureVideoInUIProcessEnabled:
   type: bool
   humanReadableName: "Capture video in UI Process"
@@ -345,7 +356,7 @@ InputTypeDateEnabled:
       "PLATFORM(IOS_FAMILY) || PLATFORM(HAIKU)": true
       default: false
     WebKit:
-      "PLATFORM(MACCATALYST) || PLATFORM(APPLETV)": false
+      "PLATFORM(APPLETV)": false
       default: true
     WebCore:
       default: false
@@ -360,7 +371,7 @@ InputTypeDateTimeLocalEnabled:
       "PLATFORM(IOS_FAMILY) || PLATFORM(HAIKU)": true
       default: false
     WebKit:
-      "PLATFORM(MACCATALYST) || PLATFORM(APPLETV)": false
+      "PLATFORM(APPLETV)": false
       default: true
     WebCore:
       default: false
@@ -375,7 +386,7 @@ InputTypeMonthEnabled:
       "PLATFORM(IOS_FAMILY) || PLATFORM(HAIKU)": true
       default: false
     WebKit:
-      "!PLATFORM(MAC) && !PLATFORM(MACCATALYST) && !PLATFORM(APPLETV)": true
+      "!PLATFORM(MAC) && !PLATFORM(APPLETV)": true
       default: false
     WebCore:
       default: false
@@ -390,7 +401,7 @@ InputTypeTimeEnabled:
       "PLATFORM(IOS_FAMILY) || PLATFORM(HAIKU)": true
       default: false
     WebKit:
-      "PLATFORM(MACCATALYST) || PLATFORM(APPLETV)": false
+      "PLATFORM(APPLETV)": false
       default: true
     WebCore:
       default: false
@@ -404,7 +415,7 @@ InputTypeWeekEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      "!PLATFORM(MAC) && !PLATFORM(MACCATALYST) && !PLATFORM(APPLETV)": true
+      "!PLATFORM(MAC) && !PLATFORM(APPLETV)": true
       default: false
     WebCore:
       default: false
@@ -452,7 +463,7 @@ LayerBasedSVGEngineEnabled:
   humanReadableName: "Layer-based SVG Engine (LBSE)"
   humanReadableDescription: "Enable next-generation layer-based SVG Engine (LBSE)"
   condition: ENABLE(LAYER_BASED_SVG_ENGINE)
-  webcoreOnChange: setNeedsRelayoutAllFrames
+  webcoreOnChange: layerBasedSVGEngineEnabledChanged
   defaultValue:
     WebCore:
       default: false
@@ -555,12 +566,12 @@ MockCaptureDevicesEnabled:
 MomentumScrollingAnimatorEnabled:
   type: bool
   humanReadableName: "Momentum Scrolling Animator"
-  humanReadableDescription: "Drive momentum scrolling via an internal animator instead of using momentum events"
+  humanReadableDescription: "Generate momentum events in WebKit instead of using those delivered by the system"
   defaultValue:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
       default: false
 
@@ -835,16 +846,27 @@ UseCGDisplayListsForDOMRendering:
     WebKit:
       default: true
 
-UseGPUProcessForDOMRenderingEnabled:
+UseGPUProcessForCanvasRenderingEnabled:
   type: bool
-  humanReadableName: "GPU Process: DOM Rendering"
-  humanReadableDescription: "Enable DOM rendering in GPU Process"
+  humanReadableName: "GPU Process: Canvas Rendering"
+  humanReadableDescription: "Enable canvas rendering in GPU Process"
   webcoreBinding: none
-  condition: ENABLE(GPU_PROCESS)
+  condition: ENABLE(GPU_PROCESS) && !(PLATFORM(GTK) || PLATFORM(WPE))
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
-      default: defaultUseGPUProcessForDOMRenderingEnabled()
+      default: defaultUseGPUProcessForCanvasRenderingEnabled()
+
+UseGPUProcessForMediaEnabled:
+  type: bool
+  humanReadableName: "GPU Process: Media"
+  humanReadableDescription: "Do all media loading and playback in the GPU Process"
+  webcoreBinding: none
+  condition: ENABLE(GPU_PROCESS) && !USE(GSTREAMER)
+  exposed: [ WebKit ]
+  defaultValue:
+    WebKit:
+      default: WebKit::defaultUseGPUProcessForMediaEnabled()
 
 UseSceneKitForModel:
   type: bool
@@ -930,6 +952,20 @@ WebRTCMDNSICECandidatesEnabled:
       default: false
     WebKit:
       default: true
+
+# FIXME: This is not relevant for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
+WebRTCPlatformCodecsInGPUProcessEnabled:
+  type: bool
+  humanReadableName: "GPU Process: WebRTC Platform Codecs"
+  humanReadableDescription: "Enable WebRTC Platform Codecs in GPU Process"
+  condition: ENABLE(WEB_RTC)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: WebKit::defaultWebRTCCodecsInGPUProcess()
+    WebCore:
+      default: false
 
 WebSQLEnabled:
   type: bool

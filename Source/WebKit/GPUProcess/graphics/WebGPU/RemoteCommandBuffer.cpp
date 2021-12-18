@@ -28,24 +28,27 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "RemoteCommandBufferMessages.h"
+#include "StreamServerConnection.h"
 #include "WebGPUObjectHeap.h"
-#include "WebGPUObjectRegistry.h"
 #include <pal/graphics/WebGPU/WebGPUCommandBuffer.h>
 
 namespace WebKit {
 
-RemoteCommandBuffer::RemoteCommandBuffer(PAL::WebGPU::CommandBuffer& commandBuffer, WebGPU::ObjectRegistry& objectRegistry, WebGPU::ObjectHeap& objectHeap, WebGPUIdentifier identifier)
+RemoteCommandBuffer::RemoteCommandBuffer(PAL::WebGPU::CommandBuffer& commandBuffer, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     : m_backing(commandBuffer)
-    , m_objectRegistry(objectRegistry)
     , m_objectHeap(objectHeap)
+    , m_streamConnection(WTFMove(streamConnection))
     , m_identifier(identifier)
 {
-    m_objectRegistry.addObject(m_identifier, m_backing);
+    m_streamConnection->startReceivingMessages(*this, Messages::RemoteCommandBuffer::messageReceiverName(), m_identifier.toUInt64());
 }
 
-RemoteCommandBuffer::~RemoteCommandBuffer()
+RemoteCommandBuffer::~RemoteCommandBuffer() = default;
+
+void RemoteCommandBuffer::stopListeningForIPC()
 {
-    m_objectRegistry.removeObject(m_identifier);
+    m_streamConnection->stopReceivingMessages(Messages::RemoteCommandBuffer::messageReceiverName(), m_identifier.toUInt64());
 }
 
 void RemoteCommandBuffer::setLabel(String&& label)

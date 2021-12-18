@@ -28,29 +28,32 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "RemoteComputePassEncoderMessages.h"
+#include "StreamServerConnection.h"
 #include "WebGPUObjectHeap.h"
-#include "WebGPUObjectRegistry.h"
 #include <pal/graphics/WebGPU/WebGPUComputePassEncoder.h>
 
 namespace WebKit {
 
-RemoteComputePassEncoder::RemoteComputePassEncoder(PAL::WebGPU::ComputePassEncoder& computePassEncoder, WebGPU::ObjectRegistry& objectRegistry, WebGPU::ObjectHeap& objectHeap, WebGPUIdentifier identifier)
+RemoteComputePassEncoder::RemoteComputePassEncoder(PAL::WebGPU::ComputePassEncoder& computePassEncoder, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     : m_backing(computePassEncoder)
-    , m_objectRegistry(objectRegistry)
     , m_objectHeap(objectHeap)
+    , m_streamConnection(WTFMove(streamConnection))
     , m_identifier(identifier)
 {
-    m_objectRegistry.addObject(m_identifier, m_backing);
+    m_streamConnection->startReceivingMessages(*this, Messages::RemoteComputePassEncoder::messageReceiverName(), m_identifier.toUInt64());
 }
 
-RemoteComputePassEncoder::~RemoteComputePassEncoder()
+RemoteComputePassEncoder::~RemoteComputePassEncoder() = default;
+
+void RemoteComputePassEncoder::stopListeningForIPC()
 {
-    m_objectRegistry.removeObject(m_identifier);
+    m_streamConnection->stopReceivingMessages(Messages::RemoteComputePassEncoder::messageReceiverName(), m_identifier.toUInt64());
 }
 
 void RemoteComputePassEncoder::setPipeline(WebGPUIdentifier computePipeline)
 {
-    auto convertedComputePipeline = m_objectRegistry.convertComputePipelineFromBacking(computePipeline);
+    auto convertedComputePipeline = m_objectHeap.convertComputePipelineFromBacking(computePipeline);
     ASSERT(convertedComputePipeline);
     if (!convertedComputePipeline)
         return;
@@ -65,7 +68,7 @@ void RemoteComputePassEncoder::dispatch(PAL::WebGPU::Size32 x, std::optional<PAL
 
 void RemoteComputePassEncoder::dispatchIndirect(WebGPUIdentifier indirectBuffer, PAL::WebGPU::Size64 indirectOffset)
 {
-    auto convertedIndirectBuffer = m_objectRegistry.convertBufferFromBacking(indirectBuffer);
+    auto convertedIndirectBuffer = m_objectHeap.convertBufferFromBacking(indirectBuffer);
     ASSERT(convertedIndirectBuffer);
     if (!convertedIndirectBuffer)
         return;
@@ -75,7 +78,7 @@ void RemoteComputePassEncoder::dispatchIndirect(WebGPUIdentifier indirectBuffer,
 
 void RemoteComputePassEncoder::beginPipelineStatisticsQuery(WebGPUIdentifier querySet, PAL::WebGPU::Size32 queryIndex)
 {
-    auto convertedQuerySet = m_objectRegistry.convertQuerySetFromBacking(querySet);
+    auto convertedQuerySet = m_objectHeap.convertQuerySetFromBacking(querySet);
     ASSERT(convertedQuerySet);
     if (!convertedQuerySet)
         return;
@@ -96,7 +99,7 @@ void RemoteComputePassEncoder::endPass()
 void RemoteComputePassEncoder::setBindGroup(PAL::WebGPU::Index32 index, WebGPUIdentifier bindGroup,
     std::optional<Vector<PAL::WebGPU::BufferDynamicOffset>>&& offsets)
 {
-    auto convertedBindGroup = m_objectRegistry.convertBindGroupFromBacking(bindGroup);
+    auto convertedBindGroup = m_objectHeap.convertBindGroupFromBacking(bindGroup);
     ASSERT(convertedBindGroup);
     if (!convertedBindGroup)
         return;

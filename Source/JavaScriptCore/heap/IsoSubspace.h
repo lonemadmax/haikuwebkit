@@ -26,27 +26,25 @@
 #pragma once
 
 #include "BlockDirectory.h"
+#include "IsoMemoryAllocatorBase.h"
 #include "Subspace.h"
 #include "SubspaceAccess.h"
 #include <wtf/SinglyLinkedListWithTail.h>
 
 namespace JSC {
 
-class IsoAlignedMemoryAllocator;
 class IsoCellSet;
 
 class IsoSubspace : public Subspace {
 public:
-    JS_EXPORT_PRIVATE IsoSubspace(CString name, Heap&, const HeapCellType&, size_t, uint8_t numberOfLowerTierCells);
+    JS_EXPORT_PRIVATE IsoSubspace(CString name, Heap&, const HeapCellType&, size_t size, uint8_t numberOfLowerTierCells, std::unique_ptr<IsoMemoryAllocatorBase>&& = nullptr);
     JS_EXPORT_PRIVATE ~IsoSubspace() override;
 
     size_t cellSize() { return m_directory.cellSize(); }
 
-    Allocator allocatorFor(size_t, AllocatorForMode) override;
-    Allocator allocatorForNonVirtual(size_t, AllocatorForMode);
+    Allocator allocatorFor(size_t, AllocatorForMode);
 
-    void* allocate(VM&, size_t, GCDeferralContext*, AllocationFailureMode) override;
-    void* allocateNonVirtual(VM&, size_t, GCDeferralContext*, AllocationFailureMode);
+    void* allocate(VM&, size_t, GCDeferralContext*, AllocationFailureMode);
 
     void sweepLowerTierCell(PreciseAllocation*);
     void clearIsoCellSetBit(PreciseAllocation*);
@@ -67,12 +65,12 @@ private:
     
     BlockDirectory m_directory;
     LocalAllocator m_localAllocator;
-    std::unique_ptr<IsoAlignedMemoryAllocator> m_isoAlignedMemoryAllocator;
+    std::unique_ptr<IsoMemoryAllocatorBase> m_isoAlignedMemoryAllocator;
     SentinelLinkedList<PreciseAllocation, PackedRawSentinelNode<PreciseAllocation>> m_lowerTierFreeList;
     SentinelLinkedList<IsoCellSet, PackedRawSentinelNode<IsoCellSet>> m_cellSets;
 };
 
-ALWAYS_INLINE Allocator IsoSubspace::allocatorForNonVirtual(size_t size, AllocatorForMode)
+ALWAYS_INLINE Allocator IsoSubspace::allocatorFor(size_t size, AllocatorForMode)
 {
     RELEASE_ASSERT(WTF::roundUpToMultipleOf<MarkedBlock::atomSize>(size) == cellSize());
     return Allocator(&m_localAllocator);

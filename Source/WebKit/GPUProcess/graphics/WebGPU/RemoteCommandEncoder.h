@@ -38,6 +38,10 @@ namespace PAL::WebGPU {
 class CommandEncoder;
 }
 
+namespace IPC {
+class StreamServerConnection;
+}
+
 namespace WebKit {
 
 namespace WebGPU {
@@ -46,28 +50,32 @@ struct ComputePassDescriptor;
 struct ImageCopyBuffer;
 struct ImageCopyTexture;
 class ObjectHeap;
-class ObjectRegistry;
 struct RenderPassDescriptor;
 }
 
 class RemoteCommandEncoder final : public IPC::StreamMessageReceiver {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<RemoteCommandEncoder> create(PAL::WebGPU::CommandEncoder& commandEncoder, WebGPU::ObjectRegistry& objectRegistry, WebGPU::ObjectHeap& objectHeap, WebGPUIdentifier identifier)
+    static Ref<RemoteCommandEncoder> create(PAL::WebGPU::CommandEncoder& commandEncoder, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemoteCommandEncoder(commandEncoder, objectRegistry, objectHeap, identifier));
+        return adoptRef(*new RemoteCommandEncoder(commandEncoder, objectHeap, WTFMove(streamConnection), identifier));
     }
 
     virtual ~RemoteCommandEncoder();
 
-private:
-    friend class ObjectRegistry;
+    void stopListeningForIPC();
 
-    RemoteCommandEncoder(PAL::WebGPU::CommandEncoder&, WebGPU::ObjectRegistry&, WebGPU::ObjectHeap&, WebGPUIdentifier);
+private:
+    friend class WebGPU::ObjectHeap;
+
+    RemoteCommandEncoder(PAL::WebGPU::CommandEncoder&, WebGPU::ObjectHeap&, Ref<IPC::StreamServerConnection>&&, WebGPUIdentifier);
 
     RemoteCommandEncoder(const RemoteCommandEncoder&) = delete;
     RemoteCommandEncoder(RemoteCommandEncoder&&) = delete;
     RemoteCommandEncoder& operator=(const RemoteCommandEncoder&) = delete;
     RemoteCommandEncoder& operator=(RemoteCommandEncoder&&) = delete;
+
+    PAL::WebGPU::CommandEncoder& backing() { return m_backing; }
 
     void didReceiveStreamMessage(IPC::StreamServerConnectionBase&, IPC::Decoder&) final;
 
@@ -119,8 +127,8 @@ private:
     void setLabel(String&&);
 
     Ref<PAL::WebGPU::CommandEncoder> m_backing;
-    WebGPU::ObjectRegistry& m_objectRegistry;
     WebGPU::ObjectHeap& m_objectHeap;
+    Ref<IPC::StreamServerConnection> m_streamConnection;
     WebGPUIdentifier m_identifier;
 };
 

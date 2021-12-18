@@ -252,6 +252,7 @@ private:
     RefPtr<WebCore::GraphicsContextGL> createGraphicsContextGL(const WebCore::GraphicsContextGLAttributes&, WebCore::PlatformDisplayID hostWindowDisplayID) const final;
 #endif
 
+    RefPtr<PAL::WebGPU::GPU> createGPUForWebGPU() const final;
 
     CompositingTriggerFlags allowedCompositingTriggers() const final
     {
@@ -453,6 +454,7 @@ private:
 
 #if ENABLE(WEBXR) && !USE(OPENXR)
     void enumerateImmersiveXRDevices(CompletionHandler<void(const PlatformXR::Instance::DeviceList&)>&&) final;
+    void requestPermissionOnXRSessionFeatures(const WebCore::SecurityOriginData&, PlatformXR::SessionMode, const PlatformXR::Device::FeatureList& /* granted */, const PlatformXR::Device::FeatureList& /* consentRequired */, const PlatformXR::Device::FeatureList& /* consentOptional */, CompletionHandler<void(std::optional<PlatformXR::Device::FeatureList>&&)>&&) final;
 #endif
 
 #if ENABLE(APPLE_PAY_AMS_UI)

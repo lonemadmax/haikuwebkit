@@ -36,11 +36,19 @@ public:
     float specularExponent() const { return m_specularExponent; }
     bool setSpecularExponent(float);
 
-    WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
+    WTF::TextStream& externalRepresentation(WTF::TextStream&, FilterRepresentation) const override;
+
+    template<class Decoder> static std::optional<Ref<FESpecularLighting>> decode(Decoder&);
 
 private:
     FESpecularLighting(const Color& lightingColor, float surfaceScale, float specularConstant, float specularExponent, float kernelUnitLengthX, float kernelUnitLengthY, Ref<LightSource>&&);
 };
+
+template<class Decoder>
+std::optional<Ref<FESpecularLighting>> FESpecularLighting::decode(Decoder& decoder)
+{
+    return FELighting::decode<Decoder, FESpecularLighting>(decoder);
+}
 
 } // namespace WebCore
 

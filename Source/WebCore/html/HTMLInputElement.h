@@ -184,8 +184,8 @@ public:
     // The value which is drawn by a renderer.
     String visibleValue() const;
 
-    WEBCORE_EXPORT double valueAsDate() const;
-    WEBCORE_EXPORT ExceptionOr<void> setValueAsDate(double);
+    WEBCORE_EXPORT WallTime valueAsDate() const;
+    WEBCORE_EXPORT ExceptionOr<void> setValueAsDate(WallTime);
 
     WEBCORE_EXPORT double valueAsNumber() const;
     WEBCORE_EXPORT ExceptionOr<void> setValueAsNumber(double, TextFieldEventBehavior = DispatchNoEvent);
@@ -406,7 +406,7 @@ private:
 
     void copyNonAttributePropertiesFromElement(const Element&) final;
 
-    bool appendFormData(DOMFormData&, bool) final;
+    bool appendFormData(DOMFormData&) final;
 
     bool isSuccessfulSubmitButton() const final;
     bool matchesDefaultPseudoClass() const final;

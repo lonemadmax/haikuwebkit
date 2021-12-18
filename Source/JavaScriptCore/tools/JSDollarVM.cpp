@@ -133,7 +133,7 @@ public:
     template<typename CellType, SubspaceAccess>
     static CompleteSubspace* subspaceFor(VM& vm)
     {
-        return &vm.cellSpace;
+        return &vm.cellSpace();
     }
 
     JSDollarVMCallFrame(VM& vm, Structure* structure)
@@ -223,7 +223,7 @@ public:
     template<typename CellType, SubspaceAccess>
     static CompleteSubspace* subspaceFor(VM& vm)
     {
-        return &vm.cellSpace;
+        return &vm.cellSpace();
     }
 
     Root* root() const { return m_root.get(); }
@@ -287,7 +287,7 @@ public:
     template<typename CellType, SubspaceAccess>
     static CompleteSubspace* subspaceFor(VM& vm)
     {
-        return &vm.destructibleObjectSpace;
+        return &vm.destructibleObjectSpace();
     }
 
     Root(VM& vm, Structure* structure)
@@ -354,7 +354,7 @@ public:
     template<typename CellType, SubspaceAccess>
     static CompleteSubspace* subspaceFor(VM& vm)
     {
-        return &vm.cellSpace;
+        return &vm.cellSpace();
     }
 
     static SimpleObject* create(VM& vm, JSGlobalObject* globalObject)
@@ -426,7 +426,7 @@ public:
     template<typename CellType, SubspaceAccess>
     static CompleteSubspace* subspaceFor(VM& vm)
     {
-        return &vm.cellSpace;
+        return &vm.cellSpace();
     }
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
@@ -508,7 +508,7 @@ public:
     template<typename CellType, SubspaceAccess>
     static CompleteSubspace* subspaceFor(VM& vm)
     {
-        return &vm.cellSpace;
+        return &vm.cellSpace();
     }
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
@@ -590,7 +590,7 @@ IGNORE_WARNINGS_END
     template<typename CellType, SubspaceAccess>
     static CompleteSubspace* subspaceFor(VM& vm)
     {
-        return &vm.cellSpace;
+        return &vm.cellSpace();
     }
 
     static RuntimeArray* create(JSGlobalObject* globalObject, CallFrame* callFrame)
@@ -772,7 +772,7 @@ public:
     template<typename CellType, SubspaceAccess>
     static CompleteSubspace* subspaceFor(VM& vm)
     {
-        return &vm.cellSpace;
+        return &vm.cellSpace();
     }
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
@@ -872,7 +872,7 @@ public:
     template<typename CellType, SubspaceAccess>
     static CompleteSubspace* subspaceFor(VM& vm)
     {
-        return &vm.cellSpace;
+        return &vm.cellSpace();
     }
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
@@ -897,7 +897,7 @@ public:
     template<typename CellType, SubspaceAccess>
     static CompleteSubspace* subspaceFor(VM& vm)
     {
-        return &vm.cellSpace;
+        return &vm.cellSpace();
     }
 
     ObjectDoingSideEffectPutWithoutCorrectSlotStatus(VM& vm, Structure* structure)
@@ -948,7 +948,7 @@ public:
     template<typename CellType, SubspaceAccess>
     static CompleteSubspace* subspaceFor(VM& vm)
     {
-        return &vm.cellSpace;
+        return &vm.cellSpace();
     }
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
@@ -1585,7 +1585,7 @@ public:
     template<typename CellType, SubspaceAccess>
     static CompleteSubspace* subspaceFor(VM& vm)
     {
-        return &vm.cellSpace;
+        return &vm.cellSpace();
     }
 
     JSTestCustomGetterSetter(VM& vm, Structure* structure)
@@ -1838,7 +1838,7 @@ public:
     template<typename CellType, SubspaceAccess>
     static CompleteSubspace* subspaceFor(VM& vm)
     {
-        return &vm.destructibleObjectSpace;
+        return &vm.destructibleObjectSpace();
     }
 
     class Client final : public Wasm::StreamingParserClient {
@@ -1933,7 +1933,7 @@ public:
     template<typename CellType, SubspaceAccess>
     static CompleteSubspace* subspaceFor(VM& vm)
     {
-        return &vm.destructibleObjectSpace;
+        return &vm.destructibleObjectSpace();
     }
 
     WasmStreamingCompiler(VM& vm, Structure* structure, Wasm::CompilerMode compilerMode, JSGlobalObject* globalObject, JSPromise* promise, JSObject* importObject)
@@ -2131,6 +2131,8 @@ static JSC_DECLARE_HOST_FUNCTION(functionJITSizeStatistics);
 static JSC_DECLARE_HOST_FUNCTION(functionDumpJITSizeStatistics);
 static JSC_DECLARE_HOST_FUNCTION(functionResetJITSizeStatistics);
 #endif
+
+static JSC_DECLARE_HOST_FUNCTION(functionEnsureArrayStorage);
 
 const ClassInfo JSDollarVM::s_info = { "DollarVM", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSDollarVM) };
 
@@ -3583,7 +3585,7 @@ JSC_DEFINE_HOST_FUNCTION(functionGetStructureTransitionList, (JSGlobalObject* gl
 
     for (size_t i = 0; i < structures.size(); ++i) {
         auto* structure = structures[structures.size() - i - 1];
-        result->push(globalObject, JSValue(structure->id()));
+        result->push(globalObject, JSValue(structure->id().bits()));
         RETURN_IF_EXCEPTION(scope, { });
         result->push(globalObject, JSValue(structure->transitionOffset()));
         RETURN_IF_EXCEPTION(scope, { });
@@ -3826,6 +3828,18 @@ JSC_DEFINE_HOST_FUNCTION(functionResetJITSizeStatistics, (JSGlobalObject* global
 }
 #endif
 
+JSC_DEFINE_HOST_FUNCTION(functionEnsureArrayStorage, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    DollarVMAssertScope assertScope;
+
+    VM& vm = globalObject->vm();
+
+    JSValue arg = callFrame->argument(0);
+    if (arg.isObject())
+        asObject(arg)->ensureArrayStorage(vm);
+    return JSValue::encode(jsUndefined());
+}
+
 constexpr unsigned jsDollarVMPropertyAttributes = PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum | PropertyAttribute::DontDelete;
 
 void JSDollarVM::finishCreation(VM& vm)
@@ -3995,6 +4009,8 @@ void JSDollarVM::finishCreation(VM& vm)
     addFunction(vm, "dumpJITSizeStatistics", functionDumpJITSizeStatistics, 0);
     addFunction(vm, "resetJITSizeStatistics", functionResetJITSizeStatistics, 0);
 #endif
+
+    addFunction(vm, "ensureArrayStorage", functionEnsureArrayStorage, 1);
 
     m_objectDoingSideEffectPutWithoutCorrectSlotStatusStructure.set(vm, this, ObjectDoingSideEffectPutWithoutCorrectSlotStatus::createStructure(vm, globalObject, jsNull()));
 }

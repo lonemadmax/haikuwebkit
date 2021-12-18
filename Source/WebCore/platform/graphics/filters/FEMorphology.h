@@ -34,7 +34,7 @@ enum class MorphologyOperatorType {
 
 class FEMorphology : public FilterEffect {
 public:
-    static Ref<FEMorphology> create(MorphologyOperatorType, float radiusX, float radiusY);
+    WEBCORE_EXPORT static Ref<FEMorphology> create(MorphologyOperatorType, float radiusX, float radiusY);
 
     MorphologyOperatorType morphologyOperator() const { return m_type; }
     bool setMorphologyOperator(MorphologyOperatorType);
@@ -45,22 +45,68 @@ public:
     float radiusY() const { return m_radiusY; }
     bool setRadiusY(float);
 
+    template<class Encoder> void encode(Encoder&) const;
+    template<class Decoder> static std::optional<Ref<FEMorphology>> decode(Decoder&);
+
 private:
     FEMorphology(MorphologyOperatorType, float radiusX, float radiusY);
 
-    void determineAbsolutePaintRect(const Filter&) override;
+    FloatRect calculateImageRect(const Filter&, const FilterImageVector& inputs, const FloatRect& primitiveSubregion) const override;
 
-    bool resultIsAlphaImage() const override;
+    bool resultIsAlphaImage(const FilterImageVector& inputs) const override;
 
     std::unique_ptr<FilterEffectApplier> createApplier(const Filter&) const override;
 
-    WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
+    WTF::TextStream& externalRepresentation(WTF::TextStream&, FilterRepresentation) const override;
 
     MorphologyOperatorType m_type;
     float m_radiusX;
     float m_radiusY;
 };
 
+template<class Encoder>
+void FEMorphology::encode(Encoder& encoder) const
+{
+    encoder << m_type;
+    encoder << m_radiusX;
+    encoder << m_radiusY;
+}
+
+template<class Decoder>
+std::optional<Ref<FEMorphology>> FEMorphology::decode(Decoder& decoder)
+{
+    std::optional<MorphologyOperatorType> type;
+    decoder >> type;
+    if (!type)
+        return std::nullopt;
+
+    std::optional<float> radiusX;
+    decoder >> radiusX;
+    if (!radiusX)
+        return std::nullopt;
+
+    std::optional<float> radiusY;
+    decoder >> radiusY;
+    if (!radiusY)
+        return std::nullopt;
+
+    return FEMorphology::create(*type, *radiusX, *radiusY);
+}
+
 } // namespace WebCore
+
+namespace WTF {
+
+template<> struct EnumTraits<WebCore::MorphologyOperatorType> {
+    using values = EnumValues<
+        WebCore::MorphologyOperatorType,
+
+        WebCore::MorphologyOperatorType::Unknown,
+        WebCore::MorphologyOperatorType::Erode,
+        WebCore::MorphologyOperatorType::Dilate
+    >;
+};
+
+} // namespace WTF
 
 SPECIALIZE_TYPE_TRAITS_FILTER_EFFECT(FEMorphology)

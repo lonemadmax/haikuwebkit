@@ -36,39 +36,47 @@ namespace PAL::WebGPU {
 class PipelineLayout;
 }
 
+namespace IPC {
+class StreamServerConnection;
+}
+
 namespace WebKit {
 
 namespace WebGPU {
 class ObjectHeap;
-class ObjectRegistry;
 }
 
 class RemotePipelineLayout final : public IPC::StreamMessageReceiver {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<RemotePipelineLayout> create(PAL::WebGPU::PipelineLayout& pipelineLayout, WebGPU::ObjectRegistry& objectRegistry, WebGPU::ObjectHeap& objectHeap, WebGPUIdentifier identifier)
+    static Ref<RemotePipelineLayout> create(PAL::WebGPU::PipelineLayout& pipelineLayout, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     {
-        return adoptRef(*new RemotePipelineLayout(pipelineLayout, objectRegistry, objectHeap, identifier));
+        return adoptRef(*new RemotePipelineLayout(pipelineLayout, objectHeap, WTFMove(streamConnection), identifier));
     }
 
     virtual ~RemotePipelineLayout();
 
-private:
-    friend class ObjectRegistry;
+    void stopListeningForIPC();
 
-    RemotePipelineLayout(PAL::WebGPU::PipelineLayout&, WebGPU::ObjectRegistry&, WebGPU::ObjectHeap&, WebGPUIdentifier);
+private:
+    friend class WebGPU::ObjectHeap;
+
+    RemotePipelineLayout(PAL::WebGPU::PipelineLayout&, WebGPU::ObjectHeap&, Ref<IPC::StreamServerConnection>&&, WebGPUIdentifier);
 
     RemotePipelineLayout(const RemotePipelineLayout&) = delete;
     RemotePipelineLayout(RemotePipelineLayout&&) = delete;
     RemotePipelineLayout& operator=(const RemotePipelineLayout&) = delete;
     RemotePipelineLayout& operator=(RemotePipelineLayout&&) = delete;
 
+    PAL::WebGPU::PipelineLayout& backing() { return m_backing; }
+
     void didReceiveStreamMessage(IPC::StreamServerConnectionBase&, IPC::Decoder&) final;
 
     void setLabel(String&&);
 
     Ref<PAL::WebGPU::PipelineLayout> m_backing;
-    WebGPU::ObjectRegistry& m_objectRegistry;
     WebGPU::ObjectHeap& m_objectHeap;
+    Ref<IPC::StreamServerConnection> m_streamConnection;
     WebGPUIdentifier m_identifier;
 };
 

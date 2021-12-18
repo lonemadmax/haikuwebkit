@@ -59,6 +59,7 @@
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/StorageQuotaManager.h>
+#include <WebCore/WebLockRegistry.h>
 #include <wtf/CallbackAggregator.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/CrossThreadCopier.h>
@@ -130,6 +131,7 @@ WebsiteDataStore::WebsiteDataStore(Ref<WebsiteDataStoreConfiguration>&& configur
 #if HAVE(APP_SSO)
     , m_soAuthorizationCoordinator(makeUniqueRef<SOAuthorizationCoordinator>())
 #endif
+    , m_webLockRegistry(WebCore::LocalWebLockRegistry::create())
 {
     WTF::setProcessPrivileges(allPrivileges());
     registerWithSessionIDMap();
@@ -1858,6 +1860,7 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
     networkSessionParameters.allowsCellularAccess = configuration().allowsCellularAccess() ? AllowsCellularAccess::Yes : AllowsCellularAccess::No;
     networkSessionParameters.deviceManagementRestrictionsEnabled = m_configuration->deviceManagementRestrictionsEnabled();
     networkSessionParameters.allLoadsBlockedByDeviceManagementRestrictionsForTesting = m_configuration->allLoadsBlockedByDeviceManagementRestrictionsForTesting();
+    networkSessionParameters.webPushDaemonConnectionConfiguration = m_configuration->webPushDaemonConnectionConfiguration();
     networkSessionParameters.networkCacheDirectory = WTFMove(networkCacheDirectory);
     networkSessionParameters.networkCacheDirectoryExtensionHandle = WTFMove(networkCacheDirectoryExtensionHandle);
     networkSessionParameters.hstsStorageDirectory = WTFMove(hstsStorageDirectory);

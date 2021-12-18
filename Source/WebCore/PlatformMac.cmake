@@ -327,7 +327,6 @@ list(APPEND WebCore_SOURCES
     platform/graphics/cocoa/WebActionDisablingCALayerDelegate.mm
     platform/graphics/cocoa/WebCoreCALayerExtras.mm
     platform/graphics/cocoa/WebCoreDecompressionSession.mm
-    platform/graphics/cocoa/WebGLLayer.mm
     platform/graphics/cocoa/WebMAudioUtilitiesCocoa.mm
     platform/graphics/cocoa/WebProcessGraphicsContextGLCocoa.mm
 
@@ -337,12 +336,13 @@ list(APPEND WebCore_SOURCES
     platform/graphics/coretext/GlyphPageCoreText.cpp
 
     platform/graphics/cv/CVUtilities.mm
-    platform/graphics/cv/GraphicsContextGLCVANGLE.cpp
+    platform/graphics/cv/GraphicsContextGLCVCocoa.cpp
     platform/graphics/cv/ImageRotationSessionVT.mm
     platform/graphics/cv/PixelBufferConformerCV.cpp
 
     platform/graphics/mac/ColorMac.mm
     platform/graphics/mac/ComplexTextControllerCoreText.mm
+    platform/graphics/mac/DisplayConfigurationMonitor.cpp
     platform/graphics/mac/FloatPointMac.mm
     platform/graphics/mac/FloatSizeMac.mm
     platform/graphics/mac/FontCustomPlatformData.cpp
@@ -671,6 +671,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/cv/PixelBufferConformerCV.h
 
     platform/graphics/mac/ColorMac.h
+    platform/graphics/mac/DisplayConfigurationMonitor.h
     platform/graphics/mac/FontCustomPlatformData.h
     platform/graphics/mac/GraphicsChecksMac.h
     platform/graphics/mac/ScopedHighPerformanceGPURequest.h

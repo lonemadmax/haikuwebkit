@@ -28,24 +28,27 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "RemotePipelineLayoutMessages.h"
+#include "StreamServerConnection.h"
 #include "WebGPUObjectHeap.h"
-#include "WebGPUObjectRegistry.h"
 #include <pal/graphics/WebGPU/WebGPUPipelineLayout.h>
 
 namespace WebKit {
 
-RemotePipelineLayout::RemotePipelineLayout(PAL::WebGPU::PipelineLayout& pipelineLayout, WebGPU::ObjectRegistry& objectRegistry, WebGPU::ObjectHeap& objectHeap, WebGPUIdentifier identifier)
+RemotePipelineLayout::RemotePipelineLayout(PAL::WebGPU::PipelineLayout& pipelineLayout, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, WebGPUIdentifier identifier)
     : m_backing(pipelineLayout)
-    , m_objectRegistry(objectRegistry)
     , m_objectHeap(objectHeap)
+    , m_streamConnection(WTFMove(streamConnection))
     , m_identifier(identifier)
 {
-    m_objectRegistry.addObject(m_identifier, m_backing);
+    m_streamConnection->startReceivingMessages(*this, Messages::RemotePipelineLayout::messageReceiverName(), m_identifier.toUInt64());
 }
 
-RemotePipelineLayout::~RemotePipelineLayout()
+RemotePipelineLayout::~RemotePipelineLayout() = default;
+
+void RemotePipelineLayout::stopListeningForIPC()
 {
-    m_objectRegistry.removeObject(m_identifier);
+    m_streamConnection->stopReceivingMessages(Messages::RemotePipelineLayout::messageReceiverName(), m_identifier.toUInt64());
 }
 
 void RemotePipelineLayout::setLabel(String&& label)

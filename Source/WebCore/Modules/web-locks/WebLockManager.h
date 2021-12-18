@@ -25,17 +25,27 @@
 #pragma once
 
 #include "AbortSignal.h"
+#include "ActiveDOMObject.h"
+#include "ClientOrigin.h"
+#include "WebLockIdentifier.h"
 #include "WebLockMode.h"
 #include <wtf/RefCounted.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
 class DeferredPromise;
+class NavigatorBase;
 class WebLockGrantedCallback;
+class WebLockRegistry;
 
-class WebLockManager : public RefCounted<WebLockManager> {
+struct ClientOrigin;
+struct WebLockManagerSnapshot;
+
+class WebLockManager : public RefCounted<WebLockManager>, public CanMakeWeakPtr<WebLockManager>, public ActiveDOMObject {
 public:
-    static Ref<WebLockManager> create();
+    static Ref<WebLockManager> create(NavigatorBase&);
+    ~WebLockManager();
 
     struct Options {
         WebLockMode mode { WebLockMode::Exclusive };
@@ -44,24 +54,32 @@ public:
         RefPtr<AbortSignal> signal;
     };
 
-    struct Info {
-        String name;
-        WebLockMode mode { WebLockMode::Exclusive };
-        String clientId;
-    };
-
-    struct Snapshot {
-        Vector<Info> held;
-        Vector<Info> pending;
-    };
+    using Snapshot = WebLockManagerSnapshot;
 
     void request(const String& name, Ref<WebLockGrantedCallback>&&, Ref<DeferredPromise>&&);
     void request(const String& name, Options&&, Ref<WebLockGrantedCallback>&&, Ref<DeferredPromise>&&);
-
     void query(Ref<DeferredPromise>&&);
 
 private:
-    WebLockManager();
+    explicit WebLockManager(NavigatorBase&);
+
+    void didCompleteLockRequest(WebLockIdentifier, bool success);
+    void settleReleasePromise(WebLockIdentifier, ExceptionOr<JSC::JSValue>&&);
+    void signalToAbortTheRequest(WebLockIdentifier);
+    void clientIsGoingAway();
+
+    // ActiveDOMObject.
+    void stop() final;
+    const char* activeDOMObjectName() const final;
+    bool virtualHasPendingActivity() const final;
+
+    class MainThreadBridge;
+    RefPtr<MainThreadBridge> m_mainThreadBridge;
+
+    HashMap<WebLockIdentifier, RefPtr<DeferredPromise>> m_releasePromises;
+
+    struct LockRequest;
+    HashMap<WebLockIdentifier, LockRequest> m_pendingRequests;
 };
 
 } // namespace WebCore

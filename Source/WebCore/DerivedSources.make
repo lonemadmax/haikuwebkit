@@ -543,6 +543,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/web-locks/WebLock.idl \
     $(WebCore)/Modules/web-locks/WebLockGrantedCallback.idl \
     $(WebCore)/Modules/web-locks/WebLockManager.idl \
+    $(WebCore)/Modules/web-locks/WebLockManagerSnapshot.idl \
     $(WebCore)/Modules/web-locks/WebLockMode.idl \
     $(WebCore)/Modules/webaudio/AnalyserNode.idl \
     $(WebCore)/Modules/webaudio/AnalyserOptions.idl \
@@ -702,6 +703,9 @@ JS_BINDING_IDLS := \
     $(WebCore)/animation/CompositeOperation.idl \
     $(WebCore)/animation/CompositeOperationOrAuto.idl \
     $(WebCore)/animation/ComputedEffectTiming.idl \
+    $(WebCore)/animation/CustomAnimationOptions.idl \
+    $(WebCore)/animation/CustomEffect.idl \
+    $(WebCore)/animation/CustomEffectCallback.idl \
     $(WebCore)/animation/Document+WebAnimations.idl \
     $(WebCore)/animation/DocumentOrShadowRoot+WebAnimations.idl \
     $(WebCore)/animation/DocumentTimeline.idl \
@@ -1434,17 +1438,17 @@ JS_BINDING_IDLS := \
     $(WebCore)/testing/XRSimulateUserActivationFunction.idl \
     $(WebCore)/workers/AbstractWorker.idl \
     $(WebCore)/workers/DedicatedWorkerGlobalScope.idl \
-    $(WebCore)/workers/SharedWorker.idl \
-    $(WebCore)/workers/SharedWorkerGlobalScope.idl \
     $(WebCore)/workers/Worker.idl \
     $(WebCore)/workers/WorkerGlobalScope.idl \
     $(WebCore)/workers/WorkerLocation.idl \
-	$(WebCore)/workers/WorkerOptions.idl \
+    $(WebCore)/workers/WorkerOptions.idl \
     $(WebCore)/workers/WorkerType.idl \
     $(WebCore)/workers/service/ExtendableEvent.idl \
     $(WebCore)/workers/service/ExtendableEventInit.idl \
     $(WebCore)/workers/service/ExtendableMessageEvent.idl \
     $(WebCore)/workers/service/FetchEvent.idl \
+    $(WebCore)/workers/service/NavigationPreloadManager.idl \
+    $(WebCore)/workers/service/NavigationPreloadState.idl \
     $(WebCore)/workers/service/ServiceWorker.idl \
     $(WebCore)/workers/service/ServiceWorkerClient.idl \
     $(WebCore)/workers/service/ServiceWorkerClientType.idl \
@@ -1454,6 +1458,8 @@ JS_BINDING_IDLS := \
     $(WebCore)/workers/service/ServiceWorkerRegistration.idl \
     $(WebCore)/workers/service/ServiceWorkerUpdateViaCache.idl \
     $(WebCore)/workers/service/ServiceWorkerWindowClient.idl \
+    $(WebCore)/workers/shared/SharedWorker.idl \
+    $(WebCore)/workers/shared/SharedWorkerGlobalScope.idl \
     $(WebCore)/worklets/PaintWorkletGlobalScope.idl \
     $(WebCore)/worklets/Worklet.idl \
     $(WebCore)/worklets/WorkletGlobalScope.idl \
@@ -1763,6 +1769,7 @@ USER_AGENT_STYLE_SHEETS = \
     $(WebCore)/css/plugIns.css \
     $(WebCore)/css/quirks.css \
     $(WebCore)/css/svg.css \
+    $(WebCore)/html/shadow/mac/imageControlsMac.css \
     $(WebCore)/html/shadow/imageOverlay.css \
     $(WebCore)/html/shadow/meterElementShadow.css \
     ModernMediaControls.css \

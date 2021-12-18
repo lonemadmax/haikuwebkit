@@ -30,10 +30,13 @@ namespace WebCore {
 
 class FEBlend : public FilterEffect {
 public:
-    static Ref<FEBlend> create(BlendMode);
+    WEBCORE_EXPORT static Ref<FEBlend> create(BlendMode);
 
     BlendMode blendMode() const { return m_mode; }
     bool setBlendMode(BlendMode);
+
+    template<class Encoder> void encode(Encoder&) const;
+    template<class Decoder> static std::optional<Ref<FEBlend>> decode(Decoder&);
 
 private:
     FEBlend(BlendMode);
@@ -43,10 +46,27 @@ private:
     void platformApplyNEON(unsigned char* srcPixelArrayA, unsigned char* srcPixelArrayB, unsigned char* dstPixelArray,
                            unsigned colorArrayLength);
 
-    WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
+    WTF::TextStream& externalRepresentation(WTF::TextStream&, FilterRepresentation) const override;
 
     BlendMode m_mode;
 };
+
+template<class Encoder>
+void FEBlend::encode(Encoder& encoder) const
+{
+    encoder << m_mode;
+}
+
+template<class Decoder>
+std::optional<Ref<FEBlend>> FEBlend::decode(Decoder& decoder)
+{
+    std::optional<BlendMode> mode;
+    decoder >> mode;
+    if (!mode)
+        return std::nullopt;
+
+    return FEBlend::create(*mode);
+}
 
 } // namespace WebCore
 

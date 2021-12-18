@@ -99,7 +99,6 @@
 #include "RenderMenuList.h"
 #include "RenderMeter.h"
 #include "RenderProgress.h"
-#include "RenderSVGRoot.h"
 #include "RenderSlider.h"
 #include "RenderTable.h"
 #include "RenderTableCell.h"
@@ -547,7 +546,7 @@ static Ref<AccessibilityObject> createFromRenderer(RenderObject* renderer)
         return AccessibilityMediaObject::create(renderer);
 #endif
 
-    if (is<RenderSVGRoot>(*renderer))
+    if (renderer->isSVGRootOrLegacySVGRoot())
         return AccessibilitySVGRoot::create(renderer);
     
     if (is<SVGElement>(node))
