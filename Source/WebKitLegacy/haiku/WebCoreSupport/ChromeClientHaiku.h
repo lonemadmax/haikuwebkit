@@ -162,6 +162,8 @@ namespace WebCore {
 
         void wheelEventHandlersChanged(bool) override { }
 
+        void requestCookieConsent(CompletionHandler<void(CookieConsentDecisionResult)>&&) override;
+
 #if ENABLE(POINTER_LOCK)
         bool requestPointerLock() override;
         void requestPointerUnlock() override;

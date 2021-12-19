@@ -38,11 +38,11 @@ namespace WebCore {
 RefPtr<JSC::Bindings::Instance> ScriptController::createScriptInstanceForWidget(Widget* widget)
 {
     if (!widget->isPluginView())
-        return 0;
+        return nullptr;
 
 	// TODO: cleanup, this method isn't defined anymore without NETSCAPE_PLUGIN_API enabled
 	//return static_cast<PluginView*>(widget)->bindingInstance();
-    return 0;
+    return nullptr;
 }
 
 } // namespace WebCore

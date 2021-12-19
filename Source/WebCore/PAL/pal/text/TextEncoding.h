@@ -28,6 +28,7 @@
 #include "UnencodableHandling.h"
 #include <wtf/URL.h>
 #include <wtf/text/StringView.h>
+#include "pal/ExportMacros.h"
 
 namespace PAL {
 

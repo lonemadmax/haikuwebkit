@@ -43,6 +43,7 @@
 #include "PageStorageSessionProvider.h"
 #include "PlatformStrategiesHaiku.h"
 #include "ProgressTrackerHaiku.h"
+#include "pal/text/UnencodableHandling.h"
 
 #include "WebCore/BackForwardController.h"
 #include "WebCore/CacheStorageProvider.h"
@@ -87,7 +88,6 @@
 #include "WebCore/ScriptController.h"
 #include "WebCore/Settings.h"
 #include "WebCore/SocketProvider.h"
-#include "WebCore/TextEncoding.h"
 #include "WebCore/UserContentController.h"
 #include <WebCore/WebLockRegistry.h>
 
@@ -193,7 +193,7 @@ void WebKitInitializeLogChannelsIfNecessary();
     WTF::initializeMainThread();
     ScriptController::initializeMainThread();
     WTF::AtomString::init();
-    WebCore::UTF8Encoding();
+    PAL::UTF8Encoding();
 
     WebVisitedLinkStore::setShouldTrackVisitedLinks(true);
 
@@ -504,13 +504,27 @@ BString BWebPage::MainFrameURL() const
 
 status_t BWebPage::GetContentsAsMHTML(BDataIO& output)
 {
-    RefPtr<SharedBuffer> buffer = MHTMLArchive::generateMHTMLData(fPage);
-    ssize_t size = output.Write(buffer->data(), buffer->size());
-    if (size < 0)
-        return size;
-    if ((size_t)size == buffer->size())
+    ssize_t size = 0;
+
+    WTF::Function<void(const WTF::Span<const uint8_t>&)> write = [&size, &output](const Span<const uint8_t>& span) {
+        if (size < 0)
+            return;
+        ssize_t tmpSize;
+        tmpSize += output.Write(span.data(), span.size());
+        if (tmpSize < 0)
+            size = tmpSize;
+        else if (tmpSize == span.size())
+            size += tmpSize;
+        else
+            size = -1;
+    };
+
+    RefPtr<FragmentedSharedBuffer> buffer = MHTMLArchive::generateMHTMLData(fPage);
+    buffer->forEachSegment(write);
+    if (size > 0)
         return B_OK;
-    return B_ERROR;
+    else
+        return B_ERROR;
 }
 
 // #pragma mark - BWebView API

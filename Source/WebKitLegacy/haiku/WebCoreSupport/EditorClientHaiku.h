@@ -134,7 +134,7 @@ public:
     void getGuessesForWord(const String& word, const String& context, const WebCore::VisibleSelection&, Vector<String>& guesses) override;
     void requestCheckingOfString(TextCheckingRequest&, const VisibleSelection& currentSelection) override;
 
-	WebCore::DOMPasteAccessResponse requestDOMPasteAccess(const String&) final { return WebCore::DOMPasteAccessResponse::DeniedForGesture;}
+	WebCore::DOMPasteAccessResponse requestDOMPasteAccess(DOMPasteAccessCategory, const String&) final { return WebCore::DOMPasteAccessResponse::DeniedForGesture;}
 
 	bool canShowFontPanel() const final { return false; }
 	void subFrameScrollPositionChanged() final {}

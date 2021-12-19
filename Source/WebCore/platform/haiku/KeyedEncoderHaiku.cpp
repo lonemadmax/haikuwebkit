@@ -50,7 +50,7 @@ RefPtr<WebCore::SharedBuffer> KeyedEncoderHaiku::finishEncoding()
 {
     class SharedBufferIO: public BDataIO {
         public:
-        SharedBufferIO(SharedBuffer* buffer)
+        SharedBufferIO(SharedBufferBuilder* buffer)
             : fBuffer(buffer)
         {
         }
@@ -61,15 +61,15 @@ RefPtr<WebCore::SharedBuffer> KeyedEncoderHaiku::finishEncoding()
         }
 
         private:
-            SharedBuffer* fBuffer;
+            SharedBufferBuilder* fBuffer;
     };
 
 
-    RefPtr<WebCore::SharedBuffer> buffer = SharedBuffer::create();
-    SharedBufferIO sio(buffer.get());
+    WebCore::SharedBufferBuilder buffer;
+    SharedBufferIO sio(&buffer);
     root.Flatten(&sio);
 
-    return buffer;
+    return buffer.takeAsContiguous();
 }
 
 void KeyedEncoderHaiku::encodeBytes(const String& key, const uint8_t* data, size_t size)

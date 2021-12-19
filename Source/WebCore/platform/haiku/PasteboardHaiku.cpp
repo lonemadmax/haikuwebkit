@@ -169,6 +169,10 @@ void WebCore::Pasteboard::write(WebCore::PasteboardImage const&)
     notImplemented();
 }
 
+void Pasteboard::write(const PasteboardBuffer&)
+{
+}
+
 void WebCore::Pasteboard::write(WebCore::PasteboardWebContent const& content)
 {
     AutoClipboardLocker locker(be_clipboard);
@@ -271,11 +275,11 @@ RefPtr<DocumentFragment> Pasteboard::documentFragment(Frame& frame, const Simple
 
     AutoClipboardLocker locker(be_clipboard);
     if (!locker.isLocked())
-        return 0;
+        return nullptr;
 
     BMessage* data = be_clipboard->Data();
     if (!data)
-        return 0;
+        return nullptr;
 
     const char* buffer = 0;
     ssize_t bufferLength;
@@ -292,7 +296,7 @@ RefPtr<DocumentFragment> Pasteboard::documentFragment(Frame& frame, const Simple
     }
 
     if (!allowPlainText)
-        return 0;
+        return nullptr;
 
     if (data->FindData("text/plain", B_MIME_TYPE, reinterpret_cast<const void**>(&buffer), &bufferLength) == B_OK) {
         BString plainText(buffer, bufferLength);
@@ -303,7 +307,7 @@ RefPtr<DocumentFragment> Pasteboard::documentFragment(Frame& frame, const Simple
             return fragment;
     }
 
-    return 0;
+    return nullptr;
 }
 
 bool Pasteboard::hasData()

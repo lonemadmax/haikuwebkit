@@ -30,7 +30,9 @@
 #include "config.h"	// WebCore/config.h
 #include "ChromeClientHaiku.h"
 
+#include <WebCore/CookieConsentDecisionResult.h>
 #include "WebCore/FileChooser.h"
+#include <WebCore/FileIconLoader.h>
 #include "WebCore/Frame.h"
 #include "WebCore/FrameLoader.h"
 #include "WebCore/FrameLoadRequest.h"
@@ -45,7 +47,6 @@
 
 #include "ColorChooserHaiku.h"
 #include "DateTimeChooserHaiku.h"
-#include <WebCore/FileIconLoader.h>
 #include "FrameLoaderClientHaiku.h"
 #include "WebFrame.h"
 #include "WebView.h"
@@ -535,6 +536,11 @@ WebCore::IntRect ChromeClientHaiku::rootViewToAccessibilityScreen(WebCore::IntRe
 std::unique_ptr<WebCore::DateTimeChooser> ChromeClientHaiku::createDateTimeChooser(WebCore::DateTimeChooserClient& client)
 {
     return std::make_unique<DateTimeChooserHaiku>(&client);
+}
+
+void ChromeClientHaiku::requestCookieConsent(CompletionHandler<void(CookieConsentDecisionResult)>&& completion)
+{
+    completion(CookieConsentDecisionResult::NotSupported);
 }
 
 } // namespace WebCore

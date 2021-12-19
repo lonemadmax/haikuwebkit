@@ -34,7 +34,7 @@
 #include "WebCore/ResourceRequest.h"
 #include "WebCore/ResourceResponse.h"
 #include "WebCore/SecurityOrigin.h"
-#include "TextEncoding.h"
+#include "pal/text/TextEncoding.h"
 #include "WebDownload.h"
 #include "WebPage.h"
 
@@ -77,7 +77,7 @@ void WebDownloadPrivate::didReceiveResponseAsync(ResourceHandle*, ResourceRespon
         	WTF::URL url(response.url());
             url.setQuery(String());
             url.removeFragmentIdentifier();
-            m_filename = WebCore::decodeURLEscapeSequences(url.lastPathComponent()).utf8().data();
+            m_filename = PAL::decodeURLEscapeSequences(url.lastPathComponent()).utf8().data();
         }
         if (response.mimeType().length()) {
         	// Do some checks, as no mime type yet is always better

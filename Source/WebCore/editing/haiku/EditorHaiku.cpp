@@ -124,5 +124,13 @@ RefPtr<DocumentFragment> Editor::webContentFromPasteboard(Pasteboard&, const Sim
     return nullptr;
 }
 
+void Editor::platformCopyFont()
+{
+}
+
+void Editor::platformPasteFont()
+{
+}
+
 } // namespace WebCore
 

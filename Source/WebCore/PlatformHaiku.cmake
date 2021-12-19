@@ -57,8 +57,6 @@ list(APPEND WebCore_SOURCES
   platform/haiku/TemporaryLinkStubs.cpp
   platform/haiku/WidgetHaiku.cpp
 
-  platform/posix/SharedBufferPOSIX.cpp
-
   platform/graphics/WOFFFileFormat.cpp
   platform/graphics/displaylists/DisplayListDrawGlyphsRecorderHaiku.cpp
 
