@@ -69,9 +69,4 @@ void WebPageProxy::loadRecentSearches(const String& name, CompletionHandler<void
     notImplemented();
 }
 
-void WebPageProxy::editorStateChanged(const EditorState& editorState)
-{
-    m_editorState = editorState;
-}
-
 }

@@ -42,12 +42,12 @@ IOChannel::~IOChannel()
 {
 }
 
-void IOChannel::read(size_t offset, size_t size, WorkQueue& queue, Function<void(Data&, int error)>&& completionHandler)
+void IOChannel::read(size_t offset, size_t size, WTF::WorkQueueBase& queue, Function<void(Data&, int error)>&& completionHandler)
 {
     notImplemented();
 }
 
-void IOChannel::write(size_t offset, const Data& data, WorkQueue& queue, Function<void(int error)>&& completionHandler)
+void IOChannel::write(size_t offset, const Data& data, WTF::WorkQueueBase& queue, Function<void(int error)>&& completionHandler)
 {
     notImplemented();
 }

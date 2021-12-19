@@ -104,5 +104,10 @@ bool screenIsMonochrome(Widget*)
     return screen.ColorSpace() == B_MONOCHROME_1_BIT;
 }
 
+DestinationColorSpace screenColorSpace(Widget*)
+{
+    return DestinationColorSpace::SRGB();
+}
+
 } // namespace WebCore
 

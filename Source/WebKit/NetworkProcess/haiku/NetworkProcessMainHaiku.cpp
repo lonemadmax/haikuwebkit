@@ -36,7 +36,7 @@ void initializeAuxiliaryProcess<NetworkProcess>(AuxiliaryProcessInitializationPa
     static NeverDestroyed<NetworkProcess> networkProcess(WTFMove(parameters));
 }
 
-int NetworkProcessMainUnix(int argc, char** argv)
+int NetworkProcessMain(int argc, char** argv)
 {
     return AuxiliaryProcessMain<NetworkProcess, AuxiliaryProcessMainBase>(argc, argv);
 }
