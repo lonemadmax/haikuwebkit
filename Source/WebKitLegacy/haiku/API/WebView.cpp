@@ -561,6 +561,7 @@ void BWebView::_ResizeOffscreenView(int width, int height)
     fOffscreenBitmap->Lock();
     fOffscreenBitmap->AddChild(fOffscreenView);
     fOffscreenView->SetDrawingMode(B_OP_COPY);
+    fOffscreenView->SetViewColor(B_TRANSPARENT_COLOR);
 
     if (oldBitmap) {
         // Transfer the old bitmap contents (just the visible part) and
