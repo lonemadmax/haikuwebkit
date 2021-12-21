@@ -71,7 +71,6 @@ public:
 	virtual	void				Show();
 	virtual	void				Hide();
 
-	virtual	void				Draw(BRect);
 	virtual	void				FrameResized(float width, float height);
 	virtual	void				GetPreferredSize(float* width, float* height);
 	virtual	void				MessageReceived(BMessage* message);
@@ -137,8 +136,6 @@ private:
                                     { return fOffscreenView; }
 			void				SetOffscreenViewClean(BRect cleanRect,
 									bool immediate);
-
-            bool                IsComposited();
 
 			void				EnterVideoFullscreenForVideoElement(WebCore::HTMLVideoElement& element);
 			void				ExitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement& element);

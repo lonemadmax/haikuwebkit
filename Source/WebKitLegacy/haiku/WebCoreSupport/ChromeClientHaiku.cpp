@@ -298,10 +298,6 @@ KeyboardUIMode ChromeClientHaiku::keyboardUIMode()
 
 void ChromeClientHaiku::invalidateRootView(const IntRect& rect)
 {
-    // This only invalidates the view, not the backing store.
-    BMessage message('inva');
-    message.AddRect("bounds", BRect(rect));
-    m_webView->Looper()->PostMessage(&message, m_webView);
 }
 
 void ChromeClientHaiku::invalidateContentsAndRootView(const IntRect& rect)
@@ -318,10 +314,7 @@ void ChromeClientHaiku::scroll(const IntSize& scrollDelta,
                                const IntRect& rectToScroll,
                                const IntRect& clipRect)
 {
-    if (!m_webView->IsComposited()) {
-        m_webPage->scroll(scrollDelta.width(), scrollDelta.height(),
-            rectToScroll, clipRect);
-    }
+    m_webPage->scroll(scrollDelta.width(), scrollDelta.height(), rectToScroll, clipRect);
 }
 
 #if USE(TILED_BACKING_STORE)

@@ -241,20 +241,6 @@ void BWebView::Hide()
     BView::Hide();
 }
 
-void BWebView::Draw(BRect rect)
-{
-    // Draw some stuff for the web inspector
-#if ENABLE(INSPECTOR)
-    if (fWebPage) {
-        WebCore::InspectorController& controller = fWebPage->page()->inspectorController();
-        if (controller.highlightedNode()) {
-            GraphicsContextHaiku g(this);
-            controller.drawHighlight(g);
-        }
-    }
-#endif
-}
-
 void BWebView::FrameResized(float width, float height)
 {
     _ResizeOffscreenView(width + 1, height + 1);
@@ -300,10 +286,6 @@ void BWebView::MessageReceived(BMessage* message)
     case kMsgNavigateArrow:
         message->what = B_KEY_DOWN;
         _DispatchKeyEvent(B_KEY_DOWN);
-        break;
-
-    case 'inva':
-        Invalidate(message->FindRect("bounds"));
         break;
 
 #if ENABLE(POINTER_LOCK)
@@ -504,17 +486,12 @@ void BWebView::SetRootLayer(WebCore::GraphicsLayer* layer)
 
 void BWebView::SetOffscreenViewClean(BRect cleanRect, bool immediate)
 {
-    if(!IsComposited() && LockLooper()) {
+    if(LockLooper()) {
         Invalidate(cleanRect);
         UnlockLooper();
     }
 }
 
-
-bool BWebView::IsComposited()
-{
-    return false;
-}
 
 void BWebView::EnterVideoFullscreenForVideoElement(HTMLVideoElement& videoElement)
 {
