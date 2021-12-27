@@ -818,9 +818,16 @@ void BWebPage::paint(BRect rect, bool immediate)
     fWebView->UnlockLooper();
     MainFrame()->Frame()->view()->flushCompositingStateIncludingSubframes();
 
+    offscreenView->PushState();
     BRegion region(rect);
-    internalPaint(offscreenView, view, &region);
+    offscreenView->ConstrainClippingRegion(&region);
 
+    // TODO do not recreate a context everytime this is called, we can preserve
+    // it alongside the offscreen view in BWebView?
+    WebCore::GraphicsContextHaiku context(offscreenView);
+    view->paint(context, IntRect(rect));
+
+    offscreenView->PopState();
     offscreenView->Sync();
     offscreenView->UnlockLooper();
 
@@ -828,23 +835,6 @@ void BWebPage::paint(BRect rect, bool immediate)
     fWebView->SetOffscreenViewClean(rect, immediate);
 
     fPageDirty = false;
-}
-
-
-void BWebPage::internalPaint(BView* offscreenView,
-                             WebCore::FrameView* frameView, BRegion* dirty)
-{
-    ASSERT(!frameView->needsLayout());
-
-    offscreenView->PushState();
-    offscreenView->ConstrainClippingRegion(dirty);
-
-    // TODO do not recreate a context everytime this is called, we can preserve
-    // it alongside the offscreen view in BWebView?
-    WebCore::GraphicsContextHaiku context(offscreenView);
-    frameView->paint(context, IntRect(dirty->Frame()));
-
-    offscreenView->PopState();
 }
 
 
@@ -876,12 +866,6 @@ void BWebPage::scroll(int xOffset, int yOffset, const BRect& rectToScroll,
     BRect rectAtSrc = rectToScroll;
     BRect rectAtDst = rectAtSrc.OffsetByCopy(xOffset, yOffset);
 
-    // remember the part that will be clean
-    BRegion repaintRegion(rectAtSrc);
-    repaintRegion.Exclude(rectAtDst);
-    BRegion clipRegion(clip);
-    repaintRegion.IntersectWith(&clipRegion);
-
     if (clip.Intersects(rectAtSrc) && clip.Intersects(rectAtDst)) {
         // clip source rect
         rectAtSrc = rectAtSrc & clip;
@@ -896,14 +880,6 @@ void BWebPage::scroll(int xOffset, int yOffset, const BRect& rectToScroll,
         offscreenView->CopyBits(rectAtSrc, rectAtDst);
     }
 
-    if (repaintRegion.Frame().IsValid()) {
-        WebCore::Frame* frame = fMainFrame->Frame();
-        WebCore::FrameView* view = frame->view();
-
-        internalPaint(offscreenView, view, &repaintRegion);
-    }
-
-    offscreenView->Sync();
     bitmap->Unlock();
 }
 

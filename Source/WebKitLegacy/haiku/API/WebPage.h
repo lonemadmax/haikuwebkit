@@ -143,7 +143,6 @@ private:
 	void keyEvent(const BMessage* message);
 	void standardShortcut(const BMessage* message);
 
-    void internalPaint(BView* offscree, WebCore::FrameView*, BRegion*);
     void scroll(int scrollDeltaX, int scrollDeltaY, const BRect& rectToScroll,
         const BRect& clipRect);
 
