@@ -273,14 +273,14 @@ static int showWebView;
 static int printTestCount;
 static int checkForWorldLeaks;
 static BOOL printSeparators;
+static std::set<std::string> allowedHosts;
+static std::string webCoreLogging;
 
 static RetainPtr<CFStringRef>& persistentUserStyleSheetLocation()
 {
     static NeverDestroyed<RetainPtr<CFStringRef>> persistentUserStyleSheetLocation;
     return persistentUserStyleSheetLocation;
 }
-
-static std::set<std::string> allowedHosts;
 
 static RetainPtr<WebHistoryItem>& prevTestBFItem()
 {
@@ -454,7 +454,7 @@ static NSSet *allowedFontFamilySet()
 
 static NSArray *fontAllowList()
 {
-    static auto availableFonts = makeNeverDestroyed([] {
+    static NeverDestroyed availableFonts = [] {
         auto availableFonts = adoptNS([[NSMutableArray alloc] init]);
         for (NSString *fontFamily in allowedFontFamilySet()) {
             NSArray* fontsForFamily = [[NSFontManager sharedFontManager] availableMembersOfFontFamily:fontFamily];
@@ -465,7 +465,7 @@ static NSArray *fontAllowList()
             }
         }
         return availableFonts;
-    }());
+    }();
     return availableFonts.get().get();
 }
 
@@ -1005,6 +1005,7 @@ static void initializeGlobalsFromCommandLineOptions(int argc, const char *argv[]
         {"show-webview", no_argument, &showWebView, YES},
         {"print-test-count", no_argument, &printTestCount, YES},
         {"world-leaks", no_argument, &checkForWorldLeaks, NO},
+        {"webcore-logging", required_argument, nullptr, 'w'},
         {nullptr, 0, nullptr, 0}
     };
 
@@ -1018,6 +1019,8 @@ static void initializeGlobalsFromCommandLineOptions(int argc, const char *argv[]
             case 'a': // "allowed-host"
                 allowedHosts.insert(optarg);
                 break;
+            case 'w': // "webcore-logging"
+                webCoreLogging = optarg;
         }
     }
 }
@@ -1125,6 +1128,9 @@ static void prepareConsistentTestingEnvironment()
     static NeverDestroyed<RetainPtr<id>> assertion = [[NSProcessInfo processInfo] beginActivityWithOptions:options reason:@"DumpRenderTree should not be subject to process suppression"];
     ASSERT_UNUSED(assertion, assertion.get());
 #endif
+
+    if (webCoreLogging.length())
+        [[NSUserDefaults standardUserDefaults] setValue:[NSString stringWithUTF8String:webCoreLogging.c_str()] forKey:@"WebCoreLogging"];
 }
 
 const char crashedMessage[] = "#CRASHED\n";

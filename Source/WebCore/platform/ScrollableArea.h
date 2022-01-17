@@ -111,6 +111,9 @@ public:
     virtual void didEndScroll() { }
     virtual void didUpdateScroll() { }
 #endif
+    
+    // "Stepped scrolling" is used by RenderListBox; it implies that scrollbar->pixelStep() is not 1 and never has rubberbanding.
+    virtual bool hasSteppedScrolling() const { return false; }
 
     ScrollClamping scrollClamping() const { return m_scrollClamping; }
     void setScrollClamping(ScrollClamping clamping) { m_scrollClamping = clamping; }
@@ -357,8 +360,8 @@ public:
     void verticalScrollbarLayerDidChange();
     void horizontalScrollbarLayerDidChange();
 
-    virtual bool mockScrollAnimatorEnabled() const { return false; }
-    virtual void logMockScrollAnimatorMessage(const String&) const { };
+    virtual bool mockScrollbarsControllerEnabled() const { return false; }
+    virtual void logMockScrollbarsControllerMessage(const String&) const { };
 
     virtual bool shouldPlaceVerticalScrollbarOnLeft() const = 0;
     

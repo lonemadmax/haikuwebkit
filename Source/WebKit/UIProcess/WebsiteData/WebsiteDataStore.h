@@ -237,6 +237,7 @@ public:
     bool isItpStateExplicitlySet() const { return m_isItpStateExplicitlySet; }
     void useExplicitITPState() { m_isItpStateExplicitlySet = true; }
 #endif
+    void closeDatabases(CompletionHandler<void()>&&);
     void syncLocalStorage(CompletionHandler<void()>&&);
     void setCacheMaxAgeCapForPrevalentResources(Seconds, CompletionHandler<void()>&&);
     void resetCacheMaxAgeCapForPrevalentResources(CompletionHandler<void()>&&);
@@ -370,10 +371,6 @@ public:
     void clearBundleIdentifierInNetworkProcess(CompletionHandler<void()>&&);
 
     void countNonDefaultSessionSets(CompletionHandler<void(size_t)>&&);
-
-#if PLATFORM(IOS_FAMILY)
-    void excludeDirectoryFromBackup(const String& directory);
-#endif
 
 private:
     enum class ForceReinitialization : bool { No, Yes };

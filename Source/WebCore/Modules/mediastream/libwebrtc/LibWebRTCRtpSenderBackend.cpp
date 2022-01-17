@@ -163,7 +163,7 @@ std::unique_ptr<RTCDtlsTransportBackend> LibWebRTCRtpSenderBackend::dtlsTranspor
     return backend ? makeUnique<LibWebRTCDtlsTransportBackend>(WTFMove(backend)) : nullptr;
 }
 
-void LibWebRTCRtpSenderBackend::setMediaStreamIds(const Vector<String>& streamIds)
+void LibWebRTCRtpSenderBackend::setMediaStreamIds(const FixedVector<String>& streamIds)
 {
     std::vector<std::string> ids;
     for (auto& id : streamIds)
@@ -190,16 +190,14 @@ bool LibWebRTCRtpSenderBackend::hasSource() const
 void LibWebRTCRtpSenderBackend::setSource(Source&& source)
 {
     stopSource();
-    m_source = WTFMove(source);
+    m_source = std::exchange(source, nullptr);
     startSource();
 }
 
 void LibWebRTCRtpSenderBackend::takeSource(LibWebRTCRtpSenderBackend& backend)
 {
     ASSERT(backend.hasSource());
-    stopSource();
-    m_source = WTFMove(backend.m_source);
-    backend.m_source = nullptr;
+    setSource(WTFMove(backend.m_source));
 }
 
 } // namespace WebCore

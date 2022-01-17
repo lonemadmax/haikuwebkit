@@ -135,10 +135,6 @@ static bool canCacheFrame(Frame& frame, DiagnosticLoggingClient& diagnosticLoggi
         logBackForwardCacheFailureDiagnosticMessage(diagnosticLoggingClient, DiagnosticLoggingKeys::isErrorPageKey());
         isCacheable = false;
     }
-    if (frameLoader.subframeLoader().containsPlugins() && !frame.page()->settings().backForwardCacheSupportsPlugins()) {
-        PCLOG("   -Frame contains plugins");
-        isCacheable = false;
-    }
     if (frame.isMainFrame() && frame.document() && frame.document()->url().protocolIs("https") && documentLoader->response().cacheControlContainsNoStore()) {
         PCLOG("   -Frame is HTTPS, and cache control prohibits storing");
         logBackForwardCacheFailureDiagnosticMessage(diagnosticLoggingClient, DiagnosticLoggingKeys::httpsNoStoreKey());
@@ -388,10 +384,9 @@ static String pruningReasonToDiagnosticLoggingKey(PruningReason pruningReason)
 
 static void setBackForwardCacheState(Page& page, Document::BackForwardCacheState BackForwardCacheState)
 {
-    for (Frame* frame = &page.mainFrame(); frame; frame = frame->tree().traverseNext()) {
-        if (auto* document = frame->document())
-            document->setBackForwardCacheState(BackForwardCacheState);
-    }
+    page.forEachDocument([&] (Document& document) {
+        document.setBackForwardCacheState(BackForwardCacheState);
+    });
 }
 
 // When entering back/forward cache, tear down the render tree before setting the in-cache flag.

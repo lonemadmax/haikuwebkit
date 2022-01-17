@@ -1,7 +1,7 @@
 /*
  * (C) 1999 Lars Knoll (knoll@kde.org)
  * (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2021 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Andrew Wellington (proton@wiretapped.net)
  * Copyright (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  *
@@ -47,6 +47,7 @@
 #include "RenderCombineText.h"
 #include "RenderInline.h"
 #include "RenderLayer.h"
+#include "RenderTextInlines.h"
 #include "RenderView.h"
 #include "RenderedDocumentMarker.h"
 #include "SVGElementTypeHelpers.h"
@@ -190,7 +191,7 @@ inline RenderText::RenderText(Node& node, const String& text)
     : RenderObject(node)
     , m_hasTab(false)
     , m_linesDirty(false)
-    , m_containsBidiText(false)
+    , m_needsVisualReordering(false)
     , m_isAllASCII(text.impl()->isAllASCII())
     , m_knownToHaveNoOverflowAndNoFallbackFonts(false)
     , m_useBackslashAsYenSymbol(false)
@@ -717,6 +718,13 @@ ALWAYS_INLINE float RenderText::widthFromCache(const FontCascade& f, unsigned st
     return f.width(run, fallbackFonts, glyphOverflow);
 }
 
+ALWAYS_INLINE float RenderText::widthFromCacheConsideringPossibleTrailingSpace(const RenderStyle& style, const FontCascade& font, unsigned startIndex, unsigned wordLen, float xPos, bool currentCharacterIsSpace, WordTrailingSpace& wordTrailingSpace, HashSet<const Font*>& fallbackFonts, GlyphOverflow& glyphOverflow) const
+{
+    return measureTextConsideringPossibleTrailingSpace(currentCharacterIsSpace, startIndex, wordLen, wordTrailingSpace, fallbackFonts, [&] (unsigned from, unsigned len) {
+        return widthFromCache(font, from, len, xPos, &fallbackFonts, &glyphOverflow, style);
+    });
+}
+
 inline bool isHangablePunctuationAtLineStart(UChar c)
 {
     return U_GET_GC_MASK(c) & (U_GC_PS_MASK | U_GC_PI_MASK | U_GC_PF_MASK);
@@ -924,9 +932,9 @@ static inline float hyphenWidth(RenderText& renderer, const FontCascade& font)
     return font.width(textRun);
 }
 
-static float maxWordFragmentWidth(RenderText& renderer, const RenderStyle& style, const FontCascade& font, StringView word, unsigned minimumPrefixLength, unsigned minimumSuffixLength, unsigned& suffixStart, HashSet<const Font*>& fallbackFonts, GlyphOverflow& glyphOverflow)
+float RenderText::maxWordFragmentWidth(const RenderStyle& style, const FontCascade& font, StringView word, unsigned minimumPrefixLength, unsigned minimumSuffixLength, bool currentCharacterIsSpace, unsigned characterIndex, float xPos, float entireWordWidth, WordTrailingSpace& wordTrailingSpace, HashSet<const Font*>& fallbackFonts, GlyphOverflow& glyphOverflow)
 {
-    suffixStart = 0;
+    unsigned suffixStart = 0;
     if (word.length() <= minimumSuffixLength)
         return 0;
 
@@ -941,8 +949,13 @@ static float maxWordFragmentWidth(RenderText& renderer, const RenderStyle& style
 
     hyphenLocations.reverse();
 
-    // FIXME: Breaking the string at these places in the middle of words is completely broken with complex text.
-    float minimumFragmentWidthToConsider = font.pixelSize() * 5 / 4 + hyphenWidth(renderer, font);
+    // Consider the word "ABC-DEF-GHI" (where the '-' characters are hyphenation opportunities). We want to measure the width
+    // of "ABC-" and "DEF-", but not "GHI-". Instead, we should measure "GHI" the same way we measure regular unhyphenated
+    // words (by using wordTrailingSpace). Therefore, this function is split up into two parts - one that measures each prefix,
+    // and one that measures the single last suffix.
+
+    // FIXME: Breaking the string at these places in the middle of words doesn't work with complex text.
+    float minimumFragmentWidthToConsider = font.pixelSize() * 5 / 4 + hyphenWidth(*this, font);
     float maxFragmentWidth = 0;
     for (size_t k = 0; k < hyphenLocations.size(); ++k) {
         int fragmentLength = hyphenLocations[k] - suffixStart;
@@ -951,7 +964,7 @@ static float maxWordFragmentWidth(RenderText& renderer, const RenderStyle& style
         fragmentWithHyphen.append(style.hyphenString());
 
         TextRun run = RenderBlock::constructTextRun(fragmentWithHyphen.toString(), style);
-        run.setCharacterScanForCodePath(!renderer.canUseSimpleFontCodePath());
+        run.setCharacterScanForCodePath(!canUseSimpleFontCodePath());
         float fragmentWidth = font.width(run, &fallbackFonts, &glyphOverflow);
 
         // Narrow prefixes are ignored. See tryHyphenating in RenderBlockLineLayout.cpp.
@@ -962,7 +975,14 @@ static float maxWordFragmentWidth(RenderText& renderer, const RenderStyle& style
         maxFragmentWidth = std::max(maxFragmentWidth, fragmentWidth);
     }
 
-    return maxFragmentWidth;
+    if (!suffixStart) {
+        // We didn't find any hyphenation opportunities that we're willing to actually use.
+        // Therefore, the width of the maximum fragment is just ... the width of the entire word.
+        return entireWordWidth;
+    }
+
+    auto suffixWidth = widthFromCacheConsideringPossibleTrailingSpace(style, font, characterIndex + suffixStart, word.length() - suffixStart, xPos, currentCharacterIsSpace, wordTrailingSpace, fallbackFonts, glyphOverflow);
+    return std::max(maxFragmentWidth, suffixWidth);
 }
 
 void RenderText::computePreferredLogicalWidths(float leadWidth, HashSet<const Font*>& fallbackFonts, GlyphOverflow& glyphOverflow)
@@ -1095,38 +1115,14 @@ void RenderText::computePreferredLogicalWidths(float leadWidth, HashSet<const Fo
         if (wordLen) {
             float currMinWidth = 0;
             bool isSpace = (j < length) && isSpaceAccordingToStyle(c, style);
-            float w;
-            std::optional<float> wordTrailingSpaceWidth;
-            if (isSpace)
-                wordTrailingSpaceWidth = wordTrailingSpace.width(fallbackFonts);
-            if (wordTrailingSpaceWidth)
-                w = widthFromCache(font, i, wordLen + 1, leadWidth + currMaxWidth, &fallbackFonts, &glyphOverflow, style) - wordTrailingSpaceWidth.value();
-            else {
-                w = widthFromCache(font, i, wordLen, leadWidth + currMaxWidth, &fallbackFonts, &glyphOverflow, style);
-                if (c == softHyphen && style.hyphens() != Hyphens::None)
-                    currMinWidth = hyphenWidth(*this, font);
-            }
+            float w = widthFromCacheConsideringPossibleTrailingSpace(style, font, i, wordLen, leadWidth + currMaxWidth, isSpace, wordTrailingSpace, fallbackFonts, glyphOverflow);
+            if (c == softHyphen && style.hyphens() != Hyphens::None)
+                currMinWidth = hyphenWidth(*this, font);
 
             if (w > maxWordWidth) {
-                unsigned suffixStart;
-                float maxFragmentWidth = maxWordFragmentWidth(*this, style, font, StringView(string).substring(i, wordLen), minimumPrefixLength, minimumSuffixLength, suffixStart, fallbackFonts, glyphOverflow);
-
-                if (suffixStart) {
-                    float suffixWidth;
-                    std::optional<float> wordTrailingSpaceWidth;
-                    if (isSpace)
-                        wordTrailingSpaceWidth = wordTrailingSpace.width(fallbackFonts);
-                    if (wordTrailingSpaceWidth)
-                        suffixWidth = widthFromCache(font, i + suffixStart, wordLen - suffixStart + 1, leadWidth + currMaxWidth, 0, 0, style) - wordTrailingSpaceWidth.value();
-                    else
-                        suffixWidth = widthFromCache(font, i + suffixStart, wordLen - suffixStart, leadWidth + currMaxWidth, 0, 0, style);
-
-                    maxFragmentWidth = std::max(maxFragmentWidth, suffixWidth);
-
-                    currMinWidth += maxFragmentWidth - w;
-                    maxWordWidth = std::max(maxWordWidth, maxFragmentWidth);
-                } else
-                    maxWordWidth = w;
+                auto maxFragmentWidth = maxWordFragmentWidth(style, font, StringView(string).substring(i, wordLen), minimumPrefixLength, minimumSuffixLength, isSpace, i, leadWidth + currMaxWidth, w, wordTrailingSpace, fallbackFonts, glyphOverflow);
+                currMinWidth += maxFragmentWidth - w; // This, when combined with "currMinWidth += w" below, has the effect of executing "currMinWidth += maxFragmentWidth" instead.
+                maxWordWidth = std::max(maxWordWidth, maxFragmentWidth);
             }
 
             if (!firstGlyphLeftOverflow)
@@ -1521,7 +1517,7 @@ void RenderText::positionLineBox(LegacyInlineTextBox& textBox)
 {
     if (!textBox.hasTextContent())
         return;
-    m_containsBidiText |= !textBox.isLeftToRightDirection();
+    m_needsVisualReordering |= !textBox.isLeftToRightDirection();
 }
 
 bool RenderText::usesLegacyLineLayoutPath() const

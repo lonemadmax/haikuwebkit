@@ -634,35 +634,6 @@ RenderPtr<RenderObject> RenderElement::detachRendererInternal(RenderObject& rend
     return RenderPtr<RenderObject>(&renderer);
 }
 
-static inline RenderBlock* nearestNonAnonymousContainingBlockIncludingSelf(RenderElement* renderer)
-{
-    while (renderer && (!is<RenderBlock>(*renderer) || renderer->isAnonymousBlock()))
-        renderer = renderer->containingBlock();
-    return downcast<RenderBlock>(renderer);
-}
-
-RenderBlock* RenderElement::containingBlockForFixedPosition() const
-{
-    auto* ancestor = parent();
-    while (ancestor && !ancestor->canContainFixedPositionObjects())
-        ancestor = ancestor->parent();
-    return nearestNonAnonymousContainingBlockIncludingSelf(ancestor);
-}
-
-RenderBlock* RenderElement::containingBlockForAbsolutePosition() const
-{
-    if (is<RenderInline>(*this) && style().position() == PositionType::Relative) {
-        // A relatively positioned RenderInline forwards its absolute positioned descendants to
-        // its nearest non-anonymous containing block (to avoid having positioned objects list in RenderInlines).
-        return nearestNonAnonymousContainingBlockIncludingSelf(parent());
-    }
-    auto* ancestor = parent();
-    while (ancestor && !ancestor->canContainAbsolutelyPositionedObjects())
-        ancestor = ancestor->parent();
-    // Make sure we only return non-anonymous RenderBlock as containing block.
-    return nearestNonAnonymousContainingBlockIncludingSelf(ancestor);
-}
-
 static void addLayers(RenderElement& renderer, RenderLayer* parentLayer, RenderElement*& newObject, RenderLayer*& beforeChild)
 {
     if (renderer.hasLayer()) {
@@ -1590,7 +1561,7 @@ Color RenderElement::selectionForegroundColor() const
 
 Color RenderElement::selectionEmphasisMarkColor() const
 {
-    return selectionColor(CSSPropertyWebkitTextEmphasisColor);
+    return selectionColor(CSSPropertyTextEmphasisColor);
 }
 
 Color RenderElement::selectionBackgroundColor() const
@@ -1612,12 +1583,8 @@ Color RenderElement::selectionBackgroundColor() const
 
 bool RenderElement::getLeadingCorner(FloatPoint& point, bool& insideFixed) const
 {
-    // When scrolling elements into view, ignore sticky offsets and scroll to the static
-    // position of the element. See: https://drafts.csswg.org/css-position/#stickypos-scroll.
-    OptionSet<MapCoordinatesMode> localToAbsoluteMode { UseTransforms, IgnoreStickyOffsets };
-
     if (!isInline() || isReplaced()) {
-        point = localToAbsolute(FloatPoint(), localToAbsoluteMode, &insideFixed);
+        point = localToAbsolute(FloatPoint(), UseTransforms, &insideFixed);
         return true;
     }
 
@@ -1643,7 +1610,7 @@ bool RenderElement::getLeadingCorner(FloatPoint& point, bool& insideFixed) const
         ASSERT(o);
 
         if (!o->isInline() || o->isReplaced()) {
-            point = o->localToAbsolute(FloatPoint(), localToAbsoluteMode, &insideFixed);
+            point = o->localToAbsolute(FloatPoint(), UseTransforms, &insideFixed);
             return true;
         }
 
@@ -1657,7 +1624,7 @@ bool RenderElement::getLeadingCorner(FloatPoint& point, bool& insideFixed) const
                     point.move(textRenderer.linesBoundingBox().x(), run->line()->top());
             } else if (is<RenderBox>(*o))
                 point.moveBy(downcast<RenderBox>(*o).location());
-            point = o->container()->localToAbsolute(point, localToAbsoluteMode, &insideFixed);
+            point = o->container()->localToAbsolute(point, UseTransforms, &insideFixed);
             return true;
         }
     }
@@ -1673,12 +1640,8 @@ bool RenderElement::getLeadingCorner(FloatPoint& point, bool& insideFixed) const
 
 bool RenderElement::getTrailingCorner(FloatPoint& point, bool& insideFixed) const
 {
-    // When scrolling elements into view, ignore sticky offsets and scroll to the static
-    // position of the element. See: https://drafts.csswg.org/css-position/#stickypos-scroll.
-    OptionSet<MapCoordinatesMode> localToAbsoluteMode { UseTransforms, IgnoreStickyOffsets };
-
     if (!isInline() || isReplaced()) {
-        point = localToAbsolute(LayoutPoint(downcast<RenderBox>(*this).size()), localToAbsoluteMode, &insideFixed);
+        point = localToAbsolute(LayoutPoint(downcast<RenderBox>(*this).size()), UseTransforms, &insideFixed);
         return true;
     }
 
@@ -1709,7 +1672,7 @@ bool RenderElement::getTrailingCorner(FloatPoint& point, bool& insideFixed) cons
                 point.moveBy(linesBox.maxXMaxYCorner());
             } else
                 point.moveBy(downcast<RenderBox>(*o).frameRect().maxXMaxYCorner());
-            point = o->container()->localToAbsolute(point, localToAbsoluteMode, &insideFixed);
+            point = o->container()->localToAbsolute(point, UseTransforms, &insideFixed);
             return true;
         }
     }

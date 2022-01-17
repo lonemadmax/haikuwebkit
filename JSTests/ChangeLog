@@ -1,3 +1,170 @@
+2022-01-07  Alexey Shvayka  <ashvayka@apple.com>
+
+        Expand the set of objects we take JSArray::fastSlice() path for
+        https://bugs.webkit.org/show_bug.cgi?id=234539
+
+        Reviewed by Yusuke Suzuki.
+
+        * microbenchmarks/array-slice-call-cloned-arguments.js: Added.
+        * stress/array-slice-beyond-length.js: Added.
+        * stress/array-slice-length-lookup.js: Added.
+
+2022-01-06  Saam Barati  <sbarati@apple.com>
+
+        preparePatchpointForExceptions needs to handle tuples
+        https://bugs.webkit.org/show_bug.cgi?id=234909
+
+        Reviewed by Yusuke Suzuki.
+
+        Add support to the builder to have functions return tuples.
+
+        * wasm/Builder.js:
+        (const._normalizeFunctionSignature):
+        (const._maybeRegisterType):
+        * wasm/Builder_WebAssemblyBinary.js:
+        (const.emitters.Type):
+        * wasm/stress/exception-throw-from-function-returning-tuple.js: Added.
+        (import.Builder.from.string_appeared_here.import.as.assert.from.string_appeared_here.testCatchWithExceptionThrownFromFunctionReturningTuple):
+
+2022-01-03  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Array.prototype.toLocaleString does not respect deletion of Object.prototype.toLocaleString
+        https://bugs.webkit.org/show_bug.cgi?id=232723
+
+        Reviewed by Alexey Shvayka.
+
+        * ChakraCore/test/Array/toLocaleString.baseline-jsc:
+        * stress/array-tolocalestring-delete-tolocalestring.js: Added.
+        (shouldThrow):
+        * stress/array-tolocalestring-empty-separator.js: Added.
+        (shouldBe):
+        * stress/array-tolocalestring-options.js: Added.
+        (shouldBe):
+        * stress/array-tolocalestring-undefined-null.js: Added.
+        (shouldBe):
+        (shouldBe.toLocaleString):
+
+2022-01-03  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix Intl.PluralRules.selectRange input validation
+        https://bugs.webkit.org/show_bug.cgi?id=234817
+
+        Reviewed by Alexey Shvayka.
+
+        * stress/intl-pluralrules-select-range-validate-inputs.js: Added.
+        (shouldThrow):
+        (Intl.PluralRules.prototype.selectRange.shouldThrow):
+
+2022-01-03  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Update UCD to Unicode 14.0.0
+        https://bugs.webkit.org/show_bug.cgi?id=234811
+
+        Reviewed by Sam Weinig.
+
+        * test262/expectations.yaml:
+
+2022-01-03  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Read-modify-write operation's second put-to-scope should not throw error if binding does not exist
+        https://bugs.webkit.org/show_bug.cgi?id=234813
+
+        Reviewed by Alexey Shvayka.
+
+        * stress/global-object-read-modify-write-remove-at-get-strict.js: Added.
+        (shouldThrow):
+        * stress/global-object-read-modify-write-remove-at-get.js: Added.
+        (shouldBe):
+        * test262/expectations.yaml:
+
+2022-01-03  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix length of Intl.NumberFormat.formatRange and Intl.PluralRules.selectRange
+        https://bugs.webkit.org/show_bug.cgi?id=234806
+
+        Reviewed by Alexey Shvayka.
+
+        * stress/intl-numberformat-format-range-v3.js:
+        (nf.formatRange.nf.formatRangeToParts.methods.forEach):
+        * stress/intl-pluralrules-selectrange.js:
+
+2022-01-03  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Update test262
+        https://bugs.webkit.org/show_bug.cgi?id=234807
+
+        Reviewed by Alexey Shvayka.
+
+        * test262/config.yaml:
+        * test262/expectations.yaml:
+        * test262/test262-Revision.txt:
+
+2022-01-02  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Use emitPutProperty / emitGetPropertyValue consistently to handle private names in edge cases
+        https://bugs.webkit.org/show_bug.cgi?id=234794
+
+        Reviewed by Alexey Shvayka.
+
+        * test262/expectations.yaml:
+
+2021-12-22  Saam Barati  <sbarati@apple.com>
+
+        LLInt should loop OSR into BBQ and BBQ should loop OSR into OMG
+        https://bugs.webkit.org/show_bug.cgi?id=234542
+
+        Reviewed by Yusuke Suzuki.
+
+        * wasm/wast-tests/harness.js:
+
+2021-12-19  Ross Kirsling  <ross.kirsling@sony.com>
+
+        [JSC] OpPow should have a "small int exponent" fast path at lower tiers
+        https://bugs.webkit.org/show_bug.cgi?id=234408
+
+        Reviewed by Yusuke Suzuki.
+
+        * microbenchmarks/pow-double-int.js: Added.
+        * microbenchmarks/pow-int-int.js: Added.
+
+2021-12-16  Devin Rousso  <drousso@apple.com>
+
+        Implement Array.prototype.groupBy and Array.prototype.groupByToMap
+        https://bugs.webkit.org/show_bug.cgi?id=234327
+
+        Reviewed by Yusuke Suzuki.
+
+        * stress/array-groupBy.js: Added.
+        (shouldBe):
+        (shouldBeObject):
+        (shouldBeObject.replacer):
+        (notReached):
+        (toObject):
+        (reverseInsertionOrder):
+        * stress/array-groupByToMap.js: Added.
+        (shouldBe):
+        (shouldBeObject):
+        (shouldBeObject.replacer):
+        (shouldBeMap):
+        (notReached):
+        (toObject):
+        (reverseInsertionOrder):
+
+2021-12-15  Joseph Griego  <jgriego@igalia.com>
+
+        [Shadow Realms] Wrapped functions must only throw TypeError from calling realm
+        https://bugs.webkit.org/show_bug.cgi?id=234357
+
+        Test the cases when the exception would be thrown by a function
+        originating from both the shadow realm and the incubating realm.
+
+        Reviewed by Yusuke Suzuki.
+
+        * stress/shadow-realm-evaluate.js:
+        (shouldBe):
+        (let.f.realm.evaluate):
+        (shouldBe.f):
+
 2021-12-13  Yusuke Suzuki  <ysuzuki@apple.com>
 
         [JSC] Update Intl tests based on ICU 69~

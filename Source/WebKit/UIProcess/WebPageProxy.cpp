@@ -85,7 +85,6 @@
 #include "ProcessThrottler.h"
 #include "ProvisionalPageProxy.h"
 #include "SafeBrowsingWarning.h"
-#include "SharedBufferDataReference.h"
 #include "SpeechRecognitionPermissionManager.h"
 #include "SpeechRecognitionRemoteRealtimeMediaSource.h"
 #include "SpeechRecognitionRemoteRealtimeMediaSourceManager.h"
@@ -169,6 +168,7 @@
 #include <WebCore/LengthBox.h>
 #include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/MediaStreamRequest.h>
+#include <WebCore/ModalContainerTypes.h>
 #include <WebCore/PerformanceLoggingClient.h>
 #include <WebCore/PermissionState.h>
 #include <WebCore/PlatformEvent.h>
@@ -221,11 +221,12 @@
 #include "VideoFullscreenManagerProxy.h"
 #include "VideoFullscreenManagerProxyMessages.h"
 #include <WebCore/AttributedString.h>
+#include <WebCore/CoreAudioCaptureDeviceManager.h>
 #include <WebCore/RunLoopObserver.h>
 #include <WebCore/SystemBattery.h>
-#include <WebCore/VersionChecks.h>
 #include <wtf/MachSendRight.h>
 #include <wtf/cocoa/Entitlements.h>
+#include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #endif
 
 #if PLATFORM(MAC)
@@ -277,10 +278,6 @@
 #include "SOAuthorizationCoordinator.h"
 #endif
 
-#if USE(DIRECT2D)
-#include <d3d11_1.h>
-#endif
-
 #if PLATFORM(IOS_FAMILY) && ENABLE(DEVICE_ORIENTATION)
 #include "WebDeviceOrientationUpdateProviderProxy.h"
 #endif
@@ -313,9 +310,6 @@
 #if ENABLE(APP_HIGHLIGHTS)
 #include <WebCore/HighlightVisibility.h>
 #endif
-
-// This controls what strategy we use for mouse wheel coalescing.
-#define MERGE_WHEEL_EVENTS 1
 
 #define MESSAGE_CHECK(process, assertion) MESSAGE_CHECK_BASE(assertion, process->connection())
 #define MESSAGE_CHECK_URL(process, url) MESSAGE_CHECK_BASE(checkURLReceivedFromCurrentOrPreviousWebProcess(process, url), process->connection())
@@ -1328,7 +1322,7 @@ void WebPageProxy::maybeInitializeSandboxExtensionHandle(WebProcessProxy& proces
     }
 
 #if PLATFORM(COCOA)
-    if (!linkedOnOrAfter(WebCore::SDKVersion::FirstWithoutUnconditionalUniversalSandboxExtension))
+    if (!linkedOnOrAfter(SDKVersion::FirstWithoutUnconditionalUniversalSandboxExtension))
         willAcquireUniversalFileReadSandboxExtension(process);
 #endif
 
@@ -1424,7 +1418,8 @@ void WebPageProxy::loadRequestWithNavigationShared(Ref<WebProcessProxy>&& proces
 
     addPlatformLoadParameters(process, loadParameters);
 
-    preconnectTo(url);
+    if (shouldTreatAsContinuingLoad == ShouldTreatAsContinuingLoad::No)
+        preconnectTo(url);
 
     navigation.setIsLoadedWithNavigationShared(true);
 
@@ -2637,7 +2632,7 @@ void WebPageProxy::makeViewBlankIfUnpaintedSinceLastLoadCommit()
 {
     if (!m_hasUpdatedRenderingAfterDidCommitLoad) {
 #if PLATFORM(COCOA)
-        static bool shouldMakeViewBlank = linkedOnOrAfter(WebCore::SDKVersion::FirstWithBlankViewOnJSPrompt);
+        static bool shouldMakeViewBlank = linkedOnOrAfter(SDKVersion::FirstWithBlankViewOnJSPrompt);
 #else
         static bool shouldMakeViewBlank = true;
 #endif
@@ -4396,10 +4391,14 @@ void WebPageProxy::getSamplingProfilerOutput(CompletionHandler<void(const String
     sendWithAsyncReply(Messages::WebPage::GetSamplingProfilerOutput(), WTFMove(callback));
 }
 
-static CompletionHandler<void(const std::optional<IPC::DataReference>& data)> toAPIDataCallback(CompletionHandler<void(API::Data*)>&& callback)
+static CompletionHandler<void(const std::optional<IPC::SharedBufferCopy>& data)> toAPIDataCallback(CompletionHandler<void(API::Data*)>&& callback)
 {
-    return [callback = WTFMove(callback)] (const std::optional<IPC::DataReference>& data) mutable {
-        callback(data ? API::Data::create(data->data(), data->size()).ptr() : nullptr);
+    return [callback = WTFMove(callback)] (const std::optional<IPC::SharedBufferCopy>& data) mutable {
+        if (!data) {
+            callback(nullptr);
+            return;
+        }
+        callback(API::Data::create(data->data(), data->size()).ptr());
     };
 }
 
@@ -5845,13 +5844,21 @@ void WebPageProxy::createNewPage(FrameInfoData&& originatingFrameInfoData, WebPa
     auto* originatingPage = m_process->webPage(originatingPageID);
     auto originatingFrameInfo = API::FrameInfo::create(WTFMove(originatingFrameInfoData), originatingPage);
     auto mainFrameURL = m_mainFrame ? m_mainFrame->url() : URL();
-    auto completionHandler = [this, protectedThis = Ref { *this }, mainFrameURL, request, reply = WTFMove(reply), privateClickMeasurement = navigationActionData.privateClickMeasurement] (RefPtr<WebPageProxy> newPage) mutable {
+
+    std::optional<bool> openerAppInitiatedState;
+    if (originatingPage)
+        openerAppInitiatedState = originatingPage->lastNavigationWasAppInitiated();
+
+    auto completionHandler = [this, protectedThis = Ref { *this }, mainFrameURL, request, reply = WTFMove(reply), privateClickMeasurement = navigationActionData.privateClickMeasurement, openerAppInitiatedState = WTFMove(openerAppInitiatedState)] (RefPtr<WebPageProxy> newPage) mutable {
         if (!newPage) {
             reply(std::nullopt, std::nullopt);
             return;
         }
 
         newPage->setOpenedByDOM();
+
+        if (openerAppInitiatedState)
+            newPage->m_lastNavigationWasAppInitiated = *openerAppInitiatedState;
 
         reply(newPage->webPageID(), newPage->creationParameters(m_process, *newPage->drawingArea()));
 
@@ -8049,23 +8056,25 @@ void WebPageProxy::resetStateAfterProcessExited(ProcessTerminationReason termina
 }
 
 #if ENABLE(ATTACHMENT_ELEMENT) && PLATFORM(COCOA)
-static const Vector<ASCIILiteral>& attachmentElementServices()
+
+static Span<const ASCIILiteral> attachmentElementServices()
 {
-    static const auto services = makeNeverDestroyed(Vector<ASCIILiteral> {
+    static constexpr std::array services {
         "com.apple.iconservices"_s,
 #if PLATFORM(MAC)
         "com.apple.iconservices.store"_s,
 #endif
-    });
+    };
     return services;
 }
+
 #endif
 
 #if PLATFORM(COCOA)
-static const Vector<ASCIILiteral>& gpuIOKitClasses()
+
+static Span<const ASCIILiteral> gpuIOKitClasses()
 {
-    ASSERT(isMainRunLoop());
-    static const auto services = makeNeverDestroyed(Vector<ASCIILiteral> {
+    static constexpr std::array services {
 #if PLATFORM(IOS_FAMILY)
         "AGXDeviceUserClient"_s,
         "IOGPU"_s,
@@ -8086,33 +8095,32 @@ static const Vector<ASCIILiteral>& gpuIOKitClasses()
         "IOAudioEngineUserClient"_s,
         "IOSurfaceRootUserClient"_s,
 #endif
+        // FIXME: Is this also needed in PLATFORM(MACCATALYST)?
 #if PLATFORM(MAC) && CPU(ARM64)
         "IOMobileFramebufferUserClient"_s,
 #endif
-#if PLATFORM(MAC) && CPU(ARM64) || PLATFORM(IOS_FAMILY)
+#if (PLATFORM(MAC) && CPU(ARM64)) || PLATFORM(IOS_FAMILY)
         "IOSurfaceAcceleratorClient"_s,
 #endif
-    });
+    };
     return services;
 }
 
-static const Vector<ASCIILiteral>& gpuMachServices()
+static Span<const ASCIILiteral> gpuMachServices()
 {
-    ASSERT(isMainRunLoop());
-    static const auto services = makeNeverDestroyed(Vector<ASCIILiteral> {
+    static constexpr std::array services {
         "com.apple.MTLCompilerService"_s,
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
         "com.apple.cvmsServ"_s,
 #endif
-    });
+    };
     return services;
 }
 
 // FIXME(207716): The following should be removed when the GPU process is complete.
-static const Vector<ASCIILiteral>& mediaRelatedMachServices()
+static Span<const ASCIILiteral> mediaRelatedMachServices()
 {
-    ASSERT(isMainRunLoop());
-    static const auto services = makeNeverDestroyed(Vector<ASCIILiteral> {
+    static constexpr std::array services {
         "com.apple.audio.AudioComponentPrefs"_s, "com.apple.audio.AudioComponentRegistrar"_s,
         "com.apple.audio.AudioQueueServer"_s, "com.apple.coremedia.endpoint.xpc"_s,
         "com.apple.coremedia.routediscoverer.xpc"_s, "com.apple.coremedia.routingcontext.xpc"_s,
@@ -8140,26 +8148,30 @@ static const Vector<ASCIILiteral>& mediaRelatedMachServices()
         "com.apple.audio.audiohald"_s, "com.apple.audio.SandboxHelper"_s, "com.apple.coremedia.endpointstream.xpc"_s, "com.apple.coremedia.endpointplaybacksession.xpc"_s,
         "com.apple.coremedia.endpointremotecontrolsession.xpc"_s, "com.apple.coremedia.videodecoder"_s,
         "com.apple.coremedia.videoencoder"_s, "com.apple.lskdd"_s, "com.apple.trustd.agent"_s,
+#endif
+        // FIXME: Is this also needed in PLATFORM(MACCATALYST)?
 #if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED > 120000
         "com.apple.coremedia.samplebufferconsumer.xpc"_s,
 #endif
-#endif
-    });
+    };
     return services;
 }
 
-static const Vector<ASCIILiteral>& mediaRelatedIOKitClasses()
+static Span<const ASCIILiteral> mediaRelatedIOKitClasses()
 {
-    static const auto services = makeNeverDestroyed(Vector<ASCIILiteral> {
-#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+#if !(PLATFORM(MAC) || PLATFORM(MACCATALYST))
+    return { };
+#else
+    static constexpr std::array services {
 #if CPU(ARM64)
         "AppleAVDUserClient"_s,
 #endif
         "RootDomainUserClient"_s,
-#endif
-    });
+    };
     return services;
+#endif
 }
+
 #endif
 
 WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& process, DrawingAreaProxy& drawingArea, RefPtr<API::WebsitePolicies>&& websitePolicies)
@@ -8595,7 +8607,9 @@ void WebPageProxy::requestUserMediaPermissionForFrame(UserMediaRequestIdentifier
 {
 #if ENABLE(MEDIA_STREAM)
     MESSAGE_CHECK(m_process, m_process->webFrame(frameID));
-
+#if PLATFORM(MAC)
+    CoreAudioCaptureDeviceManager::singleton().setFilterTapEnabledDevices(!preferences().captureAudioInGPUProcessEnabled());
+#endif
     userMediaPermissionRequestManager().requestUserMediaPermissionForFrame(userMediaID, frameID, userMediaDocumentOriginData.securityOrigin(), topLevelDocumentOriginData.securityOrigin(), WTFMove(request));
 #else
     UNUSED_PARAM(userMediaID);
@@ -8733,22 +8747,22 @@ void WebPageProxy::requestNotificationPermission(const String& originString, Com
     m_uiClient->decidePolicyForNotificationPermissionRequest(*this, origin.get(), WTFMove(completionHandler));
 }
 
-void WebPageProxy::showNotification(const String& title, const String& body, const String& iconURL, const String& tag, const String& lang, WebCore::NotificationDirection dir, const String& originString, uint64_t notificationID)
+void WebPageProxy::showNotification(const WebCore::NotificationData& notificationData)
 {
-    m_process->processPool().supplement<WebNotificationManagerProxy>()->show(this, title, body, iconURL, tag, lang, dir, originString, notificationID);
+    m_process->processPool().supplement<WebNotificationManagerProxy>()->show(this, notificationData);
 }
 
-void WebPageProxy::cancelNotification(uint64_t notificationID)
+void WebPageProxy::cancelNotification(const UUID& notificationID)
 {
     m_process->processPool().supplement<WebNotificationManagerProxy>()->cancel(this, notificationID);
 }
 
-void WebPageProxy::clearNotifications(const Vector<uint64_t>& notificationIDs)
+void WebPageProxy::clearNotifications(const Vector<UUID>& notificationIDs)
 {
     m_process->processPool().supplement<WebNotificationManagerProxy>()->clearNotifications(this, notificationIDs);
 }
 
-void WebPageProxy::didDestroyNotification(uint64_t notificationID)
+void WebPageProxy::didDestroyNotification(const UUID& notificationID)
 {
     m_process->processPool().supplement<WebNotificationManagerProxy>()->didDestroyNotification(this, notificationID);
 }
@@ -8978,7 +8992,7 @@ void WebPageProxy::drawPagesForPrinting(WebFrameProxy* frame, const PrintInfo& p
 #endif
 
 #if PLATFORM(COCOA)
-void WebPageProxy::drawToPDF(FrameIdentifier frameID, const std::optional<FloatRect>& rect, CompletionHandler<void(const IPC::DataReference&)>&& callback)
+void WebPageProxy::drawToPDF(FrameIdentifier frameID, const std::optional<FloatRect>& rect, CompletionHandler<void(const IPC::SharedBufferCopy&)>&& callback)
 {
     if (!hasRunningProcess()) {
         callback({ });
@@ -9869,8 +9883,8 @@ void WebPageProxy::getLoadDecisionForIcon(const WebCore::LinkIcon& icon, Callbac
             sendWithAsyncReply(Messages::WebPage::DidGetLoadDecisionForIcon(false, loadIdentifier), [](auto) { });
             return;
         }
-        sendWithAsyncReply(Messages::WebPage::DidGetLoadDecisionForIcon(true, loadIdentifier), [callback = WTFMove(callback)](const IPC::DataReference& iconData) mutable {
-            callback(API::Data::create(iconData).get());
+        sendWithAsyncReply(Messages::WebPage::DidGetLoadDecisionForIcon(true, loadIdentifier), [callback = WTFMove(callback)](const IPC::SharedBufferCopy& iconData) mutable {
+            callback(API::Data::create(iconData.data(), iconData.size()).ptr());
         });
     });
 }
@@ -10103,11 +10117,7 @@ void WebPageProxy::insertAttachment(Ref<API::Attachment>&& attachment, Completio
 
 void WebPageProxy::updateAttachmentAttributes(const API::Attachment& attachment, CompletionHandler<void()>&& callback)
 {
-    IPC::SharedBufferDataReference dataReference;
-    if (auto data = attachment.enclosingImageData())
-        dataReference = { *data };
-
-    sendWithAsyncReply(Messages::WebPage::UpdateAttachmentAttributes(attachment.identifier(), attachment.fileSizeForDisplay(), attachment.contentType(), attachment.fileName(), WTFMove(dataReference)), WTFMove(callback));
+    sendWithAsyncReply(Messages::WebPage::UpdateAttachmentAttributes(attachment.identifier(), attachment.fileSizeForDisplay(), attachment.contentType(), attachment.fileName(), IPC::SharedBufferCopy(attachment.enclosingImageData())), WTFMove(callback));
 }
 
 #if HAVE(QUICKLOOK_THUMBNAILING)
@@ -10481,9 +10491,9 @@ void WebPageProxy::setPrivateClickMeasurementEphemeralMeasurementForTesting(bool
     websiteDataStore().networkProcess().sendWithAsyncReply(Messages::NetworkProcess::SetPrivateClickMeasurementEphemeralMeasurementForTesting(m_websiteDataStore->sessionID(), value), WTFMove(completionHandler));
 }
 
-void WebPageProxy::simulateResourceLoadStatisticsSessionRestart(CompletionHandler<void()>&& completionHandler)
+void WebPageProxy::simulatePrivateClickMeasurementSessionRestart(CompletionHandler<void()>&& completionHandler)
 {
-    websiteDataStore().networkProcess().sendWithAsyncReply(Messages::NetworkProcess::SimulateResourceLoadStatisticsSessionRestart(m_websiteDataStore->sessionID()), WTFMove(completionHandler));
+    websiteDataStore().networkProcess().sendWithAsyncReply(Messages::NetworkProcess::SimulatePrivateClickMeasurementSessionRestart(m_websiteDataStore->sessionID()), WTFMove(completionHandler));
 }
 
 void WebPageProxy::setPrivateClickMeasurementTokenPublicKeyURLForTesting(const URL& url, CompletionHandler<void()>&& completionHandler)
@@ -10868,8 +10878,10 @@ void WebPageProxy::requestUserMediaPermissionForSpeechRecognition(FrameIdentifie
 {
 #if ENABLE(MEDIA_STREAM)
     auto captureDevice = SpeechRecognitionCaptureSource::findCaptureDevice();
-    if (!captureDevice)
+    if (!captureDevice) {
         completionHandler(false);
+        return;
+    }
 
     userMediaPermissionRequestManager().checkUserMediaPermissionForSpeechRecognition(frameIdentifier, requestingOrigin, topOrigin, *captureDevice, WTFMove(completionHandler));
 #else
@@ -10998,6 +11010,11 @@ Vector<SandboxExtension::Handle> WebPageProxy::createNetworkExtensionsSandboxExt
 {
     return { };
 }
+
+void WebPageProxy::classifyModalContainerControls(Vector<String>&&, CompletionHandler<void(Vector<ModalContainerControlType>&&)>&& completion)
+{
+    completion({ });
+}
 #endif
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
@@ -11048,6 +11065,11 @@ void WebPageProxy::requestCookieConsent(CompletionHandler<void(CookieConsentDeci
     m_uiClient->requestCookieConsent(WTFMove(completion));
 }
 
+void WebPageProxy::decidePolicyForModalContainer(OptionSet<ModalContainerControlType> types, CompletionHandler<void(ModalContainerDecision)>&& completion)
+{
+    m_uiClient->decidePolicyForModalContainer(types, WTFMove(completion));
+}
+
 } // namespace WebKit
 
 #undef WEBPAGEPROXY_RELEASE_LOG
@@ -11055,4 +11077,3 @@ void WebPageProxy::requestCookieConsent(CompletionHandler<void(CookieConsentDeci
 #undef MESSAGE_CHECK_COMPLETION
 #undef MESSAGE_CHECK_URL
 #undef MESSAGE_CHECK
-#undef MERGE_WHEEL_EVENTS

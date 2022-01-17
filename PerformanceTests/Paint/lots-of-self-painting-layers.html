@@ -36,19 +36,18 @@
             listContainer = document.getElementById("listContainer");
             for (let i = 0; i < 10000; ++i)
                 createListItem();
-            document.body.getBoundingClientRect();
             window.requestAnimationFrame(runTest);
         }
 
-        var isDone = false;
+        let isDone = false;
         PerfTestRunner.prepareToMeasureValuesAsync({ done: done, unit: 'ms' });
         function done() {
             isDone = true;
             listContainer.innerHTML = "";
         }
 
-        var startTime;
-        var height = 0;
+        let startTime;
+        let height = 0;
         function runTest() {
             if (startTime)
                 PerfTestRunner.measureValueAsync(PerfTestRunner.now() - startTime);

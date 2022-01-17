@@ -50,9 +50,11 @@ protected:
 private:
     void scheduleTreeStateCommit() final;
 
+    void didScheduleRenderingUpdate() final;
     void willStartRenderingUpdate() final;
     void didCompleteRenderingUpdate() final;
 
+    void willStartPlatformRenderingUpdate() final;
     void didCompletePlatformRenderingUpdate() final;
 
     void updateTiledScrollingIndicator();

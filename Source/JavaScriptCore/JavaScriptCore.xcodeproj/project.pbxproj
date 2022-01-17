@@ -696,17 +696,6 @@
 		0FF0F1A016B72A1A005DF95B /* FunctionExecutableDump.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FB4B52216B6278D003F696B /* FunctionExecutableDump.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0FF2CD5C1B61A4F8004955A8 /* DFGMultiGetByOffsetData.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FF2CD5A1B61A4F8004955A8 /* DFGMultiGetByOffsetData.h */; };
 		0FF42731158EBD54004CB9FF /* Disassembler.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FF4272F158EBD44004CB9FF /* Disassembler.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		0FF42740158EBE8B004CB9FF /* udis86_decode.c in Sources */ = {isa = PBXBuildFile; fileRef = 0FF42734158EBD94004CB9FF /* udis86_decode.c */; };
-		0FF42741158EBE8D004CB9FF /* udis86_decode.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FF42735158EBD94004CB9FF /* udis86_decode.h */; };
-		0FF42742158EBE91004CB9FF /* udis86_extern.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FF42736158EBD94004CB9FF /* udis86_extern.h */; };
-		0FF42745158EBE91004CB9FF /* udis86_syn-att.c in Sources */ = {isa = PBXBuildFile; fileRef = 0FF42739158EBD94004CB9FF /* udis86_syn-att.c */; };
-		0FF42746158EBE91004CB9FF /* udis86_syn-intel.c in Sources */ = {isa = PBXBuildFile; fileRef = 0FF4273A158EBD94004CB9FF /* udis86_syn-intel.c */; };
-		0FF42747158EBE91004CB9FF /* udis86_syn.c in Sources */ = {isa = PBXBuildFile; fileRef = 0FF4273B158EBD94004CB9FF /* udis86_syn.c */; };
-		0FF42748158EBE91004CB9FF /* udis86_syn.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FF4273C158EBD94004CB9FF /* udis86_syn.h */; };
-		0FF42749158EBE91004CB9FF /* udis86_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FF4273D158EBD94004CB9FF /* udis86_types.h */; };
-		0FF4274A158EBE91004CB9FF /* udis86.c in Sources */ = {isa = PBXBuildFile; fileRef = 0FF4273E158EBD94004CB9FF /* udis86.c */; };
-		0FF4274B158EBE91004CB9FF /* udis86.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FF4273F158EBD94004CB9FF /* udis86.h */; };
-		0FF4274D158EBFE6004CB9FF /* udis86_itab_holder.c in Sources */ = {isa = PBXBuildFile; fileRef = 0FF4274C158EBFE1004CB9FF /* udis86_itab_holder.c */; };
 		0FF427651591A1CE004CB9FF /* DFGDisassembler.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FF427621591A1C9004CB9FF /* DFGDisassembler.h */; };
 		0FF47C5A1EBFE84600F280B7 /* JSObjectGetProxyTargetTest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0FF47C581EBFE83500F280B7 /* JSObjectGetProxyTargetTest.cpp */; };
 		0FF4B4BD1E88449A00DBBE86 /* AirRegLiveness.h in Headers */ = {isa = PBXBuildFile; fileRef = 0FF4B4BB1E88449500DBBE86 /* AirRegLiveness.h */; };
@@ -778,7 +767,7 @@
 		1442566215EDE98D0066A49B /* JSWithScope.h in Headers */ = {isa = PBXBuildFile; fileRef = 1442566015EDE98D0066A49B /* JSWithScope.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		144836E7132DA7BE005BE785 /* ConservativeRoots.h in Headers */ = {isa = PBXBuildFile; fileRef = 149DAAF212EB559D0083B12B /* ConservativeRoots.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		144CA3502224180100817789 /* CachedBytecode.h in Headers */ = {isa = PBXBuildFile; fileRef = 144CA34F221F037900817789 /* CachedBytecode.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		1450FA1C2357BDBE0093CD4D /* WasmFunctionCodeBlock.h in Headers */ = {isa = PBXBuildFile; fileRef = 14C5AD6B22F33FC000F1FB83 /* WasmFunctionCodeBlock.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		1450FA1C2357BDBE0093CD4D /* WasmFunctionCodeBlockGenerator.h in Headers */ = {isa = PBXBuildFile; fileRef = 14C5AD6B22F33FC000F1FB83 /* WasmFunctionCodeBlockGenerator.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		1450FA1F2357BEC90093CD4D /* WasmLLIntTierUpCounter.h in Headers */ = {isa = PBXBuildFile; fileRef = 1450FA1E2357BEC40093CD4D /* WasmLLIntTierUpCounter.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		145722861437E140005FDE26 /* StrongInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = 145722851437E140005FDE26 /* StrongInlines.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		145FF2C8243BB9D600569E71 /* ECMAMode.h in Headers */ = {isa = PBXBuildFile; fileRef = 145FF2C7243BB99A00569E71 /* ECMAMode.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -893,8 +882,9 @@
 		52678F8F1A031009006A306D /* BasicBlockLocation.h in Headers */ = {isa = PBXBuildFile; fileRef = 52678F8D1A031009006A306D /* BasicBlockLocation.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		52678F911A04177C006A306D /* ControlFlowProfiler.h in Headers */ = {isa = PBXBuildFile; fileRef = 52678F901A04177C006A306D /* ControlFlowProfiler.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		5267CF82249316B10022BF6D /* FastJITPermissions.h in Headers */ = {isa = PBXBuildFile; fileRef = 5267CF81249316AD0022BF6D /* FastJITPermissions.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		526AC4B71E977C5D003500E1 /* WasmCodeBlock.h in Headers */ = {isa = PBXBuildFile; fileRef = 526AC4B51E977C5D003500E1 /* WasmCodeBlock.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		526AC4B71E977C5D003500E1 /* WasmCalleeGroup.h in Headers */ = {isa = PBXBuildFile; fileRef = 526AC4B51E977C5D003500E1 /* WasmCalleeGroup.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		527CE35422555FE500C6F382 /* JSToWasmICCallee.h in Headers */ = {isa = PBXBuildFile; fileRef = 527CE35322555FDD00C6F382 /* JSToWasmICCallee.h */; };
+		527E6CEC2772B9CB005E0782 /* WasmOSREntryPlan.h in Headers */ = {isa = PBXBuildFile; fileRef = 527E6CEB2772B9C5005E0782 /* WasmOSREntryPlan.h */; };
 		52847ADC21FFB8690061A9DB /* WasmAirIRGenerator.h in Headers */ = {isa = PBXBuildFile; fileRef = 52847ADA21FFB8630061A9DB /* WasmAirIRGenerator.h */; };
 		52B310FB1974AE610080857C /* FunctionHasExecutedCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 52B310FA1974AE610080857C /* FunctionHasExecutedCache.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		52B311011975B4670080857C /* TypeLocationCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 52B311001975B4670080857C /* TypeLocationCache.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -910,6 +900,7 @@
 		52E65A1E27682771002B4C0A /* B3EstimateStaticExecutionCounts.h in Headers */ = {isa = PBXBuildFile; fileRef = 52E65A1B27682760002B4C0A /* B3EstimateStaticExecutionCounts.h */; };
 		52EED7942492B870008F4C93 /* FunctionAllowlist.h in Headers */ = {isa = PBXBuildFile; fileRef = 52EED7932492B868008F4C93 /* FunctionAllowlist.h */; };
 		52F6C35E1E71EB080081F4CC /* WebAssemblyWrapperFunction.h in Headers */ = {isa = PBXBuildFile; fileRef = 52F6C35C1E71EB080081F4CC /* WebAssemblyWrapperFunction.h */; };
+		52FDABC32788076B00C15B59 /* WasmIRGeneratorHelpers.h in Headers */ = {isa = PBXBuildFile; fileRef = 52FDABC22788076900C15B59 /* WasmIRGeneratorHelpers.h */; };
 		530A66B91FA3E78B0026A545 /* UnifiedSource3-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = 530A66B11FA3E77A0026A545 /* UnifiedSource3-mm.mm */; };
 		530A66BA1FA3E78B0026A545 /* UnifiedSource4-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = 530A66B81FA3E77E0026A545 /* UnifiedSource4-mm.mm */; };
 		530A66BB1FA3E78B0026A545 /* UnifiedSource5-mm.mm in Sources */ = {isa = PBXBuildFile; fileRef = 530A66B51FA3E77D0026A545 /* UnifiedSource5-mm.mm */; };
@@ -1610,7 +1601,6 @@
 		A7DCB97312E5193F00911940 /* WriteBarrier.h in Headers */ = {isa = PBXBuildFile; fileRef = A7DCB77912E3D90500911940 /* WriteBarrier.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A7E2EA6B0FB460CF00601F06 /* LiteralParser.h in Headers */ = {isa = PBXBuildFile; fileRef = A7E2EA690FB460CF00601F06 /* LiteralParser.h */; };
 		A7E5A3A81797432D00E893C0 /* CompilationResult.h in Headers */ = {isa = PBXBuildFile; fileRef = A7E5A3A61797432D00E893C0 /* CompilationResult.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		A7E5AB391799E4B200D2833D /* UDis86Disassembler.h in Headers */ = {isa = PBXBuildFile; fileRef = A7E5AB351799E4B200D2833D /* UDis86Disassembler.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A7F2996C17A0BB670010417A /* FTLFail.h in Headers */ = {isa = PBXBuildFile; fileRef = A7F2996A17A0BB670010417A /* FTLFail.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A7F9935F0FD7325100A0B2D0 /* JSONObject.h in Headers */ = {isa = PBXBuildFile; fileRef = A7F9935D0FD7325100A0B2D0 /* JSONObject.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A7FB61001040C38B0017A286 /* PropertyDescriptor.h in Headers */ = {isa = PBXBuildFile; fileRef = A7FB604B103F5EAB0017A286 /* PropertyDescriptor.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1665,7 +1655,6 @@
 		AD7B4B2E1FA3E29800C9DF79 /* WasmNameSection.h in Headers */ = {isa = PBXBuildFile; fileRef = AD7B4B2D1FA3E28600C9DF79 /* WasmNameSection.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		AD86A93E1AA4D88D002FE77F /* WeakGCMapInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = AD86A93D1AA4D87C002FE77F /* WeakGCMapInlines.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		AD8FF3981EB5BDB20087FF82 /* WasmIndexOrName.h in Headers */ = {isa = PBXBuildFile; fileRef = AD8FF3951EB5BD850087FF82 /* WasmIndexOrName.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		AD9E852F1E8A0C7C008DE39E /* JSWebAssemblyCodeBlock.h in Headers */ = {isa = PBXBuildFile; fileRef = AD9E852E1E8A0C6E008DE39E /* JSWebAssemblyCodeBlock.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		ADD8FA461EB3079700DF542F /* WasmNameSectionParser.h in Headers */ = {isa = PBXBuildFile; fileRef = ADD8FA431EB3077100DF542F /* WasmNameSectionParser.h */; };
 		ADE802991E08F1DE0058DE78 /* JSWebAssemblyLinkError.h in Headers */ = {isa = PBXBuildFile; fileRef = ADE802941E08F1C90058DE78 /* JSWebAssemblyLinkError.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		ADE8029A1E08F1DE0058DE78 /* WebAssemblyLinkErrorConstructor.h in Headers */ = {isa = PBXBuildFile; fileRef = ADE802951E08F1C90058DE78 /* WebAssemblyLinkErrorConstructor.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1886,6 +1875,63 @@
 		E33A94962255323000D42B06 /* RandomizingFuzzerAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = E33A94942255322900D42B06 /* RandomizingFuzzerAgent.h */; };
 		E33A94972255323300D42B06 /* FuzzerAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = E33A94922255322900D42B06 /* FuzzerAgent.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E33BBE0925BFA0410053690F /* WasmStreamingCompiler.h in Headers */ = {isa = PBXBuildFile; fileRef = E33BBE0825BFA03C0053690F /* WasmStreamingCompiler.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		E33D2039277F304000A45FBB /* ZydisGeneratedEnumRegister.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D1FE8277F303F00A45FBB /* ZydisGeneratedEnumRegister.h */; };
+		E33D203C277F304000A45FBB /* ZycoreDefines.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D1FEB277F303F00A45FBB /* ZycoreDefines.h */; };
+		E33D2041277F304000A45FBB /* ZydisStatus.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D1FF0277F303F00A45FBB /* ZydisStatus.h */; };
+		E33D2047277F304000A45FBB /* ZydisInternalFormatterIntel.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D1FF6277F303F00A45FBB /* ZydisInternalFormatterIntel.h */; };
+		E33D2048277F304000A45FBB /* ZydisInternalDecoderData.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D1FF7277F303F00A45FBB /* ZydisInternalDecoderData.h */; };
+		E33D2049277F304000A45FBB /* ZycoreComparison.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D1FF8277F303F00A45FBB /* ZycoreComparison.h */; };
+		E33D204A277F304000A45FBB /* ZydisSharedTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D1FF9277F303F00A45FBB /* ZydisSharedTypes.h */; };
+		E33D204C277F304000A45FBB /* ZydisInternalString.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D1FFB277F304000A45FBB /* ZydisInternalString.h */; };
+		E33D2050277F304000A45FBB /* ZydisInternalFormatterATT.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D1FFF277F304000A45FBB /* ZydisInternalFormatterATT.h */; };
+		E33D2052277F304000A45FBB /* ZydisGeneratedEnumISASet.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2001277F304000A45FBB /* ZydisGeneratedEnumISASet.h */; };
+		E33D2053277F304000A45FBB /* Zydis.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2002277F304000A45FBB /* Zydis.h */; };
+		E33D2054277F304000A45FBB /* ZydisFormatterBuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2003277F304000A45FBB /* ZydisFormatterBuffer.h */; };
+		E33D2055277F304000A45FBB /* ZycoreAllocator.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2004277F304000A45FBB /* ZycoreAllocator.h */; };
+		E33D2056277F304000A45FBB /* ZydisExportConfig.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2005277F304000A45FBB /* ZydisExportConfig.h */; };
+		E33D2057277F304000A45FBB /* ZycoreStatus.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2006277F304000A45FBB /* ZycoreStatus.h */; };
+		E33D2059277F304000A45FBB /* ZydisDecoder.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2008277F304000A45FBB /* ZydisDecoder.h */; };
+		E33D205D277F304000A45FBB /* ZycoreBitset.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D200C277F304000A45FBB /* ZycoreBitset.h */; };
+		E33D205F277F304000A45FBB /* ZydisGeneratedEnumISAExt.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D200E277F304000A45FBB /* ZydisGeneratedEnumISAExt.h */; };
+		E33D2063277F304000A45FBB /* ZydisGeneratedEnumInstructionCategory.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2012277F304000A45FBB /* ZydisGeneratedEnumInstructionCategory.h */; };
+		E33D2064277F304000A45FBB /* ZydisMnemonic.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2013277F304000A45FBB /* ZydisMnemonic.h */; };
+		E33D2066277F304000A45FBB /* ZycoreString.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2015277F304000A45FBB /* ZycoreString.h */; };
+		E33D2068277F304000A45FBB /* ZycoreTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2017277F304000A45FBB /* ZycoreTypes.h */; };
+		E33D206B277F304000A45FBB /* ZydisInternalFormatterBase.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D201A277F304000A45FBB /* ZydisInternalFormatterBase.h */; };
+		E33D206C277F304000A45FBB /* ZydisRegister.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D201B277F304000A45FBB /* ZydisRegister.h */; };
+		E33D206E277F304000A45FBB /* ZycoreVector.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D201D277F304000A45FBB /* ZycoreVector.h */; };
+		E33D206F277F304000A45FBB /* ZycoreFormat.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D201E277F304000A45FBB /* ZycoreFormat.h */; };
+		E33D2071277F304000A45FBB /* ZydisMetaInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2020277F304000A45FBB /* ZydisMetaInfo.h */; };
+		E33D2072277F304000A45FBB /* ZydisInternalSharedData.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2021277F304000A45FBB /* ZydisInternalSharedData.h */; };
+		E33D2073277F304000A45FBB /* ZycoreLibC.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2022277F304000A45FBB /* ZycoreLibC.h */; };
+		E33D2076277F304000A45FBB /* ZydisUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2025277F304000A45FBB /* ZydisUtils.h */; };
+		E33D2078277F304000A45FBB /* ZydisShortString.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2027277F304000A45FBB /* ZydisShortString.h */; };
+		E33D2079277F304000A45FBB /* ZydisFormatter.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2028277F304000A45FBB /* ZydisFormatter.h */; };
+		E33D207B277F304000A45FBB /* ZycoreObject.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D202A277F304000A45FBB /* ZycoreObject.h */; };
+		E33D2082277F304000A45FBB /* ZydisGeneratedEnumMnemonic.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2031277F304000A45FBB /* ZydisGeneratedEnumMnemonic.h */; };
+		E33D2084277F304000A45FBB /* ZycoreList.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2033277F304000A45FBB /* ZycoreList.h */; };
+		E33D2085277F304000A45FBB /* ZydisDecoderTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D2034277F304000A45FBB /* ZydisDecoderTypes.h */; };
+		E33D208B277F30AA00A45FBB /* ZycoreExportConfig.h in Headers */ = {isa = PBXBuildFile; fileRef = E33D208A277F30AA00A45FBB /* ZycoreExportConfig.h */; };
+		E33D208D277F436A00A45FBB /* Zydis.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D202C277F304000A45FBB /* Zydis.c */; };
+		E33D208E277F436A00A45FBB /* ZydisMnemonic.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D2032277F304000A45FBB /* ZydisMnemonic.c */; };
+		E33D2090277F436A00A45FBB /* ZydisFormatterBase.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D2037277F304000A45FBB /* ZydisFormatterBase.c */; };
+		E33D2091277F436A00A45FBB /* ZydisDecoder.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D2026277F304000A45FBB /* ZydisDecoder.c */; };
+		E33D2092277F436A00A45FBB /* ZycoreString.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D1FEE277F303F00A45FBB /* ZycoreString.c */; };
+		E33D2093277F436A00A45FBB /* ZydisSharedData.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D2010277F304000A45FBB /* ZydisSharedData.c */; };
+		E33D2094277F436A00A45FBB /* ZydisMetaInfo.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D1FFC277F304000A45FBB /* ZydisMetaInfo.c */; };
+		E33D2095277F436A00A45FBB /* ZycoreList.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D2011277F304000A45FBB /* ZycoreList.c */; };
+		E33D2098277F436A00A45FBB /* ZydisFormatterATT.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D1FF1277F303F00A45FBB /* ZydisFormatterATT.c */; };
+		E33D209A277F436A00A45FBB /* ZydisString.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D2007277F304000A45FBB /* ZydisString.c */; };
+		E33D209B277F436A00A45FBB /* ZydisFormatterBuffer.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D202B277F304000A45FBB /* ZydisFormatterBuffer.c */; };
+		E33D209C277F436A00A45FBB /* ZydisFormatter.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D200A277F304000A45FBB /* ZydisFormatter.c */; };
+		E33D209E277F436A00A45FBB /* ZycoreVector.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D1FFA277F303F00A45FBB /* ZycoreVector.c */; };
+		E33D20A0277F436A00A45FBB /* ZydisFormatterIntel.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D1FEC277F303F00A45FBB /* ZydisFormatterIntel.c */; };
+		E33D20A1277F436A00A45FBB /* ZycoreFormat.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D1FFD277F304000A45FBB /* ZycoreFormat.c */; };
+		E33D20A2277F436A00A45FBB /* ZycoreAllocator.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D202E277F304000A45FBB /* ZycoreAllocator.c */; };
+		E33D20A3277F436A00A45FBB /* ZydisUtils.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D1FF5277F303F00A45FBB /* ZydisUtils.c */; };
+		E33D20A4277F436A00A45FBB /* ZydisRegister.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D1FE9277F303F00A45FBB /* ZydisRegister.c */; };
+		E33D20A5277F436A00A45FBB /* ZydisDecoderData.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D201F277F304000A45FBB /* ZydisDecoderData.c */; };
+		E33D20A6277F436A00A45FBB /* ZycoreBitset.c in Sources */ = {isa = PBXBuildFile; fileRef = E33D2036277F304000A45FBB /* ZycoreBitset.c */; };
 		E33E8D1D1B9013C300346B52 /* JSNativeStdFunction.h in Headers */ = {isa = PBXBuildFile; fileRef = E33E8D1B1B9013C300346B52 /* JSNativeStdFunction.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E33F50751B8421C000413856 /* JSInternalPromisePrototype.h in Headers */ = {isa = PBXBuildFile; fileRef = E33F50731B8421C000413856 /* JSInternalPromisePrototype.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E33F50791B84225700413856 /* JSInternalPromiseConstructor.h in Headers */ = {isa = PBXBuildFile; fileRef = E33F50771B84225700413856 /* JSInternalPromiseConstructor.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1913,7 +1959,6 @@
 		E365F33A24AA623900C991B2 /* IntlDisplayNamesConstructor.lut.h in Headers */ = {isa = PBXBuildFile; fileRef = E365F33924AA621200C991B2 /* IntlDisplayNamesConstructor.lut.h */; };
 		E365F33B24AA623B00C991B2 /* IntlDisplayNamesPrototype.lut.h in Headers */ = {isa = PBXBuildFile; fileRef = E365F33824AA621100C991B2 /* IntlDisplayNamesPrototype.lut.h */; };
 		E366441E254409B30001876F /* IntlListFormat.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E318CA69254406B5004DC129 /* IntlListFormat.cpp */; };
-		E36B767022F8D61900D09818 /* WasmOMGForOSREntryPlan.h in Headers */ = {isa = PBXBuildFile; fileRef = E36B766F22F8D61100D09818 /* WasmOMGForOSREntryPlan.h */; };
 		E36CC9472086314F0051FFD6 /* WasmCreationMode.h in Headers */ = {isa = PBXBuildFile; fileRef = E36CC9462086314F0051FFD6 /* WasmCreationMode.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E36EDCE524F0975700E60DA2 /* Concurrency.h in Headers */ = {isa = PBXBuildFile; fileRef = E36EDCE424F0975700E60DA2 /* Concurrency.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E3711992253FA87F00BA69A0 /* Gate.h in Headers */ = {isa = PBXBuildFile; fileRef = E3711991253FA87E00BA69A0 /* Gate.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1946,6 +1991,8 @@
 		E39FEBE32339C5D900B40AB0 /* JSAsyncGenerator.h in Headers */ = {isa = PBXBuildFile; fileRef = E39FEBE22339C5D400B40AB0 /* JSAsyncGenerator.h */; };
 		E3A0531A21342B680022EC14 /* WasmStreamingParser.h in Headers */ = {isa = PBXBuildFile; fileRef = E3A0531621342B660022EC14 /* WasmStreamingParser.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E3A0531C21342B680022EC14 /* WasmSectionParser.h in Headers */ = {isa = PBXBuildFile; fileRef = E3A0531821342B670022EC14 /* WasmSectionParser.h */; };
+		E3A10E8127803E3B00D3ACD0 /* Zycore.c in Sources */ = {isa = PBXBuildFile; fileRef = E3A10E7F27803E3B00D3ACD0 /* Zycore.c */; };
+		E3A10E8227803E3B00D3ACD0 /* Zycore.h in Headers */ = {isa = PBXBuildFile; fileRef = E3A10E8027803E3B00D3ACD0 /* Zycore.h */; };
 		E3A32BC71FC83147007D7E76 /* WeakMapImpl.h in Headers */ = {isa = PBXBuildFile; fileRef = E3A32BC61FC8312E007D7E76 /* WeakMapImpl.h */; };
 		E3A421431D6F58930007C617 /* PreciseJumpTargetsInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = E3A421421D6F588F0007C617 /* PreciseJumpTargetsInlines.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E3AC277721FDB4940024452C /* RegExpCachedResult.h in Headers */ = {isa = PBXBuildFile; fileRef = 86F75EFC151C062F007C9BA3 /* RegExpCachedResult.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -3326,18 +3373,6 @@
 		0FF2CD591B61A4F8004955A8 /* DFGMultiGetByOffsetData.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = DFGMultiGetByOffsetData.cpp; path = dfg/DFGMultiGetByOffsetData.cpp; sourceTree = "<group>"; };
 		0FF2CD5A1B61A4F8004955A8 /* DFGMultiGetByOffsetData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DFGMultiGetByOffsetData.h; path = dfg/DFGMultiGetByOffsetData.h; sourceTree = "<group>"; };
 		0FF4272F158EBD44004CB9FF /* Disassembler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Disassembler.h; path = disassembler/Disassembler.h; sourceTree = "<group>"; };
-		0FF42730158EBD44004CB9FF /* UDis86Disassembler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = UDis86Disassembler.cpp; path = disassembler/UDis86Disassembler.cpp; sourceTree = "<group>"; };
-		0FF42734158EBD94004CB9FF /* udis86_decode.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = udis86_decode.c; path = disassembler/udis86/udis86_decode.c; sourceTree = "<group>"; };
-		0FF42735158EBD94004CB9FF /* udis86_decode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = udis86_decode.h; path = disassembler/udis86/udis86_decode.h; sourceTree = "<group>"; };
-		0FF42736158EBD94004CB9FF /* udis86_extern.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = udis86_extern.h; path = disassembler/udis86/udis86_extern.h; sourceTree = "<group>"; };
-		0FF42739158EBD94004CB9FF /* udis86_syn-att.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "udis86_syn-att.c"; path = "disassembler/udis86/udis86_syn-att.c"; sourceTree = "<group>"; };
-		0FF4273A158EBD94004CB9FF /* udis86_syn-intel.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "udis86_syn-intel.c"; path = "disassembler/udis86/udis86_syn-intel.c"; sourceTree = "<group>"; };
-		0FF4273B158EBD94004CB9FF /* udis86_syn.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = udis86_syn.c; path = disassembler/udis86/udis86_syn.c; sourceTree = "<group>"; };
-		0FF4273C158EBD94004CB9FF /* udis86_syn.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = udis86_syn.h; path = disassembler/udis86/udis86_syn.h; sourceTree = "<group>"; };
-		0FF4273D158EBD94004CB9FF /* udis86_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = udis86_types.h; path = disassembler/udis86/udis86_types.h; sourceTree = "<group>"; };
-		0FF4273E158EBD94004CB9FF /* udis86.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = udis86.c; path = disassembler/udis86/udis86.c; sourceTree = "<group>"; };
-		0FF4273F158EBD94004CB9FF /* udis86.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = udis86.h; path = disassembler/udis86/udis86.h; sourceTree = "<group>"; };
-		0FF4274C158EBFE1004CB9FF /* udis86_itab_holder.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = udis86_itab_holder.c; path = disassembler/udis86/udis86_itab_holder.c; sourceTree = "<group>"; };
 		0FF4275615914A20004CB9FF /* LinkBuffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = LinkBuffer.cpp; sourceTree = "<group>"; };
 		0FF427611591A1C9004CB9FF /* DFGDisassembler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = DFGDisassembler.cpp; path = dfg/DFGDisassembler.cpp; sourceTree = "<group>"; };
 		0FF427621591A1C9004CB9FF /* DFGDisassembler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DFGDisassembler.h; path = dfg/DFGDisassembler.h; sourceTree = "<group>"; };
@@ -3558,11 +3593,11 @@
 		14C1F9CF22EA51FD0040B145 /* Wasm.rb */ = {isa = PBXFileReference; lastKnownFileType = text.script.ruby; path = Wasm.rb; sourceTree = "<group>"; };
 		14C5AD6522F1866C00F1FB83 /* BytecodeGeneratorBase.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BytecodeGeneratorBase.h; sourceTree = "<group>"; };
 		14C5AD6622F1866C00F1FB83 /* BytecodeGeneratorBaseInlines.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BytecodeGeneratorBaseInlines.h; sourceTree = "<group>"; };
-		14C5AD6722F33FBF00F1FB83 /* WasmFunctionCodeBlock.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WasmFunctionCodeBlock.cpp; sourceTree = "<group>"; };
+		14C5AD6722F33FBF00F1FB83 /* WasmFunctionCodeBlockGenerator.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WasmFunctionCodeBlockGenerator.cpp; sourceTree = "<group>"; };
 		14C5AD6822F33FBF00F1FB83 /* WasmLLIntGenerator.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WasmLLIntGenerator.cpp; sourceTree = "<group>"; };
 		14C5AD6922F33FBF00F1FB83 /* WasmLLIntGenerator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WasmLLIntGenerator.h; sourceTree = "<group>"; };
 		14C5AD6A22F33FBF00F1FB83 /* WasmLLIntPlan.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WasmLLIntPlan.cpp; sourceTree = "<group>"; };
-		14C5AD6B22F33FC000F1FB83 /* WasmFunctionCodeBlock.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WasmFunctionCodeBlock.h; sourceTree = "<group>"; };
+		14C5AD6B22F33FC000F1FB83 /* WasmFunctionCodeBlockGenerator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WasmFunctionCodeBlockGenerator.h; sourceTree = "<group>"; };
 		14C5AD6C22F33FC000F1FB83 /* WasmLLIntPlan.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WasmLLIntPlan.h; sourceTree = "<group>"; };
 		14CA958A16AB50DE00938A06 /* StaticPropertyAnalyzer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StaticPropertyAnalyzer.h; sourceTree = "<group>"; };
 		14CA958C16AB50FA00938A06 /* ObjectAllocationProfile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ObjectAllocationProfile.h; sourceTree = "<group>"; };
@@ -3671,7 +3706,6 @@
 		43AB26C41C1A52F700D82AE6 /* B3MathExtras.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = B3MathExtras.cpp; path = b3/B3MathExtras.cpp; sourceTree = "<group>"; };
 		43AB26C51C1A52F700D82AE6 /* B3MathExtras.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = B3MathExtras.h; path = b3/B3MathExtras.h; sourceTree = "<group>"; };
 		43C392AA1C3BEB0000241F53 /* AssemblerCommon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AssemblerCommon.h; sourceTree = "<group>"; };
-		43CBA1601CAB67BA00328A5C /* udis86_udint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = udis86_udint.h; path = disassembler/udis86/udis86_udint.h; sourceTree = "<group>"; };
 		442FBD852149D1E00073519C /* hasher.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = hasher.py; path = yarr/hasher.py; sourceTree = "<group>"; };
 		451539B812DC994500EF7AC4 /* Yarr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Yarr.h; path = yarr/Yarr.h; sourceTree = "<group>"; };
 		45E12D8806A49B0F00E9DF84 /* jsc.cpp */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = jsc.cpp; sourceTree = "<group>"; tabWidth = 4; };
@@ -3694,12 +3728,14 @@
 		52678F8D1A031009006A306D /* BasicBlockLocation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BasicBlockLocation.h; sourceTree = "<group>"; };
 		52678F901A04177C006A306D /* ControlFlowProfiler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ControlFlowProfiler.h; sourceTree = "<group>"; };
 		5267CF81249316AD0022BF6D /* FastJITPermissions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FastJITPermissions.h; sourceTree = "<group>"; };
-		526AC4B41E977C5D003500E1 /* WasmCodeBlock.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WasmCodeBlock.cpp; sourceTree = "<group>"; };
-		526AC4B51E977C5D003500E1 /* WasmCodeBlock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WasmCodeBlock.h; sourceTree = "<group>"; };
+		526AC4B41E977C5D003500E1 /* WasmCalleeGroup.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WasmCalleeGroup.cpp; sourceTree = "<group>"; };
+		526AC4B51E977C5D003500E1 /* WasmCalleeGroup.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WasmCalleeGroup.h; sourceTree = "<group>"; };
 		5272987B235FC8BA005C982C /* GCMemoryOperations.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GCMemoryOperations.h; sourceTree = "<group>"; };
 		527773DD1AAF83AC00BDE7E8 /* RuntimeType.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RuntimeType.cpp; sourceTree = "<group>"; };
 		527CE35222555FDD00C6F382 /* JSToWasmICCallee.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = JSToWasmICCallee.cpp; path = js/JSToWasmICCallee.cpp; sourceTree = "<group>"; };
 		527CE35322555FDD00C6F382 /* JSToWasmICCallee.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = JSToWasmICCallee.h; path = js/JSToWasmICCallee.h; sourceTree = "<group>"; };
+		527E6CEA2772B9C5005E0782 /* WasmOSREntryPlan.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WasmOSREntryPlan.cpp; sourceTree = "<group>"; };
+		527E6CEB2772B9C5005E0782 /* WasmOSREntryPlan.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WasmOSREntryPlan.h; sourceTree = "<group>"; };
 		52847AD921FFB8630061A9DB /* WasmAirIRGenerator.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WasmAirIRGenerator.cpp; sourceTree = "<group>"; };
 		52847ADA21FFB8630061A9DB /* WasmAirIRGenerator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WasmAirIRGenerator.h; sourceTree = "<group>"; };
 		52B310FA1974AE610080857C /* FunctionHasExecutedCache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FunctionHasExecutedCache.h; sourceTree = "<group>"; };
@@ -3725,6 +3761,7 @@
 		52EED7932492B868008F4C93 /* FunctionAllowlist.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = FunctionAllowlist.h; sourceTree = "<group>"; };
 		52F6C35B1E71EB080081F4CC /* WebAssemblyWrapperFunction.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = WebAssemblyWrapperFunction.cpp; path = js/WebAssemblyWrapperFunction.cpp; sourceTree = "<group>"; };
 		52F6C35C1E71EB080081F4CC /* WebAssemblyWrapperFunction.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = WebAssemblyWrapperFunction.h; path = js/WebAssemblyWrapperFunction.h; sourceTree = "<group>"; };
+		52FDABC22788076900C15B59 /* WasmIRGeneratorHelpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WasmIRGeneratorHelpers.h; sourceTree = "<group>"; };
 		5300740C22DD6F6600B9ACB3 /* JSFinalizationRegistry.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSFinalizationRegistry.cpp; sourceTree = "<group>"; };
 		530A63401FA3E31C0026A545 /* SourcesCocoa.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = SourcesCocoa.txt; sourceTree = "<group>"; };
 		530A63411FA3E31D0026A545 /* Sources.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Sources.txt; sourceTree = "<group>"; };
@@ -3934,7 +3971,6 @@
 		5373B4D422ADB31400803572 /* WeakObjectRefConstructor.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WeakObjectRefConstructor.cpp; sourceTree = "<group>"; };
 		5381B9361E60E9660090F794 /* WasmFaultSignalHandler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WasmFaultSignalHandler.cpp; sourceTree = "<group>"; };
 		5381B9381E60E97D0090F794 /* WasmFaultSignalHandler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WasmFaultSignalHandler.h; sourceTree = "<group>"; };
-		5383AA2F1E65E8A100A532FC /* JSWebAssemblyCodeBlock.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = JSWebAssemblyCodeBlock.cpp; path = js/JSWebAssemblyCodeBlock.cpp; sourceTree = "<group>"; };
 		538F15DD268FBBB300D601C4 /* UnifiedSource148.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = UnifiedSource148.cpp; path = "DerivedSources/JavaScriptCore/unified-sources/UnifiedSource148.cpp"; sourceTree = BUILT_PRODUCTS_DIR; };
 		538F15DE268FBBB300D601C4 /* UnifiedSource151.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = UnifiedSource151.cpp; path = "DerivedSources/JavaScriptCore/unified-sources/UnifiedSource151.cpp"; sourceTree = BUILT_PRODUCTS_DIR; };
 		538F15DF268FBBB300D601C4 /* UnifiedSource152.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = UnifiedSource152.cpp; path = "DerivedSources/JavaScriptCore/unified-sources/UnifiedSource152.cpp"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -4831,7 +4867,6 @@
 		A7E2EA6A0FB460CF00601F06 /* LiteralParser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = LiteralParser.cpp; sourceTree = "<group>"; };
 		A7E5A3A51797432D00E893C0 /* CompilationResult.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CompilationResult.cpp; sourceTree = "<group>"; };
 		A7E5A3A61797432D00E893C0 /* CompilationResult.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CompilationResult.h; sourceTree = "<group>"; };
-		A7E5AB351799E4B200D2833D /* UDis86Disassembler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = UDis86Disassembler.h; path = disassembler/UDis86Disassembler.h; sourceTree = "<group>"; };
 		A7E5AB361799E4B200D2833D /* X86Disassembler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = X86Disassembler.cpp; path = disassembler/X86Disassembler.cpp; sourceTree = "<group>"; };
 		A7F2996917A0BB670010417A /* FTLFail.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = FTLFail.cpp; path = ftl/FTLFail.cpp; sourceTree = "<group>"; };
 		A7F2996A17A0BB670010417A /* FTLFail.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = FTLFail.h; path = ftl/FTLFail.h; sourceTree = "<group>"; };
@@ -4925,7 +4960,6 @@
 		AD8DD6D01F6708A30004EB52 /* JSToWasm.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = JSToWasm.cpp; path = js/JSToWasm.cpp; sourceTree = "<group>"; };
 		AD8FF3951EB5BD850087FF82 /* WasmIndexOrName.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WasmIndexOrName.h; sourceTree = "<group>"; };
 		AD8FF3961EB5BD850087FF82 /* WasmIndexOrName.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WasmIndexOrName.cpp; sourceTree = "<group>"; };
-		AD9E852E1E8A0C6E008DE39E /* JSWebAssemblyCodeBlock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = JSWebAssemblyCodeBlock.h; path = js/JSWebAssemblyCodeBlock.h; sourceTree = "<group>"; };
 		ADB6F67C1E15D7500082F384 /* WasmPageCount.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WasmPageCount.cpp; sourceTree = "<group>"; };
 		ADD09AEE1F5F623F001313C2 /* WasmToJS.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = WasmToJS.h; path = js/WasmToJS.h; sourceTree = "<group>"; };
 		ADD09AEF1F5F623F001313C2 /* WasmToJS.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = WasmToJS.cpp; path = js/WasmToJS.cpp; sourceTree = "<group>"; };
@@ -5198,6 +5232,74 @@
 		E33A94952255322A00D42B06 /* FuzzerAgent.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = FuzzerAgent.cpp; sourceTree = "<group>"; };
 		E33BBE0725BFA03C0053690F /* WasmStreamingCompiler.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WasmStreamingCompiler.cpp; sourceTree = "<group>"; };
 		E33BBE0825BFA03C0053690F /* WasmStreamingCompiler.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WasmStreamingCompiler.h; sourceTree = "<group>"; };
+		E33D1FE8277F303F00A45FBB /* ZydisGeneratedEnumRegister.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisGeneratedEnumRegister.h; sourceTree = "<group>"; };
+		E33D1FE9277F303F00A45FBB /* ZydisRegister.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZydisRegister.c; sourceTree = "<group>"; };
+		E33D1FEA277F303F00A45FBB /* ZydisGeneratedInstructionDefinitions.inc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.pascal; path = ZydisGeneratedInstructionDefinitions.inc; sourceTree = "<group>"; };
+		E33D1FEB277F303F00A45FBB /* ZycoreDefines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZycoreDefines.h; sourceTree = "<group>"; };
+		E33D1FEC277F303F00A45FBB /* ZydisFormatterIntel.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZydisFormatterIntel.c; sourceTree = "<group>"; };
+		E33D1FEE277F303F00A45FBB /* ZycoreString.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZycoreString.c; sourceTree = "<group>"; };
+		E33D1FF0277F303F00A45FBB /* ZydisStatus.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisStatus.h; sourceTree = "<group>"; };
+		E33D1FF1277F303F00A45FBB /* ZydisFormatterATT.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZydisFormatterATT.c; sourceTree = "<group>"; };
+		E33D1FF3277F303F00A45FBB /* ZydisGeneratedFormatterStrings.inc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.pascal; path = ZydisGeneratedFormatterStrings.inc; sourceTree = "<group>"; };
+		E33D1FF5277F303F00A45FBB /* ZydisUtils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZydisUtils.c; sourceTree = "<group>"; };
+		E33D1FF6277F303F00A45FBB /* ZydisInternalFormatterIntel.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisInternalFormatterIntel.h; sourceTree = "<group>"; };
+		E33D1FF7277F303F00A45FBB /* ZydisInternalDecoderData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisInternalDecoderData.h; sourceTree = "<group>"; };
+		E33D1FF8277F303F00A45FBB /* ZycoreComparison.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZycoreComparison.h; sourceTree = "<group>"; };
+		E33D1FF9277F303F00A45FBB /* ZydisSharedTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisSharedTypes.h; sourceTree = "<group>"; };
+		E33D1FFA277F303F00A45FBB /* ZycoreVector.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZycoreVector.c; sourceTree = "<group>"; };
+		E33D1FFB277F304000A45FBB /* ZydisInternalString.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisInternalString.h; sourceTree = "<group>"; };
+		E33D1FFC277F304000A45FBB /* ZydisMetaInfo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZydisMetaInfo.c; sourceTree = "<group>"; };
+		E33D1FFD277F304000A45FBB /* ZycoreFormat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZycoreFormat.c; sourceTree = "<group>"; };
+		E33D1FFE277F304000A45FBB /* ZydisGeneratedEnumMnemonic.inc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.pascal; path = ZydisGeneratedEnumMnemonic.inc; sourceTree = "<group>"; };
+		E33D1FFF277F304000A45FBB /* ZydisInternalFormatterATT.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisInternalFormatterATT.h; sourceTree = "<group>"; };
+		E33D2001277F304000A45FBB /* ZydisGeneratedEnumISASet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisGeneratedEnumISASet.h; sourceTree = "<group>"; };
+		E33D2002277F304000A45FBB /* Zydis.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Zydis.h; sourceTree = "<group>"; };
+		E33D2003277F304000A45FBB /* ZydisFormatterBuffer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisFormatterBuffer.h; sourceTree = "<group>"; };
+		E33D2004277F304000A45FBB /* ZycoreAllocator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZycoreAllocator.h; sourceTree = "<group>"; };
+		E33D2005277F304000A45FBB /* ZydisExportConfig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisExportConfig.h; sourceTree = "<group>"; };
+		E33D2006277F304000A45FBB /* ZycoreStatus.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZycoreStatus.h; sourceTree = "<group>"; };
+		E33D2007277F304000A45FBB /* ZydisString.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZydisString.c; sourceTree = "<group>"; };
+		E33D2008277F304000A45FBB /* ZydisDecoder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisDecoder.h; sourceTree = "<group>"; };
+		E33D2009277F304000A45FBB /* ZydisGeneratedAccessedFlags.inc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.pascal; path = ZydisGeneratedAccessedFlags.inc; sourceTree = "<group>"; };
+		E33D200A277F304000A45FBB /* ZydisFormatter.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZydisFormatter.c; sourceTree = "<group>"; };
+		E33D200C277F304000A45FBB /* ZycoreBitset.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZycoreBitset.h; sourceTree = "<group>"; };
+		E33D200E277F304000A45FBB /* ZydisGeneratedEnumISAExt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisGeneratedEnumISAExt.h; sourceTree = "<group>"; };
+		E33D200F277F304000A45FBB /* ZydisGeneratedEnumInstructionCategory.inc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.pascal; path = ZydisGeneratedEnumInstructionCategory.inc; sourceTree = "<group>"; };
+		E33D2010277F304000A45FBB /* ZydisSharedData.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZydisSharedData.c; sourceTree = "<group>"; };
+		E33D2011277F304000A45FBB /* ZycoreList.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZycoreList.c; sourceTree = "<group>"; };
+		E33D2012277F304000A45FBB /* ZydisGeneratedEnumInstructionCategory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisGeneratedEnumInstructionCategory.h; sourceTree = "<group>"; };
+		E33D2013277F304000A45FBB /* ZydisMnemonic.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisMnemonic.h; sourceTree = "<group>"; };
+		E33D2014277F304000A45FBB /* ZydisGeneratedEnumISAExt.inc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.pascal; path = ZydisGeneratedEnumISAExt.inc; sourceTree = "<group>"; };
+		E33D2015277F304000A45FBB /* ZycoreString.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZycoreString.h; sourceTree = "<group>"; };
+		E33D2017277F304000A45FBB /* ZycoreTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZycoreTypes.h; sourceTree = "<group>"; };
+		E33D2019277F304000A45FBB /* ZydisGeneratedInstructionEncodings.inc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.pascal; path = ZydisGeneratedInstructionEncodings.inc; sourceTree = "<group>"; };
+		E33D201A277F304000A45FBB /* ZydisInternalFormatterBase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisInternalFormatterBase.h; sourceTree = "<group>"; };
+		E33D201B277F304000A45FBB /* ZydisRegister.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisRegister.h; sourceTree = "<group>"; };
+		E33D201C277F304000A45FBB /* ZydisGeneratedEnumISASet.inc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.pascal; path = ZydisGeneratedEnumISASet.inc; sourceTree = "<group>"; };
+		E33D201D277F304000A45FBB /* ZycoreVector.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZycoreVector.h; sourceTree = "<group>"; };
+		E33D201E277F304000A45FBB /* ZycoreFormat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZycoreFormat.h; sourceTree = "<group>"; };
+		E33D201F277F304000A45FBB /* ZydisDecoderData.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZydisDecoderData.c; sourceTree = "<group>"; };
+		E33D2020277F304000A45FBB /* ZydisMetaInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisMetaInfo.h; sourceTree = "<group>"; };
+		E33D2021277F304000A45FBB /* ZydisInternalSharedData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisInternalSharedData.h; sourceTree = "<group>"; };
+		E33D2022277F304000A45FBB /* ZycoreLibC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZycoreLibC.h; sourceTree = "<group>"; };
+		E33D2025277F304000A45FBB /* ZydisUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisUtils.h; sourceTree = "<group>"; };
+		E33D2026277F304000A45FBB /* ZydisDecoder.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZydisDecoder.c; sourceTree = "<group>"; };
+		E33D2027277F304000A45FBB /* ZydisShortString.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisShortString.h; sourceTree = "<group>"; };
+		E33D2028277F304000A45FBB /* ZydisFormatter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisFormatter.h; sourceTree = "<group>"; };
+		E33D2029277F304000A45FBB /* ZydisGeneratedDecoderTables.inc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.pascal; path = ZydisGeneratedDecoderTables.inc; sourceTree = "<group>"; };
+		E33D202A277F304000A45FBB /* ZycoreObject.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZycoreObject.h; sourceTree = "<group>"; };
+		E33D202B277F304000A45FBB /* ZydisFormatterBuffer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZydisFormatterBuffer.c; sourceTree = "<group>"; };
+		E33D202C277F304000A45FBB /* Zydis.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = Zydis.c; sourceTree = "<group>"; };
+		E33D202D277F304000A45FBB /* ZydisGeneratedEnumRegister.inc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.pascal; path = ZydisGeneratedEnumRegister.inc; sourceTree = "<group>"; };
+		E33D202E277F304000A45FBB /* ZycoreAllocator.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZycoreAllocator.c; sourceTree = "<group>"; };
+		E33D2030277F304000A45FBB /* ZydisGeneratedOperandDefinitions.inc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.pascal; path = ZydisGeneratedOperandDefinitions.inc; sourceTree = "<group>"; };
+		E33D2031277F304000A45FBB /* ZydisGeneratedEnumMnemonic.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisGeneratedEnumMnemonic.h; sourceTree = "<group>"; };
+		E33D2032277F304000A45FBB /* ZydisMnemonic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZydisMnemonic.c; sourceTree = "<group>"; };
+		E33D2033277F304000A45FBB /* ZycoreList.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZycoreList.h; sourceTree = "<group>"; };
+		E33D2034277F304000A45FBB /* ZydisDecoderTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZydisDecoderTypes.h; sourceTree = "<group>"; };
+		E33D2036277F304000A45FBB /* ZycoreBitset.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZycoreBitset.c; sourceTree = "<group>"; };
+		E33D2037277F304000A45FBB /* ZydisFormatterBase.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ZydisFormatterBase.c; sourceTree = "<group>"; };
+		E33D208A277F30AA00A45FBB /* ZycoreExportConfig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ZycoreExportConfig.h; sourceTree = "<group>"; };
 		E33E8D1A1B9013C300346B52 /* JSNativeStdFunction.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSNativeStdFunction.cpp; sourceTree = "<group>"; };
 		E33E8D1B1B9013C300346B52 /* JSNativeStdFunction.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSNativeStdFunction.h; sourceTree = "<group>"; };
 		E33F50721B8421C000413856 /* JSInternalPromisePrototype.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSInternalPromisePrototype.cpp; sourceTree = "<group>"; };
@@ -5240,8 +5342,6 @@
 		E365F33824AA621100C991B2 /* IntlDisplayNamesPrototype.lut.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IntlDisplayNamesPrototype.lut.h; sourceTree = "<group>"; };
 		E365F33924AA621200C991B2 /* IntlDisplayNamesConstructor.lut.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IntlDisplayNamesConstructor.lut.h; sourceTree = "<group>"; };
 		E36B480123E9573800E4A66E /* UnlinkedCodeBlockGenerator.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = UnlinkedCodeBlockGenerator.cpp; sourceTree = "<group>"; };
-		E36B766E22F8D61100D09818 /* WasmOMGForOSREntryPlan.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WasmOMGForOSREntryPlan.cpp; sourceTree = "<group>"; };
-		E36B766F22F8D61100D09818 /* WasmOMGForOSREntryPlan.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WasmOMGForOSREntryPlan.h; sourceTree = "<group>"; };
 		E36CC9462086314F0051FFD6 /* WasmCreationMode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WasmCreationMode.h; sourceTree = "<group>"; };
 		E36EDCE424F0975700E60DA2 /* Concurrency.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Concurrency.h; sourceTree = "<group>"; };
 		E3711991253FA87E00BA69A0 /* Gate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Gate.h; sourceTree = "<group>"; };
@@ -5290,6 +5390,8 @@
 		E3A0531721342B660022EC14 /* WasmSectionParser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WasmSectionParser.cpp; sourceTree = "<group>"; };
 		E3A0531821342B670022EC14 /* WasmSectionParser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WasmSectionParser.h; sourceTree = "<group>"; };
 		E3A0531921342B670022EC14 /* WasmStreamingParser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WasmStreamingParser.cpp; sourceTree = "<group>"; };
+		E3A10E7F27803E3B00D3ACD0 /* Zycore.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = Zycore.c; sourceTree = "<group>"; };
+		E3A10E8027803E3B00D3ACD0 /* Zycore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Zycore.h; sourceTree = "<group>"; };
 		E3A32BC51FC8312D007D7E76 /* WeakMapImpl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WeakMapImpl.cpp; sourceTree = "<group>"; };
 		E3A32BC61FC8312E007D7E76 /* WeakMapImpl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WeakMapImpl.h; sourceTree = "<group>"; };
 		E3A421421D6F588F0007C617 /* PreciseJumpTargetsInlines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PreciseJumpTargetsInlines.h; sourceTree = "<group>"; };
@@ -6228,34 +6330,13 @@
 			isa = PBXGroup;
 			children = (
 				652A3A1A1651A92400A80AFE /* ARM64 */,
-				0FF42733158EBD64004CB9FF /* udis86 */,
+				E33D1FE7277F303F00A45FBB /* Zydis */,
 				652A3A201651C66100A80AFE /* ARM64Disassembler.cpp */,
 				0F9D336E165DBB8D005AD387 /* Disassembler.cpp */,
 				0FF4272F158EBD44004CB9FF /* Disassembler.h */,
-				0FF42730158EBD44004CB9FF /* UDis86Disassembler.cpp */,
-				A7E5AB351799E4B200D2833D /* UDis86Disassembler.h */,
 				A7E5AB361799E4B200D2833D /* X86Disassembler.cpp */,
 			);
 			name = disassembler;
-			sourceTree = "<group>";
-		};
-		0FF42733158EBD64004CB9FF /* udis86 */ = {
-			isa = PBXGroup;
-			children = (
-				0FF4273E158EBD94004CB9FF /* udis86.c */,
-				0FF4273F158EBD94004CB9FF /* udis86.h */,
-				0FF42734158EBD94004CB9FF /* udis86_decode.c */,
-				0FF42735158EBD94004CB9FF /* udis86_decode.h */,
-				0FF42736158EBD94004CB9FF /* udis86_extern.h */,
-				0FF4274C158EBFE1004CB9FF /* udis86_itab_holder.c */,
-				0FF42739158EBD94004CB9FF /* udis86_syn-att.c */,
-				0FF4273A158EBD94004CB9FF /* udis86_syn-intel.c */,
-				0FF4273B158EBD94004CB9FF /* udis86_syn.c */,
-				0FF4273C158EBD94004CB9FF /* udis86_syn.h */,
-				0FF4273D158EBD94004CB9FF /* udis86_types.h */,
-				43CBA1601CAB67BA00328A5C /* udis86_udint.h */,
-			);
-			name = udis86;
 			sourceTree = "<group>";
 		};
 		141211000A48772600480255 /* tests */ = {
@@ -6609,8 +6690,6 @@
 				E3BF1BAD238AAED1003A1C2B /* IsoHeapCellType.h */,
 				E3C8ED4223A1DBC500131958 /* IsoInlinedHeapCellType.h */,
 				FE65B1502748601F00DB5B16 /* IsoInlinedHeapCellTypeInlines.h */,
-				537FEECD2742BDE000C9EFEE /* IsoMemoryAllocatorBase.h */,
-				537FEECA2742BDE000C9EFEE /* IsoMemoryAllocatorBaseInlines.h */,
 				0FDCE12C1FAFB4DE006F3901 /* IsoSubspace.cpp */,
 				0FDCE12B1FAFB4DE006F3901 /* IsoSubspace.h */,
 				0FD2FD9220B52BDC00F09441 /* IsoSubspaceInlines.h */,
@@ -7199,13 +7278,13 @@
 				AD4B1DF81DF244D70071AE32 /* WasmBinding.h */,
 				525C0DD71E935847002184CD /* WasmCallee.cpp */,
 				525C0DD81E935847002184CD /* WasmCallee.h */,
+				526AC4B41E977C5D003500E1 /* WasmCalleeGroup.cpp */,
+				526AC4B51E977C5D003500E1 /* WasmCalleeGroup.h */,
 				E3FB853922F36674008F90ED /* WasmCalleeRegistry.cpp */,
 				E3FB853822F36674008F90ED /* WasmCalleeRegistry.h */,
 				53FD04D11D7AB187003287D3 /* WasmCallingConvention.cpp */,
 				53FD04D21D7AB187003287D3 /* WasmCallingConvention.h */,
 				E337B966224324E50093A820 /* WasmCapabilities.h */,
-				526AC4B41E977C5D003500E1 /* WasmCodeBlock.cpp */,
-				526AC4B51E977C5D003500E1 /* WasmCodeBlock.h */,
 				E37CFB2D22F27C57009A7B38 /* WasmCompilationMode.cpp */,
 				E3BD2B7522F275020011765C /* WasmCompilationMode.h */,
 				E3915C062309682900CB2561 /* WasmContext.cpp */,
@@ -7220,14 +7299,15 @@
 				5381B9381E60E97D0090F794 /* WasmFaultSignalHandler.h */,
 				AD2FCC321DC4045300B3E736 /* WasmFormat.cpp */,
 				7BC547D21B69599B00959B58 /* WasmFormat.h */,
-				14C5AD6722F33FBF00F1FB83 /* WasmFunctionCodeBlock.cpp */,
-				14C5AD6B22F33FC000F1FB83 /* WasmFunctionCodeBlock.h */,
+				14C5AD6722F33FBF00F1FB83 /* WasmFunctionCodeBlockGenerator.cpp */,
+				14C5AD6B22F33FC000F1FB83 /* WasmFunctionCodeBlockGenerator.h */,
 				53F40E8A1D5901BB0099A1B6 /* WasmFunctionParser.h */,
 				1487CE16237741000044429C /* WasmGeneratorTraits.h */,
 				E38350082390D9370036316D /* WasmGlobal.cpp */,
 				E38350092390D9370036316D /* WasmGlobal.h */,
 				148521D526EAEBDF00CC1D1A /* WasmHandlerInfo.cpp */,
 				148521D726EAEBFE00CC1D1A /* WasmHandlerInfo.h */,
+				52FDABC22788076900C15B59 /* WasmIRGeneratorHelpers.h */,
 				AD8FF3961EB5BD850087FF82 /* WasmIndexOrName.cpp */,
 				AD8FF3951EB5BD850087FF82 /* WasmIndexOrName.h */,
 				AD5C36DE1F699EB6000BCAAF /* WasmInstance.cpp */,
@@ -7255,8 +7335,6 @@
 				AD7B4B2D1FA3E28600C9DF79 /* WasmNameSection.h */,
 				ADD8FA441EB3077100DF542F /* WasmNameSectionParser.cpp */,
 				ADD8FA431EB3077100DF542F /* WasmNameSectionParser.h */,
-				E36B766E22F8D61100D09818 /* WasmOMGForOSREntryPlan.cpp */,
-				E36B766F22F8D61100D09818 /* WasmOMGForOSREntryPlan.h */,
 				5311BD481EA581E500525281 /* WasmOMGPlan.cpp */,
 				5311BD491EA581E500525281 /* WasmOMGPlan.h */,
 				53C6FEF01E8AFE0C00B18425 /* WasmOpcodeOrigin.cpp */,
@@ -7264,6 +7342,8 @@
 				E39D8B2C23021E1E00265852 /* WasmOperations.cpp */,
 				E39D8B2D23021E1E00265852 /* WasmOperations.h */,
 				E3C694B123026873006FBE42 /* WasmOSREntryData.h */,
+				527E6CEA2772B9C5005E0782 /* WasmOSREntryPlan.cpp */,
+				527E6CEB2772B9C5005E0782 /* WasmOSREntryPlan.h */,
 				ADB6F67C1E15D7500082F384 /* WasmPageCount.cpp */,
 				79B759731DFA4C600052174C /* WasmPageCount.h */,
 				53F40E8C1D5901F20099A1B6 /* WasmParser.h */,
@@ -9186,8 +9266,6 @@
 				527CE35322555FDD00C6F382 /* JSToWasmICCallee.h */,
 				ADD09AF21F624829001313C2 /* JSWebAssembly.cpp */,
 				ADD09AF31F62482E001313C2 /* JSWebAssembly.h */,
-				5383AA2F1E65E8A100A532FC /* JSWebAssemblyCodeBlock.cpp */,
-				AD9E852E1E8A0C6E008DE39E /* JSWebAssemblyCodeBlock.h */,
 				AD2FCBA61DB58DA400B3E736 /* JSWebAssemblyCompileError.cpp */,
 				AD2FCBA71DB58DA400B3E736 /* JSWebAssemblyCompileError.h */,
 				14D01BDC26DEEF3700CAE0D0 /* JSWebAssemblyException.cpp */,
@@ -9294,6 +9372,84 @@
 				C4F4B6D81A05C76F005CAB76 /* objc_generator_templates.py */,
 			);
 			path = codegen;
+			sourceTree = "<group>";
+		};
+		E33D1FE7277F303F00A45FBB /* Zydis */ = {
+			isa = PBXGroup;
+			children = (
+				E3A10E7F27803E3B00D3ACD0 /* Zycore.c */,
+				E3A10E8027803E3B00D3ACD0 /* Zycore.h */,
+				E33D202E277F304000A45FBB /* ZycoreAllocator.c */,
+				E33D2004277F304000A45FBB /* ZycoreAllocator.h */,
+				E33D2036277F304000A45FBB /* ZycoreBitset.c */,
+				E33D200C277F304000A45FBB /* ZycoreBitset.h */,
+				E33D1FF8277F303F00A45FBB /* ZycoreComparison.h */,
+				E33D1FEB277F303F00A45FBB /* ZycoreDefines.h */,
+				E33D208A277F30AA00A45FBB /* ZycoreExportConfig.h */,
+				E33D1FFD277F304000A45FBB /* ZycoreFormat.c */,
+				E33D201E277F304000A45FBB /* ZycoreFormat.h */,
+				E33D2022277F304000A45FBB /* ZycoreLibC.h */,
+				E33D2011277F304000A45FBB /* ZycoreList.c */,
+				E33D2033277F304000A45FBB /* ZycoreList.h */,
+				E33D202A277F304000A45FBB /* ZycoreObject.h */,
+				E33D2006277F304000A45FBB /* ZycoreStatus.h */,
+				E33D1FEE277F303F00A45FBB /* ZycoreString.c */,
+				E33D2015277F304000A45FBB /* ZycoreString.h */,
+				E33D2017277F304000A45FBB /* ZycoreTypes.h */,
+				E33D1FFA277F303F00A45FBB /* ZycoreVector.c */,
+				E33D201D277F304000A45FBB /* ZycoreVector.h */,
+				E33D202C277F304000A45FBB /* Zydis.c */,
+				E33D2002277F304000A45FBB /* Zydis.h */,
+				E33D2026277F304000A45FBB /* ZydisDecoder.c */,
+				E33D2008277F304000A45FBB /* ZydisDecoder.h */,
+				E33D201F277F304000A45FBB /* ZydisDecoderData.c */,
+				E33D2034277F304000A45FBB /* ZydisDecoderTypes.h */,
+				E33D2005277F304000A45FBB /* ZydisExportConfig.h */,
+				E33D200A277F304000A45FBB /* ZydisFormatter.c */,
+				E33D2028277F304000A45FBB /* ZydisFormatter.h */,
+				E33D1FF1277F303F00A45FBB /* ZydisFormatterATT.c */,
+				E33D2037277F304000A45FBB /* ZydisFormatterBase.c */,
+				E33D202B277F304000A45FBB /* ZydisFormatterBuffer.c */,
+				E33D2003277F304000A45FBB /* ZydisFormatterBuffer.h */,
+				E33D1FEC277F303F00A45FBB /* ZydisFormatterIntel.c */,
+				E33D2009277F304000A45FBB /* ZydisGeneratedAccessedFlags.inc */,
+				E33D2029277F304000A45FBB /* ZydisGeneratedDecoderTables.inc */,
+				E33D2012277F304000A45FBB /* ZydisGeneratedEnumInstructionCategory.h */,
+				E33D200F277F304000A45FBB /* ZydisGeneratedEnumInstructionCategory.inc */,
+				E33D200E277F304000A45FBB /* ZydisGeneratedEnumISAExt.h */,
+				E33D2014277F304000A45FBB /* ZydisGeneratedEnumISAExt.inc */,
+				E33D2001277F304000A45FBB /* ZydisGeneratedEnumISASet.h */,
+				E33D201C277F304000A45FBB /* ZydisGeneratedEnumISASet.inc */,
+				E33D2031277F304000A45FBB /* ZydisGeneratedEnumMnemonic.h */,
+				E33D1FFE277F304000A45FBB /* ZydisGeneratedEnumMnemonic.inc */,
+				E33D1FE8277F303F00A45FBB /* ZydisGeneratedEnumRegister.h */,
+				E33D202D277F304000A45FBB /* ZydisGeneratedEnumRegister.inc */,
+				E33D1FF3277F303F00A45FBB /* ZydisGeneratedFormatterStrings.inc */,
+				E33D1FEA277F303F00A45FBB /* ZydisGeneratedInstructionDefinitions.inc */,
+				E33D2019277F304000A45FBB /* ZydisGeneratedInstructionEncodings.inc */,
+				E33D2030277F304000A45FBB /* ZydisGeneratedOperandDefinitions.inc */,
+				E33D1FF7277F303F00A45FBB /* ZydisInternalDecoderData.h */,
+				E33D1FFF277F304000A45FBB /* ZydisInternalFormatterATT.h */,
+				E33D201A277F304000A45FBB /* ZydisInternalFormatterBase.h */,
+				E33D1FF6277F303F00A45FBB /* ZydisInternalFormatterIntel.h */,
+				E33D2021277F304000A45FBB /* ZydisInternalSharedData.h */,
+				E33D1FFB277F304000A45FBB /* ZydisInternalString.h */,
+				E33D1FFC277F304000A45FBB /* ZydisMetaInfo.c */,
+				E33D2020277F304000A45FBB /* ZydisMetaInfo.h */,
+				E33D2032277F304000A45FBB /* ZydisMnemonic.c */,
+				E33D2013277F304000A45FBB /* ZydisMnemonic.h */,
+				E33D1FE9277F303F00A45FBB /* ZydisRegister.c */,
+				E33D201B277F304000A45FBB /* ZydisRegister.h */,
+				E33D2010277F304000A45FBB /* ZydisSharedData.c */,
+				E33D1FF9277F303F00A45FBB /* ZydisSharedTypes.h */,
+				E33D2027277F304000A45FBB /* ZydisShortString.h */,
+				E33D1FF0277F303F00A45FBB /* ZydisStatus.h */,
+				E33D2007277F304000A45FBB /* ZydisString.c */,
+				E33D1FF5277F303F00A45FBB /* ZydisUtils.c */,
+				E33D2025277F304000A45FBB /* ZydisUtils.h */,
+			);
+			name = Zydis;
+			path = disassembler/zydis/Zydis;
 			sourceTree = "<group>";
 		};
 		E3FF752D1D9CE9EA00C7E16D /* domjit */ = {
@@ -9542,6 +9698,7 @@
 				0F725CA81C503DED00AD943A /* B3EliminateCommonSubexpressions.h in Headers */,
 				3395C70722555F6D00BDBFAD /* B3EliminateDeadCode.h in Headers */,
 				0F5BF1711F23A5A10029D91D /* B3EnsureLoopPreHeaders.h in Headers */,
+				52E65A1E27682771002B4C0A /* B3EstimateStaticExecutionCounts.h in Headers */,
 				5318045C22EAAC4B004A7342 /* B3ExtractValue.h in Headers */,
 				0F6971EA1D92F42400BA02A5 /* B3FenceValue.h in Headers */,
 				0F6B8AE51C4EFE1700969052 /* B3FixSSA.h in Headers */,
@@ -9918,7 +10075,6 @@
 				0FFB921D16D02F300055A5DB /* DFGSlowPathGenerator.h in Headers */,
 				E322E5A31DA64439006E7709 /* DFGSnippetParams.h in Headers */,
 				86EC9DD31328DF82002B2AD7 /* DFGSpeculativeJIT.h in Headers */,
-				52E65A1E27682771002B4C0A /* B3EstimateStaticExecutionCounts.h in Headers */,
 				0F682FB319BCB36400FA3BAD /* DFGSSACalculator.h in Headers */,
 				A7D89D0017A0B8CC00773AD8 /* DFGSSAConversionPhase.h in Headers */,
 				0FC20CBA18556A3500C9E954 /* DFGSSALoweringPhase.h in Headers */,
@@ -10158,6 +10314,7 @@
 				A5398FAB1C750DA40060A963 /* HeapProfiler.h in Headers */,
 				A54C2AB11C6544F200A18D78 /* HeapSnapshot.h in Headers */,
 				A5311C361C77CEC500E6B1B6 /* HeapSnapshotBuilder.h in Headers */,
+				FE2CC9302756B2B9003F5AB8 /* HeapSubspaceTypes.h in Headers */,
 				0FADE6731D4D23BE00768457 /* HeapUtil.h in Headers */,
 				FE1BD0251E72053800134BC9 /* HeapVerifier.h in Headers */,
 				DC2143071CA32E55000A8869 /* ICStats.h in Headers */,
@@ -10274,6 +10431,7 @@
 				0FB467811FDDA6F7003FCB09 /* IsoCellSetInlines.h in Headers */,
 				E3BF1BAE238AAEDB003A1C2B /* IsoHeapCellType.h in Headers */,
 				E3C8ED4323A1DBCB00131958 /* IsoInlinedHeapCellType.h in Headers */,
+				FE65B1512748601F00DB5B16 /* IsoInlinedHeapCellTypeInlines.h in Headers */,
 				0FDCE12D1FAFB4E5006F3901 /* IsoSubspace.h in Headers */,
 				0FD2FD9520B52BE200F09441 /* IsoSubspaceInlines.h in Headers */,
 				0F5E0FE72086AD480097F0DE /* IsoSubspacePerVM.h in Headers */,
@@ -10422,7 +10580,6 @@
 				E33F50811B8429A400413856 /* JSInternalPromise.h in Headers */,
 				E33F50791B84225700413856 /* JSInternalPromiseConstructor.h in Headers */,
 				E33F50871B8449EF00413856 /* JSInternalPromiseConstructor.lut.h in Headers */,
-				FE65B1512748601F00DB5B16 /* IsoInlinedHeapCellTypeInlines.h in Headers */,
 				E33F50751B8421C000413856 /* JSInternalPromisePrototype.h in Headers */,
 				A503FA1E188E0FB000110F14 /* JSJavaScriptCallFramePrototype.h in Headers */,
 				BC18C4160E16F5CD00B34460 /* JSLexicalEnvironment.h in Headers */,
@@ -10511,7 +10668,6 @@
 				709FB8681AE335C60039D069 /* JSWeakSet.h in Headers */,
 				7A9774A8206B82E4008D03D0 /* JSWeakValue.h in Headers */,
 				AD5C36EB1F75AD73000BCAAF /* JSWebAssembly.h in Headers */,
-				AD9E852F1E8A0C7C008DE39E /* JSWebAssemblyCodeBlock.h in Headers */,
 				AD2FCBE31DB58DAD00B3E736 /* JSWebAssemblyCompileError.h in Headers */,
 				14D01BED26DEEF3800CAE0D0 /* JSWebAssemblyException.h in Headers */,
 				E3BF3C4D2390D1E8008BC752 /* JSWebAssemblyGlobal.h in Headers */,
@@ -10899,12 +11055,6 @@
 				52C952B719A289850069B386 /* TypeProfiler.h in Headers */,
 				0F2D4DEC19832DC4007D4B19 /* TypeProfilerLog.h in Headers */,
 				0F2D4DF019832DD6007D4B19 /* TypeSet.h in Headers */,
-				0FF4274B158EBE91004CB9FF /* udis86.h in Headers */,
-				0FF42741158EBE8D004CB9FF /* udis86_decode.h in Headers */,
-				0FF42742158EBE91004CB9FF /* udis86_extern.h in Headers */,
-				0FF42748158EBE91004CB9FF /* udis86_syn.h in Headers */,
-				0FF42749158EBE91004CB9FF /* udis86_types.h in Headers */,
-				A7E5AB391799E4B200D2833D /* UDis86Disassembler.h in Headers */,
 				A7A8AF4117ADB5F3005AB174 /* Uint16Array.h in Headers */,
 				866739D313BFDE710023D87C /* Uint16WithFraction.h in Headers */,
 				A7A8AF4217ADB5F3005AB174 /* Uint32Array.h in Headers */,
@@ -10945,12 +11095,11 @@
 				53CA730A1EA533D80076049D /* WasmBBQPlan.h in Headers */,
 				AD4B1DFA1DF244E20071AE32 /* WasmBinding.h in Headers */,
 				525C0DDA1E935847002184CD /* WasmCallee.h in Headers */,
+				526AC4B71E977C5D003500E1 /* WasmCalleeGroup.h in Headers */,
 				E3FB853A22F3667B008F90ED /* WasmCalleeRegistry.h in Headers */,
 				53FD04D41D7AB291003287D3 /* WasmCallingConvention.h in Headers */,
 				E337B967224324EA0093A820 /* WasmCapabilities.h in Headers */,
-				526AC4B71E977C5D003500E1 /* WasmCodeBlock.h in Headers */,
 				E3BD2B7622F275020011765C /* WasmCompilationMode.h in Headers */,
-				FE2CC9302756B2B9003F5AB8 /* HeapSubspaceTypes.h in Headers */,
 				AD412B341E7B2E9E008AF157 /* WasmContext.h in Headers */,
 				7593C898BE714A64BE93A6E7 /* WasmContextInlines.h in Headers */,
 				E36CC9472086314F0051FFD6 /* WasmCreationMode.h in Headers */,
@@ -10958,7 +11107,7 @@
 				79DAE27A1E03C82200B526AA /* WasmExceptionType.h in Headers */,
 				5381B9391E60E97D0090F794 /* WasmFaultSignalHandler.h in Headers */,
 				7BC547D31B6959A100959B58 /* WasmFormat.h in Headers */,
-				1450FA1C2357BDBE0093CD4D /* WasmFunctionCodeBlock.h in Headers */,
+				1450FA1C2357BDBE0093CD4D /* WasmFunctionCodeBlockGenerator.h in Headers */,
 				53F40E8B1D5901BB0099A1B6 /* WasmFunctionParser.h in Headers */,
 				E383500A2390D93B0036316D /* WasmGlobal.h in Headers */,
 				148521D826EAEBFE00CC1D1A /* WasmHandlerInfo.h in Headers */,
@@ -10975,12 +11124,12 @@
 				AD5B416F1EBAFB77008EFA43 /* WasmName.h in Headers */,
 				AD7B4B2E1FA3E29800C9DF79 /* WasmNameSection.h in Headers */,
 				ADD8FA461EB3079700DF542F /* WasmNameSectionParser.h in Headers */,
-				E36B767022F8D61900D09818 /* WasmOMGForOSREntryPlan.h in Headers */,
 				5311BD4B1EA581E500525281 /* WasmOMGPlan.h in Headers */,
 				53C6FEEF1E8ADFA900B18425 /* WasmOpcodeOrigin.h in Headers */,
 				E39D8B2E23021E2600265852 /* WasmOperations.h in Headers */,
 				53B4BD121F68B32500D2BEA3 /* WasmOps.h in Headers */,
 				E3C694B323026877006FBE42 /* WasmOSREntryData.h in Headers */,
+				527E6CEC2772B9CB005E0782 /* WasmOSREntryPlan.h in Headers */,
 				79B759761DFA4C600052174C /* WasmPageCount.h in Headers */,
 				53F40E8D1D5901F20099A1B6 /* WasmParser.h in Headers */,
 				531374BD1D5CE67600AF7A0B /* WasmPlan.h in Headers */,
@@ -11014,6 +11163,7 @@
 				E3A32BC71FC83147007D7E76 /* WeakMapImpl.h in Headers */,
 				E393ADD81FE702D00022D681 /* WeakMapImplInlines.h in Headers */,
 				A7CA3AE617DA41AE006538AF /* WeakMapPrototype.h in Headers */,
+				52FDABC32788076B00C15B59 /* WasmIRGeneratorHelpers.h in Headers */,
 				539930C822AD3B9A0051CDE2 /* WeakObjectRefConstructor.h in Headers */,
 				539BFBAE22AD3C3A0023F4C0 /* WeakObjectRefPrototype.h in Headers */,
 				14E84FA114EE1ACC00D6D5D4 /* WeakSet.h in Headers */,
@@ -11076,6 +11226,44 @@
 				86704B8A12DBA33700A9FE7B /* YarrPattern.h in Headers */,
 				86704B4312DB8A8100A9FE7B /* YarrSyntaxChecker.h in Headers */,
 				659CDA5B1F6753F200D3E53F /* YarrUnicodeProperties.h in Headers */,
+				E3A10E8227803E3B00D3ACD0 /* Zycore.h in Headers */,
+				E33D2055277F304000A45FBB /* ZycoreAllocator.h in Headers */,
+				E33D205D277F304000A45FBB /* ZycoreBitset.h in Headers */,
+				E33D2049277F304000A45FBB /* ZycoreComparison.h in Headers */,
+				E33D203C277F304000A45FBB /* ZycoreDefines.h in Headers */,
+				E33D208B277F30AA00A45FBB /* ZycoreExportConfig.h in Headers */,
+				E33D206F277F304000A45FBB /* ZycoreFormat.h in Headers */,
+				E33D2073277F304000A45FBB /* ZycoreLibC.h in Headers */,
+				E33D2084277F304000A45FBB /* ZycoreList.h in Headers */,
+				E33D207B277F304000A45FBB /* ZycoreObject.h in Headers */,
+				E33D2057277F304000A45FBB /* ZycoreStatus.h in Headers */,
+				E33D2066277F304000A45FBB /* ZycoreString.h in Headers */,
+				E33D2068277F304000A45FBB /* ZycoreTypes.h in Headers */,
+				E33D206E277F304000A45FBB /* ZycoreVector.h in Headers */,
+				E33D2053277F304000A45FBB /* Zydis.h in Headers */,
+				E33D2059277F304000A45FBB /* ZydisDecoder.h in Headers */,
+				E33D2085277F304000A45FBB /* ZydisDecoderTypes.h in Headers */,
+				E33D2056277F304000A45FBB /* ZydisExportConfig.h in Headers */,
+				E33D2079277F304000A45FBB /* ZydisFormatter.h in Headers */,
+				E33D2054277F304000A45FBB /* ZydisFormatterBuffer.h in Headers */,
+				E33D2063277F304000A45FBB /* ZydisGeneratedEnumInstructionCategory.h in Headers */,
+				E33D205F277F304000A45FBB /* ZydisGeneratedEnumISAExt.h in Headers */,
+				E33D2052277F304000A45FBB /* ZydisGeneratedEnumISASet.h in Headers */,
+				E33D2082277F304000A45FBB /* ZydisGeneratedEnumMnemonic.h in Headers */,
+				E33D2039277F304000A45FBB /* ZydisGeneratedEnumRegister.h in Headers */,
+				E33D2048277F304000A45FBB /* ZydisInternalDecoderData.h in Headers */,
+				E33D2050277F304000A45FBB /* ZydisInternalFormatterATT.h in Headers */,
+				E33D206B277F304000A45FBB /* ZydisInternalFormatterBase.h in Headers */,
+				E33D2047277F304000A45FBB /* ZydisInternalFormatterIntel.h in Headers */,
+				E33D2072277F304000A45FBB /* ZydisInternalSharedData.h in Headers */,
+				E33D204C277F304000A45FBB /* ZydisInternalString.h in Headers */,
+				E33D2071277F304000A45FBB /* ZydisMetaInfo.h in Headers */,
+				E33D2064277F304000A45FBB /* ZydisMnemonic.h in Headers */,
+				E33D206C277F304000A45FBB /* ZydisRegister.h in Headers */,
+				E33D204A277F304000A45FBB /* ZydisSharedTypes.h in Headers */,
+				E33D2078277F304000A45FBB /* ZydisShortString.h in Headers */,
+				E33D2041277F304000A45FBB /* ZydisStatus.h in Headers */,
+				E33D2076277F304000A45FBB /* ZydisUtils.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -11279,6 +11467,7 @@
 				A55DEAA416703DF7003DB841 /* Check For Inappropriate Macros in External Headers */,
 				1A02D9A81B34A882000D1522 /* Add Symlink in /System/Library/PrivateFrameworks */,
 				53609F9021DFFA9C008FA60A /* Check .xcfilelists */,
+				6577FFC6276AC8D20011AEC8 /* Create Symlink to Alt Root Path */,
 			);
 			buildRules = (
 				535E08C222545AC800DF00CA /* PBXBuildRule */,
@@ -11658,6 +11847,25 @@
 			shellPath = /bin/sh;
 			shellScript = "set -e\n\n# Skip for Production builds.\nif [[ ${CONFIGURATION:=Debug} == \"Production\" ]]; then\n    exit\nfi\n\nmkdir -p \"${BUILT_PRODUCTS_DIR}/${JAVASCRIPTCORE_HELPERS_DIR}\"\nditto \"${BUILT_PRODUCTS_DIR}/jsc\" \"${BUILT_PRODUCTS_DIR}/${JAVASCRIPTCORE_HELPERS_DIR}/jsc\"\n";
 		};
+		6577FFC6276AC8D20011AEC8 /* Create Symlink to Alt Root Path */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Create Symlink to Alt Root Path";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"${OUTPUT_ALTERNATE_ROOT_PATH}",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/zsh;
+			shellScript = "\"${SRCROOT}/Scripts/create-symlink-to-altroot.sh\"\n";
+		};
 		65788AA018B409EB00C189FF /* Offline Assemble */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -11786,11 +11994,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				E392E6F824D25FA600B20767 /* B3BottomTupleValue.cpp in Sources */,
+				52E65A1C27682760002B4C0A /* B3EstimateStaticExecutionCounts.cpp in Sources */,
 				0FEC85AF1BDB5D5E0080FF74 /* testb3_1.cpp in Sources */,
 				5C3A77BA22F2480F003827FF /* testb3_2.cpp in Sources */,
 				5C3A77B922F2480B003827FF /* testb3_3.cpp in Sources */,
 				5C3A77B822F24809003827FF /* testb3_4.cpp in Sources */,
-				52E65A1C27682760002B4C0A /* B3EstimateStaticExecutionCounts.cpp in Sources */,
 				5C3A77B722F24806003827FF /* testb3_5.cpp in Sources */,
 				5C3A77B622F24803003827FF /* testb3_6.cpp in Sources */,
 				5C3A77B522F24800003827FF /* testb3_7.cpp in Sources */,
@@ -11895,12 +12103,6 @@
 				E38E8790254B978400F6F9E4 /* JSDateMath.cpp in Sources */,
 				536B319E1F735F160037FC33 /* LowLevelInterpreter.cpp in Sources */,
 				DFBC2CA625E6D5B90081BDD1 /* SymbolStubsForSafariCompatibility.mm in Sources */,
-				0FF4274A158EBE91004CB9FF /* udis86.c in Sources */,
-				0FF42740158EBE8B004CB9FF /* udis86_decode.c in Sources */,
-				0FF4274D158EBFE6004CB9FF /* udis86_itab_holder.c in Sources */,
-				0FF42745158EBE91004CB9FF /* udis86_syn-att.c in Sources */,
-				0FF42746158EBE91004CB9FF /* udis86_syn-intel.c in Sources */,
-				0FF42747158EBE91004CB9FF /* udis86_syn.c in Sources */,
 				536B319A1F735E780037FC33 /* UnifiedSource1-mm.mm in Sources */,
 				536B315F1F71C5990037FC33 /* UnifiedSource1.cpp in Sources */,
 				536B319B1F735E780037FC33 /* UnifiedSource2-mm.mm in Sources */,
@@ -12062,6 +12264,27 @@
 				538F15EA268FBBB600D601C4 /* UnifiedSource154.cpp in Sources */,
 				538F15EF268FBBB600D601C4 /* UnifiedSource155.cpp in Sources */,
 				525C9CDF220285830082DBFD /* WasmAirIRGenerator.cpp in Sources */,
+				E3A10E8127803E3B00D3ACD0 /* Zycore.c in Sources */,
+				E33D20A2277F436A00A45FBB /* ZycoreAllocator.c in Sources */,
+				E33D20A6277F436A00A45FBB /* ZycoreBitset.c in Sources */,
+				E33D20A1277F436A00A45FBB /* ZycoreFormat.c in Sources */,
+				E33D2095277F436A00A45FBB /* ZycoreList.c in Sources */,
+				E33D2092277F436A00A45FBB /* ZycoreString.c in Sources */,
+				E33D209E277F436A00A45FBB /* ZycoreVector.c in Sources */,
+				E33D208D277F436A00A45FBB /* Zydis.c in Sources */,
+				E33D2091277F436A00A45FBB /* ZydisDecoder.c in Sources */,
+				E33D20A5277F436A00A45FBB /* ZydisDecoderData.c in Sources */,
+				E33D209C277F436A00A45FBB /* ZydisFormatter.c in Sources */,
+				E33D2098277F436A00A45FBB /* ZydisFormatterATT.c in Sources */,
+				E33D2090277F436A00A45FBB /* ZydisFormatterBase.c in Sources */,
+				E33D209B277F436A00A45FBB /* ZydisFormatterBuffer.c in Sources */,
+				E33D20A0277F436A00A45FBB /* ZydisFormatterIntel.c in Sources */,
+				E33D2094277F436A00A45FBB /* ZydisMetaInfo.c in Sources */,
+				E33D208E277F436A00A45FBB /* ZydisMnemonic.c in Sources */,
+				E33D20A4277F436A00A45FBB /* ZydisRegister.c in Sources */,
+				E33D2093277F436A00A45FBB /* ZydisSharedData.c in Sources */,
+				E33D209A277F436A00A45FBB /* ZydisString.c in Sources */,
+				E33D20A3277F436A00A45FBB /* ZydisUtils.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

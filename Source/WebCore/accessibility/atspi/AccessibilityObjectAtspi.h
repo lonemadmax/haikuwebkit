@@ -36,7 +36,7 @@ namespace WebCore {
 class AXCoreObject;
 class AccessibilityRootAtspi;
 
-class AccessibilityObjectAtspi final : public ThreadSafeRefCounted<AccessibilityObjectAtspi> {
+class AccessibilityObjectAtspi final : public ThreadSafeRefCounted<AccessibilityObjectAtspi, WTF::DestructionThread::Main> {
 public:
     static Ref<AccessibilityObjectAtspi> create(AXCoreObject*, AccessibilityRootAtspi&);
     ~AccessibilityObjectAtspi() = default;
@@ -135,6 +135,7 @@ public:
     WEBCORE_EXPORT bool doAction() const;
 
     WEBCORE_EXPORT String documentAttribute(const String&) const;
+    void loadEvent(const char*);
 
     WEBCORE_EXPORT unsigned selectionCount() const;
     WEBCORE_EXPORT AccessibilityObjectAtspi* selectedChild(unsigned) const;
@@ -164,7 +165,10 @@ private:
     void childAdded(AccessibilityObjectAtspi&);
     void childRemoved(AccessibilityObjectAtspi&);
 
+    std::optional<unsigned> effectiveRole() const;
+    String effectiveRoleName() const;
     String roleName() const;
+    const char* effectiveLocalizedRoleName() const;
     const char* localizedRoleName() const;
     void buildAttributes(GVariantBuilder*) const;
     void buildRelationSet(GVariantBuilder*) const;
@@ -242,6 +246,8 @@ private:
     Atomic<bool> m_isRegistered { false };
     String m_path;
     String m_hyperlinkPath;
+    int64_t m_lastSelectionChangedTime { -1 };
+    mutable std::atomic<bool> m_hasListMarkerAtStart;
     mutable int m_indexInParent { -1 };
     mutable Lock m_rootLock;
 };

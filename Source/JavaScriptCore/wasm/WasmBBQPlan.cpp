@@ -34,8 +34,9 @@
 #include "WasmAirIRGenerator.h"
 #include "WasmB3IRGenerator.h"
 #include "WasmCallee.h"
+#include "WasmCalleeGroup.h"
 #include "WasmCalleeRegistry.h"
-#include "WasmCodeBlock.h"
+#include "WasmIRGeneratorHelpers.h"
 #include "WasmSignatureInlines.h"
 #include "WasmTierUpCount.h"
 #include <wtf/DataLog.h>
@@ -48,13 +49,13 @@ namespace WasmBBQPlanInternal {
 static constexpr bool verbose = false;
 }
 
-BBQPlan::BBQPlan(Context* context, Ref<ModuleInformation> moduleInformation, uint32_t functionIndex, CodeBlock* codeBlock, CompletionTask&& completionTask)
+BBQPlan::BBQPlan(Context* context, Ref<ModuleInformation> moduleInformation, uint32_t functionIndex, CalleeGroup* calleeGroup, CompletionTask&& completionTask)
     : EntryPlan(context, WTFMove(moduleInformation), CompilerMode::FullCompile, WTFMove(completionTask))
-    , m_codeBlock(codeBlock)
+    , m_calleeGroup(calleeGroup)
     , m_functionIndex(functionIndex)
 {
     ASSERT(Options::useBBQJIT());
-    setMode(m_codeBlock->mode());
+    setMode(m_calleeGroup->mode());
     dataLogLnIf(WasmBBQPlanInternal::verbose, "Starting BBQ plan for ", functionIndex);
 }
 
@@ -76,7 +77,7 @@ bool BBQPlan::prepareImpl()
 
 void BBQPlan::work(CompilationEffort effort)
 {
-    if (!m_codeBlock) {
+    if (!m_calleeGroup) {
         switch (m_state) {
         case State::Initial:
             parseAndValidateModule();
@@ -127,7 +128,6 @@ void BBQPlan::work(CompilationEffort effort)
     {
         Ref<BBQCallee> callee = BBQCallee::create(WTFMove(function->entrypoint), functionIndexSpace, m_moduleInformation->nameSection->get(functionIndexSpace), WTFMove(tierUp), WTFMove(unlinkedWasmToWasmCalls), WTFMove(function->stackmaps), WTFMove(function->exceptionHandlers), WTFMove(exceptionHandlerLocations));
         MacroAssembler::repatchPointer(function->calleeMoveLocation, CalleeBits::boxWasm(callee.ptr()));
-        ASSERT(!m_codeBlock->m_bbqCallees[m_functionIndex]);
         entrypoint = callee->entrypoint();
 
         if (context.pcToCodeOriginMap)
@@ -137,24 +137,24 @@ void BBQPlan::work(CompilationEffort effort)
         // always call the fastest code. Any function linked after us will see our new code and the new callsites, which they
         // will update. It's also ok if they publish their code before we reset the instruction caches because after we release
         // the lock our code is ready to be published too.
-        Locker locker { m_codeBlock->m_lock };
+        Locker locker { m_calleeGroup->m_lock };
 
-        m_codeBlock->m_bbqCallees[m_functionIndex] = callee.copyRef();
+        m_calleeGroup->setBBQCallee(locker, m_functionIndex, callee.copyRef());
 
         for (auto& call : callee->wasmToWasmCallsites()) {
             MacroAssemblerCodePtr<WasmEntryPtrTag> entrypoint;
             if (call.functionIndexSpace < m_moduleInformation->importFunctionCount())
-                entrypoint = m_codeBlock->m_wasmToWasmExitStubs[call.functionIndexSpace].code();
+                entrypoint = m_calleeGroup->m_wasmToWasmExitStubs[call.functionIndexSpace].code();
             else
-                entrypoint = m_codeBlock->wasmEntrypointCalleeFromFunctionIndexSpace(call.functionIndexSpace).entrypoint().retagged<WasmEntryPtrTag>();
+                entrypoint = m_calleeGroup->wasmEntrypointCalleeFromFunctionIndexSpace(locker, call.functionIndexSpace).entrypoint().retagged<WasmEntryPtrTag>();
 
             MacroAssembler::repatchNearCall(call.callLocation, CodeLocationLabel<WasmEntryPtrTag>(entrypoint));
         }
 
-        Plan::updateCallSitesToCallUs(*m_codeBlock, CodeLocationLabel<WasmEntryPtrTag>(entrypoint), m_functionIndex, functionIndexSpace);
+        Plan::updateCallSitesToCallUs(locker, *m_calleeGroup, CodeLocationLabel<WasmEntryPtrTag>(entrypoint), m_functionIndex, functionIndexSpace);
 
         {
-            LLIntCallee& llintCallee = m_codeBlock->m_llintCallees->at(m_functionIndex).get();
+            LLIntCallee& llintCallee = m_calleeGroup->m_llintCallees->at(m_functionIndex).get();
             Locker locker { llintCallee.tierUpCounter().m_lock };
             llintCallee.setReplacement(callee.copyRef(), mode());
             llintCallee.tierUpCounter().m_compilationStatus = LLIntTierUpCounter::CompilationStatus::Compiled;
@@ -203,8 +203,6 @@ std::unique_ptr<InternalFunction> BBQPlan::compileFunction(uint32_t functionInde
     // as BBQ Air bloats such lengthy Wasm code and will consume a large amount of executable memory.
     bool forceUsingB3 = false;
     if (Options::webAssemblyBBQAirModeThreshold() && m_moduleInformation->codeSectionSize >= Options::webAssemblyBBQAirModeThreshold())
-        forceUsingB3 = true;
-    else if (!m_moduleInformation->m_functionDoesNotUseExceptions.quickGet(functionIndex))
         forceUsingB3 = true;
     else if (!Options::wasmBBQUsesAir())
         forceUsingB3 = true;

@@ -87,7 +87,6 @@
 #include "VisibleUnits.h"
 #include <pal/SessionID.h>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/RobinHoodHashSet.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringView.h>
@@ -2772,20 +2771,34 @@ void AccessibilityObject::setFocused(bool focus)
 {
     if (focus) {
         // Ensure that the view is focused and active, otherwise, any attempt to set focus to an object inside it will fail.
-        auto* document = this->document();
-        if (!document)
-            return;
-
-        auto* frame = document->frame();
+        auto* frame = document() ? document()->frame() : nullptr;
         if (frame && frame->selection().isFocusedAndActive())
             return; // Nothing to do, already focused and active.
 
-        auto* page = document->page();
+        auto* page = document() ? document()->page() : nullptr;
         if (!page)
             return;
 
-        ChromeClient& chromeClient = page->chrome().client();
-        chromeClient.focus();
+        page->chrome().client().focus();
+        // Reset the page pointer in case ChromeClient::focus() caused a side effect that invalidated our old one.
+        page = document() ? document()->page() : nullptr;
+        if (!page)
+            return;
+
+#if PLATFORM(IOS_FAMILY)
+        // Mark the page as focused so the focus ring can be drawn immediately. The page is also marked
+        // as focused as part assistiveTechnologyMakeFirstResponder, but that requires some back-and-forth
+        // IPC between the web and UI processes, during which we can miss the drawing of the focus ring for the
+        // first focused element. Making the page focused is a requirement for making the page selection focused.
+        // This is iOS only until there's a demonstrated need for this preemptive focus on other platforms.
+        if (!page->focusController().isFocused())
+            page->focusController().setFocused(true);
+
+        // Reset the page pointer in case FocusController::setFocused(true) caused a side effect that invalidated our old one.
+        page = document() ? document()->page() : nullptr;
+        if (!page)
+            return;
+#endif
 
 #if PLATFORM(COCOA)
         auto* frameView = documentFrameView();
@@ -2794,9 +2807,9 @@ void AccessibilityObject::setFocused(bool focus)
 
         // Legacy WebKit1 case.
         if (frameView->platformWidget())
-            chromeClient.makeFirstResponder((NSResponder *)frameView->platformWidget());
+            page->chrome().client().makeFirstResponder((NSResponder *)frameView->platformWidget());
         else
-            chromeClient.assistiveTechnologyMakeFirstResponder();
+            page->chrome().client().assistiveTechnologyMakeFirstResponder();
 #endif
     }
 }
@@ -2842,29 +2855,28 @@ bool AccessibilityObject::supportsHasPopup() const
 
 String AccessibilityObject::popupValue() const
 {
-    static const NeverDestroyed<MemoryCompactLookupOnlyRobinHoodHashSet<String>> allowedPopupValues(std::initializer_list<String> {
-        "menu"_s, "listbox"_s, "tree"_s, "grid"_s, "dialog"_s,
-    });
-
-    auto hasPopup = getAttribute(aria_haspopupAttr).convertToASCIILowercase();
-    if (hasPopup.isNull() || hasPopup.isEmpty()) {
+    auto& hasPopup = getAttribute(aria_haspopupAttr);
+    if (hasPopup.isEmpty()) {
         // In ARIA 1.1, the implicit value for combobox became "listbox."
         if (isComboBox() || hasDatalist())
-            return "listbox";
-        return "false";
+            return "listbox"_s;
+        return "false"_s;
     }
 
-    if (allowedPopupValues->contains(hasPopup))
-        return hasPopup;
+    for (auto& value : { "menu"_s, "listbox"_s, "tree"_s, "grid"_s, "dialog"_s }) {
+        // FIXME: Should fix ambiguity so we don't have to write "characters", but also don't create/destroy a String when passing an ASCIILiteral to equalIgnoringASCIICase.
+        if (equalIgnoringASCIICase(hasPopup, value.characters()))
+            return value;
+    }
 
     // aria-haspopup specification states that true must be treated as menu.
-    if (hasPopup == "true")
-        return "menu";
+    if (equalLettersIgnoringASCIICase(hasPopup, "true"))
+        return "menu"_s;
 
     // The spec states that "User agents must treat any value of aria-haspopup that is not
     // included in the list of allowed values, including an empty string, as if the value
     // false had been provided."
-    return "false";
+    return "false"_s;
 }
 
 bool AccessibilityObject::hasDatalist() const

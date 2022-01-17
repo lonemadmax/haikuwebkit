@@ -72,12 +72,12 @@ static void applyBasicAuthorizationHeader(ResourceRequest& request, const Creden
 
 static NSOperationQueue *operationQueueForAsyncClients()
 {
-    static auto queue = makeNeverDestroyed([] {
+    static NeverDestroyed queue = [] {
         auto queue = adoptNS([[NSOperationQueue alloc] init]);
         // Default concurrent operation count depends on current system workload, but delegate methods are mostly idling in IPC, so we can run as many as needed.
         [queue setMaxConcurrentOperationCount:NSOperationQueueDefaultMaxConcurrentOperationCount];
         return queue;
-    }());
+    }();
     return queue.get().get();
 }
 
@@ -589,7 +589,7 @@ void ResourceHandle::receivedCredential(const AuthenticationChallenge& challenge
         return;
     }
 
-    if (credential.persistence() == CredentialPersistenceForSession && challenge.protectionSpace().authenticationScheme() != ProtectionSpaceAuthenticationSchemeServerTrustEvaluationRequested) {
+    if (credential.persistence() == CredentialPersistenceForSession && challenge.protectionSpace().authenticationScheme() != ProtectionSpace::AuthenticationScheme::ServerTrustEvaluationRequested) {
         // Manage per-session credentials internally, because once NSURLCredentialPersistenceForSession is used, there is no way
         // to ignore it for a particular request (short of removing it altogether).
         Credential webCredential(credential, CredentialPersistenceNone);

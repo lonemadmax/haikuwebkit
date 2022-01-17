@@ -1,3 +1,1789 @@
+2022-01-10  Elliott Williams  <emw@apple.com>
+
+        postprocess-headers.sh: Avoid redundant processing to speed up incremental Xcode builds
+        https://bugs.webkit.org/show_bug.cgi?id=234941
+
+        Reviewed by Jonathan Bedard.
+
+        On builds made with the legacy build system (currently any CLI build for Apple platforms),
+        postprocess-headers.sh always runs, even when no headers have been copied. PBXBuild doesn't
+        have the necessary granularity to let us avoid running it when there are no headers to copy,
+        however, this patch improves execution time by only running the postprocess rule when a
+        header has changed since the last time it ran.
+
+        This change reduces JavaScriptCore's null build time from ~18.3s to ~5.32s.
+
+        * postprocess-headers.sh: Added timestamp check
+
+2022-01-09  Sam Weinig  <weinig@apple.com>
+
+        Remove support for Direct2D
+        https://bugs.webkit.org/show_bug.cgi?id=234999
+
+        Reviewed by Darin Adler.
+
+        Direct2D and FTW have not been building for over a year. It is
+        time to remove them.
+
+        * PlatformFTW.cmake: Removed.
+
+2022-01-07  Saam Barati  <sbarati@apple.com>
+
+        Unreviewed. Appease an assertion that was broken by r287801 by slightly
+        refactoring code so we don't clobber the same named register twice.
+
+        * b3/air/AirAllocateRegistersAndStackAndGenerateCode.cpp:
+        (JSC::B3::Air::GenerateAndAllocateRegisters::generate):
+
+2022-01-07  Saam Barati  <sbarati@apple.com>
+
+        Add support for Wasm exceptions in the Air generator
+        https://bugs.webkit.org/show_bug.cgi?id=231211
+        <rdar://problem/84132861>
+
+        Reviewed by Filip Pizlo.
+
+        This patch adds support to Air for Wasm exceptions. The implementation
+        is very similar to how we implement it in the B3 Wasm tier. This patch
+        shares code with the B3 tier where it can.
+        
+        This patch also fixes a bug where you the early clobbered registers
+        of a patchpoint could prevent the prior instruction from register allocating.
+        For example, you can have the instructions I1, I2. Where I2 clobbers the
+        entire register file. It doesn't mean I1 shouldn't be able to allocate
+        registers. Instead, the clobber should occur after I1 executes. This patch
+        fixes the issue.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * b3/air/AirAllocateRegistersAndStackAndGenerateCode.cpp:
+        (JSC::B3::Air::GenerateAndAllocateRegisters::generate):
+        * wasm/WasmAirIRGenerator.cpp:
+        (JSC::Wasm::AirIRGenerator::ControlData::ControlData):
+        (JSC::Wasm::AirIRGenerator::ControlData::isTry):
+        (JSC::Wasm::AirIRGenerator::ControlData::isCatch):
+        (JSC::Wasm::AirIRGenerator::ControlData::convertTryToCatch):
+        (JSC::Wasm::AirIRGenerator::ControlData::convertTryToCatchAll):
+        (JSC::Wasm::AirIRGenerator::ControlData::tryStart const):
+        (JSC::Wasm::AirIRGenerator::ControlData::tryEnd const):
+        (JSC::Wasm::AirIRGenerator::ControlData::tryDepth const):
+        (JSC::Wasm::AirIRGenerator::ControlData::catchKind const):
+        (JSC::Wasm::AirIRGenerator::ControlData::exception const):
+        (JSC::Wasm::AirIRGenerator::emitCallPatchpoint):
+        (JSC::Wasm::AirIRGenerator::addStackMap):
+        (JSC::Wasm::AirIRGenerator::takeStackmaps):
+        (JSC::Wasm::AirIRGenerator::takeExceptionHandlers):
+        (JSC::Wasm::AirIRGenerator::newTmp):
+        (JSC::Wasm::AirIRGenerator::emitPatchpoint):
+        (JSC::Wasm::AirIRGenerator::emitLoad):
+        (JSC::Wasm::AirIRGenerator::AirIRGenerator):
+        (JSC::Wasm::AirIRGenerator::finalizeEntrypoints):
+        (JSC::Wasm::AirIRGenerator::forEachLiveValue):
+        (JSC::Wasm::AirIRGenerator::emitLoopTierUpCheck):
+        (JSC::Wasm::AirIRGenerator::addTry):
+        (JSC::Wasm::AirIRGenerator::addCatch):
+        (JSC::Wasm::AirIRGenerator::addCatchAll):
+        (JSC::Wasm::AirIRGenerator::addCatchToUnreachable):
+        (JSC::Wasm::AirIRGenerator::addCatchAllToUnreachable):
+        (JSC::Wasm::AirIRGenerator::emitCatchImpl):
+        (JSC::Wasm::AirIRGenerator::addDelegate):
+        (JSC::Wasm::AirIRGenerator::addDelegateToUnreachable):
+        (JSC::Wasm::AirIRGenerator::addThrow):
+        (JSC::Wasm::AirIRGenerator::addRethrow):
+        (JSC::Wasm::AirIRGenerator::addEndToUnreachable):
+        (JSC::Wasm::AirIRGenerator::addCall):
+        (JSC::Wasm::AirIRGenerator::emitIndirectCall):
+        (JSC::Wasm::parseAndCompileAir):
+        (JSC::Wasm::AirIRGenerator::preparePatchpointForExceptions):
+        * wasm/WasmB3IRGenerator.cpp:
+        (JSC::Wasm::B3IRGenerator::insertEntrySwitch):
+        (JSC::Wasm::B3IRGenerator::emitCatchImpl):
+        (JSC::Wasm::B3IRGenerator::addThrow):
+        (JSC::Wasm::B3IRGenerator::addRethrow):
+        (JSC::Wasm::PatchpointExceptionHandle::generate const): Deleted.
+        (JSC::Wasm::buildEntryBufferForCatch): Deleted.
+        (JSC::Wasm::computeExceptionHandlerLocations): Deleted.
+        * wasm/WasmB3IRGenerator.h:
+        * wasm/WasmBBQPlan.cpp:
+        (JSC::Wasm::BBQPlan::compileFunction):
+        * wasm/WasmIRGeneratorHelpers.h: Added.
+        (JSC::Wasm::PatchpointExceptionHandle::generate const):
+        (JSC::Wasm::computeExceptionHandlerLocations):
+        (JSC::Wasm::emitRethrowImpl):
+        (JSC::Wasm::emitThrowImpl):
+        (JSC::Wasm::buildEntryBufferForCatch):
+        (JSC::Wasm::emitCatchPrologueShared):
+        * wasm/WasmLLIntGenerator.cpp:
+        (JSC::Wasm::LLIntGenerator::finalize):
+        * wasm/WasmModuleInformation.h:
+        * wasm/WasmOMGPlan.cpp:
+        * wasm/WasmOSREntryPlan.cpp:
+        * wasm/WasmStreamingParser.cpp:
+        (JSC::Wasm::StreamingParser::parseCodeSectionSize):
+
+2022-01-07  Alexey Shvayka  <ashvayka@apple.com>
+
+        Expand the set of objects we take JSArray::fastSlice() path for
+        https://bugs.webkit.org/show_bug.cgi?id=234539
+
+        Reviewed by Yusuke Suzuki.
+
+        Currently, Array.prototype's slice() / splice() methods take a fast path only for
+        JSArray source objects. With this change, gcSafeMemcpy-based path is taken for any
+        object with ordinary getOwnPropertySlotByIndex() method, which speeds up the common
+        case of `[].slice.call(arguments)` by 140% (in strict mode only, see ClonedArguments).
+
+        Also, once is https://webkit.org/b/234538 resolved, calling Array.prototype.slice()
+        on a static NodeList, which is a common idiom to acquire map() / filter() methods,
+        will become faster as well.
+
+        This patch was thoroughly evaluated to be spec-perfect and memory-safe:
+
+          - indexing mode check and holesMustForwardToPrototype() guarantee that there
+            are no observable userland code to be invoked;
+          - fastSlice() signature is upgraded to uint64_t so `nullptr` is returned in case
+            of large "length", resulting in a RangeError being thrown on the slow path;
+          - to handle the case of source array being shrinked after "length" lookup (see r175420),
+            OOB read check is moved to JSArray::fastSlice() and refined to rely on vectorLength()
+            so the double "length" lookup is avoided (added a test for this).
+
+        All this (and more) is well covered by the test262 suite.
+
+        This change improves Speedometer2/EmberJS-Debug-TodoMVC score by 0.5%: although the test
+        is slow on its own, `[].slice.call(arguments)` is performed ~56k times per run.
+
+        * runtime/ArrayPrototype.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::fastSlice):
+        * runtime/JSArray.h:
+
+2022-01-07  Tim Horton  <timothy_horton@apple.com>
+
+        Adopt linkedOnOrAfter() in more places
+        https://bugs.webkit.org/show_bug.cgi?id=234951
+
+        Reviewed by Wenson Hsieh.
+
+        * API/JSWrapperMap.mm:
+        (supportsInitMethodConstructors):
+        * API/tests/testapi.cpp:
+        (TestAPI::promiseDrainDoesNotEatExceptions):
+        * API/tests/testapi.mm:
+        (testMicrotaskWithFunction):
+        * runtime/JSLock.cpp:
+        (JSC::JSLock::willReleaseLock):
+        * runtime/ObjectPrototype.cpp:
+        (JSC::isPokerBros):
+        Adopt linkedOnOrAfter.
+
+2022-01-07  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed, reverting r287698.
+
+        Broke an internal build
+
+        Reverted changeset:
+
+        "Start using C++20"
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+        https://commits.webkit.org/r287698
+
+2022-01-07  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Clean up StructureStubInfo
+        https://bugs.webkit.org/show_bug.cgi?id=234943
+
+        Reviewed by Saam Barati.
+
+        Use std::unique_ptr<PolymorphicAccess> instead of raw pointer.
+
+        * bytecode/CheckPrivateBrandStatus.cpp:
+        (JSC::CheckPrivateBrandStatus::computeForStubInfoWithoutExitSiteFeedback):
+        * bytecode/DeleteByStatus.cpp:
+        (JSC::DeleteByStatus::computeForStubInfoWithoutExitSiteFeedback):
+        * bytecode/GetByStatus.cpp:
+        (JSC::GetByStatus::computeForStubInfoWithoutExitSiteFeedback):
+        * bytecode/InByStatus.cpp:
+        (JSC::InByStatus::computeForStubInfoWithoutExitSiteFeedback):
+        * bytecode/InstanceOfStatus.cpp:
+        (JSC::InstanceOfStatus::computeForStubInfo):
+        * bytecode/PutByStatus.cpp:
+        (JSC::PutByStatus::computeForStubInfo):
+        * bytecode/SetPrivateBrandStatus.cpp:
+        (JSC::SetPrivateBrandStatus::computeForStubInfoWithoutExitSiteFeedback):
+        * bytecode/StructureStubInfo.cpp:
+        (JSC::StructureStubInfo::deref):
+        (JSC::StructureStubInfo::aboutToDie):
+        (JSC::StructureStubInfo::addAccessCase):
+        (JSC::StructureStubInfo::visitAggregateImpl):
+        (JSC::StructureStubInfo::visitWeakReferences):
+        (JSC::StructureStubInfo::propagateTransitions):
+        (JSC::StructureStubInfo::summary const):
+        (JSC::StructureStubInfo::containsPC const):
+        (JSC::StructureStubInfo::~StructureStubInfo): Deleted.
+        * bytecode/StructureStubInfo.h:
+        (JSC::StructureStubInfo::offsetOfCodePtr):
+        (JSC::StructureStubInfo::offsetOfDoneLocation):
+        (JSC::StructureStubInfo::offsetOfSlowPathStartLocation):
+        (JSC::StructureStubInfo::offsetOfSlowOperation):
+        (JSC::StructureStubInfo::offsetOfCountdown):
+
+2022-01-06  Saam Barati  <sbarati@apple.com>
+
+        preparePatchpointForExceptions needs to handle tuples
+        https://bugs.webkit.org/show_bug.cgi?id=234909
+
+        Reviewed by Yusuke Suzuki.
+
+        We got the offsets wrong when building a stackmap in B3IRGenerator
+        for exception sites. We need to index into StackmapGenerationParams
+        differently from indexing into the patchpoint's children. StackmapGenerationParams
+        reserves its first N entries for the N return values. The patchpoint's
+        children contains no results though, so we don't need to account for
+        the number of return values when indexing into the children() vector
+        of the PatchpointValue. To make this code simpler, we keep track of the
+        number of live values we need when throwing. These values are both
+        at the end of StackmapGenerationParams and at the end of the children()
+        vector. So we just look at the last "number of live values" in both
+        vectors to get the correct ValueRep and correct type. The code for
+        calls also didn't account for the fact that call arguments will be
+        appended after the live values we're building into a stackmap. This
+        patch fixes that code to always put the live values last.
+
+        * wasm/WasmB3IRGenerator.cpp:
+        (JSC::Wasm::PatchpointExceptionHandle::generate const):
+        (JSC::Wasm::B3IRGenerator::preparePatchpointForExceptions):
+
+2022-01-06  Alex Christensen  <achristensen@webkit.org>
+
+        Start using C++20
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+
+        Reviewed by Yusuke Suzuki.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/JavaScriptCore.xcconfig:
+        * DerivedSources.make:
+        * heap/Heap.cpp:
+        (JSC::Heap::addCoreConstraints):
+        * runtime/CachedTypes.cpp:
+        * runtime/LiteralParser.h:
+        * shell/PlatformPlayStation.cmake:
+
+2022-01-04  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Remove m_calleeSaveRegisters from CodeBlock::JITData and rename it to BaselineJITData
+        https://bugs.webkit.org/show_bug.cgi?id=234555
+
+        Reviewed by Saam Barati.
+
+        This patch removes m_calleeSaveRegisters from CodeBlock::JITData, and moving it to each JITCode.
+        This is reasonable since m_calleeSaveRegisters information belongs to JITCode, not CodeBlock.
+        And in LLInt, Baseline, and DFG cases, m_calleeSaveRegisters is the same. So we do not have this
+        field in these JITCode. Only FTL can have m_calleeSaveRegisters.
+
+        By removing m_calleeSaveRegisters from CodeBlock::JITData, now it only includes Baseline JIT related
+        data. So this patch renames CodeBlock::JITData to BaselineJITData.
+
+        We also use TrailingArray for BaselineJITData so that we can remove one level indirection when loading
+        JITConstantPool from JITData.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::setupWithUnlinkedBaselineCode):
+        (JSC::CodeBlock::~CodeBlock):
+        (JSC::CodeBlock::propagateTransitions):
+        (JSC::CodeBlock::finalizeJITInlineCaches):
+        (JSC::CodeBlock::getICStatusMap):
+        (JSC::CodeBlock::findStubInfo):
+        (JSC::CodeBlock::resetBaselineJITData):
+        (JSC::CodeBlock::stronglyVisitStrongReferences):
+        (JSC::CodeBlock::calleeSaveSpaceAsVirtualRegisters):
+        (JSC::CodeBlock::findPC):
+        (JSC::CodeBlock::ensureJITDataSlow): Deleted.
+        (JSC::CodeBlock::setCalleeSaveRegisters): Deleted.
+        (JSC::CodeBlock::resetJITData): Deleted.
+        (JSC::CodeBlock::calleeSaveRegisters const): Deleted.
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::offsetOfBaselineJITData):
+        (JSC::CodeBlock::baselineJITData):
+        (JSC::CodeBlock::calleeSaveSpaceAsVirtualRegisters):
+        (JSC::CodeBlock::JITData::offsetOfJITConstantPool): Deleted.
+        (JSC::CodeBlock::ensureJITData): Deleted.
+        (JSC::CodeBlock::offsetOfJITData): Deleted.
+        (JSC::CodeBlock::baselineJITConstantPool): Deleted.
+        * bytecode/Repatch.cpp:
+        (JSC::linkPolymorphicCall):
+        * dfg/DFGJITCompiler.h:
+        (JSC::DFG::JITCompiler::emitRestoreCalleeSaves):
+        (JSC::DFG::JITCompiler::emitSaveCalleeSaves):
+        * dfg/DFGOSREntry.cpp:
+        (JSC::DFG::prepareOSREntry):
+        * dfg/DFGOSRExit.cpp:
+        (JSC::DFG::OSRExit::compileExit):
+        * dfg/DFGOSRExitCompilerCommon.cpp:
+        (JSC::DFG::calleeSaveSlot):
+        (JSC::DFG::reifyInlinedCallFrames):
+        (JSC::DFG::adjustAndJumpToTarget):
+        * dfg/DFGPlan.cpp:
+        (JSC::DFG::Plan::compileInThreadImpl):
+        * dfg/DFGSpeculativeJIT32_64.cpp:
+        (JSC::DFG::SpeculativeJIT::emitCall):
+        * dfg/DFGSpeculativeJIT64.cpp:
+        (JSC::DFG::SpeculativeJIT::emitCall):
+        * dfg/DFGStackLayoutPhase.cpp:
+        (JSC::DFG::StackLayoutPhase::run):
+        * ftl/FTLCompile.cpp:
+        (JSC::FTL::compile):
+        * ftl/FTLJITCode.h:
+        (JSC::FTL::JITCode::calleeSaveRegisters const):
+        * ftl/FTLLowerDFGToB3.cpp:
+        (JSC::FTL::DFG::LowerDFGToB3::compileCompareStrictEq):
+        * ftl/FTLOSRExitCompiler.cpp:
+        (JSC::FTL::compileStub):
+        * interpreter/StackVisitor.cpp:
+        (JSC::StackVisitor::Frame::calleeSaveRegistersForUnwinding):
+        * jit/AssemblyHelpers.cpp:
+        (JSC::AssemblyHelpers::executableFor):
+        (JSC::AssemblyHelpers::emitSaveOrCopyLLIntBaselineCalleeSavesFor):
+        * jit/AssemblyHelpers.h:
+        (JSC::AssemblyHelpers::emitSaveThenMaterializeTagRegisters):
+        (JSC::AssemblyHelpers::emitSaveCalleeSavesFor): Deleted.
+        (JSC::AssemblyHelpers::emitRestoreCalleeSavesFor): Deleted.
+        (JSC::AssemblyHelpers::emitSaveCalleeSaves): Deleted.
+        (JSC::AssemblyHelpers::emitRestoreCalleeSaves): Deleted.
+        * jit/BaselineJITCode.h:
+        * jit/CallFrameShuffleData.cpp:
+        * jit/CallFrameShuffleData.h:
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        (JSC::JIT::emitMaterializeMetadataAndConstantPoolRegisters):
+        (JSC::JIT::emitSaveCalleeSaves):
+        (JSC::JIT::compileAndLinkWithoutFinalizing):
+        * jit/JIT.h:
+        * jit/JITCode.cpp:
+        (JSC::JITCode::calleeSaveRegisters const):
+        * jit/JITCode.h:
+        * jit/JITInlines.h:
+        (JSC::JIT::loadConstant):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_catch):
+        * jit/RegisterAtOffsetList.cpp:
+        (JSC::RegisterAtOffsetList::dfgCalleeSaveRegisters):
+        * jit/RegisterAtOffsetList.h:
+        * llint/LLIntSlowPaths.cpp:
+        (JSC::LLInt::LLINT_SLOW_PATH_DECL):
+        * llint/LowLevelInterpreter.asm:
+        * tools/VMInspector.cpp:
+        (JSC::VMInspector::dumpRegisters):
+
+2022-01-04  Stephan Szabo  <stephan.szabo@sony.com>
+
+        [PlayStation] Fix non-ninja build of zydis
+        https://bugs.webkit.org/show_bug.cgi?id=234854
+
+        Unreviewed build fix
+
+        * PlatformPlayStation.cmake: Set Zycore.c as CXX
+
+2022-01-04  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Remove JSWebAssemblyCalleeGroup cell
+        https://bugs.webkit.org/show_bug.cgi?id=234780
+
+        Reviewed by Saam Barati.
+
+        This cell is not observable to users. And this cell just holds Wasm-to-JS stubs,
+        but it is the same to all memory modes. Thus, we should just generate it in VM-linked
+        Wasm::Module (it means, we should have it in JSWebAssemblyModule), and we do not need
+        to have / allocate JSWebAssemblyCalleeGroup cell.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * Sources.txt:
+        * heap/Heap.cpp:
+        (JSC::Heap::Heap):
+        (JSC::Heap::finalizeUnconditionalFinalizers):
+        (JSC::Heap::deleteAllCodeBlocks):
+        * heap/Heap.h:
+        * runtime/VM.cpp:
+        (JSC::VM::VM):
+        * runtime/VM.h:
+        * wasm/WasmBinding.h:
+        * wasm/js/JSWebAssemblyCalleeGroup.cpp: Removed.
+        * wasm/js/JSWebAssemblyCalleeGroup.h: Removed.
+        * wasm/js/JSWebAssemblyInstance.cpp:
+        (JSC::JSWebAssemblyInstance::visitChildrenImpl):
+        (JSC::JSWebAssemblyInstance::finalizeCreation):
+        * wasm/js/JSWebAssemblyInstance.h:
+        * wasm/js/JSWebAssemblyModule.cpp:
+        (JSC::JSWebAssemblyModule::createStub):
+        (JSC::JSWebAssemblyModule::visitChildrenImpl):
+        (JSC::JSWebAssemblyModule::clearJSCallICs):
+        (JSC::JSWebAssemblyModule::finalizeUnconditionally):
+        (JSC::JSWebAssemblyModule::generateWasmToJSStubs):
+        (JSC::JSWebAssemblyModule::calleeGroup): Deleted.
+        (JSC::JSWebAssemblyModule::setCalleeGroup): Deleted.
+        * wasm/js/JSWebAssemblyModule.h:
+        * wasm/js/WebAssemblyModuleConstructor.cpp:
+        * wasm/js/WebAssemblyWrapperFunction.h:
+
+2022-01-04  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        WebAssembly i32.atomic.wait timeout value incorrectly interpreted by factor 1000
+        https://bugs.webkit.org/show_bug.cgi?id=234833
+
+        Reviewed by Michael Saboff.
+
+        Wasm atomics' timeout should be interpreted as nanoseconds.
+
+        * wasm/WasmOperations.cpp:
+        (JSC::Wasm::wait):
+
+2022-01-03  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, fix build failure
+        https://bugs.webkit.org/show_bug.cgi?id=232723
+
+        * runtime/ArrayPrototype.cpp:
+        (JSC::toLocaleString):
+
+2022-01-03  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Array.prototype.toLocaleString does not respect deletion of Object.prototype.toLocaleString
+        https://bugs.webkit.org/show_bug.cgi?id=232723
+
+        Reviewed by Alexey Shvayka.
+
+        This patch implements ECMA402 Array.prototype.toLocaleString[1]. The new implementation invokes "toLocaleString"
+        method for each elements.
+
+        [1]: https://tc39.es/ecma402/#sup-array.prototype.tolocalestring
+
+        * runtime/ArrayPrototype.cpp:
+        (JSC::toLocaleString):
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+        (JSC::slowJoin):
+
+2022-01-03  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix Intl.PluralRules.selectRange input validation
+        https://bugs.webkit.org/show_bug.cgi?id=234817
+
+        Reviewed by Alexey Shvayka.
+
+        Add specified argument validation[1] to Intl.PluralRules.selectRange.
+
+        [1]: https://tc39.es/proposal-intl-numberformat-v3/out/pluralrules/proposed.html#sec-intl.pluralrules.prototype.selectrange
+
+        * runtime/IntlPluralRules.cpp:
+        (JSC::IntlPluralRules::selectRange const):
+        * runtime/IntlPluralRulesPrototype.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+
+2022-01-03  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Update UCD to Unicode 14.0.0
+        https://bugs.webkit.org/show_bug.cgi?id=234811
+
+        Reviewed by Sam Weinig.
+
+        This is yearly update of UCD data.
+
+        * ucd/CaseFolding.txt:
+        * ucd/DerivedBinaryProperties.txt:
+        * ucd/DerivedCoreProperties.txt:
+        * ucd/DerivedNormalizationProps.txt:
+        * ucd/PropList.txt:
+        * ucd/PropertyAliases.txt:
+        * ucd/PropertyValueAliases.txt:
+        * ucd/ScriptExtensions.txt:
+        * ucd/Scripts.txt:
+        * ucd/UnicodeData.txt:
+        * ucd/emoji-data.txt:
+        * yarr/generateYarrUnicodePropertyTables.py:
+
+2022-01-03  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Read-modify-write operation's second put-to-scope should not throw error if binding does not exist
+        https://bugs.webkit.org/show_bug.cgi?id=234813
+
+        Reviewed by Alexey Shvayka.
+
+        This patch fixes a bug throwing RefereceError when read-modify-write's read operation removes binding from object.
+        Throwing error should happen only when evaluating it under strict mode.
+
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::PostfixNode::emitResolve):
+        (JSC::PrefixNode::emitResolve):
+        (JSC::ReadModifyResolveNode::emitBytecode):
+        (JSC::ShortCircuitReadModifyResolveNode::emitBytecode):
+
+2022-01-03  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix length of Intl.NumberFormat.formatRange and Intl.PluralRules.selectRange
+        https://bugs.webkit.org/show_bug.cgi?id=234806
+
+        Reviewed by Alexey Shvayka.
+
+        These length's numbers are wrong. This patch fixes them.
+
+        * runtime/IntlNumberFormatPrototype.cpp:
+        (JSC::IntlNumberFormatPrototype::finishCreation):
+        * runtime/IntlPluralRulesPrototype.cpp:
+        (JSC::IntlPluralRulesPrototype::finishCreation):
+
+2022-01-02  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Use emitPutProperty / emitGetPropertyValue consistently to handle private names in edge cases
+        https://bugs.webkit.org/show_bug.cgi?id=234794
+
+        Reviewed by Alexey Shvayka.
+
+        This patch consistently uses emitPutProperty / emitGetPropertyValue so that we handle private names
+        in edge cases.
+
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::TaggedTemplateNode::emitBytecode):
+        (JSC::ForInNode::emitLoopHeader):
+        (JSC::ForOfNode::emitBytecode):
+        (JSC::AssignmentElementNode::bindValue const):
+
+2022-01-02  Zan Dobersek  <zdobersek@igalia.com>
+
+        Remove unused AbstractMacroAssembler::repatchJumpToNop() function
+        https://bugs.webkit.org/show_bug.cgi?id=234777
+
+        Reviewed by Yusuke Suzuki.
+
+        Remove the unused AbstractMacroAssembler::repatchJumpToNop() function,
+        along with the underlying relinkJumpToNop() functions on ISA-specific
+        assembler classes.
+
+        * assembler/ARM64Assembler.h:
+        (JSC::ARM64Assembler::relinkJumpToNop): Deleted.
+        * assembler/ARMv7Assembler.h:
+        (JSC::ARMv7Assembler::relinkJumpToNop): Deleted.
+        * assembler/AbstractMacroAssembler.h:
+        (JSC::AbstractMacroAssembler::repatchJumpToNop): Deleted.
+        * assembler/MIPSAssembler.h:
+        (JSC::MIPSAssembler::relinkJumpToNop): Deleted.
+        * assembler/RISCV64Assembler.h:
+        (JSC::RISCV64Assembler::relinkJumpToNop): Deleted.
+        * assembler/X86Assembler.h:
+        (JSC::X86Assembler::relinkJumpToNop): Deleted.
+
+2022-01-02  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Make DFG, FTL, B3, WASM buildable on CPU(RISCV64)
+        https://bugs.webkit.org/show_bug.cgi?id=234775
+
+        Reviewed by Yusuke Suzuki.
+
+        Enable building DFG, FTL, B3 and WASM subsystems on 64-bit RISC-V.
+        Necessary guards and missing bits are added to make things buildable,
+        but actual enabling of these features at build-time is left for later.
+        Even when enabled at build-time in the future, there'll likey be open
+        issues that will require disabling different features at run-time.
+
+        MacroAssemblerRISCV64::setCarry() no-op method is added for now. Carry
+        flag retrieval isn't exactly possible on RISC-V, so the uses of it will
+        have to be addressed some other way.
+
+        The patchpointScratchRegister value is defined for CPU(RISCV64). As
+        on ARM64, the value matches MacroAssemblerRISCV64::dataTempRegister.
+
+        In B3, we follow ARM64 in the pinned extended-offset-address use and
+        stack argument lowering.
+
+        in WASM, we can again mirror ARM64 around LLInt callee registers and
+        slots as well as executing the epilogue of a OSR-entry callee.
+
+        * assembler/MacroAssembler.h: Provide lea64() for CPU(RISCV64) as well.
+        * assembler/MacroAssemblerRISCV64.h:
+        * b3/B3Common.cpp:
+        (JSC::B3::pinnedExtendedOffsetAddrRegister):
+        * b3/air/AirLowerStackArgs.cpp:
+        (JSC::B3::Air::lowerStackArgs):
+        * jit/GPRInfo.h:
+        * wasm/WasmCallee.cpp:
+        (JSC::Wasm::LLIntCallee::calleeSaveRegisters):
+        * wasm/WasmLLIntPlan.cpp:
+        (JSC::Wasm::LLIntPlan::didCompleteCompilation):
+        * wasm/WasmOperations.cpp:
+        (JSC::Wasm::doOSREntry):
+
+2022-01-02  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Enable building LLInt WebAssembly via the riscv64 offlineasm backend
+        https://bugs.webkit.org/show_bug.cgi?id=234776
+
+        Reviewed by Yusuke Suzuki.
+
+        Sprinkle RISCV64 conditions around WebAssembly.asm as appropriate.
+        For division, we can reuse the divi(s)/divq(s) instructions already
+        available in offlineasm. RISC-V additionally provides remainder
+        instructions, so the necessary offlineasm instructions are added
+        and used for RISCV64.
+
+        In the offlineasm riscv64 backend, the division and remainder
+        instruction handling is improved to properly cover signed and unsigned
+        variants. For other instructions used in LLint WebAssembly
+        implementation like left or right rotation, trailing- or leading-zero
+        counting, order-based floating-point comparison, load-reserved and
+        store-conditional operations, the riscv64WASMPlaceholder helper is used
+        to generate an ebreak instruction that will halt the program at runtime
+        but will not throw a build-time error. Proper implementations will be
+        provided once WebAssembly support on RISCV64 is taken up.
+
+        * llint/WebAssembly.asm:
+        * offlineasm/instructions.rb:
+        * offlineasm/riscv64.rb:
+
+2022-01-02  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Get testmasm building for CPU(RISCV64)
+        https://bugs.webkit.org/show_bug.cgi?id=234774
+
+        Reviewed by Yusuke Suzuki.
+
+        Add missing MacroAssemblerRISCV64 methods used in testmasm. Placeholders
+        are used for now, proper implementations will be introduced later.
+
+        In testmasm itself, we avoid testing the condition-flags register values
+        since, like on MIPS, that register isn't available on RISC-V.
+
+        * assembler/MacroAssemblerRISCV64.h:
+        * assembler/testmasm.cpp:
+        (JSC::testProbeModifiesStackPointer):
+        (JSC::testProbeModifiesStackValues):
+
+2021-12-31  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Replace UDIS86 with Zydis
+        https://bugs.webkit.org/show_bug.cgi?id=234765
+
+        Reviewed by Michael Saboff.
+
+        UDIS86 is not updated from 2014. Since it is missing relatively new SIMD opcodes,
+        we cannot disassemble these opcodes when implementing Wasm SIMD.
+        This patch replaces UDIS86 with Zydis, which is actively developed and used in
+        SpiderMonkey too. It is under MIT license.
+
+        This patch imports Zydis v3.2.1.
+
+            1. Import header and C files of Zydis and Zycore in a flattened manner.
+            2. Add directory names to the files (e.g. `Zydis/Decoder.c` => `ZydisDecoder.c`) to make it easy to build in JSC build.
+            3. Replace header includes from `#include <Zydis/XXX.h>` to `#include "ZydisXXX.h"`.
+            4. Fix compile errors with our stricter compiler flags.
+            5. Remove Zycore API files and ZycoreArgParse.[hc] since they are not used.
+
+        We didn't add files to Sources.txt since unified builds do not support C files currently.
+
+2022-01-01  Jeff Miller  <jeffm@apple.com>
+
+        Update user-visible copyright strings to include 2022
+        https://bugs.webkit.org/show_bug.cgi?id=234263
+
+        Reviewed by Anders Carlsson.
+
+        * Info.plist:
+
+2021-12-30  Adrian Perez de Castro  <aperez@igalia.com>
+
+        Non-unified build fixes, end-of-year 2021 edition
+        https://bugs.webkit.org/show_bug.cgi?id=234755
+
+        Unreviewed non-unified build fixes.
+
+        * runtime/DeferredWorkTimer.h: Add missing JSCast.h header.
+
+2021-12-28  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Add MacroAssemblerRISCV64 operations for floating-point branches
+        https://bugs.webkit.org/show_bug.cgi?id=234631
+
+        Reviewed by Yusuke Suzuki.
+
+        Add the floating-point branching operation implementations in
+        MacroAssemblerRISCV64. Unordered status of values is determined through
+        the fclass instruction and then handled as appropriate for the desired
+        condition.
+
+        * assembler/MacroAssemblerRISCV64.h:
+        (JSC::MacroAssemblerRISCV64::branchFloat):
+        (JSC::MacroAssemblerRISCV64::branchDouble):
+        (JSC::MacroAssemblerRISCV64::branchDoubleNonZero):
+        (JSC::MacroAssemblerRISCV64::branchDoubleZeroOrNaN):
+        (JSC::MacroAssemblerRISCV64::branchTruncateDoubleToInt32):
+        (JSC::MacroAssemblerRISCV64::branchConvertDoubleToInt32):
+        (JSC::MacroAssemblerRISCV64::branchFP):
+
+2021-12-28  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Add MacroAssemblerRISCV64 operations for testing, comparison
+        https://bugs.webkit.org/show_bug.cgi?id=234630
+
+        Reviewed by Yusuke Suzuki.
+
+        Add MacroAssemblerRISCV64 implementations for the different variants of
+        compare and test instructions.
+
+        For comparisons, the implementations set up the two values in separate
+        registers and perform the comparison per the inquired relation, writing
+        out the result into the destination register.
+
+        For tests, the two values are set up and put through the bitwise AND,
+        with the result evaluated and the destination register filled out
+        according to the inquired result condition.
+
+        * assembler/MacroAssemblerRISCV64.h:
+        (JSC::MacroAssemblerRISCV64::compare8):
+        (JSC::MacroAssemblerRISCV64::compare32):
+        (JSC::MacroAssemblerRISCV64::compare64):
+        (JSC::MacroAssemblerRISCV64::test8):
+        (JSC::MacroAssemblerRISCV64::test32):
+        (JSC::MacroAssemblerRISCV64::test64):
+        (JSC::MacroAssemblerRISCV64::compareFinalize):
+        (JSC::MacroAssemblerRISCV64::testFinalize):
+
+2021-12-28  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Add MacroAssemblerRISCV64 operations with patchable elements
+        https://bugs.webkit.org/show_bug.cgi?id=234635
+
+        Reviewed by Yusuke Suzuki.
+
+        Add MacroAssemblerRISCV64 implementations for operations that generate
+        patchable code sections. This covers moves, stores and branches.
+
+        For moves and stores of pointer values, the patchable section is
+        achieved by generating a immediate loader instruction sequence with all
+        the placeholder instructions (nops) included.
+
+        Some methods that had their noop implementations provided until now have
+        been removed since they are not necessary anymore.
+
+        * assembler/MacroAssemblerRISCV64.h:
+        (JSC::MacroAssemblerRISCV64::moveWithPatch):
+        (JSC::MacroAssemblerRISCV64::storePtrWithPatch):
+        (JSC::MacroAssemblerRISCV64::branch32WithPatch):
+        (JSC::MacroAssemblerRISCV64::branchPtrWithPatch):
+        (JSC::MacroAssemblerRISCV64::patchableBranch64):
+
+2021-12-28  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Enable signal-based VM traps for CPU(RISCV64)
+        https://bugs.webkit.org/show_bug.cgi?id=234719
+
+        Reviewed by Yusuke Suzuki.
+
+        Enable signal-based VM traps on RISCV64. On Linux, this depends on
+        generating a SIGSEGV or SIGBUS signal. The former can be generated
+        through a simple storage instruction that sources the address from
+        the zero register.
+
+        This storage instruction is generated on the desired location through
+        the RISCV64Assembler::replaceWithVMHalt() method.
+
+        * assembler/MacroAssemblerRISCV64.h:
+        (JSC::MacroAssemblerRISCV64::replaceWithVMHalt):
+        * assembler/RISCV64Assembler.h:
+        (JSC::RISCV64Assembler::replaceWithVMHalt):
+
+2021-12-28  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Define HAVE_MACHINE_CONTEXT, provide mcontext_t accessors for CPU(RISCV64)
+        https://bugs.webkit.org/show_bug.cgi?id=234718
+
+        Reviewed by Yusuke Suzuki.
+
+        Define HAVE_MACHINE_CONTEXT for RISCV64. In the MachineContext.h
+        header, CPU(RISCV64)-specific accessors into the mcontext_t struct
+        are also provided.
+
+        * runtime/MachineContext.h:
+        (JSC::MachineContext::stackPointerImpl):
+        (JSC::MachineContext::framePointerImpl):
+        (JSC::MachineContext::instructionPointerImpl):
+        (JSC::MachineContext::argumentPointer<1>):
+        (JSC::MachineContext::llintInstructionPointer):
+
+2021-12-27  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Consider merging Wasm::FunctionCodeBlock and Wasm::LLIntCallee
+        https://bugs.webkit.org/show_bug.cgi?id=203691
+
+        Reviewed by Filip Pizlo.
+
+        This patch merges Wasm::FunctionCodeBlock into Wasm::LLIntCallee since both
+        are one-on-one and what they want to represent are the same. We change
+        Wasm::FunctionCodeBlock to Wasm::FunctionCodeBlockGenerator so that we can
+        use FixedVector in Wasm::LLIntCallee which makes Wasm::LLIntCallee small,
+        and this is similar to what JS side is doing (UnlinkedCodeBlockGenerator).
+
+        * CMakeLists.txt:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * Sources.txt:
+        * bytecode/BytecodeDumper.cpp:
+        (JSC::Wasm::BytecodeDumper::dumpBlock):
+        (JSC::Wasm::BytecodeDumper::dumpConstants):
+        (JSC::Wasm::BytecodeDumper::constantName const):
+        * bytecode/BytecodeDumper.h:
+        * interpreter/Interpreter.cpp:
+        (JSC::CatchInfo::CatchInfo):
+        * llint/LLIntOffsetsExtractor.cpp:
+        * llint/WebAssembly.asm:
+        * wasm/WasmCallee.cpp:
+        (JSC::Wasm::LLIntCallee::LLIntCallee):
+        (JSC::Wasm::LLIntCallee::outOfLineJumpOffset):
+        (JSC::Wasm::LLIntCallee::outOfLineJumpTarget):
+        (JSC::Wasm::LLIntCallee::linkExceptionHandlers): Deleted.
+        * wasm/WasmCallee.h:
+        (JSC::Wasm::Callee::llintFunctionCodeBlock const): Deleted.
+        * wasm/WasmFunctionCodeBlockGenerator.cpp: Renamed from Source/JavaScriptCore/wasm/WasmFunctionCodeBlock.cpp.
+        (JSC::Wasm::FunctionCodeBlockGenerator::setInstructions):
+        (JSC::Wasm::FunctionCodeBlockGenerator::addOutOfLineJumpTarget):
+        (JSC::Wasm::FunctionCodeBlockGenerator::outOfLineJumpOffset):
+        (JSC::Wasm::FunctionCodeBlockGenerator::addSignature):
+        (JSC::Wasm::FunctionCodeBlockGenerator::addJumpTable):
+        (JSC::Wasm::FunctionCodeBlockGenerator::numberOfJumpTables const):
+        * wasm/WasmFunctionCodeBlockGenerator.h: Renamed from Source/JavaScriptCore/wasm/WasmFunctionCodeBlock.h.
+        (JSC::Wasm::FunctionCodeBlockGenerator::FunctionCodeBlockGenerator):
+        (JSC::Wasm::FunctionCodeBlockGenerator::tierUpCounter):
+        * wasm/WasmGeneratorTraits.h:
+        * wasm/WasmLLIntGenerator.cpp:
+        (JSC::Wasm::parseAndCompileBytecode):
+        (JSC::Wasm::LLIntGenerator::LLIntGenerator):
+        (JSC::Wasm::LLIntGenerator::finalize):
+        (JSC::Wasm::LLIntGenerator::addLoop):
+        (JSC::Wasm::LLIntGenerator::addSwitch):
+        * wasm/WasmLLIntGenerator.h:
+        * wasm/WasmLLIntPlan.cpp:
+        (JSC::Wasm::LLIntPlan::compileFunction):
+        (JSC::Wasm::LLIntPlan::didCompleteCompilation):
+        * wasm/WasmLLIntPlan.h:
+        * wasm/WasmLLIntTierUpCounter.h:
+        (JSC::Wasm::LLIntTierUpCounter::LLIntTierUpCounter):
+        * wasm/WasmSlowPaths.cpp:
+        (JSC::LLInt::shouldJIT):
+        (JSC::LLInt::jitCompileAndSetHeuristics):
+        (JSC::LLInt::WASM_SLOW_PATH_DECL):
+        (JSC::LLInt::doWasmCallIndirect):
+        (JSC::LLInt::doWasmCallRef):
+
+2021-12-26  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Use SlowPathReturnType instead of EncodedMatchResult
+        https://bugs.webkit.org/show_bug.cgi?id=234686
+
+        Reviewed by Filip Pizlo.
+
+        This patch replaces YarrJIT's EncodedMatchResult with SlowPathReturnType so that
+        CCallHelpers can handle it correctly.
+
+        * runtime/MatchResult.h:
+        (JSC::MatchResult::MatchResult):
+        (JSC::MatchResult::failed):
+        * runtime/SlowPathReturnType.h:
+        (JSC::decodeResult):
+        * yarr/YarrJIT.h:
+
+2021-12-23  Mark Lam  <mark.lam@apple.com>
+
+        Make DeferredWorkTimer::addPendingWork() return a Ticket.
+        https://bugs.webkit.org/show_bug.cgi?id=234628
+        rdar://84260429
+
+        Reviewed by Yusuke Suzuki.
+
+        1. Make Ticket a unique token instead of the JSObject* target object.
+           The Ticket is now a pointer to the TicketData in the pending work list.
+
+        2. Instead of taking a Ticket argument, DeferredWorkTimer::addPendingWork() now
+           takes a JSObject* `target` argument explicitly, and returns the Ticket for the
+           added TicketData instead.
+
+           All the relevant DeferredWorkTimer APIS already take a Ticket as an argument.
+           This ensures that addPendingWork() is called before we start doing work with
+           these APIs (especially scheduleWorkSoon()).
+
+        3. Previously, addPendingWork() will only save one instance of TicketData for
+           a given JSObject* key.  With this patch, we'll register a new TicketData
+           instance for every call to addPendingWork(), and return a unique Ticket for it.
+
+           This is needed because it may be possible for 2 different clients to call
+           addPendingWork() and scheduleWorkSoon() with the same target JSObject* but with
+           different sets of dependencies.
+
+           Secondly, even is the both sets of dependencies are identical, a client may
+           call addPendingWork() and scheduleWorkSoon() with the same JSObject* target
+           more than once because it intended to schedule more than 1 task to run.
+
+           Note that DeferredWorkTimer::doWork() consumes the corresponding TicketData
+           (i.e. removes it from the m_pendingTickets list) for each task as it is run.
+           To ensure that the dependencies for each task is protected, we'll either need
+           to ref count the TicketData for the same target object (and hold off on removing
+           it from the list), or we'll need to register a different TicketData instance
+           for each task.  Ref counting can solve the second issue above, but does not
+           solve the first.  So, this patch goes with the more generic solution to allow
+           each task to have its own TicketData instance (and, its own unique Ticket).
+
+        4. Previously, if the client cancels pending work, we would remove the TicketData
+           immediately from the m_pendingTickets list.  This opens up an opportunity for
+           the same TicketData memory to be re-allocated by another client.  This, in turn,
+           would make the Ticket token not unique and potentially allow a cancelled ticket
+           to be reused before DeferredWorkTimer::doWork() is called.
+
+           This patch changes DeferredWorkTimer::cancelPendingWork() to only clear the
+           contents of the TicketData instead.  TicketData::scriptExecutionOwner being
+           null is used as an indication that the ticket has been cancelled.  Since the
+           TicketData itself is not "freed" yet, all TicketData will remain unique until
+           DeferredWorkTimer::doWork().
+
+           Consequently, DeferredWorkTimer::doWork() will now check for cancelled tickets
+           and remove them from the m_pendingTickets list.
+
+        5. JSFinalizationRegistry was previously calling DeferredWorkTimer::hasPendingWork()
+           to check if it has already scheduled a task, so as not to reschedule again until
+           after the previously scheduled task has been run.  This does not play nice
+           with the new Ticket API, because this hasPendingWork() check needs to be done
+           before calling addPendingWork(), and hence, the Ticket is not available yet.
+
+           Fortunately, JSFinalizationRegistry should know if it has already scheduled
+           a task itself.  This patch adds a m_hasAlreadyScheduledWork flag to 
+           JSFinalizationRegistry that can be used for this check instead.
+
+        * jsc.cpp:
+        (JSC_DEFINE_HOST_FUNCTION):
+        * runtime/DeferredWorkTimer.cpp:
+        (JSC::DeferredWorkTimer::TicketData::TicketData):
+        (JSC::DeferredWorkTimer::TicketData::vm):
+        (JSC::DeferredWorkTimer::TicketData::cancel):
+        (JSC::DeferredWorkTimer::doWork):
+        (JSC::DeferredWorkTimer::addPendingWork):
+        (JSC::DeferredWorkTimer::hasPendingWork):
+        (JSC::DeferredWorkTimer::hasDependancyInPendingWork):
+        (JSC::DeferredWorkTimer::cancelPendingWork):
+        * runtime/DeferredWorkTimer.h:
+        (JSC::DeferredWorkTimer::TicketData::target):
+        * runtime/JSFinalizationRegistry.cpp:
+        (JSC::JSFinalizationRegistry::finalizeUnconditionally):
+        * runtime/JSFinalizationRegistry.h:
+        * wasm/WasmStreamingCompiler.cpp:
+        (JSC::Wasm::StreamingCompiler::StreamingCompiler):
+        (JSC::Wasm::StreamingCompiler::~StreamingCompiler):
+        (JSC::Wasm::StreamingCompiler::didComplete):
+        (JSC::Wasm::StreamingCompiler::fail):
+        (JSC::Wasm::StreamingCompiler::cancel):
+        * wasm/WasmStreamingCompiler.h:
+        * wasm/js/JSWebAssembly.cpp:
+        (JSC::JSWebAssembly::webAssemblyModuleValidateAsync):
+        (JSC::instantiate):
+        (JSC::compileAndInstantiate):
+        (JSC::JSWebAssembly::webAssemblyModuleInstantinateAsync):
+
+2021-12-22  Saam Barati  <sbarati@apple.com>
+
+        LLInt should loop OSR into BBQ and BBQ should loop OSR into OMG
+        https://bugs.webkit.org/show_bug.cgi?id=234542
+
+        Reviewed by Yusuke Suzuki.
+
+        It's a startup perf improvement on some Wasm benchmarks I'm running to have
+        Wasm LLInt do loop OSR entry into BBQ instead of OMG. This improves this
+        benchmark by 5%. There is probably more perf to be had here. Currently,
+        we're just OSR entering into B3 BBQ O1. However, in the future, we should
+        just compile a single Air BBQ Callee that allows for OSR entry at loop
+        boundaries. Maybe we can model this using EntrySwitch without any real
+        harm to throughput.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * Sources.txt:
+        * assembler/MacroAssemblerCodeRef.cpp:
+        (JSC::shouldDumpDisassemblyFor):
+        * jsc.cpp:
+        (JSC_DEFINE_HOST_FUNCTION):
+        * wasm/WasmB3IRGenerator.cpp:
+        (JSC::Wasm::B3IRGenerator::B3IRGenerator):
+        (JSC::Wasm::parseAndCompile):
+        * wasm/WasmCallee.h:
+        (JSC::Wasm::Callee::setOSREntryCallee): Deleted.
+        * wasm/WasmCalleeGroup.h:
+        * wasm/WasmCompilationMode.cpp:
+        (JSC::Wasm::makeString):
+        * wasm/WasmCompilationMode.h:
+        (JSC::Wasm::isOSREntry):
+        (JSC::Wasm::isAnyBBQ):
+        (JSC::Wasm::isAnyOMG):
+        * wasm/WasmOMGForOSREntryPlan.cpp: Removed.
+        * wasm/WasmOMGForOSREntryPlan.h: Removed.
+        * wasm/WasmOSREntryPlan.cpp: Copied from Source/JavaScriptCore/wasm/WasmOMGForOSREntryPlan.cpp.
+        (JSC::Wasm::OSREntryPlan::OSREntryPlan):
+        (JSC::Wasm::OSREntryPlan::work):
+        (JSC::Wasm::OMGForOSREntryPlan::OMGForOSREntryPlan): Deleted.
+        (JSC::Wasm::OMGForOSREntryPlan::work): Deleted.
+        * wasm/WasmOSREntryPlan.h: Copied from Source/JavaScriptCore/wasm/WasmOMGForOSREntryPlan.h.
+        * wasm/WasmOperations.cpp:
+        (JSC::Wasm::doOSREntry):
+        (JSC::Wasm::JSC_DEFINE_JIT_OPERATION):
+        * wasm/WasmPlan.cpp:
+        (JSC::Wasm::Plan::updateCallSitesToCallUs):
+        * wasm/WasmSlowPaths.cpp:
+        (JSC::LLInt::WASM_SLOW_PATH_DECL):
+
+2021-12-22  Alex Christensen  <achristensen@webkit.org>
+
+        Fix compiling with pickier compiler
+        https://bugs.webkit.org/show_bug.cgi?id=234593
+
+        Reviewed by Brady Eidson.
+
+        * API/tests/Regress141275.mm:
+        (-[JSTEvaluator initWithScript:]):
+        * API/tests/testapi.mm:
+        (checkModuleWasRejected):
+
+2021-12-22  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Add RISCV64 support in YARR
+        https://bugs.webkit.org/show_bug.cgi?id=234547
+
+        Reviewed by Yusuke Suzuki.
+
+        Add RISCV64 support to YARR. This covers providing the required register
+        and immediate defitinitions, as well as also enabling codepaths shared
+        with other 64-bit architectures.
+
+        * assembler/MacroAssemblerRISCV64.h:
+        (JSC::MacroAssemblerRISCV64::load16): YARR JIT also requires a load16()
+        overload that loads from an ExtendedAddress.
+        * yarr/YarrJIT.cpp:
+        * yarr/YarrJITRegisters.h:
+
+2021-12-22  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Fix RISCV64Assembler::ImmediateDecomposition in debug builds
+        https://bugs.webkit.org/show_bug.cgi?id=234594
+
+        Unreviewed, fix the RISCV64Assembler::ImmediateDecomposition constructor
+        to build in debug mode (fixing the assert) as well as run properly in
+        that mode (performing manual sign-extension on the lower 12 bits of the
+        IImmediate value as required for this type of immediates).
+
+        * assembler/RISCV64Assembler.h:
+        (JSC::RISCV64Instructions::ImmediateDecomposition::ImmediateDecomposition):
+
+2021-12-21  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Add or enable missing CPU(RISCV64) codepaths in baseline JIT
+        https://bugs.webkit.org/show_bug.cgi?id=234551
+
+        Reviewed by Yusuke Suzuki.
+
+        Sprinkle the necessary CPU(RISCV64) build guards as well as additional
+        RISCV64-specific codepaths encapsualted by those build guards in the
+        baseline JIT code. In many cases we can align with the code that ARM64
+        is already using.
+
+        In InlineAccess, the byte-sizes for access and replacement operations
+        are based on a mix of educated guessing and aggressive testing.
+
+        In baseline JIT, we can usually adopt what ARM64 already does since the
+        similarities are big enough.
+
+        * bytecode/InlineAccess.h: The sizes here are based on the estimated
+        count of necessary instructions for access or replacement, and were
+        tested with the enabled crash-inducing fallback in linkCodeInline().
+        (JSC::InlineAccess::sizeForPropertyAccess):
+        (JSC::InlineAccess::sizeForPropertyReplace):
+        (JSC::InlineAccess::sizeForLengthAccess):
+        * jit/AssemblyHelpers.cpp:
+        (JSC::AssemblyHelpers::emitLoadStructure):
+        (JSC::AssemblyHelpers::debugCall):
+        * jit/AssemblyHelpers.h:
+        (JSC::AssemblyHelpers::emitSaveThenMaterializeTagRegisters):
+        (JSC::AssemblyHelpers::emitRestoreSavedTagRegisters):
+        (JSC::AssemblyHelpers::prologueStackPointerDelta):
+        (JSC::AssemblyHelpers::emitFunctionPrologue):
+        (JSC::AssemblyHelpers::emitFunctionEpilogueWithEmptyFrame):
+        (JSC::AssemblyHelpers::emitFunctionEpilogue):
+        (JSC::AssemblyHelpers::preserveReturnAddressAfterCall):
+        (JSC::AssemblyHelpers::restoreReturnAddressBeforeReturn):
+        * jit/CCallHelpers.h:
+        (JSC::CCallHelpers::prepareForTailCallSlow):
+        * jit/CallFrameShuffler.cpp:
+        (JSC::CallFrameShuffler::prepareForTailCall):
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::slow_op_resolve_scopeGenerator):
+        (JSC::JIT::slow_op_get_from_scopeGenerator):
+        * jit/RegisterSet.cpp:
+        (JSC::RegisterSet::macroScratchRegisters):
+        (JSC::RegisterSet::dfgCalleeSaveRegisters):
+        (JSC::RegisterSet::ftlCalleeSaveRegisters):
+        * jit/ThunkGenerators.cpp:
+        (JSC::popThunkStackPreservesAndHandleExceptionGenerator):
+
+2021-12-21  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Add missing MacroAssemblerRISCV64 floating-point rounding, comparison methods
+        https://bugs.webkit.org/show_bug.cgi?id=234475
+
+        Reviewed by Yusuke Suzuki.
+
+        Add missing MacroAssemblerRISCV64 methods that cover floating-point
+        rounding and comparison operations. Manually detecting NaN values is
+        possible by classifying floating-point values, and subsequently
+        rounding operation or different comparison conditions have to be
+        handled appropriately.
+
+        Single-precision and double-precision implementations can neatly be
+        handled in singular templated helper methods, and precision-specific
+        codepaths can be determined at compile-time.
+
+        * assembler/MacroAssemblerRISCV64.h:
+        (JSC::MacroAssemblerRISCV64::ceilFloat):
+        (JSC::MacroAssemblerRISCV64::ceilDouble):
+        (JSC::MacroAssemblerRISCV64::floorFloat):
+        (JSC::MacroAssemblerRISCV64::floorDouble):
+        (JSC::MacroAssemblerRISCV64::roundTowardNearestIntFloat):
+        (JSC::MacroAssemblerRISCV64::roundTowardNearestIntDouble):
+        (JSC::MacroAssemblerRISCV64::roundTowardZeroFloat):
+        (JSC::MacroAssemblerRISCV64::roundTowardZeroDouble):
+        (JSC::MacroAssemblerRISCV64::compareFloat):
+        (JSC::MacroAssemblerRISCV64::compareDouble):
+        (JSC::MacroAssemblerRISCV64::roundFP):
+        (JSC::MacroAssemblerRISCV64::compareFP):
+
+2021-12-21  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        CSP: Include the sample in eval violation reports
+        https://bugs.webkit.org/show_bug.cgi?id=234390
+
+        Reviewed by Kate Cheney.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::eval): Pass the code to reportViolationForUnsafeEval().
+        * runtime/DirectEvalExecutable.cpp:
+        (JSC::DirectEvalExecutable::create): Ditto.
+        * runtime/FunctionConstructor.cpp:
+        (JSC::stringifyFunction): Helper function with the code to stringify function to be called also for the csp
+        violation report.
+        (JSC::constructFunction): Call stringifyFunction() to get the code for reportViolationForUnsafeEval().
+        (JSC::constructFunctionSkippingEvalEnabledCheck): Use stringifyFunction().
+        * runtime/IndirectEvalExecutable.cpp:
+        (JSC::IndirectEvalExecutable::createImpl): Pass the code to reportViolationForUnsafeEval().
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::reportViolationForUnsafeEval): Add string parameter for the code sample.
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION): Pass the code to reportViolationForUnsafeEval().
+
+2021-12-21  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Add basic MacroAssemblerRISCV64 branching methods
+        https://bugs.webkit.org/show_bug.cgi?id=234474
+
+        Reviewed by Yusuke Suzuki.
+
+        Add MacroAssemblerRISCV64 implementations for the basic branching
+        methods. RelationalCondition enum values are aliased to the branching
+        condition values in RISCV64Assembler. The makeBranch() helper method
+        is added that generates the final branching instruction for the given
+        condition and the two registers holding values for the comparison and
+        returns the Jump object based on the label constructed at the location
+        of the branching placeholder.
+
+        Branching methods essentially consist of preparing the two registers
+        and calling the makeBranch() method. For 8-bit and 32-bit comparisons
+        the compared values have to be sign-extended into the scratch registers
+        because the branching instructions don't operate on partial values. This
+        might cause friction in higher JIT levels where the use of scratch
+        registers is disallowed.
+
+        * assembler/MacroAssemblerRISCV64.h:
+        (JSC::MacroAssemblerRISCV64::invert):
+        (JSC::MacroAssemblerRISCV64::branch8):
+        (JSC::MacroAssemblerRISCV64::branch32):
+        (JSC::MacroAssemblerRISCV64::branch64):
+        (JSC::MacroAssemblerRISCV64::branch32WithUnalignedHalfWords):
+        (JSC::MacroAssemblerRISCV64::makeBranch):
+
+2021-12-21  Geza Lore  <glore@igalia.com>
+
+        [JSC][ARMv7] Minor code size improvements
+        https://bugs.webkit.org/show_bug.cgi?id=234387
+
+        Reviewed by Yusuke Suzuki.
+
+        A few mew code size improvements to ARMv7/Thumb-2
+
+        - Use ldrd/strd in mode places (via AssemblyHelpers:loadValue
+        and AssemblyHelpers::storeValue)
+
+        - Use BIC immediate instruction instead of AND where appropriate
+
+        - Use a 2-byte ADDS instead of a 4-byte CMN when possible. This
+        applies very often as it handles testing JSValue tags.
+
+        - Use addressTempRegister in branch32
+
+        Overall saving of about 3.5% code size on JetStream2, according to
+        --dumpLinkBufferStats.
+
+        * assembler/ARMv7Assembler.h:
+        (JSC::ARMv7Assembler::bic):
+        * assembler/MacroAssemblerARMv7.h:
+        (JSC::MacroAssemblerARMv7::and32):
+        (JSC::MacroAssemblerARMv7::storePair32):
+        (JSC::MacroAssemblerARMv7::compare32AndSetFlags):
+        (JSC::MacroAssemblerARMv7::branch32):
+        * assembler/MacroAssemblerMIPS.h:
+        (JSC::MacroAssemblerMIPS::storePair32):
+        * bytecode/AccessCase.cpp:
+        (JSC::AccessCase::generateImpl):
+        * dfg/DFGOSRExit.cpp:
+        (JSC::DFG::OSRExit::compileExit):
+        * dfg/DFGSpeculativeJIT32_64.cpp:
+        (JSC::DFG::SpeculativeJIT::fillJSValue):
+        (JSC::DFG::SpeculativeJIT::emitCall):
+        (JSC::DFG::SpeculativeJIT::compileGetByVal):
+        (JSC::DFG::SpeculativeJIT::compile):
+        * jit/AssemblyHelpers.h:
+        (JSC::AssemblyHelpers::storeValue):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_mov):
+
+2021-12-19  Ross Kirsling  <ross.kirsling@sony.com>
+
+        [JSC] OpPow should have a "small int exponent" fast path at lower tiers
+        https://bugs.webkit.org/show_bug.cgi?id=234408
+
+        Reviewed by Yusuke Suzuki.
+
+        DFG has an ArithPow fast path which just multiplies in a loop when the exponent is an int between 0 and 1000;
+        this can be done at lower tiers too.
+
+        Implementing this at LLInt gives the following speedup with JIT disabled:
+
+                                  Before                    After
+
+        pow-int-int         193.7180+-0.4897     ^    100.3569+-1.9804        ^ definitely 1.9303x faster
+        pow-double-int      194.0744+-0.7998     ^    100.0346+-0.8655        ^ definitely 1.9401x faster
+
+        <geometric>         193.8824+-0.4667     ^    100.0964+-0.9922        ^ definitely 1.9370x faster
+
+        Implementing this at Baseline gives similar results with DFG disabled:
+
+                                          Before                    After
+
+        pow-int-int         195.6251+-0.9577     ^     99.9627+-0.3307        ^ definitely 1.9570x faster
+        pow-double-int      196.1975+-0.9307     ^    101.0056+-0.3124        ^ definitely 1.9424x faster
+
+        <geometric>         195.8786+-0.5883     ^    100.4767+-0.2333        ^ definitely 1.9495x faster
+
+        Results are neutral otherwise.
+
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        (JSC::JIT::privateCompileSlowCases):
+        * jit/JIT.h:
+        * jit/JITArithmetic.cpp:
+        (JSC::JIT::emit_op_pow):
+        (JSC::JIT::emitSlow_op_pow):
+        * llint/LowLevelInterpreter.asm:
+        * llint/LowLevelInterpreter32_64.asm:
+        * llint/LowLevelInterpreter64.asm:
+
+2021-12-18  Mikhail R. Gadelha  <mikhail@igalia.com>
+
+        [JSC][32bit] Fix undefined behavior causing miscompilation with clang 13 on ARM
+        https://bugs.webkit.org/show_bug.cgi?id=234399
+
+        Reviewed by Yusuke Suzuki.
+
+        Compiling JSC with clang 13 on ARMv7 on linux was broken because clang
+        was marking the constant Infinity as poison during constant folding, if
+        either -O2 or -O3 were used, causing the constant to not being
+        initialized.
+
+        This patch removes the undefined behaviour by preventing the
+        static_cast to int32_t if the double is either inf or NaN.
+
+        * runtime/MathCommon.h:
+        (JSC::canBeInt32):
+        (JSC::canBeStrictInt32):
+
+2021-12-18  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Do not allocate m_bbqCallee and m_omgCallee until it becomes necessary
+        https://bugs.webkit.org/show_bug.cgi?id=234457
+
+        Reviewed by Saam Barati.
+
+        WebAssembly memory import will require initializing both Wasm::CalleeGroup.
+        So, we should shrink memory size of Wasm::CalleeGroup as much as possible
+        to avoid memory regression. This patch allocates m_bbqCallee and m_omgCallee
+        only when it becomes available.
+
+        * wasm/WasmBBQPlan.cpp:
+        (JSC::Wasm::BBQPlan::work):
+        * wasm/WasmCalleeGroup.cpp:
+        (JSC::Wasm::CalleeGroup::CalleeGroup):
+        * wasm/WasmCalleeGroup.h:
+        (JSC::Wasm::CalleeGroup::compilationFinished): Deleted.
+        (JSC::Wasm::CalleeGroup::runnable): Deleted.
+        (JSC::Wasm::CalleeGroup::errorMessage): Deleted.
+        (JSC::Wasm::CalleeGroup::functionImportCount const): Deleted.
+        (JSC::Wasm::CalleeGroup::embedderEntrypointCalleeFromFunctionIndexSpace): Deleted.
+        (JSC::Wasm::CalleeGroup::wasmEntrypointCalleeFromFunctionIndexSpace): Deleted.
+        (JSC::Wasm::CalleeGroup::wasmBBQCalleeFromFunctionIndexSpace): Deleted.
+        (JSC::Wasm::CalleeGroup::entrypointLoadLocationFromFunctionIndexSpace): Deleted.
+        (JSC::Wasm::CalleeGroup::wasmToWasmExitStub): Deleted.
+        (JSC::Wasm::CalleeGroup::mode const): Deleted.
+        * wasm/WasmOMGForOSREntryPlan.cpp:
+        (JSC::Wasm::OMGForOSREntryPlan::work):
+        * wasm/WasmOMGPlan.cpp:
+        (JSC::Wasm::OMGPlan::work):
+        * wasm/WasmPlan.cpp:
+        (JSC::Wasm::Plan::updateCallSitesToCallUs):
+        * wasm/WasmPlan.h:
+
+2021-12-17  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [WTF] Introduce TrailingArray
+        https://bugs.webkit.org/show_bug.cgi?id=234201
+
+        Reviewed by Darin Adler.
+
+        Use ThreadSafeRefCountedFixedVector in ObjectPropertyConditionSet and Wasm::LLIntCallees.
+
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::baselineJITConstantPool):
+        * bytecode/ObjectPropertyConditionSet.cpp:
+        (JSC::ObjectPropertyConditionSet::mergedWith const):
+        (JSC::ObjectPropertyConditionSet::dumpInContext const):
+        (JSC::ObjectPropertyConditionSet::isValidAndWatchable const):
+        * bytecode/ObjectPropertyConditionSet.h:
+        (JSC::ObjectPropertyConditionSet::invalid):
+        (JSC::ObjectPropertyConditionSet::create):
+        (JSC::ObjectPropertyConditionSet::isValid const):
+        (JSC::ObjectPropertyConditionSet::size const):
+        (JSC::ObjectPropertyConditionSet::begin const):
+        (JSC::ObjectPropertyConditionSet::end const):
+        (JSC::ObjectPropertyConditionSet::ObjectPropertyConditionSet): Deleted.
+        (JSC::ObjectPropertyConditionSet::releaseRawPointer): Deleted.
+        (JSC::ObjectPropertyConditionSet::adoptRawPointer): Deleted.
+        (JSC::ObjectPropertyConditionSet::fromRawPointer): Deleted.
+        (JSC::ObjectPropertyConditionSet::Data::Data): Deleted.
+        * jit/JIT.cpp:
+        (JSC::JIT::compileAndLinkWithoutFinalizing):
+        * jit/JITInlines.h:
+        (JSC::JIT::loadConstant):
+        * llint/LLIntOffsetsExtractor.cpp:
+        * llint/LowLevelInterpreter.asm:
+        * llint/LowLevelInterpreter32_64.asm:
+        * llint/LowLevelInterpreter64.asm:
+        * wasm/WasmCallee.h:
+        (JSC::Wasm::LLIntCallees::create): Deleted.
+        (JSC::Wasm::LLIntCallees::at const): Deleted.
+        (JSC::Wasm::LLIntCallees::data const): Deleted.
+        (JSC::Wasm::LLIntCallees::LLIntCallees): Deleted.
+        * wasm/WasmCodeBlock.cpp:
+        (JSC::Wasm::CodeBlock::create):
+        (JSC::Wasm::CodeBlock::CodeBlock):
+        * wasm/WasmCodeBlock.h:
+        * wasm/WasmModule.cpp:
+        (JSC::Wasm::Module::Module):
+        (JSC::Wasm::Module::getOrCreateCodeBlock):
+        * wasm/WasmModule.h:
+
+2021-12-17  Saam Barati  <sbarati@apple.com>
+
+        Use IRC by default on arm64
+        https://bugs.webkit.org/show_bug.cgi?id=234449
+
+        Reviewed by Yusuke Suzuki.
+
+        I'm seeing a Wasm perf improvement on some benchmarks of ~12% by switching
+        from Briggs to IRC. Let's make IRC the default on arm64.
+
+        * b3/air/AirAllocateRegistersByGraphColoring.cpp:
+        * b3/air/AirAllocateRegistersByGraphColoring.h:
+        (JSC::B3::Air::useIRC): Deleted.
+
+2021-12-17  Saam Barati  <sbarati@apple.com>
+
+        Support WasmAddress in B3 CSE
+        https://bugs.webkit.org/show_bug.cgi?id=234051
+        <rdar://problem/86552957>
+
+        Reviewed by Filip Pizlo and Yusuke Suzuki.
+
+        This patch adds support in B3's CSE phase to handle WasmAddressValue computations.
+        The reason this can't partake in pure CSE is that WasmAddressValue reads pinned.
+        To support this, we keep track of which blocks write pinned. If we're trying to
+        replace a value V2 with V1 because it appears there is a redundancy, we check if
+        any paths from V1 to V2 write pinned. If none do, we proceed with the replacement.
+
+        * b3/B3EliminateCommonSubexpressions.cpp:
+
+2021-12-17  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Implement linking and patching support in RISCV64Assembler
+        https://bugs.webkit.org/show_bug.cgi?id=234398
+
+        Reviewed by Yusuke Suzuki.
+
+        Populate RISCV64Assembler class with the necessary implementations and
+        facilities to support linking and patching operations. Implementations
+        of different methods in MacroAssemblerRISCV64 covering calls, jumps
+        and patches are also added.
+
+        Helper structs are added in the RISCV64Assembler class that cover
+        linking of jumps, calls or branches and patching of pointer values.
+        Relevant methods are also implemented to utilize these helpers.
+
+        RISCV64Assembler also gains helper methods that generate placeholders
+        for the specific type of linking or patching. The passed-in functor is
+        then invoked, enabling the user (MacroAssemblerRISCV64 implementation)
+        to additionally generate the desired instruction sequence that utilizes
+        the given placeholder.
+
+        In MacroAssemblerRISCV64, different noop methods covering jumps, calls,
+        linking and patching are replaced with the appropriate implementations.
+
+        * assembler/MacroAssemblerRISCV64.h:
+        (JSC::MacroAssemblerRISCV64::readCallTarget):
+        (JSC::MacroAssemblerRISCV64::replaceWithJump):
+        (JSC::MacroAssemblerRISCV64::startOfBranchPtrWithPatchOnRegister):
+        (JSC::MacroAssemblerRISCV64::revertJumpReplacementToBranchPtrWithPatch):
+        (JSC::MacroAssemblerRISCV64::linkCall):
+        (JSC::MacroAssemblerRISCV64::repatchCall):
+        (JSC::MacroAssemblerRISCV64::jump):
+        (JSC::MacroAssemblerRISCV64::farJump):
+        (JSC::MacroAssemblerRISCV64::nearCall):
+        (JSC::MacroAssemblerRISCV64::nearTailCall):
+        (JSC::MacroAssemblerRISCV64::threadSafePatchableNearCall):
+        (JSC::MacroAssemblerRISCV64::ret):
+        (JSC::MacroAssemblerRISCV64::call):
+        (JSC::MacroAssemblerRISCV64::callOperation):
+        (JSC::MacroAssemblerRISCV64::startOfPatchableBranchPtrWithPatchOnAddress): Deleted.
+        (JSC::MacroAssemblerRISCV64::startOfPatchableBranch32WithPatchOnAddress): Deleted.
+        (JSC::MacroAssemblerRISCV64::revertJumpReplacementToPatchableBranchPtrWithPatch): Deleted.
+        (JSC::MacroAssemblerRISCV64::revertJumpReplacementToPatchableBranch32WithPatch): Deleted.
+        * assembler/RISCV64Assembler.h:
+        (JSC::RISCV64Instructions::ImmediateBase::immediateMask):
+        (JSC::RISCV64Instructions::ImmediateBase::v):
+        (JSC::RISCV64Instructions::ImmediateDecomposition::ImmediateDecomposition):
+        (JSC::RISCV64Assembler::getDifferenceBetweenLabels):
+        (JSC::RISCV64Assembler::getCallReturnOffset):
+        (JSC::RISCV64Assembler::labelIgnoringWatchpoints):
+        (JSC::RISCV64Assembler::labelForWatchpoint):
+        (JSC::RISCV64Assembler::label):
+        (JSC::RISCV64Assembler::linkJump):
+        (JSC::RISCV64Assembler::linkCall):
+        (JSC::RISCV64Assembler::linkPointer):
+        (JSC::RISCV64Assembler::maxJumpReplacementSize):
+        (JSC::RISCV64Assembler::patchableJumpSize):
+        (JSC::RISCV64Assembler::repatchPointer):
+        (JSC::RISCV64Assembler::relinkJump):
+        (JSC::RISCV64Assembler::relinkJumpToNop):
+        (JSC::RISCV64Assembler::relinkCall):
+        (JSC::RISCV64Assembler::replaceWithJump):
+        (JSC::RISCV64Assembler::revertJumpReplacementToPatch):
+        (JSC::RISCV64Assembler::readCallTarget):
+        (JSC::RISCV64Assembler::cacheFlush):
+        (JSC::RISCV64Assembler::fillNops):
+        (JSC::RISCV64Assembler::jumpPlaceholder):
+        (JSC::RISCV64Assembler::branchPlaceholder):
+        (JSC::RISCV64Assembler::pointerCallPlaceholder):
+        (JSC::RISCV64Assembler::nearCallPlaceholder):
+        (JSC::RISCV64Assembler::LinkJumpOrCallImpl::apply):
+        (JSC::RISCV64Assembler::LinkJumpImpl::placeholderInsn):
+        (JSC::RISCV64Assembler::LinkJumpImpl::generatePlaceholder):
+        (JSC::RISCV64Assembler::LinkCallImpl::placeholderInsn):
+        (JSC::RISCV64Assembler::LinkCallImpl::generatePlaceholder):
+        (JSC::RISCV64Assembler::LinkBranchImpl::placeholderInsn):
+        (JSC::RISCV64Assembler::LinkBranchImpl::generatePlaceholder):
+        (JSC::RISCV64Assembler::LinkBranchImpl::apply):
+        (JSC::RISCV64Assembler::PatchPointerImpl::placeholderInsn):
+        (JSC::RISCV64Assembler::PatchPointerImpl::generatePlaceholder):
+        (JSC::RISCV64Assembler::PatchPointerImpl::apply):
+        (JSC::RISCV64Assembler::PatchPointerImpl::read):
+
+2021-12-16  Saam Barati  <sbarati@apple.com>
+
+        Use arm64's fmax/fmin instructions in Wasm
+        https://bugs.webkit.org/show_bug.cgi?id=234367
+
+        Reviewed by Keith Miller.
+
+        This patch adds support in B3 for FMax and FMin. We use this for Wasm's f32/64
+        min/max operations. On arm64, we select the arm64 fmin/fmax instructions
+        for these B3 opcodes. On x86, we lower these to control flow to calculate the
+        result inside of lower macros.
+        
+        This speeds up Wasm programs that make heavy usage of min/max.
+
+        * assembler/MacroAssemblerARM64.h:
+        (JSC::MacroAssemblerARM64::floatMax):
+        (JSC::MacroAssemblerARM64::floatMin):
+        (JSC::MacroAssemblerARM64::doubleMax):
+        (JSC::MacroAssemblerARM64::doubleMin):
+        * b3/B3Common.h:
+        (JSC::B3::fMax):
+        (JSC::B3::fMin):
+        * b3/B3ConstDoubleValue.cpp:
+        (JSC::B3::ConstDoubleValue::fMinConstant const):
+        (JSC::B3::ConstDoubleValue::fMaxConstant const):
+        * b3/B3ConstDoubleValue.h:
+        * b3/B3ConstFloatValue.cpp:
+        (JSC::B3::ConstFloatValue::fMinConstant const):
+        (JSC::B3::ConstFloatValue::fMaxConstant const):
+        * b3/B3ConstFloatValue.h:
+        * b3/B3LowerMacros.cpp:
+        * b3/B3LowerToAir.cpp:
+        * b3/B3Opcode.cpp:
+        (WTF::printInternal):
+        * b3/B3Opcode.h:
+        * b3/B3ReduceStrength.cpp:
+        * b3/B3Validate.cpp:
+        * b3/B3Value.cpp:
+        (JSC::B3::Value::fMinConstant const):
+        (JSC::B3::Value::fMaxConstant const):
+        (JSC::B3::Value::effects const):
+        (JSC::B3::Value::key const):
+        (JSC::B3::Value::typeFor):
+        * b3/B3Value.h:
+        * b3/B3ValueInlines.h:
+        * b3/B3ValueKey.cpp:
+        (JSC::B3::ValueKey::materialize const):
+        * b3/air/AirOpcode.opcodes:
+        * b3/testb3.h:
+        * b3/testb3_1.cpp:
+        (run):
+        * b3/testb3_7.cpp:
+        (testFMaxMin):
+        (testFloatMaxMin):
+        (testDoubleMaxMin):
+        * wasm/WasmAirIRGenerator.cpp:
+        (JSC::Wasm::AirIRGenerator::addFloatingPointMinOrMax):
+        (JSC::Wasm::AirIRGenerator::addOp<OpType::F32Min>):
+        * wasm/wasm.json:
+
+2021-12-16  Caitlin Potter  <caitp@igalia.com>
+
+        [JSC] only emit pointer validation for ARM64E
+        https://bugs.webkit.org/show_bug.cgi?id=234402
+
+        Reviewed by Yusuke Suzuki and Mark Lam.
+
+        JIT thunks no longer emit `push <reg>; pop <reg>;` on
+        non-ARM64E arches with the emitPointerValidation macro.
+
+        * jit/ThunkGenerators.cpp:
+        (JSC::emitPointerValidation):
+
+2021-12-16  Michael Saboff  <msaboff@apple.com>
+
+        Create symlinks pointing to alternate root framework locations
+        https://bugs.webkit.org/show_bug.cgi?id=234374
+
+        Reviewed by Filip Pizlo.
+
+        Added build variables and build step to create symlinks pointing to the alternate
+        build locations from the current framework install location.
+
+        * Configurations/JavaScriptCore.xcconfig:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * Scripts/create-symlink-to-altroot.sh: Added.
+
+2021-12-16  Devin Rousso  <drousso@apple.com>
+
+        Implement Array.prototype.groupBy and Array.prototype.groupByToMap
+        https://bugs.webkit.org/show_bug.cgi?id=234327
+
+        Reviewed by Yusuke Suzuki.
+
+        Implement new Array Grouping proposal <https://tc39.es/proposal-array-grouping/>, which just
+        reached Stage 3.
+
+        `Array.prototype.groupBy`/`Array.prototype.groupByToMap` will return a `{}`/`Map` where each
+        value in the array is put into a "bucket" keyed by the return value of the provoded callback.
+
+        ```js
+        const array = [1, 2, 3, 4];
+
+        array.groupBy(n => n % 2 ? "odd" : "even") // { odd: [1, 3], even: [2, 4] }
+        array.groupByToMap(n => n % 2 ? "odd" : "even") // new Map([["odd", [1, 3]], ["even", [2, 4]])
+        ```
+
+        * builtins/ArrayPrototype.js:
+        (groupBy): Added.
+        (groupByToMap): Added.
+        * runtime/ArrayPrototype.cpp:
+        (JSC::ArrayPrototype::finishCreation):
+
+        * bytecode/BytecodeIntrinsicRegistry.h:
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::BytecodeIntrinsicNode::emit_intrinsic_toPropertyKey): Added.
+        Allow `@toPropertyKey` to be used in builtins to convert a value to a property key. This is
+        used to avoid converting the return value of the callback given to `groupBy` more than once.
+
+        * builtins/BuiltinNames.h:
+        * bytecode/LinkTimeConstant.h:
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::init):
+        Allow `@Map` to be used in builtins to create a primordial `Map` instance. This is used to
+        avoid side effects when creating and populating the `Map` returned by `groupByToMap`.
+
+        * runtime/OptionsList.h:
+        Add `useArrayGroupByMethod` option.
+
+2021-12-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Rename Wasm::CodeBlock to Wasm::CalleeGroup
+        https://bugs.webkit.org/show_bug.cgi?id=203694
+
+        Reviewed by Mark Lam.
+
+        This is not a CodeBlock. And the name causes confusion with JSC::CodeBlock, which is not at all related.
+        This patch renames it to Wasm::CalleeGroup.
+
+        * CMakeLists.txt:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * Sources.txt:
+        * heap/Heap.cpp:
+        (JSC::Heap::Heap):
+        (JSC::Heap::finalizeUnconditionalFinalizers):
+        (JSC::Heap::deleteAllCodeBlocks):
+        * heap/Heap.h:
+        (JSC::Heap::forEachCodeBlockSpace):
+        * runtime/VM.cpp:
+        (JSC::VM::VM):
+        * runtime/VM.h:
+        * wasm/WasmBBQPlan.cpp:
+        (JSC::Wasm::BBQPlan::BBQPlan):
+        (JSC::Wasm::BBQPlan::work):
+        * wasm/WasmBBQPlan.h:
+        * wasm/WasmCalleeGroup.cpp: Renamed from Source/JavaScriptCore/wasm/WasmCodeBlock.cpp.
+        (JSC::Wasm::CalleeGroup::create):
+        (JSC::Wasm::CalleeGroup::createFromExisting):
+        (JSC::Wasm::CalleeGroup::CalleeGroup):
+        (JSC::Wasm::CalleeGroup::~CalleeGroup):
+        (JSC::Wasm::CalleeGroup::waitUntilFinished):
+        (JSC::Wasm::CalleeGroup::compileAsync):
+        (JSC::Wasm::CalleeGroup::isSafeToRun):
+        (JSC::Wasm::CalleeGroup::setCompilationFinished):
+        * wasm/WasmCalleeGroup.h: Renamed from Source/JavaScriptCore/wasm/WasmCodeBlock.h.
+        * wasm/WasmInstance.cpp:
+        (JSC::Wasm::Instance::initElementSegment):
+        * wasm/WasmInstance.h:
+        (JSC::Wasm::Instance::calleeGroup const):
+        (JSC::Wasm::Instance::isImportFunction const):
+        (JSC::Wasm::Instance::codeBlock const): Deleted.
+        * wasm/WasmMachineThreads.h:
+        * wasm/WasmModule.cpp:
+        (JSC::Wasm::Module::getOrCreateCalleeGroup):
+        (JSC::Wasm::Module::compileSync):
+        (JSC::Wasm::Module::compileAsync):
+        (JSC::Wasm::Module::copyInitialCalleeGroupToAllMemoryModes):
+        (JSC::Wasm::Module::getOrCreateCodeBlock): Deleted.
+        (JSC::Wasm::Module::copyInitialCodeBlockToAllMemoryModes): Deleted.
+        * wasm/WasmModule.h:
+        (JSC::Wasm::Module::calleeGroupFor):
+        (JSC::Wasm::Module::codeBlockFor): Deleted.
+        * wasm/WasmOMGForOSREntryPlan.cpp:
+        (JSC::Wasm::OMGForOSREntryPlan::OMGForOSREntryPlan):
+        (JSC::Wasm::OMGForOSREntryPlan::work):
+        * wasm/WasmOMGForOSREntryPlan.h:
+        * wasm/WasmOMGPlan.cpp:
+        (JSC::Wasm::OMGPlan::OMGPlan):
+        (JSC::Wasm::OMGPlan::work):
+        * wasm/WasmOMGPlan.h:
+        * wasm/WasmOperations.cpp:
+        (JSC::Wasm::triggerOMGReplacementCompile):
+        (JSC::Wasm::JSC_DEFINE_JIT_OPERATION):
+        * wasm/WasmPlan.cpp:
+        (JSC::Wasm::Plan::updateCallSitesToCallUs):
+        * wasm/WasmPlan.h:
+        * wasm/WasmSlowPaths.cpp:
+        (JSC::LLInt::jitCompileAndSetHeuristics):
+        (JSC::LLInt::doWasmCall):
+        * wasm/js/JSWebAssembly.cpp:
+        (JSC::resolve):
+        (JSC::instantiate):
+        * wasm/js/JSWebAssemblyCalleeGroup.cpp: Renamed from Source/JavaScriptCore/wasm/js/JSWebAssemblyCodeBlock.cpp.
+        (JSC::JSWebAssemblyCalleeGroup::create):
+        (JSC::JSWebAssemblyCalleeGroup::JSWebAssemblyCalleeGroup):
+        (JSC::JSWebAssemblyCalleeGroup::finishCreation):
+        (JSC::JSWebAssemblyCalleeGroup::destroy):
+        (JSC::JSWebAssemblyCalleeGroup::clearJSCallICs):
+        (JSC::JSWebAssemblyCalleeGroup::visitChildrenImpl):
+        (JSC::JSWebAssemblyCalleeGroup::finalizeUnconditionally):
+        * wasm/js/JSWebAssemblyCalleeGroup.h: Renamed from Source/JavaScriptCore/wasm/js/JSWebAssemblyCodeBlock.h.
+        * wasm/js/JSWebAssemblyInstance.cpp:
+        (JSC::JSWebAssemblyInstance::visitChildrenImpl):
+        (JSC::JSWebAssemblyInstance::finalizeCreation):
+        * wasm/js/JSWebAssemblyInstance.h:
+        * wasm/js/JSWebAssemblyModule.cpp:
+        (JSC::JSWebAssemblyModule::calleeGroup):
+        (JSC::JSWebAssemblyModule::setCalleeGroup):
+        (JSC::JSWebAssemblyModule::visitChildrenImpl):
+        (JSC::JSWebAssemblyModule::codeBlock): Deleted.
+        (JSC::JSWebAssemblyModule::setCodeBlock): Deleted.
+        * wasm/js/JSWebAssemblyModule.h:
+        * wasm/js/WebAssemblyFunction.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+        * wasm/js/WebAssemblyModuleRecord.cpp:
+        (JSC::WebAssemblyModuleRecord::initializeImportsAndExports):
+        * wasm/js/WebAssemblyWrapperFunction.h:
+
+2021-12-15  Joseph Griego  <jgriego@igalia.com>
+
+        [Shadow Realms] Wrapped functions must only throw TypeError from calling realm
+        https://bugs.webkit.org/show_bug.cgi?id=234357
+
+        Reviewed by Yusuke Suzuki.
+
+        This wrapping logic already exists for ShadowRealm.prototype.evaluate
+        but not for calls to wrapped functions. at present, this requires some
+        awkward manouvering to actually throw a typeerror from the shadow realm,
+        since the wrapper code always runs in the incubating realm.
+
+        Hopefully we can make this less messy soon by replacing this
+        implementation with one more integrated with the runtime.
+
+        This case wasn't covered by existing JSC or test262 tests; added
+        coverage both upstream in t262 and in this patch.
+
+        * builtins/ShadowRealmPrototype.js:
+        (wrapped):
+        (globalPrivate.wrap):
+
+2021-12-14  Ross Kirsling  <ross.kirsling@sony.com>
+
+        [JSC] OpInstanceofCustom should be in CommonSlowPaths
+        https://bugs.webkit.org/show_bug.cgi?id=234316
+
+        Reviewed by Alexey Shvayka.
+
+        No tier has a fast path for OpInstanceofCustom and this is unlikely to change anytime soon.
+        As such, we should not be having LLInt and Baseline implement *separate* slow paths for this operation;
+        this patch straightforwardly makes use of CommonSlowPaths instead.
+
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        (JSC::JIT::privateCompileSlowCases):
+        * jit/JIT.h:
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_instanceof_custom): Deleted.
+        (JSC::JIT::emitSlow_op_instanceof_custom): Deleted.
+        * llint/LLIntSlowPaths.cpp:
+        * llint/LLIntSlowPaths.h:
+        * llint/LowLevelInterpreter.asm:
+        * runtime/CommonSlowPaths.cpp:
+        (JSC::JSC_DEFINE_COMMON_SLOW_PATH):
+        * runtime/CommonSlowPaths.h:
+
 2021-12-14  Jean-Yves Avenard  <jya@apple.com>
 
         Rename SharedBuffer classes.

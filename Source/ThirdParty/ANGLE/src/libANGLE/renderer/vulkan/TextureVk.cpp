@@ -487,8 +487,8 @@ angle::Result TextureVk::setSubImageImpl(const gl::Context *context,
     if (unpackBuffer)
     {
         BufferVk *unpackBufferVk       = vk::GetImpl(unpackBuffer);
-        VkDeviceSize bufferOffset      = 0;
-        vk::BufferHelper &bufferHelper = unpackBufferVk->getBufferAndOffset(&bufferOffset);
+        vk::BufferHelper &bufferHelper = unpackBufferVk->getBuffer();
+        VkDeviceSize bufferOffset      = bufferHelper.getOffset();
         uintptr_t offset               = reinterpret_cast<uintptr_t>(pixels);
         GLuint inputRowPitch           = 0;
         GLuint inputDepthPitch         = 0;
@@ -783,6 +783,12 @@ angle::Result TextureVk::copySubImageImpl(const gl::Context *context,
         // Layer count can only be 1 as the source is a framebuffer.
         ASSERT(offsetImageIndex.getLayerCount() == 1);
 
+        // Flush the render pass, which may incur a vkQueueSubmit, before taking any views.
+        // Otherwise the view serials would not reflect the render pass they are really used in.
+        // http://crbug.com/1272266#c22
+        ANGLE_TRY(
+            contextVk->flushCommandsAndEndRenderPass(RenderPassClosureReason::PrepareForImageCopy));
+
         const vk::ImageView *copyImageView = nullptr;
         ANGLE_TRY(colorReadRT->getAndRetainCopyImageView(contextVk, &copyImageView));
 
@@ -855,6 +861,12 @@ angle::Result TextureVk::copySubTextureImpl(ContextVk *contextVk,
     // If it's possible to perform the copy with a draw call, do that.
     if (CanCopyWithDraw(renderer, srcFormatID, srcTilingMode, dstFormatID, dstTilingMode))
     {
+        // Flush the render pass, which may incur a vkQueueSubmit, before taking any views.
+        // Otherwise the view serials would not reflect the render pass they are really used in.
+        // http://crbug.com/1272266#c22
+        ANGLE_TRY(
+            contextVk->flushCommandsAndEndRenderPass(RenderPassClosureReason::PrepareForImageCopy));
+
         return copySubImageImplWithDraw(
             contextVk, offsetImageIndex, dstOffset, dstVkFormat, sourceLevelGL, sourceBox, false,
             unpackFlipY, unpackPremultiplyAlpha, unpackUnmultiplyAlpha, &source->getImage(),
@@ -1272,6 +1284,10 @@ angle::Result TextureVk::setStorageMultisample(const gl::Context *context,
     if (!mOwnsImage)
     {
         releaseAndDeleteImageAndViews(contextVk);
+    }
+    else if (mImage)
+    {
+        mImage->releaseStagingBuffer(contextVk->getRenderer());
     }
 
     // Assume all multisample texture types must be renderable.
@@ -2125,6 +2141,13 @@ angle::Result TextureVk::reinitImageAsRenderable(ContextVk *contextVk,
         gl::Box sourceBox(gl::kOffsetZero, mImage->getLevelExtents(levelVk));
         const gl::ImageIndex index =
             gl::ImageIndex::MakeFromType(mState.getType(), sourceLevelGL.get());
+
+        // Flush the render pass, which may incur a vkQueueSubmit, before taking any views.
+        // Otherwise the view serials would not reflect the render pass they are really used in.
+        // http://crbug.com/1272266#c22
+        ANGLE_TRY(
+            contextVk->flushCommandsAndEndRenderPass(RenderPassClosureReason::PrepareForImageCopy));
+
         return copySubImageImplWithDraw(contextVk, index, gl::kOffsetZero, format, sourceLevelGL,
                                         sourceBox, false, false, false, false, mImage,
                                         &getCopyImageViewAndRecordUse(contextVk),
@@ -2270,8 +2293,8 @@ angle::Result TextureVk::bindTexImage(const gl::Context *context, egl::Surface *
 
     releaseAndDeleteImageAndViews(contextVk);
 
-    GLenum internalFormat    = surface->getConfig()->renderTargetFormat;
-    const vk::Format &format = renderer->getFormat(internalFormat);
+    const gl::InternalFormat &glInternalFormat = *surface->getBindTexImageFormat().info;
+    const vk::Format &format = renderer->getFormat(glInternalFormat.sizedInternalFormat);
 
     // eglBindTexImage can only be called with pbuffer (offscreen) surfaces
     OffscreenSurfaceVk *offscreenSurface = GetImplAs<OffscreenSurfaceVk>(surface);
@@ -2279,9 +2302,8 @@ angle::Result TextureVk::bindTexImage(const gl::Context *context, egl::Surface *
                    surface->getMipmapLevel(), 0, false);
 
     ASSERT(mImage->getLayerCount() == 1);
-    gl::Format glFormat(internalFormat);
     return initImageViews(contextVk, format.getActualImageFormat(getRequiredImageAccess()),
-                          glFormat.info->sized, 1, 1);
+                          glInternalFormat.sized, 1, 1);
 }
 
 angle::Result TextureVk::releaseTexImage(const gl::Context *context)
@@ -2908,9 +2930,8 @@ angle::Result TextureVk::getBufferViewAndRecordUse(ContextVk *contextVk,
     }
 
     // Create a view for the required format.
-    VkDeviceSize bufferOffset = 0;
-    const vk::BufferHelper &buffer =
-        vk::GetImpl(mState.getBuffer().get())->getBufferAndOffset(&bufferOffset);
+    const vk::BufferHelper &buffer = vk::GetImpl(mState.getBuffer().get())->getBuffer();
+    VkDeviceSize bufferOffset      = buffer.getOffset();
 
     return mBufferViews.getView(contextVk, buffer, bufferOffset, *imageUniformFormat, viewOut);
 }

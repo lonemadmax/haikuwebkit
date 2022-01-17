@@ -46,7 +46,7 @@ inline InlineDisplay::Line::EnclosingTopAndBottom operator+(const InlineDisplay:
     return { enclosingTopAndBottom.top + offset, enclosingTopAndBottom.bottom + offset };
 }
 
-inline static float lineOverflowWidth(const RenderBlockFlow& flow, Layout::InlineLayoutUnit lineContentLogicalWidth)
+inline static float lineOverflowWidth(const RenderBlockFlow& flow, Layout::InlineLayoutUnit lineContentWidth)
 {
     // FIXME: It's the copy of the lets-adjust-overflow-for-the-caret behavior from LegacyLineLayout::addOverflowFromInlineChildren.
     auto endPadding = flow.hasNonVisibleOverflow() ? flow.paddingEnd() : 0_lu;
@@ -54,10 +54,10 @@ inline static float lineOverflowWidth(const RenderBlockFlow& flow, Layout::Inlin
         endPadding = flow.endPaddingWidthForCaret();
     if (flow.hasNonVisibleOverflow() && !endPadding && flow.element() && flow.element()->isRootEditableElement())
         endPadding = 1;
-    return lineContentLogicalWidth + endPadding;
+    return lineContentWidth + endPadding;
 }
 
-InlineContentBuilder::InlineContentBuilder(const RenderBlockFlow& blockFlow, const BoxTree& boxTree)
+InlineContentBuilder::InlineContentBuilder(const RenderBlockFlow& blockFlow, BoxTree& boxTree)
     : m_blockFlow(blockFlow)
     , m_boxTree(boxTree)
 {
@@ -67,6 +67,18 @@ void InlineContentBuilder::build(Layout::InlineFormattingState& inlineFormatting
 {
     // FIXME: This might need a different approach with partial layout where the layout code needs to know about the boxes.
     inlineContent.boxes = WTFMove(inlineFormattingState.boxes());
+
+    auto updateIfTextRenderersNeedVisualReordering = [&] {
+        // FIXME: We may want to have a global, "is this a bidi paragraph" flag to avoid this loop for non-rtl, non-bidi content. 
+        for (auto& displayBox : inlineContent.boxes) {
+            auto& layoutBox = displayBox.layoutBox();
+            if (!is<Layout::InlineTextBox>(layoutBox))
+                continue;
+            if (displayBox.bidiLevel() != UBIDI_DEFAULT_LTR) 
+                downcast<RenderText>(m_boxTree.rendererForLayoutBox(layoutBox)).setNeedsVisualReordering();
+        }
+    };
+    updateIfTextRenderersNeedVisualReordering();
     createDisplayLines(inlineFormattingState, inlineContent);
 }
 
@@ -79,8 +91,10 @@ void InlineContentBuilder::createDisplayLines(Layout::InlineFormattingState& inl
     for (size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
         auto& line = lines[lineIndex];
         auto scrollableOverflowRect = FloatRect { line.scrollableOverflow() };
-        if (auto overflowWidth = lineOverflowWidth(m_blockFlow, line.contentLogicalWidth()); overflowWidth > scrollableOverflowRect.width())
-            scrollableOverflowRect.setWidth(overflowWidth);
+        if (auto overflowWidth = lineOverflowWidth(m_blockFlow, line.contentWidth()); overflowWidth > scrollableOverflowRect.width()) {
+            auto overflowValue = overflowWidth - scrollableOverflowRect.width();
+            m_blockFlow.style().isLeftToRightDirection() ? scrollableOverflowRect.shiftMaxXEdgeBy(overflowValue) : scrollableOverflowRect.shiftXEdgeBy(-overflowValue);
+        }
 
         auto firstBoxIndex = boxIndex;
         auto lineInkOverflowRect = scrollableOverflowRect;
@@ -94,14 +108,13 @@ void InlineContentBuilder::createDisplayLines(Layout::InlineFormattingState& inl
             if (layoutBox.isReplacedBox()) {
                 // Similar to LegacyInlineFlowBox::addReplacedChildOverflow.
                 auto& renderer = downcast<RenderBox>(m_boxTree.rendererForLayoutBox(layoutBox));
-                auto boxRect = box.rect();
                 if (!renderer.hasSelfPaintingLayer()) {
                     auto childInkOverflow = renderer.logicalVisualOverflowRectForPropagation(&renderer.parent()->style());
-                    childInkOverflow.move(boxRect.left(), boxRect.top());
+                    childInkOverflow.move(box.left(), box.top());
                     lineInkOverflowRect.unite(childInkOverflow);
                 }
                 auto childScrollableOverflow = renderer.logicalLayoutOverflowRectForPropagation(&renderer.parent()->style());
-                childScrollableOverflow.move(boxRect.left(), boxRect.top());
+                childScrollableOverflow.move(box.left(), box.top());
                 scrollableOverflowRect.unite(childScrollableOverflow);
             }
         }
@@ -112,9 +125,8 @@ void InlineContentBuilder::createDisplayLines(Layout::InlineFormattingState& inl
                 inlineContent.hasMultilinePaintOverlap = true;
         }
 
-        auto lineBoxLogicalRect = FloatRect { line.lineBoxLogicalRect() };
         auto boxCount = boxIndex - firstBoxIndex;
-        inlineContent.lines.append({ firstBoxIndex, boxCount, lineBoxLogicalRect, line.enclosingTopAndBottom().top, line.enclosingTopAndBottom().bottom, scrollableOverflowRect, lineInkOverflowRect, line.baseline(), line.contentLogicalLeft(), line.contentLogicalWidth() });
+        inlineContent.lines.append({ firstBoxIndex, boxCount, FloatRect { line.lineBoxRect() }, line.enclosingTopAndBottom().top, line.enclosingTopAndBottom().bottom, scrollableOverflowRect, lineInkOverflowRect, line.baseline(), line.contentLeft(), line.contentWidth() });
     }
 }
 

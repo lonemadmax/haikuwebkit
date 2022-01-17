@@ -443,7 +443,6 @@ namespace JSC {
         void emit_op_init_lazy_reg(const Instruction*);
         void emit_op_overrides_has_instance(const Instruction*);
         void emit_op_instanceof(const Instruction*);
-        void emit_op_instanceof_custom(const Instruction*);
         void emit_op_is_empty(const Instruction*);
         void emit_op_typeof_is_undefined(const Instruction*);
         void emit_op_is_undefined_or_null(const Instruction*);
@@ -486,6 +485,7 @@ namespace JSC {
         void emit_op_super_sampler_end(const Instruction*);
         void emit_op_lshift(const Instruction*);
         void emit_op_mod(const Instruction*);
+        void emit_op_pow(const Instruction*);
         void emit_op_mov(const Instruction*);
         void emit_op_mul(const Instruction*);
         void emit_op_negate(const Instruction*);
@@ -582,7 +582,6 @@ namespace JSC {
         void emitSlow_op_has_private_name(const Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_has_private_brand(const Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_instanceof(const Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_instanceof_custom(const Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_jless(const Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_jlesseq(const Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_jgreater(const Instruction*, Vector<SlowCaseEntry>::iterator&);
@@ -598,6 +597,7 @@ namespace JSC {
         void emitSlow_op_loop_hint(const Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_check_traps(const Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_mod(const Instruction*, Vector<SlowCaseEntry>::iterator&);
+        void emitSlow_op_pow(const Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_mul(const Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_negate(const Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_neq(const Instruction*, Vector<SlowCaseEntry>::iterator&);
@@ -893,6 +893,7 @@ namespace JSC {
 
         void emitMaterializeMetadataAndConstantPoolRegisters();
 
+        void emitSaveCalleeSaves();
         void emitRestoreCalleeSaves();
 
         static bool reportCompileTimes();

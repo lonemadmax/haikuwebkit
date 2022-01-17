@@ -57,6 +57,9 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/StringConcatenateNumbers.h>
 
+#if ENABLE(SERVICE_CONTROLS)
+#include "ImageControlsMac.h"
+#endif
 
 #if ENABLE(DATALIST_ELEMENT)
 #include "HTMLDataListElement.h"
@@ -296,6 +299,11 @@ ControlPart RenderTheme::autoAppearanceForElement(const Element* elementPtr) con
     if (!elementPtr)
         return NoControlPart;
 
+#if ENABLE(SERVICE_CONTROLS)
+    if (isImageControl(*elementPtr))
+        return ImageControlsButtonPart;
+#endif
+    
     Ref element = *elementPtr;
 
     if (is<HTMLInputElement>(element)) {
@@ -1391,8 +1399,7 @@ auto RenderTheme::colorCache(OptionSet<StyleColorOptions> options) const -> Colo
 
 FontCascadeDescription& RenderTheme::cachedSystemFontDescription(CSSValueID systemFontID) const
 {
-    static auto fontDescriptions = makeNeverDestroyed<std::array<FontCascadeDescription, 10>>({ });
-
+    static NeverDestroyed<std::array<FontCascadeDescription, 10>> fontDescriptions;
     switch (systemFontID) {
     case CSSValueCaption:
         return fontDescriptions.get()[0];
@@ -1595,7 +1602,7 @@ constexpr float datePlaceholderColorLightnessAdjustmentFactor = 0.66f;
 Color RenderTheme::datePlaceholderTextColor(const Color& textColor, const Color& backgroundColor) const
 {
     // FIXME: Consider using LCHA<float> rather than HSLA<float> for better perceptual results and to avoid clamping to sRGB gamut, which is what HSLA does.
-    auto hsla = textColor.toColorTypeLossy<HSLA<float>>();
+    auto hsla = textColor.toColorTypeLossy<HSLA<float>>().resolved();
     if (textColor.luminance() < backgroundColor.luminance())
         hsla.lightness += datePlaceholderColorLightnessAdjustmentFactor * (100.0f - hsla.lightness);
     else

@@ -7320,6 +7320,196 @@ TEST_P(SimpleStateChangeTestES3, InvalidateFramebufferShouldntInvalidateReadFram
     glInvalidateFramebuffer(GL_FRAMEBUFFER, 2, kAttachments.data());
     EXPECT_GL_NO_ERROR();
 }
+
+// Covers situations where vertex conversion could read out of bounds.
+TEST_P(SimpleStateChangeTestES3, OutOfBoundsByteAttribute)
+{
+    ANGLE_GL_PROGRAM(testProgram, essl1_shaders::vs::Simple(), essl1_shaders::fs::Green());
+    glUseProgram(testProgram);
+
+    GLBuffer buffer;
+    glBindBuffer(GL_ARRAY_BUFFER, buffer);
+    glBufferData(GL_ARRAY_BUFFER, 2, nullptr, GL_STREAM_COPY);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 4, GL_BYTE, false, 0xff, reinterpret_cast<const void *>(0xfe));
+
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 1, 10, 1000);
+}
+
+// Test that respecifies a buffer after we start XFB.
+TEST_P(SimpleStateChangeTestES3, RespecifyBufferAfterBeginTransformFeedback)
+{
+    std::vector<std::string> tfVaryings = {"gl_Position"};
+    ANGLE_GL_PROGRAM_TRANSFORM_FEEDBACK(testProgram, essl3_shaders::vs::Simple(),
+                                        essl3_shaders::fs::Green(), tfVaryings,
+                                        GL_INTERLEAVED_ATTRIBS);
+
+    glUseProgram(testProgram);
+    GLBuffer buffer;
+    glBindBuffer(GL_TRANSFORM_FEEDBACK_BUFFER, buffer);
+    glBufferData(GL_TRANSFORM_FEEDBACK_BUFFER, sizeof(float) * 3 * 2 * 7, nullptr, GL_STREAM_DRAW);
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, buffer);
+    glBeginTransformFeedback(GL_TRIANGLES);
+    glBufferData(GL_TRANSFORM_FEEDBACK_BUFFER, sizeof(float) * 3 * 4 * 6, nullptr, GL_STREAM_DRAW);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
+// Regression test for a bug in the Vulkan backend where a draw-based copy after a deferred flush
+// would lead to an image view being destroyed too early.
+TEST_P(SimpleStateChangeTestES3, DrawFlushThenCopyTexImage)
+{
+    ANGLE_GL_PROGRAM(program, essl3_shaders::vs::Simple(), essl3_shaders::fs::Green());
+
+    // Issue a cheap draw call and a flush
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(0, 0, 1, 1);
+    drawQuad(program, essl3_shaders::PositionAttrib(), 0.0f);
+    glDisable(GL_SCISSOR_TEST);
+    glFlush();
+
+    constexpr GLsizei kSize = 32;
+
+    // Then an expensive copy tex image
+    GLTexture texture;
+    glBindTexture(GL_TEXTURE_3D, texture);
+    glTexStorage3D(GL_TEXTURE_3D, 1, GL_RGB8, kSize, kSize, kSize);
+    glCopyTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, 0, 0, kSize, kSize);
+    glFlush();
+    ASSERT_GL_NO_ERROR();
+}
+
+TEST_P(SimpleStateChangeTestES3, DrawFlushThenBlit)
+{
+    constexpr GLsizei kSize = 256;
+    const std::vector<GLColor> data(kSize * kSize, GLColor::red);
+
+    ANGLE_GL_PROGRAM(program, essl3_shaders::vs::Simple(), essl3_shaders::fs::Green());
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    GLTexture readColor;
+    glBindTexture(GL_TEXTURE_2D, readColor);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, kSize, kSize, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                 data.data());
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, readColor, 0);
+
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::red);
+
+    // Issue a cheap draw call and a flush
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(0, 0, 1, 1);
+    drawQuad(program, essl3_shaders::PositionAttrib(), 0.0f);
+    glDisable(GL_SCISSOR_TEST);
+    glFlush();
+
+    // Then an expensive blit
+    glBlitFramebuffer(0, 0, kSize, kSize, kSize + 2, kSize, 0, 0, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glFlush();
+    ASSERT_GL_NO_ERROR();
+}
+
+class VertexAttribArrayStateChangeTest : public ANGLETest
+{
+  protected:
+    VertexAttribArrayStateChangeTest()
+    {
+        setWindowWidth(128);
+        setWindowHeight(128);
+        setConfigRedBits(8);
+        setConfigGreenBits(8);
+        setConfigBlueBits(8);
+        setConfigAlphaBits(8);
+        setConfigDepthBits(24);
+    }
+
+    void testSetUp() override
+    {
+        constexpr char kVS[] = R"(precision highp float;
+attribute vec4 position;
+attribute vec4 color;
+varying vec4 colorOut;
+
+void main()
+{
+    gl_Position = position;
+    colorOut = color;
+})";
+
+        constexpr char kFS[] = R"(precision highp float;
+varying vec4 colorOut;
+
+void main()
+{
+    gl_FragColor = colorOut;
+})";
+
+        mProgram = CompileProgram(kVS, kFS);
+        ASSERT_NE(0u, mProgram);
+
+        mPosAttribLocation = glGetAttribLocation(mProgram, "position");
+        ASSERT_NE(-1, mPosAttribLocation);
+        mColorAttribLocation = glGetAttribLocation(mProgram, "color");
+        ASSERT_NE(-1, mColorAttribLocation);
+
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        ASSERT_GL_NO_ERROR();
+
+        glGenBuffers(1, &mVertexBuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, mVertexBuffer);
+
+        const float posAttribData[] = {
+            -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f,
+        };
+        glBufferData(GL_ARRAY_BUFFER, sizeof(posAttribData), posAttribData, GL_STATIC_DRAW);
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
+
+    void testTearDown() override
+    {
+        if (mVertexBuffer != 0)
+        {
+            glDeleteBuffers(1, &mVertexBuffer);
+        }
+
+        if (mProgram != 0)
+        {
+            glDeleteProgram(mProgram);
+        }
+    }
+
+    GLuint mProgram;
+    GLint mPosAttribLocation;
+    GLint mColorAttribLocation;
+    GLuint mVertexBuffer;
+};
+
+TEST_P(VertexAttribArrayStateChangeTest, Basic)
+{
+    glUseProgram(mProgram);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glDisable(GL_DEPTH_TEST);
+    glBindBuffer(GL_ARRAY_BUFFER, mVertexBuffer);
+
+    glVertexAttribPointer(mPosAttribLocation, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(mPosAttribLocation);
+    glDisableVertexAttribArray(mColorAttribLocation);
+    glVertexAttrib4f(mColorAttribLocation, 1.0f, 0.0f, 0.0f, 1.0f);
+    // Don't try to verify the color of this draw as red here because it might
+    // hide the bug
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glVertexAttrib4f(mColorAttribLocation, 0.0f, 1.0f, 0.0f, 1.0f);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    ASSERT_GL_NO_ERROR();
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+
+    glUseProgram(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
 }  // anonymous namespace
 
 ANGLE_INSTANTIATE_TEST_ES2(StateChangeTest);
@@ -7363,3 +7553,6 @@ ANGLE_INSTANTIATE_TEST_ES31(ValidationStateChangeTestES31);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(WebGLComputeValidationStateChangeTest);
 ANGLE_INSTANTIATE_TEST_ES31(WebGLComputeValidationStateChangeTest);
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(VertexAttribArrayStateChangeTest);
+ANGLE_INSTANTIATE_TEST_ES3(VertexAttribArrayStateChangeTest);

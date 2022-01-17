@@ -632,13 +632,67 @@ Vector<Strong<JSObject>> KeyframeEffect::getKeyframes(JSGlobalObject& lexicalGlo
     // 2. Let keyframes be the result of applying the procedure to compute missing keyframe offsets to the keyframes for this keyframe effect.
 
     // 3. For each keyframe in keyframes perform the following steps:
-    if (m_parsedKeyframes.isEmpty() && m_blendingKeyframesSource != BlendingKeyframesSource::WebAnimation) {
+    if (m_parsedKeyframes.isEmpty() && m_blendingKeyframesSource != BlendingKeyframesSource::WebAnimation && m_blendingKeyframes.containsAnimatableProperty()) {
         auto* target = m_target.get();
         auto* renderer = this->renderer();
+        auto* lastStyleChangeEventStyle = targetStyleable()->lastStyleChangeEventStyle();
 
         auto computedStyleExtractor = ComputedStyleExtractor(target, false, m_pseudoId);
 
-        for (size_t i = 0; i < m_blendingKeyframes.size(); ++i) {
+        KeyframeList computedKeyframes(m_blendingKeyframes.animationName());
+        computedKeyframes.copyKeyframes(m_blendingKeyframes);
+        computedKeyframes.fillImplicitKeyframes(*m_target, m_target->styleResolver(), lastStyleChangeEventStyle, nullptr);
+
+        auto keyframeRules = [&]() -> const Vector<Ref<StyleRuleKeyframe>> {
+            if (!is<CSSAnimation>(animation()))
+                return { };
+
+            auto& backingAnimation = downcast<CSSAnimation>(*animation()).backingAnimation();
+            auto* styleScope = Style::Scope::forOrdinal(*m_target, backingAnimation.nameStyleScopeOrdinal());
+            if (!styleScope)
+                return { };
+
+            return styleScope->resolver().keyframeRulesForName(computedKeyframes.animationName());
+        }();
+
+        auto keyframeRuleForKey = [&](double key) -> StyleRuleKeyframe* {
+            for (auto& keyframeRule : keyframeRules) {
+                for (auto keyframeRuleKey : keyframeRule->keys()) {
+                    if (keyframeRuleKey == key)
+                        return keyframeRule.ptr();
+                }
+            }
+            return nullptr;
+        };
+
+        auto styleProperties = MutableStyleProperties::create();
+        if (m_blendingKeyframesSource == BlendingKeyframesSource::CSSAnimation) {
+            auto matchingRules = m_target->styleResolver().pseudoStyleRulesForElement(target, m_pseudoId, Style::Resolver::AllCSSRules);
+            for (auto& matchedRule : matchingRules)
+                styleProperties->mergeAndOverrideOnConflict(matchedRule->properties());
+            if (is<StyledElement>(m_target) && m_pseudoId == PseudoId::None) {
+                if (auto* inlineProperties = downcast<StyledElement>(*m_target).inlineStyle())
+                    styleProperties->mergeAndOverrideOnConflict(*inlineProperties);
+            }
+        }
+
+        // We need to establish which properties are implicit for 0% and 100%.
+        HashSet<CSSPropertyID> zeroKeyframeProperties = computedKeyframes.properties();
+        HashSet<CSSPropertyID> oneKeyframeProperties = computedKeyframes.properties();
+        zeroKeyframeProperties.remove(CSSPropertyCustom);
+        oneKeyframeProperties.remove(CSSPropertyCustom);
+        for (size_t i = 0; i < computedKeyframes.size(); ++i) {
+            auto& keyframe = computedKeyframes[i];
+            if (!keyframe.key()) {
+                for (auto cssPropertyId : keyframe.properties())
+                    zeroKeyframeProperties.remove(cssPropertyId);
+            } else if (keyframe.key() == 1) {
+                for (auto cssPropertyId : keyframe.properties())
+                    oneKeyframeProperties.remove(cssPropertyId);
+            }
+        }
+
+        for (size_t i = 0; i < computedKeyframes.size(); ++i) {
             // 1. Initialize a dictionary object, output keyframe, using the following definition:
             //
             // dictionary BaseComputedKeyframe {
@@ -648,7 +702,9 @@ Vector<Strong<JSObject>> KeyframeEffect::getKeyframes(JSGlobalObject& lexicalGlo
             //      CompositeOperationOrAuto composite = "auto";
             // };
 
-            auto& keyframe = m_blendingKeyframes[i];
+            auto& keyframe = computedKeyframes[i];
+            auto& style = *keyframe.style();
+            auto* keyframeRule = keyframeRuleForKey(keyframe.key());
 
             // 2. Set offset, computedOffset, easing members of output keyframe to the respective values keyframe offset, computed keyframe offset,
             // and keyframe-specific timing function of keyframe.
@@ -656,26 +712,56 @@ Vector<Strong<JSObject>> KeyframeEffect::getKeyframes(JSGlobalObject& lexicalGlo
             computedKeyframe.offset = keyframe.key();
             computedKeyframe.computedOffset = keyframe.key();
             // For CSS transitions, all keyframes should return "linear" since the effect's global timing function applies.
-            computedKeyframe.easing = is<CSSTransition>(animation()) ? "linear" : timingFunctionForKeyframeAtIndex(i)->cssText();
+            computedKeyframe.easing = is<CSSTransition>(animation()) ? "linear" : timingFunctionForBlendingKeyframe(keyframe)->cssText();
 
             auto outputKeyframe = convertDictionaryToJS(lexicalGlobalObject, *jsCast<JSDOMGlobalObject*>(&lexicalGlobalObject), computedKeyframe);
 
-            // 3. For each animation property-value pair specified on keyframe, declaration, perform the following steps:
-            auto& style = *keyframe.style();
-            for (auto cssPropertyId : keyframe.properties()) {
-                if (cssPropertyId == CSSPropertyCustom)
-                    continue;
+            auto addPropertyToKeyframe = [&](CSSPropertyID cssPropertyId) {
                 // 1. Let property name be the result of applying the animation property name to IDL attribute name algorithm to the property name of declaration.
                 auto propertyName = CSSPropertyIDToIDLAttributeName(cssPropertyId);
                 // 2. Let IDL value be the result of serializing the property value of declaration by passing declaration to the algorithm to serialize a CSS value.
                 String idlValue = "";
-                if (auto cssValue = computedStyleExtractor.valueForPropertyInStyle(style, cssPropertyId, renderer))
-                    idlValue = cssValue->cssText();
+                if (keyframeRule) {
+                    if (auto cssValue = keyframeRule->properties().getPropertyCSSValue(cssPropertyId)) {
+                        if (!cssValue->hasVariableReferences())
+                            idlValue = keyframeRule->properties().getPropertyValue(cssPropertyId);
+                    }
+                }
+                if (idlValue.isEmpty()) {
+                    if (auto cssValue = styleProperties->getPropertyCSSValue(cssPropertyId)) {
+                        if (!cssValue->hasVariableReferences())
+                            idlValue = styleProperties->getPropertyValue(cssPropertyId);
+                    }
+                }
+                if (idlValue.isEmpty()) {
+                    if (auto cssValue = computedStyleExtractor.valueForPropertyInStyle(style, cssPropertyId, renderer))
+                        idlValue = cssValue->cssText();
+                }
                 // 3. Let value be the result of converting IDL value to an ECMAScript String value.
                 auto value = toJS<IDLDOMString>(lexicalGlobalObject, idlValue);
                 // 4. Call the [[DefineOwnProperty]] internal method on output keyframe with property name property name,
                 //    Property Descriptor { [[Writable]]: true, [[Enumerable]]: true, [[Configurable]]: true, [[Value]]: value } and Boolean flag false.
                 JSObject::defineOwnProperty(outputKeyframe, &lexicalGlobalObject, AtomString(propertyName).impl(), PropertyDescriptor(value, 0), false);
+            };
+
+            // 3. For each animation property-value pair specified on keyframe, declaration, perform the following steps:
+            for (auto cssPropertyId : keyframe.properties()) {
+                if (cssPropertyId == CSSPropertyCustom)
+                    continue;
+                addPropertyToKeyframe(cssPropertyId);
+            }
+
+            // Now add the implicit properties in case there are any and we're dealing with a 0% or 100% keyframe.
+            if (lastStyleChangeEventStyle) {
+                if (!keyframe.key()) {
+                    for (auto cssPropertyId : zeroKeyframeProperties)
+                        addPropertyToKeyframe(cssPropertyId);
+                    zeroKeyframeProperties.clear();
+                } else if (keyframe.key() == 1) {
+                    for (auto cssPropertyId : oneKeyframeProperties)
+                        addPropertyToKeyframe(cssPropertyId);
+                    oneKeyframeProperties.clear();
+                }
             }
 
             // 5. Append output keyframe to result.
@@ -744,6 +830,13 @@ ExceptionOr<void> KeyframeEffect::setKeyframes(JSGlobalObject& lexicalGlobalObje
     if (!processKeyframesResult.hasException() && animation())
         animation()->effectTimingDidChange();
     return processKeyframesResult;
+}
+
+void KeyframeEffect::keyframesRuleDidChange()
+{
+    ASSERT(is<CSSAnimation>(animation()));
+    clearBlendingKeyframes();
+    invalidate();
 }
 
 ExceptionOr<void> KeyframeEffect::processKeyframes(JSGlobalObject& lexicalGlobalObject, Strong<JSObject>&& keyframesInput)
@@ -816,6 +909,8 @@ ExceptionOr<void> KeyframeEffect::processKeyframes(JSGlobalObject& lexicalGlobal
     m_parsedKeyframes = WTFMove(parsedKeyframes);
 
     clearBlendingKeyframes();
+
+    invalidate();
 
     return { };
 }
@@ -970,8 +1065,11 @@ void KeyframeEffect::checkForMatchingTransformFunctionLists()
 
 bool KeyframeEffect::checkForMatchingFilterFunctionLists(CSSPropertyID propertyID, const std::function<const FilterOperations& (const RenderStyle&)>& filtersGetter) const
 {
-    if (m_blendingKeyframes.size() < 2 || !m_blendingKeyframes.containsProperty(propertyID))
+    if (!m_blendingKeyframes.containsProperty(propertyID))
         return false;
+
+    if (m_blendingKeyframes.size() < 2)
+        return true;
 
     // Empty filters match anything, so find the first non-empty entry as the reference.
     size_t numKeyframes = m_blendingKeyframes.size();

@@ -38,7 +38,7 @@ if os.path.isdir(os.path.join(scripts, 'webkitpy')):
     sys.path.insert(0, scripts)
     import webkitpy
 
-from reporelaypy import Checkout, Database, Redirector
+from reporelaypy import Checkout, Database, HookProcessor, HookReceiver, Redirector
 from webkitcorepy import arguments, AutoInstall
 from whichcraft import which
 
@@ -72,6 +72,10 @@ def main(args=None):
         '--fallback', dest='fallback', default=None, action='store', type=str,
         help='Fallback repository URL',
     )
+    group.add_argument(
+        '--remote', dest='remotes', action='append',
+        help="Add an additional remote to forward changes to, formatted as 'name:url'",
+    )
 
     group = parser.add_argument_group('Database')
     group.add_argument(
@@ -101,6 +105,16 @@ def main(args=None):
         help='Base URL to redirect user to for commit information.',
     )
 
+    group = parser.add_argument_group('Hooks')
+    group.add_argument(
+        '--hooks', '--no-hooks', action=arguments.NoAction, dest='hooks', default=False,
+        help='Enable or disable hook end-points (disabled by default)',
+    )
+    group.add_argument(
+        '--debug', '--no-debug', action=arguments.NoAction, dest='hooks_debug', default=True,
+        help='Enable endpoint to report hooks being processed (enabled by default)',
+    )
+
     args = parser.parse_args(args=args)
 
     database = Database(host=args.redis_host, password=args.redis_password)
@@ -114,6 +128,14 @@ def main(args=None):
     database.ping()
     print('Connected to database!')
 
+    remotes = {}
+    for pair in args.remotes:
+        name, remote = pair.split(':', 1)
+        if not remote:
+            sys.stderr("Invalid forwarding remote '{}'".format(pair))
+            return 1
+        remotes[name] = remote
+
     print('Finding checkout...')
     checkout = Checkout(
         path=args.path,
@@ -121,6 +143,7 @@ def main(args=None):
         http_proxy=args.http_proxy,
         sentinal=args.sentinal,
         fallback_url=args.fallback,
+        remotes=remotes,
     )
     print('Git checkout:')
     print('    Path: {}'.format(checkout.path))
@@ -133,6 +156,10 @@ def main(args=None):
     if args.update_interval:
         print('    Polling checkout with interval of {} seconds, doing first poll now...'.format(args.update_interval))
         checkout.update_all()
+    if remotes:
+        print('Forwarding updates to:')
+        for name, url in remotes.items():
+            print('    {}: {}'.format(name, url))
 
     if args.redirector:
         print('User specified the following redirect urls:')
@@ -140,25 +167,30 @@ def main(args=None):
             redirector = Redirector(url)
             print('    {}: {}'.format(redirector.name, redirector.url))
 
-    env = dict(
+    passenv = dict(
         PYTHONPATH=':'.join(sys.path),
         CHECKOUT=json.dumps(checkout, cls=Checkout.Encoder),
-        REDIRECTORS=json.dumps([Redirector(url) for url in args.redirector or []], cls=Redirector.Encoder)
+        REDIRECTORS=json.dumps([Redirector(url) for url in args.redirector or []], cls=Redirector.Encoder),
+        HOOKS=json.dumps({'enabled': args.hooks, 'debug': args.hooks_debug}),
     )
 
     if AutoInstall.directory:
-        env['AUTOINSTALL_PATH'] = AutoInstall.directory
+        passenv['AUTOINSTALL_PATH'] = AutoInstall.directory
     if database.host:
-        env[database.HOST_ENV] = database.host
+        passenv[database.HOST_ENV] = database.host
     if database.password:
-        env[database.PASSWORD_ENV] = database.password
+        passenv[database.PASSWORD_ENV] = database.password
     if database.default_expiration:
-        env[database.EXPIRATION_ENV] = str(database.default_expiration)
+        passenv[database.EXPIRATION_ENV] = str(database.default_expiration)
+    if os.environ.get(HookReceiver.SECRET_ENV):
+        passenv[HookReceiver.SECRET_ENV] = os.environ.get(HookReceiver.SECRET_ENV)
+
+    processor = HookProcessor(checkout=checkout, database=database) if args.hooks else None
 
     with subprocess.Popen(
         [which('gunicorn'), 'reporelaypy.webserver:app'],
         cwd=os.path.dirname(os.path.dirname(reporelaypy.__file__)),
-        env=env,
+        env=passenv,
     ) as webserver:
         last_poll = time.time()
         last_pull = time.time()
@@ -169,7 +201,7 @@ def main(args=None):
                     break
                 last_poll = time.time()
             if last_pull + args.update_interval < time.time():
-                checkout.update_all()
+                processor.process_hooks() if processor else checkout.update_all()
                 last_pull = time.time()
             time.sleep(math.gcd(args.poll, args.update_interval))
 

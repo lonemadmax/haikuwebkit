@@ -65,6 +65,7 @@ namespace WebCore {
 class AXObjectCache;
 class Element;
 struct PluginInfo;
+class SharedBuffer;
 }
 
 namespace WTF {
@@ -176,11 +177,11 @@ private:
     void didEvaluateJavaScript(uint64_t requestID, const String& result) final;
     void streamWillSendRequest(uint64_t streamID, const URL& requestURL, const URL& responseURL, int responseStatus) final { }
     void streamDidReceiveResponse(uint64_t streamID, const URL& responseURL, uint32_t streamLength, uint32_t lastModifiedTime, const String& mimeType, const String& headers, const String& suggestedFileName) final;
-    void streamDidReceiveData(uint64_t streamID, const uint8_t* bytes, int length) final;
+    void streamDidReceiveData(uint64_t streamID, const WebCore::SharedBuffer&) final;
     void streamDidFinishLoading(uint64_t streamID) final;
     void streamDidFail(uint64_t streamID, bool wasCancelled) final;
     void manualStreamDidReceiveResponse(const URL& responseURL, uint32_t streamLength, uint32_t lastModifiedTime, const WTF::String& mimeType, const WTF::String& headers, const String& suggestedFileName) final;
-    void manualStreamDidReceiveData(const uint8_t* bytes, int length) final;
+    void manualStreamDidReceiveData(const WebCore::SharedBuffer&) final;
     void manualStreamDidFinishLoading() final;
     void manualStreamDidFail(bool wasCancelled) final;
     bool handleMouseEvent(const WebMouseEvent&) final;
@@ -194,18 +195,14 @@ private:
     bool handlesPageScaleFactor() const final;
     bool requiresUnifiedScaleFactor() const final { return true; }
     void setFocus(bool) final { }
-    NPObject* pluginScriptableNPObject() final { return nullptr; }
     void windowFocusChanged(bool) final { }
     void windowAndViewFramesChanged(const WebCore::IntRect& windowFrameInScreenCoordinates, const WebCore::IntRect& viewFrameInWindowCoordinates) final { }
     void windowVisibilityChanged(bool) final { }
-    uint64_t pluginComplexTextInputIdentifier() const final { return 0; }
     void sendComplexTextInput(const String& textInput) final { }
     void setLayerHostingMode(LayerHostingMode) final { }
     WebCore::Scrollbar* horizontalScrollbar() final { return m_horizontalScrollbar.get(); }
     WebCore::Scrollbar* verticalScrollbar() final { return m_verticalScrollbar.get(); }
     void storageBlockingStateChanged(bool) final { }
-    void privateBrowsingStateChanged(bool) final { }
-    bool getFormValue(String& formValue) final { return false; }
     bool handleScroll(WebCore::ScrollDirection, WebCore::ScrollGranularity) final;
     RefPtr<WebCore::FragmentedSharedBuffer> liveResourceData() const final;
     void willDetachRenderer() final;
@@ -224,7 +221,6 @@ private:
 
     bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&) final;
     String getSelectionString() const final;
-    String getSelectionForWordAtPoint(const WebCore::FloatPoint&) const final;
     bool existingSelectionContainsPoint(const WebCore::FloatPoint&) const final;
 
     bool shouldAllowScripting() final { return false; }
@@ -367,7 +363,7 @@ private:
 
         void willSendRequest(WebCore::NetscapePlugInStreamLoader*, WebCore::ResourceRequest&&, const WebCore::ResourceResponse& redirectResponse, CompletionHandler<void(WebCore::ResourceRequest&&)>&&) final;
         void didReceiveResponse(WebCore::NetscapePlugInStreamLoader*, const WebCore::ResourceResponse&) final;
-        void didReceiveData(WebCore::NetscapePlugInStreamLoader*, const uint8_t*, int) final;
+        void didReceiveData(WebCore::NetscapePlugInStreamLoader*, const WebCore::SharedBuffer&) final;
         void didFail(WebCore::NetscapePlugInStreamLoader*, const WebCore::ResourceError&) final;
         void didFinishLoading(WebCore::NetscapePlugInStreamLoader*) final;
 
@@ -436,7 +432,7 @@ private:
 } // namespace WebKit
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::PDFPlugin)
-    static bool isType(const WebKit::Plugin& plugin) { return plugin.isPDFPlugin(); }
+    static bool isType(const WebKit::Plugin&) { return true; } // FIXME: Consolidate PDFPlugin and Plugin into one class.
     static bool isType(const WebCore::ScrollableArea& area) { return area.isPDFPlugin(); }
 SPECIALIZE_TYPE_TRAITS_END()
 

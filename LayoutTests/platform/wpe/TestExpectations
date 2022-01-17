@@ -268,9 +268,6 @@ webkit.org/b/216037 imported/w3c/web-platform-tests/css/css-backgrounds/backgrou
 webkit.org/b/220614 imported/w3c/web-platform-tests/svg/linking/reftests/url-reference-local-textpath.svg [ Failure Pass ]
 webkit.org/b/222895 imported/w3c/web-platform-tests/svg/text/reftests/dominant-baseline-hanging-small-font-size.svg [ Failure Pass ]
 
-# UIScriptController
-webkit.org/b/205159 fast/scrolling/overflow-scroll-past-max.html [ Crash ]
-
 # WebGL
 webkit.org/b/213203 webgl/1.0.3/conformance/rendering/multisample-corruption.html [ Failure Timeout ]
 
@@ -702,26 +699,6 @@ imported/w3c/web-platform-tests/webxr/xrWebGLLayer_viewports.https.html [ Pass ]
 # WebXR: Sometimes the test reports Syntax Error: Can't create duplicate variable isChromiumBased.
 [ Release ] imported/w3c/web-platform-tests/webxr/ar-module/xrDevice_requestSession_immersive-ar.https.html [ DumpJSConsoleLogInStdErr ]
 
-webkit.org/b/225379 [ Debug ] http/wpt/webxr/xrSession_end_device_reports_shutdown.https.html [ Crash ]
-webkit.org/b/225379 [ Debug ] http/wpt/webxr/xrSession_ended_by_system.https.html [ Crash ]
-webkit.org/b/225379 [ Debug ] http/wpt/webxr/xrSession_reject_multiple_end.https.html [ Crash ]
-webkit.org/b/225379 [ Debug ] imported/w3c/web-platform-tests/webxr/ar-module/idlharness.https.window.html [ Crash ]
-webkit.org/b/225379 [ Debug ] imported/w3c/web-platform-tests/webxr/ar-module/xrDevice_requestSession_immersive-ar.https.html [ Crash ]
-webkit.org/b/225379 [ Debug ] imported/w3c/web-platform-tests/webxr/events_input_source_recreation.https.html [ Crash ]
-webkit.org/b/225379 [ Debug ] imported/w3c/web-platform-tests/webxr/events_input_sources_change.https.html [ Crash ]
-webkit.org/b/225379 [ Debug ] imported/w3c/web-platform-tests/webxr/events_session_select.https.html [ Crash ]
-webkit.org/b/225379 [ Debug ] imported/w3c/web-platform-tests/webxr/events_session_select_subframe.https.html [ Crash ]
-webkit.org/b/225379 [ Debug ] imported/w3c/web-platform-tests/webxr/events_session_squeeze.https.html [ Crash ]
-webkit.org/b/225379 [ Debug ] imported/w3c/web-platform-tests/webxr/getInputPose_handedness.https.html [ Crash ]
-webkit.org/b/225379 [ Debug ] imported/w3c/web-platform-tests/webxr/getViewerPose_emulatedPosition.https.html [ Crash ]
-webkit.org/b/225379 [ Debug ] imported/w3c/web-platform-tests/webxr/idlharness.https.window.html [ Crash ]
-webkit.org/b/225379 [ Debug ] imported/w3c/web-platform-tests/webxr/navigator_xr_sameObject.https.html [ Crash ]
-webkit.org/b/225379 [ Debug ] imported/w3c/web-platform-tests/webxr/render_state_update.https.html [ Crash ]
-webkit.org/b/225379 [ Debug ] imported/w3c/web-platform-tests/webxr/render_state_vertical_fov_immersive.https.html [ Crash ]
-webkit.org/b/225379 [ Debug ] imported/w3c/web-platform-tests/webxr/xrBoundedReferenceSpace_updates.https.html [ Crash ]
-webkit.org/b/225379 [ Debug ] imported/w3c/web-platform-tests/webxr/xrDevice_requestSession_immersive.https.html [ Crash ]
-webkit.org/b/225379 [ Debug ] imported/w3c/web-platform-tests/webxr/xrDevice_requestSession_non_immersive_no_gesture.https.html [ Crash ]
-
 # Test failing since async overflow scrolling was activated in WPE.
 webkit.org/b/224596 css3/filters/clipping-overflow-scroll-with-pixel-moving-effect-on-parent.html [ ImageOnlyFailure ]
 webkit.org/b/224596 css3/filters/clipping-overflow-scroll-with-pixel-moving-effect-on.html [ ImageOnlyFailure ]
@@ -855,8 +832,6 @@ webkit.org/b/212158 imported/blink/fast/text/international/repaint-glyph-bounds.
 
 webkit.org/b/152908 pageoverlay/overlay-small-frame-mouse-events.html [ Failure Pass ]
 
-webkit.org/b/212959 fast/scrolling/rtl-scrollbars-alternate-body-dir-attr-does-not-update-scrollbar-placement-2.html [ Pass Timeout ]
-
 webkit.org/b/213230 css3/images/cross-fade-svg-with-opacity.html [ ImageOnlyFailure Pass ]
 
 webkit.org/b/213231 fast/block/float/float-with-anonymous-previous-sibling.html [ ImageOnlyFailure Pass ]
@@ -916,11 +891,6 @@ webkit.org/b/212078 webaudio/silent-audio-interrupted-in-background.html [ Timeo
 
 webkit.org/b/212144 http/tests/xmlhttprequest/on-network-timeout-error-during-preflight.html [ Timeout ]
 
-webkit.org/b/212202 fast/scrolling/arrow-key-scroll-in-rtl-document.html [ Timeout ]
-webkit.org/b/212202 fast/scrolling/iframe-scrollable-after-back.html [ Timeout ]
-webkit.org/b/212202 fast/scrolling/programmatic-scroll-to-zero-zero.html [ Timeout ]
-webkit.org/b/212202 fast/scrolling/rtl-point-in-iframe.html [ Timeout ]
-
 # webkit.org/b/188506 fast/dom/timer-throttling-hidden-page.html [ Failure ]
 webkit.org/b/212350 fast/dom/timer-throttling-hidden-page.html [ Timeout ]
 
@@ -941,7 +911,6 @@ Bug(WPE) ietestcenter/css3/flexbox/flexbox-layout-002.htm [ ImageOnlyFailure ]
 Bug(WPE) webgl/1.0.3/conformance/context/premultiplyalpha-test.html [ Failure ]
 Bug(WPE) webgl/1.0.3/conformance/attribs/gl-bindAttribLocation-aliasing.html [ Failure ]
 Bug(WPE) webgl/1.0.3/conformance/attribs/gl-bindAttribLocation-matrix.html [ Failure ]
-Bug(WPE) webgl/1.0.3/conformance/extensions/oes-texture-half-float.html [ Failure ]
 Bug(WPE) webgl/1.0.3/conformance/renderbuffers/feedback-loop.html [ Failure ]
 webkit.org/b/204676 webgl/1.0.3/conformance/extensions/oes-texture-float.html [ Failure ]
 webkit.org/b/204676 webgl/1.0.3/conformance/more/functions/readPixelsBadArgs.html [ Failure ]
@@ -1325,8 +1294,6 @@ webkit.org/b/202736 http/wpt/cache-storage/cache-quota-after-restart.any.html [ 
 
 webkit.org/b/190626 imported/w3c/web-platform-tests/html/semantics/forms/the-datalist-element/datalistoptions.html [ Failure ]
 
-webkit.org/b/202229 css-dark-mode/older-syntax/supported-color-schemes-css.html [ Pass Crash ]
-
 # WEBGL2 is disabled
 webkit.org/b/208188 fast/canvas/webgl/webgl2 [ Skip ]
 webkit.org/b/208188 fast/canvas/webgl/bufferData-offset-length.html [ Skip ]
@@ -1444,8 +1411,6 @@ webkit.org/b/222908 imported/w3c/web-platform-tests/web-animations/timing-model/
 Bug(WPE) media/crash-closing-page-with-media-as-plugin-fallback.html [ Timeout ]
 Bug(WPE) media/media-playback-page-visibility.html [ Timeout ]
 Bug(WPE) media/video-canvas-createPattern.html [ Failure ]
-
-webkit.org/b/210226 imported/w3c/web-platform-tests/IndexedDB/interleaved-cursors-small.html [ Failure ]
 
 webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/backface-visibility-hidden-006.html [ ImageOnlyFailure ]
 webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/composited-under-rotateY-180deg-clip-perspective.html [ ImageOnlyFailure ]

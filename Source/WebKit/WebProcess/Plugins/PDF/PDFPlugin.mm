@@ -29,7 +29,6 @@
 #if ENABLE(PDFKIT_PLUGIN)
 
 #import "ArgumentCoders.h"
-#import "CocoaColor.h"
 #import "DataReference.h"
 #import "FrameInfoData.h"
 #import "Logging.h"
@@ -62,6 +61,7 @@
 #import <WebCore/CSSPropertyNames.h>
 #import <WebCore/Chrome.h>
 #import <WebCore/Color.h>
+#import <WebCore/ColorCocoa.h>
 #import <WebCore/ColorSerialization.h>
 #import <WebCore/Cursor.h>
 #import <WebCore/DictionaryLookup.h>
@@ -94,6 +94,7 @@
 #import <WebCore/ScrollAnimator.h>
 #import <WebCore/ScrollbarTheme.h>
 #import <WebCore/Settings.h>
+#import <WebCore/SharedBuffer.h>
 #import <WebCore/WebAccessibilityObjectWrapperMac.h>
 #import <WebCore/WheelEventTestMonitor.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
@@ -633,8 +634,7 @@ Ref<PDFPlugin> PDFPlugin::create(WebFrame& frame, HTMLPlugInElement* pluginEleme
 }
 
 inline PDFPlugin::PDFPlugin(WebFrame& frame, HTMLPlugInElement* pluginElement)
-    : Plugin(PDFPluginType)
-    , m_frame(frame)
+    : m_frame(frame)
     , m_containerLayer(adoptNS([[CALayer alloc] init]))
     , m_contentLayer(adoptNS([[CALayer alloc] init]))
     , m_scrollCornerLayer(adoptNS([[WKPDFPluginScrollbarLayer alloc] initWithPDFPlugin:this]))
@@ -657,7 +657,7 @@ inline PDFPlugin::PDFPlugin(WebFrame& frame, HTMLPlugInElement* pluginElement)
         auto* document = frame.coreFrame()->document();
 
         // FIXME: <rdar://problem/75332948> get the background color from PDFKit instead of hardcoding it
-        document->bodyOrFrameset()->setInlineStyleProperty(WebCore::CSSPropertyBackgroundColor, WebCore::serializationForHTML(WebCore::roundAndClampToSRGBALossy([CocoaColor grayColor].CGColor)));
+        document->bodyOrFrameset()->setInlineStyleProperty(WebCore::CSSPropertyBackgroundColor, WebCore::serializationForHTML(WebCore::roundAndClampToSRGBALossy([WebCore::CocoaColor grayColor].CGColor)));
     }
 
     if (supportsForms()) {
@@ -1192,7 +1192,7 @@ void PDFPlugin::PDFPluginStreamLoaderClient::didReceiveResponse(NetscapePlugInSt
     }
 }
 
-void PDFPlugin::PDFPluginStreamLoaderClient::didReceiveData(NetscapePlugInStreamLoader* loader, const uint8_t* data, int count)
+void PDFPlugin::PDFPluginStreamLoaderClient::didReceiveData(NetscapePlugInStreamLoader* loader, const SharedBuffer& data)
 {
     if (!m_pdfPlugin)
         return;
@@ -1201,7 +1201,7 @@ void PDFPlugin::PDFPluginStreamLoaderClient::didReceiveData(NetscapePlugInStream
     if (!request)
         return;
 
-    request->addData(data, count);
+    request->addData(data.data(), data.size());
 }
 
 void PDFPlugin::PDFPluginStreamLoaderClient::didFail(NetscapePlugInStreamLoader* loader, const ResourceError&)
@@ -1719,15 +1719,15 @@ void PDFPlugin::streamDidReceiveResponse(uint64_t streamID, const URL&, uint32_t
         m_isPostScript = true;
 }
 
-void PDFPlugin::streamDidReceiveData(uint64_t streamID, const uint8_t* bytes, int length)
+void PDFPlugin::streamDidReceiveData(uint64_t streamID, const SharedBuffer& buffer)
 {
     ASSERT_UNUSED(streamID, streamID == pdfDocumentRequestID);
 
     if (!m_data)
         m_data = adoptCF(CFDataCreateMutable(0, 0));
 
-    CFDataAppendBytes(m_data.get(), bytes, length);
-    m_streamedBytes += length;
+    CFDataAppendBytes(m_data.get(), buffer.data(), buffer.size());
+    m_streamedBytes += buffer.size();
 }
 
 void PDFPlugin::streamDidFinishLoading(uint64_t streamID)
@@ -1764,14 +1764,14 @@ void PDFPlugin::ensureDataBufferLength(uint64_t targetLength)
         CFDataIncreaseLength(m_data.get(), targetLength - currentLength);
 }
 
-void PDFPlugin::manualStreamDidReceiveData(const uint8_t* bytes, int length)
+void PDFPlugin::manualStreamDidReceiveData(const SharedBuffer& buffer)
 {
     if (!m_data)
         m_data = adoptCF(CFDataCreateMutable(0, 0));
 
-    ensureDataBufferLength(m_streamedBytes + length);
-    memcpy(CFDataGetMutableBytePtr(m_data.get()) + m_streamedBytes, bytes, length);
-    m_streamedBytes += length;
+    ensureDataBufferLength(m_streamedBytes + buffer.size());
+    memcpy(CFDataGetMutableBytePtr(m_data.get()) + m_streamedBytes, buffer.data(), buffer.size());
+    m_streamedBytes += buffer.size();
 
 #if HAVE(INCREMENTAL_PDF_APIS)
     // Keep our ranges-lookup-table compact by continuously updating its first range
@@ -2048,13 +2048,13 @@ IntPoint PDFPlugin::convertFromRootViewToPlugin(const IntPoint& point) const
 IntPoint PDFPlugin::convertFromPDFViewToRootView(const IntPoint& point) const
 {
     IntPoint pointInPluginCoordinates(point.x(), size().height() - point.y());
-    return m_rootViewToPluginTransform.inverse().value_or(AffineTransform()).mapPoint(pointInPluginCoordinates);
+    return valueOrDefault(m_rootViewToPluginTransform.inverse()).mapPoint(pointInPluginCoordinates);
 }
 
 IntRect PDFPlugin::convertFromPDFViewToRootView(const IntRect& rect) const
 {
     IntRect rectInPluginCoordinates(rect.x(), rect.y(), rect.width(), rect.height());
-    return m_rootViewToPluginTransform.inverse().value_or(AffineTransform()).mapRect(rectInPluginCoordinates);
+    return valueOrDefault(m_rootViewToPluginTransform.inverse()).mapRect(rectInPluginCoordinates);
 }
 
 IntPoint PDFPlugin::convertFromRootViewToPDFView(const IntPoint& point) const
@@ -2087,7 +2087,7 @@ IntRect PDFPlugin::boundsOnScreen() const
         return { };
 
     FloatRect bounds = FloatRect(FloatPoint(), size());
-    FloatRect rectInRootViewCoordinates = m_rootViewToPluginTransform.inverse().value_or(AffineTransform()).mapRect(bounds);
+    FloatRect rectInRootViewCoordinates = valueOrDefault(m_rootViewToPluginTransform.inverse()).mapRect(bounds);
     auto* page = m_frame->coreFrame()->page();
     if (!page)
         return { };
@@ -2114,7 +2114,7 @@ void PDFPlugin::geometryDidChange(const IntSize& pluginSize, const IntRect&, con
         return;
 
     m_size = pluginSize;
-    m_rootViewToPluginTransform = pluginToRootViewTransform.inverse().value_or(AffineTransform());
+    m_rootViewToPluginTransform = valueOrDefault(pluginToRootViewTransform.inverse());
     [m_pdfLayerController setFrameSize:pluginSize];
 
     [CATransaction begin];
@@ -2836,14 +2836,6 @@ void PDFPlugin::notifyCursorChanged(uint64_t type)
 String PDFPlugin::getSelectionString() const
 {
     return [[m_pdfLayerController currentSelection] string];
-}
-
-String PDFPlugin::getSelectionForWordAtPoint(const WebCore::FloatPoint& point) const
-{
-    IntPoint pointInView = convertFromPluginToPDFView(convertFromRootViewToPlugin(roundedIntPoint(point)));
-    PDFSelection *selectionForWord = [m_pdfLayerController getSelectionForWordAtPoint:pointInView];
-    [m_pdfLayerController setCurrentSelection:selectionForWord];
-    return [selectionForWord string];
 }
 
 bool PDFPlugin::existingSelectionContainsPoint(const WebCore::FloatPoint& locationInViewCoordinates) const

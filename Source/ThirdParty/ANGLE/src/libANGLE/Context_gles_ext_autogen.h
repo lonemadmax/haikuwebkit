@@ -142,10 +142,10 @@
     void importMemoryFd(MemoryObjectID memoryPacked, GLuint64 size, HandleType handleTypePacked,   \
                         GLint fd);                                                                 \
     /* GL_EXT_multi_draw_indirect */                                                               \
-    void multiDrawArraysIndirect(GLenum mode, const void *indirect, GLsizei drawcount,             \
-                                 GLsizei stride);                                                  \
-    void multiDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect,                 \
-                                   GLsizei drawcount, GLsizei stride);                             \
+    void multiDrawArraysIndirect(PrimitiveMode modePacked, const void *indirect,                   \
+                                 GLsizei drawcount, GLsizei stride);                               \
+    void multiDrawElementsIndirect(PrimitiveMode modePacked, DrawElementsType typePacked,          \
+                                   const void *indirect, GLsizei drawcount, GLsizei stride);       \
     /* GL_EXT_multisample_compatibility */                                                         \
     /* GL_EXT_multisampled_render_to_texture */                                                    \
     void framebufferTexture2DMultisample(GLenum target, GLenum attachment,                         \
@@ -216,6 +216,9 @@
     /* GL_KHR_texture_compression_astc_hdr */                                                      \
     /* GL_KHR_texture_compression_astc_ldr */                                                      \
     /* GL_KHR_texture_compression_astc_sliced_3d */                                                \
+    /* GL_MESA_framebuffer_flip_y */                                                               \
+    void framebufferParameteriMESA(GLenum target, GLenum pname, GLint param);                      \
+    void getFramebufferParameterivMESA(GLenum target, GLenum pname, GLint *params);                \
     /* GL_NV_EGL_stream_consumer_external */                                                       \
     /* GL_NV_depth_buffer_float2 */                                                                \
     /* GL_NV_fence */                                                                              \
@@ -312,6 +315,7 @@
         PrimitiveMode modePacked, const GLsizei *counts, DrawElementsType typePacked,              \
         const GLvoid *const *indices, const GLsizei *instanceCounts, const GLint *baseVertices,    \
         const GLuint *baseInstances, GLsizei drawcount);                                           \
+    /* GL_ANGLE_base_vertex_base_instance_shader_builtin */                                        \
     /* GL_ANGLE_client_arrays */                                                                   \
     /* GL_ANGLE_compressed_texture_etc */                                                          \
     /* GL_ANGLE_copy_texture_3d */                                                                 \

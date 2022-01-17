@@ -29,10 +29,13 @@
 #include "Editing.h"
 #include "PlatformScreen.h"
 #include "RenderLayer.h"
+#include "RenderListItem.h"
+#include "RenderListMarker.h"
 #include "SurrogatePairAwareTextIterator.h"
 #include "TextIterator.h"
 #include "VisibleUnits.h"
 #include <gio/gio.h>
+#include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
 
@@ -268,9 +271,11 @@ String AccessibilityObjectAtspi::text() const
     if (!axObject)
         return { };
 
+    m_hasListMarkerAtStart.store(false);
+
 #if ENABLE(INPUT_TYPE_COLOR)
     if (axObject->roleValue() == AccessibilityRole::ColorWell) {
-        auto color = convertColor<SRGBA<float>>(axObject->colorValue());
+        auto color = convertColor<SRGBA<float>>(axObject->colorValue()).resolved();
         GUniquePtr<char> colorString(g_strdup_printf("rgb %7.5f %7.5f %7.5f 1", color.red, color.green, color.blue));
         return String::fromUTF8(colorString.get());
     }
@@ -283,16 +288,24 @@ String AccessibilityObjectAtspi::text() const
     if (!value.isNull())
         return value;
 
-    if (axObject == m_coreObject)
-        return m_coreObject->textUnderElement(AccessibilityTextUnderElementMode(AccessibilityTextUnderElementMode::TextUnderElementModeIncludeAllChildren));
-
     return Accessibility::retrieveValueFromMainThread<String>([this]() -> String {
         if (m_coreObject)
             m_coreObject->updateBackingStore();
 
         if (!m_coreObject)
             return { };
-        return m_coreObject->textUnderElement(AccessibilityTextUnderElementMode(AccessibilityTextUnderElementMode::TextUnderElementModeIncludeAllChildren)).isolatedCopy();
+
+        auto text = m_coreObject->textUnderElement(AccessibilityTextUnderElementMode(AccessibilityTextUnderElementMode::TextUnderElementModeIncludeAllChildren));
+        if (auto* renderer = m_coreObject->renderer()) {
+            if (is<RenderListItem>(*renderer) && downcast<RenderListItem>(*renderer).markerRenderer()) {
+                if (renderer->style().direction() == TextDirection::LTR) {
+                    text = makeString(objectReplacementCharacter, text);
+                    m_hasListMarkerAtStart.store(true);
+                } else
+                    text = makeString(text, objectReplacementCharacter);
+            }
+        }
+        return text;
     });
 }
 
@@ -345,18 +358,25 @@ CString AccessibilityObjectAtspi::text(int startOffset, int endOffset) const
     return substring.get();
 }
 
+static inline int adjustInputOffset(unsigned utf16Offset, bool hasListMarkerAtStart)
+{
+    return hasListMarkerAtStart && utf16Offset ? utf16Offset - 1 : utf16Offset;
+}
+
+static inline int adjustOutputOffset(unsigned utf16Offset, bool hasListMarkerAtStart)
+{
+    return hasListMarkerAtStart ? utf16Offset + 1 : utf16Offset;
+}
+
 void AccessibilityObjectAtspi::textInserted(const String& insertedText, const VisiblePosition& position)
 {
     RELEASE_ASSERT(isMainThread());
-    if (!m_isRegistered.load())
-        return;
-
     if (!m_interfaces.contains(Interface::Text))
         return;
 
     auto utf16Text = text();
     auto utf8Text = utf16Text.utf8();
-    auto utf16Offset = m_coreObject->indexForVisiblePosition(position);
+    auto utf16Offset = adjustOutputOffset(m_coreObject->indexForVisiblePosition(position), m_hasListMarkerAtStart.load());
     auto mapping = offsetMapping(utf16Text);
     auto offset = UTF16OffsetToUTF8(mapping, utf16Offset);
     auto utf8InsertedText = insertedText.utf8();
@@ -367,15 +387,12 @@ void AccessibilityObjectAtspi::textInserted(const String& insertedText, const Vi
 void AccessibilityObjectAtspi::textDeleted(const String& deletedText, const VisiblePosition& position)
 {
     RELEASE_ASSERT(isMainThread());
-    if (!m_isRegistered.load())
-        return;
-
     if (!m_interfaces.contains(Interface::Text))
         return;
 
     auto utf16Text = text();
     auto utf8Text = utf16Text.utf8();
-    auto utf16Offset = m_coreObject->indexForVisiblePosition(position);
+    auto utf16Offset = adjustOutputOffset(m_coreObject->indexForVisiblePosition(position), m_hasListMarkerAtStart.load());
     auto mapping = offsetMapping(utf16Text);
     auto offset = UTF16OffsetToUTF8(mapping, utf16Offset);
     auto utf8DeletedText = deletedText.utf8();
@@ -392,12 +409,15 @@ IntPoint AccessibilityObjectAtspi::boundaryOffset(unsigned utf16Offset, TextGran
         if (!m_coreObject)
             return { };
 
-        VisiblePosition offsetPosition = m_coreObject->visiblePositionForIndex(utf16Offset);
+        VisiblePosition offsetPosition = m_coreObject->visiblePositionForIndex(adjustInputOffset(utf16Offset, m_hasListMarkerAtStart.load()));
         VisiblePosition startPosition, endPostion;
         switch (granularity) {
         case TextGranularity::Character:
             RELEASE_ASSERT_NOT_REACHED();
         case TextGranularity::WordStart: {
+            if (!utf16Offset && m_hasListMarkerAtStart.load())
+                return { 0, 1 };
+
             startPosition = isStartOfWord(offsetPosition) && deprecatedIsEditingWhitespace(offsetPosition.characterBefore()) ? offsetPosition : startOfWord(offsetPosition, LeftWordIfOnBoundary);
             endPostion = nextWordPosition(startPosition);
             auto positionAfterSpacingAndFollowingWord = nextWordPosition(endPostion);
@@ -411,6 +431,9 @@ IntPoint AccessibilityObjectAtspi::boundaryOffset(unsigned utf16Offset, TextGran
             break;
         }
         case TextGranularity::WordEnd: {
+            if (!utf16Offset && m_hasListMarkerAtStart.load())
+                return { 0, 1 };
+
             startPosition = previousWordPosition(offsetPosition);
             auto positionBeforeSpacingAndPreviousWord = previousWordPosition(startPosition);
             if (positionBeforeSpacingAndPreviousWord != startPosition)
@@ -444,7 +467,12 @@ IntPoint AccessibilityObjectAtspi::boundaryOffset(unsigned utf16Offset, TextGran
             endPostion = endOfParagraph(offsetPosition);
             break;
         }
-        return { m_coreObject->indexForVisiblePosition(startPosition), m_coreObject->indexForVisiblePosition(endPostion) };
+
+        auto startOffset = m_coreObject->indexForVisiblePosition(startPosition);
+        // For no word boundaries, include the list marker if start offset is 0.
+        if (!startOffset && m_hasListMarkerAtStart.load() && (granularity == TextGranularity::WordStart || granularity == TextGranularity::WordEnd))
+            startOffset = adjustOutputOffset(startOffset, m_hasListMarkerAtStart.load());
+        return { startOffset, adjustOutputOffset(m_coreObject->indexForVisiblePosition(endPostion), m_hasListMarkerAtStart.load()) };
     });
 }
 
@@ -624,7 +652,7 @@ int AccessibilityObjectAtspi::offsetAtPoint(const IntPoint& point, uint32_t coor
         if (position.isNull())
             return -1;
 
-        return m_coreObject->indexForVisiblePosition(position);
+        return adjustOutputOffset(m_coreObject->indexForVisiblePosition(position), m_hasListMarkerAtStart.load());
     });
 
     if (utf16Offset == -1)
@@ -751,9 +779,6 @@ bool AccessibilityObjectAtspi::selectRange(int startOffset, int endOffset)
 void AccessibilityObjectAtspi::selectionChanged(const VisibleSelection& selection)
 {
     RELEASE_ASSERT(isMainThread());
-    if (!m_isRegistered.load())
-        return;
-
     if (!m_interfaces.contains(Interface::Text))
         return;
 
@@ -785,7 +810,7 @@ AccessibilityObjectAtspi::TextAttributes AccessibilityObjectAtspi::textAttribute
         if (m_coreObject)
             m_coreObject->updateBackingStore();
 
-        if (!m_coreObject || !m_coreObject->renderer() || !m_coreObject->node())
+        if (!m_coreObject || !m_coreObject->renderer())
             return { };
 
         auto accessibilityTextAttributes = [this](AXCoreObject* axObject, const HashMap<String, String>& defaultAttributes) -> HashMap<String, String> {
@@ -799,13 +824,13 @@ AccessibilityObjectAtspi::TextAttributes AccessibilityObjectAtspi::textAttribute
 
             auto bgColor = style.visitedDependentColor(CSSPropertyBackgroundColor);
             if (bgColor.isValid() && bgColor.isVisible()) {
-                auto [r, g, b, a] = bgColor.toSRGBALossy<uint8_t>();
+                auto [r, g, b, a] = bgColor.toColorTypeLossy<SRGBA<uint8_t>>().resolved();
                 addAttributeIfNeeded("bg-color"_s, makeString(r, ',', g, ',', b));
             }
 
             auto fgColor = style.visitedDependentColor(CSSPropertyColor);
             if (fgColor.isValid() && fgColor.isVisible()) {
-                auto [r, g, b, a] = fgColor.toSRGBALossy<uint8_t>();
+                auto [r, g, b, a] = fgColor.toColorTypeLossy<SRGBA<uint8_t>>().resolved();
                 addAttributeIfNeeded("fg-color"_s, makeString(r, ',', g, ',', b));
             }
 
@@ -858,7 +883,24 @@ AccessibilityObjectAtspi::TextAttributes AccessibilityObjectAtspi::textAttribute
         if (!utf16Offset)
             return { defaultAttributes, -1, -1 };
 
-        VisiblePosition offsetPosition = m_coreObject->visiblePositionForIndex(*utf16Offset);
+        if (is<RenderListMarker>(*m_coreObject->renderer()))
+            return { defaultAttributes, 0, static_cast<int>(m_coreObject->stringValue().length()) };
+
+        if (!m_coreObject->node())
+            return { defaultAttributes, -1, -1 };
+
+        if (!*utf16Offset && m_hasListMarkerAtStart.load()) {
+            // Always consider list marker an independent run.
+            auto attributes = accessibilityTextAttributes(m_coreObject->children()[0].get(), defaultAttributes);
+            if (!includeDefault)
+                return { attributes, 0, 1 };
+
+            for (const auto& it : attributes)
+                defaultAttributes.set(it.key, it.value);
+            return { defaultAttributes, 0, 1 };
+        }
+
+        VisiblePosition offsetPosition = m_coreObject->visiblePositionForIndex(adjustInputOffset(*utf16Offset, m_hasListMarkerAtStart.load()));
         auto* childNode = offsetPosition.deepEquivalent().deprecatedNode();
         if (!childNode)
             return { defaultAttributes, -1, -1 };
@@ -903,13 +945,15 @@ AccessibilityObjectAtspi::TextAttributes AccessibilityObjectAtspi::textAttribute
             endPosition = lastPositionInOrAfterNode(endRenderer->node());
         }
 
+        auto startOffset = adjustOutputOffset(m_coreObject->indexForVisiblePosition(startPosition), m_hasListMarkerAtStart.load());
+        auto endOffset = adjustOutputOffset(m_coreObject->indexForVisiblePosition(endPosition), m_hasListMarkerAtStart.load());
         if (!includeDefault)
-            return { attributes, m_coreObject->indexForVisiblePosition(startPosition), m_coreObject->indexForVisiblePosition(endPosition) };
+            return { attributes, startOffset, endOffset };
 
         for (const auto& it : attributes)
             defaultAttributes.set(it.key, it.value);
 
-        return { defaultAttributes, m_coreObject->indexForVisiblePosition(startPosition), m_coreObject->indexForVisiblePosition(endPosition) };
+        return { defaultAttributes, startOffset, endOffset };
     });
 }
 
@@ -943,9 +987,6 @@ AccessibilityObjectAtspi::TextAttributes AccessibilityObjectAtspi::textAttribute
 void AccessibilityObjectAtspi::textAttributesChanged()
 {
     RELEASE_ASSERT(isMainThread());
-    if (!m_isRegistered.load())
-        return;
-
     if (!m_interfaces.contains(Interface::Text))
         return;
 

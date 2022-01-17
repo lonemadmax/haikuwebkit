@@ -24,6 +24,7 @@
 
 #include "Animation.h"
 #include "CSSKeyframeRule.h"
+#include "CSSPropertyAnimation.h"
 #include "RenderObject.h"
 #include "StyleResolver.h"
 
@@ -87,6 +88,8 @@ void KeyframeList::copyKeyframes(KeyframeList& other)
         KeyframeValue keyframeValue(keyframe.key(), RenderStyle::clonePtr(*keyframe.style()));
         for (auto propertyId : keyframe.properties())
             keyframeValue.addProperty(propertyId);
+        keyframeValue.setTimingFunction(keyframe.timingFunction());
+        keyframeValue.setCompositeOperation(keyframe.compositeOperation());
         insert(WTFMove(keyframeValue));
     }
 }
@@ -129,6 +132,15 @@ void KeyframeList::fillImplicitKeyframes(const Element& element, Style::Resolver
         keyframeValue.setStyle(styleResolver.styleForKeyframe(element, elementStyle, { parentElementStyle }, &hundredPercentKeyframe(), keyframeValue));
         insert(WTFMove(keyframeValue));
     }
+}
+
+bool KeyframeList::containsAnimatableProperty() const
+{
+    for (auto cssPropertyId : m_properties) {
+        if (CSSPropertyAnimation::isPropertyAnimatable(cssPropertyId))
+            return true;
+    }
+    return false;
 }
 
 } // namespace WebCore

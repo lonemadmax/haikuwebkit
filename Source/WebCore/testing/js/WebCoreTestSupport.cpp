@@ -51,7 +51,6 @@
 
 #if PLATFORM(COCOA)
 #include "UTIRegistry.h"
-#include "VersionChecks.h"
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #endif
 
@@ -152,6 +151,7 @@ void setLinkedOnOrAfterEverythingForTesting()
 {
 #if PLATFORM(COCOA)
     setApplicationSDKVersion(std::numeric_limits<uint32_t>::max());
+    setLinkedOnOrAfterOverride(LinkedOnOrAfterOverride::AfterEverything);
 #endif
 }
 

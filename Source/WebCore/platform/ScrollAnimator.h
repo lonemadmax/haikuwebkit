@@ -125,7 +125,7 @@ public:
     ScrollAnimationStatus serviceScrollAnimation(MonotonicTime);
 
 protected:
-    virtual bool platformAllowsScrollAnimation() const { return true; }
+    bool handleSteppedScrolling(const PlatformWheelEvent&);
 
 private:
     void notifyPositionChanged(const FloatSize& delta);
@@ -161,10 +161,8 @@ private:
     bool isPinnedOnSide(BoxSide) const final;
 #endif
 
-#if PLATFORM(MAC)
     void deferWheelEventTestCompletionForReason(WheelEventTestMonitor::ScrollableAreaIdentifier, WheelEventTestMonitor::DeferReason) const final;
     void removeWheelEventTestCompletionDeferralForReason(WheelEventTestMonitor::ScrollableAreaIdentifier, WheelEventTestMonitor::DeferReason) const final;
-#endif
 
 #if PLATFORM(GTK) || USE(NICOSIA)
     bool scrollAnimationEnabled() const final;

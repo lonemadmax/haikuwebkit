@@ -26,10 +26,8 @@
 #include "config.h"
 #include "WebCoreArgumentCoders.h"
 
-#include "DataReference.h"
 #include "ShareableBitmap.h"
 #include "ShareableResource.h"
-#include "SharedBufferDataReference.h"
 #include "StreamConnectionEncoder.h"
 #include <JavaScriptCore/GenericTypedArrayViewInlines.h>
 #include <JavaScriptCore/JSGenericTypedArrayViewInlines.h>
@@ -85,6 +83,7 @@
 #include <WebCore/ServiceWorkerClientData.h>
 #include <WebCore/ServiceWorkerData.h>
 #include <WebCore/ShareData.h>
+#include <WebCore/SharedBuffer.h>
 #include <WebCore/TextCheckerClient.h>
 #include <WebCore/TextIndicator.h>
 #include <WebCore/TimingFunction.h>
@@ -103,7 +102,6 @@
 
 #if PLATFORM(IOS_FAMILY)
 #include <WebCore/SelectionGeometry.h>
-#include <WebCore/SharedBuffer.h>
 #endif // PLATFORM(IOS_FAMILY)
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -962,11 +960,11 @@ bool ArgumentCoder<ProtectionSpace>::decode(Decoder& decoder, ProtectionSpace& s
     if (!decoder.decode(realm))
         return false;
     
-    ProtectionSpaceAuthenticationScheme authenticationScheme;
+    ProtectionSpace::AuthenticationScheme authenticationScheme;
     if (!decoder.decode(authenticationScheme))
         return false;
 
-    ProtectionSpaceServerType serverType;
+    ProtectionSpace::ServerType serverType;
     if (!decoder.decode(serverType))
         return false;
 
@@ -1069,6 +1067,31 @@ static WARN_UNUSED_RETURN bool decodeOptionalImage(Decoder& decoder, RefPtr<Imag
         return true;
 
     return decodeImage(decoder, image);
+}
+
+void ArgumentCoder<RefPtr<Font>>::encode(Encoder& encoder, const RefPtr<Font>& font)
+{
+    encoder << !!font;
+    if (font)
+        encoder << Ref { *font };
+}
+
+std::optional<RefPtr<Font>> ArgumentCoder<RefPtr<Font>>::decode(Decoder& decoder)
+{
+    std::optional<bool> hasFont;
+    decoder >> hasFont;
+    if (!hasFont)
+        return std::nullopt;
+
+    if (!hasFont.value())
+        return std::make_optional(nullptr);
+
+    std::optional<Ref<Font>> font;
+    decoder >> font;
+    if (!font)
+        return std::nullopt;
+
+    return { WTFMove(*font) };
 }
 
 void ArgumentCoder<Ref<Font>>::encode(Encoder& encoder, const Ref<WebCore::Font>& font)
@@ -2910,12 +2933,7 @@ void ArgumentCoder<FontAttributes>::encode(Encoder& encoder, const FontAttribute
     encoder << attributes.backgroundColor << attributes.foregroundColor << attributes.fontShadow << attributes.hasUnderline << attributes.hasStrikeThrough << attributes.textLists;
     encoder << attributes.horizontalAlignment;
     encoder << attributes.subscriptOrSuperscript;
-
-    if (attributes.encodingRequiresPlatformData()) {
-        encoder << true;
-        encodePlatformData(encoder, attributes);
-        return;
-    }
+    encoder << attributes.font;
 }
 
 std::optional<FontAttributes> ArgumentCoder<FontAttributes>::decode(Decoder& decoder)
@@ -2946,11 +2964,12 @@ std::optional<FontAttributes> ArgumentCoder<FontAttributes>::decode(Decoder& dec
     if (!decoder.decode(attributes.subscriptOrSuperscript))
         return std::nullopt;
 
-    bool hasPlatformData;
-    if (!decoder.decode(hasPlatformData))
+    std::optional<RefPtr<Font>> font;
+    decoder >> font;
+    if (!font)
         return std::nullopt;
-    if (hasPlatformData)
-        return decodePlatformData(decoder, attributes);
+
+    attributes.font = WTFMove(*font);
 
     return attributes;
 }
@@ -2959,7 +2978,7 @@ std::optional<FontAttributes> ArgumentCoder<FontAttributes>::decode(Decoder& dec
 
 void ArgumentCoder<SerializedAttachmentData>::encode(IPC::Encoder& encoder, const WebCore::SerializedAttachmentData& data)
 {
-    encoder << data.identifier << data.mimeType << IPC::SharedBufferDataReference { data.data.get() };
+    encoder << data.identifier << data.mimeType << data.data;
 }
 
 std::optional<SerializedAttachmentData> ArgumentCoder<WebCore::SerializedAttachmentData>::decode(IPC::Decoder& decoder)
@@ -2972,11 +2991,11 @@ std::optional<SerializedAttachmentData> ArgumentCoder<WebCore::SerializedAttachm
     if (!decoder.decode(mimeType))
         return std::nullopt;
 
-    IPC::DataReference data;
-    if (!decoder.decode(data))
+    RefPtr<SharedBuffer> buffer;
+    if (!decoder.decode(buffer))
         return std::nullopt;
 
-    return { { WTFMove(identifier), WTFMove(mimeType), WebCore::SharedBuffer::create(data.data(), data.size()) } };
+    return { { WTFMove(identifier), WTFMove(mimeType), buffer.releaseNonNull() } };
 }
 
 #endif // ENABLE(ATTACHMENT_ELEMENT)

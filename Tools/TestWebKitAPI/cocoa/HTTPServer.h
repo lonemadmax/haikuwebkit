@@ -51,6 +51,7 @@ public:
     ~HTTPServer();
     uint16_t port() const;
     NSURLRequest *request(const String& path = "/"_str) const;
+    NSURLRequest *requestWithLocalhost(const String& path = "/"_str) const;
     size_t totalRequests() const;
     void cancel();
 
@@ -66,6 +67,7 @@ public:
 private:
     static RetainPtr<nw_parameters_t> listenerParameters(Protocol, CertificateVerifier&&, RetainPtr<SecIdentityRef>&&, std::optional<uint16_t> port);
     static void respondToRequests(Connection, Ref<RequestData>);
+    const char* scheme() const;
 
     Ref<RequestData> m_requestData;
     RetainPtr<nw_listener_t> m_listener;
@@ -115,7 +117,7 @@ struct HTTPResponse {
     HTTPResponse& operator=(HTTPResponse&&) = default;
 
     enum class IncludeContentLength : bool { No, Yes };
-    Vector<uint8_t> serialize(IncludeContentLength = IncludeContentLength::Yes);
+    Vector<uint8_t> serialize(IncludeContentLength = IncludeContentLength::Yes) const;
     static Vector<uint8_t> bodyFromString(const String&);
 
     unsigned statusCode { 200 };

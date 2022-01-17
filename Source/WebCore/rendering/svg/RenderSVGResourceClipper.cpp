@@ -154,7 +154,7 @@ bool RenderSVGResourceClipper::applyClippingToContext(GraphicsContext& context, 
     AffineTransform absoluteTransform = SVGRenderingContext::calculateTransformationToOutermostCoordinateSystem(renderer);
     if (!clipperData.isValidForGeometry(objectBoundingBox, clippedContentBounds, absoluteTransform)) {
         // FIXME (149469): This image buffer should not be unconditionally unaccelerated. Making it match the context breaks nested clipping, though.
-        auto maskImage = SVGRenderingContext::createImageBuffer(clippedContentBounds, absoluteTransform, DestinationColorSpace::SRGB(), RenderingMode::Unaccelerated, nullptr, &context);
+        auto maskImage = SVGRenderingContext::createImageBuffer(clippedContentBounds, absoluteTransform, DestinationColorSpace::SRGB(), RenderingMode::Unaccelerated, nullptr);
         if (!maskImage)
             return false;
 
@@ -236,7 +236,7 @@ bool RenderSVGResourceClipper::drawContentIntoMaskImage(ImageBuffer& maskImageBu
         }
 
         // Only shapes, paths and texts are allowed for clipping.
-        if (!renderer->isSVGShape() && !renderer->isSVGText())
+        if (!renderer->isSVGShapeOrLegacySVGShape() && !renderer->isSVGText())
             continue;
 
         maskContext.setFillRule(newClipRule);
@@ -258,7 +258,7 @@ void RenderSVGResourceClipper::calculateClipContentRepaintRect()
         RenderObject* renderer = childNode->renderer();
         if (!childNode->isSVGElement() || !renderer)
             continue;
-        if (!renderer->isSVGShape() && !renderer->isSVGText() && !childNode->hasTagName(SVGNames::useTag))
+        if (!renderer->isSVGShapeOrLegacySVGShape() && !renderer->isSVGText() && !childNode->hasTagName(SVGNames::useTag))
             continue;
         const RenderStyle& style = renderer->style();
         if (style.display() == DisplayType::None || style.visibility() != Visibility::Visible)
@@ -285,16 +285,16 @@ bool RenderSVGResourceClipper::hitTestClipContent(const FloatRect& objectBoundin
         AffineTransform transform;
         transform.translate(objectBoundingBox.location());
         transform.scale(objectBoundingBox.size());
-        point = transform.inverse().value_or(AffineTransform()).mapPoint(point);
+        point = valueOrDefault(transform.inverse()).mapPoint(point);
     }
 
-    point = clipPathElement().animatedLocalTransform().inverse().value_or(AffineTransform()).mapPoint(point);
+    point = valueOrDefault(clipPathElement().animatedLocalTransform().inverse()).mapPoint(point);
 
     for (Node* childNode = clipPathElement().firstChild(); childNode; childNode = childNode->nextSibling()) {
         RenderObject* renderer = childNode->renderer();
         if (!childNode->isSVGElement() || !renderer)
             continue;
-        if (!renderer->isSVGShape() && !renderer->isSVGText() && !childNode->hasTagName(SVGNames::useTag))
+        if (!renderer->isSVGShapeOrLegacySVGShape() && !renderer->isSVGText() && !childNode->hasTagName(SVGNames::useTag))
             continue;
 
         IntPoint hitPoint;

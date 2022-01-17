@@ -27,7 +27,6 @@
 #include "WebURLSchemeTask.h"
 
 #include "APIFrameInfo.h"
-#include "SharedBufferDataReference.h"
 #include "URLSchemeTaskParameters.h"
 #include "WebErrors.h"
 #include "WebPageMessages.h"
@@ -168,7 +167,7 @@ auto WebURLSchemeTask::didReceiveResponse(const ResourceResponse& response) -> E
     return ExceptionType::None;
 }
 
-auto WebURLSchemeTask::didReceiveData(Ref<FragmentedSharedBuffer>&& buffer) -> ExceptionType
+auto WebURLSchemeTask::didReceiveData(const SharedBuffer& buffer) -> ExceptionType
 {
     ASSERT(RunLoop::isMain());
 
@@ -187,11 +186,11 @@ auto WebURLSchemeTask::didReceiveData(Ref<FragmentedSharedBuffer>&& buffer) -> E
     m_dataSent = true;
 
     if (isSync()) {
-        m_syncData.append(WTFMove(buffer));
+        m_syncData.append(buffer);
         return ExceptionType::None;
     }
 
-    m_process->send(Messages::WebPage::URLSchemeTaskDidReceiveData(m_urlSchemeHandler->identifier(), m_resourceLoaderID, buffer.get()), m_webPageID);
+    m_process->send(Messages::WebPage::URLSchemeTaskDidReceiveData(m_urlSchemeHandler->identifier(), m_resourceLoaderID, IPC::SharedBufferCopy(buffer)), m_webPageID);
     return ExceptionType::None;
 }
 

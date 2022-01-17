@@ -256,12 +256,7 @@ TEST(WebpagePreferences, WebsitePoliciesContentBlockersEnabled)
 
 @end
 
-// FIXME: This test is timing out on iOS simulator. See https://bugs.webkit.org/show_bug.cgi?id=229094
-#if PLATFORM(MAC)
 TEST(WebpagePreferences, WebsitePoliciesAutoplayEnabled)
-#else
-TEST(WebpagePreferences, DISABLED_WebsitePoliciesAutoplayEnabled)
-#endif
 {
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
 
@@ -435,12 +430,7 @@ TEST(WebpagePreferences, WebsitePoliciesPlayAfterPreventedAutoplay)
 }
 #endif
 
-// FIXME: This test is timing out on iOS simulator. See https://bugs.webkit.org/show_bug.cgi?id=229094
-#if PLATFORM(MAC)
 TEST(WebpagePreferences, WebsitePoliciesPlayingWithUserGesture)
-#else
-TEST(WebpagePreferences, DISABLED_WebsitePoliciesPlayingWithUserGesture)
-#endif
 {
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
 #if PLATFORM(IOS_FAMILY)
@@ -496,12 +486,7 @@ TEST(WebpagePreferences, DISABLED_WebsitePoliciesPlayingWithUserGesture)
     ASSERT_TRUE(*receivedAutoplayEventFlags & _WKAutoplayEventFlagsMediaIsMainContent);
 }
 
-// FIXME: This test is timing out on iOS simulator. See https://bugs.webkit.org/show_bug.cgi?id=229094
-#if PLATFORM(MAC)
 TEST(WebpagePreferences, WebsitePoliciesPlayingWithoutInterference)
-#else
-TEST(WebpagePreferences, DISABLED_WebsitePoliciesPlayingWithoutInterference)
-#endif
 {
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
 #if PLATFORM(IOS_FAMILY)
@@ -525,12 +510,7 @@ TEST(WebpagePreferences, DISABLED_WebsitePoliciesPlayingWithoutInterference)
     ASSERT_TRUE(*receivedAutoplayEventFlags & _WKAutoplayEventFlagsHasAudio);
 }
 
-// FIXME: This test is timing out on iOS simulator. See https://bugs.webkit.org/show_bug.cgi?id=229094
-#if PLATFORM(MAC)
 TEST(WebpagePreferences, WebsitePoliciesUserInterferenceWithPlaying)
-#else
-TEST(WebpagePreferences, DISABLED_WebsitePoliciesUserInterferenceWithPlaying)
-#endif
 {
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
 #if PLATFORM(IOS_FAMILY)
@@ -715,10 +695,10 @@ struct ParsedRange {
     ASSERT_TRUE(!!parsedRange.range);
     auto& range = *parsedRange.range;
     
-    NSDictionary *headerFields = @{ @"Content-Length": [@(range.second - range.first) stringValue], @"Content-Range": [NSString stringWithFormat:@"bytes %lu-%lu/%lu", range.first, range.second, [videoData length]] };
+    NSDictionary *headerFields = @{ @"Content-Length": [@(range.second - range.first + 1) stringValue], @"Content-Range": [NSString stringWithFormat:@"bytes %lu-%lu/%lu", range.first, range.second, [videoData length]] };
     auto response = adoptNS([[NSHTTPURLResponse alloc] initWithURL:task.request.URL statusCode:200 HTTPVersion:(NSString *)kCFHTTPVersion1_1 headerFields:headerFields]);
     [task didReceiveResponse:response.get()];
-    [task didReceiveData:[videoData subdataWithRange:NSMakeRange(range.first, range.second - range.first)]];
+    [task didReceiveData:[videoData subdataWithRange:NSMakeRange(range.first, range.second - range.first + 1)]];
     [task didFinish];
     
 }
@@ -729,12 +709,7 @@ struct ParsedRange {
 
 @end
 
-// FIXME: Re-enable this test for Monterey+ once rdar://80476146 is resolved.
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000
-TEST(WebpagePreferences, DISABLED_WebsitePoliciesDuringRedirect)
-#else
 TEST(WebpagePreferences, WebsitePoliciesDuringRedirect)
-#endif
 {
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
     auto videoData = adoptNS([[NSData alloc] initWithContentsOfURL:[[NSBundle mainBundle] URLForResource:@"test" withExtension:@"mp4" subdirectory:@"TestWebKitAPI.resources"]]);
@@ -755,12 +730,7 @@ TEST(WebpagePreferences, WebsitePoliciesDuringRedirect)
 }
 #endif // PLATFORM(MAC)
 
-// FIXME: This test is timing out on iOS simulator. See https://bugs.webkit.org/show_bug.cgi?id=229094
-#if PLATFORM(MAC)
 TEST(WebpagePreferences, WebsitePoliciesUpdates)
-#else
-TEST(WebpagePreferences, DISABLED_WebsitePoliciesUpdates)
-#endif
 {
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
 #if PLATFORM(IOS_FAMILY)

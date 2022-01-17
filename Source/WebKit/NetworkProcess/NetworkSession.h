@@ -55,27 +55,41 @@ class CertificateInfo;
 class NetworkStorageSession;
 class ResourceRequest;
 class ResourceError;
+class SWServer;
 enum class IncludeHttpOnlyCookies : bool;
 enum class ShouldSample : bool;
+struct ClientOrigin;
 struct SecurityOriginData;
+}
+
+namespace WTF {
+enum class Critical : bool;
 }
 
 namespace WebKit {
 
+class NetworkBroadcastChannelRegistry;
 class NetworkDataTask;
 class NetworkLoadScheduler;
 class NetworkProcess;
 class NetworkResourceLoader;
-class NetworkBroadcastChannelRegistry;
 class NetworkSocketChannel;
+class NetworkStorageManager;
 class ServiceWorkerFetchTask;
+class WebIDBServer;
 class WebPageNetworkParameters;
 class WebResourceLoadStatisticsStore;
 class WebSocketTask;
+class WebSWOriginStore;
+class WebSWServerConnection;
 struct NetworkSessionCreationParameters;
 struct SessionSet;
 
 enum class WebsiteDataType : uint32_t;
+
+namespace CacheStorage {
+class Engine;
+}
 
 namespace NetworkCache {
 class Cache;
@@ -84,7 +98,7 @@ class Cache;
 class NetworkSession : public CanMakeWeakPtr<NetworkSession> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static std::unique_ptr<NetworkSession> create(NetworkProcess&, NetworkSessionCreationParameters&&);
+    static std::unique_ptr<NetworkSession> create(NetworkProcess&, const NetworkSessionCreationParameters&);
     virtual ~NetworkSession();
 
     virtual void invalidateAndCancel();
@@ -101,7 +115,7 @@ public:
     void registerNetworkDataTask(NetworkDataTask&);
     void unregisterNetworkDataTask(NetworkDataTask&);
 
-    void recreatePrivateClickMeasurementStore(CompletionHandler<void()>&&);
+    void destroyPrivateClickMeasurementStore(CompletionHandler<void()>&&);
 
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     WebResourceLoadStatisticsStore* resourceLoadStatistics() const { return m_resourceLoadStatistics.get(); }
@@ -163,7 +177,7 @@ public:
     PrefetchCache& prefetchCache() { return m_prefetchCache; }
     void clearPrefetchCache() { m_prefetchCache.clear(); }
 
-    virtual std::unique_ptr<WebSocketTask> createWebSocketTask(WebPageProxyIdentifier, NetworkSocketChannel&, const WebCore::ResourceRequest&, const String& protocol);
+    virtual std::unique_ptr<WebSocketTask> createWebSocketTask(WebPageProxyIdentifier, NetworkSocketChannel&, const WebCore::ResourceRequest&, const String& protocol, const WebCore::ClientOrigin&);
     virtual void removeWebSocketTask(SessionSet&, WebSocketTask&) { }
     virtual void addWebSocketTask(WebPageProxyIdentifier, WebSocketTask&) { }
 
@@ -176,13 +190,38 @@ public:
 
     bool isStaleWhileRevalidateEnabled() const { return m_isStaleWhileRevalidateEnabled; }
 
+    void lowMemoryHandler(WTF::Critical);
+
 #if ENABLE(SERVICE_WORKER)
     void addSoftUpdateLoader(std::unique_ptr<ServiceWorkerSoftUpdateLoader>&& loader) { m_softUpdateLoaders.add(WTFMove(loader)); }
     void removeSoftUpdateLoader(ServiceWorkerSoftUpdateLoader* loader) { m_softUpdateLoaders.remove(loader); }
     void addNavigationPreloaderTask(ServiceWorkerFetchTask&);
     ServiceWorkerFetchTask* navigationPreloaderTaskFromFetchIdentifier(WebCore::FetchIdentifier);
     void removeNavigationPreloaderTask(ServiceWorkerFetchTask&);
+
+    WebCore::SWServer* swServer() { return m_swServer.get(); }
+    WebCore::SWServer& ensureSWServer();
+    WebSWOriginStore* swOriginStore() const; // FIXME: Can be private?
+    void registerSWServerConnection(WebSWServerConnection&);
+    void unregisterSWServerConnection(WebSWServerConnection&);
+
+    bool hasServiceWorkerDatabasePath() const;
+
+    void addServiceWorkerSession(bool processTerminationDelayEnabled, String&& serviceWorkerRegistrationDirectory, const SandboxExtension::Handle&);
 #endif
+
+    WebIDBServer* webIDBServer() { return m_webIDBServer.get(); }
+    WebIDBServer& ensureWebIDBServer();
+    void closeIDBServer(CompletionHandler<void()>&&);
+    void addIndexedDatabaseSession(const String& indexedDatabaseDirectory, SandboxExtension::Handle&);
+    bool hasIDBDatabasePath() const { return !m_idbDatabasePath.isEmpty(); }
+
+    NetworkStorageManager* storageManager() { return m_storageManager.get(); }
+    void addStorageManagerSession(const String& generalStoragePath, SandboxExtension::Handle& generalStoragePathHandle, const String& localStoragePath, SandboxExtension::Handle& localStoragePathHandle);
+
+    CacheStorage::Engine* cacheEngine() { return m_cacheEngine.get(); }
+    void ensureCacheEngine(Function<void(CacheStorage::Engine&)>&&);
+    void clearCacheEngine();
 
     NetworkLoadScheduler& networkLoadScheduler();
     PCM::ManagerInterface& privateClickMeasurement() { return m_privateClickMeasurement.get(); }
@@ -204,6 +243,10 @@ public:
 
 #if ENABLE(BUILT_IN_NOTIFICATIONS)
     NetworkNotificationManager& notificationManager() { return m_notificationManager; }
+#endif
+    
+#if !HAVE(NSURLSESSION_WEBSOCKET)
+    bool shouldAcceptInsecureCertificatesForWebSockets() const { return m_shouldAcceptInsecureCertificatesForWebSockets; }
 #endif
 
 protected:
@@ -267,7 +310,21 @@ protected:
 #if ENABLE(SERVICE_WORKER)
     HashSet<std::unique_ptr<ServiceWorkerSoftUpdateLoader>> m_softUpdateLoaders;
     HashMap<WebCore::FetchIdentifier, WeakPtr<ServiceWorkerFetchTask>> m_navigationPreloaders;
+
+    struct ServiceWorkerInfo {
+        String databasePath;
+        bool processTerminationDelayEnabled { true };
+    };
+    std::optional<ServiceWorkerInfo> m_serviceWorkerInfo;
+    std::unique_ptr<WebCore::SWServer> m_swServer;
 #endif
+
+    String m_idbDatabasePath;
+    RefPtr<WebIDBServer> m_webIDBServer;
+
+    RefPtr<NetworkStorageManager> m_storageManager;
+    RefPtr<CacheStorage::Engine> m_cacheEngine;
+    Vector<Function<void(CacheStorage::Engine&)>> m_cacheStorageParametersCallbacks;
 
 #if PLATFORM(COCOA)
     AppPrivacyReportTestingData m_appPrivacyReportTestingData;
@@ -277,6 +334,9 @@ protected:
 
 #if ENABLE(BUILT_IN_NOTIFICATIONS)
     NetworkNotificationManager m_notificationManager;
+#endif
+#if !HAVE(NSURLSESSION_WEBSOCKET)
+    bool m_shouldAcceptInsecureCertificatesForWebSockets { false };
 #endif
 };
 

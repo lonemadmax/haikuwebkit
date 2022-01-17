@@ -106,10 +106,12 @@ CSSParserContext::CSSParserContext(const Document& document, const URL& sheetBas
     , hasPseudoClassEnabled { document.settings().hasPseudoClassEnabled() }
     , cascadeLayersEnabled { document.settings().cssCascadeLayersEnabled() }
     , containerQueriesEnabled { document.settings().cssContainerQueriesEnabled() }
+    , overflowClipEnabled { document.settings().overflowClipEnabled() }
+    , gradientPremultipliedAlphaInterpolationEnabled { document.settings().cssGradientPremultipliedAlphaInterpolationEnabled() }
+    , gradientInterpolationColorSpacesEnabled { document.settings().cssGradientInterpolationColorSpacesEnabled() }
 #if ENABLE(ATTACHMENT_ELEMENT)
     , attachmentEnabled { RuntimeEnabledFeatures::sharedFeatures().attachmentElementEnabled() }
 #endif
-    , overflowClipEnabled { document.settings().overflowClipEnabled() }
 {
 }
 
@@ -153,16 +155,18 @@ bool operator==(const CSSParserContext& a, const CSSParserContext& b)
         && a.hasPseudoClassEnabled == b.hasPseudoClassEnabled
         && a.cascadeLayersEnabled == b.cascadeLayersEnabled
         && a.containerQueriesEnabled == b.containerQueriesEnabled
+        && a.overflowClipEnabled == b.overflowClipEnabled
+        && a.gradientPremultipliedAlphaInterpolationEnabled == b.gradientPremultipliedAlphaInterpolationEnabled
+        && a.gradientInterpolationColorSpacesEnabled == b.gradientInterpolationColorSpacesEnabled
 #if ENABLE(ATTACHMENT_ELEMENT)
         && a.attachmentEnabled == b.attachmentEnabled
 #endif
-        && a.overflowClipEnabled == b.overflowClipEnabled
     ;
 }
 
 void add(Hasher& hasher, const CSSParserContext& context)
 {
-    unsigned bits = context.isHTMLDocument                  << 0
+    uint64_t bits = context.isHTMLDocument                  << 0
         | context.hasDocumentSecurityOrigin                 << 1
         | context.isContentOpaque                           << 2
         | context.useSystemAppearance                       << 3
@@ -193,12 +197,14 @@ void add(Hasher& hasher, const CSSParserContext& context)
         | context.hasPseudoClassEnabled                     << 22
         | context.cascadeLayersEnabled                      << 23
         | context.containerQueriesEnabled                   << 24
+        | context.overflowClipEnabled                       << 25
+        | context.gradientPremultipliedAlphaInterpolationEnabled << 26
+        | context.gradientInterpolationColorSpacesEnabled   << 27
 #if ENABLE(ATTACHMENT_ELEMENT)
-        | context.attachmentEnabled                         << 25
+        | context.attachmentEnabled                         << 28
 #endif
-        | context.overflowClipEnabled                       << 26
-        | context.accentColorEnabled                        << 27
-        | context.mode                                      << 28; // This is multiple bits, so keep it last.
+        | context.accentColorEnabled                        << 29
+        | context.mode                                      << 30; // This is multiple bits, so keep it last.
     add(hasher, context.baseURL, context.charset, bits);
 }
 

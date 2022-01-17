@@ -45,4 +45,7 @@
     // event
     attribute EventHandler onmessage;
     attribute EventHandler onmessageerror;
+
+    [Conditional=NOTIFICATION_EVENT, EnabledAtRuntime=NotificationEventEnabled] attribute EventHandler onnotificationclick;
+    [Conditional=NOTIFICATION_EVENT, EnabledAtRuntime=NotificationEventEnabled] attribute EventHandler onnotificationclose;
 };

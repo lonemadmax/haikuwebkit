@@ -47,8 +47,7 @@ public:
     ~LegacyPreviewLoader();
 
     bool didReceiveResponse(const ResourceResponse&);
-    bool didReceiveData(const uint8_t* data, unsigned length);
-    bool didReceiveBuffer(const FragmentedSharedBuffer&);
+    bool didReceiveData(const SharedBuffer&);
     bool didFinishLoading();
     void didFail();
 
@@ -65,7 +64,7 @@ private:
     void previewConverterDidFailConverting(PreviewConverter&) final;
 
     // PreviewConverterProvider
-    void provideMainResourceForPreviewConverter(PreviewConverter&, CompletionHandler<void(const FragmentedSharedBuffer*)>&&) final;
+    void provideMainResourceForPreviewConverter(PreviewConverter&, CompletionHandler<void(Ref<FragmentedSharedBuffer>&&)>&&) final;
     void providePasswordForPreviewConverter(PreviewConverter&, CompletionHandler<void(const String&)>&&) final;
 
     RefPtr<PreviewConverter> m_converter;

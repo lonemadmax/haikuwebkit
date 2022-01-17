@@ -79,6 +79,7 @@ static unsigned moveToNextBreakablePosition(unsigned startPosition, LazyLineBrea
 InlineItemsBuilder::InlineItemsBuilder(const ContainerBox& formattingContextRoot, InlineFormattingState& formattingState)
     : m_root(formattingContextRoot)
     , m_formattingState(formattingState)
+    , m_needsVisualReordering(!formattingContextRoot.style().isLeftToRightDirection())
 {
 }
 
@@ -170,8 +171,22 @@ static void replaceNonPreservedNewLineCharactersAndAppend(const InlineTextBox& i
         paragraphContentBuilder.append(textContent.right(contentLength - nonReplacedContentStartPosition));
 }
 
-static inline void handleEnterExitBidiContext(StringBuilder& paragraphContentBuilder, EUnicodeBidi unicodeBidi, bool isLTR, bool isEnteringBidi)
+struct BidiContext {
+    EUnicodeBidi unicodeBidi;
+    bool isLeftToRightDirection { false };
+    bool isBlockLevel { false };
+};
+using BidiContextStack = Vector<BidiContext>;
+
+enum class EnterExitType : uint8_t {
+    EnteringBlock,
+    ExitingBlock,
+    EnteringInlineBox,
+    ExitingInlineBox
+};
+static inline void handleEnterExitBidiContext(StringBuilder& paragraphContentBuilder, EUnicodeBidi unicodeBidi, bool isLTR, EnterExitType enterExitType, BidiContextStack& bidiContextStack)
 {
+    auto isEnteringBidi = enterExitType == EnterExitType::EnteringBlock || enterExitType == EnterExitType::EnteringInlineBox;
     switch (unicodeBidi) {
     case EUnicodeBidi::UBNormal:
         // The box does not open an additional level of embedding with respect to the bidirectional algorithm.
@@ -201,12 +216,17 @@ static inline void handleEnterExitBidiContext(StringBuilder& paragraphContentBui
     default:
         ASSERT_NOT_REACHED();
     }
+
+    isEnteringBidi ? bidiContextStack.append({ unicodeBidi, isLTR, enterExitType == EnterExitType::EnteringBlock }) : bidiContextStack.removeLast();
 }
 
 using InlineItemOffsetList = Vector<std::optional<size_t>>;
 static inline void buildBidiParagraph(const RenderStyle& rootStyle, const InlineItems& inlineItems,  StringBuilder& paragraphContentBuilder, InlineItemOffsetList& inlineItemOffsetList)
 {
-    handleEnterExitBidiContext(paragraphContentBuilder, rootStyle.unicodeBidi(), rootStyle.isLeftToRightDirection(), true);
+    auto bidiContextStack = BidiContextStack { };
+    handleEnterExitBidiContext(paragraphContentBuilder, rootStyle.unicodeBidi(), rootStyle.isLeftToRightDirection(), EnterExitType::EnteringBlock, bidiContextStack);
+    if (rootStyle.rtlOrdering() != Order::Logical)
+        handleEnterExitBidiContext(paragraphContentBuilder, EUnicodeBidi::Override, rootStyle.isLeftToRightDirection(), EnterExitType::EnteringBlock, bidiContextStack);
 
     const Box* lastInlineTextBox = nullptr;
     size_t inlineTextBoxOffset = 0;
@@ -214,18 +234,22 @@ static inline void buildBidiParagraph(const RenderStyle& rootStyle, const Inline
         auto& inlineItem = inlineItems[index];
         auto& layoutBox = inlineItem.layoutBox();
 
+        auto appendTextBasedContent = [&] {
+            // Append the entire InlineTextBox content and keep track of individual inline item positions.
+            if (lastInlineTextBox == &layoutBox)
+                return;
+            inlineTextBoxOffset = paragraphContentBuilder.length();
+            replaceNonPreservedNewLineCharactersAndAppend(downcast<InlineTextBox>(layoutBox), paragraphContentBuilder);
+            lastInlineTextBox = &layoutBox;
+        };
+
         if (inlineItem.isText()) {
-            if (lastInlineTextBox != &layoutBox) {
-                inlineTextBoxOffset = paragraphContentBuilder.length();
-                replaceNonPreservedNewLineCharactersAndAppend(downcast<InlineTextBox>(layoutBox), paragraphContentBuilder);
-                lastInlineTextBox = &layoutBox;
-            }
+            appendTextBasedContent();
             inlineItemOffsetList.uncheckedAppend({ inlineTextBoxOffset + downcast<InlineTextItem>(inlineItem).start() });
         } else if (inlineItem.isBox()) {
             inlineItemOffsetList.uncheckedAppend({ paragraphContentBuilder.length() });
             paragraphContentBuilder.append(objectReplacementCharacter);
-        }
-        else if (inlineItem.isInlineBoxStart() || inlineItem.isInlineBoxEnd()) {
+        } else if (inlineItem.isInlineBoxStart() || inlineItem.isInlineBoxEnd()) {
             // https://drafts.csswg.org/css-writing-modes/#unicode-bidi
             auto& style = inlineItem.style();
             auto initiatesControlCharacter = style.rtlOrdering() == Order::Logical && style.unicodeBidi() != EUnicodeBidi::UBNormal;
@@ -236,10 +260,51 @@ static inline void buildBidiParagraph(const RenderStyle& rootStyle, const Inline
             }
             inlineItemOffsetList.uncheckedAppend({ paragraphContentBuilder.length() });
             auto isEnteringBidi = inlineItem.isInlineBoxStart();
-            handleEnterExitBidiContext(paragraphContentBuilder, style.unicodeBidi(), style.isLeftToRightDirection(), isEnteringBidi);
-        } else if (inlineItem.isLineBreak()) {
+            handleEnterExitBidiContext(paragraphContentBuilder
+                , style.unicodeBidi()
+                , style.isLeftToRightDirection()
+                , isEnteringBidi ? EnterExitType::EnteringInlineBox : EnterExitType::ExitingInlineBox
+                , bidiContextStack
+            );
+        } else if (inlineItem.isSoftLineBreak()) {
+            // FIXME: Unwind the bidi stack for soft line break too.
+            appendTextBasedContent();
+            inlineItemOffsetList.uncheckedAppend({ inlineTextBoxOffset + downcast<InlineSoftLineBreakItem>(inlineItem).position() });
+        } else if (inlineItem.isHardLineBreak()) {
+            auto copyOfBidiStack = bidiContextStack;
+
+            size_t blockLevelBidiContextIndex = 0;
+            auto unwindBidiContextStack = [&] {
+                // Unwind all the way up to the block entry.
+                ASSERT(!bidiContextStack.isEmpty());
+                size_t unwindingIndex = copyOfBidiStack.size() - 1; 
+                while (unwindingIndex && !copyOfBidiStack[unwindingIndex].isBlockLevel) {
+                    handleEnterExitBidiContext(paragraphContentBuilder
+                        , copyOfBidiStack[unwindingIndex].unicodeBidi
+                        , copyOfBidiStack[unwindingIndex].isLeftToRightDirection
+                        , EnterExitType::ExitingInlineBox
+                        , bidiContextStack
+                    );
+                    --unwindingIndex;
+                }
+                blockLevelBidiContextIndex = unwindingIndex; 
+            };
+            unwindBidiContextStack();
+
             inlineItemOffsetList.uncheckedAppend({ paragraphContentBuilder.length() });
             paragraphContentBuilder.append(newlineCharacter);
+
+            auto rewindBidiContextStack = [&] {
+                for (size_t index = blockLevelBidiContextIndex + 1; index < copyOfBidiStack.size(); ++index) {
+                    handleEnterExitBidiContext(paragraphContentBuilder
+                        , copyOfBidiStack[index].unicodeBidi
+                        , copyOfBidiStack[index].isLeftToRightDirection
+                        , EnterExitType::EnteringInlineBox
+                        , bidiContextStack
+                    );
+                }
+            };
+            rewindBidiContextStack();
         } else if (inlineItem.isWordBreakOpportunity()) {
             // Soft wrap opportunity markers are opaque to bidi. 
             inlineItemOffsetList.uncheckedAppend({ });            
@@ -257,15 +322,13 @@ void InlineItemsBuilder::breakAndComputeBidiLevels(InlineItems& inlineItems)
     InlineItemOffsetList inlineItemOffsets;
     inlineItemOffsets.reserveInitialCapacity(inlineItems.size());
     buildBidiParagraph(root().style(), inlineItems, paragraphContentBuilder, inlineItemOffsets);
-    ASSERT(inlineItemOffsets.size() == inlineItems.size());
-    if (paragraphContentBuilder.is8Bit()) {
-        // Simple content with RTL inline base direction could just follow the logical order.
-        // Note that inline level elements produce 16bit paragraph content by appending objectReplacementCharacter.
-        // e.g. <div dir=rtl>this initiates 8bit paragraph builder</div> while
-        //      <div dir=rtl><img> <- turns the paragraph builder to 16bit</div> 
+    if (paragraphContentBuilder.isEmpty()) {
+        // Style may trigger visual reordering even on a completely empty content.
+        // e.g. <div><span style="direction:rtl"></span></div>
+        // Let's not try to do bidi handling when there's no content to reorder.
         return;
     }
-
+    ASSERT(inlineItemOffsets.size() == inlineItems.size());
     // 1. Setup the bidi boundary loop by calling ubidi_setPara with the paragraph text.
     // 2. Call ubidi_getLogicalRun to advance to the next bidi boundary until we hit the end of the content.
     // 3. Set the computed bidi level on the associated inline items. Split them as needed.
@@ -280,9 +343,17 @@ void InlineItemsBuilder::breakAndComputeBidiLevels(InlineItems& inlineItems)
     if (!useHeuristicBaseDirection)
         rootBidiLevel = root().style().isLeftToRightDirection() ? UBIDI_LTR : UBIDI_RTL;
 
+    auto bidiContent = StringView { paragraphContentBuilder }.upconvertedCharacters();
+    auto bidiContentLength = paragraphContentBuilder.length();
     UErrorCode error = U_ZERO_ERROR;
-    ASSERT(!paragraphContentBuilder.isEmpty());
-    ubidi_setPara(ubidi, paragraphContentBuilder.characters16(), paragraphContentBuilder.length(), rootBidiLevel, nullptr, &error);
+    ASSERT(bidiContentLength);
+    ubidi_setPara(ubidi
+        , bidiContent
+        , bidiContentLength
+        , rootBidiLevel
+        , nullptr
+        , &error);
+
     if (U_FAILURE(error)) {
         ASSERT_NOT_REACHED();
         return;
@@ -290,7 +361,7 @@ void InlineItemsBuilder::breakAndComputeBidiLevels(InlineItems& inlineItems)
 
     size_t inlineItemIndex = 0;
     auto hasSeenOpaqueItem = false;
-    for (size_t currentPosition = 0; currentPosition < paragraphContentBuilder.length();) {
+    for (size_t currentPosition = 0; currentPosition < bidiContentLength;) {
         UBiDiLevel bidiLevel;
         int32_t endPosition = currentPosition;
         ubidi_getLogicalRun(ubidi, currentPosition, &endPosition, &bidiLevel);
@@ -334,26 +405,21 @@ void InlineItemsBuilder::breakAndComputeBidiLevels(InlineItems& inlineItems)
     auto setBidiLevelForOpaqueInlineItems = [&] {
         if (!hasSeenOpaqueItem)
             return;
-        // Opaque items (inline items with no paragraph content) get their bidi level values from their adjacent items.
+        // Let's not confuse ubidi with non-content entries.
+        // Opaque runs are excluded from the visual list (ie. only empty inline boxes should be kept around as bidi content -to figure out their visual order).
         enum class InlineBoxHasContent : bool { No, Yes };
         Vector<InlineBoxHasContent> inlineBoxContentFlagStack;
         inlineBoxContentFlagStack.reserveInitialCapacity(inlineItems.size());
         for (auto index = inlineItems.size(); index--;) {
             auto& inlineItem = inlineItems[index];
-            if (inlineItemOffsets[index]) {
-                inlineBoxContentFlagStack.fill(InlineBoxHasContent::Yes);
-                continue;
-            }
             if (inlineItem.isInlineBoxStart()) {
                 ASSERT(!inlineBoxContentFlagStack.isEmpty());
-                // Inline box start (e.g <span>) uses its content bidi level (next inline item).
                 if (inlineBoxContentFlagStack.takeLast() == InlineBoxHasContent::Yes)
                     inlineItems[index].setBidiLevel(InlineItem::opaqueBidiLevel);
                 continue;
             }
             if (inlineItem.isInlineBoxEnd()) {
                 inlineBoxContentFlagStack.append(InlineBoxHasContent::No);
-                // Let's not confuse ubidi with non-content entries. Opaque runs are excluded from the visual list.
                 inlineItem.setBidiLevel(InlineItem::opaqueBidiLevel);
                 continue;
             }
@@ -361,7 +427,8 @@ void InlineItemsBuilder::breakAndComputeBidiLevels(InlineItems& inlineItems)
                 inlineItem.setBidiLevel(InlineItem::opaqueBidiLevel);
                 continue;
             }
-            ASSERT_NOT_REACHED();
+            // Mark the inline box stack with "content yes", when we come across a content type of inline item.
+            inlineBoxContentFlagStack.fill(InlineBoxHasContent::Yes);
         }
     };
     setBidiLevelForOpaqueInlineItems();
@@ -418,9 +485,7 @@ void InlineItemsBuilder::handleTextContent(const InlineTextBox& inlineTextBox, I
     if (!contentLength)
         return inlineItems.append(InlineTextItem::createEmptyItem(inlineTextBox));
 
-    if (inlineTextBox.containsBidiText())
-        m_hasSeenBidiContent = true;
-
+    m_needsVisualReordering = m_needsVisualReordering || TextUtil::containsStrongDirectionalityText(text);
     auto& style = inlineTextBox.style();
     auto shouldPreserveSpacesAndTabs = TextUtil::shouldPreserveSpacesAndTabs(inlineTextBox);
     auto shouldPreserveNewline = TextUtil::shouldPreserveNewline(inlineTextBox);
@@ -492,14 +557,14 @@ void InlineItemsBuilder::handleInlineBoxStart(const Box& inlineBox, InlineItems&
 {
     inlineItems.append({ inlineBox, InlineItem::Type::InlineBoxStart });
     auto& style = inlineBox.style();
-    m_hasSeenBidiContent = m_hasSeenBidiContent || (style.rtlOrdering() == Order::Logical && style.unicodeBidi() != EUnicodeBidi::UBNormal); 
+    m_needsVisualReordering = m_needsVisualReordering || !style.isLeftToRightDirection() || (style.rtlOrdering() == Order::Logical && style.unicodeBidi() != EUnicodeBidi::UBNormal);
 }
 
 void InlineItemsBuilder::handleInlineBoxEnd(const Box& inlineBox, InlineItems& inlineItems)
 {
     inlineItems.append({ inlineBox, InlineItem::Type::InlineBoxEnd });
     // Inline box end item itself can not trigger bidi content.
-    ASSERT(hasSeenBidiContent() || inlineBox.style().rtlOrdering() == Order::Visual || inlineBox.style().unicodeBidi() == EUnicodeBidi::UBNormal);
+    ASSERT(needsVisualReordering() || inlineBox.style().isLeftToRightDirection() || inlineBox.style().rtlOrdering() == Order::Visual || inlineBox.style().unicodeBidi() == EUnicodeBidi::UBNormal);
 }
 
 void InlineItemsBuilder::handleInlineLevelBox(const Box& layoutBox, InlineItems& inlineItems)

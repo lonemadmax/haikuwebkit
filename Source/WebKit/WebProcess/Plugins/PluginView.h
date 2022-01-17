@@ -68,14 +68,12 @@ class PluginView : public WebCore::PluginViewBase, public PluginController, priv
 public:
     static Ref<PluginView> create(WebCore::HTMLPlugInElement&, Ref<Plugin>&&, const Plugin::Parameters&);
 
-    void recreateAndInitialize(Ref<Plugin>&&);
-
     WebCore::Frame* frame() const;
 
     bool isBeingDestroyed() const { return !m_plugin || m_plugin->isBeingDestroyed(); }
 
     void manualLoadDidReceiveResponse(const WebCore::ResourceResponse&);
-    void manualLoadDidReceiveData(const uint8_t* bytes, int length);
+    void manualLoadDidReceiveData(const WebCore::SharedBuffer&);
     void manualLoadDidFinishLoading();
     void manualLoadDidFail(const WebCore::ResourceError&);
 
@@ -85,7 +83,6 @@ public:
 #if PLATFORM(COCOA)
     void setDeviceScaleFactor(float);
     void windowAndViewFramesChanged(const WebCore::FloatRect& windowFrameInScreenCoordinates, const WebCore::FloatRect& viewFrameInWindowCoordinates);
-    bool sendComplexTextInput(uint64_t pluginComplexTextInputIdentifier, const String& textInput);
     RetainPtr<PDFDocument> pdfDocumentForPrinting() const { return m_plugin->pdfDocumentForPrinting(); }
     id accessibilityHitTest(const WebCore::IntPoint& point) const override { return m_plugin->accessibilityHitTest(point); }
     id accessibilityObject() const override;
@@ -118,7 +115,6 @@ public:
 
     RefPtr<WebCore::FragmentedSharedBuffer> liveResourceData() const;
     bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&);
-    String getSelectionForWordAtPoint(const WebCore::FloatPoint&) const;
     bool existingSelectionContainsPoint(const WebCore::FloatPoint&) const;
 
 private:
@@ -157,14 +153,11 @@ private:
 #endif
     JSC::JSObject* scriptObject(JSC::JSGlobalObject*) override;
     void storageBlockingStateChanged() override;
-    void privateBrowsingStateChanged(bool) override;
-    bool getFormValue(String&) override;
     bool scroll(WebCore::ScrollDirection, WebCore::ScrollGranularity) override;
     WebCore::Scrollbar* horizontalScrollbar() override;
     WebCore::Scrollbar* verticalScrollbar() override;
     bool wantsWheelEvents() override;
     bool shouldAllowNavigationFromDrags() const override;
-    bool shouldNotAddLayer() const override;
     void willDetachRenderer() override;
 
     // WebCore::Widget
@@ -190,33 +183,10 @@ private:
     void pageMutedStateDidChange() override;
 
     // PluginController
-    void invalidate(const WebCore::IntRect&) override;
-    String userAgent() override;
     void loadURL(uint64_t requestID, const String& method, const String& urlString, const String& target, const WebCore::HTTPHeaderMap& headerFields, const Vector<uint8_t>& httpBody, bool allowPopups) override;
-    void cancelStreamLoad(uint64_t streamID) override;
-    void continueStreamLoad(uint64_t streamID) override;
-    void cancelManualStreamLoad() override;
-    void setStatusbarText(const String&) override;
-    bool isAcceleratedCompositingEnabled() override;
-    void pluginProcessCrashed() override;
-#if PLATFORM(COCOA)
-    void pluginFocusOrWindowFocusChanged(bool pluginHasFocusAndWindowHasFocus) override;
-    const WTF::MachSendRight& compositingRenderServerPort() override;
-#endif
     float contentsScaleFactor() override;
-    String proxiesForURL(const String&) override;
-    String cookiesForURL(const String&) override;
-    void setCookiesForURL(const String& urlString, const String& cookieString) override;
-    bool getAuthenticationInfo(const WebCore::ProtectionSpace&, String& username, String& password) override;
-    bool isPrivateBrowsingEnabled() override;
-    bool asynchronousPluginInitializationEnabled() const override;
-    bool asynchronousPluginInitializationEnabledForAllPlugins() const override;
-    bool artificialPluginInitializationDelayEnabled() const override;
-    void protectPluginFromDestruction() override;
-    void unprotectPluginFromDestruction() override;
 
     void didInitializePlugin() override;
-    void didFailToInitializePlugin() override;
     void destroyPluginAndReset();
 
     // WebFrame::LoadListener
@@ -227,13 +197,12 @@ private:
 
     RefPtr<WebCore::HTMLPlugInElement> m_pluginElement;
     RefPtr<Plugin> m_plugin;
-    WebPage* m_webPage;
+    WeakPtr<WebPage> m_webPage;
     Plugin::Parameters m_parameters;
 
     bool m_isInitialized { false };
     bool m_isWaitingForSynchronousInitialization { false };
     bool m_isWaitingUntilMediaCanStart { false };
-    bool m_pluginProcessHasCrashed { false };
 
     // Pending URLRequests that the plug-in has made.
     Deque<RefPtr<URLRequest>> m_pendingURLRequests;

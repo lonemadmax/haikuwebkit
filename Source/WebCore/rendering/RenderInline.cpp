@@ -28,6 +28,7 @@
 #include "FrameSelection.h"
 #include "GraphicsContext.h"
 #include "HitTestResult.h"
+#include "InlineIteratorInlineBox.h"
 #include "LayoutIntegrationLineLayout.h"
 #include "LegacyInlineElementBox.h"
 #include "LegacyInlineTextBox.h"
@@ -158,7 +159,7 @@ void RenderInline::styleWillChange(StyleDifference diff, const RenderStyle& newS
     // RenderInlines forward their absolute positioned descendants to their (non-anonymous) containing block.
     // Check if this non-anonymous containing block can hold the absolute positioned elements when the inline is no longer positioned.
     if (canContainAbsolutelyPositionedObjects() && newStyle.position() == PositionType::Static) {
-        auto* container = containingBlockForAbsolutePosition();
+        auto* container = RenderObject::containingBlockForPositionType(PositionType::Absolute, *this);
         if (container && !container->canContainAbsolutelyPositionedObjects())
             container->removePositionedObjects(nullptr, NewContainingBlock);
     }
@@ -957,11 +958,13 @@ void RenderInline::paintOutline(PaintInfo& paintInfo, const LayoutPoint& paintOf
 
     Vector<LayoutRect> rects;
     rects.append(LayoutRect());
-    for (auto* curr = firstLineBox(); curr; curr = curr->nextLineBox()) {
-        const LegacyRootInlineBox& rootBox = curr->root();
-        LayoutUnit top = std::max(rootBox.lineTop(), LayoutUnit(curr->logicalTop()));
-        LayoutUnit bottom = std::min(rootBox.lineBottom(), LayoutUnit(curr->logicalBottom()));
-        rects.append({ LayoutUnit(curr->x()), top, LayoutUnit(curr->logicalWidth()), bottom - top });
+
+    for (auto box = InlineIterator::firstInlineBoxFor(*this); box; box.traverseNextInlineBox()) {
+        auto line = box->line();
+        LayoutUnit top = std::max(line->top(), LayoutUnit(box->logicalTop()));
+        LayoutUnit bottom = std::min(line->bottom(), LayoutUnit(box->logicalBottom()));
+        // FIXME: This is mixing physical and logical coordinates.
+        rects.append({ LayoutUnit(box->rect().x()), top, LayoutUnit(box->logicalWidth()), bottom - top });
     }
     rects.append(LayoutRect());
 

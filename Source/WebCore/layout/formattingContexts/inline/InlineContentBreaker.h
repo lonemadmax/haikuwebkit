@@ -35,6 +35,7 @@ namespace WebCore {
 namespace Layout {
 
 class InlineItem;
+class InlineTextItem;
 struct CandidateTextRunForBreaking;
 
 class InlineContentBreaker {
@@ -80,12 +81,15 @@ public:
     // see https://drafts.csswg.org/css-text-3/#line-break-details
     struct ContinuousContent {
         InlineLayoutUnit logicalWidth() const { return m_logicalWidth; }
-        InlineLayoutUnit leadingCollapsibleWidth() const { return m_leadingCollapsibleWidth; }
-        InlineLayoutUnit trailingCollapsibleWidth() const { return m_trailingCollapsibleWidth; }
-        bool hasCollapsibleContent() const { return trailingCollapsibleWidth() > 0 || leadingCollapsibleWidth() > 0; }
-        bool isFullyCollapsible() const { return logicalWidth() == trailingCollapsibleWidth() + leadingCollapsibleWidth(); }
+        std::optional<InlineLayoutUnit> leadingCollapsibleWidth() const { return m_leadingCollapsibleWidth; }
+        std::optional<InlineLayoutUnit> trailingCollapsibleWidth() const { return m_trailingCollapsibleWidth; }
+        bool hasCollapsibleContent() const { return trailingCollapsibleWidth() || leadingCollapsibleWidth(); }
+        bool isFullyCollapsible() const;
+        bool isHangingContent() const { return m_trailingHangingContentWidth && logicalWidth() == *m_trailingHangingContentWidth; }
 
-        void append(const InlineItem&, const RenderStyle&, InlineLayoutUnit logicalWidth, std::optional<InlineLayoutUnit> collapsibleWidth = std::nullopt);
+        void append(const InlineItem&, const RenderStyle&, InlineLayoutUnit logicalWidth);
+        void append(const InlineTextItem&, const RenderStyle&, InlineLayoutUnit logicalWidth, std::optional<InlineLayoutUnit> collapsibleWidth);
+        void append(const InlineTextItem&, const RenderStyle&, InlineLayoutUnit hangingWidth);
         void reset();
 
         struct Run {
@@ -101,16 +105,21 @@ public:
         const RunList& runs() const { return m_runs; }
 
     private:
+        void appendToRunList(const InlineItem&, const RenderStyle&, InlineLayoutUnit logicalWidth);
+        void resetTrailingWhitespace();
+
         RunList m_runs;
         InlineLayoutUnit m_logicalWidth { 0 };
-        InlineLayoutUnit m_leadingCollapsibleWidth { 0 };
-        InlineLayoutUnit m_trailingCollapsibleWidth { 0 };
+        std::optional<InlineLayoutUnit> m_leadingCollapsibleWidth { };
+        std::optional<InlineLayoutUnit> m_trailingCollapsibleWidth { };
+        std::optional<InlineLayoutUnit> m_trailingHangingContentWidth { };
     };
 
     struct LineStatus {
         InlineLayoutUnit contentLogicalRight { 0 };
         InlineLayoutUnit availableWidth { 0 };
-        InlineLayoutUnit collapsibleWidth { 0 };
+        // Both of these types of trailing content may be ignored when checking for content fit.
+        InlineLayoutUnit collapsibleOrHangingWidth { 0 };
         std::optional<InlineLayoutUnit> trailingSoftHyphenWidth;
         bool hasFullyCollapsibleTrailingContent { false };
         bool hasContent { false };
@@ -150,7 +159,6 @@ private:
         AtHyphenationOpportunities     = 1 << 2
     };
     OptionSet<WordBreakRule> wordBreakBehavior(const RenderStyle&, bool hasWrapOpportunityAtPreviousPosition) const;
-    bool shouldKeepEndOfLineWhitespace(const ContinuousContent&) const;
     bool isInIntrinsicWidthMode() const { return !!m_intrinsicWidthMode; }
 
     std::optional<IntrinsicWidthMode> m_intrinsicWidthMode;
@@ -169,6 +177,16 @@ inline InlineContentBreaker::ContinuousContent::Run::Run(const Run& other)
     , style(other.style)
     , logicalWidth(other.logicalWidth)
 {
+}
+
+inline bool InlineContentBreaker::ContinuousContent::isFullyCollapsible() const
+{
+    auto collapsibleWidth = std::optional<InlineLayoutUnit> { };
+    if (m_leadingCollapsibleWidth)
+        collapsibleWidth = *m_leadingCollapsibleWidth;
+    if (m_trailingCollapsibleWidth)
+        collapsibleWidth = collapsibleWidth.value_or(0.f) + *m_trailingCollapsibleWidth;
+    return collapsibleWidth && *collapsibleWidth == logicalWidth();
 }
 
 }

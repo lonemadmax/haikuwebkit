@@ -118,7 +118,7 @@ NetworkStorageManager::NetworkStorageManager(PAL::SessionID sessionID, const Str
         m_customLocalStoragePath = customLocalStoragePath;
         if (!m_path.isEmpty()) {
             auto saltPath = FileSystem::pathByAppendingComponent(m_path, "salt");
-            m_salt = FileSystem::readOrMakeSalt(saltPath).value_or(FileSystem::Salt());
+            m_salt = valueOrDefault(FileSystem::readOrMakeSalt(saltPath));
         }
     });
 }
@@ -371,15 +371,10 @@ void NetworkStorageManager::createSyncAccessHandle(WebCore::FileSystemHandleIden
     if (!handle)
         return completionHandler(makeUnexpected(FileSystemStorageError::Unknown));
 
-    auto result = handle->createSyncAccessHandle();
-    auto fileHandle = result ? result.value().second : IPC::SharedFileHandle();
-    completionHandler(WTFMove(result));
-
-    // Close the file handle in network process.
-    fileHandle.close();
+    completionHandler(handle->createSyncAccessHandle());
 }
 
-void NetworkStorageManager::closeAccessHandle(WebCore::FileSystemHandleIdentifier identifier, WebCore::FileSystemSyncAccessHandleIdentifier accessHandleIdentifier, CompletionHandler<void(std::optional<FileSystemStorageError>)>&& completionHandler)
+void NetworkStorageManager::closeSyncAccessHandle(WebCore::FileSystemHandleIdentifier identifier, WebCore::FileSystemSyncAccessHandleIdentifier accessHandleIdentifier, CompletionHandler<void(std::optional<FileSystemStorageError>)>&& completionHandler)
 {
     ASSERT(!RunLoop::isMain());
 
@@ -387,7 +382,7 @@ void NetworkStorageManager::closeAccessHandle(WebCore::FileSystemHandleIdentifie
     if (!handle)
         return completionHandler(FileSystemStorageError::Unknown);
 
-    completionHandler(handle->close(accessHandleIdentifier));
+    completionHandler(handle->closeSyncAccessHandle(accessHandleIdentifier));
 }
 
 void NetworkStorageManager::getHandleNames(WebCore::FileSystemHandleIdentifier identifier, CompletionHandler<void(Expected<Vector<String>, FileSystemStorageError>)>&& completionHandler)

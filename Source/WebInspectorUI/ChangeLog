@@ -1,3 +1,319 @@
+2022-01-07  Alexey Shvayka  <ashvayka@apple.com>
+
+        Remove obsolete DOM Level 2 "DOMFocusIn" / "DOMFocusOut" events
+        https://bugs.webkit.org/show_bug.cgi?id=234978
+
+        Reviewed by Geoff Garen.
+
+        * UserInterface/Models/ScriptTimelineRecord.js:
+        (WI.ScriptTimelineRecord.EventType.displayName):
+
+2022-01-07  Patrick Angle  <pangle@apple.com>
+
+        Uncaught Exception: Cannot step over because debugger is not paused
+        https://bugs.webkit.org/show_bug.cgi?id=234575
+
+        Reviewed by Devin Rousso.
+
+        Previously keyboard shortcuts for advancing the debugger did not check to make sure that the debugger was
+        actually paused before attempting to step. This led to an uncaught exception in engineering builds. We now
+        enable and disable these keyboard shortcuts based on the whether or not the debugger is currently paused.
+
+        * UserInterface/Base/Main.js:
+
+2022-01-07  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed, reverting r287698.
+
+        Broke an internal build
+
+        Reverted changeset:
+
+        "Start using C++20"
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+        https://commits.webkit.org/r287698
+
+2022-01-06  Tim Nguyen  <ntim@apple.com>
+
+        Unprefix -webkit-print-color-adjust CSS property
+        https://bugs.webkit.org/show_bug.cgi?id=201098
+
+        Reviewed by Darin Adler.
+
+        color-adjust is also a deprecated shorthand that just contains print-color-adjust.
+
+        * UserInterface/Models/CSSKeywordCompletions.js:
+
+2022-01-06  Alex Christensen  <achristensen@webkit.org>
+
+        Start using C++20
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+
+        Reviewed by Yusuke Suzuki.
+
+        * Configurations/Base.xcconfig:
+
+2022-01-06  Razvan Caliman  <rcaliman@apple.com>
+
+        Web Inspector: `shape-outside` description doesn't make sense
+        https://bugs.webkit.org/show_bug.cgi?id=234675
+        <rdar://problem/87036546>
+
+        Reviewed by Devin Rousso.
+
+        Add the ability to overwrite CSS documentation obtained from the upstream data source
+        with information sourced from a local JSON file.
+
+        * Scripts/update-inspector-css-documentation:
+        * UserInterface/External/CSSDocumentation/CSSDocumentation-overrides.json: Added.
+        Local JSON file with fields to overwrite specific data.
+
+        * UserInterface/External/CSSDocumentation/CSSDocumentation.js:
+        Update description for `shape-outside` CSS property.
+
+2022-01-05  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Layers: add reference page button
+        https://bugs.webkit.org/show_bug.cgi?id=234901
+
+        Reviewed by Patrick Angle.
+
+        * UserInterface/Views/Layers3DContentView.js:
+        (WI.Layers3DContentView.prototype.initialLayout):
+        * UserInterface/Views/Layers3DContentView.css:
+        (.content-view.layers-3d .reference-page-link-container): Added.
+
+2022-01-05  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Audit: reference page button is not vertically aligned with Audit version text
+        https://bugs.webkit.org/show_bug.cgi?id=234900
+
+        Reviewed by Patrick Angle.
+
+        * UserInterface/Views/AuditNavigationSidebarPanel.css:
+        (.content-view.tab.audit .content-view .reference-page-link-container):
+
+2022-01-05  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: revert-layer should be autocompleted
+        https://bugs.webkit.org/show_bug.cgi?id=234646
+
+        Reviewed by Devin Rousso.
+
+        * UserInterface/Controllers/CSSManager.js:
+        * UserInterface/Models/CSSKeywordCompletions.js:
+
+2022-01-04  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Sources: expanding a grouping of blackboxed call frames should be persistent
+        https://bugs.webkit.org/show_bug.cgi?id=234614
+        <rdar://problem/86989232>
+
+        Reviewed by Patrick Angle.
+
+        If the developer has explicitly decided to show blackboxed call frames, we should respect
+        that decision. Requiring them to re-expand after _every_ debugger action is very hostile.
+        So long as the blackboxed call frames remain the same we should persist the expansion. Only
+        if the location of those blackboxed frames changes should we re-collapse.
+
+        * UserInterface/Controllers/DebuggerManager.js:
+        (WI.DebuggerManager):
+        (WI.DebuggerManager.prototype.rememberBlackboxedCallFrameGroupToAutoExpand): Added.
+        (WI.DebuggerManager.prototype.shouldAutoExpandBlackboxedCallFrameGroup): Added.
+        (WI.DebuggerManager.prototype._didResumeInternal):
+        * UserInterface/Views/BlackboxedGroupTreeElement.js:
+        (WI.BlackboxedGroupTreeElement.prototype.expand):
+        Keep a list of blackboxed call frame groupings that have been expanded by the developer.
+        Use this list to decide whether "new" blackboxed call frame grouping should be auto-expanded
+        by default (i.e. if every `WI.CallFrame` is identical with something in the list). Clear the
+        list when resuming, as we're only trying to keep expanded blackboxed call frame groupings
+        within the same call stack (i.e. while stepping).
+
+        * UserInterface/Base/Utilities.js:
+        (Array.prototype.groupBy): Deleted.
+        * UserInterface/Views/ThreadTreeElement.js:
+        (WI.ThreadTreeElement.prototype.refresh):
+        Remove the custom `Array.prototype.groupBy` since it's no longer needed (and there's now a
+        builtin function with the same name). Instead, just keep an index of the first blackboxed
+        call frame and iterate until either the end of the call stack or a non-blackboxed call frame
+        is found, `slice`ing from the saved index to the current item to make a blackboxed call
+        frame group. If that blackboxed call frame group should be auto-expanded (see above), create
+        a `WI.CallFrameTreeElement` for each blackboxed call frame instead of one `WI.BlackboxedGroupTreeElement`.
+
+        * UserInterface/Models/CallFrame.js:
+        (WI.CallFrame.prototype.isEqual): Added.
+        Add a convenience function to compare two `WI.CallFrame`. Right now it just looks at the
+        `WI.SourceCodeLocation`, since for most purposes that's really how one would identify a
+        `WI.CallFrame` (i.e. it's probably more important to know "is this the same spot in code"
+        as opposed to "do we have the same `this` object").
+
+2022-01-04  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Add icon for collapsed blackboxed section
+        https://bugs.webkit.org/show_bug.cgi?id=219806
+        <rdar://problem/72240360>
+
+        Reviewed by Patrick Angle.
+
+        * UserInterface/Views/BlackboxedGroupTreeElement.css:
+        (.tree-outline .item.blackboxed-group .icon):
+        (@media (prefers-color-scheme: dark) .tree-outline .item.blackboxed-group .icon):
+        Use `Hide.svg#black` and `Hide.svg#white`.
+
+        * UserInterface/Images/TypeIcons.svg:
+        Remove `#Blackboxed-dark` and `#Blackboxed-light`.
+
+2021-12-31  Tim Nguyen  <ntim@apple.com>
+
+        Web Inspector: fix assert text in Gradient.js
+
+        Unreviewed.
+
+        Wrong assert text was added in r287409, it should be radial instead of conic gradients.
+
+        * UserInterface/Models/Gradient.js:
+        (WI.RadialGradient.prototype.set angleValue):
+        (WI.RadialGradient.prototype.set angleUnits):
+
+2021-12-24  Tim Nguyen  <ntim@apple.com>
+
+        Remove non-standard -webkit-background-composite CSS property
+        https://bugs.webkit.org/show_bug.cgi?id=234661
+
+        Reviewed by Simon Fraser.
+
+        * UserInterface/Models/CSSKeywordCompletions.js:
+
+2021-12-24  Tim Nguyen  <ntim@apple.com>
+
+        Remove non-standard -webkit-margin-collapse CSS property and longhands
+        https://bugs.webkit.org/show_bug.cgi?id=190788
+
+        Reviewed by Simon Fraser.
+
+        * UserInterface/Models/CSSKeywordCompletions.js:
+
+2021-12-23  Tim Nguyen  <ntim@apple.com>
+
+        Web Inspector: Support conic gradients in gradient editor and autocompletion
+        https://bugs.webkit.org/show_bug.cgi?id=234562
+
+        Reviewed by Devin Rousso.
+
+        * Localizations/en.lproj/localizedStrings.js:
+        * UserInterface/Controllers/CSSManager.js:
+        * UserInterface/Models/Gradient.js:
+        (WI.Gradient.angleFromString):
+        (WI.Gradient.fromString):
+        (WI.Gradient.prototype.get angleValue):
+        (WI.Gradient.prototype.set angleValue):
+        (WI.Gradient.prototype.get angleUnits):
+        (WI.Gradient.prototype.set angleUnits):
+        (WI.Gradient.prototype._angleValueForUnits):
+        (WI.Gradient):
+        (WI.LinearGradient.fromComponents):
+        (WI.LinearGradient.prototype.toString):
+        (WI.LinearGradient):
+        (WI.RadialGradient):
+        (WI.RadialGradient.fromComponents):
+        (WI.RadialGradient.prototype.get angleValue):
+        (WI.RadialGradient.prototype.set angleValue):
+        (WI.RadialGradient.prototype.get angleUnits):
+        (WI.RadialGradient.prototype.set angleUnits):
+        (WI.RadialGradient.prototype.copy):
+        (WI.RadialGradient.prototype.toString):
+        (WI.ConicGradient):
+        (WI.ConicGradient.fromComponents):
+        (WI.ConicGradient.prototype.copy):
+        (WI.ConicGradient.prototype.toString):
+        (WI.LinearGradient.prototype.set angleValue): Deleted.
+        (WI.LinearGradient.prototype.get angleValue): Deleted.
+        (WI.LinearGradient.prototype.set angleUnits): Deleted.
+        (WI.LinearGradient.prototype.get angleUnits): Deleted.
+        (WI.LinearGradient.prototype._angleValueForUnits): Deleted.
+        * UserInterface/Views/CodeMirrorTextMarkers.js:
+        * UserInterface/Views/GradientEditor.js:
+        (WI.GradientEditor):
+        (WI.GradientEditor.prototype.set gradient):
+        (WI.GradientEditor.prototype._gradientTypeChanged):
+        * UserInterface/Views/SpreadsheetStyleProperty.js:
+        (WI.SpreadsheetStyleProperty.prototype._addGradientTokens):
+
+2021-12-23  Tim Nguyen  <ntim@apple.com>
+
+        Web Inspector: Dark mode: Make gradient editor angle input readable in dark mode
+        https://bugs.webkit.org/show_bug.cgi?id=234640
+
+        Reviewed by Devin Rousso.
+
+        Just use the native input styling, which is dark mode compatible by default.
+
+        * UserInterface/Views/GradientEditor.css:
+        (.gradient-editor > .gradient-angle > input[type="number"]):
+
+2021-12-21  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: Assertion Failed removing subview in ContentViewContainer.prototype._disassociateFromContentView
+        https://bugs.webkit.org/show_bug.cgi?id=234572
+
+        Reviewed by Devin Rousso.
+
+        r283859 accidentally removed the checks that a content view is attached before attempting to remove it, leading
+        to an assertion.
+
+        * UserInterface/Views/ContentViewContainer.js:
+        (WI.ContentViewContainer.prototype._disassociateFromContentView):
+
+2021-12-21  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: Assertion Failed adding event listener in CSSPropertyNameCompletions.prototype._updateValuesWithLatestCSSVariablesIfNeeded
+        https://bugs.webkit.org/show_bug.cgi?id=234570
+
+        Reviewed by Devin Rousso.
+
+        Adding an event listener to listen for style changes every time we update the list of CSS variables isn't quite
+        correct because it means we may attempt to add the event listener multiple times. Instead, this should be done
+        in response to the InspectedNodeChanged event directly to avoid adding the event listener multiple time to the
+        same DOM node.
+
+        * UserInterface/Models/CSSPropertyNameCompletions.js:
+        (WI.CSSPropertyNameCompletions.prototype._updateValuesWithLatestCSSVariablesIfNeeded):
+        (WI.CSSPropertyNameCompletions.prototype._handleInspectedNodeChanged):
+
+2021-12-21  Michael Saboff  <msaboff@apple.com>
+
+        Fix symlinks for alternate root framework locations
+        https://bugs.webkit.org/show_bug.cgi?id=234567
+
+        Reviewed by Filip Pizlo.
+
+        Moved OUTPUT_ALTERNATE_ROOT_PATH in create symlink script from outputFileListPaths to outputPaths.
+
+        * WebInspectorUI.xcodeproj/project.pbxproj:
+
+2021-12-16  Michael Saboff  <msaboff@apple.com>
+
+        https://bugs.webkit.org/show_bug.cgi?id=234173
+        Update Install Paths for build system changes
+
+        Reviewed by Filip Pizlo.
+
+        Added build variables and build step to create symlinks pointing to the alternate
+        build locations from the current framework install location.
+
+        * Configurations/WebInspectorUIFramework.xcconfig:
+        * Scripts/create-symlink-to-altroot.sh: Added.
+        * WebInspectorUI.xcodeproj/project.pbxproj:
+
+2021-12-16  Devin Rousso  <drousso@apple.com>
+
+        Implement Array.prototype.groupBy and Array.prototype.groupByToMap
+        https://bugs.webkit.org/show_bug.cgi?id=234327
+
+        Reviewed by Yusuke Suzuki.
+
+        * UserInterface/Models/NativeFunctionParameters.js:
+
 2021-12-14  Razvan Caliman  <rcaliman@apple.com>
 
         Web Inspector: Computed Panel: Adjust color of CSS Variables grouping mode control

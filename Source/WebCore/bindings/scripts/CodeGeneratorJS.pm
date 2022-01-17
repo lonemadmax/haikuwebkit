@@ -5210,18 +5210,18 @@ sub GenerateForEachEventHandlerContentAttribute
     AddToImplIncludes("HTMLNames.h");
     push(@$outputArray, "void ${className}::${functionName}(const Function<void(const AtomString& attributeName, const AtomString& eventName)>& function)\n");
     push(@$outputArray, "{\n");
-    push(@$outputArray, "    static constexpr std::pair<LazyNeverDestroyed<const QualifiedName>*, const AtomString EventNames::*> table[] = {\n");
+    push(@$outputArray, "    static constexpr std::pair<decltype(HTMLNames::altAttr)&, const AtomString EventNames::*> table[] = {\n");
     foreach my $attribute (@{$interface->attributes}) {
         if ($attribute->type->name eq "EventHandler" && (!defined $eventHandlerExtendedAttributeName || $attribute->extendedAttributes->{$eventHandlerExtendedAttributeName})) {
             my $attributeName = $attribute->name;
             my $eventName = EventHandlerAttributeShortEventName($attribute);
-            push(@$outputArray, "        { &HTMLNames::${attributeName}Attr, &EventNames::${eventName} },\n");
+            push(@$outputArray, "        { HTMLNames::${attributeName}Attr, &EventNames::${eventName} },\n");
         }
     }
     push(@$outputArray, "    };\n");
     push(@$outputArray, "    auto& eventNames = WebCore::eventNames();\n");
     push(@$outputArray, "    for (auto& names : table)\n");
-    push(@$outputArray, "        function(names.first->get().localName(), eventNames.*names.second);\n");
+    push(@$outputArray, "        function(names.first.get().localName(), eventNames.*names.second);\n");
     push(@$outputArray, "}\n\n");
 }
 
@@ -5269,9 +5269,7 @@ sub GenerateAttributeGetterBodyDefinition
         push(@$outputArray, "    return thisObject.${implGetterFunctionName}(lexicalGlobalObject);\n");
     } elsif ($isEventHandler) {
         $implIncludes{"EventNames.h"} = 1;
-        my $getter = $attribute->extendedAttributes->{WindowEventHandler} ? "windowEventHandlerAttribute"
-            : $attribute->extendedAttributes->{DocumentEventHandler} ? "documentEventHandlerAttribute"
-            : "eventHandlerAttribute";
+        my $getter = $attribute->extendedAttributes->{WindowEventHandler} ? "windowEventHandlerAttribute" : "eventHandlerAttribute";
         my $eventName = EventHandlerAttributeEventName($attribute);
         push(@$outputArray, "    return $getter(thisObject.wrapped(), $eventName, worldForDOMObject(thisObject));\n");
     } elsif ($isConstructor) {
@@ -5440,13 +5438,11 @@ sub GenerateAttributeSetterBodyDefinition
         # FIXME: Find a way to do this special case without hardcoding the class and attribute names here.
         if (($interface->type->name eq "DOMWindow" or $interface->type->name eq "WorkerGlobalScope") and $attribute->name eq "onerror") {
             AddToImplIncludes("JSErrorHandler.h", $conditional);
-            push(@$outputArray, "    thisObject.wrapped().setAttributeEventListener($eventName, createJSErrorHandler(lexicalGlobalObject, value, thisObject), worldForDOMObject(thisObject));\n");
+            push(@$outputArray, "    setEventHandlerAttribute<JSErrorHandler>(thisObject.wrapped(), ${eventName}, value, thisObject);\n");
         } else {
             AddToImplIncludes("JSEventListener.h", $conditional);
-            my $setter = $attribute->extendedAttributes->{WindowEventHandler} ? "setWindowEventHandlerAttribute"
-                : $attribute->extendedAttributes->{DocumentEventHandler} ? "setDocumentEventHandlerAttribute"
-                : "setEventHandlerAttribute";
-            push(@$outputArray, "    $setter(lexicalGlobalObject, thisObject, thisObject.wrapped(), ${eventName}, value);\n");
+            my $setter = $attribute->extendedAttributes->{WindowEventHandler} ? "setWindowEventHandlerAttribute" : "setEventHandlerAttribute";
+            push(@$outputArray, "    $setter<JSEventListener>(thisObject.wrapped(), ${eventName}, value, thisObject);\n");
         }
         push(@$outputArray, "    vm.writeBarrier(&thisObject, value);\n");
         push(@$outputArray, "    ensureStillAliveHere(value);\n\n");
@@ -5973,10 +5969,6 @@ sub GenerateCallWith
     $indent ||= "    ";
 
     my @callWithArgs;
-    if ($codeGenerator->ExtendedAttributeContains($callWith, "ExecState")) {
-        push(@callWithArgs, "*${globalObject}");
-        push(@callWithArgs, $callFrameReference);
-    }
     # Global object of current realm (https://html.spec.whatwg.org/multipage/webappapis.html#concept-current-everything)
     if ($codeGenerator->ExtendedAttributeContains($callWith, "GlobalObject")) {
         push(@callWithArgs, "*${globalObject}");
@@ -7733,7 +7725,8 @@ sub GenerateConstructorDefinition
             my $functionString = GenerateParametersCheck($outputArray, $operation, $interface, $functionImplementationName, "    ");
 
             push(@$outputArray, "    auto object = ${functionString};\n");
-            push(@$outputArray, "    RETURN_IF_EXCEPTION(throwScope, encodedJSValue());\n") if $codeGenerator->ExtendedAttributeContains($interface->extendedAttributes->{CallWith}, "ExecState");
+            push(@$outputArray, "    if constexpr (IsExceptionOr<decltype(object)>)\n");
+            push(@$outputArray, "        RETURN_IF_EXCEPTION(throwScope, { });\n");
 
             push(@$outputArray, "    static_assert(TypeOrExceptionOrUnderlyingType<decltype(object)>::isRef);\n");
 

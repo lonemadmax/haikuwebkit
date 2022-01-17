@@ -289,15 +289,6 @@ void WebPageProxy::setPromisedDataForImage(const String& pasteboardName, const S
 
 #endif
 
-// Complex text input support for plug-ins.
-void WebPageProxy::sendComplexTextInputToPlugin(uint64_t pluginComplexTextInputIdentifier, const String& textInput)
-{
-    if (!hasRunningProcess())
-        return;
-    
-    send(Messages::WebPage::SendComplexTextInputToPlugin(pluginComplexTextInputIdentifier, textInput));
-}
-
 void WebPageProxy::uppercaseWord()
 {
     send(Messages::WebPage::UppercaseWord());
@@ -359,11 +350,6 @@ void WebPageProxy::registerUIProcessAccessibilityTokens(const IPC::DataReference
     send(Messages::WebPage::RegisterUIProcessAccessibilityTokens(elementToken, windowToken));
 }
 
-void WebPageProxy::pluginFocusOrWindowFocusChanged(uint64_t pluginComplexTextInputIdentifier, bool pluginHasFocusAndWindowHasFocus)
-{
-    pageClient().pluginFocusOrWindowFocusChanged(pluginComplexTextInputIdentifier, pluginHasFocusAndWindowHasFocus);
-}
-
 void WebPageProxy::executeSavedCommandBySelector(const String& selector, CompletionHandler<void(bool)>&& completionHandler)
 {
     MESSAGE_CHECK(isValidKeypressCommandName(selector));
@@ -417,16 +403,14 @@ CALayer *WebPageProxy::acceleratedCompositingRootLayer() const
 
 static NSString *temporaryPDFDirectoryPath()
 {
-    static auto temporaryPDFDirectoryPath = makeNeverDestroyed([] {
-        NSString *temporaryDirectoryTemplate = [NSTemporaryDirectory() stringByAppendingPathComponent:@"WebKitPDFs-XXXXXX"];
+    static NeverDestroyed path = [] {
+        auto temporaryDirectoryTemplate = [NSTemporaryDirectory() stringByAppendingPathComponent:@"WebKitPDFs-XXXXXX"];
         CString templateRepresentation = [temporaryDirectoryTemplate fileSystemRepresentation];
-
         if (mkdtemp(templateRepresentation.mutableData()))
             return adoptNS([[[NSFileManager defaultManager] stringWithFileSystemRepresentation:templateRepresentation.data() length:templateRepresentation.length()] copy]);
         return RetainPtr<id> { };
-    }());
-
-    return temporaryPDFDirectoryPath.get().get();
+    }();
+    return path.get().get();
 }
 
 static NSString *pathToPDFOnDisk(const String& suggestedFilename)

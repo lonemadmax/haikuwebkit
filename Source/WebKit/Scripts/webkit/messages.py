@@ -140,14 +140,6 @@ def function_parameter_type(type, kind):
     return 'const %s&' % type
 
 
-def reply_type(type):
-    if type == 'IPC::SharedBufferDataReference':
-        return 'IPC::DataReference'
-    if type == 'std::optional<IPC::SharedBufferDataReference>':
-        return 'std::optional<IPC::DataReference>'
-    return type
-
-
 def reply_parameter_type(type):
     return '%s&' % type
 
@@ -165,7 +157,7 @@ def reply_tuple(message):
 
 
 def reply_arguments_type(message):
-    return 'std::tuple<%s>' % (', '.join(reply_type(parameter.type) for parameter in message.reply_parameters))
+    return 'std::tuple<%s>' % (', '.join(parameter.type for parameter in message.reply_parameters))
 
 
 def message_to_reply_forward_declaration(message):
@@ -207,7 +199,7 @@ def message_to_struct_declaration(receiver, message):
         send_parameters = [(function_parameter_type(x.type, x.kind), x.name) for x in message.reply_parameters]
         completion_handler_parameters = '%s' % ', '.join([' '.join(x) for x in send_parameters])
         if message.has_attribute(ASYNC_ATTRIBUTE):
-            move_parameters = ', '.join([move_type(reply_type(x.type)) for x in message.reply_parameters])
+            move_parameters = ', '.join([move_type(x.type) for x in message.reply_parameters])
             result.append('    static void callReply(IPC::Decoder&, CompletionHandler<void(%s)>&&);\n' % move_parameters)
             result.append('    static void cancelReply(CompletionHandler<void(%s)>&&);\n' % move_parameters)
             result.append('    static IPC::MessageName asyncMessageReplyName() { return IPC::MessageName::%s_%sReply; }\n' % (receiver.name, message.name))
@@ -291,6 +283,7 @@ def types_that_cannot_be_forward_declared():
         'WebCore::MediaKeySystemRequestIdentifier',
         'WebCore::MediaPlayerIdentifier',
         'WebCore::MediaSessionIdentifier',
+        'WebCore::ModalContainerControlType',
         'WebCore::NativeImageReference',
         'WebCore::PageIdentifier',
         'WebCore::PlaybackTargetClientContextIdentifier',
@@ -361,6 +354,7 @@ def types_that_cannot_be_forward_declared():
         'WebKit::TransactionID',
         'WebKit::UserContentControllerIdentifier',
         'WebKit::WCLayerTreeHostIdentifier',
+        'WebKit::WCContentBufferIdentifier',
         'WebKit::WebGPUIdentifier',
         'WebKit::WebPageProxyIdentifier',
         'WebKit::WebURLSchemeHandlerIdentifier',
@@ -373,6 +367,7 @@ def conditions_for_header(header):
         '"InputMethodState.h"': ["PLATFORM(GTK)", "PLATFORM(WPE)"],
         '"LayerHostingContext.h"': ["PLATFORM(COCOA)", ],
         '"GestureTypes.h"': ["PLATFORM(IOS_FAMILY)"],
+        '"WCContentBufferIdentifier.h"': ["USE(GRAPHICS_LAYER_WC)"],
         '"WCLayerTreeHostIdentifier.h"': ["USE(GRAPHICS_LAYER_WC)"],
         '<WebCore/CVUtilities.h>': ["PLATFORM(COCOA)", ],
         '<WebCore/DataDetectorType.h>': ["ENABLE(DATA_DETECTION)"],
@@ -454,6 +449,7 @@ def forward_declarations_and_headers_for_replies(receiver):
         'MachSendRight',
         'MediaTime',
         'String',
+        'UUID',
     ])
 
     no_forward_declaration_types = types_that_cannot_be_forward_declared()
@@ -748,6 +744,7 @@ def headers_for_type(type):
         'Seconds': ['<wtf/Seconds.h>'],
         'String': ['<wtf/text/WTFString.h>'],
         'URL': ['<wtf/URLHash.h>'],
+        'UUID': ['<wtf/UUID.h>'],
         'WallTime': ['<wtf/WallTime.h>'],
         'WebCore::ArcData': ['<WebCore/InlinePathData.h>'],
         'WebCore::AutoplayEventFlags': ['<WebCore/AutoplayEvent.h>'],
@@ -799,6 +796,8 @@ def headers_for_type(type):
         'WebCore::MediaProducerMediaState': ['<WebCore/MediaProducer.h>'],
         'WebCore::MediaProducerMutedState': ['<WebCore/MediaProducer.h>'],
         'WebCore::MessagePortChannelProvider::HasActivity': ['<WebCore/MessagePortChannelProvider.h>'],
+        'WebCore::ModalContainerControlType': ['<WebCore/ModalContainerTypes.h>'],
+        'WebCore::ModalContainerDecision': ['<WebCore/ModalContainerTypes.h>'],
         'WebCore::MouseEventPolicy': ['<WebCore/DocumentLoader.h>'],
         'WebCore::MoveData': ['<WebCore/InlinePathData.h>'],
         'WebCore::NetworkTransactionInformation': ['<WebCore/NetworkLoadInformation.h>'],
@@ -1070,10 +1069,10 @@ def generate_message_handler(receiver):
                 result.append('#if %s\n\n' % message.condition)
 
             if message.has_attribute(ASYNC_ATTRIBUTE):
-                move_parameters = message.name, ', '.join([move_type(reply_type(x.type)) for x in message.reply_parameters])
+                move_parameters = message.name, ', '.join([move_type(x.type) for x in message.reply_parameters])
                 result.append('void %s::callReply(IPC::Decoder& decoder, CompletionHandler<void(%s)>&& completionHandler)\n{\n' % move_parameters)
                 for x in message.reply_parameters:
-                    result.append('    std::optional<%s> %s;\n' % (reply_type(x.type), x.name))
+                    result.append('    std::optional<%s> %s;\n' % (x.type, x.name))
                     result.append('    decoder >> %s;\n' % x.name)
                     result.append('    if (!%s) {\n        ASSERT_NOT_REACHED();\n        cancelReply(WTFMove(completionHandler));\n        return;\n    }\n' % x.name)
                 result.append('    completionHandler(')
@@ -1081,7 +1080,7 @@ def generate_message_handler(receiver):
                     result.append('WTFMove(*%s)' % ('), WTFMove(*'.join(x.name for x in message.reply_parameters)))
                 result.append(');\n}\n\n')
                 result.append('void %s::cancelReply(CompletionHandler<void(%s)>&& completionHandler)\n{\n    completionHandler(' % move_parameters)
-                result.append(', '.join(['IPC::AsyncReplyError<' + reply_type(x.type) + '>::create()' for x in message.reply_parameters]))
+                result.append(', '.join(['IPC::AsyncReplyError<' + x.type + '>::create()' for x in message.reply_parameters]))
                 result.append(');\n}\n\n')
 
             result.append('void %s::send(UniqueRef<IPC::Encoder>&& encoder, IPC::Connection& connection' % (message.name))

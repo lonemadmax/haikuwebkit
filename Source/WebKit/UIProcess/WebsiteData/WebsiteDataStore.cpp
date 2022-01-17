@@ -1723,6 +1723,17 @@ void WebsiteDataStore::setPrivateClickMeasurementDebugMode(bool enabled)
     networkProcess().setPrivateClickMeasurementDebugMode(sessionID(), enabled);
 }
 
+void WebsiteDataStore::closeDatabases(CompletionHandler<void()>&& completionHandler)
+{
+    auto callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
+
+    networkProcess().sendWithAsyncReply(Messages::NetworkProcess::ClosePCMDatabase(m_sessionID), [callbackAggregator] { });
+
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
+    networkProcess().sendWithAsyncReply(Messages::NetworkProcess::CloseITPDatabase(m_sessionID), [callbackAggregator] { });
+#endif
+}
+
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 void WebsiteDataStore::logTestingEvent(const String& event)
 {
@@ -1826,7 +1837,7 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
     HashSet<WebCore::RegistrableDomain> appBoundDomains;
 #if ENABLE(APP_BOUND_DOMAINS)
     if (isAppBoundITPRelaxationEnabled)
-        appBoundDomains = appBoundDomainsIfInitialized().value_or(HashSet<WebCore::RegistrableDomain> { });
+        appBoundDomains = valueOrDefault(appBoundDomainsIfInitialized());
 #endif
     WebCore::RegistrableDomain resourceLoadStatisticsManualPrevalentResource;
     ResourceLoadStatisticsParameters resourceLoadStatisticsParameters = {
@@ -1880,6 +1891,9 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
     networkSessionParameters.allowsHSTSWithUntrustedRootCertificate = m_configuration->allowsHSTSWithUntrustedRootCertificate();
     networkSessionParameters.pcmMachServiceName = m_configuration->pcmMachServiceName();
     networkSessionParameters.webPushMachServiceName = m_configuration->webPushMachServiceName();
+#if !HAVE(NSURLSESSION_WEBSOCKET)
+    networkSessionParameters.shouldAcceptInsecureCertificatesForWebSockets = m_configuration->shouldAcceptInsecureCertificatesForWebSockets();
+#endif
 
     parameters.networkSessionParameters = WTFMove(networkSessionParameters);
 
@@ -1903,12 +1917,13 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
     auto localStorageDirectory = resolvedLocalStorageDirectory();
     if (!localStorageDirectory.isEmpty()) {
         parameters.localStorageDirectory = localStorageDirectory;
-#if PLATFORM(IOS_FAMILY)
-        excludeDirectoryFromBackup(localStorageDirectory);
-#endif
         // FIXME: SandboxExtension::createHandleForReadWriteDirectory resolves the directory, but that has already been done. Remove this duplicate work.
         if (auto handle = SandboxExtension::createHandleForReadWriteDirectory(localStorageDirectory))
             parameters.localStorageDirectoryExtensionHandle = WTFMove(*handle);
+#if PLATFORM(IOS_FAMILY)
+        FileSystem::makeAllDirectories(localStorageDirectory);
+        FileSystem::excludeFromBackup(localStorageDirectory);
+#endif
     }
 
     auto cacheStorageDirectory = this->cacheStorageDirectory();

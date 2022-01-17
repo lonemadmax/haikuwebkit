@@ -60,6 +60,7 @@
 #include "NodeRenderStyle.h"
 #include "Page.h"
 #include "PlatformMouseEvent.h"
+#include "PseudoClassChangeInvalidation.h"
 #include "RenderTextControlSingleLine.h"
 #include "RenderTheme.h"
 #include "ScopedEventQueue.h"
@@ -390,7 +391,7 @@ bool HTMLInputElement::stepMismatch() const
     return m_inputType->stepMismatch(value());
 }
 
-bool HTMLInputElement::isValid() const
+bool HTMLInputElement::computeValidity() const
 {
     String value = this->value();
     bool someError = m_inputType->isInvalid(value) || tooShort(value, CheckDirtyFlag) || tooLong(value, CheckDirtyFlag) || customError();
@@ -797,7 +798,6 @@ void HTMLInputElement::parseAttribute(const QualifiedName& name, const AtomStrin
     } else if (name == checkedAttr) {
         if (m_inputType->isCheckable())
             invalidateStyleForSubtree();
-
         // Another radio button in the same group might be checked by state
         // restore. We shouldn't call setChecked() even if this has the checked
         // attribute. So, delay the setChecked() call until
@@ -975,16 +975,17 @@ bool HTMLInputElement::isTextType() const
     return m_inputType->isTextType();
 }
 
-void HTMLInputElement::setChecked(bool nowChecked)
+void HTMLInputElement::setChecked(bool isChecked)
 {
-    if (checked() == nowChecked)
+    if (checked() == isChecked)
         return;
 
-    m_inputType->willUpdateCheckedness(nowChecked);
+    m_inputType->willUpdateCheckedness(isChecked);
+
+    Style::PseudoClassChangeInvalidation checkedInvalidation(*this, CSSSelector::PseudoClassChecked, isChecked);
 
     m_dirtyCheckednessFlag = true;
-    m_isChecked = nowChecked;
-    invalidateStyleForSubtree();
+    m_isChecked = isChecked;
 
     if (RadioButtonGroups* buttons = radioButtonGroups())
         buttons->updateCheckedState(*this);
@@ -999,8 +1000,6 @@ void HTMLInputElement::setChecked(bool nowChecked)
         if (AXObjectCache* cache = renderer()->document().existingAXObjectCache())
             cache->checkedStateChanged(this);
     }
-
-    invalidateStyleForSubtree();
 }
 
 void HTMLInputElement::setIndeterminate(bool newValue)

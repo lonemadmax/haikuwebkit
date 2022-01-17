@@ -48,6 +48,14 @@ Animation::Animation()
     , m_timingFunctionSet(false)
     , m_compositeOperationSet(false)
     , m_isNone(false)
+    , m_delayFilled(false)
+    , m_directionFilled(false)
+    , m_durationFilled(false)
+    , m_fillModeFilled(false)
+    , m_iterationCountFilled(false)
+    , m_playStateFilled(false)
+    , m_propertyFilled(false)
+    , m_timingFunctionFilled(false)
 {
 }
 
@@ -75,36 +83,15 @@ Animation::Animation(const Animation& o)
     , m_timingFunctionSet(o.m_timingFunctionSet)
     , m_compositeOperationSet(o.m_compositeOperationSet)
     , m_isNone(o.m_isNone)
+    , m_delayFilled(o.m_delayFilled)
+    , m_directionFilled(o.m_directionFilled)
+    , m_durationFilled(o.m_durationFilled)
+    , m_fillModeFilled(o.m_fillModeFilled)
+    , m_iterationCountFilled(o.m_iterationCountFilled)
+    , m_playStateFilled(o.m_playStateFilled)
+    , m_propertyFilled(o.m_propertyFilled)
+    , m_timingFunctionFilled(o.m_timingFunctionFilled)
 {
-}
-
-Animation& Animation::operator=(const Animation& o)
-{
-    m_name = o.m_name;
-    m_iterationCount = o.m_iterationCount;
-    m_delay = o.m_delay;
-    m_duration = o.m_duration;
-    m_timingFunction = o.m_timingFunction;
-    m_nameStyleScopeOrdinal = o.m_nameStyleScopeOrdinal;
-    m_property = o.m_property;
-    m_direction = o.m_direction;
-    m_fillMode = o.m_fillMode;
-    m_playState = o.m_playState;
-    m_compositeOperation = o.m_compositeOperation;
-
-    m_delaySet = o.m_delaySet;
-    m_directionSet = o.m_directionSet;
-    m_durationSet = o.m_durationSet;
-    m_fillModeSet = o.m_fillModeSet;
-    m_iterationCountSet = o.m_iterationCountSet;
-    m_nameSet = o.m_nameSet;
-    m_playStateSet = o.m_playStateSet;
-    m_propertySet = o.m_propertySet;
-    m_timingFunctionSet = o.m_timingFunctionSet;
-    m_compositeOperationSet = o.m_compositeOperationSet;
-    m_isNone = o.m_isNone;
-
-    return *this;
 }
 
 Animation::~Animation() = default;

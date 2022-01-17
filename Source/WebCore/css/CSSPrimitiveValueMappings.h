@@ -634,7 +634,8 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ControlPart e)
 #endif
 #if ENABLE(SERVICE_CONTROLS)
     case ImageControlsButtonPart:
-        m_value.valueID = CSSValueInternalImageControlsButton;
+        ASSERT_NOT_REACHED();
+        m_value.valueID = CSSValueNone;
         break;
 #endif
 #if ENABLE(APPLE_PAY)
@@ -1802,42 +1803,6 @@ template<> inline CSSPrimitiveValue::operator ListStyleType() const
     default:
         return static_cast<ListStyleType>(m_value.valueID - CSSValueDisc);
     }
-}
-
-template<> inline CSSPrimitiveValue::CSSPrimitiveValue(MarginCollapse e)
-    : CSSValue(PrimitiveClass)
-{
-    setPrimitiveUnitType(CSSUnitType::CSS_VALUE_ID);
-    switch (e) {
-    case MarginCollapse::Collapse:
-        m_value.valueID = CSSValueCollapse;
-        break;
-    case MarginCollapse::Separate:
-        m_value.valueID = CSSValueSeparate;
-        break;
-    case MarginCollapse::Discard:
-        m_value.valueID = CSSValueDiscard;
-        break;
-    }
-}
-
-template<> inline CSSPrimitiveValue::operator MarginCollapse() const
-{
-    ASSERT(isValueID());
-
-    switch (m_value.valueID) {
-    case CSSValueCollapse:
-        return MarginCollapse::Collapse;
-    case CSSValueSeparate:
-        return MarginCollapse::Separate;
-    case CSSValueDiscard:
-        return MarginCollapse::Discard;
-    default:
-        break;
-    }
-
-    ASSERT_NOT_REACHED();
-    return MarginCollapse::Collapse;
 }
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(MarqueeBehavior e)
@@ -3138,8 +3103,8 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(TextCombine e)
     case TextCombine::None:
         m_value.valueID = CSSValueNone;
         break;
-    case TextCombine::Horizontal:
-        m_value.valueID = CSSValueHorizontal;
+    case TextCombine::All:
+        m_value.valueID = CSSValueAll;
         break;
     }
 }
@@ -3151,8 +3116,9 @@ template<> inline CSSPrimitiveValue::operator TextCombine() const
     switch (m_value.valueID) {
     case CSSValueNone:
         return TextCombine::None;
-    case CSSValueHorizontal:
-        return TextCombine::Horizontal;
+    case CSSValueAll:
+    case CSSValueHorizontal: // -webkit-text-combine only
+        return TextCombine::All;
     default:
         break;
     }

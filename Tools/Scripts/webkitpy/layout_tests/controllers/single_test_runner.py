@@ -349,7 +349,7 @@ class SingleTestRunner(object):
         test_output = self._driver.run_test(driver_input, self._stop_when_done)
 
         test_full_path = self._port.abspath_for_test(self._test_name)
-        test_result = self._compare_output_with_reference(reference_output, test_output, test_full_path, False)
+        test_result = self._compare_output_with_reference(reference_output, test_output, test_full_path, False, allow_fuzzy_tolerance=False)
 
         assert(reference_output)
         test_result_writer.write_test_result(self._filesystem, self._port, self._results_directory, self._test_name, test_output, reference_output, test_result.failures)
@@ -370,7 +370,7 @@ class SingleTestRunner(object):
         test_parser = TestParser({'all': True}, filename=test_full_path, host=self._port.host)
         fuzzy = test_parser.fuzzy_metadata()
         if not fuzzy:
-            return {'maxDifference': [0, 0], 'totalPixels': [0, 0]}
+            return None
 
         reference_relative_path = self._relative_reference_path(test_full_path, reference_full_path)
         tolerance = [[0, 0], [0, 0]]
@@ -395,7 +395,7 @@ class SingleTestRunner(object):
         # https://web-platform-tests.org/writing-tests/reftests.html says "in the range" but isn't precise about whether the upper bound is included.
         return actualMaxDifference >= maxDifferenceMin and actualMaxDifference <= maxDifferenceMax and actualTotalPixels >= totalPixelsMin and actualTotalPixels <= totalPixelsMax
 
-    def _compare_output_with_reference(self, reference_driver_output, actual_driver_output, reference_filename, mismatch):
+    def _compare_output_with_reference(self, reference_driver_output, actual_driver_output, reference_filename, mismatch, allow_fuzzy_tolerance=True):
         total_test_time = reference_driver_output.test_time + actual_driver_output.test_time
         has_stderr = reference_driver_output.has_stderr() or actual_driver_output.has_stderr()
         failures = []
@@ -403,6 +403,7 @@ class SingleTestRunner(object):
         if failures:
             # Don't continue any more if we already have crash or timeout.
             return TestResult(self._test_input, failures, total_test_time, has_stderr)
+
         failures.extend(self._handle_error(reference_driver_output, reference_filename=reference_filename))
         if failures:
             return TestResult(self._test_input, failures, total_test_time, has_stderr, pid=actual_driver_output.pid)
@@ -410,14 +411,31 @@ class SingleTestRunner(object):
         if not reference_driver_output.image_hash and not actual_driver_output.image_hash:
             failures.append(test_failures.FailureReftestNoImagesGenerated(reference_filename))
         elif mismatch:
-            # Calling image_hash is considered unnecessary for expected mismatch ref tests.
-            if reference_driver_output.image_hash == actual_driver_output.image_hash:
-                failures.append(test_failures.FailureReftestMismatchDidNotOccur(reference_filename))
+            fuzzy_tolerance = None
+            if allow_fuzzy_tolerance:
+                fuzzy_tolerance = self._fuzzy_tolerance_for_reference(reference_filename)
+            if fuzzy_tolerance:
+                diff_result = self._port.diff_image(reference_driver_output.image, actual_driver_output.image, tolerance=0)
+                match_within_tolerance = self._test_passes_fuzzy_matching(fuzzy_tolerance, diff_result.fuzzy_data)
+                _log.debug('{} expected mismatch: allowed fuzziness {}, actual difference {}: matched {}'.format(self._test_name, fuzzy_tolerance, diff_result.fuzzy_data, match_within_tolerance))
+                if match_within_tolerance:
+                    # FIXME: we could store and show the diff image for mismatch failures.
+                    failures.append(test_failures.FailureReftestMismatchDidNotOccur(reference_filename))
+            else:
+                # Calling image_hash is considered unnecessary for expected mismatch ref tests.
+                if reference_driver_output.image_hash == actual_driver_output.image_hash:
+                    failures.append(test_failures.FailureReftestMismatchDidNotOccur(reference_filename))
+
         elif reference_driver_output.image_hash != actual_driver_output.image_hash:
             # ImageDiff has a hard coded color distance threshold even though tolerance=0 is specified.
             diff_result = self._port.diff_image(reference_driver_output.image, actual_driver_output.image, tolerance=0)
 
-            # FIXME: use the result of _fuzzy_tolerance_for_reference to allow for pass or fail based on fuzzy matching. webkit.org/b/149828
+            fuzzy_tolerance = None
+            if allow_fuzzy_tolerance:
+                fuzzy_tolerance = self._fuzzy_tolerance_for_reference(reference_filename)
+            if fuzzy_tolerance:
+                diff_result.passed = self._test_passes_fuzzy_matching(fuzzy_tolerance, diff_result.fuzzy_data)
+                _log.debug('{} allowed fuzziness {}, actual difference {}: pass {}'.format(self._test_name, fuzzy_tolerance, diff_result.fuzzy_data, diff_result.passed))
 
             if not diff_result.passed:
                 failures.append(test_failures.FailureReftestMismatch(reference_filename, diff_result))

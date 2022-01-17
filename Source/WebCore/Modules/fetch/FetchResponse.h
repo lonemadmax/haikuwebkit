@@ -57,7 +57,7 @@ public:
         std::optional<FetchHeaders::Init> headers;
     };
 
-    WEBCORE_EXPORT static Ref<FetchResponse> create(ScriptExecutionContext&, std::optional<FetchBody>&&, FetchHeaders::Guard, ResourceResponse&&);
+    WEBCORE_EXPORT static Ref<FetchResponse> create(ScriptExecutionContext*, std::optional<FetchBody>&&, FetchHeaders::Guard, ResourceResponse&&);
 
     static ExceptionOr<Ref<FetchResponse>> create(ScriptExecutionContext&, std::optional<FetchBody::Init>&&, Init&&);
     static Ref<FetchResponse> error(ScriptExecutionContext&);
@@ -112,7 +112,7 @@ public:
     bool hasWasmMIMEType() const;
 
 private:
-    FetchResponse(ScriptExecutionContext&, std::optional<FetchBody>&&, Ref<FetchHeaders>&&, ResourceResponse&&);
+    FetchResponse(ScriptExecutionContext*, std::optional<FetchBody>&&, Ref<FetchHeaders>&&, ResourceResponse&&);
 
     void stop() final;
     const char* activeDOMObjectName() const final;
@@ -143,7 +143,7 @@ private:
         void didSucceed() final;
         void didFail(const ResourceError&) final;
         void didReceiveResponse(const ResourceResponse&) final;
-        void didReceiveData(const uint8_t*, size_t) final;
+        void didReceiveData(const SharedBuffer&) final;
 
         FetchResponse& m_response;
         NotificationCallback m_responseCallback;

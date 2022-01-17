@@ -44,8 +44,6 @@ namespace WebCore {
     macro(DOMActivate) \
     macro(DOMCharacterDataModified) \
     macro(DOMContentLoaded) \
-    macro(DOMFocusIn) \
-    macro(DOMFocusOut) \
     macro(DOMNodeInserted) \
     macro(DOMNodeInsertedIntoDocument) \
     macro(DOMNodeRemoved) \
@@ -190,6 +188,8 @@ namespace WebCore {
     macro(negotiationneeded) \
     macro(nexttrack) \
     macro(nomatch) \
+    macro(notificationclick) \
+    macro(notificationclose) \
     macro(noupdate) \
     macro(obsolete) \
     macro(offline) \

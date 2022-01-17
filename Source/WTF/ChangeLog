@@ -1,3 +1,703 @@
+2022-01-10  Youenn Fablet  <youenn@apple.com>
+
+        Compile out ENABLE_MEDIA_CAPTURE on WATCHOS and APPLETV
+        https://bugs.webkit.org/show_bug.cgi?id=234946
+        <rdar://87126228>
+
+        Reviewed by Sam Weinig.
+
+        * wtf/PlatformEnableCocoa.h:
+
+2022-01-09  Sam Weinig  <weinig@apple.com>
+
+        Remove support for Direct2D
+        https://bugs.webkit.org/show_bug.cgi?id=234999
+
+        Reviewed by Darin Adler.
+
+        * wtf/PlatformFTW.cmake: Removed.
+
+2022-01-09  Sam Weinig  <weinig@apple.com>
+
+        Add helpers to access CoreGraphics color spaces more easily in generic contexts
+        https://bugs.webkit.org/show_bug.cgi?id=235004
+
+        Reviewed by Darin Adler.
+
+        * wtf/PlatformHave.h:
+        Update have macro, HAVE_CORE_GRAPHICS_XYZ_COLOR_SPACE, to have a more specific name,
+        HAVE_CORE_GRAPHICS_XYZ_D50_COLOR_SPACE, which is really what it is.
+
+2022-01-07  Tim Horton  <timothy_horton@apple.com>
+
+        Adopt linkedOnOrAfter() in more places
+        https://bugs.webkit.org/show_bug.cgi?id=234951
+
+        Reviewed by Wenson Hsieh.
+
+        * wtf/cocoa/LanguageCocoa.mm:
+        (WTF::canMinimizeLanguages):
+        Adopt linkedOnOrAfter and simplify.
+
+        * wtf/cocoa/RuntimeApplicationChecksCocoa.h:
+        The weird mismatch between the iOS and macOS values for FirstVersionThatSupportsInitConstructors
+        is correct; the iOS version was bumped in r202670.
+
+2022-01-07  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed, reverting r287698.
+
+        Broke an internal build
+
+        Reverted changeset:
+
+        "Start using C++20"
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+        https://commits.webkit.org/r287698
+
+2022-01-07  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed, reverting r287718.
+
+        Broke an internal build
+
+        Reverted changeset:
+
+        "[PlayStation] Fix build break after r287698"
+        https://bugs.webkit.org/show_bug.cgi?id=234931
+        https://commits.webkit.org/r287718
+
+2022-01-06  Tim Horton  <timothy_horton@apple.com>
+
+        Move linkedOnOrAfter() to WTF
+        https://bugs.webkit.org/show_bug.cgi?id=234942
+
+        Reviewed by Darin Adler.
+
+        Move linkedOnOrAfter() and the associated SDKVersion enum to WTF from WebCore.
+        This precedes a series of patches that will adopt it in WTF and JavaScriptCore,
+        and then replace the underlying mechanism with a slightly more flexible one.
+
+        * wtf/cocoa/RuntimeApplicationChecksCocoa.cpp:
+        (WTF::linkedOnOrAfter):
+        * wtf/cocoa/RuntimeApplicationChecksCocoa.h:
+
+2022-01-06  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Add a helper function that returns the value of a std::optional<T> or constructs T if needed
+        https://bugs.webkit.org/show_bug.cgi?id=234865
+
+        Reviewed by Darin Adler.
+
+        Add a new helper function that returns the value of a given `std::optional<Type>` if it exists, and otherwise
+        constructs and returns `Type { }`. Currently, the alternative to this is writing out the `Type { }` in full when
+        passing in an argument to `value_or`; using this avoids some redundancy and makes the expression a bit easier to
+        read.
+
+        * wtf/StdLibExtras.h:
+        (WTF::valueOrDefault):
+
+2022-01-06  Tim Horton  <timothy_horton@apple.com>
+
+        Separate "linked-on-or-{before, after}-everything" override from the SDK version
+        https://bugs.webkit.org/show_bug.cgi?id=234930
+
+        Reviewed by Wenson Hsieh.
+
+        * wtf/cocoa/RuntimeApplicationChecksCocoa.cpp:
+        (WTF::linkedOnOrAfterOverrideValue):
+        (WTF::setLinkedOnOrAfterOverride):
+        (WTF::linkedOnOrAfterOverride):
+        * wtf/cocoa/RuntimeApplicationChecksCocoa.h:
+        Add an explicit optional bit for "this application should pretend to be
+        linked on or {after, before} everything" instead of just overriding the
+        SDK version. This is a prerequisite for getting rid of applicationSDKVersion(),
+        which will happen in a future patch.
+
+        This is in WTF because linkedOnOrAfter() is going to move here in a
+        future patch as well.
+
+2022-01-06  Stephan Szabo  <stephan.szabo@sony.com>
+
+        [PlayStation] Fix build break after r287698
+        https://bugs.webkit.org/show_bug.cgi?id=234931
+
+        Unreviewed build fix
+
+        * wtf/PlatformHave.h: Use MISSING_STD_FILESYSTEM_PATH_CONSTRUCTOR on PlayStation
+
+2022-01-06  Alex Christensen  <achristensen@webkit.org>
+
+        Start using C++20
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+
+        Reviewed by Yusuke Suzuki.
+
+        * Configurations/Base.xcconfig:
+        * wtf/DisallowCType.h:
+        * wtf/FileSystem.cpp:
+        (WTF::FileSystemImpl::toStdFileSystemPath):
+        (WTF::FileSystemImpl::fromStdFileSystemPath):
+        * wtf/PlatformHave.h:
+        * wtf/VectorTraits.h:
+        * wtf/text/StringOperators.h:
+
+2022-01-05  John Wilander  <wilander@apple.com>
+
+        Change version number for HAVE_RSA_PSS_OID
+        https://bugs.webkit.org/show_bug.cgi?id=234904
+        <rdar://86646280>
+
+        Reviewed by Alex Christensen.
+
+        * wtf/PlatformHave.h:
+
+2022-01-05  Tim Horton  <timothy_horton@apple.com>
+
+        Momentum Event Dispatcher: Momentum tails may get truncated if the duration runs longer than the system's
+        https://bugs.webkit.org/show_bug.cgi?id=234535
+        <rdar://problem/86338105>
+
+        Reviewed by Simon Fraser.
+
+        * wtf/PlatformHave.h:
+        Add a HAVE for kIOHIDEventScrollMomentumInterrupted.
+
+2021-12-31  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Replace UDIS86 with Zydis
+        https://bugs.webkit.org/show_bug.cgi?id=234765
+
+        Reviewed by Michael Saboff.
+
+        * wtf/PlatformEnable.h:
+
+2021-12-29  Sam Weinig  <weinig@apple.com>
+
+        Add additional named color spaces for extended rgb color types and HSL/HWB in preparation for out of gamut and missing component support
+        https://bugs.webkit.org/show_bug.cgi?id=234741
+
+        Reviewed by Dean Jackson.
+
+        * wtf/PlatformHave.h:
+        Add new HAVE macros for additional CoreGraphics named color spaces and the CGColorSpaceCreateExtended function.
+
+2021-12-28  Sam Weinig  <weinig@apple.com>
+
+        Support color interpolation methods for CSS Gradients
+        https://bugs.webkit.org/show_bug.cgi?id=234711
+
+        Reviewed by Simon Fraser.
+
+        Add new experimental feature flag, CSSGradientInterpolationColorSpacesEnabled, to gate
+        support for interpolation methods in CSS gradients. Off by default.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-12-28  Sam Weinig  <weinig@apple.com>
+
+        Enhance Vector::map to allow specifying what kind of Vector to return (e.g. inline capacity, overflow, etc.)
+        https://bugs.webkit.org/show_bug.cgi?id=234683
+
+        Reviewed by Darin Adler.
+
+        * wtf/Vector.h:
+        (WTF::Vector::map const):
+        Add an overload of Vector::map() that allows specifying the type of the result Vector. To make this
+        work without giving up the argument deduction in the common case, SFINAE is used to determine which
+        overload to use.
+
+2021-12-28  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Enable signal-based VM traps for CPU(RISCV64)
+        https://bugs.webkit.org/show_bug.cgi?id=234719
+
+        Reviewed by Yusuke Suzuki.
+
+        * wtf/PlatformEnable.h: Define ENABLE_SIGNAL_BASED_VM_TRAPS for CPU(RISCV64).
+
+2021-12-28  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Define HAVE_MACHINE_CONTEXT, provide mcontext_t accessors for CPU(RISCV64)
+        https://bugs.webkit.org/show_bug.cgi?id=234718
+
+        Reviewed by Yusuke Suzuki.
+
+        * wtf/PlatformHave.h: Define HAVE_MACHINE_CONTEXT for CPU(RISCV64).
+
+2021-12-23  Sam Weinig  <weinig@apple.com>
+
+        Gradient color interpolation incorrect for colors with alpha (need to interpolate premultiplied colors)
+        https://bugs.webkit.org/show_bug.cgi?id=150940
+        <rdar://problem/25499232>
+
+        Reviewed by Simon Fraser.
+
+        Enable CSSGradientPremultipliedAlphaInterpolationEnabled by default.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-12-23  Brady Eidson  <beidson@apple.com>
+
+        Add WTF::UUID class which is natively a 128-bit integer
+        https://bugs.webkit.org/show_bug.cgi?id=234571
+
+        Reviewed by Alex Christensen.
+
+        This patch adds a new WTF::UUID class.
+        
+        For now, it is simply a wrapper around a 128-bit integer, and creating a new one primes that integer with
+        cryptographically random data.
+        
+        It can be encoded/decoded as well as used as a HashKey.
+        
+        And it will be a great utility to use as a unique object identifier for objects that logically exist
+        in multiple processes.
+        
+        On that note, it also changes "UUIDIdentifier" to use this new UUID class instead of a v4 UUID string.
+        
+        * wtf/Identified.h:
+        (WTF::UUIDIdentified::UUIDIdentified):
+
+        * wtf/UUID.cpp:
+        (WTF::UUID::UUID):
+        (WTF::UUID::toVector const):
+        (WTF::UUID::hash const):
+
+        * wtf/UUID.h:
+        (WTF::UUID::create):
+        (WTF::UUID::UUID):
+        (WTF::UUID::operator== const):
+        (WTF::UUID::data const):
+        (WTF::UUID::isHashTableDeletedValue const):
+        (WTF::UUIDHash::hash):
+        (WTF::UUIDHash::equal):
+        (WTF::HashTraits<UUID>::emptyValue):
+        (WTF::HashTraits<UUID>::constructDeletedValue):
+        (WTF::HashTraits<UUID>::isDeletedValue):
+        (WTF::UUID::encode const):
+        (WTF::UUID::decode):
+
+2021-12-23  Sihui Liu  <sihui_liu@apple.com>
+
+        Ensure file handles used in FileSystemAccess API are closed
+        https://bugs.webkit.org/show_bug.cgi?id=234520
+
+        Reviewed by Darin Adler.
+
+        * wtf/CrossThreadCopier.h:
+
+2021-12-22  Sihui Liu  <sihui_liu@apple.com>
+
+        WebsiteDataStore::excludeDirectoryFromBackup should set attribute for existing directories
+        https://bugs.webkit.org/show_bug.cgi?id=234404
+
+        Reviewed by Youenn Fablet.
+
+        * wtf/FileSystem.cpp:
+        (WTF::FileSystemImpl::excludeFromBackup):
+        (WTF::FileSystemImpl::canExcludeFromBackup): Deleted.
+        * wtf/FileSystem.h:
+        * wtf/cocoa/FileSystemCocoa.mm:
+        (WTF::FileSystemImpl::excludeFromBackup):
+        * wtf/mac/FileSystemMac.mm:
+        (WTF::FileSystem::canExcludeFromBackup): Deleted.
+        (WTF::FileSystem::excludeFromBackup): Deleted.
+
+2021-12-22  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r287364.
+        https://bugs.webkit.org/show_bug.cgi?id=234620
+
+        broke 3 API tests
+
+        Reverted changeset:
+
+        "Preferences that read from NSUserDefaults need to be
+        initialied from platformInitializeStore()"
+        https://bugs.webkit.org/show_bug.cgi?id=234488
+        https://commits.webkit.org/r287364
+
+2021-12-22  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Add RISCV64 support in YARR
+        https://bugs.webkit.org/show_bug.cgi?id=234547
+
+        Reviewed by Yusuke Suzuki.
+
+        * wtf/PlatformEnable.h: Also enable different YARR-related flags for RISCV64.
+
+2021-12-22  Simon Fraser  <simon.fraser@apple.com>
+
+        Preferences that read from NSUserDefaults need to be initialied from platformInitializeStore()
+        https://bugs.webkit.org/show_bug.cgi?id=234488
+
+        Reviewed by Sam Weinig.
+
+        Having the default value for a preference read from NSUserDefaults can cause issues
+        if the UIProcess and WebProcess values don't match. Instead, have platformInitializeStore()
+        explicitly add values for these keys; this is done for scrollAnimatorEnabledKey.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
+2021-12-22  J Pascoe  <j_pascoe@apple.com>
+
+        [WebAuthn] Set Web Authentication experimental feature flag as default true
+        https://bugs.webkit.org/show_bug.cgi?id=234533
+        <rdar://problem/86743595>
+
+        Reviewed by Brent Fulgham.
+
+        The Web Authentication feature has been shipping for a while. Default value
+        for experimental feature flag should be true.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2021-12-21  Brady Eidson  <beidson@apple.com>
+
+        Make Notification identifiers be a UUID string instead of a uint64_t
+        https://bugs.webkit.org/show_bug.cgi?id=234534
+
+        Reviewed by Alex Christensen.
+
+        Add a new form of Identified that uses a UUID String as the identifier.
+        
+        * wtf/Identified.h:
+        (WTF::UUIDIdentified::UUIDIdentified):
+
+2021-12-21  Sam Weinig  <weinig@apple.com>
+
+        Add support for premultiplied alpha interpolated gradients and defaulted off option to use them for CSS Gradients
+        https://bugs.webkit.org/show_bug.cgi?id=234492
+
+        Reviewed by Simon Fraser.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+        Add a new experimental setting to enable premultiplied alpha CSS gradients. 
+
+2021-12-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [WTF] Remove RefCountedArray and use RefCountedFixedVector
+        https://bugs.webkit.org/show_bug.cgi?id=234484
+
+        Reviewed by Dean Jackson.
+
+        Use RefCountedFixedVector<T> instead of RefCountedArray<T> and remove RefCountedArray<T>.
+        RefCountedFixedVector<T> is much simpler interface: it is just using Ref<> / RefPtr<>
+        instead of integrating ref-counting holder semantics into the class itself.
+
+        * WTF.xcodeproj/project.pbxproj:
+        * wtf/CMakeLists.txt:
+        * wtf/FixedVector.h:
+        * wtf/RefCountedArray.cpp: Removed.
+        * wtf/RefCountedArray.h: Removed.
+        * wtf/WTFAssertions.cpp:
+
+2021-12-20  Alexey Shvayka  <ashvayka@apple.com>
+
+        [WebIDL] convertVariadicArguments() should return a FixedVector
+        https://bugs.webkit.org/show_bug.cgi?id=232639
+
+        Reviewed by Yusuke Suzuki.
+
+        Introduce std::initializer_list constructor for FixedVector and a WTF::map() overload.
+
+        * wtf/FixedVector.h:
+        (WTF::FixedVector::FixedVector):
+        (WTF::map):
+        * wtf/VectorTraits.h:
+
+2021-12-20  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        MSVC reports "wtf/RetainPtr.h(196): error C3861: 'CFAutorelease': identifier not found " with /permissive- on Windows
+        https://bugs.webkit.org/show_bug.cgi?id=202842
+
+        Reviewed by Darin Adler.
+
+        r287200 fixed the problem, but not a right fix.
+
+        * wtf/PlatformHave.h: Defined a new macro HAVE_CFAUTORELEASE for PLATFORM(COCOA).
+        * wtf/RetainPtr.h: Use HAVE(CFAUTORELEASE) instead of PLATFORM(COCOA).
+
+2021-12-19  Brady Eidson  <beidson@apple.com>
+
+        Stub out NotificationEvent and related
+        https://bugs.webkit.org/show_bug.cgi?id=234420
+
+        Reviewed by Alex Christensen.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+        * wtf/PlatformEnable.h:
+
+2021-12-18  Darin Adler  <darin@apple.com>
+
+        Hash tables, read/write, and heap memory are used unnecessarily, which may hurt performance
+        https://bugs.webkit.org/show_bug.cgi?id=234438
+
+        Reviewed by Anders Carlsson.
+
+        * wtf/SortedArrayMap.h:
+        (WTF::SortedArrayMap<ArrayType>::contains const): Added. More elegant than calling tryGet and
+        treating the pointer as a boolean.
+        (WTF::makeOptionalFromPointer): Moved here so it can be reused. Might rename later, since it's
+        only used in a few places.
+
+2021-12-17  Simon Fraser  <simon.fraser@apple.com>
+
+        Read the default value of the ScrollAnimatorEnabled setting from NSUserDefaults
+        https://bugs.webkit.org/show_bug.cgi?id=234456
+
+        Reviewed by Tim Horton.
+
+        It's impossible for a test to run with an animated keyboard scroll because platformAllowsScrollAnimation(),
+        which reads from NSUserDefaults, always trumps the Setting.
+
+        Fix by initializing the setting from NSUserDefaults and removing the platformAllowsScrollAnimation()
+        check. This allows for a WebKitTestRunner test override the setting. Remove the WTR code 
+        that sets @"NSScrollAnimationEnabled" to @NO.
+
+        Unfortunately in WebKitLegacy AppKit code consults the @"NSScrollAnimationEnabled" key, so
+        DumpRenderTree has to continue to initialize this NSUserDefault to @NO and tests that
+        try to change the Setting will fail.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
+2021-12-17  Simon Fraser  <simon.fraser@apple.com>
+
+        Rename MockScrollAnimatorEnabled to MockScrollbarsControllerEnabled
+        https://bugs.webkit.org/show_bug.cgi?id=234452
+
+        Reviewed by Anders Carlsson.
+
+        The class formerly known as MockScrollAnimatorEnabled is used for logging when scrollbars
+        get events, so fix the name. It's a subclass of ScrollbarsController.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
+2021-12-17  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [WTF] Introduce TrailingArray
+        https://bugs.webkit.org/show_bug.cgi?id=234201
+
+        Reviewed by Darin Adler.
+
+        This patch implements TrailingArray<Derived, T>, which allows us to implement class
+        with trailing array easily. By using this, we implement EmbeddedFixedVector and RefCountedFixedVector.
+        Plus, we replace underlying implementation of FixedVector from RefCountedArray to EmbeddedFixedVector
+        since ref-counting is not necessary. This is great for swapping: while RefCountedArray will decrease ref
+        and touching memory when destryoing, EmbeddedFixedVector does not, so we can keep memory untouched if
+        EmbeddedFixedVector's T is POD when destroying.
+
+        In a subsequent patch, we will remove RefCountedArray and use RefCountedFixedVector since RefCountedFixedVector
+        is following normal Ref / RefPtr protocol, so easy to understand the semantics.
+
+        * WTF.xcodeproj/project.pbxproj:
+        * wtf/CMakeLists.txt:
+        * wtf/EmbeddedFixedVector.h: Added.
+        * wtf/FixedVector.h:
+        (WTF::FixedVector::FixedVector):
+        (WTF::FixedVector::operator=):
+        (WTF::FixedVector::size const):
+        (WTF::FixedVector::isEmpty const):
+        (WTF::FixedVector::byteSize const):
+        (WTF::FixedVector::data):
+        (WTF::FixedVector::begin):
+        (WTF::FixedVector::end):
+        (WTF::FixedVector::rbegin):
+        (WTF::FixedVector::rend):
+        (WTF::FixedVector::rbegin const):
+        (WTF::FixedVector::rend const):
+        (WTF::FixedVector::at):
+        (WTF::FixedVector::at const):
+        (WTF::FixedVector::operator[]):
+        (WTF::FixedVector::operator[] const):
+        (WTF::FixedVector::fill):
+        (WTF::FixedVector::operator!= const):
+        (WTF::FixedVector::operator== const):
+        (WTF::FixedVector::swap):
+        (WTF::FixedVector::getStorage):
+        * wtf/RefCountedFixedVector.h: Added.
+        * wtf/TrailingArray.h: Added.
+        (WTF::TrailingArray::TrailingArray):
+        (WTF::TrailingArray::~TrailingArray):
+        (WTF::TrailingArray::allocationSize):
+        (WTF::TrailingArray::size const):
+        (WTF::TrailingArray::isEmpty const):
+        (WTF::TrailingArray::byteSize const):
+        (WTF::TrailingArray::data):
+        (WTF::TrailingArray::data const):
+        (WTF::TrailingArray::begin):
+        (WTF::TrailingArray::end):
+        (WTF::TrailingArray::begin const):
+        (WTF::TrailingArray::end const):
+        (WTF::TrailingArray::cbegin const):
+        (WTF::TrailingArray::cend const):
+        (WTF::TrailingArray::rbegin):
+        (WTF::TrailingArray::rend):
+        (WTF::TrailingArray::rbegin const):
+        (WTF::TrailingArray::rend const):
+        (WTF::TrailingArray::crbegin const):
+        (WTF::TrailingArray::crend const):
+        (WTF::TrailingArray::at):
+        (WTF::TrailingArray::at const):
+        (WTF::TrailingArray::operator[]):
+        (WTF::TrailingArray::operator[] const):
+        (WTF::TrailingArray::first):
+        (WTF::TrailingArray::first const):
+        (WTF::TrailingArray::last):
+        (WTF::TrailingArray::last const):
+        (WTF::TrailingArray::fill):
+        (WTF::TrailingArray::offsetOfSize):
+        (WTF::TrailingArray::offsetOfData):
+
+2021-12-17  Sihui Liu  <sihui_liu@apple.com>
+
+        Add custom copy() method for Ref<T> to CrossThreadCopier
+        https://bugs.webkit.org/show_bug.cgi?id=234411
+
+        Reviewed by Youenn Fablet.
+
+        * wtf/CrossThreadCopier.cpp:
+        * wtf/CrossThreadCopier.h:
+
+2021-12-17  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        MSVC reports "wtf/RetainPtr.h(196): error C3861: 'CFAutorelease': identifier not found " with /permissive- on Windows
+        https://bugs.webkit.org/show_bug.cgi?id=202842
+
+        Reviewed by Alex Christensen and Darin Adler.
+
+        MSVC /std:c++20 option implicitly enables /permissive- option.
+        However, RetainPtr.h can't compile because 'CFAutorelease' is not
+        defined.
+
+        CFAutorelease isn't available in AppleWin's CoreFoundation and
+        WinCairo's OpenCFLite as of now.
+
+        * wtf/RetainPtr.h: Enclosed RetainPtr<T>::autorelease with #if !OS(WINDOWS).
+
+2021-12-16  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed, reverting r287056.
+        <rdar://86519800>
+
+        Caused performance regression...again
+
+        Reverted changeset:
+
+        "Remove properties set by NSURLProtocol on NSURLRequest before
+        serializing"
+        https://bugs.webkit.org/show_bug.cgi?id=232332
+        https://commits.webkit.org/r287056
+
+2021-12-15  Darin Adler  <darin@apple.com>
+
+        Many call sites use makeNeverDestroyed, but could instead take advantage of the NeverDestroyed deduction guide
+        https://bugs.webkit.org/show_bug.cgi?id=234350
+
+        Reviewed by Sam Weinig.
+
+        * wtf/NeverDestroyed.h:
+        (WTF::makeNeverDestroyed): Deleted.
+
+        * wtf/text/cf/StringImplCF.cpp:
+        (WTF::StringWrapperCFAllocator::allocator): Use deduction guide.
+
+2021-12-15  Alex Christensen  <achristensen@webkit.org>
+
+        Remove unreachable code in Plugin and PluginController
+        https://bugs.webkit.org/show_bug.cgi?id=234365
+
+        Reviewed by Geoff Garen and Anders Carlsson.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2021-12-15  Chris Dumez  <cdumez@apple.com>
+
+        Support passing an old-style enum to add(Hasher&, ...)
+        https://bugs.webkit.org/show_bug.cgi?id=234368
+
+        Reviewed by Darin Adler.
+
+        Support passing an old-style enum to add(Hasher&, ...). Previously, it would work for enum classes
+        but lead to ambiguity errors with some compiler when passing a plain enum.
+
+        * wtf/Hasher.h:
+        (WTF::Hasher::add):
+        (WTF::add):
+
+2021-12-15  Jer Noble  <jer.noble@apple.com>
+
+        [Mac] Adopt -[NSScreen safeAreaInsets]
+        https://bugs.webkit.org/show_bug.cgi?id=234291
+        <rdar://85805895>
+
+        Reviewed by Eric Carlson.
+
+        * wtf/PlatformHave.h:
+
+2021-12-15  Chris Dumez  <cdumez@apple.com>
+
+        Move SWServers from NetworkProcess to NetworkSession
+        https://bugs.webkit.org/show_bug.cgi?id=234179
+
+        Reviewed by Darin Adler.
+
+        * wtf/MemoryPressureHandler.h:
+        Using a bool as underlying type for those enum classes is sufficient.
+
+2021-12-15  Tomoki Imai  <tomoki.imai@sony.com>
+
+        [PlayStation] Use FileSystem instead of FileSystemPlayStation except several unsupported APIs
+        https://bugs.webkit.org/show_bug.cgi?id=234337
+
+        Reviewed by Don Olmstead.
+
+        PlayStation should use FileSystem as its current SDK supports std::filesystem.
+        We have to maintain FileSystemPlayStation for now to supply some of FileSystem APIs
+        because the following functions are not supported yet.
+        - std::filesystem::space
+        - std::filesystem::rename
+        - std::filesystem::canonical
+        - std::filesystem::directory_iterator
+        - std::filesystem::remove_all
+
+        The plan is to remove FileSystemPlayStation entirely after the SDK supports these functions.
+
+        This patch also fixes the incompatible issue of FileSystem::listDirectory of FileSystemPlayStation.
+        FileSystem::listDirectory is expected to return only the names, but it actually returns full paths.
+
+        Confirmed that there is no regression in FileSystem related testcases in TestWTF.
+
+        * wtf/FileSystem.cpp: Add PLATFORM(PLAYSTATION) guards not to use unsupported std::filesystem APIs.
+        * wtf/playstation/FileSystemPlayStation.cpp: Remove the functions duplicated with FileSystem.
+        Make FileSystem::listDirectory returns only names.
+        Add listDirectorySub which can return a full path because deleteNonEmptyDirectory depends on it.
+
+2021-12-15  Youenn Fablet  <youenn@apple.com>
+
+        Make use of PLATFORM(COCOA) in MediaRecorder WebPreference
+        https://bugs.webkit.org/show_bug.cgi?id=234339
+
+        Reviewed by Eric Carlson.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+        HAVE(AVASSETWRITERDELEGATE) has been removed from PlatformHave.h given it was true on all supported platforms.
+        But it was still used to guard MediaRecorder preference, thus MediaRecorder got disabled inadvertently.
+        Let's guard MediaRecorder with PLATFORM(COCOA).
+
+2021-12-14  Alex Christensen  <achristensen@webkit.org>
+
+        Remove properties set by NSURLProtocol on NSURLRequest before serializing
+        https://bugs.webkit.org/show_bug.cgi?id=232332
+        <rdar://79227845>
+
+        Reviewed by Geoff Garen.
+
+        * wtf/PlatformHave.h:
+
 2021-12-14  Darin Adler  <darin@apple.com>
 
         Automatically generate event handler content attribute maps so they are easier to maintain

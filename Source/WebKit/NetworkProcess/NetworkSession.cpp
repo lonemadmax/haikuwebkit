@@ -26,6 +26,7 @@
 #include "config.h"
 #include "NetworkSession.h"
 
+#include "CacheStorageEngine.h"
 #include "Logging.h"
 #include "NetworkBroadcastChannelRegistry.h"
 #include "NetworkLoadScheduler.h"
@@ -34,19 +35,23 @@
 #include "NetworkResourceLoadParameters.h"
 #include "NetworkResourceLoader.h"
 #include "NetworkSessionCreationParameters.h"
+#include "NetworkStorageManager.h"
 #include "NotificationManagerMessageHandlerMessages.h"
 #include "PingLoad.h"
 #include "PrivateClickMeasurementClientImpl.h"
 #include "PrivateClickMeasurementManager.h"
 #include "PrivateClickMeasurementManagerProxy.h"
 #include "ServiceWorkerFetchTask.h"
+#include "WebIDBServer.h"
 #include "WebPageProxy.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcessProxy.h"
+#include "WebSWOriginStore.h"
 #include "WebSocketTask.h"
 #include <WebCore/CookieJar.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/RuntimeApplicationChecks.h>
+#include <WebCore/SWServer.h>
 
 #if PLATFORM(COCOA)
 #include "DefaultWebBrowserChecks.h"
@@ -64,16 +69,16 @@ using namespace WebCore;
 
 constexpr Seconds cachedNetworkResourceLoaderLifetime { 30_s };
 
-std::unique_ptr<NetworkSession> NetworkSession::create(NetworkProcess& networkProcess, NetworkSessionCreationParameters&& parameters)
+std::unique_ptr<NetworkSession> NetworkSession::create(NetworkProcess& networkProcess, const NetworkSessionCreationParameters& parameters)
 {
 #if PLATFORM(COCOA)
-    return NetworkSessionCocoa::create(networkProcess, WTFMove(parameters));
+    return NetworkSessionCocoa::create(networkProcess, parameters);
 #endif
 #if USE(SOUP)
-    return NetworkSessionSoup::create(networkProcess, WTFMove(parameters));
+    return NetworkSessionSoup::create(networkProcess, parameters);
 #endif
 #if USE(CURL)
-    return NetworkSessionCurl::create(networkProcess, WTFMove(parameters));
+    return NetworkSessionCurl::create(networkProcess, parameters);
 #endif
 }
 
@@ -126,6 +131,9 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
     , m_shouldRunServiceWorkersOnMainThreadForTesting(parameters.shouldRunServiceWorkersOnMainThreadForTesting)
 #if ENABLE(BUILT_IN_NOTIFICATIONS)
     , m_notificationManager(*this, parameters.webPushMachServiceName)
+#endif
+#if !HAVE(NSURLSESSION_WEBSOCKET)
+    , m_shouldAcceptInsecureCertificatesForWebSockets(parameters.shouldAcceptInsecureCertificatesForWebSockets)
 #endif
 {
     if (!m_sessionID.isEphemeral()) {
@@ -196,12 +204,17 @@ void NetworkSession::invalidateAndCancel()
     if (m_resourceLoadStatistics)
         m_resourceLoadStatistics->invalidateAndCancel();
 #endif
+    if (auto server = std::exchange(m_webIDBServer, nullptr))
+        server->close();
+    if (auto manager = std::exchange(m_storageManager, nullptr))
+        manager->close();
+    m_cacheEngine = nullptr;
 #if ASSERT_ENABLED
     m_isInvalidated = true;
 #endif
 }
 
-void NetworkSession::recreatePrivateClickMeasurementStore(CompletionHandler<void()>&& completionHandler)
+void NetworkSession::destroyPrivateClickMeasurementStore(CompletionHandler<void()>&& completionHandler)
 {
     privateClickMeasurement().destroyStoreForTesting(WTFMove(completionHandler));
 }
@@ -520,7 +533,7 @@ void NetworkSession::removeLoaderWaitingWebProcessTransfer(NetworkResourceLoadId
         cachedResourceLoader->takeLoader()->abort();
 }
 
-std::unique_ptr<WebSocketTask> NetworkSession::createWebSocketTask(WebPageProxyIdentifier, NetworkSocketChannel&, const WebCore::ResourceRequest&, const String& protocol)
+std::unique_ptr<WebSocketTask> NetworkSession::createWebSocketTask(WebPageProxyIdentifier, NetworkSocketChannel&, const WebCore::ResourceRequest&, const String& protocol, const WebCore::ClientOrigin&)
 {
     return nullptr;
 }
@@ -547,6 +560,18 @@ String NetworkSession::attributedBundleIdentifierFromPageIdentifier(WebPageProxy
     return m_attributedBundleIdentifierFromPageIdentifiers.get(identifier);
 }
 
+void NetworkSession::lowMemoryHandler(Critical)
+{
+    clearPrefetchCache();
+
+#if ENABLE(SERVICE_WORKER)
+    if (m_swServer)
+        m_swServer->handleLowMemoryWarning();
+#endif
+    if (m_storageManager)
+        m_storageManager->handleLowMemoryWarning();
+}
+
 #if ENABLE(SERVICE_WORKER)
 void NetworkSession::addNavigationPreloaderTask(ServiceWorkerFetchTask& task)
 {
@@ -562,6 +587,147 @@ ServiceWorkerFetchTask* NetworkSession::navigationPreloaderTaskFromFetchIdentifi
 {
     return m_navigationPreloaders.get(identifier).get();
 }
+
+WebSWOriginStore* NetworkSession::swOriginStore() const
+{
+    return m_swServer ? &static_cast<WebSWOriginStore&>(m_swServer->originStore()) : nullptr;
+}
+
+void NetworkSession::registerSWServerConnection(WebSWServerConnection& connection)
+{
+    auto* store = swOriginStore();
+    ASSERT(store);
+    if (store)
+        store->registerSWServerConnection(connection);
+}
+
+void NetworkSession::unregisterSWServerConnection(WebSWServerConnection& connection)
+{
+    if (auto* store = swOriginStore())
+        store->unregisterSWServerConnection(connection);
+}
+
+SWServer& NetworkSession::ensureSWServer()
+{
+    if (!m_swServer) {
+        auto info = valueOrDefault(m_serviceWorkerInfo);
+        auto path = info.databasePath;
+        // There should already be a registered path for this PAL::SessionID.
+        // If there's not, then where did this PAL::SessionID come from?
+        ASSERT(m_sessionID.isEphemeral() || !path.isEmpty());
+
+#if ENABLE(APP_BOUND_DOMAINS)
+        auto appBoundDomainsCallback = [this](auto&& completionHandler) {
+            m_networkProcess->parentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::GetAppBoundDomains { m_sessionID }, WTFMove(completionHandler), 0);
+        };
+#else
+        auto appBoundDomainsCallback = [] (auto&& completionHandler) {
+            completionHandler({ });
+        };
 #endif
+        m_swServer = makeUnique<SWServer>(makeUniqueRef<WebSWOriginStore>(), info.processTerminationDelayEnabled, WTFMove(path), m_sessionID, shouldRunServiceWorkersOnMainThreadForTesting(), m_networkProcess->parentProcessHasServiceWorkerEntitlement(), [this](auto&& jobData, bool shouldRefreshCache, auto&& request, auto&& completionHandler) mutable {
+            ServiceWorkerSoftUpdateLoader::start(this, WTFMove(jobData), shouldRefreshCache, WTFMove(request), WTFMove(completionHandler));
+        }, [this](auto& registrableDomain, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, auto&& completionHandler) {
+            ASSERT(!registrableDomain.isEmpty());
+            m_networkProcess->parentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::EstablishWorkerContextConnectionToNetworkProcess { registrableDomain, serviceWorkerPageIdentifier, m_sessionID }, WTFMove(completionHandler), 0);
+        }, WTFMove(appBoundDomainsCallback));
+    }
+    return *m_swServer;
+}
+
+void NetworkSession::addServiceWorkerSession(bool processTerminationDelayEnabled, String&& serviceWorkerRegistrationDirectory, const SandboxExtension::Handle& handle)
+{
+    bool hadServiceWorkerInfo = !!m_serviceWorkerInfo;
+    m_serviceWorkerInfo = ServiceWorkerInfo {
+        WTFMove(serviceWorkerRegistrationDirectory),
+        processTerminationDelayEnabled
+    };
+    if (!hadServiceWorkerInfo)
+        SandboxExtension::consumePermanently(handle);
+}
+
+bool NetworkSession::hasServiceWorkerDatabasePath() const
+{
+    return m_serviceWorkerInfo && !m_serviceWorkerInfo->databasePath.isEmpty();
+}
+
+#endif // ENABLE(SERVICE_WORKER)
+
+WebIDBServer& NetworkSession::ensureWebIDBServer()
+{
+    if (!m_webIDBServer) {
+        String path;
+        if (!sessionID().isEphemeral()) {
+            ASSERT(!m_idbDatabasePath.isNull());
+            path = m_idbDatabasePath;
+        }
+
+        auto spaceRequester = [networkProcess = Ref { networkProcess() }, sessionID = sessionID()](const auto& origin, uint64_t spaceRequested) {
+            return networkProcess->storageQuotaManager(sessionID, origin)->requestSpaceOnBackgroundThread(spaceRequested);
+        };
+
+        m_webIDBServer = WebIDBServer::create(sessionID(), path, WTFMove(spaceRequester));
+        if (networkProcess().shouldSuspendIDBServers())
+            m_webIDBServer->suspend(WebIDBServer::SuspensionCondition::Always);
+    }
+    return *m_webIDBServer;
+}
+
+void NetworkSession::closeIDBServer(CompletionHandler<void()>&& completionHandler)
+{
+    if (!m_webIDBServer)
+        return completionHandler();
+
+    std::exchange(m_webIDBServer, nullptr)->close(WTFMove(completionHandler));
+}
+
+void NetworkSession::addIndexedDatabaseSession(const String& indexedDatabaseDirectory, SandboxExtension::Handle& handle)
+{
+    // *********
+    // IMPORTANT: Do not change the directory structure for indexed databases on disk without first consulting a reviewer from Apple (<rdar://problem/17454712>)
+    // *********
+    auto isNew = m_idbDatabasePath.isNull();
+    m_idbDatabasePath = indexedDatabaseDirectory;
+    if (isNew) {
+        SandboxExtension::consumePermanently(handle);
+        networkProcess().setSessionStorageQuotaManagerIDBRootPath(sessionID(), indexedDatabaseDirectory);
+    }
+}
+
+void NetworkSession::addStorageManagerSession(const String& generalStoragePath, SandboxExtension::Handle& generalStoragePathHandle, const String& localStoragePath, SandboxExtension::Handle& localStoragePathHandle)
+{
+    if (m_storageManager)
+        return;
+
+    SandboxExtension::consumePermanently(generalStoragePathHandle);
+    SandboxExtension::consumePermanently(localStoragePathHandle);
+    m_storageManager = NetworkStorageManager::create(sessionID(), generalStoragePath, localStoragePath);
+}
+
+void NetworkSession::ensureCacheEngine(Function<void(CacheStorage::Engine&)>&& callback)
+{
+    if (m_cacheEngine)
+        return callback(*m_cacheEngine);
+
+    m_cacheStorageParametersCallbacks.append(WTFMove(callback));
+    if (m_cacheStorageParametersCallbacks.size() > 1)
+        return;
+
+    m_networkProcess->parentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::RetrieveCacheStorageParameters { sessionID() }, [this, weakThis = WeakPtr { *this }](String&& cacheStorageDirectory, SandboxExtension::Handle&& cacheStorageDirectoryHandle) {
+        if (!weakThis)
+            return;
+
+        SandboxExtension::consumePermanently(cacheStorageDirectoryHandle);
+        ASSERT(!m_cacheEngine);
+        m_cacheEngine = CacheStorage::Engine::create(*this, WTFMove(cacheStorageDirectory));
+        for (auto& callback : std::exchange(m_cacheStorageParametersCallbacks, { }))
+            callback(*m_cacheEngine);
+    }, 0);
+}
+
+void NetworkSession::clearCacheEngine()
+{
+    m_cacheEngine = nullptr;
+}
 
 } // namespace WebKit

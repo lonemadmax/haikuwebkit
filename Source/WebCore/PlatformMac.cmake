@@ -291,6 +291,7 @@ list(APPEND WebCore_SOURCES
     platform/graphics/cg/FloatRectCG.cpp
     platform/graphics/cg/FloatSizeCG.cpp
     platform/graphics/cg/GradientCG.cpp
+    platform/graphics/cg/GradientRendererCG.cpp
     platform/graphics/cg/GraphicsContextGLCG.cpp
     platform/graphics/cg/GraphicsContextCG.cpp
     platform/graphics/cg/IOSurfacePool.cpp
@@ -402,7 +403,6 @@ list(APPEND WebCore_SOURCES
     platform/network/cf/DNSResolveQueueCFNet.cpp
     platform/network/cf/FormDataStreamCFNet.cpp
     platform/network/cf/NetworkStorageSessionCFNet.cpp
-    platform/network/cf/ProxyServerCFNet.cpp
     platform/network/cf/ResourceRequestCFNet.cpp
     platform/network/cf/SocketStreamHandleImplCFNet.cpp
 

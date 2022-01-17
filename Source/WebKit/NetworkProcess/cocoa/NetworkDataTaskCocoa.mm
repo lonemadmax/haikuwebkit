@@ -41,7 +41,6 @@
 #import <WebCore/RegistrableDomain.h>
 #import <WebCore/ResourceRequest.h>
 #import <WebCore/TimingAllowOrigin.h>
-#import <WebCore/VersionChecks.h>
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/FileSystem.h>
@@ -49,6 +48,7 @@
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/SystemTracing.h>
 #import <wtf/WeakObjCPtr.h>
+#import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/text/Base64.h>
 
 #if HAVE(NW_ACTIVITY)
@@ -443,12 +443,12 @@ void NetworkDataTaskCocoa::didCompleteWithError(const WebCore::ResourceError& er
         m_client->didCompleteWithError(error, networkLoadMetrics);
 }
 
-void NetworkDataTaskCocoa::didReceiveData(Ref<WebCore::FragmentedSharedBuffer>&& data)
+void NetworkDataTaskCocoa::didReceiveData(const WebCore::SharedBuffer& data)
 {
-    WTFEmitSignpost(m_task.get(), "DataTask", "received %zd bytes", data->size());
+    WTFEmitSignpost(m_task.get(), "DataTask", "received %zd bytes", data.size());
 
     if (m_client)
-        m_client->didReceiveData(WTFMove(data));
+        m_client->didReceiveData(data);
 }
 
 void NetworkDataTaskCocoa::didReceiveResponse(WebCore::ResourceResponse&& response, NegotiatedLegacyTLS negotiatedLegacyTLS, WebKit::ResponseCompletionHandler&& completionHandler)
@@ -496,7 +496,7 @@ void NetworkDataTaskCocoa::willPerformHTTPRedirection(WebCore::ResourceResponse&
         request.clearHTTPOrigin();
 
     } else {
-        if (auto authorization = m_firstRequest.httpHeaderField(WebCore::HTTPHeaderName::Authorization); !authorization.isNull() && linkedOnOrAfter(WebCore::SDKVersion::FirstWithAuthorizationHeaderOnSameOriginRedirects))
+        if (auto authorization = m_firstRequest.httpHeaderField(WebCore::HTTPHeaderName::Authorization); !authorization.isNull() && linkedOnOrAfter(SDKVersion::FirstWithAuthorizationHeaderOnSameOriginRedirects))
             request.setHTTPHeaderField(WebCore::HTTPHeaderName::Authorization, authorization);
 
 #if USE(CREDENTIAL_STORAGE_WITH_NETWORK_SESSION)

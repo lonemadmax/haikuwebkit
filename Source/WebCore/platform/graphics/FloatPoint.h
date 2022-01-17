@@ -28,6 +28,7 @@
 
 #include "FloatSize.h"
 #include "IntPoint.h"
+#include <wtf/Hasher.h>
 #include <wtf/MathExtras.h>
 
 #if USE(CG)
@@ -46,11 +47,6 @@ typedef struct _NSPoint NSPoint;
 class BPoint;
 #endif
 
-#if PLATFORM(WIN)
-struct D2D_POINT_2F;
-typedef D2D_POINT_2F D2D1_POINT_2F;
-#endif
-
 namespace WTF {
 class TextStream;
 }
@@ -59,7 +55,6 @@ namespace WebCore {
 
 class AffineTransform;
 class TransformationMatrix;
-class IntPoint;
 class IntSize;
 
 class FloatPoint {
@@ -201,11 +196,6 @@ public:
     operator BPoint() const;
 #endif
 
-#if PLATFORM(WIN)
-    WEBCORE_EXPORT FloatPoint(const D2D1_POINT_2F&);
-    WEBCORE_EXPORT operator D2D1_POINT_2F() const;
-#endif
-
     WEBCORE_EXPORT FloatPoint matrixTransform(const TransformationMatrix&) const;
     WEBCORE_EXPORT FloatPoint matrixTransform(const AffineTransform&) const;
 
@@ -317,6 +307,11 @@ inline FloatPoint toFloatPoint(const FloatSize& a)
 inline bool areEssentiallyEqual(const FloatPoint& a, const FloatPoint& b)
 {
     return WTF::areEssentiallyEqual(a.x(), b.x()) && WTF::areEssentiallyEqual(a.y(), b.y());
+}
+
+inline void add(Hasher& hasher, const FloatPoint& point)
+{
+    add(hasher, point.x(), point.y());
 }
 
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const FloatPoint&);

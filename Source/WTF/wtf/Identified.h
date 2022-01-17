@@ -27,6 +27,7 @@
 
 #include <atomic>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/UUID.h>
 
 namespace WTF {
 
@@ -104,7 +105,19 @@ private:
     }
 };
 
+template <typename T>
+class UUIDIdentified : public IdentifiedBase<UUID, T> {
+protected:
+    UUIDIdentified()
+        : IdentifiedBase<UUID, T>(UUID::create())
+    {
+    }
+
+    UUIDIdentified(const UUIDIdentified&) = default;
+};
+
 } // namespace WTF
 
 using WTF::Identified;
 using WTF::ThreadSafeIdentified;
+using WTF::UUIDIdentified;

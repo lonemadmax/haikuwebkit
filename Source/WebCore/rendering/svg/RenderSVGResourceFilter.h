@@ -23,6 +23,7 @@
 
 #pragma once
 
+#include "FilterResults.h"
 #include "ImageBuffer.h"
 #include "RenderSVGResourceContainer.h"
 #include "SVGFilter.h"
@@ -51,6 +52,7 @@ public:
     FloatRect drawingRegion;
     FloatSize scale;
     FilterDataState state { PaintingSource };
+    FilterResults results;
 };
 
 class GraphicsContext;
@@ -67,7 +69,7 @@ public:
     void removeClientFromCache(RenderElement&, bool markForInvalidation = true) override;
 
     bool applyResource(RenderElement&, const RenderStyle&, GraphicsContext*&, OptionSet<RenderSVGResourceMode>) override;
-    void postApplyResource(RenderElement&, GraphicsContext*&, OptionSet<RenderSVGResourceMode>, const Path*, const RenderSVGShape*) override;
+    void postApplyResource(RenderElement&, GraphicsContext*&, OptionSet<RenderSVGResourceMode>, const Path*, const RenderElement*) override;
 
     FloatRect resourceBoundingBox(const RenderObject&) override;
 

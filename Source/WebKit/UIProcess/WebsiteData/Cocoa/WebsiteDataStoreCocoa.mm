@@ -519,12 +519,8 @@ void WebsiteDataStore::initializeAppBoundDomains(ForceReinitialization forceRein
 void WebsiteDataStore::addTestDomains() const
 {
     if (appBoundDomains().isEmpty()) {
-        auto bundleID = WebCore::applicationBundleIdentifier();
-        auto appBoundDomainsTesting = getAppBoundDomainsTesting(bundleID);
-        if (appBoundDomainsTesting) {
-            for (auto& domain : *appBoundDomainsTesting)
-                appBoundDomains().add(domain);
-        }
+        for (auto& domain : appBoundDomainsForTesting(WebCore::applicationBundleIdentifier()))
+            appBoundDomains().add(domain);
     }
 }
 
@@ -643,16 +639,5 @@ void WebsiteDataStore::sendNetworkProcessXPCEndpointToAllProcesses()
         sendNetworkProcessXPCEndpointToProcess(*GPUProcessProxy::singletonIfCreated());
 #endif
 }
-
-#if PLATFORM(IOS_FAMILY)
-
-void WebsiteDataStore::excludeDirectoryFromBackup(const String& directory)
-{
-    NSURL *url = [NSURL URLWithString:(NSString *)directory];
-    if ([[NSFileManager defaultManager] createDirectoryAtURL:url withIntermediateDirectories:YES attributes:nil error:nullptr])
-        [[NSURL fileURLWithPath:(NSString *)directory isDirectory:YES] setResourceValue:@YES forKey:NSURLIsExcludedFromBackupKey error:nil];
-}
-
-#endif
 
 }

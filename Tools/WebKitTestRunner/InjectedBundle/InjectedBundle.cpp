@@ -663,9 +663,9 @@ void InjectedBundle::postSetViewSize(double width, double height)
     WKBundlePagePostSynchronousMessageForTesting(page()->page(), toWK("SetViewSize").get(), body.get(), 0);
 }
 
-void InjectedBundle::postSimulateWebNotificationClick(uint64_t notificationID)
+void InjectedBundle::postSimulateWebNotificationClick(WKDataRef notificationID)
 {
-    postPageMessage("SimulateWebNotificationClick", adoptWK(WKUInt64Create(notificationID)));
+    postPageMessage("SimulateWebNotificationClick", notificationID);
 }
 
 void InjectedBundle::postSetAddsVisitedLinks(bool addsVisitedLinks)
@@ -936,6 +936,12 @@ void postPageMessage(const char* name, const char* value)
 }
 
 void postPageMessage(const char* name, WKStringRef value)
+{
+    if (auto page = InjectedBundle::singleton().pageRef())
+        WKBundlePagePostMessage(page, toWK(name).get(), value);
+}
+
+void postPageMessage(const char* name, WKDataRef value)
 {
     if (auto page = InjectedBundle::singleton().pageRef())
         WKBundlePagePostMessage(page, toWK(name).get(), value);

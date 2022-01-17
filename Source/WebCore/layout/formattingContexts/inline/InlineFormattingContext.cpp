@@ -33,6 +33,7 @@
 #include "InlineDamage.h"
 #include "InlineDisplayBox.h"
 #include "InlineDisplayContentBuilder.h"
+#include "InlineDisplayLineBuilder.h"
 #include "InlineFormattingState.h"
 #include "InlineItemsBuilder.h"
 #include "InlineLineBox.h"
@@ -166,9 +167,10 @@ IntrinsicWidthConstraints InlineFormattingContext::computedIntrinsicWidthConstra
 
     collectContentIfNeeded();
 
-    auto constraints = formattingGeometry().constrainByMinMaxWidth(root(),
-        { ceiledLayoutUnit(computedIntrinsicWidthForConstraint(IntrinsicWidthMode::Minimum))
-        , ceiledLayoutUnit(computedIntrinsicWidthForConstraint(IntrinsicWidthMode::Maximum)) });
+    auto constraints = IntrinsicWidthConstraints {
+        ceiledLayoutUnit(computedIntrinsicWidthForConstraint(IntrinsicWidthMode::Minimum)),
+        ceiledLayoutUnit(computedIntrinsicWidthForConstraint(IntrinsicWidthMode::Maximum))
+    };
     formattingState().setIntrinsicWidthConstraints(constraints);
     return constraints;
 }
@@ -185,8 +187,8 @@ LayoutUnit InlineFormattingContext::usedContentHeight() const
     auto& lines = formattingState().lines();
     // Even empty content generates a line.
     ASSERT(!lines.isEmpty());
-    auto top = LayoutUnit { lines.first().lineBoxLogicalRect().top() };
-    auto bottom = LayoutUnit { lines.last().lineBoxLogicalRect().bottom() + formattingState().clearGapAfterLastLine() };
+    auto top = LayoutUnit { lines.first().top() };
+    auto bottom = LayoutUnit { lines.last().bottom() + formattingState().clearGapAfterLastLine() };
 
     auto floatingContext = FloatingContext { *this, formattingState().floatingState() };
     if (auto floatBottom = floatingContext.bottom()) {
@@ -305,7 +307,7 @@ void InlineFormattingContext::computeStaticPositionForOutOfFlowContent(const For
             // This is the first (non-float)child. Let's place it to the left of the first box.
             // <div><img style="position: absolute">text content</div>
             ASSERT(boxes.size());
-            outOfFlowGeometry.setLogicalTopLeft({ boxes[0].left(), lines[0].lineBoxLogicalRect().top() });
+            outOfFlowGeometry.setLogicalTopLeft({ boxes[0].left(), lines[0].top() });
             continue;
         }
 
@@ -346,27 +348,27 @@ void InlineFormattingContext::computeStaticPositionForOutOfFlowContent(const For
                         ? BoxGeometry::borderBoxLeft(inlineBoxBoxGeometry) + inlineBoxBoxGeometry.contentBoxLeft()
                         : BoxGeometry::borderBoxRect(inlineBoxBoxGeometry).right();
                 }
-                outOfFlowGeometry.setLogicalTopLeft({ left, lines[previousBox.lineIndex()].lineBoxLogicalRect().top() });
+                outOfFlowGeometry.setLogicalTopLeft({ left, lines[previousBox.lineIndex()].top() });
                 return;
             }
 
             if (nextBox) {
                 // The out of flow box is placed at the beginning of the next line (where the first box on the line is).
                 // <div>text<br><img style="position: absolute"><img style="position: absolute">content</div>
-                outOfFlowGeometry.setLogicalTopLeft({ nextBox->left(), lines[nextBox->lineIndex()].lineBoxLogicalRect().top() });
+                outOfFlowGeometry.setLogicalTopLeft({ nextBox->left(), lines[nextBox->lineIndex()].top() });
                 return;
             }
 
-            auto& lastLineLogicalRect = lines[previousBox.lineIndex()].lineBoxLogicalRect();
+            auto& lastLine = lines[previousBox.lineIndex()];
             // This out-of-flow box is the last box.
             // FIXME: Use isLineBreak instead to cover preserved new lines too.
             if (previousBox.layoutBox().isLineBreakBox()) {
                 // <div>text<br><img style="position: absolute"><img style="position: absolute"></div>
-                outOfFlowGeometry.setLogicalTopLeft({ lastLineLogicalRect.left(), lastLineLogicalRect.bottom() });
+                outOfFlowGeometry.setLogicalTopLeft({ lastLine.left(), lastLine.bottom() });
                 return;
             }
             // FIXME: We may need to check if this box actually fits the last line and move it over to the "next" line.
-            outOfFlowGeometry.setLogicalTopLeft({ previousBox.right(), lastLineLogicalRect.top() });
+            outOfFlowGeometry.setLogicalTopLeft({ previousBox.right(), lastLine.top() });
         };
         placeOutOfFlowBoxAfterPreviousInFlowBox();
     }
@@ -551,15 +553,21 @@ InlineRect InlineFormattingContext::computeGeometryForLineContent(const LineBuil
     auto& formattingState = this->formattingState();
     auto currentLineIndex = formattingState.lines().size();
 
-    auto lineAndLineBox = LineBoxBuilder(*this).build(lineContent, currentLineIndex);
-    auto lineBoxLogicalRect = lineAndLineBox.line.lineBoxLogicalRect();
+    auto lineBoxAndHeight = LineBoxBuilder { *this }.build(lineContent, currentLineIndex);
+    auto displayLine = InlineDisplayLineBuilder { *this }.build(lineContent
+        , lineBoxAndHeight.lineBox
+        , lineBoxAndHeight.lineBoxLogicalHeight
+        , currentLineIndex
+    );
+    formattingState.addBoxes(InlineDisplayContentBuilder { root(), formattingState }.build(lineContent
+        , lineBoxAndHeight.lineBox
+        , displayLine
+        , currentLineIndex)
+    );
+    formattingState.addLineBox(WTFMove(lineBoxAndHeight.lineBox));
+    formattingState.addLine(displayLine);
 
-    auto inlineContentBuilder = InlineDisplayContentBuilder { root(), formattingState };
-    formattingState.addBoxes(inlineContentBuilder.build(lineContent, lineAndLineBox.lineBox, lineBoxLogicalRect, currentLineIndex));
-    formattingState.addLineBox(WTFMove(lineAndLineBox.lineBox));
-    formattingState.addLine(lineAndLineBox.line);
-
-    return lineBoxLogicalRect;
+    return formattingState.lines().last().lineBoxRect();
 }
 
 void InlineFormattingContext::invalidateFormattingState()

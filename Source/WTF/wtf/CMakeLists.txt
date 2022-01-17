@@ -62,6 +62,7 @@ set(WTF_PUBLIC_HEADERS
     DisallowCType.h
     Dominators.h
     DoublyLinkedList.h
+    EmbeddedFixedVector.h
     EnumClassOperatorOverloads.h
     EnumTraits.h
     Expected.h
@@ -218,7 +219,7 @@ set(WTF_PUBLIC_HEADERS
     RedBlackTree.h
     Ref.h
     RefCounted.h
-    RefCountedArray.h
+    RefCountedFixedVector.h
     RefCountedLeakCounter.h
     RefCounter.h
     RefPtr.h
@@ -289,6 +290,7 @@ set(WTF_PUBLIC_HEADERS
     TimingScope.h
     TinyLRUCache.h
     TinyPtrSet.h
+    TrailingArray.h
     TranslatedProcess.h
     TriState.h
     TypeCasts.h
@@ -455,7 +457,6 @@ set(WTF_SOURCES
     RandomNumber.cpp
     ReadWriteLock.cpp
     RefCounted.cpp
-    RefCountedArray.cpp
     RefCountedLeakCounter.cpp
     RunLoop.cpp
     SHA1.cpp

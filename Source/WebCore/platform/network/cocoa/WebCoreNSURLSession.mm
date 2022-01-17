@@ -608,7 +608,7 @@ public:
     void redirectReceived(PlatformMediaResource&, ResourceRequest&&, const ResourceResponse&, CompletionHandler<void(ResourceRequest&&)>&&) override;
     bool shouldCacheResponse(PlatformMediaResource&, const ResourceResponse&) override;
     void dataSent(PlatformMediaResource&, unsigned long long, unsigned long long) override;
-    void dataReceived(PlatformMediaResource&, Ref<FragmentedSharedBuffer>&&) override;
+    void dataReceived(PlatformMediaResource&, const SharedBuffer&) override;
     void accessControlCheckFailed(PlatformMediaResource&, const ResourceError&) override;
     void loadFailed(PlatformMediaResource&, const ResourceError&) override;
     void loadFinished(PlatformMediaResource&, const NetworkLoadMetrics&) override;
@@ -652,13 +652,13 @@ bool WebCoreNSURLSessionDataTaskClient::shouldCacheResponse(PlatformMediaResourc
     return [m_task resource:&resource shouldCacheResponse:response];
 }
 
-void WebCoreNSURLSessionDataTaskClient::dataReceived(PlatformMediaResource& resource, Ref<FragmentedSharedBuffer>&& buffer)
+void WebCoreNSURLSessionDataTaskClient::dataReceived(PlatformMediaResource& resource, const SharedBuffer& buffer)
 {
     Locker locker { m_taskLock };
     if (!m_task)
         return;
 
-    [m_task resource:&resource receivedData:WTFMove(buffer)];
+    [m_task resource:&resource receivedData:buffer.createNSData()];
 }
 
 void WebCoreNSURLSessionDataTaskClient::redirectReceived(PlatformMediaResource& resource, ResourceRequest&& request, const ResourceResponse& response, CompletionHandler<void(ResourceRequest&&)>&& completionHandler)
@@ -721,7 +721,7 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
         request = mutableRequest.get();
     }
 
-    self.originalRequest = self.currentRequest = request;
+    self->_originalRequest = self->_currentRequest = request;
 
     return self;
 }
@@ -770,16 +770,37 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
 
 #pragma mark - NSURLSession API
 @synthesize taskIdentifier = _taskIdentifier;
-@synthesize originalRequest = _originalRequest;
-@synthesize currentRequest = _currentRequest;
 @synthesize countOfBytesReceived = _countOfBytesReceived;
 @synthesize countOfBytesSent = _countOfBytesSent;
 @synthesize countOfBytesExpectedToSend = _countOfBytesExpectedToSend;
 @synthesize countOfBytesExpectedToReceive = _countOfBytesExpectedToReceive;
 @synthesize state = _state;
-@synthesize error = _error;
-@synthesize taskDescription = _taskDescription;
 @synthesize priority = _priority;
+
+- (NSURLRequest *)originalRequest
+{
+    return adoptNS([_originalRequest copy]).autorelease();
+}
+
+- (NSURLRequest *)currentRequest
+{
+    return adoptNS([_currentRequest copy]).autorelease();
+}
+
+- (NSError *)error
+{
+    return adoptNS([_error copy]).autorelease();
+}
+
+- (NSString *)taskDescription
+{
+    return adoptNS([_taskDescription copy]).autorelease();
+}
+
+- (void)setTaskDescription:(NSString *)description
+{
+    _taskDescription = adoptNS([description copy]);
+}
 
 - (WebCoreNSURLSession *)session
 {
@@ -831,11 +852,6 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
 
 - (void)dealloc
 {
-    [_originalRequest release];
-    [_currentRequest release];
-    [_error release];
-    [_taskDescription release];
-
     if (!isMainThread() && _resource) {
         if (auto* client = _resource->client())
             static_cast<WebCoreNSURLSessionDataTaskClient*>(client)->clearTask();
@@ -915,15 +931,14 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
     return response.httpHeaderField(HTTPHeaderName::ContentRange).isEmpty();
 }
 
-- (void)resource:(PlatformMediaResource*)resource receivedData:(Ref<WebCore::FragmentedSharedBuffer>&&)data
+- (void)resource:(PlatformMediaResource*)resource receivedData:(RetainPtr<NSData>&&)data
 {
     ASSERT_UNUSED(resource, !resource || resource == _resource);
     [self.session addDelegateOperation:[strongSelf = RetainPtr { self }, data = WTFMove(data)] {
-        auto nsData = data->makeContiguous()->createNSData();
-        strongSelf.get().countOfBytesReceived += data->size();
+        strongSelf.get().countOfBytesReceived += [data length];
         id<NSURLSessionDataDelegate> dataDelegate = (id<NSURLSessionDataDelegate>)strongSelf.get().session.delegate;
         if ([dataDelegate respondsToSelector:@selector(URLSession:dataTask:didReceiveData:)])
-            [dataDelegate URLSession:(NSURLSession *)strongSelf.get().session dataTask:(NSURLSessionDataTask *)strongSelf.get() didReceiveData:nsData.get()];
+            [dataDelegate URLSession:(NSURLSession *)strongSelf.get().session dataTask:(NSURLSessionDataTask *)strongSelf.get() didReceiveData:data.get()];
     }];
 }
 

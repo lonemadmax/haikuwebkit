@@ -1,3 +1,567 @@
+2022-01-07  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed, reverting r287698.
+
+        Broke an internal build
+
+        Reverted changeset:
+
+        "Start using C++20"
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+        https://commits.webkit.org/r287698
+
+2022-01-06  Alex Christensen  <achristensen@webkit.org>
+
+        Start using C++20
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+
+        Reviewed by Yusuke Suzuki.
+
+        * Configurations/Base.xcconfig:
+
+2022-01-06  Stephan Szabo  <stephan.szabo@sony.com>
+
+        [PlayStation] Fix non-ninja PlayStation build after r285853
+        https://bugs.webkit.org/show_bug.cgi?id=234922
+
+        Unreviewed build fix.
+
+        * PlatformPlayStation.cmake: Added. For MSVS playstatino builds, compile as C++ to
+        avoid issues with the standard set being invalid.
+
+2022-01-04  Philippe Normand  <pnormand@igalia.com>
+
+        [PAS] constant-logical-operand clang warnings
+        https://bugs.webkit.org/show_bug.cgi?id=234814
+
+        Reviewed by Martin Robinson.
+
+        * libpas/src/libpas/pas_config_prefix.h: Use double exclamation marks in declarations to
+        force the compiler to interpret them as booleans and avoid constant-logical-operand
+        warnings.
+
+2021-12-27  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [libpas] Use thread_switch instead of sched_yield
+        https://bugs.webkit.org/show_bug.cgi?id=234712
+
+        Reviewed by Filip Pizlo.
+
+        Previously, we received internal reports that sched_yield waits for a long time, and causing a pause
+        in the client of JavaScriptCore, and we switched it to thread_switch in bmalloc::Mutex. We should do
+        the same thing in libpas too.
+
+        * libpas/src/libpas/pas_lock.c:
+        (pas_lock_lock_slow):
+
+2021-12-22  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [libpas] Make pas_heap_type constant
+        https://bugs.webkit.org/show_bug.cgi?id=234486
+
+        Reviewed by Filip Pizlo.
+
+        Currently, pas_heap_type data is placed in __DATA segment since it is not constant.
+        But they are actually a constant value, so we should put them in __DATA_CONST segment.
+
+        Still, we can have mutable type information if we want: we can const-cast the type
+        in each derived pas_heap_type's functions (and we should define these types with non
+        constant way). But currently, we have no such a type.
+
+        * bmalloc/IsoHeap.h:
+        (bmalloc::api::IsoHeap::provideHeap):
+        * bmalloc/bmalloc.cpp:
+        (bmalloc::api::mallocOutOfLine):
+        * libpas/src/libpas/bmalloc_heap.c:
+        * libpas/src/libpas/bmalloc_heap_innards.h:
+        * libpas/src/libpas/bmalloc_heap_ref.h:
+        * libpas/src/libpas/bmalloc_type.c:
+        (bmalloc_type_dump):
+        (bmalloc_type_as_heap_type_dump):
+        * libpas/src/libpas/bmalloc_type.h:
+        (bmalloc_type_size):
+        (bmalloc_type_alignment):
+        (bmalloc_type_name):
+        (bmalloc_type_as_heap_type_get_type_size):
+        (bmalloc_type_as_heap_type_get_type_alignment):
+        * libpas/src/libpas/iso_heap.c:
+        (iso_heap_ref_construct):
+        (iso_primitive_heap_ref_construct):
+        * libpas/src/libpas/iso_heap_ref.h:
+        * libpas/src/libpas/jit_heap_config.c:
+        (jit_type_dump):
+        * libpas/src/libpas/jit_heap_config.h:
+        (jit_type_size):
+        (jit_type_alignment):
+        * libpas/src/libpas/pas_heap.h:
+        * libpas/src/libpas/pas_heap_config.h:
+        * libpas/src/libpas/pas_heap_ref_prefix.h:
+        * libpas/src/libpas/pas_large_heap.c:
+        (allocate_impl):
+        (pas_large_heap_try_shrink):
+        * libpas/src/libpas/pas_simple_type.c:
+        (pas_simple_type_as_heap_type_dump):
+        * libpas/src/libpas/pas_simple_type.h:
+        (pas_simple_type_get_key_data):
+        (pas_simple_type_create_with_key_data):
+        (pas_simple_type_as_heap_type_get_type_size):
+        (pas_simple_type_as_heap_type_get_type_alignment):
+        * libpas/src/libpas/pas_try_allocate.h:
+        (pas_try_allocate_impl_casual_case):
+        * libpas/src/libpas/pas_try_allocate_array.h:
+        * libpas/src/libpas/pas_try_allocate_common.h:
+        (pas_try_allocate_common_impl_slow):
+        * libpas/src/libpas/pas_try_allocate_intrinsic.h:
+        * libpas/src/libpas/pas_try_reallocate.h:
+        (pas_try_reallocate_array_by_count):
+        * libpas/src/test/ExpendableMemoryTests.cpp:
+        * libpas/src/test/IsoHeapChaosTests.cpp:
+        (std::addAllTests):
+        * libpas/src/test/ThingyAndUtilityHeapAllocationTests.cpp:
+        (std::createIsolatedHeapRef):
+
+2021-12-19  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [libpas] Add macros to disable bmalloc core so that libpas can be enabled on 64-bit watchOS
+        https://bugs.webkit.org/show_bug.cgi?id=234481
+
+        Reviewed by David Kilzer.
+
+        This patch re-enables libpas for watchOS by disabling compilation of bmalloc core when libpas
+        is enabled.
+
+        Also we found that size of libbmalloc.a is misleading: it is just collection of object
+        files, thus it includes a lot of duplicate inline functions, which is deduped when linking
+        it to JavaScriptCore.framework. Thus, that size does not directly reflect the final size of
+        JavaScriptCore.framework.
+
+        Before and after this patch, we see 2.4MB size reduction in total.
+
+            1. JavaScriptCore.framework increases by 363KB.
+                Before: 32452544 JavaScriptCore.framework/JavaScriptCore
+                After:  32825088 JavaScriptCore.framework/JavaScriptCore
+
+                Most part of libbmalloc.a archive file is just many duplicate inline functions, which is deduped
+                in JavaScriptCore.framework (archive file v.s. framework). After deduping and after removing bmalloc
+                core in this patch, it only increases 363KB. Removing bmalloc core code is contributing to 70KB reduction.
+
+            2. WebCore.framework decreases by 2.75MB
+                Before: 72591584 WebCore.framework/WebCore
+                After:  69702240 WebCore.framework/WebCore
+
+                We can get 2.75MB size reduction if we enable libpas on WebCore. This is because how IsoHeap is
+                implemented in bmalloc v.s. libpas. In bmalloc, we use extensive amount of distinct template-based
+                IsoHeap code, which bloats code size. Plus, it uses very long function name strings to fix per-process
+                singleton linking issue happening for C++ template. Compared to that, libpas is just using very small
+                C structure and functions that can be much smaller than the bmalloc's IsoHeap's code which even duplicate
+                slow path code. As a result, switching to libpas offers 2.75MB size deduction.
+
+        * bmalloc/Algorithm.h:
+        * bmalloc/AllIsoHeaps.cpp:
+        * bmalloc/AllIsoHeaps.h:
+        * bmalloc/AllIsoHeapsInlines.h:
+        * bmalloc/Allocator.cpp:
+        * bmalloc/Allocator.h:
+        * bmalloc/BInline.h:
+        * bmalloc/BPlatform.h:
+        * bmalloc/Bits.h:
+        * bmalloc/BulkDecommit.h:
+        * bmalloc/BumpAllocator.h:
+        * bmalloc/BumpRange.h:
+        * bmalloc/Cache.cpp:
+        * bmalloc/Cache.h:
+        * bmalloc/Chunk.h:
+        * bmalloc/Deallocator.cpp:
+        * bmalloc/Deallocator.h:
+        * bmalloc/DeferredDecommit.h:
+        * bmalloc/DeferredDecommitInlines.h:
+        * bmalloc/DeferredTrigger.h:
+        * bmalloc/DeferredTriggerInlines.h:
+        * bmalloc/EligibilityResult.h:
+        * bmalloc/EligibilityResultInlines.h:
+        * bmalloc/Environment.h:
+        * bmalloc/FixedVector.h:
+        * bmalloc/FreeList.cpp:
+        * bmalloc/FreeList.h:
+        * bmalloc/FreeListInlines.h:
+        * bmalloc/Heap.cpp:
+        * bmalloc/Heap.h:
+        * bmalloc/HeapConstants.cpp:
+        * bmalloc/HeapConstants.h:
+        * bmalloc/IsoAllocator.h:
+        * bmalloc/IsoAllocatorInlines.h:
+        * bmalloc/IsoConfig.h:
+        * bmalloc/IsoDeallocator.h:
+        * bmalloc/IsoDeallocatorInlines.h:
+        * bmalloc/IsoDirectory.h:
+        * bmalloc/IsoDirectoryInlines.h:
+        * bmalloc/IsoDirectoryPage.h:
+        * bmalloc/IsoDirectoryPageInlines.h:
+        * bmalloc/IsoHeapImpl.cpp:
+        * bmalloc/IsoHeapImpl.h:
+        * bmalloc/IsoHeapImplInlines.h:
+        * bmalloc/IsoMallocFallback.h:
+        * bmalloc/IsoPage.cpp:
+        * bmalloc/IsoPage.h:
+        * bmalloc/IsoPageInlines.h:
+        * bmalloc/IsoPageTrigger.h:
+        * bmalloc/IsoSharedConfig.h:
+        * bmalloc/IsoSharedHeap.cpp:
+        * bmalloc/IsoSharedHeap.h:
+        * bmalloc/IsoSharedHeapInlines.h:
+        * bmalloc/IsoSharedPage.cpp:
+        * bmalloc/IsoSharedPage.h:
+        * bmalloc/IsoSharedPageInlines.h:
+        * bmalloc/IsoTLS.cpp:
+        * bmalloc/IsoTLS.h:
+        * bmalloc/IsoTLSAllocatorEntry.h:
+        * bmalloc/IsoTLSAllocatorEntryInlines.h:
+        * bmalloc/IsoTLSDeallocatorEntry.h:
+        * bmalloc/IsoTLSDeallocatorEntryInlines.h:
+        * bmalloc/IsoTLSEntry.cpp:
+        * bmalloc/IsoTLSEntry.h:
+        * bmalloc/IsoTLSEntryInlines.h:
+        * bmalloc/IsoTLSInlines.h:
+        * bmalloc/IsoTLSLayout.cpp:
+        * bmalloc/IsoTLSLayout.h:
+        * bmalloc/LargeMap.cpp:
+        * bmalloc/LargeMap.h:
+        * bmalloc/LargeRange.h:
+        * bmalloc/LineMetadata.h:
+        * bmalloc/List.h:
+        * bmalloc/Map.h:
+        * bmalloc/Object.h:
+        * bmalloc/ObjectType.cpp:
+        * bmalloc/ObjectType.h:
+        * bmalloc/ObjectTypeTable.cpp:
+        * bmalloc/ObjectTypeTable.h:
+        * bmalloc/Packed.h:
+        * bmalloc/PerHeapKind.h:
+        * bmalloc/PerProcess.cpp:
+        * bmalloc/PerProcess.h:
+        * bmalloc/PerThread.h:
+        * bmalloc/PhysicalPageMap.h:
+        * bmalloc/Range.h:
+        * bmalloc/Scavenger.cpp:
+        * bmalloc/Scavenger.h:
+        * bmalloc/Sizes.h:
+        * bmalloc/SmallLine.h:
+        * bmalloc/SmallPage.h:
+        * bmalloc/StdLibExtras.h:
+        * bmalloc/Syscall.h:
+        * bmalloc/VMAllocate.h:
+        * bmalloc/Vector.h:
+        * bmalloc/Zone.cpp:
+        * bmalloc/Zone.h:
+
+2021-12-18  David Kilzer  <ddkilzer@apple.com>
+
+        [libpas] Do not compile libpas for 64-bit watchOS to save ~6 MB per architecture
+        <https://webkit.org/b/234478>
+        <rdar://problem/85620647>
+
+        Reviewed by Yusuke Suzuki.
+
+        * bmalloc/BPlatform.h:
+        (BENABLE_LIBPAS):
+        - Disable libpas on 64-bit watchOS.
+
+2021-12-17  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, pas_probabilistic_guard_malloc_allocator.c is broken when LIBPAS is not enabled
+        https://bugs.webkit.org/show_bug.cgi?id=234415
+
+        * libpas/src/libpas/pas_probabilistic_guard_malloc_allocator.c:
+
+2021-12-17  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, CMakeLists is missing pas_probabilistic_guard_malloc_allocator.[ch]
+        https://bugs.webkit.org/show_bug.cgi?id=234415
+
+        * CMakeLists.txt:
+        * libpas/src/libpas/pas_probabilistic_guard_malloc_allocator.c:
+
+2021-12-17  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [libpas] Use inline-assembly ARM64 code in GCC too
+        https://bugs.webkit.org/show_bug.cgi?id=234450
+
+        Reviewed by Saam Barati.
+
+        Same problem to r287168 can happen in GCC too. Use inline assembly version
+        of CAS operation on ARM64 in GCC too. We also use __ARM_FEATURE_ATOMICS
+        to determine whether LSE atomics is enabled further (but since this is very
+        new macro, we continue using the old check too).
+
+        * libpas/src/libpas/pas_utils.h:
+        (pas_atomic_store_uint8):
+        (pas_compare_and_swap_uint8_weak):
+        (pas_compare_and_swap_uint8_strong):
+        (pas_compare_and_swap_uint16_weak):
+        (pas_compare_and_swap_uint32_weak):
+        (pas_compare_and_swap_uint32_strong):
+        (pas_compare_and_swap_uint64_weak):
+        (pas_compare_and_swap_uint64_strong):
+        (pas_compare_and_swap_pair_weak):
+        (pas_compare_and_swap_pair_strong):
+        (pas_atomic_store_pair):
+
+2021-12-16  Filip Pizlo  <fpizlo@apple.com>
+
+        [libpas] update to b1531141d8d5831b0a37efb70f200f7e2c37ff3d (initial pgm support, refactorings to further distinguish exclusive from shared)
+        https://bugs.webkit.org/show_bug.cgi?id=234415
+
+        Reviewed by Yusuke Suzuki.
+
+        This includes two main changes:
+
+        - Initial PGM support thanks to Brandon Stewart.
+
+        - Refactorings to enable more differences in behavior between exclusive pages and shared pages. This
+          is the only useful part of my attempt to add line allocation, which turned out not to be a win.
+
+        * bmalloc.xcodeproj/project.pbxproj:
+        * libpas/.gitignore:
+        * libpas/libpas.xcodeproj/project.pbxproj:
+        * libpas/src/libpas/jit_heap_config.c:
+        (jit_small_bitfit_create_page_header):
+        (jit_medium_bitfit_create_page_header):
+        * libpas/src/libpas/jit_heap_config.h:
+        * libpas/src/libpas/pas_bitfit_allocator.c:
+        (pas_bitfit_allocator_commit_view):
+        * libpas/src/libpas/pas_bitfit_page.c:
+        (pas_bitfit_page_construct):
+        (pas_bitfit_page_verify):
+        * libpas/src/libpas/pas_bitfit_page.h:
+        (pas_bitfit_page_offset_to_first_object):
+        (pas_bitfit_page_offset_to_end_of_last_object):
+        * libpas/src/libpas/pas_bitfit_page_config.h:
+        (pas_bitfit_page_config_object_payload_end_offset_from_boundary):
+        * libpas/src/libpas/pas_compact_tagged_void_ptr.h: Added.
+        * libpas/src/libpas/pas_enumerate_segregated_heaps.c:
+        (enumerate_exclusive_view):
+        (enumerate_shared_view):
+        (enumerate_partial_view):
+        * libpas/src/libpas/pas_heap_config_utils.h:
+        * libpas/src/libpas/pas_local_allocator_inlines.h:
+        (pas_local_allocator_set_up_free_bits):
+        * libpas/src/libpas/pas_page_base.c:
+        (pas_page_base_header_size):
+        * libpas/src/libpas/pas_page_base.h:
+        * libpas/src/libpas/pas_page_base_config.h:
+        (pas_page_base_config_is_bitfit):
+        (pas_page_base_config_object_payload_end_offset_from_boundary): Deleted.
+        * libpas/src/libpas/pas_page_base_config_utils.h:
+        * libpas/src/libpas/pas_page_base_config_utils_inlines.h:
+        * libpas/src/libpas/pas_probabilistic_guard_malloc_allocator.c: Added.
+        (pas_probabilistic_guard_malloc_allocate):
+        (pas_probabilistic_guard_malloc_deallocate):
+        (pas_probabilistic_guard_malloc_trigger):
+        (pas_probabilistic_guard_malloc_can_use):
+        (pas_probabilistic_guard_malloc_should_use):
+        (pas_probabilistic_guard_malloc_get_free_virtual_memory):
+        (pas_probabilistic_guard_malloc_get_free_wasted_memory):
+        * libpas/src/libpas/pas_probabilistic_guard_malloc_allocator.h: Added.
+        * libpas/src/libpas/pas_segregated_exclusive_view.c:
+        (compute_summary_impl):
+        * libpas/src/libpas/pas_segregated_heap.c:
+        (compute_ideal_object_size):
+        (pas_segregated_heap_ensure_size_directory_for_size):
+        * libpas/src/libpas/pas_segregated_page.c:
+        (pas_segregated_page_construct):
+        (pas_segregated_page_verify_granules):
+        (pas_segregated_page_verify_num_non_empty_words): Deleted.
+        * libpas/src/libpas/pas_segregated_page.h:
+        (pas_segregated_page_header_size):
+        (pas_segregated_page_offset_from_page_boundary_to_first_object_for_hugging_mode):
+        (pas_segregated_page_offset_from_page_boundary_to_end_of_last_object_for_hugging_mode):
+        (pas_segregated_page_useful_object_payload_size_for_hugging_mode):
+        (pas_segregated_page_best_hugging_mode):
+        (pas_segregated_page_offset_from_page_boundary_to_first_object_exclusive):
+        (pas_segregated_page_offset_from_page_boundary_to_end_of_last_object_exclusive):
+        (pas_segregated_page_useful_object_payload_size):
+        (pas_segregated_page_number_of_objects):
+        (pas_segregated_page_bytes_dirtied_per_object):
+        * libpas/src/libpas/pas_segregated_page_config.c:
+        (pas_segregated_page_config_validate):
+        * libpas/src/libpas/pas_segregated_page_config.h:
+        (pas_segregated_page_config_payload_offset_for_role):
+        (pas_segregated_page_config_payload_size_for_role):
+        (pas_segregated_page_config_payload_end_offset_for_role):
+        (pas_segregated_page_config_object_payload_end_offset_from_boundary): Deleted.
+        * libpas/src/libpas/pas_segregated_page_config_utils.h:
+        * libpas/src/libpas/pas_segregated_page_inlines.h:
+        (pas_segregated_page_initialize_full_use_counts):
+        (pas_segregated_page_offset_from_page_boundary_to_first_object): Deleted.
+        * libpas/src/libpas/pas_segregated_shared_view.c:
+        (pas_segregated_shared_view_commit_page):
+        (compute_summary):
+        * libpas/src/libpas/pas_segregated_shared_view.h:
+        (pas_segregated_shared_view_can_bump):
+        (pas_segregated_shared_view_compute_new_bump):
+        * libpas/src/libpas/pas_segregated_size_directory.c:
+        (pas_segregated_size_directory_enable_exclusive_views):
+        * libpas/src/libpas/pas_segregated_view.c:
+        (for_each_live_object):
+        (should_be_eligible):
+        * libpas/src/libpas/pas_segregated_view_allocator_inlines.h:
+        (pas_segregated_view_will_start_allocating):
+        * libpas/src/libpas/pas_status_reporter.c:
+        (report_segregated_directory_contents):
+        * libpas/src/libpas/pas_utility_heap_config.h:
+        (pas_utility_heap_create_page_header):
+        * libpas/src/test/IsoHeapChaosTests.cpp:
+        (std::addTheTests):
+        * libpas/src/test/PGMTests.cpp: Added.
+        (std::testPGMSingleAlloc):
+        (std::testPGMMultipleAlloc):
+        (std::testPGMErrors):
+        (addPGMTests):
+        * libpas/src/test/TestHarness.cpp:
+        (main):
+        * libpas/src/test/ThingyAndUtilityHeapAllocationTests.cpp:
+        (std::testFreeListRefillSpans):
+        (std::testSpuriousEligibility):
+
+2021-12-16  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [libpas] Enable libpas on ARM64 Darwin platforms (ARM64E is already enabled)
+        https://bugs.webkit.org/show_bug.cgi?id=234416
+
+        Reviewed by Filip Pizlo.
+
+        r287168 fixed libpas compare_and_swap on ARM64 so that we pass all libpas tests on ARM64 platforms.
+        Speedometer2 and JetStream2 are neutral, PLUM3 is 10.79% better, and RAMification is 2.83% better.
+
+        * bmalloc/BPlatform.h:
+
+2021-12-16  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [libpas] ARM64 CAS emulation loop needs dmb ish
+        https://bugs.webkit.org/show_bug.cgi?id=234414
+
+        Reviewed by Filip Pizlo.
+
+        Just using LL/SC does not guarantee that the ordering of accesses around the loop. For example,
+
+           access(A)
+         0:
+           LL (ldaxr)
+           ...
+           SC (stlxr)
+           cond-branch 0
+           access(B)
+
+        In the above code case, the ordering A -> LL -> SC -> B is not guaranteed and it can be
+        LL -> A -> B -> SC or LL -> B -> A -> SC: memory access may happen in the middle of RMW atomics.
+        This breaks pas_versioned_field's assumption where they are ordered as A -> LL -> SC -> B.
+
+        https://stackoverflow.com/questions/35217406/partial-reordering-of-c11-atomics-on-aarch64
+        https://stackoverflow.com/questions/21535058/arm64-ldxr-stxr-vs-ldaxr-stlxr
+        http://lists.infradead.org/pipermail/linux-arm-kernel/2014-February/229588.html
+
+        Another example is that the following can happen if we use CAS loop without barrier.
+
+            == thread A ==
+            *a = 1;
+            spin_lock(&lock);
+            *b = 1;
+
+            == thread B ==
+            b_value = atomic_get(&b);
+            a_value = atomic_get(&a);
+            assert(a_value || !b_value); // can fail
+
+        https://github.com/zephyrproject-rtos/zephyr/issues/32133
+        https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65697
+
+        To guarantee A -> (atomic) -> B ordering, we insert barrier (dmb ish) just after the loop.
+
+           access(A)
+         0:
+           LL (ldxr)
+           ...
+           SC (stlxr)
+           cond-branch 0
+           dmb ish
+           access(B)
+
+        `dmb ish` ensures B is done after (atomic) region. And this barrier also ensures that A cannot happen after
+        For this CAS emulation loop, we do not need to have acquire, so we can use ldxr. (atomic) region.
+        SC ensures A does not happen after SC. But still, A and LL can be reordered.
+        If A is storing to the same location X, then it will be detected due to ldxr's exclusiveness.
+
+             data = LL(X)
+             store(X, 42) // Reordered here
+             => SC will fail.
+
+        If A is storing to the different location, then we have no way to observe the difference.
+
+            data = LL(X)
+            store(A, 42) // Reordered here. But there is no way to know whether this access happens before or after LL.
+
+        * libpas/src/libpas/pas_utils.h:
+        (pas_atomic_store_uint8):
+        (pas_compare_and_swap_uint8_weak):
+        (pas_compare_and_swap_uint8_strong):
+        (pas_compare_and_swap_uint16_weak):
+        (pas_compare_and_swap_uint32_weak):
+        (pas_compare_and_swap_uint32_strong):
+        (pas_compare_and_swap_uint64_weak):
+        (pas_compare_and_swap_uint64_strong):
+        (pas_compare_and_swap_pair_weak):
+        (pas_compare_and_swap_pair_strong):
+        (pas_atomic_load_pair_relaxed):
+        (pas_atomic_store_pair):
+        (pas_atomic_load_pair): Deleted.
+
+2021-12-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [libpas] Implement atomics in inline assembly if compiler is using ARM64
+        https://bugs.webkit.org/show_bug.cgi?id=234333
+
+        Reviewed by Filip Pizlo.
+
+        libpas relies on how value is loaded since we are using `pas_depend`.
+        For example, we expect that compare_and_swap_strong returns a loaded value.
+        But it is not guaranteed: the compiler can return argument's old_value
+        if we ensure that the loaded value equals to old_value. In that case,
+        pas_depend's chain is broken because we start using distinct registers.
+        This can happen if atomics is implemented as LL/SC loop.
+
+        This patch implements atomics in inline assembly if the build is ARM64 (not ARM64E),
+        so that we ensure that we return loaded value's register instead of old value's one.
+
+        This significantly improved crash rate of libpas test suite on ARM64 (on ARM64E, all
+        tests pass already).
+
+        * libpas/src/libpas/pas_config_prefix.h:
+        * libpas/src/libpas/pas_lock.h:
+        (pas_lock_unlock):
+        * libpas/src/libpas/pas_lock_free_read_ptr_ptr_hashtable.h:
+        (pas_lock_free_read_ptr_ptr_hashtable_find):
+        * libpas/src/libpas/pas_utils.h:
+        (pas_atomic_store_uint8):
+        (pas_compare_and_swap_uint8_weak):
+        (pas_compare_and_swap_uint8_strong):
+        (pas_compare_and_swap_uint16_weak):
+        (pas_compare_and_swap_uint32_weak):
+        (pas_compare_and_swap_uint32_strong):
+        (pas_compare_and_swap_uint64_weak):
+        (pas_compare_and_swap_uint64_strong):
+        (pas_atomic_store_bool):
+        (pas_compare_and_swap_bool_weak):
+        (pas_compare_and_swap_bool_strong):
+        (pas_compare_and_swap_uintptr_weak):
+        (pas_compare_and_swap_uintptr_strong):
+        (pas_compare_and_swap_ptr_weak):
+        (pas_compare_and_swap_ptr_strong):
+        (pas_compare_and_swap_pair_weak):
+        (pas_compare_and_swap_pair_strong):
+        (pas_atomic_load_pair):
+        (pas_atomic_store_pair):
+        (pas_compare_ptr_opaque):
+
 2021-12-14  Yusuke Suzuki  <ysuzuki@apple.com>
 
         Unreviewed, fix Xcode build of libpas

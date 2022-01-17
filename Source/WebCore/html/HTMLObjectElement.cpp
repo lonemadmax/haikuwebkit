@@ -356,9 +356,10 @@ void HTMLObjectElement::renderFallbackContent()
 
 static inline bool preventsParentObjectFromExposure(const Element& child)
 {
-    static const auto mostKnownTags = makeNeverDestroyed([] {
+    static NeverDestroyed mostKnownTags = [] {
         MemoryCompactLookupOnlyRobinHoodHashSet<QualifiedName> set;
         auto* tags = HTMLNames::getHTMLTags();
+        set.reserveInitialCapacity(HTMLNames::HTMLTagsCount);
         for (size_t i = 0; i < HTMLNames::HTMLTagsCount; i++) {
             auto& tag = *tags[i];
             // Only the param element was explicitly mentioned in the HTML specification rule
@@ -377,7 +378,7 @@ static inline bool preventsParentObjectFromExposure(const Element& child)
             set.add(tag);
         }
         return set;
-    }());
+    }();
     return mostKnownTags.get().contains(child.tagQName());
 }
 
@@ -460,23 +461,6 @@ void HTMLObjectElement::didMoveToNewDocument(Document& oldDocument, Document& ne
 {
     FormAssociatedElement::didMoveToNewDocument(oldDocument);
     HTMLPlugInImageElement::didMoveToNewDocument(oldDocument, newDocument);
-}
-
-bool HTMLObjectElement::appendFormData(DOMFormData& formData)
-{
-    if (name().isEmpty())
-        return false;
-
-    // Use PluginLoadingPolicy::DoNotLoad here or it would fire JS events synchronously
-    // which would not be safe here.
-    RefPtr widget = pluginWidget(PluginLoadingPolicy::DoNotLoad);
-    if (!is<PluginViewBase>(widget))
-        return false;
-    String value;
-    if (!downcast<PluginViewBase>(*widget).getFormValue(value))
-        return false;
-    formData.append(name(), value);
-    return true;
 }
 
 bool HTMLObjectElement::canContainRangeEndPoint() const

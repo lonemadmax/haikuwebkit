@@ -27,30 +27,20 @@
 
 #pragma once
 
-#include "AffineTransform.h"
 #include "Color.h"
 #include "ColorInterpolationMethod.h"
 #include "FloatPoint.h"
+#include "GradientColorStops.h"
 #include "GraphicsTypes.h"
 #include <variant>
 #include <wtf/Vector.h>
 
 #if USE(CG)
-#include <wtf/RetainPtr.h>
-#endif
-
-#if USE(DIRECT2D)
-#include "COMPtr.h"
+#include "GradientRendererCG.h"
 #endif
 
 #if USE(CG)
 typedef struct CGContext* CGContextRef;
-typedef struct CGGradient* CGGradientRef;
-#endif
-
-#if USE(DIRECT2D)
-interface ID2D1Brush;
-interface ID2D1RenderTarget;
 #endif
 
 #if USE(CAIRO)
@@ -65,21 +55,12 @@ typedef void* PlatformGradient;
 
 namespace WebCore {
 
+class AffineTransform;
 class FloatRect;
 class GraphicsContext;
 
 class Gradient : public RefCounted<Gradient> {
 public:
-    struct ColorStop {
-        float offset { 0 };
-        Color color;
-
-        template<typename Encoder> void encode(Encoder&) const;
-        template<typename Decoder> static std::optional<ColorStop> decode(Decoder&);
-    };
-
-    using ColorStopVector = Vector<ColorStop, 2>;
-
     struct LinearData {
         FloatPoint point0;
         FloatPoint point1;
@@ -109,18 +90,15 @@ public:
 
     using Data = std::variant<LinearData, RadialData, ConicData>;
 
-    WEBCORE_EXPORT static Ref<Gradient> create(Data&&, ColorInterpolationMethod);
+    WEBCORE_EXPORT static Ref<Gradient> create(Data&&, ColorInterpolationMethod, GradientSpreadMethod = GradientSpreadMethod::Pad, GradientColorStops&& = { });
 
     bool isZeroSize() const;
 
     const Data& data() const { return m_data; }
 
-    WEBCORE_EXPORT void addColorStop(ColorStop&&);
-    WEBCORE_EXPORT void setSortedColorStops(ColorStopVector&&);
+    WEBCORE_EXPORT void addColorStop(GradientColorStop&&);
 
-    const ColorStopVector& stops() const { return m_stops; }
-
-    WEBCORE_EXPORT void setSpreadMethod(GradientSpreadMethod);
+    const GradientColorStops& stops() const { return m_stops; }
     GradientSpreadMethod spreadMethod() const { return m_spreadMethod; }
 
     void fill(GraphicsContext&, const FloatRect&);
@@ -141,64 +119,28 @@ public:
     void paint(CGContextRef);
 #endif
 
-#if USE(DIRECT2D)
-    ID2D1Brush* createBrush(ID2D1RenderTarget*);
-#endif
-
     template<typename Encoder> void encode(Encoder&) const;
     template<typename Decoder> static std::optional<Ref<Gradient>> decode(Decoder&);
 
 private:
-    explicit Gradient(Data&&, ColorInterpolationMethod);
+    explicit Gradient(Data&&, ColorInterpolationMethod, GradientSpreadMethod, GradientColorStops&&);
 
-    void sortStops() const;
     void stopsChanged();
-
-#if USE(CG)
-    void createCGGradient();
-    bool hasOnlyBoundedSRGBColorStops() const;
-#endif
 
     Data m_data;
     ColorInterpolationMethod m_colorInterpolationMethod;
-    mutable ColorStopVector m_stops;
-    mutable bool m_stopsSorted { false };
-    GradientSpreadMethod m_spreadMethod { GradientSpreadMethod::Pad };
+    GradientSpreadMethod m_spreadMethod;
+    GradientColorStops m_stops;
     mutable unsigned m_cachedHash { 0 };
 
 #if USE(CG)
-    RetainPtr<CGGradientRef> m_gradient;
-#endif
-
-#if USE(DIRECT2D)
-    COMPtr<ID2D1Brush> m_brush;
+    std::optional<GradientRendererCG> m_platformRenderer;
 #endif
 
 #if USE(HAIKU)
     std::unique_ptr<BGradient> m_gradient;
 #endif
 };
-
-template<typename Encoder> void Gradient::ColorStop::encode(Encoder& encoder) const
-{
-    encoder << offset;
-    encoder << color;
-}
-
-template<typename Decoder> std::optional<Gradient::ColorStop> Gradient::ColorStop::decode(Decoder& decoder)
-{
-    std::optional<float> offset;
-    decoder >> offset;
-    if (!offset)
-        return std::nullopt;
-
-    std::optional<Color> color;
-    decoder >> color;
-    if (!color)
-        return std::nullopt;
-
-    return {{ *offset, *color }};
-}
 
 template<typename Encoder> void Gradient::LinearData::encode(Encoder& encoder) const
 {
@@ -285,9 +227,8 @@ template<typename Encoder> void Gradient::encode(Encoder& encoder) const
 {
     encoder << m_data;
     encoder << m_colorInterpolationMethod;
-    encoder << m_stops;
-    encoder << m_stopsSorted;
     encoder << m_spreadMethod;
+    encoder << m_stops;
 }
 
 template<typename Decoder> std::optional<Ref<Gradient>> Gradient::decode(Decoder& decoder)
@@ -302,35 +243,17 @@ template<typename Decoder> std::optional<Ref<Gradient>> Gradient::decode(Decoder
     if (!colorInterpolationMethod)
         return std::nullopt;
 
-    auto gradient = Gradient::create(WTFMove(*data), *colorInterpolationMethod);
+    std::optional<GradientSpreadMethod> spreadMethod;
+    decoder >> spreadMethod;
+    if (!spreadMethod)
+        return std::nullopt;
 
-    std::optional<ColorStopVector> stops;
+    std::optional<GradientColorStops> stops;
     decoder >> stops;
     if (!stops)
         return std::nullopt;
-    std::optional<bool> stopsSorted;
-    decoder >> stopsSorted;
-    if (!stopsSorted.has_value())
-        return std::nullopt;
-    if (*stopsSorted)
-        gradient->setSortedColorStops(WTFMove(*stops));
-    else {
-        for (auto& stop : *stops)
-            gradient->addColorStop(WTFMove(stop));
-    }
 
-    GradientSpreadMethod spreadMethod;
-    if (!decoder.decode(spreadMethod))
-        return std::nullopt;
-    gradient->setSpreadMethod(spreadMethod);
-
-    return gradient;
-}
-
-inline void add(Hasher& hasher, const Color& color)
-{
-    // FIXME: We don't want to hash a hash; do better.
-    add(hasher, color.hash());
+    return Gradient::create(WTFMove(*data), *colorInterpolationMethod, *spreadMethod, WTFMove(*stops));
 }
 
 } // namespace WebCore

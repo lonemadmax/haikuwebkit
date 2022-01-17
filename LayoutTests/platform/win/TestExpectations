@@ -295,6 +295,7 @@ fast/gradients/conic-center-outside-box.html [ Skip ]
 fast/gradients/conic-extended-stops.html [ Skip ]
 fast/gradients/conic-from-angle.html [ Skip ]
 fast/gradients/conic-repeating-last-stop.html [ Skip ]
+fast/gradients/conic-gradient-alpha-unpremultiplied.html [ Skip ]
 fast/gradients/conic-gradient-alpha.html [ Skip ]
 fast/gradients/conic-gradient-extended-stops.html [ Skip ]
 fast/gradients/conic-gradient.html [ Skip ]
@@ -322,6 +323,7 @@ scrollbars/scroll-rtl-or-bt-layer.html [ Timeout ]
 webkit.org/b/208559 fast/scrolling/arrow-key-scroll-in-rtl-document.html [ Skip ]
 webkit.org/b/208559 fast/scrolling/programmatic-scroll-to-zero-zero.html [ Skip ]
 webkit.org/b/208559 fast/scrolling/rtl-point-in-iframe.html [ Skip ]
+fast/scrolling/rtl-scrollbars-alternate-iframe-body-dir-attr-does-not-update-scrollbar-placement.html [ ImageOnlyFailure ]
 
 # TODO Needs testRunner.enableAutoResizeMode()
 fast/autoresize/ [ Skip ]
@@ -588,6 +590,9 @@ webkit.org/b/149771 css3/font-variant-font-face-override.html [ Skip ] # WontFix
 webkit.org/b/149774 css3/font-variant-petite-caps-synthesis.html [ Skip ] # WontFix
 webkit.org/b/149774 css3/font-variant-small-caps-synthesis.html [ Skip ] # WontFix
 
+# monitorWheelEvents doesn't work in this test.
+css3/scroll-snap/scroll-snap-wheel-event.html [ Skip ]
+
 # TODO HiDPI tests require test infrastructure enhancements (e.g. testRunner.setBackingScaleFactor)
 # https://bugs.webkit.org/show_bug.cgi?id=87919
 webkit.org/b/87919 compositing/tiled-layers-hidpi.html
@@ -784,7 +789,6 @@ webkit.org/b/88107 platform/win/plugins/iframe-inside-overflow.html [ Skip ]
 webkit.org/b/88107 platform/win/plugins/window-region-is-set-to-clip-rect.html [ Skip ]
 webkit.org/b/88107 plugins/crash-restoring-plugin-page-from-page-cache.html [ Skip ]
 webkit.org/b/88107 plugins/fullscreen-plugins-dont-reload.html [ Skip ]
-webkit.org/b/88107 plugins/netscape-plugin-page-cache-works.html [ Skip ]
 # This test causes any following plugins test to crash
 plugins/nested-plugin-objects.html [ Skip ]
 
@@ -907,6 +911,7 @@ imported/w3c/web-platform-tests/audio-output [ Skip ]
 
 fast/speechrecognition/start-recognition-after-gum.html [ Skip ]
 fast/speechrecognition/start-recognition-after-denied-gum.html [ Skip ]
+fast/speechrecognition/start-recognition-without-devices.html [ Skip ]
 
 # needs enhanced eventSender.contextMenu() return value
 #webkit.org/b/45021 media/context-menu-actions.html
@@ -4772,3 +4777,6 @@ fast/text/otsvg-canvas.html [ ImageOnlyFailure ]
 
 # The DocumentTimeline.maximumFrameRate property which this test is about is not available on Windows.
 webanimations/frame-rate/document-timeline-maximum-frame-rate.html [ Skip ]
+
+pointerevents/mouse/pointer-button-and-buttons.html [ Failure ]
+pointerevents/mouse/pointer-capture.html [ Failure ]

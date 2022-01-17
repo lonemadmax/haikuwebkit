@@ -416,12 +416,12 @@ AttributedString HTMLConverter::convert()
 // Returns the font to be used if the NSFontAttributeName doesn't exist
 static NSFont *WebDefaultFont()
 {
-    static auto defaultFont = makeNeverDestroyed([] {
+    static NeverDestroyed defaultFont = [] {
         NSFont *font = [NSFont fontWithName:@"Helvetica" size:12];
         if (!font)
             font = [NSFont systemFontOfSize:12];
-        return retainPtr(font);
-    }());
+        return RetainPtr { font };
+    }();
     return defaultFont.get().get();
 }
 #endif
@@ -518,13 +518,13 @@ static PlatformFont *_fontForNameAndSize(NSString *fontName, CGFloat size, NSMut
 
 static NSParagraphStyle *defaultParagraphStyle()
 {
-    static auto defaultParagraphStyle = makeNeverDestroyed([] {
-        auto defaultParagraphStyle = adoptNS([[PlatformNSParagraphStyle defaultParagraphStyle] mutableCopy]);
-        [defaultParagraphStyle setDefaultTabInterval:36];
-        [defaultParagraphStyle setTabStops:@[]];
-        return defaultParagraphStyle;
-    }());
-    return defaultParagraphStyle.get().get();
+    static NeverDestroyed style = [] {
+        auto style = adoptNS([[PlatformNSParagraphStyle defaultParagraphStyle] mutableCopy]);
+        [style setDefaultTabInterval:36];
+        [style setTabStops:@[]];
+        return style;
+    }();
+    return style.get().get();
 }
 
 RefPtr<CSSValue> HTMLConverterCaches::computedStylePropertyForElement(Element& element, CSSPropertyID propertyId)
@@ -1013,7 +1013,7 @@ NSDictionary *HTMLConverter::computedAttributesForElement(Element& element)
     if (strokeColor)
         [attrs setObject:strokeColor.get() forKey:NSStrokeColorAttributeName];
 
-    String fontKerning = _caches->propertyValueForNode(element, CSSPropertyWebkitFontKerning);
+    String fontKerning = _caches->propertyValueForNode(element, CSSPropertyFontKerning);
     String letterSpacing = _caches->propertyValueForNode(element, CSSPropertyLetterSpacing);
     if (fontKerning.length() || letterSpacing.length()) {
         if (fontKerning == "none")
@@ -1886,7 +1886,6 @@ void HTMLConverter::_addMarkersToList(NSTextList *list, NSRange range)
     NSString *string = [_attrStr string];
     NSString *stringToInsert;
     NSDictionary *attrsToInsert = nil;
-    PlatformFont *font;
     NSParagraphStyle *paragraphStyle;
     NSTextTab *tab = nil;
     NSTextTab *tabToRemove;
@@ -1913,7 +1912,6 @@ void HTMLConverter::_addMarkersToList(NSTextList *list, NSRange range)
             for (NSUInteger idx = range.location; idx < NSMaxRange(range);) {
                 paragraphRange = [string paragraphRangeForRange:NSMakeRange(idx, 0)];
                 paragraphStyle = [_attrStr attribute:NSParagraphStyleAttributeName atIndex:idx effectiveRange:&styleRange];
-                font = [_attrStr attribute:NSFontAttributeName atIndex:idx effectiveRange:NULL];
                 if ([[paragraphStyle textLists] count] == listIndex + 1) {
                     stringToInsert = [NSString stringWithFormat:@"\t%@\t", [list markerForItemNumber:itemNum++]];
                     insertLength = [stringToInsert length];

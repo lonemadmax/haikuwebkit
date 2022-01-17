@@ -101,9 +101,6 @@ public:
     void setServerTimingEnabled(bool isEnabled) { m_isServerTimingEnabled = isEnabled; }
     bool serverTimingEnabled() const { return m_isServerTimingEnabled; }
 
-    void setExperimentalPlugInSandboxProfilesEnabled(bool isEnabled) { m_experimentalPlugInSandboxProfilesEnabled = isEnabled; }
-    bool experimentalPlugInSandboxProfilesEnabled() const { return m_experimentalPlugInSandboxProfilesEnabled; }
-
     void setAttrStyleEnabled(bool isEnabled) { m_attrStyleEnabled = isEnabled; }
     bool attrStyleEnabled() const { return m_attrStyleEnabled; }
 
@@ -256,6 +253,11 @@ public:
     bool builtInNotificationsEnabled() const { return m_builtInNotificationsEnabled; }
 #endif
 
+#if ENABLE(NOTIFICATION_EVENT)
+    void setNotificationEventEnabled(bool isEnabled) { m_notificationEventEnabled = isEnabled; }
+    bool notificationEventEnabled() const { return m_notificationEventEnabled; }
+#endif
+
 #if ENABLE(MODEL_ELEMENT)
     void setModelDocumentEnabled(bool isEnabled) { m_modelDocumentEnabled = isEnabled; }
     bool modelDocumentEnabled() const { return m_modelDocumentEnabled; }
@@ -288,7 +290,6 @@ private:
     bool m_itpDebugMode { false };
     bool m_isRestrictedHTTPResponseAccess { true };
     bool m_isServerTimingEnabled { false };
-    bool m_experimentalPlugInSandboxProfilesEnabled { false };
     bool m_attrStyleEnabled { false };
     bool m_webAPIStatisticsEnabled { false };
     bool m_syntheticEditingCommandsEnabled { true };
@@ -398,6 +399,10 @@ private:
 
 #if ENABLE(BUILT_IN_NOTIFICATIONS)
     bool m_builtInNotificationsEnabled { false };
+#endif
+
+#if ENABLE(NOTIFICATION_EVENT)
+    bool m_notificationEventEnabled { false };
 #endif
 
 #if ENABLE(MODEL_ELEMENT)

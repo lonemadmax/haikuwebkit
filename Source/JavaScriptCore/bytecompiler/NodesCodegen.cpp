@@ -371,13 +371,10 @@ RegisterID* TaggedTemplateNode::emitBytecode(BytecodeGenerator& generator, Regis
     } else {
         ASSERT(m_tag->isDotAccessorNode());
         DotAccessorNode* dot = static_cast<DotAccessorNode*>(m_tag);
+        tag = generator.newTemporary();
         base = generator.newTemporary();
         base = generator.emitNode(base.get(), dot->base());
-        if (dot->base()->isSuperNode()) {
-            RefPtr<RegisterID> thisValue = generator.ensureThis();
-            tag = generator.emitGetById(generator.newTemporary(), base.get(), thisValue.get(), dot->identifier());
-        } else
-            tag = generator.emitGetById(generator.newTemporary(), base.get(), dot->identifier());
+        tag = dot->emitGetPropertyValue(generator, tag.get(), base.get());
     }
 
     RefPtr<RegisterID> templateObject = generator.emitGetTemplateObject(nullptr, this);
@@ -1841,6 +1838,15 @@ RegisterID* BytecodeIntrinsicNode::emit_intrinsic_toString(BytecodeGenerator& ge
     return generator.move(dst, generator.emitToString(generator.tempDestination(dst), src.get()));
 }
 
+RegisterID* BytecodeIntrinsicNode::emit_intrinsic_toPropertyKey(BytecodeGenerator& generator, RegisterID* dst)
+{
+    ArgumentListNode* node = m_args->m_listNode;
+    RefPtr<RegisterID> src = generator.emitNode(node);
+    ASSERT(!node->m_next);
+
+    return generator.move(dst, generator.emitToPropertyKey(generator.tempDestination(dst), src.get()));
+}
+
 RegisterID* BytecodeIntrinsicNode::emit_intrinsic_toObject(BytecodeGenerator& generator, RegisterID* dst)
 {
     ArgumentListNode* node = m_args->m_listNode;
@@ -2360,7 +2366,7 @@ RegisterID* PostfixNode::emitResolve(BytecodeGenerator& generator, RegisterID* d
     }
     RefPtr<RegisterID> oldValue = emitPostIncOrDec(generator, generator.finalDestination(dst), value.get(), m_operator);
     if (!var.isReadOnly()) {
-        generator.emitPutToScope(scope.get(), var, value.get(), ThrowIfNotFound, InitializationMode::NotInitialization);
+        generator.emitPutToScope(scope.get(), var, value.get(), generator.ecmaMode().isStrict() ? ThrowIfNotFound : DoNotThrowIfNotFound, InitializationMode::NotInitialization);
         generator.emitProfileType(value.get(), var, divotStart(), divotEnd());
     }
 
@@ -2657,7 +2663,7 @@ RegisterID* PrefixNode::emitResolve(BytecodeGenerator& generator, RegisterID* ds
 
     emitIncOrDec(generator, value.get(), m_operator);
     if (!var.isReadOnly()) {
-        generator.emitPutToScope(scope.get(), var, value.get(), ThrowIfNotFound, InitializationMode::NotInitialization);
+        generator.emitPutToScope(scope.get(), var, value.get(), generator.ecmaMode().isStrict() ? ThrowIfNotFound : DoNotThrowIfNotFound, InitializationMode::NotInitialization);
         generator.emitProfileType(value.get(), var, divotStart(), divotEnd());
     }
     return generator.move(dst, value.get());
@@ -3444,7 +3450,7 @@ RegisterID* ReadModifyResolveNode::emitBytecode(BytecodeGenerator& generator, Re
     RefPtr<RegisterID> result = emitReadModifyAssignment(generator, generator.finalDestination(dst, value.get()), value.get(), m_right, m_operator, OperandTypes(ResultType::unknownType(), m_right->resultDescriptor()), this, var.isReadOnly() ? &var : nullptr);
     RegisterID* returnResult = result.get();
     if (!var.isReadOnly()) {
-        returnResult = generator.emitPutToScope(scope.get(), var, result.get(), ThrowIfNotFound, InitializationMode::NotInitialization);
+        returnResult = generator.emitPutToScope(scope.get(), var, result.get(), generator.ecmaMode().isStrict() ? ThrowIfNotFound : DoNotThrowIfNotFound, InitializationMode::NotInitialization);
         generator.emitProfileType(result.get(), var, divotStart(), divotEnd());
     }
     return returnResult;
@@ -3545,7 +3551,7 @@ RegisterID* ShortCircuitReadModifyResolveNode::emitBytecode(BytecodeGenerator& g
         generator.emitExpressionInfo(divot(), divotStart(), divotEnd());
 
     if (!isReadOnly) {
-        generator.emitPutToScope(scope.get(), var, uncheckedResult.get(), ThrowIfNotFound, InitializationMode::NotInitialization);
+        generator.emitPutToScope(scope.get(), var, uncheckedResult.get(), generator.ecmaMode().isStrict() ? ThrowIfNotFound : DoNotThrowIfNotFound, InitializationMode::NotInitialization);
         generator.emitProfileType(uncheckedResult.get(), var, divotStart(), divotEnd());
     }
 
@@ -3667,21 +3673,13 @@ RegisterID* ShortCircuitReadModifyDotNode::emitBytecode(BytecodeGenerator& gener
     RefPtr<RegisterID> result = generator.tempDestination(dst);
 
     generator.emitExpressionInfo(subexpressionDivot(), subexpressionStart(), subexpressionEnd());
-    if (m_base->isSuperNode()) {
-        thisValue = generator.ensureThis();
-        generator.emitGetById(result.get(), base.get(), thisValue.get(), m_ident);
-    } else
-        generator.emitGetById(result.get(), base.get(), m_ident);
-
+    emitGetPropertyValue(generator, result.get(), base.get(), thisValue);
     Ref<Label> afterAssignment = generator.newLabel();
     emitShortCircuitAssignment(generator, result.get(), m_operator, afterAssignment.get());
 
     generator.emitNode(result.get(), m_right);
     generator.emitExpressionInfo(divot(), divotStart(), divotEnd());
-    if (m_base->isSuperNode())
-        generator.emitPutById(base.get(), thisValue.get(), m_ident, result.get());
-    else
-        generator.emitPutById(base.get(), m_ident, result.get());
+    emitPutProperty(generator, base.get(), result.get(), thisValue);
     generator.emitProfileType(result.get(), divotStart(), divotEnd());
 
     generator.emitLabel(afterAssignment.get());
@@ -4127,17 +4125,13 @@ void ForInNode::emitLoopHeader(BytecodeGenerator& generator, RegisterID* propert
 
     if (m_lexpr->isDotAccessorNode()) {
         DotAccessorNode* assignNode = static_cast<DotAccessorNode*>(m_lexpr);
-        const Identifier& ident = assignNode->identifier();
         RefPtr<RegisterID> base = generator.emitNode(assignNode->base());
         generator.emitExpressionInfo(assignNode->divot(), assignNode->divotStart(), assignNode->divotEnd());
-        if (assignNode->base()->isSuperNode()) {
-            RefPtr<RegisterID> thisValue = generator.ensureThis();
-            generator.emitPutById(base.get(), thisValue.get(), ident, propertyName);
-        } else
-            generator.emitPutById(base.get(), ident, propertyName);
+        assignNode->emitPutProperty(generator, base.get(), propertyName);
         generator.emitProfileType(propertyName, assignNode->divotStart(), assignNode->divotEnd());
         return;
     }
+
     if (m_lexpr->isBracketAccessorNode()) {
         BracketAccessorNode* assignNode = static_cast<BracketAccessorNode*>(m_lexpr);
         RefPtr<RegisterID> base = generator.emitNode(assignNode->base());
@@ -4280,15 +4274,9 @@ void ForOfNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
             generator.emitProfileType(value, var, m_lexpr->position(), m_lexpr->position() + ident.length());
         } else if (m_lexpr->isDotAccessorNode()) {
             DotAccessorNode* assignNode = static_cast<DotAccessorNode*>(m_lexpr);
-            const Identifier& ident = assignNode->identifier();
             RefPtr<RegisterID> base = generator.emitNode(assignNode->base());
-            
             generator.emitExpressionInfo(assignNode->divot(), assignNode->divotStart(), assignNode->divotEnd());
-            if (assignNode->base()->isSuperNode()) {
-                RefPtr<RegisterID> thisValue = generator.ensureThis();
-                generator.emitPutById(base.get(), thisValue.get(), ident, value);
-            } else
-                generator.emitPutById(base.get(), ident, value);
+            assignNode->emitPutProperty(generator, base.get(), value);
             generator.emitProfileType(value, assignNode->divotStart(), assignNode->divotEnd());
         } else if (m_lexpr->isBracketAccessorNode()) {
             BracketAccessorNode* assignNode = static_cast<BracketAccessorNode*>(m_lexpr);
@@ -5704,11 +5692,7 @@ void AssignmentElementNode::bindValue(BytecodeGenerator& generator, RegisterID* 
         DotAccessorNode* lhs = static_cast<DotAccessorNode*>(m_assignmentTarget);
         RefPtr<RegisterID> base = generator.emitNodeForLeftHandSide(lhs->base(), true, false);
         generator.emitExpressionInfo(divotEnd(), divotStart(), divotEnd());
-        if (lhs->base()->isSuperNode()) {
-            RefPtr<RegisterID> thisValue = generator.ensureThis();
-            generator.emitPutById(base.get(), thisValue.get(), lhs->identifier(), value);
-        } else
-            generator.emitPutById(base.get(), lhs->identifier(), value);
+        lhs->emitPutProperty(generator, base.get(), value);
         generator.emitProfileType(value, divotStart(), divotEnd());
     } else if (m_assignmentTarget->isBracketAccessorNode()) {
         BracketAccessorNode* lhs = static_cast<BracketAccessorNode*>(m_assignmentTarget);

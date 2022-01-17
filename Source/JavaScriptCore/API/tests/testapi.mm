@@ -1884,11 +1884,9 @@ static void checkModuleCodeRan(JSContext *context, JSValue *promise, JSValue *ex
 
 static void checkModuleWasRejected(JSContext *context, JSValue *promise)
 {
-    __block BOOL promiseWasRejected = false;
     [promise invokeMethod:@"then" withArguments:@[^() {
         checkResult(@"module was rejected as expected", NO);
     }, ^(JSValue *error) {
-        promiseWasRejected = true;
         NSLog(@"%@", [error toString]);
         checkResult(@"module graph was rejected with error", ![error isEqualWithTypeCoercionToObject:[JSValue valueWithNullInContext:context]]);
     }]];
@@ -2740,16 +2738,7 @@ static void testMicrotaskWithFunction()
 {
     @autoreleasepool {
 #if PLATFORM(COCOA)
-        bool useLegacyDrain = false;
-#if PLATFORM(MAC)
-        useLegacyDrain = applicationSDKVersion() < DYLD_MACOSX_VERSION_12_00;
-#elif PLATFORM(WATCH)
-            // Don't check, JSC isn't API on watch anyway.
-#elif PLATFORM(IOS_FAMILY)
-        useLegacyDrain = applicationSDKVersion() < DYLD_IOS_VERSION_15_0;
-#else
-#error "Unsupported Cocoa Platform"
-#endif
+        bool useLegacyDrain = !linkedOnOrAfter(SDKVersion::FirstThatDoesNotDrainTheMicrotaskQueueWhenCallingObjC);
         if (useLegacyDrain)
             return;
 #endif

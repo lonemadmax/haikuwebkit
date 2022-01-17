@@ -59,10 +59,10 @@ private:
     NetworkNotificationManager(NetworkSession&, const String& webPushMachServiceName);
 
     void requestSystemNotificationPermission(const String& originString, CompletionHandler<void(bool)>&&) final;
-    void showNotification(const String& title, const String& body, const String& iconURL, const String& tag, const String& lang, WebCore::NotificationDirection, const String& originString, uint64_t notificationID) final;
-    void cancelNotification(uint64_t notificationID) final;
-    void clearNotifications(const Vector<uint64_t>& notificationIDs) final;
-    void didDestroyNotification(uint64_t notificationID) final;
+    void showNotification(const WebCore::NotificationData&) final;
+    void cancelNotification(const UUID& notificationID) final;
+    void clearNotifications(const Vector<UUID>& notificationIDs) final;
+    void didDestroyNotification(const UUID& notificationID) final;
 
     void maybeSendConnectionConfiguration() const;
 

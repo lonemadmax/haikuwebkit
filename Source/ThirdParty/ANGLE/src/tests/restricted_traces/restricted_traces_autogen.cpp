@@ -121,7 +121,7 @@ namespace trace_angle
 {
 namespace
 {
-constexpr size_t kNumTraces = 109;
+constexpr size_t kNumTraces = 113;
 struct TracePair
 {
     const char name[kTraceInfoMaxNameLen];
@@ -238,6 +238,7 @@ constexpr TracePair kTraceInfos[kNumTraces] = {
       false,
       false,
       false}},
+    {"asphalt_9", {}},
     {"avakin_life",
      {"avakin_life",
       avakin_life::kReplayContextClientMajorVersion,
@@ -657,6 +658,7 @@ constexpr TracePair kTraceInfos[kNumTraces] = {
       false,
       false,
       false}},
+    {"dota_underlords", {}},
     {"dr_driving",
      {"dr_driving",
       dr_driving::kReplayContextClientMajorVersion,
@@ -1494,6 +1496,8 @@ constexpr TracePair kTraceInfos[kNumTraces] = {
       false,
       false,
       false}},
+    {"my_talking_tom2", {}},
+    {"my_talking_tom_friends", {}},
     {"nba2k20_800",
      {"nba2k20_800",
       nba2k20_800::kReplayContextClientMajorVersion,

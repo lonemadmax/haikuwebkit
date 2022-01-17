@@ -40,7 +40,7 @@ namespace LayoutIntegration {
 enum class AvoidanceReason : uint64_t {
     FlowIsInsideANonMultiColumnThread            = 1LLU  << 0,
     FlowHasHorizonalWritingMode                  = 1LLU  << 1,
-    ContentHasOutline                            = 1LLU  << 2,
+    // Unused                                    = 1LLU  << 2,
     ContentIsRuby                                = 1LLU  << 3,
     FlowIsPaginated                              = 1LLU  << 4,
     FlowHasTextOverflow                          = 1LLU  << 5,
@@ -57,7 +57,7 @@ enum class AvoidanceReason : uint64_t {
     FlowHasLineBoxContainProperty                = 1LLU  << 16,
     FlowIsNotTopToBottom                         = 1LLU  << 17,
     // Unused                                    = 1LLU  << 18,
-    FlowHasRTLOrdering                           = 1LLU  << 19,
+    // Unused                                    = 1LLU  << 19,
     FlowHasLineAlignEdges                        = 1LLU  << 20,
     FlowHasLineSnap                              = 1LLU  << 21,
     FlowHasTextEmphasisFillOrMark                = 1LLU  << 22,

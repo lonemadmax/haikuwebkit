@@ -791,13 +791,13 @@ bool Element::isUserActionElementHasFocusWithin() const
     return document().userActionElements().hasFocusWithin(*this);
 }
 
-void Element::setActive(bool flag, bool pause, Style::InvalidationScope invalidationScope)
+void Element::setActive(bool value, bool pause, Style::InvalidationScope invalidationScope)
 {
-    if (flag == active())
+    if (value == active())
         return;
     {
-        Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassActive, invalidationScope);
-        document().userActionElements().setActive(*this, flag);
+        Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassActive, value, invalidationScope);
+        document().userActionElements().setActive(*this, value);
     }
 
     if (!renderer())
@@ -843,75 +843,72 @@ static bool shouldAlwaysHaveFocusVisibleWhenFocused(const Element& element)
     return element.isTextField() || element.isContentEditable() || is<HTMLSelectElement>(element);
 }
 
-void Element::setFocus(bool flag, FocusVisibility visibility)
+void Element::setFocus(bool value, FocusVisibility visibility)
 {
-    if (flag == focused())
+    if (value == focused())
         return;
-    {
-        Style::PseudoClassChangeInvalidation focusStyleInvalidation(*this, CSSSelector::PseudoClassFocus);
-        Style::PseudoClassChangeInvalidation focusVisibleStyleInvalidation(*this, CSSSelector::PseudoClassFocusVisible);
-        Style::PseudoClassChangeInvalidation directFocusStyleInvalidation(*this, CSSSelector::PseudoClassDirectFocus);
-        document().userActionElements().setFocused(*this, flag);
+    
+    Style::PseudoClassChangeInvalidation focusStyleInvalidation(*this, { { CSSSelector::PseudoClassFocus, value }, { CSSSelector::PseudoClassFocusVisible, value } });
+    document().userActionElements().setFocused(*this, value);
 
-        // Shadow host with a slot that contain focused element is not considered focused.
-        for (auto* root = containingShadowRoot(); root; root = root->host()->containingShadowRoot()) {
-            root->setContainsFocusedElement(flag);
-            root->host()->invalidateStyle();
-        }
-
-        for (auto* element = this; element; element = element->parentElementInComposedTree())
-            element->setHasFocusWithin(flag);
-
-        setHasFocusVisible(flag && (visibility == FocusVisibility::Visible || shouldAlwaysHaveFocusVisibleWhenFocused(*this)));
+    // Shadow host with a slot that contain focused element is not considered focused.
+    for (auto* root = containingShadowRoot(); root; root = root->host()->containingShadowRoot()) {
+        root->setContainsFocusedElement(value);
+        root->host()->invalidateStyle();
     }
+
+    for (auto* element = this; element; element = element->parentElementInComposedTree())
+        element->setHasFocusWithin(value);
+
+    setHasFocusVisible(value && (visibility == FocusVisibility::Visible || shouldAlwaysHaveFocusVisibleWhenFocused(*this)));
 }
 
-void Element::setHasFocusVisible(bool flag)
+void Element::setHasFocusVisible(bool value)
 {
     if (!document().settings().focusVisibleEnabled())
         return;
 
 #if ASSERT_ENABLED
-    ASSERT(!flag || focused());
-    ASSERT(!focused() || !shouldAlwaysHaveFocusVisibleWhenFocused(*this) || flag);
+    ASSERT(!value || focused());
+    ASSERT(!focused() || !shouldAlwaysHaveFocusVisibleWhenFocused(*this) || value);
 #endif
 
-    if (hasFocusVisible() == flag)
+    if (hasFocusVisible() == value)
         return;
 
-    document().userActionElements().setHasFocusVisible(*this, flag);
+    document().userActionElements().setHasFocusVisible(*this, value);
 }
 
-void Element::setHasFocusWithin(bool flag)
+void Element::setHasFocusWithin(bool value)
 {
-    if (hasFocusWithin() == flag)
+    if (hasFocusWithin() == value)
         return;
     {
-        Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassFocusWithin);
-        document().userActionElements().setHasFocusWithin(*this, flag);
+        Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassFocusWithin, value);
+        document().userActionElements().setHasFocusWithin(*this, value);
     }
 }
 
-void Element::setHovered(bool flag, Style::InvalidationScope invalidationScope)
+void Element::setHovered(bool value, Style::InvalidationScope invalidationScope)
 {
-    if (flag == hovered())
+    if (value == hovered())
         return;
     {
-        Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassHover, invalidationScope);
-        document().userActionElements().setHovered(*this, flag);
+        Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassHover, value, invalidationScope);
+        document().userActionElements().setHovered(*this, value);
     }
 
     if (auto* style = renderStyle(); style && style->hasEffectiveAppearance())
         renderer()->theme().stateChanged(*renderer(), ControlStates::States::Hovered);
 }
 
-void Element::setBeingDragged(bool flag)
+void Element::setBeingDragged(bool value)
 {
-    if (flag == isBeingDragged())
+    if (value == isBeingDragged())
         return;
 
-    Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassDrag);
-    document().userActionElements().setBeingDragged(*this, flag);
+    Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassDrag, value);
+    document().userActionElements().setBeingDragged(*this, value);
 }
 
 inline ScrollAlignment toScrollAlignmentForInlineDirection(std::optional<ScrollLogicalPosition> position, WritingMode writingMode, bool isLTR)
@@ -1588,7 +1585,7 @@ static bool layoutOverflowRectContainsAllDescendants(const RenderBox& renderBox)
     }
 
     // This renderer may have positioned descendants whose containing block is some ancestor.
-    if (auto* containingBlock = renderBox.containingBlockForAbsolutePosition()) {
+    if (auto* containingBlock = RenderObject::containingBlockForPositionType(PositionType::Absolute, renderBox)) {
         if (auto* positionedObjects = containingBlock->positionedObjects()) {
             for (auto* positionedBox : *positionedObjects) {
                 if (positionedBox == &renderBox)
@@ -1679,7 +1676,7 @@ LayoutRect Element::absoluteEventHandlerBounds(bool& includesFixedPositionElemen
     return absoluteEventBoundsOfElementAndDescendants(includesFixedPositionElements);
 }
 
-static std::optional<std::pair<RenderObject*, LayoutRect>> listBoxElementBoundingBox(Element& element)
+static std::optional<std::pair<RenderObject*, LayoutRect>> listBoxElementBoundingBox(const Element& element)
 {
     HTMLSelectElement* selectElement;
     bool isGroup;
@@ -1743,14 +1740,13 @@ Ref<DOMRectList> Element::getClientRects()
     return DOMRectList::create(quads);
 }
 
-std::optional<std::pair<RenderObject*, FloatRect>> Element::boundingAbsoluteRectWithoutLayout()
+std::optional<std::pair<RenderObject*, FloatRect>> Element::boundingAbsoluteRectWithoutLayout() const
 {
     RenderObject* renderer = this->renderer();
     Vector<FloatQuad> quads;
     if (isSVGElement() && renderer && !renderer->isSVGRootOrLegacySVGRoot()) {
         // Get the bounding rectangle from the SVG model.
-        SVGElement& svgElement = downcast<SVGElement>(*this);
-        if (auto localRect = svgElement.getBoundingBox())
+        if (auto localRect = downcast<SVGElement>(*this).getBoundingBox())
             quads.append(renderer->localToAbsoluteQuad(*localRect));
     } else if (auto pair = listBoxElementBoundingBox(*this)) {
         renderer = pair.value().first;
@@ -2486,31 +2482,31 @@ void Element::removeShadowRoot()
 
 static bool canAttachAuthorShadowRoot(const Element& element)
 {
-    static NeverDestroyed<MemoryCompactLookupOnlyRobinHoodHashSet<AtomString>> tagNames = [] {
-        static const HTMLQualifiedName* const tagList[] = {
-            &articleTag.get(),
-            &asideTag.get(),
-            &blockquoteTag.get(),
-            &bodyTag.get(),
-            &divTag.get(),
-            &footerTag.get(),
-            &h1Tag.get(),
-            &h2Tag.get(),
-            &h3Tag.get(),
-            &h4Tag.get(),
-            &h5Tag.get(),
-            &h6Tag.get(),
-            &headerTag.get(),
-            &mainTag.get(),
-            &navTag.get(),
-            &pTag.get(),
-            &sectionTag.get(),
-            &spanTag.get()
+    static NeverDestroyed tagNames = [] {
+        static constexpr std::array tagList {
+            &articleTag,
+            &asideTag,
+            &blockquoteTag,
+            &bodyTag,
+            &divTag,
+            &footerTag,
+            &h1Tag,
+            &h2Tag,
+            &h3Tag,
+            &h4Tag,
+            &h5Tag,
+            &h6Tag,
+            &headerTag,
+            &mainTag,
+            &navTag,
+            &pTag,
+            &sectionTag,
+            &spanTag
         };
         MemoryCompactLookupOnlyRobinHoodHashSet<AtomString> set;
         set.reserveInitialCapacity(sizeof(tagList));
         for (auto& name : tagList)
-            set.add(name->localName());
+            set.add(name->get().localName());
         return set;
     }();
 
@@ -3101,7 +3097,9 @@ void Element::focus(const FocusOptions& options)
             return;
 
         FocusOptions optionsWithVisibility = options;
-        if (!document->wasLastFocusByClick())
+        if (options.trigger == FocusTrigger::Bindings && document->wasLastFocusByClick())
+            optionsWithVisibility.visibility = FocusVisibility::Invisible;
+        else
             optionsWithVisibility.visibility = FocusVisibility::Visible;
 
         // Focus and change event handlers can cause us to lose our last ref.
@@ -3112,6 +3110,12 @@ void Element::focus(const FocusOptions& options)
     }
 
     newTarget->findTargetAndUpdateFocusAppearance(options.selectionRestorationMode, options.preventScroll ? SelectionRevealMode::DoNotReveal : SelectionRevealMode::Reveal);
+}
+
+void Element::focusForBindings(FocusOptions&& options)
+{
+    options.trigger = FocusTrigger::Bindings;
+    focus(WTFMove(options));
 }
 
 void Element::findTargetAndUpdateFocusAppearance(SelectionRestorationMode selectionMode, SelectionRevealMode revealMode)
@@ -3178,18 +3182,20 @@ void Element::runFocusingStepsForAutofocus()
     focus();
 }
 
-void Element::dispatchFocusInEvent(const AtomString& eventType, RefPtr<Element>&& oldFocusedElement)
+void Element::dispatchFocusInEventIfNeeded(RefPtr<Element>&& oldFocusedElement)
 {
+    if (!document().hasListenerType(Document::FOCUSIN_LISTENER))
+        return;
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isScriptAllowed() || !isInWebProcess());
-    ASSERT(eventType == eventNames().focusinEvent || eventType == eventNames().DOMFocusInEvent);
-    dispatchScopedEvent(FocusEvent::create(eventType, Event::CanBubble::Yes, Event::IsCancelable::No, document().windowProxy(), 0, WTFMove(oldFocusedElement)));
+    dispatchScopedEvent(FocusEvent::create(eventNames().focusinEvent, Event::CanBubble::Yes, Event::IsCancelable::No, document().windowProxy(), 0, WTFMove(oldFocusedElement)));
 }
 
-void Element::dispatchFocusOutEvent(const AtomString& eventType, RefPtr<Element>&& newFocusedElement)
+void Element::dispatchFocusOutEventIfNeeded(RefPtr<Element>&& newFocusedElement)
 {
+    if (!document().hasListenerType(Document::FOCUSOUT_LISTENER))
+        return;
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isScriptAllowed() || !isInWebProcess());
-    ASSERT(eventType == eventNames().focusoutEvent || eventType == eventNames().DOMFocusOutEvent);
-    dispatchScopedEvent(FocusEvent::create(eventType, Event::CanBubble::Yes, Event::IsCancelable::No, document().windowProxy(), 0, WTFMove(newFocusedElement)));
+    dispatchScopedEvent(FocusEvent::create(eventNames().focusoutEvent, Event::CanBubble::Yes, Event::IsCancelable::No, document().windowProxy(), 0, WTFMove(newFocusedElement)));
 }
 
 void Element::dispatchFocusEvent(RefPtr<Element>&& oldFocusedElement, FocusDirection)
@@ -3863,7 +3869,7 @@ static Element* parentCrossingFrameBoundaries(const Element* element)
 
 void Element::webkitRequestFullscreen()
 {
-    document().fullscreenManager().requestFullscreenForElement(this, FullscreenManager::EnforceIFrameAllowFullscreenRequirement);
+    document().fullscreenManager().requestFullscreenForElement(*this, FullscreenManager::EnforceIFrameAllowFullscreenRequirement);
 }
 
 void Element::setContainsFullScreenElement(bool flag)
@@ -4044,6 +4050,22 @@ void Element::setLastStyleChangeEventStyle(PseudoId pseudoId, std::unique_ptr<co
         animationData->setLastStyleChangeEventStyle(WTFMove(style));
     else if (style)
         ensureAnimationRareData(pseudoId).setLastStyleChangeEventStyle(WTFMove(style));
+}
+
+void Element::cssAnimationsDidUpdate(PseudoId pseudoId)
+{
+    ensureAnimationRareData(pseudoId).cssAnimationsDidUpdate();
+}
+
+void Element::keyframesRuleDidChange(PseudoId pseudoId)
+{
+    ensureAnimationRareData(pseudoId).keyframesRuleDidChange();
+}
+
+bool Element::hasPendingKeyframesUpdate(PseudoId pseudoId) const
+{
+    auto* data = animationRareData(pseudoId);
+    return data && data->hasPendingKeyframesUpdate();
 }
 
 void Element::disconnectFromResizeObservers()

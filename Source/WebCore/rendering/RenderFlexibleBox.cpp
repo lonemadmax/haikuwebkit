@@ -39,6 +39,7 @@
 #include "RenderLayoutState.h"
 #include "RenderObjectEnums.h"
 #include "RenderReplaced.h"
+#include "RenderSVGRoot.h"
 #include "RenderStyleConstants.h"
 #include "RenderTable.h"
 #include "RenderView.h"
@@ -112,6 +113,10 @@ void RenderFlexibleBox::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidt
         if (child->isOutOfFlowPositioned() || child->isExcludedFromNormalLayout())
             continue;
         ++numItemsWithNormalLayout;
+
+        // Pre-layout orthogonal children in order to get a valid value for the preferred width.
+        if (style().isHorizontalWritingMode() != child->style().isHorizontalWritingMode())
+            child->layoutIfNeeded();
 
         LayoutUnit margin = marginIntrinsicLogicalWidthForChild(*child);
 
@@ -620,9 +625,9 @@ LayoutUnit RenderFlexibleBox::mainAxisContentExtent(LayoutUnit contentLogicalHei
 // FIXME: consider adding this check to RenderBox::hasIntrinsicAspectRatio(). We could even make it
 // virtual returning false by default. RenderReplaced will overwrite it with the current implementation
 // plus this extra check. See wkb.ug/231955.
-static bool isRenderReplacedWithIntrinsicAspectRatio(const RenderBox& child)
+static bool isSVGRootWithIntrinsicAspectRatio(const RenderBox& child)
 {
-    if (!is<RenderReplaced>(child))
+    if (!child.isSVGRootOrLegacySVGRoot())
         return false;
     // It's common for some replaced elements, such as SVGs, to have intrinsic aspect ratios but no intrinsic sizes.
     // That's why it isn't enough just to check for intrinsic sizes in those cases.
@@ -631,7 +636,7 @@ static bool isRenderReplacedWithIntrinsicAspectRatio(const RenderBox& child)
 
 static bool childHasAspectRatio(const RenderBox& child)
 {
-    return child.hasIntrinsicAspectRatio() || child.style().hasAspectRatio() || isRenderReplacedWithIntrinsicAspectRatio(child);
+    return child.hasIntrinsicAspectRatio() || child.style().hasAspectRatio() || isSVGRootWithIntrinsicAspectRatio(child);
 }
 
 std::optional<LayoutUnit> RenderFlexibleBox::computeMainAxisExtentForChild(RenderBox& child, SizeType sizeType, const Length& size)
@@ -823,6 +828,20 @@ LayoutUnit RenderFlexibleBox::flowAwareMarginBeforeForChild(const RenderBox& chi
     return marginTop();
 }
 
+LayoutUnit RenderFlexibleBox::mainAxisMarginExtentForChild(const RenderBox& child) const
+{
+    if (!child.needsLayout())
+        return isHorizontalFlow() ? child.horizontalMarginExtent() : child.verticalMarginExtent();
+
+    LayoutUnit marginStart;
+    LayoutUnit marginEnd;
+    if (isHorizontalFlow())
+        child.computeInlineDirectionMargins(*this, child.containingBlockLogicalWidthForContentInFragment(nullptr), child.logicalWidth(), marginStart, marginEnd);
+    else
+        child.computeBlockDirectionMargins(*this, marginStart, marginEnd);
+    return marginStart + marginEnd;
+}
+
 LayoutUnit RenderFlexibleBox::crossAxisMarginExtentForChild(const RenderBox& child) const
 {
     if (!child.needsLayout())
@@ -905,7 +924,7 @@ LayoutUnit RenderFlexibleBox::computeMainSizeFromAspectRatioUsing(const RenderBo
     }
 
     double ratio;
-    if (is<RenderReplaced>(child))
+    if (child.isSVGRootOrLegacySVGRoot())
         ratio = downcast<RenderReplaced>(child).computeIntrinsicAspectRatio();
     else {
         auto childIntrinsicSize = child.intrinsicSize();
@@ -959,7 +978,7 @@ bool RenderFlexibleBox::childHasComputableAspectRatio(const RenderBox& child) co
 {
     if (!childHasAspectRatio(child))
         return false;
-    return child.intrinsicSize().height() || child.style().hasAspectRatio() || isRenderReplacedWithIntrinsicAspectRatio(child);
+    return child.intrinsicSize().height() || child.style().hasAspectRatio() || isSVGRootWithIntrinsicAspectRatio(child);
 }
 
 bool RenderFlexibleBox::childHasComputableAspectRatioAndCrossSizeIsConsideredDefinite(const RenderBox& child)
@@ -1224,7 +1243,6 @@ bool RenderFlexibleBox::hasAutoMarginsInCrossAxis(const RenderBox& child) const
 
 LayoutUnit RenderFlexibleBox::availableAlignmentSpaceForChild(LayoutUnit lineCrossAxisExtent, const RenderBox& child)
 {
-    ASSERT(!child.isOutOfFlowPositioned());
     LayoutUnit childCrossExtent = crossAxisMarginExtentForChild(child) + crossAxisExtentForChild(child);
     return lineCrossAxisExtent - childCrossExtent;
 }
@@ -1674,7 +1692,8 @@ void RenderFlexibleBox::setOverridingMainSizeForChild(RenderBox& child, LayoutUn
 
 LayoutUnit RenderFlexibleBox::staticMainAxisPositionForPositionedChild(const RenderBox& child)
 {
-    const LayoutUnit availableSpace = mainAxisContentExtent(contentLogicalHeight()) - mainAxisExtentForChild(child);
+    auto childMainExtent = mainAxisMarginExtentForChild(child) + mainAxisExtentForChild(child);
+    auto availableSpace = mainAxisContentExtent(contentLogicalHeight()) - childMainExtent;
     auto isReverse = isColumnOrRowReverse();
     LayoutUnit offset = initialJustifyContentOffset(style(), availableSpace, 1, isReverse);
     if (isReverse)
@@ -1684,7 +1703,7 @@ LayoutUnit RenderFlexibleBox::staticMainAxisPositionForPositionedChild(const Ren
 
 LayoutUnit RenderFlexibleBox::staticCrossAxisPositionForPositionedChild(const RenderBox& child)
 {
-    LayoutUnit availableSpace = crossAxisContentExtent() - crossAxisExtentForChild(child);
+    auto availableSpace = availableAlignmentSpaceForChild(crossAxisContentExtent(), child);
     return alignmentOffset(availableSpace, alignmentForChild(child), 0_lu, 0_lu, style().flexWrap() == FlexWrap::Reverse);
 }
 

@@ -235,6 +235,9 @@ struct Extensions
     // GL_NV_framebuffer_blit
     bool framebufferBlitNV = false;
 
+    // GL_MESA_framebuffer_flip_y
+    bool framebufferFlipYMESA = false;
+
     // GL_EXT_geometry_shader
     bool geometryShaderEXT = false;
 
@@ -528,6 +531,9 @@ struct Extensions
 
     // GL_ANGLE_base_vertex_base_instance
     bool baseVertexBaseInstanceANGLE = false;
+
+    // GL_ANGLE_base_vertex_base_instance_shader_builtin
+    bool baseVertexBaseInstanceShaderBuiltinANGLE = false;
 
     // GL_CHROMIUM_bind_generates_resource
     bool bindGeneratesResourceCHROMIUM = false;

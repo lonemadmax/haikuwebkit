@@ -1533,8 +1533,6 @@ void MediaPlayer::tracksChanged()
     m_private->tracksChanged();
 }
 
-#if ENABLE(AVF_CAPTIONS)
-
 void MediaPlayer::notifyTrackModeChanged()
 {
     if (m_private)
@@ -1545,8 +1543,6 @@ Vector<RefPtr<PlatformTextTrack>> MediaPlayer::outOfBandTrackSources()
 {
     return client().outOfBandTrackSources();
 }
-
-#endif
 
 void MediaPlayer::resetMediaEngines()
 {

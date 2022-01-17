@@ -29,6 +29,7 @@
 
 #include "CSSRegisteredCustomProperty.h"
 #include "CanvasBase.h"
+#include "ClientOrigin.h"
 #include "Color.h"
 #include "ContainerNode.h"
 #include "CrossOriginOpenerPolicy.h"
@@ -49,6 +50,7 @@
 #include "RegistrableDomain.h"
 #include "RenderPtr.h"
 #include "ScriptExecutionContext.h"
+#include "SecurityOrigin.h"
 #include "StringWithDirection.h"
 #include "Supplementable.h"
 #include "Timer.h"
@@ -57,6 +59,7 @@
 #include "ViewportArguments.h"
 #include "VisibilityState.h"
 #include <wtf/Deque.h>
+#include <wtf/FixedVector.h>
 #include <wtf/Forward.h>
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashSet.h>
@@ -183,6 +186,7 @@ class MediaProducer;
 class MediaQueryList;
 class MediaQueryMatcher;
 class MessagePortChannelProvider;
+class ModalContainerObserver;
 class MouseEventWithHitTestResults;
 class NodeFilter;
 class NodeIterator;
@@ -692,8 +696,8 @@ public:
     void cancelParsing();
 
     ExceptionOr<void> write(Document* entryDocument, SegmentedString&&);
-    WEBCORE_EXPORT ExceptionOr<void> write(Document* entryDocument, Vector<String>&&);
-    WEBCORE_EXPORT ExceptionOr<void> writeln(Document* entryDocument, Vector<String>&&);
+    WEBCORE_EXPORT ExceptionOr<void> write(Document* entryDocument, FixedVector<String>&&);
+    WEBCORE_EXPORT ExceptionOr<void> writeln(Document* entryDocument, FixedVector<String>&&);
 
     bool wellFormed() const { return m_wellFormed; }
 
@@ -877,8 +881,6 @@ public:
 
     // Helper functions for forwarding DOMWindow event related tasks to the DOMWindow if it exists.
     void setWindowAttributeEventListener(const AtomString& eventType, const QualifiedName& attributeName, const AtomString& value, DOMWrapperWorld&);
-    void setWindowAttributeEventListener(const AtomString& eventType, RefPtr<EventListener>&&, DOMWrapperWorld&);
-    EventListener* getWindowAttributeEventListener(const AtomString& eventType, DOMWrapperWorld&);
     WEBCORE_EXPORT void dispatchWindowEvent(Event&, EventTarget* = nullptr);
     void dispatchWindowLoadEvent();
 
@@ -904,7 +906,9 @@ public:
         FORCECHANGED_LISTENER                = 1 << 14,
         FORCEDOWN_LISTENER                   = 1 << 15,
         FORCEUP_LISTENER                     = 1 << 16,
-        RESIZE_LISTENER                      = 1 << 17
+        RESIZE_LISTENER                      = 1 << 17,
+        FOCUSIN_LISTENER                     = 1 << 18,
+        FOCUSOUT_LISTENER                    = 1 << 19,
     };
 
     bool hasListenerType(ListenerType listenerType) const { return (m_listenerTypes & listenerType); }
@@ -1382,6 +1386,7 @@ public:
 
     SecurityOrigin& securityOrigin() const { return *SecurityContext::securityOrigin(); }
     SecurityOrigin& topOrigin() const final { return topDocument().securityOrigin(); }
+    ClientOrigin clientOrigin() const { return { topOrigin().data(), securityOrigin().data() }; }
 
     inline bool isSameOriginAsTopDocument() const;
     bool shouldForceNoOpenerBasedOnCOOP() const;
@@ -1538,6 +1543,7 @@ public:
     Vector<RefPtr<WebAnimation>> matchingAnimations(const Function<bool(Element&)>&);
     DocumentTimelinesController* timelinesController() const { return m_timelinesController.get(); }
     WEBCORE_EXPORT DocumentTimelinesController& ensureTimelinesController();
+    void keyframesRuleDidChange(const String& name);
 
     void addTopLayerElement(Element&);
     void removeTopLayerElement(Element&);
@@ -1662,6 +1668,9 @@ public:
     String debugDescription() const;
 
     URL fallbackBaseURL() const;
+
+    WEBCORE_EXPORT ModalContainerObserver* modalContainerObserver();
+    ModalContainerObserver* modalContainerObserverIfExists() const;
 
 protected:
     enum ConstructionFlags { Synthesized = 1, NonRenderedPlaceholder = 1 << 1 };
@@ -2249,6 +2258,8 @@ private:
 #if ENABLE(WEB_RTC)
     RefPtr<RTCNetworkManager> m_rtcNetworkManager;
 #endif
+
+    std::unique_ptr<ModalContainerObserver> m_modalContainerObserver;
 };
 
 Element* eventTargetElementForDocument(Document*);

@@ -235,7 +235,7 @@ bool CachedImage::willPaintBrokenImage() const
     return errorOccurred() && m_shouldPaintBrokenImage;
 }
 
-Image* CachedImage::image()
+Image* CachedImage::image() const
 {
     if (errorOccurred() && m_shouldPaintBrokenImage) {
         // Returning the 1x broken image is non-ideal, but we cannot reliably access the appropriate
@@ -272,7 +272,7 @@ Image* CachedImage::imageForRenderer(const RenderObject* renderer)
 
 bool CachedImage::hasSVGImage() const
 {
-    return m_image && m_image->drawsSVGImage();
+    return image() && image()->isSVGImage();
 }
 
 void CachedImage::setContainerContextForClient(const CachedImageClient& client, const LayoutSize& containerSize, float containerZoom, const URL& imageURL)
@@ -468,7 +468,7 @@ inline void CachedImage::clearImage()
     m_updateImageDataCount = 0;
 }
 
-void CachedImage::updateBufferInternal(const FragmentedSharedBuffer& data)
+void CachedImage::updateBufferInternal(const SharedBuffer& data)
 {
     m_data = data.makeContiguous();
     setEncodedSize(m_data->size());
@@ -555,18 +555,18 @@ EncodedDataStatus CachedImage::updateImageData(bool allDataReceived)
     return result;
 }
 
-void CachedImage::updateBuffer(const FragmentedSharedBuffer& data)
+void CachedImage::updateBuffer(const FragmentedSharedBuffer& buffer)
 {
     ASSERT(dataBufferingPolicy() == DataBufferingPolicy::BufferData);
-    updateBufferInternal(data);
-    CachedResource::updateBuffer(data);
+    updateBufferInternal(buffer.makeContiguous());
+    CachedResource::updateBuffer(buffer);
 }
 
-void CachedImage::updateData(const uint8_t* data, unsigned length)
+void CachedImage::updateData(const SharedBuffer& data)
 {
     ASSERT(dataBufferingPolicy() == DataBufferingPolicy::DoNotBufferData);
-    updateBufferInternal(SharedBuffer::create(data, length));
-    CachedResource::updateData(data, length);
+    updateBufferInternal(data);
+    CachedResource::updateData(data);
 }
 
 void CachedImage::finishLoading(const FragmentedSharedBuffer* data, const NetworkLoadMetrics& metrics)

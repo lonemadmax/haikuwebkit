@@ -145,6 +145,13 @@ struct Styleable {
         element.setLastStyleChangeEventStyle(pseudoId, WTFMove(style));
     }
 
+    void keyframesRuleDidChange() const
+    {
+        element.keyframesRuleDidChange(pseudoId);
+    }
+
+    bool animationListContainsNewlyValidAnimation(const AnimationList&) const;
+
     void elementWasRemoved() const;
 
     void willChangeRenderer() const;

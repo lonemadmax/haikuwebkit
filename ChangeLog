@@ -1,3 +1,158 @@
+2022-01-09  Sam Weinig  <weinig@apple.com>
+
+        Remove support for Direct2D
+        https://bugs.webkit.org/show_bug.cgi?id=234999
+
+        Reviewed by Darin Adler.
+
+        * Source/cmake/OptionsFTW.cmake: Removed.
+
+2022-01-07  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed, reverting r287698.
+
+        Broke an internal build
+
+        Reverted changeset:
+
+        "Start using C++20"
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+        https://commits.webkit.org/r287698
+
+2022-01-07  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed, reverting r287718.
+
+        Broke an internal build
+
+        Reverted changeset:
+
+        "[PlayStation] Fix build break after r287698"
+        https://bugs.webkit.org/show_bug.cgi?id=234931
+        https://commits.webkit.org/r287718
+
+2022-01-06  Stephan Szabo  <stephan.szabo@sony.com>
+
+        [PlayStation] Fix build break after r287698
+        https://bugs.webkit.org/show_bug.cgi?id=234931
+
+        Unreviewed build fix
+
+        * Source/cmake/OptionsPlayStation.cmake: Workaround for not having u8string for gtest.
+
+2022-01-06  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [MSVC] Suppress new warnings C5054 and C5055 introduced by /permissive-
+        https://bugs.webkit.org/show_bug.cgi?id=234929
+
+        Reviewed by Ross Kirsling.
+
+        After 245790@main enabled C++20 which implicitly enabled
+        /permissive- switch, WinCairo builds emit a lot of new compilation
+        warnings.
+
+        * Source/cmake/OptionsMSVC.cmake: Suppress the warnings.
+
+2022-01-06  Alex Christensen  <achristensen@webkit.org>
+
+        Start using C++20
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+
+        Reviewed by Yusuke Suzuki.
+
+        * Source/cmake/OptionsCommon.cmake:
+        * Source/cmake/WebKitCompilerFlags.cmake:
+
+2022-01-05  Jonathan Bedard  <JonWBedard@gmail.com>
+
+        [EWS] Add  Commit Queue and EWS GitHub usernames
+        https://bugs.webkit.org/show_bug.cgi?id=234905
+        <rdar://problem/87169628>
+
+        Reviewed by Ryan Haddad.
+
+        * metadata/contributors.json:
+
+2022-01-04  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        clang-format: Change SpaceAfterTemplateKeyword to false
+        https://bugs.webkit.org/show_bug.cgi?id=234655
+
+        Reviewed by Don Olmstead.
+
+        Bug 183302 added the initial .clang-format file which were
+        including SpaceAfterTemplateKeyword:true. However, even though it
+        is undocumented, typical WebKit code is using a style having no
+        space ater the `template` keyword.
+
+        * .clang-format:
+
+2022-01-01  Jeff Miller  <jeffm@apple.com>
+
+        Update user-visible copyright strings to include 2022
+        https://bugs.webkit.org/show_bug.cgi?id=234263
+
+        Reviewed by Anders Carlsson.
+
+        * Source/cmake/tools/scripts/COPYRIGHT-END-YEAR:
+
+2021-12-25  Sergey Rubanov  <chi187@gmail.com>
+
+        Add my github username to contributors.json
+        https://bugs.webkit.org/show_bug.cgi?id=231666
+
+        Reviewed by Alexey Proskuryakov.
+
+        * metadata/contributors.json:
+
+2021-12-24  Simon Fraser  <simon.fraser@apple.com>
+
+        Add __pycache__ and DerivedData to the .gitignore file
+        https://bugs.webkit.org/show_bug.cgi?id=234656
+
+        Reviewed by Daniel Bates.
+
+        * .gitignore:
+
+2021-12-23  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        REGRESSION(r287412)[WinCairo] error C2338: You've instantiated std::aligned_storage<Len, Align> with an extended alignment (in other words, Align > alignof(max_align_t)).
+        https://bugs.webkit.org/show_bug.cgi?id=234658
+
+        Unreviewed build fix.
+
+        After r287412, WinCairo Debug can't compile due to the following error.
+
+        > C:\MSVS\VC\Tools\MSVC\14.28.29910\include\type_traits(1066):
+        >   error C2338: You've instantiated std::aligned_storage<Len, Align> with an extended alignment (in other words, Align > alignof(max_align_t)).
+        >   Before VS 2017 15.8, the member "type" would non-conformingly have an alignment of only alignof(max_align_t).
+        >   VS 2017 15.8 was fixed to handle this correctly, but the fix inherently changes layout and breaks binary compatibility
+        >   (*only* for uses of aligned_storage with extended alignments).
+        >   Please define either (1) _ENABLE_EXTENDED_ALIGNED_STORAGE to acknowledge that you understand this message and that you actually want a type with an extended alignment,
+        >   or (2) _DISABLE_EXTENDED_ALIGNED_STORAGE to silence this message and get the old non-conforming behavior.
+
+        * Source/cmake/OptionsMSVC.cmake: Added _ENABLE_EXTENDED_ALIGNED_STORAGE macro.
+
+2021-12-23  ChangSeok Oh  <changseok@webkit.org>
+
+        Add changseok's github username.
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2021-12-15  Chris Lord  <clord@igalia.com>
+
+        [GTK] Use libgbm and the ANGLE gbm backend to fix initialisation
+        https://bugs.webkit.org/show_bug.cgi?id=234293
+
+        Reviewed by Don Olmstead.
+
+        Add cmake files to find gbm and libdrm.
+
+        * Source/cmake/FindGBM.cmake: Added.
+        * Source/cmake/FindLibDRM.cmake: Added.
+
 2021-12-11  Aakash Jain  <aakash_jain@apple.com>
 
         Update my github username.

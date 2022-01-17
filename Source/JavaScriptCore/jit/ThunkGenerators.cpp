@@ -85,7 +85,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> popThunkStackPreservesAndHandleExceptionGe
 
 #if CPU(X86_64)
     jit.addPtr(CCallHelpers::TrustedImm32(2 * sizeof(CPURegister)), X86Registers::esp);
-#elif CPU(ARM64) || CPU(ARM_THUMB2)
+#elif CPU(ARM64) || CPU(ARM_THUMB2) || CPU(RISCV64)
     jit.popPair(CCallHelpers::framePointerRegister, CCallHelpers::linkRegister);
 #elif CPU(MIPS)
     jit.popPair(CCallHelpers::framePointerRegister, CCallHelpers::returnAddressRegister);
@@ -148,6 +148,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> checkExceptionGenerator(VM& vm)
 template<typename TagType>
 inline void emitPointerValidation(CCallHelpers& jit, GPRReg pointerGPR, TagType tag)
 {
+#if CPU(ARM64E)
     if (!ASSERT_ENABLED)
         return;
     if (!Options::useJITCage()) {
@@ -159,6 +160,11 @@ inline void emitPointerValidation(CCallHelpers& jit, GPRReg pointerGPR, TagType 
         jit.validateUntaggedPtr(pointerGPR);
         jit.popToRestore(pointerGPR);
     }
+#else
+    UNUSED_PARAM(jit);
+    UNUSED_PARAM(pointerGPR);
+    UNUSED_PARAM(tag);
+#endif
 }
 
 // We will jump here if the JIT code tries to make a call, but the

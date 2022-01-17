@@ -152,7 +152,7 @@ public:
         if (!a)
             return;
 
-        auto pixel = asSRGBA(PackedColor::ARGB { *dest });
+        auto pixel = asSRGBA(PackedColor::ARGB { *dest }).resolved();
 
         if (a >= 255 || !pixel.alpha) {
             setPixel(dest, r, g, b, a);
@@ -160,7 +160,7 @@ public:
         }
 
         if (!m_premultiplyAlpha)
-            pixel = premultipliedFlooring(pixel);
+            pixel = premultipliedFlooring(pixel).resolved();
 
         uint8_t d = 255 - a;
 
@@ -233,6 +233,7 @@ private:
         return PackedColor::ARGB { result }.value;
     }
 
+    // m_pixels type should be identical to the one set in ImageBackingStoreCairo.cpp
     RefPtr<FragmentedSharedBuffer::DataSegment> m_pixels;
     uint32_t* m_pixelsPtr { nullptr };
     IntSize m_size;

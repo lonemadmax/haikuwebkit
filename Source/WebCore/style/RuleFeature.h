@@ -55,24 +55,32 @@ enum class MatchElement : uint8_t {
 };
 constexpr unsigned matchElementCount = static_cast<unsigned>(MatchElement::Host) + 1;
 
-struct RuleFeature {
-    RuleFeature(const RuleData&, std::optional<MatchElement> = std::nullopt);
+enum class IsNegation : bool { No, Yes };
+
+// For MSVC.
+#pragma pack(push, 4)
+struct RuleAndSelector {
+    RuleAndSelector(const RuleData&);
 
     RefPtr<const StyleRule> styleRule;
     uint16_t selectorIndex; // Keep in sync with RuleData's selectorIndex size.
     uint16_t selectorListIndex; // Keep in sync with RuleData's selectorListIndex size.
-    std::optional<MatchElement> matchElement { };
+};
+
+struct RuleFeature : public RuleAndSelector {
+    RuleFeature(const RuleData&, MatchElement, IsNegation);
+
+    MatchElement matchElement;
+    IsNegation isNegation; // Whether the selector is in a (non-paired) :not() context.
 };
 static_assert(sizeof(RuleFeature) <= 16, "RuleFeature is a frquently alocated object. Keep it small.");
 
 struct RuleFeatureWithInvalidationSelector : public RuleFeature {
-    RuleFeatureWithInvalidationSelector(const RuleData& data, std::optional<MatchElement> matchElement = std::nullopt, const CSSSelector* invalidationSelector = nullptr)
-        : RuleFeature(data, WTFMove(matchElement))
-        , invalidationSelector(invalidationSelector)
-    { }
+    RuleFeatureWithInvalidationSelector(const RuleData&, MatchElement, IsNegation, const CSSSelector* invalidationSelector);
 
     const CSSSelector* invalidationSelector { nullptr };
 };
+#pragma pack(pop)
 
 using PseudoClassInvalidationKey = std::tuple<unsigned, uint8_t, AtomString>;
 
@@ -85,6 +93,7 @@ struct RuleFeatureSet {
     void collectFeatures(const RuleData&);
     void registerContentAttribute(const AtomString&);
 
+    bool usesHasPseudoClass() const;
     bool usesMatchElement(MatchElement matchElement) const  { return usedMatchElements[static_cast<uint8_t>(matchElement)]; }
     void setUsesMatchElement(MatchElement matchElement) { usedMatchElements[static_cast<uint8_t>(matchElement)] = true; }
 
@@ -93,8 +102,8 @@ struct RuleFeatureSet {
     HashSet<AtomString> attributeCanonicalLocalNamesInRules;
     HashSet<AtomString> attributeLocalNamesInRules;
     HashSet<AtomString> contentAttributeNamesInRules;
-    RuleFeatureVector siblingRules;
-    RuleFeatureVector uncommonAttributeRules;
+    Vector<RuleAndSelector> siblingRules;
+    Vector<RuleAndSelector> uncommonAttributeRules;
 
     HashMap<AtomString, std::unique_ptr<RuleFeatureVector>> tagRules;
     HashMap<AtomString, std::unique_ptr<RuleFeatureVector>> idRules;
@@ -115,13 +124,13 @@ private:
     struct SelectorFeatures {
         bool hasSiblingSelector { false };
 
-        Vector<std::pair<AtomString, MatchElement>, 32> tags;
-        Vector<std::pair<AtomString, MatchElement>, 32> ids;
-        Vector<std::pair<AtomString, MatchElement>, 32> classes;
-        Vector<std::pair<const CSSSelector*, MatchElement>, 32> attributes;
-        Vector<std::pair<const CSSSelector*, MatchElement>, 32> pseudoClasses;
+        Vector<std::tuple<AtomString, MatchElement, IsNegation>, 32> tags;
+        Vector<std::tuple<AtomString, MatchElement, IsNegation>, 32> ids;
+        Vector<std::tuple<AtomString, MatchElement, IsNegation>, 32> classes;
+        Vector<std::tuple<const CSSSelector*, MatchElement, IsNegation>, 32> attributes;
+        Vector<std::tuple<const CSSSelector*, MatchElement, IsNegation>, 32> pseudoClasses;
     };
-    void recursivelyCollectFeaturesFromSelector(SelectorFeatures&, const CSSSelector&, MatchElement = MatchElement::Subject);
+    void recursivelyCollectFeaturesFromSelector(SelectorFeatures&, const CSSSelector&, MatchElement = MatchElement::Subject, IsNegation =  IsNegation::No);
 };
 
 bool isHasPseudoClassMatchElement(MatchElement);
@@ -133,6 +142,15 @@ PseudoClassInvalidationKey makePseudoClassInvalidationKey(CSSSelector::PseudoCla
 inline bool isUniversalInvalidation(const PseudoClassInvalidationKey& key)
 {
     return static_cast<InvalidationKeyType>(std::get<1>(key)) == InvalidationKeyType::Universal;
+}
+
+inline bool RuleFeatureSet::usesHasPseudoClass() const
+{
+    return usesMatchElement(MatchElement::HasChild)
+        || usesMatchElement(MatchElement::HasDescendant)
+        || usesMatchElement(MatchElement::HasSiblingDescendant)
+        || usesMatchElement(MatchElement::HasSibling)
+        || usesMatchElement(MatchElement::HasNonSubject);
 }
 
 } // namespace Style

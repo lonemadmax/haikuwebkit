@@ -214,6 +214,7 @@ public:
     bool hasFixedBackgroundImage() const { return m_backgroundData->background->hasFixedImage(); }
 
     bool hasEntirelyFixedBackground() const;
+    bool hasAnyLocalBackground() const;
 
     bool hasAppearance() const { return appearance() != NoControlPart; }
     bool hasEffectiveAppearance() const { return effectiveAppearance() != NoControlPart; }
@@ -416,7 +417,6 @@ public:
 
     FillRepeat backgroundRepeatX() const { return static_cast<FillRepeat>(m_backgroundData->background->repeatX()); }
     FillRepeat backgroundRepeatY() const { return static_cast<FillRepeat>(m_backgroundData->background->repeatY()); }
-    CompositeOperator backgroundComposite() const { return static_cast<CompositeOperator>(m_backgroundData->background->composite()); }
     FillAttachment backgroundAttachment() const { return static_cast<FillAttachment>(m_backgroundData->background->attachment()); }
     FillBox backgroundClip() const { return static_cast<FillBox>(m_backgroundData->background->clip()); }
     FillBox backgroundOrigin() const { return static_cast<FillBox>(m_backgroundData->background->origin()); }
@@ -614,8 +614,6 @@ public:
     UserSelect userSelectIncludingInert() const { return effectiveInert() ? UserSelect::None : userSelect(); }
     UserSelect userSelect() const { return static_cast<UserSelect>(m_rareInheritedData->userSelect); }
     TextOverflow textOverflow() const { return static_cast<TextOverflow>(m_rareNonInheritedData->textOverflow); }
-    MarginCollapse marginBeforeCollapse() const { return static_cast<MarginCollapse>(m_rareNonInheritedData->marginBeforeCollapse); }
-    MarginCollapse marginAfterCollapse() const { return static_cast<MarginCollapse>(m_rareNonInheritedData->marginAfterCollapse); }
     WordBreak wordBreak() const { return static_cast<WordBreak>(m_rareInheritedData->wordBreak); }
     OverflowWrap overflowWrap() const { return static_cast<OverflowWrap>(m_rareInheritedData->overflowWrap); }
     NBSPMode nbspMode() const { return static_cast<NBSPMode>(m_rareInheritedData->nbspMode); }
@@ -677,8 +675,9 @@ public:
     LengthPoint objectPosition() const { return m_rareNonInheritedData->objectPosition; }
 
     // Return true if any transform related property (currently transform, translate, scale, rotate, transformStyle3D or perspective)
-    // indicates that we are transforming.
-    bool hasTransformRelatedProperty() const { return hasTransform() || translate() || scale() || rotate() || preserves3D() || hasPerspective(); }
+    // indicates that we are transforming. The usedTransformStyle3D is not used here because in many cases (such as for deciding
+    // whether or not to establish a containing block), the computed value is what matters.
+    bool hasTransformRelatedProperty() const { return hasTransform() || translate() || scale() || rotate() || transformStyle3D() == TransformStyle3D::Preserve3D || hasPerspective(); }
 
     enum class TransformOperationOption : uint8_t {
         TransformOrigin = 1 << 0,
@@ -697,7 +696,7 @@ public:
     bool hasPositionedMask() const { return m_rareNonInheritedData->mask->hasImage(); }
     bool hasMask() const { return m_rareNonInheritedData->mask->hasImage() || m_rareNonInheritedData->maskBoxImage.hasImage(); }
 
-    TextCombine textCombine() const { return static_cast<TextCombine>(m_rareNonInheritedData->textCombine); }
+    TextCombine textCombine() const { return static_cast<TextCombine>(m_rareInheritedData->textCombine); }
     bool hasTextCombine() const { return textCombine() != TextCombine::None; }
 
     const TabSize& tabSize() const { return m_rareInheritedData->tabSize; }
@@ -723,11 +722,9 @@ public:
     bool hasAnimations() const { return m_rareNonInheritedData->animations && m_rareNonInheritedData->animations->size() > 0; }
     bool hasTransitions() const { return m_rareNonInheritedData->transitions && m_rareNonInheritedData->transitions->size() > 0; }
 
-    // Return the first found Animation (including 'all' transitions).
-    const Animation* transitionForProperty(CSSPropertyID) const;
-
     TransformStyle3D transformStyle3D() const { return static_cast<TransformStyle3D>(m_rareNonInheritedData->transformStyle3D); }
-    bool preserves3D() const { return transformStyle3D() == TransformStyle3D::Preserve3D; }
+    TransformStyle3D usedTransformStyle3D() const { return static_cast<bool>(m_rareNonInheritedData->transformStyleForcedToFlat) ? TransformStyle3D::Flat : transformStyle3D(); }
+    bool preserves3D() const { return usedTransformStyle3D() == TransformStyle3D::Preserve3D; }
 
     BackfaceVisibility backfaceVisibility() const { return static_cast<BackfaceVisibility>(m_rareNonInheritedData->backfaceVisibility); }
     float perspective() const { return m_rareNonInheritedData->perspective; }
@@ -1141,6 +1138,7 @@ public:
     void setAccentColor(const Color& c) { SET_VAR(m_rareInheritedData, accentColor, c); SET_VAR(m_rareInheritedData, hasAutoAccentColor, false);  }
     void setHasAutoAccentColor() { SET_VAR(m_rareInheritedData, hasAutoAccentColor, true); SET_VAR(m_rareInheritedData, accentColor, currentColor()); }
     void setOpacity(float f) { float v = clampTo<float>(f, 0.f, 1.f); SET_VAR(m_rareNonInheritedData, opacity, v); }
+    static_assert(largestControlPart < 1 << appearanceBitWidth, "Control part must fit in storage bits");
     void setAppearance(ControlPart a) { SET_VAR(m_rareNonInheritedData, appearance, a); SET_VAR(m_rareNonInheritedData, effectiveAppearance, a); }
     void setEffectiveAppearance(ControlPart a) { SET_VAR(m_rareNonInheritedData, effectiveAppearance, a); }
     // For valid values of box-align see http://www.w3.org/TR/2009/WD-css3-flexbox-20090723/#alignment
@@ -1214,8 +1212,6 @@ public:
     void setUserDrag(UserDrag d) { SET_VAR(m_rareNonInheritedData, userDrag, static_cast<unsigned>(d)); }
     void setUserSelect(UserSelect s) { SET_VAR(m_rareInheritedData, userSelect, static_cast<unsigned>(s)); }
     void setTextOverflow(TextOverflow overflow) { SET_VAR(m_rareNonInheritedData, textOverflow, static_cast<unsigned>(overflow)); }
-    void setMarginBeforeCollapse(MarginCollapse c) { SET_VAR(m_rareNonInheritedData, marginBeforeCollapse, static_cast<unsigned>(c)); }
-    void setMarginAfterCollapse(MarginCollapse c) { SET_VAR(m_rareNonInheritedData, marginAfterCollapse, static_cast<unsigned>(c)); }
     void setWordBreak(WordBreak b) { SET_VAR(m_rareInheritedData, wordBreak, static_cast<unsigned>(b)); }
     void setOverflowWrap(OverflowWrap b) { SET_VAR(m_rareInheritedData, overflowWrap, static_cast<unsigned>(b)); }
     void setNBSPMode(NBSPMode b) { SET_VAR(m_rareInheritedData, nbspMode, static_cast<unsigned>(b)); }
@@ -1253,7 +1249,7 @@ public:
     void setTranslate(RefPtr<TranslateTransformOperation>&&);
 
     void setSpeakAs(OptionSet<SpeakAs> s) { SET_VAR(m_rareInheritedData, speakAs, s.toRaw()); }
-    void setTextCombine(TextCombine v) { SET_VAR(m_rareNonInheritedData, textCombine, static_cast<unsigned>(v)); }
+    void setTextCombine(TextCombine v) { SET_VAR(m_rareInheritedData, textCombine, static_cast<unsigned>(v)); }
     void setTextDecorationColor(const Color& c) { SET_VAR(m_rareNonInheritedData, textDecorationColor, c); }
     void setTextEmphasisColor(const Color& c) { SET_VAR(m_rareInheritedData, textEmphasisColor, c); }
     void setTextEmphasisFill(TextEmphasisFill fill) { SET_VAR(m_rareInheritedData, textEmphasisFill, static_cast<unsigned>(fill)); }
@@ -1301,6 +1297,7 @@ public:
     void adjustTransitions();
 
     void setTransformStyle3D(TransformStyle3D b) { SET_VAR(m_rareNonInheritedData, transformStyle3D, static_cast<unsigned>(b)); }
+    void setTransformStyleForcedToFlat(bool b) { SET_VAR(m_rareNonInheritedData, transformStyleForcedToFlat, static_cast<unsigned>(b)); }
     void setBackfaceVisibility(BackfaceVisibility b) { SET_VAR(m_rareNonInheritedData, backfaceVisibility, static_cast<unsigned>(b)); }
     void setPerspective(float p) { SET_VAR(m_rareNonInheritedData, perspective, p); }
     void setPerspectiveOriginX(Length&& length) { SET_VAR(m_rareNonInheritedData, perspectiveOriginX, WTFMove(length)); }
@@ -1658,8 +1655,6 @@ public:
     static UserDrag initialUserDrag() { return UserDrag::Auto; }
     static UserSelect initialUserSelect() { return UserSelect::Text; }
     static TextOverflow initialTextOverflow() { return TextOverflow::Clip; }
-    static MarginCollapse initialMarginBeforeCollapse() { return MarginCollapse::Collapse; }
-    static MarginCollapse initialMarginAfterCollapse() { return MarginCollapse::Collapse; }
     static WordBreak initialWordBreak() { return WordBreak::Normal; }
     static OverflowWrap initialOverflowWrap() { return OverflowWrap::Normal; }
     static NBSPMode initialNBSPMode() { return NBSPMode::Normal; }

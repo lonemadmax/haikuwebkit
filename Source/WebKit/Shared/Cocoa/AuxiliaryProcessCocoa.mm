@@ -41,6 +41,10 @@
 #import <pal/spi/cocoa/AccessibilitySupportSPI.h>
 #endif
 
+#if PLATFORM(MAC)
+#import <pal/spi/mac/HIServicesSPI.h>
+#endif
+
 #if HAVE(UPDATE_WEB_ACCESSIBILITY_SETTINGS) && ENABLE(CFPREFS_DIRECT_MODE)
 SOFT_LINK_LIBRARY(libAccessibility)
 SOFT_LINK_OPTIONAL(libAccessibility, _AXSUpdateWebAccessibilitySettings, void, (), ());
@@ -74,6 +78,7 @@ void AuxiliaryProcess::platformInitialize(const AuxiliaryProcessInitializationPa
 
     WebCore::setApplicationBundleIdentifier(parameters.clientBundleIdentifier);
     setApplicationSDKVersion(parameters.clientSDKVersion);
+    setLinkedOnOrAfterOverride(parameters.clientLinkedOnOrAfterOverride);
 }
 
 void AuxiliaryProcess::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName messageName)
@@ -212,5 +217,16 @@ void AuxiliaryProcess::handlePreferenceChange(const String& domain, const String
 }
 
 #endif // ENABLE(CFPREFS_DIRECT_MODE)
+
+void AuxiliaryProcess::setApplicationIsDaemon()
+{
+#if PLATFORM(MAC)
+    // Having a window server connection in this process would result in spin logs (<rdar://problem/13239119>).
+    OSStatus error = SetApplicationIsDaemon(true);
+    ASSERT_UNUSED(error, error == noErr);
+#elif PLATFORM(MACCATALYST)
+    CGSSetDenyWindowServerConnections(true);
+#endif
+}
 
 } // namespace WebKit

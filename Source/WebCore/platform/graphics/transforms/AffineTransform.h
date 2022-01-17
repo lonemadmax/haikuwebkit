@@ -38,11 +38,6 @@ typedef struct CGAffineTransform CGAffineTransform;
 #include <AffineTransform.h>
 #endif
 
-#if PLATFORM(WIN)
-struct D2D_MATRIX_3X2_F;
-typedef D2D_MATRIX_3X2_F D2D1_MATRIX_3X2_F;
-#endif
-
 namespace WTF {
 class TextStream;
 }
@@ -67,10 +62,6 @@ public:
 
 #if USE(CG)
     WEBCORE_EXPORT AffineTransform(const CGAffineTransform&);
-#endif
-
-#if PLATFORM(WIN)
-    AffineTransform(const D2D1_MATRIX_3X2_F&);
 #endif
 
     void setMatrix(double a, double b, double c, double d, double e, double f);
@@ -191,10 +182,6 @@ public:
     WEBCORE_EXPORT operator CGAffineTransform() const;
 #elif PLATFORM(HAIKU)
     operator BAffineTransform() const;
-#endif
-
-#if PLATFORM(WIN)
-    operator D2D1_MATRIX_3X2_F() const;
 #endif
 
     static AffineTransform translation(double x, double y)

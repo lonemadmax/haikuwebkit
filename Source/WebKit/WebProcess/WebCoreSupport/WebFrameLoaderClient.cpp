@@ -42,7 +42,6 @@
 #include "NetworkProcessConnection.h"
 #include "NetworkResourceLoadParameters.h"
 #include "PluginView.h"
-#include "SharedBufferDataReference.h"
 #include "UserData.h"
 #include "WKBundleAPICast.h"
 #include "WebAutomationSessionProxy.h"
@@ -1160,10 +1159,10 @@ void WebFrameLoaderClient::didReplaceMultipartContent()
     webPage->didReplaceMultipartContent(m_frame);
 }
 
-void WebFrameLoaderClient::committedLoad(DocumentLoader* loader, const uint8_t* data, int length)
+void WebFrameLoaderClient::committedLoad(DocumentLoader* loader, const SharedBuffer& data)
 {
     if (!m_pluginView)
-        loader->commitData(data, length);
+        loader->commitData(data);
 
     // If the document is a stand-alone media document, now is the right time to cancel the WebKit load.
     // FIXME: This code should be shared across all ports. <http://webkit.org/b/48762>.
@@ -1185,7 +1184,7 @@ void WebFrameLoaderClient::committedLoad(DocumentLoader* loader, const uint8_t* 
             return;
         m_hasSentResponseToPluginView = true;
     }
-    m_pluginView->manualLoadDidReceiveData(data, length);
+    m_pluginView->manualLoadDidReceiveData(data);
 }
 
 void WebFrameLoaderClient::finishedLoading(DocumentLoader* loader)

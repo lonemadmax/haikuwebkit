@@ -127,7 +127,6 @@
 #import <WebCore/TextRecognitionResult.h>
 #import <WebCore/TouchAction.h>
 #import <WebCore/UTIUtilities.h>
-#import <WebCore/VersionChecks.h>
 #import <WebCore/VisibleSelection.h>
 #import <WebCore/WebCoreCALayerExtras.h>
 #import <WebCore/WebEvent.h>
@@ -148,6 +147,7 @@
 #import <wtf/SetForScope.h>
 #import <wtf/WeakObjCPtr.h>
 #import <wtf/cocoa/NSURLExtras.h>
+#import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/text/TextStream.h>
@@ -1726,6 +1726,9 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
 
     _lastInteractionLocation = lastTouchEvent->locationInDocumentCoordinates;
     if (lastTouchEvent->type == UIWebTouchEventTouchBegin) {
+        if (!_failedTouchStartDeferringGestures)
+            _failedTouchStartDeferringGestures = { { } };
+
         [self _handleDOMPasteRequestWithResult:WebCore::DOMPasteAccessResponse::DeniedForGesture];
         _layerTreeTransactionIdAtLastInteractionStart = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page->drawingArea()).lastCommittedLayerTreeTransactionID();
 
@@ -1771,6 +1774,8 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
 
         if (!_page->isHandlingPreventableTouchEnd())
             stopDeferringNativeGesturesIfNeeded(self._touchEndDeferringGestures);
+
+        _failedTouchStartDeferringGestures = std::nullopt;
     }
 #endif // ENABLE(TOUCH_EVENTS)
 }
@@ -2016,8 +2021,11 @@ static WebCore::FloatQuad inflateQuad(const WebCore::FloatQuad& quad, float infl
 
 - (void)_doneDeferringTouchStart:(BOOL)preventNativeGestures
 {
-    for (WKDeferringGestureRecognizer *gesture in self._touchStartDeferringGestures)
-        [gesture endDeferral:preventNativeGestures ? WebKit::ShouldPreventGestures::Yes : WebKit::ShouldPreventGestures::No];
+    for (WKDeferringGestureRecognizer *gestureRecognizer in self._touchStartDeferringGestures) {
+        [gestureRecognizer endDeferral:preventNativeGestures ? WebKit::ShouldPreventGestures::Yes : WebKit::ShouldPreventGestures::No];
+        if (_failedTouchStartDeferringGestures && !preventNativeGestures)
+            _failedTouchStartDeferringGestures->add(gestureRecognizer);
+    }
 }
 
 - (void)_doneDeferringTouchEnd:(BOOL)preventNativeGestures
@@ -3431,21 +3439,21 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
     if (_page->editorState().selectionIsNone)
         return nil;
 
-    static auto plainTextTypes = makeNeverDestroyed([] {
+    static NeverDestroyed plainTextTypes = [] {
         auto plainTextTypes = adoptNS([[NSMutableArray alloc] init]);
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         [plainTextTypes addObject:(id)kUTTypeURL];
 ALLOW_DEPRECATED_DECLARATIONS_END
         [plainTextTypes addObjectsFromArray:UIPasteboardTypeListString];
         return plainTextTypes;
-    }());
-    static auto richTypes = makeNeverDestroyed([] {
+    }();
+    static NeverDestroyed richTypes = [] {
         auto richTypes = adoptNS([[NSMutableArray alloc] init]);
         [richTypes addObject:WebCore::WebArchivePboardType];
         [richTypes addObjectsFromArray:UIPasteboardTypeListImage];
         [richTypes addObjectsFromArray:plainTextTypes.get().get()];
         return richTypes;
-    }());
+    }();
 
     return (_page->editorState().isContentRichlyEditable) ? richTypes.get().get() : plainTextTypes.get().get();
 }
@@ -6449,7 +6457,7 @@ static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebK
 
     // FIXME: We should remove this check when we manage to send ElementDidFocus from the WebProcess
     // only when it is truly time to show the keyboard.
-    if (_focusedElementInformation.elementType == information.elementType && _focusedElementInformation.interactionRect == information.interactionRect) {
+    if (self._hasFocusedElement && _focusedElementInformation.elementContext.isSameElement(information.elementContext)) {
         if (_inputPeripheral) {
             if (!self.isFirstResponder)
                 [self becomeFirstResponder];
@@ -7769,7 +7777,7 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
 - (BOOL)_shouldUseContextMenus
 {
 #if HAVE(LINK_PREVIEW) && USE(UICONTEXTMENU)
-    return linkedOnOrAfter(WebCore::SDKVersion::FirstThatHasUIContextMenuInteraction);
+    return linkedOnOrAfter(SDKVersion::FirstThatHasUIContextMenuInteraction);
 #endif
     return NO;
 }
@@ -8001,6 +8009,15 @@ static WebCore::DataOwnerType coreDataOwnerType(_UIDataOwner platformType)
 #if ENABLE(IOS_TOUCH_EVENTS)
     if ([self _touchEventsMustRequireGestureRecognizerToFail:gestureRecognizer])
         return NO;
+
+    if (_failedTouchStartDeferringGestures && _failedTouchStartDeferringGestures->contains(deferringGestureRecognizer)
+        && deferringGestureRecognizer.state == UIGestureRecognizerStatePossible) {
+        // This deferring gesture no longer has an oppportunity to defer native gestures (either because the touch region did not have any
+        // active touch event listeners, or because any active touch event listeners on the page have already executed, and did not prevent
+        // default). UIKit may have already reset the gesture to Possible state underneath us, in which case we still need to treat it as
+        // if it has already failed; otherwise, we will incorrectly defer other gestures in the web view, such as scroll view pinching.
+        return NO;
+    }
 
     auto webView = _webView.getAutoreleased();
     auto view = gestureRecognizer.view;
@@ -9492,7 +9509,7 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
         return YES;
     }
 
-    if (!WebCore::linkedOnOrAfter(WebCore::SDKVersion::FirstVersionWithiOSAppsOnMacOS)) {
+    if (!linkedOnOrAfter(SDKVersion::FirstVersionWithiOSAppsOnMacOS)) {
         if (WebCore::IOSApplication::isFIFACompanion() // <rdar://problem/67093487>
             || WebCore::IOSApplication::isNoggin() // <rdar://problem/64830335>
             || WebCore::IOSApplication::isOKCupid() // <rdar://problem/65698496>
@@ -9504,7 +9521,7 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
         }
     }
 
-    if (!WebCore::linkedOnOrAfter(WebCore::SDKVersion::FirstThatSendsNativeMouseEvents)) {
+    if (!linkedOnOrAfter(SDKVersion::FirstThatSendsNativeMouseEvents)) {
         if (WebCore::IOSApplication::isPocketCity() // <rdar://problem/62273077>
             || WebCore::IOSApplication::isEssentialSkeleton() // <rdar://problem/62694519>
             || WebCore::IOSApplication::isESPNFantasySports() // <rdar://problem/64671543>
@@ -10786,11 +10803,8 @@ static NSString *previewIdentifierForElementAction(_WKElementAction *action)
         _contextMenuHasRequestedLegacyData = NO;
         [self addInteraction:_contextMenuInteraction.get()];
 
-        if (id<_UIClickInteractionDriving> driver = self.webView.configuration._clickInteractionDriverForTesting) {
-            _UIClickInteraction *previewClickInteraction = [[_contextMenuInteraction presentationInteraction] previewClickInteraction];
-            [previewClickInteraction setDriver:driver];
-            [driver setDelegate:(id<_UIClickInteractionDriverDelegate>)previewClickInteraction];
-        }
+        if (id<_UIClickInteractionDriving> driver = self.webView.configuration._clickInteractionDriverForTesting)
+            [_contextMenuInteraction presentationInteraction].overrideDrivers = @[driver];
         return;
     }
 #endif

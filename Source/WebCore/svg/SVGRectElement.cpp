@@ -23,6 +23,7 @@
 #include "config.h"
 #include "SVGRectElement.h"
 
+#include "LegacyRenderSVGRect.h"
 #include "RenderSVGRect.h"
 #include "RenderSVGResource.h"
 #include "SVGElementInlines.h"
@@ -88,7 +89,13 @@ void SVGRectElement::svgAttributeChanged(const QualifiedName& attrName)
 
 RenderPtr<RenderElement> SVGRectElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderSVGRect>(*this, WTFMove(style));
+    // FIXME: [LBSE] Upstream enough code to allow the creation of RenderLayerModelObject based SVG renderers.
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+    if (false && document().settings().layerBasedSVGEngineEnabled())
+        return createRenderer<RenderSVGRect>(*this, WTFMove(style));
+#endif
+
+    return createRenderer<LegacyRenderSVGRect>(*this, WTFMove(style));
 }
 
 }

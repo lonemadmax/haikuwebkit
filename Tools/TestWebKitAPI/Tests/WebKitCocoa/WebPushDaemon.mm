@@ -27,6 +27,7 @@
 
 #import "DaemonTestUtilities.h"
 #import "HTTPServer.h"
+#import "PlatformUtilities.h"
 #import "Test.h"
 #import "TestURLSchemeHandler.h"
 #import "TestWKWebView.h"
@@ -67,50 +68,10 @@ static RetainPtr<NSURL> testWebPushDaemonLocation()
     return [currentExecutableDirectory() URLByAppendingPathComponent:@"webpushd" isDirectory:NO];
 }
 
-#if HAVE(OS_LAUNCHD_JOB)
-
-static RetainPtr<xpc_object_t> testWebPushDaemonPList(NSURL *storageLocation)
-{
-    auto currentDirectory = currentExecutableDirectory();
-
-    auto plist = adoptNS(xpc_dictionary_create(nullptr, nullptr, 0));
-    xpc_dictionary_set_string(plist.get(), "_ManagedBy", "TestWebKitAPI");
-    xpc_dictionary_set_string(plist.get(), "Label", "org.webkit.webpushtestdaemon");
-    xpc_dictionary_set_bool(plist.get(), "LaunchOnlyOnce", true);
-    xpc_dictionary_set_bool(plist.get(), "RootedSimulatorPath", true);
-    xpc_dictionary_set_string(plist.get(), "StandardErrorPath", [storageLocation URLByAppendingPathComponent:@"daemon_stderr"].path.fileSystemRepresentation);
-
-    {
-        auto environmentVariables = adoptNS(xpc_dictionary_create(nullptr, nullptr, 0));
-        xpc_dictionary_set_string(environmentVariables.get(), "DYLD_FRAMEWORK_PATH", currentDirectory.get().fileSystemRepresentation);
-        xpc_dictionary_set_value(plist.get(), "EnvironmentVariables", environmentVariables.get());
-    }
-    {
-        auto machServices = adoptNS(xpc_dictionary_create(nullptr, nullptr, 0));
-        xpc_dictionary_set_bool(machServices.get(), "org.webkit.webpushtestdaemon.service", true);
-        xpc_dictionary_set_value(plist.get(), "MachServices", machServices.get());
-    }
-    {
-        auto programArguments = adoptNS(xpc_array_create(nullptr, 0));
-        auto executableLocation = testWebPushDaemonLocation();
-#if PLATFORM(MAC)
-        xpc_array_set_string(programArguments.get(), XPC_ARRAY_APPEND, executableLocation.get().fileSystemRepresentation);
-#else
-        xpc_array_set_string(programArguments.get(), XPC_ARRAY_APPEND, [currentDirectory URLByAppendingPathComponent:@"webpushd"].path.fileSystemRepresentation);
-#endif
-        xpc_array_set_string(programArguments.get(), XPC_ARRAY_APPEND, "--machServiceName");
-        xpc_array_set_string(programArguments.get(), XPC_ARRAY_APPEND, "org.webkit.webpushtestdaemon.service");
-        xpc_dictionary_set_value(plist.get(), "ProgramArguments", programArguments.get());
-    }
-    return plist;
-}
-
-#else // HAVE(OS_LAUNCHD_JOB)
-
-static RetainPtr<NSDictionary> testWebPushDaemonPList(NSURL *storageLocation)
+static NSDictionary<NSString *, id> *testWebPushDaemonPList(NSURL *storageLocation)
 {
     return @{
-        @"Label" : @"org.webkit.pcmtestdaemon",
+        @"Label" : @"org.webkit.webpushtestdaemon",
         @"LaunchOnlyOnce" : @YES,
         @"StandardErrorPath" : [storageLocation URLByAppendingPathComponent:@"daemon_stderr"].path,
         @"EnvironmentVariables" : @{ @"DYLD_FRAMEWORK_PATH" : currentExecutableDirectory().get().path },
@@ -122,8 +83,6 @@ static RetainPtr<NSDictionary> testWebPushDaemonPList(NSURL *storageLocation)
         ]
     };
 }
-
-#endif // HAVE(OS_LAUNCHD_JOB)
 
 static bool shouldSetupWebPushD()
 {
@@ -152,12 +111,7 @@ static NSURL *setUpTestWebPushD()
 
     killFirstInstanceOfDaemon(@"webpushd");
 
-    auto plist = testWebPushDaemonPList(tempDir);
-#if HAVE(OS_LAUNCHD_JOB)
-    registerPlistWithLaunchD(WTFMove(plist));
-#else
-    registerPlistWithLaunchD(WTFMove(plist), tempDir);
-#endif
+    registerPlistWithLaunchD(testWebPushDaemonPList(tempDir), tempDir);
 
     return tempDir;
 }
@@ -260,12 +214,7 @@ static Vector<uint8_t> encodeString(const String& message)
     return result;
 }
 
-// FIXME: Re-enable this test on Mac once webkit.org/232857 is resolved.
-#if PLATFORM(MAC) && !USE(APPLE_INTERNAL_SDK)
-TEST(WebPushD, DISABLED_BasicCommunication)
-#else
 TEST(WebPushD, BasicCommunication)
-#endif
 {
     NSURL *tempDir = setUpTestWebPushD();
 
@@ -289,6 +238,8 @@ TEST(WebPushD, BasicCommunication)
         stringMatches = stringMatches && [nsMessage hasSuffix:@" Turned Debug Mode on"];
 
         EXPECT_TRUE(stringMatches);
+        if (!stringMatches)
+            WTFLogAlways("String does not match, actual string was %@", nsMessage);
 
         done = true;
     });
@@ -339,12 +290,7 @@ static const char* mainBytes = R"WEBPUSHRESOURCE(
 </script>
 )WEBPUSHRESOURCE";
 
-// FIXME: Re-enable this test on Mac once webkit.org/232857 is resolved.
-#if PLATFORM(MAC) && !USE(APPLE_INTERNAL_SDK)
-TEST(WebPushD, DISABLED_PermissionManagement)
-#else
 TEST(WebPushD, PermissionManagement)
-#endif
 {
     NSURL *tempDirectory = setUpTestWebPushD();
 
@@ -388,8 +334,8 @@ TEST(WebPushD, PermissionManagement)
 
     TestWebKitAPI::Util::run(&originOperationDone);
 
-    EXPECT_TRUE([origin.get().protocol isEqualToString:@"testing"]);
-    EXPECT_TRUE([origin.get().host isEqualToString:@"main"]);
+    EXPECT_WK_STREQ(origin.get().protocol, "testing");
+    EXPECT_WK_STREQ(origin.get().host, "main");
 
     // If we failed to retrieve an expected origin, we will have failed the above checks
     if (!origin) {
@@ -472,12 +418,7 @@ static void clearWebsiteDataStore(WKWebsiteDataStore *store)
     TestWebKitAPI::Util::run(&clearedStore);
 }
 
-// FIXME: Re-enable this test on Mac once webkit.org/232857 is resolved.
-#if PLATFORM(MAC) && !USE(APPLE_INTERNAL_SDK)
-TEST(WebPushD, DISABLED_HandleInjectedPush)
-#else
 TEST(WebPushD, HandleInjectedPush)
-#endif
 {
     [WKWebsiteDataStore _allowWebsiteDataRecordsForAllOrigins];
 

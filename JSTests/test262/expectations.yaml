@@ -804,324 +804,6 @@ test/built-ins/Proxy/construct/return-not-object-throws-undefined-realm.js:
 test/built-ins/Proxy/construct/trap-is-not-callable-realm.js:
   default: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
   strict mode: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
-test/built-ins/RegExp/property-escapes/generated/Alphabetic.js:
-  default: 'Test262Error: `\p{Alphabetic}` should match U+000C5D (`ౝ`)'
-  strict mode: 'Test262Error: `\p{Alphabetic}` should match U+000C5D (`ౝ`)'
-test/built-ins/RegExp/property-escapes/generated/Assigned.js:
-  default: 'Test262Error: `\p{Assigned}` should match U+000C5D (`ౝ`)'
-  strict mode: 'Test262Error: `\p{Assigned}` should match U+000C5D (`ౝ`)'
-test/built-ins/RegExp/property-escapes/generated/Bidi_Mirrored.js:
-  default: 'Test262Error: `\p{Bidi_Mirrored}` should match U+002E55 (`⹕`)'
-  strict mode: 'Test262Error: `\p{Bidi_Mirrored}` should match U+002E55 (`⹕`)'
-test/built-ins/RegExp/property-escapes/generated/Case_Ignorable.js:
-  default: 'Test262Error: `\p{Case_Ignorable}` should match U+000888 (`࢈`)'
-  strict mode: 'Test262Error: `\p{Case_Ignorable}` should match U+000888 (`࢈`)'
-test/built-ins/RegExp/property-escapes/generated/Cased.js:
-  default: 'Test262Error: `\p{Cased}` should match U+00A7D3 (`ꟓ`)'
-  strict mode: 'Test262Error: `\p{Cased}` should match U+00A7D3 (`ꟓ`)'
-test/built-ins/RegExp/property-escapes/generated/Changes_When_Casefolded.js:
-  default: 'Test262Error: `\p{Changes_When_Casefolded}` should match U+00A7C0 (`Ꟁ`)'
-  strict mode: 'Test262Error: `\p{Changes_When_Casefolded}` should match U+00A7C0 (`Ꟁ`)'
-test/built-ins/RegExp/property-escapes/generated/Changes_When_Casemapped.js:
-  default: 'Test262Error: `\p{Changes_When_Casemapped}` should match U+002C2F (`Ⱟ`)'
-  strict mode: 'Test262Error: `\p{Changes_When_Casemapped}` should match U+002C2F (`Ⱟ`)'
-test/built-ins/RegExp/property-escapes/generated/Changes_When_Lowercased.js:
-  default: 'Test262Error: `\p{Changes_When_Lowercased}` should match U+00A7C0 (`Ꟁ`)'
-  strict mode: 'Test262Error: `\p{Changes_When_Lowercased}` should match U+00A7C0 (`Ꟁ`)'
-test/built-ins/RegExp/property-escapes/generated/Changes_When_NFKC_Casefolded.js:
-  default: 'Test262Error: `\p{Changes_When_NFKC_Casefolded}` should match U+00A7C0 (`Ꟁ`)'
-  strict mode: 'Test262Error: `\p{Changes_When_NFKC_Casefolded}` should match U+00A7C0 (`Ꟁ`)'
-test/built-ins/RegExp/property-escapes/generated/Changes_When_Titlecased.js:
-  default: 'Test262Error: `\p{Changes_When_Titlecased}` should match U+00A7C1 (`ꟁ`)'
-  strict mode: 'Test262Error: `\p{Changes_When_Titlecased}` should match U+00A7C1 (`ꟁ`)'
-test/built-ins/RegExp/property-escapes/generated/Changes_When_Uppercased.js:
-  default: 'Test262Error: `\p{Changes_When_Uppercased}` should match U+00A7C1 (`ꟁ`)'
-  strict mode: 'Test262Error: `\p{Changes_When_Uppercased}` should match U+00A7C1 (`ꟁ`)'
-test/built-ins/RegExp/property-escapes/generated/Dash.js:
-  default: 'Test262Error: `\p{Dash}` should match U+002E5D (`⹝`)'
-  strict mode: 'Test262Error: `\p{Dash}` should match U+002E5D (`⹝`)'
-test/built-ins/RegExp/property-escapes/generated/Default_Ignorable_Code_Point.js:
-  default: 'Test262Error: `\p{Default_Ignorable_Code_Point}` should match U+00180F (`᠏`)'
-  strict mode: 'Test262Error: `\p{Default_Ignorable_Code_Point}` should match U+00180F (`᠏`)'
-test/built-ins/RegExp/property-escapes/generated/Diacritic.js:
-  default: 'Test262Error: `\p{Diacritic}` should match U+000C3C (`఼`)'
-  strict mode: 'Test262Error: `\p{Diacritic}` should match U+000C3C (`఼`)'
-test/built-ins/RegExp/property-escapes/generated/Emoji.js:
-  default: 'Test262Error: `\p{Emoji}` should match U+01F7F0 (`🟰`)'
-  strict mode: 'Test262Error: `\p{Emoji}` should match U+01F7F0 (`🟰`)'
-test/built-ins/RegExp/property-escapes/generated/Emoji_Modifier_Base.js:
-  default: 'Test262Error: `\p{Emoji_Modifier_Base}` should match U+01FAC3 (`🫃`)'
-  strict mode: 'Test262Error: `\p{Emoji_Modifier_Base}` should match U+01FAC3 (`🫃`)'
-test/built-ins/RegExp/property-escapes/generated/Emoji_Presentation.js:
-  default: 'Test262Error: `\p{Emoji_Presentation}` should match U+01F7F0 (`🟰`)'
-  strict mode: 'Test262Error: `\p{Emoji_Presentation}` should match U+01F7F0 (`🟰`)'
-test/built-ins/RegExp/property-escapes/generated/Extender.js:
-  default: 'Test262Error: `\p{Extender}` should match U+010781 (`𐞁`)'
-  strict mode: 'Test262Error: `\p{Extender}` should match U+010781 (`𐞁`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Cased_Letter.js:
-  default: 'Test262Error: `\p{General_Category=Cased_Letter}` should match U+00A7D3 (`ꟓ`)'
-  strict mode: 'Test262Error: `\p{General_Category=Cased_Letter}` should match U+00A7D3 (`ꟓ`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Close_Punctuation.js:
-  default: 'Test262Error: `\p{General_Category=Close_Punctuation}` should match U+002E56 (`⹖`)'
-  strict mode: 'Test262Error: `\p{General_Category=Close_Punctuation}` should match U+002E56 (`⹖`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Currency_Symbol.js:
-  default: 'Test262Error: `\p{General_Category=Currency_Symbol}` should match U+0020C0 (`⃀`)'
-  strict mode: 'Test262Error: `\p{General_Category=Currency_Symbol}` should match U+0020C0 (`⃀`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Dash_Punctuation.js:
-  default: 'Test262Error: `\p{General_Category=Dash_Punctuation}` should match U+002E5D (`⹝`)'
-  strict mode: 'Test262Error: `\p{General_Category=Dash_Punctuation}` should match U+002E5D (`⹝`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Decimal_Number.js:
-  default: 'Test262Error: `\p{General_Category=Decimal_Number}` should match U+016AC0 (`𖫀`)'
-  strict mode: 'Test262Error: `\p{General_Category=Decimal_Number}` should match U+016AC0 (`𖫀`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Format.js:
-  default: 'Test262Error: `\p{General_Category=Format}` should match U+000890 (`࢐`)'
-  strict mode: 'Test262Error: `\p{General_Category=Format}` should match U+000890 (`࢐`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Letter.js:
-  default: 'Test262Error: `\p{General_Category=Letter}` should match U+000C5D (`ౝ`)'
-  strict mode: 'Test262Error: `\p{General_Category=Letter}` should match U+000C5D (`ౝ`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Lowercase_Letter.js:
-  default: 'Test262Error: `\p{General_Category=Lowercase_Letter}` should match U+00A7C1 (`ꟁ`)'
-  strict mode: 'Test262Error: `\p{General_Category=Lowercase_Letter}` should match U+00A7C1 (`ꟁ`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Mark.js:
-  default: 'Test262Error: `\p{General_Category=Mark}` should match U+000C3C (`఼`)'
-  strict mode: 'Test262Error: `\p{General_Category=Mark}` should match U+000C3C (`఼`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Modifier_Letter.js:
-  default: 'Test262Error: `\p{General_Category=Modifier_Letter}` should match U+0008C9 (`ࣉ`)'
-  strict mode: 'Test262Error: `\p{General_Category=Modifier_Letter}` should match U+0008C9 (`ࣉ`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Modifier_Symbol.js:
-  default: 'Test262Error: `\p{General_Category=Modifier_Symbol}` should match U+000888 (`࢈`)'
-  strict mode: 'Test262Error: `\p{General_Category=Modifier_Symbol}` should match U+000888 (`࢈`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Nonspacing_Mark.js:
-  default: 'Test262Error: `\p{General_Category=Nonspacing_Mark}` should match U+000C3C (`఼`)'
-  strict mode: 'Test262Error: `\p{General_Category=Nonspacing_Mark}` should match U+000C3C (`఼`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Number.js:
-  default: 'Test262Error: `\p{General_Category=Number}` should match U+016AC0 (`𖫀`)'
-  strict mode: 'Test262Error: `\p{General_Category=Number}` should match U+016AC0 (`𖫀`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Open_Punctuation.js:
-  default: 'Test262Error: `\p{General_Category=Open_Punctuation}` should match U+002E55 (`⹕`)'
-  strict mode: 'Test262Error: `\p{General_Category=Open_Punctuation}` should match U+002E55 (`⹕`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Other.js:
-  default: 'Test262Error: `\P{General_Category=Other}` should match U+000C5D (`ౝ`)'
-  strict mode: 'Test262Error: `\P{General_Category=Other}` should match U+000C5D (`ౝ`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Other_Letter.js:
-  default: 'Test262Error: `\p{General_Category=Other_Letter}` should match U+000C5D (`ౝ`)'
-  strict mode: 'Test262Error: `\p{General_Category=Other_Letter}` should match U+000C5D (`ౝ`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Other_Punctuation.js:
-  default: 'Test262Error: `\p{General_Category=Other_Punctuation}` should match U+0116B9 (`𑚹`)'
-  strict mode: 'Test262Error: `\p{General_Category=Other_Punctuation}` should match U+0116B9 (`𑚹`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Other_Symbol.js:
-  default: 'Test262Error: `\p{General_Category=Other_Symbol}` should match U+00FDCF (`﷏`)'
-  strict mode: 'Test262Error: `\p{General_Category=Other_Symbol}` should match U+00FDCF (`﷏`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Punctuation.js:
-  default: 'Test262Error: `\p{General_Category=Punctuation}` should match U+0116B9 (`𑚹`)'
-  strict mode: 'Test262Error: `\p{General_Category=Punctuation}` should match U+0116B9 (`𑚹`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Spacing_Mark.js:
-  default: 'Test262Error: `\p{General_Category=Spacing_Mark}` should match U+001715 (`᜕`)'
-  strict mode: 'Test262Error: `\p{General_Category=Spacing_Mark}` should match U+001715 (`᜕`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Symbol.js:
-  default: 'Test262Error: `\p{General_Category=Symbol}` should match U+000888 (`࢈`)'
-  strict mode: 'Test262Error: `\p{General_Category=Symbol}` should match U+000888 (`࢈`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Unassigned.js:
-  default: 'Test262Error: `\P{General_Category=Unassigned}` should match U+000C5D (`ౝ`)'
-  strict mode: 'Test262Error: `\P{General_Category=Unassigned}` should match U+000C5D (`ౝ`)'
-test/built-ins/RegExp/property-escapes/generated/General_Category_-_Uppercase_Letter.js:
-  default: 'Test262Error: `\p{General_Category=Uppercase_Letter}` should match U+00A7C0 (`Ꟁ`)'
-  strict mode: 'Test262Error: `\p{General_Category=Uppercase_Letter}` should match U+00A7C0 (`Ꟁ`)'
-test/built-ins/RegExp/property-escapes/generated/Grapheme_Base.js:
-  default: 'Test262Error: `\p{Grapheme_Base}` should match U+000C5D (`ౝ`)'
-  strict mode: 'Test262Error: `\p{Grapheme_Base}` should match U+000C5D (`ౝ`)'
-test/built-ins/RegExp/property-escapes/generated/Grapheme_Extend.js:
-  default: 'Test262Error: `\p{Grapheme_Extend}` should match U+000C3C (`఼`)'
-  strict mode: 'Test262Error: `\p{Grapheme_Extend}` should match U+000C3C (`఼`)'
-test/built-ins/RegExp/property-escapes/generated/ID_Continue.js:
-  default: 'Test262Error: `\p{ID_Continue}` should match U+000C5D (`ౝ`)'
-  strict mode: 'Test262Error: `\p{ID_Continue}` should match U+000C5D (`ౝ`)'
-test/built-ins/RegExp/property-escapes/generated/ID_Start.js:
-  default: 'Test262Error: `\p{ID_Start}` should match U+000C5D (`ౝ`)'
-  strict mode: 'Test262Error: `\p{ID_Start}` should match U+000C5D (`ౝ`)'
-test/built-ins/RegExp/property-escapes/generated/Ideographic.js:
-  default: 'Test262Error: `\p{Ideographic}` should match U+009FFD (`鿽`)'
-  strict mode: 'Test262Error: `\p{Ideographic}` should match U+009FFD (`鿽`)'
-test/built-ins/RegExp/property-escapes/generated/Lowercase.js:
-  default: 'Test262Error: `\p{Lowercase}` should match U+00A7C1 (`ꟁ`)'
-  strict mode: 'Test262Error: `\p{Lowercase}` should match U+00A7C1 (`ꟁ`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Ahom.js:
-  default: 'Test262Error: `\p{Script=Ahom}` should match U+011740 (`𑝀`)'
-  strict mode: 'Test262Error: `\p{Script=Ahom}` should match U+011740 (`𑝀`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Arabic.js:
-  default: 'Test262Error: `\p{Script=Arabic}` should match U+00FDCF (`﷏`)'
-  strict mode: 'Test262Error: `\p{Script=Arabic}` should match U+00FDCF (`﷏`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Balinese.js:
-  default: 'Test262Error: `\p{Script=Balinese}` should match U+001B4C (`ᭌ`)'
-  strict mode: 'Test262Error: `\p{Script=Balinese}` should match U+001B4C (`ᭌ`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Brahmi.js:
-  default: 'Test262Error: `\p{Script=Brahmi}` should match U+011070 (`𑁰`)'
-  strict mode: 'Test262Error: `\p{Script=Brahmi}` should match U+011070 (`𑁰`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Canadian_Aboriginal.js:
-  default: 'Test262Error: `\p{Script=Canadian_Aboriginal}` should match U+011AB0 (`𑪰`)'
-  strict mode: 'Test262Error: `\p{Script=Canadian_Aboriginal}` should match U+011AB0 (`𑪰`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Common.js:
-  default: 'Test262Error: `\p{Script=Common}` should match U+01F7F0 (`🟰`)'
-  strict mode: 'Test262Error: `\p{Script=Common}` should match U+01F7F0 (`🟰`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Cypro_Minoan.js:
-  default: 'SyntaxError: Invalid regular expression: invalid property expression'
-  strict mode: 'SyntaxError: Invalid regular expression: invalid property expression'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Ethiopic.js:
-  default: 'Test262Error: `\p{Script=Ethiopic}` should match U+01E7E0 (`𞟠`)'
-  strict mode: 'Test262Error: `\p{Script=Ethiopic}` should match U+01E7E0 (`𞟠`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Glagolitic.js:
-  default: 'Test262Error: `\p{Script=Glagolitic}` should match U+002C2F (`Ⱟ`)'
-  strict mode: 'Test262Error: `\p{Script=Glagolitic}` should match U+002C2F (`Ⱟ`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Han.js:
-  default: 'Test262Error: `\p{Script=Han}` should match U+009FFD (`鿽`)'
-  strict mode: 'Test262Error: `\p{Script=Han}` should match U+009FFD (`鿽`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Hiragana.js:
-  default: 'Test262Error: `\p{Script=Hiragana}` should match U+01B11F (`𛄟`)'
-  strict mode: 'Test262Error: `\p{Script=Hiragana}` should match U+01B11F (`𛄟`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Inherited.js:
-  default: 'Test262Error: `\p{Script=Inherited}` should match U+001AC1 (`᫁`)'
-  strict mode: 'Test262Error: `\p{Script=Inherited}` should match U+001AC1 (`᫁`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Kaithi.js:
-  default: 'Test262Error: `\p{Script=Kaithi}` should match U+0110C2 (`𑃂`)'
-  strict mode: 'Test262Error: `\p{Script=Kaithi}` should match U+0110C2 (`𑃂`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Kannada.js:
-  default: 'Test262Error: `\p{Script=Kannada}` should match U+000CDD (`ೝ`)'
-  strict mode: 'Test262Error: `\p{Script=Kannada}` should match U+000CDD (`ೝ`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Katakana.js:
-  default: 'Test262Error: `\p{Script=Katakana}` should match U+01AFF0 (`𚿰`)'
-  strict mode: 'Test262Error: `\p{Script=Katakana}` should match U+01AFF0 (`𚿰`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Latin.js:
-  default: 'Test262Error: `\p{Script=Latin}` should match U+00A7D3 (`ꟓ`)'
-  strict mode: 'Test262Error: `\p{Script=Latin}` should match U+00A7D3 (`ꟓ`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Mongolian.js:
-  default: 'Test262Error: `\p{Script=Mongolian}` should match U+00180F (`᠏`)'
-  strict mode: 'Test262Error: `\p{Script=Mongolian}` should match U+00180F (`᠏`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Old_Uyghur.js:
-  default: 'SyntaxError: Invalid regular expression: invalid property expression'
-  strict mode: 'SyntaxError: Invalid regular expression: invalid property expression'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Tagalog.js:
-  default: 'Test262Error: `\p{Script=Tagalog}` should match U+00171F (`ᜟ`)'
-  strict mode: 'Test262Error: `\p{Script=Tagalog}` should match U+00171F (`ᜟ`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Takri.js:
-  default: 'Test262Error: `\p{Script=Takri}` should match U+0116B9 (`𑚹`)'
-  strict mode: 'Test262Error: `\p{Script=Takri}` should match U+0116B9 (`𑚹`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Tangsa.js:
-  default: 'SyntaxError: Invalid regular expression: invalid property expression'
-  strict mode: 'SyntaxError: Invalid regular expression: invalid property expression'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Telugu.js:
-  default: 'Test262Error: `\p{Script=Telugu}` should match U+000C5D (`ౝ`)'
-  strict mode: 'Test262Error: `\p{Script=Telugu}` should match U+000C5D (`ౝ`)'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Toto.js:
-  default: 'SyntaxError: Invalid regular expression: invalid property expression'
-  strict mode: 'SyntaxError: Invalid regular expression: invalid property expression'
-test/built-ins/RegExp/property-escapes/generated/Script_-_Vithkuqi.js:
-  default: 'SyntaxError: Invalid regular expression: invalid property expression'
-  strict mode: 'SyntaxError: Invalid regular expression: invalid property expression'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Adlam.js:
-  default: 'Test262Error: `\p{Script_Extensions=Adlam}` should match U+00061F (`؟`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Adlam}` should match U+00061F (`؟`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Ahom.js:
-  default: 'Test262Error: `\p{Script_Extensions=Ahom}` should match U+011740 (`𑝀`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Ahom}` should match U+011740 (`𑝀`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Arabic.js:
-  default: 'Test262Error: `\p{Script_Extensions=Arabic}` should match U+00FDCF (`﷏`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Arabic}` should match U+00FDCF (`﷏`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Balinese.js:
-  default: 'Test262Error: `\p{Script_Extensions=Balinese}` should match U+001B4C (`ᭌ`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Balinese}` should match U+001B4C (`ᭌ`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Brahmi.js:
-  default: 'Test262Error: `\p{Script_Extensions=Brahmi}` should match U+011070 (`𑁰`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Brahmi}` should match U+011070 (`𑁰`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Canadian_Aboriginal.js:
-  default: 'Test262Error: `\p{Script_Extensions=Canadian_Aboriginal}` should match U+011AB0 (`𑪰`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Canadian_Aboriginal}` should match U+011AB0 (`𑪰`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Common.js:
-  default: 'Test262Error: `\p{Script_Extensions=Common}` should match U+01F7F0 (`🟰`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Common}` should match U+01F7F0 (`🟰`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Cypro_Minoan.js:
-  default: 'SyntaxError: Invalid regular expression: invalid property expression'
-  strict mode: 'SyntaxError: Invalid regular expression: invalid property expression'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Ethiopic.js:
-  default: 'Test262Error: `\p{Script_Extensions=Ethiopic}` should match U+01E7E0 (`𞟠`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Ethiopic}` should match U+01E7E0 (`𞟠`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Glagolitic.js:
-  default: 'Test262Error: `\p{Script_Extensions=Glagolitic}` should match U+002C2F (`Ⱟ`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Glagolitic}` should match U+002C2F (`Ⱟ`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Han.js:
-  default: 'Test262Error: `\p{Script_Extensions=Han}` should match U+009FFD (`鿽`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Han}` should match U+009FFD (`鿽`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Hiragana.js:
-  default: 'Test262Error: `\p{Script_Extensions=Hiragana}` should match U+01B11F (`𛄟`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Hiragana}` should match U+01B11F (`𛄟`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Inherited.js:
-  default: 'Test262Error: `\p{Script_Extensions=Inherited}` should match U+001AC1 (`᫁`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Inherited}` should match U+001AC1 (`᫁`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Kaithi.js:
-  default: 'Test262Error: `\p{Script_Extensions=Kaithi}` should match U+0110C2 (`𑃂`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Kaithi}` should match U+0110C2 (`𑃂`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Kannada.js:
-  default: 'Test262Error: `\p{Script_Extensions=Kannada}` should match U+000CDD (`ೝ`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Kannada}` should match U+000CDD (`ೝ`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Katakana.js:
-  default: 'Test262Error: `\p{Script_Extensions=Katakana}` should match U+01AFF0 (`𚿰`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Katakana}` should match U+01AFF0 (`𚿰`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Latin.js:
-  default: 'Test262Error: `\p{Script_Extensions=Latin}` should match U+00A7D3 (`ꟓ`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Latin}` should match U+00A7D3 (`ꟓ`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Mongolian.js:
-  default: 'Test262Error: `\p{Script_Extensions=Mongolian}` should match U+00180F (`᠏`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Mongolian}` should match U+00180F (`᠏`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Nko.js:
-  default: 'Test262Error: `\p{Script_Extensions=Nko}` should match U+00060C (`،`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Nko}` should match U+00060C (`،`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Old_Uyghur.js:
-  default: 'SyntaxError: Invalid regular expression: invalid property expression'
-  strict mode: 'SyntaxError: Invalid regular expression: invalid property expression'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Syriac.js:
-  default: 'Test262Error: `\p{Script_Extensions=Syriac}` should match U+001DFA (`᷺`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Syriac}` should match U+001DFA (`᷺`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Tagalog.js:
-  default: 'Test262Error: `\p{Script_Extensions=Tagalog}` should match U+00171F (`ᜟ`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Tagalog}` should match U+00171F (`ᜟ`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Takri.js:
-  default: 'Test262Error: `\p{Script_Extensions=Takri}` should match U+0116B9 (`𑚹`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Takri}` should match U+0116B9 (`𑚹`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Tangsa.js:
-  default: 'SyntaxError: Invalid regular expression: invalid property expression'
-  strict mode: 'SyntaxError: Invalid regular expression: invalid property expression'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Telugu.js:
-  default: 'Test262Error: `\p{Script_Extensions=Telugu}` should match U+000C5D (`ౝ`)'
-  strict mode: 'Test262Error: `\p{Script_Extensions=Telugu}` should match U+000C5D (`ౝ`)'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Toto.js:
-  default: 'SyntaxError: Invalid regular expression: invalid property expression'
-  strict mode: 'SyntaxError: Invalid regular expression: invalid property expression'
-test/built-ins/RegExp/property-escapes/generated/Script_Extensions_-_Vithkuqi.js:
-  default: 'SyntaxError: Invalid regular expression: invalid property expression'
-  strict mode: 'SyntaxError: Invalid regular expression: invalid property expression'
-test/built-ins/RegExp/property-escapes/generated/Sentence_Terminal.js:
-  default: 'Test262Error: `\p{Sentence_Terminal}` should match U+00061D (`؝`)'
-  strict mode: 'Test262Error: `\p{Sentence_Terminal}` should match U+00061D (`؝`)'
-test/built-ins/RegExp/property-escapes/generated/Soft_Dotted.js:
-  default: 'Test262Error: `\p{Soft_Dotted}` should match U+01DF1A (`𝼚`)'
-  strict mode: 'Test262Error: `\p{Soft_Dotted}` should match U+01DF1A (`𝼚`)'
-test/built-ins/RegExp/property-escapes/generated/Terminal_Punctuation.js:
-  default: 'Test262Error: `\p{Terminal_Punctuation}` should match U+00061D (`؝`)'
-  strict mode: 'Test262Error: `\p{Terminal_Punctuation}` should match U+00061D (`؝`)'
-test/built-ins/RegExp/property-escapes/generated/Unified_Ideograph.js:
-  default: 'Test262Error: `\p{Unified_Ideograph}` should match U+009FFD (`鿽`)'
-  strict mode: 'Test262Error: `\p{Unified_Ideograph}` should match U+009FFD (`鿽`)'
-test/built-ins/RegExp/property-escapes/generated/Uppercase.js:
-  default: 'Test262Error: `\p{Uppercase}` should match U+00A7C0 (`Ꟁ`)'
-  strict mode: 'Test262Error: `\p{Uppercase}` should match U+00A7C0 (`Ꟁ`)'
-test/built-ins/RegExp/property-escapes/generated/Variation_Selector.js:
-  default: 'Test262Error: `\p{Variation_Selector}` should match U+00180F (`᠏`)'
-  strict mode: 'Test262Error: `\p{Variation_Selector}` should match U+00180F (`᠏`)'
-test/built-ins/RegExp/property-escapes/generated/XID_Continue.js:
-  default: 'Test262Error: `\p{XID_Continue}` should match U+000C5D (`ౝ`)'
-  strict mode: 'Test262Error: `\p{XID_Continue}` should match U+000C5D (`ౝ`)'
-test/built-ins/RegExp/property-escapes/generated/XID_Start.js:
-  default: 'Test262Error: `\p{XID_Start}` should match U+000C5D (`ౝ`)'
-  strict mode: 'Test262Error: `\p{XID_Start}` should match U+000C5D (`ౝ`)'
 test/built-ins/RegExp/prototype/Symbol.match/builtin-infer-unicode.js:
   default: 'Test262Error: Expected SameValue(«�», «null») to be true'
   strict mode: 'Test262Error: Expected SameValue(«�», «null») to be true'
@@ -1137,15 +819,117 @@ test/built-ins/RegExp/prototype/exec/u-lastindex-adv.js:
 test/built-ins/RegExp/quantifier-integer-limit.js:
   default: 'SyntaxError: Invalid regular expression: number too large in {} quantifier'
   strict mode: 'SyntaxError: Invalid regular expression: number too large in {} quantifier'
+test/built-ins/Temporal/Duration/compare/calendar-dateadd-called-with-plaindate-instance.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.PlainDate(2000, 1, 1, calendar)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.PlainDate(2000, 1, 1, calendar)')"
+test/built-ins/Temporal/Duration/compare/relativeto-propertybag-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: 'Test262Error: Uncallable undefined getOffsetNanosecondsFor should throw TypeError Expected a TypeError but got a RangeError'
+  strict mode: 'Test262Error: Uncallable undefined getOffsetNanosecondsFor should throw TypeError Expected a TypeError but got a RangeError'
+test/built-ins/Temporal/Duration/compare/relativeto-zoneddatetime-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
+test/built-ins/Temporal/Duration/fractional-throws-rangeerror.js:
+  default: 'Test262Error: Duration constructor throws RangeError with fractional value in the years position Expected a RangeError to be thrown but no exception was thrown at all'
+  strict mode: 'Test262Error: Duration constructor throws RangeError with fractional value in the years position Expected a RangeError to be thrown but no exception was thrown at all'
+test/built-ins/Temporal/Duration/prototype/add/calendar-dateadd-called-with-plaindate-instance.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.PlainDate(2000, 1, 1, calendar)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.PlainDate(2000, 1, 1, calendar)')"
+test/built-ins/Temporal/Duration/prototype/add/relativeto-propertybag-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: 'Test262Error: Uncallable undefined getOffsetNanosecondsFor should throw TypeError Expected a TypeError but got a RangeError'
+  strict mode: 'Test262Error: Uncallable undefined getOffsetNanosecondsFor should throw TypeError Expected a TypeError but got a RangeError'
+test/built-ins/Temporal/Duration/prototype/add/relativeto-zoneddatetime-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
+test/built-ins/Temporal/Duration/prototype/round/calendar-dateadd-called-with-plaindate-instance.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.PlainDate(2000, 1, 1, calendar)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.PlainDate(2000, 1, 1, calendar)')"
+test/built-ins/Temporal/Duration/prototype/round/relativeto-propertybag-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: 'Test262Error: Uncallable undefined getOffsetNanosecondsFor should throw TypeError Expected a TypeError but got a Error'
+  strict mode: 'Test262Error: Uncallable undefined getOffsetNanosecondsFor should throw TypeError Expected a TypeError but got a Error'
+test/built-ins/Temporal/Duration/prototype/round/relativeto-zoneddatetime-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
+test/built-ins/Temporal/Duration/prototype/round/smallestunit-disallowed-units-string.js:
+  default: 'Test262Error: "era" should not be allowed as an argument to round Expected a RangeError but got a TypeError'
+  strict mode: 'Test262Error: "era" should not be allowed as an argument to round Expected a RangeError but got a TypeError'
+test/built-ins/Temporal/Duration/prototype/round/smallestunit-plurals-accepted-string.js:
+  default: 'TypeError: options argument is not an object or undefined'
+  strict mode: 'TypeError: options argument is not an object or undefined'
+test/built-ins/Temporal/Duration/prototype/round/smallestunit-string-shorthand-string.js:
+  default: 'TypeError: options argument is not an object or undefined'
+  strict mode: 'TypeError: options argument is not an object or undefined'
+test/built-ins/Temporal/Duration/prototype/subtract/calendar-dateadd-called-with-plaindate-instance.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.PlainDate(2000, 1, 1, calendar)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.PlainDate(2000, 1, 1, calendar)')"
+test/built-ins/Temporal/Duration/prototype/subtract/relativeto-propertybag-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: 'Test262Error: Uncallable undefined getOffsetNanosecondsFor should throw TypeError Expected a TypeError but got a RangeError'
+  strict mode: 'Test262Error: Uncallable undefined getOffsetNanosecondsFor should throw TypeError Expected a TypeError but got a RangeError'
+test/built-ins/Temporal/Duration/prototype/subtract/relativeto-zoneddatetime-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
+test/built-ins/Temporal/Duration/prototype/total/calendar-dateadd-called-with-plaindate-instance.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.PlainDate(2000, 1, 1, calendar)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.PlainDate(2000, 1, 1, calendar)')"
+test/built-ins/Temporal/Duration/prototype/total/relativeto-propertybag-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: 'Test262Error: Uncallable undefined getOffsetNanosecondsFor should throw TypeError Expected a TypeError but got a RangeError'
+  strict mode: 'Test262Error: Uncallable undefined getOffsetNanosecondsFor should throw TypeError Expected a TypeError but got a RangeError'
+test/built-ins/Temporal/Duration/prototype/total/relativeto-undefined-throw-on-calendar-units.js:
+  default: 'TypeError: options argument is not an object or undefined'
+  strict mode: 'TypeError: options argument is not an object or undefined'
+test/built-ins/Temporal/Duration/prototype/total/relativeto-zoneddatetime-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
+test/built-ins/Temporal/Duration/prototype/total/unit-disallowed-units-string.js:
+  default: 'Test262Error: "era" should not be allowed as an argument to total Expected a RangeError but got a TypeError'
+  strict mode: 'Test262Error: "era" should not be allowed as an argument to total Expected a RangeError but got a TypeError'
+test/built-ins/Temporal/Duration/prototype/total/unit-plurals-accepted-string.js:
+  default: 'TypeError: options argument is not an object or undefined'
+  strict mode: 'TypeError: options argument is not an object or undefined'
+test/built-ins/Temporal/Duration/prototype/total/unit-string-shorthand-string.js:
+  default: 'TypeError: options argument is not an object or undefined'
+  strict mode: 'TypeError: options argument is not an object or undefined'
+test/built-ins/Temporal/Instant/prototype/round/smallestunit-disallowed-units.js:
+  default: 'Test262Error: "era" should not be allowed as an argument to round Expected a RangeError but got a TypeError'
+  strict mode: 'Test262Error: "era" should not be allowed as an argument to round Expected a RangeError but got a TypeError'
+test/built-ins/Temporal/Instant/prototype/round/smallestunit-plurals-accepted.js:
+  default: 'TypeError: options argument is not an object or undefined'
+  strict mode: 'TypeError: options argument is not an object or undefined'
+test/built-ins/Temporal/Instant/prototype/round/smallestunit-string-shorthand.js:
+  default: 'TypeError: options argument is not an object or undefined'
+  strict mode: 'TypeError: options argument is not an object or undefined'
+test/built-ins/Temporal/Instant/prototype/since/largestunit.js:
+  default: 'Test262Error: does not include higher units than necessary (largest unit unspecified) nanoseconds result Expected SameValue(«40», «101») to be true'
+  strict mode: 'Test262Error: does not include higher units than necessary (largest unit unspecified) nanoseconds result Expected SameValue(«40», «101») to be true'
+test/built-ins/Temporal/Instant/prototype/toJSON/timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: 'Test262Error: Uncallable undefined getOffsetNanosecondsFor should throw TypeError Expected a TypeError to be thrown but no exception was thrown at all'
+  strict mode: 'Test262Error: Uncallable undefined getOffsetNanosecondsFor should throw TypeError Expected a TypeError to be thrown but no exception was thrown at all'
+test/built-ins/Temporal/Instant/prototype/toString/timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: 'Test262Error: Uncallable undefined getOffsetNanosecondsFor should throw TypeError Expected a TypeError to be thrown but no exception was thrown at all'
+  strict mode: 'Test262Error: Uncallable undefined getOffsetNanosecondsFor should throw TypeError Expected a TypeError to be thrown but no exception was thrown at all'
 test/built-ins/Temporal/Instant/prototype/toString/timezone-offset.js:
   default: 'Test262Error: offset of UTC is +00:00 Expected SameValue(«1970-01-01T00:00:00Z», «1970-01-01T00:00:00+00:00») to be true'
   strict mode: 'Test262Error: offset of UTC is +00:00 Expected SameValue(«1970-01-01T00:00:00Z», «1970-01-01T00:00:00+00:00») to be true'
+test/built-ins/Temporal/Instant/prototype/toString/timezone-string-multiple-offsets.js:
+  default: 'RangeError: argument needs to be UTC offset string, TimeZone identifier, or temporal Instant string'
+  strict mode: 'RangeError: argument needs to be UTC offset string, TimeZone identifier, or temporal Instant string'
+test/built-ins/Temporal/PlainTime/compare/argument-string-with-utc-designator.js:
+  default: 'Test262Error: String with UTC designator should not be valid as a PlainTime (first argument) Expected a RangeError to be thrown but no exception was thrown at all'
+  strict mode: 'Test262Error: String with UTC designator should not be valid as a PlainTime (first argument) Expected a RangeError to be thrown but no exception was thrown at all'
+test/built-ins/Temporal/PlainTime/compare/argument-zoneddatetime-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
 test/built-ins/Temporal/PlainTime/compare/plaintime-propertybag-no-time-units.js:
   default: 'TypeError: "hour" field is missing'
   strict mode: 'TypeError: "hour" field is missing'
 test/built-ins/Temporal/PlainTime/from/argument-string-with-calendar.js:
   default: 'RangeError: invalid time string'
   strict mode: 'RangeError: invalid time string'
+test/built-ins/Temporal/PlainTime/from/argument-string-with-utc-designator.js:
+  default: 'Test262Error: String with UTC designator should not be valid as a PlainTime Expected a RangeError to be thrown but no exception was thrown at all'
+  strict mode: 'Test262Error: String with UTC designator should not be valid as a PlainTime Expected a RangeError to be thrown but no exception was thrown at all'
+test/built-ins/Temporal/PlainTime/from/argument-zoneddatetime-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
 test/built-ins/Temporal/PlainTime/from/options-undefined.js:
   default: 'TypeError: "microsecond" field is missing'
   strict mode: 'TypeError: "microsecond" field is missing'
@@ -1158,30 +942,63 @@ test/built-ins/Temporal/PlainTime/from/overflow-wrong-type.js:
 test/built-ins/Temporal/PlainTime/from/plaintime-propertybag-no-time-units.js:
   default: 'TypeError: "hour" field is missing'
   strict mode: 'TypeError: "hour" field is missing'
+test/built-ins/Temporal/PlainTime/prototype/equals/argument-string-with-utc-designator.js:
+  default: 'Test262Error: String with UTC designator should not be valid as a PlainTime Expected a RangeError to be thrown but no exception was thrown at all'
+  strict mode: 'Test262Error: String with UTC designator should not be valid as a PlainTime Expected a RangeError to be thrown but no exception was thrown at all'
 test/built-ins/Temporal/PlainTime/prototype/equals/argument-wrong-type.js:
   default: 'TypeError: "hour" field is missing'
   strict mode: 'TypeError: "hour" field is missing'
+test/built-ins/Temporal/PlainTime/prototype/equals/argument-zoneddatetime-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
 test/built-ins/Temporal/PlainTime/prototype/equals/plaintime-propertybag-no-time-units.js:
   default: 'TypeError: "hour" field is missing'
   strict mode: 'TypeError: "hour" field is missing'
+test/built-ins/Temporal/PlainTime/prototype/round/smallestunit-disallowed-units.js:
+  default: 'Test262Error: "era" should not be allowed as an argument to round Expected a RangeError but got a TypeError'
+  strict mode: 'Test262Error: "era" should not be allowed as an argument to round Expected a RangeError but got a TypeError'
+test/built-ins/Temporal/PlainTime/prototype/round/smallestunit-string-shorthand.js:
+  default: 'TypeError: options argument is not an object or undefined'
+  strict mode: 'TypeError: options argument is not an object or undefined'
+test/built-ins/Temporal/PlainTime/prototype/since/argument-string-with-utc-designator.js:
+  default: 'Test262Error: String with UTC designator should not be valid as a PlainTime Expected a RangeError to be thrown but no exception was thrown at all'
+  strict mode: 'Test262Error: String with UTC designator should not be valid as a PlainTime Expected a RangeError to be thrown but no exception was thrown at all'
+test/built-ins/Temporal/PlainTime/prototype/since/argument-zoneddatetime-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
 test/built-ins/Temporal/PlainTime/prototype/since/plaintime-propertybag-no-time-units.js:
   default: 'TypeError: "hour" field is missing'
   strict mode: 'TypeError: "hour" field is missing'
-test/built-ins/Temporal/PlainTime/prototype/toLocaleString/options-conflict.js:
-  default: 'Test262Error: time.toLocaleString("en", { hour: "numeric",  timeStyle: "short" }) throws TypeError Expected a TypeError to be thrown but no exception was thrown at all'
-  strict mode: 'Test262Error: time.toLocaleString("en", { hour: "numeric",  timeStyle: "short" }) throws TypeError Expected a TypeError to be thrown but no exception was thrown at all'
+test/built-ins/Temporal/PlainTime/prototype/until/argument-string-with-utc-designator.js:
+  default: 'Test262Error: String with UTC designator should not be valid as a PlainTime Expected a RangeError to be thrown but no exception was thrown at all'
+  strict mode: 'Test262Error: String with UTC designator should not be valid as a PlainTime Expected a RangeError to be thrown but no exception was thrown at all'
+test/built-ins/Temporal/PlainTime/prototype/until/argument-zoneddatetime-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(1_000_000_000_987_654_321n, timeZone)')"
 test/built-ins/Temporal/PlainTime/prototype/until/plaintime-propertybag-no-time-units.js:
   default: 'TypeError: "hour" field is missing'
   strict mode: 'TypeError: "hour" field is missing'
 test/built-ins/Temporal/getOwnPropertyNames.js:
   default: 'Test262Error: PlainDate'
   strict mode: 'Test262Error: PlainDate'
+test/intl402/DateTimeFormat/prototype/format/temporal-objects-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.PlainDate(2021, 8, 4)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.PlainDate(2021, 8, 4)')"
 test/intl402/DateTimeFormat/prototype/formatRange/en-US.js:
   default: 'Test262Error: Expected SameValue(«1/3/2019 – 1/5/2019», «1/3/2019 – 1/5/2019») to be true'
   strict mode: 'Test262Error: Expected SameValue(«1/3/2019 – 1/5/2019», «1/3/2019 – 1/5/2019») to be true'
 test/intl402/DateTimeFormat/prototype/formatRange/fractionalSecondDigits.js:
   default: 'Test262Error: no fractionalSecondDigits Expected SameValue(«02:03 – 02:13», «02:03 – 02:13») to be true'
   strict mode: 'Test262Error: no fractionalSecondDigits Expected SameValue(«02:03 – 02:13», «02:03 – 02:13») to be true'
+test/intl402/DateTimeFormat/prototype/formatRange/temporal-objects-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.PlainDate(2021, 8, 4)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.PlainDate(2021, 8, 4)')"
+test/intl402/DateTimeFormat/prototype/formatRangeToParts/temporal-objects-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.PlainDate(2021, 8, 4)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.PlainDate(2021, 8, 4)')"
+test/intl402/DateTimeFormat/prototype/formatToParts/temporal-objects-timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.PlainDate(2021, 8, 4)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.PlainDate(2021, 8, 4)')"
 test/intl402/DateTimeFormat/prototype/resolvedOptions/hourCycle-default.js:
   default: 'Test262Error: Expected SameValue(«h24», «h23») to be true'
   strict mode: 'Test262Error: Expected SameValue(«h24», «h23») to be true'
@@ -1231,23 +1048,80 @@ test/intl402/NumberFormat/prototype/format/signDisplay-negative-currency-zh-TW.j
   default: 'Test262Error: Expected SameValue(«-US$987.00», «(US$987.00)») to be true'
   strict mode: 'Test262Error: Expected SameValue(«-US$987.00», «(US$987.00)») to be true'
 test/intl402/NumberFormat/prototype/format/signDisplay-negative-de-DE.js:
-  default: 'Test262Error: -0 Expected SameValue(«-0», «0») to be true'
-  strict mode: 'Test262Error: -0 Expected SameValue(«-0», «0») to be true'
+  default: 'Test262Error: -0.0001 Expected SameValue(«-0», «0») to be true'
+  strict mode: 'Test262Error: -0.0001 Expected SameValue(«-0», «0») to be true'
 test/intl402/NumberFormat/prototype/format/signDisplay-negative-en-US.js:
-  default: 'Test262Error: -0 Expected SameValue(«-0», «0») to be true'
-  strict mode: 'Test262Error: -0 Expected SameValue(«-0», «0») to be true'
+  default: 'Test262Error: -0.0001 Expected SameValue(«-0», «0») to be true'
+  strict mode: 'Test262Error: -0.0001 Expected SameValue(«-0», «0») to be true'
 test/intl402/NumberFormat/prototype/format/signDisplay-negative-ja-JP.js:
-  default: 'Test262Error: -0 Expected SameValue(«-0», «0») to be true'
-  strict mode: 'Test262Error: -0 Expected SameValue(«-0», «0») to be true'
+  default: 'Test262Error: -0.0001 Expected SameValue(«-0», «0») to be true'
+  strict mode: 'Test262Error: -0.0001 Expected SameValue(«-0», «0») to be true'
 test/intl402/NumberFormat/prototype/format/signDisplay-negative-ko-KR.js:
-  default: 'Test262Error: -0 Expected SameValue(«-0», «0») to be true'
-  strict mode: 'Test262Error: -0 Expected SameValue(«-0», «0») to be true'
+  default: 'Test262Error: -0.0001 Expected SameValue(«-0», «0») to be true'
+  strict mode: 'Test262Error: -0.0001 Expected SameValue(«-0», «0») to be true'
 test/intl402/NumberFormat/prototype/format/signDisplay-negative-zh-TW.js:
-  default: 'Test262Error: -0 Expected SameValue(«-0», «0») to be true'
-  strict mode: 'Test262Error: -0 Expected SameValue(«-0», «0») to be true'
+  default: 'Test262Error: -0.0001 Expected SameValue(«-0», «0») to be true'
+  strict mode: 'Test262Error: -0.0001 Expected SameValue(«-0», «0») to be true'
+test/intl402/NumberFormat/prototype/format/useGrouping-extended-en-IN.js:
+  default: 'Test262Error: notation: "compact" Expected SameValue(«1K», «1T») to be true'
+  strict mode: 'Test262Error: notation: "compact" Expected SameValue(«1K», «1T») to be true'
+test/intl402/NumberFormat/prototype/format/value-decimal-string.js:
+  default: 'Test262Error: Expected SameValue(«1», «1.0000000000000001») to be true'
+  strict mode: 'Test262Error: Expected SameValue(«1», «1.0000000000000001») to be true'
+test/intl402/NumberFormat/prototype/formatRange/builtin.js:
+  default: 'Test262Error: The [[Class]] internal property of a built-in function must be "Function". Expected SameValue(«[object Undefined]», «[object Function]») to be true'
+  strict mode: 'Test262Error: The [[Class]] internal property of a built-in function must be "Function". Expected SameValue(«[object Undefined]», «[object Function]») to be true'
+test/intl402/NumberFormat/prototype/formatRange/en-US.js:
+  default: "TypeError: nf.formatRange is not a function. (In 'nf.formatRange(3, 5)', 'nf.formatRange' is undefined)"
+  strict mode: "TypeError: nf.formatRange is not a function. (In 'nf.formatRange(3, 5)', 'nf.formatRange' is undefined)"
+test/intl402/NumberFormat/prototype/formatRange/invoked-as-func.js:
+  default: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
+  strict mode: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
+test/intl402/NumberFormat/prototype/formatRange/length.js:
+  default: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
+  strict mode: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
+test/intl402/NumberFormat/prototype/formatRange/name.js:
+  default: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
+  strict mode: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
+test/intl402/NumberFormat/prototype/formatRange/nan-arguments-throws.js:
+  default: 'Test262Error: Expected a RangeError but got a TypeError'
+  strict mode: 'Test262Error: Expected a RangeError but got a TypeError'
+test/intl402/NumberFormat/prototype/formatRange/prop-desc.js:
+  default: 'Test262Error: `typeof Intl.NumberFormat.prototype.formatRange` is `function` Expected SameValue(«undefined», «function») to be true'
+  strict mode: 'Test262Error: `typeof Intl.NumberFormat.prototype.formatRange` is `function` Expected SameValue(«undefined», «function») to be true'
+test/intl402/NumberFormat/prototype/formatRange/pt-PT.js:
+  default: "TypeError: nf.formatRange is not a function. (In 'nf.formatRange(3, 5)', 'nf.formatRange' is undefined)"
+  strict mode: "TypeError: nf.formatRange is not a function. (In 'nf.formatRange(3, 5)', 'nf.formatRange' is undefined)"
+test/intl402/NumberFormat/prototype/formatRange/x-greater-than-y-throws.js:
+  default: 'Test262Error: Expected a RangeError but got a TypeError'
+  strict mode: 'Test262Error: Expected a RangeError but got a TypeError'
+test/intl402/NumberFormat/prototype/formatRangeToParts/builtin.js:
+  default: 'Test262Error: The [[Class]] internal property of a built-in function must be "Function". Expected SameValue(«[object Undefined]», «[object Function]») to be true'
+  strict mode: 'Test262Error: The [[Class]] internal property of a built-in function must be "Function". Expected SameValue(«[object Undefined]», «[object Function]») to be true'
+test/intl402/NumberFormat/prototype/formatRangeToParts/en-US.js:
+  default: "TypeError: nf.formatRangeToParts is not a function. (In 'nf.formatRangeToParts(3, 5)', 'nf.formatRangeToParts' is undefined)"
+  strict mode: "TypeError: nf.formatRangeToParts is not a function. (In 'nf.formatRangeToParts(3, 5)', 'nf.formatRangeToParts' is undefined)"
+test/intl402/NumberFormat/prototype/formatRangeToParts/invoked-as-func.js:
+  default: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
+  strict mode: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
+test/intl402/NumberFormat/prototype/formatRangeToParts/length.js:
+  default: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
+  strict mode: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
+test/intl402/NumberFormat/prototype/formatRangeToParts/name.js:
+  default: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
+  strict mode: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
+test/intl402/NumberFormat/prototype/formatRangeToParts/nan-arguments-throws.js:
+  default: 'Test262Error: Expected a RangeError but got a TypeError'
+  strict mode: 'Test262Error: Expected a RangeError but got a TypeError'
+test/intl402/NumberFormat/prototype/formatRangeToParts/prop-desc.js:
+  default: 'Test262Error: `typeof Intl.NumberFormat.prototype.formatRangeToParts` is `function` Expected SameValue(«undefined», «function») to be true'
+  strict mode: 'Test262Error: `typeof Intl.NumberFormat.prototype.formatRangeToParts` is `function` Expected SameValue(«undefined», «function») to be true'
+test/intl402/NumberFormat/prototype/formatRangeToParts/x-greater-than-y-throws.js:
+  default: 'Test262Error: Expected a RangeError but got a TypeError'
+  strict mode: 'Test262Error: Expected a RangeError but got a TypeError'
 test/intl402/NumberFormat/prototype/formatToParts/signDisplay-negative-currency-de-DE.js:
-  default: 'Test262Error: negativeZero: length Expected SameValue(«6», «5») to be true'
-  strict mode: 'Test262Error: negativeZero: length Expected SameValue(«6», «5») to be true'
+  default: 'Test262Error: negativeNearZero: length Expected SameValue(«6», «5») to be true'
+  strict mode: 'Test262Error: negativeNearZero: length Expected SameValue(«6», «5») to be true'
 test/intl402/NumberFormat/prototype/formatToParts/signDisplay-negative-currency-en-US.js:
   default: 'Test262Error: negative: length Expected SameValue(«5», «6») to be true'
   strict mode: 'Test262Error: negative: length Expected SameValue(«5», «6») to be true'
@@ -1261,32 +1135,56 @@ test/intl402/NumberFormat/prototype/formatToParts/signDisplay-negative-currency-
   default: 'Test262Error: negative: length Expected SameValue(«5», «6») to be true'
   strict mode: 'Test262Error: negative: length Expected SameValue(«5», «6») to be true'
 test/intl402/NumberFormat/prototype/formatToParts/signDisplay-negative-de-DE.js:
-  default: "ReferenceError: Can't find variable: signDisplay"
-  strict mode: "ReferenceError: Can't find variable: signDisplay"
+  default: 'Test262Error: -0.0001 (negative): length Expected SameValue(«2», «1») to be true'
+  strict mode: 'Test262Error: -0.0001 (negative): length Expected SameValue(«2», «1») to be true'
 test/intl402/NumberFormat/prototype/formatToParts/signDisplay-negative-en-US.js:
-  default: "ReferenceError: Can't find variable: signDisplay"
-  strict mode: "ReferenceError: Can't find variable: signDisplay"
+  default: 'Test262Error: -0.0001 (negative): length Expected SameValue(«2», «1») to be true'
+  strict mode: 'Test262Error: -0.0001 (negative): length Expected SameValue(«2», «1») to be true'
 test/intl402/NumberFormat/prototype/formatToParts/signDisplay-negative-ja-JP.js:
-  default: "ReferenceError: Can't find variable: signDisplay"
-  strict mode: "ReferenceError: Can't find variable: signDisplay"
+  default: 'Test262Error: -0.0001 (negative): length Expected SameValue(«2», «1») to be true'
+  strict mode: 'Test262Error: -0.0001 (negative): length Expected SameValue(«2», «1») to be true'
 test/intl402/NumberFormat/prototype/formatToParts/signDisplay-negative-ko-KR.js:
-  default: "ReferenceError: Can't find variable: signDisplay"
-  strict mode: "ReferenceError: Can't find variable: signDisplay"
+  default: 'Test262Error: -0.0001 (negative): length Expected SameValue(«2», «1») to be true'
+  strict mode: 'Test262Error: -0.0001 (negative): length Expected SameValue(«2», «1») to be true'
 test/intl402/NumberFormat/prototype/formatToParts/signDisplay-negative-zh-TW.js:
-  default: "ReferenceError: Can't find variable: signDisplay"
-  strict mode: "ReferenceError: Can't find variable: signDisplay"
-test/intl402/NumberFormat/prototype/resolvedOptions/roundingMode.js:
-  default: 'Test262Error: Expected SameValue(«halfExpand», «halfExpand (default)») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«halfExpand», «halfExpand (default)») to be true'
+  default: 'Test262Error: -0.0001 (negative): length Expected SameValue(«2», «1») to be true'
+  strict mode: 'Test262Error: -0.0001 (negative): length Expected SameValue(«2», «1») to be true'
+test/intl402/PluralRules/prototype/selectRange/default-en-us.js:
+  default: "TypeError: pr.selectRange is not a function. (In 'pr.selectRange(102, 201)', 'pr.selectRange' is undefined)"
+  strict mode: "TypeError: pr.selectRange is not a function. (In 'pr.selectRange(102, 201)', 'pr.selectRange' is undefined)"
+test/intl402/PluralRules/prototype/selectRange/invoked-as-func.js:
+  default: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
+  strict mode: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
+test/intl402/PluralRules/prototype/selectRange/length.js:
+  default: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
+  strict mode: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
+test/intl402/PluralRules/prototype/selectRange/name.js:
+  default: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
+  strict mode: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
+test/intl402/PluralRules/prototype/selectRange/nan-arguments-throws.js:
+  default: 'Test262Error: NaN/Number Expected a RangeError but got a TypeError'
+  strict mode: 'Test262Error: NaN/Number Expected a RangeError but got a TypeError'
+test/intl402/PluralRules/prototype/selectRange/prop-desc.js:
+  default: 'Test262Error: `typeof Intl.PluralRules.prototype.selectRange` is `function` Expected SameValue(«undefined», «function») to be true'
+  strict mode: 'Test262Error: `typeof Intl.PluralRules.prototype.selectRange` is `function` Expected SameValue(«undefined», «function») to be true'
+test/intl402/PluralRules/prototype/selectRange/x-greater-than-y-throws.js:
+  default: 'Test262Error: Expected a RangeError but got a TypeError'
+  strict mode: 'Test262Error: Expected a RangeError but got a TypeError'
 test/intl402/Temporal/PlainTime/prototype/toLocaleString/locales-undefined.js:
   default: 'TypeError: Temporal.PlainTime.prototype.valueOf must not be called. To compare PlainTime values, use Temporal.PlainTime.compare'
   strict mode: 'TypeError: Temporal.PlainTime.prototype.valueOf must not be called. To compare PlainTime values, use Temporal.PlainTime.compare'
+test/intl402/Temporal/PlainTime/prototype/toLocaleString/options-conflict.js:
+  default: 'Test262Error: time.toLocaleString("en", { hour: "numeric",  timeStyle: "short" }) throws TypeError Expected a TypeError to be thrown but no exception was thrown at all'
+  strict mode: 'Test262Error: time.toLocaleString("en", { hour: "numeric",  timeStyle: "short" }) throws TypeError Expected a TypeError to be thrown but no exception was thrown at all'
 test/intl402/Temporal/PlainTime/prototype/toLocaleString/options-undefined.js:
   default: 'TypeError: Temporal.PlainTime.prototype.valueOf must not be called. To compare PlainTime values, use Temporal.PlainTime.compare'
   strict mode: 'TypeError: Temporal.PlainTime.prototype.valueOf must not be called. To compare PlainTime values, use Temporal.PlainTime.compare'
 test/intl402/Temporal/PlainTime/prototype/toLocaleString/resolved-time-zone.js:
   default: 'Test262Error: Expected SameValue(«00:30:45.123456789», «12:30:45 AM») to be true'
   strict mode: 'Test262Error: Expected SameValue(«00:30:45.123456789», «12:30:45 AM») to be true'
+test/intl402/Temporal/PlainTime/prototype/toLocaleString/timezone-getoffsetnanosecondsfor-not-callable.js:
+  default: 'Test262Error: Uncallable undefined getOffsetNanosecondsFor should throw TypeError Expected a TypeError to be thrown but no exception was thrown at all'
+  strict mode: 'Test262Error: Uncallable undefined getOffsetNanosecondsFor should throw TypeError Expected a TypeError to be thrown but no exception was thrown at all'
 test/language/block-scope/syntax/redeclaration/async-function-name-redeclaration-attempt-with-async-function.js:
   default: 'Test262: This statement should not be evaluated.'
 test/language/block-scope/syntax/redeclaration/async-function-name-redeclaration-attempt-with-async-generator.js:
@@ -1879,72 +1777,6 @@ test/language/expressions/class/elements/nested-direct-eval-err-contains-argumen
 test/language/expressions/class/elements/nested-private-direct-eval-err-contains-arguments.js:
   default: 'Test262Error: Expected a SyntaxError but got a ReferenceError'
   strict mode: 'Test262Error: Expected a SyntaxError but got a ReferenceError'
-test/language/expressions/compound-assignment/S11.13.2_A5.10_T1.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.10_T2.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.10_T3.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.11_T1.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.11_T2.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.11_T3.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.1_T1.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.1_T2.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.1_T3.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.2_T1.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.2_T2.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.2_T3.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.3_T1.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.3_T2.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.3_T3.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.4_T1.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.4_T2.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.4_T3.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.5_T1.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.5_T2.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.5_T3.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.6_T1.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.6_T2.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.6_T3.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.7_T1.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.7_T2.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.7_T3.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.8_T1.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.8_T2.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.8_T3.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.9_T1.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.9_T2.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/compound-assignment/S11.13.2_A5.9_T3.js:
-  default: "ReferenceError: Can't find variable: x"
 test/language/expressions/compound-assignment/S11.13.2_A7.10_T4.js:
   default: 'Test262Error: Expected true but got false'
   strict mode: 'Test262Error: Expected true but got false'
@@ -2030,39 +1862,15 @@ test/language/expressions/object/scope-meth-param-rest-elem-var-open.js:
   default: 'Test262Error: Expected SameValue(«outside», «inside») to be true'
 test/language/expressions/object/scope-setter-body-lex-distinc.js:
   default: 'Test262Error: Expected a SyntaxError to be thrown but no exception was thrown at all'
-test/language/expressions/postfix-decrement/S11.3.2_A5_T1.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/postfix-decrement/S11.3.2_A5_T2.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/postfix-decrement/S11.3.2_A5_T3.js:
-  default: "ReferenceError: Can't find variable: x"
 test/language/expressions/postfix-decrement/S11.3.2_A6_T3.js:
   default: 'Test262Error: Expected true but got false'
   strict mode: 'Test262Error: Expected true but got false'
-test/language/expressions/postfix-increment/S11.3.1_A5_T1.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/postfix-increment/S11.3.1_A5_T2.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/postfix-increment/S11.3.1_A5_T3.js:
-  default: "ReferenceError: Can't find variable: x"
 test/language/expressions/postfix-increment/S11.3.1_A6_T3.js:
   default: 'Test262Error: Expected true but got false'
   strict mode: 'Test262Error: Expected true but got false'
-test/language/expressions/prefix-decrement/S11.4.5_A5_T1.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/prefix-decrement/S11.4.5_A5_T2.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/prefix-decrement/S11.4.5_A5_T3.js:
-  default: "ReferenceError: Can't find variable: x"
 test/language/expressions/prefix-decrement/S11.4.5_A6_T3.js:
   default: 'Test262Error: Expected true but got false'
   strict mode: 'Test262Error: Expected true but got false'
-test/language/expressions/prefix-increment/S11.4.4_A5_T1.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/prefix-increment/S11.4.4_A5_T2.js:
-  default: "ReferenceError: Can't find variable: x"
-test/language/expressions/prefix-increment/S11.4.4_A5_T3.js:
-  default: "ReferenceError: Can't find variable: x"
 test/language/expressions/prefix-increment/S11.4.4_A6_T3.js:
   default: 'Test262Error: Expected true but got false'
   strict mode: 'Test262Error: Expected true but got false'
@@ -2151,27 +1959,6 @@ test/language/statements/class/elements/nested-private-direct-eval-err-contains-
 test/language/statements/class/elements/privatefieldset-evaluation-order-1.js:
   default: 'Test262Error: Expected a ReferenceError to be thrown but no exception was thrown at all'
   strict mode: 'Test262Error: Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/language/statements/class/elements/privatefieldset-evaluation-order-3.js:
-  default: 'Test262Error: Expected SameValue(«undefined», «pass») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«undefined», «pass») to be true'
-test/language/statements/class/elements/privatefieldset-typeerror-10.js:
-  default: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
-  strict mode: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
-test/language/statements/class/elements/privatefieldset-typeerror-11.js:
-  default: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
-  strict mode: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
-test/language/statements/class/elements/privatefieldset-typeerror-6.js:
-  default: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
-  strict mode: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
-test/language/statements/class/elements/privatefieldset-typeerror-7.js:
-  default: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
-  strict mode: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
-test/language/statements/class/elements/privatefieldset-typeerror-8.js:
-  default: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
-  strict mode: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
-test/language/statements/class/elements/privatefieldset-typeerror-9.js:
-  default: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
-  strict mode: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
 test/language/statements/class/subclass/default-constructor-spread-override.js:
   default: 'Test262Error: @@iterator invoked'
   strict mode: 'Test262Error: @@iterator invoked'

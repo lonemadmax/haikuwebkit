@@ -145,7 +145,6 @@ class PointerCaptureController;
 class PointerLockController;
 class ProgressTracker;
 class RenderObject;
-class ReportingEndpointsCache;
 class ResourceUsageOverlay;
 class RenderingUpdateScheduler;
 class ScrollLatchingController;
@@ -319,8 +318,6 @@ public:
     WEBCORE_EXPORT void setRemoteInspectionNameOverride(const String&);
     void remoteInspectorInformationDidChange() const;
 #endif
-
-    ReportingEndpointsCache* reportingEndpointsCache() { return m_reportingEndpointsCache.get(); }
 
     Chrome& chrome() const { return *m_chrome; }
     DragCaretController& dragCaretController() const { return *m_dragCaretController; }
@@ -614,6 +611,7 @@ public:
 
     // Schedule a rendering update that coordinates with display refresh.
     WEBCORE_EXPORT void scheduleRenderingUpdate(OptionSet<RenderingUpdateStep> requestedSteps);
+    void didScheduleRenderingUpdate();
     // Trigger a rendering update in the current runloop. Only used for testing.
     void triggerRenderingUpdateForTesting();
 
@@ -892,6 +890,8 @@ public:
 
     WEBCORE_EXPORT void forEachDocument(const Function<void(Document&)>&) const;
     void forEachMediaElement(const Function<void(HTMLMediaElement&)>&);
+    static void forEachDocumentFromMainFrame(const Frame&, const Function<void(Document&)>&);
+    void forEachFrame(const Function<void(Frame&)>&);
 
     bool shouldDisableCorsForRequestTo(const URL&) const;
 
@@ -1266,7 +1266,6 @@ private:
     mutable MediaSessionGroupIdentifier m_mediaSessionGroupIdentifier;
 
     Ref<PermissionController> m_permissionController;
-    RefPtr<ReportingEndpointsCache> m_reportingEndpointsCache;
     UniqueRef<StorageProvider> m_storageProvider;
     UniqueRef<ModelPlayerProvider> m_modelPlayerProvider;
 

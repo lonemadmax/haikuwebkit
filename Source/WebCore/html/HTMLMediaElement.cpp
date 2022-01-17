@@ -4584,7 +4584,8 @@ bool HTMLMediaElement::setupAndCallJS(const JSSetupFunction& task)
 
     auto pendingActivity = makePendingActivity(*this);
     auto& world = ensureIsolatedWorld();
-    auto& scriptController = document().frame()->script();
+    Ref protectedFrame = *document().frame();
+    auto& scriptController = protectedFrame->script();
     auto* globalObject = JSC::jsCast<JSDOMGlobalObject*>(scriptController.globalObject(world));
     auto& vm = globalObject->vm();
     JSC::JSLockHolder lock(vm);
@@ -6302,7 +6303,7 @@ void HTMLMediaElement::enterFullscreen(VideoFullscreenMode mode)
     if (document().settings().fullScreenEnabled() && mode == VideoFullscreenModeStandard) {
         m_temporarilyAllowingInlinePlaybackAfterFullscreen = false;
         m_waitingToEnterFullscreen = true;
-        document().fullscreenManager().requestFullscreenForElement(this, FullscreenManager::ExemptIFrameAllowFullscreenRequirement);
+        document().fullscreenManager().requestFullscreenForElement(*this, FullscreenManager::ExemptIFrameAllowFullscreenRequirement);
         return;
     }
 #endif
@@ -7186,8 +7187,6 @@ String HTMLMediaElement::mediaPlayerUserAgent() const
     return frame->loader().userAgent(m_currentSrc);
 }
 
-#if ENABLE(AVF_CAPTIONS)
-
 static inline PlatformTextTrackData::TrackKind toPlatform(TextTrack::Kind kind)
 {
     switch (kind) {
@@ -7254,8 +7253,6 @@ Vector<RefPtr<PlatformTextTrack>> HTMLMediaElement::outOfBandTrackSources()
 
     return outOfBandTrackSources;
 }
-
-#endif
 
 bool HTMLMediaElement::mediaPlayerIsFullscreen() const
 {

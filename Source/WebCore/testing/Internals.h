@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include "ActivityState.h"
 #include "CSSComputedStyleDeclaration.h"
 #include "ContextDestructionObserver.h"
 #include "Cookie.h"
@@ -67,6 +68,7 @@ class Document;
 class Element;
 class EventListener;
 class ExtendableEvent;
+class FetchRequest;
 class FetchResponse;
 class File;
 class Frame;
@@ -188,6 +190,9 @@ public:
     enum class ResourceLoadPriority { ResourceLoadPriorityVeryLow, ResourceLoadPriorityLow, ResourceLoadPriorityMedium, ResourceLoadPriorityHigh, ResourceLoadPriorityVeryHigh };
     void setOverrideResourceLoadPriority(ResourceLoadPriority);
     void setStrictRawResourceValidationPolicyDisabled(bool);
+
+    using FetchObject = std::variant<RefPtr<FetchRequest>, RefPtr<FetchResponse>>;
+    bool isFetchObjectContextStopped(const FetchObject&);
 
     void clearMemoryCache();
     void pruneMemoryCacheToSize(unsigned size);
@@ -840,6 +845,7 @@ public:
 #endif
 
     void setPageVisibility(bool isVisible);
+    void setPageIsFocused(bool);
     void setPageIsFocusedAndActive(bool);
     void setPageIsInWindow(bool);
     bool isPageActive() const;
@@ -1184,7 +1190,10 @@ public:
     };
 
     ExceptionOr<AttachmentThumbnailInfo> attachmentThumbnailInfo(const HTMLAttachmentElement&);
+#if ENABLE(SERVICE_CONTROLS)
+    bool hasImageControls(const HTMLImageElement&) const;
 #endif
+#endif // ENABLE(ATTACHMENT_ELEMENT)
 
 #if ENABLE(MEDIA_SESSION)
     ExceptionOr<double> currentMediaSessionPosition(const MediaSession&);
@@ -1228,10 +1237,14 @@ public:
     RefPtr<PushSubscription> createPushSubscription(const String& endpoint, std::optional<EpochTimeStamp> expirationTime, const ArrayBuffer& serverVAPIDPublicKey, const ArrayBuffer& clientECDHPublicKey, const ArrayBuffer& auth);
 #endif
 
+    void overrideModalContainerSearchTermForTesting(const String& term);
+
 private:
     explicit Internals(Document&);
     Document* contextDocument() const;
     Frame* frame() const;
+
+    void updatePageActivityState(OptionSet<ActivityState::Flag> statesToChange, bool newValue);
 
     ExceptionOr<RenderedDocumentMarker*> markerAt(Node&, const String& markerType, unsigned index);
     ExceptionOr<ScrollableArea*> scrollableAreaForNode(Node*) const;

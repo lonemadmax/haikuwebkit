@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "Animation.h"
 #include "CSSStyleDeclaration.h"
 #include "RenderStyleConstants.h"
 #include "SVGRenderStyleDefs.h"
@@ -76,6 +77,8 @@ public:
     static Ref<CSSPrimitiveValue> fontStretchFromStyleValue(FontSelectionValue);
     static Ref<CSSFontStyleValue> fontNonKeywordStyleFromStyleValue(FontSelectionValue);
     static Ref<CSSFontStyleValue> fontStyleFromStyleValue(std::optional<FontSelectionValue>, FontStyleAxis);
+
+    static void addValueForAnimationPropertyToList(CSSValueList&, CSSPropertyID, const Animation*);
 
 private:
     // The styled element is either the element passed into

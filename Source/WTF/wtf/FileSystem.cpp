@@ -309,16 +309,6 @@ void setMetadataURL(const String&, const String&, const String&)
 {
 }
 
-bool canExcludeFromBackup()
-{
-    return false;
-}
-
-bool excludeFromBackup(const String&)
-{
-    return false;
-}
-
 #endif
 
 MappedFileData::MappedFileData(const String& filePath, MappedFileMode mapMode, bool& success)
@@ -430,10 +420,17 @@ void makeSafeToUseMemoryMapForPath(const String&)
 #endif
 
 #if !PLATFORM(COCOA)
+
 String createTemporaryZipArchive(const String&)
 {
     return { };
 }
+
+bool excludeFromBackup(const String&)
+{
+    return false;
+}
+
 #endif
 
 MappedFileData mapToFile(const String& path, size_t bytesSize, Function<void(const Function<bool(Span<const uint8_t>)>&)>&& apply, PlatformFileHandle* outputHandle)
@@ -616,6 +613,7 @@ bool deleteEmptyDirectory(const String& path)
     return std::filesystem::remove(fsPath, ec);
 }
 
+#if !PLATFORM(PLAYSTATION)
 bool moveFile(const String& oldPath, const String& newPath)
 {
     auto fsOldPath = toStdFileSystemPath(oldPath);
@@ -633,6 +631,7 @@ bool moveFile(const String& oldPath, const String& newPath)
         return false;
     return std::filesystem::remove_all(fsOldPath, ec);
 }
+#endif
 
 std::optional<uint64_t> fileSize(const String& path)
 {
@@ -643,6 +642,7 @@ std::optional<uint64_t> fileSize(const String& path)
     return size;
 }
 
+#if !PLATFORM(PLAYSTATION)
 std::optional<uint64_t> volumeFreeSpace(const String& path)
 {
     std::error_code ec;
@@ -651,6 +651,7 @@ std::optional<uint64_t> volumeFreeSpace(const String& path)
         return std::nullopt;
     return spaceInfo.available;
 }
+#endif
 
 bool createSymbolicLink(const String& targetPath, const String& symbolicLinkPath)
 {
@@ -687,12 +688,14 @@ std::optional<uint64_t> hardLinkCount(const String& path)
     return ec ? std::nullopt : std::make_optional(linkCount);
 }
 
+#if !PLATFORM(PLAYSTATION)
 bool deleteNonEmptyDirectory(const String& path)
 {
     std::error_code ec;
     std::filesystem::remove_all(toStdFileSystemPath(path), ec);
     return !ec;
 }
+#endif
 
 std::optional<WallTime> fileModificationTime(const String& path)
 {
@@ -760,13 +763,16 @@ String parentPath(const String& path)
     return fromStdFileSystemPath(toStdFileSystemPath(path).parent_path());
 }
 
+#if !PLATFORM(PLAYSTATION)
 String realPath(const String& path)
 {
     std::error_code ec;
     auto canonicalPath = std::filesystem::canonical(toStdFileSystemPath(path), ec);
     return ec ? path : fromStdFileSystemPath(canonicalPath);
 }
+#endif
 
+#if !PLATFORM(PLAYSTATION)
 Vector<String> listDirectory(const String& path)
 {
     Vector<String> fileNames;
@@ -779,6 +785,7 @@ Vector<String> listDirectory(const String& path)
     }
     return fileNames;
 }
+#endif
 
 #if !ENABLE(FILESYSTEM_POSIX_FAST_PATH)
 

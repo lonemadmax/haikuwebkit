@@ -477,10 +477,8 @@ LLINT_SLOW_PATH_DECL(loop_osr)
     if (UNLIKELY(Options::returnEarlyFromInfiniteLoopsForFuzzing() && codeBlock->loopHintsAreEligibleForFuzzingEarlyReturn())) {
         uintptr_t* ptr = vm.getLoopHintExecutionCounter(pc);
         *ptr += codeBlock->llintExecuteCounter().m_activeThreshold;
-        if (*ptr >= Options::earlyReturnFromInfiniteLoopsLimit()) {
-            codeBlock->ensureJITData(ConcurrentJSLocker(codeBlock->m_lock)); // We're returning to the OSR entry code here, which expects that m_jitData is not null.
+        if (*ptr >= Options::earlyReturnFromInfiniteLoopsLimit())
             LLINT_RETURN_TWO(LLInt::fuzzerReturnEarlyFromLoopHintEntrypoint().code().executableAddress(), callFrame->topOfFrame());
-        }
     }
     
     
@@ -635,22 +633,6 @@ LLINT_SLOW_PATH_DECL(slow_path_instanceof)
     JSValue value = getOperand(callFrame, bytecode.m_value);
     JSValue proto = getOperand(callFrame, bytecode.m_prototype);
     LLINT_RETURN(jsBoolean(JSObject::defaultHasInstance(globalObject, value, proto)));
-}
-
-LLINT_SLOW_PATH_DECL(slow_path_instanceof_custom)
-{
-    LLINT_BEGIN();
-
-    auto bytecode = pc->as<OpInstanceofCustom>();
-    JSValue value = getOperand(callFrame, bytecode.m_value);
-    JSValue constructor = getOperand(callFrame, bytecode.m_constructor);
-    JSValue hasInstanceValue = getOperand(callFrame, bytecode.m_hasInstanceValue);
-
-    ASSERT(constructor.isObject());
-    ASSERT(hasInstanceValue != globalObject->functionProtoHasInstanceSymbolFunction() || !constructor.getObject()->structure(vm)->typeInfo().implementsDefaultHasInstance());
-
-    JSValue result = jsBoolean(constructor.getObject()->hasInstance(globalObject, value, hasInstanceValue));
-    LLINT_RETURN(result);
 }
 
 LLINT_SLOW_PATH_DECL(slow_path_try_get_by_id)

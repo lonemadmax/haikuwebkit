@@ -111,6 +111,7 @@
 #include "TextBoundaries.h"
 #include "TextControlInnerElements.h"
 #include "TextIterator.h"
+#include <utility>
 #include <wtf/DataLog.h>
 #include <wtf/SetForScope.h>
 
@@ -862,6 +863,10 @@ void AXObjectCache::remove(Node& node)
         m_deferredTextFormControlValue.remove(downcast<Element>(&node));
         m_deferredAttributeChange.remove(downcast<Element>(&node));
         m_modalElementsSet.remove(downcast<Element>(&node));
+        m_deferredRecomputeIsIgnoredList.remove(downcast<Element>(node));
+        m_deferredSelectedChildredChangedList.remove(downcast<Element>(node));
+        m_deferredModalChangedList.remove(downcast<Element>(node));
+        m_deferredMenuListChange.remove(downcast<Element>(node));
     }
     m_deferredChildrenChangedNodeList.remove(&node);
     m_deferredTextChangedList.remove(&node);
@@ -1081,7 +1086,7 @@ void AXObjectCache::notificationPostTimerFired()
 
     // In tests, posting notifications has a tendency to immediately queue up other notifications, which can lead to unexpected behavior
     // when the notification list is cleared at the end. Instead copy this list at the start.
-    auto notifications = WTFMove(m_notificationsToPost);
+    auto notifications = std::exchange(m_notificationsToPost, { });
 
     // Filter out the notifications that are not going to be posted to platform clients.
     Vector<std::pair<RefPtr<AXCoreObject>, AXNotification>> notificationsToPost;
@@ -1132,7 +1137,7 @@ void AXObjectCache::passwordNotificationPostTimerFired()
 
     // In tests, posting notifications has a tendency to immediately queue up other notifications, which can lead to unexpected behavior
     // when the notification list is cleared at the end. Instead copy this list at the start.
-    auto notifications = WTFMove(m_passwordNotificationsToPost);
+    auto notifications = std::exchange(m_passwordNotificationsToPost, { });
 
     for (auto& notification : notifications)
         postTextStateChangePlatformNotification(notification.get(), AXTextEditTypeInsert, " ", VisiblePosition());
@@ -3160,6 +3165,13 @@ static void filterListForRemoval(const ListHashSet<T>& list, const Document& doc
         conditionallyAddNodeToFilterList(node, document, nodesToRemove);
 }
 
+static void filterWeakHashSetForRemoval(WeakHashSet<Element>& weakHashSet, const Document& document, HashSet<Ref<Node>>& nodesToRemove)
+{
+    weakHashSet.forEach([&] (auto& element) {
+        conditionallyAddNodeToFilterList(&element, document, nodesToRemove);
+    });
+}
+
 void AXObjectCache::prepareForDocumentDestruction(const Document& document)
 {
     HashSet<Ref<Node>> nodesToRemove;
@@ -3167,6 +3179,10 @@ void AXObjectCache::prepareForDocumentDestruction(const Document& document)
     filterListForRemoval(m_modalElementsSet, document, nodesToRemove);
     filterListForRemoval(m_deferredTextChangedList, document, nodesToRemove);
     filterListForRemoval(m_deferredChildrenChangedNodeList, document, nodesToRemove);
+    filterWeakHashSetForRemoval(m_deferredRecomputeIsIgnoredList, document, nodesToRemove);
+    filterWeakHashSetForRemoval(m_deferredSelectedChildredChangedList, document, nodesToRemove);
+    filterWeakHashSetForRemoval(m_deferredModalChangedList, document, nodesToRemove);
+    filterWeakHashSetForRemoval(m_deferredMenuListChange, document, nodesToRemove);
     filterMapForRemoval(m_deferredTextFormControlValue, document, nodesToRemove);
     filterMapForRemoval(m_deferredAttributeChange, document, nodesToRemove);
     filterVectorPairForRemoval(m_deferredFocusedNodeChange, document, nodesToRemove);
@@ -3217,14 +3233,15 @@ void AXObjectCache::performDeferredCacheUpdate()
         textChanged(node);
     m_deferredTextChangedList.clear();
 
-    for (auto& element : m_deferredRecomputeIsIgnoredList) {
+    m_deferredRecomputeIsIgnoredList.forEach([this] (auto& element) {
         if (auto* renderer = element.renderer())
             recomputeIsIgnored(renderer);
-    }
+    });
     m_deferredRecomputeIsIgnoredList.clear();
-    
-    for (auto& selectElement : m_deferredSelectedChildredChangedList)
+
+    m_deferredSelectedChildredChangedList.forEach([this] (auto& selectElement) {
         selectedChildrenChanged(&selectElement);
+    });
     m_deferredSelectedChildredChangedList.clear();
 
     for (auto& deferredFormControlContext : m_deferredTextFormControlValue) {
@@ -3245,12 +3262,14 @@ void AXObjectCache::performDeferredCacheUpdate()
     }
     m_deferredFocusedNodeChange.clear();
 
-    for (auto& deferredModalChangedElement : m_deferredModalChangedList)
+    m_deferredModalChangedList.forEach([this] (auto& deferredModalChangedElement) {
         handleModalChange(deferredModalChangedElement);
+    });
     m_deferredModalChangedList.clear();
 
-    for (auto& deferredMenuListChangeElement : m_deferredMenuListChange)
+    m_deferredMenuListChange.forEach([this] (auto& deferredMenuListChangeElement) {
         postNotification(&deferredMenuListChangeElement, AXObjectCache::AXMenuListValueChanged);
+    });
     m_deferredMenuListChange.clear();
     
     platformPerformDeferredCacheUpdate();

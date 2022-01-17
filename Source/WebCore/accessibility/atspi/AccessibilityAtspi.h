@@ -26,10 +26,12 @@
 #include <wtf/Vector.h>
 #include <wtf/WorkQueue.h>
 #include <wtf/glib/GRefPtr.h>
+#include <wtf/glib/GUniquePtr.h>
 
 typedef struct _GDBusConnection GDBusConnection;
 typedef struct _GDBusInterfaceInfo GDBusInterfaceInfo;
 typedef struct _GDBusInterfaceVTable GDBusInterfaceVTable;
+typedef struct _GDBusProxy GDBusProxy;
 typedef struct _GVariant GVariant;
 
 namespace WebCore {
@@ -41,12 +43,13 @@ class AccessibilityAtspi {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     AccessibilityAtspi(const String&);
-    ~AccessibilityAtspi() = default;
+    ~AccessibilityAtspi();
 
     WEBCORE_EXPORT RunLoop& runLoop() const;
 
     const char* uniqueName() const;
     GVariant* nullReference() const;
+    bool hasEventListeners() const { return !m_eventListeners.isEmpty(); }
 
     void registerRoot(AccessibilityRootAtspi&, Vector<std::pair<GDBusInterfaceInfo*, GDBusInterfaceVTable*>>&&, CompletionHandler<void(const String&)>&&);
     void unregisterRoot(AccessibilityRootAtspi&);
@@ -55,8 +58,10 @@ public:
     String registerHyperlink(AccessibilityObjectAtspi&, Vector<std::pair<GDBusInterfaceInfo*, GDBusInterfaceVTable*>>&&);
 
     void parentChanged(AccessibilityObjectAtspi&);
+    void parentChanged(AccessibilityRootAtspi&);
     enum class ChildrenChanged { Added, Removed };
     void childrenChanged(AccessibilityObjectAtspi&, AccessibilityObjectAtspi&, ChildrenChanged);
+    void childrenChanged(AccessibilityRootAtspi&, AccessibilityObjectAtspi&, ChildrenChanged);
 
     void stateChanged(AccessibilityObjectAtspi&, const char*, bool);
 
@@ -69,24 +74,55 @@ public:
 
     void selectionChanged(AccessibilityObjectAtspi&);
 
+    void loadEvent(AccessibilityObjectAtspi&, CString&&);
+
     static const char* localizedRoleName(AccessibilityRole);
 
     void addAccessible(AccessibilityObjectAtspi&);
 
+#if ENABLE(DEVELOPER_MODE)
+    using NotificationObserverParameter = std::variant<std::nullptr_t, String, bool, unsigned, Ref<AccessibilityObjectAtspi>>;
+    using NotificationObserver = Function<void(AccessibilityObjectAtspi&, const char*, NotificationObserverParameter)>;
+    WEBCORE_EXPORT void addNotificationObserver(void*, NotificationObserver&&);
+    WEBCORE_EXPORT void removeNotificationObserver(void*);
+#endif
+
 private:
+    void registerTrees() const;
+    void initializeRegistry();
+    void addEventListener(const char* dbusName, const char* eventName);
+    void removeEventListener(const char* dbusName, const char* eventName);
+
     void ensureCache();
     void removeAccessible(AccessibilityObjectAtspi&);
+
+    bool shouldEmitSignal(const char* interface, const char* name, const char* detail = "");
+
+#if ENABLE(DEVELOPER_MODE)
+    void notifyStateChanged(AccessibilityObjectAtspi&, const char*, bool) const;
+    void notifySelectionChanged(AccessibilityObjectAtspi&) const;
+    void notifyTextChanged(AccessibilityObjectAtspi&) const;
+    void notifyTextCaretMoved(AccessibilityObjectAtspi&, unsigned) const;
+    void notifyChildrenChanged(AccessibilityObjectAtspi&, AccessibilityObjectAtspi&, ChildrenChanged) const;
+    void notifyValueChanged(AccessibilityObjectAtspi&) const;
+    void notifyLoadEvent(AccessibilityObjectAtspi&, const CString&) const;
+#endif
 
     static GDBusInterfaceVTable s_cacheFunctions;
 
     Ref<WorkQueue> m_queue;
     GRefPtr<GDBusConnection> m_connection;
+    GRefPtr<GDBusProxy> m_registry;
+    HashMap<CString, Vector<GUniquePtr<char*>>> m_eventListeners;
     HashMap<AccessibilityRootAtspi*, Vector<unsigned, 2>> m_rootObjects;
     HashMap<AccessibilityObjectAtspi*, Vector<unsigned, 20>> m_atspiObjects;
     HashMap<AccessibilityObjectAtspi*, Vector<unsigned, 20>> m_atspiHyperlinks;
     unsigned m_cacheID { 0 };
     HashMap<String, AccessibilityObjectAtspi*> m_cache;
     bool m_inGetItems { false };
+#if ENABLE(DEVELOPER_MODE)
+    HashMap<void*, NotificationObserver> m_notificationObservers;
+#endif
 };
 
 } // namespace WebCore

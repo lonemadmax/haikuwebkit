@@ -184,8 +184,8 @@ public:
 #if USE(JSVALUE64)
         store64(regs.gpr(), address);
 #else
-        store32(regs.payloadGPR(), bitwise_cast<void*>(bitwise_cast<uintptr_t>(address) + PayloadOffset));
-        store32(regs.tagGPR(), bitwise_cast<void*>(bitwise_cast<uintptr_t>(address) + TagOffset));
+        static_assert(!PayloadOffset && TagOffset == 4, "Assumes little-endian system");
+        storePair32(regs.payloadGPR(), regs.tagGPR(), address);
 #endif
     }
 
@@ -262,15 +262,26 @@ public:
 #endif
     }
 
-    void storeValue(JSValue value, Address address)
+    void storeValue(JSValue value, Address address, JSValueRegs tmpJSR)
     {
 #if USE(JSVALUE64)
+        UNUSED_PARAM(tmpJSR);
         store64(Imm64(JSValue::encode(value)), address);
 #elif USE(JSVALUE32_64)
-        store32(Imm32(value.tag()), address.withOffset(TagOffset));
-        store32(Imm32(value.payload()), address.withOffset(PayloadOffset));
+        // Can implement this without the tmpJSR, but using it yields denser code.
+        moveValue(value, tmpJSR);
+        storeValue(tmpJSR, address);
 #endif
     }
+
+#if USE(JSVALUE32_64)
+    void storeValue(JSValue value, void* address, JSValueRegs tmpJSR)
+    {
+        // Can implement this without the tmpJSR, but using it yields denser code.
+        moveValue(value, tmpJSR);
+        storeValue(tmpJSR, address);
+    }
+#endif
 
     void storeTrustedValue(JSValue value, Address address)
     {
@@ -305,39 +316,18 @@ public:
     void emitSave(const RegisterAtOffsetList&);
     void emitRestore(const RegisterAtOffsetList&);
 
-    void emitSaveCalleeSavesFor(CodeBlock* codeBlock)
-    {
-        ASSERT(codeBlock);
-
-        const RegisterAtOffsetList* calleeSaves = codeBlock->calleeSaveRegisters();
-        emitSaveCalleeSavesFor(calleeSaves);
-    }
-
     void emitSaveCalleeSavesFor(const RegisterAtOffsetList* calleeSaves);
     
     enum RestoreTagRegisterMode { UseExistingTagRegisterContents, CopyBaselineCalleeSavedRegistersFromBaseFrame };
 
     void emitSaveOrCopyLLIntBaselineCalleeSavesFor(CodeBlock*, VirtualRegister offsetVirtualRegister, RestoreTagRegisterMode, GPRReg temp1, GPRReg temp2, GPRReg temp3);
-    
-    void emitRestoreCalleeSavesFor(CodeBlock* codeBlock)
-    {
-        ASSERT(codeBlock);
-
-        const RegisterAtOffsetList* calleeSaves = codeBlock->calleeSaveRegisters();
-        emitRestoreCalleeSavesFor(calleeSaves);
-    }
 
     void emitRestoreCalleeSavesFor(const RegisterAtOffsetList* calleeSaves);
-
-    void emitSaveCalleeSaves()
-    {
-        emitSaveCalleeSavesFor(codeBlock());
-    }
 
     void emitSaveThenMaterializeTagRegisters()
     {
 #if USE(JSVALUE64)
-#if CPU(ARM64)
+#if CPU(ARM64) || CPU(RISCV64)
         pushPair(GPRInfo::numberTagRegister, GPRInfo::notCellMaskRegister);
 #else
         push(GPRInfo::numberTagRegister);
@@ -346,16 +336,11 @@ public:
         emitMaterializeTagCheckRegisters();
 #endif
     }
-    
-    void emitRestoreCalleeSaves()
-    {
-        emitRestoreCalleeSavesFor(codeBlock());
-    }
 
     void emitRestoreSavedTagRegisters()
     {
 #if USE(JSVALUE64)
-#if CPU(ARM64)
+#if CPU(ARM64) || CPU(RISCV64)
         popPair(GPRInfo::numberTagRegister, GPRInfo::notCellMaskRegister);
 #else
         pop(GPRInfo::notCellMaskRegister);
@@ -580,6 +565,46 @@ public:
     ALWAYS_INLINE void restoreReturnAddressBeforeReturn(Address address)
     {
         loadPtr(address, returnAddressRegister);
+    }
+#endif
+
+#if CPU(RISCV64)
+    static constexpr size_t prologueStackPointerDelta()
+    {
+        // Prologue saves the framePointerRegister and returnAddressRegister
+        return 2 * sizeof(void*);
+    }
+
+    void emitFunctionPrologue()
+    {
+        pushPair(framePointerRegister, linkRegister);
+        move(stackPointerRegister, framePointerRegister);
+    }
+
+    void emitFunctionEpilogueWithEmptyFrame()
+    {
+        popPair(framePointerRegister, linkRegister);
+    }
+
+    void emitFunctionEpilogue()
+    {
+        move(framePointerRegister, stackPointerRegister);
+        emitFunctionEpilogueWithEmptyFrame();
+    }
+
+    ALWAYS_INLINE void preserveReturnAddressAfterCall(RegisterID reg)
+    {
+        move(linkRegister, reg);
+    }
+
+    ALWAYS_INLINE void restoreReturnAddressBeforeReturn(RegisterID reg)
+    {
+        move(reg, linkRegister);
+    }
+
+    ALWAYS_INLINE void restoreReturnAddressBeforeReturn(Address address)
+    {
+        loadPtr(address, linkRegister);
     }
 #endif
 
@@ -1529,7 +1554,7 @@ public:
         return codeBlock()->globalObjectFor(codeOrigin);
     }
     
-    ExecutableBase* executableFor(const CodeOrigin& codeOrigin);
+    ExecutableBase* executableFor(CodeBlock*, const CodeOrigin&);
     
     CodeBlock* baselineCodeBlockFor(const CodeOrigin& codeOrigin)
     {

@@ -41,7 +41,6 @@ struct AudioBufferSourceOptions;
 class AudioBufferSourceNode final : public AudioScheduledSourceNode {
     WTF_MAKE_ISO_ALLOCATED(AudioBufferSourceNode);
 public:
-    static Ref<AudioBufferSourceNode> create(BaseAudioContext&, float sampleRate);
     static ExceptionOr<Ref<AudioBufferSourceNode>> create(BaseAudioContext&, AudioBufferSourceOptions&& = { });
 
     virtual ~AudioBufferSourceNode();
@@ -83,10 +82,9 @@ public:
 
     const char* activeDOMObjectName() const override { return "AudioBufferSourceNode"; }
 
-protected:
-    explicit AudioBufferSourceNode(BaseAudioContext&);
-
 private:
+    AudioBufferSourceNode(BaseAudioContext&);
+
     double tailTime() const final { return 0; }
     double latencyTime() const final { return 0; }
 

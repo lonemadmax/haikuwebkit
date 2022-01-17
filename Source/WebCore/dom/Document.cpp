@@ -33,6 +33,7 @@
 #include "Attr.h"
 #include "BeforeUnloadEvent.h"
 #include "CDATASection.h"
+#include "CSSAnimation.h"
 #include "CSSFontSelector.h"
 #include "CSSParser.h"
 #include "CSSStyleDeclaration.h"
@@ -133,6 +134,7 @@
 #include "InspectorInstrumentation.h"
 #include "IntersectionObserver.h"
 #include "JSCustomElementInterface.h"
+#include "JSDOMWindowCustom.h"
 #include "JSLazyEventListener.h"
 #include "KeyboardEvent.h"
 #include "KeyframeEffect.h"
@@ -148,6 +150,7 @@
 #include "MediaQueryMatcher.h"
 #include "MediaStream.h"
 #include "MessageEvent.h"
+#include "ModalContainerObserver.h"
 #include "MouseEventWithHitTestResults.h"
 #include "MutationEvent.h"
 #include "NameNodeList.h"
@@ -209,7 +212,6 @@
 #include "ScriptModuleLoader.h"
 #include "ScriptRunner.h"
 #include "ScriptSourceCode.h"
-#include "ScriptState.h"
 #include "ScriptedAnimationController.h"
 #include "ScrollAnimator.h"
 #include "ScrollbarTheme.h"
@@ -351,8 +353,8 @@
 #include "HTMLVideoElement.h"
 #endif
 
-#define DOCUMENT_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", main=%d] Document::" fmt, this, pageID().value_or(PageIdentifier { }).toUInt64(), frameID().value_or(FrameIdentifier { }).toUInt64(), this == &topDocument(), ##__VA_ARGS__)
-#define DOCUMENT_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", main=%d] Document::" fmt, this, pageID().value_or(PageIdentifier { }).toUInt64(), frameID().value_or(FrameIdentifier { }).toUInt64(), this == &topDocument(), ##__VA_ARGS__)
+#define DOCUMENT_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", main=%d] Document::" fmt, this, valueOrDefault(pageID()).toUInt64(), valueOrDefault(frameID()).toUInt64(), this == &topDocument(), ##__VA_ARGS__)
+#define DOCUMENT_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", main=%d] Document::" fmt, this, valueOrDefault(pageID()).toUInt64(), valueOrDefault(frameID()).toUInt64(), this == &topDocument(), ##__VA_ARGS__)
 
 namespace WebCore {
 
@@ -3336,7 +3338,7 @@ ExceptionOr<void> Document::write(Document* entryDocument, SegmentedString&& tex
     return { };
 }
 
-ExceptionOr<void> Document::write(Document* entryDocument, Vector<String>&& strings)
+ExceptionOr<void> Document::write(Document* entryDocument, FixedVector<String>&& strings)
 {
     if (!isHTMLDocument() || m_throwOnDynamicMarkupInsertionCount)
         return Exception { InvalidStateError };
@@ -3348,7 +3350,7 @@ ExceptionOr<void> Document::write(Document* entryDocument, Vector<String>&& stri
     return write(entryDocument, WTFMove(text));
 }
 
-ExceptionOr<void> Document::writeln(Document* entryDocument, Vector<String>&& strings)
+ExceptionOr<void> Document::writeln(Document* entryDocument, FixedVector<String>&& strings)
 {
     if (!isHTMLDocument() || m_throwOnDynamicMarkupInsertionCount)
         return Exception { InvalidStateError };
@@ -4656,10 +4658,7 @@ bool Document::setFocusedElement(Element* element, const FocusOptions& options)
                 newFocusedElement = nullptr;
             }
 
-            oldFocusedElement->dispatchFocusOutEvent(eventNames().focusoutEvent, newFocusedElement.copyRef()); // DOM level 3 name for the bubbling blur event.
-            // FIXME: We should remove firing DOMFocusOutEvent event when we are sure no content depends
-            // on it, probably when <rdar://problem/8503958> is resolved.
-            oldFocusedElement->dispatchFocusOutEvent(eventNames().DOMFocusOutEvent, newFocusedElement.copyRef()); // DOM level 2 name for compatibility.
+            oldFocusedElement->dispatchFocusOutEventIfNeeded(newFocusedElement.copyRef()); // DOM level 3 bubbling blur event.
 
             if (m_focusedElement) {
                 // handler shifted focus
@@ -4724,16 +4723,7 @@ bool Document::setFocusedElement(Element* element, const FocusOptions& options)
             return false;
         }
 
-        m_focusedElement->dispatchFocusInEvent(eventNames().focusinEvent, oldFocusedElement.copyRef()); // DOM level 3 bubbling focus event.
-
-        if (m_focusedElement != newFocusedElement) {
-            // handler shifted focus
-            return false;
-        }
-
-        // FIXME: We should remove firing DOMFocusInEvent event when we are sure no content depends
-        // on it, probably when <rdar://problem/8503958> is m.
-        m_focusedElement->dispatchFocusInEvent(eventNames().DOMFocusInEvent, oldFocusedElement.copyRef()); // DOM level 2 for compatibility.
+        m_focusedElement->dispatchFocusInEventIfNeeded(oldFocusedElement.copyRef()); // DOM level 3 bubbling focus event.
 
         if (m_focusedElement != newFocusedElement) {
             // handler shifted focus
@@ -5103,27 +5093,13 @@ void Document::setAttributeEventListener(const AtomString& eventType, const Qual
     setAttributeEventListener(eventType, JSLazyEventListener::create(*this, attributeName, attributeValue), isolatedWorld);
 }
 
-void Document::setWindowAttributeEventListener(const AtomString& eventType, RefPtr<EventListener>&& listener, DOMWrapperWorld& isolatedWorld)
-{
-    if (!m_domWindow)
-        return;
-    m_domWindow->setAttributeEventListener(eventType, WTFMove(listener), isolatedWorld);
-}
-
 void Document::setWindowAttributeEventListener(const AtomString& eventType, const QualifiedName& attributeName, const AtomString& attributeValue, DOMWrapperWorld& isolatedWorld)
 {
     if (!m_domWindow)
         return;
     if (!m_domWindow->frame())
         return;
-    setWindowAttributeEventListener(eventType, JSLazyEventListener::create(*m_domWindow, attributeName, attributeValue), isolatedWorld);
-}
-
-EventListener* Document::getWindowAttributeEventListener(const AtomString& eventType, DOMWrapperWorld& isolatedWorld)
-{
-    if (!m_domWindow)
-        return nullptr;
-    return m_domWindow->attributeEventListener(eventType, isolatedWorld);
+    m_domWindow->setAttributeEventListener(eventType, JSLazyEventListener::create(*m_domWindow, attributeName, attributeValue), isolatedWorld);
 }
 
 void Document::dispatchWindowEvent(Event& event, EventTarget* target)
@@ -5309,6 +5285,10 @@ void Document::addListenerTypeIfNeeded(const AtomString& eventType)
         addListenerType(FORCEUP_LISTENER);
     else if (eventType == eventNames().resizeEvent)
         addListenerType(RESIZE_LISTENER);
+    else if (eventType == eventNames().focusinEvent)
+        addListenerType(FOCUSIN_LISTENER);
+    else if (eventType == eventNames().focusoutEvent)
+        addListenerType(FOCUSOUT_LISTENER);
 }
 
 HTMLFrameOwnerElement* Document::ownerElement() const
@@ -7477,33 +7457,33 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
             elementsToSetHover.append(element);
     }
 
-    auto changeState = [](auto& elements, auto pseudoClassType, auto&& setter) {
+    auto changeState = [](auto& elements, auto pseudoClassType, auto value, auto&& setter) {
         if (elements.isEmpty())
             return;
 
-        Style::PseudoClassChangeInvalidation styleInvalidation { *elements.last(), pseudoClassType, Style::InvalidationScope::Descendants };
+        Style::PseudoClassChangeInvalidation styleInvalidation { *elements.last(), pseudoClassType, value, Style::InvalidationScope::Descendants };
 
         // We need to do descendant invalidation for each shadow tree separately as the style is per-scope.
         Vector<Style::PseudoClassChangeInvalidation> shadowDescendantStyleInvalidations;
         for (auto& element : elements) {
             if (hasShadowRootParent(*element))
-                shadowDescendantStyleInvalidations.append({ *element, pseudoClassType, Style::InvalidationScope::Descendants });
+                shadowDescendantStyleInvalidations.append({ *element, pseudoClassType, value, Style::InvalidationScope::Descendants });
         }
 
         for (auto& element : elements)
             setter(*element);
     };
 
-    changeState(elementsToClearActive, CSSSelector::PseudoClassActive, [](auto& element) {
+    changeState(elementsToClearActive, CSSSelector::PseudoClassActive, false, [](auto& element) {
         element.setActive(false, false, Style::InvalidationScope::SelfChildrenAndSiblings);
     });
-    changeState(elementsToSetActive, CSSSelector::PseudoClassActive, [](auto& element) {
+    changeState(elementsToSetActive, CSSSelector::PseudoClassActive, true, [](auto& element) {
         element.setActive(true, false, Style::InvalidationScope::SelfChildrenAndSiblings);
     });
-    changeState(elementsToClearHover, CSSSelector::PseudoClassHover, [](auto& element) {
+    changeState(elementsToClearHover, CSSSelector::PseudoClassHover, false, [](auto& element) {
         element.setHovered(false, Style::InvalidationScope::SelfChildrenAndSiblings);
     });
-    changeState(elementsToSetHover, CSSSelector::PseudoClassHover, [](auto& element) {
+    changeState(elementsToSetHover, CSSSelector::PseudoClassHover, true, [](auto& element) {
         element.setHovered(true, Style::InvalidationScope::SelfChildrenAndSiblings);
     });
 }
@@ -8567,7 +8547,7 @@ Vector<RefPtr<WebAnimation>> Document::matchingAnimations(const Function<bool(El
 
     Vector<RefPtr<WebAnimation>> animations;
     for (auto* animation : WebAnimation::instances()) {
-        if (!animation || !animation->isRelevant() || !is<KeyframeEffect>(animation->effect()))
+        if (!animation->isRelevant() || !is<KeyframeEffect>(animation->effect()))
             continue;
 
         auto* target = downcast<KeyframeEffect>(*animation->effect()).targetElementOrPseudoElement();
@@ -8580,6 +8560,24 @@ Vector<RefPtr<WebAnimation>> Document::matchingAnimations(const Function<bool(El
     });
 
     return animations;
+}
+
+void Document::keyframesRuleDidChange(const String& name)
+{
+    for (auto* animation : WebAnimation::instances()) {
+        if (!is<CSSAnimation>(*animation) || !animation->isRelevant())
+            continue;
+
+        auto& cssAnimation = downcast<CSSAnimation>(*animation);
+        if (cssAnimation.animationName() != name)
+            continue;
+
+        auto owningElement = cssAnimation.owningElement();
+        if (!owningElement || !owningElement->element.isConnected() || &owningElement->element.document() != this)
+            continue;
+
+        cssAnimation.keyframesRuleDidChange();
+    }
 }
 
 void Document::addTopLayerElement(Element& element)
@@ -8729,8 +8727,8 @@ void Document::didLogMessage(const WTFLogChannel& channel, WTFLogLevel level, Ve
             return;
 
         auto messageLevel = messageLevelFromWTFLogLevel(level);
-        auto message = makeUnique<Inspector::ConsoleMessage>(messageSource, MessageType::Log, messageLevel, WTFMove(logMessages), mainWorldExecState(weakThis->frame()));
-
+        auto* globalObject = mainWorldGlobalObject(weakThis->frame());
+        auto message = makeUnique<Inspector::ConsoleMessage>(messageSource, MessageType::Log, messageLevel, WTFMove(logMessages), globalObject);
         weakThis->addConsoleMessage(WTFMove(message));
     });
 }
@@ -9081,6 +9079,18 @@ String Document::debugDescription() const
 
     builder.append(' ', documentURI());
     return builder.toString();
+}
+
+ModalContainerObserver* Document::modalContainerObserver()
+{
+    if (!m_modalContainerObserver && ModalContainerObserver::isNeededFor(*this))
+        m_modalContainerObserver = makeUnique<ModalContainerObserver>();
+    return m_modalContainerObserver.get();
+}
+
+ModalContainerObserver* Document::modalContainerObserverIfExists() const
+{
+    return m_modalContainerObserver.get();
 }
 
 TextStream& operator<<(TextStream& ts, const Document& document)

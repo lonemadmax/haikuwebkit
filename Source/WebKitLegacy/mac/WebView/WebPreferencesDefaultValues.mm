@@ -28,7 +28,6 @@
 #import "WebKitVersionChecks.h"
 #import <Foundation/NSBundle.h>
 #import <WebCore/RuntimeApplicationChecks.h>
-#import <WebCore/VersionChecks.h>
 #import <mach-o/dyld.h>
 #import <pal/spi/cf/CFUtilitiesSPI.h>
 #import <pal/spi/cocoa/FeatureFlagsSPI.h>
@@ -103,13 +102,13 @@ bool defaultAllowsInlineMediaPlaybackAfterFullscreen()
 
 bool defaultAllowsPictureInPictureMediaPlayback()
 {
-    static bool shouldAllowPictureInPictureMediaPlayback = WebCore::linkedOnOrAfter(WebCore::SDKVersion::FirstWithPictureInPictureMediaPlayback);
+    static bool shouldAllowPictureInPictureMediaPlayback = linkedOnOrAfter(SDKVersion::FirstWithPictureInPictureMediaPlayback);
     return shouldAllowPictureInPictureMediaPlayback;
 }
 
 bool defaultJavaScriptCanOpenWindowsAutomatically()
 {
-    static bool shouldAllowWindowOpenWithoutUserGesture = WebCore::IOSApplication::isTheSecretSocietyHiddenMystery() && dyld_get_program_sdk_version() < DYLD_IOS_VERSION_10_0;
+    static bool shouldAllowWindowOpenWithoutUserGesture = WebCore::IOSApplication::isTheSecretSocietyHiddenMystery() && !linkedOnOrAfter(SDKVersion::FirstWithoutTheSecretSocietyHiddenMysteryWindowOpenQuirk);
     return shouldAllowWindowOpenWithoutUserGesture;
 }
 
@@ -120,20 +119,20 @@ bool defaultInlineMediaPlaybackRequiresPlaysInlineAttribute()
 
 bool defaultPassiveTouchListenersAsDefaultOnDocument()
 {
-    static bool result = linkedOnOrAfter(WebCore::SDKVersion::FirstThatDefaultsToPassiveTouchListenersOnDocument);
+    static bool result = linkedOnOrAfter(SDKVersion::FirstThatDefaultsToPassiveTouchListenersOnDocument);
     return result;
 }
 
 bool defaultRequiresUserGestureToLoadVideo()
 {
-    static bool shouldRequireUserGestureToLoadVideo = linkedOnOrAfter(WebCore::SDKVersion::FirstThatRequiresUserGestureToLoadVideo);
+    static bool shouldRequireUserGestureToLoadVideo = linkedOnOrAfter(SDKVersion::FirstThatRequiresUserGestureToLoadVideo);
     return shouldRequireUserGestureToLoadVideo;
 }
 
 bool defaultWebSQLEnabled()
 {
     // For backward compatibility, keep WebSQL working until apps are rebuilt with the iOS 14 SDK.
-    static bool webSQLEnabled = !linkedOnOrAfter(WebCore::SDKVersion::FirstWithWebSQLDisabledByDefaultInLegacyWebKit);
+    static bool webSQLEnabled = !linkedOnOrAfter(SDKVersion::FirstWithWebSQLDisabledByDefaultInLegacyWebKit);
     return webSQLEnabled;
 }
 
@@ -190,6 +189,12 @@ bool defaultNeedsAdobeFrameReloadingQuirk()
     return needsQuirk;
 }
 
+bool defaultScrollAnimatorEnabled()
+{
+    static bool enabled = [[NSUserDefaults standardUserDefaults] boolForKey:@"NSScrollAnimationEnabled"];
+    return enabled;
+}
+
 bool defaultTreatsAnyTextCSSLinkAsStylesheet()
 {
     static bool needsQuirk = !WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITHOUT_LINK_ELEMENT_TEXT_CSS_QUIRK)
@@ -222,7 +227,7 @@ bool defaultAttachmentElementEnabled()
 
 bool defaultShouldRestrictBaseURLSchemes()
 {
-    static bool shouldRestrictBaseURLSchemes = linkedOnOrAfter(WebCore::SDKVersion::FirstThatRestrictsBaseURLSchemes);
+    static bool shouldRestrictBaseURLSchemes = linkedOnOrAfter(SDKVersion::FirstThatRestrictsBaseURLSchemes);
     return shouldRestrictBaseURLSchemes;
 }
 
@@ -251,7 +256,7 @@ bool defaultAllowRunningOfInsecureContent()
 
 bool defaultShouldConvertInvalidURLsToBlank()
 {
-    static bool shouldConvertInvalidURLsToBlank = linkedOnOrAfter(WebCore::SDKVersion::FirstThatConvertsInvalidURLsToBlank);
+    static bool shouldConvertInvalidURLsToBlank = linkedOnOrAfter(SDKVersion::FirstThatConvertsInvalidURLsToBlank);
     return shouldConvertInvalidURLsToBlank;
 }
 
@@ -259,13 +264,13 @@ bool defaultShouldConvertInvalidURLsToBlank()
 
 bool defaultPassiveWheelListenersAsDefaultOnDocument()
 {
-    static bool result = linkedOnOrAfter(WebCore::SDKVersion::FirstThatDefaultsToPassiveWheelListenersOnDocument);
+    static bool result = linkedOnOrAfter(SDKVersion::FirstThatDefaultsToPassiveWheelListenersOnDocument);
     return result;
 }
 
 bool defaultWheelEventGesturesBecomeNonBlocking()
 {
-    static bool result = linkedOnOrAfter(WebCore::SDKVersion::FirstThatAllowsWheelEventGesturesToBecomeNonBlocking);
+    static bool result = linkedOnOrAfter(SDKVersion::FirstThatAllowsWheelEventGesturesToBecomeNonBlocking);
     return result;
 }
 

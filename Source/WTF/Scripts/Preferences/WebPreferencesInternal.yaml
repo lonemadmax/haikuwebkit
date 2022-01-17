@@ -257,18 +257,6 @@ EventHandlerDrivenSmoothKeyboardScrollingEnabled:
   WebCore:
    default: false
 
-# FIXME: This is not relevent for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
-ExperimentalPlugInSandboxProfilesEnabled:
-  type: bool
-  humanReadableName: "Sandbox Plug-Ins"
-  humanReadableDescription: "Enable Plug-In sandboxing"
-  webcoreBinding: RuntimeEnabledFeatures
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-
 FasterClicksEnabled:
   type: bool
   humanReadableName: "Fast clicks"
@@ -608,6 +596,18 @@ NPAPIPlugInsEnabledForTestingInWebKitLegacy:
   exposed: [ WebKitLegacy ]
   defaultValue:
     WebKitLegacy:
+      default: false
+
+NotificationEventEnabled:
+  type: bool
+  humanReadableName: "NotificationEvent support"
+  humanReadableDescription: "NotificationEvent and ServiceWorkerRegistration.showNotification() support"
+  webcoreBinding: RuntimeEnabledFeatures
+  condition: ENABLE(NOTIFICATION_EVENT)
+  defaultValue:
+    WebCore:
+      default: false
+    WebKit:
       default: false
 
 OffscreenCanvasEnabled:

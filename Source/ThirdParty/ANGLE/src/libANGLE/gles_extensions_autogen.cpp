@@ -94,6 +94,7 @@ const ExtensionInfoMap &GetExtensionInfoMap()
         map["GL_EXT_frag_depth"] = enableableExtension(&Extensions::fragDepthEXT);
         map["GL_ANGLE_framebuffer_blit"] = enableableExtension(&Extensions::framebufferBlitANGLE);
         map["GL_NV_framebuffer_blit"] = enableableExtension(&Extensions::framebufferBlitNV);
+        map["GL_MESA_framebuffer_flip_y"] = enableableExtension(&Extensions::framebufferFlipYMESA);
         map["GL_EXT_geometry_shader"] = enableableExtension(&Extensions::geometryShaderEXT);
         map["GL_OES_geometry_shader"] = enableableExtension(&Extensions::geometryShaderOES);
         map["GL_OES_get_program_binary"] = enableableExtension(&Extensions::getProgramBinaryOES);
@@ -194,6 +195,7 @@ const ExtensionInfoMap &GetExtensionInfoMap()
         // ANGLE unofficial extension strings
         // ----------------------------------
         map["GL_ANGLE_base_vertex_base_instance"] = enableableExtension(&Extensions::baseVertexBaseInstanceANGLE);
+        map["GL_ANGLE_base_vertex_base_instance_shader_builtin"] = enableableExtension(&Extensions::baseVertexBaseInstanceShaderBuiltinANGLE);
         map["GL_CHROMIUM_bind_generates_resource"] = esOnlyExtension(&Extensions::bindGeneratesResourceCHROMIUM);
         map["GL_CHROMIUM_bind_uniform_location"] = esOnlyExtension(&Extensions::bindUniformLocationCHROMIUM);
         map["GL_ANGLE_client_arrays"] = esOnlyExtension(&Extensions::clientArraysANGLE);

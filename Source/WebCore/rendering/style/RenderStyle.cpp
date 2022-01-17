@@ -461,8 +461,6 @@ unsigned RenderStyle::hashForTextAutosizing() const
 {
     // FIXME: Not a very smart hash. Could be improved upon. See <https://bugs.webkit.org/show_bug.cgi?id=121131>.
     unsigned hash = m_rareNonInheritedData->effectiveAppearance;
-    hash ^= m_rareNonInheritedData->marginBeforeCollapse;
-    hash ^= m_rareNonInheritedData->marginAfterCollapse;
     hash ^= m_rareNonInheritedData->lineClamp.value();
     hash ^= m_rareInheritedData->overflowWrap;
     hash ^= m_rareInheritedData->nbspMode;
@@ -483,8 +481,6 @@ unsigned RenderStyle::hashForTextAutosizing() const
 bool RenderStyle::equalForTextAutosizing(const RenderStyle& other) const
 {
     return m_rareNonInheritedData->effectiveAppearance == other.m_rareNonInheritedData->effectiveAppearance
-        && m_rareNonInheritedData->marginBeforeCollapse == other.m_rareNonInheritedData->marginBeforeCollapse
-        && m_rareNonInheritedData->marginAfterCollapse == other.m_rareNonInheritedData->marginAfterCollapse
         && m_rareNonInheritedData->lineClamp == other.m_rareNonInheritedData->lineClamp
         && m_rareInheritedData->textSizeAdjust == other.m_rareInheritedData->textSizeAdjust
         && m_rareInheritedData->overflowWrap == other.m_rareInheritedData->overflowWrap
@@ -654,8 +650,6 @@ static bool rareNonInheritedDataChangeRequiresLayout(const StyleRareNonInherited
     ASSERT(&first != &second);
 
     if (first.effectiveAppearance != second.effectiveAppearance
-        || first.marginBeforeCollapse != second.marginBeforeCollapse
-        || first.marginAfterCollapse != second.marginAfterCollapse
         || first.lineClamp != second.lineClamp
         || first.initialLetter != second.initialLetter
         || first.textOverflow != second.textOverflow)
@@ -714,9 +708,6 @@ static bool rareNonInheritedDataChangeRequiresLayout(const StyleRareNonInherited
         changedContextSensitiveProperties.add(StyleDifferenceContextSensitiveProperty::WillChange);
         // Don't return; keep looking for another change
     }
-
-    if (first.textCombine != second.textCombine)
-        return true;
 
     if (first.breakBefore != second.breakBefore
         || first.breakAfter != second.breakAfter
@@ -784,6 +775,7 @@ static bool rareInheritedDataChangeRequiresLayout(const StyleRareInheritedData& 
         || first.hyphenationLimitAfter != second.hyphenationLimitAfter
         || first.hyphenationString != second.hyphenationString
         || first.rubyPosition != second.rubyPosition
+        || first.textCombine != second.textCombine
         || first.textEmphasisMark != second.textEmphasisMark
         || first.textEmphasisPosition != second.textEmphasisPosition
         || first.textEmphasisCustomMark != second.textEmphasisCustomMark
@@ -1193,7 +1185,7 @@ bool RenderStyle::changeRequiresRecompositeLayer(const RenderStyle& other, Optio
         return true;
 
     if (m_rareNonInheritedData.ptr() != other.m_rareNonInheritedData.ptr()) {
-        if (m_rareNonInheritedData->transformStyle3D != other.m_rareNonInheritedData->transformStyle3D
+        if (usedTransformStyle3D() != other.usedTransformStyle3D()
             || m_rareNonInheritedData->backfaceVisibility != other.m_rareNonInheritedData->backfaceVisibility
             || m_rareNonInheritedData->perspective != other.m_rareNonInheritedData->perspective
             || m_rareNonInheritedData->perspectiveOriginX != other.m_rareNonInheritedData->perspectiveOriginX
@@ -1674,6 +1666,15 @@ bool RenderStyle::hasEntirelyFixedBackground() const
     return allLayersAreFixed(backgroundLayers());
 }
 
+bool RenderStyle::hasAnyLocalBackground() const
+{
+    for (auto* layer = &backgroundLayers(); layer; layer = layer->next()) {
+        if (layer->image() && layer->attachment() == FillAttachment::LocalBackground)
+            return true;
+    }
+    return false;
+}
+
 const CounterDirectiveMap* RenderStyle::counterDirectives() const
 {
     return m_rareNonInheritedData->counterDirectives.get();
@@ -1786,18 +1787,6 @@ void RenderStyle::adjustTransitions()
 
     // Repeat patterns into layers that don't have some properties set.
     transitionList->fillUnsetProperties();
-
-    // Make sure there are no duplicate properties.
-    // This is an O(n^2) algorithm but the lists tend to be short, so it is probably OK.
-    for (size_t i = 0; i < transitionList->size(); ++i) {
-        for (size_t j = i + 1; j < transitionList->size(); ++j) {
-            if (transitionList->animation(i).property().id == transitionList->animation(j).property().id) {
-                // toss i
-                transitionList->remove(i);
-                j = i;
-            }
-        }
-    }
 }
 
 AnimationList& RenderStyle::ensureAnimations()
@@ -1817,19 +1806,6 @@ AnimationList& RenderStyle::ensureTransitions()
 float RenderStyle::usedPerspective(const RenderObject& object) const
 {
     return object.document().settings().css3DTransformInteroperabilityEnabled() ? std::max(1.0f, perspective()) : perspective();
-}
-
-const Animation* RenderStyle::transitionForProperty(CSSPropertyID property) const
-{
-    auto* transitions = this->transitions();
-    if (!transitions)
-        return nullptr;
-    for (size_t i = 0, size = transitions->size(); i < size; ++i) {
-        auto& animation = transitions->animation(i);
-        if (animation.property().mode == Animation::TransitionMode::All || animation.property().id == property)
-            return &animation;
-    }
-    return nullptr;
 }
 
 const FontCascade& RenderStyle::fontCascade() const
@@ -2147,7 +2123,7 @@ Color RenderStyle::unresolvedColorForProperty(CSSPropertyID colorProperty, bool 
         return unresolvedColorForProperty(CSSProperty::resolveDirectionAwareProperty(colorProperty, direction(), writingMode()));
     case CSSPropertyColumnRuleColor:
         return visitedLink ? visitedLinkColumnRuleColor() : columnRuleColor();
-    case CSSPropertyWebkitTextEmphasisColor:
+    case CSSPropertyTextEmphasisColor:
         return visitedLink ? visitedLinkTextEmphasisColor() : textEmphasisColor();
     case CSSPropertyWebkitTextFillColor:
         return visitedLink ? visitedLinkTextFillColor() : textFillColor();

@@ -81,7 +81,7 @@ WI.CSSManager = class CSSManager extends WI.Object
                 return;
 
             let propertyNamesForCodeMirror = {};
-            let valueKeywordsForCodeMirror = {"inherit": true, "initial": true, "unset": true, "revert": true, "var": true, "env": true};
+            let valueKeywordsForCodeMirror = {"inherit": true, "initial": true, "unset": true, "revert": true, "revert-layer": true, "var": true, "env": true};
             let colorKeywordsForCodeMirror = {};
 
             function nameForCodeMirror(name) {
@@ -110,6 +110,10 @@ WI.CSSManager = class CSSManager extends WI.Object
 
             for (let color of WI.CSSKeywordCompletions._colors)
                 colorKeywordsForCodeMirror[nameForCodeMirror(color)] = true;
+
+            // TODO: Remove these keywords once they are built-in codemirror or once we get values from WebKit itself.
+            valueKeywordsForCodeMirror["conic-gradient"] = true;
+            valueKeywordsForCodeMirror["repeating-conic-gradient"] = true;
 
             function updateCodeMirrorCSSMode(mimeType) {
                 let modeSpec = CodeMirror.resolveMode(mimeType);

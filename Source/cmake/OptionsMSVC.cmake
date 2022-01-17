@@ -103,6 +103,10 @@ add_compile_options(
     /wd4996 # Your code uses a function, class member, variable, or typedef that's marked deprecated
 
     /wd5205 # delete of an abstract class 'type-name' that has a non-virtual destructor results in undefined behavior
+
+    /wd5054 # operator 'operator-name': deprecated between enumerations of different types
+
+    /wd5055 # operator 'operator-name': deprecated between enumerations and floating-point types
 )
 
 # Create pdb files for debugging purposes, also for Release builds
@@ -123,6 +127,8 @@ add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 if (NOT COMPILER_IS_CLANG_CL)
     add_definitions(-D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES=1)
 endif ()
+
+add_compile_options(-D_ENABLE_EXTENDED_ALIGNED_STORAGE)
 
 # Specify the source code encoding
 add_compile_options(/utf-8 /validate-charset)

@@ -305,6 +305,8 @@ enum HEVCParameterCodec {
     required DOMPointReadOnly bottomLeft;
 };
 
+typedef (FetchRequest or FetchResponse) FetchObject;
+
 [
     ExportMacro=WEBCORE_TESTSUPPORT_EXPORT,
     LegacyNoInterfaceObject,
@@ -336,6 +338,8 @@ enum HEVCParameterCodec {
     undefined setOverrideCachePolicy(CachePolicy policy);
     undefined setOverrideResourceLoadPriority(ResourceLoadPriority priority);
     undefined setStrictRawResourceValidationPolicyDisabled(boolean disabled);
+
+    boolean isFetchObjectContextStopped(FetchObject object);
 
     undefined clearBackForwardCache();
     unsigned long backForwardCacheSize();
@@ -881,6 +885,7 @@ enum HEVCParameterCodec {
     [Conditional=WEBGL] boolean platformSupportsMetal(boolean isWebGL2);
 
     undefined setPageVisibility(boolean isVisible);
+    undefined setPageIsFocused(boolean isFocused);
     undefined setPageIsFocusedAndActive(boolean isFocused);
     undefined setPageIsInWindow(boolean isInWindow);
     boolean isPageActive();
@@ -1071,6 +1076,7 @@ enum HEVCParameterCodec {
     undefined setContentSizeCategory(ContentSizeCategory category);
 
     [Conditional=ATTACHMENT_ELEMENT] AttachmentThumbnailInfo attachmentThumbnailInfo(HTMLAttachmentElement element);
+    [Conditional=ATTACHMENT_ELEMENT, Conditional=SERVICE_CONTROLS] boolean hasImageControls(HTMLImageElement element);
 
     [Conditional=MEDIA_SESSION] double currentMediaSessionPosition(MediaSession session);
     [Conditional=MEDIA_SESSION] undefined sendMediaSessionAction(MediaSession session, MediaSessionActionDetails actionDetails);
@@ -1097,4 +1103,6 @@ enum HEVCParameterCodec {
     undefined retainTextIteratorForDocumentContent();
 
     [Conditional=SERVICE_WORKER] PushSubscription createPushSubscription(USVString endpoint, EpochTimeStamp? expirationTime, ArrayBuffer serverVAPIDPublicKey, ArrayBuffer clientECDHPublicKey, ArrayBuffer auth);
+
+    undefined overrideModalContainerSearchTermForTesting(DOMString term);
 };

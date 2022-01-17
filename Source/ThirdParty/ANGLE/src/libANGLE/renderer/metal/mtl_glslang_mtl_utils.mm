@@ -24,6 +24,7 @@ template <size_t N>
 constexpr size_t ConstStrLen(const char (&)[N])
 {
     static_assert(N > 0, "C++ shouldn't allow N to be zero");
+    
     // The length of a string defined as a char array is the size of the array minus 1 (the
     // terminating '\0').
     return N - 1;
@@ -331,8 +332,7 @@ void GenerateTransformFeedbackEmulationOutputs(
             "device float* ANGLE_" + bufferName + " [[buffer(" + Str(bindingPoint) + ")]]";
     }
 
-    std::string xfbOut = "#if TRANSFORM_FEEDBACK_ENABLED\n    if (ANGLE_" +
-                         std::string(sh::kUniformsVar) + ".ANGLE_xfbActiveUnpaused != 0)\n    {\n";
+    std::string xfbOut  = "#if TRANSFORM_FEEDBACK_ENABLED\n    {\n";
     size_t outputOffset = 0;
     for (size_t varyingIndex = 0; varyingIndex < varyings.size(); ++varyingIndex)
     {

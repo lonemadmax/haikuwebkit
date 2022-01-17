@@ -429,7 +429,7 @@ bool WebFrameLoaderClient::canAuthenticateAgainstProtectionSpace(WebCore::Docume
     // If our resource load delegate doesn't handle the question, then only send authentication
     // challenges for pre-iOS-3.0, pre-10.6 protection spaces.  This is the same as the default implementation
     // in CFNetwork.
-    return (protectionSpace.authenticationScheme() < WebCore::ProtectionSpaceAuthenticationSchemeClientCertificateRequested);
+    return (protectionSpace.authenticationScheme() < WebCore::ProtectionSpace::AuthenticationScheme::ClientCertificateRequested);
 }
 #endif
 
@@ -992,10 +992,9 @@ void WebFrameLoaderClient::didReplaceMultipartContent()
 #endif
 }
 
-void WebFrameLoaderClient::committedLoad(WebCore::DocumentLoader* loader, const uint8_t* data, int length)
+void WebFrameLoaderClient::committedLoad(WebCore::DocumentLoader* loader, const WebCore::SharedBuffer& data)
 {
-    auto nsData = adoptNS([[NSData alloc] initWithBytesNoCopy:(void*)data length:length freeWhenDone:NO]);
-    [dataSource(loader) _receivedData:nsData.get()];
+    [dataSource(loader) _receivedData:data.createNSData().get()];
 }
 
 void WebFrameLoaderClient::finishedLoading(WebCore::DocumentLoader* loader)
@@ -2012,7 +2011,7 @@ RefPtr<WebCore::LegacyPreviewLoaderClient> WebFrameLoaderClient::createPreviewLo
         RetainPtr<NSString> m_filePath;
         RetainPtr<NSFileHandle> m_fileHandle;
 
-        void didReceiveBuffer(const WebCore::FragmentedSharedBuffer& buffer) override
+        void didReceiveData(const WebCore::SharedBuffer& buffer) override
         {
             auto dataArray = buffer.createNSDataArray();
             for (NSData *data in dataArray.get())

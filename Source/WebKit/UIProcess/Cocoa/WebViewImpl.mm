@@ -1776,6 +1776,11 @@ void WebViewImpl::showSafeBrowsingWarning(const SafeBrowsingWarning& warning, Co
     if (!m_view)
         return completionHandler(ContinueUnsafeLoad::Yes);
 
+    WebCore::DiagnosticLoggingClient::ValueDictionary showedWarningDictionary;
+    showedWarningDictionary.set("source"_s, String("service"));
+
+    m_page->logDiagnosticMessageWithValueDictionary("SafeBrowsing.ShowedWarning"_s, "Safari"_s, showedWarningDictionary, ShouldSample::No);
+
     m_safeBrowsingWarning = adoptNS([[WKSafeBrowsingWarning alloc] initWithFrame:[m_view bounds] safeBrowsingWarning:warning completionHandler:[weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)] (auto&& result) mutable {
         completionHandler(WTFMove(result));
         if (!weakThis)
@@ -1785,10 +1790,28 @@ void WebViewImpl::showSafeBrowsingWarning(const SafeBrowsingWarning& warning, Co
             [] (const URL&) { return true; }
         );
         bool forMainFrameNavigation = [weakThis->m_safeBrowsingWarning forMainFrameNavigation];
+
+        WebCore::DiagnosticLoggingClient::ValueDictionary dictionary;
+        dictionary.set("source"_s, String("service"));
         if (navigatesFrame && forMainFrameNavigation) {
             // The safe browsing warning will be hidden once the next page is shown.
+            bool continuingUnsafeLoad = WTF::switchOn(result,
+                [] (ContinueUnsafeLoad continueUnsafeLoad) { return continueUnsafeLoad == ContinueUnsafeLoad::Yes; },
+                [] (const URL&) { return false; }
+            );
+
+            if (continuingUnsafeLoad)
+                dictionary.set("action"_s, String("visit website"));
+            else
+                dictionary.set("action"_s, String("redirect to url"));
+
+            weakThis->m_page->logDiagnosticMessageWithValueDictionary("SafeBrowsing.PerformedAction"_s, "Safari"_s, dictionary, ShouldSample::No);
             return;
         }
+
+        dictionary.set("action"_s, String("go back"));
+        weakThis->m_page->logDiagnosticMessageWithValueDictionary("SafeBrowsing.PerformedAction"_s, "Safari"_s, dictionary, ShouldSample::No);
+
         if (!navigatesFrame && weakThis->m_safeBrowsingWarning && !forMainFrameNavigation) {
             weakThis->m_page->goBack();
             return;
@@ -2768,54 +2791,6 @@ void WebViewImpl::notifyInputContextAboutDiscardedComposition()
     [[m_view _web_superInputContext] discardMarkedText]; // Inform the input method that we won't have an inline input area despite having been asked to.
 }
 
-void WebViewImpl::disableComplexTextInputIfNecessary()
-{
-}
-
-bool WebViewImpl::handlePluginComplexTextInputKeyDown(NSEvent *)
-{
-    return NO;
-}
-
-bool WebViewImpl::tryHandlePluginComplexTextInputKeyDown(NSEvent *)
-{
-    return NO;
-}
-
-void WebViewImpl::pluginFocusOrWindowFocusChanged(bool pluginHasFocusAndWindowHasFocus, uint64_t pluginComplexTextInputIdentifier)
-{
-    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
-    bool inputSourceChanged = !!m_pluginComplexTextInputIdentifier;
-
-    if (pluginHasFocusAndWindowHasFocus) {
-        // Check if we're already allowing text input for this plug-in.
-        if (pluginComplexTextInputIdentifier == m_pluginComplexTextInputIdentifier)
-            return;
-
-        m_pluginComplexTextInputIdentifier = pluginComplexTextInputIdentifier;
-
-    } else {
-        // Check if we got a request to unfocus a plug-in that isn't focused.
-        if (pluginComplexTextInputIdentifier != m_pluginComplexTextInputIdentifier)
-            return;
-
-        m_pluginComplexTextInputIdentifier = 0;
-    }
-
-    if (inputSourceChanged) {
-        // The input source changed; discard any entered text.
-        [[WKTextInputWindowController sharedTextInputWindowController] unmarkText];
-    }
-
-    // This will force the current input context to be updated to its correct value.
-    [NSApp updateWindows];
-}
-
-bool WebViewImpl::tryPostProcessPluginComplexTextInputKeyDown(NSEvent *)
-{
-    return NO;
-}
-
 void WebViewImpl::handleAcceptedAlternativeText(const String& acceptedAlternative)
 {
     m_page->handleAlternativeTextUIResult(acceptedAlternative);
@@ -2998,7 +2973,7 @@ bool WebViewImpl::readSelectionFromPasteboard(NSPasteboard *pasteboard)
 id WebViewImpl::validRequestorForSendAndReturnTypes(NSString *sendType, NSString *returnType)
 {
     EditorState editorState = m_page->editorState();
-    bool isValidSendType = false;
+    bool isValidSendType = !sendType;
 
     if (sendType && !editorState.selectionIsNone) {
         if (editorState.isInPlugin)
@@ -4940,9 +4915,6 @@ void WebViewImpl::doneWithKeyEvent(NSEvent *event, bool eventWasHandled)
     if ([event type] != NSEventTypeKeyDown)
         return;
 
-    if (tryPostProcessPluginComplexTextInputKeyDown(event))
-        return;
-
     if (eventWasHandled) {
         [NSCursor setHiddenUntilMouseMoves:YES];
         return;
@@ -5037,13 +5009,6 @@ Vector<WebCore::KeypressCommand> WebViewImpl::collectKeyboardLayoutCommandsForEv
 
 void WebViewImpl::interpretKeyEvent(NSEvent *event, void(^completionHandler)(BOOL handled, const Vector<WebCore::KeypressCommand>& commands))
 {
-    // For regular Web content, input methods run before passing a keydown to DOM, but plug-ins get an opportunity to handle the event first.
-    // There is no need to collect commands, as the plug-in cannot execute them.
-    if (pluginComplexTextInputIdentifier()) {
-        completionHandler(NO, { });
-        return;
-    }
-
     if (!inputContext()) {
         auto commands = collectKeyboardLayoutCommandsForEvent(event);
         completionHandler(NO, commands);
@@ -5255,11 +5220,6 @@ void WebViewImpl::characterIndexForPoint(NSPoint point, void(^completionHandler)
 
 NSTextInputContext *WebViewImpl::inputContext()
 {
-    if (pluginComplexTextInputIdentifier()) {
-        ASSERT(!m_collectedKeypressCommands); // Should not get here from -_interpretKeyEvent:completionHandler:, we only use WKTextInputWindowController after giving the plug-in a chance to handle keydown natively.
-        return [[WKTextInputWindowController sharedTextInputWindowController] inputContext];
-    }
-
     // Disable text input machinery when in non-editable content. An invisible inline input area affects performance, and can prevent Expose from working.
     if (!m_page->editorState().isContentEditable)
         return nil;
@@ -5370,8 +5330,6 @@ bool WebViewImpl::performKeyEquivalent(NSEvent *event)
         return [m_view _web_superPerformKeyEquivalent:event];
     }
 
-    disableComplexTextInputIfNecessary();
-
     // Pass key combos through WebCore if there is a key binding available for
     // this event. This lets webpages have a crack at intercepting key-modified keypresses.
     // FIXME: Why is the firstResponder check needed?
@@ -5407,11 +5365,6 @@ void WebViewImpl::keyDown(NSEvent *event)
         return;
 
     LOG(TextInput, "keyDown:%p %@%s", event, event, (event == m_keyDownEventBeingResent) ? " (re-sent)" : "");
-
-    if (tryHandlePluginComplexTextInputKeyDown(event)) {
-        LOG(TextInput, "...handled by plug-in");
-        return;
-    }
 
     // We could be receiving a key down from AppKit if we have re-sent an event
     // that maps to an action that is currently unavailable (for example a copy when

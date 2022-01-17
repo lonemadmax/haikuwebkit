@@ -528,8 +528,6 @@ void TestController::initialize(int argc, const char* argv[])
     WTF::setProcessPrivileges(allPrivileges());
     WebCoreTestSupport::populateJITOperations();
 
-    platformInitialize();
-
     Options options;
     OptionsHandler optionsHandler(options);
 
@@ -539,6 +537,8 @@ void TestController::initialize(int argc, const char* argv[])
     }
     if (!optionsHandler.parse(argc, argv))
         exit(1);
+
+    platformInitialize(options);
 
     m_useWaitToDumpWatchdogTimer = options.useWaitToDumpWatchdogTimer;
     m_forceNoTimeout = options.forceNoTimeout;
@@ -2346,7 +2346,7 @@ void TestController::didRemoveNavigationGestureSnapshot(WKPageRef)
     m_currentInvocation->didRemoveSwipeSnapshot();
 }
 
-void TestController::simulateWebNotificationClick(uint64_t notificationID)
+void TestController::simulateWebNotificationClick(WKDataRef notificationID)
 {
     m_webNotificationProvider.simulateWebNotificationClick(mainWebView()->page(), notificationID);
 }
@@ -3780,10 +3780,10 @@ void TestController::setPrivateClickMeasurementEphemeralMeasurementForTesting(bo
     runUntil(callbackContext.done, noTimeout);
 }
 
-void TestController::simulateResourceLoadStatisticsSessionRestart()
+void TestController::simulatePrivateClickMeasurementSessionRestart()
 {
     PrivateClickMeasurementVoidCallbackContext callbackContext(*this);
-    WKPageSimulateResourceLoadStatisticsSessionRestart(m_mainWebView->page(), privateClickMeasurementVoidCallback, &callbackContext);
+    WKPageSimulatePrivateClickMeasurementSessionRestart(m_mainWebView->page(), privateClickMeasurementVoidCallback, &callbackContext);
     runUntil(callbackContext.done, noTimeout);
 }
 

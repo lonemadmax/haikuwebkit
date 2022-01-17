@@ -29,6 +29,7 @@
 #include "libANGLE/renderer/metal/TransformFeedbackMtl.h"
 #include "libANGLE/renderer/metal/VertexArrayMtl.h"
 #include "libANGLE/renderer/metal/mtl_command_buffer.h"
+#include "libANGLE/renderer/metal/mtl_context_device.h"
 #include "libANGLE/renderer/metal/mtl_format_utils.h"
 #include "libANGLE/renderer/metal/mtl_utils.h"
 
@@ -184,16 +185,25 @@ class LineLoopLastSegmentHelper
     mtl::BufferRef mLineLoopIndexBuffer;
 };
 
+GLint GetOwnershipIdentity(const egl::AttributeMap &attribs)
+{
+    return attribs.getAsInt(EGL_CONTEXT_METAL_OWNERSHIP_IDENTITY_ANGLE, 0);
+}
+
 }  // namespace
 
-ContextMtl::ContextMtl(const gl::State &state, gl::ErrorSet *errorSet, DisplayMtl *display)
+ContextMtl::ContextMtl(const gl::State &state,
+                       gl::ErrorSet *errorSet,
+                       const egl::AttributeMap &attribs,
+                       DisplayMtl *display)
     : ContextImpl(state, errorSet),
       mtl::Context(display),
       mCmdBuffer(&display->cmdQueue()),
       mRenderEncoder(&mCmdBuffer, mOcclusionQueryPool),
       mBlitEncoder(&mCmdBuffer),
       mComputeEncoder(&mCmdBuffer),
-      mProvokingVertexHelper(this, &display->cmdQueue(), display)
+      mProvokingVertexHelper(this, &display->cmdQueue(), display),
+      mContextDevice(GetOwnershipIdentity(attribs))
 {}
 
 ContextMtl::~ContextMtl() {}
@@ -217,6 +227,8 @@ angle::Result ContextMtl::initialize()
                                                mtl::kIndexBufferOffsetAlignment,
                                                kMaxTriFanLineLoopBuffersPerFrame);
 
+    mContextDevice.set(mDisplay->getMetalDevice());
+
     return angle::Result::Continue;
 }
 
@@ -231,6 +243,8 @@ void ContextMtl::onDestroy(const gl::Context *context)
     mIncompleteTexturesInitialized = false;
     mProvokingVertexHelper.onDestroy(this);
     mDummyXFBRenderTexture = nullptr;
+
+    mContextDevice.reset();
 }
 
 angle::Result ContextMtl::ensureIncompleteTexturesCreated(const gl::Context *context)
@@ -328,8 +342,9 @@ angle::Result ContextMtl::drawTriFanArraysLegacy(const gl::Context *context,
                         gl::DrawElementsType::InvalidEnum, reinterpret_cast<const void *>(0),
                         false));
 
-    mRenderEncoder.drawIndexedInstanced(MTLPrimitiveTypeTriangle, genIndicesCount, MTLIndexTypeUInt32,
-                               genIdxBuffer, genIdxBufferOffset, instances);
+    mRenderEncoder.drawIndexedInstanced(MTLPrimitiveTypeTriangle, genIndicesCount,
+                                        MTLIndexTypeUInt32, genIdxBuffer, genIdxBufferOffset,
+                                        instances);
 
     return angle::Result::Continue;
 }
@@ -901,24 +916,16 @@ angle::Result ContextMtl::syncState(const gl::Context *context,
 
     // Metal's blend state is set at once, while ANGLE tracks separate dirty
     // bits: ENABLED, FUNCS, and EQUATIONS. Merge all three of them to the first one.
-#if defined(ANGLE_IS_64_BIT_CPU)
-    constexpr gl::State::DirtyBits checkBlendBitsMask(
-        angle::Bit<gl::State::DirtyBits::value_type>(gl::State::DIRTY_BIT_BLEND_ENABLED) |
-        angle::Bit<gl::State::DirtyBits::value_type>(gl::State::DIRTY_BIT_BLEND_FUNCS) |
-        angle::Bit<gl::State::DirtyBits::value_type>(gl::State::DIRTY_BIT_BLEND_EQUATIONS));
-    constexpr gl::State::DirtyBits resetBlendBitsMask(
-        angle::Bit<gl::State::DirtyBits::value_type>(gl::State::DIRTY_BIT_BLEND_FUNCS) |
-        angle::Bit<gl::State::DirtyBits::value_type>(gl::State::DIRTY_BIT_BLEND_EQUATIONS));
-    
-#else
+    // PS: these can not be statically initialized on some architectures as there is
+    // no constuctor for DirtyBits that takes an int (which becomes BitSetArray<64>).
     gl::State::DirtyBits checkBlendBitsMask;
-    checkBlendBitsMask.set(angle::Bit<gl::State::DirtyBits::value_type>(gl::State::DIRTY_BIT_BLEND_ENABLED));
-    checkBlendBitsMask.set(angle::Bit<gl::State::DirtyBits::value_type>(gl::State::DIRTY_BIT_BLEND_FUNCS));
-    checkBlendBitsMask.set(angle::Bit<gl::State::DirtyBits::value_type>(gl::State::DIRTY_BIT_BLEND_EQUATIONS));
+    checkBlendBitsMask.set(gl::State::DIRTY_BIT_BLEND_ENABLED);
+    checkBlendBitsMask.set(gl::State::DIRTY_BIT_BLEND_FUNCS);
+    checkBlendBitsMask.set(gl::State::DIRTY_BIT_BLEND_EQUATIONS);
     gl::State::DirtyBits resetBlendBitsMask;
-    resetBlendBitsMask.set(angle::Bit<gl::State::DirtyBits::value_type>(gl::State::DIRTY_BIT_BLEND_FUNCS));
-    resetBlendBitsMask.set(angle::Bit<gl::State::DirtyBits::value_type>(gl::State::DIRTY_BIT_BLEND_EQUATIONS));
-#endif
+    resetBlendBitsMask.set(gl::State::DIRTY_BIT_BLEND_FUNCS);
+    resetBlendBitsMask.set(gl::State::DIRTY_BIT_BLEND_EQUATIONS);
+
     gl::State::DirtyBits mergedDirtyBits = gl::State::DirtyBits(dirtyBits) & ~resetBlendBitsMask;
     mergedDirtyBits.set(gl::State::DIRTY_BIT_BLEND_ENABLED, (dirtyBits & checkBlendBitsMask).any());
 
@@ -1563,26 +1570,28 @@ mtl::RenderCommandEncoder *ContextMtl::getRenderPassCommandEncoder(const mtl::Re
     // Need to re-apply everything on next draw call.
     mDirtyBits.set();
 
-    id<MTLDevice> metalDevice = getDisplay()->getMetalDevice();
+    const mtl::ContextDevice &metalDevice = getMetalDevice();
     if (mtl::DeviceHasMaximumRenderTargetSize(metalDevice))
     {
-        MTLRenderPassDescriptor *objCDesc = [MTLRenderPassDescriptor renderPassDescriptor];
-        desc.convertToMetalDesc(objCDesc);
-        NSUInteger maxSize = mtl::GetMaxRenderTargetSizeForDeviceInBytes(metalDevice);
-        NSUInteger renderTargetSize =
-            ComputeTotalSizeUsedForMTLRenderPassDescriptor(objCDesc, this, metalDevice);
-        if (renderTargetSize > maxSize)
+        ANGLE_MTL_OBJC_SCOPE
         {
-
-            NSString *errorString =
-                [NSString stringWithFormat:@"This set of render targets requires %lu bytes of "
-                                           @"pixel storage. This device supports %lu bytes.",
-                                           (unsigned long)renderTargetSize, (unsigned long)maxSize];
-            NSError *err = [NSError errorWithDomain:@"MTLValidationError"
-                                               code:-1
-                                           userInfo:@{NSLocalizedDescriptionKey : errorString}];
-            this->handleError(err, __FILE__, ANGLE_FUNCTION, __LINE__);
-            return nil;
+            MTLRenderPassDescriptor *objCDesc = [MTLRenderPassDescriptor renderPassDescriptor];
+            desc.convertToMetalDesc(objCDesc);
+            NSUInteger maxSize = mtl::GetMaxRenderTargetSizeForDeviceInBytes(metalDevice);
+            NSUInteger renderTargetSize =
+                ComputeTotalSizeUsedForMTLRenderPassDescriptor(objCDesc, this, metalDevice);
+            if (renderTargetSize > maxSize)
+            {
+                NSString *errorString = [NSString
+                    stringWithFormat:@"This set of render targets requires %lu bytes of "
+                                     @"pixel storage. This device supports %lu bytes.",
+                                     (unsigned long)renderTargetSize, (unsigned long)maxSize];
+                NSError *err          = [NSError errorWithDomain:@"MTLValidationError"
+                                                   code:-1
+                                               userInfo:@{NSLocalizedDescriptionKey : errorString}];
+                this->handleError(err, __FILE__, ANGLE_FUNCTION, __LINE__);
+                return nil;
+            }
         }
     }
     return &mRenderEncoder.restart(desc);
@@ -2321,8 +2330,8 @@ angle::Result ContextMtl::fillDriverXFBUniforms(GLint drawCallFirstVertex,
 {
     gl::TransformFeedback *transformFeedback = getState().getCurrentTransformFeedback();
 
-    mDriverUniforms.xfbActiveUnpaused = getState().isTransformFeedbackActiveUnpaused();
-    if (!transformFeedback || !mDriverUniforms.xfbActiveUnpaused)
+    bool xfbActiveUnpaused = getState().isTransformFeedbackActiveUnpaused();
+    if (!transformFeedback || !xfbActiveUnpaused)
     {
         return angle::Result::Continue;
     }
@@ -2357,7 +2366,8 @@ angle::Result ContextMtl::handleDirtyDepthStencilState(const gl::Context *contex
     }
 
     // Apply depth stencil state
-    mRenderEncoder.setDepthStencilState(getDisplay()->getDepthStencilState(dsDesc));
+    mRenderEncoder.setDepthStencilState(
+        getDisplay()->getStateCache().getDepthStencilState(getMetalDevice(), dsDesc));
 
     return angle::Result::Continue;
 }

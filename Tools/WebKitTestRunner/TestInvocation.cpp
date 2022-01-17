@@ -27,6 +27,7 @@
 #include "config.h"
 #include "TestInvocation.h"
 
+#include "DataFunctions.h"
 #include "DictionaryFunctions.h"
 #include "PlatformWebView.h"
 #include "TestController.h"
@@ -390,7 +391,7 @@ void TestInvocation::didReceiveMessageFromInjectedBundle(WKStringRef messageName
     }
 
     if (WKStringIsEqualToUTF8CString(messageName, "SimulateWebNotificationClick")) {
-        uint64_t notificationID = uint64Value(messageBody);
+        WKDataRef notificationID = dataValue(messageBody);
         TestController::singleton().simulateWebNotificationClick(notificationID);
         return;
     }
@@ -1387,8 +1388,8 @@ WKRetainPtr<WKTypeRef> TestInvocation::didReceiveSynchronousMessageFromInjectedB
         return nullptr;
     }
     
-    if (WKStringIsEqualToUTF8CString(messageName, "SimulateResourceLoadStatisticsSessionRestart")) {
-        TestController::singleton().simulateResourceLoadStatisticsSessionRestart();
+    if (WKStringIsEqualToUTF8CString(messageName, "SimulatePrivateClickMeasurementSessionRestart")) {
+        TestController::singleton().simulatePrivateClickMeasurementSessionRestart();
         return nullptr;
     }
 

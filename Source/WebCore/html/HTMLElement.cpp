@@ -269,7 +269,7 @@ const AtomString& HTMLElement::eventNameForEventHandlerAttribute(const Qualified
             map.add(attributeName.impl(), eventName);
         });
         // FIXME: Remove these special cases. These are not in IDL with [EventHandler] but were historically in this map.
-        static constexpr const LazyNeverDestroyed<const QualifiedName>* table[] = {
+        static constexpr std::array table {
             &onautocompleteAttr,
             &onautocompleteerrorAttr,
             &onbeforeloadAttr,
@@ -645,6 +645,8 @@ void HTMLElement::click()
 
 bool HTMLElement::accessKeyAction(bool sendMouseEvents)
 {
+    if (isFocusable())
+        focus();
     return dispatchSimulatedClick(nullptr, sendMouseEvents ? SendMouseUpDownEvents : SendNoEvents);
 }
 

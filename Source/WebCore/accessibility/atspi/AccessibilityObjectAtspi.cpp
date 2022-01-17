@@ -73,16 +73,6 @@ OptionSet<AccessibilityObjectAtspi::Interface> AccessibilityObjectAtspi::interfa
             if ((renderer && renderer->childrenInline()) || roleIsTextType(coreObject.roleValue()) || coreObject.isMathToken())
                 interfaces.add(Interface::Text);
         }
-
-        // Add the Text interface for list items whose first accessible child has a text renderer.
-        if (coreObject.roleValue() == AccessibilityRole::ListItem) {
-            const auto& children = coreObject.children();
-            if (!children.isEmpty()) {
-                auto childInterfaces = interfacesForObject(*children[0]);
-                if (childInterfaces.contains(Interface::Text))
-                    interfaces.add(Interface::Text);
-            }
-        }
     }
 
     if (coreObject.supportsRangeValue())
@@ -108,6 +98,14 @@ OptionSet<AccessibilityObjectAtspi::Interface> AccessibilityObjectAtspi::interfa
         || coreObject.roleValue() == AccessibilityRole::ColumnHeader
         || coreObject.roleValue() == AccessibilityRole::RowHeader)
         interfaces.add(Interface::TableCell);
+
+    if (coreObject.roleValue() == AccessibilityRole::ListMarker && renderer) {
+        if (renderer->isImage())
+            interfaces.add(Interface::Image);
+        else
+            interfaces.add(Interface::Text);
+        interfaces.add(Interface::Hyperlink);
+    }
 
     return interfaces;
 }
@@ -138,6 +136,7 @@ void AccessibilityObjectAtspi::cacheDestroyed()
     if (!m_isRegistered.load())
         return;
 
+    m_root.childRemoved(*this);
     m_root.atspi().unregisterObject(*this);
 }
 
@@ -148,8 +147,12 @@ void AccessibilityObjectAtspi::elementDestroyed()
     if (!m_isRegistered.load())
         return;
 
-    if (m_parent && *m_parent)
-        m_parent.value()->childRemoved(*this);
+    if (m_parent) {
+        if (*m_parent)
+            m_parent.value()->childRemoved(*this);
+        else
+            m_root.childRemoved(*this);
+    }
 
     m_root.atspi().unregisterObject(*this);
 }
@@ -272,8 +275,6 @@ static unsigned atspiRole(AccessibilityRole role)
     case AccessibilityRole::GraphicsSymbol:
     case AccessibilityRole::Image:
         return Atspi::Role::Image;
-    case AccessibilityRole::ListMarker:
-        return Atspi::Role::Text;
     case AccessibilityRole::DocumentArticle:
         return Atspi::Role::Article;
     case AccessibilityRole::Document:
@@ -331,8 +332,6 @@ static unsigned atspiRole(AccessibilityRole role)
         return Atspi::Role::Definition;
     case AccessibilityRole::DocumentMath:
         return Atspi::Role::Math;
-    case AccessibilityRole::MathElement:
-        return Atspi::Role::MathFraction;
     case AccessibilityRole::LandmarkBanner:
     case AccessibilityRole::LandmarkComplementary:
     case AccessibilityRole::LandmarkContentInfo:
@@ -393,6 +392,9 @@ static unsigned atspiRole(AccessibilityRole role)
     case AccessibilityRole::TableHeaderContainer:
     case AccessibilityRole::ValueIndicator:
         return Atspi::Role::Unknown;
+    case AccessibilityRole::ListMarker:
+    case AccessibilityRole::MathElement:
+        RELEASE_ASSERT_NOT_REACHED();
     }
 
     RELEASE_ASSERT_NOT_REACHED();
@@ -561,8 +563,12 @@ void AccessibilityObjectAtspi::setParent(std::optional<AccessibilityObjectAtspi*
         return;
 
     m_root.atspi().parentChanged(*this);
-    if (m_parent && *m_parent)
-        m_parent.value()->childAdded(*this);
+    if (m_parent) {
+        if (*m_parent)
+            m_parent.value()->childAdded(*this);
+        else
+            m_root.childAdded(*this);
+    }
 }
 
 std::optional<AccessibilityObjectAtspi*> AccessibilityObjectAtspi::parent() const
@@ -786,8 +792,12 @@ uint64_t AccessibilityObjectAtspi::state() const
         if (m_coreObject->canSetFocusAttribute())
             addState(Atspi::State::Focusable);
 
-        if (m_coreObject->isFocused())
+        if (m_coreObject->isFocused() && !m_coreObject->activeDescendant())
             addState(Atspi::State::Focused);
+        else if (m_coreObject->isActiveDescendantOfFocusedContainer()) {
+            addState(Atspi::State::Focusable);
+            addState(Atspi::State::Focused);
+        }
 
         if (m_coreObject->canSetValueAttribute()) {
             if (m_coreObject->supportsChecked())
@@ -1028,6 +1038,32 @@ HashMap<String, String> AccessibilityObjectAtspi::attributes() const
     if (!keyShortcuts.isEmpty())
         map.add("keyshortcuts", keyShortcuts);
 
+    if (m_coreObject->isMathMultiscriptObject(AccessibilityMathMultiscriptObjectType::PreSuperscript) || m_coreObject->isMathMultiscriptObject(AccessibilityMathMultiscriptObjectType::PreSubscript))
+        map.add("multiscript-type", "pre");
+    else if (m_coreObject->isMathMultiscriptObject(AccessibilityMathMultiscriptObjectType::PostSuperscript) || m_coreObject->isMathMultiscriptObject(AccessibilityMathMultiscriptObjectType::PostSubscript))
+        map.add("multiscript-type", "post");
+
+    if (auto* liveContainer = m_coreObject->liveRegionAncestor(false)) {
+        auto liveStatus = liveContainer->liveRegionStatus();
+        map.add("container-live", liveStatus);
+        auto relevant = liveContainer->liveRegionRelevant();
+        map.add("container-relevant", relevant);
+        bool isAtomic = liveContainer->liveRegionAtomic();
+        if (isAtomic)
+            map.add("container-atomic", "true");
+        const String& liveRole = roleString.isEmpty() ? computedRoleString : roleString;
+        if (!liveRole.isEmpty())
+            map.add("container-live-role", liveRole);
+
+        if (liveContainer == m_coreObject) {
+            map.add("live", liveStatus);
+            map.add("relevant", relevant);
+            if (isAtomic)
+                map.add("atomic", "true");
+        } else if (!isAtomic && m_coreObject->liveRegionAtomic())
+            map.add("atomic", "true");
+    }
+
     return map;
 }
 
@@ -1184,7 +1220,7 @@ void AccessibilityObjectAtspi::serialize(GVariantBuilder* builder) const
 {
     RELEASE_ASSERT(!isMainThread());
     g_variant_builder_add(builder, "(so)", m_root.atspi().uniqueName(), m_path.utf8().data());
-    g_variant_builder_add(builder, "(so)", m_root.parentUniqueName().utf8().data(), "/org/a11y/atspi/accessible/root");
+    g_variant_builder_add(builder, "@(so)", m_root.applicationReference());
     g_variant_builder_add(builder, "@(so)", parentReference());
 
     g_variant_builder_add(builder, "i", indexInParent());
@@ -1213,6 +1249,9 @@ void AccessibilityObjectAtspi::childAdded(AccessibilityObjectAtspi& child)
     if (!m_isRegistered.load())
         return;
 
+    if (!m_coreObject || m_coreObject->accessibilityIsIgnored())
+        return;
+
     m_root.atspi().childrenChanged(*this, child, AccessibilityAtspi::ChildrenChanged::Added);
 }
 
@@ -1222,25 +1261,137 @@ void AccessibilityObjectAtspi::childRemoved(AccessibilityObjectAtspi& child)
     if (!m_isRegistered.load())
         return;
 
+    if (!m_coreObject || m_coreObject->accessibilityIsIgnored())
+        return;
+
     m_root.atspi().childrenChanged(*this, child, AccessibilityAtspi::ChildrenChanged::Removed);
 }
 
 void AccessibilityObjectAtspi::stateChanged(const char* name, bool value)
 {
     RELEASE_ASSERT(isMainThread());
-    if (!m_isRegistered.load())
-        return;
-
     m_root.atspi().stateChanged(*this, name, value);
+}
+
+void AccessibilityObjectAtspi::loadEvent(const char* event)
+{
+    RELEASE_ASSERT(isMainThread());
+    m_root.atspi().loadEvent(*this, event);
+}
+
+std::optional<unsigned> AccessibilityObjectAtspi::effectiveRole() const
+{
+    RELEASE_ASSERT(!isMainThread());
+    RELEASE_ASSERT(m_axObject);
+
+    switch (m_axObject->roleValue()) {
+    case AccessibilityRole::ListMarker:
+        return Accessibility::retrieveValueFromMainThread<unsigned>([this]() -> unsigned {
+            if (m_coreObject)
+                m_coreObject->updateBackingStore();
+
+            if (!m_coreObject)
+                return Atspi::Role::InvalidRole;
+
+            auto* renderer = m_coreObject->renderer();
+            return renderer && renderer->isImage() ? Atspi::Role::Image : Atspi::Role::Text;
+        });
+    case AccessibilityRole::MathElement:
+        if (m_axObject->isMathRow())
+            return Atspi::Role::Panel;
+        if (m_axObject->isMathTable())
+            return Atspi::Role::Table;
+        if (m_axObject->isMathTableRow())
+            return Atspi::Role::TableRow;
+        if (m_axObject->isMathTableCell())
+            return Atspi::Role::TableCell;
+        if (m_axObject->isMathSubscriptSuperscript() || m_axObject->isMathMultiscript())
+            return Atspi::Role::Section;
+        if (m_axObject->isMathFraction())
+            return Atspi::Role::MathFraction;
+        if (m_axObject->isMathSquareRoot() || m_coreObject->isMathRoot())
+            return Atspi::Role::MathRoot;
+        if (m_axObject->isMathScriptObject(AccessibilityMathScriptObjectType::Subscript)
+            || m_axObject->isMathMultiscriptObject(AccessibilityMathMultiscriptObjectType::PreSubscript)
+            || m_axObject->isMathMultiscriptObject(AccessibilityMathMultiscriptObjectType::PostSubscript))
+            return Atspi::Role::Subscript;
+        if (m_axObject->isMathScriptObject(AccessibilityMathScriptObjectType::Superscript)
+            || m_axObject->isMathMultiscriptObject(AccessibilityMathMultiscriptObjectType::PreSuperscript)
+            || m_axObject->isMathMultiscriptObject(AccessibilityMathMultiscriptObjectType::PostSuperscript))
+            return Atspi::Role::Superscript;
+        if (m_axObject->isMathToken())
+            return Atspi::Role::Static;
+        break;
+    case AccessibilityRole::ListItem: {
+        bool inheritsPresentationalRole = Accessibility::retrieveValueFromMainThread<bool>([this]() -> bool {
+            if (m_coreObject)
+                m_coreObject->updateBackingStore();
+
+            if (!m_coreObject)
+                return Atspi::Role::InvalidRole;
+
+            return m_coreObject->inheritsPresentationalRole();
+        });
+        if (inheritsPresentationalRole)
+            return Atspi::Role::Section;
+        break;
+    }
+    default:
+        break;
+    }
+
+    return std::nullopt;
 }
 
 unsigned AccessibilityObjectAtspi::role() const
 {
     RELEASE_ASSERT(!isMainThread());
     if (!m_axObject)
-        return Atspi::Role::Unknown;
+        return Atspi::Role::InvalidRole;
+
+    if (auto effective = effectiveRole())
+        return *effective;
 
     return atspiRole(m_axObject->roleValue());
+}
+
+String AccessibilityObjectAtspi::effectiveRoleName() const
+{
+    auto effective = effectiveRole();
+    if (!effective)
+        return { };
+
+    switch (*effective) {
+    case Atspi::Role::Image:
+        return "image";
+    case Atspi::Role::Text:
+    case Atspi::Role::Static:
+        return "text";
+    case Atspi::Role::InvalidRole:
+        return "invalid";
+    case Atspi::Role::Panel:
+        return "panel";
+    case Atspi::Role::Table:
+        return "table";
+    case Atspi::Role::TableRow:
+        return "table row";
+    case Atspi::Role::TableCell:
+        return "table cell";
+    case Atspi::Role::Section:
+        return "section";
+    case Atspi::Role::MathFraction:
+        return "math fraction";
+    case Atspi::Role::MathRoot:
+        return "math root";
+    case Atspi::Role::Subscript:
+        return "subscript";
+    case Atspi::Role::Superscript:
+        return "superscript";
+    default:
+        break;
+    }
+
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 String AccessibilityObjectAtspi::roleName() const
@@ -1249,7 +1400,50 @@ String AccessibilityObjectAtspi::roleName() const
     if (!m_axObject)
         return "invalid";
 
+    auto effective = effectiveRoleName();
+    if (!effective.isEmpty())
+        return effective;
+
     return m_axObject->rolePlatformString();
+}
+
+const char* AccessibilityObjectAtspi::effectiveLocalizedRoleName() const
+{
+    auto effective = effectiveRole();
+    if (!effective)
+        return nullptr;
+
+    switch (*effective) {
+    case Atspi::Role::Image:
+        return AccessibilityAtspi::localizedRoleName(AccessibilityRole::Image);
+    case Atspi::Role::Text:
+    case Atspi::Role::Static:
+        return AccessibilityAtspi::localizedRoleName(AccessibilityRole::StaticText);
+    case Atspi::Role::InvalidRole:
+        return _("invalid");
+    case Atspi::Role::Panel:
+        return AccessibilityAtspi::localizedRoleName(AccessibilityRole::Group);
+    case Atspi::Role::Table:
+        return AccessibilityAtspi::localizedRoleName(AccessibilityRole::Table);
+    case Atspi::Role::TableRow:
+        return AccessibilityAtspi::localizedRoleName(AccessibilityRole::Row);
+    case Atspi::Role::TableCell:
+        return AccessibilityAtspi::localizedRoleName(AccessibilityRole::Cell);
+    case Atspi::Role::Section:
+        return AccessibilityAtspi::localizedRoleName(AccessibilityRole::Div);
+    case Atspi::Role::MathFraction:
+        return _("math fraction");
+    case Atspi::Role::MathRoot:
+        return _("math root");
+    case Atspi::Role::Subscript:
+        return AccessibilityAtspi::localizedRoleName(AccessibilityRole::Subscript);
+    case Atspi::Role::Superscript:
+        return AccessibilityAtspi::localizedRoleName(AccessibilityRole::Superscript);
+    default:
+        break;
+    }
+
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 const char* AccessibilityObjectAtspi::localizedRoleName() const
@@ -1257,6 +1451,9 @@ const char* AccessibilityObjectAtspi::localizedRoleName() const
     RELEASE_ASSERT(!isMainThread());
     if (!m_axObject)
         return _("invalid");
+
+    if (const auto* effective = effectiveLocalizedRoleName())
+        return effective;
 
     return AccessibilityAtspi::localizedRoleName(m_axObject->roleValue());
 }
@@ -1317,6 +1514,12 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
     // Entries and password fields have extraneous children which we want to ignore.
     if (parent->isPasswordField() || parent->isTextControl())
         return AccessibilityObjectInclusion::IgnoreObject;
+
+    // List items inheriting presentational are ignored, but their content exposed.
+    // Since we expose text in the parent, we need to expose presentational list items
+    // with a different role (section).
+    if (roleValue() == AccessibilityRole::ListItem && inheritsPresentationalRole())
+        return AccessibilityObjectInclusion::IncludeObject;
 
     return AccessibilityObjectInclusion::DefaultBehavior;
 }

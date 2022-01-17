@@ -245,6 +245,24 @@ bool EGLWindow::initializeDisplay(OSWindow *osWindow,
         disabledFeatureOverrides.push_back("supportsViewportFlip");
     }
 
+    if (params.supportsVulkanMultiDrawIndirect == EGL_TRUE)
+    {
+        enabledFeatureOverrides.push_back("supportsMultiDrawIndirect");
+    }
+    else if (params.supportsVulkanMultiDrawIndirect == EGL_FALSE)
+    {
+        disabledFeatureOverrides.push_back("supportsMultiDrawIndirect");
+    }
+
+    if (params.WithVulkanPreferCPUForBufferSubData == EGL_TRUE)
+    {
+        enabledFeatureOverrides.push_back("preferCPUForBufferSubData");
+    }
+    else if (params.WithVulkanPreferCPUForBufferSubData == EGL_FALSE)
+    {
+        disabledFeatureOverrides.push_back("preferCPUForBufferSubData");
+    }
+
     switch (params.emulatedPrerotation)
     {
         case 90:
@@ -810,11 +828,14 @@ bool EGLWindow::makeCurrent()
 
 bool EGLWindow::makeCurrent(EGLContext context)
 {
-    if (eglMakeCurrent(mDisplay, mSurface, mSurface, context) == EGL_FALSE ||
-        eglGetError() != EGL_SUCCESS)
+    if (isGLInitialized())
     {
-        fprintf(stderr, "Error during eglMakeCurrent.\n");
-        return false;
+        if (eglMakeCurrent(mDisplay, mSurface, mSurface, context) == EGL_FALSE ||
+            eglGetError() != EGL_SUCCESS)
+        {
+            fprintf(stderr, "Error during eglMakeCurrent.\n");
+            return false;
+        }
     }
 
     return true;

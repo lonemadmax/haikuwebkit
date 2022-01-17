@@ -41,10 +41,21 @@ FileSystemHandle::FileSystemHandle(ScriptExecutionContext& context, FileSystemHa
     , m_identifier(identifier)
     , m_connection(WTFMove(connection))
 {
-    suspendIfNeeded();
 }
 
-FileSystemHandle::~FileSystemHandle() = default;
+FileSystemHandle::~FileSystemHandle()
+{
+    close();
+}
+
+void FileSystemHandle::close()
+{
+    if (m_isClosed)
+        return;
+    
+    m_isClosed = true;
+    m_connection->closeHandle(m_identifier);
+}
 
 void FileSystemHandle::isSameEntry(FileSystemHandle& handle, DOMPromiseDeferred<IDLBoolean>&& promise) const
 {
@@ -82,7 +93,7 @@ const char* FileSystemHandle::activeDOMObjectName() const
 
 void FileSystemHandle::stop()
 {
-    m_isClosed = true;
+    close();
 }
 
 } // namespace WebCore

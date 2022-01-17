@@ -29,16 +29,16 @@
 
 #include "CommandLineAPIHost.h"
 #include "DOMWindow.h"
+#include "InspectorWebAgentBase.h"
+#include "JSExecState.h"
 #include "Logging.h"
 #include "ResourceError.h"
 #include "ResourceResponse.h"
-#include "ScriptState.h"
 #include "WebInjectedScriptManager.h"
 #include <JavaScriptCore/ConsoleMessage.h>
 #include <JavaScriptCore/JSCInlines.h>
 #include <JavaScriptCore/ScriptArguments.h>
 #include <wtf/text/StringBuilder.h>
-
 
 namespace WebCore {
 
@@ -49,19 +49,14 @@ WebConsoleAgent::WebConsoleAgent(WebAgentContext& context)
 {
 }
 
-WebConsoleAgent::~WebConsoleAgent() = default;
-
-void WebConsoleAgent::frameWindowDiscarded(DOMWindow* window)
+void WebConsoleAgent::frameWindowDiscarded(DOMWindow& window)
 {
-    for (auto& message : m_consoleMessages) {
-        JSC::JSGlobalObject* lexicalGlobalObject = message->globalObject();
-        if (!lexicalGlobalObject)
-            continue;
-        if (domWindowFromExecState(lexicalGlobalObject) != window)
-            continue;
-        message->clear();
+    if (auto* document = window.document()) {
+        for (auto& message : m_consoleMessages) {
+            if (executionContext(message->globalObject()) == document)
+                message->clear();
+        }
     }
-
     static_cast<WebInjectedScriptManager&>(m_injectedScriptManager).discardInjectedScriptsFor(window);
 }
 

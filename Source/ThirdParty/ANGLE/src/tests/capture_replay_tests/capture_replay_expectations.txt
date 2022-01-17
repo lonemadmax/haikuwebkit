@@ -74,7 +74,7 @@
 6221 : VulkanExternalImageTest.ShouldDrawOpaqueFdWithSemaphores/* = TIMEOUT
 6221 : VulkanExternalImageTest.WaitSemaphoresRetainsContentOpaqueFd/* = TIMEOUT
 
-6267 : WebGLCompatibilityTest.MultiContextNoRenderingFeedbackLoops/* = COMPILE_FAIL
+6267 : WebGLCompatibilityTest.MultiContextNoRenderingFeedbackLoops/* = SKIP_FOR_CAPTURE
 
 6180 WIN : WebGLCompatibilityTest.DrawElementsBufferOutOfBoundsInVertexBuffer/* = FLAKY
 
@@ -215,4 +215,4 @@
 6663 : Texture2DTest.UploadThenFSThenVS/* = NOT_RUN
 6663 : Texture2DTest.UploadThenFSThenVSThenNewRPThenFS/*  = NOT_RUN
 
-6741 : VulkanImageTest.PixelTest* = SKIP_FOR_CAPTURE
+6741 : VulkanImageTest.* = SKIP_FOR_CAPTURE

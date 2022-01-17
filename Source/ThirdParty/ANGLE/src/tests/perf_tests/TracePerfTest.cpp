@@ -1140,7 +1140,8 @@ TracePerfTest::TracePerfTest(const TracePerfParams &params)
     if (traceNameIs("zillow"))
     {
         // http://anglebug.com/6658 - Crashing in Vulkan backend
-        if ((IsLinux() || IsWindows()) && IsNVIDIA() && mParams.driver == GLESDriverType::AngleEGL)
+        if ((IsLinux() || IsWindows()) && IsNVIDIA() &&
+            mParams.driver == GLESDriverType::AngleEGL && !mParams.isSwiftshader())
         {
             mSkipTest = true;
         }
@@ -1149,6 +1150,11 @@ TracePerfTest::TracePerfTest(const TracePerfParams &params)
     if (traceNameIs("township"))
     {
         addExtensionPrerequisite("GL_OES_EGL_image_external");
+    }
+
+    if (traceNameIs("asphalt_9"))
+    {
+        addExtensionPrerequisite("GL_KHR_texture_compression_astc_ldr");
     }
 
     ASSERT(mParams.surfaceType == SurfaceType::Window || gEnableAllTraceTests);
@@ -1655,7 +1661,7 @@ void TracePerfTest::validateSerializedState(const char *expectedCapturedSerializ
         return;
     }
 
-    printf("Serialization mismatch!\n");
+    GTEST_NONFATAL_FAILURE_("Serialization mismatch!");
 
     char aFilePath[kMaxPath] = {};
     if (CreateTemporaryFile(aFilePath, kMaxPath))

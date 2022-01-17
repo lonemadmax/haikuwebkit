@@ -70,8 +70,8 @@
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/UserAgent.h>
 #import <WebCore/ValidationBubble.h>
-#import <WebCore/VersionChecks.h>
 #import <pal/spi/ios/MobileGestaltSPI.h>
+#import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/text/TextStream.h>
 
 #if USE(QUICK_LOOK)
@@ -723,13 +723,10 @@ void WebPageProxy::moveSelectionByOffset(int32_t offset, CompletionHandler<void(
 void WebPageProxy::interpretKeyEvent(const EditorState& state, bool isCharEvent, CompletionHandler<void(bool)>&& completionHandler)
 {
     m_editorState = state;
-    completionHandler(pageClient().interpretKeyEvent(m_keyEventQueue.first(), isCharEvent));
-}
-
-// Complex text input support for plug-ins.
-void WebPageProxy::sendComplexTextInputToPlugin(uint64_t, const String&)
-{
-    notImplemented();
+    if (m_keyEventQueue.isEmpty())
+        completionHandler(false);
+    else
+        completionHandler(pageClient().interpretKeyEvent(m_keyEventQueue.first(), isCharEvent));
 }
 
 void WebPageProxy::setSmartInsertDeleteEnabled(bool)
@@ -744,7 +741,7 @@ void WebPageProxy::registerWebProcessAccessibilityToken(const IPC::DataReference
 
 void WebPageProxy::assistiveTechnologyMakeFirstResponder()
 {
-    notImplemented();
+    pageClient().assistiveTechnologyMakeFirstResponder();
 }
     
 void WebPageProxy::makeFirstResponder()
@@ -758,11 +755,6 @@ void WebPageProxy::registerUIProcessAccessibilityTokens(const IPC::DataReference
         return;
     
     send(Messages::WebPage::RegisterUIProcessAccessibilityTokens(elementToken, windowToken));
-}
-
-void WebPageProxy::pluginFocusOrWindowFocusChanged(uint64_t, bool)
-{
-    notImplemented();
 }
 
 void WebPageProxy::executeSavedCommandBySelector(const String&, CompletionHandler<void(bool)>&& completionHandler)
@@ -1017,7 +1009,7 @@ void WebPageProxy::handleSmartMagnificationInformationForPotentialTap(WebKit::Ta
     pageClient().handleSmartMagnificationInformationForPotentialTap(requestID, renderRect, fitEntireRect, viewportMinimumScale, viewportMaximumScale, nodeIsRootLevel);
 }
 
-std::pair<size_t, uint64_t> WebPageProxy::computePagesForPrintingAndDrawToPDF(FrameIdentifier frameID, const PrintInfo& printInfo, CompletionHandler<void(const IPC::DataReference&)>&& callback)
+std::pair<size_t, uint64_t> WebPageProxy::computePagesForPrintingAndDrawToPDF(FrameIdentifier frameID, const PrintInfo& printInfo, CompletionHandler<void(const IPC::SharedBufferCopy&)>&& callback)
 {
     if (!hasRunningProcess()) {
         callback({ });
@@ -1379,7 +1371,7 @@ static bool desktopClassBrowsingRecommended(const WebCore::ResourceRequest& requ
         auto screenClass = MGGetSInt32Answer(kMGQMainScreenClass, MGScreenClassPad2);
         shouldRecommendDesktopClassBrowsing = screenClass != MGScreenClassPad3 && screenClass != MGScreenClassPad4 && desktopClassBrowsingSupported();
 #endif
-        if (ignoreSafeguards == IgnoreAppCompatibilitySafeguards::No && !linkedOnOrAfter(WebCore::SDKVersion::FirstWithModernCompabilityModeByDefault)) {
+        if (ignoreSafeguards == IgnoreAppCompatibilitySafeguards::No && !linkedOnOrAfter(SDKVersion::FirstWithModernCompabilityModeByDefault)) {
             // Opt out apps that haven't yet built against the iOS 13 SDK to limit any incompatibilities as a result of enabling desktop-class browsing by default in
             // WKWebView on appropriately-sized iPad models.
             shouldRecommendDesktopClassBrowsing = false;

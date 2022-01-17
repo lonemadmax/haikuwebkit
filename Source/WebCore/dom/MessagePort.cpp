@@ -93,7 +93,9 @@ void MessagePort::notifyMessageAvailable(const MessagePortIdentifier& identifier
 
 Ref<MessagePort> MessagePort::create(ScriptExecutionContext& scriptExecutionContext, const MessagePortIdentifier& local, const MessagePortIdentifier& remote)
 {
-    return adoptRef(*new MessagePort(scriptExecutionContext, local, remote));
+    auto messagePort = adoptRef(*new MessagePort(scriptExecutionContext, local, remote));
+    messagePort->suspendIfNeeded();
+    return messagePort;
 }
 
 MessagePort::MessagePort(ScriptExecutionContext& scriptExecutionContext, const MessagePortIdentifier& local, const MessagePortIdentifier& remote)
@@ -110,7 +112,6 @@ MessagePort::MessagePort(ScriptExecutionContext& scriptExecutionContext, const M
     initializeWeakPtrFactory();
 
     scriptExecutionContext.createdMessagePort(*this);
-    suspendIfNeeded();
 
     // Don't need to call processMessageWithMessagePortsSoon() here, because the port will not be opened until start() is invoked.
 }
@@ -259,7 +260,7 @@ void MessagePort::dispatchMessages()
     if (!context || context->activeDOMObjectsAreSuspended() || !isEntangled())
         return;
 
-    auto messagesTakenHandler = [this, weakThis = WeakPtr { *this }](Vector<MessageWithMessagePorts>&& messages, Function<void()>&& completionCallback) mutable {
+    auto messagesTakenHandler = [this, weakThis = WeakPtr { *this }](Vector<MessageWithMessagePorts>&& messages, CompletionHandler<void()>&& completionCallback) mutable {
         auto scopeExit = makeScopeExit(WTFMove(completionCallback));
 
         if (!weakThis)

@@ -141,7 +141,6 @@ bool ScrollingEffectsController::handleWheelEvent(const PlatformWheelEvent& whee
 
         stopRubberBandAnimation();
         updateRubberBandingState();
-        return true;
     }
 
     if (wheelEvent.phase() == PlatformWheelEventPhase::Ended) {
@@ -174,8 +173,11 @@ bool ScrollingEffectsController::handleWheelEvent(const PlatformWheelEvent& whee
     // Reset unapplied overscroll because we may decide to remove delta at various points and put it into this value.
     auto delta = std::exchange(m_unappliedOverscrollDelta, { });
     delta += eventDelta;
-    // FIXME: This replicates what WheelEventDeltaFilter does. We should apply that to events in all phases, and remove axis locking here (webkit.org/b/231207).
-    delta = deltaAlignedToDominantAxis(delta);
+
+    if (wheelEvent.isGestureEvent()) {
+        // FIXME: This replicates what WheelEventDeltaFilter does. We should apply that to events in all phases, and remove axis locking here (webkit.org/b/231207).
+        delta = deltaAlignedToDominantAxis(delta);
+    }
 
     auto momentumPhase = wheelEvent.momentumPhase();
     
@@ -445,7 +447,7 @@ void ScrollingEffectsController::startRubberBandAnimationIfNecessary()
     bool willOverscroll = targetOffset != contrainedOffset;
 
     auto stretchAmount = m_client.stretchAmount();
-    if (stretchAmount.isZero() && !willOverscroll)
+    if (stretchAmount.isZero() && !willOverscroll && m_stretchScrollForce.isZero())
         return;
 
     auto initialVelocity = m_momentumVelocity;
@@ -609,6 +611,8 @@ void ScrollingEffectsController::statelessSnapTransitionTimerFired()
 
     if (m_scrollSnapState->transitionToSnapAnimationState(m_client.scrollExtents(), m_client.pageScaleFactor(), m_client.scrollOffset()))
         startScrollSnapAnimation();
+    else
+        stopDeferringWheelEventTestCompletion(WheelEventTestMonitor::ScrollSnapInProgress);
 }
 
 bool ScrollingEffectsController::processWheelEventForScrollSnap(const PlatformWheelEvent& wheelEvent)

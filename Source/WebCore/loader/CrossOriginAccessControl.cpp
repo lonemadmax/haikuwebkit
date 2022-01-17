@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2021 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 #include "CachedResourceRequest.h"
 #include "CrossOriginEmbedderPolicy.h"
 #include "CrossOriginPreflightResultCache.h"
+#include "DocumentLoader.h"
 #include "HTTPHeaderNames.h"
 #include "HTTPParsers.h"
 #include "LegacySchemeRegistry.h"
@@ -138,6 +139,9 @@ CachedResourceRequest createPotentialAccessControlRequest(ResourceRequest&& requ
                 options.mode = FetchOptions::Mode::NoCors;
         }
     }
+
+    if (auto* documentLoader = document.loader())
+        request.setIsAppInitiated(documentLoader->lastNavigationWasAppInitiated());
 
     if (crossOriginAttribute.isNull()) {
         CachedResourceRequest cachedRequest { WTFMove(request), WTFMove(options) };

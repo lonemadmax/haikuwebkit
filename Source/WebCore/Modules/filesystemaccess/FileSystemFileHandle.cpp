@@ -27,6 +27,7 @@
 #include "FileSystemFileHandle.h"
 
 #include "File.h"
+#include "FileSystemHandleCloseScope.h"
 #include "FileSystemStorageConnection.h"
 #include "FileSystemSyncAccessHandle.h"
 #include "JSDOMPromiseDeferred.h"
@@ -41,7 +42,9 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(FileSystemFileHandle);
 
 Ref<FileSystemFileHandle> FileSystemFileHandle::create(ScriptExecutionContext& context, String&& name, FileSystemHandleIdentifier identifier, Ref<FileSystemStorageConnection>&& connection)
 {
-    return adoptRef(*new FileSystemFileHandle(context, WTFMove(name), identifier, WTFMove(connection)));
+    auto result = adoptRef(*new FileSystemFileHandle(context, WTFMove(name), identifier, WTFMove(connection)));
+    result->suspendIfNeeded();
+    return result;
 }
 
 FileSystemFileHandle::FileSystemFileHandle(ScriptExecutionContext& context, String&& name, FileSystemHandleIdentifier identifier, Ref<FileSystemStorageConnection>&& connection)
@@ -76,26 +79,25 @@ void FileSystemFileHandle::createSyncAccessHandle(DOMPromiseDeferred<IDLInterfac
             return promise.reject(result.releaseException());
 
         auto [identifier, file] = result.releaseReturnValue();
-        if (file == FileSystem::invalidPlatformFileHandle)
+        if (!file)
             return promise.reject(Exception { UnknownError, "Invalid platform file handle"_s });
 
         auto* context = protectedThis->scriptExecutionContext();
         if (!context) {
-            FileSystem::closeFile(file);
-            protectedThis->close(identifier, { });
+            protectedThis->closeSyncAccessHandle(identifier, { });
             return promise.reject(Exception { InvalidStateError, "Context has stopped"_s });
         }
 
-        promise.resolve(FileSystemSyncAccessHandle::create(*context, protectedThis.get(), identifier, file));
+        promise.resolve(FileSystemSyncAccessHandle::create(*context, protectedThis.get(), identifier, WTFMove(file)));
     });
 }
 
-void FileSystemFileHandle::close(FileSystemSyncAccessHandleIdentifier accessHandleIdentifier, CompletionHandler<void(ExceptionOr<void>&&)>&& completionHandler)
+void FileSystemFileHandle::closeSyncAccessHandle(FileSystemSyncAccessHandleIdentifier accessHandleIdentifier, CompletionHandler<void(ExceptionOr<void>&&)>&& completionHandler)
 {
     if (isClosed())
         return completionHandler(Exception { InvalidStateError, "Handle is closed"_s });
 
-    connection().close(identifier(), accessHandleIdentifier, WTFMove(completionHandler));
+    connection().closeSyncAccessHandle(identifier(), accessHandleIdentifier, WTFMove(completionHandler));
 }
 
 void FileSystemFileHandle::registerSyncAccessHandle(FileSystemSyncAccessHandleIdentifier identifier, FileSystemSyncAccessHandle& handle)

@@ -33,6 +33,7 @@
 #import "FrameView.h"
 #import "Logging.h"
 #import "Page.h"
+#import "PlatformCALayerContentsDelayedReleaser.h"
 #import "PlatformWheelEvent.h"
 #import "Region.h"
 #import "ScrollingStateTree.h"
@@ -122,6 +123,12 @@ void ScrollingCoordinatorMac::commitTreeStateIfNeeded()
     updateTiledScrollingIndicator();
 }
 
+void ScrollingCoordinatorMac::didScheduleRenderingUpdate()
+{
+    RefPtr<ThreadedScrollingTree> threadedScrollingTree = downcast<ThreadedScrollingTree>(scrollingTree());
+    threadedScrollingTree->didScheduleRenderingUpdate();
+}
+
 void ScrollingCoordinatorMac::willStartRenderingUpdate()
 {
     RefPtr<ThreadedScrollingTree> threadedScrollingTree = downcast<ThreadedScrollingTree>(scrollingTree());
@@ -142,9 +149,15 @@ void ScrollingCoordinatorMac::didCompleteRenderingUpdate()
         scheduleRenderingUpdate();
 }
 
+void ScrollingCoordinatorMac::willStartPlatformRenderingUpdate()
+{
+    PlatformCALayerContentsDelayedReleaser::singleton().mainThreadCommitWillStart();
+}
+
 void ScrollingCoordinatorMac::didCompletePlatformRenderingUpdate()
 {
-    downcast<ThreadedScrollingTree>(scrollingTree())->didCompletePlatformRenderingUpdate();
+    downcast<ScrollingTreeMac>(scrollingTree())->didCompletePlatformRenderingUpdate();
+    PlatformCALayerContentsDelayedReleaser::singleton().mainThreadCommitDidEnd();
 }
 
 void ScrollingCoordinatorMac::hasNodeWithAnimatedScrollChanged(bool hasAnimatingNode)

@@ -1666,7 +1666,7 @@ void GraphicsLayerCA::setVisibleAndCoverageRects(const VisibleAndCoverageRects& 
     if (auto extent = animationExtent()) {
         // Adjust the animation extent to match the current animation position.
         auto animatingTransformWithAnchorPoint = transformByApplyingAnchorPoint(rects.animatingTransform);
-        bounds = animatingTransformWithAnchorPoint.inverse().value_or(TransformationMatrix()).mapRect(*extent);
+        bounds = valueOrDefault(animatingTransformWithAnchorPoint.inverse()).mapRect(*extent);
     }
 
     // FIXME: we need to take reflections into account when determining whether this layer intersects the coverage rect.
@@ -2351,7 +2351,7 @@ void GraphicsLayerCA::updateContentsVisibility()
         if (m_backdropLayer)
             m_backdropLayer->setHidden(false);
     } else {
-        m_layer->setContents(nullptr);
+        m_layer->clearContents();
 
         if (m_layerClones) {
             for (auto& layer : m_layerClones->primaryLayerClones.values())
@@ -2674,7 +2674,7 @@ void GraphicsLayerCA::updateDrawsContent()
         m_layer->setNeedsDisplay();
         m_hasEverPainted = false;
     } else {
-        m_layer->setContents(nullptr);
+        m_layer->clearContents();
         if (m_layerClones) {
             for (auto& layer : m_layerClones->primaryLayerClones.values())
                 layer->setContents(nullptr);

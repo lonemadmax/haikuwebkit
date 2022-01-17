@@ -60,7 +60,7 @@
 #endif
 
 #if PLATFORM(COCOA)
-#include "VersionChecks.h"
+#include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #endif
 
 namespace WebCore {
@@ -635,6 +635,14 @@ void JSDOMWindow::setOpenDatabase(JSC::JSGlobalObject& lexicalGlobalObject, JSC:
 
     bool shouldThrow = true;
     createDataProperty(&lexicalGlobalObject, Identifier::fromString(lexicalGlobalObject.vm(), "openDatabase"), value, shouldThrow);
+}
+
+JSDOMWindow& mainWorldGlobalObject(Frame& frame)
+{
+    // FIXME: What guarantees the result of jsWindowProxy() is non-null?
+    // FIXME: What guarantees the result of window() is non-null?
+    // FIXME: What guarantees the result of window() a JSDOMWindow?
+    return *jsCast<JSDOMWindow*>(frame.windowProxy().jsWindowProxy(mainThreadNormalWorld())->window());
 }
 
 } // namespace WebCore

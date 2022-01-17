@@ -27,6 +27,7 @@
 #include "AccessibilityUIElement.h"
 
 #if HAVE(ACCESSIBILITY) && USE(ATSPI)
+#include "AccessibilityNotificationHandler.h"
 #include "InjectedBundle.h"
 #include "InjectedBundlePage.h"
 #include <JavaScriptCore/JSStringRef.h>
@@ -34,6 +35,8 @@
 #include <WebCore/AccessibilityAtspiEnums.h>
 #include <WebCore/AccessibilityObjectAtspi.h>
 #include <WebKit/WKBundleFrame.h>
+#include <wtf/HashSet.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/URL.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
@@ -284,14 +287,19 @@ static String attributesOfElement(AccessibilityUIElement& element)
     // We append the platform attributes as a single line at the end.
     builder.append("AXPlatformAttributes: ");
     auto attributes = element.platformUIElement()->attributes();
+    auto keys = copyToVector(attributes.keys());
+    std::sort(keys.begin(), keys.end(), WTF::codePointCompareLessThan);
+
     bool isFirst = true;
-    for (const auto& it : attributes) {
+    for (const auto& key : keys) {
+        if (key == "id" || key == "toolkit")
+            continue;
+
         if (!isFirst)
             builder.append(", ");
         isFirst = false;
-        builder.append(it.key, ':', it.value);
+        builder.append(key, ':', attributes.get(key));
     }
-    builder.append('\n');
 
     return builder.toString();
 }
@@ -342,6 +350,11 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::stringDescriptionOfAttributeVal
     return JSStringCreateWithCharacters(nullptr, 0);
 }
 
+static bool checkElementState(WebCore::AccessibilityObjectAtspi* element, WebCore::Atspi::State state)
+{
+    return element->state() & (G_GUINT64_CONSTANT(1) << state);
+}
+
 JSRetainPtr<JSStringRef> AccessibilityUIElement::stringAttributeValue(JSStringRef attribute)
 {
     String attributeName = toWTFString(attribute);
@@ -358,6 +371,17 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::stringAttributeValue(JSStringRe
     auto attributes = m_element->attributes();
     if (attributeName == "AXPlaceholderValue")
         return OpaqueJSString::tryCreate(attributes.get("placeholder-text")).leakRef();
+    if (attributeName == "AXInvalid") {
+        auto textAttributes = m_element->textAttributes();
+        auto value = textAttributes.attributes.get("invalid");
+        if (value.isEmpty())
+            value = checkElementState(m_element.get(), WebCore::Atspi::State::InvalidEntry) ? "true" : "false";
+        return OpaqueJSString::tryCreate(value).leakRef();
+    }
+    if (attributeName == "AXARIALive")
+        return OpaqueJSString::tryCreate(attributes.get("live")).leakRef();
+    if (attributeName == "AXARIARelevant")
+        return OpaqueJSString::tryCreate(attributes.get("relevant")).leakRef();
 
     return JSStringCreateWithCharacters(nullptr, 0);
 }
@@ -443,16 +467,21 @@ RefPtr<AccessibilityUIElement> AccessibilityUIElement::uiElementAttributeValue(J
     return nullptr;
 }
 
-static bool checkElementState(WebCore::AccessibilityObjectAtspi* element, WebCore::Atspi::State state)
-{
-    return element->state() & (G_GUINT64_CONSTANT(1) << state);
-}
-
 bool AccessibilityUIElement::boolAttributeValue(JSStringRef attribute)
 {
     String attributeName = toWTFString(attribute);
     if (attributeName == "AXElementBusy")
         return checkElementState(m_element.get(), WebCore::Atspi::State::Busy);
+    if (attributeName == "AXModal")
+        return checkElementState(m_element.get(), WebCore::Atspi::State::Modal);
+    if (attributeName == "AXSupportsAutoCompletion")
+        return checkElementState(m_element.get(), WebCore::Atspi::State::SupportsAutocompletion);
+    if (attributeName == "AXInterfaceTable")
+        return m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Table);
+    if (attributeName == "AXInterfaceTableCell")
+        return m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::TableCell);
+    if (attributeName == "AXARIAAtomic")
+        return m_element->attributes().get("atomic") == "true";
 
     return false;
 }
@@ -471,6 +500,34 @@ bool AccessibilityUIElement::isAttributeSettable(JSStringRef attribute)
 
     if (checkElementState(m_element.get(), WebCore::Atspi::State::Checkable))
         return true;
+
+    auto attributes = m_element->attributes();
+    String isReadOnly = attributes.get("readonly");
+    if (!isReadOnly.isEmpty())
+        return isReadOnly == "true" ? false : true;
+
+    // If we have a listbox or combobox and the value can be set, the options should be selectable.
+    unsigned elementRole;
+    s_controller->executeOnAXThreadAndWait([this, &elementRole] {
+        m_element->updateBackingStore();
+        elementRole = m_element->role();
+    });
+    switch (elementRole) {
+    case WebCore::Atspi::Role::ComboBox:
+    case WebCore::Atspi::Role::ListBox:
+        if (auto child = childAtIndex(0)) {
+            if (elementRole == WebCore::Atspi::Role::ComboBox) {
+                // First child is the menu.
+                child = child->childAtIndex(0);
+            }
+
+            if (child)
+                return checkElementState(child->m_element.get(), WebCore::Atspi::State::Selectable);
+        }
+        break;
+    default:
+        break;
+    }
 
     if (m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Value)
         && checkElementState(m_element.get(), WebCore::Atspi::State::Focusable)) {
@@ -495,6 +552,16 @@ bool AccessibilityUIElement::isAttributeSupported(JSStringRef attribute)
         return attributes.contains("setsize");
     if (attributeName == "AXARIAPosInSet")
         return attributes.contains("posinset");
+    if (attributeName == "AXARIALive") {
+        auto value = attributes.get("live");
+        return !value.isEmpty() && value != "off";
+    }
+    if (attributeName == "AXARIARelevant")
+        return attributes.contains("relevant");
+    if (attributeName == "AXARIAAtomic")
+        return attributes.contains("atomic");
+    if (attributeName == "AXElementBusy")
+        return true;
 
     return false;
 }
@@ -502,6 +569,52 @@ bool AccessibilityUIElement::isAttributeSupported(JSStringRef attribute)
 JSRetainPtr<JSStringRef> AccessibilityUIElement::parameterizedAttributeNames()
 {
     return JSStringCreateWithCharacters(nullptr, 0);
+}
+
+static String xmlRoleValueString(const String& xmlRoles)
+{
+    static NeverDestroyed<HashSet<String, ASCIICaseInsensitiveHash>> regionRoles = HashSet<String, ASCIICaseInsensitiveHash>({
+        "doc-acknowledgments",
+        "doc-afterword",
+        "doc-appendix",
+        "doc-bibliography",
+        "doc-chapter",
+        "doc-conclusion",
+        "doc-credits",
+        "doc-endnotes",
+        "doc-epilogue",
+        "doc-errata",
+        "doc-foreword",
+        "doc-glossary",
+        "doc-glossref",
+        "doc-index",
+        "doc-introduction",
+        "doc-pagelist",
+        "doc-part",
+        "doc-preface",
+        "doc-prologue",
+        "doc-toc",
+        "region"
+    });
+
+    if (regionRoles->contains(xmlRoles))
+        return "AXLandmarkRegion"_s;
+    if (equalLettersIgnoringASCIICase(xmlRoles, "banner"))
+        return "AXLandmarkBanner"_s;
+    if (equalLettersIgnoringASCIICase(xmlRoles, "complementary"))
+        return "AXLandmarkComplementary"_s;
+    if (equalLettersIgnoringASCIICase(xmlRoles, "contentinfo"))
+        return "AXLandmarkContentInfo"_s;
+    if (equalLettersIgnoringASCIICase(xmlRoles, "form"))
+        return "AXLandmarkForm"_s;
+    if (equalLettersIgnoringASCIICase(xmlRoles, "main"))
+        return "AXLandmarkMain"_s;
+    if (equalLettersIgnoringASCIICase(xmlRoles, "navigation"))
+        return "AXLandmarkNavigation"_s;
+    if (equalLettersIgnoringASCIICase(xmlRoles, "search"))
+        return "AXLandmarkSearch"_s;
+
+    return { };
 }
 
 static String roleValueToString(unsigned roleValue)
@@ -682,7 +795,8 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::role()
         m_element->updateBackingStore();
         roleValue = m_element->role();
     });
-    auto roleValueString = roleValueToString(roleValue);
+
+    auto roleValueString = roleValue == WebCore::Atspi::Role::Landmark ? xmlRoleValueString(m_element->attributes().get("xml-roles")) : roleValueToString(roleValue);
     if (roleValueString.isEmpty())
         return JSStringCreateWithCharacters(nullptr, 0);
 
@@ -823,15 +937,25 @@ double AccessibilityUIElement::clickPointY()
 
 double AccessibilityUIElement::intValue() const
 {
-    if (!m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Value))
-        return 0;
+    if (m_element->interfaces().contains(WebCore::AccessibilityObjectAtspi::Interface::Value)) {
+        double currentValue;
+        s_controller->executeOnAXThreadAndWait([this, &currentValue] {
+            m_element->updateBackingStore();
+            currentValue = m_element->currentValue();
+        });
+        return currentValue;
+    }
 
-    double currentValue;
-    s_controller->executeOnAXThreadAndWait([this, &currentValue] {
+    // Consider headings as an special case when returning the int value.
+    unsigned elementRole;
+    s_controller->executeOnAXThreadAndWait([this, &elementRole] {
         m_element->updateBackingStore();
-        currentValue = m_element->currentValue();
+        elementRole = m_element->role();
     });
-    return currentValue;
+    if (elementRole == WebCore::Atspi::Role::Heading)
+        return m_element->attributes().get("level").toDouble();
+
+    return 0;
 }
 
 double AccessibilityUIElement::minValue()
@@ -1321,11 +1445,20 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::url()
 
 bool AccessibilityUIElement::addNotificationListener(JSValueRef functionCallback)
 {
-    return false;
+    if (!functionCallback)
+        return false;
+
+    if (m_notificationHandler)
+        return false;
+
+    m_notificationHandler = makeUnique<AccessibilityNotificationHandler>(functionCallback, m_element.get());
+    return true;
 }
 
 bool AccessibilityUIElement::removeNotificationListener()
 {
+    ASSERT(m_notificationHandler);
+    m_notificationHandler = nullptr;
     return true;
 }
 

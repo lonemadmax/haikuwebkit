@@ -1084,6 +1084,7 @@
         (global-name
             "com.apple.cfprefsd.agent"
             "com.apple.cfprefsd.daemon"
+            "com.apple.frontboard.systemappservices"
             "com.apple.iphone.axserver-systemwide"
             "com.apple.mobileassetd.v2"
             "com.apple.mobilegestalt.xpc"
@@ -1182,6 +1183,7 @@
     (syscall-number
         SYS_bsdthread_register
         SYS_chdir
+        SYS_connect
         SYS_csops ;; used by Corefoundation initialization
         SYS_dup2
         SYS_fileport_makefd
@@ -1321,7 +1323,7 @@
         SYS_umask))
 
 (when (defined? 'syscall-unix)
-    (deny syscall-unix (with send-signal SIGKILL))
+    (deny syscall-unix (with telemetry) (with send-signal SIGKILL))
     (allow syscall-unix
         (syscall-unix-only-in-use-during-launch)
         (syscall-unix-in-use-after-launch))
@@ -1548,6 +1550,14 @@
 #endif
 )
 
+(define (kernel-mig-routine-in-use-watchos)
+    (kernel-mig-routine
+        io_connect_set_notification_port
+        mach_make_memory_entry
+        mach_make_memory_entry_64
+        vm_copy
+        vm_remap_external))
+
 (define (kernel-mig-routine-only-in-use-during-launch)
     (kernel-mig-routine
         host_get_clock_service
@@ -1620,6 +1630,11 @@
             (allow mach-message-send
                 (kernel-mig-routine-only-in-use-during-launch)
                 (kernel-mig-routine-in-use))
+
+#if PLATFORM(WATCHOS)
+            (allow mach-message-send
+                (kernel-mig-routine-in-use-watchos))
+#endif
 
 #if HAVE(SANDBOX_STATE_FLAGS)
 ;; FIXME: enable this when rdar://85931614 is fixed

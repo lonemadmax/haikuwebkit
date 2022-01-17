@@ -29,6 +29,7 @@
 
 #include "ElementAncestorIterator.h"
 #include "LegacyRenderSVGRoot.h"
+#include "LegacyRenderSVGShape.h"
 #include "NodeRenderStyle.h"
 #include "RenderChildIterator.h"
 #include "RenderElement.h"
@@ -158,7 +159,7 @@ void SVGRenderSupport::computeContainerBoundingBoxes(const RenderElement& contai
             continue;
 
         // Don't include elements in the union that do not render.
-        if (is<RenderSVGShape>(current) && downcast<RenderSVGShape>(current).isRenderingDisabled())
+        if (is<LegacyRenderSVGShape>(current) && downcast<LegacyRenderSVGShape>(current).isRenderingDisabled())
             continue;
 
         const AffineTransform& transform = current.localToParentTransform();
@@ -262,9 +263,9 @@ void SVGRenderSupport::layoutChildren(RenderElement& start, bool selfNeedsLayout
             // When selfNeedsLayout is false and the layout size changed, we have to check whether this child uses relative lengths
             auto& element = downcast<SVGElement>(*child.node());
             if (element.hasRelativeLengths()) {
-                // When the layout size changed and when using relative values tell the RenderSVGShape to update its shape object
-                if (is<RenderSVGShape>(child))
-                    downcast<RenderSVGShape>(child).setNeedsShapeUpdate();
+                // When the layout size changed and when using relative values tell the LegacyRenderSVGShape to update its shape object
+                if (is<LegacyRenderSVGShape>(child))
+                    downcast<LegacyRenderSVGShape>(child).setNeedsShapeUpdate();
                 else if (is<RenderSVGText>(child)) {
                     auto& svgText = downcast<RenderSVGText>(child);
                     svgText.setNeedsTextMetricsUpdate();
@@ -421,7 +422,7 @@ void SVGRenderSupport::clipContextToCSSClippingArea(GraphicsContext& context, co
         referenceBox = localToParentTransform.mapRect(referenceBox);
 
         auto path = clipPath.pathForReferenceRect(referenceBox);
-        path.transform(localToParentTransform.inverse().value_or(AffineTransform()));
+        path.transform(valueOrDefault(localToParentTransform.inverse()));
 
         context.clipPath(path, clipPath.windRule());
     }
@@ -480,10 +481,13 @@ void SVGRenderSupport::applyStrokeStyleToContext(GraphicsContext& context, const
         float scaleFactor = 1;
 
         if (is<SVGGeometryElement>(element)) {
-            ASSERT(renderer.isSVGShape());
+            ASSERT(renderer.isSVGShapeOrLegacySVGShape());
             // FIXME: A value of zero is valid. Need to differentiate this case from being unspecified.
-            if (float pathLength = downcast<SVGGeometryElement>(element)->pathLength())
-                scaleFactor = downcast<RenderSVGShape>(renderer).getTotalLength() / pathLength;
+            if (float pathLength = downcast<SVGGeometryElement>(element)->pathLength()) {
+                if (is<LegacyRenderSVGShape>(renderer))
+                    scaleFactor = downcast<LegacyRenderSVGShape>(renderer).getTotalLength() / pathLength;
+                // FIXME: [LBSE] Upstream RenderSVGShape
+            }
         }
         
         for (auto& dash : dashes) {

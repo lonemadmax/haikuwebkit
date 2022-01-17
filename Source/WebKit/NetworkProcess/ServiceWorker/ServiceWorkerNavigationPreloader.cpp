@@ -175,10 +175,10 @@ void ServiceWorkerNavigationPreloader::didReceiveResponse(ResourceResponse&& res
         callback();
 }
 
-void ServiceWorkerNavigationPreloader::didReceiveBuffer(Ref<FragmentedSharedBuffer>&& buffer, int reportedEncodedDataLength)
+void ServiceWorkerNavigationPreloader::didReceiveBuffer(const FragmentedSharedBuffer& buffer, int reportedEncodedDataLength)
 {
     if (m_bodyCallback)
-        m_bodyCallback(buffer->makeContiguous(), reportedEncodedDataLength);
+        m_bodyCallback(RefPtr { &buffer }, reportedEncodedDataLength);
 }
 
 void ServiceWorkerNavigationPreloader::didFinishLoading(const NetworkLoadMetrics& networkLoadMetrics)
@@ -201,11 +201,15 @@ void ServiceWorkerNavigationPreloader::didComplete()
 {
     m_networkLoad = nullptr;
 
-    if (auto callback = std::exchange(m_responseCallback, { }))
-        callback();
+    auto responseCallback = std::exchange(m_responseCallback, { });
+    auto bodyCallback = std::exchange(m_bodyCallback, { });
 
-    if (m_bodyCallback)
-        m_bodyCallback({ }, 0);
+    // After calling responseCallback or bodyCallback, |this| might be destroyed.
+    if (responseCallback)
+        responseCallback();
+
+    if (bodyCallback)
+        bodyCallback({ }, 0);
 }
 
 void ServiceWorkerNavigationPreloader::waitForResponse(ResponseCallback&& callback)

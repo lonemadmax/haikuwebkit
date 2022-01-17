@@ -72,6 +72,7 @@ imported/w3c/web-platform-tests/audio-output [ Skip ]
 
 fast/speechrecognition/start-recognition-after-gum.html [ Skip ]
 fast/speechrecognition/start-recognition-after-denied-gum.html [ Skip ]
+fast/speechrecognition/start-recognition-without-devices.html [ Skip ]
 
 # Datalist is unsupported in WK1
 accessibility/datalist.html [ WontFix ]
@@ -1073,8 +1074,6 @@ webkit.org/b/215296 media/modern-media-controls/placard/placard-ltr.html [ Pass 
 
 webkit.org/b/215299 imported/w3c/web-platform-tests/css/css-logical/parsing/margin-block-inline-computed.html [ Pass Failure ]
 
-webkit.org/b/231030 [ Debug ] imported/w3c/web-platform-tests/html/dom/idlharness.worker.html [ Pass Failure DumpJSConsoleLogInStdErr ]
-
 webkit.org/b/215336 [ Release ] svg/text/hidpi-text-selection-rect-position.html [ Pass Failure ]
 
 webkit.org/b/215392 webaudio/oscillator-sawtooth.html [ Pass Failure ]
@@ -1522,6 +1521,11 @@ webkit.org/b/232852 inspector/page/setShowPaintRects.html [ Skip ]
 # The DocumentTimeline.maximumFrameRate property which this test is about is only available in WK2.
 webanimations/frame-rate/document-timeline-maximum-frame-rate.html [ Skip ]
 
+webkit.org/b/231918 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-autofocus-multiple-times.html [ Pass Failure ]
+
 # webkit.org/b/234105 Skip 2 imported/w3c/web-platform-tests/speech-api/SpeechSynthesis in mac wk1. 
 [ Catalina+ ] imported/w3c/web-platform-tests/speech-api/SpeechSynthesis-speak-events.html [ Skip ]
 [ Catalina+ ] imported/w3c/web-platform-tests/speech-api/SpeechSynthesis-pause-resume.tentative.html [ Skip ] 
+
+fast/scrolling/rtl-scrollbars-alternate-iframe-body-dir-attr-does-not-update-scrollbar-placement.html [ ImageOnlyFailure ]
+

@@ -56,6 +56,7 @@ class OriginSettings;
 class PlatformWebView;
 class TestInvocation;
 class TestOptions;
+struct Options;
 struct TestCommand;
 
 class AsyncTask {
@@ -124,7 +125,7 @@ public:
     bool beforeUnloadReturnValue() const { return m_beforeUnloadReturnValue; }
     void setBeforeUnloadReturnValue(bool value) { m_beforeUnloadReturnValue = value; }
 
-    void simulateWebNotificationClick(uint64_t notificationID);
+    void simulateWebNotificationClick(WKDataRef notificationID);
 
     // Geolocation.
     void setGeolocationPermission(bool);
@@ -350,7 +351,7 @@ public:
     void setPrivateClickMeasurementOverrideTimerForTesting(bool value);
     void markAttributedPrivateClickMeasurementsAsExpiredForTesting();
     void setPrivateClickMeasurementEphemeralMeasurementForTesting(bool value);
-    void simulateResourceLoadStatisticsSessionRestart();
+    void simulatePrivateClickMeasurementSessionRestart();
     void setPrivateClickMeasurementTokenPublicKeyURLForTesting(WKURLRef);
     void setPrivateClickMeasurementTokenSignatureURLForTesting(WKURLRef);
     void setPrivateClickMeasurementAttributionReportURLsForTesting(WKURLRef sourceURL, WKURLRef destinationURL);
@@ -384,7 +385,7 @@ private:
 
     bool handleControlCommand(const char* command);
 
-    void platformInitialize();
+    void platformInitialize(const Options&);
     void platformInitializeDataStore(WKPageConfigurationRef, const TestOptions&);
     void platformDestroy();
     WKContextRef platformAdjustContext(WKContextRef, WKContextConfigurationRef);
@@ -396,7 +397,7 @@ private:
     bool platformResetStateToConsistentValues(const TestOptions&);
 
 #if PLATFORM(COCOA)
-    void cocoaPlatformInitialize();
+    void cocoaPlatformInitialize(const Options&);
     void cocoaResetStateToConsistentValues(const TestOptions&);
     void setApplicationBundleIdentifier(const std::string&);
     void clearApplicationBundleIdentifierTestingOverride();

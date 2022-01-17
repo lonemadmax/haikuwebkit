@@ -88,6 +88,7 @@ Modules/fetch/FetchHeaders.cpp
 Modules/fetch/FetchLoader.cpp
 Modules/fetch/FetchRequest.cpp
 Modules/fetch/FetchResponse.cpp
+Modules/fetch/FormDataConsumer.cpp
 Modules/fetch/WindowOrWorkerGlobalScopeFetch.cpp
 Modules/filesystemaccess/FileSystemDirectoryHandle.cpp
 Modules/filesystemaccess/FileSystemFileHandle.cpp
@@ -242,6 +243,8 @@ Modules/model-element/dummy/DummyModelPlayer.cpp
 Modules/model-element/dummy/DummyModelPlayerProvider.cpp
 Modules/notifications/Notification.cpp
 Modules/notifications/NotificationController.cpp
+Modules/notifications/NotificationData.cpp
+Modules/notifications/NotificationEvent.cpp
 Modules/paymentrequest/MerchantValidationEvent.cpp
 Modules/paymentrequest/PaymentAddress.cpp
 Modules/paymentrequest/PaymentHandler.cpp
@@ -589,6 +592,7 @@ bindings/js/JSPluginElementFunctions.cpp
 bindings/js/JSPopStateEventCustom.cpp
 bindings/js/JSPromiseRejectionEventCustom.cpp
 bindings/js/JSRTCRtpSFrameTransformCustom.cpp
+bindings/js/JSRangeCustom.cpp
 bindings/js/JSReadableStreamSourceCustom.cpp
 bindings/js/JSRemoteDOMWindowBase.cpp
 bindings/js/JSRemoteDOMWindowCustom.cpp
@@ -629,7 +633,6 @@ bindings/js/ScheduledAction.cpp
 bindings/js/ScriptCachedFrameData.cpp
 bindings/js/ScriptController.cpp
 bindings/js/ScriptModuleLoader.cpp
-bindings/js/ScriptState.cpp
 bindings/js/ScriptWrappable.cpp
 bindings/js/SerializedScriptValue.cpp
 bindings/js/StructuredClone.cpp
@@ -1552,7 +1555,6 @@ layout/floats/FloatAvoider.cpp
 layout/floats/FloatingContext.cpp
 layout/floats/FloatingState.cpp
 layout/formattingContexts/inline/InlineContentBreaker.cpp
-layout/formattingContexts/inline/InlineDisplayContentBuilder.cpp
 layout/formattingContexts/inline/InlineFormattingContext.cpp
 layout/formattingContexts/inline/InlineFormattingGeometry.cpp
 layout/formattingContexts/inline/InlineFormattingQuirks.cpp
@@ -1565,6 +1567,8 @@ layout/formattingContexts/inline/InlineLineBoxBuilder.cpp
 layout/formattingContexts/inline/InlineLineBuilder.cpp
 layout/formattingContexts/inline/InlineLineBoxVerticalAligner.cpp
 layout/formattingContexts/inline/InlineTextItem.cpp
+layout/formattingContexts/inline/display/InlineDisplayContentBuilder.cpp
+layout/formattingContexts/inline/display/InlineDisplayLineBuilder.cpp
 layout/formattingContexts/inline/invalidation/InlineInvalidation.cpp
 layout/formattingContexts/inline/text/TextUtil.cpp
 layout/integration/InlineIteratorBox.cpp
@@ -1632,7 +1636,6 @@ loader/PingLoader.cpp
 loader/PolicyChecker.cpp
 loader/PrivateClickMeasurement.cpp
 loader/ProgressTracker.cpp
-loader/ReportingEndpointsCache.cpp
 loader/ResourceCryptographicDigest.cpp
 loader/ResourceLoadInfo.cpp
 loader/ResourceLoadNotifier.cpp
@@ -1741,6 +1744,7 @@ page/IntersectionObserverEntry.cpp
 page/Location.cpp
 page/LoggedInStatus.cpp
 page/MemoryRelease.cpp
+page/ModalContainerObserver.cpp
 page/MouseEventWithHitTestResults.cpp
 page/Navigator.cpp
 page/NavigatorBase.cpp
@@ -2227,7 +2231,6 @@ platform/network/ParsedContentRange.cpp
 platform/network/ParsedContentType.cpp
 platform/network/ParsedRequestRange.cpp
 platform/network/ProtectionSpaceBase.cpp
-platform/network/ProxyServer.cpp
 platform/network/ResourceErrorBase.cpp
 platform/network/ResourceHandle.cpp
 platform/network/ResourceHandleClient.cpp
@@ -2464,7 +2467,9 @@ rendering/style/StyleVisualData.cpp
 rendering/style/TextSizeAdjustment.cpp
 rendering/style/WillChangeData.cpp
 rendering/svg/LegacyRenderSVGModelObject.cpp
+rendering/svg/LegacyRenderSVGRect.cpp
 rendering/svg/LegacyRenderSVGRoot.cpp
+rendering/svg/LegacyRenderSVGShape.cpp
 rendering/svg/RenderSVGBlock.cpp
 rendering/svg/RenderSVGContainer.cpp
 rendering/svg/RenderSVGEllipse.cpp
@@ -2474,8 +2479,8 @@ rendering/svg/RenderSVGHiddenContainer.cpp
 rendering/svg/RenderSVGImage.cpp
 rendering/svg/RenderSVGInline.cpp
 rendering/svg/RenderSVGInlineText.cpp
+rendering/svg/RenderSVGModelObject.cpp
 rendering/svg/RenderSVGPath.cpp
-rendering/svg/RenderSVGRect.cpp
 rendering/svg/RenderSVGResource.cpp
 rendering/svg/RenderSVGResourceClipper.cpp
 rendering/svg/RenderSVGResourceContainer.cpp
@@ -2488,6 +2493,7 @@ rendering/svg/RenderSVGResourceMasker.cpp
 rendering/svg/RenderSVGResourcePattern.cpp
 rendering/svg/RenderSVGResourceRadialGradient.cpp
 rendering/svg/RenderSVGResourceSolidColor.cpp
+rendering/svg/RenderSVGRect.cpp
 rendering/svg/RenderSVGRoot.cpp
 rendering/svg/RenderSVGShape.cpp
 rendering/svg/RenderSVGTSpan.cpp
@@ -2543,6 +2549,7 @@ style/AttributeChangeInvalidation.cpp
 style/ChildChangeInvalidation.cpp
 style/ClassChangeInvalidation.cpp
 style/ElementRuleCollector.cpp
+style/HasSelectorFilter.cpp
 style/IdChangeInvalidation.cpp
 style/InlineTextBoxStyle.cpp
 style/InspectorCSSOMWrappers.cpp
@@ -3492,6 +3499,9 @@ JSNodeList.cpp
 JSNonDocumentTypeChildNode.cpp
 JSNonElementParentNode.cpp
 JSNotification.cpp
+JSNotificationDirection.cpp
+JSNotificationEvent.cpp
+JSNotificationOptions.cpp
 JSNotificationPermission.cpp
 JSNotificationPermissionCallback.cpp
 JSOESElementIndexUint.cpp

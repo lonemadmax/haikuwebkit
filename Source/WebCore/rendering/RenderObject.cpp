@@ -656,19 +656,65 @@ void RenderObject::setLayerNeedsFullRepaintForPositionedMovementLayout()
     downcast<RenderLayerModelObject>(*this).layer()->setRepaintStatus(NeedsFullRepaintForPositionedMovementLayout);
 }
 
+static inline RenderBlock* nearestNonAnonymousContainingBlockIncludingSelf(RenderElement* renderer)
+{
+    while (renderer && (!is<RenderBlock>(*renderer) || renderer->isAnonymousBlock()))
+        renderer = renderer->containingBlock();
+    return downcast<RenderBlock>(renderer);
+}
+
+RenderBlock* RenderObject::containingBlockForPositionType(PositionType positionType, const RenderObject& renderer)
+{
+    if (positionType == PositionType::Static || positionType == PositionType::Relative || positionType == PositionType::Sticky) {
+        auto containingBlockForObjectInFlow = [&] {
+            auto* ancestor = renderer.parent();
+            while (ancestor && ((ancestor->isInline() && !ancestor->isReplaced()) || !ancestor->isRenderBlock()))
+                ancestor = ancestor->parent();
+            return downcast<RenderBlock>(ancestor);
+        };
+        return containingBlockForObjectInFlow();
+    }
+
+    if (positionType == PositionType::Absolute) {
+        auto containingBlockForAbsolutePosition = [&] {
+            if (is<RenderInline>(renderer) && renderer.style().position() == PositionType::Relative) {
+                // A relatively positioned RenderInline forwards its absolute positioned descendants to
+                // its nearest non-anonymous containing block (to avoid having positioned objects list in RenderInlines).
+                return nearestNonAnonymousContainingBlockIncludingSelf(renderer.parent());
+            }
+            auto* ancestor = renderer.parent();
+            while (ancestor && !ancestor->canContainAbsolutelyPositionedObjects())
+                ancestor = ancestor->parent();
+            // Make sure we only return non-anonymous RenderBlock as containing block.
+            return nearestNonAnonymousContainingBlockIncludingSelf(ancestor);
+        };
+        return containingBlockForAbsolutePosition();
+    }
+
+    if (positionType == PositionType::Fixed) {
+        auto containingBlockForFixedPosition = [&] {
+            auto* ancestor = renderer.parent();
+            while (ancestor && !ancestor->canContainFixedPositionObjects())
+                ancestor = ancestor->parent();
+            return nearestNonAnonymousContainingBlockIncludingSelf(ancestor);
+        };
+        return containingBlockForFixedPosition();
+    }
+
+    ASSERT_NOT_REACHED();
+    return nullptr;
+}
+
 RenderBlock* RenderObject::containingBlock() const
 {
-    auto containingBlockForRenderer = [](const RenderElement& renderer)
-    {
-        if (renderer.isAbsolutelyPositioned())
-            return renderer.containingBlockForAbsolutePosition();
-        if (renderer.isFixedPositioned())
-            return renderer.containingBlockForFixedPosition();
-        return renderer.containingBlockForObjectInFlow();
-    };
-
     if (is<RenderText>(*this))
-        return containingBlockForObjectInFlow();
+        return containingBlockForPositionType(PositionType::Static, *this);
+
+    auto containingBlockForRenderer = [](const auto& renderer) -> RenderBlock* {
+        if (isInTopLayerOrBackdrop(renderer.style(), renderer.element()))
+            return &renderer.view();
+        return containingBlockForPositionType(renderer.style().position(), renderer);
+    };
 
     if (!parent() && is<RenderScrollbarPart>(*this)) {
         if (auto* scrollbarPart = downcast<RenderScrollbarPart>(*this).rendererOwningScrollbar())
@@ -676,14 +722,6 @@ RenderBlock* RenderObject::containingBlock() const
         return nullptr;
     }
     return containingBlockForRenderer(downcast<RenderElement>(*this));
-}
-
-RenderBlock* RenderObject::containingBlockForObjectInFlow() const
-{
-    auto* renderer = parent();
-    while (renderer && ((renderer->isInline() && !renderer->isReplaced()) || !renderer->isRenderBlock()))
-        renderer = renderer->parent();
-    return downcast<RenderBlock>(renderer);
 }
 
 void RenderObject::addPDFURLRect(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
@@ -1474,6 +1512,23 @@ static inline RenderElement* containerForElement(const RenderObject& renderer, c
     // This does mean that computePositionedLogicalWidth and computePositionedLogicalHeight have to use container().
     if (!is<RenderElement>(renderer))
         return renderer.parent();
+    if (isInTopLayerOrBackdrop(renderer.style(), downcast<RenderElement>(renderer).element())) {
+        auto updateRepaintContainerSkippedFlagIfApplicable = [&] {
+            if (!repaintContainerSkipped)
+                return;
+            *repaintContainerSkipped = false;
+            if (repaintContainer == &renderer.view())
+                return;
+            for (auto& ancestor : ancestorsOfType<RenderElement>(renderer)) {
+                if (repaintContainer == &ancestor) {
+                    *repaintContainerSkipped = true;
+                    break;
+                }
+            }
+        };
+        updateRepaintContainerSkippedFlagIfApplicable();
+        return &renderer.view();
+    }
     auto position = renderer.style().position();
     if (position == PositionType::Static || position == PositionType::Relative || position == PositionType::Sticky)
         return renderer.parent();
@@ -1704,7 +1759,8 @@ RenderBoxModelObject* RenderObject::offsetParent() const
     
     // Return the nearest ancestor element of A for which at least one of the following is
     // true and stop this algorithm if such an ancestor is found:
-    //     * The computed value of the position property is not static.
+    //     * The element is a containing block of absolutely-positioned descendants (regardless
+    //       of whether there are any absolutely-positioned descendants).
     //     * It is the HTML body element.
     //     * The computed value of the position property of A is static and the ancestor
     //       is one of the following HTML elements: td, th, or table.
@@ -1713,7 +1769,7 @@ RenderBoxModelObject* RenderObject::offsetParent() const
     bool skipTables = isPositioned();
     float currZoom = style().effectiveZoom();
     auto current = parent();
-    while (current && (!current->element() || (!current->isPositioned() && !current->isBody()))) {
+    while (current && (!current->element() || (!current->canContainAbsolutelyPositionedObjects() && !current->isBody()))) {
         Element* element = current->element();
         if (!skipTables && element && (is<HTMLTableElement>(*element) || is<HTMLTableCellElement>(*element)))
             break;

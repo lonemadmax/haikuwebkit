@@ -28,6 +28,11 @@
 #include "MessageReceiver.h"
 #include "WebPageProxyIdentifier.h"
 #include <WebCore/NotificationDirection.h>
+#include <wtf/UUID.h>
+
+namespace WebCore {
+struct NotificationData;
+}
 
 namespace WebKit {
 
@@ -36,10 +41,10 @@ public:
     virtual ~NotificationManagerMessageHandler() = default;
 
     virtual void requestSystemNotificationPermission(const String& securityOrigin, CompletionHandler<void(bool)>&&) = 0;
-    virtual void showNotification(const String& title, const String& body, const String& iconURL, const String& tag, const String& language, WebCore::NotificationDirection, const String& originString, uint64_t notificationID) = 0;
-    virtual void cancelNotification(uint64_t notificationID) = 0;
-    virtual void clearNotifications(const Vector<uint64_t>& notificationIDs) = 0;
-    virtual void didDestroyNotification(uint64_t notificationID) = 0;
+    virtual void showNotification(const WebCore::NotificationData&) = 0;
+    virtual void cancelNotification(const UUID& notificationID) = 0;
+    virtual void clearNotifications(const Vector<UUID>& notificationIDs) = 0;
+    virtual void didDestroyNotification(const UUID& notificationID) = 0;
 
 private:
     // IPC::MessageReceiver

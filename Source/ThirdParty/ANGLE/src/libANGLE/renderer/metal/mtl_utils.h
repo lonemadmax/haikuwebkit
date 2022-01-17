@@ -33,8 +33,6 @@ void StopFrameCapture();
 namespace mtl
 {
 
-NS_ASSUME_NONNULL_BEGIN
-
 // Initialize texture content to black.
 angle::Result InitializeTextureContents(const gl::Context *context,
                                         const TextureRef &texture,
@@ -89,18 +87,18 @@ MTLScissorRect GetScissorRect(const gl::Rectangle &rect,
 uint32_t GetDeviceVendorId(id<MTLDevice> metalDevice);
 
 AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
-    id<MTLDevice> metalDevice,
+    const mtl::ContextDevice &metalDevice,
     const std::string &source,
     NSDictionary<NSString *, NSObject *> *substitutionDictionary,
     bool enableFastMath,
     AutoObjCPtr<NSError *> *error);
 
-AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(id<MTLDevice> metalDevice,
+AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(const mtl::ContextDevice &metalDevice,
                                                 const std::string &source,
                                                 AutoObjCPtr<NSError *> *error);
 
 AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
-    id<MTLDevice> metalDevice,
+    const mtl::ContextDevice &metalDevice,
     const char *source,
     size_t sourceLen,
     NSDictionary<NSString *, NSObject *> *substitutionDictionary,
@@ -159,8 +157,8 @@ MTLColorWriteMask GetEmulatedColorWriteMask(const mtl::Format &mtlFormat,
 MTLColorWriteMask GetEmulatedColorWriteMask(const mtl::Format &mtlFormat);
 bool IsFormatEmulated(const mtl::Format &mtlFormat);
 
-NSUInteger GetMaxRenderTargetSizeForDeviceInBytes(id<MTLDevice> device);
-NSUInteger GetMaxNumberOfRenderTargetsForDevice(id<MTLDevice> device);
+NSUInteger GetMaxRenderTargetSizeForDeviceInBytes(const mtl::ContextDevice &device);
+NSUInteger GetMaxNumberOfRenderTargetsForDevice(const mtl::ContextDevice &device);
 bool DeviceHasMaximumRenderTargetSize(id<MTLDevice> device);
 
 // Useful to set clear color for texture originally having no alpha in GL, but backend's format
@@ -169,12 +167,12 @@ MTLClearColor EmulatedAlphaClearColor(MTLClearColor color, MTLColorWriteMask col
 
 NSUInteger ComputeTotalSizeUsedForMTLRenderPassDescriptor(const MTLRenderPassDescriptor *descriptor,
                                                           const Context *context,
-                                                          id<MTLDevice> device);
+                                                          const mtl::ContextDevice &device);
 
 NSUInteger ComputeTotalSizeUsedForMTLRenderPipelineDescriptor(
     const MTLRenderPipelineDescriptor *descriptor,
     const Context *context,
-    id<MTLDevice> device);
+    const mtl::ContextDevice &device);
 
 gl::Box MTLRegionToGLBox(const MTLRegion &mtlRegion);
 
@@ -193,13 +191,12 @@ angle::Result CreateMslShader(Context *context,
                               MTLFunctionConstantValues *funcConstants,
                               AutoObjCPtr<id<MTLFunction>> *shaderOut);
 
-angle::Result CreateMslShader(Context *_Nonnull context,
+angle::Result CreateMslShader(Context *context,
                               id<MTLLibrary> shaderLib,
-                              NSString *_Nonnull shaderName,
-                              MTLFunctionConstantValues *_Nullable funcConstants,
-                              id<MTLFunction> _Nullable *_Nonnull shaderOut);
+                              NSString *shaderName,
+                              MTLFunctionConstantValues *funcConstants,
+                              id<MTLFunction> *shaderOut);
 
-NS_ASSUME_NONNULL_END
 }  // namespace mtl
 }  // namespace rx
 

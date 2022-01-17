@@ -58,6 +58,7 @@
 #include "ServiceWorkerFetchTaskMessages.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebErrors.h"
+#include "WebIDBServer.h"
 #include "WebProcessMessages.h"
 #include "WebProcessPoolMessages.h"
 #include "WebResourceLoadStatisticsStore.h"
@@ -140,6 +141,10 @@ NetworkConnectionToWebProcess::~NetworkConnectionToWebProcess()
 
     for (auto& port : m_processEntangledPorts)
         networkProcess().messagePortChannelRegistry().didCloseMessagePort(port);
+
+    auto completionHandlers = std::exchange(m_messageBatchDeliveryCompletionHandlers, { });
+    for (auto& completionHandler : completionHandlers.values())
+        completionHandler();
 
 #if HAVE(COOKIE_CHANGE_LISTENER_API)
     if (auto* networkStorageSession = storageSession())
@@ -425,13 +430,18 @@ void NetworkConnectionToWebProcess::createSocketStream(URL&& url, String cachePa
 #if PLATFORM(COCOA)
     token = { m_networkProcess->sourceApplicationAuditData() };
 #endif
-    m_networkSocketStreams.add(identifier, NetworkSocketStream::create(m_networkProcess.get(), WTFMove(url), m_sessionID, cachePartition, identifier, m_connection, WTFMove(token)));
+    auto acceptInsecureCertificates = false;
+#if !HAVE(NSURLSESSION_WEBSOCKET)
+    if (auto* session = networkSession())
+        acceptInsecureCertificates = session->shouldAcceptInsecureCertificatesForWebSockets();
+#endif
+    m_networkSocketStreams.add(identifier, NetworkSocketStream::create(m_networkProcess.get(), WTFMove(url), m_sessionID, cachePartition, identifier, m_connection, WTFMove(token), acceptInsecureCertificates));
 }
 
-void NetworkConnectionToWebProcess::createSocketChannel(const ResourceRequest& request, const String& protocol, WebSocketIdentifier identifier,  WebPageProxyIdentifier webPageProxyID)
+void NetworkConnectionToWebProcess::createSocketChannel(const ResourceRequest& request, const String& protocol, WebSocketIdentifier identifier,  WebPageProxyIdentifier webPageProxyID, const ClientOrigin& clientOrigin)
 {
     ASSERT(!m_networkSocketChannels.contains(identifier));
-    if (auto channel = NetworkSocketChannel::create(*this, m_sessionID, request, protocol, identifier, webPageProxyID))
+    if (auto channel = NetworkSocketChannel::create(*this, m_sessionID, request, protocol, identifier, webPageProxyID, clientOrigin))
         m_networkSocketChannels.add(identifier, WTFMove(channel));
 }
 
@@ -496,18 +506,22 @@ std::unique_ptr<ServiceWorkerFetchTask> NetworkConnectionToWebProcess::createFet
 
 void NetworkConnectionToWebProcess::scheduleResourceLoad(NetworkResourceLoadParameters&& loadParameters, std::optional<NetworkResourceLoadIdentifier> existingLoaderToResume)
 {
-    CONNECTION_RELEASE_LOG(Loading, "scheduleResourceLoad: (parentPID=%d, pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 ", existingLoaderToResume=%" PRIu64 ")", loadParameters.parentPID, loadParameters.webPageProxyID.toUInt64(), loadParameters.webPageID.toUInt64(), loadParameters.webFrameID.toUInt64(), loadParameters.identifier.toUInt64(), existingLoaderToResume.value_or(NetworkResourceLoadIdentifier { }).toUInt64());
+    CONNECTION_RELEASE_LOG(Loading, "scheduleResourceLoad: (parentPID=%d, pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 ", existingLoaderToResume=%" PRIu64 ")", loadParameters.parentPID, loadParameters.webPageProxyID.toUInt64(), loadParameters.webPageID.toUInt64(), loadParameters.webFrameID.toUInt64(), loadParameters.identifier.toUInt64(), valueOrDefault(existingLoaderToResume).toUInt64());
 
 #if ENABLE(SERVICE_WORKER)
-    auto& server = m_networkProcess->swServerForSession(m_sessionID);
-    if (!server.isImportCompleted()) {
-        server.whenImportIsCompleted([this, protectedThis = Ref { *this }, loadParameters = WTFMove(loadParameters), existingLoaderToResume]() mutable {
-            if (!m_networkProcess->webProcessConnection(webProcessIdentifier()))
-                return;
-            ASSERT(m_networkProcess->swServerForSession(m_sessionID).isImportCompleted());
-            scheduleResourceLoad(WTFMove(loadParameters), existingLoaderToResume);
-        });
-        return;
+    if (auto* session = networkSession()) {
+        if (auto& server = session->ensureSWServer(); !server.isImportCompleted()) {
+            server.whenImportIsCompleted([this, protectedThis = Ref { *this }, loadParameters = WTFMove(loadParameters), existingLoaderToResume]() mutable {
+                if (!m_networkProcess->webProcessConnection(webProcessIdentifier()))
+                    return;
+
+                ASSERT(networkSession());
+                ASSERT(networkSession()->swServer());
+                ASSERT(networkSession()->swServer()->isImportCompleted());
+                scheduleResourceLoad(WTFMove(loadParameters), existingLoaderToResume);
+            });
+            return;
+        }
     }
 #endif
 
@@ -936,7 +950,8 @@ void NetworkConnectionToWebProcess::writeBlobsToTemporaryFilesForIndexedDB(const
         for (auto& file : fileReferences)
             file->revokeFileAccess();
 
-        m_networkProcess->webIDBServer(m_sessionID).registerTemporaryBlobFilePaths(m_connection, filePaths);
+        if (auto* session = networkSession())
+            session->ensureWebIDBServer().registerTemporaryBlobFilePaths(m_connection, filePaths);
         completionHandler(WTFMove(filePaths));
     });
 }
@@ -1151,7 +1166,11 @@ void NetworkConnectionToWebProcess::establishSWServerConnection()
     if (m_swConnection)
         return;
 
-    auto& server = m_networkProcess->swServerForSession(m_sessionID);
+    auto* session = networkSession();
+    if (!session)
+        return;
+
+    auto& server = session->ensureSWServer();
     auto connection = makeUnique<WebSWServerConnection>(m_networkProcess, server, m_connection.get(), m_webProcessIdentifier);
 
     m_swConnection = *connection;
@@ -1160,8 +1179,9 @@ void NetworkConnectionToWebProcess::establishSWServerConnection()
 
 void NetworkConnectionToWebProcess::establishSWContextConnection(WebPageProxyIdentifier webPageProxyID, RegistrableDomain&& registrableDomain, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, CompletionHandler<void()>&& completionHandler)
 {
-    if (auto* server = m_networkProcess->swServerForSessionIfExists(m_sessionID))
-        m_swContextConnection = makeUnique<WebSWServerToContextConnection>(*this, webPageProxyID, WTFMove(registrableDomain), serviceWorkerPageIdentifier, *server);
+    auto* session = networkSession();
+    if (auto* swServer = session ? session->swServer() : nullptr)
+        m_swContextConnection = makeUnique<WebSWServerToContextConnection>(*this, webPageProxyID, WTFMove(registrableDomain), serviceWorkerPageIdentifier, *swServer);
     completionHandler();
 }
 
@@ -1216,7 +1236,7 @@ void NetworkConnectionToWebProcess::messagePortClosed(const MessagePortIdentifie
     networkProcess().messagePortChannelRegistry().didCloseMessagePort(port);
 }
 
-uint64_t NetworkConnectionToWebProcess::nextMessageBatchIdentifier(Function<void()>&& deliveryCallback)
+uint64_t NetworkConnectionToWebProcess::nextMessageBatchIdentifier(CompletionHandler<void()>&& deliveryCallback)
 {
     static uint64_t currentMessageBatchIdentifier;
     ASSERT(!m_messageBatchDeliveryCompletionHandlers.contains(currentMessageBatchIdentifier + 1));
@@ -1226,7 +1246,7 @@ uint64_t NetworkConnectionToWebProcess::nextMessageBatchIdentifier(Function<void
 
 void NetworkConnectionToWebProcess::takeAllMessagesForPort(const MessagePortIdentifier& port, CompletionHandler<void(Vector<MessageWithMessagePorts>&&, uint64_t)>&& callback)
 {
-    networkProcess().messagePortChannelRegistry().takeAllMessagesForPort(port, [this, protectedThis = Ref { *this }, callback = WTFMove(callback)](auto&& messages, Function<void()>&& deliveryCallback) mutable {
+    networkProcess().messagePortChannelRegistry().takeAllMessagesForPort(port, [this, protectedThis = Ref { *this }, callback = WTFMove(callback)](auto&& messages, auto&& deliveryCallback) mutable {
         callback(WTFMove(messages), nextMessageBatchIdentifier(WTFMove(deliveryCallback)));
     });
 }

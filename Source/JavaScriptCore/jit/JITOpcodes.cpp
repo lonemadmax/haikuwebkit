@@ -53,7 +53,7 @@ void JIT::emit_op_mov(const Instruction* currentInstruction)
 
     if (src.isConstant()) {
         if (m_profiledCodeBlock->isConstantOwnedByUnlinkedCodeBlock(src)) {
-            storeValue(m_unlinkedCodeBlock->getConstant(src), addressFor(dst));
+            storeValue(m_unlinkedCodeBlock->getConstant(src), addressFor(dst), jsRegT10);
         } else {
             loadCodeBlockConstant(src, jsRegT10);
             storeValue(jsRegT10, addressFor(dst));
@@ -1064,8 +1064,7 @@ void JIT::emit_op_catch(const Instruction* currentInstruction)
     // So we replenish it here.
     {
         loadPtr(addressFor(CallFrameSlot::codeBlock), regT0);
-        loadPtr(Address(regT0, CodeBlock::offsetOfJITData()), regT0);
-        loadPtr(Address(regT0, CodeBlock::JITData::offsetOfJITConstantPool()), s_constantsGPR);
+        loadPtr(Address(regT0, CodeBlock::offsetOfBaselineJITData()), s_constantsGPR);
     }
 
     callOperationNoExceptionCheck(operationRetrieveAndClearExceptionIfCatchable, &vm());
@@ -1485,39 +1484,6 @@ void JIT::emitSlow_op_jneq(const Instruction* currentInstruction, Vector<SlowCas
 }
 
 #endif // USE(JSVALUE64)
-
-void JIT::emit_op_instanceof_custom(const Instruction*)
-{
-    // This always goes to slow path since we expect it to be rare.
-    addSlowCase(jump());
-}
-
-void JIT::emitSlow_op_instanceof_custom(const Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
-{
-    linkAllSlowCases(iter);
-
-    auto bytecode = currentInstruction->as<OpInstanceofCustom>();
-    VirtualRegister dst = bytecode.m_dst;
-    VirtualRegister value = bytecode.m_value;
-    VirtualRegister constructor = bytecode.m_constructor;
-    VirtualRegister hasInstanceValue = bytecode.m_hasInstanceValue;
-
-    using SlowOperation = decltype(operationInstanceOfCustom);
-    constexpr GPRReg globalObjectGPR = preferredArgumentGPR<SlowOperation, 0>();
-    constexpr JSValueRegs valueJSR = preferredArgumentJSR<SlowOperation, 1>();
-    constexpr GPRReg constructorGPR = preferredArgumentGPR<SlowOperation, 2>();
-    constexpr JSValueRegs hasInstanceValueJSR = preferredArgumentJSR<SlowOperation, 3>();
-
-    emitGetVirtualRegister(value, valueJSR);
-    emitGetVirtualRegisterPayload(constructor, constructorGPR);
-    emitGetVirtualRegister(hasInstanceValue, hasInstanceValueJSR);
-    loadGlobalObject(globalObjectGPR);
-    callOperation(
-        operationInstanceOfCustom,
-        globalObjectGPR, valueJSR, constructorGPR, hasInstanceValueJSR);
-    boxBoolean(returnValueGPR, returnValueJSR);
-    emitPutVirtualRegister(dst, returnValueJSR);
-}
 
 void JIT::emit_op_debug(const Instruction* currentInstruction)
 {

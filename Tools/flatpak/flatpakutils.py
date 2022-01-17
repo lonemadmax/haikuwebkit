@@ -705,6 +705,10 @@ class WebkitFlatpak:
         # For now this supports only files in the WebKit path
         return host_path.replace(self.source_root, self.sandbox_source_root)
 
+    @staticmethod
+    def get_user_runtime_dir():
+        return os.environ.get('XDG_RUNTIME_DIR', os.path.join('/run/user', str(os.getuid())))
+
     def run_in_sandbox(self, *args, **kwargs):
         if not self.setup_builddir():
             return 1
@@ -757,6 +761,9 @@ class WebkitFlatpak:
                            "--die-with-parent",
                            "--filesystem=host",
                            "--allow=devel",
+                           # FIXME: --session-bus is only a workaround for https://github.com/flatpak/flatpak/pull/4630
+                           "--session-bus",
+                           "--no-a11y-bus",
                            "--talk-name=org.a11y.Bus",
                            "--talk-name=org.gtk.vfs",
                            "--talk-name=org.gtk.vfs.*"]
@@ -980,7 +987,7 @@ class WebkitFlatpak:
         command = flatpak_command
 
         if gather_output:
-            return run_sanitized(command, gather_output=True, ignore_stderr=True, env=flatpak_env)
+            return run_sanitized(command, gather_output=True, ignore_stderr=False, env=flatpak_env)
 
         try:
             return self.execute_command(command, stdout=stdout, env=flatpak_env, keep_signals=keep_signals)

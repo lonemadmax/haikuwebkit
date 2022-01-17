@@ -1,3 +1,248 @@
+2022-01-09  Sam Weinig  <weinig@apple.com>
+
+        Remove support for Direct2D
+        https://bugs.webkit.org/show_bug.cgi?id=234999
+
+        Reviewed by Darin Adler.
+
+        Direct2D and FTW have not been building for over a year. It is
+        time to remove them.
+
+        * PlatformFTW.cmake: Removed.
+
+2022-01-07  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed, reverting r287698.
+
+        Broke an internal build
+
+        Reverted changeset:
+
+        "Start using C++20"
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+        https://commits.webkit.org/r287698
+
+2022-01-06  Alex Christensen  <achristensen@webkit.org>
+
+        Start using C++20
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+
+        Reviewed by Yusuke Suzuki.
+
+        * Configurations/Base.xcconfig:
+
+2022-01-05  Kyle Piddington  <kpiddington@apple.com>
+
+        Roll ANGLE to aabfe8747d 12-17-2021
+        https://bugs.webkit.org/show_bug.cgi?id=234523
+
+        Reviewed by Kenneth Russell.
+
+        The changelog has been removed to improve readability.
+        The following ANGLE commits were merged: 
+
+        aabfe8747 Metal: Use the context device to Texture::resize
+        34ea81111 Reland "Vulkan: Don't expose MSRTT on SwiftShader"
+        624e3c3d5 Fix dangerous use of AutoObjCPtr after ownership identity change
+        4a148e9d9 Revert "Vulkan: Suppress VUID-vkCmdDraw-blendEnable"
+        ede0b8b71 Avoid ANGLE_MTL_AUTORELEASE inside ASSERT, it leaks on Release
+        cb4f441c8 Roll vulkan-deps from 39f3a18bdfbe to 5568048d205e (8 revisions)
+        2f78b48db Roll Chromium from 14ca75d254a5 to 81decb7250e1 (191 revisions)
+        001221f0e Metal: upstream fix from WebKit for texture leak.
+        dca434bdc Roll Chromium from 3f6c88f5581a to 14ca75d254a5 (401 revisions)
+        b9f2d9cc1 Use text expectations to skip a test
+        6c894e829 Vulkan: Replace BufferVk::getBufferAndOffset() with getBuffer()
+        f2736f6dc Tests: Add My Talking Tom Friends trace.
+        a93a3930b Vulkan: Track enabled in VertexArray
+        83a670ab0 Vulkan: Implement BufferPool using VMA's virtual allocator
+        836797166 Vulkan: Dirty vertex buffers if default attrib values changed
+        543f5750f (origin/chromium/4771) Vulkan: Disable protected memory for ARM
+        c7446ac42 Add support for GL_MESA_framebuffer_flip_y 1/*
+        60383b41e Tests: Add Dota Underlords trace.
+        f26687a03 Tests: Add My Talking Tom 2 trace.
+        438de17ee Roll vulkan-deps from a8221eed5970 to 39f3a18bdfbe (5 revisions)
+        e7413adff system_utils_posix: Check for SEGV_MAPERR si_code.
+        6e5fd8165 Support more ImageLayout in ConvertImageLayoutToGLImageLayout
+        b26bb13ab Metal: Remove references to xfbActiveUnpaused uniform
+        bb5bab031 Roll Chromium from 2dae07eeb163 to 3f6c88f5581a (414 revisions)
+        c4d434b91 Metal: Enable OES_fbo_render_mipmap
+        670679918 Metal: Fix Webkit warnings in ANGLE build
+        bda493258 Add guards for 64 bit types on 32bit systems
+        e7c9dbb88 Skip SimpleStateChangeTestES3.OutOfBoundsByteAttribute on Pixel4 GLES
+        89e11878b Vulkan: Fix the UAF issue with BufferData
+        ee1d3cf74 Metal: Integrate Metal Binary Shader generation
+        3e7e2758f Metal: Fix macOS ANGLE build on Catalina (10.15) SDK
+        05a44dd24 Vulkan: Set content undefined on eglSwapBuffers
+        26fa0fe68 Tests: Add Asphalt 9 trace
+        5275f487e Vulkan: Disable async command queue with Vulkan SCBs
+        feb599ad8 Invalidate EGL handles during eglTerminate
+        32e23bb9d Expand WebGLCompressedTextureAvailabilityTest
+        d6b9a2597 end2end_tests: Add SwS + AsyncQueue testing.
+        a0eb6146c Update warning message for invalid include
+        cac81f077 Return full error info when opening a library with dlopen
+        90c3038e5 Vulkan: Fix desc set updates with Vulkan SCBs
+        8419f4fcd Roll vulkan-deps from c03890076954 to a8221eed5970 (2 revisions)
+        db367bd71 Roll Chromium from 0c0a3654694f to 2dae07eeb163 (450 revisions)
+        bfc7f09ae Revert "Upgrade restricted traces to new trace format."
+        800c6971c Modified buffer fallback format to smaller storage format
+        709d87278 Revert "Trace Tests: Remove auto-generated code."
+        3da54250b Skip MultithreadingTest.MultiContextDrawWithSwapBuffers
+        7f1a0f89b Switch to non-deprecated bbagent, remove defunct experiments.
+        9d49d8438 Add WebGLCompressedTextureAvailabilityTest
+	
+2022-01-05  Michael Saboff  <msaboff@apple.com>
+
+        REGRESSION (r287382): libANGLE is built into a wrong location on iOS
+        https://bugs.webkit.org/show_bug.cgi?id=234857
+
+        Reviewed by Saam Barati.
+
+        Reverted to the prior logic to compute INSTALL_PATH.  Then added an optional prefix
+        for the alternate root framework location.
+
+        * Configurations/ANGLE-dynamic.xcconfig:
+
+2021-12-22  Michael Saboff  <msaboff@apple.com>
+
+        Fix WebKit Build issues when using system content path
+        https://bugs.webkit.org/show_bug.cgi?id=234624
+
+        Reviewed by Filip Pizlo.
+
+        Changed INSTALL_PATH on macOS builds to use a fully qualified .../WebCore.framework/Versions/A/Frameworks.
+        Deleted unused create-symlink-to-altroot.sh script.
+
+        * Configurations/ANGLE-dynamic.xcconfig:
+        * scripts/create-symlink-to-altroot.sh: Removed.
+
+2021-12-21  Michael Saboff  <msaboff@apple.com>
+
+        Fix symlinks for alternate root framework locations
+        https://bugs.webkit.org/show_bug.cgi?id=234567
+
+        Reviewed by Filip Pizlo.
+
+        Eliminated the creation of symlinks for ANGLE as it is under WebCore.
+
+        * ANGLE.xcodeproj/project.pbxproj:
+        * Configurations/ANGLE-dynamic.xcconfig:
+
+2021-12-21  Arcady Goldmints-Orlov  <agoldmints@igalia.com>
+
+        [GTK] build fails with undefined symbol in ANGLE if USE_ANGLE_WEBGL is enabled.
+        https://bugs.webkit.org/show_bug.cgi?id=234239
+
+        Reviewed by Kenneth Russell.
+
+        Add a new linux.cmake file that defines angle_dma_buf_sources.
+        This list gets appended it into ANGLE_SOURCES in PlatformGTK.cmake.
+
+        * linux.cmake: Added. Manual translation of src/common/linux/BUILD.gn.
+        * PlatformGTK.cmake:
+
+2021-12-17  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [ANGLE] "WARN: driver_utils.cpp:169 (rx::GetVendorString):! Unimplemented: rx::GetVendorString" on WinCairo debug testing bot
+        https://bugs.webkit.org/show_bug.cgi?id=234371
+
+        Reviewed by Kenneth Russell.
+
+        After r286603 updated ANGLE, WinCairo debug testing bot was
+        observing annoying warning message for all WebGL tessts.
+        > WARN: driver_utils.cpp:169 (rx::GetVendorString): 	! Unimplemented: rx::GetVendorString(..\..\Source\ThirdParty\ANGLE\src\libANGLE\renderer\driver_utils.cpp:169)
+
+        The vendor ID was 0x1414 (Microsoft).
+        <https://pcisig.com/membership/member-companies>
+
+        * src/libANGLE/renderer/driver_utils.cpp:
+        (rx::GetVendorString): Added more vendor strings for vendor IDs.
+        * src/libANGLE/renderer/driver_utils.h: Added VENDOR_ID_MICROSOFT.
+
+2021-12-17  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        REGRESSION (r287068): [macOS arm64] TestWebKitAPI.GraphicsContextGLCocoaTest.UnrecycledDisplayBuffersNoLeaks is failing
+        https://bugs.webkit.org/show_bug.cgi?id=234356
+        <rdar://problem/86533892>
+
+        Reviewed by Antti Koivisto.
+
+        Avoid leaking MTLTexture instances for render targets. Leak would happen through
+        temporary render pass descriptor that would ref the render target texture.
+        The descriptor was created without autoreleasepool in call stack.
+        Also fixes the error string leaks.
+
+        UnrecycledDisplayBuffersNoLeaks would report leaks of iosurface-backed
+        GraphicsContextGL default framebuffer bound textures if glClear was called.
+
+        * src/libANGLE/renderer/metal/ContextMtl.mm:
+        (rx::ContextMtl::getRenderPassCommandEncoder):
+
+2021-12-16  John Cunningham  <johncunningham@apple.com>
+
+        Add support to attribute ownership of ANGLE Metal's resources
+        https://bugs.webkit.org/show_bug.cgi?id=233941
+
+        Reviewed by Kimmo Kinnunen.
+
+        Add SPI to mtl_resource_spi.h to attribute memory to another task.
+
+        * Configurations/ANGLE-dynamic.xcconfig:
+        * Configurations/ANGLE-static.xcconfig:
+        * src/libANGLE/renderer/metal/mtl_resource_spi.h:
+        (rx::mtl::setOwnerWithIdentity):
+
+2021-12-16  Michael Saboff  <msaboff@apple.com>
+
+        https://bugs.webkit.org/show_bug.cgi?id=234173
+        Update Install Paths for build system changes
+
+        Reviewed by Filip Pizlo.
+
+        Added build variables and build step to create symlinks pointing to the alternate
+        build locations from the current framework install location.
+
+        * ANGLE.xcodeproj/project.pbxproj:
+        * Configurations/ANGLE-dynamic.xcconfig:
+        * scripts/create-symlink-to-altroot.sh: Added.
+
+2021-12-15  Dean Jackson  <dino@apple.com>
+
+        [ANGLE] clang with -Wunknown-warning-option will fail on -Wweak-template-vtables
+        https://bugs.webkit.org/show_bug.cgi?id=233837
+        <rdar://problem/86335819>
+
+        Reviewed by Antoine Quint.
+
+        Turn off unknown-warning-option on Apple builds. This shouldn't need to be
+        upstreamed - the Xcode configurations for ANGLE are specific to WebKit.
+
+        * Configurations/Base.xcconfig:
+
+2021-12-15  Chris Lord  <clord@igalia.com>
+
+        [GTK] Use libgbm and the ANGLE gbm backend to fix initialisation
+        https://bugs.webkit.org/show_bug.cgi?id=234293
+
+        Reviewed by Don Olmstead.
+
+        Use GBM backend for GTK platform.
+
+        * CMakeLists.txt:
+        * GL.cmake:
+        * PlatformGTK.cmake:
+
+2021-12-15  Kyle Piddington  <kpiddington@apple.com>
+
+        [ANGLE] Roll ANGLE to 12-14-2021 (5ee7dfbd5a3)
+        https://bugs.webkit.org/show_bug.cgi?id=234317
+
+        Reviewed by Kenneth Russell.
+
+        Roll ANGLE to 12-14-2021 to include new memory-attribution
+        Metal device, merge up fixes, EAC/ ASTC support on M1
+
+        The changelog has been removed to promote readability       
+
 2021-12-13  Alejandro G. Castro  <alex@igalia.com>
 
         [GTK] Fix ANGLE compilation

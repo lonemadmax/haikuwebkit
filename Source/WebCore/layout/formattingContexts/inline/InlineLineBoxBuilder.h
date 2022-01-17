@@ -27,9 +27,7 @@
 
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 
-#include "InlineDisplayLine.h"
 #include "InlineFormattingContext.h"
-#include "InlineLineBox.h"
 #include "InlineLineBuilder.h"
 #include "TextUtil.h"
 
@@ -44,17 +42,17 @@ class LineBoxBuilder {
 public:
     LineBoxBuilder(const InlineFormattingContext&);
 
-    struct LineAndLineBox {
-        InlineDisplay::Line line;
+    struct LineBoxAndHeight {
         LineBox lineBox;
+        InlineLayoutUnit lineBoxLogicalHeight;
     };
-    LineAndLineBox build(const LineBuilder::LineContent&, size_t lineIndex);
+    LineBoxAndHeight build(const LineBuilder::LineContent&, size_t lineIndex);
 
 private:
     void setInitialVerticalGeometryForInlineBox(InlineLevelBox&) const;
     void setVerticalGeometryForLineBreakBox(InlineLevelBox& lineBreakBox, const InlineLevelBox& parentInlineBox) const;
     void adjustVerticalGeometryForInlineBoxWithFallbackFonts(InlineLevelBox&, const TextUtil::FallbackFontList&) const;
-    InlineLayoutUnit constructAndAlignInlineLevelBoxes(LineBox&, const Line::RunList&, size_t lineIndex);
+    InlineLayoutUnit constructAndAlignInlineLevelBoxes(LineBox&, const LineBuilder::LineContent&, size_t lineIndex);
 
     const InlineFormattingContext& formattingContext() const { return m_inlineFormattingContext; }
     const Box& rootBox() const { return formattingContext().root(); }

@@ -128,7 +128,7 @@ ALWAYS_INLINE NodeVector ContainerNode::removeAllChildrenWithScriptAssertion(Chi
             removeBetween(nullptr, child->nextSibling(), *child);
             auto subtreeObservability = notifyChildNodeRemoved(*this, *child);
             if (source == ChildChange::Source::API && subtreeObservability == RemovedSubtreeObservability::MaybeObservableByRefPtr)
-                willCreatePossiblyOrphanedTreeByRemoval(child.get());
+                willCreatePossiblyOrphanedTreeByRemoval(*child);
         }
     }
 
@@ -210,7 +210,7 @@ ALWAYS_INLINE bool ContainerNode::removeNodeWithScriptAssertion(Node& childToRem
     }
 
     if (source == ChildChange::Source::API && subtreeObservability == RemovedSubtreeObservability::MaybeObservableByRefPtr)
-        willCreatePossiblyOrphanedTreeByRemoval(&childToRemove);
+        willCreatePossiblyOrphanedTreeByRemoval(childToRemove);
 
     ASSERT_WITH_SECURITY_IMPLICATION(!document().selection().selection().isOrphan());
 
@@ -1000,7 +1000,7 @@ unsigned ContainerNode::childElementCount() const
     return std::distance(children.begin(), { });
 }
 
-ExceptionOr<void> ContainerNode::append(Vector<NodeOrString>&& vector)
+ExceptionOr<void> ContainerNode::append(FixedVector<NodeOrString>&& vector)
 {
     auto result = convertNodesOrStringsIntoNode(WTFMove(vector));
     if (result.hasException())
@@ -1013,7 +1013,7 @@ ExceptionOr<void> ContainerNode::append(Vector<NodeOrString>&& vector)
     return appendChild(*node);
 }
 
-ExceptionOr<void> ContainerNode::prepend(Vector<NodeOrString>&& vector)
+ExceptionOr<void> ContainerNode::prepend(FixedVector<NodeOrString>&& vector)
 {
     auto result = convertNodesOrStringsIntoNode(WTFMove(vector));
     if (result.hasException())
@@ -1027,7 +1027,7 @@ ExceptionOr<void> ContainerNode::prepend(Vector<NodeOrString>&& vector)
 }
 
 // https://dom.spec.whatwg.org/#dom-parentnode-replacechildren
-ExceptionOr<void> ContainerNode::replaceChildren(Vector<NodeOrString>&& vector)
+ExceptionOr<void> ContainerNode::replaceChildren(FixedVector<NodeOrString>&& vector)
 {
     // step 1
     auto result = convertNodesOrStringsIntoNode(WTFMove(vector));

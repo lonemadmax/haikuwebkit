@@ -41,6 +41,7 @@
 #include "JSDOMPromiseDeferred.h"
 #include "NotificationClient.h"
 #include "NotificationController.h"
+#include "NotificationData.h"
 #include "NotificationPermissionCallback.h"
 #include "WindowEventLoop.h"
 #include "WindowFocusAllowedIndicator.h"
@@ -101,7 +102,7 @@ void Notification::show()
         dispatchErrorEvent();
         return;
     }
-    if (client.show(this))
+    if (client.show(*this))
         m_state = Showing;
 }
 
@@ -112,7 +113,7 @@ void Notification::close()
         break;
     case Showing: {
         if (auto* page = document()->page())
-            NotificationController::from(page)->client().cancel(this);
+            NotificationController::from(page)->client().cancel(*this);
         break;
     }
     case Closed:
@@ -135,7 +136,7 @@ void Notification::stop()
     ActiveDOMObject::stop();
 
     if (auto* page = document()->page())
-        NotificationController::from(page)->client().notificationObjectDestroyed(this);
+        NotificationController::from(page)->client().notificationObjectDestroyed(*this);
 }
 
 void Notification::suspend(ReasonForSuspension)
@@ -222,6 +223,20 @@ void Notification::eventListenersDidChange()
 bool Notification::virtualHasPendingActivity() const
 {
     return m_state == Showing && m_hasRelevantEventListener;
+}
+
+NotificationData Notification::data() const
+{
+    return {
+        m_title,
+        m_body,
+        m_icon.string(),
+        m_tag,
+        m_lang,
+        m_direction,
+        scriptExecutionContext()->securityOrigin()->toString(),
+        identifier(),
+    };
 }
 
 } // namespace WebCore

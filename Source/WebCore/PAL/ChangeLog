@@ -1,3 +1,103 @@
+2022-01-09  Sam Weinig  <weinig@apple.com>
+
+        Remove support for Direct2D
+        https://bugs.webkit.org/show_bug.cgi?id=234999
+
+        Reviewed by Darin Adler.
+
+        Direct2D and FTW have not been building for over a year. It is
+        time to remove them.
+
+        * pal/PlatformFTW.cmake: Removed.
+
+2022-01-07  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed, reverting r287698.
+
+        Broke an internal build
+
+        Reverted changeset:
+
+        "Start using C++20"
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+        https://commits.webkit.org/r287698
+
+2022-01-06  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Add a helper function that returns the value of a std::optional<T> or constructs T if needed
+        https://bugs.webkit.org/show_bug.cgi?id=234865
+
+        Reviewed by Darin Adler.
+
+        Use `valueOrDefault` where appropriate. See WTF/ChangeLog for more details.
+
+        * pal/graphics/WebGPU/Impl/WebGPUComputePassEncoderImpl.cpp:
+        (PAL::WebGPU::ComputePassEncoderImpl::setBindGroup):
+        * pal/graphics/WebGPU/Impl/WebGPURenderBundleEncoderImpl.cpp:
+        (PAL::WebGPU::RenderBundleEncoderImpl::setBindGroup):
+        * pal/graphics/WebGPU/Impl/WebGPURenderPassEncoderImpl.cpp:
+        (PAL::WebGPU::RenderPassEncoderImpl::setBindGroup):
+
+2022-01-06  Alex Christensen  <achristensen@webkit.org>
+
+        Start using C++20
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+
+        Reviewed by Yusuke Suzuki.
+
+        * Configurations/Base.xcconfig:
+
+2021-12-21  Sam Weinig  <weinig@apple.com>
+
+        Add support for premultiplied alpha interpolated gradients and defaulted off option to use them for CSS Gradients
+        https://bugs.webkit.org/show_bug.cgi?id=234492
+
+        Reviewed by Simon Fraser.
+
+        * pal/spi/cg/CoreGraphicsSPI.h:
+        Add forwards for creating conic shadings and enabling premultiplied alpha interpolation for gradients.
+
+2021-12-20  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Add PAL soft linking headers for CoreML and NaturalLanguage frameworks
+        https://bugs.webkit.org/show_bug.cgi?id=234489
+
+        Reviewed by Devin Rousso.
+
+        Add CoreMLSoftLink.h and NaturalLanguageSoftLink.h; to be used in an upcoming patch that will add support for
+        classifying text inside controls in "modal containers". See rdar://77073735 for more details.
+
+        * PAL.xcodeproj/project.pbxproj:
+        * pal/PlatformMac.cmake:
+        * pal/cocoa/CoreMLSoftLink.h: Added.
+        * pal/cocoa/CoreMLSoftLink.mm: Added.
+        * pal/cocoa/NaturalLanguageSoftLink.h: Added.
+        * pal/cocoa/NaturalLanguageSoftLink.mm: Added.
+
+2021-12-16  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed, reverting r287056.
+        <rdar://86519800>
+
+        Caused performance regression...again
+
+        Reverted changeset:
+
+        "Remove properties set by NSURLProtocol on NSURLRequest before
+        serializing"
+        https://bugs.webkit.org/show_bug.cgi?id=232332
+        https://commits.webkit.org/r287056
+
+2021-12-14  Alex Christensen  <achristensen@webkit.org>
+
+        Remove properties set by NSURLProtocol on NSURLRequest before serializing
+        https://bugs.webkit.org/show_bug.cgi?id=232332
+        <rdar://79227845>
+
+        Reviewed by Geoff Garen.
+
+        * pal/spi/cf/CFNetworkSPI.h:
+
 2021-12-14  Andreu Botella  <andreu@andreubotella.com>
 
         TextDecoder doesn't detect invalid UTF-8 sequences early enough

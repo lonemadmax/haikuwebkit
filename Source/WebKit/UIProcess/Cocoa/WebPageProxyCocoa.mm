@@ -35,13 +35,13 @@
 #import "DataDetectionResult.h"
 #import "InsertTextOptions.h"
 #import "LoadParameters.h"
+#import "ModalContainerControlClassifier.h"
 #import "PageClient.h"
 #import "QuarantineSPI.h"
 #import "QuickLookThumbnailLoader.h"
 #import "SafeBrowsingSPI.h"
 #import "SafeBrowsingWarning.h"
 #import "SharedBufferCopy.h"
-#import "SharedBufferDataReference.h"
 #import "SynapseSPI.h"
 #import "WebContextMenuProxy.h"
 #import "WebPage.h"
@@ -796,6 +796,11 @@ bool WebPageProxy::isQuarantinedAndNotUserApproved(const String& fileURLString)
     return true;
 }
 #endif
+
+void WebPageProxy::classifyModalContainerControls(Vector<String>&& texts, CompletionHandler<void(Vector<ModalContainerControlType>&&)>&& completion)
+{
+    ModalContainerControlClassifier::sharedClassifier().classify(WTFMove(texts), WTFMove(completion));
+}
 
 } // namespace WebKit
 

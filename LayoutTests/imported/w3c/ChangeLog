@@ -1,3 +1,1673 @@
+2022-01-10  Sam Weinig  <weinig@apple.com>
+
+        [CSS Color 4] CSS color() function should not clamp channels to the 0-1 range
+        https://bugs.webkit.org/show_bug.cgi?id=234697
+
+        Reviewed by Darin Adler.
+
+        Update tests to include out of gamut examples for RGB types as well as some outside
+        allowed values for lab/lch/oklab/oklch types (in the latter we clamp as the spec requires.).
+
+        * web-platform-tests/css/css-color/color-function-parsing-expected.txt:
+        * web-platform-tests/css/css-color/color-function-parsing.html:
+        * web-platform-tests/css/css-color/parsing/color-computed-expected.txt:
+        * web-platform-tests/css/css-color/parsing/color-computed.html:
+        * web-platform-tests/css/css-color/parsing/color-mix-computed-expected.txt:
+        * web-platform-tests/css/css-color/parsing/color-mix-computed.html:
+        * web-platform-tests/css/css-color/parsing/color-mix-valid-expected.txt:
+        * web-platform-tests/css/css-color/parsing/color-mix-valid.html:
+        * web-platform-tests/css/css-color/parsing/color-valid-expected.txt:
+        * web-platform-tests/css/css-color/parsing/color-valid.html:
+        * web-platform-tests/css/css-color/parsing/relative-color-computed-expected.txt:
+        * web-platform-tests/css/css-color/parsing/relative-color-computed.html:
+        * web-platform-tests/css/css-color/parsing/relative-color-valid-expected.txt:
+        * web-platform-tests/css/css-color/parsing/relative-color-valid.html:
+
+2022-01-10  Antoine Quint  <graouts@webkit.org>
+
+        [Web Animations] getKeyframes() for a CSS Animation should not use computed style for keyframes (part 2)
+        https://bugs.webkit.org/show_bug.cgi?id=235028
+
+        Reviewed by Antti Koivisto.
+
+        Mark WPT progressions.
+
+        * web-platform-tests/css/css-animations/KeyframeEffect-getKeyframes.tentative-expected.txt:
+
+2022-01-09  Antoine Quint  <graouts@webkit.org>
+
+        Unreviewed WPT update after https://github.com/web-platform-tests/wpt/pull/32222.
+
+        * web-platform-tests/css/css-transitions/transition-property-002-expected.txt:
+        * web-platform-tests/css/css-transitions/transition-property-002.html:
+
+2022-01-09  Antoine Quint  <graouts@webkit.org>
+
+        Implicit keyframe for a CSS Animation should always use the underlying style
+        https://bugs.webkit.org/show_bug.cgi?id=235014
+
+        Reviewed by Antti Koivisto.
+
+        Add a new WPT which changes the underlying style for a property that is being
+        animated with an @keyframes rule that doesn't explicitly specify this value
+        on all keyframes.
+
+        * web-platform-tests/css/css-animations/animation-change-underlying-value-changed-in-flight-expected.txt: Added.
+        * web-platform-tests/css/css-animations/animation-change-underlying-value-changed-in-flight.html: Added.
+
+2022-01-09  Antoine Quint  <graouts@webkit.org>
+
+        Interpolation for the "filter" property fails with a single keyframe
+        https://bugs.webkit.org/show_bug.cgi?id=235019
+
+        Reviewed by Dean Jackson.
+
+        Mark WPT progressions.
+
+        * web-platform-tests/css/filter-effects/animation/filter-interpolation-001-expected.txt:
+
+2022-01-09  Ziran Sun  <zsun@igalia.com>
+
+        [css-grid] Resync web-platform-tests/css/css-grid tests from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=234879
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-align-self-img-002-expected.html:
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-align-self-img-last-baseline-002-expected.html:
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-align-self-last-baseline-002-expected.html:
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-align-self-rtl-last-baseline-003-expected.html:
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-align-self-rtl-last-baseline-004-expected.html:
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-align-self-vertWM-003-expected.html:
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-align-self-vertWM-004-expected.html:
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-align-self-vertWM-last-baseline-003-expected.html:
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-align-self-vertWM-last-baseline-004-expected.html:
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-justify-self-img-002-expected.html:
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-justify-self-img-last-baseline-002-expected.html:
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-justify-self-img-last-baseline-002.html:
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-justify-self-last-baseline-002-expected.html:
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-justify-self-rtl-last-baseline-003-expected.html:
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-justify-self-rtl-last-baseline-004-expected.html:
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-justify-self-vertWM-003-expected.html:
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-justify-self-vertWM-004-expected.html:
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-justify-self-vertWM-last-baseline-003-expected.html:
+        * web-platform-tests/css/css-grid/abspos/grid-abspos-staticpos-justify-self-vertWM-last-baseline-004-expected.html:
+        * web-platform-tests/css/css-grid/alignment/grid-container-auto-margins-scrollbars-001-expected.html:
+        * web-platform-tests/css/css-grid/alignment/grid-content-alignment-with-abspos-001-expected.txt: Added.
+        * web-platform-tests/css/css-grid/alignment/grid-content-alignment-with-abspos-001.html: Added.
+        * web-platform-tests/css/css-grid/alignment/self-baseline/w3c-import.log:
+        * web-platform-tests/css/css-grid/alignment/w3c-import.log:
+        * web-platform-tests/css/css-grid/grid-definition/w3c-import.log:
+        * web-platform-tests/css/css-grid/grid-items/grid-intrinsic-maximums-expected.html: Added.
+        * web-platform-tests/css/css-grid/grid-items/grid-intrinsic-maximums.html: Added.
+        * web-platform-tests/css/css-grid/grid-items/w3c-import.log:
+        * web-platform-tests/css/css-grid/grid-model/grid-container-scrollbars-sizing-002-expected.html:
+        * web-platform-tests/css/css-grid/grid-model/w3c-import.log:
+        * web-platform-tests/css/css-grid/layout-algorithm/flex-tracks-with-fractional-size-expected.xht: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-grid/placement/grid-placement-items-spanning-multiple-rows-expected.xht.
+        * web-platform-tests/css/css-grid/layout-algorithm/flex-tracks-with-fractional-size.html: Added.
+        * web-platform-tests/css/css-grid/layout-algorithm/w3c-import.log:
+        * web-platform-tests/css/css-grid/nested-grid-item-block-size-001-expected.html: Added.
+        * web-platform-tests/css/css-grid/nested-grid-item-block-size-001.html: Added.
+        * web-platform-tests/css/css-grid/parsing/grid-area-computed-expected.txt:
+        * web-platform-tests/css/css-grid/parsing/grid-area-computed.html:
+        * web-platform-tests/css/css-grid/placement/grid-placement-items-spanning-multiple-rows-001-expected.xht: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-grid/placement/grid-placement-items-spanning-multiple-rows-expected.xht.
+        * web-platform-tests/css/css-grid/placement/grid-placement-items-spanning-multiple-rows-001.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-grid/placement/grid-placement-items-spanning-multiple-rows.html.
+        * web-platform-tests/css/css-grid/placement/grid-placement-items-spanning-multiple-rows-002-expected.xht: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-grid/placement/grid-placement-items-spanning-multiple-rows-expected.xht.
+        * web-platform-tests/css/css-grid/placement/grid-placement-items-spanning-multiple-rows-002.html: Added.
+        * web-platform-tests/css/css-grid/placement/w3c-import.log:
+        * web-platform-tests/css/css-grid/subgrid/grid-subgridded-axis-auto-repeater-crash-001.html: Added.
+        * web-platform-tests/css/css-grid/subgrid/grid-subgridded-axis-auto-repeater-crash-002.html: Added.
+        * web-platform-tests/css/css-grid/subgrid/grid-template-invalid.html: Added.
+        * web-platform-tests/css/css-grid/subgrid/grid-template-valid.html: Added.
+        * web-platform-tests/css/css-grid/subgrid/w3c-import.log:
+        * web-platform-tests/css/css-grid/support/colors-8x16.png: Added.
+        * web-platform-tests/css/css-grid/support/w3c-import.log:
+
+2022-01-09  Antoine Quint  <graouts@webkit.org>
+
+        translate() function in transform property should remove trailing 0 value when parsing
+        https://bugs.webkit.org/show_bug.cgi?id=235016
+
+        Reviewed by Antti Koivisto.
+
+        Mark WPT progression.
+
+        * web-platform-tests/css/css-animations/KeyframeEffect-getKeyframes.tentative-expected.txt:
+
+2022-01-08  Antoine Quint  <graouts@webkit.org>
+
+        [Web Animations] getKeyframes() for a CSS Animation should not use computed style for keyframes
+        https://bugs.webkit.org/show_bug.cgi?id=235008
+
+        Reviewed by Antti Koivisto.
+
+        Mark WPT progression.
+
+        * web-platform-tests/css/css-animations/KeyframeEffect-getKeyframes.tentative-expected.txt:
+
+2022-01-08  Simon Fraser  <simon.fraser@apple.com>
+
+        If the drop-shadow filter has no color, it should use the value of the color property
+        https://bugs.webkit.org/show_bug.cgi?id=235012
+
+        Reviewed by Alan Bujtas.
+
+        * web-platform-tests/css/filter-effects/animation/filter-interpolation-004-expected.txt:
+        * web-platform-tests/css/filter-effects/parsing/filter-computed-expected.txt:
+
+2022-01-08  Simon Fraser  <simon.fraser@apple.com>
+
+        Fix some CSS filter interpolation issues
+        https://bugs.webkit.org/show_bug.cgi?id=235007
+
+        Reviewed by Antoine Quint.
+
+        More passing now.
+
+        * web-platform-tests/css/filter-effects/animation/filter-interpolation-002-expected.txt:
+        * web-platform-tests/css/filter-effects/animation/filter-interpolation-003-expected.txt:
+        * web-platform-tests/css/filter-effects/animation/filter-interpolation-004-expected.txt:
+
+2022-01-07  Simon Fraser  <simon.fraser@apple.com>
+
+        Import css/filter-effects web platform tests
+        https://bugs.webkit.org/show_bug.cgi?id=235001
+
+        Reviewed by Alan Bujtas.
+        
+        Imported from WPT ba3997e9f9a2f10a00688061f785d4c9b70cc5d5.
+
+        * resources/import-expectations.json:
+        * resources/resource-files.json:
+        * web-platform-tests/css/filter-effects/META.yml: Added.
+        * web-platform-tests/css/filter-effects/animation/backdrop-filter-interpolation-001-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/animation/backdrop-filter-interpolation-001.html: Added.
+        * web-platform-tests/css/filter-effects/animation/backdrop-filter-interpolation-002-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/animation/backdrop-filter-interpolation-002.html: Added.
+        * web-platform-tests/css/filter-effects/animation/backdrop-filter-interpolation-003-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/animation/backdrop-filter-interpolation-003.html: Added.
+        * web-platform-tests/css/filter-effects/animation/backdrop-filter-interpolation-004-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/animation/backdrop-filter-interpolation-004.html: Added.
+        * web-platform-tests/css/filter-effects/animation/filter-interpolation-001-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/animation/filter-interpolation-001.html: Added.
+        * web-platform-tests/css/filter-effects/animation/filter-interpolation-002-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/animation/filter-interpolation-002.html: Added.
+        * web-platform-tests/css/filter-effects/animation/filter-interpolation-003.html: Added.
+        * web-platform-tests/css/filter-effects/animation/filter-interpolation-004.html: Added.
+        * web-platform-tests/css/filter-effects/animation/w3c-import.log: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-basic-background-color-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-basic-background-color-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-basic-background-color.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-basic-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-basic-opacity-2-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-basic-opacity-2-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-basic-opacity-2.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-basic-opacity-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-basic-opacity-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-basic-opacity.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-basic-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-basic.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-clip-rect-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-clip-rect-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-clip-rect.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-clip-rounded-clip-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-clip-rounded-clip-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-clip-rounded-clip.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-clipped-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-clipped-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-clipped.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-containing-block-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-containing-block-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-containing-block.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-edge-behavior-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-edge-behavior-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-edge-behavior.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-edge-clipping-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-edge-clipping.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-edge-pixels-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-edge-pixels-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-edge-pixels.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-fixed-clip-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-fixed-clip-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-fixed-clip.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-isolation-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-isolation-fixed-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-isolation-fixed.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-isolation-isolate-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-isolation-isolate.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-isolation-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-isolation.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-non-isolation-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-opacity-rounded-clip-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-opacity-rounded-clip-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-opacity-rounded-clip.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-paint-order-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-paint-order-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-paint-order.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-plus-filter-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-plus-filter-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-plus-filter.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-plus-opacity-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-plus-opacity-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-plus-opacity.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-reference-filter-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-reference-filter.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-root-element-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-root-element-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-root-element.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-svg-foreignObject-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-svg-foreignObject.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-update-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-update-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-update.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-zero-size-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-zero-size-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filter-zero-size.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-brightness-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-brightness-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-brightness.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-contrast-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-contrast-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-contrast.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-grayscale-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-grayscale-001.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-grayscale-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-grayscale-002.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-grayscale-003-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-grayscale-003.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-hue-rotate-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-hue-rotate-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-hue-rotate.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-invert-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-invert-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-invert.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-opacity-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-opacity-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-opacity.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-saturate-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-saturate-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-saturate.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-sepia-expected.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-sepia-ref.html: Added.
+        * web-platform-tests/css/filter-effects/backdrop-filters-sepia.html: Added.
+        * web-platform-tests/css/filter-effects/background-image-blur-repaint-expected.html: Added.
+        * web-platform-tests/css/filter-effects/background-image-blur-repaint.html: Added.
+        * web-platform-tests/css/filter-effects/blur-clip-stacking-context-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/blur-clip-stacking-context-001.html: Added.
+        * web-platform-tests/css/filter-effects/blur-clip-stacking-context-002-expected-mismatch.html: Added.
+        * web-platform-tests/css/filter-effects/blur-clip-stacking-context-002.html: Added.
+        * web-platform-tests/css/filter-effects/blur-clip-stacking-context-ref.html: Added.
+        * web-platform-tests/css/filter-effects/clip-under-filter-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/clip-under-filter-001.html: Added.
+        * web-platform-tests/css/filter-effects/clip-under-filter-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/clip-under-filter-002.html: Added.
+        * web-platform-tests/css/filter-effects/clip-under-filter-003-expected.html: Added.
+        * web-platform-tests/css/filter-effects/clip-under-filter-003.html: Added.
+        * web-platform-tests/css/filter-effects/crashtests/multiple-references-id-crash-001-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/crashtests/multiple-references-id-crash-001.html: Added.
+        * web-platform-tests/css/filter-effects/crashtests/multiple-references-id-crash-002-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/crashtests/multiple-references-id-crash-002.html: Added.
+        * web-platform-tests/css/filter-effects/crashtests/w3c-import.log: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-blur-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-blur-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-blur.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-brightness-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-brightness-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-brightness.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-combined-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-combined-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-combined.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-contrast-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-contrast-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-contrast.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-drop-shadow-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-drop-shadow-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-drop-shadow.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-grayscale-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-grayscale-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-grayscale.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-hue-rotate-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-hue-rotate-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-hue-rotate.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-invert-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-invert-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-invert.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-opacity-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-opacity-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-opacity.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-saturate-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-saturate-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-saturate.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-sepia-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-sepia-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-backdrop-filters-animation-sepia.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-blur-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-blur-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-blur.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-brightness-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-brightness-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-brightness.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-combined-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-combined-001-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-combined-001.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-contrast-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-contrast-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-contrast.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-drop-shadow-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-drop-shadow-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-drop-shadow.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-grayscale-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-grayscale-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-grayscale.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-hue-rotate-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-hue-rotate-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-hue-rotate.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-invert-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-invert-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-invert.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-opacity-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-opacity-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-opacity.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-saturate-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-saturate-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-saturate.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-sepia-expected.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-sepia-ref.html: Added.
+        * web-platform-tests/css/filter-effects/css-filters-animation-sepia.html: Added.
+        * web-platform-tests/css/filter-effects/drop-shadow-clipped-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/drop-shadow-clipped-001.html: Added.
+        * web-platform-tests/css/filter-effects/dynamic-filter-changes-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/dynamic-filter-changes-001.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-add-hw-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-add-hw-001.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-after-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-after-001.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-delete-expected.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-delete.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-displacement-negative-scale-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-displacement-negative-scale-001.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-feimage-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-feimage-001.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-feimage-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-feimage-002.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-feimage-003-expected.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-feimage-003.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-lighting-no-light.tentative-expected.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-lighting-no-light.tentative.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-local-url-with-base-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-local-url-with-base-001.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-merge-no-inputs.tentative-expected.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-merge-no-inputs.tentative.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-obb-dimensions-expected.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-obb-dimensions.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-on-span-expected.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-on-span.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-on-transparent-element-expected.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-on-transparent-element.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-rename-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-rename-001.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-rename-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-rename-002.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-reset-style-delete-crash-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-reset-style-delete-crash.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-source-alpha-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-source-alpha-001.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-source-alpha-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/effect-reference-source-alpha-002.html: Added.
+        * web-platform-tests/css/filter-effects/empty-element-with-filter-expected.html: Added.
+        * web-platform-tests/css/filter-effects/empty-element-with-filter.html: Added.
+        * web-platform-tests/css/filter-effects/fecolormatrix-type-expected.html: Added.
+        * web-platform-tests/css/filter-effects/fecolormatrix-type-ref.html: Added.
+        * web-platform-tests/css/filter-effects/fecolormatrix-type.html: Added.
+        * web-platform-tests/css/filter-effects/fecomposite-non-zero-inoffset-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/fecomposite-non-zero-inoffset-001.html: Added.
+        * web-platform-tests/css/filter-effects/feflood-with-filter-reference-expected.html: Added.
+        * web-platform-tests/css/filter-effects/feflood-with-filter-reference.html: Added.
+        * web-platform-tests/css/filter-effects/feimage-circular-reference-foreign-object-crash-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/feimage-circular-reference-foreign-object-crash.html: Added.
+        * web-platform-tests/css/filter-effects/feimage-reference-foreign-object-crash-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/feimage-reference-foreign-object-crash.html: Added.
+        * web-platform-tests/css/filter-effects/feimage-target-child-reference-crash-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/feimage-target-child-reference-crash.html: Added.
+        * web-platform-tests/css/filter-effects/felighting-no-light-source-style-update-crash-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/felighting-no-light-source-style-update-crash.html: Added.
+        * web-platform-tests/css/filter-effects/filter-cb-abspos-inline-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-cb-abspos-inline-001-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filter-cb-abspos-inline-001.html: Added.
+        * web-platform-tests/css/filter-effects/filter-cb-abspos-inline-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-cb-abspos-inline-002.html: Added.
+        * web-platform-tests/css/filter-effects/filter-cb-abspos-inline-003-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-cb-abspos-inline-003-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filter-cb-abspos-inline-003.html: Added.
+        * web-platform-tests/css/filter-effects/filter-cb-dynamic-1-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filter-cb-dynamic-1a-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-cb-dynamic-1a.html: Added.
+        * web-platform-tests/css/filter-effects/filter-cb-dynamic-1b-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-cb-dynamic-1b.html: Added.
+        * web-platform-tests/css/filter-effects/filter-contrast-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-contrast-001-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filter-contrast-001.html: Added.
+        * web-platform-tests/css/filter-effects/filter-contrast-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-contrast-002-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filter-contrast-002.html: Added.
+        * web-platform-tests/css/filter-effects/filter-contrast-003-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-contrast-003-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filter-contrast-003.html: Added.
+        * web-platform-tests/css/filter-effects/filter-effect-remove-unattached-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-effect-remove-unattached.html: Added.
+        * web-platform-tests/css/filter-effects/filter-external-001-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filter-external-001-test-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-external-001-test.html: Added.
+        * web-platform-tests/css/filter-effects/filter-external-002-test-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-external-002-test.html: Added.
+        * web-platform-tests/css/filter-effects/filter-grayscale-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-grayscale-001.html: Added.
+        * web-platform-tests/css/filter-effects/filter-grayscale-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-grayscale-002.html: Added.
+        * web-platform-tests/css/filter-effects/filter-grayscale-003-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-grayscale-003.html: Added.
+        * web-platform-tests/css/filter-effects/filter-grayscale-004-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-grayscale-004.html: Added.
+        * web-platform-tests/css/filter-effects/filter-grayscale-005-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-grayscale-005.html: Added.
+        * web-platform-tests/css/filter-effects/filter-grayscale-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filter-hue_rotate-001-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filter-hue_rotate-001-test-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-hue_rotate-001-test.html: Added.
+        * web-platform-tests/css/filter-effects/filter-invert-001-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filter-invert-001-test-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-invert-001-test.html: Added.
+        * web-platform-tests/css/filter-effects/filter-invert-002-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filter-invert-002-test-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-invert-002-test.html: Added.
+        * web-platform-tests/css/filter-effects/filter-region-negative-positioned-child-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-region-negative-positioned-child-001.html: Added.
+        * web-platform-tests/css/filter-effects/filter-region-transformed-child-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-region-transformed-child-001.html: Added.
+        * web-platform-tests/css/filter-effects/filter-region-transformed-composited-child-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-region-transformed-composited-child-001.html: Added.
+        * web-platform-tests/css/filter-effects/filter-saturate-001-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filter-saturate-001-test-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-saturate-001-test.html: Added.
+        * web-platform-tests/css/filter-effects/filter-scale-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-scale-001-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filter-scale-001.html: Added.
+        * web-platform-tests/css/filter-effects/filter-scaling-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-scaling-001-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filter-scaling-001.html: Added.
+        * web-platform-tests/css/filter-effects/filter-subregion-01-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-subregion-01-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filter-subregion-01.html: Added.
+        * web-platform-tests/css/filter-effects/filter-turbulence-invalid-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-turbulence-invalid-001.html: Added.
+        * web-platform-tests/css/filter-effects/filter-url-to-non-existent-filter-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filter-url-to-non-existent-filter-001.html: Added.
+        * web-platform-tests/css/filter-effects/filtered-block-is-container-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filtered-block-is-container-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filtered-block-is-container.html: Added.
+        * web-platform-tests/css/filter-effects/filtered-html-is-not-container-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filtered-html-is-not-container-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filtered-html-is-not-container.html: Added.
+        * web-platform-tests/css/filter-effects/filtered-inline-applies-to-float-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filtered-inline-applies-to-float-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filtered-inline-applies-to-float.html: Added.
+        * web-platform-tests/css/filter-effects/filtered-inline-is-container-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filtered-inline-is-container-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filtered-inline-is-container.html: Added.
+        * web-platform-tests/css/filter-effects/filters-drop-shadow-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filters-drop-shadow-001.html: Added.
+        * web-platform-tests/css/filter-effects/filters-drop-shadow-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filters-drop-shadow-002.html: Added.
+        * web-platform-tests/css/filter-effects/filters-grayscale-001-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filters-grayscale-001-test-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filters-grayscale-001-test.html: Added.
+        * web-platform-tests/css/filter-effects/filters-opacity-001-test-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filters-opacity-001-test.html: Added.
+        * web-platform-tests/css/filter-effects/filters-opacity-002-test-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filters-opacity-002-test.html: Added.
+        * web-platform-tests/css/filter-effects/filters-sepia-001-ref.html: Added.
+        * web-platform-tests/css/filter-effects/filters-sepia-001-test-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filters-sepia-001-test.html: Added.
+        * web-platform-tests/css/filter-effects/filters-test-brightness-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filters-test-brightness-001.html: Added.
+        * web-platform-tests/css/filter-effects/filters-test-brightness-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filters-test-brightness-002.html: Added.
+        * web-platform-tests/css/filter-effects/filters-test-brightness-003-expected.html: Added.
+        * web-platform-tests/css/filter-effects/filters-test-brightness-003.html: Added.
+        * web-platform-tests/css/filter-effects/idlharness.any-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/idlharness.any.html: Added.
+        * web-platform-tests/css/filter-effects/idlharness.any.js: Added.
+        * web-platform-tests/css/filter-effects/idlharness.any.serviceworker-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/idlharness.any.serviceworker.html: Added.
+        * web-platform-tests/css/filter-effects/idlharness.any.worker-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/idlharness.any.worker.html: Added.
+        * web-platform-tests/css/filter-effects/inheritance-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/inheritance.html: Added.
+        * web-platform-tests/css/filter-effects/morphology-mirrored-expected.html: Added.
+        * web-platform-tests/css/filter-effects/morphology-mirrored.html: Added.
+        * web-platform-tests/css/filter-effects/parsing/backdrop-filter-computed-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/parsing/backdrop-filter-computed.html: Added.
+        * web-platform-tests/css/filter-effects/parsing/backdrop-filter-parsing-invalid-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/parsing/backdrop-filter-parsing-invalid.html: Added.
+        * web-platform-tests/css/filter-effects/parsing/backdrop-filter-parsing-valid-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/parsing/backdrop-filter-parsing-valid.html: Added.
+        * web-platform-tests/css/filter-effects/parsing/color-interpolation-filters-computed-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/parsing/color-interpolation-filters-computed.html: Added.
+        * web-platform-tests/css/filter-effects/parsing/color-interpolation-filters-parsing-invalid-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/parsing/color-interpolation-filters-parsing-invalid.html: Added.
+        * web-platform-tests/css/filter-effects/parsing/color-interpolation-filters-parsing-valid-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/parsing/color-interpolation-filters-parsing-valid.html: Added.
+        * web-platform-tests/css/filter-effects/parsing/filter-computed-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/parsing/filter-computed.html: Added.
+        * web-platform-tests/css/filter-effects/parsing/filter-parsing-invalid-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/parsing/filter-parsing-invalid.html: Added.
+        * web-platform-tests/css/filter-effects/parsing/filter-parsing-valid-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/parsing/filter-parsing-valid.html: Added.
+        * web-platform-tests/css/filter-effects/parsing/flood-color-computed-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/parsing/flood-color-computed.html: Added.
+        * web-platform-tests/css/filter-effects/parsing/flood-color-invalid-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/parsing/flood-color-invalid.html: Added.
+        * web-platform-tests/css/filter-effects/parsing/flood-color-valid-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/parsing/flood-color-valid.html: Added.
+        * web-platform-tests/css/filter-effects/parsing/flood-opacity-computed-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/parsing/flood-opacity-computed.svg: Added.
+        * web-platform-tests/css/filter-effects/parsing/flood-opacity-invalid-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/parsing/flood-opacity-invalid.svg: Added.
+        * web-platform-tests/css/filter-effects/parsing/flood-opacity-valid-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/parsing/flood-opacity-valid.svg: Added.
+        * web-platform-tests/css/filter-effects/parsing/lighting-color-computed-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/parsing/lighting-color-computed.html: Added.
+        * web-platform-tests/css/filter-effects/parsing/lighting-color-parsing-invalid-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/parsing/lighting-color-parsing-invalid.html: Added.
+        * web-platform-tests/css/filter-effects/parsing/lighting-color-parsing-valid-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/parsing/lighting-color-parsing-valid.html: Added.
+        * web-platform-tests/css/filter-effects/parsing/w3c-import.log: Added.
+        * web-platform-tests/css/filter-effects/reference-filter-update-on-attribute-change-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/reference-filter-update-on-attribute-change-001.html: Added.
+        * web-platform-tests/css/filter-effects/remove-filter-repaint-expected.html: Added.
+        * web-platform-tests/css/filter-effects/remove-filter-repaint.html: Added.
+        * web-platform-tests/css/filter-effects/resources/reference.png: Added.
+        * web-platform-tests/css/filter-effects/resources/w3c-import.log: Added.
+        * web-platform-tests/css/filter-effects/root-element-with-opacity-filter-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/root-element-with-opacity-filter-001.html: Added.
+        * web-platform-tests/css/filter-effects/support/1x1-green.png: Added.
+        * web-platform-tests/css/filter-effects/support/1x1-lime.png: Added.
+        * web-platform-tests/css/filter-effects/support/1x1-maroon.png: Added.
+        * web-platform-tests/css/filter-effects/support/1x1-navy.png: Added.
+        * web-platform-tests/css/filter-effects/support/1x1-red.png: Added.
+        * web-platform-tests/css/filter-effects/support/1x1-white.png: Added.
+        * web-platform-tests/css/filter-effects/support/60x60-gg-rr.png: Added.
+        * web-platform-tests/css/filter-effects/support/60x60-green.png: Added.
+        * web-platform-tests/css/filter-effects/support/README: Added.
+        * web-platform-tests/css/filter-effects/support/a-green.css: Added.
+        (.a):
+        * web-platform-tests/css/filter-effects/support/b-green.css: Added.
+        (.b):
+        * web-platform-tests/css/filter-effects/support/c-red.css: Added.
+        (.c):
+        * web-platform-tests/css/filter-effects/support/cat.png: Added.
+        * web-platform-tests/css/filter-effects/support/color-palette.png: Added.
+        * web-platform-tests/css/filter-effects/support/div-with-filter.html: Added.
+        * web-platform-tests/css/filter-effects/support/filter-external-002-filter.svg: Added.
+        * web-platform-tests/css/filter-effects/support/filter-from-external-url.css: Added.
+        (.hue-rotate):
+        * web-platform-tests/css/filter-effects/support/filtersubregion00.png: Added.
+        * web-platform-tests/css/filter-effects/support/hueRotate.svg: Added.
+        * web-platform-tests/css/filter-effects/support/import-green.css: Added.
+        (.import):
+        * web-platform-tests/css/filter-effects/support/import-red.css: Added.
+        (.import):
+        * web-platform-tests/css/filter-effects/support/pattern-grg-rgr-grg.png: Added.
+        * web-platform-tests/css/filter-effects/support/pattern-grg-rrg-rgg.png: Added.
+        * web-platform-tests/css/filter-effects/support/pattern-rgr-grg-rgr.png: Added.
+        * web-platform-tests/css/filter-effects/support/pattern-tr.png: Added.
+        * web-platform-tests/css/filter-effects/support/ruler-h-50%.png: Added.
+        * web-platform-tests/css/filter-effects/support/ruler-h-50px.png: Added.
+        * web-platform-tests/css/filter-effects/support/ruler-v-100px.png: Added.
+        * web-platform-tests/css/filter-effects/support/ruler-v-50px.png: Added.
+        * web-platform-tests/css/filter-effects/support/square-purple.png: Added.
+        * web-platform-tests/css/filter-effects/support/square-teal.png: Added.
+        * web-platform-tests/css/filter-effects/support/square-white.png: Added.
+        * web-platform-tests/css/filter-effects/support/support/README: Added.
+        * web-platform-tests/css/filter-effects/support/support/swatch-green.png: Added.
+        * web-platform-tests/css/filter-effects/support/support/swatch-red.png: Added.
+        * web-platform-tests/css/filter-effects/support/support/w3c-import.log: Added.
+        * web-platform-tests/css/filter-effects/support/swatch-blue.png: Added.
+        * web-platform-tests/css/filter-effects/support/swatch-green.png: Added.
+        * web-platform-tests/css/filter-effects/support/swatch-lime.png: Added.
+        * web-platform-tests/css/filter-effects/support/swatch-orange.png: Added.
+        * web-platform-tests/css/filter-effects/support/swatch-red.png: Added.
+        * web-platform-tests/css/filter-effects/support/swatch-teal.png: Added.
+        * web-platform-tests/css/filter-effects/support/swatch-white.png: Added.
+        * web-platform-tests/css/filter-effects/support/swatch-yellow.png: Added.
+        * web-platform-tests/css/filter-effects/support/test-bl.png: Added.
+        * web-platform-tests/css/filter-effects/support/test-br.png: Added.
+        * web-platform-tests/css/filter-effects/support/test-inner-half-size.png: Added.
+        * web-platform-tests/css/filter-effects/support/test-outer.png: Added.
+        * web-platform-tests/css/filter-effects/support/test-tl.png: Added.
+        * web-platform-tests/css/filter-effects/support/test-tr.png: Added.
+        * web-platform-tests/css/filter-effects/support/w3c-import.log: Added.
+        * web-platform-tests/css/filter-effects/svg-empty-container-with-filter-content-added-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-empty-container-with-filter-content-added.html: Added.
+        * web-platform-tests/css/filter-effects/svg-feflood-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-feflood-001.html: Added.
+        * web-platform-tests/css/filter-effects/svg-feimage-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-feimage-001.html: Added.
+        * web-platform-tests/css/filter-effects/svg-feoffset-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-feoffset-001.html: Added.
+        * web-platform-tests/css/filter-effects/svg-filter-vs-clip-path-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-filter-vs-clip-path.html: Added.
+        * web-platform-tests/css/filter-effects/svg-filter-vs-mask-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-filter-vs-mask.html: Added.
+        * web-platform-tests/css/filter-effects/svg-multiple-filter-functions-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-multiple-filter-functions.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-drop-shadow-color-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-drop-shadow-color.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-drop-shadow-offset-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-drop-shadow-offset.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-function-to-url-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-function-to-url.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-group-position-changed-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-group-position-changed.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-group-size-changed-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-group-size-changed.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-group-transform-changed-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-group-transform-changed.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-object-position-changed-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-object-position-changed.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-object-size-changed-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-object-size-changed.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-object-transform-changed-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-object-transform-changed.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-single-to-multiple-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-single-to-multiple-001.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-single-to-multiple-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-single-to-multiple-002.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-url-to-function-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-mutation-url-to-function.html: Added.
+        * web-platform-tests/css/filter-effects/svg-relative-urls-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-relative-urls-001.html: Added.
+        * web-platform-tests/css/filter-effects/svg-relative-urls-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-relative-urls-002.html: Added.
+        * web-platform-tests/css/filter-effects/svg-shorthand-drop-shadow-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-shorthand-drop-shadow-001.html: Added.
+        * web-platform-tests/css/filter-effects/svg-shorthand-hue-rotate-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-shorthand-hue-rotate-001.html: Added.
+        * web-platform-tests/css/filter-effects/svg-sourcegraphic-currentcolor-dynamic-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-sourcegraphic-currentcolor-dynamic-001.html: Added.
+        * web-platform-tests/css/filter-effects/svg-sourcegraphic-invalidation-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-sourcegraphic-invalidation-001.html: Added.
+        * web-platform-tests/css/filter-effects/svg-unknown-input-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-unknown-input-001.html: Added.
+        * web-platform-tests/css/filter-effects/svg-unknown-input-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/svg-unknown-input-002.html: Added.
+        * web-platform-tests/css/filter-effects/svg-unknown-input-ref.html: Added.
+        * web-platform-tests/css/filter-effects/svg-unused-filter-on-clippath-mutated-crash-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/svg-unused-filter-on-clippath-mutated-crash.html: Added.
+        * web-platform-tests/css/filter-effects/svgfeblendelement-mode-001-expected.txt: Added.
+        * web-platform-tests/css/filter-effects/svgfeblendelement-mode-001.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-feblend-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-feblend-001.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-feblend-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-feblend-002.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fecomponenttransfer-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fecomponenttransfer-001.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fecomponenttransfer-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fecomponenttransfer-002.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fecomposite-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fecomposite-001.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fecomposite-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fecomposite-002.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-feconvolvematrix-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-feconvolvematrix-001.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-feconvolvematrix-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-feconvolvematrix-002.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fediffuselighting-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fediffuselighting-001.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fediffuselighting-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fediffuselighting-002.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fediffuselighting-003-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fediffuselighting-003.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fediffuselighting-dynamic-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fediffuselighting-dynamic.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fedisplacementmap-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fedisplacementmap-001.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fedisplacementmap-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fedisplacementmap-002.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fedropshadow-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fedropshadow-001.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fedropshadow-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fedropshadow-002.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fedropshadow-003-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fedropshadow-003.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-feflood-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-feflood-001.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-feflood-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-feflood-002.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-feflood-dynamic-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-feflood-dynamic.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fegaussianblur-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fegaussianblur-001.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fegaussianblur-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fegaussianblur-002.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-femorphology-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-femorphology-001.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-femorphology-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-femorphology-002.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-feoffset-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-feoffset-001.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-feoffset-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-feoffset-002.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fespecularlighting-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fespecularlighting-001.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fespecularlighting-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fespecularlighting-002.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fespecularlighting-003-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fespecularlighting-003.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fetile-001-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fetile-001.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fetile-002-expected.html: Added.
+        * web-platform-tests/css/filter-effects/tainting-fetile-002.html: Added.
+        * web-platform-tests/css/filter-effects/w3c-import.log: Added.
+
+2022-01-07  Chris Dumez  <cdumez@apple.com>
+
+        Resync web-platform-tests/dom from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=234963
+
+        Reviewed by Geoffrey Garen.
+
+        Resync web-platform-tests/dom from upstream 84b2be5b17e8542dea2.
+
+        * resources/resource-files.json:
+        * web-platform-tests/dom/*: Updated.
+
+2022-01-07  Chris Dumez  <cdumez@apple.com>
+
+        Resync web-platform-tests/webaudio from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=234981
+
+        Reviewed by Geoffrey Garen.
+
+        Resync web-platform-tests/webaudio from upstream 84b2be5b17e8542dea2.
+
+        * web-platform-tests/webaudio/the-audio-api/the-audiobuffer-interface/acquire-the-content-expected.txt: Added.
+        * web-platform-tests/webaudio/the-audio-api/the-audiobuffer-interface/acquire-the-content.html: Added.
+        * web-platform-tests/webaudio/the-audio-api/the-audiobuffer-interface/w3c-import.log:
+        * web-platform-tests/webaudio/the-audio-api/the-audiocontext-interface/w3c-import.log:
+        * web-platform-tests/webaudio/the-audio-api/the-periodicwave-interface/createPeriodicWaveInfiniteValuesThrows-expected.txt: Added.
+        * web-platform-tests/webaudio/the-audio-api/the-periodicwave-interface/createPeriodicWaveInfiniteValuesThrows.html: Added.
+        * web-platform-tests/webaudio/the-audio-api/the-periodicwave-interface/w3c-import.log:
+
+2022-01-07  Antoine Quint  <graouts@webkit.org>
+
+        Inserting a new @keyframes rule does not start animations that already used this name
+        https://bugs.webkit.org/show_bug.cgi?id=234955
+
+        Reviewed by Antti Koivisto.
+
+        Mark WPT progression.
+
+        * web-platform-tests/css/css-animations/Element-getAnimations.tentative-expected.txt:
+
+2022-01-07  Antoine Quint  <graouts@webkit.org>
+
+        Transitions without an explicit property-name should not be considered
+        https://bugs.webkit.org/show_bug.cgi?id=234960
+
+        Reviewed by Darin Adler.
+
+        Mark WPT progression.
+
+        * web-platform-tests/css/css-transitions/events-004-expected.txt:
+
+2022-01-07  Youenn Fablet  <youenn@apple.com>
+
+        Allow storing form data responses in Cache Storage
+        https://bugs.webkit.org/show_bug.cgi?id=234881
+
+        Reviewed by Alex Christensen.
+
+        * web-platform-tests/service-workers/cache-storage/window/cache-put.https-expected.txt:
+
+2022-01-07  Martin Robinson  <mrobinson@webkit.org>
+
+        When transform-style: preserve-3d is used with a grouping property it should still create a containing block
+        https://bugs.webkit.org/show_bug.cgi?id=234145
+        <rdar://problem/86630387>
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-transforms/preserve-3d-flat-grouping-properties-containing-block-expected.txt:
+
+2022-01-06  Tim Nguyen  <ntim@apple.com>
+
+        Unprefix -webkit-print-color-adjust CSS property
+        https://bugs.webkit.org/show_bug.cgi?id=201098
+
+        Reviewed by Darin Adler.
+
+        color-adjust is also a deprecated shorthand that just contains print-color-adjust.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+
+2022-01-06  Antoine Quint  <graouts@webkit.org>
+
+        [Web Animations] inserting a rule within a @keyframes rule should update animations
+        https://bugs.webkit.org/show_bug.cgi?id=234895
+
+        Reviewed by Darin Adler.
+
+        Mark WPT progressions.
+
+        * web-platform-tests/css/css-animations/KeyframeEffect-getKeyframes.tentative-expected.txt:
+        * web-platform-tests/css/css-animations/KeyframeEffect-setKeyframes.tentative-expected.txt:
+
+2022-01-06  Martin Robinson  <mrobinson@webkit.org>
+
+        REGRESSION (r287323): [iOS] 9 imported/w3c/web-platform-tests/css/css-transforms tests consistently failing
+        https://bugs.webkit.org/show_bug.cgi?id=234908
+        <rdar://problem/87172770>
+
+        Reviewed by Simon Fraser.
+
+        Adjust WPT trasnform reference test fuzziness for iOS. In some cases the reference
+        matches more closely and in other cases slightly less closely.
+
+        * web-platform-tests/css/css-transforms/2d-rotate-001.html:
+        * web-platform-tests/css/css-transforms/css-skew-002.html:
+        * web-platform-tests/css/css-transforms/rotate_45deg.html:
+        * web-platform-tests/css/css-transforms/rotate_x_45deg.html:
+        * web-platform-tests/css/css-transforms/rotate_y_45deg.html:
+        * web-platform-tests/css/css-transforms/skew-test1.html:
+        * web-platform-tests/css/css-transforms/transform-percent-008.html:
+        * web-platform-tests/css/css-transforms/ttwf-transform-skewx-001.html:
+        * web-platform-tests/css/css-transforms/ttwf-transform-skewy-001.html:
+
+2022-01-05  Antoine Quint  <graouts@webkit.org>
+
+        computed style for transition longhand properties is wrong
+        https://bugs.webkit.org/show_bug.cgi?id=234880
+
+        Reviewed by Antti Koivisto.
+
+        Mark WPT progressions.
+
+        * web-platform-tests/css/css-transitions/parsing/transition-delay-computed-expected.txt:
+        * web-platform-tests/css/css-transitions/parsing/transition-duration-computed-expected.txt:
+        * web-platform-tests/css/css-transitions/parsing/transition-property-computed-expected.txt:
+        * web-platform-tests/css/css-transitions/parsing/transition-timing-function-computed-expected.txt:
+        * web-platform-tests/css/css-transitions/transition-delay-001-expected.txt:
+        * web-platform-tests/css/css-transitions/transition-duration-001-expected.txt:
+
+2022-01-05  Antoine Quint  <graouts@webkit.org>
+
+        Refactor computed style code for transition-property and the transition shorthand
+        https://bugs.webkit.org/show_bug.cgi?id=234872
+
+        Reviewed by Antti Koivisto.
+
+        Rebaseline some test output.
+
+        * web-platform-tests/css/css-pseudo/first-letter-allowed-properties-expected.txt:
+        * web-platform-tests/css/css-pseudo/first-line-allowed-properties-expected.txt:
+
+2022-01-05  Youenn Fablet  <youenn@apple.com>
+
+        MediaRecorder should support the bitsPerSecond option
+        https://bugs.webkit.org/show_bug.cgi?id=234784
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/mediacapture-record/MediaRecorder-bitrate.https-expected.txt:
+
+2022-01-05  Youenn Fablet  <youenn@apple.com>
+
+        Fetch using FormData with file doesn't go through Service Worker
+        https://bugs.webkit.org/show_bug.cgi?id=187461
+        <rdar://problem/41975544>
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/fetch/api/response/response-consume-expected.txt:
+        * web-platform-tests/fetch/api/response/response-consume-stream.any-expected.txt:
+        * web-platform-tests/fetch/api/response/response-consume-stream.any.worker-expected.txt:
+
+2022-01-05  Martin Robinson  <mrobinson@webkit.org>
+
+        Change offsetParent to match spec change
+        https://bugs.webkit.org/show_bug.cgi?id=161788
+        <rdar://problem/28230510>
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-038-expected.txt: Rebase test that fails differently now.
+        * web-platform-tests/css/css-transforms/preserve-3d-flat-grouping-properties-containing-block-expected.txt: Ditto.
+        * web-platform-tests/css/cssom-view/offsetParent_element_test.html: Increase the test coverage for this test case.
+        * web-platform-tests/svg/extensibility/foreignObject/containing-block-expected.txt: Part of this test now passes.
+
+2022-01-05  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r285915.
+        https://bugs.webkit.org/show_bug.cgi?id=234873
+
+        causes crashes
+
+        Reverted changeset:
+
+        "border-radius inline style should serialize with valid
+        syntax"
+        https://bugs.webkit.org/show_bug.cgi?id=183994
+        https://commits.webkit.org/r285915
+
+2022-01-05  Martin Robinson  <mrobinson@webkit.org>
+
+        CSS `transform` property  should take into account transform reference box
+        https://bugs.webkit.org/show_bug.cgi?id=234144
+        <rdar://problem/86630206>
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/css/css-transforms/transform-percent-009-expected.txt:
+
+2022-01-04  Antoine Quint  <graouts@webkit.org>
+
+        WPT test css/css-transitions/parsing/transition-shorthand.html has failures
+        https://bugs.webkit.org/show_bug.cgi?id=234856
+
+        Reviewed by Dean Jackson.
+
+        Mark WPT progressions, all tests in css/css-transitions/parsing/transition-shorthand.html now pass.
+
+        * web-platform-tests/css/css-transitions/parsing/transition-shorthand-expected.txt:
+
+2022-01-04  Antoine Quint  <graouts@webkit.org>
+
+        [Web Animations] changing the timing of a transition such that it's finished should no longer have it marked as running
+        https://bugs.webkit.org/show_bug.cgi?id=234823
+
+        Reviewed by Dean Jackson.
+
+        Mark WPT progression.
+
+        * web-platform-tests/css/css-transitions/CSSTransition-effect.tentative-expected.txt:
+
+2022-01-04  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r283546.
+        https://bugs.webkit.org/show_bug.cgi?id=234844
+
+        Causes bad scrolling behavior on Discourse pages
+
+        Reverted changeset:
+
+        "[css-position-sticky] scrollIntoView should not take into
+        account sticky positioning offsets"
+        https://bugs.webkit.org/show_bug.cgi?id=230689
+        https://commits.webkit.org/r283546
+
+2022-01-03  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r287550.
+        https://bugs.webkit.org/show_bug.cgi?id=234829
+
+
+        Reverted changeset:
+
+        "[Web Animations] changing the effect of a transition should
+        no longer have it marked as running"
+        https://bugs.webkit.org/show_bug.cgi?id=234823
+        https://commits.webkit.org/r287550
+
+2022-01-03  Antoine Quint  <graouts@webkit.org>
+
+        Unreviewed test gardening, this test progressed in the way it fails but the test expectation
+        wasn't updated.
+
+        * web-platform-tests/css/css-transitions/KeyframeEffect-setKeyframes.tentative-expected.txt:
+
+2022-01-03  Antti Koivisto  <antti@apple.com>
+
+        [:has() pseudo-class] Style invalidation for :valid and :invalid
+        https://bugs.webkit.org/show_bug.cgi?id=234815
+
+        Reviewed by Sam Weinig.
+
+        * web-platform-tests/css/selectors/invalidation/has-with-pseudo-class-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/invalidation/has-pseudo-class-expected.txt.
+        * web-platform-tests/css/selectors/invalidation/has-with-pseudo-class.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/selectors/invalidation/has-pseudo-class.html.
+
+2022-01-03  Antoine Quint  <graouts@webkit.org>
+
+        [Web Animations] changing the effect of a transition should no longer have it marked as running
+        https://bugs.webkit.org/show_bug.cgi?id=234823
+
+        Reviewed by Dean Jackson.
+
+        Mark WPT progression.
+
+        * web-platform-tests/css/css-transitions/CSSTransition-effect.tentative-expected.txt:
+
+2022-01-03  Antoine Quint  <graouts@webkit.org>
+
+        [Web Animations] calling setKeyframes() on a running CSS Transition has no immediate effect
+        https://bugs.webkit.org/show_bug.cgi?id=234818
+
+        Reviewed by Dean Jackson.
+
+        Mark WPT progressions.
+
+        * web-platform-tests/css/css-animations/animation-base-response-004-expected.txt:
+        * web-platform-tests/css/css-cascade/revert-val-010-expected.txt:
+        * web-platform-tests/css/css-transitions/KeyframeEffect-setKeyframes.tentative-expected.txt:
+        * web-platform-tests/web-animations/animation-model/keyframe-effects/effect-value-context-filling-expected.txt:
+        * web-platform-tests/web-animations/interfaces/KeyframeEffect/setKeyframes-expected.txt:
+
+2022-01-03  Antoine Quint  <graouts@webkit.org>
+
+        [Web Animations] reversing factor should be computed before canceling the previous transition
+        https://bugs.webkit.org/show_bug.cgi?id=234821
+
+        Reviewed by Dean Jackson.
+
+        Mark WPT progressions.
+
+        * web-platform-tests/css/css-transitions/CSSTransition-currentTime.tentative-expected.txt:
+        * web-platform-tests/css/css-transitions/CSSTransition-effect.tentative-expected.txt:
+        * web-platform-tests/css/css-transitions/KeyframeEffect-setKeyframes.tentative-expected.txt:
+
+2022-01-03  Antoine Quint  <graouts@webkit.org>
+
+        Support the "animation" shorthand property in the computed style
+        https://bugs.webkit.org/show_bug.cgi?id=234785
+
+        Reviewed by Sam Weinig.
+
+        Mark WPT progressions.
+
+        * web-platform-tests/css/css-animations/computed-style-animation-parsing-expected.txt:
+        * web-platform-tests/css/css-animations/parsing/animation-computed-expected.txt:
+        * web-platform-tests/css/css-pseudo/parsing/marker-supported-properties-expected.txt:
+
+2022-01-02  Antoine Quint  <graouts@webkit.org>
+
+        "animation" shorthand should list all longhand values when serializing
+        https://bugs.webkit.org/show_bug.cgi?id=234792
+
+        Reviewed by Darin Adler.
+
+        Mark 20 new WPT progressions.
+
+        * web-platform-tests/css/css-animations/parsing/animation-shorthand-expected.txt:
+        * web-platform-tests/css/css-animations/parsing/animation-valid-expected.txt:
+        * web-platform-tests/css/css-animations/style-animation-parsing-expected.txt:
+
+2022-01-02  Antoine Quint  <graouts@webkit.org>
+
+        [Web Animations] getKeyframes() should handle multiple 0% and 100% keyframes
+        https://bugs.webkit.org/show_bug.cgi?id=234799
+
+        Reviewed by Dean Jackson.
+
+        Mark a WPT progression.
+
+        * web-platform-tests/css/css-animations/KeyframeEffect-getKeyframes.tentative-expected.txt:
+
+2022-01-02  Antoine Quint  <graouts@webkit.org>
+
+        [Web Animations] getKeyframes() should ensure that all properties are present on 0% and 100% keyframes
+        https://bugs.webkit.org/show_bug.cgi?id=234795
+
+        Reviewed by Dean Jackson.
+
+        Mark a WPT progressions.
+
+        * web-platform-tests/css/css-animations/KeyframeEffect-getKeyframes.tentative-expected.txt:
+
+2022-01-02  Antoine Quint  <graouts@webkit.org>
+
+        [Web Animations] getKeyframes() should return an empty object when there are no animatable properties in @keyframes rule
+        https://bugs.webkit.org/show_bug.cgi?id=234793
+
+        Reviewed by Dean Jackson.
+
+        Mark a new WPT progression.
+
+        * web-platform-tests/css/css-animations/KeyframeEffect-getKeyframes.tentative-expected.txt:
+
+2022-01-01  Antoine Quint  <graouts@webkit.org>
+
+        "animation" shorthand does not parse values in the right order
+        https://bugs.webkit.org/show_bug.cgi?id=234788
+
+        Reviewed by Dean Jackson.
+
+        Mark a new WPT progression.
+
+        * web-platform-tests/css/css-animations/parsing/animation-valid-expected.txt:
+
+2021-12-31  Tim Nguyen  <ntim@apple.com>
+
+        Re-import css/css-writing-modes WPT
+        https://bugs.webkit.org/show_bug.cgi?id=234764
+
+        Reviewed by Dean Jackson.
+
+        Upstream commit: https://github.com/web-platform-tests/wpt/commit/e433ff38f5230f3fec9c6fd434b942c7bffbfc67
+
+        * resources/resource-files.json:
+        * web-platform-tests/css/css-writing-modes/astral-bidi/adlam-anti-ref-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-writing-modes/astral-bidi/adlam-anti-ref-expected.html.
+        * web-platform-tests/css/css-writing-modes/astral-bidi/cypriot-anti-ref-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-writing-modes/astral-bidi/cypriot-anti-ref-expected.html.
+        * web-platform-tests/css/css-writing-modes/astral-bidi/w3c-import.log:
+        * web-platform-tests/css/css-writing-modes/bidi-dynamic-iframe-001-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/bidi-dynamic-iframe-001.html: Added.
+        * web-platform-tests/css/css-writing-modes/bidi-plaintext-br-001-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/bidi-plaintext-br-001.html: Added.
+        * web-platform-tests/css/css-writing-modes/block-flow-direction-slr-062.xht:
+        * web-platform-tests/css/css-writing-modes/block-flow-direction-srl-061.xht:
+        * web-platform-tests/css/css-writing-modes/block-flow-direction-vlr-022.xht:
+        * web-platform-tests/css/css-writing-modes/block-flow-direction-vrl-021.xht:
+        * web-platform-tests/css/css-writing-modes/crashtests/orthogonal-percent-height-multicol-crash.html: Added.
+        * web-platform-tests/css/css-writing-modes/crashtests/orthogonal-scroll-percent-height-crash.html: Added.
+        * web-platform-tests/css/css-writing-modes/crashtests/orthogonal-table-in-flex-crash.html: Added.
+        * web-platform-tests/css/css-writing-modes/crashtests/w3c-import.log: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-writing-modes/astral-bidi/w3c-import.log.
+        * web-platform-tests/css/css-writing-modes/crashtests/wm-body-propagation-crash.html: Added.
+        * web-platform-tests/css/css-writing-modes/direction-propagation-body-contain-root-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/direction-propagation-body-contain-root.html: Added.
+        * web-platform-tests/css/css-writing-modes/dynamic-offset-rtl-001-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/dynamic-offset-rtl-001.html: Added.
+        * web-platform-tests/css/css-writing-modes/dynamic-offset-rtl-002-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/dynamic-offset-rtl-002.html: Added.
+        * web-platform-tests/css/css-writing-modes/dynamic-offset-vrl-001-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/dynamic-offset-vrl-001.html: Added.
+        * web-platform-tests/css/css-writing-modes/dynamic-offset-vrl-002-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/dynamic-offset-vrl-002.html: Added.
+        * web-platform-tests/css/css-writing-modes/dynamic-offset-vrl-rtl-001-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/dynamic-offset-vrl-rtl-001.html: Added.
+        * web-platform-tests/css/css-writing-modes/dynamic-offset-vrl-rtl-002-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/dynamic-offset-vrl-rtl-002.html: Added.
+        * web-platform-tests/css/css-writing-modes/full-width-001-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-writing-modes/full-width-001-expected.html.
+        * web-platform-tests/css/css-writing-modes/full-width-002-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-writing-modes/full-width-002-expected.html.
+        * web-platform-tests/css/css-writing-modes/full-width-003-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-writing-modes/full-width-003-expected.html.
+        * web-platform-tests/css/css-writing-modes/inline-box-orthogonal-child-with-margins-expected.html:
+        * web-platform-tests/css/css-writing-modes/inline-box-orthogonal-child-with-margins.html:
+        * web-platform-tests/css/css-writing-modes/line-box-height-vlr-003.xht:
+        * web-platform-tests/css/css-writing-modes/line-box-height-vlr-005.xht:
+        * web-platform-tests/css/css-writing-modes/line-box-height-vlr-007.xht:
+        * web-platform-tests/css/css-writing-modes/line-box-height-vlr-009.xht:
+        * web-platform-tests/css/css-writing-modes/line-box-height-vlr-011.xht:
+        * web-platform-tests/css/css-writing-modes/line-box-height-vlr-013.xht:
+        * web-platform-tests/css/css-writing-modes/line-box-height-vlr-021.xht:
+        * web-platform-tests/css/css-writing-modes/line-box-height-vlr-023.xht:
+        * web-platform-tests/css/css-writing-modes/line-box-height-vrl-002.xht:
+        * web-platform-tests/css/css-writing-modes/line-box-height-vrl-004.xht:
+        * web-platform-tests/css/css-writing-modes/line-box-height-vrl-006.xht:
+        * web-platform-tests/css/css-writing-modes/line-box-height-vrl-008.xht:
+        * web-platform-tests/css/css-writing-modes/line-box-height-vrl-010.xht:
+        * web-platform-tests/css/css-writing-modes/line-box-height-vrl-012.xht:
+        * web-platform-tests/css/css-writing-modes/logical-physical-mapping-001-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/logical-physical-mapping-001.html: Added.
+        * web-platform-tests/css/css-writing-modes/padding-percent-orthogonal-dynamic-expected.txt: Added.
+        * web-platform-tests/css/css-writing-modes/padding-percent-orthogonal-dynamic.html: Added.
+        * web-platform-tests/css/css-writing-modes/replaced-content-image-004-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/replaced-content-image-004.html: Added.
+        * web-platform-tests/css/css-writing-modes/sizing-orthog-vrl-in-htb-013-expected.xht:
+        * web-platform-tests/css/css-writing-modes/sizing-orthog-vrl-in-htb-013.xht:
+        * web-platform-tests/css/css-writing-modes/slr-alongside-vlr-floats-expected.html:
+        * web-platform-tests/css/css-writing-modes/slr-alongside-vlr-floats.html:
+        * web-platform-tests/css/css-writing-modes/srl-alongside-vrl-floats-expected.html:
+        * web-platform-tests/css/css-writing-modes/srl-alongside-vrl-floats.html:
+        * web-platform-tests/css/css-writing-modes/support/WidthTest-Regular.otf: Added.
+        * web-platform-tests/css/css-writing-modes/support/tcy.css: Added.
+        (.tcy):
+        (.fake-tcy):
+        * web-platform-tests/css/css-writing-modes/support/w3c-import.log:
+        * web-platform-tests/css/css-writing-modes/support/width-test.css: Added.
+        (@font-face):
+        (.test):
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-break-inside-001-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-break-inside-001.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-break-inside-001a-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-break-inside-001a.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-compression-001-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-compression-001.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-compression-002-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-compression-002.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-compression-003-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-compression-003.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-compression-004-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-compression-004.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-compression-005-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-compression-005.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-compression-005a-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-compression-005a.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-compression-006-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-compression-006.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-compression-006a-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-compression-006a.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-compression-007-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-compression-007.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-orientation-upright-directionality-001-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-orientation-upright-directionality-001.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-shadow-orientation-upright-001-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/text-shadow-orientation-upright-001.html: Added.
+        * web-platform-tests/css/css-writing-modes/vlr-text-orientation-sideways-alongside-vlr-floats-expected.html:
+        * web-platform-tests/css/css-writing-modes/vlr-text-orientation-sideways-alongside-vlr-floats.html:
+        * web-platform-tests/css/css-writing-modes/vrl-inline-paint-invalidation-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/vrl-inline-paint-invalidation.html: Added.
+        * web-platform-tests/css/css-writing-modes/vrl-text-orientation-sideways-alongside-vrl-floats-expected.html:
+        * web-platform-tests/css/css-writing-modes/vrl-text-orientation-sideways-alongside-vrl-floats.html:
+        * web-platform-tests/css/css-writing-modes/w3c-import.log:
+        * web-platform-tests/css/css-writing-modes/wm-propagation-body-computed-direction-001-expected.txt: Added.
+        * web-platform-tests/css/css-writing-modes/wm-propagation-body-computed-direction-001.html: Added.
+        * web-platform-tests/css/css-writing-modes/wm-propagation-body-computed-direction-002-expected.txt: Added.
+        * web-platform-tests/css/css-writing-modes/wm-propagation-body-computed-direction-002.html: Added.
+        * web-platform-tests/css/css-writing-modes/wm-propagation-body-contain-root-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/wm-propagation-body-contain-root.html: Added.
+        * web-platform-tests/css/css-writing-modes/wm-propagation-body-dynamic-change-001.html:
+        * web-platform-tests/css/css-writing-modes/wm-propagation-body-dynamic-change-002-expected.html:
+        * web-platform-tests/css/css-writing-modes/wm-propagation-body-dynamic-change-002.html:
+        * web-platform-tests/css/css-writing-modes/wm-propagation-body-dynamic-change-003-expected.html: Added.
+        * web-platform-tests/css/css-writing-modes/wm-propagation-body-dynamic-change-003.html: Added.
+        * web-platform-tests/css/css-writing-modes/wm-propagation-svg-root-scrollbar.svg:
+
+2021-12-27  Tim Nguyen  <ntim@apple.com>
+
+        Implement text-combine-upright property
+        https://bugs.webkit.org/show_bug.cgi?id=150821
+
+        Reviewed by Dean Jackson.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/css-pseudo/parsing/marker-supported-properties-expected.txt:
+        * web-platform-tests/css/css-pseudo/parsing/marker-supported-properties-in-animation-expected.txt:
+        * web-platform-tests/css/css-writing-modes/inheritance-expected.txt:
+        * web-platform-tests/css/css-writing-modes/parsing/text-combine-upright-computed-expected.txt:
+        * web-platform-tests/css/css-writing-modes/parsing/text-combine-upright-valid-expected.txt:
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-parsing-digits-001-expected.txt:
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-parsing-digits-002-expected.txt:
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-parsing-invalid-001-expected.txt:
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-parsing-invalid-002-expected.txt:
+        * web-platform-tests/css/css-writing-modes/text-combine-upright-parsing-valid-001-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
+2021-12-28  Sam Weinig  <weinig@apple.com>
+
+        Support color interpolation methods for CSS Gradients
+        https://bugs.webkit.org/show_bug.cgi?id=234711
+
+        Reviewed by Simon Fraser.
+
+        Add parsing and serialization tests that exercise the new support for the <color-interpolation-method>
+        production in CSS gradients. 
+
+        * web-platform-tests/css/css-images/parsing/gradient-interpolation-method-computed-expected.txt: Added.
+        * web-platform-tests/css/css-images/parsing/gradient-interpolation-method-computed.html: Added.
+        * web-platform-tests/css/css-images/parsing/gradient-interpolation-method-invalid-expected.txt: Added.
+        * web-platform-tests/css/css-images/parsing/gradient-interpolation-method-invalid.html: Added.
+        * web-platform-tests/css/css-images/parsing/gradient-interpolation-method-valid-expected.txt: Added.
+        * web-platform-tests/css/css-images/parsing/gradient-interpolation-method-valid.html: Added.
+
+2021-12-28  Sam Weinig  <weinig@apple.com>
+
+        Update wpt css/css-color tests
+        https://bugs.webkit.org/show_bug.cgi?id=234684
+
+        Reviewed by Darin Adler.
+
+        Updates tests.
+
+        * resources/resource-files.json:
+        * web-platform-tests/css/css-color/META.yml:
+        * web-platform-tests/css/css-color/body-opacity-0-to-1-stacking-context-expected.html: Added.
+        * web-platform-tests/css/css-color/body-opacity-0-to-1-stacking-context.html: Added.
+        * web-platform-tests/css/css-color/color-contrast-001-expected.html: Added.
+        * web-platform-tests/css/css-color/color-contrast-001.html: Added.
+        * web-platform-tests/css/css-color/color-mix-basic-001-expected.html: Added.
+        * web-platform-tests/css/css-color/color-mix-basic-001.html: Added.
+        * web-platform-tests/css/css-color/color-mix-basic-001.tentative-expected.txt: Removed.
+        * web-platform-tests/css/css-color/color-mix-basic-001.tentative.html: Removed.
+        * web-platform-tests/css/css-color/color-mix-non-srgb-001-expected.html: Added.
+        * web-platform-tests/css/css-color/color-mix-non-srgb-001.html: Added.
+        * web-platform-tests/css/css-color/color-mix-percents-01-expected.html: Added.
+        * web-platform-tests/css/css-color/color-mix-percents-01.html: Added.
+        * web-platform-tests/css/css-color/color-mix-percents-02-expected.html: Added.
+        * web-platform-tests/css/css-color/color-mix-percents-02.html: Added.
+        * web-platform-tests/css/css-color/display-p3-001-expected.html: Added.
+        * web-platform-tests/css/css-color/display-p3-001.html: Added.
+        * web-platform-tests/css/css-color/display-p3-002-expected.html: Added.
+        * web-platform-tests/css/css-color/display-p3-002.html: Added.
+        * web-platform-tests/css/css-color/display-p3-003-expected.html: Added.
+        * web-platform-tests/css/css-color/display-p3-003.html: Added.
+        * web-platform-tests/css/css-color/display-p3-004-expected.html: Added.
+        * web-platform-tests/css/css-color/display-p3-004.html: Added.
+        * web-platform-tests/css/css-color/display-p3-005-expected.html: Added.
+        * web-platform-tests/css/css-color/display-p3-005.html: Added.
+        * web-platform-tests/css/css-color/display-p3-006-expected.html: Added.
+        * web-platform-tests/css/css-color/display-p3-006.html: Added.
+        * web-platform-tests/css/css-color/inline-opacity-float-child-expected.xht: Added.
+        * web-platform-tests/css/css-color/inline-opacity-float-child.html: Added.
+        * web-platform-tests/css/css-color/oklab-001.html:
+        * web-platform-tests/css/css-color/oklab-002.html:
+        * web-platform-tests/css/css-color/oklab-003.html:
+        * web-platform-tests/css/css-color/oklab-004.html:
+        * web-platform-tests/css/css-color/oklab-005.html:
+        * web-platform-tests/css/css-color/oklab-006.html:
+        * web-platform-tests/css/css-color/oklab-007.html:
+        * web-platform-tests/css/css-color/oklab-008.html:
+        * web-platform-tests/css/css-color/oklch-001.html:
+        * web-platform-tests/css/css-color/oklch-002.html:
+        * web-platform-tests/css/css-color/oklch-003.html:
+        * web-platform-tests/css/css-color/oklch-004.html:
+        * web-platform-tests/css/css-color/oklch-005.html:
+        * web-platform-tests/css/css-color/oklch-006.html:
+        * web-platform-tests/css/css-color/oklch-007.html:
+        * web-platform-tests/css/css-color/oklch-008.html:
+        * web-platform-tests/css/css-color/parsing/color-computed-expected.txt:
+        * web-platform-tests/css/css-color/parsing/color-computed.html:
+        * web-platform-tests/css/css-color/parsing/color-contrast-computed-expected.txt: Added.
+        * web-platform-tests/css/css-color/parsing/color-contrast-computed.html: Added.
+        * web-platform-tests/css/css-color/parsing/color-contrast-invalid-expected.txt: Added.
+        * web-platform-tests/css/css-color/parsing/color-contrast-invalid.html: Added.
+        * web-platform-tests/css/css-color/parsing/color-contrast-valid-expected.txt: Added.
+        * web-platform-tests/css/css-color/parsing/color-contrast-valid.html: Added.
+        * web-platform-tests/css/css-color/parsing/color-invalid-expected.txt:
+        * web-platform-tests/css/css-color/parsing/color-invalid.html:
+        * web-platform-tests/css/css-color/parsing/color-mix-computed-expected.txt: Added.
+        * web-platform-tests/css/css-color/parsing/color-mix-computed.html: Added.
+        * web-platform-tests/css/css-color/parsing/color-mix-invalid-expected.txt: Added.
+        * web-platform-tests/css/css-color/parsing/color-mix-invalid.html: Added.
+        * web-platform-tests/css/css-color/parsing/color-mix-valid-expected.txt: Added.
+        * web-platform-tests/css/css-color/parsing/color-mix-valid.html: Added.
+        * web-platform-tests/css/css-color/parsing/color-valid-expected.txt:
+        * web-platform-tests/css/css-color/parsing/color-valid.html:
+        * web-platform-tests/css/css-color/parsing/relative-color-computed-expected.txt: Added.
+        * web-platform-tests/css/css-color/parsing/relative-color-computed.html: Added.
+        * web-platform-tests/css/css-color/parsing/relative-color-invalid-expected.txt: Added.
+        * web-platform-tests/css/css-color/parsing/relative-color-invalid.html: Added.
+        * web-platform-tests/css/css-color/parsing/relative-color-valid-expected.txt: Added.
+        * web-platform-tests/css/css-color/parsing/relative-color-valid.html: Added.
+        * web-platform-tests/css/css-color/parsing/system-color-valid-expected.txt:
+        * web-platform-tests/css/css-color/parsing/system-color-valid.html:
+        * web-platform-tests/css/css-color/parsing/w3c-import.log:
+        * web-platform-tests/css/css-color/predefined-001.html:
+        * web-platform-tests/css/css-color/predefined-002.html:
+        * web-platform-tests/css/css-color/predefined-005.html:
+        * web-platform-tests/css/css-color/predefined-006.html:
+        * web-platform-tests/css/css-color/predefined-013-expected.html: Removed.
+        * web-platform-tests/css/css-color/predefined-013.html: Removed.
+        * web-platform-tests/css/css-color/predefined-016.html:
+        * web-platform-tests/css/css-color/srgb-linear-003.html:
+        * web-platform-tests/css/css-color/srgb-linear-004.html:
+        * web-platform-tests/css/css-color/t31-color-text-a-expected-mismatch.xht: Added.
+        * web-platform-tests/css/css-color/t31-color-text-a-expected.xht: Removed.
+        * web-platform-tests/css/css-color/t421-rgb-values-meaning-b-expected.html:
+        * web-platform-tests/css/css-color/w3c-import.log:
+
+2021-12-28  Manuel Rego Casasnovas  <rego@igalia.com>
+
+        [selectors] Import two :focus-visible tests from WPT
+        https://bugs.webkit.org/show_bug.cgi?id=234720
+
+        Reviewed by Sergio Villar Senin.
+
+        The tests were added in https://github.com/web-platform-tests/wpt/pull/32000
+        and are related to :focus-visible and accesskey.
+        They don't work on WebKit due to webkit.org/b/234139, though they work properly on wpt.fyi.
+
+        * web-platform-tests/css/selectors/focus-visible-024.html: Added.
+        * web-platform-tests/css/selectors/focus-visible-025.html: Added.
+        * web-platform-tests/css/selectors/w3c-import.log:
+
+2021-12-26  Antti Koivisto  <antti@apple.com>
+
+        [:has() pseudo-class] Support :disabled and :enabled pseudo-class invalidation
+        https://bugs.webkit.org/show_bug.cgi?id=234636
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/selectors/invalidation/has-pseudo-class.html:
+
+2021-12-24  Tim Nguyen  <ntim@apple.com>
+
+        Internally unprefix -webkit-font-kerning CSS property
+        https://bugs.webkit.org/show_bug.cgi?id=234673
+
+        Reviewed by Myles C. Maxfield.
+
+        Same to what was done in bug 234602 for text-emphasis CSS properties.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+
+2021-12-24  Tim Nguyen  <ntim@apple.com>
+
+        Remove non-standard -webkit-background-composite CSS property
+        https://bugs.webkit.org/show_bug.cgi?id=234661
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
+2021-12-24  Tim Nguyen  <ntim@apple.com>
+
+        Remove non-standard -webkit-margin-collapse CSS property and longhands
+        https://bugs.webkit.org/show_bug.cgi?id=190788
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
+2021-12-22  Antti Koivisto  <antti@apple.com>
+
+        [:has() pseudo-class] :has() selector invalidation issue with toggling :checked
+        https://bugs.webkit.org/show_bug.cgi?id=234561
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/selectors/invalidation/has-pseudo-class-expected.txt: Added.
+        * web-platform-tests/css/selectors/invalidation/has-pseudo-class.html: Added.
+
+2021-12-22  Tim Nguyen  <ntim@apple.com>
+
+        Internally unprefix -webkit-text-emphasis properties
+        https://bugs.webkit.org/show_bug.cgi?id=234602
+
+        Reviewed by Antti Koivisto.
+
+        Adjust test expectations.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/accumulation-per-property-002-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/addition-per-property-002-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/interpolation-per-property-002-expected.txt:
+
+2021-12-21  Sergio Villar Senin  <svillar@igalia.com>
+
+        [REGRESSION][[css-flexbox] child elements are shrunk to fit into container after r286206
+        https://bugs.webkit.org/show_bug.cgi?id=234361
+
+        Reviewed by Manuel Rego Casasnovas.
+
+        * web-platform-tests/css/css-flexbox/flexbox-iframe-intrinsic-size-001-expected.html: Added.
+        * web-platform-tests/css/css-flexbox/flexbox-iframe-intrinsic-size-001.html: Added.
+        * web-platform-tests/css/css-flexbox/w3c-import.log:
+
+2021-12-21  Tim Nguyen  <ntim@apple.com>
+
+        <dialog> should generate implied end tags
+        https://bugs.webkit.org/show_bug.cgi?id=234442
+
+        Reviewed by Antti Koivisto.
+
+        See references to dialog in: https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-inbody
+
+        * web-platform-tests/html/syntax/parsing/html5lib_blocks-expected.txt:
+
+2021-12-21  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        CSP: Include the sample in eval violation reports
+        https://bugs.webkit.org/show_bug.cgi?id=234390
+
+        Reviewed by Kate Cheney.
+
+        Update expectations.
+
+        * web-platform-tests/content-security-policy/securitypolicyviolation/script-sample-expected.txt:
+
+2021-12-20  Patrick Griffis  <pgriffis@igalia.com>
+
+        CSP: Always use UTF-8 encoded content when checking hashes
+        https://bugs.webkit.org/show_bug.cgi?id=234159
+
+        Reviewed by Kate Cheney.
+
+        Update expectations as passing.
+
+        * web-platform-tests/content-security-policy/script-src/hash-always-converted-to-utf-8/utf-8-lone-surrogate-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/scripthash-unicode-normalization.sub-expected.txt:
+
+2021-12-20  Tim Nguyen  <ntim@apple.com>
+
+        Re-import the-dialog-element WPT
+        https://bugs.webkit.org/show_bug.cgi?id=234479
+
+        Reviewed by Dean Jackson.
+
+        Upstream commit: https://github.com/web-platform-tests/wpt/commit/6259400ce70fd41d25bcf5db624a04db854f304e
+
+        * resources/resource-files.json:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/abspos-dialog-layout.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/backdrop-receives-element-events-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/backdrop-receives-element-events.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/closed-dialog-does-not-block-mouse-events-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/closed-dialog-does-not-block-mouse-events.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-canceling-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-canceling.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-close-event-async-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-close-event-async.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-close-event-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-close-event.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focusing-steps-disconnected.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focusing-steps-inert.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-open-2-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-open-2.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-show-modal-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-show-modal-inert-crash.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-show-modal.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-focus-in-frames-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-focus-in-frames.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-inlines-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-inlines.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-label-focus-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-label-focus.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-node-is-uneditable-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-node-is-uneditable.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-node-is-unselectable-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-node-is-unselectable.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inertness-with-modal-dialogs-and-iframes-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inertness-with-modal-dialogs-and-iframes.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/modal-dialog-ancestor-is-inert-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/modal-dialog-ancestor-is-inert.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/modal-dialog-blocks-mouse-events-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/modal-dialog-blocks-mouse-events.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/modal-dialog-scroll-height-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/modal-dialog-scroll-height.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/multiple-centered-dialogs-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/multiple-centered-dialogs.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/non-modal-dialog-does-not-block-mouse-events-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/non-modal-dialog-does-not-block-mouse-events.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/non-modal-dialog-layout-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/non-modal-dialog-layout.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/resources/dialog.css:
+        (.pseudodialog):
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/resources/inert-focus-in-frames-frame1.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/resources/inert-focus-in-frames-frame2.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/resources/w3c-import.log:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/showmodal-in-shadow-crash.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/showmodal-shadow-sibling-frame-crash.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/simulated-click-inert-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/simulated-click-inert.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/submit-dialog-close-event-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/submit-dialog-close-event.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/synthetic-click-inert-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/synthetic-click-inert.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-parent-mask.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-position-relative-expected.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-position-relative.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-position-static-expected.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-position-static.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-position-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-position.html: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/w3c-import.log:
+
+2021-12-14  Sergio Villar Senin  <svillar@igalia.com>
+
+        [css-flexbox] Pre-layout orthogonal children to compute the preferred logical width
+        https://bugs.webkit.org/show_bug.cgi?id=234300
+
+        Reviewed by Javier Fernandez.
+
+        * web-platform-tests/css/css-flexbox/intrinsic-width-orthogonal-writing-mode-expected.txt: Replaced
+        FAIL by PASS expectations for 2 subtests that are passing now.
+
+2021-12-16  Vitaly Dyachkov  <obyknovenius@me.com>
+
+        Flexbox ignores margins of absolute positioned children when `align-items: flex-end` or `justify-content: flex-end`
+        https://bugs.webkit.org/show_bug.cgi?id=234143
+
+        Reviewed by Sergio Villar Senin.
+
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-margin-003-expected.html: Added.
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-margin-003.html: Added.
+        * web-platform-tests/css/css-flexbox/abspos/position-absolute-015-expected.txt: Replaced FAIL
+        by PASS expectations.
+
+2021-12-16  Joonghun Park  <jh718.park@samsung.com>
+
+        Unreviewed. Import updated table-child-percentage-height-with-border-box-expected.html
+
+        The wpt expected file was fixed accroding to the spec,
+        https://drafts.csswg.org/css-tables-3/#table-cell-content-relayout.
+
+        The corresponding wpt issue is https://github.com/web-platform-tests/wpt/pull/32089.
+
+        * web-platform-tests/css/css-sizing/table-child-percentage-height-with-border-box-expected.html:
+
+2021-12-13  Sergio Villar Senin  <svillar@igalia.com>
+
+        [css-flexbox] Absolutely positioned children should be aligned using the margin box
+        https://bugs.webkit.org/show_bug.cgi?id=234244
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/css/css-flexbox/abspos/position-absolute-014-expected.txt: Replaced FAIL
+        by PASS expectations.
+
+2021-12-14  Joonghun Park  <jh718.park@samsung.com>
+
+        Fix that height is calculated incorrectly when using display:table, box-sizing:border-box and padding.
+        https://bugs.webkit.org/show_bug.cgi?id=196175
+
+        Reviewed by Darin Adler.
+
+        Currently, box sizing type check is missing, so the height of display:table element's percent height child
+        is subtracted by its border and padding even when its 'box-sizing' is not 'content-box'.
+
+        This patch adds the missing box sizing type check.
+
+        * web-platform-tests/css/css-sizing/table-child-percentage-height-with-border-box-expected.html: Added.
+        * web-platform-tests/css/css-sizing/table-child-percentage-height-with-border-box.html: Added.
+
+2021-12-14  Alex Christensen  <achristensen@webkit.org>
+
+        Revert r284816
+        https://bugs.webkit.org/show_bug.cgi?id=234308
+
+        Reviewed by Eric Carlson.
+
+        * web-platform-tests/service-workers/service-worker/fetch-audio-tainting.https-expected.txt:
+
 2021-12-14  Andreu Botella  <andreu@andreubotella.com>
 
         TextDecoder doesn't detect invalid UTF-8 sequences early enough

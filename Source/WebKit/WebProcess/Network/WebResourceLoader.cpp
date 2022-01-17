@@ -30,6 +30,7 @@
 #include "Logging.h"
 #include "NetworkProcessConnection.h"
 #include "NetworkResourceLoaderMessages.h"
+#include "SharedBufferCopy.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebErrors.h"
 #include "WebFrame.h"
@@ -105,6 +106,17 @@ void WebResourceLoader::willSendRequest(ResourceRequest&& proposedRequest, IPC::
     if (m_coreLoader->documentLoader()->applicationCacheHost().maybeLoadFallbackForRedirect(m_coreLoader.get(), proposedRequest, redirectResponse)) {
         WEBRESOURCELOADER_RELEASE_LOG("willSendRequest: exiting early because maybeLoadFallbackForRedirect returned false");
         return;
+    }
+    
+    if (auto* frame = m_coreLoader->frame()) {
+        if (auto* page = frame->page()) {
+            auto mainFrameMainResource = frame->isMainFrame()
+                && m_coreLoader->frameLoader()
+                && m_coreLoader->frameLoader()->notifier().isInitialRequestIdentifier(m_coreLoader->identifier())
+                ? MainFrameMainResource::Yes : MainFrameMainResource::No;
+            if (!page->allowsLoadFromURL(proposedRequest.url(), mainFrameMainResource))
+                proposedRequest = { };
+        }
     }
 
     m_coreLoader->willSendRequest(WTFMove(proposedRequest), redirectResponse, [this, protectedThis = WTFMove(protectedThis)](ResourceRequest&& request) {
@@ -189,16 +201,15 @@ void WebResourceLoader::didReceiveResponse(const ResourceResponse& response, boo
     m_coreLoader->didReceiveResponse(response, WTFMove(policyDecisionCompletionHandler));
 }
 
-void WebResourceLoader::didReceiveData(const IPC::DataReference& data, int64_t encodedDataLength)
+void WebResourceLoader::didReceiveData(const IPC::SharedBufferCopy& data, int64_t encodedDataLength)
 {
     LOG(Network, "(WebProcess) WebResourceLoader::didReceiveData of size %lu for '%s'", data.size(), m_coreLoader->url().string().latin1().data());
     ASSERT_WITH_MESSAGE(!m_isProcessingNetworkResponse, "Network process should not send data until we've validated the response");
 
     if (UNLIKELY(m_interceptController.isIntercepting(m_coreLoader->identifier()))) {
-        auto buffer = SharedBuffer::create(data.data(), data.size());
-        m_interceptController.defer(m_coreLoader->identifier(), [this, protectedThis = Ref { *this }, buffer = WTFMove(buffer), encodedDataLength]() mutable {
+        m_interceptController.defer(m_coreLoader->identifier(), [this, protectedThis = Ref { *this }, buffer = data.buffer(), encodedDataLength]() mutable {
             if (m_coreLoader)
-                didReceiveData({ buffer->data(), buffer->size() }, encodedDataLength);
+                didReceiveData(IPC::SharedBufferCopy(WTFMove(buffer)), encodedDataLength);
         });
         return;
     }
@@ -207,7 +218,7 @@ void WebResourceLoader::didReceiveData(const IPC::DataReference& data, int64_t e
         WEBRESOURCELOADER_RELEASE_LOG("didReceiveData: Started receiving data");
     m_numBytesReceived += data.size();
 
-    m_coreLoader->didReceiveData(data.data(), data.size(), encodedDataLength, DataPayloadBytes);
+    m_coreLoader->didReceiveData(data.safeBuffer(), encodedDataLength, DataPayloadBytes);
 }
 
 void WebResourceLoader::didFinishResourceLoad(const NetworkLoadMetrics& networkLoadMetrics)
@@ -295,7 +306,7 @@ void WebResourceLoader::didReceiveResource(const ShareableResource::Handle& hand
     LOG(Network, "(WebProcess) WebResourceLoader::didReceiveResource for '%s'", m_coreLoader->url().string().latin1().data());
     WEBRESOURCELOADER_RELEASE_LOG("didReceiveResource:");
 
-    RefPtr<FragmentedSharedBuffer> buffer = handle.tryWrapInSharedBuffer();
+    RefPtr<SharedBuffer> buffer = handle.tryWrapInSharedBuffer();
 
     if (!buffer) {
         LOG_ERROR("Unable to create buffer from ShareableResource sent from the network process.");
@@ -312,7 +323,7 @@ void WebResourceLoader::didReceiveResource(const ShareableResource::Handle& hand
 
     // Only send data to the didReceiveData callback if it exists.
     if (unsigned bufferSize = buffer->size())
-        m_coreLoader->didReceiveBuffer(buffer.releaseNonNull(), bufferSize, DataPayloadWholeResource);
+        m_coreLoader->didReceiveData(buffer.releaseNonNull(), bufferSize, DataPayloadWholeResource);
 
     if (!m_coreLoader)
         return;

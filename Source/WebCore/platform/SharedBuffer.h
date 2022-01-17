@@ -34,6 +34,7 @@
 #include <wtf/Function.h>
 #include <wtf/Span.h>
 #include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/TypeCasts.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
@@ -178,12 +179,13 @@ public:
 
     WEBCORE_EXPORT void forEachSegment(const Function<void(const Span<const uint8_t>&)>&) const;
     WEBCORE_EXPORT bool startsWith(const Span<const uint8_t>& prefix) const;
+    WEBCORE_EXPORT void forEachSegmentAsSharedBuffer(const Function<void(Ref<SharedBuffer>&&)>&) const;
 
     using DataSegment = WebCore::DataSegment; // To keep backward compatibility when using FragmentedSharedBuffer::DataSegment
 
     struct DataSegmentVectorEntry {
         size_t beginPosition;
-        Ref<DataSegment> segment;
+        const Ref<const DataSegment> segment;
     };
     using DataSegmentVector = Vector<DataSegmentVectorEntry, 1>;
     DataSegmentVector::const_iterator begin() const { return m_segments.begin(); }
@@ -230,6 +232,7 @@ private:
     friend class SharedBufferBuilder;
     WEBCORE_EXPORT void append(const FragmentedSharedBuffer&);
     WEBCORE_EXPORT void append(const uint8_t*, size_t);
+    void append(Span<const uint8_t> value) { append(value.data(), value.size()); }
     void append(const char* data, size_t length) { append(reinterpret_cast<const uint8_t*>(data), length); }
     WEBCORE_EXPORT void append(Vector<uint8_t>&&);
 #if USE(FOUNDATION)
@@ -259,7 +262,10 @@ public:
         if constexpr (!sizeof...(Args))
             return adoptRef(*new SharedBuffer());
         else if constexpr (sizeof...(Args) == 1
-            && (std::is_same_v<Args, Ref<DataSegment>> &&...))
+            && (std::is_same_v<Args, Ref<const DataSegment>> &&...))
+            return adoptRef(*new SharedBuffer(std::forward<Args>(args)...));
+        else if constexpr (sizeof...(Args) == 1
+            && (std::is_same_v<std::remove_const_t<std::remove_reference_t<Args>>, DataSegment> &&...))
             return adoptRef(*new SharedBuffer(std::forward<Args>(args)...));
         else {
             auto buffer = FragmentedSharedBuffer::create(std::forward<Args>(args)...);
@@ -286,8 +292,10 @@ public:
 
 private:
     WEBCORE_EXPORT SharedBuffer();
+    SharedBuffer(const DataSegment& segment)
+        : SharedBuffer(Ref<const DataSegment> { segment }) { }
     WEBCORE_EXPORT explicit SharedBuffer(FileSystem::MappedFileData&&);
-    WEBCORE_EXPORT explicit SharedBuffer(Ref<DataSegment>&&);
+    WEBCORE_EXPORT explicit SharedBuffer(Ref<const DataSegment>&&);
     WEBCORE_EXPORT explicit SharedBuffer(Ref<FragmentedSharedBuffer>&&);
 
     WEBCORE_EXPORT static RefPtr<SharedBuffer> createFromReadingFile(const String& filePath);
@@ -359,7 +367,7 @@ inline Vector<uint8_t> FragmentedSharedBuffer::extractData()
 
 class SharedBufferDataView {
 public:
-    WEBCORE_EXPORT SharedBufferDataView(Ref<DataSegment>&&, size_t positionWithinSegment, std::optional<size_t> newSize = std::nullopt);
+    WEBCORE_EXPORT SharedBufferDataView(Ref<const DataSegment>&&, size_t positionWithinSegment, std::optional<size_t> newSize = std::nullopt);
     WEBCORE_EXPORT SharedBufferDataView(const SharedBufferDataView&, size_t newSize);
     size_t size() const { return m_size; }
     const uint8_t* data() const { return m_segment->data() + m_positionWithinSegment; }
@@ -370,7 +378,7 @@ public:
     WEBCORE_EXPORT RetainPtr<NSData> createNSData() const;
 #endif
 private:
-    const Ref<DataSegment> m_segment;
+    const Ref<const DataSegment> m_segment;
     const size_t m_positionWithinSegment;
     const size_t m_size;
 };
@@ -378,3 +386,7 @@ private:
 RefPtr<SharedBuffer> utf8Buffer(const String&);
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::SharedBuffer)
+    static bool isType(const WebCore::FragmentedSharedBuffer& buffer) { return buffer.isContiguous(); }
+SPECIALIZE_TYPE_TRAITS_END()

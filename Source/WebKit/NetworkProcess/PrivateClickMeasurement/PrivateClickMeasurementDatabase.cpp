@@ -100,11 +100,11 @@ Database::~Database()
 
 const MemoryCompactLookupOnlyRobinHoodHashMap<String, TableAndIndexPair>& Database::expectedTableAndIndexQueries()
 {
-    static auto expectedTableAndIndexQueries = makeNeverDestroyed(MemoryCompactLookupOnlyRobinHoodHashMap<String, TableAndIndexPair> {
+    static NeverDestroyed expectedTableAndIndexQueries = MemoryCompactLookupOnlyRobinHoodHashMap<String, TableAndIndexPair> {
         { "PCMObservedDomains"_s, std::make_pair<String, std::optional<String>>(createPCMObservedDomain, std::nullopt) },
         { "UnattributedPrivateClickMeasurement"_s, std::make_pair<String, std::optional<String>>(createUnattributedPrivateClickMeasurement, stripIndexQueryToMatchStoredValue(createUniqueIndexUnattributedPrivateClickMeasurement)) },
         { "AttributedPrivateClickMeasurement"_s, std::make_pair<String, std::optional<String>>(createAttributedPrivateClickMeasurement, stripIndexQueryToMatchStoredValue(createUniqueIndexAttributedPrivateClickMeasurement)) },
-    });
+    };
 
     return expectedTableAndIndexQueries;
 }
@@ -619,6 +619,7 @@ std::pair<std::optional<Database::SourceEarliestTimeToSend>, std::optional<Datab
         || scopedStatement->step() != SQLITE_ROW) {
         RELEASE_LOG_ERROR(PrivateClickMeasurement, "Database::earliestTimesToSend, error message: %" PUBLIC_LOG_STRING, m_database.lastErrorMsg());
         ASSERT_NOT_REACHED();
+        return { };
     }
 
     std::optional<SourceEarliestTimeToSend> earliestTimeToSendToSource;
@@ -715,9 +716,9 @@ void Database::addDestinationTokenColumnsIfNecessary()
     String destinationKeyIDColumnName("destinationKeyID"_s);
     auto columns = columnsForTable(attributedTableName);
     if (!columns.size() || columns.last() != destinationKeyIDColumnName) {
-        addMissingColumnToTable(attributedTableName, "destinationToken"_s);
-        addMissingColumnToTable(attributedTableName, "destinationSignature"_s);
-        addMissingColumnToTable(attributedTableName, destinationKeyIDColumnName);
+        addMissingColumnToTable(attributedTableName, "destinationToken TEXT"_s);
+        addMissingColumnToTable(attributedTableName, "destinationSignature TEXT"_s);
+        addMissingColumnToTable(attributedTableName, "destinationKeyID TEXT");
     }
 }
 

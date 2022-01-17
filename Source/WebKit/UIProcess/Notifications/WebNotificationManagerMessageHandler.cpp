@@ -40,22 +40,22 @@ void WebNotificationManagerMessageHandler::requestSystemNotificationPermission(c
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-void WebNotificationManagerMessageHandler::showNotification(const String& title, const String& body, const String& iconURL, const String& tag, const String& language, WebCore::NotificationDirection direction, const String& originString, uint64_t notificationID)
+void WebNotificationManagerMessageHandler::showNotification(const WebCore::NotificationData& data)
 {
-    m_webPageProxy.showNotification(title, body, iconURL, tag, language, direction, originString, notificationID);
+    m_webPageProxy.showNotification(data);
 }
 
-void WebNotificationManagerMessageHandler::cancelNotification(uint64_t notificationID)
+void WebNotificationManagerMessageHandler::cancelNotification(const UUID& notificationID)
 {
     m_webPageProxy.cancelNotification(notificationID);
 }
 
-void WebNotificationManagerMessageHandler::clearNotifications(const Vector<uint64_t>& notificationIDs)
+void WebNotificationManagerMessageHandler::clearNotifications(const Vector<UUID>& notificationIDs)
 {
     m_webPageProxy.clearNotifications(notificationIDs);
 }
 
-void WebNotificationManagerMessageHandler::didDestroyNotification(uint64_t notificationID)
+void WebNotificationManagerMessageHandler::didDestroyNotification(const UUID& notificationID)
 {
     m_webPageProxy.didDestroyNotification(notificationID);
 }

@@ -98,7 +98,7 @@ void NetworkNotificationManager::getPendingPushMessages(CompletionHandler<void(c
     sendMessageWithReply<WebPushD::MessageType::GetPendingPushMessages>(WTFMove(replyHandler));
 }
 
-void NetworkNotificationManager::showNotification(const String&, const String&, const String&, const String&, const String&, WebCore::NotificationDirection, const String&, uint64_t)
+void NetworkNotificationManager::showNotification(const WebCore::NotificationData&)
 {
     if (!m_connection)
         return;
@@ -114,19 +114,19 @@ void NetworkNotificationManager::showNotification(const String&, const String&, 
 //    sendMessageWithReply<WebPushD::MessageType::EchoTwice>(WTFMove(completionHandler), String("FIXME: Do useful work here"));
 }
 
-void NetworkNotificationManager::cancelNotification(uint64_t)
+void NetworkNotificationManager::cancelNotification(const UUID&)
 {
     if (!m_connection)
         return;
 }
 
-void NetworkNotificationManager::clearNotifications(const Vector<uint64_t>&)
+void NetworkNotificationManager::clearNotifications(const Vector<UUID>&)
 {
     if (!m_connection)
         return;
 }
 
-void NetworkNotificationManager::didDestroyNotification(uint64_t)
+void NetworkNotificationManager::didDestroyNotification(const UUID&)
 {
     if (!m_connection)
         return;

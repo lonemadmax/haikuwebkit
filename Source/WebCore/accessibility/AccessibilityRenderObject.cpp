@@ -73,6 +73,7 @@
 #include "HitTestResult.h"
 #include "Image.h"
 #include "LegacyRenderSVGRoot.h"
+#include "LegacyRenderSVGShape.h"
 #include "LocalizedStrings.h"
 #include "NodeList.h"
 #include "Page.h"
@@ -781,10 +782,15 @@ String AccessibilityRenderObject::stringValue() const
         }
         return downcast<RenderMenuList>(*m_renderer).text();
     }
-    
-    if (is<RenderListMarker>(*m_renderer))
+
+    if (is<RenderListMarker>(*m_renderer)) {
+#if USE(ATSPI)
+        return downcast<RenderListMarker>(*m_renderer).textWithSuffix().toString();
+#else
         return downcast<RenderListMarker>(*m_renderer).textWithoutSuffix().toString();
-    
+#endif
+    }
+
     if (isWebArea())
         return String();
     
@@ -905,7 +911,7 @@ LayoutRect AccessibilityRenderObject::elementRect() const
 
 bool AccessibilityRenderObject::supportsPath() const
 {
-    return is<RenderText>(renderer()) || is<RenderSVGShape>(renderer());
+    return is<RenderText>(renderer()) || (renderer() && renderer()->isSVGShapeOrLegacySVGShape());
 }
 
 Path AccessibilityRenderObject::elementPath() const
@@ -948,22 +954,31 @@ Path AccessibilityRenderObject::elementPath() const
         return PathUtilities::pathWithShrinkWrappedRects(pixelSnappedRects, 0);
     }
 
-    if (is<RenderSVGShape>(renderer()) && downcast<RenderSVGShape>(*m_renderer).hasPath()) {
-        Path path = downcast<RenderSVGShape>(*m_renderer).path();
+    if (is<LegacyRenderSVGShape>(renderer()) && downcast<LegacyRenderSVGShape>(*m_renderer).hasPath()) {
+        Path path = downcast<LegacyRenderSVGShape>(*m_renderer).path();
 
         // The SVG path is in terms of the parent's bounding box. The path needs to be offset to frame coordinates.
         if (auto svgRoot = ancestorsOfType<LegacyRenderSVGRoot>(*m_renderer).first()) {
             LayoutPoint parentOffset = axObjectCache()->getOrCreate(&*svgRoot)->elementRect().location();
             path.transform(AffineTransform().translate(parentOffset.x(), parentOffset.y()));
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
-        } else if (auto svgRoot = ancestorsOfType<RenderSVGRoot>(*m_renderer).first()) {
-            LayoutPoint parentOffset = axObjectCache()->getOrCreate(&*svgRoot)->elementRect().location();
-            path.transform(AffineTransform().translate(parentOffset.x(), parentOffset.y()));
-#endif
         }
 
         return path;
     }
+
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+    if (is<RenderSVGShape>(renderer()) && downcast<RenderSVGShape>(*m_renderer).hasPath()) {
+        Path path = downcast<RenderSVGShape>(*m_renderer).path();
+
+        // The SVG path is in terms of the parent's bounding box. The path needs to be offset to frame coordinates.
+        if (auto svgRoot = ancestorsOfType<RenderSVGRoot>(*m_renderer).first()) {
+            LayoutPoint parentOffset = axObjectCache()->getOrCreate(&*svgRoot)->elementRect().location();
+            path.transform(AffineTransform().translate(parentOffset.x(), parentOffset.y()));
+        }
+
+        return path;
+    }
+#endif
 
     return Path();
 }
@@ -3214,18 +3229,18 @@ bool AccessibilityRenderObject::inheritsPresentationalRole() const
     // those child elements are also presentational. For example, <li> becomes presentational from <ul>.
     // http://www.w3.org/WAI/PF/aria/complete#presentation
 
-    const Vector<const HTMLQualifiedName*>* parentTags;
+    Span<decltype(aTag)* const> parentTags;
     switch (roleValue()) {
     case AccessibilityRole::ListItem:
     case AccessibilityRole::ListMarker: {
-        static const auto listItemParents = makeNeverDestroyed(Vector<const HTMLQualifiedName*> { &dlTag.get(), &olTag.get(), &ulTag.get() });
-        parentTags = &listItemParents.get();
+        static constexpr std::array listItemParents { &dlTag, &olTag, &ulTag };
+        parentTags = listItemParents;
         break;
     }
     case AccessibilityRole::GridCell:
     case AccessibilityRole::Cell: {
-        static const auto tableCellParents = makeNeverDestroyed(Vector<const HTMLQualifiedName*> { &tableTag.get() });
-        parentTags = &tableCellParents.get();
+        static constexpr std::array tableCellParents { &tableTag };
+        parentTags = tableCellParents;
         break;
     }
     default:
@@ -3244,7 +3259,7 @@ bool AccessibilityRenderObject::inheritsPresentationalRole() const
         // If native tag of the parent element matches an acceptable name, then return
         // based on its presentational status.
         auto& name = downcast<Element>(*node).tagQName();
-        if (std::any_of(parentTags->begin(), parentTags->end(), [&name] (auto* possibleName) { return *possibleName == name; }))
+        if (std::any_of(parentTags.begin(), parentTags.end(), [&name] (auto* possibleName) { return possibleName->get() == name; }))
             return parent->roleValue() == AccessibilityRole::Presentational;
     }
 
@@ -3392,7 +3407,12 @@ AccessibilitySVGRoot* AccessibilityRenderObject::remoteSVGRootElement(CreationCh
     ASSERT(!createIfNecessary || rootSVGObject);
     if (!is<AccessibilitySVGRoot>(rootSVGObject))
         return nullptr;
-    
+
+#if USE(ATSPI)
+    if (auto* page = document->page())
+        page->setAccessibilityRootObject(createIfNecessary == Create ? axObjectCache()->document().page()->accessibilityRootObject() : nullptr);
+#endif
+
     return downcast<AccessibilitySVGRoot>(rootSVGObject);
 }
     

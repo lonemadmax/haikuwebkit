@@ -31,12 +31,13 @@
 #include "RegisterAtOffsetList.h"
 #include "WasmCompilationMode.h"
 #include "WasmFormat.h"
-#include "WasmFunctionCodeBlock.h"
+#include "WasmFunctionCodeBlockGenerator.h"
 #include "WasmHandlerInfo.h"
 #include "WasmIndexOrName.h"
 #include "WasmLLIntTierUpCounter.h"
 #include "WasmTierUpCount.h"
 #include <wtf/FixedVector.h>
+#include <wtf/RefCountedFixedVector.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
 namespace JSC {
@@ -44,10 +45,6 @@ namespace JSC {
 class LLIntOffsetsExtractor;
 
 namespace Wasm {
-
-#if ENABLE(WEBASSEMBLY_B3JIT)
-class OMGForOSREntryCallee;
-#endif
 
 class Callee : public ThreadSafeRefCounted<Callee> {
     WTF_MAKE_FAST_ALLOCATED;
@@ -66,16 +63,7 @@ public:
 
     bool hasExceptionHandlers() const { return !m_exceptionHandlers.isEmpty(); }
 
-#if ENABLE(WEBASSEMBLY_B3JIT)
-    virtual void setOSREntryCallee(Ref<OMGForOSREntryCallee>&&, MemoryMode)
-    {
-        RELEASE_ASSERT_NOT_REACHED();
-    }
-#endif
-
     void dump(PrintStream&) const;
-
-    virtual FunctionCodeBlock* llintFunctionCodeBlock() const { return nullptr; }
 
 protected:
     JS_EXPORT_PRIVATE Callee(Wasm::CompilationMode);
@@ -160,19 +148,19 @@ private:
     }
 };
 
-class OMGForOSREntryCallee final : public OptimizingJITCallee {
+class OSREntryCallee final : public OptimizingJITCallee {
 public:
-    static Ref<OMGForOSREntryCallee> create(Wasm::Entrypoint&& entrypoint, size_t index, std::pair<const Name*, RefPtr<NameSection>>&& name, unsigned osrEntryScratchBufferSize, uint32_t loopIndex, Vector<UnlinkedWasmToWasmCall>&& unlinkedCalls, StackMaps&& stackmaps, Vector<UnlinkedHandlerInfo>&& exceptionHandlers, Vector<CodeLocationLabel<ExceptionHandlerPtrTag>>&& exceptionHandlerLocations)
+    static Ref<OSREntryCallee> create(CompilationMode compilationMode, Wasm::Entrypoint&& entrypoint, size_t index, std::pair<const Name*, RefPtr<NameSection>>&& name, unsigned osrEntryScratchBufferSize, uint32_t loopIndex, Vector<UnlinkedWasmToWasmCall>&& unlinkedCalls, StackMaps&& stackmaps, Vector<UnlinkedHandlerInfo>&& exceptionHandlers, Vector<CodeLocationLabel<ExceptionHandlerPtrTag>>&& exceptionHandlerLocations)
     {
-        return adoptRef(*new OMGForOSREntryCallee(WTFMove(entrypoint), index, WTFMove(name), osrEntryScratchBufferSize, loopIndex, WTFMove(unlinkedCalls), WTFMove(stackmaps), WTFMove(exceptionHandlers), WTFMove(exceptionHandlerLocations)));
+        return adoptRef(*new OSREntryCallee(compilationMode, WTFMove(entrypoint), index, WTFMove(name), osrEntryScratchBufferSize, loopIndex, WTFMove(unlinkedCalls), WTFMove(stackmaps), WTFMove(exceptionHandlers), WTFMove(exceptionHandlerLocations)));
     }
 
     unsigned osrEntryScratchBufferSize() const { return m_osrEntryScratchBufferSize; }
     uint32_t loopIndex() const { return m_loopIndex; }
 
 private:
-    OMGForOSREntryCallee(Wasm::Entrypoint&& entrypoint, size_t index, std::pair<const Name*, RefPtr<NameSection>>&& name, unsigned osrEntryScratchBufferSize, uint32_t loopIndex, Vector<UnlinkedWasmToWasmCall>&& unlinkedCalls, StackMaps&& stackmaps, Vector<UnlinkedHandlerInfo>&& exceptionHandlers, Vector<CodeLocationLabel<ExceptionHandlerPtrTag>>&& exceptionHandlerLocations)
-        : OptimizingJITCallee(Wasm::CompilationMode::OMGForOSREntryMode, WTFMove(entrypoint), index, WTFMove(name), WTFMove(unlinkedCalls), WTFMove(stackmaps), WTFMove(exceptionHandlers), WTFMove(exceptionHandlerLocations))
+    OSREntryCallee(CompilationMode compilationMode, Wasm::Entrypoint&& entrypoint, size_t index, std::pair<const Name*, RefPtr<NameSection>>&& name, unsigned osrEntryScratchBufferSize, uint32_t loopIndex, Vector<UnlinkedWasmToWasmCall>&& unlinkedCalls, StackMaps&& stackmaps, Vector<UnlinkedHandlerInfo>&& exceptionHandlers, Vector<CodeLocationLabel<ExceptionHandlerPtrTag>>&& exceptionHandlerLocations)
+        : OptimizingJITCallee(compilationMode, WTFMove(entrypoint), index, WTFMove(name), WTFMove(unlinkedCalls), WTFMove(stackmaps), WTFMove(exceptionHandlers), WTFMove(exceptionHandlerLocations))
         , m_osrEntryScratchBufferSize(osrEntryScratchBufferSize)
         , m_loopIndex(loopIndex)
     {
@@ -189,8 +177,8 @@ public:
         return adoptRef(*new BBQCallee(WTFMove(entrypoint), index, WTFMove(name), WTFMove(tierUpCount), WTFMove(unlinkedCalls), WTFMove(stackmaps), WTFMove(exceptionHandlers), WTFMove(exceptionHandlerLocations)));
     }
 
-    OMGForOSREntryCallee* osrEntryCallee() { return m_osrEntryCallee.get(); }
-    void setOSREntryCallee(Ref<OMGForOSREntryCallee>&& osrEntryCallee, MemoryMode) final
+    OSREntryCallee* osrEntryCallee() { return m_osrEntryCallee.get(); }
+    void setOSREntryCallee(Ref<OSREntryCallee>&& osrEntryCallee, MemoryMode)
     {
         m_osrEntryCallee = WTFMove(osrEntryCallee);
     }
@@ -213,7 +201,7 @@ private:
     {
     }
 
-    RefPtr<OMGForOSREntryCallee> m_osrEntryCallee;
+    RefPtr<OSREntryCallee> m_osrEntryCallee;
     RefPtr<OMGCallee> m_replacement;
     std::unique_ptr<TierUpCount> m_tierUpCount;
     bool m_didStartCompilingOSREntryCallee { false };
@@ -224,15 +212,58 @@ class LLIntCallee final : public Callee {
     friend LLIntOffsetsExtractor;
 
 public:
-    static Ref<LLIntCallee> create(std::unique_ptr<FunctionCodeBlock> codeBlock, size_t index, std::pair<const Name*, RefPtr<NameSection>>&& name)
+    static Ref<LLIntCallee> create(FunctionCodeBlockGenerator& generator, size_t index, std::pair<const Name*, RefPtr<NameSection>>&& name)
     {
-        return adoptRef(*new LLIntCallee(WTFMove(codeBlock), index, WTFMove(name)));
+        return adoptRef(*new LLIntCallee(generator, index, WTFMove(name)));
     }
 
     JS_EXPORT_PRIVATE void setEntrypoint(MacroAssemblerCodePtr<WasmEntryPtrTag>);
     JS_EXPORT_PRIVATE MacroAssemblerCodePtr<WasmEntryPtrTag> entrypoint() const final;
     JS_EXPORT_PRIVATE RegisterAtOffsetList* calleeSaveRegisters() final;
     JS_EXPORT_PRIVATE std::tuple<void*, void*> range() const final;
+
+    uint32_t functionIndex() const { return m_functionIndex; }
+    unsigned numVars() const { return m_numVars; }
+    unsigned numCalleeLocals() const { return m_numCalleeLocals; }
+    uint32_t numArguments() const { return m_numArguments; }
+    const FixedVector<Type>& constantTypes() const { return m_constantTypes; }
+    const FixedVector<uint64_t>& constants() const { return m_constants; }
+    const InstructionStream& instructions() const { return *m_instructions; }
+
+    ALWAYS_INLINE uint64_t getConstant(VirtualRegister reg) const { return m_constants[reg.toConstantIndex()]; }
+    ALWAYS_INLINE Type getConstantType(VirtualRegister reg) const
+    {
+        ASSERT(Options::dumpGeneratedWasmBytecodes());
+        return m_constantTypes[reg.toConstantIndex()];
+    }
+
+    InstructionStream::Offset numberOfJumpTargets() { return m_jumpTargets.size(); }
+    InstructionStream::Offset lastJumpTarget() { return m_jumpTargets.last(); }
+
+    const Instruction* outOfLineJumpTarget(const Instruction*);
+    InstructionStream::Offset outOfLineJumpOffset(InstructionStream::Offset);
+    InstructionStream::Offset outOfLineJumpOffset(const InstructionStream::Ref& instruction)
+    {
+        return outOfLineJumpOffset(instruction.offset());
+    }
+
+    inline InstructionStream::Offset bytecodeOffset(const Instruction* returnAddress)
+    {
+        const auto* instructionsBegin = m_instructions->at(0).ptr();
+        const auto* instructionsEnd = reinterpret_cast<const Instruction*>(reinterpret_cast<uintptr_t>(instructionsBegin) + m_instructions->size());
+        RELEASE_ASSERT(returnAddress >= instructionsBegin && returnAddress < instructionsEnd);
+        return returnAddress - instructionsBegin;
+    }
+
+    LLIntTierUpCounter& tierUpCounter() { return m_tierUpCounter; }
+
+    const Signature& signature(unsigned index) const
+    {
+        return *m_signatures[index];
+    }
+
+    const JumpTable& jumpTable(unsigned tableIndex) const;
+    unsigned numberOfJumpTables() const;
 
 #if ENABLE(WEBASSEMBLY_B3JIT)
     JITCallee* replacement(MemoryMode mode) { return m_replacements[static_cast<uint8_t>(mode)].get(); }
@@ -241,54 +272,43 @@ public:
         m_replacements[static_cast<uint8_t>(mode)] = WTFMove(replacement);
     }
 
-    OMGForOSREntryCallee* osrEntryCallee(MemoryMode mode) { return m_osrEntryCallees[static_cast<uint8_t>(mode)].get(); }
-    void setOSREntryCallee(Ref<OMGForOSREntryCallee>&& osrEntryCallee, MemoryMode mode) final
+    OSREntryCallee* osrEntryCallee(MemoryMode mode) { return m_osrEntryCallees[static_cast<uint8_t>(mode)].get(); }
+    void setOSREntryCallee(Ref<OSREntryCallee>&& osrEntryCallee, MemoryMode mode)
     {
         m_osrEntryCallees[static_cast<uint8_t>(mode)] = WTFMove(osrEntryCallee);
     }
-
-    LLIntTierUpCounter& tierUpCounter() { return m_codeBlock->tierUpCounter(); }
-    FunctionCodeBlock* llintFunctionCodeBlock() const final { return m_codeBlock.get(); }
 #endif
 
-private:
-    LLIntCallee(std::unique_ptr<FunctionCodeBlock>, size_t index, std::pair<const Name*, RefPtr<NameSection>>&&);
+    using OutOfLineJumpTargets = HashMap<InstructionStream::Offset, int>;
 
-    void linkExceptionHandlers();
+private:
+    LLIntCallee(FunctionCodeBlockGenerator&, size_t index, std::pair<const Name*, RefPtr<NameSection>>&&);
+
+    uint32_t m_functionIndex { 0 };
+
+    // Used for the number of WebAssembly locals, as in https://webassembly.github.io/spec/core/syntax/modules.html#syntax-local
+    unsigned m_numVars { 0 };
+    // Number of VirtualRegister. The naming is unfortunate, but has to match UnlinkedCodeBlock
+    unsigned m_numCalleeLocals { 0 };
+    uint32_t m_numArguments { 0 };
+    FixedVector<Type> m_constantTypes;
+    FixedVector<uint64_t> m_constants;
+    std::unique_ptr<InstructionStream> m_instructions;
+    const void* m_instructionsRawPointer { nullptr };
+    FixedVector<InstructionStream::Offset> m_jumpTargets;
+    FixedVector<const Signature*> m_signatures;
+    OutOfLineJumpTargets m_outOfLineJumpTargets;
+    LLIntTierUpCounter m_tierUpCounter;
+    FixedVector<JumpTable> m_jumpTables;
 
 #if ENABLE(WEBASSEMBLY_B3JIT)
     RefPtr<JITCallee> m_replacements[Wasm::NumberOfMemoryModes];
-    RefPtr<OMGForOSREntryCallee> m_osrEntryCallees[Wasm::NumberOfMemoryModes];
+    RefPtr<OSREntryCallee> m_osrEntryCallees[Wasm::NumberOfMemoryModes];
 #endif
-    std::unique_ptr<FunctionCodeBlock> m_codeBlock;
     MacroAssemblerCodePtr<WasmEntryPtrTag> m_entrypoint;
 };
 
-class LLIntCallees : public ThreadSafeRefCounted<LLIntCallees> {
-public:
-    static Ref<LLIntCallees> create(Vector<Ref<LLIntCallee>>&& llintCallees)
-    {
-        return adoptRef(*new LLIntCallees(WTFMove(llintCallees)));
-    }
-
-    const Ref<LLIntCallee>& at(unsigned i) const
-    {
-        return m_llintCallees.at(i);
-    }
-
-    const Ref<LLIntCallee>* data() const
-    {
-        return m_llintCallees.data();
-    }
-
-private:
-    LLIntCallees(Vector<Ref<LLIntCallee>>&& llintCallees)
-        : m_llintCallees(WTFMove(llintCallees))
-    {
-    }
-
-    FixedVector<Ref<LLIntCallee>> m_llintCallees;
-};
+using LLIntCallees = ThreadSafeRefCountedFixedVector<Ref<LLIntCallee>>;
 
 } } // namespace JSC::Wasm
 

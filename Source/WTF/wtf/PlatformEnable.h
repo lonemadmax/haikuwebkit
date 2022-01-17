@@ -621,8 +621,8 @@
 /* If possible, try to enable a disassembler. This is optional. We proceed in two
    steps: first we try to find some disassembler that we can use, and then we
    decide if the high-level disassembler API can be enabled. */
-#if !defined(ENABLE_UDIS86) && ENABLE(JIT) && CPU(X86_64) && !USE(CAPSTONE)
-#define ENABLE_UDIS86 1
+#if !defined(ENABLE_ZYDIS) && ENABLE(JIT) && CPU(X86_64) && !USE(CAPSTONE)
+#define ENABLE_ZYDIS 1
 #endif
 
 #if !defined(ENABLE_ARM64_DISASSEMBLER) && ENABLE(JIT) && CPU(ARM64) && !USE(CAPSTONE)
@@ -633,7 +633,7 @@
 #define ENABLE_RISCV64_DISASSEMBLER 1
 #endif
 
-#if !defined(ENABLE_DISASSEMBLER) && (ENABLE(UDIS86) || ENABLE(ARM64_DISASSEMBLER) || ENABLE(RISCV64_DISASSEMBLER) || (ENABLE(JIT) && USE(CAPSTONE)))
+#if !defined(ENABLE_DISASSEMBLER) && (ENABLE(ZYDIS) || ENABLE(ARM64_DISASSEMBLER) || ENABLE(RISCV64_DISASSEMBLER) || (ENABLE(JIT) && USE(CAPSTONE)))
 #define ENABLE_DISASSEMBLER 1
 #endif
 
@@ -749,17 +749,17 @@
 #endif
 
 /* Enable JIT'ing Regular Expressions that have nested parenthesis . */
-#if ENABLE(YARR_JIT) && (CPU(ARM64) || (CPU(X86_64) && !OS(WINDOWS)))
+#if ENABLE(YARR_JIT) && (CPU(ARM64) || (CPU(X86_64) && !OS(WINDOWS)) || CPU(RISCV64))
 #define ENABLE_YARR_JIT_ALL_PARENS_EXPRESSIONS 1
 #define ENABLE_YARR_JIT_REGEXP_TEST_INLINE 1
 #endif
 
 /* Enable JIT'ing Regular Expressions that have nested back references. */
-#if ENABLE(YARR_JIT) && (CPU(ARM64) || (CPU(X86_64) && !OS(WINDOWS)))
+#if ENABLE(YARR_JIT) && (CPU(ARM64) || (CPU(X86_64) && !OS(WINDOWS)) || CPU(RISCV64))
 #define ENABLE_YARR_JIT_BACKREFERENCES 1
 #endif
 
-#if CPU(ARM64) || CPU(X86_64)
+#if ENABLE(YARR_JIT) && (CPU(ARM64) || CPU(X86_64) || CPU(RISCV64))
 #define ENABLE_YARR_JIT_UNICODE_EXPRESSIONS 1
 #endif
 
@@ -788,7 +788,7 @@
 #define ENABLE_EXCEPTION_SCOPE_VERIFICATION ASSERT_ENABLED
 #endif
 
-#if ENABLE(DFG_JIT) && HAVE(MACHINE_CONTEXT) && (CPU(X86_64) || CPU(ARM64))
+#if ENABLE(DFG_JIT) && HAVE(MACHINE_CONTEXT) && (CPU(X86_64) || CPU(ARM64) || CPU(RISCV64))
 #define ENABLE_SIGNAL_BASED_VM_TRAPS 1
 #endif
 
@@ -944,4 +944,10 @@
 
 #if ENABLE(WEBXR_HANDS) && !ENABLE(WEBXR)
 #error "ENABLE(WEBXR_HANDS) requires ENABLE(WEBXR)"
+#endif
+
+#if ENABLE(SERVICE_WORKER) && ENABLE(NOTIFICATIONS)
+#if !defined(ENABLE_NOTIFICATION_EVENT)
+#define ENABLE_NOTIFICATION_EVENT 1
+#endif
 #endif

@@ -40,13 +40,19 @@
 namespace WebCore {
 using namespace WebCore::DOMCacheEngine;
 
+Ref<DOMCache> DOMCache::create(ScriptExecutionContext& context, String&& name, uint64_t identifier, Ref<CacheStorageConnection>&& connection)
+{
+    auto cache = adoptRef(*new DOMCache(context, WTFMove(name), identifier, WTFMove(connection)));
+    cache->suspendIfNeeded();
+    return cache;
+}
+
 DOMCache::DOMCache(ScriptExecutionContext& context, String&& name, uint64_t identifier, Ref<CacheStorageConnection>&& connection)
     : ActiveDOMObject(&context)
     , m_name(WTFMove(name))
     , m_identifier(identifier)
     , m_connection(WTFMove(connection))
 {
-    suspendIfNeeded();
     m_connection->reference(m_identifier);
 }
 
@@ -77,7 +83,7 @@ static Ref<FetchResponse> createResponse(ScriptExecutionContext& context, const 
 {
     auto resourceResponse = record.response;
     resourceResponse.setSource(ResourceResponse::Source::DOMCache);
-    auto response = FetchResponse::create(context, std::nullopt, record.responseHeadersGuard, WTFMove(resourceResponse));
+    auto response = FetchResponse::create(&context, std::nullopt, record.responseHeadersGuard, WTFMove(resourceResponse));
     response->setBodyData(copyResponseBody(record.responseBody), record.responseBodySize);
     return response;
 }
@@ -359,13 +365,8 @@ void DOMCache::put(RequestInfo&& info, Ref<FetchResponse>&& response, DOMPromise
         return;
     }
 
-    if (response->isBlobFormData()) {
-        promise.reject(Exception { NotSupportedError, "Not implemented"_s });
-        return;
-    }
-
-    // FIXME: for efficiency, we should load blobs directly instead of going through the readableStream path.
-    if (response->isBlobBody()) {
+    // FIXME: for efficiency, we should load blobs/form data directly instead of going through the readableStream path.
+    if (response->isBlobBody() || response->isBlobFormData()) {
         auto streamOrException = response->readableStream(*scriptExecutionContext()->globalObject());
         if (UNLIKELY(streamOrException.hasException())) {
             promise.reject(streamOrException.releaseException());

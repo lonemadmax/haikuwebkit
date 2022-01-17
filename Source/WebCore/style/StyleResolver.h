@@ -139,6 +139,7 @@ public:
     std::optional<DynamicMediaQueryEvaluationChanges> evaluateDynamicMediaQueries();
 
     void addKeyframeStyle(Ref<StyleRuleKeyframes>&&);
+    Vector<Ref<StyleRuleKeyframe>> keyframeRulesForName(const AtomString&) const;
 
     bool usesFirstLineRules() const { return m_ruleSets.features().usesFirstLineRules; }
     bool usesFirstLetterRules() const { return m_ruleSets.features().usesFirstLetterRules; }

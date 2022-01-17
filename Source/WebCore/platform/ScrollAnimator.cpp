@@ -76,9 +76,16 @@ bool ScrollAnimator::singleAxisScroll(ScrollEventAxis axis, float scrollDelta, O
         auto newOffsetOnAxis = m_scrollController.adjustedScrollDestination(axis, newOffset, velocity, valueForAxis(currentOffset, axis));
         newOffset = setValueForAxis(newOffset, axis, newOffsetOnAxis);
         delta = newOffset - currentOffset;
+    } else {
+        auto newPosition = m_currentPosition + delta;
+        newPosition = newPosition.constrainedBetween(scrollableArea().minimumScrollPosition(), scrollableArea().maximumScrollPosition());
+        if (newPosition == m_currentPosition)
+            return false;
+
+        delta = newPosition - m_currentPosition;
     }
 
-    if (m_scrollableArea.scrollAnimatorEnabled() && platformAllowsScrollAnimation() && !behavior.contains(ScrollBehavior::NeverAnimate)) {
+    if (m_scrollableArea.scrollAnimatorEnabled() && !behavior.contains(ScrollBehavior::NeverAnimate)) {
         if (m_scrollController.retargetAnimatedScrollBy(delta))
             return true;
 
@@ -151,30 +158,27 @@ void ScrollAnimator::resnapAfterLayout()
     m_scrollController.resnapAfterLayout();
 }
 
-bool ScrollAnimator::handleWheelEvent(const PlatformWheelEvent& e)
+bool ScrollAnimator::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
 {
-    if (processWheelEventForScrollSnap(e))
+    if (processWheelEventForScrollSnap(wheelEvent))
         return false;
 
-#if PLATFORM(COCOA)
-    // Events in the PlatformWheelEventPhase::MayBegin phase have no deltas, and therefore never passes through the scroll handling logic below.
-    // This causes us to return with an 'unhandled' return state, even though this event was successfully processed.
-    //
-    // We receive at least one PlatformWheelEventPhase::MayBegin when starting main-thread scrolling (see FrameView::wheelEvent), which can
-    // fool the scrolling thread into attempting to handle the scroll, unless we treat the event as handled here.
-    if (e.phase() == PlatformWheelEventPhase::MayBegin)
-        return true;
-#endif
+    if (m_scrollableArea.hasSteppedScrolling())
+        return handleSteppedScrolling(wheelEvent);
 
-#if PLATFORM(MAC)
-    // FIXME: We should be able to remove this code, but Mac's handleWheelEvent relies on this somehow.
-    Scrollbar* horizontalScrollbar = m_scrollableArea.horizontalScrollbar();
-    Scrollbar* verticalScrollbar = m_scrollableArea.verticalScrollbar();
+    return m_scrollController.handleWheelEvent(wheelEvent);
+}
+
+// "Stepped scrolling" is only used by RenderListBox. It's special in that it has no rubberbanding, and scroll deltas respect Scrollbar::pixelStep().
+bool ScrollAnimator::handleSteppedScrolling(const PlatformWheelEvent& wheelEvent)
+{
+    auto* horizontalScrollbar = m_scrollableArea.horizontalScrollbar();
+    auto* verticalScrollbar = m_scrollableArea.verticalScrollbar();
 
     // Accept the event if we have a scrollbar in that direction and can still
     // scroll any further.
-    float deltaX = horizontalScrollbar ? e.deltaX() : 0;
-    float deltaY = verticalScrollbar ? e.deltaY() : 0;
+    float deltaX = horizontalScrollbar ? wheelEvent.deltaX() : 0;
+    float deltaY = verticalScrollbar ? wheelEvent.deltaY() : 0;
 
     bool handled = false;
 
@@ -187,11 +191,11 @@ bool ScrollAnimator::handleWheelEvent(const PlatformWheelEvent& e)
         handled = true;
 
         OptionSet<ScrollBehavior> behavior = { ScrollBehavior::RespectScrollSnap };
-        if (e.hasPreciseScrollingDeltas())
+        if (wheelEvent.hasPreciseScrollingDeltas())
             behavior.add(ScrollBehavior::NeverAnimate);
 
         if (deltaY) {
-            if (e.granularity() == ScrollByPageWheelEvent)
+            if (wheelEvent.granularity() == ScrollByPageWheelEvent)
                 deltaY = std::copysign(Scrollbar::pageStepDelta(m_scrollableArea.visibleHeight()), deltaY);
 
             auto scrollDelta = verticalScrollbar->pixelStep() * -deltaY; // Wheel deltas are reversed from scrolling direction.
@@ -199,7 +203,7 @@ bool ScrollAnimator::handleWheelEvent(const PlatformWheelEvent& e)
         }
 
         if (deltaX) {
-            if (e.granularity() == ScrollByPageWheelEvent)
+            if (wheelEvent.granularity() == ScrollByPageWheelEvent)
                 deltaX = std::copysign(Scrollbar::pageStepDelta(m_scrollableArea.visibleWidth()), deltaX);
 
             auto scrollDelta = horizontalScrollbar->pixelStep() * -deltaX; // Wheel deltas are reversed from scrolling direction.
@@ -207,9 +211,6 @@ bool ScrollAnimator::handleWheelEvent(const PlatformWheelEvent& e)
         }
     }
     return handled;
-#else
-    return m_scrollController.handleWheelEvent(e);
-#endif
 }
 
 void ScrollAnimator::stopKeyboardScrollAnimation()
@@ -370,7 +371,6 @@ void ScrollAnimator::stopAnimationCallback(ScrollingEffectsController&)
     m_scrollAnimationScheduled = false;
 }
 
-#if PLATFORM(MAC)
 void ScrollAnimator::deferWheelEventTestCompletionForReason(WheelEventTestMonitor::ScrollableAreaIdentifier identifier, WheelEventTestMonitor::DeferReason reason) const
 {
     if (!m_wheelEventTestMonitor)
@@ -386,12 +386,11 @@ void ScrollAnimator::removeWheelEventTestCompletionDeferralForReason(WheelEventT
     
     m_wheelEventTestMonitor->removeDeferralForReason(identifier, reason);
 }
-#endif
 
 #if PLATFORM(GTK) || USE(NICOSIA)
 bool ScrollAnimator::scrollAnimationEnabled() const
 {
-    return m_scrollableArea.scrollAnimatorEnabled() && platformAllowsScrollAnimation();
+    return m_scrollableArea.scrollAnimatorEnabled();
 }
 #endif
 

@@ -46,6 +46,7 @@
 #include "HTMLTextAreaElement.h"
 #include "HTMLVideoElement.h"
 #include "MathMLElement.h"
+#include "ModalContainerObserver.h"
 #include "Page.h"
 #include "Quirks.h"
 #include "RenderBox.h"
@@ -499,19 +500,21 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
     if (style.hasPseudoStyle(PseudoId::FirstLetter))
         style.setUnique();
 
-    if (style.preserves3D() && (style.overflowX() != Overflow::Visible
-        || style.hasOpacity()
-        || style.overflowY() != Overflow::Visible
-        || style.hasClip()
-        || style.clipPath()
-        || style.hasFilter()
-        || style.hasIsolation()
-        || style.hasMask()
+    if (style.preserves3D()) {
+        bool forceToFlat = style.overflowX() != Overflow::Visible
+            || style.hasOpacity()
+            || style.overflowY() != Overflow::Visible
+            || style.hasClip()
+            || style.clipPath()
+            || style.hasFilter()
+            || style.hasIsolation()
+            || style.hasMask()
 #if ENABLE(FILTERS_LEVEL_2)
-        || style.hasBackdropFilter()
+            || style.hasBackdropFilter()
 #endif
-        || style.hasBlendMode()))
-        style.setTransformStyle3D(TransformStyle3D::Flat);
+            || style.hasBlendMode();
+        style.setTransformStyleForcedToFlat(forceToFlat);
+    }
 
     if (is<SVGElement>(m_element))
         adjustSVGElementStyle(style, downcast<SVGElement>(*m_element));
@@ -548,6 +551,15 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
     if (m_element && m_document.settings().textAutosizingUsesIdempotentMode())
         adjustForTextAutosizing(style, *m_element);
 #endif
+
+    if (m_element) {
+        if (auto observer = m_element->document().modalContainerObserverIfExists()) {
+            if (observer->shouldHide(*m_element))
+                style.setDisplay(DisplayType::None);
+            if (observer->shouldMakeVerticallyScrollable(*m_element))
+                style.setOverflowY(Overflow::Auto);
+        }
+    }
 
     adjustForSiteSpecificQuirks(style);
 }

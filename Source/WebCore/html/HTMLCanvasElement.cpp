@@ -202,7 +202,7 @@ void HTMLCanvasElement::setSize(const IntSize& newSize)
     reset();
 }
 
-static inline size_t maxActivePixelMemory()
+size_t HTMLCanvasElement::maxActivePixelMemory()
 {
     if (maxActivePixelMemoryForTesting)
         return *maxActivePixelMemoryForTesting;
@@ -245,7 +245,7 @@ void HTMLCanvasElement::setMaxCanvasAreaForTesting(std::optional<size_t> size)
     maxCanvasAreaForTesting = size;
 }
 
-ExceptionOr<std::optional<RenderingContext>> HTMLCanvasElement::getContext(JSC::JSGlobalObject& state, const String& contextId, Vector<JSC::Strong<JSC::Unknown>>&& arguments)
+ExceptionOr<std::optional<RenderingContext>> HTMLCanvasElement::getContext(JSC::JSGlobalObject& state, const String& contextId, FixedVector<JSC::Strong<JSC::Unknown>>&& arguments)
 {
     if (m_context) {
         if (m_context->isPlaceholder())

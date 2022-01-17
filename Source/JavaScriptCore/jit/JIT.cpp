@@ -274,8 +274,7 @@ void JIT::privateCompileMainPass()
         if (opcodeID != op_catch) {
             loadPtr(addressFor(CallFrameSlot::codeBlock), regT0);
             loadPtr(Address(regT0, CodeBlock::offsetOfMetadataTable()), regT1);
-            loadPtr(Address(regT0, CodeBlock::offsetOfJITData()), regT0);
-            loadPtr(Address(regT0, CodeBlock::JITData::offsetOfJITConstantPool()), regT2);
+            loadPtr(Address(regT0, CodeBlock::offsetOfBaselineJITData()), regT2);
 
             auto metadataOK = branchPtr(Equal, regT1, s_metadataGPR);
             breakpoint();
@@ -313,6 +312,7 @@ void JIT::privateCompileMainPass()
         DEFINE_SLOW_OP(lesseq)
         DEFINE_SLOW_OP(greater)
         DEFINE_SLOW_OP(greatereq)
+        DEFINE_SLOW_OP(instanceof_custom)
         DEFINE_SLOW_OP(is_callable)
         DEFINE_SLOW_OP(is_constructor)
         DEFINE_SLOW_OP(typeof)
@@ -342,7 +342,6 @@ void JIT::privateCompileMainPass()
         DEFINE_SLOW_OP(create_generator)
         DEFINE_SLOW_OP(create_async_generator)
         DEFINE_SLOW_OP(new_generator)
-        DEFINE_SLOW_OP(pow)
 
         DEFINE_OP(op_add)
         DEFINE_OP(op_bitnot)
@@ -396,7 +395,6 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_get_prototype_of)
         DEFINE_OP(op_overrides_has_instance)
         DEFINE_OP(op_instanceof)
-        DEFINE_OP(op_instanceof_custom)
         DEFINE_OP(op_is_empty)
         DEFINE_OP(op_typeof_is_undefined)
         DEFINE_OP(op_is_undefined_or_null)
@@ -435,6 +433,7 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_super_sampler_end)
         DEFINE_OP(op_lshift)
         DEFINE_OP(op_mod)
+        DEFINE_OP(op_pow)
         DEFINE_OP(op_mov)
         DEFINE_OP(op_mul)
         DEFINE_OP(op_negate)
@@ -601,7 +600,6 @@ void JIT::privateCompileSlowCases()
         DEFINE_SLOWCASE_OP(op_set_private_brand)
         DEFINE_SLOWCASE_OP(op_check_private_brand)
         DEFINE_SLOWCASE_OP(op_instanceof)
-        DEFINE_SLOWCASE_OP(op_instanceof_custom)
         DEFINE_SLOWCASE_OP(op_jless)
         DEFINE_SLOWCASE_OP(op_jlesseq)
         DEFINE_SLOWCASE_OP(op_jgreater)
@@ -617,6 +615,7 @@ void JIT::privateCompileSlowCases()
         DEFINE_SLOWCASE_OP(op_loop_hint)
         DEFINE_SLOWCASE_OP(op_check_traps)
         DEFINE_SLOWCASE_OP(op_mod)
+        DEFINE_SLOWCASE_OP(op_pow)
         DEFINE_SLOWCASE_OP(op_mul)
         DEFINE_SLOWCASE_OP(op_negate)
         DEFINE_SLOWCASE_OP(op_neq)
@@ -702,8 +701,12 @@ void JIT::emitMaterializeMetadataAndConstantPoolRegisters()
 {
     loadPtr(addressFor(CallFrameSlot::codeBlock), regT0);
     loadPtr(Address(regT0, CodeBlock::offsetOfMetadataTable()), s_metadataGPR);
-    loadPtr(Address(regT0, CodeBlock::offsetOfJITData()), regT0);
-    loadPtr(Address(regT0, CodeBlock::JITData::offsetOfJITConstantPool()), s_constantsGPR);
+    loadPtr(Address(regT0, CodeBlock::offsetOfBaselineJITData()), s_constantsGPR);
+}
+
+void JIT::emitSaveCalleeSaves()
+{
+    Base::emitSaveCalleeSavesFor(&RegisterAtOffsetList::llintBaselineCalleeSaveRegisters());
 }
 
 void JIT::emitRestoreCalleeSaves()
@@ -782,7 +785,7 @@ void JIT::compileAndLinkWithoutFinalizing(JITCompilationEffort effort)
     move(regT1, stackPointerRegister);
     checkStackPointerAlignment();
 
-    emitSaveCalleeSavesFor(&RegisterAtOffsetList::llintBaselineCalleeSaveRegisters());
+    emitSaveCalleeSaves();
     emitMaterializeTagCheckRegisters();
     emitMaterializeMetadataAndConstantPoolRegisters();
 
@@ -799,7 +802,7 @@ void JIT::compileAndLinkWithoutFinalizing(JITCompilationEffort effort)
                     continue;
                 int offset = CallFrame::argumentOffsetIncludingThis(argument) * static_cast<int>(sizeof(Register));
                 loadValue(Address(callFrameRegister, offset), jsRegT10);
-                storeValue(jsRegT10, Address(regT2, argument * sizeof(ValueProfile) + ValueProfile::offsetOfFirstBucket()));
+                storeValue(jsRegT10, Address(regT2, FixedVector<ValueProfile>::Storage::offsetOfData() + argument * sizeof(ValueProfile) + ValueProfile::offsetOfFirstBucket()));
             }
         }
     }

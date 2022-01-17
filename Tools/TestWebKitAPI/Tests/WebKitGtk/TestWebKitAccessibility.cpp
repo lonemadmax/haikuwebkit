@@ -57,9 +57,10 @@ public:
         Test::removeLogFatalFlag(G_LOG_LEVEL_WARNING);
         int childCount = atspi_accessible_get_child_count(desktop.get(), nullptr);
         Test::addLogFatalFlag(G_LOG_LEVEL_WARNING);
-        for (int i = 0; i < childCount; ++i) {
+        for (int i = childCount - 1; i >= 0; --i)  {
             GRefPtr<AtspiAccessible> current = adoptGRef(atspi_accessible_get_child_at_index(desktop.get(), i, nullptr));
-            if (!g_strcmp0(atspi_accessible_get_name(current.get(), nullptr), "TestWebKitAccessibility"))
+            GUniquePtr<char> name(atspi_accessible_get_name(current.get(), nullptr));
+            if (!g_strcmp0(name.get(), "TestWebKitAccessibility"))
                 return current;
         }
 
@@ -106,13 +107,34 @@ public:
         m_eventSource = nullptr;
     }
 
-    void startEventMonitor(AtspiAccessible* source, Vector<CString>&& events)
+    static bool accessibleApplicationIsTestProgram(AtspiAccessible* accessible)
+    {
+        GRefPtr<AtspiAccessible> application = adoptGRef(atspi_accessible_get_application(accessible, nullptr));
+        GUniquePtr<char> applicationName(atspi_accessible_get_name(application.get(), nullptr));
+        return !g_strcmp0(applicationName.get(), "TestWebKitAccessibility");
+    }
+
+    bool shouldProcessEvent(AtspiEvent* event)
+    {
+        // source = std::nullopt -> no filter.
+        if (!m_eventMonitor.source)
+            return true;
+
+        // source = nullptr -> filter by application.
+        if (!m_eventMonitor.source.value())
+            return accessibleApplicationIsTestProgram(event->source);
+
+        // source != nullptr -> filter by accessible.
+        return m_eventMonitor.source.value() == event->source;
+    }
+
+    void startEventMonitor(std::optional<AtspiAccessible*> source, Vector<CString>&& events)
     {
         m_eventMonitor.source = source;
         m_eventMonitor.eventTypes = WTFMove(events);
         m_eventMonitor.listener = adoptGRef(atspi_event_listener_new([](AtspiEvent* event, gpointer userData) {
             auto* test = static_cast<AccessibilityTest*>(userData);
-            if (event->source == test->m_eventMonitor.source)
+            if (test->shouldProcessEvent(event))
                 test->m_eventMonitor.events.append(static_cast<AtspiEvent*>(g_boxed_copy(ATSPI_TYPE_EVENT, event)));
         }, this, nullptr));
 
@@ -165,7 +187,7 @@ private:
         GRefPtr<AtspiEventListener> listener;
         Vector<CString> eventTypes;
         Vector<UniqueAtspiEvent> events;
-        AtspiAccessible* source { nullptr };
+        std::optional<AtspiAccessible*> source;
     } m_eventMonitor;
 };
 
@@ -237,15 +259,9 @@ static void testAccessibleBasicHierarchy(AccessibilityTest* test, gconstpointer)
         "  </body>"
         "</html>",
         nullptr);
-#if USE(ATSPI)
-    // In atspi implementation the root object doesn't emit children-changed because it
-    // always has ManagesDescendants in state.
-    test->waitUntilLoadFinished();
-#else
     // Check that children-changed::remove is emitted on the root object on navigation,
     // and the a11y hierarchy is updated.
     test->waitUntilChildrenRemoved(rootObject.get());
-#endif
 
     documentWeb = test->findDocumentWeb(testApp.get());
     g_assert_true(ATSPI_IS_ACCESSIBLE(documentWeb.get()));
@@ -808,6 +824,118 @@ static void testAccessibleStateChanged(AccessibilityTest* test, gconstpointer)
     events = { };
     g_assert_true(AccessibilityTest::isSelected(option1.get()));
     g_assert_false(AccessibilityTest::isSelected(option2.get()));
+#endif
+}
+
+static void testAccessibleEventListener(AccessibilityTest* test, gconstpointer)
+{
+    test->startEventMonitor(nullptr, { "object:state-changed:focused" });
+    test->showInWindow();
+    test->loadHtml(
+        "<html>"
+        "  <body>"
+        "    <input id='entry' type='text'/>"
+        "  </body>"
+        "</html>",
+        nullptr);
+    test->waitUntilLoadFinished();
+
+    test->runJavaScriptAndWaitUntilFinished("document.getElementById('entry').focus();", nullptr);
+
+    auto events = test->stopEventMonitor(1);
+    g_assert_cmpuint(events.size(), ==, 1);
+    g_assert_cmpstr(events[0]->type, ==, "object:state-changed:focused");
+    auto* entry = events[0]->source;
+    g_assert_true(ATSPI_IS_ACCESSIBLE(entry));
+    g_assert_cmpint(atspi_accessible_get_role(entry, nullptr), ==, ATSPI_ROLE_ENTRY);
+
+    auto panel = adoptGRef(atspi_accessible_get_parent(entry, nullptr));
+    g_assert_true(ATSPI_IS_ACCESSIBLE(panel.get()));
+    g_assert_cmpint(atspi_accessible_get_role(panel.get(), nullptr), ==, ATSPI_ROLE_PANEL);
+
+    auto documentWeb = adoptGRef(atspi_accessible_get_parent(panel.get(), nullptr));
+    g_assert_true(ATSPI_IS_ACCESSIBLE(documentWeb.get()));
+    g_assert_cmpint(atspi_accessible_get_role(documentWeb.get(), nullptr), ==, ATSPI_ROLE_DOCUMENT_WEB);
+
+    auto scrollView = adoptGRef(atspi_accessible_get_parent(documentWeb.get(), nullptr));
+    g_assert_true(ATSPI_IS_ACCESSIBLE(scrollView.get()));
+    g_assert_cmpint(atspi_accessible_get_role(scrollView.get(), nullptr), ==, ATSPI_ROLE_SCROLL_PANE);
+
+    auto rootObject = adoptGRef(atspi_accessible_get_parent(scrollView.get(), nullptr));
+    g_assert_true(ATSPI_IS_ACCESSIBLE(rootObject.get()));
+    g_assert_cmpint(atspi_accessible_get_role(rootObject.get(), nullptr), ==, ATSPI_ROLE_FILLER);
+}
+
+static void testAccessibleListMarkers(AccessibilityTest* test, gconstpointer)
+{
+#if !USE(ATSPI)
+    g_test_skip("List markers are handled differently with ATK");
+#else
+    GUniquePtr<char> baseDir(g_strdup_printf("file://%s/", Test::getResourcesDir().data()));
+    test->showInWindow(800, 600);
+    test->loadHtml(
+        "<html>"
+        "  <head>"
+        "    <style>"
+        "      .img { list-style-image: url(blank.ico) }"
+        "    </style>"
+        "  </head>"
+        "  <body>"
+        "    <ol>"
+        "      <li>List item 1</li>"
+        "    </ol>"
+        "    <ul class='img'>"
+        "      <li>List item 1</li>"
+        "    </ul>"
+        "  </body>"
+        "</html>",
+        baseDir.get());
+    test->waitUntilLoadFinished();
+
+    auto testApp = test->findTestApplication();
+    g_assert_true(ATSPI_IS_ACCESSIBLE(testApp.get()));
+
+    auto documentWeb = test->findDocumentWeb(testApp.get());
+    g_assert_true(ATSPI_IS_ACCESSIBLE(documentWeb.get()));
+    g_assert_cmpint(atspi_accessible_get_child_count(documentWeb.get(), nullptr), ==, 2);
+
+    auto ol = adoptGRef(atspi_accessible_get_child_at_index(documentWeb.get(), 0, nullptr));
+    g_assert_true(ATSPI_IS_ACCESSIBLE(ol.get()));
+    g_assert_cmpint(atspi_accessible_get_role(ol.get(), nullptr), ==, ATSPI_ROLE_LIST);
+    g_assert_cmpint(atspi_accessible_get_child_count(ol.get(), nullptr), ==, 1);
+
+    auto li = adoptGRef(atspi_accessible_get_child_at_index(ol.get(), 0, nullptr));
+    g_assert_true(ATSPI_IS_ACCESSIBLE(li.get()));
+    g_assert_cmpint(atspi_accessible_get_role(li.get(), nullptr), ==, ATSPI_ROLE_LIST_ITEM);
+    g_assert_cmpint(atspi_accessible_get_child_count(li.get(), nullptr), ==, 1);
+    auto marker = adoptGRef(atspi_accessible_get_child_at_index(li.get(), 0, nullptr));
+    g_assert_true(ATSPI_IS_ACCESSIBLE(marker.get()));
+    g_assert_cmpint(atspi_accessible_get_role(marker.get(), nullptr), ==, ATSPI_ROLE_TEXT);
+    GUniquePtr<char> name(atspi_accessible_get_role_name(marker.get(), nullptr));
+    g_assert_cmpstr(name.get(), ==, "text");
+    name.reset(atspi_accessible_get_localized_role_name(marker.get(), nullptr));
+    g_assert_cmpstr(name.get(), ==, "text");
+    GRefPtr<AtspiText> text = adoptGRef(atspi_accessible_get_text_iface(marker.get()));
+    g_assert_nonnull(text.get());
+
+    auto ul = adoptGRef(atspi_accessible_get_child_at_index(documentWeb.get(), 1, nullptr));
+    g_assert_true(ATSPI_IS_ACCESSIBLE(ul.get()));
+    g_assert_cmpint(atspi_accessible_get_role(ul.get(), nullptr), ==, ATSPI_ROLE_LIST);
+    g_assert_cmpint(atspi_accessible_get_child_count(ul.get(), nullptr), ==, 1);
+
+    li = adoptGRef(atspi_accessible_get_child_at_index(ul.get(), 0, nullptr));
+    g_assert_true(ATSPI_IS_ACCESSIBLE(li.get()));
+    g_assert_cmpint(atspi_accessible_get_role(li.get(), nullptr), ==, ATSPI_ROLE_LIST_ITEM);
+    g_assert_cmpint(atspi_accessible_get_child_count(li.get(), nullptr), ==, 1);
+    marker = adoptGRef(atspi_accessible_get_child_at_index(li.get(), 0, nullptr));
+    g_assert_true(ATSPI_IS_ACCESSIBLE(marker.get()));
+    g_assert_cmpint(atspi_accessible_get_role(marker.get(), nullptr), ==, ATSPI_ROLE_IMAGE);
+    name.reset(atspi_accessible_get_role_name(marker.get(), nullptr));
+    g_assert_cmpstr(name.get(), ==, "image");
+    name.reset(atspi_accessible_get_localized_role_name(marker.get(), nullptr));
+    g_assert_cmpstr(name.get(), ==, "image");
+    GRefPtr<AtspiImage> image = adoptGRef(atspi_accessible_get_image_iface(marker.get()));
+    g_assert_nonnull(image.get());
 #endif
 }
 
@@ -1701,6 +1829,120 @@ static void testTextReplacedObjects(AccessibilityTest* test, gconstpointer)
 #endif
 }
 
+static void testTextListMarkers(AccessibilityTest* test, gconstpointer)
+{
+#if !USE(ATSPI)
+    g_test_skip("List markers are handled differently with ATK");
+#else
+    test->showInWindow(800, 600);
+    test->loadHtml(
+        "<html>"
+        "  <body>"
+        "    <ul>"
+        "      <li>List <b>item</b> 1</li>"
+        "    </ul>"
+        "    <ol style='direction:rtl;'>"
+        "      <li>List <b>item</b> 1</li>"
+        "    </ol>"
+        "  </body>"
+        "</html>",
+        nullptr);
+    test->waitUntilLoadFinished();
+
+    auto testApp = test->findTestApplication();
+    g_assert_true(ATSPI_IS_ACCESSIBLE(testApp.get()));
+
+    auto documentWeb = test->findDocumentWeb(testApp.get());
+    g_assert_true(ATSPI_IS_ACCESSIBLE(documentWeb.get()));
+    g_assert_cmpint(atspi_accessible_get_child_count(documentWeb.get(), nullptr), ==, 2);
+
+    auto ul = adoptGRef(atspi_accessible_get_child_at_index(documentWeb.get(), 0, nullptr));
+    g_assert_true(ATSPI_IS_ACCESSIBLE(ul.get()));
+    g_assert_cmpint(atspi_accessible_get_child_count(ul.get(), nullptr), ==, 1);
+
+    auto li = adoptGRef(atspi_accessible_get_child_at_index(ul.get(), 0, nullptr));
+    g_assert_true(ATSPI_IS_TEXT(li.get()));
+    g_assert_cmpint(atspi_accessible_get_child_count(li.get(), nullptr), ==, 1);
+
+    auto length = atspi_text_get_character_count(ATSPI_TEXT(li.get()), nullptr);
+    g_assert_cmpint(length, ==, 12);
+
+    GUniquePtr<char> text(atspi_text_get_text(ATSPI_TEXT(li.get()), 0, -1, nullptr));
+    g_assert_cmpstr(text.get(), ==, "\357\277\274List item 1");
+
+    UniqueAtspiTextRange range(atspi_text_get_string_at_offset(ATSPI_TEXT(li.get()), 0, ATSPI_TEXT_GRANULARITY_CHAR, nullptr));
+    g_assert_cmpstr(range->content, ==, "\357\277\274");
+    g_assert_cmpint(range->start_offset, ==, 0);
+    g_assert_cmpint(range->end_offset, ==, 1);
+    range.reset(atspi_text_get_string_at_offset(ATSPI_TEXT(li.get()), 1, ATSPI_TEXT_GRANULARITY_CHAR, nullptr));
+    g_assert_cmpstr(range->content, ==, "L");
+    g_assert_cmpint(range->start_offset, ==, 1);
+    g_assert_cmpint(range->end_offset, ==, 2);
+    range.reset(atspi_text_get_string_at_offset(ATSPI_TEXT(li.get()), 0, ATSPI_TEXT_GRANULARITY_WORD, nullptr));
+    g_assert_cmpstr(range->content, ==, "\357\277\274");
+    g_assert_cmpint(range->start_offset, ==, 0);
+    g_assert_cmpint(range->end_offset, ==, 1);
+    range.reset(atspi_text_get_string_at_offset(ATSPI_TEXT(li.get()), 1, ATSPI_TEXT_GRANULARITY_WORD, nullptr));
+    g_assert_cmpstr(range->content, ==, "List ");
+    g_assert_cmpint(range->start_offset, ==, 1);
+    g_assert_cmpint(range->end_offset, ==, 6);
+    range.reset(atspi_text_get_string_at_offset(ATSPI_TEXT(li.get()), 0, ATSPI_TEXT_GRANULARITY_LINE, nullptr));
+    g_assert_cmpstr(range->content, ==, "\357\277\274List item 1");
+    g_assert_cmpint(range->start_offset, ==, 0);
+    g_assert_cmpint(range->end_offset, ==, 12);
+    range.reset(atspi_text_get_string_at_offset(ATSPI_TEXT(li.get()), 1, ATSPI_TEXT_GRANULARITY_LINE, nullptr));
+    g_assert_cmpstr(range->content, ==, "\357\277\274List item 1");
+    g_assert_cmpint(range->start_offset, ==, 0);
+    g_assert_cmpint(range->end_offset, ==, 12);
+
+    int startOffset, endOffset;
+    GRefPtr<GHashTable> attributes = adoptGRef(atspi_text_get_attribute_run(ATSPI_TEXT(li.get()), 0, FALSE, &startOffset, &endOffset, nullptr));
+    g_assert_nonnull(attributes.get());
+    g_assert_cmpuint(g_hash_table_size(attributes.get()), ==, 0);
+    g_assert_cmpint(startOffset, ==, 0);
+    g_assert_cmpint(endOffset, ==, 1);
+    attributes = adoptGRef(atspi_text_get_attribute_run(ATSPI_TEXT(li.get()), 3, FALSE, &startOffset, &endOffset, nullptr));
+    g_assert_nonnull(attributes.get());
+    g_assert_cmpuint(g_hash_table_size(attributes.get()), ==, 0);
+    g_assert_cmpint(startOffset, ==, 1);
+    g_assert_cmpint(endOffset, ==, 6);
+    attributes = adoptGRef(atspi_text_get_attribute_run(ATSPI_TEXT(li.get()), 8, FALSE, &startOffset, &endOffset, nullptr));
+    g_assert_nonnull(attributes.get());
+    g_assert_cmpuint(g_hash_table_size(attributes.get()), >, 0);
+    g_assert_cmpint(startOffset, ==, 6);
+    g_assert_cmpint(endOffset, ==, 10);
+    attributes = adoptGRef(atspi_text_get_attribute_run(ATSPI_TEXT(li.get()), 11, FALSE, &startOffset, &endOffset, nullptr));
+    g_assert_nonnull(attributes.get());
+    g_assert_cmpuint(g_hash_table_size(attributes.get()), ==, 0);
+    g_assert_cmpint(startOffset, ==, 10);
+    g_assert_cmpint(endOffset, ==, 12);
+
+    auto marker = adoptGRef(atspi_accessible_get_child_at_index(li.get(), 0, nullptr));
+    g_assert_true(ATSPI_IS_TEXT(marker.get()));
+    text.reset(atspi_text_get_text(ATSPI_TEXT(marker.get()), 0, -1, nullptr));
+    g_assert_cmpstr(text.get(), ==, "• ");
+
+    auto ol = adoptGRef(atspi_accessible_get_child_at_index(documentWeb.get(), 1, nullptr));
+    g_assert_true(ATSPI_IS_ACCESSIBLE(ol.get()));
+    g_assert_cmpint(atspi_accessible_get_child_count(ol.get(), nullptr), ==, 1);
+
+    li = adoptGRef(atspi_accessible_get_child_at_index(ol.get(), 0, nullptr));
+    g_assert_true(ATSPI_IS_TEXT(li.get()));
+    g_assert_cmpint(atspi_accessible_get_child_count(li.get(), nullptr), ==, 1);
+
+    length = atspi_text_get_character_count(ATSPI_TEXT(li.get()), nullptr);
+    g_assert_cmpint(length, ==, 12);
+
+    text.reset(atspi_text_get_text(ATSPI_TEXT(li.get()), 0, -1, nullptr));
+    g_assert_cmpstr(text.get(), ==, "List item 1\357\277\274");
+
+    marker = adoptGRef(atspi_accessible_get_child_at_index(li.get(), 0, nullptr));
+    g_assert_true(ATSPI_IS_TEXT(marker.get()));
+    text.reset(atspi_text_get_text(ATSPI_TEXT(marker.get()), 0, -1, nullptr));
+    g_assert_cmpstr(text.get(), ==, "1. ");
+#endif
+}
+
 static void testValueBasic(AccessibilityTest* test, gconstpointer)
 {
     test->showInWindow(800, 600);
@@ -1762,6 +2004,7 @@ static void testHyperlinkBasic(AccessibilityTest* test, gconstpointer)
         "    <div role='link'>Link</div>"
         "    <p>This is <button>button1</button> and <button>button2</button> in a paragraph</p>"
         "    <p>This is <a href='https://www.webkitgtk.org'>link1</a> and <a href='https://www.gnome.org'>link2</a> in paragraph</p>"
+        "    <ul><li>List item</li></ul>"
         "  </body>"
         "</html>",
         nullptr);
@@ -1772,7 +2015,7 @@ static void testHyperlinkBasic(AccessibilityTest* test, gconstpointer)
 
     auto documentWeb = test->findDocumentWeb(testApp.get());
     g_assert_true(ATSPI_IS_ACCESSIBLE(documentWeb.get()));
-    g_assert_cmpint(atspi_accessible_get_child_count(documentWeb.get(), nullptr), ==, 4);
+    g_assert_cmpint(atspi_accessible_get_child_count(documentWeb.get(), nullptr), ==, 5);
 
     auto section = adoptGRef(atspi_accessible_get_child_at_index(documentWeb.get(), 0, nullptr));
     g_assert_true(ATSPI_IS_ACCESSIBLE(section.get()));
@@ -1883,6 +2126,26 @@ static void testHyperlinkBasic(AccessibilityTest* test, gconstpointer)
     uri.reset(atspi_hyperlink_get_uri(ATSPI_HYPERLINK(link.get()), 0, nullptr));
     g_assert_cmpstr(uri.get(), ==, "https://www.gnome.org/");
     g_assert_true(atspi_hyperlink_get_object(ATSPI_HYPERLINK(link.get()), 0, nullptr) == link2.get());
+
+#if USE(ATSPI)
+    auto ul = adoptGRef(atspi_accessible_get_child_at_index(documentWeb.get(), 4, nullptr));
+    g_assert_true(ATSPI_IS_ACCESSIBLE(ul.get()));
+    g_assert_cmpint(atspi_accessible_get_child_count(ul.get(), nullptr), ==, 1);
+    auto li = adoptGRef(atspi_accessible_get_child_at_index(ul.get(), 0, nullptr));
+    g_assert_true(ATSPI_IS_ACCESSIBLE(li.get()));
+    g_assert_cmpint(atspi_accessible_get_child_count(li.get(), nullptr), ==, 1);
+    auto marker = adoptGRef(atspi_accessible_get_child_at_index(li.get(), 0, nullptr));
+    g_assert_true(ATSPI_IS_ACCESSIBLE(marker.get()));
+    link = adoptGRef(atspi_accessible_get_hyperlink(marker.get()));
+    g_assert_true(ATSPI_IS_HYPERLINK(link.get()));
+    g_assert_cmpint(atspi_hyperlink_get_n_anchors(ATSPI_HYPERLINK(link.get()), nullptr), ==, 1);
+    g_assert_true(atspi_hyperlink_is_valid(ATSPI_HYPERLINK(link.get()), nullptr));
+    g_assert_cmpint(atspi_hyperlink_get_start_index(ATSPI_HYPERLINK(link.get()), nullptr), ==, 0);
+    g_assert_cmpint(atspi_hyperlink_get_end_index(ATSPI_HYPERLINK(link.get()), nullptr), ==, 1);
+    uri.reset(atspi_hyperlink_get_uri(ATSPI_HYPERLINK(link.get()), 0, nullptr));
+    g_assert_cmpstr(uri.get(), ==, "");
+    g_assert_true(atspi_hyperlink_get_object(ATSPI_HYPERLINK(link.get()), 0, nullptr) == marker.get());
+#endif
 }
 
 static void testHypertextBasic(AccessibilityTest* test, gconstpointer)
@@ -1892,6 +2155,7 @@ static void testHypertextBasic(AccessibilityTest* test, gconstpointer)
         "<html>"
         "  <body>"
         "    <p>This is <button>button</button> and <a href='https://www.webkitgtk.org'>link</a> in a paragraph</p>"
+        "    <ol><li>List with a <a href='https://www.webkit.org'>link</a></li></ol>"
         "  </body>"
         "</html>",
         nullptr);
@@ -1902,7 +2166,7 @@ static void testHypertextBasic(AccessibilityTest* test, gconstpointer)
 
     auto documentWeb = test->findDocumentWeb(testApp.get());
     g_assert_true(ATSPI_IS_ACCESSIBLE(documentWeb.get()));
-    g_assert_cmpint(atspi_accessible_get_child_count(documentWeb.get(), nullptr), ==, 1);
+    g_assert_cmpint(atspi_accessible_get_child_count(documentWeb.get(), nullptr), ==, 2);
 
     auto p = adoptGRef(atspi_accessible_get_child_at_index(documentWeb.get(), 0, nullptr));
     g_assert_true(ATSPI_IS_HYPERTEXT(p.get()));
@@ -1949,6 +2213,40 @@ static void testHypertextBasic(AccessibilityTest* test, gconstpointer)
     g_assert_cmpint(atspi_hypertext_get_link_index(ATSPI_HYPERTEXT(p.get()), 15, nullptr), ==, -1);
     g_assert_cmpint(atspi_hypertext_get_link_index(ATSPI_HYPERTEXT(p.get()), 20, nullptr), ==, 1);
     g_assert_cmpint(atspi_hypertext_get_link_index(ATSPI_HYPERTEXT(p.get()), 24, nullptr), ==, -1);
+#endif
+
+#if USE(ATSPI)
+    auto ol = adoptGRef(atspi_accessible_get_child_at_index(documentWeb.get(), 1, nullptr));
+    g_assert_true(ATSPI_IS_ACCESSIBLE(ol.get()));
+    g_assert_cmpint(atspi_accessible_get_child_count(ol.get(), nullptr), ==, 1);
+    auto li = adoptGRef(atspi_accessible_get_child_at_index(ol.get(), 0, nullptr));
+    g_assert_true(ATSPI_IS_HYPERTEXT(li.get()));
+    g_assert_cmpint(atspi_hypertext_get_n_links(ATSPI_HYPERTEXT(li.get()), nullptr), ==, 2);
+    link = adoptGRef(atspi_hypertext_get_link(ATSPI_HYPERTEXT(li.get()), 0, nullptr));
+    g_assert_true(ATSPI_IS_HYPERLINK(link.get()));
+    g_assert_cmpint(atspi_hyperlink_get_n_anchors(ATSPI_HYPERLINK(link.get()), nullptr), ==, 1);
+    g_assert_true(atspi_hyperlink_is_valid(ATSPI_HYPERLINK(link.get()), nullptr));
+    g_assert_cmpint(atspi_hyperlink_get_start_index(ATSPI_HYPERLINK(link.get()), nullptr), ==, 0);
+    g_assert_cmpint(atspi_hyperlink_get_end_index(ATSPI_HYPERLINK(link.get()), nullptr), ==, 1);
+    uri.reset(atspi_hyperlink_get_uri(ATSPI_HYPERLINK(link.get()), 0, nullptr));
+    g_assert_cmpstr(uri.get(), ==, "");
+    auto marker = adoptGRef(atspi_accessible_get_child_at_index(li.get(), 0, nullptr));
+    g_assert_true(atspi_hyperlink_get_object(ATSPI_HYPERLINK(link.get()), 0, nullptr) == marker.get());
+    link = adoptGRef(atspi_hypertext_get_link(ATSPI_HYPERTEXT(li.get()), 1, nullptr));
+    g_assert_true(ATSPI_IS_HYPERLINK(link.get()));
+    g_assert_cmpint(atspi_hyperlink_get_n_anchors(ATSPI_HYPERLINK(link.get()), nullptr), ==, 1);
+    g_assert_true(atspi_hyperlink_is_valid(ATSPI_HYPERLINK(link.get()), nullptr));
+    g_assert_cmpint(atspi_hyperlink_get_start_index(ATSPI_HYPERLINK(link.get()), nullptr), ==, 13);
+    g_assert_cmpint(atspi_hyperlink_get_end_index(ATSPI_HYPERLINK(link.get()), nullptr), ==, 14);
+    uri.reset(atspi_hyperlink_get_uri(ATSPI_HYPERLINK(link.get()), 0, nullptr));
+    g_assert_cmpstr(uri.get(), ==, "https://www.webkit.org/");
+    a = adoptGRef(atspi_accessible_get_child_at_index(li.get(), 1, nullptr));
+    g_assert_true(atspi_hyperlink_get_object(ATSPI_HYPERLINK(link.get()), 0, nullptr) == a.get());
+
+    g_assert_cmpint(atspi_hypertext_get_link_index(ATSPI_HYPERTEXT(li.get()), 0, nullptr), ==, 0);
+    g_assert_cmpint(atspi_hypertext_get_link_index(ATSPI_HYPERTEXT(li.get()), 1, nullptr), ==, -1);
+    g_assert_cmpint(atspi_hypertext_get_link_index(ATSPI_HYPERTEXT(li.get()), 13, nullptr), ==, 1);
+    g_assert_cmpint(atspi_hypertext_get_link_index(ATSPI_HYPERTEXT(li.get()), 14, nullptr), ==, -1);
 #endif
 }
 
@@ -2067,6 +2365,56 @@ static void testDocumentBasic(AccessibilityTest* test, gconstpointer)
     value.reset(atspi_document_get_document_attribute_value(ATSPI_DOCUMENT(documentWeb.get()), const_cast<char*>("Title"), nullptr));
     g_assert_cmpstr(value.get(), ==, "Document attributes");
 #endif
+}
+
+static void testDocumentLoadEvents(AccessibilityTest* test, gconstpointer)
+{
+    test->showInWindow();
+    test->loadURI("about:blank");
+    test->waitUntilLoadFinished();
+    test->startEventMonitor(std::nullopt, { "document:", "object:state-changed:busy" });
+    test->loadHtml(
+        "<html>"
+        "  <body>"
+        "    <p>Loading events test</p>"
+        "  </body>"
+        "</html>",
+        nullptr);
+    test->waitUntilLoadFinished();
+    auto events = test->stopEventMonitor(3);
+    g_assert_cmpuint(events.size(), ==, 3);
+    g_assert_cmpstr(events[0]->type, ==, "object:state-changed:busy");
+    g_assert_cmpuint(events[0]->detail1, ==, 1);
+    g_assert_cmpstr(events[1]->type, ==, "object:state-changed:busy");
+    g_assert_cmpuint(events[1]->detail1, ==, 0);
+    g_assert_false(events[0]->source == events[1]->source);
+    g_assert_true(ATSPI_IS_ACCESSIBLE(events[0]->source));
+    g_assert_cmpint(atspi_accessible_get_role(events[0]->source, nullptr), ==, ATSPI_ROLE_DOCUMENT_WEB);
+    g_assert_cmpstr(events[2]->type, ==, "document:load-complete");
+    g_assert_true(events[1]->source == events[2]->source);
+    g_assert_true(ATSPI_IS_ACCESSIBLE(events[1]->source));
+    g_assert_cmpint(atspi_accessible_get_role(events[1]->source, nullptr), ==, ATSPI_ROLE_DOCUMENT_WEB);
+    events = { };
+
+    test->startEventMonitor(std::nullopt, { "document:", "object:state-changed:busy" });
+    webkit_web_view_reload(test->m_webView);
+    test->waitUntilLoadFinished();
+    events = test->stopEventMonitor(4);
+    g_assert_cmpuint(events.size(), ==, 4);
+    g_assert_cmpstr(events[0]->type, ==, "object:state-changed:busy");
+    g_assert_cmpuint(events[0]->detail1, ==, 1);
+    g_assert_cmpstr(events[1]->type, ==, "document:reload");
+    g_assert_true(events[0]->source == events[1]->source);
+    g_assert_true(ATSPI_IS_ACCESSIBLE(events[0]->source));
+    g_assert_cmpint(atspi_accessible_get_role(events[0]->source, nullptr), ==, ATSPI_ROLE_DOCUMENT_WEB);
+    g_assert_cmpstr(events[2]->type, ==, "object:state-changed:busy");
+    g_assert_cmpuint(events[2]->detail1, ==, 0);
+    g_assert_false(events[1]->source == events[2]->source);
+    g_assert_cmpstr(events[3]->type, ==, "document:load-complete");
+    g_assert_true(events[2]->source == events[3]->source);
+    g_assert_true(ATSPI_IS_ACCESSIBLE(events[2]->source));
+    g_assert_cmpint(atspi_accessible_get_role(events[2]->source, nullptr), ==, ATSPI_ROLE_DOCUMENT_WEB);
+    events = { };
 }
 
 static void testImageBasic(AccessibilityTest* test, gconstpointer)
@@ -2752,6 +3100,8 @@ void beforeAll()
     AccessibilityTest::add("WebKitAccessibility", "accessible/attributes", testAccessibleAttributes);
     AccessibilityTest::add("WebKitAccessibility", "accessible/state", testAccessibleState);
     AccessibilityTest::add("WebKitAccessibility", "accessible/state-changed", testAccessibleStateChanged);
+    AccessibilityTest::add("WebKitAccessibility", "accessible/event-listener", testAccessibleEventListener);
+    AccessibilityTest::add("WebKitAccessibility", "accessible/list-markers", testAccessibleListMarkers);
     AccessibilityTest::add("WebKitAccessibility", "component/hit-test", testComponentHitTest);
 #ifdef ATSPI_SCROLLTYPE_COUNT
     AccessibilityTest::add("WebKitAccessibility", "component/scroll-to", testComponentScrollTo);
@@ -2764,11 +3114,13 @@ void beforeAll()
     AccessibilityTest::add("WebKitAccessibility", "text/attributes", testTextAttributes);
     AccessibilityTest::add("WebKitAccessibility", "text/state-changed", testTextStateChanged);
     AccessibilityTest::add("WebKitAccessibility", "text/replaced-objects", testTextReplacedObjects);
+    AccessibilityTest::add("WebKitAccessibility", "text/list-markers", testTextListMarkers);
     AccessibilityTest::add("WebKitAccessibility", "value/basic", testValueBasic);
     AccessibilityTest::add("WebKitAccessibility", "hyperlink/basic", testHyperlinkBasic);
     AccessibilityTest::add("WebKitAccessibility", "hypertext/basic", testHypertextBasic);
     AccessibilityTest::add("WebKitAccessibility", "action/basic", testActionBasic);
     AccessibilityTest::add("WebKitAccessibility", "document/basic", testDocumentBasic);
+    AccessibilityTest::add("WebKitAccessibility", "document/load-events", testDocumentLoadEvents);
     AccessibilityTest::add("WebKitAccessibility", "image/basic", testImageBasic);
     AccessibilityTest::add("WebKitAccessibility", "selection/listbox", testSelectionListBox);
     AccessibilityTest::add("WebKitAccessibility", "selection/menulist", testSelectionMenuList);

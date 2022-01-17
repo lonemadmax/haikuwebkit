@@ -41,18 +41,18 @@ static std::optional<InlineLayoutUnit> horizontalAlignmentOffset(TextAlignMode t
     // Depending on the line’s alignment/justification, the hanging glyph can be placed outside the line box.
     auto& runs = lineContent.runs;
     auto contentLogicalWidth = lineContent.contentLogicalWidth;
-    if (lineContent.hangingWhitespaceWidth) {
+    if (lineContent.hangingContentWidth) {
         ASSERT(!runs.isEmpty());
         // If white-space is set to pre-wrap, the UA must (unconditionally) hang this sequence, unless the sequence is followed
         // by a forced line break, in which case it must conditionally hang the sequence is instead.
         // Note that end of last line in a paragraph is considered a forced break.
         auto isConditionalHanging = runs.last().isLineBreak() || lineContent.isLastLineWithInlineContent;
         // In some cases, a glyph at the end of a line can conditionally hang: it hangs only if it does not otherwise fit in the line prior to justification.
-        // FIXME: Only the overflowing glyphs should be considered for hanging.
-        if (isConditionalHanging)
+        if (isConditionalHanging) {
+            // FIXME: Conditional hanging needs partial overflow trimming at glyph boundary, one by one until they fit.
             contentLogicalWidth = std::min(contentLogicalWidth, lineContent.lineLogicalWidth);
-        else
-            contentLogicalWidth -= lineContent.hangingWhitespaceWidth;
+        } else
+            contentLogicalWidth -= lineContent.hangingContentWidth;
     }
     auto extraHorizontalSpace = lineContent.lineLogicalWidth - contentLogicalWidth;
     if (extraHorizontalSpace <= 0)
@@ -103,52 +103,14 @@ LineBoxBuilder::LineBoxBuilder(const InlineFormattingContext& inlineFormattingCo
 {
 }
 
-LineBoxBuilder::LineAndLineBox LineBoxBuilder::build(const LineBuilder::LineContent& lineContent, size_t lineIndex)
+LineBoxBuilder::LineBoxAndHeight LineBoxBuilder::build(const LineBuilder::LineContent& lineContent, size_t lineIndex)
 {
     auto& rootStyle = lineIndex ? rootBox().firstLineStyle() : rootBox().style();
-    auto rootInlineBoxAlignmentOffset = Layout::horizontalAlignmentOffset(rootStyle.textAlign(), lineContent, rootStyle.isLeftToRightDirection()).value_or(InlineLayoutUnit { });
-    auto lineBox = LineBox { rootBox(), rootInlineBoxAlignmentOffset, lineContent.contentLogicalWidth, lineIndex, lineContent.nonSpanningInlineLevelBoxCount };
-
-    auto lineBoxLogicalHeight = constructAndAlignInlineLevelBoxes(lineBox, lineContent.runs, lineIndex);
-
-    auto line = [&] {
-        auto lineBoxLogicalRect = InlineRect { lineContent.logicalTopLeft, lineContent.lineLogicalWidth, lineBoxLogicalHeight };
-        auto scrollableOverflowRect = lineBoxLogicalRect;
-        auto& rootInlineBox = lineBox.rootInlineBox();
-        auto enclosingTopAndBottom = InlineDisplay::Line::EnclosingTopAndBottom { lineBoxLogicalRect.top() + rootInlineBox.logicalTop(), lineBoxLogicalRect.top() + rootInlineBox.logicalBottom() };
-
-        for (auto& inlineLevelBox : lineBox.nonRootInlineLevelBoxes()) {
-            if (!inlineLevelBox.isAtomicInlineLevelBox() && !inlineLevelBox.isInlineBox())
-                continue;
-
-            auto& layoutBox = inlineLevelBox.layoutBox();
-            auto borderBox = InlineRect { };
-
-            if (inlineLevelBox.isAtomicInlineLevelBox()) {
-                borderBox = lineBox.logicalBorderBoxForAtomicInlineLevelBox(layoutBox, formattingContext().geometryForBox(layoutBox));
-                borderBox.moveBy(lineBoxLogicalRect.topLeft());
-            } else if (inlineLevelBox.isInlineBox()) {
-                auto& boxGeometry = formattingContext().geometryForBox(layoutBox);
-                borderBox = lineBox.logicalBorderBoxForInlineBox(layoutBox, boxGeometry);
-                borderBox.moveBy(lineBoxLogicalRect.topLeft());
-                // Collect scrollable overflow from inline boxes. All other inline level boxes (e.g atomic inline level boxes) stretch the line.
-                auto hasScrollableContent = [&] {
-                    // In standards mode, inline boxes always start with an imaginary strut.
-                    return layoutState().inStandardsMode() || inlineLevelBox.hasContent() || boxGeometry.horizontalBorder() || (boxGeometry.horizontalPadding() && boxGeometry.horizontalPadding().value());
-                };
-                if (lineBox.hasContent() && hasScrollableContent()) {
-                    // Empty lines (e.g. continuation pre/post blocks) don't expect scrollbar overflow.
-                    scrollableOverflowRect.expandToContain(borderBox);
-                }
-            } else
-                ASSERT_NOT_REACHED();
-
-            enclosingTopAndBottom.top = std::min(enclosingTopAndBottom.top, borderBox.top());
-            enclosingTopAndBottom.bottom = std::max(enclosingTopAndBottom.bottom, borderBox.bottom());
-        }
-        return InlineDisplay::Line { lineBoxLogicalRect, scrollableOverflowRect, enclosingTopAndBottom, rootInlineBox.logicalTop() + rootInlineBox.baseline(), rootInlineBoxAlignmentOffset + rootInlineBox.logicalLeft(), rootInlineBox.logicalWidth() };
-    };
-    return { line(), lineBox };
+    auto rootInlineBoxAlignmentOffset = valueOrDefault(Layout::horizontalAlignmentOffset(rootStyle.textAlign(), lineContent, rootStyle.isLeftToRightDirection()));
+    // FIXME: The overflowing hanging content should be part of the ink overflow.  
+    auto lineBox = LineBox { rootBox(), rootInlineBoxAlignmentOffset, lineContent.contentLogicalWidth - lineContent.hangingContentWidth, lineIndex, lineContent.nonSpanningInlineLevelBoxCount };
+    auto lineBoxLogicalHeight = constructAndAlignInlineLevelBoxes(lineBox, lineContent, lineIndex);
+    return { lineBox, lineBoxLogicalHeight };
 }
 
 void LineBoxBuilder::adjustVerticalGeometryForInlineBoxWithFallbackFonts(InlineLevelBox& inlineBox, const TextUtil::FallbackFontList& fallbackFontsForContent) const
@@ -242,7 +204,7 @@ void LineBoxBuilder::setInitialVerticalGeometryForInlineBox(InlineLevelBox& inli
     inlineBox.setLayoutBounds({ floorf(heightAndLayoutBounds.layoutBounds.ascent), ceilf(heightAndLayoutBounds.layoutBounds.descent) });
 }
 
-InlineLayoutUnit LineBoxBuilder::constructAndAlignInlineLevelBoxes(LineBox& lineBox, const Line::RunList& runs, size_t lineIndex)
+InlineLayoutUnit LineBoxBuilder::constructAndAlignInlineLevelBoxes(LineBox& lineBox, const LineBuilder::LineContent& lineContent, size_t lineIndex)
 {
     auto& rootInlineBox = lineBox.rootInlineBox();
     setInitialVerticalGeometryForInlineBox(rootInlineBox);
@@ -261,7 +223,7 @@ InlineLayoutUnit LineBoxBuilder::constructAndAlignInlineLevelBoxes(LineBox& line
     };
 
     auto lineHasContent = false;
-    for (auto& run : runs) {
+    for (auto& run : lineContent.runs) {
         auto& layoutBox = run.layoutBox();
         auto& style = styleToUse(layoutBox);
         auto runHasContent = [&] () -> bool {
@@ -275,9 +237,9 @@ InlineLayoutUnit LineBoxBuilder::constructAndAlignInlineLevelBoxes(LineBox& line
             auto& inlineBoxGeometry = formattingContext().geometryForBox(layoutBox);
             // Even negative horizontal margin makes the line "contentful".
             if (run.isInlineBoxStart())
-                return inlineBoxGeometry.marginStart() || inlineBoxGeometry.borderLeft() || inlineBoxGeometry.paddingLeft().value_or(0_lu);
+                return inlineBoxGeometry.marginStart() || inlineBoxGeometry.borderStart() || inlineBoxGeometry.paddingStart().value_or(0_lu);
             if (run.isInlineBoxEnd())
-                return inlineBoxGeometry.marginEnd() || inlineBoxGeometry.borderRight() || inlineBoxGeometry.paddingRight().value_or(0_lu);
+                return inlineBoxGeometry.marginEnd() || inlineBoxGeometry.borderEnd() || inlineBoxGeometry.paddingEnd().value_or(0_lu);
             ASSERT_NOT_REACHED();
             return true;
         };
@@ -300,8 +262,8 @@ InlineLayoutUnit LineBoxBuilder::constructAndAlignInlineLevelBoxes(LineBox& line
                 else {
                     auto& formattingState = layoutState().formattingStateForInlineFormattingContext(downcast<ContainerBox>(layoutBox));
                     auto& lastLine = formattingState.lines().last();
-                    auto inlineBlockBaseline = lastLine.lineBoxLogicalRect().top() + lastLine.baseline();
-                    ascent = inlineLevelBoxGeometry.marginBefore() + inlineLevelBoxGeometry.borderTop() + inlineLevelBoxGeometry.paddingTop().value_or(0) + inlineBlockBaseline;
+                    auto inlineBlockBaseline = lastLine.top() + lastLine.baseline();
+                    ascent = inlineLevelBoxGeometry.marginBefore() + inlineLevelBoxGeometry.borderBefore() + inlineLevelBoxGeometry.paddingBefore().value_or(0) + inlineBlockBaseline;
                 }
             } else if (layoutBox.isReplacedBox())
                 ascent = downcast<ReplacedBox>(layoutBox).baseline().value_or(marginBoxHeight);
@@ -335,7 +297,8 @@ InlineLayoutUnit LineBoxBuilder::constructAndAlignInlineLevelBoxes(LineBox& line
             // Inline box run is based on margin box. Let's convert it to border box.
             auto marginStart = formattingContext().geometryForBox(layoutBox).marginStart();
             auto initialLogicalWidth = rootInlineBox.logicalWidth() - (run.logicalLeft() + marginStart);
-            ASSERT(initialLogicalWidth >= 0);
+            ASSERT(initialLogicalWidth >= 0 || lineContent.hangingContentWidth);
+            initialLogicalWidth = std::max(initialLogicalWidth, 0.f);
             auto inlineBox = InlineLevelBox::createInlineBox(layoutBox, style, logicalLeft + marginStart, initialLogicalWidth);
             inlineBox.setIsFirstBox();
             setInitialVerticalGeometryForInlineBox(inlineBox);

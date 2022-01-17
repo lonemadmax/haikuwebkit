@@ -205,7 +205,7 @@ void CaptureDrawElementsInstancedBaseVertexEXT_indices(const State &glState,
 
 void CaptureMultiDrawArraysIndirectEXT_indirect(const State &glState,
                                                 bool isCallValid,
-                                                GLenum mode,
+                                                PrimitiveMode modePacked,
                                                 const void *indirect,
                                                 GLsizei drawcount,
                                                 GLsizei stride,
@@ -216,8 +216,8 @@ void CaptureMultiDrawArraysIndirectEXT_indirect(const State &glState,
 
 void CaptureMultiDrawElementsIndirectEXT_indirect(const State &glState,
                                                   bool isCallValid,
-                                                  GLenum mode,
-                                                  GLenum type,
+                                                  PrimitiveMode modePacked,
+                                                  DrawElementsType typePacked,
                                                   const void *indirect,
                                                   GLsizei drawcount,
                                                   GLsizei stride,
@@ -3046,6 +3046,16 @@ void CapturePushDebugGroupKHR_message(const State &glState,
                                       GLsizei length,
                                       const GLchar *message,
                                       ParamCapture *paramCapture)
+{
+    // Skipped
+}
+
+void CaptureGetFramebufferParameterivMESA_params(const State &glState,
+                                                 bool isCallValid,
+                                                 GLenum target,
+                                                 GLenum pname,
+                                                 GLint *params,
+                                                 angle::ParamCapture *paramCapture)
 {
     // Skipped
 }

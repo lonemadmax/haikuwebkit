@@ -881,7 +881,9 @@ void TestRunner::removeAllWebNotificationPermissions()
 void TestRunner::simulateWebNotificationClick(JSValueRef notification)
 {
     auto& injectedBundle = InjectedBundle::singleton();
-    injectedBundle.postSimulateWebNotificationClick(WKBundleGetWebNotificationID(injectedBundle.bundle(), mainFrameJSContext(), notification));
+
+    auto notificationID = adoptWK(WKBundleCopyWebNotificationID(injectedBundle.bundle(), mainFrameJSContext(), notification));
+    injectedBundle.postSimulateWebNotificationClick(notificationID.get());
 }
 
 void TestRunner::setGeolocationPermission(bool enabled)
@@ -2084,9 +2086,9 @@ void TestRunner::setPrivateClickMeasurementEphemeralMeasurementForTesting(bool v
     postSynchronousPageMessage("SetPrivateClickMeasurementEphemeralMeasurementForTesting", value);
 }
 
-void TestRunner::simulateResourceLoadStatisticsSessionRestart()
+void TestRunner::simulatePrivateClickMeasurementSessionRestart()
 {
-    postSynchronousPageMessage("SimulateResourceLoadStatisticsSessionRestart");
+    postSynchronousPageMessage("SimulatePrivateClickMeasurementSessionRestart");
 }
 
 void TestRunner::setPrivateClickMeasurementTokenPublicKeyURLForTesting(JSStringRef urlString)

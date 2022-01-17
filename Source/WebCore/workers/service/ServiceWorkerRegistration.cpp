@@ -54,7 +54,9 @@ Ref<ServiceWorkerRegistration> ServiceWorkerRegistration::getOrCreate(ScriptExec
         return *registration;
     }
 
-    return adoptRef(*new ServiceWorkerRegistration(context, WTFMove(container), WTFMove(data)));
+    auto registration = adoptRef(*new ServiceWorkerRegistration(context, WTFMove(container), WTFMove(data)));
+    registration->suspendIfNeeded();
+    return registration;
 }
 
 ServiceWorkerRegistration::ServiceWorkerRegistration(ScriptExecutionContext& context, Ref<ServiceWorkerContainer>&& container, ServiceWorkerRegistrationData&& registrationData)
@@ -63,7 +65,6 @@ ServiceWorkerRegistration::ServiceWorkerRegistration(ScriptExecutionContext& con
     , m_container(WTFMove(container))
 {
     LOG(ServiceWorker, "Creating registration %p for registration key %s", this, m_registrationData.key.loggingString().utf8().data());
-    suspendIfNeeded();
 
     if (m_registrationData.installingWorker)
         m_installingWorker = ServiceWorker::getOrCreate(context, WTFMove(*m_registrationData.installingWorker));
@@ -261,6 +262,24 @@ NavigationPreloadManager& ServiceWorkerRegistration::navigationPreload()
         m_navigationPreload = std::unique_ptr<NavigationPreloadManager>(new NavigationPreloadManager(*this));
     return *m_navigationPreload;
 }
+
+#if ENABLE(NOTIFICATION_EVENT)
+void ServiceWorkerRegistration::showNotification(ScriptExecutionContext&, const String& title, const NotificationOptions& options, DOMPromiseDeferred<void>&& promise)
+{
+    UNUSED_PARAM(title);
+    UNUSED_PARAM(options);
+
+    promise.reject();
+}
+
+void ServiceWorkerRegistration::getNotifications(ScriptExecutionContext&, const GetNotificationOptions& filter, DOMPromiseDeferred<IDLSequence<IDLDOMString>> promise)
+{
+    UNUSED_PARAM(filter);
+
+    promise.reject();
+
+}
+#endif // ENABLE(NOTIFICATION_EVENT)
 
 } // namespace WebCore
 

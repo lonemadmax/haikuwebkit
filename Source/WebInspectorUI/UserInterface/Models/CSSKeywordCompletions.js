@@ -138,7 +138,7 @@ WI.CSSKeywordCompletions.forPartialPropertyValue = function(text, propertyName, 
 
 WI.CSSKeywordCompletions.forProperty = function(propertyName)
 {
-    let acceptedKeywords = ["initial", "unset", "revert", "var()", "env()"];
+    let acceptedKeywords = ["initial", "unset", "revert", "revert-layer", "var()", "env()"];
 
     function addKeywordsForName(name) {
         let isNotPrefixed = name.charAt(0) !== "-";
@@ -303,7 +303,6 @@ WI.CSSKeywordCompletions.InheritedProperties = new Set([
     "-webkit-locale",
     "-webkit-nbsp-mode",
     "-webkit-overflow-scrolling",
-    "-webkit-print-color-adjust",
     "-webkit-rtl-ordering",
     "-webkit-ruby-position",
     "-webkit-text-align-last",
@@ -379,6 +378,7 @@ WI.CSSKeywordCompletions.InheritedProperties = new Set([
     "marker-start",
     "orphans",
     "pointer-events",
+    "print-color-adjust",
     "quotes",
     "resize",
     "shape-rendering",
@@ -933,9 +933,6 @@ WI.CSSKeywordCompletions._propertyKeywordMap = {
     "scroll-snap-type": [
         "none", "mandatory", "proximity", "x", "y", "inline", "block", "both"
     ],
-    "-webkit-background-composite": [
-        "clear", "copy", "source-over", "source-in", "source-out", "source-atop", "destination-over", "destination-in", "destination-out", "destination-atop", "xor", "plus-darker", "plus-lighter"
-    ],
     "-webkit-mask-composite": [
         "clear", "copy", "source-over", "source-in", "source-out", "source-atop", "destination-over", "destination-in", "destination-out", "destination-atop", "xor", "plus-darker", "plus-lighter"
     ],
@@ -1096,18 +1093,6 @@ WI.CSSKeywordCompletions._propertyKeywordMap = {
     "-webkit-logical-width": [
         "auto", "intrinsic", "min-intrinsic", "min-content", "-webkit-min-content", "max-content", "-webkit-max-content", "-webkit-fill-available", "fit-content", "-webkit-fit-content", "calc()"
     ],
-    "-webkit-margin-after-collapse": [
-        "collapse", "separate", "discard",
-    ],
-    "-webkit-margin-before-collapse": [
-        "collapse", "separate", "discard",
-    ],
-    "-webkit-margin-bottom-collapse": [
-        "collapse", "separate", "discard",
-    ],
-    "-webkit-margin-top-collapse": [
-        "collapse", "separate", "discard",
-    ],
     "-webkit-max-logical-height": [
         "auto", "intrinsic", "min-intrinsic", "min-content", "-webkit-min-content", "max-content", "-webkit-max-content", "-webkit-fill-available", "fit-content", "-webkit-fit-content", "none", "calc()"
     ],
@@ -1126,7 +1111,7 @@ WI.CSSKeywordCompletions._propertyKeywordMap = {
     "-webkit-overflow-scrolling": [
         "auto", "touch",
     ],
-    "-webkit-print-color-adjust": [
+    "print-color-adjust": [
         "economy", "exact",
     ],
     "-webkit-rtl-ordering": [

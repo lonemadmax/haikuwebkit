@@ -105,7 +105,7 @@ private:
         // All executed on the main thread.
         void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent) override;
         void didReceiveResponse(ResourceLoaderIdentifier, const ResourceResponse&) override;
-        void didReceiveData(const uint8_t*, int dataLength) override;
+        void didReceiveData(const SharedBuffer&) override;
         void didFinishLoading(ResourceLoaderIdentifier) override;
         void didFail(const ResourceError&) override;
         void didFinishTiming(const ResourceTiming&) override;
@@ -132,7 +132,6 @@ private:
 
     void computeIsDone() final;
 
-    Ref<WorkerOrWorkletGlobalScope> m_WorkerOrWorkletGlobalScope;
     Ref<ThreadableLoaderClientWrapper> m_workerClientWrapper;
     MainThreadBridge& m_bridge;
 };
