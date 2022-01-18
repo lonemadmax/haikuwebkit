@@ -389,20 +389,21 @@ bool BUrlProtocolHandler::didReceiveAuthenticationChallenge(const ResourceRespon
         return false;
 
     const URL& url = response.url();
-    ProtectionSpaceServerType serverType = ProtectionSpaceServerHTTP;
+    auto serverType = WebCore::ProtectionSpaceBase::ServerType::HTTP;
     if (url.protocolIs("https"))
-        serverType = ProtectionSpaceServerHTTPS;
+        serverType = WebCore::ProtectionSpaceBase::ServerType::HTTPS;
+    // FIXME handle other types (FTP and proxy stuff)
 
     static NeverDestroyed<String> wwwAuthenticate(MAKE_STATIC_STRING_IMPL("www-authenticate"));
     String challenge = response.httpHeaderField(wwwAuthenticate);
 
-    ProtectionSpaceAuthenticationScheme scheme = ProtectionSpaceAuthenticationSchemeDefault;
+    auto scheme = WebCore::ProtectionSpaceBase::AuthenticationScheme::Default;
     // TODO according to RFC7235, there could be more than one challenge in WWW-Authenticate. We
     // should parse them all, instead of just the first one.
     if (challenge.startsWith("Digest"))
-        scheme = ProtectionSpaceAuthenticationSchemeHTTPDigest;
+        scheme = WebCore::ProtectionSpaceBase::AuthenticationScheme::HTTPDigest;
     else if (challenge.startsWith("Basic"))
-        scheme = ProtectionSpaceAuthenticationSchemeHTTPBasic;
+        scheme = WebCore::ProtectionSpaceBase::AuthenticationScheme::HTTPBasic;
     else {
         // Unknown authentication type, ignore (various websites are intercepting the auth and
         // handling it by themselves)

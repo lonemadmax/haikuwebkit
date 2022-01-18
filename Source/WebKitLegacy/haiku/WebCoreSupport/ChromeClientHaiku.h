@@ -164,6 +164,9 @@ namespace WebCore {
 
         void requestCookieConsent(CompletionHandler<void(CookieConsentDecisionResult)>&&) override;
 
+        void classifyModalContainerControls(Vector<String>&& texts, CompletionHandler<void(Vector<ModalContainerControlType>&&)>&&) override;
+        void decidePolicyForModalContainer(OptionSet<ModalContainerControlType>, CompletionHandler<void(ModalContainerDecision)>&&) override;
+
 #if ENABLE(POINTER_LOCK)
         bool requestPointerLock() override;
         void requestPointerUnlock() override;

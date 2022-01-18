@@ -150,7 +150,7 @@ class FrameLoaderClientHaiku : public FrameLoaderClient {
     virtual void willReplaceMultipartContent() override { }
     virtual void didReplaceMultipartContent() override { }
 
-    void committedLoad(DocumentLoader*, const uint8_t*, int) override;
+    void committedLoad(DocumentLoader*, const WebCore::SharedBuffer&) override;
     void finishedLoading(DocumentLoader*) override;
     void updateGlobalHistory() override;
     void updateGlobalHistoryRedirectLinks() override;

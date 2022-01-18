@@ -34,6 +34,7 @@
 #include "WebCore/ResourceRequest.h"
 #include "WebCore/ResourceResponse.h"
 #include "WebCore/SecurityOrigin.h"
+#include "WebCore/SharedBuffer.h"
 #include "pal/text/TextEncoding.h"
 #include "WebDownload.h"
 #include "WebPage.h"
@@ -98,17 +99,17 @@ void WebDownloadPrivate::didReceiveResponseAsync(ResourceHandle*, ResourceRespon
     m_url = response.url().string();
 }
 
-void WebDownloadPrivate::didReceiveData(ResourceHandle*, const uint8_t* data, unsigned length, int /*lengthReceived*/)
+void WebDownloadPrivate::didReceiveData(ResourceHandle*, const WebCore::SharedBuffer& buffer, int /*encodedDataLength*/)
 {
 	if (m_file.InitCheck() != B_OK)
 		createFile();
 
-    ssize_t bytesWritten = m_file.Write(data, length);
-    if (bytesWritten != (ssize_t)length) {
+    ssize_t bytesWritten = m_file.Write(buffer.data(), buffer.size());
+    if (bytesWritten != (ssize_t)buffer.size()) {
         // FIXME: Report error
         return;
     }
-    m_currentSize += length;
+    m_currentSize += buffer.size();
 
     if (m_currentSize > 0 && m_mimeTypeGuessTries > 0) {
     	// Try to guess the MIME type from its actual content

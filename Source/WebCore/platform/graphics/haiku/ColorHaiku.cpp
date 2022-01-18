@@ -40,8 +40,8 @@ Color::Color(const rgb_color& color)
 
 Color::operator rgb_color() const
 {
-    SRGBA<uint8_t> c = toSRGBALossy<uint8_t>();
-    return make_color(c.red, c.green, c.blue, c.alpha);
+    auto [r, g, b, a] = Color::toColorTypeLossy<SRGBA<uint8_t>>().resolved();
+    return make_color(r, g, b, a);
 }
 
 

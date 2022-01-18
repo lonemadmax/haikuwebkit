@@ -47,8 +47,6 @@ const BGradient& Gradient::getHaikuGradient()
 	if (m_gradient)
 		return *m_gradient;
 
-	sortStops();
-
 	WTF::switchOn(m_data,
 		[&] (const RadialData& data) {
 			m_gradient = std::make_unique<BGradientRadialFocus>(data.point1, data.endRadius, data.point0);
@@ -61,16 +59,16 @@ const BGradient& Gradient::getHaikuGradient()
 		}
 	);
 
-    size_t size = m_stops.size();
-    for (size_t i = 0; i < size; i++) {
-        const ColorStop& stop = m_stops[i];
-        rgb_color color(stop.color);
-        m_gradient->AddColorStop(BGradient::ColorStop(color, stop.offset * 255), i);
-    }
+	int i = 0;
+	for (const GradientColorStop& stop: m_stops) {
+		rgb_color color(stop.color);
+		m_gradient->AddColorStop(BGradient::ColorStop(color, stop.offset * 255), i);
+		i++;
+	}
 
-    // TODO handle m_spreadMethod (pad/reflect/repeat)
+	// TODO handle m_spreadMethod (pad/reflect/repeat)
 
-    return *m_gradient;
+	return *m_gradient;
 }
 
 void Gradient::fill(GraphicsContext& context, const FloatRect& rect)

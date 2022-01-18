@@ -196,10 +196,10 @@ void FrameLoaderClientHaiku::dispatchDidReceiveAuthenticationChallenge(DocumentL
     String text = "Host \"" + space.host() + "\" requests authentication for realm \"" + space.realm() + "\"\n";
     text.append("Authentication Scheme: ");
     switch (space.authenticationScheme()) {
-    case ProtectionSpaceAuthenticationSchemeHTTPBasic:
+        case WebCore::ProtectionSpaceBase::AuthenticationScheme::HTTPBasic:
         text.append("Basic (data will be sent as plain text)");
         break;
-    case ProtectionSpaceAuthenticationSchemeHTTPDigest:
+        case WebCore::ProtectionSpaceBase::AuthenticationScheme::HTTPDigest:
         text.append("Digest (data will not be sent plain text)");
         break;
     default:
@@ -631,12 +631,12 @@ void FrameLoaderClientHaiku::didChangeTitle(DocumentLoader* docLoader)
     setTitle(docLoader->title(), docLoader->url());
 }
 
-void FrameLoaderClientHaiku::committedLoad(WebCore::DocumentLoader* loader, const uint8_t* data, int length)
+void FrameLoaderClientHaiku::committedLoad(WebCore::DocumentLoader* loader, const WebCore::SharedBuffer& buffer)
 {
     CALLED();
 
     ASSERT(loader->frame());
-    loader->commitData(data, length);
+    loader->commitData(buffer);
 
 #if 0
     Frame* coreFrame = loader->frame();

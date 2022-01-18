@@ -50,18 +50,18 @@ class NotificationClientHaiku: public NotificationClient {
 public:
     NotificationClientHaiku(BWebPage*) {}
 
-    bool show(Notification* descriptor) override {
+    bool show(Notification& descriptor) override {
 
         // FIXME should call dispatch{Click/Close/Error/Show}Event
         fromDescriptor(descriptor).Send();
         return true;
     }
 
-    void cancel(Notification* descriptor) override {
+    void cancel(Notification& descriptor) override {
         fromDescriptor(descriptor).Send(0); // 0 timeout = destroy now
     }
 
-    void notificationObjectDestroyed(Notification*) override {}
+    void notificationObjectDestroyed(Notification&) override {}
     void notificationControllerDestroyed() override {}
 
     void requestPermission(ScriptExecutionContext&,
@@ -76,7 +76,7 @@ public:
 private:
     class SynchronousListener;
 
-    BNotification fromDescriptor(Notification* descriptor);
+    BNotification fromDescriptor(Notification& descriptor);
 };
 
 }

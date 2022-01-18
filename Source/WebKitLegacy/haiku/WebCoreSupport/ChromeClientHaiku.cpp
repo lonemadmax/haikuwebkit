@@ -39,6 +39,7 @@
 #include "WebCore/FrameView.h"
 #include "WebCore/HitTestResult.h"
 #include "WebCore/Icon.h"
+#include "WebCore/ModalContainerTypes.h"
 #include "WebCore/NotImplemented.h"
 #include "WebCore/Page.h"
 #include "WebCore/PopupMenuHaiku.h"
@@ -534,6 +535,16 @@ std::unique_ptr<WebCore::DateTimeChooser> ChromeClientHaiku::createDateTimeChoos
 void ChromeClientHaiku::requestCookieConsent(CompletionHandler<void(CookieConsentDecisionResult)>&& completion)
 {
     completion(CookieConsentDecisionResult::NotSupported);
+}
+
+void ChromeClientHaiku::classifyModalContainerControls(Vector<String>&&, CompletionHandler<void(Vector<ModalContainerControlType>&&)>&& completion)
+{
+    completion({ });
+}
+
+void ChromeClientHaiku::decidePolicyForModalContainer(OptionSet<ModalContainerControlType>, CompletionHandler<void(ModalContainerDecision)>&& completion)
+{
+    completion(ModalContainerDecision::Show);
 }
 
 } // namespace WebCore
