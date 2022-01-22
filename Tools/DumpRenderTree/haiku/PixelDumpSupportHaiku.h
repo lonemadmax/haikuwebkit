@@ -59,8 +59,7 @@ private:
         // viewport.
         m_bitmap = new BBitmap(BRect(0, 0, size.Width() - 1, size.Height() - 1), 0,
             B_RGBA32);
-        m_bitmap->ImportBits(bitmap, BPoint(0, 0), BPoint(0, 0), size.Width(),
-            size.Height());
+        m_bitmap->ImportBits(bitmap, BPoint(0, 0), BPoint(0, 0), size);
     }
 };
 
