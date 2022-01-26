@@ -38,6 +38,7 @@
 #include "RenderLayerModelObject.h"
 #include "RenderSVGResource.h"
 #include "RenderView.h"
+#include "SVGElementInlines.h"
 #include "SVGGraphicsElement.h"
 #include "SVGLocatable.h"
 #include "SVGNames.h"
@@ -82,8 +83,8 @@ LayoutRect RenderSVGModelObject::overflowClipRect(const LayoutPoint&, RenderFrag
 
 LayoutRect RenderSVGModelObject::clippedOverflowRect(const RenderLayerModelObject* repaintContainer, VisibleRectContext context) const
 {
-    if (style().visibility() != Visibility::Visible && !enclosingLayer()->hasVisibleContent())
-        return LayoutRect();
+    if (isInsideEntirelyHiddenLayer())
+        return { };
 
     ASSERT(!view().frameView().layoutContext().isPaintOffsetCacheEnabled());
     return computeRect(visualOverflowRectEquivalent(), repaintContainer, context);

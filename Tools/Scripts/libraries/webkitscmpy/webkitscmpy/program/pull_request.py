@@ -21,6 +21,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import os
+import re
 import sys
 
 from .command import Command
@@ -53,6 +54,12 @@ class PullRequest(Command):
         parser.add_argument(
             '--defaults', '--no-defaults', action=arguments.NoAction, default=None,
             help='Do not prompt the user for defaults, always use (or do not use) them',
+        )
+        parser.add_argument(
+            '--with-history', '--no-history',
+            dest='history', default=None,
+            help='Create numbered branches to track the history of a change',
+            action=arguments.NoAction,
         )
 
     @classmethod
@@ -128,8 +135,26 @@ class PullRequest(Command):
         target = 'fork' if isinstance(rmt, remote.GitHub) else 'origin'
         log.info("Pushing '{}' to '{}'...".format(repository.branch, target))
         if run([repository.executable(), 'push', '-f', target, repository.branch], cwd=repository.root_path).returncode:
-            sys.stderr.write("Failed to push '{}' to '{}'\n".format(repository.branch, target))
+            sys.stderr.write("Failed to push '{}' to '{}' (alias of '{}')\n".format(repository.branch, target, repository.url(name=target)))
+            sys.stderr.write("Your checkout may be mis-configured, try re-running 'git-webkit setup' or\n")
+            sys.stderr.write("your checkout may not have permission to push to '{}'\n".format(repository.url(name=target)))
             return 1
+
+        if args.history or (target != 'origin' and args.history is None):
+            regex = re.compile(r'^{}-(?P<count>\d+)$'.format(repository.branch))
+            count = max([
+                int(regex.match(branch).group('count')) if regex.match(branch) else 0 for branch in
+                repository.branches_for(remote=target)
+            ] + [0]) + 1
+
+            history_branch = '{}-{}'.format(repository.branch, count)
+            log.info("Creating '{}' as a reference branch".format(history_branch))
+            if run([
+                repository.executable(), 'branch', history_branch, repository.branch,
+            ], cwd=repository.root_path).returncode or run([
+                repository.executable(), 'push', '-f', target, history_branch,
+            ], cwd=repository.root_path).returncode:
+                sys.stderr.write("Failed to create and push '{}' to '{}'\n".format(history_branch, target))
 
         if not rmt.pull_requests:
             sys.stderr.write("'{}' cannot generate pull-requests\n".format(rmt.url))
@@ -173,5 +198,7 @@ class PullRequest(Command):
                 sys.stderr.write("Failed to create pull-request for '{}'\n".format(repository.branch))
                 return 1
             print("Created '{}'!".format(pr))
+        if pr.url:
+            print(pr.url)
 
         return 0

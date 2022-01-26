@@ -24,13 +24,14 @@ import calendar
 import re
 import requests
 import sys
+import time
+import webkitcorepy
 
 from .issue import Issue
 from .tracker import Tracker as GenericTracker
 
 from datetime import datetime
 from requests.auth import HTTPBasicAuth
-from webkitcorepy import credentials, decorators
 
 
 class Tracker(GenericTracker):
@@ -66,13 +67,25 @@ class Tracker(GenericTracker):
         return None
 
     def credentials(self, required=True):
-        return credentials(
+        hostname = self.url.split('/')[2]
+        args = dict(
             url=self.api_url,
             required=required,
             name=self.url.split('/')[2].replace('.', '_').upper(),
-            prompt="GitHub's API\nPlease generate a 'Personal access token' via 'Developer settings' for your user",
+            prompt='''GitHub's API
+Please go to https://{host}/settings/tokens and generate a new 'Personal access token' via 'Developer settings'
+with 'repo' and 'workflow' access and appropriate 'Expiration' for your {host} user'''.format(host=hostname),
             key_name='token',
         )
+
+        username, token = webkitcorepy.credentials(**args)
+        if username and '@' in username:
+            sys.stderr.write("Provided username contains an '@' symbol. Please make sure to enter your GitHub username, not an email associated with the account\n")
+            webkitcorepy.delete_credentials(url=args['url'], name=args['name'])
+            username, token = webkitcorepy.credentials(**args)
+        if username and '@' in username:
+            raise ValueError("GitHub usernames cannot have '@' in them")
+        return username, token
 
     def request(self, path=None, params=None, headers=None, authenticated=None, paginate=True):
         headers = {key: value for key, value in headers.items()} if headers else dict()
@@ -138,6 +151,11 @@ class Tracker(GenericTracker):
             username=username,
             emails=[data.get('email')],
         )
+
+    @webkitcorepy.decorators.Memoize()
+    def me(self):
+        username, _ = self.credentials(required=True)
+        return self.user(username=username)
 
     def issue(self, id):
         return Issue(id=int(id), tracker=self)
@@ -232,3 +250,36 @@ class Tracker(GenericTracker):
                     refs.add(candidate.link)
 
         return issue
+
+    def add_comment(self, issue, text):
+        response = requests.post(
+            '{api_url}/repos/{owner}/{name}/issues/{id}/comments'.format(
+                api_url=self.api_url,
+                owner=self.owner,
+                name=self.name,
+                id=issue.id,
+            ),
+            auth=HTTPBasicAuth(*self.credentials(required=True)),
+            headers=dict(Accept='application/vnd.github.v3+json'),
+            json=dict(body=text),
+        )
+        if response.status_code // 100 != 2:
+            sys.stderr.write("Failed to add comment to '{}'\n".format(issue))
+            return None
+
+        data = response.json()
+        tm = data.get('updated_at', data.get('created_at'))
+        if tm:
+            tm = int(calendar.timegm(datetime.strptime(tm, '%Y-%m-%dT%H:%M:%SZ').timetuple()))
+        else:
+            tm = time.time()
+
+        result = Issue.Comment(
+            user=self.user(username=data.get('user', {}).get('login')),
+            timestamp=tm,
+            content=data.get('body'),
+        )
+        if not issue._comments:
+            self.populate(issue, 'comments')
+        issue._comments.append(result)
+        return result

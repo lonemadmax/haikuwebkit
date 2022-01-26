@@ -383,11 +383,6 @@ public:
     std::optional<PixelBuffer> readRenderingResultsForPainting();
     std::optional<PixelBuffer> readCompositedResultsForPainting();
 
-#if USE(OPENGL) && ENABLE(WEBGL2)
-    void primitiveRestartIndex(GCGLuint);
-#endif
-
-
     void setContextVisibility(bool) final;
 
     // Support for buffer creation and deletion
@@ -416,8 +411,6 @@ public:
     ExtensionsGLOpenGLCommon& getExtensions() final;
 
     void simulateEventForTesting(SimulatedEventForTesting) override;
-
-    unsigned textureSeed(GCGLuint texture) { return m_state.textureSeedCount.count(texture); }
 
     void prepareForDisplay() override;
 

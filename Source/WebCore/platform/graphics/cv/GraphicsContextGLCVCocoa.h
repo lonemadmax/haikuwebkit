@@ -28,9 +28,8 @@
 #if ENABLE(WEBGL) && ENABLE(VIDEO) && USE(AVFOUNDATION)
 
 #include "GraphicsContextGLCV.h"
-
+#include "ImageOrientation.h"
 #include <memory>
-#include <wtf/UnsafePointer.h>
 
 namespace WebCore {
 class GraphicsContextGLCocoa;
@@ -44,15 +43,12 @@ public:
 
     ~GraphicsContextGLCVCocoa() final;
 
-    bool copyPixelBufferToTexture(CVPixelBufferRef, PlatformGLObject outputTexture, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, FlipY) final;
+    bool copyVideoSampleToTexture(const MediaSampleVideoFrame&, PlatformGLObject outputTexture, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, FlipY) final;
 
+    void invalidateKnownTextureContent(GCGLuint texture);
 private:
     GraphicsContextGLCVCocoa(GraphicsContextGLCocoa&);
 
-    unsigned lastTextureSeed(GCGLuint texture)
-    {
-        return m_lastTextureSeed.get(texture);
-    }
 
     GraphicsContextGLCocoa& m_owner;
     PlatformGraphicsContextGLDisplay m_display { nullptr };
@@ -64,17 +60,29 @@ private:
     GCGLint m_yTextureUniformLocation { -1 };
     GCGLint m_uvTextureUniformLocation { -1 };
     GCGLint m_yuvFlipYUniformLocation { -1 };
+    GCGLint m_yuvFlipXUniformLocation { -1 };
+    GCGLint m_yuvSwapXYUniformLocation { -1 };
     GCGLint m_colorMatrixUniformLocation { -1 };
     GCGLint m_yuvPositionAttributeLocation { -1 };
     GCGLint m_yTextureSizeUniformLocation { -1 };
     GCGLint m_uvTextureSizeUniformLocation { -1 };
 
-    FlipY m_lastFlipY { FlipY::No };
-    UnsafePointer<IOSurfaceRef> m_lastSurface;
-    uint32_t m_lastSurfaceSeed { 0 };
+    struct TextureContent {
+        // FIXME: Switch back to UnsafePointer<IOSurfaceRef> once UnsafePointer is safe to compare.
+        // http://webkit.org/b/235435
+        intptr_t surface { 0 };
+        uint32_t surfaceSeed { 0 };
+        GCGLint level { 0 };
+        GCGLenum internalFormat { 0 };
+        GCGLenum format { 0 };
+        GCGLenum type { 0 };
+        FlipY unpackFlipY { FlipY::No };
+        ImageOrientation orientation;
 
-    using TextureSeedMap = HashMap<GCGLuint, unsigned, IntHash<GCGLuint>, WTF::UnsignedWithZeroKeyHashTraits<GCGLuint>>;
-    TextureSeedMap m_lastTextureSeed;
+        bool operator==(const TextureContent&) const;
+    };
+    using TextureContentMap = HashMap<GCGLuint, TextureContent, IntHash<GCGLuint>, WTF::UnsignedWithZeroKeyHashTraits<GCGLuint>>;
+    TextureContentMap m_knownContent;
 };
 
 }

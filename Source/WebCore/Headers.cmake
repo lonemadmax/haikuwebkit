@@ -296,6 +296,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/push-api/PushMessageCrypto.h
     Modules/push-api/PushPermissionState.h
     Modules/push-api/PushSubscriptionData.h
+    Modules/push-api/PushSubscriptionIdentifier.h
 
     Modules/speech/SpeechRecognitionCaptureSource.h
     Modules/speech/SpeechRecognitionCaptureSourceImpl.h
@@ -458,6 +459,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     bindings/js/JSNodeCustom.h
     bindings/js/JSNodeListCustom.h
     bindings/js/JSPluginElementFunctions.h
+    bindings/js/JSShadowRealmGlobalScopeBase.h
     bindings/js/JSStyleSheetCustom.h
     bindings/js/JSValueInWrappedObject.h
     bindings/js/JSWindowProxy.h
@@ -1144,6 +1146,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/SecurityOriginHash.h
     page/SecurityPolicy.h
     page/SettingsBase.h
+    page/ShadowRealmGlobalScope.h
     page/ShareData.h
     page/SocketProvider.h
     page/SpeechRecognitionProvider.h
@@ -1511,6 +1514,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/MediaPlayerEnums.h
     platform/graphics/MediaPlayerIdentifier.h
     platform/graphics/MediaPlayerPrivate.h
+    platform/graphics/MediaSampleVideoFrame.h
     platform/graphics/MediaSourcePrivate.h
     platform/graphics/MediaSourcePrivateClient.h
     platform/graphics/MediaUsageInfo.h
@@ -1549,6 +1553,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ShouldLocalizeAxisNames.h
     platform/graphics/SourceBufferPrivate.h
     platform/graphics/SourceBufferPrivateClient.h
+    platform/graphics/SourceImage.h
     platform/graphics/StringTruncator.h
     platform/graphics/TabSize.h
     platform/graphics/TextRun.h
@@ -1597,6 +1602,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/filters/FEDropShadow.h
     platform/graphics/filters/FEFlood.h
     platform/graphics/filters/FEGaussianBlur.h
+    platform/graphics/filters/FEImage.h
     platform/graphics/filters/FELighting.h
     platform/graphics/filters/FEMerge.h
     platform/graphics/filters/FEMorphology.h
@@ -1606,6 +1612,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/filters/FETurbulence.h
     platform/graphics/filters/Filter.h
     platform/graphics/filters/FilterEffect.h
+    platform/graphics/filters/FilterEffectApplier.h
     platform/graphics/filters/FilterEffectGeometry.h
     platform/graphics/filters/FilterEffectVector.h
     platform/graphics/filters/FilterFunction.h
@@ -1645,6 +1652,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/transforms/ScaleTransformOperation.h
     platform/graphics/transforms/TransformOperation.h
     platform/graphics/transforms/TransformOperations.h
+    platform/graphics/transforms/TransformState.h
     platform/graphics/transforms/TransformationMatrix.h
     platform/graphics/transforms/TranslateTransformOperation.h
 
@@ -1929,7 +1937,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     svg/graphics/SVGImageCache.h
 
-    svg/graphics/filters/SVGFEImage.h
     svg/graphics/filters/SVGFilter.h
     svg/graphics/filters/SVGFilterExpression.h
 

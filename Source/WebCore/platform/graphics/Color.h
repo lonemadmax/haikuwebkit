@@ -42,15 +42,6 @@
 typedef struct CGColor* CGColorRef;
 #endif
 
-#if PLATFORM(WIN)
-struct _D3DCOLORVALUE;
-typedef _D3DCOLORVALUE D3DCOLORVALUE;
-typedef D3DCOLORVALUE D2D_COLOR_F;
-typedef D2D_COLOR_F D2D1_COLOR_F;
-struct D2D_VECTOR_4F;
-typedef D2D_VECTOR_4F D2D1_VECTOR_4F;
-#endif
-
 #if PLATFORM(GTK)
 typedef struct _GdkRGBA GdkRGBA;
 #endif
@@ -157,12 +148,6 @@ public:
     operator rgb_color() const;
 #endif
 
-#if PLATFORM(WIN)
-    WEBCORE_EXPORT Color(D2D1_COLOR_F);
-    WEBCORE_EXPORT operator D2D1_COLOR_F() const;
-    WEBCORE_EXPORT operator D2D1_VECTOR_4F() const;
-#endif
-
     static constexpr auto transparentBlack = SRGBA<uint8_t> { };
     static constexpr auto black = SRGBA<uint8_t> { 0, 0, 0 };
     static constexpr auto white = SRGBA<uint8_t> { 255, 255, 255 };
@@ -189,6 +174,17 @@ public:
 
     template<class Encoder> void encode(Encoder&) const;
     template<class Decoder> static std::optional<Color> decode(Decoder&);
+
+    // Returns the underlying color converted to pre-resolved 8-bit sRGBA, useful for debugging purposes.
+    struct DebugRGBA {
+        unsigned red;
+        unsigned green;
+        unsigned blue;
+        unsigned alpha;
+    };
+    DebugRGBA debugRGBA() const;
+
+    String debugDescription() const;
 
 private:
     class OutOfLineComponents : public ThreadSafeRefCounted<OutOfLineComponents> {

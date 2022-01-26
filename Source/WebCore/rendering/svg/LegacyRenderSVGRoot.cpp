@@ -224,7 +224,8 @@ bool LegacyRenderSVGRoot::shouldApplyViewportClip() const
 void LegacyRenderSVGRoot::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
     // An empty viewport disables rendering.
-    if (borderBoxRect().isEmpty())
+    bool clipViewport = shouldApplyViewportClip();
+    if (clipViewport && contentSize().isEmpty())
         return;
 
     // Don't paint, if the context explicitly disabled it.
@@ -269,7 +270,7 @@ void LegacyRenderSVGRoot::paintReplaced(PaintInfo& paintInfo, const LayoutPoint&
     childPaintInfo.context().save();
 
     // Apply initial viewport clip
-    if (shouldApplyViewportClip())
+    if (clipViewport)
         childPaintInfo.context().clip(snappedIntRect(overflowClipRect(paintOffset)));
 
     // Convert from container offsets (html renderers) to a relative transform (svg renderers).
@@ -356,8 +357,8 @@ const AffineTransform& LegacyRenderSVGRoot::localToParentTransform() const
 
 LayoutRect LegacyRenderSVGRoot::clippedOverflowRect(const RenderLayerModelObject* repaintContainer, VisibleRectContext context) const
 {
-    if (style().visibility() != Visibility::Visible && !enclosingLayer()->hasVisibleContent())
-        return LayoutRect();
+    if (isInsideEntirelyHiddenLayer())
+        return { };
 
     FloatRect contentRepaintRect = m_localToBorderBoxTransform.mapRect(repaintRectInLocalCoordinates());
     contentRepaintRect.intersect(snappedIntRect(borderBoxRect()));

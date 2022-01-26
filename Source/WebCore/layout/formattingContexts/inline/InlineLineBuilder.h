@@ -50,6 +50,16 @@ public:
         size_t start { 0 };
         size_t end { 0 };
     };
+    struct PreviousLine {
+        InlineItemRange range;
+        bool endsWithLineBreak { false };
+        TextDirection inlineBaseDirection { TextDirection::LTR };
+        struct OverflowContent {
+            size_t partialContentLength { 0 };
+            std::optional<InlineLayoutUnit> width { };
+        };
+        std::optional<OverflowContent> overflowContent { };
+    };
     using FloatList = Vector<const Box*>;
     struct LineContent {
         InlineItemRange inlineItemRange;
@@ -61,20 +71,22 @@ public:
         InlineLayoutPoint lineLogicalTopLeft;
         InlineLayoutUnit lineLogicalWidth { 0 };
         InlineLayoutUnit contentLogicalWidth { 0 };
+        InlineLayoutUnit contentLogicalRight { 0 };
         InlineLayoutUnit hangingContentWidth { 0 };
         bool isLastLineWithInlineContent { true };
         size_t nonSpanningInlineLevelBoxCount { 0 };
         Vector<int32_t> visualOrderList;
+        TextDirection inlineBaseDirection { TextDirection::LTR };
         const Line::RunList& runs;
     };
-    LineContent layoutInlineContent(const InlineItemRange&, size_t partialLeadingContentLength, std::optional<InlineLayoutUnit> overflowingLogicalWidth, const InlineRect& initialLineLogicalRect, bool isFirstLine);
+    LineContent layoutInlineContent(const InlineItemRange&, const InlineRect& lineLogicalRect, const std::optional<PreviousLine>&);
 
     struct IntrinsicContent {
         InlineItemRange inlineItemRange;
         InlineLayoutUnit logicalWidth { 0 };
         const FloatList& floats;
     };
-    IntrinsicContent computedIntrinsicWidth(const InlineItemRange&, bool isFirstLine);
+    IntrinsicContent computedIntrinsicWidth(const InlineItemRange&, const std::optional<PreviousLine>&);
 
 private:
     void candidateContentForLine(LineCandidate&, size_t inlineItemIndex, const InlineItemRange& needsLayoutRange, InlineLayoutUnit currentLogicalRight);
@@ -98,7 +110,7 @@ private:
     size_t rebuildLine(const InlineItemRange& needsLayoutRange, const InlineItem& lastInlineItemToAdd);
     size_t rebuildLineForTrailingSoftHyphen(const InlineItemRange& layoutRange);
     void commitPartialContent(const InlineContentBreaker::ContinuousContent::RunList&, const InlineContentBreaker::Result::PartialTrailingContent&);
-    void initialize(const UsedConstraints&, bool isFirstLine, size_t leadingInlineTextItemIndex, size_t partialLeadingContentLength, std::optional<InlineLayoutUnit> overflowingLogicalWidth);
+    void initialize(const UsedConstraints&, size_t leadingInlineTextItemIndex, const std::optional<PreviousLine>&);
     struct CommittedContent {
         size_t inlineItemCount { 0 };
         size_t partialTrailingContentLength { 0 };

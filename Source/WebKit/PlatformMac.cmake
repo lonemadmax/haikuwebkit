@@ -1,4 +1,4 @@
-add_definitions("-ObjC++ -std=c++17 -D__STDC_WANT_LIB_EXT1__")
+add_definitions("-ObjC++ -std=c++2a -D__STDC_WANT_LIB_EXT1__")
 find_library(APPLICATIONSERVICES_LIBRARY ApplicationServices)
 find_library(CARBON_LIBRARY Carbon)
 find_library(CORESERVICES_LIBRARY CoreServices)
@@ -490,6 +490,7 @@ list(APPEND WebKit_PUBLIC_FRAMEWORK_HEADERS
     UIProcess/Cocoa/WKShareSheet.h
 
     WebProcess/InjectedBundle/API/Cocoa/WKWebProcessBundleParameters.h
+    WebProcess/InjectedBundle/API/Cocoa/WKWebProcessPlugInCSSStyleDeclarationHandle.h
     WebProcess/InjectedBundle/API/Cocoa/WKWebProcessPlugInEditingDelegate.h
     WebProcess/InjectedBundle/API/Cocoa/WKWebProcessPlugInFormDelegatePrivate.h
     WebProcess/InjectedBundle/API/Cocoa/WKWebProcessPlugInFrame.h

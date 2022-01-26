@@ -70,6 +70,16 @@ void RemoteDisplayListRecorderProxy::putPixelBuffer(const PixelBuffer& pixelBuff
     send(Messages::RemoteDisplayListRecorder::PutPixelBuffer(srcRect, destPoint, pixelBuffer, destFormat));
 }
 
+void RemoteDisplayListRecorderProxy::convertToLuminanceMask()
+{
+    send(Messages::RemoteDisplayListRecorder::ConvertToLuminanceMask());
+}
+
+void RemoteDisplayListRecorderProxy::transformToColorSpace(const WebCore::DestinationColorSpace& colorSpace)
+{
+    send(Messages::RemoteDisplayListRecorder::TransformToColorSpace(colorSpace));
+}
+
 bool RemoteDisplayListRecorderProxy::canDrawImageBuffer(const ImageBuffer& imageBuffer) const
 {
     return m_renderingBackend && m_renderingBackend->isCached(imageBuffer);
@@ -402,34 +412,51 @@ void RemoteDisplayListRecorderProxy::recordApplyDeviceScaleFactor(float scaleFac
     send(Messages::RemoteDisplayListRecorder::ApplyDeviceScaleFactor(scaleFactor));
 }
 
-void RemoteDisplayListRecorderProxy::recordResourceUse(NativeImage& image)
+bool RemoteDisplayListRecorderProxy::recordResourceUse(NativeImage& image)
 {
     if (UNLIKELY(!m_renderingBackend)) {
         ASSERT_NOT_REACHED();
-        return;
+        return false;
     }
 
     m_renderingBackend->recordNativeImageUse(image);
+    return true;
 }
 
-void RemoteDisplayListRecorderProxy::recordResourceUse(Font& font)
+bool RemoteDisplayListRecorderProxy::recordResourceUse(ImageBuffer& imageBuffer)
 {
     if (UNLIKELY(!m_renderingBackend)) {
         ASSERT_NOT_REACHED();
-        return;
+        return false;
+    }
+
+    if (!canDrawImageBuffer(imageBuffer))
+        return false;
+
+    m_renderingBackend->recordImageBufferUse(imageBuffer);
+    return true;
+}
+
+bool RemoteDisplayListRecorderProxy::recordResourceUse(const SourceImage& image)
+{
+    if (auto imageBuffer = image.imageBufferIfExists())
+        return recordResourceUse(*imageBuffer);
+
+    if (auto nativeImage = image.nativeImageIfExists())
+        return recordResourceUse(*nativeImage);
+
+    return true;
+}
+
+bool RemoteDisplayListRecorderProxy::recordResourceUse(Font& font)
+{
+    if (UNLIKELY(!m_renderingBackend)) {
+        ASSERT_NOT_REACHED();
+        return false;
     }
 
     m_renderingBackend->recordFontUse(font);
-}
-
-void RemoteDisplayListRecorderProxy::recordResourceUse(ImageBuffer& imageBuffer)
-{
-    if (UNLIKELY(!m_renderingBackend)) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-
-    m_renderingBackend->recordImageBufferUse(imageBuffer);
+    return true;
 }
 
 void RemoteDisplayListRecorderProxy::flushContext(GraphicsContextFlushIdentifier identifier)

@@ -28,6 +28,7 @@
 #include "Element.h"
 #include "StyleInvalidator.h"
 #include "StyleScope.h"
+#include <wtf/HashSet.h>
 
 namespace WebCore {
 namespace Style {
@@ -44,7 +45,8 @@ private:
     void invalidateForHasAfterMutation();
     void invalidateAfterChange();
     void checkForSiblingStyleChanges();
-    void invalidateForChangedElement(Element&);
+    using MatchingHasSelectors = HashSet<const CSSSelector*>;
+    void invalidateForChangedElement(Element&, MatchingHasSelectors&);
 
     template<typename Function> void traverseRemovedElements(Function&&);
     template<typename Function> void traverseAddedElements(Function&&);
@@ -59,7 +61,7 @@ private:
 };
 
 inline ChildChangeInvalidation::ChildChangeInvalidation(ContainerNode& container, const ContainerNode::ChildChange& childChange)
-    : m_parentElement(is<Element>(container) ? downcast<Element>(&container) : nullptr)
+    : m_parentElement(dynamicDowncast<Element>(container))
     , m_childChange(childChange)
     , m_isEnabled(m_parentElement ? m_parentElement->needsStyleInvalidation() : false)
     , m_needsHasInvalidation(m_isEnabled && Scope::forNode(*m_parentElement).usesHasPseudoClass())

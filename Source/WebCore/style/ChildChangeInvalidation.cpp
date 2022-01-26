@@ -28,6 +28,7 @@
 
 #include "ElementTraversal.h"
 #include "NodeRenderStyle.h"
+#include "PseudoClassChangeInvalidation.h"
 #include "ShadowRoot.h"
 #include "SlotAssignment.h"
 #include "StyleResolver.h"
@@ -36,49 +37,72 @@
 
 namespace WebCore::Style {
 
-void ChildChangeInvalidation::invalidateForChangedElement(Element& changedElement)
+void ChildChangeInvalidation::invalidateForChangedElement(Element& changedElement, MatchingHasSelectors& matchingHasSelectors)
 {
     auto& ruleSets = parentElement().styleResolver().ruleSets();
 
     Invalidator::MatchElementRuleSets matchElementRuleSets;
 
-    bool isDescendant = changedElement.parentElement() != &parentElement();
+    bool isChild = changedElement.parentElement() == &parentElement();
+
+    auto canAffectElementsWithStyle = [&](MatchElement matchElement) {
+        switch (matchElement) {
+        case MatchElement::HasSibling:
+        case MatchElement::HasChild:
+            return isChild;
+        case MatchElement::HasDescendant:
+        case MatchElement::HasSiblingDescendant:
+        case MatchElement::HasNonSubject:
+            return true;
+        default:
+            ASSERT_NOT_REACHED();
+            return false;
+        }
+    };
+
+    bool isFirst = isChild && m_childChange.previousSiblingElement == changedElement.previousElementSibling();
+
+    auto hasMatchingInvalidationSelector = [&](auto& invalidationRuleSet) {
+        SelectorChecker selectorChecker(changedElement.document());
+        SelectorChecker::CheckingContext checkingContext(SelectorChecker::Mode::CollectingRulesIgnoringVirtualPseudoElements);
+        checkingContext.matchesAllScopes = true;
+
+        for (auto* selector : invalidationRuleSet.invalidationSelectors) {
+            if (isFirst) {
+                // If this :has() matches ignoring this mutation, nothing actually changes and we don't need to invalidate.
+                // FIXME: We could cache this state across invalidations instead of just testing a single sibling.
+                auto* sibling = m_childChange.previousSiblingElement ? m_childChange.previousSiblingElement : m_childChange.nextSiblingElement;
+                if (sibling && selectorChecker.match(*selector, *sibling, checkingContext)) {
+                    matchingHasSelectors.add(selector);
+                    continue;
+                }
+            }
+
+            if (matchingHasSelectors.contains(selector))
+                continue;
+
+            if (selectorChecker.match(*selector, changedElement, checkingContext)) {
+                matchingHasSelectors.add(selector);
+                return true;
+            }
+        }
+        return false;
+    };
 
     auto addHasInvalidation = [&](const Vector<InvalidationRuleSet>* invalidationRuleSets)  {
         if (!invalidationRuleSets)
             return;
         for (auto& invalidationRuleSet : *invalidationRuleSets) {
-            if (!isHasPseudoClassMatchElement(invalidationRuleSet.matchElement))
+            if (!canAffectElementsWithStyle(invalidationRuleSet.matchElement))
                 continue;
-            if (isDescendant) {
-                // Elements deeper in the tree can't affect anything except when :has() selector uses descendant combinator.
-                if (invalidationRuleSet.matchElement != MatchElement::HasDescendant && invalidationRuleSet.matchElement != MatchElement::HasNonSubject)
-                    continue;
-            }
+            if (!hasMatchingInvalidationSelector(invalidationRuleSet))
+                continue;
             Invalidator::addToMatchElementRuleSets(matchElementRuleSets, invalidationRuleSet);
         }
     };
 
-    auto tagName = changedElement.localName().convertToASCIILowercase();
-    addHasInvalidation(ruleSets.tagInvalidationRuleSets(tagName));
-
-    if (changedElement.hasID())
-        addHasInvalidation(ruleSets.idInvalidationRuleSets(changedElement.idForStyleResolution()));
-
-    if (changedElement.hasAttributes()) {
-        for (auto& attribute : changedElement.attributesIterator()) {
-            auto attributeName = attribute.localName().convertToASCIILowercase();
-            addHasInvalidation(ruleSets.attributeInvalidationRuleSets(attributeName));
-        }
-    }
-
-    if (changedElement.hasClass()) {
-        auto count = changedElement.classNames().size();
-        for (size_t i = 0; i < count; ++i) {
-            auto& className = changedElement.classNames()[i];
-            addHasInvalidation(ruleSets.classInvalidationRuleSets(className));
-        }
-    }
+    for (auto key : makePseudoClassInvalidationKeys(CSSSelector::PseudoClassHas, changedElement))
+        addHasInvalidation(ruleSets.hasPseudoClassInvalidationRuleSets(key));
 
     Invalidator::invalidateWithMatchElementRuleSets(changedElement, matchElementRuleSets);
 }
@@ -90,8 +114,10 @@ void ChildChangeInvalidation::invalidateForHasBeforeMutation()
     if (m_childChange.isInsertion() && m_childChange.type != ContainerNode::ChildChange::Type::AllChildrenReplaced)
         return;
 
+    MatchingHasSelectors matchingHasSelectors;
+
     traverseRemovedElements([&](auto& changedElement) {
-        invalidateForChangedElement(changedElement);
+        invalidateForChangedElement(changedElement, matchingHasSelectors);
     });
 }
 
@@ -102,8 +128,10 @@ void ChildChangeInvalidation::invalidateForHasAfterMutation()
     if (!m_childChange.isInsertion())
         return;
 
+    MatchingHasSelectors matchingHasSelectors;
+
     traverseAddedElements([&](auto& changedElement) {
-        invalidateForChangedElement(changedElement);
+        invalidateForChangedElement(changedElement, matchingHasSelectors);
     });
 }
 
@@ -120,8 +148,9 @@ void ChildChangeInvalidation::traverseRemovedElements(Function&& function)
     auto& features = parentElement().styleResolver().ruleSets().features();
     bool needsDescendantTraversal = Style::needsDescendantTraversal(features);
 
-    auto* toRemove = m_childChange.previousSiblingElement ? m_childChange.previousSiblingElement->nextElementSibling() : parentElement().firstElementChild();
-    for (; toRemove != m_childChange.nextSiblingElement; toRemove = toRemove->nextElementSibling()) {
+    auto* firstToRemove = m_childChange.previousSiblingElement ? m_childChange.previousSiblingElement->nextElementSibling() : parentElement().firstElementChild();
+
+    for (auto* toRemove = firstToRemove; toRemove != m_childChange.nextSiblingElement; toRemove = toRemove->nextElementSibling()) {
         function(*toRemove);
 
         if (!needsDescendantTraversal)

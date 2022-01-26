@@ -403,6 +403,7 @@ void DOMWindow::didSecureTransitionTo(Document& document)
     m_crypto = nullptr;
     m_navigator = nullptr;
     m_performance = nullptr;
+    m_customElementRegistry = nullptr;
 }
 
 void DOMWindow::prewarmLocalStorageIfNecessary()
@@ -411,9 +412,6 @@ void DOMWindow::prewarmLocalStorageIfNecessary()
 
     // No need to prewarm for ephemeral sessions since the data is in memory only.
     if (!page || page->usesEphemeralSession())
-        return;
-
-    if (!page->mainFrame().mayPrewarmLocalStorage())
         return;
 
     // This eagerly constructs the StorageArea, which will load items from disk.
@@ -425,7 +423,7 @@ void DOMWindow::prewarmLocalStorageIfNecessary()
     if (!localStorage)
         return;
 
-    page->mainFrame().didPrewarmLocalStorage();
+    localStorage->area().prewarm();
 }
 
 DOMWindow::~DOMWindow()
@@ -574,6 +572,7 @@ CustomElementRegistry& DOMWindow::ensureCustomElementRegistry()
 {
     if (!m_customElementRegistry)
         m_customElementRegistry = CustomElementRegistry::create(*this, scriptExecutionContext());
+    ASSERT(m_customElementRegistry->scriptExecutionContext() == document());
     return *m_customElementRegistry;
 }
 

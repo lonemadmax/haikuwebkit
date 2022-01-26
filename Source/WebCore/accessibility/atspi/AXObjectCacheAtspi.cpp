@@ -35,14 +35,12 @@ namespace WebCore {
 
 void AXObjectCache::attachWrapper(AXCoreObject* axObject)
 {
-    auto* rootWrapper = document().page()->accessibilityRootObject();
-    if (!rootWrapper)
-        return;
-
-    auto wrapper = AccessibilityObjectAtspi::create(axObject, *rootWrapper);
+    auto* atspiRoot = document().page()->accessibilityRootObject();
+    auto wrapper = AccessibilityObjectAtspi::create(axObject, atspiRoot);
     axObject->setWrapper(wrapper.ptr());
 
     m_deferredParentChangedList.add(axObject);
+    m_performCacheUpdateTimer.startOneShot(0_s);
 }
 
 void AXObjectCache::platformPerformDeferredCacheUpdate()
@@ -55,7 +53,7 @@ void AXObjectCache::platformPerformDeferredCacheUpdate()
         auto* axParent = axObject.parentObjectUnignored();
         if (!axParent) {
             if (axObject.isScrollView() && axObject.scrollView() == document().view())
-                wrapper->setParent(nullptr); // nullptr parent means root.
+                wrapper->setParent(nullptr); // nullptr means root.
             return;
         }
 
@@ -68,23 +66,8 @@ void AXObjectCache::platformPerformDeferredCacheUpdate()
     m_deferredParentChangedList.clear();
 }
 
-bool AXObjectCache::isIsolatedTreeEnabled()
-{
-    return true;
-}
-
-void AXObjectCache::initializeSecondaryAXThread()
-{
-}
-
-bool AXObjectCache::usedOnAXThread()
-{
-    return true;
-}
-
 void AXObjectCache::postPlatformNotification(AXCoreObject* coreObject, AXNotification notification)
 {
-    RELEASE_ASSERT(isMainThread());
     auto* wrapper = coreObject->wrapper();
     if (!wrapper)
         return;
@@ -126,6 +109,7 @@ void AXObjectCache::postPlatformNotification(AXCoreObject* coreObject, AXNotific
         wrapper->stateChanged("busy", coreObject->isBusy());
         break;
     case AXCurrentStateChanged:
+        wrapper->stateChanged("active", coreObject->currentState() != AccessibilityCurrentState::False);
         break;
     case AXRowExpanded:
         wrapper->stateChanged("expanded", true);
@@ -154,8 +138,6 @@ void AXObjectCache::postPlatformNotification(AXCoreObject* coreObject, AXNotific
     case AXActiveDescendantChanged:
         if (auto* descendant = coreObject->activeDescendant())
             platformHandleFocusedUIElementChanged(nullptr, descendant->node());
-        break;
-    case AXAriaAttributeChanged:
         break;
     case AXAriaRoleChanged:
         break;
@@ -218,7 +200,6 @@ void AXObjectCache::postPlatformNotification(AXCoreObject* coreObject, AXNotific
 
 void AXObjectCache::postTextStateChangePlatformNotification(AXCoreObject* coreObject, const AXTextStateChangeIntent&, const VisibleSelection& selection)
 {
-    RELEASE_ASSERT(isMainThread());
     if (!coreObject)
         coreObject = rootWebArea();
 
@@ -234,7 +215,6 @@ void AXObjectCache::postTextStateChangePlatformNotification(AXCoreObject* coreOb
 
 void AXObjectCache::postTextStateChangePlatformNotification(AccessibilityObject* coreObject, AXTextEditType editType, const String& text, const VisiblePosition& position)
 {
-    RELEASE_ASSERT(isMainThread());
     if (text.isEmpty())
         return;
 
@@ -263,7 +243,6 @@ void AXObjectCache::postTextStateChangePlatformNotification(AccessibilityObject*
 
 void AXObjectCache::postTextReplacementPlatformNotificationForTextControl(AXCoreObject* coreObject, const String& deletedText, const String& insertedText, HTMLTextFormControlElement&)
 {
-    RELEASE_ASSERT(isMainThread());
     if (!coreObject)
         coreObject = rootWebArea();
 
@@ -285,7 +264,6 @@ void AXObjectCache::postTextReplacementPlatformNotificationForTextControl(AXCore
 
 void AXObjectCache::postTextReplacementPlatformNotification(AXCoreObject* coreObject, AXTextEditType, const String& deletedText, AXTextEditType, const String& insertedText, const VisiblePosition& position)
 {
-    RELEASE_ASSERT(isMainThread());
     if (!coreObject)
         coreObject = rootWebArea();
 
@@ -307,7 +285,6 @@ void AXObjectCache::postTextReplacementPlatformNotification(AXCoreObject* coreOb
 
 void AXObjectCache::frameLoadingEventPlatformNotification(AccessibilityObject* coreObject, AXLoadingEvent loadingEvent)
 {
-    RELEASE_ASSERT(isMainThread());
     if (!coreObject)
         return;
 

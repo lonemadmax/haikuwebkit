@@ -189,11 +189,6 @@ static String plainTextForDisplay(const std::optional<SimpleRange>& range)
     return range ? plainTextForDisplay(*range) : emptyString();
 }
 
-void WebPage::platformInitialize()
-{
-    platformInitializeAccessibility();
-}
-
 void WebPage::platformDetach()
 {
     [m_mockAccessibilityElement setWebPage:nullptr];
@@ -1509,7 +1504,7 @@ static std::pair<std::optional<SimpleRange>, SelectionWasFlipped> rangeForPointI
     VisiblePosition selectionStart = existingSelection.visibleStart();
     VisiblePosition selectionEnd = existingSelection.visibleEnd();
 
-    auto pointInDocument = frame.view()->rootViewToContents(pointInRootViewCoordinates);
+    auto pointInDocument = frame.view()->rootViewToContents(pointInRootViewCoordinates.constrainedWithin(frame.mainFrame().view()->unobscuredContentRect()));
 
     if (!selectionFlippingEnabled) {
         auto node = selectionStart.deepEquivalent().containerNode();
@@ -2785,6 +2780,8 @@ static std::optional<std::pair<RenderImage&, Image&>> imageRendererAndImage(Elem
 
 static void videoPositionInformation(WebPage& page, HTMLVideoElement& element, const InteractionInformationRequest& request, InteractionInformationAtPosition& info)
 {
+    info.elementContainsImageOverlay = ImageOverlay::hasOverlay(element);
+
     if (!element.paused())
         return;
 
@@ -2825,6 +2822,7 @@ static void imagePositionInformation(WebPage& page, Element& element, const Inte
     info.isImage = true;
     info.imageURL = element.document().completeURL(renderImage.cachedImage()->url().string());
     info.isAnimatedImage = image.isAnimated();
+    info.elementContainsImageOverlay = is<HTMLElement>(element) && ImageOverlay::hasOverlay(downcast<HTMLElement>(element));
 
     if (request.includeSnapshot || request.includeImageData)
         info.image = createShareableBitmap(renderImage, { screenSize() * page.corePage()->deviceScaleFactor(), AllowAnimatedImages::Yes, UseSnapshotForTransparentImages::Yes });

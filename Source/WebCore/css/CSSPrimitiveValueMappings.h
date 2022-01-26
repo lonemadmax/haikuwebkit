@@ -59,7 +59,7 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(short i)
 
 template<> inline CSSPrimitiveValue::operator short() const
 {
-    if (primitiveUnitType() == CSSUnitType::CSS_NUMBER)
+    if (primitiveType() == CSSUnitType::CSS_NUMBER || primitiveType() == CSSUnitType::CSS_INTEGER)
         return clampTo<short>(m_value.num);
 
     ASSERT_NOT_REACHED();
@@ -75,7 +75,7 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(unsigned short i)
 
 template<> inline CSSPrimitiveValue::operator unsigned short() const
 {
-    if (primitiveType() == CSSUnitType::CSS_NUMBER)
+    if (primitiveType() == CSSUnitType::CSS_NUMBER || primitiveType() == CSSUnitType::CSS_INTEGER)
         return value<unsigned short>();
 
     ASSERT_NOT_REACHED();
@@ -84,7 +84,7 @@ template<> inline CSSPrimitiveValue::operator unsigned short() const
 
 template<> inline CSSPrimitiveValue::operator int() const
 {
-    if (primitiveType() == CSSUnitType::CSS_NUMBER)
+    if (primitiveType() == CSSUnitType::CSS_NUMBER || primitiveType() == CSSUnitType::CSS_INTEGER)
         return value<int>();
 
     ASSERT_NOT_REACHED();
@@ -93,7 +93,7 @@ template<> inline CSSPrimitiveValue::operator int() const
 
 template<> inline CSSPrimitiveValue::operator unsigned() const
 {
-    if (primitiveType() == CSSUnitType::CSS_NUMBER)
+    if (primitiveType() == CSSUnitType::CSS_NUMBER || primitiveType() == CSSUnitType::CSS_INTEGER)
         return value<unsigned>();
 
     ASSERT_NOT_REACHED();
@@ -110,7 +110,7 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(float i)
 
 template<> inline CSSPrimitiveValue::operator float() const
 {
-    if (primitiveType() == CSSUnitType::CSS_NUMBER)
+    if (primitiveType() == CSSUnitType::CSS_NUMBER || primitiveType() == CSSUnitType::CSS_INTEGER)
         return value<float>();
 
     ASSERT_NOT_REACHED();
@@ -120,13 +120,13 @@ template<> inline CSSPrimitiveValue::operator float() const
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(LineClampValue i)
     : CSSValue(PrimitiveClass)
 {
-    setPrimitiveUnitType(i.isPercentage() ? CSSUnitType::CSS_PERCENTAGE : CSSUnitType::CSS_NUMBER);
+    setPrimitiveUnitType(i.isPercentage() ? CSSUnitType::CSS_PERCENTAGE : CSSUnitType::CSS_INTEGER);
     m_value.num = static_cast<double>(i.value());
 }
 
 template<> inline CSSPrimitiveValue::operator LineClampValue() const
 {
-    if (primitiveType() == CSSUnitType::CSS_NUMBER)
+    if (primitiveType() == CSSUnitType::CSS_INTEGER)
         return LineClampValue(value<int>(), LineClamp::LineCount);
 
     if (primitiveType() == CSSUnitType::CSS_PERCENTAGE)
@@ -219,7 +219,7 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ColumnSpan columnSpan)
 template<> inline CSSPrimitiveValue::operator ColumnSpan() const
 {
     // Map 1 to none for compatibility reasons.
-    if (primitiveUnitType() == CSSUnitType::CSS_NUMBER && m_value.num == 1)
+    if ((primitiveUnitType() == CSSUnitType::CSS_NUMBER || primitiveUnitType() == CSSUnitType::CSS_INTEGER) && m_value.num == 1)
         return ColumnSpan::None;
 
     ASSERT(isValueID());
@@ -2614,58 +2614,58 @@ template<> inline CSSPrimitiveValue::operator TextTransform() const
     return TextTransform::None;
 }
 
-template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EUnicodeBidi e)
+template<> inline CSSPrimitiveValue::CSSPrimitiveValue(UnicodeBidi e)
     : CSSValue(PrimitiveClass)
 {
     setPrimitiveUnitType(CSSUnitType::CSS_VALUE_ID);
     switch (e) {
-    case UBNormal:
+    case UnicodeBidi::Normal:
         m_value.valueID = CSSValueNormal;
         break;
-    case Embed:
+    case UnicodeBidi::Embed:
         m_value.valueID = CSSValueEmbed;
         break;
-    case Override:
+    case UnicodeBidi::Override:
         m_value.valueID = CSSValueBidiOverride;
         break;
-    case Isolate:
+    case UnicodeBidi::Isolate:
         m_value.valueID = CSSValueIsolate;
         break;
-    case IsolateOverride:
+    case UnicodeBidi::IsolateOverride:
         m_value.valueID = CSSValueIsolateOverride;
         break;
-    case Plaintext:
+    case UnicodeBidi::Plaintext:
         m_value.valueID = CSSValuePlaintext;
         break;
     }
 }
 
-template<> inline CSSPrimitiveValue::operator EUnicodeBidi() const
+template<> inline CSSPrimitiveValue::operator UnicodeBidi() const
 {
     ASSERT(isValueID());
 
     switch (m_value.valueID) {
     case CSSValueNormal:
-        return UBNormal;
+        return UnicodeBidi::Normal;
     case CSSValueEmbed:
-        return Embed;
+        return UnicodeBidi::Embed;
     case CSSValueBidiOverride:
-        return Override;
+        return UnicodeBidi::Override;
     case CSSValueIsolate:
     case CSSValueWebkitIsolate:
-        return Isolate;
+        return UnicodeBidi::Isolate;
     case CSSValueIsolateOverride:
     case CSSValueWebkitIsolateOverride:
-        return IsolateOverride;
+        return UnicodeBidi::IsolateOverride;
     case CSSValuePlaintext:
     case CSSValueWebkitPlaintext:
-        return Plaintext;
+        return UnicodeBidi::Plaintext;
     default:
         break;
     }
 
     ASSERT_NOT_REACHED();
-    return UBNormal;
+    return UnicodeBidi::Normal;
 }
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(UserDrag e)
@@ -5680,6 +5680,40 @@ template<> inline CSSPrimitiveValue::operator MathStyle() const
     }
     ASSERT_NOT_REACHED();
     return MathStyle::Normal;
+}
+
+template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ContainerType containerType)
+    : CSSValue(PrimitiveClass)
+{
+    setPrimitiveUnitType(CSSUnitType::CSS_VALUE_ID);
+    switch (containerType) {
+    case ContainerType::None:
+        m_value.valueID = CSSValueNone;
+        break;
+    case ContainerType::Size:
+        m_value.valueID = CSSValueSize;
+        break;
+    case ContainerType::InlineSize:
+        m_value.valueID = CSSValueInlineSize;
+        break;
+    }
+}
+
+template<> inline CSSPrimitiveValue::operator ContainerType() const
+{
+    ASSERT(isValueID());
+    switch (m_value.valueID) {
+    case CSSValueNone:
+        return ContainerType::None;
+    case CSSValueSize:
+        return ContainerType::Size;
+    case CSSValueInlineSize:
+        return ContainerType::InlineSize;
+    default:
+        break;
+    }
+    ASSERT_NOT_REACHED();
+    return ContainerType::None;
 }
 
 }

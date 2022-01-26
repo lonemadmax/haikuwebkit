@@ -1,3 +1,96 @@
+2022-01-24  Youenn Fablet  <youenn@apple.com>
+
+        Cherry-pick WebRTC 235826 change
+        https://bugs.webkit.org/show_bug.cgi?id=235510
+        <rdar://87884184>
+
+        Reviewed by Eric Carlson.
+
+        Cherry-picking above fixing for compliance.
+
+        * Source/webrtc/media/engine/webrtc_media_engine.cc:
+        * Source/webrtc/media/engine/webrtc_media_engine.h:
+        * Source/webrtc/media/engine/webrtc_media_engine_unittest.cc:
+        * Source/webrtc/media/engine/webrtc_video_engine.cc:
+        * Source/webrtc/media/engine/webrtc_video_engine.h:
+        * Source/webrtc/media/engine/webrtc_voice_engine.cc:
+        * Source/webrtc/modules/rtp_rtcp/source/rtp_header_extension_map.cc:
+        * Source/webrtc/modules/rtp_rtcp/source/rtp_header_extension_map_unittest.cc:
+
+2022-01-24  Youenn Fablet  <youenn@apple.com>
+
+        Reject large number of WebRTC audio channels
+        https://bugs.webkit.org/show_bug.cgi?id=235511
+
+        Reviewed by Eric Carlson.
+
+        Cherry-picking WebRTC upstream fix for compliance.
+
+        * Source/webrtc/pc/webrtc_sdp.cc:
+        * Source/webrtc/pc/webrtc_sdp_unittest.cc:
+
+2022-01-21  Michael Saboff  <msaboff@apple.com>
+
+        WebKit fails to build - error: 'webrtc/rtc_base/network.h' file not found
+        https://bugs.webkit.org/show_bug.cgi?id=235459
+
+        Reviewed by Mark Lam.
+
+        We needed to create symlinks from the standard location to the SYSTEM_CONTENT_PATH location.
+        This is needed for both the include files and archive libraries.
+
+        * Configurations/boringssl.xcconfig:
+        * Configurations/libsrtp.xcconfig:
+        * Configurations/libvpx.xcconfig:
+        * Configurations/libwebm.xcconfig:
+        * Configurations/libwebrtc.xcconfig:
+        * Configurations/libyuv.xcconfig:
+        * Configurations/opus.xcconfig:
+        * Configurations/usrsctp.xcconfig:
+        * Scripts: Added.
+        * Scripts/create-symlink-to-altroot.sh: Added.
+        * libwebrtc.xcodeproj/project.pbxproj:
+
+2022-01-19  Youenn Fablet  <youenn@apple.com>
+
+        libvpx firstpass.c is not needed
+        https://bugs.webkit.org/show_bug.cgi?id=235354
+
+        Reviewed by Alexey Proskuryakov.
+
+        * libwebrtc.xcodeproj/project.pbxproj:
+
+2022-01-18  Alex Christensen  <achristensen@webkit.org>
+
+        Use c++2a instead of gnu++2a for Cocoa builds
+        https://bugs.webkit.org/show_bug.cgi?id=234936
+
+        Reviewed by Sam Weinig.
+
+        * Configurations/Base.xcconfig:
+
+2022-01-12  Youenn Fablet  <youenn@apple.com>
+
+        VP9-SVS no video stream from remote peer on some devices
+        https://bugs.webkit.org/show_bug.cgi?id=231074
+        <rdar://problem/84024646>
+
+        Reviewed by Eric Carlson.
+
+        * Source/webrtc/sdk/objc/components/video_codec/RTCDefaultVideoDecoderFactory.m:
+        (-[RTCDefaultVideoDecoderFactory initWithH265:vp9Profile0:vp9Profile2:vp9VTB:]):
+        Do not use VTIsHardwareDecodeSupported('vp09') to know whether WebProcess can use VTB since sandboxing can control this.
+
+2022-01-10  Alex Christensen  <achristensen@webkit.org>
+
+        Start using C++20
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+
+        Reviewed by Yusuke Suzuki.
+
+        * Configurations/Base.xcconfig:
+        * Source/webrtc/rtc_base/system/no_unique_address.h:
+
 2022-01-07  Alex Christensen  <achristensen@webkit.org>
 
         Unreviewed, reverting r287698.

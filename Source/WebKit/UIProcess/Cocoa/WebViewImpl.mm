@@ -1237,28 +1237,20 @@ NSTouchBar *WebViewImpl::textTouchBar() const
 
 static NSTextAlignment nsTextAlignmentFromTextAlignment(TextAlignment textAlignment)
 {
-    NSTextAlignment nsTextAlignment;
     switch (textAlignment) {
     case NoAlignment:
-        nsTextAlignment = NSTextAlignmentNatural;
-        break;
+        return NSTextAlignmentNatural;
     case LeftAlignment:
-        nsTextAlignment = NSTextAlignmentLeft;
-        break;
+        return NSTextAlignmentLeft;
     case RightAlignment:
-        nsTextAlignment = NSTextAlignmentRight;
-        break;
+        return NSTextAlignmentRight;
     case CenterAlignment:
-        nsTextAlignment = NSTextAlignmentCenter;
-        break;
+        return NSTextAlignmentCenter;
     case JustifiedAlignment:
-        nsTextAlignment = NSTextAlignmentJustified;
-        break;
-    default:
-        ASSERT_NOT_REACHED();
+        return NSTextAlignmentJustified;
     }
-
-    return nsTextAlignment;
+    ASSERT_NOT_REACHED();
+    return NSTextAlignmentNatural;
 }
 
 void WebViewImpl::updateTextTouchBar()
@@ -3055,32 +3047,21 @@ void WebViewImpl::updateFontManagerIfNeeded()
     if (!fontPanelIsVisible && !m_page->editorState().isContentRichlyEditable)
         return;
 
-    m_page->fontAtSelection([](const FontInfo& fontInfo, double fontSize, bool selectionHasMultipleFonts) {
-
-        BEGIN_BLOCK_OBJC_EXCEPTIONS
-
-        NSDictionary *attributeDictionary = (__bridge NSDictionary *)fontInfo.fontAttributeDictionary.get();
-        if (!attributeDictionary)
+    m_page->requestFontAttributesAtSelectionStart([] (auto& attributes) {
+        if (!attributes.font)
             return;
 
-        auto font = fontWithAttributes(attributeDictionary, fontSize);
-        if (!font)
+        auto nsFont = (__bridge NSFont *)attributes.font->getCTFont();
+        if (!nsFont)
             return;
 
-        [NSFontManager.sharedFontManager setSelectedFont:font isMultiple:selectionHasMultipleFonts];
-
-        END_BLOCK_OBJC_EXCEPTIONS
+        [NSFontManager.sharedFontManager setSelectedFont:nsFont isMultiple:attributes.hasMultipleFonts];
+        [NSFontManager.sharedFontManager setSelectedAttributes:attributes.createDictionary().get() isMultiple:attributes.hasMultipleFonts];
     });
 }
 
 void WebViewImpl::typingAttributesWithCompletionHandler(void(^completion)(NSDictionary<NSString *, id> *))
 {
-    if (auto attributes = m_page->cachedFontAttributesAtSelectionStart()) {
-        auto attributesAsDictionary = attributes->createDictionary();
-        completion(attributesAsDictionary.get());
-        return;
-    }
-
     m_page->requestFontAttributesAtSelectionStart([completion = makeBlockPtr(completion)] (const WebCore::FontAttributes& attributes) {
         auto attributesAsDictionary = attributes.createDictionary();
         completion(attributesAsDictionary.get());
@@ -3112,7 +3093,6 @@ void WebViewImpl::changeFontAttributesFromSender(id sender)
         return;
 
     m_page->changeFontAttributes(WebCore::computedFontAttributeChanges(NSFontManager.sharedFontManager, sender));
-    updateFontManagerIfNeeded();
 }
 
 void WebViewImpl::changeFontFromFontManager()
@@ -3122,7 +3102,6 @@ void WebViewImpl::changeFontFromFontManager()
         return;
 
     m_page->changeFont(WebCore::computedFontChanges(NSFontManager.sharedFontManager));
-    updateFontManagerIfNeeded();
 }
 
 static NSMenuItem *menuItem(id <NSValidatedUserInterfaceItem> item)

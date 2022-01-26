@@ -1033,6 +1033,13 @@ jump-both
 // end
 
 //
+// animation-composition
+//
+// add
+accumulate
+replace
+
+//
 // CSS_PROP_ZOOM
 //
 document
@@ -1624,6 +1631,11 @@ layout
 #if !(defined(ENABLE_CSS_PAINTING_API) && ENABLE_CSS_PAINTING_API)
 paint
 #endif
+
+// container-type
+// none
+// size
+inline-size
 
 // offset-path
 // https://drafts.fxtf.org/motion-1/#offset-path-property

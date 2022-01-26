@@ -1,3 +1,30 @@
+2022-01-18  Alex Christensen  <achristensen@webkit.org>
+
+        Use c++2a instead of gnu++2a for Cocoa builds
+        https://bugs.webkit.org/show_bug.cgi?id=234936
+
+        Reviewed by Sam Weinig.
+
+        * Configurations/Base.xcconfig:
+
+2022-01-12  Elliott Williams  <emw@apple.com>
+
+        [Xcode] Configure each project for the legacy build system
+        https://bugs.webkit.org/show_bug.cgi?id=235091
+
+        Reviewed by Darin Adler.
+
+        * WebGPU.xcodeproj/project.pbxproj:
+
+2022-01-10  Alex Christensen  <achristensen@webkit.org>
+
+        Start using C++20
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+
+        Reviewed by Yusuke Suzuki.
+
+        * Configurations/Base.xcconfig:
+
 2022-01-07  Alex Christensen  <achristensen@webkit.org>
 
         Unreviewed, reverting r287698.

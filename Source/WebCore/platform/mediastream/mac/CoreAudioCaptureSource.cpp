@@ -49,6 +49,7 @@
 #include <wtf/Lock.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/Scope.h>
 
 #include <pal/cf/AudioToolboxSoftLink.h>
 #include <pal/cf/CoreMediaSoftLink.h>
@@ -98,6 +99,7 @@ private:
     OSStatus startInternal() final;
     void stopInternal() final;
     bool isProducingData() const final { return m_ioUnitStarted; }
+    void isProducingMicrophoneSamplesChanged() final;
 
     OSStatus configureSpeakerProc();
     OSStatus configureMicrophoneProc();
@@ -113,6 +115,8 @@ private:
     void unduck();
 
     void verifyIsCapturing();
+
+    Seconds verifyCaptureInterval() { return isProducingMicrophoneSamples() ? 10_s : 2_s; }
 
     AudioUnit m_ioUnit { nullptr };
 
@@ -142,8 +146,8 @@ private:
     uint64_t m_microphoneProcsCalled { 0 };
     uint64_t m_microphoneProcsCalledLastTime { 0 };
     Timer m_verifyCapturingTimer;
-    static constexpr Seconds verifyCaptureInterval = 10_s;
 
+    bool m_isReconfiguring { false };
     Lock m_speakerSamplesProducerLock;
     CoreAudioSpeakerSamplesProducer* m_speakerSamplesProducer WTF_GUARDED_BY_LOCK(m_speakerSamplesProducerLock) { nullptr };
 };
@@ -352,7 +356,7 @@ void CoreAudioSharedUnit::checkTimestamps(const AudioTimeStamp& timeStamp, uint6
 
 OSStatus CoreAudioSharedUnit::provideSpeakerData(AudioUnitRenderActionFlags& flags, const AudioTimeStamp& timeStamp, UInt32 /*inBusNumber*/, UInt32 inNumberFrames, AudioBufferList& ioData)
 {
-    if (!m_speakerSamplesProducerLock.tryLock()) {
+    if (m_isReconfiguring || !m_speakerSamplesProducerLock.tryLock()) {
         AudioSampleBufferList::zeroABL(ioData, static_cast<size_t>(inNumberFrames * m_speakerProcFormat.bytesPerFrame()));
         flags = kAudioUnitRenderAction_OutputIsSilence;
         return noErr;
@@ -377,6 +381,11 @@ OSStatus CoreAudioSharedUnit::speakerCallback(void *inRefCon, AudioUnitRenderAct
 
 OSStatus CoreAudioSharedUnit::processMicrophoneSamples(AudioUnitRenderActionFlags& ioActionFlags, const AudioTimeStamp& timeStamp, UInt32 inBusNumber, UInt32 inNumberFrames, AudioBufferList* /*ioData*/)
 {
+    ++m_microphoneProcsCalled;
+
+    if (m_isReconfiguring)
+        return false;
+
     // Pull through the vpio unit to our mic buffer.
     m_microphoneSampleBuffer->reset();
     AudioBufferList& bufferList = m_microphoneSampleBuffer->bufferList();
@@ -393,7 +402,8 @@ OSStatus CoreAudioSharedUnit::processMicrophoneSamples(AudioUnitRenderActionFlag
         return err;
     }
 
-    ++m_microphoneProcsCalled;
+    if (!isProducingMicrophoneSamples())
+        return noErr;
 
     double adjustedHostTime = m_DTSConversionRatio * timeStamp.mHostTime;
     uint64_t sampleTime = timeStamp.mSampleTime;
@@ -441,9 +451,13 @@ void CoreAudioSharedUnit::cleanupAudioUnit()
 
 OSStatus CoreAudioSharedUnit::reconfigureAudioUnit()
 {
+    ASSERT(isMainThread());
     OSStatus err;
     if (!hasAudioUnit())
         return 0;
+
+    m_isReconfiguring = true;
+    auto scope = makeScopeExit([this] { m_isReconfiguring = false; });
 
     if (m_ioUnitStarted) {
         err = PAL::AudioOutputUnitStop(m_ioUnit);
@@ -507,11 +521,18 @@ OSStatus CoreAudioSharedUnit::startInternal()
 
     m_ioUnitStarted = true;
 
-    m_verifyCapturingTimer.startRepeating(verifyCaptureInterval);
+    m_verifyCapturingTimer.startRepeating(verifyCaptureInterval());
     m_microphoneProcsCalled = 0;
     m_microphoneProcsCalledLastTime = 0;
 
     return 0;
+}
+
+void CoreAudioSharedUnit::isProducingMicrophoneSamplesChanged()
+{
+    if (!isProducingData())
+        return;
+    m_verifyCapturingTimer.startRepeating(verifyCaptureInterval());
 }
 
 void CoreAudioSharedUnit::verifyIsCapturing()
@@ -727,6 +748,11 @@ void CoreAudioCaptureSourceFactory::unregisterSpeakerSamplesProducer(CoreAudioSp
 bool CoreAudioCaptureSourceFactory::isAudioCaptureUnitRunning()
 {
     return CoreAudioSharedUnit::unit().isRunning();
+}
+
+void CoreAudioCaptureSourceFactory::whenAudioCaptureUnitIsNotRunning(Function<void()>&& callback)
+{
+    return CoreAudioSharedUnit::unit().whenAudioCaptureUnitIsNotRunning(WTFMove(callback));
 }
 
 CoreAudioCaptureSource::CoreAudioCaptureSource(String&& deviceID, String&& label, String&& hashSalt, uint32_t captureDeviceID, BaseAudioSharedUnit* overrideUnit)

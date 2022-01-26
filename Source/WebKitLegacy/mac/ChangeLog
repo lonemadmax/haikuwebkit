@@ -1,3 +1,94 @@
+2022-01-19  Alex Christensen  <achristensen@webkit.org>
+
+        Allow experimental feature names to be hidden in WebKitAdditions
+        https://bugs.webkit.org/show_bug.cgi?id=235163
+
+        Reviewed by Chris Dumez.
+
+        * Scripts/PreferencesTemplates/WebPreferencesExperimentalFeatures.mm.erb:
+
+2022-01-18  Alex Christensen  <achristensen@webkit.org>
+
+        Use c++2a instead of gnu++2a for Cocoa builds
+        https://bugs.webkit.org/show_bug.cgi?id=234936
+
+        Reviewed by Sam Weinig.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/WebKitLegacy.xcconfig:
+        * MigrateHeaders.make:
+
+2022-01-15  Chris Dumez  <cdumez@apple.com>
+
+        Introduce dynamicDowncast<>() for convenience
+        https://bugs.webkit.org/show_bug.cgi?id=235259
+
+        Reviewed by Darin Adler.
+
+        Start adopting dynamicDowncast<>().
+
+        * DOM/DOMUIKitExtensions.mm:
+        (-[DOMHTMLElement structuralComplexityContribution]):
+        * WebView/WebHTMLRepresentation.mm:
+        (inputElementFromDOMElement):
+
+2022-01-13  Tim Horton  <timothy_horton@apple.com>
+
+        Fix a few Objective-C object leaks due to early returns in `init`
+        https://bugs.webkit.org/show_bug.cgi?id=235162
+        <rdar://problem/87489048>
+
+        Reviewed by Wenson Hsieh.
+
+        * Storage/WebDatabaseQuotaManager.mm:
+        (WebCore::if):
+
+2022-01-12  Matt Woodrow  <mattwoodrow@apple.com>
+
+        _paintBehaviorForDestinationContext should consider kCGContextTypeDisplayList type contexts as potentially being snapshots
+        https://bugs.webkit.org/show_bug.cgi?id=234626
+        <rdar://83501315>
+
+        Reviewed by Simon Fraser.
+
+        _paintBehaviorForDestinationContext currently always returns `Normal` for contexts that aren't a bitmap context.
+        AppKit now provides a context that is of type kCGContextTypeDisplayList, and we want to still potentially consider it a
+        snapshot paint (if the other conditions below are met). This ensure images are sync decoded for consumers that just
+        want a single paint.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _paintBehaviorForDestinationContext:]):
+
+2022-01-11  Michael Saboff  <msaboff@apple.com>
+
+        Fixed installhdr build failures in WebCore and WebKitLegacy
+        https://bugs.webkit.org/show_bug.cgi?id=235059
+
+        Reviewed by Filip Pizlo.
+
+        Refactored how INSTALL_PATH is calculated to simplify the logic for the macOS / iOS
+        location difference for the WebKitLegacy framework.  In WebKitLegacy.xcconfig, that
+        required changing NORMAL_PRODUCTION_FRAMEWORKS_DIR.
+
+        Added the configuration values, ALTERNATE_ROOT_PATH and OUTPUT_ALTERNATE_ROOT_PATH, for
+        iOS builds to drive the newly added create symlinks script.
+
+        Did the same rework as in WebCore configuration to eliminate using SYSTEM_CONTENT_PATH 
+        twice for some paths.
+
+        * Configurations/WebKitLegacy.xcconfig:
+
+2022-01-10  Alex Christensen  <achristensen@webkit.org>
+
+        Start using C++20
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+
+        Reviewed by Yusuke Suzuki.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/WebKitLegacy.xcconfig:
+        * MigrateHeaders.make:
+
 2022-01-10  Elliott Williams  <emw@apple.com>
 
         postprocess-headers.sh: Avoid redundant processing to speed up incremental Xcode builds

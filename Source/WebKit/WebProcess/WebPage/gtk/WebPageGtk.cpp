@@ -54,7 +54,7 @@
 namespace WebKit {
 using namespace WebCore;
 
-void WebPage::platformInitialize()
+void WebPage::platformInitialize(const WebPageCreationParameters&)
 {
 #if ENABLE(ACCESSIBILITY)
     // Create the accessible object (the plug) that will serve as the
@@ -70,7 +70,7 @@ void WebPage::platformInitialize()
     // FIXME: we need a way to connect DOM and app a11y tree in GTK4.
 #else
     if (auto* page = corePage()) {
-        m_accessibilityRootObject = AccessibilityRootAtspi::create(*page, WebProcess::singleton().accessibilityAtspi());
+        m_accessibilityRootObject = AccessibilityRootAtspi::create(*page);
         m_accessibilityRootObject->registerObject([&](const String& plugID) {
             send(Messages::WebPageProxy::BindAccessibilityTree(plugID));
         });

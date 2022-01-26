@@ -151,7 +151,12 @@ void ServiceWorkerFetchTask::startFetch()
     auto request = m_currentRequest;
     cleanHTTPRequestHeadersForAccessControl(request, m_loader.parameters().httpHeadersToKeep);
 
-    bool isSent = sendToServiceWorker(Messages::WebSWContextManagerConnection::StartFetch { m_serverConnectionIdentifier, m_serviceWorkerIdentifier, m_fetchIdentifier, request, options, IPC::FormDataReference { m_currentRequest.httpBody() }, referrer, m_preloader && m_preloader->isServiceWorkerNavigationPreloadEnabled() });
+    String clientIdentifier;
+    if (m_loader.parameters().options.mode != FetchOptions::Mode::Navigate) {
+        if (auto identifier = m_loader.parameters().options.clientIdentifier)
+            clientIdentifier = identifier->toString();
+    }
+    bool isSent = sendToServiceWorker(Messages::WebSWContextManagerConnection::StartFetch { m_serverConnectionIdentifier, m_serviceWorkerIdentifier, m_fetchIdentifier, request, options, IPC::FormDataReference { m_currentRequest.httpBody() }, referrer, m_preloader && m_preloader->isServiceWorkerNavigationPreloadEnabled(), clientIdentifier, m_loader.resultingClientIdentifier() });
     ASSERT_UNUSED(isSent, isSent);
 }
 
@@ -243,15 +248,10 @@ void ServiceWorkerFetchTask::didReceiveFormData(const IPC::FormDataReference& fo
     // FIXME: Allow WebResourceLoader to receive form data.
 }
 
-void ServiceWorkerFetchTask::didFinish()
-{
-    didFinishWithMetrics({ });
-}
-
-void ServiceWorkerFetchTask::didFinishWithMetrics(const NetworkLoadMetrics& networkLoadMetrics)
+void ServiceWorkerFetchTask::didFinish(const NetworkLoadMetrics& networkLoadMetrics)
 {
     ASSERT(!m_timeoutTimer || !m_timeoutTimer->isActive());
-    SWFETCH_RELEASE_LOG("didFinishWithMetrics:");
+    SWFETCH_RELEASE_LOG("didFinish:");
 
     m_isDone = true;
     if (m_timeoutTimer)
@@ -398,7 +398,7 @@ void ServiceWorkerFetchTask::loadBodyFromPreloader()
             return;
         }
         if (!chunk) {
-            didFinishWithMetrics(m_preloader->networkLoadMetrics());
+            didFinish(m_preloader->networkLoadMetrics());
             return;
         }
         didReceiveData(IPC::SharedBufferCopy(const_cast<WebCore::FragmentedSharedBuffer&>(*chunk)), length);

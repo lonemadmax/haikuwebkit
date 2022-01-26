@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  *           (C) 2006 Alexey Proskuryakov (ap@webkit.org)
- * Copyright (C) 2004-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2022 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2008, 2009, 2011, 2012 Google Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
@@ -397,85 +397,28 @@ public:
 
 static const Seconds intersectionObserversInitialUpdateDelay { 2000_ms };
 
-// DOM Level 2 says (letters added):
-//
-// a) Name start characters must have one of the categories Ll, Lu, Lo, Lt, Nl.
-// b) Name characters other than Name-start characters must have one of the categories Mc, Me, Mn, Lm, or Nd.
-// c) Characters in the compatibility area (i.e. with character code greater than #xF900 and less than #xFFFE) are not allowed in XML names.
-// d) Characters which have a font or compatibility decomposition (i.e. those with a "compatibility formatting tag" in field 5 of the database -- marked by field 5 beginning with a "<") are not allowed.
-// e) The following characters are treated as name-start characters rather than name characters, because the property file classifies them as Alphabetic: [#x02BB-#x02C1], #x0559, #x06E5, #x06E6.
-// f) Characters #x20DD-#x20E0 are excluded (in accordance with Unicode, section 5.14).
-// g) Character #x00B7 is classified as an extender, because the property list so identifies it.
-// h) Character #x0387 is added as a name character, because #x00B7 is its canonical equivalent.
-// i) Characters ':' and '_' are allowed as name-start characters.
-// j) Characters '-' and '.' are allowed as name characters.
-//
-// It also contains complete tables. If we decide it's better, we could include those instead of the following code.
-
+// https://www.w3.org/TR/xml/#NT-NameStartChar
+// NameStartChar       ::=       ":" | [A-Z] | "_" | [a-z] | [#xC0-#xD6] | [#xD8-#xF6] | [#xF8-#x2FF] | [#x370-#x37D] | [#x37F-#x1FFF] | [#x200C-#x200D] | [#x2070-#x218F] | [#x2C00-#x2FEF] | [#x3001-#xD7FF] | [#xF900-#xFDCF] | [#xFDF0-#xFFFD] | [#x10000-#xEFFFF]
 static inline bool isValidNameStart(UChar32 c)
 {
-    // rule (e) above
-    if ((c >= 0x02BB && c <= 0x02C1) || c == 0x559 || c == 0x6E5 || c == 0x6E6)
-        return true;
-
-    // rule (i) above
-    if (c == ':' || c == '_')
-        return true;
-
-    // rules (a) and (f) above
-    if (!(U_GET_GC_MASK(c) & (U_GC_LL_MASK | U_GC_LU_MASK | U_GC_LO_MASK | U_GC_LT_MASK | U_GC_NL_MASK)))
-        return false;
-
-    // rule (c) above
-    if (c >= 0xF900 && c < 0xFFFE)
-        return false;
-
-    // rule (d) above
-    int type = u_getIntPropertyValue(c, UCHAR_DECOMPOSITION_TYPE);
-    if (type == U_DT_FONT || type == U_DT_COMPAT)
-        return false;
-
-    return true;
+    return c == ':' || (c >= 'A' && c <= 'Z') || c == '_' || (c >= 'a' && c <= 'z') || (c >= 0x00C0 && c <= 0x00D6)
+        || (c >= 0x00D8 && c <= 0x00F6) || (c >= 0x00F8 && c <= 0x02FF) || (c >= 0x0370 && c <= 0x037D) || (c >= 0x037F && c <= 0x1FFF)
+        || (c >= 0x200C && c <= 0x200D) || (c >= 0x2070 && c <= 0x218F) || (c >= 0x2C00 && c <= 0x2FeF) || (c >= 0x3001 && c <= 0xD7FF)
+        || (c >= 0xF900 && c <= 0xFDCF) || (c >= 0xFDF0 && c <= 0xFFFD) || (c >= 0x10000 && c <= 0xEFFFF);
 }
 
+// https://www.w3.org/TR/xml/#NT-NameChar
+// NameChar       ::=       NameStartChar | "-" | "." | [0-9] | #xB7 | [#x0300-#x036F] | [#x203F-#x2040]
 static inline bool isValidNamePart(UChar32 c)
 {
-    // rules (a), (e), and (i) above
-    if (isValidNameStart(c))
-        return true;
-
-    // rules (g) and (h) above
-    if (c == 0x00B7 || c == 0x0387)
-        return true;
-
-    // rule (j) above
-    if (c == '-' || c == '.')
-        return true;
-
-    // rules (b) and (f) above
-    if (!(U_GET_GC_MASK(c) & (U_GC_M_MASK | U_GC_LM_MASK | U_GC_ND_MASK)))
-        return false;
-
-    // rule (c) above
-    if (c >= 0xF900 && c < 0xFFFE)
-        return false;
-
-    // rule (d) above
-    int type = u_getIntPropertyValue(c, UCHAR_DECOMPOSITION_TYPE);
-    if (type == U_DT_FONT || type == U_DT_COMPAT)
-        return false;
-
-    return true;
+    return isValidNameStart(c) || c == '-' || c == '.' || (c >= '0' && c <= '9') || c == 0x00B7
+        || (c >= 0x0300 && c <= 0x036F) || (c >= 0x203F && c <= 0x2040);
 }
 
 static Widget* widgetForElement(Element* focusedElement)
 {
-    if (!focusedElement)
-        return nullptr;
-    auto* renderer = focusedElement->renderer();
-    if (!is<RenderWidget>(renderer))
-        return nullptr;
-    return downcast<RenderWidget>(*renderer).widget();
+    auto* renderer = focusedElement ? dynamicDowncast<RenderWidget>(focusedElement->renderer()) : nullptr;
+    return renderer ? renderer->widget() : nullptr;
 }
 
 static bool acceptsEditingFocus(const Element& element)
@@ -609,9 +552,10 @@ static Ref<CachedResourceLoader> createCachedResourceLoader(Frame* frame)
     return CachedResourceLoader::create(nullptr);
 }
 
-Document::Document(Frame* frame, const Settings& settings, const URL& url, DocumentClasses documentClasses, unsigned constructionFlags)
+Document::Document(Frame* frame, const Settings& settings, const URL& url, DocumentClasses documentClasses, unsigned constructionFlags, ScriptExecutionContextIdentifier identifier)
     : ContainerNode(*this, CreateDocument)
     , TreeScope(*this)
+    , ScriptExecutionContext(identifier)
     , FrameDestructionObserver(frame)
     , m_settings(settings)
     , m_quirks(makeUniqueRef<Quirks>(*this))
@@ -685,6 +629,13 @@ Document::Document(Frame* frame, const Settings& settings, const URL& url, Docum
         nodeListAndCollectionCount = 0;
 
     InspectorInstrumentation::addEventListenersToNode(*this);
+}
+
+void Document::createNewIdentifier()
+{
+    removeFromDocumentsMap();
+    regenerateIdentifier();
+    addToDocumentsMap();
 }
 
 Ref<Document> Document::create(Document& contextDocument)
@@ -895,13 +846,13 @@ void Document::buildAccessKeyCache()
     m_accessKeyCache = makeUnique<HashMap<String, WeakPtr<Element>, ASCIICaseInsensitiveHash>>([this] {
         HashMap<String, WeakPtr<Element>, ASCIICaseInsensitiveHash> map;
         for (auto& node : composedTreeDescendants(*this)) {
-            if (!is<Element>(node))
+            auto element = dynamicDowncast<Element>(node);
+            if (!element)
                 continue;
-            auto& element = downcast<Element>(node);
-            auto& key = element.attributeWithoutSynchronization(accesskeyAttr);
+            auto& key = element->attributeWithoutSynchronization(accesskeyAttr);
             if (key.isEmpty())
                 continue;
-            map.add(key, element);
+            map.add(key, *element);
         }
         return map;
     }());
@@ -1876,6 +1827,12 @@ void Document::visibilityStateChanged()
             MediaStreamTrack::updateCaptureAccordingToMutedState(*this);
     }
 #endif
+
+    if (!hidden()) {
+        auto callbacks = std::exchange(m_whenIsVisibleHandlers, { });
+        for (auto& callback : callbacks)
+            callback();
+    }
 }
 
 VisibilityState Document::visibilityState() const
@@ -4333,7 +4290,7 @@ void Document::addPendingScrollEventTarget(ContainerNode& target)
         m_pendingScrollEventTargetList = makeUnique<PendingScrollEventTargetList>();
 
     auto& targets = m_pendingScrollEventTargetList->targets;
-    if (targets.findMatching([&] (auto& entry) { return entry.ptr() == &target; }) != notFound)
+    if (targets.findIf([&] (auto& entry) { return entry.ptr() == &target; }) != notFound)
         return;
 
     if (targets.isEmpty())
@@ -4499,7 +4456,7 @@ void Document::adjustFocusedNodeOnNodeRemoval(Node& node, NodeRemoval nodeRemova
     if (isNodeInSubtree(*focusedElement, node, nodeRemoval)) {
         // FIXME: We should avoid synchronously updating the style inside setFocusedElement.
         // FIXME: Object elements should avoid loading a frame synchronously in a post style recalc callback.
-        SubframeLoadingDisabler disabler(is<ContainerNode>(node) ? &downcast<ContainerNode>(node) : nullptr);
+        SubframeLoadingDisabler disabler(dynamicDowncast<ContainerNode>(node));
         setFocusedElement(nullptr, { { }, { }, FocusRemovalEventsMode::DoNotDispatch, { }, { } });
         // Set the focus navigation starting node to the previous focused element so that
         // we can fallback to the siblings or parent node for the next search.
@@ -4832,7 +4789,7 @@ void Document::setCSSTarget(Element* targetNode)
 void Document::registerNodeListForInvalidation(LiveNodeList& list)
 {
     m_nodeListAndCollectionCounts[list.invalidationType()]++;
-    if (!list.isRootedAtDocument())
+    if (!list.isRootedAtTreeScope())
         return;
     ASSERT(!list.isRegisteredForInvalidationAtDocument());
     list.setRegisteredForInvalidationAtDocument(true);
@@ -4853,7 +4810,7 @@ void Document::unregisterNodeListForInvalidation(LiveNodeList& list)
 void Document::registerCollection(HTMLCollection& collection)
 {
     m_nodeListAndCollectionCounts[collection.invalidationType()]++;
-    if (collection.isRootedAtDocument())
+    if (collection.isRootedAtTreeScope())
         m_collectionsInvalidatedAtDocument.add(&collection);
 }
 
@@ -4861,7 +4818,7 @@ void Document::unregisterCollection(HTMLCollection& collection)
 {
     ASSERT(m_nodeListAndCollectionCounts[collection.invalidationType()]);
     m_nodeListAndCollectionCounts[collection.invalidationType()]--;
-    if (!collection.isRootedAtDocument())
+    if (!collection.isRootedAtTreeScope())
         return;
 
     m_collectionsInvalidatedAtDocument.remove(&collection);
@@ -7510,7 +7467,7 @@ Document& Document::ensureTemplateDocument()
         return const_cast<Document&>(*document);
 
     if (isHTMLDocument())
-        m_templateDocument = HTMLDocument::create(nullptr, m_settings, aboutBlankURL());
+        m_templateDocument = HTMLDocument::create(nullptr, m_settings, aboutBlankURL(), { });
     else
         m_templateDocument = create(m_settings, aboutBlankURL());
 
@@ -8083,7 +8040,7 @@ void Document::updateIntersectionObservations()
             continue;
         for (auto& target : observer->observationTargets()) {
             auto& targetRegistrations = target->intersectionObserverDataIfExists()->registrations;
-            auto index = targetRegistrations.findMatching([observer](auto& registration) {
+            auto index = targetRegistrations.findIf([observer](auto& registration) {
                 return registration.observer.get() == observer;
             });
             ASSERT(index != notFound);
@@ -8550,7 +8507,7 @@ Vector<RefPtr<WebAnimation>> Document::matchingAnimations(const Function<bool(El
         if (!animation->isRelevant() || !is<KeyframeEffect>(animation->effect()))
             continue;
 
-        auto* target = downcast<KeyframeEffect>(*animation->effect()).targetElementOrPseudoElement();
+        auto* target = downcast<KeyframeEffect>(*animation->effect()).target();
         if (target && target->isConnected() && &target->document() == this && function(*target))
             animations.append(animation);
     }
@@ -9097,6 +9054,15 @@ TextStream& operator<<(TextStream& ts, const Document& document)
 {
     ts << document.debugDescription();
     return ts;
+}
+
+void Document::whenVisible(Function<void()>&& callback)
+{
+    if (hidden()) {
+        m_whenIsVisibleHandlers.append(WTFMove(callback));
+        return;
+    }
+    callback();
 }
 
 } // namespace WebCore

@@ -109,7 +109,7 @@
 namespace WebKit {
 using namespace WebCore;
 
-void WebPage::platformInitialize()
+void WebPage::platformInitializeAccessibility()
 {
     auto mockAccessibilityElement = adoptNS([[WKAccessibilityWebPageObject alloc] init]);
 
@@ -358,39 +358,6 @@ void WebPage::attributedSubstringForCharacterRangeAsync(const EditingRange& edit
 
     completionHandler({ WTFMove(attributedString), nil }, rangeToSend);
 }
-
-void WebPage::fontAtSelection(CompletionHandler<void(const FontInfo&, double, bool)>&& completionHandler)
-{
-    bool selectionHasMultipleFonts = false;
-    auto& frame = m_page->focusController().focusedOrMainFrame();
-
-    if (frame.selection().selection().isNone()) {
-        completionHandler({ }, 0, false);
-        return;
-    }
-
-    auto font = frame.editor().fontForSelection(selectionHasMultipleFonts);
-    if (!font) {
-        completionHandler({ }, 0, false);
-        return;
-    }
-
-    auto ctFont = font->getCTFont();
-    if (!ctFont) {
-        completionHandler({ }, 0, false);
-        return;
-    }
-
-    auto fontDescriptor = adoptCF(CTFontCopyFontDescriptor(ctFont));
-    if (!fontDescriptor) {
-        completionHandler({ }, 0, false);
-        return;
-    }
-
-    completionHandler({ adoptCF(CTFontDescriptorCopyAttributes(fontDescriptor.get())) }, CTFontGetSize(ctFont), selectionHasMultipleFonts);
-}
-    
-
 
 #if ENABLE(PDFKIT_PLUGIN)
 
@@ -793,9 +760,9 @@ WebCore::WebGLLoadPolicy WebPage::resolveWebGLPolicyForURL(WebFrame*, const URL&
 #endif // ENABLE(WEBGL)
 
 #if ENABLE(TELEPHONE_NUMBER_DETECTION)
-void WebPage::handleTelephoneNumberClick(const String& number, const IntPoint& point)
+void WebPage::handleTelephoneNumberClick(const String& number, const IntPoint& point, const IntRect& rect)
 {
-    send(Messages::WebPageProxy::ShowTelephoneNumberMenu(number, point));
+    send(Messages::WebPageProxy::ShowTelephoneNumberMenu(number, point, rect));
 }
 #endif
 

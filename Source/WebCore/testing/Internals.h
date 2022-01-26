@@ -490,8 +490,8 @@ public:
 
     unsigned numberOfResizeObservers(const Document&) const;
 
-    uint64_t documentIdentifier(const Document&) const;
-    bool isDocumentAlive(uint64_t documentIdentifier) const;
+    String documentIdentifier(const Document&) const;
+    bool isDocumentAlive(const String& documentIdentifier) const;
 
     uint64_t storageAreaMapCount() const;
 
@@ -503,7 +503,7 @@ public:
 
     bool isAnyWorkletGlobalScopeAlive() const;
 
-    String serviceWorkerClientIdentifier(const Document&) const;
+    String serviceWorkerClientInternalIdentifier(const Document&) const;
 
     RefPtr<WindowProxy> openDummyInspectorFrontend(const String& url);
     void closeDummyInspectorFrontend();
@@ -889,6 +889,7 @@ public:
     void cacheStorageEngineRepresentation(DOMPromiseDeferred<IDLDOMString>&&);
     void setResponseSizeWithPadding(FetchResponse&, uint64_t size);
     uint64_t responseSizeWithPadding(FetchResponse&) const;
+    const String& responseNetworkLoadMetricsProtocol(const FetchResponse&);
 
     void updateQuotaBasedOnSpaceUsage();
 
@@ -922,6 +923,7 @@ public:
         RefPtr<DOMPointReadOnly> bottomRight;
         RefPtr<DOMPointReadOnly> bottomLeft;
         Vector<ImageOverlayText> children;
+        bool hasTrailingNewline { true };
 
         ~ImageOverlayLine();
     };
@@ -1008,7 +1010,15 @@ public:
     using PlaybackControlsPurpose = MediaElementSession::PlaybackControlsPurpose;
     RefPtr<HTMLMediaElement> bestMediaElementForRemoteControls(PlaybackControlsPurpose);
 
-    using MediaSessionState = PlatformMediaSession::State;
+    // Same values as PlatformMediaSession::State, but re-declared to avoid redefinitions when linking
+    // directly with libWebCore (e.g. with non-unified builds)
+    enum MediaSessionState {
+        Idle,
+        Autoplaying,
+        Playing,
+        Paused,
+        Interrupted,
+    };
     MediaSessionState mediaSessionState(HTMLMediaElement&);
 
     size_t mediaElementCount() const;

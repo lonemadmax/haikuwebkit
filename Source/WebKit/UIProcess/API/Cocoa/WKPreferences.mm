@@ -650,6 +650,16 @@ static _WKStorageBlockingPolicy toAPI(WebCore::StorageBlockingPolicy policy)
     _preferences->setMediaDevicesEnabled(enabled);
 }
 
+- (BOOL)_getUserMediaRequiresFocus
+{
+    return _preferences->getUserMediaRequiresFocus();
+}
+
+- (void)_setGetUserMediaRequiresFocus:(BOOL)enabled
+{
+    _preferences->setGetUserMediaRequiresFocus(enabled);
+}
+
 - (BOOL)_screenCaptureEnabled
 {
     return _preferences->screenCaptureEnabled();
@@ -1560,8 +1570,17 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
     return _preferences->notificationsEnabled();
 }
 
-@end
+- (void)_setModelDocumentEnabled:(BOOL)enabled
+{
+    _preferences->setModelDocumentEnabled(enabled);
+}
 
+- (BOOL)_modelDocumentEnabled
+{
+    return _preferences->modelDocumentEnabled();
+}
+
+@end
 
 @implementation WKPreferences (WKDeprecated)
 

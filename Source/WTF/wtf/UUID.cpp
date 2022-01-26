@@ -35,6 +35,7 @@
 #include <wtf/ASCIICType.h>
 #include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/HexNumber.h>
+#include <wtf/text/StringToIntegerConversion.h>
 
 #if OS(DARWIN)
 #include <sys/sysctl.h>
@@ -45,7 +46,17 @@ namespace WTF {
 UUID::UUID()
 {
     static_assert(sizeof(m_data) == 16);
-    cryptographicallyRandomValues(reinterpret_cast<unsigned char*>(&m_data), 16);
+    auto* data = reinterpret_cast<unsigned char*>(&m_data);
+
+    do {
+        cryptographicallyRandomValues(data, 16);
+    } while (m_data == emptyValue || m_data == deletedValue);
+
+    // We sanitize the value to not loose any information when serializing as Version 4 UUID.
+    auto high = static_cast<uint64_t>((m_data >> 64) & 0xffffffffffff0fff);
+    auto low = static_cast<uint64_t>(m_data & 0x3fffffffffffffff);
+
+    m_data = (static_cast<UInt128>(high) << 64) | low;
 }
 
 unsigned UUID::hash() const
@@ -53,25 +64,76 @@ unsigned UUID::hash() const
     return StringHasher::hashMemory(reinterpret_cast<const unsigned char*>(&m_data), 16);
 }
 
-String createCanonicalUUIDString()
+String UUID::toString() const
 {
-    unsigned randomData[4];
-    cryptographicallyRandomValues(reinterpret_cast<unsigned char*>(randomData), sizeof(randomData));
+    auto high = static_cast<uint64_t>(m_data >> 64);
+    auto low = static_cast<uint64_t>(m_data & 0x3fffffffffffffff);
 
     // Format as Version 4 UUID.
     return makeString(
-        hex(randomData[0], 8, Lowercase),
+        hex(high >> 32, 8, Lowercase),
         '-',
-        hex(randomData[1] >> 16, 4, Lowercase),
+        hex((high >> 16) & 0xffff, 4, Lowercase),
         "-4",
-        hex(randomData[1] & 0x00000fff, 3, Lowercase),
+        hex(high & 0xfff, 3, Lowercase),
         '-',
-        hex((randomData[2] >> 30) | 0x8, 1, Lowercase),
-        hex((randomData[2] >> 16) & 0x00000fff, 3, Lowercase),
+        hex((low >> 48) | 0x8000, 4, Lowercase),
         '-',
-        hex(randomData[2] & 0x0000ffff, 4, Lowercase),
-        hex(randomData[3], 8, Lowercase)
+        hex(low & 0xffffffffffff, 12, Lowercase)
     );
+}
+
+std::optional<UUID> UUID::parse(StringView value)
+{
+    // Version 4 UUIDs have the form xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx with hexadecimal digits for x and one of 8, 9, A, or B for y.
+    if (value.length() != 36)
+        return { };
+
+    if (value[8] != '-' || value[13] != '-'  || value[14] != '4' || value[18] != '-' || value[23] != '-')
+        return { };
+
+    // parseInteger may accept integers starting with +, let's check this beforehand.
+    if (value[0] == '+' || value[9] == '+'  || value[19] == '+' || value[24] == '+')
+        return { };
+
+    auto firstValue = parseInteger<uint64_t>(value.substring(0, 8), 16);
+    if (!firstValue)
+        return { };
+
+    auto secondValue = parseInteger<uint64_t>(value.substring(9, 4), 16);
+    if (!secondValue)
+        return { };
+
+    auto thirdValue = parseInteger<uint64_t>(value.substring(15, 3), 16);
+    if (!thirdValue)
+        return { };
+
+    auto fourthValue = parseInteger<uint64_t>(value.substring(19, 4), 16);
+    if (!fourthValue)
+        return { };
+
+    // Fourth value starts with 'y', it must be above 0x8000 and below 0xBFFFF.
+    if ((*fourthValue & 0xc000) != 0x8000)
+        return { };
+    fourthValue = *fourthValue & 0x3fff;
+
+    auto fifthValue = parseInteger<uint64_t>(value.substring(24, 12), 16);
+    if (!fifthValue)
+        return { };
+
+    uint64_t high = (*firstValue << 32) | (*secondValue << 16) | *thirdValue;
+    uint64_t low = (*fourthValue << 48) | *fifthValue;
+
+    auto result = (static_cast<UInt128>(high) << 64) | low;
+    if (result == emptyValue || result == deletedValue)
+        return { };
+
+    return UUID(result);
+}
+
+String createCanonicalUUIDString()
+{
+    return UUID::create().toString();
 }
 
 String bootSessionUUIDString()
@@ -95,31 +157,7 @@ String bootSessionUUIDString()
 
 bool isVersion4UUID(StringView value)
 {
-    // Version 4 UUIDs have the form xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx with hexadecimal digits for x and one of 8, 9, A, or B for y.
-    if (value.length() != 36)
-        return false;
-
-    for (auto cptr = 0; cptr < 36; ++cptr) {
-        if (cptr == 8 || cptr == 13 || cptr == 18 || cptr == 23) {
-            if (value[cptr] != '-')
-                return false;
-            continue;
-        }
-        if (cptr == 14) {
-            if (value[cptr] != '4')
-                return false;
-            continue;
-        }
-        if (cptr == 19) {
-            auto y = value[cptr];
-            if (y != '8' && y != '9' && y != 'a' && y != 'A' && y != 'b' && y != 'B')
-                return false;
-            continue;
-        }
-        if (!isASCIIHexDigit(value[cptr]))
-            return false;
-    }
-    return true;
+    return !!UUID::parse(value);
 }
 
 } // namespace WTF

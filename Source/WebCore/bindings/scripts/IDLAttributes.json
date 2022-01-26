@@ -262,9 +262,6 @@
             "contextsAllowed": ["interface", "namespace", "dictionary", "dictionary-member", "attribute", "operation", "constant"],
             "values": ["*"]
         },
-        "ImplementationLacksVTable": {
-            "contextsAllowed": ["interface"]
-        },
         "InterfaceName": {
             "contextsAllowed": ["interface", "namespace"],
             "values": ["*"]
@@ -489,9 +486,6 @@
             "contextsAllowed": ["attribute"],
             "values": ["*"],
             "supportsConjunction": true
-        },
-        "SkipCallbackInvokeCheck": {
-            "contextsAllowed": ["operation", "callback-function"]
         },
         "SkipVTableValidation": {
             "contextsAllowed": ["interface"]

@@ -490,6 +490,8 @@ public:
     WEBCORE_EXPORT void recomputeTextAutoSizingInAllFrames();
 #endif
 
+    bool acceleratedFiltersEnabled() const;
+
     const FloatBoxExtent& fullscreenInsets() const { return m_fullscreenInsets; }
     WEBCORE_EXPORT void setFullscreenInsets(const FloatBoxExtent&);
 
@@ -915,6 +917,7 @@ public:
     WEBCORE_EXPORT bool hasCachedTextRecognitionResult(const HTMLElement&) const;
     void cacheTextRecognitionResult(const HTMLElement&, const IntRect& containerRect, const TextRecognitionResult&);
     void resetTextRecognitionResult(const HTMLElement&);
+    void resetImageAnalysisQueue();
 #endif
 
     WEBCORE_EXPORT PermissionController& permissionController();
@@ -925,6 +928,11 @@ public:
 #if ENABLE(ACCESSIBILITY) && USE(ATSPI)
     AccessibilityRootAtspi* accessibilityRootObject() const { return m_accessibilityRootObject; }
     void setAccessibilityRootObject(AccessibilityRootAtspi* rootObject) { m_accessibilityRootObject = rootObject; }
+#endif
+
+#if PLATFORM(COCOA)
+    void setIsAwaitingLayerTreeTransactionFlush(bool isAwaiting) { m_isAwaitingLayerTreeTransactionFlush = isAwaiting; }
+    bool isAwaitingLayerTreeTransactionFlush() const { return m_isAwaitingLayerTreeTransactionFlush; }
 #endif
 
 private:
@@ -1186,6 +1194,10 @@ private:
 
 #if ENABLE(EDITABLE_REGION)
     bool m_isEditableRegionEnabled { false };
+#endif
+
+#if PLATFORM(COCOA)
+    bool m_isAwaitingLayerTreeTransactionFlush { false };
 #endif
 
     Vector<OptionSet<RenderingUpdateStep>, 2> m_renderingUpdateRemainingSteps;

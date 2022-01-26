@@ -135,6 +135,7 @@ void ScriptElement::dispatchErrorEvent()
     m_element.dispatchEvent(Event::create(eventNames().errorEvent, Event::CanBubble::No, Event::IsCancelable::No));
 }
 
+// https://html.spec.whatwg.org/multipage/scripting.html#prepare-a-script
 std::optional<ScriptElement::ScriptType> ScriptElement::determineScriptType(LegacyTypeSupport supportLegacyTypes) const
 {
     // FIXME: isLegacySupportedJavaScriptLanguage() is not valid HTML5. It is used here to maintain backwards compatibility with existing layout tests. The specific violations are:
@@ -142,7 +143,7 @@ std::optional<ScriptElement::ScriptType> ScriptElement::determineScriptType(Lega
     // - Allowing a different set of languages for language= and type=. language= supports Javascript 1.1 and 1.4-1.6, but type= does not.
     String type = typeAttributeValue();
     String language = languageAttributeValue();
-    if (type.isEmpty()) {
+    if (type.isNull()) {
         if (language.isEmpty())
             return ScriptType::Classic; // Assume text/javascript.
         if (MIMETypeRegistry::isSupportedJavaScriptMIMEType("text/" + language))
@@ -151,6 +152,9 @@ std::optional<ScriptElement::ScriptType> ScriptElement::determineScriptType(Lega
             return ScriptType::Classic;
         return std::nullopt;
     }
+    if (type.isEmpty())
+        return ScriptType::Classic; // Assume text/javascript.
+
     if (MIMETypeRegistry::isSupportedJavaScriptMIMEType(type.stripWhiteSpace()))
         return ScriptType::Classic;
     if (supportLegacyTypes == AllowLegacyTypeInTypeAttribute && isLegacySupportedJavaScriptLanguage(type))
@@ -379,8 +383,7 @@ bool ScriptElement::requestModuleScript(const TextPosition& scriptStartPosition)
     if (!contentSecurityPolicy.allowNonParserInsertedScripts(URL(), m_element.document().url(), m_startLineNumber, m_element.nonce(), sourceCode.source(), m_parserInserted))
         return false;
 
-    bool hasKnownNonce = contentSecurityPolicy.allowScriptWithNonce(nonce, m_element.isInUserAgentShadowTree());
-    if (!contentSecurityPolicy.allowInlineScript(m_element.document().url().string(), m_startLineNumber, sourceCode.source(), m_element, hasKnownNonce))
+    if (!contentSecurityPolicy.allowInlineScript(m_element.document().url().string(), m_startLineNumber, sourceCode.source(), m_element, nonce, m_element.isInUserAgentShadowTree()))
         return false;
 
     m_loadableScript = WTFMove(script);
@@ -403,8 +406,7 @@ void ScriptElement::executeClassicScript(const ScriptSourceCode& sourceCode)
         if (!contentSecurityPolicy.allowNonParserInsertedScripts(URL(), m_element.document().url(), m_startLineNumber, m_element.nonce(), sourceCode.source(), m_parserInserted))
             return;
 
-        bool hasKnownNonce = contentSecurityPolicy.allowScriptWithNonce(m_element.nonce(), m_element.isInUserAgentShadowTree());
-        if (!contentSecurityPolicy.allowInlineScript(m_element.document().url().string(), m_startLineNumber, sourceCode.source(), m_element, hasKnownNonce))
+        if (!contentSecurityPolicy.allowInlineScript(m_element.document().url().string(), m_startLineNumber, sourceCode.source(), m_element, m_element.nonce(), m_element.isInUserAgentShadowTree()))
             return;
     }
 

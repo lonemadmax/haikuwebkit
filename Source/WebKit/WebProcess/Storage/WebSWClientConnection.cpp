@@ -178,7 +178,7 @@ void WebSWClientConnection::whenRegistrationReady(const SecurityOriginData& topO
 
 void WebSWClientConnection::setDocumentIsControlled(ScriptExecutionContextIdentifier documentIdentifier, ServiceWorkerRegistrationData&& data, CompletionHandler<void(bool)>&& completionHandler)
 {
-    auto* documentLoader = DocumentLoader::fromTemporaryDocumentIdentifier(documentIdentifier);
+    auto* documentLoader = DocumentLoader::fromScriptExecutionContextIdentifier(documentIdentifier);
     bool result = documentLoader ? documentLoader->setControllingServiceWorkerRegistration(WTFMove(data)) : false;
     completionHandler(result);
 }
@@ -238,9 +238,9 @@ void WebSWClientConnection::subscribeToPushService(WebCore::ServiceWorkerRegistr
     });
 }
 
-void WebSWClientConnection::unsubscribeFromPushService(WebCore::ServiceWorkerRegistrationIdentifier registrationIdentifier, UnsubscribeFromPushServiceCallback&& callback)
+void WebSWClientConnection::unsubscribeFromPushService(WebCore::ServiceWorkerRegistrationIdentifier registrationIdentifier, WebCore::PushSubscriptionIdentifier subscriptionIdentifier, UnsubscribeFromPushServiceCallback&& callback)
 {
-    sendWithAsyncReply(Messages::WebSWServerConnection::UnsubscribeFromPushService { registrationIdentifier }, [callback = WTFMove(callback)](auto&& result) mutable {
+    sendWithAsyncReply(Messages::WebSWServerConnection::UnsubscribeFromPushService { registrationIdentifier, subscriptionIdentifier }, [callback = WTFMove(callback)](auto&& result) mutable {
         if (!result.has_value())
             return callback(result.error().toException());
         callback(*result);

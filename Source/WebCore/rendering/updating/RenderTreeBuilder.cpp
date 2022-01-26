@@ -30,6 +30,7 @@
 #include "DocumentInlines.h"
 #include "Frame.h"
 #include "FrameSelection.h"
+#include "LegacyRenderSVGContainer.h"
 #include "LegacyRenderSVGRoot.h"
 #include "RenderButton.h"
 #include "RenderCounter.h"
@@ -281,8 +282,15 @@ void RenderTreeBuilder::attachInternal(RenderElement& parent, RenderPtr<RenderOb
         return;
     }
 
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
     if (is<RenderSVGContainer>(parent)) {
         svgBuilder().attach(downcast<RenderSVGContainer>(parent), WTFMove(child), beforeChild);
+        return;
+    }
+#endif
+
+    if (is<LegacyRenderSVGContainer>(parent)) {
+        svgBuilder().attach(downcast<LegacyRenderSVGContainer>(parent), WTFMove(child), beforeChild);
         return;
     }
 
@@ -379,8 +387,13 @@ RenderPtr<RenderObject> RenderTreeBuilder::detach(RenderElement& parent, RenderO
     if (is<RenderSVGInline>(parent))
         return svgBuilder().detach(downcast<RenderSVGInline>(parent), child);
 
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
     if (is<RenderSVGContainer>(parent))
         return svgBuilder().detach(downcast<RenderSVGContainer>(parent), child);
+#endif
+
+    if (is<LegacyRenderSVGContainer>(parent))
+        return svgBuilder().detach(downcast<LegacyRenderSVGContainer>(parent), child);
 
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
     if (is<RenderSVGRoot>(parent))
@@ -612,7 +625,7 @@ void RenderTreeBuilder::normalizeTreeAfterStyleChange(RenderElement& renderer, R
                     ASSERT(is<RenderBox>(renderer) && downcast<RenderBlockFlow>(*newParent).multiColumnFlow()->spannerMap().contains(&downcast<RenderBox>(renderer)));
                     newEnclosingFragmentedFlow = downcast<RenderBlockFlow>(*newParent).multiColumnFlow();
                 }
-                return newEnclosingFragmentedFlow != currentEnclosingFragment && is<RenderMultiColumnFlow>(newEnclosingFragmentedFlow) ? downcast<RenderMultiColumnFlow>(newEnclosingFragmentedFlow) : nullptr;
+                return newEnclosingFragmentedFlow != currentEnclosingFragment ? dynamicDowncast<RenderMultiColumnFlow>(newEnclosingFragmentedFlow) : nullptr;
             };
             if (auto* newEnclosingMultiColumn = newMultiColumnForRenderer()) {
                 // Let the fragmented flow know that it has a new in-flow descendant.

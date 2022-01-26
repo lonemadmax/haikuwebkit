@@ -36,6 +36,7 @@ class FilterResults;
 
 class Filter : public FilterFunction {
     using FilterFunction::apply;
+    using FilterFunction::outsets;
 
 public:
     enum class ClipOperation { Intersect, Unite };
@@ -61,11 +62,11 @@ public:
     FloatRect maxEffectRect(const FloatRect& primitiveSubregion) const;
     FloatRect clipToMaxEffectRect(const FloatRect& imageRect, const FloatRect& primitiveSubregion) const;
 
-    virtual RefPtr<FilterEffect> lastEffect() const = 0;
     virtual FilterEffectVector effectsOfType(FilterFunction::Type) const = 0;
 
     bool clampFilterRegionIfNeeded();
 
+    virtual IntOutsets outsets() const = 0;
     virtual RefPtr<FilterImage> apply(FilterImage* sourceImage, FilterResults&) = 0;
     WEBCORE_EXPORT RefPtr<FilterImage> apply(ImageBuffer* sourceImage, const FloatRect& sourceImageRect, FilterResults&);
 

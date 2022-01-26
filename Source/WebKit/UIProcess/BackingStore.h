@@ -30,15 +30,6 @@
 
 #if USE(CAIRO)
 #include <WebCore/BackingStoreBackendCairo.h>
-#elif USE(DIRECT2D)
-#include <WebCore/BackingStoreBackendDirect2D.h>
-#endif
-
-#if USE(DIRECT2D)
-interface ID2D1RenderTarget;
-interface ID3D11Device1;
-interface ID3D11DeviceContext1;
-interface ID3D11Texture2D;
 #endif
 
 #if USE(HAIKU)
@@ -64,12 +55,6 @@ public:
 
 #if USE(CAIRO)
     typedef cairo_t* PlatformGraphicsContext;
-#elif USE(DIRECT2D)
-    struct DXConnections {
-        ID3D11DeviceContext1* immediateContext { nullptr };
-        ID3D11Texture2D* backBuffer { nullptr };
-    };
-    typedef DXConnections PlatformGraphicsContext;
 #endif
 #if USE(HAIKU)
     typedef BView* PlatformGraphicsContext;
@@ -84,8 +69,6 @@ private:
 
 #if USE(CAIRO)
     std::unique_ptr<WebCore::BackingStoreBackendCairo> createBackend();
-#elif USE(DIRECT2D)
-    std::unique_ptr<WebCore::BackingStoreBackendDirect2D> createBackend();
 #endif
 
     WebCore::IntSize m_size;
@@ -93,8 +76,6 @@ private:
     WebPageProxy& m_webPageProxy;
 #if USE(CAIRO)
     std::unique_ptr<WebCore::BackingStoreBackendCairo> m_backend;
-#elif USE(DIRECT2D)
-    std::unique_ptr<WebCore::BackingStoreBackendDirect2D> m_backend;
 #endif
 };
 

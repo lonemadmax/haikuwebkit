@@ -409,20 +409,6 @@ ContactPickerAPIEnabled:
     WebCore:
       default: false
 
-CoreImageAcceleratedFilterRenderEnabled:
-  type: bool
-  webcoreOnChange: setNeedsRelayoutAllFrames
-  humanReadableName: "CoreImage-Accelerated Filter Rendering"
-  humanReadableDescription: "Accelerated CSS and SVG filter rendering using CoreImage"
-  condition: ENABLE(CORE_IMAGE_ACCELERATED_FILTER_RENDER)
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
-
 CoreMathMLEnabled:
   type: bool
   webcoreOnChange: setNeedsRecalcStyleInAllFrames
@@ -1184,11 +1170,11 @@ RequestSubmitEnabled:
   humanReadableDescription: "Form requestSubmit method"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 RequestVideoFrameCallbackEnabled:
   type: bool
@@ -1603,6 +1589,18 @@ WebGLUsingMetal:
       default: false
     WebCore:
       "HAVE(WEBGL_COMPATIBLE_METAL)": true
+      default: false
+
+WebKitAdditionsFeature1Enabled:
+  type: bool
+  humanReadableName: WebKitAdditionsFeature1HumanReadableName
+  humanReadableDescription: WebKitAdditionsFeature1HumanReadableDescription
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
       default: false
 
 WebLocksAPIEnabled:

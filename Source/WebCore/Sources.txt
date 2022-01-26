@@ -475,6 +475,7 @@ animation/AnimationTimeline.cpp
 animation/CSSAnimation.cpp
 animation/CSSPropertyAnimation.cpp
 animation/CSSTransition.cpp
+animation/CompositeOperation.cpp
 animation/CustomEffect.cpp
 animation/DeclarativeAnimation.cpp
 animation/DocumentTimeline.cpp
@@ -621,6 +622,7 @@ bindings/js/JSWebXRSpaceCustom.cpp
 bindings/js/JSWebXRViewCustom.cpp
 bindings/js/JSWindowProxy.cpp
 bindings/js/JSWorkerGlobalScopeBase.cpp
+bindings/js/JSShadowRealmGlobalScopeBase.cpp
 bindings/js/JSWorkerGlobalScopeCustom.cpp
 bindings/js/JSWorkerNavigatorCustom.cpp
 bindings/js/JSWorkletGlobalScopeBase.cpp
@@ -1066,8 +1068,6 @@ dom/UserGestureIndicator.cpp
 dom/UserTypingGestureIndicator.cpp
 dom/ViewportArguments.cpp
 dom/VisitedLinkState.cpp
-dom/WebKitAnimationEvent.cpp
-dom/WebKitTransitionEvent.cpp
 dom/WheelEvent.cpp
 dom/WindowEventLoop.cpp
 dom/XMLDocument.cpp
@@ -1794,6 +1794,7 @@ page/SecurityOrigin.cpp
 page/SecurityOriginData.cpp
 page/SecurityPolicy.cpp
 page/SettingsBase.cpp
+page/ShadowRealmGlobalScope.cpp
 page/ShareDataReader.cpp
 page/SocketProvider.cpp
 page/SpatialNavigation.cpp
@@ -2078,6 +2079,7 @@ platform/graphics/RemoteVideoSample.cpp
 platform/graphics/RoundedRect.cpp
 platform/graphics/ShadowBlur.cpp
 platform/graphics/SourceBufferPrivate.cpp
+platform/graphics/SourceImage.cpp
 platform/graphics/StringTruncator.cpp
 platform/graphics/TextRun.cpp
 platform/graphics/TextTrackRepresentation.cpp
@@ -2108,6 +2110,7 @@ platform/graphics/filters/FEDisplacementMap.cpp
 platform/graphics/filters/FEDropShadow.cpp
 platform/graphics/filters/FEFlood.cpp
 platform/graphics/filters/FEGaussianBlur.cpp
+platform/graphics/filters/FEImage.cpp
 platform/graphics/filters/FELighting.cpp
 platform/graphics/filters/FEMerge.cpp
 platform/graphics/filters/FEMorphology.cpp
@@ -2134,6 +2137,7 @@ platform/graphics/filters/software/FEDisplacementMapSoftwareApplier.cpp
 platform/graphics/filters/software/FEDropShadowSoftwareApplier.cpp
 platform/graphics/filters/software/FEFloodSoftwareApplier.cpp
 platform/graphics/filters/software/FEGaussianBlurSoftwareApplier.cpp
+platform/graphics/filters/software/FEImageSoftwareApplier.cpp
 platform/graphics/filters/software/FELightingSoftwareApplier.cpp
 platform/graphics/filters/software/FEMergeSoftwareApplier.cpp
 platform/graphics/filters/software/FEMorphologySoftwareApplier.cpp
@@ -2466,6 +2470,7 @@ rendering/style/StyleTransformData.cpp
 rendering/style/StyleVisualData.cpp
 rendering/style/TextSizeAdjustment.cpp
 rendering/style/WillChangeData.cpp
+rendering/svg/LegacyRenderSVGContainer.cpp
 rendering/svg/LegacyRenderSVGModelObject.cpp
 rendering/svg/LegacyRenderSVGRect.cpp
 rendering/svg/LegacyRenderSVGRoot.cpp
@@ -2481,6 +2486,7 @@ rendering/svg/RenderSVGInline.cpp
 rendering/svg/RenderSVGInlineText.cpp
 rendering/svg/RenderSVGModelObject.cpp
 rendering/svg/RenderSVGPath.cpp
+rendering/svg/RenderSVGRect.cpp
 rendering/svg/RenderSVGResource.cpp
 rendering/svg/RenderSVGResourceClipper.cpp
 rendering/svg/RenderSVGResourceContainer.cpp
@@ -2493,7 +2499,6 @@ rendering/svg/RenderSVGResourceMasker.cpp
 rendering/svg/RenderSVGResourcePattern.cpp
 rendering/svg/RenderSVGResourceRadialGradient.cpp
 rendering/svg/RenderSVGResourceSolidColor.cpp
-rendering/svg/RenderSVGRect.cpp
 rendering/svg/RenderSVGRoot.cpp
 rendering/svg/RenderSVGShape.cpp
 rendering/svg/RenderSVGTSpan.cpp
@@ -2501,6 +2506,8 @@ rendering/svg/RenderSVGText.cpp
 rendering/svg/RenderSVGTextPath.cpp
 rendering/svg/RenderSVGTransformableContainer.cpp
 rendering/svg/RenderSVGViewportContainer.cpp
+rendering/svg/SVGBoundingBoxComputation.cpp
+rendering/svg/SVGContainerLayout.cpp
 rendering/svg/SVGInlineFlowBox.cpp
 rendering/svg/SVGInlineTextBox.cpp
 rendering/svg/SVGPathData.cpp
@@ -2715,7 +2722,6 @@ svg/animation/SVGSMILElement.cpp
 svg/graphics/SVGImage.cpp
 svg/graphics/SVGImageCache.cpp
 svg/graphics/SVGImageForContainer.cpp
-svg/graphics/filters/SVGFEImage.cpp
 svg/graphics/filters/SVGFilter.cpp
 svg/graphics/filters/SVGFilterBuilder.cpp
 svg/properties/SVGAnimatedProperty.cpp
@@ -3864,6 +3870,7 @@ JSServiceWorkerGlobalScope.cpp
 JSServiceWorkerRegistration.cpp
 JSServiceWorkerUpdateViaCache.cpp
 JSServiceWorkerWindowClient.cpp
+JSShadowRealmGlobalScope.cpp
 JSShadowRoot.cpp
 JSShadowRootInit.cpp
 JSShadowRootMode.cpp
@@ -4013,7 +4020,6 @@ JSWebGLTransformFeedback.cpp
 JSWebGLUniformLocation.cpp
 JSWebGLVertexArrayObject.cpp
 JSWebGLVertexArrayObjectOES.cpp
-JSWebKitAnimationEvent.cpp
 JSWebKitMediaKeyError.cpp
 JSWebKitMediaKeyMessageEvent.cpp
 JSWebKitMediaKeyNeededEvent.cpp
@@ -4022,7 +4028,6 @@ JSWebKitMediaKeys.cpp
 JSWebKitNamespace.cpp
 JSWebKitPlaybackTargetAvailabilityEvent.cpp
 JSWebKitPoint.cpp
-JSWebKitTransitionEvent.cpp
 JSWebLock.cpp
 JSWebLockGrantedCallback.cpp
 JSWebLockManager.cpp

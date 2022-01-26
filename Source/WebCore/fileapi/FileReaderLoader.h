@@ -58,7 +58,8 @@ public:
         ReadAsBinaryString,
         ReadAsBlob,
         ReadAsText,
-        ReadAsDataURL
+        ReadAsDataURL,
+        ReadAsBinaryChunks
     };
 
     // If client is given, do the loading asynchronously. Otherwise, load synchronously.
@@ -72,7 +73,7 @@ public:
     // ThreadableLoaderClient
     void didReceiveResponse(ResourceLoaderIdentifier, const ResourceResponse&) override;
     void didReceiveData(const SharedBuffer&) override;
-    void didFinishLoading(ResourceLoaderIdentifier) override;
+    void didFinishLoading(ResourceLoaderIdentifier, const NetworkLoadMetrics&) override;
     void didFail(const ResourceError&) override;
 
     String stringResult();

@@ -36,9 +36,7 @@ class SVGFilterElement;
 
 class SVGFilter final : public Filter {
 public:
-    static RefPtr<SVGFilter> create(SVGFilterElement&, SVGFilterBuilder&, RenderingMode, const FloatSize& filterScale, ClipOperation, const FloatRect& targetBoundingBox, FilterEffect& previousEffect);
-    static RefPtr<SVGFilter> create(SVGFilterElement&, SVGFilterBuilder&, RenderingMode, const FloatSize& filterScale, const FloatRect& filterRegion, const FloatRect& targetBoundingBox);
-    static RefPtr<SVGFilter> create(SVGFilterElement&, SVGFilterBuilder&, RenderingMode, const FloatSize& filterScale, ClipOperation, const FloatRect& filterRegion, const FloatRect& targetBoundingBox, FilterEffect* previousEffect);
+    static RefPtr<SVGFilter> create(SVGFilterElement&, SVGFilterBuilder&, RenderingMode, const FloatSize& filterScale, ClipOperation, const FloatRect& filterRegion, const FloatRect& targetBoundingBox);
     WEBCORE_EXPORT static RefPtr<SVGFilter> create(const FloatRect& targetBoundingBox, SVGUnitTypes::SVGUnitType primitiveUnits, SVGFilterExpression&&);
 
     FloatRect targetBoundingBox() const { return m_targetBoundingBox; }
@@ -46,7 +44,6 @@ public:
 
     const SVGFilterExpression& expression() const { return m_expression; }
     
-    RefPtr<FilterEffect> lastEffect() const final;
     FilterEffectVector effectsOfType(FilterFunction::Type) const final;
 
     RefPtr<FilterImage> apply(FilterImage* sourceImage, FilterResults&) final;
@@ -59,12 +56,13 @@ private:
 
     void setExpression(SVGFilterExpression&& expression) { m_expression = WTFMove(expression); }
 
-#if USE(CORE_IMAGE)
-    bool supportsCoreImageRendering() const final;
-#endif
     FloatSize resolvedSize(const FloatSize&) const final;
 
+    bool supportsAcceleratedRendering() const final;
+
     RefPtr<FilterImage> apply(const Filter&, FilterImage& sourceImage, FilterResults&) final;
+
+    IntOutsets outsets(const Filter&) const final { return outsets(); }
     IntOutsets outsets() const final;
 
     FloatRect m_targetBoundingBox;

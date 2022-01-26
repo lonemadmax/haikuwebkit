@@ -27,9 +27,9 @@
 #import "WebPage.h"
 
 #import "InsertTextOptions.h"
-#import "LaunchServicesDatabaseManager.h"
 #import "LoadParameters.h"
 #import "PluginView.h"
+#import "UserMediaCaptureManager.h"
 #import "WKAccessibilityWebPageObjectBase.h"
 #import "WebPageProxyMessages.h"
 #import "WebPaymentCoordinator.h"
@@ -64,23 +64,18 @@
 
 namespace WebKit {
 
+void WebPage::platformInitialize(const WebPageCreationParameters& parameters)
+{
+    platformInitializeAccessibility();
+
+#if ENABLE(MEDIA_STREAM)
+    if (auto* captureManager = WebProcess::singleton().supplement<UserMediaCaptureManager>())
+        captureManager->setupCaptureProcesses(parameters.shouldCaptureAudioInUIProcess, parameters.shouldCaptureAudioInGPUProcess, parameters.shouldCaptureVideoInUIProcess, parameters.shouldCaptureVideoInGPUProcess, parameters.shouldCaptureDisplayInUIProcess);
+#endif
+}
+
 void WebPage::platformDidReceiveLoadParameters(const LoadParameters& parameters)
 {
-#if HAVE(LSDATABASECONTEXT)
-    static bool hasWaitedForLaunchServicesDatabase = false;
-    if (!hasWaitedForLaunchServicesDatabase) {
-        auto startTime = WallTime::now();
-        bool databaseUpdated = LaunchServicesDatabaseManager::singleton().waitForDatabaseUpdate(5_s);
-        auto elapsedTime = WallTime::now() - startTime;
-        if (elapsedTime.value() > 0.5)
-            RELEASE_LOG(Loading, "Waiting for Launch Services database update took %f seconds", elapsedTime.value());
-        ASSERT_UNUSED(databaseUpdated, databaseUpdated);
-        if (!databaseUpdated)
-            RELEASE_LOG_ERROR(Loading, "Timed out waiting for Launch Services database update.");
-        hasWaitedForLaunchServicesDatabase = true;
-    }
-#endif
-
     m_dataDetectionContext = parameters.dataDetectionContext;
 
     consumeNetworkExtensionSandboxExtensions(parameters.networkExtensionSandboxExtensionHandles);
@@ -261,8 +256,7 @@ WebPaymentCoordinator* WebPage::paymentCoordinator()
 {
     if (!m_page)
         return nullptr;
-    auto& client = m_page->paymentCoordinator().client();
-    return is<WebPaymentCoordinator>(client) ? downcast<WebPaymentCoordinator>(&client) : nullptr;
+    return dynamicDowncast<WebPaymentCoordinator>(m_page->paymentCoordinator().client());
 }
 #endif
 
@@ -341,7 +335,11 @@ RetainPtr<CFDataRef> WebPage::pdfSnapshotAtSize(IntRect rect, IntSize bitmapSize
 void WebPage::getProcessDisplayName(CompletionHandler<void(String&&)>&& completionHandler)
 {
 #if PLATFORM(MAC)
+#if ENABLE(SET_WEBCONTENT_PROCESS_INFORMATION_IN_NETWORK_PROCESS)
+    WebProcess::singleton().getProcessDisplayName(WTFMove(completionHandler));
+#else
     completionHandler(adoptCF((CFStringRef)_LSCopyApplicationInformationItem(kLSDefaultSessionID, _LSGetCurrentApplicationASN(), _kLSDisplayNameKey)).get());
+#endif
 #else
     completionHandler({ });
 #endif

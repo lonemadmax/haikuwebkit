@@ -192,6 +192,7 @@ IntRect containerRect(HTMLElement& element)
 struct LineElements {
     Ref<HTMLDivElement> line;
     Vector<Ref<HTMLElement>> children;
+    RefPtr<HTMLBRElement> lineBreak;
 };
 
 struct Elements {
@@ -253,10 +254,10 @@ static Elements updateSubtree(HTMLElement& element, const TextRecognitionResult&
             }
 
             ASSERT(classes.contains(imageOverlayLineClass()));
-            LineElements lineElements { childElement, { } };
+            Vector<Ref<HTMLElement>> lineChildren;
             for (auto& text : childrenOfType<HTMLDivElement>(childElement))
-                lineElements.children.append(text);
-            elements.lines.append(WTFMove(lineElements));
+                lineChildren.append(text);
+            elements.lines.append({ childElement, WTFMove(lineChildren), childrenOfType<HTMLBRElement>(childElement).first() });
         }
 
         bool canUseExistingElements = ([&] {
@@ -270,8 +271,14 @@ static Elements updateSubtree(HTMLElement& element, const TextRecognitionResult&
                 return false;
 
             for (size_t lineIndex = 0; lineIndex < result.lines.size(); ++lineIndex) {
-                auto& childResults = result.lines[lineIndex].children;
-                auto& childTextElements = elements.lines[lineIndex].children;
+                auto& lineResult = result.lines[lineIndex];
+                auto& childResults = lineResult.children;
+
+                auto& lineElements = elements.lines[lineIndex];
+                auto& childTextElements = lineElements.children;
+                if (lineResult.hasTrailingNewline != static_cast<bool>(lineElements.lineBreak))
+                    return false;
+
                 if (childResults.size() != childTextElements.size())
                     return false;
 
@@ -317,7 +324,7 @@ static Elements updateSubtree(HTMLElement& element, const TextRecognitionResult&
             auto lineContainer = HTMLDivElement::create(document.get());
             lineContainer->classList().add(imageOverlayLineClass());
             rootContainer->appendChild(lineContainer);
-            LineElements lineElements { lineContainer, { } };
+            LineElements lineElements { lineContainer, { }, { } };
             lineElements.children.reserveInitialCapacity(line.children.size());
             for (size_t childIndex = 0; childIndex < line.children.size(); ++childIndex) {
                 auto& child = line.children[childIndex];
@@ -328,7 +335,11 @@ static Elements updateSubtree(HTMLElement& element, const TextRecognitionResult&
                 lineElements.children.uncheckedAppend(WTFMove(textContainer));
             }
 
-            lineContainer->appendChild(HTMLBRElement::create(document.get()));
+            if (line.hasTrailingNewline) {
+                lineElements.lineBreak = HTMLBRElement::create(document.get());
+                lineContainer->appendChild(*lineElements.lineBreak);
+            }
+
             elements.lines.uncheckedAppend(WTFMove(lineElements));
         }
 
@@ -511,7 +522,7 @@ void updateWithTextRecognitionResult(HTMLElement& element, const TextRecognition
 
     struct FontSizeAdjustmentState {
         Ref<HTMLElement> container;
-        float targetHeight;
+        FloatSize targetSize;
         float scale { initialScaleForFontSize };
         float minScale { minScaleForFontSize };
         float maxScale { maxScaleForFontSize };
@@ -530,7 +541,7 @@ void updateWithTextRecognitionResult(HTMLElement& element, const TextRecognition
         auto blockContainer = elements.blocks[index];
         auto bounds = fitElementToQuad(blockContainer.get(), convertToContainerCoordinates(block.normalizedQuad));
         blockContainer->setInlineStyleProperty(CSSPropertyFontSize, initialScaleForFontSize * bounds.size.height(), CSSUnitType::CSS_PX);
-        elementsToAdjust.uncheckedAppend({ WTFMove(blockContainer), bounds.size.height() });
+        elementsToAdjust.uncheckedAppend({ WTFMove(blockContainer), bounds.size });
     }
 
     unsigned currentIteration = 0;
@@ -552,7 +563,7 @@ void updateWithTextRecognitionResult(HTMLElement& element, const TextRecognition
                 continue;
             }
 
-            auto currentScore = textRenderer->linesBoundingBox().height() / state.targetHeight;
+            auto currentScore = (textRenderer->linesBoundingBox().size() / state.targetSize).maxDimension();
             if (currentScore < minTargetScore)
                 state.minScale = state.scale;
             else if (currentScore > maxTargetScore)
@@ -563,7 +574,7 @@ void updateWithTextRecognitionResult(HTMLElement& element, const TextRecognition
             }
 
             state.scale = (state.minScale + state.maxScale) / 2;
-            state.container->setInlineStyleProperty(CSSPropertyFontSize, state.targetHeight * state.scale, CSSUnitType::CSS_PX);
+            state.container->setInlineStyleProperty(CSSPropertyFontSize, state.targetSize.height() * state.scale, CSSUnitType::CSS_PX);
         }
 
         elementsToAdjust.removeAllMatching([](auto& state) {
@@ -573,7 +584,7 @@ void updateWithTextRecognitionResult(HTMLElement& element, const TextRecognition
         if (++currentIteration > iterationLimit) {
             // Fall back to the largest font size that still vertically fits within the container.
             for (auto& state : elementsToAdjust)
-                state.container->setInlineStyleProperty(CSSPropertyFontSize, state.targetHeight * state.minScale, CSSUnitType::CSS_PX);
+                state.container->setInlineStyleProperty(CSSPropertyFontSize, state.targetSize.height() * state.minScale, CSSUnitType::CSS_PX);
             break;
         }
     }

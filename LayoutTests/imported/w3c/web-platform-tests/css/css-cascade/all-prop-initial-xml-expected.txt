@@ -9,6 +9,7 @@ PASS align-self
 PASS alignment-baseline
 PASS all
 PASS alt
+PASS animation-composition
 PASS animation-delay
 PASS animation-direction
 PASS animation-duration
@@ -96,6 +97,7 @@ PASS column-rule-width
 PASS column-span
 PASS column-width
 PASS contain
+PASS container-type
 PASS content
 PASS counter-increment
 PASS counter-reset

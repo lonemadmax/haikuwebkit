@@ -1073,12 +1073,9 @@ static const size_t ColorSchemeBits = 2;
 #endif
 
 static const size_t GridAutoFlowBits = 4;
-enum InternalGridAutoFlowAlgorithm {
+enum InternalGridAutoFlow {
     InternalAutoFlowAlgorithmSparse = 1 << 0,
     InternalAutoFlowAlgorithmDense  = 1 << 1,
-};
-
-enum InternalGridAutoFlowDirection {
     InternalAutoFlowDirectionRow    = 1 << 2,
     InternalAutoFlowDirectionColumn = 1 << 3
 };
@@ -1232,6 +1229,12 @@ enum class Containment : uint8_t {
     Paint    = 1 << 1,
     Size     = 1 << 2,
     Style    = 1 << 3,
+};
+
+enum class ContainerType : uint8_t {
+    None,
+    Size,
+    InlineSize,
 };
 
 CSSBoxType transformBoxToCSSBoxType(TransformBox);

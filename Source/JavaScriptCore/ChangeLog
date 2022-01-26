@@ -1,3 +1,1057 @@
+2022-01-24  Mark Lam  <mark.lam@apple.com>
+
+        Rename Vector and FixedVector::findMatching to findIf to match stl naming.
+        https://bugs.webkit.org/show_bug.cgi?id=234864
+        rdar://87424746
+
+        Reviewed by Yusuke Suzuki.
+
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::ArrayPatternNode::emitDirectBinding):
+
+2022-01-24  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Enable Array#groupBy and Array#groupByToMap
+        https://bugs.webkit.org/show_bug.cgi?id=235549
+
+        Reviewed by Ross Kirsling.
+
+        * runtime/OptionsList.h:
+
+2022-01-24  Cameron McCormack  <heycam@apple.com>
+
+        Remove VM::stringCache
+        https://bugs.webkit.org/show_bug.cgi?id=235536
+
+        Reviewed by Sam Weinig.
+
+        We consult VM::stringCache when creating a JSString, but since
+        bug 142115 we never insert anything into it.
+
+        Removing this results in almost-significant improvements in the VueJS,
+        Vanilla-ES2015, and jQuery sub-tests of Speedometer 2 (of 0.5-2%,
+        0.03 <= p <= 0.05), and an almost significant 0.2% improvement in the
+        overall score (p = 0.06).
+
+        * runtime/JSString.cpp:
+        (JSC::jsStringWithCacheSlowCase):
+        * runtime/VM.cpp:
+        (JSC::VM::VM):
+        * runtime/VM.h:
+
+2022-01-24  Diego Pino Garcia  <dpino@igalia.com>
+
+        Unreviewed, fix non-unified build after r288458
+
+        * runtime/DeferredWorkTimer.h:
+
+2022-01-24  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: [Flexbox] Add instrumentation/protocol bits for flex layout containers
+        https://bugs.webkit.org/show_bug.cgi?id=235454
+
+        Reviewed by Devin Rousso.
+
+        * inspector/protocol/CSS.json:
+
+2022-01-24  Mikhail R. Gadelha  <mikhail@igalia.com>
+
+        [JSC][32bit] Fix regexp crash on ARMv7
+        https://bugs.webkit.org/show_bug.cgi?id=234476
+
+        Reviewed by Yusuke Suzuki.
+
+        This patch fixes several regexp crashes on ARMv7 due to an incorrect
+        offset to retrieve the 5th argument from the stack: in ARMv7, only
+        4 arguments are passed via registers r0-r3i, and any other argument is
+        placed on the stack, however, YarrJIT was trying to get the 5th arg
+        from a fixed offset, so because the generateEnter() method pushed
+        register into the stack, the offset was wrong. This patch fixes how
+        the offset is calculated for MIPS and ARMv7.
+
+        This patch also introduces some small changes:
+
+        1. Added static_asserts that the YarrJIT calls do indeed have 5 arguments
+        and that the 5th argument has the type that we expect (MatchingContextHolder*).
+
+        2. Removed an unnecessary pointer from the MatchingContextHolder
+        constructor.
+
+        3. Fixed some warnings in the YarrJIT code here and there.
+
+        * dfg/DFGSpeculativeJIT64.cpp:
+        (JSC::DFG::SpeculativeJIT::compileRegExpTestInline):
+        * runtime/RegExpInlines.h:
+        (JSC::RegExp::matchInline):
+        * yarr/YarrJIT.cpp:
+        * yarr/YarrMatchingContextHolder.h:
+        (JSC::Yarr::MatchingContextHolder::MatchingContextHolder):
+
+2022-01-24  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Support import assertion syntax
+        https://bugs.webkit.org/show_bug.cgi?id=235312
+
+        Reviewed by Ross Kirsling.
+
+        This patch adds syntax support for import assertion[1].
+        This does not add the actual feature propagating import assertion
+        to the module request yet.
+
+        [1]: https://github.com/tc39/proposal-import-assertions
+
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::ImportNode::emitBytecode):
+        * parser/ASTBuilder.h:
+        (JSC::ASTBuilder::createImportExpr):
+        (JSC::ASTBuilder::createImportAssertionList):
+        (JSC::ASTBuilder::appendImportAssertion):
+        (JSC::ASTBuilder::createImportDeclaration):
+        (JSC::ASTBuilder::createExportAllDeclaration):
+        (JSC::ASTBuilder::createExportNamedDeclaration):
+        * parser/NodeConstructors.h:
+        (JSC::ImportNode::ImportNode):
+        (JSC::ImportDeclarationNode::ImportDeclarationNode):
+        (JSC::ExportAllDeclarationNode::ExportAllDeclarationNode):
+        (JSC::ExportNamedDeclarationNode::ExportNamedDeclarationNode):
+        * parser/Nodes.h:
+        * parser/Parser.cpp:
+        (JSC::Parser<LexerType>::parseImportAssertions):
+        (JSC::Parser<LexerType>::parseImportDeclaration):
+        (JSC::Parser<LexerType>::parseExportDeclaration):
+        (JSC::Parser<LexerType>::parseMemberExpression):
+        * parser/Parser.h:
+        * parser/SyntaxChecker.h:
+        (JSC::SyntaxChecker::createImportExpr):
+        (JSC::SyntaxChecker::createImportAssertionList):
+        (JSC::SyntaxChecker::appendImportAssertion):
+        (JSC::SyntaxChecker::createImportDeclaration):
+        (JSC::SyntaxChecker::createExportAllDeclaration):
+        (JSC::SyntaxChecker::createExportNamedDeclaration):
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+        * runtime/OptionsList.h:
+
+2022-01-24  Mark Lam  <mark.lam@apple.com>
+
+        Add FixedVector::clear(), contains(), find(), and findMatching().
+        https://bugs.webkit.org/show_bug.cgi?id=234855
+
+        Reviewed by Yusuke Suzuki.
+
+        Use FixedVector instead of Vector in DeferredWorkTimer::TicketData now that
+        the needed APIs have been added.
+
+        * runtime/DeferredWorkTimer.h:
+
+2022-01-24  Joseph Griego  <jgriego@igalia.com>
+
+        [Shadow Realms] Use WebCore module loaders for shadow realm importValue
+        https://bugs.webkit.org/show_bug.cgi?id=234155
+
+        Reviewed by Darin Adler.
+
+        Add hook for creating the new realm object for shadow realms, since
+        importValue requires the cooperation of the module loading logic to work
+        right.
+
+        * API/JSAPIGlobalObject.cpp:
+        * jsc.cpp:
+        * runtime/JSGlobalObject.cpp:
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::deriveShadowRealmGlobalObject):
+        * runtime/ShadowRealmConstructor.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+        * runtime/ShadowRealmObject.cpp:
+        (JSC::ShadowRealmObject::create):
+        * runtime/ShadowRealmObject.h:
+
+2022-01-21  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r288400.
+        https://bugs.webkit.org/show_bug.cgi?id=235470
+
+        broke ARM64E build
+
+        Reverted changeset:
+
+        "[JSC][32bit] Fix regexp crash on ARMv7"
+        https://bugs.webkit.org/show_bug.cgi?id=234476
+        https://commits.webkit.org/r288400
+
+2022-01-21  Mikhail R. Gadelha  <mikhail@igalia.com>
+
+        [JSC][32bit] Fix regexp crash on ARMv7
+        https://bugs.webkit.org/show_bug.cgi?id=234476
+
+        Reviewed by Yusuke Suzuki.
+
+        This patch fixes several regexp crashes on ARMv7 due to an incorrect
+        offset to retrieve the 5th argument from the stack: in ARMv7, only
+        4 arguments are passed via registers r0-r3i, and any other argument is
+        placed on the stack, however, YarrJIT was trying to get the 5th arg
+        from a fixed offset, so because the generateEnter() method pushed
+        register into the stack, the offset was wrong. This patch fixes how
+        the offset is calculated for MIPS and ARMv7.
+
+        This patch also introduces some small changes:
+
+        1. Added static_asserts that the YarrJIT calls do indeed have 5 arguments
+        and that the 5th argument has the type that we expect (MatchingContextHolder*).
+
+        2. Removed an unnecessary pointer from the MatchingContextHolder
+        constructor.
+
+        3. Fixed some warnings in the YarrJIT code here and there.
+
+        * dfg/DFGSpeculativeJIT64.cpp:
+        (JSC::DFG::SpeculativeJIT::compileRegExpTestInline):
+        * runtime/RegExpInlines.h:
+        (JSC::RegExp::matchInline):
+        * yarr/YarrJIT.cpp:
+        * yarr/YarrMatchingContextHolder.h:
+        (JSC::Yarr::MatchingContextHolder::MatchingContextHolder):
+
+2022-01-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, follow-up after r288066
+        https://bugs.webkit.org/show_bug.cgi?id=235271
+
+        * runtime/DatePrototype.cpp:
+        (JSC::applyToNumberToOtherwiseIgnoredArguments):
+        (JSC::fillStructuresUsingDateArgs):
+        (JSC::setNewValueFromTimeArgs):
+        (JSC::setNewValueFromDateArgs):
+        (JSC::applyToNumbersToTrashedArguments): Deleted.
+
+2022-01-21  Mike Gorse  <mgorse@suse.com>
+
+        Build failure with g++ 12: std::exchange undefined
+        https://bugs.webkit.org/show_bug.cgi?id=235445
+
+        Reviewed by Michael Catanzaro.
+
+        * API/JSRetainPtr.h: Include <utility>
+
+2022-01-21  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Add MacroAssemblerRISCV64 branch-testing operations
+        https://bugs.webkit.org/show_bug.cgi?id=235442
+
+        Reviewed by Yusuke Suzuki.
+
+        Implement MacroAssemblerRISCV64 branch-testing operations. The branching
+        instructions being intentionally simple in RISC-V, and with no status
+        register, scratch register has to be used to hold the testing result
+        and perform a branch based on its value. This will disallow use of these
+        implementations from Air, but that has to be address inside Air itself.
+
+        When performing tests for values that are smaller than 64 bits in width,
+        the tested value is zero-extended or, when necessary, loaded as an
+        unsigned value, to impose zeroed upper bits that eliminate masking
+        values that are too wide or get sign-extended when used as immediates.
+        Post-masking, these shorter-width values still have to be sign-extended
+        to accommodate branch instructions that are used when testing
+        signedness.
+
+        The test result value is then passed on, along with the desired
+        condition, to the new branchTestFinalize() helper method that finally
+        generates the appropriate branch.
+
+        * assembler/MacroAssemblerRISCV64.h:
+        (JSC::MacroAssemblerRISCV64::branchTest8):
+        (JSC::MacroAssemblerRISCV64::branchTest16):
+        (JSC::MacroAssemblerRISCV64::branchTest32):
+        (JSC::MacroAssemblerRISCV64::branchTest64):
+        (JSC::MacroAssemblerRISCV64::branchPtr):
+        (JSC::MacroAssemblerRISCV64::branchTestFinalize):
+
+2022-01-21  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Add MacroAssemblerRISCV64 operations for bitfield, zero-counting, byte-swapping operations
+        https://bugs.webkit.org/show_bug.cgi?id=235439
+
+        Reviewed by Yusuke Suzuki.
+
+        Add MacroAssemblerRISCV64 implementations that cover unsigned bitfield,
+        leading-zero, trailing-zero and byte-swapping operations. All these
+        operations are not supported in base RISC-V specifications. There are
+        extensions currently being ratified that will introduce more useful
+        instructions, but until then more verbose implementations will have
+        to be used.
+
+        For the unsigned bitfield operations, the desired result is achieved
+        through shifting and masking. Scratch registers are only needed in
+        case of the mask immediate being too large, but that will be properly
+        handled by the higher-level JITs. For other operations covered in this
+        patch  we have to use scratch registers and custom loops to implement
+        the necessary behavior.
+
+        * assembler/MacroAssemblerRISCV64.h:
+        (JSC::MacroAssemblerRISCV64::extractUnsignedBitfield32):
+        (JSC::MacroAssemblerRISCV64::extractUnsignedBitfield64):
+        (JSC::MacroAssemblerRISCV64::insertUnsignedBitfieldInZero32):
+        (JSC::MacroAssemblerRISCV64::insertUnsignedBitfieldInZero64):
+        (JSC::MacroAssemblerRISCV64::countLeadingZeros32):
+        (JSC::MacroAssemblerRISCV64::countLeadingZeros64):
+        (JSC::MacroAssemblerRISCV64::countTrailingZeros32):
+        (JSC::MacroAssemblerRISCV64::countTrailingZeros64):
+        (JSC::MacroAssemblerRISCV64::byteSwap16):
+        (JSC::MacroAssemblerRISCV64::byteSwap32):
+        (JSC::MacroAssemblerRISCV64::byteSwap64):
+
+2022-01-21  Alex Christensen  <achristensen@webkit.org>
+
+        Fix build when using Visual Studio 2022
+        https://bugs.webkit.org/show_bug.cgi?id=235440
+
+        Reviewed by Antti Koivisto.
+
+        It doesn't like having a switch with a default but no cases.
+        This is cleaner with if statements anyways.
+        Also make members const because I can.
+
+        * jit/JITCode.cpp:
+        (JSC::JITCode::calleeSaveRegisters const):
+        * jit/JITCode.h:
+
+2022-01-21  Lauro Moura  <lmoura@igalia.com>
+
+        [CMake] Cannot link libTestRunnerInjectedBundle.so in non unified build
+        https://bugs.webkit.org/show_bug.cgi?id=226088
+
+        Reviewed by Adrian Perez de Castro.
+
+        * wasm/js/JSWebAssemblyModule.h: Add missing header
+
+2022-01-20  Pablo Saavedra  <psaavedra@igalia.com>
+
+        Non-unified build fails due to forward declaration in JavaScriptCore/jit/JITStubRoutine.h
+        https://bugs.webkit.org/show_bug.cgi?id=235409
+
+        Unreviewed non-unified build fix.
+
+        * jit/JITStubRoutine.h:
+
+2022-01-20  Joseph Griego  <jgriego@igalia.com>
+
+        [JSC] Add section directive in MacroAssemblerX86Common asm blocks
+        https://bugs.webkit.org/show_bug.cgi?id=235406
+
+        Reviewed by Yusuke Suzuki.
+
+        These asm blocks aren't in a function body so they need a .text
+        directive to prevent them from being included in some arbitrary section
+        (say, an inline function's section) by happenstance, which was happening
+        in the WPE build without UnifiedSources.
+
+        * assembler/MacroAssemblerX86Common.cpp:
+
+2022-01-19  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Implement Temporal.Now.instant()
+        https://bugs.webkit.org/show_bug.cgi?id=234836
+
+        Reviewed by Ross Kirsling.
+
+        This patch implements Temporal.Now.instant() since Temporal.Instant is now implemented.
+        It returns an instant which represents current wall time.
+
+        * runtime/ISO8601.cpp:
+        (JSC::ISO8601::ExactTime::now):
+        * runtime/ISO8601.h:
+        * runtime/TemporalNow.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+
+2022-01-19  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix non-JIT Windows LLInt
+        https://bugs.webkit.org/show_bug.cgi?id=235388
+
+        Reviewed by Mark Lam.
+
+        We should implement cCall3 which calls llint_link_call etc. from LLInt code.
+        This implementation needs to work on Windows too, so it requires stack modification.
+        While we do not have a problem on JIT Windows build, it is required for non JIT Windows
+        build. (If JIT is enabled, LLInt is fine. But if JIT is entirely disabled, this change
+        is required.)
+
+        * llint/LLIntSlowPaths.cpp:
+        (JSC::LLInt::llint_link_call):
+        (JSC::LLInt::llint_virtual_call):
+        * llint/LLIntSlowPaths.h:
+        * llint/LowLevelInterpreter.asm:
+        * llint/LowLevelInterpreter32_64.asm:
+        * llint/LowLevelInterpreter64.asm:
+        * offlineasm/cloop.rb:
+        * offlineasm/instructions.rb:
+
+2022-01-19  Saam Barati  <sbarati@apple.com>
+
+        Update ARM64EHash
+        https://bugs.webkit.org/show_bug.cgi?id=235192
+
+        Reviewed by Mark Lam.
+
+        * CMakeLists.txt:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * Sources.txt:
+        * assembler/AssemblerBuffer.h:
+        (JSC::ARM64EHash::ARM64EHash):
+        (JSC::ARM64EHash::~ARM64EHash):
+        (JSC::ARM64EHash::allocatePinForCurrentThreadAndInitializeHash):
+        (JSC::ARM64EHash::deallocatePinForCurrentThread):
+        (JSC::ARM64EHash::update):
+        (JSC::ARM64EHash::pin):
+        (JSC::ARM64EHash::currentHash):
+        (JSC::ARM64EHash::setUpdatedHash):
+        (JSC::AssemblerBuffer::AssemblerBuffer):
+        (JSC::AssemblerBuffer::arm64eHash):
+        (JSC::AssemblerBuffer::putIntegralUnchecked):
+        (JSC::ARM64EHash::bitsForDiversifier): Deleted.
+        * assembler/LinkBuffer.cpp:
+        (JSC::LinkBuffer::copyCompactAndLinkCode):
+        (JSC::LinkBuffer::allocate):
+        * assembler/SecureARM64EHashPins.cpp: Added.
+        (JSC::WriteToJITRegionScope::WriteToJITRegionScope):
+        (JSC::WriteToJITRegionScope::~WriteToJITRegionScope):
+        (JSC::ValidateNonReentrancyScope::ValidateNonReentrancyScope):
+        (JSC::ValidateNonReentrancyScope::~ValidateNonReentrancyScope):
+        (JSC::allocateInExecutableMemory):
+        (JSC::SecureARM64EHashPins::Page::Page):
+        (JSC::initializePage):
+        (JSC::SecureARM64EHashPins::metadata):
+        (JSC::SecureARM64EHashPins::initializeAtStartup):
+        (JSC::SecureARM64EHashPins::allocatePinForCurrentThreadImpl):
+        (JSC::SecureARM64EHashPins::allocatePinForCurrentThread):
+        (JSC::SecureARM64EHashPins::deallocatePinForCurrentThread):
+        * assembler/SecureARM64EHashPins.h: Added.
+        (JSC::SecureARM64EHashPins::firstPage):
+        * assembler/SecureARM64EHashPinsInlines.h: Added.
+        (JSC::SecureARM64EHashPins::keyForCurrentThread):
+        (JSC::SecureARM64EHashPins::forEachPage):
+        (JSC::SecureARM64EHashPins::forEachEntry):
+        (JSC::SecureARM64EHashPins::findFirstEntry):
+        (JSC::SecureARM64EHashPins::pinForCurrentThread):
+        * heap/MarkedBlock.h:
+        * heap/MarkedSpace.h:
+        * heap/SlotVisitor.h:
+        * jit/BaselineJITPlan.cpp:
+        (JSC::BaselineJITPlan::BaselineJITPlan):
+        (JSC::BaselineJITPlan::compileInThreadImpl):
+        * jit/ExecutableAllocator.cpp:
+        * parser/Parser.h:
+        * runtime/InitializeThreading.cpp:
+        (JSC::initialize):
+        * runtime/IterationStatus.h: Removed.
+        * runtime/JSCConfig.h:
+        * wasm/WasmAirIRGenerator.cpp:
+        (JSC::Wasm::parseAndCompileAir):
+        * wasm/WasmB3IRGenerator.cpp:
+        (JSC::Wasm::parseAndCompileB3):
+        * wasm/WasmBBQPlan.cpp:
+        (JSC::Wasm::BBQPlan::compileFunction):
+
+2022-01-19  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix YarrJIT backtrackCharacterClassNonGreedy breakpoint
+        https://bugs.webkit.org/show_bug.cgi?id=235348
+
+        Reviewed by Michael Saboff.
+
+        YarrJIT's backtrackCharacterClassNonGreedy breakpoint is actually reachable. We should subtract index (since it is already incremented),
+        and go to the normal nonGreedyFailures path.
+
+        * yarr/YarrJIT.cpp:
+
+2022-01-19  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        Fix -Wreturn-type and -Wunused-parameter warnings, January 2022 edition
+        https://bugs.webkit.org/show_bug.cgi?id=235336
+
+        Reviewed by Adrian Perez de Castro.
+
+        * wasm/WasmCompilationMode.h:
+        (JSC::Wasm::isOSREntry):
+        (JSC::Wasm::isAnyBBQ):
+        (JSC::Wasm::isAnyOMG):
+
+2022-01-18  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Remove Wasm::Table's m_mask
+        https://bugs.webkit.org/show_bug.cgi?id=235329
+
+        Reviewed by Mark Lam.
+
+        This patch removes m_mask in Wasm::Table.
+        The mask is removed in the other places, but forgot
+        removing that in Wasm::Table.
+
+        * wasm/WasmTable.cpp:
+        (JSC::Wasm::Table::setLength):
+        (JSC::Wasm::Table::clear):
+        (JSC::Wasm::Table::set):
+        (JSC::Wasm::Table::get const):
+        (JSC::Wasm::FuncRefTable::setFunction):
+        (JSC::Wasm::FuncRefTable::function const):
+        (JSC::Wasm::FuncRefTable::instance const):
+        * wasm/WasmTable.h:
+        (JSC::Wasm::Table::offsetOfLength):
+        (JSC::Wasm::Table::offsetOfMask): Deleted.
+        (JSC::Wasm::Table::mask const): Deleted.
+
+2022-01-18  Alex Christensen  <achristensen@webkit.org>
+
+        Use c++2a instead of gnu++2a for Cocoa builds
+        https://bugs.webkit.org/show_bug.cgi?id=234936
+
+        Reviewed by Sam Weinig.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/JavaScriptCore.xcconfig:
+        * DerivedSources.make:
+
+2022-01-18  Adrian Perez de Castro  <aperez@igalia.com>
+
+        Non-unified build fails due to missing header in WasmCalleeGroup.cpp
+
+        Unreviewed non-unified build fix.
+
+        * wasm/WasmCalleeGroup.cpp: Add missing inclusion of the LinkBuffer.h header.
+
+2022-01-16  Lauro Moura  <lmoura@igalia.com>
+
+        Fix C++20 build warnings with GCC
+        https://bugs.webkit.org/show_bug.cgi?id=235023
+
+        Reviewed by Alex Christensen.
+
+        Mostly related to deprecating operations between enums of different
+        types and not capturing this by default in lambdas.
+
+        * assembler/X86Assembler.h: Casting enums to same type.
+        (JSC::X86Assembler::cmovcc):
+        (JSC::X86Assembler::jccRel32):
+        (JSC::X86Assembler::setccOpcode):
+        * b3/B3CheckSpecial.cpp: Capture this in lambda.
+        (JSC::B3::CheckSpecial::generate):
+        * b3/B3Type.cpp: Replace is_pod_v is is_standard_layout_v and
+        is_trivial_v
+        * bytecode/AccessCase.cpp: Capture this in lambda.
+        (JSC::AccessCase::generateImpl):
+        * bytecode/CallLinkInfo.cpp: Ditto.
+        (JSC::OptimizingCallLinkInfo::emitDirectFastPath):
+        (JSC::OptimizingCallLinkInfo::emitDirectTailCallFastPath):
+        (JSC::OptimizingCallLinkInfo::initializeDirectCall):
+        * dfg/DFGSpeculativeJIT.cpp: Ditto.
+        * dfg/DFGSpeculativeJIT64.cpp: Ditto.
+        (JSC::DFG::SpeculativeJIT::compile):
+        * jit/ICStats.h: Cast enums to same type.
+        (JSC::ICEvent::hash const):
+        * jit/JITArithmetic.cpp: Capture this in lambda.
+        (JSC::JIT::emitMathICSlow):
+        * jit/JITSizeStatistics.cpp: Ditto.
+        (JSC::JITSizeStatistics::markEnd):
+        * runtime/VM.cpp: Ditto.
+        (JSC::VM::deleteAllLinkedCode):
+        (JSC::VM::deleteAllCode):
+        (JSC::VM::shrinkFootprintWhenIdle):
+        * wasm/WasmAirIRGenerator.cpp: Ditto.
+        (JSC::Wasm::AirIRGenerator::AirIRGenerator):
+        (JSC::Wasm::AirIRGenerator::addTableGet):
+        (JSC::Wasm::AirIRGenerator::addTableSet):
+        (JSC::Wasm::AirIRGenerator::addTableInit):
+        (JSC::Wasm::AirIRGenerator::addTableFill):
+        (JSC::Wasm::AirIRGenerator::addTableCopy):
+        (JSC::Wasm::AirIRGenerator::addMemoryFill):
+        (JSC::Wasm::AirIRGenerator::addMemoryCopy):
+        (JSC::Wasm::AirIRGenerator::addMemoryInit):
+        (JSC::Wasm::AirIRGenerator::emitCheckAndPreparePointer):
+        (JSC::Wasm::AirIRGenerator::emitAtomicLoadOp):
+        (JSC::Wasm::AirIRGenerator::emitAtomicStoreOp):
+        (JSC::Wasm::AirIRGenerator::emitAtomicBinaryRMWOp):
+        (JSC::Wasm::AirIRGenerator::emitAtomicCompareExchange):
+        (JSC::Wasm::AirIRGenerator::atomicWait):
+        (JSC::Wasm::AirIRGenerator::atomicNotify):
+        (JSC::Wasm::AirIRGenerator::emitEntryTierUpCheck):
+        (JSC::Wasm::AirIRGenerator::emitLoopTierUpCheck):
+        (JSC::Wasm::AirIRGenerator::addCallIndirect):
+        (JSC::Wasm::AirIRGenerator::addCallRef):
+        (JSC::Wasm::AirIRGenerator::emitChecksForModOrDiv):
+        (JSC::Wasm::AirIRGenerator::addOp<OpType::I32TruncSF64>):
+        (JSC::Wasm::AirIRGenerator::addOp<OpType::I32TruncSF32>):
+        (JSC::Wasm::AirIRGenerator::addOp<OpType::I32TruncUF64>):
+        (JSC::Wasm::AirIRGenerator::addOp<OpType::I32TruncUF32>):
+        (JSC::Wasm::AirIRGenerator::addOp<OpType::I64TruncSF64>):
+        (JSC::Wasm::AirIRGenerator::addOp<OpType::I64TruncUF64>):
+        (JSC::Wasm::AirIRGenerator::addOp<OpType::I64TruncSF32>):
+        (JSC::Wasm::AirIRGenerator::addOp<OpType::I64TruncUF32>):
+        * wasm/WasmB3IRGenerator.cpp: Ditto.
+        (JSC::Wasm::B3IRGenerator::B3IRGenerator):
+        (JSC::Wasm::B3IRGenerator::addTableGet):
+        (JSC::Wasm::B3IRGenerator::addTableSet):
+        (JSC::Wasm::B3IRGenerator::addTableInit):
+        (JSC::Wasm::B3IRGenerator::addTableFill):
+        (JSC::Wasm::B3IRGenerator::addTableCopy):
+        (JSC::Wasm::B3IRGenerator::emitIndirectCall):
+        (JSC::Wasm::B3IRGenerator::addMemoryFill):
+        (JSC::Wasm::B3IRGenerator::addMemoryInit):
+        (JSC::Wasm::B3IRGenerator::addMemoryCopy):
+        (JSC::Wasm::B3IRGenerator::fixupPointerPlusOffsetForAtomicOps):
+        (JSC::Wasm::B3IRGenerator::atomicWait):
+        (JSC::Wasm::B3IRGenerator::atomicNotify):
+        (JSC::Wasm::B3IRGenerator::emitEntryTierUpCheck):
+        (JSC::Wasm::B3IRGenerator::emitLoopTierUpCheck):
+        (JSC::Wasm::B3IRGenerator::addCall):
+        (JSC::Wasm::B3IRGenerator::addCallIndirect):
+        (JSC::Wasm::B3IRGenerator::addCallRef):
+        (JSC::Wasm::B3IRGenerator::emitChecksForModOrDiv):
+        (JSC::Wasm::B3IRGenerator::addOp<OpType::I32TruncSF64>):
+        (JSC::Wasm::B3IRGenerator::addOp<OpType::I32TruncSF32>):
+        (JSC::Wasm::B3IRGenerator::addOp<OpType::I32TruncUF64>):
+        (JSC::Wasm::B3IRGenerator::addOp<OpType::I32TruncUF32>):
+        (JSC::Wasm::B3IRGenerator::addOp<OpType::I64TruncSF64>):
+        (JSC::Wasm::B3IRGenerator::addOp<OpType::I64TruncUF64>):
+        (JSC::Wasm::B3IRGenerator::addOp<OpType::I64TruncSF32>):
+        (JSC::Wasm::B3IRGenerator::addOp<OpType::I64TruncUF32>):
+        * yarr/YarrJIT.cpp: Ditto.
+
+2022-01-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix Date functions' argument coercion
+        https://bugs.webkit.org/show_bug.cgi?id=235271
+
+        Reviewed by Alexey Shvayka.
+
+        Even if the input Date is NaN or the result looks like NaN, we need to coerce passed
+        arguments to Number[1] since it has observable side effect.
+
+        [1]: https://github.com/tc39/ecma262/pull/2136
+
+        * runtime/DatePrototype.cpp:
+        (JSC::applyToNumbersToTrashedArguments):
+        (JSC::fillStructuresUsingTimeArgs):
+        (JSC::fillStructuresUsingDateArgs):
+        (JSC::setNewValueFromTimeArgs):
+        (JSC::setNewValueFromDateArgs):
+
+2022-01-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix misc issues in WebAssembly.Exception
+        https://bugs.webkit.org/show_bug.cgi?id=235261
+
+        Reviewed by Alexey Shvayka.
+
+        1. Add @toStringTag to WebAssembly.Exception.prototype.
+        2. Add argument count check for WebAssembly.Exception methods (since it is specified in WebIDL and these methods do not have optional parameters).
+
+        * wasm/js/WebAssemblyExceptionPrototype.cpp:
+        (JSC::WebAssemblyExceptionPrototype::finishCreation):
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+
+2022-01-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix misc WebAssembly.Table issues
+        https://bugs.webkit.org/show_bug.cgi?id=235262
+
+        Reviewed by Alexey Shvayka.
+
+        * wasm/js/WebAssemblyTablePrototype.cpp:
+
+2022-01-14  Yusuke Suzuki  <ysuzuki@apple.com> and Mikhail R. Gadelha  <mikhail@igalia.com>
+
+        [JSC] Fix Linux 64bit compilation
+        https://bugs.webkit.org/show_bug.cgi?id=235232
+
+        Reviewed by Saam Barati.
+
+        Define PAS_BMALLOC in all projects since JavaScriptCore includes some files which can require this macro variable.
+        Previously, JSDollarVM.cpp includes these files first, then at that time, we can define PAS_BMALLOC.
+        However, after enabling jit-heap, these files are included before JSDollarVM.cpp and include pas_config.h without
+        PAS_BMALLOC definition, which later causes the problem when including pas_lock.h since non PAS_BMALLOC libpas requires
+        darwin specific locking.
+
+        Since defining PAS_BMALLOC does not matter to whether using libpas or not, this patch just defines it globally.
+        And for Apple ports, we define this when we define BENABLE_LIBPAS.
+
+        * tools/JSDollarVM.cpp:
+
+2022-01-14  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix WebAssembly.Global's typename for "anyfunc"
+        https://bugs.webkit.org/show_bug.cgi?id=235105
+
+        Reviewed by Keith Miller.
+
+        We should return "anyfunc" string instead of "funcref" according to the spec[1,2].
+
+        [1]: https://webassembly.github.io/spec/js-api/#globals
+        [2]: https://webassembly.github.io/spec/js-api/#tables
+
+        * wasm/js/JSWebAssemblyGlobal.cpp:
+        (JSC::JSWebAssemblyGlobal::type):
+        * wasm/js/JSWebAssemblyTable.cpp:
+        (JSC::JSWebAssemblyTable::type):
+
+2022-01-14  Mark Lam  <mark.lam@apple.com>
+
+        JSStringJoiner's constructor should take a size_t length.
+        https://bugs.webkit.org/show_bug.cgi?id=235217
+        rdar://87538657
+
+        Reviewed by Yusuke Suzuki.
+
+        Also removed an unnecessary exception check in JSStringJoiner::append().
+        This is because appendWithoutSideEffects() cannot throw any exceptions.
+
+        * runtime/JSStringJoiner.h:
+        (JSC::JSStringJoiner::JSStringJoiner):
+        (JSC::JSStringJoiner::append):
+
+2022-01-14  Alexey Shvayka  <ashvayka@apple.com>
+
+        JSArray::fastSlice() should not convert the source from CoW
+        https://bugs.webkit.org/show_bug.cgi?id=234990
+
+        Reviewed by Yusuke Suzuki.
+
+        Since we aren't modifying the source array in fastSlice() nor its slow path,
+        there is no reason to convert it from CopyOnWrite.
+
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::fastSlice):
+
+2022-01-14  Saam Barati  <sbarati@apple.com>
+
+        Make isJITPC fast
+        https://bugs.webkit.org/show_bug.cgi?id=235241
+
+        Reviewed by Yusuke Suzuki.
+
+        Make it an inlined function, and stop tagging g_jscConfig.startExecutableMemory
+        and g_jscConfig.endExecutableMemory, since they're in the Config page, and
+        not mutable after it's frozen.
+
+        * jit/ExecutableAllocator.cpp:
+        (JSC::initializeJITPageReservation):
+        (JSC::isJITPC): Deleted.
+        * jit/ExecutableAllocator.h:
+        (JSC::isJITPC):
+
+2022-01-14  Saam Barati  <sbarati@apple.com>
+
+        Use IRC for Wasm, and Briggs for JS on ARM64
+        https://bugs.webkit.org/show_bug.cgi?id=235235
+        <rdar://87090631>
+
+        Reviewed by Yusuke Suzuki and Robin Morisset.
+
+        When I turned on IRC for everything in r287218, we saw some
+        regressions on iOS on JetStream2. So, this patch makes it so
+        JS code on arm64 goes back to using Briggs, and Wasm will
+        use IRC.
+
+        * b3/air/AirAllocateRegistersByGraphColoring.cpp:
+        * b3/air/AirCode.h:
+        (JSC::B3::Air::Code::setForceIRCRegisterAllocation):
+        (JSC::B3::Air::Code::forceIRCRegisterAllocation):
+        * wasm/WasmB3IRGenerator.cpp:
+        (JSC::Wasm::parseAndCompileB3):
+
+2022-01-13  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] riscv64 backend should lower offlineasm instructions
+        https://bugs.webkit.org/show_bug.cgi?id=234952
+        <rdar://problem/87440612>
+
+        Reviewed by Yusuke Suzuki.
+
+        In the riscv64 offlineasm backend, instead of handling higher-level
+        offlineasm instructions with different operand combinations and manually
+        juggling temp registers, use the approach of aggressively lowering these
+        opcodes into sequences of RISC-V instructions.
+
+        Addresses and immediate values are lowered into usable forms where
+        necessary. Different lowering phases handle any offlineasm instruction
+        so that the resulting opcodes can be, with accompanying operands, used
+        trivially to construct the RISC-V assembly.
+
+        Lowered RISC-V opcodes use the 'rv_' prefix so that they can be easily
+        diassociated from any offlineasm opcode that might share the same name.
+        The prefix is removed when the assembly is finally generated.
+
+        * offlineasm/riscv64.rb:
+
+2022-01-13  Saam Barati  <sbarati@apple.com>
+
+        Link Wasm code on the same thread that JITs
+        https://bugs.webkit.org/show_bug.cgi?id=235201
+
+        Reviewed by Yusuke Suzuki and Mark Lam.
+
+        This is preparing us for the changes that'll be needed by
+        https://bugs.webkit.org/show_bug.cgi?id=235192.
+        
+        It should also be a small perf improvement, as we're now linking
+        in parallel instead of doing it after all compilations have finished.
+
+        * wasm/WasmB3IRGenerator.cpp:
+        (JSC::Wasm::parseAndCompileB3):
+        * wasm/WasmBBQPlan.cpp:
+        (JSC::Wasm::BBQPlan::prepareImpl):
+        (JSC::Wasm::BBQPlan::compileFunction):
+        (JSC::Wasm::BBQPlan::didCompleteCompilation):
+        (JSC::Wasm::BBQPlan::initializeCallees):
+        * wasm/WasmBBQPlan.h:
+
+2022-01-13  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] Add "product dependencies" which influence workspace build order
+        https://bugs.webkit.org/show_bug.cgi?id=235094
+
+        Some ancillary targets (e.g. script-only targets like Derived Sources) do not have implicit
+        dependencies visible to Xcode. In workspace builds, we need to give XCBuild additional
+        information to ensure that they always run after their dependencies.
+
+        This patch adds "Product Dependencies" phases, which are Copy Files phases that copy the
+        _product_ of another dependency. The product names are also added to
+        EXCLUDED_SOURCE_FILE_NAMES, making the actual copy a no-op, but these phases give XCBuild
+        enough metadata to infer the relationship between targets.
+
+        For example, JavaScriptCore's "Generate Unified Sources" target depends on headers from WTF,
+        so it lists libWTF.a in its Product Dependencies. Xcode sees the relationship between the
+        target doing the copy (Generate Unified Sources) and the target which produces the product
+        (WTF) and schedules them accordingly.
+
+        Because these dependencies are _implicit_ and the copy phases are no-ops, they do not
+        influence command-line or production builds where each project is built separately.
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/Base.xcconfig: Add EXCLUDED_SOURCE_FILE_NAMES
+        * Configurations/JavaScriptCore.xcconfig: Inherit EXCLUDED_SOURCE_FILE_NAMES
+        * JavaScriptCore.xcodeproj/project.pbxproj: Add Product Dependencies
+
+2022-01-13  Tim Horton  <timothy_horton@apple.com>
+
+        Fix a few Objective-C object leaks due to early returns in `init`
+        https://bugs.webkit.org/show_bug.cgi?id=235162
+        <rdar://problem/87489048>
+
+        Reviewed by Wenson Hsieh.
+
+        * API/JSValue.mm:
+        (-[JSValue initWithValue:inContext:]):
+
+2022-01-12  Mark Lam  <mark.lam@apple.com>
+
+        [Re-landing] Update hashThreadState() to exclude __opaque_flags.
+        https://bugs.webkit.org/show_bug.cgi?id=235081
+        rdar://86282584
+
+        Reviewed by Keith Miller.
+
+        Removed some unused code.
+
+        * runtime/MachineContext.h:
+        (JSC::MachineContext::stackPointer):
+        (JSC::MachineContext::framePointer):
+        (JSC::MachineContext::instructionPointer):
+        (JSC::MachineContext::linkRegister):
+        (JSC::MachineContext::setStackPointer): Deleted.
+        (JSC::MachineContext::setFramePointer): Deleted.
+        (JSC::MachineContext::setLinkRegister): Deleted.
+
+2022-01-12  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r287912.
+        https://bugs.webkit.org/show_bug.cgi?id=235164
+
+        ARM64/ARM64E Speedometer2 50% regression, probably breaking
+        something
+
+        Reverted changeset:
+
+        "[RISCV64] riscv64 backend should lower offlineasm
+        instructions"
+        https://bugs.webkit.org/show_bug.cgi?id=234952
+        https://commits.webkit.org/r287912
+
+2022-01-12  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r287908.
+        https://bugs.webkit.org/show_bug.cgi?id=235156
+
+        Broke M1 Monterey JSC
+
+        Reverted changeset:
+
+        "Update hashThreadState() to exclude __opaque_flags."
+        https://bugs.webkit.org/show_bug.cgi?id=235081
+        https://commits.webkit.org/r287908
+
+2022-01-11  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] riscv64 backend should lower offlineasm instructions
+        https://bugs.webkit.org/show_bug.cgi?id=234952
+
+        Reviewed by Yusuke Suzuki.
+
+        In the riscv64 offlineasm backend, instead of handling higher-level
+        offlineasm instructions with different operand combinations and manually
+        juggling temp registers, use the approach of aggressively lowering these
+        opcodes into sequences of RISC-V instructions.
+
+        Addresses and immediate values are lowered into usable forms where
+        necessary. Different lowering phases handle any offlineasm instruction
+        so that the resulting opcodes can be, with accompanying operands, used
+        trivially to construct the RISC-V assembly.
+
+        Lowered RISC-V opcodes use the 'rv_' prefix so that they can be easily
+        diassociated from any offlineasm opcode that might share the same name.
+        The prefix is removed when the assembly is finally generated.
+
+        * offlineasm/risc.rb: Also handle branch-on-arithmetic opcodes in the
+        riscvLowerMisplacedAddress lowering phase.
+        * offlineasm/riscv64.rb:
+
+2022-01-11  Mark Lam  <mark.lam@apple.com>
+
+        Update hashThreadState() to exclude __opaque_flags.
+        https://bugs.webkit.org/show_bug.cgi?id=235081
+        rdar://86282584
+
+        Reviewed by Keith Miller.
+
+        Removed some unused code.
+
+        * runtime/MachineContext.h:
+        (JSC::MachineContext::stackPointer):
+        (JSC::MachineContext::framePointer):
+        (JSC::MachineContext::instructionPointer):
+        (JSC::MachineContext::linkRegister):
+        (JSC::MachineContext::setStackPointer): Deleted.
+        (JSC::MachineContext::setFramePointer): Deleted.
+        (JSC::MachineContext::setLinkRegister): Deleted.
+
+2022-01-11  Asumu Takikawa  <asumu@igalia.com>
+
+        [Wasm] Unify memory import handling in module loader and JS cases
+        https://bugs.webkit.org/show_bug.cgi?id=234116
+
+        Reviewed by Yusuke Suzuki.
+
+        Moves the memory import handling code to the Wasm module record and
+        use the strategy used by the module loader to handle memory in all
+        cases.
+
+        * wasm/WasmModule.cpp:
+        (JSC::Wasm::Module::copyInitialCalleeGroupToAllMemoryModes):
+        * wasm/js/JSWebAssemblyInstance.cpp:
+        (JSC::JSWebAssemblyInstance::finalizeCreation):
+        (JSC::JSWebAssemblyInstance::tryCreate):
+        * wasm/js/WebAssemblyModuleRecord.cpp:
+        (JSC::WebAssemblyModuleRecord::initializeImportsAndExports):
+
+2022-01-11  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix kind of error thrown by wasm module creation
+        https://bugs.webkit.org/show_bug.cgi?id=235082
+
+        Reviewed by Michael Saboff.
+
+        It should throw WebAssembly.CompileError instead of WebAssembly.LinkError.
+        This fixes occasional failure in wasm imports-oom.js test.
+
+        * wasm/js/JSWebAssemblyModule.cpp:
+        (JSC::JSWebAssemblyModule::createStub):
+
+2022-01-11  Adrian Perez de Castro  <aperez@igalia.com>
+
+        Non-unified build fixes, early January 2022 edition
+        https://bugs.webkit.org/show_bug.cgi?id=235013
+
+        Unreviewed non-unified build fixes.
+
+        * wasm/js/JSWebAssemblyModule.cpp: Add missing JSWebAssemblyLinkError.h header.
+        * wasm/js/JSWebAssemblyModule.h: Add missing forward declaration for the
+        JSC::OptimizingCallLinkInfo type.
+
+2022-01-10  Saam Barati  <sbarati@apple.com>
+
+        Allow loop tier up to the Air tier
+        https://bugs.webkit.org/show_bug.cgi?id=234587
+        <rdar://problem/86968638>
+
+        Reviewed by Yusuke Suzuki.
+
+        This patch adds loop tier up from LLInt -> Air. To implement this, we use
+        EntrySwitch to point at each loop header, making each loop an entrypoint.
+        This is unlike BBQ->OMG tier up, where we compile a special OSR entry OMG
+        callee. This seems like a good architecture for the Air tier, since we might end
+        up with slightly worse throughput, but we won't need a different compilation
+        for loops vs call entrypoints.
+        
+        This patch also fixes a bug in Air's O0 register allocation where it
+        didn't properly account for all named registers in an instruction. There
+        was a silly bug where we asked each arg if it were a temp, instead of
+        asking the Inst for each of its temps, since an Arg can be an address
+        but still use temps.
+
+        * b3/air/AirAllocateRegistersAndStackAndGenerateCode.cpp:
+        (JSC::B3::Air::GenerateAndAllocateRegisters::generate):
+        * wasm/WasmAirIRGenerator.cpp:
+        (JSC::Wasm::AirIRGenerator::emitLoad):
+        (JSC::Wasm::AirIRGenerator::AirIRGenerator):
+        (JSC::Wasm::AirIRGenerator::finalizeEntrypoints):
+        (JSC::Wasm::AirIRGenerator::emitLoopTierUpCheck):
+        (JSC::Wasm::AirIRGenerator::addLoop):
+        (JSC::Wasm::parseAndCompileAir):
+        * wasm/WasmB3IRGenerator.cpp:
+        (JSC::Wasm::B3IRGenerator::B3IRGenerator):
+        (JSC::Wasm::parseAndCompileB3):
+        (JSC::Wasm::parseAndCompile): Deleted.
+        * wasm/WasmB3IRGenerator.h:
+        * wasm/WasmBBQPlan.cpp:
+        (JSC::Wasm::BBQPlan::prepareImpl):
+        (JSC::Wasm::BBQPlan::work):
+        (JSC::Wasm::BBQPlan::compileFunction):
+        (JSC::Wasm::BBQPlan::didCompleteCompilation):
+        (JSC::Wasm::BBQPlan::initializeCallees):
+        * wasm/WasmBBQPlan.h:
+        * wasm/WasmCallee.h:
+        * wasm/WasmCalleeGroup.h:
+        * wasm/WasmFormat.h:
+        * wasm/WasmIRGeneratorHelpers.h:
+        (JSC::Wasm::computeExceptionHandlerAndLoopEntrypointLocations):
+        (JSC::Wasm::computeExceptionHandlerLocations):
+        * wasm/WasmLLIntPlan.cpp:
+        (JSC::Wasm::LLIntPlan::didCompleteCompilation):
+        * wasm/WasmOMGPlan.cpp:
+        (JSC::Wasm::OMGPlan::work):
+        * wasm/WasmOSREntryPlan.cpp:
+        (JSC::Wasm::OSREntryPlan::work):
+        * wasm/WasmSlowPaths.cpp:
+        (JSC::LLInt::WASM_SLOW_PATH_DECL):
+        * wasm/js/JSToWasm.cpp:
+        (JSC::Wasm::createJSToWasmWrapper):
+
+2022-01-10  Alex Christensen  <achristensen@webkit.org>
+
+        Start using C++20
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+
+        Reviewed by Yusuke Suzuki.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/JavaScriptCore.xcconfig:
+        * DerivedSources.make:
+        * heap/Heap.cpp:
+        (JSC::Heap::addCoreConstraints):
+        * runtime/CachedTypes.cpp:
+        * runtime/LiteralParser.h:
+        * shell/PlatformPlayStation.cmake:
+
 2022-01-10  Elliott Williams  <emw@apple.com>
 
         postprocess-headers.sh: Avoid redundant processing to speed up incremental Xcode builds

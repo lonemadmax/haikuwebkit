@@ -107,6 +107,9 @@ fast/dom/Window/slow-unload-handler-only-frame-is-stopped.html
 model-element/model-element-contents-layer-updates-with-clipping.html [ Skip ]
 model-element/model-element-contents-layer-updates.html [ Skip ]
 
+# This test requires ARQL SPIs not yet available to OpenSource builds.
+model-element/model-element-camera.html [ Skip ]
+
 # Accessibility tests for notifications that don't exist or aren't needed on Mac OS X.
 accessibility/aria-checkbox-sends-notification.html
 accessibility/aria-switch-sends-notification.html
@@ -1015,9 +1018,6 @@ webkit.org/b/207146 media/media-source/media-source-seek-redundant-append.html [
 webkit.org/b/153879 js/basic-set.html [ Skip ]
 webkit.org/b/154753 js/basic-map.html [ Skip ]
 
-# outline: auto -focusring.
-accessibility/mac/selection-element-tabbing-to-link.html [ Pass Failure ]
-
 webkit.org/b/152506 webgl/1.0.3/conformance/extensions/get-extension.html [ Pass Timeout ]
 
 webkit.org/b/154709 fast/text/crash-complex-text-surrogate.html [ Pass Failure ]
@@ -1374,7 +1374,6 @@ webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/i18n/css3-text-
 webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/i18n/css3-text-line-break-opclns-011.html [ ImageOnlyFailure ]
 webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/i18n/css3-text-line-break-opclns-115.html [ ImageOnlyFailure ]
 webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/i18n/css3-text-line-break-opclns-116.html [ ImageOnlyFailure ]
-webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/word-break/word-break-break-all-006.html [ ImageOnlyFailure ]
 
 [ Catalina ] imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-001.html [ ImageOnlyFailure ]
 
@@ -1655,6 +1654,7 @@ webkit.org/b/216315 imported/w3c/web-platform-tests/css/css-text/line-break/line
 webkit.org/b/209250 [ Mojave Catalina ] imported/w3c/web-platform-tests/css/css-text/line-break/line-break-normal-015b.xht [ ImageOnlyFailure ]
 webkit.org/b/216315 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-strict-015a.xht [ ImageOnlyFailure ]
 webkit.org/b/209250 [ Mojave Catalina ] imported/w3c/web-platform-tests/css/css-text/line-break/line-break-strict-015b.xht [ ImageOnlyFailure ]
+webkit.org/b/183258 [ Catalina ] imported/w3c/web-platform-tests/css/css-text/word-break/word-break-break-all-008.html [ ImageOnlyFailure ]
 
 webkit.org/b/207858 fast/canvas/webgl/simulated-vertexAttrib0-invalid-indicies.html [ Skip ]
 
@@ -2279,7 +2279,7 @@ webkit.org/b/228311 imported/w3c/web-platform-tests/css/css-scoping/css-scoping-
 # webkit.org/b/228200 Adjusting test expectations for Monterey on Open Source <rdar://80344138>:
 [ Monterey ] imported/w3c/web-platform-tests/fetch/connection-pool/network-partition-key.html [ Failure ]
 
-# webkit.org/b/228200 Setting multiple test expectations for Monetery on OpenSource:
+# webkit.org/b/228200 Setting multiple test expectations for Monterey on OpenSource:
 [ Monterey ] model-element/model-element-graphics-layers-opacity.html [ Pass Failure ]
 [ Monterey Debug arm64 ] imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-restartIce.https.html [ Pass Failure Crash ]
 
@@ -2407,8 +2407,6 @@ webkit.org/b/230780 [ Catalina BigSur Debug ] fast/workers/use-machine-stack.htm
 
 webkit.org/b/230862 [ Catalina BigSur ] imported/w3c/web-platform-tests/resource-timing/sizes-redirect-img.html [ Pass Failure ]
 
-webkit.org/b/233393 [ BigSur ] imported/w3c/web-platform-tests/html/semantics/forms/the-textarea-element/textarea-newline-bidi.html [ ImageOnlyFailure ]
-
 webkit.org/b/230984 [ BigSur Debug arm64 ] streams/readableStream-then.html [ Pass Crash ]
 
 webkit.org/b/231757 [ BigSur ] inspector/canvas/updateShader-webgl.html [ Pass Failure ]
@@ -2425,6 +2423,9 @@ platform/mac/plugins/convert-point.html [ Skip ]
 webkit.org/b/226826 [ Monterey ] http/tests/ssl/applepay/ApplePayButton.html [ Failure ]
 
 webkit.org/b/221230 [ BigSur+ ] imported/w3c/web-platform-tests/media-source/mediasource-addsourcebuffer.html [ Pass Failure ]
+
+# <model> tests involving the ready promise can only work on Monterey and up
+[ Catalina BigSur ] model-element/model-element-ready.html [ Skip ]
 
 # OT-SVG is not implemented on Catalina.
 [ Catalina ] fast/text/otsvg-canvas.html [ ImageOnlyFailure ]

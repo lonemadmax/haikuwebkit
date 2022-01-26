@@ -1,3 +1,1481 @@
+2022-01-24  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Support pull requests in Trigger
+        https://bugs.webkit.org/show_bug.cgi?id=235545
+        <rdar://problem/87992990>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/steps.py:
+        (Trigger.__init__): Pass flags for patch and pull requests.
+        (Trigger.propertiesToPassToTriggers): Pass different properties if Triggered by a
+        pull request verse a patch.
+        (CompileWebKit.evaluateCommand): Pass flags for patch and pull request to Trigger.
+        (AnalyzeLayoutTestsResults.retry_build): Ditto.
+
+2022-01-24  Mark Lam  <mark.lam@apple.com>
+
+        Rename Vector and FixedVector::findMatching to findIf to match stl naming.
+        https://bugs.webkit.org/show_bug.cgi?id=234864
+        rdar://87424746
+
+        Reviewed by Yusuke Suzuki.
+
+        * TestWebKitAPI/Tests/WTF/FixedVector.cpp:
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/WTF/Vector.cpp:
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/WebKitCocoa/MediaLoading.mm:
+        (TestWebKitAPI::parseUserAgent):
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::TestController::closeOtherPage):
+
+2022-01-24  Alex Christensen  <achristensen@webkit.org>
+
+        Re-enable CustomDisplayName and DefaultDisplayName API tests on Monterey
+        https://bugs.webkit.org/show_bug.cgi?id=234613
+
+        Reviewed by Brady Eidson.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/DisplayName.mm:
+        (TestWebKitAPI::TEST):
+
+2022-01-20  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Support pull request in AnaylzePatch
+        https://bugs.webkit.org/show_bug.cgi?id=235411
+        <rdar://problem/87839638>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/factories.py:
+        (Factory.__init__): Rename AnalyzePatch to AnalyzeChange.
+        * CISupport/ews-build/factories_unittest.py:
+        (TestExpectedBuildSteps): Rename AnalyzePatch to AnalyzeChange.
+        * CISupport/ews-build/steps.py:
+        (AnalyzeChange): Renamed from AnalyzePatch.
+        (AnalyzeChange._get_patch): Create a parseable string including the files changed.
+        (CheckChangeRelevance): Renamed from CheckPatchRelevance.
+        (FindModifiedLayoutTests): Inherit from AnalyzeChange.
+        (AnalyzePatch): Renamed to AnalyzeChange.
+        (CheckPatchRelevance): Renamed to CheckChangeRelevance.
+        * CISupport/ews-build/steps_unittest.py:
+
+2022-01-24  Sihui Liu  <sihui_liu@apple.com>
+
+        Regression (r286936): SessionStorage data is not cleared when deleting website data by modification time
+        https://bugs.webkit.org/show_bug.cgi?id=235542
+
+        Reviewed by Chris Dumez.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/SessionStorage.mm:
+        (TEST):
+
+2022-01-24  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [macOS] Update Pasteboard::read to prioritize native representations over TIFF
+        https://bugs.webkit.org/show_bug.cgi?id=190101
+        rdar://44879244
+
+        Reviewed by Ryosuke Niwa.
+
+        Add a cross-platform API test to verify that when using the client-side attachments, pasted image data of
+        varying formats (PDF, JPEG, PNG) are read in their original form. See WebCore/ChangeLog for more details. This
+        test currently passes on iOS but fails on macOS, where both the PNG and JPEG images are transcoded and read as
+        TIFF.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/WKAttachmentTests.mm:
+        (testJPEGFileURL):
+        (testJPEGData):
+        (platformCopyPDF):
+        (platformCopyJPEG):
+        (TestWebKitAPI::TEST):
+
+        Drive-by fix: also remove a JavaScript evaluation in a nearby test that could only result in an exception (and
+        was probably accidentally left there while writing the test).
+
+2022-01-24  Jonathan Bedard  <JonWBedard@gmail.com>
+
+        [EWS] Use github.head.sha instead of revision
+        https://bugs.webkit.org/show_bug.cgi?id=235521
+        <rdar://problem/87970427>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/events.py:
+        (Events.buildFinishedGitHub): Use github.head.sha instead of revision.
+        (Events.stepStartedGitHub): Ditto.
+        * CISupport/ews-build/master.cfg: Extract github.head.sha from hook.
+        * CISupport/ews-build/steps.py:
+        (GitHubMixin._is_pr_obsolete): Use github.head.sha instead of revision.
+        (ConfigureBuild.add_pr_details): Ditto.
+        (ValidateChange.validate_github): Ditto.
+        * CISupport/ews-build/steps_unittest.py:
+
+2022-01-24  Mark Lam  <mark.lam@apple.com>
+
+        Add FixedVector::clear(), contains(), find(), and findMatching().
+        https://bugs.webkit.org/show_bug.cgi?id=234855
+
+        Reviewed by Yusuke Suzuki.
+
+        Added new tests for FixedVector.  Also added the ClearContainsAndFind test to
+        Vector since it is missing these tests.
+
+        * TestWebKitAPI/Tests/WTF/FixedVector.cpp:
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/WTF/Vector.cpp:
+        (TestWebKitAPI::TEST):
+
+2022-01-24  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][a11y] Test accessibility/url-test.html fails with ATSPI
+        https://bugs.webkit.org/show_bug.cgi?id=235486
+
+        Reviewed by Darin Adler.
+
+        Ensure we don't remove the fragment id of URL when removing the base path.
+
+        * WebKitTestRunner/InjectedBundle/atspi/AccessibilityUIElementAtspi.cpp:
+        (WTR::AccessibilityUIElement::url):
+
+2022-01-24  Aakash Jain  <aakash_jain@apple.com>
+
+        Allow configuring multiple user credentials on ews
+        https://bugs.webkit.org/show_bug.cgi?id=235301
+
+        Reviewed by Jonathan Bedard.
+
+        * CISupport/ews-build/master.cfg:
+
+2022-01-24  Joseph Griego  <jgriego@igalia.com>
+
+        [Shadow Realms] Use WebCore module loaders for shadow realm importValue
+        https://bugs.webkit.org/show_bug.cgi?id=234155
+
+        Reviewed by Darin Adler.
+
+        * Scripts/webkitpy/bindings/main.py:
+        (BindingsTests.generate_supplemental_dependency):
+        (BindingsTests.main):
+
+2022-01-23  Antoine Quint  <graouts@webkit.org>
+
+        [Model] Add load and error events to distinguish resource load from model readiness
+        https://bugs.webkit.org/show_bug.cgi?id=233706
+        rdar://85922697
+
+        Reviewed by Chris Dumez and Dean Jackson.
+
+        Use the "load" event instead of the "ready" promise for this test which only requires monitoring
+        the <model> resource being loaded.
+
+        * TestWebKitAPI/Tests/ios/DragAndDropTestsIOS.mm:
+        (TestWebKitAPI::TEST):
+
+2022-01-22  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][a11y] Stop registering the tree when clients are connected with ATSPI
+        https://bugs.webkit.org/show_bug.cgi?id=235313
+
+        Reviewed by Adrian Perez de Castro.
+
+        * TestWebKitAPI/Tests/WebKitGtk/TestWebKitAccessibility.cpp:
+        (testDocumentLoadEvents): Now we don't get the initial event from previous document web because it happens
+        before the first client is connected.
+
+2022-01-21  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Support pull-requests in ValidateChange (Follow-up fix)
+        https://bugs.webkit.org/show_bug.cgi?id=234861
+        <rdar://problem/87114299>
+
+        Unreviewed follow-up fix.
+
+        * CISupport/ews-build/steps.py:
+        (GitHubMixin.fetch_data_from_url_with_authentication): Fix authentication call.
+
+2022-01-20  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Avoid extra network request from buildbot to github
+        https://bugs.webkit.org/show_bug.cgi?id=235417
+        <rdar://problem/87846222>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/events.py:
+        (GitHubEventHandlerNoEdits._get_commit_msg): Return empty string.
+
+2022-01-21  Mike Gorse  <mgorse@suse.com>
+
+        Build failure with g++ 12: std::exchange undefined
+        https://bugs.webkit.org/show_bug.cgi?id=235445
+
+        Reviewed by Michael Catanzaro.
+
+        * ImageDiff/ImageDiff.cpp: Include <utility>
+
+2022-01-19  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Use token when processing hook
+        https://bugs.webkit.org/show_bug.cgi?id=235383
+        <rdar://problem/87791577>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/master.cfg:
+
+2022-01-20  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] ConfigureBuild should display PR information instead of ValidateChange
+        https://bugs.webkit.org/show_bug.cgi?id=235377
+        <rdar://problem/87853245>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/steps.py:
+        (GitHub):
+        (GitHub.commit_url): Convert a sha and repository to clickable commit url.
+        (ConfigureBuild._addToLog): Added.
+        (ConfigureBuild.add_pr_details): Print link to pull request, commit being
+        tested and author of change.
+        (ValidateChange.validate_github): Move links to ConfigureBuild.
+
+2022-01-21  Jonathan Bedard  <jbedard@apple.com>
+
+        [webkitscmpy] Stop killing finished processes
+        https://bugs.webkit.org/show_bug.cgi?id=235427
+        <rdar://problem/87887233>
+
+        Rubber-stamped by Aakash Jain.
+
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/local/git.py:
+        (Git.Cache.populate): Check if process has finished before killing it.
+        (Git.commits): Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/local/svn.py:
+        (Svn.Cache.populate): Check if process has finished before killing it.
+        (Svn.commits): Ditto.
+
+2022-01-21  Lauro Moura  <lmoura@igalia.com>
+
+        [CMake] Cannot link libTestRunnerInjectedBundle.so in non unified build
+        https://bugs.webkit.org/show_bug.cgi?id=226088
+
+        Reviewed by Adrian Perez de Castro.
+
+        * WebKitTestRunner/CMakeLists.txt: Pull WebCore as dependency for
+        WTR/WTRInjectedBundle
+
+2022-01-20  Lauro Moura  <lmoura@igalia.com>
+
+        [GTK] API test /webkit/WebKitWebsiteData/cache is flaky
+        https://bugs.webkit.org/show_bug.cgi?id=188113
+
+        Unreviewed test gardening.
+
+        It has been passing consistently for a long time. Sometimes failing
+        consistently too, but when there are regressions.
+
+        * TestWebKitAPI/glib/TestExpectations.json:
+
+2022-01-20  Devin Rousso  <drousso@apple.com>
+
+        Add SPI for passing around and getting details about `WebCore::CSSStyleDeclaration` in injected bundle code
+        https://bugs.webkit.org/show_bug.cgi?id=235386
+        <rdar://problem/87566737>
+
+        Reviewed by Tim Horton.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/BundleCSSStyleDeclarationHandleProtocol.h: Added.
+        * TestWebKitAPI/Tests/WebKitCocoa/BundleCSSStyleDeclarationHandle.mm: Added.
+        (-[BundleCSSStyleDeclarationHandleRemoteObject verifyStyle:]):
+        (TEST.WebKit.WKWebProcessPlugInCSSStyleDeclarationHandle):
+        * TestWebKitAPI/Tests/WebKitCocoa/BundleCSSStyleDeclarationHandlePlugIn.mm: Added.
+        (-[BundleCSSStyleDeclarationHandlePlugIn webProcessPlugIn:didCreateBrowserContextController:]):
+        (-[BundleCSSStyleDeclarationHandlePlugIn webProcessPlugInBrowserContextController:didFinishDocumentLoadForFrame:]):
+
+        * TestWebKitAPI/SourcesCocoa.txt:
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+
+        * TestWebKitAPI/Tests/WebKitCocoa/CookiePrivateBrowsing.mm:
+        (-[CookiePrivateBrowsingDelegate webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame:completionHandler:]):
+        (TEST.WebKit.CookiePrivateBrowsing):
+        * TestWebKitAPI/Tests/WebKitCocoa/ModalContainerObservation.mm:
+        * TestWebKitAPI/Tests/WebKitCocoa/RestoreSessionStateWithoutNavigation.mm:
+        (-[SessionStateDelegate webView:didFinishNavigation:]):
+        (TestWebKitAPI::createSessionStateData):
+        Drive-by: Unified sources fixes.
+
+2022-01-20  Jonathan Bedard  <jbedard@apple.com>
+
+        [ews] Load credentials from passwords.json in master.cfg (Follow-up)
+        https://bugs.webkit.org/show_bug.cgi?id=235296
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/master.cfg:
+        (load_password): Define default value.
+
+2022-01-20  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] Build via the workspace with USE_WORKSPACE=YES
+        https://bugs.webkit.org/show_bug.cgi?id=235385
+        rdar://87489695
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Makefile: Use workspace logic and set custom SCHEME name
+
+2022-01-20  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Add CheckOutPullRequest step
+        https://bugs.webkit.org/show_bug.cgi?id=235157
+        <rdar://problem/87487209 >
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/factories.py:
+        (Factory.__init__): Add CheckOutPullRequest step.
+        (StyleFactory.__init__): Ditto.
+        (WatchListFactory.__init__): Ditto.
+        * CISupport/ews-build/factories_unittest.py:
+        (TestExpectedBuildSteps): Add CheckOutPullRequest step.
+        * CISupport/ews-build/steps.py:
+        (ApplyPatch.doStepIf): Only run step if a patch is provided.
+        (ApplyPatch.hideStepIf): Only display step if a patch was provided.
+        (ApplyPatch.getResultSummary): Add SKIPPED description.
+        (CheckOutPullRequest):
+        (CheckOutPullRequest.__init__):
+        (CheckOutPullRequest.doStepIf): Only run step if a pull request is provided.
+        (CheckOutPullRequest.hideStepIf): Only display step if a pul request was provided.
+        (CheckOutPullRequest.run): Configure new remote, fetch remote and checkout pull request
+        branch from the newly configured remote.
+        (CheckOutPullRequest.getResultSummary):
+        * CISupport/ews-build/steps_unittest.py:
+
+2022-01-19  Jonathan Bedard  <jbedard@apple.com>
+
+        [webkitbugspy] Support automated comments
+        https://bugs.webkit.org/show_bug.cgi?id=235371
+        <rdar://problem/87783426>
+
+        Reviewed by Dewei Zhu.
+
+        * Scripts/libraries/webkitbugspy/setup.py: Bump version.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/__init__.py: Ditto.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/bugzilla.py:
+        (Tracker.user): Add potential credentials to requests.
+        (Tracker.credentials): Explicitly call credentials from webkitcorepy. 
+        (Tracker._login_arguments): Create login query from credentials.
+        (Tracker.me): Return user based on credentials.
+        (Tracker.populate): Add potential credentials to requests.
+        (Tracker.add_comment): Add comment to bugzilla issue.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/github.py:
+        (Tracker.me): Return user based on credentials.
+        (Tracker.add_comment): Add comment to GitHub issue.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/issue.py:
+        (Issue.add_comment): Base class.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/mocks/base.py:
+        (Base.add): We don't want to edit the original list of comments.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/mocks/bugzilla.py:
+        (Bugzilla.__init__): Add optional Environment mock.
+        (Bugzilla.__enter__): Enter Environment mock.
+        (Bugzilla.__exit__): Exit Environment mock.
+        (Bugzilla._user): Use jsonlib instead of json.
+        (Bugzilla._user_for_credentials): Convert a credential string into
+        a User object.
+        (Bugzilla._issue): Use jsonlib instead of json.
+        (Bugzilla._see_also): Ditto.
+        (Bugzilla._comments): Ditto.
+        (Bugzilla._post_comment): Update mock issue database with posted comment.
+        (Bugzilla.request): Add credentials to each request, handle comment POST request.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/mocks/github.py:
+        (GitHub.__init__): Add optional Environment mock.
+        (GitHub.__enter__): Enter Environment mock.
+        (GitHub.__exit__): Exit Environment mock.
+        (GitHub._post_comment): Update mock issue database with posted comment.
+        (GitHub.request): Handle comment POST request.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/mocks/radar.py:
+        (AppleDirectoryQuery.user_entry_for_attribute_value): Map AppleConnect username
+        to user.
+        (RadarModel.CollectionProperty.__init__): Pass parent model in.
+        (RadarModel.CollectionProperty.add): Add an element to the collection.
+        (RadarModel.__init__): Pass self into CollectionProperty.
+        (RadarModel.commit_changes): Update mock issue database with issue contents.
+        (RadarClient.__init__): Accept authentication_strategy.
+        (Radar.AuthenticationStrategySystemAccount.__init__): Save username.
+        (Radar.AuthenticationStrategySystemAccount.username): Return username.
+        (Radar.AuthenticationStrategySPNego.username): Assume username from environment.
+        (Radar.DiagnosisEntry): Moved from RadarModel.DiagnosisEntry.
+        (Radar.transform_user): Add AppleConnect email.
+        (Radar.__init__): Pass authentication_strategy to RadarClient.
+        (RadarModel.DiagnosisEntry): Moved to Radar.DiagnosisEntry.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/radar.py:
+        (Tracker.user): Support queries by AppleConnect username.
+        (Tracker.me): Use authentication to determine the logged in user.
+        (Tracker.add_comment): Add comment to Radar.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/tests/bugzilla_unittest.py:
+        (TestBugzilla.test_reference_parse): Use add_comment.
+        (TestBugzilla.test_me): Added.
+        (TestBugzilla.test_add_comment): Added.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/tests/github_unittest.py:
+        (TestGitHub.test_watcher_parse): Use add_comment.
+        (TestGitHub.test_reference_parse): Ditto.
+        (TestGitHub.test_me): Added.
+        (TestGitHub.test_add_comment): Added.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/tests/radar_unittest.py:
+        (TestRadar): Renamed from TestGitHub.
+        (TestRadar.test_reference_parse): Use add_comment.
+        (TestRadar.test_me): Added.
+        (TestRadar.test_add_comment): Added.
+        (TestGitHub): Renamed TestRadar.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/tracker.py:
+        (Tracker.me): Added.
+        (Tracker.add_comment): Added.
+        * Scripts/libraries/webkitcorepy/setup.py: Bump version.
+        * Scripts/libraries/webkitcorepy/webkitcorepy/mocks/__init__.py: Export mock environment, bump version.
+        * Scripts/libraries/webkitcorepy/webkitcorepy/mocks/environment.py: Added.
+        (Environment): Mock os.environ and reset credential cache.
+
+2022-01-20  Alex Christensen  <achristensen@webkit.org>
+
+        [ iOS15 ] TestWebKitAPI.WebKit.ServerTrust and TestWebKitAPI.WebKit.FastServerTrust tests timing out
+        https://bugs.webkit.org/show_bug.cgi?id=231320
+        <rdar://80352256>
+
+        Reviewed by Chris Dumez.
+
+        SecTrustCopyCertificateChain returns a CFArrayRef of SecCertificateRef, not CFData.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/Challenge.mm:
+        (verifyCertificateAndPublicKey):
+        (TestWebKitAPI::TEST):
+
+2022-01-20  Angelos Oikonomopoulos  <angelos@igalia.com>
+
+        [JSC] Further unification in run-jsc-stress-tests
+        https://bugs.webkit.org/show_bug.cgi?id=234343
+
+        Reviewed by Jonathan Bedard.
+
+        Extend defaultRunCfg to be able to omit a subset of the test
+        modes and change defaultNoNoLLIntRun, defaultNoEagerRun and
+        defaultNoSamplingProfilerRun to call into it.
+
+        When defaultNoNoLLIntRun was added in https://commits.webkit.org/176404@main,
+        it was a verbatim copy of defaultRun, except for the NoLLInt test
+        modes. It hasn't diverged further, so after this patch, the set of
+        tests executed remains the same.
+
+        When defaultNoEagerRun was added in https://commits.webkit.org/150033@main,
+        it was intended to be the same as defaultRun, minus the eager modes. It
+        hasn't been kept in sync, so this change results in few more testing modes for
+        the tests explicitly using defaultNoEagerRun.
+
+        defaultNoSamplingProfilerRun was ignoring quick mode and was dropping
+        runFTLNoCJITValidate when added in https://commits.webkit.org/171769@main.
+        This patch enables more test modes for the handful of tests that use
+        defaultNoSamplingProfilerRun.
+
+        * Scripts/run-jsc-stress-tests:
+
+2022-01-19  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] pull-request command should print the pr url
+        https://bugs.webkit.org/show_bug.cgi?id=235358
+        <rdar://problem/87793470>
+
+        Reviewed by Aakash Jain.
+
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/mocks/local/git.py: Make created
+        and modified commits in tests have more issue-friendly titles.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/pull_request.py:
+        (PullRequest.main): Print out PullRequest URL.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/pull_request.py:
+        (PullRequest.__init__): Constructor may define printable URL.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/remote/bitbucket.py:
+        (BitBucket.PRGenerator.PullRequest): Set printable URL.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/remote/git_hub.py:
+        (GitHub.PRGenerator.PullRequest): Set printable URL.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/pull_request_unittest.py:
+
+2022-01-19  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Report basic statuses to GitHub
+        https://bugs.webkit.org/show_bug.cgi?id=235210
+        <rdar://problem/87576183>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/events.py:
+        (Events.sendDataToEWS): Renamed from sendData.
+        (Events.sendDataToGitHub): Post status for a commit to GitHub.
+        (Events.extractProperty): We need to extract more than patchID from
+        build properties.
+        (Events.buildFinishedGitHub): Report the pass/failed state of a build to GitHub.
+        (Events.buildFinished): Every time a build finishes, send data to GitHub.
+        (Events.stepStartedGitHub): Update GitHub with the current step being run,
+        and a failure status if that's already known.
+        (Events.stepStarted): Every time a new step starts, send data to GitHub.
+        (Events.stepFinished):
+        (Events.sendData): Deleted.
+        (Events.getPatchID): Deleted.
+        * CISupport/ews-build/steps.py:
+        (GitHub.commit_status_url): Construct a status url for a commit in a repository.
+
+2022-01-10  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] Improve setup usability
+        https://bugs.webkit.org/show_bug.cgi?id=235051
+        <rdar://problem/87367948>
+
+        Reviewed by Aakash Jain.
+
+        * Scripts/libraries/webkitbugspy/setup.py: Bump version.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/__init__.py: Ditto.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/github.py:
+        (Tracker.credentials): Retry credential prompt if the user provides an email.
+        * Scripts/libraries/webkitcorepy/setup.py: Bump version.
+        * Scripts/libraries/webkitcorepy/webkitcorepy/__init__.py: Ditto.
+        * Scripts/libraries/webkitcorepy/webkitcorepy/credentials.py:
+        (credentials): Use Terminal's choosing function.
+        (delete_credentials): Delete credentials for a service.
+        * Scripts/libraries/webkitcorepy/webkitcorepy/editor.py:
+        (Editor.vi): Add.
+        (Editor.programs): Add vi.
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/setup.py:
+        (Setup.git): SSH replacement applies to http and https remotes.
+        (Setup.main): Include explicit conclusion messages.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/remote/git_hub.py:
+        (GitHub.credentials): Retry credential prompt if the user provides an email.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/setup_unittest.py:
+
+2022-01-19  Jon Lee  <jonlee554@gmail.com>
+
+        Swap accelerated drawing flag between the two GPU Process iOS simulator bots
+        https://bugs.webkit.org/show_bug.cgi?id=235366
+
+        Reviewed by Alex Christensen.
+
+        * CISupport/build-webkit-org/config.json: Turn the accelerated-drawing flag on the arm64 bot, since that
+        represents the configuration closest to actual hardware. Turn it off on the Intel bot for now so that we
+        can see differences in results with accelerated drawing off as we fix bugs in tests.
+
+2022-01-19  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] Improve pr push error message
+        https://bugs.webkit.org/show_bug.cgi?id=235299
+        <rdar://problem/87721181>
+
+        Reviewed by Aakash Jain.
+
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/pull_request.py:
+        (PullRequest.main): If `git push` fails, provide the user with options
+        for resolution.
+
+2022-01-19  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed, reverting r288147.
+        <rdar://87776311>
+
+        broke clean command line builds
+
+        Reverted changeset:
+
+        "Build WebKitSwift when building with make or build-webkit"
+        https://bugs.webkit.org/show_bug.cgi?id=235093
+        https://commits.webkit.org/r288147
+
+2022-01-18  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        REGRESSION (r264352): Mail compose body field does not avoid the keyboard when scrolling after focus
+        https://bugs.webkit.org/show_bug.cgi?id=235331
+        rdar://79296770
+
+        Reviewed by Tim Horton.
+
+        Add support for a UIScriptController hook to override `firstResponderKeyboardAvoidanceEnabled` on WKScrollView.
+        See LayoutTests for more details.
+
+        * TestRunnerShared/UIScriptContext/Bindings/UIScriptController.idl:
+        * TestRunnerShared/UIScriptContext/UIScriptController.h:
+        (WTR::UIScriptController::setScrollViewKeyboardAvoidanceEnabled):
+        * WebKitTestRunner/ios/TestControllerIOS.mm:
+        (WTR::TestController::platformResetStateToConsistentValues):
+        * WebKitTestRunner/ios/UIScriptControllerIOS.h:
+        * WebKitTestRunner/ios/UIScriptControllerIOS.mm:
+        (WTR::UIScriptControllerIOS::setScrollViewKeyboardAvoidanceEnabled):
+
+2022-01-18  Don Olmstead  <don.olmstead@sony.com>
+
+        Replace all uses of HAVE_ACCESSIBILITY with ENABLE_ACCESSIBILITY
+        https://bugs.webkit.org/show_bug.cgi?id=235335
+
+        Reviewed by Ross Kirsling.
+
+        Does a find/replace in Tools to move from HAVE_ACCESSIBILITY to ENABLE_ACCESSIBILITY. The
+        same is done with HAVE(ACCESSIBILITY) with instances replaced by ENABLE(ACCESSIBILITY).
+
+        * DumpRenderTree/AccessibilityController.cpp:
+        * DumpRenderTree/AccessibilityController.h:
+        * DumpRenderTree/AccessibilityUIElement.cpp:
+        * DumpRenderTree/AccessibilityUIElement.h:
+        * MiniBrowser/wpe/main.cpp:
+        (main):
+        * WebKitTestRunner/InjectedBundle/AccessibilityController.h:
+        * WebKitTestRunner/InjectedBundle/AccessibilityUIElement.cpp:
+        * WebKitTestRunner/InjectedBundle/AccessibilityUIElement.h:
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.cpp:
+        (WTR::InjectedBundle::beginTesting):
+        (WTR::InjectedBundle::done):
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.h:
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::InjectedBundlePage::didClearWindowForFrame):
+        * WebKitTestRunner/InjectedBundle/atk/AccessibilityControllerAtk.cpp:
+        * WebKitTestRunner/InjectedBundle/atk/AccessibilityNotificationHandlerAtk.cpp:
+        * WebKitTestRunner/InjectedBundle/atk/AccessibilityNotificationHandlerAtk.h:
+        * WebKitTestRunner/InjectedBundle/atk/AccessibilityUIElementAtk.cpp:
+        * WebKitTestRunner/InjectedBundle/atspi/AccessibilityControllerAtspi.cpp:
+        * WebKitTestRunner/InjectedBundle/atspi/AccessibilityNotificationHandler.cpp:
+        * WebKitTestRunner/InjectedBundle/atspi/AccessibilityNotificationHandler.h:
+        * WebKitTestRunner/InjectedBundle/atspi/AccessibilityUIElementAtspi.cpp:
+        * WebKitTestRunner/InjectedBundle/mac/AccessibilityUIElementMac.mm:
+        * WebKitTestRunner/InjectedBundle/win/AccessibilityControllerWin.cpp:
+        * WebKitTestRunner/InjectedBundle/win/AccessibilityUIElementWin.cpp:
+        * wpe/backends/PlatformWPE.cmake:
+        * wpe/backends/ViewBackend.cpp:
+        (WPEToolingBackends::ViewBackend::dispatchInputKeyboardEvent):
+        * wpe/backends/ViewBackend.h:
+        * wpe/backends/atk/ViewBackendAtk.cpp:
+        * wpe/backends/atk/WebKitAccessibleApplication.cpp:
+        * wpe/backends/atk/WebKitAccessibleApplication.h:
+
+2022-01-18  Alex Christensen  <achristensen@webkit.org>
+
+        Build WebKitSwift when building with make or build-webkit
+        https://bugs.webkit.org/show_bug.cgi?id=235093
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Scripts/build-webkit:
+
+2022-01-18  Alex Christensen  <achristensen@webkit.org>
+
+        Use c++2a instead of gnu++2a for Cocoa builds
+        https://bugs.webkit.org/show_bug.cgi?id=234936
+
+        Reviewed by Sam Weinig.
+
+        * DumpRenderTree/DerivedSources.make:
+        * DumpRenderTree/mac/Configurations/Base.xcconfig:
+        * MiniBrowser/Configurations/Base.xcconfig:
+        * MobileMiniBrowser/Configurations/Base.xcconfig:
+        * TestWebKitAPI/Configurations/Base.xcconfig:
+        * WebKitTestRunner/Configurations/Base.xcconfig:
+        * WebKitTestRunner/DerivedSources.make:
+
+2022-01-18  Youenn Fablet  <youenn@apple.com>
+
+        Make ServiceWorkerClient.id a UUID instead of a string derived from a ScriptExecutionContextIdentifier
+        https://bugs.webkit.org/show_bug.cgi?id=235070
+        <rdar://problem/87673540>
+
+        Reviewed by Darin Adler and Chris Dumez.
+        * TestWebKitAPI/Tests/WTF/UUID.cpp:
+        Improve test coverage.
+
+2022-01-17  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        ImageAnalysisQueue should analyze image elements that are loaded after the call to enqueueAllImages()
+        https://bugs.webkit.org/show_bug.cgi?id=233266
+        rdar://85731875
+
+        Reviewed by Darin Adler.
+
+        Add new API tests to check that image elements that are created and inserted after kicking off the image
+        analysis queue are successfully added to the queue, and result in platform image analysis requests, and to also
+        verify that the image analysis queue is reset after navigation.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/ImageAnalysisTests.mm:
+        (TestWebKitAPI::processRequestWithResults):
+        (TestWebKitAPI::makeImageAnalysisRequestSwizzler):
+        (TestWebKitAPI::processRequestWithError):
+        (TestWebKitAPI::TEST):
+        (TestWebKitAPI::swizzledProcessRequestWithResults): Deleted.
+        (TestWebKitAPI::swizzledProcessRequestWithError): Deleted.
+        * TestWebKitAPI/Tests/WebKitCocoa/multiple-images.html:
+
+2022-01-17  Sihui Liu  <sihui_liu@apple.com>
+
+        Add an API test to ensure indexedDB.databases() does not create files on disk
+        https://bugs.webkit.org/show_bug.cgi?id=235289
+
+        Reviewed by Darin Adler.
+
+        Add test coverage.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/IndexedDBPersistence.mm:
+
+2022-01-17  Youenn Fablet  <youenn@apple.com>
+
+        Make ServiceWorkerClient.id a UUID instead of a string derived from a ScriptExecutionContextIdentifier
+        https://bugs.webkit.org/show_bug.cgi?id=235070
+
+        Reviewed by Chris Dumez.
+
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/Tests/WTF/UUID.cpp:
+        * TestWebKitAPI/Tests/WebKitCocoa/SystemPreview.mm:
+
+2022-01-17  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][a11y] Stop using isolated tree for the ATSPI implementation
+        https://bugs.webkit.org/show_bug.cgi?id=235229
+
+        Reviewed by Adrian Perez de Castro.
+
+        Update WTR to not use the ax thread.
+
+        * WebKitTestRunner/InjectedBundle/AccessibilityController.h:
+        * WebKitTestRunner/InjectedBundle/atspi/AccessibilityControllerAtspi.cpp:
+        (WTR::findAccessibleObjectById):
+        (WTR::AccessibilityController::updateIsolatedTreeMode): Deleted.
+        (WTR::AccessibilityController::axRunLoop): Deleted.
+        (WTR::AccessibilityController::executeOnAXThreadAndWait): Deleted.
+        (WTR::AccessibilityController::executeOnAXThread): Deleted.
+        (WTR::AccessibilityController::executeOnMainThread): Deleted.
+        * WebKitTestRunner/InjectedBundle/atspi/AccessibilityUIElementAtspi.cpp:
+        (WTR::AccessibilityUIElement::childrenCount):
+        (WTR::AccessibilityUIElement::elementAtPoint):
+        (WTR::AccessibilityUIElement::childAtIndex):
+        (WTR::elementForRelationAtIndex):
+        (WTR::AccessibilityUIElement::selectedChildAtIndex const):
+        (WTR::AccessibilityUIElement::selectedChildrenCount const):
+        (WTR::AccessibilityUIElement::parentElement):
+        (WTR::AccessibilityUIElement::attributesOfChildren):
+        (WTR::AccessibilityUIElement::stringAttributeValue):
+        (WTR::AccessibilityUIElement::numberAttributeValue):
+        (WTR::AccessibilityUIElement::currentStateValue const):
+        (WTR::AccessibilityUIElement::rowHeaders const):
+        (WTR::AccessibilityUIElement::columnHeaders const):
+        (WTR::AccessibilityUIElement::boolAttributeValue):
+        (WTR::AccessibilityUIElement::isAttributeSettable):
+        (WTR::AccessibilityUIElement::isAttributeSupported):
+        (WTR::AccessibilityUIElement::role):
+        (WTR::AccessibilityUIElement::roleDescription):
+        (WTR::AccessibilityUIElement::computedRoleString):
+        (WTR::AccessibilityUIElement::title):
+        (WTR::AccessibilityUIElement::description):
+        (WTR::AccessibilityUIElement::orientation const):
+        (WTR::AccessibilityUIElement::helpText const):
+        (WTR::AccessibilityUIElement::x):
+        (WTR::AccessibilityUIElement::y):
+        (WTR::AccessibilityUIElement::width):
+        (WTR::AccessibilityUIElement::height):
+        (WTR::AccessibilityUIElement::clickPointX):
+        (WTR::AccessibilityUIElement::clickPointY):
+        (WTR::AccessibilityUIElement::intValue const):
+        (WTR::AccessibilityUIElement::minValue):
+        (WTR::AccessibilityUIElement::maxValue):
+        (WTR::AccessibilityUIElement::valueDescription):
+        (WTR::AccessibilityUIElement::isEnabled):
+        (WTR::AccessibilityUIElement::isRequired const):
+        (WTR::AccessibilityUIElement::isFocused const):
+        (WTR::AccessibilityUIElement::isSelected const):
+        (WTR::AccessibilityUIElement::isSelectedOptionActive const):
+        (WTR::AccessibilityUIElement::isExpanded const):
+        (WTR::AccessibilityUIElement::isChecked const):
+        (WTR::AccessibilityUIElement::isIndeterminate const):
+        (WTR::AccessibilityUIElement::hierarchicalLevel const):
+        (WTR::AccessibilityUIElement::ariaIsGrabbed const):
+        (WTR::AccessibilityUIElement::ariaDropEffects const):
+        (WTR::AccessibilityUIElement::rangeForLine):
+        (WTR::AccessibilityUIElement::boundsForRange):
+        (WTR::AccessibilityUIElement::attributedStringForRange):
+        (WTR::AccessibilityUIElement::rowCount):
+        (WTR::AccessibilityUIElement::columnCount):
+        (WTR::AccessibilityUIElement::rowIndexRange):
+        (WTR::AccessibilityUIElement::columnIndexRange):
+        (WTR::AccessibilityUIElement::cellForColumnAndRow):
+        (WTR::AccessibilityUIElement::selectedTextRange):
+        (WTR::AccessibilityUIElement::increment):
+        (WTR::AccessibilityUIElement::decrement):
+        (WTR::AccessibilityUIElement::press):
+        (WTR::AccessibilityUIElement::setSelectedChildAtIndex const):
+        (WTR::AccessibilityUIElement::removeSelectionAtIndex const):
+        (WTR::AccessibilityUIElement::clearSelectedChildren const):
+        (WTR::AccessibilityUIElement::documentEncoding):
+        (WTR::AccessibilityUIElement::documentURI):
+        (WTR::AccessibilityUIElement::isFocusable const):
+        (WTR::AccessibilityUIElement::isSelectable const):
+        (WTR::AccessibilityUIElement::isMultiSelectable const):
+        (WTR::AccessibilityUIElement::isVisible const):
+        (WTR::AccessibilityUIElement::isOffScreen const):
+        (WTR::AccessibilityUIElement::isCollapsed const):
+        (WTR::AccessibilityUIElement::isSingleLine const):
+        (WTR::AccessibilityUIElement::isMultiLine const):
+        (WTR::AccessibilityUIElement::hasPopup const):
+        (WTR::AccessibilityUIElement::scrollToMakeVisible):
+        (WTR::AccessibilityUIElement::scrollToGlobalPoint):
+        (WTR::AccessibilityUIElement::isIsolatedObject const): Deleted.
+
+2022-01-16  Youenn Fablet  <youenn@apple.com>
+
+        Enforce focus check for getUserMedia
+        https://bugs.webkit.org/show_bug.cgi?id=235026
+
+        Reviewed by Eric Carlson.
+
+        Disable focus flag for testing to not require to focus the window.
+
+        * TestWebKitAPI/Tests/WebKit/GetUserMedia.mm:
+        (TestWebKitAPI::initializeMediaCaptureConfiguration):
+        (TestWebKitAPI::doCaptureMuteTest):
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/WebKit/GetUserMediaNavigation.mm:
+        (TestWebKitAPI::initializeMediaCaptureConfiguration):
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/WebKit/GetUserMediaReprompt.mm:
+        (TestWebKitAPI::initializeMediaCaptureConfiguration):
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/WebKit/MediaStreamTrackDetached.mm:
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/WebKit/UserMedia.cpp:
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/WebKitCocoa/AudioBufferSize.mm:
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/WebKitCocoa/GPUProcess.mm:
+        (TEST):
+        * TestWebKitAPI/Tests/WebKitCocoa/GetDisplayMedia.mm:
+        (TestWebKitAPI::GetDisplayMediaTest::SetUp):
+        * TestWebKitAPI/Tests/WebKitCocoa/ProcessSwapOnNavigation.mm:
+        * TestWebKitAPI/Tests/WebKitCocoa/SpeechRecognition.mm:
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/WebKitCocoa/UserMediaDisabled.mm:
+        (MediaCaptureDisabledTest::SetUp):
+        * TestWebKitAPI/Tests/WebKitCocoa/UserMediaSimulateFailedSandbox.mm:
+        (MediaCaptureSimulateFailedSandbox::SetUp):
+        * TestWebKitAPI/Tests/WebKitGLib/TestUIClient.cpp:
+        (testWebViewUserMediaEnumerateDevicesPermissionCheck):
+        (testWebViewUserMediaPermissionRequests):
+        (testWebViewAudioOnlyUserMediaPermissionRequests):
+
+2022-01-15  Sam Weinig  <weinig@apple.com>
+
+        CSS Gradients: interpolation mode should default to OKLab if any non-legacy color syntax colors are used in the stops
+        https://bugs.webkit.org/show_bug.cgi?id=235071
+
+        Reviewed by Darin Adler.
+
+        * DumpRenderTree/TestOptions.cpp:
+        (WTR::TestOptions::defaults):
+        Add default for Windows WebKitLegacy testing which still requires it.
+
+2022-01-15  David Kilzer  <ddkilzer@apple.com>
+
+        Only use `diff --binary` switch on Windows
+        <https://webkit.org/b/235268>
+        <rdar://problem/87490487>
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Scripts/VCSUtils.pm:
+        (mergeChangeLogs):
+        - Only pass `--binary` switch on Windows.
+
+2022-01-15  Frédéric Wang  <fwang@igalia.com>
+
+        Bug 234910 - jsc_fuz/wktr: crash with exotic settings
+        https://bugs.webkit.org/show_bug.cgi?id=234910
+
+        Reviewed by Michael Saboff.
+
+        ASAN release build of WebKitTestRunner and DumpRenderTree may crash when loading the file
+        with content "<script>'a'+Math.floor()+'a';</script>" when the ASAN option
+        detect_stack_use_after_return=1 is set and when the JSC option slowPathAllocsBetweenGCs takes
+        to specific values. This is because the 'TestRendered' string of WTR::sendTestRenderedEvent
+        can be garbage collected. This patch fixes that issue by protecting that string. The fix has
+        been verified for all slowPathAllocsBetweenGCs values from 1 to 100.
+
+        * TestRunnerShared/ReftestFunctions.cpp:
+        (WTR::sendTestRenderedEvent): Protect "TestRendered" JSString from garbage collection until
+        the event is dispatched.
+
+2022-01-15  Tyler Wilcock  <tyler_w@apple.com>
+
+        AX: Fix disabled-controls-not-focusable.html in isolated tree mode by updating AXPropertyName::CanSetFocusAttribute when the disabled attribute changes
+        https://bugs.webkit.org/show_bug.cgi?id=235246
+
+        Reviewed by Chris Fleizach.
+
+        * WebKitTestRunner/InjectedBundle/AccessibilityUIElement.h:
+        * WebKitTestRunner/InjectedBundle/mac/AccessibilityUIElementMac.mm:
+        (WTR::AccessibilityUIElement::isAttributeSettable):
+        Use new isAttributeSettable(NSString *attribute) helper function.
+        (WTR::AccessibilityUIElement::isAttributeSettable const):
+        Added. Dispatches call to accessibilityIsAttributeSettable on the AX thread.
+
+        (WTR::AccessibilityUIElement::isFocusable const):
+        (WTR::AccessibilityUIElement::isSelectable const):
+        Use new isAttributeSettable to reduce repetition.
+
+2022-01-14  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Only trigger builds for open and synchronize events
+        https://bugs.webkit.org/show_bug.cgi?id=235249
+        <rdar://problem/87615392>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/events.py:
+        (Events.stopService):
+        (GitHubEventHandlerNoEdits):
+        (GitHubEventHandlerNoEdits.handle_pull_request):
+        * CISupport/ews-build/master.cfg:
+
+2022-01-14  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] ShowIdentifier should support pull-requests
+        https://bugs.webkit.org/show_bug.cgi?id=235252
+        <rdar://problem/87618736>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/steps.py:
+        (ShowIdentifier.start): Extract revision from diverse set of properties.
+        (ShowIdentifier.evaluateCommand):
+        * CISupport/ews-build/steps_unittest.py:
+
+2022-01-14  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [iOS] Occasional crash under -[UITargetedPreview initWithView:parameters:target:] when focusing form controls
+        https://bugs.webkit.org/show_bug.cgi?id=235248
+        rdar://79220540
+
+        Reviewed by Tim Horton and Aditya Keerthi.
+
+        Add an API test that exercises the crash by forcing `-resizableSnapshotViewFromRect:afterScreenUpdates:withCapInsets:`
+        to return nil via swizzling.
+
+        * TestWebKitAPI/Tests/ios/KeyboardInputTestsIOS.mm:
+        (TestWebKitAPI::nilResizableSnapshotViewFromRect):
+        (TestWebKitAPI::TEST):
+
+2022-01-07  Jonathan Bedard  <jbedard@apple.com>
+
+        [webkitbugspy] Support radar as issue tracker type
+        https://bugs.webkit.org/show_bug.cgi?id=234993
+        <rdar://problem/87276178>
+
+        Reviewed by Stephanie Lewis.
+
+        * Scripts/libraries/webkitbugspy/setup.py: Bump version.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/__init__.py: Ditto.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/mocks/__init__.py:
+        * Scripts/libraries/webkitbugspy/webkitbugspy/mocks/base.py:
+        (Base): Radar mock should not inherit from mocks.Requests.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/mocks/bugzilla.py:
+        (Bugzilla): Inherit from both Base and mocks.Requests.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/mocks/github.py:
+        (GitHub): Inherit from both Base and mocks.Requests.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/mocks/radar.py: Added.
+        (AppleDirectoryUserEntry): Mock AppleDirectoryUserEntry from radarclient.
+        (AppleDirectoryQuery): Mock AppleDirectoryQuery from radarclient.
+        (RadarModel): Mock various Model objects from radarclient.
+        (RadarClient): Mock RadarClient from radarclient.
+        (Radar): Mock radarclient library.
+        (NoRadar): Mock unavailable radarclient library.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/radar.py: Added.
+        (Tracker):
+        (Tracker.radarclient): Optionally import radarclient.
+        (Tracker.__init__):
+        (Tracker.authentication): Determine which authentication strategy to use.
+        (Tracker.from_string): Construct issue given Radar string
+        (Tracker.user): Find user given name, DSID or email.
+        (Tracker.issue): Construct issue given Radar ID.
+        (Tracker.populate): Populate Issue arguments.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/tests/radar_unittest.py: Added.
+        (TestGitHub):
+        (TestGitHub.test_no_radar):
+        (TestGitHub.test_users):
+        (TestGitHub.test_link):
+        (TestGitHub.test_title):
+        (TestGitHub.test_timestamp):
+        (TestGitHub.test_creator):
+        (TestGitHub.test_description):
+        (TestGitHub.test_assignee):
+        (TestGitHub.test_comments):
+        (TestGitHub.test_watchers):
+        (TestGitHub.test_references):
+        (TestGitHub.test_reference_parse):
+        * Scripts/libraries/webkitbugspy/webkitbugspy/tracker.py:
+        (Tracker): Match single integer issue URLs.
+
+2022-01-14  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Avoid redundant text analysis requests when long pressing inside an image that contains Live Text
+        https://bugs.webkit.org/show_bug.cgi?id=235129
+        rdar://87366539
+
+        Reviewed by Tim Horton.
+
+        Add a new API test and refactor some existing tests.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/ImageAnalysisTests.mm:
+        (swizzledLocationInView):
+        (-[TestWKWebView simulateImageAnalysisGesture:]):
+
+        Add a helper method to simulate the image analysis gesture recognizer being activated on iOS, and wait for image
+        analysis to finish.
+
+        (TestWebKitAPI::swizzledProcessRequestWithResults):
+        (TestWebKitAPI::TEST):
+
+        Add a new API test to verify that we make at most one extra VKImageAnalyzer request when invoking a non-Live-
+        Text part of the image a second time. Additionally, adjust an existing test (HandleImageAnalyzerErrors) to
+        verify that we invoke VKImageAnalyzer a total of two times during the course of one image analysis gesture (once
+        for Live Text recognition, and another for visual look up). This test currently passes with only a single check
+        because it ends too early (i.e. after only one round trip to the web process and back).
+
+        (TestWebKitAPI::swizzledLocationInView): Deleted.
+        * TestWebKitAPI/cocoa/ImageAnalysisTestingUtilities.mm:
+        (-[TestVKImageAnalysis hasResultsForAnalysisTypes:]):
+
+        Implement this method stub to avoid an unrecognized selector crash.
+
+2022-01-13  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Support pull-requests in ValidateChange
+        https://bugs.webkit.org/show_bug.cgi?id=234861
+        <rdar://problem/87114299>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/factories.py:
+        (Factory.__init__): Rename ValidatePatch to ValidateChange.
+        (StyleFactory.__init__): Ditto.
+        (WatchListFactory.__init__): Ditto.
+        (WindowsFactory.__init__): Ditto.
+        (CommitQueueFactory.__init__): Ditto.
+        * CISupport/ews-build/factories_unittest.py:
+        (TestExpectedBuildSteps): Step name changed from validate-patch to validate-change.
+        * CISupport/ews-build/steps.py:
+        (GitHub.pr_url): Add missing /.
+        (GitHub.api_url): Convert a repository URL to the API url for that repository.
+        (GitHub.credentials): Access GitHub credentials from passwords.json.
+        (GitHubMixin):
+        (GitHubMixin.fetch_data_from_url_with_authentication):
+        (GitHubMixin.get_pr_json):
+        (GitHubMixin._is_pr_closed): Check if a pull-request is closed.
+        (GitHubMixin._is_pr_obsolete): Check if a pull-request is obsolete.
+        (ValidateChange): Renamed from ValidatePatch.
+        (ValidateChange.getResultSummary):
+        (ValidateChange.start): Invoke validate_bugzilla or validate_github.
+        (ValidateChange.validate_bugzilla): Check a bugzilla patch.
+        (ValidateChange.validate_github): Check a GitHub pull-request.
+        (CompileWebKit.evaluateCommand): Rename ValidatePatch to ValidateChange.
+        (RunJavaScriptCoreTests.evaluateCommand): Ditto.
+        (RunWebKitTests.evaluateCommand): Ditto.
+        (ReRunWebKitTests.evaluateCommand): Ditto.
+        (RunWebKitTestsRedTree.evaluateCommand): Ditto.
+        (RunWebKitTestsRepeatFailuresRedTree.evaluateCommand): Ditto.
+        (RunAPITests.evaluateCommand): Ditto.
+        (ReRunAPITests.evaluateCommand): Ditto.
+        (ValidatePatch): Renamed to ValidateChange.
+        * CISupport/ews-build/steps_unittest.py:
+
+2022-01-14  J Pascoe  <j_pascoe@apple.com>
+
+        Expose way to encode CTAP commands with only the hash of ClientDataJSON
+        https://bugs.webkit.org/show_bug.cgi?id=235191
+        <rdar://problem/87557846>
+
+        Reviewed by Brent Fulgham.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/_WKWebAuthenticationPanel.mm:
+        (TestWebKitAPI::TEST):
+        Tests for new SPIs.
+
+2022-01-13  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Crash in Document::updateStyleIfNeeded() when removing a node containing the drag caret
+        https://bugs.webkit.org/show_bug.cgi?id=235184
+        rdar://74845918
+
+        Reviewed by Darin Adler.
+
+        Add a test to exercise the crash using drag and drop in WebKit2, on both iOS and macOS.
+
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/Tests/WebKit/remove-node-on-drop.html: Added.
+        * TestWebKitAPI/Tests/WebKitCocoa/DragAndDropTests.mm:
+        (TEST):
+
+2022-01-13  Ross Kirsling  <ross.kirsling@sony.com>
+
+        PlayStation MiniBrowser should accept a command-line URL argument
+        https://bugs.webkit.org/show_bug.cgi?id=235193
+
+        Reviewed by Don Olmstead.
+
+        Windows MiniBrowser can be launched from the command line with a URL argument for the initial page to load;
+        this patch allows PlayStation MiniBrowser to do similarly.
+
+        * MiniBrowser/playstation/MainWindow.cpp:
+        (MainWindow::MainWindow):
+        * MiniBrowser/playstation/MainWindow.h:
+        * MiniBrowser/playstation/main.cpp:
+        (main):
+
+2022-01-13  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: Implement `frameURL` option for `devtools.inspectedWindow.eval` command
+        https://bugs.webkit.org/show_bug.cgi?id=222568
+
+        Reviewed by Devin Rousso.
+
+        Add test coverage for evaluating script on an inspected page from an extension, including evaluating on an inner
+        frame.
+
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/Tests/WebKitCocoa/WKInspectorExtension.mm:
+        (TEST):
+        * TestWebKitAPI/Tests/WebKitCocoa/WKInspectorExtensionEvaluateScriptOnPage.html: Added.
+        * TestWebKitAPI/Tests/WebKitCocoa/WKInspectorExtensionEvaluateScriptOnPageInnerFrame.html: Added.
+
+2022-01-12  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Load contributors from stand-alone class
+        https://bugs.webkit.org/show_bug.cgi?id=235161
+        <rdar://problem/87491516>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/steps.py:
+        (Contributors): Moved from ValidateCommiterAndReviewer.
+        (ValidateCommiterAndReviewer.load_contributors_from_disk): Moved to Contributors.
+        (ValidateCommiterAndReviewer.load_contributors_from_github): Ditto.
+        (ValidateCommiterAndReviewer.load_contributors): Ditto.
+        * CISupport/ews-build/steps_unittest.py:
+
+2022-01-12  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, reverting r287944.
+
+        Breaks Monterey build.
+
+        Reverted changeset:
+
+        "Build WebKitSwift when building with make or build-webkit"
+        https://bugs.webkit.org/show_bug.cgi?id=235093
+        https://commits.webkit.org/r287944
+
+2022-01-12  J Pascoe  <j_pascoe@apple.com>
+
+        [WebAuthn] Fix freebie call without user gesture not being given
+        https://bugs.webkit.org/show_bug.cgi?id=235078
+        rdar://87327557
+
+        Reviewed by Brent Fulgham.
+
+        Updated API test to reflect user gesture freebie.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/web-authentication-make-credential-la-no-mock.html:
+
+2022-01-12  Elliott Williams  <emw@apple.com>
+
+        [Xcode] Configure each project for the legacy build system
+        https://bugs.webkit.org/show_bug.cgi?id=235091
+
+        Reviewed by Darin Adler.
+
+        * ContentExtensionTester/ContentExtensionTester.xcodeproj/project.pbxproj:
+        * EditingHistory/EditingHistory.xcodeproj/project.pbxproj:
+        * FontWithFeatures/FontWithFeatures.xcodeproj/project.pbxproj:
+        * ImageDiff/ImageDiff.xcodeproj/project.pbxproj:
+        * MiniBrowser/MiniBrowser.xcodeproj/project.pbxproj:
+        * MiniBrowserSwiftUI/MiniBrowserSwiftUI.xcodeproj/project.pbxproj:
+        * MobileMiniBrowser/MobileMiniBrowser.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * WebEditingTester/WebEditingTester.xcodeproj/project.pbxproj:
+
+2022-01-12  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [macOS] [WK2] NSFontPanel UI (font color, text decorations, font shadow) doesn't update on selection change
+        https://bugs.webkit.org/show_bug.cgi?id=190120
+        rdar://44897405
+
+        Reviewed by Darin Adler.
+
+        Augment and adjust some existing API tests. See WebKit/ChangeLog for more information.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/FontAttributes.mm:
+
+        Augment an existing API test, FontAttributes.FontAttributesAfterChangingSelection, to additionally check shared
+        NSFontManager state (foreground/background color, shadow color and radius, etc.) on macOS.
+
+        (TestWebKitAPI::webViewForTestingFontAttributes):
+
+        On macOS, additionally make the font panel visible so that we can test font panel state.
+
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/mac/FontManagerTests.mm:
+
+        Relax some constraints on FontManagerTests.ChangeFontWithPanel, so that it verifies that the platform font in
+        the NSFontManager has all of the same attributes as the expectation, rather than being equal to the exact same
+        font object.
+
+        Adjust an existing API test, FontManagerTests.ChangeAttributesWithFontEffectsBox, to also vary the length of
+        font shadows. Updating font attributes on the font manager exposed an issue with this API test where, because
+        the font panel's attributes are never updated, the value of the shadow length slider remains at the default
+        value of 0.125, producing a shadow length of 1.25px. However, now that the selection moves to non-shadowed text
+        before moving to shadowed text again, we need to explicitly set the shadow length slider's value when testing
+        the second shadowed text selection.
+
+        (webViewForFontManagerTesting):
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/mac/NSFontPanelTesting.h:
+        * TestWebKitAPI/mac/NSFontPanelTesting.mm:
+
+        Add some additional testing helpers to query the state of controls in the font panel (e.g. font shadow sliders,
+        foreground color well, and strike-through/underline popup menu state).
+
+        (-[NSFontPanel underlineToolbarButton]):
+        (-[NSFontPanel strikeThroughToolbarButton]):
+        (-[NSFontPanel foregroundColorToolbarColorWell]):
+        (-[NSFontPanel chooseUnderlineMenuItemWithTitle:]):
+        (-[NSFontPanel chooseStrikeThroughMenuItemWithTitle:]):
+        (-[NSFontPanel shadowLengthSlider]):
+        (-[NSFontPanel hasShadow]):
+        (-[NSFontPanel shadowLength]):
+        (-[NSFontPanel setShadowLength:]):
+        (-[NSFontPanel hasUnderline]):
+        (-[NSFontPanel hasStrikeThrough]):
+        (-[NSFontPanel foregroundColor]):
+
+2022-01-12  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Accept GitHub hooks (Part 1)
+        https://bugs.webkit.org/show_bug.cgi?id=235033
+        <rdar://problem/87345269>
+
+        Reviewed by Aakash Jain.
+
+        Trigger a subset of queues for incoming GitHub pull-requests.
+
+        * CISupport/ews-build/config.json: Enable webkitperl, webkitpy, services and style checks.
+        * CISupport/ews-build/loadConfig_unittest.py:
+        (ConfigDotJSONTest):
+        (ConfigDotJSONTest.test_multiple_scheduers_for_builder):
+        * CISupport/ews-build/master.cfg: Accept GitHub hooks, specify variables
+        to extract from incoming request.
+        * CISupport/ews-build/steps.py:
+        (GitHub):
+        (GitHub.repository_urls): Concatenate all valid projects with the base URL.
+        (GitHub.pr_url): Given a repository and pull-request number, return the URL
+        for that pull-request.
+        (ConfigureBuild.add_pr_details):
+        (GitHubMixin): Deleted.
+
+2022-01-12  Alex Christensen  <achristensen@webkit.org>
+
+        Build WebKitSwift when building with make or build-webkit
+        https://bugs.webkit.org/show_bug.cgi?id=235093
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Scripts/build-webkit:
+
+2022-01-11  Geoffrey Garen  <ggaren@apple.com>
+
+        WebPageProxy destruction should not launch a network process
+        https://bugs.webkit.org/show_bug.cgi?id=235086
+
+        Reviewed by Alex Christensen.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/NetworkProcess.mm:
+        (TEST): Include WebView destruction in the test. Also do a little
+        run loop spinning, to give the test a better chance of failing when
+        async behavior does launch the Network process.
+
+2022-01-11  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][a11y] Web process crashes in some sites having SVG images
+        https://bugs.webkit.org/show_bug.cgi?id=234737
+
+        Reviewed by Adrian Perez de Castro.
+
+        Use AccessibilityAtspi::singleton().
+
+        * WebKitTestRunner/InjectedBundle/atspi/AccessibilityControllerAtspi.cpp:
+        (WTR::AccessibilityController::axRunLoop):
+        * WebKitTestRunner/InjectedBundle/atspi/AccessibilityNotificationHandler.cpp:
+        (WTR::AccessibilityNotificationHandler::AccessibilityNotificationHandler):
+        (WTR::AccessibilityNotificationHandler::~AccessibilityNotificationHandler):
+
+2022-01-11  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][a11y] WTR: do not immediately process main thread events while waiting for ax thread task
+        https://bugs.webkit.org/show_bug.cgi?id=234950
+
+        Reviewed by Adrian Perez de Castro.
+
+        We want to process the main thread events while waiting for ax thread to avoid blocking in case the ax thread
+        needs to get any value from the main thread. This might have side effects causing things to happen earlier than
+        expected. This patch only process main thread events after 125 milliseconds waiting for the ax thread, because
+        that probably means the ax thread is waiting for the main thread. This made most of the test to pass in isolated
+        tree mode with ATSPI.
+
+        * WebKitTestRunner/InjectedBundle/atspi/AccessibilityControllerAtspi.cpp:
+        (WTR::AccessibilityController::executeOnAXThreadAndWait):
+
+2022-01-11  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][a11y] Set active state when element is the selected option active or aria-current isn't false with ATSPI
+        https://bugs.webkit.org/show_bug.cgi?id=235029
+
+        Reviewed by Adrian Perez de Castro.
+
+        Add a unit test to check acive state and implement AccessibilityUIElement::currentStateValue().
+
+        * TestWebKitAPI/Tests/WebKitGtk/TestWebKitAccessibility.cpp:
+        (testAccessibleState):
+        * WebKitTestRunner/InjectedBundle/AccessibilityUIElement.cpp:
+        (WTR::AccessibilityUIElement::domIdentifier const):
+        (WTR::AccessibilityUIElement::currentStateValue const): Deleted.
+        * WebKitTestRunner/InjectedBundle/atk/AccessibilityUIElementAtk.cpp:
+        (WTR::AccessibilityUIElement::currentStateValue const):
+        * WebKitTestRunner/InjectedBundle/atspi/AccessibilityUIElementAtspi.cpp:
+        (WTR::AccessibilityUIElement::currentStateValue const):
+        * WebKitTestRunner/InjectedBundle/win/AccessibilityUIElementWin.cpp:
+        (WTR::AccessibilityUIElement::currentStateValue const):
+
+2022-01-10  Dewei Zhu  <dewei_zhu@apple.com>
+
+        Revert r287861.
+        https://bugs.webkit.org/show_bug.cgi?id=235048
+        <rdar://problem/87360213>
+
+        Unreviewed revert.
+
+        Temporarily revert r287861(245905@main) which breaks git-webkit script when
+        invoked outside of a checkout directory.
+
+        * Scripts/git-webkit:
+
+2022-01-10  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] Use cwd as default path
+        https://bugs.webkit.org/show_bug.cgi?id=235048
+        <rdar://problem/87360213>
+
+        Reviewed by Aakash Jain.
+
+        * Scripts/git-webkit: Use default path behavior.
+
+2022-01-10  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Modal container observer should classify elements that are styled like clickable controls
+        https://bugs.webkit.org/show_bug.cgi?id=235022
+
+        Reviewed by Tim Horton.
+
+        Add a new API test to exercise the change, and adjust the test harness to allow tests using the harness to
+        additionally add an event listener on the modal container.
+
+        * TestWebKitAPI/Tests/WebKit/modal-container-custom.html:
+        * TestWebKitAPI/Tests/WebKitCocoa/ModalContainerObservation.mm:
+        (TestWebKitAPI::TEST):
+
+2022-01-10  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] Retain old commits in pull-request (Follow-up fix)
+        https://bugs.webkit.org/show_bug.cgi?id=234453
+        <rdar://problem/86654956>
+
+        Unreviewed follow-up fix.
+
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/land.py:
+        (Land.main):
+
+2022-01-05  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Always invoke CleanGitRepo before CheckOutSource
+        https://bugs.webkit.org/show_bug.cgi?id=234882
+        <rdar://problem/87145396>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/factories.py:
+        (Factory.__init__): Add CleanGitRepo step.
+        (StyleFactory.__init__): Ditto.
+        (WatchListFactory.__init__): Ditto.
+        (CommitQueueFactory.__init__): Specify default branch as 'master.'
+        * CISupport/ews-build/factories_unittest.py:
+        (TestExpectedBuildSteps):
+        * CISupport/ews-build/steps.py:
+        (CleanGitRepo.__init__): Accept default_branch and remote.
+        (CleanGitRepo.run): Construct commands with awareness of branch and remote,
+        check to see if a basename is specified.
+        * CISupport/ews-build/steps_unittest.py:
+
+2021-12-17  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] Retain old commits in pull-request
+        https://bugs.webkit.org/show_bug.cgi?id=234453
+        <rdar://problem/86654956>
+
+        Reviewed by Dewei Zhu.
+
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/land.py:
+        (Land.main): Find all numbered branches for landing pull-request.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/pull_request.py:
+        (PullRequest.parser): Add history option.
+        (PullRequest.main): Add a numbered branch which persists through the life of the pull-request.
+
+2022-01-10  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Modal container observer fails detection when rendered text is inserted after the container
+        https://bugs.webkit.org/show_bug.cgi?id=234752
+        rdar://87200177
+
+        Reviewed by Tim Horton.
+
+        Add a new API test to exercise the change.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/ModalContainerObservation.mm:
+        (TestWebKitAPI::TEST):
+
+2022-01-10  Alex Christensen  <achristensen@webkit.org>
+
+        Start using C++20
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+
+        Reviewed by Yusuke Suzuki.
+
+        * DumpRenderTree/DerivedSources.make:
+        * DumpRenderTree/mac/Configurations/Base.xcconfig:
+        * MiniBrowser/Configurations/Base.xcconfig:
+        * MobileMiniBrowser/Configurations/Base.xcconfig:
+        * TestWebKitAPI/Configurations/Base.xcconfig:
+        * TestWebKitAPI/Tests/WTF/Expected.cpp:
+        (TestWebKitAPI::NonCopyable::NonCopyable):
+        * TestWebKitAPI/Tests/WTF/URLParser.cpp:
+        (TestWebKitAPI::TEST_F):
+        * WebKitTestRunner/Configurations/Base.xcconfig:
+        * WebKitTestRunner/DerivedSources.make:
+        * lldb/lldbWebKitTester/Configurations/Base.xcconfig:
+
 2022-01-10  Carlos Garcia Campos  <cgarcia@igalia.com>
 
         [GTK][a11y] WTR: do not show html-id and toolkit attributes in test results

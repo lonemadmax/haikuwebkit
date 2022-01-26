@@ -606,7 +606,8 @@ WebPageProxy::~WebPageProxy()
     for (auto& callback : m_nextActivityStateChangeCallbacks)
         callback();
 
-    websiteDataStore().networkProcess().send(Messages::NetworkProcess::RemoveWebPageNetworkParameters(sessionID(), m_identifier), 0);
+    if (auto* networkProcess = websiteDataStore().networkProcessIfExists())
+        networkProcess->send(Messages::NetworkProcess::RemoveWebPageNetworkParameters(sessionID(), m_identifier), 0);
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR) && HAVE(GROUP_ACTIVITIES)
     if (m_preferences->mediaSessionCoordinatorEnabled())
@@ -2557,6 +2558,11 @@ void WebPageProxy::requestFontAttributesAtSelectionStart(CompletionHandler<void(
 {
     if (!hasRunningProcess())
         return callback({ });
+
+    if (auto attributes = m_cachedFontAttributesAtSelectionStart) {
+        callback(*attributes);
+        return;
+    }
 
     sendWithAsyncReply(Messages::WebPage::RequestFontAttributesAtSelectionStart(), [this, protectedThis = Ref { *this }, callback = WTFMove(callback)] (const WebCore::FontAttributes& attributes) mutable {
         m_cachedFontAttributesAtSelectionStart = attributes;
@@ -5020,23 +5026,26 @@ void WebPageProxy::didFinishLoadForFrame(FrameIdentifier frameID, FrameInfoData&
 
     // FIXME: We should message check that navigationID is not zero here, but it's currently zero for some navigations through the back/forward cache.
     RefPtr<API::Navigation> navigation;
-    if (frame->isMainFrame() && navigationID)
+    if (frame->isMainFrame() && navigationID && navigationState().hasNavigation(navigationID))
         navigation = navigationState().navigation(navigationID);
 
-    auto transaction = m_pageLoadState.transaction();
-
     bool isMainFrame = frame->isMainFrame();
-    if (isMainFrame)
-        m_pageLoadState.didFinishLoad(transaction);
+    if (!isMainFrame || !navigationID || navigation) {
+        auto transaction = m_pageLoadState.transaction();
 
-    if (m_controlledByAutomation) {
-        if (auto* automationSession = process().processPool().automationSession())
-            automationSession->navigationOccurredForFrame(*frame);
+        if (isMainFrame)
+            m_pageLoadState.didFinishLoad(transaction);
+
+        if (m_controlledByAutomation) {
+            if (auto* automationSession = process().processPool().automationSession())
+                automationSession->navigationOccurredForFrame(*frame);
+        }
+
+        frame->didFinishLoad();
+
+        m_pageLoadState.commitChanges();
     }
 
-    frame->didFinishLoad();
-
-    m_pageLoadState.commitChanges();
     if (m_loaderClient)
         m_loaderClient->didFinishLoadForFrame(*this, *frame, navigation.get(), m_process->transformHandlesToObjects(userData.object()).get());
     else {
@@ -9904,7 +9913,7 @@ void WebPageProxy::setUserInterfaceLayoutDirection(WebCore::UserInterfaceLayoutD
 
 void WebPageProxy::hideValidationMessage()
 {
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) || PLATFORM(GTK)
     m_validationBubble = nullptr;
 #endif
 }

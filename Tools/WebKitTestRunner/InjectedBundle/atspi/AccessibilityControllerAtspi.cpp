@@ -28,7 +28,7 @@
 #include "config.h"
 #include "AccessibilityController.h"
 
-#if HAVE(ACCESSIBILITY) && USE(ATSPI)
+#if ENABLE(ACCESSIBILITY) && USE(ATSPI)
 #include "AccessibilityNotificationHandler.h"
 #include "AccessibilityUIElement.h"
 #include "InjectedBundle.h"
@@ -52,12 +52,7 @@ static WebCore::AccessibilityObjectAtspi* findAccessibleObjectById(WebCore::Acce
     if (axObject.id() == elementID)
         return &axObject;
 
-    Vector<RefPtr<WebCore::AccessibilityObjectAtspi>> children;
-    InjectedBundle::singleton().accessibilityController()->executeOnAXThreadAndWait([axObject = Ref { axObject }, &children] {
-        axObject->updateBackingStore();
-        children = axObject->children();
-    });
-    for (const auto& child : children) {
+    for (const auto& child : axObject.children()) {
         if (auto* element = findAccessibleObjectById(*child, elementID))
             return element;
     }
@@ -128,53 +123,6 @@ bool AccessibilityController::removeNotificationListener()
     return true;
 }
 
-void AccessibilityController::updateIsolatedTreeMode()
-{
-}
-
-RunLoop& AccessibilityController::axRunLoop()
-{
-    if (!m_axRunLoop) {
-        WKBundlePageRef page = InjectedBundle::singleton().page()->page();
-        auto* element = static_cast<WebCore::AccessibilityObjectAtspi*>(WKAccessibilityRootObject(page));
-        RELEASE_ASSERT(element);
-        m_axRunLoop = &element->root().atspi().runLoop();
-    }
-
-    return *m_axRunLoop;
-}
-
-void AccessibilityController::executeOnAXThreadAndWait(Function<void()>&& function)
-{
-    RELEASE_ASSERT(isMainThread());
-    std::atomic<bool> done = false;
-    axRunLoop().dispatch([this, function = WTFMove(function), &done] {
-        function();
-        done.store(true);
-    });
-    while (!done.load())
-        g_main_context_iteration(nullptr, FALSE);
-}
-
-void AccessibilityController::executeOnAXThread(Function<void()>&& function)
-{
-    axRunLoop().dispatch([this, function = WTFMove(function)] {
-        function();
-    });
-}
-
-void AccessibilityController::executeOnMainThread(Function<void()>&& function)
-{
-    if (isMainThread()) {
-        function();
-        return;
-    }
-
-    axRunLoop().dispatch([this, function = WTFMove(function)]() mutable {
-        callOnMainThread(WTFMove(function));
-    });
-}
-
 } // namespace WTR
 
-#endif // HAVE(ACCESSIBILITY) && USE(ATSPI)
+#endif // ENABLE(ACCESSIBILITY) && USE(ATSPI)

@@ -1,3 +1,162 @@
+2022-01-24  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Enable Array#groupBy and Array#groupByToMap
+        https://bugs.webkit.org/show_bug.cgi?id=235549
+
+        Reviewed by Ross Kirsling.
+
+        * stress/unscopables.js:
+
+2022-01-24  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Support import assertion syntax
+        https://bugs.webkit.org/show_bug.cgi?id=235312
+
+        Reviewed by Ross Kirsling.
+
+        * modules/import-meta-syntax.js:
+        (shouldThrow):
+        * stress/import-syntax.js:
+        * stress/modules-syntax-error.js:
+        * stress/modules-syntax-import-assertion-error.js: Added.
+        (shouldThrow):
+        * stress/modules-syntax-import-assertion.js: Added.
+
+2022-01-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Relax Date.parse requirement
+        https://bugs.webkit.org/show_bug.cgi?id=235468
+
+        Reviewed by Darin Adler.
+
+        * stress/date-relaxed-separator.js: Added.
+        (shouldBe):
+
+2022-01-19  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Implement Temporal.Now.instant()
+        https://bugs.webkit.org/show_bug.cgi?id=234836
+
+        Reviewed by Ross Kirsling.
+
+        * stress/temporal-now-instant.js: Added.
+        (shouldBe):
+
+2022-01-19  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix YarrJIT backtrackCharacterClassNonGreedy breakpoint
+        https://bugs.webkit.org/show_bug.cgi?id=235348
+
+        Reviewed by Michael Saboff.
+
+        * stress/regexp-unicode-surrogate-pair-increment-should-involve-length-check.js:
+
+2022-01-19  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        Unreviewed, skip new test max-typed-array-length-toString.js when memory-limited
+        https://bugs.webkit.org/show_bug.cgi?id=235217
+
+        * stress/max-typed-array-length-toString.js:
+
+2022-01-18  Mark Lam  <mark.lam@apple.com>
+
+        Gardening: resolve test failure on CLoop.
+
+        Not reviewed.
+
+        Change test to not rely on WebAssembly.
+
+        * stress/max-typed-array-length-toString.js:
+
+2022-01-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix Date functions' argument coercion
+        https://bugs.webkit.org/show_bug.cgi?id=235271
+
+        Reviewed by Alexey Shvayka.
+
+        * test262/expectations.yaml:
+
+2022-01-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix misc issues in WebAssembly.Exception
+        https://bugs.webkit.org/show_bug.cgi?id=235261
+
+        Reviewed by Alexey Shvayka.
+
+        * wasm/stress/create-tag-from.js:
+        * wasm/v8/exceptions-api.js:
+        (TestGetArg):
+
+2022-01-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Upgrade test262
+        https://bugs.webkit.org/show_bug.cgi?id=235263
+
+        Reviewed by Alexey Shvayka.
+
+        Update to the latest one.
+
+        * test262/config.yaml:
+        * test262/expectations.yaml:
+        * test262/test262-Revision.txt:
+
+2022-01-14  Mark Lam  <mark.lam@apple.com>
+
+        JSStringJoiner's constructor should take a size_t length.
+        https://bugs.webkit.org/show_bug.cgi?id=235217
+        rdar://87538657
+
+        Reviewed by Yusuke Suzuki.
+
+        * stress/max-typed-array-length-toString.js: Added.
+
+2022-01-14  Alexey Shvayka  <ashvayka@apple.com>
+
+        JSArray::fastSlice() should not convert the source from CoW
+        https://bugs.webkit.org/show_bug.cgi?id=234990
+
+        Reviewed by Yusuke Suzuki.
+
+        * stress/array-slice-cow.js:
+
+2022-01-14  Justin Michaud  <justin_michaud@apple.com>
+
+        Update libWABT
+        https://bugs.webkit.org/show_bug.cgi?id=235050
+
+        Update libWabt to support new simd instructions, and add stubs so that the 
+        wasm test runner can run in v8.
+
+        Reviewed by Yusuke Suzuki.
+
+        * wasm/assert.js:
+        * wasm/libwabt.js:
+        (WabtModule):
+        (set get if):
+
+2022-01-11  Asumu Takikawa  <asumu@igalia.com>
+
+        [Wasm] Unify memory import handling in module loader and JS cases
+        https://bugs.webkit.org/show_bug.cgi?id=234116
+
+        Reviewed by Yusuke Suzuki.
+
+        Add an instantiation test case that tests that instantiating the same
+        binary module twice will not crash.
+
+        * wasm/js-api/web-assembly-instantiate.js:
+        (assert.asyncTest.async test):
+        (assert.asyncTest):
+
+2022-01-10  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, add a bit more Intl.Locale hourCycle tests to investigate flakiness
+
+        * stress/intl-locale-info.js:
+        (let.l.new.Intl.Locale.shouldBe):
+        (shouldBe):
+
 2022-01-07  Alexey Shvayka  <ashvayka@apple.com>
 
         Expand the set of objects we take JSArray::fastSlice() path for

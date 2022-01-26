@@ -228,22 +228,30 @@ IOSurface::IOSurface(IOSurfaceRef surface, const DestinationColorSpace& colorSpa
 
 IOSurface::~IOSurface() = default;
 
+static constexpr IntSize maxSurfaceDimensionCA()
+{
+    // Match limits imposed by Core Animation. FIXME: should have API for this <rdar://problem/25454148>
+#if PLATFORM(IOS_FAMILY)
+    constexpr int maxSurfaceDimension = 8 * 1024;
+#else
+    // IOSurface::maximumSize() can return { INT_MAX, INT_MAX } when hardware acceleration is unavailable.
+    constexpr int maxSurfaceDimension = 32 * 1024;
+#endif
+    return { maxSurfaceDimension, maxSurfaceDimension };
+}
+
 static IntSize computeMaximumSurfaceSize()
 {
+#if PLATFORM(IOS)
+    return maxSurfaceDimensionCA();
+#else
     IntSize maxSize(clampToInteger(IOSurfaceGetPropertyMaximum(kIOSurfaceWidth)), clampToInteger(IOSurfaceGetPropertyMaximum(kIOSurfaceHeight)));
 
     // Protect against maxSize being { 0, 0 }.
-    const int maxSurfaceDimensionLowerBound = 1024;
+    constexpr int maxSurfaceDimensionLowerBound = 1024;
 
-#if PLATFORM(IOS_FAMILY)
-    // Match limits imposed by Core Animation. FIXME: should have API for this <rdar://problem/25454148>
-    const int maxSurfaceDimension = 8 * 1024;
-#else
-    // IOSurface::maximumSize() can return { INT_MAX, INT_MAX } when hardware acceleration is unavailable.
-    const int maxSurfaceDimension = 32 * 1024;
+    return maxSize.constrainedBetween({ maxSurfaceDimensionLowerBound, maxSurfaceDimensionLowerBound }, maxSurfaceDimensionCA() );
 #endif
-
-    return maxSize.constrainedBetween({ maxSurfaceDimensionLowerBound, maxSurfaceDimensionLowerBound }, { maxSurfaceDimension, maxSurfaceDimension });
 }
 
 static WTF::Atomic<IntSize>& surfaceMaximumSize()
@@ -315,7 +323,7 @@ CGContextRef IOSurface::ensurePlatformContext(const HostWindow* hostWindow)
         // but for an IOSurface-to-IOSurface copy, there should be no conversion.
         bitsPerComponent = 16;
         bitsPerPixel = 64;
-        bitmapInfo = kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder16Host | kCGBitmapFloatComponents;
+        bitmapInfo = static_cast<CGBitmapInfo>(kCGImageAlphaPremultipliedLast) | static_cast<CGBitmapInfo>(kCGBitmapByteOrder16Host) | static_cast<CGBitmapInfo>(kCGBitmapFloatComponents);
         break;
 #endif
     case Format::YUV422:

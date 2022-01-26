@@ -145,6 +145,7 @@ webrtc/peerConnection-rvfc.html [ Pass ]
 # Timing out tests until we add XR session.
 imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-before-xr-session.https.html [ Skip ]
 imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-during-xr-session.https.html [ Skip ]
+webkit.org/b/235072 imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-repeating.html [ Skip ]
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # End platform-specific directories.
@@ -984,7 +985,6 @@ fast/forms/select/select-painting.html [ ImageOnlyFailure ]
 fast/images/background-image-size-changes-fractional-position.html [ ImageOnlyFailure ]
 fast/masking/clip-path-on-subpixel-position.html [ ImageOnlyFailure ]
 fast/text/hidpi-text-selection-gap-between-words.html [ ImageOnlyFailure ]
-svg/filters/feMorphology-radius-cases.svg [ ImageOnlyFailure ]
 
 # Time outs as of 06/08/2015
 fast/images/animated-gif-iframe-webkit-transform.html
@@ -1159,6 +1159,7 @@ webkit.org/b/161631 imported/w3c/web-platform-tests/html/browsers/browsing-the-w
 # Newly imported WPT tests that are timing out on iOS.
 imported/w3c/web-platform-tests/html/semantics/forms/the-button-element/button-activate-keyup-prevented.html [ Skip ]
 imported/w3c/web-platform-tests/html/user-activation/activation-trigger-mouse-right.html [ Skip ]
+imported/w3c/web-platform-tests/html/user-activation/activation-trigger-pointerevent.html [ Skip ]
 imported/w3c/web-platform-tests/uievents/click/auxclick_event.html [ Skip ]
 imported/w3c/web-platform-tests/uievents/click/click_event_target_child_parent.html [ Skip ]
 imported/w3c/web-platform-tests/uievents/click/click_event_target_siblings.html [ Skip ]
@@ -1446,8 +1447,6 @@ webkit.org/b/208590 [ Debug ] fast/events/beforeunload-prompt.html [ Pass Crash 
 webkit.org/b/232106 media/modern-media-controls/media-documents/media-document-video-with-initial-audio-layout.html [ Pass Timeout ]
 
 webkit.org/b/231618 [ Release ] fast/mediastream/apply-constraints-video.html [ Pass Failure ]
-
-webkit.org/b/231601 [ Release ] fast/mediastream/mediaElement-gc.html [ Pass Failure ]
 
 webkit.org/b/230012 media/modern-media-controls/media-documents/media-document-invalid.html [ Pass Crash ]
 
@@ -2074,8 +2073,6 @@ http/tests/media/modern-media-controls/overflow-support/playback-speed-live-broa
 
 webkit.org/b/168961 fast/events/wheelevent-in-frame.html [ Pass Timeout ]
 
-#rdar://80386523 (REGRESSION (iOS15 19A224?): fast/events/touch/ios/long-press-then-drag-to-select-text.html is failing) [ iOS15 ] fast/events/touch/ios/long-press-then-drag-to-select-text.html [ Failure ]
-
 #rdar://82259067 ([iOS Debug]fast/events/ios/rotation/basic-rotation.html is a constant crash) 
 fast/events/ios/rotation/basic-rotation.html [ Pass Crash Failure ]
 
@@ -2121,8 +2118,6 @@ media/modern-media-controls/media-documents/media-document-audio-ios-sizing.html
 media/modern-media-controls/media-documents/media-document-video-iphone-sizing.html [ Skip ]
 fast/forms/ios/scroll-to-reveal-focused-select.html [ Failure ]
 fast/scrolling/ios/body-overflow-hidden-height-100-percent-zoomed-1.html [ Failure ]
-media/vp9.html [ Failure ]
-webgl/pending/conformance2/glsl3/empty-shader-with-output.html [ Failure ]
 
 # This test "fails" on iPhone 12 simulator because it supports P3, may need to rebaseline this reftest
 fast/media/mq-color-gamut.html [ ImageOnlyFailure ]
@@ -2209,3 +2204,8 @@ imported/w3c/web-platform-tests/fetch/api/request/destination/fetch-destination-
 # See webkit.org/b/233498 for context on this pointerevents tests
 imported/w3c/web-platform-tests/pointerevents [ Skip ]
 pointerevents/mouse [ Failure ]
+
+# webkit.org/b/234410 Multiple semantics web-platform-tests have become flaky after r286944
+imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/iframe_sandbox_anchor_download_allow_downloads.tentative.html [ DumpJSConsoleLogInStdErr Pass Failure ]
+imported/w3c/web-platform-tests/html/semantics/text-level-semantics/the-a-element/a-download-click-404.html [ Pass Failure ]
+http/wpt/html/semantics/text-level-semantics/the-a-element/a-download-click-404.html [ Pass Failure ]

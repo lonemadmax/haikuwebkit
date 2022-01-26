@@ -231,6 +231,10 @@ public:
     operator cairo_rectangle_t() const;
 #endif
 
+#if PLATFORM(WIN)
+    WEBCORE_EXPORT FloatRect(const RECT&);
+#endif
+
     static FloatRect infiniteRect();
     bool isInfinite() const;
 

@@ -1,3 +1,435 @@
+2022-01-24  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Network: give the Ignore Caches button a label so it's more visible and immediately understandable
+        https://bugs.webkit.org/show_bug.cgi?id=235539
+
+        Reviewed by Patrick Angle.
+
+        * UserInterface/Views/NetworkTableContentView.js:
+        (WI.NetworkTableContentView):
+        (WI.NetworkTableContentView.prototype.get navigationItems):
+        (WI.NetworkTableContentView.prototype._resourceCachingDisabledSettingChanged):
+
+        * Localizations/en.lproj/localizedStrings.js:
+
+        * UserInterface/Images/IgnoreCaches.svg: Deleted.
+
+2022-01-24  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: [Flexbox] Add instrumentation/protocol bits for flex layout containers
+        https://bugs.webkit.org/show_bug.cgi?id=235454
+
+        Reviewed by Devin Rousso.
+
+        * UserInterface/Models/DOMNode.js:
+
+2022-01-24  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Network: move filtering checkboxes into a single gear-with-contextmenu to save space
+        https://bugs.webkit.org/show_bug.cgi?id=235538
+
+        Reviewed by Patrick Angle.
+
+        * UserInterface/Views/NetworkTableContentView.js:
+        (WI.NetworkTableContentView):
+        (WI.NetworkTableContentView.prototype.get navigationItems):
+        (WI.NetworkTableContentView.prototype.get filterNavigationItems):
+        (WI.NetworkTableContentView.prototype.closed):
+        (WI.NetworkTableContentView.prototype._changeCollection):
+        (WI.NetworkTableContentView.prototype._updateOtherFiltersNavigationItemState): Added.
+        (WI.NetworkTableContentView.prototype._handleOtherFiltersNavigationItemContextMenu): Added.
+        (WI.NetworkTableContentView.prototype._handleClearNetworkOnNavigateChanged): Renamed from `_handleClearNetworkOnNavigateChanged`.
+        (WI.NetworkTableContentView.prototype._handleGroupMediaRequestsByDOMNodeChanged): Renamed from `_handleGroupMediaRequestsByDOMNodeCheckedDidChange`.
+        * UserInterface/Views/NetworkTableContentView.css:
+        (.network-other-filters-button > .glyph): Added.
+        (.network-other-filters-button:active > .glyph): Added.
+        (.network-other-filters-button.active > .glyph): Added.
+        (.network-other-filters-button.active:active > .glyph): Added.
+
+        * Localizations/en.lproj/localizedStrings.js:
+
+2022-01-24  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Network: collapse type filter scope bar into a single button to save space
+        https://bugs.webkit.org/show_bug.cgi?id=235537
+
+        Reviewed by Patrick Angle.
+
+        * UserInterface/Views/NetworkTableContentView.js:
+        (WI.NetworkTableContentView):
+        * UserInterface/Views/NetworkTableContentView.css:
+        (.network-type-filter-scope-bar.default-item-selected:not(:hover)): Added.
+        (.network-type-filter-scope-bar.default-item-selected:hover): Added.
+
+2022-01-21  Nikita Vasilyev  <nvasilyev@apple.com>
+
+        Web Inspector: Make alignment editor accessible
+        https://bugs.webkit.org/show_bug.cgi?id=235395
+        <rdar://problem/87851989>
+
+        Reviewed by Patrick Angle.
+
+        Make alignment editor icons focusable, and annotate elements so VoiceOver could correctly read what is selected.
+
+        * UserInterface/Views/AlignmentEditor.css:
+        (.alignment-editor .glyph:focus):
+        (.alignment-editor .glyph:not(:focus-visible)):
+        * UserInterface/Views/AlignmentEditor.js:
+        (WI.AlignmentEditor):
+        (WI.AlignmentEditor.prototype.set alignment):
+        (WI.AlignmentEditor.prototype._removePreviouslySelected):
+        (WI.AlignmentEditor.prototype._updateSelected):
+
+2022-01-19  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: fully blackboxed stack traces don't show the right top call frame
+        https://bugs.webkit.org/show_bug.cgi?id=235381
+
+        Reviewed by Patrick Angle.
+
+        * UserInterface/Models/StackTrace.js:
+        (WI.StackTrace):
+        (WI.StackTrace.fromPayload):
+        (WI.StackTrace.prototype.get firstNonNativeNonAnonymousNotBlackboxedCallFrame):
+        Only assign to `firstNonNativeNonAnonymousCallFrame` once.
+        Drive-by: Don't re-fetch the blackbox data for the `WI.SourceCode` of the `WI.CallFrame`.
+        Drive-by: Combine optional parameters into an `options = {}` for current code cleanliness
+                  and greater flexibility for future changes.
+
+        * UserInterface/Models/CallFrame.js:
+        (WI.CallFrame):
+        (WI.CallFrame.fromDebuggerPayload):
+        (WI.CallFrame.fromPayload):
+        * UserInterface/Views/ThreadTreeElement.js:
+        (WI.ThreadTreeElement.prototype.refresh):
+        Drive-by: Combine optional parameters into an `options = {}` for current code cleanliness
+                  and greater flexibility for future changes.
+
+        * UserInterface/Views/CallFrameTreeElement.js:
+        (WI.CallFrameTreeElement):
+        (WI.CallFrameTreeElement.prototype.onattach):
+        * UserInterface/Views/CallFrameView.js:
+        (WI.CallFrameView):
+        Drive-by: Don't re-fetch the blackbox data for the `WI.SourceCode` of the `WI.CallFrame`.
+
+2022-01-19  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: blackboxed call frames should be grouped everywhere
+        https://bugs.webkit.org/show_bug.cgi?id=234648
+        <rdar://problem/87018103>
+
+        Reviewed by Patrick Angle.
+
+        * UserInterface/Controllers/CallFrameTreeController.js:
+        (WI.CallFrameTreeController.prototype.groupBlackboxedCallFrames): Added.
+        (WI.CallFrameTreeController.prototype.groupBlackboxedCallFrames.displayable): Added.
+        (WI.CallFrameTreeController.prototype.set callFrames): Added.
+        * UserInterface/Views/StackTraceView.js:
+        (WI.StackTraceView):
+        * UserInterface/Views/ThreadTreeElement.js:
+        (WI.ThreadTreeElement.prototype.refresh):
+        * UserInterface/Views/TimelineDataGrid.js:
+        (WI.TimelineDataGrid.prototype._createPopoverContent):
+        (WI.TimelineDataGrid.prototype._popoverCallStackTreeElementRemoved):
+        Centralize code for creating stack trace views so that the logic that groups blackboxed call
+        frames (and the associated `WI.BlackboxedGroupTreeElement`/`WI.BlackboxedGroupView`) can be
+        shared without duplication.
+
+        * UserInterface/Views/BlackboxedGroupTreeElement.js:
+        (WI.BlackboxedGroupTreeElement):
+        (WI.BlackboxedGroupTreeElement.prototype.expand):
+        (WI.BlackboxedGroupTreeElement.prototype.customTitleTooltip): Added.
+        Add a parameter to control whether to remember when expanding blackboxed call frame groups
+        so that they can later be auto-expanded. This is needed because that feature is intended so
+        that stepping doesn't re-collapse previously expanded blackboxed call frame groups. A more
+        technical reason is that non-debugging call stacks can live (i.e. be shown) for a long time
+        and therefore there's no good way to clear the remembered state, and we probably don't want
+        to have a previous expansion in the Timelines Tab or Canvas Tab suddenly cause all matching
+        blackboxed call frame groups in the Sources Tab to always be expanded.
+        Drive-by: Override the tooltip to explain that clicking shows the blackboxed call frames.
+
+        * UserInterface/Views/BlackboxedGroupView.js: Added.
+        (WI.BlackboxedGroupView):
+        (WI.BlackboxedGroupView.generateTitle):
+        (WI.BlackboxedGroupView.generateSubtitle):
+        (WI.BlackboxedGroupView.generateTooltip):
+        * UserInterface/Views/BlackboxedGroupView.css: Added.
+        (.blackboxed-group):
+        (.blackboxed-group > *):
+        (.blackboxed-group .icon):
+        (.blackboxed-group .subtitle):
+        (.blackboxed-group .separator):
+        (@media (prefers-color-scheme: dark) .blackboxed-group .icon):
+        (@media (prefers-color-scheme: dark) .blackboxed-group .subtitle):
+        (@media (prefers-color-scheme: dark) .blackboxed-group .separator):
+        Add a non-tree UI class for showing blackboxed call frame groups (just like how there's
+        `WI.CallFrameTreeElement` for tree UIs and `WI.CallFrameView` for non-tree UIs). Also
+        centralize the UI strings for all blackboxed call frame group UIs as `static` methods.
+
+        * UserInterface/Views/BlackboxedGroupTreeElement.css:
+        (.tree-outline .item.blackboxed-group.selected > *): Added.
+        (.tree-outline:not(:focus-within) .item.blackboxed-group.selected > *, body:is(.window-inactive, .window-docked-inactive) .tree-outline .item.blackboxed-group.selected > *): Added.
+        (.tree-outline .item.blackboxed-group): Deleted.
+        (.tree-outline .item.blackboxed-group:not(.selected) > *, .tree-outline:not(:focus-within) .item.blackboxed-group.selected > *, body:is(.window-inactive, .window-docked-inactive) .tree-outline .item.blackboxed-group.selected > *): Deleted.
+        (.tree-outline .item.blackboxed-group .icon): Deleted.
+        (@media (prefers-color-scheme: dark) .tree-outline .item.blackboxed-group .icon): Deleted.
+        Share styles from `UserInterface/Views/BlackboxedGroupView.css` since both share `.blackboxed-group`.
+
+        * UserInterface/Views/CallFrameTreeElement.js:
+        Drive-by: Combine optional parameters into an `options = {}` for current code cleanliness
+                  and greater flexibility for future changes.
+
+        * UserInterface/Views/Variables.css:
+        (:root):
+        * UserInterface/Views/CallFrameTreeElement.css:
+        (.tree-outline .item.call-frame.blackboxed:not(.selected)):
+        * UserInterface/Views/CallFrameView.css:
+        (.call-frame.blackboxed > .title,):
+        Drive-by: Rename `--blackboxed-tree-item-opacity` since it's now also used outside trees.
+
+        * UserInterface/Main.html:
+        * Localizations/en.lproj/localizedStrings.js:
+
+2022-01-18  Alex Christensen  <achristensen@webkit.org>
+
+        Use c++2a instead of gnu++2a for Cocoa builds
+        https://bugs.webkit.org/show_bug.cgi?id=234936
+
+        Reviewed by Sam Weinig.
+
+        * Configurations/Base.xcconfig:
+
+2022-01-14  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Sources: cannot copy grouping of blackboxed call frames
+        https://bugs.webkit.org/show_bug.cgi?id=234615
+        <rdar://problem/86989248>
+
+        Reviewed by Patrick Angle.
+
+        * UserInterface/Views/SourcesNavigationSidebarPanel.js:
+        (WI.SourcesNavigationSidebarPanel.prototype.handleCopyEvent):
+        (WI.SourcesNavigationSidebarPanel.prototype.handleCopyEvent.addCallFrame): Added.
+        Include every `WI.CallFrame` managed by any selected `WI.BlackboxedGroupTreeElement` when
+        copying. Also make sure that any async boundaries are taken into account.
+
+        * UserInterface/Views/BlackboxedGroupTreeElement.js:
+        (WI.BlackboxedGroupTreeElement):
+        (WI.BlackboxedGroupTreeElement.prototype.get callFrames): Added.
+        (WI.BlackboxedGroupTreeElement.prototype.get expandable): Added.
+        (WI.BlackboxedGroupTreeElement.prototype.onenter): Added.
+        (WI.BlackboxedGroupTreeElement.prototype.onspace): Added.
+        Make `WI.BlackboxedGroupTreeElement` selectable, and add extra action handlers for expansion.
+
+        * UserInterface/Views/BlackboxedGroupTreeElement.css:
+        (.tree-outline .item.blackboxed-group):
+        (.tree-outline .item.blackboxed-group:not(.selected) > *, .tree-outline:not(:focus-within) .item.blackboxed-group.selected > *, body:is(.window-inactive, .window-docked-inactive) .tree-outline .item.blackboxed-group.selected > *): Added.
+        (body:not(.window-inactive, .window-docked-inactive) .tree-outline:focus-within .item.blackboxed-group.selected .icon): Added.
+        Only make the content more transparent if not `.selected` (when the window/tree has focus).
+
+        * UserInterface/Views/TreeElement.js:
+        (WI.TreeElement.prototype.get expandable): Added.
+        (WI.TreeElement.treeElementToggled):
+        Allow `toggleOnClick` to be used when `selectable` too. This allows `WI.BlackboxedGroupTreeElement`
+        to `expand` on click while also being able to be selected (e.g. shift-up, command-A, etc.).
+        All other uses of `toggleOnClick` set `this.selectable = false;` anyways, so this will have
+        no effect to other clients.
+
+        * UserInterface/Views/TreeOutline.js:
+        (WI.TreeOutline.prototype.insertChild):
+        (WI.TreeOutline.prototype._treeKeyDown):
+        * UserInterface/Views/DOMTreeOutline.js:
+        (WI.DOMTreeOutline.prototype.update):
+        Add a helper `get expandable` instead of assuming it from `get hasChildren`. This allows
+        `WI.BlackboxedGroupTreeElement` to override it and always be `true`, since there is no
+        situation where we would disallow expansion (which shows the grouped blackboxed call frames).
+
+        * UserInterface/Models/CallFrame.js:
+        (WI.CallFrame.prototype.get displayName): Added.
+        * UserInterface/Views/CallFrameView.js:
+        (WI.CallFrameView):
+        * UserInterface/Views/CallFrameTreeElement.js:
+        (WI.CallFrameTreeElement):
+        * UserInterface/Views/ConsoleMessageView.js:
+        (WI.ConsoleMessageView.prototype.toClipboardString):
+        Add a helper `get displayName` to avoid repeated specialized logic.
+
+2022-01-14  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: add a contextmenu item to create a URL Breakpoint for resources initiated by script
+        https://bugs.webkit.org/show_bug.cgi?id=235216
+
+        Reviewed by Dean Jackson.
+
+        * UserInterface/Views/ContextMenuUtilities.js:
+        (WI.appendContextMenuItemsForSourceCode):
+        Since URL Breakpoints only work with XHR/`fetch`, only offer to create a URL Breakpoint if
+        the `WI.SourceCode` has `initiatorCallFrames`, meaning it was triggered by JS. We could
+        offer this contextmenu item for _all_ resources, but there are many different resource types
+        that are unlikely (if ever) to be loaded via XHR/`fetch` (e.g. favicons, manifests, fonts,
+        initial JS/CSS files, etc.) that it would likely add clutter and possibly confuse developers
+        into thinking that URL Breakpoints can somehow pause things other than JS. Plus, this can
+        always be changed in a followup, so better to do something minimal first.
+
+        * UserInterface/Controllers/DOMDebuggerManager.js:
+        (WI.DOMDebuggerManager.prototype.urlBreakpointsMatchingURL): Added.
+        Helper method to find all `WI.URLBreakpoint` that match a given URL, sorted by how exact
+        they would match (e.g. a regex match is less exact than `===`).
+
+        * Localizations/en.lproj/localizedStrings.js:
+
+2022-01-13  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] Add "product dependencies" which influence workspace build order
+        https://bugs.webkit.org/show_bug.cgi?id=235094
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/Base.xcconfig: Add EXCLUDED_SOURCE_FILE_NAMES
+        * WebInspectorUI.xcodeproj/project.pbxproj: Add Product Dependencies
+
+2022-01-13  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: Implement `frameURL` option for `devtools.inspectedWindow.eval` command
+        https://bugs.webkit.org/show_bug.cgi?id=222568
+
+        Reviewed by Devin Rousso.
+
+        New test: Tools/TestWebKitAPI/Tests/WebKitCocoa/WKInspectorExtension.mm
+
+        Add support for evaluating script from an extension in a specific frame on the page by referring to it by the
+        frame's URL. Frame URLs are matched in three steps, first looking for an exact URL match, including query
+        parameters and fragment identifier. If no match is found and the provided `options.frameURL` does not have any
+        fragment identifier or query parameters, a check is then made against each known frame again, this time
+        excluding their fragment identifier. If that check still fails to find a frame for the URL, we perform one more
+        pass, this time excluding the fragment identifier and query parameters for each known frame.
+
+        * UserInterface/Controllers/WebInspectorExtensionController.js:
+        (WI.WebInspectorExtensionController.prototype.evaluateScriptForExtension):
+        (WI.WebInspectorExtensionController.prototype.reloadForExtension):
+        - Drive-by removal of trailing spaces.
+        (WI.WebInspectorExtensionController.prototype._frameForFrameURL):
+
+2022-01-12  Elliott Williams  <emw@apple.com>
+
+        [Xcode] Configure each project for the legacy build system
+        https://bugs.webkit.org/show_bug.cgi?id=235091
+
+        Reviewed by Darin Adler.
+
+        * WebInspectorUI.xcodeproj/project.pbxproj:
+
+2022-01-12  Antoine Quint  <graouts@webkit.org>
+
+        Update Web Inspector to not use legacy webkit-prefixed transition events
+        https://bugs.webkit.org/show_bug.cgi?id=235119
+
+        Reviewed by Joseph Pecoraro.
+
+        Came across this while working on bug 235113, we shouldn't be using webkit-prefixed events.
+
+        * UserInterface/Views/TabBar.js:
+        (WI.TabBar.prototype.insertTabBarItem.animateTabs):
+        (WI.TabBar.prototype.insertTabBarItem.removeStyles):
+        (WI.TabBar.prototype.insertTabBarItem):
+        (WI.TabBar.prototype.removeTabBarItem.animateTabs):
+        (WI.TabBar.prototype.removeTabBarItem.removeStyles):
+        (WI.TabBar.prototype.removeTabBarItem):
+        (WI.TabBar.prototype._finishExpandingTabsAfterClose.):
+        (WI.TabBar.prototype._finishExpandingTabsAfterClose):
+
+2022-01-12  Antoine Quint  <graouts@webkit.org>
+
+        Web Inspector should expose newer CSS Animations, CSS Transitions and Web Animations events
+        https://bugs.webkit.org/show_bug.cgi?id=235117
+
+        Reviewed by Joseph Pecoraro.
+
+        Came across this while working on bug 235113, the more recent events added to
+        CSS Animations, CSS Transitions and Web Animations are not used in the Web Inspector.
+
+        * UserInterface/Models/ScriptTimelineRecord.js:
+        (WI.ScriptTimelineRecord.EventType.displayName):
+
+2022-01-12  Razvan Caliman  <rcaliman@apple.com>
+
+        Web Inspector: Unhandled exception when moving cursor mid-token after receiving CSS property name completions
+        https://bugs.webkit.org/show_bug.cgi?id=234393
+        <rdar://problem/86578732>
+
+        Reviewed by Patrick Angle.
+
+        A faulty check for mid-token completions in `WI.CSSKeywordCompletions.forPartialPropertyName()`, which are still
+        unsupported, prevented an early return and completions were provided unexpectedly. This had knock-on effects in
+        `WI.SpreadsheetTextField` which is not set up to handle cases where the caret is placed within the completion query.
+        Calculating the adjusted caret position could return a negative index and throw an unhandled exception.
+
+        Web Inspector does not currently explicitly support mid-token completions. See https://webkit.org/b/227157
+
+        The implementation of fuzzy matching for CSS completions in https://webkit.org/b/234092
+        means that, unhindered, the completion provider for CSS property names _can_ return mid-token completions.
+        Typing a query like `margin`, then moving the caret to the beginning and correcting to `s|margin` will return
+        completions like `[s]croll-[margin]`. Accepting the completion results in a malformed `SpreadsheetTextField.value`
+        by concatenation within the prefix itself. As the user types mid-token, the prefix becomes ambiguous.
+
+        Fixing the condition in `WI.CSSKeywordCompletions.forPartialPropertyName()` now inhibits unintentional
+        mid-token completions when fuzzy matching is enabled.
+
+        * UserInterface/Models/CSSKeywordCompletions.js:
+        (WI.CSSKeywordCompletions.forPartialPropertyName):
+        * UserInterface/Views/SpreadsheetTextField.js:
+        (WI.SpreadsheetTextField.prototype._showSuggestionsView):
+
+2022-01-11  Nikita Vasilyev  <nvasilyev@apple.com>
+
+        REGRESSION (r283723): Web Inspector: CSS declarations unexpectedly removed when editing property value
+        https://bugs.webkit.org/show_bug.cgi?id=233195
+
+        Reviewed by Devin Rousso.
+
+        Re-attach CSS property if it was detached while editing.
+
+        CSSProperty is detached when focusing on property name and deleting it. Consequent edits of the detached
+        CSSProperty were not saved. This patch re-attaches detached property at the previous position.
+
+        * UserInterface/Models/CSSProperty.js:
+        (WI.CSSProperty.prototype.set name):
+        * UserInterface/Models/CSSStyleDeclaration.js:
+        (WI.CSSStyleDeclaration.prototype.newBlankProperty):
+        (WI.CSSStyleDeclaration.prototype.insertProperty):
+        Introduce this method since the logic is used in two different places now.
+
+2022-01-10  Nikita Vasilyev  <nvasilyev@apple.com>
+
+        Web Inspector: Increase padding around icons in Alignment editor
+        https://bugs.webkit.org/show_bug.cgi?id=234036
+        <rdar://problem/86543279>
+
+        Reviewed by Devin Rousso.
+
+        Increase margin and padding around the icons, making the icons more visually appealing
+        and easier to distinguish and from each other.
+
+        * UserInterface/Images/AlignContentStretch.svg:
+        The gap between rectangles was only 0.5px. Increase it to 2px.
+
+        * UserInterface/Views/AlignmentEditor.css:
+        (.alignment-editor .glyph):
+        (.alignment-editor .glyph:not(:first-child)):
+        (.alignment-editor .glyph.selected):
+        (.alignment-editor .glyph.selected:active):
+        (.alignment-editor .glyph:not(:last-child)): Deleted.
+        (.alignment-editor .glyph.selected + .glyph): Deleted.
+
+2022-01-10  Alex Christensen  <achristensen@webkit.org>
+
+        Start using C++20
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+
+        Reviewed by Yusuke Suzuki.
+
+        * Configurations/Base.xcconfig:
+
 2022-01-07  Alexey Shvayka  <ashvayka@apple.com>
 
         Remove obsolete DOM Level 2 "DOMFocusIn" / "DOMFocusOut" events

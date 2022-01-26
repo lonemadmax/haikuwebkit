@@ -187,7 +187,8 @@
     (deny mach-lookup (with telemetry)
            (global-name "com.apple.nsurlstorage-cache"))
 
-    (deny mach-lookup (with telemetry)
+    ;; <rdar://86781432>
+    (allow mach-lookup
            (global-name "com.apple.cfnetwork.AuthBrokerAgent"))
     ;; <rdar://problem/10423007>
     (allow mach-lookup (with telemetry)
@@ -337,7 +338,8 @@
 
     (allow user-preference-read (preference-domain "kCFPreferencesAnyApplication"))
     (allow file-read*
-        (front-user-home-literal "/Library/Preferences/.GlobalPreferences.plist"))
+           (front-user-home-literal "/Library/Preferences/.GlobalPreferences.plist")
+           (front-user-home-literal "/Library/Preferences/.GlobalPreferences_m.plist"))
 
     (allow file-read*
            (literal "/private/var/Managed Preferences/mobile/.GlobalPreferences.plist"))

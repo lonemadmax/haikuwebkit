@@ -127,6 +127,8 @@ webkit.org/b/74716 css3/filters/animation-from-initial-values-with-color-matrix.
 webkit.org/b/74716 css3/filters/filter-is-on-subpixel-position.html [ Skip ]
 webkit.org/b/74716 css3/masking/clip-path-filter.html [ Skip ]
 webkit.org/b/74716 css3/filters/backdrop [ Skip ]
+webkit.org/b/74716 css3/filters/reference-filter-set-filter-regions.html [ Skip ]
+webkit.org/b/74716 css3/filters/reference-filter-outsets.html [ Skip ]
 
 # platformLayerTreeAsText is only implemented for Cocoa ports.
 fast/harness/platform-layer-tree-as-text.html [ Skip ]
@@ -141,6 +143,8 @@ webkit.org/b/185076 css3/color-filters [ Skip ]
 # IntersectionObserver is off by default
 webkit.org/b/188613 intersection-observer [ Skip ]
 webkit.org/b/188613 http/tests/intersection-observer [ Skip ]
+webkit.org/b/188613 fast/dom/callback-function-detached-frame-intersection-observer.html [ Skip ]
+fast/dom/callback-function-detached-frame-resize-observer.html [ Skip ]
 
 # TODO Should be moved to platform/mac <rdar://5621425>
 http/tests/misc/willCacheResponse-delegate-callback.html [ Skip ]
@@ -331,6 +335,7 @@ fast/autoresize/ [ Skip ]
 # TODO Need to add functionality to DumpRenderTree to handle scrollbar policy changes
 fast/overflow/scrollbar-restored-and-then-locked.html [ Skip ]
 
+editing/execCommand/paste-as-quotation-disconnected-paragraph-ancestor-crash.html [ Skip ]
 storage/indexeddb/clone-exception.html [ Timeout ]
 storage/indexeddb/database-odd-names.html [ Timeout Failure ]
 storage/indexeddb/primary-key-unique-to-objectstore.html [ Timeout ]
@@ -637,6 +642,7 @@ fast/events/wheel/platform-wheelevent-paging-y-in-scrolling-page.html [ Skip ]
 # Pointer Lock is not implemented.
 pointer-lock/ [ Skip ]
 http/tests/pointer-lock/ [ Skip ]
+fast/js-promise/js-promise-invalid-context-access.html [ Skip ]
 
 # Datalist is unsupported on Windows
 accessibility/datalist.html [ WontFix ]
@@ -1769,7 +1775,6 @@ animations/transition-and-animation-2.html [ Pass Failure ]
 [ Debug ] animations/animation-direction-reverse-fill-mode.html [ Skip ] # Debug assertion
 [ Debug ] animations/animation-matrix-negative-scale-unmatrix.html [ Skip ] # Debug assertion
 [ Debug ] animations/added-while-suspended.html [ Skip ] # Debug assertion
-[ Debug ] animations/animation-events-create.html [ Skip ] # Debug assertion
 [ Debug ] animations/animation-end-event-short-iterations.html [ Skip ] # Debug assertion
 [ Debug ] animations/animation-shorthand-overriding.html [ Skip ] # Debug assertion
 [ Debug ] animations/animation-direction-reverse-hardware-opacity.html [ Skip ] # Debug assertion
@@ -3572,7 +3577,6 @@ fast/multicol/flexbox-rows.html [ ImageOnlyFailure ]
 fast/multicol/newmulticol/compare-with-old-impl/shrink-to-column-height-for-pagination.html [ ImageOnlyFailure ]
 fast/text/accessibility-bold-system-font-2.html [ ImageOnlyFailure ]
 fast/text/emoji-overlap.html [ ImageOnlyFailure ]
-fast/text/simple-line-layout-simple-text-but-complex-font-path.html [ ImageOnlyFailure ]
 imported/blink/scrollbars/avoid-double-scrollbars-when-html-element-is-not-the-renderview.html [ ImageOnlyFailure ]
 imported/w3c/i18n/bidi/bidi-plaintext-011.html [ ImageOnlyFailure ]
 svg/custom/anchor-on-use.svg [ ImageOnlyFailure ]
@@ -4780,3 +4784,19 @@ webanimations/frame-rate/document-timeline-maximum-frame-rate.html [ Skip ]
 
 pointerevents/mouse/pointer-button-and-buttons.html [ Failure ]
 pointerevents/mouse/pointer-capture.html [ Failure ]
+
+# webkit.org/b/234933 Multiple fast/shadow-dom/fullscreen-in-* tests are constant crashes and slowing down Windows EWS
+accessibility/insert-children-assert.html [ Crash ]
+fast/shadow-dom/fullscreen-in-shadow-event-should-propagate.html [ Crash ]
+fast/shadow-dom/fullscreen-in-shadow-full-screen-ancestor.html [ Crash ]
+fast/shadow-dom/fullscreen-in-shadow-fullscreenElement.html [ Crash ]
+fast/shadow-dom/fullscreen-in-slot-fullscreenElement.html [ Crash ]
+
+webkit.org/b/235123 fast/css/contain-invalidate-if-disabled.html [ Failure ]
+
+webkit.org/b/235124 webanimations/frame-rate/animation-frame-rate.html [ Failure ]
+
+webkit.org/b/235126 webanimations/accelerated-animation-after-forward-filling-animation.html [ ImageOnlyFailure ]
+
+# LinearSRGB color space is not supported on Windows.
+css3/filters/reference-filter-color-space.html [ Skip ]

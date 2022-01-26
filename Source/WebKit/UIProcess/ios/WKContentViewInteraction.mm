@@ -1216,6 +1216,8 @@ static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> se
     _pointerInteraction = nil;
 #endif
 
+    [self resetShouldZoomToFocusRectAfterShowingKeyboard];
+
 #if HAVE(PENCILKIT_TEXT_INPUT)
     [self cleanUpScribbleInteraction];
 #endif
@@ -2344,10 +2346,31 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
     return boundingRect;
 }
 
+- (void)_keyboardDidShow
+{
+    if (!_shouldZoomToFocusRectAfterShowingKeyboard)
+        return;
+
+    // FIXME: This deferred call to -_zoomToRevealFocusedElement works around the fact that Mail compose
+    // disables automatic content inset adjustment using the keyboard height, and instead has logic to
+    // explicitly set WKScrollView's contentScrollInset after receiving UIKeyboardDidShowNotification.
+    // This means that if we -_zoomToRevealFocusedElement immediately after focusing the body field in
+    // Mail, we won't take the keyboard height into account when scrolling.
+    // Mitigate this by deferring the call to -_zoomToRevealFocusedElement in this case until after the
+    // keyboard has finished animating. We can revert this once rdar://87733414 is fixed.
+    [self resetShouldZoomToFocusRectAfterShowingKeyboard];
+    [self performSelector:@selector(_zoomToRevealFocusedElement) withObject:nil afterDelay:0];
+}
+
 - (void)_zoomToRevealFocusedElement
 {
     if (_suppressSelectionAssistantReasons || _activeTextInteractionCount)
         return;
+
+    if (!self._scroller.firstResponderKeyboardAvoidanceEnabled && _page->isKeyboardAnimatingIn()) {
+        _shouldZoomToFocusRectAfterShowingKeyboard = YES;
+        return;
+    }
 
     // In case user scaling is force enabled, do not use that scaling when zooming in with an input field.
     // Zooming above the page's default scale factor should only happen when the user performs it.
@@ -2358,6 +2381,12 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
         maximumScale:_focusedElementInformation.maximumScaleFactorIgnoringAlwaysScalable
         allowScaling:_focusedElementInformation.allowsUserScalingIgnoringAlwaysScalable && WebKit::currentUserInterfaceIdiomIsSmallScreen()
         forceScroll:[self requiresAccessoryView]];
+}
+
+- (void)resetShouldZoomToFocusRectAfterShowingKeyboard
+{
+    _shouldZoomToFocusRectAfterShowingKeyboard = NO;
+    [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(_zoomToRevealFocusedElement) object:nil];
 }
 
 - (UIView *)inputView
@@ -6575,6 +6604,8 @@ static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebK
     _focusRequiresStrongPasswordAssistance = NO;
     _additionalContextForStrongPasswordAssistance = nil;
 
+    [self resetShouldZoomToFocusRectAfterShowingKeyboard];
+
     // When defocusing an editable element reset a seen keydown before calling -_hideKeyboard so that we
     // re-evaluate whether we still need a keyboard when UIKit calls us back in -_requiresKeyboardWhenFirstResponder.
     if (editableChanged)
@@ -8646,19 +8677,21 @@ static RetainPtr<UITargetedPreview> createFallbackTargetedPreview(UIView *rootVi
     if (backgroundColor)
         [parameters setBackgroundColor:backgroundColor];
 
-    UIView *snapshotView = [rootView resizableSnapshotViewFromRect:frameInRootViewCoordinates afterScreenUpdates:NO withCapInsets:UIEdgeInsetsZero];
+    RetainPtr snapshotView = [rootView resizableSnapshotViewFromRect:frameInRootViewCoordinates afterScreenUpdates:NO withCapInsets:UIEdgeInsetsZero];
+    if (!snapshotView)
+        snapshotView = adoptNS([UIView new]);
 
     CGRect frameInContainerViewCoordinates = [rootView convertRect:frameInRootViewCoordinates toView:containerView];
 
     if (CGRectIsEmpty(frameInContainerViewCoordinates))
         return nil;
 
-    snapshotView.frame = frameInContainerViewCoordinates;
+    [snapshotView setFrame:frameInContainerViewCoordinates];
 
     CGPoint centerInContainerViewCoordinates = CGPointMake(CGRectGetMidX(frameInContainerViewCoordinates), CGRectGetMidY(frameInContainerViewCoordinates));
     auto target = adoptNS([[UIPreviewTarget alloc] initWithContainer:containerView center:centerInContainerViewCoordinates]);
 
-    return adoptNS([[UITargetedPreview alloc] initWithView:snapshotView parameters:parameters.get() target:target.get()]);
+    return adoptNS([[UITargetedPreview alloc] initWithView:snapshotView.get() parameters:parameters.get() target:target.get()]);
 }
 
 - (UITargetedPreview *)_createTargetedContextMenuHintPreviewForFocusedElement
@@ -10395,6 +10428,11 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
         auto requestForTextSelection = [strongSelf createImageAnalyzerRequest:VKAnalysisTypeText image:cgImage.get()];
         auto requestForContextMenu = [strongSelf createImageAnalyzerRequest:VKAnalysisTypeVisualSearch | VKAnalysisTypeMachineReadableCode | VKAnalysisTypeAppClip image:cgImage.get()];
 
+        if (information.elementContainsImageOverlay) {
+            [strongSelf _completeImageAnalysisRequestForContextMenu:requestForContextMenu.get() requestIdentifier:requestIdentifier hasTextResults:YES];
+            return;
+        }
+
         auto textAnalysisStartTime = MonotonicTime::now();
         [[strongSelf imageAnalyzer] processRequest:requestForTextSelection.get() progressHandler:nil completionHandler:[requestIdentifier = WTFMove(requestIdentifier), weakSelf, elementContext, requestLocation, requestForContextMenu, gestureDeferralToken, textAnalysisStartTime] (VKImageAnalysis *result, NSError *error) mutable {
             auto strongSelf = weakSelf.get();
@@ -10422,37 +10460,42 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
                     return;
                 }
 
-                auto visualSearchAnalysisStartTime = MonotonicTime::now();
-                [[strongSelf imageAnalyzer] processRequest:requestForContextMenu.get() progressHandler:nil completionHandler:[requestIdentifier = WTFMove(requestIdentifier), weakSelf, hasTextResults, visualSearchAnalysisStartTime] (VKImageAnalysis *result, NSError *error) mutable {
-                    auto strongSelf = weakSelf.get();
-                    if (![strongSelf validateImageAnalysisRequestIdentifier:requestIdentifier])
-                        return;
-
-#if USE(QUICK_LOOK)
-                    BOOL hasVisualSearchResults = [result hasResultsForAnalysisTypes:VKAnalysisTypeVisualSearch];
-                    RELEASE_LOG(Images, "Image analysis completed in %.0f ms (request %" PRIu64 "; found visual search results? %d)", (MonotonicTime::now() - visualSearchAnalysisStartTime).milliseconds(), requestIdentifier.toUInt64(), hasVisualSearchResults);
-#else
-                    UNUSED_PARAM(visualSearchAnalysisStartTime);
-#endif
-                    if (!result || error) {
-                        [strongSelf _invokeAllActionsToPerformAfterPendingImageAnalysis:WebKit::ProceedWithTextSelectionInImage::No];
-                        return;
-                    }
-
-#if USE(QUICK_LOOK)
-                    strongSelf->_hasSelectableTextInImage = hasTextResults;
-                    strongSelf->_hasVisualSearchResults = hasVisualSearchResults;
-#else
-                    UNUSED_PARAM(hasTextResults);
-#endif
-#if USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
-                    [strongSelf _updateContextMenuForMachineReadableCodeForImageAnalysis:result];
-#endif // USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
-                    [strongSelf _invokeAllActionsToPerformAfterPendingImageAnalysis:WebKit::ProceedWithTextSelectionInImage::No];
-                }];
+                [strongSelf _completeImageAnalysisRequestForContextMenu:requestForContextMenu.get() requestIdentifier:requestIdentifier hasTextResults:hasTextResults];
             });
         }];
     } forRequest:request];
+}
+
+- (void)_completeImageAnalysisRequestForContextMenu:(VKImageAnalyzerRequest *)requestForContextMenu requestIdentifier:(WebKit::ImageAnalysisRequestIdentifier)requestIdentifier hasTextResults:(BOOL)hasTextResults
+{
+    auto visualSearchAnalysisStartTime = MonotonicTime::now();
+    [self.imageAnalyzer processRequest:requestForContextMenu progressHandler:nil completionHandler:[requestIdentifier = WTFMove(requestIdentifier), weakSelf = WeakObjCPtr<WKContentView>(self), hasTextResults, visualSearchAnalysisStartTime] (VKImageAnalysis *result, NSError *error) mutable {
+        auto strongSelf = weakSelf.get();
+        if (![strongSelf validateImageAnalysisRequestIdentifier:requestIdentifier])
+            return;
+
+#if USE(QUICK_LOOK)
+        BOOL hasVisualSearchResults = [result hasResultsForAnalysisTypes:VKAnalysisTypeVisualSearch];
+        RELEASE_LOG(Images, "Image analysis completed in %.0f ms (request %" PRIu64 "; found visual search results? %d)", (MonotonicTime::now() - visualSearchAnalysisStartTime).milliseconds(), requestIdentifier.toUInt64(), hasVisualSearchResults);
+#else
+        UNUSED_PARAM(visualSearchAnalysisStartTime);
+#endif
+        if (!result || error) {
+            [strongSelf _invokeAllActionsToPerformAfterPendingImageAnalysis:WebKit::ProceedWithTextSelectionInImage::No];
+            return;
+        }
+
+#if USE(QUICK_LOOK)
+        strongSelf->_hasSelectableTextInImage = hasTextResults;
+        strongSelf->_hasVisualSearchResults = hasVisualSearchResults;
+#else
+        UNUSED_PARAM(hasTextResults);
+#endif
+#if USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
+        [strongSelf _updateContextMenuForMachineReadableCodeForImageAnalysis:result];
+#endif // USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
+        [strongSelf _invokeAllActionsToPerformAfterPendingImageAnalysis:WebKit::ProceedWithTextSelectionInImage::No];
+    }];
 }
 
 - (void)imageAnalysisGestureDidFail:(WKImageAnalysisGestureRecognizer *)gestureRecognizer

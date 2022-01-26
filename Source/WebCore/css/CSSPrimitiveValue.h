@@ -90,6 +90,8 @@ public:
     bool isQuirkyEms() const { return primitiveType() == CSSUnitType::CSS_QUIRKY_EMS; }
     bool isLength() const { return isLength(static_cast<CSSUnitType>(primitiveType())); }
     bool isNumber() const { return primitiveType() == CSSUnitType::CSS_NUMBER; }
+    bool isInteger() const { return primitiveType() == CSSUnitType::CSS_INTEGER; }
+    bool isNumberOrInteger() const { return isNumber() || isInteger(); }
     bool isPercentage() const { return primitiveType() == CSSUnitType::CSS_PERCENTAGE; }
     bool isPx() const { return primitiveType() == CSSUnitType::CSS_PX; }
     bool isRect() const { return primitiveUnitType() == CSSUnitType::CSS_RECT; }
@@ -192,7 +194,7 @@ public:
 
     bool equals(const CSSPrimitiveValue&) const;
 
-    static double conversionToCanonicalUnitsScaleFactor(CSSUnitType);
+    static std::optional<double> conversionToCanonicalUnitsScaleFactor(CSSUnitType);
     static String unitTypeString(CSSUnitType);
 
     static double computeUnzoomedNonCalcLengthDouble(CSSUnitType, double value, CSSPropertyID, const FontMetrics* = nullptr, const FontCascadeDescription* = nullptr, const FontCascadeDescription* rootFontDescription = nullptr, const RenderView* = nullptr);
@@ -252,6 +254,7 @@ private:
 
     ALWAYS_INLINE String formatNumberForCustomCSSText() const;
     NEVER_INLINE String formatNumberValue(StringView) const;
+    NEVER_INLINE String formatIntegerValue(StringView) const;
     static constexpr bool isFontIndependentLength(CSSUnitType);
     static constexpr bool isFontRelativeLength(CSSUnitType);
     static constexpr bool isResolution(CSSUnitType);

@@ -49,6 +49,8 @@ public:
 
     void getPixelBuffer(const WebCore::PixelBufferFormat& outputFormat, const WebCore::IntRect& sourceRect) final;
     void putPixelBuffer(const WebCore::PixelBuffer&, const WebCore::IntRect& srcRect, const WebCore::IntPoint& destPoint, WebCore::AlphaPremultiplication destFormat) final;
+    void convertToLuminanceMask() final;
+    void transformToColorSpace(const WebCore::DestinationColorSpace&) final;
     void flushContext(WebCore::GraphicsContextFlushIdentifier) final;
 
 private:
@@ -136,9 +138,10 @@ private:
 #endif
     void recordApplyDeviceScaleFactor(float) final;
 
-    void recordResourceUse(WebCore::NativeImage&) final;
-    void recordResourceUse(WebCore::Font&) final;
-    void recordResourceUse(WebCore::ImageBuffer&) final;
+    bool recordResourceUse(WebCore::NativeImage&) final;
+    bool recordResourceUse(WebCore::ImageBuffer&) final;
+    bool recordResourceUse(const WebCore::SourceImage&) final;
+    bool recordResourceUse(WebCore::Font&) final;
 
     std::unique_ptr<WebCore::GraphicsContext> createNestedContext(const WebCore::FloatRect& initialClip, const WebCore::AffineTransform& initialCTM) final;
 

@@ -38,6 +38,7 @@
 #include "HTMLSpanElement.h"
 #include "InlineIteratorTextBox.h"
 #include "LegacyInlineTextBox.h"
+#include "LegacyRenderSVGContainer.h"
 #include "LegacyRenderSVGRoot.h"
 #include "LegacyRenderSVGShape.h"
 #include "Logging.h"
@@ -472,7 +473,7 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
 void writeDebugInfo(TextStream& ts, const RenderObject& object, OptionSet<RenderAsTextFlag> behavior)
 {
     if (behavior.contains(RenderAsTextFlag::ShowIDAndClass)) {
-        if (Element* element = is<Element>(object.node()) ? downcast<Element>(object.node()) : nullptr) {
+        if (auto* element = dynamicDowncast<Element>(object.node())) {
             if (element->hasID())
                 ts << " id=\"" << element->getIdAttribute() << "\"";
 
@@ -578,8 +579,14 @@ void write(TextStream& ts, const RenderObject& o, OptionSet<RenderAsTextFlag> be
         writeSVGResourceContainer(ts, downcast<RenderSVGResourceContainer>(o), behavior);
         return;
     }
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
     if (is<RenderSVGContainer>(o)) {
         writeSVGContainer(ts, downcast<RenderSVGContainer>(o), behavior);
+        return;
+    }
+#endif
+    if (is<LegacyRenderSVGContainer>(o)) {
+        writeSVGContainer(ts, downcast<LegacyRenderSVGContainer>(o), behavior);
         return;
     }
 #if ENABLE(LAYER_BASED_SVG_ENGINE)

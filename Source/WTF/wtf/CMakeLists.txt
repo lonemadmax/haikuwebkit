@@ -66,6 +66,7 @@ set(WTF_PUBLIC_HEADERS
     EnumClassOperatorOverloads.h
     EnumTraits.h
     Expected.h
+    ExperimentalFeatureNames.h
     ExportMacros.h
     FailureAction.h
     FastBitVector.h
@@ -110,6 +111,7 @@ set(WTF_PUBLIC_HEADERS
     InterferenceGraph.h
     IsoMalloc.h
     IsoMallocInlines.h
+    IterationStatus.h
     IteratorAdaptors.h
     IteratorRange.h
     JSONValues.h

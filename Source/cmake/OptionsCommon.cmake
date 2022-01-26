@@ -1,9 +1,10 @@
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_definitions(-DBUILDING_WITH_CMAKE=1)
 add_definitions(-DHAVE_CONFIG_H=1)
+add_definitions(-DPAS_BMALLOC=1)
 
 option(USE_THIN_ARCHIVES "Produce all static libraries as thin archives" ON)
 if (USE_THIN_ARCHIVES)

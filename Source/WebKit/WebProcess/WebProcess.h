@@ -30,7 +30,7 @@
 #include "CacheModel.h"
 #include "IdentifierTypes.h"
 #include "SandboxExtension.h"
-#include "StorageAreaIdentifier.h"
+#include "StorageAreaMapIdentifier.h"
 #include "TextCheckerState.h"
 #include "UserContentControllerIdentifier.h"
 #include "ViewUpdateDispatcher.h"
@@ -73,10 +73,6 @@
 
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
 #include <WebCore/CaptionUserPreferences.h>
-#endif
-
-#if USE(ATSPI)
-#include <WebCore/AccessibilityAtspi.h>
 #endif
 
 namespace API {
@@ -288,11 +284,13 @@ public:
 
     void registerStorageAreaMap(StorageAreaMap&);
     void unregisterStorageAreaMap(StorageAreaMap&);
-    StorageAreaMap* storageAreaMap(StorageAreaIdentifier) const;
+    WeakPtr<StorageAreaMap> storageAreaMap(StorageAreaMapIdentifier) const;
 
 #if PLATFORM(COCOA)
     RetainPtr<CFDataRef> sourceApplicationAuditData() const;
     void destroyRenderingResources();
+    void getProcessDisplayName(CompletionHandler<void(String&&)>&&);
+    std::optional<audit_token_t> auditTokenForSelf();
 #endif
 
     const String& uiProcessBundleIdentifier() const { return m_uiProcessBundleIdentifier; }
@@ -397,10 +395,6 @@ public:
 
 #if ENABLE(MEDIA_STREAM)
     SpeechRecognitionRealtimeMediaSourceManager& ensureSpeechRecognitionRealtimeMediaSourceManager();
-#endif
-
-#if USE(ATSPI)
-    WebCore::AccessibilityAtspi& accessibilityAtspi() const { return *m_accessibility; }
 #endif
 
     bool isCaptivePortalModeEnabled() const { return m_isCaptivePortalModeEnabled; }
@@ -750,7 +744,7 @@ private:
     HashCountedSet<WebCore::ServiceWorkerRegistrationIdentifier> m_swRegistrationCounts;
 #endif
 
-    HashMap<StorageAreaIdentifier, StorageAreaMap*> m_storageAreaMaps;
+    HashMap<StorageAreaMapIdentifier, WeakPtr<StorageAreaMap>> m_storageAreaMaps;
     
     // Prewarmed WebProcesses do not have an associated sessionID yet, which is why this is an optional.
     // By the time the WebProcess gets a WebPage, it is guaranteed to have a sessionID.
@@ -777,10 +771,6 @@ private:
 
 #if ENABLE(MEDIA_STREAM)
     std::unique_ptr<SpeechRecognitionRealtimeMediaSourceManager> m_speechRecognitionRealtimeMediaSourceManager;
-#endif
-
-#if USE(ATSPI)
-    std::unique_ptr<WebCore::AccessibilityAtspi> m_accessibility;
 #endif
 };
 

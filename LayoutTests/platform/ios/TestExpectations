@@ -178,6 +178,7 @@ pointer-lock
 http/tests/pointer-lock
 fast/shadow-dom/pointerlockelement-in-shadow-tree.html
 fast/shadow-dom/pointerlockelement-in-slot.html
+fast/js-promise/js-promise-invalid-context-access.html [ Skip ]
 
 # FIXME: Media tests not supported on iOS
 http/tests/media
@@ -421,6 +422,7 @@ editing/selection/select-out-of-floated-non-editable-13.html [ Skip ]
 editing/selection/selecting-content-by-overshooting-the-flex-container.html [ Skip ]
 editing/selection/selecting-content-by-overshooting-the-deprecated-flex-container.html [ Skip ]
 editing/selection/selecting-content-by-overshooting-the-grid-container.html [ Skip ]
+editing/selection-with-absolute-positioned-empty-content.html [ Skip ]
 editing/spelling/context-menu-suggestions-multiword-selection.html [ Skip ]
 editing/spelling/context-menu-suggestions-subword-selection.html [ Skip ]
 editing/spelling/context-menu-suggestions.html [ Skip ]
@@ -1343,13 +1345,6 @@ svg/text/svg-fallback-font-crash.html
 svg/css/font-face-variant-crash.html
 
 # storage/indexeddb tests to triage
-webkit.org/b/181752 storage/indexeddb/connection-leak-private.html [ Failure ]
-webkit.org/b/181752 storage/indexeddb/connection-leak.html [ Failure ]
-webkit.org/b/181752 storage/indexeddb/cursor-leak-private.html [ Failure ]
-webkit.org/b/181752 storage/indexeddb/cursor-leak.html [ Failure ]
-webkit.org/b/181752 storage/indexeddb/cursor-request-cycle-private.html [ Failure ]
-webkit.org/b/181752 storage/indexeddb/cursor-request-cycle.html [ Failure ]
-webkit.org/b/181752 storage/indexeddb/database-odd-names.html [ Failure ]
 webkit.org/b/181752 storage/indexeddb/dont-commit-on-blocked-private.html [ Failure ]
 webkit.org/b/181752 storage/indexeddb/events-private.html [ Failure ]
 webkit.org/b/181752 storage/indexeddb/events.html [ Failure ]
@@ -1357,9 +1352,6 @@ webkit.org/b/181752 storage/indexeddb/open-db-private-browsing.html [ Failure ]
 webkit.org/b/181752 storage/indexeddb/properties-disabled-at-runtime.html [ Failure ]
 webkit.org/b/181752 storage/indexeddb/removed-private.html [ Failure ]
 webkit.org/b/181752 storage/indexeddb/removed.html [ Failure ]
-webkit.org/b/181752 storage/indexeddb/request-leak-private.html [ Failure ]
-webkit.org/b/181752 storage/indexeddb/request-leak.html [ Failure ]
-webkit.org/b/181752 storage/indexeddb/wasm-exceptions.html [ Failure ]
 webkit.org/b/181752 storage/indexeddb/database-quota-private.html [ Skip ]
 webkit.org/b/181752 storage/indexeddb/database-quota.html [ Skip ]
 webkit.org/b/181752 storage/indexeddb/deletedatabase-delayed-by-versionchange.html [ Skip ]
@@ -2353,15 +2345,12 @@ media/W3C/video/canPlayType/canPlayType_two_implies_one_5.html [ Failure ]
 media/W3C/video/canPlayType/canPlayType_two_implies_one_6.html [ Failure ]
 media/audio-mpeg-supported.html [ Failure ]
 media/event-attributes.html [ Failure ]
-media/media-can-play-wav-audio.html [ Failure ]
-media/media-captions-no-controls.html [ Failure ]
 media/media-can-play-webm.html [ Failure ]
 media/media-higher-prio-audio-stream.html [ Failure ]
 media/progress-events-generated-correctly.html [ Failure ]
 media/restore-from-page-cache.html [ Failure ]
 media/track/track-forced-subtitles-in-band.html [ Failure ]
-media/track/track-in-band-mode.html [ Failure ]
-media/track/track-manual-mode.html [ Failure ]
+media/track/track-in-band-mode.html [ Pass Failure ]
 media/track/w3c/interfaces/TextTrackCue/align.html [ Failure ]
 media/video-autoplay-allowed-but-fullscreen-required.html [ Failure ]
 media/video-background-tab-playback.html [ Failure ]
@@ -2620,12 +2609,6 @@ webkit.org/b/183441 mathml/presentation/multiscripts-equivalence.html [ ImageOnl
 
 # <rdar://problem/32626498> REGRESSION (iOS 11/High Sierra): media/remote-control-command-seek.html is timing out
 media/remote-control-command-seek.html [ Timeout ]
-
-# <rdar://problem/32715903> iOS 11: LayoutTest media/sources-fallback-codecs.html is failing
-media/sources-fallback-codecs.html [ Failure ]
-
-# <rdar://problem/32715902> iOS 11: LayoutTest media/video-src-blob-using-open-panel.html is failing
-media/video-src-blob-using-open-panel.html [ Failure ]
 
 # <rdar://problem/33251388> REGRESSION: Multiple imported/w3c/web-platform-tests/ are failing with blobs
 imported/w3c/web-platform-tests/fetch/api/basic/request-headers.any.html [ Failure ]
@@ -2968,13 +2951,6 @@ fast/attachment/attachment-title-with-rtl.html [ ImageOnlyFailure ]
 
 fast/forms/textfield-no-linebreak.html [ ImageOnlyFailure ]
 
-# <rdar://problem/47897726> REGRESSION (iOS 13): Multiple media tests failing
-media/video-currentTime.html [ Failure ]
-media/video-ended-event-negative-playback.html [ Failure ]
-media/video-played-collapse.html [ Failure ]
-media/video-played-ranges-1.html [ Failure ]
-media/video-played-reset.html [ Failure ]
-
 # <rdar://problem/50892567> REGRESSION (iOS 13): CrashTracer: com.apple.WebKit.WebContent.Development at com.apple.WebKit: _ZN6WebKit19fallbackIconForFileEP5NSURL
 fast/forms/file/file-reset-in-change-using-open-panel-with-icon.html [ Skip ]
 
@@ -2988,6 +2964,7 @@ http/wpt/resource-timing/rt-initiatorType-element.html [ Pass Failure ]
 http/wpt/resource-timing/rt-initiatorType-xmlhttprequest.html [ Pass Failure ]
 
 # <rdar://problem/51826131> REGRESSION (r241747) 2 Layout tests are failing on Internal iOS 13 iOS / iPad Simulator testers fast/repaint/placeholder-after-caps-lock-hidden.html imported/blink/svg/custom/focus-ring-2.svg
+fast/text/incorrect-deselection-across-multiple-elements.html [ Failure ]
 
 # <rdar://problem/51828203> 2 platform/ipad/fast/viewport/viewport* Layout tests are timing out on iOS 13
 platform/ipad/fast/viewport/viewport-overriden-by-minimum-effective-width-if-ignore-meta-viewport.html [ Timeout ]
@@ -3443,6 +3420,9 @@ webkit.org/b/229832 [ Release ] imported/w3c/web-platform-tests/beacon/beacon-re
 [ Release ] fast/canvas/canvas-composite-text-alpha.html [ Pass Timeout Failure ]
 fast/canvas/canvas-blending-text.html [ Pass Failure ]
 
+# This test requires ARQL SPIs not yet available to OpenSource builds.
+model-element/model-element-camera.html [ Skip ]
+
 # These tests require the design system ui fonts to be installed.
 fast/text/design-system-ui-11.html [ Pass ]
 fast/text/design-system-ui-12.html [ Pass ]
@@ -3452,3 +3432,9 @@ fast/text/design-system-ui-15.html [ Pass ]
 fast/text/design-system-ui-16.html [ Pass ]
 
 webkit.org/b/159755 fast/text/emoji-num-glyphs.html [ Pass ]
+
+# WPT css/css-pseudo import (webkit.org/b/235197)
+imported/w3c/web-platform-tests/css/css-pseudo/selection-background-painting-order.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-pseudo/selection-originating-decoration-color.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-pseudo/selection-originating-underline-order.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-pseudo/target-text-007.html [ Failure ]

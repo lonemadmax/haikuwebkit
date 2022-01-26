@@ -218,7 +218,6 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
     , propertyNames(nullptr)
     , emptyList(new ArgList)
     , machineCodeBytesPerBytecodeWordForBaselineJIT(makeUnique<SimpleStats>())
-    , stringCache(*this)
     , symbolImplToSymbolMap(*this)
     , structureCache(*this)
     , interpreter(nullptr)
@@ -774,14 +773,14 @@ void VM::whenIdle(Function<void()>&& callback)
 
 void VM::deleteAllLinkedCode(DeleteAllCodeEffort effort)
 {
-    whenIdle([=] () {
+    whenIdle([=, this] () {
         heap.deleteAllCodeBlocks(effort);
     });
 }
 
 void VM::deleteAllCode(DeleteAllCodeEffort effort)
 {
-    whenIdle([=] () {
+    whenIdle([=, this] () {
         m_codeCache->clear();
         m_regExpCache->deleteAllCode();
         heap.deleteAllCodeBlocks(effort);
@@ -792,7 +791,7 @@ void VM::deleteAllCode(DeleteAllCodeEffort effort)
 
 void VM::shrinkFootprintWhenIdle()
 {
-    whenIdle([=] () {
+    whenIdle([=, this] () {
         sanitizeStackForVM(*this);
         deleteAllCode(DeleteAllCodeIfNotCollecting);
         heap.collectNow(Synchronousness::Sync, CollectionScope::Full);

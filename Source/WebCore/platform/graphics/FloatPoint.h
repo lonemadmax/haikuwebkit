@@ -56,6 +56,7 @@ namespace WebCore {
 class AffineTransform;
 class TransformationMatrix;
 class IntSize;
+class FloatRect;
 
 class FloatPoint {
     WTF_MAKE_FAST_ALLOCATED;
@@ -165,6 +166,8 @@ public:
     }
 
     WEBCORE_EXPORT FloatPoint constrainedBetween(const FloatPoint& min, const FloatPoint& max) const;
+    
+    WEBCORE_EXPORT FloatPoint constrainedWithin(const FloatRect&) const;
 
     FloatPoint shrunkTo(const FloatPoint& other) const
     {

@@ -27,6 +27,7 @@
 
 #include "Connection.h"
 #include "StorageAreaIdentifier.h"
+#include "StorageAreaMapIdentifier.h"
 #include "StorageNamespaceIdentifier.h"
 
 namespace WebCore {
@@ -47,7 +48,7 @@ public:
     void clearData();
     void connectionClosed(IPC::Connection::UniqueID);
 
-    StorageAreaIdentifier connectToSessionStorageArea(IPC::Connection::UniqueID, const WebCore::ClientOrigin&, StorageNamespaceIdentifier);
+    StorageAreaIdentifier connectToSessionStorageArea(IPC::Connection::UniqueID, StorageAreaMapIdentifier, const WebCore::ClientOrigin&, StorageNamespaceIdentifier);
     void disconnectFromStorageArea(IPC::Connection::UniqueID, StorageAreaIdentifier);
     void cloneStorageArea(IPC::Connection::UniqueID, StorageNamespaceIdentifier, StorageNamespaceIdentifier);
 

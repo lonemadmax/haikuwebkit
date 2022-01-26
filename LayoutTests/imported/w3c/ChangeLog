@@ -1,3 +1,1853 @@
+2022-01-25  Ziran Sun  <zsun@igalia.com>
+
+        [css-grid] Fix grid shorthand expansion of initial values
+        https://bugs.webkit.org/show_bug.cgi?id=234430
+
+        Reviewed by Sergio Villar Senin.
+
+        * web-platform-tests/css/css-grid/parsing/grid-shorthand-expected.txt:
+        * web-platform-tests/css/css-grid/parsing/grid-shorthand-valid-expected.txt:
+
+2022-01-24  Youenn Fablet  <youenn@apple.com>
+
+        A sandboxed document should not reuse its service worker client ID
+        https://bugs.webkit.org/show_bug.cgi?id=235310
+
+        Reviewed by Alex Christensen.
+
+        * web-platform-tests/service-workers/service-worker/clients-get-resultingClientId.https-expected.txt:
+
+2022-01-24  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Support import assertion syntax
+        https://bugs.webkit.org/show_bug.cgi?id=235312
+
+        Reviewed by Ross Kirsling.
+
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/css-module/css-module-worker-test-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/css-module/import-css-module-dynamic-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/import-assertions/dynamic-import-with-assertion-argument.any-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/import-assertions/dynamic-import-with-assertion-argument.any.worker-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/charset-bom.any-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/charset-bom.any.worker-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/invalid-content-type.any-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/invalid-content-type.any.worker-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/json-module-service-worker-test.https-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/non-object.any-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/non-object.any.worker-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/repeated-imports.any-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/repeated-imports.any.worker-expected.txt:
+        * web-platform-tests/service-workers/service-worker/dedicated-worker-service-worker-interception.https-expected.txt:
+        * web-platform-tests/workers/dedicated-worker-parse-error-failure-expected.txt:
+        * web-platform-tests/workers/modules/dedicated-worker-options-credentials-expected.txt:
+
+2022-01-24  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Basic parsing support for container-type property
+        https://bugs.webkit.org/show_bug.cgi?id=235514
+
+        Reviewed by Sam Weinig.
+
+        * web-platform-tests/css/css-contain/container-queries/animation-container-size-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/animation-container-type-dynamic-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/animation-nested-animation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/animation-nested-transition-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/aspect-ratio-feature-evaluation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/at-container-parsing-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/auto-scrollbars-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/backdrop-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/conditional-container-status-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-computed-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-for-shadow-dom.tentative-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-inheritance-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-name-computed-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-name-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-name-parsing-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-parsing-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-selection-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-size-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-type-computed-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-type-containment-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-type-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-type-layout-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-type-parsing-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-units-animation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-units-basic-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-units-computational-independence-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-units-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-units-selection-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-units-typed-om-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/counters-flex-circular-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/display-contents-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/display-none-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/font-relative-units-dynamic-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/font-relative-units-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/get-animations-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/iframe-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/ineligible-containment-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/inline-size-and-min-width-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/inline-size-containment-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/inline-size-containment-vertical-rl-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/orthogonal-wm-container-query-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/percentage-padding-orthogonal-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/pseudo-elements-001-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/pseudo-elements-003.tentative-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/query-content-box-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/query-evaluation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/reattach-container-with-dirty-child-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/size-container-no-principal-box-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/size-feature-evaluation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/style-change-in-container-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/top-layer-dialog-container-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/top-layer-dialog-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/top-layer-nested-dialog-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/transition-scrollbars-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/transition-style-change-event-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/unsupported-axis-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/viewport-units-dynamic-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/viewport-units-expected.txt:
+
+2022-01-24  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Import WPT tests
+        https://bugs.webkit.org/show_bug.cgi?id=235508
+
+        Reviewed by Alexey Shvayka.
+
+        Import css/css-contain/container-queries and also update css/css-contain.
+
+        * resources/resource-files.json:
+        * web-platform-tests/css/css-contain/contain-content-001.html:
+        * web-platform-tests/css/css-contain/contain-content-002.html:
+        * web-platform-tests/css/css-contain/contain-content-003.html:
+        * web-platform-tests/css/css-contain/contain-content-004.html:
+        * web-platform-tests/css/css-contain/contain-content-011.html:
+        * web-platform-tests/css/css-contain/contain-inline-size-bfc-floats-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-bfc-floats-002-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-fieldset-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-legend-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-layout-baseline-001.html:
+        * web-platform-tests/css/css-contain/contain-layout-breaks-002.html:
+        * web-platform-tests/css/css-contain/contain-layout-cell-001.html:
+        * web-platform-tests/css/css-contain/contain-layout-cell-002.html:
+        * web-platform-tests/css/css-contain/contain-layout-formatting-context-margin-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-layout-ifc-022.html:
+        * web-platform-tests/css/css-contain/contain-layout-ignored-cases-ib-split-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-layout-ignored-cases-no-principal-box-002-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-layout-ignored-cases-no-principal-box-003-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-layout-overflow-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-layout-overflow-002-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-layout-size-003.html:
+        * web-platform-tests/css/css-contain/contain-layout-suppress-baseline-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-layout-suppress-baseline-002-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-paint-022.html:
+        * web-platform-tests/css/css-contain/contain-paint-023.html:
+        * web-platform-tests/css/css-contain/contain-paint-024.html:
+        * web-platform-tests/css/css-contain/contain-paint-047.html:
+        * web-platform-tests/css/css-contain/contain-paint-048.html:
+        * web-platform-tests/css/css-contain/contain-paint-baseline-001.html:
+        * web-platform-tests/css/css-contain/contain-paint-cell-001.html:
+        * web-platform-tests/css/css-contain/contain-paint-cell-002.html:
+        * web-platform-tests/css/css-contain/contain-paint-clip-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-paint-clip-002-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-paint-clip-003-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-paint-clip-004-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-paint-clip-006-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-paint-clip-011.html:
+        * web-platform-tests/css/css-contain/contain-paint-clip-012.html:
+        * web-platform-tests/css/css-contain/contain-paint-clip-013.html:
+        * web-platform-tests/css/css-contain/contain-paint-clip-014.html:
+        * web-platform-tests/css/css-contain/contain-paint-clip-015.html:
+        * web-platform-tests/css/css-contain/contain-paint-clip-016.html:
+        * web-platform-tests/css/css-contain/contain-paint-clip-017.html:
+        * web-platform-tests/css/css-contain/contain-paint-clip-018.html:
+        * web-platform-tests/css/css-contain/contain-paint-clip-019.html:
+        * web-platform-tests/css/css-contain/contain-paint-containing-block-absolute-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-paint-containing-block-fixed-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-paint-formatting-context-float-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-paint-formatting-context-margin-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-paint-ifc-011.html:
+        * web-platform-tests/css/css-contain/contain-paint-ignored-cases-ib-split-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-paint-ignored-cases-internal-table-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-paint-ignored-cases-no-principal-box-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-paint-ignored-cases-ruby-containing-block-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-paint-ignored-cases-ruby-stacking-and-clipping-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-paint-size-001.html:
+        * web-platform-tests/css/css-contain/contain-paint-size-002.html:
+        * web-platform-tests/css/css-contain/contain-paint-size-003.html:
+        * web-platform-tests/css/css-contain/contain-paint-stacking-context-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-paint-table-001.html:
+        * web-platform-tests/css/css-contain/contain-paint-table-002.html:
+        * web-platform-tests/css/css-contain/contain-size-021.html:
+        * web-platform-tests/css/css-contain/contain-size-023.html:
+        * web-platform-tests/css/css-contain/contain-size-025.html:
+        * web-platform-tests/css/css-contain/contain-size-027.html:
+        * web-platform-tests/css/css-contain/contain-size-041.html:
+        * web-platform-tests/css/css-contain/contain-size-042.html:
+        * web-platform-tests/css/css-contain/contain-size-051.html:
+        * web-platform-tests/css/css-contain/contain-size-052.html:
+        * web-platform-tests/css/css-contain/contain-size-056.html:
+        * web-platform-tests/css/css-contain/contain-size-061.html:
+        * web-platform-tests/css/css-contain/contain-size-062.html:
+        * web-platform-tests/css/css-contain/contain-size-063.html:
+        * web-platform-tests/css/css-contain/contain-size-baseline-001.html:
+        * web-platform-tests/css/css-contain/contain-size-block-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-block-002-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-block-003-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-block-004-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-button-002-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-fieldset-003-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-fieldset-004-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-flex-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-grid-005-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-inline-block-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-inline-block-002-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-inline-block-003-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-inline-block-004-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-inline-flex-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-monolithic-001.html:
+        * web-platform-tests/css/css-contain/contain-size-multicol-002-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-multicol-003-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-multicol-004-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-replaced-003-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-replaced-004-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-replaced-005-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-replaced-006-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-select-elem-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-select-elem-002-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-select-elem-003-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-select-elem-004-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-select-elem-005-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-size-table-caption-001-ref.html: Added.
+        * web-platform-tests/css/css-contain/contain-strict-001.html:
+        * web-platform-tests/css/css-contain/contain-strict-002.html:
+        * web-platform-tests/css/css-contain/contain-strict-003.html:
+        * web-platform-tests/css/css-contain/contain-strict-011.html:
+        * web-platform-tests/css/css-contain/contain-style-baseline-001.html:
+        * web-platform-tests/css/css-contain/contain-style-counters-001.html:
+        * web-platform-tests/css/css-contain/contain-style-counters-002.html:
+        * web-platform-tests/css/css-contain/contain-style-counters-003.html:
+        * web-platform-tests/css/css-contain/contain-style-counters-004.html:
+        * web-platform-tests/css/css-contain/contain-style-counters-ref.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/animation-container-size-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/animation-container-size.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/animation-container-type-dynamic-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/animation-container-type-dynamic.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/animation-nested-animation-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/animation-nested-animation.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/animation-nested-transition-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/animation-nested-transition.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/aspect-ratio-feature-evaluation-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/aspect-ratio-feature-evaluation.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/at-container-parsing-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/at-container-parsing.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/auto-scrollbars-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/auto-scrollbars.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/backdrop-invalidation-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/backdrop-invalidation.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/change-display-in-container-expected.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/change-display-in-container-ref.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/change-display-in-container.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/chrome-legacy-skip-recalc-expected.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/chrome-legacy-skip-recalc.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/conditional-container-status-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/conditional-container-status.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-computed-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-computed.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-for-shadow-dom.tentative-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-for-shadow-dom.tentative.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-inheritance-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-inheritance.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-name-computed-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-name-computed.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-name-invalidation-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-name-invalidation.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-name-parsing-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-name-parsing.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-parsing-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-parsing.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-selection-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-selection.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-size-invalidation-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-size-invalidation.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-type-change-chrome-legacy-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-type-computed-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-type-computed.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-type-containment-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-type-containment.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-type-invalidation-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-type-invalidation.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-type-layout-invalidation-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-type-layout-invalidation.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-type-parsing-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-type-parsing.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-units-animation-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-units-animation.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-units-basic-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-units-basic.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-units-computational-independence-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-units-computational-independence.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-units-invalidation-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-units-invalidation.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-units-selection-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-units-selection.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-units-typed-om-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/container-units-typed-om.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/counters-flex-circular-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/counters-flex-circular.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/counters-in-container-dynamic-expected.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/counters-in-container-dynamic.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/counters-in-container-expected.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/counters-in-container.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/counters-ref.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/display-contents-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/display-contents.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/display-in-container-expected.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/display-in-container-ref.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/display-in-container.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/display-none-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/display-none.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/fieldset-legend-change-expected.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/fieldset-legend-change-ref.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/fieldset-legend-change.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/flex-in-columns-000-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/flex-in-columns-001-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/flex-in-columns-002-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/flex-in-columns-003-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/focus-inside-content-visibility-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/font-relative-units-dynamic-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/font-relative-units-dynamic.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/font-relative-units-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/font-relative-units.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/get-animations-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/get-animations.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/grid-in-columns-000-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/grid-in-columns-001-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/grid-in-columns-002-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/grid-in-columns-003-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/iframe-invalidation-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/iframe-invalidation.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/ineligible-containment-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/ineligible-containment.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/inline-multicol-inside-container-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/inline-size-and-min-width-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/inline-size-and-min-width.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/inline-size-bfc-floats-expected.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/inline-size-bfc-floats-ref.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/inline-size-bfc-floats.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/inline-size-containment-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/inline-size-containment-vertical-rl-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/inline-size-containment-vertical-rl.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/inline-size-containment.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/inline-with-columns-000-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/inline-with-columns-001-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/input-column-group-container-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/multicol-inside-container-expected.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/multicol-inside-container.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/orthogonal-wm-container-query-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/orthogonal-wm-container-query.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/percentage-padding-orthogonal-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/percentage-padding-orthogonal.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/pseudo-container-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/pseudo-elements-001-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/pseudo-elements-001.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/pseudo-elements-002.tentative-expected.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/pseudo-elements-002.tentative-ref.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/pseudo-elements-002.tentative.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/pseudo-elements-003.tentative-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/pseudo-elements-003.tentative.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/query-content-box-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/query-content-box.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/query-evaluation-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/query-evaluation.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/reattach-container-with-dirty-child-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/reattach-container-with-dirty-child.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/resize-while-content-visibility-hidden-expected.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/resize-while-content-visibility-hidden-ref.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/resize-while-content-visibility-hidden.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/size-container-no-principal-box-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/size-container-no-principal-box.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/size-feature-evaluation-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/size-feature-evaluation.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/style-change-in-container-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/style-change-in-container.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/support/cq-testcommon.js: Added.
+        (assert_implements_container_queries):
+        * web-platform-tests/css/css-contain/container-queries/support/w3c-import.log: Added.
+        * web-platform-tests/css/css-contain/container-queries/svg-layout-root-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/table-in-columns-000-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/table-in-columns-001-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/table-in-columns-002-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/table-in-columns-003-crash.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/table-inside-container-changing-display-expected.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/table-inside-container-changing-display-ref.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/table-inside-container-changing-display.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/top-layer-dialog-backdrop-expected.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/top-layer-dialog-backdrop-ref.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/top-layer-dialog-backdrop.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/top-layer-dialog-container-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/top-layer-dialog-container.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/top-layer-dialog-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/top-layer-dialog.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/top-layer-nested-dialog-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/top-layer-nested-dialog.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/transition-scrollbars-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/transition-scrollbars.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/transition-style-change-event-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/transition-style-change-event.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/unsupported-axis-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/unsupported-axis.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/viewport-units-dynamic-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/viewport-units-dynamic.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/viewport-units-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/viewport-units.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/w3c-import.log: Added.
+        * web-platform-tests/css/css-contain/container-queries/whitespace-update-after-removal-expected.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/whitespace-update-after-removal.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/container-focus-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/container-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/container-with-child-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/container-with-pos-children-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-003-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-004-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-019-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-020-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-021-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-022-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-023-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-024-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-025-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-027-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-032-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-033-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-034-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-042-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-049-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-058-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-059-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-064-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-074-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-075-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-076-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-078-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-079-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-with-top-layer-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/inline-container-with-child-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/positioned-container-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/spacer-and-container-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/spacer-and-container-scrolled-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/spacer-with-top-layer-ref.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/w3c-import.log:
+        * web-platform-tests/css/css-contain/w3c-import.log:
+
+2022-01-24  Antoine Quint  <graouts@webkit.org>
+
+        [Web Animations] add support for animation-composition CSS property
+        https://bugs.webkit.org/show_bug.cgi?id=232086
+        <rdar://problem/84508394>
+
+        Reviewed by Darin Adler.
+
+        Mark WPT progressions and import one ::marker WPT test that wasn't imported originally with bug 235443.
+
+        * web-platform-tests/css/css-animations/CSSAnimation-effect.tentative-expected.txt:
+        * web-platform-tests/css/css-animations/KeyframeEffect-getKeyframes.tentative-expected.txt:
+        * web-platform-tests/css/css-animations/parsing/animation-composition-computed.tentative-expected.txt:
+        * web-platform-tests/css/css-animations/parsing/animation-composition-valid.tentative-expected.txt:
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/css-pseudo/parsing/marker-supported-properties-expected.txt:
+        * web-platform-tests/css/css-pseudo/parsing/marker-supported-properties.html:
+        * web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
+2022-01-23  Sam Weinig  <weinig@apple.com>
+
+        Support interpolating colors with missing/none components via color-mix()
+        https://bugs.webkit.org/show_bug.cgi?id=235496
+
+        Reviewed by Darin Adler.
+
+        Update color-mix() tests to include test cases that use 'none' components.
+
+        * web-platform-tests/css/css-color/parsing/color-mix-computed-expected.txt:
+        * web-platform-tests/css/css-color/parsing/color-mix-computed.html:
+        * web-platform-tests/css/css-color/parsing/color-mix-valid-expected.txt:
+        * web-platform-tests/css/css-color/parsing/color-mix-valid.html:
+
+2022-01-23  Ziran Sun  <zsun@igalia.com>
+
+        [forms] Prevent contenteditable anchors from being stuck
+        https://bugs.webkit.org/show_bug.cgi?id=235438
+
+        Reviewed by Darin Adler.
+
+        Update 1 WPT test expectation file as the test is now passing.
+        * web-platform-tests/html/semantics/forms/the-input-element/anchor-active-contenteditable-expected.txt:
+
+2022-01-21  Antoine Quint  <graouts@webkit.org>
+
+        Update css/css-animation WPT following animation-composition testing updates
+        https://bugs.webkit.org/show_bug.cgi?id=235443
+
+        Unreviewed WPT import and rebaseline.
+
+        * web-platform-tests/css/css-animations/CSSAnimation-effect.tentative-expected.txt:
+        * web-platform-tests/css/css-animations/CSSAnimation-effect.tentative.html:
+        * web-platform-tests/css/css-animations/KeyframeEffect-getKeyframes.tentative-expected.txt:
+        * web-platform-tests/css/css-animations/KeyframeEffect-getKeyframes.tentative.html:
+        * web-platform-tests/css/css-animations/parsing/animation-composition-computed.tentative-expected.txt: Added.
+        * web-platform-tests/css/css-animations/parsing/animation-composition-computed.tentative.html: Added.
+        * web-platform-tests/css/css-animations/parsing/animation-composition-invalid.tentative-expected.txt: Added.
+        * web-platform-tests/css/css-animations/parsing/animation-composition-invalid.tentative.html: Added.
+        * web-platform-tests/css/css-animations/parsing/animation-composition-valid.tentative-expected.txt: Added.
+        * web-platform-tests/css/css-animations/parsing/animation-composition-valid.tentative.html: Added.
+        * web-platform-tests/css/css-animations/parsing/w3c-import.log:
+
+2022-01-21  Antti Koivisto  <antti@apple.com>
+
+        WPT version of css/css-cascade/parsing/layer-import-parsing.html crashes with nullptr
+        https://bugs.webkit.org/show_bug.cgi?id=235434
+        rdar://87832940
+
+        Reviewed by Alan Bujtas.
+
+        * web-platform-tests/css/css-cascade/parsing/layer-import-parsing.html:
+
+        Update to WPT version.
+
+2022-01-21  Martin Robinson  <mrobinson@webkit.org>
+
+        element.scrollIntoView() sometimes doesn't scroll
+        https://bugs.webkit.org/show_bug.cgi?id=42593
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/cssom-view/scrollIntoView-horizontal-partially-visible-expected.txt:
+
+2022-01-20  Alexey Shvayka  <ashvayka@apple.com>
+
+        Callback functions / interfaces should use global object of its _value_ for errors and lifecycle
+        https://bugs.webkit.org/show_bug.cgi?id=232387
+
+        Reviewed by Geoff Garen.
+
+        Import WPT tests from https://github.com/web-platform-tests/wpt/pull/32449.
+
+        The remaining failures are due to unrelated spec compat issue with calling cross-realm ProxyObject / JSBoundFunction.
+
+        * web-platform-tests/dom/events/EventListener-handleEvent-cross-realm-expected.txt: Added.
+        * web-platform-tests/dom/events/EventListener-handleEvent-cross-realm.html: Added.
+        * web-platform-tests/dom/events/resources/empty-document.html: Added.
+        * web-platform-tests/dom/traversal/TreeWalker-acceptNode-filter-cross-realm-expected.txt:
+        * web-platform-tests/dom/traversal/TreeWalker-acceptNode-filter-cross-realm-null-browsing-context-expected.txt:
+        * web-platform-tests/dom/traversal/TreeWalker-acceptNode-filter-cross-realm-null-browsing-context.html:
+        * web-platform-tests/dom/traversal/TreeWalker-acceptNode-filter-cross-realm.html:
+        * web-platform-tests/dom/traversal/support/TreeWalker-acceptNode-filter-cross-realm-subframe.html: Removed.
+        * web-platform-tests/dom/traversal/support/empty-document.html: Added.
+        * web-platform-tests/domxpath/resolver-callback-interface-cross-realm-expected.txt: Added.
+        * web-platform-tests/domxpath/resolver-callback-interface-cross-realm.html: Added.
+        * web-platform-tests/domxpath/resources: Added.
+        * web-platform-tests/domxpath/resources/empty-document.html: Added.
+        * web-platform-tests/domxpath/resources/invalid_namespace_test.js: Added.
+
+2022-01-20  Antti Koivisto  <antti@apple.com>
+
+        [:has() pseudo-class] Ignore :visited inside :has()
+        https://bugs.webkit.org/show_bug.cgi?id=235404
+
+        Reviewed by Sam Weinig.
+
+        * web-platform-tests/css/selectors/has-visited-expected.html: Added.
+        * web-platform-tests/css/selectors/has-visited-ref.html: Added.
+        * web-platform-tests/css/selectors/has-visited.html: Added.
+
+2022-01-20  Antti Koivisto  <antti@apple.com>
+
+        [:has pseudo-class] Support :has(:not(foo))
+        https://bugs.webkit.org/show_bug.cgi?id=235399
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/css/selectors/invalidation/has-with-not-expected.txt: Added.
+        * web-platform-tests/css/selectors/invalidation/has-with-not.html: Added.
+
+2022-01-19  Chris Dumez  <cdumez@apple.com>
+
+        Align our qualified name validation with the specification
+        https://bugs.webkit.org/show_bug.cgi?id=201699
+
+        Reviewed by Geoffrey Garen.
+
+        * web-platform-tests/dom/nodes/DOMImplementation-createDocument-expected.txt:
+        * web-platform-tests/dom/nodes/Document-createElementNS-expected.txt:
+        Rebaseline WPT tests now that more checks are passing.
+
+2022-01-19  Tim Nguyen  <ntim@apple.com>
+
+        Add visibility: visible to modal dialogs in UA sheet
+        https://bugs.webkit.org/show_bug.cgi?id=235369
+
+        Reviewed by Brent Fulgham.
+
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/modal-dialog-in-visibility-hidden-expected.txt: Added.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/modal-dialog-in-visibility-hidden.html: Added.
+
+2022-01-19  Robert Jenner  <Jenner@apple.com>
+
+        Unreviewed, reverting r288197.
+
+        Broke a test, slowing down EWS
+
+        Reverted changeset:
+
+        "Callback functions / interfaces should use global object of
+        its _value_ for errors and lifecycle"
+        https://bugs.webkit.org/show_bug.cgi?id=232387
+        https://commits.webkit.org/r288197
+
+2022-01-19  Alex Christensen  <achristensen@webkit.org>
+
+        [ResourceTiming] nextHopProtocol is exposed regardless of Timing-Allow-Origin
+        https://bugs.webkit.org/show_bug.cgi?id=235294
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/resource-timing/nextHopProtocol-is-tao-protected.https-expected.txt:
+
+2022-01-19  Youenn Fablet  <youenn@apple.com>
+
+        Improve computation of service worker FetchEvent.resultingClientId
+        https://bugs.webkit.org/show_bug.cgi?id=235107
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/service-workers/service-worker/clients-get-resultingClientId.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/clients-get.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/historical.https.any.serviceworker-expected.txt:
+
+2022-01-19  Alexey Shvayka  <ashvayka@apple.com>
+
+        Callback functions / interfaces should use global object of its _value_ for errors and lifecycle
+        https://bugs.webkit.org/show_bug.cgi?id=232387
+
+        Reviewed by Geoff Garen.
+
+        Import WPT tests from https://github.com/web-platform-tests/wpt/pull/32449.
+
+        The remaining failures are due to unrelated spec compat issue with calling cross-realm ProxyObject / JSBoundFunction.
+
+        * web-platform-tests/dom/events/EventListener-handleEvent-cross-realm-expected.txt: Added.
+        * web-platform-tests/dom/events/EventListener-handleEvent-cross-realm.html: Added.
+        * web-platform-tests/dom/events/resources/empty-document.html: Added.
+        * web-platform-tests/dom/traversal/TreeWalker-acceptNode-filter-cross-realm-expected.txt:
+        * web-platform-tests/dom/traversal/TreeWalker-acceptNode-filter-cross-realm-null-browsing-context-expected.txt:
+        * web-platform-tests/dom/traversal/TreeWalker-acceptNode-filter-cross-realm-null-browsing-context.html:
+        * web-platform-tests/dom/traversal/TreeWalker-acceptNode-filter-cross-realm.html:
+        * web-platform-tests/dom/traversal/support/TreeWalker-acceptNode-filter-cross-realm-subframe.html: Removed.
+        * web-platform-tests/dom/traversal/support/empty-document.html: Added.
+        * web-platform-tests/domxpath/resolver-callback-interface-cross-realm-expected.txt: Added.
+        * web-platform-tests/domxpath/resolver-callback-interface-cross-realm.html: Added.
+        * web-platform-tests/domxpath/resources: Added.
+        * web-platform-tests/domxpath/resources/empty-document.html: Added.
+        * web-platform-tests/domxpath/resources/invalid_namespace_test.js: Added.
+
+2022-01-19  Antti Koivisto  <antti@apple.com>
+
+        [:has() pseudo-class] Compute specificity correctly
+        https://bugs.webkit.org/show_bug.cgi?id=235351
+
+        Reviewed by Alexey Shvayka.
+
+        * web-platform-tests/css/selectors/has-complexity.html:
+
+        Fix specificity used in this test.
+
+        * web-platform-tests/css/selectors/has-specificity-expected.txt: Added.
+        * web-platform-tests/css/selectors/has-specificity.html: Added.
+
+2022-01-18  Sergio Villar Senin  <svillar@igalia.com>
+
+        [css-flexbox] Add support for intrinsic sizes to the flex shorthand
+        https://bugs.webkit.org/show_bug.cgi?id=235314
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/css/css-flexbox/parsing/flex-shorthand-expected.txt: Replaced FAIL by PASS expectations.
+
+2022-01-18  Chris Dumez  <cdumez@apple.com>
+
+        When inserting a selected <option> in a <select> element, its selected state should remain
+        https://bugs.webkit.org/show_bug.cgi?id=235237
+
+        Reviewed by Darin Adler.
+
+        Rebaseline WPT tests that are now passing.
+
+        * web-platform-tests/html/semantics/forms/the-select-element/inserted-or-removed-expected.txt:
+        * web-platform-tests/html/semantics/forms/the-select-element/select-validity-expected.txt:
+
+2022-01-18  Chris Dumez  <cdumez@apple.com>
+
+        input.labels doesn't work inside shadow DOM
+        https://bugs.webkit.org/show_bug.cgi?id=235326
+
+        Reviewed by Darin Adler.
+
+        Rebaseline test that now has one extra passing subtest. This subtest was already passing in both
+        Gecko and Blink.
+
+        * web-platform-tests/html/semantics/forms/the-label-element/label-attributes.sub-expected.txt:
+
+2022-01-18  Sam Weinig  <weinig@apple.com>
+
+        [CSS Color 4] Add support for "Missing"/"none" color components
+        https://bugs.webkit.org/show_bug.cgi?id=233526
+        <rdar://problem/86026087>
+
+        Reviewed by Dean Jackson.
+
+        Update color pasing tests to include 'none' components.
+
+        * web-platform-tests/css/css-color/parsing/color-computed-expected.txt:
+        * web-platform-tests/css/css-color/parsing/color-computed.html:
+        * web-platform-tests/css/css-color/parsing/color-invalid-expected.txt:
+        * web-platform-tests/css/css-color/parsing/color-invalid.html:
+        * web-platform-tests/css/css-color/parsing/color-valid-expected.txt:
+        * web-platform-tests/css/css-color/parsing/color-valid.html:
+        * web-platform-tests/css/css-color/parsing/relative-color-computed-expected.txt:
+        * web-platform-tests/css/css-color/parsing/relative-color-computed.html:
+        * web-platform-tests/css/css-color/parsing/relative-color-invalid-expected.txt:
+        * web-platform-tests/css/css-color/parsing/relative-color-invalid.html:
+        * web-platform-tests/css/css-color/parsing/relative-color-valid-expected.txt:
+        * web-platform-tests/css/css-color/parsing/relative-color-valid.html:
+
+2022-01-18  Sam Weinig  <weinig@apple.com>
+
+        Canvas functions that take colors as strings don't support all the syntax that CSS supports
+        https://bugs.webkit.org/show_bug.cgi?id=235269
+
+        Reviewed by Darin Adler.
+
+        Update expected results now that the test is passing.
+
+        * web-platform-tests/html/canvas/element/fill-and-stroke-styles/2d.fillStyle.toStringFunctionCallback-expected.txt:
+
+2022-01-18  Patrick Griffis  <pgriffis@igalia.com>
+
+        CSP: Improve handling of multiple policies
+        https://bugs.webkit.org/show_bug.cgi?id=235199
+
+        Reviewed by Kate Cheney.
+
+        Add new test expectations with more passes.
+
+        * web-platform-tests/content-security-policy/script-src/script-src-multiple-policies-one-using-hashing-algorithms-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/script-src-strict_dynamic_parser_inserted-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/style-src-error-event-fires-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/style-src-inline-style-nonce-blocked-error-event-expected.txt:
+        * web-platform-tests/content-security-policy/style-src/style-src-multiple-policies-multiple-hashing-algorithms-expected.txt: Added.
+
+2022-01-17  Sergio Villar Senin  <svillar@igalia.com>
+
+        [css-flexbox] Add support for intrinsic sizes in flex-basis
+        https://bugs.webkit.org/show_bug.cgi?id=235291
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/css/css-flexbox/flex-basis-intrinsics-001-expected.txt: Replaced FAIL by PASS expectations.
+        * web-platform-tests/css/css-flexbox/parsing/flex-basis-computed-expected.txt: Ditto.
+        * web-platform-tests/css/css-flexbox/parsing/flex-basis-valid-expected.txt: Ditto.
+
+2022-01-17  Antti Koivisto  <antti@apple.com>
+
+        [:has() pseudo-class] Disallow nested :has()
+        https://bugs.webkit.org/show_bug.cgi?id=235231
+
+        Reviewed by Dean Jackson.
+
+        * web-platform-tests/css/selectors/has-argument-with-explicit-scope.tentative-expected.txt:
+        * web-platform-tests/css/selectors/has-basic-expected.txt:
+        * web-platform-tests/css/selectors/parsing/parse-has-expected.txt:
+
+2022-01-17  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        REGRESSION(r281389): using font-variant-ligatures causes Unicode bidi isolation control characters to render
+        https://bugs.webkit.org/show_bug.cgi?id=235053
+        <rdar://problem/87425066>
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/css/css-text/white-space/default-ignorable-complex-expected.html: Added.
+        * web-platform-tests/css/css-text/white-space/default-ignorable-complex.html: Added.
+        * web-platform-tests/css/css-text/white-space/default-ignorable-expected.html: Added.
+        * web-platform-tests/css/css-text/white-space/default-ignorable.html: Added.
+
+2022-01-17  Youenn Fablet  <youenn@apple.com>
+
+        Make ServiceWorkerClient.id a UUID instead of a string derived from a ScriptExecutionContextIdentifier
+        https://bugs.webkit.org/show_bug.cgi?id=235070
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/service-workers/service-worker/fetch-event.https-expected.txt:
+
+2022-01-17  Youenn Fablet  <youenn@apple.com>
+
+        Transmit network load metrics when service worker is using one of its network load to respond to FetchEvents
+        https://bugs.webkit.org/show_bug.cgi?id=235179
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/service-workers/service-worker/next-hop-protocol.https-expected.txt:
+        Test is progressing further but is failing as the test checks cached responses for which we do not store metrics.
+
+2022-01-15  Sam Weinig  <weinig@apple.com>
+
+        CSS Gradients: interpolation mode should default to OKLab if any non-legacy color syntax colors are used in the stops
+        https://bugs.webkit.org/show_bug.cgi?id=235071
+
+        Reviewed by Darin Adler.
+
+        Update test to also include non-legacy color syntax stops and update results
+        to match new expected behavior.
+
+        * web-platform-tests/css/css-images/parsing/gradient-interpolation-method-computed-expected.txt:
+        * web-platform-tests/css/css-images/parsing/gradient-interpolation-method-computed.html:
+        * web-platform-tests/css/css-images/parsing/gradient-interpolation-method-valid-expected.txt:
+        * web-platform-tests/css/css-images/parsing/gradient-interpolation-method-valid.html:
+
+2022-01-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix misc issues in WebAssembly.Exception
+        https://bugs.webkit.org/show_bug.cgi?id=235261
+
+        Reviewed by Alexey Shvayka.
+
+        Remove web-platform-tests/wasm/jsapi/exception/type.tentative.any.js test since
+        this behavior is not defined in wasm exception-handling and/or wasm js-types spec.
+        Probably this test was confused with WebAssembly.Tag (and that test is in wasm/jsapi/tag/).
+
+        Also change RangeError to TypeError according to the spec[1].
+
+        [1]: https://webassembly.github.io/exception-handling/js-api/index.html#dom-exception-getarg
+
+        * web-platform-tests/wasm/jsapi/exception/getArg.tentative.any-expected.txt:
+        * web-platform-tests/wasm/jsapi/exception/getArg.tentative.any.js:
+        (test):
+        * web-platform-tests/wasm/jsapi/exception/getArg.tentative.any.worker-expected.txt:
+        * web-platform-tests/wasm/jsapi/exception/toString.tentative.any-expected.txt:
+        * web-platform-tests/wasm/jsapi/exception/toString.tentative.any.worker-expected.txt:
+        * web-platform-tests/wasm/jsapi/exception/type.tentative.any-expected.txt: Removed.
+        * web-platform-tests/wasm/jsapi/exception/type.tentative.any.html: Removed.
+        * web-platform-tests/wasm/jsapi/exception/type.tentative.any.js: Removed.
+        * web-platform-tests/wasm/jsapi/exception/type.tentative.any.worker-expected.txt: Removed.
+        * web-platform-tests/wasm/jsapi/exception/type.tentative.any.worker.html: Removed.
+
+2022-01-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix misc WebAssembly.Table issues
+        https://bugs.webkit.org/show_bug.cgi?id=235262
+
+        Reviewed by Alexey Shvayka.
+
+        Fix length of WebAssembly.Table.set from 2 to 1.
+        According to the spec[1], it should be 1 since the second argument is an optional.
+
+        Also fix stray argument test. Previously, it was stray argument. But after the update
+        of the wasm spec, the second argument of Table constructor can be used for initial value.
+        So, WebAssembly.Table "anyfunc" with {} initial value throws an error since it is not
+        a function. This fixes a test, passing null for the second argument, and adding third
+        stray argument for the stray argument test.
+
+        [1]: https://webassembly.github.io/spec/js-api/index.html#tables
+
+        * web-platform-tests/wasm/jsapi/idlharness.any-expected.txt:
+        * web-platform-tests/wasm/jsapi/idlharness.any.worker-expected.txt:
+        * web-platform-tests/wasm/jsapi/interface.any.js:
+        * web-platform-tests/wasm/jsapi/table/constructor.any-expected.txt:
+        * web-platform-tests/wasm/jsapi/table/constructor.any.js:
+        (test):
+        * web-platform-tests/wasm/jsapi/table/constructor.any.worker-expected.txt:
+
+2022-01-15  Alan Bujtas  <zalan@apple.com>
+
+        web-platform-tests/html/rendering/dimension-attributes.html is failing when table width is set to 0px
+        https://bugs.webkit.org/show_bug.cgi?id=235267
+
+        Reviewed by Antti Koivisto.
+
+        * web-platform-tests/html/rendering/dimension-attributes-expected.txt:
+
+2022-01-14  Antoine Quint  <graouts@webkit.org>
+
+        Setting `content: normal` on a ::marker should make computed style return resolved values
+        https://bugs.webkit.org/show_bug.cgi?id=235222
+
+        Reviewed by Aditya Keerthi.
+
+        Mark WPT progressions.
+
+        * web-platform-tests/css/css-pseudo/marker-computed-size-expected.txt:
+
+2022-01-14  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Fix WebAssembly.Global's typename for "anyfunc"
+        https://bugs.webkit.org/show_bug.cgi?id=235105
+
+        Reviewed by Keith Miller.
+
+        Update wpt/wasm which includes "anyfunc" tests.
+
+        * web-platform-tests/wasm/jsapi/assertions.js:
+        (assert_exported_function):
+        * web-platform-tests/wasm/jsapi/constructor/toStringTag.any.js:
+        * web-platform-tests/wasm/jsapi/exception/basic.tentative.any-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/exception/basic.tentative.any.html: Added.
+        * web-platform-tests/wasm/jsapi/exception/basic.tentative.any.js: Added.
+        (assert_throws_wasm):
+        (promise_test.async const):
+        (promise_test):
+        * web-platform-tests/wasm/jsapi/exception/basic.tentative.any.worker-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/exception/basic.tentative.any.worker.html: Added.
+        * web-platform-tests/wasm/jsapi/exception/constructor.tentative.any-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/exception/constructor.tentative.any.html: Added.
+        * web-platform-tests/wasm/jsapi/exception/constructor.tentative.any.js: Added.
+        (test):
+        * web-platform-tests/wasm/jsapi/exception/constructor.tentative.any.worker-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/exception/constructor.tentative.any.worker.html: Added.
+        * web-platform-tests/wasm/jsapi/exception/getArg.tentative.any-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/exception/getArg.tentative.any.html: Added.
+        * web-platform-tests/wasm/jsapi/exception/getArg.tentative.any.js: Added.
+        (test):
+        * web-platform-tests/wasm/jsapi/exception/getArg.tentative.any.worker-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/exception/getArg.tentative.any.worker.html: Added.
+        * web-platform-tests/wasm/jsapi/exception/is.tentative.any-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/exception/is.tentative.any.html: Added.
+        * web-platform-tests/wasm/jsapi/exception/is.tentative.any.js: Added.
+        (test):
+        * web-platform-tests/wasm/jsapi/exception/is.tentative.any.worker-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/exception/is.tentative.any.worker.html: Added.
+        * web-platform-tests/wasm/jsapi/exception/toString.tentative.any-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/exception/toString.tentative.any.html: Added.
+        * web-platform-tests/wasm/jsapi/exception/toString.tentative.any.js: Added.
+        (test):
+        * web-platform-tests/wasm/jsapi/exception/toString.tentative.any.worker-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/exception/toString.tentative.any.worker.html: Added.
+        * web-platform-tests/wasm/jsapi/exception/type.tentative.any-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/exception/type.tentative.any.html: Added.
+        * web-platform-tests/wasm/jsapi/exception/type.tentative.any.js: Added.
+        (assert_type):
+        (test):
+        * web-platform-tests/wasm/jsapi/exception/type.tentative.any.worker-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/exception/type.tentative.any.worker.html: Added.
+        * web-platform-tests/wasm/jsapi/exception/w3c-import.log: Added.
+        * web-platform-tests/wasm/jsapi/function/call.tentative.any-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/function/call.tentative.any.html: Added.
+        * web-platform-tests/wasm/jsapi/function/call.tentative.any.js: Added.
+        (addxy):
+        (test):
+        (string_appeared_here.test):
+        * web-platform-tests/wasm/jsapi/function/call.tentative.any.worker-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/function/call.tentative.any.worker.html: Added.
+        * web-platform-tests/wasm/jsapi/function/constructor.tentative.any-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/function/constructor.tentative.any.html: Added.
+        * web-platform-tests/wasm/jsapi/function/constructor.tentative.any.js: Added.
+        (addxy):
+        (test):
+        (string_appeared_here.test):
+        * web-platform-tests/wasm/jsapi/function/constructor.tentative.any.worker-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/function/constructor.tentative.any.worker.html: Added.
+        * web-platform-tests/wasm/jsapi/function/table.tentative.any-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/function/table.tentative.any.html: Added.
+        * web-platform-tests/wasm/jsapi/function/table.tentative.any.js: Added.
+        (testfunc):
+        (test):
+        * web-platform-tests/wasm/jsapi/function/table.tentative.any.worker-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/function/table.tentative.any.worker.html: Added.
+        * web-platform-tests/wasm/jsapi/function/type.tentative.any-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/function/type.tentative.any.html: Added.
+        * web-platform-tests/wasm/jsapi/function/type.tentative.any.js: Added.
+        (addNumbers):
+        (doNothing):
+        (assert_function):
+        (test):
+        (string_appeared_here.test):
+        * web-platform-tests/wasm/jsapi/function/type.tentative.any.worker-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/function/type.tentative.any.worker.html: Added.
+        * web-platform-tests/wasm/jsapi/function/w3c-import.log: Added.
+        * web-platform-tests/wasm/jsapi/global/type.tentative.any-expected.txt:
+        * web-platform-tests/wasm/jsapi/global/type.tentative.any.js:
+        (test):
+        (string_appeared_here.test):
+        * web-platform-tests/wasm/jsapi/global/type.tentative.any.worker-expected.txt:
+        * web-platform-tests/wasm/jsapi/proto-from-ctor-realm.html:
+        * web-platform-tests/wasm/jsapi/table/constructor-reftypes.tentative.any-expected.txt:
+        * web-platform-tests/wasm/jsapi/table/constructor-reftypes.tentative.any.js: Removed.
+        * web-platform-tests/wasm/jsapi/table/constructor-reftypes.tentative.any.worker-expected.txt:
+        * web-platform-tests/wasm/jsapi/table/constructor.any-expected.txt:
+        * web-platform-tests/wasm/jsapi/table/constructor.any.js:
+        (test.get assert_array_equals):
+        (test):
+        * web-platform-tests/wasm/jsapi/table/constructor.any.worker-expected.txt:
+        * web-platform-tests/wasm/jsapi/table/get-set.any-expected.txt:
+        * web-platform-tests/wasm/jsapi/table/get-set.any.js:
+        (test):
+        * web-platform-tests/wasm/jsapi/table/get-set.any.worker-expected.txt:
+        * web-platform-tests/wasm/jsapi/table/grow-reftypes.tentative.any-expected.txt:
+        * web-platform-tests/wasm/jsapi/table/grow-reftypes.tentative.any.js: Removed.
+        * web-platform-tests/wasm/jsapi/table/grow-reftypes.tentative.any.worker-expected.txt:
+        * web-platform-tests/wasm/jsapi/table/grow.any-expected.txt:
+        * web-platform-tests/wasm/jsapi/table/grow.any.js:
+        (test):
+        * web-platform-tests/wasm/jsapi/table/grow.any.worker-expected.txt:
+        * web-platform-tests/wasm/jsapi/table/set-reftypes.tentative.any-expected.txt:
+        * web-platform-tests/wasm/jsapi/table/set-reftypes.tentative.any.js: Removed.
+        * web-platform-tests/wasm/jsapi/table/set-reftypes.tentative.any.worker-expected.txt:
+        * web-platform-tests/wasm/jsapi/table/type.tentative.any-expected.txt:
+        * web-platform-tests/wasm/jsapi/table/type.tentative.any.js:
+        (test):
+        * web-platform-tests/wasm/jsapi/table/type.tentative.any.worker-expected.txt:
+        * web-platform-tests/wasm/jsapi/table/type.tentative.any.worker.html: Added.
+        * web-platform-tests/wasm/jsapi/table/w3c-import.log:
+        * web-platform-tests/wasm/jsapi/tag/constructor.tentative.any-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/tag/constructor.tentative.any.html: Added.
+        * web-platform-tests/wasm/jsapi/tag/constructor.tentative.any.js: Added.
+        (test):
+        * web-platform-tests/wasm/jsapi/tag/constructor.tentative.any.worker-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/tag/constructor.tentative.any.worker.html: Added.
+        * web-platform-tests/wasm/jsapi/tag/toString.tentative.any-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/tag/toString.tentative.any.html: Added.
+        * web-platform-tests/wasm/jsapi/tag/toString.tentative.any.js: Added.
+        (test):
+        * web-platform-tests/wasm/jsapi/tag/toString.tentative.any.worker-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/tag/toString.tentative.any.worker.html: Added.
+        * web-platform-tests/wasm/jsapi/tag/type.tentative.any-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/tag/type.tentative.any.html: Added.
+        * web-platform-tests/wasm/jsapi/tag/type.tentative.any.js: Added.
+        (assert_type):
+        (test):
+        * web-platform-tests/wasm/jsapi/tag/type.tentative.any.worker-expected.txt: Added.
+        * web-platform-tests/wasm/jsapi/tag/type.tentative.any.worker.html: Added.
+        * web-platform-tests/wasm/jsapi/tag/w3c-import.log: Added.
+        * web-platform-tests/wasm/jsapi/wasm-module-builder.js:
+        (WasmModuleBuilder.prototype.addTable):
+        (WasmModuleBuilder.prototype.toBuffer):
+        * web-platform-tests/wasm/serialization/module/cross-origin-module-sharing-fails-expected.txt: Added.
+        * web-platform-tests/wasm/serialization/module/cross-origin-module-sharing-fails.html: Added.
+        * web-platform-tests/wasm/serialization/module/resources/incrementer-iframe-failure.html: Added.
+        * web-platform-tests/wasm/serialization/module/resources/w3c-import.log:
+        * web-platform-tests/wasm/serialization/module/share-module-cross-origin-fails.sub-expected.txt: Added.
+        * web-platform-tests/wasm/serialization/module/share-module-cross-origin-fails.sub.html: Added.
+        * web-platform-tests/wasm/serialization/module/w3c-import.log:
+        * web-platform-tests/wasm/webapi/contenttype.any-expected.txt:
+        * web-platform-tests/wasm/webapi/contenttype.any.js:
+        * web-platform-tests/wasm/webapi/contenttype.any.worker-expected.txt:
+        * web-platform-tests/wasm/webapi/resources/incrementer.no_mime_type.wasm: Added.
+        * web-platform-tests/wasm/webapi/resources/incrementer.wasm: Added.
+        * web-platform-tests/wasm/webapi/resources/incrementer.wasm.headers: Added.
+        * web-platform-tests/wasm/webapi/resources/incrementer.wrong_mime_type.wasm: Added.
+        * web-platform-tests/wasm/webapi/resources/incrementer.wrong_mime_type.wasm.headers: Added.
+        * web-platform-tests/wasm/webapi/resources/w3c-import.log: Added.
+        * web-platform-tests/wasm/webapi/w3c-import.log:
+        * web-platform-tests/wasm/webapi/wasm_stream_compile_test-expected.txt: Added.
+        * web-platform-tests/wasm/webapi/wasm_stream_compile_test.html: Added.
+        * web-platform-tests/wasm/webapi/wasm_stream_instantiate_test-expected.txt: Added.
+        * web-platform-tests/wasm/webapi/wasm_stream_instantiate_test.html: Added.
+
+2022-01-14  Chris Dumez  <cdumez@apple.com>
+
+        Regression(r281520) 3 subtests started failing on dom/traversal/TreeWalker-acceptNode-filter-cross-realm.html WPT test
+        https://bugs.webkit.org/show_bug.cgi?id=235153
+        <rdar://problem/87485756>
+
+        Unreviewed, revert r281520 since it regressed dom/traversal/TreeWalker-acceptNode-filter-cross-realm.html WPT test.
+
+        * web-platform-tests/geolocation-API/non-fully-active.https-expected.txt:
+
+2022-01-14  Antti Koivisto  <antti@apple.com>
+
+        [:has() pseudo-class] Avoid O(n^2) in style invalidation with repeated DOM mutations
+        https://bugs.webkit.org/show_bug.cgi?id=234842
+        <rdar://problem/87397176>
+
+        Reviewed by Dean Jackson.
+
+        * web-platform-tests/css/selectors/invalidation/has-complexity-expected.txt: Added.
+        * web-platform-tests/css/selectors/invalidation/has-complexity.html: Added.
+
+2022-01-13  Antoine Quint  <graouts@webkit.org>
+
+        Update WPT for css/css-pseudo
+        https://bugs.webkit.org/show_bug.cgi?id=235197
+
+        Unreviewed WPT import.
+
+        * resources/resource-files.json:
+        * web-platform-tests/css/css-pseudo/README.md:
+        * web-platform-tests/css/css-pseudo/active-selection-011.html:
+        * web-platform-tests/css/css-pseudo/active-selection-012-expected.html:
+        * web-platform-tests/css/css-pseudo/active-selection-012.html:
+        * web-platform-tests/css/css-pseudo/active-selection-016.html:
+        * web-platform-tests/css/css-pseudo/active-selection-018.html:
+        * web-platform-tests/css/css-pseudo/active-selection-021.html:
+        * web-platform-tests/css/css-pseudo/active-selection-025.html:
+        * web-platform-tests/css/css-pseudo/active-selection-027.html:
+        * web-platform-tests/css/css-pseudo/active-selection-031.html:
+        * web-platform-tests/css/css-pseudo/active-selection-041-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/active-selection-041-expected.html.
+        * web-platform-tests/css/css-pseudo/active-selection-043.html:
+        * web-platform-tests/css/css-pseudo/active-selection-045.html:
+        * web-platform-tests/css/css-pseudo/active-selection-051-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/active-selection-056.html:
+        * web-platform-tests/css/css-pseudo/active-selection-057.html:
+        * web-platform-tests/css/css-pseudo/active-selection-063.html:
+        * web-platform-tests/css/css-pseudo/backdrop-animate-002-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/before-after-dynamic-custom-property-001-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/cascade-highlight-001-ref.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/active-selection-012-expected.html.
+        * web-platform-tests/css/css-pseudo/cascade-highlight-001.html:
+        * web-platform-tests/css/css-pseudo/cascade-highlight-002.html:
+        * web-platform-tests/css/css-pseudo/cascade-highlight-004-ref.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/active-selection-012-expected.html.
+        * web-platform-tests/css/css-pseudo/cascade-highlight-004.html:
+        * web-platform-tests/css/css-pseudo/cascade-highlight-005-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/active-selection-012-expected.html.
+        * web-platform-tests/css/css-pseudo/cascade-highlight-005.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/cascade-highlight-004.html.
+        * web-platform-tests/css/css-pseudo/file-selector-button-001-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/file-selector-button-001-expected.html.
+        * web-platform-tests/css/css-pseudo/file-selector-button-after-part-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/file-selector-button-after-part-expected.html.
+        * web-platform-tests/css/css-pseudo/file-selector-button-inherit-expected.txt: Added.
+        * web-platform-tests/css/css-pseudo/file-selector-button-inherit.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-001-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-001.html:
+        * web-platform-tests/css/css-pseudo/first-letter-002.html:
+        * web-platform-tests/css/css-pseudo/first-letter-003.html:
+        * web-platform-tests/css/css-pseudo/first-letter-004-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-004.html:
+        * web-platform-tests/css/css-pseudo/first-letter-005-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-and-whitespace-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-background-image-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-block-to-inline-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-exclude-block-child-marker-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-exclude-inline-child-marker-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-exclude-inline-marker-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-hi-001-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-hi-001-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-hi-001.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-hi-002-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-hi-002-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-hi-002.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-list-item-dynamic-001-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-of-html-root-crash-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-opacity-001-not-ref.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/first-letter-opacity-001-ref-expected.html.
+        * web-platform-tests/css/css-pseudo/first-letter-opacity-001-ref-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/first-letter-opacity-001-ref-expected.html.
+        * web-platform-tests/css/css-pseudo/first-letter-opacity-float-001-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-punctuation-and-space-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-punctuation-and-space.html:
+        * web-platform-tests/css/css-pseudo/first-letter-punctuation-dynamic-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-skip-empty-span-nested-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-skip-empty-span-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-skip-marker-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-width-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-with-quote-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-letter-with-span-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-line-and-marker-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-line-and-placeholder-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-line-change-inline-color-nested-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-line-change-inline-color-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-line-line-height-001-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/first-line-line-height-001-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-line-line-height-001.html: Added.
+        * web-platform-tests/css/css-pseudo/first-line-line-height-002-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/first-line-line-height-002-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-line-line-height-002.html: Added.
+        * web-platform-tests/css/css-pseudo/first-line-on-ancestor-block-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-line-opacity-001-not-ref.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/first-line-opacity-001-ref-expected.html.
+        * web-platform-tests/css/css-pseudo/first-line-opacity-001-ref-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/first-line-opacity-001-ref-expected.html.
+        * web-platform-tests/css/css-pseudo/first-line-replaced-001-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-line-with-before-after-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-line-with-inline-block-before-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/first-line-with-out-of-flow-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/grammar-error-001-ref.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/grammar-error-001.html.
+        * web-platform-tests/css/css-pseudo/grammar-error-001.html:
+        * web-platform-tests/css/css-pseudo/grammar-spelling-errors-001.html:
+        * web-platform-tests/css/css-pseudo/grammar-spelling-errors-002.html:
+        * web-platform-tests/css/css-pseudo/highlight-cascade-001-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-cascade-001-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-cascade-001.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-cascade-002-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-cascade-002-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-cascade-002.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-cascade-003-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-cascade-003-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-cascade-003.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-cascade-004-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-cascade-004-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-cascade-004.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-painting-001-expected.html:
+        * web-platform-tests/css/css-pseudo/highlight-painting-001-ref.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/highlight-painting-001-expected.html.
+        * web-platform-tests/css/css-pseudo/highlight-painting-001.html:
+        * web-platform-tests/css/css-pseudo/highlight-painting-002-expected.html:
+        * web-platform-tests/css/css-pseudo/highlight-painting-002-ref.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/highlight-painting-002-expected.html.
+        * web-platform-tests/css/css-pseudo/highlight-painting-002.html:
+        * web-platform-tests/css/css-pseudo/highlight-painting-003-expected.html:
+        * web-platform-tests/css/css-pseudo/highlight-painting-003-ref.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/highlight-painting-003-expected.html.
+        * web-platform-tests/css/css-pseudo/highlight-painting-003.html:
+        * web-platform-tests/css/css-pseudo/highlight-painting-004-expected.html:
+        * web-platform-tests/css/css-pseudo/highlight-painting-004-ref1.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/highlight-painting-004-expected.html.
+        * web-platform-tests/css/css-pseudo/highlight-painting-004-ref2.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-painting-004-ref3.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-painting-004.html:
+        * web-platform-tests/css/css-pseudo/highlight-paired-cascade-001-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-paired-cascade-001-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-paired-cascade-001.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-paired-cascade-002-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-paired-cascade-002-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-paired-cascade-002.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-paired-cascade-003-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-paired-cascade-003-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-paired-cascade-003.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-paired-cascade-004-notref.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-paired-cascade-004.tentative-expected-mismatch.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-paired-cascade-004.tentative.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-paired-cascade-005-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-paired-cascade-005.tentative-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-paired-cascade-005.tentative.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-paired-cascade-006-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-paired-cascade-006-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-paired-cascade-006.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-styling-001-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-styling-001-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-styling-001.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-styling-002-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-styling-002-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-styling-002.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-z-index-001-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-z-index-001.html:
+        * web-platform-tests/css/css-pseudo/highlight-z-index-002-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/highlight-z-index-002.html:
+        * web-platform-tests/css/css-pseudo/marker-and-other-pseudo-elements-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-animate-002-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-color-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-001-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-002-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-003-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-004-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-005-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-006-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-007-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-008-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-009-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-011-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-012-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-013-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-014-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-015-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-016-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-017-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-018-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-019-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-020-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-021-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-022-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-023-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-content-024-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-font-properties-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-font-variant-numeric-default-ref-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/marker-font-variant-numeric-default-ref-expected.html.
+        * web-platform-tests/css/css-pseudo/marker-font-variant-numeric-normal-ref-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/marker-font-variant-numeric-normal-ref-expected.html.
+        * web-platform-tests/css/css-pseudo/marker-hyphens-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-inherit-line-height-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-inherit-values-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-intrinsic-contribution-002-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-line-break-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-line-height-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-tab-size-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-text-align-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-text-combine-upright-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-text-decoration-skip-ink-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-text-emphasis-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-text-shadow-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-text-transform-default-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-text-transform-uppercase-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-unicode-bidi-default-ref-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/marker-unicode-bidi-default-ref-expected.html.
+        * web-platform-tests/css/css-pseudo/marker-unicode-bidi-normal-ref-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/marker-unicode-bidi-normal-ref-expected.html.
+        * web-platform-tests/css/css-pseudo/marker-word-break-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/marker-word-spacing-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/outside-marker-paint-order-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/parsing/marker-supported-properties-expected.txt:
+        * web-platform-tests/css/css-pseudo/parsing/marker-supported-properties-in-animation-expected.txt:
+        * web-platform-tests/css/css-pseudo/parsing/marker-supported-properties-in-animation.html:
+        * web-platform-tests/css/css-pseudo/parsing/marker-supported-properties.html:
+        * web-platform-tests/css/css-pseudo/placeholder-inherit-expected.txt: Added.
+        * web-platform-tests/css/css-pseudo/placeholder-inherit.html: Added.
+        * web-platform-tests/css/css-pseudo/placeholder-input-number-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/placeholder-input-number-expected.html.
+        * web-platform-tests/css/css-pseudo/selection-background-painting-order-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/selection-background-painting-order-ref1.html: Added.
+        * web-platform-tests/css/css-pseudo/selection-background-painting-order-ref2.html: Added.
+        * web-platform-tests/css/css-pseudo/selection-background-painting-order.html: Added.
+        * web-platform-tests/css/css-pseudo/selection-contenteditable-011.html:
+        * web-platform-tests/css/css-pseudo/selection-decoration-p1-expected.html: Removed.
+        * web-platform-tests/css/css-pseudo/selection-decoration-p2-expected.html: Removed.
+        * web-platform-tests/css/css-pseudo/selection-decoration-p2.html: Removed.
+        * web-platform-tests/css/css-pseudo/selection-decoration-p3-expected.html: Removed.
+        * web-platform-tests/css/css-pseudo/selection-decoration-p4-expected.html: Removed.
+        * web-platform-tests/css/css-pseudo/selection-decoration-p4.html: Removed.
+        * web-platform-tests/css/css-pseudo/selection-input-011.html:
+        * web-platform-tests/css/css-pseudo/selection-originating-decoration-color-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/selection-originating-decoration-color-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/selection-originating-decoration-color.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/selection-decoration-p3.html.
+        * web-platform-tests/css/css-pseudo/selection-originating-strikethrough-order-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/selection-originating-strikethrough-order-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/selection-originating-strikethrough-order.html: Added.
+        * web-platform-tests/css/css-pseudo/selection-originating-underline-order-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/selection-originating-underline-order-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/selection-originating-underline-order.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/selection-decoration-p1.html.
+        * web-platform-tests/css/css-pseudo/selection-overlay-and-grammar-001.html:
+        * web-platform-tests/css/css-pseudo/selection-overlay-and-spelling-001.html:
+        * web-platform-tests/css/css-pseudo/selection-paint-image-expected-mismatch.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/selection-paint-image-expected.html.
+        * web-platform-tests/css/css-pseudo/selection-textarea-011.html:
+        * web-platform-tests/css/css-pseudo/spelling-error-001-ref.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/spelling-error-001.html.
+        * web-platform-tests/css/css-pseudo/spelling-error-001.html:
+        * web-platform-tests/css/css-pseudo/target-text-001-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-001.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-002-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-002.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-003-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-003.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-004-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-004.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-005-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-005.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-006-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-006.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-007-expected.txt: Added.
+        * web-platform-tests/css/css-pseudo/target-text-007.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-dynamic-001-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-dynamic-001-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-dynamic-001.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-dynamic-002-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-dynamic-002.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-dynamic-003-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-dynamic-003.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-dynamic-004-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-dynamic-004.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-lime-green-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-lime-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-text-decoration-001-expected.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-text-decoration-001-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-text-decoration-001.html: Added.
+        * web-platform-tests/css/css-pseudo/target-text-two-words-ref.html: Added.
+        * web-platform-tests/css/css-pseudo/textpath-selection-011-expected.html:
+        * web-platform-tests/css/css-pseudo/textpath-selection-011-ref.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-pseudo/textpath-selection-011-expected.html.
+        * web-platform-tests/css/css-pseudo/textpath-selection-011.html:
+        * web-platform-tests/css/css-pseudo/w3c-import.log:
+
+2022-01-13  Chris Dumez  <cdumez@apple.com>
+
+        html/semantics/scripting-1/the-script-element/script-type-and-language-empty.html WPT test is failing
+        https://bugs.webkit.org/show_bug.cgi?id=235202
+
+        Reviewed by Darin Adler.
+
+        Rebaseline test that is now passing.
+
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/script-type-and-language-empty-expected.txt:
+
+2022-01-13  Chris Dumez  <cdumez@apple.com>
+
+        Implement HTMLScriptElement.supports(type) method
+        https://bugs.webkit.org/show_bug.cgi?id=229929
+        <rdar://problem/82933899>
+
+        Reviewed by Geoff Garen and Darin Adler.
+
+        Rebaseline test now that more checks are passing.
+
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/script-supports-expected.txt:
+
+2022-01-13  Ziran Sun  <zsun@igalia.com>
+
+        [css-grid] Fix rounding of distributed free space to flexible tracks
+        https://bugs.webkit.org/show_bug.cgi?id=234917
+
+        Reviewed by Darin Adler.        
+
+2022-01-12  Sergio Villar Senin  <svillar@igalia.com>
+
+        [css-flexbox] Import WPT tests - January edition
+        https://bugs.webkit.org/show_bug.cgi?id=235102
+
+        Reviewed by Manuel Rego Casasnovas.
+
+        This import brings some new tests. Apart from that several expectations were moved from FAIL to PASS.
+
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-align-content-002-expected.txt:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-align-content-002.html:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-align-content-004-expected.txt:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-align-content-004.html:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-align-content-006-expected.txt:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-align-content-006.html:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-align-content-008-expected.txt:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-align-content-008.html:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-align-self-002-expected.txt:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-align-self-002.html:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-align-self-004-expected.txt:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-align-self-004.html:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-align-self-006-expected.txt:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-align-self-006.html:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-align-self-008-expected.txt:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-align-self-008.html:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-justify-content-002-expected.txt:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-justify-content-002.html:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-justify-content-003-expected.txt:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-justify-content-003.html:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-justify-content-004-expected.txt:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-justify-content-004.html:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-justify-content-006-expected.txt:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-justify-content-006.html:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-justify-content-007-expected.txt:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-justify-content-007.html:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-justify-content-008-expected.txt:
+        * web-platform-tests/css/css-flexbox/abspos/flex-abspos-staticpos-justify-content-008.html:
+        * web-platform-tests/css/css-flexbox/abspos/w3c-import.log:
+        * web-platform-tests/css/css-flexbox/aspect-ratio-intrinsic-size-007-expected.html: Added.
+        * web-platform-tests/css/css-flexbox/aspect-ratio-intrinsic-size-007.html: Added.
+        * web-platform-tests/css/css-flexbox/fieldset-as-item-dynamic-expected.html: Added.
+        * web-platform-tests/css/css-flexbox/fieldset-as-item-dynamic.html: Added.
+        * web-platform-tests/css/css-flexbox/flex-basis-intrinsics-001-expected.txt:
+        * web-platform-tests/css/css-flexbox/flex-basis-intrinsics-001.html:
+        * web-platform-tests/css/css-flexbox/flex-grow-001-ref.xht: Added.
+        * web-platform-tests/css/css-flexbox/flex-minimum-width-flex-items-014.html:
+        * web-platform-tests/css/css-flexbox/flexbox-justify-content-wmvert-002-expected.txt:
+        * web-platform-tests/css/css-flexbox/flexbox-justify-content-wmvert-002.html:
+        * web-platform-tests/css/css-flexbox/flexbox-justify-content-wmvert-003-expected.txt: Added.
+        * web-platform-tests/css/css-flexbox/flexbox-justify-content-wmvert-003.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-flexbox/flexbox-justify-content-wmvert-002.html.
+        * web-platform-tests/css/css-flexbox/order/order-with-column-reverse-ref.html: Added.
+        * web-platform-tests/css/css-flexbox/order/order-with-row-reverse-ref.html: Added.
+        * web-platform-tests/css/css-flexbox/scrollbars-auto-expected.html:
+        * web-platform-tests/css/css-flexbox/scrollbars-expected.html:
+        * web-platform-tests/css/css-flexbox/support/large-green-rectangle.svg: Added.
+        * web-platform-tests/css/css-flexbox/support/w3c-import.log:
+        * web-platform-tests/css/css-flexbox/w3c-import.log:
+
+2022-01-12  Antoine Quint  <graouts@webkit.org>
+
+        css/css-transitions/pseudo-elements-002.html WPT is a failure
+        https://bugs.webkit.org/show_bug.cgi?id=234987
+
+        Reviewed by Antti Koivisto.
+
+        Mark WPT progression.
+
+        * web-platform-tests/css/css-transitions/pseudo-elements-002-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-pseudo-expected.txt:
+
+2022-01-12  Antoine Quint  <graouts@webkit.org>
+
+        Remove WebKitTransitionEvent and WebKitAnimationEvent
+        https://bugs.webkit.org/show_bug.cgi?id=235113
+
+        Reviewed by Dean Jackson.
+
+        Mark WPT progressions.
+
+        * web-platform-tests/css/css-animations/historical-expected.txt:
+        * web-platform-tests/css/css-transitions/historical-expected.txt:
+
+2022-01-12  Antoine Quint  <graouts@webkit.org>
+
+        Update WPT for css/css-animations, css/css-transitions and web-animations
+        https://bugs.webkit.org/show_bug.cgi?id=235111
+
+        Unreviewed WPT import.
+
+        * resources/import-expectations.json:
+        * resources/resource-files.json:
+        * web-platform-tests/css/css-animations/animation-common-ref.html: Added.
+        * web-platform-tests/css/css-animations/animation-important-002-ref.html: Added.
+        * web-platform-tests/css/css-animations/animation-opacity-pause-and-set-time-ref.html: Added.
+        * web-platform-tests/css/css-animations/animation-pseudo-dynamic-001-ref.html: Added.
+        * web-platform-tests/css/css-animations/animation-transform-pause-and-set-time-ref.html: Added.
+        * web-platform-tests/css/css-animations/flip-running-animation-via-variable-expected.html: Added.
+        * web-platform-tests/css/css-animations/flip-running-animation-via-variable-ref.html: Added.
+        * web-platform-tests/css/css-animations/flip-running-animation-via-variable.html: Added.
+        * web-platform-tests/css/css-animations/keyframes-unrelated-custom-property-expected.txt: Added.
+        * web-platform-tests/css/css-animations/keyframes-unrelated-custom-property.html: Added.
+        * web-platform-tests/css/css-animations/nested-scale-animations-ref.html: Added.
+        * web-platform-tests/css/css-animations/simultaneous-animations-crash.html: Added.
+        * web-platform-tests/css/css-animations/svg-transform-animation-ref.html: Added.
+        * web-platform-tests/css/css-animations/transform-animation-under-large-scale-ref.html: Added.
+        * web-platform-tests/css/css-animations/translation-animation-subpixel-offset-ref.html: Added.
+        * web-platform-tests/css/css-animations/w3c-import.log:
+        * web-platform-tests/css/css-transitions/animations/change-duration-during-transition-expected.txt: Added.
+        * web-platform-tests/css/css-transitions/animations/change-duration-during-transition.html: Added.
+        * web-platform-tests/css/css-transitions/animations/color-transition-premultiplied-expected.txt: Added.
+        * web-platform-tests/css/css-transitions/animations/color-transition-premultiplied.html: Added.
+        * web-platform-tests/css/css-transitions/animations/move-after-transition-expected.txt: Added.
+        * web-platform-tests/css/css-transitions/animations/move-after-transition.html: Added.
+        * web-platform-tests/css/css-transitions/animations/text-shadow-composition-expected.txt:
+        * web-platform-tests/css/css-transitions/animations/text-shadow-composition.html:
+        * web-platform-tests/css/css-transitions/animations/text-shadow-interpolation-expected.txt:
+        * web-platform-tests/css/css-transitions/animations/text-shadow-interpolation.html:
+        * web-platform-tests/css/css-transitions/animations/transition-end-event-shorthands-expected.txt: Added.
+        * web-platform-tests/css/css-transitions/animations/transition-end-event-shorthands.html: Added.
+        * web-platform-tests/css/css-transitions/animations/transition-timing-function-expected.txt: Added.
+        * web-platform-tests/css/css-transitions/animations/transition-timing-function.html: Added.
+        * web-platform-tests/css/css-transitions/animations/w3c-import.log:
+        * web-platform-tests/css/css-transitions/changing-while-transition-004-expected.txt: Added.
+        * web-platform-tests/css/css-transitions/changing-while-transition-004.html: Added.
+        * web-platform-tests/css/css-transitions/crashtests/transition-large-word-spacing-001.html: Added.
+        * web-platform-tests/css/css-transitions/crashtests/w3c-import.log: Copied from LayoutTests/imported/w3c/web-platform-tests/web-animations/interfaces/Animatable/w3c-import.log.
+        * web-platform-tests/css/css-transitions/event-dispatch.tentative.html:
+        * web-platform-tests/css/css-transitions/no-transition-from-ua-to-blocking-stylesheet-ref.html: Added.
+        * web-platform-tests/css/css-transitions/retargetted-transition-with-box-sizing-expected.txt: Added.
+        * web-platform-tests/css/css-transitions/retargetted-transition-with-box-sizing.html: Added.
+        * web-platform-tests/css/css-transitions/root-color-transition-ref.html: Added.
+        * web-platform-tests/css/css-transitions/transition-after-animation-001-expected.txt: Added.
+        * web-platform-tests/css/css-transitions/transition-after-animation-001.html: Added.
+        * web-platform-tests/css/css-transitions/transition-delay-001.html:
+        * web-platform-tests/css/css-transitions/transition-duration-001.html:
+        * web-platform-tests/css/css-transitions/transition-duration-shorthand-expected.txt: Added.
+        * web-platform-tests/css/css-transitions/transition-duration-shorthand.html: Added.
+        * web-platform-tests/css/css-transitions/w3c-import.log:
+        * web-platform-tests/web-animations/META.yml:
+        * web-platform-tests/web-animations/animation-model/animation-types/accumulation-per-property-002-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/addition-per-property-002-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/interpolation-per-property-002-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/property-list.js:
+        * web-platform-tests/web-animations/animation-model/animation-types/property-types.js:
+        (const.transformListType.testInterpolation):
+        * web-platform-tests/web-animations/idlharness.window-expected.txt:
+        * web-platform-tests/web-animations/idlharness.window.js:
+        * web-platform-tests/web-animations/interfaces/Animatable/getAnimations-iframe-expected.txt: Added.
+        * web-platform-tests/web-animations/interfaces/Animatable/getAnimations-iframe.html: Added.
+        * web-platform-tests/web-animations/interfaces/Animatable/w3c-import.log:
+        * web-platform-tests/web-animations/interfaces/Animation/commitStyles-crash.html: Added.
+        * web-platform-tests/web-animations/interfaces/Animation/constructor.html:
+        * web-platform-tests/web-animations/interfaces/Animation/onfinish.html:
+        * web-platform-tests/web-animations/interfaces/Animation/onremove.html:
+        * web-platform-tests/web-animations/interfaces/Animation/w3c-import.log:
+        * web-platform-tests/web-animations/interfaces/KeyframeEffect/processing-a-keyframes-argument-001-expected.txt:
+        * web-platform-tests/web-animations/interfaces/KeyframeEffect/processing-a-keyframes-argument-001.html:
+        * web-platform-tests/web-animations/responsive/assorted-lengths-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/assorted-lengths.html: Added.
+        * web-platform-tests/web-animations/responsive/backgroundPosition-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/backgroundPosition.html: Added.
+        * web-platform-tests/web-animations/responsive/backgroundSize-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/backgroundSize.html: Added.
+        * web-platform-tests/web-animations/responsive/baselineShift-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/baselineShift.html: Added.
+        * web-platform-tests/web-animations/responsive/borderImageWidth-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/borderImageWidth.html: Added.
+        * web-platform-tests/web-animations/responsive/borderRadius-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/borderRadius.html: Added.
+        * web-platform-tests/web-animations/responsive/borderWidth-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/borderWidth.html: Added.
+        * web-platform-tests/web-animations/responsive/boxShadow-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/boxShadow.html: Added.
+        * web-platform-tests/web-animations/responsive/clip-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/clip.html: Added.
+        * web-platform-tests/web-animations/responsive/columnCount-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/columnCount.html: Added.
+        * web-platform-tests/web-animations/responsive/columnGap-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/columnGap.html: Added.
+        * web-platform-tests/web-animations/responsive/d-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/d.html: Added.
+        * web-platform-tests/web-animations/responsive/font-size-adjust-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/font-size-adjust.html: Added.
+        * web-platform-tests/web-animations/responsive/fontSize-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/fontSize.html: Added.
+        * web-platform-tests/web-animations/responsive/fontWeight-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/fontWeight.html: Added.
+        * web-platform-tests/web-animations/responsive/lineHeight-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/lineHeight.html: Added.
+        * web-platform-tests/web-animations/responsive/minHeight-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/minHeight.html: Added.
+        * web-platform-tests/web-animations/responsive/offset-path-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/offset-path.html: Added.
+        * web-platform-tests/web-animations/responsive/offsetDistance-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/offsetDistance.html: Added.
+        * web-platform-tests/web-animations/responsive/offsetRotate-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/offsetRotate.html: Added.
+        * web-platform-tests/web-animations/responsive/opacity-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/opacity.html: Added.
+        * web-platform-tests/web-animations/responsive/perspective-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/perspective.html: Added.
+        * web-platform-tests/web-animations/responsive/rotate-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/rotate.html: Added.
+        * web-platform-tests/web-animations/responsive/rowGap-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/rowGap.html: Added.
+        * web-platform-tests/web-animations/responsive/shapeMargin-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/shapeMargin.html: Added.
+        * web-platform-tests/web-animations/responsive/shapeOutside-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/shapeOutside.html: Added.
+        * web-platform-tests/web-animations/responsive/strokeDasharray-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/strokeDasharray.html: Added.
+        * web-platform-tests/web-animations/responsive/text-size-adjust-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/text-size-adjust.html: Added.
+        * web-platform-tests/web-animations/responsive/textIndent-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/textIndent.html: Added.
+        * web-platform-tests/web-animations/responsive/to-color-change-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/to-color-change.html: Added.
+        * web-platform-tests/web-animations/responsive/to-inherited-change-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/to-inherited-change.html: Added.
+        * web-platform-tests/web-animations/responsive/to-style-change-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/to-style-change.html: Added.
+        * web-platform-tests/web-animations/responsive/transform-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/transform.html: Added.
+        * web-platform-tests/web-animations/responsive/translate-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/translate.html: Added.
+        * web-platform-tests/web-animations/responsive/verticalAlign-expected.txt: Added.
+        * web-platform-tests/web-animations/responsive/verticalAlign.html: Added.
+        * web-platform-tests/web-animations/responsive/w3c-import.log: Added.
+        * web-platform-tests/web-animations/testcommon.js:
+        (window.assert_time_greater_than_equal.window.assert_time_greater_than_equal):
+        * web-platform-tests/web-animations/timing-model/animations/finishing-an-animation.html:
+        * web-platform-tests/web-animations/timing-model/animations/infinite-duration-animation-ref.html: Added.
+        * web-platform-tests/web-animations/timing-model/animations/pausing-an-animation.html:
+        * web-platform-tests/web-animations/timing-model/animations/playing-an-animation.html:
+        * web-platform-tests/web-animations/timing-model/animations/reverse-running-animation-expected.html:
+        * web-platform-tests/web-animations/timing-model/animations/reverse-running-animation-ref.html: Added.
+        * web-platform-tests/web-animations/timing-model/animations/reverse-running-animation.html:
+        * web-platform-tests/web-animations/timing-model/animations/setting-the-current-time-of-an-animation-expected.txt:
+        * web-platform-tests/web-animations/timing-model/animations/setting-the-current-time-of-an-animation.html:
+        * web-platform-tests/web-animations/timing-model/animations/setting-the-start-time-of-an-animation-expected.txt:
+        * web-platform-tests/web-animations/timing-model/animations/setting-the-start-time-of-an-animation.html:
+        * web-platform-tests/web-animations/timing-model/animations/setting-the-timeline-of-an-animation-expected.txt:
+        * web-platform-tests/web-animations/timing-model/animations/setting-the-timeline-of-an-animation.html:
+        * web-platform-tests/web-animations/timing-model/animations/sync-start-times-ref.html: Added.
+        * web-platform-tests/web-animations/timing-model/animations/sync-start-times.html:
+        * web-platform-tests/web-animations/timing-model/animations/update-playback-rate-fast-expected.html:
+        * web-platform-tests/web-animations/timing-model/animations/update-playback-rate-fast-ref.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/web-animations/timing-model/animations/update-playback-rate-slow-expected.html.
+        * web-platform-tests/web-animations/timing-model/animations/update-playback-rate-fast.html:
+        * web-platform-tests/web-animations/timing-model/animations/update-playback-rate-slow.html: Removed.
+        * web-platform-tests/web-animations/timing-model/animations/update-playback-rate-zero-expected.html:
+        * web-platform-tests/web-animations/timing-model/animations/update-playback-rate-zero-ref.html: Added.
+        * web-platform-tests/web-animations/timing-model/animations/update-playback-rate-zero.html:
+        * web-platform-tests/web-animations/timing-model/animations/w3c-import.log:
+        * web-platform-tests/web-animations/timing-model/timelines/document-timelines.html:
+        * web-platform-tests/web-animations/timing-model/timelines/timelines-expected.txt:
+        * web-platform-tests/web-animations/timing-model/timelines/timelines.html:
+        * web-platform-tests/web-animations/timing-model/timelines/update-and-send-events-replacement.html:
+
+2022-01-12  Martin Robinson  <mrobinson@webkit.org>
+
+        Interpolation during animation of two empty transform lists should always yield "none"
+        https://bugs.webkit.org/show_bug.cgi?id=235069
+
+        Reviewed by Antoine Quint.
+
+        * web-platform-tests/css/css-transforms/animation/list-interpolation-expected.txt: Update to show passes.
+
+2022-01-12  Youenn Fablet  <youenn@apple.com>
+
+        New service worker API 'FetchEvent.handled' needs to be supported
+        https://bugs.webkit.org/show_bug.cgi?id=208185
+        <rdar://problem/59808975>
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/service-workers/service-worker/fetch-event-handled.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/fetch-event-handled.https.html:
+        * web-platform-tests/service-workers/service-worker/resources/fetch-event-handled-worker.js:
+        (try.event.handled.then):
+        (catch):
+        (send_message_to_client): Deleted.
+
+2021-11-29 Simon Fraser  <simon.fraser@apple.com> 
+
+        Serialize CSS <number> values with rounding, limited decimal precision, and no exponents per-spec
+        https://bugs.webkit.org/show_bug.cgi?id=218880
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/css/css-cascade/revert-val-006-expected.txt:
+        * web-platform-tests/css/css-cascade/revert-val-007-expected.txt:
+        * web-platform-tests/css/css-easing/cubic-bezier-timing-functions-output-expected.txt:
+        * web-platform-tests/css/css-fonts/parsing/font-computed-expected.txt:
+        * web-platform-tests/css/css-fonts/variations/at-font-face-descriptors-expected.txt:
+        * web-platform-tests/css/css-masking/clip-path/interpolation-expected.txt:
+        * web-platform-tests/css/css-shapes/basic-shape-interpolation-expected.txt:
+        * web-platform-tests/css/css-transforms/2d-rotate-js-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-001-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-inline-value-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-matrix-composition-expected.txt:
+        * web-platform-tests/css/css-values/acos-asin-atan-atan2-serialize-expected.txt:
+        * web-platform-tests/css/css-values/calc-numbers-expected.txt:
+        * web-platform-tests/css/css-values/hypot-pow-sqrt-invalid-expected.txt:
+        * web-platform-tests/css/css-values/minmax-angle-serialize-expected.txt:
+        * web-platform-tests/css/css-values/minmax-number-computed-expected.txt:
+        * web-platform-tests/css/css-values/minmax-number-serialize-expected.txt:
+        * web-platform-tests/css/css-variables/variable-presentation-attribute-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-line-height-expected.txt:
+        * web-platform-tests/css/motion/animation/offset-rotate-interpolation-expected.txt:
+        * web-platform-tests/html/rendering/dimension-attributes-expected.txt:
+        * web-platform-tests/html/rendering/pixel-length-attributes-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/accumulation-per-property-001-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/accumulation-per-property-002-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/addition-per-property-001-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/addition-per-property-002-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/interpolation-per-property-001-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/interpolation-per-property-002-expected.txt:
+        * web-platform-tests/web-animations/animation-model/keyframe-effects/effect-value-iteration-composite-operation-expected.txt:
+
+2022-01-11  Asumu Takikawa  <asumu@igalia.com>
+
+        [Wasm] Unify memory import handling in module loader and JS cases
+        https://bugs.webkit.org/show_bug.cgi?id=234116
+
+        Reviewed by Yusuke Suzuki.
+
+        Adjust Wasm WPT test expectations now that getter ordering tests
+        should pass.
+
+        * web-platform-tests/wasm/jsapi/constructor/instantiate.any-expected.txt:
+        * web-platform-tests/wasm/jsapi/constructor/instantiate.any.worker-expected.txt:
+        * web-platform-tests/wasm/jsapi/instance/constructor.any-expected.txt:
+        * web-platform-tests/wasm/jsapi/instance/constructor.any.worker-expected.txt:
+        * web-platform-tests/wasm/webapi/instantiateStreaming.any-expected.txt:
+        * web-platform-tests/wasm/webapi/instantiateStreaming.any.worker-expected.txt:
+
+2022-01-11  Antoine Quint  <graouts@webkit.org>
+
+        css/css-transitions/KeyframeEffect-setKeyframes.tentative.html is a failure (part 2)
+        https://bugs.webkit.org/show_bug.cgi?id=235077
+
+        Reviewed by Dean Jackson.
+
+        Mark WPT progression, this test now passes entirely.
+
+        * web-platform-tests/css/css-transitions/KeyframeEffect-setKeyframes.tentative-expected.txt:
+
+2022-01-11  Rob Buis  <rbuis@igalia.com>
+
+        [CSS contain] Update css-contain tests from WPT
+        https://bugs.webkit.org/show_bug.cgi?id=235060
+
+        Reviewed by Manuel Rego Casasnovas.
+
+        Update css/css-contain/ tests to commit 5d1525416b.
+
+        * resources/resource-files.json:
+        * web-platform-tests/css/css-contain/contain-inline-size-bfc-floats-001-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-bfc-floats-001.html: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-bfc-floats-002-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-bfc-floats-002.html: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-fieldset-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-fieldset.html: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-flex-expected.xht: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-flex.html: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-flexitem-expected.xht: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-flexitem.html: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-grid-expected.xht: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-grid.html: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-legend-expected.html: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-legend.html: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-multicol-expected.xht: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-multicol.html: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-regular-container-expected.xht: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-regular-container.html: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-table-expected.xht: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-table.html: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-vertical-rl--expected.xht: Added.
+        * web-platform-tests/css/css-contain/contain-inline-size-vertical-rl-.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-026-expected.txt:
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-026.html:
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-055.html:
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-056-expected.html:
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-056.html:
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-059-expected.html: Removed.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-059.html: Removed.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-082-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-056-expected.html.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-082.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-083-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-056-expected.html.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-083.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-055.html.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-084-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-056-expected.html.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-084.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-055.html.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-hit-test-contents-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-img-expected.txt: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-img.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-in-svg-000-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-input-image-expected.txt: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-input-image.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-svg-expected.txt: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-svg.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-with-top-layer-000.tentative-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-056-expected.html.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-with-top-layer-000.tentative.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-with-top-layer-001.tentative-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-056-expected.html.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-with-top-layer-001.tentative.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-with-top-layer-002.tentative-expected.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-056-expected.html.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-with-top-layer-002.tentative.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-with-top-layer-003.tentative-expected.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-with-top-layer-003.tentative.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-with-top-layer-004.tentative-expected.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-with-top-layer-004.tentative.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/contentvisibility-nestedslot-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/document-element-computed-style-expected.txt: Added.
+        * web-platform-tests/css/css-contain/content-visibility/document-element-computed-style.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/hidden-execcommand-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/hidden-pseudo-element-removed-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/meter-selection-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/resources/slot-content-visibility.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/resources/w3c-import.log:
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-1-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-10-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-11-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-12-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-13-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-14-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-15-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-16-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-17-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-18-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-19-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-2-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-20-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-21-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-3-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-4-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-5-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-6-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-7-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-8-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/slot-content-visibility-9-crash.html: Added.
+        * web-platform-tests/css/css-contain/content-visibility/w3c-import.log:
+        * web-platform-tests/css/css-contain/parsing/contain-computed-expected.txt:
+        * web-platform-tests/css/css-contain/parsing/contain-computed.html:
+        * web-platform-tests/css/css-contain/parsing/contain-invalid-expected.txt:
+        * web-platform-tests/css/css-contain/parsing/contain-invalid.html:
+        * web-platform-tests/css/css-contain/parsing/contain-valid-expected.txt:
+        * web-platform-tests/css/css-contain/parsing/contain-valid.html:
+        * web-platform-tests/css/css-contain/w3c-import.log:
+
+2022-01-11  Antoine Quint  <graouts@webkit.org>
+
+        css/css-transitions/KeyframeEffect-setKeyframes.tentative.html is a failure
+        https://bugs.webkit.org/show_bug.cgi?id=235062
+
+        Reviewed by Dean Jackson.
+
+        Mark WPT progressions.
+
+        * web-platform-tests/css/css-transitions/KeyframeEffect-setKeyframes.tentative-expected.txt:
+
+2022-01-11  Tim Nguyen  <ntim@apple.com>
+
+        ::backdrop pseudo element should react to associated element event listeners
+        https://bugs.webkit.org/show_bug.cgi?id=233072
+
+        Reviewed by Alan Bujtas.
+
+        Update test expectations.
+
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/backdrop-receives-element-events-expected.txt:
+
+2022-01-10  Chris Dumez  <cdumez@apple.com>
+
+        Resync web-platform-tests/html from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=234938
+
+        Reviewed by Geoff Garen.
+
+        Resync web-platform-tests/html from upstream 03ced021594abbd9e91.
+
+        * resources/resource-files.json:
+        * web-platform-tests/html/*: Updated.
+
 2022-01-10  Sam Weinig  <weinig@apple.com>
 
         [CSS Color 4] CSS color() function should not clamp channels to the 0-1 range

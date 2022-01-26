@@ -1,3 +1,476 @@
+2022-01-24  Mark Lam  <mark.lam@apple.com>
+
+        Rename Vector and FixedVector::findMatching to findIf to match stl naming.
+        https://bugs.webkit.org/show_bug.cgi?id=234864
+        rdar://87424746
+
+        Reviewed by Yusuke Suzuki.
+
+        Also rename reverseFindMatching to reverseFindIf.
+
+        See https://bugs.webkit.org/show_bug.cgi?id=234855#c3 and
+        https://en.cppreference.com/w/cpp/algorithm/find.
+
+        * wtf/FixedVector.h:
+        (WTF::FixedVector<T>::findIf const):
+        (WTF::FixedVector<T>::find const):
+        (WTF::FixedVector<T>::findMatching const): Deleted.
+        * wtf/Vector.h:
+        (WTF::Malloc>::findIf const):
+        (WTF::Malloc>::find const):
+        (WTF::Malloc>::reverseFindIf const):
+        (WTF::Malloc>::findMatching const): Deleted.
+        (WTF::Malloc>::reverseFindMatching const): Deleted.
+
+2022-01-24  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        Build failure with GCC 12: no matching function for call to 'end(LChar [7])'
+        https://bugs.webkit.org/show_bug.cgi?id=235458
+
+        Unreviewed. Just need to #include <string> here.
+
+        * wtf/text/IntegerToStringConversion.h:
+
+2022-01-24  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        REGRESION(r288200): [GTK][WPE] Build broken on Ubuntu 18.04
+        https://bugs.webkit.org/show_bug.cgi?id=235401
+
+        Reviewed by Adrian Perez de Castro.
+
+        This implements WTF_CRASH_UNDER_CONSTEXPR_CONTEXT() properly for compatibility with older
+        compilers.
+
+        * wtf/Assertions.h:
+
+2022-01-24  Mark Lam  <mark.lam@apple.com>
+
+        Add FixedVector::clear(), contains(), find(), and findMatching().
+        https://bugs.webkit.org/show_bug.cgi?id=234855
+
+        Reviewed by Yusuke Suzuki.
+
+        * wtf/FixedVector.h:
+        (WTF::FixedVector::clear):
+        (WTF::FixedVector<T>::contains const):
+        (WTF::FixedVector<T>::findMatching const):
+        (WTF::FixedVector<T>::find const):
+
+2022-01-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Relax Date.parse requirement
+        https://bugs.webkit.org/show_bug.cgi?id=235468
+
+        Reviewed by Darin Adler.
+
+        While the spec does not require accepting 't' / ' ' separator, ISO 8601 accepts it.
+        This is because ECMA262's Date format is *not* ISO 8601 (it is called simplification
+        of ISO 8601[1]).
+        This patch relaxes this strictness to accept more formats, which can be accepted in
+        the other engines too.
+
+        [1]: https://tc39.es/ecma262/#sec-date-time-string-format
+
+        * wtf/DateMath.cpp:
+        (WTF::parseES5DateFromNullTerminatedCharacters):
+
+2022-01-21  Sihui Liu  <sihui_liu@apple.com>
+
+        Disable CFURLCache in WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=234988
+        <rdar://problem/87619196>
+
+        Reviewed by Geoffrey Garen.
+
+        * wtf/PlatformHave.h:
+
+2022-01-21  Mike Gorse  <mgorse@suse.com>
+
+        Build failure with g++ 12: std::exchange undefined
+        https://bugs.webkit.org/show_bug.cgi?id=235445
+
+        Reviewed by Michael Catanzaro.
+
+        * wtf/CompletionHandler.h: Include <utility>
+        * wtf/MallocPtr.h: Ditto
+
+2022-01-20  Said Abou-Hallawa  <said@apple.com>
+
+        [Cocoa] Accelerated filters are enabled by the wrong setting
+        https://bugs.webkit.org/show_bug.cgi?id=235376
+
+        Reviewed by Simon Fraser.
+
+        Delete ENABLE_CORE_IMAGE_ACCELERATED_FILTER_RENDER and use USE_CORE_IMAGE
+        instead since CoreImage is only used for filters right now. Besides 
+        CoreImage filters will be enabled by the internal feature control flag
+        AcceleratedFiltersEnabled.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+        * wtf/PlatformEnableCocoa.h:
+
+2022-01-19  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Implement Temporal.Now.instant()
+        https://bugs.webkit.org/show_bug.cgi?id=234836
+
+        Reviewed by Ross Kirsling.
+
+        Add currentTimeInNanoseconds implementation. Use clock_gettime for non Windows environment
+        since it is POSIX & it is supported in macOS after Sierra.
+
+        We also remove non-QueryPerformanceCounter path on Windows build since (1) it is supported in
+        all supported Windows versions now and (2) no ports are using that path.
+
+        * wtf/CurrentTime.cpp:
+        (WTF::currentTimeInNanoseconds):
+        (WTF::currentTime):
+        * wtf/PlatformUse.h:
+        * wtf/WallTime.h:
+
+2022-01-19  Saam Barati  <sbarati@apple.com>
+
+        Update ARM64EHash
+        https://bugs.webkit.org/show_bug.cgi?id=235192
+
+        Reviewed by Mark Lam.
+
+        * WTF.xcodeproj/project.pbxproj:
+        * wtf/Bitmap.h:
+        (WTF::WordType>::set):
+        (WTF::WordType>::forEachSetBit const):
+        * wtf/CMakeLists.txt:
+        * wtf/IterationStatus.h: Added.
+
+2022-01-19  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Do not use pas utils outside of libpas
+        https://bugs.webkit.org/show_bug.cgi?id=235275
+
+        Reviewed by Darin Adler.
+
+        * wtf/MathExtras.h:
+        (WTF::reverseBits32):
+        (WTF::reverseBits64):
+
+2022-01-19  Alex Christensen  <achristensen@webkit.org>
+
+        Allow experimental feature names to be hidden in WebKitAdditions
+        https://bugs.webkit.org/show_bug.cgi?id=235163
+
+        Reviewed by Chris Dumez.
+
+        * Scripts/GeneratePreferences.rb:
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+        * WTF.xcodeproj/project.pbxproj:
+        * wtf/CMakeLists.txt:
+        * wtf/ExperimentalFeatureNames.h: Copied from Source/WebKitLegacy/mac/Scripts/PreferencesTemplates/WebPreferencesExperimentalFeatures.mm.erb.
+
+2022-01-18  Chris Dumez  <cdumez@apple.com>
+
+        Enable form.requestSubmit()
+        https://bugs.webkit.org/show_bug.cgi?id=235342
+
+        Reviewed by Darin Adler.
+
+        Enable form.requestSubmit(). This was fully implemented via Bug 197958 and it passes the WPT tests but
+        we never actually enabled it.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-01-18  Don Olmstead  <don.olmstead@sony.com>
+
+        Replace all uses of HAVE_ACCESSIBILITY with ENABLE_ACCESSIBILITY
+        https://bugs.webkit.org/show_bug.cgi?id=235335
+
+        Reviewed by Ross Kirsling.
+
+        Remove the setting of HAVE_ACCESSIBILITY. All code is now using ENABLE_ACCESSIBILITY
+        instead.
+
+        * wtf/PlatformHave.h:
+
+2022-01-18  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, disable jit-heap on non Darwin
+
+        On Linux etc., they have completely different steps to allocate executable memory.
+        Thus, the current jit-heap implementation does not work well. Temporarily disable it
+        on non Darwin OSes.
+
+        * wtf/PlatformUse.h:
+
+2022-01-18  Alex Christensen  <achristensen@webkit.org>
+
+        Use c++2a instead of gnu++2a for Cocoa builds
+        https://bugs.webkit.org/show_bug.cgi?id=234936
+
+        Reviewed by Sam Weinig.
+
+        * Configurations/Base.xcconfig:
+
+2022-01-18  Youenn Fablet  <youenn@apple.com>
+
+        UUID decode routine should check for deleted value
+        https://bugs.webkit.org/show_bug.cgi?id=235315
+
+        Reviewed by Chris Dumez.
+
+        * wtf/UUID.h:
+        (WTF::UUID::decode):
+
+2022-01-18  Youenn Fablet  <youenn@apple.com>
+
+        Make ServiceWorkerClient.id a UUID instead of a string derived from a ScriptExecutionContextIdentifier
+        https://bugs.webkit.org/show_bug.cgi?id=235070
+        <rdar://problem/87673540>
+
+        Reviewed by Darin Adler and Chris Dumez.
+
+        * wtf/UUID.cpp:
+        * wtf/UUID.h:
+        Use uint64_t logic to generate UUIDs and remove some reinterpret_cast.
+        Remove the Hasher add since we directly use UUID hash in WebCore.
+        Simplify parsing logic by using more parseIntegers and bit logic.
+        Also make sure we are not able to create empty/deleted UUID value from strings.
+
+2022-01-17  Youenn Fablet  <youenn@apple.com>
+
+        Make ServiceWorkerClient.id a UUID instead of a string derived from a ScriptExecutionContextIdentifier
+        https://bugs.webkit.org/show_bug.cgi?id=235070
+
+        Reviewed by Chris Dumez.
+
+        * wtf/UUID.cpp:
+        * wtf/UUID.h:
+         Add routine to stringify a UUID.
+         Add routine to parse a stringified UUID.
+         We restrict UUID::create to values for which the version 4 UUID stringification is bijective.
+
+2022-01-16  Youenn Fablet  <youenn@apple.com>
+
+        Enforce focus check for getUserMedia
+        https://bugs.webkit.org/show_bug.cgi?id=235026
+
+        Reviewed by Eric Carlson.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-01-16  Lauro Moura  <lmoura@igalia.com>
+
+        Fix C++20 build warnings with GCC
+        https://bugs.webkit.org/show_bug.cgi?id=235023
+
+        Reviewed by Alex Christensen.
+
+        Mostly related to deprecating operations between enums of different
+        types and not capturing this by default in lambdas.
+
+        * wtf/AutomaticThread.cpp: Capture this in lambda.
+        (WTF::AutomaticThread::start):
+
+2022-01-16  David Kilzer  <ddkilzer@apple.com>
+
+        [WTF] Add TollFreeBridging.h to Xcode project
+
+        Unreviewed follow-up for r284038:
+
+           Switch WTF::bridge_cast to use type traits
+           <https://webkit.org/b/231467>
+           <rdar://problem/84050614>
+
+        * WTF.xcodeproj/project.pbxproj:
+        - Add TollFreeBridging.h to the project.
+
+2022-01-15  Chris Dumez  <cdumez@apple.com>
+
+        Introduce dynamicDowncast<>() for convenience
+        https://bugs.webkit.org/show_bug.cgi?id=235259
+
+        Reviewed by Darin Adler.
+
+        Introduce dynamicDowncast<>() for convenience. It can result in more concise code for the common pattern
+        where we call `is<T>(x)` and then `downcast<T>(x)`.
+
+        * wtf/TypeCasts.h:
+        (WTF::dynamicDowncast):
+
+2022-01-14  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Fix WTF::UUID's potential collision with empty and deleted values
+        https://bugs.webkit.org/show_bug.cgi?id=235177
+
+        Reviewed by Chris Dumez.
+
+        Since cryptographicallyRandomValues generates random values, it is possible that it produces 0 or 1.
+        In that case, it conflicts with empty and deleted values of UUID for hash table. When it is generated
+        and used, it can break hash tables. This patch avoids that by picking 2 when we generate 0 or 1.
+
+        We also avoid using UInt128Impl and instead using UInt128. UInt128Impl is implementation, so we should
+        always use UInt128. UInt128 can be native __uint128_t when it is supported by the compiler: clang and
+        GCC on 64bit support it.
+
+        In this patch, we do not use strict UUID v4. This patch focuses on fixing the existing hash table corruption
+        bug, and we defer discussion about UUID v4 since it reduces usable bits from 128 to 122, which we need to
+        investigate the existing usage of UUID (and UUID string) in our tree.
+
+        * wtf/UUID.cpp:
+        (WTF::UUID::UUID):
+        * wtf/UUID.h:
+        (WTF::UUID::UUID):
+        (WTF::UUID::isHashTableDeletedValue const):
+        (WTF::UUID::encode const):
+        (WTF::UUID::decode):
+
+2022-01-13  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] Add "product dependencies" which influence workspace build order
+        https://bugs.webkit.org/show_bug.cgi?id=235094
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/Base.xcconfig: Add EXCLUDED_SOURCE_FILE_NAMES
+        * Configurations/WTF.xcconfig: Inherit EXCLUDED_SOURCE_FILE_NAMES
+        * WTF.xcodeproj/project.pbxproj: Add Product Dependencies
+
+2022-01-12  Mark Lam  <mark.lam@apple.com>
+
+        [Re-landing] Update hashThreadState() to exclude __opaque_flags.
+        https://bugs.webkit.org/show_bug.cgi?id=235081
+        rdar://86282584
+
+        Reviewed by Keith Miller.
+
+        The __opaque_flags may be used by the OS, and may be altered without our knowledge.
+        Hence, our hash should not include the __opaque_flags field.
+
+        Also remove some unused code.
+
+        * wtf/PlatformRegisters.h:
+        * wtf/threads/Signals.cpp:
+        (WTF::hashThreadState):
+
+2022-01-12  Elliott Williams  <emw@apple.com>
+
+        [Xcode] Configure each project for the legacy build system
+        https://bugs.webkit.org/show_bug.cgi?id=235091
+        
+        Beta versions of Xcode do not recognize the `-UseNewBuildSystem=NO` flag, so we need to
+        manually declare use of PBXBuild in our projects.
+
+        Reviewed by Darin Adler.
+
+        * WTF.xcodeproj/project.pbxproj:
+
+2022-01-12  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r287908.
+        https://bugs.webkit.org/show_bug.cgi?id=235156
+
+        Broke M1 Monterey JSC
+
+        Reverted changeset:
+
+        "Update hashThreadState() to exclude __opaque_flags."
+        https://bugs.webkit.org/show_bug.cgi?id=235081
+        https://commits.webkit.org/r287908
+
+2022-01-10  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Enable libpas jit-heap when libpas is enabled
+        https://bugs.webkit.org/show_bug.cgi?id=235042
+
+        Reviewed by Filip Pizlo.
+
+        Previously, we enabled jit-heap only in ARM64 macOS.
+        We should enable it when libpas is enabled.
+
+        * wtf/PlatformUse.h:
+
+2022-01-12  Zan Dobersek  <zdobersek@igalia.com>
+
+        [WTF] Exclude any Linux-based platform in DisallowCType.h
+        https://bugs.webkit.org/show_bug.cgi?id=235104
+
+        Reviewed by Adrian Perez de Castro.
+
+        * wtf/DisallowCType.h: Exclude any Linux target from deploying macros
+        that prevent use of locale-dependent ctype functions in combination with
+        the glibc C library and a non-libc++ C++ library. This should thus also
+        cover the JSCOnly port when built on Linux.
+
+2021-11-29 Simon Fraser  <simon.fraser@apple.com>
+
+        Serialize CSS <number> values with rounding, limited decimal precision, and no exponents per-spec
+        https://bugs.webkit.org/show_bug.cgi?id=218880 
+
+        Reviewed by Darin Adler.
+
+        Add new numberToCSSString and FormattedCSSNumber that handle converting a double into the format required by
+        CSS (unlimited number of digits before the decimal place, up to 6 decimal places, no trailing zeros.
+
+        * wtf/dtoa.cpp:
+        (WTF::truncateTrailingZeros):
+        (WTF::numberToFixedPrecisionString):
+        (WTF::numberToCSSString):
+        * wtf/dtoa.h:
+        * wtf/dtoa/double-conversion.cc:
+        * wtf/dtoa/double-conversion.h:
+        * wtf/text/StringConcatenateNumbers.h:
+        (WTF::FormattedCSSNumber::create):
+        (WTF::FormattedCSSNumber::length const):
+        (WTF::FormattedCSSNumber::buffer const):
+        (WTF::StringTypeAdapter<FormattedCSSNumber>::StringTypeAdapter):
+        (WTF::StringTypeAdapter<FormattedCSSNumber>::length const):
+        (WTF::StringTypeAdapter<FormattedCSSNumber>::is8Bit const):
+        (WTF::StringTypeAdapter<FormattedCSSNumber>::writeTo const):
+
+2022-01-11  Mark Lam  <mark.lam@apple.com>
+
+        Update hashThreadState() to exclude __opaque_flags.
+        https://bugs.webkit.org/show_bug.cgi?id=235081
+        rdar://86282584
+
+        Reviewed by Keith Miller.
+
+        The __opaque_flags may be used by the OS, and may be altered without our knowledge.
+        Hence, our hash should not include the __opaque_flags field.
+
+        Also remove some unused code.
+
+        * wtf/PlatformRegisters.h:
+        * wtf/threads/Signals.cpp:
+        (WTF::hashThreadState):
+
+2022-01-11  Sam Weinig  <weinig@apple.com>
+
+        Remove AppleTV specific disabling of conic gradients, its not necessary
+        https://bugs.webkit.org/show_bug.cgi?id=235041
+
+        Reviewed by Darin Adler.
+
+        Add HAVE_CORE_GRAPHICS_CONIC_GRADIENTS macro and use it to control ENABLE_CSS_CONIC_GRADIENTS.
+
+        * wtf/PlatformEnableCocoa.h:
+        * wtf/PlatformHave.h:
+
+2022-01-10  Alex Christensen  <achristensen@webkit.org>
+
+        Start using C++20
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+
+        Reviewed by Yusuke Suzuki.
+
+        * Configurations/Base.xcconfig:
+        * wtf/DisallowCType.h:
+        * wtf/FileSystem.cpp:
+        (WTF::FileSystemImpl::toStdFileSystemPath):
+        (WTF::FileSystemImpl::fromStdFileSystemPath):
+        * wtf/PlatformHave.h:
+        * wtf/VectorTraits.h:
+        * wtf/text/StringOperators.h:
+
 2022-01-10  Youenn Fablet  <youenn@apple.com>
 
         Compile out ENABLE_MEDIA_CAPTURE on WATCHOS and APPLETV

@@ -42,7 +42,7 @@
 
 #if USE(NICOSIA)
 namespace Nicosia {
-class GCGLANGLELayer;
+class GCGLANGLEPipe;
 class GCGLLayer;
 }
 #endif
@@ -355,8 +355,6 @@ public:
     std::optional<PixelBuffer> readRenderingResultsForPainting();
     std::optional<PixelBuffer> readCompositedResultsForPainting();
 
-    unsigned textureSeed(GCGLuint texture);
-
     constexpr static EGLNativeDisplayType defaultDisplay = EGL_DEFAULT_DISPLAY;
 #if PLATFORM(COCOA)
     constexpr static EGLNativeDisplayType lowPowerDisplay = EGL_CAST(EGLNativeDisplayType, -1);
@@ -406,6 +404,8 @@ protected:
     // Platform specific behavior for releaseResources();
     static void platformReleaseThreadResources();
 
+    virtual void invalidateKnownTextureContent(GCGLuint);
+
     GCGLuint m_texture { 0 };
     GCGLuint m_fbo { 0 };
     GCGLuint m_depthStencilBuffer { 0 };
@@ -450,7 +450,11 @@ protected:
     GCGLuint m_intermediateTexture { 0 };
 #endif
 #if USE(NICOSIA)
-    std::unique_ptr<Nicosia::GCGLANGLELayer> m_nicosiaLayer;
+#if USE(ANGLE)
+    std::unique_ptr<Nicosia::GCGLANGLEPipe> m_nicosiaPipe;
+#else
+    std::unique_ptr<Nicosia::GCGLLayer> m_nicosiaLayer;
+#endif
 #elif USE(TEXTURE_MAPPER)
     std::unique_ptr<TextureMapperGCGLPlatformLayer> m_texmapLayer;
 #endif

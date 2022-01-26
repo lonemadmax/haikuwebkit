@@ -46,7 +46,11 @@ class TextUtil {
 public:
     static InlineLayoutUnit width(const InlineTextItem&, const FontCascade&, InlineLayoutUnit contentLogicalLeft);
     static InlineLayoutUnit width(const InlineTextItem&, const FontCascade&, unsigned from, unsigned to, InlineLayoutUnit contentLogicalLeft);
-    static InlineLayoutUnit width(const InlineTextBox&, const FontCascade&, unsigned from, unsigned to, InlineLayoutUnit contentLogicalLeft);
+
+    enum class UseTrailingWhitespaceMeasuringOptimization : uint8_t { Yes, No };
+    static InlineLayoutUnit width(const InlineTextBox&, const FontCascade&, unsigned from, unsigned to, InlineLayoutUnit contentLogicalLeft, UseTrailingWhitespaceMeasuringOptimization = UseTrailingWhitespaceMeasuringOptimization::Yes);
+
+    static InlineLayoutUnit trailingWhitespaceWidth(const InlineTextBox&, const FontCascade&, size_t startPosition, size_t endPosition);
 
     using FallbackFontList = HashSet<const Font*>;
     static FallbackFontList fallbackFontsForRun(const Line::Run&, const RenderStyle&);
@@ -67,6 +71,7 @@ public:
     static bool containsStrongDirectionalityText(StringView);
 
     static size_t firstUserPerceivedCharacterLength(const InlineTextItem&);
+    static TextDirection directionForTextContent(StringView);
 };
 
 }

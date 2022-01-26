@@ -42,12 +42,12 @@ OBJC_CLASS NSArray;
 OBJC_CLASS NSString;
 #include <wtf/RetainPtr.h>
 using PlatformUIElement = id;
-#elif HAVE(ACCESSIBILITY) && USE(ATK)
+#elif ENABLE(ACCESSIBILITY) && USE(ATK)
 #include "AccessibilityNotificationHandlerAtk.h"
 #include <atk/atk.h>
 #include <wtf/glib/GRefPtr.h>
 typedef GRefPtr<AtkObject> PlatformUIElement;
-#elif HAVE(ACCESSIBILITY) && USE(ATSPI)
+#elif ENABLE(ACCESSIBILITY) && USE(ATSPI)
 namespace WebCore {
 class AccessibilityObjectAtspi;
 }
@@ -78,7 +78,7 @@ public:
 
 #if PLATFORM(COCOA)
     id platformUIElement() { return m_element.get(); }
-#elif HAVE(ACCESSIBILITY) && USE(ATSPI)
+#elif ENABLE(ACCESSIBILITY) && USE(ATSPI)
     PlatformUIElement platformUIElement() { return m_element.get(); }
 #else
     PlatformUIElement platformUIElement() { return m_element; }
@@ -135,9 +135,6 @@ public:
     RefPtr<AccessibilityUIElement> uiElementAttributeValue(JSStringRef attribute) const;
     bool boolAttributeValue(JSStringRef attribute);
 #if PLATFORM(MAC)
-    bool boolAttributeValue(NSString *attribute) const;
-    JSRetainPtr<JSStringRef> stringAttributeValue(NSString *attribute) const;
-    double numberAttributeValue(NSString *attribute) const;
     RetainPtr<id> attributeValue(NSString *) const;
     void attributeValueAsync(JSStringRef attribute, JSValueRef callback);
 #else
@@ -409,6 +406,10 @@ private:
 #if PLATFORM(MAC)
     RetainPtr<id> attributeValueForParameter(NSString *, id) const;
     RetainPtr<NSString> descriptionOfValue(id valueObject) const;
+    bool boolAttributeValue(NSString *attribute) const;
+    JSRetainPtr<JSStringRef> stringAttributeValue(NSString *attribute) const;
+    double numberAttributeValue(NSString *attribute) const;
+    bool isAttributeSettable(NSString *) const;
 #endif
 
 #if !PLATFORM(COCOA) && !USE(ATSPI)
@@ -416,7 +417,7 @@ private:
 #endif
 
     // A retained, platform specific object used to help manage notifications for this object.
-#if HAVE(ACCESSIBILITY)
+#if ENABLE(ACCESSIBILITY)
 #if PLATFORM(COCOA)
     RetainPtr<id> m_element;
     RetainPtr<id> m_notificationHandler;

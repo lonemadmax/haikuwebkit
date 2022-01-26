@@ -33,6 +33,7 @@ namespace WebCore {
 PushSubscriptionData PushSubscriptionData::isolatedCopy() const
 {
     PushSubscriptionData result;
+    result.identifier = identifier;
     result.endpoint = endpoint.isolatedCopy();
     result.expirationTime = expirationTime;
     result.serverVAPIDPublicKey = serverVAPIDPublicKey;

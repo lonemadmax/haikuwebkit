@@ -94,7 +94,10 @@ public:
 
     void addAncestorFlags(const OptionSet<AXAncestorFlag>& flags) { m_ancestorFlags.add(flags); }
     bool ancestorFlagsAreInitialized() const { return m_ancestorFlags.contains(AXAncestorFlag::FlagsInitialized); }
+    // Computes the flags that this object matches (no traversal is done).
     OptionSet<AXAncestorFlag> computeAncestorFlags() const;
+    // Computes the flags that this object and all ancestors match, traversing all the way to the root.
+    OptionSet<AXAncestorFlag> computeAncestorFlagsWithTraversal() const;
     void initializeAncestorFlags(const OptionSet<AXAncestorFlag>&);
     bool hasAncestorMatchingFlag(AXAncestorFlag) const;
     bool matchesAncestorFlag(AXAncestorFlag) const;
@@ -432,6 +435,7 @@ public:
     AccessibilityRole roleValue() const override { return m_role; }
     String rolePlatformString() const override;
     String roleDescription() const override;
+    String subrolePlatformString() const override;
     String ariaLandmarkRoleDescription() const override;
 
     AXObjectCache* axObjectCache() const override;
@@ -823,6 +827,8 @@ private:
     std::optional<SimpleRange> findTextRange(const Vector<String>& searchStrings, const SimpleRange& start, AccessibilitySearchTextDirection) const;
     std::optional<SimpleRange> visibleCharacterRange() const override;
 
+    void ariaTreeRows(AccessibilityChildrenVector& rows, AccessibilityChildrenVector& ancestors);
+    
 #if PLATFORM(COCOA) && ENABLE(MODEL_ELEMENT)
     Vector<RetainPtr<id>> modelElementChildren() override;
 #endif

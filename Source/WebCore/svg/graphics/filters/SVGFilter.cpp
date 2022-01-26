@@ -30,25 +30,11 @@
 
 namespace WebCore {
 
-RefPtr<SVGFilter> SVGFilter::create(SVGFilterElement& filterElement, SVGFilterBuilder& builder, RenderingMode renderingMode, const FloatSize& filterScale, ClipOperation clipOperation, const FloatRect& targetBoundingBox, FilterEffect& previousEffect)
-{
-    return create(filterElement, builder, renderingMode, filterScale, clipOperation, targetBoundingBox, targetBoundingBox, &previousEffect);
-}
-
-RefPtr<SVGFilter> SVGFilter::create(SVGFilterElement& filterElement, SVGFilterBuilder& builder, RenderingMode renderingMode, const FloatSize& filterScale, const FloatRect& filterRegion, const FloatRect& targetBoundingBox)
-{
-    return create(filterElement, builder, renderingMode, filterScale, ClipOperation::Intersect, filterRegion, targetBoundingBox, nullptr);
-}
-
-RefPtr<SVGFilter> SVGFilter::create(SVGFilterElement& filterElement, SVGFilterBuilder& builder, RenderingMode renderingMode, const FloatSize& filterScale, ClipOperation clipOperation, const FloatRect& filterRegion, const FloatRect& targetBoundingBox, FilterEffect* previousEffect)
+RefPtr<SVGFilter> SVGFilter::create(SVGFilterElement& filterElement, SVGFilterBuilder& builder, RenderingMode renderingMode, const FloatSize& filterScale, ClipOperation clipOperation, const FloatRect& filterRegion, const FloatRect& targetBoundingBox)
 {
     auto filter = adoptRef(*new SVGFilter(renderingMode, filterScale, clipOperation, filterRegion, targetBoundingBox, filterElement.primitiveUnits()));
 
-    if (!previousEffect)
-        builder.setupBuiltinEffects(SourceGraphic::create());
-    else
-        builder.setupBuiltinEffects({ *previousEffect });
-
+    builder.setupBuiltinEffects(SourceGraphic::create());
     builder.setTargetBoundingBox(targetBoundingBox);
     builder.setPrimitiveUnits(filterElement.primitiveUnits());
 
@@ -62,10 +48,8 @@ RefPtr<SVGFilter> SVGFilter::create(SVGFilterElement& filterElement, SVGFilterBu
     ASSERT(!expression.isEmpty());
     filter->setExpression(WTFMove(expression));
 
-#if USE(CORE_IMAGE)
-    if (!filter->supportsCoreImageRendering())
+    if (renderingMode == RenderingMode::Accelerated && !filter->supportsAcceleratedRendering())
         filter->setRenderingMode(RenderingMode::Unaccelerated);
-#endif
 
     return filter;
 }
@@ -95,27 +79,18 @@ FloatSize SVGFilter::resolvedSize(const FloatSize& size) const
     return m_primitiveUnits == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX ? size * m_targetBoundingBox.size() : size;
 }
 
-#if USE(CORE_IMAGE)
-bool SVGFilter::supportsCoreImageRendering() const
+bool SVGFilter::supportsAcceleratedRendering() const
 {
     if (renderingMode() == RenderingMode::Unaccelerated)
         return false;
 
     ASSERT(!m_expression.isEmpty());
     for (auto& term : m_expression) {
-        if (!term.effect->supportsCoreImageRendering())
+        if (!term.effect->supportsAcceleratedRendering())
             return false;
     }
 
     return true;
-}
-#endif
-
-RefPtr<FilterEffect> SVGFilter::lastEffect() const
-{
-    if (m_expression.isEmpty())
-        return nullptr;
-    return m_expression.last().effect.ptr();
 }
 
 FilterEffectVector SVGFilter::effectsOfType(FilterFunction::Type filterType) const
@@ -175,8 +150,10 @@ RefPtr<FilterImage> SVGFilter::apply(FilterImage* sourceImage, FilterResults& re
 
 IntOutsets SVGFilter::outsets() const
 {
-    ASSERT(lastEffect());
-    return lastEffect()->outsets();
+    IntOutsets outsets;
+    for (auto& term : m_expression)
+        outsets += term.effect->outsets(*this);
+    return outsets;
 }
 
 TextStream& SVGFilter::externalRepresentation(TextStream& ts, FilterRepresentation representation) const

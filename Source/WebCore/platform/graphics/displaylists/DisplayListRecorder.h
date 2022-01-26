@@ -45,6 +45,7 @@ class Font;
 class GlyphBuffer;
 class Image;
 class PixelBuffer;
+class SourceImage;
 
 struct GraphicsContextState;
 struct ImagePaintingOptions;
@@ -60,6 +61,8 @@ public:
 
     virtual void getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect& sourceRect) = 0;
     virtual void putPixelBuffer(const PixelBuffer&, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat) = 0;
+    virtual void convertToLuminanceMask() = 0;
+    virtual void transformToColorSpace(const DestinationColorSpace&) = 0;
     virtual void flushContext(GraphicsContextFlushIdentifier) = 0;
 
 protected:
@@ -136,9 +139,10 @@ protected:
 #endif
     virtual void recordApplyDeviceScaleFactor(float) = 0;
 
-    virtual void recordResourceUse(NativeImage&) = 0;
-    virtual void recordResourceUse(Font&) = 0;
-    virtual void recordResourceUse(ImageBuffer&) = 0;
+    virtual bool recordResourceUse(NativeImage&) = 0;
+    virtual bool recordResourceUse(ImageBuffer&) = 0;
+    virtual bool recordResourceUse(const SourceImage&) = 0;
+    virtual bool recordResourceUse(Font&) = 0;
 
     // FIXME: Maybe remove this?
     virtual bool canDrawImageBuffer(const ImageBuffer&) const = 0;

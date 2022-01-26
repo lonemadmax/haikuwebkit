@@ -1,3 +1,93 @@
+2022-01-24  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        REGRESSION(r282320): [Cocoa] User-installed fonts don't work in the GPU Process (in WKWebView)
+        https://bugs.webkit.org/show_bug.cgi?id=235449
+        <rdar://problem/84958961>
+
+        Reviewed by Darin Adler.
+
+        * pal/spi/cf/CoreTextSPI.h:
+
+2022-01-24  David Quesada  <david_quesada@apple.com>
+
+        Simplify accesses to SystemVersion.plist
+        https://bugs.webkit.org/show_bug.cgi?id=234306
+
+        Reviewed by Alexey Proskuryakov.
+
+        * pal/spi/cf/CFUtilitiesSPI.h:
+            Forward declare _kCFSystemVersionProductUserVisibleVersionKey, used
+            by WebCore's SystemVersion.mm
+
+2022-01-21  Sihui Liu  <sihui_liu@apple.com>
+
+        Disable CFURLCache in WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=234988
+        <rdar://problem/87619196>
+
+        Reviewed by Geoffrey Garen.
+
+        * pal/spi/cf/CFNetworkSPI.h:
+
+2022-01-18  Alex Christensen  <achristensen@webkit.org>
+
+        Use c++2a instead of gnu++2a for Cocoa builds
+        https://bugs.webkit.org/show_bug.cgi?id=234936
+
+        Reviewed by Sam Weinig.
+
+        * Configurations/Base.xcconfig:
+
+2022-01-14  Jer Noble  <jer.noble@apple.com>
+
+        [Cocoa] rVFC() isn't called for initial video load
+        https://bugs.webkit.org/show_bug.cgi?id=235006
+
+        Reviewed by Eric Carlson.
+
+        * pal/spi/cocoa/AVFoundationSPI.h:
+
+2022-01-13  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] Add "product dependencies" which influence workspace build order
+        https://bugs.webkit.org/show_bug.cgi?id=235094
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/Base.xcconfig: Add EXCLUDED_SOURCE_FILE_NAMES
+        * Configurations/PAL.xcconfig: Inherit EXCLUDED_SOURCE_FILE_NAMES
+        * PAL.xcodeproj/project.pbxproj: Add Product Dependencies
+
+2022-01-11  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        Remove Direct2D code (part 2)
+        https://bugs.webkit.org/show_bug.cgi?id=235097
+
+        Reviewed by Yusuke Suzuki.
+
+        * pal/PlatformAppleWin.cmake:
+
+2022-01-10  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Add support for a -shouldWrap property when injecting Live Text
+        https://bugs.webkit.org/show_bug.cgi?id=235035
+        rdar://85139146
+
+        Reviewed by Tim Horton.
+
+        Add a forward staging declaration for the new SPI property.
+
+        * pal/spi/cocoa/VisionKitCoreSPI.h:
+
+2022-01-10  Alex Christensen  <achristensen@webkit.org>
+
+        Start using C++20
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+
+        Reviewed by Yusuke Suzuki.
+
+        * Configurations/Base.xcconfig:
+
 2022-01-09  Sam Weinig  <weinig@apple.com>
 
         Remove support for Direct2D

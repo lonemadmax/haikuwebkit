@@ -30,10 +30,7 @@
 
 namespace WebCore {
 
-class FilterEffect;
 class FilterOperations;
-class GraphicsContext;
-class ReferenceFilterOperation;
 class RenderElement;
 class SourceGraphic;
 
@@ -50,7 +47,6 @@ public:
     bool hasFilterThatMovesPixels() const { return m_hasFilterThatMovesPixels; }
     bool hasFilterThatShouldBeRestrictedBySecurityOrigin() const { return m_hasFilterThatShouldBeRestrictedBySecurityOrigin; }
 
-    RefPtr<FilterEffect> lastEffect() const final;
     FilterEffectVector effectsOfType(FilterFunction::Type) const final;
 
     IntOutsets outsets() const final;
@@ -63,9 +59,7 @@ private:
     
     bool buildFilterFunctions(RenderElement&, const FilterOperations&, const FloatRect& targetBoundingBox);
 
-#if USE(CORE_IMAGE)
-    bool supportsCoreImageRendering() const final;
-#endif
+    bool supportsAcceleratedRendering() const final;
 
     WTF::TextStream& externalRepresentation(WTF::TextStream&, FilterRepresentation) const final;
 

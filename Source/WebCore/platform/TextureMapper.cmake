@@ -127,6 +127,15 @@ endif ()
 
 if (USE_ANGLE_WEBGL)
     list(APPEND WebCore_SOURCES
-        platform/graphics/nicosia/texmap/NicosiaGCGLANGLELayer.cpp
+        platform/graphics/nicosia/texmap/NicosiaGCGLANGLEPipe.cpp
+    )
+endif ()
+
+if (USE_GRAPHICS_LAYER_WC)
+    list(APPEND WebCore_SOURCES
+        platform/graphics/texmap/TextureMapperSparseBackingStore.cpp
+    )
+    list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+        platform/graphics/texmap/TextureMapperSparseBackingStore.h
     )
 endif ()

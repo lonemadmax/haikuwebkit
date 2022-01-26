@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2021 Apple Inc. All rights reserved.
+# Copyright (C) 2018-2022 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -42,9 +42,9 @@ from twisted.trial import unittest
 
 from steps import (AnalyzeAPITestsResults, AnalyzeCompileWebKitResults, AnalyzeJSCTestsResults,
                    AnalyzeLayoutTestsResults, ApplyPatch, ApplyWatchList, ArchiveBuiltProduct, ArchiveTestResults,
-                   CheckOutSource, CheckOutSpecificRevision, CheckPatchRelevance, CheckPatchStatusOnEWSQueues, CheckStyle,
+                   CheckOutPullRequest, CheckOutSource, CheckOutSpecificRevision, CheckChangeRelevance, CheckPatchStatusOnEWSQueues, CheckStyle,
                    CleanBuild, CleanUpGitIndexLock, CleanGitRepo, CleanWorkingDirectory, CompileJSC, CompileJSCWithoutPatch,
-                   CompileWebKit, CompileWebKitWithoutPatch, ConfigureBuild, CreateLocalGITCommit,
+                   CompileWebKit, CompileWebKitWithoutPatch, ConfigureBuild, ConfigureBuild, Contributors, CreateLocalGITCommit,
                    DownloadBuiltProduct, DownloadBuiltProductFromMaster, EWS_BUILD_HOSTNAME, ExtractBuiltProduct, ExtractTestResults,
                    FetchBranches, FindModifiedChangeLogs, FindModifiedLayoutTests, GitResetHard,
                    InstallBuiltProduct, InstallGtkDependencies, InstallWpeDependencies,
@@ -56,7 +56,7 @@ from steps import (AnalyzeAPITestsResults, AnalyzeCompileWebKitResults, AnalyzeJ
                    RunWebKitTestsWithoutPatch, RunWebKitTestsRedTree, RunWebKitTestsRepeatFailuresRedTree, RunWebKitTestsRepeatFailuresWithoutPatchRedTree,
                    RunWebKitTestsWithoutPatchRedTree, AnalyzeLayoutTestsResultsRedTree, TestWithFailureCount, ShowIdentifier,
                    Trigger, TransferToS3, UnApplyPatchIfRequired, UpdateWorkingDirectory, UploadBuiltProduct,
-                   UploadTestResults, ValidateChangeLogAndReviewer, ValidateCommiterAndReviewer, ValidatePatch, VerifyGitHubIntegrity)
+                   UploadTestResults, ValidateChangeLogAndReviewer, ValidateCommiterAndReviewer, ValidateChange, VerifyGitHubIntegrity)
 
 # Workaround for https://github.com/buildbot/buildbot/issues/4669
 from buildbot.test.fake.fakebuild import FakeBuild
@@ -3006,6 +3006,7 @@ class TestApplyPatch(BuildStepMixinAdditions, unittest.TestCase):
 
     def test_success(self):
         self.setupStep(ApplyPatch())
+        self.setProperty('patch_id', '1234')
         self.assertEqual(ApplyPatch.flunkOnFailure, True)
         self.assertEqual(ApplyPatch.haltOnFailure, False)
         self.expectRemoteCommands(
@@ -3021,6 +3022,7 @@ class TestApplyPatch(BuildStepMixinAdditions, unittest.TestCase):
 
     def test_failure(self):
         self.setupStep(ApplyPatch())
+        self.setProperty('patch_id', '1234')
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         timeout=600,
@@ -3035,6 +3037,12 @@ class TestApplyPatch(BuildStepMixinAdditions, unittest.TestCase):
         self.assertEqual(self.getProperty('bugzilla_comment_text'), None)
         self.assertEqual(self.getProperty('build_finish_summary'), None)
         return rc
+
+    def test_skipped(self):
+        self.setupStep(ApplyPatch())
+        self.expectHidden(True)
+        self.expectOutcome(result=SKIPPED, state_string="Skipping applying patch since patch_id isn't provided")
+        return self.runStep()
 
     def test_failure_on_commit_queue(self):
         self.setupStep(ApplyPatch())
@@ -3054,6 +3062,87 @@ class TestApplyPatch(BuildStepMixinAdditions, unittest.TestCase):
         self.assertEqual(self.getProperty('bugzilla_comment_text'), 'Tools/Scripts/svn-apply failed to apply attachment 1234 to trunk.\nPlease resolve the conflicts and upload a new patch.')
         self.assertEqual(self.getProperty('build_finish_summary'), 'Tools/Scripts/svn-apply failed to apply patch 1234 to trunk')
         return rc
+
+
+class TestCheckOutPullRequest(BuildStepMixinAdditions, unittest.TestCase):
+    def setUp(self):
+        self.longMessage = True
+        return self.setUpBuildStep()
+
+    def tearDown(self):
+        return self.tearDownBuildStep()
+
+    def test_success(self):
+        self.setupStep(CheckOutPullRequest())
+        self.setProperty('github.number', '1234')
+        self.setProperty('github.head.repo.full_name', 'Contributor/WebKit')
+        self.setProperty('github.head.ref', 'eng/pull-request-branch')
+        self.assertEqual(CheckOutPullRequest.flunkOnFailure, True)
+        self.assertEqual(CheckOutPullRequest.haltOnFailure, True)
+        self.expectRemoteCommands(
+            ExpectShell(
+                workdir='wkdir',
+                timeout=600,
+                logEnviron=False,
+                command=['/bin/sh', '-c', 'git remote add Contributor https://github.com/Contributor/WebKit.git & true'],
+            ) + 0, ExpectShell(
+                workdir='wkdir',
+                timeout=600,
+                logEnviron=False,
+                command=['git', 'remote', 'set-url', 'Contributor', 'https://github.com/Contributor/WebKit.git'],
+            ) + 0, ExpectShell(
+                workdir='wkdir',
+                timeout=600,
+                logEnviron=False,
+                command=['git', 'fetch', 'Contributor'],
+            ) + 0, ExpectShell(
+                workdir='wkdir',
+                timeout=600,
+                logEnviron=False,
+                command=['git', 'branch', '-f', 'eng/pull-request-branch', 'remotes/Contributor/eng/pull-request-branch'],
+            ) + 0, ExpectShell(
+                workdir='wkdir',
+                timeout=600,
+                logEnviron=False,
+                command=['git', 'checkout', 'eng/pull-request-branch'],
+            ) + 0,
+        )
+        self.expectOutcome(result=SUCCESS, state_string='Checked out pull request')
+        return self.runStep()
+
+    def test_failure(self):
+        self.setupStep(CheckOutPullRequest())
+        self.setProperty('github.number', '1234')
+        self.setProperty('github.head.repo.full_name', 'Contributor/WebKit')
+        self.setProperty('github.head.ref', 'eng/pull-request-branch')
+        self.assertEqual(CheckOutPullRequest.flunkOnFailure, True)
+        self.assertEqual(CheckOutPullRequest.haltOnFailure, True)
+        self.expectRemoteCommands(
+            ExpectShell(
+                workdir='wkdir',
+                timeout=600,
+                logEnviron=False,
+                command=['/bin/sh', '-c', 'git remote add Contributor https://github.com/Contributor/WebKit.git & true'],
+            ) + 0, ExpectShell(
+                workdir='wkdir',
+                timeout=600,
+                logEnviron=False,
+                command=['git', 'remote', 'set-url', 'Contributor', 'https://github.com/Contributor/WebKit.git'],
+            ) + 0, ExpectShell(
+                workdir='wkdir',
+                timeout=600,
+                logEnviron=False,
+                command=['git', 'fetch', 'Contributor'],
+            ) + 1,
+        )
+        self.expectOutcome(result=FAILURE, state_string='Failed to checkout branch from PR 1234')
+        return self.runStep()
+
+    def test_skipped(self):
+        self.setupStep(CheckOutPullRequest())
+        self.expectHidden(True)
+        self.expectOutcome(result=SKIPPED, state_string='No pull request to checkout')
+        return self.runStep()
 
 
 class TestUnApplyPatchIfRequired(BuildStepMixinAdditions, unittest.TestCase):
@@ -3100,7 +3189,7 @@ class TestUnApplyPatchIfRequired(BuildStepMixinAdditions, unittest.TestCase):
         return self.runStep()
 
 
-class TestCheckPatchRelevance(BuildStepMixinAdditions, unittest.TestCase):
+class TestCheckChangeRelevance(BuildStepMixinAdditions, unittest.TestCase):
     def setUp(self):
         self.longMessage = True
         return self.setUpBuildStep()
@@ -3116,12 +3205,12 @@ class TestCheckPatchRelevance(BuildStepMixinAdditions, unittest.TestCase):
                       'Tools/Scripts/update-javascriptcore-test-results', 'Tools/Scripts/webkitdirs.pm',
                       'Source/cmake/OptionsJSCOnly.cmake']
 
-        self.setupStep(CheckPatchRelevance())
+        self.setupStep(CheckChangeRelevance())
         self.setProperty('buildername', 'JSC-Tests-EWS')
-        self.assertEqual(CheckPatchRelevance.haltOnFailure, True)
-        self.assertEqual(CheckPatchRelevance.flunkOnFailure, True)
+        self.assertEqual(CheckChangeRelevance.haltOnFailure, True)
+        self.assertEqual(CheckChangeRelevance.flunkOnFailure, True)
         for file_name in file_names:
-            CheckPatchRelevance._get_patch = lambda x: 'Sample patch; file: {}'.format(file_name)
+            CheckChangeRelevance._get_patch = lambda x: 'Sample patch; file: {}'.format(file_name)
             self.expectOutcome(result=SUCCESS, state_string='Patch contains relevant changes')
             rc = self.runStep()
         return rc
@@ -3130,37 +3219,37 @@ class TestCheckPatchRelevance(BuildStepMixinAdditions, unittest.TestCase):
         file_names = ['Source/WebKitLegacy', 'Source/WebCore', 'Source/WebInspectorUI', 'Source/WebDriver', 'Source/WTF',
                       'Source/bmalloc', 'Source/JavaScriptCore', 'Source/ThirdParty', 'LayoutTests', 'Tools']
 
-        self.setupStep(CheckPatchRelevance())
+        self.setupStep(CheckChangeRelevance())
         self.setProperty('buildername', 'macOS-Catalina-Release-WK1-Tests-EWS')
         for file_name in file_names:
-            CheckPatchRelevance._get_patch = lambda x: 'Sample patch; file: {}'.format(file_name)
+            CheckChangeRelevance._get_patch = lambda x: 'Sample patch; file: {}'.format(file_name)
             self.expectOutcome(result=SUCCESS, state_string='Patch contains relevant changes')
             rc = self.runStep()
         return rc
 
     def test_relevant_bigsur_builder_patch(self):
         file_names = ['Source/xyz', 'Tools/abc']
-        self.setupStep(CheckPatchRelevance())
+        self.setupStep(CheckChangeRelevance())
         self.setProperty('buildername', 'macOS-BigSur-Release-Build-EWS')
         for file_name in file_names:
-            CheckPatchRelevance._get_patch = lambda x: 'Sample patch; file: {}'.format(file_name)
+            CheckChangeRelevance._get_patch = lambda x: 'Sample patch; file: {}'.format(file_name)
             self.expectOutcome(result=SUCCESS, state_string='Patch contains relevant changes')
             rc = self.runStep()
         return rc
 
     def test_relevant_windows_wk1_patch(self):
-        CheckPatchRelevance._get_patch = lambda x: b'Sample patch; file: Source/WebKitLegacy'
-        self.setupStep(CheckPatchRelevance())
+        CheckChangeRelevance._get_patch = lambda x: b'Sample patch; file: Source/WebKitLegacy'
+        self.setupStep(CheckChangeRelevance())
         self.setProperty('buildername', 'Windows-EWS')
         self.expectOutcome(result=SUCCESS, state_string='Patch contains relevant changes')
         return self.runStep()
 
     def test_relevant_webkitpy_patch(self):
         file_names = ['Tools/Scripts/webkitpy', 'Tools/Scripts/libraries', 'Tools/Scripts/commit-log-editor']
-        self.setupStep(CheckPatchRelevance())
+        self.setupStep(CheckChangeRelevance())
         self.setProperty('buildername', 'WebKitPy-Tests-EWS')
         for file_name in file_names:
-            CheckPatchRelevance._get_patch = lambda x: 'Sample patch; file: {}'.format(file_name)
+            CheckChangeRelevance._get_patch = lambda x: 'Sample patch; file: {}'.format(file_name)
             self.expectOutcome(result=SUCCESS, state_string='Patch contains relevant changes')
             rc = self.runStep()
         return rc
@@ -3168,45 +3257,80 @@ class TestCheckPatchRelevance(BuildStepMixinAdditions, unittest.TestCase):
     def test_relevant_services_patch(self):
         file_names = ['Tools/CISupport/build-webkit-org', 'Tools/CISupport/ews-build', 'Tools/CISupport/Shared',
                       'Tools/Scripts/libraries/resultsdbpy', 'Tools/Scripts/libraries/webkitcorepy', 'Tools/Scripts/libraries/webkitscmpy']
-        self.setupStep(CheckPatchRelevance())
+        self.setupStep(CheckChangeRelevance())
         self.setProperty('buildername', 'Services-EWS')
         for file_name in file_names:
-            CheckPatchRelevance._get_patch = lambda x: 'Sample patch; file: {}'.format(file_name)
+            CheckChangeRelevance._get_patch = lambda x: 'Sample patch; file: {}'.format(file_name)
             self.expectOutcome(result=SUCCESS, state_string='Patch contains relevant changes')
+            rc = self.runStep()
+        return rc
+
+    def test_relevant_services_pull_request(self):
+        file_names = ['Tools/CISupport/build-webkit-org', 'Tools/CISupport/ews-build', 'Tools/CISupport/Shared',
+                      'Tools/Scripts/libraries/resultsdbpy', 'Tools/Scripts/libraries/webkitcorepy', 'Tools/Scripts/libraries/webkitscmpy']
+        self.setupStep(CheckChangeRelevance())
+        self.setProperty('buildername', 'Services-EWS')
+        self.setProperty('github.number', 1234)
+        for file_name in file_names:
+            CheckChangeRelevance._get_patch = lambda x: file_name
+            self.expectOutcome(result=SUCCESS, state_string='Pull request contains relevant changes')
             rc = self.runStep()
         return rc
 
     def test_relevant_bindings_tests_patch(self):
         file_names = ['Source/WebCore', 'Tools']
-        self.setupStep(CheckPatchRelevance())
+        self.setupStep(CheckChangeRelevance())
         self.setProperty('buildername', 'Bindings-Tests-EWS')
         for file_name in file_names:
-            CheckPatchRelevance._get_patch = lambda x: 'Sample patch; file: {}'.format(file_name)
+            CheckChangeRelevance._get_patch = lambda x: 'Sample patch; file: {}'.format(file_name)
             self.expectOutcome(result=SUCCESS, state_string='Patch contains relevant changes')
             rc = self.runStep()
         return rc
 
+    def test_relevant_bindings_tests_pull_request(self):
+        file_names = ['Source/WebCore', 'Tools']
+        self.setupStep(CheckChangeRelevance())
+        self.setProperty('buildername', 'Bindings-Tests-EWS')
+        self.setProperty('github.number', 1234)
+        for file_name in file_names:
+            CheckChangeRelevance._get_patch = lambda x: file_name
+            self.expectOutcome(result=SUCCESS, state_string='Pull request contains relevant changes')
+            rc = self.runStep()
+        return rc
+
     def test_queues_without_relevance_info(self):
-        CheckPatchRelevance._get_patch = lambda x: 'Sample patch'
+        CheckChangeRelevance._get_patch = lambda x: 'Sample patch'
         queues = ['Commit-Queue', 'Style-EWS', 'Apply-WatchList-EWS', 'GTK-Build-EWS', 'GTK-WK2-Tests-EWS',
                   'iOS-13-Build-EWS', 'iOS-13-Simulator-Build-EWS', 'iOS-13-Simulator-WK2-Tests-EWS',
                   'macOS-Catalina-Release-Build-EWS', 'macOS-Catalina-Release-WK2-Tests-EWS', 'macOS-Catalina-Debug-Build-EWS',
                   'WinCairo-EWS', 'WPE-EWS', 'WebKitPerl-Tests-EWS']
         for queue in queues:
-            self.setupStep(CheckPatchRelevance())
+            self.setupStep(CheckChangeRelevance())
             self.setProperty('buildername', queue)
             self.expectOutcome(result=SUCCESS, state_string='Patch contains relevant changes')
             rc = self.runStep()
         return rc
 
     def test_non_relevant_patch_on_various_queues(self):
-        CheckPatchRelevance._get_patch = lambda x: 'Sample patch'
+        CheckChangeRelevance._get_patch = lambda x: 'Sample patch'
         queues = ['Bindings-Tests-EWS', 'JSC-Tests-EWS', 'macOS-BigSur-Release-Build-EWS',
                   'macOS-Catalina-Debug-WK1-Tests-EWS', 'Services-EWS', 'WebKitPy-Tests-EWS']
         for queue in queues:
-            self.setupStep(CheckPatchRelevance())
+            self.setupStep(CheckChangeRelevance())
             self.setProperty('buildername', queue)
             self.expectOutcome(result=FAILURE, state_string='Patch doesn\'t have relevant changes')
+            rc = self.runStep()
+        return rc
+
+    def test_non_relevant_pull_request_on_various_queues(self):
+        CheckChangeRelevance._get_patch = lambda x: '\n'
+        queues = ['Bindings-Tests-EWS', 'JSC-Tests-EWS', 'macOS-BigSur-Release-Build-EWS',
+                  'macOS-Catalina-Debug-WK1-Tests-EWS', 'Services-EWS', 'WebKitPy-Tests-EWS']
+        for queue in queues:
+            self.setupStep(CheckChangeRelevance())
+            self.setProperty('buildername', queue)
+            self.setProperty('github.number', 1234)
+            self.expectOutcome(result=FAILURE, state_string='Pull request doesn\'t have relevant changes')
             rc = self.runStep()
         return rc
 
@@ -4330,18 +4454,37 @@ class TestCleanGitRepo(BuildStepMixinAdditions, unittest.TestCase):
 
     def test_success(self):
         self.setupStep(CleanGitRepo())
+        self.setProperty('buildername', 'Style-EWS')
+
+        self.expectRemoteCommands(
+            ExpectShell(command=['git', 'clean', '-f', '-d'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout=''),
+            ExpectShell(command=['git', 'fetch', 'origin'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout=''),
+            ExpectShell(command=['git', 'checkout', 'origin/main', '-f'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout='You are in detached HEAD state.'),
+            ExpectShell(command=['git', 'branch', '-D', 'main'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout='Deleted branch main (was 57015967fef9).'),
+            ExpectShell(command=['git', 'checkout', 'origin/main', '-b', 'main'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout="Switched to a new branch 'main'"),
+        )
+        self.expectOutcome(result=SUCCESS, state_string='Cleaned up git repository')
+        return self.runStep()
+
+    def test_success_master(self):
+        self.setupStep(CleanGitRepo(default_branch='master'))
         self.setProperty('buildername', 'Commit-Queue')
 
         self.expectRemoteCommands(
-            ExpectShell(command=['git', 'clean', '-f', '-d'], workdir='wkdir', timeout=1200, logEnviron=False) + 0
+            ExpectShell(command=['git', 'clean', '-f', '-d'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout=''),
-            ExpectShell(command=['git', 'fetch', 'origin'], workdir='wkdir', timeout=1200, logEnviron=False) + 0
+            ExpectShell(command=['git', 'fetch', 'origin'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout=''),
-            ExpectShell(command=['git', 'checkout', 'origin/master', '-f'], workdir='wkdir', timeout=1200, logEnviron=False) + 0
+            ExpectShell(command=['git', 'checkout', 'origin/master', '-f'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout='You are in detached HEAD state.'),
-            ExpectShell(command=['git', 'branch', '-D', 'master'], workdir='wkdir', timeout=1200, logEnviron=False) + 0
+            ExpectShell(command=['git', 'branch', '-D', 'master'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout='Deleted branch master (was 57015967fef9).'),
-            ExpectShell(command=['git', 'checkout', 'origin/master', '-b', 'master'], workdir='wkdir', timeout=1200, logEnviron=False) + 0
+            ExpectShell(command=['git', 'checkout', 'origin/master', '-b', 'master'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout="Switched to a new branch 'master'"),
         )
         self.expectOutcome(result=SUCCESS, state_string='Cleaned up git repository')
@@ -4352,20 +4495,39 @@ class TestCleanGitRepo(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('buildername', 'Commit-Queue')
 
         self.expectRemoteCommands(
-            ExpectShell(command=['git', 'clean', '-f', '-d'], workdir='wkdir', timeout=1200, logEnviron=False) + 0
+            ExpectShell(command=['git', 'clean', '-f', '-d'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout=''),
-            ExpectShell(command=['git', 'fetch', 'origin'], workdir='wkdir', timeout=1200, logEnviron=False) + 128
+            ExpectShell(command=['git', 'fetch', 'origin'], workdir='wkdir', timeout=300, logEnviron=False) + 128
             + ExpectShell.log('stdio', stdout='fatal: unable to access https://github.com/WebKit/WebKit.git/: Could not resolve host: github.com'),
-            ExpectShell(command=['git', 'checkout', 'origin/master', '-f'], workdir='wkdir', timeout=1200, logEnviron=False) + 0
+            ExpectShell(command=['git', 'checkout', 'origin/main', '-f'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout='You are in detached HEAD state.'),
-            ExpectShell(command=['git', 'branch', '-D', 'master'], workdir='wkdir', timeout=1200, logEnviron=False) + 0
-            + ExpectShell.log('stdio', stdout='Deleted branch master (was 57015967fef9).'),
-            ExpectShell(command=['git', 'checkout', 'origin/master', '-b', 'master'], workdir='wkdir', timeout=1200, logEnviron=False) + 0
-            + ExpectShell.log('stdio', stdout="Switched to a new branch 'master'"),
+            ExpectShell(command=['git', 'branch', '-D', 'main'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout='Deleted branch main (was 57015967fef9).'),
+            ExpectShell(command=['git', 'checkout', 'origin/main', '-b', 'main'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout="Switched to a new branch 'main'"),
         )
         self.expectOutcome(result=FAILURE, state_string='Encountered some issues during cleanup')
         return self.runStep()
 
+    def test_branch(self):
+        self.setupStep(CleanGitRepo())
+        self.setProperty('buildername', 'Commit-Queue')
+        self.setProperty('basename', 'safari-612-branch')
+
+        self.expectRemoteCommands(
+            ExpectShell(command=['git', 'clean', '-f', '-d'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout=''),
+            ExpectShell(command=['git', 'fetch', 'origin'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout=''),
+            ExpectShell(command=['git', 'checkout', 'origin/safari-612-branch', '-f'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout='You are in detached HEAD state.'),
+            ExpectShell(command=['git', 'branch', '-D', 'safari-612-branch'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout='Deleted branch safari-612-branch (was 57015967fef9).'),
+            ExpectShell(command=['git', 'checkout', 'origin/safari-612-branch', '-b', 'safari-612-branch'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout="Switched to a new branch 'safari-612-branch'"),
+        )
+        self.expectOutcome(result=SUCCESS, state_string='Cleaned up git repository')
+        return self.runStep()
 
 class TestFindModifiedChangeLogs(BuildStepMixinAdditions, unittest.TestCase):
     def setUp(self):
@@ -4487,7 +4649,7 @@ class TestCreateLocalGITCommit(BuildStepMixinAdditions, unittest.TestCase):
         return rc
 
 
-class TestValidatePatch(BuildStepMixinAdditions, unittest.TestCase):
+class TestValidateChange(BuildStepMixinAdditions, unittest.TestCase):
     def setUp(self):
         return self.setUpBuildStep()
 
@@ -4505,28 +4667,81 @@ class TestValidatePatch(BuildStepMixinAdditions, unittest.TestCase):
                      "is_patch": 1,
                      "summary": "{}"}}'''.format(obsolete, title))
 
-    def test_skipped(self):
-        self.setupStep(ValidatePatch())
+    def get_pr(self, pr_number, title='Sample pull request', closed=False):
+        return dict(
+            number=pr_number,
+            state='closed' if closed else 'open',
+            title=title,
+            user=dict(login='JonWBedard'),
+            head=dict(
+                sha='7496f8ecc4cc8011f19c8cc1bc7b18fe4a88ad5c',
+                ref='eng/pull-request',
+                repo=dict(
+                    name='WebKit',
+                    full_name='JonWBedard/WebKit',
+                ),
+            ), base=dict(
+                sha='528b99575eebf7fa5b94f1fc51de81977f265005',
+                ref='main',
+                repo=dict(
+                    name='WebKit',
+                    full_name='WebKit/WebKit',
+                ),
+            ),
+        )
+
+    def test_skipped_patch(self):
+        self.setupStep(ValidateChange())
         self.setProperty('patch_id', '1234')
         self.setProperty('bug_id', '5678')
         self.setProperty('skip_validation', True)
-        self.expectOutcome(result=SKIPPED, state_string='Validated patch (skipped)')
+        self.expectOutcome(result=SKIPPED, state_string='Validated change (skipped)')
         return self.runStep()
 
-    def test_success(self):
-        self.setupStep(ValidatePatch(verifyBugClosed=False))
-        ValidatePatch.get_patch_json = lambda x, patch_id: self.get_patch()
+    def test_skipped_pr(self):
+        self.setupStep(ValidateChange())
+        self.setProperty('github.number', '1234')
+        self.setProperty('repository', 'https://github.com/WebKit/WebKit')
+        self.setProperty('skip_validation', True)
+        self.expectOutcome(result=SKIPPED, state_string='Validated change (skipped)')
+        return self.runStep()
+
+    def test_success_patch(self):
+        self.setupStep(ValidateChange(verifyBugClosed=False))
+        ValidateChange.get_patch_json = lambda x, patch_id: self.get_patch()
         self.setProperty('patch_id', '425806')
-        self.expectOutcome(result=SUCCESS, state_string='Validated patch')
+        self.expectOutcome(result=SUCCESS, state_string='Validated change')
+        rc = self.runStep()
+        self.assertEqual(self.getProperty('fast_commit_queue'), None, 'fast_commit_queue is unexpectedly set')
+        return rc
+
+    def test_success_pr(self):
+        self.setupStep(ValidateChange(verifyBugClosed=False))
+        ValidateChange.get_pr_json = lambda x, pull_request, repository_url=None: self.get_pr(pr_number=pull_request)
+        self.setProperty('github.number', '1234')
+        self.setProperty('repository', 'https://github.com/WebKit/WebKit')
+        self.setProperty('github.head.sha', '7496f8ecc4cc8011f19c8cc1bc7b18fe4a88ad5c')
+        self.expectOutcome(result=SUCCESS, state_string='Validated change')
         rc = self.runStep()
         self.assertEqual(self.getProperty('fast_commit_queue'), None, 'fast_commit_queue is unexpectedly set')
         return rc
 
     def test_obsolete_patch(self):
-        self.setupStep(ValidatePatch(verifyBugClosed=False))
-        ValidatePatch.get_patch_json = lambda x, patch_id: self.get_patch(obsolete=1)
+        self.setupStep(ValidateChange(verifyBugClosed=False))
+        ValidateChange.get_patch_json = lambda x, patch_id: self.get_patch(obsolete=1)
         self.setProperty('patch_id', '425806')
         self.expectOutcome(result=FAILURE, state_string='Patch 425806 is obsolete')
+        rc = self.runStep()
+        self.assertEqual(self.getProperty('fast_commit_queue'), None, 'fast_commit_queue is unexpectedly set')
+        return rc
+
+    def test_obsolete_pr(self):
+        self.setupStep(ValidateChange(verifyBugClosed=False))
+        ValidateChange.get_pr_json = lambda x, pull_request, repository_url=None: self.get_pr(pr_number=pull_request)
+        self.setProperty('github.number', '1234')
+        self.setProperty('repository', 'https://github.com/WebKit/WebKit')
+        self.setProperty('github.head.sha', '1ad60d45a112301f7b9f93dac06134524dae8480')
+        self.expectOutcome(result=FAILURE, state_string='Pull request 1234 (sha 1ad60d45) is obsolete')
         rc = self.runStep()
         self.assertEqual(self.getProperty('fast_commit_queue'), None, 'fast_commit_queue is unexpectedly set')
         return rc
@@ -4534,10 +4749,10 @@ class TestValidatePatch(BuildStepMixinAdditions, unittest.TestCase):
     def test_fast_cq_patches_trigger_fast_cq_mode(self):
         fast_cq_patch_titles = ('REVERT OF r1234', 'revert of r1234', '[fast-cq]Patch', '[FAST-cq] patch', 'fast-cq-patch', 'FAST-CQ Patch')
         for fast_cq_patch_title in fast_cq_patch_titles:
-            self.setupStep(ValidatePatch(verifyBugClosed=False))
-            ValidatePatch.get_patch_json = lambda x, patch_id: self.get_patch(title=fast_cq_patch_title)
+            self.setupStep(ValidateChange(verifyBugClosed=False))
+            ValidateChange.get_patch_json = lambda x, patch_id: self.get_patch(title=fast_cq_patch_title)
             self.setProperty('patch_id', '425806')
-            self.expectOutcome(result=SUCCESS, state_string='Validated patch')
+            self.expectOutcome(result=SUCCESS, state_string='Validated change')
             rc = self.runStep()
             self.assertEqual(self.getProperty('fast_commit_queue'), True, 'fast_commit_queue is not set, patch title: {}'.format(fast_cq_patch_title))
         return rc
@@ -4547,10 +4762,10 @@ class TestValidateCommiterAndReviewer(BuildStepMixinAdditions, unittest.TestCase
     def setUp(self):
         self.longMessage = True
 
-        def mock_load_contributors(cls, *args, **kwargs):
+        def mock_load_contributors(*args, **kwargs):
             return {'aakash_jain@apple.com': {'name': 'Aakash Jain', 'status': 'reviewer'},
-                    'committer@webkit.org': {'name': 'WebKit Committer', 'status': 'committer'}}
-        ValidateCommiterAndReviewer.load_contributors = mock_load_contributors
+                    'committer@webkit.org': {'name': 'WebKit Committer', 'status': 'committer'}}, []
+        Contributors.load = mock_load_contributors
         return self.setUpBuildStep()
 
     def tearDown(self):
@@ -4578,7 +4793,7 @@ class TestValidateCommiterAndReviewer(BuildStepMixinAdditions, unittest.TestCase
         self.setupStep(ValidateCommiterAndReviewer())
         self.setProperty('patch_id', '1234')
         self.setProperty('patch_committer', 'abc@webkit.org')
-        ValidateCommiterAndReviewer.load_contributors = lambda x: {}
+        Contributors.load = lambda: ({}, [])
         self.expectHidden(False)
         self.expectOutcome(result=FAILURE, state_string='Failed to get contributors information')
         return self.runStep()
@@ -4601,8 +4816,7 @@ class TestValidateCommiterAndReviewer(BuildStepMixinAdditions, unittest.TestCase
         return self.runStep()
 
     def test_load_contributors_from_disk(self):
-        ValidateCommiterAndReviewer._addToLog = lambda cls, logtype, log: sys.stdout.write(log)
-        contributors = filter(lambda element: element.get('name') == 'Aakash Jain', ValidateCommiterAndReviewer().load_contributors_from_disk())
+        contributors = filter(lambda element: element.get('name') == 'Aakash Jain', Contributors().load_from_disk()[0])
         self.assertEqual(list(contributors)[0]['emails'][0], 'aakash_jain@apple.com')
 
 
@@ -4749,6 +4963,39 @@ class TestShowIdentifier(BuildStepMixinAdditions, unittest.TestCase):
     def test_success(self):
         self.setupStep(ShowIdentifier())
         self.setProperty('ews_revision', '51a6aec9f664')
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        timeout=300,
+                        logEnviron=False,
+                        command=['python3', 'Tools/Scripts/git-webkit', 'find', '51a6aec9f664']) +
+            ExpectShell.log('stdio', stdout='Identifier: 233175@main') +
+            0,
+        )
+        self.expectOutcome(result=SUCCESS, state_string='Identifier: 233175@main')
+        rc = self.runStep()
+        self.assertEqual(self.getProperty('identifier'), '233175@main')
+        return rc
+
+    def test_success_pull_request(self):
+        self.setupStep(ShowIdentifier())
+        self.setProperty('github.base.sha', '51a6aec9f664')
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        timeout=300,
+                        logEnviron=False,
+                        command=['python3', 'Tools/Scripts/git-webkit', 'find', '51a6aec9f664']) +
+            ExpectShell.log('stdio', stdout='Identifier: 233175@main') +
+            0,
+        )
+        self.expectOutcome(result=SUCCESS, state_string='Identifier: 233175@main')
+        rc = self.runStep()
+        self.assertEqual(self.getProperty('identifier'), '233175@main')
+        return rc
+
+    def test_prioritized(self):
+        self.setupStep(ShowIdentifier())
+        self.setProperty('ews_revision', '51a6aec9f664')
+        self.setProperty('github.base.sha', '9f66451a6aec')
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         timeout=300,

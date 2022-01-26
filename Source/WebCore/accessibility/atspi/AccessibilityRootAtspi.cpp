@@ -30,26 +30,22 @@
 #include "FrameView.h"
 #include "Page.h"
 #include <glib/gi18n-lib.h>
-#include <wtf/MainThread.h>
 
 namespace WebCore {
 
-Ref<AccessibilityRootAtspi> AccessibilityRootAtspi::create(Page& page, AccessibilityAtspi& atspi)
+Ref<AccessibilityRootAtspi> AccessibilityRootAtspi::create(Page& page)
 {
-    return adoptRef(*new AccessibilityRootAtspi(page, atspi));
+    return adoptRef(*new AccessibilityRootAtspi(page));
 }
 
-AccessibilityRootAtspi::AccessibilityRootAtspi(Page& page, AccessibilityAtspi& atspi)
-    : m_atspi(atspi)
-    , m_page(page)
+AccessibilityRootAtspi::AccessibilityRootAtspi(Page& page)
+    : m_page(page)
 {
-    RELEASE_ASSERT(isMainThread());
 }
 
 GDBusInterfaceVTable AccessibilityRootAtspi::s_accessibleFunctions = {
     // method_call
     [](GDBusConnection*, const gchar*, const gchar*, const gchar*, const gchar* methodName, GVariant* parameters, GDBusMethodInvocation* invocation, gpointer userData) {
-        RELEASE_ASSERT(!isMainThread());
         auto& rootObject = *static_cast<AccessibilityRootAtspi*>(userData);
         if (!g_strcmp0(methodName, "GetRole"))
             g_dbus_method_invocation_return_value(invocation, g_variant_new("(u)", Atspi::Role::Filler));
@@ -84,21 +80,15 @@ GDBusInterfaceVTable AccessibilityRootAtspi::s_accessibleFunctions = {
             int index;
             g_variant_get(parameters, "(i)", &index);
             if (!index) {
-                auto* child = Accessibility::retrieveValueFromMainThread<AccessibilityObjectAtspi*>([&rootObject]() -> AccessibilityObjectAtspi* {
-                    return rootObject.child();
-                });
-                if (child) {
+                if (auto* child = rootObject.child()) {
                     g_dbus_method_invocation_return_value(invocation, g_variant_new("(@(so))", child->reference()));
                     return;
                 }
             }
-            g_dbus_method_invocation_return_value(invocation, g_variant_new("(@(so))", rootObject.atspi().nullReference()));
+            g_dbus_method_invocation_return_value(invocation, g_variant_new("(@(so))", AccessibilityAtspi::singleton().nullReference()));
         } else if (!g_strcmp0(methodName, "GetChildren")) {
             GVariantBuilder builder = G_VARIANT_BUILDER_INIT(G_VARIANT_TYPE("a(so)"));
-            auto* child = Accessibility::retrieveValueFromMainThread<AccessibilityObjectAtspi*>([&rootObject]() -> AccessibilityObjectAtspi* {
-                return rootObject.child();
-            });
-            if (child)
+            if (auto* child = rootObject.child())
                 g_variant_builder_add(&builder, "@(so)", child->reference());
             g_dbus_method_invocation_return_value(invocation, g_variant_new("(a(so))", &builder));
         } else if (!g_strcmp0(methodName, "GetIndexInParent")) {
@@ -116,7 +106,6 @@ GDBusInterfaceVTable AccessibilityRootAtspi::s_accessibleFunctions = {
     },
     // get_property
     [](GDBusConnection*, const gchar*, const gchar*, const gchar*, const gchar* propertyName, GError** error, gpointer userData) -> GVariant* {
-        RELEASE_ASSERT(!isMainThread());
         auto& rootObject = *static_cast<AccessibilityRootAtspi*>(userData);
         if (!g_strcmp0(propertyName, "Name"))
             return g_variant_new_string("");
@@ -128,12 +117,8 @@ GDBusInterfaceVTable AccessibilityRootAtspi::s_accessibleFunctions = {
             return g_variant_new_string("");
         if (!g_strcmp0(propertyName, "Parent"))
             return rootObject.parentReference();
-        if (!g_strcmp0(propertyName, "ChildCount")) {
-            auto childCount = Accessibility::retrieveValueFromMainThread<int32_t>([&rootObject]() -> int32_t {
-                return rootObject.child() ? 1 : 0;
-            });
-            return g_variant_new_int32(childCount);
-        }
+        if (!g_strcmp0(propertyName, "ChildCount"))
+            return g_variant_new_int32(rootObject.child() ? 1 : 0);
 
         g_set_error(error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED, "Unknown property '%s'", propertyName);
         return nullptr;
@@ -147,7 +132,6 @@ GDBusInterfaceVTable AccessibilityRootAtspi::s_accessibleFunctions = {
 GDBusInterfaceVTable AccessibilityRootAtspi::s_socketFunctions = {
     // method_call
     [](GDBusConnection*, const gchar* sender, const gchar*, const gchar*, const gchar* methodName, GVariant* parameters, GDBusMethodInvocation* invocation, gpointer userData) {
-        RELEASE_ASSERT(!isMainThread());
         auto& rootObject = *static_cast<AccessibilityRootAtspi*>(userData);
         if (!g_strcmp0(methodName, "Embedded")) {
             const char* path;
@@ -166,7 +150,6 @@ GDBusInterfaceVTable AccessibilityRootAtspi::s_socketFunctions = {
 
 void AccessibilityRootAtspi::registerObject(CompletionHandler<void(const String&)>&& completionHandler)
 {
-    RELEASE_ASSERT(isMainThread());
     if (m_page)
         m_page->setAccessibilityRootObject(this);
 
@@ -174,82 +157,48 @@ void AccessibilityRootAtspi::registerObject(CompletionHandler<void(const String&
     interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_accessible_interface), &s_accessibleFunctions });
     interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_socket_interface), &s_socketFunctions });
     interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_component_interface), &s_componentFunctions });
-    m_atspi.registerRoot(*this, WTFMove(interfaces), WTFMove(completionHandler));
+    AccessibilityAtspi::singleton().registerRoot(*this, WTFMove(interfaces), WTFMove(completionHandler));
 }
 
 void AccessibilityRootAtspi::unregisterObject()
 {
-    RELEASE_ASSERT(isMainThread());
-    m_atspi.unregisterRoot(*this);
+    AccessibilityAtspi::singleton().unregisterRoot(*this);
 
     if (m_page)
         m_page->setAccessibilityRootObject(nullptr);
 }
 
-static void registerSubtree(AccessibilityObjectAtspi* atspiObject)
-{
-    if (!atspiObject)
-        return;
-
-    if (!atspiObject->registerObject())
-        return;
-
-    atspiObject->updateBackingStore();
-    for (auto& child : atspiObject->children())
-        registerSubtree(child.get());
-}
-
-void AccessibilityRootAtspi::registerTree()
-{
-    RELEASE_ASSERT(!isMainThread());
-    if (m_parentUniqueName.isNull())
-        return;
-
-    registerSubtree(Accessibility::retrieveValueFromMainThread<AccessibilityObjectAtspi*>([this]() -> AccessibilityObjectAtspi* {
-        return child();
-    }));
-    m_isTreeRegistered.store(true);
-}
-
 void AccessibilityRootAtspi::setPath(String&& path)
 {
-    RELEASE_ASSERT(!isMainThread());
     m_path = WTFMove(path);
 }
 
 void AccessibilityRootAtspi::embedded(const char* parentUniqueName, const char* parentPath)
 {
-    RELEASE_ASSERT(!isMainThread());
     m_parentUniqueName = parentUniqueName;
     m_parentPath = parentPath;
-    m_atspi.parentChanged(*this);
-    if (!m_isTreeRegistered.load() && m_atspi.hasEventListeners())
-        registerTree();
+    AccessibilityAtspi::singleton().parentChanged(*this);
 }
 
 GVariant* AccessibilityRootAtspi::applicationReference() const
 {
-    RELEASE_ASSERT(!isMainThread());
     if (m_parentUniqueName.isNull())
-        return m_atspi.nullReference();
+        return AccessibilityAtspi::singleton().nullReference();
     return g_variant_new("(so)", m_parentUniqueName.utf8().data(), "/org/a11y/atspi/accessible/root");
 }
 
 GVariant* AccessibilityRootAtspi::reference() const
 {
-    RELEASE_ASSERT(!isMainThread());
-    return g_variant_new("(so)", m_atspi.uniqueName(), m_path.utf8().data());
+    return g_variant_new("(so)", AccessibilityAtspi::singleton().uniqueName(), m_path.utf8().data());
 }
 
 GVariant* AccessibilityRootAtspi::parentReference() const
 {
-    RELEASE_ASSERT(!isMainThread());
     return g_variant_new("(so)", m_parentUniqueName.utf8().data(), m_parentPath.utf8().data());
 }
 
 AccessibilityObjectAtspi* AccessibilityRootAtspi::child() const
 {
-    RELEASE_ASSERT(isMainThread());
     if (!m_page)
         return nullptr;
 
@@ -268,25 +217,22 @@ AccessibilityObjectAtspi* AccessibilityRootAtspi::child() const
 
 void AccessibilityRootAtspi::childAdded(AccessibilityObjectAtspi& child)
 {
-    m_atspi.childrenChanged(*this, child, AccessibilityAtspi::ChildrenChanged::Added);
+    AccessibilityAtspi::singleton().childrenChanged(*this, child, AccessibilityAtspi::ChildrenChanged::Added);
 }
 
 void AccessibilityRootAtspi::childRemoved(AccessibilityObjectAtspi& child)
 {
-    m_atspi.childrenChanged(*this, child, AccessibilityAtspi::ChildrenChanged::Removed);
+    AccessibilityAtspi::singleton().childrenChanged(*this, child, AccessibilityAtspi::ChildrenChanged::Removed);
 }
 
 void AccessibilityRootAtspi::serialize(GVariantBuilder* builder) const
 {
-    RELEASE_ASSERT(!isMainThread());
-    g_variant_builder_add(builder, "(so)", m_atspi.uniqueName(), m_path.utf8().data());
+    g_variant_builder_add(builder, "(so)", AccessibilityAtspi::singleton().uniqueName(), m_path.utf8().data());
     g_variant_builder_add(builder, "@(so)", applicationReference());
     g_variant_builder_add(builder, "@(so)", parentReference());
 
     g_variant_builder_add(builder, "i", 0);
-    g_variant_builder_add(builder, "i", Accessibility::retrieveValueFromMainThread<int32_t>([this]() -> int32_t {
-        return child() ? 1 : 0;
-    }));
+    g_variant_builder_add(builder, "i", child() ? 1 : 0);
 
     GVariantBuilder interfaces = G_VARIANT_BUILDER_INIT(G_VARIANT_TYPE("as"));
     g_variant_builder_add(&interfaces, "s", webkit_accessible_interface.name);
@@ -308,7 +254,6 @@ void AccessibilityRootAtspi::serialize(GVariantBuilder* builder) const
 GDBusInterfaceVTable AccessibilityRootAtspi::s_componentFunctions = {
     // method_call
     [](GDBusConnection*, const gchar*, const gchar*, const gchar*, const gchar* methodName, GVariant* parameters, GDBusMethodInvocation* invocation, gpointer userData) {
-        RELEASE_ASSERT(!isMainThread());
         auto& rootObject = *static_cast<AccessibilityRootAtspi*>(userData);
         if (!g_strcmp0(methodName, "Contains"))
             g_dbus_method_invocation_return_error_literal(invocation, G_DBUS_ERROR, G_DBUS_ERROR_NOT_SUPPORTED, "");
@@ -348,27 +293,24 @@ GDBusInterfaceVTable AccessibilityRootAtspi::s_componentFunctions = {
 
 IntRect AccessibilityRootAtspi::frameRect(uint32_t coordinateType) const
 {
-    RELEASE_ASSERT(!isMainThread());
-    return Accessibility::retrieveValueFromMainThread<IntRect>([this, coordinateType]() -> IntRect {
-        if (!m_page)
-            return { };
+    if (!m_page)
+        return { };
 
-        auto* frameView = m_page->mainFrame().view();
-        if (!frameView)
-            return { };
+    auto* frameView = m_page->mainFrame().view();
+    if (!frameView)
+        return { };
 
-        auto frameRect = frameView->frameRect();
-        switch (coordinateType) {
-        case Atspi::CoordinateType::ScreenCoordinates:
-            return frameView->contentsToScreen(frameRect);
-        case Atspi::CoordinateType::WindowCoordinates:
-            return frameView->contentsToWindow(frameRect);
-        case Atspi::CoordinateType::ParentCoordinates:
-            return frameRect;
-        }
+    auto frameRect = frameView->frameRect();
+    switch (coordinateType) {
+    case Atspi::CoordinateType::ScreenCoordinates:
+        return frameView->contentsToScreen(frameRect);
+    case Atspi::CoordinateType::WindowCoordinates:
+        return frameView->contentsToWindow(frameRect);
+    case Atspi::CoordinateType::ParentCoordinates:
+        return frameRect;
+    }
 
-        RELEASE_ASSERT_NOT_REACHED();
-    });
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 } // namespace WebCore

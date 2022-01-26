@@ -9,7 +9,6 @@ accessibility/url-test.html [ Pass ]
 accessibility/keyevents-posted-for-dismiss-action.html [ Pass ]
 accessibility/embedded-image-description.html [ Pass ]
 fast/multicol/flexbox-rows.html [ Skip ]
-workers/wasm-mem-post-message.html [ Failure ]
 
 fast/forms/input-text-word-wrap.html [ Skip ]
 fast/forms/search-vertical-alignment.html [ Skip ]
@@ -22,12 +21,9 @@ fast/media/ios/ipad/enable-MediaSource-API-in-modern-compatibility-mode.html [ S
 # -webkit-flex off-by-one px
 webkit.org/b/126898 css3/flexbox/image-percent-max-height.html [ ImageOnlyFailure ]
 
-fast/events/document-elementFromPoint.html [ Failure ]
+fast/events/document-elementFromPoint.html [ Pass Failure ]
 
 media/track/track-in-band-legacy-api.html [ Failure ]
-media/track/video-track-alternate-groups.html [ Failure ]
-
-svg/filters/filter-hidden-content.svg [ Failure ]
 
 transforms/hittest-translated-content-off-to-infinity-and-back.html [ Pass ImageOnlyFailure ]
 
@@ -140,3 +136,6 @@ http/tests/security/webaudio-render-remote-audio-allowed-crossorigin.html [ Pass
 http/tests/security/webaudio-render-remote-audio-allowed-crossorigin-redirect.html [ Pass Timeout ]
 
 webkit.org/b/223949 crypto/crypto-random-values-oom.html [ Pass Timeout ]
+
+# This test relies on ARQL APIs which are not available in the Simulator
+model-element/model-element-ready.html [ Skip ]

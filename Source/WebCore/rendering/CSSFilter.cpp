@@ -32,8 +32,6 @@
 #include "FEDropShadow.h"
 #include "FEGaussianBlur.h"
 #include "FilterOperations.h"
-#include "GraphicsContext.h"
-#include "LengthFunctions.h"
 #include "Logging.h"
 #include "ReferencedSVGResources.h"
 #include "RenderElement.h"
@@ -53,6 +51,9 @@ RefPtr<CSSFilter> CSSFilter::create(RenderElement& renderer, const FilterOperati
 
     if (!filter->buildFilterFunctions(renderer, operations, targetBoundingBox))
         return nullptr;
+
+    if (renderingMode == RenderingMode::Accelerated && !filter->supportsAcceleratedRendering())
+        filter->setRenderingMode(RenderingMode::Unaccelerated);
 
     return filter;
 }
@@ -218,7 +219,7 @@ static RefPtr<FilterEffect> createSepiaEffect(const BasicColorMatrixFilterOperat
     return FEColorMatrix::create(FECOLORMATRIX_TYPE_MATRIX, WTFMove(inputParameters));
 }
 
-static RefPtr<SVGFilter> createSVGFilter(CSSFilter& filter, const ReferenceFilterOperation& filterOperation, RenderElement& renderer, const FloatRect& targetBoundingBox, FilterEffect& previousEffect)
+static RefPtr<SVGFilter> createSVGFilter(CSSFilter& filter, const ReferenceFilterOperation& filterOperation, RenderElement& renderer, const FloatRect& targetBoundingBox)
 {
     auto& referencedSVGResources = renderer.ensureReferencedSVGResources();
     auto* filterElement = referencedSVGResources.referencedFilterElement(renderer.document(), filterOperation);
@@ -231,21 +232,18 @@ static RefPtr<SVGFilter> createSVGFilter(CSSFilter& filter, const ReferenceFilte
         return nullptr;
     }
 
+    auto filterRegion = SVGLengthContext::resolveRectangle<SVGFilterElement>(filterElement, filterElement->filterUnits(), targetBoundingBox);
+
     SVGFilterBuilder builder;
-    return SVGFilter::create(*filterElement, builder, filter.renderingMode(), filter.filterScale(), filter.clipOperation(), targetBoundingBox, previousEffect);
+    return SVGFilter::create(*filterElement, builder, filter.renderingMode(), filter.filterScale(), filter.clipOperation(), filterRegion, targetBoundingBox);
 }
 
 bool CSSFilter::buildFilterFunctions(RenderElement& renderer, const FilterOperations& operations, const FloatRect& targetBoundingBox)
 {
-    m_functions.clear();
-    m_outsets = { };
-
-    RefPtr<FilterEffect> previousEffect = SourceGraphic::create();
+    RefPtr<FilterEffect> effect;
     RefPtr<SVGFilter> filter;
-    
-    for (auto& operation : operations.operations()) {
-        RefPtr<FilterEffect> effect;
 
+    for (auto& operation : operations.operations()) {
         switch (operation->type()) {
         case FilterOperation::APPLE_INVERT_LIGHTNESS:
             ASSERT_NOT_REACHED(); // APPLE_INVERT_LIGHTNESS is only used in -apple-color-filter.
@@ -292,33 +290,23 @@ bool CSSFilter::buildFilterFunctions(RenderElement& renderer, const FilterOperat
             break;
 
         case FilterOperation::REFERENCE:
-            filter = createSVGFilter(*this, downcast<ReferenceFilterOperation>(*operation), renderer, targetBoundingBox, *previousEffect);
-            effect = nullptr;
+            filter = createSVGFilter(*this, downcast<ReferenceFilterOperation>(*operation), renderer, targetBoundingBox);
             break;
 
         default:
             break;
         }
 
-        if ((filter || effect) && m_functions.isEmpty()) {
-            ASSERT(previousEffect->filterType() == FilterEffect::Type::SourceGraphic);
-            m_functions.append({ *previousEffect });
-        }
-        
-        if (filter) {
-            effect = filter->lastEffect();
-            effect->setOperatingColorSpace(DestinationColorSpace::SRGB());
-            m_functions.append(filter.releaseNonNull());
-            previousEffect = WTFMove(effect);
+        if (!filter && !effect)
             continue;
-        }
 
-        if (effect) {
-            effect->setOperatingColorSpace(DestinationColorSpace::SRGB());
-            effect->inputEffects() = { previousEffect.releaseNonNull() };
-            m_functions.append({ *effect });
-            previousEffect = WTFMove(effect);
-        }
+        if (m_functions.isEmpty())
+            m_functions.append(SourceGraphic::create());
+
+        if (filter)
+            m_functions.append(filter.releaseNonNull());
+        else
+            m_functions.append(effect.releaseNonNull());
     }
 
     // If we didn't make any effects, tell our caller we are not valid.
@@ -326,25 +314,7 @@ bool CSSFilter::buildFilterFunctions(RenderElement& renderer, const FilterOperat
         return false;
 
     m_functions.shrinkToFit();
-
-#if USE(CORE_IMAGE)
-    if (!supportsCoreImageRendering())
-        setRenderingMode(RenderingMode::Unaccelerated);
-#endif
-
     return true;
-}
-
-RefPtr<FilterEffect> CSSFilter::lastEffect() const
-{
-    if (m_functions.isEmpty())
-        return nullptr;
-
-    auto& function = m_functions.last();
-    if (function->isSVGFilter())
-        return downcast<SVGFilter>(function.ptr())->lastEffect();
-
-    return downcast<FilterEffect>(function.ptr());
 }
 
 FilterEffectVector CSSFilter::effectsOfType(FilterFunction::Type filterType) const
@@ -366,20 +336,18 @@ FilterEffectVector CSSFilter::effectsOfType(FilterFunction::Type filterType) con
     return effects;
 }
 
-#if USE(CORE_IMAGE)
-bool CSSFilter::supportsCoreImageRendering() const
+bool CSSFilter::supportsAcceleratedRendering() const
 {
     if (renderingMode() == RenderingMode::Unaccelerated)
         return false;
 
     for (auto& function : m_functions) {
-        if (!function->supportsCoreImageRendering())
+        if (!function->supportsAcceleratedRendering())
             return false;
     }
 
     return true;
 }
-#endif
 
 RefPtr<FilterImage> CSSFilter::apply(FilterImage* sourceImage, FilterResults& results)
 {
@@ -400,12 +368,6 @@ RefPtr<FilterImage> CSSFilter::apply(FilterImage* sourceImage, FilterResults& re
 void CSSFilter::setFilterRegion(const FloatRect& filterRegion)
 {
     Filter::setFilterRegion(filterRegion);
-
-    for (auto& function : m_functions) {
-        if (function->isSVGFilter())
-            downcast<SVGFilter>(function.ptr())->setFilterRegion(filterRegion);
-    }
-
     clampFilterRegionIfNeeded();
 }
 
@@ -418,7 +380,7 @@ IntOutsets CSSFilter::outsets() const
         return m_outsets;
 
     for (auto& function : m_functions)
-        m_outsets += function->outsets();
+        m_outsets += function->outsets(*this);
     return m_outsets;
 }
 

@@ -349,7 +349,7 @@ public:
     const LengthBox& clip() const { return m_visualData->clip; }
     bool hasClip() const { return m_visualData->hasClip; }
 
-    EUnicodeBidi unicodeBidi() const { return static_cast<EUnicodeBidi>(m_nonInheritedFlags.unicodeBidi); }
+    UnicodeBidi unicodeBidi() const { return static_cast<UnicodeBidi>(m_nonInheritedFlags.unicodeBidi); }
 
     Clear clear() const { return static_cast<Clear>(m_nonInheritedFlags.clear); }
     static UsedClear usedClear(const RenderObject&);
@@ -532,6 +532,7 @@ public:
     bool containsSize() const { return m_rareNonInheritedData->contain.contains(Containment::Size); }
     bool containsStyle() const { return m_rareNonInheritedData->contain.contains(Containment::Style); }
     bool containsPaint() const { return m_rareNonInheritedData->contain.contains(Containment::Paint); }
+    ContainerType containerType() const { return static_cast<ContainerType>(m_rareNonInheritedData->containerType); }
     BoxAlignment boxAlign() const { return static_cast<BoxAlignment>(m_rareNonInheritedData->deprecatedFlexibleBox->align); }
     BoxDirection boxDirection() const { return static_cast<BoxDirection>(m_inheritedFlags.boxDirection); }
     float boxFlex() const { return m_rareNonInheritedData->deprecatedFlexibleBox->flex; }
@@ -965,7 +966,7 @@ public:
     void setClip(Length&& top, Length&& right, Length&& bottom, Length&& left);
     void setClip(LengthBox&& box) { SET_VAR(m_visualData, clip, WTFMove(box)); }
 
-    void setUnicodeBidi(EUnicodeBidi v) { m_nonInheritedFlags.unicodeBidi = v; }
+    void setUnicodeBidi(UnicodeBidi v) { m_nonInheritedFlags.unicodeBidi = static_cast<unsigned>(v); }
 
     void setClear(Clear v) { m_nonInheritedFlags.clear = static_cast<unsigned>(v); }
     void setTableLayout(TableLayoutType v) { m_nonInheritedFlags.tableLayout = static_cast<unsigned>(v); }
@@ -1057,6 +1058,7 @@ public:
     void setAspectRatio(double width, double height) { SET_VAR(m_rareNonInheritedData, aspectRatioWidth, width); SET_VAR(m_rareNonInheritedData, aspectRatioHeight, height); }
 
     void setContain(OptionSet<Containment> containment) { SET_VAR(m_rareNonInheritedData, contain, containment); }
+    void setContainerType(ContainerType containerType) { SET_VAR(m_rareNonInheritedData, containerType, static_cast<unsigned>(containerType)); }
 
     void setListStyleStringValue(const AtomString& value) { SET_VAR(m_rareInheritedData, listStyleStringValue, value); }
     void setListStyleType(ListStyleType v) { m_inheritedFlags.listStyleType = static_cast<unsigned>(v); }
@@ -1471,13 +1473,13 @@ public:
     PathOperation* clipPath() const { return m_rareNonInheritedData->clipPath.get(); }
     static PathOperation* initialClipPath() { return nullptr; }
 
+    bool hasEffectiveContentNone() const { return !contentData() && (m_nonInheritedFlags.hasContentNone || styleType() == PseudoId::Before || styleType() == PseudoId::After); }
     bool hasContent() const { return contentData(); }
     const ContentData* contentData() const { return m_rareNonInheritedData->content.get(); }
     void setContent(std::unique_ptr<ContentData>, bool add);
     bool contentDataEquivalent(const RenderStyle* otherStyle) const { return const_cast<RenderStyle*>(this)->m_rareNonInheritedData->contentDataEquivalent(*const_cast<RenderStyle*>(otherStyle)->m_rareNonInheritedData); }
     void clearContent();
-    void setHasExplicitlyClearedContent(bool v) { m_nonInheritedFlags.hasExplicitlyClearedContent = v; }
-    bool hasExplicitlyClearedContent() const { return m_nonInheritedFlags.hasExplicitlyClearedContent; };
+    void setHasContentNone(bool v) { m_nonInheritedFlags.hasContentNone = v; }
     void setContent(const String&, bool add = false);
     void setContent(RefPtr<StyleImage>&&, bool add = false);
     void setContent(std::unique_ptr<CounterContent>, bool add = false);
@@ -1561,7 +1563,7 @@ public:
 
     static Clear initialClear() { return Clear::None; }
     static DisplayType initialDisplay() { return DisplayType::Inline; }
-    static EUnicodeBidi initialUnicodeBidi() { return UBNormal; }
+    static UnicodeBidi initialUnicodeBidi() { return UnicodeBidi::Normal; }
     static PositionType initialPosition() { return PositionType::Static; }
     static VerticalAlign initialVerticalAlign() { return VerticalAlign::Baseline; }
     static Float initialFloating() { return Float::None; }
@@ -1671,6 +1673,7 @@ public:
     static OptionSet<Containment> initialContainment() { return OptionSet<Containment> { }; }
     static OptionSet<Containment> strictContainment() { return OptionSet<Containment> { Containment::Size, Containment::Layout, Containment::Paint, Containment::Style }; }
     static OptionSet<Containment> contentContainment() { return OptionSet<Containment> { Containment::Layout, Containment::Paint, Containment::Style }; }
+    static ContainerType initialContainerType() { return ContainerType::None; }
     static double initialAspectRatioWidth() { return 1.0; }
     static double initialAspectRatioHeight() { return 1.0; }
     static Order initialRTLOrdering() { return Order::Logical; }
@@ -1923,7 +1926,7 @@ private:
         unsigned verticalAlign : 4; // VerticalAlign
         unsigned clear : 3; // Clear
         unsigned position : 3; // PositionType
-        unsigned unicodeBidi : 3; // EUnicodeBidi
+        unsigned unicodeBidi : 3; // UnicodeBidi
         unsigned floating : 3; // Float
         unsigned tableLayout : 1; // TableLayoutType
 
@@ -1941,7 +1944,7 @@ private:
         unsigned firstChildState : 1;
         unsigned lastChildState : 1;
         unsigned isLink : 1;
-        unsigned hasExplicitlyClearedContent : 1;
+        unsigned hasContentNone : 1;
 
         unsigned styleType : 4; // PseudoId
         unsigned pseudoBits : (static_cast<unsigned>(PseudoId::FirstInternalPseudoId) - static_cast<unsigned>(PseudoId::FirstPublicPseudoId));
@@ -1997,7 +2000,6 @@ private:
     bool hasAutoLeftAndRight() const { return left().isAuto() && right().isAuto(); }
     bool hasAutoTopAndBottom() const { return top().isAuto() && bottom().isAuto(); }
 
-    static bool isDisplayReplacedType(DisplayType);
     static bool isDisplayInlineType(DisplayType);
     static bool isDisplayFlexibleBox(DisplayType);
     static bool isDisplayGridBox(DisplayType);
@@ -2079,7 +2081,7 @@ inline bool RenderStyle::NonInheritedFlags::operator==(const NonInheritedFlags& 
         && firstChildState == other.firstChildState
         && lastChildState == other.lastChildState
         && isLink == other.isLink
-        && hasExplicitlyClearedContent == other.hasExplicitlyClearedContent
+        && hasContentNone == other.hasContentNone
         && styleType == other.styleType
         && pseudoBits == other.pseudoBits;
 }
@@ -2395,15 +2397,14 @@ inline void RenderStyle::getShadowBlockDirectionExtent(const ShadowData* shadow,
     return isHorizontalWritingMode() ? getShadowVerticalExtent(shadow, logicalTop, logicalBottom) : getShadowHorizontalExtent(shadow, logicalTop, logicalBottom);
 }
 
-inline bool RenderStyle::isDisplayReplacedType(DisplayType display)
-{
-    return display == DisplayType::InlineBlock || display == DisplayType::InlineBox || display == DisplayType::InlineFlex
-        || display == DisplayType::InlineGrid || display == DisplayType::InlineTable;
-}
-
 inline bool RenderStyle::isDisplayInlineType(DisplayType display)
 {
-    return display == DisplayType::Inline || isDisplayReplacedType(display);
+    return display == DisplayType::Inline
+        || display == DisplayType::InlineBlock
+        || display == DisplayType::InlineBox
+        || display == DisplayType::InlineFlex
+        || display == DisplayType::InlineGrid
+        || display == DisplayType::InlineTable;
 }
 
 inline bool RenderStyle::isDisplayFlexibleBox(DisplayType display)

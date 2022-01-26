@@ -177,6 +177,12 @@ void FileReaderLoader::didReceiveData(const SharedBuffer& buffer)
     if (m_errorCode)
         return;
 
+    if (m_readType == ReadType::ReadAsBinaryChunks) {
+        if (m_client)
+            m_client->didReceiveBinaryChunk(buffer);
+        return;
+    }
+
     int length = buffer.size();
     unsigned remainingBufferSpace = m_totalBytes - m_bytesLoaded;
     if (length > static_cast<long long>(remainingBufferSpace)) {
@@ -220,7 +226,7 @@ void FileReaderLoader::didReceiveData(const SharedBuffer& buffer)
         m_client->didReceiveData();
 }
 
-void FileReaderLoader::didFinishLoading(ResourceLoaderIdentifier)
+void FileReaderLoader::didFinishLoading(ResourceLoaderIdentifier, const NetworkLoadMetrics&)
 {
     if (m_variableLength && m_totalBytes > m_bytesLoaded) {
         m_rawData = m_rawData->slice(0, m_bytesLoaded);
@@ -311,7 +317,8 @@ String FileReaderLoader::stringResult()
         if (isCompleted())
             convertToDataURL();
         break;
-    default:
+    case ReadAsBlob:
+    case ReadAsBinaryChunks:
         ASSERT_NOT_REACHED();
     }
     

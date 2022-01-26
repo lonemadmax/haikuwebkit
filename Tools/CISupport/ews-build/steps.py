@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2021 Apple Inc. All rights reserved.
+# Copyright (C) 2018-2022 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@ from buildbot.steps import master, shell, transfer, trigger
 from buildbot.steps.source import git
 from buildbot.steps.worker import CompositeStepMixin
 from datetime import date
+from requests.auth import HTTPBasicAuth
 from twisted.internet import defer
 
 from layout_test_failures import LayoutTestFailures
@@ -44,18 +45,20 @@ if sys.version_info < (3, 5):
     print('ERROR: Please use Python 3. This code is not compatible with Python 2.')
     sys.exit(1)
 
+custom_suffix = '-uat' if os.getenv('BUILDBOT_UAT') else ''
 BUG_SERVER_URL = 'https://bugs.webkit.org/'
 COMMITS_INFO_URL = 'https://commits.webkit.org/'
 S3URL = 'https://s3-us-west-2.amazonaws.com/'
-S3_RESULTS_URL = 'https://ews-build.s3-us-west-2.amazonaws.com/'
+S3_RESULTS_URL = 'https://ews-build{}.s3-us-west-2.amazonaws.com/'.format(custom_suffix)
 CURRENT_HOSTNAME = socket.gethostname().strip()
 EWS_BUILD_HOSTNAME = 'ews-build.webkit.org'
 EWS_URL = 'https://ews.webkit.org/'
 RESULTS_DB_URL = 'https://results.webkit.org/'
 WithProperties = properties.WithProperties
 Interpolate = properties.Interpolate
-BRANCH_PR_RE = re.compile(r'^refs/pull/(?P<id>\d+)/merge$')
-GITHUB_REPOSITORIES = ['https://github.com/WebKit/WebKit']
+GITHUB_URL = 'https://github.com/'
+GITHUB_PROJECTS = ['WebKit/WebKit']
+HASH_LENGTH_TO_DISPLAY = 8
 
 
 class BufferLogHeaderObserver(logobserver.BufferLogObserver):
@@ -71,32 +74,187 @@ class BufferLogHeaderObserver(logobserver.BufferLogObserver):
         return self._get(self.headers)
 
 
-class GitHubMixin(object):
-    def pr_url(self, pr_number=None):
-        pr_number = pr_number or self.get_pull_request_number()
-        if not pr_number:
+class GitHub(object):
+    @classmethod
+    def repository_urls(cls):
+        return [GITHUB_URL + project for project in GITHUB_PROJECTS]
+
+    @classmethod
+    def pr_url(cls, pr_number, repository_url=None):
+        if not repository_url:
+            repository_url = '{}{}'.format(GITHUB_URL, GITHUB_PROJECTS[0])
+
+        if repository_url not in GitHub.repository_urls():
             return ''
-        return '{}/pull/{}'.format(self.getProperty('repository', '-'), pr_number)
+        if not pr_number or not isinstance(pr_number, int):
+            return ''
+        return '{}/pull/{}'.format(repository_url, pr_number)
 
-    def get_pull_request_number(self):
-        pr_number = self.getProperty('pull_request')
-        if pr_number:
-            return int(pr_number)
+    @classmethod
+    def commit_url(cls, sha, repository_url=None):
+        if not repository_url:
+            repository_url = '{}{}'.format(GITHUB_URL, GITHUB_PROJECTS[0])
+        if repository_url not in GitHub.repository_urls():
+            return ''
+        if not sha:
+            return ''
+        return '{}/commit/{}'.format(repository_url, sha)
 
-        if self.getProperty('event') != 'pull_request':
+    @classmethod
+    def api_url(cls, repository_url=None):
+        if not repository_url:
+            repository_url = '{}{}'.format(GITHUB_URL, GITHUB_PROJECTS[0])
+
+        if repository_url not in GitHub.repository_urls():
+            return ''
+        _, url_base = repository_url.split('://', 1)
+        host, path = url_base.split('/', 1)
+        return 'https://api.{}/repos/{}'.format(host, path)
+
+    @classmethod
+    def commit_status_url(cls, sha, repository_url=None):
+        api_url = cls.api_url(repository_url)
+        if not sha or not api_url:
+            return ''
+        return '{}/statuses/{}'.format(api_url, sha)
+
+    @classmethod
+    def credentials(cls):
+        try:
+            passwords = json.load(open('passwords.json'))
+            return passwords.get('GITHUB_COM_USERNAME', None), passwords.get('GITHUB_COM_ACCESS_TOKEN', None)
+        except Exception as e:
+            print('Error reading GitHub credentials')
+            return None, None
+
+
+class GitHubMixin(object):
+    addURLs = False
+    pr_open_states = ['open']
+    pr_closed_states = ['closed']
+
+    def fetch_data_from_url_with_authentication(self, url):
+        response = None
+        try:
+            username, access_token = GitHub.credentials()
+            auth = HTTPBasicAuth(username, access_token) if username and access_token else None
+            response = requests.get(
+                url, timeout=60, auth=auth,
+                headers=dict(Accept='application/vnd.github.v3+json'),
+            )
+            if response.status_code // 100 != 2:
+                self._addToLog('stdio', 'Accessed {url} with unexpected status code {status_code}.\n'.format(url=url, status_code=response.status_code))
+                return None
+        except Exception as e:
+            # Catching all exceptions here to safeguard access token.
+            self._addToLog('stdio', 'Failed to access {url}.\n'.format(url=url))
             return None
-        if self.getProperty('repository') not in GITHUB_REPOSITORIES:
+        return response
+
+    def get_pr_json(self, pr_number, repository_url=None):
+        api_url = GitHub.api_url(repository_url)
+        if not api_url:
             return None
 
-        match = BRANCH_PR_RE.match(self.getProperty('branch', ''))
-        if not match:
+        pr_url = '{}/pulls/{}'.format(api_url, pr_number)
+        content = self.fetch_data_from_url_with_authentication(pr_url)
+        if not content:
             return None
-        pr_number = int(match.group('id'))
-        self.setProperty('pull_request', pr_number)
-        return pr_number
+        try:
+            pr_json = content.json()
+        except Exception as e:
+            print('Failed to get pull request data from {}, error: {}'.format(pr_url, e))
+            return None
+        if not pr_json or len(pr_json) == 0:
+            return None
+        return pr_json
+
+    def _is_pr_closed(self, pr_number, repository_url=None):
+        if not pr_number:
+            self._addToLog('stdio', 'Skipping pull request status validation since pull request is None.\n')
+            return -1
+
+        pr_json = self.get_pr_json(pr_number, repository_url)
+        if not pr_json or not pr_json.get('state'):
+            self._addToLog('stdio', 'Unable to fetch pull request {}.\n'.format(pr_number))
+            return -1
+        if pr_json.get('state') in self.pr_closed_states:
+            return 1
+        return 0
+
+    def _is_pr_obsolete(self, pr_number, repository_url=None):
+        pr_json = self.get_pr_json(pr_number, repository_url)
+        if not pr_json:
+            self._addToLog('stdio', 'Unable to fetch pull request {}.\n'.format(pr_number))
+            return -1
+
+        pr_sha = pr_json.get('head', {}).get('sha', '')
+        if not pr_sha:
+            self._addToLog('stdio', 'Failed to fetch hash of pull request {}\n'.format(pr_number))
+            return -1
+
+        return 0 if pr_sha == self.getProperty('github.head.sha', '?') else 1
 
 
-class ConfigureBuild(buildstep.BuildStep, GitHubMixin):
+class Contributors(object):
+    url = 'https://raw.githubusercontent.com/WebKit/WebKit/main/metadata/contributors.json'
+    contributors = {}
+
+    @classmethod
+    def load_from_disk(cls):
+        cwd = os.path.abspath(os.path.dirname(__file__))
+        repo_root = os.path.dirname(os.path.dirname(os.path.dirname(cwd)))
+        contributors_path = os.path.join(repo_root, 'metadata/contributors.json')
+        try:
+            with open(contributors_path, 'rb') as contributors_json:
+                return json.load(contributors_json), None
+        except Exception as e:
+            return {}, 'Failed to load {}\n'.format(contributors_path)
+
+    @classmethod
+    def load_from_github(cls):
+        try:
+            response = requests.get(cls.url, timeout=60)
+            if response.status_code != 200:
+                return {}, 'Failed to access {} with status code: {}\n'.format(cls.url, response.status_code)
+            return response.json(), None
+        except Exception as e:
+            return {}, 'Failed to access {url}\n'.format(url=cls.url)
+
+    @classmethod
+    def load(cls, use_network=True):
+        errors = []
+
+        if use_network:
+            contributors_json, error = cls.load_from_github()
+            if error:
+                errors.append(error)
+        else:
+            contributors_json = []
+
+        if not contributors_json:
+            contributors_json, error = cls.load_from_disk()
+            if error:
+                errors.append(error)
+
+        contributors = {}
+        for value in contributors_json:
+            name = value.get('name')
+            emails = value.get('emails')
+            github_username = value.get('github')
+            if name and emails:
+                bugzilla_email = emails[0].lower()  # We're requiring that the first email is the primary bugzilla email
+                contributors[bugzilla_email] = {'name': name, 'status': value.get('status')}
+            if github_username and name and emails:
+                contributors[github_username] = dict(
+                    name=name,
+                    status=value.get('status'),
+                    email=emails[0].lower(),
+                )
+        return contributors, errors
+
+
+class ConfigureBuild(buildstep.BuildStep):
     name = 'configure-build'
     description = ['configuring build']
     descriptionDone = ['Configured build']
@@ -114,6 +272,14 @@ class ConfigureBuild(buildstep.BuildStep, GitHubMixin):
         self.triggered_by = triggered_by
         self.remotes = remotes
         self.additionalArguments = additionalArguments
+
+    @defer.inlineCallbacks
+    def _addToLog(self, logName, message):
+        try:
+            log = self.getLog(logName)
+        except KeyError:
+            log = yield self.addLog(logName)
+        log.addStdout(message)
 
     def start(self):
         if self.platform and self.platform != '*':
@@ -147,9 +313,29 @@ class ConfigureBuild(buildstep.BuildStep, GitHubMixin):
             self.addURL('Patch {}'.format(patch_id), Bugzilla.patch_url(patch_id))
 
     def add_pr_details(self):
-        pr_number = self.get_pull_request_number()
-        if pr_number:
-            self.addURL('Pull request {}'.format(pr_number), self.pr_url(pr_number=pr_number))
+        pr_number = self.getProperty('github.number')
+        if not pr_number:
+            return
+        repository_url = self.getProperty('repository', '')
+        title = self.getProperty('github.title', '')
+        owners = self.getProperty('owners', [])
+        revision = self.getProperty('github.head.sha')
+
+        if title:
+            self.addURL('PR {}: {}'.format(pr_number, title), GitHub.pr_url(pr_number, repository_url))
+        if owners:
+            contributors, errors = Contributors.load(use_network=False)
+            for error in errors:
+                print(error)
+                self._addToLog('stdio', error)
+            github_username = owners[0]
+            contributor = contributors.get(github_username, {})
+            display_name = contributor.get('email', github_username)
+            if display_name != github_username:
+                display_name = '{} ({})'.format(display_name, github_username)
+            self.addURL('PR by: {}'.format(display_name), '{}{}'.format(GITHUB_URL, github_username))
+        if revision:
+            self.addURL('Hash: {}'.format(revision[:HASH_LENGTH_TO_DISPLAY]), GitHub.commit_url(revision, repository_url))
 
 
 class CheckOutSource(git.Git):
@@ -268,9 +454,15 @@ class ShowIdentifier(shell.ShellCommand):
     def start(self):
         self.log_observer = logobserver.BufferLogObserver()
         self.addLogObserver('stdio', self.log_observer)
-        revision = self.getProperty('ews_revision', self.getProperty('got_revision'))
-        if not revision:
-            revision = 'HEAD'
+
+        revision = 'HEAD'
+        # Note that these properties are delibrately in priority order.
+        for property_ in ['ews_revision', 'github.base.sha', 'got_revision']:
+            candidate = self.getProperty(property_)
+            if candidate:
+                revision = candidate
+                break
+
         self.setCommand(['python3', 'Tools/Scripts/git-webkit', 'find', revision])
         return shell.ShellCommand.start(self)
 
@@ -368,6 +560,9 @@ class ApplyPatch(shell.ShellCommand, CompositeStepMixin):
     def __init__(self, **kwargs):
         super(ApplyPatch, self).__init__(timeout=10 * 60, logEnviron=False, **kwargs)
 
+    def doStepIf(self, step):
+        return self.getProperty('patch_id', False)
+
     def _get_patch(self):
         sourcestamp = self.build.getSourceStamp(self.getProperty('codebase', ''))
         if not sourcestamp or not sourcestamp.patch:
@@ -390,9 +585,11 @@ class ApplyPatch(shell.ShellCommand, CompositeStepMixin):
         d.addCallback(lambda res: shell.ShellCommand.start(self))
 
     def hideStepIf(self, results, step):
-        return results == SUCCESS and self.getProperty('sensitive', False)
+        return not self.doStepIf(step) or (results == SUCCESS and self.getProperty('sensitive', False))
 
     def getResultSummary(self):
+        if self.results == SKIPPED:
+            return {'step': "Skipping applying patch since patch_id isn't provided"}
         if self.results != SUCCESS:
             return {'step': 'svn-apply failed to apply patch to trunk'}
         return super(ApplyPatch, self).getResultSummary()
@@ -412,15 +609,58 @@ class ApplyPatch(shell.ShellCommand, CompositeStepMixin):
         return rc
 
 
-class AnalyzePatch(buildstep.BuildStep):
+class CheckOutPullRequest(steps.ShellSequence):
+    name = 'checkout-pull-request'
+    description = ['checking-out-pull-request']
+    descriptionDone = ['Checked out pull request']
+    haltOnFailure = True
+
+    def __init__(self, **kwargs):
+        super(CheckOutPullRequest, self).__init__(timeout=10 * 60, logEnviron=False, **kwargs)
+
+    def doStepIf(self, step):
+        return self.getProperty('github.number', False)
+
+    def hideStepIf(self, results, step):
+        return not self.doStepIf(step)
+
+    def run(self):
+        self.commands = []
+
+        remote = self.getProperty('github.head.repo.full_name', 'origin').split('/')[0]
+        project = self.getProperty('github.head.repo.full_name', self.getProperty('project'))
+        branch = self.getProperty('github.head.ref', 'main')
+
+        for command in [
+            ['/bin/sh', '-c', 'git remote add {} {}{}.git & true'.format(remote, GITHUB_URL, project)],
+            ['git', 'remote', 'set-url', remote, '{}{}.git'.format(GITHUB_URL, project)],
+            ['git', 'fetch', remote],
+            ['git', 'branch', '-f', branch, 'remotes/{}/{}'.format(remote, branch)],
+            ['git', 'checkout', branch],
+        ]:
+            self.commands.append(util.ShellArg(command=command, logname='stdio', haltOnFailure=True))
+
+        return super(CheckOutPullRequest, self).run()
+
+    def getResultSummary(self):
+        if self.results == SKIPPED:
+            return {'step': 'No pull request to checkout'}
+        if self.results != SUCCESS:
+            return {'step': 'Failed to checkout branch from PR {}'.format(self.getProperty('github.number'))}
+        return super(CheckOutPullRequest, self).getResultSummary()
+
+
+class AnalyzeChange(buildstep.BuildStep):
     flunkOnFailure = True
     haltOnFailure = True
 
     def _get_patch(self):
         sourcestamp = self.build.getSourceStamp(self.getProperty('codebase', ''))
-        if not sourcestamp or not sourcestamp.patch:
-            return None
-        return sourcestamp.patch[1]
+        if sourcestamp and sourcestamp.changes:
+            return '\n'.join(sourcestamp.changes[0].files)
+        if sourcestamp and sourcestamp.patch:
+            return sourcestamp.patch[1]
+        return None
 
     @defer.inlineCallbacks
     def _addToLog(self, logName, message):
@@ -430,18 +670,24 @@ class AnalyzePatch(buildstep.BuildStep):
             log = yield self.addLog(logName)
         log.addStdout(message)
 
+    @property
+    def change_type(self):
+        if self.getProperty('github.number', False):
+            return 'Pull request'
+        return 'Patch'
+
     def getResultSummary(self):
         if self.results in [FAILURE, SKIPPED]:
-            return {'step': 'Patch doesn\'t have relevant changes'}
+            return {'step': '{} doesn\'t have relevant changes'.format(self.change_type)}
         if self.results == SUCCESS:
-            return {'step': 'Patch contains relevant changes'}
+            return {'step': '{} contains relevant changes'.format(self.change_type)}
         return buildstep.BuildStep.getResultSummary(self)
 
 
-class CheckPatchRelevance(AnalyzePatch):
-    name = 'check-patch-relevance'
-    description = ['check-patch-relevance running']
-    descriptionDone = ['Patch contains relevant changes']
+class CheckChangeRelevance(AnalyzeChange):
+    name = 'check-change-relevance'
+    description = ['check-change-relevance running']
+    descriptionDone = ['Change contains relevant changes']
     MAX_LINE_SIZE = 250
 
     bindings_path_regexes = [
@@ -531,19 +777,23 @@ class CheckPatchRelevance(AnalyzePatch):
             return None
 
         if self._patch_is_relevant(patch, self.getProperty('buildername', '')):
-            self._addToLog('stdio', 'This patch contains relevant changes.')
+            self._addToLog('stdio', 'This {} contains relevant changes.'.format(self.change_type.lower()))
             self.finished(SUCCESS)
             return None
 
-        self._addToLog('stdio', 'This patch does not have relevant changes.')
+        self._addToLog('stdio', 'This {} does not have relevant changes.'.format(self.change_type.lower()))
         self.finished(FAILURE)
         self.build.results = SKIPPED
-        self.build.buildFinished(['Patch {} doesn\'t have relevant changes'.format(self.getProperty('patch_id', ''))], SKIPPED)
+        self.build.buildFinished(['{} {} doesn\'t have relevant changes'.format(
+            self.change_type,
+            self.getProperty('patch_id', '') or self.getProperty('github.number', ''),
+        )], SKIPPED)
         return None
 
 
-class FindModifiedLayoutTests(AnalyzePatch):
+class FindModifiedLayoutTests(AnalyzeChange):
     name = 'find-modified-layout-tests'
+    # FIXME: This regex won't work for pull-requests
     RE_LAYOUT_TEST = br'^(\+\+\+).*(LayoutTests.*\.html)'
     DIRECTORIES_TO_IGNORE = ['reference', 'reftest', 'resources', 'support', 'script-tests', 'tools']
     SUFFIXES_TO_IGNORE = ['-expected', '-expected-mismatch', '-ref', '-notref']
@@ -574,16 +824,19 @@ class FindModifiedLayoutTests(AnalyzePatch):
         tests = self.find_test_names_from_patch(patch)
 
         if tests:
-            self._addToLog('stdio', 'This patch modifies following tests: {}'.format(tests))
+            self._addToLog('stdio', 'This change modifies following tests: {}'.format(tests))
             self.setProperty('modified_tests', tests)
             self.finished(SUCCESS)
             return None
 
-        self._addToLog('stdio', 'This patch does not modify any layout tests')
+        self._addToLog('stdio', 'This change does not modify any layout tests')
         self.finished(SKIPPED)
         if self.skipBuildIfNoResult:
             self.build.results = SKIPPED
-            self.build.buildFinished(['Patch {} doesn\'t have relevant changes'.format(self.getProperty('patch_id', ''))], SKIPPED)
+            self.build.buildFinished(['{} {} doesn\'t have relevant changes'.format(
+                self.change_type,
+                self.getProperty('patch_id', '') or self.getProperty('github.number', ''),
+            )], SKIPPED)
         return None
 
 
@@ -880,10 +1133,10 @@ class BugzillaMixin(object):
         return SUCCESS
 
 
-class ValidatePatch(buildstep.BuildStep, BugzillaMixin):
-    name = 'validate-patch'
-    description = ['validate-patch running']
-    descriptionDone = ['Validated patch']
+class ValidateChange(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
+    name = 'validate-change'
+    description = ['validate-change running']
+    descriptionDone = ['Validated change']
     flunkOnFailure = True
     haltOnFailure = True
 
@@ -898,7 +1151,7 @@ class ValidatePatch(buildstep.BuildStep, BugzillaMixin):
     def getResultSummary(self):
         if self.results == FAILURE:
             return {'step': self.descriptionDone}
-        return super(ValidatePatch, self).getResultSummary()
+        return super(ValidateChange, self).getResultSummary()
 
     def doStepIf(self, step):
         return not self.getProperty('skip_validation', False)
@@ -912,97 +1165,100 @@ class ValidatePatch(buildstep.BuildStep, BugzillaMixin):
 
     def start(self):
         patch_id = self.getProperty('patch_id', '')
-        if not patch_id:
-            self._addToLog('stdio', 'No patch_id found. Unable to proceed without patch_id.\n')
-            self.descriptionDone = 'No patch id found'
+        pr_number = self.getProperty('github.number', '')
+
+        if not patch_id and not pr_number:
+            self._addToLog('stdio', 'No patch_id or pr_number found. Unable to proceed without one of them.\n')
+            self.descriptionDone = 'No change found'
             self.finished(FAILURE)
             return None
 
+        if patch_id and pr_number:
+            self._addToLog('stdio', 'Both patch_id and pr_number found. Unable to proceed with both.\n')
+            self.descriptionDone = 'Error: both PR and patch number found'
+            self.finished(FAILURE)
+            return None
+
+        if patch_id and not self.validate_bugzilla(patch_id):
+            return None
+        if pr_number and not self.validate_github(pr_number):
+            return None
+
+        if self.verifyBugClosed and patch_id:
+            self._addToLog('stdio', 'Bug is open.\n')
+        if self.verifyObsolete:
+            self._addToLog('stdio', 'Change is not obsolete.\n')
+        if self.verifyReviewDenied:
+            self._addToLog('stdio', 'Change has not been denied.\n')
+        if self.verifycqplus:
+            self._addToLog('stdio', 'Change is in commit queue.\n')
+            self._addToLog('stdio', 'Change has been reviewed.\n')
+        self.finished(SUCCESS)
+        return None
+
+    def validate_bugzilla(self, patch_id):
         bug_id = self.getProperty('bug_id', '') or self.get_bug_id_from_patch(patch_id)
 
         bug_closed = self._is_bug_closed(bug_id) if self.verifyBugClosed else 0
         if bug_closed == 1:
             self.skip_build('Bug {} is already closed'.format(bug_id))
-            return None
+            return False
 
         obsolete = self._is_patch_obsolete(patch_id) if self.verifyObsolete else 0
         if obsolete == 1:
             self.skip_build('Patch {} is obsolete'.format(patch_id))
-            return None
+            return False
 
         review_denied = self._is_patch_review_denied(patch_id) if self.verifyReviewDenied else 0
         if review_denied == 1:
             self.skip_build('Patch {} is marked r-'.format(patch_id))
-            return None
+            return False
 
         cq_plus = self._is_patch_cq_plus(patch_id) if self.verifycqplus else 1
         if cq_plus != 1:
             self.skip_build('Patch {} is not marked cq+.'.format(patch_id))
-            return None
+            return False
 
         acceptable_review_flag = self._does_patch_have_acceptable_review_flag(patch_id) if self.verifycqplus else 1
         if acceptable_review_flag != 1:
             self.skip_build('Patch {} does not have acceptable review flag.'.format(patch_id))
-            return None
+            return False
 
         if obsolete == -1 or review_denied == -1 or bug_closed == -1:
             self.finished(WARNINGS)
-            return None
+            return False
+        return True
 
-        if self.verifyBugClosed:
-            self._addToLog('stdio', 'Bug is open.\n')
-        if self.verifyObsolete:
-            self._addToLog('stdio', 'Patch is not obsolete.\n')
-        if self.verifyReviewDenied:
-            self._addToLog('stdio', 'Patch is not marked r-.\n')
-        if self.verifycqplus:
-            self._addToLog('stdio', 'Patch is marked cq+.\n')
-            self._addToLog('stdio', 'Patch have acceptable review flag.\n')
-        self.finished(SUCCESS)
-        return None
+    def validate_github(self, pr_number):
+        if not pr_number:
+            return False
+
+        repository_url = self.getProperty('repository', '')
+
+        pr_closed = self._is_pr_closed(pr_number, repository_url=repository_url) if self.verifyBugClosed else 0
+        if pr_closed == 1:
+            self.skip_build('Pull request {} is already closed'.format(pr_number))
+            return False
+
+        obsolete = self._is_pr_obsolete(pr_number, repository_url=repository_url) if self.verifyObsolete else 0
+        if obsolete == 1:
+            self.skip_build('Pull request {} (sha {}) is obsolete'.format(pr_number, self.getProperty('github.head.sha', '?')[:HASH_LENGTH_TO_DISPLAY]))
+            return False
+
+        if obsolete == -1 or pr_closed == -1:
+            self.finished(WARNINGS)
+            return False
+
+        return True
 
 
 class ValidateCommiterAndReviewer(buildstep.BuildStep):
     name = 'validate-commiter-and-reviewer'
     descriptionDone = ['Validated commiter and reviewer']
-    url = 'https://raw.githubusercontent.com/WebKit/WebKit/main/metadata/contributors.json'
-    contributors = {}
 
-    def load_contributors_from_disk(self):
-        cwd = os.path.abspath(os.path.dirname(__file__))
-        repo_root = os.path.dirname(os.path.dirname(os.path.dirname(cwd)))
-        contributors_path = os.path.join(repo_root, 'metadata/contributors.json')
-        try:
-            with open(contributors_path, 'rb') as contributors_json:
-                return json.load(contributors_json)
-        except Exception as e:
-            self._addToLog('stdio', 'Failed to load {}\n'.format(contributors_path))
-            return {}
-
-    def load_contributors_from_github(self):
-        try:
-            response = requests.get(self.url, timeout=60)
-            if response.status_code != 200:
-                self._addToLog('stdio', 'Failed to access {} with status code: {}\n'.format(self.url, response.status_code))
-                return {}
-            return response.json()
-        except Exception as e:
-            self._addToLog('stdio', 'Failed to access {url}\n'.format(url=self.url))
-            return {}
-
-    def load_contributors(self):
-        contributors_json = self.load_contributors_from_github()
-        if not contributors_json:
-            contributors_json = self.load_contributors_from_disk()
-
-        contributors = {}
-        for value in contributors_json:
-            name = value.get('name')
-            emails = value.get('emails')
-            if name and emails:
-                bugzilla_email = emails[0].lower()  # We're requiring that the first email is the primary bugzilla email
-                contributors[bugzilla_email] = {'name': name, 'status': value.get('status')}
-        return contributors
+    def __init__(self, *args, **kwargs):
+        super(ValidateCommiterAndReviewer, self).__init__(*args, **kwargs)
+        self.contributors = {}
 
     @defer.inlineCallbacks
     def _addToLog(self, logName, message):
@@ -1019,7 +1275,7 @@ class ValidateCommiterAndReviewer(buildstep.BuildStep):
 
     def fail_build(self, email, status):
         reason = '{} does not have {} permissions'.format(email, status)
-        comment = '{} does not have {} permissions according to {}.'.format(email, status, self.url)
+        comment = '{} does not have {} permissions according to {}.'.format(email, status, Contributors.url)
         comment += '\n\nRejecting attachment {} from commit queue.'.format(self.getProperty('patch_id', ''))
         self.setProperty('bugzilla_comment_text', comment)
 
@@ -1044,7 +1300,11 @@ class ValidateCommiterAndReviewer(buildstep.BuildStep):
         return contributor.get('name')
 
     def start(self):
-        self.contributors = self.load_contributors()
+        self.contributors, errors = Contributors.load()
+        for error in errors:
+            print(error)
+            self._addToLog('stdio', error)
+
         if not self.contributors:
             self.finished(FAILURE)
             self.descriptionDone = 'Failed to get contributors information'
@@ -1213,26 +1473,31 @@ class UnApplyPatchIfRequired(CleanWorkingDirectory):
 
 
 class Trigger(trigger.Trigger):
-    def __init__(self, schedulerNames, include_revision=True, triggers=None, **kwargs):
+    def __init__(self, schedulerNames, include_revision=True, triggers=None, patch=True, pull_request=False, **kwargs):
         self.include_revision = include_revision
         self.triggers = triggers
-        set_properties = self.propertiesToPassToTriggers() or {}
+        set_properties = self.propertiesToPassToTriggers(patch=patch, pull_request=pull_request) or {}
         super(Trigger, self).__init__(schedulerNames=schedulerNames, set_properties=set_properties, **kwargs)
 
-    def propertiesToPassToTriggers(self):
-        properties_to_pass = {
-            'patch_id': properties.Property('patch_id'),
-            'bug_id': properties.Property('bug_id'),
-            'configuration': properties.Property('configuration'),
-            'platform': properties.Property('platform'),
-            'fullPlatform': properties.Property('fullPlatform'),
-            'architecture': properties.Property('architecture'),
-            'owner': properties.Property('owner'),
-        }
-        if self.include_revision:
-            properties_to_pass['ews_revision'] = properties.Property('got_revision')
+    def propertiesToPassToTriggers(self, patch=True, pull_request=False):
+        property_names = [
+            'configuration',
+            'platform',
+            'fullPlatform',
+            'architecture',
+        ]
+        if patch:
+            property_names += ['patch_id', 'bug_id', 'owner']
+        if pull_request:
+            property_names += [
+                'github.base.sha', 'github.head.ref', 'github.head.sha',
+                'github.head.repo.full_name', 'github.number', 'github.title',
+                'repository', 'project', 'owners',
+            ]
         if self.triggers:
-            properties_to_pass['triggers'] = self.triggers
+            property_names.append('triggers')
+
+        properties_to_pass = {prop: properties.Property(prop) for prop in property_names}
         properties_to_pass['retry_count'] = properties.Property('retry_count', default=0)
         return properties_to_pass
 
@@ -1663,7 +1928,7 @@ class CompileWebKit(shell.Compile):
     def evaluateCommand(self, cmd):
         if cmd.didFail():
             self.setProperty('patchFailedToBuild', True)
-            steps_to_add = [UnApplyPatchIfRequired(), ValidatePatch(verifyBugClosed=False, addURLs=False)]
+            steps_to_add = [UnApplyPatchIfRequired(), ValidateChange(verifyBugClosed=False, addURLs=False)]
             platform = self.getProperty('platform')
             if platform == 'wpe':
                 steps_to_add.append(InstallWpeDependencies())
@@ -1681,7 +1946,11 @@ class CompileWebKit(shell.Compile):
             if triggers or not self.skipUpload:
                 steps_to_add = [ArchiveBuiltProduct(), UploadBuiltProduct(), TransferToS3()]
                 if triggers:
-                    steps_to_add.append(Trigger(schedulerNames=triggers))
+                    steps_to_add.append(Trigger(
+                        schedulerNames=triggers,
+                        patch=bool(self.getProperty('patch_id')),
+                        pull_request=bool(self.getProperty('github.number')),
+                    ))
                 self.build.addStepsAfterCurrentStep(steps_to_add)
 
         return super(CompileWebKit, self).evaluateCommand(cmd)
@@ -1943,9 +2212,9 @@ class RunJavaScriptCoreTests(shell.Test):
         else:
             self.setProperty('patchFailedTests', True)
             self.build.addStepsAfterCurrentStep([UnApplyPatchIfRequired(),
-                                                ValidatePatch(verifyBugClosed=False, addURLs=False),
+                                                ValidateChange(verifyBugClosed=False, addURLs=False),
                                                 CompileJSCWithoutPatch(),
-                                                ValidatePatch(verifyBugClosed=False, addURLs=False),
+                                                ValidateChange(verifyBugClosed=False, addURLs=False),
                                                 KillOldProcesses(),
                                                 RunJSCTestsWithoutPatch(),
                                                 AnalyzeJSCTestsResults()])
@@ -2368,7 +2637,7 @@ class RunWebKitTests(shell.Test):
                 ArchiveTestResults(),
                 UploadTestResults(),
                 ExtractTestResults(),
-                ValidatePatch(verifyBugClosed=False, addURLs=False),
+                ValidateChange(verifyBugClosed=False, addURLs=False),
                 KillOldProcesses(),
                 ReRunWebKitTests(),
             ])
@@ -2463,9 +2732,9 @@ class ReRunWebKitTests(RunWebKitTests):
                                                 UploadTestResults(identifier='rerun'),
                                                 ExtractTestResults(identifier='rerun'),
                                                 UnApplyPatchIfRequired(),
-                                                ValidatePatch(verifyBugClosed=False, addURLs=False),
+                                                ValidateChange(verifyBugClosed=False, addURLs=False),
                                                 CompileWebKitWithoutPatch(retry_build_on_failure=True),
-                                                ValidatePatch(verifyBugClosed=False, addURLs=False),
+                                                ValidateChange(verifyBugClosed=False, addURLs=False),
                                                 KillOldProcesses(),
                                                 RunWebKitTestsWithoutPatch()])
         return rc
@@ -2612,7 +2881,13 @@ class AnalyzeLayoutTestsResults(buildstep.BuildStep, BugzillaMixin):
         if triggered_by:
             # Trigger parent build so that it can re-build ToT
             schduler_for_current_queue = self.getProperty('scheduler')
-            self.build.addStepsAfterCurrentStep([Trigger(schedulerNames=triggered_by, include_revision=False, triggers=[schduler_for_current_queue])])
+            self.build.addStepsAfterCurrentStep([Trigger(
+                schedulerNames=triggered_by,
+                include_revision=False,
+                triggers=[schduler_for_current_queue],
+                patch=bool(self.getProperty('patch_id')),
+                pull_request=bool(self.getProperty('github.number')),
+            )])
             self.setProperty('build_summary', message)
             self.finished(SUCCESS)
         else:
@@ -2788,7 +3063,7 @@ class RunWebKitTestsRedTree(RunWebKitTests):
         rc = self.evaluateResult(cmd)
         next_steps = [ArchiveTestResults(), UploadTestResults(), ExtractTestResults()]
         if first_results_failing_tests:
-            next_steps.extend([ValidatePatch(verifyBugClosed=False, addURLs=False), KillOldProcesses(), RunWebKitTestsRepeatFailuresRedTree()])
+            next_steps.extend([ValidateChange(verifyBugClosed=False, addURLs=False), KillOldProcesses(), RunWebKitTestsRepeatFailuresRedTree()])
         elif first_results_flaky_tests:
             next_steps.append(AnalyzeLayoutTestsResultsRedTree())
         elif rc == SUCCESS or rc == WARNINGS:
@@ -2806,7 +3081,7 @@ class RunWebKitTestsRedTree(RunWebKitTests):
             if retry_count < AnalyzeLayoutTestsResultsRedTree.MAX_RETRY:
                 next_steps.append(AnalyzeLayoutTestsResultsRedTree())
             else:
-                next_steps.extend([UnApplyPatchIfRequired(), CompileWebKitWithoutPatch(retry_build_on_failure=True), ValidatePatch(verifyBugClosed=False, addURLs=False), RunWebKitTestsWithoutPatchRedTree()])
+                next_steps.extend([UnApplyPatchIfRequired(), CompileWebKitWithoutPatch(retry_build_on_failure=True), ValidateChange(verifyBugClosed=False, addURLs=False), RunWebKitTestsWithoutPatchRedTree()])
         if next_steps:
             self.build.addStepsAfterCurrentStep(next_steps)
         return rc
@@ -2836,8 +3111,8 @@ class RunWebKitTestsRepeatFailuresRedTree(RunWebKitTestsRedTree):
         next_steps = [ArchiveTestResults(), UploadTestResults(identifier='repeat-failures'), ExtractTestResults(identifier='repeat-failures')]
         if with_patch_repeat_failures_results_nonflaky_failures or with_patch_repeat_failures_timedout:
             self.setProperty('patchFailedTests', True)
-            next_steps.extend([ValidatePatch(verifyBugClosed=False, addURLs=False), KillOldProcesses(), UnApplyPatchIfRequired(), CompileWebKitWithoutPatch(retry_build_on_failure=True),
-                               ValidatePatch(verifyBugClosed=False, addURLs=False), RunWebKitTestsRepeatFailuresWithoutPatchRedTree()])
+            next_steps.extend([ValidateChange(verifyBugClosed=False, addURLs=False), KillOldProcesses(), UnApplyPatchIfRequired(), CompileWebKitWithoutPatch(retry_build_on_failure=True),
+                               ValidateChange(verifyBugClosed=False, addURLs=False), RunWebKitTestsRepeatFailuresWithoutPatchRedTree()])
         else:
             next_steps.append(AnalyzeLayoutTestsResultsRedTree())
         if next_steps:
@@ -3240,7 +3515,7 @@ class RunAPITests(TestWithFailureCount):
             self.build.results = SUCCESS
             self.build.buildFinished([message], SUCCESS)
         else:
-            self.build.addStepsAfterCurrentStep([ValidatePatch(verifyBugClosed=False, addURLs=False), KillOldProcesses(), ReRunAPITests()])
+            self.build.addStepsAfterCurrentStep([ValidateChange(verifyBugClosed=False, addURLs=False), KillOldProcesses(), ReRunAPITests()])
         return rc
 
 
@@ -3256,14 +3531,14 @@ class ReRunAPITests(RunAPITests):
             self.build.buildFinished([message], SUCCESS)
         else:
             self.setProperty('patchFailedTests', True)
-            steps_to_add = [UnApplyPatchIfRequired(), ValidatePatch(verifyBugClosed=False, addURLs=False)]
+            steps_to_add = [UnApplyPatchIfRequired(), ValidateChange(verifyBugClosed=False, addURLs=False)]
             platform = self.getProperty('platform')
             if platform == 'wpe':
                 steps_to_add.append(InstallWpeDependencies())
             elif platform == 'gtk':
                 steps_to_add.append(InstallGtkDependencies())
             steps_to_add.append(CompileWebKitWithoutPatch(retry_build_on_failure=True))
-            steps_to_add.append(ValidatePatch(verifyBugClosed=False, addURLs=False))
+            steps_to_add.append(ValidateChange(verifyBugClosed=False, addURLs=False))
             steps_to_add.append(KillOldProcesses())
             steps_to_add.append(RunAPITestsWithoutPatch())
             steps_to_add.append(AnalyzeAPITestsResults())
@@ -3569,22 +3844,28 @@ class PrintConfiguration(steps.ShellSequence):
         return {'step': configuration}
 
 
+# FIXME: We should be able to remove this step once abandoning patch workflows
 class CleanGitRepo(steps.ShellSequence):
     name = 'clean-up-git-repo'
     haltOnFailure = False
     flunkOnFailure = False
     logEnviron = False
-    # This somewhat quirky sequence of steps seems to clear up all the broken
-    # git situations we've gotten ourself into in the past.
-    command_list = [['git', 'clean', '-f', '-d'],  # Remove any left-over layout test results, added files, etc.
-                    ['git', 'fetch', 'origin'],  # Avoid updating the working copy to a stale revision.
-                    ['git', 'checkout', 'origin/master', '-f'],
-                    ['git', 'branch', '-D', 'master'],
-                    ['git', 'checkout', 'origin/master', '-b', 'master']]
+
+    def __init__(self, default_branch='main', remote='origin', **kwargs):
+        super(CleanGitRepo, self).__init__(timeout=5 * 60, **kwargs)
+        self.default_branch = default_branch
+        self.git_remote = remote
 
     def run(self):
+        branch = self.getProperty('basename', self.default_branch)
         self.commands = []
-        for command in self.command_list:
+        for command in [
+            ['git', 'clean', '-f', '-d'],  # Remove any left-over layout test results, added files, etc.
+            ['git', 'fetch', self.git_remote],  # Avoid updating the working copy to a stale revision.
+            ['git', 'checkout', '{}/{}'.format(self.git_remote, branch), '-f'],  # Checkout branch from specific remote
+            ['git', 'branch', '-D', '{}'.format(branch)],  # Delete any local cache of the specified branch
+            ['git', 'checkout', '{}/{}'.format(self.git_remote, branch), '-b', '{}'.format(branch)],  # Checkout local instance of branch from remote
+        ]:
             self.commands.append(util.ShellArg(command=command, logname='stdio'))
         return super(CleanGitRepo, self).run()
 

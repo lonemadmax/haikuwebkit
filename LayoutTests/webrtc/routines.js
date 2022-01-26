@@ -253,7 +253,7 @@ async function computeFrameRate(stream, video)
 {
     if (window.internals) {
         internals.observeMediaStreamTrack(stream.getVideoTracks()[0]);
-        await new Promise(resolve => setTimeout(resolve, 1000)); 
+        await new Promise(resolve => setTimeout(resolve, 1000));
         return internals.trackVideoSampleCount;
     }
 
@@ -273,7 +273,7 @@ async function computeFrameRate(stream, video)
     await video.play();
 
     const stats1 = await getReceivedTrackStats(connection);
-    await new Promise(resolve => setTimeout(resolve, 1000)); 
+    await new Promise(resolve => setTimeout(resolve, 1000));
     const stats2 = await getReceivedTrackStats(connection);
     return (stats2.framesReceived - stats1.framesReceived) * 1000 / (stats2.timestamp - stats1.timestamp);
 }
@@ -296,4 +296,62 @@ function setH264HighCodec(sdp)
     return lines.filter(line => {
         return (line.indexOf('a=fmtp') === -1 && line.indexOf('a=rtcp-fb') === -1 && line.indexOf('a=rtpmap') === -1) || line.indexOf(baselineNumber) !== -1;
     }).join('\r\n');
+}
+
+// Sets the camera image orientation if running on test runner.
+// angle: orientation angle of the camera image in degrees
+function setMockCameraImageOrientation(angle, videoSize) {
+    if ([0, 90, 180, 270].indexOf(angle) == -1)
+        throw "invalid angle";
+    if (window.testRunner) {
+        testRunner.setMockCameraOrientation(angle);
+        if (videoSize && (angle == 90 || angle == 270))
+            videoSize = [videoSize[1], videoSize[0]];
+        return [angle, videoSize];
+    }
+    return [0, videoSize];
+}
+
+// Returns Uint8Array[4] of RGBA color.
+// p: [x, y] of 0..1 range.
+function getImageDataPixel(imageData, p)
+{
+    let xi = Math.floor(p[0] * imageData.width);
+    let yi = Math.floor(p[1] * imageData.height);
+    let i = (yi * imageData.width + xi) * 4;
+    return imageData.data.slice(i, i + 4);
+}
+
+// Asserts that ImageData instance contains mock camera image rendered by MiniBrowser and WebKitTestRunner.
+// Obtain full camera image of size `width`:
+//  await navigator.mediaDevices.getUserMedia({ video: { width: { exact: width } } });
+function assertImageDataContainsMockCameraImage(imageData, angle, desc)
+{
+    angle = angle || 0;
+    desc = desc || "";
+
+    function rotatePoint(p) {
+        let a = angle;
+        let n = [ p[0], p[1] ];
+        while (a > 0) {
+            n = [ 1.0 - n[1], n[0] ];
+            a -= 90;
+        }
+        return n;
+    }
+
+    const white = [ 255, 255, 255, 255 ];
+    const whitePoint = rotatePoint([ 0.04, 0.7 ]);
+    const yellow = [ 255, 255, 0, 255 ];
+    const yellowPoint = rotatePoint([ 0.08, 0.7 ]);
+    const cyan = [ 0, 255, 255, 255 ];
+    const cyanPoint = rotatePoint([ 0.12, 0.7 ]);
+    const lightGreen = [ 0, 128, 0, 255 ];
+    const lightGreenPoint = rotatePoint([ 0.16, 0.7 ]);
+
+    let err = 11;
+    assert_array_approx_equals(getImageDataPixel(imageData, whitePoint), white, err, "white rect not found " + desc);
+    assert_array_approx_equals(getImageDataPixel(imageData, yellowPoint), yellow, err, "yellow rect not found" + desc);
+    assert_array_approx_equals(getImageDataPixel(imageData, cyanPoint), cyan, err, "cyan rect not found " + desc);
+    assert_array_approx_equals(getImageDataPixel(imageData, lightGreenPoint), lightGreen, err, "light green rect not found " + desc);
 }

@@ -170,8 +170,7 @@ void InlineStyleSheetOwner::createSheet(Element& element, const String& text)
 
     ASSERT(document.contentSecurityPolicy());
     const ContentSecurityPolicy& contentSecurityPolicy = *document.contentSecurityPolicy();
-    bool hasKnownNonce = contentSecurityPolicy.allowStyleWithNonce(element.nonce(), element.isInUserAgentShadowTree());
-    if (!contentSecurityPolicy.allowInlineStyle(document.url().string(), m_startTextPosition.m_line, text, CheckUnsafeHashes::No, element, hasKnownNonce))
+    if (!contentSecurityPolicy.allowInlineStyle(document.url().string(), m_startTextPosition.m_line, text, CheckUnsafeHashes::No, element, element.nonce(), element.isInUserAgentShadowTree()))
         return;
 
     auto mediaQueries = MediaQuerySet::create(m_media, MediaQueryParserContext(document));
@@ -243,7 +242,7 @@ bool InlineStyleSheetOwner::sheetLoaded(Element& element)
 
 void InlineStyleSheetOwner::startLoadingDynamicSheet(Element& element)
 {
-    if (m_styleScope)
+    if (m_styleScope && !m_styleScope->hasPendingSheet(element))
         m_styleScope->addPendingSheet(element);
 }
 

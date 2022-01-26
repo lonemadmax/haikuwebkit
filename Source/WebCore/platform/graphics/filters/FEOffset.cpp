@@ -4,7 +4,7 @@
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
- * Copyright (C) 2021 Apple Inc.  All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -60,12 +60,29 @@ FloatRect FEOffset::calculateImageRect(const Filter& filter, const FilterImageVe
     return filter.clipToMaxEffectRect(imageRect, primitiveSubregion);
 }
 
+IntOutsets FEOffset::outsets(const Filter& filter) const
+{
+    auto offset = expandedIntSize(filter.resolvedSize({ m_dx, m_dy }));
+
+    IntOutsets outsets;
+    if (offset.height() < 0)
+        outsets.setTop(-offset.height());
+    else
+        outsets.setBottom(offset.height());
+    if (offset.width() < 0)
+        outsets.setLeft(-offset.width());
+    else
+        outsets.setRight(offset.width());
+
+    return outsets;
+}
+
 bool FEOffset::resultIsAlphaImage(const FilterImageVector& inputs) const
 {
     return inputs[0]->isAlphaImage();
 }
 
-std::unique_ptr<FilterEffectApplier> FEOffset::createApplier(const Filter&) const
+std::unique_ptr<FilterEffectApplier> FEOffset::createSoftwareApplier() const
 {
     return FilterEffectApplier::create<FEOffsetSoftwareApplier>(*this);
 }

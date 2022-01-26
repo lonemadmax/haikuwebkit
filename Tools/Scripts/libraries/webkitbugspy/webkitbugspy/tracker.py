@@ -1,4 +1,4 @@
-# Copyright (C) 2021 Apple Inc. All rights reserved.
+# Copyright (C) 2021-2022 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -28,7 +28,7 @@ from webkitcorepy import decorators
 
 
 class Tracker(object):
-    REFERENCE_RE = re.compile(r'((https|http|rdar|radar)://[^\s><,\'\"}{\]\[)(]+[^\s><,\'\"}{\]\[)(\.\?])')
+    REFERENCE_RE = re.compile(r'((https|http|rdar|radar)://[^\s><,\'\"}{\]\[)(]*[^\s><,\'\"}{\]\[)(\.\?])')
 
     _trackers = []
 
@@ -66,8 +66,15 @@ class Tracker(object):
                 return self.users.get(key)
         return None
 
+    @decorators.Memoize()
+    def me(self):
+        raise NotImplementedError()
+
     def issue(self, id):
         raise NotImplementedError()
 
     def populate(self, issue, member=None):
+        raise NotImplementedError()
+
+    def add_comment(self, issue, text):
         raise NotImplementedError()

@@ -1195,6 +1195,8 @@ public:
     virtual String roleDescription() const = 0;
     // Localized string that describes ARIA landmark roles.
     virtual String ariaLandmarkRoleDescription() const = 0;
+    // Non-localized string associated with the object's subrole.
+    virtual String subrolePlatformString() const = 0;
 
     virtual AXObjectCache* axObjectCache() const = 0;
 
@@ -1272,7 +1274,7 @@ public:
     virtual void addChildren() = 0;
     virtual void addChild(AXCoreObject*, DescendIfIgnored = DescendIfIgnored::Yes) = 0;
     virtual void insertChild(AXCoreObject*, unsigned, DescendIfIgnored = DescendIfIgnored::Yes) = 0;
-    Vector<AXID> childrenIDs();
+    Vector<AXID> childrenIDs(bool updateChildrenIfNecessary = true);
 
     virtual bool canHaveChildren() const = 0;
     virtual void updateChildrenIfNecessary() = 0;
@@ -1607,12 +1609,11 @@ inline void AXCoreObject::detachWrapper(AccessibilityDetachmentType detachmentTy
 }
 #endif
 
-inline Vector<AXID> AXCoreObject::childrenIDs()
+inline Vector<AXID> AXCoreObject::childrenIDs(bool updateChildrenIfNecessary)
 {
-    Vector<AXID> childrenIDs;
-    for (const auto& child : children())
-        childrenIDs.append(child->objectID());
-    return childrenIDs;
+    return children(updateChildrenIfNecessary).map([] (auto& axObject) -> AXID {
+        return axObject->objectID();
+    });
 }
 
 namespace Accessibility {
@@ -1639,6 +1640,16 @@ T* findAncestor(const T& object, bool includeSelf, const F& matches)
 }
 
 void findMatchingObjects(AccessibilitySearchCriteria const&, AXCoreObject::AccessibilityChildrenVector&);
+
+template<typename T, typename F>
+void enumerateAncestors(const T& object, bool includeSelf, const F& lambda)
+{
+    if (includeSelf)
+        lambda(object);
+
+    if (auto* parent = object.parentObject())
+        enumerateAncestors(*parent, true, lambda);
+}
 
 template<typename T, typename F>
 void enumerateDescendants(T& object, bool includeSelf, const F& lambda)

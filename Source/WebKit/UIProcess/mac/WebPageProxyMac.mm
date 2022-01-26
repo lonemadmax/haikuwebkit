@@ -206,16 +206,6 @@ void WebPageProxy::attributedSubstringForCharacterRangeAsync(const EditingRange&
     sendWithAsyncReply(Messages::WebPage::AttributedSubstringForCharacterRangeAsync(range), WTFMove(callbackFunction));
 }
 
-void WebPageProxy::fontAtSelection(CompletionHandler<void(const FontInfo&, double, bool)>&& callback)
-{
-    if (!hasRunningProcess()) {
-        callback({ }, 0, false);
-        return;
-    }
-
-    sendWithAsyncReply(Messages::WebPage::FontAtSelection(), WTFMove(callback));
-}
-
 String WebPageProxy::stringSelectionForPasteboard()
 {
     String value;
@@ -552,9 +542,9 @@ void WebPageProxy::showPDFContextMenu(const WebKit::PDFContextMenu& contextMenu,
 #endif
 
 #if ENABLE(TELEPHONE_NUMBER_DETECTION)
-void WebPageProxy::showTelephoneNumberMenu(const String& telephoneNumber, const WebCore::IntPoint& point)
+void WebPageProxy::showTelephoneNumberMenu(const String& telephoneNumber, const WebCore::IntPoint& point, const WebCore::IntRect& rect)
 {
-    RetainPtr<NSMenu> menu = menuForTelephoneNumber(telephoneNumber);
+    RetainPtr<NSMenu> menu = menuForTelephoneNumber(telephoneNumber, pageClient().viewForPresentingRevealPopover(), rect);
     pageClient().showPlatformContextMenu(menu.get(), point);
 }
 #endif
@@ -573,9 +563,9 @@ void WebPageProxy::didUpdateEditorState(const EditorState& oldEditorState, const
     
     if (newEditorState.shouldIgnoreSelectionChanges)
         return;
-    
-    pageClient().selectionDidChange();
+
     updateFontAttributesAfterEditorStateChange();
+    pageClient().selectionDidChange();
 }
 
 void WebPageProxy::startWindowDrag()

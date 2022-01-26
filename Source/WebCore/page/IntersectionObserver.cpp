@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -116,7 +116,8 @@ ExceptionOr<Ref<IntersectionObserver>> IntersectionObserver::create(Document& do
 }
 
 IntersectionObserver::IntersectionObserver(Document& document, Ref<IntersectionObserverCallback>&& callback, ContainerNode* root, LengthBox&& parsedRootMargin, Vector<double>&& thresholds)
-    : m_root(root)
+    : m_associatedDocument(&document)
+    , m_root(root)
     , m_rootMargin(WTFMove(parsedRootMargin))
     , m_thresholds(WTFMove(thresholds))
     , m_callback(WTFMove(callback))
@@ -155,7 +156,7 @@ String IntersectionObserver::rootMargin() const
 
 bool IntersectionObserver::isObserving(const Element& element) const
 {
-    return m_observationTargets.findMatching([&](auto& target) {
+    return m_observationTargets.findIf([&](auto& target) {
         return target.get() == &element;
     }) != notFound;
 }
@@ -251,17 +252,10 @@ void IntersectionObserver::rootDestroyed()
 
 std::optional<ReducedResolutionSeconds> IntersectionObserver::nowTimestamp() const
 {
-    if (!m_callback)
-        return std::nullopt;
-
-    auto* context = m_callback->scriptExecutionContext();
-    if (!context)
-        return std::nullopt;
-
-    ASSERT(context->isDocument());
-    auto& document = downcast<Document>(*context);
-    if (auto* window = document.domWindow())
-        return window->frozenNowTimestamp();
+    if (auto* document = m_associatedDocument.get()) {
+        if (auto* window = document->domWindow())
+            return window->frozenNowTimestamp();
+    }
     
     return std::nullopt;
 }

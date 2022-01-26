@@ -136,12 +136,14 @@ private:
 
     void flushRenderers();
 
-    void processNewVideoSample(MediaSample&, bool hasChangedOrientation, VideoSampleMetadata, Seconds);
+    void processNewVideoSample(MediaSample&, VideoSampleMetadata, Seconds);
     void enqueueVideoSample(MediaSample&);
+    void reenqueueCurrentVideoSampleIfNeeded();
     void requestNotificationWhenReadyForVideoData();
 
     void paint(GraphicsContext&, const FloatRect&) override;
     void paintCurrentFrameInContext(GraphicsContext&, const FloatRect&) override;
+    std::optional<MediaSampleVideoFrame> videoFrameForCurrentTime() override;
     DestinationColorSpace colorSpace() override;
     bool metaDataAvailable() const { return m_mediaStreamPrivate && m_readyState >= MediaPlayer::ReadyState::HaveMetadata; }
 
@@ -167,6 +169,7 @@ private:
 
     void updateTracks();
     void updateRenderingMode();
+    void scheduleRenderingModeChanged();
     void checkSelectedVideoTrack();
     void updateDisplayLayer();
 
@@ -248,7 +251,6 @@ private:
     float m_volume { 1 };
     DisplayMode m_displayMode { None };
     PlaybackState m_playbackState { PlaybackState::None };
-    std::optional<CGAffineTransform> m_videoTransform;
 
     // Used on both main thread and sample thread.
     std::unique_ptr<SampleBufferDisplayLayer> m_sampleBufferDisplayLayer;

@@ -28,7 +28,7 @@
 #include "config.h"
 #include "AccessibilityUIElement.h"
 
-#if HAVE(ACCESSIBILITY) && USE(ATK)
+#if ENABLE(ACCESSIBILITY) && USE(ATK)
 
 #include "InjectedBundle.h"
 #include "InjectedBundlePage.h"
@@ -1115,6 +1115,11 @@ double AccessibilityUIElement::numberAttributeValue(JSStringRef attribute)
     }
 
     return 0;
+}
+
+JSRetainPtr<JSStringRef> AccessibilityUIElement::currentStateValue() const
+{
+    return nullptr;
 }
 
 JSValueRef AccessibilityUIElement::uiElementArrayAttributeValue(JSStringRef attribute) const
@@ -2316,4 +2321,4 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::popupValue() const
 
 } // namespace WTR
 
-#endif // HAVE(ACCESSIBILITY) && USE(ATK)
+#endif // ENABLE(ACCESSIBILITY) && USE(ATK)

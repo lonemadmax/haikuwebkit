@@ -49,6 +49,8 @@ static constexpr auto s_yuvVertexShaderTexture2D {
     "uniform vec2 u_yTextureSize;"
     "uniform vec2 u_uvTextureSize;"
     "uniform int u_flipY;"
+    "uniform int u_flipX;"
+    "uniform int u_swapXY;"
     "varying vec2 v_yTextureCoordinate;"
     "varying vec2 v_uvTextureCoordinate;"
     "void main()"
@@ -57,6 +59,10 @@ static constexpr auto s_yuvVertexShaderTexture2D {
     "    vec2 normalizedPosition = a_position * .5 + .5;"
     "    if (u_flipY == 1)"
     "        normalizedPosition.y = 1.0 - normalizedPosition.y;"
+    "    if (u_flipX == 1)"
+    "        normalizedPosition.x = 1.0 - normalizedPosition.x;"
+    "    if (u_swapXY == 1)"
+    "        normalizedPosition.xy = normalizedPosition.yx;"
     "    v_yTextureCoordinate = normalizedPosition;"
     "    v_uvTextureCoordinate = normalizedPosition;"
     "}"_s
@@ -67,6 +73,8 @@ static constexpr auto s_yuvVertexShaderTextureRectangle {
     "uniform vec2 u_yTextureSize;"
     "uniform vec2 u_uvTextureSize;"
     "uniform int u_flipY;"
+    "uniform int u_flipX;"
+    "uniform int u_swapXY;"
     "varying vec2 v_yTextureCoordinate;"
     "varying vec2 v_uvTextureCoordinate;"
     "void main()"
@@ -75,6 +83,10 @@ static constexpr auto s_yuvVertexShaderTextureRectangle {
     "    vec2 normalizedPosition = a_position * .5 + .5;"
     "    if (u_flipY == 1)"
     "        normalizedPosition.y = 1.0 - normalizedPosition.y;"
+    "    if (u_flipX == 1)"
+    "        normalizedPosition.x = 1.0 - normalizedPosition.x;"
+    "    if (u_swapXY == 1)"
+    "        normalizedPosition.xy = normalizedPosition.yx;"
     "    v_yTextureCoordinate = normalizedPosition * u_yTextureSize;"
     "    v_uvTextureCoordinate = normalizedPosition * u_uvTextureSize;"
     "}"_s
@@ -432,6 +444,18 @@ static const GLfloat* YCbCrToRGBMatrixForRangeAndTransferFunction(PixelRange ran
     return iterator->second;
 }
 
+inline bool GraphicsContextGLCVCocoa::TextureContent::operator==(const TextureContent& other) const
+{
+    return surface == other.surface
+        && surfaceSeed == other.surfaceSeed
+        && level == other.level
+        && internalFormat == other.internalFormat
+        && format == other.format
+        && type == other.type
+        && unpackFlipY == other.unpackFlipY
+        && ImageOrientation::Orientation(orientation) == ImageOrientation::Orientation(other.orientation);
+}
+
 std::unique_ptr<GraphicsContextGLCVCocoa> GraphicsContextGLCVCocoa::create(GraphicsContextGLCocoa& context)
 {
     std::unique_ptr<GraphicsContextGLCVCocoa> cv { new GraphicsContextGLCVCocoa(context) };
@@ -548,6 +572,8 @@ GraphicsContextGLCVCocoa::GraphicsContextGLCVCocoa(GraphicsContextGLCocoa& owner
     m_uvTextureUniformLocation = GL_GetUniformLocation(yuvProgram, "u_uvTexture");
     m_colorMatrixUniformLocation = GL_GetUniformLocation(yuvProgram, "u_colorMatrix");
     m_yuvFlipYUniformLocation = GL_GetUniformLocation(yuvProgram, "u_flipY");
+    m_yuvFlipXUniformLocation = GL_GetUniformLocation(yuvProgram, "u_flipX");
+    m_yuvSwapXYUniformLocation = GL_GetUniformLocation(yuvProgram, "u_swapXY");
     m_yTextureSizeUniformLocation = GL_GetUniformLocation(yuvProgram, "u_yTextureSize");
     m_uvTextureSizeUniformLocation = GL_GetUniformLocation(yuvProgram, "u_uvTextureSize");
     m_yuvPositionAttributeLocation = GL_GetAttribLocation(yuvProgram, "a_position");
@@ -559,8 +585,9 @@ GraphicsContextGLCVCocoa::GraphicsContextGLCVCocoa(GraphicsContextGLCocoa& owner
     GL_BindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
 }
 
-bool GraphicsContextGLCVCocoa::copyPixelBufferToTexture(CVPixelBufferRef image, PlatformGLObject outputTexture, GLint level, GLenum internalFormat, GLenum format, GLenum type, FlipY flipY)
+bool GraphicsContextGLCVCocoa::copyVideoSampleToTexture(const MediaSampleVideoFrame& videoFrame, PlatformGLObject outputTexture, GLint level, GLenum internalFormat, GLenum format, GLenum type, FlipY unpackFlipY)
 {
+    auto image = videoFrame.pixelBuffer();
     // FIXME: This currently only supports '420v' and '420f' pixel formats. Investigate supporting more pixel formats.
     OSType pixelFormat = CVPixelBufferGetPixelFormatType(image);
     if (pixelFormat != kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange // NOLINT
@@ -570,18 +597,17 @@ bool GraphicsContextGLCVCocoa::copyPixelBufferToTexture(CVPixelBufferRef image, 
         && pixelFormat != kCVPixelFormatType_AGX_420YpCbCr8BiPlanarFullRange
 #endif
         ) {
-        LOG(WebGL, "GraphicsContextGLCVCocoa::copyVideoTextureToPlatformTexture(%p) - Asked to copy an unsupported pixel format ('%s').", this, FourCC(pixelFormat).toString().utf8().data());
+        LOG(WebGL, "GraphicsContextGLCVCocoa::copyVideoTextureToPlatformTexture(%p) - Asked to copy an unsupported pixel format ('%s').", this, FourCC(pixelFormat).string().data());
         return false;
     }
     IOSurfaceRef surface = CVPixelBufferGetIOSurface(image);
     if (!surface)
         return false;
 
-    auto newSurfaceSeed = IOSurfaceGetSeed(surface);
-    if (flipY == m_lastFlipY
-        && surface == m_lastSurface
-        && newSurfaceSeed == m_lastSurfaceSeed
-        && lastTextureSeed(outputTexture) == m_owner.textureSeed(outputTexture)) {
+    auto orientation = videoFrame.orientation();
+    TextureContent content { reinterpret_cast<intptr_t>(surface), IOSurfaceGetSeed(surface), level, internalFormat, format, type, unpackFlipY, orientation };
+    auto it = m_knownContent.find(outputTexture);
+    if (it != m_knownContent.end() && it->value == content) {
         // If the texture hasn't been modified since the last time we copied to it, and the
         // image hasn't been modified since the last time it was copied, this is a no-op.
         return true;
@@ -589,8 +615,60 @@ bool GraphicsContextGLCVCocoa::copyPixelBufferToTexture(CVPixelBufferRef image, 
     if (!m_context || !GraphicsContextGLCocoa::makeCurrent(m_display, m_context))
         return false;
 
-    size_t width = CVPixelBufferGetWidth(image);
-    size_t height = CVPixelBufferGetHeight(image);
+    // Compute transform that undoes the `orientation`, e.g. moves the origin to top left.
+    // Even number of operations (flipX, flipY, swapXY) means a rotation.
+    // Odd number of operations means a rotation and a flip.
+    // `flipX` switches between Left and Right. `flipY` switches between Top and Bottom.
+    // `swapXY`switches LeftTop to TopLeft.
+    // Goal is to get to OriginTopLeft.
+    bool flipY = false; // Flip y coordinate, i.e. mirrored along the x-axis.
+    bool flipX = false; // Flip x coordinate, i.e. mirrored along the y-axis.
+    bool swapXY = false;
+    switch (videoFrame.orientation()) {
+    case ImageOrientation::FromImage:
+    case ImageOrientation::OriginTopLeft:
+        break;
+    case ImageOrientation::OriginTopRight:
+        flipX = true;
+        break;
+    case ImageOrientation::OriginBottomRight:
+        // Rotated 180 degrees.
+        flipY = true;
+        flipX = true;
+        break;
+    case ImageOrientation::OriginBottomLeft:
+        // Mirrored along the x-axis.
+        flipY = true;
+        break;
+    case ImageOrientation::OriginLeftTop:
+        // Mirrored along x-axis and rotated 270 degrees clock-wise.
+        swapXY = true;
+        break;
+    case ImageOrientation::OriginRightTop:
+        // Rotated 90 degrees clock-wise.
+        flipX = true;
+        swapXY = true;
+        break;
+    case ImageOrientation::OriginRightBottom:
+        // Mirror along x-axis and rotated 90 degrees clockwise.
+        flipY = true;
+        flipX = true;
+        swapXY = true;
+        break;
+    case ImageOrientation::OriginLeftBottom:
+        // Rotated 270 degrees clock-wise.
+        flipY = true;
+        swapXY = true;
+        break;
+    }
+    if (unpackFlipY == FlipY::Yes)
+        flipY = !flipY;
+
+    size_t sourceWidth = CVPixelBufferGetWidth(image);
+    size_t sourceHeight = CVPixelBufferGetHeight(image);
+
+    size_t width = swapXY ? sourceHeight : sourceWidth;
+    size_t height = swapXY ? sourceWidth : sourceHeight;
 
     GL_Viewport(0, 0, width, height);
 
@@ -664,7 +742,9 @@ bool GraphicsContextGLCVCocoa::copyPixelBufferToTexture(CVPixelBufferRef image, 
     // Configure the drawing parameters.
     GL_Uniform1i(m_yTextureUniformLocation, 0);
     GL_Uniform1i(m_uvTextureUniformLocation, 1);
-    GL_Uniform1i(m_yuvFlipYUniformLocation, flipY == FlipY::Yes ? 1 : 0);
+    GL_Uniform1i(m_yuvFlipYUniformLocation, flipY ? 1 : 0);
+    GL_Uniform1i(m_yuvFlipXUniformLocation, flipX ? 1 : 0);
+    GL_Uniform1i(m_yuvSwapXYUniformLocation, swapXY ? 1 : 0);
     GL_Uniform2f(m_yTextureSizeUniformLocation, yPlaneWidth, yPlaneHeight);
     GL_Uniform2f(m_uvTextureSizeUniformLocation, uvPlaneWidth, uvPlaneHeight);
 
@@ -676,12 +756,14 @@ bool GraphicsContextGLCVCocoa::copyPixelBufferToTexture(CVPixelBufferRef image, 
     // Do the actual drawing.
     GL_DrawArrays(GL_TRIANGLES, 0, 6);
 
-    m_lastSurface = surface;
-    m_lastSurfaceSeed = newSurfaceSeed;
-    m_lastTextureSeed.set(outputTexture, m_owner.textureSeed(outputTexture));
-    m_lastFlipY = flipY;
+    m_knownContent.set(outputTexture, content);
     autoClearTextureOnError.release();
     return true;
+}
+
+void GraphicsContextGLCVCocoa::invalidateKnownTextureContent(GCGLuint texture)
+{
+    m_knownContent.remove(texture);
 }
 
 }

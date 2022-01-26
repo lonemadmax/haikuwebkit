@@ -238,9 +238,9 @@ mtl::AutoObjCPtr<id<MTLDevice>> DisplayMtl::getMetalDeviceMatchingAttribute(
 #if defined(ANGLE_PLATFORM_MACOS) || defined(ANGLE_PLATFORM_MACCATALYST)
     auto deviceList = mtl::adoptObjCObj(MTLCopyAllDevices());
 
-    NSMutableArray<id<MTLDevice>> *externalGPUs   = [[NSMutableArray alloc] init];
-    NSMutableArray<id<MTLDevice>> *integratedGPUs = [[NSMutableArray alloc] init];
-    NSMutableArray<id<MTLDevice>> *discreteGPUs   = [[NSMutableArray alloc] init];
+    auto externalGPUs = mtl::adoptObjCObj<NSMutableArray<id<MTLDevice>>>([[NSMutableArray alloc] init]);
+    auto integratedGPUs = mtl::adoptObjCObj<NSMutableArray<id<MTLDevice>>>([[NSMutableArray alloc] init]);
+    auto discreteGPUs = mtl::adoptObjCObj<NSMutableArray<id<MTLDevice>>>([[NSMutableArray alloc] init]);
     for (id<MTLDevice> device in deviceList.get())
     {
         if (device.removable)
@@ -262,7 +262,7 @@ mtl::AutoObjCPtr<id<MTLDevice>> DisplayMtl::getMetalDeviceMatchingAttribute(
     if (attribs.get(EGL_POWER_PREFERENCE_ANGLE, 0) == EGL_HIGH_POWER_ANGLE)
     {
         // Search for a discrete GPU first.
-        for (id<MTLDevice> device in discreteGPUs)
+        for (id<MTLDevice> device in discreteGPUs.get())
         {
             if (![device isHeadless])
                 return device;
@@ -271,7 +271,7 @@ mtl::AutoObjCPtr<id<MTLDevice>> DisplayMtl::getMetalDeviceMatchingAttribute(
     else if (attribs.get(EGL_POWER_PREFERENCE_ANGLE, 0) == EGL_LOW_POWER_ANGLE)
     {
         // If we've selected a low power device, look through integrated devices.
-        for (id<MTLDevice> device in integratedGPUs)
+        for (id<MTLDevice> device in integratedGPUs.get())
         {
             if (![device isHeadless])
                 return device;
@@ -295,7 +295,7 @@ mtl::AutoObjCPtr<id<MTLDevice>> DisplayMtl::getMetalDeviceMatchingAttribute(
     }
 
     // Default to use a low power device, look through integrated devices.
-    for (id<MTLDevice> device in integratedGPUs)
+    for (id<MTLDevice> device in integratedGPUs.get())
     {
         if (![device isHeadless])
             return device;
@@ -1194,8 +1194,7 @@ bool DisplayMtl::supportsEitherGPUFamily(uint8_t iOSFamily, uint8_t macFamily) c
 bool DisplayMtl::supports32BitFloatFiltering() const
 {
 #if (defined(__MAC_11_0) && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_11_0) ||        \
-    (defined(__IPHONE_14_0) && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_14_0) || \
-    (defined(__TVOS_14_0) && __TV_OS_VERSION_MIN_REQUIRED >= __TVOS_14_0)
+    (defined(__IPHONE_14_0) && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_14_0)
     if (@available(ios 14.0, macOS 11.0, *))
     {
         return [mMetalDevice supports32BitFloatFiltering];

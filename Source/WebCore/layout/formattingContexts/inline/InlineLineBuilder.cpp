@@ -41,6 +41,19 @@
 namespace WebCore {
 namespace Layout {
 
+static inline StringBuilder toString(const Line::RunList& runs)
+{
+    // FIXME: We could try to reuse the content builder in InlineItemsBuilder if this turns out to be a perf bottleneck.
+    StringBuilder lineContentBuilder;
+    for (auto& run : runs) {
+        if (!run.isText())
+            continue;
+        auto& textContent = run.textContent();
+        lineContentBuilder.append(downcast<InlineTextBox>(run.layoutBox()).content().substring(textContent->start, textContent->length));
+    }
+    return lineContentBuilder;
+}
+
 static inline bool endsWithSoftWrapOpportunity(const InlineTextItem& currentTextItem, const InlineTextItem& nextInlineTextItem)
 {
     ASSERT(!nextInlineTextItem.isWhitespace());
@@ -305,9 +318,9 @@ struct UsedConstraints {
     InlineLayoutUnit marginStart { 0 };
     bool isConstrainedByFloat { false };
 };
-LineBuilder::LineContent LineBuilder::layoutInlineContent(const InlineItemRange& needsLayoutRange, size_t partialLeadingContentLength, std::optional<InlineLayoutUnit> overflowingLogicalWidth, const InlineRect& initialLineLogicalRect, bool isFirstLine)
+LineBuilder::LineContent LineBuilder::layoutInlineContent(const InlineItemRange& needsLayoutRange, const InlineRect& lineLogicalRect, const std::optional<PreviousLine>& previousLine)
 {
-    initialize(initialConstraintsForLine(initialLineLogicalRect, isFirstLine), isFirstLine, needsLayoutRange.start, partialLeadingContentLength, overflowingLogicalWidth);
+    initialize(initialConstraintsForLine(lineLogicalRect, !previousLine), needsLayoutRange.start, previousLine);
 
     auto committedContent = placeInlineContent(needsLayoutRange);
     auto committedRange = close(needsLayoutRange, committedContent);
@@ -343,6 +356,17 @@ LineBuilder::LineContent LineBuilder::layoutInlineContent(const InlineItemRange&
         return visualOrderList;
     };
 
+    auto inlineBaseDirectionForLineContent = [&] {
+        auto& rootStyle = !previousLine ? root().firstLineStyle() : root().style();
+        auto shouldUseBlockDirection = rootStyle.unicodeBidi() != UnicodeBidi::Plaintext;
+        if (shouldUseBlockDirection)
+            return rootStyle.direction();
+        // A previous line ending with a line break (<br> or preserved \n) introduces a new unicode paragraph with its own direction.
+        if (previousLine && !previousLine->endsWithLineBreak)
+            return previousLine->inlineBaseDirection;
+        return TextUtil::directionForTextContent(toString(lineRuns));
+    };
+
     auto isLastLine = isLastLineWithInlineContent(committedRange, needsLayoutRange.end, committedContent.partialTrailingContentLength);
     return LineContent { committedRange
         , committedContent.partialTrailingContentLength
@@ -353,19 +377,21 @@ LineBuilder::LineContent LineBuilder::layoutInlineContent(const InlineItemRange&
         , m_lineLogicalRect.topLeft()
         , m_lineLogicalRect.width()
         , m_line.contentLogicalWidth()
+        , m_line.contentLogicalRight()
         , m_line.hangingTrailingContentWidth()
         , isLastLine
         , m_line.nonSpanningInlineLevelBoxCount()
         , computedVisualOrder()
+        , inlineBaseDirectionForLineContent()
         , lineRuns };
 }
 
-LineBuilder::IntrinsicContent LineBuilder::computedIntrinsicWidth(const InlineItemRange& needsLayoutRange, bool isFirstLine)
+LineBuilder::IntrinsicContent LineBuilder::computedIntrinsicWidth(const InlineItemRange& needsLayoutRange, const std::optional<PreviousLine>& previousLine)
 {
     ASSERT(isInIntrinsicWidthMode());
     auto lineLogicalWidth = *intrinsicWidthMode() == IntrinsicWidthMode::Maximum ? maxInlineLayoutUnit() : 0.f;
-    auto lineConstraints = initialConstraintsForLine({ 0, 0, lineLogicalWidth, 0 }, isFirstLine);
-    initialize(lineConstraints, isFirstLine, needsLayoutRange.start, { }, { });
+    auto lineConstraints = initialConstraintsForLine({ 0, 0, lineLogicalWidth, 0 }, !previousLine);
+    initialize(lineConstraints, needsLayoutRange.start, previousLine);
 
     auto committedContent = placeInlineContent(needsLayoutRange);
     auto committedRange = close(needsLayoutRange, committedContent);
@@ -373,12 +399,14 @@ LineBuilder::IntrinsicContent LineBuilder::computedIntrinsicWidth(const InlineIt
     return { committedRange, lineWidth, m_floats };
 }
 
-void LineBuilder::initialize(const UsedConstraints& lineConstraints, bool isFirstLine, size_t leadingInlineItemIndex, size_t partialLeadingContentLength, std::optional<InlineLayoutUnit> overflowingLogicalWidth)
+void LineBuilder::initialize(const UsedConstraints& lineConstraints, size_t leadingInlineItemIndex, const std::optional<PreviousLine>& previousLine)
 {
-    m_isFirstLine = isFirstLine;
+    m_isFirstLine = !previousLine;
     m_floats.clear();
     m_lineSpanningInlineBoxes.clear();
     m_wrapOpportunityList.clear();
+    m_overflowingLogicalWidth = { };
+    m_partialLeadingTextItem = { };
 
     auto createLineSpanningInlineBoxes = [&] {
         auto isRootLayoutBox = [&](auto& containerBox) {
@@ -421,13 +449,13 @@ void LineBuilder::initialize(const UsedConstraints& lineConstraints, bool isFirs
     m_lineLogicalRect.expandHorizontally(-m_lineMarginStart);
     m_contentIsConstrainedByFloat = lineConstraints.isConstrainedByFloat;
 
-    if (partialLeadingContentLength) {
-        ASSERT(!isFirstLine);
-        m_partialLeadingTextItem = downcast<InlineTextItem>(m_inlineItems[leadingInlineItemIndex]).right(partialLeadingContentLength, overflowingLogicalWidth);
-        m_overflowingLogicalWidth = { };
-    } else {
-        m_partialLeadingTextItem = { };
-        m_overflowingLogicalWidth = overflowingLogicalWidth;
+    if (previousLine && previousLine->overflowContent) {
+        if (previousLine->overflowContent->partialContentLength) {
+            // Turn previous line's overflow content length into the next line's leading content partial length.
+            // "sp[<-line break->]lit_content" -> overflow length: 11 -> leading partial content length: 11.
+            m_partialLeadingTextItem = downcast<InlineTextItem>(m_inlineItems[leadingInlineItemIndex]).right(previousLine->overflowContent->partialContentLength, previousLine->overflowContent->width);
+        } else
+            m_overflowingLogicalWidth = previousLine->overflowContent->width;
     }
 }
 
@@ -542,7 +570,19 @@ std::optional<HorizontalConstraints> LineBuilder::floatConstraints(const InlineR
 
     // Check for intruding floats and adjust logical left/available width for this line accordingly.
     auto floatingContext = FloatingContext { formattingContext(), *floatingState };
-    auto constraints = floatingContext.constraints(toLayoutUnit(lineLogicalRect.top()), toLayoutUnit(lineLogicalRect.bottom()));
+    auto toLogicalFloatPosition = [&] (const auto& constraints) -> FloatingContext::Constraints {
+        if (root().style().isLeftToRightDirection())
+            return constraints;
+        auto logicalConstraints = FloatingContext::Constraints { };
+        auto borderBoxWidth = layoutState().geometryForBox(root()).borderBoxWidth();
+        if (constraints.left)
+            logicalConstraints.right = PointInContextRoot { borderBoxWidth - constraints.left->x, constraints.left->y };
+        if (constraints.right)
+            logicalConstraints.left = PointInContextRoot { borderBoxWidth - constraints.right->x, constraints.right->y };
+        return logicalConstraints;
+    };
+    auto constraints = toLogicalFloatPosition(floatingContext.constraints(toLayoutUnit(lineLogicalRect.top()), toLayoutUnit(lineLogicalRect.bottom())));
+
     // Check if these values actually constrain the line.
     if (constraints.left && constraints.left->x <= lineLogicalRect.left())
         constraints.left = { };

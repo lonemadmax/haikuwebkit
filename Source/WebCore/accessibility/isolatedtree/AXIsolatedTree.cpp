@@ -33,6 +33,7 @@
 #include "FrameView.h"
 #include "Page.h"
 #include <wtf/NeverDestroyed.h>
+#include <wtf/SetForScope.h>
 
 namespace WebCore {
 
@@ -96,6 +97,10 @@ Ref<AXIsolatedTree> AXIsolatedTree::create(AXObjectCache* axObjectCache)
     ASSERT(axObjectCache && axObjectCache->pageID());
 
     auto tree = adoptRef(*new AXIsolatedTree(axObjectCache));
+
+    auto& document = axObjectCache->document();
+    if (!document.view()->layoutContext().isInRenderTreeLayout() && !document.inRenderTreeUpdate() && !document.inStyleRecalc())
+        document.updateLayoutIgnorePendingStylesheets();
 
     // Generate the nodes of the tree and set its root and focused objects.
     // For this, we need the root and focused objects of the AXObject tree.
@@ -197,27 +202,49 @@ void AXIsolatedTree::generateSubtree(AXCoreObject& axObject, AXCoreObject* axPar
         updateChildrenIDs(axParent->objectID(), axParent->childrenIDs());
 }
 
-Ref<AXIsolatedObject> AXIsolatedTree::createSubtree(AXCoreObject& axObject, AXID parentID, bool attachWrapper)
+AXIsolatedTree::NodeChange AXIsolatedTree::nodeChangeForObject(AXCoreObject& axObject, AXID parentID, bool attachWrapper)
 {
-    AXTRACE("AXIsolatedTree::createSubtree");
     ASSERT(isMainThread());
 
     auto object = AXIsolatedObject::create(axObject, this, parentID);
+    NodeChange nodeChange { object, nullptr };
+
     if (!object->objectID().isValid()) {
         // Either the axObject has an invalid ID or something else went terribly wrong. Don't bother doing anything else.
         ASSERT_NOT_REACHED();
-        return object;
+        return nodeChange;
     }
 
     ASSERT(axObject.wrapper());
-
-    NodeChange nodeChange { object, nullptr };
     if (attachWrapper)
         object->attachPlatformWrapper(axObject.wrapper());
     else {
         // Set the wrapper in the NodeChange so that it is set on the AX thread.
         nodeChange.wrapper = axObject.wrapper();
     }
+
+    return nodeChange;
+}
+
+void AXIsolatedTree::queueChanges(const NodeChange& nodeChange, Vector<AXID>&& childrenIDs)
+{
+    ASSERT(isMainThread());
+
+    Locker locker { m_changeLogLock };
+    m_pendingAppends.append(nodeChange);
+    updateChildrenIDs(nodeChange.isolatedObject->objectID(), WTFMove(childrenIDs));
+}
+
+Ref<AXIsolatedObject> AXIsolatedTree::createSubtree(AXCoreObject& axObject, AXID parentID, bool attachWrapper)
+{
+    AXTRACE("AXIsolatedTree::createSubtree");
+    ASSERT(isMainThread());
+
+    if (!m_creatingSubtree)
+        axObjectCache()->processDeferredChildrenChangedList();
+    SetForScope<bool> creatingSubtree(m_creatingSubtree, true);
+
+    auto nodeChange = nodeChangeForObject(axObject, parentID, attachWrapper);
 
     auto axChildren = axObject.children();
     Vector<AXID> childrenIDs;
@@ -227,13 +254,9 @@ Ref<AXIsolatedObject> AXIsolatedTree::createSubtree(AXCoreObject& axObject, AXID
         childrenIDs.uncheckedAppend(child->objectID());
     }
 
-    {
-        Locker locker { m_changeLogLock };
-        m_pendingAppends.append(WTFMove(nodeChange));
-        updateChildrenIDs(object->objectID(), WTFMove(childrenIDs));
-    }
+    queueChanges(nodeChange, WTFMove(childrenIDs));
 
-    return object;
+    return nodeChange.isolatedObject;
 }
 
 void AXIsolatedTree::updateNode(AXCoreObject& axObject)
@@ -262,8 +285,14 @@ void AXIsolatedTree::updateNodeProperty(const AXCoreObject& axObject, AXProperty
 
     AXPropertyMap propertyMap;
     switch (property) {
+    case AXPropertyName::CanSetFocusAttribute:
+        propertyMap.set(AXPropertyName::CanSetFocusAttribute, axObject.canSetFocusAttribute());
+        break;
     case AXPropertyName::IsChecked:
         propertyMap.set(AXPropertyName::IsChecked, axObject.isChecked());
+        break;
+    case AXPropertyName::IsEnabled:
+        propertyMap.set(AXPropertyName::IsEnabled, axObject.isEnabled());
         break;
     case AXPropertyName::SortDirection:
         propertyMap.set(AXPropertyName::SortDirection, static_cast<int>(axObject.sortDirection()));
@@ -310,12 +339,19 @@ void AXIsolatedTree::updateChildren(AXCoreObject& axObject)
     // is added a new child. So find the closest ancestor of axObject that has
     // an associated isolated object and update its children.
     auto iterator = m_nodeMap.end();
-    auto* axAncestor = Accessibility::findAncestor(axObject, true, [&iterator, this] (const AXCoreObject& ancestor) {
+    auto* axAncestor = Accessibility::findAncestor(axObject, true, [&iterator, this] (auto& ancestor) {
         auto it = m_nodeMap.find(ancestor.objectID());
         if (it != m_nodeMap.end()) {
             iterator = it;
             return true;
         }
+
+        // ancestor has no node in the isolated tree, thus add it.
+        auto* axParent = ancestor.parentObject();
+        AXID axParentID = axParent ? axParent->objectID() : AXID();
+        auto nodeChange = nodeChangeForObject(ancestor, axParentID, true);
+        queueChanges(nodeChange, ancestor.childrenIDs());
+
         return false;
     });
     if (!axAncestor || !axAncestor->objectID().isValid() || iterator == m_nodeMap.end()) {
@@ -329,15 +365,16 @@ void AXIsolatedTree::updateChildren(AXCoreObject& axObject)
     auto removals = iterator->value;
 
     const auto& axChildren = axAncestor->children();
-    auto axChildrenIDs = axAncestor->childrenIDs();
+    auto axChildrenIDs = axAncestor->childrenIDs(false);
 
     bool updatedChild = false; // Set to true if at least one child's subtree is updated.
     for (size_t i = 0; i < axChildren.size() && i < axChildrenIDs.size(); ++i) {
+        ASSERT(axChildren[i]->objectID() == axChildrenIDs[i]);
+        ASSERT(axChildrenIDs[i].isValid());
         size_t index = removals.find(axChildrenIDs[i]);
         if (index != notFound)
             removals.remove(index);
         else {
-            ASSERT(axChildren[i]->objectID() == axChildrenIDs[i]);
             // This is a new child, add it to the tree.
             AXLOG("Adding a new child for:");
             AXLOG(axChildren[i]);
@@ -355,9 +392,6 @@ void AXIsolatedTree::updateChildren(AXCoreObject& axObject)
         // Make the children IDs of the isolated object to be the same as the AXObject's.
         Locker locker { m_changeLogLock };
         updateChildrenIDs(axAncestor->objectID(), WTFMove(axChildrenIDs));
-    } else {
-        // Nothing was updated. As a last resort, update the subtree.
-        updateSubtree(*axAncestor);
     }
 }
 

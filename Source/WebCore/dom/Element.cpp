@@ -1019,6 +1019,7 @@ void Element::scrollIntoView(std::optional<std::variant<bool, ScrollIntoViewOpti
     auto writingMode = renderer()->style().writingMode();
     ScrollAlignment alignX = toScrollAlignmentForInlineDirection(options.inlinePosition, writingMode, renderer()->style().isLeftToRightDirection());
     ScrollAlignment alignY = toScrollAlignmentForBlockDirection(options.blockPosition, writingMode);
+    alignX.disableLegacyHorizontalVisibilityThreshold();
 
     bool isHorizontal = renderer()->style().isHorizontalWritingMode();
     ScrollRectToVisibleOptions visibleOptions {
@@ -1040,11 +1041,13 @@ void Element::scrollIntoView(bool alignToTop)
 
     bool insideFixed;
     LayoutRect absoluteBounds = renderer()->absoluteAnchorRectWithScrollMargin(&insideFixed);
+
     // Align to the top / bottom and to the closest edge.
-    if (alignToTop)
-        renderer()->scrollRectToVisible(absoluteBounds, insideFixed, { SelectionRevealMode::Reveal, ScrollAlignment::alignToEdgeIfNeeded, ScrollAlignment::alignTopAlways, ShouldAllowCrossOriginScrolling::No });
-    else
-        renderer()->scrollRectToVisible(absoluteBounds, insideFixed, { SelectionRevealMode::Reveal, ScrollAlignment::alignToEdgeIfNeeded, ScrollAlignment::alignBottomAlways, ShouldAllowCrossOriginScrolling::No });
+    auto alignY = alignToTop ? ScrollAlignment::alignTopAlways : ScrollAlignment::alignBottomAlways;
+    auto alignX = ScrollAlignment::alignToEdgeIfNeeded;
+    alignX.disableLegacyHorizontalVisibilityThreshold();
+
+    renderer()->scrollRectToVisible(absoluteBounds, insideFixed, { SelectionRevealMode::Reveal, alignX, alignY, ShouldAllowCrossOriginScrolling::No });
 }
 
 void Element::scrollIntoViewIfNeeded(bool centerIfNeeded)
@@ -1056,10 +1059,12 @@ void Element::scrollIntoViewIfNeeded(bool centerIfNeeded)
 
     bool insideFixed;
     LayoutRect absoluteBounds = renderer()->absoluteAnchorRectWithScrollMargin(&insideFixed);
-    if (centerIfNeeded)
-        renderer()->scrollRectToVisible(absoluteBounds, insideFixed, { SelectionRevealMode::Reveal, ScrollAlignment::alignCenterIfNeeded, ScrollAlignment::alignCenterIfNeeded, ShouldAllowCrossOriginScrolling::No });
-    else
-        renderer()->scrollRectToVisible(absoluteBounds, insideFixed, { SelectionRevealMode::Reveal, ScrollAlignment::alignToEdgeIfNeeded, ScrollAlignment::alignToEdgeIfNeeded, ShouldAllowCrossOriginScrolling::No });
+
+    auto alignY = centerIfNeeded ? ScrollAlignment::alignCenterIfNeeded : ScrollAlignment::alignToEdgeIfNeeded;
+    auto alignX = centerIfNeeded ? ScrollAlignment::alignCenterIfNeeded : ScrollAlignment::alignToEdgeIfNeeded;
+    alignX.disableLegacyHorizontalVisibilityThreshold();
+
+    renderer()->scrollRectToVisible(absoluteBounds, insideFixed, { SelectionRevealMode::Reveal, alignX, alignY, ShouldAllowCrossOriginScrolling::No });
 }
 
 void Element::scrollIntoViewIfNotVisible(bool centerIfNotVisible)
@@ -2296,7 +2301,7 @@ Node::InsertedIntoAncestorResult Element::insertedIntoAncestor(InsertionType ins
 
     bool becomeConnected = insertionType.connectedToDocument;
     TreeScope* newScope = &parentOfInsertedTree.treeScope();
-    HTMLDocument* newDocument = becomeConnected && is<HTMLDocument>(newScope->documentScope()) ? &downcast<HTMLDocument>(newScope->documentScope()) : nullptr;
+    auto* newDocument = becomeConnected ? dynamicDowncast<HTMLDocument>(newScope->documentScope()) : nullptr;
     if (!insertionType.treeScopeChanged)
         newScope = nullptr;
 
@@ -2358,7 +2363,7 @@ void Element::removedFromAncestor(RemovalType removalType, ContainerNode& oldPar
     if (oldParentOfRemovedTree.isInTreeScope()) {
         TreeScope* oldScope = &oldParentOfRemovedTree.treeScope();
         Document* oldDocument = removalType.disconnectedFromDocument ? &oldScope->documentScope() : nullptr;
-        HTMLDocument* oldHTMLDocument = oldDocument && is<HTMLDocument>(*oldDocument) ? &downcast<HTMLDocument>(*oldDocument) : nullptr;
+        auto* oldHTMLDocument = dynamicDowncast<HTMLDocument>(oldDocument);
         if (!removalType.treeScopeChanged)
             oldScope = nullptr;
 
@@ -3381,12 +3386,24 @@ void Element::willBecomeFullscreenElement()
         child.ancestorWillEnterFullscreen();
 }
 
-static inline RenderLayer* renderLayerForElement(Element& element)
+static void forEachRenderLayer(Element& element, const std::function<void(RenderLayer&)>& function)
 {
     auto* renderer = element.renderer();
-    if (!renderer || !renderer->hasLayer() || !is<RenderLayerModelObject>(renderer))
-        return nullptr;
-    return downcast<RenderLayerModelObject>(*renderer).layer();
+    if (!renderer || !is<RenderLayerModelObject>(renderer))
+        return;
+        
+    auto& layerModelObject = downcast<RenderLayerModelObject>(*renderer);
+
+    if (!is<RenderBoxModelObject>(layerModelObject)) {
+        if (layerModelObject.hasLayer())
+            function(*layerModelObject.layer());
+        return;
+    }
+
+    RenderBoxModelObject::forRendererAndContinuations(downcast<RenderBoxModelObject>(*renderer), [function](RenderBoxModelObject& renderer) {
+        if (renderer.hasLayer())
+            function(*renderer.layer());
+    });
 }
 
 void Element::addToTopLayer()
@@ -3394,8 +3411,9 @@ void Element::addToTopLayer()
     RELEASE_ASSERT(!isInTopLayer());
     ScriptDisallowedScope scriptDisallowedScope;
 
-    if (auto* layer = renderLayerForElement(*this))
-        layer->establishesTopLayerWillChange();
+    forEachRenderLayer(*this, [](RenderLayer& layer) {
+        layer.establishesTopLayerWillChange();
+    });
 
     document().addTopLayerElement(*this);
     setNodeFlag(NodeFlag::IsInTopLayer);
@@ -3405,8 +3423,9 @@ void Element::addToTopLayer()
     if (document().documentElement())
         document().documentElement()->invalidateStyleInternal();
 
-    if (auto* layer = renderLayerForElement(*this))
-        layer->establishesTopLayerDidChange();
+    forEachRenderLayer(*this, [](RenderLayer& layer) {
+        layer.establishesTopLayerDidChange();
+    });
 }
 
 void Element::removeFromTopLayer()
@@ -3414,8 +3433,9 @@ void Element::removeFromTopLayer()
     RELEASE_ASSERT(isInTopLayer());
     ScriptDisallowedScope scriptDisallowedScope;
 
-    if (auto* layer = renderLayerForElement(*this))
-        layer->establishesTopLayerWillChange();
+    forEachRenderLayer(*this, [](RenderLayer& layer) {
+        layer.establishesTopLayerWillChange();
+    });
 
     document().removeTopLayerElement(*this);
     clearNodeFlag(NodeFlag::IsInTopLayer);
@@ -3427,8 +3447,9 @@ void Element::removeFromTopLayer()
     if (auto* modalElement = document().activeModalDialog())
         modalElement->invalidateStyleInternal();
 
-    if (auto* layer = renderLayerForElement(*this))
-        layer->establishesTopLayerDidChange();
+    forEachRenderLayer(*this, [](RenderLayer& layer) {
+        layer.establishesTopLayerDidChange();
+    });
 }
 
 static PseudoElement* beforeOrAfterPseudoElement(const Element& host, PseudoId pseudoElementSpecifier)
@@ -4674,7 +4695,7 @@ ExceptionOr<Ref<WebAnimation>> Element::animate(JSC::JSGlobalObject& lexicalGlob
         keyframeEffectOptions = keyframeEffectOptionsVariant;
     }
 
-    auto keyframeEffectResult = KeyframeEffect::create(lexicalGlobalObject, this, WTFMove(keyframes), WTFMove(keyframeEffectOptions));
+    auto keyframeEffectResult = KeyframeEffect::create(lexicalGlobalObject, document(), this, WTFMove(keyframes), WTFMove(keyframeEffectOptions));
     if (keyframeEffectResult.hasException())
         return keyframeEffectResult.releaseException();
 
@@ -4695,8 +4716,6 @@ Vector<RefPtr<WebAnimation>> Element::getAnimations(std::optional<GetAnimationsO
     // pseudo element.
     if (options && options->subtree) {
         return document().matchingAnimations([&] (Element& target) -> bool {
-            if (is<PseudoElement>(target))
-                return contains(downcast<PseudoElement>(target).hostElement());
             return contains(&target);
         });
     }
