@@ -75,15 +75,11 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& coreObject, bool is
     setProperty(AXPropertyName::ARIALandmarkRoleDescription, object.ariaLandmarkRoleDescription().isolatedCopy());
     setProperty(AXPropertyName::AccessibilityDescription, object.accessibilityDescription().isolatedCopy());
 
-    // For all objects besides the root, the ancestry flags should've been set by now.
-    ASSERT(isRoot || object.ancestorFlagsAreInitialized());
     if (object.ancestorFlagsAreInitialized())
         setProperty(AXPropertyName::AncestorFlags, object.ancestorFlags());
     else
         setProperty(AXPropertyName::AncestorFlags, object.computeAncestorFlagsWithTraversal());
 
-    setProperty(AXPropertyName::BoundingBoxRect, object.boundingBoxRect());
-    setProperty(AXPropertyName::ElementRect, object.elementRect());
     setProperty(AXPropertyName::HasARIAValueNow, object.hasARIAValueNow());
     setProperty(AXPropertyName::IsAccessibilityIgnored, object.accessibilityIsIgnored());
     setProperty(AXPropertyName::IsActiveDescendantOfFocusedContainer, object.isActiveDescendantOfFocusedContainer());
@@ -110,7 +106,6 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& coreObject, bool is
     setProperty(AXPropertyName::IsLink, object.isLink());
     setProperty(AXPropertyName::IsLinked, object.isLinked());
     setProperty(AXPropertyName::IsList, object.isList());
-    setProperty(AXPropertyName::IsLoaded, object.isLoaded());
     setProperty(AXPropertyName::IsMediaTimeline, object.isMediaTimeline());
     setProperty(AXPropertyName::IsMenu, object.isMenu());
     setProperty(AXPropertyName::IsMenuBar, object.isMenuBar());
@@ -171,7 +166,6 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& coreObject, bool is
     setObjectProperty(AXPropertyName::SelectedRadioButton, object.selectedRadioButton());
     setObjectProperty(AXPropertyName::SelectedTabItem, object.selectedTabItem());
     setProperty(AXPropertyName::LayoutCount, object.layoutCount());
-    setProperty(AXPropertyName::EstimatedLoadingProgress, object.estimatedLoadingProgress());
     setProperty(AXPropertyName::SupportsARIAOwns, object.supportsARIAOwns());
     setProperty(AXPropertyName::HasPopup, object.hasPopup());
     setProperty(AXPropertyName::PopupValue, object.popupValue().isolatedCopy());
@@ -535,7 +529,7 @@ void AXIsolatedObject::detachFromParent()
     m_parentID = { };
 }
 
-const AXCoreObject::AccessibilityChildrenVector& AXIsolatedObject::children(bool)
+const AXCoreObject::AccessibilityChildrenVector& AXIsolatedObject::children(bool updateChildrenIfNeeded)
 {
 #if USE(APPLE_INTERNAL_SDK)
     ASSERT(_AXSIsolatedTreeModeFunctionIsAvailable() && ((_AXSIsolatedTreeMode_Soft() == AXSIsolatedTreeModeSecondaryThread && !isMainThread())
@@ -543,12 +537,14 @@ const AXCoreObject::AccessibilityChildrenVector& AXIsolatedObject::children(bool
 #elif USE(ATSPI)
     ASSERT(!isMainThread());
 #endif
-    updateBackingStore();
-    m_children.clear();
-    m_children.reserveInitialCapacity(m_childrenIDs.size());
-    for (const auto& childID : m_childrenIDs) {
-        if (auto child = tree()->nodeForID(childID))
-            m_children.uncheckedAppend(child);
+    if (updateChildrenIfNeeded) {
+        updateBackingStore();
+        m_children.clear();
+        m_children.reserveInitialCapacity(m_childrenIDs.size());
+        for (const auto& childID : m_childrenIDs) {
+            if (auto child = tree()->nodeForID(childID))
+                m_children.uncheckedAppend(child);
+        }
     }
     return m_children;
 }
@@ -1190,6 +1186,24 @@ std::optional<SimpleRange> AXIsolatedObject::misspellingRange(const SimpleRange&
     ASSERT(isMainThread());
     auto* axObject = associatedAXObject();
     return axObject ? axObject->misspellingRange(range, direction) : std::nullopt;
+}
+
+LayoutRect AXIsolatedObject::boundingBoxRect() const
+{
+    return Accessibility::retrieveValueFromMainThread<LayoutRect>([this] () -> LayoutRect {
+        if (auto* axObject = associatedAXObject())
+            return axObject->boundingBoxRect();
+        return { };
+    });
+}
+
+LayoutRect AXIsolatedObject::elementRect() const
+{
+    return Accessibility::retrieveValueFromMainThread<LayoutRect>([this] () -> LayoutRect {
+        if (auto* axObject = associatedAXObject())
+            return axObject->elementRect();
+        return { };
+    });
 }
 
 FloatRect AXIsolatedObject::relativeFrame() const

@@ -1,3 +1,228 @@
+2022-01-31  Aditya Keerthi  <akeerthi@apple.com>
+
+        [iOS] SharePlay is shown prominently for system-provided Share Sheets
+        https://bugs.webkit.org/show_bug.cgi?id=235895
+        rdar://88268450
+
+        Reviewed by Wenson Hsieh.
+
+        * wtf/PlatformHave.h:
+
+2022-01-31  Keith Miller  <keith_miller@apple.com>
+
+        Reland StructureID overhaul
+        https://bugs.webkit.org/show_bug.cgi?id=235720
+
+        Reviewed by Yusuke Suzuki.
+
+        Changes since revert:
+
+        Add a try version of reserveUncommitted and reserveAndCommit
+        so tryReserveUncommitted can call them if needed.
+
+        * wtf/OSAllocator.h:
+        * wtf/posix/OSAllocatorPOSIX.cpp:
+        (WTF::tryReserveAndCommit):
+        (WTF::tryReserveUncommitted):
+        (WTF::OSAllocator::reserveUncommitted):
+        (WTF::OSAllocator::tryReserveUncommittedAligned):
+        (WTF::OSAllocator::reserveAndCommit):
+        * wtf/win/OSAllocatorWin.cpp:
+        (WTF::OSAllocator::tryReserveUncommittedAligned):
+
+2022-01-30  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [WTF] Add GenericHashKey
+        https://bugs.webkit.org/show_bug.cgi?id=235872
+
+        Reviewed by Darin Adler.
+
+        This patch adds GenericHashKey<T>, which can represent any HashTable's key
+        even if Key does not have Empty / Deleted values. Previously we were using
+        StdUnorderedSet / StdUnorderedMap instead. But, (1) they are doing similar
+        thing to GenericHashKey to keep empty or deleted values, and (2) by using
+        GenericHashKey we can consistently use WTF::HashMap etc. for all possible
+        cases.
+
+        * WTF.xcodeproj/project.pbxproj:
+        * wtf/CMakeLists.txt:
+        * wtf/GenericHashKey.h: Added.
+
+2022-01-30  Diego Pino Garcia  <dpino@igalia.com>
+
+        [WinCairo] 'fileSystemRepresentation' identifier not found in URL.cpp
+        https://bugs.webkit.org/show_bug.cgi?id=235875
+
+        Unreviewed build fix.
+
+        Add missing header include.
+
+        * wtf/URL.cpp:
+        (WTF::URL::fileSystemPath const):
+
+2022-01-30  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Delete code for keygen element
+        https://bugs.webkit.org/show_bug.cgi?id=235867
+
+        Reviewed by Antti Koivisto.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-01-30  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Delete runtime preference for enabling input events
+        https://bugs.webkit.org/show_bug.cgi?id=235864
+
+        Reviewed by Wenson Hsieh.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
+2022-01-29  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Delete runtime preference for enabling request animation frame
+        https://bugs.webkit.org/show_bug.cgi?id=235866
+
+        Reviewed by Darin Adler.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
+2022-01-28  Chris Dumez  <cdumez@apple.com>
+
+        ASSERTION FAILED: m_processCallback in WebCore::AudioWorkletProcessor::process
+        https://bugs.webkit.org/show_bug.cgi?id=235529
+
+        Reviewed by Geoffrey Garen and Darin Adler.
+
+        Add template parameter to WeakHashSet to disable threading assertions. This is useful
+        when the call site is using locking.
+
+        * wtf/WeakHashSet.h:
+        * wtf/WeakPtr.h:
+
+2022-01-28  Tim Nguyen  <ntim@apple.com>
+
+        Enable inert attribute feature flag
+        https://bugs.webkit.org/show_bug.cgi?id=235668
+
+        Reviewed by Darin Adler.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-01-27  Tim Horton  <timothy_horton@apple.com>
+
+        Remove ENABLE(HOVER_GESTURE_RECOGNIZER) and related code
+        https://bugs.webkit.org/show_bug.cgi?id=235749
+
+        Reviewed by Wenson Hsieh.
+
+        * wtf/PlatformEnableCocoa.h:
+
+2022-01-27  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed fix for older macOS builds after r288577.
+
+        * wtf/Assertions.h:
+
+2022-01-27  Devin Rousso  <drousso@apple.com>
+
+        Change version number for HAVE_PASSKIT_DEFAULT_SHIPPING_METHOD
+        https://bugs.webkit.org/show_bug.cgi?id=235732
+        <rdar://problem/88152385>
+
+        Reviewed by Wenson Hsieh.
+
+        * wtf/PlatformHave.h:
+
+2022-01-27  Antti Koivisto  <antti@apple.com>
+
+        Default to 32 bit refcount for CanMakeCheckedPtr
+        https://bugs.webkit.org/show_bug.cgi?id=235723
+        rdar://86602114
+
+        Reviewed by Darin Adler.
+
+        It is currently uint16_t for no good reason. It is no unreasonable to have an object being referenced
+        by a large number of other objects.
+
+        We just hit the first bug caused by overrunning it (in IFC).
+
+        * wtf/CheckedRef.h:
+
+        uint16_t -> uint32_t
+
+2022-01-27  Ada Chan  <ada.chan@apple.com>
+
+        Disable WebXR experimental feature by default
+        https://bugs.webkit.org/show_bug.cgi?id=235688
+
+        Reviewed by Tim Horton.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-01-27  Alexander Mikhaylenko  <alexm@gnome.org>
+
+        [GTK] Support accent colors
+        https://bugs.webkit.org/show_bug.cgi?id=235706
+
+        Reviewed by Michael Catanzaro.
+
+        * wtf/PlatformHave.h: Flip HAVE_APP_ACCENT_COLORS for GTK.
+
+2022-01-26  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        Build failure with GCC 12: MediaTime.h:167:71: error: call to non-'constexpr' function 'WTF::MediaTime& WTF::MediaTime::operator=(const WTF::MediaTime&)'
+        https://bugs.webkit.org/show_bug.cgi?id=235610
+
+        Reviewed by Darin Adler.
+
+        The problem is the constexpr constructor calls the non-constexpr copy assignment operator.
+        This is easy to fix, at the expense of readability, by open-coding the desired values here.
+
+        * wtf/MediaTime.h:
+        (WTF::MediaTime::MediaTime):
+
+2022-01-25  Eric Carlson  <eric.carlson@apple.com>
+
+        [macOS] Add new screen and window capture backend
+        https://bugs.webkit.org/show_bug.cgi?id=234029
+        rdar://problem/86347726
+
+        Reviewed by Jer Noble and Youenn Fablet.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml: Add UseScreenCaptureKit.
+        * wtf/PlatformEnableCocoa.h: Define ENABLE_SCREEN_CAPTURE_KIT.
+        * wtf/PlatformHave.h: Define HAVE_SCREEN_CAPTURE_KIT.
+        * wtf/cocoa/SoftLinking.h: Add softlink macros that take an API_AVAILABLE check.
+
+2022-01-25  Aditya Keerthi  <akeerthi@apple.com>
+
+        Disable input-security CSS property
+        https://bugs.webkit.org/show_bug.cgi?id=235557
+        rdar://87984277
+
+        Reviewed by Dean Jackson.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+        Make input-security a disabled-by-default experimental feature.
+
+2022-01-25  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [WTF] Make CRASH_WITH_INFO more useful when using GCC
+        https://bugs.webkit.org/show_bug.cgi?id=235573
+
+        Make CRASH_WITH_INFO() print out the additional information instead of silently crash
+        when WebKit is compiled with GCC.
+
+        Reviewed by Yusuke Suzuki.
+
+        * wtf/Assertions.h: Add a variant of CRASH_WITH_INFO() which uses __VA_OPT__ for
+        GCC and Clang; MSVC is left with the existing version as the version currently in
+        use is not happy about __VA_OPT__.
+        (CRASH_WITH_INFO): Deleted inline function for GCC.
+        (CRASH_WITH_SECURITY_IMPLICATION_AND_INFO): Ditto.
+
 2022-01-24  Mark Lam  <mark.lam@apple.com>
 
         Rename Vector and FixedVector::findMatching to findIf to match stl naming.

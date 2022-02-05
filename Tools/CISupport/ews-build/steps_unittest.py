@@ -49,13 +49,13 @@ from steps import (AnalyzeAPITestsResults, AnalyzeCompileWebKitResults, AnalyzeJ
                    FetchBranches, FindModifiedChangeLogs, FindModifiedLayoutTests, GitResetHard,
                    InstallBuiltProduct, InstallGtkDependencies, InstallWpeDependencies,
                    KillOldProcesses, PrintConfiguration, PushCommitToWebKitRepo, ReRunAPITests, ReRunWebKitPerlTests,
-                   ReRunWebKitTests, RunAPITests, RunAPITestsWithoutPatch, RunBindingsTests, RunBuildWebKitOrgUnitTests,
+                   ReRunWebKitTests, RevertPullRequestChanges, RunAPITests, RunAPITestsWithoutPatch, RunBindingsTests, RunBuildWebKitOrgUnitTests,
                    RunBuildbotCheckConfigForBuildWebKit, RunBuildbotCheckConfigForEWS, RunEWSUnitTests, RunResultsdbpyTests,
                    RunJavaScriptCoreTests, RunJSCTestsWithoutPatch, RunWebKit1Tests, RunWebKitPerlTests, RunWebKitPyPython2Tests,
                    RunWebKitPyPython3Tests, RunWebKitTests, RunWebKitTestsInStressMode, RunWebKitTestsInStressGuardmallocMode,
                    RunWebKitTestsWithoutPatch, RunWebKitTestsRedTree, RunWebKitTestsRepeatFailuresRedTree, RunWebKitTestsRepeatFailuresWithoutPatchRedTree,
                    RunWebKitTestsWithoutPatchRedTree, AnalyzeLayoutTestsResultsRedTree, TestWithFailureCount, ShowIdentifier,
-                   Trigger, TransferToS3, UnApplyPatchIfRequired, UpdateWorkingDirectory, UploadBuiltProduct,
+                   Trigger, TransferToS3, UnApplyPatch, UpdateWorkingDirectory, UploadBuiltProduct,
                    UploadTestResults, ValidateChangeLogAndReviewer, ValidateCommiterAndReviewer, ValidateChange, VerifyGitHubIntegrity)
 
 # Workaround for https://github.com/buildbot/buildbot/issues/4669
@@ -1176,7 +1176,6 @@ class TestCompileWebKitWithoutPatch(BuildStepMixinAdditions, unittest.TestCase):
         self.setupStep(CompileWebKitWithoutPatch())
         self.setProperty('fullPlatform', 'ios-simulator-11')
         self.setProperty('configuration', 'release')
-        self.setProperty('patchFailedToBuild', True)
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logEnviron=False,
@@ -1191,7 +1190,6 @@ class TestCompileWebKitWithoutPatch(BuildStepMixinAdditions, unittest.TestCase):
         self.setupStep(CompileWebKitWithoutPatch())
         self.setProperty('fullPlatform', 'mac-sierra')
         self.setProperty('configuration', 'debug')
-        self.setProperty('patchFailedTests', True)
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logEnviron=False,
@@ -1201,14 +1199,6 @@ class TestCompileWebKitWithoutPatch(BuildStepMixinAdditions, unittest.TestCase):
             + 2,
         )
         self.expectOutcome(result=FAILURE, state_string='Failed to compile WebKit')
-        return self.runStep()
-
-    def test_skip(self):
-        self.setupStep(CompileWebKitWithoutPatch())
-        self.setProperty('fullPlatform', 'ios-simulator-11')
-        self.setProperty('configuration', 'release')
-        self.expectHidden(True)
-        self.expectOutcome(result=SKIPPED, state_string='Skipped compiling WebKit')
         return self.runStep()
 
 
@@ -1326,7 +1316,6 @@ class TestCompileJSCWithoutPatch(BuildStepMixinAdditions, unittest.TestCase):
         self.setupStep(CompileJSCWithoutPatch())
         self.setProperty('fullPlatform', 'jsc-only')
         self.setProperty('configuration', 'release')
-        self.setProperty('patchFailedToBuild', 'True')
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logEnviron=False,
@@ -3145,7 +3134,7 @@ class TestCheckOutPullRequest(BuildStepMixinAdditions, unittest.TestCase):
         return self.runStep()
 
 
-class TestUnApplyPatchIfRequired(BuildStepMixinAdditions, unittest.TestCase):
+class TestUnApplyPatch(BuildStepMixinAdditions, unittest.TestCase):
     def setUp(self):
         self.longMessage = True
         return self.setUpBuildStep()
@@ -3154,8 +3143,8 @@ class TestUnApplyPatchIfRequired(BuildStepMixinAdditions, unittest.TestCase):
         return self.tearDownBuildStep()
 
     def test_success(self):
-        self.setupStep(UnApplyPatchIfRequired())
-        self.setProperty('patchFailedToBuild', True)
+        self.setupStep(UnApplyPatch())
+        self.setProperty('patch_id', 1234)
         self.expectHidden(False)
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
@@ -3168,8 +3157,8 @@ class TestUnApplyPatchIfRequired(BuildStepMixinAdditions, unittest.TestCase):
         return self.runStep()
 
     def test_failure(self):
-        self.setupStep(UnApplyPatchIfRequired())
-        self.setProperty('patchFailedTests', True)
+        self.setupStep(UnApplyPatch())
+        self.setProperty('patch_id', 1234)
         self.expectHidden(False)
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
@@ -3183,9 +3172,66 @@ class TestUnApplyPatchIfRequired(BuildStepMixinAdditions, unittest.TestCase):
         return self.runStep()
 
     def test_skip(self):
-        self.setupStep(UnApplyPatchIfRequired())
+        self.setupStep(UnApplyPatch())
         self.expectHidden(True)
         self.expectOutcome(result=SKIPPED, state_string='Unapplied patch (skipped)')
+        return self.runStep()
+
+
+class TestRevertPullRequestChanges(BuildStepMixinAdditions, unittest.TestCase):
+    def setUp(self):
+        self.longMessage = True
+        return self.setUpBuildStep()
+
+    def tearDown(self):
+        return self.tearDownBuildStep()
+
+    def test_success(self):
+        self.setupStep(RevertPullRequestChanges())
+        self.setProperty('github.base.sha', 'b2db8d1da7b74b5ddf075e301370e64d914eef7c')
+        self.setProperty('github.number', 1234)
+        self.expectHidden(False)
+        self.expectRemoteCommands(
+            ExpectShell(
+                workdir='wkdir',
+                logEnviron=False,
+                timeout=5 * 60,
+                command=['git', 'clean', '-f', '-d'],
+            ) + 0, ExpectShell(
+                workdir='wkdir',
+                logEnviron=False,
+                timeout=5 * 60,
+                command=['git', 'checkout', 'b2db8d1da7b74b5ddf075e301370e64d914eef7c'],
+            ) + 0,
+        )
+        self.expectOutcome(result=SUCCESS, state_string='Reverted pull request changes')
+        return self.runStep()
+
+    def test_failure(self):
+        self.setupStep(RevertPullRequestChanges())
+        self.setProperty('github.base.sha', 'b2db8d1da7b74b5ddf075e301370e64d914eef7c')
+        self.setProperty('github.number', 1234)
+        self.expectHidden(False)
+        self.expectRemoteCommands(
+            ExpectShell(
+                workdir='wkdir',
+                logEnviron=False,
+                timeout=5 * 60,
+                command=['git', 'clean', '-f', '-d'],
+            ) + 0, ExpectShell(
+                workdir='wkdir',
+                logEnviron=False,
+                timeout=5 * 60,
+                command=['git', 'checkout', 'b2db8d1da7b74b5ddf075e301370e64d914eef7c'],
+            ) + ExpectShell.log('stdio', stdout='Unexpected failure.') + 2,
+        )
+        self.expectOutcome(result=FAILURE, state_string='Reverted pull request changes (failure)')
+        return self.runStep()
+
+    def test_skip(self):
+        self.setupStep(RevertPullRequestChanges())
+        self.expectHidden(True)
+        self.expectOutcome(result=SKIPPED, state_string='Reverted pull request changes (skipped)')
         return self.runStep()
 
 
@@ -3441,7 +3487,7 @@ class TestUploadBuiltProduct(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('fullPlatform', 'mac-sierra')
         self.setProperty('configuration', 'release')
         self.setProperty('architecture', 'x86_64')
-        self.setProperty('patch_id', '1234')
+        self.setProperty('change_id', '1234')
         self.expectHidden(False)
         self.expectRemoteCommands(
             Expect('uploadFile', dict(workersrc='WebKitBuild/release.zip', workdir='wkdir',
@@ -3460,7 +3506,7 @@ class TestUploadBuiltProduct(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('fullPlatform', 'mac-sierra')
         self.setProperty('configuration', 'release')
         self.setProperty('architecture', 'x86_64')
-        self.setProperty('patch_id', '1234')
+        self.setProperty('change_id', '1234')
         self.expectHidden(False)
         self.expectRemoteCommands(
             Expect('uploadFile', dict(workersrc='WebKitBuild/release.zip', workdir='wkdir',
@@ -3488,7 +3534,7 @@ class TestDownloadBuiltProduct(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('fullPlatform', 'ios-simulator-12')
         self.setProperty('configuration', 'release')
         self.setProperty('architecture', 'x86_64')
-        self.setProperty('patch_id', '1234')
+        self.setProperty('change_id', '1234')
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logEnviron=False,
@@ -3505,7 +3551,7 @@ class TestDownloadBuiltProduct(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('fullPlatform', 'mac-sierra')
         self.setProperty('configuration', 'debug')
         self.setProperty('architecture', 'x86_64')
-        self.setProperty('patch_id', '123456')
+        self.setProperty('change_id', '123456')
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logEnviron=False,
@@ -3523,7 +3569,7 @@ class TestDownloadBuiltProduct(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('fullPlatform', 'gtk')
         self.setProperty('configuration', 'release')
         self.setProperty('architecture', 'x86_64')
-        self.setProperty('patch_id', '123456')
+        self.setProperty('change_id', '123456')
         self.expectOutcome(result=SKIPPED)
         with current_hostname('test-ews-deployment.igalia.com'):
             return self.runStep()
@@ -3554,7 +3600,7 @@ class TestDownloadBuiltProductFromMaster(BuildStepMixinAdditions, unittest.TestC
         self.setProperty('fullPlatform', 'ios-simulator-12')
         self.setProperty('configuration', 'release')
         self.setProperty('architecture', 'x86_64')
-        self.setProperty('patch_id', '1234')
+        self.setProperty('change_id', '1234')
         self.expectHidden(False)
         buf = []
         self.expectRemoteCommands(
@@ -3583,7 +3629,7 @@ class TestDownloadBuiltProductFromMaster(BuildStepMixinAdditions, unittest.TestC
         self.setProperty('fullPlatform', 'mac-sierra')
         self.setProperty('configuration', 'debug')
         self.setProperty('architecture', 'x86_64')
-        self.setProperty('patch_id', '123456')
+        self.setProperty('change_id', '123456')
         buf = []
         self.expectRemoteCommands(
             Expect('downloadFile', dict(
@@ -3664,7 +3710,7 @@ class TestTransferToS3(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('fullPlatform', 'mac-highsierra')
         self.setProperty('configuration', 'release')
         self.setProperty('architecture', 'x86_64')
-        self.setProperty('patch_id', '1234')
+        self.setProperty('change_id', '1234')
         self.expectLocalCommands(
             ExpectMasterShellCommand(command=['python3',
                                               '../Shared/transfer-archive-to-s3',
@@ -3683,7 +3729,7 @@ class TestTransferToS3(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('fullPlatform', 'ios-simulator-12')
         self.setProperty('configuration', 'debug')
         self.setProperty('architecture', 'x86_64')
-        self.setProperty('patch_id', '1234')
+        self.setProperty('change_id', '1234')
         self.expectLocalCommands(
             ExpectMasterShellCommand(command=['python3',
                                               '../Shared/transfer-archive-to-s3',
@@ -3702,7 +3748,7 @@ class TestTransferToS3(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('fullPlatform', 'mac-highsierra')
         self.setProperty('configuration', 'release')
         self.setProperty('architecture', 'x86_64')
-        self.setProperty('patch_id', '1234')
+        self.setProperty('change_id', '1234')
         self.expectOutcome(result=SKIPPED, state_string='Transferred archive to S3 (skipped)')
         with current_hostname('something-other-than-steps.EWS_BUILD_HOSTNAME'):
             return self.runStep()
@@ -4277,6 +4323,8 @@ class TestPrintConfiguration(BuildStepMixinAdditions, unittest.TestCase):
                 + ExpectShell.log('stdio', stdout='''ProductName:	macOS
     ProductVersion:	12.0.1
     BuildVersion:	21A558'''),
+                ExpectShell(command=['system_profiler', 'SPSoftwareDataType', 'SPHardwareDataType'], workdir='wkdir', timeout=60, logEnviron=False) + 0
+                + ExpectShell.log('stdio', stdout='Configuration version: Software: System Software Overview: System Version: macOS 11.4 (20F71) Kernel Version: Darwin 20.5.0 Boot Volume: Macintosh HD Boot Mode: Normal Computer Name: bot1020 User Name: WebKit Build Worker (buildbot) Secure Virtual Memory: Enabled System Integrity Protection: Enabled Time since boot: 27 seconds Hardware: Hardware Overview: Model Name: Mac mini Model Identifier: Macmini8,1 Processor Name: 6-Core Intel Core i7 Processor Speed: 3.2 GHz Number of Processors: 1 Total Number of Cores: 6 L2 Cache (per Core): 256 KB L3 Cache: 12 MB Hyper-Threading Technology: Enabled Memory: 32 GB System Firmware Version: 1554.120.19.0.0 (iBridge: 18.16.14663.0.0,0) Serial Number (system): C07DXXXXXXXX Hardware UUID: F724DE6E-706A-5A54-8D16-000000000000 Provisioning UDID: E724DE6E-006A-5A54-8D16-000000000000 Activation Lock Status: Disabled Xcode 12.5 Build version 12E262'),
                 ExpectShell(command=['xcodebuild', '-sdk', '-version'], workdir='wkdir', timeout=60, logEnviron=False)
                 + ExpectShell.log('stdio', stdout='''MacOSX12.0.sdk - macOS 12.0 (macosx12.0)
     SDKVersion: 12.0
@@ -4293,8 +4341,6 @@ class TestPrintConfiguration(BuildStepMixinAdditions, unittest.TestCase):
     Xcode 13.1
     Build version 13A1030d''')
                 + 0,
-                ExpectShell(command=['uptime'], workdir='wkdir', timeout=60, logEnviron=False) + 0
-                + ExpectShell.log('stdio', stdout=' 6:31  up 1 day, 19:05, 24 users, load averages: 4.17 7.23 5.45'),
             )
             self.expectOutcome(result=SUCCESS, state_string='OS: Monterey (12.0.1), Xcode: 13.1')
             return self.runStep()
@@ -4318,6 +4364,8 @@ class TestPrintConfiguration(BuildStepMixinAdditions, unittest.TestCase):
                 + ExpectShell.log('stdio', stdout='''ProductName:	macOS
     ProductVersion:	11.6
     BuildVersion:	20G165'''),
+                ExpectShell(command=['system_profiler', 'SPSoftwareDataType', 'SPHardwareDataType'], workdir='wkdir', timeout=60, logEnviron=False) + 0
+                + ExpectShell.log('stdio', stdout='Sample system information'),
                 ExpectShell(command=['xcodebuild', '-sdk', '-version'], workdir='wkdir', timeout=60, logEnviron=False)
                 + ExpectShell.log('stdio', stdout='''iPhoneSimulator15.0.sdk - Simulator - iOS 15.0 (iphonesimulator15.0)
     SDKVersion: 15.0
@@ -4333,8 +4381,6 @@ class TestPrintConfiguration(BuildStepMixinAdditions, unittest.TestCase):
     Xcode 13.0
     Build version 13A233''')
                 + 0,
-                ExpectShell(command=['uptime'], workdir='wkdir', timeout=60, logEnviron=False) + 0
-                + ExpectShell.log('stdio', stdout=' 6:31  up 1 day, 19:05, 24 users, load averages: 4.17 7.23 5.45'),
             )
             self.expectOutcome(result=SUCCESS, state_string='OS: Big Sur (11.6), Xcode: 13.0')
             return self.runStep()
@@ -4351,12 +4397,11 @@ class TestPrintConfiguration(BuildStepMixinAdditions, unittest.TestCase):
                 + ExpectShell.log('stdio', stdout='''ProductName:	macOS
     ProductVersion:	11.6
     BuildVersion:	20G165'''),
+                ExpectShell(command=['system_profiler', 'SPSoftwareDataType', 'SPHardwareDataType'], workdir='wkdir', timeout=60, logEnviron=False) + 0
+                + ExpectShell.log('stdio', stdout='Sample system information'),
                 ExpectShell(command=['xcodebuild', '-sdk', '-version'], workdir='wkdir', timeout=60,
                             logEnviron=False) + 0
                 + ExpectShell.log('stdio', stdout='''Xcode 13.0\nBuild version 13A233'''),
-                ExpectShell(command=['uptime'], workdir='wkdir', timeout=60, logEnviron=False) + 0
-                + ExpectShell.log('stdio',
-                                  stdout=' 6:31  up 22 seconds, 12:05, 2 users, load averages: 3.17 7.23 5.45'),
             )
             self.expectOutcome(result=SUCCESS, state_string='OS: Big Sur (11.6), Xcode: 13.0')
             return self.runStep()
@@ -4425,6 +4470,7 @@ class TestPrintConfiguration(BuildStepMixinAdditions, unittest.TestCase):
   File "/usr/lib/python2.7/os.py", line 382, in _execvpe
     func(fullname, *argrest)
 OSError: [Errno 2] No such file or directory'''),
+            ExpectShell(command=['system_profiler', 'SPSoftwareDataType', 'SPHardwareDataType'], workdir='wkdir', timeout=60, logEnviron=False) + 0,
             ExpectShell(command=['xcodebuild', '-sdk', '-version'], workdir='wkdir', timeout=60, logEnviron=False)
             + ExpectShell.log('stdio', stdout='''Upon execvpe xcodebuild ['xcodebuild', '-sdk', '-version'] in environment id 7696545612416
 :Traceback (most recent call last):
@@ -4438,7 +4484,6 @@ OSError: [Errno 2] No such file or directory'''),
     func(fullname, *argrest)
 OSError: [Errno 2] No such file or directory''')
             + 1,
-            ExpectShell(command=['uptime'], workdir='wkdir', timeout=60, logEnviron=False) + 0,
         )
         self.expectOutcome(result=FAILURE, state_string='Failed to print configuration')
         return self.runStep()
@@ -4741,7 +4786,7 @@ class TestValidateChange(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('github.number', '1234')
         self.setProperty('repository', 'https://github.com/WebKit/WebKit')
         self.setProperty('github.head.sha', '1ad60d45a112301f7b9f93dac06134524dae8480')
-        self.expectOutcome(result=FAILURE, state_string='Pull request 1234 (sha 1ad60d45) is obsolete')
+        self.expectOutcome(result=FAILURE, state_string='Hash 1ad60d45 on PR 1234 is outdated')
         rc = self.runStep()
         self.assertEqual(self.getProperty('fast_commit_queue'), None, 'fast_commit_queue is unexpectedly set')
         return rc

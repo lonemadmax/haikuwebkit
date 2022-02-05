@@ -3801,6 +3801,22 @@ static RefPtr<CSSValue> consumeLineGrid(CSSParserTokenRange& range)
     return consumeCustomIdent(range);
 }
 
+static RefPtr<CSSValue> consumeContainerName(CSSParserTokenRange& range)
+{
+    if (range.peek().id() == CSSValueNone)
+        return consumeIdent(range);
+
+    auto list = CSSValueList::createSpaceSeparated();
+    do {
+        auto name = consumeSingleContainerName(range);
+        if (!name)
+            return nullptr;
+        list->append(name.releaseNonNull());
+    } while (!range.atEnd());
+
+    return list;
+}
+
 static RefPtr<CSSValue> consumeInitialLetter(CSSParserTokenRange& range)
 {
     RefPtr<CSSValue> ident = consumeIdent<CSSValueNormal>(range);
@@ -4654,6 +4670,8 @@ RefPtr<CSSValue> CSSPropertyParser::parseSingleValue(CSSPropertyID property, CSS
     case CSSPropertyListStyleType:
         // All the keyword values for the list-style-type property are handled by the CSSParserFastPaths.
         return consumeString(m_range);
+    case CSSPropertyContainerName:
+        return consumeContainerName(m_range);
     default:
         return nullptr;
     }
@@ -6123,6 +6141,33 @@ bool CSSPropertyParser::consumeOverscrollBehaviorShorthand(bool important)
     return true;
 }
 
+bool CSSPropertyParser::consumeContainerShorthand(bool important)
+{
+    auto type = parseSingleValue(CSSPropertyContainerType);
+    if (!type)
+        return false;
+
+    bool sawSlash = false;
+
+    auto consumeSlashName = [&]() -> RefPtr<CSSValue> {
+        if (m_range.atEnd())
+            return nullptr;
+        if (!consumeSlashIncludingWhitespace(m_range))
+            return nullptr;
+        sawSlash = true;
+        return parseSingleValue(CSSPropertyContainerName);
+    };
+
+    auto name = consumeSlashName();
+
+    if (!m_range.atEnd() || (sawSlash && !name))
+        return false;
+
+    addProperty(CSSPropertyContainerType, CSSPropertyContainer, type.releaseNonNull(), important);
+    addPropertyWithImplicitDefault(CSSPropertyContainerName, CSSPropertyContainer, WTFMove(name), CSSValuePool::singleton().createImplicitInitialValue(), important);
+    return true;
+}
+
 bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
 {
     switch (property) {
@@ -6356,6 +6401,8 @@ bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
         return consumePlaceSelfShorthand(important);
     case CSSPropertyTextDecorationSkip:
         return consumeTextDecorationSkip(important);
+    case CSSPropertyContainer:
+        return consumeContainerShorthand(important);
     default:
         return false;
     }

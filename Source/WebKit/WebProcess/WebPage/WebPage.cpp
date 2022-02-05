@@ -91,6 +91,8 @@
 #include "WebEditorClient.h"
 #include "WebEventConversion.h"
 #include "WebEventFactory.h"
+#include "WebFoundTextRange.h"
+#include "WebFoundTextRangeController.h"
 #include "WebFrame.h"
 #include "WebFrameLoaderClient.h"
 #include "WebFullScreenManager.h"
@@ -509,6 +511,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     , m_resourceLoadClient(makeUnique<API::InjectedBundle::ResourceLoadClient>())
     , m_uiClient(makeUnique<API::InjectedBundle::PageUIClient>())
     , m_findController(makeUniqueRef<FindController>(this))
+    , m_foundTextRangeController(makeUniqueRef<WebFoundTextRangeController>(*this))
     , m_inspectorTargetController(makeUnique<WebPageInspectorTargetController>(*this))
     , m_userContentController(WebUserContentController::getOrCreate(parameters.userContentControllerParameters.identifier))
 #if ENABLE(GEOLOCATION)
@@ -997,6 +1000,10 @@ void WebPage::reinitializeWebPage(WebPageCreationParameters&& parameters)
         setActivityState(parameters.activityState, ActivityStateChangeAsynchronous, [] { });
     if (m_layerHostingMode != parameters.layerHostingMode)
         setLayerHostingMode(parameters.layerHostingMode);
+
+#if HAVE(APP_ACCENT_COLORS)
+    setAccentColor(parameters.accentColor);
+#endif
 
 #if PLATFORM(GTK)
     GtkSettingsManagerProxy::singleton().applySettings(WTFMove(parameters.gtkSettings));
@@ -1683,6 +1690,8 @@ void WebPage::platformDidReceiveLoadParameters(const LoadParameters& loadParamet
 
 void WebPage::loadRequest(LoadParameters&& loadParameters)
 {
+    WEBPAGE_RELEASE_LOG(Loading, "loadRequest: navigationID=%" PRIu64 ", shouldTreatAsContinuingLoad=%u, lastNavigationWasAppInitiated=%d, existingNetworkResourceLoadIdentifierToResume=%" PRIu64, loadParameters.navigationID, static_cast<unsigned>(loadParameters.shouldTreatAsContinuingLoad), loadParameters.request.isAppInitiated(), valueOrDefault(loadParameters.existingNetworkResourceLoadIdentifierToResume).toUInt64());
+
     setLastNavigationWasAppInitiated(loadParameters.request.isAppInitiated());
 
 #if ENABLE(APP_BOUND_DOMAINS)
@@ -1758,6 +1767,8 @@ void WebPage::loadDataImpl(uint64_t navigationID, ShouldTreatAsContinuingLoad sh
 
 void WebPage::loadData(LoadParameters&& loadParameters)
 {
+    WEBPAGE_RELEASE_LOG(Loading, "loadData: navigationID=%" PRIu64 ", shouldTreatAsContinuingLoad=%u", loadParameters.navigationID, static_cast<unsigned>(loadParameters.shouldTreatAsContinuingLoad));
+
     platformDidReceiveLoadParameters(loadParameters);
 
     auto sharedBuffer = SharedBuffer::create(loadParameters.data.data(), loadParameters.data.size());
@@ -1871,13 +1882,19 @@ void WebPage::reload(uint64_t navigationID, uint32_t reloadOptions, SandboxExten
     }
 }
 
-void WebPage::goToBackForwardItem(uint64_t navigationID, const BackForwardItemIdentifier& backForwardItemID, FrameLoadType backForwardType, ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad, std::optional<WebsitePoliciesData>&& websitePolicies, bool lastNavigationWasAppInitiated)
+void WebPage::goToBackForwardItem(uint64_t navigationID, const BackForwardItemIdentifier& backForwardItemID, FrameLoadType backForwardType, ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad, std::optional<WebsitePoliciesData>&& websitePolicies, bool lastNavigationWasAppInitiated, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume)
 {
+    WEBPAGE_RELEASE_LOG(Loading, "goToBackForwardItem: navigationID=%" PRIu64 ", backForwardItemID=%s, shouldTreatAsContinuingLoad=%u, lastNavigationWasAppInitiated=%d, existingNetworkResourceLoadIdentifierToResume=%" PRIu64, navigationID, backForwardItemID.string().utf8().data(), static_cast<unsigned>(shouldTreatAsContinuingLoad), lastNavigationWasAppInitiated, valueOrDefault(existingNetworkResourceLoadIdentifierToResume).toUInt64());
     SendStopResponsivenessTimer stopper;
 
     m_lastNavigationWasAppInitiated = lastNavigationWasAppInitiated;
     if (auto* documentLoader = corePage()->mainFrame().loader().documentLoader())
         documentLoader->setLastNavigationWasAppInitiated(lastNavigationWasAppInitiated);
+
+    WebProcess::singleton().webLoaderStrategy().setExistingNetworkResourceLoadIdentifierToResume(existingNetworkResourceLoadIdentifierToResume);
+    auto resumingLoadScope = makeScopeExit([] {
+        WebProcess::singleton().webLoaderStrategy().setExistingNetworkResourceLoadIdentifierToResume(std::nullopt);
+    });
 
     ASSERT(isBackForwardLoadType(backForwardType));
 
@@ -4690,6 +4707,41 @@ void WebPage::findRectsForStringMatches(const String& string, OptionSet<FindOpti
 void WebPage::hideFindIndicator()
 {
     findController().hideFindIndicator();
+}
+
+void WebPage::findTextRangesForStringMatches(const String& string, OptionSet<FindOptions> options, uint32_t maxMatchCount, CompletionHandler<void(Vector<WebFoundTextRange>&&)>&& completionHandler)
+{
+    foundTextRangeController().findTextRangesForStringMatches(string, options, maxMatchCount, WTFMove(completionHandler));
+}
+
+void WebPage::decorateTextRangeWithStyle(const WebFoundTextRange& range, WebKit::FindDecorationStyle style)
+{
+    foundTextRangeController().decorateTextRangeWithStyle(range, style);
+}
+
+void WebPage::scrollTextRangeToVisible(const WebFoundTextRange& range)
+{
+    foundTextRangeController().scrollTextRangeToVisible(range);
+}
+
+void WebPage::clearAllDecoratedFoundText()
+{
+    foundTextRangeController().clearAllDecoratedFoundText();
+}
+
+void WebPage::didBeginTextSearchOperation()
+{
+    foundTextRangeController().didBeginTextSearchOperation();
+}
+
+void WebPage::didEndTextSearchOperation()
+{
+    foundTextRangeController().didEndTextSearchOperation();
+}
+
+void WebPage::requestRectForFoundTextRange(const WebFoundTextRange& range, CompletionHandler<void(WebCore::FloatRect)>&& completionHandler)
+{
+    foundTextRangeController().requestRectForFoundTextRange(range, WTFMove(completionHandler));
 }
 
 void WebPage::getImageForFindMatch(uint32_t matchIndex)

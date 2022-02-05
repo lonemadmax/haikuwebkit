@@ -63,6 +63,7 @@ public:
     WEBCORE_EXPORT std::optional<AccessibilityObjectAtspi*> parent() const;
     GVariant* parentReference() const;
     WEBCORE_EXPORT void updateBackingStore();
+    WEBCORE_EXPORT bool isIgnored() const;
 
     void attach(AXCoreObject*);
     void detach();
@@ -159,8 +160,6 @@ public:
 private:
     AccessibilityObjectAtspi(AXCoreObject*, AccessibilityRootAtspi*);
 
-    AccessibilityRootAtspi* root();
-
     Vector<RefPtr<AccessibilityObjectAtspi>> wrapperVector(const Vector<RefPtr<AXCoreObject>>&) const;
     int indexInParent() const;
     void childAdded(AccessibilityObjectAtspi&);
@@ -242,7 +241,7 @@ private:
     AXCoreObject* m_coreObject { nullptr };
     OptionSet<Interface> m_interfaces;
     AccessibilityRootAtspi* m_root { nullptr };
-    std::optional<AccessibilityObjectAtspi*> m_parent;
+    std::optional<RefPtr<AccessibilityObjectAtspi>> m_parent;
     bool m_isRegistered { false };
     String m_path;
     String m_hyperlinkPath;

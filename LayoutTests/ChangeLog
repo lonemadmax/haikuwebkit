@@ -1,3 +1,1770 @@
+2022-01-31  Takeshi Sone  <takeshi.sone@gmail.com>
+
+        Added a test to verify that setting undefined to video.playbackRate
+        raises an exception.
+        https://bugs.webkit.org/show_bug.cgi?id=235174
+        rdar://problem/87815745
+
+        Reviewed by Eric Carlson.
+
+        * media/video-playbackrate-undefined-expected.txt: Added.
+        * media/video-playbackrate-undefined.html: Added.
+
+2022-01-31  Asumu Takikawa  <asumu@igalia.com>
+
+        Fix handling of module script errors in WebCore
+        https://bugs.webkit.org/show_bug.cgi?id=218284
+
+        Reviewed by Yusuke Suzuki.
+
+        Adjust tests expectations to match fixed script loading behvior.
+        Also add DumpJSConsoleLogInStdErr for flaky test (see bug 182177).
+        Changed a JS DOM test to match spec behavior.
+
+        * TestExpectations:
+        * js/dom/modules/module-incorrect-relative-specifier-expected.txt:
+        * js/dom/modules/module-incorrect-relative-specifier.html:
+        * platform/gtk/imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/errorhandling-expected.txt: Removed.
+
+2022-01-31  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Check for query containers when matching rules
+        https://bugs.webkit.org/show_bug.cgi?id=235881
+
+        Reviewed by Antoine Quint.
+
+        * TestExpectations:
+
+2022-01-30  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        Update LayoutTests/resources/testharness.js to 2021-6-24 version
+        https://bugs.webkit.org/show_bug.cgi?id=235398
+        <rdar://problem/88126222>
+
+        Reviewed by Youenn Fablet.
+
+        Copy testharness.js from imported/w3c/web-platform-tests
+
+        Copy idlharness.js from imported/w3c/web-platform-tests because it uses
+        the new testharness.js APIs.
+
+        Copy webidl2.js from imported/w3c/web-platform-tests to resources/WebIDLParser.js
+        because idlharness uses new webidl2.js logic.
+
+        Delete testharness.css, it is now bundled in testharness.js.
+
+        Update tests to accommodate the API change:
+         - assert_throws_js check that the exception is of a particular JS
+           exception type
+         - assert_throws_dom check that the exception is of a particular
+           DOMException type from a particular global object.
+         - assert_throws_exactly check that the exception is a specific
+           object.
+
+        Previously assert_throws was used and it hid unexpected exception errors.
+
+        Same for promise_rejects_*
+
+        async_test(f) now warns if f is not a normal function.
+
+        Singl page tests need a setup function.
+
+        * animations/animation-direction-normal.html:
+        * animations/animation-direction-reverse.html:
+        * animations/change-keyframes-name.html:
+        * animations/play-state-paused.html:
+        async_test(async function {...}) is incorrect (async test expects normal
+        function that has asynchronous logic, not a function returning a promise.
+        Use correct form:
+        promise_test(async function { ... });
+
+        * css-custom-properties-api/registerProperty.html:
+        Update exception expectation functions.
+
+        * editing/pasteboard/datatransfer-idl-expected.txt:
+        * editing/pasteboard/datatransfer-idl.html:
+        Update the datatransfer related idls from source, otherwise
+        tests fail (harness now tests for constructor).
+        Update the results.
+
+        * editing/text-iterator/count-matches-in-frames.html:
+        * editing/text-iterator/hidden-textarea-selection-quirk.html:
+        * fast/canvas/webgl/webgl2/bindings.html:
+        * fast/custom-elements/defined-pseudo-class.html:
+        * fast/custom-elements/throw-on-dynamic-markup-insertion-counter-construct.html:
+        * fast/custom-elements/throw-on-dynamic-markup-insertion-counter-reactions.html:
+        * fast/dom/document-all.html:
+        * fast/dom/elementFromPoint-parameters.html:
+        * fast/dom/replaceable-setter-throws-if-defineownproperty-fails.html:
+        * fast/dom/window-opener-setter-throws-if-defineownproperty-fails-1.html:
+        * fast/dom/window-opener-setter-throws-if-defineownproperty-fails-2.html:
+        * fast/events/clipboard-event-constructor.html:
+        * fast/files/workers/resources/worker-file-reader-sync-bad-parameter.js:
+        * fast/files/xhr-blob-request.html:
+        * fast/mediacapturefromelement/CanvasCaptureMediaStream-exceptions.html:
+        * fast/mediasession/metadata/artworkdownload.html:
+        * fast/mediastream/screencapture-user-gesture.html:
+        * fetch/fetch-url-serialization.html:
+        * http/tests/fetch/fetching-same-resource-with-different-options.html:
+        * http/tests/fetch/redirectmode-and-preload.html:
+        * http/tests/navigation/pushstate-at-unique-origin-denied.py:
+        * http/tests/notifications/notification.html:
+        * http/tests/paymentrequest/payment-address-attributes-and-toJSON-method.https.html:
+        * http/tests/paymentrequest/payment-is-showing.https.html:
+        * http/tests/paymentrequest/payment-request-abort-method.https.html:
+        * http/tests/paymentrequest/payment-request-canmakepayment-method.https.html:
+        * http/tests/paymentrequest/payment-request-merchant-validation.https.html:
+        * http/tests/paymentrequest/payment-request-show-method.https.html:
+        * http/tests/paymentrequest/payment-response-rejects-if-not-active.https.html:
+        * http/tests/paymentrequest/payment-response-retry-method.https.html:
+        * http/tests/paymentrequest/rejects_if_not_active.https.html:
+        * http/tests/paymentrequest/updateWith-method-pmi-handling.https.html:
+        * http/tests/security/bypassing-cors-checks-for-extension-urls.html:
+        * http/tests/security/clean-origin-css-exposed-resource-timing.html:
+        * http/tests/security/contentSecurityPolicy/1.1/frame-ancestors/frame-ancestors-overrides-xfo.html:
+        * http/tests/security/contentSecurityPolicy/1.1/scripthash-default-src.html:
+        * http/tests/security/contentSecurityPolicy/1.1/stylehash-default-src.html:
+        * http/tests/security/contentSecurityPolicy/script-src-blocked-error-event.html:
+        * http/tests/security/cross-origin-clean-css-resource-timing.html:
+        * http/tests/security/cross-origin-css-resource-timing.html:
+        * http/tests/subresource-integrity/sri-fetch.js:
+        * http/tests/workers/service/service-worker-crossorigin-fetch.html:
+        * http/tests/xmlhttprequest/set-bad-headervalue.html:
+        * intersection-observer/intersection-observer-interface.html:
+        * js/dom/dom-getters-type-check.html:
+        * js/dom/legacy-platform-object-defineOwnProperty.html:
+        * js/dom/post-message-symbol.html:
+        * js/dom/queue-microtask-window.html:
+        * media/track/opera/interfaces/TextTrackCue/vertical.html:
+        * media/track/opera/resources/idlharness.js:
+        * media/track/texttrackcue/texttrackcue-constructor.html:
+        * media/track/w3c/interfaces/TextTrackCue/align.html:
+        * pointerevents/ios/pointer-events-implicit-capture-release-exception.html:
+        * pointerevents/ios/pointer-events-set-pointer-capture-exceptions.html:
+        * pointerevents/pointer-id-crash.html:
+        * resources/WebIDLParser.js:
+        * resources/idlharness.js:
+        Update from wpt.
+        * resources/testharness.css: Removed.
+        * resources/testharness.js:
+        Update from wpt.
+        * storage/websql/openDatabase-deprecation.html:
+        * streams/readable-byte-stream-controller.js:
+        * streams/readable-stream-byob-reader.js:
+        * streams/readable-stream-byob-request.js:
+        * streams/readable-stream-getReader.html:
+        * streams/reference-implementation/bad-strategies.html:
+        * streams/reference-implementation/bad-underlying-sinks.html:
+        * streams/reference-implementation/transform-stream-expected.txt:
+        * streams/reference-implementation/transform-stream.html:
+        * webanimations/accelerated-animation-single-keyframe.html:
+        * webanimations/frame-rate/animation-frame-rate.html:
+        * webanimations/scheduling-of-animation-with-steps-timing-function-on-effect.html:
+        * webanimations/scheduling-of-animation-with-steps-timing-function-on-keyframe.html:
+        * webanimations/scheduling-of-css-animation-with-explicit-steps-timing-function-on-some-keyframes.html:
+        * webanimations/scheduling-of-css-animation-with-implicit-steps-timing-function.html:
+        * webaudio/webaudio-gc.html:
+        * webrtc/calling-peerconnection-once-closed.html:
+        * webrtc/certificates-indexeddb.html:
+        * webrtc/datachannel/creation.html:
+        * webrtc/datachannel/datachannel-event.html:
+        * webrtc/datachannel/getStats-no-prflx-remote-candidate.html:
+        * webrtc/disable-encryption.html:
+        * webrtc/legacy-api-expected.txt:
+        * webrtc/pc-detached-document.html:
+        * webrtc/stun-server-filtering.html:
+
+2022-01-30  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Delete code for keygen element
+        https://bugs.webkit.org/show_bug.cgi?id=235867
+
+        Reviewed by Antti Koivisto.
+
+        Deleted the relevant keygen tests and rebaselined other tests.
+
+        Most of the tests that happens to test keygen elements along side other form control elements
+        have been updated to expect keygen to behave like HTMLUnknownElement as expected.
+
+        * accessibility/content-changed-notification-causes-crash.html:
+        * accessibility/contenteditable-table-check-causes-crash.html:
+        * accessibility/duplicate-axrenderobject-crash-expected.txt:
+        * accessibility/duplicate-axrenderobject-crash.html:
+        * fast/block/float/float-not-removed-from-first-letter-expected.txt:
+        * fast/block/float/float-not-removed-from-first-letter.html:
+        * fast/block/float/split-inline-sibling-of-float-crash.html:
+        * fast/css/pseudo-required-optional-unapplied.html:
+        * fast/dom/HTMLFormElement/associated-elements-after-index-assertion-fail1.html:
+        * fast/dom/HTMLKeygenElement/keygen-expected.txt: Removed.
+        * fast/dom/HTMLKeygenElement/keygen-keytype-expected.txt: Removed.
+        * fast/dom/HTMLKeygenElement/keygen-keytype.html: Removed.
+        * fast/dom/HTMLKeygenElement/keygen.html: Removed.
+        * fast/dom/adopt-node-crash-2-expected.txt:
+        * fast/dom/adopt-node-crash-2.html:
+        * fast/dom/attribute-set-before-element-in-tree.html:
+        * fast/dom/domstring-attribute-reflection-expected.txt:
+        * fast/dom/domstring-attribute-reflection.html:
+        * fast/dom/set-custom-validity-with-too-few-arguments-expected.txt:
+        * fast/dom/set-custom-validity-with-too-few-arguments.html:
+        * fast/dom/tabindex-defaults-expected.txt:
+        * fast/dom/tabindex-defaults.html:
+        * fast/dom/wrapper-classes-expected.txt:
+        * fast/dom/wrapper-classes.html:
+        * fast/dynamic/insertAdjacentHTML-allowed-parents.html:
+        * fast/flexbox/crash-button-keygen.html:
+        * fast/forms/ValidityState-001-expected.txt:
+        * fast/forms/ValidityState-001.html:
+        * fast/forms/autofocus-keygen-expected.txt: Removed.
+        * fast/forms/autofocus-keygen.html: Removed.
+        * fast/forms/checkValidity-001-expected.txt:
+        * fast/forms/checkValidity-001.html:
+        * fast/forms/fieldset/fieldset-elements-expected.txt:
+        * fast/forms/fieldset/fieldset-elements-htmlcollection-expected.txt:
+        * fast/forms/fieldset/fieldset-elements-htmlcollection.html:
+        * fast/forms/fieldset/fieldset-elements.html:
+        * fast/forms/form-associated-element-crash3.html:
+        * fast/forms/form-attribute-expected.txt:
+        * fast/forms/form-attribute.html:
+        * fast/forms/form-collection-elements-expected.txt:
+        * fast/forms/form-collection-elements-order-expected.txt:
+        * fast/forms/form-collection-elements-order.html:
+        * fast/forms/form-collection-elements.html:
+        * fast/forms/form-collection-radio-node-list-expected.txt:
+        * fast/forms/form-collection-radio-node-list.html:
+        * fast/forms/label/labelable-elements-expected.txt:
+        * fast/forms/label/labelable-elements.html:
+        * fast/forms/label/labels-add-htmlFor-label-expected.txt:
+        * fast/forms/label/labels-add-htmlFor-label.html:
+        * fast/forms/label/labels-add-parent-label-expected.txt:
+        * fast/forms/label/labels-add-parent-label.html:
+        * fast/forms/label/labels-change-htmlFor-attribute-expected.txt:
+        * fast/forms/label/labels-change-htmlFor-attribute.html:
+        * fast/forms/label/labels-multiple-sibling-labels-expected.txt:
+        * fast/forms/label/labels-multiple-sibling-labels.html:
+        * fast/forms/label/labels-parent-and-sibling-labels-expected.txt:
+        * fast/forms/label/labels-parent-and-sibling-labels.html:
+        * fast/forms/label/labels-remove-htmlFor-attribute-expected.txt:
+        * fast/forms/label/labels-remove-htmlFor-attribute.html:
+        * fast/forms/label/labels-remove-htmlFor-label-expected.txt:
+        * fast/forms/label/labels-remove-htmlFor-label.html:
+        * fast/forms/label/labels-remove-parent-label-expected.txt:
+        * fast/forms/label/labels-remove-parent-label.html:
+        * fast/forms/large-parts.html:
+        * fast/forms/resources/common.js:
+        (createFormControlDataSet): Removed keygen form the list of form control elements.
+        * fast/forms/scrollheight-with-mutation-crash.html:
+        * fast/forms/setCustomValidity-arguments-expected.txt:
+        * fast/forms/setCustomValidity-arguments.html:
+        * fast/forms/setCustomValidity-existence-expected.txt:
+        * fast/forms/setCustomValidity-existence.html:
+        * fast/forms/setCustomValidity-null-parameter-expected.txt:
+        * fast/forms/setCustomValidity-null-parameter.html:
+        * fast/forms/state-restore-skip-stateless.html:
+        * fast/forms/update-form-owner-in-moved-subtree-assertion-failure.html:
+        * fast/forms/validationMessage-expected.txt:
+        * fast/forms/validationMessage.html:
+        * fast/forms/willvalidate-expected.txt:
+        * fast/forms/willvalidate.html:
+        * fast/html/clone-keygen-expected.txt: Removed.
+        * fast/html/clone-keygen.html: Removed.
+        * fast/html/keygen.html: Removed.
+        * fast/html/marquee-reparent-check.html:
+        * fast/invalid/residual-style-expected.html:
+        * fast/invalid/residual-style.html:
+        * fast/multicol/span/positioned-child-not-removed-crash-expected.txt:
+        * fast/multicol/span/positioned-child-not-removed-crash.html:
+        * fast/ruby/float-object-doesnt-crash.html:
+        * fast/shadow-dom/keygen-shadow-manipulation-expected.txt:
+        * fast/shadow-dom/keygen-shadow-manipulation.html:
+        * fast/table/crash-splitColumn-2.html:
+        * fast/table/multiple-captions-crash3-expected.html:
+        * fast/table/multiple-captions-crash3.html:
+        * http/tests/misc/resources/check-keygen-post.py: Removed.
+        * http/tests/misc/submit-post-keygen-expected.txt: Removed.
+        * http/tests/misc/submit-post-keygen.html: Removed.
+        * imported/blink/fast/dom/shadow/shadowdom-for-keygen-only-shadow-expected.html: Removed.
+        * imported/blink/fast/dom/shadow/shadowdom-for-keygen-only-shadow.html: Removed.
+        * imported/blink/fast/text/international-iteration-simple-text.html:
+        * platform/glib/fast/html/keygen-expected.txt: Removed.
+        * platform/gtk/fast/forms/label/labelable-elements-expected.txt:
+        * platform/gtk/fast/html/keygen-expected.png: Removed.
+        * platform/ios-wk2/TestExpectations:
+        * platform/ios-wk2/fast/forms/label/labelable-elements-expected.txt:
+        * platform/ios/fast/html/keygen-expected.txt: Removed.
+        * platform/mac-wk2/fast/forms/label/labelable-elements-expected.txt:
+        * platform/mac/fast/html/keygen-expected.png: Removed.
+        * platform/mac/fast/html/keygen-expected.txt: Removed.
+        * platform/win/TestExpectations:
+        * platform/wincairo/fast/html/keygen-expected.txt: Removed.
+        * svg/dom/css-animate-input-foucs-crash-expected.txt:
+        * svg/dom/css-animate-input-foucs-crash.html:
+
+2022-01-30  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Delete runtime preference for enabling input events
+        https://bugs.webkit.org/show_bug.cgi?id=235864
+
+        Reviewed by Wenson Hsieh.
+
+        Updated the tests.
+
+        * fast/events/before-input-delete-empty-list-target-ranges.html:
+        * fast/events/before-input-delete-text-target-ranges.html:
+        * fast/events/before-input-events-different-start-end-elements.html:
+        * fast/events/before-input-events-prevent-block-text-direction.html:
+        * fast/events/before-input-events-prevent-default-in-textfield.html:
+        * fast/events/before-input-events-prevent-default.html:
+        * fast/events/before-input-events-prevent-drag-and-drop.html:
+        * fast/events/before-input-events-prevent-insert-composition.html:
+        * fast/events/before-input-events-prevent-recomposition.html:
+        * fast/events/before-input-prevent-biu.html:
+        * fast/events/before-input-prevent-cut.html:
+        * fast/events/before-input-prevent-paste.html:
+        * fast/events/before-input-prevent-typing.html:
+        * fast/events/before-input-prevent-undo.html:
+        * fast/events/before-input-replace-text-target-ranges.html:
+        * fast/events/input-event-insert-link.html:
+        * fast/events/input-events-drag-and-drop.html:
+        * fast/events/input-events-fired-when-typing.html:
+        * fast/events/input-events-forecolor-data.html:
+        * fast/events/input-events-ime-composition.html:
+        * fast/events/input-events-ime-recomposition.html:
+        * fast/events/input-events-insert-by-drop.html:
+        * fast/events/input-events-paste-data.html:
+        * fast/events/input-events-paste-rich-datatransfer.html:
+        * fast/events/input-events-selection-forecolor-data.html:
+        * fast/events/input-events-spell-checking-datatransfer.html:
+        * fast/events/input-events-typing-data.html:
+        * fast/events/ios/input-events-fired-when-typing-in-contenteditable.html:
+
+2022-01-30  Arcady Goldmints-Orlov  <agoldmints@igalia.com>
+
+        [GLIB] Update Test expectations and baselines. Unreviewed test gardening.
+        https://bugs.webkit.org/show_bug.cgi?id=235826
+
+        * platform/glib/tables/mozilla/bugs/adforce_imgis_com-expected.txt: Renamed from LayoutTests/platform/wpe/tables/mozilla/bugs/adforce_imgis_com-expected.txt.
+        * platform/gtk/accessibility/math-multiscript-attributes-expected.txt:
+        * platform/gtk/css2.1/t1508-c527-font-08-b-expected.txt: Added.
+        * platform/gtk/css2.1/t1508-c527-font-10-c-expected.txt:
+        * platform/wpe/accessibility/math-multiscript-attributes-expected.txt:
+
+2022-01-30  Alan Bujtas  <zalan@apple.com>
+
+        (REGRESSION)[IFC][RTL] wpt/css/css-text/white-space/trailing-space-and-text-alignment-rtl-003.html
+        https://bugs.webkit.org/show_bug.cgi?id=235823
+        <rdar://problem/88186663>
+
+        Reviewed by Antti Koivisto.
+
+        * fast/text/rtl-pre-wrap-hanging-offset-expected.html: Added.
+        * fast/text/rtl-pre-wrap-hanging-offset.html: Added.
+
+2022-01-30  Alan Bujtas  <zalan@apple.com>
+
+        [LFC][IFC] Do not break content at an inline box boundary
+        https://bugs.webkit.org/show_bug.cgi?id=235868
+
+        Reviewed by Antti Koivisto.
+
+        * fast/inline/nested-inline-box-with-word-break-expected.html: Added.
+        * fast/inline/nested-inline-box-with-word-break.html: Added.
+
+2022-01-29  Alexey Shvayka  <ashvayka@apple.com>
+
+        [WebIDL] Add a sensible error message for a primitive non-null EventListener
+        https://bugs.webkit.org/show_bug.cgi?id=235863
+
+        Reviewed by Darin Adler.
+
+        * fast/events/event-listener-not-an-object-expected.txt: Added.
+        * fast/events/event-listener-not-an-object.html: Added.
+
+2022-01-29  Patrick Griffis  <pgriffis@igalia.com>
+
+        CSP: Properly block image content in object elements
+        https://bugs.webkit.org/show_bug.cgi?id=235837
+
+        Reviewed by Kate Cheney.
+
+        * http/tests/security/contentSecurityPolicy/userAgentShadowDOM/default-src-object-data-url-blocked-expected.txt:
+        * http/tests/security/contentSecurityPolicy/userAgentShadowDOM/default-src-object-data-url-blocked2-expected.txt:
+        * http/tests/security/contentSecurityPolicy/userAgentShadowDOM/default-src-object-data-url-blocked3-expected.txt:
+
+2022-01-29  Tyler Wilcock  <tyler_w@apple.com>
+
+        AX: Isolated tree objects don't update their AXPropertyName::ElementRect or AXPropertyName::BoundingBoxRect in response to dynamic page changes
+        https://bugs.webkit.org/show_bug.cgi?id=235833
+
+        Reviewed by Chris Fleizach.
+
+        Add test reproducing this issue.
+
+        * accessibility/dynamic-changes-update-position-expected.txt: Added.
+        * accessibility/dynamic-changes-update-position.html: Added.
+
+2022-01-29  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        Capturing WebGL canvas through peer connection shows the image flipped
+        https://bugs.webkit.org/show_bug.cgi?id=235600
+        <rdar://problem/88043325>
+
+        Reviewed by Dean Jackson.
+
+        Test sending WebGL image through a peer connection to a local video
+        and assert that the image is as drawn.
+
+        * platform/glib/TestExpectations:
+        * webrtc/canvas-to-peer-connection-expected.txt: Added.
+        * webrtc/canvas-to-peer-connection.html: Added.
+        * webrtc/routines.js:
+        * webrtc/video-replace-track.html:
+
+2022-01-28  Antoine Quint  <graouts@webkit.org>
+
+        [WPT] Update CSS animation tests
+        https://bugs.webkit.org/show_bug.cgi?id=235759
+
+        Unreviewed manual WPT update.
+
+        * platform/glib/TestExpectations:
+        * platform/gtk/imported/w3c/web-platform-tests/css/css-fonts/animations/system-fonts-expected.txt: Added.
+        * platform/ios/imported/w3c/web-platform-tests/css/css-fonts/animations/system-fonts-expected.txt: Added.
+
+2022-01-28  Antti Koivisto  <antti@apple.com>
+
+        [CSS container Queries] Include container queries in RuleSets
+        https://bugs.webkit.org/show_bug.cgi?id=235763
+
+        Reviewed by Simon Fraser.
+
+        * TestExpectations:
+
+2022-01-28  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        REGRESSION(r281687): Space widths have synthetic bold applied to them in the fast text codepath but not the complex text codepath
+        https://bugs.webkit.org/show_bug.cgi?id=235755
+        <rdar://problem/88052073>
+
+        Reviewed by Simon Fraser.
+
+        * platform/mac/fast/text/atsui-multiple-renderers-expected.txt:
+
+2022-01-28  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        Implement CSS overscroll-behavior for asynchronous scroll on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=220139
+
+        Reviewed by Simon Fraser.
+
+        * fast/scrolling/mac/async-overscroll-behavior-element-expected.txt: Added.
+        * fast/scrolling/mac/async-overscroll-behavior-element.html: Added.
+        * fast/scrolling/mac/async-overscroll-behavior-iframe-expected.txt: Added.
+        * fast/scrolling/mac/async-overscroll-behavior-iframe.html: Added.
+        * fast/scrolling/mac/async-overscroll-behavior-unscrollable-element-expected.txt: Added.
+        * fast/scrolling/mac/async-overscroll-behavior-unscrollable-element.html: Added.
+        * fast/scrolling/mac/async-overscroll-behavior-unscrollable-iframe-expected.txt: Added.
+        * fast/scrolling/mac/async-overscroll-behavior-unscrollable-iframe.html: Added.
+        * fast/scrolling/resources/overscroll-behavior-support.js: Added.
+        (getDeltas):
+        (async mouseWheelScrollAndWait):
+
+2022-01-28  Robert Jenner  <Jenner@apple.com>
+
+        [ BigSur+ Release wk1 arm64 ] Bots are flaky exiting testing after 500 layout-test failures (235733)
+        https://bugs.webkit.org/show_bug.cgi?id=235733
+
+        Uneviewed test gardening.
+
+        * platform/mac-wk1/TestExpectations: Skipping test for mac BigSur and later wk1 arm64 Release because it intermittently causes many tests to fail.
+
+2022-01-28  Alexey Shvayka  <ashvayka@apple.com>
+
+        Remove showModalDialog-specific logic from JSDOMWindow::getOwnPropertySlot()
+        https://bugs.webkit.org/show_bug.cgi?id=234282
+
+        Reviewed by Yusuke Suzuki.
+
+        * fast/dom/Window/forbid-showModalDialog-expected.txt:
+        * fast/dom/Window/forbid-showModalDialog.html:
+
+2022-01-28  Jon Lee  <jonlee@apple.com>
+
+        Add copy-to-clipboard button for fuzzy matching meta tag
+        https://bugs.webkit.org/show_bug.cgi?id=235665
+
+        Reviewed by Darin Adler.
+
+        * fast/harness/image-diff-template.html: Add button which cycles through different versions of
+        the fuzzy match string to allow for both absolute values and a range. Add a button that copies
+        that text and inserts into meta tag string prior to copying to clipboard.
+        * fast/harness/image-diff-template-expected.txt:
+
+2022-01-28  Antoine Quint  <graouts@webkit.org>
+
+        [WPT] Remove outdated Web Animations expectations
+        https://bugs.webkit.org/show_bug.cgi?id=235767
+
+        Unreviewed test gardening.
+
+        * platform/glib/imported/w3c/web-platform-tests/web-animations/animation-model/animation-types/interpolation-per-property-expected.txt: Removed.
+
+2022-01-27  Chris Dumez  <cdumez@apple.com>
+
+        Radio buttons with no form owner are not grouped
+        https://bugs.webkit.org/show_bug.cgi?id=220502
+        <rdar://problem/73300895>
+
+        Reviewed by Darin Adler.
+
+        * fast/forms/radio/ValidityState-valueMissing-radio-expected.txt:
+        * fast/forms/radio/ValidityState-valueMissing-radio.html:
+        * fast/forms/radio/radio-live-validation-style-expected.txt:
+        * fast/forms/radio/radio-live-validation-style.html:
+        Update existing tests to reflect behavior change. I have verified that our behavior on those tests
+        is aligned with both Firefox and Chrome.
+
+        * platform/gtk/imported/w3c/web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valid-expected.txt:
+        * platform/gtk/imported/w3c/web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valueMissing-expected.txt:
+        * platform/ios-wk2/imported/w3c/web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valid-expected.txt:
+        * platform/ios-wk2/imported/w3c/web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valueMissing-expected.txt:
+        * platform/mac-wk2/imported/w3c/web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valid-expected.txt:
+        * platform/mac-wk2/imported/w3c/web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valueMissing-expected.txt:
+        Rebaseline existing WPT tests now that more checks are passing.
+
+2022-01-27  Antoine Quint  <graouts@webkit.org>
+
+        [Model] Allow disabling interaction
+        https://bugs.webkit.org/show_bug.cgi?id=227621
+        <rdar://problem/80079703>
+
+        Reviewed by Darin Adler.
+
+        Add two new tests:
+        
+        - model-element/model-element-interactive.html tests the "interactive" IDL property
+        and the "interactive" HTML attribute,
+        - model-element/model-element-interactive-dragging.html tests that the "interactive"
+        IDL property correctly disables setting the camera by dragging when "false", and allows
+        it when "true".
+
+        We also refactor some code previously found in model-element/model-element-camera.html
+        to now be in the shared model-element/resources/model-utils.js to ease writing <model>
+        tests.
+
+        * model-element/model-element-camera.html:
+        * model-element/model-element-interactive-dragging-expected.txt: Added.
+        * model-element/model-element-interactive-dragging.html: Added.
+        * model-element/model-element-interactive-expected.txt: Added.
+        * model-element/model-element-interactive.html: Added.
+        * model-element/resources/model-utils.js: Added.
+        (const.makeModel):
+        (const.bodyAvailability.async return):
+        (const.bodyAvailability):
+        (const.readyModel.async test):
+        (const.assert_cameras_are_equal):
+        (const.assert_cameras_are_not_equal):
+        * platform/ios/TestExpectations:
+        * platform/mac/TestExpectations:
+
+2022-01-27  Chris Dumez  <cdumez@apple.com>
+
+        Geolocation API should callback with error if doc is not fully active
+        https://bugs.webkit.org/show_bug.cgi?id=228319
+        <rdar://problem/81450315>
+
+        Reviewed by Ryosuke Niwa.
+
+        Update existing layout tests to reflect behavior change.
+
+        * fast/dom/Geolocation/disconnected-frame-already-expected.txt:
+        * fast/dom/Geolocation/disconnected-frame-already.html:
+        Aligns test assertions with the spec. Gecko also passes it.
+
+        * TestExpectations: Unskip the WPT test.
+
+2022-01-27  Kate Cheney  <katherine_cheney@apple.com>
+
+        "Unrecognized Content-Security-Policy directive 'worker-src'."
+        https://bugs.webkit.org/show_bug.cgi?id=235260
+        <rdar://problem/83734079>
+
+        Reviewed by Brent Fulgham.
+
+        Update tests now that worker-src defaults eventually to script-src.
+        Since this was not the case with child-src, legacy CSP tests do not
+        expect script-src policies to affect workers. We can fix this by
+        specifying a separate worker-src policy for these tests to maintain
+        behavior.
+
+        * TestExpectations:
+        Some wpt tests log random URL strings that change for every test
+        iteration. For now we can't unskip those.
+
+        * http/tests/security/contentSecurityPolicy/1.1/child-src/worker-blocked-expected.txt:
+        * http/tests/security/contentSecurityPolicy/1.1/child-src/worker-redirect-blocked-expected.txt:
+        * http/tests/security/contentSecurityPolicy/worker-blob-inherits-csp-blocks-eval.html:
+        * http/tests/security/contentSecurityPolicy/worker-blob-inherits-csp-importScripts-block-aborts-all-subsequent-imports.html:
+        * http/tests/security/contentSecurityPolicy/worker-blob-inherits-csp-importScripts-redirect-cross-origin-blocked.html:
+        * http/tests/security/contentSecurityPolicy/worker-blob-inherits-csp.html:
+        * http/tests/security/contentSecurityPolicy/worker-script-src.html:
+        * http/tests/security/isolatedWorld/bypass-main-world-csp-worker-blob-eval.html:
+        * http/tests/security/isolatedWorld/bypass-main-world-csp-worker-blob-importScript-redirect-cross-origin.html:
+        * http/tests/security/isolatedWorld/bypass-main-world-csp-worker-blob-xhr.html:
+        * http/tests/security/isolatedWorld/bypass-main-world-csp-worker.html:
+
+2022-01-27  Devin Rousso  <drousso@apple.com>
+
+        [Payment Request] allow additional payment method specific data to be passed to `complete()`
+        https://bugs.webkit.org/show_bug.cgi?id=235415
+        <rdar://problem/82970451>
+
+        Reviewed by Darin Adler.
+
+        * http/tests/paymentrequest/ApplePayPaymentCompleteDetails.https.html: Added.
+        * http/tests/paymentrequest/ApplePayPaymentCompleteDetails.https-expected.txt: Added.
+
+2022-01-26  Jon Lee  <jonlee@apple.com>
+
+        Add fuzzy match meta headers to tests
+        https://bugs.webkit.org/show_bug.cgi?id=235671
+
+        Reviewed by Simon Fraser.
+
+        Use a conservative range of pixels based on a comparison between an EWS run and a run on an
+        M1 16" MacBook Pro.
+
+        * platform/ios/TestExpectations: a few tests are real failures with accelerated drawing. Mark
+        as image failures.
+
+        * compositing/clipping/border-radius-async-overflow-non-stacking.html: Some of the ranges
+        were not large enough, and still reported errors on my machine. Expanding range.
+        * compositing/geometry/css-clip-oversize.html:
+        * compositing/geometry/scroller-with-clipping-and-foreground-layers.html:
+        * compositing/masks/compositing-clip-path-and-mask.html:
+        * compositing/patterns/direct-pattern-compositing-add-text.html:
+        * compositing/patterns/direct-pattern-compositing-contain.html:
+        * compositing/patterns/direct-pattern-compositing-padding.html:
+        * compositing/patterns/direct-pattern-compositing-size.html:
+        * compositing/patterns/direct-pattern-compositing.html:
+        * compositing/scrolling/async-overflow-scrolling/border-radius-on-scroll-container.html:
+        * css3/background/background-repeat-space-border.html:
+        * css3/background/background-repeat-space-content.html:
+        * css3/background/background-repeat-space-padding.html:
+        * css3/blending/background-blend-mode-body-image.html:
+        * css3/blending/background-blend-mode-body-transparent-color-and-image.html:
+        * css3/blending/background-blend-mode-body-transparent-image.html:
+        * css3/filters/filters-on-svg-root.html:
+        * css3/masking/mask-luminance-gradient.html:
+        * css3/masking/mask-repeat-space-border.html:
+        * css3/masking/mask-repeat-space-content.html:
+        * css3/masking/mask-repeat-space-padding.html:
+        * fast/attachment/attachment-border-should-stay-inside-attachment.html:
+        * fast/backgrounds/background-opaque-clipped-gradients.html:
+        * fast/backgrounds/generated-bck-image-with-small-relative-size.html:
+        * fast/backgrounds/hidpi-background-image-contain-cover-scale-needs-more-precision.html:
+        * fast/backgrounds/scaled-gradient-background.html:
+        * fast/borders/border-painting-inset.html:
+        * fast/borders/border-painting-outset.html:
+        * fast/borders/border-radius-on-html.html:
+        * fast/borders/hidpi-border-painting-groove.html:
+        * fast/borders/hidpi-border-painting-ridge.html:
+        * fast/borders/wrong-border-color-when-radius-is-present.html:
+        * fast/box-shadow/inset-box-shadow.html:
+        * fast/box-shadow/inset-spread-box-shadow-split-inline.html:
+        * fast/css/cascade/box-shadow-and-webkit-box-shadow-cascade-order.html:
+        * fast/css/object-fit/object-fit-img-svg2.html:
+        * fast/gradients/conic-center-outside-box.html:
+        * fast/gradients/conic-extended-stops.html:
+        * fast/gradients/conic-from-angle.html:
+        * fast/gradients/conic-off-center.html:
+        * fast/gradients/conic-repeating.html:
+        * fast/gradients/conic-two-hints.html:
+        * fast/gradients/conic.html:
+        * fast/gradients/linear-two-hints-angle.html:
+        * fast/gradients/linear-two-hints.html:
+        * fast/gradients/radial-two-hints.html:
+        * fast/images/async-image-background-image-repeated.html:
+        * fast/images/exif-orientation-background-image-repeat.html:
+        * fast/images/exif-orientation-svg-feimage.html:
+        * fast/images/hidpi-image-position-on-device-pixels-with-border-radius.html:
+        * fast/images/sprite-sheet-image-draw.html:
+        * fast/inline/inline-background-clip-text-multiline.html:
+        * fast/shadow-dom/svg-linear-gradient-dynamic-update-href-in-shadow-tree.html:
+        * fast/shadow-dom/svg-linear-gradient-href-in-shadow-tree.html:
+        * fast/shadow-dom/svg-radial-gradient-dynamic-update-href-in-shadow-tree.html:
+        * fast/shadow-dom/svg-radial-gradient-href-in-shadow-tree.html:
+        * fast/text/empty-shadow.html:
+        * fast/text/initial-advance-selected-text.html:
+        * fast/transforms/skew-x-135deg-with-gradient.html:
+        * fast/transforms/skew-y-135deg-with-gradient.html:
+        * imported/blink/fast/gradients/large-horizontal-gradient.html:
+        * imported/blink/fast/gradients/large-vertical-gradient.html:
+        * imported/blink/svg/custom/fill-fallback-currentcolor-1.svg:
+        * imported/blink/svg/text/obb-paintserver.html:
+        * svg/animations/animated-string-href.svg:
+        * svg/clip-path/clip-opacity.html:
+        * svg/clip-path/clip-path-shape-rounded-inset-1.svg:
+        * svg/clip-path/clip-path-shape-rounded-inset-2.svg:
+        * svg/css/invalid-color-cascade.svg:
+        * svg/custom/composited-svg-with-opacity.html:
+        * svg/custom/hidpi-masking-clipping.svg:
+        * svg/custom/href-svg-namespace-static.svg:
+        * svg/custom/href-xlink-href-gradient-element.svg:
+        * svg/custom/local-url-reference-fill.html:
+        * svg/custom/local-url-reference-radial-gradient.html:
+        * svg/custom/local-url-reference-srcdoc.html:
+        * svg/custom/local-url-reference-stroke.html:
+        * svg/dynamic-updates/SVGLinearGradientElement-svgdom-href-prop.html:
+        * svg/dynamic-updates/SVGRadialGradientElement-svgdom-href-prop.html:
+        * svg/filters/feComposite.svg:
+        * svg/filters/feImage-element-primitive-subregion.svg:
+        * svg/gradients/spreadMethod.svg:
+        * svg/gradients/spreadMethodAlpha.svg:
+        * svg/gradients/spreadMethodDiagonal.svg:
+        * svg/gradients/spreadMethodDiagonal2.svg:
+        * svg/gradients/spreadMethodDiagonal3.svg:
+        * svg/gradients/spreadMethodDiagonal4.svg:
+        * svg/gradients/spreadMethodDuplicateStop.svg:
+        * svg/gradients/spreadMethodReversed.svg:
+        * svg/gradients/stopAlpha.svg:
+        * system-preview/badge.html:
+        * webanimations/opacity-animation.html:
+
+2022-01-27  Patrick Griffis  <pgriffis@igalia.com>
+
+        CSP: Clean up effective-violation handling in reports
+        https://bugs.webkit.org/show_bug.cgi?id=235602
+
+        Reviewed by Kate Cheney.
+
+        Update effective-violation of expectations.
+
+        * http/tests/security/contentSecurityPolicy/1.1/child-src/frame-blocked-expected.txt:
+        * http/tests/security/contentSecurityPolicy/1.1/child-src/frame-redirect-blocked-expected.txt:
+        * http/tests/security/contentSecurityPolicy/1.1/report-uri-effective-directive-expected.txt:
+        * http/tests/security/contentSecurityPolicy/1.1/script-blocked-sends-multiple-reports-expected.txt:
+        * http/tests/security/contentSecurityPolicy/1.1/scripthash-allowed-by-enforced-policy-and-blocked-by-report-policy-expected.txt:
+        * http/tests/security/contentSecurityPolicy/1.1/scripthash-allowed-by-enforced-policy-and-blocked-by-report-policy2-expected.txt:
+        * http/tests/security/contentSecurityPolicy/1.1/scripthash-allowed-by-legacy-enforced-policy-and-blocked-by-report-policy-expected.txt:
+        * http/tests/security/contentSecurityPolicy/1.1/scripthash-allowed-by-legacy-enforced-policy-and-blocked-by-report-policy2-expected.txt:
+        * http/tests/security/contentSecurityPolicy/1.1/scripthash-blocked-by-enforced-policy-and-allowed-by-report-policy-expected.txt:
+        * http/tests/security/contentSecurityPolicy/1.1/scripthash-blocked-by-legacy-enforced-policy-and-blocked-by-report-policy-expected.txt:
+        * http/tests/security/contentSecurityPolicy/1.1/scripthash-blocked-by-legacy-enforced-policy-and-blocked-by-report-policy2-expected.txt:
+        * http/tests/security/contentSecurityPolicy/1.1/scriptnonce-blocked-by-enforced-policy-and-allowed-by-report-policy-expected.txt:
+        * http/tests/security/contentSecurityPolicy/1.1/securityviolationpolicy-block-frame-using-child-src-expected.txt:
+        * http/tests/security/contentSecurityPolicy/1.1/securityviolationpolicy-block-frame-using-child-src.html:
+        * http/tests/security/contentSecurityPolicy/1.1/securityviolationpolicy-block-frame-using-default-src-expected.txt:
+        * http/tests/security/contentSecurityPolicy/1.1/securityviolationpolicy-block-frame-using-default-src.html:
+        * http/tests/security/contentSecurityPolicy/iframe-blocked-when-loaded-via-javascript-url-expected.txt:
+        * http/tests/security/contentSecurityPolicy/iframe-blocked-when-loaded-via-javascript-url2-expected.txt:
+        * http/tests/security/contentSecurityPolicy/iframe-redirect-blocked-by-child-src-expected.txt:
+        * http/tests/security/contentSecurityPolicy/report-and-enforce-expected.txt:
+        * http/tests/security/contentSecurityPolicy/report-only-expected.txt:
+        * http/tests/security/contentSecurityPolicy/report-only-from-header-expected.txt:
+        * http/tests/security/contentSecurityPolicy/report-only-upgrade-insecure-expected.txt:
+        * http/tests/security/contentSecurityPolicy/report-status-code-zero-when-using-https-expected.txt:
+        * http/tests/security/contentSecurityPolicy/report-uri-expected.txt:
+        * http/tests/security/contentSecurityPolicy/report-uri-from-child-frame-expected.txt:
+        * http/tests/security/contentSecurityPolicy/report-uri-scheme-relative-expected.txt:
+        * platform/glib/http/tests/security/contentSecurityPolicy/report-only-from-header-expected.txt:
+
+2022-01-27  Tyler Wilcock  <tyler_w@apple.com>
+
+        AX ITM: Defer to the tree when determining AX object loading progress
+        https://bugs.webkit.org/show_bug.cgi?id=235646
+
+        Reviewed by Andres Gonzalez.
+
+        * accessibility/mac/document-attributes-expected.txt:
+        Associated test now uses js-test.js, so modify expectations to include
+        js-test output (e.g. test description()).
+        * accessibility/mac/document-attributes.html:
+        Wait asynchronously for loading to complete ("AXLoaded: 1").
+        * accessibility/parent-delete.html:
+        Don't output all attributes, since it's not necessary for the purpose
+        of the test (which is to ensure calling allAttributes() in this
+        scenario doesn't cause a crash). Previously, the test output contained
+        loading AX attributes, so rather than making this test wait for
+        loading to complete I decided to remove the output all together.
+        * platform/mac/accessibility/parent-delete-expected.txt:
+
+2022-01-27  Gabriel Nava Marino  <gnavamarino@apple.com>
+
+        jsc_fuz/wktr: crash with new XRReferenceSpaceEvent('', {referenceSpace})
+        https://bugs.webkit.org/show_bug.cgi?id=235456
+
+        Reviewed by Chris Dumez.
+
+        * webxr/xr-reference-space-event-crash.html: Added.
+
+2022-01-27  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        Update WebGL conformance test suite to 2022-01-12
+        https://bugs.webkit.org/show_bug.cgi?id=235563
+
+        Reviewed by Dean Jackson.
+
+        Update WebGL testsuite to 2022-01-12 9b58fd243d38f4b9c72ab6f75ad701cafc131137.
+
+        Additionally:
+        The import script can now categorize tests to regular tests and small amount of http
+        tests:
+         - Remove old http/tests/webgl/1.0.2/
+         - Add new http/tests/webgl/1.0.x / 2.0.y
+
+        * http/tests/webgl/1.0.2/origin-clean-conformance-expected.txt: Removed.
+        * http/tests/webgl/1.0.2/origin-clean-conformance.html: Removed.
+        * http/tests/webgl/1.0.2/readPixelsBadArgs-expected.txt: Removed.
+        * http/tests/webgl/1.0.2/readPixelsBadArgs.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/3x3.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/blue-1x1.jpg: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/bug-32888-texture.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/floatUniformShader.vert: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/fragmentShader.frag: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/gray-ramp-256-with-128-alpha.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/gray-ramp-256.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/gray-ramp-default-gamma.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/gray-ramp-gamma0.1.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/gray-ramp-gamma1.0.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/gray-ramp-gamma2.0.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/gray-ramp-gamma4.0.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/gray-ramp-gamma9.0.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/gray-ramp.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/green-2x2-16bit.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/noopUniformShader.frag: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/npot-video.mp4: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/npot-video.theora.ogv: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/npot-video.webmvp8.webm: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/pnglib.js: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/red-green.mp4: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/red-green.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/red-green.theora.ogv: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/red-green.webmvp8.webm: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/red-indexed.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/small-square-with-cie-rgb-profile.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/small-square-with-colormatch-profile.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/small-square-with-colorspin-profile.jpg: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/small-square-with-colorspin-profile.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/small-square-with-e-srgb-profile.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/small-square-with-smpte-c-profile.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/small-square-with-srgb-iec61966-2.1-profile.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/tex-image-and-sub-image-2d-with-canvas.js: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/tex-image-and-sub-image-2d-with-image-data.js: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/tex-image-and-sub-image-2d-with-image.js: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/tex-image-and-sub-image-2d-with-video.js: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/vertexShader.vert: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/webgl-test-utils.js: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/webgl-test.js: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/resources/zero-alpha.png: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/00_test_list.txt: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/compressed-tex-image.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/copy-tex-image-2d-formats.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/copy-tex-image-and-sub-image-2d.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/gl-get-tex-parameter.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/gl-pixelstorei.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/gl-teximage.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/mipmap-fbo.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/origin-clean-conformance.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-and-sub-image-2d-with-array-buffer-view.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-and-sub-image-2d-with-canvas-rgb565.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-and-sub-image-2d-with-canvas-rgba4444.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-and-sub-image-2d-with-canvas-rgba5551.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-and-sub-image-2d-with-canvas.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-and-sub-image-2d-with-image-data-rgb565.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-and-sub-image-2d-with-image-data-rgba4444.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-and-sub-image-2d-with-image-data-rgba5551.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-and-sub-image-2d-with-image-data.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-and-sub-image-2d-with-image-rgb565.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-and-sub-image-2d-with-image-rgba4444.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-and-sub-image-2d-with-image-rgba5551.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-and-sub-image-2d-with-image.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-and-sub-image-2d-with-video-rgb565.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-and-sub-image-2d-with-video-rgba4444.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-and-sub-image-2d-with-video-rgba5551.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-and-sub-image-2d-with-video.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-and-uniform-binding-bugs.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-webgl.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-with-format-and-type.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-image-with-invalid-data.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-input-validation.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-sub-image-2d-bad-args.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/tex-sub-image-2d.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/texparameter-test.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/texture-active-bind-2.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/texture-active-bind.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/texture-attachment-formats.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/texture-clear.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/texture-complete.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/texture-formats-test.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/texture-hd-dpi.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/texture-mips.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/texture-npot-video.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/texture-npot.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/texture-size-cube-maps.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/texture-size-limit.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/texture-size.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/texture-sub-image-cube-maps.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/texture-transparent-pixels-initialized.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/textures/texture-upload-cube-maps.html: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/resources/desktop-gl-constants.js: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/resources/js-test-post.js: Removed.
+        * http/tests/webgl/1.0.2/resources/webgl_test_files/resources/webgl-test-harness.js: Removed.
+        * http/tests/webgl/1.0.2/texImage2DHTML-expected.txt: Removed.
+        * http/tests/webgl/1.0.2/texImage2DHTML.html: Removed.
+        * http/tests/webgl/1.0.2/texSubImage2DHTML-expected.txt: Removed.
+        * http/tests/webgl/1.0.2/texSubImage2DHTML.html: Removed.
+        * http/tests/webgl/1.0.x/conformance/more/functions/readPixelsBadArgs-expected.txt: Renamed from LayoutTests/webgl/1.0.x/conformance/more/functions/readPixelsBadArgs-expected.txt.
+        * http/tests/webgl/1.0.x/conformance/more/functions/readPixelsBadArgs.html: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/readPixelsBadArgs.html.
+        * http/tests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * http/tests/webgl/1.0.x/conformance/more/functions/texImage2DHTML.html: Renamed from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML.html.
+        * http/tests/webgl/1.0.x/conformance/more/functions/texSubImage2DHTML-expected.txt: Renamed from LayoutTests/webgl/1.0.x/conformance/more/functions/texSubImage2DHTML-expected.txt.
+        * http/tests/webgl/1.0.x/conformance/more/functions/texSubImage2DHTML.html: Renamed from LayoutTests/webgl/1.0.x/conformance/more/functions/texSubImage2DHTML.html.
+        * http/tests/webgl/2.0.y/conformance/more/functions/readPixelsBadArgs-expected.txt: Renamed from LayoutTests/webgl/2.0.y/conformance/more/functions/readPixelsBadArgs-expected.txt.
+        * http/tests/webgl/2.0.y/conformance/more/functions/readPixelsBadArgs.html: Renamed from LayoutTests/webgl/2.0.y/conformance/more/functions/readPixelsBadArgs.html.
+        * http/tests/webgl/2.0.y/conformance/more/functions/texImage2DHTML-expected.txt: Renamed from LayoutTests/webgl/2.0.y/conformance/more/functions/texImage2DHTML-expected.txt.
+        * http/tests/webgl/2.0.y/conformance/more/functions/texImage2DHTML.html: Copied from LayoutTests/webgl/2.0.y/conformance/more/functions/texImage2DHTML.html.
+        * http/tests/webgl/2.0.y/conformance/more/functions/texSubImage2DHTML-expected.txt: Renamed from LayoutTests/webgl/2.0.y/conformance/more/functions/texSubImage2DHTML-expected.txt.
+        * http/tests/webgl/2.0.y/conformance/more/functions/texSubImage2DHTML.html: Renamed from LayoutTests/webgl/2.0.y/conformance/more/functions/texSubImage2DHTML.html.
+        * http/tests/webgl/resources/js-test-pre.js: Copied from LayoutTests/http/tests/webgl/1.0.2/resources/webgl_test_files/resources/js-test-pre.js.
+        * http/tests/webgl/resources/webgl_test_files/conformance/more/functions/readPixelsBadArgs.html: Renamed from LayoutTests/http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/more/functions/readPixelsBadArgs.html.
+        * http/tests/webgl/resources/webgl_test_files/conformance/more/functions/texImage2DHTML.html: Renamed from LayoutTests/http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/more/functions/texImage2DHTML.html.
+        * http/tests/webgl/resources/webgl_test_files/conformance/more/functions/texSubImage2DHTML.html: Renamed from LayoutTests/http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/more/functions/texSubImage2DHTML.html.
+        * http/tests/webgl/resources/webgl_test_files/conformance/more/unit.css: Renamed from LayoutTests/http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/more/unit.css.
+        * http/tests/webgl/resources/webgl_test_files/conformance/more/unit.js: Renamed from LayoutTests/http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/more/unit.js.
+        * http/tests/webgl/resources/webgl_test_files/conformance/more/util.js: Renamed from LayoutTests/http/tests/webgl/1.0.2/resources/webgl_test_files/conformance/more/util.js.
+        * http/tests/webgl/resources/webgl_test_files/js/js-test-post.js: Added.
+        * http/tests/webgl/resources/webgl_test_files/js/js-test-pre.js: Copied from LayoutTests/webgl/resources/webgl_test_files/js/js-test-pre.js.
+        * http/tests/webgl/resources/webgl_test_files/js/webgl-test-utils.js: Copied from LayoutTests/webgl/resources/webgl_test_files/js/webgl-test-utils.js.
+        * http/tests/webgl/resources/webgl_test_files/resources/js-test-style.css: Renamed from LayoutTests/http/tests/webgl/1.0.2/resources/webgl_test_files/resources/js-test-style.css.
+        * http/tests/webgl/resources/webgl_test_files/resources/opengl_logo.jpg: Added.
+        * http/tests/webgl/resources/webgl_test_files/resources/thunderbird-logo-64x64.png: Added.
+        * http/tests/webgl/resources/webkit-webgl-test-harness.js: Renamed from LayoutTests/http/tests/webgl/1.0.2/resources/webkit-webgl-test-harness.js.
+        * webgl/1.0.x/conformance/canvas/to-data-url-after-composite-expected.txt: Renamed from LayoutTests/webgl/2.0.y/deqp/functional/gles3/multisample-expected.txt.
+        * webgl/1.0.x/conformance/canvas/to-data-url-after-composite.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_001_to_008-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_001_to_008.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_009_to_016-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_009_to_016.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_017_to_024-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_017_to_024.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_025_to_032-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_025_to_032.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_033_to_040-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_033_to_040.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_041_to_048-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_041_to_048.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_049_to_056-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_049_to_056.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_057_to_064-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_057_to_064.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_065_to_072-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_065_to_072.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_073_to_080-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_073_to_080.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_081_to_088-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_081_to_088.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_089_to_096-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_089_to_096.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_097_to_104-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_097_to_104.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_105_to_112-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_105_to_112.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_113_to_120-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_113_to_120.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_121_to_128-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_121_to_128.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_129_to_136-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_129_to_136.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_137_to_144-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_137_to_144.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_145_to_152-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_145_to_152.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_153_to_160-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_153_to_160.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_161_to_168-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_161_to_168.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_169_to_176-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_169_to_176.html: Added.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_177_to_178-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/1.0.x/conformance/ogles/GL/build/build_177_to_178.html: Added.
+        * webgl/1.0.x/conformance/rendering/clear-default-framebuffer-with-scissor-test-expected.txt: Added.
+        * webgl/1.0.x/conformance/rendering/clear-default-framebuffer-with-scissor-test.html: Added.
+        * webgl/1.0.x/conformance/rendering/color-mask-should-not-affect-antialiased-framebuffer-resolution-expected.txt: Added.
+        * webgl/1.0.x/conformance/rendering/color-mask-should-not-affect-antialiased-framebuffer-resolution.html: Added.
+        * webgl/1.0.x/conformance/textures/misc/format-filterable-renderable-expected.txt: Renamed from LayoutTests/webgl/2.0.y/conformance/textures/misc/origin-clean-conformance-expected.txt.
+        * webgl/1.0.x/conformance/textures/misc/format-filterable-renderable.html: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/readPixelsBadArgs.html.
+        * webgl/1.0.x/conformance/textures/misc/origin-clean-conformance-offscreencanvas.html: Removed.
+        * webgl/1.0.x/conformance/textures/misc/png-image-types-expected.txt: Renamed from LayoutTests/webgl/1.0.x/conformance/textures/misc/origin-clean-conformance-expected.txt.
+        * webgl/1.0.x/conformance/textures/misc/png-image-types.html: Renamed from LayoutTests/webgl/1.0.x/conformance/textures/misc/origin-clean-conformance.html.
+        * webgl/2.0.y/conformance/canvas/to-data-url-after-composite-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/2.0.y/conformance/canvas/to-data-url-after-composite.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_001_to_008-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_001_to_008.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_009_to_016-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_009_to_016.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_017_to_024-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_017_to_024.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_025_to_032-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_025_to_032.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_033_to_040-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_033_to_040.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_041_to_048-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_041_to_048.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_049_to_056-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_049_to_056.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_057_to_064-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_057_to_064.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_065_to_072-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_065_to_072.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_073_to_080-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_073_to_080.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_081_to_088-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_081_to_088.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_089_to_096-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_089_to_096.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_097_to_104-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_097_to_104.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_105_to_112-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_105_to_112.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_113_to_120-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_113_to_120.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_121_to_128-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_121_to_128.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_129_to_136-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_129_to_136.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_137_to_144-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_137_to_144.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_145_to_152-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_145_to_152.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_153_to_160-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_153_to_160.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_161_to_168-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_161_to_168.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_169_to_176-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_169_to_176.html: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_177_to_178-expected.txt: Added.
+        * webgl/2.0.y/conformance/ogles/GL/build/build_177_to_178.html: Added.
+        * webgl/2.0.y/conformance/rendering/clear-default-framebuffer-with-scissor-test-expected.txt: Added.
+        * webgl/2.0.y/conformance/rendering/clear-default-framebuffer-with-scissor-test.html: Added.
+        * webgl/2.0.y/conformance/rendering/color-mask-should-not-affect-antialiased-framebuffer-resolution-expected.txt: Added.
+        * webgl/2.0.y/conformance/rendering/color-mask-should-not-affect-antialiased-framebuffer-resolution.html: Added.
+        * webgl/2.0.y/conformance/textures/misc/format-filterable-renderable-expected.txt: Renamed from LayoutTests/webgl/2.0.y/conformance/textures/misc/origin-clean-conformance-offscreencanvas-expected.txt.
+        * webgl/2.0.y/conformance/textures/misc/format-filterable-renderable.html: Renamed from LayoutTests/webgl/1.0.x/conformance/more/functions/readPixelsBadArgs.html.
+        * webgl/2.0.y/conformance/textures/misc/origin-clean-conformance-offscreencanvas.html: Removed.
+        * webgl/2.0.y/conformance/textures/misc/origin-clean-conformance.html: Removed.
+        * webgl/2.0.y/conformance/textures/misc/png-image-types-expected.txt: Renamed from LayoutTests/webgl/1.0.x/conformance/textures/misc/origin-clean-conformance-offscreencanvas-expected.txt.
+        * webgl/2.0.y/conformance/textures/misc/png-image-types.html: Renamed from LayoutTests/webgl/2.0.y/conformance/more/functions/texImage2DHTML.html.
+        * webgl/2.0.y/conformance2/extensions/required-extensions-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/2.0.y/conformance2/extensions/required-extensions.html: Added.
+        * webgl/2.0.y/conformance2/glsl3/fragment-shader-loop-crash-expected.txt: Copied from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/2.0.y/conformance2/glsl3/fragment-shader-loop-crash.html: Added.
+        * webgl/2.0.y/conformance2/glsl3/reciprocal-sqrt-of-sum-of-squares-crash-expected.txt: Added.
+        * webgl/2.0.y/conformance2/glsl3/reciprocal-sqrt-of-sum-of-squares-crash.html: Added.
+        * webgl/2.0.y/conformance2/misc/blend-integer-expected.txt: Renamed from LayoutTests/webgl/1.0.x/conformance/more/functions/texImage2DHTML-expected.txt.
+        * webgl/2.0.y/conformance2/misc/blend-integer.html: Added.
+        * webgl/2.0.y/conformance2/rendering/blitframebuffer-unaffected-by-colormask-expected.txt: Added.
+        * webgl/2.0.y/conformance2/rendering/blitframebuffer-unaffected-by-colormask.html: Added.
+        * webgl/2.0.y/conformance2/rendering/draw-buffers-sparse-output-locations-expected.txt: Added.
+        * webgl/2.0.y/conformance2/rendering/draw-buffers-sparse-output-locations.html: Added.
+        * webgl/2.0.y/conformance2/textures/misc/origin-clean-conformance-offscreencanvas-expected.txt: Removed.
+        * webgl/2.0.y/conformance2/textures/misc/origin-clean-conformance-offscreencanvas.html: Removed.
+        * webgl/2.0.y/deqp/functional/gles3/multisample.html: Removed.
+        * webgl/2.0.y/deqp/functional/gles3/multisample/default_fbo-expected.txt: Added.
+        * webgl/2.0.y/deqp/functional/gles3/multisample/default_fbo.html: Added.
+        * webgl/2.0.y/deqp/functional/gles3/multisample/fbo_4_samples-expected.txt: Added.
+        * webgl/2.0.y/deqp/functional/gles3/multisample/fbo_4_samples.html: Added.
+        * webgl/2.0.y/deqp/functional/gles3/multisample/fbo_8_samples-expected.txt: Added.
+        * webgl/2.0.y/deqp/functional/gles3/multisample/fbo_8_samples.html: Added.
+        * webgl/2.0.y/deqp/functional/gles3/multisample/fbo_max_samples-expected.txt: Added.
+        * webgl/2.0.y/deqp/functional/gles3/multisample/fbo_max_samples.html: Added.
+        * webgl/draw-webgl-to-context2d-memory-test-expected.txt:
+        * webgl/resources/webgl_test_files/conformance/attribs/gl-vertexattribpointer.html:
+        * webgl/resources/webgl_test_files/conformance/canvas/to-data-url-after-composite.html: Added.
+        * webgl/resources/webgl_test_files/conformance/context/context-attributes-alpha-depth-stencil-antialias.html:
+        * webgl/resources/webgl_test_files/conformance/context/methods.html:
+        * webgl/resources/webgl_test_files/conformance/extensions/ext-texture-compression-bptc.html:
+        * webgl/resources/webgl_test_files/conformance/extensions/ext-texture-compression-rgtc.html:
+        * webgl/resources/webgl_test_files/conformance/extensions/s3tc-and-rgtc.html:
+        * webgl/resources/webgl_test_files/conformance/extensions/webgl-compressed-texture-s3tc-srgb.html:
+        * webgl/resources/webgl_test_files/conformance/extensions/webgl-multi-draw.html:
+        * webgl/resources/webgl_test_files/conformance/extensions/webgl-webcodecs-video-frame.html:
+        * webgl/resources/webgl_test_files/conformance/glsl/bugs/character-set.html:
+        * webgl/resources/webgl_test_files/conformance/glsl/constructors/glsl-construct-vec-mat-index.html:
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CG_Data_Types_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CG_Standard_Library_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectBuiltInOveride_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectComma_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectConstFolding1_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectConstFolding2_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectConstruct_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectExtension10_V100_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectExtension1_V100_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectExtension4_V100_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectFull_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectFuncOverload_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectFuncOverload_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectFunction1_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectModule_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectParse1_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectParse2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectParse2_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectParseTest1_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectParseTest_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectPreprocess5_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectPreprocess8_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectPreprocess9_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectSwizzle1_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectSwizzle1_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectSwizzle2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectSwizzle2_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectSwizzle3_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/CorrectVersion_V100_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/DuplicateVersion1_V100_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/FunctionParam_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/Include_Preprocessor_Directive_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/Low_Level_Assembly_Reserved_Words_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/Main_Parameters_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/ParseTest3_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/ParseTest4_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/Permissive_Constant_Conversions_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/Permissive_Scalar_Vector_Expressions_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/TernaryOp_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/Texture_Rectangle_Samplers_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/array10_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/array11_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/array1_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/array2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/array3_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/array4_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/array5_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/array6_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/array7_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/array8_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/array9_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/attribute1_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/attribute2_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/attribute_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/attribute_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/break_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_001_to_008.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_009_to_016.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_017_to_024.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_025_to_032.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_033_to_040.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_041_to_048.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_049_to_056.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_057_to_064.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_065_to_072.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_073_to_080.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_081_to_088.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_089_to_096.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_097_to_104.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_105_to_112.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_113_to_120.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_121_to_128.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_129_to_136.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_137_to_144.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_145_to_152.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_153_to_160.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_161_to_168.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_169_to_176.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/build_177_to_178.html: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/comma1_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/comma2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/comma2_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/comma3_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/comment_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/conditional1_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/conditional2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/conditional3_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/constFunc_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/constructor1_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/constructor2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/constructor3_V100_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/continue_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/dataType10_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/dataType11_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/dataType12_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/dataType13_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/dataType19_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/dataType1_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/dataType2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/dataType3_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/dataType4_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/dataType5_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/dataType6_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/dataType7_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/dataType8_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/dataType9_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/default.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/default.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/dowhile_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/dvec2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/dvec3_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/dvec4_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/extension2_V100_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/extension3_V100_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/extension5_V100_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/extension6_V100_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/extension7_V100_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/extension8_V100_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/extension9_V100_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/float2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/float3_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/float4_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/fragmentOnly1_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/fragmentOnly2_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/fragmentOnly3_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/fragmentOnly4_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/fragmentOnly_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/function10_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/function1_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/function2_V100_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/function3_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/function4_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/function6_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/function7_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/function8_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/function9_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/hvec2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/hvec3_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/hvec4_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/identifier1_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/identifier2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/identifier3_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/if1_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/if2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/increment1_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/increment2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/increment3_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/increment4_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/increment6_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/input.run.txt: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/main1_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/main2_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/main3_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/matrix_V100_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/normal_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/parser10_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/parser1_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/parser3_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/parser4_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/parser5_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/parser6_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/parser7_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/parser8_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/parser9_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/preprocess0_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/preprocess10_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/preprocess1_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/preprocess2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/preprocess3_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/preprocess4_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/preprocess6_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/preprocess7_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/scoping1_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/scoping2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/struct10_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/struct11_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/struct1_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/struct2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/struct3_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/struct4_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/struct5_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/struct6_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/struct7_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/struct8_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/struct9_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/swizzle1_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/swizzle2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/swizzle3_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/typecast_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/uniform1_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/uniform_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/varying1_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/varying2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/varying3_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/varying_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/vector_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/version2_V100_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/version3_V100_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/vertexOnly2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/vertexOnly_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/vertex_vert.vert: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/while1_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/while2_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/ogles/GL/build/while_frag.frag: Added.
+        * webgl/resources/webgl_test_files/conformance/programs/program-test.html:
+        * webgl/resources/webgl_test_files/conformance/rendering/clear-default-framebuffer-with-scissor-test.html: Added.
+        * webgl/resources/webgl_test_files/conformance/rendering/color-mask-should-not-affect-antialiased-framebuffer-resolution.html: Added.
+        * webgl/resources/webgl_test_files/conformance/state/gl-object-get-calls.html:
+        * webgl/resources/webgl_test_files/conformance/textures/misc/format-filterable-renderable.html: Added.
+        * webgl/resources/webgl_test_files/conformance/textures/misc/png-image-types.html: Added.
+        * webgl/resources/webgl_test_files/conformance/textures/misc/video-rotation.html:
+        * webgl/resources/webgl_test_files/conformance2/context/methods-2.html:
+        * webgl/resources/webgl_test_files/conformance2/extensions/ext-color-buffer-float.html:
+        * webgl/resources/webgl_test_files/conformance2/extensions/ext-texture-norm16.html:
+        * webgl/resources/webgl_test_files/conformance2/extensions/oes-draw-buffers-indexed.html:
+        * webgl/resources/webgl_test_files/conformance2/extensions/required-extensions.html: Added.
+        * webgl/resources/webgl_test_files/conformance2/extensions/webgl-multi-draw-instanced-base-vertex-base-instance.html:
+        * webgl/resources/webgl_test_files/conformance2/glsl3/array-equality.html:
+        * webgl/resources/webgl_test_files/conformance2/glsl3/fragment-shader-loop-crash.html: Added.
+        * webgl/resources/webgl_test_files/conformance2/glsl3/matrix-row-major-dynamic-indexing.html:
+        * webgl/resources/webgl_test_files/conformance2/glsl3/reciprocal-sqrt-of-sum-of-squares-crash.html: Added.
+        * webgl/resources/webgl_test_files/conformance2/misc/blend-integer.html: Added.
+        * webgl/resources/webgl_test_files/conformance2/programs/gl-get-frag-data-location.html:
+        * webgl/resources/webgl_test_files/conformance2/rendering/blitframebuffer-unaffected-by-colormask.html: Added.
+        * webgl/resources/webgl_test_files/conformance2/rendering/draw-buffers-sparse-output-locations.html: Added.
+        * webgl/resources/webgl_test_files/conformance2/state/gl-object-get-calls.html:
+        * webgl/resources/webgl_test_files/conformance2/textures/misc/tex-storage-compressed-formats.html:
+        * webgl/resources/webgl_test_files/deqp/functional/gles3/es3fMultisampleTests.js:
+        * webgl/resources/webgl_test_files/deqp/functional/gles3/es3fPrimitiveRestartTests.js:
+        * webgl/resources/webgl_test_files/deqp/functional/gles3/multisample.html: Removed.
+        * webgl/resources/webgl_test_files/deqp/functional/gles3/multisample/default_fbo.html: Added.
+        * webgl/resources/webgl_test_files/deqp/functional/gles3/multisample/fbo_4_samples.html: Added.
+        * webgl/resources/webgl_test_files/deqp/functional/gles3/multisample/fbo_8_samples.html: Added.
+        * webgl/resources/webgl_test_files/deqp/functional/gles3/multisample/fbo_max_samples.html: Added.
+        * webgl/resources/webgl_test_files/js/glsl-conformance-test.js:
+        * webgl/resources/webgl_test_files/js/js-test-post.js:
+        * webgl/resources/webgl_test_files/js/js-test-pre.js:
+        * webgl/resources/webgl_test_files/js/tests/compressed-texture-utils.js:
+        * webgl/resources/webgl_test_files/js/tests/context-methods.js: Added.
+        * webgl/resources/webgl_test_files/js/tests/ext-color-buffer-half-float.js:
+        * webgl/resources/webgl_test_files/js/tests/gl-object-get-calls.js:
+        * webgl/resources/webgl_test_files/js/tests/tex-image-and-sub-image-2d-with-image-bitmap-from-video.js:
+        * webgl/resources/webgl_test_files/js/tests/tex-image-and-sub-image-3d-with-image-bitmap-from-video.js:
+        * webgl/resources/webgl_test_files/js/webgl-test-utils.js:
+        * webgl/resources/webgl_test_files/resources/red-green.webmvp8.webm:
+        * webgl/resources/webgl_test_files/resources/video-rotation-0.mp4:
+        * webgl/resources/webgl_test_files/resources/video-rotation-0.vp9.mp4:
+        * webgl/resources/webgl_test_files/resources/video-rotation-180.mp4:
+        * webgl/resources/webgl_test_files/resources/video-rotation-180.vp9.mp4:
+        * webgl/resources/webgl_test_files/resources/video-rotation-270.mp4:
+        * webgl/resources/webgl_test_files/resources/video-rotation-270.vp9.mp4:
+        * webgl/resources/webgl_test_files/resources/video-rotation-90.mp4:
+        * webgl/resources/webgl_test_files/resources/video-rotation-90.vp9.mp4:
+
+2022-01-27  Cameron McCormack  <heycam@apple.com>
+
+        Avoid setting and clearing :active state when dispatching synthetic click events when possible
+        https://bugs.webkit.org/show_bug.cgi?id=235672
+        <rdar://problem/88095418>
+
+        Reviewed by Simon Fraser.
+
+        * platform/gtk/inspector/timeline/line-column-expected.txt:
+
+2022-01-26  ChangSeok Oh  <changseok@webkit.org>
+
+        [GTK] WTR: Native HTML form validation popover is not supported
+        https://bugs.webkit.org/show_bug.cgi?id=167579
+
+        Reviewed by Carlos Garcia Campos.
+
+        This change enables form-validation-related tests. To this end, two APIs called
+        overridePreference and contentsOfUserInterfaceItem are added to UIScriptController.
+
+        We configure the minimum font size of the validation bubbles via UIScriptController.overridePreference
+        and retrieve a message and its font size through UIScriptController.contentsOfUserInterfaceItem.
+
+        * platform/gtk/TestExpectations: Enable form validation related tests we can perform with
+          native bubble widgets but skip ones related to HTML-based form validation as Cocoa-based ports do.
+
+2022-01-26  Ryan Haddad  <ryanhaddad@apple.com>
+
+        REGRESSION (01/14/22?): [macOS Release WK2] imported/w3c/web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-drawImage.html and createImageBitmap-flipY.html are flaky failures
+        https://bugs.webkit.org/show_bug.cgi?id=235681
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk2/TestExpectations: Mark tests as flaky.
+
+2022-01-26  Ryan Haddad  <ryanhaddad@apple.com>
+
+        ASSERTION FAILED: m_pdfDocument under WebKit::PDFPlugin::installPDFDocument()
+        https://bugs.webkit.org/show_bug.cgi?id=235660
+
+        Unreviewed test gardening.
+
+        Speculatively skip fast/replaced/encrypted-pdf-as-object-and-embed.html, which runs right
+        before a non-PDF test that gets the blame for the crash.
+
+        * platform/mac/TestExpectations:
+
+2022-01-26  Arcady Goldmints-Orlov  <agoldmints@igalia.com>
+
+        [GLIB] Update test expectations and baselines. Unreviewed test gardening.
+        https://bugs.webkit.org/show_bug.cgi?id=235677
+
+        This is mostly rebaselining and updating expectations after r288070
+        enabled LFC integration for complex text.
+
+        * platform/glib/TestExpectations:
+        * platform/glib/css2.1/t1508-c527-font-00-b-expected.txt:
+        * platform/glib/imported/w3c/web-platform-tests/css/css-text/white-space/trailing-space-position-001-expected.txt:
+        * platform/glib/imported/w3c/web-platform-tests/html/dom/elements/the-innertext-and-outertext-properties/getter-expected.txt:
+        * platform/glib/transforms/2d/hindi-rotated-expected.txt:
+        * platform/gtk/TestExpectations:
+        * platform/gtk/fast/block/margin-collapse/045-expected.txt:
+        * platform/gtk/fast/borders/rtl-border-05-expected.txt:
+        * platform/gtk/fast/css/word-space-extra-expected.txt:
+        * platform/gtk/fast/events/updateLayoutForHitTest-expected.txt:
+        * platform/gtk/fast/forms/large-toggle-elements-expected.txt:
+        * platform/gtk/fast/forms/select-writing-direction-natural-expected.txt:
+        * platform/gtk/fast/forms/textarea-placeholder-pseudo-style-expected.txt:
+        * platform/gtk/fast/frames/iframe-scrolling-attribute-expected.txt:
+        * platform/gtk/fast/text/international/unicode-bidi-plaintext-in-textarea-expected.txt:
+        * platform/gtk/fast/text/wbr-expected.txt:
+        * platform/gtk/fast/text/whitespace/nbsp-mode-and-linewraps-expected.txt:
+        * platform/gtk/fast/text/whitespace/pre-wrap-overflow-selection-expected.txt:
+        * platform/gtk/fast/text/whitespace/span-in-word-space-causes-overflow-expected.txt:
+        * platform/gtk/fast/text/word-space-expected.txt:
+        * platform/gtk/fonts/sans-serif-expected.txt:
+        * platform/gtk/fonts/serif-expected.txt:
+        * platform/gtk/imported/w3c/web-platform-tests/html/browsers/sandboxing/sandbox-parse-noscript-expected.txt:
+        * platform/gtk/imported/w3c/web-platform-tests/html/dom/elements/the-innertext-idl-attribute/getter-expected.txt:
+        * platform/gtk/imported/w3c/web-platform-tests/innerText/getter-expected.txt:
+        * platform/gtk/printing/single-line-must-not-be-split-into-two-pages-expected.txt:
+        * platform/gtk/scrollbars/overflow-scrollbar-combinations-expected.txt:
+        * platform/gtk/svg/as-object/object-box-sizing-no-width-height-expected.txt:
+        * platform/gtk/svg/custom/svg-fonts-without-missing-glyph-expected.txt:
+        * platform/gtk/svg/custom/svg-fonts-word-spacing-expected.txt:
+        * platform/gtk/svg/hixie/processing-model/003-expected.txt:
+        * platform/gtk/svg/hixie/processing-model/004-expected.txt:
+        * platform/gtk/tables/mozilla/bugs/bug101674-expected.txt:
+        * platform/gtk/tables/mozilla/bugs/bug113235-1-expected.txt:
+        * platform/gtk/tables/mozilla/bugs/bug113235-2-expected.txt:
+        * platform/gtk/tables/mozilla/bugs/bug1188-expected.txt:
+        * platform/gtk/tables/mozilla/bugs/bug126742-expected.txt:
+        * platform/gtk/tables/mozilla/bugs/bug1318-expected.txt:
+        * platform/gtk/tables/mozilla/bugs/bug14323-expected.txt:
+        * platform/gtk/tables/mozilla/bugs/bug2267-expected.txt:
+        * platform/gtk/tables/mozilla/bugs/bug2947-expected.txt:
+        * platform/gtk/tables/mozilla/bugs/bug2973-expected.txt:
+        * platform/gtk/tables/mozilla/bugs/bug38916-expected.txt:
+        * platform/gtk/tables/mozilla/bugs/bug4527-expected.txt:
+        * platform/gtk/tables/mozilla/core/col_span-expected.txt:
+        * platform/gtk/tables/mozilla/marvin/x_col_width_rel-expected.txt:
+        * platform/gtk/tables/mozilla/marvin/x_colgroup_width_rel-expected.txt:
+        * platform/gtk/tables/mozilla/other/wa_table_thtd_rowspan-expected.txt:
+        * platform/gtk/tables/mozilla/other/wa_table_tr_align-expected.txt:
+        * platform/gtk/tables/mozilla_expected_failures/bugs/bug89315-expected.txt:
+        * platform/gtk/transforms/3d/general/perspective-units-expected.txt:
+        * platform/wpe/TestExpectations:
+
+2022-01-26  Alan Bujtas  <zalan@apple.com>
+
+        REGRESSION (r281306): Non-breaking space incorrectly collapsed when webkit-nbsp-mode is set to "space"
+        https://bugs.webkit.org/show_bug.cgi?id=235627
+        <rdar://88004831>
+
+        Reviewed by Antti Koivisto.
+
+        * fast/text/collapsible-non-breaking-space-expected.html: Added.
+        * fast/text/collapsible-non-breaking-space.html: Added.
+        * platform/ios/fast/text/whitespace/nbsp-mode-and-linewraps-expected.txt: A slight behavior change with trailing content trimming, but
+        not generally noticeable and very specific to this non-standard property.
+        * platform/mac/fast/text/whitespace/nbsp-mode-and-linewraps-expected.txt:
+
+2022-01-26  Alexey Shvayka  <ashvayka@apple.com>
+
+        globalThis.queueMicrotask() should report thrown exceptions
+        https://bugs.webkit.org/show_bug.cgi?id=235614
+
+        Reviewed by Geoff Garen.
+
+        * TestExpectations: Unskip 3 WPT tests that are now passing.
+        * fast/dom/callback-function-detached-frame-queue-microtask-expected.txt: Added.
+        * fast/dom/callback-function-detached-frame-queue-microtask.html: Added.
+        * fast/dom/resources/callback-function-detached-frame-queue-microtask-iframe.html: Added.
+        * inspector/debugger/break-on-uncaught-exception-expected.txt:
+        * platform/mac-wk1/TestExpectations: Skip Service Worker test.
+
+2022-01-26  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed, revert r286855 as it caused form submission issues
+        https://bugs.webkit.org/show_bug.cgi?id=235645
+        <rdar://88020080>
+
+        * fast/forms/radio/ValidityState-valueMissing-radio-expected.txt:
+        * fast/forms/radio/ValidityState-valueMissing-radio.html:
+        * fast/forms/radio/radio-live-validation-style-expected.txt:
+        * fast/forms/radio/radio-live-validation-style.html:
+        * platform/ios-wk2/imported/w3c/web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valid-expected.txt:
+        * platform/ios-wk2/imported/w3c/web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valueMissing-expected.txt:
+        * platform/mac-wk2/imported/w3c/web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valid-expected.txt:
+        * platform/mac-wk2/imported/w3c/web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valueMissing-expected.txt:
+
+2022-01-26  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] container-type property should establish containment for 'size' and 'inline-size' values
+        https://bugs.webkit.org/show_bug.cgi?id=235638
+
+        Reviewed by Dean Jackson.
+
+        * TestExpectations:
+
+2022-01-26  Antoine Quint  <graouts@webkit.org>
+
+        [Web Inspector] Graphics tab should display pseudo-elements for more than ::before and ::after
+        https://bugs.webkit.org/show_bug.cgi?id=235234
+        <rdar://87766777>
+
+        Reviewed by Devin Rousso.
+
+        Check that requestEffectTarget() returns the correct Styleable by checking whether it's defined
+        or null, and checking its `node` and `pseudoId` members.
+
+        * inspector/animation/targetChanged-expected.txt:
+        * inspector/animation/targetChanged.html:
+
+2022-01-26  J Pascoe  <j_pascoe@apple.com>
+
+        [WebAuthn] Add authenticator attachment used during authentication to credential payload
+        https://bugs.webkit.org/show_bug.cgi?id=235621
+        rdar://86538235
+
+        Reviewed by Dean Jackson.
+
+        Modify webauthn layout tests to check for new authenticatorAttachment field.        
+        * http/wpt/webauthn/public-key-credential-get-success-local.https.html:
+        * http/wpt/webauthn/resources/util.js:
+
+2022-01-26  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Data detectors sometimes show up in the wrong place when resizing images with Live Text
+        https://bugs.webkit.org/show_bug.cgi?id=235598
+        rdar://88032375
+
+        Reviewed by Dean Jackson.
+
+        Add a layout test to exercise (some) of the changes. This new layout test consists of 4 steps:
+        1.  Hover over a data detector in Live Text and confirm that a data detector highlight is activated.
+        2.  Resize the image (via script) such that the cursor is no longer over a data detector; confirm that the data
+            detector highlight is cleared.
+        3.  Move over the data detector highlight in the resized image, and confirm that the highlight is once again
+            activated.
+        4.  Move out of the image altogether and confirm that the highlight is deactivated.
+
+        * fast/images/text-recognition/mac/image-overlay-data-detectors-expected.txt: Added.
+        * fast/images/text-recognition/mac/image-overlay-data-detectors.html: Added.
+
+2022-01-26  Antti Koivisto  <antti@apple.com>
+
+        [iOS] imported/w3c/web-platform-tests/css/cssom/getComputedStyle-detached-subtree.html is failing
+        https://bugs.webkit.org/show_bug.cgi?id=235640
+
+        Unreviewed rebase.
+
+        * platform/ios/imported/w3c/web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
+2022-01-26  Youenn Fablet  <youenn@apple.com>
+
+        Rebase WPT streams tests up to 8d1dc42
+        https://bugs.webkit.org/show_bug.cgi?id=235580
+
+        Reviewed by Chris Dumez.
+
+        * platform/mac-wk1/TestExpectations: Skipping service worker tests.
+
+2022-01-26  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        WebGL conformance tests that are pending upstreaming should not duplicate unmodified files
+        https://bugs.webkit.org/show_bug.cgi?id=235631
+
+        Reviewed by Antti Koivisto.
+
+        Duplicating the unmodified files keeps the pending tests somewhat isolated from the
+        upstream test updates. However, this is not feasible as the tests refer to bigger files
+        that are inconvenient to duplicate, such as videos. Also this makes it harder to write new tests,
+        since if the new pending test starts to use a file, the file would need duplication.
+        Also if the upstream has modified the shared files, the change done to the pending test needs
+        to be done anyway.
+
+        It is more consistent to use the same helper media, js and css resources for the pending tests
+        as the conformance test suite snapshot uses.
+
+        Remove all unmodified helper css and js files from the pending test directory and
+        use the unmodified files from the actual test files.
+
+        WebGL conformance tests are:
+        webgl/2.0.y/ -- autogenerated driver html files referencing the actual test suite test files
+        webgl/resources/webgl_test_files -- the actual test suite files
+
+        Move the pending tests similarly:
+        webgl/pending -- drivers
+        webgl/pending/resources/webgl_test_files -- old pending actual test files
+        webgl/resources/pending_webgl_test_files -- new pending actual test files
+
+        This way it is easier to refer to the resources from the actual test files.
+
+        * webgl/pending/conformance/context/context-attributes-alpha-depth-stencil-antialias-expected.txt:
+        * webgl/pending/conformance/context/context-attributes-alpha-depth-stencil-antialias.html:
+        * webgl/pending/conformance/glsl/misc/shader-with-reserved-words-2-expected.txt:
+        * webgl/pending/conformance/glsl/misc/shader-with-reserved-words-2.html:
+        * webgl/pending/conformance/glsl/misc/swizzle-as-lvalue-expected.txt:
+        * webgl/pending/conformance/glsl/misc/swizzle-as-lvalue.html:
+        * webgl/pending/conformance/textures/misc/tex-image-video-repeated-expected.txt:
+        * webgl/pending/conformance/textures/misc/tex-image-video-repeated.html:
+        * webgl/pending/conformance2/glsl3/empty-shader-with-output-expected.txt:
+        * webgl/pending/conformance2/glsl3/empty-shader-with-output.html:
+        * webgl/pending/conformance2/glsl3/float-constant-expressions-expected.txt:
+        * webgl/pending/conformance2/glsl3/float-constant-expressions.html:
+        * webgl/pending/resources/js-test-pre.js: Removed.
+        * webgl/pending/resources/webgl_test_files/js/glsl-conformance-test.js: Removed.
+        * webgl/pending/resources/webgl_test_files/js/js-test-post.js: Removed.
+        * webgl/pending/resources/webgl_test_files/js/js-test-pre.js: Removed.
+        * webgl/pending/resources/webgl_test_files/js/webgl-test-utils.js: Removed.
+        * webgl/pending/resources/webgl_test_files/resources/glsl-feature-tests.css: Removed.
+        * webgl/pending/resources/webgl_test_files/resources/js-test-style.css: Removed.
+        * webgl/pending/resources/webkit-webgl-test-harness.js: Removed.
+        * webgl/resources/pending_webgl_test_files/conformance/context/context-attributes-alpha-depth-stencil-antialias.html: Renamed from LayoutTests/webgl/pending/resources/webgl_test_files/conformance/context/context-attributes-alpha-depth-stencil-antialias.html.
+        * webgl/resources/pending_webgl_test_files/conformance/glsl/misc/shader-with-reserved-words-2.html: Renamed from LayoutTests/webgl/pending/resources/webgl_test_files/conformance/glsl/misc/shader-with-reserved-words-2.html.
+        * webgl/resources/pending_webgl_test_files/conformance/glsl/misc/swizzle-as-lvalue.html: Renamed from LayoutTests/webgl/pending/resources/webgl_test_files/conformance/glsl/misc/swizzle-as-lvalue.html.
+        * webgl/resources/pending_webgl_test_files/conformance/textures/misc/tex-image-video-repeated.html: Renamed from LayoutTests/webgl/pending/resources/webgl_test_files/conformance/textures/misc/tex-image-video-repeated.html.
+        * webgl/resources/pending_webgl_test_files/conformance2/glsl3/empty-shader-with-output.html: Renamed from LayoutTests/webgl/pending/resources/webgl_test_files/conformance2/glsl3/empty-shader-with-output.html.
+        * webgl/resources/pending_webgl_test_files/conformance2/glsl3/float-constant-expressions.html: Renamed from LayoutTests/webgl/pending/resources/webgl_test_files/conformance2/glsl3/float-constant-expressions.html.
+
+2022-01-26  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        Streams tests try to call ReadableStream.prototype.pipeThrough.call generically
+        https://bugs.webkit.org/show_bug.cgi?id=235560
+
+        Reviewed by Youenn Fablet.
+
+        ReadableStream methods are nowadays defined to accept only ReadableStream instances.
+        Tests sometimes assert that an exception is thrown. However, the exception being actually thrown is different.
+        Future testharness.js will check the exception and the test will fail.
+
+        * TestExpectations:
+        * platform/win/TestExpectations:
+        * streams/brand-checks-expected.txt: Removed.
+        * streams/brand-checks.html: Removed.
+        * streams/readable-stream-pipeThrough-expected.txt: Removed.
+        * streams/readable-stream-pipeThrough.html: Removed.
+        * streams/reference-implementation/brand-checks-expected.txt: Removed.
+        * streams/reference-implementation/brand-checks.html: Removed.
+
+2022-01-25  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [WinCairo] Unreviewed test gardening
+
+        * platform/wincairo/TestExpectations:
+        * platform/wincairo/fast/css/text-overflow-ellipsis-bidi-expected.txt:
+        * platform/wincairo/fast/css/word-space-extra-expected.txt:
+        * platform/wincairo/fast/dom/52776-expected.txt:
+        * platform/wincairo/fast/text/atsui-negative-spacing-features-expected.txt:
+        * platform/wincairo/fast/text/atsui-spacing-features-expected.txt:
+        * platform/wincairo/fast/text/basic/015-expected.txt:
+        * platform/wincairo/fast/text/international/003-expected.txt:
+        * platform/wincairo/fast/text/international/bidi-control-chars-treated-as-ZWS-expected.txt:
+        * platform/wincairo/fast/text/international/bidi-linebreak-001-expected.txt:
+        * platform/wincairo/fast/text/international/bidi-linebreak-002-expected.txt:
+        * platform/wincairo/fast/text/international/bidi-linebreak-003-expected.txt:
+        * platform/wincairo/fast/text/international/bidi-neutral-run-expected.txt:
+        * platform/wincairo/fast/text/international/hebrew-vowels-expected.txt:
+        * platform/wincairo/fast/text/international/hindi-whitespace-expected.txt:
+        * platform/wincairo/fast/text/international/thai-baht-space-expected.txt:
+        * platform/wincairo/fast/text/international/unicode-bidi-plaintext-in-textarea-expected.txt:
+        * platform/wincairo/fast/text/midword-break-before-surrogate-pair-2-expected.txt:
+        * platform/wincairo/fast/text/stroking-decorations-expected.txt:
+        * platform/wincairo/fast/text/stroking-expected.txt:
+        * platform/wincairo/fast/text/wbr-expected.txt:
+        * platform/wincairo/fast/text/wide-zero-width-space-expected.txt:
+
+2022-01-25  Robert Jenner  <jenner@apple.com>
+
+        WindowServer returned not alive with context:,unresponsive work processor(s)
+        rdar://86037417
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk2/TestExpectations: Temporarily disabling test.
+
+2022-01-25  Aditya Keerthi  <akeerthi@apple.com>
+
+        Disable input-security CSS property
+        https://bugs.webkit.org/show_bug.cgi?id=235557
+        rdar://87984277
+
+        Reviewed by Dean Jackson.
+
+        * fast/css/computed-text-security-for-input-security.html:
+
+2022-01-25  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Add another test for locale-specific shaping
+        https://bugs.webkit.org/show_bug.cgi?id=235558
+
+        Reviewed by Darin Adler.
+
+        Thanks so much to Just van Rossum for contributing the test font!!!
+
+        This test makes sure the LOCL lookup works correctly, even without font-feature-settings.
+
+        * fast/text/locale-shaping-2-expected.html: Added.
+        * fast/text/locale-shaping-2.html: Added.
+        * fast/text/locale-shaping-3-expected.html: Added.
+        * fast/text/locale-shaping-3.html: Added.
+        * fast/text/resources/langlocatest_cjk/LICENSE: Added.
+        * fast/text/resources/langlocatest_cjk/langlocatest_cjk.ttf: Added.
+        * platform/gtk/TestExpectations:
+        * platform/ios/TestExpectations:
+        * platform/mac/TestExpectations:
+        * platform/win/TestExpectations:
+        * platform/wpe/TestExpectations:
+
+2022-01-25  Ryan Haddad  <ryanhaddad@apple.com>
+
+        [macOS arm64] fast/scrolling/mac/j-shaped-scroll-rubberband.html is consistently failing
+        https://bugs.webkit.org/show_bug.cgi?id=235605
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk2/TestExpectations: Mark test as failing on arm64.
+
+2022-01-25  Jon Lee  <jonlee@apple.com>
+
+        Mavericks: media/track/track-in-band-legacy-api.html fails intermittently
+        https://bugs.webkit.org/show_bug.cgi?id=123522
+
+        Reviewed by Simon Fraser.
+
+        Remove expectations since it's not longer happening.
+        * gpu-process/TestExpectations:
+        * platform/ios-simulator/TestExpectations:
+        * platform/mac/TestExpectations:
+
+2022-01-25  Ryan Haddad  <ryanhaddad@apple.com>
+
+        [macOS arm64] imported/w3c/web-platform-tests/css/css-transforms/perspective-transforms-equivalence.html is consistently failing
+        https://bugs.webkit.org/show_bug.cgi?id=235084
+
+        Unreviewed test gardening.
+
+        * platform/mac/TestExpectations: Mark test as failing on arm64.
+
+2022-01-25  Jon Lee  <jonlee@apple.com>
+
+        [ Catalina wk1 ews ] media/remote-control-command-seek.html is a flaky timeout
+        https://bugs.webkit.org/show_bug.cgi?id=215325
+
+        Reviewed by Simon Fraser.
+
+        No longer flaking on Catalina or on iOS bots. Remove expectations.
+        * gpu-process/TestExpectations:
+        * platform/ios/TestExpectations:
+        * platform/mac-wk1/TestExpectations:
+
+2022-01-25  Robert Jenner  <jenner@apple.com>
+
+        [CSS Container Queries] Basic parsing support for container-type property
+        https://bugs.webkit.org/show_bug.cgi?id=235514
+
+        Uneviewed, rebaseline for iOS.
+
+        * platform/ios/imported/w3c/web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
 2022-01-25  Alan Bujtas  <zalan@apple.com>
 
         (REGRESSION r287485) [LFC][IFC] Incorrect RTL content position when intrusive float is present
@@ -391,7 +2158,7 @@
         * platform/glib/TestExpectations:
         * platform/gtk/TestExpectations:
 
-2022-01-21  Jon Lee  <jonlee554@gmail.com>
+2022-01-21  Jon Lee  <jonlee@apple.com>
 
         Unreviewed gardening.
 
@@ -410,7 +2177,7 @@
         * TestExpectations:
         * ipc/start-message-testing.html: Added.
 
-2022-01-20  Jon Lee  <jonlee554@gmail.com>
+2022-01-20  Jon Lee  <jonlee@apple.com>
 
         Partially garden [iOS] Triage failing LayoutTests in the storage/indexeddb directory
         https://bugs.webkit.org/show_bug.cgi?id=181752
@@ -430,7 +2197,7 @@
 
         * platform/mac/TestExpectations:
 
-2022-01-20  Jon Lee  <jonlee554@gmail.com>
+2022-01-20  Jon Lee  <jonlee@apple.com>
 
         Unreviewed gardening.
 
@@ -438,7 +2205,7 @@
         * platform/ios-simulator/TestExpectations:
         * platform/ios-wk2/TestExpectations:
 
-2022-01-20  Jon Lee  <jonlee554@gmail.com>
+2022-01-20  Jon Lee  <jonlee@apple.com>
 
         media/video-src-blob-using-open-panel.html now always passes.
         rdar://problem/32715902
@@ -456,7 +2223,7 @@
         * TestExpectations:
         * platform/mac/TestExpectations:
 
-2022-01-20  Jon Lee  <jonlee554@gmail.com>
+2022-01-20  Jon Lee  <jonlee@apple.com>
 
         Unreviewed gardening.
 
@@ -465,14 +2232,14 @@
         * platform/ios-wk2/TestExpectations:
         * platform/ios/TestExpectations: media/track/track-in-band-mode.html is flaky, not always failing.
 
-2022-01-20  Jon Lee  <jonlee554@gmail.com>
+2022-01-20  Jon Lee  <jonlee@apple.com>
 
         Unreviewed gardening.
 
         * gpu-process/TestExpectations: Remove failure expectations on media tests that are passing on iOS.
         * platform/ios/TestExpectations:
 
-2022-01-20  Jon Lee  <jonlee554@gmail.com>
+2022-01-20  Jon Lee  <jonlee@apple.com>
 
         Unreviewed gardening.
 
@@ -572,7 +2339,7 @@
         * platform/wincairo/TestExpectations:
         IntersectionObserver / ResizeObserver are not enabled on these platforms.
 
-2022-01-20  Jon Lee  <jonlee554@gmail.com>
+2022-01-20  Jon Lee  <jonlee@apple.com>
 
         Unreviewed gardening of GPU Process bots
 
@@ -680,7 +2447,7 @@
         * fast/css/CSSPrimitiveValue-modern-length-expected.txt: Added.
         * fast/css/CSSPrimitiveValue-modern-length.html: Added.
 
-2022-01-19  Jon Lee  <jonlee554@gmail.com>
+2022-01-19  Jon Lee  <jonlee@apple.com>
 
         Unreviewed gardening of GPU Process bot
 
@@ -821,7 +2588,7 @@
 
         * platform/win/TestExpectations:
 
-2022-01-18  Jon Lee  <jonlee554@gmail.com>
+2022-01-18  Jon Lee  <jonlee@apple.com>
 
         Unreviewed gardening of GPU Process bot tests.
 

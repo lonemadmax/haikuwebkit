@@ -166,7 +166,10 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << launchServicesExtensionHandle;
 
 #if HAVE(VIDEO_RESTRICTED_DECODING)
+#if PLATFORM(MAC)
     encoder << videoDecoderExtensionHandles;
+#endif
+    encoder << restrictImageAndVideoDecoders;
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -203,6 +206,7 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
 
 #if HAVE(IOSURFACE)
     encoder << maximumIOSurfaceSize;
+    encoder << bytesPerRowIOSurfaceAlignment;
 #endif
 
     encoder << accessibilityPreferences;
@@ -469,11 +473,18 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     parameters.launchServicesExtensionHandle = WTFMove(*launchServicesExtensionHandle);
 
 #if HAVE(VIDEO_RESTRICTED_DECODING)
+#if PLATFORM(MAC)
     std::optional<Vector<SandboxExtension::Handle>> videoDecoderExtensionHandles;
     decoder >> videoDecoderExtensionHandles;
     if (!videoDecoderExtensionHandles)
         return false;
     parameters.videoDecoderExtensionHandles = WTFMove(*videoDecoderExtensionHandles);
+#endif
+    std::optional<bool> restrictImageAndVideoDecoders;
+    decoder >> restrictImageAndVideoDecoders;
+    if (!restrictImageAndVideoDecoders)
+        return false;
+    parameters.restrictImageAndVideoDecoders = *restrictImageAndVideoDecoders;
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -552,6 +563,8 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
 
 #if HAVE(IOSURFACE)
     if (!decoder.decode(parameters.maximumIOSurfaceSize))
+        return false;
+    if (!decoder.decode(parameters.bytesPerRowIOSurfaceAlignment))
         return false;
 #endif
 

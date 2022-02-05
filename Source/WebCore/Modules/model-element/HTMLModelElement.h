@@ -97,7 +97,8 @@ public:
     void isMuted(IsMutedPromise&&);
     void setIsMuted(bool, DOMPromiseDeferred<void>&&);
 
-    bool isDraggableIgnoringAttributes() const final { return true; }
+    bool supportsDragging() const;
+    bool isDraggableIgnoringAttributes() const final;
 
 #if PLATFORM(COCOA)
     Vector<RetainPtr<id>> accessibilityChildren();
@@ -118,6 +119,7 @@ private:
 
     // DOM overrides.
     void didMoveToNewDocument(Document& oldDocument, Document& newDocument) final;
+    void attributeChanged(const QualifiedName&, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason) final;
 
     // Rendering overrides.
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
@@ -137,7 +139,11 @@ private:
     void dragDidChange(MouseEvent&);
     void dragDidEnd(MouseEvent&);
 
+    LayoutPoint flippedLocationInElementForMouseEvent(MouseEvent&);
+
     void setAnimationIsPlaying(bool, DOMPromiseDeferred<void>&&);
+
+    bool isInteractive() const;
 
     URL m_sourceURL;
     CachedResourceHandle<CachedRawResource> m_resource;

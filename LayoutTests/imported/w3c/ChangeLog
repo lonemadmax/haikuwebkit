@@ -1,3 +1,556 @@
+2022-01-31  Asumu Takikawa  <asumu@igalia.com>
+
+        Fix handling of module script errors in WebCore
+        https://bugs.webkit.org/show_bug.cgi?id=218284
+
+        Reviewed by Yusuke Suzuki.
+
+        Set test expectations to PASS for fixed behavior in module tests.
+        For import assertion tests, set different error behavior from
+        load errors getting dispatched.
+
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/css-module/charset-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/css-module/content-type-checking-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/css-module/cors-crossorigin-requests-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/css-module/import-css-module-basic-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/css-module/integrity-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/css-module/load-error-events-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/import-assertions/empty-assertion-clause-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/import-assertions/invalid-type-assertion-error-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/import-assertions/unsupported-assertion-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/charset-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/cors-crossorigin-requests-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/integrity-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/load-error-events-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/module-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/valid-content-type-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/compilation-error-1-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/compilation-error-2-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/errorhandling-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/specifier-error-expected.txt:
+
+2022-01-31  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Check for query containers when matching rules
+        https://bugs.webkit.org/show_bug.cgi?id=235881
+
+        Reviewed by Antoine Quint.
+
+        * web-platform-tests/css/css-contain/container-queries/container-type-invalidation-expected.txt:
+
+2022-01-30  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        Update LayoutTests/resources/testharness.js to 2021-6-24 version
+        https://bugs.webkit.org/show_bug.cgi?id=235398
+        <rdar://problem/88126222>
+
+        Reviewed by Youenn Fablet.
+
+        Update tests to accommodate the API change:
+         - assert_throws_js check that the exception is of a particular JS
+           exception type
+         - assert_throws_dom check that the exception is of a particular
+           DOMException type from a particular global object.
+         - assert_throws_exactly check that the exception is a specific
+           object.
+
+        * IndexedDB-private-browsing/close-in-upgradeneeded.html:
+        * IndexedDB-private-browsing/idbcursor-advance-invalid.html:
+        * IndexedDB-private-browsing/idbcursor_advance_index2.html:
+        * IndexedDB-private-browsing/idbcursor_advance_index3.html:
+        * IndexedDB-private-browsing/idbcursor_advance_index6.html:
+        * IndexedDB-private-browsing/idbcursor_advance_index7.html:
+        * IndexedDB-private-browsing/idbcursor_advance_index8.html:
+        * IndexedDB-private-browsing/idbcursor_advance_index9.html:
+        * IndexedDB-private-browsing/idbcursor_advance_objectstore2.html:
+        * IndexedDB-private-browsing/idbcursor_advance_objectstore3.html:
+        * IndexedDB-private-browsing/idbcursor_advance_objectstore4.html:
+        * IndexedDB-private-browsing/idbcursor_advance_objectstore5.html:
+        * IndexedDB-private-browsing/idbcursor_continue_index2.html:
+        * IndexedDB-private-browsing/idbcursor_continue_index3.html:
+        * IndexedDB-private-browsing/idbcursor_continue_index4.html:
+        * IndexedDB-private-browsing/idbcursor_continue_index7.html:
+        * IndexedDB-private-browsing/idbcursor_continue_index8.html:
+        * IndexedDB-private-browsing/idbcursor_continue_invalid.html:
+        * IndexedDB-private-browsing/idbcursor_continue_objectstore2.html:
+        * IndexedDB-private-browsing/idbcursor_continue_objectstore3.html:
+        * IndexedDB-private-browsing/idbcursor_continue_objectstore4.html:
+        * IndexedDB-private-browsing/idbcursor_continue_objectstore5.html:
+        * IndexedDB-private-browsing/idbcursor_continue_objectstore6.html:
+        * IndexedDB-private-browsing/idbcursor_delete_index2.html:
+        * IndexedDB-private-browsing/idbcursor_delete_index3.html:
+        * IndexedDB-private-browsing/idbcursor_delete_index4.html:
+        * IndexedDB-private-browsing/idbcursor_delete_index5.html:
+        * IndexedDB-private-browsing/idbcursor_delete_objectstore2.html:
+        * IndexedDB-private-browsing/idbcursor_delete_objectstore3.html:
+        * IndexedDB-private-browsing/idbcursor_delete_objectstore4.html:
+        * IndexedDB-private-browsing/idbcursor_delete_objectstore5.html:
+        * IndexedDB-private-browsing/idbcursor_update_index2.html:
+        * IndexedDB-private-browsing/idbcursor_update_index3.html:
+        * IndexedDB-private-browsing/idbcursor_update_index4.html:
+        * IndexedDB-private-browsing/idbcursor_update_index5.html:
+        * IndexedDB-private-browsing/idbcursor_update_index6.html:
+        * IndexedDB-private-browsing/idbcursor_update_index7.html:
+        * IndexedDB-private-browsing/idbcursor_update_objectstore2.html:
+        * IndexedDB-private-browsing/idbcursor_update_objectstore3.html:
+        * IndexedDB-private-browsing/idbcursor_update_objectstore5.html:
+        * IndexedDB-private-browsing/idbcursor_update_objectstore6.html:
+        * IndexedDB-private-browsing/idbcursor_update_objectstore7.html:
+        * IndexedDB-private-browsing/idbcursor_update_objectstore8.html:
+        * IndexedDB-private-browsing/idbdatabase_createObjectStore11.html:
+        * IndexedDB-private-browsing/idbdatabase_createObjectStore3.html:
+        * IndexedDB-private-browsing/idbdatabase_createObjectStore4.html:
+        * IndexedDB-private-browsing/idbdatabase_createObjectStore6.html:
+        * IndexedDB-private-browsing/idbdatabase_createObjectStore9-invalidparameters.html:
+        * IndexedDB-private-browsing/idbdatabase_deleteObjectStore2.html:
+        * IndexedDB-private-browsing/idbdatabase_deleteObjectStore3.html:
+        * IndexedDB-private-browsing/idbdatabase_deleteObjectStore4-not_reused.html:
+        * IndexedDB-private-browsing/idbdatabase_transaction.html:
+        * IndexedDB-private-browsing/idbdatabase_transaction3.html:
+        * IndexedDB-private-browsing/idbdatabase_transaction4.html:
+        * IndexedDB-private-browsing/idbdatabase_transaction5.html:
+        * IndexedDB-private-browsing/idbfactory_cmp2.html:
+        * IndexedDB-private-browsing/idbfactory_open9.html:
+        * IndexedDB-private-browsing/idbindex-multientry-arraykeypath.html:
+        * IndexedDB-private-browsing/idbindex_count4.html:
+        * IndexedDB-private-browsing/idbindex_get5.html:
+        * IndexedDB-private-browsing/idbindex_get6.html:
+        * IndexedDB-private-browsing/idbindex_get7.html:
+        * IndexedDB-private-browsing/idbindex_getKey5.html:
+        * IndexedDB-private-browsing/idbindex_getKey6.html:
+        * IndexedDB-private-browsing/idbindex_getKey7.html:
+        * IndexedDB-private-browsing/idbindex_openCursor.html:
+        * IndexedDB-private-browsing/idbindex_openCursor2.html:
+        * IndexedDB-private-browsing/idbindex_openKeyCursor.html:
+        * IndexedDB-private-browsing/idbindex_openKeyCursor2.html:
+        * IndexedDB-private-browsing/idbindex_openKeyCursor3.html:
+        * IndexedDB-private-browsing/idbkeyrange_incorrect.html:
+        * IndexedDB-private-browsing/idbobjectstore_add10.html:
+        * IndexedDB-private-browsing/idbobjectstore_add11.html:
+        * IndexedDB-private-browsing/idbobjectstore_add12.html:
+        * IndexedDB-private-browsing/idbobjectstore_add13.html:
+        * IndexedDB-private-browsing/idbobjectstore_add15.html:
+        * IndexedDB-private-browsing/idbobjectstore_add16.html:
+        * IndexedDB-private-browsing/idbobjectstore_add9.html:
+        * IndexedDB-private-browsing/idbobjectstore_clear3.html:
+        * IndexedDB-private-browsing/idbobjectstore_clear4.html:
+        * IndexedDB-private-browsing/idbobjectstore_count4.html:
+        * IndexedDB-private-browsing/idbobjectstore_createIndex10.html:
+        * IndexedDB-private-browsing/idbobjectstore_createIndex11.html:
+        * IndexedDB-private-browsing/idbobjectstore_createIndex12.html:
+        * IndexedDB-private-browsing/idbobjectstore_createIndex13.html:
+        * IndexedDB-private-browsing/idbobjectstore_delete6.html:
+        * IndexedDB-private-browsing/idbobjectstore_delete7.html:
+        * IndexedDB-private-browsing/idbobjectstore_deleteIndex.html:
+        * IndexedDB-private-browsing/idbobjectstore_deleted.html:
+        * IndexedDB-private-browsing/idbobjectstore_get6.html:
+        * IndexedDB-private-browsing/idbobjectstore_get7.html:
+        * IndexedDB-private-browsing/idbobjectstore_openCursor_invalid.html:
+        * IndexedDB-private-browsing/idbobjectstore_put10.html:
+        * IndexedDB-private-browsing/idbobjectstore_put11.html:
+        * IndexedDB-private-browsing/idbobjectstore_put12.html:
+        * IndexedDB-private-browsing/idbobjectstore_put13.html:
+        * IndexedDB-private-browsing/idbobjectstore_put15.html:
+        * IndexedDB-private-browsing/idbobjectstore_put16.html:
+        * IndexedDB-private-browsing/idbobjectstore_put9.html:
+        * IndexedDB-private-browsing/key_invalid.html:
+        * IndexedDB-private-browsing/keypath_invalid.html:
+        * IndexedDB-private-browsing/transaction-create_in_versionchange.html:
+
+2022-01-29  Patrick Griffis  <pgriffis@igalia.com>
+
+        CSP: Properly block image content in object elements
+        https://bugs.webkit.org/show_bug.cgi?id=235837
+
+        Reviewed by Kate Cheney.
+
+        Update expectations with more passes.
+
+        * web-platform-tests/content-security-policy/object-src/object-src-url-blocked-expected.txt:
+        * web-platform-tests/content-security-policy/object-src/object-src-url-embed-blocked-expected.txt:
+        * web-platform-tests/content-security-policy/object-src/object-src-url-redirect-blocked.sub-expected.txt:
+
+2022-01-28  Antoine Quint  <graouts@webkit.org>
+
+        css/css-backgrounds/animations/box-shadow-composition.html has failures
+        https://bugs.webkit.org/show_bug.cgi?id=235773
+
+        Unreviewed sync with WPT upstream, our copy of this test was outdated and we in fact pass
+        all assertions.
+
+        * web-platform-tests/css/css-backgrounds/animations/box-shadow-composition-expected.txt:
+        * web-platform-tests/css/css-backgrounds/animations/box-shadow-composition.html:
+
+2022-01-28  Antoine Quint  <graouts@webkit.org>
+
+        [WPT] Update CSS animation tests
+        https://bugs.webkit.org/show_bug.cgi?id=235759
+
+        Unreviewed manual WPT update.
+
+        * web-platform-tests/css/css-backgrounds/animations/background-color-animation-non-empty-no-draw-crash-expected.txt: Added.
+        * web-platform-tests/css/css-backgrounds/animations/background-color-animation-non-empty-no-draw-crash.html: Added.
+        * web-platform-tests/css/css-backgrounds/animations/background-color-animation-removed-element-crash-expected.txt: Added.
+        * web-platform-tests/css/css-backgrounds/animations/background-color-animation-removed-element-crash.html: Added.
+        * web-platform-tests/css/css-backgrounds/animations/background-color-animation-with-mask-expected.txt: Added.
+        * web-platform-tests/css/css-backgrounds/animations/background-color-animation-with-mask-ref.html: Added.
+        * web-platform-tests/css/css-backgrounds/animations/background-color-animation-with-mask.html: Added.
+        * web-platform-tests/css/css-fonts/animations/font-palette-animation-2-expected.html: Removed.
+        * web-platform-tests/css/css-fonts/animations/font-palette-animation-2.html: Removed.
+        * web-platform-tests/css/css-fonts/animations/font-palette-animation-3-expected-mismatch.html: Removed.
+        * web-platform-tests/css/css-fonts/animations/font-palette-animation-3.html: Removed.
+        * web-platform-tests/css/css-fonts/animations/font-palette-animation-expected.html: Removed.
+        * web-platform-tests/css/css-fonts/animations/font-palette-animation.html: Removed.
+        * web-platform-tests/css/css-fonts/animations/system-fonts-expected.txt: Added.
+        * web-platform-tests/css/css-fonts/animations/system-fonts.html: Added.
+        * web-platform-tests/css/css-size-adjust/animations/text-size-adjust-interpolation-expected.txt: Added.
+        * web-platform-tests/css/css-size-adjust/animations/text-size-adjust-interpolation.html: Added.
+
+2022-01-28  Antti Koivisto  <antti@apple.com>
+
+        [CSS container Queries] Include container queries in RuleSets
+        https://bugs.webkit.org/show_bug.cgi?id=235763
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-contain/container-queries/animation-container-size-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/animation-container-type-dynamic-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/animation-nested-animation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/animation-nested-transition-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/aspect-ratio-feature-evaluation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/at-container-parsing-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/auto-scrollbars-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/backdrop-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/conditional-container-status-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-for-shadow-dom.tentative-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-name-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-selection-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-size-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-type-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/counters-flex-circular-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/display-contents-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/display-none-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/font-relative-units-dynamic-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/font-relative-units-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/get-animations-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/iframe-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/ineligible-containment-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/inline-size-and-min-width-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/inline-size-containment-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/inline-size-containment-vertical-rl-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/orthogonal-wm-container-query-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/percentage-padding-orthogonal-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/pseudo-elements-001-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/pseudo-elements-003.tentative-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/query-content-box-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/query-evaluation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/reattach-container-with-dirty-child-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/size-container-no-principal-box-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/size-feature-evaluation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/style-change-in-container-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/top-layer-dialog-container-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/top-layer-dialog-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/top-layer-nested-dialog-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/transition-scrollbars-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/transition-style-change-event-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/unsupported-axis-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/viewport-units-dynamic-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/viewport-units-expected.txt:
+
+2022-01-28  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        REGRESSION(r281687): Space widths have synthetic bold applied to them in the fast text codepath but not the complex text codepath
+        https://bugs.webkit.org/show_bug.cgi?id=235755
+        <rdar://problem/88052073>
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-fonts/synthetic-bold-space-width-expected.html: Added.
+        * web-platform-tests/css/css-fonts/synthetic-bold-space-width.html: Added.
+
+2022-01-28  Antoine Quint  <graouts@webkit.org>
+
+        [WPT] Remove outdated Web Animations expectations
+        https://bugs.webkit.org/show_bug.cgi?id=235767
+
+        Unreviewed test gardening.
+
+        * web-platform-tests/web-animations/animation-model/animation-types/accumulation-per-property-expected.txt: Removed.
+        * web-platform-tests/web-animations/animation-model/animation-types/addition-per-property-expected.txt: Removed.
+        * web-platform-tests/web-animations/animation-model/animation-types/interpolation-per-property-expected.txt: Removed.
+
+2022-01-27  Chris Dumez  <cdumez@apple.com>
+
+        Radio buttons with no form owner are not grouped
+        https://bugs.webkit.org/show_bug.cgi?id=220502
+        <rdar://problem/73300895>
+
+        Reviewed by Darin Adler.
+
+        Rebaseline WPT tests now that more checks are passing.
+
+        * web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valid-expected.txt:
+        * web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valueMissing-expected.txt:
+        * web-platform-tests/html/semantics/forms/the-input-element/radio-expected.txt:
+
+2022-01-27  Chris Dumez  <cdumez@apple.com>
+
+        Geolocation API should callback with error if doc is not fully active
+        https://bugs.webkit.org/show_bug.cgi?id=228319
+        <rdar://problem/81450315>
+
+        Reviewed by Ryosuke Niwa.
+
+        * web-platform-tests/geolocation-API/non-fully-active.https-expected.txt:
+        Rebaseline WPT test that is now passing.
+
+2022-01-27  Kate Cheney  <katherine_cheney@apple.com>
+
+        "Unrecognized Content-Security-Policy directive 'worker-src'."
+        https://bugs.webkit.org/show_bug.cgi?id=235260
+        <rdar://problem/83734079>
+
+        Reviewed by Brent Fulgham.
+
+        * web-platform-tests/content-security-policy/child-src/child-src-cross-origin-load.sub-expected.txt:
+        * web-platform-tests/content-security-policy/child-src/child-src-worker-blocked.sub-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-self/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-self/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-self/worker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-self/worker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-wildcard/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-wildcard/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-wildcard/worker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/script-src-wildcard/worker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/sharedworker-classic.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/sharedworker-classic.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/sharedworker-import.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/sharedworker-import.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/sharedworker-module.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/sharedworker-module.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/worker-classic.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/worker-classic.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/worker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/worker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/worker-import.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/worker-import.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/worker-module.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-none/worker-module.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-self/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-self/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-self/sharedworker-import.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-self/sharedworker-import.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-self/worker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-self/worker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-wildcard/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-wildcard/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-wildcard/worker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-wildcard/worker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-self/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-self/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-self/worker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-self/worker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-wildcard/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-wildcard/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-wildcard/worker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/script-src-wildcard/worker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/worker-src/dedicated-fallback.sub-expected.txt:
+        * web-platform-tests/content-security-policy/worker-src/dedicated-none.sub-expected.txt:
+        * web-platform-tests/content-security-policy/worker-src/dedicated-worker-src-child-fallback-blocked.sub-expected.txt:
+        * web-platform-tests/content-security-policy/worker-src/dedicated-worker-src-script-fallback.sub-expected.txt:
+        * web-platform-tests/content-security-policy/worker-src/dedicated-worker-src-self-fallback.sub-expected.txt:
+        * web-platform-tests/content-security-policy/worker-src/service-none.https.sub-expected.txt:
+        * web-platform-tests/content-security-policy/worker-src/service-worker-src-child-fallback-blocked.https.sub-expected.txt:
+        * web-platform-tests/content-security-policy/worker-src/shared-child.sub-expected.txt: Added.
+        * web-platform-tests/content-security-policy/worker-src/shared-fallback.sub-expected.txt: Added.
+        * web-platform-tests/content-security-policy/worker-src/shared-list.sub-expected.txt: Added.
+        * web-platform-tests/content-security-policy/worker-src/shared-none.sub-expected.txt: Added.
+        * web-platform-tests/content-security-policy/worker-src/shared-self.sub-expected.txt: Added.
+        * web-platform-tests/content-security-policy/worker-src/shared-worker-src-child-fallback-blocked.sub-expected.txt: Added.
+        * web-platform-tests/content-security-policy/worker-src/shared-worker-src-child-fallback.sub-expected.txt: Added.
+        * web-platform-tests/content-security-policy/worker-src/shared-worker-src-default-fallback.sub-expected.txt: Added.
+        * web-platform-tests/content-security-policy/worker-src/shared-worker-src-script-fallback.sub-expected.txt: Added.
+        * web-platform-tests/content-security-policy/worker-src/shared-worker-src-self-fallback.sub-expected.txt: Added.
+        * web-platform-tests/content-security-policy/blob/self-doesnt-match-blob.sub-expected.txt:
+        * web-platform-tests/content-security-policy/blob/star-doesnt-match-blob.sub-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.http-rp/worker-src-self/worker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/sharedworker-classic.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/sharedworker-classic.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/sharedworker-module.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/sharedworker-module.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/worker-classic.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/worker-classic.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/worker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/worker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/worker-import.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/worker-import.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/worker-module.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-none/worker-module.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-self/sharedworker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-self/sharedworker-import-data.https-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-self/worker-import-data.http-expected.txt:
+        * web-platform-tests/content-security-policy/gen/top.meta/worker-src-self/worker-import-data.https-expected.txt:
+
+2022-01-27  Chris Dumez  <cdumez@apple.com>
+
+        Add layout test for Bug 235645
+        https://bugs.webkit.org/show_bug.cgi?id=235718
+
+        Reviewed by Alex Christensen.
+
+        * web-platform-tests/html/semantics/forms/the-input-element/radio-multiple-selected-expected.txt: Added.
+        * web-platform-tests/html/semantics/forms/the-input-element/radio-multiple-selected.html: Added.
+
+2022-01-27  Patrick Griffis  <pgriffis@igalia.com>
+
+        CSP: Clean up effective-violation handling in reports
+        https://bugs.webkit.org/show_bug.cgi?id=235602
+
+        Reviewed by Kate Cheney.
+
+        Updated expectations with more passes.
+
+        * web-platform-tests/content-security-policy/child-src/child-src-cross-origin-load.sub-expected.txt:
+        * web-platform-tests/content-security-policy/frame-src/frame-src-cross-origin-load.sub-expected.txt:
+        * web-platform-tests/content-security-policy/script-src/script-src-strict_dynamic_parser_inserted-expected.txt:
+
+2022-01-27  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Basic parsing support for query syntax
+        https://bugs.webkit.org/show_bug.cgi?id=235712
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/css/css-contain/container-queries/at-container-parsing-expected.txt:
+
+2022-01-26  Alexey Shvayka  <ashvayka@apple.com>
+
+        globalThis.queueMicrotask() should report thrown exceptions
+        https://bugs.webkit.org/show_bug.cgi?id=235614
+
+        Reviewed by Geoff Garen.
+
+        Rebaseline WPT tests that are now passing.
+
+        * web-platform-tests/html/webappapis/microtask-queuing/queue-microtask-exceptions.any-expected.txt:
+        * web-platform-tests/html/webappapis/microtask-queuing/queue-microtask-exceptions.any.serviceworker-expected.txt:
+        * web-platform-tests/html/webappapis/microtask-queuing/queue-microtask-exceptions.any.worker-expected.txt:
+
+2022-01-26  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed, revert r286855 as it caused form submission issues
+        https://bugs.webkit.org/show_bug.cgi?id=235645
+        <rdar://88020080>
+
+        * web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valid-expected.txt:
+        * web-platform-tests/html/semantics/forms/constraints/form-validation-validity-valueMissing-expected.txt:
+        * web-platform-tests/html/semantics/forms/the-input-element/radio-expected.txt:
+
+2022-01-26  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] container-type property should establish containment for 'size' and 'inline-size' values
+        https://bugs.webkit.org/show_bug.cgi?id=235638
+
+        Reviewed by Dean Jackson.
+
+        * web-platform-tests/css/css-contain/container-queries/container-type-containment-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-type-layout-invalidation-expected.txt:
+
+2022-01-26  Youenn Fablet  <youenn@apple.com>
+
+        Rebase WPT streams tests up to 8d1dc42
+        https://bugs.webkit.org/show_bug.cgi?id=235580
+
+        Reviewed by Chris Dumez.
+
+        Rebased WPT stream tests and expectations from WPT ToT.
+
+        * web-platform-tests/streams: Refreshed.
+
+2022-01-25  Alexey Shvayka  <ashvayka@apple.com>
+
+        [WebIDL] Blob-related methods should use _relevant_ context instead of _current_
+        https://bugs.webkit.org/show_bug.cgi?id=235279
+
+        Reviewed by Darin Adler.
+
+        Import WPT tests from TBA.
+
+        * web-platform-tests/FileAPI/blob/Blob-methods-from-detached-frame-expected.txt: Added.
+        * web-platform-tests/FileAPI/blob/Blob-methods-from-detached-frame.html: Added.
+        * web-platform-tests/FileAPI/support/empty-document.html: Added.
+
+2022-01-25  Alexey Shvayka  <ashvayka@apple.com>
+
+        XPath::Step::nodesInAxis(): add null checks after Attr::ownerElement() calls
+        https://bugs.webkit.org/show_bug.cgi?id=235500
+
+        Reviewed by Darin Adler.
+
+        Import WPT tests from https://github.com/web-platform-tests/wpt/pull/32544.
+
+        * web-platform-tests/domxpath/xpath-evaluate-crash-expected.txt: Added.
+        * web-platform-tests/domxpath/xpath-evaluate-crash.html: Added.
+
+2022-01-25  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Parsing support for container shorthand property
+        https://bugs.webkit.org/show_bug.cgi?id=235582
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/css/css-contain/container-queries/container-computed-expected.txt:
+
+2022-01-25  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Wasm module import should be done in sync when WebAssembly.instantiate gets module
+        https://bugs.webkit.org/show_bug.cgi?id=235506
+
+        Reviewed by Saam Barati.
+
+        * web-platform-tests/wasm/jsapi/constructor/instantiate.any-expected.txt:
+        * web-platform-tests/wasm/jsapi/constructor/instantiate.any.worker-expected.txt:
+
+2022-01-25  Antoine Quint  <graouts@webkit.org>
+
+        Deduplication for @keyframes rules should account for animation-composition
+        https://bugs.webkit.org/show_bug.cgi?id=235596
+
+        Reviewed by Dean Jackson.
+
+        Import test recently added in WPT via https://github.com/web-platform-tests/wpt/pull/32495.
+        We pass them all with the source change.
+
+        * web-platform-tests/css/css-animations/KeyframeEffect-getKeyframes.tentative-expected.txt:
+        * web-platform-tests/css/css-animations/KeyframeEffect-getKeyframes.tentative.html:
+
+2022-01-25  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        REGRESSION(r281419): iCloud.com Notes web app fonts render incorrectly
+        https://bugs.webkit.org/show_bug.cgi?id=235559
+        <rdar://problem/87268956>
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/html/canvas/element/drawing-text-to-the-canvas/null-character-expected.txt: Added.
+        * web-platform-tests/html/canvas/element/drawing-text-to-the-canvas/null-character.html: Added.
+
+2022-01-25  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Parsing support for container-name property
+        https://bugs.webkit.org/show_bug.cgi?id=235564
+
+        Reviewed by Dean Jackson.
+
+        * web-platform-tests/css/css-contain/container-queries/container-inheritance-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-name-computed-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-name-parsing-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
 2022-01-25  Ziran Sun  <zsun@igalia.com>
 
         [css-grid] Fix grid shorthand expansion of initial values

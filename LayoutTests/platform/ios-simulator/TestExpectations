@@ -23,8 +23,6 @@ webkit.org/b/126898 css3/flexbox/image-percent-max-height.html [ ImageOnlyFailur
 
 fast/events/document-elementFromPoint.html [ Pass Failure ]
 
-media/track/track-in-band-legacy-api.html [ Failure ]
-
 transforms/hittest-translated-content-off-to-infinity-and-back.html [ Pass ImageOnlyFailure ]
 
 # These tests seem to fail due pixel rounding errors in the absolute positioned elements used as reference.
@@ -42,6 +40,8 @@ webkit.org/b/174079 fast/text/variations/skia-postscript-name.html [ ImageOnlyFa
 imported/w3c/web-platform-tests/fetch/api/abort/general.any.worker.html [ Pass Failure ]
 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/history-traversal/persisted-user-state-restoration/scroll-restoration-fragment-scrolling-cross-origin.html [ Failure ]
 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-setLocalDescription-offer.html [ Failure ]
+
+webkit.org/b/235765 webrtc/canvas-to-peer-connection.html [ Failure ]
 
 # Simulator doesn't support WebAssembly.
 imported/w3c/web-platform-tests/wasm/wasm_stream_instantiate_test.html  [ Skip ]

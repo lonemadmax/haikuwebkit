@@ -239,6 +239,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/applepay/ApplePayShippingMethodUpdate.idl \
     $(WebCore)/Modules/applepay/ApplePayValidateMerchantEvent.idl \
     $(WebCore)/Modules/applepay/paymentrequest/ApplePayModifier.idl \
+    $(WebCore)/Modules/applepay/paymentrequest/ApplePayPaymentCompleteDetails.idl \
     $(WebCore)/Modules/applepay/paymentrequest/ApplePayRequest.idl \
     $(WebCore)/Modules/applepay-ams-ui/ApplePayAMSUIRequest.idl \
     $(WebCore)/Modules/async-clipboard/Clipboard.idl \
@@ -471,6 +472,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/paymentrequest/PayerErrorFields.idl \
     $(WebCore)/Modules/paymentrequest/PaymentAddress.idl \
     $(WebCore)/Modules/paymentrequest/PaymentComplete.idl \
+    $(WebCore)/Modules/paymentrequest/PaymentCompleteDetails.idl \
     $(WebCore)/Modules/paymentrequest/PaymentCurrencyAmount.idl \
     $(WebCore)/Modules/paymentrequest/PaymentDetailsBase.idl \
     $(WebCore)/Modules/paymentrequest/PaymentDetailsInit.idl \
@@ -848,7 +850,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/AddEventListenerOptions.idl \
     $(WebCore)/dom/AnimationEvent.idl \
     $(WebCore)/dom/Attr.idl \
-    $(WebCore)/dom/BeforeLoadEvent.idl \
     $(WebCore)/dom/BeforeUnloadEvent.idl \
     $(WebCore)/dom/BroadcastChannel.idl \
     $(WebCore)/dom/CDATASection.idl \
@@ -1021,7 +1022,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/html/HTMLImageElement+CSSOMView.idl \
     $(WebCore)/html/HTMLImageElement.idl \
     $(WebCore)/html/HTMLInputElement.idl \
-    $(WebCore)/html/HTMLKeygenElement.idl \
     $(WebCore)/html/HTMLLIElement.idl \
     $(WebCore)/html/HTMLLabelElement.idl \
     $(WebCore)/html/HTMLLegendElement.idl \

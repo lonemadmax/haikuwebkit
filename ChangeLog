@@ -1,3 +1,70 @@
+2022-01-28  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] Small corrections to build-webkit and Makefile for workspace builds
+        https://bugs.webkit.org/show_bug.cgi?id=235747
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Makefile: Set SCRIPTS_PATH correctly from the root of the repo
+
+2022-01-28  Pablo Saavedra  <psaavedra@igalia.com>
+
+        [WPE] Build error with ACCESSIBILITY=OFF after r288731
+        https://bugs.webkit.org/show_bug.cgi?id=235764
+
+        Reviewed by Adrian Perez de Castro.
+
+        * Source/cmake/OptionsWPE.cmake:
+
+2022-01-27  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [WPE][a11y] Add option to build with ATSPI
+        https://bugs.webkit.org/show_bug.cgi?id=235701
+
+        Reviewed by Adrian Perez de Castro.
+
+        * Source/cmake/OptionsWPE.cmake:
+
+2022-01-27  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [CMake] Do not require GNU Gold usage to enable DEBUG_FISSION
+        https://bugs.webkit.org/show_bug.cgi?id=235737
+
+        Reviewed by Michael Catanzaro.
+
+        * Source/cmake/OptionsCommon.cmake: Allow enabling DEBUG_FISSION with any linker.
+
+2022-01-27  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Add .clangd similar to .ccls
+        https://bugs.webkit.org/show_bug.cgi?id=235743
+
+        Reviewed by Saam Barati.
+
+        This patch adds .clangd local configuration, which is similar to .ccls.
+
+        * .clangd: Added.
+
+2022-01-26  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [CMake] Pass -pipe to compilers that support it
+        https://bugs.webkit.org/show_bug.cgi?id=235641
+
+        Reviewed by Darin Adler.
+
+        * Source/cmake/WebKitCompilerFlags.cmake: Add -pipe to compiler options where supported.
+
+2022-01-25  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Add another test for locale-specific shaping
+        https://bugs.webkit.org/show_bug.cgi?id=235558
+
+        Reviewed by Darin Adler.
+
+        Thanks so much to Just van Rossum for contributing the test font!!!
+
+        * metadata/contributors.json:
+
 2022-01-20  Elliott Williams  <emw@apple.com>
 
         [XCBuild] Build via the workspace with USE_WORKSPACE=YES

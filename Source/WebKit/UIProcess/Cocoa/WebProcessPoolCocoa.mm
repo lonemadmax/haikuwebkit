@@ -442,11 +442,10 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 #if PLATFORM(MAC)
     if (MacApplication::isAppleMail())
         parameters.videoDecoderExtensionHandles = SandboxExtension::createHandlesForMachLookup({ "com.apple.coremedia.videodecoder"_s, "com.apple.trustd.agent"_s }, std::nullopt);
-#elif PLATFORM(IOS_FAMILY)
-    if (IOSApplication::isMobileMail() || IOSApplication::isMailCompositionService())
-        parameters.videoDecoderExtensionHandles = SandboxExtension::createHandlesForMachLookup({ "com.apple.coremedia.decompressionsession"_s }, std::nullopt);
-#endif
-#endif
+#else
+    parameters.restrictImageAndVideoDecoders = IOSApplication::isMobileMail() || IOSApplication::isMailCompositionService();
+#endif // PLATFORM(MAC)
+#endif // HAVE(VIDEO_RESTRICTED_DECODING)
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(CFPREFS_DIRECT_MODE)
     if ([UIApplication sharedApplication]) {
@@ -472,6 +471,8 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
     // However, querying this is a launch time regression, so limit this to only the necessary case.
     if (m_defaultPageGroup->preferences().useGPUProcessForDOMRenderingEnabled())
         parameters.maximumIOSurfaceSize = WebCore::IOSurface::maximumSize();
+
+    parameters.bytesPerRowIOSurfaceAlignment = WebCore::IOSurface::bytesPerRowAlignment();
 
     parameters.accessibilityPreferences = accessibilityPreferences();
 }

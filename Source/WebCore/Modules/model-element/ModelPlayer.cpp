@@ -35,4 +35,13 @@ bool ModelPlayer::supportsMouseInteraction()
     return false;
 }
 
+bool ModelPlayer::supportsDragging()
+{
+    return true;
+}
+
+void ModelPlayer::setInteractionEnabled(bool)
+{
+}
+
 }

@@ -501,6 +501,7 @@ bindings/js/JSAttrCustom.cpp
 bindings/js/JSAudioBufferCustom.cpp
 bindings/js/JSAudioBufferSourceNodeCustom.cpp
 bindings/js/JSAudioNodeCustom.cpp
+bindings/js/JSAudioWorkletGlobalScopeCustom.cpp
 bindings/js/JSAudioWorkletProcessorCustom.cpp
 bindings/js/JSAuthenticatorResponseCustom.cpp
 bindings/js/JSBaseAudioContextCustom.cpp
@@ -524,10 +525,10 @@ bindings/js/JSDOMConvertStrings.cpp
 bindings/js/JSDOMConvertWebGL.cpp
 bindings/js/JSDOMExceptionHandling.cpp
 bindings/js/JSDOMGlobalObject.cpp
-bindings/js/JSDOMGlobalObjectTask.cpp
 bindings/js/JSDOMGuardedObject.cpp
 bindings/js/JSDOMIterator.cpp
 bindings/js/JSDOMMapLike.cpp
+bindings/js/JSDOMMicrotask.cpp
 bindings/js/JSDOMPromise.cpp
 bindings/js/JSDOMPromiseDeferred.cpp
 bindings/js/JSDOMQuadCustom.cpp
@@ -570,6 +571,7 @@ bindings/js/JSIDBSerializationGlobalObject.cpp
 bindings/js/JSImageDataCustom.cpp
 bindings/js/JSIntersectionObserverCustom.cpp
 bindings/js/JSIntersectionObserverEntryCustom.cpp
+bindings/js/JSKeyframeEffectCustom.cpp
 bindings/js/JSLazyEventListener.cpp
 bindings/js/JSLocationCustom.cpp
 bindings/js/JSMediaStreamTrackCustom.cpp
@@ -901,7 +903,6 @@ dom/ActiveDOMObject.cpp
 dom/AllDescendantsCollection.cpp
 dom/AnimationEvent.cpp
 dom/Attr.cpp
-dom/BeforeLoadEvent.cpp
 dom/BeforeTextInsertedEvent.cpp
 dom/BeforeUnloadEvent.cpp
 dom/BoundaryPoint.cpp
@@ -1233,7 +1234,6 @@ html/HTMLIFrameElement.cpp
 html/HTMLImageElement.cpp
 html/HTMLImageLoader.cpp
 html/HTMLInputElement.cpp
-html/HTMLKeygenElement.cpp
 html/HTMLLIElement.cpp
 html/HTMLLabelElement.cpp
 html/HTMLLegendElement.cpp
@@ -2915,7 +2915,6 @@ JSAutomationRate.cpp
 JSBarProp.cpp
 JSBaseAudioContext.cpp
 JSBasicCredential.cpp
-JSBeforeLoadEvent.cpp
 JSBeforeUnloadEvent.cpp
 JSBiquadFilterNode.cpp
 JSBiquadFilterOptions.cpp
@@ -3329,7 +3328,6 @@ JSHTMLHyperlinkElementUtils.cpp
 JSHTMLIFrameElement.cpp
 JSHTMLImageElement.cpp
 JSHTMLInputElement.cpp
-JSHTMLKeygenElement.cpp
 JSHTMLLIElement.cpp
 JSHTMLLabelElement.cpp
 JSHTMLLegendElement.cpp
@@ -3543,6 +3541,7 @@ JSPath2D.cpp
 JSPayerErrorFields.cpp
 JSPaymentAddress.cpp
 JSPaymentComplete.cpp
+JSPaymentCompleteDetails.cpp
 JSPaymentCurrencyAmount.cpp
 JSPaymentDetailsBase.cpp
 JSPaymentDetailsInit.cpp

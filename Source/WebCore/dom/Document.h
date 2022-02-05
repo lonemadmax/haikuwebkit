@@ -889,27 +889,23 @@ public:
 
     // keep track of what types of event listeners are registered, so we don't
     // dispatch events unnecessarily
+    // FIXME: Consider using OptionSet.
     enum ListenerType {
-        DOMSUBTREEMODIFIED_LISTENER          = 1,
+        DOMSUBTREEMODIFIED_LISTENER          = 1 << 0,
         DOMNODEINSERTED_LISTENER             = 1 << 1,
         DOMNODEREMOVED_LISTENER              = 1 << 2,
         DOMNODEREMOVEDFROMDOCUMENT_LISTENER  = 1 << 3,
         DOMNODEINSERTEDINTODOCUMENT_LISTENER = 1 << 4,
         DOMCHARACTERDATAMODIFIED_LISTENER    = 1 << 5,
         OVERFLOWCHANGED_LISTENER             = 1 << 6,
-        ANIMATIONEND_LISTENER                = 1 << 7,
-        ANIMATIONSTART_LISTENER              = 1 << 8,
-        ANIMATIONITERATION_LISTENER          = 1 << 9,
-        TRANSITIONEND_LISTENER               = 1 << 10,
-        BEFORELOAD_LISTENER                  = 1 << 11,
-        SCROLL_LISTENER                      = 1 << 12,
-        FORCEWILLBEGIN_LISTENER              = 1 << 13,
-        FORCECHANGED_LISTENER                = 1 << 14,
-        FORCEDOWN_LISTENER                   = 1 << 15,
-        FORCEUP_LISTENER                     = 1 << 16,
-        RESIZE_LISTENER                      = 1 << 17,
-        FOCUSIN_LISTENER                     = 1 << 18,
-        FOCUSOUT_LISTENER                    = 1 << 19,
+        TRANSITIONEND_LISTENER               = 1 << 7,
+        SCROLL_LISTENER                      = 1 << 8,
+        FORCEWILLBEGIN_LISTENER              = 1 << 9,
+        FORCECHANGED_LISTENER                = 1 << 10,
+        FORCEDOWN_LISTENER                   = 1 << 11,
+        FORCEUP_LISTENER                     = 1 << 12,
+        FOCUSIN_LISTENER                     = 1 << 13,
+        FOCUSOUT_LISTENER                    = 1 << 14,
     };
 
     bool hasListenerType(ListenerType listenerType) const { return (m_listenerTypes & listenerType); }

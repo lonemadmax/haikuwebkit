@@ -2843,6 +2843,9 @@
             }
         },
         "input-security": {
+            "codegen-properties": {
+                "settings-flag": "cssInputSecurityEnabled"
+            },
             "values": [
                 "auto",
                 "none"
@@ -5219,6 +5222,35 @@
             "specification": {
                 "category": "css-contain",
                 "url": "https://drafts.csswg.org/css-contain-1/"
+            }
+        },
+        "container": {
+            "codegen-properties": {
+                "longhands": [
+                    "container-type",
+                    "container-name"
+                ]
+            },
+            "status": {
+                "status": "experimental"
+            },
+            "specification": {
+                "category": "css-contain",
+                "url": "https://drafts.csswg.org/css-contain-3/#container-queries"
+            }
+        },
+        "container-name": {
+            "codegen-properties": {
+                "settings-flag": "cssContainerQueriesEnabled",
+                "converter": "ContainerName",
+                "name-for-methods": "ContainerNames"
+            },
+            "status": {
+                "status": "experimental"
+            },
+            "specification": {
+                "category": "css-contain",
+                "url": "https://drafts.csswg.org/css-contain-3/#container-queries"
             }
         },
         "container-type": {

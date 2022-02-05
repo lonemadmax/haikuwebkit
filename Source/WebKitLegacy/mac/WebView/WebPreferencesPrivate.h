@@ -197,7 +197,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 @property (nonatomic) BOOL shouldDisplayTextDescriptions;
 @property (nonatomic) BOOL notificationsEnabled;
 @property (nonatomic) BOOL shouldRespectImageOrientation;
-@property (nonatomic) BOOL requestAnimationFrameEnabled;
 @property (nonatomic) NSTimeInterval incrementalRenderingSuppressionTimeoutInSeconds;
 @property (nonatomic, readonly) NSTimeInterval _backForwardCacheExpirationInterval;
 @property (nonatomic) BOOL diagnosticLoggingEnabled;
@@ -240,7 +239,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 @property (nonatomic) BOOL attachmentElementEnabled;
 @property (nonatomic) BOOL allowsInlineMediaPlaybackAfterFullscreen;
 @property (nonatomic) BOOL menuItemElementEnabled;
-@property (nonatomic) BOOL keygenElementEnabled;
 @property (nonatomic) BOOL linkPreloadEnabled;
 @property (nonatomic) BOOL mediaUserGestureInheritsFromDocument;
 @property (nonatomic) BOOL isSecureContextAttributeEnabled;
@@ -364,12 +362,14 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 
 @property (nonatomic) BOOL subpixelCSSOMElementMetricsEnabled;
 @property (nonatomic) BOOL userTimingEnabled;
+@property (nonatomic) BOOL requestAnimationFrameEnabled;
 @property (nonatomic) BOOL resourceTimingEnabled;
 @property (nonatomic, getter=cssShadowPartsEnabled) BOOL CSSShadowPartsEnabled;
 @property (nonatomic) BOOL isSecureContextAttributeEnabled;
 @property (nonatomic) BOOL fetchAPIEnabled;
 @property (nonatomic) BOOL shadowDOMEnabled;
 @property (nonatomic) BOOL customElementsEnabled;
+@property (nonatomic) BOOL keygenElementEnabled;
 @property (nonatomic, getter=isVideoPluginProxyEnabled) BOOL videoPluginProxyEnabled;
 @property (nonatomic, getter=isHixie76WebSocketProtocolEnabled) BOOL hixie76WebSocketProtocolEnabled;
 @property (nonatomic) BOOL accelerated2dCanvasEnabled;

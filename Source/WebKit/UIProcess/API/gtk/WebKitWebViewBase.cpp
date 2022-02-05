@@ -284,7 +284,6 @@ struct _WebKitWebViewBasePrivate {
     TouchEventsMap touchEvents;
     IntSize contentsSize;
     std::optional<MotionEvent> lastMotionEvent;
-    bool wheelHasPreciseDeltas { false };
     bool isBlank;
     bool shouldNotifyFocusEvents { true };
 
@@ -1638,6 +1637,28 @@ bool webkitWebViewBaseCompleteBackSwipeForTesting(WebKitWebViewBase* webViewBase
     return FALSE;
 }
 
+GVariant* webkitWebViewBaseContentsOfUserInterfaceItem(WebKitWebViewBase* webViewBase, const char* userInterfaceItem)
+{
+    if (g_strcmp0(userInterfaceItem, "validationBubble"))
+        return nullptr;
+
+    WebPageProxy* page = webViewBase->priv->pageProxy.get();
+    auto* validationBubble = page->validationBubble();
+    String message = validationBubble ? validationBubble->message() : emptyString();
+    double fontSize = validationBubble ? validationBubble->fontSize() : 0;
+
+    GVariantBuilder subBuilder;
+    g_variant_builder_init(&subBuilder, G_VARIANT_TYPE_VARDICT);
+    g_variant_builder_add(&subBuilder, "{sv}", "message", g_variant_new_string(message.utf8().data()));
+    g_variant_builder_add(&subBuilder, "{sv}", "fontSize", g_variant_new_double(fontSize));
+
+    GVariantBuilder builder;
+    g_variant_builder_init(&builder, G_VARIANT_TYPE_VARDICT);
+    g_variant_builder_add(&builder, "{sv}", userInterfaceItem, g_variant_builder_end(&subBuilder));
+
+    return g_variant_builder_end(&builder);
+}
+
 static gboolean webkitWebViewBaseQueryTooltip(GtkWidget* widget, gint /* x */, gint /* y */, gboolean keyboardMode, GtkTooltip* tooltip)
 {
     WebKitWebViewBasePrivate* priv = WEBKIT_WEB_VIEW_BASE(widget)->priv;
@@ -1830,6 +1851,25 @@ static gboolean webkitWebViewBaseFocus(GtkWidget* widget, GtkDirectionType direc
     return GTK_WIDGET_CLASS(webkit_web_view_base_parent_class)->focus(widget, direction);
 }
 
+#if USE(GTK4)
+static void webkitWebViewBaseCssChanged(GtkWidget* widget, GtkCssStyleChange* change)
+{
+    GTK_WIDGET_CLASS(webkit_web_view_base_parent_class)->css_changed(widget, change);
+
+    WebKitWebViewBase* webViewBase = WEBKIT_WEB_VIEW_BASE(widget);
+    WebKitWebViewBasePrivate* priv = webViewBase->priv;
+    priv->pageProxy->accentColorDidChange();
+}
+#else
+static void webkitWebViewBaseStyleUpdated(GtkWidget* widget)
+{
+    GTK_WIDGET_CLASS(webkit_web_view_base_parent_class)->style_updated(widget);
+
+    WebKitWebViewBase* webViewBase = WEBKIT_WEB_VIEW_BASE(widget);
+    WebKitWebViewBasePrivate* priv = webViewBase->priv;
+    priv->pageProxy->accentColorDidChange();
+}
+#endif
 
 static void webkitWebViewBaseZoomBegin(WebKitWebViewBase* webViewBase, GdkEventSequence* sequence, GtkGesture* gesture)
 {
@@ -1842,7 +1882,12 @@ static void webkitWebViewBaseZoomBegin(WebKitWebViewBase* webViewBase, GdkEventS
 
     auto* event = gtk_gesture_get_last_event(gesture, sequence);
 
-    webkitWebViewBaseSynthesizeWheelEvent(webViewBase, event, 0, 0, x, y, WheelEventPhase::Began, WheelEventPhase::NoPhase);
+    webkitWebViewBaseSynthesizeWheelEvent(webViewBase, event, 0, 0, x, y, WheelEventPhase::Began, WheelEventPhase::NoPhase, true);
+
+#if !USE(GTK4)
+    GtkGesture* click = GTK_GESTURE(g_object_get_data(G_OBJECT(webViewBase), "wk-view-multi-press-gesture"));
+    gtk_gesture_set_state(click, GTK_EVENT_SEQUENCE_DENIED);
+#endif
 }
 
 static void webkitWebViewBaseZoomChanged(WebKitWebViewBase* webViewBase, gdouble scale, GtkGesture* gesture)
@@ -1922,7 +1967,7 @@ static void webkitWebViewBaseTouchDragBegin(WebKitWebViewBase* webViewBase, gdou
     auto* sequence = gtk_gesture_single_get_current_sequence(GTK_GESTURE_SINGLE(gesture));
     auto* event = gtk_gesture_get_last_event(gesture, sequence);
 
-    webkitWebViewBaseSynthesizeWheelEvent(webViewBase, event, 0, 0, startX, startY, WheelEventPhase::Began, WheelEventPhase::NoPhase);
+    webkitWebViewBaseSynthesizeWheelEvent(webViewBase, event, 0, 0, startX, startY, WheelEventPhase::Began, WheelEventPhase::NoPhase, true);
 }
 
 static void webkitWebViewBaseTouchDragUpdate(WebKitWebViewBase* webViewBase, double offsetX, double offsetY, GtkGesture* gesture)
@@ -1949,26 +1994,26 @@ static void webkitWebViewBaseTouchDragUpdate(WebKitWebViewBase* webViewBase, dou
             webkitWebViewBaseSynthesizeMouseEvent(webViewBase, MouseEventType::Motion, 0, 0, x, y, modifiers, 1, mousePointerEventType());
             webkitWebViewBaseSynthesizeMouseEvent(webViewBase, MouseEventType::Press, GDK_BUTTON_PRIMARY, 0, x, y, modifiers, 0, mousePointerEventType());
         } else
-            webkitWebViewBaseSynthesizeWheelEvent(webViewBase, event, 0, 0, x, y, WheelEventPhase::Began, WheelEventPhase::NoPhase);
+            webkitWebViewBaseSynthesizeWheelEvent(webViewBase, event, 0, 0, x, y, WheelEventPhase::Began, WheelEventPhase::NoPhase, true);
     }
 
     if (priv->isLongPressed)
         webkitWebViewBaseSynthesizeMouseEvent(webViewBase, MouseEventType::Motion, GDK_BUTTON_PRIMARY, GDK_BUTTON1_MASK, x + offsetX, y + offsetY, modifiers, 0, mousePointerEventType());
     else {
-        double deltaX = (priv->dragOffset.x() - offsetX) / Scrollbar::pixelsPerLineStep();
-        double deltaY = (priv->dragOffset.y() - offsetY) / Scrollbar::pixelsPerLineStep();
+        double deltaX = priv->dragOffset.x() - offsetX;
+        double deltaY = priv->dragOffset.y() - offsetY;
         priv->dragOffset.set(offsetX, offsetY);
 
         ViewGestureController* controller = webkitWebViewBaseViewGestureController(webViewBase);
         if (controller && controller->isSwipeGestureEnabled()) {
-            FloatSize delta(deltaX, deltaY);
+            FloatSize delta(deltaX / Scrollbar::pixelsPerLineStep(), deltaY / Scrollbar::pixelsPerLineStep());
             int32_t eventTime = static_cast<int32_t>(gtk_event_controller_get_current_event_time(GTK_EVENT_CONTROLLER(gesture)));
             PlatformGtkScrollData scrollData = { .delta = delta, .eventTime = eventTime, .source = GDK_SOURCE_TOUCHSCREEN, .isEnd = false };
             if (controller->handleScrollWheelEvent(&scrollData))
                 return;
         }
 
-        webkitWebViewBaseSynthesizeWheelEvent(webViewBase, event, -deltaX, -deltaY, x, y, WheelEventPhase::Changed, WheelEventPhase::NoPhase);
+        webkitWebViewBaseSynthesizeWheelEvent(webViewBase, event, -deltaX, -deltaY, x, y, WheelEventPhase::Changed, WheelEventPhase::NoPhase, true);
     }
 }
 
@@ -2011,7 +2056,7 @@ static void webkitWebViewBaseTouchSwipe(WebKitWebViewBase* webViewBase, gdouble 
                 return;
         }
 
-        webkitWebViewBaseSynthesizeWheelEvent(webViewBase, event, -velocityX / Scrollbar::pixelsPerLineStep(), velocityY / Scrollbar::pixelsPerLineStep(), x, y, WheelEventPhase::NoPhase, WheelEventPhase::Began);
+        webkitWebViewBaseSynthesizeWheelEvent(webViewBase, event, -velocityX, -velocityY, x, y, WheelEventPhase::NoPhase, WheelEventPhase::Began, true);
     }
 }
 
@@ -2065,6 +2110,17 @@ static void webkitWebViewBaseConstructed(GObject* object)
     gtk_widget_add_controller(viewWidget, GTK_EVENT_CONTROLLER(gesture));
 #endif
 
+#if USE(GTK4)
+    gesture = gtk_gesture_click_new();
+    gtk_widget_add_controller(viewWidget, GTK_EVENT_CONTROLLER(gesture));
+#else
+    auto* gesture = gtk_gesture_multi_press_new(viewWidget);
+    g_object_set_data_full(G_OBJECT(viewWidget), "wk-view-multi-press-gesture", gesture, g_object_unref);
+#endif
+    gtk_gesture_single_set_touch_only(GTK_GESTURE_SINGLE(gesture), TRUE);
+    g_signal_connect_object(gesture, "pressed", G_CALLBACK(webkitWebViewBaseTouchPress), viewWidget, G_CONNECT_SWAPPED);
+    g_signal_connect_object(gesture, "released", G_CALLBACK(webkitWebViewBaseTouchRelease), viewWidget, G_CONNECT_SWAPPED);
+
     // Touch gestures
 #if USE(GTK4)
     priv->touchGestureGroup = gtk_gesture_zoom_new();
@@ -2081,24 +2137,12 @@ static void webkitWebViewBaseConstructed(GObject* object)
     gesture = gtk_gesture_long_press_new();
     gtk_widget_add_controller(viewWidget, GTK_EVENT_CONTROLLER(gesture));
 #else
-    auto* gesture = gtk_gesture_long_press_new(viewWidget);
+    gesture = gtk_gesture_long_press_new(viewWidget);
     g_object_set_data_full(G_OBJECT(viewWidget), "wk-view-long-press-gesture", gesture, g_object_unref);
 #endif
     gtk_gesture_group(gesture, priv->touchGestureGroup);
     gtk_gesture_single_set_touch_only(GTK_GESTURE_SINGLE(gesture), TRUE);
     g_signal_connect_object(gesture, "pressed", G_CALLBACK(webkitWebViewBaseTouchLongPress), viewWidget, G_CONNECT_SWAPPED);
-
-#if USE(GTK4)
-    gesture = gtk_gesture_click_new();
-    gtk_widget_add_controller(viewWidget, GTK_EVENT_CONTROLLER(gesture));
-#else
-    gesture = gtk_gesture_multi_press_new(viewWidget);
-    g_object_set_data_full(G_OBJECT(viewWidget), "wk-view-multi-press-gesture", gesture, g_object_unref);
-#endif
-    gtk_gesture_group(gesture, priv->touchGestureGroup);
-    gtk_gesture_single_set_touch_only(GTK_GESTURE_SINGLE(gesture), TRUE);
-    g_signal_connect_object(gesture, "pressed", G_CALLBACK(webkitWebViewBaseTouchPress), viewWidget, G_CONNECT_SWAPPED);
-    g_signal_connect_object(gesture, "released", G_CALLBACK(webkitWebViewBaseTouchRelease), viewWidget, G_CONNECT_SWAPPED);
 
 #if USE(GTK4)
     gesture = gtk_gesture_drag_new();
@@ -2180,6 +2224,11 @@ static void webkit_web_view_base_class_init(WebKitWebViewBaseClass* webkitWebVie
     widgetClass->unroot = webkitWebViewBaseUnroot;
 #else
     widgetClass->hierarchy_changed = webkitWebViewBaseHierarchyChanged;
+#endif
+#if USE(GTK4)
+    widgetClass->css_changed = webkitWebViewBaseCssChanged;
+#else
+    widgetClass->style_updated = webkitWebViewBaseStyleUpdated;
 #endif
 
     GObjectClass* gobjectClass = G_OBJECT_CLASS(webkitWebViewBaseClass);
@@ -3000,12 +3049,12 @@ static inline WebWheelEvent::Phase toWebKitWheelEventPhase(WheelEventPhase phase
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-void webkitWebViewBaseSynthesizeWheelEvent(WebKitWebViewBase* webViewBase, double deltaX, double deltaY, int x, int y, WheelEventPhase phase, WheelEventPhase momentumPhase)
+void webkitWebViewBaseSynthesizeWheelEvent(WebKitWebViewBase* webViewBase, double deltaX, double deltaY, int x, int y, WheelEventPhase phase, WheelEventPhase momentumPhase, bool hasPreciseDeltas)
 {
-    webkitWebViewBaseSynthesizeWheelEvent(webViewBase, nullptr, deltaX, deltaY, x, y, phase, momentumPhase);
+    webkitWebViewBaseSynthesizeWheelEvent(webViewBase, nullptr, deltaX, deltaY, x, y, phase, momentumPhase, hasPreciseDeltas);
 }
 
-void webkitWebViewBaseSynthesizeWheelEvent(WebKitWebViewBase* webViewBase, const GdkEvent* event, double deltaX, double deltaY, int x, int y, WheelEventPhase phase, WheelEventPhase momentumPhase)
+void webkitWebViewBaseSynthesizeWheelEvent(WebKitWebViewBase* webViewBase, const GdkEvent* event, double deltaX, double deltaY, int x, int y, WheelEventPhase phase, WheelEventPhase momentumPhase, bool hasPreciseDeltas)
 {
     WebKitWebViewBasePrivate* priv = webViewBase->priv;
     if (priv->dialog)
@@ -3013,16 +3062,11 @@ void webkitWebViewBaseSynthesizeWheelEvent(WebKitWebViewBase* webViewBase, const
 
     FloatSize wheelTicks(deltaX, deltaY);
     FloatSize delta(wheelTicks);
-    if (!priv->wheelHasPreciseDeltas)
+    if (!hasPreciseDeltas)
         delta.scale(static_cast<float>(Scrollbar::pixelsPerLineStep()));
 
     priv->pageProxy->handleWheelEvent(NativeWebWheelEvent(const_cast<GdkEvent*>(event), { x, y }, widgetRootCoords(GTK_WIDGET(webViewBase), x, y),
-        delta, wheelTicks, toWebKitWheelEventPhase(phase), toWebKitWheelEventPhase(momentumPhase), priv->wheelHasPreciseDeltas));
-}
-
-void webkitWebViewBaseSetWheelHasPreciseDeltas(WebKitWebViewBase* webViewBase, bool hasPreciseDeltas)
-{
-    webViewBase->priv->wheelHasPreciseDeltas = hasPreciseDeltas;
+        delta, wheelTicks, toWebKitWheelEventPhase(phase), toWebKitWheelEventPhase(momentumPhase), true));
 }
 
 void webkitWebViewBaseMakeBlank(WebKitWebViewBase* webViewBase, bool makeBlank)

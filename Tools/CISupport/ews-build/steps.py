@@ -169,30 +169,19 @@ class GitHubMixin(object):
             return None
         return pr_json
 
-    def _is_pr_closed(self, pr_number, repository_url=None):
-        if not pr_number:
-            self._addToLog('stdio', 'Skipping pull request status validation since pull request is None.\n')
-            return -1
-
-        pr_json = self.get_pr_json(pr_number, repository_url)
+    def _is_pr_closed(self, pr_json):
         if not pr_json or not pr_json.get('state'):
-            self._addToLog('stdio', 'Unable to fetch pull request {}.\n'.format(pr_number))
+            self._addToLog('stdio', 'Cannot determine pull request status.\n')
             return -1
         if pr_json.get('state') in self.pr_closed_states:
             return 1
         return 0
 
-    def _is_pr_obsolete(self, pr_number, repository_url=None):
-        pr_json = self.get_pr_json(pr_number, repository_url)
-        if not pr_json:
-            self._addToLog('stdio', 'Unable to fetch pull request {}.\n'.format(pr_number))
-            return -1
-
-        pr_sha = pr_json.get('head', {}).get('sha', '')
+    def _is_hash_outdated(self, pr_json):
+        pr_sha = (pr_json or {}).get('head', {}).get('sha', '')
         if not pr_sha:
-            self._addToLog('stdio', 'Failed to fetch hash of pull request {}\n'.format(pr_number))
+            self._addToLog('stdio', 'Cannot determine if hash is outdated or not.\n')
             return -1
-
         return 0 if pr_sha == self.getProperty('github.head.sha', '?') else 1
 
 
@@ -310,16 +299,20 @@ class ConfigureBuild(buildstep.BuildStep):
     def add_patch_id_url(self):
         patch_id = self.getProperty('patch_id', '')
         if patch_id:
+            self.setProperty('change_id', patch_id, 'ConfigureBuild')
             self.addURL('Patch {}'.format(patch_id), Bugzilla.patch_url(patch_id))
 
     def add_pr_details(self):
         pr_number = self.getProperty('github.number')
         if not pr_number:
             return
+
         repository_url = self.getProperty('repository', '')
         title = self.getProperty('github.title', '')
         owners = self.getProperty('owners', [])
         revision = self.getProperty('github.head.sha')
+
+        self.setProperty('change_id', revision, 'ConfigureBuild')
 
         if title:
             self.addURL('PR {}: {}'.format(pr_number, title), GitHub.pr_url(pr_number, repository_url))
@@ -1188,9 +1181,9 @@ class ValidateChange(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
             self._addToLog('stdio', 'Bug is open.\n')
         if self.verifyObsolete:
             self._addToLog('stdio', 'Change is not obsolete.\n')
-        if self.verifyReviewDenied:
+        if self.verifyReviewDenied and patch_id:
             self._addToLog('stdio', 'Change has not been denied.\n')
-        if self.verifycqplus:
+        if self.verifycqplus and patch_id:
             self._addToLog('stdio', 'Change is in commit queue.\n')
             self._addToLog('stdio', 'Change has been reviewed.\n')
         self.finished(SUCCESS)
@@ -1235,14 +1228,18 @@ class ValidateChange(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
 
         repository_url = self.getProperty('repository', '')
 
-        pr_closed = self._is_pr_closed(pr_number, repository_url=repository_url) if self.verifyBugClosed else 0
+        pr_json = self.get_pr_json(pr_number, repository_url)
+        if not pr_json:
+            self._addToLog('stdio', 'Unable to fetch pull request {}.\n'.format(pr_number))
+
+        pr_closed = self._is_pr_closed(pr_json) if self.verifyBugClosed else 0
         if pr_closed == 1:
             self.skip_build('Pull request {} is already closed'.format(pr_number))
             return False
 
-        obsolete = self._is_pr_obsolete(pr_number, repository_url=repository_url) if self.verifyObsolete else 0
+        obsolete = self._is_hash_outdated(pr_json) if self.verifyObsolete else 0
         if obsolete == 1:
-            self.skip_build('Pull request {} (sha {}) is obsolete'.format(pr_number, self.getProperty('github.head.sha', '?')[:HASH_LENGTH_TO_DISPLAY]))
+            self.skip_build('Hash {} on PR {} is outdated'.format(self.getProperty('github.head.sha', '?')[:HASH_LENGTH_TO_DISPLAY], pr_number))
             return False
 
         if obsolete == -1 or pr_closed == -1:
@@ -1461,12 +1458,38 @@ class CommentOnBug(buildstep.BuildStep, BugzillaMixin):
         return CURRENT_HOSTNAME == EWS_BUILD_HOSTNAME
 
 
-class UnApplyPatchIfRequired(CleanWorkingDirectory):
+class UnApplyPatch(CleanWorkingDirectory):
     name = 'unapply-patch'
     descriptionDone = ['Unapplied patch']
 
     def doStepIf(self, step):
-        return self.getProperty('patchFailedToBuild') or self.getProperty('patchFailedTests')
+        return self.getProperty('patch_id')
+
+    def hideStepIf(self, results, step):
+        return not self.doStepIf(step)
+
+
+class RevertPullRequestChanges(steps.ShellSequence):
+    name = 'revert-pull-request-changes'
+    description = ['revert-pull-request-changes running']
+    descriptionDone = ['Reverted pull request changes']
+    flunkOnFailure = True
+    haltOnFailure = True
+
+    def __init__(self, **kwargs):
+        super(RevertPullRequestChanges, self).__init__(timeout=5 * 60, logEnviron=False, **kwargs)
+
+    def run(self):
+        self.commands = []
+        for command in [
+            ['git', 'clean', '-f', '-d'],
+            ['git', 'checkout', self.getProperty('github.base.sha')],
+        ]:
+            self.commands.append(util.ShellArg(command=command, logname='stdio'))
+        return super(RevertPullRequestChanges, self).run()
+
+    def doStepIf(self, step):
+        return self.getProperty('github.number')
 
     def hideStepIf(self, results, step):
         return not self.doStepIf(step)
@@ -1499,6 +1522,8 @@ class Trigger(trigger.Trigger):
 
         properties_to_pass = {prop: properties.Property(prop) for prop in property_names}
         properties_to_pass['retry_count'] = properties.Property('retry_count', default=0)
+        if self.include_revision and patch:
+            properties_to_pass['ews_revision'] = properties.Property('got_revision')
         return properties_to_pass
 
 
@@ -1927,8 +1952,7 @@ class CompileWebKit(shell.Compile):
 
     def evaluateCommand(self, cmd):
         if cmd.didFail():
-            self.setProperty('patchFailedToBuild', True)
-            steps_to_add = [UnApplyPatchIfRequired(), ValidateChange(verifyBugClosed=False, addURLs=False)]
+            steps_to_add = [UnApplyPatch(), RevertPullRequestChanges(), ValidateChange(verifyBugClosed=False, addURLs=False)]
             platform = self.getProperty('platform')
             if platform == 'wpe':
                 steps_to_add.append(InstallWpeDependencies())
@@ -1972,12 +1996,6 @@ class CompileWebKitWithoutPatch(CompileWebKit):
     def __init__(self, retry_build_on_failure=False, **kwargs):
         self.retry_build_on_failure = retry_build_on_failure
         super(CompileWebKitWithoutPatch, self).__init__(**kwargs)
-
-    def doStepIf(self, step):
-        return self.getProperty('patchFailedToBuild') or self.getProperty('patchFailedTests')
-
-    def hideStepIf(self, results, step):
-        return not self.doStepIf(step)
 
     def evaluateCommand(self, cmd):
         rc = shell.Compile.evaluateCommand(self, cmd)
@@ -2210,8 +2228,8 @@ class RunJavaScriptCoreTests(shell.Test):
             self.build.results = SUCCESS
             self.build.buildFinished([message], SUCCESS)
         else:
-            self.setProperty('patchFailedTests', True)
-            self.build.addStepsAfterCurrentStep([UnApplyPatchIfRequired(),
+            self.build.addStepsAfterCurrentStep([UnApplyPatch(),
+                                                RevertPullRequestChanges(),
                                                 ValidateChange(verifyBugClosed=False, addURLs=False),
                                                 CompileJSCWithoutPatch(),
                                                 ValidateChange(verifyBugClosed=False, addURLs=False),
@@ -2727,11 +2745,11 @@ class ReRunWebKitTests(RunWebKitTests):
                     self.send_email_for_flaky_failure(flaky_failure)
             self.setProperty('build_summary', message)
         else:
-            self.setProperty('patchFailedTests', True)
             self.build.addStepsAfterCurrentStep([ArchiveTestResults(),
                                                 UploadTestResults(identifier='rerun'),
                                                 ExtractTestResults(identifier='rerun'),
-                                                UnApplyPatchIfRequired(),
+                                                UnApplyPatch(),
+                                                RevertPullRequestChanges(),
                                                 ValidateChange(verifyBugClosed=False, addURLs=False),
                                                 CompileWebKitWithoutPatch(retry_build_on_failure=True),
                                                 ValidateChange(verifyBugClosed=False, addURLs=False),
@@ -3076,12 +3094,11 @@ class RunWebKitTestsRedTree(RunWebKitTests):
             # We have a failure return code but not a list of failed or flaky tests, so we can't run the repeat steps.
             # If we are on the last retry then run the whole layout tests without patch.
             # If not, then go to analyze-layout-tests-results where we will retry everything hoping this was a random failure.
-            self.setProperty('patchFailedTests', True)
             retry_count = int(self.getProperty('retry_count', 0))
             if retry_count < AnalyzeLayoutTestsResultsRedTree.MAX_RETRY:
                 next_steps.append(AnalyzeLayoutTestsResultsRedTree())
             else:
-                next_steps.extend([UnApplyPatchIfRequired(), CompileWebKitWithoutPatch(retry_build_on_failure=True), ValidateChange(verifyBugClosed=False, addURLs=False), RunWebKitTestsWithoutPatchRedTree()])
+                next_steps.extend([UnApplyPatch(), RevertPullRequestChanges(), CompileWebKitWithoutPatch(retry_build_on_failure=True), ValidateChange(verifyBugClosed=False, addURLs=False), RunWebKitTestsWithoutPatchRedTree()])
         if next_steps:
             self.build.addStepsAfterCurrentStep(next_steps)
         return rc
@@ -3110,8 +3127,7 @@ class RunWebKitTestsRepeatFailuresRedTree(RunWebKitTestsRedTree):
         self.setProperty('with_patch_repeat_failures_retcode', rc)
         next_steps = [ArchiveTestResults(), UploadTestResults(identifier='repeat-failures'), ExtractTestResults(identifier='repeat-failures')]
         if with_patch_repeat_failures_results_nonflaky_failures or with_patch_repeat_failures_timedout:
-            self.setProperty('patchFailedTests', True)
-            next_steps.extend([ValidateChange(verifyBugClosed=False, addURLs=False), KillOldProcesses(), UnApplyPatchIfRequired(), CompileWebKitWithoutPatch(retry_build_on_failure=True),
+            next_steps.extend([ValidateChange(verifyBugClosed=False, addURLs=False), KillOldProcesses(), UnApplyPatch(), RevertPullRequestChanges(), CompileWebKitWithoutPatch(retry_build_on_failure=True),
                                ValidateChange(verifyBugClosed=False, addURLs=False), RunWebKitTestsRepeatFailuresWithoutPatchRedTree()])
         else:
             next_steps.append(AnalyzeLayoutTestsResultsRedTree())
@@ -3349,7 +3365,7 @@ class ArchiveBuiltProduct(shell.ShellCommand):
 class UploadBuiltProduct(transfer.FileUpload):
     name = 'upload-built-product'
     workersrc = WithProperties('WebKitBuild/%(configuration)s.zip')
-    masterdest = WithProperties('public_html/archives/%(fullPlatform)s-%(architecture)s-%(configuration)s/%(patch_id)s.zip')
+    masterdest = WithProperties('public_html/archives/%(fullPlatform)s-%(architecture)s-%(configuration)s/%(change_id)s.zip')
     descriptionDone = ['Uploaded built product']
     haltOnFailure = True
 
@@ -3370,10 +3386,10 @@ class TransferToS3(master.MasterShellCommand):
     name = 'transfer-to-s3'
     description = ['transferring to s3']
     descriptionDone = ['Transferred archive to S3']
-    archive = WithProperties('public_html/archives/%(fullPlatform)s-%(architecture)s-%(configuration)s/%(patch_id)s.zip')
+    archive = WithProperties('public_html/archives/%(fullPlatform)s-%(architecture)s-%(configuration)s/%(change_id)s.zip')
     identifier = WithProperties('%(fullPlatform)s-%(architecture)s-%(configuration)s')
-    patch_id = WithProperties('%(patch_id)s')
-    command = ['python3', '../Shared/transfer-archive-to-s3', '--patch_id', patch_id, '--identifier', identifier, '--archive', archive]
+    change_id = WithProperties('%(change_id)s')
+    command = ['python3', '../Shared/transfer-archive-to-s3', '--patch_id', change_id, '--identifier', identifier, '--archive', archive]
     haltOnFailure = False
     flunkOnFailure = False
 
@@ -3409,7 +3425,7 @@ class TransferToS3(master.MasterShellCommand):
 class DownloadBuiltProduct(shell.ShellCommand):
     command = ['python3', 'Tools/CISupport/download-built-product',
                WithProperties('--%(configuration)s'),
-               WithProperties(S3URL + 'ews-archives.webkit.org/%(fullPlatform)s-%(architecture)s-%(configuration)s/%(patch_id)s.zip')]
+               WithProperties(S3URL + 'ews-archives.webkit.org/%(fullPlatform)s-%(architecture)s-%(configuration)s/%(change_id)s.zip')]
     name = 'download-built-product'
     description = ['downloading built product']
     descriptionDone = ['Downloaded built product']
@@ -3439,7 +3455,7 @@ class DownloadBuiltProduct(shell.ShellCommand):
 
 
 class DownloadBuiltProductFromMaster(transfer.FileDownload):
-    mastersrc = WithProperties('public_html/archives/%(fullPlatform)s-%(architecture)s-%(configuration)s/%(patch_id)s.zip')
+    mastersrc = WithProperties('public_html/archives/%(fullPlatform)s-%(architecture)s-%(configuration)s/%(change_id)s.zip')
     workerdest = WithProperties('WebKitBuild/%(configuration)s.zip')
     name = 'download-built-product-from-master'
     description = ['downloading built product from buildbot master']
@@ -3530,8 +3546,7 @@ class ReRunAPITests(RunAPITests):
             self.build.results = SUCCESS
             self.build.buildFinished([message], SUCCESS)
         else:
-            self.setProperty('patchFailedTests', True)
-            steps_to_add = [UnApplyPatchIfRequired(), ValidateChange(verifyBugClosed=False, addURLs=False)]
+            steps_to_add = [UnApplyPatch(), RevertPullRequestChanges(), ValidateChange(verifyBugClosed=False, addURLs=False)]
             platform = self.getProperty('platform')
             if platform == 'wpe':
                 steps_to_add.append(InstallWpeDependencies())
@@ -3784,7 +3799,7 @@ class PrintConfiguration(steps.ShellSequence):
     warnOnFailure = False
     logEnviron = False
     command_list_generic = [['hostname']]
-    command_list_apple = [['df', '-hl'], ['date'], ['sw_vers'], ['xcodebuild', '-sdk', '-version'], ['uptime']]
+    command_list_apple = [['df', '-hl'], ['date'], ['sw_vers'], ['system_profiler', 'SPSoftwareDataType', 'SPHardwareDataType'], ['xcodebuild', '-sdk', '-version']]
     command_list_linux = [['df', '-hl'], ['date'], ['uname', '-a'], ['uptime']]
     command_list_win = [['df', '-hl']]
 

@@ -150,6 +150,7 @@ localizedStrings["All Petite Capitals @ Font Details Sidebar Property Value"] = 
 localizedStrings["All Requests"] = "All Requests";
 /* Property value for `font-variant-capitals: all-small-caps`. */
 localizedStrings["All Small Capitals @ Font Details Sidebar Property Value"] = "All Small Capitals";
+localizedStrings["All Sources"] = "All Sources";
 localizedStrings["All Storage"] = "All Storage";
 /* Break (pause) on all timeouts */
 localizedStrings["All Timeouts @ Event Breakpoint"] = "All Timeouts";
@@ -344,8 +345,6 @@ localizedStrings["Closure Variables"] = "Closure Variables";
 localizedStrings["Closure Variables (%s)"] = "Closure Variables (%s)";
 localizedStrings["Code"] = "Code";
 localizedStrings["Collapse All"] = "Collapse All";
-/* Setting to collapse blackboxed call frames in the debugger. */
-localizedStrings["Collapse blackboxed call frames @ Experimental Settings"] = "Collapse blackboxed call frames";
 localizedStrings["Collapse columns"] = "Collapse columns";
 localizedStrings["Collect garbage"] = "Collect garbage";
 /* Section header for the group of CSS variables with colors as values */
@@ -445,8 +444,6 @@ localizedStrings["Debugger Statements @ JavaScript Breakpoint"] = "Debugger Stat
 localizedStrings["Debugger disabled during Audit"] = "Debugger disabled during Audit";
 localizedStrings["Debugger disabled during Timeline recording"] = "Debugger disabled during Timeline recording";
 localizedStrings["Debugging:"] = "Debugging:";
-/* Category label for experimental settings related to debugging. */
-localizedStrings["Debugging: @ Experimental Settings"] = "Debugging:";
 localizedStrings["Debugs"] = "Debugs";
 localizedStrings["Decoded"] = "Decoded";
 localizedStrings["Default"] = "Default";
@@ -511,7 +508,6 @@ localizedStrings["Dismiss"] = "Dismiss";
 /* Tooltip for the dismiss button in banner views. */
 localizedStrings["Dismiss @ Banner View"] = "Dismiss";
 localizedStrings["Displayed Columns"] = "Displayed Columns";
-localizedStrings["Do not clear the console on new page loads"] = "Do not clear the console on new page loads";
 localizedStrings["Do not fade unexecuted code"] = "Do not fade unexecuted code";
 localizedStrings["Dock to bottom of window"] = "Dock to bottom of window";
 localizedStrings["Dock to left of window"] = "Dock to left of window";

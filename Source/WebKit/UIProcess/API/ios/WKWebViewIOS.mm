@@ -3533,9 +3533,29 @@ static std::optional<WebCore::ViewportArguments> viewportArgumentsFromDictionary
     [_contentView decorateFoundTextRange:range inDocument:document usingStyle:style];
 }
 
+- (void)scrollRangeToVisible:(UITextRange *)range inDocument:(_UITextSearchDocumentIdentifier)document
+{
+    [_contentView scrollRangeToVisible:range inDocument:document];
+}
+
 - (void)clearAllDecoratedFoundText
 {
     [_contentView clearAllDecoratedFoundText];
+}
+
+- (void)didBeginTextSearchOperation
+{
+    [_contentView didBeginTextSearchOperation];
+}
+
+- (void)didEndTextSearchOperation
+{
+    [_contentView didEndTextSearchOperation];
+}
+
+- (void)_requestRectForFoundTextRange:(UITextRange *)ranges completionHandler:(void (^)(CGRect rect))completionHandler
+{
+    [_contentView requestRectForFoundTextRange:ranges completionHandler:completionHandler];
 }
 
 #endif // HAVE(UIFINDINTERACTION)

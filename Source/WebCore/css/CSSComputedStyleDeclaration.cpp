@@ -3231,6 +3231,8 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
             return cssValuePool.createValue(style.imageResolution(), CSSUnitType::CSS_DPPX);
 #endif
         case CSSPropertyInputSecurity:
+            if (!m_element->document().settings().cssInputSecurityEnabled())
+                return nullptr;
             return cssValuePool.createValue(style.inputSecurity());
         case CSSPropertyLeft:
             return positionOffsetValue(style, CSSPropertyLeft, renderer);
@@ -3625,8 +3627,23 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
                 list->append(cssValuePool.createIdentifierValue(CSSValuePaint));
             return list;
         }
+        case CSSPropertyContainer: {
+            auto list = CSSValueList::createSlashSeparated();
+            list->append(propertyValue(CSSPropertyContainerType, DoNotUpdateLayout).releaseNonNull());
+            if (!style.containerNames().isEmpty())
+                list->append(propertyValue(CSSPropertyContainerName, DoNotUpdateLayout).releaseNonNull());
+            return list;
+        }
         case CSSPropertyContainerType:
             return CSSPrimitiveValue::create(style.containerType());
+        case CSSPropertyContainerName: {
+            if (style.containerNames().isEmpty())
+                return cssValuePool.createIdentifierValue(CSSValueNone);
+            auto list = CSSValueList::createSpaceSeparated();
+            for (auto& name : style.containerNames())
+                list->append(cssValuePool.createCustomIdent(name));
+            return list;
+        }
         case CSSPropertyBackfaceVisibility:
             return cssValuePool.createIdentifierValue((style.backfaceVisibility() == BackfaceVisibility::Hidden) ? CSSValueHidden : CSSValueVisible);
         case CSSPropertyWebkitBorderImage:

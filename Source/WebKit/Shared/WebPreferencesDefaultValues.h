@@ -89,10 +89,6 @@ bool defaultWebRTCCodecsInGPUProcess();
 bool defaultIncrementalPDFEnabled();
 #endif
 
-#if ENABLE(WEBXR)
-bool defaultWebXREnabled();
-#endif
-
 #if ENABLE(WEBM_FORMAT_READER)
 bool defaultWebMFormatReaderEnabled();
 #endif
@@ -113,6 +109,10 @@ bool defaultMediaSourceEnabled();
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
 bool defaultMediaSessionCoordinatorEnabled();
+#endif
+
+#if HAVE(SCREEN_CAPTURE_KIT)
+bool defaultScreenCaptureKitEnabled();
 #endif
 
 } // namespace WebKit

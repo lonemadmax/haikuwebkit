@@ -89,6 +89,7 @@
 #include "InlineRunAndOffset.h"
 #include "MathMLElement.h"
 #include "Page.h"
+#include "ProgressTracker.h"
 #include "Range.h"
 #include "RenderAttachment.h"
 #include "RenderImage.h"
@@ -224,6 +225,13 @@ AXObjectCache::AXObjectCache(Document& document)
     , m_performCacheUpdateTimer(*this, &AXObjectCache::performCacheUpdateTimerFired)
 {
     ASSERT(isMainThread());
+
+    // If loading completed before the cache was created, loading progress will have been reset to zero.
+    // Consider loading progress to be 100% in this case.
+    double loadingProgress = document.page() ? document.page()->progress().estimatedProgress() : 1;
+    if (loadingProgress <= 0)
+        loadingProgress = 1;
+    m_loadingProgress = loadingProgress;
 }
 
 AXObjectCache::~AXObjectCache()
@@ -971,6 +979,22 @@ void AXObjectCache::updateCacheAfterNodeIsAttached(Node* node)
     get(node);
 }
 
+void AXObjectCache::updateLoadingProgress(double newProgressValue)
+{
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    ASSERT_WITH_MESSAGE(newProgressValue >= 0 && newProgressValue <= 1, "unexpected loading progress value: %f", newProgressValue);
+    if (m_pageID) {
+        // Sometimes the isolated tree hasn't been created by the time we get loading progress updates,
+        // so cache this value in the AXObjectCache too so we can give it to the tree upon creation.
+        m_loadingProgress = newProgressValue;
+        if (auto tree = AXIsolatedTree::treeForPageID(*m_pageID))
+            tree->updateLoadingProgress(newProgressValue);
+    }
+#else
+    UNUSED_PARAM(newProgressValue);
+#endif
+}
+
 void AXObjectCache::handleChildrenChanged(AccessibilityObject& object)
 {
     // Handle MenuLists and MenuListPopups as special cases.
@@ -1422,7 +1446,7 @@ void AXObjectCache::setIsSynchronizingSelection(bool isSynchronizing)
     m_isSynchronizingSelection = isSynchronizing;
 }
 
-#if PLATFORM(COCOA) || USE(ATSPI)
+#if PLATFORM(COCOA)
 static bool isPasswordFieldOrContainedByPasswordField(AccessibilityObject* object)
 {
     return object && (object->isPasswordField() || object->isContainedByPasswordField());
@@ -1486,9 +1510,10 @@ void AXObjectCache::postTextStateChangeNotification(AccessibilityObject* object,
 
 #if PLATFORM(COCOA) || USE(ATSPI)
     if (object) {
+#if PLATFORM(COCOA)
         if (isPasswordFieldOrContainedByPasswordField(object))
             return;
-
+#endif
         if (auto observableObject = object->observableObject())
             object = observableObject;
     }

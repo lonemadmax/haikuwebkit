@@ -108,6 +108,7 @@
 #include "WebCoreArgumentCoders.h"
 #include "WebEditCommandProxy.h"
 #include "WebEventConversion.h"
+#include "WebFoundTextRange.h"
 #include "WebFrame.h"
 #include "WebFramePolicyListenerProxy.h"
 #include "WebFullScreenManagerProxy.h"
@@ -174,6 +175,7 @@
 #include <WebCore/PlatformEvent.h>
 #include <WebCore/PrivateClickMeasurement.h>
 #include <WebCore/PublicSuffix.h>
+#include <WebCore/RealtimeMediaSourceCenter.h>
 #include <WebCore/RenderEmbeddedObject.h>
 #include <WebCore/ResourceLoadStatistics.h>
 #include <WebCore/RuntimeApplicationChecks.h>
@@ -309,6 +311,10 @@
 
 #if ENABLE(APP_HIGHLIGHTS)
 #include <WebCore/HighlightVisibility.h>
+#endif
+
+#if HAVE(SCREEN_CAPTURE_KIT)
+#import "DisplayCaptureSessionManager.h"
 #endif
 
 #define MESSAGE_CHECK(process, assertion) MESSAGE_CHECK_BASE(assertion, process->connection())
@@ -1093,7 +1099,7 @@ RefPtr<API::Navigation> WebPageProxy::launchProcessForReload()
     }
 
     // We allow stale content when reloading a WebProcess that's been killed or crashed.
-    send(Messages::WebPage::GoToBackForwardItem(navigation->navigationID(), m_backForwardList->currentItem()->itemID(), FrameLoadType::IndexedBackForward, ShouldTreatAsContinuingLoad::No, std::nullopt, m_lastNavigationWasAppInitiated));
+    send(Messages::WebPage::GoToBackForwardItem(navigation->navigationID(), m_backForwardList->currentItem()->itemID(), FrameLoadType::IndexedBackForward, ShouldTreatAsContinuingLoad::No, std::nullopt, m_lastNavigationWasAppInitiated, std::nullopt));
     m_process->startResponsivenessTimer();
 
     return navigation;
@@ -1841,7 +1847,7 @@ RefPtr<API::Navigation> WebPageProxy::goToBackForwardItem(WebBackForwardListItem
     m_pageLoadState.setPendingAPIRequest(transaction, { navigation ? navigation->navigationID() : 0, item.url() });
 
     m_process->markProcessAsRecentlyUsed();
-    send(Messages::WebPage::GoToBackForwardItem(navigation ? navigation->navigationID() : 0, item.itemID(), frameLoadType, ShouldTreatAsContinuingLoad::No, std::nullopt, m_lastNavigationWasAppInitiated));
+    send(Messages::WebPage::GoToBackForwardItem(navigation ? navigation->navigationID() : 0, item.itemID(), frameLoadType, ShouldTreatAsContinuingLoad::No, std::nullopt, m_lastNavigationWasAppInitiated, std::nullopt));
     m_process->startResponsivenessTimer();
 
     return navigation;
@@ -3626,7 +3632,7 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, s
             auto transaction = m_pageLoadState.transaction();
             m_pageLoadState.setPendingAPIRequest(transaction, { navigation->navigationID(), item->url() });
 
-            m_provisionalPage->goToBackForwardItem(navigation, *item, WTFMove(websitePolicies));
+            m_provisionalPage->goToBackForwardItem(navigation, *item, WTFMove(websitePolicies), shouldTreatAsContinuingLoad, existingNetworkResourceLoadIdentifierToResume);
             return;
         }
 
@@ -4278,6 +4284,41 @@ void WebPageProxy::findString(const String& string, OptionSet<FindOptions> optio
 void WebPageProxy::findRectsForStringMatches(const String& string, OptionSet<WebKit::FindOptions> options, unsigned maxMatchCount, CompletionHandler<void(Vector<WebCore::FloatRect>&&)>&& callbackFunction)
 {
     sendWithAsyncReply(Messages::WebPage::FindRectsForStringMatches(string, options, maxMatchCount), WTFMove(callbackFunction));
+}
+
+void WebPageProxy::findTextRangesForStringMatches(const String& string, OptionSet<FindOptions> options, unsigned maxMatchCount, CompletionHandler<void(Vector<WebFoundTextRange>&&)>&& callbackFunction)
+{
+    sendWithAsyncReply(Messages::WebPage::FindTextRangesForStringMatches(string, options, maxMatchCount), WTFMove(callbackFunction));
+}
+
+void WebPageProxy::decorateTextRangeWithStyle(const WebFoundTextRange& range, FindDecorationStyle style)
+{
+    send(Messages::WebPage::DecorateTextRangeWithStyle(range, style));
+}
+
+void WebPageProxy::scrollTextRangeToVisible(const WebFoundTextRange& range)
+{
+    send(Messages::WebPage::ScrollTextRangeToVisible(range));
+}
+
+void WebPageProxy::clearAllDecoratedFoundText()
+{
+    send(Messages::WebPage::ClearAllDecoratedFoundText());
+}
+
+void WebPageProxy::didBeginTextSearchOperation()
+{
+    send(Messages::WebPage::DidBeginTextSearchOperation());
+}
+
+void WebPageProxy::didEndTextSearchOperation()
+{
+    send(Messages::WebPage::DidEndTextSearchOperation());
+}
+
+void WebPageProxy::requestRectForFoundTextRange(const WebFoundTextRange& range, CompletionHandler<void(WebCore::FloatRect)>&& callbackFunction)
+{
+    sendWithAsyncReply(Messages::WebPage::RequestRectForFoundTextRange(range), WTFMove(callbackFunction));
 }
 
 void WebPageProxy::getImageForFindMatch(int32_t matchIndex)
@@ -5693,7 +5734,7 @@ void WebPageProxy::triggerBrowsingContextGroupSwitchForNavigation(uint64_t navig
 {
     ASSERT(browsingContextGroupSwitchDecision != BrowsingContextGroupSwitchDecision::StayInGroup);
     RefPtr<API::Navigation> navigation = navigationID ? m_navigationState->navigation(navigationID) : nullptr;
-    WEBPAGEPROXY_RELEASE_LOG(ProcessSwapping, "triggerBrowsingContextGroupSwitchForNavigation: Process-swapping due to Cross-Origin-Opener-Policy, newProcessIsCrossOriginIsolated=%d, navigation=%p", browsingContextGroupSwitchDecision == BrowsingContextGroupSwitchDecision::NewIsolatedGroup, navigation.get());
+    WEBPAGEPROXY_RELEASE_LOG(ProcessSwapping, "triggerBrowsingContextGroupSwitchForNavigation: Process-swapping due to Cross-Origin-Opener-Policy, newProcessIsCrossOriginIsolated=%d, navigation=%p existingNetworkResourceLoadIdentifierToResume=%" PRIu64, browsingContextGroupSwitchDecision == BrowsingContextGroupSwitchDecision::NewIsolatedGroup, navigation.get(), existingNetworkResourceLoadIdentifierToResume.toUInt64());
     if (!navigation)
         return completionHandler(false);
 
@@ -8310,6 +8351,9 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
 #if PLATFORM(WIN)
     parameters.nativeWindowHandle = reinterpret_cast<uint64_t>(viewWidget());
 #endif
+#if USE(GRAPHICS_LAYER_WC)
+    parameters.usesOffscreenRendering = pageClient().usesOffscreenRendering();
+#endif
 
     for (auto& iterator : m_urlSchemeHandlersByScheme)
         parameters.urlSchemeHandlers.set(iterator.key, iterator.value->identifier());
@@ -8585,6 +8629,7 @@ UserMediaPermissionRequestManagerProxy& WebPageProxy::userMediaPermissionRequest
         return *m_userMediaPermissionRequestManager;
 
     m_userMediaPermissionRequestManager = makeUnique<UserMediaPermissionRequestManagerProxy>(*this);
+
     return *m_userMediaPermissionRequestManager;
 }
 
@@ -10923,6 +10968,13 @@ WebCore::CaptureSourceOrError WebPageProxy::createRealtimeMediaSourceForSpeechRe
 
 #endif
 
+#if HAVE(SCREEN_CAPTURE_KIT)
+void WebPageProxy::setIndexOfGetDisplayMediaDeviceSelectedForTesting(std::optional<unsigned> index)
+{
+    DisplayCaptureSessionManager::singleton().setIndexOfDeviceSelectedForTesting(index);
+}
+#endif
+
 #if ENABLE(ARKIT_INLINE_PREVIEW)
 void WebPageProxy::modelElementGetCamera(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<WebCore::HTMLModelElementCamera, ResourceError>)>&& completionHandler)
 {
@@ -10990,6 +11042,11 @@ void WebPageProxy::takeModelElementFullscreen(ModelIdentifier modelIdentifier)
 {
     modelElementController()->takeModelElementFullscreen(modelIdentifier);
 }
+
+void WebPageProxy::modelElementSetInteractionEnabled(ModelIdentifier modelIdentifier, bool isInteractionEnabled)
+{
+    modelElementController()->setInteractionEnabledForModelElement(modelIdentifier, isInteractionEnabled);
+}
 #endif
 
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
@@ -10998,19 +11055,19 @@ void WebPageProxy::modelElementDidCreatePreview(const URL& url, const String& uu
     modelElementController()->modelElementDidCreatePreview(url, uuid, size, WTFMove(completionHandler));
 }
 
-void WebPageProxy::handleMouseDownForModelElement(const String& uuid, const WebCore::LayoutPoint& locationInPageCoordinates, MonotonicTime timestamp)
+void WebPageProxy::handleMouseDownForModelElement(const String& uuid, const WebCore::LayoutPoint& flippedLocationInElement, MonotonicTime timestamp)
 {
-    modelElementController()->handleMouseDownForModelElement(uuid, locationInPageCoordinates, timestamp);
+    modelElementController()->handleMouseDownForModelElement(uuid, flippedLocationInElement, timestamp);
 }
 
-void WebPageProxy::handleMouseMoveForModelElement(const String& uuid, const WebCore::LayoutPoint& locationInPageCoordinates, MonotonicTime timestamp)
+void WebPageProxy::handleMouseMoveForModelElement(const String& uuid, const WebCore::LayoutPoint& flippedLocationInElement, MonotonicTime timestamp)
 {
-    modelElementController()->handleMouseMoveForModelElement(uuid, locationInPageCoordinates, timestamp);
+    modelElementController()->handleMouseMoveForModelElement(uuid, flippedLocationInElement, timestamp);
 }
 
-void WebPageProxy::handleMouseUpForModelElement(const String& uuid, const WebCore::LayoutPoint& locationInPageCoordinates, MonotonicTime timestamp)
+void WebPageProxy::handleMouseUpForModelElement(const String& uuid, const WebCore::LayoutPoint& flippedLocationInElement, MonotonicTime timestamp)
 {
-    modelElementController()->handleMouseUpForModelElement(uuid, locationInPageCoordinates, timestamp);
+    modelElementController()->handleMouseUpForModelElement(uuid, flippedLocationInElement, timestamp);
 }
 #endif
 

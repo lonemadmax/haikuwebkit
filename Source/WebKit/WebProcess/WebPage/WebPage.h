@@ -296,6 +296,7 @@ class WebDataListSuggestionPicker;
 class WebDateTimeChooser;
 class WebDocumentLoader;
 class WebEvent;
+class WebFoundTextRangeController;
 class PlaybackSessionManager;
 class VideoFullscreenManager;
 class WebFrame;
@@ -323,6 +324,7 @@ class WebWheelEvent;
 class RemoteLayerTreeTransaction;
 
 enum class FindOptions : uint16_t;
+enum class FindDecorationStyle : uint8_t;
 enum class DragControllerAction : uint8_t;
 enum class TextRecognitionUpdateResult : uint8_t;
 enum class SyntheticEditingCommandType : uint8_t;
@@ -343,6 +345,7 @@ struct TextInputContext;
 struct UserMessage;
 struct WebAutocorrectionData;
 struct WebAutocorrectionContext;
+struct WebFoundTextRange;
 struct WebPageCreationParameters;
 struct WebPreferencesStore;
 struct WebsitePoliciesData;
@@ -705,6 +708,7 @@ public:
     static const WebEvent* currentEvent();
 
     FindController& findController() { return m_findController.get(); }
+    WebFoundTextRangeController& foundTextRangeController() { return m_foundTextRangeController.get(); }
 
 #if ENABLE(GEOLOCATION)
     GeolocationPermissionRequestManager& geolocationPermissionRequestManager() { return m_geolocationPermissionRequestManager.get(); }
@@ -1602,7 +1606,7 @@ private:
     void navigateToPDFLinkWithSimulatedClick(const String& url, WebCore::IntPoint documentPoint, WebCore::IntPoint screenPoint);
     void getPDFFirstPageSize(WebCore::FrameIdentifier, CompletionHandler<void(WebCore::FloatSize)>&&);
     void reload(uint64_t navigationID, uint32_t reloadOptions, SandboxExtension::Handle&&);
-    void goToBackForwardItem(uint64_t navigationID, const WebCore::BackForwardItemIdentifier&, WebCore::FrameLoadType, WebCore::ShouldTreatAsContinuingLoad, std::optional<WebsitePoliciesData>&&, bool lastNavigationWasAppInitiated);
+    void goToBackForwardItem(uint64_t navigationID, const WebCore::BackForwardItemIdentifier&, WebCore::FrameLoadType, WebCore::ShouldTreatAsContinuingLoad, std::optional<WebsitePoliciesData>&&, bool lastNavigationWasAppInitiated, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume);
     void tryRestoreScrollPosition();
     void setInitialFocus(bool forward, bool isKeyboardEventValid, const WebKeyboardEvent&, CompletionHandler<void()>&&);
     void updateIsInWindow(bool isInitialState = false);
@@ -1754,6 +1758,15 @@ private:
     void replaceMatches(const Vector<uint32_t>& matchIndices, const String& replacementText, bool selectionOnly, CompletionHandler<void(uint64_t)>&&);
     void findRectsForStringMatches(const String&, OptionSet<FindOptions>, uint32_t maxMatchCount, CompletionHandler<void(Vector<WebCore::FloatRect>&&)>&&);
     void hideFindIndicator();
+
+    void findTextRangesForStringMatches(const String&, OptionSet<FindOptions>, uint32_t maxMatchCount, CompletionHandler<void(Vector<WebFoundTextRange>&&)>&&);
+    void decorateTextRangeWithStyle(const WebFoundTextRange&, WebKit::FindDecorationStyle);
+    void scrollTextRangeToVisible(const WebFoundTextRange&);
+    void clearAllDecoratedFoundText();
+    void didBeginTextSearchOperation();
+    void didEndTextSearchOperation();
+
+    void requestRectForFoundTextRange(const WebFoundTextRange&, CompletionHandler<void(WebCore::FloatRect)>&&);
 
 #if USE(COORDINATED_GRAPHICS)
     void sendViewportAttributesChanged(const WebCore::ViewportArguments&);
@@ -2060,6 +2073,8 @@ private:
 
     UniqueRef<FindController> m_findController;
 
+    UniqueRef<WebFoundTextRangeController> m_foundTextRangeController;
+
     RefPtr<WebInspector> m_inspector;
     RefPtr<WebInspectorUI> m_inspectorUI;
     RefPtr<RemoteWebInspectorUI> m_remoteInspectorUI;
@@ -2352,6 +2367,10 @@ private:
     String m_overriddenMediaType;
     String m_processDisplayName;
     WebCore::AllowsContentJavaScript m_allowsContentJavaScriptFromMostRecentNavigation { WebCore::AllowsContentJavaScript::Yes };
+
+#if PLATFORM(GTK)
+    WebCore::Color m_accentColor;
+#endif
 
 #if ENABLE(APP_BOUND_DOMAINS)
     bool m_limitsNavigationsToAppBoundDomains { false };

@@ -1189,7 +1189,9 @@ bool RenderStyle::changeRequiresRecompositeLayer(const RenderStyle& other, Optio
             || m_rareNonInheritedData->backfaceVisibility != other.m_rareNonInheritedData->backfaceVisibility
             || m_rareNonInheritedData->perspective != other.m_rareNonInheritedData->perspective
             || m_rareNonInheritedData->perspectiveOriginX != other.m_rareNonInheritedData->perspectiveOriginX
-            || m_rareNonInheritedData->perspectiveOriginY != other.m_rareNonInheritedData->perspectiveOriginY)
+            || m_rareNonInheritedData->perspectiveOriginY != other.m_rareNonInheritedData->perspectiveOriginY
+            || m_rareNonInheritedData->overscrollBehaviorX != other.m_rareNonInheritedData->overscrollBehaviorX
+            || m_rareNonInheritedData->overscrollBehaviorY != other.m_rareNonInheritedData->overscrollBehaviorY)
             return true;
     }
 
@@ -2818,4 +2820,25 @@ UsedFloat RenderStyle::usedFloat(const RenderObject& renderer)
 
     RELEASE_ASSERT_NOT_REACHED();
 }
+
+OptionSet<Containment> RenderStyle::effectiveContainment() const
+{
+    auto containment = contain();
+
+    switch (containerType()) {
+    case ContainerType::None:
+        break;
+    case ContainerType::Size:
+        containment.add({ Containment::Layout, Containment::Style, Containment::Size });
+        break;
+    case ContainerType::InlineSize:
+        // FIXME: Support inline-size containment.
+        containment.add({ Containment::Layout, Containment::Style });
+        break;
+    };
+
+    return containment;
+}
+
+
 } // namespace WebCore

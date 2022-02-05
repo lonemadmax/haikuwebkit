@@ -29,13 +29,11 @@
 #if ENABLE(WEB_AUDIO)
 
 namespace WebCore {
-using namespace JSC;
 
 template<typename Visitor>
 void JSAudioWorkletProcessor::visitAdditionalChildren(Visitor& visitor)
 {
     auto& processor = wrapped();
-    processor.processCallbackWrapper().visit(visitor);
     processor.jsInputsWrapper().visit(visitor);
     processor.jsOutputsWrapper().visit(visitor);
     processor.jsParamValuesWrapper().visit(visitor);

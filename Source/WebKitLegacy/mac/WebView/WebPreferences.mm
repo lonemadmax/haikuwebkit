@@ -2351,16 +2351,6 @@ static RetainPtr<NSString>& classIBCreatorID()
     return [self _boolValueForKey:WebKitShouldRespectImageOrientationKey];
 }
 
-- (BOOL)requestAnimationFrameEnabled
-{
-    return [self _boolValueForKey:WebKitRequestAnimationFrameEnabledPreferenceKey];
-}
-
-- (void)setRequestAnimationFrameEnabled:(BOOL)enabled
-{
-    [self _setBoolValue:enabled forKey:WebKitRequestAnimationFrameEnabledPreferenceKey];
-}
-
 - (void)setIncrementalRenderingSuppressionTimeoutInSeconds:(NSTimeInterval)timeout
 {
     [self _setFloatValue:timeout forKey:WebKitIncrementalRenderingSuppressionTimeoutInSecondsKey];
@@ -2696,16 +2686,6 @@ static RetainPtr<NSString>& classIBCreatorID()
 - (void)setCustomPasteboardDataEnabled:(BOOL)flag
 {
     [self _setBoolValue:flag forKey:WebKitCustomPasteboardDataEnabledPreferenceKey];
-}
-
-- (BOOL)keygenElementEnabled
-{
-    return [self _boolValueForKey:WebKitKeygenElementEnabledPreferenceKey];
-}
-
-- (void)setKeygenElementEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitKeygenElementEnabledPreferenceKey];
 }
 
 - (BOOL)cacheAPIEnabled
@@ -3385,6 +3365,15 @@ static RetainPtr<NSString>& classIBCreatorID()
     return YES;
 }
 
+- (BOOL)requestAnimationFrameEnabled
+{
+    return YES;
+}
+
+- (void)setRequestAnimationFrameEnabled:(BOOL)enabled
+{
+}
+
 - (void)setResourceTimingEnabled:(BOOL)flag
 {
 }
@@ -3437,6 +3426,15 @@ static RetainPtr<NSString>& classIBCreatorID()
 - (BOOL)customElementsEnabled
 {
     return YES;
+}
+
+- (BOOL)keygenElementEnabled
+{
+    return false;
+}
+
+- (void)setKeygenElementEnabled:(BOOL)flag
+{
 }
 
 - (void)setVideoPluginProxyEnabled:(BOOL)flag

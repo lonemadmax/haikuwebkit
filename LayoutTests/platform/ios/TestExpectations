@@ -2607,9 +2607,6 @@ webkit.org/b/155092 js/arraybuffer-wrappers.html [ Pass Timeout ]
 
 webkit.org/b/183441 mathml/presentation/multiscripts-equivalence.html [ ImageOnlyFailure ]
 
-# <rdar://problem/32626498> REGRESSION (iOS 11/High Sierra): media/remote-control-command-seek.html is timing out
-media/remote-control-command-seek.html [ Timeout ]
-
 # <rdar://problem/33251388> REGRESSION: Multiple imported/w3c/web-platform-tests/ are failing with blobs
 imported/w3c/web-platform-tests/fetch/api/basic/request-headers.any.html [ Failure ]
 imported/w3c/web-platform-tests/fetch/api/basic/request-headers.any.worker.html [ Failure ]
@@ -3422,6 +3419,7 @@ fast/canvas/canvas-blending-text.html [ Pass Failure ]
 
 # This test requires ARQL SPIs not yet available to OpenSource builds.
 model-element/model-element-camera.html [ Skip ]
+model-element/model-element-interactive-dragging.html [ Skip ]
 
 # These tests require the design system ui fonts to be installed.
 fast/text/design-system-ui-11.html [ Pass ]
@@ -3438,3 +3436,13 @@ imported/w3c/web-platform-tests/css/css-pseudo/selection-background-painting-ord
 imported/w3c/web-platform-tests/css/css-pseudo/selection-originating-decoration-color.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-pseudo/selection-originating-underline-order.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-pseudo/target-text-007.html [ Failure ]
+
+# These tests require platform support.
+# <rdar://problem/87944426>
+fast/text/locale-shaping-2.html [ Pass ImageOnlyFailure ]
+fast/text/locale-shaping-3.html [ Pass ImageOnlyFailure ]
+
+# Test failures due to framework bugs that occur only with --accelerated-drawing flag turned on
+svg/gradients/spreadMethodClose2.svg [ ImageOnlyFailure ]
+imported/mozilla/svg/blend-color-burn.svg [ ImageOnlyFailure ]
+imported/mozilla/svg/path-02.svg [ ImageOnlyFailure ]

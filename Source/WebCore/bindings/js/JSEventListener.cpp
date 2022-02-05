@@ -66,14 +66,6 @@ Ref<JSEventListener> JSEventListener::create(JSC::JSObject& listener, JSC::JSObj
     return adoptRef(*new JSEventListener(&listener, &wrapper, isAttribute, world));
 }
 
-RefPtr<JSEventListener> JSEventListener::create(JSC::JSValue listener, JSC::JSObject& wrapper, bool isAttribute, DOMWrapperWorld& world)
-{
-    if (UNLIKELY(!listener.isObject()))
-        return nullptr;
-
-    return adoptRef(*new JSEventListener(asObject(listener), &wrapper, isAttribute, world));
-}
-
 JSObject* JSEventListener::initializeJSFunction(ScriptExecutionContext&) const
 {
     return nullptr;
@@ -86,8 +78,12 @@ void JSEventListener::replaceJSFunctionForAttributeListener(JSObject* function, 
     ASSERT(wrapper);
 
     m_jsFunction = Weak { function };
-    m_wrapper = wrapper;
-    m_isInitialized = true;
+    if (m_isInitialized)
+        ASSERT(m_wrapper.get() == wrapper);
+    else {
+        m_wrapper = Weak { wrapper };
+        m_isInitialized = true;
+    }
 }
 
 JSValue eventHandlerAttribute(EventTarget& eventTarget, const AtomString& eventType, DOMWrapperWorld& isolatedWorld)

@@ -488,6 +488,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/paymentrequest/PayerErrorFields.idl
     Modules/paymentrequest/PaymentAddress.idl
     Modules/paymentrequest/PaymentComplete.idl
+    Modules/paymentrequest/PaymentCompleteDetails.idl
     Modules/paymentrequest/PaymentCurrencyAmount.idl
     Modules/paymentrequest/PaymentDetailsBase.idl
     Modules/paymentrequest/PaymentDetailsInit.idl
@@ -848,7 +849,6 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/AddEventListenerOptions.idl
     dom/AnimationEvent.idl
     dom/Attr.idl
-    dom/BeforeLoadEvent.idl
     dom/BeforeUnloadEvent.idl
     dom/BroadcastChannel.idl
     dom/CDATASection.idl
@@ -1026,7 +1026,6 @@ set(WebCore_NON_SVG_IDL_FILES
     html/HTMLImageElement+CSSOMView.idl
     html/HTMLImageElement.idl
     html/HTMLInputElement.idl
-    html/HTMLKeygenElement.idl
     html/HTMLLIElement.idl
     html/HTMLLabelElement.idl
     html/HTMLLegendElement.idl

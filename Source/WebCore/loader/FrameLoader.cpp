@@ -1401,7 +1401,7 @@ void FrameLoader::loadURL(FrameLoadRequest&& frameLoadRequest, const String& ref
     if (isSystemPreview)
         request.setSystemPreviewInfo(frameLoadRequest.systemPreviewInfo());
 #endif
-    loadWithNavigationAction(request, WTFMove(action), newLoadType, WTFMove(formState), allowNavigationToInvalidURL, [this, isRedirect, sameURL, newLoadType, protectedFrame = Ref { m_frame }, completionHandler = completionHandlerCaller.release()] () mutable {
+    loadWithNavigationAction(request, WTFMove(action), newLoadType, WTFMove(formState), allowNavigationToInvalidURL, frameLoadRequest.shouldTreatAsContinuingLoad(), [this, isRedirect, sameURL, newLoadType, protectedFrame = Ref { m_frame }, completionHandler = completionHandlerCaller.release()] () mutable {
         if (isRedirect) {
             m_quickRedirectComing = false;
             if (m_provisionalDocumentLoader)
@@ -1479,7 +1479,7 @@ void FrameLoader::load(FrameLoadRequest&& request)
     load(loader.get());
 }
 
-void FrameLoader::loadWithNavigationAction(const ResourceRequest& request, NavigationAction&& action, FrameLoadType type, RefPtr<FormState>&& formState, AllowNavigationToInvalidURL allowNavigationToInvalidURL, CompletionHandler<void()>&& completionHandler)
+void FrameLoader::loadWithNavigationAction(const ResourceRequest& request, NavigationAction&& action, FrameLoadType type, RefPtr<FormState>&& formState, AllowNavigationToInvalidURL allowNavigationToInvalidURL, ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad, CompletionHandler<void()>&& completionHandler)
 {
     FRAMELOADER_RELEASE_LOG(ResourceLoading, "loadWithNavigationAction: frame load started");
 
@@ -1491,6 +1491,7 @@ void FrameLoader::loadWithNavigationAction(const ResourceRequest& request, Navig
 
     Ref<DocumentLoader> loader = m_client->createDocumentLoader(request, defaultSubstituteDataForURL(request.url()));
     applyShouldOpenExternalURLsPolicyToNewDocumentLoader(m_frame, loader, action.initiatedByMainFrame(), action.shouldOpenExternalURLsPolicy());
+    loader->setIsContinuingLoadAfterProvisionalLoadStarted(shouldTreatAsContinuingLoad == ShouldTreatAsContinuingLoad::YesAfterProvisionalLoadStarted);
 
     if (action.lockHistory() == LockHistory::Yes && m_documentLoader)
         loader->setClientRedirectSourceForHistory(m_documentLoader->didCreateGlobalHistoryEntry() ? m_documentLoader->urlForHistory().string() : m_documentLoader->clientRedirectSourceForHistory());
@@ -1549,8 +1550,7 @@ void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType t
 {
     FRAMELOADER_RELEASE_LOG(ResourceLoading, "loadWithDocumentLoader: frame load started");
 
-    // Retain because dispatchBeforeLoadEvent may release the last reference to it.
-    Ref<Frame> protect(m_frame);
+    Ref protectedFrame = m_frame;
 
     CompletionHandlerCallingScope completionHandlerCaller(WTFMove(completionHandler));
 
@@ -1610,19 +1610,6 @@ void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType t
     setPolicyDocumentLoader(loader);
     if (loader->triggeringAction().isEmpty())
         loader->setTriggeringAction({ *m_frame.document(), loader->request(), InitiatedByMainFrame::Unknown, policyChecker().loadType(), isFormSubmission });
-
-    if (Element* ownerElement = m_frame.ownerElement()) {
-        // We skip dispatching the beforeload event if we've already
-        // committed a real document load because the event would leak
-        // subsequent activity by the frame which the parent frame isn't
-        // supposed to learn. For example, if the child frame navigated to
-        // a new URL, the parent frame shouldn't learn the URL.
-        if (!m_stateMachine.committedFirstRealDocumentLoad()
-            && !ownerElement->dispatchBeforeLoadEvent(loader->request().url().string())) {
-            continueLoadAfterNavigationPolicy(loader->request(), formState.get(), NavigationPolicyDecision::IgnoreLoad, allowNavigationToInvalidURL);
-            return;
-        }
-    }
 
     m_frame.navigationScheduler().cancel(NewLoadInProgress::Yes);
 
@@ -3082,7 +3069,7 @@ void FrameLoader::loadPostRequest(FrameLoadRequest&& request, const String& refe
     if (!frameName.isEmpty()) {
         // The search for a target frame is done earlier in the case of form submission.
         if (auto* targetFrame = formState ? nullptr : findFrameForNavigation(frameName)) {
-            targetFrame->loader().loadWithNavigationAction(workingResourceRequest, WTFMove(action), loadType, WTFMove(formState), allowNavigationToInvalidURL, WTFMove(completionHandler));
+            targetFrame->loader().loadWithNavigationAction(workingResourceRequest, WTFMove(action), loadType, WTFMove(formState), allowNavigationToInvalidURL, request.shouldTreatAsContinuingLoad(), WTFMove(completionHandler));
             return;
         }
 
@@ -3101,7 +3088,7 @@ void FrameLoader::loadPostRequest(FrameLoadRequest&& request, const String& refe
 
     // must grab this now, since this load may stop the previous load and clear this flag
     bool isRedirect = m_quickRedirectComing;
-    loadWithNavigationAction(workingResourceRequest, WTFMove(action), loadType, WTFMove(formState), allowNavigationToInvalidURL, [this, isRedirect, protectedFrame = Ref { m_frame }, completionHandler = WTFMove(completionHandler)] () mutable {
+    loadWithNavigationAction(workingResourceRequest, WTFMove(action), loadType, WTFMove(formState), allowNavigationToInvalidURL, request.shouldTreatAsContinuingLoad(), [this, isRedirect, protectedFrame = Ref { m_frame }, completionHandler = WTFMove(completionHandler)] () mutable {
         if (isRedirect) {
             m_quickRedirectComing = false;
             if (m_provisionalDocumentLoader)
@@ -3597,7 +3584,7 @@ void FrameLoader::continueLoadAfterNewWindowPolicy(const ResourceRequest& reques
 
     NavigationAction newAction { *frame->document(), request, InitiatedByMainFrame::Unknown, NavigationType::Other, action.shouldOpenExternalURLsPolicy(), nullptr, action.downloadAttribute() };
     newAction.setShouldReplaceDocumentIfJavaScriptURL(action.shouldReplaceDocumentIfJavaScriptURL());
-    mainFrame->loader().loadWithNavigationAction(request, WTFMove(newAction), FrameLoadType::Standard, formState, allowNavigationToInvalidURL);
+    mainFrame->loader().loadWithNavigationAction(request, WTFMove(newAction), FrameLoadType::Standard, formState, allowNavigationToInvalidURL, ShouldTreatAsContinuingLoad::No);
 }
 
 void FrameLoader::requestFromDelegate(ResourceRequest& request, ResourceLoaderIdentifier& identifier, ResourceError& error)
@@ -3885,7 +3872,7 @@ void FrameLoader::loadDifferentDocumentItem(HistoryItem& item, HistoryItem* from
     action.setTargetBackForwardItem(item);
     action.setSourceBackForwardItem(fromItem);
 
-    loadWithNavigationAction(request, WTFMove(action), loadType, { }, AllowNavigationToInvalidURL::Yes);
+    loadWithNavigationAction(request, WTFMove(action), loadType, { }, AllowNavigationToInvalidURL::Yes, shouldTreatAsContinuingLoad);
 }
 
 // Loads content into this frame, as specified by history item

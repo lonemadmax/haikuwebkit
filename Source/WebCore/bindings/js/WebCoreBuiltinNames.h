@@ -62,7 +62,6 @@ namespace WebCore {
     macro(AuthenticatorAttestationResponse) \
     macro(AuthenticatorResponse) \
     macro(BaseAudioContext) \
-    macro(BeforeLoadEvent) \
     macro(BlobEvent) \
     macro(BroadcastChannel) \
     macro(Cache) \
@@ -174,8 +173,6 @@ namespace WebCore {
     macro(HTMLDataListElement) \
     macro(HTMLMenuItemElement) \
     macro(HTMLModelElement) \
-    macro(HTMLKeygenElement) \
-    macro(HTMLSlotElement) \
     macro(Headers) \
     macro(IDBCursor) \
     macro(IDBCursorWithValue) \

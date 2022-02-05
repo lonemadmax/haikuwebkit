@@ -307,11 +307,7 @@ using ImageAnalysisRequestIdentifier = ObjectIdentifier<ImageAnalysisRequestIden
     WebCore::MouseEventPolicy _mouseEventPolicy;
 #endif
 
-#if ENABLE(HOVER_GESTURE_RECOGNIZER)
-    RetainPtr<WKHoverGestureRecognizer> _hoverGestureRecognizer;
-#endif
-
-#if HAVE(UIKIT_WITH_MOUSE_SUPPORT) || ENABLE(HOVER_GESTURE_RECOGNIZER)
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     RetainPtr<WKHoverPlatter> _hoverPlatter;
 #endif
 
@@ -419,10 +415,6 @@ using ImageAnalysisRequestIdentifier = ObjectIdentifier<ImageAnalysisRequestIden
     RetainPtr<UIView <WKFormControl>> _dataListTextSuggestionsInputView;
     RetainPtr<NSArray<UITextSuggestion *>> _dataListTextSuggestions;
     WeakObjCPtr<WKDataListSuggestionsControl> _dataListSuggestionsControl;
-#endif
-
-#if HAVE(UIFINDINTERACTION)
-    RetainPtr<UITextRange> _foundHighlightedTextRange;
 #endif
 
     BOOL _isEditable;
@@ -549,7 +541,7 @@ using ImageAnalysisRequestIdentifier = ObjectIdentifier<ImageAnalysisRequestIden
     , UIDragInteractionDelegate, UIDropInteractionDelegate
 #endif
     , WKTouchActionGestureRecognizerDelegate
-#if HAVE(UIKIT_WITH_MOUSE_SUPPORT) || ENABLE(HOVER_GESTURE_RECOGNIZER)
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     , WKHoverPlatterDelegate
 #endif
 #if HAVE(UIFINDINTERACTION)
@@ -783,6 +775,10 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 #if ENABLE(IMAGE_ANALYSIS)
 - (void)_endImageAnalysisGestureDeferral:(WebKit::ShouldPreventGestures)shouldPreventGestures;
 - (void)requestTextRecognition:(NSURL *)imageURL imageData:(const WebKit::ShareableBitmap::Handle&)imageData identifier:(NSString *)identifier completionHandler:(CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&)completion;
+#endif
+
+#if HAVE(UIFINDINTERACTION)
+- (void)requestRectForFoundTextRange:(UITextRange *)range completionHandler:(void (^)(CGRect))completionHandler;
 #endif
 
 @end

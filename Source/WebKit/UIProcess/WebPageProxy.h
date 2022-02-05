@@ -410,6 +410,7 @@ struct URLSchemeTaskParameters;
 struct UserMessage;
 struct WebAutocorrectionData;
 struct WebBackForwardListCounts;
+struct WebFoundTextRange;
 struct WebHitTestResultData;
 struct WebNavigationDataStore;
 struct WebPopupItem;
@@ -605,6 +606,7 @@ public:
 #endif
 #if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
     void takeModelElementFullscreen(ModelIdentifier);
+    void modelElementSetInteractionEnabled(ModelIdentifier, bool);
 #endif
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
     void modelElementDidCreatePreview(const URL&, const String&, const WebCore::FloatSize&, CompletionHandler<void(Expected<std::pair<String, uint32_t>, WebCore::ResourceError>)>&&);
@@ -1003,6 +1005,10 @@ public:
 #if PLATFORM(GTK)
     PlatformViewWidget viewWidget();
     bool makeGLContextCurrent();
+
+#if HAVE(APP_ACCENT_COLORS)
+    void accentColorDidChange();
+#endif
 #endif
 
     const std::optional<WebCore::Color>& backgroundColor() const { return m_backgroundColor; }
@@ -1207,6 +1213,15 @@ public:
     void didFindString(const String&, const Vector<WebCore::IntRect>&, uint32_t matchCount, int32_t matchIndex, bool didWrapAround);
     void didFailToFindString(const String&);
     void didFindStringMatches(const String&, const Vector<Vector<WebCore::IntRect>>& matchRects, int32_t firstIndexAfterSelection);
+
+    void findTextRangesForStringMatches(const String&, OptionSet<FindOptions>, unsigned maxMatchCount, CompletionHandler<void(Vector<WebFoundTextRange>&&)>&&);
+    void decorateTextRangeWithStyle(const WebFoundTextRange&, FindDecorationStyle);
+    void scrollTextRangeToVisible(const WebFoundTextRange&);
+    void clearAllDecoratedFoundText();
+    void didBeginTextSearchOperation();
+    void didEndTextSearchOperation();
+
+    void requestRectForFoundTextRange(const WebFoundTextRange&, CompletionHandler<void(WebCore::FloatRect)>&&);
 
     void getContentsAsString(ContentAsStringIncludesChildFrames, CompletionHandler<void(const String&)>&&);
 #if PLATFORM(COCOA)
@@ -1962,6 +1977,10 @@ public:
 
 #if ENABLE(MEDIA_STREAM)
     WebCore::CaptureSourceOrError createRealtimeMediaSourceForSpeechRecognition();
+#endif
+
+#if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
+    void setIndexOfGetDisplayMediaDeviceSelectedForTesting(std::optional<unsigned>);
 #endif
 
 #if PLATFORM(MAC)

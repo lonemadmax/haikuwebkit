@@ -160,8 +160,7 @@ class Events(service.BuildbotService):
 
         self.sendDataToEWS(data)
 
-    @defer.inlineCallbacks
-    def buildFinishedGitHub(self, context, build):
+    def buildFinishedGitHub(self, build):
         sha = self.extractProperty(build, 'github.head.sha')
         repository = self.extractProperty(build, 'repository')
 
@@ -183,7 +182,7 @@ class Events(service.BuildbotService):
                 FAILURE: 'failure'
             }.get(build.get('results'), 'error'),
             description=build.get('state_string'),
-            context=context,
+            context=build['description'] + custom_suffix,
         )
         self.sendDataToGitHub(repository, sha, data_to_send)
 
@@ -195,10 +194,10 @@ class Events(service.BuildbotService):
             build['steps'] = yield self.master.db.steps.getSteps(build.get('buildid'))
 
         builder = yield self.master.db.builders.getBuilder(build.get('builderid'))
-        builder_display_name = builder.get('description')
+        build['description'] = builder.get('description', '?')
 
         if self.extractProperty(build, 'github.number'):
-            return self.buildFinishedGitHub(builder_display_name, build)
+            return self.buildFinishedGitHub(build)
 
         patch_id = self.extractProperty(build, 'patch_id')
         if not patch_id:
@@ -217,7 +216,7 @@ class Events(service.BuildbotService):
             "complete_at": build.get('complete_at'),
             "state_string": build.get('state_string'),
             "builder_name": self.getBuilderName(build),
-            "builder_display_name": builder_display_name,
+            "builder_display_name": builder.get('description'),
             "steps": build.get('steps'),
         }
 
@@ -246,7 +245,7 @@ class Events(service.BuildbotService):
                 EXCEPTION: 'error',
             }.get(build.get('results'), 'pending'),
             description=state_string,
-            context=builder.get('description'),
+            context=builder.get('description', '?') + custom_suffix,
         )
         self.sendDataToGitHub(repository, sha, data_to_send)
 
@@ -313,6 +312,7 @@ class Events(service.BuildbotService):
 
 class GitHubEventHandlerNoEdits(GitHubEventHandler):
     ACTIONS_TO_TRIGGER_EWS = ('opened', 'synchronize')
+    OPEN_STATES = ('open',)
 
     def _get_commit_msg(self, repo, sha):
         return ''
@@ -320,7 +320,11 @@ class GitHubEventHandlerNoEdits(GitHubEventHandler):
     def handle_pull_request(self, payload, event):
         pr_number = payload['number']
         action = payload.get('action')
+        state = payload.get('pull_request', {}).get('state')
         if action not in self.ACTIONS_TO_TRIGGER_EWS:
             log.msg('Action {} on PR #{} does not indicate code has been changed'.format(action, pr_number))
+            return ([], 'git')
+        if state not in self.OPEN_STATES:
+            log.msg("PR #{} is '{}', which triggers nothing".format(pr_number, state))
             return ([], 'git')
         return super(GitHubEventHandlerNoEdits, self).handle_pull_request(payload, event)

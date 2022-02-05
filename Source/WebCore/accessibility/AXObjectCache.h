@@ -187,6 +187,9 @@ public:
     void checkedStateChanged(Node*);
     // Called when a node has just been attached, so we can make sure we have the right subclass of AccessibilityObject.
     void updateCacheAfterNodeIsAttached(Node*);
+    void updateLoadingProgress(double);
+    void loadingFinished() { updateLoadingProgress(1); }
+    double loadingProgress() const { return m_loadingProgress; }
 
     void deferFocusedUIElementChangeIfNeeded(Node* oldFocusedNode, Node* newFocusedNode);
     void deferModalChange(Element*);
@@ -523,6 +526,7 @@ private:
     Vector<std::pair<Node*, Node*>> m_deferredFocusedNodeChange;
     bool m_isSynchronizingSelection { false };
     bool m_performingDeferredCacheUpdate { false };
+    double m_loadingProgress { 0 };
 
 #if USE(ATK)
     ListHashSet<RefPtr<AccessibilityObject>> m_deferredAttachedWrapperObjectList;
@@ -621,6 +625,7 @@ inline void AXObjectCache::recomputeIsIgnored(RenderObject*) { }
 inline void AXObjectCache::textChanged(AccessibilityObject*) { }
 inline void AXObjectCache::textChanged(Node*) { }
 inline void AXObjectCache::updateCacheAfterNodeIsAttached(Node*) { }
+inline void AXObjectCache::updateLoadingProgress(double) { }
 inline SimpleRange AXObjectCache::rangeForNodeContents(Node& node) { return makeRangeSelectingNodeContents(node); }
 inline void AXObjectCache::remove(AXID) { }
 inline void AXObjectCache::remove(RenderObject*) { }

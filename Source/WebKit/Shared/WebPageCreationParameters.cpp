@@ -134,6 +134,9 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
 #if PLATFORM(WIN)
     encoder << nativeWindowHandle;
 #endif
+#if USE(GRAPHICS_LAYER_WC)
+    encoder << usesOffscreenRendering;
+#endif
     encoder << shouldScaleViewToFitDocument;
     encoder << userInterfaceLayoutDirection;
     encoder << observedLayoutMilestones;
@@ -337,7 +340,7 @@ std::optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::
     parameters.hasResourceLoadClient = WTFMove(*hasResourceLoadClient);
 
 #if PLATFORM(MAC)
-    std::optional<std::optional<DestinationColorSpace>> colorSpace;
+    std::optional<std::optional<WebCore::DestinationColorSpace>> colorSpace;
     decoder >> colorSpace;
     if (!colorSpace)
         return std::nullopt;
@@ -448,6 +451,10 @@ std::optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::
 
 #if PLATFORM(WIN)
     if (!decoder.decode(parameters.nativeWindowHandle))
+        return std::nullopt;
+#endif
+#if USE(GRAPHICS_LAYER_WC)
+    if (!decoder.decode(parameters.usesOffscreenRendering))
         return std::nullopt;
 #endif
 

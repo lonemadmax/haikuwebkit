@@ -83,6 +83,7 @@
 #import "WebAutocorrectionData.h"
 #import "WebDataListSuggestionsDropdownIOS.h"
 #import "WebEvent.h"
+#import "WebFoundTextRange.h"
 #import "WebIOSEventFactory.h"
 #import "WebPageMessages.h"
 #import "WebPageProxyMessages.h"
@@ -173,10 +174,6 @@
 
 #if HAVE(PEPPER_UI_CORE)
 #import "PepperUICoreSPI.h"
-#endif
-
-#if ENABLE(HOVER_GESTURE_RECOGNIZER)
-#import <WebKitAdditions/WKHoverGestureRecognizer.h>
 #endif
 
 #import <pal/cocoa/VisionKitCoreSoftLink.h>
@@ -405,18 +402,23 @@ constexpr double fasterTapSignificantZoomThreshold = 0.8;
 
 @interface WKFoundTextRange : UITextRange
 
-@property (nonatomic) CGRect rect;
-@property (nonatomic) NSUInteger index;
+@property (nonatomic) NSUInteger location;
+@property (nonatomic) NSUInteger length;
+@property (nonatomic, copy) NSString *frameIdentifier;
+@property (nonatomic) NSUInteger order;
 
-+ (WKFoundTextRange *)foundTextRangeWithRect:(CGRect)rect index:(NSUInteger)index;
++ (WKFoundTextRange *)foundTextRangeWithWebFoundTextRange:(WebKit::WebFoundTextRange)range;
+
+- (WebKit::WebFoundTextRange)webFoundTextRange;
 
 @end
 
 @interface WKFoundTextPosition : UITextPosition
 
-@property (nonatomic) NSUInteger index;
+@property (nonatomic) NSUInteger offset;
+@property (nonatomic) NSUInteger order;
 
-+ (WKFoundTextPosition *)textPositionWithIndex:(NSUInteger)index;
++ (WKFoundTextPosition *)textPositionWithOffset:(NSUInteger)offset order:(NSUInteger)order;
 
 @end
 
@@ -961,11 +963,7 @@ static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> se
     [self setUpMouseGestureRecognizer];
 #endif
 
-#if ENABLE(HOVER_GESTURE_RECOGNIZER)
-    [self setUpHoverGestureRecognizer];
-#endif
-
-#if HAVE(UIKIT_WITH_MOUSE_SUPPORT) || ENABLE(HOVER_GESTURE_RECOGNIZER)
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     _hoverPlatter = adoptNS([[WKHoverPlatter alloc] initWithView:self.rootContentView delegate:self]);
 #endif
 
@@ -1152,12 +1150,7 @@ static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> se
     [self removeGestureRecognizer:_mouseGestureRecognizer.get()];
 #endif
 
-#if ENABLE(HOVER_GESTURE_RECOGNIZER)
-    [_hoverGestureRecognizer setDelegate:nil];
-    [self removeGestureRecognizer:_hoverGestureRecognizer.get()];
-#endif
-
-#if HAVE(UIKIT_WITH_MOUSE_SUPPORT) || ENABLE(HOVER_GESTURE_RECOGNIZER)
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     [_hoverPlatter invalidate];
     _hoverPlatter = nil;
 #endif
@@ -1310,9 +1303,6 @@ static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> se
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     [self removeGestureRecognizer:_mouseGestureRecognizer.get()];
 #endif
-#if ENABLE(HOVER_GESTURE_RECOGNIZER)
-    [self removeGestureRecognizer:_hoverGestureRecognizer.get()];
-#endif
 #if HAVE(LOOKUP_GESTURE_RECOGNIZER)
     [self removeGestureRecognizer:_lookupGestureRecognizer.get()];
 #endif
@@ -1337,9 +1327,6 @@ static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> se
     [self addGestureRecognizer:_twoFingerSingleTapGestureRecognizer.get()];
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     [self addGestureRecognizer:_mouseGestureRecognizer.get()];
-#endif
-#if ENABLE(HOVER_GESTURE_RECOGNIZER)
-    [self addGestureRecognizer:_hoverGestureRecognizer.get()];
 #endif
 #if HAVE(LOOKUP_GESTURE_RECOGNIZER)
     [self addGestureRecognizer:_lookupGestureRecognizer.get()];
@@ -1815,11 +1802,6 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
         return YES;
 #endif
 
-#if ENABLE(HOVER_GESTURE_RECOGNIZER)
-    if (gestureRecognizer == _hoverGestureRecognizer)
-        return NO;
-#endif
-
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     if (gestureRecognizer != _mouseGestureRecognizer && [_mouseGestureRecognizer mouseTouch] == touch)
         return NO;
@@ -1846,10 +1828,6 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceivePress:(UIPress *)press
 {
-#if ENABLE(HOVER_GESTURE_RECOGNIZER)
-    if (gestureRecognizer == _hoverGestureRecognizer)
-        return NO;
-#endif
     return YES;
 }
 
@@ -2498,11 +2476,6 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
 
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     if ([gestureRecognizer isKindOfClass:[WKMouseGestureRecognizer class]] || [otherGestureRecognizer isKindOfClass:[WKMouseGestureRecognizer class]])
-        return YES;
-#endif
-
-#if ENABLE(HOVER_GESTURE_RECOGNIZER)
-    if ([gestureRecognizer isKindOfClass:[WKHoverGestureRecognizer class]] || [otherGestureRecognizer isKindOfClass:[WKHoverGestureRecognizer class]])
         return YES;
 #endif
 
@@ -4851,7 +4824,7 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
     _treatAsContentEditableUntilNextEditorStateUpdate = NO;
     [self _invalidateCurrentPositionInformation];
 
-#if HAVE(UIKIT_WITH_MOUSE_SUPPORT) || ENABLE(HOVER_GESTURE_RECOGNIZER)
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     [_hoverPlatter dismissPlatterWithAnimation:NO];
 #endif
 }
@@ -5298,11 +5271,18 @@ static Vector<WebCore::CompositionHighlight> compositionHighlights(NSAttributedS
     return NSOrderedSame;
 }
 
-- (NSInteger)offsetFromPosition:(UITextPosition *)from toPosition:(UITextPosition *)toPosition
+- (NSInteger)offsetFromPosition:(UITextPosition *)from toPosition:(UITextPosition *)to
 {
 #if HAVE(UIFINDINTERACTION)
-    if ([from isKindOfClass:[WKFoundTextPosition class]] && [toPosition isKindOfClass:[WKFoundTextPosition class]])
-        return ((WKFoundTextPosition *)from).index - ((WKFoundTextPosition *)toPosition).index;
+    if ([from isKindOfClass:[WKFoundTextPosition class]] && [to isKindOfClass:[WKFoundTextPosition class]]) {
+        WKFoundTextPosition *fromPosition = (WKFoundTextPosition *)from;
+        WKFoundTextPosition *toPosition = (WKFoundTextPosition *)to;
+
+        if (fromPosition.order == toPosition.order)
+            return fromPosition.offset - toPosition.offset;
+
+        return fromPosition.order - toPosition.order;
+    }
 #endif
 
     return 0;
@@ -9636,32 +9616,7 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
 
 #endif // HAVE(UIKIT_WITH_MOUSE_SUPPORT)
 
-#if ENABLE(HOVER_GESTURE_RECOGNIZER)
-
-- (void)setUpHoverGestureRecognizer
-{
-    _hoverGestureRecognizer = adoptNS([[WKHoverGestureRecognizer alloc] initWithTarget:self action:@selector(hoverGestureRecognizerChanged:)]);
-    [_hoverGestureRecognizer setDelegate:self];
-    [self addGestureRecognizer:_hoverGestureRecognizer.get()];
-}
-
-- (void)hoverGestureRecognizerChanged:(WKHoverGestureRecognizer *)gestureRecognizer
-{
-    if (!_page->hasRunningProcess())
-        return;
-
-    auto event = gestureRecognizer.lastMouseEvent;
-    if (!event)
-        return;
-
-    _page->handleMouseEvent(*event);
-    if (WKHoverPlatterDomain.rootSettings.platterEnabledForHover)
-        [_hoverPlatter setHoverPoint:event->position()];
-}
-
-#endif // ENABLE(HOVER_GESTURE_RECOGNIZER)
-
-#if HAVE(UIKIT_WITH_MOUSE_SUPPORT) || ENABLE(HOVER_GESTURE_RECOGNIZER)
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
 
 - (void)positionInformationForHoverPlatter:(WKHoverPlatter *)hoverPlatter withRequest:(WebKit::InteractionInformationRequest&)request completionHandler:(void (^)(WebKit::InteractionInformationAtPosition))completionHandler
 {
@@ -10051,8 +10006,6 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 - (void)performTextSearchWithQueryString:(NSString *)string usingOptions:(_UITextSearchOptions *)options resultAggregator:(id<_UITextSearchAggregator>)aggregator
 {
     OptionSet<WebKit::FindOptions> findOptions;
-    findOptions.add(WebKit::FindOptions::ShowOverlay);
-
     switch (options.wordMatchMethod) {
     case _UITextSearchMatchMethodStartsWith:
         findOptions.add(WebKit::FindOptions::AtWordStarts);
@@ -10067,12 +10020,12 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     if (options.stringCompareOptions & NSCaseInsensitiveSearch)
         findOptions.add(WebKit::FindOptions::CaseInsensitive);
 
-    _page->findRectsForStringMatches(string, findOptions, 1000, [string, aggregator = retainPtr(aggregator)](const Vector<WebCore::FloatRect>& rects) {
-        NSUInteger index = 0;
-        for (auto& rect : rects) {
-            WKFoundTextRange *range = [WKFoundTextRange foundTextRangeWithRect:rect index:index];
-            [aggregator foundRange:range forSearchString:string inDocument:nil];
-            index++;
+    // The limit matches the limit set on existing WKWebView find API.
+    constexpr auto maxMatches = 1000;
+    _page->findTextRangesForStringMatches(string, findOptions, maxMatches, [string, aggregator = retainPtr(aggregator)](const Vector<WebKit::WebFoundTextRange> ranges) {
+        for (auto& range : ranges) {
+            WKFoundTextRange *textRange = [WKFoundTextRange foundTextRangeWithWebFoundTextRange:range];
+            [aggregator foundRange:textRange forSearchString:string inDocument:nil];
         }
 
         [aggregator finishedSearching];
@@ -10081,26 +10034,55 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
 - (void)decorateFoundTextRange:(UITextRange *)range inDocument:(_UITextSearchDocumentIdentifier)document usingStyle:(_UIFoundTextStyle)style
 {
-    if (![range isKindOfClass:[WKFoundTextRange class]])
+    auto foundTextRange = dynamic_objc_cast<WKFoundTextRange>(range);
+    if (!foundTextRange)
         return;
 
-    if (style == _UIFoundTextStyleHighlighted) {
-        _foundHighlightedTextRange = range;
-        WKFoundTextRange *foundRange = (WKFoundTextRange *)range;
-        _page->indicateFindMatch(foundRange.index);
-    } else if (style == _UIFoundTextStyleFound && _foundHighlightedTextRange == range)
-        _page->hideFindIndicator();
+    auto decorationStyle = WebKit::FindDecorationStyle::Normal;
+    if (style == _UIFoundTextStyleFound)
+        decorationStyle = WebKit::FindDecorationStyle::Found;
+    else if (style == _UIFoundTextStyleHighlighted)
+        decorationStyle = WebKit::FindDecorationStyle::Highlighted;
+
+    _page->decorateTextRangeWithStyle([foundTextRange webFoundTextRange], decorationStyle);
+}
+
+- (void)scrollRangeToVisible:(UITextRange *)range inDocument:(_UITextSearchDocumentIdentifier)document
+{
+    if (auto foundTextRange = dynamic_objc_cast<WKFoundTextRange>(range))
+        _page->scrollTextRangeToVisible([foundTextRange webFoundTextRange]);
 }
 
 - (void)clearAllDecoratedFoundText
 {
-    _foundHighlightedTextRange = nil;
-    _page->hideFindUI();
+    _page->clearAllDecoratedFoundText();
+}
+
+- (void)didBeginTextSearchOperation
+{
+    _page->didBeginTextSearchOperation();
+}
+
+- (void)didEndTextSearchOperation
+{
+    _page->didEndTextSearchOperation();
 }
 
 - (NSInteger)offsetFromPosition:(UITextPosition *)from toPosition:(UITextPosition *)toPosition inDocument:(_UITextSearchDocumentIdentifier)document
 {
     return [self offsetFromPosition:from toPosition:toPosition];
+}
+
+- (void)requestRectForFoundTextRange:(UITextRange *)range completionHandler:(void (^)(CGRect))completionHandler
+{
+    if (auto* foundTextRange = dynamic_objc_cast<WKFoundTextRange>(range)) {
+        _page->requestRectForFoundTextRange([foundTextRange webFoundTextRange], [completionHandler = makeBlockPtr(completionHandler)] (WebCore::FloatRect rect) {
+            completionHandler(rect);
+        });
+        return;
+    }
+
+    completionHandler(CGRectZero);
 }
 
 #endif // HAVE(UIFINDINTERACTION)
@@ -11972,23 +11954,27 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
 
 @implementation WKFoundTextRange
 
-+ (WKFoundTextRange *)foundTextRangeWithRect:(CGRect)rect index:(NSUInteger)index
+
++ (WKFoundTextRange *)foundTextRangeWithWebFoundTextRange:(WebKit::WebFoundTextRange)webRange
 {
     auto range = adoptNS([[WKFoundTextRange alloc] init]);
-    [range setRect:rect];
-    [range setIndex:index];
+    [range setLocation:webRange.location];
+    [range setLength:webRange.length];
+    [range setFrameIdentifier:webRange.frameIdentifier];
+    [range setOrder:webRange.order];
     return range.autorelease();
 }
 
 - (WKFoundTextPosition *)start
 {
-    WKFoundTextPosition *position = [WKFoundTextPosition textPositionWithIndex:self.index];
+    WKFoundTextPosition *position = [WKFoundTextPosition textPositionWithOffset:self.location order:self.order];
     return position;
 }
 
 - (UITextPosition *)end
 {
-    return self.start;
+    WKFoundTextPosition *position = [WKFoundTextPosition textPositionWithOffset:(self.location + self.length) order:self.order];
+    return position;
 }
 
 - (BOOL)isEmpty
@@ -11996,14 +11982,20 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
     return NO;
 }
 
+- (WebKit::WebFoundTextRange)webFoundTextRange
+{
+    return { self.location, self.length, self.frameIdentifier, self.order };
+}
+
 @end
 
 @implementation WKFoundTextPosition
 
-+ (WKFoundTextPosition *)textPositionWithIndex:(NSUInteger)index
++ (WKFoundTextPosition *)textPositionWithOffset:(NSUInteger)offset order:(NSUInteger)order
 {
     auto pos = adoptNS([[WKFoundTextPosition alloc] init]);
-    [pos setIndex:index];
+    [pos setOffset:offset];
+    [pos setOrder:order];
     return pos.autorelease();
 }
 

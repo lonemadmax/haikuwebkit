@@ -218,6 +218,7 @@ $(PROJECT_DIR)/Modules/applepay/ApplePayShippingMethodSelectedEvent.idl
 $(PROJECT_DIR)/Modules/applepay/ApplePayShippingMethodUpdate.idl
 $(PROJECT_DIR)/Modules/applepay/ApplePayValidateMerchantEvent.idl
 $(PROJECT_DIR)/Modules/applepay/paymentrequest/ApplePayModifier.idl
+$(PROJECT_DIR)/Modules/applepay/paymentrequest/ApplePayPaymentCompleteDetails.idl
 $(PROJECT_DIR)/Modules/applepay/paymentrequest/ApplePayRequest.idl
 $(PROJECT_DIR)/Modules/async-clipboard/Clipboard.idl
 $(PROJECT_DIR)/Modules/async-clipboard/ClipboardItem.idl
@@ -551,6 +552,7 @@ $(PROJECT_DIR)/Modules/paymentrequest/MerchantValidationEvent.idl
 $(PROJECT_DIR)/Modules/paymentrequest/PayerErrorFields.idl
 $(PROJECT_DIR)/Modules/paymentrequest/PaymentAddress.idl
 $(PROJECT_DIR)/Modules/paymentrequest/PaymentComplete.idl
+$(PROJECT_DIR)/Modules/paymentrequest/PaymentCompleteDetails.idl
 $(PROJECT_DIR)/Modules/paymentrequest/PaymentCurrencyAmount.idl
 $(PROJECT_DIR)/Modules/paymentrequest/PaymentDetailsBase.idl
 $(PROJECT_DIR)/Modules/paymentrequest/PaymentDetailsInit.idl
@@ -990,7 +992,6 @@ $(PROJECT_DIR)/dom/AbstractRange.idl
 $(PROJECT_DIR)/dom/AddEventListenerOptions.idl
 $(PROJECT_DIR)/dom/AnimationEvent.idl
 $(PROJECT_DIR)/dom/Attr.idl
-$(PROJECT_DIR)/dom/BeforeLoadEvent.idl
 $(PROJECT_DIR)/dom/BeforeUnloadEvent.idl
 $(PROJECT_DIR)/dom/BroadcastChannel.idl
 $(PROJECT_DIR)/dom/CDATASection.idl
@@ -1177,7 +1178,6 @@ $(PROJECT_DIR)/html/HTMLIFrameElement.idl
 $(PROJECT_DIR)/html/HTMLImageElement+CSSOMView.idl
 $(PROJECT_DIR)/html/HTMLImageElement.idl
 $(PROJECT_DIR)/html/HTMLInputElement.idl
-$(PROJECT_DIR)/html/HTMLKeygenElement.idl
 $(PROJECT_DIR)/html/HTMLLIElement.idl
 $(PROJECT_DIR)/html/HTMLLabelElement.idl
 $(PROJECT_DIR)/html/HTMLLegendElement.idl

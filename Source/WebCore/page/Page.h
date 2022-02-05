@@ -361,6 +361,8 @@ public:
 
     Settings& settings() const { return *m_settings; }
     ProgressTracker& progress() const { return *m_progress; }
+    void progressEstimateChanged(Frame&) const;
+    void progressFinished(Frame&) const;
     BackForwardController& backForward() const { return *m_backForwardController; }
 
     Seconds domTimerAlignmentInterval() const { return m_domTimerAlignmentInterval; }
@@ -394,7 +396,7 @@ public:
         int indexForSelection { 0 }; // FIXME: Consider std::optional<unsigned> or unsigned for this instead.
     };
     static constexpr int NoMatchAfterUserSelection = -1;
-    WEBCORE_EXPORT MatchingRanges findTextMatches(const String&, FindOptions, unsigned maxCount);
+    WEBCORE_EXPORT MatchingRanges findTextMatches(const String&, FindOptions, unsigned maxCount, bool markMatches = true);
 
 #if PLATFORM(COCOA)
     void platformInitialize();

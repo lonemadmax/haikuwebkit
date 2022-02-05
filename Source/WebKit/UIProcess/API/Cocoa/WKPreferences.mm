@@ -700,6 +700,16 @@ static _WKStorageBlockingPolicy toAPI(WebCore::StorageBlockingPolicy policy)
     _preferences->setMediaCaptureRequiresSecureConnection(requiresSecureConnection);
 }
 
+- (BOOL)_useScreenCaptureKit
+{
+    return _preferences->useScreenCaptureKit();
+}
+
+- (void)_setUseScreenCaptureKit:(BOOL)useScreenCaptureKit
+{
+    _preferences->setUseScreenCaptureKit(useScreenCaptureKit);
+}
+
 - (double)_inactiveMediaCaptureSteamRepromptIntervalInMinutes
 {
     return _preferences->inactiveMediaCaptureSteamRepromptIntervalInMinutes();
@@ -931,16 +941,6 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 - (BOOL)_acceleratedCompositingEnabled
 {
     return _preferences->acceleratedCompositingEnabled();
-}
-
-- (void)_setRequestAnimationFrameEnabled:(BOOL)enabled
-{
-    _preferences->setRequestAnimationFrameEnabled(enabled);
-}
-
-- (BOOL)_requestAnimationFrameEnabled
-{
-    return _preferences->requestAnimationFrameEnabled();
 }
 
 - (BOOL)_remotePlaybackEnabled
@@ -1622,6 +1622,15 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 @end
 
 @implementation WKPreferences (WKPrivateDeprecated)
+
+- (void)_setRequestAnimationFrameEnabled:(BOOL)enabled
+{
+}
+
+- (BOOL)_requestAnimationFrameEnabled
+{
+    return YES;
+}
 
 #if !TARGET_OS_IPHONE
 

@@ -95,6 +95,8 @@ WebKit::ViewGestureController* webkitWebViewBaseViewGestureController(WebKitWebV
 bool webkitWebViewBaseBeginBackSwipeForTesting(WebKitWebViewBase*);
 bool webkitWebViewBaseCompleteBackSwipeForTesting(WebKitWebViewBase*);
 
+GVariant* webkitWebViewBaseContentsOfUserInterfaceItem(WebKitWebViewBase*, const char* userInterfaceItem);
+
 void webkitWebViewBaseDidStartProvisionalLoadForMainFrame(WebKitWebViewBase*);
 void webkitWebViewBaseDidFirstVisuallyNonEmptyLayoutForMainFrame(WebKitWebViewBase*);
 void webkitWebViewBaseDidFinishNavigation(WebKitWebViewBase*, API::Navigation*);
@@ -114,7 +116,7 @@ void webkitWebViewBaseDidLosePointerLock(WebKitWebViewBase*);
 void webkitWebViewBaseSetInputMethodContext(WebKitWebViewBase*, WebKitInputMethodContext*);
 WebKitInputMethodContext* webkitWebViewBaseGetInputMethodContext(WebKitWebViewBase*);
 void webkitWebViewBaseSynthesizeCompositionKeyPress(WebKitWebViewBase*, const String& text, std::optional<Vector<WebCore::CompositionUnderline>>&&, std::optional<WebKit::EditingRange>&&);
-void webkitWebViewBaseSynthesizeWheelEvent(WebKitWebViewBase*, const GdkEvent*, double deltaX, double deltaY, int x, int y, WheelEventPhase, WheelEventPhase momentumPhase);
+void webkitWebViewBaseSynthesizeWheelEvent(WebKitWebViewBase*, const GdkEvent*, double deltaX, double deltaY, int x, int y, WheelEventPhase, WheelEventPhase momentumPhase, bool hasPreciseDeltas);
 
 void webkitWebViewBaseMakeBlank(WebKitWebViewBase*, bool);
 void webkitWebViewBasePageGrabbedTouch(WebKitWebViewBase*);

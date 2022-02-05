@@ -122,6 +122,7 @@ typedef NS_ENUM(NSInteger, _WKPitchCorrectionAlgorithm) {
 @property (nonatomic, setter=_setMockCaptureDevicesEnabled:) BOOL _mockCaptureDevicesEnabled WK_API_AVAILABLE(macos(10.13), ios(11.0));
 @property (nonatomic, setter=_setMockCaptureDevicesPromptEnabled:) BOOL _mockCaptureDevicesPromptEnabled WK_API_AVAILABLE(macos(10.13.4), ios(11.3));
 @property (nonatomic, setter=_setMediaCaptureRequiresSecureConnection:) BOOL _mediaCaptureRequiresSecureConnection WK_API_AVAILABLE(macos(10.13), ios(11.0));
+@property (nonatomic, setter=_setUseScreenCaptureKit:) BOOL _useScreenCaptureKit WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 @property (nonatomic, setter=_setEnumeratingAllNetworkInterfacesEnabled:) BOOL _enumeratingAllNetworkInterfacesEnabled WK_API_AVAILABLE(macos(10.13), ios(11.0));
 @property (nonatomic, setter=_setICECandidateFilteringEnabled:) BOOL _iceCandidateFilteringEnabled WK_API_AVAILABLE(macos(10.13.4), ios(11.3));
 @property (nonatomic, setter=_setWebRTCLegacyAPIEnabled:) BOOL _webRTCLegacyAPIEnabled WK_API_AVAILABLE(macos(10.13), ios(11.0));
@@ -165,7 +166,6 @@ typedef NS_ENUM(NSInteger, _WKPitchCorrectionAlgorithm) {
 @property (nonatomic, setter=_setRemotePlaybackEnabled:) BOOL _remotePlaybackEnabled WK_API_AVAILABLE(macos(10.15.4), ios(13.4));
 @property (nonatomic, setter=_setWebAudioEnabled:) BOOL _webAudioEnabled WK_API_AVAILABLE(macos(10.14), ios(13.4));
 @property (nonatomic, setter=_setAcceleratedCompositingEnabled:) BOOL _acceleratedCompositingEnabled WK_API_AVAILABLE(macos(10.13.4), ios(13.4));
-@property (nonatomic, setter=_setRequestAnimationFrameEnabled:) BOOL _requestAnimationFrameEnabled WK_API_AVAILABLE(macos(10.15.4), ios(13.4));
 @property (nonatomic, setter=_setServiceWorkerEntitlementDisabledForTesting:) BOOL _serviceWorkerEntitlementDisabledForTesting WK_API_AVAILABLE(macos(11.0), ios(14.0));
 @property (nonatomic, setter=_setAccessibilityIsolatedTreeEnabled:) BOOL _accessibilityIsolatedTreeEnabled WK_API_AVAILABLE(macos(10.16));
 @property (nonatomic, setter=_setSpeechRecognitionEnabled:) BOOL _speechRecognitionEnabled WK_API_AVAILABLE(macos(12.0), ios(15.0));
@@ -229,6 +229,7 @@ typedef NS_ENUM(NSInteger, _WKPitchCorrectionAlgorithm) {
 
 @interface WKPreferences (WKPrivateDeprecated)
 
+@property (nonatomic, setter=_setRequestAnimationFrameEnabled:) BOOL _requestAnimationFrameEnabled WK_API_DEPRECATED("requestAnimationFrame is always enabled", macos(10.15.4, WK_MAC_TBA), ios(13.4, WK_IOS_TBA));
 #if !TARGET_OS_IPHONE
 @property (nonatomic, setter=_setSubpixelCSSOMElementMetricsEnabled:) BOOL _subpixelCSSOMElementMetricsEnabled WK_API_DEPRECATED("Subpixel CSSOM element metrics are no longer supported", macos(10.13.4, 10.15));
 #endif

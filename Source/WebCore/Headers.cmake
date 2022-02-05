@@ -133,7 +133,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/applepay/ApplePaySessionPaymentRequest.h
     Modules/applepay/Payment.h
-    Modules/applepay/PaymentAuthorizationStatus.h
     Modules/applepay/PaymentContact.h
     Modules/applepay/PaymentCoordinator.h
     Modules/applepay/PaymentCoordinatorClient.h
@@ -445,6 +444,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     bindings/js/JSDOMExceptionHandling.h
     bindings/js/JSDOMGlobalObject.h
     bindings/js/JSDOMGuardedObject.h
+    bindings/js/JSDOMMicrotask.h
     bindings/js/JSDOMOperation.h
     bindings/js/JSDOMPromiseDeferred.h
     bindings/js/JSDOMWindowBase.h
@@ -652,7 +652,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/EventModifierInit.h
     dom/EventNames.h
     dom/EventOptions.h
-    dom/EventQueue.h
     dom/EventTarget.h
     dom/EventTargetConcrete.h
     dom/Exception.h
@@ -849,7 +848,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/HTMLImageElement.h
     html/HTMLImageLoader.h
     html/HTMLInputElement.h
-    html/HTMLKeygenElement.h
     html/HTMLLIElement.h
     html/HTMLLabelElement.h
     html/HTMLLegendElement.h
@@ -1672,6 +1670,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/mediastream/CaptureDevice.h
     platform/mediastream/CaptureDeviceManager.h
+    platform/mediastream/DisplayCaptureManager.h
     platform/mediastream/MDNSRegisterError.h
     platform/mediastream/MediaConstraints.h
     platform/mediastream/MediaStreamPrivate.h

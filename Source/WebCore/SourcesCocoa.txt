@@ -44,6 +44,7 @@ JSApplePayModifier.cpp
 JSApplePayPayment.cpp
 JSApplePayPaymentAuthorizationResult.cpp
 JSApplePayPaymentAuthorizedEvent.cpp
+JSApplePayPaymentCompleteDetails.cpp
 JSApplePayPaymentContact.cpp
 JSApplePayPaymentMethod.cpp
 JSApplePayPaymentMethodSelectedEvent.cpp
@@ -74,6 +75,7 @@ Modules/applepay/ApplePayCouponCodeChangedEvent.cpp
 Modules/applepay/ApplePayCancelEvent.cpp
 Modules/applepay/ApplePayContactField.cpp
 Modules/applepay/ApplePayMerchantCapability.cpp
+Modules/applepay/ApplePayPaymentAuthorizationResult.cpp
 Modules/applepay/ApplePayPaymentAuthorizedEvent.cpp
 Modules/applepay/ApplePayPaymentMethodSelectedEvent.cpp
 Modules/applepay/ApplePayRequestBase.cpp
@@ -559,6 +561,7 @@ platform/mediastream/mac/RealtimeMediaSourceCenterMac.cpp
 platform/mediastream/mac/RealtimeMediaSourceCenterMac.mm
 platform/mediastream/mac/RealtimeOutgoingAudioSourceCocoa.cpp
 platform/mediastream/mac/RealtimeOutgoingVideoSourceCocoa.cpp
+platform/mediastream/mac/ScreenCaptureKitCaptureSource.mm
 platform/mediastream/mac/WebAudioSourceProviderCocoa.mm
 platform/mock/MediaPlaybackTargetMock.cpp
 platform/mock/MediaPlaybackTargetPickerMock.cpp

@@ -26,9 +26,11 @@
 #include "AccessibilityRootAtspi.h"
 #include "AccessibilityTableCell.h"
 #include "ElementInlines.h"
+#include "HTMLSpanElement.h"
 #include "RenderAncestorIterator.h"
 #include "RenderBlock.h"
 #include "RenderObject.h"
+#include "TextControlInnerElements.h"
 #include "TextIterator.h"
 #include <glib/gi18n-lib.h>
 #include <wtf/UUID.h>
@@ -467,15 +469,6 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_accessibleFunctions = {
     nullptr
 };
 
-AccessibilityRootAtspi* AccessibilityObjectAtspi::root()
-{
-    if (!m_root) {
-        if (auto* document = m_coreObject->document())
-            m_root = document->page()->accessibilityRootObject();
-    }
-    return m_root;
-}
-
 bool AccessibilityObjectAtspi::registerObject()
 {
     if (!m_path.isNull())
@@ -509,8 +502,6 @@ bool AccessibilityObjectAtspi::registerObject()
         interfaces.append({ const_cast<GDBusInterfaceInfo*>(&webkit_table_cell_interface), &s_tableCellFunctions });
 
     m_path = AccessibilityAtspi::singleton().registerObject(*this, WTFMove(interfaces));
-    AccessibilityAtspi::singleton().addAccessible(*this);
-
     return true;
 }
 
@@ -547,7 +538,7 @@ void AccessibilityObjectAtspi::setParent(std::optional<AccessibilityObjectAtspi*
         return;
 
     m_parent = atspiParent;
-    if (!m_coreObject || m_coreObject->accessibilityIsIgnored() || !root())
+    if (!m_coreObject || m_coreObject->accessibilityIsIgnored())
         return;
 
     AccessibilityAtspi::singleton().parentChanged(*this);
@@ -1174,7 +1165,8 @@ void AccessibilityObjectAtspi::serialize(GVariantBuilder* builder) const
     g_variant_builder_add(builder, "@(so)", parentReference());
 
     g_variant_builder_add(builder, "i", indexInParent());
-    g_variant_builder_add(builder, "i", childCount());
+    // Do not set the children count in cache, because children are handled by children-changed signals.
+    g_variant_builder_add(builder, "i", -1);
 
     GVariantBuilder interfaces = G_VARIANT_BUILDER_INIT(G_VARIANT_TYPE("as"));
     buildInterfaces(&interfaces);
@@ -1224,6 +1216,9 @@ void AccessibilityObjectAtspi::loadEvent(const char* event)
 
 std::optional<unsigned> AccessibilityObjectAtspi::effectiveRole() const
 {
+    if (m_coreObject->isPasswordField())
+        return Atspi::Role::PasswordText;
+
     switch (m_coreObject->roleValue()) {
     case AccessibilityRole::ListMarker: {
         auto* renderer = m_coreObject->renderer();
@@ -1294,6 +1289,8 @@ String AccessibilityObjectAtspi::effectiveRoleName() const
         return "invalid";
     case Atspi::Role::Panel:
         return "panel";
+    case Atspi::Role::PasswordText:
+        return "password text";
     case Atspi::Role::Table:
         return "table";
     case Atspi::Role::TableRow:
@@ -1345,6 +1342,8 @@ const char* AccessibilityObjectAtspi::effectiveLocalizedRoleName() const
         return _("invalid");
     case Atspi::Role::Panel:
         return AccessibilityAtspi::localizedRoleName(AccessibilityRole::Group);
+    case Atspi::Role::PasswordText:
+        return _("password text");
     case Atspi::Role::Table:
         return AccessibilityAtspi::localizedRoleName(AccessibilityRole::Table);
     case Atspi::Role::TableRow:
@@ -1383,6 +1382,11 @@ void AccessibilityObjectAtspi::updateBackingStore()
 {
     if (m_coreObject)
         m_coreObject->updateBackingStore();
+}
+
+bool AccessibilityObjectAtspi::isIgnored() const
+{
+    return m_coreObject ? m_coreObject->accessibilityIsIgnored() : true;
 }
 
 void AccessibilityObject::detachPlatformWrapper(AccessibilityDetachmentType detachmentType)
@@ -1437,6 +1441,56 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
     // with a different role (section).
     if (roleValue() == AccessibilityRole::ListItem && inheritsPresentationalRole())
         return AccessibilityObjectInclusion::IncludeObject;
+
+    RenderObject* renderObject = renderer();
+    if (!renderObject)
+        return AccessibilityObjectInclusion::DefaultBehavior;
+
+    // We always want to include paragraphs that have rendered content.
+    // WebCore Accessibility does so unless there is a RenderBlock child.
+    if (roleValue() == AccessibilityRole::Paragraph) {
+        auto child = childrenOfType<RenderBlock>(downcast<RenderElement>(*renderObject)).first();
+        return child ? AccessibilityObjectInclusion::IncludeObject : AccessibilityObjectInclusion::DefaultBehavior;
+    }
+
+    if (renderObject->isAnonymousBlock()) {
+        // The text displayed by an ARIA menu item is exposed through the accessible name.
+        if (parent->isMenuItem())
+            return AccessibilityObjectInclusion::IgnoreObject;
+
+        // The text displayed in headings is typically exposed in the heading itself.
+        if (parent->isHeading())
+            return AccessibilityObjectInclusion::IgnoreObject;
+
+        // The text displayed in list items is typically exposed in the list item itself.
+        if (parent->isListItem())
+            return AccessibilityObjectInclusion::IgnoreObject;
+
+        // The text displayed in links is typically exposed in the link itself.
+        if (parent->isLink())
+            return AccessibilityObjectInclusion::IgnoreObject;
+
+        // FIXME: This next one needs some further consideration. But paragraphs are not
+        // typically huge (like divs). And ignoring anonymous block children of paragraphs
+        // will preserve existing behavior.
+        if (parent->roleValue() == AccessibilityRole::Paragraph)
+            return AccessibilityObjectInclusion::IgnoreObject;
+
+        return AccessibilityObjectInclusion::DefaultBehavior;
+    }
+
+    Node* node = renderObject->node();
+    if (!node)
+        return AccessibilityObjectInclusion::DefaultBehavior;
+
+    // We don't want <span> elements to show up in the accessibility hierarchy unless
+    // we have good reasons for that (e.g. focusable or visible because of containing
+    // a meaningful accessible name, maybe set through ARIA).
+    if (is<HTMLSpanElement>(node) && !canSetFocusAttribute() && !hasAttributesRequiredForInclusion() && !supportsARIAAttributes())
+        return AccessibilityObjectInclusion::IgnoreObject;
+
+    if (is<TextControlInnerTextElement>(node))
+        return AccessibilityObjectInclusion::IgnoreObject;
 
     return AccessibilityObjectInclusion::DefaultBehavior;
 }

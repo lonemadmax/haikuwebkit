@@ -49,8 +49,9 @@ Line::~Line()
 {
 }
 
-void Line::initialize(const Vector<InlineItem>& lineSpanningInlineBoxes)
+void Line::initialize(const Vector<InlineItem>& lineSpanningInlineBoxes, bool collapseLeadingNonBreakingSpace)
 {
+    m_collapseLeadingNonBreakingSpace = collapseLeadingNonBreakingSpace;
     m_inlineBoxListWithClonedDecorationEnd.clear();
     m_clonedEndDecorationWidthForInlineBoxRuns = { };
     m_nonSpanningInlineLevelBoxCount = 0;
@@ -200,6 +201,38 @@ void Line::removeHangingGlyphs()
     m_hangingTrailingContent.reset();
 }
 
+void Line::resetBidiLevelForTrailingWhitespace(UBiDiLevel rootBidiLevel)
+{
+    ASSERT(m_trimmableTrailingContent.isEmpty());
+    if (!m_hasNonDefaultBidiLevelRun)
+        return;
+    // UAX#9 L1: trailing whitespace should use paragraph direction.
+    // see https://unicode.org/reports/tr9/#L1
+    for (auto index = m_runs.size(); index--;) {
+        auto& run = m_runs[index];
+        if (run.isBox() || run.isLineBreak() || (run.isText() && !run.hasTrailingWhitespace()))
+            break;
+
+        if (!run.hasTrailingWhitespace()) {
+            // Skip non-content type of runs e.g. <span>
+            continue;
+        }
+
+        if (run.isWhitespaceOnly())
+            run.setBidiLevel(rootBidiLevel);
+        else {
+            auto detachedTrailingRun = *run.detachTrailingWhitespace();
+            detachedTrailingRun.setBidiLevel(rootBidiLevel);
+            if (index == m_runs.size() - 1)
+                m_runs.append(detachedTrailingRun);
+            else
+                m_runs.insert(index + 1, detachedTrailingRun);
+            // There can't be any trailing whitespace in front of this partially whitespace content.
+            break;
+        }
+    }
+}
+
 void Line::append(const InlineItem& inlineItem, const RenderStyle& style, InlineLayoutUnit logicalWidth)
 {
     if (inlineItem.isText())
@@ -261,8 +294,19 @@ void Line::appendInlineBoxEnd(const InlineItem& inlineItem, const RenderStyle& s
 void Line::appendTextContent(const InlineTextItem& inlineTextItem, const RenderStyle& style, InlineLayoutUnit logicalWidth)
 {
     auto willCollapseCompletely = [&] {
-        if (!inlineTextItem.isWhitespace())
-            return false;
+        if (!inlineTextItem.isWhitespace()) {
+            auto isLeadingCollapsibleNonBreakingSpace = [&] {
+                // Let's check for leading non-breaking space collapsing to match legacy line layout quirk.
+                if (!inlineTextItem.isCollapsibleNonBreakingSpace() || !m_collapseLeadingNonBreakingSpace)
+                    return false;
+                for (auto& run : makeReversedRange(m_runs)) {
+                    if (run.isBox() || run.isText())
+                        return false;
+                }
+                return true;
+            };
+            return isLeadingCollapsibleNonBreakingSpace();
+        }
         if (InlineTextItem::shouldPreserveSpacesAndTabs(inlineTextItem))
             return false;
         // This content is collapsible. Let's check if the last item is collapsed.
@@ -608,9 +652,9 @@ Line::Run::Run(const InlineTextItem& inlineTextItem, const RenderStyle& style, I
     auto length = inlineTextItem.length();
     auto whitespaceType = trailingWhitespaceType(inlineTextItem);
     if (whitespaceType) {
-        m_trailingWhitespace = { *whitespaceType, logicalWidth };
         if (*whitespaceType == TrailingWhitespace::Type::Collapsed)
             length =  1;
+        m_trailingWhitespace = { *whitespaceType, logicalWidth, length };
     }
     m_textContent = { inlineTextItem.start(), length };
 }
@@ -632,8 +676,33 @@ void Line::Run::expand(const InlineTextItem& inlineTextItem, InlineLayoutUnit lo
         return;
     }
     auto whitespaceWidth = !m_trailingWhitespace ? logicalWidth : m_trailingWhitespace->width + logicalWidth;
-    m_trailingWhitespace = TrailingWhitespace { *whitespaceType, whitespaceWidth };
-    m_textContent->length += *whitespaceType == TrailingWhitespace::Type::Collapsed ? 1 : inlineTextItem.length();
+    auto trailingWhitespaceLength = *whitespaceType == TrailingWhitespace::Type::Collapsed ? 1 : inlineTextItem.length(); 
+    m_trailingWhitespace = { *whitespaceType, whitespaceWidth, trailingWhitespaceLength };
+    m_textContent->length += trailingWhitespaceLength;
+}
+
+std::optional<Line::Run> Line::Run::detachTrailingWhitespace()
+{
+    if (!m_trailingWhitespace || isWhitespaceOnly())
+        return { };
+
+    ASSERT(m_trailingWhitespace->length < m_textContent->length);
+    auto trailingWhitespaceRun = *this;
+
+    auto leadingNonWhitespaceContentLength = m_textContent->length - m_trailingWhitespace->length;
+    trailingWhitespaceRun.m_textContent = { m_textContent->start + leadingNonWhitespaceContentLength, m_trailingWhitespace->length, false };
+
+    trailingWhitespaceRun.m_logicalWidth = m_trailingWhitespace->width;
+    trailingWhitespaceRun.m_logicalLeft = logicalRight() - m_trailingWhitespace->width;
+
+    trailingWhitespaceRun.m_trailingWhitespace = { };
+    trailingWhitespaceRun.m_lastNonWhitespaceContentStart = { };
+
+    m_logicalWidth -= trailingWhitespaceRun.logicalWidth();
+    m_textContent->length = leadingNonWhitespaceContentLength;
+    m_trailingWhitespace = { };
+
+    return trailingWhitespaceRun;
 }
 
 bool Line::Run::hasTrailingLetterSpacing() const

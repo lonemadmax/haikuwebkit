@@ -80,8 +80,6 @@ public:
 
     static const char* localizedRoleName(AccessibilityRole);
 
-    void addAccessible(AccessibilityObjectAtspi&);
-
 #if ENABLE(DEVELOPER_MODE)
     using NotificationObserverParameter = std::variant<std::nullptr_t, String, bool, unsigned, Ref<AccessibilityObjectAtspi>>;
     using NotificationObserver = Function<void(AccessibilityObjectAtspi&, const char*, NotificationObserverParameter)>;
@@ -107,8 +105,6 @@ private:
 
     void ensureCache();
     void addToCacheIfNeeded(AccessibilityObjectAtspi&);
-    void addToCacheIfPending(AccessibilityObjectAtspi&);
-    void removeAccessible(AccessibilityObjectAtspi&);
     void cacheUpdateTimerFired();
     void cacheClearTimerFired();
 
@@ -117,6 +113,7 @@ private:
 #if ENABLE(DEVELOPER_MODE)
     void notifyStateChanged(AccessibilityObjectAtspi&, const char*, bool) const;
     void notifySelectionChanged(AccessibilityObjectAtspi&) const;
+    void notifyMenuSelectionChanged(AccessibilityObjectAtspi&) const;
     void notifyTextChanged(AccessibilityObjectAtspi&) const;
     void notifyTextCaretMoved(AccessibilityObjectAtspi&, unsigned) const;
     void notifyChildrenChanged(AccessibilityObjectAtspi&, AccessibilityObjectAtspi&, ChildrenChanged) const;

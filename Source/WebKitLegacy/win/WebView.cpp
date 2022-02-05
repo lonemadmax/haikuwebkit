@@ -5035,11 +5035,6 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         return hr;
     RuntimeEnabledFeatures::sharedFeatures().setMenuItemElementEnabled(!!enabled);
 
-    hr = prefsPrivate->keygenElementEnabled(&enabled);
-    if (FAILED(hr))
-        return hr;
-    RuntimeEnabledFeatures::sharedFeatures().setKeygenElementEnabled(!!enabled);
-
     hr = prefsPrivate->webAnimationsCompositeOperationsEnabled(&enabled);
     if (FAILED(hr))
         return hr;
@@ -5370,11 +5365,6 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         return hr;
     setShouldInvertColors(enabled);
 
-    hr = prefsPrivate->requestAnimationFrameEnabled(&enabled);
-    if (FAILED(hr))
-        return hr;
-    settings.setRequestAnimationFrameEnabled(enabled);
-
     hr = prefsPrivate->mockScrollbarsEnabled(&enabled);
     if (FAILED(hr))
         return hr;
@@ -5445,6 +5435,7 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     settings.setCSSGradientInterpolationColorSpacesEnabled(m_preferences->cssGradientInterpolationColorSpacesEnabled());
     settings.setCSSGradientPremultipliedAlphaInterpolationEnabled(m_preferences->cssGradientPremultipliedAlphaInterpolationEnabled());
     settings.setMockScrollbarsControllerEnabled(m_preferences->mockScrollbarsControllerEnabled());
+    settings.setCSSInputSecurityEnabled(m_preferences->cssInputSecurityEnabled());
 
     return S_OK;
 }

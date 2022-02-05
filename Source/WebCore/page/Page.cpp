@@ -48,6 +48,7 @@
 #include "DiagnosticLoggingClient.h"
 #include "DiagnosticLoggingKeys.h"
 #include "DisplayRefreshMonitorManager.h"
+#include "DocumentInlines.h"
 #include "DocumentLoader.h"
 #include "DocumentMarkerController.h"
 #include "DocumentTimeline.h"
@@ -274,7 +275,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_pointerLockController(makeUnique<PointerLockController>(*this))
 #endif
     , m_settings(Settings::create(this))
-    , m_progress(makeUnique<ProgressTracker>(WTFMove(pageConfiguration.progressTrackerClient)))
+    , m_progress(makeUnique<ProgressTracker>(*this, WTFMove(pageConfiguration.progressTrackerClient)))
     , m_backForwardController(makeUnique<BackForwardController>(*this, WTFMove(pageConfiguration.backForwardClient)))
     , m_mainFrame(Frame::create(this, nullptr, WTFMove(pageConfiguration.loaderClientForMainFrame)))
     , m_editorClient(WTFMove(pageConfiguration.editorClient))
@@ -583,6 +584,22 @@ void Page::settingsDidChange()
 #endif
 }
 
+void Page::progressEstimateChanged(Frame& frameWithProgressUpdate) const
+{
+    if (auto* document = frameWithProgressUpdate.document()) {
+        if (auto* axObjectCache = document->existingAXObjectCache())
+            axObjectCache->updateLoadingProgress(progress().estimatedProgress());
+    }
+}
+
+void Page::progressFinished(Frame& frameWithCompletedProgress) const
+{
+    if (auto* document = frameWithCompletedProgress.document()) {
+        if (auto* axObjectCache = document->existingAXObjectCache())
+            axObjectCache->loadingFinished();
+    }
+}
+
 bool Page::openedByDOM() const
 {
     return m_openedByDOM;
@@ -765,14 +782,14 @@ bool Page::findString(const String& target, FindOptions options, DidWrap* didWra
     return false;
 }
 
-auto Page::findTextMatches(const String& target, FindOptions options, unsigned limit) -> MatchingRanges
+auto Page::findTextMatches(const String& target, FindOptions options, unsigned limit, bool markMatches) -> MatchingRanges
 {
     MatchingRanges result;
 
     Frame* frame = &mainFrame();
     Frame* frameWithSelection = nullptr;
     do {
-        frame->editor().countMatchesForText(target, { }, options, limit ? (limit - result.ranges.size()) : 0, true, &result.ranges);
+        frame->editor().countMatchesForText(target, { }, options, limit ? (limit - result.ranges.size()) : 0, markMatches, &result.ranges);
         if (frame->selection().isRange())
             frameWithSelection = frame;
         frame = incrementFrame(frame, true, CanWrap::No);

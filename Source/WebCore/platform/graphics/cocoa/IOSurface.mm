@@ -277,6 +277,32 @@ IntSize IOSurface::maximumSize()
     return size;
 }
 
+static WTF::Atomic<size_t>& surfaceBytesPerRowAlignment()
+{
+    static WTF::Atomic<size_t> alignment = 0;
+    return alignment;
+}
+
+size_t IOSurface::bytesPerRowAlignment()
+{
+    auto alignment = surfaceBytesPerRowAlignment().load();
+    if (!alignment) {
+        surfaceBytesPerRowAlignment().store(IOSurfaceGetPropertyAlignment(kIOSurfaceBytesPerRow));
+        alignment = surfaceBytesPerRowAlignment().load();
+        // A return value for IOSurfaceGetPropertyAlignment(kIOSurfaceBytesPerRow) of 1 is invalid.
+        // See https://developer.apple.com/documentation/iosurface/1419453-iosurfacegetpropertyalignment?language=objc
+        // This likely means that the sandbox is blocking access to the IOSurface IOKit class,
+        // and that IOSurface::bytesPerRowAlignment() has been called before IOSurface::setBytesPerRowAlignment.
+        RELEASE_ASSERT(alignment > 1);
+    }
+    return alignment;
+}
+
+void IOSurface::setBytesPerRowAlignment(size_t bytesPerRowAlignment)
+{
+    surfaceBytesPerRowAlignment().store(bytesPerRowAlignment);
+}
+
 MachSendRight IOSurface::createSendRight() const
 {
     return MachSendRight::adopt(IOSurfaceCreateMachPort(m_surface.get()));
@@ -495,13 +521,20 @@ void IOSurface::convertToFormat(std::unique_ptr<IOSurface>&& inSurface, Format f
 
 void IOSurface::setOwnershipIdentity(const ProcessIdentity& resourceOwner)
 {
+    setOwnershipIdentity(m_surface.get(), resourceOwner);
+}
+
+void IOSurface::setOwnershipIdentity(IOSurfaceRef surface, const ProcessIdentity& resourceOwner)
+{
 #if HAVE(IOSURFACE_SET_OWNERSHIP_IDENTITY) && HAVE(TASK_IDENTITY_TOKEN)
     ASSERT(resourceOwner);
+    ASSERT(surface);
     task_id_token_t ownerTaskIdToken = resourceOwner.taskIdToken();
-    auto result = IOSurfaceSetOwnershipIdentity(m_surface.get(), ownerTaskIdToken, kIOSurfaceMemoryLedgerTagGraphics, 0);
+    auto result = IOSurfaceSetOwnershipIdentity(surface, ownerTaskIdToken, kIOSurfaceMemoryLedgerTagGraphics, 0);
     if (result != kIOReturnSuccess)
-        RELEASE_LOG_ERROR(IOSurface, "IOSurface::setOwnershipIdentity: Failed to claim ownership of IOSurface %p, task id token: %d, error: %d", m_surface.get(), (int)ownerTaskIdToken, result);
+        RELEASE_LOG_ERROR(IOSurface, "IOSurface::setOwnershipIdentity: Failed to claim ownership of IOSurface %p, task id token: %d, error: %d", surface, (int)ownerTaskIdToken, result);
 #else
+    UNUSED_PARAM(surface);
     UNUSED_PARAM(resourceOwner);
 #endif
 }

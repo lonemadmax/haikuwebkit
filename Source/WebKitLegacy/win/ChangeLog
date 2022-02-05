@@ -1,3 +1,48 @@
+2022-01-30  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Delete runtime preference for enabling keygen element
+        https://bugs.webkit.org/show_bug.cgi?id=235867
+
+        Reviewed by Antti Koivisto.
+
+        * WebPreferenceKeysPrivate.h:
+        * WebPreferences.cpp:
+        (WebPreferences::keygenElementEnabled):
+        (WebPreferences::setKeygenElementEnabled):
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2022-01-29  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Delete runtime preference for enabling request animation frame
+        https://bugs.webkit.org/show_bug.cgi?id=235866
+
+        Reviewed by Darin Adler.
+
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+        (WebPreferences::setRequestAnimationFrameEnabled):
+        (WebPreferences::requestAnimationFrameEnabled):
+        * WebPreferences.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2022-01-25  Aditya Keerthi  <akeerthi@apple.com>
+
+        Disable input-security CSS property
+        https://bugs.webkit.org/show_bug.cgi?id=235557
+        rdar://87984277
+
+        Reviewed by Dean Jackson.
+
+        Add support for tests enabling the CSSInputSecurityEnabled preference.
+
+        * WebPreferences.cpp:
+        (WebPreferences::cssInputSecurityEnabled):
+        * WebPreferences.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
 2022-01-21  Fujii Hironori  <Hironori.Fujii@sony.com>
 
         Fix AppleWin build with newer MSVC

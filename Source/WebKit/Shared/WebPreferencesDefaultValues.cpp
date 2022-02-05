@@ -273,19 +273,6 @@ bool defaultIncrementalPDFEnabled()
 }
 #endif
 
-#if ENABLE(WEBXR)
-
-bool defaultWebXREnabled()
-{
-#if HAVE(WEBXR_INTERNALS)
-    return true;
-#else
-    return false;
-#endif
-}
-
-#endif // ENABLE(WEBXR)
-
 #if ENABLE(WEBM_FORMAT_READER)
 
 bool defaultWebMFormatReaderEnabled()
@@ -342,5 +329,17 @@ bool defaultMediaSessionCoordinatorEnabled()
     return enabled;
 }
 #endif
+
+#if HAVE(SCREEN_CAPTURE_KIT)
+bool defaultScreenCaptureKitEnabled()
+{
+#if ENABLE(SCREEN_CAPTURE_KIT)
+    return true;
+#else
+    return false;
+#endif
+}
+#endif // HAVE(SCREEN_CAPTURE_KIT)
+
 
 } // namespace WebKit

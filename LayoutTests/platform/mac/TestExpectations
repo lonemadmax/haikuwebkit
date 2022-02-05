@@ -109,6 +109,7 @@ model-element/model-element-contents-layer-updates.html [ Skip ]
 
 # This test requires ARQL SPIs not yet available to OpenSource builds.
 model-element/model-element-camera.html [ Skip ]
+model-element/model-element-interactive-dragging.html [ Skip ]
 
 # Accessibility tests for notifications that don't exist or aren't needed on Mac OS X.
 accessibility/aria-checkbox-sends-notification.html
@@ -729,7 +730,6 @@ webkit.org/b/121803 media/video-object-fit.html [ Pass ImageOnlyFailure ]
 webkit.org/b/122033 media/video-duration-known-after-eos.html [ Pass Timeout ]
 webkit.org/b/122042 media/media-controller-playback.html [ Pass Timeout ]
 webkit.org/b/123099 media/media-controller-time-clamp.html [ Pass Timeout ]
-webkit.org/b/123522 media/track/track-in-band-legacy-api.html [ Pass Failure Crash ]
 webkit.org/b/131855 media/event-attributes.html [ Pass Failure Timeout ]
 webkit.org/b/133363 media/video-rtl.html [ Pass ImageOnlyFailure ]
 webkit.org/b/133686 media/track/w3c/interfaces/TextTrackCue/align.html [ Pass Failure ]
@@ -2424,6 +2424,10 @@ webkit.org/b/226826 [ Monterey ] http/tests/ssl/applepay/ApplePayButton.html [ F
 
 webkit.org/b/221230 [ BigSur+ ] imported/w3c/web-platform-tests/media-source/mediasource-addsourcebuffer.html [ Pass Failure ]
 
+webkit.org/b/235084 [ arm64 ] imported/w3c/web-platform-tests/css/css-transforms/perspective-transforms-equivalence.html [ ImageOnlyFailure ]
+
+webkit.org/b/235660 [ Debug ] fast/replaced/encrypted-pdf-as-object-and-embed.html [ Skip ]
+
 # <model> tests involving the ready promise can only work on Monterey and up
 [ Catalina BigSur ] model-element/model-element-ready.html [ Skip ]
 
@@ -2432,3 +2436,8 @@ webkit.org/b/221230 [ BigSur+ ] imported/w3c/web-platform-tests/media-source/med
 
 # This test is specific to Core Text.
 fast/text/font-lookup-dot-prefix-case-sensitive.html [ Pass ]
+
+# These tests require platform support.
+# <rdar://problem/87944426>
+[ Catalina BigSur Monterey ] fast/text/locale-shaping-2.html [ Pass ImageOnlyFailure ]
+[ Catalina BigSur Monterey ] fast/text/locale-shaping-3.html [ Pass ImageOnlyFailure ]

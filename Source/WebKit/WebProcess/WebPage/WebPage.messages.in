@@ -167,7 +167,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     ScrollBy(uint32_t scrollDirection, enum:uint8_t WebCore::ScrollGranularity scrollGranularity)
     CenterSelectionInVisibleArea()
 
-    GoToBackForwardItem(uint64_t navigationID, struct WebCore::BackForwardItemIdentifier backForwardItemID, enum:uint8_t WebCore::FrameLoadType backForwardType, enum:uint8_t WebCore::ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad, std::optional<WebKit::WebsitePoliciesData> websitePolicies, bool lastNavigationWasAppInitiated)
+    GoToBackForwardItem(uint64_t navigationID, struct WebCore::BackForwardItemIdentifier backForwardItemID, enum:uint8_t WebCore::FrameLoadType backForwardType, enum:uint8_t WebCore::ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad, std::optional<WebKit::WebsitePoliciesData> websitePolicies, bool lastNavigationWasAppInitiated, std::optional<WebKit::NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume)
     TryRestoreScrollPosition()
 
     LoadURLInFrame(URL url, String referrer, WebCore::FrameIdentifier frameID)
@@ -311,6 +311,15 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 
     FindRectsForStringMatches(String string, OptionSet<WebKit::FindOptions> findOptions, unsigned maxMatchCount) -> (Vector<WebCore::FloatRect> matches) Async
     HideFindIndicator()
+
+    FindTextRangesForStringMatches(String string, OptionSet<WebKit::FindOptions> findOptions, unsigned maxMatchCount) -> (Vector<WebKit::WebFoundTextRange> ranges) Async
+    DecorateTextRangeWithStyle(struct WebKit::WebFoundTextRange range, enum:uint8_t WebKit::FindDecorationStyle style)
+    ScrollTextRangeToVisible(struct WebKit::WebFoundTextRange range)
+    ClearAllDecoratedFoundText();
+    DidBeginTextSearchOperation();
+    DidEndTextSearchOperation();
+
+    RequestRectForFoundTextRange(struct WebKit::WebFoundTextRange range) -> (WebCore::FloatRect rect) Async
     
     AddMIMETypeWithCustomContentProvider(String mimeType)
 
@@ -516,6 +525,10 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 #endif
 
     EffectiveAppearanceDidChange(bool useDarkAppearance, bool useElevatedUserInterfaceLevel)
+
+#if HAVE(APP_ACCENT_COLORS)
+    SetAccentColor(WebCore::Color color)
+#endif
 
 #if PLATFORM(COCOA)
     RequestActiveNowPlayingSessionInfo() -> (bool active, bool registeredAsNowPlayingApplication, String title, double duration, double elapsedTime, uint64_t uniqueIdentifier) Async

@@ -285,13 +285,7 @@ bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, Legac
 
 bool ScriptElement::requestClassicScript(const String& sourceURL)
 {
-    Ref<Document> originalDocument(m_element.document());
-    if (!m_element.dispatchBeforeLoadEvent(sourceURL))
-        return false;
-    bool didEventListenerDisconnectThisElement = !m_element.isConnected() || &m_element.document() != originalDocument.ptr();
-    if (didEventListenerDisconnectThisElement)
-        return false;
-
+    ASSERT(m_element.isConnected());
     ASSERT(!m_loadableScript);
     if (!stripLeadingAndTrailingHTMLSpaces(sourceURL).isEmpty()) {
         auto script = LoadableClassicScript::create(
@@ -336,15 +330,9 @@ bool ScriptElement::requestModuleScript(const TextPosition& scriptStartPosition)
         crossOriginMode = ScriptElementCachedScriptFetcher::defaultCrossOriginModeForModule;
 
     if (hasSourceAttribute()) {
+        ASSERT(m_element.isConnected());
+
         String sourceURL = sourceAttributeValue();
-        Ref<Document> originalDocument(m_element.document());
-        if (!m_element.dispatchBeforeLoadEvent(sourceURL))
-            return false;
-
-        bool didEventListenerDisconnectThisElement = !m_element.isConnected() || &m_element.document() != originalDocument.ptr();
-        if (didEventListenerDisconnectThisElement)
-            return false;
-
         if (stripLeadingAndTrailingHTMLSpaces(sourceURL).isEmpty()) {
             dispatchErrorEvent();
             return false;
@@ -456,9 +444,21 @@ void ScriptElement::dispatchLoadEventRespectingUserGestureIndicator()
 void ScriptElement::executeScriptAndDispatchEvent(LoadableScript& loadableScript)
 {
     if (std::optional<LoadableScript::Error> error = loadableScript.error()) {
-        if (std::optional<LoadableScript::ConsoleMessage> message = error->consoleMessage)
-            m_element.document().addConsoleMessage(message->source, message->level, message->message);
-        dispatchErrorEvent();
+        if (error->errorValue) {
+            // https://html.spec.whatwg.org/multipage/webappapis.html#report-the-exception
+            // An error value is present when there is a load failure that was
+            // not triggered during fetching. In this case, we need to report
+            // the exception to the global object.
+            if (auto* frame = m_element.document().frame())
+                frame->script().reportExceptionFromScriptError(error.value(), loadableScript.isModuleScript());
+        } else {
+            // https://html.spec.whatwg.org/multipage/scripting.html#execute-the-script-block
+            // When the script is "null" due to a fetch error, an error event
+            // should be dispatched for the script element.
+            if (std::optional<LoadableScript::ConsoleMessage> message = error->consoleMessage)
+                m_element.document().addConsoleMessage(message->source, message->level, message->message);
+            dispatchErrorEvent();
+        }
     } else if (!loadableScript.wasCanceled()) {
         ASSERT(!loadableScript.error());
         loadableScript.execute(*this);

@@ -956,18 +956,6 @@ InlineMediaPlaybackRequiresPlaysInlineAttribute:
       "PLATFORM(IOS_FAMILY)": true
       default: false
 
-InputEventsEnabled:
-  type: bool
-  humanReadableName: "Input Events"
-  humanReadableDescription: "Enable InputEvents support"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
 InspectorAdditionsEnabled:
   type: bool
   humanReadableName: "Web Inspector Additions"
@@ -1771,16 +1759,6 @@ PunchOutWhiteBackgroundsInDarkMode:
       default: false
     WebCore:
       default: false
-
-RequestAnimationFrameEnabled:
-  type: bool
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
 
 RequiresPageVisibilityToPlayAudio:
   type: bool

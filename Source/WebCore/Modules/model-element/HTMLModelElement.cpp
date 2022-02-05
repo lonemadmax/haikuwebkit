@@ -321,8 +321,35 @@ void HTMLModelElement::enterFullscreen()
 
 // MARK: - Interaction support.
 
+bool HTMLModelElement::supportsDragging() const
+{
+    if (!m_modelPlayer)
+        return true;
+
+    return m_modelPlayer->supportsDragging();
+}
+
+bool HTMLModelElement::isDraggableIgnoringAttributes() const
+{
+    return supportsDragging();
+}
+
+bool HTMLModelElement::isInteractive() const
+{
+    return hasAttributeWithoutSynchronization(HTMLNames::interactiveAttr);
+}
+
+void HTMLModelElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason reason)
+{
+    HTMLElement::attributeChanged(name, oldValue, newValue, reason);
+    if (m_modelPlayer && name == HTMLNames::interactiveAttr)
+        m_modelPlayer->setInteractionEnabled(isInteractive());
+}
+
 void HTMLModelElement::defaultEventHandler(Event& event)
 {
+    HTMLElement::defaultEventHandler(event);
+
     if (!m_modelPlayer || !m_modelPlayer->supportsMouseInteraction())
         return;
 
@@ -336,12 +363,20 @@ void HTMLModelElement::defaultEventHandler(Event& event)
     if (mouseEvent.button() != LeftButton)
         return;
 
-    if (type == eventNames().mousedownEvent && !m_isDragging && !event.defaultPrevented())
+    if (type == eventNames().mousedownEvent && !m_isDragging && !event.defaultPrevented() && isInteractive())
         dragDidStart(mouseEvent);
     else if (type == eventNames().mousemoveEvent && m_isDragging)
         dragDidChange(mouseEvent);
     else if (type == eventNames().mouseupEvent && m_isDragging)
         dragDidEnd(mouseEvent);
+}
+
+LayoutPoint HTMLModelElement::flippedLocationInElementForMouseEvent(MouseEvent& event)
+{
+    LayoutUnit flippedY { event.offsetY() };
+    if (auto* renderModel = dynamicDowncast<RenderModel>(renderer()))
+        flippedY = renderModel->paddingBoxHeight() - flippedY;
+    return { LayoutUnit(event.offsetX()), flippedY };
 }
 
 void HTMLModelElement::dragDidStart(MouseEvent& event)
@@ -357,7 +392,7 @@ void HTMLModelElement::dragDidStart(MouseEvent& event)
     m_isDragging = true;
 
     if (m_modelPlayer)
-        m_modelPlayer->handleMouseDown(event.pageLocation(), event.timeStamp());
+        m_modelPlayer->handleMouseDown(flippedLocationInElementForMouseEvent(event), event.timeStamp());
 }
 
 void HTMLModelElement::dragDidChange(MouseEvent& event)
@@ -367,7 +402,7 @@ void HTMLModelElement::dragDidChange(MouseEvent& event)
     event.setDefaultHandled();
 
     if (m_modelPlayer)
-        m_modelPlayer->handleMouseMove(event.pageLocation(), event.timeStamp());
+        m_modelPlayer->handleMouseMove(flippedLocationInElementForMouseEvent(event), event.timeStamp());
 }
 
 void HTMLModelElement::dragDidEnd(MouseEvent& event)
@@ -383,7 +418,7 @@ void HTMLModelElement::dragDidEnd(MouseEvent& event)
     m_isDragging = false;
 
     if (m_modelPlayer)
-        m_modelPlayer->handleMouseUp(event.pageLocation(), event.timeStamp());
+        m_modelPlayer->handleMouseUp(flippedLocationInElementForMouseEvent(event), event.timeStamp());
 }
 
 // MARK: - Camera support.
