@@ -128,7 +128,6 @@ class RemoteCDMFactory;
 class RemoteLegacyCDMFactory;
 class RemoteMediaEngineConfigurationFactory;
 class RemoteWebLockRegistry;
-struct ServiceWorkerInitializationData;
 class StorageAreaMap;
 class UserData;
 class WaylandCompositorDisplay;
@@ -144,18 +143,21 @@ class WebFrame;
 class WebLoaderStrategy;
 class WebPage;
 class WebPageGroupProxy;
+class WebProcessSupplement;
+
 struct GPUProcessConnectionInfo;
 struct GPUProcessConnectionParameters;
+struct RemoteWorkerInitializationData;
 struct UserMessage;
 struct WebProcessCreationParameters;
 struct WebProcessDataStoreParameters;
-class WebProcessSupplement;
-enum class WebsiteDataType : uint32_t;
 struct WebPageCreationParameters;
 struct WebPageGroupData;
 struct WebPreferencesStore;
 struct WebsiteData;
 struct WebsiteDataStoreParameters;
+
+enum class WebsiteDataType : uint32_t;
 
 #if PLATFORM(IOS_FAMILY)
 class LayerHostingContext;
@@ -399,6 +401,9 @@ public:
 
     bool isCaptivePortalModeEnabled() const { return m_isCaptivePortalModeEnabled; }
 
+    void setHadMainFrameMainResourcePrivateRelayed() { m_hadMainFrameMainResourcePrivateRelayed = true; }
+    bool hadMainFrameMainResourcePrivateRelayed() const { return m_hadMainFrameMainResourcePrivateRelayed; }
+
 private:
     WebProcess();
     ~WebProcess();
@@ -470,7 +475,7 @@ private:
 #endif
 
 #if ENABLE(SERVICE_WORKER)
-    void establishWorkerContextConnectionToNetworkProcess(PageGroupIdentifier, WebPageProxyIdentifier, WebCore::PageIdentifier, const WebPreferencesStore&, WebCore::RegistrableDomain&&, std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, ServiceWorkerInitializationData&&, CompletionHandler<void()>&&);
+    void establishServiceWorkerContextConnectionToNetworkProcess(PageGroupIdentifier, WebPageProxyIdentifier, WebCore::PageIdentifier, const WebPreferencesStore&, WebCore::RegistrableDomain&&, std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, RemoteWorkerInitializationData&&, CompletionHandler<void()>&&);
 #endif
 
     void fetchWebsiteData(OptionSet<WebsiteDataType>, CompletionHandler<void(WebsiteData&&)>&&);
@@ -772,6 +777,7 @@ private:
 #if ENABLE(MEDIA_STREAM)
     std::unique_ptr<SpeechRecognitionRealtimeMediaSourceManager> m_speechRecognitionRealtimeMediaSourceManager;
 #endif
+    bool m_hadMainFrameMainResourcePrivateRelayed { false };
 };
 
 } // namespace WebKit

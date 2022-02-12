@@ -313,7 +313,6 @@
 #endif
 
 #if PLATFORM(GTK)
-#include "GtkSettingsManagerProxy.h"
 #include "WebPrintOperationGtk.h"
 #include <WebCore/SelectionData.h>
 #include <gtk/gtk.h>
@@ -759,10 +758,6 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     setGapBetweenPages(parameters.gapBetweenPages);
     setPaginationLineGridEnabled(parameters.paginationLineGridEnabled);
 
-#if PLATFORM(GTK)
-    GtkSettingsManagerProxy::singleton().applySettings(WTFMove(parameters.gtkSettings));
-#endif
-
     effectiveAppearanceDidChange(parameters.useDarkAppearance, parameters.useElevatedUserInterfaceLevel);
 
     if (parameters.isEditable)
@@ -1003,10 +998,6 @@ void WebPage::reinitializeWebPage(WebPageCreationParameters&& parameters)
 
 #if HAVE(APP_ACCENT_COLORS)
     setAccentColor(parameters.accentColor);
-#endif
-
-#if PLATFORM(GTK)
-    GtkSettingsManagerProxy::singleton().applySettings(WTFMove(parameters.gtkSettings));
 #endif
 
     effectiveAppearanceDidChange(parameters.useDarkAppearance, parameters.useElevatedUserInterfaceLevel);
@@ -2819,6 +2810,16 @@ void WebPage::updateDrawingAreaLayerTreeFreezeState()
     m_drawingArea->setLayerTreeStateIsFrozen(!!m_layerTreeFreezeReasons);
 }
 
+void WebPage::tryMarkLayersVolatile(CompletionHandler<void(bool)>&& completionHandler)
+{
+    if (!drawingArea()) {
+        completionHandler(false);
+        return;
+    }
+    
+    drawingArea()->tryMarkLayersVolatile(WTFMove(completionHandler));
+}
+
 void WebPage::callVolatilityCompletionHandlers(bool succeeded)
 {
     auto completionHandlers = std::exchange(m_markLayersAsVolatileCompletionHandlers, { });
@@ -2828,25 +2829,8 @@ void WebPage::callVolatilityCompletionHandlers(bool succeeded)
 
 void WebPage::layerVolatilityTimerFired()
 {
-    Seconds newInterval = m_layerVolatilityTimer.repeatInterval() * 2.;
-    bool didSucceed = markLayersVolatileImmediatelyIfPossible();
-    if (didSucceed || newInterval > maximumLayerVolatilityTimerInterval) {
-        m_layerVolatilityTimer.stop();
-        if (didSucceed)
-            WEBPAGE_RELEASE_LOG(Layers, "layerVolatilityTimerFired: Succeeded in marking layers as volatile");
-        else
-            WEBPAGE_RELEASE_LOG(Layers, "layerVolatilityTimerFired: Failed to mark layers as volatile within %gms", maximumLayerVolatilityTimerInterval.milliseconds());
-        callVolatilityCompletionHandlers(didSucceed);
-        return;
-    }
-
-    WEBPAGE_RELEASE_LOG_ERROR(Layers, "layerVolatilityTimerFired: Failed to mark all layers as volatile, will retry in %g ms", newInterval.milliseconds());
-    m_layerVolatilityTimer.startRepeating(newInterval);
-}
-
-bool WebPage::markLayersVolatileImmediatelyIfPossible()
-{
-    return !drawingArea() || drawingArea()->markLayersVolatileImmediatelyIfPossible();
+    m_layerVolatilityTimerInterval *= 2;
+    markLayersVolatileOrRetry(m_layerVolatilityTimerInterval > maximumLayerVolatilityTimerInterval ? MarkLayersVolatileDontRetryReason::TimedOut : MarkLayersVolatileDontRetryReason::None);
 }
 
 void WebPage::markLayersVolatile(CompletionHandler<void(bool)>&& completionHandler)
@@ -2859,20 +2843,44 @@ void WebPage::markLayersVolatile(CompletionHandler<void(bool)>&& completionHandl
     if (completionHandler)
         m_markLayersAsVolatileCompletionHandlers.append(WTFMove(completionHandler));
 
-    bool didSucceed = markLayersVolatileImmediatelyIfPossible();
-    if (didSucceed || m_isSuspendedUnderLock) {
+    m_layerVolatilityTimerInterval = initialLayerVolatilityTimerInterval;
+    markLayersVolatileOrRetry(m_isSuspendedUnderLock ? MarkLayersVolatileDontRetryReason::SuspendedUnderLock : MarkLayersVolatileDontRetryReason::None);
+}
+
+void WebPage::markLayersVolatileOrRetry(MarkLayersVolatileDontRetryReason dontRetryReason)
+{
+    tryMarkLayersVolatile([dontRetryReason, strongThis = Ref { *this }](bool didSucceed) {
+        strongThis->tryMarkLayersVolatileCompletionHandler(dontRetryReason, didSucceed);
+    });
+}
+
+void WebPage::tryMarkLayersVolatileCompletionHandler(MarkLayersVolatileDontRetryReason dontRetryReason, bool didSucceed)
+{
+    if (m_isClosed)
+        return;
+
+    if (didSucceed || dontRetryReason != MarkLayersVolatileDontRetryReason::None) {
+        m_layerVolatilityTimer.stop();
         if (didSucceed)
-            WEBPAGE_RELEASE_LOG(Layers, "markLayersVolatile: Successfully marked layers as volatile");
+            WEBPAGE_RELEASE_LOG(Layers, "markLayersVolatile: Succeeded in marking layers as volatile");
         else {
-            // If we get suspended when locking the screen, it is expected that some IOSurfaces cannot be marked as purgeable so we do not keep retrying.
-            WEBPAGE_RELEASE_LOG(Layers, "markLayersVolatile: Did what we could to mark IOSurfaces as purgeable after locking the screen");
+            switch (dontRetryReason) {
+            case MarkLayersVolatileDontRetryReason::None:
+                break;
+            case MarkLayersVolatileDontRetryReason::SuspendedUnderLock:
+                WEBPAGE_RELEASE_LOG(Layers, "markLayersVolatile: Did what we could to mark IOSurfaces as purgeable after locking the screen");
+                break;
+            case MarkLayersVolatileDontRetryReason::TimedOut:
+                WEBPAGE_RELEASE_LOG(Layers, "markLayersVolatile: Failed to mark layers as volatile within %gms", maximumLayerVolatilityTimerInterval.milliseconds());
+                break;
+            }
         }
         callVolatilityCompletionHandlers(didSucceed);
         return;
     }
 
-    WEBPAGE_RELEASE_LOG(Layers, "markLayersVolatile: Failed to mark all layers as volatile, will retry in %g ms", initialLayerVolatilityTimerInterval.milliseconds());
-    m_layerVolatilityTimer.startRepeating(initialLayerVolatilityTimerInterval);
+    WEBPAGE_RELEASE_LOG(Layers, "markLayersVolatile: Failed to mark all layers as volatile, will retry in %g ms", m_layerVolatilityTimerInterval.milliseconds());
+    m_layerVolatilityTimer.startOneShot(m_layerVolatilityTimerInterval);
 }
 
 void WebPage::cancelMarkLayersVolatile()
@@ -4107,6 +4115,7 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
 #if ENABLE(MATHML)
         settings.setMathMLEnabled(false);
 #endif
+        settings.setPdfJSViewerEnabled(true);
     }
 
 #if ENABLE(ARKIT_INLINE_PREVIEW)
@@ -7233,7 +7242,7 @@ WebCore::DOMPasteAccessResponse WebPage::requestDOMPasteAccess(WebCore::DOMPaste
     // requests on iOS are currently synchronous in the web process. This allows us to immediately fulfill pending
     // autocorrection context requests in the UI process on iOS before handling the DOM paste request. This workaround
     // should be removed once <rdar://problem/16207002> is resolved.
-    send(Messages::WebPageProxy::HandleAutocorrectionContext(autocorrectionContext()));
+    preemptivelySendAutocorrectionContext();
 #endif
     sendSyncWithDelayedReply(Messages::WebPageProxy::RequestDOMPasteAccess(pasteAccessCategory, rectForElementAtInteractionLocation(), originIdentifier), Messages::WebPageProxy::RequestDOMPasteAccess::Reply(response));
     return response;

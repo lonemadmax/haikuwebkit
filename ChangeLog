@@ -1,3 +1,110 @@
+2022-02-07  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [CMake] REGRESSION(r288994): Linker does not get passed --disable-new-dtags
+        https://bugs.webkit.org/show_bug.cgi?id=236205
+
+        Reviewed by Darin Adler.
+
+        * Source/cmake/OptionsCommon.cmake: Arrange passing --disable-new-dtags to linkers that
+        are known to support the option. While at it, reorganize a bit how detected linker/archiver
+        features are printed out for better readability.
+
+2022-02-03  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Two bopomofo tone marks are not moved to the correct place in vertical text with a particular bopomofo font
+        https://bugs.webkit.org/show_bug.cgi?id=235257
+        <rdar://problem/87625596>
+
+        Reviewed by Darin Adler.
+
+        Thank you so much to Bobby Tung and But Ko for reporting this bug and providing a test font for it!!!
+
+        * metadata/contributors.json:
+
+2022-02-03  Elliott Williams  <emw@apple.com>
+
+        Add Elliott Williams to contributors.json
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2022-01-24  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] Configure default branch management 
+        https://bugs.webkit.org/show_bug.cgi?id=235378
+        <rdar://problem/87989533>
+
+        Reviewed by Dewei Zhu.
+
+        * metadata/project_config: Added.
+
+2022-02-03  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Unreviewed. Update OptionsGTK.cmake and NEWS for 2.35.2 release
+
+        * Source/cmake/OptionsGTK.cmake: Bump version numbers.
+
+2022-02-02  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Unreviewed. [GTK] Apply the same cmake changes of r289029 to GTK port
+
+        * Source/cmake/OptionsGTK.cmake:
+
+2022-02-02  Pablo Saavedra  <psaavedra@igalia.com>
+
+        [WPE] Fix for non-unified builds with ACCESSIBILITY=OFF
+        https://bugs.webkit.org/show_bug.cgi?id=236024
+
+        Reviewed by Darin Adler.
+
+        * Source/cmake/OptionsWPE.cmake:
+
+2022-02-02  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [CMake] Stop defaulting to ld.gold
+        https://bugs.webkit.org/show_bug.cgi?id=235476
+
+        Reviewed by Michael Catanzaro.
+
+        Remove the USE_LD_GOLD option, and let the build use by default the system linker.
+
+        The output from running the linker with -Wl,--version is matched to determine which linker
+        is currently in use, and set variables LD_SUPPORTS_<feature> accordingly. This is needed
+        because not all of them support certain features and after a few attempts at doing feature
+        checks it was becoming clear that on one hand the checks were getting gnarly, and on the
+        other hand vetting certain linkers provides a stronger guarantee of sucessful builds.
+
+        Similarly, extend the check used to determine whether the static library archiver supports
+        thin archivers to cover the one included with LLVM (llvm-ar), and enable usage of think
+        archivers if they can be both created by the archiver and consumed by the linker. Previously
+        the build system was enabling thin archives without knowing whether the linker would succeed
+        using them.
+
+        * Source/cmake/OptionsCommon.cmake:
+
+2022-02-01  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][WPE] Switch to use ATSPI instead of ATK
+        https://bugs.webkit.org/show_bug.cgi?id=235942
+
+        Reviewed by Adrian Perez de Castro.
+
+        Use ATSPI by default.
+
+        * Source/cmake/OptionsGTK.cmake:
+        * Source/cmake/OptionsWPE.cmake:
+
+2022-02-01  Tim Nguyen  <ntim@apple.com>
+
+        Entirely remove support for -apple-trailing-word
+        https://bugs.webkit.org/show_bug.cgi?id=234672
+
+        Reviewed by Simon Fraser.
+
+        * Source/cmake/OptionsMac.cmake:
+        * Source/cmake/WebKitFeatures.cmake:
+
 2022-01-28  Elliott Williams  <emw@apple.com>
 
         [XCBuild] Small corrections to build-webkit and Makefile for workspace builds

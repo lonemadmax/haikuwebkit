@@ -224,6 +224,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/indexeddb/server/IDBConnectionToClient.h
     Modules/indexeddb/server/IDBConnectionToClientDelegate.h
     Modules/indexeddb/server/IDBServer.h
+    Modules/indexeddb/server/MemoryIDBBackingStore.h
+    Modules/indexeddb/server/SQLiteIDBBackingStore.h
     Modules/indexeddb/server/ServerOpenDBRequest.h
     Modules/indexeddb/server/UniqueIDBDatabase.h
     Modules/indexeddb/server/UniqueIDBDatabaseConnection.h
@@ -292,6 +294,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/permissions/PermissionState.h
 
     Modules/push-api/PushCrypto.h
+    Modules/push-api/PushDatabase.h
     Modules/push-api/PushMessageCrypto.h
     Modules/push-api/PushPermissionState.h
     Modules/push-api/PushSubscriptionData.h
@@ -738,6 +741,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/messageports/MessagePortChannelProvider.h
     dom/messageports/MessagePortChannelRegistry.h
     dom/messageports/MessageWithMessagePorts.h
+    dom/messageports/TransferredMessagePort.h
 
     editing/CharacterRange.h
     editing/ClipboardAccessPolicy.h
@@ -901,6 +905,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/MediaDocument.h
     html/MediaElementSession.h
     html/MediaError.h
+    html/PDFDocument.h
     html/PluginDocument.h
     html/StepRange.h
     html/TimeRanges.h
@@ -1907,6 +1912,10 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/style/TextUnderlineOffset.h
     rendering/style/WillChangeData.h
 
+    rendering/svg/RenderSVGModelObject.h
+    rendering/svg/SVGBoundingBoxComputation.h
+    rendering/svg/SVGRenderSupport.h
+
     replay/UserInputBridge.h
 
     storage/Storage.h
@@ -1951,6 +1960,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     workers/ScriptBuffer.h
     workers/WorkerAnimationController.h
     workers/WorkerDebuggerProxy.h
+    workers/WorkerFetchResult.h
     workers/WorkerFontLoadRequest.h
     workers/WorkerGlobalScope.h
     workers/WorkerLoaderProxy.h
@@ -1972,7 +1982,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     workers/service/ServiceWorkerClientType.h
     workers/service/ServiceWorkerContextData.h
     workers/service/ServiceWorkerData.h
-    workers/service/ServiceWorkerFetchResult.h
     workers/service/ServiceWorkerIdentifier.h
     workers/service/ServiceWorkerJob.h
     workers/service/ServiceWorkerJobClient.h
@@ -1999,6 +2008,13 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     workers/service/server/SWServerRegistration.h
     workers/service/server/SWServerToContextConnection.h
     workers/service/server/SWServerWorker.h
+
+    workers/shared/SharedWorkerIdentifier.h
+    workers/shared/SharedWorkerManager.h
+    workers/shared/SharedWorkerObjectConnection.h
+    workers/shared/SharedWorkerProvider.h
+    workers/shared/context/SharedWorkerThread.h
+    workers/shared/context/SharedWorkerThreadProxy.h
 
     xml/CustomXPathNSResolver.h
     xml/XPathExpression.h

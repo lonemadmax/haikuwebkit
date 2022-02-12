@@ -122,6 +122,17 @@ AsyncOverflowScrollingEnabled:
     WebCore:
       default: false
 
+CSSDisplayContentsAXSupportEnabled:
+  type: bool
+  humanReadableName: "Accessibility support for display: contents elements"
+  humanReadableDescription: "Enable work-in-progress accessibility support for display: contents elements"
+  webcoreBinding: RuntimeEnabledFeatures
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+
 CSSLogicalEnabled:
   type: bool
   humanReadableName: "CSS Logical Properties and Values"
@@ -358,6 +369,20 @@ IPCTestingAPIEnabled:
   defaultValue:
     WebKit:
       default: false
+
+ImageAnalysisQueueEnabled:
+  type: bool
+  humanReadableName: "Image analysis queue"
+  humanReadableDescription: "Enable image analysis queue"
+  condition: ENABLE(IMAGE_ANALYSIS)
+  exposed: [ WebKit ]
+  defaultValue:
+    WebCore:
+      default: false
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: defaultImageAnalysisQueueEnabled()
 
 InputTypeColorEnabled:
   type: bool
@@ -651,6 +676,18 @@ OffscreenCanvasInWorkersEnabled:
       "ENABLE(EXPERIMENTAL_FEATURES) && (PLATFORM(GTK) || PLATFORM(WPE))": true
       default: false
 
+PdfJSViewerEnabled:
+  type: bool
+  humanReadableName: "Enable PDF.js viewer"
+  humanReadableDescription: "Enable PDF.js viewer"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 PreferFasterClickOverDoubleTap:
   type: bool
   humanReadableName: "Fast clicks beat DTTZ"
@@ -736,18 +773,6 @@ SecureContextChecksEnabled:
     WebKit:
       default: true
 
-SelectionAcrossShadowBoundariesEnabled:
-  type: bool
-  humanReadableName: "Selection across shadow DOM"
-  humanReadableDescription: "Allow user-initiated selection across shadow DOM boundaries"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-      
 SelectionFlippingEnabled:
   type: bool
   humanReadableName: "Selection Flipping"
@@ -827,7 +852,7 @@ TextRecognitionEnhancementsEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: defaultTextRecognitionEnhancementsEnabled()
 
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 UndoManagerAPIEnabled:

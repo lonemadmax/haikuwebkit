@@ -102,8 +102,9 @@ void Editor::pasteWithPasteboard(Pasteboard* pasteboard, OptionSet<PasteOption> 
 
     if (fragment && shouldInsertFragment(*fragment, range, EditorInsertAction::Pasted))
         pasteAsFragment(fragment.releaseNonNull(), canSmartReplaceWithPasteboard(*pasteboard), false, options.contains(PasteOption::IgnoreMailBlockquote) ? MailBlockquoteHandling::IgnoreBlockquote : MailBlockquoteHandling::RespectBlockquote );
-
-    client()->setInsertionPasteboard(String());
+    
+    if (auto* client = this->client())
+        client->setInsertionPasteboard(String());
 }
 
 void Editor::platformCopyFont()
@@ -337,10 +338,8 @@ void Editor::writeImageToPasteboard(Pasteboard& pasteboard, Element& imageElemen
     if (!pasteboard.isStatic())
         pasteboardImage.dataInWebArchiveFormat = imageInWebArchiveFormat(imageElement);
 
-    if (auto imageRange = makeRangeSelectingNode(imageElement)) {
-        auto serializeComposedTree = m_document.settings().selectionAcrossShadowBoundariesEnabled() ? SerializeComposedTree::Yes : SerializeComposedTree::No;
-        pasteboardImage.dataInHTMLFormat = serializePreservingVisualAppearance(VisibleSelection { *imageRange }, ResolveURLs::YesExcludingLocalFileURLsForPrivacy, serializeComposedTree);
-    }
+    if (auto imageRange = makeRangeSelectingNode(imageElement))
+        pasteboardImage.dataInHTMLFormat = serializePreservingVisualAppearance(VisibleSelection { *imageRange }, ResolveURLs::YesExcludingLocalFileURLsForPrivacy, SerializeComposedTree::Yes);
 
     pasteboardImage.url.url = url;
     pasteboardImage.url.title = title;

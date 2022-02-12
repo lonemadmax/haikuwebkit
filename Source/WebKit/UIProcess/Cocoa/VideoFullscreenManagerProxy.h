@@ -30,8 +30,10 @@
 #include "LayerHostingContext.h"
 #include "MessageReceiver.h"
 #include "PlaybackSessionContextIdentifier.h"
+#include "ShareableBitmap.h"
 #include <WebCore/AudioSession.h>
 #include <WebCore/GraphicsLayer.h>
+#include <WebCore/MediaPlayerIdentifier.h>
 #include <WebCore/PlatformView.h>
 #include <WebCore/VideoFullscreenChangeObserver.h>
 #include <WebCore/VideoFullscreenModel.h>
@@ -150,6 +152,8 @@ public:
 
     void forEachSession(Function<void(VideoFullscreenModelContext&, PlatformVideoFullscreenInterface&)>&&);
 
+    void requestBitmapImageForCurrentTime(PlaybackSessionContextIdentifier, CompletionHandler<void(const ShareableBitmap::Handle&)>&&);
+
 private:
     friend class VideoFullscreenModelContext;
 
@@ -180,6 +184,7 @@ private:
     void preparedToReturnToInline(PlaybackSessionContextIdentifier, bool visible, WebCore::FloatRect inlineRect);
     void preparedToExitFullscreen(PlaybackSessionContextIdentifier);
     void exitFullscreenWithoutAnimationToMode(PlaybackSessionContextIdentifier, WebCore::HTMLMediaElementEnums::VideoFullscreenMode);
+    void setPlayerIdentifier(PlaybackSessionContextIdentifier, std::optional<WebCore::MediaPlayerIdentifier>);
 
     // Messages to VideoFullscreenManager
     void requestFullscreenMode(PlaybackSessionContextIdentifier, WebCore::HTMLMediaElementEnums::VideoFullscreenMode, bool finishedWithMedia = false);
@@ -205,7 +210,6 @@ private:
     WebPageProxy* m_page;
     Ref<PlaybackSessionManagerProxy> m_playbackSessionManagerProxy;
     HashMap<PlaybackSessionContextIdentifier, ModelInterfaceTuple> m_contextMap;
-    PlaybackSessionContextIdentifier m_controlsManagerContextId;
     HashMap<PlaybackSessionContextIdentifier, int> m_clientCounts;
     Vector<CompletionHandler<void()>> m_closeCompletionHandlers;
     WeakHashSet<VideoInPictureInPictureDidChangeObserver> m_pipChangeObservers;

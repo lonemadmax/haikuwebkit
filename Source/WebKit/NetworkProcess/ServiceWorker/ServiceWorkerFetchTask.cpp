@@ -35,6 +35,7 @@
 #include "NetworkProcess.h"
 #include "NetworkResourceLoader.h"
 #include "NetworkSession.h"
+#include "PrivateRelayed.h"
 #include "ServiceWorkerNavigationPreloader.h"
 #include "SharedBufferCopy.h"
 #include "WebCoreArgumentCoders.h"
@@ -225,7 +226,7 @@ void ServiceWorkerFetchTask::processResponse(ResourceResponse&& response, bool n
 
     if (shouldSetSource == ShouldSetSource::Yes)
         response.setSource(ResourceResponse::Source::ServiceWorker);
-    m_loader.sendDidReceiveResponsePotentiallyInNewBrowsingContextGroup(response, needsContinueDidReceiveResponseMessage);
+    m_loader.sendDidReceiveResponsePotentiallyInNewBrowsingContextGroup(response, PrivateRelayed::No, needsContinueDidReceiveResponseMessage);
     if (needsContinueDidReceiveResponseMessage)
         m_loader.setResponse(WTFMove(response));
 }
@@ -352,7 +353,10 @@ void ServiceWorkerFetchTask::softUpdateIfNeeded()
     SWFETCH_RELEASE_LOG("softUpdateIfNeeded: (m_shouldSoftUpdate=%d)", m_shouldSoftUpdate);
     if (!m_shouldSoftUpdate)
         return;
-    if (auto* registration = m_loader.connectionToWebProcess().swConnection().server().getRegistration(m_serviceWorkerRegistrationIdentifier))
+    auto* swConnection = m_loader.connectionToWebProcess().swConnection();
+    if (!swConnection)
+        return;
+    if (auto* registration = swConnection->server().getRegistration(m_serviceWorkerRegistrationIdentifier))
         registration->scheduleSoftUpdate(m_loader.isAppInitiated() ? WebCore::IsAppInitiated::Yes : WebCore::IsAppInitiated::No);
 }
 
@@ -360,7 +364,9 @@ void ServiceWorkerFetchTask::loadResponseFromPreloader()
 {
     SWFETCH_RELEASE_LOG("loadResponseFromPreloader");
 
-    ASSERT(!m_isLoadingFromPreloader);
+    if (m_isLoadingFromPreloader)
+        return;
+
     m_isLoadingFromPreloader = true;
 
     m_preloader->waitForResponse([weakThis = WeakPtr { *this }, this] {
@@ -389,6 +395,12 @@ void ServiceWorkerFetchTask::loadBodyFromPreloader()
     SWFETCH_RELEASE_LOG("loadBodyFromPreloader");
 
     ASSERT(m_isLoadingFromPreloader);
+    if (!m_preloader) {
+        SWFETCH_RELEASE_LOG_ERROR("loadBodyFromPreloader preloader is null");
+        didFail(ResourceError(errorDomainWebKitInternal, 0, m_loader.originalRequest().url(), "Request canceled from preloader"_s, ResourceError::Type::Cancellation));
+        return;
+    }
+
     m_preloader->waitForBody([weakThis = WeakPtr { *this }, this](auto&& chunk, int length) {
         if (!weakThis)
             return;

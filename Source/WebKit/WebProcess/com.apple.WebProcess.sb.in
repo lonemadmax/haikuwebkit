@@ -1766,8 +1766,6 @@
             "com.apple.nehelper"
             "com.apple.nesessionmanager.content-filter"
             "com.apple.webinspector"
-            "com.apple.cfprefsd.agent"
-            "com.apple.cfprefsd.daemon"
             "com.apple.coreservices.launchservicesd"
             "com.apple.iconservices"
             "com.apple.iconservices.store"
@@ -1817,27 +1815,19 @@
 
 (when (defined? 'system-fcntl)
     (deny system-fcntl (with telemetry))
-     (allow system-fcntl
-        (fcntl-command
-            F_GETPATH)) ;; used by dyld4 and CGFontURLCreate, getcwd (at least)
     (allow system-fcntl
        (fcntl-command
+            F_ADDFILESIGS_RETURN ;; ImageLoaderMachO::loadCodeSignature
             F_BARRIERFSYNC
+            F_CHECK_LV ;; ImageLoaderMachO::loadCodeSignature
             F_GETCONFINED
             F_GETFL ;; LibJPEGReadPlugin::copyImageBlockSetStandard
+            F_GETPATH ;; used by dyld4 and CGFontURLCreate, getcwd (at least)
             F_GETSIGSINFO
-            F_NOCACHE
-            F_RDADVISE
-            F_SETCONFINED
-            F_ADDFILESIGS_RETURN ;; ImageLoaderMachO::loadCodeSignature
-            F_CHECK_LV ;; ImageLoaderMachO::loadCodeSignature
-            F_SPECULATIVE_READ ;; ImageLoaderMachO::mapSegments
-            F_SETFD ;; libwebrtc.dylib (no backtrace)
-            F_GETFD ;; libwebrtc.dylib (no backtrace)
-            F_RDADVISE ;; CoreNLP::ReadOnlyFile <- +[DDScannerService scanString:range:configuration:] <- WebCore::DictionaryLookup::rangeAtHitTestResult(WebCore::HitTestResult const&)
             F_NOCACHE ;; Security::UnixPlusPlus::FileDesc::fcnt <- MTRegisterPluginFormatReaderBundleDirectory <- invocation function for block in WebCore::registerFormatReaderIfNecessary()
-            F_SETFL ;; CMCapture uses when camera is enabled
-            F_SETNOSIGPIPE)) ;; CMCapture uses when camera is enabled
+            F_RDADVISE ;; CoreNLP::ReadOnlyFile <- +[DDScannerService scanString:range:configuration:] <- WebCore::DictionaryLookup::rangeAtHitTestResult(WebCore::HitTestResult const&)
+            F_SETCONFINED
+            F_SETFD)) ;; libwebrtc.dylib (no backtrace)
 
     (define (appcache-fcntl-commands)
         (fcntl-command
@@ -1855,7 +1845,12 @@
     (with-filter (require-not (state-flag "AppCacheDisabled"))
         (allow system-fcntl (appcache-fcntl-commands)))
     (with-filter (state-flag "AppCacheDisabled")
-        (allow system-fcntl (with report) (with telemetry) (appcache-fcntl-commands)))
+        (deny system-fcntl
+            (with telemetry)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000
+            (with telemetry-backtrace)
+#endif
+            (appcache-fcntl-commands)))
 #else
     (allow system-fcntl (appcache-fcntl-commands))
 #endif
@@ -1946,6 +1941,7 @@
         SYS_kdebug_trace_string ;; Needed for performance sampling, see <rdar://problem/48829655>.
         SYS_kevent_id
         SYS_kevent_qos
+        SYS_kqueue ;; See <rdar://problem/88241768>. Remove after <rdar://56634240> is resolved.
         SYS_kqueue_workloop_ctl ;; <rdar://problem/50999499>
         SYS_listxattr
         SYS_lseek
@@ -2024,7 +2020,9 @@
         SYS_necp_open
         SYS_openat_nocancel
         SYS_proc_rlimit_control
+#if !PLATFORM(MAC) || __MAC_OS_X_VERSION_MIN_REQUIRED < 120000
         SYS_rmdir
+#endif
         SYS_shm_open
         SYS_sigaction
         SYS_sysctl

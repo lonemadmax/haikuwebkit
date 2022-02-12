@@ -2199,16 +2199,6 @@ StorageBlockingPolicy:
     WebKit:
       default: WebCore::StorageBlockingPolicy::BlockThirdParty
 
-SubresourceIntegrityEnabled:
-  type: bool
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
 SuppressesIncrementalRendering:
   type: bool
   defaultValue:

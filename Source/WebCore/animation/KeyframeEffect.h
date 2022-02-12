@@ -126,6 +126,7 @@ public:
 
     void animationTimingDidChange();
     void transformRelatedPropertyDidChange();
+    void propertyAffectingLogicalPropertiesDidChange();
     OptionSet<AcceleratedActionApplicationResult> applyPendingAcceleratedActions();
 
     void willChangeRenderer();
@@ -211,7 +212,6 @@ private:
     // AnimationEffect
     bool isKeyframeEffect() const final { return true; }
     void animationDidTick() final;
-    void animationDidPlay() final;
     void animationDidChangeTimingProperties() final;
     void animationWasCanceled() final;
     void animationSuspensionStateDidChange(bool) final;

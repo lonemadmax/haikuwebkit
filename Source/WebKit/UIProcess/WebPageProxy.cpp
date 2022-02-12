@@ -516,6 +516,9 @@ WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, Ref
     , m_limitsNavigationsToAppBoundDomains(m_configuration->limitsNavigationsToAppBoundDomains())
 #endif
     , m_notificationManagerMessageHandler(*this)
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+    , m_fullscreenVideoExtractionTimer(RunLoop::main(), this, &WebPageProxy::fullscreenVideoExtractionTimerFired)
+#endif
 {
     WEBPAGEPROXY_RELEASE_LOG(Loading, "constructor:");
 
@@ -5975,6 +5978,28 @@ void WebPageProxy::didExitFullscreen()
     m_uiClient->didExitFullscreen(this);
 }
 
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+
+void WebPageProxy::didEnterFullscreen(PlaybackSessionContextIdentifier identifier)
+{
+    didEnterFullscreen();
+
+    m_currentFullscreenVideoSessionIdentifier = identifier;
+    updateFullscreenVideoExtraction();
+}
+
+void WebPageProxy::didExitFullscreen(PlaybackSessionContextIdentifier identifier)
+{
+    didExitFullscreen();
+
+    if (m_currentFullscreenVideoSessionIdentifier == identifier) {
+        m_currentFullscreenVideoSessionIdentifier = std::nullopt;
+        updateFullscreenVideoExtraction();
+    }
+}
+
+#endif // ENABLE(VIDEO_PRESENTATION_MODE)
+
 void WebPageProxy::closePage()
 {
     if (isClosed())
@@ -8101,6 +8126,11 @@ void WebPageProxy::resetStateAfterProcessExited(ProcessTerminationReason termina
 
     updatePlayingMediaDidChange(MediaProducer::IsNotPlaying);
 
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+    m_fullscreenVideoExtractionTimer.stop();
+    m_currentFullscreenVideoSessionIdentifier = std::nullopt;
+#endif
+
     // FIXME: <rdar://problem/38676604> In case of process swaps, the old process should gracefully suspend instead of terminating.
     m_process->processTerminated();
 }
@@ -8423,10 +8453,6 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
     parameters.lastNavigationWasAppInitiated = m_lastNavigationWasAppInitiated;
     parameters.shouldRelaxThirdPartyCookieBlocking = m_configuration->shouldRelaxThirdPartyCookieBlocking();
     parameters.canUseCredentialStorage = m_canUseCredentialStorage;
-
-#if PLATFORM(GTK)
-    parameters.gtkSettings = GtkSettingsManager::singleton().settingsState();
-#endif
 
 #if ENABLE(ATTACHMENT_ELEMENT) && PLATFORM(COCOA)
     if (m_preferences->attachmentElementEnabled() && !process.hasIssuedAttachmentElementRelatedSandboxExtensions()) {
@@ -9636,13 +9662,25 @@ void WebPageProxy::updateReportedMediaCaptureState()
 
     WEBPAGEPROXY_RELEASE_LOG(WebRTC, "updateReportedMediaCaptureState: from %d to %d", m_reportedMediaCaptureState.toRaw(), activeCaptureState.toRaw());
 
-    bool microphoneCaptureChanged = (m_reportedMediaCaptureState & MediaProducer::AudioCaptureMask) != (activeCaptureState & MediaProducer::AudioCaptureMask);
+    bool microphoneCaptureChanged = (m_reportedMediaCaptureState & MediaProducer::MicrophoneCaptureMask) != (activeCaptureState & MediaProducer::MicrophoneCaptureMask);
     bool cameraCaptureChanged = (m_reportedMediaCaptureState & MediaProducer::VideoCaptureMask) != (activeCaptureState & MediaProducer::VideoCaptureMask);
+    bool displayCaptureChanged = (m_reportedMediaCaptureState & MediaProducer::DisplayCaptureMask) != (activeCaptureState & MediaProducer::DisplayCaptureMask);
+    bool systemAudioCaptureChanged = (m_reportedMediaCaptureState & MediaProducer::SystemAudioCaptureMask) != (activeCaptureState & MediaProducer::SystemAudioCaptureMask);
+
+    auto reportedDisplayCaptureSurfaces = m_reportedMediaCaptureState & (MediaProducer::ScreenCaptureMask | MediaProducer::WindowCaptureMask);
+    auto activeDisplayCaptureSurfaces = activeCaptureState & (MediaProducer::ScreenCaptureMask | MediaProducer::WindowCaptureMask);
+    auto displayCaptureSurfacesChanged = reportedDisplayCaptureSurfaces != activeDisplayCaptureSurfaces;
 
     if (microphoneCaptureChanged)
         pageClient().microphoneCaptureWillChange();
     if (cameraCaptureChanged)
         pageClient().cameraCaptureWillChange();
+    if (displayCaptureChanged)
+        pageClient().displayCaptureWillChange();
+    if (displayCaptureSurfacesChanged)
+        pageClient().displayCaptureSurfacesWillChange();
+    if (systemAudioCaptureChanged)
+        pageClient().systemAudioCaptureWillChange();
 
     m_reportedMediaCaptureState = activeCaptureState;
     m_uiClient->mediaCaptureStateDidChange(m_mediaState);
@@ -9651,6 +9689,12 @@ void WebPageProxy::updateReportedMediaCaptureState()
         pageClient().microphoneCaptureChanged();
     if (cameraCaptureChanged)
         pageClient().cameraCaptureChanged();
+    if (displayCaptureChanged)
+        pageClient().displayCaptureChanged();
+    if (displayCaptureSurfacesChanged)
+        pageClient().displayCaptureSurfacesChanged();
+    if (systemAudioCaptureChanged)
+        pageClient().systemAudioCaptureChanged();
 }
 
 void WebPageProxy::videoControlsManagerDidChange()

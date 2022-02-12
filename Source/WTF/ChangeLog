@@ -1,3 +1,343 @@
+2022-02-06  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [WTF] Make Bitmap constexpr friendly
+        https://bugs.webkit.org/show_bug.cgi?id=236180
+
+        Reviewed by Darin Adler.
+
+        Attach constexpr to constructor and methods if it is possible.
+
+        * wtf/Bitmap.h:
+        (WTF::WordType>::set):
+        (WTF::WordType>::testAndSet):
+        (WTF::WordType>::testAndClear):
+        (WTF::WordType>::clear):
+        (WTF::WordType>::invert):
+        (WTF::WordType>::nextPossiblyUnset const):
+        (WTF::WordType>::isEmpty const):
+        (WTF::WordType>::isFull const):
+        (WTF::WordType>::merge):
+        (WTF::WordType>::filter):
+        (WTF::WordType>::exclude):
+        (WTF::WordType>::subsumes const):
+        (WTF::WordType>::mergeAndClear):
+        (WTF::WordType>::setAndClear):
+        (WTF::= const):
+        (WTF::=):
+        (WTF::WordType>::Bitmap): Deleted.
+
+2022-02-06  Tyler Wilcock  <tyler_w@apple.com>
+
+        AX: Add internal-only flag to enable WIP display: contents support
+        https://bugs.webkit.org/show_bug.cgi?id=236179
+
+        Reviewed by Chris Fleizach.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-02-05  David Kilzer  <ddkilzer@apple.com>
+
+        [WTF] Fix clang tidy bugprone-move-forwarding-reference static analyzer warnings in CompletionHandler.h
+        <https://webkit.org/b/236181>
+        <rdar://problem/88529996>
+
+        Reviewed by Chris Dumez.
+
+        * wtf/CompletionHandler.h:
+        (WTF::CompletionHandler<Out):
+        (WTF::CompletionHandlerWithFinalizer<Out):
+        - Replace WTFMove() with std::forward<>().
+
+2022-02-05  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Thread suspend and resume should take a global lock to avoid deadlock
+        https://bugs.webkit.org/show_bug.cgi?id=236159
+
+        Reviewed by Geoffrey Garen.
+
+        This patch introduces a global lock which should be taken while suspending and resuming a thread.
+        It is possible that two different threads suspend and resume threads. And if threads suspend
+        each other without critical section, it can cause a dead lock.
+
+        To avoid this problem, we introduce a global lock which should be taken when suspending and resuming
+        threads. Since libpas is also using thread suspension, we expose a global pas_thread_suspend_lock
+        when libpas is used, and we use this lock in WTF's Thread suspension code.
+
+        * wtf/ThreadMessage.cpp:
+        (WTF::sendMessageScoped):
+        * wtf/ThreadMessage.h:
+        (WTF::sendMessage):
+        * wtf/Threading.cpp:
+        (WTF::ThreadSuspendLocker::ThreadSuspendLocker):
+        (WTF::ThreadSuspendLocker::~ThreadSuspendLocker):
+        * wtf/Threading.h:
+        * wtf/posix/ThreadingPOSIX.cpp:
+        (WTF::Thread::suspend):
+        (WTF::Thread::resume):
+        (WTF::Thread::getRegisters):
+        * wtf/win/ThreadingWin.cpp:
+        (WTF::Thread::suspend):
+        (WTF::Thread::resume):
+        (WTF::Thread::getRegisters):
+
+2022-02-04  Sam Weinig  <weinig@apple.com>
+
+        Make isNaNConstExpr actually constexpr
+        https://bugs.webkit.org/show_bug.cgi?id=236162
+
+        Reviewed by Darin Adler.
+
+        * wtf/MathExtras.h:
+        (WTF::isNaNConstExpr): Add missing constexpr.
+
+2022-02-04  Sam Weinig  <weinig@apple.com>
+
+        Gradients don't correctly interpolate missing/none color components correctly
+        https://bugs.webkit.org/show_bug.cgi?id=236025
+
+        Reviewed by Simon Fraser.
+
+        Move isNaNConstExpr to MathExtras.h from WebCore so it can used in multiple places.
+
+        * wtf/MathExtras.h:
+        (WTF::isNaNConstExpr):
+
+2022-02-03  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Delete SelectionAcrossShadowBoundariesEnabled
+        https://bugs.webkit.org/show_bug.cgi?id=235993
+
+        Reviewed by Darin Adler.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-02-03  Robert Jenner  <Jenner@apple.com>
+
+        Unreviewed, reverting r288902.
+
+        Broke compile-webkit for iOS-15-Simulator
+
+        Reverted changeset:
+
+        "Import APSConnection-related SPI"
+        https://bugs.webkit.org/show_bug.cgi?id=235856
+        https://commits.webkit.org/r288902
+
+2022-02-02  Xan Lopez  <xan@igalia.com>
+
+        [JSC] Remove compiler warning in TrailingArray.h
+        https://bugs.webkit.org/show_bug.cgi?id=236014
+
+        Reviewed by Yusuke Suzuki.
+
+        * wtf/TrailingArray.h:
+        (WTF::TrailingArray::TrailingArray): cast the std::distance result
+        to size_t, we want to compare the absolute value of the distance
+        with the 'unsigned int' size.
+
+2022-02-02  Rob Buis  <rbuis@igalia.com>
+
+        Enable overflow:clip feature
+        https://bugs.webkit.org/show_bug.cgi?id=236008
+
+        Reviewed by Simon Fraser.
+
+        Enable overflow:clip feature.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-02-02  Mark Lam  <mark.lam@apple.com>
+
+        Update computation of FAST_TLS base.
+        https://bugs.webkit.org/show_bug.cgi?id=235934
+
+        Reviewed by Yusuke Suzuki.
+
+        * wtf/PlatformHave.h:
+
+2022-02-02  Youenn Fablet  <youenn@apple.com>
+
+        Clarify that some UUID routines are dedicated to UUID v4
+        https://bugs.webkit.org/show_bug.cgi?id=235430
+
+        Reviewed by Darin Adler.
+
+        Rename UUID::create to UUID::createVersion4.
+        Add a UUID::parseVersion4 that validates the parsed UUID is a v4.
+        Rename createCanonicalUUIDString to createVersion4UUIDString for consistency.
+
+        Update UUID constructor to generate a UUID v4 as per spec.
+        Update UUID::toString to generate a string representation of any UUID, and not specifically to v4.
+
+        * wtf/Identified.h:
+        (WTF::UUIDIdentified::UUIDIdentified):
+        * wtf/URL.cpp:
+        (WTF::URL::fakeURLWithRelativePart):
+        * wtf/UUID.cpp:
+        (WTF::UUID::UUID):
+        (WTF::UUID::toString const):
+        (WTF::UUID::parse):
+        (WTF::UUID::parseVersion4):
+        (WTF::createVersion4UUIDString):
+        (WTF::isVersion4UUID):
+        (WTF::createCanonicalUUIDString): Deleted.
+        * wtf/UUID.h:
+        (WTF::UUID::createVersion4):
+        (WTF::UUID::create): Deleted.
+        * wtf/glib/FileSystemGlib.cpp:
+        (WTF::FileSystemImpl::openTemporaryFile):
+
+2022-02-01  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        The default values for a couple of Live Text-related features should respect system feature flags
+        https://bugs.webkit.org/show_bug.cgi?id=235980
+        rdar://88349726
+
+        Reviewed by Tim Horton.
+
+        Add a new feature flag, and add default values for both features. See WebKit/ChangeLog for more details.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-02-01  Tim Nguyen  <ntim@apple.com>
+
+        Add setting to toggle PDF.js viewer
+        https://bugs.webkit.org/show_bug.cgi?id=235972
+
+        Reviewed by Tim Horton.
+
+        This setting is enabled only in CaptivePortalMode.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-02-01  Pablo Saavedra  <psaavedra@igalia.com>
+
+        [GTK][WPE] Fixes for non-unified builds after r288807 and r288820
+        https://bugs.webkit.org/show_bug.cgi?id=235956
+
+        Reviewed by Mark Lam.
+
+        * wtf/GenericHashKey.h:
+
+2022-02-01  Ben Nham  <nham@apple.com>
+
+        Import APSConnection-related SPI
+        https://bugs.webkit.org/show_bug.cgi?id=235856
+
+        Reviewed Youenn Fablet.
+
+        Add a HAVE macro to guard some of the newer SPI in APSConnection.
+
+        * wtf/PlatformHave.h:
+
+2022-02-01  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r288746.
+        https://bugs.webkit.org/show_bug.cgi?id=235967
+
+        Caused a 5% Speedometer-2 - jQuery-TodoMVC regression.
+
+        Reverted changeset:
+
+        "Enable inert attribute feature flag"
+        https://bugs.webkit.org/show_bug.cgi?id=235668
+        https://commits.webkit.org/r288746
+
+2022-02-01  Mark Lam  <mark.lam@apple.com>
+
+        Enhance sanitizeStackForVM() to assist with crash analysis.
+        https://bugs.webkit.org/show_bug.cgi?id=235752
+        rdar://81014601
+
+        Reviewed by Michael Saboff.
+
+        * wtf/Threading.h:
+        (WTF::Thread::savedStackPointerAtVMEntry const):
+        (WTF::Thread::savedLastStackTop const):
+        (WTF::Thread::savedStackPointerAtVMEntry): Deleted.
+        (WTF::Thread::savedLastStackTop): Deleted.
+
+2022-01-31  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Revert OSAllocator behavior to pre-Structure-Allocator change one
+        https://bugs.webkit.org/show_bug.cgi?id=235940
+
+        Reviewed by Mark Lam.
+
+        Before r288815, OSAllocator::reserveAndCommit can fail only for executable memory.
+
+            if (result == MAP_FAILED) {
+                if (executable)
+                    result = 0;
+                else
+                    CRASH();
+            }
+
+        However, after r288815, this behavior was changed.
+
+        Before r288815,
+
+            1. ExecutableAllocator uses PageReservation::reserveWithGuardPages / PageReservation::reserve / PageReservation::reserveAndCommitWithGuardPages
+               to reserve memory.
+            2. In ARM64 macOS, we use PageReservation::reserveWithGuardPages.
+            3. PageReservation::reserveWithGuardPages uses OSAllocator::reserveUncommitted.
+            4. OSAllocator::reserveUncommitted used OSAllocator::reserveAndCommit internally before r288815.
+            5. OSAllocator::reserveAndCommit can fail for executable memory.
+
+        But after r288815,
+
+            1. PageReservation::reserveWithGuardPages uses OSAllocator::reserveUncommitted
+            2. OSAllocator::reserveUncommitted now uses OSAllocator::tryReserveUncommitted and crash if it fails.
+
+        Thus, r288815 changed the behavior of OSAllocator::reserveUncommitted for executable memory. This is causing a crash when we failed to
+        allocate JIT memory. And probably, it is happening in SIP-enabled root-installing environment.
+
+        In this patch,
+
+        1. Accepting failure only for executable memory is ugly hack. We should add PageReservation::tryReserveWithGuardPages.
+        2. In PageReservation::tryReserveWithGuardPages we should use OSAllocator::tryReserveUncommitted.
+
+        So, this patch reverts the behavior back to pre-r288815 state.
+        We also fix a bug in tryReserveUncommitted where it handles MAP_FAILED incorrectly. We should not return MAP_FAILED from OSAllocator, instead,
+        we should return nullptr.
+
+        * wtf/OSAllocator.h:
+        * wtf/PageReservation.h:
+        (WTF::PageReservation::tryReserve):
+        (WTF::PageReservation::tryReserveWithGuardPages):
+        (WTF::PageReservation::tryReserveAndCommitWithGuardPages):
+        * wtf/posix/OSAllocatorPOSIX.cpp:
+        (WTF::OSAllocator::tryReserveAndCommit):
+        (WTF::OSAllocator::tryReserveUncommitted):
+        (WTF::OSAllocator::reserveAndCommit):
+        (WTF::tryReserveAndCommit): Deleted.
+        (WTF::tryReserveUncommitted): Deleted.
+        * wtf/win/OSAllocatorWin.cpp:
+        (WTF::OSAllocator::tryReserveUncommitted):
+        (WTF::OSAllocator::reserveUncommitted):
+        (WTF::OSAllocator::tryReserveAndCommit):
+        (WTF::OSAllocator::reserveAndCommit):
+
+2022-02-01  Tim Nguyen  <ntim@apple.com>
+
+        Entirely remove support for -apple-trailing-word
+        https://bugs.webkit.org/show_bug.cgi?id=234672
+
+        Reviewed by Simon Fraser.
+
+        * wtf/PlatformEnableCocoa.h:
+
+2022-01-31  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Delete runtime flag for subresource integrity
+        https://bugs.webkit.org/show_bug.cgi?id=235876
+
+        Reviewed by Darin Adler.
+
+        Deleted the runtime flag.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
 2022-01-31  Aditya Keerthi  <akeerthi@apple.com>
 
         [iOS] SharePlay is shown prominently for system-provided Share Sheets

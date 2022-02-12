@@ -56,6 +56,16 @@ class PullRequest(Command):
             help='Do not prompt the user for defaults, always use (or do not use) them',
         )
         parser.add_argument(
+            '--overwrite', '--amend', action='store_const', const='overwrite',
+            dest='technique', default=None,
+            help='When creating a pull request, overwrite the existing commit by default',
+        )
+        parser.add_argument(
+            '--append', action='store_const', const='append',
+            dest='technique', default=None,
+            help='When creating a pull request, append a new commit on the existing branch by default',
+        )
+        parser.add_argument(
             '--with-history', '--no-history',
             dest='history', default=None,
             help='Create numbered branches to track the history of a change',
@@ -83,11 +93,12 @@ class PullRequest(Command):
             return 0
 
         # Otherwise, we need to create a commit
+        will_amend = has_commit and args.technique == 'overwrite'
         if not modified:
             sys.stderr.write('No modified files\n')
             return 1
-        log.info('Amending commit...' if has_commit else 'Creating commit...')
-        if run([repository.executable(), 'commit', '--date=now'] + (['--amend'] if has_commit else []), cwd=repository.root_path).returncode:
+        log.info('Amending commit...' if will_amend else 'Creating commit...')
+        if run([repository.executable(), 'commit', '--date=now'] + (['--amend'] if will_amend else []), cwd=repository.root_path).returncode:
             sys.stderr.write('Failed to generate commit\n')
             return 1
 
@@ -107,8 +118,20 @@ class PullRequest(Command):
             sys.stderr.write("Can only '{}' on a native Git repository\n".format(cls.name))
             return 1
 
+        if not args.technique:
+            args.technique = repository.config()['webkitscmpy.pull-request']
+        if args.history is None:
+            args.history = dict(
+                always=True,
+                disabled=False,
+                never=False,
+            ).get(repository.config()['webkitscmpy.history'])
+        if args.history and repository.config()['webkitscmpy.history'] == 'never':
+            sys.stderr.write('History retention was requested, but repository configuration forbids it\n')
+            return 1
+
         if not repository.DEV_BRANCHES.match(repository.branch):
-            if Branch.main(args, repository, **kwargs):
+            if Branch.main(args, repository, why="'{}' is not a pull request branch".format(repository.branch), **kwargs):
                 sys.stderr.write("Abandoning pushing pull-request because '{}' could not be created\n".format(args.issue))
                 return 1
         elif args.issue and repository.branch != args.issue:
@@ -140,7 +163,7 @@ class PullRequest(Command):
             sys.stderr.write("your checkout may not have permission to push to '{}'\n".format(repository.url(name=target)))
             return 1
 
-        if args.history or (target != 'origin' and args.history is None):
+        if args.history or (target != 'origin' and args.history is None and args.technique == 'overwrite'):
             regex = re.compile(r'^{}-(?P<count>\d+)$'.format(repository.branch))
             count = max([
                 int(regex.match(branch).group('count')) if regex.match(branch) else 0 for branch in

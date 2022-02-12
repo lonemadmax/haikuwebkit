@@ -35,6 +35,7 @@
 #include "HTMLTextAreaElement.h"
 #include "HitTestLocation.h"
 #include "InlineIteratorBox.h"
+#include "InlineIteratorInlineBox.h"
 #include "InlineIteratorLine.h"
 #include "InlineIteratorLogicalOrderTraversal.h"
 #include "InlineIteratorTextBox.h"
@@ -2401,7 +2402,7 @@ void RenderBlockFlow::computeLogicalLocationForFloat(FloatingObject& floatingObj
 void RenderBlockFlow::adjustInitialLetterPosition(RenderBox& childBox, LayoutUnit& logicalTopOffset, LayoutUnit& marginBeforeOffset)
 {
     const RenderStyle& style = firstLineStyle();
-    const FontMetrics& fontMetrics = style.fontMetrics();
+    const FontMetrics& fontMetrics = style.metricsOfPrimaryFont();
     if (!fontMetrics.hasCapHeight())
         return;
 
@@ -2963,8 +2964,8 @@ std::optional<LayoutUnit> RenderBlockFlow::firstLineBaseline() const
 
     ASSERT(firstRootBox());
     if (style().isFlippedLinesWritingMode())
-        return LayoutUnit { firstRootBox()->logicalTop() + firstLineStyle().fontMetrics().descent(firstRootBox()->baselineType()) };
-    return LayoutUnit { firstRootBox()->logicalTop() + firstLineStyle().fontMetrics().ascent(firstRootBox()->baselineType()) };
+        return LayoutUnit { firstRootBox()->logicalTop() + firstLineStyle().metricsOfPrimaryFont().descent(firstRootBox()->baselineType()) };
+    return LayoutUnit { firstRootBox()->logicalTop() + firstLineStyle().metricsOfPrimaryFont().ascent(firstRootBox()->baselineType()) };
 }
 
 std::optional<LayoutUnit> RenderBlockFlow::inlineBlockBaseline(LineDirectionMode lineDirection) const
@@ -2994,7 +2995,7 @@ std::optional<LayoutUnit> RenderBlockFlow::inlineBlockBaseline(LineDirectionMode
         if (!hasLines()) {
             if (!hasLineIfEmpty())
                 return std::nullopt;
-            const auto& fontMetrics = firstLineStyle().fontMetrics();
+            const auto& fontMetrics = firstLineStyle().metricsOfPrimaryFont();
             return LayoutUnit { LayoutUnit(fontMetrics.ascent()
                 + (lineHeight(true, lineDirection, PositionOfInteriorLineBoxes) - fontMetrics.height()) / 2
                 + (lineDirection == HorizontalLine ? borderTop() + paddingTop() : borderRight() + paddingRight())).toInt() };
@@ -3004,7 +3005,7 @@ std::optional<LayoutUnit> RenderBlockFlow::inlineBlockBaseline(LineDirectionMode
             bool isFirstLine = lastRootBox() == firstRootBox();
             const auto& style = isFirstLine ? firstLineStyle() : this->style();
             // LegacyInlineFlowBox::placeBoxesInBlockDirection will flip lines in case of verticalLR mode, so we can assume verticalRL for now.
-            lastBaseline = style.fontMetrics().ascent(lastRootBox()->baselineType())
+            lastBaseline = style.metricsOfPrimaryFont().ascent(lastRootBox()->baselineType())
                 + (style.isFlippedLinesWritingMode() ? logicalHeight() - lastRootBox()->logicalBottom() : lastRootBox()->logicalTop());
         }
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)

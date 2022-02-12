@@ -113,6 +113,70 @@ RenderElement* Styleable::renderer() const
     return nullptr;
 }
 
+std::unique_ptr<RenderStyle> Styleable::computeAnimatedStyle() const
+{
+    std::unique_ptr<RenderStyle> animatedStyle;
+
+    auto* effectStack = keyframeEffectStack();
+    if (!effectStack)
+        return animatedStyle;
+
+    for (const auto& effect : effectStack->sortedEffects())
+        effect->getAnimatedStyle(animatedStyle);
+
+    return animatedStyle;
+}
+
+bool Styleable::computeAnimationExtent(LayoutRect& bounds) const
+{
+    auto* animations = this->animations();
+    if (!animations)
+        return false;
+
+    KeyframeEffect* matchingEffect = nullptr;
+    for (const auto& animation : *animations) {
+        auto* effect = animation->effect();
+        if (is<KeyframeEffect>(effect)) {
+            auto* keyframeEffect = downcast<KeyframeEffect>(effect);
+            if (keyframeEffect->animatedProperties().contains(CSSPropertyTransform))
+                matchingEffect = downcast<KeyframeEffect>(effect);
+        }
+    }
+
+    if (matchingEffect)
+        return matchingEffect->computeExtentOfTransformAnimation(bounds);
+
+    return true;
+}
+
+bool Styleable::isRunningAcceleratedTransformAnimation() const
+{
+    auto* effectStack = keyframeEffectStack();
+    if (!effectStack)
+        return false;
+
+    for (const auto& effect : effectStack->sortedEffects()) {
+        if (effect->isCurrentlyAffectingProperty(CSSPropertyTransform, KeyframeEffect::Accelerated::Yes))
+            return true;
+    }
+
+    return false;
+}
+
+bool Styleable::runningAnimationsAreAllAccelerated() const
+{
+    auto* effectStack = keyframeEffectStack();
+    if (!effectStack || !effectStack->hasEffects())
+        return false;
+
+    for (const auto& effect : effectStack->sortedEffects()) {
+        if (!effect->isRunningAccelerated())
+            return false;
+    }
+
+    return true;
+}
+
 void Styleable::animationWasAdded(WebAnimation& animation) const
 {
     ensureAnimations().add(&animation);
@@ -334,7 +398,7 @@ static double transitionCombinedDuration(const Animation* transition)
     return std::max(0.0, transition->duration()) + transition->delay();
 }
 
-static bool transitionMatchesProperty(const Animation& transition, CSSPropertyID property)
+static bool transitionMatchesProperty(const Animation& transition, CSSPropertyID property, const RenderStyle& style)
 {
     if (transition.isPropertyFilled())
         return false;
@@ -343,7 +407,7 @@ static bool transitionMatchesProperty(const Animation& transition, CSSPropertyID
     if (mode == Animation::TransitionMode::None || mode == Animation::TransitionMode::UnknownProperty)
         return false;
     if (mode == Animation::TransitionMode::SingleProperty) {
-        auto transitionProperty = transition.property().id;
+        auto transitionProperty = CSSProperty::resolveDirectionAwareProperty(transition.property().id, style.direction(), style.writingMode());
         if (transitionProperty != property) {
             for (auto longhand : shorthandForProperty(transitionProperty)) {
                 if (longhand == property)
@@ -367,7 +431,7 @@ static void compileTransitionPropertiesInStyle(const RenderStyle& style, HashSet
     for (const auto& animation : *transitions) {
         auto mode = animation->property().mode;
         if (mode == Animation::TransitionMode::SingleProperty) {
-            auto property = animation->property().id;
+            auto property = CSSProperty::resolveDirectionAwareProperty(animation->property().id, style.direction(), style.writingMode());
             if (isShorthandCSSProperty(property)) {
                 for (auto longhand : shorthandForProperty(property))
                     transitionProperties.add(longhand);
@@ -397,16 +461,9 @@ static void updateCSSTransitionsForStyleableAndProperty(const Styleable& styleab
     const Animation* matchingBackingAnimation = nullptr;
     if (auto* transitions = newStyle.transitions()) {
         for (auto& backingAnimation : *transitions) {
-            if (transitionMatchesProperty(backingAnimation.get(), property))
+            if (transitionMatchesProperty(backingAnimation.get(), property, newStyle))
                 matchingBackingAnimation = backingAnimation.ptr();
         }
-    }
-
-    // A CSS Transition might have completed since the last time animations were updated so we must
-    // update the running and completed transitions membership in that case.
-    if (is<CSSTransition>(animation) && matchingBackingAnimation && styleable.hasRunningTransitionForProperty(property) && animation->playState() == WebAnimation::PlayState::Finished) {
-        styleable.ensureCompletedTransitionsByProperty().set(property, styleable.ensureRunningTransitionsByProperty().take(property));
-        animation = nullptr;
     }
 
     // https://drafts.csswg.org/css-transitions-1/#before-change-style

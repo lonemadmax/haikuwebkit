@@ -256,6 +256,8 @@ public:
     WEBCORE_EXPORT static void updateStyleForAllPagesAfterGlobalChangeInEnvironment();
     WEBCORE_EXPORT static void clearPreviousItemFromAllPages(HistoryItem*);
 
+    WEBCORE_EXPORT void setupForRemoteWorker(const URL& scriptURL, const SecurityOriginData& topOrigin, const String& referrerPolicy);
+
     void updateStyleAfterChangeInEnvironment();
 
     WEBCORE_EXPORT explicit Page(PageConfiguration&&);
@@ -927,7 +929,7 @@ public:
 
     ModelPlayerProvider& modelPlayerProvider();
 
-#if ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#if USE(ATSPI)
     AccessibilityRootAtspi* accessibilityRootObject() const { return m_accessibilityRootObject; }
     void setAccessibilityRootObject(AccessibilityRootAtspi* rootObject) { m_accessibilityRootObject = rootObject; }
 #endif
@@ -1288,7 +1290,7 @@ private:
     WeakHashMap<HTMLElement, CachedTextRecognitionResult> m_textRecognitionResults;
 #endif
 
-#if ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#if USE(ATSPI)
     AccessibilityRootAtspi* m_accessibilityRootObject { nullptr };
 #endif
 };

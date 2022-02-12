@@ -20,7 +20,7 @@
 #include "config.h"
 #include "AccessibilityObjectAtspi.h"
 
-#if ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#if USE(ATSPI)
 
 #include "AccessibilityAtspi.h"
 #include <gio/gio.h>
@@ -52,7 +52,7 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_hypertextFunctions = {
     // set_property,
     nullptr,
     // padding
-    nullptr
+    { nullptr }
 };
 
 unsigned AccessibilityObjectAtspi::hyperlinkCount() const
@@ -106,4 +106,4 @@ std::optional<unsigned> AccessibilityObjectAtspi::hyperlinkIndex(unsigned offset
 
 } // namespace WebCore
 
-#endif // ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#endif // USE(ATSPI)

@@ -529,12 +529,15 @@
         "hw.machine"
         "hw.memsize"
         "hw.model"
+        "hw.ncpu"
         "hw.pagesize_compat"
         "hw.physicalcpu_max"
         "hw.product" ;; <rdar://problem/81334849>
+        "kern.bootargs"
         "kern.osproductversion"
         "kern.osvariant_status"
         "kern.secure_kernel"
+        "kern.osversion"
         "vm.footprint_suspend"))
 
 (allow iokit-get-properties

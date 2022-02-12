@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -66,7 +66,7 @@ RemoteRenderingBackendProxy::~RemoteRenderingBackendProxy()
     m_gpuProcessConnection->messageReceiverMap().removeMessageReceiver(*this);
 
     // Release the RemoteRenderingBackend.
-    send(Messages::GPUConnectionToWebProcess::ReleaseRenderingBackend(renderingBackendIdentifier()), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
+    m_gpuProcessConnection->connection().send(Messages::GPUConnectionToWebProcess::ReleaseRenderingBackend(renderingBackendIdentifier()), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
 }
 
 GPUProcessConnection& RemoteRenderingBackendProxy::ensureGPUProcessConnection()
@@ -81,6 +81,11 @@ GPUProcessConnection& RemoteRenderingBackendProxy::ensureGPUProcessConnection()
         m_gpuProcessConnection = gpuProcessConnection;
     }
     return *m_gpuProcessConnection;
+}
+
+IPC::Connection& RemoteRenderingBackendProxy::gpuProcessConnection()
+{
+    return ensureGPUProcessConnection().connection();
 }
 
 void RemoteRenderingBackendProxy::gpuProcessConnectionDidClose(GPUProcessConnection& previousConnection)
@@ -101,28 +106,16 @@ void RemoteRenderingBackendProxy::gpuProcessConnectionDidClose(GPUProcessConnect
     m_didRenderingUpdateID = { };
 }
 
-IPC::Connection* RemoteRenderingBackendProxy::messageSenderConnection() const
-{
-    return &const_cast<RemoteRenderingBackendProxy&>(*this).ensureGPUProcessConnection().connection();
-}
-
-uint64_t RemoteRenderingBackendProxy::messageSenderDestinationID() const
-{
-    return renderingBackendIdentifier().toUInt64();
-}
-
 RemoteRenderingBackendProxy::DidReceiveBackendCreationResult RemoteRenderingBackendProxy::waitForDidCreateImageBufferBackend()
 {
-    RefPtr connection = messageSenderConnection();
-    if (!connection->waitForAndDispatchImmediately<Messages::RemoteRenderingBackendProxy::DidCreateImageBufferBackend>(renderingBackendIdentifier(), 1_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives))
+    if (!gpuProcessConnection().waitForAndDispatchImmediately<Messages::RemoteRenderingBackendProxy::DidCreateImageBufferBackend>(renderingBackendIdentifier(), 1_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives))
         return DidReceiveBackendCreationResult::TimeoutOrIPCFailure;
     return DidReceiveBackendCreationResult::ReceivedAnyResponse;
 }
 
 bool RemoteRenderingBackendProxy::waitForDidFlush()
 {
-    RefPtr connection = messageSenderConnection();
-    return connection->waitForAndDispatchImmediately<Messages::RemoteRenderingBackendProxy::DidFlush>(renderingBackendIdentifier(), 1_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
+    return gpuProcessConnection().waitForAndDispatchImmediately<Messages::RemoteRenderingBackendProxy::DidFlush>(renderingBackendIdentifier(), 1_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
 }
 
 void RemoteRenderingBackendProxy::createRemoteImageBuffer(ImageBuffer& imageBuffer)
@@ -258,9 +251,9 @@ void RemoteRenderingBackendProxy::deleteAllFonts()
     sendToStream(Messages::RemoteRenderingBackend::DeleteAllFonts());
 }
 
-void RemoteRenderingBackendProxy::releaseRemoteResource(RenderingResourceIdentifier renderingResourceIdentifier, uint64_t useCount)
+void RemoteRenderingBackendProxy::releaseRemoteResource(RenderingResourceIdentifier renderingResourceIdentifier)
 {
-    sendToStream(Messages::RemoteRenderingBackend::ReleaseRemoteResource(renderingResourceIdentifier, useCount));
+    sendToStream(Messages::RemoteRenderingBackend::ReleaseRemoteResource(renderingResourceIdentifier));
 }
 
 void RemoteRenderingBackendProxy::finalizeRenderingUpdate()
@@ -311,7 +304,7 @@ IPC::StreamClientConnection& RemoteRenderingBackendProxy::streamConnection()
 {
     ensureGPUProcessConnection();
     if (UNLIKELY(m_needsWakeUpSemaphoreForDisplayListStream))
-        messageSenderConnection()->waitForAndDispatchImmediately<Messages::RemoteRenderingBackendProxy::DidCreateWakeUpSemaphoreForDisplayListStream>(renderingBackendIdentifier(), 3_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
+        gpuProcessConnection().waitForAndDispatchImmediately<Messages::RemoteRenderingBackendProxy::DidCreateWakeUpSemaphoreForDisplayListStream>(renderingBackendIdentifier(), 3_s, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
     return *m_streamConnection;
 }
 
@@ -324,21 +317,6 @@ void RemoteRenderingBackendProxy::didCreateWakeUpSemaphoreForDisplayListStream(I
 
     m_streamConnection->setWakeUpSemaphore(WTFMove(semaphore));
     m_needsWakeUpSemaphoreForDisplayListStream = false;
-}
-
-void RemoteRenderingBackendProxy::recordNativeImageUse(NativeImage& image)
-{
-    m_remoteResourceCacheProxy.recordNativeImageUse(image);
-}
-
-void RemoteRenderingBackendProxy::recordFontUse(Font& font)
-{
-    m_remoteResourceCacheProxy.recordFontUse(font);
-}
-
-void RemoteRenderingBackendProxy::recordImageBufferUse(ImageBuffer& imageBuffer)
-{
-    m_remoteResourceCacheProxy.recordImageBufferUse(imageBuffer);
 }
 
 bool RemoteRenderingBackendProxy::isCached(const ImageBuffer& imageBuffer) const

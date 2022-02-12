@@ -1246,7 +1246,13 @@ void WebPage::blurFocusedElement()
 
 void WebPage::setIsShowingInputViewForFocusedElement(bool showingInputView)
 {
+    if (m_isShowingInputViewForFocusedElement == showingInputView)
+        return;
+
     m_isShowingInputViewForFocusedElement = showingInputView;
+
+    if (showingInputView)
+        preemptivelySendAutocorrectionContext();
 }
 
 void WebPage::setFocusedElementValue(const WebCore::ElementContext& context, const String& value)
@@ -2566,7 +2572,12 @@ WebAutocorrectionContext WebPage::autocorrectionContext()
     return correction;
 }
 
-void WebPage::requestAutocorrectionContext()
+void WebPage::preemptivelySendAutocorrectionContext()
+{
+    send(Messages::WebPageProxy::HandleAutocorrectionContext(autocorrectionContext()));
+}
+
+void WebPage::handleAutocorrectionContextRequest()
 {
     send(Messages::WebPageProxy::HandleAutocorrectionContext(autocorrectionContext()));
 }
@@ -2583,7 +2594,7 @@ void WebPage::prepareToRunModalJavaScriptDialog()
     // WebAutocorrectionContext, which triggers synchronous IPC back to the web process, resulting in deadlock.
     // To avoid this deadlock, we preemptively compute and send autocorrection context data to the UI process,
     // such that the UI process can immediately respond to UIKit without synchronous IPC to the web process.
-    send(Messages::WebPageProxy::HandleAutocorrectionContext(autocorrectionContext()));
+    preemptivelySendAutocorrectionContext();
 }
 
 static HTMLAnchorElement* containingLinkAnchorElement(Element& element)
@@ -4571,7 +4582,11 @@ void WebPage::requestDocumentEditingContext(DocumentEditingContextRequest reques
         const int stride = 1;
         while (!iterator.atEnd()) {
             if (!iterator.text().isEmpty()) {
-                auto absoluteBoundingBox = unionRectIgnoringZeroRects(RenderObject::absoluteTextRects(iterator.range(), RenderObject::BoundingRectBehavior::IgnoreEmptyTextSelections));
+                IntRect absoluteBoundingBox;
+                if (iterator.range().collapsed())
+                    absoluteBoundingBox = VisiblePosition(makeContainerOffsetPosition(iterator.range().start)).absoluteCaretBounds();
+                else
+                    absoluteBoundingBox = unionRectIgnoringZeroRects(RenderObject::absoluteTextRects(iterator.range(), RenderObject::BoundingRectBehavior::IgnoreEmptyTextSelections));
                 rects.append({ iterator.range().start.document().view()->contentsToRootView(absoluteBoundingBox), { offsetSoFar++, stride } });
             }
             iterator.advance(stride);

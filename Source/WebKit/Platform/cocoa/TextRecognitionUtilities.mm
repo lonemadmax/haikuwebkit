@@ -36,30 +36,22 @@
 namespace WebKit {
 using namespace WebCore;
 
-static bool hasVisionKitCorePrefixedClasses()
+RetainPtr<CocoaImageAnalyzer> createImageAnalyzer()
 {
-    static bool result = false;
-    static std::once_flag onceFlag;
-    std::call_once(onceFlag, [&] {
-        result = !!PAL::getVKCImageAnalyzerClass();
-    });
-    return result;
-}
-
-RetainPtr<VKImageAnalyzer> createImageAnalyzer()
-{
-    if (hasVisionKitCorePrefixedClasses())
-        return adoptNS([static_cast<VKImageAnalyzer *>(PAL::allocVKCImageAnalyzerInstance()) init]);
-
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    return adoptNS([PAL::allocVKCImageAnalyzerInstance() init]);
+#else
     return adoptNS([PAL::allocVKImageAnalyzerInstance() init]);
+#endif
 }
 
-RetainPtr<VKImageAnalyzerRequest> createImageAnalyzerRequest(CGImageRef image, VKAnalysisTypes types)
+RetainPtr<CocoaImageAnalyzerRequest> createImageAnalyzerRequest(CGImageRef image, VKAnalysisTypes types)
 {
-    if (hasVisionKitCorePrefixedClasses())
-        return adoptNS([static_cast<VKImageAnalyzerRequest *>(PAL::allocVKCImageAnalyzerRequestInstance()) initWithCGImage:image orientation:VKImageOrientationUp requestType:types]);
-
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    return adoptNS([(PAL::allocVKCImageAnalyzerRequestInstance()) initWithCGImage:image orientation:VKImageOrientationUp requestType:types]);
+#else
     return adoptNS([PAL::allocVKImageAnalyzerRequestInstance() initWithCGImage:image orientation:VKImageOrientationUp requestType:types]);
+#endif
 }
 
 static FloatQuad floatQuad(VKQuad *quad)
@@ -76,7 +68,7 @@ static Vector<FloatQuad> floatQuads(NSArray<VKQuad *> *vkQuads)
     return quads;
 }
 
-TextRecognitionResult makeTextRecognitionResult(VKImageAnalysis *analysis)
+TextRecognitionResult makeTextRecognitionResult(CocoaImageAnalysis *analysis)
 {
     NSArray<VKWKLineInfo *> *allLines = analysis.allLines;
     TextRecognitionResult result;
@@ -139,25 +131,29 @@ TextRecognitionResult makeTextRecognitionResult(VKImageAnalysis *analysis)
 #include <WebKitAdditions/TextRecognitionUtilitiesAdditions.mm>
 #else
 
-static bool isLiveTextEnabled()
+bool textRecognitionEnhancementsSystemFeatureEnabled()
 {
-    return true;
-}
-
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-
-void requestImageAnalysisWithIdentifier(VKImageAnalyzer *, const String&, CGImageRef, CompletionHandler<void(TextRecognitionResult&&)>&& completion)
-{
-    completion({ });
+    return true;
+#else
+    return false;
+#endif
 }
 
-#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+bool imageAnalysisQueueSystemFeatureEnabled()
+{
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    return true;
+#else
+    return false;
+#endif
+}
 
 #endif
 
 bool isLiveTextAvailableAndEnabled()
 {
-    return PAL::isVisionKitCoreFrameworkAvailable() && isLiveTextEnabled();
+    return PAL::isVisionKitCoreFrameworkAvailable();
 }
 
 } // namespace WebKit

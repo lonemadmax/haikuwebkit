@@ -20,8 +20,10 @@
 #include "config.h"
 #include "AccessibilityObjectAtspi.h"
 
-#if ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#if USE(ATSPI)
+#include "AXObjectCache.h"
 #include "AccessibilityAtspiEnums.h"
+#include "AccessibilityAtspiInterfaces.h"
 #include "AccessibilityObjectInterface.h"
 #include "AccessibilityRootAtspi.h"
 #include "AccessibilityTableCell.h"
@@ -363,6 +365,7 @@ static unsigned atspiRole(AccessibilityRole role)
     case AccessibilityRole::Ignored:
     case AccessibilityRole::Incrementor:
     case AccessibilityRole::Matte:
+    case AccessibilityRole::Model:
     case AccessibilityRole::Presentational:
     case AccessibilityRole::RowGroup:
     case AccessibilityRole::RubyBase:
@@ -466,7 +469,7 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_accessibleFunctions = {
     // set_property,
     nullptr,
     // padding
-    nullptr
+    { nullptr }
 };
 
 bool AccessibilityObjectAtspi::registerObject()
@@ -1497,4 +1500,4 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
 
 } // namespace WebCore
 
-#endif // ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#endif // USE(ATSPI)

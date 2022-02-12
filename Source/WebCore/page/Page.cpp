@@ -51,7 +51,6 @@
 #include "DocumentInlines.h"
 #include "DocumentLoader.h"
 #include "DocumentMarkerController.h"
-#include "DocumentTimeline.h"
 #include "DocumentTimelinesController.h"
 #include "DragController.h"
 #include "Editing.h"
@@ -3890,6 +3889,28 @@ StorageConnection& Page::storageConnection()
 ModelPlayerProvider& Page::modelPlayerProvider()
 {
     return m_modelPlayerProvider.get();
+}
+
+void Page::setupForRemoteWorker(const URL& scriptURL, const SecurityOriginData& topOrigin, const String& referrerPolicy)
+{
+    mainFrame().loader().initForSynthesizedDocument({ });
+    auto document = Document::createNonRenderedPlaceholder(mainFrame(), scriptURL);
+    document->createDOMWindow();
+
+    document->storageBlockingStateDidChange();
+
+    auto origin = topOrigin.securityOrigin();
+    origin->setStorageBlockingPolicy(settings().storageBlockingPolicy());
+
+    auto originAsURL = origin->toURL();
+    document->setSiteForCookies(originAsURL);
+    document->setFirstPartyForCookies(originAsURL);
+    document->setDomainForCachePartition(origin->domainForCachePartition());
+
+    if (auto policy = parseReferrerPolicy(referrerPolicy, ReferrerPolicySource::HTTPHeader))
+        document->setReferrerPolicy(*policy);
+
+    mainFrame().setDocument(WTFMove(document));
 }
 
 } // namespace WebCore

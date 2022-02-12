@@ -58,6 +58,12 @@ public:
     {
         if (m_fileSystemStorageManager)
             m_fileSystemStorageManager->connectionClosed(connection);
+
+        if (m_localStorageManager)
+            m_localStorageManager->connectionClosed(connection);
+
+        if (m_sessionStorageManager)
+            m_sessionStorageManager->connectionClosed(connection);
     }
 
     enum class StorageType : uint8_t {
@@ -139,7 +145,11 @@ public:
 
     bool isActive() const
     {
-        return m_fileSystemStorageManager || m_localStorageManager || m_sessionStorageManager;
+        // We cannot remove the bucket if it has in-memory data, otherwise session
+        // data may be lost.
+        return (m_fileSystemStorageManager && m_fileSystemStorageManager->isActive())
+            || (m_localStorageManager && (m_localStorageManager->hasDataInMemory() || m_localStorageManager->isActive()))
+            || (m_sessionStorageManager && (m_sessionStorageManager->hasDataInMemory() || m_sessionStorageManager->isActive()));
     }
 
     bool isEmpty() const
@@ -236,7 +246,7 @@ private:
 
     void deleteLocalStorageData(WallTime time)
     {
-        if (auto modificationTime = FileSystem::fileModificationTime(m_localStoragePath); *modificationTime >= time) {
+        if (FileSystem::fileModificationTime(m_localStoragePath) >= time) {
             if (m_localStorageManager)
                 m_localStorageManager->clearDataOnDisk();
             WebCore::SQLiteFileSystem::deleteDatabaseFile(m_localStoragePath);

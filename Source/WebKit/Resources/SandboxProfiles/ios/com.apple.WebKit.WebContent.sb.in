@@ -377,7 +377,7 @@
           (literal "/dev/random")
           (literal "/dev/urandom"))
 
-    (allow file-read* file-write-data file-ioctl
+    (allow file-read* file-write-data
            (literal "/dev/aes_0")))
 
 (define required-etc-files
@@ -1085,8 +1085,6 @@
     (require-all
         (extension "com.apple.webkit.extension.mach")
         (global-name
-            "com.apple.cfprefsd.agent"
-            "com.apple.cfprefsd.daemon"
             "com.apple.frontboard.systemappservices"
             "com.apple.iphone.axserver-systemwide"
             "com.apple.mobileassetd.v2"
@@ -1187,24 +1185,13 @@
         SYS_bsdthread_register
         SYS_chdir
         SYS_connect
-        SYS_csops ;; used by Corefoundation initialization
         SYS_dup2
-        SYS_fileport_makefd
         SYS_fsgetpath
-        SYS_getegid
         SYS_getpid
-        SYS_getrlimit
-        SYS_gettid
-        SYS_getuid
-        SYS_ioctl ;; needed by tcgetattr (TIOCGETA - debugging
         SYS_kdebug_trace_string
-        SYS_kdebug_typefilter
         SYS_objc_bp_assist_cfg_np
-        SYS_os_fault_with_payload
         SYS_shared_region_check_np
-        SYS_shm_open
         SYS_sigaction
-        SYS_sysctl
         SYS_workq_open
         SYS_writev))
 
@@ -1220,12 +1207,14 @@
         SYS_change_fdguard_np
         SYS_close
         SYS_close_nocancel
+        SYS_csops ;; used by Corefoundation initialization
         SYS_csops_audittoken ;; used by WK to get entitlments
         SYS_exit
         SYS_faccessat ;; <rdar://problem/56998930>
         SYS_fcntl
         SYS_fcntl_nocancel
         SYS_fgetattrlist ;; <rdar://problem/50266257>
+        SYS_fileport_makefd
         SYS_flock
         SYS_fsetattrlist ;; MTLCompilerFSCache::openSync
         SYS_fsetxattr ;; <rdar://problem/49795964>
@@ -1235,17 +1224,23 @@
         SYS_ftruncate
         SYS_getattrlist ;; xpc_realpath and directory enumeration
         SYS_getdirentries64
+        SYS_getegid
         SYS_getentropy
         SYS_geteuid
         SYS_getfsstat64
+        SYS_getrlimit
         SYS_getrusage
+        SYS_gettid
         SYS_gettimeofday
+        SYS_getuid
         SYS_guarded_close_np
         SYS_guarded_open_dprotected_np ; <rdar://problem/48166729>
         SYS_guarded_open_np
         SYS_guarded_pwrite_np
+        SYS_ioctl ;; needed by tcgetattr (TIOCGETA - debugging
         SYS_issetugid
         SYS_kdebug_trace64
+        SYS_kdebug_typefilter
         SYS_kevent_id
         SYS_kevent_qos
         SYS_kqueue ;; <rdar://problem/49609201>
@@ -1263,6 +1258,7 @@
         SYS_open
         SYS_open_nocancel
         SYS_openat
+        SYS_os_fault_with_payload
         SYS_pathconf
         SYS_pread
         SYS_proc_info
@@ -1281,8 +1277,10 @@
         SYS_sem_close
         SYS_sem_open
         SYS_shared_region_map_and_slide_2_np ;; <rdar://problem/60294880>
+        SYS_shm_open
         SYS_stat64
         SYS_statfs64
+        SYS_sysctl
         SYS_sysctlbyname
         SYS_thread_selfid
         SYS_ulock_wait
@@ -1321,9 +1319,11 @@
         SYS___pthread_sigmask
         SYS___semwait_signal
         SYS_getattrlistbulk ;; xpc_realpath and directory enumeration
+        SYS_iopolicysys
         SYS_open_dprotected_np
         SYS_psynch_rw_wrlock
-        SYS_umask))
+        SYS_umask
+        SYS_work_interval_ctl))
 
 (when (defined? 'syscall-unix)
     (deny syscall-unix (with telemetry) (with send-signal SIGKILL))
@@ -1336,8 +1336,7 @@
         (allow syscall-unix
             (syscall-unix-only-in-use-during-launch)))
     (with-filter (state-flag "WebContentProcessLaunched")
-        (allow syscall-unix
-            (with report)
+        (deny syscall-unix
             (with telemetry)
             (with message "Unix syscall used after launch")
             (syscall-unix-only-in-use-during-launch)))
@@ -1362,8 +1361,12 @@
 
 ;; restrict to the two ioctl's /dev/aes_0 needs
 (allow file-ioctl (with telemetry)
-   (ioctl-command (_IO "T" 101)) ;; IOAES_GET_INFO
-   (ioctl-command (_IO "T" 102))) ;; IOAES_ENCRYPT_DECRYPT
+    (require-all
+        (literal "/dev/aes_0")
+        (require-any
+            (ioctl-command (_IO "T" 101)) ;; IOAES_GET_INFO
+            (ioctl-command (_IO "T" 102)) ;; IOAES_ENCRYPT_DECRYPT
+)))
 
 (deny socket-ioctl (with telemetry))
 
@@ -1371,29 +1374,28 @@
     (deny system-fcntl (with telemetry))
     (allow system-fcntl
         (fcntl-command
-            F_GETPATH)) ;; used by dyld4 and CGFontURLCreate, getcwd (at least)
-    (allow system-fcntl
-        (fcntl-command
+            F_ADDFILESIGS_RETURN ;; ImageLoaderMachO::loadCodeSignature
             F_BARRIERFSYNC
+            F_CHECK_LV ;; ImageLoaderMachO::loadCodeSignature
             F_GETCONFINED
+            F_GETFD ;; libwebrtc.dylib (no backtrace)
             F_GETFL ;; LibJPEGReadPlugin::copyImageBlockSetStandard
+            F_GETPATH ;; used by dyld4 and CGFontURLCreate, getcwd (at least)
             F_GETSIGSINFO
-            F_NOCACHE
             F_RDADVISE
             F_SETCONFINED
-            F_ADDFILESIGS_RETURN ;; ImageLoaderMachO::loadCodeSignature
-            F_CHECK_LV ;; ImageLoaderMachO::loadCodeSignature
-            F_SPECULATIVE_READ ;; ImageLoaderMachO::mapSegments
             F_SETFD ;; libwebrtc.dylib (no backtrace)
-            F_GETFD ;; libwebrtc.dylib (no backtrace)
             F_SETFL ;; CMCapture uses when camera is enabled
             F_SETNOSIGPIPE)) ;; CMCapture uses when camera is enabled
 
-    (define (appcache-fcntl-commands)
+    (allow system-fcntl (with telemetry-backtrace)
         (fcntl-command
             F_GETLK
+            F_OFD_SETLK))
+
+    (define (appcache-fcntl-commands)
+        (fcntl-command
             F_OFD_GETLK
-            F_OFD_SETLK
             F_OFD_SETLKWTIMEOUT))
             
 #if HAVE(SANDBOX_STATE_FLAGS)
@@ -1405,7 +1407,7 @@
     (with-filter (require-not (state-flag "AppCacheDisabled"))
         (allow system-fcntl (appcache-fcntl-commands)))
     (with-filter (state-flag "AppCacheDisabled")
-        (allow system-fcntl (with report) (with telemetry) (appcache-fcntl-commands)))
+        (deny system-fcntl (with telemetry-backtrace) (appcache-fcntl-commands)))
 #else
     (allow system-fcntl (appcache-fcntl-commands))
 #endif
@@ -1545,8 +1547,7 @@
         (allow syscall-mach
             (syscall-mach-only-in-use-during-launch)))
     (with-filter (state-flag "WebContentProcessLaunched")
-        (allow syscall-mach
-            (with report)
+        (deny syscall-mach
             (with telemetry)
             (with message "Mach syscall used after launch")
             (syscall-mach-only-in-use-during-launch)))
@@ -1576,6 +1577,7 @@
         (when (defined? '_mach_make_memory_entry) _mach_make_memory_entry)
         host_get_io_master
         io_connect_async_method
+        io_connect_map_memory_into_task ;; <rdar://88300200>
         io_connect_method
         io_connect_set_notification_port_64
         io_iterator_next

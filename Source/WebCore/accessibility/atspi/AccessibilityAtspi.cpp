@@ -21,9 +21,11 @@
 #include "config.h"
 #include "AccessibilityAtspi.h"
 
-#if ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#if USE(ATSPI)
+#include "AXObjectCache.h"
 #include "AccessibilityAtspiEnums.h"
 #include "AccessibilityAtspiInterfaces.h"
+#include "AccessibilityObjectAtspi.h"
 #include "AccessibilityRootAtspi.h"
 #include <gio/gio.h>
 #include <glib/gi18n-lib.h>
@@ -286,7 +288,7 @@ void AccessibilityAtspi::registerRoot(AccessibilityRootAtspi& rootObject, Vector
     }
 
     ensureCache();
-    String path = makeString("/org/a11y/webkit/accessible/", createCanonicalUUIDString().replace('-', '_'));
+    String path = makeString("/org/a11y/webkit/accessible/", createVersion4UUIDString().replace('-', '_'));
     Vector<unsigned, 3> registeredObjects;
     registeredObjects.reserveInitialCapacity(interfaces.size());
     for (const auto& interface : interfaces) {
@@ -321,7 +323,7 @@ String AccessibilityAtspi::registerObject(AccessibilityObjectAtspi& atspiObject,
         return { };
 
     ensureCache();
-    String path = makeString("/org/a11y/atspi/accessible/", createCanonicalUUIDString().replace('-', '_'));
+    String path = makeString("/org/a11y/atspi/accessible/", createVersion4UUIDString().replace('-', '_'));
     Vector<unsigned, 20> registeredObjects;
     registeredObjects.reserveInitialCapacity(interfaces.size());
     for (const auto& interface : interfaces) {
@@ -371,7 +373,7 @@ String AccessibilityAtspi::registerHyperlink(AccessibilityObjectAtspi& atspiObje
     if (!m_connection)
         return { };
 
-    String path = makeString("/org/a11y/atspi/accessible/", createCanonicalUUIDString().replace('-', '_'));
+    String path = makeString("/org/a11y/atspi/accessible/", createVersion4UUIDString().replace('-', '_'));
     Vector<unsigned, 1> registeredObjects;
     registeredObjects.reserveInitialCapacity(interfaces.size());
     for (const auto& interface : interfaces) {
@@ -600,8 +602,8 @@ static constexpr std::pair<AccessibilityRole, RoleNameEntry> roleNames[] = {
     { AccessibilityRole::Definition, { "definition", N_("definition") } },
     { AccessibilityRole::Deletion, { "content deletion", N_("content deletion") } },
     { AccessibilityRole::DescriptionList, { "description list", N_("description list") } },
-    { AccessibilityRole::DescriptionListTerm, { "description term", N_("description term") } },
     { AccessibilityRole::DescriptionListDetail, { "description value", N_("description value") } },
+    { AccessibilityRole::DescriptionListTerm, { "description term", N_("description term") } },
     { AccessibilityRole::Directory, { "directory pane", N_("directory pane") } },
     { AccessibilityRole::Div, { "section", N_("section") } },
     { AccessibilityRole::Document, { "document frame", N_("document frame") } },
@@ -751,7 +753,7 @@ GDBusInterfaceVTable AccessibilityAtspi::s_cacheFunctions = {
     // set_property,
     nullptr,
     // padding
-    nullptr
+    { nullptr }
 };
 
 void AccessibilityAtspi::ensureCache()
@@ -919,4 +921,4 @@ void AccessibilityAtspi::notifyLoadEvent(AccessibilityObjectAtspi& atspiObject, 
 
 } // namespace WebCore
 
-#endif // ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#endif // USE(ATSPI)

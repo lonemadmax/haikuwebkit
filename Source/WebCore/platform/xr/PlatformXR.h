@@ -59,6 +59,12 @@ enum class Eye {
     Right,
 };
 
+enum class VisibilityState {
+    Visible,
+    VisibleBlurred,
+    Hidden
+};
+
 using LayerHandle = int;
 
 #if ENABLE(WEBXR)
@@ -312,8 +318,8 @@ public:
     // Per-frame input source updates are handled via session.requestAnimationFrame which calls Device::requestFrame.
     virtual void sessionDidInitializeInputSources(Vector<Device::FrameData::InputSource>&&) = 0;
     virtual void sessionDidEnd() = 0;
+    virtual void updateSessionVisibilityState(VisibilityState) = 0;
     // FIXME: handle frame update
-    // FIXME: handle visibility changes
 };
 
 class Instance {
@@ -667,6 +673,15 @@ template<> struct EnumTraits<PlatformXR::ReferenceSpaceType> {
         PlatformXR::ReferenceSpaceType::LocalFloor,
         PlatformXR::ReferenceSpaceType::BoundedFloor,
         PlatformXR::ReferenceSpaceType::Unbounded
+    >;
+};
+
+template<> struct EnumTraits<PlatformXR::VisibilityState> {
+    using values = EnumValues<
+        PlatformXR::VisibilityState,
+        PlatformXR::VisibilityState::Visible,
+        PlatformXR::VisibilityState::VisibleBlurred,
+        PlatformXR::VisibilityState::Hidden
     >;
 };
 

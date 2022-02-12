@@ -40,6 +40,9 @@ ALWAYS_INLINE uint64_t SecureARM64EHashPins::keyForCurrentThread()
         :
         :
     );
+#if !HAVE(SIMPLIFIED_FAST_TLS_BASE)
+    result = result & ~0x7ull;
+#endif
     return result + 1;
 }
 
@@ -98,7 +101,9 @@ ALWAYS_INLINE auto SecureARM64EHashPins::findFirstEntry() -> FindResult
 
 ALWAYS_INLINE uint64_t SecureARM64EHashPins::pinForCurrentThread()
 {
-    return findFirstEntry().entry->pin;
+    if (LIKELY(g_jscConfig.useFastJITPermissions))
+        return findFirstEntry().entry->pin;
+    return 1;
 }
 
 } // namespace JSC

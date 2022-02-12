@@ -195,8 +195,9 @@ void Resolver::appendAuthorStyleSheets(const Vector<RefPtr<CSSStyleSheet>>& styl
 // This is a simplified style setting function for keyframe styles
 void Resolver::addKeyframeStyle(Ref<StyleRuleKeyframes>&& rule)
 {
-    AtomString s(rule->name());
-    m_keyframesRuleMap.set(s.impl(), WTFMove(rule));
+    auto& animationName = rule->name();
+    m_keyframesRuleMap.set(animationName, WTFMove(rule));
+    m_document.keyframesRuleDidChange(animationName);
 }
 
 Resolver::~Resolver()
@@ -274,15 +275,15 @@ ElementStyle Resolver::styleForElement(const Element& element, const ResolutionC
     return { state.takeStyle(), WTFMove(elementStyleRelations) };
 }
 
-std::unique_ptr<RenderStyle> Resolver::styleForKeyframe(const Element& element, const RenderStyle* elementStyle, const ResolutionContext& context, const StyleRuleKeyframe* keyframe, KeyframeValue& keyframeValue)
+std::unique_ptr<RenderStyle> Resolver::styleForKeyframe(const Element& element, const RenderStyle& elementStyle, const ResolutionContext& context, const StyleRuleKeyframe& keyframe, KeyframeValue& keyframeValue)
 {
     MatchResult result;
-    result.authorDeclarations.append({ &keyframe->properties(), SelectorChecker::MatchAll, propertyAllowlistForPseudoId(elementStyle->styleType()) });
+    result.authorDeclarations.append({ &keyframe.properties(), SelectorChecker::MatchAll, propertyAllowlistForPseudoId(elementStyle.styleType()) });
 
     auto state = State(element, nullptr, context.documentElementStyle);
 
-    state.setStyle(RenderStyle::clonePtr(*elementStyle));
-    state.setParentStyle(RenderStyle::clonePtr(context.parentStyle ? *context.parentStyle : *elementStyle));
+    state.setStyle(RenderStyle::clonePtr(elementStyle));
+    state.setParentStyle(RenderStyle::clonePtr(context.parentStyle ? *context.parentStyle : elementStyle));
 
     Builder builder(*state.style(), builderContext(state), result, CascadeLevel::Author);
     builder.applyAllProperties();
@@ -291,9 +292,9 @@ std::unique_ptr<RenderStyle> Resolver::styleForKeyframe(const Element& element, 
     adjuster.adjust(*state.style(), state.userAgentAppearanceStyle());
 
     // Add all the animating properties to the keyframe.
-    unsigned propertyCount = keyframe->properties().propertyCount();
+    unsigned propertyCount = keyframe.properties().propertyCount();
     for (unsigned i = 0; i < propertyCount; ++i) {
-        CSSPropertyID property = keyframe->properties().propertyAt(i).id();
+        auto property = CSSProperty::resolveDirectionAwareProperty(keyframe.properties().propertyAt(i).id(), elementStyle.direction(), elementStyle.writingMode());
         // The animation-composition and animation-timing-function within keyframes are special
         // because they are not animated; they just describe the composite operation and timing
         // function between this keyframe and the next.
@@ -306,7 +307,7 @@ std::unique_ptr<RenderStyle> Resolver::styleForKeyframe(const Element& element, 
 
 bool Resolver::isAnimationNameValid(const String& name)
 {
-    return m_keyframesRuleMap.find(AtomString(name).impl()) != m_keyframesRuleMap.end();
+    return m_keyframesRuleMap.find(AtomString(name)) != m_keyframesRuleMap.end();
 }
 
 Vector<Ref<StyleRuleKeyframe>> Resolver::keyframeRulesForName(const AtomString& animationName) const
@@ -316,7 +317,7 @@ Vector<Ref<StyleRuleKeyframe>> Resolver::keyframeRulesForName(const AtomString& 
 
     m_keyframesRuleMap.checkConsistency();
 
-    auto it = m_keyframesRuleMap.find(animationName.impl());
+    auto it = m_keyframesRuleMap.find(animationName);
     if (it == m_keyframesRuleMap.end())
         return { };
 
@@ -392,7 +393,7 @@ Vector<Ref<StyleRuleKeyframe>> Resolver::keyframeRulesForName(const AtomString& 
     return deduplicatedKeyframes;
 }
 
-void Resolver::keyframeStylesForAnimation(const Element& element, const RenderStyle* elementStyle, const ResolutionContext& context, KeyframeList& list)
+void Resolver::keyframeStylesForAnimation(const Element& element, const RenderStyle& elementStyle, const ResolutionContext& context, KeyframeList& list)
 {
     list.clear();
 
@@ -405,7 +406,7 @@ void Resolver::keyframeStylesForAnimation(const Element& element, const RenderSt
         // Add this keyframe style to all the indicated key times
         for (auto key : keyframeRule->keys()) {
             KeyframeValue keyframeValue(0, nullptr);
-            keyframeValue.setStyle(styleForKeyframe(element, elementStyle, context, keyframeRule.ptr(), keyframeValue));
+            keyframeValue.setStyle(styleForKeyframe(element, elementStyle, context, keyframeRule.get(), keyframeValue));
             keyframeValue.setKey(key);
             if (auto timingFunctionCSSValue = keyframeRule->properties().getPropertyCSSValue(CSSPropertyAnimationTimingFunction))
                 keyframeValue.setTimingFunction(TimingFunction::createFromCSSValue(*timingFunctionCSSValue.get()));

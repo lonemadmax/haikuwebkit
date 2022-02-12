@@ -190,14 +190,9 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << contentSizeCategory;
 #endif
 
-#if PLATFORM(COCOA)
-#if ENABLE(CFPREFS_DIRECT_MODE)
-    encoder << preferencesExtensionHandles;
-#endif
-#endif
-
 #if PLATFORM(GTK)
     encoder << useSystemAppearanceForScrollbars;
+    encoder << gtkSettings;
 #endif
 
 #if HAVE(CATALYST_USER_INTERFACE_IDIOM_AND_SCALE_FACTOR)
@@ -535,22 +530,17 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
 #endif
 
-#if PLATFORM(COCOA)
-#if ENABLE(CFPREFS_DIRECT_MODE)
-    std::optional<std::optional<Vector<SandboxExtension::Handle>>> preferencesExtensionHandles;
-    decoder >> preferencesExtensionHandles;
-    if (!preferencesExtensionHandles)
-        return false;
-    parameters.preferencesExtensionHandles = WTFMove(*preferencesExtensionHandles);
-#endif
-#endif
-
 #if PLATFORM(GTK)
     std::optional<bool> useSystemAppearanceForScrollbars;
     decoder >> useSystemAppearanceForScrollbars;
     if (!useSystemAppearanceForScrollbars)
         return false;
     parameters.useSystemAppearanceForScrollbars = WTFMove(*useSystemAppearanceForScrollbars);
+    std::optional<GtkSettingsState> gtkSettings;
+    decoder >> gtkSettings;
+    if (!gtkSettings)
+        return false;
+    parameters.gtkSettings = WTFMove(*gtkSettings);
 #endif
 
 #if HAVE(CATALYST_USER_INTERFACE_IDIOM_AND_SCALE_FACTOR)

@@ -20,7 +20,7 @@
 #include "config.h"
 #include "AccessibilityObjectAtspi.h"
 
-#if ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#if USE(ATSPI)
 
 #include "Document.h"
 #include "DocumentInlines.h"
@@ -68,7 +68,7 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_documentFunctions = {
     // set_property,
     nullptr,
     // padding
-    nullptr
+    { nullptr }
 };
 
 String AccessibilityObjectAtspi::documentAttribute(const String& name) const
@@ -140,4 +140,4 @@ String AccessibilityObjectAtspi::documentLocale() const
 
 } // namespace WebCore
 
-#endif // ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#endif // USE(ATSPI)

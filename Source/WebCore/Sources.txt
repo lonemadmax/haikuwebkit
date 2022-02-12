@@ -261,6 +261,7 @@ Modules/pictureinpicture/EnterPictureInPictureEvent.cpp
 Modules/pictureinpicture/HTMLVideoElementPictureInPicture.cpp
 Modules/pictureinpicture/PictureInPictureWindow.cpp
 Modules/push-api/PushCrypto.cpp
+Modules/push-api/PushDatabase.cpp
 Modules/push-api/PushEvent.cpp
 Modules/push-api/PushMessageCrypto.cpp
 Modules/push-api/PushMessageData.cpp
@@ -1072,12 +1073,10 @@ dom/VisitedLinkState.cpp
 dom/WheelEvent.cpp
 dom/WindowEventLoop.cpp
 dom/XMLDocument.cpp
-dom/mac/ImageControlsMac.cpp
 dom/messageports/MessagePortChannel.cpp
 dom/messageports/MessagePortChannelProvider.cpp
 dom/messageports/MessagePortChannelProviderImpl.cpp
 dom/messageports/MessagePortChannelRegistry.cpp
-dom/messageports/MessageWithMessagePorts.cpp
 dom/messageports/WorkerMessagePortChannelProvider.cpp
 domjit/DOMJITHelpers.cpp
 domjit/JSDocumentDOMJIT.cpp
@@ -1310,6 +1309,7 @@ html/MonthInputType.cpp
 html/NumberInputType.cpp
 html/OffscreenCanvas.cpp
 html/PasswordInputType.cpp
+html/PDFDocument.cpp
 html/PluginDocument.cpp
 html/PublicURLManager.cpp
 html/RadioInputType.cpp
@@ -2555,6 +2555,7 @@ storage/StorageQuotaManager.cpp
 style/AttributeChangeInvalidation.cpp
 style/ChildChangeInvalidation.cpp
 style/ClassChangeInvalidation.cpp
+style/ContainerQueryEvaluator.cpp
 style/ElementRuleCollector.cpp
 style/HasSelectorFilter.cpp
 style/IdChangeInvalidation.cpp
@@ -2787,9 +2788,11 @@ workers/service/server/SWServerWorker.cpp
 workers/shared/SharedWorker.cpp
 workers/shared/SharedWorkerGlobalScope.cpp
 workers/shared/SharedWorkerManager.cpp
-workers/shared/SharedWorkerProxy.cpp
+workers/shared/SharedWorkerObjectConnection.cpp
+workers/shared/SharedWorkerProvider.cpp
 workers/shared/SharedWorkerScriptLoader.cpp
-workers/shared/SharedWorkerThread.cpp
+workers/shared/context/SharedWorkerThread.cpp
+workers/shared/context/SharedWorkerThreadProxy.cpp
 worklets/PaintWorkletGlobalScope.cpp
 worklets/Worklet.cpp
 worklets/WorkletGlobalScope.cpp

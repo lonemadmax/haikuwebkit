@@ -1959,9 +1959,9 @@ class CompileWebKit(shell.Compile):
             elif platform == 'gtk':
                 steps_to_add.append(InstallGtkDependencies())
             if self.getProperty('group') == 'jsc':
-                steps_to_add.append(CompileJSCWithoutPatch())
+                steps_to_add.append(CompileJSCWithoutChange())
             else:
-                steps_to_add.append(CompileWebKitWithoutPatch())
+                steps_to_add.append(CompileWebKitWithoutChange())
             steps_to_add.append(AnalyzeCompileWebKitResults())
             # Using a single addStepsAfterCurrentStep because of https://github.com/buildbot/buildbot/issues/4874
             self.build.addStepsAfterCurrentStep(steps_to_add)
@@ -1989,18 +1989,18 @@ class CompileWebKit(shell.Compile):
         return shell.Compile.getResultSummary(self)
 
 
-class CompileWebKitWithoutPatch(CompileWebKit):
-    name = 'compile-webkit-without-patch'
+class CompileWebKitWithoutChange(CompileWebKit):
+    name = 'compile-webkit-without-change'
     haltOnFailure = False
 
     def __init__(self, retry_build_on_failure=False, **kwargs):
         self.retry_build_on_failure = retry_build_on_failure
-        super(CompileWebKitWithoutPatch, self).__init__(**kwargs)
+        super(CompileWebKitWithoutChange, self).__init__(**kwargs)
 
     def evaluateCommand(self, cmd):
         rc = shell.Compile.evaluateCommand(self, cmd)
         if rc == FAILURE and self.retry_build_on_failure:
-            message = 'Unable to build WebKit without patch, retrying build'
+            message = 'Unable to build WebKit without change, retrying build'
             self.descriptionDone = message
             self.send_email_for_unexpected_build_failure()
             self.build.buildFinished([message], RETRY)
@@ -2035,32 +2035,46 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin):
         return defer.succeed(None)
 
     def analyzeResults(self):
-        compile_without_patch_step = CompileWebKitWithoutPatch.name
+        compile_without_patch_step = CompileWebKitWithoutChange.name
         if self.getProperty('group') == 'jsc':
-            compile_without_patch_step = CompileJSCWithoutPatch.name
+            compile_without_patch_step = CompileJSCWithoutChange.name
         compile_without_patch_result = self.getStepResult(compile_without_patch_step)
 
+        patch_id = self.getProperty('patch_id', '')
+        pr_number = self.getProperty('github.number')
+
         if compile_without_patch_result == FAILURE:
-            message = 'Unable to build WebKit without patch, retrying build'
+            if pr_number:
+                message = 'Unable to build WebKit without PR, please rebase the PR against {}'.format(self.getProperty('basename', 'ToT'))
+            else:
+                message = 'Unable to build WebKit without patch, retrying build'
+
             self.descriptionDone = message
             self.send_email_for_preexisting_build_failure()
             self.finished(FAILURE)
-            self.build.buildFinished([message], RETRY)
+            # Do not retry PRs, we end up in an infinite retry loop because we don't automatically rebase against ToT
+            self.build.buildFinished([message], FAILURE if pr_number else RETRY)
             return defer.succeed(None)
 
         self.build.results = FAILURE
-        patch_id = self.getProperty('patch_id', '')
-        message = 'Patch {} does not build'.format(patch_id)
+        sha = self.getProperty('github.head.sha')
+        if sha and pr_number:
+            message = 'Hash {} for PR {} does not build'.format(sha[:HASH_LENGTH_TO_DISPLAY], pr_number)
+        else:
+            message = 'Patch {} does not build'.format(patch_id)
         self.send_email_for_new_build_failure()
 
         self.descriptionDone = message
         self.finished(FAILURE)
         self.setProperty('build_finish_summary', message)
-        if self.getProperty('buildername', '').lower() == 'commit-queue':
-            self.setProperty('bugzilla_comment_text', message)
-            self.build.addStepsAfterCurrentStep([CommentOnBug(), SetCommitQueueMinusFlagOnPatch()])
-        else:
-            self.build.addStepsAfterCurrentStep([SetCommitQueueMinusFlagOnPatch()])
+
+        # FIXME: Need a cq- equivalent for GitHub
+        if patch_id:
+            if self.getProperty('buildername', '').lower() == 'commit-queue':
+                self.setProperty('bugzilla_comment_text', message)
+                self.build.addStepsAfterCurrentStep([CommentOnBug(), SetCommitQueueMinusFlagOnPatch()])
+            else:
+                self.build.addStepsAfterCurrentStep([SetCommitQueueMinusFlagOnPatch()])
 
     @defer.inlineCallbacks
     def getResults(self, name):
@@ -2103,7 +2117,8 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin):
     def send_email_for_new_build_failure(self):
         try:
             patch_id = self.getProperty('patch_id', '')
-            if not self.should_send_email(patch_id):
+            # FIXME: Support pull requests
+            if not patch_id or not self.should_send_email(patch_id):
                 return
             builder_name = self.getProperty('buildername', '')
             bug_id = self.getProperty('bug_id', '')
@@ -2170,8 +2185,8 @@ class CompileJSC(CompileWebKit):
         return shell.Compile.getResultSummary(self)
 
 
-class CompileJSCWithoutPatch(CompileJSC):
-    name = 'compile-jsc-without-patch'
+class CompileJSCWithoutChange(CompileJSC):
+    name = 'compile-jsc-without-change'
 
     def evaluateCommand(self, cmd):
         return shell.Compile.evaluateCommand(self, cmd)
@@ -2231,10 +2246,10 @@ class RunJavaScriptCoreTests(shell.Test):
             self.build.addStepsAfterCurrentStep([UnApplyPatch(),
                                                 RevertPullRequestChanges(),
                                                 ValidateChange(verifyBugClosed=False, addURLs=False),
-                                                CompileJSCWithoutPatch(),
+                                                CompileJSCWithoutChange(),
                                                 ValidateChange(verifyBugClosed=False, addURLs=False),
                                                 KillOldProcesses(),
-                                                RunJSCTestsWithoutPatch(),
+                                                RunJSCTestsWithoutChange(),
                                                 AnalyzeJSCTestsResults()])
         return rc
 
@@ -2298,8 +2313,8 @@ class RunJavaScriptCoreTests(shell.Test):
         log.addStdout(message)
 
 
-class RunJSCTestsWithoutPatch(RunJavaScriptCoreTests):
-    name = 'jscore-test-without-patch'
+class RunJSCTestsWithoutChange(RunJavaScriptCoreTests):
+    name = 'jscore-test-without-change'
     prefix = 'jsc_clean_tree_'
 
     def evaluateCommand(self, cmd):
@@ -2751,10 +2766,10 @@ class ReRunWebKitTests(RunWebKitTests):
                                                 UnApplyPatch(),
                                                 RevertPullRequestChanges(),
                                                 ValidateChange(verifyBugClosed=False, addURLs=False),
-                                                CompileWebKitWithoutPatch(retry_build_on_failure=True),
+                                                CompileWebKitWithoutChange(retry_build_on_failure=True),
                                                 ValidateChange(verifyBugClosed=False, addURLs=False),
                                                 KillOldProcesses(),
-                                                RunWebKitTestsWithoutPatch()])
+                                                RunWebKitTestsWithoutChange()])
         return rc
 
     def commandComplete(self, cmd):
@@ -2788,8 +2803,8 @@ class ReRunWebKitTests(RunWebKitTests):
             print('Error in sending email for flaky failures: {}'.format(e))
 
 
-class RunWebKitTestsWithoutPatch(RunWebKitTests):
-    name = 'run-layout-tests-without-patch'
+class RunWebKitTestsWithoutChange(RunWebKitTests):
+    name = 'run-layout-tests-without-change'
 
     def evaluateCommand(self, cmd):
         rc = shell.Test.evaluateCommand(self, cmd)
@@ -2813,7 +2828,7 @@ class RunWebKitTestsWithoutPatch(RunWebKitTests):
         self._parseRunWebKitTestsOutput(logText)
 
     def setLayoutTestCommand(self):
-        super(RunWebKitTestsWithoutPatch, self).setLayoutTestCommand()
+        super(RunWebKitTestsWithoutChange, self).setLayoutTestCommand()
         # In order to speed up testing, on the step that retries running the layout tests without patch
         # only run the subset of tests that failed on the previous steps.
         # But only do that if the previous steps didn't exceed the test failure limit
@@ -3098,7 +3113,13 @@ class RunWebKitTestsRedTree(RunWebKitTests):
             if retry_count < AnalyzeLayoutTestsResultsRedTree.MAX_RETRY:
                 next_steps.append(AnalyzeLayoutTestsResultsRedTree())
             else:
-                next_steps.extend([UnApplyPatch(), RevertPullRequestChanges(), CompileWebKitWithoutPatch(retry_build_on_failure=True), ValidateChange(verifyBugClosed=False, addURLs=False), RunWebKitTestsWithoutPatchRedTree()])
+                next_steps.extend([
+                    UnApplyPatch(),
+                    RevertPullRequestChanges(),
+                    CompileWebKitWithoutChange(retry_build_on_failure=True),
+                    ValidateChange(verifyBugClosed=False, addURLs=False),
+                    RunWebKitTestsWithoutChangeRedTree(),
+                ])
         if next_steps:
             self.build.addStepsAfterCurrentStep(next_steps)
         return rc
@@ -3127,8 +3148,15 @@ class RunWebKitTestsRepeatFailuresRedTree(RunWebKitTestsRedTree):
         self.setProperty('with_patch_repeat_failures_retcode', rc)
         next_steps = [ArchiveTestResults(), UploadTestResults(identifier='repeat-failures'), ExtractTestResults(identifier='repeat-failures')]
         if with_patch_repeat_failures_results_nonflaky_failures or with_patch_repeat_failures_timedout:
-            next_steps.extend([ValidateChange(verifyBugClosed=False, addURLs=False), KillOldProcesses(), UnApplyPatch(), RevertPullRequestChanges(), CompileWebKitWithoutPatch(retry_build_on_failure=True),
-                               ValidateChange(verifyBugClosed=False, addURLs=False), RunWebKitTestsRepeatFailuresWithoutPatchRedTree()])
+            next_steps.extend([
+                ValidateChange(verifyBugClosed=False, addURLs=False),
+                KillOldProcesses(),
+                UnApplyPatch(),
+                RevertPullRequestChanges(),
+                CompileWebKitWithoutChange(retry_build_on_failure=True),
+                ValidateChange(verifyBugClosed=False, addURLs=False),
+                RunWebKitTestsRepeatFailuresWithoutPatchRedTree(),
+            ])
         else:
             next_steps.append(AnalyzeLayoutTestsResultsRedTree())
         if next_steps:
@@ -3202,7 +3230,7 @@ class RunWebKitTestsRepeatFailuresWithoutPatchRedTree(RunWebKitTestsRedTree):
         return super().start(BufferLogObserverClass=BufferLogHeaderObserver)
 
 
-class RunWebKitTestsWithoutPatchRedTree(RunWebKitTestsWithoutPatch):
+class RunWebKitTestsWithoutChangeRedTree(RunWebKitTestsWithoutChange):
     EXIT_AFTER_FAILURES = 500
 
     def evaluateCommand(self, cmd):
@@ -3552,7 +3580,7 @@ class ReRunAPITests(RunAPITests):
                 steps_to_add.append(InstallWpeDependencies())
             elif platform == 'gtk':
                 steps_to_add.append(InstallGtkDependencies())
-            steps_to_add.append(CompileWebKitWithoutPatch(retry_build_on_failure=True))
+            steps_to_add.append(CompileWebKitWithoutChange(retry_build_on_failure=True))
             steps_to_add.append(ValidateChange(verifyBugClosed=False, addURLs=False))
             steps_to_add.append(KillOldProcesses())
             steps_to_add.append(RunAPITestsWithoutPatch())

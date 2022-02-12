@@ -230,8 +230,8 @@ Shared/PlatformPopupMenuData.cpp
 Shared/PrintInfo.cpp
 Shared/RTCNetwork.cpp
 Shared/RTCPacketOptions.cpp
+Shared/RemoteWorkerInitializationData.cpp
 Shared/ScrollingAccelerationCurve.cpp
-Shared/ServiceWorkerInitializationData.cpp
 Shared/SessionState.cpp
 Shared/ShareableBitmap.cpp
 Shared/ShareableResource.cpp
@@ -777,11 +777,14 @@ WebProcess/Plugins/WebPluginInfoProvider.cpp @no-unify
 
 WebProcess/Speech/SpeechRecognitionRealtimeMediaSourceManager.cpp
 
+WebProcess/Storage/RemoteWorkerFrameLoaderClient.cpp
 WebProcess/Storage/WebSWClientConnection.cpp
 WebProcess/Storage/WebSWContextManagerConnection.cpp
 WebProcess/Storage/WebSWOriginTable.cpp
 WebProcess/Storage/WebServiceWorkerFetchTaskClient.cpp
 WebProcess/Storage/WebServiceWorkerProvider.cpp
+WebProcess/Storage/WebSharedWorkerProvider.cpp
+WebProcess/Storage/WebSharedWorkerObjectConnection.cpp
 
 WebProcess/UserContent/WebUserContentController.cpp
 

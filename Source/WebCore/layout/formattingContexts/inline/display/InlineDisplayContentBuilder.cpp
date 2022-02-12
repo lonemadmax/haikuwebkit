@@ -327,14 +327,14 @@ void InlineDisplayContentBuilder::processNonBidiContent(const LineBuilder::LineC
     ASSERT(lineContent.inlineBaseDirection == TextDirection::LTR || !hasContent);
 #endif
     auto writingMode = root().style().writingMode();
-    auto contentStartInVisualOrder = displayLine.left() + displayLine.contentLeft();
+    auto contentStartInVisualOrder = movePointHorizontallyForWritingMode(displayLine.topLeft(), displayLine.contentLeft(), writingMode);
 
     for (auto& lineRun : lineContent.runs) {
         auto& layoutBox = lineRun.layoutBox();
 
         auto visualRectRelativeToRoot = [&](auto logicalRect) {
-            auto visualRect = flipLogicalRectToVisualForWritingMode(logicalRect, writingMode);
-            visualRect.moveBy({ contentStartInVisualOrder, displayLine.top() });
+            auto visualRect = flipLogicalRectToVisualForWritingModeWithinLine(logicalRect, lineBox.logicalRect(), writingMode);
+            visualRect.moveBy(contentStartInVisualOrder);
             return visualRect;
         };
 
@@ -562,7 +562,7 @@ void InlineDisplayContentBuilder::processBidiContent(const LineBuilder::LineCont
                 continue;
 
             auto visualRectRelativeToRoot = [&](auto logicalRect) {
-                auto visualRect = flipLogicalRectToVisualForWritingMode(logicalRect, writingMode);
+                auto visualRect = flipLogicalRectToVisualForWritingModeWithinLine(logicalRect, lineBox.logicalRect(), writingMode);
                 if (WebCore::isHorizontalWritingMode(writingMode))
                     visualRect.setLeft(contentRightInVisualOrder);
                 else
@@ -781,21 +781,43 @@ void InlineDisplayContentBuilder::computeIsFirstIsLastBoxForInlineContent(Displa
     boxes[lastRootInlineBoxIndex].setIsLastForLayoutBox(true);
 }
 
-InlineRect InlineDisplayContentBuilder::flipLogicalRectToVisualForWritingMode(const InlineRect& logicalRect, WritingMode writingMode)
+InlineRect InlineDisplayContentBuilder::flipLogicalRectToVisualForWritingModeWithinLine(const InlineRect& logicalRect, const InlineRect& lineLogicalRect, WritingMode writingMode) const
 {
     switch (writingMode) {
     case WritingMode::TopToBottom:
         return logicalRect;
-    case WritingMode::LeftToRight:
-    case WritingMode::RightToLeft: {
-        // See InlineFormattingGeometry for more info.
-        return InlineRect { logicalRect.left(), logicalRect.top(), logicalRect.height(), logicalRect.width() };
+    case WritingMode::LeftToRight: {
+        // Flip content such that the top (visual left) is now relative to the line bottom instead of the line top.
+        auto bottomOffset = lineLogicalRect.height() - logicalRect.bottom();
+        return { logicalRect.left(), bottomOffset, logicalRect.height(), logicalRect.width() };
     }
+    case WritingMode::RightToLeft:
+        // See InlineFormattingGeometry for more info.
+        return { logicalRect.left(), logicalRect.top(), logicalRect.height(), logicalRect.width() };
     default:
         ASSERT_NOT_REACHED();
         break;
     }
     return logicalRect;
+}
+
+InlineLayoutPoint InlineDisplayContentBuilder::movePointHorizontallyForWritingMode(const InlineLayoutPoint& logicalPoint, InlineLayoutUnit horizontalOffset, WritingMode writingMode) const
+{
+    auto visualPoint = logicalPoint;
+    switch (writingMode) {
+    case WritingMode::TopToBottom:
+        visualPoint.moveBy(FloatPoint { horizontalOffset, { } });
+        break;
+    case WritingMode::LeftToRight:
+    case WritingMode::RightToLeft: {
+        visualPoint.moveBy(FloatPoint { { }, horizontalOffset });
+        break;
+    }
+    default:
+        ASSERT_NOT_REACHED();
+        break;
+    }
+    return visualPoint;
 }
 
 }

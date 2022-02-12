@@ -170,8 +170,11 @@ void NetworkStorageManager::stopReceivingMessageFromConnection(IPC::Connection& 
 
     connection.removeWorkQueueMessageReceiver(Messages::NetworkStorageManager::messageReceiverName());
     m_queue->dispatch([this, protectedThis = Ref { *this }, connection = connection.uniqueID()]() mutable {
-        for (auto& originStorageManager : m_localOriginStorageManagers.values())
-            originStorageManager->connectionClosed(connection);
+        m_localOriginStorageManagers.removeIf([&](auto& entry) {
+            auto& manager = entry.value;
+            manager->connectionClosed(connection);
+            return !manager->isActive();
+        });
 
         RunLoop::main().dispatch([protectedThis = WTFMove(protectedThis)] { });
     });
@@ -210,7 +213,15 @@ OriginStorageManager& NetworkStorageManager::localOriginStorageManager(const Web
 
     return *m_localOriginStorageManagers.ensure(origin, [&] {
         auto originDirectory = originDirectoryPath(m_path, origin, m_salt);
-        writeOriginToFileIfNecessary(originFilePath(originDirectory), origin);
+        // Write origin file asynchronously to avoid delay in replying sync messages for Web Storage API.
+        if (!originDirectory.isEmpty()) {
+            m_queue->dispatch([this, protectedThis = Ref { *this }, origin, originDirectory]() mutable {
+                if (!m_localOriginStorageManagers.contains(origin))
+                    return;
+
+                writeOriginToFileIfNecessary(originFilePath(originDirectory), origin);
+            });
+        }
         return makeUnique<OriginStorageManager>(WTFMove(originDirectory), LocalStorageManager::localStorageFilePath(m_customLocalStoragePath, origin));
     }).iterator->value;
 }

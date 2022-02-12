@@ -235,17 +235,23 @@ bool DocumentTimeline::animationCanBeRemoved(WebAnimation& animation)
     if (!target || !target->element.isDescendantOf(*m_document))
         return false;
 
-    HashSet<CSSPropertyID> propertiesToMatch = keyframeEffect->animatedProperties();
+    ASSERT(target->renderer());
+    auto& style = target->renderer()->style();
 
-    Vector<RefPtr<WebAnimation>> animations;
-    if (auto* keyframeEffectStack = target->keyframeEffectStack()) {
-        for (auto& effect : keyframeEffectStack->sortedEffects()) {
-            if (effect->animation()->isRelevant())
-                animations.append(effect->animation());
+    HashSet<CSSPropertyID> propertiesToMatch;
+    for (auto cssProperty : keyframeEffect->animatedProperties())
+        propertiesToMatch.add(CSSProperty::resolveDirectionAwareProperty(cssProperty, style.direction(), style.writingMode()));
+
+    auto protectedAnimations = [&]() -> Vector<RefPtr<WebAnimation>> {
+        if (auto* effectStack = target->keyframeEffectStack()) {
+            return effectStack->sortedEffects().map([](auto& effect) -> RefPtr<WebAnimation> {
+                return effect->animation();
+            });
         }
-    }
+        return { };
+    }();
 
-    for (auto& animationWithHigherCompositeOrder : makeReversedRange(animations)) {
+    for (auto& animationWithHigherCompositeOrder : makeReversedRange(protectedAnimations)) {
         if (&animation == animationWithHigherCompositeOrder)
             break;
 
@@ -253,8 +259,9 @@ bool DocumentTimeline::animationCanBeRemoved(WebAnimation& animation)
             auto* effectWithHigherCompositeOrder = animationWithHigherCompositeOrder->effect();
             if (is<KeyframeEffect>(effectWithHigherCompositeOrder)) {
                 auto* keyframeEffectWithHigherCompositeOrder = downcast<KeyframeEffect>(effectWithHigherCompositeOrder);
-                for (auto cssPropertyId : keyframeEffectWithHigherCompositeOrder->animatedProperties()) {
-                    if (propertiesToMatch.remove(cssPropertyId) && propertiesToMatch.isEmpty())
+                for (auto cssProperty : keyframeEffectWithHigherCompositeOrder->animatedProperties()) {
+                    auto resolvedProperty = CSSProperty::resolveDirectionAwareProperty(cssProperty, style.direction(), style.writingMode());
+                    if (propertiesToMatch.remove(resolvedProperty) && propertiesToMatch.isEmpty())
                         break;
                 }
             }
@@ -336,77 +343,6 @@ void DocumentTimeline::scheduleNextTick()
         m_tickScheduleTimer.startOneShot(scheduleDelay);
 }
 
-bool DocumentTimeline::computeExtentOfAnimation(RenderElement& renderer, LayoutRect& bounds) const
-{
-    auto styleable = Styleable::fromRenderer(renderer);
-    if (!styleable)
-        return false;
-
-    auto* animations = styleable->animations();
-    if (!animations)
-        return false;
-
-    KeyframeEffect* matchingEffect = nullptr;
-    for (const auto& animation : *animations) {
-        auto* effect = animation->effect();
-        if (is<KeyframeEffect>(effect)) {
-            auto* keyframeEffect = downcast<KeyframeEffect>(effect);
-            if (keyframeEffect->animatedProperties().contains(CSSPropertyTransform))
-                matchingEffect = downcast<KeyframeEffect>(effect);
-        }
-    }
-
-    if (matchingEffect)
-        return matchingEffect->computeExtentOfTransformAnimation(bounds);
-
-    return true;
-}
-
-bool DocumentTimeline::isRunningAcceleratedAnimationOnRenderer(RenderElement& renderer, CSSPropertyID property) const
-{
-    auto styleable = Styleable::fromRenderer(renderer);
-    if (!styleable)
-        return false;
-
-    auto* animations = styleable->animations();
-    if (!animations)
-        return false;
-
-    for (const auto& animation : *animations) {
-        auto playState = animation->playState();
-        if (playState != WebAnimation::PlayState::Running && playState != WebAnimation::PlayState::Paused)
-            continue;
-        auto* effect = animation->effect();
-        if (is<KeyframeEffect>(effect)) {
-            auto* keyframeEffect = downcast<KeyframeEffect>(effect);
-            if (keyframeEffect->isCurrentlyAffectingProperty(property, KeyframeEffect::Accelerated::Yes))
-                return true;
-        }
-    }
-
-    return false;
-}
-
-std::unique_ptr<RenderStyle> DocumentTimeline::animatedStyleForRenderer(RenderElement& renderer)
-{
-    auto styleable = Styleable::fromRenderer(renderer);
-    if (!styleable)
-        return RenderStyle::clonePtr(renderer.style());
-
-    auto* effectStack = styleable->keyframeEffectStack();
-    if (!effectStack)
-        return RenderStyle::clonePtr(renderer.style());
-
-    std::unique_ptr<RenderStyle> result;
-    for (const auto& effect : effectStack->sortedEffects())
-        effect->getAnimatedStyle(result);
-
-    if (!result)
-        result = RenderStyle::clonePtr(renderer.style());
-
-    return result;
-}
-
 void DocumentTimeline::animationAcceleratedRunningStateDidChange(WebAnimation& animation)
 {
     m_acceleratedAnimationsPendingRunningStateChange.add(&animation);
@@ -448,24 +384,6 @@ void DocumentTimeline::applyPendingAcceleratedAnimations()
 
     for (auto& effectStack : effectStacksContainingEffectThatFailedToRunAcceleratedTransformRelatedAnimation)
         effectStack->stopAcceleratingTransformRelatedProperties(UseAcceleratedAction::No);
-}
-
-bool DocumentTimeline::runningAnimationsForRendererAreAllAccelerated(const RenderBoxModelObject& renderer) const
-{
-    auto styleable = Styleable::fromRenderer(renderer);
-    if (!styleable)
-        return false;
-
-    auto* animations = styleable->animations();
-    if (!animations || animations->isEmpty())
-        return false;
-
-    for (const auto& animation : *animations) {
-        if (!animation->isRunningAccelerated())
-            return false;
-    }
-
-    return true;
 }
 
 void DocumentTimeline::enqueueAnimationEvent(AnimationEventBase& event)

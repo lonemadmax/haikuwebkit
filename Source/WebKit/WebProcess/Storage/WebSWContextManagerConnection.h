@@ -37,7 +37,6 @@
 #include "WebPageProxyIdentifier.h"
 #include "WebPreferencesStore.h"
 #include "WebSWContextManagerConnectionMessagesReplies.h"
-#include <WebCore/EmptyFrameLoaderClient.h>
 #include <WebCore/SWContextManager.h>
 #include <WebCore/ServiceWorkerClientData.h>
 #include <WebCore/ServiceWorkerTypes.h>
@@ -56,13 +55,13 @@ enum class WorkerThreadMode : bool;
 
 namespace WebKit {
 
-class ServiceWorkerFrameLoaderClient;
-struct ServiceWorkerInitializationData;
+class RemoteWorkerFrameLoaderClient;
 class WebUserContentController;
+struct RemoteWorkerInitializationData;
 
 class WebSWContextManagerConnection final : public WebCore::SWContextManager::Connection, public IPC::MessageReceiver {
 public:
-    WebSWContextManagerConnection(Ref<IPC::Connection>&&, WebCore::RegistrableDomain&&, std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, PageGroupIdentifier, WebPageProxyIdentifier, WebCore::PageIdentifier, const WebPreferencesStore&, ServiceWorkerInitializationData&&);
+    WebSWContextManagerConnection(Ref<IPC::Connection>&&, WebCore::RegistrableDomain&&, std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, PageGroupIdentifier, WebPageProxyIdentifier, WebCore::PageIdentifier, const WebPreferencesStore&, RemoteWorkerInitializationData&&);
     ~WebSWContextManagerConnection();
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
@@ -115,7 +114,7 @@ private:
     WebPageProxyIdentifier m_webPageProxyID;
     WebCore::PageIdentifier m_pageID;
 
-    HashSet<std::unique_ptr<ServiceWorkerFrameLoaderClient>> m_loaders;
+    HashSet<std::unique_ptr<RemoteWorkerFrameLoaderClient>> m_loaders;
     HashMap<uint64_t, WebCore::ServiceWorkerClientsMatchAllCallback> m_matchAllRequests;
     uint64_t m_previousRequestIdentifier { 0 };
     String m_userAgent;
@@ -124,35 +123,6 @@ private:
     std::optional<WebPreferencesStore> m_preferencesStore;
 };
 
-class ServiceWorkerFrameLoaderClient final : public WebCore::EmptyFrameLoaderClient {
-public:
-    ServiceWorkerFrameLoaderClient(WebPageProxyIdentifier, WebCore::PageIdentifier, WebCore::FrameIdentifier, const String& userAgent);
-
-    WebPageProxyIdentifier webPageProxyID() const { return m_webPageProxyID; }
-
-    void setUserAgent(String&& userAgent) { m_userAgent = WTFMove(userAgent); }
-
-private:
-    Ref<WebCore::DocumentLoader> createDocumentLoader(const WebCore::ResourceRequest&, const WebCore::SubstituteData&) final;
-
-    std::optional<WebCore::PageIdentifier> pageID() const final { return m_pageID; }
-    std::optional<WebCore::FrameIdentifier> frameID() const final { return m_frameID; }
-
-    bool shouldUseCredentialStorage(WebCore::DocumentLoader*, WebCore::ResourceLoaderIdentifier) final { return true; }
-    bool isServiceWorkerFrameLoaderClient() const final { return true; }
-
-    String userAgent(const URL&) const final { return m_userAgent; }
-
-    WebPageProxyIdentifier m_webPageProxyID;
-    WebCore::PageIdentifier m_pageID;
-    WebCore::FrameIdentifier m_frameID;
-    String m_userAgent;
-};
-
 } // namespace WebKit
-
-SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::ServiceWorkerFrameLoaderClient)
-    static bool isType(const WebCore::FrameLoaderClient& frameLoaderClient) { return frameLoaderClient.isServiceWorkerFrameLoaderClient(); }
-SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ENABLE(SERVICE_WORKER)

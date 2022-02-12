@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -116,30 +116,25 @@ void RemoteDisplayListRecorder::setStrokeThickness(float thickness)
 
 void RemoteDisplayListRecorder::setState(DisplayList::SetState&& item)
 {
-    // Immediately turn the RenderingResourceIdentifier (which is error-prone) to a QualifiedRenderingResourceIdentifier,
-    // and use a helper function to make sure that don't accidentally use the RenderingResourceIdentifier (because the helper function can't see it).
-    auto strokePatternImageIdentifier = item.strokePatternImageIdentifier();
-    auto fillPatternImageIdentifier = item.fillPatternImageIdentifier();
-    setStateWithQualifiedIdentifiers(WTFMove(item), { strokePatternImageIdentifier, m_webProcessIdentifier }, { fillPatternImageIdentifier, m_webProcessIdentifier });
-}
+    auto fixPatternTileImage = [&](Pattern* pattern) -> bool {
+        if (!pattern)
+            return true;
+        auto sourceImage = resourceCache().cachedSourceImage({ pattern->tileImage().imageIdentifier(), m_webProcessIdentifier });
+        if (!sourceImage) {
+            ASSERT_NOT_REACHED();
+            return false;
+        }
+        pattern->setTileImage(WTFMove(*sourceImage));
+        return true;
+    };
 
-void RemoteDisplayListRecorder::setStateWithQualifiedIdentifiers(DisplayList::SetState&& item, QualifiedRenderingResourceIdentifier strokePatternImageIdentifier, QualifiedRenderingResourceIdentifier fillPatternImageIdentifier)
-{
-    RefPtr<NativeImage> strokePatternImage;
-    if (strokePatternImageIdentifier)
-        strokePatternImage = resourceCache().cachedNativeImage(strokePatternImageIdentifier);
+    if (!fixPatternTileImage(item.stateChange().m_state.strokePattern.get()))
+        return;
 
-    RefPtr<NativeImage> fillPatternImage;
-    if (fillPatternImageIdentifier)
-        fillPatternImage = resourceCache().cachedNativeImage(fillPatternImageIdentifier);
+    if (!fixPatternTileImage(item.stateChange().m_state.fillPattern.get()))
+        return;
 
-    handleItem(WTFMove(item), strokePatternImage.get(), fillPatternImage.get());
-
-    if (strokePatternImage)
-        resourceCache().recordResourceUse(strokePatternImageIdentifier);
-
-    if (fillPatternImage)
-        resourceCache().recordResourceUse(fillPatternImageIdentifier);
+    handleItem(WTFMove(item));
 }
 
 void RemoteDisplayListRecorder::setLineCap(LineCap lineCap)
@@ -193,7 +188,6 @@ void RemoteDisplayListRecorder::clipToImageBufferWithQualifiedIdentifier(Qualifi
     }
 
     handleItem(DisplayList::ClipToImageBuffer(imageBufferIdentifier.object(), destinationRect), *imageBuffer);
-    resourceCache().recordResourceUse(imageBufferIdentifier);
 }
 
 void RemoteDisplayListRecorder::clipOutToPath(const Path& path)
@@ -239,21 +233,13 @@ void RemoteDisplayListRecorder::drawFilteredImageBuffer(std::optional<RenderingR
     for (auto& effect : filter->effectsOfType(FilterEffect::Type::FEImage)) {
         auto& feImage = downcast<FEImage>(effect.get());
 
-        auto imageIdentifier = feImage.sourceImage().imageIdentifier();
-        if (!imageIdentifier) {
+        auto sourceImage = resourceCache().cachedSourceImage({ feImage.sourceImage().imageIdentifier(), m_webProcessIdentifier });
+        if (!sourceImage) {
             ASSERT_NOT_REACHED();
             return;
         }
 
-        if (auto nativeImage = resourceCache().cachedNativeImage({ imageIdentifier, m_webProcessIdentifier })) {
-            feImage.setImageSource({ *nativeImage });
-            continue;
-        }
-
-        if (auto imageBuffer = resourceCache().cachedImageBuffer({ imageIdentifier, m_webProcessIdentifier })) {
-            feImage.setImageSource({ *imageBuffer });
-            continue;
-        }
+        feImage.setImageSource(WTFMove(*sourceImage));
     }
 
     FilterResults results;
@@ -275,7 +261,6 @@ void RemoteDisplayListRecorder::drawGlyphsWithQualifiedIdentifier(DisplayList::D
     }
 
     handleItem(WTFMove(item), *font);
-    resourceCache().recordResourceUse(fontIdentifier);
 }
 
 void RemoteDisplayListRecorder::drawImageBuffer(RenderingResourceIdentifier imageBufferIdentifier, const FloatRect& destinationRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
@@ -294,7 +279,6 @@ void RemoteDisplayListRecorder::drawImageBufferWithQualifiedIdentifier(Qualified
     }
 
     handleItem(DisplayList::DrawImageBuffer(imageBufferIdentifier.object(), destinationRect, srcRect, options), *imageBuffer);
-    resourceCache().recordResourceUse(imageBufferIdentifier);
 }
 
 void RemoteDisplayListRecorder::drawNativeImage(RenderingResourceIdentifier imageIdentifier, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
@@ -313,7 +297,6 @@ void RemoteDisplayListRecorder::drawNativeImageWithQualifiedIdentifier(Qualified
     }
 
     handleItem(DisplayList::DrawNativeImage(imageIdentifier.object(), imageSize, destRect, srcRect, options), *image);
-    resourceCache().recordResourceUse(imageIdentifier);
 }
 
 void RemoteDisplayListRecorder::drawPattern(RenderingResourceIdentifier imageIdentifier, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& transform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
@@ -332,7 +315,6 @@ void RemoteDisplayListRecorder::drawPatternWithQualifiedIdentifier(QualifiedRend
     }
 
     handleItem(DisplayList::DrawPattern(imageIdentifier.object(), imageSize, destRect, tileRect, transform, phase, spacing, options), *image);
-    resourceCache().recordResourceUse(imageIdentifier);
 }
 
 void RemoteDisplayListRecorder::beginTransparencyLayer(float opacity)

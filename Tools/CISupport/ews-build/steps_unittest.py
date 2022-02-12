@@ -43,18 +43,18 @@ from twisted.trial import unittest
 from steps import (AnalyzeAPITestsResults, AnalyzeCompileWebKitResults, AnalyzeJSCTestsResults,
                    AnalyzeLayoutTestsResults, ApplyPatch, ApplyWatchList, ArchiveBuiltProduct, ArchiveTestResults,
                    CheckOutPullRequest, CheckOutSource, CheckOutSpecificRevision, CheckChangeRelevance, CheckPatchStatusOnEWSQueues, CheckStyle,
-                   CleanBuild, CleanUpGitIndexLock, CleanGitRepo, CleanWorkingDirectory, CompileJSC, CompileJSCWithoutPatch,
-                   CompileWebKit, CompileWebKitWithoutPatch, ConfigureBuild, ConfigureBuild, Contributors, CreateLocalGITCommit,
+                   CleanBuild, CleanUpGitIndexLock, CleanGitRepo, CleanWorkingDirectory, CompileJSC, CompileJSCWithoutChange,
+                   CompileWebKit, CompileWebKitWithoutChange, ConfigureBuild, ConfigureBuild, Contributors, CreateLocalGITCommit,
                    DownloadBuiltProduct, DownloadBuiltProductFromMaster, EWS_BUILD_HOSTNAME, ExtractBuiltProduct, ExtractTestResults,
                    FetchBranches, FindModifiedChangeLogs, FindModifiedLayoutTests, GitResetHard,
                    InstallBuiltProduct, InstallGtkDependencies, InstallWpeDependencies,
                    KillOldProcesses, PrintConfiguration, PushCommitToWebKitRepo, ReRunAPITests, ReRunWebKitPerlTests,
                    ReRunWebKitTests, RevertPullRequestChanges, RunAPITests, RunAPITestsWithoutPatch, RunBindingsTests, RunBuildWebKitOrgUnitTests,
                    RunBuildbotCheckConfigForBuildWebKit, RunBuildbotCheckConfigForEWS, RunEWSUnitTests, RunResultsdbpyTests,
-                   RunJavaScriptCoreTests, RunJSCTestsWithoutPatch, RunWebKit1Tests, RunWebKitPerlTests, RunWebKitPyPython2Tests,
+                   RunJavaScriptCoreTests, RunJSCTestsWithoutChange, RunWebKit1Tests, RunWebKitPerlTests, RunWebKitPyPython2Tests,
                    RunWebKitPyPython3Tests, RunWebKitTests, RunWebKitTestsInStressMode, RunWebKitTestsInStressGuardmallocMode,
-                   RunWebKitTestsWithoutPatch, RunWebKitTestsRedTree, RunWebKitTestsRepeatFailuresRedTree, RunWebKitTestsRepeatFailuresWithoutPatchRedTree,
-                   RunWebKitTestsWithoutPatchRedTree, AnalyzeLayoutTestsResultsRedTree, TestWithFailureCount, ShowIdentifier,
+                   RunWebKitTestsWithoutChange, RunWebKitTestsRedTree, RunWebKitTestsRepeatFailuresRedTree, RunWebKitTestsRepeatFailuresWithoutPatchRedTree,
+                   RunWebKitTestsWithoutChangeRedTree, AnalyzeLayoutTestsResultsRedTree, TestWithFailureCount, ShowIdentifier,
                    Trigger, TransferToS3, UnApplyPatch, UpdateWorkingDirectory, UploadBuiltProduct,
                    UploadTestResults, ValidateChangeLogAndReviewer, ValidateCommiterAndReviewer, ValidateChange, VerifyGitHubIntegrity)
 
@@ -1164,7 +1164,7 @@ class TestCompileWebKit(BuildStepMixinAdditions, unittest.TestCase):
         return self.runStep()
 
 
-class TestCompileWebKitWithoutPatch(BuildStepMixinAdditions, unittest.TestCase):
+class TestCompileWebKitWithoutChange(BuildStepMixinAdditions, unittest.TestCase):
     def setUp(self):
         self.longMessage = True
         return self.setUpBuildStep()
@@ -1173,7 +1173,7 @@ class TestCompileWebKitWithoutPatch(BuildStepMixinAdditions, unittest.TestCase):
         return self.tearDownBuildStep()
 
     def test_success(self):
-        self.setupStep(CompileWebKitWithoutPatch())
+        self.setupStep(CompileWebKitWithoutChange())
         self.setProperty('fullPlatform', 'ios-simulator-11')
         self.setProperty('configuration', 'release')
         self.expectRemoteCommands(
@@ -1187,7 +1187,7 @@ class TestCompileWebKitWithoutPatch(BuildStepMixinAdditions, unittest.TestCase):
         return self.runStep()
 
     def test_failure(self):
-        self.setupStep(CompileWebKitWithoutPatch())
+        self.setupStep(CompileWebKitWithoutChange())
         self.setProperty('fullPlatform', 'mac-sierra')
         self.setProperty('configuration', 'debug')
         self.expectRemoteCommands(
@@ -1214,7 +1214,7 @@ class TestAnalyzeCompileWebKitResults(BuildStepMixinAdditions, unittest.TestCase
     def test_patch_with_build_failure(self):
         previous_steps = [
             mock_step(CompileWebKit(), results=FAILURE),
-            mock_step(CompileWebKitWithoutPatch(), results=SUCCESS),
+            mock_step(CompileWebKitWithoutChange(), results=SUCCESS),
         ]
         self.setupStep(AnalyzeCompileWebKitResults(), previous_steps=previous_steps)
         self.setProperty('patch_id', '1234')
@@ -1224,10 +1224,23 @@ class TestAnalyzeCompileWebKitResults(BuildStepMixinAdditions, unittest.TestCase
         self.assertEqual(self.getProperty('build_finish_summary'), 'Patch 1234 does not build')
         return rc
 
+    def test_pull_request_with_build_failure(self):
+        previous_steps = [
+            mock_step(CompileWebKit(), results=FAILURE),
+            mock_step(CompileWebKitWithoutChange(), results=SUCCESS),
+        ]
+        self.setupStep(AnalyzeCompileWebKitResults(), previous_steps=previous_steps)
+        self.setProperty('github.number', '1234')
+        self.setProperty('github.head.sha', '7496f8ecc4cc8011f19c8cc1bc7b18fe4a88ad5c')
+        self.expectOutcome(result=FAILURE, state_string='Hash 7496f8ec for PR 1234 does not build (failure)')
+        rc = self.runStep()
+        self.assertEqual(self.getProperty('build_finish_summary'), 'Hash 7496f8ec for PR 1234 does not build')
+        return rc
+
     def test_patch_with_build_failure_on_commit_queue(self):
         previous_steps = [
             mock_step(CompileWebKit(), results=FAILURE),
-            mock_step(CompileWebKitWithoutPatch(), results=SUCCESS),
+            mock_step(CompileWebKitWithoutChange(), results=SUCCESS),
         ]
         self.setupStep(AnalyzeCompileWebKitResults(), previous_steps=previous_steps)
         self.setProperty('patch_id', '1234')
@@ -1241,7 +1254,7 @@ class TestAnalyzeCompileWebKitResults(BuildStepMixinAdditions, unittest.TestCase
     def test_patch_with_trunk_failure(self):
         previous_steps = [
             mock_step(CompileWebKit(), results=FAILURE),
-            mock_step(CompileWebKitWithoutPatch(), results=FAILURE),
+            mock_step(CompileWebKitWithoutChange(), results=FAILURE),
         ]
         self.setupStep(AnalyzeCompileWebKitResults(), previous_steps=previous_steps)
         self.expectOutcome(result=FAILURE, state_string='Unable to build WebKit without patch, retrying build (failure)')
@@ -1304,7 +1317,7 @@ class TestCompileJSC(BuildStepMixinAdditions, unittest.TestCase):
         return self.runStep()
 
 
-class TestCompileJSCWithoutPatch(BuildStepMixinAdditions, unittest.TestCase):
+class TestCompileJSCWithoutChange(BuildStepMixinAdditions, unittest.TestCase):
     def setUp(self):
         self.longMessage = True
         return self.setUpBuildStep()
@@ -1313,7 +1326,7 @@ class TestCompileJSCWithoutPatch(BuildStepMixinAdditions, unittest.TestCase):
         return self.tearDownBuildStep()
 
     def test_success(self):
-        self.setupStep(CompileJSCWithoutPatch())
+        self.setupStep(CompileJSCWithoutChange())
         self.setProperty('fullPlatform', 'jsc-only')
         self.setProperty('configuration', 'release')
         self.expectRemoteCommands(
@@ -1327,7 +1340,7 @@ class TestCompileJSCWithoutPatch(BuildStepMixinAdditions, unittest.TestCase):
         return self.runStep()
 
     def test_failure(self):
-        self.setupStep(CompileJSCWithoutPatch())
+        self.setupStep(CompileJSCWithoutChange())
         self.setProperty('fullPlatform', 'jsc-only')
         self.setProperty('configuration', 'debug')
         self.expectRemoteCommands(
@@ -1513,18 +1526,18 @@ class TestRunJavaScriptCoreTests(BuildStepMixinAdditions, unittest.TestCase):
         return rc
 
 
-class TestRunJSCTestsWithoutPatch(BuildStepMixinAdditions, unittest.TestCase):
+class TestRunJSCTestsWithoutChange(BuildStepMixinAdditions, unittest.TestCase):
     def setUp(self):
         self.longMessage = True
         self.jsonFileName = 'jsc_results.json'
-        self.command_extra = RunJSCTestsWithoutPatch.command_extra
+        self.command_extra = RunJSCTestsWithoutChange.command_extra
         return self.setUpBuildStep()
 
     def tearDown(self):
         return self.tearDownBuildStep()
 
     def test_success(self):
-        self.setupStep(RunJSCTestsWithoutPatch())
+        self.setupStep(RunJSCTestsWithoutChange())
         self.setProperty('fullPlatform', 'jsc-only')
         self.setProperty('configuration', 'release')
         self.expectRemoteCommands(
@@ -1539,7 +1552,7 @@ class TestRunJSCTestsWithoutPatch(BuildStepMixinAdditions, unittest.TestCase):
         return self.runStep()
 
     def test_failure(self):
-        self.setupStep(RunJSCTestsWithoutPatch())
+        self.setupStep(RunJSCTestsWithoutChange())
         self.setProperty('fullPlatform', 'jsc-only')
         self.setProperty('configuration', 'debug')
         self.expectRemoteCommands(
@@ -2064,7 +2077,7 @@ class TestRunWebKitTestsInStressGuardmallocMode(BuildStepMixinAdditions, unittes
         return rc
 
 
-class TestRunWebKitTestsWithoutPatch(BuildStepMixinAdditions, unittest.TestCase):
+class TestRunWebKitTestsWithoutChange(BuildStepMixinAdditions, unittest.TestCase):
     def setUp(self):
         self.longMessage = True
         self.jsonFileName = 'layout-test-results/full_results.json'
@@ -2074,7 +2087,7 @@ class TestRunWebKitTestsWithoutPatch(BuildStepMixinAdditions, unittest.TestCase)
         return self.tearDownBuildStep()
 
     def configureStep(self):
-        self.setupStep(RunWebKitTestsWithoutPatch())
+        self.setupStep(RunWebKitTestsWithoutChange())
         self.property_exceed_failure_limit = 'clean_tree_results_exceed_failure_limit'
         self.property_failures = 'clean_tree_run_failures'
         self.setProperty('buildername', 'iOS-13-Simulator-WK2-Tests-EWS')
@@ -4918,8 +4931,13 @@ class TestPushCommitToWebKitRepo(BuildStepMixinAdditions, unittest.TestCase):
             )
         )
 
+    @classmethod
+    def mock_sleep(cls):
+        return patch('time.sleep', lambda _: None)
+
+
     def test_success(self):
-        with self.mock_commits_webkit_org(identifier='220797@main'):
+        with self.mock_commits_webkit_org(identifier='220797@main'), self.mock_sleep():
             self.setupStep(PushCommitToWebKitRepo())
             self.setProperty('patch_id', '1234')
             self.expectRemoteCommands(
@@ -4939,7 +4957,7 @@ class TestPushCommitToWebKitRepo(BuildStepMixinAdditions, unittest.TestCase):
             return rc
 
     def test_success_no_identifier(self):
-        with self.mock_commits_webkit_org():
+        with self.mock_commits_webkit_org(), self.mock_sleep():
             self.setupStep(PushCommitToWebKitRepo())
             self.setProperty('patch_id', '1234')
             self.expectRemoteCommands(
@@ -4959,42 +4977,44 @@ class TestPushCommitToWebKitRepo(BuildStepMixinAdditions, unittest.TestCase):
             return rc
 
     def test_failure_retry(self):
-        self.setupStep(PushCommitToWebKitRepo())
-        self.setProperty('patch_id', '2345')
-        self.expectRemoteCommands(
-            ExpectShell(workdir='wkdir',
-                        timeout=300,
-                        logEnviron=False,
-                        command=['git', 'svn', 'dcommit', '--rmdir']) +
-            ExpectShell.log('stdio', stdout='Unexpected failure') +
-            2,
-        )
-        self.expectOutcome(result=FAILURE, state_string='Failed to push commit to Webkit repository')
-        with current_hostname(EWS_BUILD_HOSTNAME):
-            rc = self.runStep()
-        self.assertEqual(self.getProperty('retry_count'), 1)
-        self.assertEqual(self.getProperty('build_finish_summary'), None)
-        self.assertEqual(self.getProperty('bugzilla_comment_text'), None)
-        return rc
+        with self.mock_sleep():
+            self.setupStep(PushCommitToWebKitRepo())
+            self.setProperty('patch_id', '2345')
+            self.expectRemoteCommands(
+                ExpectShell(workdir='wkdir',
+                            timeout=300,
+                            logEnviron=False,
+                            command=['git', 'svn', 'dcommit', '--rmdir']) +
+                ExpectShell.log('stdio', stdout='Unexpected failure') +
+                2,
+            )
+            self.expectOutcome(result=FAILURE, state_string='Failed to push commit to Webkit repository')
+            with current_hostname(EWS_BUILD_HOSTNAME):
+                rc = self.runStep()
+            self.assertEqual(self.getProperty('retry_count'), 1)
+            self.assertEqual(self.getProperty('build_finish_summary'), None)
+            self.assertEqual(self.getProperty('bugzilla_comment_text'), None)
+            return rc
 
     def test_failure(self):
-        self.setupStep(PushCommitToWebKitRepo())
-        self.setProperty('retry_count', PushCommitToWebKitRepo.MAX_RETRY)
-        self.setProperty('patch_id', '2345')
-        self.expectRemoteCommands(
-            ExpectShell(workdir='wkdir',
-                        timeout=300,
-                        logEnviron=False,
-                        command=['git', 'svn', 'dcommit', '--rmdir']) +
-            ExpectShell.log('stdio', stdout='Unexpected failure') +
-            2,
-        )
-        self.expectOutcome(result=FAILURE, state_string='Failed to push commit to Webkit repository')
-        with current_hostname(EWS_BUILD_HOSTNAME):
-            rc = self.runStep()
-        self.assertEqual(self.getProperty('build_finish_summary'), 'Failed to commit to WebKit repository')
-        self.assertEqual(self.getProperty('bugzilla_comment_text'), 'commit-queue failed to commit attachment 2345 to WebKit repository. To retry, please set cq+ flag again.')
-        return rc
+        with self.mock_sleep():
+            self.setupStep(PushCommitToWebKitRepo())
+            self.setProperty('retry_count', PushCommitToWebKitRepo.MAX_RETRY)
+            self.setProperty('patch_id', '2345')
+            self.expectRemoteCommands(
+                ExpectShell(workdir='wkdir',
+                            timeout=300,
+                            logEnviron=False,
+                            command=['git', 'svn', 'dcommit', '--rmdir']) +
+                ExpectShell.log('stdio', stdout='Unexpected failure') +
+                2,
+            )
+            self.expectOutcome(result=FAILURE, state_string='Failed to push commit to Webkit repository')
+            with current_hostname(EWS_BUILD_HOSTNAME):
+                rc = self.runStep()
+            self.assertEqual(self.getProperty('build_finish_summary'), 'Failed to commit to WebKit repository')
+            self.assertEqual(self.getProperty('bugzilla_comment_text'), 'commit-queue failed to commit attachment 2345 to WebKit repository. To retry, please set cq+ flag again.')
+            return rc
 
 
 class TestShowIdentifier(BuildStepMixinAdditions, unittest.TestCase):

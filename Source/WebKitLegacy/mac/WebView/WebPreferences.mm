@@ -2880,14 +2880,14 @@ static RetainPtr<NSString>& classIBCreatorID()
     [self _setBoolValue:flag forKey:WebKitMediaCapabilitiesEnabledPreferenceKey];
 }
 
-- (BOOL)selectionAcrossShadowBoundariesEnabled
+- (BOOL)cssDisplayContentsAXSupportEnabled
 {
-    return [self _boolValueForKey:WebKitSelectionAcrossShadowBoundariesEnabledPreferenceKey];
+    return [self _boolValueForKey:WebKitCSSDisplayContentsAXSupportEnabledPreferenceKey];
 }
 
-- (void)setSelectionAcrossShadowBoundariesEnabled:(BOOL)flag
+- (void)setCSSDisplayContentsAXSupportEnabled:(BOOL)flag
 {
-    [self _setBoolValue:flag forKey:WebKitSelectionAcrossShadowBoundariesEnabledPreferenceKey];
+    [self _setBoolValue:flag forKey:WebKitCSSDisplayContentsAXSupportEnabledPreferenceKey];
 }
 
 - (BOOL)cssLogicalEnabled
@@ -3430,7 +3430,7 @@ static RetainPtr<NSString>& classIBCreatorID()
 
 - (BOOL)keygenElementEnabled
 {
-    return false;
+    return NO;
 }
 
 - (void)setKeygenElementEnabled:(BOOL)flag
@@ -3477,9 +3477,18 @@ static RetainPtr<NSString>& classIBCreatorID()
     return NO;
 }
 
+- (BOOL)selectionAcrossShadowBoundariesEnabled
+{
+    return YES;
+}
+
+- (void)setSelectionAcrossShadowBoundariesEnabled:(BOOL)flag
+{
+}
+
 - (BOOL)isXSSAuditorEnabled
 {
-    return FALSE;
+    return NO;
 }
 
 - (void)setXSSAuditorEnabled:(BOOL)flag

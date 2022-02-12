@@ -36,6 +36,15 @@
 namespace WebCore {
 namespace Layout {
 
+static bool fallbackFontHasVerticalGlyph(const TextUtil::FallbackFontList& fallbackFontList)
+{
+    for (auto* font : fallbackFontList) {
+        if (font->hasVerticalGlyphs())
+            return true;
+    }
+    return false;
+}
+
 static std::optional<InlineLayoutUnit> horizontalAlignmentOffset(TextAlignMode textAlign, const LineBuilder::LineContent& lineContent, bool isLeftToRightDirection)
 {
     // Depending on the line’s alignment/justification, the hanging glyph can be placed outside the line box.
@@ -103,17 +112,20 @@ LineBoxBuilder::LineBoxBuilder(const InlineFormattingContext& inlineFormattingCo
 {
 }
 
-LineBoxBuilder::LineBoxAndHeight LineBoxBuilder::build(const LineBuilder::LineContent& lineContent, size_t lineIndex)
+LineBox LineBoxBuilder::build(const LineBuilder::LineContent& lineContent, size_t lineIndex)
 {
     auto& rootStyle = lineIndex ? rootBox().firstLineStyle() : rootBox().style();
     auto rootInlineBoxAlignmentOffset = valueOrDefault(Layout::horizontalAlignmentOffset(rootStyle.textAlign(), lineContent, lineContent.inlineBaseDirection == TextDirection::LTR));
     // FIXME: The overflowing hanging content should be part of the ink overflow.  
     auto lineBox = LineBox { rootBox(), rootInlineBoxAlignmentOffset, lineContent.contentLogicalWidth - lineContent.hangingContentWidth, lineIndex, lineContent.nonSpanningInlineLevelBoxCount };
-    auto lineBoxLogicalHeight = constructAndAlignInlineLevelBoxes(lineBox, lineContent, lineIndex);
-    return { lineBox, lineBoxLogicalHeight };
+    constructInlineLevelBoxes(lineBox, lineContent, lineIndex);
+    adjustIdeographicBaselineIfApplicable(lineBox, lineIndex);
+    auto lineBoxLogicalHeight = LineBoxVerticalAligner { formattingContext() }.computeLogicalHeightAndAlign(lineBox);
+    lineBox.setLogicalRect({ lineContent.lineLogicalTopLeft, lineContent.lineLogicalWidth, lineBoxLogicalHeight });
+    return lineBox;
 }
 
-void LineBoxBuilder::adjustVerticalGeometryForInlineBoxWithFallbackFonts(InlineLevelBox& inlineBox, const TextUtil::FallbackFontList& fallbackFontsForContent) const
+void LineBoxBuilder::adjustLayoutBoundsWithFallbackFonts(InlineLevelBox& inlineBox, const TextUtil::FallbackFontList& fallbackFontsForContent) const
 {
     ASSERT(!fallbackFontsForContent.isEmpty());
     ASSERT(inlineBox.isInlineBox());
@@ -148,75 +160,48 @@ void LineBoxBuilder::adjustVerticalGeometryForInlineBoxWithFallbackFonts(InlineL
     inlineBox.setLayoutBounds({ std::max(layoutBounds.ascent, floorf(maxAscent)), std::max(layoutBounds.descent, ceilf(maxDescent)) });
 }
 
-struct HeightAndLayoutBounds {
+struct LayoutBoundsMetrics {
     InlineLayoutUnit ascent { 0 };
     InlineLayoutUnit descent { 0 };
-    InlineLevelBox::LayoutBounds layoutBounds { };
+    InlineLayoutUnit lineSpacing { 0 };
+    std::optional<InlineLayoutUnit> preferredLineHeight;
 };
-static auto computedHeightAndLayoutBounds(const FontMetrics& fontMetrics, std::optional<InlineLayoutUnit> preferredLineHeight)
+static LayoutBoundsMetrics layoutBoundsMetricsForInlineBox(const InlineLevelBox& inlineBox, FontBaseline fontBaseline = AlphabeticBaseline)
 {
-    InlineLayoutUnit ascent = fontMetrics.ascent();
-    InlineLayoutUnit descent = fontMetrics.descent();
-    auto logicalHeight = ascent + descent;
+    ASSERT(inlineBox.isInlineBox());
+    auto& fontMetrics = inlineBox.primarymetricsOfPrimaryFont();
+    InlineLayoutUnit ascent = fontMetrics.ascent(fontBaseline);
+    InlineLayoutUnit descent = fontMetrics.descent(fontBaseline);
+    InlineLayoutUnit lineSpacing = fontMetrics.lineSpacing();
+    return { ascent, descent, lineSpacing, inlineBox.isPreferredLineHeightFontMetricsBased() ? std::nullopt : std::make_optional(inlineBox.preferredLineHeight()) };
+}
 
-    if (preferredLineHeight) {
+void LineBoxBuilder::setBaselineAndLayoutBounds(InlineLevelBox& inlineBox, const LayoutBoundsMetrics& layoutBoundsMetrics) const
+{
+    auto logicalHeight = layoutBoundsMetrics.ascent + layoutBoundsMetrics.descent;
+    auto halfLeading = InlineLayoutUnit { };
+    if (layoutBoundsMetrics.preferredLineHeight) {
         // If line-height computes to normal and either text-edge is leading or this is the root inline box,
         // the font’s line gap metric may also be incorporated into A and D by adding half to each side as half-leading.
         // https://www.w3.org/TR/css-inline-3/#inline-height
         // Since text-edge is not supported yet and the initial value is leading, we should just apply it to
         // all inline boxes.
-        auto halfLeading = (*preferredLineHeight - logicalHeight) / 2;
-        return HeightAndLayoutBounds { ascent, descent, { ascent + halfLeading, descent + halfLeading } };
+        halfLeading = (*layoutBoundsMetrics.preferredLineHeight - logicalHeight) / 2;
+    } else {
+        // Preferred line height is purely font metrics based (i.e glyphs stretch the line).
+        halfLeading = (layoutBoundsMetrics.lineSpacing - logicalHeight) / 2;
     }
-    // Preferred line height is purely font metrics based (i.e glyphs stretch the line).
-    auto halfLineGap = (fontMetrics.lineSpacing() - logicalHeight) / 2;
-    return HeightAndLayoutBounds { ascent, descent, { ascent + halfLineGap, descent + halfLineGap } };
-}
-
-void LineBoxBuilder::setVerticalGeometryForLineBreakBox(InlineLevelBox& lineBreakBox, const InlineLevelBox& parentInlineBox) const
-{
     // We need floor/ceil to match legacy layout integral positioning.
-    ASSERT(lineBreakBox.isLineBreakBox());
-    ASSERT(parentInlineBox.isInlineBox());
-
-    auto& fontMetrics = parentInlineBox.primaryFontMetrics();
-    auto preferredLineHeight = parentInlineBox.isPreferredLineHeightFontMetricsBased() ? std::nullopt : std::make_optional(parentInlineBox.preferredLineHeight());
-    auto heightAndLayoutBounds = computedHeightAndLayoutBounds(fontMetrics, preferredLineHeight);
-
-    lineBreakBox.setBaseline(floorf(heightAndLayoutBounds.ascent));
-    lineBreakBox.setDescent(ceilf(heightAndLayoutBounds.descent));
-    lineBreakBox.setLogicalHeight(heightAndLayoutBounds.ascent + heightAndLayoutBounds.descent);
-    lineBreakBox.setLayoutBounds({ floorf(heightAndLayoutBounds.layoutBounds.ascent), ceilf(heightAndLayoutBounds.layoutBounds.descent) });
+    inlineBox.setAscent(floorf(layoutBoundsMetrics.ascent));
+    inlineBox.setDescent(ceilf(layoutBoundsMetrics.descent));
+    inlineBox.setLogicalHeight(logicalHeight);
+    inlineBox.setLayoutBounds({ floorf(layoutBoundsMetrics.ascent + halfLeading), ceilf(layoutBoundsMetrics.descent + halfLeading) });
 }
 
-void LineBoxBuilder::setInitialVerticalGeometryForInlineBox(InlineLevelBox& inlineBox) const
-{
-    // We need floor/ceil to match legacy layout integral positioning.
-    ASSERT(inlineBox.isInlineBox());
-
-    auto& fontMetrics = inlineBox.primaryFontMetrics();
-    auto preferredLineHeight = inlineBox.isPreferredLineHeightFontMetricsBased() ? std::nullopt : std::make_optional(inlineBox.preferredLineHeight());
-    auto heightAndLayoutBounds = computedHeightAndLayoutBounds(fontMetrics, preferredLineHeight);
-
-    inlineBox.setBaseline(floorf(heightAndLayoutBounds.ascent));
-    inlineBox.setDescent(ceilf(heightAndLayoutBounds.descent));
-    inlineBox.setLogicalHeight(heightAndLayoutBounds.ascent + heightAndLayoutBounds.descent);
-    inlineBox.setLayoutBounds({ floorf(heightAndLayoutBounds.layoutBounds.ascent), ceilf(heightAndLayoutBounds.layoutBounds.descent) });
-}
-
-InlineLayoutUnit LineBoxBuilder::constructAndAlignInlineLevelBoxes(LineBox& lineBox, const LineBuilder::LineContent& lineContent, size_t lineIndex)
+void LineBoxBuilder::constructInlineLevelBoxes(LineBox& lineBox, const LineBuilder::LineContent& lineContent, size_t lineIndex)
 {
     auto& rootInlineBox = lineBox.rootInlineBox();
-    setInitialVerticalGeometryForInlineBox(rootInlineBox);
-
-    // FIXME: Add fast path support for line-height content.
-    // FIXME: We should always be able to exercise the fast path when the line has no content at all, even in non-standards mode or with line-height set.
-    auto canUseSimplifiedAlignment = layoutState().inStandardsMode() && rootInlineBox.isPreferredLineHeightFontMetricsBased();
-    auto updateCanUseSimplifiedAlignment = [&](auto& inlineLevelBox, std::optional<const BoxGeometry> boxGeometry = std::nullopt) {
-        if (!canUseSimplifiedAlignment)
-            return;
-        canUseSimplifiedAlignment = LineBoxVerticalAligner::canUseSimplifiedAlignmentForInlineLevelBox(rootInlineBox, inlineLevelBox, boxGeometry);
-    };
+    setBaselineAndLayoutBounds(rootInlineBox, layoutBoundsMetricsForInlineBox(rootInlineBox));
 
     auto styleToUse = [&] (const auto& layoutBox) -> const RenderStyle& {
         return !lineIndex ? layoutBox.firstLineStyle() : layoutBox.style();
@@ -271,9 +256,8 @@ InlineLayoutUnit LineBoxBuilder::constructAndAlignInlineLevelBoxes(LineBox& line
                 ascent = marginBoxHeight;
             logicalLeft += std::max(0_lu, inlineLevelBoxGeometry.marginStart());
             auto atomicInlineLevelBox = InlineLevelBox::createAtomicInlineLevelBox(layoutBox, style, logicalLeft, { inlineLevelBoxGeometry.borderBoxWidth(), marginBoxHeight });
-            atomicInlineLevelBox.setBaseline(ascent);
+            atomicInlineLevelBox.setAscent(ascent);
             atomicInlineLevelBox.setLayoutBounds(InlineLevelBox::LayoutBounds { ascent, marginBoxHeight - ascent });
-            updateCanUseSimplifiedAlignment(atomicInlineLevelBox, inlineLevelBoxGeometry);
             lineBox.addInlineLevelBox(WTFMove(atomicInlineLevelBox));
             continue;
         }
@@ -286,8 +270,7 @@ InlineLayoutUnit LineBoxBuilder::constructAndAlignInlineLevelBoxes(LineBox& line
             auto adjustedLogicalStart = logicalLeft + std::max(0.0f, marginStart);
             auto logicalWidth = rootInlineBox.logicalWidth() - adjustedLogicalStart;
             auto inlineBox = InlineLevelBox::createInlineBox(layoutBox, style, adjustedLogicalStart, logicalWidth, InlineLevelBox::LineSpanningInlineBox::Yes);
-            setInitialVerticalGeometryForInlineBox(inlineBox);
-            updateCanUseSimplifiedAlignment(inlineBox);
+            setBaselineAndLayoutBounds(inlineBox, layoutBoundsMetricsForInlineBox(inlineBox));
             lineBox.addInlineLevelBox(WTFMove(inlineBox));
             continue;
         }
@@ -302,8 +285,7 @@ InlineLayoutUnit LineBoxBuilder::constructAndAlignInlineLevelBoxes(LineBox& line
             initialLogicalWidth = std::max(initialLogicalWidth, 0.f);
             auto inlineBox = InlineLevelBox::createInlineBox(layoutBox, style, logicalLeft, initialLogicalWidth);
             inlineBox.setIsFirstBox();
-            setInitialVerticalGeometryForInlineBox(inlineBox);
-            updateCanUseSimplifiedAlignment(inlineBox);
+            setBaselineAndLayoutBounds(inlineBox, layoutBoundsMetricsForInlineBox(inlineBox));
             lineBox.addInlineLevelBox(WTFMove(inlineBox));
             continue;
         }
@@ -321,7 +303,6 @@ InlineLayoutUnit LineBoxBuilder::constructAndAlignInlineLevelBoxes(LineBox& line
             // make sure we don't end up with negative logical width on the inline box.
             inlineBox.setLogicalWidth(std::max(0.f, inlineBoxLogicalRight - inlineBox.logicalLeft()));
             inlineBox.setIsLastBox();
-            updateCanUseSimplifiedAlignment(inlineBox);
             continue;
         }
         if (run.isText()) {
@@ -330,8 +311,8 @@ InlineLayoutUnit LineBoxBuilder::constructAndAlignInlineLevelBoxes(LineBox& line
             auto fallbackFonts = TextUtil::fallbackFontsForRun(run, style);
             if (!fallbackFonts.isEmpty()) {
                 // Adjust non-empty inline box height when glyphs from the non-primary font stretch the box.
-                adjustVerticalGeometryForInlineBoxWithFallbackFonts(parentInlineBox, fallbackFonts);
-                updateCanUseSimplifiedAlignment(parentInlineBox);
+                m_fallbackFontRequiresIdeographicBaseline = m_fallbackFontRequiresIdeographicBaseline || fallbackFontHasVerticalGlyph(fallbackFonts);
+                adjustLayoutBoundsWithFallbackFonts(parentInlineBox, fallbackFonts);
             }
             continue;
         }
@@ -341,9 +322,7 @@ InlineLayoutUnit LineBoxBuilder::constructAndAlignInlineLevelBoxes(LineBox& line
         }
         if (run.isHardLineBreak()) {
             auto lineBreakBox = InlineLevelBox::createLineBreakBox(layoutBox, style, logicalLeft);
-            auto& parentInlineBox = lineBox.inlineLevelBoxForLayoutBox(layoutBox.parent());
-            setVerticalGeometryForLineBreakBox(lineBreakBox, parentInlineBox);
-            updateCanUseSimplifiedAlignment(lineBreakBox);
+            setBaselineAndLayoutBounds(lineBreakBox, layoutBoundsMetricsForInlineBox(lineBox.inlineLevelBoxForLayoutBox(layoutBox.parent())));
             lineBox.addInlineLevelBox(WTFMove(lineBreakBox));
             continue;
         }
@@ -353,12 +332,48 @@ InlineLayoutUnit LineBoxBuilder::constructAndAlignInlineLevelBoxes(LineBox& line
         }
         ASSERT_NOT_REACHED();
     }
-
     lineBox.setHasContent(lineHasContent);
+}
 
-    auto verticalAligner = LineBoxVerticalAligner { formattingContext() };
-    canUseSimplifiedAlignment = canUseSimplifiedAlignment || !lineHasContent;
-    return verticalAligner.computeLogicalHeightAndAlign(lineBox, canUseSimplifiedAlignment);
+void LineBoxBuilder::adjustIdeographicBaselineIfApplicable(LineBox& lineBox, size_t lineIndex)
+{
+    // Re-compute the ascent/descent values for the inline boxes on the line (including the root inline box)
+    // when the style/content needs ideographic baseline setup in vertical writing mode.
+    auto& rootInlineBox = lineBox.rootInlineBox();
+
+    auto lineNeedsIdeographicBaseline = [&] {
+        auto styleToUse = [&] (auto& inlineLevelBox) -> const RenderStyle& {
+            return !lineIndex ? inlineLevelBox.layoutBox().firstLineStyle() : inlineLevelBox.layoutBox().style();
+        };
+        auto& rootInlineBoxStyle = styleToUse(rootInlineBox);
+        if (rootInlineBoxStyle.isHorizontalWritingMode())
+            return false;
+
+        auto primaryFontRequiresIdeographicBaseline = [&] (auto& style) {
+            return style.fontDescription().orientation() == FontOrientation::Vertical || style.fontCascade().primaryFont().hasVerticalGlyphs();
+        };
+
+        if (m_fallbackFontRequiresIdeographicBaseline || primaryFontRequiresIdeographicBaseline(rootInlineBoxStyle))
+            return true;
+        for (auto& inlineLevelBox : lineBox.nonRootInlineLevelBoxes()) {
+            if (primaryFontRequiresIdeographicBaseline(styleToUse(inlineLevelBox)))
+                return true;
+        }
+        return false;
+    };
+
+    if (!lineNeedsIdeographicBaseline())
+        return;
+
+    setBaselineAndLayoutBounds(rootInlineBox, layoutBoundsMetricsForInlineBox(rootInlineBox, IdeographicBaseline));
+    for (auto& inlineLevelBox : lineBox.nonRootInlineLevelBoxes()) {
+        if (inlineLevelBox.isInlineBox())
+            setBaselineAndLayoutBounds(inlineLevelBox, layoutBoundsMetricsForInlineBox(inlineLevelBox, IdeographicBaseline));
+        else if (inlineLevelBox.isLineBreakBox()) {
+            auto& parentInlineBox = lineBox.inlineLevelBoxForLayoutBox(inlineLevelBox.layoutBox().parent());
+            setBaselineAndLayoutBounds(inlineLevelBox, layoutBoundsMetricsForInlineBox(parentInlineBox, IdeographicBaseline));
+        }
+    }
 }
 
 }

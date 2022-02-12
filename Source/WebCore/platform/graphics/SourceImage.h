@@ -42,18 +42,20 @@ public:
     SourceImage(ImageVariant&&);
 
     NativeImage* nativeImageIfExists() const;
-    NativeImage* nativeImage();
+    NativeImage* nativeImage() const;
 
     ImageBuffer* imageBufferIfExists() const;
-    ImageBuffer* imageBuffer();
+    ImageBuffer* imageBuffer() const;
 
     RenderingResourceIdentifier imageIdentifier() const;
+    IntSize size() const;
 
     template<class Encoder> void encode(Encoder&) const;
     template<class Decoder> static std::optional<SourceImage> decode(Decoder&);
 
 private:
     ImageVariant m_imageVariant;
+    mutable std::optional<ImageVariant> m_transformedImageVariant;
 };
 
 template<class Encoder>

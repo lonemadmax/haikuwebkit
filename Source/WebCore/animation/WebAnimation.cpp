@@ -1047,9 +1047,6 @@ ExceptionOr<void> WebAnimation::play(AutoRewind autoRewind)
 
     invalidateEffect();
 
-    if (m_effect)
-        m_effect->animationDidPlay();
-
     return { };
 }
 
@@ -1253,11 +1250,6 @@ void WebAnimation::runPendingPauseTask()
     timingDidChange(DidSeek::No, SynchronouslyNotify::No, Silently::Yes);
 
     invalidateEffect();
-}
-
-bool WebAnimation::isRunningAccelerated() const
-{
-    return is<KeyframeEffect>(m_effect) && downcast<KeyframeEffect>(*m_effect).isRunningAccelerated();
 }
 
 bool WebAnimation::needsTick() const

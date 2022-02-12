@@ -1,3 +1,98 @@
+2022-02-05  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Thread suspend and resume should take a global lock to avoid deadlock
+        https://bugs.webkit.org/show_bug.cgi?id=236159
+
+        Reviewed by Geoffrey Garen.
+
+        Introduce pas_thread_suspend_lock and take it when suspending and resuming threads.
+
+        * CMakeLists.txt:
+        * bmalloc.xcodeproj/project.pbxproj:
+        * libpas/src/libpas/pas_scavenger.c:
+        (scavenger_thread_main):
+        (pas_scavenger_clear_all_caches):
+        * libpas/src/libpas/pas_thread_local_cache.c:
+        (pas_thread_local_cache_for_all):
+        * libpas/src/libpas/pas_thread_local_cache.h:
+        * libpas/src/libpas/pas_thread_suspend_lock.c: Copied from Source/WTF/wtf/ThreadMessage.cpp.
+        * libpas/src/libpas/pas_thread_suspend_lock.h: Copied from Source/WTF/wtf/ThreadMessage.cpp.
+
+2022-02-04  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [libpas] Use os_unfair_lock instead of spinlock
+        https://bugs.webkit.org/show_bug.cgi?id=236158
+
+        Reviewed by Geoffrey Garen.
+
+        os_unfair_lock is very fast while it can properly suspend threads.
+        A/B test result was neutral on Speedometer2 and JetStream2. So, to
+        reduce unnecessary CPU spins, let's replace spinlock with os_unfair_lock
+        if it is supported (if OS is Darwin).
+
+        * libpas/src/libpas/pas_config.h:
+
+2022-02-04  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [libpas] allocation failure crash should be PAS_NEVER_INLINE
+        https://bugs.webkit.org/show_bug.cgi?id=236164
+
+        Reviewed by Saam Barati.
+
+        We introduce pas_allocation_result_crash_on_error function which can leave OOM crash
+        information in the crash log. To keep this non-inlined, we annotate it PAS_NEVER_INLINE.
+
+        * libpas/src/libpas/pas_allocation_result.h:
+        (pas_allocation_result_crash_on_error):
+        * libpas/src/libpas/pas_utils.c:
+        (pas_panic_on_out_of_memory_error):
+        * libpas/src/libpas/pas_utils.h:
+
+2022-02-03  Mikhail R. Gadelha  <mikhail@igalia.com>
+
+        Fix BSD compilation after r289056
+        https://bugs.webkit.org/show_bug.cgi?id=236086
+
+        Unreviewed, fixes missing header in BSD systems.
+
+        The include is moved up so it is included in both UNIX and BSD systems,
+        as adding the include in both #if triggers a code style warning (header
+        included twice), even though the includes are guarded.
+
+        * bmalloc/AvailableMemory.cpp:
+
+2022-02-03  Mikhail R. Gadelha  <mikhail@igalia.com>
+
+        Fix undefined behavior when querying linux memory size
+        https://bugs.webkit.org/show_bug.cgi?id=228280
+
+        Reviewed by Mark Lam.
+
+        When running JSC compiled with the undefined behavior sanitizer enabled in a 32 bits machine:
+
+        ../../Source/bmalloc/bmalloc/AvailableMemory.cpp:115:60: runtime error:
+        signed integer overflow: 32839056 * 4096 cannot be represented in type 'long int'
+
+        This patch slighly rewrites how the available memory is calculated to
+        use sysinfo (like it's done for FREEBSD).
+
+        * bmalloc/AvailableMemory.cpp:
+        (bmalloc::LinuxMemory::singleton):
+        (bmalloc::computeAvailableMemory):
+        (bmalloc::memoryStatus):
+
+2022-01-31  David Kilzer  <ddkilzer@apple.com>
+
+        [libpas] get_num_free_bytes_for_each_heap_callback() is called with `arg` pointing to uninitialized stack memory
+        <https://webkit.org/b/235931>
+        <rdar://problem/88303899>
+
+        Reviewed by Yusuke Suzuki.
+
+        * libpas/src/libpas/pas_all_heaps.c:
+        (pas_all_heaps_get_num_free_bytes):
+        - Initialize `result` stack variable to zero.
+
 2022-01-21  Commit Queue  <commit-queue@webkit.org>
 
         Unreviewed, reverting r288400.

@@ -1,3 +1,526 @@
+2022-02-06  Lauro Moura  <lmoura@igalia.com>
+
+        Unreviewed, non-unified build fixes
+        https://bugs.webkit.org/show_bug.cgi?id=236216
+
+        This missing include was causing non-unified builds to fail linking
+        libWPEWebkit with undefined JSC::Structure::get(...) after dropping
+        gold as the default linker in 246713@main.
+
+        * wasm/js/JSWebAssemblyException.cpp:
+
+2022-02-06  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [Wasm] ref.null check should be done first in B3 call_ref
+        https://bugs.webkit.org/show_bug.cgi?id=236206
+
+        Reviewed by Mark Lam.
+
+        We should first check ref.null before loading data from the reference in B3 call_ref.
+
+        * wasm/WasmB3IRGenerator.cpp:
+        (JSC::Wasm::B3IRGenerator::addCallRef):
+
+2022-02-06  Cameron McCormack  <heycam@apple.com>
+
+        Cache the most recent AtomString produced by JSString::toIdentifier
+        https://bugs.webkit.org/show_bug.cgi?id=236124
+
+        Reviewed by Yusuke Suzuki.
+
+        JSString::toIdentifier does not store the result of atomizing its string
+        value, except when it is a rope. We can often end up atomizing the same
+        JSString a number of times.
+
+        This patch caches the last atomized string produced from
+        JSString::toIdentifier in a given VM. From local testing, this is a 0.5%
+        Speedometer2 improvement on an M1 MacBook Air, although surprisingly is
+        neutral on a recent Intel MacBook Pro.
+
+        * runtime/JSString.h:
+        (JSC::JSRopeString::toIdentifier const):
+        (JSC::JSString::toIdentifier const):
+        * runtime/VM.h:
+
+2022-02-06  David Kilzer  <ddkilzer@apple.com>
+
+        [WASM] Fix clang tidy bugprone-move-forwarding-reference static analyzer warnings in WasmLLIntGenerator.cpp
+        <https://webkit.org/b/236202>
+        <rdar://problem/88545940>
+
+        Reviewed by Yusuke Suzuki.
+
+        * wasm/WasmLLIntGenerator.cpp:
+        (JSC::Wasm::LLIntGenerator::ControlType::ControlType):
+        - Replace WTFMove() with std::forward<>().
+
+2022-02-06  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, follow-up after r289172
+        https://bugs.webkit.org/show_bug.cgi?id=236180
+
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+
+2022-02-06  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [WTF] Make Bitmap constexpr friendly
+        https://bugs.webkit.org/show_bug.cgi?id=236180
+
+        Reviewed by Darin Adler.
+
+        This patch makes Bitmap more constexpr friendly so that JSGlobalObjectFunctions's
+        functions can compile Bitmap as constexpr, which avoids possible race condition.
+
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::makeCharacterBitmap):
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+
+2022-02-06  Alexey Shvayka  <ashvayka@apple.com>
+
+        Object literal doesn't properly resolve name clash between an accessor and a constant property
+        https://bugs.webkit.org/show_bug.cgi?id=220574
+
+        Reviewed by Yusuke Suzuki.
+
+        The spec [1] calls [[DefineOwnProperty]] for every property node, whether it's a
+        getter, a setter, or a value. JSC attempts to reduce emitted bytecodes by setting
+        up a getter and a setter at once.
+
+        However, there is a slower path that exactly matches the spec, which was called only
+        if a spread syntax or a computed property was encountered. With this patch, the slower
+        path is also taken in case of a constant property (including a shorthand) with the
+        same name as an accessor.
+
+        That causes an incomplete accessor descriptor to correctly overwrite the existing
+        data one, which aligns JSC with V8 and SpiderMonkey.
+
+        This bug doesn't exist for static class fields and accessors because initialization
+        of class fields is deferred [2] and they always overwrite eponymous static methods /
+        accessors, no matter the order in source code. No reproduction for private elements either.
+
+        [1]: https://tc39.es/ecma262/#sec-runtime-semantics-methoddefinitionevaluation (step 11 of "get", step 10 of "set")
+        [2]: https://tc39.es/ecma262/#sec-runtime-semantics-classdefinitionevaluation (step 31.a)
+
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::PropertyListNode::emitBytecode):
+
+2022-02-05  Alexey Shvayka  <ashvayka@apple.com>
+
+        Attempting to [[Set]] JSArray's read-only "length" should throw even with current [[Value]]
+        https://bugs.webkit.org/show_bug.cgi?id=221177
+
+        Reviewed by Saam Barati.
+
+        As per OrdinarySet algorithm [1]. To achieve that, while ensuring no error is thrown
+        if read-only "length" isn't actually changed via [[DefineOwnProperty]] [2], this patch
+        moves `newLength == oldLength` check to JSArray::defineOwnProperty().
+
+        That is guaranteed to be correct because:
+          a) it's the only caller of setLengthWithArrayStorage() that performs [[DefineOwnProperty]],
+             while others implement [[Set]];
+          b) there can't possibly be array indices that JSArray::defineOwnProperty() has to remove,
+             and even the spec a shortcut here [3].
+
+        All code paths in pop() / shift() / push() / unshift() are covered by the newly added test,
+        as well as JSArray's [[DefineOwnProperty]], while slice() / splice() / etc were vetted to
+        [[Set]] "length" according to the spec.
+
+        Aligns JSC with SpiderMonkey and partly with V8, which is correct for Object.freeze()
+        but not for `Object.defineProperty(array, "length", { writable: false })`.
+
+        [1]: https://tc39.es/ecma262/#sec-ordinarysetwithowndescriptor (step 2.a)
+        [2]: https://tc39.es/ecma262/#sec-validateandapplypropertydescriptor (step 5 and 7)
+        [3]: https://tc39.es/ecma262/#sec-arraysetlength (step 11)
+
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::defineOwnProperty):
+        (JSC::JSArray::setLengthWithArrayStorage):
+
+2022-02-05  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Thread suspend and resume should take a global lock to avoid deadlock
+        https://bugs.webkit.org/show_bug.cgi?id=236159
+
+        Reviewed by Geoffrey Garen.
+
+        * heap/MachineStackMarker.cpp:
+        (JSC::MachineThreads::tryCopyOtherThreadStack):
+        (JSC::MachineThreads::tryCopyOtherThreadStacks):
+        * heap/MachineStackMarker.h:
+        * runtime/SamplingProfiler.cpp:
+        (JSC::SamplingProfiler::takeSample):
+        * runtime/VMTraps.cpp:
+        * wasm/WasmMachineThreads.cpp:
+        (JSC::Wasm::resetInstructionCacheOnAllThreads):
+
+2022-02-04  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        WeakRef deref can return null instead of undefined
+        https://bugs.webkit.org/show_bug.cgi?id=235880
+
+        Reviewed by Sam Weinig and Alexey Shvayka.
+
+        WeakRef#deref should return undefined[1] when a wrapped object is collected.
+
+        [1]: https://tc39.es/ecma262/#sec-weakrefderef
+
+        * runtime/WeakObjectRefPrototype.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+
+2022-02-04  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r288996.
+        https://bugs.webkit.org/show_bug.cgi?id=236141
+
+        Causing debug asserts
+
+        Reverted changeset:
+
+        "No breakpoints hit on github.com, and some are invalid"
+        https://bugs.webkit.org/show_bug.cgi?id=235607
+        https://commits.webkit.org/r288996
+
+2022-02-03  Michael Saboff  <msaboff@apple.com>
+
+        WebKit projects have incorrect install name for the frameworks for Catalyst builds with the system content path
+        https://bugs.webkit.org/show_bug.cgi?id=236105
+
+        Reviewed by Saam Barati.
+
+        Updated DYLIB_INSTALL_NAME_BASE for Catalyst builds to use JAVASCRIPTCORE_FRAMEWORKS_DIR, which doesn't have the
+        system content path prefix.
+
+        * Configurations/JavaScriptCore.xcconfig:
+
+2022-02-03  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] MultiDeleteByOffset should not define value
+        https://bugs.webkit.org/show_bug.cgi?id=236103
+
+        Reviewed by Saam Barati.
+
+        MultiDeleteByOffset should not define any values in clobberizing.
+
+        * dfg/DFGClobberize.h:
+        (JSC::DFG::clobberize):
+
+2022-02-03  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, remove UnlinkedMetadataTable::offsetInMetadataTable since it is no longer used
+        https://bugs.webkit.org/show_bug.cgi?id=236063
+
+        Follow-up after Saam's comment.
+
+        * bytecode/UnlinkedMetadataTable.h:
+        (JSC::UnlinkedMetadataTable::offsetInMetadataTable): Deleted.
+
+2022-02-03  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Use MetadataTable instead of UnlinkedMetadataTable
+        https://bugs.webkit.org/show_bug.cgi?id=236063
+        rdar://88269480
+
+        Reviewed by Robin Morisset.
+
+        Use MetadataTable from profiled CodeBlock instead of UnlinkedMetadataTable in concurrent JIT compiler.
+
+        * bytecode/MetadataTable.h:
+        (JSC::MetadataTable::offsetInMetadataTable):
+        * bytecode/UnlinkedMetadataTable.h:
+        (JSC::UnlinkedMetadataTable::offsetInMetadataTable):
+        * jit/JITInlines.h:
+        (JSC::JIT::emitValueProfilingSite):
+        (JSC::JIT::loadPtrFromMetadata):
+        (JSC::JIT::load32FromMetadata):
+        (JSC::JIT::load8FromMetadata):
+        (JSC::JIT::store8ToMetadata):
+        (JSC::JIT::store32ToMetadata):
+        (JSC::JIT::materializePointerIntoMetadata):
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::emit_op_resolve_scope):
+        (JSC::JIT::emit_op_get_from_scope):
+
+2022-02-02  Saam Barati  <sbarati@apple.com>
+
+        SecureARM64EHashPins should check g_jscConfig.useFastJITPermissions
+        https://bugs.webkit.org/show_bug.cgi?id=236055
+        <rdar://88222677>
+
+        Reviewed by Mark Lam.
+
+        * assembler/SecureARM64EHashPins.cpp:
+        (JSC::SecureARM64EHashPins::initializeAtStartup):
+        (JSC::SecureARM64EHashPins::allocatePinForCurrentThread):
+        (JSC::SecureARM64EHashPins::deallocatePinForCurrentThread):
+        * assembler/SecureARM64EHashPinsInlines.h:
+        (JSC::SecureARM64EHashPins::pinForCurrentThread):
+
+2022-02-02  Alexey Shvayka  <ashvayka@apple.com>
+
+        Speed-up JSON.stringify() by avoiding "toJSON" property lookups
+        https://bugs.webkit.org/show_bug.cgi?id=235996
+
+        Reviewed by Saam Barati.
+
+        Speedometer2/Vanilla* subtests are highly reliant on JSON.stringify() for "storage":
+        it accounts for 10-15% of running time. EmberJS* subtests rely on JSON.stringify() as
+        well, although they are significantly slower overall, and also encounter only a few
+        different structures.
+
+        This patch caches "toJSON" properties on Structure's rare data; it's the same technique
+        we are using in toPrimitive() to avoid "toString" / "valueOf" lookups. The microbenchmark,
+        which was carefully extracted from Speedometer2/Vanilla* subtests, progressed by 3.7%.
+
+        While we could come up with a solution that doesn't involve creating StructureRareData
+        for all structures we stringify, like keeping a list of StructureIDs w/o "toJSON" method,
+        which will be correct as long as `m_hasFastObjectProperties || m_isJSArray` is true for all
+        seen objects, that would probably miss some edge case, won't persist between JSON.stringify()
+        calls, and won't speed-up structures with "toJSON" methods like Dates.
+
+        * runtime/CachedSpecialPropertyAdaptiveStructureWatchpoint.cpp:
+        (JSC::CachedSpecialPropertyAdaptiveStructureWatchpoint::fireInternal):
+        * runtime/JSONObject.cpp:
+        (JSC::Stringifier::toJSON):
+        * runtime/StructureRareData.cpp:
+        (JSC::StructureRareData::cacheSpecialPropertySlow):
+        (JSC::CachedSpecialPropertyAdaptiveInferredPropertyValueWatchpoint::handleFire):
+        * runtime/StructureRareData.h:
+
+2022-02-02  Elliott Williams  <emw@apple.com>
+
+        [Xcode] Fix redundant execution of "Check VTables..." script
+        https://bugs.webkit.org/show_bug.cgi?id=236032
+
+        Reviewed by Jonathan Bedard.
+
+        Tools/Scripts/check-for-weak-vtables-and-externals already touches a timestamp file after
+        every execution. Add it as an output file to all "Check For Weak VTables and Externals"
+        script phases.
+
+        These script phases already list their respective executables as inputs. This change shaves
+        a few seconds off the null build time.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj: Add timestamp file to script phase.
+
+2022-02-02  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Crash on several pages after r287986
+        https://bugs.webkit.org/show_bug.cgi?id=236033
+
+        Reviewed by Tim Horton.
+
+        I noticed that Safari crashes when opening https://linux.die.net/man/3/localtime.
+        This is happening after r287986: we are calling [self release], but the [JSValue dealloc]
+        cannot work if _context is nil. We should add a guard.
+
+        * API/JSValue.mm:
+        (-[JSValue dealloc]):
+        * API/tests/testapi.mm:
+        (testObjectiveCAPIMain):
+
+2022-02-02  Patrick Angle  <pangle@apple.com>
+
+        No breakpoints hit on github.com, and some are invalid
+        https://bugs.webkit.org/show_bug.cgi?id=235607
+
+        Reviewed by Yusuke Suzuki.
+
+        Added test case in: inspector/debugger/breakpoints/resolved-dump-all-pause-locations.html
+
+        Previously not all line terminations resulted in setting the `m_lineStart` to the current m_code, which meant
+        that the location for pause-able locations and stack traces were inaccurate when they were on a line that
+        terminated multi-line comments, strings, or template strings. We now always update m_lineStart when shifting for
+        a line terminator, instead of only when the terminator appears outside a string or comment.
+
+        * debugger/Breakpoint.cpp:
+        (JSC::Breakpoint::resolve):
+        - The existing assertions were somewhat in conflict with each other. If we permit the line number to increase,
+        there is no guarantee that the column number will remain the same or increase, which can now more easily occur
+        with multi-line strings. Instead, we should make sure that the overall offset has increase.
+
+        * parser/Lexer.cpp:
+        (JSC::Lexer<T>::shiftLineTerminator):
+        (JSC::Lexer<T>::lexWithoutClearingLineTerminator):
+        (JSC::Lexer<T>::scanTemplateString):
+        - Make sure the token start offset and start line offset are correctly set for strings.
+
+2022-02-02  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] YarrJIT m_checkedOffset should be pre-computed and stored to Yarr op
+        https://bugs.webkit.org/show_bug.cgi?id=235932
+
+        Reviewed by Keith Miller.
+
+        Instead of adhocly calculating m_checkedOffset while generating the machine code,
+        let's just pre-compute it and store it to Yarr JIT IR so that we can simplify
+        m_checkedOffset handling. This paves the way to also pre-compute safe-length
+        so that we can skip some of length check in parenthesized-assertions.
+
+        * yarr/YarrJIT.cpp:
+
+2022-02-02  Patrick Griffis  <pgriffis@igalia.com>
+
+        CSP: Fix returned WebAssembly error type when blocked
+        https://bugs.webkit.org/show_bug.cgi?id=235319
+
+        Reviewed by Kate Cheney.
+
+        As per the spec it should return WebAssembly.CompileError.
+
+        * wasm/js/JSWebAssemblyInstance.cpp:
+        (JSC::JSWebAssemblyInstance::tryCreate):
+
+2022-02-02  Mark Lam  <mark.lam@apple.com>
+
+        Update computation of FAST_TLS base.
+        https://bugs.webkit.org/show_bug.cgi?id=235934
+
+        Reviewed by Yusuke Suzuki.
+
+        * assembler/MacroAssemblerARM64.h:
+        (JSC::MacroAssemblerARM64::loadFromTLS32):
+        (JSC::MacroAssemblerARM64::loadFromTLS64):
+        (JSC::MacroAssemblerARM64::storeToTLS32):
+        (JSC::MacroAssemblerARM64::storeToTLS64):
+        * assembler/SecureARM64EHashPinsInlines.h:
+        (JSC::SecureARM64EHashPins::keyForCurrentThread):
+        * offlineasm/arm64.rb:
+
+2022-02-02  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] wasm atomic opcodes should be rejected if alignment is not equal to natural width
+        https://bugs.webkit.org/show_bug.cgi?id=235990
+
+        Reviewed by Saam Barati.
+
+        While normal load and store can accept larger alignment than an access width,
+        wasm module validator rejects if atomic ops' alignment is not equal to an access width.
+        This patch applies this restriction.
+        No runtime semantics change since atomic ops are always checked against an access width alignment.
+
+        * wasm/WasmFunctionParser.h:
+        (JSC::Wasm::FunctionParser<Context>::atomicLoad):
+        (JSC::Wasm::FunctionParser<Context>::atomicStore):
+        (JSC::Wasm::FunctionParser<Context>::atomicBinaryRMW):
+        (JSC::Wasm::FunctionParser<Context>::atomicCompareExchange):
+        (JSC::Wasm::FunctionParser<Context>::atomicWait):
+        (JSC::Wasm::FunctionParser<Context>::atomicNotify):
+        (JSC::Wasm::FunctionParser<Context>::parseUnreachableExpression):
+
+2022-02-01  Pablo Saavedra  <psaavedra@igalia.com>
+
+        [GTK][WPE] Fixes for non-unified builds after r288807 and r288820
+        https://bugs.webkit.org/show_bug.cgi?id=235956
+
+        Reviewed by Mark Lam.
+
+        * runtime/FunctionHasExecutedCache.h:
+
+2022-02-01  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r288538.
+        https://bugs.webkit.org/show_bug.cgi?id=235968
+
+        `Array#groupBy` name has web-compat issue
+        <https://github.com/tc39/proposal-array-grouping/issues/37>
+
+        Reverted changeset:
+
+        "[JSC] Enable Array#groupBy and Array#groupByToMap"
+        https://bugs.webkit.org/show_bug.cgi?id=235549
+        https://commits.webkit.org/r288538
+
+2022-02-01  Mark Lam  <mark.lam@apple.com>
+
+        Enhance sanitizeStackForVM() to assist with crash analysis.
+        https://bugs.webkit.org/show_bug.cgi?id=235752
+        rdar://81014601
+
+        Reviewed by Michael Saboff.
+
+        1. Remove the AssemblyHelpers version of sanitizeStack.  Instead, make the 3
+           JIT operation functions call sanitizeStackForVM() instead.  This ensures
+           that sanitizeStack crashes are not obscured as generic JIT crashes.
+
+        2. Add sanity check RELEASE_ASSERTs to VM::setLastStackTop() with a capture of
+           the relevant variables for crash analysis.
+
+        3. Fix logSanitizeStack() so that it no longer relies on vm.topCallFrame.
+           vm.topCallFrame may not be properly initialized at all the places that
+           sanitizeStackForVM() is called.
+
+        4. Add a JSLock check to sanitizeStackForVM(), and return early if not owned by
+           the current thread.  If the JSLock is not owned by the current thread, we can't
+           rely on vm.lastStackTop() being a sane value.  Hence, it's not possible to
+           do stack sanitization correctly.
+
+           Add sanity check RELEASE_ASSERTs to sanitizeStackForVM() with a capture of
+           the relevant variables for crash analysis.
+
+        * jit/AssemblyHelpers.cpp:
+        (JSC::AssemblyHelpers::sanitizeStackInline): Deleted.
+        * jit/AssemblyHelpers.h:
+        * jit/JITOperations.cpp:
+        (JSC::JSC_DEFINE_JIT_OPERATION):
+        * jit/ThunkGenerators.cpp:
+        (JSC::slowPathFor):
+        * runtime/JSLock.cpp:
+        (JSC::JSLock::didAcquireLock):
+        (JSC::JSLock::grabAllLocks):
+        * runtime/VM.cpp:
+        (JSC::VM::VM):
+        (JSC::VM::setLastStackTop):
+        (JSC::logSanitizeStack):
+        (JSC::sanitizeStackForVM):
+        * runtime/VM.h:
+
+2022-01-31  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Revert OSAllocator behavior to pre-Structure-Allocator change one
+        https://bugs.webkit.org/show_bug.cgi?id=235940
+
+        Reviewed by Mark Lam.
+
+        * jit/ExecutableAllocator.cpp:
+        (JSC::initializeJITPageReservation):
+
+2022-01-31  Zan Dobersek  <zdobersek@igalia.com>
+
+        [RISCV64] Add remaining MacroAssemblerRISCV64 branching operations
+        https://bugs.webkit.org/show_bug.cgi?id=235886
+
+        Reviewed by Yusuke Suzuki.
+
+        Provide MacroAssemblerRISCV64 implementations for the remaining
+        branching operations. When branching on non-overlow conditions, the
+        implementations remain pretty trivial. For the overflow condition,
+        a helper method is provided to cover different-sized operations as well
+        as operation-specific instruction sequences.
+
+        * assembler/MacroAssemblerRISCV64.h:
+        (JSC::MacroAssemblerRISCV64::branchAdd32):
+        (JSC::MacroAssemblerRISCV64::branchAdd64):
+        (JSC::MacroAssemblerRISCV64::branchSub32):
+        (JSC::MacroAssemblerRISCV64::branchSub64):
+        (JSC::MacroAssemblerRISCV64::branchMul32):
+        (JSC::MacroAssemblerRISCV64::branchMul64):
+        (JSC::MacroAssemblerRISCV64::branchNeg32):
+        (JSC::MacroAssemblerRISCV64::branchNeg64):
+        (JSC::MacroAssemblerRISCV64::branchForArithmeticOverflow):
+
+2022-01-31  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Try-reserving Structure heap after reserving all the other heaps including JIT heap
+        https://bugs.webkit.org/show_bug.cgi?id=235922
+
+        Reviewed by Saam Barati.
+
+        Structure heap should be reserved after reserving all the other heaps including JIT heap.
+
+        * runtime/InitializeThreading.cpp:
+        (JSC::initialize):
+
 2022-01-31  Zan Dobersek  <zdobersek@igalia.com>
 
         [RISCV64] Fix offlineasm lowering of arithmetic branch instructions with address destinations

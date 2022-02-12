@@ -53,7 +53,6 @@
 #include "CursorList.h"
 #include "DeprecatedCSSOMValue.h"
 #include "Document.h"
-#include "DocumentTimeline.h"
 #include "FontCascade.h"
 #include "FontSelectionValueInlines.h"
 #include "FontTaggedSettings.h"
@@ -1388,6 +1387,7 @@ static Ref<CSSPrimitiveValue> valueForAnimationComposition(CompositeOperation op
     case CompositeOperation::Replace:
         return CSSValuePool::singleton().createIdentifierValue(CSSValueReplace);
     }
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 static Ref<CSSPrimitiveValue> valueForAnimationPlayState(AnimationPlayState playState)

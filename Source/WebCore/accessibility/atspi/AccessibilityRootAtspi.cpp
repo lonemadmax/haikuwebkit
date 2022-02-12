@@ -20,7 +20,7 @@
 #include "config.h"
 #include "AccessibilityRootAtspi.h"
 
-#if ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#if USE(ATSPI)
 #include "AXObjectCache.h"
 #include "AccessibilityAtspiEnums.h"
 #include "AccessibilityAtspiInterfaces.h"
@@ -126,7 +126,7 @@ GDBusInterfaceVTable AccessibilityRootAtspi::s_accessibleFunctions = {
     // set_property,
     nullptr,
     // padding
-    nullptr
+    { nullptr }
 };
 
 GDBusInterfaceVTable AccessibilityRootAtspi::s_socketFunctions = {
@@ -145,7 +145,7 @@ GDBusInterfaceVTable AccessibilityRootAtspi::s_socketFunctions = {
     // set_property,
     nullptr,
     // padding
-    nullptr
+    { nullptr }
 };
 
 void AccessibilityRootAtspi::registerObject(CompletionHandler<void(const String&)>&& completionHandler)
@@ -291,7 +291,7 @@ GDBusInterfaceVTable AccessibilityRootAtspi::s_componentFunctions = {
     // set_property,
     nullptr,
     // padding
-    nullptr
+    { nullptr }
 };
 
 IntRect AccessibilityRootAtspi::frameRect(uint32_t coordinateType) const
@@ -318,4 +318,4 @@ IntRect AccessibilityRootAtspi::frameRect(uint32_t coordinateType) const
 
 } // namespace WebCore
 
-#endif // ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#endif // USE(ATSPI)

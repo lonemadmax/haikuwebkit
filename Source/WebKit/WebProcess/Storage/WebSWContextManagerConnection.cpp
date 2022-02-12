@@ -33,10 +33,11 @@
 #include "Logging.h"
 #include "NetworkConnectionToWebProcessMessages.h"
 #include "NetworkProcessMessages.h"
-#include "RTCDataChannelRemoteManager.h"
 #include "RemoteWebLockRegistry.h"
+#include "RemoteWorkerFrameLoaderClient.h"
+#include "RemoteWorkerInitializationData.h"
+#include "RemoteWorkerLibWebRTCProvider.h"
 #include "ServiceWorkerFetchTaskMessages.h"
-#include "ServiceWorkerInitializationData.h"
 #include "WebBroadcastChannelRegistry.h"
 #include "WebCacheStorageProvider.h"
 #include "WebCompiledContentRuleListData.h"
@@ -44,6 +45,7 @@
 #include "WebDatabaseProvider.h"
 #include "WebDocumentLoader.h"
 #include "WebFrameLoaderClient.h"
+#include "WebNotificationClient.h"
 #include "WebPage.h"
 #include "WebPreferencesKeys.h"
 #include "WebPreferencesStore.h"
@@ -56,7 +58,6 @@
 #include "WebUserContentController.h"
 #include <WebCore/EditorClient.h>
 #include <WebCore/EmptyClients.h>
-#include <WebCore/LibWebRTCProvider.h>
 #include <WebCore/MessageWithMessagePorts.h>
 #include <WebCore/PageConfiguration.h>
 #include <WebCore/RuntimeEnabledFeatures.h>
@@ -76,32 +77,7 @@ namespace WebKit {
 using namespace PAL;
 using namespace WebCore;
 
-
-#if ENABLE(WEB_RTC)
-class ServiceWorkerLibWebRTCProvider final : public WebCore::LibWebRTCProvider {
-public:
-    ServiceWorkerLibWebRTCProvider() = default;
-
-private:
-    RefPtr<WebCore::RTCDataChannelRemoteHandlerConnection> createRTCDataChannelRemoteHandlerConnection() final { return &RTCDataChannelRemoteManager::sharedManager().remoteHandlerConnection(); }
-};
-#endif
-
-ServiceWorkerFrameLoaderClient::ServiceWorkerFrameLoaderClient(WebPageProxyIdentifier webPageProxyID, PageIdentifier pageID, FrameIdentifier frameID, const String& userAgent)
-    : m_webPageProxyID(webPageProxyID)
-    , m_pageID(pageID)
-    , m_frameID(frameID)
-    , m_userAgent(userAgent)
-{
-    RELEASE_LOG(ServiceWorker, "ServiceWorkerFrameLoaderClient::ServiceWorkerFrameLoaderClient webPageProxyID %llu, pageID %llu, frameID  %llu", webPageProxyID.toUInt64(), pageID.toUInt64(), frameID.toUInt64());
-}
-
-Ref<DocumentLoader> ServiceWorkerFrameLoaderClient::createDocumentLoader(const ResourceRequest& request, const SubstituteData& substituteData)
-{
-    return WebDocumentLoader::create(request, substituteData);
-}
-
-WebSWContextManagerConnection::WebSWContextManagerConnection(Ref<IPC::Connection>&& connection, WebCore::RegistrableDomain&& registrableDomain, std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, PageGroupIdentifier pageGroupID, WebPageProxyIdentifier webPageProxyID, PageIdentifier pageID, const WebPreferencesStore& store, ServiceWorkerInitializationData&& initializationData)
+WebSWContextManagerConnection::WebSWContextManagerConnection(Ref<IPC::Connection>&& connection, WebCore::RegistrableDomain&& registrableDomain, std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, PageGroupIdentifier pageGroupID, WebPageProxyIdentifier webPageProxyID, PageIdentifier pageID, const WebPreferencesStore& store, RemoteWorkerInitializationData&& initializationData)
     : m_connectionToNetworkProcess(WTFMove(connection))
     , m_registrableDomain(WTFMove(registrableDomain))
     , m_serviceWorkerPageIdentifier(serviceWorkerPageIdentifier)
@@ -152,14 +128,14 @@ void WebSWContextManagerConnection::installServiceWorker(ServiceWorkerContextDat
     pageConfiguration.webLockRegistry = WebProcess::singleton().webLockRegistry();
     pageConfiguration.userContentProvider = m_userContentController;
 #if ENABLE(WEB_RTC)
-    pageConfiguration.libWebRTCProvider = makeUniqueRef<ServiceWorkerLibWebRTCProvider>();
+    pageConfiguration.libWebRTCProvider = makeUniqueRef<RemoteWorkerLibWebRTCProvider>();
 #endif
 
     auto effectiveUserAgent =  WTFMove(userAgent);
     if (effectiveUserAgent.isNull())
         effectiveUserAgent = m_userAgent;
 
-    pageConfiguration.loaderClientForMainFrame = makeUniqueRef<ServiceWorkerFrameLoaderClient>(m_webPageProxyID, m_pageID, FrameIdentifier::generate(), effectiveUserAgent);
+    pageConfiguration.loaderClientForMainFrame = makeUniqueRef<RemoteWorkerFrameLoaderClient>(m_webPageProxyID, m_pageID, FrameIdentifier::generate(), effectiveUserAgent);
 
 #if !RELEASE_LOG_DISABLED
     auto serviceWorkerIdentifier = contextData.serviceWorkerIdentifier;
@@ -171,8 +147,14 @@ void WebSWContextManagerConnection::installServiceWorker(ServiceWorkerContextDat
         WebPage::updateSettingsGenerated(*m_preferencesStore, page->settings());
         page->settings().setStorageBlockingPolicy(static_cast<StorageBlockingPolicy>(m_preferencesStore->getUInt32ValueForKey(WebPreferencesKey::storageBlockingPolicyKey())));
     }
-    ServiceWorkerThreadProxy::setupPageForServiceWorker(page.get(), contextData);
-    auto serviceWorkerThreadProxy = ServiceWorkerThreadProxy::create(WTFMove(page), WTFMove(contextData), WTFMove(workerData), WTFMove(effectiveUserAgent), workerThreadMode, WebProcess::singleton().cacheStorageProvider());
+    page->setupForRemoteWorker(contextData.scriptURL, contextData.registration.key.topOrigin(), contextData.referrerPolicy);
+
+    std::unique_ptr<WebCore::NotificationClient> notificationClient;
+#if ENABLE(NOTIFICATIONS)
+    notificationClient = makeUnique<WebNotificationClient>(nullptr);
+#endif
+
+    auto serviceWorkerThreadProxy = ServiceWorkerThreadProxy::create(WTFMove(page), WTFMove(contextData), WTFMove(workerData), WTFMove(effectiveUserAgent), workerThreadMode, WebProcess::singleton().cacheStorageProvider(), WTFMove(notificationClient));
 
     if (lastNavigationWasAppInitiated)
         serviceWorkerThreadProxy->setLastNavigationWasAppInitiated(lastNavigationWasAppInitiated == WebCore::LastNavigationWasAppInitiated::Yes);
@@ -235,7 +217,7 @@ void WebSWContextManagerConnection::cancelFetch(SWServerConnectionIdentifier ser
 void WebSWContextManagerConnection::continueDidReceiveFetchResponse(SWServerConnectionIdentifier serverConnectionIdentifier, ServiceWorkerIdentifier serviceWorkerIdentifier, FetchIdentifier fetchIdentifier)
 {
     auto* serviceWorkerThreadProxy = SWContextManager::singleton().serviceWorkerThreadProxy(serviceWorkerIdentifier);
-    RELEASE_LOG(ServiceWorker, "ServiceWorkerFrameLoaderClient::continueDidReceiveFetchResponse for service worker %llu, fetch identifier %llu, has service worker %d", serviceWorkerIdentifier.toUInt64(), fetchIdentifier.toUInt64(), !!serviceWorkerThreadProxy);
+    RELEASE_LOG(ServiceWorker, "WebSWContextManagerConnection::continueDidReceiveFetchResponse for service worker %llu, fetch identifier %llu, has service worker %d", serviceWorkerIdentifier.toUInt64(), fetchIdentifier.toUInt64(), !!serviceWorkerThreadProxy);
 
     if (serviceWorkerThreadProxy)
         serviceWorkerThreadProxy->continueDidReceiveFetchResponse(serverConnectionIdentifier, fetchIdentifier);

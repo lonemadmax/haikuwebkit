@@ -530,7 +530,10 @@ Vector<RefPtr<WebCore::BlobDataFileReference>> NetworkConnectionToWebProcess::re
 #if ENABLE(SERVICE_WORKER)
 std::unique_ptr<ServiceWorkerFetchTask> NetworkConnectionToWebProcess::createFetchTask(NetworkResourceLoader& loader, const ResourceRequest& request)
 {
-    return swConnection().createFetchTask(loader, request);
+    auto* swConnection = this->swConnection();
+    if (!swConnection)
+        return nullptr;
+    return swConnection->createFetchTask(loader, request);
 }
 #endif
 
@@ -1220,19 +1223,19 @@ void NetworkConnectionToWebProcess::closeSWContextConnection()
     m_swContextConnection = nullptr;
 }
 
-void NetworkConnectionToWebProcess::serverToContextConnectionNoLongerNeeded()
+void NetworkConnectionToWebProcess::serviceWorkerServerToContextConnectionNoLongerNeeded()
 {
-    CONNECTION_RELEASE_LOG(ServiceWorker, "serverToContextConnectionNoLongerNeeded: WebProcess no longer useful for running service workers");
-    m_networkProcess->parentProcessConnection()->send(Messages::NetworkProcessProxy::WorkerContextConnectionNoLongerNeeded { webProcessIdentifier() }, 0);
+    CONNECTION_RELEASE_LOG(ServiceWorker, "serviceWorkerServerToContextConnectionNoLongerNeeded: WebProcess no longer useful for running service workers");
+    m_networkProcess->parentProcessConnection()->send(Messages::NetworkProcessProxy::ServiceWorkerContextConnectionNoLongerNeeded { webProcessIdentifier() }, 0);
 
     m_swContextConnection = nullptr;
 }
 
-WebSWServerConnection& NetworkConnectionToWebProcess::swConnection()
+WebSWServerConnection* NetworkConnectionToWebProcess::swConnection()
 {
     if (!m_swConnection)
         establishSWServerConnection();
-    return *m_swConnection;
+    return m_swConnection.get();
 }
 #endif
 

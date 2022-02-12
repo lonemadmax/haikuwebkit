@@ -120,7 +120,13 @@ JSC::JSValue ScriptController::evaluateInWorldIgnoringException(const ScriptSour
 
 ValueOrException ScriptController::evaluateInWorld(const ScriptSourceCode& sourceCode, DOMWrapperWorld& world)
 {
-    JSLockHolder lock(world.vm());
+    auto& vm = world.vm();
+    JSLockHolder lock(vm);
+
+    if (vm.hasPendingTerminationException()) {
+        ExceptionDetails details;
+        return makeUnexpected(details);
+    }
 
     const SourceCode& jsSourceCode = sourceCode.jsSourceCode();
     const URL& sourceURL = jsSourceCode.provider()->sourceOrigin().url();
@@ -212,7 +218,8 @@ JSC::JSValue ScriptController::linkAndEvaluateModuleScriptInWorld(LoadableModule
     if (evaluationException) {
         // FIXME: Give a chance to dump the stack trace if the "crossorigin" attribute allows.
         // https://bugs.webkit.org/show_bug.cgi?id=164539
-        reportException(&lexicalGlobalObject, evaluationException, nullptr);
+        constexpr bool fromModule = true;
+        reportException(&lexicalGlobalObject, evaluationException, nullptr, fromModule);
         return jsUndefined();
     }
     return returnValue;

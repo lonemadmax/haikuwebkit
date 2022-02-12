@@ -244,6 +244,8 @@ Shared/RemoteLayerTree/RemoteLayerTreeTransaction.mm
 Shared/RemoteLayerTree/RemoteScrollingCoordinatorTransaction.cpp
 Shared/RemoteLayerTree/RemoteScrollingUIState.cpp
 
+WebProcess/GPU/webrtc/SharedVideoFrame.cpp
+
 UIProcess/_WKWebViewPrintFormatter.mm
 UIProcess/ApplicationStateTracker.mm
 UIProcess/HighPerformanceGraphicsUsageSampler.cpp
@@ -630,7 +632,6 @@ WebProcess/GPU/media/cocoa/VideoLayerRemoteCocoa.mm
 WebProcess/GPU/media/ios/RemoteMediaSessionHelper.cpp
 WebProcess/GPU/webrtc/AudioMediaStreamTrackRendererInternalUnitManager.cpp
 WebProcess/GPU/webrtc/LibWebRTCCodecs.mm
-WebProcess/GPU/webrtc/MediaRecorderPrivate.mm
 
 WebProcess/InjectedBundle/API/c/WKBundlePageBanner.cpp
 

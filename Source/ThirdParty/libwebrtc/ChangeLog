@@ -1,3 +1,39 @@
+2022-02-03  Michael Saboff  <msaboff@apple.com>
+
+        WebKit projects have incorrect install name for the frameworks for Catalyst builds with the system content path
+        https://bugs.webkit.org/show_bug.cgi?id=236105
+
+        Reviewed by Saam Barati.
+
+        Updated DYLIB_INSTALL_NAME_BASE for Catalyst builds to not use the system content path prefix.
+
+        * Configurations/libwebrtc.xcconfig:
+
+2022-02-02  Elliott Williams  <emw@apple.com>
+
+        [Xcode] Fix redundant execution of "Check VTables..." script
+        https://bugs.webkit.org/show_bug.cgi?id=236032
+
+        Reviewed by Jonathan Bedard.
+
+        * libwebrtc.xcodeproj/project.pbxproj: Add timestamp file to script phase.
+
+2022-02-02  Youenn Fablet  <youenn@apple.com>
+
+        LibWebRTCCodecs should not need to create IOSurfaces
+        https://bugs.webkit.org/show_bug.cgi?id=235951
+        <rdar://problem/88326654>
+
+        Reviewed by Eric Carlson.
+
+        Introduce helper routines to copy a webrtc VideoFrame into a memory buffer and get a CVPixelBuffer from a webrtc VideoFrame.
+
+        * Configurations/libwebrtc.iOS.exp:
+        * Configurations/libwebrtc.iOSsim.exp:
+        * Configurations/libwebrtc.mac.exp:
+        * Source/webrtc/sdk/WebKit/WebKitUtilities.h:
+        * Source/webrtc/sdk/WebKit/WebKitUtilities.mm:
+
 2022-01-27  Michael Saboff  <msaboff@apple.com>
 
         com.apple.WebKit.WebAuthn.xpc fails to build with system content path

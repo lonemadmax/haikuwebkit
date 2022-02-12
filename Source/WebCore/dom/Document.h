@@ -534,6 +534,7 @@ public:
 #if ENABLE(MODEL_ELEMENT)
         Model = 1 << 8,
 #endif
+        PDF = 1 << 9,
     };
 
     using DocumentClasses = OptionSet<DocumentClass>;
@@ -549,6 +550,7 @@ public:
 #if ENABLE(MODEL_ELEMENT)
     bool isModelDocument() const { return m_documentClasses.contains(DocumentClass::Model); }
 #endif
+    bool isPDFDocument() const { return m_documentClasses.contains(DocumentClass::PDF); }
     bool hasSVGRootNode() const;
     virtual bool isFrameSet() const { return false; }
 
@@ -1345,6 +1347,7 @@ public:
 
     bool inStyleRecalc() const { return m_inStyleRecalc; }
     bool inRenderTreeUpdate() const { return m_inRenderTreeUpdate; }
+    bool isResolvingContainerQueries() const { return m_isResolvingContainerQueries; }
     bool isResolvingTreeStyle() const { return m_isResolvingTreeStyle; }
     void setIsResolvingTreeStyle(bool);
 
@@ -1793,6 +1796,9 @@ private:
     void addToDocumentsMap();
     void removeFromDocumentsMap();
 
+    NotificationClient* notificationClient() final;
+    std::optional<PAL::SessionID> sessionID() const final;
+
     const Ref<const Settings> m_settings;
 
     UniqueRef<Quirks> m_quirks;
@@ -2136,6 +2142,7 @@ private:
     bool m_inStyleRecalc { false };
     bool m_inRenderTreeUpdate { false };
     bool m_isResolvingTreeStyle { false };
+    bool m_isResolvingContainerQueries { false };
 
     bool m_gotoAnchorNeededAfterStylesheetsLoad { false };
     bool m_isDNSPrefetchEnabled { false };

@@ -1,3 +1,593 @@
+2022-02-07  Antoine Quint  <graouts@webkit.org>
+
+        [css-logical] [web-animations] changing direction or writing-mode should clear computed keyframes
+        https://bugs.webkit.org/show_bug.cgi?id=236241
+
+        Reviewed by Dean Jackson.
+
+        Mark WPT progressions.
+
+        * web-platform-tests/css/css-logical/animation-001-expected.txt:
+
+2022-02-07  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Add ContainerQueryEvaluator
+        https://bugs.webkit.org/show_bug.cgi?id=236096
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/css/css-contain/container-queries/animation-container-type-dynamic-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/animation-nested-animation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/animation-nested-transition-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/aspect-ratio-feature-evaluation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/at-container-parsing-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/auto-scrollbars-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-for-shadow-dom.tentative-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-name-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-selection-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-size-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-type-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/display-contents-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/display-none-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/font-relative-units-dynamic-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/font-relative-units-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/get-animations-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/iframe-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/inline-size-containment-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/inline-size-containment-vertical-rl-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/orthogonal-wm-container-query-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/percentage-padding-orthogonal-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/query-content-box-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/query-evaluation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/reattach-container-with-dirty-child-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/size-container-no-principal-box-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/size-feature-evaluation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/top-layer-dialog-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/top-layer-nested-dialog-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/transition-scrollbars-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/unsupported-axis-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/viewport-units-expected.txt:
+
+2022-02-07  Antoine Quint  <graouts@webkit.org>
+
+        [css-logical] [web-animations] Add support for logical properties in JS-originated animations
+        https://bugs.webkit.org/show_bug.cgi?id=236229
+
+        Reviewed by Dean Jackson.
+
+        Mark WPT progressions.
+
+        * web-platform-tests/css/css-logical/animation-001-expected.txt:
+        * web-platform-tests/web-animations/interfaces/Animation/commitStyles-expected.txt:
+        * web-platform-tests/web-animations/timing-model/timelines/update-and-send-events-replacement-expected.txt:
+
+2022-02-07  Ziran Sun  <zsun@igalia.com>
+
+        [Forms] Use min as default value when min > max for input type="range"
+        https://bugs.webkit.org/show_bug.cgi?id=236223
+
+        Reviewed by Darin Adler.
+
+        Update the sub test expectation that is now passing.
+        * web-platform-tests/html/semantics/forms/the-input-element/range-expected.txt:
+
+2022-02-06  Sam Weinig  <weinig@apple.com>
+
+        Update serialization of rgb() functions with none components to latest spec
+        https://bugs.webkit.org/show_bug.cgi?id=236210
+
+        Reviewed by Darin Adler.
+
+        Update tests for new serialization behavior.
+
+        * web-platform-tests/css/css-color/parsing/color-computed.html:
+        * web-platform-tests/css/css-color/parsing/color-valid.html:
+        * web-platform-tests/css/css-color/parsing/relative-color-computed.html:
+        * web-platform-tests/css/css-color/parsing/relative-color-valid.html:
+
+2022-02-06  Antoine Quint  <graouts@webkit.org>
+
+        [css-logical] Animations should convert logical properties to their physical equivalents
+        https://bugs.webkit.org/show_bug.cgi?id=218092
+        <rdar://problem/70579530>
+
+        Reviewed by Dean Jackson.
+
+        Mark WPT progressions.
+
+        * web-platform-tests/css/css-logical/animation-002-expected.txt:
+
+2022-02-06  Antoine Quint  <graouts@webkit.org>
+
+        [css-logical] [css-transitions] Resolve logic properties when compiling the list of transition properties
+        https://bugs.webkit.org/show_bug.cgi?id=236197
+
+        Reviewed by Dean Jackson.
+
+        Mark WPT progressions.
+
+        * web-platform-tests/css/css-logical/animation-004-expected.txt:
+
+2022-02-05  Chris Dumez  <cdumez@apple.com>
+
+        Resync web-platform-tests/dom from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=236147
+
+        Reviewed by Darin Adler.
+
+        Resync web-platform-tests/dom from upstream 893e71aa9c0a97d259ff.
+
+        * resources/import-expectations.json:
+        * resources/resource-files.json:
+        * web-platform-tests/dom/eventPathRemoved-expected.txt: Added.
+        * web-platform-tests/dom/eventPathRemoved.html: Added.
+        * web-platform-tests/dom/events/AddEventListenerOptions-once-expected.txt: Removed.
+        * web-platform-tests/dom/events/AddEventListenerOptions-passive-expected.txt: Removed.
+        * web-platform-tests/dom/events/Event-constructors-expected.txt: Removed.
+        * web-platform-tests/dom/events/EventTarget-add-remove-listener-expected.txt: Removed.
+        * web-platform-tests/dom/events/EventTarget-addEventListener-expected.txt: Removed.
+        * web-platform-tests/dom/events/EventTarget-removeEventListener-expected.txt: Removed.
+        * web-platform-tests/dom/events/ProgressEvent-expected.txt: Removed.
+        * web-platform-tests/dom/events/ProgressEvent.html: Removed.
+        * web-platform-tests/dom/events/document-level-touchmove-event-listener-passive-by-default.tentative-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/dom/events/document-level-touchmove-event-listener-passive-by-default-expected.txt.
+        * web-platform-tests/dom/events/document-level-wheel-event-listener-passive-by-default-expected.txt: Removed.
+        * web-platform-tests/dom/events/event-global-set-before-handleEvent-lookup.any-expected.txt: Removed.
+        * web-platform-tests/dom/events/event-global-set-before-handleEvent-lookup.any.worker-expected.txt: Removed.
+        * web-platform-tests/dom/events/event-global-set-before-handleEvent-lookup.window-expected.txt: Added.
+        * web-platform-tests/dom/events/event-global-set-before-handleEvent-lookup.window.html: Copied from LayoutTests/imported/w3c/web-platform-tests/dom/events/event-global-set-before-handleEvent-lookup.any.html.
+        * web-platform-tests/dom/events/event-global-set-before-handleEvent-lookup.window.js: Renamed from LayoutTests/imported/w3c/web-platform-tests/dom/events/event-global-set-before-handleEvent-lookup.any.js.
+        * web-platform-tests/dom/events/focus-event-document-move-expected.txt: Removed.
+        * web-platform-tests/dom/events/resources/w3c-import.log:
+        * web-platform-tests/dom/events/scrolling/overscroll-deltas-expected.txt: Added.
+        * web-platform-tests/dom/events/w3c-import.log:
+        * web-platform-tests/dom/idlharness-shadowrealm.window-expected.txt: Added.
+        * web-platform-tests/dom/idlharness-shadowrealm.window.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/dom/events/event-global-set-before-handleEvent-lookup.any.worker.html.
+        * web-platform-tests/dom/idlharness-shadowrealm.window.js: Added.
+        * web-platform-tests/dom/idlharness.any.serviceworker-expected.txt:
+        * web-platform-tests/dom/idlharness.any.sharedworker-expected.txt: Added.
+        * web-platform-tests/dom/idlharness.any.sharedworker.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/dom/events/event-global-set-before-handleEvent-lookup.any.html.
+        * web-platform-tests/dom/idlharness.any.worker-expected.txt:
+        * web-platform-tests/dom/idlharness.window-expected.txt:
+        * web-platform-tests/dom/nodes/Document-characterSet-normalization-expected.txt: Removed.
+        * web-platform-tests/dom/nodes/Node-cloneNode-expected.txt: Removed.
+        * web-platform-tests/dom/nodes/Node-insertBefore-expected.txt:
+        * web-platform-tests/dom/nodes/Node-insertBefore.html:
+        * web-platform-tests/dom/nodes/getElementsByClassNameFrame-expected.txt: Removed.
+        * web-platform-tests/dom/ranges/Range-mutations-expected.txt: Removed.
+        * web-platform-tests/dom/ranges/Range-mutations.html: Removed.
+        * web-platform-tests/dom/ranges/Range-test-iframe-expected.txt: Removed.
+        * web-platform-tests/dom/traversal/support/w3c-import.log:
+        * web-platform-tests/dom/w3c-import.log:
+        * web-platform-tests/interfaces/dom.idl:
+
+2022-02-05  Antoine Quint  <graouts@webkit.org>
+
+        [CSS transition] can't use CSS logical properties in transition syntax
+        https://bugs.webkit.org/show_bug.cgi?id=232361
+        <rdar://problem/84958347>
+
+        Reviewed by Dean Jackson.
+
+        Mark some WPT progressions. The new FAIL result isn't a real regression, that test
+        simply passed by virtue of not ever starting a transition for a logical property.
+
+        * web-platform-tests/css/css-logical/animation-004-expected.txt:
+
+2022-02-04  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed, land missing baseline for Shared Worker test.
+
+        * web-platform-tests/service-workers/service-worker/claim-shared-worker-fetch.https-expected.txt: Added.
+
+2022-02-04  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed, unskip more Shared Worker layout tests on WK2.
+
+        * web-platform-tests/content-security-policy/connect-src/shared-worker-connect-src-allowed.sub-expected.txt: Added.
+        * web-platform-tests/content-security-policy/connect-src/shared-worker-connect-src-blocked.sub-expected.txt: Added.
+        * web-platform-tests/eventsource/shared-worker/eventsource-close-expected.txt:
+        * web-platform-tests/eventsource/shared-worker/eventsource-constructor-non-same-origin-expected.txt:
+        * web-platform-tests/eventsource/shared-worker/eventsource-eventtarget-expected.txt:
+        * web-platform-tests/eventsource/shared-worker/eventsource-onmessage-expected.txt:
+        * web-platform-tests/eventsource/shared-worker/eventsource-onopen-expected.txt:
+        * web-platform-tests/eventsource/shared-worker/eventsource-prototype-expected.txt:
+        * web-platform-tests/eventsource/shared-worker/eventsource-url-expected.txt:
+
+2022-02-04  Chris Dumez  <cdumez@apple.com>
+
+        Fix WPT test importer and resync web-platform-tests/workers from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=236101
+
+        Reviewed by Youenn Fablet.
+
+        Resync web-platform-tests/workers from upstream a9f3552a2b771569201879ef1.
+
+        * resources/import-expectations.json:
+        * resources/resource-files.json:
+        * web-platform-tests/workers: Updated.
+
+2022-02-04  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed, drop badly imported test due to WPT importer bug getting fixed in Bug 236101.
+
+        * web-platform-tests/css/filter-effects/idlharness.any.serviceworker-expected.txt: Removed.
+        * web-platform-tests/css/filter-effects/idlharness.any.serviceworker.html: Removed.
+
+2022-02-03  Jon Lee  <jonlee@apple.com>
+
+        Add fuzzy match data to WPT
+        https://bugs.webkit.org/show_bug.cgi?id=235685
+
+        Reviewed by Darin Adler.
+
+        * web-platform-tests/compat/webkit-background-origin-text.html:
+        * web-platform-tests/compat/webkit-linear-gradient-line-bottom.html:
+        * web-platform-tests/compat/webkit-linear-gradient-line-left.html:
+        * web-platform-tests/compat/webkit-linear-gradient-line-right.html:
+        * web-platform-tests/compat/webkit-linear-gradient-line-top.html:
+        * web-platform-tests/css/css-backgrounds/background-repeat-space-10.html:
+        * web-platform-tests/css/css-backgrounds/background-repeat-space-1a.html:
+        * web-platform-tests/css/css-backgrounds/background-repeat-space-1b.html:
+        * web-platform-tests/css/css-backgrounds/background-repeat-space-1c.html:
+        * web-platform-tests/css/css-backgrounds/background-repeat-space-3.html:
+        * web-platform-tests/css/css-backgrounds/background-repeat-space-4.html:
+        * web-platform-tests/css/css-backgrounds/background-repeat-space-5.html:
+        * web-platform-tests/css/css-backgrounds/background-repeat-space-6.html:
+        * web-platform-tests/css/css-backgrounds/background-repeat-space-7.html:
+        * web-platform-tests/css/css-backgrounds/background-repeat-space-8.html:
+        * web-platform-tests/css/css-backgrounds/background-repeat-space-9.html:
+        * web-platform-tests/css/css-backgrounds/background-repeat/background-repeat-space.xht:
+        * web-platform-tests/css/css-backgrounds/background-rounded-image-clip.html:
+        * web-platform-tests/css/css-backgrounds/background-size-027.html:
+        * web-platform-tests/css/css-backgrounds/border-image-repeat-space-1.html:
+        * web-platform-tests/css/css-backgrounds/border-image-repeat-space-3.html:
+        * web-platform-tests/css/css-backgrounds/border-image-repeat-space-7.html:
+        * web-platform-tests/css/css-backgrounds/css-box-shadow-001.html:
+        * web-platform-tests/css/css-backgrounds/linear-gradient-currentcolor-first-line.html:
+        * web-platform-tests/css/css-flexbox/align-content-001.htm:
+        * web-platform-tests/css/css-flexbox/align-content-002.htm:
+        * web-platform-tests/css/css-flexbox/align-content-003.htm:
+        * web-platform-tests/css/css-flexbox/align-content-004.htm:
+        * web-platform-tests/css/css-flexbox/align-content-005.htm:
+        * web-platform-tests/css/css-flexbox/align-items-001.htm:
+        * web-platform-tests/css/css-flexbox/align-items-002.htm:
+        * web-platform-tests/css/css-flexbox/align-items-003.htm:
+        * web-platform-tests/css/css-flexbox/align-items-004.htm:
+        * web-platform-tests/css/css-flexbox/justify-content-001.htm:
+        * web-platform-tests/css/css-flexbox/justify-content-002.htm:
+        * web-platform-tests/css/css-flexbox/justify-content-004.htm:
+        * web-platform-tests/css/css-flexbox/justify-content-005.htm:
+        * web-platform-tests/css/css-grid/layout-algorithm/flex-sizing-rows-indefinite-height.html:
+        * web-platform-tests/css/css-grid/layout-algorithm/grid-template-flexible-rerun-track-sizing.html:
+        * web-platform-tests/css/css-images/gradients-with-border.html:
+        * web-platform-tests/css/css-images/multiple-position-color-stop-linear.html:
+        * web-platform-tests/css/css-images/repeating-conic-gradient.html:
+        * web-platform-tests/css/css-images/tiled-radial-gradients.html:
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-filter.html:
+        * web-platform-tests/css/css-masking/mask-image/mask-image-clip-exclude.html:
+        * web-platform-tests/css/css-shapes/shape-outside/shape-image/gradients/shape-outside-linear-gradient-001.html:
+        * web-platform-tests/css/css-shapes/shape-outside/shape-image/gradients/shape-outside-linear-gradient-002.html:
+        * web-platform-tests/css/css-shapes/shape-outside/shape-image/gradients/shape-outside-linear-gradient-003.html:
+        * web-platform-tests/css/css-text/shaping/shaping-arabic-diacritics-001.html:
+        * web-platform-tests/css/css-text/white-space/textarea-pre-wrap-013.html:
+        * web-platform-tests/css/css-text/white-space/white-space-intrinsic-size-017.html:
+        * web-platform-tests/css/css-text/white-space/white-space-intrinsic-size-018.html:
+        * web-platform-tests/css/css-transforms/gradientTransform/svg-gradientTransform-001.html:
+        * web-platform-tests/css/css-transforms/gradientTransform/svg-gradientTransform-combination-001.html:
+        * web-platform-tests/css/css-transforms/gradientTransform/svg-gradientTransform-combination-003.html:
+        * web-platform-tests/css/css-transforms/transform-origin-013.html:
+        * web-platform-tests/css/css-values/angle-units-001.html:
+        * web-platform-tests/css/css-values/angle-units-002.html:
+        * web-platform-tests/css/css-values/angle-units-003.html:
+        * web-platform-tests/css/css-values/angle-units-004.html:
+        * web-platform-tests/css/css-values/angle-units-005.html:
+        * web-platform-tests/css/css-variables/vars-background-shorthand-001.html:
+        * web-platform-tests/css/cssom-view/add-background-attachment-fixed-during-smooth-scroll.html:
+        * web-platform-tests/svg/extensibility/foreignObject/masked.html:
+
+2022-02-03  Jon Lee  <jonlee@apple.com>
+
+        Pull selective WPT tests in preparation of https://bugs.webkit.org/show_bug.cgi?id=235685
+
+        These remove the empty <meta name="flags">.
+        * web-platform-tests/css/css-flexbox/align-content-001.htm:
+        * web-platform-tests/css/css-flexbox/align-content-002.htm:
+        * web-platform-tests/css/css-flexbox/align-content-003.htm:
+        * web-platform-tests/css/css-flexbox/align-content-004.htm:
+        * web-platform-tests/css/css-flexbox/align-content-005.htm:
+        * web-platform-tests/css/css-flexbox/align-items-001.htm:
+        * web-platform-tests/css/css-flexbox/align-items-002.htm:
+        * web-platform-tests/css/css-flexbox/align-items-003.htm:
+        * web-platform-tests/css/css-text/white-space/white-space-intrinsic-size-017.html:
+        * web-platform-tests/css/css-text/white-space/white-space-intrinsic-size-018.html:
+        * web-platform-tests/css/css-values/angle-units-002.html:
+        * web-platform-tests/css/css-values/angle-units-003.html:
+        * web-platform-tests/css/css-values/angle-units-004.html:
+        * web-platform-tests/css/css-values/angle-units-005.html:
+
+        Convert tabs to spaces.
+        * web-platform-tests/css/css-variables/vars-background-shorthand-001.html:
+
+2022-02-03  Ziran Sun  <zsun@igalia.com>
+
+        [Forms] Value doesn't change for stepUp()/stepDown() with out of range values
+        https://bugs.webkit.org/show_bug.cgi?id=235509
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/html/semantics/forms/the-input-element/input-stepdown-expected.txt:
+        * web-platform-tests/html/semantics/forms/the-input-element/input-stepup-expected.txt:
+        * web-platform-tests/html/semantics/forms/the-input-element/range-expected.txt:
+
+2022-02-03  Chris Dumez  <cdumez@apple.com>
+
+        Implement AbortSignal.timeout()
+        https://bugs.webkit.org/show_bug.cgi?id=236039
+
+        Reviewed by Darin Adler.
+
+        Import AbortSignal.timeout() tests from upstream WPT.
+
+        * web-platform-tests/dom/abort/AbortSignal.any-expected.txt:
+        * web-platform-tests/dom/abort/AbortSignal.any.js:
+        (async_test.t.signal.onabort.t.step_func_done):
+        (async_test.t.string_appeared_here.signal.onabort.t.step_func):
+        * web-platform-tests/dom/abort/AbortSignal.any.worker-expected.txt:
+        * web-platform-tests/dom/abort/abort-signal-timeout-expected.txt: Added.
+        * web-platform-tests/dom/abort/abort-signal-timeout.html: Added.
+        * web-platform-tests/dom/abort/w3c-import.log:
+
+2022-02-03  Antoine Quint  <graouts@webkit.org>
+
+        Incorrect KeyframesEffect generated for background
+        https://bugs.webkit.org/show_bug.cgi?id=229398
+        <rdar://problem/82516118>
+
+        Reviewed by Darin Adler.
+
+        Mark WPT progressions.
+
+        * web-platform-tests/web-animations/interfaces/Animatable/animate-expected.txt:
+        * web-platform-tests/web-animations/interfaces/KeyframeEffect/constructor-expected.txt:
+        * web-platform-tests/web-animations/interfaces/KeyframeEffect/setKeyframes-expected.txt:
+
+2022-02-03  Martin Robinson  <mrobinson@webkit.org>
+
+        Transform interpolation should blend between shared transform function primitives
+        https://bugs.webkit.org/show_bug.cgi?id=235311
+        <rdar://problem/88012700>
+
+        Reviewed by Simon Fraser.
+
+        Mark some tests as newly passing.
+
+        * web-platform-tests/css/css-transforms/animation/list-interpolation-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/matrix-interpolation-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-001-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-002-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-inline-value-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-verify-reftests-expected.txt:
+        * web-platform-tests/css/css-transforms/animation/transform-translate-composition-expected.txt:
+
+2022-02-02  Patrick Griffis  <pgriffis@igalia.com>
+
+        CSP: Implement wasm-unsafe-eval
+        https://bugs.webkit.org/show_bug.cgi?id=235408
+
+        Reviewed by Kate Cheney.
+
+        Update expectations with new passes.
+
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-wasm-unsafe-eval-allows-wasm.any-expected.txt:
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-wasm-unsafe-eval-allows-wasm.any.serviceworker-expected.txt:
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-wasm-unsafe-eval-allows-wasm.any.worker-expected.txt:
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-wasm-unsafe-eval-allows-wasm.any-expected.txt:
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-wasm-unsafe-eval-allows-wasm.any.serviceworker-expected.txt:
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-wasm-unsafe-eval-allows-wasm.any.worker-expected.txt:
+
+2022-02-02  Patrick Griffis  <pgriffis@igalia.com>
+
+        CSP: Fix matching wildcard hosts
+        https://bugs.webkit.org/show_bug.cgi?id=235992
+
+        Reviewed by Kate Cheney.
+
+        Update expectations.
+
+        * web-platform-tests/content-security-policy/img-src/img-src-full-host-wildcard-blocked.sub-expected.txt:
+
+2022-02-02  Patrick Griffis  <pgriffis@igalia.com>
+
+        CSP: Fix returned WebAssembly error type when blocked
+        https://bugs.webkit.org/show_bug.cgi?id=235319
+
+        Reviewed by Kate Cheney.
+
+        Update expectations with more passes.
+
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-blocks-wasm.any-expected.txt:
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-blocks-wasm.any.serviceworker-expected.txt:
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-blocks-wasm.any.worker-expected.txt:
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-wasm-unsafe-eval-allows-wasm.any-expected.txt:
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-wasm-unsafe-eval-allows-wasm.any.serviceworker-expected.txt:
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-wasm-unsafe-eval-allows-wasm.any.worker-expected.txt:
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-blocks-wasm.any-expected.txt:
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-blocks-wasm.any.serviceworker-expected.txt:
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-blocks-wasm.any.worker-expected.txt:
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-wasm-unsafe-eval-allows-wasm.any-expected.txt:
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-wasm-unsafe-eval-allows-wasm.any.serviceworker-expected.txt:
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-wasm-unsafe-eval-allows-wasm.any.worker-expected.txt:
+
+2022-02-02  Asumu Takikawa  <asumu@igalia.com>
+
+        Unmute link errors for ES module scripts
+        https://bugs.webkit.org/show_bug.cgi?id=235925
+
+        Reviewed by Yusuke Suzuki.
+
+        Adjust test expectations for error handling changes.
+
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/choice-of-error-2-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/error-type-3-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/instantiation-error-1-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/instantiation-error-2-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/instantiation-error-3-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/instantiation-error-4-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/instantiation-error-5-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/instantiation-error-6-expected.txt:
+        * web-platform-tests/html/semantics/scripting-1/the-script-element/module/instantiation-error-7-expected.txt:
+
+2022-02-02  Patrick Griffis  <pgriffis@igalia.com>
+
+        WPT: Import WebAssembly CSP tests
+        https://bugs.webkit.org/show_bug.cgi?id=235319
+
+        Reviewed by Kate Cheney.
+
+        * resources/import-expectations.json:
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-blocks-wasm.any-expected.txt: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-blocks-wasm.any.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-blocks-wasm.any.js: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-blocks-wasm.any.js.headers: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-blocks-wasm.any.serviceworker-expected.txt: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-blocks-wasm.any.serviceworker.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-blocks-wasm.any.worker-expected.txt: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-blocks-wasm.any.worker.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-unsafe-eval-allows-wasm.any-expected.txt: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-unsafe-eval-allows-wasm.any.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-unsafe-eval-allows-wasm.any.js: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-unsafe-eval-allows-wasm.any.js.headers: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-unsafe-eval-allows-wasm.any.serviceworker-expected.txt: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-unsafe-eval-allows-wasm.any.serviceworker.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-unsafe-eval-allows-wasm.any.worker-expected.txt: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-unsafe-eval-allows-wasm.any.worker.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-wasm-unsafe-eval-allows-wasm.any-expected.txt: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-wasm-unsafe-eval-allows-wasm.any.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-wasm-unsafe-eval-allows-wasm.any.js: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-wasm-unsafe-eval-allows-wasm.any.js.headers: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-wasm-unsafe-eval-allows-wasm.any.serviceworker-expected.txt: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-wasm-unsafe-eval-allows-wasm.any.serviceworker.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-wasm-unsafe-eval-allows-wasm.any.worker-expected.txt: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/default-src-wasm-unsafe-eval-allows-wasm.any.worker.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-blocks-wasm.any-expected.txt: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-blocks-wasm.any.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-blocks-wasm.any.js: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-blocks-wasm.any.js.headers: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-blocks-wasm.any.serviceworker-expected.txt: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-blocks-wasm.any.serviceworker.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-blocks-wasm.any.worker-expected.txt: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-blocks-wasm.any.worker.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-spv-asynch.any.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-spv-asynch.any.js: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-spv-asynch.any.js.headers: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-spv-asynch.any.serviceworker.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-spv-asynch.any.worker.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-unsafe-eval-allows-wasm.any-expected.txt: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-unsafe-eval-allows-wasm.any.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-unsafe-eval-allows-wasm.any.js: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-unsafe-eval-allows-wasm.any.js.headers: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-unsafe-eval-allows-wasm.any.serviceworker-expected.txt: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-unsafe-eval-allows-wasm.any.serviceworker.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-unsafe-eval-allows-wasm.any.worker-expected.txt: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-unsafe-eval-allows-wasm.any.worker.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-wasm-unsafe-eval-allows-wasm.any-expected.txt: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-wasm-unsafe-eval-allows-wasm.any.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-wasm-unsafe-eval-allows-wasm.any.js: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-wasm-unsafe-eval-allows-wasm.any.js.headers: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-wasm-unsafe-eval-allows-wasm.any.serviceworker-expected.txt: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-wasm-unsafe-eval-allows-wasm.any.serviceworker.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-wasm-unsafe-eval-allows-wasm.any.worker-expected.txt: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-wasm-unsafe-eval-allows-wasm.any.worker.html: Added.
+        * web-platform-tests/content-security-policy/wasm-unsafe-eval/w3c-import.log: Added.
+
+2022-02-02  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r286988.
+        https://bugs.webkit.org/show_bug.cgi?id=236006
+
+        Broke form submission for multiple <input type='image'>
+
+        Reverted changeset:
+
+        "A FormData constructed in the form's submit event listener
+        shouldn't include the submitter"
+        https://bugs.webkit.org/show_bug.cgi?id=234069
+        https://commits.webkit.org/r286988
+
+2022-02-02  Martin Robinson  <mrobinson@webkit.org>
+
+        scroll-margin-top doesn't work on inline elements
+        https://bugs.webkit.org/show_bug.cgi?id=235933
+        <rdar://87983307>
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-scroll-snap/scroll-target-margin-006-expected.txt: Added.
+        * web-platform-tests/css/css-scroll-snap/scroll-target-margin-006.html: Added.
+
+2022-02-01  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Ensure query containers have valid layout before resolving the subtree
+        https://bugs.webkit.org/show_bug.cgi?id=235896
+
+        Reviewed by Alan Bujtas.
+
+        * web-platform-tests/css/css-contain/container-queries/container-type-invalidation-expected.txt:
+
+2022-02-01  Ada Chan  <ada.chan@apple.com>
+
+        [WebXR] Handle changes in XRSession's visibility state
+        https://bugs.webkit.org/show_bug.cgi?id=235898
+
+        Reviewed by Sergio Villar Senin.
+
+        Update expectation with passing results.
+
+        * web-platform-tests/webxr/xrSession_visibilityState.https-expected.txt:
+
+2022-02-01  Antoine Quint  <graouts@webkit.org>
+
+        Redefining @keyframes does not work
+        https://bugs.webkit.org/show_bug.cgi?id=229437
+        <rdar://problem/82563372>
+
+        Reviewed by Antti Koivisto.
+
+        Add a new test that reproduces the test content submitted with the bug report where
+        a <style> element containing a @keyframes rule with a given name is replaced with
+        another <style> element containing another @keyframes rule with the same name
+        but different keyframes. The test checks that the animation correctly uses the new
+        keyframes when querying the computed style.
+
+        We also get a fair few new PASS results on a ::marker animation test since that test
+        sets the `textContent` for a shared `<style>` element with generated @keyframes rules.
+
+        * web-platform-tests/css/css-animations/animation-style-element-replaced-with-keyframes-rule-of-same-name-expected.txt: Added.
+        * web-platform-tests/css/css-animations/animation-style-element-replaced-with-keyframes-rule-of-same-name.html: Added.
+        * web-platform-tests/css/css-pseudo/parsing/marker-supported-properties-in-animation-expected.txt:
+
+2022-02-01  Oriol Brufau  <obrufau@igalia.com>
+
+        [css-cascade] Fix removal of not yet loaded CSS @import
+        https://bugs.webkit.org/show_bug.cgi?id=235930
+
+        Reviewed by Antti Koivisto.
+
+        Add new test.
+
+        * web-platform-tests/css/css-cascade/import-removal-expected.html: Added.
+        * web-platform-tests/css/css-cascade/import-removal.html: Added.
+
+2022-02-01  Tim Nguyen  <ntim@apple.com>
+
+        Entirely remove support for -apple-trailing-word
+        https://bugs.webkit.org/show_bug.cgi?id=234672
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-cascade/all-prop-initial-xml-expected.txt:
+        * web-platform-tests/css/cssom/getComputedStyle-detached-subtree-expected.txt:
+
 2022-01-31  Asumu Takikawa  <asumu@igalia.com>
 
         Fix handling of module script errors in WebCore

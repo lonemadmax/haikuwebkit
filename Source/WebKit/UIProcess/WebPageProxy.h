@@ -157,6 +157,7 @@
 #endif
 
 #if PLATFORM(COCOA)
+#include "PlaybackSessionContextIdentifier.h"
 #include "RemoteLayerTreeNode.h"
 #include <wtf/WeakObjCPtr.h>
 #endif
@@ -518,6 +519,7 @@ public:
 
     void exitFullscreenImmediately();
     void fullscreenMayReturnToInline();
+
     void didEnterFullscreen();
     void didExitFullscreen();
 
@@ -1555,8 +1557,8 @@ public:
 
     enum class CanDelayNotification { No, Yes };
     void updatePlayingMediaDidChange(WebCore::MediaProducerMediaStateFlags, CanDelayNotification = CanDelayNotification::No);
-    bool isCapturingAudio() const { return m_mediaState.containsAny(WebCore::MediaProducer::AudioCaptureMask); }
-    bool isCapturingVideo() const { return m_mediaState.containsAny(WebCore::MediaProducer::VideoCaptureMask); }
+    bool isCapturingAudio() const { return m_mediaState.containsAny(WebCore::MediaProducer::IsCapturingAudioMask); }
+    bool isCapturingVideo() const { return m_mediaState.containsAny(WebCore::MediaProducer::IsCapturingVideoMask); }
     bool hasActiveAudioStream() const { return m_mediaState.containsAny(WebCore::MediaProducerMediaState::HasActiveAudioCaptureDevice); }
     bool hasActiveVideoStream() const { return m_mediaState.containsAny(WebCore::MediaProducerMediaState::HasActiveVideoCaptureDevice); }
     WebCore::MediaProducerMediaStateFlags reportedMediaState() const { return m_reportedMediaCaptureState | (m_mediaState - WebCore::MediaProducer::MediaCaptureMask); }
@@ -1933,6 +1935,13 @@ public:
     void addMediaUsageManagerSession(WebCore::MediaSessionIdentifier, const String&, const URL&);
     void updateMediaUsageManagerSessionState(WebCore::MediaSessionIdentifier, const WebCore::MediaUsageInfo&);
     void removeMediaUsageManagerSession(WebCore::MediaSessionIdentifier);
+#endif
+
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+    void didEnterFullscreen(PlaybackSessionContextIdentifier);
+    void didExitFullscreen(PlaybackSessionContextIdentifier);
+    void didChangePlaybackRate(PlaybackSessionContextIdentifier);
+    void didChangeCurrentTime(PlaybackSessionContextIdentifier);
 #endif
 
     void setHasExecutedAppBoundBehaviorBeforeNavigation() { m_hasExecutedAppBoundBehaviorBeforeNavigation = true; }
@@ -2598,6 +2607,11 @@ private:
     void setUpHighlightsObserver();
 #endif
 
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+    void updateFullscreenVideoExtraction();
+    void fullscreenVideoExtractionTimerFired();
+#endif
+
     const Identifier m_identifier;
     WebCore::PageIdentifier m_webPageID;
     WeakPtr<PageClient> m_pageClient;
@@ -3172,6 +3186,11 @@ private:
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER)
     std::optional<ScrollingAccelerationCurve> m_scrollingAccelerationCurve;
     std::optional<ScrollingAccelerationCurve> m_lastSentScrollingAccelerationCurve;
+#endif
+
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+    std::optional<PlaybackSessionContextIdentifier> m_currentFullscreenVideoSessionIdentifier;
+    RunLoop::Timer<WebPageProxy> m_fullscreenVideoExtractionTimer;
 #endif
 };
 

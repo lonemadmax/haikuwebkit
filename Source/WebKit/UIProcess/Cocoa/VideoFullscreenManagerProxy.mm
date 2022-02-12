@@ -30,6 +30,7 @@
 
 #import "APIUIClient.h"
 #import "DrawingAreaProxy.h"
+#import "GPUProcessProxy.h"
 #import "PlaybackSessionManagerProxy.h"
 #import "VideoFullscreenManagerMessages.h"
 #import "VideoFullscreenManagerProxyMessages.h"
@@ -511,6 +512,29 @@ void VideoFullscreenManagerProxy::forEachSession(Function<void(VideoFullscreenMo
     }
 }
 
+void VideoFullscreenManagerProxy::requestBitmapImageForCurrentTime(PlaybackSessionContextIdentifier identifier, CompletionHandler<void(const ShareableBitmap::Handle&)>&& completionHandler)
+{
+    auto* gpuProcess = GPUProcessProxy::singletonIfCreated();
+    if (!gpuProcess) {
+        completionHandler({ });
+        return;
+    }
+
+    auto* interface = findInterface(identifier);
+    if (!interface) {
+        completionHandler({ });
+        return;
+    }
+
+    auto playerIdentifier = valueOrDefault(interface->playerIdentifier());
+    if (!playerIdentifier) {
+        completionHandler({ });
+        return;
+    }
+
+    gpuProcess->requestBitmapImageForCurrentTime(m_page->process().coreProcessIdentifier(), playerIdentifier, WTFMove(completionHandler));
+}
+
 void VideoFullscreenManagerProxy::addVideoInPictureInPictureDidChangeObserver(const VideoInPictureInPictureDidChangeObserver& observer)
 {
     ASSERT(!m_pipChangeObservers.contains(observer));
@@ -569,6 +593,15 @@ void VideoFullscreenManagerProxy::setupFullscreenWithID(PlaybackSessionContextId
     m_page->rootViewToWindow(enclosingIntRect(initialRect), initialWindowRect);
     interface->setupFullscreen(*model->layerHostView(), initialWindowRect, m_page->platformWindow(), videoFullscreenMode, allowsPictureInPicture);
 #endif
+}
+
+void VideoFullscreenManagerProxy::setPlayerIdentifier(PlaybackSessionContextIdentifier contextId, std::optional<MediaPlayerIdentifier> playerIdentifier)
+{
+    if (m_mockVideoPresentationModeEnabled)
+        return;
+
+    if (auto* interface = findInterface(contextId))
+        interface->setPlayerIdentifier(playerIdentifier);
 }
 
 void VideoFullscreenManagerProxy::setHasVideo(PlaybackSessionContextIdentifier contextId, bool hasVideo)
@@ -812,7 +845,7 @@ void VideoFullscreenManagerProxy::didExitFullscreen(PlaybackSessionContextIdenti
         return;
     }
 #endif
-    m_page->didExitFullscreen();
+    m_page->didExitFullscreen(contextId);
     callCloseCompletionHandlers();
 }
 
@@ -828,7 +861,7 @@ void VideoFullscreenManagerProxy::didEnterFullscreen(PlaybackSessionContextIdent
     if (ensureInterface(contextId).changingStandbyOnly())
         return;
 #endif
-    m_page->didEnterFullscreen();
+    m_page->didEnterFullscreen(contextId);
 }
 
 void VideoFullscreenManagerProxy::didCleanupFullscreen(PlaybackSessionContextIdentifier contextId)

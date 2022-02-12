@@ -29,6 +29,7 @@
 #include "GraphicsContext.h"
 #include "HitTestResult.h"
 #include "InlineIteratorInlineBox.h"
+#include "InlineIteratorLine.h"
 #include "LayoutIntegrationLineLayout.h"
 #include "LegacyInlineElementBox.h"
 #include "LegacyInlineTextBox.h"
@@ -210,7 +211,7 @@ bool RenderInline::mayAffectLayout() const
         || (parentRenderInline && parentStyle->verticalAlign() != VerticalAlign::Baseline)
         || style().verticalAlign() != VerticalAlign::Baseline
         || style().textEmphasisMark() != TextEmphasisMark::None
-        || (checkFonts && (!parentStyle->fontCascade().fontMetrics().hasIdenticalAscentDescentAndLineGap(style().fontCascade().fontMetrics())
+        || (checkFonts && (!parentStyle->fontCascade().metricsOfPrimaryFont().hasIdenticalAscentDescentAndLineGap(style().fontCascade().metricsOfPrimaryFont())
         || parentStyle->lineHeight() != style().lineHeight()))
         || hasHardLineBreakChildOnly;
 
@@ -218,7 +219,7 @@ bool RenderInline::mayAffectLayout() const
         // Have to check the first line style as well.
         parentStyle = &parent()->firstLineStyle();
         auto& childStyle = firstLineStyle();
-        mayAffectLayout = !parentStyle->fontCascade().fontMetrics().hasIdenticalAscentDescentAndLineGap(childStyle.fontCascade().fontMetrics())
+        mayAffectLayout = !parentStyle->fontCascade().metricsOfPrimaryFont().hasIdenticalAscentDescentAndLineGap(childStyle.fontCascade().metricsOfPrimaryFont())
             || childStyle.verticalAlign() != VerticalAlign::Baseline
             || parentStyle->lineHeight() != childStyle.lineHeight();
     }
@@ -855,7 +856,7 @@ LayoutUnit RenderInline::lineHeight(bool firstLine, LineDirectionMode /*directio
 LayoutUnit RenderInline::baselinePosition(FontBaseline baselineType, bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
 {
     const RenderStyle& style = firstLine ? firstLineStyle() : this->style();
-    const FontMetrics& fontMetrics = style.fontMetrics();
+    const FontMetrics& fontMetrics = style.metricsOfPrimaryFont();
     return LayoutUnit { (fontMetrics.ascent(baselineType) + (lineHeight(firstLine, direction, linePositionMode) - fontMetrics.height()) / 2).toInt() };
 }
 

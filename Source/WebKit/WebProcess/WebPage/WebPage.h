@@ -802,7 +802,8 @@ public:
     void requestAutocorrectionData(const String& textForAutocorrection, CompletionHandler<void(WebAutocorrectionData)>&& reply);
     void applyAutocorrection(const String& correction, const String& originalText, CompletionHandler<void(const String&)>&&);
     void syncApplyAutocorrection(const String& correction, const String& originalText, CompletionHandler<void(bool)>&&);
-    void requestAutocorrectionContext();
+    void handleAutocorrectionContextRequest();
+    void preemptivelySendAutocorrectionContext();
     void getPositionInformation(const InteractionInformationRequest&, CompletionHandler<void(InteractionInformationAtPosition&&)>&&);
     void requestPositionInformation(const InteractionInformationRequest&);
     void startInteractionWithElementContextOrPosition(std::optional<WebCore::ElementContext>&&, WebCore::IntPoint&&);
@@ -1587,9 +1588,14 @@ private:
     void testProcessIncomingSyncMessagesWhenWaitingForSyncReply(Messages::WebPage::TestProcessIncomingSyncMessagesWhenWaitingForSyncReplyDelayedReply&&);
 
     void updateDrawingAreaLayerTreeFreezeState();
-    bool markLayersVolatileImmediatelyIfPossible();
+
+    enum class MarkLayersVolatileDontRetryReason : uint8_t { None, SuspendedUnderLock, TimedOut };
+    void markLayersVolatileOrRetry(MarkLayersVolatileDontRetryReason);
     void layerVolatilityTimerFired();
     void callVolatilityCompletionHandlers(bool succeeded);
+
+    void tryMarkLayersVolatile(CompletionHandler<void(bool)>&&);
+    void tryMarkLayersVolatileCompletionHandler(MarkLayersVolatileDontRetryReason, bool didSucceed);
 
     String sourceForFrame(WebFrame*);
 
@@ -2285,6 +2291,7 @@ private:
 #endif
 
     WebCore::Timer m_layerVolatilityTimer;
+    Seconds m_layerVolatilityTimerInterval;
     Vector<CompletionHandler<void(bool)>> m_markLayersAsVolatileCompletionHandlers;
     bool m_isSuspendedUnderLock { false };
 

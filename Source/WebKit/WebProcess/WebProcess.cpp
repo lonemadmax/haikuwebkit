@@ -84,6 +84,7 @@
 #include "WebSWContextManagerConnection.h"
 #include "WebSWContextManagerConnectionMessages.h"
 #include "WebServiceWorkerProvider.h"
+#include "WebSharedWorkerProvider.h"
 #include "WebSocketStream.h"
 #include "WebsiteData.h"
 #include "WebsiteDataStoreParameters.h"
@@ -569,6 +570,7 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
 #if ENABLE(SERVICE_WORKER)
     ServiceWorkerProvider::setSharedProvider(WebServiceWorkerProvider::singleton());
 #endif
+    SharedWorkerProvider::setSharedProvider(WebSharedWorkerProvider::singleton());
 
 #if ENABLE(WEBASSEMBLY)
     JSC::Wasm::enableFastMemory();
@@ -1918,7 +1920,7 @@ LibWebRTCNetwork& WebProcess::libWebRTCNetwork()
 }
 
 #if ENABLE(SERVICE_WORKER)
-void WebProcess::establishWorkerContextConnectionToNetworkProcess(PageGroupIdentifier pageGroupID, WebPageProxyIdentifier webPageProxyID, PageIdentifier pageID, const WebPreferencesStore& store, RegistrableDomain&& registrableDomain, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, ServiceWorkerInitializationData&& initializationData, CompletionHandler<void()>&& completionHandler)
+void WebProcess::establishServiceWorkerContextConnectionToNetworkProcess(PageGroupIdentifier pageGroupID, WebPageProxyIdentifier webPageProxyID, PageIdentifier pageID, const WebPreferencesStore& store, RegistrableDomain&& registrableDomain, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, RemoteWorkerInitializationData&& initializationData, CompletionHandler<void()>&& completionHandler)
 {
     // We are in the Service Worker context process and the call below establishes our connection to the Network Process
     // by calling ensureNetworkProcessConnection. SWContextManager needs to use the same underlying IPC::Connection as the
@@ -1976,7 +1978,7 @@ static inline void checkDocumentsCaptureStateConsistency(const Vector<String>& e
 {
 #if ASSERT_ENABLED
     bool isCapturingAudio = WTF::anyOf(Document::allDocumentsMap().values(), [](auto* document) {
-        return document->mediaState() & MediaProducer::AudioCaptureMask;
+        return document->mediaState() & MediaProducer::MicrophoneCaptureMask;
     });
     bool isCapturingVideo = WTF::anyOf(Document::allDocumentsMap().values(), [](auto* document) {
         return document->mediaState() & MediaProducer::VideoCaptureMask;

@@ -160,6 +160,7 @@
 #include "NodeIterator.h"
 #include "NodeRareData.h"
 #include "NodeWithIndex.h"
+#include "NotificationController.h"
 #include "OverflowEvent.h"
 #include "PageConsoleClient.h"
 #include "PageGroup.h"
@@ -2054,6 +2055,17 @@ void Document::resolveStyle(ResolveStyleType type)
 
         Style::TreeResolver resolver(*this, WTFMove(m_pendingRenderTreeTextUpdate));
         auto styleUpdate = resolver.resolve();
+
+        while (resolver.hasUnresolvedQueryContainers() && styleUpdate) {
+            SetForScope resolvingContainerQueriesScope(m_isResolvingContainerQueries, true);
+
+            updateRenderTree(WTFMove(styleUpdate));
+
+            if (frameView.layoutContext().needsLayout())
+                frameView.layoutContext().layout();
+
+            styleUpdate = resolver.resolve();
+        }
 
         m_lastStyleUpdateSizeForTesting = styleUpdate ? styleUpdate->size() : 0;
 
@@ -6186,7 +6198,7 @@ String Document::originIdentifierForPasteboard() const
     if (origin != "null")
         return origin;
     if (!m_uniqueIdentifier)
-        m_uniqueIdentifier = "null:" + createCanonicalUUIDString();
+        m_uniqueIdentifier = "null:" + createVersion4UUIDString();
     return m_uniqueIdentifier;
 }
 
@@ -8566,7 +8578,7 @@ void Document::didInsertAttachmentElement(HTMLAttachmentElement& attachment)
     bool previousIdentifierIsNotUnique = !previousIdentifier.isEmpty() && m_attachmentIdentifierToElementMap.contains(previousIdentifier);
     if (identifier.isEmpty() || previousIdentifierIsNotUnique) {
         previousIdentifier = identifier;
-        identifier = createCanonicalUUIDString();
+        identifier = createVersion4UUIDString();
         attachment.setUniqueIdentifier(identifier);
     }
 
@@ -9051,6 +9063,27 @@ void Document::whenVisible(Function<void()>&& callback)
         return;
     }
     callback();
+}
+
+NotificationClient* Document::notificationClient()
+{
+#if ENABLE(NOTIFICATIONS)
+    auto* page = this->page();
+    if (!page)
+        return nullptr;
+
+    return &NotificationController::from(page)->client();
+#else
+    return nullptr;
+#endif
+}
+
+std::optional<PAL::SessionID> Document::sessionID() const
+{
+    if (auto* page = this->page())
+        return page->sessionID();
+
+    return std::nullopt;
 }
 
 } // namespace WebCore

@@ -51,33 +51,6 @@
 
 namespace WebCore {
 
-static URL topOriginURL(const SecurityOrigin& origin)
-{
-    return URL { URL { }, origin.toRawString() };
-}
-
-void ServiceWorkerThreadProxy::setupPageForServiceWorker(Page& page, const ServiceWorkerContextData& data)
-{
-    auto& mainFrame = page.mainFrame();
-    mainFrame.loader().initForSynthesizedDocument({ });
-    auto document = Document::createNonRenderedPlaceholder(mainFrame, data.scriptURL);
-    document->createDOMWindow();
-
-    document->storageBlockingStateDidChange();
-
-    auto origin = data.registration.key.topOrigin().securityOrigin();
-    origin->setStorageBlockingPolicy(page.settings().storageBlockingPolicy());
-
-    document->setSiteForCookies(topOriginURL(origin));
-    document->setFirstPartyForCookies(topOriginURL(origin));
-    document->setDomainForCachePartition(origin->domainForCachePartition());
-
-    if (auto policy = parseReferrerPolicy(data.referrerPolicy, ReferrerPolicySource::HTTPHeader))
-        document->setReferrerPolicy(*policy);
-
-    mainFrame.setDocument(WTFMove(document));
-}
-
 static inline IDBClient::IDBConnectionProxy* idbConnectionProxy(Document& document)
 {
     return document.idbConnectionProxy();
@@ -89,13 +62,13 @@ static HashSet<ServiceWorkerThreadProxy*>& allServiceWorkerThreadProxies()
     return set;
 }
 
-ServiceWorkerThreadProxy::ServiceWorkerThreadProxy(UniqueRef<Page>&& page, ServiceWorkerContextData&& contextData, ServiceWorkerData&& workerData, String&& userAgent, WorkerThreadMode workerThreadMode, CacheStorageProvider& cacheStorageProvider)
+ServiceWorkerThreadProxy::ServiceWorkerThreadProxy(UniqueRef<Page>&& page, ServiceWorkerContextData&& contextData, ServiceWorkerData&& workerData, String&& userAgent, WorkerThreadMode workerThreadMode, CacheStorageProvider& cacheStorageProvider, std::unique_ptr<NotificationClient>&& notificationClient)
     : m_page(WTFMove(page))
     , m_document(*m_page->mainFrame().document())
 #if ENABLE(REMOTE_INSPECTOR)
     , m_remoteDebuggable(makeUnique<ServiceWorkerDebuggable>(*this, contextData))
 #endif
-    , m_serviceWorkerThread(ServiceWorkerThread::create(WTFMove(contextData), WTFMove(workerData), WTFMove(userAgent), workerThreadMode, m_document->settingsValues(), *this, *this, idbConnectionProxy(m_document), m_document->socketProvider()))
+    , m_serviceWorkerThread(ServiceWorkerThread::create(WTFMove(contextData), WTFMove(workerData), WTFMove(userAgent), workerThreadMode, m_document->settingsValues(), *this, *this, idbConnectionProxy(m_document), m_document->socketProvider(), WTFMove(notificationClient), m_page->sessionID()))
     , m_cacheStorageProvider(cacheStorageProvider)
     , m_inspectorProxy(*this)
 {

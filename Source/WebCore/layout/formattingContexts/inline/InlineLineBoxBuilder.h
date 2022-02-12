@@ -37,22 +37,20 @@ namespace Layout {
 class Box;
 class ContainerBox;
 class LayoutState;
+struct LayoutBoundsMetrics;
 
 class LineBoxBuilder {
 public:
     LineBoxBuilder(const InlineFormattingContext&);
 
-    struct LineBoxAndHeight {
-        LineBox lineBox;
-        InlineLayoutUnit lineBoxLogicalHeight;
-    };
-    LineBoxAndHeight build(const LineBuilder::LineContent&, size_t lineIndex);
+    LineBox build(const LineBuilder::LineContent&, size_t lineIndex);
 
 private:
-    void setInitialVerticalGeometryForInlineBox(InlineLevelBox&) const;
-    void setVerticalGeometryForLineBreakBox(InlineLevelBox& lineBreakBox, const InlineLevelBox& parentInlineBox) const;
-    void adjustVerticalGeometryForInlineBoxWithFallbackFonts(InlineLevelBox&, const TextUtil::FallbackFontList&) const;
-    InlineLayoutUnit constructAndAlignInlineLevelBoxes(LineBox&, const LineBuilder::LineContent&, size_t lineIndex);
+    void setBaselineAndLayoutBounds(InlineLevelBox&, const LayoutBoundsMetrics&) const;
+    void adjustLayoutBoundsWithFallbackFonts(InlineLevelBox&, const TextUtil::FallbackFontList&) const;
+
+    void constructInlineLevelBoxes(LineBox&, const LineBuilder::LineContent&, size_t lineIndex);
+    void adjustIdeographicBaselineIfApplicable(LineBox&, size_t lineIndex);
 
     const InlineFormattingContext& formattingContext() const { return m_inlineFormattingContext; }
     const Box& rootBox() const { return formattingContext().root(); }
@@ -60,6 +58,7 @@ private:
 
 private:
     const InlineFormattingContext& m_inlineFormattingContext;
+    bool m_fallbackFontRequiresIdeographicBaseline { false };
 };
 
 }

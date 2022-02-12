@@ -29,6 +29,7 @@
 #include "MessagePortIdentifier.h"
 #include "ResourceLoaderIdentifier.h"
 #include "ResourceResponse.h"
+#include "SharedWorkerManager.h"
 #include "WorkerOptions.h"
 #include "WorkerScriptLoaderClient.h"
 #include <wtf/ObjectIdentifier.h>
@@ -40,7 +41,6 @@ class SharedWorker;
 class WorkerScriptLoader;
 
 class SharedWorkerScriptLoader;
-using SharedWorkerScriptLoaderIdentifier = ObjectIdentifier<SharedWorkerScriptLoader>;
 
 using TransferredMessagePort = std::pair<WebCore::MessagePortIdentifier, WebCore::MessagePortIdentifier>;
 

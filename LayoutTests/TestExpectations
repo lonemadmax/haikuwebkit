@@ -302,12 +302,11 @@ media/remove-video-element-in-pip-from-document.html [ Skip ]
 # This test is only relevent on iPhone where videos always play in fullscreen.
 media/video-element-fullscreen-not-in-dom-accelerated-iphone.html [ Skip ]
 
-# Shared Workers are unsupported
+# Tests rely on domain names our test infrastructure doesn't support.
 imported/w3c/web-platform-tests/secure-contexts/basic-shared-worker.html [ Skip ]
 imported/w3c/web-platform-tests/secure-contexts/basic-shared-worker.https.html [ Skip ]
 imported/w3c/web-platform-tests/secure-contexts/shared-worker-insecure-first.https.html [ Skip ]
 imported/w3c/web-platform-tests/secure-contexts/shared-worker-secure-first.https.html [ Skip ]
-imported/w3c/web-platform-tests/eventsource/shared-worker [ Skip ]
 
 # This test seems wrong as it call update() for a script that does not change and expected an updatefound event.
 # Per specification, if the scripts are identical, we do not install the new script and return the existing registration.
@@ -416,9 +415,6 @@ webkit.org/b/176929 imported/w3c/web-platform-tests/html/semantics/embedded-cont
 # Requires additional test infrastructure.
 imported/w3c/web-platform-tests/service-workers/service-worker/update-after-oneday.https.html [ Skip ]
 
-# Unsupported features: SharedWorker
-imported/w3c/web-platform-tests/service-workers/service-worker/claim-shared-worker-fetch.https.html [ Skip ]
-
 # Unsupported features: PerformanceNavigationTiming
 imported/w3c/web-platform-tests/server-timing/test_server_timing.html [ Skip ]
 imported/w3c/web-platform-tests/server-timing/test_server_timing.https.html [ Skip ]
@@ -512,6 +508,9 @@ imported/w3c/web-platform-tests/content-security-policy/inside-worker/servicewor
 imported/w3c/web-platform-tests/content-security-policy/prefetch-src/prefetch-blocked-by-default.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/prefetch-src/prefetch-header-blocked-by-default.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/reporting-api/report-to-directive-allowed-in-meta.https.sub.html [ Skip ]
+imported/w3c/web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-spv-asynch.any.html [ Skip ]
+imported/w3c/web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-spv-asynch.any.serviceworker.html [ Skip ]
+imported/w3c/web-platform-tests/content-security-policy/wasm-unsafe-eval/script-src-spv-asynch.any.worker.html [ Skip ]
 imported/w3c/web-platform-tests/cookies/domain/domain-attribute-host-with-and-without-leading-period.sub.https.html [ Skip ]
 imported/w3c/web-platform-tests/cookies/domain/domain-attribute-host-with-leading-period.sub.https.html [ Skip ]
 imported/w3c/web-platform-tests/cookies/domain/domain-attribute-matches-host.sub.https.html [ Skip ]
@@ -894,34 +893,11 @@ fast/dom/connected-subframe-counter-overflow.html [ Slow ]
 [ Debug ] http/tests/workers/worker-messageport-2.html [ Slow ]
 
 # Skip workers tests that are timing out or are SharedWorker related only
-imported/w3c/web-platform-tests/workers/data-url-shared.html [ Skip ]
-imported/w3c/web-platform-tests/workers/examples/onconnect.any.html [ Skip ]
-imported/w3c/web-platform-tests/workers/examples/onconnect.any.worker.html [ Skip ]
 imported/w3c/web-platform-tests/workers/interfaces/WorkerUtils/importScripts/006.html [ Skip ]
 imported/w3c/web-platform-tests/workers/nested_worker.worker.html [ Skip ]
-imported/w3c/web-platform-tests/workers/opaque-origin.html [ Skip ]
-imported/w3c/web-platform-tests/workers/semantics/interface-objects/003.any.html [ Skip ]
-imported/w3c/web-platform-tests/workers/semantics/interface-objects/003.any.worker.html [ Skip ]
-imported/w3c/web-platform-tests/workers/semantics/interface-objects/004.any.html [ Skip ]
-imported/w3c/web-platform-tests/workers/semantics/interface-objects/004.any.worker.html [ Skip ]
 imported/w3c/web-platform-tests/workers/semantics/multiple-workers/003.html [ Skip ]
-imported/w3c/web-platform-tests/workers/Worker_cross_origin_security_err.htm [ Skip ]
-imported/w3c/web-platform-tests/workers/SharedWorker-MessageEvent-source.any.html [ Skip ]
-imported/w3c/web-platform-tests/workers/SharedWorker-MessageEvent-source.any.worker.html [ Skip ]
-imported/w3c/web-platform-tests/workers/SharedWorker-constructor.html [ Skip ]
-imported/w3c/web-platform-tests/workers/SharedWorker-detach-frame-in-error-event.html [ Skip ]
-imported/w3c/web-platform-tests/workers/SharedWorker-exception-propagation.html [ Skip ]
-imported/w3c/web-platform-tests/workers/SharedWorker-exception.html [ Skip ]
-imported/w3c/web-platform-tests/workers/SharedWorker-replace-EventHandler.any.html [ Skip ]
-imported/w3c/web-platform-tests/workers/SharedWorker-replace-EventHandler.any.worker.html [ Skip ]
-imported/w3c/web-platform-tests/workers/SharedWorker-script-error.html [ Skip ]
-imported/w3c/web-platform-tests/workers/SharedWorker-simple.html [ Skip ]
 imported/w3c/web-platform-tests/workers/modules/dedicated-worker-options-credentials.html [ Skip ]
 imported/w3c/web-platform-tests/workers/modules/shared-worker-import-csp.html [ Skip ]
-imported/w3c/web-platform-tests/workers/modules/shared-worker-import-referrer.html [ Skip ]
-
-imported/w3c/web-platform-tests/workers/constructors/SharedWorker [ Skip ]
-imported/w3c/web-platform-tests/workers/SharedWorker_blobUrl.html [ Skip ]
 
 http/tests/cache-storage/page-cache-domcache-pending-promise.html [ DumpJSConsoleLogInStdErr ]
 
@@ -989,9 +965,7 @@ imported/w3c/web-platform-tests/content-security-policy/reporting/report-cross-o
 # Content Security Policy: Embedded Enforcement is not supported
 imported/w3c/web-platform-tests/content-security-policy/embedded-enforcement
 
-# Skip Content Security Policy shared workers tests as we do not support shared workers
-imported/w3c/web-platform-tests/content-security-policy/connect-src/shared-worker-connect-src-allowed.sub.html
-imported/w3c/web-platform-tests/content-security-policy/connect-src/shared-worker-connect-src-blocked.sub.html
+# Test is timing out.
 imported/w3c/web-platform-tests/content-security-policy/securitypolicyviolation/inside-shared-worker.html
 
 # Sometimes logs a line about trying to connect to an external URL.
@@ -1470,7 +1444,6 @@ webkit.org/b/136878 js/promises-tests/promises-tests-2-3-3.html [ Slow ]
 webkit.org/b/148546 [ Debug ] imported/w3c/web-platform-tests/dom/ranges/Range-compareBoundaryPoints.html [ Skip ]
 webkit.org/b/148546 [ Debug ] imported/w3c/web-platform-tests/dom/ranges/Range-comparePoint.html [ Skip ]
 webkit.org/b/148546 [ Debug ] imported/w3c/web-platform-tests/dom/ranges/Range-isPointInRange.html [ Skip ]
-webkit.org/b/148546 [ Debug ] imported/w3c/web-platform-tests/dom/ranges/Range-mutations.html [ Skip ]
 webkit.org/b/148546 [ Debug ] imported/w3c/web-platform-tests/dom/ranges/Range-set.html [ Skip ]
 webkit.org/b/148822 [ Debug ] imported/w3c/web-platform-tests/html/semantics/interfaces.html [ Skip ]
 webkit.org/b/154310 [ Debug ] imported/w3c/web-platform-tests/html/dom/reflection-embedded.html [ Skip ]
@@ -4332,19 +4305,11 @@ webkit.org/b/234763 [ Debug ] imported/w3c/web-platform-tests/css/css-writing-mo
 
 # New failures after updating WPT import of css/css-text on 2020-07
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/appearance-button-001.html [ ImageOnlyFailure ]
-webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/appearance-checkbox-001.html [ ImageOnlyFailure ]
-webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/appearance-listbox-001.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/appearance-menulist-001.html [ ImageOnlyFailure ]
-webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/appearance-menulist-button-001.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/appearance-menulist-button-002.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/appearance-meter-001.html [ ImageOnlyFailure ]
-webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/appearance-progress-bar-001.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/appearance-push-button-001.html [ ImageOnlyFailure ]
-webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/appearance-radio-001.html [ ImageOnlyFailure ]
-webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/appearance-searchfield-001.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/appearance-slider-horizontal-001.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/appearance-square-button-001.html [ ImageOnlyFailure ]
-webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/appearance-textarea-001.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/appearance-textfield-001.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/outline-021.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/outline-024.html [ ImageOnlyFailure ]
@@ -4354,19 +4319,11 @@ webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/outline-027.html 
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/outline-offset-table-001.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/text-overflow-ruby.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/webkit-appearance-button-001.html [ ImageOnlyFailure ]
-webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/webkit-appearance-checkbox-001.html [ ImageOnlyFailure ]
-webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/webkit-appearance-listbox-001.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/webkit-appearance-menulist-001.html [ ImageOnlyFailure ]
-webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/webkit-appearance-menulist-button-001.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/webkit-appearance-menulist-button-002.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/webkit-appearance-meter-001.html [ ImageOnlyFailure ]
-webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/webkit-appearance-progress-bar-001.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/webkit-appearance-push-button-001.html [ ImageOnlyFailure ]
-webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/webkit-appearance-radio-001.html [ ImageOnlyFailure ]
-webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/webkit-appearance-searchfield-001.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/webkit-appearance-slider-horizontal-001.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/webkit-appearance-square-button-001.html [ ImageOnlyFailure ]
-webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/webkit-appearance-textarea-001.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/webkit-appearance-textfield-001.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/resize-child-will-change-transform.html [ ImageOnlyFailure ]
 webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/resize-generated-content.html [ ImageOnlyFailure ]
@@ -4746,8 +4703,7 @@ imported/w3c/web-platform-tests/css/css-contain/contain-html-overflow-004.html [
 # Container queries
 webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/display-in-container.html [ ImageOnlyFailure ]
 webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/pseudo-elements-002.tentative.html [ ImageOnlyFailure ]
-webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/inline-size-bfc-floats.html [ ImageOnlyFailure ]
-webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/whitespace-update-after-removal.html [ ImageOnlyFailure ]
+webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/multicol-inside-container.html [ ImageOnlyFailure ]
 
 # Flaky css-contain test
 imported/w3c/web-platform-tests/css/css-contain/content-visibility/animation-display-lock.html [ Failure Pass ]
@@ -4863,7 +4819,6 @@ webkit.org/b/208988 imported/w3c/web-platform-tests/webxr/events_referenceSpace_
 webkit.org/b/208988 imported/w3c/web-platform-tests/webxr/getInputPose_pointer.https.html [ Skip ]
 webkit.org/b/208988 imported/w3c/web-platform-tests/webxr/xrDevice_disconnect_ends.https.html [ Skip ]
 webkit.org/b/208988 imported/w3c/web-platform-tests/webxr/xrFrame_getViewerPose_getPose_identities.https.html [ Skip ]
-webkit.org/b/208988 imported/w3c/web-platform-tests/webxr/xrSession_visibilityState.https.html [ Skip ]
 webkit.org/b/208988 imported/w3c/web-platform-tests/webxr/xr_viewport_scale.https.html [ Skip ]
 
 # WebXR - Currently failing and needs more investigation.
@@ -5154,6 +5109,9 @@ webkit.org/b/183994 imported/w3c/web-platform-tests/css/cssom/css-style-attr-dec
 
 # Test is crashing in Debug builds since import.
 webkit.org/b/234977 [ Debug ] imported/w3c/web-platform-tests/dom/events/focus-event-document-move.html [ Skip ]
+
+# Test is crashing since import.
+imported/w3c/web-platform-tests/workers/modules/dedicated-worker-import-csp.html [ Skip ]
 
 # Plugins
 # FIXME: Remove these tests.

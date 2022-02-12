@@ -20,9 +20,10 @@
 #include "config.h"
 #include "AccessibilityObjectAtspi.h"
 
-#if ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#if USE(ATSPI)
 
 #include "AccessibilityAtspi.h"
+#include "AccessibilityObject.h" // NOLINT: check-webkit-style has problems with files that do not have primary header
 
 namespace WebCore {
 
@@ -73,7 +74,7 @@ GDBusInterfaceVTable AccessibilityObjectAtspi::s_selectionFunctions = {
     // set_property,
     nullptr,
     // padding
-    nullptr
+    { nullptr }
 };
 
 unsigned AccessibilityObjectAtspi::selectionCount() const
@@ -197,4 +198,4 @@ void AccessibilityObjectAtspi::selectionChanged()
 
 } // namespace WebCore
 
-#endif // ENABLE(ACCESSIBILITY) && USE(ATSPI)
+#endif // USE(ATSPI)

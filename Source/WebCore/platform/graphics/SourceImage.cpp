@@ -35,50 +35,68 @@ SourceImage::SourceImage(ImageVariant&& imageVariant)
 {
 }
 
-NativeImage* SourceImage::nativeImageIfExists() const
+static inline NativeImage* nativeImageOf(const SourceImage::ImageVariant& imageVariant)
 {
-    if (auto* nativeImage = std::get_if<Ref<NativeImage>>(&m_imageVariant))
+    if (auto* nativeImage = std::get_if<Ref<NativeImage>>(&imageVariant))
         return nativeImage->ptr();
     return nullptr;
 }
 
-NativeImage* SourceImage::nativeImage()
+NativeImage* SourceImage::nativeImageIfExists() const
+{
+    return nativeImageOf(m_imageVariant);
+}
+
+NativeImage* SourceImage::nativeImage() const
 {
     if (!std::holds_alternative<Ref<ImageBuffer>>(m_imageVariant))
         return nativeImageIfExists();
 
-    auto imageBuffer = std::get<Ref<ImageBuffer>>(m_imageVariant);
-    auto nativeImage = ImageBuffer::sinkIntoNativeImage(WTFMove(imageBuffer));
-    if (!nativeImage)
-        return nullptr;
+    if (!m_transformedImageVariant) {
+        auto imageBuffer = std::get<Ref<ImageBuffer>>(m_imageVariant);
 
-    m_imageVariant = nativeImage.releaseNonNull();
-    return nativeImageIfExists();
+        auto nativeImage = imageBuffer->copyNativeImage(DontCopyBackingStore);
+        if (!nativeImage)
+            return nullptr;
+
+        m_transformedImageVariant = { nativeImage.releaseNonNull() };
+    }
+
+    ASSERT(m_transformedImageVariant);
+    return nativeImageOf(*m_transformedImageVariant);
 }
 
-ImageBuffer* SourceImage::imageBufferIfExists() const
+static inline ImageBuffer* imageBufferOf(const SourceImage::ImageVariant& imageVariant)
 {
-    if (auto* imageBuffer = std::get_if<Ref<ImageBuffer>>(&m_imageVariant))
+    if (auto* imageBuffer = std::get_if<Ref<ImageBuffer>>(&imageVariant))
         return imageBuffer->ptr();
     return nullptr;
 }
 
-ImageBuffer* SourceImage::imageBuffer()
+ImageBuffer* SourceImage::imageBufferIfExists() const
+{
+    return imageBufferOf(m_imageVariant);
+}
+
+ImageBuffer* SourceImage::imageBuffer() const
 {
     if (!std::holds_alternative<Ref<NativeImage>>(m_imageVariant))
         return imageBufferIfExists();
 
-    auto nativeImage = std::get<Ref<NativeImage>>(m_imageVariant);
-    auto rect = FloatRect { { }, nativeImage->size() };
+    if (!m_transformedImageVariant) {
+        auto nativeImage = std::get<Ref<NativeImage>>(m_imageVariant);
 
-    auto imageBuffer = ImageBuffer::create(nativeImage->size(), RenderingMode::Unaccelerated, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
-    if (!imageBuffer)
-        return nullptr;
+        auto rect = FloatRect { { }, nativeImage->size() };
+        auto imageBuffer = ImageBuffer::create(nativeImage->size(), RenderingMode::Unaccelerated, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
+        if (!imageBuffer)
+            return nullptr;
 
-    imageBuffer->context().drawNativeImage(nativeImage, rect.size(), rect, rect);
+        imageBuffer->context().drawNativeImage(nativeImage, rect.size(), rect, rect);
+        m_transformedImageVariant = { imageBuffer.releaseNonNull() };
+    }
 
-    m_imageVariant = imageBuffer.releaseNonNull();
-    return imageBufferIfExists();
+    ASSERT(m_transformedImageVariant);
+    return imageBufferOf(*m_transformedImageVariant);
 }
 
 RenderingResourceIdentifier SourceImage::imageIdentifier() const
@@ -92,6 +110,22 @@ RenderingResourceIdentifier SourceImage::imageIdentifier() const
         },
         [&] (RenderingResourceIdentifier renderingResourceIdentifier) {
             return renderingResourceIdentifier;
+        }
+    );
+}
+
+IntSize SourceImage::size() const
+{
+    return WTF::switchOn(m_imageVariant,
+        [&] (const Ref<NativeImage>& nativeImage) {
+            return nativeImage->size();
+        },
+        [&] (const Ref<ImageBuffer>& imageBuffer) {
+            return imageBuffer->backendSize();
+        },
+        [&] (RenderingResourceIdentifier) -> IntSize {
+            ASSERT_NOT_REACHED();
+            return { };
         }
     );
 }

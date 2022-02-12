@@ -719,7 +719,8 @@ double CSSPrimitiveValue::computeUnzoomedNonCalcLengthDouble(CSSUnitType primiti
         return ((propertyToCompute == CSSPropertyFontSize) ? rootFontDescription->specifiedSize() : rootFontDescription->computedSize()) * value;
     case CSSUnitType::CSS_CHS:
         ASSERT(fontMetrics);
-        return fontMetrics->zeroWidth() * value;
+        ASSERT(fontDescription);
+        return fontMetrics->zeroWidth().value_or(fontDescription->computedSize() / 2) * value;
     case CSSUnitType::CSS_IC:
         ASSERT(fontMetrics);
         return fontMetrics->ideogramWidth() * value;
@@ -814,7 +815,7 @@ double CSSPrimitiveValue::computeNonCalcLengthDouble(const CSSToLengthConversion
         // We really need to compute EX using fontMetrics for the original specifiedSize and not use
         // our actual constructed rendering font.
         ASSERT(conversionData.style());
-        value = computeUnzoomedNonCalcLengthDouble(primitiveType, value, conversionData.propertyToCompute(), &conversionData.style()->fontMetrics(), &conversionData.style()->fontDescription());
+        value = computeUnzoomedNonCalcLengthDouble(primitiveType, value, conversionData.propertyToCompute(), &conversionData.style()->metricsOfPrimaryFont(), &conversionData.style()->fontDescription());
         break;
 
     case CSSUnitType::CSS_REMS:
@@ -824,7 +825,7 @@ double CSSPrimitiveValue::computeNonCalcLengthDouble(const CSSToLengthConversion
     case CSSUnitType::CSS_CHS:
     case CSSUnitType::CSS_IC:
         ASSERT(conversionData.style());
-        value = computeUnzoomedNonCalcLengthDouble(primitiveType, value, conversionData.propertyToCompute(), &conversionData.style()->fontMetrics());
+        value = computeUnzoomedNonCalcLengthDouble(primitiveType, value, conversionData.propertyToCompute(), &conversionData.style()->metricsOfPrimaryFont(), &conversionData.style()->fontDescription());
         break;
 
     case CSSUnitType::CSS_PX:
@@ -915,7 +916,7 @@ double CSSPrimitiveValue::computeNonCalcLengthDouble(const CSSToLengthConversion
         ASSERT(conversionData.style());
         if (conversionData.computingLineHeight() || conversionData.computingFontSize()) {
             // Try to get the parent's computed line-height, or fall back to the initial line-height of this element's font spacing.
-            value *= conversionData.parentStyle() ? conversionData.parentStyle()->computedLineHeight() : conversionData.style()->fontMetrics().lineSpacing();
+            value *= conversionData.parentStyle() ? conversionData.parentStyle()->computedLineHeight() : conversionData.style()->metricsOfPrimaryFont().lineSpacing();
         } else
             value *= conversionData.style()->computedLineHeight();
         break;
@@ -951,9 +952,9 @@ bool CSSPrimitiveValue::equalForLengthResolution(const RenderStyle& styleA, cons
     if (styleA.fontDescription().specifiedSize() != styleB.fontDescription().specifiedSize())
         return false;
 
-    if (styleA.fontMetrics().xHeight() != styleB.fontMetrics().xHeight())
+    if (styleA.metricsOfPrimaryFont().xHeight() != styleB.metricsOfPrimaryFont().xHeight())
         return false;
-    if (styleA.fontMetrics().zeroWidth() != styleB.fontMetrics().zeroWidth())
+    if (styleA.metricsOfPrimaryFont().zeroWidth() != styleB.metricsOfPrimaryFont().zeroWidth())
         return false;
 
     if (styleA.zoom() != styleB.zoom())
