@@ -417,7 +417,7 @@ void FullscreenVideoController::draw()
     // the text at the center of the slider.
     // Left string
     s = timeToString(currentTime());
-    int fontHeight = font.fontMetrics().height();
+    int fontHeight = font.metricsOfPrimaryFont().height();
     TextRun leftText(s);
 
     // Right string
