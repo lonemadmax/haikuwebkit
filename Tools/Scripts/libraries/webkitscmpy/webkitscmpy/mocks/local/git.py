@@ -391,6 +391,10 @@ nothing to commit, working tree clean
                 cwd=self.path,
                 generator=lambda *args, **kwargs: self.pull(),
             ), mocks.Subprocess.Route(
+                self.executable, 'pull', '--rebase=True', '--autostash',
+                cwd=self.path,
+                generator=lambda *args, **kwargs: self.pull(autostash=True),
+            ), mocks.Subprocess.Route(
                 self.executable, 'config', '-l',
                 cwd=self.path,
                 generator=lambda *args, **kwargs:
@@ -633,7 +637,10 @@ nothing to commit, working tree clean
             self.detached = something not in self.commits.keys()
         return True if commit else False
 
-    def filter_branch(self, range, identifier_template=None, environment_shell=None, sed=None):
+    def filter_branch(self, range, identifier_template=None, environment_shell=None, sed=None, autostash=False):
+        if not autostash and (self.modified or self.staged):
+            return mocks.ProcessCompletion(returncode=128)
+
         # We can't effectively mock the bash script in the command, but we can mock the python code that
         # script calls, which is where the program logic is.
         head, start = range.split('...')
@@ -869,11 +876,15 @@ nothing to commit, working tree clean
                 commit.identifier += self.commits[target][-1].identifier
         return mocks.ProcessCompletion(returncode=0)
 
-    def pull(self):
+    def pull(self, autostash=False):
+        if not autostash and (self.modified or self.staged):
+            return mocks.ProcessCompletion(returncode=128)
         self.head = self.commits[self.head.branch][-1]
         return mocks.ProcessCompletion(returncode=0)
 
     def move_branch(self, to_be_moved, moved_to):
+        if moved_to.startswith('remotes/'):
+            moved_to = moved_to.split('/', 2)[-1]
         if moved_to == self.default_branch:
             return mocks.ProcessCompletion(returncode=0)
         if to_be_moved != self.default_branch:

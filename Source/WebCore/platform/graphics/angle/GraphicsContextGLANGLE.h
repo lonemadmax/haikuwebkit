@@ -42,8 +42,7 @@
 
 #if USE(NICOSIA)
 namespace Nicosia {
-class GCGLANGLEPipe;
-class GCGLANGLEPipeSource;
+class GCGLANGLELayer;
 class GCGLLayer;
 }
 
@@ -455,12 +454,12 @@ protected:
     GCGLuint m_intermediateTexture { 0 };
 #endif
 #if USE(NICOSIA)
-    std::unique_ptr<Nicosia::GCGLANGLEPipe> m_nicosiaPipe;
+    std::unique_ptr<Nicosia::GCGLANGLELayer> m_nicosiaLayer;
 
     class EGLImageBacking {
     WTF_MAKE_FAST_ALLOCATED;
     public:
-        EGLImageBacking(gbm_device*, PlatformGraphicsContextGLDisplay);
+        EGLImageBacking(PlatformGraphicsContextGLDisplay);
         ~EGLImageBacking();
 
         bool reset(int width, int height, bool hasAlpha);
@@ -470,10 +469,11 @@ protected:
 
         uint32_t format() const;
         uint32_t stride() const;
+
+        bool isReleased();
     private:
         void releaseResources();
 
-        gbm_device* m_device;
         PlatformGraphicsContextGLDisplay m_display;
 
         gbm_bo* m_BO { nullptr };
@@ -490,7 +490,7 @@ protected:
 
     friend class ExtensionsGLANGLE;
 #if USE(NICOSIA)
-    friend class Nicosia::GCGLANGLEPipeSource;
+    friend class Nicosia::GCGLANGLELayer;
     friend class Nicosia::GCGLLayer;
 #elif USE(TEXTURE_MAPPER)
     friend class TextureMapperGCGLPlatformLayer;

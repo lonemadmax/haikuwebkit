@@ -37,12 +37,14 @@
 #import "LoadParameters.h"
 #import "ModalContainerControlClassifier.h"
 #import "PageClient.h"
+#import "PlaybackSessionManagerProxy.h"
 #import "QuarantineSPI.h"
 #import "QuickLookThumbnailLoader.h"
 #import "SafeBrowsingSPI.h"
 #import "SafeBrowsingWarning.h"
 #import "SharedBufferCopy.h"
 #import "SynapseSPI.h"
+#import "VideoFullscreenManagerProxy.h"
 #import "WebContextMenuProxy.h"
 #import "WebPage.h"
 #import "WebPageMessages.h"
@@ -477,20 +479,45 @@ void WebPageProxy::didChangeCurrentTime(PlaybackSessionContextIdentifier identif
 
 void WebPageProxy::updateFullscreenVideoExtraction()
 {
+    if (!pageClient().isFullscreenVideoExtractionEnabled())
+        return;
+
     if (m_currentFullscreenVideoSessionIdentifier && m_playbackSessionManager && m_playbackSessionManager->isPaused(*m_currentFullscreenVideoSessionIdentifier)) {
         m_fullscreenVideoExtractionTimer.startOneShot(250_ms);
         return;
     }
 
     m_fullscreenVideoExtractionTimer.stop();
+
+    if (!m_currentFullscreenVideoSessionIdentifier)
+        return;
+
+#if PLATFORM(IOS_FAMILY)
+    if (RetainPtr controller = m_videoFullscreenManager->playerViewController(*m_currentFullscreenVideoSessionIdentifier))
+        pageClient().cancelFullscreenVideoExtraction(controller.get());
+#endif
 }
 
 void WebPageProxy::fullscreenVideoExtractionTimerFired()
 {
-    if (!m_currentFullscreenVideoSessionIdentifier)
+    if (!m_currentFullscreenVideoSessionIdentifier || !m_videoFullscreenManager)
         return;
 
-    // FIXME: Add logic to perform video frame extraction.
+    auto identifier = *m_currentFullscreenVideoSessionIdentifier;
+    m_videoFullscreenManager->requestBitmapImageForCurrentTime(identifier, [identifier, weakThis = WeakPtr { *this }](auto& imageHandle) {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis || protectedThis->m_currentFullscreenVideoSessionIdentifier != identifier)
+            return;
+
+        auto fullscreenManager = protectedThis->m_videoFullscreenManager;
+        if (!fullscreenManager)
+            return;
+
+#if PLATFORM(IOS_FAMILY)
+        if (RetainPtr controller = fullscreenManager->playerViewController(identifier))
+            protectedThis->pageClient().beginFullscreenVideoExtraction(imageHandle, controller.get());
+#endif
+    });
 }
 
 #endif // ENABLE(VIDEO_PRESENTATION_MODE)
@@ -834,6 +861,11 @@ bool WebPageProxy::isQuarantinedAndNotUserApproved(const String& fileURLString)
 void WebPageProxy::classifyModalContainerControls(Vector<String>&& texts, CompletionHandler<void(Vector<ModalContainerControlType>&&)>&& completion)
 {
     ModalContainerControlClassifier::sharedClassifier().classify(WTFMove(texts), WTFMove(completion));
+}
+
+void WebPageProxy::replaceSelectionWithPasteboardData(const Vector<String>& types, const IPC::DataReference& data)
+{
+    send(Messages::WebPage::ReplaceSelectionWithPasteboardData(types, data));
 }
 
 } // namespace WebKit

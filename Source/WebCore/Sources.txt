@@ -704,6 +704,7 @@ crypto/keys/CryptoKeyRSA.cpp
 crypto/keys/CryptoKeyRSAComponents.cpp
 crypto/keys/CryptoKeyRaw.cpp
 css/BasicShapeFunctions.cpp
+css/ContainerQueryParser.cpp
 css/CSSAspectRatioValue.cpp
 css/CSSBasicShapes.cpp
 css/CSSBorderImage.cpp
@@ -768,6 +769,7 @@ css/CSSShadowValue.cpp
 css/CSSStyleDeclaration.cpp
 css/CSSStyleRule.cpp
 css/CSSStyleSheet.cpp
+css/CSSSubgridValue.cpp
 css/CSSSupportsRule.cpp
 css/CSSTimingFunctionValue.cpp
 css/CSSToLengthConversionData.cpp
@@ -1421,7 +1423,6 @@ html/parser/HTMLParserScheduler.cpp
 html/parser/HTMLPreloadScanner.cpp
 html/parser/HTMLResourcePreloader.cpp
 html/parser/HTMLScriptRunner.cpp
-html/parser/HTMLSourceTracker.cpp
 html/parser/HTMLSrcsetParser.cpp
 html/parser/HTMLTokenizer.cpp
 html/parser/HTMLTreeBuilder.cpp
@@ -1927,6 +1928,7 @@ platform/ThreadGlobalData.cpp
 platform/ThreadTimers.cpp
 platform/Timer.cpp
 platform/UserActivity.cpp
+platform/VideoFrame.cpp
 platform/WebCoreCrossThreadCopier.cpp
 platform/WebGLStateTracker.cpp
 platform/Widget.cpp
@@ -2003,6 +2005,7 @@ platform/graphics/ColorSerialization.cpp
 platform/graphics/ColorSpace.cpp
 platform/graphics/ColorUtilities.cpp
 platform/graphics/ComplexTextController.cpp
+platform/graphics/ContentTypeUtilities.cpp
 platform/graphics/CrossfadeGeneratedImage.cpp
 platform/graphics/DestinationColorSpace.cpp
 platform/graphics/DisplayRefreshMonitor.cpp
@@ -2787,10 +2790,10 @@ workers/service/server/SWServerToContextConnection.cpp
 workers/service/server/SWServerWorker.cpp
 workers/shared/SharedWorker.cpp
 workers/shared/SharedWorkerGlobalScope.cpp
-workers/shared/SharedWorkerManager.cpp
 workers/shared/SharedWorkerObjectConnection.cpp
 workers/shared/SharedWorkerProvider.cpp
 workers/shared/SharedWorkerScriptLoader.cpp
+workers/shared/context/SharedWorkerContextManager.cpp
 workers/shared/context/SharedWorkerThread.cpp
 workers/shared/context/SharedWorkerThreadProxy.cpp
 worklets/PaintWorkletGlobalScope.cpp

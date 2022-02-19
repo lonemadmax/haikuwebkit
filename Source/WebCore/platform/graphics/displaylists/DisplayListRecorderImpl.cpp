@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,33 +49,9 @@ RecorderImpl::RecorderImpl(DisplayList& displayList, const GraphicsContextState&
     LOG_WITH_STREAM(DisplayLists, stream << "\nRecording with clip " << initialClip);
 }
 
-RecorderImpl::RecorderImpl(RecorderImpl& parent, const GraphicsContextState& state, const FloatRect& initialClip, const AffineTransform& initialCTM)
-    : Recorder(parent, state, initialClip, initialCTM)
-    , m_displayList(parent.m_displayList)
-    , m_isNested(true)
-{
-}
-
 RecorderImpl::~RecorderImpl()
 {
     ASSERT(stateStack().size() == 1); // If this fires, it indicates mismatched save/restore.
-    if (!m_isNested)
-        LOG(DisplayLists, "Recorded display list:\n%s", m_displayList.description().data());
-}
-
-void RecorderImpl::getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect& sourceRect)
-{
-    append<GetPixelBuffer>(outputFormat, sourceRect);
-}
-
-void RecorderImpl::putPixelBuffer(const PixelBuffer& pixelBuffer, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat)
-{
-    append<PutPixelBuffer>(pixelBuffer, srcRect, destPoint, destFormat);
-}
-
-std::unique_ptr<GraphicsContext> RecorderImpl::createNestedContext(const FloatRect& initialClip, const AffineTransform& initialCTM)
-{
-    return makeUnique<RecorderImpl>(*this, GraphicsContextState { }, initialClip, initialCTM);
 }
 
 void RecorderImpl::recordSave()
@@ -168,9 +144,9 @@ void RecorderImpl::recordClipOut(const FloatRect& clipRect)
     append<ClipOut>(clipRect);
 }
 
-void RecorderImpl::recordClipToImageBuffer(RenderingResourceIdentifier imageBufferIdentifier, const FloatRect& destinationRect)
+void RecorderImpl::recordClipToImageBuffer(ImageBuffer& imageBuffer, const FloatRect& destinationRect)
 {
-    append<ClipToImageBuffer>(imageBufferIdentifier, destinationRect);
+    append<ClipToImageBuffer>(imageBuffer.renderingResourceIdentifier(), destinationRect);
 }
 
 void RecorderImpl::recordClipOutToPath(const Path& path)
@@ -183,19 +159,12 @@ void RecorderImpl::recordClipPath(const Path& path, WindRule rule)
     append<ClipPath>(path, rule);
 }
 
-void RecorderImpl::recordBeginClipToDrawingCommands(const FloatRect& destination, DestinationColorSpace colorSpace)
+void RecorderImpl::recordDrawFilteredImageBuffer(ImageBuffer* sourceImage, const FloatRect& sourceImageRect, Filter& filter)
 {
-    append<BeginClipToDrawingCommands>(destination, colorSpace);
-}
-
-void RecorderImpl::recordEndClipToDrawingCommands(const FloatRect& destination)
-{
-    append<EndClipToDrawingCommands>(destination);
-}
-
-void RecorderImpl::recordDrawFilteredImageBuffer(std::optional<RenderingResourceIdentifier> sourceImageIdentifier, const FloatRect& sourceImageRect, Filter& filter)
-{
-    append<DrawFilteredImageBuffer>(sourceImageIdentifier, sourceImageRect, filter);
+    std::optional<RenderingResourceIdentifier> identifier;
+    if (sourceImage)
+        identifier = sourceImage->renderingResourceIdentifier();
+    append<DrawFilteredImageBuffer>(WTFMove(identifier), sourceImageRect, filter);
 }
 
 void RecorderImpl::recordDrawGlyphs(const Font& font, const GlyphBufferGlyph* glyphs, const GlyphBufferAdvance* advances, unsigned count, const FloatPoint& localAnchor, FontSmoothingMode mode)
@@ -203,9 +172,9 @@ void RecorderImpl::recordDrawGlyphs(const Font& font, const GlyphBufferGlyph* gl
     append<DrawGlyphs>(font, glyphs, advances, count, localAnchor, mode);
 }
 
-void RecorderImpl::recordDrawImageBuffer(RenderingResourceIdentifier imageBufferIdentifier, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
+void RecorderImpl::recordDrawImageBuffer(ImageBuffer& imageBuffer, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
 {
-    append<DrawImageBuffer>(imageBufferIdentifier, destRect, srcRect, options);
+    append<DrawImageBuffer>(imageBuffer.renderingResourceIdentifier(), destRect, srcRect, options);
 }
 
 void RecorderImpl::recordDrawNativeImage(RenderingResourceIdentifier imageIdentifier, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)

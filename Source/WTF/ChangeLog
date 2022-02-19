@@ -1,3 +1,395 @@
+2022-02-14  Gustavo Noronha Silva  <gustavo@noronha.dev.br>
+
+        [Linux/aarch64] Move page size ceiling to 16k
+        https://bugs.webkit.org/show_bug.cgi?id=236564
+
+        Reviewed by Yusuke Suzuki.
+
+        On Apple Silicon, Linux needs to use 16k pages to be as fast as possible. This change has no
+        visible impact on binary size for release builds, so apply it to all of aarch64 Linux.
+
+        * wtf/PageBlock.h:
+
+2022-02-13  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Add support for parsing 'subgrid' in grid-template-columns/row
+        https://bugs.webkit.org/show_bug.cgi?id=236054
+
+        Reviewed by Manuel Rego Casasnovas.
+
+        Adds a new experimental preference for subgrid support, disabled by default.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-02-13  Brady Eidson  <beidson@apple.com>
+
+        Implement ServiceWorkerRegistration.showNotification()
+        https://bugs.webkit.org/show_bug.cgi?id=22722
+
+        Reviewed by Chris Dumez.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-02-12  Jer Noble  <jer.noble@apple.com>
+
+        Add settings to restrict media containers and codecs when in Captive Portal mode
+        https://bugs.webkit.org/show_bug.cgi?id=236245
+
+        Reviewed by Eric Carlson.
+
+        * Scripts/Preferences/WebPreferences.yaml:
+
+2022-02-12  Eric Carlson  <eric.carlson@apple.com>
+
+        [macOS] Use system window and screen picker when available
+        https://bugs.webkit.org/show_bug.cgi?id=236531
+        rdar://87111816
+
+        Reviewed by Jer Noble.
+
+        * wtf/PlatformHave.h: Define HAVE_SC_CONTENT_SHARING_SESSION.
+
+2022-02-11  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        Turn overscroll-behavior on by default
+        https://bugs.webkit.org/show_bug.cgi?id=236060
+
+        Reviewed by Tim Nguyen.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-02-11  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [iOS] Add a "Copy Cropped Image" context menu item when long pressing images
+        https://bugs.webkit.org/show_bug.cgi?id=236511
+        rdar://88817219
+
+        Reviewed by Devin Rousso.
+
+        Add a compile-time flag to guard availability of the UniformTypeIdentifiers framework. See WebKit/ChangeLog for
+        more information.
+
+        * wtf/PlatformHave.h:
+
+2022-02-11  Don Olmstead  <don.olmstead@sony.com>
+
+        [CMake] Check for MAP_ALIGNED support
+        https://bugs.webkit.org/show_bug.cgi?id=236522
+
+        Reviewed by Keith Miller.
+
+        Use the HAVE(MAP_ALIGNED) check in tryReserveUncommittedAligned. Mark unused parameters in
+        the function. Also define MAP_NORESERVE if its undefined which seems to be the case in
+        FreeBSD.
+
+        * wtf/posix/OSAllocatorPOSIX.cpp:
+        (WTF::OSAllocator::tryReserveUncommittedAligned):
+
+2022-02-11  Elliott Williams  <emw@apple.com>
+
+        Fix headers in install builds and add untracked headers
+        https://bugs.webkit.org/show_bug.cgi?id=235744
+
+        Reviewed by Alexey Proskuryakov.
+        Relands native Xcode build phases for "Copy WTF Headers", again.
+
+        Adds a slash prefix, so that PRIVATE_HEADERS_FOLDER_PATH is always an absolute path.
+        Otherwise, when WTF_INSTALL_PATH_PREFIX is not set, it's relative and incorrectoly copied
+        into the INSTALL_PATH (/usr/local/lib).
+
+        Uses separate path variables for Copy Files phases that create header subdirectories. Unlike
+        the native "Headers" phase, copying to "/usr/local/include" is not automatically relative to
+        the SYMROOT or DSTROOT, respective of build action type.
+
+        Adds SignedPtr.h to WTF's Headers phase. It was added recently and missed integration in
+        r289256.
+
+        Sets INSTALLHDRS_COPY_PHASE so that nested header directories are copied during installhdrs.
+
+        * Configurations/WTF.xcconfig:
+        * WTF.xcodeproj/project.pbxproj:
+
+2022-02-11  Youenn Fablet  <youenn@apple.com>
+
+        Support remote video frames in WebRTC video pipeline
+        https://bugs.webkit.org/show_bug.cgi?id=236356
+
+        Reviewed by Kimmo Kinnunen.
+
+        Introduce an experimental flag to make use of remote frames in WebRTC code paths.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-02-10  David Kilzer  <ddkilzer@apple.com>
+
+        [WTF] Fix clang tidy bugprone-move-forwarding-reference static analyzer warnings from WebCore/WebKit
+        <https://webkit.org/b/236459>
+        <rdar://problem/88772313>
+
+        Reviewed by Darin Adler.
+
+        * wtf/IteratorAdaptors.h:
+        (WTF::makeTransformIterator):
+        * wtf/WeakHashMap.h:
+        (WTF::WeakHashMap::set):
+        - Replace WTFMove() with std::forward<>().
+
+2022-02-10  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r289583 and r289591.
+        https://bugs.webkit.org/show_bug.cgi?id=236472
+
+        Still breaking builds
+
+        Reverted changesets:
+
+        "Reland native Xcode build phases for "Copy WTF Headers",
+        again"
+        https://bugs.webkit.org/show_bug.cgi?id=235744
+        https://commits.webkit.org/r289583
+
+        "Copy SignedPtr.h in WTF.xcodeproj"
+        https://bugs.webkit.org/show_bug.cgi?id=236466
+        https://commits.webkit.org/r289591
+
+2022-02-10  Tim Horton  <timothy_horton@apple.com>
+
+        Don't prefer text selection in images if it is not available
+        https://bugs.webkit.org/show_bug.cgi?id=236462
+        <rdar://problem/88407336>
+
+        Reviewed by Wenson Hsieh.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-02-10  Keith Miller  <keith_miller@apple.com>
+
+        tryReserveUncommittedAligned should explicitly take the alignment requested
+        https://bugs.webkit.org/show_bug.cgi?id=236460
+
+        Reviewed by Yusuke Suzuki.
+
+        This patch adds a new ifdef for Unix flavors that support the
+        MAP_ALIGNED macro/parameter to mmap.
+
+        Also, fix a bug where on windows we wouldn't request enough
+        space to guarantee that allocation is aligned.
+
+
+        * wtf/OSAllocator.h:
+        * wtf/posix/OSAllocatorPOSIX.cpp:
+        (WTF::OSAllocator::tryReserveUncommittedAligned):
+        * wtf/win/OSAllocatorWin.cpp:
+        (WTF::OSAllocator::tryReserveUncommittedAligned):
+
+2022-02-10  Elliott Williams  <emw@apple.com>
+
+        Copy SignedPtr.h in WTF.xcodeproj
+        https://bugs.webkit.org/show_bug.cgi?id=236466
+
+        Reviewed by Alexey Proskuryakov.
+
+        SignedPtr.h was recently added and needs to be part of WTF's Copy Headers phase.
+
+        * WTF.xcodeproj/project.pbxproj:
+
+2022-02-10  Elliott Williams  <emw@apple.com>
+
+        Reland native Xcode build phases for "Copy WTF Headers", again
+        https://bugs.webkit.org/show_bug.cgi?id=235744
+
+        Reviewed by Alexey Proskuryakov.
+
+        Changes since revert of r289490:
+
+        Some WTF headers were never tracked in WTF.xcodeproj, causing builds to fail (but only after
+        a build directory was cleaned and stale headers removed). 
+
+        * WTF.xcodeproj/project.pbxproj: Add file references for missing headers.
+
+2022-02-10  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed, reverting r289485.
+
+        Internal SDKs not quiiiite ready yet
+
+        Reverted changeset:
+
+        "Move Safe Browsing knowledge into SafariSafeBrowsing
+        framework"
+        https://bugs.webkit.org/show_bug.cgi?id=231692
+        https://commits.webkit.org/r289485
+
+2022-02-10  Gavin Phillips  <gavin.p@apple.com>
+
+        Introduce SignedPtrTraits which enables Ref pointers to be protected with PtrTags.
+        https://bugs.webkit.org/show_bug.cgi?id=235588
+        rdar://88023849
+
+        Reviewed by Mark Lam.
+
+        Create and adopt SignedPtrTraits which can be used to apply and verify PtrTag signatures
+        to pointers stored in and tracked by WTF:Ref.
+
+        * WTF.xcodeproj/project.pbxproj:
+        * wtf/CMakeLists.txt:
+        * wtf/SignedPtr.h: Added.
+        (WTF::SignedPtr::SignedPtr):
+        (WTF::SignedPtr::get const):
+        (WTF::SignedPtr::set):
+        (WTF::SignedPtr::clear):
+        (WTF::SignedPtr::operator-> const):
+        (WTF::SignedPtr::operator* const):
+        (WTF::SignedPtr::operator! const):
+        (WTF::SignedPtr::operator UnspecifiedBoolType const):
+        (WTF::SignedPtr::operator bool const):
+        (WTF::SignedPtr::operator=):
+        (WTF::SignedPtr::exchange):
+        (WTF::SignedPtr::swap):
+        (WTF::SignedPtrTraits::exchange):
+        (WTF::SignedPtrTraits::swap):
+        (WTF::SignedPtrTraits::unwrap):
+        (WTF::SignedPtrTraits::hashTableDeletedValue):
+        (WTF::SignedPtrTraits::isHashTableDeletedValue):
+        
+2022-02-09  Chris Dumez  <cdumez@apple.com>
+
+        [WK2] Turn on Shared Workers by default
+        https://bugs.webkit.org/show_bug.cgi?id=236396
+
+        Reviewed by Geoffrey Garen.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-02-09  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r289490.
+        https://bugs.webkit.org/show_bug.cgi?id=236402
+
+        EWS gets build failures
+
+        Reverted changeset:
+
+        "Reland native Xcode build phases for "Copy WTF Headers""
+        https://bugs.webkit.org/show_bug.cgi?id=235744
+        https://commits.webkit.org/r289490
+
+2022-02-09  Elliott Williams  <emw@apple.com>
+
+        Reland native Xcode build phases for "Copy WTF Headers"
+        https://bugs.webkit.org/show_bug.cgi?id=235744
+
+        Reviewed by Alexey Proskuryakov.
+
+        Changes since revert of r289256:
+
+        ICU headers, which are only needed for non-internal builds, are tracked in WTF.xcodeproj and
+        copied to /usr/local/include/unicode when building with the public SDK.
+
+        * Configurations/WTF.xcconfig: Skip coping ICU headers when USE_INTERNAL_SDK=YES.
+        * WTF.xcodeproj/project.pbxproj: Add ICU header directory and copy files phase.
+
+2022-02-09  Eliot Hsu  <eliot_hsu@apple.com>
+
+        Move Safe Browsing knowledge into SafariSafeBrowsing framework
+        https://bugs.webkit.org/show_bug.cgi?id=231692
+
+        Reviewed by Alex Christensen.
+
+        Following up on an old FIXME, move Safari Safe Browsing-specific
+        knowledge out of WebKit and into the SafariSafeBrowsing framework.
+        This includes things like the Learn More URL, the Report an Error URL,
+        etc.
+
+        * wtf/PlatformHave.h:
+
+2022-02-08  Eric Carlson  <eric.carlson@apple.com>
+
+        [macOS] Update requirements for ScreenCaptureKit
+        https://bugs.webkit.org/show_bug.cgi?id=236304
+        rdar://88593324
+
+        Reviewed by Youenn Fablet.
+
+        * wtf/PlatformHave.h:
+
+2022-02-07  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r289256.
+        https://bugs.webkit.org/show_bug.cgi?id=236284
+
+        EWS is reporting build failures
+
+        Reverted changeset:
+
+        "Replace "Copy WTF Headers" with native build phases"
+        https://bugs.webkit.org/show_bug.cgi?id=235744
+        https://commits.webkit.org/r289256
+
+2022-02-07  Ben Nham  <nham@apple.com>
+
+        Add PushService
+        https://bugs.webkit.org/show_bug.cgi?id=235857
+
+        Reviewed by Brady Eidson.
+
+        Add PushAPIEnabled to WebKitLegacy so we can enable it on in API tests via _WKExperimentalFeature.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-02-07  Elliott Williams  <emw@apple.com>
+
+        Replace "Copy WTF Headers" with native build phases
+        https://bugs.webkit.org/show_bug.cgi?id=235744
+
+        Reviewed by Alexey Proskuryakov.
+
+        Replace the rsync-based script that copied WTF headers with Xcode-native copy file phases.
+        Unfortunately, this entails having separate build phases for each subdirectory of <wtf/...>.
+
+        Workspace builds may have dependencies on individual headers in WTF, and the native copy
+        phases provide the build system with enough information to form those task dependencies.
+
+        * Configurations/WTF.xcconfig: Set PRIVATE_HEADERS_FOLDER_PATH.
+        * Configurations/CopyWTFHeaders.xcconfig: Removed.
+        * WTF.xcodeproj/project.pbxproj: Remove "Copy WTF Headers" and add copy file phases.
+
+2022-02-07  David Kilzer  <ddkilzer@apple.com>
+
+        WTF::HashAndUTF8CharactersTranslator::translate() falls through ASSERT_NOT_REACHED()
+        <https://webkit.org/b/234944>
+        <rdar://problem/87230618>
+
+        Reviewed by Darin Adler.
+
+        * wtf/text/AtomStringImpl.cpp:
+        (WTF::HashAndUTF8CharactersTranslator::translate):
+        - Change ASSERT_NOT_REACHED() to RELEASE_ASSERT_NOT_REACHED().
+
+2022-02-07  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r289239.
+        https://bugs.webkit.org/show_bug.cgi?id=236264
+
+        broke builds on older internal SDKs
+
+        Reverted changeset:
+
+        "Add PushService"
+        https://bugs.webkit.org/show_bug.cgi?id=235857
+        https://commits.webkit.org/r289239
+
+2022-02-07  Ben Nham  <nham@apple.com>
+
+        Add PushService
+        https://bugs.webkit.org/show_bug.cgi?id=235857
+
+        Reviewed by Brady Eidson.
+
+        Add PushAPIEnabled to WebKitLegacy so we can enable it on in API tests via _WKExperimentalFeature.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
 2022-02-06  Yusuke Suzuki  <ysuzuki@apple.com>
 
         [WTF] Make Bitmap constexpr friendly

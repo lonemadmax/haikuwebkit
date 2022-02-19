@@ -205,6 +205,8 @@ class Git(Scm):
             self._hash_to_identifiers = NestedFuzzyDict(primary_size=6)
             self._revisions_to_identifiers = {}
 
+            if self.repo.default_branch not in self._ordered_commits:
+                return
             self._fill(self.repo.default_branch)
             for branch in self._ordered_commits.keys():
                 if branch == self.repo.default_branch:
@@ -300,7 +302,7 @@ class Git(Scm):
     HTTP_REMOTE = re.compile(r'(?P<protocol>https?)://(?P<host>[^\/]+)/(?P<path>.+).git')
     REMOTE_BRANCH = re.compile(r'remotes\/(?P<remote>[^\/]+)\/(?P<branch>.+)')
     USER_REMOTE = re.compile(r'(?P<username>[^:/]+):(?P<branch>.+)')
-    PROJECT_CONFIG_PATH = os.path.join('metadata', 'project_config')
+    PROJECT_CONFIG_PATH = os.path.join(Scm.METADATA, 'project_config')
     PROJECT_CONFIG_OPTIONS = {
         'pull.rebase': ['true', 'false'],
         'webkitscmpy.pull-request': ['overwrite', 'append'],
@@ -921,18 +923,19 @@ class Git(Scm):
 
     def pull(self, rebase=None, branch=None, remote='origin'):
         commit = self.commit() if self.is_svn or branch else None
-        code = run(
-            [self.executable(), 'pull'] + (
-                [remote, branch] if branch else []
-            ) + (
-                [] if rebase is None else ['--rebase={}'.format('True' if rebase else 'False')]
-            ), cwd=self.root_path,
-        ).returncode
+
+        code = 0
+        if branch and self.branch != branch:
+            code = self.fetch(branch=branch, remote=remote)
+        if not code:
+            command = [self.executable(), 'pull'] + ([remote, branch] if branch else [])
+            if rebase is True:
+                command += ['--rebase=True', '--autostash']
+            elif rebase is False:
+                command += ['--rebase=False']
+            code = run(command, cwd=self.root_path).returncode
         if self.cache and rebase and branch != self.branch:
             self.cache.clear(self.branch)
-
-        if not code and branch:
-            code = self.fetch(branch=branch, remote=remote)
 
         if not code and branch and rebase:
             result = run([self.executable(), 'rev-parse', 'HEAD'], cwd=self.root_path, capture_output=True, encoding='utf-8')

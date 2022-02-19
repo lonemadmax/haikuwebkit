@@ -1420,6 +1420,7 @@ span
 
 // grid-template-{columns|rows}
 minmax
+subgrid
 
 // grid-auto-flow
 auto-flow
@@ -1641,3 +1642,8 @@ ray
 // farthest-corner
 sides
 // contain
+
+// for @media/@supports/@container
+and
+or
+not

@@ -664,6 +664,9 @@ static bool rareNonInheritedDataChangeRequiresLayout(const StyleRareNonInherited
     if (first.flexibleBox != second.flexibleBox)
         return true;
 
+    if (first.columnGap != second.columnGap || first.rowGap != second.rowGap)
+        return true;
+
     if (first.order != second.order
         || first.alignContent != second.alignContent
         || first.alignItems != second.alignItems
@@ -2832,8 +2835,7 @@ OptionSet<Containment> RenderStyle::effectiveContainment() const
         containment.add({ Containment::Layout, Containment::Style, Containment::Size });
         break;
     case ContainerType::InlineSize:
-        // FIXME: Support inline-size containment.
-        containment.add({ Containment::Layout, Containment::Style });
+        containment.add({ Containment::Layout, Containment::Style, Containment::InlineSize });
         break;
     };
 

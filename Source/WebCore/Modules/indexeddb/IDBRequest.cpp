@@ -368,7 +368,7 @@ void IDBRequest::setResult(const IDBKeyData& keyData)
     VM& vm = context->vm();
     JSLockHolder lock(vm);
     m_result = keyData;
-    m_resultWrapper = { };
+    m_resultWrapper.clear();
 }
 
 void IDBRequest::setResult(const Vector<IDBKeyData>& keyDatas)
@@ -382,7 +382,7 @@ void IDBRequest::setResult(const Vector<IDBKeyData>& keyDatas)
     VM& vm = context->vm();
     JSLockHolder lock(vm);
     m_result = keyDatas;
-    m_resultWrapper = { };
+    m_resultWrapper.clear();
 }
 
 void IDBRequest::setResult(const IDBGetAllResult& result)
@@ -396,7 +396,7 @@ void IDBRequest::setResult(const IDBGetAllResult& result)
     VM& vm = context->vm();
     JSLockHolder lock(vm);
     m_result = result;
-    m_resultWrapper = { };
+    m_resultWrapper.clear();
 }
 
 void IDBRequest::setResult(uint64_t number)
@@ -410,7 +410,7 @@ void IDBRequest::setResult(uint64_t number)
     VM& vm = context->vm();
     JSLockHolder lock(vm);
     m_result = number;
-    m_resultWrapper = { };
+    m_resultWrapper.clear();
 }
 
 void IDBRequest::setResultToStructuredClone(const IDBGetResult& result)
@@ -426,7 +426,7 @@ void IDBRequest::setResultToStructuredClone(const IDBGetResult& result)
     VM& vm = context->vm();
     JSLockHolder lock(vm);
     m_result = result;
-    m_resultWrapper = { };
+    m_resultWrapper.clear();
 }
 
 void IDBRequest::setResultToUndefined()
@@ -440,7 +440,7 @@ void IDBRequest::setResultToUndefined()
     VM& vm = context->vm();
     JSLockHolder lock(vm);
     m_result = NullResultType::Undefined;
-    m_resultWrapper = { };
+    m_resultWrapper.clear();
 }
 
 IDBCursor* IDBRequest::resultCursor()
@@ -470,12 +470,6 @@ void IDBRequest::willIterateCursor(IDBCursor& cursor)
     if (!context)
         return;
 
-    VM& vm = context->vm();
-    JSLockHolder lock(vm);
-
-    if (m_resultWrapper)
-        m_cursorWrapper = m_resultWrapper;
-    m_resultWrapper = { };
     m_readyState = ReadyState::Pending;
     m_domError = nullptr;
     m_idbError = IDBError { };
@@ -494,14 +488,14 @@ void IDBRequest::didOpenOrIterateCursor(const IDBResultData& resultData)
     JSLockHolder lock(vm);
 
     m_result = NullResultType::Empty;
-    m_resultWrapper = { };
-
     if (resultData.type() == IDBResultType::IterateCursorSuccess || resultData.type() == IDBResultType::OpenCursorSuccess) {
-        if (m_pendingCursor->setGetResult(*this, resultData.getResult(), m_currentTransactionOperationID) && m_cursorWrapper)
-            m_resultWrapper = m_cursorWrapper;
+        m_pendingCursor->setGetResult(*this, resultData.getResult(), m_currentTransactionOperationID);
         if (resultData.getResult().isDefined())
             m_result = m_pendingCursor;
     }
+
+    if (std::get_if<NullResultType>(&m_result))
+        m_resultWrapper.clear();
 
     m_pendingCursor = nullptr;
 
@@ -551,7 +545,7 @@ void IDBRequest::setResult(Ref<IDBDatabase>&& database)
     JSLockHolder lock(vm);
 
     m_result = RefPtr<IDBDatabase> { WTFMove(database) };
-    m_resultWrapper = { };
+    m_resultWrapper.clear();
 }
 
 void IDBRequest::clearWrappers()
@@ -563,7 +557,6 @@ void IDBRequest::clearWrappers()
     JSLockHolder lock(vm);
     
     m_resultWrapper.clear();
-    m_cursorWrapper.clear();
     
     WTF::switchOn(m_result,
         [] (RefPtr<IDBCursor>& cursor) { cursor->clearWrappers(); },

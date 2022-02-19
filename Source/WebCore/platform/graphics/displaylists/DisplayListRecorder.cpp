@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -159,7 +159,7 @@ void Recorder::drawFilteredImageBuffer(ImageBuffer* sourceImage, const FloatRect
     }
 
     if (!sourceImage) {
-        recordDrawFilteredImageBuffer({ }, sourceImageRect, filter);
+        recordDrawFilteredImageBuffer(nullptr, sourceImageRect, filter);
         return;
     }
 
@@ -168,7 +168,7 @@ void Recorder::drawFilteredImageBuffer(ImageBuffer* sourceImage, const FloatRect
         return;
     }
 
-    recordDrawFilteredImageBuffer(sourceImage->renderingResourceIdentifier(), sourceImageRect, filter);
+    recordDrawFilteredImageBuffer(sourceImage, sourceImageRect, filter);
 }
 
 void Recorder::drawGlyphs(const Font& font, const GlyphBufferGlyph* glyphs, const GlyphBufferAdvance* advances, unsigned numGlyphs, const FloatPoint& startPoint, FontSmoothingMode smoothingMode)
@@ -192,7 +192,7 @@ void Recorder::drawImageBuffer(ImageBuffer& imageBuffer, const FloatRect& destRe
         return;
     }
 
-    recordDrawImageBuffer(imageBuffer.renderingResourceIdentifier(), destRect, srcRect, options);
+    recordDrawImageBuffer(imageBuffer, destRect, srcRect, options);
 }
 
 void Recorder::drawNativeImage(NativeImage& image, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
@@ -483,28 +483,15 @@ IntRect Recorder::clipBounds() const
 void Recorder::clipToImageBuffer(ImageBuffer& imageBuffer, const FloatRect& destRect)
 {
     recordResourceUse(imageBuffer);
-    recordClipToImageBuffer(imageBuffer.renderingResourceIdentifier(), destRect);
+    recordClipToImageBuffer(imageBuffer, destRect);
 }
 
-GraphicsContext::ClipToDrawingCommandsResult Recorder::clipToDrawingCommands(const FloatRect& destination, const DestinationColorSpace& colorSpace, Function<void(GraphicsContext&)>&& drawingFunction)
+RefPtr<ImageBuffer> Recorder::createImageBuffer(const FloatSize& size, const DestinationColorSpace& colorSpace, RenderingMode renderingMode, RenderingMethod renderingMethod) const
 {
-    auto initialClip = FloatRect(FloatPoint(), destination.size());
+    if (renderingMethod == RenderingMethod::Default)
+        renderingMethod = RenderingMethod::DisplayList;
 
-    // The initial CTM matches ImageBuffer's initial CTM.
-    AffineTransform transform = getCTM(GraphicsContext::DefinitelyIncludeDeviceScale);
-    FloatSize scaleFactor(transform.xScale(), transform.yScale());
-    auto scaledSize = expandedIntSize(destination.size() * scaleFactor);
-    AffineTransform initialCTM;
-    initialCTM.scale(1, -1);
-    initialCTM.translate(0, -scaledSize.height());
-    initialCTM.scale(scaledSize / destination.size());
-
-    auto nestedContext = createNestedContext(initialClip, initialCTM);
-    recordBeginClipToDrawingCommands(destination, colorSpace);
-    drawingFunction(*nestedContext);
-    recordEndClipToDrawingCommands(destination);
-
-    return ClipToDrawingCommandsResult::Success;
+    return GraphicsContext::createImageBuffer(size, colorSpace, renderingMode, renderingMethod);
 }
 
 #if ENABLE(VIDEO)

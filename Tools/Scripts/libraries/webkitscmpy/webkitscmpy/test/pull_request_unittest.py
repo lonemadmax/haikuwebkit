@@ -1,4 +1,4 @@
-# Copyright (C) 2021 Apple Inc. All rights reserved.
+# Copyright (C) 2021-2022 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -23,10 +23,13 @@
 import logging
 import os
 import sys
+import time
 import unittest
 
+from mock import patch
+from webkitbugspy import Tracker, User, bugzilla, radar, mocks as bmocks
 from webkitcorepy import OutputCapture, testing, log as wcplog
-from webkitcorepy.mocks import Terminal as MockTerminal
+from webkitcorepy.mocks import Terminal as MockTerminal, Environment
 from webkitscmpy import Contributor, Commit, PullRequest, local, program, mocks, remote, log as wsplog
 
 
@@ -249,6 +252,7 @@ Reviewed by Tim Contributor.
 
 class TestDoPullRequest(testing.PathTestCase):
     basepath = 'mock/repository'
+    BUGZILLA = 'https://bugs.example.com'
 
     def setUp(self):
         super(TestDoPullRequest, self).setUp()
@@ -270,7 +274,7 @@ class TestDoPullRequest(testing.PathTestCase):
                 args=('pull-request', '-i', 'pr-branch', '-v'),
                 path=self.path,
             ))
-        self.assertEqual(captured.root.log.getvalue(), "Creating the local development branch 'eng/pr-branch'...\n")
+        self.assertEqual(captured.root.log.getvalue(), "Creating the local development branch 'eng/pr-branch'...\n    Found 1 commit...\n")
         self.assertEqual(captured.stderr.getvalue(), 'No modified files\n')
 
     def test_staged(self):
@@ -286,8 +290,8 @@ class TestDoPullRequest(testing.PathTestCase):
         self.assertEqual(
             '\n'.join([line for line in captured.root.log.getvalue().splitlines() if 'Mock process' not in line]),
             """Creating the local development branch 'eng/pr-branch'...
-Creating commit...
     Found 1 commit...
+Creating commit...
 Rebasing 'eng/pr-branch' on 'main'...
 Rebased 'eng/pr-branch' on 'main!'
     Found 1 commit...""")
@@ -309,9 +313,9 @@ Rebased 'eng/pr-branch' on 'main!'
         self.assertEqual(
             '\n'.join([line for line in captured.root.log.getvalue().splitlines() if 'Mock process' not in line]),
             """Creating the local development branch 'eng/pr-branch'...
+    Found 1 commit...
     Adding modified.txt...
 Creating commit...
-    Found 1 commit...
 Rebasing 'eng/pr-branch' on 'main'...
 Rebased 'eng/pr-branch' on 'main!'
     Found 1 commit...""")
@@ -337,8 +341,8 @@ Rebased 'eng/pr-branch' on 'main!'
         self.assertEqual(
             [line for line in log if 'Mock process' not in line], [
                 "Creating the local development branch 'eng/pr-branch'...",
-                'Creating commit...',
                 '    Found 1 commit...',
+                'Creating commit...',
                 "Rebasing 'eng/pr-branch' on 'main'...",
                 "Rebased 'eng/pr-branch' on 'main!'",
                 "    Found 1 commit...",
@@ -372,8 +376,8 @@ Rebased 'eng/pr-branch' on 'main!'
         log = captured.root.log.getvalue().splitlines()
         self.assertEqual(
             [line for line in log if 'Mock process' not in line], [
-                "Amending commit...",
                 '    Found 1 commit...',
+                "Amending commit...",
                 "Rebasing 'eng/pr-branch' on 'main'...",
                 "Rebased 'eng/pr-branch' on 'main!'",
                 "    Found 1 commit...",
@@ -407,9 +411,8 @@ Rebased 'eng/pr-branch' on 'main!'
         log = captured.root.log.getvalue().splitlines()
         self.assertEqual(
             [line for line in log if 'Mock process' not in line], [
-                "Creating commit...",
                 '    Found 1 commit...',
-                '    Found 2 commits...',
+                'Creating commit...',
                 "Rebasing 'eng/pr-branch' on 'main'...",
                 "Rebased 'eng/pr-branch' on 'main!'",
                 '    Found 1 commit...',
@@ -451,13 +454,65 @@ Rebased 'eng/pr-branch' on 'main!'
         log = captured.root.log.getvalue().splitlines()
         self.assertEqual(
             [line for line in log if 'Mock process' not in line], [
-                "Amending commit...",
                 '    Found 1 commit...',
+                "Amending commit...",
                 "Rebasing 'eng/pr-branch' on 'main'...",
                 "Rebased 'eng/pr-branch' on 'main!'",
                 "    Found 1 commit...",
                 "Pushing 'eng/pr-branch' to 'fork'...",
                 "Updating pull-request for 'eng/pr-branch'...",
+            ],
+        )
+
+    def test_github_bugzilla(self):
+        with OutputCapture(level=logging.INFO) as captured, mocks.remote.GitHub() as remote, bmocks.Bugzilla(
+            self.BUGZILLA.split('://')[-1],
+            issues=bmocks.ISSUES,
+            environment=Environment(
+                BUGS_EXAMPLE_COM_USERNAME='tcontributor@example.com',
+                BUGS_EXAMPLE_COM_PASSWORD='password',
+            )), patch(
+                'webkitbugspy.Tracker._trackers', [bugzilla.Tracker(self.BUGZILLA)],
+        ), mocks.local.Git(self.path, remote='https://{}'.format(remote.remote)) as repo, mocks.local.Svn():
+
+            repo.commits['eng/pr-branch'] = [Commit(
+                hash='06de5d56554e693db72313f4ca1fb969c30b8ccb',
+                branch='eng/pr-branch',
+                author=dict(name='Tim Contributor', emails=['tcontributor@example.com']),
+                identifier="5.1@eng/pr-branch",
+                timestamp=int(time.time()),
+                message='[Testing] Existing commit\nbugs.example.com/show_bug.cgi?id=1'
+            )]
+            repo.head = repo.commits['eng/pr-branch'][-1]
+            self.assertEqual(0, program.main(
+                args=('pull-request', '-v', '--no-history'),
+                path=self.path,
+            ))
+
+            self.assertEqual(
+                Tracker.instance().issue(1).comments[-1].content,
+                'Pull request: https://github.example.com/WebKit/WebKit/pull/1',
+            )
+
+        self.assertEqual(
+            captured.stdout.getvalue(),
+            "Created 'PR 1 | [Testing] Existing commit'!\n"
+            'Posted pull request link to https://bugs.example.com/show_bug.cgi?id=1\n'
+            'https://github.example.com/WebKit/WebKit/pull/1\n',
+        )
+        self.assertEqual(captured.stderr.getvalue(), '')
+        log = captured.root.log.getvalue().splitlines()
+        self.assertEqual(
+            [line for line in log if 'Mock process' not in line], [
+                '    Found 1 commit...',
+                "Using committed changes...",
+                "Rebasing 'eng/pr-branch' on 'main'...",
+                "Rebased 'eng/pr-branch' on 'main!'",
+                "    Found 1 commit...",
+                "Pushing 'eng/pr-branch' to 'fork'...",
+                "Creating pull-request for 'eng/pr-branch'...",
+                'Checking issue assignee...',
+                'Checking for pull request link in associated issue...',
             ],
         )
 
@@ -483,8 +538,8 @@ Rebased 'eng/pr-branch' on 'main!'
         self.assertEqual(
             [line for line in log if 'Mock process' not in line], [
                 "Creating the local development branch 'eng/pr-branch'...",
-                'Creating commit...',
                 '    Found 1 commit...',
+                'Creating commit...',
                 "Rebasing 'eng/pr-branch' on 'main'...",
                 "Rebased 'eng/pr-branch' on 'main!'",
                 "    Found 1 commit...",
@@ -520,8 +575,8 @@ Rebased 'eng/pr-branch' on 'main!'
         log = captured.root.log.getvalue().splitlines()
         self.assertEqual(
             [line for line in log if 'Mock process' not in line], [
-                "Amending commit...",
                 '    Found 1 commit...',
+                "Amending commit...",
                 "Rebasing 'eng/pr-branch' on 'main'...",
                 "Rebased 'eng/pr-branch' on 'main!'",
                 "    Found 1 commit...",
@@ -557,9 +612,8 @@ Rebased 'eng/pr-branch' on 'main!'
         log = captured.root.log.getvalue().splitlines()
         self.assertEqual(
             [line for line in log if 'Mock process' not in line], [
-                "Creating commit...",
                 '    Found 1 commit...',
-                '    Found 2 commits...',
+                'Creating commit...',
                 "Rebasing 'eng/pr-branch' on 'main'...",
                 "Rebased 'eng/pr-branch' on 'main!'",
                 '    Found 1 commit...',
@@ -603,13 +657,59 @@ Rebased 'eng/pr-branch' on 'main!'
         log = captured.root.log.getvalue().splitlines()
         self.assertEqual(
             [line for line in log if 'Mock process' not in line], [
-                "Amending commit...",
                 '    Found 1 commit...',
+                "Amending commit...",
                 "Rebasing 'eng/pr-branch' on 'main'...",
                 "Rebased 'eng/pr-branch' on 'main!'",
                 "    Found 1 commit...",
                 "Pushing 'eng/pr-branch' to 'origin'...",
                 "Updating pull-request for 'eng/pr-branch'...",
+            ],
+        )
+
+    def test_bitbucket_radar(self):
+        with OutputCapture(level=logging.INFO) as captured, mocks.remote.BitBucket() as remote, mocks.local.Git(
+            self.path, remote='ssh://git@{}/{}/{}.git'.format(remote.hosts[0], remote.project.split('/')[1], remote.project.split('/')[3]),
+        ) as repo, mocks.local.Svn(), Environment(RADAR_USERNAME='tcontributor'), bmocks.Radar(issues=bmocks.ISSUES), patch('webkitbugspy.Tracker._trackers', [radar.Tracker()]):
+
+            repo.commits['eng/pr-branch'] = [Commit(
+                hash='06de5d56554e693db72313f4ca1fb969c30b8ccb',
+                branch='eng/pr-branch',
+                author=dict(name='Tim Contributor', emails=['tcontributor@example.com']),
+                identifier="5.1@eng/pr-branch",
+                timestamp=int(time.time()),
+                message='<rdar://problem/1> [Testing] Existing commit\n'
+            )]
+            repo.head = repo.commits['eng/pr-branch'][-1]
+            self.assertEqual(0, program.main(
+                args=('pull-request', '-v', '--no-history'),
+                path=self.path,
+            ))
+
+            self.assertEqual(
+                Tracker.instance().issue(1).comments[-1].content,
+                'Pull request: https://bitbucket.example.com/projects/WEBKIT/repos/webkit/pull-requests/1/overview',
+            )
+
+        self.assertEqual(
+            captured.stdout.getvalue(),
+            "Created 'PR 1 | <rdar://problem/1> [Testing] Existing commit'!\n"
+            'Posted pull request link to <rdar://1>\n'
+            'https://bitbucket.example.com/projects/WEBKIT/repos/webkit/pull-requests/1/overview\n',
+        )
+        self.assertEqual(captured.stderr.getvalue(), '')
+        log = captured.root.log.getvalue().splitlines()
+        self.assertEqual(
+            [line for line in log if 'Mock process' not in line], [
+                '    Found 1 commit...',
+                "Using committed changes...",
+                "Rebasing 'eng/pr-branch' on 'main'...",
+                "Rebased 'eng/pr-branch' on 'main!'",
+                "    Found 1 commit...",
+                "Pushing 'eng/pr-branch' to 'origin'...",
+                "Creating pull-request for 'eng/pr-branch'...",
+                'Checking issue assignee...',
+                'Checking for pull request link in associated issue...',
             ],
         )
 
@@ -620,17 +720,21 @@ class TestNetworkPullRequestGitHub(unittest.TestCase):
     @classmethod
     def webserver(cls):
         result = mocks.remote.GitHub()
-        result.users = dict(
-            ereviewer=Contributor('Eager Reviewer', ['ereviewer@webkit.org'], github='ereviewer'),
-            rreviewer=Contributor('Reluctant Reviewer', ['rreviewer@webkit.org'], github='rreviewer'),
-            sreviewer=Contributor('Suspicious Reviewer', ['sreviewer@webkit.org'], github='sreviewer'),
-            tcontributor=Contributor('Tim Contributor', ['tcontributor@webkit.org']),
-        )
+        result.users.create('Eager Reviewer', 'ereviewer', ['ereviewer@webkit.org'])
+        result.users.create('Reluctant Reviewer', 'rreviewer', ['rreviewer@webkit.org'])
+        result.users.create('Suspicious Reviewer', 'sreviewer', ['sreviewer@webkit.org'])
+        result.users.create('Tim Contributor', 'tcontributor', ['tcontributor@webkit.org'])
         result.issues = {
             1: dict(
+                number=1,
+                opened=True,
+                title='Example Change',
+                description='?',
+                creator=result.users.create(name='Tim Contributor', username='tcontributor'),
+                timestamp=1639536160,
+                assignee=None,
                 comments=[],
-                assignees=[],
-            )
+            ),
         }
         result.pull_requests = [dict(
             number=1,

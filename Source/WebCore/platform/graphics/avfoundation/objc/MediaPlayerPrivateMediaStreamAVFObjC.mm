@@ -230,10 +230,9 @@ MediaPlayer::SupportsType MediaPlayerPrivateMediaStreamAVFObjC::supportsType(con
 
 static inline CGAffineTransform videoTransformationMatrix(MediaSample& sample)
 {
-    CMSampleBufferRef sampleBuffer = sample.platformSample().sample.cmSampleBuffer;
-    CVPixelBufferRef pixelBuffer = static_cast<CVPixelBufferRef>(PAL::CMSampleBufferGetImageBuffer(sampleBuffer));
-    size_t width = CVPixelBufferGetWidth(pixelBuffer);
-    size_t height = CVPixelBufferGetHeight(pixelBuffer);
+    auto size = sample.presentationSize();
+    size_t width = static_cast<size_t>(size.width());
+    size_t height = static_cast<size_t>(size.height());
     if (!width || !height)
         return CGAffineTransformIdentity;
 
@@ -994,8 +993,8 @@ void MediaPlayerPrivateMediaStreamAVFObjC::updateCurrentFrameImage()
     if (!m_imagePainter.pixelBufferConformer)
         return;
 
-    auto pixelBuffer = static_cast<CVPixelBufferRef>(PAL::CMSampleBufferGetImageBuffer(m_imagePainter.mediaSample->platformSample().sample.cmSampleBuffer));
-    m_imagePainter.cgImage = NativeImage::create(m_imagePainter.pixelBufferConformer->createImageFromPixelBuffer(pixelBuffer));
+    if (auto pixelBuffer = m_imagePainter.mediaSample->pixelBuffer())
+        m_imagePainter.cgImage = NativeImage::create(m_imagePainter.pixelBufferConformer->createImageFromPixelBuffer(pixelBuffer));
 }
 
 void MediaPlayerPrivateMediaStreamAVFObjC::paintCurrentFrameInContext(GraphicsContext& context, const FloatRect& destRect)

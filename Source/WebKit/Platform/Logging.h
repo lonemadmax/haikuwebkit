@@ -80,6 +80,7 @@ extern "C" {
     M(NetworkCacheStorage) \
     M(NetworkScheduling) \
     M(NetworkSession) \
+    M(Notifications) \
     M(PerformanceLogging) \
     M(Plugins) \
     M(Printing) \
@@ -97,6 +98,7 @@ extern "C" {
     M(ServiceWorker) \
     M(SessionState) \
     M(SharedDisplayLists) \
+    M(SharedWorker) \
     M(Storage) \
     M(StorageAPI) \
     M(TextInput) \

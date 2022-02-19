@@ -237,6 +237,8 @@ protected:
     JS_EXPORT_PRIVATE bool equalSlowCase(JSGlobalObject*, JSString* other) const;
     bool isSubstring() const;
 
+    uintptr_t fiberConcurrently() const { return m_fiber; }
+
     mutable uintptr_t m_fiber;
 
 private:
@@ -245,6 +247,8 @@ private:
     static JSValue toThis(JSCell*, JSGlobalObject*, ECMAMode);
 
     StringView unsafeView(JSGlobalObject*) const;
+
+    void swapToAtomString(VM&, RefPtr<AtomStringImpl>&&) const;
 
     friend JSString* jsString(VM&, const String&);
     friend JSString* jsString(JSGlobalObject*, JSString*, JSString*);
@@ -693,7 +697,7 @@ JS_EXPORT_PRIVATE JSString* jsStringWithCacheSlowCase(VM&, StringImpl&);
 // is in the middle of converting JSRopeString to JSString.
 ALWAYS_INLINE bool JSString::is8Bit() const
 {
-    uintptr_t pointer = m_fiber;
+    uintptr_t pointer = fiberConcurrently();
     if (pointer & isRopeInPointer) {
         // Do not load m_fiber twice. We should use the information in pointer.
         // Otherwise, JSRopeString may be converted to JSString between the first and second accesses.
@@ -707,7 +711,7 @@ ALWAYS_INLINE bool JSString::is8Bit() const
 // when we resolve a JSRopeString.
 ALWAYS_INLINE unsigned JSString::length() const
 {
-    uintptr_t pointer = m_fiber;
+    uintptr_t pointer = fiberConcurrently();
     if (pointer & isRopeInPointer)
         return jsCast<const JSRopeString*>(this)->length();
     return bitwise_cast<StringImpl*>(pointer)->length();
@@ -721,7 +725,7 @@ inline const StringImpl* JSString::getValueImpl() const
 
 inline const StringImpl* JSString::tryGetValueImpl() const
 {
-    uintptr_t pointer = m_fiber;
+    uintptr_t pointer = fiberConcurrently();
     if (pointer & isRopeInPointer)
         return nullptr;
     return bitwise_cast<StringImpl*>(pointer);
@@ -769,6 +773,19 @@ ALWAYS_INLINE Identifier JSRopeString::toIdentifier(JSGlobalObject* globalObject
     return Identifier::fromString(vm, atomString);
 }
 
+ALWAYS_INLINE void JSString::swapToAtomString(VM& vm, RefPtr<AtomStringImpl>&& atom) const
+{
+    // We replace currently held string with new AtomString. But the old string can be accessed from concurrent compilers and GC threads at any time.
+    // So, we keep the old string alive by appending it to Heap::m_possiblyAccessedStringsFromConcurrentThreads. And GC clears that list when GC finishes.
+    // This is OK since (1) when finishing GC concurrent compiler threads and GC threads are stopped, and (2) AtomString is already held in the atom table,
+    // and we anyway keep this old string until this JSString* is GC-ed. So it does not increase any memory pressure, we release at the same timing.
+    ASSERT(!isCompilationThread() && !Thread::mayBeGCThread());
+    String target(WTFMove(atom));
+    WTF::storeStoreFence(); // Ensure AtomStringImpl's string is fully initialized when it is exposed to concurrent threads.
+    valueInternal().swap(target);
+    vm.heap.appendPossiblyAccessedStringFromConcurrentThreads(WTFMove(target));
+}
+
 ALWAYS_INLINE Identifier JSString::toIdentifier(JSGlobalObject* globalObject) const
 {
     if constexpr (validateDFGDoesGC)
@@ -782,6 +799,10 @@ ALWAYS_INLINE Identifier JSString::toIdentifier(JSGlobalObject* globalObject) co
         vm.lastAtomizedIdentifierStringImpl = *valueInternal().impl();
         vm.lastAtomizedIdentifierAtomStringImpl = AtomStringImpl::add(valueInternal().impl()).releaseNonNull();
     }
+    // It is possible that AtomStringImpl::add converts existing valueInternal()'s StringImpl to AtomicStringImpl,
+    // thus we need to recheck atomicity status here.
+    if (!valueInternal().impl()->isAtom())
+        swapToAtomString(vm, RefPtr { vm.lastAtomizedIdentifierAtomStringImpl.ptr() });
     return Identifier::fromString(vm, Ref { vm.lastAtomizedIdentifierAtomStringImpl });
 }
 
@@ -791,7 +812,12 @@ ALWAYS_INLINE AtomString JSString::toAtomString(JSGlobalObject* globalObject) co
         vm().verifyCanGC();
     if (isRope())
         return static_cast<const JSRopeString*>(this)->resolveRopeToAtomString(globalObject);
-    return AtomString(valueInternal());
+    AtomString atom(valueInternal());
+    // It is possible that AtomString constructor converts existing valueInternal()'s StringImpl to AtomicStringImpl,
+    // thus we need to recheck atomicity status here.
+    if (!valueInternal().impl()->isAtom())
+        swapToAtomString(getVM(globalObject), RefPtr { atom.impl() });
+    return atom;
 }
 
 ALWAYS_INLINE RefPtr<AtomStringImpl> JSString::toExistingAtomString(JSGlobalObject* globalObject) const
@@ -1049,7 +1075,7 @@ ALWAYS_INLINE StringViewWithUnderlyingString JSString::viewWithUnderlyingString(
 
 inline bool JSString::isSubstring() const
 {
-    return m_fiber & JSRopeString::isSubstringInPointer;
+    return fiberConcurrently() & JSRopeString::isSubstringInPointer;
 }
 
 } // namespace JSC

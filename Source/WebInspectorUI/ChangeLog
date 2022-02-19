@@ -1,3 +1,203 @@
+2022-02-14  Razvan Caliman  <rcaliman@apple.com>
+
+        Web Inspector: [Flexbox] List flex containers in Layout sidebar
+        https://bugs.webkit.org/show_bug.cgi?id=235647
+        <rdar://87886241>
+
+        Reviewed by Patrick Angle.
+
+        The representation in the Layout details sidebar of the list of flex containers on the page is very similar to the one for grid containers:
+        a list of nodes identified by selector, with adjacent checkboxes that synchronize state with the visibility of a page overlay, interactive
+        color swatches to decorate the corresponding overlay, and a button to jump to the node in the DOM Tree view.
+
+        Therefore, it makes sense to generalize the code for CSS Grid and reuse it for Flexbox.
+
+        This patch extracts a generic `WI.NodeOverlayListSection` from `WI.CSSGridNodeOverlayListSection`.
+        This is subclassed by `WI.CSSGridNodeOverlayListSection` and `WI.CSSFlexboxSection`.
+        The two rely on the abstract implementations to show/hide overlays, get/set overlay colors, interrogate overlay visibility, and listen to generic overlay show events.
+
+        Which particular type of overlay is the target of each panel is determined in `WI.OverlayManager`
+        by the value of `WI.DomNode.layoutContextType`, either "flex" or "grid". A node cannot have more than one layout context type.
+
+        Where the subclasses differ:
+        - each section has its own label (obviously).
+        - the layout for `WI.CSSGridNodeOverlayListSection` includes a section with settings for the CSS Grid overlay.
+
+        * Localizations/en.lproj/localizedStrings.js:
+        We've received feedback that the latter is more common in web developers' vocabulary when
+        refering to CSS grids. Adopted the same for the flexbox section empty message.
+
+        * UserInterface/Main.html:
+
+        * UserInterface/Views/CSSFlexNodeOverlayListSection.js: Added.
+        (WI.CSSFlexNodeOverlayListSection.prototype.get sectionLabel):
+        (WI.CSSFlexNodeOverlayListSection):
+
+        * UserInterface/Views/CSSGridNodeOverlayListSection.js: Renamed from Source/WebInspectorUI/UserInterface/Views/CSSGridSection.js.
+        (WI.CSSGridNodeOverlayListSection.prototype.get sectionLabel):
+        (WI.CSSGridNodeOverlayListSection.prototype.initialLayout):
+        (WI.CSSGridNodeOverlayListSection):
+        The layout of `WI.CSSFlexNodeOverlayListSection` includes a set of options to configure the CSS Grid overlay.
+
+        * UserInterface/Views/LayoutDetailsSidebarPanel.css:
+        (.details-section:is(.layout-css-flexbox, .layout-css-grid):not(.collapsed) > .content,):
+        (.details-section.layout-css-grid > .content > .group > .row > .css-grid-section): Deleted.
+        (.details-section.layout-css-grid:not(.collapsed) > .content,): Deleted.
+
+        * UserInterface/Views/LayoutDetailsSidebarPanel.js:
+        (WI.LayoutDetailsSidebarPanel):
+        (WI.LayoutDetailsSidebarPanel.prototype.attached):
+        (WI.LayoutDetailsSidebarPanel.prototype.initialLayout):
+        (WI.LayoutDetailsSidebarPanel.prototype.layout):
+        (WI.LayoutDetailsSidebarPanel.prototype._handleLayoutContextTypeChanged):
+        (WI.LayoutDetailsSidebarPanel.prototype._refreshNodeSets):
+        (WI.LayoutDetailsSidebarPanel.prototype._refreshGridNodeSet): Deleted.
+        Added Flexbox section to Layout details sidebar.
+
+        * UserInterface/Views/NodeOverlayListSection.css: Renamed from Source/WebInspectorUI/UserInterface/Views/CSSGridSection.css.
+        (.node-overlay-list-section):
+        (.node-overlay-list-section > .node-overlay-list):
+        (.node-overlay-list-section > .node-overlay-list > li > .node-overlay-list-item-container):
+        (.node-overlay-list-section > .node-overlay-list > li > .node-overlay-list-item-container > label):
+        (.node-overlay-list-section > .node-overlay-list > li > .node-overlay-list-item-container > label > .node-display-name):
+        (.node-overlay-list-section > .node-overlay-list > li > .node-overlay-list-item-container > :is(.go-to-arrow, .inline-swatch)):
+        (.node-overlay-list-section > .node-overlay-list > li > .node-overlay-list-item-container:not(:hover) > .go-to-arrow):
+        (.node-overlay-list-section > .heading,):
+        (.node-overlay-list-section > .heading > label > .toggle-all):
+        (.node-overlay-list-section :is(.setting-editor, .node-overlay-list-item-container, .heading) input[type="checkbox"]):
+        A full-on replacement of `.css-grid-section` with `.node-overlay-list-section` since the two sections share the same styles.
+
+        * UserInterface/Views/NodeOverlayListSection.js: Copied from Source/WebInspectorUI/UserInterface/Views/CSSGridSection.js.
+        (WI.NodeOverlayListSection):
+        (WI.NodeOverlayListSection.prototype.set nodeSet):
+        (WI.NodeOverlayListSection.prototype.get sectionLabel):
+        (WI.NodeOverlayListSection.prototype.attached):
+        (WI.NodeOverlayListSection.prototype.detached):
+        (WI.NodeOverlayListSection.prototype.initialLayout):
+        (WI.NodeOverlayListSection.prototype.layout):
+        (WI.NodeOverlayListSection.prototype._handleOverlayStateChanged):
+        (WI.NodeOverlayListSection.prototype._handleToggleAllCheckboxChanged):
+        (WI.NodeOverlayListSection.prototype._updateToggleAllCheckbox):
+        Removed all the specific implementations for CSS Grid after generalizing them into `WI.NodeOverlayListSection`.
+
+2022-02-11  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: Sources: double clicking a breakpoint icon should show the edit popover
+        https://bugs.webkit.org/show_bug.cgi?id=236524
+
+        Reviewed by Patrick Angle.
+
+        This is a more convenient way to access(/discover) the breakpoint's configuration details.
+
+        * UserInterface/Views/BreakpointTreeElement.js:
+        (WI.BreakpointTreeElement):
+        (WI.BreakpointTreeElement.prototype._handleStatusImageElementDoubleClicked): Added.
+
+        * UserInterface/Views/BreakpointPopover.js:
+        (WI.BreakpointPopover.show): Added.
+        (WI.BreakpointPopover.appendContextMenuItems):
+        Add a convenience method to create a `WI.BreakpointPopover` (or subclass) for the given
+        breakpoint and `show` it over the given target element.
+
+2022-02-11  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: click to re-enable breakpoint clears automatic continue
+        https://bugs.webkit.org/show_bug.cgi?id=236465
+
+        Reviewed by Patrick Angle.
+
+        This is not very convenient for developers as it means that they have to click more than
+        once when re-enabling an auto-continue breakpoint (i.e. once to enable it (which currently
+        disables auto-continue), and once to re-enable auto-continue). Separating these behaviors is
+        preferable because it's unlikely that a developer would want to disable auto-continue when
+        re-enabling a breakpoint if they've taken the time to previously configure auto-continue.
+
+        * UserInterface/Views/BreakpointTreeElement.js:
+        (WI.BreakpointTreeElement.prototype.onenter):
+        (WI.BreakpointTreeElement.prototype.onspace):
+        (WI.BreakpointTreeElement.prototype._statusImageElementClicked):
+        * UserInterface/Views/SourceCodeTextEditor.js:
+        (WI.SourceCodeTextEditor.prototype.textEditorBreakpointClicked):
+        Replace `cycleToNextNode` with `disabled = !disabled`.
+
+        * UserInterface/Models/Breakpoint.js:
+        (WI.Breakpoint.prototype.cycleToNextMode): Deleted.
+        Remove this method now that it's no longer used.
+
+2022-02-11  Nikita Vasilyev  <nvasilyev@apple.com>
+
+        Web Inspector: [Flexbox] Show flex badge next to flex containers in DOM Tree
+        https://bugs.webkit.org/show_bug.cgi?id=235924
+
+        Reviewed by Patrick Angle.
+
+        Elements with `display: flex` and `display: inline-flex` should include a "flex" badge.
+        Clicking the badge should toggle the overlay for the corresponding element.
+
+        * UserInterface/Controllers/GridOverlayConfigurationDiagnosticEventRecorder.js:
+        (WI.GridOverlayConfigurationDiagnosticEventRecorder.prototype.setup):
+        (WI.GridOverlayConfigurationDiagnosticEventRecorder.prototype.teardown):
+        (WI.GridOverlayConfigurationDiagnosticEventRecorder.prototype._handleGridOverlayShown):
+        * UserInterface/Controllers/GridOverlayDiagnosticEventRecorder.js:
+        (WI.GridOverlayDiagnosticEventRecorder.prototype.setup):
+        (WI.GridOverlayDiagnosticEventRecorder.prototype.teardown):
+        (WI.GridOverlayDiagnosticEventRecorder.prototype._handleGridOverlayShown):
+        (WI.GridOverlayDiagnosticEventRecorder):
+        * UserInterface/Controllers/OverlayManager.js:
+        (WI.OverlayManager):
+        (WI.OverlayManager.prototype.showOverlay):
+        (WI.OverlayManager.prototype.hideOverlay):
+        (WI.OverlayManager.prototype.hasVisibleGridOverlays):
+        (WI.OverlayManager.prototype.hasVisibleOverlay):
+        (WI.OverlayManager.prototype.toggleOverlay):
+        (WI.OverlayManager.prototype.getColorForNode):
+        (WI.OverlayManager.prototype.setColorForNode):
+        (WI.OverlayManager.prototype._handleLayoutContextTypeChanged):
+        (WI.OverlayManager.prototype._handleGridSettingChanged):
+        (WI.OverlayManager.prototype._handleMainResourceDidChange):
+        (WI.OverlayManager.prototype.showGridOverlay): Deleted.
+        (WI.OverlayManager.prototype.hideGridOverlay): Deleted.
+        (WI.OverlayManager.prototype.isGridOverlayVisible): Deleted.
+        (WI.OverlayManager.prototype.toggleGridOverlay): Deleted.
+        (WI.OverlayManager.prototype.getGridColorForNode): Deleted.
+        (WI.OverlayManager.prototype.setGridColorForNode): Deleted.
+        Remove grid-specific methods (such as showGridOverlay) and introduce methods that work with
+        both Grid and Flexbox (such as showOverlay).
+
+        * UserInterface/Views/CSSGridSection.js:
+        (WI.CSSGridSection.prototype.attached):
+        (WI.CSSGridSection.prototype.detached):
+        (WI.CSSGridSection.prototype._handleToggleAllCheckboxChanged):
+        (WI.CSSGridSection.prototype.layout):
+        (WI.CSSGridSection.prototype._handleGridOverlayStateChanged):
+        (WI.CSSGridSection.prototype._updateToggleAllCheckbox):
+        (WI.CSSGridSection):
+        * UserInterface/Views/DOMTreeElement.css:
+        (.tree-outline.dom .layout-badge):
+        (.tree-outline.dom .layout-badge.activated):
+        (body:not(.window-inactive, .window-docked-inactive) .tree-outline.dom:focus-within li.selected .layout-badge):
+        (@media (prefers-color-scheme: dark) .tree-outline.dom .layout-badge):
+        (.tree-outline.dom .badge-css-grid): Deleted.
+        (.tree-outline.dom .badge-css-grid.activated): Deleted.
+        (body:not(.window-inactive, .window-docked-inactive) .tree-outline.dom:focus-within li.selected .badge-css-grid): Deleted.
+        (@media (prefers-color-scheme: dark) .tree-outline.dom .badge-css-grid): Deleted.
+
+        * UserInterface/Views/DOMTreeElement.js:
+        (WI.DOMTreeElement):
+        (WI.DOMTreeElement.prototype.onattach):
+        (WI.DOMTreeElement.prototype.ondetach):
+        (WI.DOMTreeElement.prototype.updateTitle):
+        (WI.DOMTreeElement.prototype._updateLayoutBadge):
+        (WI.DOMTreeElement.prototype._layoutBadgeClicked):
+        (WI.DOMTreeElement.prototype._updateLayoutBadgeStatus):
+        (WI.DOMTreeElement.prototype._handleLayoutContextTypeChanged):
+        (WI.DOMTreeElement.prototype._updateGridBadge): Deleted.
+        (WI.DOMTreeElement.prototype._gridBadgeClicked): Deleted.
+        (WI.DOMTreeElement.prototype._gridBadgeDoubleClicked): Deleted.
+        (WI.DOMTreeElement.prototype._updateGridBadgeStatus): Deleted.
+        Renamed `_gridBadgeElement` to `_layoutBadgeElement`. We can't have both "flex" and "grid" badge on the same element,
+        so I called it "layoutBadge". I didn't call it simply "badge" because we may have other badges in the future.
+
 2022-02-03  Nikita Vasilyev  <nvasilyev@apple.com>
 
         Web Inspector: [Flexbox] Add setting to guard Flexbox Inspector feature

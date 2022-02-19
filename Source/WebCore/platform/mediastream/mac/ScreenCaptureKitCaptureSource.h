@@ -39,12 +39,11 @@ OBJC_CLASS SCDisplay;
 OBJC_CLASS SCShareableContent;
 OBJC_CLASS SCStream;
 OBJC_CLASS SCContentFilter;
+OBJC_CLASS SCContentSharingSession;
 OBJC_CLASS SCStreamConfiguration;
 OBJC_CLASS SCWindow;
 OBJC_CLASS WebCoreScreenCaptureKitHelper;
 using CMSampleBufferRef = struct opaqueCMSampleBuffer*;
-
-typedef struct __IOSurface* IOSurfaceRef;
 
 namespace WebCore {
 
@@ -68,6 +67,10 @@ public:
     WEBCORE_EXPORT static void windowDevices(Vector<DisplayCaptureManager::WindowCaptureDevice>&);
 
     void streamFailedWithError(RetainPtr<NSError>&&, const String&);
+    enum class SampleType { Video };
+    void streamDidOutputSampleBuffer(RetainPtr<CMSampleBufferRef>, SampleType);
+    void sessionDidChangeContent(RetainPtr<SCContentSharingSession>);
+    void sessionDidEnd(RetainPtr<SCContentSharingSession>);
 
 private:
 
@@ -92,6 +95,8 @@ private:
     using SCContentStreamUpdateCallback = void (^)(SCStream *, CMSampleBufferRef);
     SCContentStreamUpdateCallback frameAvailableHandler();
 
+    dispatch_queue_t captureQueue();
+
     using Content = std::variant<RetainPtr<SCWindow>, RetainPtr<SCDisplay>>;
     std::optional<Content> m_content;
 
@@ -100,6 +105,7 @@ private:
     RetainPtr<SCContentFilter> m_contentFilter;
     RetainPtr<SCStream> m_contentStream;
     RetainPtr<SCStreamConfiguration> m_streamConfiguration;
+    RetainPtr<SCContentSharingSession> m_contentSharingSession;
     OSObjectPtr<dispatch_queue_t> m_captureQueue;
     BlockPtr<void(SCStream *, CMSampleBufferRef)> m_frameAvailableHandler;
     CaptureDevice m_captureDevice;
@@ -110,6 +116,7 @@ private:
     uint32_t m_height { 0 };
     float m_frameRate { 0 };
     bool m_isRunning { false };
+    bool m_useNewAPI { false };
     static bool m_enabled;
 };
 

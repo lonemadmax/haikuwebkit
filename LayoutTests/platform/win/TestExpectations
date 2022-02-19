@@ -243,9 +243,10 @@ imported/w3c/web-platform-tests/content-security-policy/worker-src/shared-worker
 imported/w3c/web-platform-tests/content-security-policy/worker-src/shared-worker-src-script-fallback.sub.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/worker-src/shared-worker-src-self-fallback.sub.html [ Skip ]
 imported/w3c/web-platform-tests/dom/idlharness.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/eventsource/eventsource-constructor-empty-url.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/eventsource/eventsource-constructor-url-bogus.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/eventsource/shared-worker [ Skip ]
 imported/w3c/web-platform-tests/fetch/api/cors/data-url-shared-worker.html [ Skip ]
-imported/w3c/web-platform-tests/html/browsers/offline/no-appcache-in-shared-workers-historical.https.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/evaluation-order-1-nothrow-sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/evaluation-order-1-sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/evaluation-order-2-import-sharedworker.html [ Skip ]
@@ -336,12 +337,15 @@ imported/w3c/web-platform-tests/workers/semantics/xhr/003.html [ Skip ]
 imported/w3c/web-platform-tests/workers/semantics/xhr/004.html [ Skip ]
 imported/w3c/web-platform-tests/workers/semantics/xhr/006.html [ Skip ]
 imported/w3c/web-platform-tests/workers/shared-worker-from-blob-url.window.html [ Skip ]
+imported/w3c/web-platform-tests/workers/shared-worker-in-data-url-context.window.html [ Skip ]
 imported/w3c/web-platform-tests/workers/shared-worker-name-via-options.html [ Skip ]
 imported/w3c/web-platform-tests/workers/shared-worker-options-mismatch.html [ Skip ]
 imported/w3c/web-platform-tests/workers/shared-worker-parse-error-failure.html [ Skip ]
 imported/w3c/web-platform-tests/workers/shared-worker-partitioned.tentative.html [ Skip ]
 imported/w3c/web-platform-tests/wasm/serialization/module/window-sharedworker-failure.html [ Skip ]
+imported/w3c/web-platform-tests/xhr/idlharness.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/xhr/open-url-redirected-sharedworker-origin.htm [ Skip ]
+imported/w3c/web-platform-tests/xhr/sync-no-timeout.any.sharedworker.html [ Skip ]
 
 # Dark mode not supported on Windows
 css-dark-mode [ Skip ]
@@ -468,6 +472,9 @@ accessibility/model-element-attributes.html [ Skip ]
 # AccessibilityUIElement::isInDescriptionListDetail(), AccessibilityUIElement::isInDescriptionListTerm(), and
 # AccessibilityUIElement::isInCell().
 accessibility/ancestor-computation.html [ Skip ]
+
+# Missing AccessibilityUIElement::uiElementForSearchPredicate implementation.
+accessibility/table-search-traversal.html [ Skip ]
 
 # TODO Conic gradients
 http/wpt/css/css-images-4/conic-gradient-parsing.html [ Skip ]
@@ -2689,9 +2696,6 @@ webkit.org/b/44199 perf/ [ Skip ]
 # Fails because MutationObservers are not notified at end-of-task
 webkit.org/b/78290 fast/dom/MutationObserver/end-of-task-delivery.html [ Skip ]
 
-# Interferes with the other requestAnimationFrame tests
-webkit.org/b/85689 fast/animation/request-animation-frame-disabled.html [ Skip ]
-
 # Causes crashes in the next test
 webkit.org/b/87416 fast/dom/Window/Location/set-location-after-close.html [ Skip ]
 
@@ -3926,6 +3930,8 @@ imported/w3c/web-platform-tests/content-security-policy/worker-src/service-worke
 imported/w3c/web-platform-tests/content-security-policy/worker-src/service-worker-src-script-fallback.https.sub.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/worker-src/service-worker-src-self-fallback.https.sub.html [ Skip ]
 imported/w3c/web-platform-tests/dom/idlharness.any.serviceworker.html [ Skip ]
+imported/w3c/web-platform-tests/eventsource/eventsource-constructor-empty-url.any.serviceworker.html [ Skip ]
+imported/w3c/web-platform-tests/eventsource/eventsource-constructor-url-bogus.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/api/policies/referrer-no-referrer-service-worker.https.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/api/policies/referrer-origin-service-worker.https.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/api/policies/referrer-origin-when-cross-origin-service-worker.https.html [ Skip ]
@@ -4911,6 +4917,7 @@ webkit.org/b/229300 http/tests/security/no-javascript-refresh-spaces.py [ Pass C
 
 accessibility/selected-state-changed-notifications.html [ Skip ]
 accessibility/element-line-rects-and-text.html [ Skip ]
+accessibility/dialog-properties.html [ Skip ]
 
 webkit.org/b/229247 http/tests/fetch/keepalive-fetch-2.html [ Pass Failure ]
 
@@ -4959,6 +4966,7 @@ webanimations/frame-rate/document-timeline-maximum-frame-rate.html [ Skip ]
 # This test requires an internal API which only works on Cocoa ports.
 webanimations/transform-animation-with-delay-yields-accelerated-animation.html [ Skip ]
 webanimations/partly-accelerated-transition-by-removing-property.html [ Skip ]
+webanimations/accelerated-animations-and-composite.html [ Skip ]
 
 pointerevents/mouse/pointer-button-and-buttons.html [ Failure ]
 pointerevents/mouse/pointer-capture.html [ Failure ]

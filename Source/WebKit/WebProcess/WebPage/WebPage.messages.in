@@ -81,6 +81,9 @@ messages -> WebPage LegacyReceiver {
     UpdateSelectionWithExtentPoint(WebCore::IntPoint point, bool isInteractingWithFocusedElement, enum:bool WebKit::RespectSelectionAnchor respectSelectionAnchor) -> (bool endIsMoving) Async
     UpdateSelectionWithExtentPointAndBoundary(WebCore::IntPoint point, enum:uint8_t WebCore::TextGranularity granularity, bool isInteractingWithFocusedElement) -> (bool endIsMoving) Async
     RequestDictationContext() -> (String selectedText, String textBefore, String textAfter) Async
+#if ENABLE(REVEAL)
+    RequestRVItemInCurrentSelectedRange() -> (WebKit::RevealItem item) Async
+#endif
     ReplaceDictatedText(String oldText, String newText)
     ReplaceSelectedText(String oldText, String newText)
     RequestAutocorrectionData(String textForAutocorrection) -> (struct WebKit::WebAutocorrectionData data) Async
@@ -127,6 +130,8 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     FocusTextInputContextAndPlaceCaret(struct WebCore::ElementContext context, WebCore::IntPoint point) -> (bool success) Async
     ClearServiceWorkerEntitlementOverride() -> () Async
 #endif
+
+    RequestImageBitmap(struct WebCore::ElementContext elementContext) -> (WebKit::ShareableBitmap::Handle image, String sourceMIMEType) Async
 
     SetControlledByAutomation(bool controlled)
 
@@ -454,10 +459,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     GetStringSelectionForPasteboard() -> (String stringValue) Synchronous
     GetDataSelectionForPasteboard(String pasteboardType) -> (WebKit::SharedMemory::IPCHandle ipcHandle) Synchronous
     ReadSelectionFromPasteboard(String pasteboardName) -> (bool result) Synchronous
-
-#if ENABLE(SERVICE_CONTROLS)
     ReplaceSelectionWithPasteboardData(Vector<String> types, IPC::DataReference data)
-#endif
 
     ShouldDelayWindowOrderingEvent(WebKit::WebMouseEvent event) -> (bool result) Synchronous
 
@@ -657,4 +659,6 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 #endif
 
     ScrollToRect(WebCore::FloatRect targetRect, WebCore::FloatPoint origin)
+
+    InteractableRegionsInRootViewCoordinates(WebCore::FloatRect rect) -> (Vector<WebCore::FloatRect> rects) Async
 }

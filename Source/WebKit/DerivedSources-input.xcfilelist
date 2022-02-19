@@ -67,6 +67,7 @@ $(PROJECT_DIR)/GPUProcess/media/RemoteMediaSourceProxy.messages.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteRemoteCommandListenerProxy.messages.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteSourceBufferProxy.messages.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteTextTrackProxy.messages.in
+$(PROJECT_DIR)/GPUProcess/media/RemoteVideoFrameObjectHeap.messages.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteVideoTrackProxy.messages.in
 $(PROJECT_DIR)/GPUProcess/media/ios/RemoteMediaSessionHelperProxy.messages.in
 $(PROJECT_DIR)/GPUProcess/webrtc/LibWebRTCCodecsProxy.messages.in
@@ -91,6 +92,8 @@ $(PROJECT_DIR)/NetworkProcess/ServiceWorker/ServiceWorkerDownloadTask.messages.i
 $(PROJECT_DIR)/NetworkProcess/ServiceWorker/ServiceWorkerFetchTask.messages.in
 $(PROJECT_DIR)/NetworkProcess/ServiceWorker/WebSWServerConnection.messages.in
 $(PROJECT_DIR)/NetworkProcess/ServiceWorker/WebSWServerToContextConnection.messages.in
+$(PROJECT_DIR)/NetworkProcess/SharedWorker/WebSharedWorkerServerConnection.messages.in
+$(PROJECT_DIR)/NetworkProcess/SharedWorker/WebSharedWorkerServerToContextConnection.messages.in
 $(PROJECT_DIR)/NetworkProcess/WebStorage/StorageManagerSet.messages.in
 $(PROJECT_DIR)/NetworkProcess/cache/CacheStorageEngineConnection.messages.in
 $(PROJECT_DIR)/NetworkProcess/mac/com.apple.WebKit.NetworkProcess.sb.in
@@ -193,6 +196,8 @@ $(PROJECT_DIR)/WebProcess/GPU/media/SourceBufferPrivateRemote.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/media/ios/RemoteMediaSessionHelper.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/webrtc/LibWebRTCCodecs.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/webrtc/LibWebRTCRemoteCodecs.messages.in
+$(PROJECT_DIR)/WebProcess/GPU/webrtc/RemoteVideoFrameObjectHeapProxy.messages.in
+$(PROJECT_DIR)/WebProcess/GPU/webrtc/RemoteVideoFrameObjectHeapProxyProcessor.messages.in
 $(PROJECT_DIR)/WebProcess/GPU/webrtc/SampleBufferDisplayLayer.messages.in
 $(PROJECT_DIR)/WebProcess/Geolocation/WebGeolocationManager.messages.in
 $(PROJECT_DIR)/WebProcess/Inspector/RemoteWebInspectorUI.messages.in
@@ -217,6 +222,8 @@ $(PROJECT_DIR)/WebProcess/Plugins/PluginProxy.messages.in
 $(PROJECT_DIR)/WebProcess/Speech/SpeechRecognitionRealtimeMediaSourceManager.messages.in
 $(PROJECT_DIR)/WebProcess/Storage/WebSWClientConnection.messages.in
 $(PROJECT_DIR)/WebProcess/Storage/WebSWContextManagerConnection.messages.in
+$(PROJECT_DIR)/WebProcess/Storage/WebSharedWorkerContextManagerConnection.messages.in
+$(PROJECT_DIR)/WebProcess/Storage/WebSharedWorkerObjectConnection.messages.in
 $(PROJECT_DIR)/WebProcess/UserContent/WebUserContentController.messages.in
 $(PROJECT_DIR)/WebProcess/WebAuthentication/WebAuthenticatorCoordinator.messages.in
 $(PROJECT_DIR)/WebProcess/WebAuthentication/WebAuthnProcessConnection.messages.in
@@ -242,3 +249,4 @@ $(PROJECT_DIR)/WebProcess/cocoa/RemoteCaptureSampleManager.messages.in
 $(PROJECT_DIR)/WebProcess/cocoa/UserMediaCaptureManager.messages.in
 $(PROJECT_DIR)/WebProcess/cocoa/VideoFullscreenManager.messages.in
 $(PROJECT_DIR)/WebProcess/com.apple.WebProcess.sb.in
+$(PROJECT_DIR)/webpushd/mac/com.apple.WebKit.webpushd.sb.in

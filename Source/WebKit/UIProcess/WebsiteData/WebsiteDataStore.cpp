@@ -41,6 +41,7 @@
 #include "WebBackForwardCache.h"
 #include "WebCookieManagerProxy.h"
 #include "WebKit2Initialize.h"
+#include "WebNotificationManagerProxy.h"
 #include "WebPageProxy.h"
 #include "WebProcessCache.h"
 #include "WebProcessMessages.h"
@@ -1716,7 +1717,7 @@ void WebsiteDataStore::dispatchOnQueue(Function<void()>&& function)
 uint64_t WebsiteDataStore::perThirdPartyOriginStorageQuota() const
 {
     // FIXME: Consider whether allowing to set a perThirdPartyOriginStorageQuota from a WebsiteDataStore.
-    return WebCore::StorageQuotaManager::defaultThirdPartyQuotaFromPerOriginQuota(perOriginStorageQuota());
+    return perOriginStorageQuota() / 10;
 }
 
 void WebsiteDataStore::setCacheModelSynchronouslyForTesting(CacheModel cacheModel)
@@ -2052,6 +2053,27 @@ void WebsiteDataStore::makeNextNetworkProcessLaunchFailForTesting()
 bool WebsiteDataStore::shouldMakeNextNetworkProcessLaunchFailForTesting()
 {
     return std::exchange(nextNetworkProcessLaunchShouldFailForTesting, false);
+}
+
+void WebsiteDataStore::showServiceWorkerNotification(IPC::Connection& connection, const WebCore::NotificationData& notificationData)
+{
+    WebNotificationManagerProxy::sharedServiceWorkerManager().show(nullptr, connection, notificationData);
+}
+
+void WebsiteDataStore::cancelServiceWorkerNotification(const UUID& notificationID)
+{
+    WebNotificationManagerProxy::sharedServiceWorkerManager().cancel(nullptr, notificationID);
+}
+
+void WebsiteDataStore::clearServiceWorkerNotification(const UUID& notificationID)
+{
+    Vector<UUID> notifications = { notificationID };
+    WebNotificationManagerProxy::sharedServiceWorkerManager().clearNotifications(nullptr, notifications);
+}
+
+void WebsiteDataStore::didDestroyServiceWorkerNotification(const UUID& notificationID)
+{
+    WebNotificationManagerProxy::sharedServiceWorkerManager().didDestroyNotification(nullptr, notificationID);
 }
 
 }

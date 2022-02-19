@@ -42,7 +42,7 @@ public:
     static Ref<MediaSampleAVFObjC> create(CMSampleBufferRef sample, AtomString trackID) { return adoptRef(*new MediaSampleAVFObjC(sample, trackID)); }
     static Ref<MediaSampleAVFObjC> create(CMSampleBufferRef sample, VideoRotation rotation = VideoRotation::None, bool mirrored = false) { return adoptRef(*new MediaSampleAVFObjC(sample, rotation, mirrored)); }
     static RefPtr<MediaSampleAVFObjC> createImageSample(PixelBuffer&&);
-    WEBCORE_EXPORT static RefPtr<MediaSampleAVFObjC> createImageSample(RetainPtr<CVPixelBufferRef>&&, VideoRotation, bool mirrored);
+    WEBCORE_EXPORT static RefPtr<MediaSampleAVFObjC> createImageSample(RetainPtr<CVPixelBufferRef>&&, VideoRotation, bool mirrored, MediaTime presentationTime = { }, MediaTime decodingTime = { });
 
     WEBCORE_EXPORT static void setAsDisplayImmediately(MediaSample&);
     static RetainPtr<CMSampleBufferRef> cloneSampleBufferAndSetAsDisplayImmediately(CMSampleBufferRef);
@@ -54,13 +54,12 @@ public:
     MediaTime duration() const override;
 
     AtomString trackID() const override { return m_id; }
-    void setTrackID(const String& id) override { m_id = id; }
 
     size_t sizeInBytes() const override;
     FloatSize presentationSize() const override;
 
     SampleFlags flags() const override;
-    PlatformSample platformSample() override;
+    PlatformSample platformSample() const override;
     std::optional<ByteRange> byteRange() const override;
     WEBCORE_EXPORT void dump(PrintStream&) const override;
     void offsetTimestampsBy(const MediaTime&) override;
@@ -73,6 +72,7 @@ public:
     bool videoMirrored() const override { return m_mirrored; }
     WEBCORE_EXPORT uint32_t videoPixelFormat() const final;
     WEBCORE_EXPORT std::optional<MediaSampleVideoFrame> videoFrame() const final;
+    WEBCORE_EXPORT CVPixelBufferRef pixelBuffer() const final;
     CMSampleBufferRef sampleBuffer() const { return m_sample.get(); }
 
     bool isHomogeneous() const;
@@ -97,3 +97,7 @@ protected:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::MediaSampleAVFObjC)
+    static bool isType(const WebCore::MediaSample& mediaSample) { return mediaSample.platformSample().type == WebCore::PlatformSample::CMSampleBufferType; }
+SPECIALIZE_TYPE_TRAITS_END()

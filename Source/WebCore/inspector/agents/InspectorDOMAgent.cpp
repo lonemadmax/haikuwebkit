@@ -95,6 +95,7 @@
 #include "Pasteboard.h"
 #include "PseudoElement.h"
 #include "RenderGrid.h"
+#include "RenderObject.h"
 #include "RenderStyle.h"
 #include "RenderStyleConstants.h"
 #include "ScriptController.h"
@@ -307,6 +308,10 @@ void InspectorDOMAgent::didCreateFrontendAndBackend(Inspector::FrontendRouter*, 
     m_instrumentingAgents.setPersistentDOMAgent(this);
     m_document = m_inspectedPage.mainFrame().document();
 
+    // Force a layout so that we can collect additional information from the layout process.
+    if (m_document)
+        m_document->updateLayout();
+
 #if ENABLE(VIDEO)
     if (m_document)
         addEventListenersToNode(*m_document);
@@ -329,6 +334,7 @@ void InspectorDOMAgent::willDestroyFrontendAndBackend(Inspector::DisconnectReaso
     hideHighlight();
 
     m_overlay->clearAllGridOverlays();
+    m_overlay->clearAllFlexOverlays();
 
     m_instrumentingAgents.setPersistentDOMAgent(nullptr);
     m_documentRequested = false;
@@ -356,6 +362,7 @@ void InspectorDOMAgent::reset()
     if (m_revalidateStyleAttrTask)
         m_revalidateStyleAttrTask->reset();
     m_document = nullptr;
+    m_flexibleBoxRendererCachedItemsAtStartOfLine.clear();
 
     m_destroyedDetachedNodeIdentifiers.clear();
     m_destroyedAttachedNodeIdentifiers.clear();
@@ -1538,6 +1545,41 @@ Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::hideGridOverlay(std:
 }
 
     m_overlay->clearAllGridOverlays();
+
+    return { };
+}
+
+Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::showFlexOverlay(Inspector::Protocol::DOM::NodeId nodeId, Ref<JSON::Object>&& flexColor)
+{
+    Protocol::ErrorString errorString;
+    Node* node = assertNode(errorString, nodeId);
+    if (!node)
+        return makeUnexpected(errorString);
+
+    auto parsedColor = parseColor(WTFMove(flexColor));
+    if (!parsedColor)
+        return makeUnexpected("Invalid color could not be parsed.");
+
+    InspectorOverlay::Flex::Config config;
+    config.flexColor = *parsedColor;
+
+    m_overlay->setFlexOverlayForNode(*node, config);
+
+    return { };
+}
+
+Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::hideFlexOverlay(std::optional<Protocol::DOM::NodeId>&& nodeId)
+{
+    if (nodeId) {
+        Protocol::ErrorString errorString;
+        auto node = assertNode(errorString, *nodeId);
+        if (!node)
+            return makeUnexpected(errorString);
+
+        return m_overlay->clearFlexOverlayForNode(*node);
+    }
+
+    m_overlay->clearAllFlexOverlays();
 
     return { };
 }
@@ -2753,6 +2795,23 @@ bool InspectorDOMAgent::isEventListenerDisabled(EventTarget& target, const AtomS
 void InspectorDOMAgent::eventDidResetAfterDispatch(const Event& event)
 {
     m_dispatchedEvents.remove(&event);
+}
+
+void InspectorDOMAgent::flexibleBoxRendererBeganLayout(const RenderObject& renderer)
+{
+    m_flexibleBoxRendererCachedItemsAtStartOfLine.remove(renderer);
+}
+
+void InspectorDOMAgent::flexibleBoxRendererWrappedToNextLine(const RenderObject& renderer, size_t lineStartItemIndex)
+{
+    m_flexibleBoxRendererCachedItemsAtStartOfLine.ensure(renderer, [] {
+        return Vector<size_t>();
+    }).iterator->value.append(lineStartItemIndex);
+}
+
+Vector<size_t> InspectorDOMAgent::flexibleBoxRendererCachedItemsAtStartOfLine(const RenderObject& renderer)
+{
+    return m_flexibleBoxRendererCachedItemsAtStartOfLine.get(renderer);
 }
 
 RefPtr<JSC::Breakpoint> InspectorDOMAgent::breakpointForEventListener(EventTarget& target, const AtomString& eventType, EventListener& listener, bool capture)

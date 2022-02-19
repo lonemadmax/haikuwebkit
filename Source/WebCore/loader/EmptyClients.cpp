@@ -431,7 +431,6 @@ class EmptyPaymentCoordinatorClient final : public PaymentCoordinatorClient {
     void cancelPaymentSession() final { }
     void abortPaymentSession() final { }
     void paymentCoordinatorDestroyed() final { }
-    bool supportsUnrestrictedApplePay() const final { return false; }
 };
 
 #endif

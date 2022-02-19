@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2006-2020 Apple Inc. All rights reserved.
  * Copyright (C) 2019 Adobe. All rights reserved.
- * Copyright (c) 2020 Igalia S.L.
+ * Copyright (c) 2020, 2021, 2022 Igalia S.L.
  *
  * Portions are Copyright (C) 1998 Netscape Communications Corporation.
  *
@@ -1330,9 +1330,14 @@ void RenderLayer::updateTransform()
     }
     
     if (hasTransform) {
-        auto& renderBox = downcast<RenderBox>(renderer());
         m_transform->makeIdentity();
-        renderBox.style().applyTransform(*m_transform, snapRectToDevicePixels(renderBox.referenceBox(transformBoxToCSSBoxType(renderBox.style().transformBox())), renderBox.document().deviceScaleFactor()));
+
+        // FIXME: [LBSE] Upstream reference box computation for RenderSVGModelObject derived renderers
+        FloatRect referenceBox;
+        if (is<RenderBox>(renderer()))
+            referenceBox = snapRectToDevicePixels(downcast<RenderBox>(renderer()).referenceBox(transformBoxToCSSBoxType(renderer().style().transformBox())), renderer().document().deviceScaleFactor());
+
+        renderer().applyTransform(*m_transform, referenceBox);
         makeMatrixRenderable(*m_transform, canRender3DTransforms());
     }
 
@@ -1348,6 +1353,7 @@ TransformationMatrix RenderLayer::currentTransform(OptionSet<RenderStyle::Transf
     if (!m_transform)
         return { };
 
+    // FIXME: [LBSE] Upstream transform support for RenderSVGModelObject derived renderers
     if (!is<RenderBox>(renderer()))
         return { };
 
@@ -1787,6 +1793,7 @@ bool RenderLayer::updateLayerPosition(OptionSet<UpdateLayerPositionsFlag>* flags
 
 TransformationMatrix RenderLayer::perspectiveTransform(const LayoutRect& layerRect) const
 {
+    // FIXME: [LBSE] Upstream transform support for RenderSVGModelObject derived renderers
     if (!is<RenderBox>(renderer()))
         return { };
 
@@ -1821,9 +1828,7 @@ FloatPoint RenderLayer::perspectiveOrigin() const
 {
     if (!renderer().hasTransformRelatedProperty())
         return { };
-
-    auto borderBox = downcast<RenderBox>(renderer()).borderBoxRect();
-    return floatPointForLengthPoint(renderer().style().perspectiveOrigin(), borderBox.size());
+    return floatPointForLengthPoint(renderer().style().perspectiveOrigin(), rendererBorderBoxRect().size());
 }
 
 static inline bool isContainerForPositioned(RenderLayer& layer, PositionType position, bool establishesTopLayer)
@@ -3276,7 +3281,7 @@ GraphicsContext* RenderLayer::setupFilters(GraphicsContext& destinationContext, 
 
     auto rootRelativeBounds = calculateLayerBounds(paintingInfo.rootLayer, offsetFromRoot, { });
 
-    GraphicsContext* filterContext = paintingFilters->beginFilterEffect(renderer(), enclosingIntRect(rootRelativeBounds), enclosingIntRect(paintingInfo.paintDirtyRect), enclosingIntRect(filterRepaintRect));
+    GraphicsContext* filterContext = paintingFilters->beginFilterEffect(renderer(), destinationContext, enclosingIntRect(rootRelativeBounds), enclosingIntRect(paintingInfo.paintDirtyRect), enclosingIntRect(filterRepaintRect));
     if (!filterContext)
         return nullptr;
 
@@ -3795,7 +3800,7 @@ void RenderLayer::paintBackgroundForFragments(const LayerFragments& layerFragmen
         // Paint the background.
         // FIXME: Eventually we will collect the region from the fragment itself instead of just from the paint info.
         PaintInfo paintInfo(context, fragment.backgroundRect.rect(), PaintPhase::BlockBackground, paintBehavior, subtreePaintRootForRenderer, nullptr, nullptr, &localPaintingInfo.rootLayer->renderer(), this);
-        renderer().paint(paintInfo, toLayoutPoint(fragment.layerBounds.location() - rendererLocation() + localPaintingInfo.subpixelOffset));
+        renderer().paint(paintInfo, paintOffsetForRenderer(fragment, localPaintingInfo));
     }
 }
 
@@ -3890,7 +3895,7 @@ void RenderLayer::paintForegroundForFragmentsWithPhase(PaintPhase phase, const L
         PaintInfo paintInfo(context, fragment.foregroundRect.rect(), phase, paintBehavior, subtreePaintRootForRenderer, nullptr, nullptr, &localPaintingInfo.rootLayer->renderer(), this, localPaintingInfo.requireSecurityOriginAccessForWidgets);
         if (phase == PaintPhase::Foreground)
             paintInfo.overlapTestRequests = localPaintingInfo.overlapTestRequests;
-        renderer().paint(paintInfo, toLayoutPoint(fragment.layerBounds.location() - rendererLocation() + localPaintingInfo.subpixelOffset));
+        renderer().paint(paintInfo, paintOffsetForRenderer(fragment, localPaintingInfo));
     }
 }
 
@@ -3908,7 +3913,7 @@ void RenderLayer::paintOutlineForFragments(const LayerFragments& layerFragments,
         EventRegionContextStateSaver eventRegionStateSaver(localPaintingInfo.eventRegionContext);
 
         clipToRect(context, stateSaver, eventRegionStateSaver, localPaintingInfo, paintBehavior, fragment.backgroundRect, DoNotIncludeSelfForBorderRadius);
-        renderer().paint(paintInfo, toLayoutPoint(fragment.layerBounds.location() - rendererLocation() + localPaintingInfo.subpixelOffset));
+        renderer().paint(paintInfo, paintOffsetForRenderer(fragment, localPaintingInfo));
     }
 }
 
@@ -3928,7 +3933,7 @@ void RenderLayer::paintMaskForFragments(const LayerFragments& layerFragments, Gr
         // Paint the mask.
         // FIXME: Eventually we will collect the region from the fragment itself instead of just from the paint info.
         PaintInfo paintInfo(context, fragment.backgroundRect.rect(), PaintPhase::Mask, paintBehavior, subtreePaintRootForRenderer, nullptr, nullptr, &localPaintingInfo.rootLayer->renderer(), this);
-        renderer().paint(paintInfo, toLayoutPoint(fragment.layerBounds.location() - rendererLocation() + localPaintingInfo.subpixelOffset));
+        renderer().paint(paintInfo, paintOffsetForRenderer(fragment, localPaintingInfo));
     }
 }
 
@@ -3946,7 +3951,7 @@ void RenderLayer::paintChildClippingMaskForFragments(const LayerFragments& layer
 
         // Paint the clipped mask.
         PaintInfo paintInfo(context, fragment.backgroundRect.rect(), PaintPhase::ClippingMask, paintBehavior, subtreePaintRootForRenderer, nullptr, nullptr, &localPaintingInfo.rootLayer->renderer(), this);
-        renderer().paint(paintInfo, toLayoutPoint(fragment.layerBounds.location() - rendererLocation() + localPaintingInfo.subpixelOffset));
+        renderer().paint(paintInfo, paintOffsetForRenderer(fragment, localPaintingInfo));
     }
 }
 
@@ -3962,7 +3967,7 @@ void RenderLayer::paintOverflowControlsForFragments(const LayerFragments& layerF
         EventRegionContextStateSaver eventRegionStateSaver(localPaintingInfo.eventRegionContext);
 
         clipToRect(context, stateSaver, eventRegionStateSaver, localPaintingInfo, { }, fragment.backgroundRect);
-        m_scrollableArea->paintOverflowControls(context, roundedIntPoint(toLayoutPoint(fragment.layerBounds.location() - rendererLocation() + localPaintingInfo.subpixelOffset)), snappedIntRect(fragment.backgroundRect.rect()), true);
+        m_scrollableArea->paintOverflowControls(context, roundedIntPoint(paintOffsetForRenderer(fragment, localPaintingInfo)), snappedIntRect(fragment.backgroundRect.rect()), true);
     }
 }
 
@@ -3973,7 +3978,7 @@ void RenderLayer::collectEventRegionForFragments(const LayerFragments& layerFrag
     for (const auto& fragment : layerFragments) {
         PaintInfo paintInfo(context, fragment.foregroundRect.rect(), PaintPhase::EventRegion, paintBehavior);
         paintInfo.eventRegionContext = localPaintingInfo.eventRegionContext;
-        renderer().paint(paintInfo, toLayoutPoint(fragment.layerBounds.location() - rendererLocation() + localPaintingInfo.subpixelOffset));
+        renderer().paint(paintInfo, paintOffsetForRenderer(fragment, localPaintingInfo));
     }
 }
 

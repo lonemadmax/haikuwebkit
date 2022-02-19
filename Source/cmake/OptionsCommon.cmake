@@ -21,12 +21,17 @@ if (WTF_CPU_ARM)
     CHECK_CXX_SOURCE_COMPILES("${ARM_THUMB2_TEST_SOURCE}" ARM_THUMB2_DETECTED)
 endif ()
 
-# Use ld.lld when building with LTO
+# Use ld.lld when building with LTO, or for debug builds, if available.
+# FIXME: With CMake 3.22+ full conditional syntax can be used in
+#        cmake_dependent_option()
+if (LTO_MODE OR DEVELOPER_MODE)
+    set(TRY_USE_LD_LLD ON)
+endif ()
 CMAKE_DEPENDENT_OPTION(USE_LD_LLD "Use LLD linker" ON
-                       "LTO_MODE;NOT WIN32" OFF)
+                       "TRY_USE_LD_LLD;NOT WIN32" OFF)
 if (USE_LD_LLD)
     execute_process(COMMAND ${CMAKE_C_COMPILER} -fuse-ld=lld -Wl,--version ERROR_QUIET OUTPUT_VARIABLE LD_VERSION)
-    if ("${LD_VERSION}" MATCHES "LLD")
+    if (LD_VERSION MATCHES "^LLD ")
         string(APPEND CMAKE_EXE_LINKER_FLAGS " -fuse-ld=lld")
         string(APPEND CMAKE_SHARED_LINKER_FLAGS " -fuse-ld=lld")
         string(APPEND CMAKE_MODULE_LINKER_FLAGS " -fuse-ld=lld")
@@ -36,11 +41,16 @@ if (USE_LD_LLD)
 endif ()
 
 # Determine which linker is being used with the chosen linker flags.
+separate_arguments(LD_VERSION_COMMAND UNIX_COMMAND
+    "${CMAKE_C_COMPILER} ${CMAKE_EXE_LINKER_FLAGS} -Wl,--version"
+)
 execute_process(
-    COMMAND ${CMAKE_C_COMPILER} ${CMAKE_EXE_LINKER_FLAGS} -Wl,--version
+    COMMAND ${LD_VERSION_COMMAND}
     OUTPUT_VARIABLE LD_VERSION
     ERROR_QUIET
 )
+unset(LD_VERSION_COMMAND)
+
 set(LD_SUPPORTS_GDB_INDEX TRUE)
 set(LD_SUPPORTS_SPLIT_DEBUG TRUE)
 set(LD_SUPPORTS_THIN_ARCHIVES TRUE)
@@ -69,12 +79,15 @@ message(STATUS "  Linker supports --gdb-index - ${LD_SUPPORTS_GDB_INDEX}")
 message(STATUS "  Linker supports --disable-new-dtags - ${LD_SUPPORTS_DISABLE_NEW_DTAGS}")
 
 # Determine whether the archiver in use supports thin archives.
+separate_arguments(AR_VERSION_COMMAND UNIX_COMMAND "${CMAKE_AR} -V")
 execute_process(
-    COMMAND ${CMAKE_AR} -V
+    COMMAND ${AR_VERSION_COMMAND}
     OUTPUT_VARIABLE AR_VERSION
     RESULT_VARIABLE AR_STATUS
     ERROR_QUIET
 )
+unset(AR_VERSION_COMMAND)
+
 set(AR_SUPPORTS_THIN_ARCHIVES FALSE)
 if (AR_STATUS EQUAL 0)
     if (AR_VERSION MATCHES "^GNU ar ")
@@ -201,6 +214,8 @@ WEBKIT_CHECK_HAVE_SYMBOL(HAVE_REGEX_H regexec regex.h)
 if (NOT (${CMAKE_SYSTEM_NAME} STREQUAL "Darwin"))
     WEBKIT_CHECK_HAVE_SYMBOL(HAVE_PTHREAD_MAIN_NP pthread_main_np pthread_np.h)
 endif ()
+WEBKIT_CHECK_HAVE_SYMBOL(HAVE_MAP_ALIGNED MAP_ALIGNED sys/mman.h)
+WEBKIT_CHECK_HAVE_SYMBOL(HAVE_SHM_ANON SHM_ANON sys/mman.h)
 WEBKIT_CHECK_HAVE_SYMBOL(HAVE_TIMINGSAFE_BCMP timingsafe_bcmp string.h)
 # Windows has signal.h but is missing symbols that are used in calls to signal.
 WEBKIT_CHECK_HAVE_SYMBOL(HAVE_SIGNAL_H SIGTRAP signal.h)

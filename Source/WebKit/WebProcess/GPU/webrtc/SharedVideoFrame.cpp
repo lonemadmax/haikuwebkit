@@ -35,14 +35,19 @@
 namespace WebKit {
 using namespace WebCore;
 
+SharedVideoFrameWriter::SharedVideoFrameWriter()
+    : m_semaphore(makeUniqueRef<IPC::Semaphore>())
+{
+}
+
 bool SharedVideoFrameWriter::wait(const Function<void(IPC::Semaphore&)>& newSemaphoreCallback)
 {
-    if (!m_semaphore) {
-        m_semaphore = makeUnique<IPC::Semaphore>();
-        newSemaphoreCallback(*m_semaphore);
+    if (!m_isSemaphoreInUse) {
+        m_isSemaphoreInUse = true;
+        newSemaphoreCallback(m_semaphore.get());
         return true;
     }
-    return m_semaphore->wait();
+    return !m_isDisabled && m_semaphore->wait();
 }
 
 bool SharedVideoFrameWriter::allocateStorage(size_t size, const Function<void(const SharedMemory::IPCHandle&)>& newMemoryCallback)
@@ -95,6 +100,12 @@ bool SharedVideoFrameWriter::write(const webrtc::VideoFrame& frame, const Functi
 }
 #endif
 
+void SharedVideoFrameWriter::disable()
+{
+    m_isDisabled = true;
+    m_semaphore->signal();
+}
+
 RetainPtr<CVPixelBufferRef> SharedVideoFrameReader::read()
 {
     if (!m_storage)
@@ -133,6 +144,11 @@ CVPixelBufferPoolRef SharedVideoFrameReader::pixelBufferPool(const SharedVideoFr
     return m_bufferPool.get();
 }
 
+bool SharedVideoFrameReader::setSharedMemory(const SharedMemory::IPCHandle& ipcHandle)
+{
+    m_storage = SharedMemory::map(ipcHandle.handle, SharedMemory::Protection::ReadOnly);
+    return !!m_storage;
+}
 
 }
 

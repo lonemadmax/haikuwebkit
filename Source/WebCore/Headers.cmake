@@ -224,11 +224,16 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/indexeddb/server/IDBConnectionToClient.h
     Modules/indexeddb/server/IDBConnectionToClientDelegate.h
     Modules/indexeddb/server/IDBServer.h
+    Modules/indexeddb/server/IndexValueEntry.h
+    Modules/indexeddb/server/IndexValueStore.h
+    Modules/indexeddb/server/MemoryBackingStoreTransaction.h
     Modules/indexeddb/server/MemoryIDBBackingStore.h
     Modules/indexeddb/server/SQLiteIDBBackingStore.h
+    Modules/indexeddb/server/SQLiteIDBTransaction.h
     Modules/indexeddb/server/ServerOpenDBRequest.h
     Modules/indexeddb/server/UniqueIDBDatabase.h
     Modules/indexeddb/server/UniqueIDBDatabaseConnection.h
+    Modules/indexeddb/server/UniqueIDBDatabaseManager.h
     Modules/indexeddb/server/UniqueIDBDatabaseTransaction.h
 
     Modules/indexeddb/shared/IndexKey.h
@@ -541,6 +546,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/CSSStyleDeclaration.h
     css/CSSStyleRule.h
     css/CSSStyleSheet.h
+    css/CSSSubgridValue.h
     css/CSSToLengthConversionData.h
     css/CSSUnits.h
     css/CSSUnknownRule.h
@@ -548,6 +554,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/CSSValueList.h
     css/CSSVariableData.h
     css/CSSVariableReferenceValue.h
+    css/ContainerQuery.h
     css/Counter.h
     css/DeprecatedCSSOMCounter.h
     css/DeprecatedCSSOMPrimitiveValue.h
@@ -1344,6 +1351,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/UserAgent.h
     platform/UserInterfaceLayoutDirection.h
     platform/ValidationBubble.h
+    platform/VideoFrame.h
     platform/VideoFrameMetadata.h
     platform/VideoSampleMetadata.h
     platform/WebGLStateTracker.h
@@ -1421,6 +1429,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ColorUtilities.h
     platform/graphics/ComplexTextController.h
     platform/graphics/ConcreteImageBuffer.h
+    platform/graphics/ContentTypeUtilities.h
     platform/graphics/DashArray.h
     platform/graphics/DecodingOptions.h
     platform/graphics/DestinationColorSpace.h
@@ -1964,9 +1973,12 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     workers/WorkerFontLoadRequest.h
     workers/WorkerGlobalScope.h
     workers/WorkerLoaderProxy.h
+    workers/WorkerObjectProxy.h
+    workers/WorkerOptions.h
     workers/WorkerOrWorkletGlobalScope.h
     workers/WorkerOrWorkletScriptController.h
     workers/WorkerOrWorkletThread.h
+    workers/WorkerReportingProxy.h
     workers/WorkerRunLoop.h
     workers/WorkerScriptLoader.h
     workers/WorkerScriptLoaderClient.h
@@ -2010,9 +2022,12 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     workers/service/server/SWServerWorker.h
 
     workers/shared/SharedWorkerIdentifier.h
-    workers/shared/SharedWorkerManager.h
+    workers/shared/SharedWorkerKey.h
     workers/shared/SharedWorkerObjectConnection.h
+    workers/shared/SharedWorkerObjectIdentifier.h
     workers/shared/SharedWorkerProvider.h
+
+    workers/shared/context/SharedWorkerContextManager.h
     workers/shared/context/SharedWorkerThread.h
     workers/shared/context/SharedWorkerThreadProxy.h
 

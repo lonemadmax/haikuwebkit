@@ -3694,11 +3694,9 @@ void WebPageProxy::setUserAgent(String&& userAgent)
         return;
     m_userAgent = WTFMove(userAgent);
 
-#if ENABLE(SERVICE_WORKER)
     // We update the service worker there at the moment to be sure we use values used by actual web pages.
     // FIXME: Refactor this when we have a better User-Agent story.
-    process().processPool().updateServiceWorkerUserAgent(m_userAgent);
-#endif
+    process().processPool().updateRemoteWorkerUserAgent(m_userAgent);
 
     if (!hasRunningProcess())
         return;
@@ -5462,9 +5460,12 @@ void WebPageProxy::decidePolicyForNavigationAction(Ref<WebProcessProxy>&& proces
     // Sandboxed iframes should be allowed to open external apps via custom protocols unless explicitely allowed (https://html.spec.whatwg.org/#hand-off-to-external-software).
     bool canHandleRequest = navigationActionData.canHandleRequest || m_urlSchemeHandlersByScheme.contains(request.url().protocol().toStringWithoutCopying());
     if (!canHandleRequest && !destinationFrameInfo->isMainFrame() && !frameSandboxAllowsOpeningExternalCustomProtocols(navigationActionData.effectiveSandboxFlags, !!navigationActionData.userGestureTokenIdentifier)) {
-        WEBPAGEPROXY_RELEASE_LOG_ERROR(Process, "Ignoring request to load this main resource because it has a custom protocol and comes from a sandboxed iframe");
-        process->send(Messages::WebPage::AddConsoleMessage(frame.frameID(), MessageSource::Security, MessageLevel::Error, "Ignoring request to load this main resource because it has a custom protocol and comes from a sandboxed iframe"_s, std::nullopt), webPageID);
-        return receivedPolicyDecision(PolicyAction::Ignore, m_navigationState->navigation(navigationID), nullptr, WTFMove(navigationAction), WTFMove(sender));
+        if (!sourceFrameInfo || !m_preferences->needsSiteSpecificQuirks() || !Quirks::shouldAllowNavigationToCustomProtocolWithoutUserGesture(request.url().protocol(), sourceFrameInfo->securityOrigin())) {
+            WEBPAGEPROXY_RELEASE_LOG_ERROR(Process, "Ignoring request to load this main resource because it has a custom protocol and comes from a sandboxed iframe");
+            process->send(Messages::WebPage::AddConsoleMessage(frame.frameID(), MessageSource::Security, MessageLevel::Error, "Ignoring request to load this main resource because it has a custom protocol and comes from a sandboxed iframe"_s, std::nullopt), webPageID);
+            return receivedPolicyDecision(PolicyAction::Ignore, m_navigationState->navigation(navigationID), nullptr, WTFMove(navigationAction), WTFMove(sender));
+        }
+        process->send(Messages::WebPage::AddConsoleMessage(frame.frameID(), MessageSource::Security, MessageLevel::Warning, "In the future, requests to navigate to a URL with custom protocol from a sandboxed iframe will be ignored"_s, std::nullopt), webPageID);
     }
 #endif
 
@@ -8642,10 +8643,46 @@ void WebPageProxy::revokeGeolocationAuthorizationToken(const String& authorizati
     m_geolocationPermissionRequestManager.revokeAuthorizationToken(authorizationToken);
 }
 
-void WebPageProxy::requestPermission(const ClientOrigin&, const PermissionDescriptor&, CompletionHandler<void(PermissionState)>&& completionHandler)
+void WebPageProxy::queryPermission(const ClientOrigin& clientOrigin, const PermissionDescriptor& descriptor, CompletionHandler<void(std::optional<PermissionState>, bool shouldCache)>&& completionHandler)
 {
-    // FIXME: Show a prompt for user input.
-    completionHandler(PermissionState::Granted);
+    bool shouldChangeDeniedToPrompt = true;
+    bool shouldChangePromptToGrant = false;
+    String name;
+    if (descriptor.name == PermissionName::Camera) {
+#if ENABLE(MEDIA_STREAM)
+        name = "camera"_s;
+        shouldChangeDeniedToPrompt = userMediaPermissionRequestManager().shouldChangeDeniedToPromptForCamera(clientOrigin);
+        shouldChangePromptToGrant = userMediaPermissionRequestManager().shouldChangePromptToGrantForCamera(clientOrigin);
+#endif
+    } else if (descriptor.name == PermissionName::Microphone) {
+#if ENABLE(MEDIA_STREAM)
+        name = "microphone"_s;
+        shouldChangeDeniedToPrompt = userMediaPermissionRequestManager().shouldChangeDeniedToPromptForMicrophone(clientOrigin);
+        shouldChangePromptToGrant = userMediaPermissionRequestManager().shouldChangePromptToGrantForMicrophone(clientOrigin);
+#endif
+    } else if (descriptor.name == PermissionName::Geolocation) {
+#if ENABLE(GEOLOCATION)
+        name = "geolocation"_s;
+#endif
+    }
+
+    if (name.isNull()) {
+        completionHandler({ }, false);
+        return;
+    }
+
+    auto origin = API::SecurityOrigin::create(clientOrigin.topOrigin);
+    m_uiClient->queryPermission(name, origin, [clientOrigin, shouldChangeDeniedToPrompt, shouldChangePromptToGrant, completionHandler = WTFMove(completionHandler)](auto result) mutable {
+        if (!result) {
+            completionHandler({ }, false);
+            return;
+        }
+        if (*result == PermissionState::Denied && shouldChangeDeniedToPrompt)
+            result = PermissionState::Prompt;
+        else if (*result == PermissionState::Prompt && shouldChangePromptToGrant)
+            result = PermissionState::Granted;
+        completionHandler(*result, false);
+    });
 }
 
 #if ENABLE(MEDIA_STREAM)
@@ -8800,6 +8837,16 @@ void WebPageProxy::startImageAnalysis(const String& identifier)
 
 #endif // ENABLE(IMAGE_ANALYSIS)
 
+void WebPageProxy::requestImageBitmap(const ElementContext& elementContext, CompletionHandler<void(const ShareableBitmap::Handle&, const String&)>&& completion)
+{
+    if (!hasRunningProcess()) {
+        completion({ }, { });
+        return;
+    }
+
+    sendWithAsyncReply(Messages::WebPage::RequestImageBitmap(elementContext), WTFMove(completion));
+}
+
 #if ENABLE(ENCRYPTED_MEDIA)
 MediaKeySystemPermissionRequestManagerProxy& WebPageProxy::mediaKeySystemPermissionRequestManager()
 {
@@ -8827,9 +8874,9 @@ void WebPageProxy::requestNotificationPermission(const String& originString, Com
     m_uiClient->decidePolicyForNotificationPermissionRequest(*this, origin.get(), WTFMove(completionHandler));
 }
 
-void WebPageProxy::showNotification(const WebCore::NotificationData& notificationData)
+void WebPageProxy::showNotification(IPC::Connection& connection, const WebCore::NotificationData& notificationData)
 {
-    m_process->processPool().supplement<WebNotificationManagerProxy>()->show(this, notificationData);
+    m_process->processPool().supplement<WebNotificationManagerProxy>()->show(this, connection, notificationData);
 }
 
 void WebPageProxy::cancelNotification(const UUID& notificationID)
@@ -11099,6 +11146,11 @@ void WebPageProxy::modelElementDidCreatePreview(const URL& url, const String& uu
     modelElementController()->modelElementDidCreatePreview(url, uuid, size, WTFMove(completionHandler));
 }
 
+void WebPageProxy::modelElementSizeDidChange(const String& uuid, WebCore::FloatSize size, CompletionHandler<void(Expected<MachSendRight, WebCore::ResourceError>)>&& completionHandler)
+{
+    modelElementController()->modelElementSizeDidChange(uuid, size, WTFMove(completionHandler));
+}
+
 void WebPageProxy::handleMouseDownForModelElement(const String& uuid, const WebCore::LayoutPoint& flippedLocationInElement, MonotonicTime timestamp)
 {
     modelElementController()->handleMouseDownForModelElement(uuid, flippedLocationInElement, timestamp);
@@ -11156,6 +11208,11 @@ void WebPageProxy::scrollToRect(const FloatRect& targetRect, const FloatPoint& o
 bool WebPageProxy::shouldEnableCaptivePortalMode() const
 {
     return m_configuration->captivePortalModeEnabled();
+}
+
+void WebPageProxy::interactableRegionsInRootViewCoordinates(FloatRect rect, CompletionHandler<void(Vector<FloatRect>)>&& completionHandler)
+{
+    sendWithAsyncReply(Messages::WebPage::InteractableRegionsInRootViewCoordinates(rect), WTFMove(completionHandler));
 }
 
 #if PLATFORM(COCOA)

@@ -128,7 +128,7 @@ endif ()
 
 if (USE_ANGLE_WEBGL)
     list(APPEND WebCore_SOURCES
-        platform/graphics/nicosia/texmap/NicosiaGCGLANGLEPipe.cpp
+        platform/graphics/nicosia/texmap/NicosiaGCGLANGLELayer.cpp
     )
 endif ()
 

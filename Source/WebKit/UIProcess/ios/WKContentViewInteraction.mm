@@ -29,6 +29,7 @@
 #if PLATFORM(IOS_FAMILY)
 
 #import "APIUIClient.h"
+#import "CocoaImage.h"
 #import "CompletionHandlerCallChecker.h"
 #import "DocumentEditingContext.h"
 #import "InputViewUpdateDeferrer.h"
@@ -39,6 +40,7 @@
 #import "RemoteLayerTreeDrawingAreaProxy.h"
 #import "RemoteLayerTreeViews.h"
 #import "RemoteScrollingCoordinatorProxy.h"
+#import "RevealItem.h"
 #import "SmartMagnificationController.h"
 #import "TextChecker.h"
 #import "TextInputSPI.h"
@@ -127,6 +129,7 @@
 #import <WebCore/TextIndicatorWindow.h>
 #import <WebCore/TextRecognitionResult.h>
 #import <WebCore/TouchAction.h>
+#import <WebCore/UTIRegistry.h>
 #import <WebCore/UTIUtilities.h>
 #import <WebCore/VisibleSelection.h>
 #import <WebCore/WebCoreCALayerExtras.h>
@@ -174,6 +177,10 @@
 
 #if HAVE(PEPPER_UI_CORE)
 #import "PepperUICoreSPI.h"
+#endif
+
+#if HAVE(AVKIT)
+#import <pal/spi/cocoa/AVKitSPI.h>
 #endif
 
 #import <pal/cocoa/VisionKitCoreSoftLink.h>
@@ -233,6 +240,19 @@ static bool canAttemptTextRecognitionForNonImageElements(const WebKit::Interacti
     return false;
 }
 #endif // ENABLE(IMAGE_ANALYSIS)
+
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+
+static bool shouldEnableAlternativeMouseGestureRecognizers(WKMouseGestureRecognizer* mouseRecognizer, WKMouseGestureRecognizer* alternativeMouseRecgnizer)
+{
+    UNUSED_PARAM(mouseRecognizer);
+    UNUSED_PARAM(alternativeMouseRecgnizer);
+    
+    return false;
+}
+
+#endif // HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+
 
 #endif
 
@@ -871,6 +891,19 @@ static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> se
     [_singleTapGestureRecognizer requireGestureRecognizerToFail:_doubleTapGestureRecognizer.get()];
 }
 
+- (void)_createAndConfigureHighlightLongPressGestureRecognizer
+{
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+    if (WKHoverPlatterDomain.rootSettings.platterEnabledForLongPress)
+        return;
+#endif
+
+    _highlightLongPressGestureRecognizer = adoptNS([[WKHighlightLongPressGestureRecognizer alloc] initWithTarget:self action:@selector(_highlightLongPressRecognized:)]);
+    [_highlightLongPressGestureRecognizer setDelay:highlightDelay];
+    [_highlightLongPressGestureRecognizer setDelegate:self];
+    [self addGestureRecognizer:_highlightLongPressGestureRecognizer.get()];
+}
+
 - (void)_createAndConfigureLongPressGestureRecognizer
 {
     _longPressGestureRecognizer = adoptNS([[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(_longPressRecognized:)]);
@@ -999,11 +1032,7 @@ static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> se
     [_twoFingerDoubleTapGestureRecognizer setDelegate:self];
     [self addGestureRecognizer:_twoFingerDoubleTapGestureRecognizer.get()];
 
-    _highlightLongPressGestureRecognizer = adoptNS([[WKHighlightLongPressGestureRecognizer alloc] initWithTarget:self action:@selector(_highlightLongPressRecognized:)]);
-    [_highlightLongPressGestureRecognizer setDelay:highlightDelay];
-    [_highlightLongPressGestureRecognizer setDelegate:self];
-    [self addGestureRecognizer:_highlightLongPressGestureRecognizer.get()];
-
+    [self _createAndConfigureHighlightLongPressGestureRecognizer];
     [self _createAndConfigureLongPressGestureRecognizer];
 
 #if HAVE(LINK_PREVIEW)
@@ -1151,6 +1180,9 @@ static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> se
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     [_mouseGestureRecognizer setDelegate:nil];
     [self removeGestureRecognizer:_mouseGestureRecognizer.get()];
+    [_alternateMouseGestureRecognizer setDelegate:nil];
+    [self removeGestureRecognizer:_alternateMouseGestureRecognizer.get()];
+    
 #endif
 
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
@@ -1270,6 +1302,11 @@ static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> se
     [self _handleDOMPasteRequestWithResult:WebCore::DOMPasteAccessResponse::DeniedForGesture];
     [self _cancelPendingKeyEventHandler];
 
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+    if (WKHoverPlatterDomain.rootSettings.platterEnabledForLongPress)
+        [self _startSuppressingSelectionAssistantForReason:WebKit::HoverPlatterEnabled];
+#endif
+
     _cachedSelectedTextRange = nil;
 }
 
@@ -1305,6 +1342,7 @@ static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> se
     [self removeGestureRecognizer:_twoFingerSingleTapGestureRecognizer.get()];
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     [self removeGestureRecognizer:_mouseGestureRecognizer.get()];
+    [self removeGestureRecognizer:_alternateMouseGestureRecognizer.get()];
 #endif
 #if HAVE(LOOKUP_GESTURE_RECOGNIZER)
     [self removeGestureRecognizer:_lookupGestureRecognizer.get()];
@@ -1330,6 +1368,7 @@ static WKDragSessionContext *ensureLocalDragSessionContext(id <UIDragSession> se
     [self addGestureRecognizer:_twoFingerSingleTapGestureRecognizer.get()];
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     [self addGestureRecognizer:_mouseGestureRecognizer.get()];
+    [self addGestureRecognizer:_alternateMouseGestureRecognizer.get()];
 #endif
 #if HAVE(LOOKUP_GESTURE_RECOGNIZER)
     [self addGestureRecognizer:_lookupGestureRecognizer.get()];
@@ -1807,6 +1846,9 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
 
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     if (gestureRecognizer != _mouseGestureRecognizer && [_mouseGestureRecognizer mouseTouch] == touch)
+        return NO;
+    
+    if (gestureRecognizer != _alternateMouseGestureRecognizer && [_alternateMouseGestureRecognizer mouseTouch] == touch)
         return NO;
 
     if (gestureRecognizer == _doubleTapGestureRecognizer || gestureRecognizer == _nonBlockingDoubleTapGestureRecognizer)
@@ -2575,7 +2617,7 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
     if (![uiDelegate respondsToSelector:@selector(_webView:showCustomSheetForElement:)])
         return;
 
-    auto element = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeAttachment URL:(NSURL *)_positionInformation.url imageURL:(NSURL *)_positionInformation.imageURL location:_positionInformation.request.point title:_positionInformation.title ID:_positionInformation.idAttribute rect:_positionInformation.bounds image:nil]);
+    auto element = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeAttachment URL:(NSURL *)_positionInformation.url imageURL:(NSURL *)_positionInformation.imageURL location:_positionInformation.request.point title:_positionInformation.title ID:_positionInformation.idAttribute rect:_positionInformation.bounds image:nil imageMIMEType:_positionInformation.imageMIMEType]);
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [uiDelegate _webView:self.webView showCustomSheetForElement:element.get()];
     ALLOW_DEPRECATED_DECLARATIONS_END
@@ -3067,23 +3109,49 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
     return _latestTapID;
 }
 
+- (CGPoint)_locationForGesture:(UIGestureRecognizer *)gestureRecognizer
+{
+    auto location = [gestureRecognizer locationInView:self];
+
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+    if (WKHoverPlatterDomain.rootSettings.enabled)
+        return [_hoverPlatter adjustedPointForPoint:location];
+#endif
+
+    return location;
+}
+
+- (CGPoint)_startPointForGesture:(UILongPressGestureRecognizer *)gestureRecognizer
+{
+    auto location = [gestureRecognizer startPoint];
+
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+    if (WKHoverPlatterDomain.rootSettings.enabled)
+        return [_hoverPlatter adjustedPointForPoint:location];
+#endif
+
+    return location;
+}
+
 - (void)_highlightLongPressRecognized:(UILongPressGestureRecognizer *)gestureRecognizer
 {
     ASSERT(gestureRecognizer == _highlightLongPressGestureRecognizer);
     [self _resetIsDoubleTapPending];
 
-    _lastInteractionLocation = gestureRecognizer.startPoint;
+    auto startPoint = [self _startPointForGesture:gestureRecognizer];
+
+    _lastInteractionLocation = startPoint;
 
     switch ([gestureRecognizer state]) {
     case UIGestureRecognizerStateBegan:
         _longPressCanClick = YES;
         cancelPotentialTapIfNecessary(self);
-        _page->tapHighlightAtPosition([gestureRecognizer startPoint], [self nextTapIdentifier]);
+        _page->tapHighlightAtPosition(startPoint, [self nextTapIdentifier]);
         _isTapHighlightIDValid = YES;
         break;
     case UIGestureRecognizerStateEnded:
         if (_longPressCanClick && _positionInformation.isElement) {
-            [self _attemptSyntheticClickAtLocation:gestureRecognizer.startPoint modifierFlags:gestureRecognizer.modifierFlags];
+            [self _attemptSyntheticClickAtLocation:startPoint modifierFlags:gestureRecognizer.modifierFlags];
             [self _finishInteraction];
         } else
             [self _cancelInteraction];
@@ -3100,14 +3168,14 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
 
 - (void)_doubleTapRecognizedForDoubleClick:(UITapGestureRecognizer *)gestureRecognizer
 {
-    _page->handleDoubleTapForDoubleClickAtPoint(WebCore::IntPoint(gestureRecognizer.location), WebKit::webEventModifierFlags(gestureRecognizer.modifierFlags), _layerTreeTransactionIdAtLastInteractionStart);
+    _page->handleDoubleTapForDoubleClickAtPoint(WebCore::IntPoint([self _locationForGesture:gestureRecognizer]), WebKit::webEventModifierFlags(gestureRecognizer.modifierFlags), _layerTreeTransactionIdAtLastInteractionStart);
 }
 
 - (void)_twoFingerSingleTapGestureRecognized:(UITapGestureRecognizer *)gestureRecognizer
 {
     _isTapHighlightIDValid = YES;
     _isExpectingFastSingleTapCommit = YES;
-    _page->handleTwoFingerTapAtPoint(WebCore::roundedIntPoint(gestureRecognizer.centroid), WebKit::webEventModifierFlags(gestureRecognizer.modifierFlags | UIKeyModifierCommand), [self nextTapIdentifier]);
+    _page->handleTwoFingerTapAtPoint(WebCore::roundedIntPoint([self _locationForGesture:gestureRecognizer]), WebKit::webEventModifierFlags(gestureRecognizer.modifierFlags | UIKeyModifierCommand), [self nextTapIdentifier]);
 }
 
 - (void)_longPressRecognized:(UILongPressGestureRecognizer *)gestureRecognizer
@@ -3115,9 +3183,18 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
     ASSERT(gestureRecognizer == _longPressGestureRecognizer);
     [self _resetIsDoubleTapPending];
     [self _cancelTouchEventGestureRecognizer];
+
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+    if (WKHoverPlatterDomain.rootSettings.platterEnabledForLongPress) {
+        [_hoverPlatter didLongPressAtPoint:gestureRecognizer.startPoint];
+        _lastInteractionLocation = gestureRecognizer.startPoint;
+        return;
+    }
+#endif
+
     _page->didRecognizeLongPress();
 
-    _lastInteractionLocation = gestureRecognizer.startPoint;
+    _lastInteractionLocation = [self _startPointForGesture:gestureRecognizer];
 
     if ([gestureRecognizer state] == UIGestureRecognizerStateBegan) {
         SEL action = [self _actionForLongPress];
@@ -3141,7 +3218,6 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
     _potentialTapInProgress = NO;
 }
 
-
 - (void)_singleTapIdentified:(UITapGestureRecognizer *)gestureRecognizer
 {
     ASSERT(gestureRecognizer == _singleTapGestureRecognizer);
@@ -3154,7 +3230,7 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
     if (shouldRequestMagnificationInformation)
         RELEASE_LOG(ViewGestures, "Single tap identified. Request details on potential zoom. (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
 
-    _page->potentialTapAtPosition(gestureRecognizer.location, shouldRequestMagnificationInformation, [self nextTapIdentifier]);
+    _page->potentialTapAtPosition([self _locationForGesture:gestureRecognizer], shouldRequestMagnificationInformation, [self nextTapIdentifier]);
     _potentialTapInProgress = YES;
     _isTapHighlightIDValid = YES;
     _isExpectingFastSingleTapCommit = !_doubleTapGestureRecognizer.get().enabled;
@@ -3228,7 +3304,7 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
 
     ASSERT(_potentialTapInProgress);
 
-    _lastInteractionLocation = gestureRecognizer.location;
+    _lastInteractionLocation = [self _locationForGesture:gestureRecognizer];
 
     [self _endPotentialTapAndEnableDoubleTapGesturesIfNecessary];
 
@@ -3258,9 +3334,10 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
     RELEASE_LOG(ViewGestures, "Identified a double tap (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
 
     [self _resetIsDoubleTapPending];
-    _lastInteractionLocation = gestureRecognizer.location;
 
-    _smartMagnificationController->handleSmartMagnificationGesture(gestureRecognizer.location);
+    auto location = [self _locationForGesture:gestureRecognizer];
+    _lastInteractionLocation = location;
+    _smartMagnificationController->handleSmartMagnificationGesture(location);
 }
 
 - (void)_resetIsDoubleTapPending
@@ -3270,16 +3347,17 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
 
 - (void)_nonBlockingDoubleTapRecognized:(UITapGestureRecognizer *)gestureRecognizer
 {
-    _lastInteractionLocation = gestureRecognizer.location;
+    _lastInteractionLocation = [self _locationForGesture:gestureRecognizer];
     _isDoubleTapPending = YES;
 }
 
 - (void)_twoFingerDoubleTapRecognized:(UITapGestureRecognizer *)gestureRecognizer
 {
     [self _resetIsDoubleTapPending];
-    _lastInteractionLocation = gestureRecognizer.location;
 
-    _smartMagnificationController->handleResetMagnificationGesture(gestureRecognizer.location);
+    auto location = [self _locationForGesture:gestureRecognizer];
+    _lastInteractionLocation = location;
+    _smartMagnificationController->handleResetMagnificationGesture(location);
 }
 
 - (void)_attemptSyntheticClickAtLocation:(CGPoint)location modifierFlags:(UIKeyModifierFlags)modifierFlags
@@ -4000,6 +4078,10 @@ WEBCORE_COMMAND_FOR_WEBVIEW(pasteAndMatchStyle);
     if (action == @selector(createHighlightForNewQuickNoteWithRange:))
         return self.shouldAllowAppHighlightCreation && !_page->appHighlightsVisibility() ? self : nil;
 #endif
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    if (action == @selector(performImageAnalysisMarkup:))
+        return self.canPerformImageAnalysisMarkup ? self : nil;
+#endif
     return [_webView targetForAction:action withSender:sender];
 }
 
@@ -4525,35 +4607,147 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
         return;
     }
 
-    if ([self _shouldSuppressSelectionCommands] || self.webView._editable) {
+    if ([self _shouldSuppressSelectionCommands]) {
         completionHandler(@[ ]);
         return;
     }
 
-    if (_focusedElementInformation.elementType != WebKit::InputType::ContentEditable && _focusedElementInformation.elementType != WebKit::InputType::TextArea) {
-        completionHandler(@[ ]);
-        return;
-    }
-
-    // Give the page some time to present custom editing UI before attempting to detect and evade it.
-    auto delayBeforeShowingCalloutBar = 0.25_s;
-    WorkQueue::main().dispatchAfter(delayBeforeShowingCalloutBar, [completion = makeBlockPtr(completionHandler), weakSelf = WeakObjCPtr<WKContentView>(self)] () mutable {
-        if (!weakSelf) {
-            completion(@[ ]);
-            return;
-        }
-
+    auto requestRectsToEvadeIfNeeded = [startTime = ApproximateTime::now(), weakSelf = WeakObjCPtr<WKContentView>(self), completion = makeBlockPtr(completionHandler)] {
         auto strongSelf = weakSelf.get();
-        if (!strongSelf->_page) {
+        if (!strongSelf) {
             completion(@[ ]);
             return;
         }
 
-        strongSelf->_page->requestEvasionRectsAboveSelection([completion = WTFMove(completion)] (auto& rects) {
-            completion(createNSArray(rects).get());
+        if ([strongSelf webView]._editable) {
+            completion(@[ ]);
+            return;
+        }
+
+        auto focusedElementType = strongSelf->_focusedElementInformation.elementType;
+        if (focusedElementType != WebKit::InputType::ContentEditable && focusedElementType != WebKit::InputType::TextArea) {
+            completion(@[ ]);
+            return;
+        }
+
+        // Give the page some time to present custom editing UI before attempting to detect and evade it.
+        auto delayBeforeShowingCalloutBar = std::max(0_s, 0.25_s - (ApproximateTime::now() - startTime));
+        WorkQueue::main().dispatchAfter(delayBeforeShowingCalloutBar, [completion, weakSelf] () mutable {
+            auto strongSelf = weakSelf.get();
+            if (!strongSelf) {
+                completion(@[ ]);
+                return;
+            }
+
+            if (!strongSelf->_page) {
+                completion(@[ ]);
+                return;
+            }
+
+            strongSelf->_page->requestEvasionRectsAboveSelection([completion = WTFMove(completion)] (auto& rects) {
+                completion(createNSArray(rects).get());
+            });
+        });
+    };
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    [self doAfterComputingImageAnalysisResultsForMarkup:WTFMove(requestRectsToEvadeIfNeeded)];
+#else
+    requestRectsToEvadeIfNeeded();
+#endif
+}
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+
+- (void)updateImageAnalysisMarkupMenuItems:(NSMutableArray<UIMenuItem *> *)updatedItems
+{
+    auto currentItem = findMenuItemWithAction(updatedItems, @selector(performImageAnalysisMarkup:));
+    auto& editorState = _page->editorState();
+    if (!WebKit::isImageAnalysisMarkupSystemFeatureEnabled() || !self.window || editorState.isMissingPostLayoutData || !editorState.postLayoutData().selectedEditableImage) {
+        if (currentItem)
+            [updatedItems removeObject:currentItem];
+    } else if (!currentItem)
+        [updatedItems addObject:adoptNS([[UIMenuItem alloc] initWithTitle:WEB_UI_STRING("Markup Image", "Image analysis markup menu item") action:@selector(performImageAnalysisMarkup:)]).get()];
+}
+
+- (BOOL)canPerformImageAnalysisMarkup
+{
+    if (!WebKit::isImageAnalysisMarkupSystemFeatureEnabled())
+        return NO;
+
+    if (!_imageAnalysisMarkupData)
+        return NO;
+
+    auto [elementContext, image, preferredMIMEType] = *_imageAnalysisMarkupData;
+    return !_page->editorState().isMissingPostLayoutData && elementContext == _page->editorState().postLayoutData().selectedEditableImage;
+}
+
+- (void)performImageAnalysisMarkup:(id)sender
+{
+    if (!self.canPerformImageAnalysisMarkup)
+        return;
+
+    auto [elementContext, image, preferredMIMEType] = *_imageAnalysisMarkupData;
+    if (auto [data, type] = WebKit::transcodeWithPreferredMIMEType(image.get(), preferredMIMEType.createCFString().get(), (__bridge CFStringRef)UTTypeTIFF.identifier); data)
+        _page->replaceSelectionWithPasteboardData({ String { type.get() } }, { static_cast<const uint8_t*>([data bytes]), [data length] });
+}
+
+- (void)doAfterComputingImageAnalysisResultsForMarkup:(CompletionHandler<void()>&&)completion
+{
+    if (_page->editorState().isMissingPostLayoutData) {
+        completion();
+        return;
+    }
+
+    auto elementToAnalyze = _page->editorState().postLayoutData().selectedEditableImage;
+    if (_imageAnalysisMarkupData && _imageAnalysisMarkupData->element == elementToAnalyze) {
+        completion();
+        return;
+    }
+
+    _imageAnalysisMarkupData = std::nullopt;
+
+    if (!elementToAnalyze) {
+        completion();
+        return;
+    }
+
+    _page->requestImageBitmap(*elementToAnalyze, [context = *elementToAnalyze, completion = WTFMove(completion), weakSelf = WeakObjCPtr<WKContentView>(self)](auto& imageData, auto& sourceMIMEType) mutable {
+        auto strongSelf = weakSelf.get();
+        if (!strongSelf) {
+            completion();
+            return;
+        }
+
+        auto imageBitmap = WebKit::ShareableBitmap::create(imageData);
+        if (!imageBitmap) {
+            completion();
+            return;
+        }
+
+        auto cgImage = imageBitmap->makeCGImage();
+        if (!cgImage) {
+            completion();
+            return;
+        }
+
+        WebKit::requestImageAnalysisMarkup(cgImage.get(), [sourceMIMEType, context, completion = WTFMove(completion), weakSelf](CGImageRef result) mutable {
+            auto strongSelf = weakSelf.get();
+            if (!strongSelf) {
+                completion();
+                return;
+            }
+
+            if (result)
+                strongSelf->_imageAnalysisMarkupData = { { context, { result }, sourceMIMEType } };
+            else
+                strongSelf->_imageAnalysisMarkupData = std::nullopt;
+            completion();
         });
     });
 }
+
+#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
 - (void)selectPositionAtPoint:(CGPoint)point completionHandler:(void (^)(void))completionHandler
 {
@@ -7241,10 +7435,8 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
 - (void)_selectionChanged
 {
     _autocorrectionContextNeedsUpdate = YES;
-#if ENABLE(APP_HIGHLIGHTS)
-    [self setUpAppHighlightMenusIfNeeded];
-#endif
 
+    [self setUpAdditionalMenuControllerActions];
     [self _updateSelectionAssistantSuppressionState];
 
     _cachedSelectedTextRange = nil;
@@ -7354,6 +7546,15 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
 {
     return YES;
 }
+
+#if ENABLE(REVEAL)
+- (void)requestRVItemInSelectedRangeWithCompletionHandler:(void(^)(RVItem *item))completionHandler
+{
+    _page->requestRVItemInCurrentSelectedRange([revealItemSelectionHandler = makeBlockPtr(completionHandler)](const WebKit::RevealItem& item) {
+        revealItemSelectionHandler(item.item());
+    });
+}
+#endif
 
 - (BOOL)hasHiddenContentEditable
 {
@@ -7831,6 +8032,10 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
 
 - (BOOL)_shouldUseContextMenus
 {
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+    if (WKHoverPlatterDomain.rootSettings.platterEnabledForLongPress)
+        return NO;
+#endif
 #if HAVE(LINK_PREVIEW) && USE(UICONTEXTMENU)
     return linkedOnOrAfter(SDKVersion::FirstThatHasUIContextMenuInteraction);
 #endif
@@ -8097,6 +8302,9 @@ static WebCore::DataOwnerType coreDataOwnerType(_UIDataOwner platformType)
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     if (gestureRecognizer == _mouseGestureRecognizer)
         return NO;
+    
+    if (gestureRecognizer == _alternateMouseGestureRecognizer)
+        return NO;
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS)
@@ -8199,6 +8407,11 @@ static BOOL shouldEnableDragInteractionForPolicy(_WKDragInteractionPolicy policy
 
 - (void)setUpDragAndDropInteractions
 {
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+    if (WKHoverPlatterDomain.rootSettings.platterEnabledForLongPress)
+        return;
+#endif
+
     _dragInteraction = adoptNS([[UIDragInteraction alloc] initWithDelegate:self]);
     _dropInteraction = adoptNS([[UIDropInteraction alloc] initWithDelegate:self]);
     [_dragInteraction _setLiftDelay:self.dragLiftDelay];
@@ -9075,7 +9288,7 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
 - (void)dragInteraction:(UIDragInteraction *)interaction willAnimateLiftWithAnimator:(id <UIDragAnimating>)animator session:(id <UIDragSession>)session
 {
     RELEASE_LOG(DragAndDrop, "Drag session willAnimateLiftWithAnimator: %p", session);
-    if (_dragDropInteractionState.anyActiveDragSourceIs(WebCore::DragSourceAction::Selection)) {
+    if (_dragDropInteractionState.anyActiveDragSourceContainsSelection()) {
         [self cancelActiveTextInteractionGestures];
         if (!_shouldRestoreCalloutBarAfterDrop) {
             // FIXME: This SPI should be renamed in UIKit to reflect a more general purpose of hiding interaction assistant controls.
@@ -9518,21 +9731,51 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
 }
 #endif
 
+- (void)setUpAdditionalMenuControllerActions
+{
+    auto updatedItems = adoptNS(UIMenuController.sharedMenuController.menuItems.mutableCopy ?: [NSMutableArray<UIMenuItem *> new]);
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    [self updateImageAnalysisMarkupMenuItems:updatedItems.get()];
+#endif
+#if ENABLE(APP_HIGHLIGHTS)
+    [self updateAppHighlightMenuItems:updatedItems.get()];
+#endif
+    UIMenuController.sharedMenuController.menuItems = updatedItems.get();
+}
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS) || ENABLE(APP_HIGHLIGHTS)
+
+static UIMenuItem *findMenuItemWithAction(NSArray<UIMenuItem *> *items, SEL action)
+{
+    for (UIMenuItem *item in items) {
+        if (item.action == action)
+            return item;
+    }
+    return nil;
+}
+
+#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS) || ENABLE(APP_HIGHLIGHTS)
+
 #if ENABLE(APP_HIGHLIGHTS)
 
-- (void)setUpAppHighlightMenusIfNeeded
+- (void)updateAppHighlightMenuItems:(NSMutableArray<UIMenuItem *> *)updatedItems
 {
-    if (!_page->preferences().appHighlightsEnabled() || !self.window || !_page->editorState().selectionIsRange)
+    auto currentQuickNoteItem = findMenuItemWithAction(updatedItems, @selector(createHighlightForCurrentQuickNoteWithRange:));
+    auto newQuickNoteItem = findMenuItemWithAction(updatedItems, @selector(createHighlightForNewQuickNoteWithRange:));
+
+    if (!_page->preferences().appHighlightsEnabled() || !self.window || !_page->editorState().selectionIsRange) {
+        if (currentQuickNoteItem)
+            [updatedItems removeObject:currentQuickNoteItem];
+        if (newQuickNoteItem)
+            [updatedItems removeObject:newQuickNoteItem];
         return;
-    
-    for (UIMenuItem *menuItem in [[UIMenuController sharedMenuController] menuItems]) {
-        if ([menuItem action] == @selector(createHighlightForCurrentQuickNoteWithRange:) || [menuItem action] == @selector(createHighlightForNewQuickNoteWithRange:))
-            return;
     }
-    
-    auto addHighlightCurrentQuickNoteItem = adoptNS([[UIMenuItem alloc] initWithTitle:WebCore::contextMenuItemTagAddHighlightToCurrentQuickNote() action:@selector(createHighlightForCurrentQuickNoteWithRange:)]);
-    auto addHighlightNewQuickNoteItem = adoptNS([[UIMenuItem alloc] initWithTitle:WebCore::contextMenuItemTagAddHighlightToNewQuickNote() action:@selector(createHighlightForNewQuickNoteWithRange:)]);
-    [[UIMenuController sharedMenuController] setMenuItems:@[ addHighlightCurrentQuickNoteItem.get(), addHighlightNewQuickNoteItem.get() ]];
+
+    if (!currentQuickNoteItem)
+        [updatedItems addObject:adoptNS([[UIMenuItem alloc] initWithTitle:WebCore::contextMenuItemTagAddHighlightToCurrentQuickNote() action:@selector(createHighlightForCurrentQuickNoteWithRange:)]).get()];
+
+    if (!newQuickNoteItem)
+        [updatedItems addObject:adoptNS([[UIMenuItem alloc] initWithTitle:WebCore::contextMenuItemTagAddHighlightToNewQuickNote() action:@selector(createHighlightForNewQuickNoteWithRange:)]).get()];
 }
 
 - (void)createHighlightForCurrentQuickNoteWithRange:(id)sender
@@ -9619,8 +9862,14 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
 {
     _mouseGestureRecognizer = adoptNS([[WKMouseGestureRecognizer alloc] initWithTarget:self action:@selector(mouseGestureRecognizerChanged:)]);
     [_mouseGestureRecognizer setDelegate:self];
+    
+    _alternateMouseGestureRecognizer = adoptNS([[WKMouseGestureRecognizer alloc] initWithTarget:self action:@selector(mouseGestureRecognizerChanged:)]);
+    [_alternateMouseGestureRecognizer setDelegate:self];
+    
     [self _configureMouseGestureRecognizer];
+    
     [self addGestureRecognizer:_mouseGestureRecognizer.get()];
+    [self addGestureRecognizer:_alternateMouseGestureRecognizer.get()];
 }
 
 - (void)mouseGestureRecognizerChanged:(WKMouseGestureRecognizer *)gestureRecognizer
@@ -9642,14 +9891,22 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
     if (event->type() == WebKit::WebEvent::MouseUp && self.hasHiddenContentEditable && self._hasFocusedElement && !self.window.keyWindow)
         [self.window makeKeyWindow];
 
+    if (WKHoverPlatterDomain.rootSettings.enabled) {
+        [_hoverPlatter didReceiveMouseEvent:*event];
+        _page->handleMouseEvent([_hoverPlatter adjustedEventForEvent:*event]);
+        return;
+    }
+
     _page->handleMouseEvent(*event);
-    if (WKHoverPlatterDomain.rootSettings.platterEnabledForMouse)
-        [_hoverPlatter setHoverPoint:event->position()];
 }
 
 - (void)_configureMouseGestureRecognizer
 {
     [_mouseGestureRecognizer setEnabled:[self shouldUseMouseGestureRecognizer]];
+    if (shouldEnableAlternativeMouseGestureRecognizers(_mouseGestureRecognizer.get(),  _alternateMouseGestureRecognizer.get()))
+        [_alternateMouseGestureRecognizer setEnabled:[self shouldUseMouseGestureRecognizer]];
+    else
+        [_alternateMouseGestureRecognizer setEnabled:false];
 }
 
 - (void)_setMouseEventPolicy:(WebCore::MouseEventPolicy)policy
@@ -9658,13 +9915,16 @@ static BOOL applicationIsKnownToIgnoreMouseEvents(const char* &warningVersion)
     [self _configureMouseGestureRecognizer];
 }
 
-#endif // HAVE(UIKIT_WITH_MOUSE_SUPPORT)
-
-#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
-
 - (void)positionInformationForHoverPlatter:(WKHoverPlatter *)hoverPlatter withRequest:(WebKit::InteractionInformationRequest&)request completionHandler:(void (^)(WebKit::InteractionInformationAtPosition))completionHandler
 {
     [self doAfterPositionInformationUpdate:completionHandler forRequest:request];
+}
+
+- (void)interactableRegionsForHoverPlatter:(WKHoverPlatter *)platter inRect:(WebCore::FloatRect)rect completionHandler:(void (^)(Vector<WebCore::FloatRect>))completionHandler
+{
+    _page->interactableRegionsInRootViewCoordinates(rect, [completionHandler = makeBlockPtr(completionHandler)] (Vector<WebCore::FloatRect> rects) {
+        completionHandler(rects);
+    });
 }
 
 #endif
@@ -10214,14 +10474,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 - (NSData *)provideDataForItem:(QLItem *)item
 {
     ASSERT(_visualSearchPreviewImage);
-
-    auto data = adoptCF(CFDataCreateMutable(NULL, 0));
-    auto destination = adoptCF(CGImageDestinationCreateWithData(data.get(), (__bridge CFStringRef)UTTypeTIFF.identifier, 1, NULL));
-    CGImageDestinationAddImage(destination.get(), [_visualSearchPreviewImage CGImage], nil);
-    if (!CGImageDestinationFinalize(destination.get()))
-        return nil;
-
-    return data.bridgingAutorelease();
+    return WebKit::transcode([_visualSearchPreviewImage CGImage], (__bridge CFStringRef)UTTypeTIFF.identifier).autorelease();
 }
 
 #pragma mark - WKActionSheetAssistantDelegate
@@ -10284,6 +10537,9 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 #if USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
     _contextMenuForMachineReadableCode.clear();
 #endif // USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    _imageAnalysisMarkupData = std::nullopt;
+#endif
 }
 
 - (void)_tearDownImageAnalysis
@@ -10309,6 +10565,9 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     _contextMenuForMachineReadableCode.clear();
 #endif // USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
     [self _invokeAllActionsToPerformAfterPendingImageAnalysis:WebKit::ProceedWithTextSelectionInImage::No];
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    _imageAnalysisMarkupData = std::nullopt;
+#endif
 }
 
 - (void)_cancelImageAnalysis
@@ -10597,6 +10856,49 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS)
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+
+- (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant copyCroppedImage:(UIImage *)image sourceMIMEType:(NSString *)sourceMIMEType
+{
+    auto changeCount = UIPasteboard.generalPasteboard.changeCount;
+    WebKit::requestImageAnalysisMarkup(image.CGImage, [changeCount, weakSelf = WeakObjCPtr<WKContentView>(self), originalImage = RetainPtr { image }, sourceMIMEType = RetainPtr { sourceMIMEType }](CGImageRef result) mutable {
+        auto strongSelf = weakSelf.get();
+        if (!strongSelf)
+            return;
+
+        auto [data, type] = WebKit::transcodeWithPreferredMIMEType(result ?: [originalImage CGImage], (__bridge CFStringRef)sourceMIMEType.get(), (__bridge CFStringRef)UTTypeTIFF.identifier);
+        if (!data)
+            return;
+
+        [UIPasteboard _performAsDataOwner:[strongSelf _dataOwnerForCopy] block:[data = WTFMove(data), type = WTFMove(type), changeCount] {
+            auto pasteboard = UIPasteboard.generalPasteboard;
+            if (changeCount == pasteboard.changeCount)
+                [pasteboard setData:data.get() forPasteboardType:(__bridge NSString *)type.get()];
+        }];
+    });
+}
+
+#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WKContentViewInteractionAdditionsAfter.mm>
+#else
+
+- (void)beginFullscreenVideoExtraction:(const WebKit::ShareableBitmap::Handle&)imageData playerViewController:(AVPlayerViewController *)controller
+{
+}
+
+- (void)cancelFullscreenVideoExtraction:(AVPlayerViewController *)controller
+{
+}
+
+- (BOOL)isFullscreenVideoExtractionEnabled
+{
+    return NO;
+}
+
+#endif
 
 @end
 
@@ -11666,7 +11968,7 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
         dataForPreview.get()[UIPreviewDataLink] = (NSURL *)_positionInformation.imageURL;
     } else if (canShowAttachmentPreview) {
         *type = UIPreviewItemTypeAttachment;
-        auto element = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeAttachment URL:(NSURL *)linkURL imageURL:(NSURL *)_positionInformation.imageURL location:_positionInformation.request.point title:_positionInformation.title ID:_positionInformation.idAttribute rect:_positionInformation.bounds image:nil]);
+        auto element = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeAttachment URL:(NSURL *)linkURL imageURL:(NSURL *)_positionInformation.imageURL location:_positionInformation.request.point title:_positionInformation.title ID:_positionInformation.idAttribute rect:_positionInformation.bounds image:nil imageMIMEType:_positionInformation.imageMIMEType]);
         NSUInteger index = [uiDelegate _webView:self.webView indexIntoAttachmentListForElement:element.get()];
         if (index != NSNotFound) {
             BOOL sourceIsManaged = NO;
@@ -11703,7 +12005,7 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
 
         // Treat animated images like a link preview
         if (isValidURLForImagePreview && _positionInformation.isAnimatedImage) {
-            RetainPtr<_WKActivatedElementInfo> animatedImageElementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeImage URL:targetURL imageURL:nil location:_positionInformation.request.point title:_positionInformation.title ID:_positionInformation.idAttribute rect:_positionInformation.bounds image:_positionInformation.image.get()]);
+            auto animatedImageElementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeImage URL:targetURL imageURL:nil location:_positionInformation.request.point title:_positionInformation.title ID:_positionInformation.idAttribute rect:_positionInformation.bounds image:_positionInformation.image.get() imageMIMEType:_positionInformation.imageMIMEType]);
 
             if ([uiDelegate respondsToSelector:@selector(_webView:previewViewControllerForAnimatedImageAtURL:defaultActions:elementInfo:imageSize:)]) {
                 RetainPtr<NSArray> actions = [_actionSheetAssistant defaultActionsForImageSheet:animatedImageElementInfo.get()];
@@ -11713,7 +12015,7 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
             }
         }
 
-        RetainPtr<_WKActivatedElementInfo> elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeLink URL:targetURL imageURL:nil location:_positionInformation.request.point title:_positionInformation.title ID:_positionInformation.idAttribute rect:_positionInformation.bounds image:_positionInformation.image.get()]);
+        auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeLink URL:targetURL imageURL:nil location:_positionInformation.request.point title:_positionInformation.title ID:_positionInformation.idAttribute rect:_positionInformation.bounds image:_positionInformation.image.get() imageMIMEType:_positionInformation.imageMIMEType]);
 
         auto actions = [_actionSheetAssistant defaultActionsForLinkSheet:elementInfo.get()];
         if ([uiDelegate respondsToSelector:@selector(webView:previewingViewControllerForElement:defaultActions:)]) {
@@ -11758,7 +12060,7 @@ static UIMenu *menuFromLegacyPreviewOrDefaultActions(UIViewController *previewVi
             imageInfo = userInfo;
         }
 
-        RetainPtr<_WKActivatedElementInfo> elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeImage URL:alternateURL.get() imageURL:nil location:_positionInformation.request.point title:_positionInformation.title ID:_positionInformation.idAttribute rect:_positionInformation.bounds image:_positionInformation.image.get() userInfo:imageInfo.get()]);
+        auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeImage URL:alternateURL.get() imageURL:nil location:_positionInformation.request.point title:_positionInformation.title ID:_positionInformation.idAttribute rect:_positionInformation.bounds image:_positionInformation.image.get() imageMIMEType:_positionInformation.imageMIMEType userInfo:imageInfo.get()]);
         _page->startInteractionWithPositionInformation(_positionInformation);
 
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN

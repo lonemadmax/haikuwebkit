@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -47,8 +47,6 @@ public:
     void resetNeedsFlush() { m_needsFlush = false; }
     bool needsFlush() const { return m_needsFlush; }
 
-    void getPixelBuffer(const WebCore::PixelBufferFormat& outputFormat, const WebCore::IntRect& sourceRect) final;
-    void putPixelBuffer(const WebCore::PixelBuffer&, const WebCore::IntRect& srcRect, const WebCore::IntPoint& destPoint, WebCore::AlphaPremultiplication destFormat) final;
     void convertToLuminanceMask() final;
     void transformToColorSpace(const WebCore::DestinationColorSpace&) final;
     void flushContext(WebCore::GraphicsContextFlushIdentifier) final;
@@ -86,14 +84,12 @@ private:
     void recordClearShadow() final;
     void recordClip(const WebCore::FloatRect&) final;
     void recordClipOut(const WebCore::FloatRect&) final;
-    void recordClipToImageBuffer(WebCore::RenderingResourceIdentifier imageBufferIdentifier, const WebCore::FloatRect& destinationRect) final;
+    void recordClipToImageBuffer(WebCore::ImageBuffer&, const WebCore::FloatRect& destinationRect) final;
     void recordClipOutToPath(const WebCore::Path&) final;
     void recordClipPath(const WebCore::Path&, WebCore::WindRule) final;
-    void recordBeginClipToDrawingCommands(const WebCore::FloatRect& destination, WebCore::DestinationColorSpace) final;
-    void recordEndClipToDrawingCommands(const WebCore::FloatRect& destination) final;
-    void recordDrawFilteredImageBuffer(std::optional<WebCore::RenderingResourceIdentifier> sourceImageIdentifier, const WebCore::FloatRect& sourceImageRect, WebCore::Filter&) final;
+    void recordDrawFilteredImageBuffer(WebCore::ImageBuffer*, const WebCore::FloatRect& sourceImageRect, WebCore::Filter&) final;
     void recordDrawGlyphs(const WebCore::Font&, const WebCore::GlyphBufferGlyph*, const WebCore::GlyphBufferAdvance*, unsigned count, const WebCore::FloatPoint& localAnchor, WebCore::FontSmoothingMode) final;
-    void recordDrawImageBuffer(WebCore::RenderingResourceIdentifier imageBufferIdentifier, const WebCore::FloatRect& destRect, const WebCore::FloatRect& srcRect, const WebCore::ImagePaintingOptions&) final;
+    void recordDrawImageBuffer(WebCore::ImageBuffer&, const WebCore::FloatRect& destRect, const WebCore::FloatRect& srcRect, const WebCore::ImagePaintingOptions&) final;
     void recordDrawNativeImage(WebCore::RenderingResourceIdentifier imageIdentifier, const WebCore::FloatSize& imageSize, const WebCore::FloatRect& destRect, const WebCore::FloatRect& srcRect, const WebCore::ImagePaintingOptions&) final;
     void recordDrawPattern(WebCore::RenderingResourceIdentifier, const WebCore::FloatSize& imageSize, const WebCore::FloatRect& destRect, const WebCore::FloatRect& tileRect, const WebCore::AffineTransform&, const WebCore::FloatPoint& phase, const WebCore::FloatSize& spacing, const WebCore::ImagePaintingOptions& = { }) final;
     void recordBeginTransparencyLayer(float) final;
@@ -142,7 +138,9 @@ private:
     bool recordResourceUse(const WebCore::SourceImage&) final;
     bool recordResourceUse(WebCore::Font&) final;
 
-    std::unique_ptr<WebCore::GraphicsContext> createNestedContext(const WebCore::FloatRect& initialClip, const WebCore::AffineTransform& initialCTM) final;
+    RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, const WebCore::DestinationColorSpace&, WebCore::RenderingMode, WebCore::RenderingMethod) const final;
+    RefPtr<WebCore::ImageBuffer> createCompatibleImageBuffer(const WebCore::FloatSize&, const WebCore::DestinationColorSpace& = WebCore::DestinationColorSpace::SRGB(), WebCore::RenderingMethod = WebCore::RenderingMethod::Default) const final;
+    RefPtr<WebCore::ImageBuffer> createCompatibleImageBuffer(const WebCore::FloatRect&, const WebCore::DestinationColorSpace& = WebCore::DestinationColorSpace::SRGB(), WebCore::RenderingMethod = WebCore::RenderingMethod::Default) const final;
 
     WebCore::RenderingResourceIdentifier m_destinationBufferIdentifier;
     WeakPtr<WebCore::ImageBuffer> m_imageBuffer;

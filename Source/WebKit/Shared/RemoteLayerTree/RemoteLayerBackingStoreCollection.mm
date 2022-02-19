@@ -27,8 +27,10 @@
 #import "RemoteLayerBackingStoreCollection.h"
 
 #import "PlatformCALayerRemote.h"
+#import "PlatformImageBufferShareableBackend.h"
 #import "RemoteLayerBackingStore.h"
 #import "RemoteLayerTreeContext.h"
+#import <WebCore/ConcreteImageBuffer.h>
 
 const Seconds volatileBackingStoreAgeThreshold = 1_s;
 const Seconds volatileSecondaryBackingStoreAgeThreshold = 200_ms;
@@ -36,10 +38,13 @@ const Seconds volatilityTimerInterval = 200_ms;
 
 namespace WebKit {
 
-RemoteLayerBackingStoreCollection::RemoteLayerBackingStoreCollection()
-    : m_volatilityTimer(*this, &RemoteLayerBackingStoreCollection::volatilityTimerFired)
+RemoteLayerBackingStoreCollection::RemoteLayerBackingStoreCollection(RemoteLayerTreeContext& layerTreeContext)
+    : m_layerTreeContext(layerTreeContext)
+    , m_volatilityTimer(*this, &RemoteLayerBackingStoreCollection::volatilityTimerFired)
 {
 }
+
+RemoteLayerBackingStoreCollection::~RemoteLayerBackingStoreCollection() = default;
 
 void RemoteLayerBackingStoreCollection::willFlushLayers()
 {
@@ -180,6 +185,17 @@ void RemoteLayerBackingStoreCollection::scheduleVolatilityTimer()
         return;
 
     m_volatilityTimer.startRepeating(volatilityTimerInterval);
+}
+
+RefPtr<WebCore::ImageBuffer> RemoteLayerBackingStoreCollection::allocateBufferForBackingStore(const RemoteLayerBackingStore& backingStore)
+{
+    switch (backingStore.type()) {
+    case RemoteLayerBackingStore::Type::IOSurface:
+        return WebCore::ConcreteImageBuffer<AcceleratedImageBufferShareableMappedBackend>::create(backingStore.size(), backingStore.scale(), WebCore::DestinationColorSpace::SRGB(), backingStore.pixelFormat(), nullptr);
+    case RemoteLayerBackingStore::Type::Bitmap:
+        return WebCore::ConcreteImageBuffer<UnacceleratedImageBufferShareableBackend>::create(backingStore.size(), backingStore.scale(), WebCore::DestinationColorSpace::SRGB(), backingStore.pixelFormat(), nullptr);
+    }
+    return nullptr;
 }
 
 } // namespace WebKit

@@ -31,10 +31,15 @@ from .issue import Issue
 from .tracker import Tracker as GenericTracker
 
 from datetime import datetime
+from webkitbugspy import User
 
 
 class Tracker(GenericTracker):
     ROOT_RE = re.compile(r'\Ahttps?://(?P<domain>\S+)\Z')
+    RE_TEMPLATES = [
+        r'\Ahttps?://{}/show_bug.cgi\?id=(?P<id>\d+)\Z',
+        r'\A{}/show_bug.cgi\?id=(?P<id>\d+)\Z',
+    ]
 
     class Encoder(GenericTracker.Encoder):
         @webkitcorepy.decorators.hybridmethod
@@ -44,8 +49,8 @@ class Tracker(GenericTracker):
                     type='bugzilla',
                     url=obj.url,
                 )
-                if obj._res[2:]:
-                    result['res'] = [compiled.pattern for compiled in obj._res[2:]]
+                if obj._res[len(Tracker.RE_TEMPLATES):]:
+                    result['res'] = [compiled.pattern for compiled in obj._res[len(Tracker.RE_TEMPLATES):]]
                 return result
             if isinstance(context, type):
                 raise TypeError('Cannot invoke parent class when classmethod')
@@ -57,11 +62,11 @@ class Tracker(GenericTracker):
 
         match = self.ROOT_RE.match(url)
         if not match:
-            raise self.Exception("'{}' is not a valid bugzilla url".format(url))
+            raise TypeError("'{}' is not a valid bugzilla url".format(url))
         self.url = url
         self._res = [
-            re.compile(r'\Ahttps?://{}/show_bug.cgi\?id=(?P<id>\d+)\Z'.format(match.group('domain'))),
-            re.compile(r'\A{}/show_bug.cgi\?id=(?P<id>\d+)\Z'.format(match.group('domain'))),
+            re.compile(template.format(match.group('domain')))
+            for template in self.RE_TEMPLATES
         ] + (res or [])
 
     def user(self, name=None, username=None, email=None):
@@ -209,6 +214,46 @@ class Tracker(GenericTracker):
                     refs.add(candidate.link)
             else:
                 sys.stderr.write("Failed to fetch related issues for '{}'\n".format(issue.link))
+
+        return issue
+
+    def set(self, issue, assignee=None, opened=None, why=None, **properties):
+        update_dict = dict()
+
+        if properties:
+            raise TypeError("'{}' is an invalid property".format(list(properties.keys())[0]))
+
+        if assignee:
+            if not isinstance(assignee, User):
+                raise TypeError("Must assign to '{}', not '{}'".format(User, type(assignee)))
+            issue._assignee = self.user(name=assignee.name, username=assignee.username, email=assignee.email)
+            update_dict['assigned_to'] = issue._assignee.username
+
+        if opened is not None:
+            issue._opened = bool(opened)
+            if issue._opened:
+                update_dict['status'] = 'REOPENED'
+                why = why or 'Reopening bug'
+            else:
+                update_dict['status'] = 'RESOLVED'
+                update_dict['resolution'] = 'FIXED'
+
+        if why is not None:
+            update_dict['comment'] = dict(body=why)
+
+        if update_dict:
+            update_dict['ids'] = [issue.id]
+            response = requests.put(
+                '{}/rest/bug/{}{}'.format(self.url, issue.id, self._login_arguments(required=True)),
+                json=update_dict,
+            )
+            if response.status_code // 100 != 2:
+                if assignee:
+                    issue._assignee = None
+                if opened is not None:
+                    issue._opened = None
+                sys.stderr.write("Failed to modify '{}'\n".format(issue))
+                return None
 
         return issue
 

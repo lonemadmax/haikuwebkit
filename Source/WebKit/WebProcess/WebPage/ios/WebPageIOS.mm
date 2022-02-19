@@ -41,6 +41,7 @@
 #import "PrintInfo.h"
 #import "RemoteLayerTreeDrawingArea.h"
 #import "RemoteScrollingCoordinator.h"
+#import "RevealItem.h"
 #import "SandboxUtilities.h"
 #import "ShareableBitmapUtilities.h"
 #import "SharedBufferCopy.h"
@@ -147,6 +148,7 @@
 #import <WebCore/UserGestureIndicator.h>
 #import <WebCore/VisibleUnits.h>
 #import <WebCore/WebEvent.h>
+#import <pal/cocoa/RevealSoftLink.h>
 #import <wtf/MathExtras.h>
 #import <wtf/MemoryPressureHandler.h>
 #import <wtf/Scope.h>
@@ -320,6 +322,25 @@ void WebPage::getPlatformEditorState(Frame& frame, EditorState& result) const
             postLayoutData.selectedTextLength = selectedText.length();
             const int maxSelectedTextLength = 200;
             postLayoutData.wordAtSelection = selectedText.left(maxSelectedTextLength);
+            auto findSelectedEditableImageElement = [&] {
+                RefPtr<HTMLImageElement> foundImage;
+                if (!result.isContentEditable)
+                    return foundImage;
+
+                for (TextIterator iterator { *selectedRange, { } }; !iterator.atEnd(); iterator.advance()) {
+                    if (foundImage) {
+                        foundImage = nullptr;
+                        break;
+                    }
+                    foundImage = dynamicDowncast<HTMLImageElement>(iterator.node());
+                    if (!foundImage)
+                        break;
+                }
+                return foundImage;
+            };
+
+            if (auto imageElement = findSelectedEditableImageElement())
+                postLayoutData.selectedEditableImage = contextForElement(*imageElement);
         }
         // FIXME: We should disallow replace when the string contains only CJ characters.
         postLayoutData.isReplaceAllowed = result.isContentEditable && !result.isInPasswordField && !selectedText.isAllSpecialCharacters<isHTMLSpace>();
@@ -595,12 +616,6 @@ void WebPage::registerUIProcessAccessibilityTokens(const IPC::DataReference& ele
 {
     NSData *elementTokenData = [NSData dataWithBytes:elementToken.data() length:elementToken.size()];
     [m_mockAccessibilityElement setRemoteTokenData:elementTokenData];
-}
-
-void WebPage::readSelectionFromPasteboard(const String&, CompletionHandler<void(bool&&)>&& completionHandler)
-{
-    notImplemented();
-    completionHandler(false);
 }
 
 void WebPage::getStringSelectionForPasteboard(CompletionHandler<void(String&&)>&& completionHandler)
@@ -2329,6 +2344,35 @@ void WebPage::requestDictationContext(CompletionHandler<void(const String&, cons
     completionHandler(selectedText, contextBefore, contextAfter);
 }
 
+#if ENABLE(REVEAL)
+void WebPage::requestRVItemInCurrentSelectedRange(CompletionHandler<void(const WebKit::RevealItem&)>&& completionHandler)
+{
+    Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
+    auto selection = frame->selection().selection();
+    RetainPtr<RVItem> item;
+    if (!selection.isNone()) {
+        std::optional<SimpleRange> fullCharacterRange;
+        if (selection.isRange()) {
+            auto selectionStart = selection.visibleStart();
+            auto selectionEnd = selection.visibleEnd();
+
+            // As context, we are going to use the surrounding paragraphs of text.
+            fullCharacterRange = makeSimpleRange(startOfParagraph(selectionStart), endOfParagraph(selectionEnd));
+            if (!fullCharacterRange)
+                fullCharacterRange = makeSimpleRange(selectionStart, selectionEnd);
+            
+            if (fullCharacterRange) {
+                auto selectionRange = NSMakeRange(characterCount(*makeSimpleRange(fullCharacterRange->start, selectionStart)), characterCount(*makeSimpleRange(selectionStart, selectionEnd)));
+                String itemString = plainText(*fullCharacterRange);
+                item = adoptNS([PAL::allocRVItemInstance() initWithText:itemString selectedRange:selectionRange]);
+            }
+        }
+    }
+    
+    completionHandler(RevealItem(WTFMove(item)));
+}
+#endif
+
 void WebPage::replaceSelectedText(const String& oldText, const String& newText)
 {
     Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
@@ -2832,6 +2876,7 @@ static void imagePositionInformation(WebPage& page, Element& element, const Inte
     auto& [renderImage, image] = *rendererAndImage;
     info.isImage = true;
     info.imageURL = element.document().completeURL(renderImage.cachedImage()->url().string());
+    info.imageMIMEType = image.mimeType();
     info.isAnimatedImage = image.isAnimated();
     info.elementContainsImageOverlay = is<HTMLElement>(element) && ImageOverlay::hasOverlay(downcast<HTMLElement>(element));
 
@@ -2898,6 +2943,7 @@ static void elementPositionInformation(WebPage& page, Element& element, const In
                 if (auto rendererAndImage = imageRendererAndImage(element)) {
                     auto& [renderImage, image] = *rendererAndImage;
                     info.imageURL = element.document().completeURL(renderImage.cachedImage()->url().string());
+                    info.imageMIMEType = image.mimeType();
                     info.image = createShareableBitmap(renderImage, { screenSize() * page.corePage()->deviceScaleFactor(), AllowAnimatedImages::Yes, UseSnapshotForTransparentImages::Yes });
                 }
             }

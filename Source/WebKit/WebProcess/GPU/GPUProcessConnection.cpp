@@ -45,6 +45,7 @@
 #include "RemoteMediaEngineConfigurationFactory.h"
 #include "RemoteMediaPlayerManager.h"
 #include "RemoteRemoteCommandListenerMessages.h"
+#include "RemoteVideoFrameObjectHeapProxy.h"
 #include "SampleBufferDisplayLayerManager.h"
 #include "SampleBufferDisplayLayerMessages.h"
 #include "SourceBufferPrivateRemoteMessages.h"
@@ -76,7 +77,12 @@
 #include "UserMediaCaptureManagerMessages.h"
 #endif
 
+#if ENABLE(MEDIA_STREAM)
+#include "RemoteVideoFrameProxy.h"
+#endif
+
 #if ENABLE(WEBGL)
+#include "RemoteGraphicsContextGLProxy.h"
 #include "RemoteGraphicsContextGLProxyMessages.h"
 #endif
 
@@ -158,6 +164,13 @@ void GPUProcessConnection::resetAudioMediaStreamTrackRendererInternalUnit(AudioM
 {
     WebProcess::singleton().audioMediaStreamTrackRendererInternalUnitManager().reset(identifier);
 }
+
+RemoteVideoFrameObjectHeapProxy& GPUProcessConnection::remoteVideoFrameObjectHeapProxy()
+{
+    if (!m_remoteVideoFrameObjectHeapProxy)
+        m_remoteVideoFrameObjectHeapProxy = RemoteVideoFrameObjectHeapProxy::create(*this);
+    return *m_remoteVideoFrameObjectHeapProxy;
+}
 #endif
 
 RemoteMediaPlayerManager& GPUProcessConnection::mediaPlayerManager()
@@ -203,12 +216,13 @@ bool GPUProcessConnection::dispatchMessage(IPC::Connection& connection, IPC::Dec
     if (messageReceiverMap().dispatchMessage(connection, decoder))
         return true;
 
-    // Skip messages intended for already removed messageReceiverMap() destinations.
 #if ENABLE(WEBGL)
-    if (decoder.messageReceiverName() == Messages::RemoteGraphicsContextGLProxy::messageReceiverName()) {
-        RELEASE_LOG_ERROR(WebGL, "The RemoteGraphicsContextGLProxy object has beed destroyed");
-        return true;
-    }
+    if (decoder.messageReceiverName() == Messages::RemoteGraphicsContextGLProxy::messageReceiverName())
+        return RemoteGraphicsContextGLProxy::handleMessageToRemovedDestination(connection, decoder);
+#endif
+#if ENABLE(MEDIA_STREAMS)
+    if (decoder.messageReceiverName() == Messages::RemoteVideoFrameProxy::messageReceiverName())
+        return RemoteVideoFrameProxy::handleMessageToRemovedDestination(connection, decoder);
 #endif
 
 #if USE(AUDIO_SESSION)

@@ -1,3 +1,95 @@
+2022-02-14  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [Live Text] Plumb platform image analysis objects to the web process
+        https://bugs.webkit.org/show_bug.cgi?id=236535
+        rdar://88845367
+
+        Reviewed by Devin Rousso.
+
+        Add soft-linking support for VKCImageAnalysis. See WebCore and WebKit ChangeLogs for more detail.
+
+        * pal/cocoa/AVFoundationSoftLink.h:
+
+        Avoid a build error after shifting around Cocoa unified sources, by removing an unused definition of
+        AVOutputContextOutputDevicesDidChangeNotification. This definition causes the unified build to break downstream,
+        when other media-related source files end up importing AVKit headers that try to reference this symbol
+        (AVOutputContextOutputDevicesDidChangeNotification) but end up expanding the WebKit soft-linking macro instead.
+
+        * pal/cocoa/VisionKitCoreSoftLink.h:
+        * pal/cocoa/VisionKitCoreSoftLink.mm:
+
+2022-02-12  Jer Noble  <jer.noble@apple.com>
+
+        Add settings to restrict media containers and codecs when in Captive Portal mode
+        https://bugs.webkit.org/show_bug.cgi?id=236245
+
+        Reviewed by Eric Carlson.
+
+        * pal/cocoa/AVFoundationSoftLink.h:
+        * pal/cocoa/AVFoundationSoftLink.mm:
+
+2022-02-12  Eric Carlson  <eric.carlson@apple.com>
+
+        [macOS] Use system window and screen picker when available
+        https://bugs.webkit.org/show_bug.cgi?id=236531
+        rdar://87111816
+
+        Reviewed by Jer Noble.
+
+        * PAL.xcodeproj/project.pbxproj:
+        * pal/mac/ScreenCaptureKitSoftLink.h:
+        * pal/mac/ScreenCaptureKitSoftLink.mm:
+        * pal/spi/mac/ScreenCaptureKitSPI.h: Added.
+
+2022-02-10  Eric Carlson  <eric.carlson@apple.com>
+
+        [macOS] Support both versions of ScreenCaptureKit API
+        https://bugs.webkit.org/show_bug.cgi?id=236422
+        <rdar://problem/88726849>
+
+        Reviewed by Youenn Fablet.
+
+        * pal/mac/ScreenCaptureKitSoftLink.h:
+        * pal/mac/ScreenCaptureKitSoftLink.mm:
+
+2022-02-09  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Add some WebKitAdditions extension points in VisionKitCore SPI and softlinking headers
+        https://bugs.webkit.org/show_bug.cgi?id=236403
+        rdar://88709972
+
+        Reviewed by Aditya Keerthi.
+
+        Add new WebKitAdditions header includes.
+
+        * pal/cocoa/VisionKitCoreSoftLink.h:
+        * pal/cocoa/VisionKitCoreSoftLink.mm:
+
+2022-02-09  Antoine Quint  <graouts@webkit.org>
+
+        [model] improve sizing on macOS
+        https://bugs.webkit.org/show_bug.cgi?id=236233
+        <rdar://problem/88569881>
+
+        Reviewed by Simon Fraser.
+
+        Add newly-used CAFenceHandle and ASVInlinePreview SPIs.
+
+        * pal/spi/cocoa/QuartzCoreSPI.h:
+        * pal/spi/mac/SystemPreviewSPI.h:
+
+2022-02-07  Antoine Quint  <graouts@webkit.org>
+
+        [model] improve sizing on iOS
+        https://bugs.webkit.org/show_bug.cgi?id=236234
+        <rdar://problem/88569898>
+
+        Reviewed by Darin Adler.
+
+        Add newly-used -[ASVInlinePreview setFrameWithinFencedTransaction:] SPI on iOS.
+
+        * pal/spi/ios/SystemPreviewSPI.h:
+
 2022-02-02  Alex Christensen  <achristensen@webkit.org>
 
         Use private relay for all subresources if the main document main resource was loaded using private relay

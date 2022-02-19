@@ -1,3 +1,371 @@
+2022-02-14  Zan Dobersek  <zdobersek@igalia.com>
+
+        CallLinkInfo::emitFastPathImpl() should avoid external scratch register use on RISCV64
+        https://bugs.webkit.org/show_bug.cgi?id=236064
+
+        Reviewed by Yusuke Suzuki.
+
+        Avoid external scratch register usage in CallLinkInfo::emitFastPathImpl()
+        for RISCV64 since the scratch register ends up having to be used in the
+        branchTestPtr implementation of RISCV64's MacroAssembler.
+
+        The RISCV64-specific alternative is to suffer resolving and loading from
+        the callee address for both branching operations. Other platforms
+        continue to operate with the external scratch register as they either
+        use a wider set of scratch registers or don't even have to use scratch
+        registers for the load and branching operations used here.
+
+        * assembler/CPU.h: Add isRISCV64(). Also impose a more sensible order.
+        (JSC::isMIPS):
+        (JSC::isRISCV64):
+        * bytecode/CallLinkInfo.cpp:
+        (JSC::CallLinkInfo::emitFastPathImpl):
+
+2022-02-13  Lauro Moura  <lmoura@igalia.com>
+
+        Unreviewed, non-unified build fixes
+        https://bugs.webkit.org/show_bug.cgi?id=236577
+
+        * heap/StructureAlignedMemoryAllocator.cpp: Add missing include.
+
+2022-02-13  Keith Miller  <keith_miller@apple.com>
+
+        Add comment on how StructureMemoryManager grows the free list when there are no free blocks.
+        https://bugs.webkit.org/show_bug.cgi?id=236568
+
+        Reviewed by Saam Barati.
+
+        Also, use uint8_t* rather than rely on the fact that `sizeof(MarkedBlock) == 1`.
+
+        * heap/StructureAlignedMemoryAllocator.cpp:
+        (JSC::StructureMemoryManager::tryMallocStructureBlock):
+
+2022-02-13  Keith Miller  <keith_miller@apple.com>
+
+        Make StructureMemoryManager alignment assert a RELEASE_ASSERT
+        https://bugs.webkit.org/show_bug.cgi?id=236567
+
+        Reviewed by Saam Barati.
+
+        Also, check the structure base pointer is non-zero.
+
+        * heap/StructureAlignedMemoryAllocator.cpp:
+        (JSC::StructureMemoryManager::StructureMemoryManager):
+
+2022-02-12  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [CMake] REGRESSION(r289611): Debug builds fail linking binaries with ld.lld
+        https://bugs.webkit.org/show_bug.cgi?id=236506
+
+        Reviewed by Yusuke Suzuki.
+
+        * jit/ThunkGenerators.cpp: Use .previous in inline assembler for thunks in order to ensure
+        that mixed emission of assembler code and variable definitions correctly puts each of them
+        in their rightful sections in the output object code.
+
+2022-02-11  Don Olmstead  <don.olmstead@sony.com>
+
+        Allow structureHeapAddressSize to be set during build
+        https://bugs.webkit.org/show_bug.cgi?id=236527
+
+        Reviewed by Yusuke Suzuki.
+
+        Add `STRUCTURE_HEAP_ADDRESS_SIZE_IN_MB` as a way to set the size of
+        structureHeapAddressSize at build time. Set a default for the PlayStation port.
+
+        * PlatformPlayStation.cmake:
+        * runtime/JSCConfig.h:
+
+2022-02-10  Keith Miller  <keith_miller@apple.com>
+
+        tryReserveUncommittedAligned should explicitly take the alignment requested
+        https://bugs.webkit.org/show_bug.cgi?id=236460
+
+        Reviewed by Yusuke Suzuki.
+
+        When reducing the size of VA space reserved for Structures, we
+        didn't take care to ensure the alignment matched the required
+        alignment for our bit mask. To fix this we need to pass the
+        original alignment to the allocator as a new parameter.
+
+        * heap/StructureAlignedMemoryAllocator.cpp:
+        (JSC::StructureMemoryManager::StructureMemoryManager):
+
+2022-01-24  Filip Pizlo  <fpizlo@apple.com>
+
+        [libpas] jit_heap should support the segregated heap
+        https://bugs.webkit.org/show_bug.cgi?id=235497
+
+        Reviewed by Yusuke Suzuki.
+
+        Disable the jit_heap segregated heap if the executable pool size is too small.
+
+        * jit/ExecutableAllocator.cpp:
+        (JSC::initializeJITPageReservation):
+
+2022-02-09  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Use local variable pointer for concurrently load value
+        https://bugs.webkit.org/show_bug.cgi?id=236387
+
+        Reviewed by Saam Barati.
+
+        Consistently using local pointer to load member fields in
+
+            1. WriteBarrierStructureID
+            2. JSString's fiber
+            3. Weak
+            4. WriteBarrier<SomeKindOfCell>
+
+        to encourage compilers not to load the field twice.
+
+        * heap/Weak.cpp:
+        (JSC::weakClearSlowCase):
+        * heap/Weak.h:
+        (JSC::Weak::isHashTableEmptyValue const):
+        (JSC::Weak::unsafeImpl const):
+        (JSC::Weak::clear):
+        (JSC::Weak::impl const):
+        * heap/WeakInlines.h:
+        (JSC::Weak<T>::isHashTableDeletedValue const):
+        (JSC:: const):
+        (JSC::Weak<T>::operator const):
+        (JSC::Weak<T>::get const):
+        (JSC::Weak<T>::leakImpl):
+        * runtime/JSString.cpp:
+        (JSC::JSString::dumpToStream):
+        (JSC::JSString::estimatedSize):
+        (JSC::JSString::visitChildrenImpl):
+        * runtime/JSString.h:
+        (JSC::JSString::fiberConcurrently const):
+        (JSC::JSString::is8Bit const):
+        (JSC::JSString::length const):
+        (JSC::JSString::tryGetValueImpl const):
+        (JSC::JSString::isSubstring const):
+        * runtime/WriteBarrier.h:
+        (JSC::WriteBarrierBase::get const):
+        (JSC::WriteBarrierBase::operator* const):
+        (JSC::WriteBarrierBase::operator-> const):
+        (JSC::WriteBarrierBase::operator bool const):
+        (JSC::WriteBarrierBase::operator! const):
+        (JSC::WriteBarrierBase::unvalidatedGet const):
+        (JSC::WriteBarrierBase::cell const):
+        (JSC::WriteBarrierStructureID::get const):
+        (JSC::WriteBarrierStructureID::operator* const):
+        (JSC::WriteBarrierStructureID::operator-> const):
+        (JSC::WriteBarrierStructureID::operator bool const):
+        (JSC::WriteBarrierStructureID::operator! const):
+        (JSC::WriteBarrierStructureID::unvalidatedGet const):
+
+2022-02-09  Lauro Moura  <lmoura@igalia.com>
+
+        Non-unified build fixes after r289247
+        https://bugs.webkit.org/show_bug.cgi?id=236343
+
+        Reviewed by Fujii Hironori.
+
+        * runtime/JSRemoteFunction.h: Drive-by fix, add missing include.
+
+2022-02-08  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] YarrJIT inlining should be disabled when we have DotStarEnclosure
+        https://bugs.webkit.org/show_bug.cgi?id=236332
+        rdar://88483574
+
+        Reviewed by Michael Saboff.
+
+        YarrJITRegisters::initialStart can be used when m_pattern.m_saveInitialStartValue is true while
+        it is not defined in YarrJIT inlining. As a result, we emit broken code using InvalidGPRReg.
+        This patch makes canInline false when m_pattern.m_saveInitialStartValue is true.
+
+        * yarr/YarrJIT.cpp:
+        * yarr/YarrJITRegisters.h:
+
+2022-02-08  Caitlin Potter  <caitp@igalia.com>
+
+        [JSC] move function wrapping logic to a new Function type
+        https://bugs.webkit.org/show_bug.cgi?id=235382
+
+        Reviewed by Yusuke Suzuki.
+
+        In this initial patch, there is still a lot of JS-builtin machinery,
+        including some duplicated functionality. Additionally, JIT support
+        has not been incorporated yet.
+
+        Broadly, the idea is that there are custom hooks for calling a
+        JSRemoteFunction, which perform the wrapping functionality. This avoids
+        the need for allocating closures which contain the wrapping logic.
+
+        TODO:
+        - JIT/DFG/FTL support
+        - structure caching (unnecessary since these are not constructors?)
+        - improved baseline perf
+
+        * CMakeLists.txt:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * Sources.txt:
+        * assembler/LinkBuffer.h:
+        * builtins/BuiltinNames.h:
+        * builtins/ShadowRealmPrototype.js:
+        * bytecode/LinkTimeConstant.h:
+        * dfg/DFGSpeculativeJIT.cpp:
+        * ftl/FTLLowerDFGToB3.cpp:
+        * heap/Heap.cpp:
+        * heap/Heap.h:
+        * inspector/JSInjectedScriptHost.cpp:
+        * interpreter/Interpreter.cpp:
+        * jit/AssemblyHelpers.h:
+        * jit/JITOperations.cpp:
+        * jit/JITOperations.h:
+        * jit/ThunkGenerators.cpp:
+        * jit/ThunkGenerators.h:
+        * jsc.cpp:
+        * runtime/ErrorInstance.cpp:
+        * runtime/FunctionPrototype.cpp:
+        * runtime/InternalFunction.cpp:
+        * runtime/Intrinsic.cpp:
+        * runtime/Intrinsic.h:
+        * runtime/JSCast.h:
+        * runtime/JSFunction.cpp:
+        * runtime/JSFunction.h:
+        * runtime/JSFunctionInlines.h:
+        * runtime/JSGlobalObject.cpp:
+        * runtime/JSGlobalObject.h:
+        * runtime/JSRemoteFunction.cpp: Added.
+        * runtime/JSRemoteFunction.h: Added.
+        * runtime/VM.cpp:
+        * runtime/VM.h:
+
+2022-02-08  Razvan Caliman  <rcaliman@apple.com>
+
+        Web Inspector: [Flexbox] Add support for showing/hiding flex container overlays and basic overlay drawing
+        https://bugs.webkit.org/show_bug.cgi?id=236013
+        <rdar://87893201>
+
+        Reviewed by Patrick Angle.
+
+        Add new commands to show and hide flex overlays.
+
+        * inspector/protocol/DOM.json:
+
+2022-02-07  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Convert JSString's non-atomic WTF::String to atomic string while concurrent compilers / heap threads run
+        https://bugs.webkit.org/show_bug.cgi?id=236262
+
+        Reviewed by Saam Barati.
+
+        Inspired from r289177. This patch introduces a new protocol which allows us to replace JSString's underlying non-atomic String
+        to atomic String if we once call toIdentifier / toAtomString.
+
+        We had a problem that,
+
+        1. We have a JSString, which has a "test" WTF::String.
+        2. We already have "test" atomic string in the table.
+        3. Then, when we call JSString::toIdentifier, we know that there is an atomic "test" string, but we cannot replace the current JSString's
+           WTF::String because it can be accessed concurrently from concurrent compilers and GC heap helpers.
+        4. Thus, JSString keeps non atomic "test" WTF::String.
+
+        But this means that we need to lookup atom string table every time we would like to get an atom string from this JSString.
+
+        So, in this patch, we introduce a new protocol, which allows swapping existing WTF::String with an atom string.
+
+        When we found that JSString has a WTF::String and we already have atom string in the table with the same content (when calling
+        toIdentifier / toAtomString), we attempt to replace JSString's WTF::String with the atom string, but *keep the old string in JSC::Heap's
+        vector called m_possiblyAccessedStringsFromConcurrentThreads. Then, we can keep these strings alive until next GC ends. This ensures that
+        all concurrent compilers / heap helpers can keep accessing to the old strings. And then, in the GC finalize, we clear this vector since
+        resumed concurrent compilers and GC heap helpers will not touch these old strings in the next GC cycle. Only case we have a problem is
+        that we keep having StringImpl* of the old string after GC safepoint in the concurrent compiler, and the only use of that is
+        DFG::Graph::m_copiedStrings. So, I changed the code not to keep old StringImpl* in DFG::Graph::m_copiedStrings. Also, note that we do
+        this only when we convert non-atom string to atom string so all UniquedStringImpl* from JSString* (it is atom ones) does not matter since
+        they are already atom one: they will not be replaced.
+
+        This does not increase memory usage, rather, improve memory usage since this kept string was anyway held by the wrapper's JSString at least
+        until the next GC run. And we clear m_possiblyAccessedStringsFromConcurrentThreads in the next GC run, so we can shrink memory.
+
+        It improves Speedometer2 by 0.2%.
+
+            ----------------------------------------------------------------------------------------------------------------------------------
+            |               subtest                |     ms      |     ms      |  b / a   | pValue (significance using False Discovery Rate) |
+            ----------------------------------------------------------------------------------------------------------------------------------
+            | Elm-TodoMVC                          |106.193333   |105.690000   |0.995260  | 0.050074                                         |
+            | VueJS-TodoMVC                        |21.671667    |21.741667    |1.003230  | 0.715305                                         |
+            | EmberJS-TodoMVC                      |113.146667   |110.871667   |0.979893  | 0.000000 (significant)                           |
+            | BackboneJS-TodoMVC                   |42.481667    |42.346667    |0.996822  | 0.358040                                         |
+            | Preact-TodoMVC                       |15.796667    |16.016667    |1.013927  | 0.226011                                         |
+            | AngularJS-TodoMVC                    |117.568333   |117.345000   |0.998100  | 0.543369                                         |
+            | Vanilla-ES2015-TodoMVC               |58.348333    |57.905000    |0.992402  | 0.000381 (significant)                           |
+            | Inferno-TodoMVC                      |54.656667    |54.946667    |1.005306  | 0.254310                                         |
+            | Flight-TodoMVC                       |61.106667    |61.141667    |1.000573  | 0.880780                                         |
+            | Angular2-TypeScript-TodoMVC          |37.030000    |37.065000    |1.000945  | 0.918550                                         |
+            | VanillaJS-TodoMVC                    |47.741667    |47.911667    |1.003561  | 0.497675                                         |
+            | jQuery-TodoMVC                       |205.251667   |203.903333   |0.993431  | 0.000420 (significant)                           |
+            | EmberJS-Debug-TodoMVC                |312.448333   |308.848333   |0.988478  | 0.000020 (significant)                           |
+            | React-TodoMVC                        |78.381667    |78.268333    |0.998554  | 0.654647                                         |
+            | React-Redux-TodoMVC                  |131.246667   |131.626667   |1.002895  | 0.138912                                         |
+            | Vanilla-ES2015-Babel-Webpack-TodoMVC |57.860000    |57.533333    |0.994354  | 0.156536                                         |
+            ----------------------------------------------------------------------------------------------------------------------------------
+            a mean = 290.61106
+            b mean = 291.21768
+            pValue = 0.1419936818
+            (Bigger means are better.)
+            1.002 times better
+            Results ARE NOT significant
+
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::prepareJumpTableForStringSwitch):
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::parseBlock):
+        * dfg/DFGGraph.h:
+        * dfg/DFGLazyJSValue.cpp:
+        (JSC::DFG::CrossThreadStringTranslator::hash):
+        (JSC::DFG::CrossThreadStringTranslator::equal):
+        (JSC::DFG::CrossThreadStringTranslator::translate):
+        (JSC::DFG::LazyJSValue::tryGetString const):
+        * dfg/DFGLazyJSValue.h:
+        (JSC::DFG::LazyJSValue::knownStringImpl):
+        * heap/Heap.cpp:
+        (JSC::Heap::finalize):
+        * heap/Heap.h:
+        (JSC::Heap::appendPossiblyAccessedStringFromConcurrentThreads):
+        * runtime/JSString.h:
+        (JSC::JSString::swapToAtomString const):
+        (JSC::JSString::toIdentifier const):
+        (JSC::JSString::toAtomString const):
+
+2022-02-07  Saam Barati  <sbarati@apple.com>
+
+        Wasm crash on https://copy.sh/v86/?profile=dsl
+        https://bugs.webkit.org/show_bug.cgi?id=236037
+        rdar://88358719
+
+        Reviewed by Mark Lam.
+
+        Lower stack args in Air had a bug where it was emitting a constant
+        materialization at the wrong instruction offset for certain types
+        of spill instructions. This happens when we have a stack slot that
+        is 8 bytes wide, but we're emitting a zero def Move32. We need to
+        zero the upper 4 bytes. However, there is also code inside lower
+        stack args that uses the temp register when encountering offsets
+        that are too large to encode in a single instruction. However,
+        this offset materialization code for the second Move32 to zero
+        the upper bytes was happening before the actual store. For example,
+        we'd end up with:
+        movz x16, #k
+        movz x16, #k2
+        stur x1, [x16]
+        stur zr, [x16]
+        
+        instead of
+        movz x16, #k
+        stur x1, [x16]
+        movz x16, #k2
+        stur zr, [x16]
+
+        * b3/air/AirLowerStackArgs.cpp:
+        (JSC::B3::Air::lowerStackArgs):
+        * b3/air/testair.cpp:
+
 2022-02-06  Lauro Moura  <lmoura@igalia.com>
 
         Unreviewed, non-unified build fixes

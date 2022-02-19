@@ -37,7 +37,7 @@
 
 #if USE(NICOSIA)
 #include "GBMDevice.h"
-#include "NicosiaGCGLANGLEPipe.h"
+#include "NicosiaGCGLANGLELayer.h"
 
 #include <fcntl.h>
 #include <gbm.h>
@@ -54,13 +54,13 @@ GraphicsContextGLANGLE::GraphicsContextGLANGLE(GraphicsContextGLAttributes attri
     m_isForWebGL2 = attributes.webGLVersion == GraphicsContextGLWebGLVersion::WebGL2;
 #endif
 #if USE(NICOSIA)
-    m_nicosiaPipe = makeUnique<Nicosia::GCGLANGLEPipe>(*this);
+    m_nicosiaLayer = makeUnique<Nicosia::GCGLANGLELayer>(*this);
 
     const auto& gbmDevice = GBMDevice::get();
-    if (auto* device = gbmDevice.device()) {
-        m_textureBacking = makeUnique<EGLImageBacking>(device, platformDisplay());
-        m_compositorTextureBacking = makeUnique<EGLImageBacking>(device, platformDisplay());
-        m_intermediateTextureBacking = makeUnique<EGLImageBacking>(device, platformDisplay());
+    if (gbmDevice.device()) {
+        m_textureBacking = makeUnique<EGLImageBacking>(platformDisplay());
+        m_compositorTextureBacking = makeUnique<EGLImageBacking>(platformDisplay());
+        m_intermediateTextureBacking = makeUnique<EGLImageBacking>(platformDisplay());
     }
 #else
     m_texmapLayer = makeUnique<TextureMapperGCGLPlatformLayer>(*this);
@@ -124,9 +124,8 @@ GraphicsContextGLANGLE::GraphicsContextGLANGLE(GraphicsContextGLAttributes attri
 }
 
 #if USE(NICOSIA)
-GraphicsContextGLANGLE::EGLImageBacking::EGLImageBacking(gbm_device* device, PlatformGraphicsContextGLDisplay display)
-    : m_device(device)
-    , m_display(display)
+GraphicsContextGLANGLE::EGLImageBacking::EGLImageBacking(PlatformGraphicsContextGLDisplay display)
+    : m_display(display)
 {
 }
 
@@ -165,6 +164,11 @@ void GraphicsContextGLANGLE::EGLImageBacking::releaseResources()
     }
 }
 
+bool GraphicsContextGLANGLE::EGLImageBacking::isReleased()
+{
+    return !m_BO;
+}
+
 bool GraphicsContextGLANGLE::EGLImageBacking::reset(int width, int height, bool hasAlpha)
 {
     releaseResources();
@@ -172,7 +176,8 @@ bool GraphicsContextGLANGLE::EGLImageBacking::reset(int width, int height, bool 
     if (!width || !height)
         return false;
 
-    m_BO = gbm_bo_create(m_device, width, height, hasAlpha ? GBM_BO_FORMAT_ARGB8888 : GBM_BO_FORMAT_XRGB8888, GBM_BO_USE_RENDERING);
+    const auto& gbmDevice = GBMDevice::get();
+    m_BO = gbm_bo_create(gbmDevice.device(), width, height, hasAlpha ? GBM_BO_FORMAT_ARGB8888 : GBM_BO_FORMAT_XRGB8888, GBM_BO_USE_RENDERING);
     if (m_BO) {
         m_FD = gbm_bo_get_fd(m_BO);
         if (m_FD >= 0) {
@@ -228,7 +233,7 @@ GraphicsContextGLANGLE::~GraphicsContextGLANGLE()
 PlatformGraphicsContextGLDisplay GraphicsContextGLANGLE::platformDisplay() const
 {
 #if USE(NICOSIA)
-    return m_nicosiaPipe->platformDisplay();
+    return m_nicosiaLayer->platformDisplay();
 #else
     return m_texmapLayer->platformDisplay();
 #endif
@@ -237,7 +242,7 @@ PlatformGraphicsContextGLDisplay GraphicsContextGLANGLE::platformDisplay() const
 PlatformGraphicsContextGLConfig GraphicsContextGLANGLE::platformConfig() const
 {
 #if USE(NICOSIA)
-    return m_nicosiaPipe->platformConfig();
+    return m_nicosiaLayer->platformConfig();
 #else
     return m_texmapLayer->platformConfig();
 #endif
@@ -246,7 +251,7 @@ PlatformGraphicsContextGLConfig GraphicsContextGLANGLE::platformConfig() const
 bool GraphicsContextGLANGLE::makeContextCurrent()
 {
 #if USE(NICOSIA)
-    return m_nicosiaPipe->makeContextCurrent();
+    return m_nicosiaLayer->makeContextCurrent();
 #else
     return m_texmapLayer->makeContextCurrent();
 #endif

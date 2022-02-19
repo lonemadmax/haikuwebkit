@@ -158,37 +158,64 @@ static inline LayoutUnit contentLogicalHeightForRenderer(const RenderBox& render
     return renderer.parent()->style().isHorizontalWritingMode() ? renderer.contentHeight() : renderer.contentWidth();
 }
 
-static inline Layout::BoxGeometry::HorizontalMargin logicalMargin(const RenderBoxModelObject& renderer, bool isLeftToRightDirection, bool retainMarginStart = true, bool retainMarginEnd = true)
+static inline Layout::BoxGeometry::HorizontalMargin horizontalLogicalMargin(const RenderBoxModelObject& renderer, bool isLeftToRightDirection, bool isHorizontalWritingMode, bool retainMarginStart = true, bool retainMarginEnd = true)
 {
-    auto marginStart = LayoutUnit { 0_lu };
-    auto marginEnd = LayoutUnit { 0_lu };
-    if (retainMarginStart)
-        marginStart = isLeftToRightDirection ? renderer.marginLeft() : renderer.marginRight();
-    if (retainMarginEnd)
-        marginEnd = isLeftToRightDirection ? renderer.marginRight() : renderer.marginLeft();
-    return { marginStart, marginEnd };
+    auto marginLeft = renderer.marginLeft();
+    auto marginRight = renderer.marginRight();
+    if (isHorizontalWritingMode) {
+        if (isLeftToRightDirection)
+            return { retainMarginStart ? marginLeft : 0_lu, retainMarginEnd ? marginRight : 0_lu };
+        return { retainMarginStart ? marginRight : 0_lu, retainMarginEnd ? marginLeft : 0_lu };
+    }
+
+    auto marginTop = renderer.marginTop();
+    auto marginBottom = renderer.marginBottom();
+    if (isLeftToRightDirection)
+        return { retainMarginStart ? marginTop : 0_lu, retainMarginEnd ? marginBottom : 0_lu };
+    return { retainMarginStart ? marginBottom : 0_lu, retainMarginEnd ? marginTop : 0_lu };
 }
 
-static inline Layout::Edges logicalBorder(const RenderBoxModelObject& renderer, bool isLeftToRightDirection, bool retainBorderStart = true, bool retainBorderEnd = true)
+static inline Layout::BoxGeometry::VerticalMargin verticalLogicalMargin(const RenderBoxModelObject& renderer, bool isHorizontalWritingMode)
 {
-    auto borderStart = LayoutUnit { 0_lu };
-    auto borderEnd = LayoutUnit { 0_lu };
-    if (retainBorderStart)
-        borderStart = isLeftToRightDirection ? renderer.borderLeft() : renderer.borderRight();
-    if (retainBorderEnd)
-        borderEnd = isLeftToRightDirection ? renderer.borderRight() : renderer.borderLeft();
-    return { { borderStart, borderEnd }, { renderer.borderTop(), renderer.borderBottom() } };
+    if (isHorizontalWritingMode)
+        return { renderer.marginTop(), renderer.marginBottom() };
+    return { renderer.marginRight(), renderer.marginLeft() };
 }
 
-static inline Layout::Edges logicalPadding(const RenderBoxModelObject& renderer, bool isLeftToRightDirection, bool retainPaddingStart = true, bool retainPaddingEnd = true)
+static inline Layout::Edges logicalBorder(const RenderBoxModelObject& renderer, bool isLeftToRightDirection, bool isHorizontalWritingMode, bool retainBorderStart = true, bool retainBorderEnd = true)
 {
-    auto paddingStart = LayoutUnit { 0_lu };
-    auto paddingEnd = LayoutUnit { 0_lu };
-    if (retainPaddingStart)
-        paddingStart = isLeftToRightDirection ? renderer.paddingLeft() : renderer.paddingRight();
-    if (retainPaddingEnd)
-        paddingEnd = isLeftToRightDirection ? renderer.paddingRight() : renderer.paddingLeft();
-    return Layout::Edges { { paddingStart, paddingEnd }, { renderer.paddingTop(), renderer.paddingBottom() } };
+    auto borderLeft = renderer.borderLeft();
+    auto borderRight = renderer.borderRight();
+    auto borderTop = renderer.borderTop();
+    auto borderBottom = renderer.borderBottom();
+
+    if (isHorizontalWritingMode) {
+        if (isLeftToRightDirection)
+            return { { retainBorderStart ? borderLeft : 0_lu, retainBorderEnd ? borderRight : 0_lu }, { borderTop, borderBottom } };
+        return { { retainBorderStart ? borderRight : 0_lu, retainBorderEnd ? borderLeft : 0_lu }, { borderTop, borderBottom } };
+    }
+
+    if (isLeftToRightDirection)
+        return { { retainBorderStart ? borderTop : 0_lu, retainBorderEnd ? borderBottom : 0_lu }, { borderLeft, borderRight } };
+    return { { retainBorderStart ? borderBottom : 0_lu, retainBorderEnd ? borderTop : 0_lu }, { borderLeft, borderRight } };
+}
+
+static inline Layout::Edges logicalPadding(const RenderBoxModelObject& renderer, bool isLeftToRightDirection, bool isHorizontalWritingMode, bool retainPaddingStart = true, bool retainPaddingEnd = true)
+{
+    auto paddingLeft = renderer.paddingLeft();
+    auto paddingRight = renderer.paddingRight();
+    auto paddingTop = renderer.paddingTop();
+    auto paddingBottom = renderer.paddingBottom();
+
+    if (isHorizontalWritingMode) {
+        if (isLeftToRightDirection)
+            return { { retainPaddingStart ? paddingLeft : 0_lu, retainPaddingEnd ? paddingRight : 0_lu }, { paddingTop, paddingBottom } };
+        return { { retainPaddingStart ? paddingRight : 0_lu, retainPaddingEnd ? paddingLeft : 0_lu }, { paddingTop, paddingBottom } };
+    }
+
+    if (isLeftToRightDirection)
+        return { { retainPaddingStart ? paddingTop : 0_lu, retainPaddingEnd ? paddingBottom : 0_lu }, { paddingLeft, paddingRight } };
+    return { { retainPaddingStart ? paddingBottom : 0_lu, retainPaddingEnd ? paddingTop : 0_lu }, { paddingLeft, paddingRight } };
 }
 
 void LineLayout::updateLayoutBoxDimensions(const RenderBox& replacedOrInlineBlock)
@@ -210,13 +237,15 @@ void LineLayout::updateLayoutBoxDimensions(const RenderBox& replacedOrInlineBloc
     replacedBoxGeometry.setContentBoxWidth(contentLogicalWidthForRenderer(replacedOrInlineBlock));
     replacedBoxGeometry.setContentBoxHeight(contentLogicalHeightForRenderer(replacedOrInlineBlock));
 
-    replacedBoxGeometry.setVerticalMargin({ replacedOrInlineBlock.marginTop(), replacedOrInlineBlock.marginBottom() });
     auto isLeftToRightDirection = replacedOrInlineBlock.parent()->style().isLeftToRightDirection();
-    replacedBoxGeometry.setHorizontalMargin(logicalMargin(replacedOrInlineBlock, isLeftToRightDirection));
-    replacedBoxGeometry.setBorder(logicalBorder(replacedOrInlineBlock, isLeftToRightDirection));
-    replacedBoxGeometry.setPadding(logicalPadding(replacedOrInlineBlock, isLeftToRightDirection));
+    auto isHorizontalWritingMode = replacedOrInlineBlock.parent()->style().isHorizontalWritingMode();
 
-    auto baseline = replacedOrInlineBlock.baselinePosition(AlphabeticBaseline, false /* firstLine */, HorizontalLine, PositionOnContainingLine);
+    replacedBoxGeometry.setVerticalMargin(verticalLogicalMargin(replacedOrInlineBlock, isHorizontalWritingMode));
+    replacedBoxGeometry.setHorizontalMargin(horizontalLogicalMargin(replacedOrInlineBlock, isLeftToRightDirection, isHorizontalWritingMode));
+    replacedBoxGeometry.setBorder(logicalBorder(replacedOrInlineBlock, isLeftToRightDirection, isHorizontalWritingMode));
+    replacedBoxGeometry.setPadding(logicalPadding(replacedOrInlineBlock, isLeftToRightDirection, isHorizontalWritingMode));
+
+    auto baseline = replacedOrInlineBlock.baselinePosition(AlphabeticBaseline, false /* firstLine */, isHorizontalWritingMode ? HorizontalLine : VerticalLine, PositionOnContainingLine);
     replacedBox.setBaseline(roundToInt(baseline));
 }
 
@@ -242,9 +271,11 @@ void LineLayout::updateInlineBoxDimensions(const RenderInline& renderInline)
 
     boxGeometry.setVerticalMargin({ });
     auto isLeftToRightDirection = renderInline.style().isLeftToRightDirection();
-    boxGeometry.setHorizontalMargin(logicalMargin(renderInline, isLeftToRightDirection, !shouldNotRetainBorderPaddingAndMarginStart, !shouldNotRetainBorderPaddingAndMarginEnd));
-    boxGeometry.setBorder(logicalBorder(renderInline, isLeftToRightDirection, !shouldNotRetainBorderPaddingAndMarginStart, !shouldNotRetainBorderPaddingAndMarginEnd));
-    boxGeometry.setPadding(logicalPadding(renderInline, isLeftToRightDirection, !shouldNotRetainBorderPaddingAndMarginStart, !shouldNotRetainBorderPaddingAndMarginEnd));
+    auto isHorizontalWritingMode = renderInline.style().isHorizontalWritingMode();
+
+    boxGeometry.setHorizontalMargin(horizontalLogicalMargin(renderInline, isLeftToRightDirection, isHorizontalWritingMode, !shouldNotRetainBorderPaddingAndMarginStart, !shouldNotRetainBorderPaddingAndMarginEnd));
+    boxGeometry.setBorder(logicalBorder(renderInline, isLeftToRightDirection, isHorizontalWritingMode, !shouldNotRetainBorderPaddingAndMarginStart, !shouldNotRetainBorderPaddingAndMarginEnd));
+    boxGeometry.setPadding(logicalPadding(renderInline, isLeftToRightDirection, isHorizontalWritingMode, !shouldNotRetainBorderPaddingAndMarginStart, !shouldNotRetainBorderPaddingAndMarginEnd));
 }
 
 void LineLayout::updateStyle(const RenderBoxModelObject& renderer, const RenderStyle& oldStyle)
@@ -314,9 +345,12 @@ void LineLayout::updateFormattingRootGeometryAndInvalidate()
     auto& flow = this->flow();
 
     auto updateGeometry = [&](auto& root) {
-        root.setContentBoxWidth(flow.contentLogicalWidth());
-        root.setPadding(Layout::Edges { { flow.paddingStart(), flow.paddingEnd() }, { flow.paddingBefore(), flow.paddingAfter() } });
-        root.setBorder(Layout::Edges { { flow.borderStart(), flow.borderEnd() }, { flow.borderBefore(), flow.borderAfter() } });
+        auto isLeftToRightDirection = flow.style().isLeftToRightDirection();
+        auto isHorizontalWritingMode = flow.style().isHorizontalWritingMode();
+
+        root.setContentBoxWidth(isHorizontalWritingMode ? flow.contentWidth() : flow.contentHeight());
+        root.setPadding(logicalPadding(flow, isLeftToRightDirection, isHorizontalWritingMode));
+        root.setBorder(logicalBorder(flow, isLeftToRightDirection, isHorizontalWritingMode));
         root.setHorizontalMargin({ });
         root.setVerticalMargin({ });
     };
@@ -345,18 +379,21 @@ void LineLayout::prepareFloatingState()
         return;
 
     for (auto& floatingObject : *flow().floatingObjectSet()) {
-        auto& rect = floatingObject->frameRect();
+        auto& visualRect = floatingObject->frameRect();
         auto position = floatingObject->type() == FloatingObject::FloatRight
             ? Layout::FloatingState::FloatItem::Position::Right
             : Layout::FloatingState::FloatItem::Position::Left;
         auto boxGeometry = Layout::BoxGeometry { };
         // FIXME: We are flooring here for legacy compatibility.
         //        See FloatingObjects::intervalForFloatingObject and RenderBlockFlow::clearFloats.
-        auto y = rect.y().floor();
-        auto maxY = rect.maxY().floor();
-        boxGeometry.setLogicalTopLeft({ rect.x(), y });
-        boxGeometry.setContentBoxWidth(rect.width());
-        boxGeometry.setContentBoxHeight(maxY - y);
+        auto logicalTop = visualRect.y().floor();
+        auto logicalHeight = visualRect.maxY().floor() - logicalTop;
+        auto logicalRect = flow().style().isHorizontalWritingMode() ? LayoutRect(visualRect.x(), logicalTop, visualRect.width(), logicalHeight)
+            : LayoutRect(logicalTop, visualRect.x(), logicalHeight, visualRect.width());
+
+        boxGeometry.setLogicalTopLeft(logicalRect.location());
+        boxGeometry.setContentBoxWidth(logicalRect.width());
+        boxGeometry.setContentBoxHeight(logicalRect.height());
         boxGeometry.setBorder({ });
         boxGeometry.setPadding({ });
         boxGeometry.setHorizontalMargin({ });
@@ -395,7 +432,12 @@ LayoutUnit LineLayout::firstLineBaseline() const
     }
 
     auto& firstLine = m_inlineContent->lines.first();
-    return LayoutUnit { firstLine.lineBoxTop() + firstLine.baseline() };
+    if (rootLayoutBox().style().isHorizontalWritingMode())
+        return LayoutUnit { firstLine.lineBoxTop() + firstLine.baseline() };
+
+    // See LineLayout::lastLineBaseline below for more info.
+    auto lineLogicalTop = flow().logicalHeight() - firstLine.lineBoxRight();
+    return LayoutUnit { lineLogicalTop + firstLine.baseline() };
 }
 
 LayoutUnit LineLayout::lastLineBaseline() const
@@ -406,7 +448,15 @@ LayoutUnit LineLayout::lastLineBaseline() const
     }
 
     auto& lastLine = m_inlineContent->lines.last();
-    return LayoutUnit { lastLine.lineBoxTop() + lastLine.baseline() };
+    if (rootLayoutBox().style().isHorizontalWritingMode())
+        return LayoutUnit { lastLine.lineBoxTop() + lastLine.baseline() };
+
+    // FIXME: We should set the computed height on the root's box geometry (in RenderBlockFlow) so that
+    // we could call m_layoutState.geometryForRootBox().borderBoxHeight() instead.
+
+    // Line is always visual coordinates while logicalHeight is not (i.e. this translate to "box visual width" - "line visual right")
+    auto lineLogicalTop = flow().logicalHeight() - lastLine.lineBoxRight();
+    return LayoutUnit { lineLogicalTop + lastLine.baseline() };
 }
 
 void LineLayout::adjustForPagination()

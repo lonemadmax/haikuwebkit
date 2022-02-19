@@ -915,6 +915,11 @@ private:
         EventRegionContext* eventRegionContext { nullptr };
     };
 
+    LayoutPoint paintOffsetForRenderer(const LayerFragment& fragment, const LayerPaintingInfo& paintingInfo) const
+    {
+        return toLayoutPoint(fragment.layerBounds.location() - rendererLocation() + paintingInfo.subpixelOffset);
+    }
+
     // Compute, cache and return clip rects computed with the given layer as the root.
     Ref<ClipRects> updateClipRects(const ClipRectsContext&);
     // Compute and return the clip rects. If useCached is true, will used previously computed clip rects on ancestors
@@ -976,7 +981,20 @@ private:
         if (is<RenderSVGModelObject>(renderer()))
             return downcast<RenderSVGModelObject>(renderer()).layoutLocation();
 #endif
+
         return LayoutPoint();
+    }
+
+    LayoutRect rendererBorderBoxRect() const
+    {
+        if (is<RenderBox>(renderer()))
+            return downcast<RenderBox>(renderer()).borderBoxRect();
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+        if (is<RenderSVGModelObject>(renderer()))
+            return downcast<RenderSVGModelObject>(renderer()).borderBoxRectEquivalent();
+#endif
+
+        return LayoutRect();
     }
 
     bool setupFontSubpixelQuantization(GraphicsContext&, bool& didQuantizeFonts);

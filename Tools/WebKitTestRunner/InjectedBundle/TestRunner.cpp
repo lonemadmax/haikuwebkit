@@ -867,11 +867,13 @@ void TestRunner::setAsynchronousSpellCheckingEnabled(bool enabled)
 void TestRunner::grantWebNotificationPermission(JSStringRef origin)
 {
     WKBundleSetWebNotificationPermission(InjectedBundle::singleton().bundle(), page(), toWK(origin).get(), true);
+    postSynchronousPageMessageWithReturnValue("GrantNotificationPermission", toWK(origin));
 }
 
 void TestRunner::denyWebNotificationPermission(JSStringRef origin)
 {
     WKBundleSetWebNotificationPermission(InjectedBundle::singleton().bundle(), page(), toWK(origin).get(), false);
+    postSynchronousPageMessageWithReturnValue("DenyNotificationPermission", toWK(origin));
 }
 
 void TestRunner::removeAllWebNotificationPermissions()
@@ -885,6 +887,11 @@ void TestRunner::simulateWebNotificationClick(JSValueRef notification)
 
     auto notificationID = adoptWK(WKBundleCopyWebNotificationID(injectedBundle.bundle(), mainFrameJSContext(), notification));
     injectedBundle.postSimulateWebNotificationClick(notificationID.get());
+}
+
+void TestRunner::simulateWebNotificationClickForServiceWorkerNotifications()
+{
+    InjectedBundle::singleton().postSimulateWebNotificationClickForServiceWorkerNotifications();
 }
 
 void TestRunner::setGeolocationPermission(bool enabled)

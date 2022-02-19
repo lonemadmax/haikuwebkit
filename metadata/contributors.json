@@ -2453,7 +2453,8 @@
          "Phil Pizlo"
       ],
       "emails" : [
-         "fpizlo@apple.com"
+         "fpizlo@apple.com",
+         "pizlo@mac.com"
       ],
       "expertise" : "JavaScript/ECMAScript",
       "name" : "Filip Pizlo",
@@ -6412,7 +6413,7 @@
       "nicks" : [
          "ntim"
       ],
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [

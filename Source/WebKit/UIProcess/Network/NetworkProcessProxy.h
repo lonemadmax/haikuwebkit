@@ -33,6 +33,7 @@
 #include "ProcessLauncher.h"
 #include "ProcessThrottler.h"
 #include "ProcessThrottlerClient.h"
+#include "QuotaIncreaseRequestIdentifier.h"
 #include "UserContentControllerIdentifier.h"
 #include "WebProcessProxyMessagesReplies.h"
 #include "WebsiteDataStore.h"
@@ -85,6 +86,7 @@ class WebCookieManagerProxy;
 class WebPageProxy;
 class WebUserContentControllerProxy;
 
+enum class RemoteWorkerType : uint32_t;
 enum class ShouldGrandfatherStatistics : bool;
 enum class StorageAccessStatus : uint8_t;
 enum class WebsiteDataFetchOption : uint8_t;
@@ -328,18 +330,20 @@ private:
 
 #if ENABLE(SERVICE_WORKER)
     void establishServiceWorkerContextConnectionToNetworkProcess(WebCore::RegistrableDomain&&, std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, PAL::SessionID, CompletionHandler<void()>&&);
-    void serviceWorkerContextConnectionNoLongerNeeded(WebCore::ProcessIdentifier);
-    void registerServiceWorkerClientProcess(WebCore::ProcessIdentifier webProcessIdentifier, WebCore::ProcessIdentifier serviceWorkerProcessIdentifier);
-    void unregisterServiceWorkerClientProcess(WebCore::ProcessIdentifier webProcessIdentifier, WebCore::ProcessIdentifier serviceWorkerProcessIdentifier);
     void startServiceWorkerBackgroundProcessing(WebCore::ProcessIdentifier serviceWorkerProcessIdentifier);
     void endServiceWorkerBackgroundProcessing(WebCore::ProcessIdentifier serviceWorkerProcessIdentifier);
 #endif
+    void remoteWorkerContextConnectionNoLongerNeeded(RemoteWorkerType, WebCore::ProcessIdentifier);
+    void establishSharedWorkerContextConnectionToNetworkProcess(WebCore::RegistrableDomain&&, PAL::SessionID, CompletionHandler<void()>&&);
+    void registerRemoteWorkerClientProcess(RemoteWorkerType, WebCore::ProcessIdentifier webProcessIdentifier, WebCore::ProcessIdentifier sharedWorkerProcessIdentifier);
+    void unregisterRemoteWorkerClientProcess(RemoteWorkerType, WebCore::ProcessIdentifier webProcessIdentifier, WebCore::ProcessIdentifier sharedWorkerProcessIdentifier);
 
     void terminateWebProcess(WebCore::ProcessIdentifier);
 
     void triggerBrowsingContextGroupSwitchForNavigation(WebPageProxyIdentifier, uint64_t navigationID, WebCore::BrowsingContextGroupSwitchDecision, const WebCore::RegistrableDomain& responseDomain, NetworkResourceLoadIdentifier existingNetworkResourceLoadIdentifierToResume, CompletionHandler<void(bool success)>&&);
 
     void requestStorageSpace(PAL::SessionID, const WebCore::ClientOrigin&, uint64_t quota, uint64_t currentSize, uint64_t spaceRequired, CompletionHandler<void(std::optional<uint64_t> quota)>&&);
+    void increaseQuota(PAL::SessionID, const WebCore::ClientOrigin&, QuotaIncreaseRequestIdentifier, uint64_t currentQuota, uint64_t currentUsage, uint64_t spaceRequested);
 
     WebsiteDataStore* websiteDataStoreFromSessionID(PAL::SessionID);
 

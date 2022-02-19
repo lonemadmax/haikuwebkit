@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,14 +36,10 @@ class RecorderImpl : public Recorder {
     WTF_MAKE_NONCOPYABLE(RecorderImpl);
 public:
     WEBCORE_EXPORT RecorderImpl(DisplayList&, const GraphicsContextState&, const FloatRect& initialClip, const AffineTransform&, DrawGlyphsRecorder::DeconstructDrawGlyphs = DrawGlyphsRecorder::DeconstructDrawGlyphs::Yes);
-    RecorderImpl(RecorderImpl& parent, const GraphicsContextState&, const FloatRect& initialClip, const AffineTransform& initialCTM);
-
     WEBCORE_EXPORT virtual ~RecorderImpl();
 
     bool isEmpty() const { return m_displayList.isEmpty(); }
 
-    void getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect& sourceRect) final;
-    void putPixelBuffer(const PixelBuffer&, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat) final;
     void convertToLuminanceMask() final { }
     void transformToColorSpace(const DestinationColorSpace&) final { }
     void flushContext(GraphicsContextFlushIdentifier identifier) final { append<FlushContext>(identifier); }
@@ -67,14 +63,12 @@ private:
     void recordClearShadow() final;
     void recordClip(const FloatRect&) final;
     void recordClipOut(const FloatRect&) final;
-    void recordClipToImageBuffer(RenderingResourceIdentifier imageBufferIdentifier, const FloatRect& destinationRect) final;
+    void recordClipToImageBuffer(ImageBuffer&, const FloatRect& destinationRect) final;
     void recordClipOutToPath(const Path&) final;
     void recordClipPath(const Path&, WindRule) final;
-    void recordBeginClipToDrawingCommands(const FloatRect& destination, DestinationColorSpace) final;
-    void recordEndClipToDrawingCommands(const FloatRect& destination) final;
-    void recordDrawFilteredImageBuffer(std::optional<RenderingResourceIdentifier> sourceImageIdentifier, const FloatRect& sourceImageRect, Filter&) final;
+    void recordDrawFilteredImageBuffer(ImageBuffer*, const FloatRect& sourceImageRect, Filter&) final;
     void recordDrawGlyphs(const Font&, const GlyphBufferGlyph*, const GlyphBufferAdvance*, unsigned count, const FloatPoint& localAnchor, FontSmoothingMode) final;
-    void recordDrawImageBuffer(RenderingResourceIdentifier imageBufferIdentifier, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions&) final;
+    void recordDrawImageBuffer(ImageBuffer&, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions&) final;
     void recordDrawNativeImage(RenderingResourceIdentifier imageIdentifier, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions&) final;
     void recordDrawPattern(RenderingResourceIdentifier, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform&, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& = { }) final;
     void recordBeginTransparencyLayer(float) final;
@@ -125,8 +119,6 @@ private:
     bool recordResourceUse(const SourceImage&) final;
     bool recordResourceUse(Font&) final;
 
-    std::unique_ptr<GraphicsContext> createNestedContext(const FloatRect& initialClip, const AffineTransform& initialCTM) final;
-
     template<typename T, class... Args>
     void append(Args&&... args)
     {
@@ -149,7 +141,6 @@ private:
     FloatRect extentFromLocalBounds(const FloatRect&) const;
 
     DisplayList& m_displayList;
-    bool m_isNested { false };
 };
 
 }

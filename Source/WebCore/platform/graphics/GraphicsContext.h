@@ -420,6 +420,14 @@ public:
 
     // Images, Patterns, and Media
 
+    IntSize compatibleImageBufferSize(const FloatSize&) const;
+
+    WEBCORE_EXPORT RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, const FloatSize& scale = { 1, 1 }, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMode> = std::nullopt, RenderingMethod = RenderingMethod::Default) const;
+    WEBCORE_EXPORT RefPtr<ImageBuffer> createImageBuffer(const FloatRect&, const FloatSize& scale = { 1, 1 }, const DestinationColorSpace& = DestinationColorSpace::SRGB(), std::optional<RenderingMode> = std::nullopt, RenderingMethod = RenderingMethod::Default) const;
+
+    WEBCORE_EXPORT virtual RefPtr<ImageBuffer> createCompatibleImageBuffer(const FloatSize&, const DestinationColorSpace& = DestinationColorSpace::SRGB(), RenderingMethod = RenderingMethod::Default) const;
+    WEBCORE_EXPORT virtual RefPtr<ImageBuffer> createCompatibleImageBuffer(const FloatRect&, const DestinationColorSpace& = DestinationColorSpace::SRGB(), RenderingMethod = RenderingMethod::Default) const;
+
     virtual void drawNativeImage(NativeImage&, const FloatSize& selfSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& = { }) = 0;
 
     WEBCORE_EXPORT ImageDrawResult drawImage(Image&, const FloatPoint& destination, const ImagePaintingOptions& = { ImageOrientation::FromImage });
@@ -457,10 +465,6 @@ public:
     WEBCORE_EXPORT virtual void clipOutRoundedRect(const FloatRoundedRect&);
     virtual void clipPath(const Path&, WindRule = WindRule::EvenOdd) = 0;
     WEBCORE_EXPORT virtual void clipToImageBuffer(ImageBuffer&, const FloatRect&);
-
-    enum class ClipToDrawingCommandsResult : bool { Success, FailedToCreateImageBuffer };
-    WEBCORE_EXPORT virtual ClipToDrawingCommandsResult clipToDrawingCommands(const FloatRect& destination, const DestinationColorSpace&, Function<void(GraphicsContext&)>&&);
-
     WEBCORE_EXPORT virtual IntRect clipBounds() const;
 
     // Text
@@ -549,6 +553,8 @@ private:
 protected:
     void fillEllipseAsPath(const FloatRect&);
     void strokeEllipseAsPath(const FloatRect&);
+
+    WEBCORE_EXPORT virtual RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, const DestinationColorSpace&, RenderingMode, RenderingMethod) const;
 
     FloatRect computeLineBoundsAndAntialiasingModeForText(const FloatRect&, bool printing, Color&);
 

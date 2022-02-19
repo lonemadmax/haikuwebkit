@@ -70,6 +70,7 @@ GPUProcess/media/RemoteMediaPlayerProxy.cpp
 GPUProcess/media/RemoteMediaResource.cpp
 GPUProcess/media/RemoteMediaResourceLoader.cpp
 GPUProcess/media/RemoteMediaResourceManager.cpp
+GPUProcess/media/RemoteVideoFrameObjectHeap.cpp
 GPUProcess/media/RemoteMediaSourceProxy.cpp
 GPUProcess/media/RemoteRemoteCommandListenerProxy.cpp
 GPUProcess/media/RemoteSourceBufferProxy.cpp
@@ -141,13 +142,22 @@ NetworkProcess/ServiceWorker/WebSWOriginStore.cpp @no-unify
 NetworkProcess/ServiceWorker/WebSWServerConnection.cpp @no-unify
 NetworkProcess/ServiceWorker/WebSWServerToContextConnection.cpp @no-unify
 
+NetworkProcess/SharedWorker/WebSharedWorker.cpp
+NetworkProcess/SharedWorker/WebSharedWorkerServer.cpp
+NetworkProcess/SharedWorker/WebSharedWorkerServerConnection.cpp
+NetworkProcess/SharedWorker/WebSharedWorkerServerToContextConnection.cpp
+
 NetworkProcess/storage/FileSystemStorageManager.cpp
 NetworkProcess/storage/FileSystemStorageHandle.cpp
 NetworkProcess/storage/FileSystemStorageHandleRegistry.cpp
+NetworkProcess/storage/IDBStorageConnectionToClient.cpp
+NetworkProcess/storage/IDBStorageManager.cpp
+NetworkProcess/storage/IDBStorageRegistry.cpp
 NetworkProcess/storage/LocalStorageManager.cpp
 NetworkProcess/storage/MemoryStorageArea.cpp
 NetworkProcess/storage/NetworkStorageManager.cpp
 NetworkProcess/storage/OriginStorageManager.cpp
+NetworkProcess/storage/QuotaManager.cpp
 NetworkProcess/storage/SQLiteStorageArea.cpp
 NetworkProcess/storage/SessionStorageManager.cpp
 NetworkProcess/storage/StorageAreaBase.cpp
@@ -520,6 +530,7 @@ UIProcess/API/C/WKNotificationManager.cpp
 UIProcess/API/C/WKNotificationPermissionRequest.cpp
 UIProcess/API/C/WKOpenPanelParametersRef.cpp
 UIProcess/API/C/WKOpenPanelResultListener.cpp
+UIProcess/API/C/WKQueryPermissionResultCallback.cpp
 UIProcess/API/C/WKPage.cpp
 UIProcess/API/C/WKPageConfigurationRef.cpp
 UIProcess/API/C/WKPageGroup.cpp
@@ -574,6 +585,7 @@ UIProcess/Media/AudioSessionRoutingArbitratorProxy.cpp
 UIProcess/Media/MediaUsageManager.cpp
 UIProcess/Media/RemoteMediaSessionCoordinatorProxy.cpp
 
+UIProcess/Notifications/ServiceWorkerNotificationHandler.cpp
 UIProcess/Notifications/WebNotification.cpp
 UIProcess/Notifications/WebNotificationManagerMessageHandler.cpp
 UIProcess/Notifications/WebNotificationManagerProxy.cpp
@@ -736,6 +748,7 @@ WebProcess/GPU/media/RemoteMediaEngineConfigurationFactory.cpp
 WebProcess/GPU/media/RemoteMediaPlayerManager.cpp
 WebProcess/GPU/media/RemoteMediaPlayerMIMETypeCache.cpp @no-unify
 WebProcess/GPU/media/RemoteMediaResourceProxy.cpp
+WebProcess/GPU/media/RemoteVideoFrameProxy.cpp
 WebProcess/GPU/media/RemoteRemoteCommandListener.cpp
 WebProcess/GPU/media/SourceBufferPrivateRemote.cpp
 WebProcess/GPU/media/TextTrackPrivateRemote.cpp
@@ -744,6 +757,7 @@ WebProcess/GPU/media/WebMediaStrategy.cpp
 WebProcess/GPU/webrtc/LibWebRTCCodecs.cpp
 WebProcess/GPU/webrtc/MediaRecorderPrivate.cpp
 WebProcess/GPU/webrtc/MediaRecorderProvider.cpp
+WebProcess/GPU/webrtc/RemoteVideoFrameObjectHeapProxyProcessor.cpp
 WebProcess/GPU/webrtc/SampleBufferDisplayLayer.cpp
 WebProcess/GPU/webrtc/SampleBufferDisplayLayerManager.cpp
 
@@ -783,8 +797,9 @@ WebProcess/Storage/WebSWContextManagerConnection.cpp
 WebProcess/Storage/WebSWOriginTable.cpp
 WebProcess/Storage/WebServiceWorkerFetchTaskClient.cpp
 WebProcess/Storage/WebServiceWorkerProvider.cpp
-WebProcess/Storage/WebSharedWorkerProvider.cpp
+WebProcess/Storage/WebSharedWorkerContextManagerConnection.cpp
 WebProcess/Storage/WebSharedWorkerObjectConnection.cpp
+WebProcess/Storage/WebSharedWorkerProvider.cpp
 
 WebProcess/UserContent/WebUserContentController.cpp
 
@@ -809,6 +824,7 @@ WebProcess/WebCoreSupport/WebGeolocationClient.cpp
 WebProcess/WebCoreSupport/WebMediaKeySystemClient.cpp
 WebProcess/WebCoreSupport/WebMessagePortChannelProvider.cpp
 WebProcess/WebCoreSupport/WebNotificationClient.cpp
+WebProcess/WebCoreSupport/WebPasteboardOverrides.cpp
 WebProcess/WebCoreSupport/WebPerformanceLoggingClient.cpp
 WebProcess/WebCoreSupport/WebPermissionController.cpp
 WebProcess/WebCoreSupport/WebPlatformStrategies.cpp
@@ -872,6 +888,8 @@ RemoteDeviceMessageReceiver.cpp
 RemoteExternalTextureMessageReceiver.cpp
 RemoteGPUMessageReceiver.cpp
 RemoteGPUProxyMessageReceiver.cpp
+RemoteVideoFrameObjectHeapMessageReceiver.cpp
+RemoteVideoFrameObjectHeapProxyProcessorMessageReceiver.cpp
 RemotePipelineLayoutMessageReceiver.cpp
 RemoteQuerySetMessageReceiver.cpp
 RemoteQueueMessageReceiver.cpp
@@ -887,3 +905,7 @@ RemoteWebLockRegistryMessageReceiver.cpp
 ServiceWorkerDownloadTaskMessageReceiver.cpp
 WebBroadcastChannelRegistryMessageReceiver.cpp
 WebLockRegistryProxyMessageReceiver.cpp
+WebSharedWorkerContextManagerConnectionMessageReceiver.cpp
+WebSharedWorkerObjectConnectionMessageReceiver.cpp
+WebSharedWorkerServerConnectionMessageReceiver.cpp
+WebSharedWorkerServerToContextConnectionMessageReceiver.cpp

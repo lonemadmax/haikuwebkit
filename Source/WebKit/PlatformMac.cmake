@@ -460,6 +460,7 @@ list(APPEND WebKit_PUBLIC_FRAMEWORK_HEADERS
     UIProcess/API/Cocoa/_WKResourceLoadStatisticsFirstParty.h
     UIProcess/API/Cocoa/_WKResourceLoadStatisticsThirdParty.h
     UIProcess/API/Cocoa/_WKSessionState.h
+    UIProcess/API/Cocoa/_WKSystemPreferences.h
     UIProcess/API/Cocoa/_WKTapHandlingResult.h
     UIProcess/API/Cocoa/_WKTextInputContext.h
     UIProcess/API/Cocoa/_WKTextManipulationConfiguration.h
@@ -837,6 +838,12 @@ function(WEBKIT_DEFINE_XPC_SERVICES)
             grep -o "^[^;]*" ${WEBKIT_DIR}/WebAuthnProcess/mac/com.apple.WebKit.WebAuthnProcess.sb.in | clang -E -P -w -include wtf/Platform.h -I ${WTF_FRAMEWORK_HEADERS_DIR} -I ${bmalloc_FRAMEWORK_HEADERS_DIR} -I ${WEBKIT_DIR} - > ${WebKit_RESOURCES_DIR}/com.apple.WebKit.WebAuthnProcess.sb
             VERBATIM)
         list(APPEND WebKit_SB_FILES ${WebKit_RESOURCES_DIR}/com.apple.WebKit.WebAuthnProcess.sb)
+    endif ()
+    if (ENABLE_BUILT_IN_NOTIFICATIONS)
+        add_custom_command(OUTPUT ${WebKit_RESOURCES_DIR}/com.apple.WebKit.webpushd.sb COMMAND
+            grep -o "^[^;]*" ${WEBKIT_DIR}/webpushd/mac/com.apple.WebKit.webpushd.sb.in | clang -E -P -w -include wtf/Platform.h -I ${WTF_FRAMEWORK_HEADERS_DIR} -I ${bmalloc_FRAMEWORK_HEADERS_DIR} -I ${WEBKIT_DIR} - > ${WebKit_RESOURCES_DIR}/com.apple.WebKit.webpushd.sb
+            VERBATIM)
+        list(APPEND WebKit_SB_FILES ${WebKit_RESOURCES_DIR}/com.apple.WebKit.webpushd.sb)
     endif ()
     add_custom_target(WebKitSandboxProfiles ALL DEPENDS ${WebKit_SB_FILES})
     add_dependencies(WebKit WebKitSandboxProfiles)

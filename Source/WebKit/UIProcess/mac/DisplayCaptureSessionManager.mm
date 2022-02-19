@@ -36,6 +36,7 @@
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/MockRealtimeMediaSourceCenter.h>
 #import <WebCore/ScreenCaptureKitCaptureSource.h>
+#import <WebCore/ScreenCaptureKitSharingSessionManager.h>
 #import <WebCore/SecurityOriginData.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/MainThread.h>
@@ -56,8 +57,8 @@ static void alertForWindowSelection(WebPageProxy& page, const WebCore::SecurityO
         return;
     }
 
-    Vector<DisplayCaptureManager::WindowCaptureDevice> windowInfo;
-    RealtimeMediaSourceCenter::singleton().displayCaptureFactory().displayCaptureDeviceManager().windowDevices(windowInfo);
+    Vector<WebCore::DisplayCaptureManager::WindowCaptureDevice> windowInfo;
+    WebCore::RealtimeMediaSourceCenter::singleton().displayCaptureFactory().displayCaptureDeviceManager().windowDevices(windowInfo);
     if (windowInfo.isEmpty()) {
         completionHandler(std::nullopt, std::nullopt);
         return;
@@ -141,8 +142,8 @@ void DisplayCaptureSessionManager::alertForGetDisplayMedia(WebPageProxy& page, c
         visibleOrigin = applicationVisibleName();
 
     NSString *alertTitle = [NSString stringWithFormat:WEB_UI_NSSTRING(@"Allow “%@” to observe one of your windows or screens?", "Message for window and screen sharing prompt"), visibleOrigin];
-    auto *allowWindowButtonString = WEB_UI_NSSTRING(@"Allow Observing a Window", "Allow window button title in window and screen sharing prompt");
-    auto *allowScreenButtonString = WEB_UI_NSSTRING(@"Allow Observing a Screen", "Allow screen button title in window and screen sharing prompt");
+    auto *allowWindowButtonString = WEB_UI_NSSTRING(@"Allow to Share Window", "Allow window button title in window and screen sharing prompt");
+    auto *allowScreenButtonString = WEB_UI_NSSTRING(@"Allow to Share Screen", "Allow screen button title in window and screen sharing prompt");
     auto *doNotAllowButtonString = WEB_UI_NSSTRING(@"Don’t Allow (window and screen sharing)", "Disallow button title in window and screen sharing prompt");
 
     auto alert = adoptNS([[NSAlert alloc] init]);
@@ -175,12 +176,12 @@ void DisplayCaptureSessionManager::alertForGetDisplayMedia(WebPageProxy& page, c
     }];
 }
 
-std::optional<CaptureDevice> DisplayCaptureSessionManager::deviceSelectedForTesting(CaptureDevice::DeviceType deviceType)
+std::optional<WebCore::CaptureDevice> DisplayCaptureSessionManager::deviceSelectedForTesting(WebCore::CaptureDevice::DeviceType deviceType)
 {
     ASSERT(m_indexOfDeviceSelectedForTesting);
 
     unsigned index = 0;
-    for (auto& device : RealtimeMediaSourceCenter::singleton().displayCaptureFactory().displayCaptureDeviceManager().captureDevices()) {
+    for (auto& device : WebCore::RealtimeMediaSourceCenter::singleton().displayCaptureFactory().displayCaptureDeviceManager().captureDevices()) {
         if (device.enabled() && device.type() == deviceType) {
             if (index == m_indexOfDeviceSelectedForTesting.value())
                 return { device };
@@ -191,12 +192,19 @@ std::optional<CaptureDevice> DisplayCaptureSessionManager::deviceSelectedForTest
     return std::nullopt;
 }
 
-void DisplayCaptureSessionManager::showWindowPicker(WebPageProxy& page, const WebCore::SecurityOriginData& origin, CompletionHandler<void(std::optional<CaptureDevice>)>&& completionHandler)
+void DisplayCaptureSessionManager::showWindowPicker(WebPageProxy& page, const WebCore::SecurityOriginData& origin, CompletionHandler<void(std::optional<WebCore::CaptureDevice>)>&& completionHandler)
 {
     if (m_indexOfDeviceSelectedForTesting) {
-        completionHandler(deviceSelectedForTesting(CaptureDevice::DeviceType::Window));
+        completionHandler(deviceSelectedForTesting(WebCore::CaptureDevice::DeviceType::Window));
         return;
     }
+
+#if HAVE(SC_CONTENT_SHARING_SESSION)
+    if (WebCore::ScreenCaptureKitSharingSessionManager::isAvailable()) {
+        WebCore::ScreenCaptureKitSharingSessionManager::singleton().showWindowPicker(WTFMove(completionHandler));
+        return;
+    }
+#endif
 
     alertForWindowSelection(page, origin, [completionHandler = WTFMove(completionHandler)] (std::optional<String> windowID, std::optional<String> windowTitle) mutable {
 
@@ -205,21 +213,28 @@ void DisplayCaptureSessionManager::showWindowPicker(WebPageProxy& page, const We
             return;
         }
 
-        CaptureDevice device = { windowID.value(), CaptureDevice::DeviceType::Window, windowTitle.value(), emptyString(), true };
+        WebCore::CaptureDevice device = { windowID.value(), WebCore::CaptureDevice::DeviceType::Window, windowTitle.value(), emptyString(), true };
         completionHandler({ device });
     });
 }
 
-void DisplayCaptureSessionManager::showScreenPicker(WebPageProxy&, const WebCore::SecurityOriginData&, CompletionHandler<void(std::optional<CaptureDevice>)>&& completionHandler)
+void DisplayCaptureSessionManager::showScreenPicker(WebPageProxy&, const WebCore::SecurityOriginData&, CompletionHandler<void(std::optional<WebCore::CaptureDevice>)>&& completionHandler)
 {
     if (m_indexOfDeviceSelectedForTesting) {
-        completionHandler(deviceSelectedForTesting(CaptureDevice::DeviceType::Screen));
+        completionHandler(deviceSelectedForTesting(WebCore::CaptureDevice::DeviceType::Screen));
         return;
     }
 
+#if HAVE(SC_CONTENT_SHARING_SESSION)
+    if (WebCore::ScreenCaptureKitSharingSessionManager::isAvailable()) {
+        WebCore::ScreenCaptureKitSharingSessionManager::singleton().showScreenPicker(WTFMove(completionHandler));
+        return;
+    }
+#endif
+
     callOnMainRunLoop([completionHandler = WTFMove(completionHandler)] () mutable {
-        for (auto& device : RealtimeMediaSourceCenter::singleton().displayCaptureFactory().displayCaptureDeviceManager().captureDevices()) {
-            if (device.enabled() && device.type() == CaptureDevice::DeviceType::Screen) {
+        for (auto& device : WebCore::RealtimeMediaSourceCenter::singleton().displayCaptureFactory().displayCaptureDeviceManager().captureDevices()) {
+            if (device.enabled() && device.type() == WebCore::CaptureDevice::DeviceType::Screen) {
                 completionHandler({ device });
                 return;
             }
@@ -233,7 +248,7 @@ void DisplayCaptureSessionManager::showScreenPicker(WebPageProxy&, const WebCore
 bool DisplayCaptureSessionManager::isAvailable()
 {
 #if HAVE(SCREEN_CAPTURE_KIT)
-    return ScreenCaptureKitCaptureSource::isAvailable();
+    return WebCore::ScreenCaptureKitCaptureSource::isAvailable();
 #else
     return false;
 #endif
@@ -254,7 +269,7 @@ DisplayCaptureSessionManager::~DisplayCaptureSessionManager()
 {
 }
 
-void DisplayCaptureSessionManager::promptForGetDisplayMedia(UserMediaPermissionRequestProxy::UserMediaDisplayCapturePromptType promptType, WebPageProxy& page, const WebCore::SecurityOriginData& origin, CompletionHandler<void(std::optional<CaptureDevice>)>&& completionHandler)
+void DisplayCaptureSessionManager::promptForGetDisplayMedia(UserMediaPermissionRequestProxy::UserMediaDisplayCapturePromptType promptType, WebPageProxy& page, const WebCore::SecurityOriginData& origin, CompletionHandler<void(std::optional<WebCore::CaptureDevice>)>&& completionHandler)
 {
     ASSERT(isAvailable());
 

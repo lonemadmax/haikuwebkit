@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -240,10 +240,6 @@ void DisplayList::append(ItemHandle item)
         return append<ClipOutToPath>(item.get<ClipOutToPath>());
     case ItemType::ClipPath:
         return append<ClipPath>(item.get<ClipPath>());
-    case ItemType::BeginClipToDrawingCommands:
-        return append<BeginClipToDrawingCommands>(item.get<BeginClipToDrawingCommands>());
-    case ItemType::EndClipToDrawingCommands:
-        return append<EndClipToDrawingCommands>(item.get<EndClipToDrawingCommands>());
     case ItemType::DrawFilteredImageBuffer:
         return append<DrawFilteredImageBuffer>(item.get<DrawFilteredImageBuffer>());
     case ItemType::DrawGlyphs:
@@ -298,10 +294,6 @@ void DisplayList::append(ItemHandle item)
         return append<FillEllipse>(item.get<FillEllipse>());
     case ItemType::FlushContext:
         return append<FlushContext>(item.get<FlushContext>());
-    case ItemType::GetPixelBuffer:
-        return append<GetPixelBuffer>(item.get<GetPixelBuffer>());
-    case ItemType::PutPixelBuffer:
-        return append<PutPixelBuffer>(item.get<PutPixelBuffer>());
 #if ENABLE(VIDEO)
     case ItemType::PaintFrameForMedia:
         return append<PaintFrameForMedia>(item.get<PaintFrameForMedia>());

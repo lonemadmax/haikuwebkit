@@ -54,12 +54,13 @@ messages -> NetworkProcessProxy LegacyReceiver {
 
 #if ENABLE(SERVICE_WORKER)
     EstablishServiceWorkerContextConnectionToNetworkProcess(WebCore::RegistrableDomain registrableDomain, std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, PAL::SessionID sessionID) -> () Async
-    ServiceWorkerContextConnectionNoLongerNeeded(WebCore::ProcessIdentifier identifier)
-    RegisterServiceWorkerClientProcess(WebCore::ProcessIdentifier webProcessIdentifier, WebCore::ProcessIdentifier serviceWorkerProcessIdentifier)
-    UnregisterServiceWorkerClientProcess(WebCore::ProcessIdentifier webProcessIdentifier, WebCore::ProcessIdentifier serviceWorkerProcessIdentifier)
     StartServiceWorkerBackgroundProcessing(WebCore::ProcessIdentifier serviceWorkerProcessIdentifier)
     EndServiceWorkerBackgroundProcessing(WebCore::ProcessIdentifier serviceWorkerProcessIdentifier)
 #endif
+    EstablishSharedWorkerContextConnectionToNetworkProcess(WebCore::RegistrableDomain registrableDomain, PAL::SessionID sessionID) -> () Async
+    RemoteWorkerContextConnectionNoLongerNeeded(enum:uint32_t WebKit::RemoteWorkerType workerType, WebCore::ProcessIdentifier identifier)
+    RegisterRemoteWorkerClientProcess(enum:uint32_t WebKit::RemoteWorkerType workerType, WebCore::ProcessIdentifier webProcessIdentifier, WebCore::ProcessIdentifier remoteWorkerProcessIdentifier);
+    UnregisterRemoteWorkerClientProcess(enum:uint32_t WebKit::RemoteWorkerType workerType, WebCore::ProcessIdentifier webProcessIdentifier, WebCore::ProcessIdentifier remoteWorkerProcessIdentifier);
 
     SetWebProcessHasUploads(WebCore::ProcessIdentifier processID, bool hasUpload)
 
@@ -68,6 +69,7 @@ messages -> NetworkProcessProxy LegacyReceiver {
 #endif
 
     RequestStorageSpace(PAL::SessionID sessionID, struct WebCore::ClientOrigin origin, uint64_t quota, uint64_t currentSize, uint64_t spaceRequired) -> (std::optional<uint64_t> newQuota) Async
+    IncreaseQuota(PAL::SessionID sessionID, struct WebCore::ClientOrigin origin, WebKit::QuotaIncreaseRequestIdentifier identifier, uint64_t quota, uint64_t currentSize, uint64_t spaceRequested)
     
     ResourceLoadDidSendRequest(WebKit::WebPageProxyIdentifier pageIdentifier, struct WebKit::ResourceLoadInfo resourceLoadInfo, WebCore::ResourceRequest request, std::optional<IPC::FormDataReference> httpBody)
     ResourceLoadDidPerformHTTPRedirection(WebKit::WebPageProxyIdentifier pageIdentifier, struct WebKit::ResourceLoadInfo resourceLoadInfo, WebCore::ResourceResponse resourceResponse, WebCore::ResourceRequest request)

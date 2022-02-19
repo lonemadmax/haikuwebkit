@@ -32,6 +32,7 @@
 #import "UserMediaCaptureManager.h"
 #import "WKAccessibilityWebPageObjectBase.h"
 #import "WebPageProxyMessages.h"
+#import "WebPasteboardOverrides.h"
 #import "WebPaymentCoordinator.h"
 #import "WebRemoteObjectRegistry.h"
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
@@ -70,7 +71,7 @@ void WebPage::platformInitialize(const WebPageCreationParameters& parameters)
 
 #if ENABLE(MEDIA_STREAM)
     if (auto* captureManager = WebProcess::singleton().supplement<UserMediaCaptureManager>())
-        captureManager->setupCaptureProcesses(parameters.shouldCaptureAudioInUIProcess, parameters.shouldCaptureAudioInGPUProcess, parameters.shouldCaptureVideoInUIProcess, parameters.shouldCaptureVideoInGPUProcess, parameters.shouldCaptureDisplayInUIProcess);
+        captureManager->setupCaptureProcesses(parameters.shouldCaptureAudioInUIProcess, parameters.shouldCaptureAudioInGPUProcess, parameters.shouldCaptureVideoInUIProcess, parameters.shouldCaptureVideoInGPUProcess, parameters.shouldCaptureDisplayInUIProcess, m_page->settings().webRTCRemoteVideoFrameEnabled());
 #endif
 }
 
@@ -449,6 +450,32 @@ void WebPage::handleClickForDataDetectionResult(const DataDetectorElementInfo& i
 }
 
 #endif
+
+static String& replaceSelectionPasteboardName()
+{
+    static NeverDestroyed<String> string("ReplaceSelectionPasteboard");
+    return string;
+}
+
+void WebPage::replaceSelectionWithPasteboardData(const Vector<String>& types, const IPC::DataReference& data)
+{
+    for (auto& type : types)
+        WebPasteboardOverrides::sharedPasteboardOverrides().addOverride(replaceSelectionPasteboardName(), type, { data });
+
+    readSelectionFromPasteboard(replaceSelectionPasteboardName(), [](bool) { });
+
+    for (auto& type : types)
+        WebPasteboardOverrides::sharedPasteboardOverrides().removeOverride(replaceSelectionPasteboardName(), type);
+}
+
+void WebPage::readSelectionFromPasteboard(const String& pasteboardName, CompletionHandler<void(bool&&)>&& completionHandler)
+{
+    auto& frame = m_page->focusController().focusedOrMainFrame();
+    if (frame.selection().isNone())
+        return completionHandler(false);
+    frame.editor().readSelectionFromPasteboard(pasteboardName);
+    completionHandler(true);
+}
 
 } // namespace WebKit
 

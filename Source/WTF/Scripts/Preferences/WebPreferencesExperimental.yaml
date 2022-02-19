@@ -977,9 +977,9 @@ OverscrollBehaviorEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 PageAtRuleSupportEnabled:
   type: bool
@@ -1122,6 +1122,8 @@ PushAPIEnabled:
   webcoreBinding: RuntimeEnabledFeatures
   defaultValue:
     WebCore:
+      default: false
+    WebKitLegacy:
       default: false
     WebKit:
       default: false
@@ -1293,7 +1295,7 @@ SharedWorkerEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
 
 ShouldDeferAsynchronousScriptsUntilAfterDocumentLoadOrFirstPaint:
   type: bool
@@ -1346,6 +1348,18 @@ StorageAPIEnabled:
       default: false
     WebCore:
       "PLATFORM(COCOA)" : true
+      default: false
+
+SubgridEnabled:
+  type: bool
+  humanReadableName: "CSS subgrid support"
+  humanReadableDescription: "Enable CSS subgrid support"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
       default: false
 
 SyntheticEditingCommandsEnabled:

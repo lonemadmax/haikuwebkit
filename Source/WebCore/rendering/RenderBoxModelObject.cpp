@@ -894,7 +894,7 @@ void RenderBoxModelObject::paintFillLayerExtended(const PaintInfo& paintInfo, co
         maskRect.intersect(snapRectToDevicePixels(paintInfo.rect, deviceScaleFactor));
 
         // Now create the mask.
-        maskImage = ImageBuffer::createCompatibleBuffer(maskRect.size(), DestinationColorSpace::SRGB(), context);
+        maskImage = context.createCompatibleImageBuffer(maskRect.size());
         if (!maskImage)
             return;
         paintMaskForTextFillBox(maskImage.get(), maskRect, box, scrolledPaintRect);
@@ -2719,6 +2719,13 @@ void RenderBoxModelObject::collectAbsoluteQuadsForContinuation(Vector<FloatQuad>
         }
         nextInContinuation->absoluteQuadsIgnoringContinuation({ }, quads, wasFixed);
     }
+}
+
+void RenderBoxModelObject::applyTransform(TransformationMatrix&, const FloatRect&, OptionSet<RenderStyle::TransformOperationOption>) const
+{
+    // applyTransform() is only used through RenderLayer*, which only invokes this for RenderBox derived renderers, thus not for
+    // RenderInline/RenderLineBreak - the other two renderers that inherit from RenderBoxModelObject.
+    ASSERT_NOT_REACHED();
 }
 
 } // namespace WebCore

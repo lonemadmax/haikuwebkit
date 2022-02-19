@@ -389,6 +389,11 @@ public:
 
     bool isMarkingForGCVerifier() const { return m_isMarkingForGCVerifier; }
 
+    void appendPossiblyAccessedStringFromConcurrentThreads(String&& string)
+    {
+        m_possiblyAccessedStringsFromConcurrentThreads.append(WTFMove(string));
+    }
+
 private:
     friend class AllocatingScope;
     friend class CodeBlock;
@@ -638,6 +643,8 @@ private:
 
     Vector<WeakBlock*> m_logicallyEmptyWeakBlocks;
     size_t m_indexOfNextLogicallyEmptyWeakBlockToSweep { WTF::notFound };
+
+    Vector<String> m_possiblyAccessedStringsFromConcurrentThreads;
     
     RefPtr<FullGCActivityCallback> m_fullActivityCallback;
     RefPtr<GCActivityCallback> m_edenActivityCallback;
@@ -919,6 +926,7 @@ public:
     DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(nativeStdFunctionSpace)
     DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(proxyObjectSpace)
     DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(proxyRevokeSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(remoteFunctionSpace)
     DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(scopedArgumentsTableSpace)
     DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(scriptFetchParametersSpace)
     DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(scriptFetcherSpace)

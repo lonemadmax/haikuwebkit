@@ -95,8 +95,10 @@ void AbortSignal::signalAbort(JSC::JSValue reason)
     // 2. Set signal’s aborted flag.
     m_aborted = true;
 
+    // FIXME: This code is wrong: we should emit a write-barrier. Otherwise, GC can collect it.
+    // https://bugs.webkit.org/show_bug.cgi?id=236353
     ASSERT(reason);
-    m_reason = reason;
+    m_reason.setWeakly(reason);
 
     Ref protectedThis { *this };
     auto algorithms = std::exchange(m_algorithms, { });
@@ -114,7 +116,7 @@ void AbortSignal::signalFollow(AbortSignal& signal)
         return;
 
     if (signal.aborted()) {
-        signalAbort(signal.reason());
+        signalAbort(signal.reason().getValue());
         return;
     }
 
@@ -122,7 +124,7 @@ void AbortSignal::signalFollow(AbortSignal& signal)
     m_followingSignal = signal;
     signal.addAlgorithm([weakThis = WeakPtr { this }] {
         if (weakThis)
-            weakThis->signalAbort(weakThis->m_followingSignal ? static_cast<JSC::JSValue>(weakThis->m_followingSignal->reason()) : JSC::jsUndefined());
+            weakThis->signalAbort(weakThis->m_followingSignal ? weakThis->m_followingSignal->reason().getValue() : JSC::jsUndefined());
     });
 }
 
@@ -150,7 +152,7 @@ void AbortSignal::throwIfAborted(JSC::JSGlobalObject& lexicalGlobalObject)
 
     auto& vm = lexicalGlobalObject.vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
-    throwException(&lexicalGlobalObject, scope, m_reason);
+    throwException(&lexicalGlobalObject, scope, m_reason.getValue());
 }
 
 } // namespace WebCore

@@ -110,6 +110,7 @@ class WebOpenPanelResultListenerProxy;
 class WebPageProxy;
 }
 
+@class AVPlayerViewController;
 @class QLPreviewController;
 @class WebEvent;
 @class WebTextIndicatorLayer;
@@ -221,7 +222,8 @@ namespace WebKit {
 enum SuppressSelectionAssistantReason : uint8_t {
     EditableRootIsTransparentOrFullyClipped = 1 << 0,
     FocusedElementIsTooSmall = 1 << 1,
-    InteractionIsHappening = 1 << 2
+    InteractionIsHappening = 1 << 2,
+    HoverPlatterEnabled = 1 << 3,
 };
 
 struct WKSelectionDrawingInfo {
@@ -241,6 +243,12 @@ struct WKAutoCorrectionData {
     RetainPtr<UIFont> font;
     CGRect textFirstRect;
     CGRect textLastRect;
+};
+
+struct ImageAnalysisMarkupData {
+    WebCore::ElementContext element;
+    RetainPtr<CGImageRef> image;
+    String preferredMIMEType;
 };
 
 enum class ProceedWithTextSelectionInImage : bool {
@@ -304,6 +312,7 @@ using ImageAnalysisRequestIdentifier = ObjectIdentifier<ImageAnalysisRequestIden
 
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     RetainPtr<WKMouseGestureRecognizer> _mouseGestureRecognizer;
+    RetainPtr<WKMouseGestureRecognizer> _alternateMouseGestureRecognizer;
     WebCore::MouseEventPolicy _mouseEventPolicy;
 #endif
 
@@ -527,6 +536,10 @@ using ImageAnalysisRequestIdentifier = ObjectIdentifier<ImageAnalysisRequestIden
     BOOL _hasVisualSearchResults;
 #endif // USE(QUICK_LOOK)
 #endif // ENABLE(IMAGE_ANALYSIS)
+    uint32_t _fullscreenVideoExtractionRequestIdentifier;
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    std::optional<WebKit::ImageAnalysisMarkupData> _imageAnalysisMarkupData;
+#endif
 }
 
 @end
@@ -769,9 +782,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (WebCore::DataOwnerType)_dataOwnerForPasteboard:(WebKit::PasteboardAccessIntent)intent;
 #endif
 
-#if ENABLE(APP_HIGHLIGHTS)
-- (void)setUpAppHighlightMenusIfNeeded;
-#endif
+- (void)setUpAdditionalMenuControllerActions;
 
 #if ENABLE(IMAGE_ANALYSIS)
 - (void)_endImageAnalysisGestureDeferral:(WebKit::ShouldPreventGestures)shouldPreventGestures;
@@ -781,6 +792,10 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 #if HAVE(UIFINDINTERACTION)
 - (void)requestRectForFoundTextRange:(UITextRange *)range completionHandler:(void (^)(CGRect))completionHandler;
 #endif
+
+- (void)beginFullscreenVideoExtraction:(const WebKit::ShareableBitmap::Handle&)imageHandle playerViewController:(AVPlayerViewController *)playerViewController;
+- (void)cancelFullscreenVideoExtraction:(AVPlayerViewController *)controller;
+@property (nonatomic, readonly) BOOL isFullscreenVideoExtractionEnabled;
 
 @end
 

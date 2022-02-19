@@ -359,10 +359,10 @@ public:
     double loadingProgress() { return m_loadingProgress; }
     void updateLoadingProgress(double);
 
-    // Removes the given node leaving all descendants alone.
-    void removeNode(AXID);
-    // Removes the given node and all its descendants.
-    void removeSubtreeFromNodeMap(AXID, const HashSet<AXID>& = { });
+    // Removes the corresponding isolated object and all descendants from the m_nodeMap and queues their removal from the tree.
+    void removeNode(const AXCoreObject&);
+    // Removes the given node and all its descendants from m_nodeMap.
+    void removeSubtreeFromNodeMap(AXID axID, AXCoreObject*, const HashSet<AXID>& = { });
 
     // Both setRootNodeID and setFocusedNodeID are called during the generation
     // of the IsolatedTree.
@@ -384,19 +384,29 @@ private:
     static HashMap<AXIsolatedTreeID, Ref<AXIsolatedTree>>& treeIDCache() WTF_REQUIRES_LOCK(s_cacheLock);
     static HashMap<PageIdentifier, Ref<AXIsolatedTree>>& treePageCache() WTF_REQUIRES_LOCK(s_cacheLock);
 
-    // Called on main thread.
-    NodeChange nodeChangeForObject(AXCoreObject&, AXID parentID, bool attachWrapper = true, bool updateNodeMap = true);
+    // Methods in this block are called on the main thread.
+    // Computes the parent ID of the given object, which is generally the "assumed" parent ID (but not always, like in the case of tables).
+    AXID parentIDForObject(AXCoreObject&, AXID assumedParentID);
+    NodeChange nodeChangeForObject(AXCoreObject&, AXID parentID, bool attachWrapper = true);
     void collectNodeChangesForSubtree(AXCoreObject&, AXID parentID, bool attachWrapper, Vector<NodeChange>&, HashSet<AXID>* = nullptr);
     void queueChange(const NodeChange&) WTF_REQUIRES_LOCK(m_changeLogLock);
     void queueChangesAndRemovals(const Vector<NodeChange>&, const Vector<AXID>& = { });
-    Vector<NodeChange> nodeAncestryChanges(AXCoreObject&, HashSet<AXID>&);
 
     AXIsolatedTreeID m_treeID;
     AXObjectCache* m_axObjectCache { nullptr };
     bool m_usedOnAXThread { true };
 
-    // Only accessed on main thread.
-    HashMap<AXID, Vector<AXID>> m_nodeMap;
+    // Stores the parent ID and children IDS for a given IsolatedObject.
+    struct ParentChildrenIDs {
+        AXID parentID;
+        Vector<AXID> childrenIDs;
+    };
+    // Only accessed on the main thread.
+    // A representation of the tree's parent-child relationships. Each
+    // IsolatedObject must have one and only one entry in this map, that maps
+    // its ObjectID to its ParentChildrenIDs struct.
+    HashMap<AXID, ParentChildrenIDs> m_nodeMap;
+
     // Only accessed on AX thread requesting data.
     HashMap<AXID, Ref<AXIsolatedObject>> m_readerThreadNodeMap;
 
@@ -412,8 +422,6 @@ private:
     double m_pendingLoadingProgress WTF_GUARDED_BY_LOCK(m_changeLogLock) { 0 };
     double m_loadingProgress { 0 };
     Lock m_changeLogLock;
-
-    bool m_creatingSubtree { false };
 };
 
 inline AXObjectCache* AXIsolatedTree::axObjectCache() const

@@ -69,7 +69,6 @@ imported/w3c/web-platform-tests/css/css-text/text-align/text-align-start-015.htm
 imported/w3c/web-platform-tests/css/css-text/text-align/text-align-start-016.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-text/text-align/text-align-start-017.html [ Pass ]
 
-imported/w3c/web-platform-tests/html/browsers/windows/browsing-context-names/002.html [ Pass ]
 imported/w3c/web-platform-tests/html/browsers/windows/browsing-context-names/choose-_blank-003.html [ Pass ]
 
 imported/w3c/web-platform-tests/html/semantics/forms/form-submission-0/url-encoded.html [ Pass ]
@@ -248,6 +247,16 @@ webkit.org/b/216037 imported/w3c/web-platform-tests/css/css-backgrounds/backgrou
 # SVG
 webkit.org/b/220614 imported/w3c/web-platform-tests/svg/linking/reftests/url-reference-local-textpath.svg [ Failure Pass ]
 webkit.org/b/222895 imported/w3c/web-platform-tests/svg/text/reftests/dominant-baseline-hanging-small-font-size.svg [ Failure Pass ]
+
+webkit.org/b/236430 imported/w3c/web-platform-tests/svg/import/filters-composite-04-f-manual.svg [ Failure ]
+webkit.org/b/236430 imported/w3c/web-platform-tests/svg/import/filters-composite-05-f-manual.svg [ Failure ]
+webkit.org/b/236430 imported/w3c/web-platform-tests/svg/import/filters-conv-03-f-manual.svg [ Failure ]
+webkit.org/b/236430 imported/w3c/web-platform-tests/svg/import/filters-displace-01-f-manual.svg [ Failure ]
+webkit.org/b/236430 imported/w3c/web-platform-tests/svg/import/filters-image-01-b-manual.svg [ Failure ]
+webkit.org/b/236430 imported/w3c/web-platform-tests/svg/import/filters-image-02-b-manual.svg [ Failure ]
+webkit.org/b/236430 imported/w3c/web-platform-tests/svg/import/filters-image-03-f-manual.svg [ Failure ]
+webkit.org/b/236430 imported/w3c/web-platform-tests/svg/import/filters-image-04-f-manual.svg [ Failure ]
+webkit.org/b/236430 imported/w3c/web-platform-tests/svg/import/filters-image-05-f-manual.svg [ Failure ]
 
 # WebGL
 webkit.org/b/213203 webgl/1.0.3/conformance/rendering/multisample-corruption.html [ Failure Timeout ]
@@ -566,7 +575,6 @@ webkit.org/b/209328 imported/w3c/web-platform-tests/css/css-text/line-break/line
 
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-out-of-flow-002.html [ Pass ]
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-span-002.html [ Pass ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/overflow-wrap/overflow-wrap-break-word-keep-all-001.html [ Failure ]
 
 # Still failing even after r259188.
 webkit.org/b/206885 css3/font-variant-font-face-override.html [ ImageOnlyFailure ]
@@ -1299,9 +1307,6 @@ webkit.org/b/212200 fast/spatial-navigation/snav-unit-overflow-and-scroll-in-dir
 
 webkit.org/b/212023 fast/scrolling/scroll-select-list.html [ ImageOnlyFailure ]
 
-webkit.org/b/153941 fast/text/control-characters/visible-control-characters-2.html [ ImageOnlyFailure ]
-webkit.org/b/153941 fast/text/control-characters/visible-control-characters-3.html [ ImageOnlyFailure ]
-
 webkit.org/b/158472 fast/text/international/system-language/han-quotes.html [ ImageOnlyFailure ]
 
 webkit.org/b/212204 fast/text/international/hebrew-selection.html [ ImageOnlyFailure ]
@@ -1352,5 +1357,3 @@ webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/scrollabl
 #////////////////////////////////////////////////////////////////////////////////////////
 
 # These tests require platform support.
-fast/text/locale-shaping-2.html [ ImageOnlyFailure ]
-fast/text/locale-shaping-3.html [ ImageOnlyFailure ]

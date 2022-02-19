@@ -50,7 +50,7 @@ RemoteResourceCache& RemoteDisplayListRecorder::resourceCache()
 
 GraphicsContext& RemoteDisplayListRecorder::drawingContext()
 {
-    return m_maskImageBuffer ? m_maskImageBuffer->context() : m_imageBuffer->context();
+    return m_imageBuffer->context();
 }
 
 void RemoteDisplayListRecorder::startListeningForIPC()
@@ -198,22 +198,6 @@ void RemoteDisplayListRecorder::clipOutToPath(const Path& path)
 void RemoteDisplayListRecorder::clipPath(const Path& path, WindRule rule)
 {
     handleItem(DisplayList::ClipPath(path, rule));
-}
-
-void RemoteDisplayListRecorder::beginClipToDrawingCommands(const FloatRect& destination, const DestinationColorSpace& colorSpace)
-{
-    m_maskImageBuffer = ImageBuffer::createCompatibleBuffer(destination.size(), colorSpace, drawingContext());
-}
-
-void RemoteDisplayListRecorder::endClipToDrawingCommands(const FloatRect& destination)
-{
-    auto maskImageBuffer = std::exchange(m_maskImageBuffer, { });
-    if (!maskImageBuffer) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-
-    drawingContext().clipToImageBuffer(*maskImageBuffer, destination);
 }
 
 void RemoteDisplayListRecorder::drawFilteredImageBuffer(std::optional<RenderingResourceIdentifier> sourceImageIdentifier, const FloatRect& sourceImageRect, IPC::FilterReference filterReference)
@@ -429,16 +413,6 @@ void RemoteDisplayListRecorder::fillPath(const Path& path)
 void RemoteDisplayListRecorder::fillEllipse(const FloatRect& rect)
 {
     handleItem(DisplayList::FillEllipse(rect));
-}
-
-void RemoteDisplayListRecorder::getPixelBuffer(const IntRect& srcRect, const PixelBufferFormat& outputFormat)
-{
-    m_renderingBackend->populateGetPixelBufferSharedMemory(m_imageBuffer->getPixelBuffer(outputFormat, srcRect));
-}
-
-void RemoteDisplayListRecorder::putPixelBuffer(const IntRect& srcRect, const IntPoint& destPoint, const PixelBuffer& pixelBuffer, AlphaPremultiplication destFormat)
-{
-    m_imageBuffer->putPixelBuffer(pixelBuffer, srcRect, destPoint, destFormat);
 }
 
 void RemoteDisplayListRecorder::convertToLuminanceMask()

@@ -1763,6 +1763,15 @@ ExceptionOr<unsigned> Internals::inspectorGridOverlayCount()
     return document->page()->inspectorController().gridOverlayCount();
 }
 
+ExceptionOr<unsigned> Internals::inspectorFlexOverlayCount()
+{
+    Document* document = contextDocument();
+    if (!document || !document->page())
+        return Exception { InvalidAccessError };
+
+    return document->page()->inspectorController().flexOverlayCount();
+}
+
 ExceptionOr<Ref<DOMRectList>> Internals::inspectorHighlightRects()
 {
     Document* document = contextDocument();
@@ -5315,13 +5324,6 @@ void Internals::setAsRunningUserScripts(Document& document)
 {
     document.setAsRunningUserScripts();
 }
-
-#if ENABLE(APPLE_PAY)
-void Internals::setApplePayIsActive(Document& document)
-{
-    document.setApplePayIsActive();
-}
-#endif
 
 #if ENABLE(WEBGL)
 void Internals::simulateEventForWebGLContext(SimulatedWebGLContextEvent event, WebGLRenderingContext& context)

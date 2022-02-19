@@ -219,6 +219,7 @@ public:
     void addOverflowFromChild(const RenderBox* child, const LayoutSize& delta);
 
     void updateLayerTransform();
+    void applyTransform(TransformationMatrix&, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption> = RenderStyle::allTransformOperations) const override;
 
     LayoutSize contentSize() const { return { contentWidth(), contentHeight() }; }
     LayoutUnit contentWidth() const { return std::max(0_lu, paddingBoxWidth() - paddingLeft() - paddingRight()); }
@@ -261,6 +262,7 @@ public:
     virtual void setScrollTop(int, const ScrollPositionChangeOptions&);
     void setScrollPosition(const ScrollPosition&, const ScrollPositionChangeOptions&);
 
+    const LayoutBoxExtent& marginBox() const { return m_marginBox; }
     LayoutUnit marginTop() const override { return m_marginBox.top(); }
     LayoutUnit marginBottom() const override { return m_marginBox.bottom(); }
     LayoutUnit marginLeft() const override { return m_marginBox.left(); }

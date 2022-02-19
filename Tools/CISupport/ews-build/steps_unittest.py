@@ -1260,6 +1260,16 @@ class TestAnalyzeCompileWebKitResults(BuildStepMixinAdditions, unittest.TestCase
         self.expectOutcome(result=FAILURE, state_string='Unable to build WebKit without patch, retrying build (failure)')
         return self.runStep()
 
+    def test_pr_with_main_failure(self):
+        previous_steps = [
+            mock_step(CompileWebKit(), results=FAILURE),
+            mock_step(CompileWebKitWithoutChange(), results=FAILURE),
+        ]
+        self.setupStep(AnalyzeCompileWebKitResults(), previous_steps=previous_steps)
+        self.setProperty('github.number', '1234')
+        self.expectOutcome(result=FAILURE, state_string='Unable to build WebKit without PR, retrying build (failure)')
+        return self.runStep()
+
     def test_filter_logs_containing_error(self):
         logs = 'In file included from WebCore/unified-sources/UnifiedSource263.cpp:4:\nImageBufferIOSurfaceBackend.cpp:108:30: error: definition of implicitly declared destructor'
         expected_output = 'ImageBufferIOSurfaceBackend.cpp:108:30: error: definition of implicitly declared destructor'
@@ -2924,6 +2934,14 @@ class TestCheckOutSpecificRevision(BuildStepMixinAdditions, unittest.TestCase):
         self.expectOutcome(result=SKIPPED, state_string='Checked out required revision (skipped)')
         return self.runStep()
 
+    def test_skip_pr(self):
+        self.setupStep(CheckOutSpecificRevision())
+        self.setProperty('github.number', '1234')
+        self.setProperty('ews_revision', '1a3425cb92dbcbca12a10aa9514f1b77c76dc26')
+        self.expectHidden(True)
+        self.expectOutcome(result=SKIPPED, state_string='Checked out required revision (skipped)')
+        return self.runStep()
+
 
 class TestCleanWorkingDirectory(BuildStepMixinAdditions, unittest.TestCase):
     def setUp(self):
@@ -3079,6 +3097,8 @@ class TestCheckOutPullRequest(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('github.number', '1234')
         self.setProperty('github.head.repo.full_name', 'Contributor/WebKit')
         self.setProperty('github.head.ref', 'eng/pull-request-branch')
+        self.setProperty('github.base.sha', 'aaebef7312238f3ad1d25e8894916a1aaea45ba1')
+        self.setProperty('got_revision', '59dab0396721db221c264aad3c0cea37ef0d297b')
         self.assertEqual(CheckOutPullRequest.flunkOnFailure, True)
         self.assertEqual(CheckOutPullRequest.haltOnFailure, True)
         self.expectRemoteCommands(
@@ -3107,6 +3127,16 @@ class TestCheckOutPullRequest(BuildStepMixinAdditions, unittest.TestCase):
                 timeout=600,
                 logEnviron=False,
                 command=['git', 'checkout', 'eng/pull-request-branch'],
+            ) + 0, ExpectShell(
+                workdir='wkdir',
+                timeout=600,
+                logEnviron=False,
+                command=['git', 'config', 'merge.changelog.driver', 'perl Tools/Scripts/resolve-ChangeLogs --merge-driver -c %O %A %B'],
+            ) + 0, ExpectShell(
+                workdir='wkdir',
+                timeout=600,
+                logEnviron=False,
+                command=['git', 'rebase', '--onto', '59dab0396721db221c264aad3c0cea37ef0d297b', 'aaebef7312238f3ad1d25e8894916a1aaea45ba1', 'eng/pull-request-branch'],
             ) + 0,
         )
         self.expectOutcome(result=SUCCESS, state_string='Checked out pull request')
@@ -3117,6 +3147,8 @@ class TestCheckOutPullRequest(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('github.number', '1234')
         self.setProperty('github.head.repo.full_name', 'Contributor/WebKit')
         self.setProperty('github.head.ref', 'eng/pull-request-branch')
+        self.setProperty('github.base.sha', 'aaebef7312238f3ad1d25e8894916a1aaea45ba1')
+        self.setProperty('got_revision', '59dab0396721db221c264aad3c0cea37ef0d297b')
         self.assertEqual(CheckOutPullRequest.flunkOnFailure, True)
         self.assertEqual(CheckOutPullRequest.haltOnFailure, True)
         self.expectRemoteCommands(
@@ -3137,7 +3169,7 @@ class TestCheckOutPullRequest(BuildStepMixinAdditions, unittest.TestCase):
                 command=['git', 'fetch', 'Contributor'],
             ) + 1,
         )
-        self.expectOutcome(result=FAILURE, state_string='Failed to checkout branch from PR 1234')
+        self.expectOutcome(result=FAILURE, state_string='Failed to checkout and rebase branch from PR 1234')
         return self.runStep()
 
     def test_skipped(self):
@@ -3201,7 +3233,7 @@ class TestRevertPullRequestChanges(BuildStepMixinAdditions, unittest.TestCase):
 
     def test_success(self):
         self.setupStep(RevertPullRequestChanges())
-        self.setProperty('github.base.sha', 'b2db8d1da7b74b5ddf075e301370e64d914eef7c')
+        self.setProperty('got_revision', 'b2db8d1da7b74b5ddf075e301370e64d914eef7c')
         self.setProperty('github.number', 1234)
         self.expectHidden(False)
         self.expectRemoteCommands(
@@ -3222,7 +3254,7 @@ class TestRevertPullRequestChanges(BuildStepMixinAdditions, unittest.TestCase):
 
     def test_failure(self):
         self.setupStep(RevertPullRequestChanges())
-        self.setProperty('github.base.sha', 'b2db8d1da7b74b5ddf075e301370e64d914eef7c')
+        self.setProperty('ews_revision', 'b2db8d1da7b74b5ddf075e301370e64d914eef7c')
         self.setProperty('github.number', 1234)
         self.expectHidden(False)
         self.expectRemoteCommands(
@@ -4203,7 +4235,7 @@ class TestUploadTestResults(BuildStepMixinAdditions, unittest.TestCase):
         self.setupStep(UploadTestResults())
         self.setProperty('configuration', 'release')
         self.setProperty('architecture', 'x86_64')
-        self.setProperty('patch_id', '1234')
+        self.setProperty('change_id', '1234')
         self.setProperty('buildername', 'macOS-Sierra-Release-WK2-Tests-EWS')
         self.setProperty('buildnumber', '12')
         self.expectHidden(False)
@@ -4214,7 +4246,27 @@ class TestUploadTestResults(BuildStepMixinAdditions, unittest.TestCase):
             + Expect.behavior(uploadFileWithContentsOfString('Dummy zip file content.'))
             + 0,
         )
-        self.expectUploadedFile('public_html/results/macOS-Sierra-Release-WK2-Tests-EWS/r1234-12.zip')
+        self.expectUploadedFile('public_html/results/macOS-Sierra-Release-WK2-Tests-EWS/1234-12.zip')
+
+        self.expectOutcome(result=SUCCESS, state_string='Uploaded test results')
+        return self.runStep()
+
+    def test_success_hash(self):
+        self.setupStep(UploadTestResults())
+        self.setProperty('configuration', 'release')
+        self.setProperty('architecture', 'x86_64')
+        self.setProperty('change_id', '8f75a5fa')
+        self.setProperty('buildername', 'macOS-Sierra-Release-WK2-Tests-EWS')
+        self.setProperty('buildnumber', '12')
+        self.expectHidden(False)
+        self.expectRemoteCommands(
+            Expect('uploadFile', dict(workersrc='layout-test-results.zip', workdir='wkdir',
+                                      blocksize=1024 * 256, maxsize=None, keepstamp=False,
+                                      writer=ExpectRemoteRef(remotetransfer.FileWriter)))
+            + Expect.behavior(uploadFileWithContentsOfString('Dummy zip file content.'))
+            + 0,
+        )
+        self.expectUploadedFile('public_html/results/macOS-Sierra-Release-WK2-Tests-EWS/8f75a5fa-12.zip')
 
         self.expectOutcome(result=SUCCESS, state_string='Uploaded test results')
         return self.runStep()
@@ -4223,7 +4275,7 @@ class TestUploadTestResults(BuildStepMixinAdditions, unittest.TestCase):
         self.setupStep(UploadTestResults(identifier='clean-tree'))
         self.setProperty('configuration', 'release')
         self.setProperty('architecture', 'x86_64')
-        self.setProperty('patch_id', '271211')
+        self.setProperty('change_id', '37be32c5')
         self.setProperty('buildername', 'iOS-12-Simulator-WK2-Tests-EWS')
         self.setProperty('buildnumber', '120')
         self.expectHidden(False)
@@ -4234,7 +4286,7 @@ class TestUploadTestResults(BuildStepMixinAdditions, unittest.TestCase):
             + Expect.behavior(uploadFileWithContentsOfString('Dummy zip file content.'))
             + 0,
         )
-        self.expectUploadedFile('public_html/results/iOS-12-Simulator-WK2-Tests-EWS/r271211-120-clean-tree.zip')
+        self.expectUploadedFile('public_html/results/iOS-12-Simulator-WK2-Tests-EWS/37be32c5-120-clean-tree.zip')
 
         self.expectOutcome(result=SUCCESS, state_string='Uploaded test results')
         return self.runStep()
@@ -4251,16 +4303,16 @@ class TestExtractTestResults(BuildStepMixinAdditions, unittest.TestCase):
     def test_success(self):
         self.setupStep(ExtractTestResults())
         self.setProperty('configuration', 'release')
-        self.setProperty('patch_id', '1234')
+        self.setProperty('change_id', '1234')
         self.setProperty('buildername', 'macOS-Sierra-Release-WK2-Tests-EWS')
         self.setProperty('buildnumber', '12')
         self.expectLocalCommands(
             ExpectMasterShellCommand(command=['unzip',
                                               '-q',
                                               '-o',
-                                              'public_html/results/macOS-Sierra-Release-WK2-Tests-EWS/r1234-12.zip',
+                                              'public_html/results/macOS-Sierra-Release-WK2-Tests-EWS/1234-12.zip',
                                               '-d',
-                                              'public_html/results/macOS-Sierra-Release-WK2-Tests-EWS/r1234-12',
+                                              'public_html/results/macOS-Sierra-Release-WK2-Tests-EWS/1234-12',
                                               ])
             + 0,
         )
@@ -4271,41 +4323,41 @@ class TestExtractTestResults(BuildStepMixinAdditions, unittest.TestCase):
     def test_success_with_identifier(self):
         self.setupStep(ExtractTestResults(identifier='rerun'))
         self.setProperty('configuration', 'release')
-        self.setProperty('patch_id', '1234')
+        self.setProperty('change_id', '1234')
         self.setProperty('buildername', 'iOS-12-Simulator-WK2-Tests-EWS')
         self.setProperty('buildnumber', '12')
         self.expectLocalCommands(
             ExpectMasterShellCommand(command=['unzip',
                                               '-q',
                                               '-o',
-                                              'public_html/results/iOS-12-Simulator-WK2-Tests-EWS/r1234-12-rerun.zip',
+                                              'public_html/results/iOS-12-Simulator-WK2-Tests-EWS/1234-12-rerun.zip',
                                               '-d',
-                                              'public_html/results/iOS-12-Simulator-WK2-Tests-EWS/r1234-12-rerun',
+                                              'public_html/results/iOS-12-Simulator-WK2-Tests-EWS/1234-12-rerun',
                                               ])
             + 0,
         )
         self.expectOutcome(result=SUCCESS, state_string='Extracted test results')
-        self.expectAddedURLs([call('view layout test results', 'https://ews-build.s3-us-west-2.amazonaws.com/iOS-12-Simulator-WK2-Tests-EWS/r1234-12/results.html')])
+        self.expectAddedURLs([call('view layout test results', 'https://ews-build.s3-us-west-2.amazonaws.com/iOS-12-Simulator-WK2-Tests-EWS/1234-12/results.html')])
         return self.runStep()
 
     def test_failure(self):
         self.setupStep(ExtractTestResults())
         self.setProperty('configuration', 'debug')
-        self.setProperty('patch_id', '1234')
+        self.setProperty('change_id', '1234')
         self.setProperty('buildername', 'macOS-Sierra-Release-WK2-Tests-EWS')
         self.setProperty('buildnumber', '12')
         self.expectLocalCommands(
             ExpectMasterShellCommand(command=['unzip',
                                               '-q',
                                               '-o',
-                                              'public_html/results/macOS-Sierra-Release-WK2-Tests-EWS/r1234-12.zip',
+                                              'public_html/results/macOS-Sierra-Release-WK2-Tests-EWS/1234-12.zip',
                                               '-d',
-                                              'public_html/results/macOS-Sierra-Release-WK2-Tests-EWS/r1234-12',
+                                              'public_html/results/macOS-Sierra-Release-WK2-Tests-EWS/1234-12',
                                               ])
             + 2,
         )
         self.expectOutcome(result=FAILURE, state_string='failed (2) (failure)')
-        self.expectAddedURLs([call('view layout test results', 'https://ews-build.s3-us-west-2.amazonaws.com/macOS-Sierra-Release-WK2-Tests-EWS/r1234-12/results.html')])
+        self.expectAddedURLs([call('view layout test results', 'https://ews-build.s3-us-west-2.amazonaws.com/macOS-Sierra-Release-WK2-Tests-EWS/1234-12/results.html')])
         return self.runStep()
 
 
@@ -4515,6 +4567,8 @@ class TestCleanGitRepo(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('buildername', 'Style-EWS')
 
         self.expectRemoteCommands(
+            ExpectShell(command=['/bin/sh', '-c', 'git rebase --abort & true'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout=''),
             ExpectShell(command=['git', 'clean', '-f', '-d'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout=''),
             ExpectShell(command=['git', 'fetch', 'origin'], workdir='wkdir', timeout=300, logEnviron=False) + 0
@@ -4534,6 +4588,8 @@ class TestCleanGitRepo(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('buildername', 'Commit-Queue')
 
         self.expectRemoteCommands(
+            ExpectShell(command=['/bin/sh', '-c', 'git rebase --abort & true'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout=''),
             ExpectShell(command=['git', 'clean', '-f', '-d'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout=''),
             ExpectShell(command=['git', 'fetch', 'origin'], workdir='wkdir', timeout=300, logEnviron=False) + 0
@@ -4553,6 +4609,8 @@ class TestCleanGitRepo(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('buildername', 'Commit-Queue')
 
         self.expectRemoteCommands(
+            ExpectShell(command=['/bin/sh', '-c', 'git rebase --abort & true'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout=''),
             ExpectShell(command=['git', 'clean', '-f', '-d'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout=''),
             ExpectShell(command=['git', 'fetch', 'origin'], workdir='wkdir', timeout=300, logEnviron=False) + 128
@@ -4573,6 +4631,8 @@ class TestCleanGitRepo(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('basename', 'safari-612-branch')
 
         self.expectRemoteCommands(
+            ExpectShell(command=['/bin/sh', '-c', 'git rebase --abort & true'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout=''),
             ExpectShell(command=['git', 'clean', '-f', '-d'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout=''),
             ExpectShell(command=['git', 'fetch', 'origin'], workdir='wkdir', timeout=300, logEnviron=False) + 0
@@ -5043,7 +5103,7 @@ class TestShowIdentifier(BuildStepMixinAdditions, unittest.TestCase):
 
     def test_success_pull_request(self):
         self.setupStep(ShowIdentifier())
-        self.setProperty('github.base.sha', '51a6aec9f664')
+        self.setProperty('got_revision', '51a6aec9f664')
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         timeout=300,
@@ -5060,7 +5120,7 @@ class TestShowIdentifier(BuildStepMixinAdditions, unittest.TestCase):
     def test_prioritized(self):
         self.setupStep(ShowIdentifier())
         self.setProperty('ews_revision', '51a6aec9f664')
-        self.setProperty('github.base.sha', '9f66451a6aec')
+        self.setProperty('got_revision', '9f66451a6aec')
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         timeout=300,

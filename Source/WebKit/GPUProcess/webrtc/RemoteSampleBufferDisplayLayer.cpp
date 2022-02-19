@@ -28,6 +28,8 @@
 
 #if PLATFORM(COCOA) && ENABLE(GPU_PROCESS) && ENABLE(MEDIA_STREAM)
 
+#include "IPCTester.h"
+#include "RemoteVideoFrameObjectHeap.h"
 #include "SampleBufferDisplayLayerMessages.h"
 #include <WebCore/ImageTransferSessionVT.h>
 #include <WebCore/LocalSampleBufferDisplayLayer.h>
@@ -35,18 +37,22 @@
 #include <WebCore/RemoteVideoSample.h>
 
 namespace WebKit {
+static constexpr Seconds defaultTimeout { 1_s };
+
 using namespace WebCore;
 
-std::unique_ptr<RemoteSampleBufferDisplayLayer> RemoteSampleBufferDisplayLayer::create(SampleBufferDisplayLayerIdentifier identifier, Ref<IPC::Connection>&& connection)
+std::unique_ptr<RemoteSampleBufferDisplayLayer> RemoteSampleBufferDisplayLayer::create(GPUConnectionToWebProcess& gpuConnection, SampleBufferDisplayLayerIdentifier identifier, Ref<IPC::Connection>&& connection)
 {
-    auto layer = std::unique_ptr<RemoteSampleBufferDisplayLayer>(new RemoteSampleBufferDisplayLayer(identifier, WTFMove(connection)));
+    auto layer = std::unique_ptr<RemoteSampleBufferDisplayLayer>(new RemoteSampleBufferDisplayLayer(gpuConnection, identifier, WTFMove(connection)));
     return layer->m_sampleBufferDisplayLayer ? WTFMove(layer) : nullptr;
 }
 
-RemoteSampleBufferDisplayLayer::RemoteSampleBufferDisplayLayer(SampleBufferDisplayLayerIdentifier identifier, Ref<IPC::Connection>&& connection)
-    : m_identifier(identifier)
+RemoteSampleBufferDisplayLayer::RemoteSampleBufferDisplayLayer(GPUConnectionToWebProcess& gpuConnection, SampleBufferDisplayLayerIdentifier identifier, Ref<IPC::Connection>&& connection)
+    : m_gpuConnection(gpuConnection)
+    , m_identifier(identifier)
     , m_connection(WTFMove(connection))
     , m_sampleBufferDisplayLayer(LocalSampleBufferDisplayLayer::create(*this))
+    , m_videoFrameObjectHeap(m_gpuConnection.videoFrameObjectHeap())
 {
     ASSERT(m_sampleBufferDisplayLayer);
 }
@@ -113,7 +119,23 @@ void RemoteSampleBufferDisplayLayer::pause()
     m_sampleBufferDisplayLayer->pause();
 }
 
-void RemoteSampleBufferDisplayLayer::enqueueSample(RemoteVideoSample&& remoteSample)
+void RemoteSampleBufferDisplayLayer::enqueueSample(RemoteVideoFrameReadReference&& sample)
+{
+    auto mediaSample = m_videoFrameObjectHeap->retire(WTFMove(sample), defaultTimeout);
+    if (!mediaSample) {
+        // In case of GPUProcess crash, we might enqueue previous GPUProcess samples, ignore them.
+        return;
+    }
+    ASSERT(is<MediaSampleAVFObjC>(mediaSample));
+    if (!is<MediaSampleAVFObjC>(mediaSample))
+        return;
+
+    auto& avfMediaSample = downcast<MediaSampleAVFObjC>(*mediaSample);
+    MediaSampleAVFObjC::setAsDisplayImmediately(avfMediaSample);
+    m_sampleBufferDisplayLayer->enqueueSample(avfMediaSample);
+}
+
+void RemoteSampleBufferDisplayLayer::enqueueSampleCV(WebCore::RemoteVideoSample&& remoteSample)
 {
     RefPtr<MediaSample> sample;
     if (!remoteSample.surface()) {
@@ -121,8 +143,7 @@ void RemoteSampleBufferDisplayLayer::enqueueSample(RemoteVideoSample&& remoteSam
         if (!pixelBuffer)
             return;
 
-        sample = MediaSampleAVFObjC::createImageSample(WTFMove(pixelBuffer), remoteSample.rotation(), remoteSample.mirrored());
-        sample->setTimestamps(remoteSample.time(), MediaTime { });
+        sample = MediaSampleAVFObjC::createImageSample(WTFMove(pixelBuffer), remoteSample.rotation(), remoteSample.mirrored(), remoteSample.time());
     } else {
         if (!m_imageTransferSession || m_imageTransferSession->pixelFormat() != remoteSample.videoFormat())
             m_imageTransferSession = ImageTransferSessionVT::create(remoteSample.videoFormat());
@@ -164,11 +185,7 @@ void RemoteSampleBufferDisplayLayer::setSharedVideoFrameSemaphore(IPC::Semaphore
 
 void RemoteSampleBufferDisplayLayer::setSharedVideoFrameMemory(const SharedMemory::IPCHandle& ipcHandle)
 {
-    auto memory = SharedMemory::map(ipcHandle.handle, SharedMemory::Protection::ReadOnly);
-    if (!memory)
-        return;
-
-    m_sharedVideoFrameReader.setSharedMemory(memory.releaseNonNull());
+    m_sharedVideoFrameReader.setSharedMemory(ipcHandle);
 }
 
 }

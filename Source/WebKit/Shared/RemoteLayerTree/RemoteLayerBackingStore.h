@@ -44,6 +44,7 @@ typedef Vector<WebCore::FloatRect, 5> RepaintRectList;
 namespace WebKit {
 
 class PlatformCALayerRemote;
+class RemoteLayerBackingStoreCollection;
 
 class RemoteLayerBackingStore {
     WTF_MAKE_NONCOPYABLE(RemoteLayerBackingStore);
@@ -68,6 +69,7 @@ public:
 
     WebCore::FloatSize size() const { return m_size; }
     float scale() const { return m_scale; }
+    WebCore::PixelFormat pixelFormat() const;
     Type type() const { return m_type; }
     bool isOpaque() const { return m_isOpaque; }
     unsigned bytesPerPixel() const;
@@ -103,12 +105,12 @@ public:
     void clearBackingStore();
 
 private:
+    RemoteLayerBackingStoreCollection* backingStoreCollection() const;
+
     void drawInContext(WebCore::GraphicsContext&);
     void swapToValidFrontBuffer();
 
     bool supportsPartialRepaint();
-
-    WebCore::PixelFormat pixelFormat() const;
 
     PlatformCALayerRemote* m_layer;
 
@@ -133,13 +135,17 @@ private:
         void discard();
     };
 
+    // Used in the WebContent Process.
     Buffer m_frontBuffer;
     Buffer m_backBuffer;
     Buffer m_secondaryBackBuffer;
+
+    // Used in the UI Process.
     std::optional<ImageBufferBackendHandle> m_bufferHandle;
     // FIXME: This should be removed and m_bufferHandle should be used to ref the buffer once ShareableBitmap::Handle
     // can be encoded multiple times. http://webkit.org/b/234169
     std::optional<MachSendRight> m_contentsBufferHandle;
+
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
     std::optional<ImageBufferBackendHandle> m_displayListBufferHandle;
 #endif

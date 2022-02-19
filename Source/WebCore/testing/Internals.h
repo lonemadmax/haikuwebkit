@@ -294,6 +294,7 @@ public:
 
     ExceptionOr<Ref<DOMRectList>> inspectorHighlightRects();
     ExceptionOr<unsigned> inspectorGridOverlayCount();
+    ExceptionOr<unsigned> inspectorFlexOverlayCount();
     ExceptionOr<unsigned> inspectorPaintRectCount();
 
     ExceptionOr<unsigned> markerCountForNode(Node&, const String&);
@@ -823,9 +824,6 @@ public:
     void setQuickLookPassword(const String&);
 
     void setAsRunningUserScripts(Document&);
-#if ENABLE(APPLE_PAY)
-    void setApplePayIsActive(Document&);
-#endif
 
 #if ENABLE(WEBGL)
     enum class SimulatedWebGLContextEvent {

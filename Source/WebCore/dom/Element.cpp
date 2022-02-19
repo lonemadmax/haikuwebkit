@@ -888,7 +888,7 @@ void Element::setHasFocusWithin(bool value)
     }
 }
 
-void Element::setHovered(bool value, Style::InvalidationScope invalidationScope)
+void Element::setHovered(bool value, Style::InvalidationScope invalidationScope, HitTestRequest)
 {
     if (value == hovered())
         return;
@@ -2130,6 +2130,12 @@ void Element::invalidateStyleForSubtreeInternal()
     Node::invalidateStyle(Style::Validity::SubtreeInvalid);
 }
 
+void Element::invalidateForQueryContainerChange()
+{
+    // FIXME: This doesn't really need to recompute the element style.
+    Node::invalidateStyle(Style::Validity::ElementInvalid);
+}
+
 void Element::invalidateEventListenerRegions()
 {
     // Event listener region is updated via style update.
@@ -3103,7 +3109,7 @@ void Element::focus(const FocusOptions& options)
         FocusOptions optionsWithVisibility = options;
         if (options.trigger == FocusTrigger::Bindings && document->wasLastFocusByClick())
             optionsWithVisibility.visibility = FocusVisibility::Invisible;
-        else
+        else if (options.trigger != FocusTrigger::Click)
             optionsWithVisibility.visibility = FocusVisibility::Visible;
 
         // Focus and change event handlers can cause us to lose our last ref.

@@ -28,6 +28,7 @@
 
 #include "JSCConfig.h"
 #include "MarkedBlock.h"
+#include "StructureID.h"
 
 #include <wtf/OSAllocator.h>
 
@@ -76,13 +77,13 @@ public:
 
         m_mappedHeapSize = structureHeapAddressSize;
         for (unsigned i = 0; i < 8; ++i) {
-            g_jscConfig.startOfStructureHeap = reinterpret_cast<uintptr_t>(OSAllocator::tryReserveUncommittedAligned(m_mappedHeapSize, OSAllocator::FastMallocPages));
+            g_jscConfig.startOfStructureHeap = reinterpret_cast<uintptr_t>(OSAllocator::tryReserveUncommittedAligned(m_mappedHeapSize, structureHeapAddressSize, OSAllocator::FastMallocPages));
             if (g_jscConfig.startOfStructureHeap)
                 break;
             m_mappedHeapSize /= 2;
         }
 
-        ASSERT((g_jscConfig.startOfStructureHeap & ~structureIDMask) == g_jscConfig.startOfStructureHeap);
+        RELEASE_ASSERT(g_jscConfig.startOfStructureHeap && ((g_jscConfig.startOfStructureHeap & ~structureIDMask) == g_jscConfig.startOfStructureHeap));
     }
 
     void* tryMallocStructureBlock()
@@ -96,10 +97,11 @@ public:
             RELEASE_ASSERT(m_mappedHeapSize <= structureHeapAddressSize);
             if (freeIndex * MarkedBlock::blockSize >= m_mappedHeapSize)
                 return nullptr;
+            // If we can't find a free block then `freeIndex == m_usedBlocks.bitCount()` and this set will grow the bit vector.
             m_usedBlocks.set(freeIndex);
         }
 
-        MarkedBlock* block = reinterpret_cast<MarkedBlock*>(g_jscConfig.startOfStructureHeap) + freeIndex * MarkedBlock::blockSize;
+        auto* block = reinterpret_cast<uint8_t*>(g_jscConfig.startOfStructureHeap) + freeIndex * MarkedBlock::blockSize;
         commitBlock(block);
         return block;
     }

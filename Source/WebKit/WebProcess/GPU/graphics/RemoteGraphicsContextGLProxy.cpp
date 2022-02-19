@@ -32,8 +32,13 @@
 #include "GPUProcessConnection.h"
 #include "RemoteGraphicsContextGLMessages.h"
 #include "RemoteGraphicsContextGLProxyMessages.h"
+#include "RemoteVideoFrameObjectHeapProxy.h"
 #include "WebProcess.h"
 #include <WebCore/ImageBuffer.h>
+
+#if ENABLE(MEDIA_STREAM)
+#include "RemoteVideoFrameProxy.h"
+#endif
 
 namespace WebKit {
 
@@ -118,6 +123,31 @@ void RemoteGraphicsContextGLProxy::paintCompositedResultsToCanvas(ImageBuffer& b
     }
 }
 
+#if ENABLE(MEDIA_STREAM)
+RefPtr<WebCore::MediaSample> RemoteGraphicsContextGLProxy::paintCompositedResultsToMediaSample()
+{
+    if (isContextLost())
+        return nullptr;
+    std::optional<RemoteVideoFrameProxy::Properties> result;
+    auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::PaintCompositedResultsToMediaSample(), Messages::RemoteGraphicsContextGL::PaintCompositedResultsToMediaSample::Reply(result));
+    if (!sendResult) {
+        markContextLost();
+        return nullptr;
+    }
+    if (!result)
+        return nullptr;
+    return RemoteVideoFrameProxy::create(m_gpuProcessConnection->connection(), WTFMove(*result),
+#if PLATFORM(COCOA)
+        [proxy = Ref { m_gpuProcessConnection->remoteVideoFrameObjectHeapProxy() }](auto& frame, auto&& callback) {
+            proxy->getVideoFrameBuffer(frame, WTFMove(callback));
+        }
+#else
+        [auto& frame, auto&& callback] { callback(); }
+#endif
+    );
+}
+#endif
+
 bool RemoteGraphicsContextGLProxy::copyTextureFromMedia(MediaPlayer& mediaPlayer, PlatformGLObject texture, GCGLenum target, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY)
 {
     bool result = false;
@@ -196,6 +226,20 @@ void RemoteGraphicsContextGLProxy::markContextLost()
     disconnectGpuProcessIfNeeded();
     for (auto* client : copyToVector(m_clients))
         client->forceContextLost();
+}
+
+bool RemoteGraphicsContextGLProxy::handleMessageToRemovedDestination(IPC::Connection&, IPC::Decoder& decoder)
+{
+    // Skip messages intended for already removed messageReceiverMap() destinations.
+    // These are business as usual. These can happen for example by:
+    //  - The object is created and immediately destroyed, before WasCreated was handled.
+    //  - A send to GPU process times out, we remove the object. If the GPU process delivers the message at the same
+    //    time, it might be in the message delivery callback.
+    // When adding new messages to RemoteGraphicsContextGLProxy, add them to this list.
+    ASSERT(decoder.messageName() == Messages::RemoteGraphicsContextGLProxy::WasCreated::name()
+        || decoder.messageName() == Messages::RemoteGraphicsContextGLProxy::WasLost::name()
+        || decoder.messageName() == Messages::RemoteGraphicsContextGLProxy::WasChanged::name());
+    return true;
 }
 
 void RemoteGraphicsContextGLProxy::waitUntilInitialized()

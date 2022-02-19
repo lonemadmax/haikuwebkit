@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -76,10 +76,6 @@ static size_t sizeOfItemInBytes(ItemType type)
         return sizeof(ClipOutToPath);
     case ItemType::ClipPath:
         return sizeof(ClipPath);
-    case ItemType::BeginClipToDrawingCommands:
-        return sizeof(BeginClipToDrawingCommands);
-    case ItemType::EndClipToDrawingCommands:
-        return sizeof(EndClipToDrawingCommands);
     case ItemType::DrawFilteredImageBuffer:
         return sizeof(DrawFilteredImageBuffer);
     case ItemType::DrawGlyphs:
@@ -134,10 +130,6 @@ static size_t sizeOfItemInBytes(ItemType type)
         return sizeof(FillEllipse);
     case ItemType::FlushContext:
         return sizeof(FlushContext);
-    case ItemType::GetPixelBuffer:
-        return sizeof(GetPixelBuffer);
-    case ItemType::PutPixelBuffer:
-        return sizeof(PutPixelBuffer);
 #if ENABLE(VIDEO)
     case ItemType::PaintFrameForMedia:
         return sizeof(PaintFrameForMedia);
@@ -194,8 +186,6 @@ bool isDrawingItem(ItemType type)
     case ItemType::ClipToImageBuffer:
     case ItemType::ClipOutToPath:
     case ItemType::ClipPath:
-    case ItemType::BeginClipToDrawingCommands:
-    case ItemType::EndClipToDrawingCommands:
     case ItemType::ConcatenateCTM:
     case ItemType::FlushContext:
     case ItemType::Restore:
@@ -212,7 +202,6 @@ bool isDrawingItem(ItemType type)
     case ItemType::SetState:
     case ItemType::SetStrokeThickness:
     case ItemType::Translate:
-    case ItemType::GetPixelBuffer:
         return false;
     case ItemType::BeginTransparencyLayer:
     case ItemType::ClearRect:
@@ -247,7 +236,6 @@ bool isDrawingItem(ItemType type)
 #if ENABLE(VIDEO)
     case ItemType::PaintFrameForMedia:
 #endif
-    case ItemType::PutPixelBuffer:
     case ItemType::StrokeEllipse:
 #if ENABLE(INLINE_PATH_DATA)
     case ItemType::StrokeArc:
@@ -290,7 +278,6 @@ bool isInlineItem(ItemType type)
      * and (3) all the "static constexpr bool isInlineItem"s inside the individual item classes. */
 
     switch (type) {
-    case ItemType::BeginClipToDrawingCommands:
     case ItemType::ClipOutToPath:
     case ItemType::ClipPath:
     case ItemType::DrawFocusRingPath:
@@ -304,8 +291,6 @@ bool isInlineItem(ItemType type)
     case ItemType::FillRectWithGradient:
     case ItemType::FillRectWithRoundedHole:
     case ItemType::FillRoundedRect:
-    case ItemType::GetPixelBuffer:
-    case ItemType::PutPixelBuffer:
     case ItemType::SetLineDash:
     case ItemType::SetState:
     case ItemType::StrokePath:
@@ -321,7 +306,6 @@ bool isInlineItem(ItemType type)
     case ItemType::Clip:
     case ItemType::ClipOut:
     case ItemType::ClipToImageBuffer:
-    case ItemType::EndClipToDrawingCommands:
     case ItemType::ConcatenateCTM:
     case ItemType::DrawDotsForDocumentMarker:
     case ItemType::DrawEllipse:

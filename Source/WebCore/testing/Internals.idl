@@ -406,6 +406,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     DOMRect boundingBox(Element element);
 
     unsigned long inspectorGridOverlayCount();
+    unsigned long inspectorFlexOverlayCount();
     DOMRectList inspectorHighlightRects();
     unsigned long inspectorPaintRectCount();
 
@@ -884,7 +885,6 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     undefined setQuickLookPassword(DOMString password);
 
     [CallWith=CurrentDocument] undefined setAsRunningUserScripts();
-    [CallWith=CurrentDocument, Conditional=APPLE_PAY] undefined setApplePayIsActive();
 
     undefined disableTileSizeUpdateDelay();
     undefined setSpeculativeTilingDelayDisabledForTesting(boolean disabled);

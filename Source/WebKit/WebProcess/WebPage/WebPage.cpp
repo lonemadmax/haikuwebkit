@@ -4116,6 +4116,12 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
         settings.setMathMLEnabled(false);
 #endif
         settings.setPdfJSViewerEnabled(true);
+
+        settings.setAllowedMediaContainerTypes(store.getStringValueForKey(WebPreferencesKey::mediaContainerTypesAllowedInCaptivePortalModeKey()));
+        settings.setAllowedMediaCodecTypes(store.getStringValueForKey(WebPreferencesKey::mediaCodecTypesAllowedInCaptivePortalModeKey()));
+        settings.setAllowedMediaVideoCodecIDs(store.getStringValueForKey(WebPreferencesKey::mediaVideoCodecIDsAllowedInCaptivePortalModeKey()));
+        settings.setAllowedMediaAudioCodecIDs(store.getStringValueForKey(WebPreferencesKey::mediaAudioCodecIDsAllowedInCaptivePortalModeKey()));
+        settings.setAllowedMediaCaptionFormatTypes(store.getStringValueForKey(WebPreferencesKey::mediaCaptionFormatTypesAllowedInCaptivePortalModeKey()));
     }
 
 #if ENABLE(ARKIT_INLINE_PREVIEW)
@@ -6265,6 +6271,43 @@ void WebPage::canceledComposition()
     sendEditorStateUpdate();
 }
 
+void WebPage::interactableRegionsInRootViewCoordinates(FloatRect rect, CompletionHandler<void(Vector<FloatRect>)>&& completionHandler)
+{
+    Ref frame(m_page->mainFrame());
+
+    if (RefPtr frameView = frame->view())
+        frameView->updateLayoutAndStyleIfNeededRecursive();
+
+    auto result = HitTestResult { LayoutRect(rect) };
+    RefPtr document = frame->document();
+    if (!document) {
+        completionHandler({ });
+        return;
+    }
+
+    HitTestRequest request({
+        HitTestRequest::Type::ReadOnly,
+        HitTestRequest::Type::AllowVisibleChildFrameContentOnly,
+        HitTestRequest::Type::CollectMultipleElements
+    });
+    document->hitTest(request, result);
+
+    Vector<FloatRect> rects;
+
+    for (const auto& node : result.listBasedTestResult()) {
+        if (!is<Element>(node.get()))
+            continue;
+        auto& element = downcast<Element>(node.get());
+
+        if (!node->willRespondToMouseClickEvents())
+            continue;
+
+        rects.append(element.boundingBoxInRootViewCoordinates());
+    }
+
+    completionHandler(rects);
+}
+
 void WebPage::setAlwaysShowsHorizontalScroller(bool alwaysShowsHorizontalScroller)
 {
     if (alwaysShowsHorizontalScroller == m_alwaysShowsHorizontalScroller)
@@ -7705,6 +7748,42 @@ void WebPage::startImageAnalysis(const String& identifier)
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS)
+
+void WebPage::requestImageBitmap(const ElementContext& context, CompletionHandler<void(const ShareableBitmap::Handle&, const String& sourceMIMEType)>&& completion)
+{
+    RefPtr element = elementForContext(context);
+    if (!element) {
+        completion({ }, { });
+        return;
+    }
+
+    auto* renderer = dynamicDowncast<RenderImage>(element->renderer());
+    if (!renderer) {
+        completion({ }, { });
+        return;
+    }
+
+    auto bitmap = createShareableBitmap(*renderer);
+    if (!bitmap) {
+        completion({ }, { });
+        return;
+    }
+
+    ShareableBitmap::Handle handle;
+    bitmap->createHandle(handle);
+    if (handle.isNull()) {
+        completion({ }, { });
+        return;
+    }
+
+    String mimeType;
+    if (auto* cachedImage = renderer->cachedImage()) {
+        if (auto* image = cachedImage->image())
+            mimeType = image->mimeType();
+    }
+    ASSERT(!mimeType.isEmpty());
+    completion(handle, mimeType);
+}
 
 #if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
 void WebPage::showMediaControlsContextMenu(FloatRect&& targetFrame, Vector<MediaControlsContextMenuItem>&& items, CompletionHandler<void(MediaControlsContextMenuItem::ID)>&& completionHandler)

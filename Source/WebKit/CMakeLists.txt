@@ -28,6 +28,7 @@ set(WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/NetworkProcess/Notifications"
     "${WEBKIT_DIR}/NetworkProcess/PrivateClickMeasurement"
     "${WEBKIT_DIR}/NetworkProcess/ServiceWorker"
+    "${WEBKIT_DIR}/NetworkProcess/SharedWorker"
     "${WEBKIT_DIR}/NetworkProcess/WebStorage"
     "${WEBKIT_DIR}/NetworkProcess/cache"
     "${WEBKIT_DIR}/NetworkProcess/storage"
@@ -181,6 +182,7 @@ set(WebKit_MESSAGES_IN_FILES
     GPUProcess/media/RemoteMediaSourceProxy
     GPUProcess/media/RemoteRemoteCommandListenerProxy
     GPUProcess/media/RemoteSourceBufferProxy
+    GPUProcess/media/RemoteVideoFrameObjectHeap
 
     GPUProcess/webrtc/LibWebRTCCodecsProxy
     GPUProcess/webrtc/RemoteAudioMediaStreamTrackRendererInternalUnitManager
@@ -205,6 +207,9 @@ set(WebKit_MESSAGES_IN_FILES
     NetworkProcess/ServiceWorker/ServiceWorkerFetchTask
     NetworkProcess/ServiceWorker/WebSWServerConnection
     NetworkProcess/ServiceWorker/WebSWServerToContextConnection
+
+    NetworkProcess/SharedWorker/WebSharedWorkerServerConnection
+    NetworkProcess/SharedWorker/WebSharedWorkerServerToContextConnection
 
     NetworkProcess/WebStorage/StorageManagerSet
 
@@ -283,6 +288,7 @@ set(WebKit_MESSAGES_IN_FILES
     WebProcess/GPU/media/SourceBufferPrivateRemote
 
     WebProcess/GPU/webrtc/LibWebRTCCodecs
+    WebProcess/GPU/webrtc/RemoteVideoFrameObjectHeapProxyProcessor
     WebProcess/GPU/webrtc/SampleBufferDisplayLayer
 
     WebProcess/Geolocation/WebGeolocationManager
@@ -309,6 +315,8 @@ set(WebKit_MESSAGES_IN_FILES
 
     WebProcess/Speech/SpeechRecognitionRealtimeMediaSourceManager
 
+    WebProcess/Storage/WebSharedWorkerContextManagerConnection
+    WebProcess/Storage/WebSharedWorkerObjectConnection
     WebProcess/Storage/WebSWClientConnection
     WebProcess/Storage/WebSWContextManagerConnection
 

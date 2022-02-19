@@ -356,6 +356,7 @@ class RemoteLayerTreeScrollingPerformanceData;
 class RemoteLayerTreeTransaction;
 class RemoteMediaSessionCoordinatorProxy;
 class RemoteScrollingCoordinatorProxy;
+class RevealItem;
 class SecKeyProxyStore;
 class SpeechRecognitionPermissionManager;
 class UserData;
@@ -612,6 +613,7 @@ public:
 #endif
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
     void modelElementDidCreatePreview(const URL&, const String&, const WebCore::FloatSize&, CompletionHandler<void(Expected<std::pair<String, uint32_t>, WebCore::ResourceError>)>&&);
+    void modelElementSizeDidChange(const String&, WebCore::FloatSize, CompletionHandler<void(Expected<MachSendRight, WebCore::ResourceError>)>&&);
     void handleMouseDownForModelElement(const String&, const WebCore::LayoutPoint&, MonotonicTime);
     void handleMouseMoveForModelElement(const String&, const WebCore::LayoutPoint&, MonotonicTime);
     void handleMouseUpForModelElement(const String&, const WebCore::LayoutPoint&, MonotonicTime);
@@ -875,6 +877,9 @@ public:
     void requestAutocorrectionContext();
     void handleAutocorrectionContext(const WebAutocorrectionContext&);
     void requestDictationContext(CompletionHandler<void(const String&, const String&, const String&)>&&);
+#if ENABLE(REVEAL)
+    void requestRVItemInCurrentSelectedRange(CompletionHandler<void(const RevealItem&)>&&);
+#endif
     void replaceDictatedText(const String& oldText, const String& newText);
     void replaceSelectedText(const String& oldText, const String& newText);
     void didReceivePositionInformation(const InteractionInformationAtPosition&);
@@ -1178,6 +1183,7 @@ public:
     void registerWebProcessAccessibilityToken(const IPC::DataReference&);
     // Called by the UI process when it is ready to send its tokens to the web process.
     void registerUIProcessAccessibilityTokens(const IPC::DataReference& elemenToken, const IPC::DataReference& windowToken);
+    void replaceSelectionWithPasteboardData(const Vector<String>& types, const IPC::DataReference&);
     bool readSelectionFromPasteboard(const String& pasteboardName);
     String stringSelectionForPasteboard();
     RefPtr<WebCore::SharedBuffer> dataSelectionForPasteboard(const String& pasteboardType);
@@ -1185,10 +1191,6 @@ public:
     void assistiveTechnologyMakeFirstResponder();
 
     WebCore::DestinationColorSpace colorSpace();
-#endif
-
-#if ENABLE(SERVICE_CONTROLS)
-    void replaceSelectionWithPasteboardData(const Vector<String>& types, const IPC::DataReference&);
 #endif
 
     void pageScaleFactorDidChange(double);
@@ -2046,11 +2048,13 @@ public:
     WKQuickLookPreviewController *quickLookPreviewController() const { return m_quickLookPreviewController.get(); }
 #endif
 
+    void requestImageBitmap(const WebCore::ElementContext&, CompletionHandler<void(const ShareableBitmap::Handle&, const String& sourceMIMEType)>&&);
+
 #if PLATFORM(MAC)
     bool isQuarantinedAndNotUserApproved(const String&);
 #endif
 
-    void showNotification(const WebCore::NotificationData&);
+    void showNotification(IPC::Connection&, const WebCore::NotificationData&);
     void cancelNotification(const UUID& notificationID);
     void clearNotifications(const Vector<UUID>& notificationIDs);
     void didDestroyNotification(const UUID& notificationID);
@@ -2058,6 +2062,8 @@ public:
     void requestCookieConsent(CompletionHandler<void(WebCore::CookieConsentDecisionResult)>&&);
     void classifyModalContainerControls(Vector<String>&& texts, CompletionHandler<void(Vector<WebCore::ModalContainerControlType>&&)>&&);
     void decidePolicyForModalContainer(OptionSet<WebCore::ModalContainerControlType>, CompletionHandler<void(WebCore::ModalContainerDecision)>&&);
+
+    void interactableRegionsInRootViewCoordinates(WebCore::FloatRect, CompletionHandler<void(Vector<WebCore::FloatRect>)>&&);
 
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
@@ -2206,7 +2212,7 @@ private:
 
     void requestGeolocationPermissionForFrame(GeolocationIdentifier, FrameInfoData&&);
     void revokeGeolocationAuthorizationToken(const String& authorizationToken);
-    void requestPermission(const WebCore::ClientOrigin&, const WebCore::PermissionDescriptor&, CompletionHandler<void(WebCore::PermissionState)>&&);
+    void queryPermission(const WebCore::ClientOrigin&, const WebCore::PermissionDescriptor&, CompletionHandler<void(std::optional<WebCore::PermissionState>, bool shouldCache)>&&);
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
     void sendMessageToWebView(UserMessage&&);

@@ -2198,9 +2198,15 @@ void Document::updateLayout()
 
     StackStats::LayoutCheckPoint layoutCheckPoint;
 
-    // Only do a layout if changes have occurred that make it necessary.      
-    if (frameView && renderView() && (frameView->layoutContext().isLayoutPending() || renderView()->needsLayout()))
-        frameView->layoutContext().layout();
+    if (!frameView || !renderView())
+        return;
+    if (!frameView->layoutContext().isLayoutPending() && !renderView()->needsLayout())
+        return;
+
+    frameView->layoutContext().layout();
+
+    if (styleScope().updateQueryContainerState())
+        updateLayout();
 }
 
 void Document::updateLayoutIgnorePendingStylesheets(Document::RunPostLayoutTasks runPostLayoutTasks)
@@ -7437,11 +7443,11 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
     changeState(elementsToSetActive, CSSSelector::PseudoClassActive, true, [](auto& element) {
         element.setActive(true, false, Style::InvalidationScope::SelfChildrenAndSiblings);
     });
-    changeState(elementsToClearHover, CSSSelector::PseudoClassHover, false, [](auto& element) {
-        element.setHovered(false, Style::InvalidationScope::SelfChildrenAndSiblings);
+    changeState(elementsToClearHover, CSSSelector::PseudoClassHover, false, [request](auto& element) {
+        element.setHovered(false, Style::InvalidationScope::SelfChildrenAndSiblings, request);
     });
-    changeState(elementsToSetHover, CSSSelector::PseudoClassHover, true, [](auto& element) {
-        element.setHovered(true, Style::InvalidationScope::SelfChildrenAndSiblings);
+    changeState(elementsToSetHover, CSSSelector::PseudoClassHover, true, [request](auto& element) {
+        element.setHovered(true, Style::InvalidationScope::SelfChildrenAndSiblings, request);
     });
 }
 
@@ -7644,10 +7650,9 @@ void Document::ensurePlugInsInjectedScript(DOMWrapperWorld& world)
 
     // Use the JS file provided by the Chrome client, or fallback to the default one.
     String jsString = page()->chrome().client().plugInExtraScript();
-    if (!jsString || !scriptController.shouldAllowUserAgentScripts(*this))
+    if (!jsString)
         jsString = StringImpl::createWithoutCopying(plugInsJavaScript, sizeof(plugInsJavaScript));
 
-    setHasEvaluatedUserAgentScripts();
     scriptController.evaluateInWorldIgnoringException(ScriptSourceCode(jsString), world);
 
     m_hasInjectedPlugInsScript = true;
@@ -8858,12 +8863,6 @@ DOMTimerHoldingTank& Document::domTimerHoldingTank()
 
 #endif
 
-bool Document::hasEvaluatedUserAgentScripts() const
-{
-    auto& top = topDocument();
-    return this == &top ? m_hasEvaluatedUserAgentScripts : top.hasEvaluatedUserAgentScripts();
-}
-
 bool Document::isRunningUserScripts() const
 {
     auto& top = topDocument();
@@ -8877,15 +8876,6 @@ void Document::setAsRunningUserScripts()
         m_isRunningUserScripts = true;
     else
         top.setAsRunningUserScripts();
-}
-
-void Document::setHasEvaluatedUserAgentScripts()
-{
-    auto& top = topDocument();
-    if (this == &top)
-        m_hasEvaluatedUserAgentScripts = true;
-    else
-        top.setHasEvaluatedUserAgentScripts();
 }
 
 void Document::didRejectSyncXHRDuringPageDismissal()
@@ -8905,25 +8895,6 @@ bool Document::shouldIgnoreSyncXHRs() const
     const unsigned maxRejectedSyncXHRsPerEventLoopIteration = 5;
     return m_numberOfRejectedSyncXHRs > maxRejectedSyncXHRsPerEventLoopIteration;
 }
-
-#if ENABLE(APPLE_PAY)
-
-bool Document::isApplePayActive() const
-{
-    auto& top = topDocument();
-    return this == &top ? m_hasStartedApplePaySession : top.isApplePayActive();
-}
-
-void Document::setApplePayIsActive()
-{
-    auto& top = topDocument();
-    if (this == &top)
-        m_hasStartedApplePaySession = true;
-    else
-        top.setApplePayIsActive();
-}
-
-#endif
 
 MessagePortChannelProvider& Document::messagePortChannelProvider()
 {

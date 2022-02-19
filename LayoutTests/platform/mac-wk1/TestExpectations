@@ -145,9 +145,10 @@ imported/w3c/web-platform-tests/content-security-policy/worker-src/shared-worker
 imported/w3c/web-platform-tests/content-security-policy/worker-src/shared-worker-src-script-fallback.sub.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/worker-src/shared-worker-src-self-fallback.sub.html [ Skip ]
 imported/w3c/web-platform-tests/dom/idlharness.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/eventsource/eventsource-constructor-empty-url.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/eventsource/eventsource-constructor-url-bogus.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/eventsource/shared-worker [ Skip ]
 imported/w3c/web-platform-tests/fetch/api/cors/data-url-shared-worker.html [ Skip ]
-imported/w3c/web-platform-tests/html/browsers/offline/no-appcache-in-shared-workers-historical.https.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/evaluation-order-1-nothrow-sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/evaluation-order-1-sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/evaluation-order-2-import-sharedworker.html [ Skip ]
@@ -224,12 +225,15 @@ imported/w3c/web-platform-tests/workers/semantics/xhr/003.html [ Skip ]
 imported/w3c/web-platform-tests/workers/semantics/xhr/004.html [ Skip ]
 imported/w3c/web-platform-tests/workers/semantics/xhr/006.html [ Skip ]
 imported/w3c/web-platform-tests/workers/shared-worker-from-blob-url.window.html [ Skip ]
+imported/w3c/web-platform-tests/workers/shared-worker-in-data-url-context.window.html [ Skip ]
 imported/w3c/web-platform-tests/workers/shared-worker-name-via-options.html [ Skip ]
 imported/w3c/web-platform-tests/workers/shared-worker-options-mismatch.html [ Skip ]
 imported/w3c/web-platform-tests/workers/shared-worker-parse-error-failure.html [ Skip ]
 imported/w3c/web-platform-tests/workers/shared-worker-partitioned.tentative.html [ Skip ]
 imported/w3c/web-platform-tests/wasm/serialization/module/window-sharedworker-failure.html [ Skip ]
+imported/w3c/web-platform-tests/xhr/idlharness.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/xhr/open-url-redirected-sharedworker-origin.htm [ Skip ]
+imported/w3c/web-platform-tests/xhr/sync-no-timeout.any.sharedworker.html [ Skip ]
 
 http/wpt/mediarecorder [ Skip ]
 imported/w3c/web-platform-tests/mediacapture-record [ Skip ]
@@ -534,6 +538,8 @@ imported/w3c/web-platform-tests/content-security-policy/worker-src/service-worke
 imported/w3c/web-platform-tests/content-security-policy/worker-src/service-worker-src-script-fallback.https.sub.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/worker-src/service-worker-src-self-fallback.https.sub.html [ Skip ]
 imported/w3c/web-platform-tests/dom/idlharness.any.serviceworker.html [ Skip ]
+imported/w3c/web-platform-tests/eventsource/eventsource-constructor-empty-url.any.serviceworker.html [ Skip ]
+imported/w3c/web-platform-tests/eventsource/eventsource-constructor-url-bogus.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/api/request/destination [ Skip ]
 imported/w3c/web-platform-tests/fetch/cross-origin-resource-policy [ Skip ]
 imported/w3c/web-platform-tests/fetch/range/sw.https.window.html [ Skip ]
@@ -810,7 +816,6 @@ imported/w3c/web-platform-tests/html/browsers/history/the-history-interface/hist
 imported/w3c/web-platform-tests/html/browsers/history/the-location-interface/assign_after_load.html [ Pass Failure ]
 imported/w3c/web-platform-tests/html/browsers/history/the-location-interface/assign_before_load.html [ Pass Failure ]
 imported/w3c/web-platform-tests/html/browsers/the-window-object/apis-for-creating-and-navigating-browsing-contexts-by-name/open-features-non-integer-top.html [ Pass Failure ]
-imported/w3c/web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/img-aspect-ratio-lazy.tentative.html [ Pass Failure ]
 
 # Console logs are flaky.
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/module/integrity.html [ DumpJSConsoleLogInStdErr ]
@@ -1496,8 +1501,6 @@ webkit.org/b/221506 [ BigSur ] svg/clip-path/resource-clipper-multiple-repaints.
 
 webkit.org/b/222493 [ BigSur+ ] media/media-source/media-source-webm-vp8-malformed-header.html [ Skip ]
 
-webkit.org/b/221819 [ Debug ] imported/w3c/web-platform-tests/webaudio/the-audio-api/the-mediaelementaudiosourcenode-interface/mediaElementAudioSourceToScriptProcessorTest.html [ Pass Failure ]
-
 webkit.org/b/222693 [ BigSur Release ] media/video-aspect-ratio.html [ Failure Timeout ]
 
 webkit.org/b/223104 compositing/visibility/iframe-visibility-hidden.html [ Pass ImageOnlyFailure ]
@@ -1768,3 +1771,5 @@ fast/scrolling/rtl-scrollbars-alternate-iframe-body-dir-attr-does-not-update-scr
 # webkit.org/b/235733 Skip 2 editing/execCommand tests for making subsequent tests fail on wk1 Apple Silicon macs.  
 [ BigSur+ arm64 ] editing/execCommand/insert-newline-in-quoted-content-crash.html [ Skip ]
 [ BigSur+ arm64 ] editing/execCommand/paste-as-quotation-disconnected-paragraph-ancestor-crash.html [ Skip ]
+
+webkit.org/b/236530 fast/text/otsvg-canvas.html [ ImageOnlyFailure ]

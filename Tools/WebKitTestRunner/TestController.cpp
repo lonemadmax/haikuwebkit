@@ -63,6 +63,7 @@
 #include <WebKit/WKPluginInformation.h>
 #include <WebKit/WKPreferencesRefPrivate.h>
 #include <WebKit/WKProtectionSpace.h>
+#include <WebKit/WKQueryPermissionResultCallback.h>
 #include <WebKit/WKRetainPtr.h>
 #include <WebKit/WKSecurityOriginRef.h>
 #include <WebKit/WKSpeechRecognitionPermissionCallback.h>
@@ -357,6 +358,11 @@ void TestController::completeMediaKeySystemPermissionCheck(WKMediaKeySystemPermi
 void TestController::setIsMediaKeySystemPermissionGranted(bool granted)
 {
     m_isMediaKeySystemPermissionGranted = granted;
+}
+
+static void queryPermission(WKStringRef, WKSecurityOriginRef, WKQueryPermissionResultCallbackRef callback)
+{
+    WKQueryPermissionResultCallbackCompleteWithPrompt(callback);
 }
 
 void TestController::closeOtherPage(WKPageRef page, PlatformWebView* view)
@@ -690,6 +696,7 @@ WKRetainPtr<WKPageConfigurationRef> TestController::generatePageConfiguration(co
     WKNotificationManagerRef notificationManager = WKContextGetNotificationManager(m_context.get());
     WKNotificationProviderV0 notificationKit = m_webNotificationProvider.provider();
     WKNotificationManagerSetProvider(notificationManager, &notificationKit.base);
+    WKNotificationManagerSetProvider(WKNotificationManagerGetSharedServiceWorkerNotificationManager(), &notificationKit.base);
 
     if (testPluginDirectory())
         WKContextSetAdditionalPluginsDirectory(m_context.get(), testPluginDirectory());
@@ -709,6 +716,24 @@ WKRetainPtr<WKPageConfigurationRef> TestController::generatePageConfiguration(co
     m_userContentController = adoptWK(WKUserContentControllerCreate());
     WKPageConfigurationSetUserContentController(pageConfiguration.get(), userContentController());
     return pageConfiguration;
+}
+
+bool TestController::grantNotificationPermission(WKStringRef originString)
+{
+    m_webNotificationProvider.setPermission(toWTFString(originString), true);
+
+    auto origin = adoptWK(WKSecurityOriginCreateFromString(originString));
+    WKNotificationManagerProviderDidUpdateNotificationPolicy(WKNotificationManagerGetSharedServiceWorkerNotificationManager(), origin.get(), true);
+    return true;
+}
+
+bool TestController::denyNotificationPermission(WKStringRef originString)
+{
+    m_webNotificationProvider.setPermission(toWTFString(originString), false);
+
+    auto origin = adoptWK(WKSecurityOriginCreateFromString(originString));
+    WKNotificationManagerProviderDidUpdateNotificationPolicy(WKNotificationManagerGetSharedServiceWorkerNotificationManager(), origin.get(), false);
+    return true;
 }
 
 void TestController::createWebViewWithOptions(const TestOptions& options)
@@ -733,8 +758,8 @@ void TestController::createWebViewWithOptions(const TestOptions& options)
     WKHTTPCookieStoreDeleteAllCookies(WKWebsiteDataStoreGetHTTPCookieStore(websiteDataStore()), nullptr, nullptr);
 
     platformCreateWebView(configuration.get(), options);
-    WKPageUIClientV16 pageUIClient = {
-        { 16, m_mainWebView.get() },
+    WKPageUIClientV18 pageUIClient = {
+        { 18, m_mainWebView.get() },
         0, // createNewPage_deprecatedForUseWithV0
         0, // showPage
         0, // close
@@ -809,7 +834,9 @@ void TestController::createWebViewWithOptions(const TestOptions& options)
         shouldAllowDeviceOrientationAndMotionAccess,
         runWebAuthenticationPanel,
         decidePolicyForSpeechRecognitionPermissionRequest,
-        decidePolicyForMediaKeySystemPermissionRequest
+        decidePolicyForMediaKeySystemPermissionRequest,
+        nullptr, // requestWebAuthenticationNoGesture
+        queryPermission
     };
     WKPageSetPageUIClient(m_mainWebView->page(), &pageUIClient.base);
 
@@ -2349,6 +2376,11 @@ void TestController::didRemoveNavigationGestureSnapshot(WKPageRef)
 void TestController::simulateWebNotificationClick(WKDataRef notificationID)
 {
     m_webNotificationProvider.simulateWebNotificationClick(mainWebView()->page(), notificationID);
+}
+
+void TestController::simulateWebNotificationClickForServiceWorkerNotifications()
+{
+    m_webNotificationProvider.simulateWebNotificationClickForServiceWorkerNotifications();
 }
 
 void TestController::setGeolocationPermission(bool enabled)

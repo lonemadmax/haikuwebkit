@@ -28,10 +28,13 @@
 
 #if ENABLE(IMAGE_ANALYSIS)
 
+#import "CocoaImage.h"
 #import "Logging.h"
 #import <WebCore/TextRecognitionResult.h>
-#import <pal/cocoa/VisionKitCoreSoftLink.h>
 #import <pal/spi/cocoa/FeatureFlagsSPI.h>
+#import <wtf/WorkQueue.h>
+
+#import <pal/cocoa/VisionKitCoreSoftLink.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -117,12 +120,16 @@ TextRecognitionResult makeTextRecognitionResult(CocoaImageAnalysis *analysis)
 
 #if ENABLE(DATA_DETECTION)
     if ([analysis respondsToSelector:@selector(textDataDetectors)]) {
-        auto dataDetectors = retainPtr(analysis.textDataDetectors);
+        auto dataDetectors = RetainPtr { analysis.textDataDetectors };
         result.dataDetectors.reserveInitialCapacity([dataDetectors count]);
         for (VKWKDataDetectorInfo *info in dataDetectors.get())
             result.dataDetectors.uncheckedAppend({ info.result, floatQuads(info.boundingQuads) });
     }
 #endif // ENABLE(DATA_DETECTION)
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    result.platformData = { RetainPtr { analysis } };
+#endif
 
     return result;
 }
@@ -141,6 +148,15 @@ bool textRecognitionEnhancementsSystemFeatureEnabled()
 }
 
 bool imageAnalysisQueueSystemFeatureEnabled()
+{
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool isImageAnalysisMarkupSystemFeatureEnabled()
 {
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     return true;

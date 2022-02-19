@@ -776,11 +776,8 @@ void WKBundlePagePostMessageIgnoringFullySynchronousMode(WKBundlePageRef pageRef
 
 void WKBundlePagePostSynchronousMessageForTesting(WKBundlePageRef pageRef, WKStringRef messageNameRef, WKTypeRef messageBodyRef, WKTypeRef* returnRetainedDataRef)
 {
-    WebKit::WebPage* page = WebKit::toImpl(pageRef);
-    page->layoutIfNeeded();
-
     RefPtr<API::Object> returnData;
-    page->postSynchronousMessageForTesting(WebKit::toWTFString(messageNameRef), WebKit::toImpl(messageBodyRef), returnData);
+    WebKit::toImpl(pageRef)->postSynchronousMessageForTesting(WebKit::toWTFString(messageNameRef), WebKit::toImpl(messageBodyRef), returnData);
     if (returnRetainedDataRef)
         *returnRetainedDataRef = WebKit::toAPI(returnData.leakRef());
 }
@@ -873,4 +870,9 @@ void WKBundlePageSetEventThrottlingBehaviorOverride(WKBundlePageRef page, WKEven
     }
 
     WebKit::toImpl(page)->corePage()->setEventThrottlingBehaviorOverride(behaviorValue);
+}
+
+void WKBundlePageLayoutIfNeeded(WKBundlePageRef page)
+{
+    WebKit::toImpl(page)->layoutIfNeeded();
 }

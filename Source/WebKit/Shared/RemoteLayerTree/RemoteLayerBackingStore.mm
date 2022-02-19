@@ -61,8 +61,9 @@ RemoteLayerBackingStore::RemoteLayerBackingStore(PlatformCALayerRemote* layer)
 {
     if (!m_layer)
         return;
-    if (RemoteLayerTreeContext* context = m_layer->context())
-        context->backingStoreWasCreated(*this);
+
+    if (auto* collection = backingStoreCollection())
+        collection->backingStoreWasCreated(*this);
 }
 
 RemoteLayerBackingStore::~RemoteLayerBackingStore()
@@ -72,8 +73,16 @@ RemoteLayerBackingStore::~RemoteLayerBackingStore()
     if (!m_layer)
         return;
 
-    if (RemoteLayerTreeContext* context = m_layer->context())
-        context->backingStoreWillBeDestroyed(*this);
+    if (auto* collection = backingStoreCollection())
+        collection->backingStoreWillBeDestroyed(*this);
+}
+
+RemoteLayerBackingStoreCollection* RemoteLayerBackingStore::backingStoreCollection() const
+{
+    if (auto* context = m_layer->context())
+        return &context->backingStoreCollection();
+
+    return nullptr;
 }
 
 void RemoteLayerBackingStore::ensureBackingStore(Type type, WebCore::FloatSize size, float scale, bool deepColor, bool isOpaque, IncludeDisplayList includeDisplayList)
@@ -125,7 +134,7 @@ void RemoteLayerBackingStore::encode(IPC::Encoder& encoder) const
                 if (m_frontBuffer.imageBuffer->canMapBackingStore())
                     handle = static_cast<AcceleratedImageBufferShareableMappedBackend&>(*backend).createImageBufferBackendHandle();
                 else
-                    handle = static_cast<AcceleratedImageBufferShareableBackend&>(*backend).createImageBufferBackendHandle();
+                    handle = static_cast<AcceleratedImageBufferRemoteBackend&>(*backend).createImageBufferBackendHandle();
             }
             break;
         case Type::Bitmap:
@@ -232,22 +241,8 @@ void RemoteLayerBackingStore::swapToValidFrontBuffer()
         return;
     }
 
-    bool shouldUseRemoteRendering = WebProcess::singleton().shouldUseRemoteRenderingFor(WebCore::RenderingPurpose::DOM);
-
-    switch (m_type) {
-    case Type::IOSurface:
-        if (shouldUseRemoteRendering)
-            m_frontBuffer.imageBuffer = m_layer->context()->ensureRemoteRenderingBackendProxy().createImageBuffer(m_size, WebCore::RenderingMode::Accelerated, m_scale, WebCore::DestinationColorSpace::SRGB(), pixelFormat());
-        else
-            m_frontBuffer.imageBuffer = WebCore::ConcreteImageBuffer<AcceleratedImageBufferShareableMappedBackend>::create(m_size, m_scale, WebCore::DestinationColorSpace::SRGB(), pixelFormat(), nullptr);
-        break;
-    case Type::Bitmap:
-        if (shouldUseRemoteRendering)
-            m_frontBuffer.imageBuffer = m_layer->context()->ensureRemoteRenderingBackendProxy().createImageBuffer(m_size, WebCore::RenderingMode::Unaccelerated, m_scale, WebCore::DestinationColorSpace::SRGB(), pixelFormat());
-        else
-            m_frontBuffer.imageBuffer = WebCore::ConcreteImageBuffer<UnacceleratedImageBufferShareableBackend>::create(m_size, m_scale, WebCore::DestinationColorSpace::SRGB(), pixelFormat(), nullptr);
-        break;
-    }
+    if (auto* collection = backingStoreCollection())
+        m_frontBuffer.imageBuffer = collection->allocateBufferForBackingStore(*this);
 
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
     if (m_includeDisplayList == IncludeDisplayList::Yes)
@@ -276,8 +271,8 @@ bool RemoteLayerBackingStore::display()
     m_lastDisplayTime = MonotonicTime::now();
 
     bool needToEncodeBackingStore = false;
-    if (RemoteLayerTreeContext* context = m_layer->context())
-        needToEncodeBackingStore = context->backingStoreWillBeDisplayed(*this);
+    if (auto* collection = backingStoreCollection())
+        needToEncodeBackingStore = collection->backingStoreWillBeDisplayed(*this);
 
     if (m_layer->owner()->platformCALayerDelegatesDisplay(m_layer)) {
         m_layer->owner()->platformCALayerLayerDisplay(m_layer);
@@ -517,8 +512,7 @@ bool RemoteLayerBackingStore::setBufferVolatility(BufferType bufferType, bool is
 
         buffer.imageBuffer->releaseGraphicsContext();
 
-        if (!buffer.imageBuffer->isInUse()) {
-            buffer.imageBuffer->setVolatile(true);
+        if (buffer.imageBuffer->setVolatile()) {
             buffer.isVolatile = true;
             return true;
         }
@@ -531,7 +525,7 @@ bool RemoteLayerBackingStore::setBufferVolatility(BufferType bufferType, bool is
         if (!buffer.imageBuffer || !buffer.isVolatile)
             return false;
 
-        auto previousState = buffer.imageBuffer->setVolatile(false);
+        auto previousState = buffer.imageBuffer->setNonVolatile();
         buffer.isVolatile = false;
 
         return previousState == WebCore::VolatilityState::Empty;

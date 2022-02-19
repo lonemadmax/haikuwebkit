@@ -15,6 +15,7 @@ contact-picker/contacts-select-after-dismissing-picker.html [ Pass ]
 contact-picker/contacts-select-while-presenting-picker.html [ Pass ]
 contact-picker/contacts-select.html [ Pass ]
 fast/device-orientation [ Pass ]
+http/tests/app-privacy-report/ [ Pass ]
 http/tests/device-orientation [ Pass ]
 fast/history/ios [ Pass ]
 fast/scrolling/ios [ Pass ]
@@ -2207,3 +2208,19 @@ pointerevents/mouse [ Failure ]
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/iframe_sandbox_anchor_download_allow_downloads.tentative.html [ DumpJSConsoleLogInStdErr Pass Failure ]
 imported/w3c/web-platform-tests/html/semantics/text-level-semantics/the-a-element/a-download-click-404.html [ Pass Failure ]
 http/wpt/html/semantics/text-level-semantics/the-a-element/a-download-click-404.html [ Pass Failure ]
+
+# Test failures from turning GPU Process on by default
+webkit.org/b/234536 webgl/2.0.0/conformance/reading/read-pixels-test.html
+webkit.org/b/234536 webgl/many-contexts-access-after-loss.html
+webkit.org/b/234536 webgl/many-contexts.html
+webkit.org/b/234536 webgl/max-active-contexts-console-warning.html
+webkit.org/b/234536 webgl/max-active-contexts-gc.html
+webkit.org/b/234536 webgl/max-active-contexts-oldest-context-lost.html
+webkit.org/b/234536 webxr/high-performance.html
+webkit.org/b/234536 fast/mediastream/getUserMedia-to-canvas-1.html [ Crash ]
+webkit.org/b/234536 fast/mediastream/getUserMedia-to-canvas-2.html [ Crash ]
+webkit.org/b/234536 webgl/max-active-contexts-webglcontextlost-prevent-default.html [ Timeout ]
+webkit.org/b/234536 webgl/1.0.3/conformance/state/gl-object-get-calls.html [ Timeout ]
+
+# Captured WebGL to another context2d or WebGL not implemented yet.
+webkit.org/b/236496 fast/mediastream/captureStream/canvas3d.html [ Timeout ]

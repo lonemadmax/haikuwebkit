@@ -83,6 +83,7 @@ Platform/cf/ModuleCF.cpp
 Platform/classifier/cocoa/ResourceLoadStatisticsClassifierCocoa.cpp
 Platform/classifier/ResourceLoadStatisticsClassifier.cpp
 
+Platform/cocoa/CocoaImage.mm
 Platform/cocoa/LayerHostingContext.mm
 Platform/cocoa/PaymentAuthorizationPresenter.mm
 Platform/cocoa/PaymentAuthorizationViewController.mm
@@ -174,6 +175,7 @@ Shared/Cocoa/DefaultWebBrowserChecks.mm
 Shared/Cocoa/InsertTextOptions.cpp
 Shared/Cocoa/LoadParametersCocoa.mm
 Shared/Cocoa/PDFKitSoftLink.mm
+Shared/Cocoa/RevealItem.mm
 Shared/Cocoa/SandboxExtensionCocoa.mm
 Shared/Cocoa/SandboxInitialiationParametersCocoa.mm
 Shared/Cocoa/SandboxUtilities.mm
@@ -239,6 +241,7 @@ Shared/mac/MediaFormatReader/MediaTrackReader.cpp
 
 Shared/RemoteLayerTree/RemoteLayerBackingStore.mm
 Shared/RemoteLayerTree/RemoteLayerBackingStoreCollection.mm
+Shared/RemoteLayerTree/RemoteLayerWithRemoteRenderingBackingStoreCollection.mm
 Shared/RemoteLayerTree/RemoteLayerTreePropertyApplier.mm
 Shared/RemoteLayerTree/RemoteLayerTreeTransaction.mm
 Shared/RemoteLayerTree/RemoteScrollingCoordinatorTransaction.cpp
@@ -295,6 +298,7 @@ UIProcess/API/Cocoa/_WKProcessPoolConfiguration.mm
 UIProcess/API/Cocoa/_WKRemoteWebInspectorViewController.mm
 UIProcess/API/Cocoa/_WKResourceLoadInfo.mm
 UIProcess/API/Cocoa/_WKSessionState.mm
+UIProcess/API/Cocoa/_WKSystemPreferences.mm
 UIProcess/API/Cocoa/_WKTextInputContext.mm
 UIProcess/API/Cocoa/_WKTextManipulationConfiguration.mm
 UIProcess/API/Cocoa/_WKTextManipulationExclusionRule.mm
@@ -620,7 +624,7 @@ WebProcess/cocoa/WebProcessCocoa.mm
 
 WebProcess/EntryPoint/Cocoa/XPCService/WebContentServiceEntryPoint.mm
 
-WebProcess/GPU/graphics/cocoa/ImageBufferShareableIOSurfaceBackend.cpp
+WebProcess/GPU/graphics/cocoa/ImageBufferRemoteIOSurfaceBackend.cpp
 WebProcess/GPU/graphics/cocoa/ImageBufferShareableMappedIOSurfaceBackend.cpp
 WebProcess/GPU/graphics/cocoa/RemoteGraphicsContextGLProxyCocoa.mm
 WebProcess/GPU/media/RemoteAudioSourceProvider.cpp
@@ -674,7 +678,6 @@ WebProcess/Plugins/PDF/PDFPluginPasswordField.mm
 WebProcess/Plugins/PDF/PDFPluginTextAnnotation.mm
 
 WebProcess/WebCoreSupport/WebCaptionPreferencesDelegate.cpp
-WebProcess/WebCoreSupport/WebPasteboardOverrides.cpp
 WebProcess/WebCoreSupport/WebValidationMessageClient.cpp
 
 WebProcess/WebCoreSupport/ios/WebChromeClientIOS.mm

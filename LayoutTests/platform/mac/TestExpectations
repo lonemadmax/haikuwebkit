@@ -487,9 +487,6 @@ webkit.org/b/98718 svg/animations/animate-css-xml-attributeType.html [ Failure P
 webkit.org/b/85211 ietestcenter/css3/flexbox/flexbox-align-stretch-001.htm [ ImageOnlyFailure ]
 webkit.org/b/85212 ietestcenter/css3/flexbox/flexbox-layout-002.htm [ ImageOnlyFailure ]
 
-# Interferes with the tests that should pass
-webkit.org/b/85689 fast/animation/request-animation-frame-disabled.html [ Skip ]
-
 webaudio/codec-tests/vorbis/ [ WontFix ]
 
 # Skip tests in fast/text/shaping
@@ -2111,8 +2108,9 @@ webkit.org/b/222692 inspector/page/empty-or-missing-resources.html [ Pass Timeou
 [ arm64 ] webrtc/video-unmute.html [ Pass Timeout ]
 [ arm64 ] webrtc/vp9-profile2.html [ Skip ]
 [ arm64 ] webrtc/captureCanvas-webrtc-software-h264-high.html [ Pass Failure ]
-[ arm64 ] webrtc/h264-baseline.html  [ Failure Timeout ]
-[ arm64 ] webrtc/video-stats.html [ Pass Failure ]
+#These two are failing on intel as well for ews
+webrtc/h264-baseline.html  [ Failure Timeout ]
+webrtc/video-stats.html [ Pass Failure ]
 
 webkit.org/b/223043 [ BigSur ] webrtc/multi-audio.html [ Pass Failure ]
 
@@ -2422,8 +2420,6 @@ webkit.org/b/226826 [ Monterey ] http/tests/ssl/applepay/ApplePayButton.html [ F
 
 webkit.org/b/221230 [ BigSur+ ] imported/w3c/web-platform-tests/media-source/mediasource-addsourcebuffer.html [ Pass Failure ]
 
-webkit.org/b/235084 [ arm64 ] imported/w3c/web-platform-tests/css/css-transforms/perspective-transforms-equivalence.html [ ImageOnlyFailure ]
-
 webkit.org/b/235660 [ Debug ] fast/replaced/encrypted-pdf-as-object-and-embed.html [ Skip ]
 
 # <model> tests involving the ready promise can only work on Monterey and up
@@ -2439,3 +2435,11 @@ fast/text/font-lookup-dot-prefix-case-sensitive.html [ Pass ]
 # <rdar://problem/87944426>
 [ Catalina BigSur Monterey ] fast/text/locale-shaping-2.html [ Pass ImageOnlyFailure ]
 [ Catalina BigSur Monterey ] fast/text/locale-shaping-3.html [ Pass ImageOnlyFailure ]
+
+#rdar://80333071
+[ BigSur+ ] compositing/iframes/border-radius-composited-frame.html [ ImageOnlyFailure ]
+
+# rdar://84556831 
+[ Catalina ] media/media-allowed-containers.html [ Skip ]
+
+[ Catalina BigSur ] imported/w3c/web-platform-tests/url/toascii.window.html [ Skip ]
