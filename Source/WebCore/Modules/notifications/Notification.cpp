@@ -72,8 +72,10 @@ Notification::Notification(ScriptExecutionContext& context, const String& title,
 {
     if (context.isDocument())
         m_notificationSource = NotificationSource::Document;
+#if ENABLE(SERVICE_WORKERS)
     else if (context.isServiceWorkerGlobalScope())
         m_notificationSource = NotificationSource::ServiceWorker;
+#endif
     else
         RELEASE_ASSERT_NOT_REACHED();
 
@@ -190,11 +192,13 @@ void Notification::dispatchClickEvent()
             dispatchEvent(Event::create(eventNames().clickEvent, Event::CanBubble::No, Event::IsCancelable::No));
         });
         break;
+#if ENABLE(SERVICE_WORKERS)
     case NotificationSource::ServiceWorker:
         ServiceWorkerGlobalScope::ensureOnContextThread(m_contextIdentifier, [this, protectedThis = Ref { *this }](auto& context) {
             downcast<ServiceWorkerGlobalScope>(context).postTaskToFireNotificationEvent(NotificationEventType::Click, *this, { });
         });
         break;
+#endif
     }
 }
 
@@ -206,11 +210,13 @@ void Notification::dispatchCloseEvent()
     case NotificationSource::Document:
         queueTaskToDispatchEvent(*this, TaskSource::UserInteraction, Event::create(eventNames().closeEvent, Event::CanBubble::No, Event::IsCancelable::No));
         break;
+#if ENABLE(SERVICE_WORKERS)
     case NotificationSource::ServiceWorker:
         ServiceWorkerGlobalScope::ensureOnContextThread(m_contextIdentifier, [this, protectedThis = Ref { *this }](auto& context) {
             downcast<ServiceWorkerGlobalScope>(context).postTaskToFireNotificationEvent(NotificationEventType::Close, *this, { });
         });
         break;
+#endif
     }
 
     finalize();
