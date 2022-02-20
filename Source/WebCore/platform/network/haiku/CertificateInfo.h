@@ -48,9 +48,11 @@ public:
         : m_certificate(&certificate)
     { }
 
+    CertificateInfo isolatedCopy() const;
+
     std::optional<CertificateSummary> summary() const { notImplemented(); return std::nullopt; }
 
-    bool isEmpty() const { return m_certificate == NULL; }
+    bool isEmpty() const { return m_certificate != nullptr; }
 
     const BCertificate& certificate() const { return *m_certificate; }
 

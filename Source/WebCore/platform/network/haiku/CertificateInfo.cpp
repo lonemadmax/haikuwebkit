@@ -34,8 +34,14 @@
 namespace WebCore {
 
 CertificateInfo::CertificateInfo()
-    : m_certificate(nullptr)
+    : m_certificate()
 {
+}
+
+CertificateInfo CertificateInfo::isolatedCopy() const
+{
+    // FIXME it's not isolated if it points to the same data...
+    return CertificateInfo(*m_certificate);
 }
 
 } // namespace WebCore
