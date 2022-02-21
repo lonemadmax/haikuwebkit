@@ -210,8 +210,7 @@ void GraphicsContextHaiku::fillRoundedRectImpl(const FloatRoundedRect& roundRect
     const float kRadiusBezierScale = 1.0f - 0.5522847498f; //  1 - (sqrt(2) - 1) * 4 / 3
 
     BShape shape;
-    shape.MoveTo(BPoint(rect.x() + topLeft.width(), rect.y()));
-    shape.LineTo(BPoint(rect.maxX() - topRight.width(), rect.y()));
+    shape.MoveTo(BPoint(rect.maxX() - topRight.width(), rect.y()));
     points[0].x = rect.maxX() - kRadiusBezierScale * topRight.width();
     points[0].y = rect.y();
     points[1].x = rect.maxX();
@@ -231,9 +230,9 @@ void GraphicsContextHaiku::fillRoundedRectImpl(const FloatRoundedRect& roundRect
     points[0].x = rect.x() + kRadiusBezierScale * bottomLeft.width();
     points[0].y = rect.maxY();
     points[1].x = rect.x();
-    points[1].y = rect.maxY() - kRadiusBezierScale * bottomRight.height();
+    points[1].y = rect.maxY() - kRadiusBezierScale * bottomLeft.height();
     points[2].x = rect.x();
-    points[2].y = rect.maxY() - bottomRight.height();
+    points[2].y = rect.maxY() - bottomLeft.height();
     shape.BezierTo(points);
     shape.LineTo(BPoint(rect.x(), rect.y() + topLeft.height()));
     points[0].x = rect.x();
@@ -243,7 +242,7 @@ void GraphicsContextHaiku::fillRoundedRectImpl(const FloatRoundedRect& roundRect
     points[2].x = rect.x() + topLeft.width();
     points[2].y = rect.y();
     shape.BezierTo(points);
-    shape.Close();
+    shape.Close(); // Automatically completes the shape with the top border
 
     rgb_color oldColor = m_view->HighColor();
     m_view->SetHighColor(color);
