@@ -80,8 +80,9 @@
 #endif
 
 #if PLATFORM(COCOA)
-#import <WebCore/PixelBufferConformerCV.h>
-#import <WebCore/VideoLayerManagerObjC.h>
+#include <WebCore/PixelBufferConformerCV.h>
+#include <WebCore/VideoFrameCV.h>
+#include <WebCore/VideoLayerManagerObjC.h>
 #endif
 
 namespace WebCore {
@@ -1002,14 +1003,18 @@ bool MediaPlayerPrivateRemote::copyVideoTextureToPlatformTexture(WebCore::Graphi
 }
 #endif
 
-std::optional<WebCore::MediaSampleVideoFrame> MediaPlayerPrivateRemote::videoFrameForCurrentTime()
+RefPtr<WebCore::VideoFrame> MediaPlayerPrivateRemote::videoFrameForCurrentTime()
 {
-    std::optional<WebCore::MediaSampleVideoFrame> result;
+    std::optional<RemoteVideoFrameProxy::Properties> result;
     bool changed = false;
     if (!connection().sendSync(Messages::RemoteMediaPlayerProxy::VideoFrameForCurrentTimeIfChanged(), Messages::RemoteMediaPlayerProxy::VideoFrameForCurrentTimeIfChanged::Reply(result, changed), m_id))
-        return std::nullopt;
-    if (changed)
-        m_videoFrameForCurrentTime = WTFMove(result);
+        return nullptr;
+    if (changed) {
+        if (result)
+            m_videoFrameForCurrentTime = RemoteVideoFrameProxy::create(connection(), videoFrameObjectHeapProxy(), WTFMove(*result));
+        else
+            m_videoFrameForCurrentTime = nullptr;
+    }
     return m_videoFrameForCurrentTime;
 }
 
@@ -1191,7 +1196,7 @@ void MediaPlayerPrivateRemote::keyAdded()
 void MediaPlayerPrivateRemote::mediaPlayerKeyNeeded(IPC::DataReference&& message)
 {
     if (RefPtr player = m_player.get())
-        player->keyNeeded(Uint8Array::create(message.data(), message.size()).ptr());
+        player->keyNeeded(SharedBuffer::create(message));
 }
 #endif
 

@@ -73,13 +73,6 @@ public:
         m_remoteRenderingBackendProxy->remoteResourceCacheProxy().releaseImageBuffer(m_renderingResourceIdentifier);
     }
 
-    ImageBufferBackendHandle createImageBufferBackendHandle()
-    {
-        if (ensureBackendCreated())
-            return m_backend->createImageBufferBackendHandle();
-        return { };
-    }
-
     WebCore::GraphicsContextFlushIdentifier lastSentFlushIdentifier() const { return m_sentFlushIdentifier; }
 
     void waitForDidFlushOnSecondaryThread(WebCore::GraphicsContextFlushIdentifier targetFlushIdentifier)
@@ -198,7 +191,17 @@ protected:
         return bitmap->createImage();
     }
 
-    RefPtr<WebCore::Image> filteredImage(WebCore::Filter& filter) override
+    RefPtr<WebCore::NativeImage> sinkIntoNativeImage() final
+    {
+        return copyNativeImage();
+    }
+
+    RefPtr<WebCore::Image> sinkIntoImage(WebCore::PreserveResolution preserveResolution = WebCore::PreserveResolution::No) final
+    {
+        return copyImage(WebCore::BackingStoreCopy::CopyBackingStore, preserveResolution);
+    }
+
+    RefPtr<WebCore::Image> filteredImage(WebCore::Filter& filter) final
     {
         if (UNLIKELY(!m_remoteRenderingBackendProxy))
             return { };

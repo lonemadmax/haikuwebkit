@@ -22,7 +22,8 @@
 #include "JSTestIndexedSetterThrowingException.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
 #include "JSDOMConvertStrings.h"
@@ -62,7 +63,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestIndexedSetterThrowingExceptionPrototype, Base);
         return &vm.plainObjectSpace();
@@ -268,27 +269,14 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestIndexedSetterThrowingExceptionConstructor, (JSGlo
     return JSValue::encode(JSTestIndexedSetterThrowingException::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));
 }
 
-JSC::IsoSubspace* JSTestIndexedSetterThrowingException::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSTestIndexedSetterThrowingException::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForTestIndexedSetterThrowingException.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestIndexedSetterThrowingException> || !JSTestIndexedSetterThrowingException::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestIndexedSetterThrowingException>)
-        spaces.m_subspaceForTestIndexedSetterThrowingException = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestIndexedSetterThrowingException);
-    else
-        spaces.m_subspaceForTestIndexedSetterThrowingException = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestIndexedSetterThrowingException);
-    auto* space = spaces.m_subspaceForTestIndexedSetterThrowingException.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSTestIndexedSetterThrowingException::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSTestIndexedSetterThrowingException, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForTestIndexedSetterThrowingException.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestIndexedSetterThrowingException = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForTestIndexedSetterThrowingException.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestIndexedSetterThrowingException = WTFMove(space); }
+    );
 }
 
 void JSTestIndexedSetterThrowingException::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

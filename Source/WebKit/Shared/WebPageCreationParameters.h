@@ -157,9 +157,6 @@ struct WebPageCreationParameters {
     WebCore::FloatSize viewportConfigurationViewSize;
     std::optional<WebCore::ViewportArguments> overrideViewportArguments;
 #endif
-#if ENABLE(ATTACHMENT_ELEMENT)
-    std::optional<Vector<SandboxExtension::Handle>> attachmentElementExtensionHandles;
-#endif
 #if PLATFORM(IOS_FAMILY)
     WebCore::FloatSize screenSize;
     WebCore::FloatSize availableScreenSize;
@@ -175,8 +172,6 @@ struct WebPageCreationParameters {
 #if PLATFORM(COCOA)
     bool smartInsertDeleteEnabled;
     Vector<String> additionalSupportedImageTypes;
-    Vector<SandboxExtension::Handle> mediaExtensionHandles; // FIXME(207716): Remove when GPU process is complete.
-    Vector<SandboxExtension::Handle> mediaIOKitExtensionHandles;
     Vector<SandboxExtension::Handle> gpuIOKitExtensionHandles;
     Vector<SandboxExtension::Handle> gpuMachExtensionHandles;
 #endif
@@ -236,6 +231,7 @@ struct WebPageCreationParameters {
     bool shouldCaptureVideoInUIProcess { false };
     bool shouldCaptureVideoInGPUProcess { false };
     bool shouldCaptureDisplayInUIProcess { false };
+    bool shouldCaptureDisplayInGPUProcess { false };
     bool shouldRenderCanvasInGPUProcess { false };
     bool shouldRenderDOMInGPUProcess { false };
     bool shouldPlayMediaInGPUProcess { false };

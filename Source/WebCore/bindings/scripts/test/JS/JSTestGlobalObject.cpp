@@ -22,9 +22,10 @@
 #include "JSTestGlobalObject.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
 #include "DOMPromiseProxy.h"
 #include "DOMWrapperWorld.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "IDLTypes.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
@@ -1822,23 +1823,15 @@ JSC_DEFINE_HOST_FUNCTION(jsTestGlobalObjectInstanceFunction_testFeatureGetSecret
 
 #endif
 
-JSC::IsoSubspace* JSTestGlobalObject::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSTestGlobalObject::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForTestGlobalObject.get())
-        return space;
-    spaces.m_subspaceForTestGlobalObject = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, clientData.m_heapCellTypeForJSTestGlobalObject, JSTestGlobalObject);
-    auto* space = spaces.m_subspaceForTestGlobalObject.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSTestGlobalObject::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSTestGlobalObject, UseCustomHeapCellType::Yes>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForTestGlobalObject.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestGlobalObject = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForTestGlobalObject.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestGlobalObject = WTFMove(space); },
+        [] (auto& server) -> JSC::HeapCellType& { return server.m_heapCellTypeForJSTestGlobalObject; }
+    );
 }
 
 void JSTestGlobalObject::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

@@ -25,7 +25,6 @@
 
 #pragma once
 
-#if ENABLE(GPU_PROCESS) && ENABLE(MEDIA_STREAM)
 #include "IPCTester.h"
 #include "ObjectIdentifierReferenceTracker.h"
 #include <wtf/Condition.h>
@@ -51,6 +50,7 @@ public:
     using ReadReference = typename ObjectIdentifierReferenceTracker<Identifier>::ReadReference;
     using WriteReference = typename ObjectIdentifierReferenceTracker<Identifier>::WriteReference;
     using Reference = typename ObjectIdentifierReferenceTracker<Identifier>::Reference;
+    virtual ~ThreadSafeObjectHeap() = default;
 
     void add(Identifier, HeldType&&);
 
@@ -199,4 +199,3 @@ void ThreadSafeObjectHeap<Identifier, HeldType>::add(Identifier identifier, Held
 }
 
 }
-#endif

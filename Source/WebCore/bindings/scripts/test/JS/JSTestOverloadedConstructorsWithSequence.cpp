@@ -22,7 +22,8 @@
 #include "JSTestOverloadedConstructorsWithSequence.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructor.h"
 #include "JSDOMConvertInterface.h"
@@ -65,7 +66,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestOverloadedConstructorsWithSequencePrototype, Base);
         return &vm.plainObjectSpace();
@@ -234,27 +235,14 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestOverloadedConstructorsWithSequenceConstructor, (J
     return JSValue::encode(JSTestOverloadedConstructorsWithSequence::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));
 }
 
-JSC::IsoSubspace* JSTestOverloadedConstructorsWithSequence::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSTestOverloadedConstructorsWithSequence::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForTestOverloadedConstructorsWithSequence.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestOverloadedConstructorsWithSequence> || !JSTestOverloadedConstructorsWithSequence::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestOverloadedConstructorsWithSequence>)
-        spaces.m_subspaceForTestOverloadedConstructorsWithSequence = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestOverloadedConstructorsWithSequence);
-    else
-        spaces.m_subspaceForTestOverloadedConstructorsWithSequence = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestOverloadedConstructorsWithSequence);
-    auto* space = spaces.m_subspaceForTestOverloadedConstructorsWithSequence.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSTestOverloadedConstructorsWithSequence::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSTestOverloadedConstructorsWithSequence, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForTestOverloadedConstructorsWithSequence.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestOverloadedConstructorsWithSequence = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForTestOverloadedConstructorsWithSequence.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestOverloadedConstructorsWithSequence = WTFMove(space); }
+    );
 }
 
 void JSTestOverloadedConstructorsWithSequence::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

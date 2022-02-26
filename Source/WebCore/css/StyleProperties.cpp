@@ -26,6 +26,7 @@
 #include "CSSComputedStyleDeclaration.h"
 #include "CSSCustomPropertyValue.h"
 #include "CSSDeferredParser.h"
+#include "CSSOffsetRotateValue.h"
 #include "CSSParser.h"
 #include "CSSPendingSubstitutionValue.h"
 #include "CSSPropertyParser.h"
@@ -228,6 +229,8 @@ String StyleProperties::getPropertyValue(CSSPropertyID propertyID) const
         return getShorthandValue(borderInlineStartShorthand());
     case CSSPropertyBorderInlineEnd:
         return getShorthandValue(borderInlineEndShorthand());
+    case CSSPropertyOffset:
+        return offsetValue();
     case CSSPropertyOutline:
         return getShorthandValue(outlineShorthand());
     case CSSPropertyBorderColor:
@@ -240,6 +243,8 @@ String StyleProperties::getPropertyValue(CSSPropertyID propertyID) const
         return getShorthandValue(columnRuleShorthand());
     case CSSPropertyColumns:
         return getShorthandValue(columnsShorthand());
+    case CSSPropertyContainer:
+        return getShorthandValue(containerShorthand(), " / ");
     case CSSPropertyFlex:
         return getShorthandValue(flexShorthand());
     case CSSPropertyFlexFlow:
@@ -450,6 +455,93 @@ String StyleProperties::fontValue() const
     result.append(fontFamilyProperty.value()->cssText());
     if (isCSSWideValueKeyword(commonValue))
         return commonValue;
+    return result.toString();
+}
+
+String StyleProperties::offsetValue() const
+{
+    StringBuilder result;
+
+    auto offsetPositionIndex = findPropertyIndex(CSSPropertyOffsetPosition);
+    auto offsetPathIndex = findPropertyIndex(CSSPropertyOffsetPath);
+
+    // Either offset-position and offset-path must be specified.
+    if (offsetPositionIndex == -1 && offsetPathIndex == -1)
+        return String();
+
+    if (offsetPositionIndex != -1) {
+        auto offsetPosition = propertyAt(offsetPositionIndex);
+        if (!offsetPosition.isImplicit()) {
+            if (!offsetPosition.value())
+                return String();
+
+            result.append(offsetPosition.value()->cssText());
+        }
+    }
+
+    if (offsetPathIndex != -1) {
+        auto offsetPath = propertyAt(offsetPathIndex);
+        if (!offsetPath.isImplicit()) {
+            if (!offsetPath.value())
+                return String();
+
+            if (!result.isEmpty())
+                result.append(' ');
+            result.append(offsetPath.value()->cssText());
+        }
+    }
+
+    // At this point, result is not empty because either offset-position or offset-path
+    // must be present.
+
+    auto offsetDistanceIndex = findPropertyIndex(CSSPropertyOffsetDistance);
+    if (offsetDistanceIndex != -1) {
+        auto offsetDistance = propertyAt(offsetDistanceIndex);
+        if (!offsetDistance.isImplicit()) {
+            auto offsetDistanceValue = offsetDistance.value();
+            if (!offsetDistanceValue || !is<CSSPrimitiveValue>(offsetDistanceValue))
+                return String();
+            // Only include offset-distance if the distance is non-zero.
+            // isZero() returns std::nullopt if offsetDistanceValue is a calculated value, in which case
+            // we use value_or() to override to false.
+            if (!(downcast<CSSPrimitiveValue>(offsetDistanceValue)->isZero().value_or(false))) {
+                result.append(' ');
+                result.append(downcast<CSSPrimitiveValue>(offsetDistanceValue)->cssText());
+            }
+        }
+    }
+
+    auto offsetRotateIndex = findPropertyIndex(CSSPropertyOffsetRotate);
+    if (offsetRotateIndex != -1) {
+        auto offsetRotate = propertyAt(offsetRotateIndex);
+        if (!offsetRotate.isImplicit()) {
+            auto offsetRotateValue = offsetRotate.value();
+            if (!offsetRotateValue || !is<CSSOffsetRotateValue>(offsetRotateValue))
+                return String();
+
+            if (!(downcast<CSSOffsetRotateValue>(offsetRotateValue)->isInitialValue())) {
+                result.append(' ');
+                result.append(downcast<CSSOffsetRotateValue>(offsetRotateValue)->cssText());
+            }
+        }
+    }
+
+    auto offsetAnchorIndex = findPropertyIndex(CSSPropertyOffsetAnchor);
+    if (offsetAnchorIndex != -1) {
+        auto offsetAnchor = propertyAt(offsetAnchorIndex);
+        if (!offsetAnchor.isImplicit()) {
+            auto offsetAnchorValue = offsetAnchor.value();
+            if (!offsetAnchorValue)
+                return String();
+
+            if (!is<CSSPrimitiveValue>(offsetAnchorValue) || !downcast<CSSPrimitiveValue>(offsetAnchorValue)->isValueID()
+                || downcast<CSSPrimitiveValue>(offsetAnchorValue)->valueID() != CSSValueAuto) {
+                result.append(" / ");
+                result.append(offsetAnchorValue->cssText());
+            }
+        }
+    }
+
     return result.toString();
 }
 
@@ -1633,6 +1725,7 @@ Ref<MutableStyleProperties> StyleProperties::copyPropertiesInSet(const CSSProper
         if (auto value = getPropertyCSSValue(set[i]))
             list.uncheckedAppend(CSSProperty(set[i], WTFMove(value), false));
     }
+    list.shrinkToFit();
     return MutableStyleProperties::create(WTFMove(list));
 }
 
@@ -1710,11 +1803,9 @@ Ref<DeferredStyleProperties> DeferredStyleProperties::create(const CSSParserToke
 
 DeferredStyleProperties::DeferredStyleProperties(const CSSParserTokenRange& range, CSSDeferredParser& parser)
     : StylePropertiesBase(parser.mode(), DeferredPropertiesType)
+    , m_tokens(range.begin(), range.end() - range.begin())
     , m_parser(parser)
 {
-    size_t length = range.end() - range.begin();
-    m_tokens.reserveCapacity(length);
-    m_tokens.append(range.begin(), length);
 }
     
 DeferredStyleProperties::~DeferredStyleProperties() = default;

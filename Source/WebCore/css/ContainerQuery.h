@@ -28,7 +28,7 @@
 
 namespace WebCore {
 
-class CSSPrimitiveValue;
+class CSSValue;
 
 namespace CQ {
 
@@ -42,7 +42,7 @@ using SizeQuery = std::variant<SizeCondition, SizeFeature>;
 using ContainerQuery = std::variant<ContainerCondition, SizeQuery, UnknownQuery>;
 
 enum class LogicalOperator : uint8_t { And, Or, Not };
-enum class ComparisonOperator : uint8_t { LessThan, LessThanOrEqual, Equal, GreaterThan, GreaterThanOrEqual, True };
+enum class ComparisonOperator : uint8_t { LessThan, LessThanOrEqual, Equal, GreaterThan, GreaterThanOrEqual };
 
 struct ContainerCondition {
     LogicalOperator logicalOperator { LogicalOperator::And };
@@ -54,10 +54,24 @@ struct SizeCondition {
     Vector<SizeQuery> queries;
 };
 
+struct Comparison {
+    ComparisonOperator op { ComparisonOperator::Equal };
+    RefPtr<CSSValue> value;
+};
+
 struct SizeFeature {
-    ComparisonOperator comparisonOperator { ComparisonOperator::Equal };
     AtomString name;
-    RefPtr<CSSPrimitiveValue> value;
+    std::optional<Comparison> leftComparison;
+    std::optional<Comparison> rightComparison;
+};
+
+namespace FeatureNames {
+const AtomString& width();
+const AtomString& height();
+const AtomString& inlineSize();
+const AtomString& blockSize();
+const AtomString& aspectRatio();
+const AtomString& orientation();
 };
 
 }

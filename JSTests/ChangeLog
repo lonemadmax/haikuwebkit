@@ -1,3 +1,120 @@
+2022-02-19  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r290194 and r290210.
+        https://bugs.webkit.org/show_bug.cgi?id=236890
+
+        debug crash
+
+        Reverted changesets:
+
+        "[JSC] Make ArrayPrototype just an array"
+        https://bugs.webkit.org/show_bug.cgi?id=236869
+        https://commits.webkit.org/r290194
+
+        "Unreviewed, use ArrayWithUndecided in ArrayPrototype"
+        https://bugs.webkit.org/show_bug.cgi?id=236869
+        https://commits.webkit.org/r290210
+
+2022-02-19  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Unreviewed, use ArrayWithUndecided in ArrayPrototype
+        https://bugs.webkit.org/show_bug.cgi?id=236869
+
+        * stress/array-prototype-concat.js: Added.
+
+2022-02-19  Dean Jackson  <dino@apple.com>
+
+        [JSC] Implement Temporal.PlainDate
+        https://bugs.webkit.org/show_bug.cgi?id=230033
+        <rdar://problem/83127747>
+
+        Reviewed by Yusuke Suzuki.
+
+        Some basic tests for PlainDate.
+
+        * stress/temporal-plaindate.js: Added.
+        (shouldBe):
+        (shouldThrow):
+        (shouldBe.String.Temporal.PlainDate.from):
+        (let.text.of.failures.shouldThrow):
+
+2022-02-17  Mikhail R. Gadelha  <mikhail@igalia.com>
+
+        [32bit] Increase fixedExecutableMemoryPoolSize on ARM to 32MB
+        https://bugs.webkit.org/show_bug.cgi?id=236606
+
+        Reviewed by Mark Lam.
+
+        Increased executable memory on ARM to 32MB and make it consistent with
+        other 32 bit platforms (MIPS and x86). This patch also enables some
+        tests that now pass because of the increased memory; each test was
+        executed 1000 times and there was no failure.
+
+        let-const-tdz-environment-parsing-and-hash-consing-speed.js was disabled
+        on MIPS because the jitted code is still a bit too bigger for the 32MB,
+        but it can probably be enable when the EXTRA_CTI_THUNKS patch lands.
+
+        * microbenchmarks/let-const-tdz-environment-parsing-and-hash-consing-speed.js:
+        * stress/arrowfunction-lexical-bind-superproperty.js:
+        * stress/proxy-revoke.js:
+        * stress/regress-169445.js:
+        * stress/tagged-template-object-collect.js:
+
+2022-02-17  Angelos Oikonomopoulos  <angelos@igalia.com>
+
+        [JSC] Unskip test on mips
+        https://bugs.webkit.org/show_bug.cgi?id=236645
+
+        Unreviewed gardening.
+
+        Can't reproduce this locally after 20 iterations.
+
+        * stress/sampling-profiler-richards.js:
+
+2022-02-16  Geza Lore  <glore@igalia.com>
+
+        [JSC][32-bit] Fix and re-enable flaky test
+        https://bugs.webkit.org/show_bug.cgi?id=181227
+
+        Reviewed by Adrian Perez de Castro.
+
+        * stress/new-largeish-contiguous-array-with-size.js:
+        Re-enable on ARMv7, re-enable and increase leniency on MIPS.
+
+2022-02-15  Mark Lam  <mark.lam@apple.com>
+
+        Defer TerminationsExceptions while in operationMaterializeObjectInOSR.
+        https://bugs.webkit.org/show_bug.cgi?id=236686
+        rdar://81337114
+
+        Reviewed by Saam Barati.
+
+        These tests are identical except that they are customized with different watchdog
+        timeout periods for a Debug / Release build.  This is a necessary condition in
+        order for the test to manifest this issue if the code is regressed.
+
+        * stress/termination-exception-in-operationMaterializeObjectInOSR-debug.js: Added.
+        * stress/termination-exception-in-operationMaterializeObjectInOSR-release.js: Added.
+
+2022-02-15  Xan Lopez  <xan@igalia.com>
+
+        [JSC] Reduce iterations for getter-richards.js on MIPS
+        https://bugs.webkit.org/show_bug.cgi?id=236594
+
+        Reviewed by Adrian Perez de Castro.
+
+        * typeProfiler/getter-richards.js: do 50 iterations on MIPS.
+
+2022-02-14  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        `Array#{ groupBy, groupByToMap }` should throw a `TypeError` when `this` is `null` or `undefined`
+        https://bugs.webkit.org/show_bug.cgi?id=236541
+
+        Reviewed by Alexey Shvayka.
+
+        * stress/array-group-by-null-or-undefined.js: Added.
+        (shouldThrow):
+
 2022-02-09  Angelos Oikonomopoulos  <angelos@igalia.com>
 
         Skip failing shadow realms tests on MIPS

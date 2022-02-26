@@ -22,7 +22,8 @@
 #include "JSTestNamedSetterNoIdentifier.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAbstractOperations.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -62,7 +63,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestNamedSetterNoIdentifierPrototype, Base);
         return &vm.plainObjectSpace();
@@ -292,27 +293,14 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestNamedSetterNoIdentifierConstructor, (JSGlobalObje
     return JSValue::encode(JSTestNamedSetterNoIdentifier::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));
 }
 
-JSC::IsoSubspace* JSTestNamedSetterNoIdentifier::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSTestNamedSetterNoIdentifier::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForTestNamedSetterNoIdentifier.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestNamedSetterNoIdentifier> || !JSTestNamedSetterNoIdentifier::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestNamedSetterNoIdentifier>)
-        spaces.m_subspaceForTestNamedSetterNoIdentifier = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestNamedSetterNoIdentifier);
-    else
-        spaces.m_subspaceForTestNamedSetterNoIdentifier = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestNamedSetterNoIdentifier);
-    auto* space = spaces.m_subspaceForTestNamedSetterNoIdentifier.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSTestNamedSetterNoIdentifier::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSTestNamedSetterNoIdentifier, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForTestNamedSetterNoIdentifier.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestNamedSetterNoIdentifier = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForTestNamedSetterNoIdentifier.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestNamedSetterNoIdentifier = WTFMove(space); }
+    );
 }
 
 void JSTestNamedSetterNoIdentifier::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

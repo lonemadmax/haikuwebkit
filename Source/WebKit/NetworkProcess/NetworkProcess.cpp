@@ -403,7 +403,8 @@ void NetworkProcess::addWebsiteDataStore(WebsiteDataStoreParameters&& parameters
     addSessionStorageQuotaManager(sessionID, parameters.perOriginStorageQuota, parameters.perThirdPartyOriginStorageQuota, parameters.cacheStorageDirectory, parameters.cacheStorageDirectoryExtensionHandle);
 
     if (auto* session = networkSession(sessionID)) {
-        session->addStorageManagerSession(parameters.generalStorageDirectory, parameters.generalStorageDirectoryHandle, parameters.localStorageDirectory, parameters.localStorageDirectoryExtensionHandle, parameters.indexedDatabaseDirectory, parameters.indexedDatabaseDirectoryExtensionHandle, parameters.cacheStorageDirectory, parameters.perOriginStorageQuota, parameters.perThirdPartyOriginStorageQuota);
+        session->addStorageManagerSession(parameters.generalStorageDirectory, parameters.generalStorageDirectoryHandle, parameters.localStorageDirectory, parameters.localStorageDirectoryExtensionHandle, parameters.indexedDatabaseDirectory, parameters.indexedDatabaseDirectoryExtensionHandle, parameters.cacheStorageDirectory, parameters.perOriginStorageQuota, parameters.perThirdPartyOriginStorageQuota, parameters.shouldUseCustomStoragePaths);
+
 #if ENABLE(SERVICE_WORKER)
         session->addServiceWorkerSession(parameters.serviceWorkerProcessTerminationDelayEnabled, WTFMove(parameters.serviceWorkerRegistrationDirectory), parameters.serviceWorkerRegistrationDirectoryExtensionHandle);
 #endif
@@ -2246,7 +2247,7 @@ void NetworkProcess::renameOriginInWebsiteData(PAL::SessionID sessionID, const U
 
     auto* session = networkSession(sessionID);
     if (auto* manager = session ? session->storageManager() : nullptr)
-        manager->moveData(oldOrigin, newOrigin, [aggregator] { });
+        manager->moveData(dataTypes, oldOrigin, newOrigin, [aggregator] { });
 }
 
 #if ENABLE(SERVICE_WORKER)

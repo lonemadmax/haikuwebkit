@@ -41,7 +41,6 @@
 #import "ContentTypeUtilities.h"
 #import "Cookie.h"
 #import "DeprecatedGlobalSettings.h"
-#import "ExtensionsGL.h"
 #import "FloatConversion.h"
 #import "FourCC.h"
 #import "GraphicsContext.h"
@@ -69,6 +68,7 @@
 #import "SourceBufferParserWebM.h"
 #import "TextTrackRepresentation.h"
 #import "UTIUtilities.h"
+#import "VideoFrameCV.h"
 #import "VideoLayerManagerObjC.h"
 #import "VideoTrackPrivateAVFObjC.h"
 #import "WebCoreAVFResourceLoader.h"
@@ -2115,8 +2115,8 @@ bool MediaPlayerPrivateAVFoundationObjC::shouldWaitForLoadingOfResource(AVAssetR
         auto keyURIArray = Uint16Array::create(initDataBuffer.copyRef(), 4, keyURI.length());
         keyURIArray->setRange(reinterpret_cast<const UniChar*>(StringView(keyURI).upconvertedCharacters().get()), keyURI.length() / sizeof(unsigned char), 0);
 
-        auto initData = Uint8Array::create(WTFMove(initDataBuffer), 0, byteLength);
-        player()->keyNeeded(initData.ptr());
+        auto initData = SharedBuffer::create(Vector<uint8_t> { static_cast<uint8_t*>(initDataBuffer->data()), byteLength });
+        player()->keyNeeded(initData);
 #if ENABLE(ENCRYPTED_MEDIA)
         if (!player()->shouldContinueAfterKeyNeeded())
             return true;
@@ -2144,9 +2144,7 @@ bool MediaPlayerPrivateAVFoundationObjC::shouldWaitForLoadingOfResource(AVAssetR
     if (scheme == "clearkey") {
         String keyID = [[[avRequest request] URL] resourceSpecifier];
         auto encodedKeyId = PAL::UTF8Encoding().encode(keyID, PAL::UnencodableHandling::URLEncodedEntities);
-
-        auto initData = Uint8Array::create(encodedKeyId.size());
-        initData->setRange(encodedKeyId.data(), encodedKeyId.size(), 0);
+        auto initData = SharedBuffer::create(WTFMove(encodedKeyId));
 
         auto keyData = player()->cachedKeyForKeyId(keyID);
         if (keyData) {
@@ -2154,7 +2152,7 @@ bool MediaPlayerPrivateAVFoundationObjC::shouldWaitForLoadingOfResource(AVAssetR
             return false;
         }
 
-        player()->keyNeeded(initData.ptr());
+        player()->keyNeeded(initData);
 
         if (!player()->shouldContinueAfterKeyNeeded())
             return false;
@@ -2723,12 +2721,12 @@ void MediaPlayerPrivateAVFoundationObjC::paintWithVideoOutput(GraphicsContext& c
 
 }
 
-std::optional<MediaSampleVideoFrame> MediaPlayerPrivateAVFoundationObjC::videoFrameForCurrentTime()
+RefPtr<VideoFrame> MediaPlayerPrivateAVFoundationObjC::videoFrameForCurrentTime()
 {
     updateLastPixelBuffer();
     if (!m_lastPixelBuffer)
-        return std::nullopt;
-    return MediaSampleVideoFrame { RetainPtr { m_lastPixelBuffer }, ImageOrientation::None };
+        return nullptr;
+    return VideoFrameCV::create(currentMediaTime(), false, VideoFrameCV::VideoRotation::None, RetainPtr { m_lastPixelBuffer });
 }
 
 RefPtr<NativeImage> MediaPlayerPrivateAVFoundationObjC::nativeImageForCurrentTime()

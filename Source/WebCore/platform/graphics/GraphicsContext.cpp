@@ -655,12 +655,6 @@ ImageDrawResult GraphicsContext::drawImage(Image& image, const FloatRect& destin
     return image.draw(*this, destination, source, options);
 }
 
-ImageDrawResult GraphicsContext::drawImageForCanvas(Image& image, const FloatRect& destination, const FloatRect& source, const ImagePaintingOptions& options, DestinationColorSpace canvasColorSpace)
-{
-    InterpolationQualityMaintainer interpolationQualityForThisScope(*this, options.interpolationQuality());
-    return image.drawForCanvas(*this, destination, source, options, canvasColorSpace);
-}
-
 ImageDrawResult GraphicsContext::drawTiledImage(Image& image, const FloatRect& destination, const FloatPoint& source, const FloatSize& tileSize, const FloatSize& spacing, const ImagePaintingOptions& options)
 {
     InterpolationQualityMaintainer interpolationQualityForThisScope(*this, options.interpolationQuality());
@@ -732,6 +726,11 @@ void GraphicsContext::drawFilteredImageBuffer(ImageBuffer* sourceImage, const Fl
     scale({ 1 / filter.filterScale().width(), 1 / filter.filterScale().height() });
     drawImageBuffer(*imageBuffer, result->absoluteImageRect());
     scale(filter.filterScale());
+}
+
+void GraphicsContext::drawPattern(ImageBuffer& image, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
+{
+    image.drawPattern(*this, destRect, tileRect, patternTransform, phase, spacing, options);
 }
 
 void GraphicsContext::clipRoundedRect(const FloatRoundedRect& rect)

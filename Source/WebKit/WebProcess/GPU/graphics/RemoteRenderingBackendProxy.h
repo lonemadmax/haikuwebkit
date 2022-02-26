@@ -93,6 +93,21 @@ public:
     void cacheFont(Ref<WebCore::Font>&&);
     void deleteAllFonts();
     void releaseRemoteResource(WebCore::RenderingResourceIdentifier);
+    void markSurfacesVolatile(Vector<WebCore::RenderingResourceIdentifier>&&, CompletionHandler<void(Vector<WebCore::RenderingResourceIdentifier>&& inUseBufferIdentifiers)>&&);
+
+    WebCore::VolatilityState markSurfaceNonVolatile(WebCore::RenderingResourceIdentifier);
+
+    struct BufferSet {
+        RefPtr<WebCore::ImageBuffer> front;
+        RefPtr<WebCore::ImageBuffer> back;
+        RefPtr<WebCore::ImageBuffer> secondaryBack;
+    };
+    
+    struct SwapBuffersResult {
+        BufferSet buffers;
+        bool frontBufferWasEmpty { false };
+    };
+    SwapBuffersResult swapToValidFrontBuffer(const BufferSet&);
 
     void finalizeRenderingUpdate();
     RenderingUpdateID renderingUpdateID() const { return m_renderingUpdateID; }

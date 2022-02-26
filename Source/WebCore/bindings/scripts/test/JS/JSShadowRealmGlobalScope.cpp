@@ -22,7 +22,8 @@
 #include "JSShadowRealmGlobalScope.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -149,23 +150,15 @@ JSC_DEFINE_CUSTOM_GETTER(jsShadowRealmGlobalScope_ShadowRealmGlobalScopeConstruc
     return IDLAttribute<JSShadowRealmGlobalScope>::get<jsShadowRealmGlobalScope_ShadowRealmGlobalScopeConstructorGetter>(*lexicalGlobalObject, thisValue, attributeName);
 }
 
-JSC::IsoSubspace* JSShadowRealmGlobalScope::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSShadowRealmGlobalScope::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForShadowRealmGlobalScope.get())
-        return space;
-    spaces.m_subspaceForShadowRealmGlobalScope = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, clientData.m_heapCellTypeForJSShadowRealmGlobalScope, JSShadowRealmGlobalScope);
-    auto* space = spaces.m_subspaceForShadowRealmGlobalScope.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSShadowRealmGlobalScope::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSShadowRealmGlobalScope, UseCustomHeapCellType::Yes>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForShadowRealmGlobalScope.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForShadowRealmGlobalScope = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForShadowRealmGlobalScope.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForShadowRealmGlobalScope = WTFMove(space); },
+        [] (auto& server) -> JSC::HeapCellType& { return server.m_heapCellTypeForJSShadowRealmGlobalScope; }
+    );
 }
 
 void JSShadowRealmGlobalScope::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

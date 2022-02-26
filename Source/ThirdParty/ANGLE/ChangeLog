@@ -1,3 +1,167 @@
+2022-02-18  Robert Jenner  <Jenner@apple.com>
+
+        Unreviewed, reverting r290149.
+
+        Broke Debug Builds.
+
+        Reverted changeset:
+
+        "Generate compile_commands.json on macOS Builds"
+        https://bugs.webkit.org/show_bug.cgi?id=235686
+        https://commits.webkit.org/r290149
+
+2022-02-18  Brandon Stewart  <brandonstewart@apple.com>
+
+        Generate compile_commands.json on macOS Builds
+        https://bugs.webkit.org/show_bug.cgi?id=235686
+
+        Reviewed by Saam Barati.
+
+        Add support for generating compile_commands.json file to WebKit.
+        
+        compile_commands.json can be used by tools like clangd to provide code complete,
+        refactoring, formatting, and cross references.
+
+        Steps to generate the compile commands file:
+        make r EXPORT_COMPILE_COMMANDS=YES
+        generate-compile-commands WebKitBuild/Release
+
+        * Configurations/DebugRelease.xcconfig:
+
+2022-02-18  Saam Barati  <sbarati@apple.com>
+
+        Remove ANGLE-static.xcconfig
+        https://bugs.webkit.org/show_bug.cgi?id=236827
+
+        Reviewed by Dean Jackson.
+
+        It was unused.
+
+        * ANGLE.xcodeproj/project.pbxproj:
+        * Configurations/ANGLE-static.xcconfig: Removed.
+        * Configurations/Base.xcconfig:
+
+2022-02-18  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [CMake] Cannot find OpenGL when system provides opengl.pc instead of gl.pc
+        https://bugs.webkit.org/show_bug.cgi?id=236592
+
+        Reviewed by Michael Catanzaro.
+
+        * PlatformGTK.cmake: Use the OpenGL::OpenGL imported target instead of the
+        OPENGL_LIBRARIES variable.
+        * PlatformWPE.cmake: Remove linking againt OpenGL libraries; the WPE port is not
+        supposed to link to any of them directly.
+
+2022-02-18  Zan Dobersek  <zdobersek@igalia.com>
+
+        [GTK][WPE] Don't use ANGLE's GBM-based display
+        https://bugs.webkit.org/show_bug.cgi?id=236772
+
+        Reviewed by Alejandro G. Castro.
+
+        With DisplayGbm functionality not necessary anymore, we can stop
+        building the associated code and linking against libgbm and libdrm at
+        the ANGLE level. These two libraries are still dependencies that have
+        since become necessary in WebCore.
+
+        * CMakeLists.txt:
+        * PlatformGTK.cmake:
+        * PlatformWPE.cmake:
+
+2022-02-18  Saam Barati  <sbarati@apple.com>
+
+        Add LC_SOURCE_VERSION to compile targets
+        https://bugs.webkit.org/show_bug.cgi?id=236720
+        <rdar://84984140>
+
+        Reviewed by Michael Saboff.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/Version.xcconfig:
+
+2022-02-17  Kyle Piddington  <kpiddington@apple.com>
+
+        Metal ANGLE: vertex array does not correctly observe contents of data buffers
+        https://bugs.webkit.org/show_bug.cgi?id=236733
+        <rdar://problem/88713302>
+        <rdar://problem/88499073>
+
+        Reviewed by Dean Jackson.
+
+        Similar to previous bug (236427), we were not correctly observing changes to the
+        vertex buffer data. This caused us to miss rebinding vertex buffers
+        when data was updated without causing conversion
+
+        * src/libANGLE/renderer/metal/VertexArrayMtl.h:
+        * src/libANGLE/renderer/metal/VertexArrayMtl.mm:
+        (rx::VertexArrayMtl::syncState):
+        (rx::VertexArrayMtl::setupDraw):
+        (rx::VertexArrayMtl::syncDirtyAttrib):
+
+2022-02-17  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [GTK] Build broken with ENABLE_X11_TARGET=OFF and no X11 headers present
+        https://bugs.webkit.org/show_bug.cgi?id=236770
+
+        Reviewed by Alejandro G. Castro.
+
+        * PlatformGTK.cmake: The USE_SYSTEM_EGL definition detaches the type definitions
+        from the EGL headers generic and prevents ANGLE's headers from including system X11
+        or Wayland headers from the system, so apply it always independently of whether the
+        USE_ANGLE_{EGL,WEBGL} options are enabled. While at it, fix a missing dollar sign in
+        the expansion of the ${GBM_INCLUDE_DIR} variable.
+
+2022-02-17  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        REGRESSION (iOS 15.4b3): Catastrophic (20x) performance regression in texImage2D from mp4 video
+        https://bugs.webkit.org/show_bug.cgi?id=236699
+
+        Reviewed by Darin Adler.
+
+        Disable the validation for IOSurface pixel formats.
+        We might pass non-public formats that do not have sensible IOSurfaceGetBytesPerElementOfPlane
+        to verify with this logic.
+
+        Will add test in bug 236759.
+
+        Previous bugs of the same:
+        EAGL:
+        Textures Fail to Render in WebGL from HLS Stream on iPhone 12 [iOS 14.2]
+        bug 218637, r273582, 234632@main
+        CGL:
+        REGRESSION(Safari 15, BigSur): Poor video texture upload performance with MacBook M1, ANGLE OpenGL backend
+        bug 232235, r286960, 245183@main
+
+        * src/libANGLE/renderer/metal/IOSurfaceSurfaceMtl.mm:
+        (rx::IOSurfaceSurfaceMtl::ValidateAttributes):
+
+2022-02-17  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r289949.
+        https://bugs.webkit.org/show_bug.cgi?id=236757
+
+        Breaks WPE builds with -DUSE_ANGLE_WEBGL=ON
+
+        Reverted changeset:
+
+        "[CMake] Cannot find OpenGL when system provides opengl.pc
+        instead of gl.pc"
+        https://bugs.webkit.org/show_bug.cgi?id=236592
+        https://commits.webkit.org/r289949
+
+2022-02-16  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [CMake] Cannot find OpenGL when system provides opengl.pc instead of gl.pc
+        https://bugs.webkit.org/show_bug.cgi?id=236592
+
+        Reviewed by Don Olmstead.
+
+        * PlatformGTK.cmake: Use the OpenGL::OpenGL imported target instead of the
+        OPENGL_LIBRARIES variable.
+        * PlatformWPE.cmake: Ditto, plus replace a spurious use of OPENGLES_LIBRARIES
+        with the OpenGL::GLES target.
+
 2022-02-11  Kyle Piddington  <kpiddington@apple.com>
 
         Cocoa2d-HTLM5 game apepars to use wrong vertex buffer data

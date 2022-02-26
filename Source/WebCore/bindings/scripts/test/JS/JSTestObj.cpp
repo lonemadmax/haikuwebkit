@@ -22,13 +22,14 @@
 #include "JSTestObj.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
 #include "DOMPromiseProxy.h"
 #include "DOMWindow.h"
 #include "DOMWrapperWorld.h"
 #include "Document.h"
 #include "ElementInlines.h"
 #include "EventNames.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "HTMLNames.h"
 #include "IDLTypes.h"
 #include "JSBlob.h"
@@ -1866,7 +1867,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestObjPrototype, Base);
         return &vm.plainObjectSpace();
@@ -9059,27 +9060,14 @@ JSC_DEFINE_HOST_FUNCTION(jsTestObjPrototypeFunction_toString, (JSGlobalObject* l
     return IDLOperation<JSTestObj>::call<jsTestObjPrototypeFunction_toStringBody>(*lexicalGlobalObject, *callFrame, "toString");
 }
 
-JSC::IsoSubspace* JSTestObj::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSTestObj::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForTestObj.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestObj> || !JSTestObj::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestObj>)
-        spaces.m_subspaceForTestObj = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestObj);
-    else
-        spaces.m_subspaceForTestObj = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestObj);
-    auto* space = spaces.m_subspaceForTestObj.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSTestObj::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSTestObj, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForTestObj.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestObj = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForTestObj.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestObj = WTFMove(space); }
+    );
 }
 
 template<typename Visitor>

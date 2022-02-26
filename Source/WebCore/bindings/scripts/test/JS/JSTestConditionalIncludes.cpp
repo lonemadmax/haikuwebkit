@@ -22,7 +22,8 @@
 #include "JSTestConditionalIncludes.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -124,7 +125,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestConditionalIncludesPrototype, Base);
         return &vm.plainObjectSpace();
@@ -781,27 +782,14 @@ JSC_DEFINE_HOST_FUNCTION(jsTestConditionalIncludesPrototypeFunction_partialMixin
 
 #endif
 
-JSC::IsoSubspace* JSTestConditionalIncludes::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSTestConditionalIncludes::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForTestConditionalIncludes.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestConditionalIncludes> || !JSTestConditionalIncludes::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestConditionalIncludes>)
-        spaces.m_subspaceForTestConditionalIncludes = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestConditionalIncludes);
-    else
-        spaces.m_subspaceForTestConditionalIncludes = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestConditionalIncludes);
-    auto* space = spaces.m_subspaceForTestConditionalIncludes.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSTestConditionalIncludes::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSTestConditionalIncludes, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForTestConditionalIncludes.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestConditionalIncludes = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForTestConditionalIncludes.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestConditionalIncludes = WTFMove(space); }
+    );
 }
 
 void JSTestConditionalIncludes::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

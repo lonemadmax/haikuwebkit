@@ -1,3 +1,203 @@
+2022-02-18  Robert Jenner  <Jenner@apple.com>
+
+        Unreviewed, reverting r290149.
+
+        Broke Debug Builds.
+
+        Reverted changeset:
+
+        "Generate compile_commands.json on macOS Builds"
+        https://bugs.webkit.org/show_bug.cgi?id=235686
+        https://commits.webkit.org/r290149
+
+2022-02-18  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] "All Modules" workspace builds building out of order
+        https://bugs.webkit.org/show_bug.cgi?id=236813
+
+        Reviewed by Alexey Proskuryakov.
+
+        Add product dependency on WTF, since PAL uses its headers without linking against it.
+
+        * PAL.xcodeproj/project.pbxproj:
+
+2022-02-18  Jer Noble  <jer.noble@apple.com>
+
+        [Cocoa] Make AVFoundationSPI.h robust against changes in system headers
+        https://bugs.webkit.org/show_bug.cgi?id=236787
+        <rdar://89076606>
+
+        Reviewed by Eric Carlson.
+
+        Follow-up: build problems still persist on certain platforms, so the "robustness"
+        changes made previously were not robust enough. The guards in AVFoundationSPI.h were
+        intended to ensure the definitions were present even on builds where the official API
+        is not supported. However, just because the API is not supported does not mean it's not
+        present, which leads to duplicate-interface build errors.
+
+        Fix the AVFoundationSPI.h pragmas to only define the classes and methods where those
+        objects are supported, and in parallel, wrap implementations which use those objects
+        in those same guards (making these checks compile-time in addition to runtime).
+
+        Move the declarations inside the #else (IOW, !USE(APPLE_INTERNAL_SDK)) block above,
+        and wrap each declaration in the correct HAVE() macro.
+
+        * pal/spi/cocoa/AVFoundationSPI.h:
+
+2022-02-18  Brandon Stewart  <brandonstewart@apple.com>
+
+        Generate compile_commands.json on macOS Builds
+        https://bugs.webkit.org/show_bug.cgi?id=235686
+
+        Reviewed by Saam Barati.
+
+        Add support for generating compile_commands.json file to WebKit.
+        
+        compile_commands.json can be used by tools like clangd to provide code complete,
+        refactoring, formatting, and cross references.
+
+        Steps to generate the compile commands file:
+        make r EXPORT_COMPILE_COMMANDS=YES
+        generate-compile-commands WebKitBuild/Release
+
+        * Configurations/DebugRelease.xcconfig:
+
+2022-02-18  Brady Eidson  <beidson@apple.com>
+
+        Add an InstallCoordination webpushd backend
+        https://bugs.webkit.org/show_bug.cgi?id=233714
+
+        Reviewed by Alex Christensen.
+
+        Expose "toHexString" so we can SHA256 an arbitrary string to a hex representation.
+
+        * pal/crypto/CryptoDigest.h:
+        * pal/crypto/commoncrypto/CryptoDigestCommonCrypto.cpp:
+        (PAL::CryptoDigest::toHexString):
+
+2022-02-18  Saam Barati  <sbarati@apple.com>
+
+        Add LC_SOURCE_VERSION to compile targets
+        https://bugs.webkit.org/show_bug.cgi?id=236720
+        <rdar://84984140>
+
+        Reviewed by Michael Saboff.
+
+        * Configurations/Version.xcconfig:
+
+2022-02-17  Kate Cheney  <katherine_cheney@apple.com>
+
+        Refactor share menu item presentation
+        https://bugs.webkit.org/show_bug.cgi?id=236806
+        <rdar://problem/88858606>
+
+        Reviewed by Aditya Keerthi.
+
+        * pal/spi/mac/NSSharingServicePickerSPI.h:
+
+2022-02-17  Jer Noble  <jer.noble@apple.com>
+
+        [Cocoa] Make AVFoundationSPI.h robust against changes in system headers
+        https://bugs.webkit.org/show_bug.cgi?id=236787
+
+        Reviewed by Eric Carlson.
+
+        Only re-declare classes and add categories for non-Apple Internal builds, or when those
+        definitions would be missing from system headers. The presence of the classes and their
+        methods are already checked at runtime, so this is a build-only change.
+
+        * pal/spi/cocoa/AVFoundationSPI.h:
+
+2022-02-15  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Update IDLs and stubs to latest version of the spec
+        https://bugs.webkit.org/show_bug.cgi?id=236639
+
+        Reviewed by Dean Jackson.
+
+        * PAL.xcodeproj/project.pbxproj:
+        * pal/graphics/WebGPU/Impl/WebGPUAdapterImpl.cpp:
+        (PAL::WebGPU::supportedFeatures):
+        (PAL::WebGPU::AdapterImpl::requestDevice):
+        * pal/graphics/WebGPU/Impl/WebGPUBufferImpl.cpp:
+        (PAL::WebGPU::BufferImpl::mapAsync):
+        (PAL::WebGPU::BufferImpl::getMappedRange):
+        * pal/graphics/WebGPU/Impl/WebGPUBufferImpl.h:
+        * pal/graphics/WebGPU/Impl/WebGPUCommandEncoderImpl.cpp:
+        (PAL::WebGPU::CommandEncoderImpl::beginRenderPass):
+        (PAL::WebGPU::CommandEncoderImpl::beginComputePass):
+        (PAL::WebGPU::CommandEncoderImpl::clearBuffer):
+        (PAL::WebGPU::CommandEncoderImpl::fillBuffer): Deleted.
+        * pal/graphics/WebGPU/Impl/WebGPUCommandEncoderImpl.h:
+        * pal/graphics/WebGPU/Impl/WebGPUComputePassEncoderImpl.cpp:
+        (PAL::WebGPU::ComputePassEncoderImpl::dispatch):
+        (PAL::WebGPU::ComputePassEncoderImpl::end):
+        (PAL::WebGPU::ComputePassEncoderImpl::beginPipelineStatisticsQuery): Deleted.
+        (PAL::WebGPU::ComputePassEncoderImpl::endPipelineStatisticsQuery): Deleted.
+        (PAL::WebGPU::ComputePassEncoderImpl::endPass): Deleted.
+        * pal/graphics/WebGPU/Impl/WebGPUComputePassEncoderImpl.h:
+        * pal/graphics/WebGPU/Impl/WebGPUConvertToBackingContext.cpp:
+        (PAL::WebGPU::ConvertToBackingContext::convertToBacking):
+        * pal/graphics/WebGPU/Impl/WebGPUConvertToBackingContext.h:
+        * pal/graphics/WebGPU/Impl/WebGPUDeviceImpl.cpp:
+        (PAL::WebGPU::DeviceImpl::createTexture):
+        (PAL::WebGPU::DeviceImpl::createShaderModule):
+        (PAL::WebGPU::convertToBacking):
+        (PAL::WebGPU::DeviceImpl::createRenderBundleEncoder):
+        (PAL::WebGPU::DeviceImpl::createQuerySet):
+        * pal/graphics/WebGPU/Impl/WebGPUImpl.cpp:
+        (PAL::WebGPU::GPUImpl::requestAdapter):
+        * pal/graphics/WebGPU/Impl/WebGPURenderPassEncoderImpl.cpp:
+        (PAL::WebGPU::RenderPassEncoderImpl::end):
+        (PAL::WebGPU::RenderPassEncoderImpl::beginPipelineStatisticsQuery): Deleted.
+        (PAL::WebGPU::RenderPassEncoderImpl::endPipelineStatisticsQuery): Deleted.
+        (PAL::WebGPU::RenderPassEncoderImpl::endPass): Deleted.
+        * pal/graphics/WebGPU/Impl/WebGPURenderPassEncoderImpl.h:
+        * pal/graphics/WebGPU/WebGPUBuffer.h:
+        * pal/graphics/WebGPU/WebGPUCanvasConfiguration.h:
+        * pal/graphics/WebGPU/WebGPUCommandEncoder.h:
+        * pal/graphics/WebGPU/WebGPUComputePassEncoder.h:
+        * pal/graphics/WebGPU/WebGPUFeatureName.h:
+        * pal/graphics/WebGPU/WebGPUFragmentState.h:
+        * pal/graphics/WebGPU/WebGPUImageCopyExternalImage.h:
+        * pal/graphics/WebGPU/WebGPULoadOp.h:
+        * pal/graphics/WebGPU/WebGPUPipelineStatisticName.h: Removed.
+        * pal/graphics/WebGPU/WebGPUQuerySetDescriptor.h:
+        * pal/graphics/WebGPU/WebGPUQueryType.h:
+        * pal/graphics/WebGPU/WebGPUQueue.h:
+        * pal/graphics/WebGPU/WebGPURenderPassColorAttachment.h:
+        * pal/graphics/WebGPU/WebGPURenderPassDepthStencilAttachment.h:
+        * pal/graphics/WebGPU/WebGPURenderPassDescriptor.h:
+        * pal/graphics/WebGPU/WebGPURenderPassEncoder.h:
+        * pal/graphics/WebGPU/WebGPURenderPassLayout.h:
+        * pal/graphics/WebGPU/WebGPUShaderModuleCompilationHint.h: Copied from Source/WebCore/PAL/pal/graphics/WebGPU/WebGPUImageCopyExternalImage.h.
+        * pal/graphics/WebGPU/WebGPUShaderModuleDescriptor.h:
+        * pal/graphics/WebGPU/WebGPUTextureDescriptor.h:
+        * pal/graphics/WebGPU/WebGPUTextureFormat.h:
+
+2022-02-16  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        ANGLE includes interfere with system header includes
+        https://bugs.webkit.org/show_bug.cgi?id=236636
+
+        Reviewed by Dean Jackson.
+
+        Remove the attempt to override system header logic with WebKit
+        ANGLE implementation. They are different implementations
+        and one cannot replace the other.
+
+        * pal/spi/cg/CoreGraphicsSPI.h:
+        * pal/spi/mac/HIToolboxSPI.h:
+        Add missing CGCOLORTAGGEDPOINTER_H_ that makes the CocoaPriv.h
+        included CoreGraphics header skip the incompatible tagged pointer
+        declarations, similar to other *SPI.h headers.
+
+2022-02-15  Alex Christensen  <achristensen@webkit.org>
+
+        Fix internal Big Sur build
+
+        * pal/spi/mac/HIToolboxSPI.h:
+
 2022-02-14  Wenson Hsieh  <wenson_hsieh@apple.com>
 
         [Live Text] Plumb platform image analysis objects to the web process

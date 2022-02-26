@@ -101,6 +101,7 @@ Seconds DocumentTimeline::animationInterval() const
 {
     if (!m_document || !m_document->page())
         return Seconds::infinity();
+
     return m_document->page()->preferredRenderingUpdateInterval();
 }
 
@@ -235,8 +236,11 @@ bool DocumentTimeline::animationCanBeRemoved(WebAnimation& animation)
     if (!target || !target->element.isDescendantOf(*m_document))
         return false;
 
-    ASSERT(target->renderer());
-    auto& style = target->renderer()->style();
+    auto& style = [&]() -> const RenderStyle& {
+        if (auto* renderer = target->renderer())
+            return renderer->style();
+        return RenderStyle::defaultStyle();
+    }();
 
     HashSet<CSSPropertyID> propertiesToMatch;
     for (auto cssProperty : keyframeEffect->animatedProperties())
@@ -328,10 +332,38 @@ void DocumentTimeline::scheduleNextTick()
 
     Seconds scheduleDelay = Seconds::infinity();
 
+    const auto nextTickTimeEpsilon = 1_ms;
+
+    auto timeUntilNextTickForAnimationsWithFrameRate = [&](std::optional<FramesPerSecond> frameRate) -> std::optional<Seconds> {
+        if (frameRate) {
+            if (auto* controller = this->controller())
+                return controller->timeUntilNextTickForAnimationsWithFrameRate(*frameRate);
+        }
+        return std::nullopt;
+    };
+
     for (const auto& animation : m_animations) {
         if (!animation->isRelevant())
             continue;
+
+        // Get the time until the next tick for this animation. This does not
+        // account for the animation frame rate, only accounting for the timing
+        // model and the playback rate.
         auto animationTimeToNextRequiredTick = animation->timeToNextTick();
+
+        if (auto animationFrameRate = animation->frameRate()) {
+            // Now let's get the time until any animation with this animation's frame rate would tick.
+            // If that time is longer than what we previously computed without accounting for the frame
+            // rate, we use this time instead since our animation wouldn't tick anyway since the
+            // DocumentTimelinesController would ignore it. Doing this ensures that we don't schedule
+            // updates that wouldn't actually yield any work and guarantees that in a page with only
+            // animations as the source for scheduling updates, updates are only scheduled at the minimal
+            // frame rate.
+            auto timeToNextPossibleTickAccountingForFrameRate = timeUntilNextTickForAnimationsWithFrameRate(animationFrameRate);
+            if (timeToNextPossibleTickAccountingForFrameRate && animationTimeToNextRequiredTick < *timeToNextPossibleTickAccountingForFrameRate)
+                animationTimeToNextRequiredTick = *timeToNextPossibleTickAccountingForFrameRate - nextTickTimeEpsilon;
+        }
+
         if (animationTimeToNextRequiredTick < animationInterval()) {
             scheduleAnimationResolution();
             return;
@@ -421,6 +453,7 @@ ExceptionOr<Ref<WebAnimation>> DocumentTimeline::animate(Ref<CustomEffectCallbac
         return Exception { InvalidStateError };
 
     String id = "";
+    std::variant<FramesPerSecond, AnimationFrameRatePreset> frameRate = AnimationFrameRatePreset::Auto;
     std::optional<std::variant<double, EffectTiming>> customEffectOptions;
 
     if (options) {
@@ -430,6 +463,7 @@ ExceptionOr<Ref<WebAnimation>> DocumentTimeline::animate(Ref<CustomEffectCallbac
         else {
             auto customEffectOptions = std::get<CustomAnimationOptions>(*options);
             id = customEffectOptions.id;
+            frameRate = customEffectOptions.frameRate;
             customEffectOptionsVariant = WTFMove(customEffectOptions);
         }
         customEffectOptions = customEffectOptionsVariant;
@@ -441,6 +475,7 @@ ExceptionOr<Ref<WebAnimation>> DocumentTimeline::animate(Ref<CustomEffectCallbac
 
     auto animation = WebAnimation::create(*document(), &customEffectResult.returnValue().get());
     animation->setId(id);
+    animation->setBindingsFrameRate(WTFMove(frameRate));
 
     auto animationPlayResult = animation->play();
     if (animationPlayResult.hasException())

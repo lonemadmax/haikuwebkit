@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -355,6 +355,7 @@ bool canUseWebAssemblyFastMemory();
     \
     v(GCLogLevel, logGC, GCLogging::None, Normal, "debugging option to log GC activity (0 = None, 1 = Basic, 2 = Verbose)") \
     v(Bool, useGC, true, Normal, nullptr) \
+    v(Bool, useGlobalGC, false, Normal, nullptr) \
     v(Bool, gcAtEnd, false, Normal, "If true, the jsc CLI will do a GC before exiting") \
     v(Bool, forceGCSlowPaths, false, Normal, "If true, we will force all JIT fast allocations down their slow paths.") \
     v(Bool, forceDidDeferGCWork, false, Normal, "If true, we will force all DeferGC destructions to perform a GC.") \
@@ -544,8 +545,7 @@ bool canUseWebAssemblyFastMemory();
     v(Bool, useImportAssertion, false, Normal, "Enable import assertion.") \
     v(Bool, useIntlEnumeration, true, Normal, "Expose the Intl enumeration APIs.") \
     v(Bool, useSharedArrayBuffer, false, Normal, nullptr) \
-    /* FIXME: ShadownRealm can be enabled once WebCore's JSGlobalObject == JSDOMGlobalObject assumption is removed,  https://bugs.webkit.org/show_bug.cgi?id=231506 */\
-    v(Bool, useShadowRealm, false, Normal, "Expose the ShadowRealm object.") \
+    v(Bool, useShadowRealm, true, Normal, "Expose the ShadowRealm object.") \
     v(Bool, useTemporal, false, Normal, "Expose the Temporal object.") \
     v(Bool, useWebAssemblyThreading, true, Normal, "Allow instructions from the wasm threading spec.") \
     v(Bool, useWebAssemblyTypedFunctionReferences, false, Normal, "Allow function types from the wasm typed function references spec.") \

@@ -22,7 +22,8 @@
 #include "JSTestReportExtraMemoryCost.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
 #include "JSDOMExceptionHandling.h"
@@ -60,7 +61,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestReportExtraMemoryCostPrototype, Base);
         return &vm.plainObjectSpace();
@@ -163,27 +164,14 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestReportExtraMemoryCostConstructor, (JSGlobalObject
     return JSValue::encode(JSTestReportExtraMemoryCost::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));
 }
 
-JSC::IsoSubspace* JSTestReportExtraMemoryCost::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSTestReportExtraMemoryCost::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForTestReportExtraMemoryCost.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestReportExtraMemoryCost> || !JSTestReportExtraMemoryCost::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestReportExtraMemoryCost>)
-        spaces.m_subspaceForTestReportExtraMemoryCost = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestReportExtraMemoryCost);
-    else
-        spaces.m_subspaceForTestReportExtraMemoryCost = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestReportExtraMemoryCost);
-    auto* space = spaces.m_subspaceForTestReportExtraMemoryCost.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSTestReportExtraMemoryCost::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSTestReportExtraMemoryCost, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForTestReportExtraMemoryCost.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestReportExtraMemoryCost = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForTestReportExtraMemoryCost.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestReportExtraMemoryCost = WTFMove(space); }
+    );
 }
 
 template<typename Visitor>

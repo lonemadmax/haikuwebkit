@@ -366,11 +366,9 @@ StyleRuleFontPaletteValues::StyleRuleFontPaletteValues(const StyleRuleFontPalett
 StyleRuleFontPaletteValues::~StyleRuleFontPaletteValues() = default;
 
 DeferredStyleGroupRuleList::DeferredStyleGroupRuleList(const CSSParserTokenRange& range, CSSDeferredParser& parser)
-    : m_parser(parser)
+    : m_tokens(range.begin(), range.end() - range.begin())
+    , m_parser(parser)
 {
-    size_t length = range.end() - range.begin();
-    m_tokens.reserveCapacity(length);
-    m_tokens.append(range.begin(), length);
 }
 
 DeferredStyleGroupRuleList::~DeferredStyleGroupRuleList() = default;
@@ -399,10 +397,8 @@ StyleRuleGroup::StyleRuleGroup(StyleRuleType type, std::unique_ptr<DeferredStyle
 
 StyleRuleGroup::StyleRuleGroup(const StyleRuleGroup& o)
     : StyleRuleBase(o)
+    , m_childRules(o.childRules().map([](auto& rule) -> RefPtr<StyleRuleBase> { return rule->copy(); }))
 {
-    m_childRules.reserveInitialCapacity(o.childRules().size());
-    for (auto& childRule : o.childRules())
-        m_childRules.uncheckedAppend(childRule->copy());
 }
 
 const Vector<RefPtr<StyleRuleBase>>& StyleRuleGroup::childRules() const

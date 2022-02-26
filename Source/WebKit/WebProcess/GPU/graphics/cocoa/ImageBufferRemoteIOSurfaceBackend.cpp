@@ -64,9 +64,19 @@ std::unique_ptr<ImageBufferRemoteIOSurfaceBackend> ImageBufferRemoteIOSurfaceBac
     return makeUnique<ImageBufferRemoteIOSurfaceBackend>(parameters, WTFMove(handle));
 }
 
-ImageBufferBackendHandle ImageBufferRemoteIOSurfaceBackend::createImageBufferBackendHandle() const
+ImageBufferBackendHandle ImageBufferRemoteIOSurfaceBackend::createBackendHandle() const
 {
     return std::get<MachSendRight>(m_handle).copySendRight();
+}
+
+void ImageBufferRemoteIOSurfaceBackend::setBackendHandle(ImageBufferBackendHandle&& handle)
+{
+    m_handle = WTFMove(handle);
+}
+
+void ImageBufferRemoteIOSurfaceBackend::clearBackendHandle()
+{
+    m_handle = { };
 }
 
 GraphicsContext& ImageBufferRemoteIOSurfaceBackend::context() const

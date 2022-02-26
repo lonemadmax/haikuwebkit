@@ -22,7 +22,8 @@
 #include "JSWorkletGlobalScope.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -157,23 +158,15 @@ JSC_DEFINE_CUSTOM_GETTER(jsWorkletGlobalScope_WorkletGlobalScopeConstructor, (JS
     return IDLAttribute<JSWorkletGlobalScope>::get<jsWorkletGlobalScope_WorkletGlobalScopeConstructorGetter>(*lexicalGlobalObject, thisValue, attributeName);
 }
 
-JSC::IsoSubspace* JSWorkletGlobalScope::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSWorkletGlobalScope::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForWorkletGlobalScope.get())
-        return space;
-    spaces.m_subspaceForWorkletGlobalScope = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, clientData.m_heapCellTypeForJSWorkletGlobalScope, JSWorkletGlobalScope);
-    auto* space = spaces.m_subspaceForWorkletGlobalScope.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSWorkletGlobalScope::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSWorkletGlobalScope, UseCustomHeapCellType::Yes>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForWorkletGlobalScope.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForWorkletGlobalScope = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForWorkletGlobalScope.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForWorkletGlobalScope = WTFMove(space); },
+        [] (auto& server) -> JSC::HeapCellType& { return server.m_heapCellTypeForJSWorkletGlobalScope; }
+    );
 }
 
 void JSWorkletGlobalScope::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

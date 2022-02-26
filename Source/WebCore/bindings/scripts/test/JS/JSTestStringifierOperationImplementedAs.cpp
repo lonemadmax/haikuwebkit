@@ -22,7 +22,8 @@
 #include "JSTestStringifierOperationImplementedAs.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
 #include "JSDOMConvertStrings.h"
@@ -67,7 +68,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestStringifierOperationImplementedAsPrototype, Base);
         return &vm.plainObjectSpace();
@@ -201,27 +202,14 @@ JSC_DEFINE_HOST_FUNCTION(jsTestStringifierOperationImplementedAsPrototypeFunctio
     return IDLOperation<JSTestStringifierOperationImplementedAs>::call<jsTestStringifierOperationImplementedAsPrototypeFunction_toStringBody>(*lexicalGlobalObject, *callFrame, "toString");
 }
 
-JSC::IsoSubspace* JSTestStringifierOperationImplementedAs::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSTestStringifierOperationImplementedAs::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForTestStringifierOperationImplementedAs.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestStringifierOperationImplementedAs> || !JSTestStringifierOperationImplementedAs::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestStringifierOperationImplementedAs>)
-        spaces.m_subspaceForTestStringifierOperationImplementedAs = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestStringifierOperationImplementedAs);
-    else
-        spaces.m_subspaceForTestStringifierOperationImplementedAs = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestStringifierOperationImplementedAs);
-    auto* space = spaces.m_subspaceForTestStringifierOperationImplementedAs.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSTestStringifierOperationImplementedAs::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSTestStringifierOperationImplementedAs, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForTestStringifierOperationImplementedAs.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestStringifierOperationImplementedAs = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForTestStringifierOperationImplementedAs.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestStringifierOperationImplementedAs = WTFMove(space); }
+    );
 }
 
 void JSTestStringifierOperationImplementedAs::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

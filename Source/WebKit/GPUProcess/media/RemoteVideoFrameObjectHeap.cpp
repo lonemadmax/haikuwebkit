@@ -26,13 +26,17 @@
 #include "config.h"
 #include "RemoteVideoFrameObjectHeap.h"
 
-#if ENABLE(GPU_PROCESS) && ENABLE(MEDIA_STREAM)
+#if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
 #include "GPUConnectionToWebProcess.h"
 #include "RemoteVideoFrameObjectHeapMessages.h"
 #include "RemoteVideoFrameObjectHeapProxyProcessorMessages.h"
 #include "RemoteVideoFrameProxy.h"
 
+#if PLATFORM(COCOA)
+#include <WebCore/MediaSampleAVFObjC.h>
+#include <WebCore/VideoFrameCV.h>
 #include <pal/cf/CoreMediaSoftLink.h>
+#endif
 
 namespace WebKit {
 
@@ -51,12 +55,15 @@ RemoteVideoFrameObjectHeap::RemoteVideoFrameObjectHeap(GPUConnectionToWebProcess
 RemoteVideoFrameObjectHeap::~RemoteVideoFrameObjectHeap()
 {
     ASSERT(!m_gpuConnectionToWebProcess);
+    m_consumeThread.reset();
 }
 
 void RemoteVideoFrameObjectHeap::stopListeningForIPC(Ref<RemoteVideoFrameObjectHeap>&& refFromConnection)
 {
     assertIsCurrent(m_consumeThread);
+#if PLATFORM(COCOA)
     m_sharedVideoFrameWriter.disable();
+#endif
 
     if (auto* gpuConnectionToWebProcess = std::exchange(m_gpuConnectionToWebProcess, nullptr)) {
         gpuConnectionToWebProcess->messageReceiverMap().removeMessageReceiver(Messages::RemoteVideoFrameObjectHeap::messageReceiverName());
@@ -81,23 +88,31 @@ void RemoteVideoFrameObjectHeap::releaseVideoFrame(RemoteVideoFrameWriteReferenc
     retireRemove(WTFMove(write));
 }
 
+#if PLATFORM(COCOA)
 void RemoteVideoFrameObjectHeap::getVideoFrameBuffer(RemoteVideoFrameReadReference&& read)
 {
     auto identifier = read.identifier();
-    auto mediaSample = retire(WTFMove(read), 0_s);
+    auto videoFrame = retire(WTFMove(read), 0_s);
 
-    if (!mediaSample)
+    if (!videoFrame)
         m_connection->send(Messages::RemoteVideoFrameObjectHeapProxyProcessor::VideoFrameBufferNotFound { identifier }, 0);
+    RetainPtr<CVPixelBufferRef> pixelBuffer;
+    if (is<VideoFrameCV>(videoFrame))
+        pixelBuffer = downcast<VideoFrameCV>(*videoFrame).pixelBuffer();
+    else if (is<MediaSampleAVFObjC>(*videoFrame))
+        pixelBuffer = downcast<MediaSampleAVFObjC>(*videoFrame).pixelBuffer();
+    else {
+        ASSERT_NOT_REACHED();
+        return;
+    }
 
-    auto platformSample = mediaSample->platformSample();
-    ASSERT(platformSample.type == PlatformSample::CMSampleBufferType);
-
-    m_sharedVideoFrameWriter.write(static_cast<CVPixelBufferRef>(PAL::CMSampleBufferGetImageBuffer(platformSample.sample.cmSampleBuffer)),
+    m_sharedVideoFrameWriter.write(pixelBuffer.get(),
         [&](auto& semaphore) { m_connection->send(Messages::RemoteVideoFrameObjectHeapProxyProcessor::SetSharedVideoFrameSemaphore { semaphore }, 0); },
         [&](auto& handle) { m_connection->send(Messages::RemoteVideoFrameObjectHeapProxyProcessor::SetSharedVideoFrameMemory { handle }, 0); }
     );
     m_connection->send(Messages::RemoteVideoFrameObjectHeapProxyProcessor::NewVideoFrameBuffer { identifier }, 0);
 }
+#endif
 
 }
 

@@ -22,7 +22,8 @@
 #include "JSTestNamedSetterWithLegacyOverrideBuiltIns.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAbstractOperations.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -62,7 +63,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestNamedSetterWithLegacyOverrideBuiltInsPrototype, Base);
         return &vm.plainObjectSpace();
@@ -269,27 +270,14 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestNamedSetterWithLegacyOverrideBuiltInsConstructor,
     return JSValue::encode(JSTestNamedSetterWithLegacyOverrideBuiltIns::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));
 }
 
-JSC::IsoSubspace* JSTestNamedSetterWithLegacyOverrideBuiltIns::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSTestNamedSetterWithLegacyOverrideBuiltIns::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForTestNamedSetterWithLegacyOverrideBuiltIns.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestNamedSetterWithLegacyOverrideBuiltIns> || !JSTestNamedSetterWithLegacyOverrideBuiltIns::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestNamedSetterWithLegacyOverrideBuiltIns>)
-        spaces.m_subspaceForTestNamedSetterWithLegacyOverrideBuiltIns = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestNamedSetterWithLegacyOverrideBuiltIns);
-    else
-        spaces.m_subspaceForTestNamedSetterWithLegacyOverrideBuiltIns = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestNamedSetterWithLegacyOverrideBuiltIns);
-    auto* space = spaces.m_subspaceForTestNamedSetterWithLegacyOverrideBuiltIns.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSTestNamedSetterWithLegacyOverrideBuiltIns::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSTestNamedSetterWithLegacyOverrideBuiltIns, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForTestNamedSetterWithLegacyOverrideBuiltIns.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestNamedSetterWithLegacyOverrideBuiltIns = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForTestNamedSetterWithLegacyOverrideBuiltIns.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestNamedSetterWithLegacyOverrideBuiltIns = WTFMove(space); }
+    );
 }
 
 void JSTestNamedSetterWithLegacyOverrideBuiltIns::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

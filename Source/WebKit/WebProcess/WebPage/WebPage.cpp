@@ -72,6 +72,7 @@
 #include "WKRetainPtr.h"
 #include "WKSharedAPICast.h"
 #include "WebAlternativeTextClient.h"
+#include "WebAttachmentElementClient.h"
 #include "WebBackForwardListItem.h"
 #include "WebBackForwardListProxy.h"
 #include "WebBroadcastChannelRegistry.h"
@@ -652,17 +653,10 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         CrossOriginAccessControlCheckDisabler::singleton().setCrossOriginAccessControlCheckEnabled(false);
 
 #if ENABLE(ATTACHMENT_ELEMENT)
-    if (parameters.attachmentElementExtensionHandles)
-        SandboxExtension::consumePermanently(*parameters.attachmentElementExtensionHandles);
+    pageConfiguration.attachmentElementClient = makeUnique<WebAttachmentElementClient>(*this);
 #endif
+
 #if PLATFORM(COCOA)
-    // FIXME(207716): The following should be removed when the GPU process is complete.
-    static bool hasConsumedMediaExtensionHandles = false;
-    if (!hasConsumedMediaExtensionHandles && parameters.mediaExtensionHandles.size()) {
-        SandboxExtension::consumePermanently(parameters.mediaExtensionHandles);
-        SandboxExtension::consumePermanently(parameters.mediaIOKitExtensionHandles);
-        hasConsumedMediaExtensionHandles = true;
-    }
     static bool hasConsumedGPUExtensionHandles = false;
     if (!hasConsumedGPUExtensionHandles) {
         SandboxExtension::consumePermanently(parameters.gpuIOKitExtensionHandles);
@@ -1387,12 +1381,9 @@ Ref<API::Array> WebPage::trackedRepaintRects()
     if (!view)
         return API::Array::create();
 
-    Vector<RefPtr<API::Object>> repaintRects;
-    repaintRects.reserveInitialCapacity(view->trackedRepaintRects().size());
-
-    for (const auto& repaintRect : view->trackedRepaintRects())
-        repaintRects.uncheckedAppend(API::Rect::create(toAPI(repaintRect)));
-
+    auto repaintRects = view->trackedRepaintRects().map([](auto& repaintRect) -> RefPtr<API::Object> {
+        return API::Rect::create(toAPI(repaintRect));
+    });
     return API::Array::create(WTFMove(repaintRects));
 }
 
@@ -2130,10 +2121,7 @@ static void dumpHistoryItem(HistoryItem& item, size_t indent, bool isCurrentItem
 
     stringBuilder.append('\n');
 
-    Vector<Ref<HistoryItem>> children;
-    children.reserveInitialCapacity(item.children().size());
-    for (auto& child : item.children())
-        children.uncheckedAppend(child.copyRef());
+    auto children = item.children();
     std::stable_sort(children.begin(), children.end(), [] (auto& a, auto& b) {
         return codePointCompare(a->target(), b->target()) < 0;
     });
@@ -2917,6 +2905,10 @@ void WebPage::didShowContextMenu()
 void WebPage::didDismissContextMenu()
 {
     corePage()->contextMenuController().didDismissContextMenu();
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    m_croppedImageOverlay = nullptr;
+#endif
 }
 
 #endif // ENABLE(CONTEXT_MENUS)
@@ -7356,11 +7348,29 @@ void WebPage::updateAttachmentAttributes(const String& identifier, std::optional
     callback();
 }
 
-void WebPage::updateAttachmentIcon(const String& identifier, const ShareableBitmap::Handle& qlThumbnailHandle)
+void WebPage::updateAttachmentThumbnail(const String& identifier, const ShareableBitmap::Handle& qlThumbnailHandle)
 {
     if (auto attachment = attachmentElementWithIdentifier(identifier)) {
         if (RefPtr<ShareableBitmap> thumbnail = !qlThumbnailHandle.isNull() ? ShareableBitmap::create(qlThumbnailHandle) : nullptr)
             attachment->updateThumbnail(thumbnail->createImage());
+    }
+}
+
+void WebPage::updateAttachmentIcon(const String& identifier, const ShareableBitmap::Handle& iconHandle, const WebCore::FloatSize& size)
+{
+    if (auto attachment = attachmentElementWithIdentifier(identifier)) {
+        if (auto icon = !iconHandle.isNull() ? ShareableBitmap::create(iconHandle) : nullptr)
+            attachment->updateIcon(icon->createImage(), size);
+    }
+}
+
+void WebPage::requestAttachmentIcon(const String& identifier, const WebCore::FloatSize& size)
+{
+    if (auto attachment = attachmentElementWithIdentifier(identifier)) {
+        String fileName;
+        if (File* file = attachment->file())
+            fileName = file->path();
+        send(Messages::WebPageProxy::RequestAttachmentIcon(identifier, attachment->attachmentType(), fileName, attachment->attachmentTitle(), size));
     }
 }
 
@@ -7785,6 +7795,29 @@ void WebPage::requestImageBitmap(const ElementContext& context, CompletionHandle
     completion(handle, mimeType);
 }
 
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+
+void WebPage::installCroppedImageOverlay(const ElementContext& context, const SharedMemory::IPCHandle& imageData, const String& mimeType, FloatRect normalizedCropRect)
+{
+    auto sharedMemory = SharedMemory::map(imageData.handle, SharedMemory::Protection::ReadOnly);
+    if (!sharedMemory)
+        return;
+
+    RefPtr element = dynamicDowncast<HTMLElement>(elementForContext(context).get());
+    if (!element)
+        return;
+
+    m_croppedImageOverlay = ImageOverlay::CroppedImage::install(*element, sharedMemory->createSharedBuffer(imageData.dataSize), mimeType, normalizedCropRect);
+}
+
+void WebPage::setCroppedImageOverlayVisibility(bool visible)
+{
+    if (m_croppedImageOverlay)
+        m_croppedImageOverlay->setVisibility(visible);
+}
+
+#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+
 #if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
 void WebPage::showMediaControlsContextMenu(FloatRect&& targetFrame, Vector<MediaControlsContextMenuItem>&& items, CompletionHandler<void(MediaControlsContextMenuItem::ID)>&& completionHandler)
 {
@@ -7861,7 +7894,7 @@ bool WebPage::createAppHighlightInSelectedRange(WebCore::CreateNewGroupForHighli
     if (!selectionRange)
         return false;
 
-    document->appHighlightRegister().addAppHighlight(StaticRange::create(selectionRange.value()));
+    document->appHighlightRegister().addAnnotationHighlightWithRange(StaticRange::create(selectionRange.value()));
     document->appHighlightStorage().storeAppHighlight(StaticRange::create(selectionRange.value()));
 
     return true;

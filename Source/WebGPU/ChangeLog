@@ -1,3 +1,266 @@
+2022-02-18  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Any object-creation function that takes a descriptor can fail
+        https://bugs.webkit.org/show_bug.cgi?id=236855
+
+        Reviewed by Dean Jackson.
+
+        Generally, we view allocation failure as catastrophic, and crash. Because of that, I originally
+        made these methods return Refs, because I expected the failure case to cause intentional crashes
+        rather than return nullptr.
+
+        However, descriptors the shared header have a nextInChain pointer, which allows callers to pass
+        in extra extension-specific structs, as a linked list. If the WebGPU implementation sees one of
+        these extra structs that it doesn't know what to do with, it has to fail. That means that it's
+        possible to fail in a way other than an allocation failure, which means these functions have to
+        return RefPtrs instead of Refs.
+
+        * WebGPU/Adapter.h:
+        * WebGPU/Adapter.mm:
+        (WebGPU::Adapter::requestDevice):
+        (wgpuAdapterRequestDevice):
+        * WebGPU/CommandEncoder.h:
+        * WebGPU/CommandEncoder.mm:
+        (WebGPU::CommandEncoder::beginComputePass):
+        (WebGPU::CommandEncoder::beginRenderPass):
+        (WebGPU::CommandEncoder::finish):
+        (wgpuCommandEncoderBeginComputePass):
+        (wgpuCommandEncoderBeginRenderPass):
+        (wgpuCommandEncoderFinish):
+        * WebGPU/Device.h:
+        * WebGPU/Device.mm:
+        (WebGPU::Device::createBindGroup):
+        (WebGPU::Device::createBindGroupLayout):
+        (WebGPU::Device::createBuffer):
+        (WebGPU::Device::createCommandEncoder):
+        (WebGPU::Device::createComputePipeline):
+        (WebGPU::Device::createComputePipelineAsync):
+        (WebGPU::Device::createPipelineLayout):
+        (WebGPU::Device::createQuerySet):
+        (WebGPU::Device::createRenderBundleEncoder):
+        (WebGPU::Device::createRenderPipeline):
+        (WebGPU::Device::createRenderPipelineAsync):
+        (WebGPU::Device::createSampler):
+        (WebGPU::Device::createShaderModule):
+        (WebGPU::Device::createSwapChain):
+        (WebGPU::Device::createTexture):
+        (WebGPU::Device::getQueue):
+        (wgpuDeviceCreateBindGroup):
+        (wgpuDeviceCreateBindGroupLayout):
+        (wgpuDeviceCreateBuffer):
+        (wgpuDeviceCreateCommandEncoder):
+        (wgpuDeviceCreateComputePipeline):
+        (wgpuDeviceCreateComputePipelineAsync):
+        (wgpuDeviceCreatePipelineLayout):
+        (wgpuDeviceCreateQuerySet):
+        (wgpuDeviceCreateRenderBundleEncoder):
+        (wgpuDeviceCreateRenderPipeline):
+        (wgpuDeviceCreateRenderPipelineAsync):
+        (wgpuDeviceCreateSampler):
+        (wgpuDeviceCreateShaderModule):
+        (wgpuDeviceCreateSwapChain):
+        (wgpuDeviceCreateTexture):
+        (wgpuDeviceGetQueue):
+        * WebGPU/Instance.h:
+        * WebGPU/Instance.mm:
+        (WebGPU::Instance::createSurface):
+        (wgpuInstanceCreateSurface):
+        * WebGPU/RenderBundleEncoder.h:
+        * WebGPU/RenderBundleEncoder.mm:
+        (WebGPU::RenderBundleEncoder::finish):
+        (wgpuRenderBundleEncoderFinish):
+        * WebGPU/Texture.h:
+        * WebGPU/Texture.mm:
+        (WebGPU::Texture::createView):
+        (wgpuTextureCreateView):
+
+2022-02-18  Robert Jenner  <Jenner@apple.com>
+
+        Unreviewed, reverting r290149.
+
+        Broke Debug Builds.
+
+        Reverted changeset:
+
+        "Generate compile_commands.json on macOS Builds"
+        https://bugs.webkit.org/show_bug.cgi?id=235686
+        https://commits.webkit.org/r290149
+
+2022-02-18  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] "All Modules" workspace builds building out of order
+        https://bugs.webkit.org/show_bug.cgi?id=236813
+
+        Reviewed by Alexey Proskuryakov.
+
+        Add product dependency on WTF. WGSL uses its headers without linking against it.
+        
+        * Configurations/WGSL.xcconfig:
+        * WebGPU.xcodeproj/project.pbxproj:
+
+2022-02-18  Brandon Stewart  <brandonstewart@apple.com>
+
+        Generate compile_commands.json on macOS Builds
+        https://bugs.webkit.org/show_bug.cgi?id=235686
+
+        Reviewed by Saam Barati.
+
+        Add support for generating compile_commands.json file to WebKit.
+        
+        compile_commands.json can be used by tools like clangd to provide code complete,
+        refactoring, formatting, and cross references.
+
+        Steps to generate the compile commands file:
+        make r EXPORT_COMPILE_COMMANDS=YES
+        generate-compile-commands WebKitBuild/Release
+
+        * Configurations/DebugRelease.xcconfig:
+
+2022-02-18  Saam Barati  <sbarati@apple.com>
+
+        Add LC_SOURCE_VERSION to compile targets
+        https://bugs.webkit.org/show_bug.cgi?id=236720
+        <rdar://84984140>
+
+        Reviewed by Michael Saboff.
+
+        * Configurations/Version.xcconfig:
+        * Configurations/WGSL.xcconfig:
+        * Configurations/WGSLUnitTests.xcconfig:
+        * Configurations/WebGPU.xcconfig:
+
+2022-02-17  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Add a playground example target
+        https://bugs.webkit.org/show_bug.cgi?id=236742
+
+        Reviewed by Dean Jackson.
+
+        It's just a little playground where you can call WebGPU functions.
+        It's not built by any script or included in any other targets - it's
+        just for the WebGPU developers to play around with WebGPU functions.
+
+        * CommandLinePlayground/main.swift: Added.
+        * Configurations/CommandLinePlayground.xcconfig: Added.
+        * WebGPU.xcodeproj/project.pbxproj:
+        * WebGPU/WebGPU.modulemap:
+
+2022-02-15  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Update IDLs and stubs to latest version of the spec
+        https://bugs.webkit.org/show_bug.cgi?id=236639
+
+        Reviewed by Dean Jackson.
+
+        * WebGPU/Adapter.h:
+        * WebGPU/Adapter.mm:
+        (WebGPU::Adapter::enumerateFeatures):
+        (wgpuAdapterEnumerateFeatures):
+        (WebGPU::Adapter::getFeatureAtIndex): Deleted.
+        (wgpuAdapterGetFeatureAtIndex): Deleted.
+        * WebGPU/CommandEncoder.h:
+        * WebGPU/CommandEncoder.mm:
+        (WebGPU::CommandEncoder::clearBuffer):
+        (wgpuCommandEncoderClearBuffer):
+        (WebGPU::CommandEncoder::fillBuffer): Deleted.
+        (wgpuCommandEncoderFillBuffer): Deleted.
+        * WebGPU/ComputePassEncoder.h:
+        * WebGPU/ComputePassEncoder.mm:
+        (WebGPU::ComputePassEncoder::writeTimestamp): Deleted.
+        (wgpuComputePassEncoderWriteTimestamp): Deleted.
+        * WebGPU/Device.h:
+        * WebGPU/Device.mm:
+        (WebGPU::Device::enumerateFeatures):
+        (WebGPU::Device::hasFeature):
+        (wgpuDeviceEnumerateFeatures):
+        (wgpuDeviceHasFeature):
+        * WebGPU/Instance.mm:
+        (wgpuGetProcAddress):
+        * WebGPU/RenderPassEncoder.h:
+        * WebGPU/RenderPassEncoder.mm:
+        (WebGPU::RenderPassEncoder::writeTimestamp): Deleted.
+        (wgpuRenderPassEncoderWriteTimestamp): Deleted.
+        * WebGPU/ShaderModule.h:
+        * WebGPU/ShaderModule.mm:
+        (WebGPU::ShaderModule::getCompilationInfo):
+        (wgpuShaderModuleGetCompilationInfo):
+        * WebGPU/WebGPU.h:
+        * WebGPU/WebGPUExt.h:
+
+2022-02-15  Robin Morisset  <rmorisset@apple.com>
+
+        [WGSL] Implement enough of the lexer for the simplest shaders
+        https://bugs.webkit.org/show_bug.cgi?id=233276
+        <rdar://problem/85732675>
+
+        Reviewed by Myles Maxfield.
+
+        There is just enough of the lexer in this patch to pass the unit tests (also added by the patch).
+        The lexer is templated by the character size, following the code from JSC's lexer.
+        I did not use a lexer generator like lex for a few reasons:
+        - It would have made the build system(s) even more of a nightmare
+        - It would have made it harder to give accurate and customized error messages
+        - If we ever decide to do anything exotic to the grammar of the language, it could have made it much harder
+
+        The lexing of floating point literals is a bit hacky, and probably has some precision issues in corner cases, but it passed all simple unit tests,
+        so for now I just left it as is with a FIXME, to be fixed once we can run the full CTS.
+
+        The TokenType includes an `Invalid` value. I could instead have used std::optional<Token> everywhere.
+        I made this choice for two reasons:
+        - space efficiency: we don't use an extra word of memory for the variant's tag
+        -  (although this part could be solved by using https://github.com/akrzemi1/markable)
+        - ease of use and time efficiency: everywhere that we check for a given TokenType, we would have to first check that the Token is not nullopt, and then check the TokenType.
+
+        * Configurations/WGSLUnitTests.xcconfig:
+        * WGSL/Lexer.cpp: Added.
+        (WGSL::Lexer<T>::lex):
+        (WGSL::Lexer<T>::shift):
+        (WGSL::Lexer<T>::peek):
+        (WGSL::Lexer<T>::skipWhitespace):
+        (WGSL::Lexer<T>::isAtEndOfFile const):
+        (WGSL::Lexer<T>::parseDecimalInteger):
+        (WGSL::Lexer<T>::parseDecimalFloatExponent):
+        (WGSL::Lexer<T>::parseIntegerLiteralSuffix):
+        (WGSL::Lexer<LChar>::isWhiteSpace):
+        (WGSL::Lexer<LChar>::isIdentifierStart):
+        (WGSL::Lexer<LChar>::isValidIdentifierCharacter):
+        (WGSL::Lexer<LChar>::isDecimal):
+        (WGSL::Lexer<LChar>::isHexadecimal):
+        (WGSL::Lexer<LChar>::readDecimal):
+        (WGSL::Lexer<LChar>::readHexadecimal):
+        (WGSL::Lexer<UChar>::isWhiteSpace):
+        (WGSL::Lexer<UChar>::isIdentifierStart):
+        (WGSL::Lexer<UChar>::isValidIdentifierCharacter):
+        (WGSL::Lexer<UChar>::isDecimal):
+        (WGSL::Lexer<UChar>::isHexadecimal):
+        (WGSL::Lexer<UChar>::readDecimal):
+        (WGSL::Lexer<UChar>::readHexadecimal):
+        * WGSL/Lexer.h: Added.
+        (WGSL::Lexer::Lexer):
+        (WGSL::Lexer::currentPosition const):
+        (WGSL::Lexer::currentOffset const):
+        (WGSL::Lexer::currentTokenLength const):
+        (WGSL::Lexer::makeToken):
+        (WGSL::Lexer::makeLiteralToken):
+        (WGSL::Lexer::makeIdentifierToken):
+        * WGSL/SourceSpan.h: Added.
+        (WGSL::SourceSpan::SourceSpan):
+        * WGSL/Token.cpp: Added.
+        (WGSL::toString):
+        * WGSL/Token.h: Added.
+        (WGSL::Token::Token):
+        (WGSL::Token::operator=):
+        (WGSL::Token::~Token):
+        * WGSL/WGSL.cpp:
+        (WGSL::staticCheck):
+        * WGSLUnitTests/WGSLLexerTests.mm: Added.
+        (-[WGSLLexerTests testLexerOnSingleTokens]):
+        (-[WGSLLexerTests testLexerOnComputeShader]):
+        (-[WGSLLexerTests testLexerOnGraphicsShader]):
+        * WGSLUnitTests/WGSLUnitTests.mm: Removed.
+        (-[WGSLUnitTests testExample]): Deleted.
+        * WebGPU.xcodeproj/project.pbxproj:
+
 2022-01-26  Myles C. Maxfield  <mmaxfield@apple.com>
 
         [WebGPU] Make sure WGSLUnitTests can call into WGSL

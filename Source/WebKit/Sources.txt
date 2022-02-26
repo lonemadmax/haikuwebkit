@@ -383,6 +383,7 @@ Shared/WebGPU/WebGPURenderPipelineDescriptor.cpp
 Shared/WebGPU/WebGPURequestAdapterOptions.cpp
 Shared/WebGPU/WebGPUSamplerBindingLayout.cpp
 Shared/WebGPU/WebGPUSamplerDescriptor.cpp
+Shared/WebGPU/WebGPUShaderModuleCompilationHint.cpp
 Shared/WebGPU/WebGPUShaderModuleDescriptor.cpp
 Shared/WebGPU/WebGPUStencilFaceState.cpp
 Shared/WebGPU/WebGPUStorageTextureBindingLayout.cpp
@@ -809,6 +810,7 @@ WebProcess/WebAuthentication/WebAuthnProcessConnection.cpp
 WebProcess/WebCoreSupport/RemoteWebLockRegistry.cpp
 WebProcess/WebCoreSupport/SessionStateConversion.cpp
 WebProcess/WebCoreSupport/ShareableBitmapUtilities.cpp
+WebProcess/WebCoreSupport/WebAttachmentElementClient.cpp
 WebProcess/WebCoreSupport/WebBroadcastChannelRegistry.cpp
 WebProcess/WebCoreSupport/WebChromeClient.cpp
 WebProcess/WebCoreSupport/WebColorChooser.cpp

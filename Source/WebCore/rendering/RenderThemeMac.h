@@ -66,9 +66,7 @@ public:
     Color platformInactiveListBoxSelectionForegroundColor(OptionSet<StyleColorOptions>) const final;
     Color platformFocusRingColor(OptionSet<StyleColorOptions>) const final;
     Color platformTextSearchHighlightColor(OptionSet<StyleColorOptions>) const final;
-#if ENABLE(APP_HIGHLIGHTS)
-    Color platformAppHighlightColor(OptionSet<StyleColorOptions>) const final;
-#endif
+    Color platformAnnotationHighlightColor(OptionSet<StyleColorOptions>) const final;
     Color platformDefaultButtonTextColor(OptionSet<StyleColorOptions>) const final;
 
     ScrollbarControlSize scrollbarControlSizeForPart(ControlPart) final { return ScrollbarControlSize::Small; }
@@ -99,6 +97,8 @@ public:
     bool usesTestModeFocusRingColor() const;
     // A view associated to the contained document.
     NSView* documentViewFor(const RenderObject&) const;
+
+    WEBCORE_EXPORT static RetainPtr<NSImage> iconForAttachment(const String& fileName, const String& attachmentType, const String& title);
 
 private:
     RenderThemeMac();
@@ -162,6 +162,8 @@ private:
 
 private:
     String fileListNameForWidth(const FileList*, const FontCascade&, int width, bool multipleFilesAllowed) const final;
+
+    bool shouldPaintCustomTextField(const RenderObject&) const;
 
     Color systemColor(CSSValueID, OptionSet<StyleColorOptions>) const final;
 

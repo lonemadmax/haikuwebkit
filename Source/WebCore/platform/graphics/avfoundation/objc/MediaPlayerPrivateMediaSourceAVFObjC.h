@@ -137,7 +137,7 @@ public:
     void endSimulatedHDCPError() override { outputObscuredDueToInsufficientExternalProtectionChanged(false); }
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA)
-    void keyNeeded(Uint8Array*);
+    void keyNeeded(const SharedBuffer&);
 #endif
 
 #if ENABLE(ENCRYPTED_MEDIA)
@@ -222,7 +222,7 @@ private:
     bool updateLastImage();
     void paint(GraphicsContext&, const FloatRect&) override;
     void paintCurrentFrameInContext(GraphicsContext&, const FloatRect&) override;
-    std::optional<MediaSampleVideoFrame> videoFrameForCurrentTime() final;
+    RefPtr<VideoFrame> videoFrameForCurrentTime() final;
     DestinationColorSpace colorSpace() final;
 
     bool supportsAcceleratedRendering() const override;

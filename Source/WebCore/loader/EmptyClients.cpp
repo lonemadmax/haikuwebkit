@@ -50,6 +50,7 @@
 #include "DummySpeechRecognitionProvider.h"
 #include "DummyStorageProvider.h"
 #include "EditorClient.h"
+#include "EmptyAttachmentElementClient.h"
 #include "EmptyFrameLoaderClient.h"
 #include "FileChooser.h"
 #include "FormState.h"
@@ -142,6 +143,10 @@ class EmptyContextMenuClient final : public ContextMenuClient {
 
 #if ENABLE(IMAGE_ANALYSIS)
     bool supportsLookUpInImages() final { return false; }
+#endif
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    bool supportsCopyCroppedImage() final { return false; }
 #endif
 };
 
@@ -494,7 +499,7 @@ class EmptyStorageNamespaceProvider final : public StorageNamespaceProvider {
         {
         }
     private:
-        Ref<StorageArea> storageArea(const SecurityOriginData&) final { return adoptRef(*new EmptyStorageArea); }
+        Ref<StorageArea> storageArea(const SecurityOrigin&) final { return adoptRef(*new EmptyStorageArea); }
         Ref<StorageNamespace> copy(Page&) final { return adoptRef(*new EmptyStorageNamespace { m_sessionID }); }
         PAL::SessionID sessionID() const final { return m_sessionID; }
         void setSessionIDForTesting(PAL::SessionID sessionID) final { m_sessionID = sessionID; };
@@ -1169,7 +1174,7 @@ class EmptyMediaRecorderProvider final : public MediaRecorderProvider {
 public:
     EmptyMediaRecorderProvider() = default;
 private:
-#if ENABLE(MEDIA_STREAM) && PLATFORM(COCOA)
+#if ENABLE(MEDIA_RECORDER)
     std::unique_ptr<MediaRecorderPrivate> createMediaRecorderPrivate(MediaStreamPrivate&, const MediaRecorderPrivateOptions&) final { return nullptr; }
 #endif
 };
@@ -1252,6 +1257,10 @@ PageConfiguration pageConfigurationWithEmptyClients(PAL::SessionID sessionID)
     pageConfiguration.storageNamespaceProvider = adoptRef(*new EmptyStorageNamespaceProvider);
     pageConfiguration.visitedLinkStore = adoptRef(*new EmptyVisitedLinkStore);
     
+#if ENABLE(ATTACHMENT_ELEMENT)
+    pageConfiguration.attachmentElementClient = makeUnique<EmptyAttachmentElementClient>();
+#endif
+
     return pageConfiguration;
 }
 

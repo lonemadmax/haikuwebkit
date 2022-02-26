@@ -1093,7 +1093,7 @@ bool MediaPlayer::copyVideoTextureToPlatformTexture(GraphicsContextGL* context, 
 
 #endif
 
-std::optional<MediaSampleVideoFrame> MediaPlayer::videoFrameForCurrentTime()
+RefPtr<VideoFrame> MediaPlayer::videoFrameForCurrentTime()
 {
     return m_private->videoFrameForCurrentTime();
 }
@@ -1430,7 +1430,7 @@ RefPtr<ArrayBuffer> MediaPlayer::cachedKeyForKeyId(const String& keyId) const
     return client().mediaPlayerCachedKeyForKeyId(keyId);
 }
 
-void MediaPlayer::keyNeeded(Uint8Array* initData)
+void MediaPlayer::keyNeeded(const SharedBuffer& initData)
 {
     client().mediaPlayerKeyNeeded(initData);
 }

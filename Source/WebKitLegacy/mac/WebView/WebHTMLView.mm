@@ -600,6 +600,7 @@ static std::optional<NSInteger> toTag(WebCore::ContextMenuAction action)
     case ContextMenuItemTagTranslate:
         return WebMenuItemTagTranslate;
     case ContextMenuItemTagQuickLookImage:
+    case ContextMenuItemTagCopyCroppedImage:
         return std::nullopt;
 
     case ContextMenuItemBaseCustomTag ... ContextMenuItemLastCustomTag:
@@ -3541,8 +3542,8 @@ static RetainPtr<NSMenuItem> createShareMenuItem(const WebCore::HitTestResult& h
     }
 
     if (auto* image = hitTestResult.image()) {
-        if (RefPtr<WebCore::FragmentedSharedBuffer> buffer = image->data())
-            [items addObject:adoptNS([[NSImage alloc] initWithData:[NSData dataWithBytes:buffer->makeContiguous()->data() length:buffer->size()]]).get()];
+        if (RefPtr<const WebCore::FragmentedSharedBuffer> buffer = image->data())
+            [items addObject:adoptNS([[NSImage alloc] initWithData:buffer->makeContiguous()->createNSData().get()]).get()];
     }
 
     if (!hitTestResult.selectedText().isEmpty()) {
@@ -4302,12 +4303,12 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     RetainPtr<NSFileWrapper> wrapper;
     NSURL *draggingElementURL = nil;
-    
+
     if (auto tiffResource = _private->promisedDragTIFFDataSource) {
         if (auto* buffer = tiffResource->resourceBuffer()) {
             NSURLResponse *response = tiffResource->response().nsURLResponse();
             draggingElementURL = [response URL];
-            wrapper = adoptNS([[NSFileWrapper alloc] initRegularFileWithContents:buffer->createNSData().get()]);
+            wrapper = adoptNS([[NSFileWrapper alloc] initRegularFileWithContents:buffer->makeContiguous()->createNSData().get()]);
             NSString* filename = [response suggestedFilename];
             NSString* trueExtension(tiffResource->image()->filenameExtension());
             if (!matchesExtensionOrEquivalent(filename, trueExtension))
@@ -4315,17 +4316,17 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
             [wrapper setPreferredFilename:filename];
         }
     }
-    
+
     if (!wrapper) {
         ASSERT(![self _webView] || [self _isTopHTMLView]);
         auto* page = core([self _webView]);
-        
+
         //If a load occurs midway through a drag, the view may be detached, which gives
         //us no ability to get to the original Page, so we cannot access any drag state
         //FIXME: is there a way to recover?
         if (!page) 
             return nil; 
-        
+
         const URL& imageURL = page->dragController().draggingImageURL();
         if (!imageURL.isEmpty())
             draggingElementURL = imageURL;

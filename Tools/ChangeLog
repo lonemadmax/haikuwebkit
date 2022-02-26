@@ -1,3 +1,880 @@
+2022-02-20  Brandon Stewart  <brandonstewart@apple.com>
+
+        Generate compile_commands.json on macOS Builds
+        https://bugs.webkit.org/show_bug.cgi?id=235686
+
+        Reviewed by Saam Barati.
+
+        Add support for generating compile_commands.json file to WebKit.
+
+        compile_commands.json can be used by tools like clangd to provide code complete,
+        refactoring, formatting, and cross references.
+        
+        Steps to generate the compile commands file:
+        make d EXPORT_COMPILE_COMMANDS=YES
+        generate-compile-commands WebKitBuild/Debug
+
+        * Scripts/build-jsc:
+        * Scripts/build-webkit:
+        * Scripts/generate-compile-commands: Added.
+
+2022-02-17  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Enable iOS Simulator queues for PRs
+        https://bugs.webkit.org/show_bug.cgi?id=236816
+        <rdar://problem/89117393>
+
+        Reviewed by Ryan Haddad.
+
+        * CISupport/ews-build/config.json:
+
+2022-02-20  Philippe Normand  <pnormand@igalia.com>
+
+        REGRESSION(r289470): [Flatpak SDK] Broken local SDK handling
+        https://bugs.webkit.org/show_bug.cgi?id=236940
+
+        Reviewed by Martin Robinson.
+
+        The .Local path was incorrectly generated to WebKitBuild/UserFlatpak/.Local.
+        
+        * flatpak/flatpakutils.py:
+        (WebkitFlatpak.clean_args): Revert .Local SDK path handling to the version before r289470.
+
+2022-02-19  Sihui Liu  <sihui_liu@apple.com>
+
+        Set custom general storage directory for custom WebsiteDataStore in TestController
+        https://bugs.webkit.org/show_bug.cgi?id=236893
+
+        Reviewed by Chris Dumez.
+
+        If we don't set custom generalStorageDirectory for a custom WebsiteDataStore, it will use the same path as the
+        default WebsiteDataStore. That means when WebKitTestRunner creates multiple WebsiteDataStores (it may create 
+        mutliple TestControllers to run tests in parallel), the directory will be accessed concurrently and data can be 
+        corrupted.
+
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::TestController::configureWebsiteDataStoreTemporaryDirectories):
+
+2022-02-19  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed, reverting r290196.
+
+        Caused Network Process crashes <rdar://89190571>
+
+        Reverted changeset:
+
+        "Add assertion that no two network sessions share the same
+        storage path"
+        https://bugs.webkit.org/show_bug.cgi?id=236844
+        https://commits.webkit.org/r290196
+
+2022-02-18  David Kilzer  <ddkilzer@apple.com>
+
+        [Tools] Sanitizer builds should obey `set-webkit-configuration --force-optimization-level`
+        <https://webkit.org/b/236859>
+        <rdar://problem/89161649>
+
+        Reviewed by Brent Fulgham.
+
+        * Scripts/webkitdirs.pm:
+        (XcodeOptions):
+        - Pass WK_FORCE_OPTIMIZATION_LEVEL instead of
+          GCC_OPTIMIZATION_LEVEL if sanitizers are enabled so the
+          optimization level can be overridden in sanitizer.xcconfig.
+
+        * sanitizer/asan.xcconfig:
+        (WK_NOT_): Remove.
+        (WK_NOT_YES): Remove.
+        - Move variables to sanitizer.xcconfig.
+
+        * sanitizer/sanitizer.xcconfig:
+        (WK_EMPTY_): Add.
+        (WK_NOT_): Add.
+        (WK_NOT_YES): Add.
+        - Add utility variables originally from SDKVariant.xcconfig.
+        (WK_OVERRIDE_OPTIMIZATION_LEVEL): Add.
+        - Set to YES/NO depending on whether WK_FORCE_OPTIMIZATION_LEVEL
+          is set.
+        (GCC_OPTIMIZATION_LEVEL):
+        (GCC_OPTIMIZATION_LEVEL_OVERRIDE_YES): Add.
+        (GCC_OPTIMIZATION_LEVEL_OVERRIDE_NO): Add.
+        (GCC_OPTIMIZATION_LEVEL_OVERRIDE_NO_Debug): Rename from GCC_OPTIMIZATION_LEVEL_Debug.
+        (GCC_OPTIMIZATION_LEVEL_OVERRIDE_NO_Production): Rename from GCC_OPTIMIZATION_LEVEL_Production.
+        (GCC_OPTIMIZATION_LEVEL_OVERRIDE_NO_Release): Rename from GCC_OPTIMIZATION_LEVEL_Release.
+        - Make use of WK_OVERRIDE_OPTIMIZATION_LEVEL and
+          WK_FORCE_OPTIMIZATION_LEVEL to allow overriding the default
+          optimization level for sanitizer builds.
+
+2022-02-18  Ben Nham  <nham@apple.com>
+
+        Hook up PushManager to permission state
+        https://bugs.webkit.org/show_bug.cgi?id=236739
+
+        Reviewed by Brady Eidson.
+
+        Made the WebPushD API tests work now that subscribe checks for permission.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/WebPushDaemon.mm:
+
+2022-02-18  Sihui Liu  <sihui_liu@apple.com>
+
+        Add assertion that no two network session share the same storage path
+        https://bugs.webkit.org/show_bug.cgi?id=236844
+
+        Reviewed by Chris Dumez.
+
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::TestController::configureWebsiteDataStoreTemporaryDirectories):
+
+2022-02-18  Angelos Oikonomopoulos  <angelos@igalia.com>
+
+        [JSC] Fix test sharding when using --make-runner and --remote
+        https://bugs.webkit.org/show_bug.cgi?id=236560
+
+        Reviewed by Adrian Perez de Castro.
+
+        After https://commits.webkit.org/244496@main, test sharding was broken
+        for the make runner. Specifically, all remotes would get assigned all
+        tests (instead of a subset).
+
+        Fix this by propagating and using the correct value for remoteHosts.
+
+        * Scripts/webkitruby/jsc-stress-test-writer-default.rb:
+
+2022-02-18  Robert Jenner  <Jenner@apple.com>
+
+        Unreviewed, reverting r290149.
+
+        Broke Debug Builds.
+
+        Reverted changeset:
+
+        "Generate compile_commands.json on macOS Builds"
+        https://bugs.webkit.org/show_bug.cgi?id=235686
+        https://commits.webkit.org/r290149
+
+2022-02-18  Elliott Williams  <emw@apple.com>
+
+        [XCBuild] "All Modules" workspace builds building out of order
+        https://bugs.webkit.org/show_bug.cgi?id=236813
+
+        Reviewed by Alexey Proskuryakov.
+
+        Add product dependency on WebKit. LayoutTestHelper uses headers from WebKit and lower
+        frameworks without linking against them.
+
+        * DumpRenderTree/DumpRenderTree.xcodeproj/project.pbxproj:
+        * DumpRenderTree/mac/Configurations/LayoutTestHelper.xcconfig:
+
+2022-02-18  J Pascoe  <j_pascoe@apple.com>
+
+        [WebAuthn] Add credentialID to _WKWebAuthenticationAssertionResponse and userHandle in getAllLocalAuthenticatorCredentials
+        https://bugs.webkit.org/show_bug.cgi?id=236657
+        rdar://problem/88979279
+
+        Reviewed by Brent Fulgham.
+
+        Adjusted existing API tests, GetAllCredential and MultipleAccounts, to test for new fields
+        being returned and that they match the values expected. These values stem from testUserEntityBundleBase64
+        and testAssertionMessageLongBase64.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/_WKWebAuthenticationPanel.mm:
+        (-[TestWebAuthenticationPanelDelegate panel:selectAssertionResponse:source:completionHandler:]):
+        (TestWebKitAPI::TEST):
+
+2022-02-18  Brandon Stewart  <brandonstewart@apple.com>
+
+        Generate compile_commands.json on macOS Builds
+        https://bugs.webkit.org/show_bug.cgi?id=235686
+
+        Reviewed by Saam Barati.
+
+        Add support for generating compile_commands.json file to WebKit.
+        
+        compile_commands.json can be used by tools like clangd to provide code complete,
+        refactoring, formatting, and cross references.
+
+        Steps to generate the compile commands file:
+        make r EXPORT_COMPILE_COMMANDS=YES
+        generate-compile-commands WebKitBuild/Release
+
+        * ContentExtensionTester/Configurations/DebugRelease.xcconfig:
+        * DumpRenderTree/mac/Configurations/DebugRelease.xcconfig:
+        * ImageDiff/cg/Configurations/DebugRelease.xcconfig:
+        * MiniBrowser/Configurations/DebugRelease.xcconfig:
+        * Scripts/build-jsc:
+        * Scripts/build-webkit:
+        * Scripts/generate-compile-commands: Added.
+        * TestWebKitAPI/Configurations/DebugRelease.xcconfig:
+        * WebEditingTester/Configurations/DebugRelease.xcconfig:
+        * WebKitTestRunner/Configurations/DebugRelease.xcconfig:
+        * lldb/lldbWebKitTester/Configurations/DebugRelease.xcconfig:
+
+2022-02-18  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] Link issue to pull requests (Follow-up fix)
+        https://bugs.webkit.org/show_bug.cgi?id=236339
+        <rdar://problem/88657772>
+
+        Reviewed by Stephanie Lewis.
+
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/pull_request.py:
+        (PullRequest.main): Re-open associated closed PRs.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/pull_request_unittest.py:
+
+2022-02-18  Sihui Liu  <sihui_liu@apple.com>
+
+        Add test coverage for data migration introduced in r289878
+        https://bugs.webkit.org/show_bug.cgi?id=236825
+
+        Reviewed by Chris Dumez.
+
+        Ensure website data fetch and removal will examine both old paths (custom storage paths) and new paths (under 
+        general storage directory). Also, ensure that data is migrated from old paths to new paths when an origin is 
+        visited during data fetch and removal.
+
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/Tests/WebKitCocoa/WebsiteDataStoreCustomPaths.mm:
+        (TEST):
+        * TestWebKitAPI/Tests/WebKitCocoa/general-storage-directory-indexeddb.sqlite3: Added.
+        * TestWebKitAPI/Tests/WebKitCocoa/general-storage-directory-localstorage.sqlite3: Added.
+        * TestWebKitAPI/Tests/WebKitCocoa/general-storage-directory.origin: Added.
+
+2022-02-18  Brady Eidson  <beidson@apple.com>
+
+        Add an InstallCoordination webpushd backend
+        https://bugs.webkit.org/show_bug.cgi?id=233714
+
+        Reviewed by Alex Christensen.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/WebPushDaemon.mm:
+
+2022-02-07  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Trigger Mac builders on pull-requests
+        https://bugs.webkit.org/show_bug.cgi?id=236257
+        <rdar://problem/88591950>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/config.json: Enable Mac builders on pull-requests.
+
+2022-02-17  Megan Gardner  <megan_gardner@apple.com>
+
+        Draw highlights for Scroll To Text Fragment
+        https://bugs.webkit.org/show_bug.cgi?id=236693
+
+        Reviewed by Tim Horton.
+
+        * TestWebKitAPI/Tests/WebCore/MarkedText.cpp:
+        (WebCore::operator<<):
+
+2022-02-17  Aditya Keerthi  <akeerthi@apple.com>
+
+        '-webkit-user-select: all' is not respected in editable views
+        https://bugs.webkit.org/show_bug.cgi?id=190977
+        rdar://34945944
+
+        Reviewed by Wenson Hsieh.
+
+        Add a UIScriptController method to make web views editable.
+
+        Remove TestRunner::setWebViewEditable as it is unused.
+
+        * DumpRenderTree/TestRunner.cpp:
+        (TestRunner::staticFunctions):
+        (setWebViewEditableCallback): Deleted.
+        * DumpRenderTree/TestRunner.h:
+        * DumpRenderTree/mac/TestRunnerMac.mm:
+        (TestRunner::setWebViewEditable): Deleted.
+        * DumpRenderTree/mac/UIScriptControllerMac.h:
+        * DumpRenderTree/mac/UIScriptControllerMac.mm:
+        (WTR::UIScriptControllerMac::setWebViewEditable):
+        * DumpRenderTree/win/TestRunnerWin.cpp:
+        (TestRunner::~TestRunner):
+        (TestRunner::setWebViewEditable): Deleted.
+        * DumpRenderTree/win/UIScriptControllerWin.cpp:
+        (WTR::UIScriptControllerWin::setWebViewEditable):
+        * DumpRenderTree/win/UIScriptControllerWin.h:
+        * TestRunnerShared/UIScriptContext/Bindings/UIScriptController.idl:
+        * TestRunnerShared/UIScriptContext/UIScriptController.h:
+        (WTR::UIScriptController::setWebViewEditable):
+        * WebKitTestRunner/cocoa/TestControllerCocoa.mm:
+        (WTR::TestController::cocoaResetStateToConsistentValues):
+        * WebKitTestRunner/cocoa/UIScriptControllerCocoa.h:
+        * WebKitTestRunner/cocoa/UIScriptControllerCocoa.mm:
+        (WTR::UIScriptControllerCocoa::setWebViewEditable):
+        * WebKitTestRunner/gtk/TestControllerGtk.cpp:
+        (WTR::TestController::platformResetStateToConsistentValues):
+        * WebKitTestRunner/gtk/UIScriptControllerGtk.cpp:
+        (WTR::UIScriptControllerGtk::setWebViewEditable):
+        * WebKitTestRunner/gtk/UIScriptControllerGtk.h:
+
+2022-02-17  Sihui Liu  <sihui_liu@apple.com>
+
+        Ensure NetworkStorageManager::moveData performs move operation based on data types
+        https://bugs.webkit.org/show_bug.cgi?id=236727
+        rdar://89009881
+
+        Reviewed by Chris Dumez.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/WebsiteDataStoreCustomPaths.mm:
+        (TEST):
+
+2022-02-17  Angelos Oikonomopoulos  <angelos@igalia.com>
+
+        [JSC] Increase timeout to account for MIPS slowness
+        https://bugs.webkit.org/show_bug.cgi?id=236763
+
+        Reviewed by Adrian Perez de Castro.
+
+        Commit https://commits.webkit.org/247272@main parallelized the
+        status fetching but also introduced a timeout. Unfortunately, the
+        MIPS boards used in the build.webkit.org buildbot are not fast
+        enough to gather the test results in this timeout, so the bot can
+        never complete its testing. This wasn't caught in EWS as the
+        buildbots use faster MIPS hardware there.
+
+        Significantly bump the timeout when fetching results.
+
+        * Scripts/run-jsc-stress-tests:
+
+2022-02-16  Sihui Liu  <sihui_liu@apple.com>
+
+        Use FileSystem::readEntireFile everywhere
+        https://bugs.webkit.org/show_bug.cgi?id=233818
+        <rdar://problem/86324895>
+
+        Reviewed by Chris Dumez.
+
+        * TestWebKitAPI/Tests/WebCore/FileMonitor.cpp:
+        (TestWebKitAPI::readContentsOfFile):
+
+2022-02-16  Jonathan Bedard  <jbedard@apple.com>
+
+        Broken pipes during iOS simulator testing
+        https://bugs.webkit.org/show_bug.cgi?id=230513
+        <rdar://problem/83325409>
+
+        Reviewed by Dewei Zhu.
+
+        * Scripts/webkitpy/port/simulator_process.py:
+        (SimulatorProcess.Popen.poll): Close stdin, stdout and stderr when process ends.
+
+2022-02-16  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Rename 'patch' to 'change' in transfer-archive-to-s3
+        https://bugs.webkit.org/show_bug.cgi?id=236706
+        <rdar://problem/89025868>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/Shared/transfer-archive-to-s3: Change --patch_id argument
+        to --change-id.
+        * CISupport/ews-build/steps.py:
+        (TransferToS3): Invoke transfer-archive-to-s3 with --change-id.
+        * CISupport/ews-build/steps_unittest.py:
+
+2022-02-16  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] Comment and close issue when landing PR (Follow-up fix)
+        https://bugs.webkit.org/show_bug.cgi?id=236715
+        <rdar://problem/89031529>
+
+        Unreviewed follow-up fix.
+
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version instead of decrement.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/land.py:
+        (Land.main): Grab log of commit, which may contain revision, if there is one.
+
+2022-02-15  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Rename 'patch' to 'change' in layout-test steps
+        https://bugs.webkit.org/show_bug.cgi?id=236674
+        <rdar://problem/88992222>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/steps.py:
+        (RunWebKitTestsWithoutChange.setLayoutTestCommand):
+        (AnalyzeLayoutTestsResults.report_failure):
+        (AnalyzeLayoutTestsResults.retry_build):
+        (RunWebKitTestsRepeatFailuresRedTree.evaluateCommand):
+        (RunWebKitTestsRepeatFailuresRedTree.commandComplete):
+        (RunWebKitTestsRepeatFailuresWithoutChangeRedTree): Renamed.
+        (RunWebKitTestsRepeatFailuresWithoutChangeRedTree.setLayoutTestCommand):
+        (RunWebKitTestsRepeatFailuresWithoutChangeRedTree.evaluateCommand):
+        (RunWebKitTestsRepeatFailuresWithoutChangeRedTree.commandComplete):
+        (RunWebKitTestsRepeatFailuresWithoutPatchRedTree): Renamed.
+        (AnalyzeLayoutTestsResultsRedTree.report_infrastructure_issue_and_maybe_retry_build):
+        (AnalyzeLayoutTestsResultsRedTree.start):
+        * CISupport/ews-build/steps_unittest.py:
+
+2022-02-16  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] Comment and close issue when landing PR
+        https://bugs.webkit.org/show_bug.cgi?id=236715
+        <rdar://problem/89031529>
+
+        Reviewed by Ryan Haddad.
+
+        When we land pull requests, we should make a comment on the associated issue
+        indicating where the code change is and close that issue.
+
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/land.py:
+        (Land.main): Comment on and close issue associated with the final commit in
+        the landed series, shorten displayed hash to 12 characters.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/land_unittest.py:
+        (repository): Allow caller to specify issue URL in commit message, append git-svn
+        tag if in a git-svn repository.
+        (TestLand):
+        (TestLand.test_default):
+        (TestLand.test_canonicalize):
+        (TestLand.test_svn):
+        (TestLand.test_default_with_radar):
+        (TestLand.test_canonicalize_with_bugzilla):
+        (TestLand.test_svn_with_bugzilla):
+
+2022-02-16  Diego Pino Garcia  <dpino@igalia.com>
+
+        [GTK][WPE] Execute API test by name
+        https://bugs.webkit.org/show_bug.cgi?id=236623
+
+        Reviewed by Carlos Garcia Campos.
+
+        When running either `run-gtk-tests` or `run-wpe-tests`, let them take a test name and build
+        the path to the test.
+
+        * glib/api_test_runner.py:
+        (TestRunner._get_tests):
+
+2022-02-15  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Rename 'patch' to 'change' in api-test steps
+        https://bugs.webkit.org/show_bug.cgi?id=236676
+        <rdar://problem/88993105>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/steps.py:
+        (ReRunAPITests.evaluateCommand): Renamed RunAPITestsWithoutPatch to RunAPITestsWithoutChange.
+        (RunAPITestsWithoutChange): Ditto.
+        (AnalyzeAPITestsResults.start): Ditto.
+        (AnalyzeAPITestsResults.analyzeResults): Ditto.
+        (RunAPITestsWithoutChange): Renamed from RunAPITestsWithoutPatch.
+        (RunAPITestsWithoutPatch): Renamed to RunAPITestsWithoutChange.
+        * CISupport/ews-build/steps_unittest.py:
+
+2022-02-16  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Enable JSC queues
+        https://bugs.webkit.org/show_bug.cgi?id=236523
+        <rdar://problem/88831360>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/config.json:
+
+2022-02-16  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Disable Bugzilla related steps for PR workflow
+        https://bugs.webkit.org/show_bug.cgi?id=236735
+        <rdar://problem/89049663>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/steps.py:
+        (SetCommitQueueMinusFlagOnPatch.doStepIf): Do step if patch_id is defined.
+
+2022-02-15  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Rename 'patch' to 'change' in JSC steps
+        https://bugs.webkit.org/show_bug.cgi?id=236679
+        <rdar://problem/88993957>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/steps.py:
+        (AnalyzeJSCTestsResults.start): Rename 'patch' in variables and log messages to 'change'.
+        (AnalyzeJSCTestsResults.report_failure): Ditto.
+        * CISupport/ews-build/steps_unittest.py:
+
+2022-02-15  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Add tests for GitHub class
+        https://bugs.webkit.org/show_bug.cgi?id=236649
+        <rdar://problem/88966033>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/steps_unittest.py:
+        (TestGitHub):
+        (TestGitHub.test_pr_url):
+        (TestGitHub.test_pr_url_with_repository):
+        (TestGitHub.test_pr_url_with_invalid_repository):
+        (TestGitHub.test_commit_url):
+        (TestGitHub.test_commit_url_with_repository):
+        (TestGitHub.test_commit_url_with_invalid_repository):
+
+2022-02-16  Carlos Alberto Lopez Perez  <clopez@igalia.com>
+
+        [EWS][GTK] Send only one e-mail with all the list of flakies
+        https://bugs.webkit.org/show_bug.cgi?id=236705
+
+        Reviewed by Adrian Perez de Castro.
+
+        Sending one e-mail per test was too much e-mails and we were
+        spaming the bot watchers. Change it to only send one e-mail
+        per run with all the list of flakies on the body of the e-mail.
+
+        Fix also some issues detected on the code for sending the e-mails
+        (like a few undefined variables and function calls with wrong
+        paramters) that happened when running the unit test.
+
+        Add also unit tests to be able to check the contents of the
+        e-mails generated and also fix a logic error deteted when
+        working on the unit tests related to reporting
+        the pre_existent_non_flaky_failures for the GTK EWS.
+
+        * CISupport/ews-build/steps.py:
+        (AnalyzeCompileWebKitResults.send_email_for_new_build_failure):
+        (AnalyzeLayoutTestsResultsRedTree.send_email_for_pre_existent_failures):
+        (AnalyzeLayoutTestsResultsRedTree.send_email_for_flaky_failures_and_steps):
+        (AnalyzeLayoutTestsResultsRedTree.start):
+        * CISupport/ews-build/steps_unittest.py:
+        (BuildStepMixinAdditions.setUpBuildStep):
+        (BuildStepMixinAdditions._send_email):
+
+2022-02-16  Jer Noble  <jer.noble@apple.com>
+
+        [Cocoa] Adopt -streamDataParser:didProvideContentKeySpecifier:forTrackID: delegate callback
+        https://bugs.webkit.org/show_bug.cgi?id=236109
+
+        Reviewed by Eric Carlson.
+
+        * TestWebKitAPI/Tests/WebCore/SampleMap.cpp:
+
+2022-02-16  David Kilzer  <ddkilzer@apple.com>
+
+        Workaround ASAN false positive stack-buffer-underflow bmalloc_allocate_impl_casual_case
+        <https://bugs.webkit.org/show_bug.cgi?id=236001>
+        <rdar://problem/88364275>
+
+        Reviewed by Dean Jackson.
+
+        Based on a patch by Kimmo Kinnunen.
+
+        Define a WK_WORKAROUND_RDAR_87613908_ASAN_STACK_USE_AFTER_SCOPE
+        macro so that the fix can be targeted to a specific function in
+        libpas.  This avoids disabling all stack-use-after-scope checks
+        in bmalloc when compiling with Address Sanitizer enabled.
+
+        * sanitizer/asan.xcconfig:
+        (WK_ADDRESS_SANITIZER_OTHER_CFLAGS_YES): Add.
+        - This variable contains the macro definition when the
+          workaround is needed.  It's used in sanitizer.xcconfig to add
+          the macro definition to $(OTHER_CFLAGS).
+        (WK_NEEDS_ASAN_USE_AFTER_SCOPE_WORKAROUND_FOR_bmalloc_YES): Add.
+        - The workaround is currently only needed in bmalloc.
+        (WK_NOT_): Add.
+        (WK_NOT_YES): Add.
+        - Add support for $(WK_NOT_$(X)) variables.
+        (WK_NEEDS_ASAN_USE_AFTER_SCOPE_WORKAROUND): Add.
+        - Sets when the workaround is needed based on the Xcode version.
+          Uses a $(WK_NOT_$(X)) variable to negate the result when the
+          workaround is not needed.
+        (WK_XCODE_VERSION_BEFORE_13_3_*): Add.
+        - List Xcode versions where the workaround is not needed.
+
+        * sanitizer/sanitizer.xcconfig:
+        (OTHER_CFLAGS):
+        - Add the value of $(WK_ADDRESS_SANITIZER_OTHER_CFLAGS_YES) from
+          asan.xcconfig when building with Address Sanitizer enabled.
+
+2022-02-15  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Support PRs when sending layout test failure emails
+        https://bugs.webkit.org/show_bug.cgi?id=236654
+        <rdar://problem/88974170>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/steps.py:
+        (AnalyzeLayoutTestsResults.send_email_for_new_test_failures): Draft different
+        email for failed patch than failed pull request build.
+
+2022-02-16  Don Olmstead  <don.olmstead@sony.com>
+
+        Share WebKitTestRunner code among USE(LIBWPE) ports
+        https://bugs.webkit.org/show_bug.cgi?id=236651
+
+        Reviewed by Žan Doberšek.
+
+        Modify PLATFORM(WPE) to USE(LIBWPE) in EventSenderProxy and PlatformWebView. The former
+        just uses the libwpe API to send events so it can be shared. The later uses the
+        WPEToolingBackend so it can also be shared.
+
+        The WPE port was missing guards around ENABLE(TOUCH_EVENTS) so add those and organize the
+        corresponding .cpp so the methods track with the ordering in the header.
+
+        Also modernize the PlatformWebView code to prefer using over typedef.
+
+        * WebKitTestRunner/EventSenderProxy.h:
+        * WebKitTestRunner/PlatformWPE.cmake:
+        * WebKitTestRunner/PlatformWebView.h:
+        * WebKitTestRunner/libwpe/EventSenderProxyLibWPE.cpp: Renamed from Tools/WebKitTestRunner/wpe/EventSenderProxyWPE.cpp.
+        (WTR::EventSenderProxy::getUpdatedTouchEvents):
+        (WTR::EventSenderProxy::removeUpdatedTouchEvents):
+        (WTR::EventSenderProxy::prepareAndDispatchTouchEvent):
+        * WebKitTestRunner/libwpe/PlatformWebViewLibWPE.cpp: Renamed from Tools/WebKitTestRunner/wpe/PlatformWebViewWPE.cpp.
+        (WTR::PlatformWebView::windowSnapshotImage):
+
+2022-02-15  Sihui Liu  <sihui_liu@apple.com>
+
+        Migrate IndexedDB and LocalStorage data to GeneralStorageDirectory
+        https://bugs.webkit.org/show_bug.cgi?id=236611
+
+        Reviewed by Chris Dumez.
+
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/Tests/WebKitCocoa/WebsiteDataStoreCustomPaths.mm:
+        (TEST):
+        * TestWebKitAPI/Tests/WebKitCocoa/general-storage-directory.salt: Added.
+
+2022-02-15  Mark Lam  <mark.lam@apple.com>
+
+        Make HeapType an enum class.
+        https://bugs.webkit.org/show_bug.cgi?id=236667
+        <rdar://problem/88984607>
+
+        Reviewed by Yusuke Suzuki.
+
+        * TestWebKitAPI/Tests/JavaScriptCore/DisallowVMEntry.cpp:
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/JavaScriptCore/PropertySlot.cpp:
+        (TestWebKitAPI::TEST):
+
+2022-02-15  Jonathan Bedard  <jbedard@apple.com>
+
+        [webkitscmpy] Support draft pull-requests
+        https://bugs.webkit.org/show_bug.cgi?id=235721
+        <rdar://problem/88139678>
+
+        Rubber-stamped by Aakash Jain.
+
+        GitHub has the concept of a "draft" pull request. Our tooling should allow users
+        to request that the pull request they are updating or creating be converted to a draft.
+
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/mocks/remote/git_hub.py:
+        (GitHub.request): Handle "draft" in upload.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/pull_request.py:
+        (PullRequest.parser): Add --draft option.
+        (PullRequest.main): When creating or uploading a pull-request, set draft state.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/pull_request.py:
+        (PullRequest.__init__): Pass draft state.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/remote/bitbucket.py:
+        (BitBucket.PRGenerator.PullRequest): Pass draft state to PullRequest object.
+        (BitBucket.PRGenerator.create): Accept draft flag.
+        (BitBucket.PRGenerator.update): Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/remote/git_hub.py:
+        (GitHub.PRGenerator): Draft pull requests are a GitHub idea.
+        (GitHub.PRGenerator.PullRequest): Pass draft state to PullRequest object.
+        (GitHub.PRGenerator.create): Accept draft flag.
+        (GitHub.PRGenerator.update): Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/remote/scm.py:
+        (Scm.PRGenerator): Draft pull requests are a GitHub idea.
+        (Scm.PRGenerator.create): Accept draft flag.
+        (Scm.PRGenerator.update): Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/checkout_unittest.py:
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/land_unittest.py:
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/pull_request_unittest.py:
+
+2022-02-15  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Support PRs when sending build failure emails (Follow-up fix)
+        https://bugs.webkit.org/show_bug.cgi?id=235926
+        <rdar://problem/88302122>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/steps.py:
+        (GitHub.email_for_owners): Return error string.
+        (AnalyzeCompileWebKitResults.send_email_for_new_build_failure): Log error
+        from email_from_owners to buildbot stdio.
+
+2022-02-15  Sihui Liu  <sihui_liu@apple.com>
+
+        Unreviewed build fix after r288478.
+        https://bugs.webkit.org/show_bug.cgi?id=235542
+        rdar://72567903
+
+        * TestWebKitAPI/Tests/WebKitCocoa/SessionStorage.mm:
+
+2022-02-15  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [macOS] Add a context menu item to "Copy Cropped Image"
+        https://bugs.webkit.org/show_bug.cgi?id=236602
+        rdar://88924479
+
+        Reviewed by Megan Gardner.
+
+        Adjust an existing API test to account for the fact that ContextMenuItemTagTranslate is no longer the last non-
+        custom context menu item tag.
+
+        * TestWebKitAPI/Tests/WebCore/ContextMenuAction.cpp:
+        (TestWebKitAPI::TEST):
+
+2022-02-15  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Use EWS as commit author when rebasing
+        https://bugs.webkit.org/show_bug.cgi?id=236650
+        <rdar://problem/88967428>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/steps.py:
+        (CheckOutPullRequest): Use 'EWS <ews@webkit.org>' as the commit author.
+        * CISupport/ews-build/steps_unittest.py:
+
+2022-02-15  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] --update should be synonomous with --rebase
+        https://bugs.webkit.org/show_bug.cgi?id=236658
+        <rdar://problem/88979674>
+
+        Reviewed by Ryan Haddad.
+
+        When working on a branch, `update` and `rebase` mean approximately
+        the same thing. `git-webkit pr` should support both.
+
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/pull_request.py:
+        (PullRequest.parser):
+
+2022-02-15  Per Arne Vollan  <pvollan@apple.com>
+
+        REGRESSION(r289147): Two API tests are failing
+        https://bugs.webkit.org/show_bug.cgi?id=236376
+        <rdar://88586730>
+
+        Reviewed by Alexey Proskuryakov.
+
+        After r289147, the WebContent process can no longer consume sandbox extensions to the CF preference daemon.
+        Update the test expectations.
+
+        * TestWebKitAPI/Tests/WebKit/EnableAccessibility.mm:
+        (TEST):
+        * TestWebKitAPI/Tests/WebKit/GrantAccessToPreferencesService.mm:
+        (TEST):
+
+2022-02-15  Jonathan Bedard  <jbedard@apple.com>
+
+        git-webkit setup should verify the credentials before saving them
+        https://bugs.webkit.org/show_bug.cgi?id=235298
+        <rdar://problem/87988794>
+
+        Reviewed by Dewei Zhu.
+
+        * Scripts/libraries/webkitbugspy/setup.py: Bump version.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/__init__.py: Ditto.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/bugzilla.py:
+        (Tracker.credentials): Pass validater into webkitscmpy.credentials if caller requests validation.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/github.py:
+        (Tracker.credentials): Pass validater into webkitscmpy.credentials if caller requests validation.
+        * Scripts/libraries/webkitcorepy/setup.py: Bump version.
+        * Scripts/libraries/webkitcorepy/webkitcorepy/__init__.py: Ditto.
+        * Scripts/libraries/webkitcorepy/webkitcorepy/credentials.py:
+        (credentials): Allow caller to provide a callback which will validate credentials to ensure
+        they work, re-prompt user if credentials fail validation.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/setup.py:
+        (Setup.git): Request validation of GitHub credentials.
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/remote/git_hub.py:
+        (GitHub.credentials): Pass validation flag.
+
+2022-02-14  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Need /bin/sh equivalent on wincairo
+        https://bugs.webkit.org/show_bug.cgi?id=236608
+        <rdar://problem/88926062>
+
+        Reviewed by Don Olmstead.
+
+        * CISupport/ews-build/steps.py:
+        (ShellMixin.shell_command): Invoke provided command with
+        the system shell (either /bin/sh or cmd)
+        (ShellMixin.shell_exit_0): Trailing shell command ensuring
+        a 0 exit code regardless of the outcome of previous commands.
+        (ApplyPatch.start): Invoke command with cmd or /bin/sh/.
+        (CheckOutPullRequest.run): Ditto.
+        (CleanGitRepo.run): Ditto.
+        * CISupport/ews-build/steps_unittest.py:
+
+2022-02-15  Angelos Oikonomopoulos  <angelos@igalia.com>
+
+        [JSC] Speed up getStatusMap and increase robustness
+        https://bugs.webkit.org/show_bug.cgi?id=236559
+
+        Reviewed by Adrian Perez de Castro.
+
+        Collect test results in parallel. Also, ignore ssh errors during
+        collection (e.g. because the remote host is down) -- the main retry
+        loop will take care of that for us.
+
+        This should both avoid needless failures like
+        https://build.webkit.org/#/builders/31/builds/2432 and reduce the
+        latency when there are multiple remotes (e.g. for MIPS).
+
+        * Scripts/run-jsc-stress-tests:
+
+2022-02-14  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        ExtensionsGL is not useful class, it should be removed
+        https://bugs.webkit.org/show_bug.cgi?id=236490
+
+        Reviewed by Dean Jackson.
+
+        Update manually implemented functions.
+        * Scripts/generate-gpup-webgl:
+        * TestWebKitAPI/Tests/WebCore/cocoa/TestGraphicsContextGLCocoa.mm:
+
+2022-02-01  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Support PRs when sending build failure emails
+        https://bugs.webkit.org/show_bug.cgi?id=235926
+        <rdar://problem/88302122>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/steps.py:
+        (GitHub.email_for_owners): Convert list of owners to an email address.
+        (GitHubMixin.should_send_email_for_pr): Check if the tested sha is outdated.
+        (BugzillaMixin.should_send_email_for_patch): Renamed from should_send_email.
+        (BugzillaMixin.should_send_email): Renamed to should_send_email_for_patch.
+        (AnalyzeCompileWebKitResults.send_email_for_new_build_failure): Draft different
+        email for failed patch than failed pull request build.
+        (AnalyzeLayoutTestsResults.send_email_for_new_test_failures):
+
+2022-02-07  Jon Lee  <jonlee@apple.com>
+
+        Enable accelerated drawing in the iOS simulator
+        https://bugs.webkit.org/show_bug.cgi?id=231828
+        rdar://problem/84315491
+
+        Reviewed by Simon Fraser.
+
+        * WebKitTestRunner/TestOptions.cpp:
+        (WTR::TestOptions::defaults):
+
 2022-02-14  J Pascoe  <j_pascoe@apple.com>
 
         [WebAuthn] Access group not set in add query for importLocalAuthenticatorCredential

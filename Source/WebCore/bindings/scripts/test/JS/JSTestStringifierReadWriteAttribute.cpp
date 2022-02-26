@@ -22,7 +22,8 @@
 #include "JSTestStringifierReadWriteAttribute.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -69,7 +70,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestStringifierReadWriteAttributePrototype, Base);
         return &vm.plainObjectSpace();
@@ -219,27 +220,14 @@ JSC_DEFINE_HOST_FUNCTION(jsTestStringifierReadWriteAttributePrototypeFunction_to
     return IDLOperation<JSTestStringifierReadWriteAttribute>::call<jsTestStringifierReadWriteAttributePrototypeFunction_toStringBody>(*lexicalGlobalObject, *callFrame, "toString");
 }
 
-JSC::IsoSubspace* JSTestStringifierReadWriteAttribute::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSTestStringifierReadWriteAttribute::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForTestStringifierReadWriteAttribute.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestStringifierReadWriteAttribute> || !JSTestStringifierReadWriteAttribute::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestStringifierReadWriteAttribute>)
-        spaces.m_subspaceForTestStringifierReadWriteAttribute = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestStringifierReadWriteAttribute);
-    else
-        spaces.m_subspaceForTestStringifierReadWriteAttribute = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestStringifierReadWriteAttribute);
-    auto* space = spaces.m_subspaceForTestStringifierReadWriteAttribute.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSTestStringifierReadWriteAttribute::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSTestStringifierReadWriteAttribute, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForTestStringifierReadWriteAttribute.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestStringifierReadWriteAttribute = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForTestStringifierReadWriteAttribute.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestStringifierReadWriteAttribute = WTFMove(space); }
+    );
 }
 
 void JSTestStringifierReadWriteAttribute::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

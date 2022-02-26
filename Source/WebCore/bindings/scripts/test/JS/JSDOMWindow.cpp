@@ -22,7 +22,8 @@
 #include "JSDOMWindow.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -363,23 +364,15 @@ JSC_DEFINE_CUSTOM_GETTER(jsDOMWindow_TestPromiseRejectionEventConstructor, (JSGl
     return IDLAttribute<JSDOMWindow>::get<jsDOMWindow_TestPromiseRejectionEventConstructorGetter>(*lexicalGlobalObject, thisValue, attributeName);
 }
 
-JSC::IsoSubspace* JSDOMWindow::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSDOMWindow::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForDOMWindow.get())
-        return space;
-    spaces.m_subspaceForDOMWindow = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, clientData.m_heapCellTypeForJSDOMWindow, JSDOMWindow);
-    auto* space = spaces.m_subspaceForDOMWindow.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSDOMWindow::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSDOMWindow, UseCustomHeapCellType::Yes>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForDOMWindow.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForDOMWindow = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForDOMWindow.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForDOMWindow = WTFMove(space); },
+        [] (auto& server) -> JSC::HeapCellType& { return server.m_heapCellTypeForJSDOMWindow; }
+    );
 }
 
 void JSDOMWindow::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

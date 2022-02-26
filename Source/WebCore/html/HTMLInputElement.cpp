@@ -167,7 +167,7 @@ HTMLImageLoader& HTMLInputElement::ensureImageLoader()
 void HTMLInputElement::createShadowSubtreeAndUpdateInnerTextElementEditability()
 {
     Ref<InputType> protectedInputType(*m_inputType);
-    protectedInputType->createShadowSubtreeAndUpdateInnerTextElementEditability(m_parsingInProgress ? ChildChange::Source::Parser : ChildChange::Source::API, isInnerTextElementEditable());
+    protectedInputType->createShadowSubtreeAndUpdateInnerTextElementEditability(isInnerTextElementEditable());
 }
 
 HTMLInputElement::~HTMLInputElement()
@@ -978,6 +978,7 @@ bool HTMLInputElement::isTextType() const
 
 void HTMLInputElement::setChecked(bool isChecked)
 {
+    m_dirtyCheckednessFlag = true;
     if (checked() == isChecked)
         return;
 
@@ -985,7 +986,6 @@ void HTMLInputElement::setChecked(bool isChecked)
 
     Style::PseudoClassChangeInvalidation checkedInvalidation(*this, CSSSelector::PseudoClassChecked, isChecked);
 
-    m_dirtyCheckednessFlag = true;
     m_isChecked = isChecked;
 
     if (RadioButtonGroups* buttons = radioButtonGroups())
@@ -2078,52 +2078,52 @@ void HTMLInputElement::invalidateStyleOnFocusChangeIfNeeded()
         invalidateStyleForSubtreeInternal();
 }
 
-ExceptionOr<int> HTMLInputElement::selectionStartForBindings() const
+std::optional<int> HTMLInputElement::selectionStartForBindings() const
 {
-    if (!canHaveSelection())
-        return Exception { TypeError };
+    if (!canHaveSelection() || !m_inputType->supportsSelectionAPI())
+        return std::nullopt;
 
     return selectionStart();
 }
 
-ExceptionOr<void> HTMLInputElement::setSelectionStartForBindings(int start)
+ExceptionOr<void> HTMLInputElement::setSelectionStartForBindings(std::optional<int> start)
 {
-    if (!canHaveSelection())
-        return Exception { TypeError };
+    if (!canHaveSelection() || !m_inputType->supportsSelectionAPI())
+        return Exception { InvalidStateError, "The input element's type ('" + m_inputType->formControlType() + "') does not support selection." };
 
-    setSelectionStart(start);
+    setSelectionStart(start.value_or(0));
     return { };
 }
 
-ExceptionOr<int> HTMLInputElement::selectionEndForBindings() const
+std::optional<int> HTMLInputElement::selectionEndForBindings() const
 {
-    if (!canHaveSelection())
-        return Exception { TypeError };
+    if (!canHaveSelection() || !m_inputType->supportsSelectionAPI())
+        return std::nullopt;
 
     return selectionEnd();
 }
 
-ExceptionOr<void> HTMLInputElement::setSelectionEndForBindings(int end)
+ExceptionOr<void> HTMLInputElement::setSelectionEndForBindings(std::optional<int> end)
 {
-    if (!canHaveSelection())
-        return Exception { TypeError };
+    if (!canHaveSelection() || !m_inputType->supportsSelectionAPI())
+        return Exception { InvalidStateError, "The input element's type ('" + m_inputType->formControlType() + "') does not support selection." };
 
-    setSelectionEnd(end);
+    setSelectionEnd(end.value_or(0));
     return { };
 }
 
 ExceptionOr<String> HTMLInputElement::selectionDirectionForBindings() const
 {
-    if (!canHaveSelection())
-        return Exception { TypeError };
+    if (!canHaveSelection() || !m_inputType->supportsSelectionAPI())
+        return String();
 
     return String { selectionDirection() };
 }
 
 ExceptionOr<void> HTMLInputElement::setSelectionDirectionForBindings(const String& direction)
 {
-    if (!canHaveSelection())
-        return Exception { TypeError };
+    if (!canHaveSelection() || !m_inputType->supportsSelectionAPI())
+        return Exception { InvalidStateError, "The input element's type ('" + m_inputType->formControlType() + "') does not support selection." };
 
     setSelectionDirection(direction);
     return { };
@@ -2131,8 +2131,8 @@ ExceptionOr<void> HTMLInputElement::setSelectionDirectionForBindings(const Strin
 
 ExceptionOr<void> HTMLInputElement::setSelectionRangeForBindings(int start, int end, const String& direction)
 {
-    if (!canHaveSelection())
-        return Exception { TypeError };
+    if (!canHaveSelection() || !m_inputType->supportsSelectionAPI())
+        return Exception { InvalidStateError, "The input element's type ('" + m_inputType->formControlType() + "') does not support selection." };
     
     setSelectionRange(start, end, direction);
     return { };

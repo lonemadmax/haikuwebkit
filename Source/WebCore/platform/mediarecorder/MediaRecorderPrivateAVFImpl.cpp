@@ -26,10 +26,11 @@
 #include "config.h"
 #include "MediaRecorderPrivateAVFImpl.h"
 
-#if ENABLE(MEDIA_STREAM)
+#if ENABLE(MEDIA_RECORDER)
 
 #include "AudioStreamDescription.h"
 #include "CAAudioStreamDescription.h"
+#include "CVUtilities.h"
 #include "Logging.h"
 #include "MediaRecorderPrivateWriterCocoa.h"
 #include "MediaSampleAVFObjC.h"
@@ -169,4 +170,4 @@ const String& MediaRecorderPrivateAVFImpl::mimeType() const
 
 } // namespace WebCore
 
-#endif // ENABLE(MEDIA_STREAM)
+#endif // ENABLE(MEDIA_RECORDER)

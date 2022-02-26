@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2007 Eric Seidel <eric@webkit.org>
- *  Copyright (C) 2007-2021 Apple Inc. All rights reserved.
+ *  Copyright (C) 2007-2022 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -338,6 +338,7 @@ public:
     LazyProperty<JSGlobalObject, Structure> m_calendarStructure;
     LazyProperty<JSGlobalObject, Structure> m_durationStructure;
     LazyProperty<JSGlobalObject, Structure> m_instantStructure;
+    LazyProperty<JSGlobalObject, Structure> m_plainDateStructure;
     LazyProperty<JSGlobalObject, Structure> m_plainTimeStructure;
     LazyProperty<JSGlobalObject, Structure> m_timeZoneStructure;
 
@@ -629,7 +630,7 @@ public:
 
     static constexpr bool needsDestruction = true;
     template<typename CellType, SubspaceAccess mode>
-    static IsoSubspace* subspaceFor(VM& vm)
+    static GCClient::IsoSubspace* subspaceFor(VM& vm)
     {
         return vm.globalObjectSpace<mode>();
     }
@@ -908,6 +909,7 @@ public:
     Structure* calendarStructure() { return m_calendarStructure.get(this); }
     Structure* durationStructure() { return m_durationStructure.get(this); }
     Structure* instantStructure() { return m_instantStructure.get(this); }
+    Structure* plainDateStructure() { return m_plainDateStructure.get(this); }
     Structure* plainTimeStructure() { return m_plainTimeStructure.get(this); }
     Structure* timeZoneStructure() { return m_timeZoneStructure.get(this); }
 

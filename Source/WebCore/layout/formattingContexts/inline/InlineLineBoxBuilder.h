@@ -47,7 +47,8 @@ public:
 
 private:
     void setBaselineAndLayoutBounds(InlineLevelBox&, const LayoutBoundsMetrics&) const;
-    void adjustLayoutBoundsWithFallbackFonts(InlineLevelBox&, const TextUtil::FallbackFontList&) const;
+    void adjustLayoutBoundsWithFallbackFonts(InlineLevelBox&, const TextUtil::FallbackFontList& fallbackFontsForContent, FontBaseline) const;
+    TextUtil::FallbackFontList collectFallbackFonts(const InlineLevelBox& parentInlineBox, const Line::Run&, const RenderStyle&);
 
     void constructInlineLevelBoxes(LineBox&, const LineBuilder::LineContent&, size_t lineIndex);
     void adjustIdeographicBaselineIfApplicable(LineBox&, size_t lineIndex);
@@ -59,6 +60,7 @@ private:
 private:
     const InlineFormattingContext& m_inlineFormattingContext;
     bool m_fallbackFontRequiresIdeographicBaseline { false };
+    HashMap<const InlineLevelBox*, TextUtil::FallbackFontList> m_fallbackFontsForInlineBoxes;
 };
 
 }

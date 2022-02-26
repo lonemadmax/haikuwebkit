@@ -22,7 +22,8 @@
 #include "JSExposedToWorkerAndWindow.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructor.h"
 #include "JSDOMConvertInterface.h"
@@ -109,7 +110,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSExposedToWorkerAndWindowPrototype, Base);
         return &vm.plainObjectSpace();
@@ -246,27 +247,14 @@ JSC_DEFINE_HOST_FUNCTION(jsExposedToWorkerAndWindowPrototypeFunction_doSomething
     return IDLOperation<JSExposedToWorkerAndWindow>::call<jsExposedToWorkerAndWindowPrototypeFunction_doSomethingBody>(*lexicalGlobalObject, *callFrame, "doSomething");
 }
 
-JSC::IsoSubspace* JSExposedToWorkerAndWindow::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSExposedToWorkerAndWindow::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForExposedToWorkerAndWindow.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSExposedToWorkerAndWindow> || !JSExposedToWorkerAndWindow::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSExposedToWorkerAndWindow>)
-        spaces.m_subspaceForExposedToWorkerAndWindow = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSExposedToWorkerAndWindow);
-    else
-        spaces.m_subspaceForExposedToWorkerAndWindow = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSExposedToWorkerAndWindow);
-    auto* space = spaces.m_subspaceForExposedToWorkerAndWindow.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSExposedToWorkerAndWindow::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSExposedToWorkerAndWindow, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForExposedToWorkerAndWindow.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForExposedToWorkerAndWindow = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForExposedToWorkerAndWindow.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForExposedToWorkerAndWindow = WTFMove(space); }
+    );
 }
 
 void JSExposedToWorkerAndWindow::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

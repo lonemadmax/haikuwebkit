@@ -31,7 +31,6 @@
 
 #if ENABLE(WEBGL) && USE(TEXTURE_MAPPER)
 
-#include "GLContext.h"
 #include "GraphicsContextGLOpenGLManager.h"
 #include "GraphicsLayerContentsDisplayDelegate.h"
 #include "PixelBuffer.h"
@@ -44,18 +43,12 @@
 #elif USE(LIBEPOXY)
 #include <epoxy/gl.h>
 #elif !USE(OPENGL_ES)
+#include "GLContext.h"
 #include "OpenGLShims.h"
 #endif
 
-#if USE(ANGLE)
-#include "ExtensionsGLANGLE.h"
-#else
+#if !USE(ANGLE)
 #include <ANGLE/ShaderLang.h>
-#if USE(OPENGL_ES)
-#include "ExtensionsGLOpenGLES.h"
-#else
-#include "ExtensionsGLOpenGL.h"
-#endif
 #endif
 
 #if USE(NICOSIA)
@@ -108,7 +101,12 @@ private:
 
 RefPtr<GraphicsContextGLTextureMapper> GraphicsContextGLTextureMapper::create(GraphicsContextGLAttributes&& attributes)
 {
-    return adoptRef(*new GraphicsContextGLTextureMapper(WTFMove(attributes)));
+    auto context = adoptRef(*new GraphicsContextGLTextureMapper(WTFMove(attributes)));
+#if USE(ANGLE)
+    if (!context->initialize())
+        return nullptr;
+#endif
+    return context;
 }
 
 GraphicsContextGLTextureMapper::~GraphicsContextGLTextureMapper() = default;
@@ -148,7 +146,8 @@ RefPtr<GraphicsContextGL> createWebProcessGraphicsContextGL(const GraphicsContex
 
     // Create the GraphicsContextGLOpenGL object first in order to establist a current context on this thread.
     auto context = GraphicsContextGLTextureMapper::create(GraphicsContextGLAttributes { attributes });
-
+    if (!context)
+        return nullptr;
 #if USE(LIBEPOXY) && USE(OPENGL_ES) && ENABLE(WEBGL2)
     // Bail if GLES3 was requested but cannot be provided.
     if (attributes.webGLVersion == GraphicsContextGLWebGLVersion::WebGL2 && !epoxy_is_desktop_gl() && epoxy_gl_version() < 30)
@@ -174,7 +173,22 @@ RefPtr<MediaSample> GraphicsContextGLTextureMapper::paintCompositedResultsToMedi
 #if ENABLE(VIDEO)
 bool GraphicsContextGLTextureMapper::copyTextureFromMedia(MediaPlayer& player, PlatformGLObject outputTexture, GCGLenum outputTarget, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY)
 {
+#if USE(ANGLE) && USE(GSTREAMER_GL)
+    UNUSED_PARAM(player);
+    UNUSED_PARAM(outputTexture);
+    UNUSED_PARAM(outputTarget);
+    UNUSED_PARAM(level);
+    UNUSED_PARAM(internalFormat);
+    UNUSED_PARAM(format);
+    UNUSED_PARAM(type);
+    UNUSED_PARAM(premultiplyAlpha);
+    UNUSED_PARAM(flipY);
+
+    // FIXME: Implement copy-free (or at least, software copy-free) texture transfer via dmabuf.
+    return false;
+#else
     return player.copyVideoTextureToPlatformTexture(this, outputTexture, outputTarget, level, internalFormat, format, type, premultiplyAlpha, flipY);
+#endif
 }
 #endif
 

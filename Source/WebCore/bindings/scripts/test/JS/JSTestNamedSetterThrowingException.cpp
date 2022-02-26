@@ -22,7 +22,8 @@
 #include "JSTestNamedSetterThrowingException.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAbstractOperations.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -62,7 +63,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestNamedSetterThrowingExceptionPrototype, Base);
         return &vm.plainObjectSpace();
@@ -292,27 +293,14 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestNamedSetterThrowingExceptionConstructor, (JSGloba
     return JSValue::encode(JSTestNamedSetterThrowingException::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));
 }
 
-JSC::IsoSubspace* JSTestNamedSetterThrowingException::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSTestNamedSetterThrowingException::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForTestNamedSetterThrowingException.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestNamedSetterThrowingException> || !JSTestNamedSetterThrowingException::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestNamedSetterThrowingException>)
-        spaces.m_subspaceForTestNamedSetterThrowingException = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestNamedSetterThrowingException);
-    else
-        spaces.m_subspaceForTestNamedSetterThrowingException = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestNamedSetterThrowingException);
-    auto* space = spaces.m_subspaceForTestNamedSetterThrowingException.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSTestNamedSetterThrowingException::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSTestNamedSetterThrowingException, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForTestNamedSetterThrowingException.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestNamedSetterThrowingException = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForTestNamedSetterThrowingException.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestNamedSetterThrowingException = WTFMove(space); }
+    );
 }
 
 void JSTestNamedSetterThrowingException::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

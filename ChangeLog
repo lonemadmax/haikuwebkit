@@ -1,3 +1,142 @@
+2022-02-20  Brandon Stewart  <brandonstewart@apple.com>
+
+        Generate compile_commands.json on macOS Builds
+        https://bugs.webkit.org/show_bug.cgi?id=235686
+
+        Reviewed by Saam Barati.
+
+        Add support for generating compile_commands.json file to WebKit.
+
+        compile_commands.json can be used by tools like clangd to provide code complete,
+        refactoring, formatting, and cross references.
+        
+        Steps to generate the compile commands file:
+        make d EXPORT_COMPILE_COMMANDS=YES
+        generate-compile-commands WebKitBuild/Debug
+
+        * Makefile.shared:
+
+2022-02-19  Philippe Normand  <pnormand@igalia.com>
+
+        [WPE][GTK] Enable Thunder and remove old Clearkey CDM/Decryptor
+        https://bugs.webkit.org/show_bug.cgi?id=235492
+
+        Reviewed by Xabier Rodriguez-Calvar.
+
+        Enable Thunder in developer builds, this is now needed for the clearkey EME layout tests.
+
+        * Source/cmake/OptionsGTK.cmake:
+        * Source/cmake/OptionsWPE.cmake:
+
+2022-02-18  Robert Jenner  <Jenner@apple.com>
+
+        Unreviewed, reverting r290149.
+
+        Broke Debug Builds.
+
+        Reverted changeset:
+
+        "Generate compile_commands.json on macOS Builds"
+        https://bugs.webkit.org/show_bug.cgi?id=235686
+        https://commits.webkit.org/r290149
+
+2022-02-18  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Replace trac URLs in Introduction.md by equivalent GitHub URLs
+        https://bugs.webkit.org/show_bug.cgi?id=236826
+
+        Reviewed by Sihui Liu.
+
+        Replaced track links by equivalent Github links in Introduction.md.
+
+        Also replaced an example of a reference test since the previously referenced test
+        had been converted to a manual test, and updated documentations around preferences
+        as they had been refactored since this was originally written. 
+
+        * Introduction.md:
+
+2022-02-18  Brandon Stewart  <brandonstewart@apple.com>
+
+        Generate compile_commands.json on macOS Builds
+        https://bugs.webkit.org/show_bug.cgi?id=235686
+
+        Reviewed by Saam Barati.
+
+        Add support for generating compile_commands.json file to WebKit.
+        
+        compile_commands.json can be used by tools like clangd to provide code complete,
+        refactoring, formatting, and cross references.
+
+        Steps to generate the compile commands file:
+        make r EXPORT_COMPILE_COMMANDS=YES
+        generate-compile-commands WebKitBuild/Release
+
+        * Makefile.shared:
+
+2022-02-18  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [CMake] Cannot find OpenGL when system provides opengl.pc instead of gl.pc
+        https://bugs.webkit.org/show_bug.cgi?id=236592
+
+        Reviewed by Michael Catanzaro.
+
+        * Source/cmake/FindOpenGL.cmake: Rewrite to use imported targets, try the "opengl" and "glx"
+        pkg-config modules first, otherwise keep the existing logic that tried the "gl" pkg-config
+        module with fallbacks to find_path/find_library.
+        * Source/cmake/OptionsGTK.cmake: Check for the presence of the OpenGL::GLX target instead of
+        te GLX_FOUND variable.
+
+2022-02-17  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r289949.
+        https://bugs.webkit.org/show_bug.cgi?id=236757
+
+        Breaks WPE builds with -DUSE_ANGLE_WEBGL=ON
+
+        Reverted changeset:
+
+        "[CMake] Cannot find OpenGL when system provides opengl.pc
+        instead of gl.pc"
+        https://bugs.webkit.org/show_bug.cgi?id=236592
+        https://commits.webkit.org/r289949
+
+2022-02-16  Don Olmstead  <don.olmstead@sony.com>
+
+        [CMake][PlayStation] Add find module for WPE Backend for PlayStation
+        https://bugs.webkit.org/show_bug.cgi?id=236721
+
+        Reviewed by Michael Catanzaro.
+
+        Add the find module to detect the presence of the WPE Backend for PlayStation platforms.
+        Currently its not required to have the WPE Backend so its presence is conditional. When
+        there USE(WPE_BACKEND_PLAYSTATION) will be true.
+
+        * Source/cmake/FindWPEBackendPlayStation.cmake: Added.
+        * Source/cmake/OptionsPlayStation.cmake:
+
+2022-02-16  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [CMake] Cannot find OpenGL when system provides opengl.pc instead of gl.pc
+        https://bugs.webkit.org/show_bug.cgi?id=236592
+
+        Reviewed by Don Olmstead.
+
+        * Source/cmake/FindOpenGL.cmake: Rewrite to use imported targets, try the "opengl" and "glx"
+        pkg-config modules first, otherwise keep the existing logic that tried the "gl" pkg-config
+        module with fallbacks to find_path/find_library.
+        * Source/cmake/OptionsGTK.cmake: Check for the presence of the OpenGL::GLX target instead of
+        te GLX_FOUND variable.
+
+2022-02-15  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [CMake] Checks uses of execute_process() for correct command splitting
+        https://bugs.webkit.org/show_bug.cgi?id=236366
+
+        Reviewed by Don Olmstead.
+
+        * Source/cmake/FindGObjectIntrospection.cmake: Remove macro _GIR_GET_PKGCONFIG_VAR, which used
+        execute_process(), in favor of pkg_get_variable(), which has been supported since CMake 3.4
+
 2022-02-11  Don Olmstead  <don.olmstead@sony.com>
 
         [CMake] Check for MAP_ALIGNED support

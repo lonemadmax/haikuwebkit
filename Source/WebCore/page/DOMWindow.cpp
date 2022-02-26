@@ -111,7 +111,7 @@
 #include "StyleResolver.h"
 #include "StyleScope.h"
 #include "SuddenTermination.h"
-#include <wtf/URL.h>
+#include "UserContentProvider.h"
 #include "UserGestureIndicator.h"
 #include "VisualViewport.h"
 #include "WebKitPoint.h"
@@ -130,6 +130,7 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Ref.h>
 #include <wtf/SetForScope.h>
+#include <wtf/URL.h>
 #include <wtf/text/WTFString.h>
 
 #if ENABLE(USER_MESSAGE_HANDLERS)
@@ -242,10 +243,9 @@ bool DOMWindow::dispatchAllPendingBeforeUnloadEvents()
     if (alreadyDispatched)
         return true;
 
-    Vector<Ref<DOMWindow>> windows;
-    windows.reserveInitialCapacity(set.size());
-    for (auto& window : set)
-        windows.uncheckedAppend(*window.key);
+    auto windows = WTF::map(set, [](auto& entry) -> Ref<DOMWindow> {
+        return *entry.key;
+    });
 
     for (auto& window : windows) {
         if (!set.contains(window.ptr()))
@@ -830,7 +830,7 @@ ExceptionOr<Storage*> DOMWindow::sessionStorage()
     if (!page)
         return nullptr;
 
-    auto storageArea = page->sessionStorage()->storageArea(document->securityOrigin().data());
+    auto storageArea = page->sessionStorage()->storageArea(document->securityOrigin());
     m_sessionStorage = Storage::create(*this, WTFMove(storageArea));
     return m_sessionStorage.get();
 }

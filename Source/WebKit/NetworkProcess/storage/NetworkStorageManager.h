@@ -70,7 +70,7 @@ class StorageAreaRegistry;
 
 class NetworkStorageManager final : public IPC::Connection::WorkQueueMessageReceiver {
 public:
-    static Ref<NetworkStorageManager> create(PAL::SessionID, IPC::Connection::UniqueID, const String& path, const String& customLocalStoragePath, const String& customIDBStoragePath, const String& customCacheStoragePath, uint64_t defaultOriginQuota, uint64_t defaultThirdPartyOriginQuota);
+    static Ref<NetworkStorageManager> create(PAL::SessionID, IPC::Connection::UniqueID, const String& path, const String& customLocalStoragePath, const String& customIDBStoragePath, const String& customCacheStoragePath, uint64_t defaultOriginQuota, uint64_t defaultThirdPartyOriginQuota, bool shouldUseCustomPaths);
     static bool canHandleTypes(OptionSet<WebsiteDataType>);
 
     void startReceivingMessageFromConnection(IPC::Connection&);
@@ -84,7 +84,7 @@ public:
     void deleteData(OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>&, CompletionHandler<void()>&&);
     void deleteDataModifiedSince(OptionSet<WebsiteDataType>, WallTime, CompletionHandler<void()>&&);
     void deleteDataForRegistrableDomains(OptionSet<WebsiteDataType>, const Vector<WebCore::RegistrableDomain>&, CompletionHandler<void(HashSet<WebCore::RegistrableDomain>&&)>&&);
-    void moveData(const WebCore::SecurityOriginData& source, const WebCore::SecurityOriginData& target, CompletionHandler<void()>&&);
+    void moveData(OptionSet<WebsiteDataType>, const WebCore::SecurityOriginData& source, const WebCore::SecurityOriginData& target, CompletionHandler<void()>&&);
     void suspend(CompletionHandler<void()>&&);
     void resume();
     void handleLowMemoryWarning();
@@ -95,8 +95,7 @@ public:
     void resetQuotaUpdatedBasedOnUsageForTesting(const WebCore::ClientOrigin&);
 
 private:
-    NetworkStorageManager(PAL::SessionID, const String& path, const String& customLocalStoragePath);
-    NetworkStorageManager(PAL::SessionID, IPC::Connection::UniqueID, const String& path, const String& customLocalStoragePath, const String& customIDBStoragePath, const String& customCacheStoragePath, uint64_t defaultOriginQuota, uint64_t defaultThirdPartyOriginQuota);
+    NetworkStorageManager(PAL::SessionID, IPC::Connection::UniqueID, const String& path, const String& customLocalStoragePath, const String& customIDBStoragePath, const String& customCacheStoragePath, uint64_t defaultOriginQuota, uint64_t defaultThirdPartyOriginQuota, bool shouldUseCustomPaths);
     ~NetworkStorageManager();
     OriginStorageManager& localOriginStorageManager(const WebCore::ClientOrigin&);
     bool removeOriginStorageManagerIfPossible(const WebCore::ClientOrigin&);
@@ -181,6 +180,7 @@ private:
     String m_customCacheStoragePath;
     uint64_t m_defaultOriginQuota;
     uint64_t m_defaultThirdPartyOriginQuota;
+    bool m_shouldUseCustomPaths;
     IPC::Connection::UniqueID m_parentConnection;
     HashMap<IPC::Connection::UniqueID, HashSet<String>> m_temporaryBlobPathsByConnection;
 };

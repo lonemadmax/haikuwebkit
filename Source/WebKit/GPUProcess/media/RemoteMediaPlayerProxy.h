@@ -34,6 +34,7 @@
 #include "RemoteMediaPlayerProxyConfiguration.h"
 #include "RemoteMediaPlayerState.h"
 #include "RemoteMediaResourceIdentifier.h"
+#include "RemoteVideoFrameProxy.h"
 #include "SandboxExtension.h"
 #include "ScopedRenderingResourcesRequest.h"
 #include "TrackPrivateRemoteIdentifier.h"
@@ -78,6 +79,12 @@ class MediaPlaybackTargetContext;
 class VideoTrackPrivate;
 
 struct FourCC;
+
+class VideoFrame;
+
+#if PLATFORM(COCOA)
+class VideoFrameCV;
+#endif
 }
 
 #if USE(AVFOUNDATION)
@@ -92,6 +99,7 @@ class RemoteAudioTrackProxy;
 class RemoteAudioSourceProviderProxy;
 class RemoteMediaPlayerManagerProxy;
 class RemoteTextTrackProxy;
+class RemoteVideoFrameObjectHeap;
 class RemoteVideoTrackProxy;
 
 class RemoteMediaPlayerProxy final
@@ -99,7 +107,7 @@ class RemoteMediaPlayerProxy final
     , public IPC::MessageReceiver {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    RemoteMediaPlayerProxy(RemoteMediaPlayerManagerProxy&, WebCore::MediaPlayerIdentifier, Ref<IPC::Connection>&&, WebCore::MediaPlayerEnums::MediaEngineIdentifier, RemoteMediaPlayerProxyConfiguration&&);
+    RemoteMediaPlayerProxy(RemoteMediaPlayerManagerProxy&, WebCore::MediaPlayerIdentifier, Ref<IPC::Connection>&&, WebCore::MediaPlayerEnums::MediaEngineIdentifier, RemoteMediaPlayerProxyConfiguration&&, RemoteVideoFrameObjectHeap&);
     ~RemoteMediaPlayerProxy();
 
     WebCore::MediaPlayerIdentifier idendifier() const { return m_id; }
@@ -249,7 +257,7 @@ private:
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     RefPtr<ArrayBuffer> mediaPlayerCachedKeyForKeyId(const String&) const final;
-    void mediaPlayerKeyNeeded(Uint8Array*) final;
+    void mediaPlayerKeyNeeded(const WebCore::SharedBuffer&) final;
     String mediaPlayerMediaKeysStorageDirectory() const final;
 #endif
 
@@ -328,7 +336,7 @@ private:
     void nativeImageForCurrentTime(CompletionHandler<void(std::optional<WTF::MachSendRight>&&, WebCore::DestinationColorSpace)>&&);
     void colorSpace(CompletionHandler<void(WebCore::DestinationColorSpace)>&&);
 #endif
-    void videoFrameForCurrentTimeIfChanged(CompletionHandler<void(std::optional<WebCore::MediaSampleVideoFrame>&&, bool)>&&);
+    void videoFrameForCurrentTimeIfChanged(CompletionHandler<void(std::optional<RemoteVideoFrameProxy::Properties>&&, bool)>&&);
 
 #if !RELEASE_LOG_DISABLED
     const Logger& mediaPlayerLogger() final { return m_logger; }
@@ -384,7 +392,8 @@ private:
     ScopedRenderingResourcesRequest m_renderingResourcesRequest;
 
     bool m_observingTimeChanges { false };
-    std::optional<WebCore::MediaSampleVideoFrame> m_videoFrameForCurrentTime;
+    Ref<RemoteVideoFrameObjectHeap> m_videoFrameObjectHeap;
+    RefPtr<WebCore::VideoFrame> m_videoFrameForCurrentTime;
 #if !RELEASE_LOG_DISABLED
     const Logger& m_logger;
 #endif

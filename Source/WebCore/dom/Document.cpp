@@ -53,6 +53,7 @@
 #include "ContentSecurityPolicy.h"
 #include "ContentfulPaintChecker.h"
 #include "CookieJar.h"
+#include "CustomEffect.h"
 #include "CustomElementReactionQueue.h"
 #include "CustomElementRegistry.h"
 #include "CustomEvent.h"
@@ -819,6 +820,8 @@ void Document::commonTeardown()
 
     if (m_highlightRegister)
         m_highlightRegister->clear();
+    if (m_fragmentHighlightRegister)
+        m_fragmentHighlightRegister->clear();
 #if ENABLE(APP_HIGHLIGHTS)
     if (m_appHighlightRegister)
         m_appHighlightRegister->clear();
@@ -2822,6 +2825,14 @@ HighlightRegister& Document::highlightRegister()
         m_highlightRegister = HighlightRegister::create();
     return *m_highlightRegister;
 }
+
+HighlightRegister& Document::fragmentHighlightRegister()
+{
+    if (!m_fragmentHighlightRegister)
+        m_fragmentHighlightRegister = HighlightRegister::create();
+    return *m_fragmentHighlightRegister;
+}
+
 #if ENABLE(APP_HIGHLIGHTS)
 HighlightRegister& Document::appHighlightRegister()
 {
@@ -2858,6 +2869,8 @@ void Document::updateHighlightPositions()
     Vector<WeakPtr<HighlightRangeData>> rangesData;
     if (m_highlightRegister)
         collectRangeDataFromRegister(rangesData, *m_highlightRegister.get());
+    if (m_fragmentHighlightRegister)
+        collectRangeDataFromRegister(rangesData, *m_fragmentHighlightRegister.get());
 #if ENABLE(APP_HIGHLIGHTS)
     if (m_appHighlightRegister)
         collectRangeDataFromRegister(rangesData, *m_appHighlightRegister.get());
@@ -4240,13 +4253,7 @@ void Document::updateElementsAffectedByMediaQueries()
             themeColorChanged();
     }
 
-    // FIXME: copyToVector doesn't work with WeakHashSet
-    Vector<Ref<HTMLImageElement>> images;
-    images.reserveInitialCapacity(m_dynamicMediaQueryDependentImages.computeSize());
-    for (auto& image : m_dynamicMediaQueryDependentImages)
-        images.append(image);
-
-    for (auto& image : images)
+    for (auto& image : copyToVectorOf<Ref<HTMLImageElement>>(m_dynamicMediaQueryDependentImages))
         image->evaluateDynamicMediaQueryDependencies();
 }
 
@@ -7610,6 +7617,7 @@ void Document::didAssociateFormControlsTimerFired()
         if (element.isConnected())
             controls.uncheckedAppend(&element);
     }
+    controls.shrinkToFit();
 
     if (auto page = this->page(); page && !controls.isEmpty()) {
         ASSERT(m_frame);
@@ -8508,12 +8516,21 @@ Vector<RefPtr<WebAnimation>> Document::matchingAnimations(const Function<bool(El
     updateStyleIfNeeded();
 
     Vector<RefPtr<WebAnimation>> animations;
-    for (auto* animation : WebAnimation::instances()) {
-        if (!animation->isRelevant() || !is<KeyframeEffect>(animation->effect()))
-            continue;
 
-        auto* target = downcast<KeyframeEffect>(*animation->effect()).target();
-        if (target && target->isConnected() && &target->document() == this && function(*target))
+    auto effectCanBeListed = [&](AnimationEffect* effect) {
+        if (is<CustomEffect>(effect))
+            return true;
+
+        if (auto* keyframeEffect = dynamicDowncast<KeyframeEffect>(effect)) {
+            auto* target = keyframeEffect->target();
+            return target && target->isConnected() && &target->document() == this && function(*target);
+        }
+
+        return false;
+    };
+
+    for (auto* animation : WebAnimation::instances()) {
+        if (animation->isRelevant() && effectCanBeListed(animation->effect()))
             animations.append(animation);
     }
 

@@ -126,6 +126,8 @@ imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-during-x
 
 webkit.org/b/235072 imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-repeating.html [ Skip ]
 
+webanimations/frame-rate [ Pass ]
+
 #//////////////////////////////////////////////////////////////////////////////////////////
 # End platform-specific directories.
 #//////////////////////////////////////////////////////////////////////////////////////////
@@ -1015,6 +1017,8 @@ webkit.org/b/228934 inspector/canvas/shaderProgram-add-remove-webgl2.html [ Pass
 
 webkit.org/b/207209 inspector/heap/getPreview.html [ Pass Failure Timeout ]
 
+webkit.org/b/236678 [ Monterey arm64 ] model-element/model-element-ready.html [ Pass Crash ]
+
 webkit.org/b/207269 [ Debug ] http/tests/websocket/tests/hybi/server-close.html [ Pass Crash ]
 
 webkit.org/b/183684 http/tests/appcache/abort-cache-onprogress.html [ Pass Failure ]
@@ -1077,6 +1081,8 @@ webkit.org/b/209624 tiled-drawing/scrolling/fixed/four-bars-zoomed.html [ Pass F
 
 webkit.org/b/209769 [ Catalina ] tiled-drawing/scrolling/frames/frameset-nested-frame-scrollability.html [ Pass Failure ]
 
+webkit.org/b/68278 http/tests/history/back-with-fragment-change.py [ Pass Failure ]
+
 webkit.org/b/210433 swipe/basic-cached-back-swipe.html [ Pass Crash Timeout ]
 
 webkit.org/b/207518 tiled-drawing/simple-document-with-margin-tiles.html [ Pass Failure ]
@@ -1121,6 +1127,8 @@ webkit.org/b/230653 [ Debug ] imported/w3c/web-platform-tests/webrtc/simulcast/s
 webkit.org/b/214682 imported/w3c/web-platform-tests/css/cssom/stylesheet-same-origin.sub.html [ Pass Failure ]
 
 webkit.org/b/214683 [ Debug ] imported/w3c/web-platform-tests/media-source/mediasource-changetype-play-implicit.html [ Pass Failure ]
+
+webkit.org/b/236656 [ Monterey ] media/media-source/media-webm-vorbis-partial.html [ Failure ]
 
 webkit.org/b/214824 [ Debug ] js/throw-large-string-oom.html [ Skip ]
 

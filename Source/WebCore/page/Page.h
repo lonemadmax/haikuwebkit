@@ -54,6 +54,7 @@
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/OptionSet.h>
 #include <wtf/Ref.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/WeakHashMap.h>
@@ -96,6 +97,7 @@ class ApplePayAMSUIPaymentHandler;
 class ActivityStateChangeObserver;
 class AlternativeTextClient;
 class ApplicationCacheStorage;
+class AttachmentElementClient;
 class AuthenticatorCoordinator;
 class BackForwardController;
 class BroadcastChannelRegistry;
@@ -191,6 +193,8 @@ using MediaProducerMutedStateFlags = OptionSet<MediaProducerMutedState>;
 
 enum class EventThrottlingBehavior : bool { Responsive, Unresponsive };
 enum class MainFrameMainResource : bool { No, Yes };
+
+enum class PageIsEditable : bool { No, Yes };
 
 enum class CompositingPolicy : bool {
     Normal,
@@ -459,7 +463,12 @@ public:
     // This can return nullopt if throttling reasons result in a frequency less than one, in which case
     // preferredRenderingUpdateInterval provides the frequency.
     // FIXME: Have a single function that returns a std::variant<>.
-    std::optional<FramesPerSecond> preferredRenderingUpdateFramesPerSecond() const;
+    enum class PreferredRenderingUpdateOption : uint8_t {
+        IncludeThrottlingReasons    = 1 << 0,
+        IncludeAnimationsFrameRate  = 1 << 1
+    };
+    static constexpr OptionSet<PreferredRenderingUpdateOption> allPreferredRenderingUpdateOptions = { PreferredRenderingUpdateOption::IncludeThrottlingReasons, PreferredRenderingUpdateOption::IncludeAnimationsFrameRate };
+    std::optional<FramesPerSecond> preferredRenderingUpdateFramesPerSecond(OptionSet<PreferredRenderingUpdateOption> = allPreferredRenderingUpdateOptions) const;
     Seconds preferredRenderingUpdateInterval() const;
 
     float topContentInset() const { return m_topContentInset; }
@@ -918,6 +927,7 @@ public:
     void setLoadSchedulingMode(LoadSchedulingMode);
 
 #if ENABLE(IMAGE_ANALYSIS)
+    std::optional<TextRecognitionResult> cachedTextRecognitionResult(const HTMLElement&) const;
     WEBCORE_EXPORT bool hasCachedTextRecognitionResult(const HTMLElement&) const;
     void cacheTextRecognitionResult(const HTMLElement&, const IntRect& containerRect, const TextRecognitionResult&);
     void resetTextRecognitionResult(const HTMLElement&);
@@ -929,6 +939,10 @@ public:
 
     ModelPlayerProvider& modelPlayerProvider();
 
+#if ENABLE(ATTACHMENT_ELEMENT)
+    AttachmentElementClient* attachmentElementClient() { return m_attachmentElementClient.get(); }
+#endif
+
 #if USE(ATSPI)
     AccessibilityRootAtspi* accessibilityRootObject() const { return m_accessibilityRootObject; }
     void setAccessibilityRootObject(AccessibilityRootAtspi* rootObject) { m_accessibilityRootObject = rootObject; }
@@ -938,6 +952,8 @@ public:
     void setIsAwaitingLayerTreeTransactionFlush(bool isAwaiting) { m_isAwaitingLayerTreeTransactionFlush = isAwaiting; }
     bool isAwaitingLayerTreeTransactionFlush() const { return m_isAwaitingLayerTreeTransactionFlush; }
 #endif
+
+    void timelineControllerMaximumAnimationFrameRateDidChange(DocumentTimelinesController&);
 
 private:
     struct Navigation {
@@ -1284,6 +1300,10 @@ private:
     Ref<PermissionController> m_permissionController;
     UniqueRef<StorageProvider> m_storageProvider;
     UniqueRef<ModelPlayerProvider> m_modelPlayerProvider;
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+    std::unique_ptr<AttachmentElementClient> m_attachmentElementClient;
+#endif
 
 #if ENABLE(IMAGE_ANALYSIS)
     using CachedTextRecognitionResult = std::pair<TextRecognitionResult, IntRect>;

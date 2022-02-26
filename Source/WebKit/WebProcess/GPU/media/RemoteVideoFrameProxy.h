@@ -25,22 +25,27 @@
 
 #pragma once
 
-#if ENABLE(GPU_PROCESS) && ENABLE(MEDIA_STREAM)
+#if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
 
 #include "GPUProcessConnection.h"
 #include "RemoteVideoFrameIdentifier.h"
 #include <WebCore/VideoFrame.h>
-#include <wtf/Function.h>
-#include <wtf/threads/BinarySemaphore.h>
 
 namespace IPC {
 class Connection;
 class Decoder;
 }
 
+namespace WebCore {
+#if PLATFORM(COCOA)
+class VideoFrameCV;
+#endif
+}
+
 namespace WebKit {
 
 class GPUProcessConnection;
+class RemoteVideoFrameObjectHeapProxy;
 
 // A WebCore::VideoFrame class that points to a concrete WebCore::VideoFrame instance
 // in another process, GPU process.
@@ -64,15 +69,7 @@ public:
 
     static Properties properties(WebKit::RemoteVideoFrameReference&&, const WebCore::MediaSample&);
 
-#if PLATFORM(COCOA)
-    using PixelBufferResultCallback = Function<void(RetainPtr<CVPixelBufferRef>&&)>;
-#else
-    using PixelBufferResultCallback = Function<void()>;
-#endif
-    // PixelBufferCallback should always complete but it might not be called on the same thread it was created.
-    using PixelBufferCallback = Function<void(const RemoteVideoFrameProxy&, PixelBufferResultCallback&&)>;
-
-    static Ref<RemoteVideoFrameProxy> create(IPC::Connection&, Properties, PixelBufferCallback&&);
+    static Ref<RemoteVideoFrameProxy> create(IPC::Connection&, RemoteVideoFrameObjectHeapProxy&, Properties&&);
 
     // Called by the end-points that capture creation messages that are sent from GPUP but
     // whose destinations were released in WP before message was processed.
@@ -86,72 +83,54 @@ public:
 
     WebCore::IntSize size() const;
 
+    // WebCore::VideoFrame overrides.
+    WebCore::FloatSize presentationSize() const final { return m_size; }
+    uint32_t videoPixelFormat() const final;
+    bool isRemoteProxy() const final { return true; }
 #if PLATFORM(COCOA)
     CVPixelBufferRef pixelBuffer() const final;
+    RefPtr<WebCore::VideoFrameCV> asVideoFrameCV() final;
 #endif
 
 private:
-    RemoteVideoFrameProxy(IPC::Connection&, Properties, PixelBufferCallback&&);
-
-    // WebCore::VideoFrame overrides.
-    MediaTime presentationTime() const final;
-    VideoRotation videoRotation() const final;
-    bool videoMirrored() const final;
-    WebCore::FloatSize presentationSize() const final { return m_size; }
-    std::optional<WebCore::MediaSampleVideoFrame> videoFrame() const final;
-    uint32_t videoPixelFormat() const final;
-    // FIXME: When VideoFrame is not MediaSample, these will not be needed.
-    WebCore::PlatformSample platformSample() const final;
-
-#if PLATFORM(COCOA)
-    void getPixelBuffer();
-#endif
+    RemoteVideoFrameProxy(IPC::Connection&, RemoteVideoFrameObjectHeapProxy&, Properties&&);
 
     const Ref<IPC::Connection> m_connection;
     RemoteVideoFrameReferenceTracker m_referenceTracker;
-    const MediaTime m_presentationTime;
-    const bool m_isMirrored;
-    const VideoRotation m_rotation;
     const WebCore::IntSize m_size;
     uint32_t m_pixelFormat { 0 };
+    // FIXME: Remove this.
+    mutable RefPtr<RemoteVideoFrameObjectHeapProxy> m_videoFrameObjectHeapProxy;
+#if PLATFORM(COCOA)
     mutable Lock m_pixelBufferLock;
-    RetainPtr<CVPixelBufferRef> m_pixelBuffer;
-    BinarySemaphore m_semaphore;
-    PixelBufferCallback m_pixelBufferCallback;
+    mutable RetainPtr<CVPixelBufferRef> m_pixelBuffer;
+#endif
 };
 
 template<typename Encoder> void RemoteVideoFrameProxy::Properties::encode(Encoder& encoder) const
 {
-    encoder << presentationTime
-        << isMirrored
-        << rotation
-        << size
-        << pixelFormat;
+    encoder << reference << presentationTime << isMirrored << rotation << size << pixelFormat;
 }
 
 template<typename Decoder> std::optional<RemoteVideoFrameProxy::Properties> RemoteVideoFrameProxy::Properties::decode(Decoder& decoder)
 {
-    std::optional<RemoteVideoFrameReference> reference;
-    std::optional<MediaTime> presentationTime;
-    std::optional<bool> isMirrored;
-    std::optional<VideoRotation> videoRotation;
-    std::optional<WebCore::IntSize> size;
-    std::optional<uint32_t> pixelFormat;
-    decoder >> presentationTime
-        >> isMirrored
-        >> videoRotation
-        >> size
-        >> pixelFormat;
+    auto reference = decoder.template decode<RemoteVideoFrameReference>();
+    auto presentationTime = decoder.template decode<MediaTime>();
+    auto isMirrored = decoder.template decode<bool>();
+    auto videoRotation = decoder.template decode<VideoRotation>();
+    auto size = decoder.template decode<WebCore::IntSize>();
+    auto pixelFormat = decoder.template decode<uint32_t>();
     if (!decoder.isValid())
         return std::nullopt;
     return Properties { WTFMove(*reference), WTFMove(*presentationTime), *isMirrored, *videoRotation, *size, *pixelFormat };
 }
 
+TextStream& operator<<(TextStream&, const RemoteVideoFrameProxy::Properties&);
+
 }
+
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::RemoteVideoFrameProxy)
-    static bool isType(const WebCore::MediaSample& mediaSample) { return mediaSample.platformSample().type == WebCore::PlatformSample::RemoteVideoFrameProxyType; }
+    static bool isType(const WebCore::MediaSample& mediaSample) { return is<WebCore::VideoFrame>(mediaSample) && downcast<WebCore::VideoFrame>(mediaSample).isRemoteProxy(); }
 SPECIALIZE_TYPE_TRAITS_END()
-SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::VideoFrame)
-    static bool isType(const WebCore::MediaSample& mediaSample) { return mediaSample.platformSample().type == WebCore::PlatformSample::RemoteVideoFrameProxyType; }
-SPECIALIZE_TYPE_TRAITS_END()
+
 #endif

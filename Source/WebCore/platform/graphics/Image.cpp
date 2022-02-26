@@ -147,15 +147,10 @@ void Image::drawPattern(GraphicsContext& ctxt, const FloatRect& destRect, const 
     if (!tileImage)
         return;
 
-    ctxt.drawPattern(*tileImage, size(), destRect, tileRect, patternTransform, phase, spacing, options);
+    ctxt.drawPattern(*tileImage, destRect, tileRect, patternTransform, phase, spacing, options);
 
     if (imageObserver())
         imageObserver()->didDraw(*this);
-}
-
-ImageDrawResult Image::drawForCanvas(GraphicsContext& context, const FloatRect& dstRect, const FloatRect& srcRect, const ImagePaintingOptions& options, DestinationColorSpace)
-{
-    return draw(context, dstRect, srcRect, options);
 }
 
 ImageDrawResult Image::drawTiled(GraphicsContext& ctxt, const FloatRect& destRect, const FloatPoint& srcPoint, const FloatSize& scaledTileSize, const FloatSize& spacing, const ImagePaintingOptions& options)

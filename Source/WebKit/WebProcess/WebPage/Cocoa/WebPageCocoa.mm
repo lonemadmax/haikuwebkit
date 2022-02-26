@@ -71,7 +71,7 @@ void WebPage::platformInitialize(const WebPageCreationParameters& parameters)
 
 #if ENABLE(MEDIA_STREAM)
     if (auto* captureManager = WebProcess::singleton().supplement<UserMediaCaptureManager>())
-        captureManager->setupCaptureProcesses(parameters.shouldCaptureAudioInUIProcess, parameters.shouldCaptureAudioInGPUProcess, parameters.shouldCaptureVideoInUIProcess, parameters.shouldCaptureVideoInGPUProcess, parameters.shouldCaptureDisplayInUIProcess, m_page->settings().webRTCRemoteVideoFrameEnabled());
+        captureManager->setupCaptureProcesses(parameters.shouldCaptureAudioInUIProcess, parameters.shouldCaptureAudioInGPUProcess, parameters.shouldCaptureVideoInUIProcess, parameters.shouldCaptureVideoInGPUProcess, parameters.shouldCaptureDisplayInUIProcess, parameters.shouldCaptureDisplayInGPUProcess, m_page->settings().webRTCRemoteVideoFrameEnabled());
 #endif
 }
 
@@ -455,6 +455,24 @@ static String& replaceSelectionPasteboardName()
 {
     static NeverDestroyed<String> string("ReplaceSelectionPasteboard");
     return string;
+}
+
+void WebPage::replaceWithPasteboardData(const ElementContext& elementContext, const Vector<String>& types, const IPC::DataReference& data)
+{
+    Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
+    auto element = elementForContext(elementContext);
+    if (!element || !element->isContentEditable())
+        return;
+
+    if (frame->document() != &element->document())
+        return;
+
+    auto replacementRange = makeRangeSelectingNode(*element);
+    if (!replacementRange)
+        return;
+
+    frame->selection().setSelection(VisibleSelection { *replacementRange });
+    replaceSelectionWithPasteboardData(types, data);
 }
 
 void WebPage::replaceSelectionWithPasteboardData(const Vector<String>& types, const IPC::DataReference& data)

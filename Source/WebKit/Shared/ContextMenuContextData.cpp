@@ -43,13 +43,14 @@ ContextMenuContextData::ContextMenuContextData()
 {
 }
 
-ContextMenuContextData::ContextMenuContextData(const WebCore::IntPoint& menuLocation, const Vector<WebKit::WebContextMenuItemData>& menuItems, const ContextMenuContext& context)
+ContextMenuContextData::ContextMenuContextData(const IntPoint& menuLocation, std::optional<ElementContext>&& hitTestedElementContext, const Vector<WebKit::WebContextMenuItemData>& menuItems, const ContextMenuContext& context)
 #if ENABLE(SERVICE_CONTROLS)
     : m_type(context.controlledImage() ? Type::ServicesMenu : context.type())
 #else
     : m_type(context.type())
 #endif
     , m_menuLocation(menuLocation)
+    , m_hitTestedElementContext(WTFMove(hitTestedElementContext))
     , m_menuItems(menuItems)
     , m_webHitTestResultData({ context.hitTestResult(), true })
     , m_selectedText(context.selectedText())
@@ -67,12 +68,14 @@ ContextMenuContextData::ContextMenuContextData(const WebCore::IntPoint& menuLoca
 }
 
 #if ENABLE(SERVICE_CONTROLS)
-ContextMenuContextData::ContextMenuContextData(const WebCore::IntPoint& menuLocation, WebCore::Image& image, bool isEditable, const WebCore::IntRect& imageRect, const String& attachmentID)
+ContextMenuContextData::ContextMenuContextData(const WebCore::IntPoint& menuLocation, WebCore::Image& image, bool isEditable, const WebCore::IntRect& imageRect, const String& attachmentID, std::optional<ElementContext>&& elementContext, const String& sourceImageMIMEType)
     : m_type(Type::ServicesMenu)
     , m_menuLocation(menuLocation)
     , m_selectionIsEditable(isEditable)
     , m_controlledImageBounds(imageRect)
     , m_controlledImageAttachmentID(attachmentID)
+    , m_controlledImageElementContext(WTFMove(elementContext))
+    , m_controlledImageMIMEType(sourceImageMIMEType)
 {
     setImage(&image);
 }
@@ -92,6 +95,7 @@ void ContextMenuContextData::encode(IPC::Encoder& encoder) const
 {
     encoder << m_type;
     encoder << m_menuLocation;
+    encoder << m_hitTestedElementContext;
     encoder << m_menuItems;
     encoder << m_webHitTestResultData;
     encoder << m_selectedText;
@@ -106,6 +110,8 @@ void ContextMenuContextData::encode(IPC::Encoder& encoder) const
     encoder << m_selectionIsEditable;
     encoder << m_controlledImageBounds;
     encoder << m_controlledImageAttachmentID;
+    encoder << m_controlledImageElementContext;
+    encoder << m_controlledImageMIMEType;
 #endif
 }
 
@@ -115,6 +121,9 @@ bool ContextMenuContextData::decode(IPC::Decoder& decoder, ContextMenuContextDat
         return false;
 
     if (!decoder.decode(result.m_menuLocation))
+        return false;
+
+    if (!decoder.decode(result.m_hitTestedElementContext))
         return false;
 
     if (!decoder.decode(result.m_menuItems))
@@ -143,6 +152,10 @@ bool ContextMenuContextData::decode(IPC::Decoder& decoder, ContextMenuContextDat
     if (!decoder.decode(result.m_controlledImageBounds))
         return false;
     if (!decoder.decode(result.m_controlledImageAttachmentID))
+        return false;
+    if (!decoder.decode(result.m_controlledImageElementContext))
+        return false;
+    if (!decoder.decode(result.m_controlledImageMIMEType))
         return false;
 #endif
 

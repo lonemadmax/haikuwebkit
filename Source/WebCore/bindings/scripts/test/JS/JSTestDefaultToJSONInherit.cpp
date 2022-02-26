@@ -22,7 +22,8 @@
 #include "JSTestDefaultToJSONInherit.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -86,7 +87,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestDefaultToJSONInheritPrototype, Base);
         return &vm.plainObjectSpace();
@@ -284,27 +285,14 @@ JSC_DEFINE_HOST_FUNCTION(jsTestDefaultToJSONInheritPrototypeFunction_toJSON, (JS
     return IDLOperation<JSTestDefaultToJSONInherit>::call<jsTestDefaultToJSONInheritPrototypeFunction_toJSONBody>(*lexicalGlobalObject, *callFrame, "toJSON");
 }
 
-JSC::IsoSubspace* JSTestDefaultToJSONInherit::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSTestDefaultToJSONInherit::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForTestDefaultToJSONInherit.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestDefaultToJSONInherit> || !JSTestDefaultToJSONInherit::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestDefaultToJSONInherit>)
-        spaces.m_subspaceForTestDefaultToJSONInherit = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestDefaultToJSONInherit);
-    else
-        spaces.m_subspaceForTestDefaultToJSONInherit = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestDefaultToJSONInherit);
-    auto* space = spaces.m_subspaceForTestDefaultToJSONInherit.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSTestDefaultToJSONInherit::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSTestDefaultToJSONInherit, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForTestDefaultToJSONInherit.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestDefaultToJSONInherit = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForTestDefaultToJSONInherit.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestDefaultToJSONInherit = WTFMove(space); }
+    );
 }
 
 void JSTestDefaultToJSONInherit::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

@@ -36,7 +36,7 @@
 #include "Logging.h"
 #include "TextureMapperGL.h"
 #include "TextureMapperPlatformLayerDmabuf.h"
-#include "TextureMapperPlatformLayerProxy.h"
+#include "TextureMapperPlatformLayerProxyGL.h"
 
 namespace Nicosia {
 
@@ -62,7 +62,8 @@ void GCGLANGLELayer::swapBuffersIfNeeded()
 
         {
             Locker locker { proxy.lock() };
-            proxy.pushNextBuffer(makeUnique<TextureMapperPlatformLayerDmabuf>(size, format, stride, fd));
+            ASSERT(is<TextureMapperPlatformLayerProxyGL>(proxy));
+            downcast<TextureMapperPlatformLayerProxyGL>(proxy).pushNextBuffer(makeUnique<TextureMapperPlatformLayerDmabuf>(size, format, stride, fd));
         }
 
         m_context.markLayerComposited();
@@ -78,14 +79,15 @@ void GCGLANGLELayer::swapBuffersIfNeeded()
     auto flags = m_context.contextAttributes().alpha ? BitmapTexture::SupportsAlpha : BitmapTexture::NoFlag;
     {
         Locker locker { proxy.lock() };
-        std::unique_ptr<TextureMapperPlatformLayerBuffer> layerBuffer = proxy.getAvailableBuffer(size, m_context.m_internalColorFormat);
+        ASSERT(is<TextureMapperPlatformLayerProxyGL>(proxy));
+        std::unique_ptr<TextureMapperPlatformLayerBuffer> layerBuffer = downcast<TextureMapperPlatformLayerProxyGL>(proxy).getAvailableBuffer(size, m_context.m_internalColorFormat);
         if (!layerBuffer) {
             auto texture = BitmapTextureGL::create(TextureMapperContextAttributes::get(), flags, m_context.m_internalColorFormat);
             layerBuffer = makeUnique<TextureMapperPlatformLayerBuffer>(WTFMove(texture), flags);
         }
 
         layerBuffer->textureGL().setPendingContents(ImageBuffer::sinkIntoImage(WTFMove(imageBuffer)));
-        proxy.pushNextBuffer(WTFMove(layerBuffer));
+        downcast<TextureMapperPlatformLayerProxyGL>(proxy).pushNextBuffer(WTFMove(layerBuffer));
     }
     m_context.markLayerComposited();
 }
@@ -121,9 +123,15 @@ const char* GCGLANGLELayer::ANGLEContext::lastErrorString()
     return errorString(EGL_GetError());
 }
 
-std::unique_ptr<GCGLANGLELayer::ANGLEContext> GCGLANGLELayer::ANGLEContext::createContext()
+std::unique_ptr<GCGLANGLELayer::ANGLEContext> GCGLANGLELayer::ANGLEContext::createContext(bool isForWebGL2)
 {
-    EGLDisplay display = EGL_GetDisplay(EGL_DEFAULT_DISPLAY);
+    Vector<EGLint> displayAttributes {
+        EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_OPENGLES_ANGLE,
+        EGL_PLATFORM_ANGLE_DEVICE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_DEVICE_TYPE_EGL_ANGLE,
+        EGL_PLATFORM_ANGLE_NATIVE_PLATFORM_TYPE_ANGLE, EGL_PLATFORM_SURFACELESS_MESA,
+        EGL_NONE,
+    };
+    EGLDisplay display = EGL_GetPlatformDisplayEXT(EGL_PLATFORM_ANGLE_ANGLE, EGL_DEFAULT_DISPLAY, displayAttributes.data());
     if (display == EGL_NO_DISPLAY)
         return nullptr;
 
@@ -144,6 +152,8 @@ std::unique_ptr<GCGLANGLELayer::ANGLEContext> GCGLANGLELayer::ANGLEContext::crea
         EGL_GREEN_SIZE, 8,
         EGL_BLUE_SIZE, 8,
         EGL_ALPHA_SIZE, 8,
+        EGL_DEPTH_SIZE, 0,
+        EGL_STENCIL_SIZE, 0,
         EGL_NONE
     };
     EGLint numberConfigsReturned = 0;
@@ -161,12 +171,31 @@ std::unique_ptr<GCGLANGLELayer::ANGLEContext> GCGLANGLELayer::ANGLEContext::crea
     }
 
     std::vector<EGLint> contextAttributes;
-    contextAttributes.push_back(EGL_CONTEXT_CLIENT_VERSION);
-    contextAttributes.push_back(2);
+    if (isForWebGL2) {
+        contextAttributes.push_back(EGL_CONTEXT_CLIENT_VERSION);
+        contextAttributes.push_back(3);
+    } else {
+        contextAttributes.push_back(EGL_CONTEXT_CLIENT_VERSION);
+        contextAttributes.push_back(2);
+        // ANGLE will upgrade the context to ES3 automatically unless this is specified.
+        contextAttributes.push_back(EGL_CONTEXT_OPENGL_BACKWARDS_COMPATIBLE_ANGLE);
+        contextAttributes.push_back(EGL_FALSE);
+    }
     contextAttributes.push_back(EGL_CONTEXT_WEBGL_COMPATIBILITY_ANGLE);
     contextAttributes.push_back(EGL_TRUE);
-    contextAttributes.push_back(EGL_EXTENSIONS_ENABLED_ANGLE);
+
+    // WebGL requires that all resources are cleared at creation.
+    contextAttributes.push_back(EGL_ROBUST_RESOURCE_INITIALIZATION_ANGLE);
     contextAttributes.push_back(EGL_TRUE);
+
+    // WebGL doesn't allow client arrays.
+    contextAttributes.push_back(EGL_CONTEXT_CLIENT_ARRAYS_ENABLED_ANGLE);
+    contextAttributes.push_back(EGL_FALSE);
+
+    // WebGL doesn't allow implicit creation of objects on bind.
+    contextAttributes.push_back(EGL_CONTEXT_BIND_GENERATES_RESOURCE_CHROMIUM);
+    contextAttributes.push_back(EGL_FALSE);
+
     if (strstr(displayExtensions, "EGL_ANGLE_power_preference")) {
         contextAttributes.push_back(EGL_POWER_PREFERENCE_ANGLE);
         // EGL_LOW_POWER_ANGLE is the default. Change to
@@ -214,24 +243,24 @@ bool GCGLANGLELayer::ANGLEContext::makeContextCurrent()
     return true;
 }
 
-PlatformGraphicsContextGL GCGLANGLELayer::ANGLEContext::platformContext() const
+GCGLContext GCGLANGLELayer::ANGLEContext::platformContext() const
 {
     return m_context;
 }
 
-PlatformGraphicsContextGLDisplay GCGLANGLELayer::ANGLEContext::platformDisplay() const
+GCGLDisplay GCGLANGLELayer::ANGLEContext::platformDisplay() const
 {
     return m_display;
 }
 
-PlatformGraphicsContextGLConfig GCGLANGLELayer::ANGLEContext::platformConfig() const
+GCGLConfig GCGLANGLELayer::ANGLEContext::platformConfig() const
 {
     return m_config;
 }
 
 GCGLANGLELayer::GCGLANGLELayer(GraphicsContextGLANGLE& context)
     : m_context(context)
-    , m_angleContext(ANGLEContext::createContext())
+    , m_angleContext(ANGLEContext::createContext(context.m_isForWebGL2))
     , m_contentLayer(Nicosia::ContentLayer::create(Nicosia::ContentLayerTextureMapperImpl::createFactory(*this)))
 {
 }
@@ -248,19 +277,19 @@ bool GCGLANGLELayer::makeContextCurrent()
 
 }
 
-PlatformGraphicsContextGL GCGLANGLELayer::platformContext() const
+GCGLContext GCGLANGLELayer::platformContext() const
 {
     ASSERT(m_angleContext);
     return m_angleContext->platformContext();
 }
 
-PlatformGraphicsContextGLDisplay GCGLANGLELayer::platformDisplay() const
+GCGLDisplay GCGLANGLELayer::platformDisplay() const
 {
     ASSERT(m_angleContext);
     return m_angleContext->platformDisplay();
 }
 
-PlatformGraphicsContextGLConfig GCGLANGLELayer::platformConfig() const
+GCGLConfig GCGLANGLELayer::platformConfig() const
 {
     ASSERT(m_angleContext);
     return m_angleContext->platformContext();

@@ -879,6 +879,7 @@ public:
     void requestDictationContext(CompletionHandler<void(const String&, const String&, const String&)>&&);
 #if ENABLE(REVEAL)
     void requestRVItemInCurrentSelectedRange(CompletionHandler<void(const RevealItem&)>&&);
+    void prepareSelectionForContextMenuWithLocationInView(const WebCore::IntPoint, CompletionHandler<void(bool, const RevealItem&)>&&);
 #endif
     void replaceDictatedText(const String& oldText, const String& newText);
     void replaceSelectedText(const String& oldText, const String& newText);
@@ -1183,6 +1184,7 @@ public:
     void registerWebProcessAccessibilityToken(const IPC::DataReference&);
     // Called by the UI process when it is ready to send its tokens to the web process.
     void registerUIProcessAccessibilityTokens(const IPC::DataReference& elemenToken, const IPC::DataReference& windowToken);
+    void replaceWithPasteboardData(const WebCore::ElementContext&, const Vector<String>& types, const IPC::DataReference&);
     void replaceSelectionWithPasteboardData(const Vector<String>& types, const IPC::DataReference&);
     bool readSelectionFromPasteboard(const String& pasteboardName);
     String stringSelectionForPasteboard();
@@ -1369,6 +1371,7 @@ public:
     void didDismissContextMenu();
     void contextMenuItemSelected(const WebContextMenuItemData&);
     void handleContextMenuKeyEvent();
+    void willHighlightContextMenuItem(WebCore::ContextMenuAction);
 #endif
 
     // Called by the WebOpenPanelResultListenerProxy.
@@ -1403,14 +1406,17 @@ public:
 
     void beginPrinting(WebFrameProxy*, const PrintInfo&);
     void endPrinting();
-    uint64_t computePagesForPrinting(WebFrameProxy*, const PrintInfo&, CompletionHandler<void(const Vector<WebCore::IntRect>&, double, const WebCore::FloatBoxExtent&)>&&);
+    uint64_t computePagesForPrinting(WebCore::FrameIdentifier, const PrintInfo&, CompletionHandler<void(const Vector<WebCore::IntRect>&, double, const WebCore::FloatBoxExtent&)>&&);
     void getPDFFirstPageSize(WebCore::FrameIdentifier, CompletionHandler<void(WebCore::FloatSize)>&&);
 #if PLATFORM(COCOA)
     uint64_t drawRectToImage(WebFrameProxy*, const PrintInfo&, const WebCore::IntRect&, const WebCore::IntSize&, CompletionHandler<void(const WebKit::ShareableBitmap::Handle&)>&&);
     uint64_t drawPagesToPDF(WebFrameProxy*, const PrintInfo&, uint32_t first, uint32_t count, CompletionHandler<void(API::Data*)>&&);
     void drawToPDF(WebCore::FrameIdentifier, const std::optional<WebCore::FloatRect>&, CompletionHandler<void(const IPC::SharedBufferCopy&)>&&);
 #if PLATFORM(IOS_FAMILY)
-    std::pair<size_t, uint64_t> computePagesForPrintingAndDrawToPDF(WebCore::FrameIdentifier, const PrintInfo&, CompletionHandler<void(const IPC::SharedBufferCopy&)>&&);
+#if !HAVE(UIKIT_BACKGROUND_THREAD_PRINTING)
+    size_t computePagesForPrintingiOS(WebCore::FrameIdentifier, const PrintInfo&);
+#endif
+    uint64_t drawToPDFiOS(WebCore::FrameIdentifier, const PrintInfo&, size_t pageCount, CompletionHandler<void(const IPC::SharedBufferCopy&)>&&);
 #endif
 #elif PLATFORM(GTK)
     void drawPagesForPrinting(WebFrameProxy*, const PrintInfo&, CompletionHandler<void(API::Error*)>&&);
@@ -1753,7 +1759,7 @@ public:
     void registerAttachmentIdentifier(const String&);
     void didInvalidateDataForAttachment(API::Attachment&);
 #if HAVE(QUICKLOOK_THUMBNAILING)
-    void updateAttachmentIcon(const String&, const RefPtr<ShareableBitmap>&);
+    void updateAttachmentThumbnail(const String&, const RefPtr<ShareableBitmap>&);
     void requestThumbnailWithPath(const String&, const String&);
     void requestThumbnailWithFileWrapper(NSFileWrapper *, const String&);
     void requestThumbnailWithOperation(WKQLThumbnailLoadOperation *);
@@ -2008,10 +2014,14 @@ public:
 
     void dispatchWheelEventWithoutScrolling(const WebWheelEvent&, CompletionHandler<void(bool)>&&);
 
-#if ENABLE(IMAGE_ANALYSIS) && ENABLE(CONTEXT_MENUS)
-    void handleContextMenuLookUpImage();
+#if ENABLE(CONTEXT_MENUS)
+#if ENABLE(IMAGE_ANALYSIS)
     void handleContextMenuQuickLookImage(QuickLookPreviewActivity);
 #endif
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    void handleContextMenuCopyCroppedImage(ShareableBitmap&, const String& preferredMIMEType);
+#endif
+#endif // ENABLE(CONTEXT_MENUS)
 
 #if USE(APPKIT)
     void beginPreviewPanelControl(QLPreviewPanel *);
@@ -2530,6 +2540,10 @@ private:
     void invalidateAllAttachments();
 
     void writePromisedAttachmentToPasteboard(WebCore::PromisedAttachmentInfo&&);
+
+    void requestAttachmentIcon(const String& identifier, const String& type, const String& path, const String& title, const WebCore::FloatSize&);
+
+    RefPtr<WebKit::ShareableBitmap> iconForAttachment(const String& fileName, const String& contentType, const String& title, WebCore::FloatSize&);
 #endif
 
     void reportPageLoadResult(const WebCore::ResourceError& = { });
@@ -3198,6 +3212,17 @@ private:
     std::optional<PlaybackSessionContextIdentifier> m_currentFullscreenVideoSessionIdentifier;
     RunLoop::Timer<WebPageProxy> m_fullscreenVideoExtractionTimer;
 #endif
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    enum class CroppedImageOverlayState : uint8_t {
+        Inactive,
+        Analyzing,
+        Hidden,
+        Showing,
+    };
+    WebCore::PlatformImagePtr m_croppedImageResult;
+    CroppedImageOverlayState m_croppedImageOverlayState { CroppedImageOverlayState::Inactive };
+#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 };
 
 #ifdef __OBJC__

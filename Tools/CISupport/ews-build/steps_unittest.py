@@ -38,22 +38,22 @@ from mock import call, patch
 from twisted.internet import defer, error, reactor
 from twisted.python import failure, log
 from twisted.trial import unittest
-
+import send_email
 
 from steps import (AnalyzeAPITestsResults, AnalyzeCompileWebKitResults, AnalyzeJSCTestsResults,
-                   AnalyzeLayoutTestsResults, ApplyPatch, ApplyWatchList, ArchiveBuiltProduct, ArchiveTestResults,
+                   AnalyzeLayoutTestsResults, ApplyPatch, ApplyWatchList, ArchiveBuiltProduct, ArchiveTestResults, BugzillaMixin,
                    CheckOutPullRequest, CheckOutSource, CheckOutSpecificRevision, CheckChangeRelevance, CheckPatchStatusOnEWSQueues, CheckStyle,
                    CleanBuild, CleanUpGitIndexLock, CleanGitRepo, CleanWorkingDirectory, CompileJSC, CompileJSCWithoutChange,
                    CompileWebKit, CompileWebKitWithoutChange, ConfigureBuild, ConfigureBuild, Contributors, CreateLocalGITCommit,
                    DownloadBuiltProduct, DownloadBuiltProductFromMaster, EWS_BUILD_HOSTNAME, ExtractBuiltProduct, ExtractTestResults,
-                   FetchBranches, FindModifiedChangeLogs, FindModifiedLayoutTests, GitResetHard,
+                   FetchBranches, FindModifiedChangeLogs, FindModifiedLayoutTests, GitHub, GitResetHard,
                    InstallBuiltProduct, InstallGtkDependencies, InstallWpeDependencies,
                    KillOldProcesses, PrintConfiguration, PushCommitToWebKitRepo, ReRunAPITests, ReRunWebKitPerlTests,
-                   ReRunWebKitTests, RevertPullRequestChanges, RunAPITests, RunAPITestsWithoutPatch, RunBindingsTests, RunBuildWebKitOrgUnitTests,
+                   ReRunWebKitTests, RevertPullRequestChanges, RunAPITests, RunAPITestsWithoutChange, RunBindingsTests, RunBuildWebKitOrgUnitTests,
                    RunBuildbotCheckConfigForBuildWebKit, RunBuildbotCheckConfigForEWS, RunEWSUnitTests, RunResultsdbpyTests,
                    RunJavaScriptCoreTests, RunJSCTestsWithoutChange, RunWebKit1Tests, RunWebKitPerlTests, RunWebKitPyPython2Tests,
                    RunWebKitPyPython3Tests, RunWebKitTests, RunWebKitTestsInStressMode, RunWebKitTestsInStressGuardmallocMode,
-                   RunWebKitTestsWithoutChange, RunWebKitTestsRedTree, RunWebKitTestsRepeatFailuresRedTree, RunWebKitTestsRepeatFailuresWithoutPatchRedTree,
+                   RunWebKitTestsWithoutChange, RunWebKitTestsRedTree, RunWebKitTestsRepeatFailuresRedTree, RunWebKitTestsRepeatFailuresWithoutChangeRedTree,
                    RunWebKitTestsWithoutChangeRedTree, AnalyzeLayoutTestsResultsRedTree, TestWithFailureCount, ShowIdentifier,
                    Trigger, TransferToS3, UnApplyPatch, UpdateWorkingDirectory, UploadBuiltProduct,
                    UploadTestResults, ValidateChangeLogAndReviewer, ValidateCommiterAndReviewer, ValidateChange, VerifyGitHubIntegrity)
@@ -61,7 +61,7 @@ from steps import (AnalyzeAPITestsResults, AnalyzeCompileWebKitResults, AnalyzeJ
 # Workaround for https://github.com/buildbot/buildbot/issues/4669
 from buildbot.test.fake.fakebuild import FakeBuild
 FakeBuild.addStepsAfterCurrentStep = lambda FakeBuild, step_factories: None
-
+FakeBuild._builderid = 1
 
 def mock_step(step, logs='', results=SUCCESS, stopped=False, properties=None):
     step.logs = logs
@@ -103,6 +103,10 @@ class ExpectMasterShellCommand(object):
 class BuildStepMixinAdditions(BuildStepMixin, TestReactorMixin):
     def setUpBuildStep(self):
         self.patch(reactor, 'spawnProcess', lambda *args, **kwargs: self._checkSpawnProcess(*args, **kwargs))
+        self.patch(send_email, 'send_email', self._send_email)
+        self.patch(send_email, 'get_email_ids', lambda c: ['test@webkit.org'])
+        self.patch(BugzillaMixin, 'get_bugzilla_api_key', lambda f: 'TEST-API-KEY')
+        self._emails_list = []
         self._expected_local_commands = []
         self.setUpTestReactor()
 
@@ -189,6 +193,16 @@ class BuildStepMixinAdditions(BuildStepMixin, TestReactorMixin):
                 results.append(os.path.join(relative_root_path, name))
         return results
 
+    def _send_email(self, to_emails, subject, text, reference=''):
+        if not to_emails:
+            self._emails_list.append('Error: skipping email since no recipient is specified')
+            return False
+        if not subject or not text:
+            self._emails_list.append('Error: skipping email since no subject or text is specified')
+            return False
+        self._emails_list.append('Subject: {}\nTo: {}\nReference: {}\nBody:\n\n{}'.format(subject, to_emails, reference, text))
+        return True
+
     def runStep(self):
         def check(result):
             self.assertEqual(self._expected_local_commands, [], 'assert all expected local commands were run')
@@ -212,6 +226,44 @@ def uploadFileWithContentsOfString(string, timestamp=None):
         if timestamp:
             writer.remote_utime(timestamp)
     return behavior
+
+
+class TestGitHub(unittest.TestCase):
+    def test_pr_url(self):
+        self.assertEqual(
+            GitHub.pr_url(1234),
+            'https://github.com/WebKit/WebKit/pull/1234',
+        )
+
+    def test_pr_url_with_repository(self):
+        self.assertEqual(
+            GitHub.pr_url(1234, 'https://github.com/WebKit/WebKit'),
+            'https://github.com/WebKit/WebKit/pull/1234',
+        )
+
+    def test_pr_url_with_invalid_repository(self):
+        self.assertEqual(
+            GitHub.pr_url(1234, 'https://github.example.com/WebKit/WebKit'),
+            '',
+        )
+
+    def test_commit_url(self):
+        self.assertEqual(
+            GitHub.commit_url('936e3f7cab4a826519121a75bf4481fe56e727e2'),
+            'https://github.com/WebKit/WebKit/commit/936e3f7cab4a826519121a75bf4481fe56e727e2',
+        )
+
+    def test_commit_url_with_repository(self):
+        self.assertEqual(
+            GitHub.commit_url('936e3f7cab4a826519121a75bf4481fe56e727e2', 'https://github.com/WebKit/WebKit'),
+            'https://github.com/WebKit/WebKit/commit/936e3f7cab4a826519121a75bf4481fe56e727e2',
+        )
+
+    def test_commit_url_with_invalid_repository(self):
+        self.assertEqual(
+            GitHub.commit_url('936e3f7cab4a826519121a75bf4481fe56e727e2', 'https://github.example.com/WebKit/WebKit'),
+            '',
+        )
 
 
 class TestStepNameShouldBeValidIdentifier(BuildStepMixinAdditions, unittest.TestCase):
@@ -1205,7 +1257,6 @@ class TestCompileWebKitWithoutChange(BuildStepMixinAdditions, unittest.TestCase)
 class TestAnalyzeCompileWebKitResults(BuildStepMixinAdditions, unittest.TestCase):
     def setUp(self):
         self.longMessage = True
-        AnalyzeCompileWebKitResults.send_email_for_build_failure = lambda self: None
         return self.setUpBuildStep()
 
     def tearDown(self):
@@ -1594,8 +1645,6 @@ class TestAnalyzeJSCTestsResults(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('jsc_clean_tree_stress_test_failures', [])
         self.setProperty('jsc_clean_tree_binary_failures', [])
         self.setProperty('jsc_clean_tree_flaky_and_passed', {})
-        AnalyzeJSCTestsResults.send_email_for_flaky_failure = lambda *args: None
-        AnalyzeJSCTestsResults.send_email_for_pre_existing_failure = lambda *args: None
 
     def test_single_new_stress_failure(self):
         self.configureStep()
@@ -1675,14 +1724,14 @@ class TestAnalyzeJSCTestsResults(BuildStepMixinAdditions, unittest.TestCase):
         self.expectOutcome(result=RETRY, state_string='Unexpected infrastructure issue, retrying build (retry)')
         return self.runStep()
 
-    def test_patch_breaking_jsc_test_suite(self):
+    def test_change_breaking_jsc_test_suite(self):
         self.configureStep()
         self.setProperty('jsc_stress_test_failures', [])
         self.setProperty('jsc_flaky_and_passed', {})
         self.setProperty('jsc_clean_tree_stress_test_failures', [])
         self.setProperty('jsc_clean_tree_flaky_and_passed', {})
         self.setProperty('clean_tree_run_status', SUCCESS)
-        self.expectOutcome(result=FAILURE, state_string='Found unexpected failure with patch (failure)')
+        self.expectOutcome(result=FAILURE, state_string='Found unexpected failure with change (failure)')
         return self.runStep()
 
 
@@ -1928,7 +1977,6 @@ class TestReRunWebKitTests(TestRunWebKitTests):
         self.setupStep(ReRunWebKitTests())
         self.property_exceed_failure_limit = 'second_results_exceed_failure_limit'
         self.property_failures = 'second_run_failures'
-        ReRunWebKitTests.send_email_for_flaky_failure = lambda *args: None
 
     def test_flaky_failures_in_first_run(self):
         self.configureStep()
@@ -2331,15 +2379,13 @@ class TestAnalyzeLayoutTestsResults(BuildStepMixinAdditions, unittest.TestCase):
         return self.tearDownBuildStep()
 
     def configureStep(self):
-        AnalyzeLayoutTestsResults.send_email_for_flaky_failure = lambda *args: None
-        AnalyzeLayoutTestsResults.send_email_for_pre_existing_failure = lambda *args: None
         self.setupStep(AnalyzeLayoutTestsResults())
         self.setProperty('first_results_exceed_failure_limit', False)
         self.setProperty('second_results_exceed_failure_limit', False)
         self.setProperty('clean_tree_results_exceed_failure_limit', False)
         self.setProperty('clean_tree_run_failures', [])
 
-    def test_failure_introduced_by_patch(self):
+    def test_failure_introduced_by_change(self):
         self.configureStep()
         self.setProperty('first_run_failures', ["jquery/offset.html"])
         self.setProperty('second_run_failures', ["jquery/offset.html"])
@@ -2412,7 +2458,7 @@ class TestAnalyzeLayoutTestsResults(BuildStepMixinAdditions, unittest.TestCase):
         self.expectOutcome(result=SUCCESS, state_string='Passed layout tests')
         return self.runStep()
 
-    def test_mildly_flaky_patch_with_some_tree_redness_and_flakiness(self):
+    def test_mildly_flaky_change_with_some_tree_redness_and_flakiness(self):
         self.configureStep()
         self.setProperty('first_run_failures', ['test1', 'test2', 'test3'])
         self.setProperty('second_run_failures', ['test1', 'test2'])
@@ -2427,7 +2473,7 @@ class TestAnalyzeLayoutTestsResults(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('first_results_exceed_failure_limit', True)
         self.setProperty('first_run_failures',  ['test{}'.format(i) for i in range(0, 30)])
         self.setProperty('second_run_failures', [])
-        self.expectOutcome(result=RETRY, state_string='Unable to confirm if test failures are introduced by patch, retrying build (retry)')
+        self.expectOutcome(result=RETRY, state_string='Unable to confirm if test failures are introduced by change, retrying build (retry)')
         return self.runStep()
 
     def test_second_run_exceed_failure_limit(self):
@@ -2435,7 +2481,7 @@ class TestAnalyzeLayoutTestsResults(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('first_run_failures', [])
         self.setProperty('second_results_exceed_failure_limit', True)
         self.setProperty('second_run_failures',  ['test{}'.format(i) for i in range(0, 30)])
-        self.expectOutcome(result=RETRY, state_string='Unable to confirm if test failures are introduced by patch, retrying build (retry)')
+        self.expectOutcome(result=RETRY, state_string='Unable to confirm if test failures are introduced by change, retrying build (retry)')
         return self.runStep()
 
     def test_clean_tree_exceed_failure_limit(self):
@@ -2444,7 +2490,7 @@ class TestAnalyzeLayoutTestsResults(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('second_run_failures', ['test1'])
         self.setProperty('clean_tree_results_exceed_failure_limit', True)
         self.setProperty('clean_tree_run_failures',  ['test{}'.format(i) for i in range(0, 30)])
-        self.expectOutcome(result=RETRY, state_string='Unable to confirm if test failures are introduced by patch, retrying build (retry)')
+        self.expectOutcome(result=RETRY, state_string='Unable to confirm if test failures are introduced by change, retrying build (retry)')
         return self.runStep()
 
     def test_clean_tree_exceed_failure_limit_with_triggered_by(self):
@@ -2455,7 +2501,7 @@ class TestAnalyzeLayoutTestsResults(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('second_run_failures', ['test1'])
         self.setProperty('clean_tree_results_exceed_failure_limit', True)
         self.setProperty('clean_tree_run_failures',  ['test{}'.format(i) for i in range(0, 30)])
-        message = 'Unable to confirm if test failures are introduced by patch, retrying build'
+        message = 'Unable to confirm if test failures are introduced by change, retrying build'
         self.expectOutcome(result=SUCCESS, state_string=message)
         rc = self.runStep()
         self.assertEqual(self.getProperty('build_summary'), message)
@@ -2468,7 +2514,7 @@ class TestAnalyzeLayoutTestsResults(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('second_results_exceed_failure_limit', True)
         self.setProperty('second_run_failures', ['test{}'.format(i) for i in range(0, 30)])
         self.setProperty('clean_tree_run_failures', ['test{}'.format(i) for i in range(0, 27)])
-        self.expectOutcome(result=RETRY, state_string='Unable to confirm if test failures are introduced by patch, retrying build (retry)')
+        self.expectOutcome(result=RETRY, state_string='Unable to confirm if test failures are introduced by change, retrying build (retry)')
         return self.runStep()
 
     def test_clean_tree_has_some_failures(self):
@@ -2491,7 +2537,7 @@ class TestAnalyzeLayoutTestsResults(BuildStepMixinAdditions, unittest.TestCase):
         self.assertEqual(self.getProperty('build_summary'), 'Found 20 pre-existing test failures: test0, test1, test10, test11, test12, test13, test14, test15, test16, test17 ...')
         return rc
 
-    def test_patch_introduces_lot_of_failures(self):
+    def test_change_introduces_lot_of_failures(self):
         self.configureStep()
         self.setProperty('buildername', 'Commit-Queue')
         self.setProperty('first_results_exceed_failure_limit', True)
@@ -2513,22 +2559,22 @@ class TestAnalyzeLayoutTestsResults(BuildStepMixinAdditions, unittest.TestCase):
         self.expectOutcome(result=RETRY, state_string='Unexpected infrastructure issue, retrying build (retry)')
         return self.runStep()
 
-    def test_patch_breaks_layout_tests(self):
+    def test_change_breaks_layout_tests(self):
         self.configureStep()
         self.setProperty('first_run_failures', [])
         self.setProperty('second_run_failures', [])
         self.setProperty('clean_tree_run_failures', [])
         self.setProperty('clean_tree_run_status', SUCCESS)
-        self.expectOutcome(result=FAILURE, state_string='Found unexpected failure with patch (failure)')
+        self.expectOutcome(result=FAILURE, state_string='Found unexpected failure with change (failure)')
         return self.runStep()
 
-    def test_patch_removes_skipped_test_that_fails(self):
+    def test_change_removes_skipped_test_that_fails(self):
         self.configureStep()
-        self.setProperty('first_run_failures', ['test-was-skipped-patch-removed-expectation-but-still-fails.html'])
-        self.setProperty('second_run_failures', ['test-was-skipped-patch-removed-expectation-but-still-fails.html'])
+        self.setProperty('first_run_failures', ['test-was-skipped-change-removed-expectation-but-still-fails.html'])
+        self.setProperty('second_run_failures', ['test-was-skipped-change-removed-expectation-but-still-fails.html'])
         self.setProperty('clean_tree_run_failures', [])
         self.setProperty('clean_tree_run_status', SUCCESS)
-        self.expectOutcome(result=FAILURE, state_string='Found 1 new test failure: test-was-skipped-patch-removed-expectation-but-still-fails.html (failure)')
+        self.expectOutcome(result=FAILURE, state_string='Found 1 new test failure: test-was-skipped-change-removed-expectation-but-still-fails.html (failure)')
         return self.runStep()
 
 
@@ -2601,7 +2647,7 @@ class TestRunWebKitTestsRepeatFailuresRedTree(BuildStepMixinAdditions, unittest.
         return self.runStep()
 
 
-class TestRunWebKitTestsRepeatFailuresWithoutPatchRedTree(BuildStepMixinAdditions, unittest.TestCase):
+class TestRunWebKitTestsRepeatFailuresWithoutChangeRedTree(BuildStepMixinAdditions, unittest.TestCase):
     def setUp(self):
         self.longMessage = True
         self.jsonFileName = 'layout-test-results/full_results.json'
@@ -2611,7 +2657,7 @@ class TestRunWebKitTestsRepeatFailuresWithoutPatchRedTree(BuildStepMixinAddition
         return self.tearDownBuildStep()
 
     def configureStep(self):
-        self.setupStep(RunWebKitTestsRepeatFailuresWithoutPatchRedTree())
+        self.setupStep(RunWebKitTestsRepeatFailuresWithoutChangeRedTree())
 
     def test_success(self):
         self.configureStep()
@@ -2619,12 +2665,12 @@ class TestRunWebKitTestsRepeatFailuresWithoutPatchRedTree(BuildStepMixinAddition
         self.setProperty('configuration', 'release')
         first_run_failures = ['fast/css/test1.html', 'imported/test/test2.html', 'fast/svg/test3.svg']
         first_run_flakies = ['fast/css/flaky1.html', 'imported/test/flaky2.html', 'fast/svg/flaky3.svg']
-        with_patch_repeat_failures_results_nonflaky_failures = ['fast/css/test1.html']
-        with_patch_repeat_failures_results_flakies = ['imported/test/test2.html', 'fast/svg/test3.svg']
+        with_change_repeat_failures_results_nonflaky_failures = ['fast/css/test1.html']
+        with_change_repeat_failures_results_flakies = ['imported/test/test2.html', 'fast/svg/test3.svg']
         self.setProperty('first_run_failures', first_run_failures)
         self.setProperty('first_run_flakies', first_run_flakies)
-        self.setProperty('with_patch_repeat_failures_results_nonflaky_failures', with_patch_repeat_failures_results_nonflaky_failures)
-        self.setProperty('with_patch_repeat_failures_results_flakies', with_patch_repeat_failures_results_flakies)
+        self.setProperty('with_change_repeat_failures_results_nonflaky_failures', with_change_repeat_failures_results_nonflaky_failures)
+        self.setProperty('with_change_repeat_failures_results_flakies', with_change_repeat_failures_results_flakies)
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logfiles={'json': self.jsonFileName},
@@ -2634,26 +2680,26 @@ class TestRunWebKitTestsRepeatFailuresWithoutPatchRedTree(BuildStepMixinAddition
                                  'Tools/Scripts/run-webkit-tests',
                                  '--no-build', '--no-show-results', '--no-new-test-results', '--clobber-old-results',
                                  '--release', '--results-directory', 'layout-test-results', '--debug-rwt-logging',
-                                 '--skip-failing-tests', '--fully-parallel', '--repeat-each=10', '--skipped=always'] + sorted(with_patch_repeat_failures_results_nonflaky_failures)
+                                 '--skip-failing-tests', '--fully-parallel', '--repeat-each=10', '--skipped=always'] + sorted(with_change_repeat_failures_results_nonflaky_failures)
                         )
             + 0,
         )
         self.expectOutcome(result=SUCCESS, state_string='layout-tests')
         return self.runStep()
 
-    def test_step_with_patch_did_timeout(self):
+    def test_step_with_change_did_timeout(self):
         self.configureStep()
         self.setProperty('fullPlatform', 'gtk')
         self.setProperty('configuration', 'release')
         first_run_failures = ['fast/css/test1.html', 'imported/test/test2.html', 'fast/svg/test3.svg']
         first_run_flakies = ['fast/css/flaky1.html', 'imported/test/flaky2.html', 'fast/svg/flaky3.svg']
-        with_patch_repeat_failures_results_nonflaky_failures = ['fast/css/test1.html']
-        with_patch_repeat_failures_results_flakies = ['imported/test/test2.html', 'fast/svg/test3.svg']
+        with_change_repeat_failures_results_nonflaky_failures = ['fast/css/test1.html']
+        with_change_repeat_failures_results_flakies = ['imported/test/test2.html', 'fast/svg/test3.svg']
         self.setProperty('first_run_failures', first_run_failures)
         self.setProperty('first_run_flakies', first_run_flakies)
-        self.setProperty('with_patch_repeat_failures_results_nonflaky_failures', with_patch_repeat_failures_results_nonflaky_failures)
-        self.setProperty('with_patch_repeat_failures_results_flakies', with_patch_repeat_failures_results_flakies)
-        self.setProperty('with_patch_repeat_failures_timedout', True)
+        self.setProperty('with_change_repeat_failures_results_nonflaky_failures', with_change_repeat_failures_results_nonflaky_failures)
+        self.setProperty('with_change_repeat_failures_results_flakies', with_change_repeat_failures_results_flakies)
+        self.setProperty('with_change_repeat_failures_timedout', True)
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logfiles={'json': self.jsonFileName},
@@ -2680,213 +2726,288 @@ class TestAnalyzeLayoutTestsResultsRedTree(BuildStepMixinAdditions, unittest.Tes
         return self.tearDownBuildStep()
 
     def configureStep(self):
-        AnalyzeLayoutTestsResults.send_email_for_flaky_failure = lambda *args: None
-        AnalyzeLayoutTestsResults.send_email_for_pre_existing_failure = lambda *args: None
         self.setupStep(AnalyzeLayoutTestsResultsRedTree())
 
-    def test_failure_introduced_by_patch_clean_tree_green(self):
-        self.configureStep()
+    def configureCommonProperties(self):
         self.setProperty('fullPlatform', 'gtk')
         self.setProperty('configuration', 'release')
+        self.setProperty('patch_author', 'test@igalia.com')
+        self.setProperty('patch_id', '404044')
+
+    def test_failure_introduced_by_change_clean_tree_green(self):
+        self.configureStep()
+        self.configureCommonProperties()
         self.setProperty('first_run_failures', ["test/failure1.html", "test/failure2.html"])
         self.setProperty('first_run_flakies', ["test/flaky1.html", "test/flaky2.html"])
-        self.setProperty('with_patch_repeat_failures_results_nonflaky_failures', ["test/failure1.html"])
-        self.setProperty('with_patch_repeat_failures_results_flakies', ["test/failure2.html"])
-        self.setProperty('without_patch_repeat_failures_results_nonflaky_failures', [])
-        self.setProperty('without_patch_repeat_failures_results_flakies', ["test/pre-existent/flaky.html"])
+        self.setProperty('with_change_repeat_failures_results_nonflaky_failures', ["test/failure1.html"])
+        self.setProperty('with_change_repeat_failures_results_flakies', ["test/failure2.html"])
+        self.setProperty('without_change_repeat_failures_results_nonflaky_failures', [])
+        self.setProperty('without_change_repeat_failures_results_flakies', ["test/pre-existent/flaky.html"])
         self.expectOutcome(result=FAILURE, state_string='Found 1 new test failure: test/failure1.html (failure)')
-        return self.runStep()
+        step_result = self.runStep()
+        self.assertEqual(len(self._emails_list), 2)
+        self.assertTrue('Subject: Info about 4 flaky failures' in self._emails_list[0])
+        for flaky_test in ["test/flaky1.html", "test/flaky2.html", "test/failure2.html", "test/pre-existent/flaky.html"]:
+            self.assertTrue('Test name: {}'.format(flaky_test) in self._emails_list[0])
+        self.assertFalse('Test name: test/failure1.html' in self._emails_list[0])
+        self.assertTrue('Subject: Layout test failure for Patch' in self._emails_list[1])
+        self.assertTrue('test/failure1.html' in self._emails_list[1])
+        return step_result
 
-    def test_failure_introduced_by_patch_clean_tree_red(self):
+    def test_failure_introduced_by_change_clean_tree_red(self):
         self.configureStep()
-        self.setProperty('fullPlatform', 'gtk')
-        self.setProperty('configuration', 'release')
+        self.configureCommonProperties()
         self.setProperty('first_run_failures', ["test/failure1.html", "test/failure2.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
         self.setProperty('first_run_flakies', ["test/flaky1.html", "test/flaky2.html"])
-        self.setProperty('with_patch_repeat_failures_results_nonflaky_failures', ["test/failure1.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
-        self.setProperty('with_patch_repeat_failures_results_flakies', ["test/failure2.html"])
-        self.setProperty('without_patch_repeat_failures_results_nonflaky_failures', ["test/pre-existent/failure.html"])
-        self.setProperty('without_patch_repeat_failures_results_flakies', ["test/pre-existent/flaky.html"])
+        self.setProperty('with_change_repeat_failures_results_nonflaky_failures', ["test/failure1.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
+        self.setProperty('with_change_repeat_failures_results_flakies', ["test/failure2.html"])
+        self.setProperty('without_change_repeat_failures_results_nonflaky_failures', ["test/pre-existent/failure.html"])
+        self.setProperty('without_change_repeat_failures_results_flakies', ["test/pre-existent/flaky.html"])
         self.expectOutcome(result=FAILURE, state_string='Found 1 new test failure: test/failure1.html (failure)')
-        return self.runStep()
+        step_result = self.runStep()
+        self.assertEqual(len(self._emails_list), 3)
+        self.assertTrue('Subject: Info about 4 flaky failures' in self._emails_list[0])
+        for flaky_test in ["test/flaky1.html", "test/flaky2.html", "test/failure2.html", "test/pre-existent/flaky.html"]:
+            self.assertTrue('Test name: {}'.format(flaky_test) in self._emails_list[0])
+        self.assertFalse('Test name: preexisting-test/pre-existent/failure.html' in self._emails_list[0])
+        self.assertTrue('Subject: Info about 1 pre-existent failure at' in self._emails_list[1])
+        self.assertTrue('preexisting-test/pre-existent/failure.html' in self._emails_list[1])
+        self.assertTrue('Subject: Layout test failure for Patch' in self._emails_list[2])
+        self.assertTrue('test/failure1.html' in self._emails_list[2])
+        return step_result
 
     def test_pre_existent_failures(self):
         self.configureStep()
+        self.configureCommonProperties()
+        # MARK HERE
         self.setProperty('first_run_failures', ["test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
         self.setProperty('first_run_flakies', ["test/pre-existent/flaky2.html", "test/pre-existent/flaky3.html"])
-        self.setProperty('with_patch_repeat_failures_results_nonflaky_failures', ["test/pre-existent/failure.html"])
-        self.setProperty('with_patch_repeat_failures_results_flakies', ["test/pre-existent/flaky.html"])
-        self.setProperty('without_patch_repeat_failures_results_nonflaky_failures', ["test/pre-existent/failure.html"])
-        self.setProperty('without_patch_repeat_failures_results_flakies', [])
+        self.setProperty('with_change_repeat_failures_results_nonflaky_failures', ["test/pre-existent/failure.html"])
+        self.setProperty('with_change_repeat_failures_results_flakies', ["test/pre-existent/flaky.html"])
+        self.setProperty('without_change_repeat_failures_results_nonflaky_failures', ["test/pre-existent/failure.html"])
+        self.setProperty('without_change_repeat_failures_results_flakies', [])
         self.expectOutcome(result=SUCCESS, state_string='Passed layout tests')
-        return self.runStep()
+        step_result = self.runStep()
+        self.assertEqual(len(self._emails_list), 2)
+        self.assertTrue('Subject: Info about 3 flaky failures' in self._emails_list[0])
+        for flaky_test in ["test/pre-existent/flaky.html", "test/pre-existent/flaky2.html", "test/pre-existent/flaky3.html"]:
+            self.assertTrue('Test name: {}'.format(flaky_test) in self._emails_list[0])
+        self.assertFalse('Test name: preexisting-test/pre-existent/failure.html' in self._emails_list[0])
+        self.assertTrue('Subject: Info about 1 pre-existent failure at' in self._emails_list[1])
+        self.assertTrue('preexisting-test/pre-existent/failure.html' in self._emails_list[1])
+        return step_result
 
     def test_pre_existent_flakies(self):
         self.configureStep()
+        self.configureCommonProperties()
         self.setProperty('first_run_failures', ["test/pre-existent/flaky1.html"])
         self.setProperty('first_run_flakies', ["test/pre-existent/flaky2.html", "test/pre-existent/flaky3.html"])
-        self.setProperty('with_patch_repeat_failures_results_nonflaky_failures', [])
-        self.setProperty('with_patch_repeat_failures_results_flakies', ["test/pre-existent/flaky1.html"])
-        self.setProperty('without_patch_repeat_failures_results_nonflaky_failures', [])
-        self.setProperty('without_patch_repeat_failures_results_flakies', [])
-        self.setProperty('without_patch_repeat_failures_retcode', SUCCESS)
+        self.setProperty('with_change_repeat_failures_results_nonflaky_failures', [])
+        self.setProperty('with_change_repeat_failures_results_flakies', ["test/pre-existent/flaky1.html"])
+        self.setProperty('without_change_repeat_failures_results_nonflaky_failures', [])
+        self.setProperty('without_change_repeat_failures_results_flakies', [])
+        self.setProperty('without_change_repeat_failures_retcode', SUCCESS)
         self.expectOutcome(result=SUCCESS, state_string='Passed layout tests')
-        return self.runStep()
+        step_result = self.runStep()
+        self.assertEqual(len(self._emails_list), 1)
+        self.assertTrue('Subject: Info about 3 flaky failures' in self._emails_list[0])
+        for flaky_test in ["test/pre-existent/flaky1.html", "test/pre-existent/flaky2.html", "test/pre-existent/flaky3.html"]:
+            self.assertTrue('Test name: {}'.format(flaky_test) in self._emails_list[0])
+        return step_result
 
     def test_first_step_gives_unexpected_failure_and_clean_tree_pass_last_try(self):
         self.configureStep()
-        self.setProperty('fullPlatform', 'gtk')
-        self.setProperty('configuration', 'release')
+        self.configureCommonProperties()
         self.setProperty('first_run_failures', [])
         self.setProperty('first_run_flakies', [])
         self.setProperty('retry_count', AnalyzeLayoutTestsResultsRedTree.MAX_RETRY)
         self.setProperty('clean_tree_run_failures', [])
         self.setProperty('clean_tree_run_flakies', ['test/pre-existent/flaky.html'])
         self.setProperty('clean_tree_run_status', WARNINGS)
-        self.expectOutcome(result=FAILURE, state_string='Found unexpected failure with patch (failure)')
-        return self.runStep()
+        self.expectOutcome(result=FAILURE, state_string='Found unexpected failure with change (failure)')
+        step_result = self.runStep()
+        self.assertEqual(len(self._emails_list), 0)
+        return step_result
 
     def test_first_step_gives_unexpected_failure_and_clean_tree_unexpected_failure_last_try(self):
         self.configureStep()
-        self.setProperty('fullPlatform', 'gtk')
-        self.setProperty('configuration', 'release')
+        self.configureCommonProperties()
         self.setProperty('first_run_failures', [])
         self.setProperty('first_run_flakies', [])
         self.setProperty('retry_count', AnalyzeLayoutTestsResultsRedTree.MAX_RETRY)
         self.setProperty('clean_tree_run_failures', [])
         self.setProperty('clean_tree_run_flakies', [])
         self.setProperty('clean_tree_run_status', FAILURE)
-        self.expectOutcome(result=WARNINGS, state_string='The layout-test run with patch generated no list of results and exited with error, and the clean_tree without patch run did the same thing.\nReached the maximum number of retries (3). Unable to determine if patch is bad or there is a pre-existent infrastructure issue. (warnings)')
-        return self.runStep()
+        expected_infrastructure_error = 'The layout-test run with change generated no list of results and exited with error, and the clean_tree without change run did the same thing.'
+        self.expectOutcome(
+            result=WARNINGS,
+            state_string='{}\nReached the maximum number of retries (3). Unable to determine if change is bad or there is a pre-existent infrastructure issue. (warnings)'.format(expected_infrastructure_error))
+        step_result = self.runStep()
+        self.assertEqual(len(self._emails_list), 1)
+        self.assertTrue(expected_infrastructure_error in self._emails_list[0])
+        return step_result
 
     def test_first_step_gives_unexpected_failure_retry(self):
         self.configureStep()
-        self.setProperty('fullPlatform', 'gtk')
-        self.setProperty('configuration', 'release')
+        self.configureCommonProperties()
         self.setProperty('first_run_failures', [])
         self.setProperty('first_run_flakies', [])
         self.setProperty('clean_tree_run_failures', [])
         self.setProperty('retry_count', AnalyzeLayoutTestsResultsRedTree.MAX_RETRY - 1)
         self.setProperty('clean_tree_run_flakies', ['test/pre-existent/flaky.html'])
         self.setProperty('clean_tree_run_status', WARNINGS)
-        self.expectOutcome(result=RETRY, state_string='Unexpected infrastructure issue: The layout-test run with patch generated no list of results and exited with error, retrying with the hope it was a random infrastructure error.\nRetrying build [retry count is 2 of 3] (retry)')
-        return self.runStep()
+        expected_infrastructure_error = 'The layout-test run with change generated no list of results and exited with error, retrying with the hope it was a random infrastructure error.'
+        self.expectOutcome(result=RETRY, state_string='Unexpected infrastructure issue: {}\nRetrying build [retry count is 2 of 3] (retry)'.format(expected_infrastructure_error))
+        step_result = self.runStep()
+        self.assertEqual(len(self._emails_list), 1)
+        self.assertTrue(expected_infrastructure_error in self._emails_list[0])
+        return step_result
 
-    def test_step_retry_with_patch_exits_early_error(self):
+    def test_step_retry_with_change_exits_early_error(self):
         self.configureStep()
-        self.setProperty('fullPlatform', 'gtk')
-        self.setProperty('configuration', 'release')
+        self.configureCommonProperties()
         self.setProperty('first_run_failures', ["test/failure1.html", "test/failure2.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
         self.setProperty('first_run_flakies', ["test/flaky1.html", "test/flaky2.html"])
-        self.setProperty('with_patch_repeat_failures_results_nonflaky_failures', ["test/failure1.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
-        self.setProperty('with_patch_repeat_failures_results_flakies', ["test/failure2.html"])
-        self.setProperty('without_patch_repeat_failures_results_nonflaky_failures', ["test/pre-existent/failure.html"])
-        self.setProperty('without_patch_repeat_failures_results_flakies', ["test/pre-existent/flaky.html"])
-        self.setProperty('with_patch_repeat_failures_results_exceed_failure_limit', True)
-        self.expectOutcome(result=RETRY, state_string='Unexpected infrastructure issue: One of the steps for retrying the failed tests has exited early, but this steps should run without "--exit-after-n-failures" switch, so they should not exit early.\nRetrying build [retry count is 0 of 3] (retry)')
-        return self.runStep()
+        self.setProperty('with_change_repeat_failures_results_nonflaky_failures', ["test/failure1.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
+        self.setProperty('with_change_repeat_failures_results_flakies', ["test/failure2.html"])
+        self.setProperty('without_change_repeat_failures_results_nonflaky_failures', ["test/pre-existent/failure.html"])
+        self.setProperty('without_change_repeat_failures_results_flakies', ["test/pre-existent/flaky.html"])
+        self.setProperty('with_change_repeat_failures_results_exceed_failure_limit', True)
+        expected_infrastructure_error = 'One of the steps for retrying the failed tests has exited early, but this steps should run without "--exit-after-n-failures" switch, so they should not exit early.'
+        self.expectOutcome(result=RETRY, state_string='Unexpected infrastructure issue: {}\nRetrying build [retry count is 0 of 3] (retry)'.format(expected_infrastructure_error))
+        step_result = self.runStep()
+        self.assertEqual(len(self._emails_list), 1)
+        self.assertTrue(expected_infrastructure_error in self._emails_list[0])
+        return step_result
 
-    def test_step_retry_without_patch_exits_early_error(self):
+    def test_step_retry_without_change_exits_early_error(self):
         self.configureStep()
-        self.setProperty('fullPlatform', 'gtk')
-        self.setProperty('configuration', 'release')
+        self.configureCommonProperties()
         self.setProperty('first_run_failures', ["test/failure1.html", "test/failure2.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
         self.setProperty('first_run_flakies', ["test/flaky1.html", "test/flaky2.html"])
-        self.setProperty('with_patch_repeat_failures_results_nonflaky_failures', ["test/failure1.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
-        self.setProperty('with_patch_repeat_failures_results_flakies', ["test/failure2.html"])
-        self.setProperty('without_patch_repeat_failures_results_nonflaky_failures', ["test/pre-existent/failure.html"])
-        self.setProperty('without_patch_repeat_failures_results_flakies', ["test/pre-existent/flaky.html"])
-        self.setProperty('without_patch_repeat_failures_results_exceed_failure_limit', True)
-        self.expectOutcome(result=RETRY, state_string='Unexpected infrastructure issue: One of the steps for retrying the failed tests has exited early, but this steps should run without "--exit-after-n-failures" switch, so they should not exit early.\nRetrying build [retry count is 0 of 3] (retry)')
-        return self.runStep()
+        self.setProperty('with_change_repeat_failures_results_nonflaky_failures', ["test/failure1.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
+        self.setProperty('with_change_repeat_failures_results_flakies', ["test/failure2.html"])
+        self.setProperty('without_change_repeat_failures_results_nonflaky_failures', ["test/pre-existent/failure.html"])
+        self.setProperty('without_change_repeat_failures_results_flakies', ["test/pre-existent/flaky.html"])
+        self.setProperty('without_change_repeat_failures_results_exceed_failure_limit', True)
+        expected_infrastructure_error = 'One of the steps for retrying the failed tests has exited early, but this steps should run without "--exit-after-n-failures" switch, so they should not exit early.'
+        self.expectOutcome(result=RETRY, state_string='Unexpected infrastructure issue: {}\nRetrying build [retry count is 0 of 3] (retry)'.format(expected_infrastructure_error))
+        step_result = self.runStep()
+        self.assertEqual(len(self._emails_list), 1)
+        self.assertTrue(expected_infrastructure_error in self._emails_list[0])
+        return step_result
 
-    def test_step_retry_with_patch_timeouts(self):
+    def test_step_retry_with_change_timeouts(self):
         self.configureStep()
-        self.setProperty('fullPlatform', 'gtk')
-        self.setProperty('configuration', 'release')
+        self.configureCommonProperties()
         self.setProperty('first_run_failures', ["test/failure1.html", "test/failure2.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
         self.setProperty('first_run_flakies', ["test/flaky1.html", "test/flaky2.html"])
-        self.setProperty('with_patch_repeat_failures_timedout', True)
-        self.setProperty('without_patch_repeat_failures_results_nonflaky_failures', ["test/pre-existent/failure.html"])
-        self.setProperty('without_patch_repeat_failures_results_flakies', ["test/pre-existent/flaky.html"])
+        self.setProperty('with_change_repeat_failures_timedout', True)
+        self.setProperty('without_change_repeat_failures_results_nonflaky_failures', ["test/pre-existent/failure.html"])
+        self.setProperty('without_change_repeat_failures_results_flakies', ["test/pre-existent/flaky.html"])
         self.expectOutcome(result=FAILURE, state_string='Found 2 new test failures: test/failure1.html, test/failure2.html (failure)')
-        return self.runStep()
+        step_result = self.runStep()
+        self.assertEqual(len(self._emails_list), 2)
+        expected_infrastructure_error = 'The step "layout-tests-repeat-failures-with-change" reached the timeout but the step "layout-tests-repeat-failures-without-change" ended. Not trying to repeat this. Reporting 2 failures from the first run.'
+        self.assertTrue(expected_infrastructure_error in self._emails_list[0])
+        self.assertTrue('Subject: Layout test failure for Patch' in self._emails_list[1])
+        for failed_test in ['test/failure1.html', 'test/failure2.html']:
+            self.assertTrue(failed_test in self._emails_list[1])
+        return step_result
 
-    def test_step_retry_with_patch_unexpected_error(self):
+    def test_step_retry_with_change_unexpected_error(self):
         self.configureStep()
-        self.setProperty('fullPlatform', 'gtk')
-        self.setProperty('configuration', 'release')
+        self.configureCommonProperties()
         self.setProperty('first_run_failures', ["test/failure1.html", "test/failure2.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
         self.setProperty('first_run_flakies', ["test/flaky1.html", "test/flaky2.html"])
-        self.setProperty('with_patch_repeat_failures_results_nonflaky_failures', [])
-        self.setProperty('with_patch_repeat_failures_results_flakies', [])
-        self.setProperty('with_patch_repeat_failures_retcode', FAILURE)
-        self.expectOutcome(result=RETRY, state_string='Unexpected infrastructure issue: The step "layout-tests-repeat-failures" failed to generate any list of failures or flakies and returned an error code.\nRetrying build [retry count is 0 of 3] (retry)')
-        return self.runStep()
+        self.setProperty('with_change_repeat_failures_results_nonflaky_failures', [])
+        self.setProperty('with_change_repeat_failures_results_flakies', [])
+        self.setProperty('with_change_repeat_failures_retcode', FAILURE)
+        expected_infrastructure_error = 'The step "layout-tests-repeat-failures" failed to generate any list of failures or flakies and returned an error code.'
+        self.expectOutcome(result=RETRY, state_string='Unexpected infrastructure issue: {}\nRetrying build [retry count is 0 of 3] (retry)'.format(expected_infrastructure_error))
+        step_result = self.runStep()
+        self.assertEqual(len(self._emails_list), 1)
+        self.assertTrue(expected_infrastructure_error in self._emails_list[0])
+        return step_result
 
-    def test_step_retry_without_patch_unexpected_error(self):
+    def test_step_retry_without_change_unexpected_error(self):
         self.configureStep()
-        self.setProperty('fullPlatform', 'gtk')
-        self.setProperty('configuration', 'release')
+        self.configureCommonProperties()
         self.setProperty('first_run_failures', ["test/failure1.html", "test/failure2.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
         self.setProperty('first_run_flakies', ["test/flaky1.html", "test/flaky2.html"])
-        self.setProperty('with_patch_repeat_failures_results_nonflaky_failures', ["test/failure1.html", "test/failure2.html"])
-        self.setProperty('with_patch_repeat_failures_results_flakies', [])
-        self.setProperty('with_patch_repeat_failures_retcode', FAILURE)
-        self.setProperty('without_patch_repeat_failures_results_nonflaky_failures', [])
-        self.setProperty('without_patch_repeat_failures_results_flakies', [])
-        self.setProperty('without_patch_repeat_failures_retcode', FAILURE)
-        self.expectOutcome(result=RETRY, state_string='Unexpected infrastructure issue: The step "layout-tests-repeat-failures-without-patch" failed to generate any list of failures or flakies and returned an error code.\nRetrying build [retry count is 0 of 3] (retry)')
-        return self.runStep()
+        self.setProperty('with_change_repeat_failures_results_nonflaky_failures', ["test/failure1.html", "test/failure2.html"])
+        self.setProperty('with_change_repeat_failures_results_flakies', [])
+        self.setProperty('with_change_repeat_failures_retcode', FAILURE)
+        self.setProperty('without_change_repeat_failures_results_nonflaky_failures', [])
+        self.setProperty('without_change_repeat_failures_results_flakies', [])
+        self.setProperty('without_change_repeat_failures_retcode', FAILURE)
+        expected_infrastructure_error = 'The step "layout-tests-repeat-failures-without-change" failed to generate any list of failures or flakies and returned an error code.'
+        self.expectOutcome(result=RETRY, state_string='Unexpected infrastructure issue: {}\nRetrying build [retry count is 0 of 3] (retry)'.format(expected_infrastructure_error))
+        step_result = self.runStep()
+        self.assertEqual(len(self._emails_list), 1)
+        self.assertTrue(expected_infrastructure_error in self._emails_list[0])
+        return step_result
 
-    def test_step_retry_without_patch_timeouts(self):
+    def test_step_retry_without_change_timeouts(self):
         self.configureStep()
-        self.setProperty('fullPlatform', 'gtk')
-        self.setProperty('configuration', 'release')
+        self.configureCommonProperties()
         self.setProperty('first_run_failures', ["test/failure1.html", "test/failure2.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
         self.setProperty('first_run_flakies', ["test/flaky1.html", "test/flaky2.html"])
-        self.setProperty('with_patch_repeat_failures_timedout', True)
-        self.setProperty('without_patch_repeat_failures_timedout', True)
-        self.expectOutcome(result=RETRY, state_string='Unexpected infrastructure issue: The step "layout-tests-repeat-failures-without-patch" was interrumped because it reached the timeout.\nRetrying build [retry count is 0 of 3] (retry)')
-        return self.runStep()
+        self.setProperty('with_change_repeat_failures_timedout', True)
+        self.setProperty('without_change_repeat_failures_timedout', True)
+        expected_infrastructure_error = 'The step "layout-tests-repeat-failures-without-change" was interrumped because it reached the timeout.'
+        self.expectOutcome(result=RETRY, state_string='Unexpected infrastructure issue: {}\nRetrying build [retry count is 0 of 3] (retry)'.format(expected_infrastructure_error))
+        step_result = self.runStep()
+        self.assertEqual(len(self._emails_list), 1)
+        self.assertTrue(expected_infrastructure_error in self._emails_list[0])
+        return step_result
 
-    def test_step_retry_with_patch_timeouts_and_without_patch_timeouts(self):
+    def test_step_retry_with_change_timeouts_and_without_change_timeouts(self):
         self.configureStep()
-        self.setProperty('fullPlatform', 'gtk')
-        self.setProperty('configuration', 'release')
+        self.configureCommonProperties()
         self.setProperty('first_run_failures', ["test/failure1.html", "test/failure2.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
         self.setProperty('first_run_flakies', ["test/flaky1.html", "test/flaky2.html"])
-        self.setProperty('with_patch_repeat_failures_results_nonflaky_failures', ["test/failure1.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
-        self.setProperty('with_patch_repeat_failures_results_flakies', ["test/failure2.html"])
-        self.setProperty('without_patch_repeat_failures_timedout', True)
-        self.expectOutcome(result=RETRY, state_string='Unexpected infrastructure issue: The step "layout-tests-repeat-failures-without-patch" was interrumped because it reached the timeout.\nRetrying build [retry count is 0 of 3] (retry)')
-        return self.runStep()
+        self.setProperty('with_change_repeat_failures_results_nonflaky_failures', ["test/failure1.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
+        self.setProperty('with_change_repeat_failures_results_flakies', ["test/failure2.html"])
+        self.setProperty('without_change_repeat_failures_timedout', True)
+        expected_infrastructure_error = 'The step "layout-tests-repeat-failures-without-change" was interrumped because it reached the timeout.'
+        self.expectOutcome(result=RETRY, state_string='Unexpected infrastructure issue: {}\nRetrying build [retry count is 0 of 3] (retry)'.format(expected_infrastructure_error))
+        step_result = self.runStep()
+        self.assertEqual(len(self._emails_list), 1)
+        self.assertTrue(expected_infrastructure_error in self._emails_list[0])
+        return step_result
 
     def test_retry_third_time(self):
         self.configureStep()
-        self.setProperty('fullPlatform', 'gtk')
-        self.setProperty('configuration', 'release')
+        self.configureCommonProperties()
         self.setProperty('first_run_failures', ["test/failure1.html", "test/failure2.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
         self.setProperty('first_run_flakies', ["test/flaky1.html", "test/flaky2.html"])
-        self.setProperty('with_patch_repeat_failures_results_nonflaky_failures', ["test/failure1.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
-        self.setProperty('with_patch_repeat_failures_results_flakies', ["test/failure2.html"])
-        self.setProperty('without_patch_repeat_failures_timedout', True)
+        self.setProperty('with_change_repeat_failures_results_nonflaky_failures', ["test/failure1.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
+        self.setProperty('with_change_repeat_failures_results_flakies', ["test/failure2.html"])
+        self.setProperty('without_change_repeat_failures_timedout', True)
         self.setProperty('retry_count', 2)
-        self.expectOutcome(result=RETRY, state_string='Unexpected infrastructure issue: The step "layout-tests-repeat-failures-without-patch" was interrumped because it reached the timeout.\nRetrying build [retry count is 2 of 3] (retry)')
-        return self.runStep()
+        expected_infrastructure_error = 'The step "layout-tests-repeat-failures-without-change" was interrumped because it reached the timeout.'
+        self.expectOutcome(result=RETRY, state_string='Unexpected infrastructure issue: {}\nRetrying build [retry count is 2 of 3] (retry)'.format(expected_infrastructure_error))
+        step_result = self.runStep()
+        self.assertEqual(len(self._emails_list), 1)
+        self.assertTrue(expected_infrastructure_error in self._emails_list[0])
+        return step_result
 
     def test_retry_finish(self):
         self.configureStep()
-        self.setProperty('fullPlatform', 'gtk')
-        self.setProperty('configuration', 'release')
+        self.configureCommonProperties()
         self.setProperty('first_run_failures', ["test/failure1.html", "test/failure2.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
         self.setProperty('first_run_flakies', ["test/flaky1.html", "test/flaky2.html"])
-        self.setProperty('with_patch_repeat_failures_results_nonflaky_failures', ["test/failure1.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
-        self.setProperty('with_patch_repeat_failures_results_flakies', ["test/failure2.html"])
-        self.setProperty('without_patch_repeat_failures_timedout', True)
+        self.setProperty('with_change_repeat_failures_results_nonflaky_failures', ["test/failure1.html", "test/pre-existent/failure.html", "test/pre-existent/flaky.html"])
+        self.setProperty('with_change_repeat_failures_results_flakies', ["test/failure2.html"])
+        self.setProperty('without_change_repeat_failures_timedout', True)
         self.setProperty('retry_count', 3)
-        self.expectOutcome(result=WARNINGS, state_string='The step "layout-tests-repeat-failures-without-patch" was interrumped because it reached the timeout.\nReached the maximum number of retries (3). Unable to determine if patch is bad or there is a pre-existent infrastructure issue. (warnings)')
-        return self.runStep()
+        expected_infrastructure_error = 'The step "layout-tests-repeat-failures-without-change" was interrumped because it reached the timeout.'
+        self.expectOutcome(result=WARNINGS, state_string='{}\nReached the maximum number of retries (3). Unable to determine if change is bad or there is a pre-existent infrastructure issue. (warnings)'.format(expected_infrastructure_error))
+        step_result = self.runStep()
+        self.assertEqual(len(self._emails_list), 1)
+        self.assertTrue(expected_infrastructure_error in self._emails_list[0])
+        return step_result
 
 
 class TestCheckOutSpecificRevision(BuildStepMixinAdditions, unittest.TestCase):
@@ -3085,6 +3206,11 @@ class TestApplyPatch(BuildStepMixinAdditions, unittest.TestCase):
 
 
 class TestCheckOutPullRequest(BuildStepMixinAdditions, unittest.TestCase):
+    ENV = dict(
+        GIT_COMMITTER_NAME='EWS',
+        GIT_COMMITTER_EMAIL='ews@webkit.org',
+    )
+
     def setUp(self):
         self.longMessage = True
         return self.setUpBuildStep()
@@ -3106,36 +3232,101 @@ class TestCheckOutPullRequest(BuildStepMixinAdditions, unittest.TestCase):
                 workdir='wkdir',
                 timeout=600,
                 logEnviron=False,
-                command=['/bin/sh', '-c', 'git remote add Contributor https://github.com/Contributor/WebKit.git & true'],
+                env=self.ENV,
+                command=['/bin/sh', '-c', 'git remote add Contributor https://github.com/Contributor/WebKit.git || true'],
             ) + 0, ExpectShell(
                 workdir='wkdir',
                 timeout=600,
                 logEnviron=False,
+                env=self.ENV,
                 command=['git', 'remote', 'set-url', 'Contributor', 'https://github.com/Contributor/WebKit.git'],
             ) + 0, ExpectShell(
                 workdir='wkdir',
                 timeout=600,
                 logEnviron=False,
+                env=self.ENV,
                 command=['git', 'fetch', 'Contributor'],
             ) + 0, ExpectShell(
                 workdir='wkdir',
                 timeout=600,
                 logEnviron=False,
+                env=self.ENV,
                 command=['git', 'branch', '-f', 'eng/pull-request-branch', 'remotes/Contributor/eng/pull-request-branch'],
             ) + 0, ExpectShell(
                 workdir='wkdir',
                 timeout=600,
                 logEnviron=False,
+                env=self.ENV,
                 command=['git', 'checkout', 'eng/pull-request-branch'],
             ) + 0, ExpectShell(
                 workdir='wkdir',
                 timeout=600,
                 logEnviron=False,
+                env=self.ENV,
                 command=['git', 'config', 'merge.changelog.driver', 'perl Tools/Scripts/resolve-ChangeLogs --merge-driver -c %O %A %B'],
             ) + 0, ExpectShell(
                 workdir='wkdir',
                 timeout=600,
                 logEnviron=False,
+                env=self.ENV,
+                command=['git', 'rebase', '--onto', '59dab0396721db221c264aad3c0cea37ef0d297b', 'aaebef7312238f3ad1d25e8894916a1aaea45ba1', 'eng/pull-request-branch'],
+            ) + 0,
+        )
+        self.expectOutcome(result=SUCCESS, state_string='Checked out pull request')
+        return self.runStep()
+
+    def test_success_wincairo(self):
+        self.setupStep(CheckOutPullRequest())
+        self.setProperty('platform', 'wincairo')
+        self.setProperty('github.number', '1234')
+        self.setProperty('github.head.repo.full_name', 'Contributor/WebKit')
+        self.setProperty('github.head.ref', 'eng/pull-request-branch')
+        self.setProperty('github.base.sha', 'aaebef7312238f3ad1d25e8894916a1aaea45ba1')
+        self.setProperty('got_revision', '59dab0396721db221c264aad3c0cea37ef0d297b')
+        self.assertEqual(CheckOutPullRequest.flunkOnFailure, True)
+        self.assertEqual(CheckOutPullRequest.haltOnFailure, True)
+        self.expectRemoteCommands(
+            ExpectShell(
+                workdir='wkdir',
+                timeout=600,
+                logEnviron=False,
+                env=self.ENV,
+                command=['cmd', '/c', 'git remote add Contributor https://github.com/Contributor/WebKit.git || exit 0'],
+            ) + 0, ExpectShell(
+                workdir='wkdir',
+                timeout=600,
+                logEnviron=False,
+                env=self.ENV,
+                command=['git', 'remote', 'set-url', 'Contributor', 'https://github.com/Contributor/WebKit.git'],
+            ) + 0, ExpectShell(
+                workdir='wkdir',
+                timeout=600,
+                logEnviron=False,
+                env=self.ENV,
+                command=['git', 'fetch', 'Contributor'],
+            ) + 0, ExpectShell(
+                workdir='wkdir',
+                timeout=600,
+                logEnviron=False,
+                env=self.ENV,
+                command=['git', 'branch', '-f', 'eng/pull-request-branch', 'remotes/Contributor/eng/pull-request-branch'],
+            ) + 0, ExpectShell(
+                workdir='wkdir',
+                timeout=600,
+                logEnviron=False,
+                env=self.ENV,
+                command=['git', 'checkout', 'eng/pull-request-branch'],
+            ) + 0, ExpectShell(
+                workdir='wkdir',
+                timeout=600,
+                logEnviron=False,
+                env=self.ENV,
+                command=['git', 'config', 'merge.changelog.driver', 'perl Tools/Scripts/resolve-ChangeLogs --merge-driver -c %O %A %B'],
+            ) + 0, ExpectShell(
+                workdir='wkdir',
+                timeout=600,
+                logEnviron=False,
+                env=self.ENV,
                 command=['git', 'rebase', '--onto', '59dab0396721db221c264aad3c0cea37ef0d297b', 'aaebef7312238f3ad1d25e8894916a1aaea45ba1', 'eng/pull-request-branch'],
             ) + 0,
         )
@@ -3156,16 +3347,19 @@ class TestCheckOutPullRequest(BuildStepMixinAdditions, unittest.TestCase):
                 workdir='wkdir',
                 timeout=600,
                 logEnviron=False,
-                command=['/bin/sh', '-c', 'git remote add Contributor https://github.com/Contributor/WebKit.git & true'],
+                env=self.ENV,
+                command=['/bin/sh', '-c', 'git remote add Contributor https://github.com/Contributor/WebKit.git || true'],
             ) + 0, ExpectShell(
                 workdir='wkdir',
                 timeout=600,
                 logEnviron=False,
+                env=self.ENV,
                 command=['git', 'remote', 'set-url', 'Contributor', 'https://github.com/Contributor/WebKit.git'],
             ) + 0, ExpectShell(
                 workdir='wkdir',
                 timeout=600,
                 logEnviron=False,
+                env=self.ENV,
                 command=['git', 'fetch', 'Contributor'],
             ) + 1,
         )
@@ -3759,7 +3953,7 @@ class TestTransferToS3(BuildStepMixinAdditions, unittest.TestCase):
         self.expectLocalCommands(
             ExpectMasterShellCommand(command=['python3',
                                               '../Shared/transfer-archive-to-s3',
-                                              '--patch_id', '1234',
+                                              '--change-id', '1234',
                                               '--identifier', 'mac-highsierra-x86_64-release',
                                               '--archive', 'public_html/archives/mac-highsierra-x86_64-release/1234.zip',
                                               ])
@@ -3778,7 +3972,7 @@ class TestTransferToS3(BuildStepMixinAdditions, unittest.TestCase):
         self.expectLocalCommands(
             ExpectMasterShellCommand(command=['python3',
                                               '../Shared/transfer-archive-to-s3',
-                                              '--patch_id', '1234',
+                                              '--change-id', '1234',
                                               '--identifier', 'ios-simulator-12-x86_64-debug',
                                               '--archive', 'public_html/archives/ios-simulator-12-x86_64-debug/1234.zip',
                                               ])
@@ -4043,7 +4237,7 @@ All tests successfully passed!
         return self.runStep()
 
 
-class TestRunAPITestsWithoutPatch(BuildStepMixinAdditions, unittest.TestCase):
+class TestRunAPITestsWithoutChange(BuildStepMixinAdditions, unittest.TestCase):
     def setUp(self):
         self.longMessage = True
         self.jsonFileName = 'api_test_results.json'
@@ -4053,7 +4247,7 @@ class TestRunAPITestsWithoutPatch(BuildStepMixinAdditions, unittest.TestCase):
         return self.tearDownBuildStep()
 
     def test_success_mac(self):
-        self.setupStep(RunAPITestsWithoutPatch())
+        self.setupStep(RunAPITestsWithoutChange())
         self.setProperty('fullPlatform', 'mac-catalina')
         self.setProperty('platform', 'mac')
         self.setProperty('configuration', 'release')
@@ -4085,11 +4279,11 @@ All tests successfully passed!
 ''')
             + 0,
         )
-        self.expectOutcome(result=SUCCESS, state_string='run-api-tests-without-patch')
+        self.expectOutcome(result=SUCCESS, state_string='run-api-tests-without-change')
         return self.runStep()
 
     def test_one_failure(self):
-        self.setupStep(RunAPITestsWithoutPatch())
+        self.setupStep(RunAPITestsWithoutChange())
         self.setProperty('fullPlatform', 'mac-catalina')
         self.setProperty('platform', 'ios-simulator')
         self.setProperty('configuration', 'debug')
@@ -4139,7 +4333,7 @@ Testing completed, Exit status: 3
         return self.runStep()
 
     def test_multiple_failures_gtk(self):
-        self.setupStep(RunAPITestsWithoutPatch())
+        self.setupStep(RunAPITestsWithoutChange())
         self.setProperty('fullPlatform', 'gtk')
         self.setProperty('platform', 'gtk')
         self.setProperty('configuration', 'debug')
@@ -4567,7 +4761,29 @@ class TestCleanGitRepo(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('buildername', 'Style-EWS')
 
         self.expectRemoteCommands(
-            ExpectShell(command=['/bin/sh', '-c', 'git rebase --abort & true'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            ExpectShell(command=['/bin/sh', '-c', 'git rebase --abort || true'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout=''),
+            ExpectShell(command=['git', 'clean', '-f', '-d'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout=''),
+            ExpectShell(command=['git', 'fetch', 'origin'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout=''),
+            ExpectShell(command=['git', 'checkout', 'origin/main', '-f'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout='You are in detached HEAD state.'),
+            ExpectShell(command=['git', 'branch', '-D', 'main'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout='Deleted branch main (was 57015967fef9).'),
+            ExpectShell(command=['git', 'checkout', 'origin/main', '-b', 'main'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            + ExpectShell.log('stdio', stdout="Switched to a new branch 'main'"),
+        )
+        self.expectOutcome(result=SUCCESS, state_string='Cleaned up git repository')
+        return self.runStep()
+
+    def test_success_wincairo(self):
+        self.setupStep(CleanGitRepo())
+        self.setProperty('buildername', 'WinCairo-EWS')
+        self.setProperty('platform', 'wincairo')
+
+        self.expectRemoteCommands(
+            ExpectShell(command=['cmd', '/c', 'git rebase --abort || exit 0'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout=''),
             ExpectShell(command=['git', 'clean', '-f', '-d'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout=''),
@@ -4588,7 +4804,7 @@ class TestCleanGitRepo(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('buildername', 'Commit-Queue')
 
         self.expectRemoteCommands(
-            ExpectShell(command=['/bin/sh', '-c', 'git rebase --abort & true'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            ExpectShell(command=['/bin/sh', '-c', 'git rebase --abort || true'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout=''),
             ExpectShell(command=['git', 'clean', '-f', '-d'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout=''),
@@ -4609,7 +4825,7 @@ class TestCleanGitRepo(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('buildername', 'Commit-Queue')
 
         self.expectRemoteCommands(
-            ExpectShell(command=['/bin/sh', '-c', 'git rebase --abort & true'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            ExpectShell(command=['/bin/sh', '-c', 'git rebase --abort || true'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout=''),
             ExpectShell(command=['git', 'clean', '-f', '-d'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout=''),
@@ -4631,7 +4847,7 @@ class TestCleanGitRepo(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('basename', 'safari-612-branch')
 
         self.expectRemoteCommands(
-            ExpectShell(command=['/bin/sh', '-c', 'git rebase --abort & true'], workdir='wkdir', timeout=300, logEnviron=False) + 0
+            ExpectShell(command=['/bin/sh', '-c', 'git rebase --abort || true'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout=''),
             ExpectShell(command=['git', 'clean', '-f', '-d'], workdir='wkdir', timeout=300, logEnviron=False) + 0
             + ExpectShell.log('stdio', stdout=''),

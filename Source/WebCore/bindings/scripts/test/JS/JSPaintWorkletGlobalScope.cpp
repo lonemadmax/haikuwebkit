@@ -22,7 +22,8 @@
 #include "JSPaintWorkletGlobalScope.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -163,23 +164,15 @@ JSC_DEFINE_CUSTOM_GETTER(jsPaintWorkletGlobalScope_PaintWorkletGlobalScopeConstr
     return IDLAttribute<JSPaintWorkletGlobalScope>::get<jsPaintWorkletGlobalScope_PaintWorkletGlobalScopeConstructorGetter>(*lexicalGlobalObject, thisValue, attributeName);
 }
 
-JSC::IsoSubspace* JSPaintWorkletGlobalScope::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSPaintWorkletGlobalScope::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForPaintWorkletGlobalScope.get())
-        return space;
-    spaces.m_subspaceForPaintWorkletGlobalScope = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, clientData.m_heapCellTypeForJSPaintWorkletGlobalScope, JSPaintWorkletGlobalScope);
-    auto* space = spaces.m_subspaceForPaintWorkletGlobalScope.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSPaintWorkletGlobalScope::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSPaintWorkletGlobalScope, UseCustomHeapCellType::Yes>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForPaintWorkletGlobalScope.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForPaintWorkletGlobalScope = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForPaintWorkletGlobalScope.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForPaintWorkletGlobalScope = WTFMove(space); },
+        [] (auto& server) -> JSC::HeapCellType& { return server.m_heapCellTypeForJSPaintWorkletGlobalScope; }
+    );
 }
 
 void JSPaintWorkletGlobalScope::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

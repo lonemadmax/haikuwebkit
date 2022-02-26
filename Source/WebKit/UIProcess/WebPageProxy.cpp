@@ -317,6 +317,10 @@
 #import "DisplayCaptureSessionManager.h"
 #endif
 
+#if HAVE(SC_CONTENT_SHARING_SESSION)
+#import <WebCore/ScreenCaptureKitSharingSessionManager.h>
+#endif
+
 #define MESSAGE_CHECK(process, assertion) MESSAGE_CHECK_BASE(assertion, process->connection())
 #define MESSAGE_CHECK_URL(process, url) MESSAGE_CHECK_BASE(checkURLReceivedFromCurrentOrPreviousWebProcess(process, url), process->connection())
 #define MESSAGE_CHECK_COMPLETION(process, assertion, completion) MESSAGE_CHECK_COMPLETION_BASE(assertion, process->connection(), completion)
@@ -4390,10 +4394,7 @@ void WebPageProxy::runJavaScriptInFrameInScriptWorld(RunJavaScriptParameters&& p
             return callbackFunction(makeUnexpected(WTFMove(*details)));
         if (dataReference.empty())
             return callbackFunction({ nullptr });
-        Vector<uint8_t> data;
-        data.reserveInitialCapacity(dataReference.size());
-        data.append(dataReference.data(), dataReference.size());
-        callbackFunction({ API::SerializedScriptValue::adopt(WTFMove(data)).ptr() });
+        callbackFunction({ API::SerializedScriptValue::adopt(Vector(dataReference)).ptr() });
     });
 }
 
@@ -7004,6 +7005,11 @@ void WebPageProxy::didDismissContextMenu()
     send(Messages::WebPage::DidDismissContextMenu());
 
     pageClient().didDismissContextMenu();
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    m_croppedImageResult = { };
+    m_croppedImageOverlayState = CroppedImageOverlayState::Inactive;
+#endif
 }
 
 void WebPageProxy::contextMenuItemSelected(const WebContextMenuItemData& item)
@@ -7110,6 +7116,13 @@ void WebPageProxy::contextMenuItemSelected(const WebContextMenuItemData& item)
 #if ENABLE(IMAGE_ANALYSIS)
         if (m_activeContextMenu)
             handleContextMenuQuickLookImage(m_activeContextMenu->quickLookPreviewActivity());
+#endif
+        return;
+
+    case ContextMenuItemTagCopyCroppedImage:
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+        if (hitTestData.imageBitmap)
+            handleContextMenuCopyCroppedImage(*hitTestData.imageBitmap, hitTestData.sourceImageMIMEType);
 #endif
         return;
 
@@ -8132,24 +8145,14 @@ void WebPageProxy::resetStateAfterProcessExited(ProcessTerminationReason termina
     m_currentFullscreenVideoSessionIdentifier = std::nullopt;
 #endif
 
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    m_croppedImageResult = { };
+    m_croppedImageOverlayState = CroppedImageOverlayState::Inactive;
+#endif
+
     // FIXME: <rdar://problem/38676604> In case of process swaps, the old process should gracefully suspend instead of terminating.
     m_process->processTerminated();
 }
-
-#if ENABLE(ATTACHMENT_ELEMENT) && PLATFORM(COCOA)
-
-static Span<const ASCIILiteral> attachmentElementServices()
-{
-    static constexpr std::array services {
-        "com.apple.iconservices"_s,
-#if PLATFORM(MAC)
-        "com.apple.iconservices.store"_s,
-#endif
-    };
-    return services;
-}
-
-#endif
 
 #if PLATFORM(COCOA)
 
@@ -8198,62 +8201,7 @@ static Span<const ASCIILiteral> gpuMachServices()
     return services;
 }
 
-// FIXME(207716): The following should be removed when the GPU process is complete.
-static Span<const ASCIILiteral> mediaRelatedMachServices()
-{
-    static constexpr std::array services {
-        "com.apple.audio.AudioComponentPrefs"_s, "com.apple.audio.AudioComponentRegistrar"_s,
-        "com.apple.audio.AudioQueueServer"_s, "com.apple.coremedia.endpoint.xpc"_s,
-        "com.apple.coremedia.routediscoverer.xpc"_s, "com.apple.coremedia.routingcontext.xpc"_s,
-        "com.apple.coremedia.volumecontroller.xpc"_s, "com.apple.accessibility.mediaaccessibilityd"_s,
-        "com.apple.mediaremoted.xpc"_s,
-#if PLATFORM(IOS_FAMILY)
-        "com.apple.audio.AudioSession"_s, "com.apple.MediaPlayer.RemotePlayerService"_s,
-        "com.apple.coremedia.admin"_s,
-        "com.apple.coremedia.asset.xpc"_s, "com.apple.coremedia.assetimagegenerator.xpc"_s,
-        "com.apple.coremedia.audiodeviceclock.xpc"_s, "com.apple.coremedia.audioprocessingtap.xpc"_s,
-        "com.apple.coremedia.capturesession"_s, "com.apple.coremedia.capturesource"_s,
-        "com.apple.coremedia.compressionsession"_s, "com.apple.coremedia.cpe.xpc"_s,
-        "com.apple.coremedia.cpeprotector.xpc"_s, "com.apple.coremedia.customurlloader.xpc"_s,
-        "com.apple.coremedia.decompressionsession"_s, "com.apple.coremedia.figcontentkeysession.xpc"_s,
-        "com.apple.coremedia.figcpecryptor"_s, "com.apple.coremedia.formatreader.xpc"_s,
-        "com.apple.coremedia.player.xpc"_s, "com.apple.coremedia.remaker"_s,
-        "com.apple.coremedia.remotequeue"_s, "com.apple.coremedia.routingsessionmanager.xpc"_s,
-        "com.apple.coremedia.samplebufferaudiorenderer.xpc"_s, "com.apple.coremedia.samplebufferrendersynchronizer.xpc"_s,
-        "com.apple.coremedia.sandboxserver.xpc"_s, "com.apple.coremedia.sts"_s,
-        "com.apple.coremedia.systemcontroller.xpc"_s, "com.apple.coremedia.videoqueue"_s,
-        "com.apple.coremedia.visualcontext.xpc"_s, "com.apple.airplay.apsynccontroller.xpc"_s,
-        "com.apple.audio.AURemoteIOServer"_s,
-#endif
-#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
-        "com.apple.audio.audiohald"_s, "com.apple.audio.SandboxHelper"_s, "com.apple.coremedia.endpointstream.xpc"_s, "com.apple.coremedia.endpointplaybacksession.xpc"_s,
-        "com.apple.coremedia.endpointremotecontrolsession.xpc"_s, "com.apple.coremedia.videodecoder"_s,
-        "com.apple.coremedia.videoencoder"_s, "com.apple.lskdd"_s, "com.apple.trustd.agent"_s,
-#endif
-        // FIXME: Is this also needed in PLATFORM(MACCATALYST)?
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED > 120000
-        "com.apple.coremedia.samplebufferconsumer.xpc"_s,
-#endif
-    };
-    return services;
-}
-
-static Span<const ASCIILiteral> mediaRelatedIOKitClasses()
-{
-#if !(PLATFORM(MAC) || PLATFORM(MACCATALYST))
-    return { };
-#else
-    static constexpr std::array services {
-#if CPU(ARM64)
-        "AppleAVDUserClient"_s,
-#endif
-        "RootDomainUserClient"_s,
-    };
-    return services;
-#endif
-}
-
-#endif
+#endif // PLATFORM(COCOA)
 
 WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& process, DrawingAreaProxy& drawingArea, RefPtr<API::WebsitePolicies>&& websitePolicies)
 {
@@ -8340,17 +8288,6 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
 #if PLATFORM(COCOA)
     parameters.smartInsertDeleteEnabled = m_isSmartInsertDeleteEnabled;
     parameters.additionalSupportedImageTypes = m_configuration->additionalSupportedImageTypes();
-    
-    bool needWebProcessExtensions = !preferences().useGPUProcessForMediaEnabled()
-        || !preferences().captureAudioInGPUProcessEnabled()
-        || !preferences().captureVideoInGPUProcessEnabled()
-        || !preferences().webRTCPlatformCodecsInGPUProcessEnabled();
-
-    if (needWebProcessExtensions) {
-        // FIXME(207716): The following should be removed when the GPU process is complete.
-        parameters.mediaExtensionHandles = SandboxExtension::createHandlesForMachLookup(mediaRelatedMachServices(), std::nullopt);
-        parameters.mediaIOKitExtensionHandles = SandboxExtension::createHandlesForIOKitClassExtensions(mediaRelatedIOKitClasses(), std::nullopt);
-    }
 
     if (!preferences().useGPUProcessForMediaEnabled()
         || (!preferences().captureVideoInGPUProcessEnabled() && !preferences().captureVideoInUIProcessEnabled())
@@ -8448,19 +8385,13 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
     parameters.shouldEnableVP9SWDecoder = preferences().vp9DecoderEnabled() && (!WebCore::systemHasBattery() || preferences().vp9SWDecoderEnabledOnBattery());
 #endif
     parameters.shouldCaptureDisplayInUIProcess = m_process->processPool().configuration().shouldCaptureDisplayInUIProcess();
+    parameters.shouldCaptureDisplayInGPUProcess = preferences().useGPUProcessForDisplayCapture();
 #if ENABLE(APP_BOUND_DOMAINS)
     parameters.limitsNavigationsToAppBoundDomains = m_limitsNavigationsToAppBoundDomains;
 #endif
     parameters.lastNavigationWasAppInitiated = m_lastNavigationWasAppInitiated;
     parameters.shouldRelaxThirdPartyCookieBlocking = m_configuration->shouldRelaxThirdPartyCookieBlocking();
     parameters.canUseCredentialStorage = m_canUseCredentialStorage;
-
-#if ENABLE(ATTACHMENT_ELEMENT) && PLATFORM(COCOA)
-    if (m_preferences->attachmentElementEnabled() && !process.hasIssuedAttachmentElementRelatedSandboxExtensions()) {
-        parameters.attachmentElementExtensionHandles = SandboxExtension::createHandlesForMachLookup(attachmentElementServices(), std::nullopt);
-        process.setHasIssuedAttachmentElementRelatedSandboxExtensions();
-    }
-#endif
 
     parameters.httpsUpgradeEnabled = preferences().upgradeKnownHostsToHTTPSEnabled() ? m_configuration->httpsUpgradeEnabled() : false;
 
@@ -9089,10 +9020,10 @@ void WebPageProxy::endPrinting()
     send(Messages::WebPage::EndPrinting(), printingSendOptions(m_isPerformingDOMPrintOperation));
 }
 
-uint64_t WebPageProxy::computePagesForPrinting(WebFrameProxy* frame, const PrintInfo& printInfo, CompletionHandler<void(const Vector<WebCore::IntRect>&, double, const WebCore::FloatBoxExtent&)>&& callback)
+uint64_t WebPageProxy::computePagesForPrinting(FrameIdentifier frameID, const PrintInfo& printInfo, CompletionHandler<void(const Vector<WebCore::IntRect>&, double, const WebCore::FloatBoxExtent&)>&& callback)
 {
     m_isInPrintingMode = true;
-    return sendWithAsyncReply(Messages::WebPage::ComputePagesForPrinting(frame->frameID(), printInfo), WTFMove(callback), printingSendOptions(m_isPerformingDOMPrintOperation));
+    return sendWithAsyncReply(Messages::WebPage::ComputePagesForPrinting(frameID, printInfo), WTFMove(callback), printingSendOptions(m_isPerformingDOMPrintOperation));
 }
 
 #if PLATFORM(COCOA)
@@ -10245,6 +10176,17 @@ void WebPageProxy::writePromisedAttachmentToPasteboard(WebCore::PromisedAttachme
     pageClient().writePromisedAttachmentToPasteboard(WTFMove(info));
 }
 
+void WebPageProxy::requestAttachmentIcon(const String& identifier, const String& contentType, const String& fileName, const String& title, const FloatSize& requestedSize)
+{
+    FloatSize size = requestedSize;
+    ShareableBitmap::Handle handle;
+#if PLATFORM(COCOA)
+    if (auto icon = iconForAttachment(fileName, contentType, title, size))
+        icon->createHandle(handle);
+#endif
+    send(Messages::WebPage::UpdateAttachmentIcon(identifier, handle, size));
+}
+
 RefPtr<API::Attachment> WebPageProxy::attachmentForIdentifier(const String& identifier) const
 {
     if (identifier.isEmpty())
@@ -10266,7 +10208,7 @@ void WebPageProxy::updateAttachmentAttributes(const API::Attachment& attachment,
 }
 
 #if HAVE(QUICKLOOK_THUMBNAILING)
-void WebPageProxy::updateAttachmentIcon(const String& identifier, const RefPtr<ShareableBitmap>& bitmap)
+void WebPageProxy::updateAttachmentThumbnail(const String& identifier, const RefPtr<ShareableBitmap>& bitmap)
 {
     if (!hasRunningProcess())
         return;
@@ -10275,7 +10217,7 @@ void WebPageProxy::updateAttachmentIcon(const String& identifier, const RefPtr<S
     if (bitmap)
         bitmap->createHandle(handle);
 
-    send(Messages::WebPage::UpdateAttachmentIcon(identifier, handle));
+    send(Messages::WebPage::UpdateAttachmentThumbnail(identifier, handle));
 }
 #endif
 
@@ -10696,11 +10638,9 @@ WebPageProxy::SpeechSynthesisData& WebPageProxy::speechSynthesisData()
 
 void WebPageProxy::speechSynthesisVoiceList(CompletionHandler<void(Vector<WebSpeechSynthesisVoice>&&)>&& completionHandler)
 {
-    auto& voiceList = speechSynthesisData().synthesizer->voiceList();
-    Vector<WebSpeechSynthesisVoice> result;
-    result.reserveInitialCapacity(voiceList.size());
-    for (auto& voice : voiceList)
-        result.uncheckedAppend(WebSpeechSynthesisVoice { voice->voiceURI(), voice->name(), voice->lang(), voice->localService(), voice->isDefault() });
+    auto result = speechSynthesisData().synthesizer->voiceList().map([](auto& voice) {
+        return WebSpeechSynthesisVoice { voice->voiceURI(), voice->name(), voice->lang(), voice->localService(), voice->isDefault() };
+    });
     completionHandler(WTFMove(result));
 }
 

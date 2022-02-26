@@ -40,9 +40,9 @@ OBJC_CLASS WKWebViewConfiguration;
 OBJC_CLASS WebKitTestRunnerWindow;
 typedef struct CGImage *CGImageRef;
 
-typedef TestRunnerWKWebView *PlatformWKView;
-typedef WebKitTestRunnerWindow *PlatformWindow;
-typedef RetainPtr<CGImageRef> PlatformImage;
+using PlatformWKView = TestRunnerWKWebView*;
+using PlatformWindow = WebKitTestRunnerWindow*;
+using PlatformImage = RetainPtr<CGImageRef>;
 #elif defined(BUILDING_GTK__)
 typedef struct _GtkWidget GtkWidget;
 typedef WKViewRef PlatformWKView;
@@ -52,21 +52,20 @@ class BWebView;
 class BWindow;
 typedef BWebView* PlatformWKView;
 typedef BWindow* PlatformWindow;
-#elif PLATFORM(WPE)
+#elif USE(LIBWPE)
 namespace WPEToolingBackends {
 class HeadlessViewBackend;
 }
-typedef WKViewRef PlatformWKView;
-typedef WPEToolingBackends::HeadlessViewBackend* PlatformWindow;
+using PlatformWKView = WKViewRef;
+using PlatformWindow = WPEToolingBackends::HeadlessViewBackend*;
 #elif PLATFORM(WIN)
-#include <cairo.h>
-class TestRunnerWindow;
-typedef HWND PlatformWindow;
-typedef WKViewRef PlatformWKView;
+using PlatformWKView = WKViewRef;
+using PlatformWindow = HWND;
 #endif
 
 #if USE(CAIRO)
-typedef cairo_surface_t* PlatformImage;
+#include <cairo.h>
+using PlatformImage = cairo_surface_t*;
 #endif
 
 namespace WTR {

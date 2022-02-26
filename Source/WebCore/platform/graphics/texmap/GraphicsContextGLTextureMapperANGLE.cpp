@@ -31,7 +31,6 @@
 
 #include "ANGLEHeaders.h"
 #include "ANGLEUtilities.h"
-#include "ExtensionsGLANGLE.h"
 #include "GraphicsContextGLOpenGLManager.h"
 #include "PixelBuffer.h"
 
@@ -67,6 +66,12 @@ GraphicsContextGLANGLE::GraphicsContextGLANGLE(GraphicsContextGLAttributes attri
 #endif
     bool success = makeContextCurrent();
     ASSERT_UNUSED(success, success);
+    success = initialize();
+    ASSERT_UNUSED(success, success);
+
+    // We require this extension to render into the dmabuf-backed EGLImage.
+    RELEASE_ASSERT(supportsExtension("GL_OES_EGL_image"));
+    GL_RequestExtensionANGLE("GL_OES_EGL_image");
 
     validateAttributes();
     attributes = contextAttributes(); // They may have changed during validation.
@@ -124,8 +129,9 @@ GraphicsContextGLANGLE::GraphicsContextGLANGLE(GraphicsContextGLAttributes attri
 }
 
 #if USE(NICOSIA)
-GraphicsContextGLANGLE::EGLImageBacking::EGLImageBacking(PlatformGraphicsContextGLDisplay display)
+GraphicsContextGLANGLE::EGLImageBacking::EGLImageBacking(GCGLDisplay display)
     : m_display(display)
+    , m_image(EGL_NO_IMAGE)
 {
 }
 
@@ -230,7 +236,7 @@ GraphicsContextGLANGLE::~GraphicsContextGLANGLE()
 #endif
 }
 
-PlatformGraphicsContextGLDisplay GraphicsContextGLANGLE::platformDisplay() const
+GCGLDisplay GraphicsContextGLANGLE::platformDisplay() const
 {
 #if USE(NICOSIA)
     return m_nicosiaLayer->platformDisplay();
@@ -239,7 +245,7 @@ PlatformGraphicsContextGLDisplay GraphicsContextGLANGLE::platformDisplay() const
 #endif
 }
 
-PlatformGraphicsContextGLConfig GraphicsContextGLANGLE::platformConfig() const
+GCGLConfig GraphicsContextGLANGLE::platformConfig() const
 {
 #if USE(NICOSIA)
     return m_nicosiaLayer->platformConfig();
@@ -265,11 +271,11 @@ void GraphicsContextGLTextureMapper::setContextVisibility(bool)
 {
 }
 
-void GraphicsContextGLANGLE::prepareForDisplay()
+void GraphicsContextGLTextureMapper::prepareForDisplay()
 {
 }
 
-bool GraphicsContextGLANGLE::reshapeDisplayBufferBacking()
+bool GraphicsContextGLTextureMapper::reshapeDisplayBufferBacking()
 {
     auto attrs = contextAttributes();
     const auto size = getInternalFramebufferSize();

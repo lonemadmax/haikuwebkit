@@ -25,6 +25,7 @@
 #include "AnimationFrameRate.h"
 #include "AppHighlightStorage.h"
 #include "ApplicationCacheStorage.h"
+#include "AttachmentElementClient.h"
 #include "AuthenticatorCoordinator.h"
 #include "AuthenticatorCoordinatorClient.h"
 #include "BackForwardCache.h"
@@ -69,6 +70,7 @@
 #include "FrameTree.h"
 #include "FrameView.h"
 #include "FullscreenManager.h"
+#include "GeolocationController.h"
 #include "HTMLElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLMediaElement.h"
@@ -342,6 +344,9 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_permissionController(WTFMove(pageConfiguration.permissionController))
     , m_storageProvider(WTFMove(pageConfiguration.storageProvider))
     , m_modelPlayerProvider(WTFMove(pageConfiguration.modelPlayerProvider))
+#if ENABLE(ATTACHMENT_ELEMENT)
+    , m_attachmentElementClient(WTFMove(pageConfiguration.attachmentElementClient))
+#endif
 {
     updateTimerThrottlingState();
 
@@ -965,7 +970,7 @@ uint32_t Page::replaceRangesWithText(const Vector<SimpleRange>& rangesToReplace,
         if (!highestRoot || highestRoot != highestEditableRoot(makeDeprecatedLegacyPosition(range.end)) || !highestRoot->document().frame())
             continue;
         auto scope = makeRangeSelectingNodeContents(*highestRoot);
-        replacementRanges.append({ WTFMove(highestRoot), characterRange(scope, range) });
+        replacementRanges.uncheckedAppend({ WTFMove(highestRoot), characterRange(scope, range) });
     }
 
     replaceRanges(*this, replacementRanges, replacementText);
@@ -1331,6 +1336,11 @@ void Page::didCommitLoad()
 #if ENABLE(IMAGE_ANALYSIS)
     resetTextRecognitionResults();
     resetImageAnalysisQueue();
+#endif
+
+#if ENABLE(GEOLOCATION)
+    if (auto* geolocationController = GeolocationController::from(this))
+        geolocationController->didNavigatePage();
 #endif
 }
 
@@ -1902,9 +1912,42 @@ void Page::resumeScriptedAnimations()
     });
 }
 
-std::optional<FramesPerSecond> Page::preferredRenderingUpdateFramesPerSecond() const
+void Page::timelineControllerMaximumAnimationFrameRateDidChange(DocumentTimelinesController&)
 {
-    return preferredFramesPerSecond(m_throttlingReasons, m_displayNominalFramesPerSecond, settings().preferPageRenderingUpdatesNear60FPSEnabled());
+    renderingUpdateScheduler().adjustRenderingUpdateFrequency();
+}
+
+std::optional<FramesPerSecond> Page::preferredRenderingUpdateFramesPerSecond(OptionSet<PreferredRenderingUpdateOption> flags) const
+{
+    // Unless the call site specifies an explicit set of options, this method will account for both
+    // throttling reasons and the frame rate of animations to determine its return value. The only
+    // place where we specify an explicit set of options is DocumentTimelinesController::updateAnimationsAndSendEvents()
+    // where we need to identify what the update frame rate would be _not_ accounting for animations.
+
+    auto throttlingReasons = m_throttlingReasons;
+    if (!flags.contains(PreferredRenderingUpdateOption::IncludeThrottlingReasons))
+        throttlingReasons = { };
+
+    auto frameRate = preferredFramesPerSecond(throttlingReasons, m_displayNominalFramesPerSecond, settings().preferPageRenderingUpdatesNear60FPSEnabled());
+    if (!flags.contains(PreferredRenderingUpdateOption::IncludeAnimationsFrameRate))
+        return frameRate;
+
+    // If we're throttled, we do not account for the frame rate set on animations and simply use the throttled frame rate.
+    auto unthrottledDefaultFrameRate = preferredRenderingUpdateFramesPerSecond({ });
+    auto isThrottled = frameRate && unthrottledDefaultFrameRate && *frameRate < *unthrottledDefaultFrameRate;
+    if (isThrottled)
+        return frameRate;
+
+    forEachDocument([&] (Document& document) {
+        if (auto* timelinesController = document.timelinesController()) {
+            if (auto timelinePreferredFrameRate = timelinesController->maximumAnimationFrameRate()) {
+                if (!frameRate || *frameRate < *timelinePreferredFrameRate)
+                    frameRate = *timelinePreferredFrameRate;
+            }
+        }
+    });
+
+    return frameRate;
 }
 
 Seconds Page::preferredRenderingUpdateInterval() const
@@ -3834,6 +3877,15 @@ void Page::updateElementsWithTextRecognitionResults()
 bool Page::hasCachedTextRecognitionResult(const HTMLElement& element) const
 {
     return m_textRecognitionResults.contains(element);
+}
+
+std::optional<TextRecognitionResult> Page::cachedTextRecognitionResult(const HTMLElement& element) const
+{
+    auto iterator = m_textRecognitionResults.find(element);
+    if (iterator == m_textRecognitionResults.end())
+        return std::nullopt;
+
+    return { iterator->value.first };
 }
 
 void Page::cacheTextRecognitionResult(const HTMLElement& element, const IntRect& containerRect, const TextRecognitionResult& result)

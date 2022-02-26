@@ -46,6 +46,7 @@ depends:
 - sdk/libsoup3.bst
 - sdk/libusrsctp.bst
 - sdk/libwpe.bst
+- sdk/mold.bst
 - sdk/monado.bst
 - sdk/openxr.bst
 - sdk/os-release.bst
@@ -63,6 +64,7 @@ depends:
 - sdk/ruby-webrick.bst
 - sdk/sccache.bst
 - sdk/shared-mime-info.bst
+- sdk/sparkle-cdm.bst
 - sdk/subversion.bst
 - sdk/woff2.bst
 - sdk/wpebackend-fdo.bst

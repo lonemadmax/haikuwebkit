@@ -1442,11 +1442,12 @@ void Editor::performCutOrCopy(EditorActionSpecifier action)
         updateMarkersForWordsAffectedByEditing(true);
     }
 
-    if (enclosingTextFormControl(m_document.selection().selection().start()) || (selection && ImageOverlay::isInsideOverlay(*selection)))
+    if (enclosingTextFormControl(m_document.selection().selection().start()))
         Pasteboard::createForCopyAndPaste(PagePasteboardContext::create(m_document.pageID()))->writePlainText(selectedTextForDataTransfer(), canSmartCopyOrDelete() ? Pasteboard::CanSmartReplace : Pasteboard::CannotSmartReplace);
     else {
         RefPtr<HTMLImageElement> imageElement;
-        if (action == CopyAction)
+        bool isSelectionInImageOverlay = selection && !selection->collapsed() && ImageOverlay::isInsideOverlay(*selection);
+        if (action == CopyAction && !isSelectionInImageOverlay)
             imageElement = imageElementFromImageDocument(document());
 
         if (imageElement) {
@@ -4032,7 +4033,7 @@ static Vector<TextList> editableTextListsAtPositionInDescendingOrder(const Posit
     }
 
     Vector<TextList> textLists;
-    textLists.reserveCapacity(enclosingLists.size());
+    textLists.reserveInitialCapacity(enclosingLists.size());
     for (auto iterator = enclosingLists.rbegin(); iterator != enclosingLists.rend(); ++iterator) {
         auto& list = iterator->get();
         bool ordered = is<HTMLOListElement>(list);

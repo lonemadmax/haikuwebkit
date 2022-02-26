@@ -22,7 +22,8 @@
 #include "JSTestEnabledBySetting.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -89,7 +90,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestEnabledBySettingPrototype, Base);
         return &vm.plainObjectSpace();
@@ -451,27 +452,14 @@ JSC_DEFINE_HOST_FUNCTION(jsTestEnabledBySettingPrototypeFunction_enabledBySettin
 
 #endif
 
-JSC::IsoSubspace* JSTestEnabledBySetting::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSTestEnabledBySetting::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForTestEnabledBySetting.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestEnabledBySetting> || !JSTestEnabledBySetting::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestEnabledBySetting>)
-        spaces.m_subspaceForTestEnabledBySetting = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestEnabledBySetting);
-    else
-        spaces.m_subspaceForTestEnabledBySetting = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestEnabledBySetting);
-    auto* space = spaces.m_subspaceForTestEnabledBySetting.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSTestEnabledBySetting::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSTestEnabledBySetting, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForTestEnabledBySetting.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestEnabledBySetting = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForTestEnabledBySetting.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestEnabledBySetting = WTFMove(space); }
+    );
 }
 
 void JSTestEnabledBySetting::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

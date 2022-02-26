@@ -1,3 +1,117 @@
+2022-02-18  Robert Jenner  <Jenner@apple.com>
+
+        Unreviewed, reverting r290149.
+
+        Broke Debug Builds.
+
+        Reverted changeset:
+
+        "Generate compile_commands.json on macOS Builds"
+        https://bugs.webkit.org/show_bug.cgi?id=235686
+        https://commits.webkit.org/r290149
+
+2022-02-18  Brandon Stewart  <brandonstewart@apple.com>
+
+        Generate compile_commands.json on macOS Builds
+        https://bugs.webkit.org/show_bug.cgi?id=235686
+
+        Reviewed by Saam Barati.
+
+        Add support for generating compile_commands.json file to WebKit.
+        
+        compile_commands.json can be used by tools like clangd to provide code complete,
+        refactoring, formatting, and cross references.
+
+        Steps to generate the compile commands file:
+        make r EXPORT_COMPILE_COMMANDS=YES
+        generate-compile-commands WebKitBuild/Release
+
+        * Configurations/DebugRelease.xcconfig:
+
+2022-02-18  Saam Barati  <sbarati@apple.com>
+
+        Add LC_SOURCE_VERSION to compile targets
+        https://bugs.webkit.org/show_bug.cgi?id=236720
+        <rdar://84984140>
+
+        Reviewed by Michael Saboff.
+
+        * Configurations/Version.xcconfig:
+        * Configurations/WebKitLegacy.xcconfig:
+
+2022-02-17  Jean-Yves Avenard  <jya@apple.com>
+
+        Unnecessary copy/memory allocation
+        https://bugs.webkit.org/show_bug.cgi?id=236749
+        rdar://problem/89064893
+
+        Reviewed by Dean Jackson.
+
+        * WebView/WebHTMLView.mm:
+        (createShareMenuItem): Shared NSData constructed from a SharedBuffer instead
+
+2022-02-17  Jean-Yves Avenard  <jya@apple.com>
+
+        CrashTracer: com.apple.WebKit.WebContent at JavaScriptCore: bmalloc_allocate_impl_impl_slow
+        https://bugs.webkit.org/show_bug.cgi?id=236695
+        rdar://87596724
+
+        Reviewed by Jer Noble.
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView namesOfPromisedFilesDroppedAtDestination:]):
+
+2022-02-16  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        ANGLE includes interfere with system header includes
+        https://bugs.webkit.org/show_bug.cgi?id=236636
+
+        Reviewed by Dean Jackson.
+
+        Remove the attempt to override system header logic with WebKit
+        ANGLE implementation. They are different implementations
+        and one cannot replace the other.
+
+        * WebView/WebFrameInternal.h:
+
+2022-02-16  David Kilzer  <ddkilzer@apple.com>
+
+        [WebKitLegacy] Fix clang tidy bugprone-move-forwarding-reference static analyzer warnings
+        <https://webkit.org/b/236663>
+        <rdar://problem/88982792>
+
+        Reviewed by Dean Jackson.
+
+        * Misc/WebDownload.mm:
+        (callOnDelegateThreadAndWait):
+        - Replace WTFMove() with std::forward<>().
+
+2022-02-15  Chris Dumez  <cdumez@apple.com>
+
+        Do preliminary work to pass domain names to CoreLocation
+        https://bugs.webkit.org/show_bug.cgi?id=236566
+        <rdar://88761413>
+
+        Reviewed by Darin Adler.
+
+        * WebCoreSupport/WebGeolocationClient.h:
+        * WebCoreSupport/WebGeolocationClient.mm:
+        (WebGeolocationClient::startUpdating):
+
+2022-02-15  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [macOS] Add a context menu item to "Copy Cropped Image"
+        https://bugs.webkit.org/show_bug.cgi?id=236602
+        rdar://88924479
+
+        Reviewed by Megan Gardner.
+
+        See WebCore and WebKit ChangeLogs for more details.
+
+        * WebCoreSupport/WebContextMenuClient.h:
+        * WebView/WebHTMLView.mm:
+        (toTag):
+
 2022-02-11  Chris Dumez  <cdumez@apple.com>
 
         Unreviewed, fix build with the latest iOS SDK.

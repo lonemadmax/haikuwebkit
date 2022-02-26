@@ -286,10 +286,13 @@
 #endif
 
 #if ENABLE(MEDIA_STREAM)
-#include "MediaRecorder.h"
-#include "MediaRecorderPrivateMock.h"
 #include "MediaStream.h"
 #include "MockRealtimeMediaSourceCenter.h"
+#endif
+
+#if ENABLE(MEDIA_RECORDER)
+#include "MediaRecorder.h"
+#include "MediaRecorderPrivateMock.h"
 #endif
 
 #if ENABLE(WEB_RTC)
@@ -606,6 +609,9 @@ void Internals::resetToConsistentState(Page& page)
 
 #if ENABLE(MEDIA_STREAM)
     page.settings().setInterruptAudioOnPageVisibilityChangeEnabled(false);
+#endif
+
+#if ENABLE(MEDIA_RECORDER)
     WebCore::MediaRecorder::setCustomPrivateRecorderCreator(nullptr);
 #endif
 
@@ -1698,7 +1704,9 @@ void Internals::setShouldInterruptAudioOnPageVisibilityChange(bool shouldInterru
     if (auto* page = document->page())
         page->settings().setInterruptAudioOnPageVisibilityChangeEnabled(shouldInterrupt);
 }
+#endif // ENABLE(MEDIA_STREAM)
 
+#if ENABLE(MEDIA_RECORDER)
 static ExceptionOr<std::unique_ptr<MediaRecorderPrivate>> createRecorderMockSource(MediaStreamPrivate& stream, const MediaRecorderPrivateOptions&)
 {
     return std::unique_ptr<MediaRecorderPrivate>(new MediaRecorderPrivateMock(stream));
@@ -1708,7 +1716,7 @@ void Internals::setCustomPrivateRecorderCreator()
 {
     WebCore::MediaRecorder::setCustomPrivateRecorderCreator(createRecorderMockSource);
 }
-#endif // ENABLE(MEDIA_STREAM)
+#endif // ENABLE(MEDIA_RECORDER)
 
 ExceptionOr<Ref<DOMRect>> Internals::absoluteLineRectFromPoint(int x, int y)
 {
@@ -5126,7 +5134,12 @@ bool Internals::privatePlayerMuted(const HTMLMediaElement&)
 }
 #endif
 
-#endif
+RefPtr<SharedBuffer> Internals::pngDataForTesting()
+{
+    return nullptr;
+}
+
+#endif // !PLATFORM(COCOA)
 
 #if ENABLE(VIDEO)
 bool Internals::isMediaElementHidden(const HTMLMediaElement& media)
@@ -5869,6 +5882,29 @@ void Internals::installImageOverlay(Element& element, Vector<ImageOverlayLine>&&
     UNUSED_PARAM(dataDetectors);
     UNUSED_PARAM(lines);
 #endif
+}
+
+void Internals::installCroppedImageOverlay(Element& element, Ref<DOMRectReadOnly>&& normalizedCropRect)
+{
+    RefPtr htmlElement = dynamicDowncast<HTMLElement>(element);
+    if (!htmlElement)
+        return;
+
+    auto imageData = pngDataForTesting();
+    if (!imageData)
+        return;
+
+    m_croppedImageOverlay = ImageOverlay::CroppedImage::install(*htmlElement, imageData.releaseNonNull(), "image/png"_s, {
+        static_cast<float>(normalizedCropRect->x()),
+        static_cast<float>(normalizedCropRect->y()),
+        static_cast<float>(normalizedCropRect->width()),
+        static_cast<float>(normalizedCropRect->height())
+    });
+}
+
+void Internals::uninstallCroppedImageOverlay()
+{
+    m_croppedImageOverlay = nullptr;
 }
 
 bool Internals::hasActiveDataDetectorHighlight() const

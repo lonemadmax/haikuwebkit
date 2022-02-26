@@ -327,7 +327,13 @@ void DrawingAreaWC::sendUpdateNonAC()
                 didUpdate();
                 return;
             }
-            auto handle = static_cast<UnacceleratedImageBufferShareableBackend&>(*image->ensureBackendCreated()).createImageBufferBackendHandle();
+
+            ImageBufferBackendHandle handle;
+            if (auto* backend = image->ensureBackendCreated()) {
+                auto* sharing = backend->toBackendSharing();
+                if (is<ImageBufferBackendHandleSharing>(sharing))
+                    handle = downcast<ImageBufferBackendHandleSharing>(*sharing).createBackendHandle();
+            }
             updateInfo.bitmapHandle = std::get<ShareableBitmap::Handle>(WTFMove(handle));
             send(Messages::DrawingAreaProxy::Update(stateID, WTFMove(updateInfo)));
         });
@@ -361,11 +367,12 @@ RefPtr<ImageBuffer> DrawingAreaWC::createImageBuffer(FloatSize size)
 void DrawingAreaWC::didUpdate()
 {
     m_waitDidUpdate = false;
+    if (m_forceRepaintCompletionHandler)
+        m_forceRepaintCompletionHandler();
     if (m_hasDeferredRenderingUpdate) {
         m_hasDeferredRenderingUpdate = false;
         triggerRenderingUpdate();
-    } else if (m_forceRepaintCompletionHandler)
-        m_forceRepaintCompletionHandler();
+    }
 }
 
 } // namespace WebKit

@@ -1,3 +1,456 @@
+2022-02-20  Alan Bujtas  <zalan@apple.com>
+
+        [IFC][Integration] Enable non-paginated vertical-lr writing mode
+        https://bugs.webkit.org/show_bug.cgi?id=236481
+        <rdar://problem/89123721>
+
+        Reviewed by Antti Koivisto.
+    
+        Progressions.
+
+        * web-platform-tests/css/cssom-view/offsetTopLeft-empty-inline-expected.txt:
+        * web-platform-tests/css/cssom-view/offsetTopLeft-leading-space-inline-expected.txt:
+
+2022-02-19  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Match container queries correctly in non-rendered subtrees
+        https://bugs.webkit.org/show_bug.cgi?id=236840
+
+        Reviewed by Dean Jackson.
+
+        * web-platform-tests/css/css-contain/container-queries/backdrop-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/display-contents-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/display-none-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/pseudo-elements-001-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/pseudo-elements-003.tentative-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/size-container-no-principal-box-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/top-layer-dialog-container-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/top-layer-dialog-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/top-layer-nested-dialog-expected.txt:
+
+2022-02-19  Antoine Quint  <graouts@webkit.org>
+
+        REGRESSION (r287524): hihello.me does not show sliding sheet at the bottom of the page
+        https://bugs.webkit.org/show_bug.cgi?id=236838
+        rdar://88672183
+
+        Reviewed by Dean Jackson.
+
+        Add new WPT tests to check we correctly compute implicit keyframes when a 0% and/or 100% keyframe
+        is defined but only specifies a timing function. One test checks the output of getKeyframes() and
+        the other that we correctly account for the implicit vaues when computing styles.
+
+        * web-platform-tests/css/css-animations/KeyframeEffect-getKeyframes.tentative-expected.txt:
+        * web-platform-tests/css/css-animations/KeyframeEffect-getKeyframes.tentative.html:
+        * web-platform-tests/css/css-animations/animation-multiple-from-to-keyframes-with-only-timing-function-expected.txt: Added.
+        * web-platform-tests/css/css-animations/animation-multiple-from-to-keyframes-with-only-timing-function.html: Added.
+
+2022-02-18  Tim Nguyen  <ntim@apple.com>
+
+        Stop propagating inertness through iframes in Node::deprecatedIsInert()
+        https://bugs.webkit.org/show_bug.cgi?id=236512
+
+        Reviewed by Chris Dumez.
+
+        This is only a bug for Node::deprecatedIsInert(), so it only affects focus. Selection APIs, etc. weren't affected
+        before this bug.
+
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-focus-in-frames-expected.txt:
+
+2022-02-18  Tim Nguyen  <ntim@apple.com>
+
+        Re-import inert and <dialog> WPT
+        https://bugs.webkit.org/show_bug.cgi?id=236808
+
+        Reviewed by Simon Fraser.
+
+        Commit: https://github.com/web-platform-tests/wpt/commit/0d483a3bea340a2c60cb7a4add49eb63cbba2a64
+
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focus-shadow-double-nested-expected.txt: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focus-shadow-delegatesfocus-expected.txt.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focus-shadow-double-nested.html: Renamed from LayoutTests/imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focus-shadow-delegatesfocus.html.
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focus-shadow-expected.txt:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-focus-shadow.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-focus-in-frames-expected.txt:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-focus-in-frames.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-label-focus.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inertness-with-modal-dialogs-and-iframes-expected.txt:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inertness-with-modal-dialogs-and-iframes.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/modal-dialog-scroll-height.html:
+        * web-platform-tests/html/semantics/interactive-elements/the-dialog-element/w3c-import.log:
+        * web-platform-tests/inert/dynamic-inert-on-focused-element.tentative-expected.txt: Added.
+        * web-platform-tests/inert/dynamic-inert-on-focused-element.tentative.html: Added.
+        * web-platform-tests/inert/inert-canvas-fallback-content.tentative-expected.txt: Added.
+        * web-platform-tests/inert/inert-canvas-fallback-content.tentative.html: Added.
+        * web-platform-tests/inert/inert-iframe-hittest.tentative-expected.txt: Added.
+        * web-platform-tests/inert/inert-iframe-hittest.tentative.html: Added.
+        * web-platform-tests/inert/inert-iframe-tabbing.tentative-expected.txt: Added.
+        * web-platform-tests/inert/inert-iframe-tabbing.tentative.html: Added.
+        * web-platform-tests/inert/inert-node-is-uneditable.tentative.html:
+        * web-platform-tests/inert/inert-with-modal-dialog-001.tentative-expected.txt: Added.
+        * web-platform-tests/inert/inert-with-modal-dialog-001.tentative.html: Added.
+        * web-platform-tests/inert/inert-with-modal-dialog-002.tentative-expected.txt: Added.
+        * web-platform-tests/inert/inert-with-modal-dialog-002.tentative.html: Added.
+        * web-platform-tests/inert/w3c-import.log:
+
+2022-02-17  Jon Lee  <jonlee@apple.com>
+
+        [iOS] css/css-color/t422-rgba-onscreen-b.xht and css/css-color/t425-hsla-onscreen-b.xht are consistently failing
+        https://bugs.webkit.org/show_bug.cgi?id=236802
+
+        Reviewed by Dean Jackson.
+
+        * web-platform-tests/css/css-color/t422-rgba-onscreen-b.xht: Expand maxDifference range to accommodate iOS.
+        * web-platform-tests/css/css-color/t425-hsla-onscreen-b.xht:
+
+2022-02-18  Ziran Sun  <zsun@igalia.com>
+
+        [InputElement] Return empty string for an invalid floating-point number that ends with "."
+        https://bugs.webkit.org/show_bug.cgi?id=236700
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/html/semantics/forms/the-input-element/number-expected.txt:
+
+2022-02-18  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed gardening for GPU Process bots. Update fuzzy data.
+
+        * web-platform-tests/css/css-images/gradients-with-transparent.html:
+        * web-platform-tests/svg/coordinate-systems/viewBox-scaling-text-001.html:
+
+2022-02-18  Joseph Griego  <jgriego@igalia.com>
+
+        [JSC] Enable Shadow Realms support by default
+        https://bugs.webkit.org/show_bug.cgi?id=236673
+
+        Reviewed by Yusuke Suzuki.
+
+        Enabling this flag causes the new WPT test to partially pass (since
+        ShadowRealm is available on Window) but does not completely pass
+        because shadow realm contexts do not yet have the required web APIs
+        exposed.
+
+        * web-platform-tests/dom/idlharness-shadowrealm.window-expected.txt:
+
+2022-02-17  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed gardening. Update fuzzy data.
+
+        * web-platform-tests/css/css-masking/clip-path/clip-path-ellipse-003.html:
+
+2022-02-17  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Account for subgrid MBP when sizing
+        https://bugs.webkit.org/show_bug.cgi?id=236338
+
+        Reviewed by Dean Jackson.
+
+        * web-platform-tests/css/css-grid/subgrid/abs-pos-002-expected.html:
+        * web-platform-tests/css/css-grid/subgrid/abs-pos-003-expected.html:
+        * web-platform-tests/css/css-grid/subgrid/line-names-008.html:
+        * web-platform-tests/css/css-grid/subgrid/parent-repeat-auto-fit-001.html:
+        * web-platform-tests/css/css-grid/subgrid/parent-repeat-auto-fit-002.html:
+
+2022-02-17  Noam Rosenthal  <noam@webkit.org>
+
+        Resync web-platform-tests/paint-timing from upstream
+        https://bugs.webkit.org/show_bug.cgi?id=236717
+
+        Reviewed by Simon Fraser.
+
+        Resync to af3b9946eb6f0955360282176848af4be7e58304
+
+        * web-platform-tests/paint-timing/fcp-only/buffered-flag.window.html: Added.
+        * web-platform-tests/paint-timing/fcp-only/buffered-flag.window.js: Added.
+        * web-platform-tests/paint-timing/fcp-only/fcp-background-size.html:
+        * web-platform-tests/paint-timing/fcp-only/fcp-bg-image-set.html:
+        * web-platform-tests/paint-timing/fcp-only/fcp-bg-image-two-steps-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-bg-image-two-steps.html:
+        * web-platform-tests/paint-timing/fcp-only/fcp-canvas-context-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-canvas-context.html:
+        * web-platform-tests/paint-timing/fcp-only/fcp-gradient-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-gradient.html:
+        * web-platform-tests/paint-timing/fcp-only/fcp-iframe-expected.txt: Added.
+        * web-platform-tests/paint-timing/fcp-only/fcp-iframe.html: Copied from LayoutTests/imported/w3c/web-platform-tests/paint-timing/fcp-only/fcp-ignore-from-subframe.html.
+        * web-platform-tests/paint-timing/fcp-only/fcp-ignore-from-subframe.html:
+        * web-platform-tests/paint-timing/fcp-only/fcp-invisible-3d-rotate-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-invisible-scale-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-invisible-scale-transition-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-invisible-scale.html:
+        * web-platform-tests/paint-timing/fcp-only/fcp-invisible-text-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-opacity-descendant-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-opacity-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-opacity.html:
+        * web-platform-tests/paint-timing/fcp-only/fcp-out-of-bounds-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-out-of-bounds-translate-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-out-of-bounds.html:
+        * web-platform-tests/paint-timing/fcp-only/fcp-pseudo-element-display-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-pseudo-element-image-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-pseudo-element-image.html:
+        * web-platform-tests/paint-timing/fcp-only/fcp-pseudo-element-opacity-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-pseudo-element-text-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-pseudo-element-visibility-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-svg-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-text-input-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-text-input.html:
+        * web-platform-tests/paint-timing/fcp-only/fcp-typographic-pseudo-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-video-frame-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-video-frame.html:
+        * web-platform-tests/paint-timing/fcp-only/fcp-video-poster-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-video-poster.html:
+        * web-platform-tests/paint-timing/fcp-only/fcp-whitespace-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-whitespace.html:
+        * web-platform-tests/paint-timing/fcp-only/fcp-with-rtl-expected.txt:
+        * web-platform-tests/paint-timing/fcp-only/fcp-with-rtl.html:
+        * web-platform-tests/paint-timing/fcp-only/svg-in-iframe-expected.txt: Added.
+        * web-platform-tests/paint-timing/fcp-only/svg-in-iframe.html: Added.
+        * web-platform-tests/paint-timing/resources/svg.html: Added.
+        * web-platform-tests/paint-timing/resources/utils.js:
+        (async assertFirstContentfulPaint.return.new.Promise):
+        (async assertFirstContentfulPaint):
+        (async test_fcp):
+
+2022-02-17  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed gardening. Add fuzzy data.
+
+        * web-platform-tests/css/css-masking/clip-path/clip-path-ellipse-003.html:
+        * web-platform-tests/html/semantics/grouping-content/the-li-element/grouping-li-reftest-001.html:
+
+2022-02-17  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Support full range notation in size queries
+        https://bugs.webkit.org/show_bug.cgi?id=236771
+
+        Reviewed by Dean Jackson.
+
+        * web-platform-tests/css/css-contain/container-queries/at-container-parsing-expected.txt:
+
+2022-02-17  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Fix abs-pos breadth issue when using 'auto'
+        https://bugs.webkit.org/show_bug.cgi?id=236626
+
+        Reviewed by Dean Jackson.
+
+        Adds new test that uses RTL and abs-pos items over the padding area, with
+        padding defined in physical coords.
+
+        * web-platform-tests/css/css-grid/abspos/positioned-grid-items-025-expected.html: Added.
+        * web-platform-tests/css/css-grid/abspos/positioned-grid-items-025.html: Added.
+
+2022-02-16  Antoine Quint  <graouts@webkit.org>
+
+        SVG SMIL restart="never" does not behave correctly
+        https://bugs.webkit.org/show_bug.cgi?id=236491
+
+        Reviewed by Antti Koivisto.
+
+        Add a new test that checks whether restart="never" is respected when
+        begin="click" is set on an SVG <animate> element.
+
+        * web-platform-tests/svg/animations/restart-never-and-begin-click-expected.txt: Added.
+        * web-platform-tests/svg/animations/restart-never-and-begin-click.html: Added.
+
+2022-02-16  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Lookup line names for sub grids using line names from ancestor grids
+        https://bugs.webkit.org/show_bug.cgi?id=236287
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-grid/subgrid/grid-subgridded-axis-auto-repeater-crash-001-expected.txt:
+        * web-platform-tests/css/css-grid/subgrid/line-names-005-expected.html:
+        * web-platform-tests/css/css-grid/subgrid/line-names-005.html:
+
+        Make line-names-005.html slightly harder by having the multiple definitions of the 'a' grid area be different at both edges.
+
+2022-02-16  Joonghun Park  <jh718.park@samsung.com>
+
+        Change the canonical unit for time category from ms to s.
+        https://bugs.webkit.org/show_bug.cgi?id=236631
+
+        Reviewed by Darin Adler.
+
+        According to the spec, https://drafts.csswg.org/css-values-4/#time,
+        the canonical unit for <time> is Seconds.
+
+        * web-platform-tests/css/css-values/minmax-time-serialize-expected.txt:
+
+2022-02-16  Jon Lee  <jonlee@apple.com>
+
+        Add fuzzy data for test failures seen on the iOS GPU Process bot
+        Unreviewed.
+
+        * web-platform-tests/css/css-backgrounds/background-rounded-image-clip.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-circle-001.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-circle-002.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-circle-003.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-circle-004.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-circle-005.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-circle-006.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-circle-007.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-circle-008.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-ellipse-001.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-ellipse-002.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-ellipse-003.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-ellipse-004.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-ellipse-005.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-ellipse-006.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-ellipse-007.html:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-ellipse-008.html:
+        * web-platform-tests/css/css-transforms/css-skew-002.html:
+        * web-platform-tests/css/css-transforms/transforms-skewY.html:
+
+2022-02-16  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Inherit track count from parent grid for subgridded axes and clamp item placement to that explicit grid.
+        https://bugs.webkit.org/show_bug.cgi?id=236122
+
+        Reviewed by Dean Jackson.
+
+        Test changes to match latest spec, submitted upstream as https://github.com/web-platform-tests/wpt/pull/32629
+
+        * web-platform-tests/css/css-grid/subgrid/line-names-002-expected.html:
+        * web-platform-tests/css/css-grid/subgrid/line-names-005-expected.html:
+
+2022-02-16  Said Abou-Hallawa  <said@apple.com>
+
+        [GPU Process] Enable drawing the SVGImage in the GPU Process
+        https://bugs.webkit.org/show_bug.cgi?id=227748
+        rdar://80582699
+
+        Reviewed by Simon Fraser.
+
+        This sub-test was originally failing and this is why the bug
+        https://bugs.webkit.org/show_bug.cgi?id=231001 was filed.
+
+        After https://trac.webkit.org/changeset/279722/webkit, it got fixed because
+        SVGImage was rendered to a NativeImage and the NativeImage is rendered
+        to the destination GraphicsContext. GraphicsContext::drawNativeImage()
+        handles the image orientation properly.
+
+        Because this change will be reverted, the result of this test has to be
+        rebaselined with the failure message.
+
+        * web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-flipY-expected.txt:
+
+2022-02-16  Jon Lee  <jonlee@apple.com>
+
+        iOS test gardening after turning on accelerated drawing
+        https://bugs.webkit.org/show_bug.cgi?id=236680
+        rdar://problem/88996489
+
+        Reviewed by Simon Fraser.
+
+        Add fuzzy data.
+        * web-platform-tests/css/css-color/t422-rgba-onscreen-b.xht:
+        * web-platform-tests/css/css-color/t422-rgba-onscreen-multiple-boxes-c.xht:
+        * web-platform-tests/css/css-color/t425-hsla-onscreen-b.xht:
+        * web-platform-tests/css/css-color/t425-hsla-onscreen-multiple-boxes-c.xht:
+
+2022-02-16  Martin Robinson  <mrobinson@webkit.org>
+
+        transform: perspective(0) should not be considered an identity operation
+        https://bugs.webkit.org/show_bug.cgi?id=236644
+
+        Reviewed by Antoine Quint.
+
+        * web-platform-tests/css/css-transforms/animation/transform-interpolation-verify-reftests-expected.txt: Update expectations.
+        * web-platform-tests/web-animations/animation-model/animation-types/interpolation-per-property-002-expected.txt:
+
+2022-02-16  Ziran Sun  <zsun@igalia.com>
+
+        [InputElement] Remove extra form data made by image submit button when "value" attribute is present.
+        https://bugs.webkit.org/show_bug.cgi?id=236703
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/html/semantics/forms/the-input-element/image-click-form-data-expected.txt:
+
+2022-02-16  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Size queries on unsupported axis should evaluate to unknown
+        https://bugs.webkit.org/show_bug.cgi?id=236702
+
+        Reviewed by Dean Jackson.
+
+        * web-platform-tests/css/css-contain/container-queries/aspect-ratio-feature-evaluation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-selection-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/unsupported-axis-expected.txt:
+
+2022-02-16  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Serialize container shorthand in StyleProperties
+        https://bugs.webkit.org/show_bug.cgi?id=236691
+
+        Reviewed by Antoine Quint.
+
+        * web-platform-tests/css/css-contain/container-queries/container-parsing-expected.txt:
+
+2022-02-15  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        Implement parsing and animation support for offset shorthand
+        https://bugs.webkit.org/show_bug.cgi?id=233109
+
+        Reviewed by Dean Jackson.
+
+        * web-platform-tests/css/motion/animation/offset-interpolation-expected.txt:
+        * web-platform-tests/css/motion/parsing/offset-parsing-valid-expected.txt:
+        * web-platform-tests/css/motion/parsing/offset-parsing-valid.html:
+        * web-platform-tests/css/motion/parsing/offset-shorthand-expected.txt:
+
+2022-02-15  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        [css-transforms] properly handle interpolation of non-invertible matrices
+        https://bugs.webkit.org/show_bug.cgi?id=236480
+
+        Reviewed by Martin Robinson.
+
+        * web-platform-tests/css/css-transforms/animation/transform-matrix-composition-expected.txt:
+        * web-platform-tests/web-animations/animation-model/animation-types/interpolation-per-property-002-expected.txt:
+
+2022-02-15  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Support all size features
+        https://bugs.webkit.org/show_bug.cgi?id=236640
+
+        Reviewed by Tim Nguyen and Sam Weinig.
+
+        * web-platform-tests/css/css-contain/container-queries/at-container-parsing-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/query-content-box-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/size-feature-evaluation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/unsupported-axis-expected.txt:
+
+2022-02-15  Ziran Sun  <zsun@igalia.com>
+
+        [Forms] the select() method returns should be in line with specs
+        https://bugs.webkit.org/show_bug.cgi?id=236435
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/html/semantics/forms/the-input-element/selection-expected.txt:
+
+2022-02-15  Ziran Sun  <zsun@igalia.com>
+
+        [Forms] Make sure the element's dirty checkedness flag is set to true when setting checked
+        https://bugs.webkit.org/show_bug.cgi?id=236497
+
+        Reviewed by Chris Dumez.
+
+        Update the test expectations as the tests are now passing.
+        * web-platform-tests/html/semantics/forms/the-input-element/cloning-steps-expected.txt:
+
+2022-02-14  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Support range operators in size queries
+        https://bugs.webkit.org/show_bug.cgi?id=236600
+
+        Reviewed by Sam Weinig.
+
+        * web-platform-tests/css/css-contain/container-queries/size-feature-evaluation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/unsupported-axis-expected.txt:
+
 2022-02-14  Antti Koivisto  <antti@apple.com>
 
         [CSS Container Queries] Implement full query parser and evaluator

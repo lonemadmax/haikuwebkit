@@ -21,7 +21,8 @@
 #include "config.h"
 #include "JSTestJSBuiltinConstructor.h"
 
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
 #include "JSDOMBuiltinConstructor.h"
@@ -66,7 +67,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestJSBuiltinConstructorPrototype, Base);
         return &vm.plainObjectSpace();
@@ -222,27 +223,14 @@ JSC_DEFINE_HOST_FUNCTION(jsTestJSBuiltinConstructorPrototypeFunction_testCustomF
     return IDLOperation<JSTestJSBuiltinConstructor>::call<jsTestJSBuiltinConstructorPrototypeFunction_testCustomFunctionBody>(*lexicalGlobalObject, *callFrame, "testCustomFunction");
 }
 
-JSC::IsoSubspace* JSTestJSBuiltinConstructor::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSTestJSBuiltinConstructor::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForTestJSBuiltinConstructor.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestJSBuiltinConstructor> || !JSTestJSBuiltinConstructor::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestJSBuiltinConstructor>)
-        spaces.m_subspaceForTestJSBuiltinConstructor = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestJSBuiltinConstructor);
-    else
-        spaces.m_subspaceForTestJSBuiltinConstructor = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestJSBuiltinConstructor);
-    auto* space = spaces.m_subspaceForTestJSBuiltinConstructor.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSTestJSBuiltinConstructor::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSTestJSBuiltinConstructor, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForTestJSBuiltinConstructor.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestJSBuiltinConstructor = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForTestJSBuiltinConstructor.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestJSBuiltinConstructor = WTFMove(space); }
+    );
 }
 
 

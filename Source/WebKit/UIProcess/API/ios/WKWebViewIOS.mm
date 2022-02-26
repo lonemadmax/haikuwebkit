@@ -40,6 +40,7 @@
 #import "ViewGestureController.h"
 #import "WKBackForwardListItemInternal.h"
 #import "WKContentView.h"
+#import "WKHoverPlatterParameters.h"
 #import "WKPasswordView.h"
 #import "WKSafeBrowsingWarning.h"
 #import "WKScrollView.h"
@@ -118,8 +119,13 @@ static int32_t deviceOrientationForUIInterfaceOrientation(UIInterfaceOrientation
     CGRect oldFrame = self.frame;
     [super setFrame:frame];
 
-    if (!CGSizeEqualToSize(oldFrame.size, frame.size))
+    if (!CGSizeEqualToSize(oldFrame.size, frame.size)) {
         [self _frameOrBoundsChanged];
+
+#if HAVE(MAC_CATALYST_LIVE_RESIZE)
+        [self _acquireResizeAssertionForReason:@"-[WKWebView setFrame:]"];
+#endif
+    }
 }
 
 - (void)setBounds:(CGRect)bounds
@@ -128,8 +134,13 @@ static int32_t deviceOrientationForUIInterfaceOrientation(UIInterfaceOrientation
     [super setBounds:bounds];
     [_customContentFixedOverlayView setFrame:self.bounds];
 
-    if (!CGSizeEqualToSize(oldBounds.size, bounds.size))
+    if (!CGSizeEqualToSize(oldBounds.size, bounds.size)) {
         [self _frameOrBoundsChanged];
+
+#if HAVE(MAC_CATALYST_LIVE_RESIZE)
+        [self _acquireResizeAssertionForReason:@"-[WKWebView setBounds:]"];
+#endif
+    }
 }
 
 - (void)layoutSubviews
@@ -1565,6 +1576,11 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
 
 - (BOOL)_allowsDoubleTapGestures
 {
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+    if (WKHoverPlatterDomain.rootSettings.platterEnabledForDoubleTap)
+        return YES;
+#endif
+
     if (_fastClickingIsDisabled)
         return YES;
 
@@ -1980,6 +1996,32 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     [_customContentView web_setMinimumSize:bounds.size];
     [self _scheduleVisibleContentRectUpdate];
 }
+
+#if HAVE(MAC_CATALYST_LIVE_RESIZE)
+
+- (void)_acquireResizeAssertionForReason:(NSString *)reason
+{
+    UIWindowScene *windowScene = self.window.windowScene;
+    if (!windowScene)
+        return;
+    if (![windowScene respondsToSelector:@selector(_holdLiveResizeSnapshotForReason:)])
+        return;
+
+    if (_resizeAssertions.isEmpty()) {
+        [self _doAfterNextVisibleContentRectUpdate:makeBlockPtr([weakSelf = WeakObjCPtr<WKWebView>(self)] {
+            auto strongSelf = weakSelf.get();
+            if (!strongSelf)
+                return;
+
+            for (auto resizeAssertion : std::exchange(strongSelf->_resizeAssertions, { }))
+                [resizeAssertion _invalidate];
+        }).get()];
+    }
+
+    _resizeAssertions.append(adoptNS([windowScene _holdLiveResizeSnapshotForReason:reason]));
+}
+
+#endif // HAVE(MAC_CATALYST_LIVE_RESIZE)
 
 // Unobscured content rect where the user can interact. When the keyboard is up, this should be the area above or below the keyboard, wherever there is enough space.
 - (CGRect)_contentRectForUserInteraction

@@ -7,10 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1C023D3F27449070001DB734 /* WGSLUnitTests.mm in Sources */ = {isa = PBXBuildFile; fileRef = 1C023D3E27449070001DB734 /* WGSLUnitTests.mm */; };
+		1C023D3F27449070001DB734 /* WGSLLexerTests.mm in Sources */ = {isa = PBXBuildFile; fileRef = 1C023D3E27449070001DB734 /* WGSLLexerTests.mm */; };
 		1C023D4027449070001DB734 /* libwgsl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CEBD7F22716B2CC00A5254D /* libwgsl.a */; };
 		1C023D4B274495B9001DB734 /* JavaScriptCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C023D4A274495B9001DB734 /* JavaScriptCore.framework */; };
 		1C2CEDEE271E8A7300EDC16F /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C2CEDED271E8A7300EDC16F /* Metal.framework */; };
+		1C5319C027BDC6CC00CD127E /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C5319BF27BDC6CC00CD127E /* main.swift */; };
+		1C5319C527BDC72700CD127E /* WebGPU.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CEBD7E32716AFBA00A5254D /* WebGPU.framework */; };
 		1C5ACA94273A41C20095F8D5 /* Instance.mm in Sources */ = {isa = PBXBuildFile; fileRef = 1C5ACA92273A41C20095F8D5 /* Instance.mm */; };
 		1C5ACAB6273A426D0095F8D5 /* RenderPipeline.mm in Sources */ = {isa = PBXBuildFile; fileRef = 1C5ACA98273A426D0095F8D5 /* RenderPipeline.mm */; };
 		1C5ACABB273A426D0095F8D5 /* Buffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 1C5ACA9D273A426D0095F8D5 /* Buffer.mm */; };
@@ -41,6 +43,12 @@
 		1CEBD7F82716B34400A5254D /* WGSL.h in Headers */ = {isa = PBXBuildFile; fileRef = 1CEBD7F72716B34400A5254D /* WGSL.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		1CEBD8032716BF8200A5254D /* WGSL.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1CEBD8022716BF8200A5254D /* WGSL.cpp */; };
 		1CEBD8262716CACC00A5254D /* libwgsl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CEBD7F22716B2CC00A5254D /* libwgsl.a */; };
+		338BB2CE27B6B60200E066AB /* Token.h in Headers */ = {isa = PBXBuildFile; fileRef = 338BB2CD27B6B60200E066AB /* Token.h */; };
+		338BB2D027B6B61B00E066AB /* Token.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 338BB2CF27B6B61B00E066AB /* Token.cpp */; };
+		338BB2D227B6B63F00E066AB /* SourceSpan.h in Headers */ = {isa = PBXBuildFile; fileRef = 338BB2D127B6B63F00E066AB /* SourceSpan.h */; };
+		338BB2D427B6B66C00E066AB /* Lexer.h in Headers */ = {isa = PBXBuildFile; fileRef = 338BB2D327B6B66C00E066AB /* Lexer.h */; };
+		338BB2D627B6B68700E066AB /* Lexer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 338BB2D527B6B68700E066AB /* Lexer.cpp */; };
+		DD05A35C27BF09C60096EFAB /* libWTF.a in Product Dependencies */ = {isa = PBXBuildFile; fileRef = 1CEBD8292716CAE700A5254D /* libWTF.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -51,6 +59,13 @@
 			remoteGlobalIDString = 1CEBD7F12716B2CC00A5254D;
 			remoteInfo = WGSL;
 		};
+		1C5319C727BDC72700CD127E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1CEBD7DA2716AFBA00A5254D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1CEBD7E22716AFBA00A5254D;
+			remoteInfo = WebGPU;
+		};
 		1CEBD8272716CACC00A5254D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 1CEBD7DA2716AFBA00A5254D /* Project object */;
@@ -60,12 +75,38 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		1C5319BB27BDC6CB00CD127E /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+    };
+		DD05A35B27BF09B60096EFAB /* Product Dependencies */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 16;
+			files = (
+				DD05A35C27BF09C60096EFAB /* libWTF.a in Product Dependencies */,
+			);
+			name = "Product Dependencies";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		1C023D3C27449070001DB734 /* WGSLUnitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WGSLUnitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		1C023D3E27449070001DB734 /* WGSLUnitTests.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = WGSLUnitTests.mm; sourceTree = "<group>"; };
+		1C023D3E27449070001DB734 /* WGSLLexerTests.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = WGSLLexerTests.mm; sourceTree = "<group>"; };
 		1C023D472744916D001DB734 /* WGSLUnitTests.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = WGSLUnitTests.xcconfig; sourceTree = "<group>"; };
 		1C023D4A274495B9001DB734 /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = JavaScriptCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		1C2CEDED271E8A7300EDC16F /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		1C5319BD27BDC6CB00CD127E /* CommandLinePlayground */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = CommandLinePlayground; sourceTree = BUILT_PRODUCTS_DIR; };
+		1C5319BF27BDC6CC00CD127E /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		1C5319CA27BDD70000CD127E /* CommandLinePlayground.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = CommandLinePlayground.xcconfig; sourceTree = "<group>"; };
 		1C5ACA92273A41C20095F8D5 /* Instance.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = Instance.mm; sourceTree = "<group>"; };
 		1C5ACA96273A426D0095F8D5 /* Surface.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Surface.h; sourceTree = "<group>"; };
 		1C5ACA97273A426D0095F8D5 /* SwapChain.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SwapChain.h; sourceTree = "<group>"; };
@@ -135,6 +176,11 @@
 		1CEBD82B2716CAFB00A5254D /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		1CEBD82D2716CB1600A5254D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		1CEBD8302716CB3800A5254D /* libicucore.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libicucore.tbd; path = usr/lib/libicucore.tbd; sourceTree = SDKROOT; };
+		338BB2CD27B6B60200E066AB /* Token.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Token.h; sourceTree = "<group>"; };
+		338BB2CF27B6B61B00E066AB /* Token.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Token.cpp; sourceTree = "<group>"; };
+		338BB2D127B6B63F00E066AB /* SourceSpan.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SourceSpan.h; sourceTree = "<group>"; };
+		338BB2D327B6B66C00E066AB /* Lexer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Lexer.h; sourceTree = "<group>"; };
+		338BB2D527B6B68700E066AB /* Lexer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Lexer.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -144,6 +190,14 @@
 			files = (
 				1C023D4B274495B9001DB734 /* JavaScriptCore.framework in Frameworks */,
 				1C023D4027449070001DB734 /* libwgsl.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C5319BA27BDC6CB00CD127E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C5319C527BDC72700CD127E /* WebGPU.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -170,9 +224,17 @@
 		1C023D3D27449070001DB734 /* WGSLUnitTests */ = {
 			isa = PBXGroup;
 			children = (
-				1C023D3E27449070001DB734 /* WGSLUnitTests.mm */,
+				1C023D3E27449070001DB734 /* WGSLLexerTests.mm */,
 			);
 			path = WGSLUnitTests;
+			sourceTree = "<group>";
+		};
+		1C5319BE27BDC6CB00CD127E /* CommandLinePlayground */ = {
+			isa = PBXGroup;
+			children = (
+				1C5319BF27BDC6CC00CD127E /* main.swift */,
+			);
+			path = CommandLinePlayground;
 			sourceTree = "<group>";
 		};
 		1CEBD7D92716AFBA00A5254D = {
@@ -183,6 +245,7 @@
 				1CEBD7F62716B33100A5254D /* WGSL */,
 				1CEBD7E52716AFBA00A5254D /* WebGPU */,
 				1C023D3D27449070001DB734 /* WGSLUnitTests */,
+				1C5319BE27BDC6CB00CD127E /* CommandLinePlayground */,
 				1CEBD7E42716AFBA00A5254D /* Products */,
 				1CEBD8252716CACC00A5254D /* Frameworks */,
 			);
@@ -191,6 +254,7 @@
 		1CEBD7E42716AFBA00A5254D /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				1C5319BD27BDC6CB00CD127E /* CommandLinePlayground */,
 				1CEBD7F22716B2CC00A5254D /* libwgsl.a */,
 				1CEBD7E32716AFBA00A5254D /* WebGPU.framework */,
 				1C023D3C27449070001DB734 /* WGSLUnitTests.xctest */,
@@ -261,6 +325,11 @@
 			children = (
 				1CEBD8072716C2C000A5254D /* AST.h */,
 				1CEBD8042716BFAB00A5254D /* config.h */,
+				338BB2D527B6B68700E066AB /* Lexer.cpp */,
+				338BB2D327B6B66C00E066AB /* Lexer.h */,
+				338BB2D127B6B63F00E066AB /* SourceSpan.h */,
+				338BB2CF27B6B61B00E066AB /* Token.cpp */,
+				338BB2CD27B6B60200E066AB /* Token.h */,
 				1CEBD8022716BF8200A5254D /* WGSL.cpp */,
 				1CEBD7F72716B34400A5254D /* WGSL.h */,
 			);
@@ -271,6 +340,7 @@
 			isa = PBXGroup;
 			children = (
 				1CEBD7FA2716B3D500A5254D /* Base.xcconfig */,
+				1C5319CA27BDD70000CD127E /* CommandLinePlayground.xcconfig */,
 				1CEBD7FB2716B5B400A5254D /* DebugRelease.xcconfig */,
 				1CEBD8012716B9AB00A5254D /* SDKVariant.xcconfig */,
 				1CC0C8CA273A819100D0B481 /* Version.xcconfig */,
@@ -312,6 +382,9 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				338BB2D427B6B66C00E066AB /* Lexer.h in Headers */,
+				338BB2D227B6B63F00E066AB /* SourceSpan.h in Headers */,
+				338BB2CE27B6B60200E066AB /* Token.h in Headers */,
 				1CEBD7F82716B34400A5254D /* WGSL.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -337,6 +410,24 @@
 			productReference = 1C023D3C27449070001DB734 /* WGSLUnitTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		1C5319BC27BDC6CB00CD127E /* CommandLinePlayground */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1C5319C427BDC6CC00CD127E /* Build configuration list for PBXNativeTarget "CommandLinePlayground" */;
+			buildPhases = (
+				1C5319B927BDC6CB00CD127E /* Sources */,
+				1C5319BA27BDC6CB00CD127E /* Frameworks */,
+				1C5319BB27BDC6CB00CD127E /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1C5319C827BDC72700CD127E /* PBXTargetDependency */,
+			);
+			name = CommandLinePlayground;
+			productName = CommandLinePlayground;
+			productReference = 1C5319BD27BDC6CB00CD127E /* CommandLinePlayground */;
+			productType = "com.apple.product-type.tool";
+		};
 		1CEBD7E22716AFBA00A5254D /* WebGPU */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1CEBD7EA2716AFBA00A5254D /* Build configuration list for PBXNativeTarget "WebGPU" */;
@@ -361,6 +452,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1CEBD7F32716B2CC00A5254D /* Build configuration list for PBXNativeTarget "WGSL" */;
 			buildPhases = (
+				DD05A35B27BF09B60096EFAB /* Product Dependencies */,
 				1CEBD7EE2716B2CC00A5254D /* Headers */,
 				1CEBD7EF2716B2CC00A5254D /* Sources */,
 				1CEBD7F02716B2CC00A5254D /* Frameworks */,
@@ -382,10 +474,14 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = NO;
 				DefaultBuildSystemTypeForWorkspace = Original;
+				LastSwiftUpdateCheck = 1400;
 				LastUpgradeCheck = 1330;
 				TargetAttributes = {
 					1C023D3B27449070001DB734 = {
 						CreatedOnToolsVersion = 13.3;
+					};
+					1C5319BC27BDC6CB00CD127E = {
+						CreatedOnToolsVersion = 14.0;
 					};
 					1CEBD7E22716AFBA00A5254D = {
 						CreatedOnToolsVersion = 13.3;
@@ -411,6 +507,7 @@
 				1CEBD7E22716AFBA00A5254D /* WebGPU */,
 				1CEBD7F12716B2CC00A5254D /* WGSL */,
 				1C023D3B27449070001DB734 /* WGSLUnitTests */,
+				1C5319BC27BDC6CB00CD127E /* CommandLinePlayground */,
 			);
 		};
 /* End PBXProject section */
@@ -459,7 +556,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1C023D3F27449070001DB734 /* WGSLUnitTests.mm in Sources */,
+				1C023D3F27449070001DB734 /* WGSLLexerTests.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C5319B927BDC6CB00CD127E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C5319C027BDC6CC00CD127E /* main.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -497,6 +602,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				338BB2D627B6B68700E066AB /* Lexer.cpp in Sources */,
+				338BB2D027B6B61B00E066AB /* Token.cpp in Sources */,
 				1CEBD8032716BF8200A5254D /* WGSL.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -508,6 +615,11 @@
 			isa = PBXTargetDependency;
 			target = 1CEBD7F12716B2CC00A5254D /* WGSL */;
 			targetProxy = 1C023D4127449070001DB734 /* PBXContainerItemProxy */;
+		};
+		1C5319C827BDC72700CD127E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1CEBD7E22716AFBA00A5254D /* WebGPU */;
+			targetProxy = 1C5319C727BDC72700CD127E /* PBXContainerItemProxy */;
 		};
 		1CEBD8282716CACC00A5254D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -534,6 +646,27 @@
 		1C023D4527449070001DB734 /* Production */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1C023D472744916D001DB734 /* WGSLUnitTests.xcconfig */;
+			buildSettings = {
+			};
+			name = Production;
+		};
+		1C5319C127BDC6CC00CD127E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1C5319CA27BDD70000CD127E /* CommandLinePlayground.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		1C5319C227BDC6CC00CD127E /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1C5319CA27BDD70000CD127E /* CommandLinePlayground.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		1C5319C327BDC6CC00CD127E /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1C5319CA27BDD70000CD127E /* CommandLinePlayground.xcconfig */;
 			buildSettings = {
 			};
 			name = Production;
@@ -610,6 +743,16 @@
 				1C023D4327449070001DB734 /* Debug */,
 				1C023D4427449070001DB734 /* Release */,
 				1C023D4527449070001DB734 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		1C5319C427BDC6CC00CD127E /* Build configuration list for PBXNativeTarget "CommandLinePlayground" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C5319C127BDC6CC00CD127E /* Debug */,
+				1C5319C227BDC6CC00CD127E /* Release */,
+				1C5319C327BDC6CC00CD127E /* Production */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Production;

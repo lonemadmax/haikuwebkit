@@ -2343,9 +2343,8 @@ void WebPage::requestDictationContext(CompletionHandler<void(const String&, cons
 
     completionHandler(selectedText, contextBefore, contextAfter);
 }
-
 #if ENABLE(REVEAL)
-void WebPage::requestRVItemInCurrentSelectedRange(CompletionHandler<void(const WebKit::RevealItem&)>&& completionHandler)
+RetainPtr<RVItem> WebPage::revealItemForCurrentSelection()
 {
     Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
     auto selection = frame->selection().selection();
@@ -2368,8 +2367,23 @@ void WebPage::requestRVItemInCurrentSelectedRange(CompletionHandler<void(const W
             }
         }
     }
+    return item;
+}
+
+void WebPage::requestRVItemInCurrentSelectedRange(CompletionHandler<void(const WebKit::RevealItem&)>&& completionHandler)
+{
+    completionHandler(RevealItem(revealItemForCurrentSelection()));
+}
+
+void WebPage::prepareSelectionForContextMenuWithLocationInView(const WebCore::IntPoint point, CompletionHandler<void(bool, const RevealItem&)>&& completionHandler)
+{
+    constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::AllowVisibleChildFrameContentOnly };
+    auto& eventHander = m_page->mainFrame().eventHandler();
+    HitTestResult result = eventHander.hitTestResultAtPoint(point, hitType);
     
-    completionHandler(RevealItem(WTFMove(item)));
+    eventHander.selectClosestContextualWordOrLinkFromHitTestResult(result, WebCore::DontAppendTrailingWhitespace);
+    
+    completionHandler(true, RevealItem(revealItemForCurrentSelection()));
 }
 #endif
 
@@ -3529,9 +3543,11 @@ void WebPage::setViewportConfigurationViewLayoutSize(const FloatSize& size, doub
 {
     LOG_WITH_STREAM(VisibleRects, stream << "WebPage " << m_identifier << " setViewportConfigurationViewLayoutSize " << size << " scaleFactor " << scaleFactor << " minimumEffectiveDeviceWidth " << minimumEffectiveDeviceWidth);
 
+    if (!m_viewportConfiguration.isKnownToLayOutWiderThanViewport())
+        m_viewportConfiguration.setMinimumEffectiveDeviceWidthForShrinkToFit(0);
+
     auto previousLayoutSizeScaleFactor = m_viewportConfiguration.layoutSizeScaleFactor();
-    auto clampedMinimumEffectiveDevice = m_viewportConfiguration.isKnownToLayOutWiderThanViewport() ? std::nullopt : std::optional<double>(minimumEffectiveDeviceWidth);
-    if (!m_viewportConfiguration.setViewLayoutSize(size, scaleFactor, WTFMove(clampedMinimumEffectiveDevice)))
+    if (!m_viewportConfiguration.setViewLayoutSize(size, scaleFactor, minimumEffectiveDeviceWidth))
         return;
 
     auto zoomToInitialScale = ZoomToInitialScale::No;
@@ -3883,7 +3899,7 @@ void WebPage::shrinkToFitContent(ZoomToInitialScale zoomToInitialScale)
         return;
 
     auto changeMinimumEffectiveDeviceWidth = [this, mainDocument] (int targetLayoutWidth) -> bool {
-        if (m_viewportConfiguration.setMinimumEffectiveDeviceWidth(targetLayoutWidth)) {
+        if (m_viewportConfiguration.setMinimumEffectiveDeviceWidthForShrinkToFit(targetLayoutWidth)) {
             viewportConfigurationChanged();
             mainDocument->updateLayout();
             return true;
@@ -4274,6 +4290,8 @@ void WebPage::cancelAsynchronousTouchEvents(Vector<std::pair<WebTouchEvent, Comp
 }
 #endif
 
+#if !HAVE(UIKIT_BACKGROUND_THREAD_PRINTING)
+
 void WebPage::computePagesForPrintingiOS(WebCore::FrameIdentifier frameID, const PrintInfo& printInfo, Messages::WebPage::ComputePagesForPrintingiOS::DelayedReply&& reply)
 {
     ASSERT_WITH_MESSAGE(!printInfo.snapshotFirstPage, "If we are just snapshotting the first page, we don't need a synchronous message to determine the page count, which is 1.");
@@ -4286,6 +4304,8 @@ void WebPage::computePagesForPrintingiOS(WebCore::FrameIdentifier frameID, const
     ASSERT(pageRects.size() >= 1);
     reply(pageRects.size());
 }
+
+#endif // !HAVE(UIKIT_BACKGROUND_THREAD_PRINTING)
 
 void WebPage::drawToPDFiOS(WebCore::FrameIdentifier frameID, const PrintInfo& printInfo, size_t pageCount, Messages::WebPage::DrawToPDFiOSAsyncReply&& reply)
 {

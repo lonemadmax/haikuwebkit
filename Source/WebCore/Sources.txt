@@ -482,6 +482,7 @@ animation/DeclarativeAnimation.cpp
 animation/DocumentTimeline.cpp
 animation/DocumentTimelinesController.cpp
 animation/ElementAnimationRareData.cpp
+animation/FrameRateAligner.cpp
 animation/KeyframeEffect.cpp
 animation/KeyframeEffectStack.cpp
 animation/WebAnimation.cpp
@@ -704,6 +705,7 @@ crypto/keys/CryptoKeyRSA.cpp
 crypto/keys/CryptoKeyRSAComponents.cpp
 crypto/keys/CryptoKeyRaw.cpp
 css/BasicShapeFunctions.cpp
+css/ContainerQuery.cpp
 css/ContainerQueryParser.cpp
 css/CSSAspectRatioValue.cpp
 css/CSSBasicShapes.cpp
@@ -973,6 +975,7 @@ dom/ExceptionData.cpp
 dom/ExtensionStyleSheets.cpp
 dom/FocusEvent.cpp
 dom/FormDataEvent.cpp
+dom/FragmentDirectiveRangeFinder.cpp
 dom/FragmentDirectiveParser.cpp
 dom/FullscreenManager.cpp
 dom/GCReachableRef.cpp
@@ -1409,7 +1412,6 @@ html/canvas/WebGLVertexArrayObjectBase.cpp
 html/canvas/WebGLVertexArrayObjectOES.cpp
 html/forms/FileIconLoader.cpp
 html/parser/CSSPreloadScanner.cpp
-html/parser/HTMLAtomStringCache.cpp
 html/parser/HTMLConstructionSite.cpp
 html/parser/HTMLDocumentParser.cpp
 html/parser/HTMLElementStack.cpp
@@ -1417,6 +1419,7 @@ html/parser/HTMLEntityParser.cpp
 html/parser/HTMLEntitySearch.cpp
 html/parser/HTMLFormattingElementList.cpp
 html/parser/HTMLMetaCharsetParser.cpp
+html/parser/HTMLNameCache.cpp
 html/parser/HTMLParserIdioms.cpp
 html/parser/HTMLParserOptions.cpp
 html/parser/HTMLParserScheduler.cpp
@@ -1488,6 +1491,7 @@ inspector/InspectorInstrumentationPublic.cpp
 inspector/InspectorInstrumentationWebKit.cpp
 inspector/InspectorNodeFinder.cpp
 inspector/InspectorOverlay.cpp
+inspector/InspectorOverlayLabel.cpp
 inspector/InspectorShaderProgram.cpp
 inspector/InspectorStyleSheet.cpp
 inspector/InstrumentingAgents.cpp
@@ -2077,7 +2081,6 @@ platform/graphics/PixelBufferFormat.cpp
 platform/graphics/PixelFormat.cpp
 platform/graphics/PlatformTimeRanges.cpp
 platform/graphics/Region.cpp
-platform/graphics/RemoteGraphicsContextGLProxyBase.cpp
 platform/graphics/RemoteVideoSample.cpp
 platform/graphics/RoundedRect.cpp
 platform/graphics/ShadowBlur.cpp
@@ -3184,6 +3187,7 @@ JSGPUCommandBuffer.cpp
 JSGPUCommandBufferDescriptor.cpp
 JSGPUCommandEncoder.cpp
 JSGPUCommandEncoderDescriptor.cpp
+JSGPUCommandsMixin.cpp
 JSGPUCompareFunction.cpp
 JSGPUCompilationInfo.cpp
 JSGPUCompilationMessage.cpp
@@ -3195,6 +3199,7 @@ JSGPUComputePassTimestampWrite.cpp
 JSGPUComputePipeline.cpp
 JSGPUComputePipelineDescriptor.cpp
 JSGPUCullMode.cpp
+JSGPUDebugCommandsMixin.cpp
 JSGPUDepthStencilState.cpp
 JSGPUDevice.cpp
 JSGPUDeviceDescriptor.cpp
@@ -3230,7 +3235,6 @@ JSGPUPipelineBase.cpp
 JSGPUPipelineDescriptorBase.cpp
 JSGPUPipelineLayout.cpp
 JSGPUPipelineLayoutDescriptor.cpp
-JSGPUPipelineStatisticName.cpp
 JSGPUPowerPreference.cpp
 JSGPUPredefinedColorSpace.cpp
 JSGPUPrimitiveState.cpp
@@ -3261,6 +3265,7 @@ JSGPUSamplerBindingLayout.cpp
 JSGPUSamplerBindingType.cpp
 JSGPUSamplerDescriptor.cpp
 JSGPUShaderModule.cpp
+JSGPUShaderModuleCompilationHint.cpp
 JSGPUShaderModuleDescriptor.cpp
 JSGPUShaderStage.cpp
 JSGPUStencilFaceState.cpp

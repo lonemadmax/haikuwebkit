@@ -208,6 +208,7 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
     , m_random(Options::seedOfVMRandomForFuzzer() ? Options::seedOfVMRandomForFuzzer() : cryptographicallyRandomNumber())
     , m_integrityRandom(*this)
     , heap(*this, heapType)
+    , clientHeap(heap)
     , vmType(vmType)
     , clientData(nullptr)
     , topEntryFrame(nullptr)
@@ -551,7 +552,7 @@ VM& VM::sharedInstance()
     GlobalJSLock globalLock;
     VM*& instance = sharedInstanceInternal();
     if (!instance)
-        instance = adoptRef(new VM(APIShared, SmallHeap)).leakRef();
+        instance = adoptRef(new VM(APIShared, HeapType::Small)).leakRef();
     return *instance;
 }
 

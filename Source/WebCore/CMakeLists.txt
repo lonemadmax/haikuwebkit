@@ -1532,6 +1532,7 @@ list(APPEND WebCore_NON_SVG_IDL_FILES
     Modules/WebGPU/GPUCommandBufferDescriptor.idl
     Modules/WebGPU/GPUCommandEncoder.idl
     Modules/WebGPU/GPUCommandEncoderDescriptor.idl
+    Modules/WebGPU/GPUCommandsMixin.idl
     Modules/WebGPU/GPUCompareFunction.idl
     Modules/WebGPU/GPUCompilationInfo.idl
     Modules/WebGPU/GPUCompilationMessage.idl
@@ -1543,6 +1544,7 @@ list(APPEND WebCore_NON_SVG_IDL_FILES
     Modules/WebGPU/GPUComputePipeline.idl
     Modules/WebGPU/GPUComputePipelineDescriptor.idl
     Modules/WebGPU/GPUCullMode.idl
+    Modules/WebGPU/GPUDebugCommandsMixin.idl
     Modules/WebGPU/GPUDepthStencilState.idl
     Modules/WebGPU/GPUDevice.idl
     Modules/WebGPU/GPUDeviceDescriptor.idl
@@ -1578,7 +1580,6 @@ list(APPEND WebCore_NON_SVG_IDL_FILES
     Modules/WebGPU/GPUPipelineDescriptorBase.idl
     Modules/WebGPU/GPUPipelineLayout.idl
     Modules/WebGPU/GPUPipelineLayoutDescriptor.idl
-    Modules/WebGPU/GPUPipelineStatisticName.idl
     Modules/WebGPU/GPUPowerPreference.idl
     Modules/WebGPU/GPUPredefinedColorSpace.idl
     Modules/WebGPU/GPUPrimitiveState.idl
@@ -1609,6 +1610,7 @@ list(APPEND WebCore_NON_SVG_IDL_FILES
     Modules/WebGPU/GPUSamplerBindingType.idl
     Modules/WebGPU/GPUSamplerDescriptor.idl
     Modules/WebGPU/GPUShaderModule.idl
+    Modules/WebGPU/GPUShaderModuleCompilationHint.idl
     Modules/WebGPU/GPUShaderModuleDescriptor.idl
     Modules/WebGPU/GPUShaderStage.idl
     Modules/WebGPU/GPUStencilFaceState.idl
@@ -1706,13 +1708,10 @@ elseif (USE_LIBEPOXY)
     add_definitions(${LIBEPOXY_DEFINITIONS})
 else ()
     if (USE_OPENGL)
-        list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
-            ${OPENGL_INCLUDE_DIRS}
-        )
-        list(APPEND WebCore_LIBRARIES
-            ${OPENGL_LIBRARIES}
-        )
-        add_definitions(${OPENGL_DEFINITIONS})
+        list(APPEND WebCore_LIBRARIES OpenGL::OpenGL)
+        if (TARGET OpenGL::GLX)
+            list(APPEND WebCore_LIBRARIES OpenGL::GLX)
+        endif ()
     elseif (USE_OPENGL_ES)
         list(APPEND WebCore_LIBRARIES OpenGL::GLES)
     endif ()
@@ -1912,9 +1911,7 @@ if (ENABLE_WEBGL)
         )
         list(APPEND WebCore_SOURCES
             platform/graphics/angle/ANGLEUtilities.cpp
-            platform/graphics/angle/ExtensionsGLANGLE.cpp
             platform/graphics/angle/GraphicsContextGLANGLE.cpp
-            platform/graphics/angle/TemporaryANGLESetting.cpp
         )
 
         list(APPEND WebCore_LIBRARIES ANGLE::GLES)
@@ -2091,6 +2088,7 @@ set(MAKE_NAMES_DEPENDENCIES
 )
 set(SUPPLEMENTAL_DEPENDENCY_FILE ${WebCore_DERIVED_SOURCES_DIR}/supplemental_dependency.tmp)
 set(ISO_SUBSPACES_HEADER_FILE ${WebCore_DERIVED_SOURCES_DIR}/DOMIsoSubspaces.h)
+set(CLIENT_ISO_SUBSPACES_HEADER_FILE ${WebCore_DERIVED_SOURCES_DIR}/DOMClientIsoSubspaces.h)
 set(CONSTRUCTORS_HEADER_FILE ${WebCore_DERIVED_SOURCES_DIR}/DOMConstructors.h)
 set(WINDOW_CONSTRUCTORS_FILE ${WebCore_DERIVED_SOURCES_DIR}/DOMWindowConstructors.idl)
 set(WORKERGLOBALSCOPE_CONSTRUCTORS_FILE ${WebCore_DERIVED_SOURCES_DIR}/WorkerGlobalScopeConstructors.idl)
@@ -2279,9 +2277,10 @@ GENERATE_BINDINGS(WebCoreBindings
     GENERATOR JS
     SUPPLEMENTAL_DEPFILE ${SUPPLEMENTAL_DEPENDENCY_FILE}
     PP_EXTRA_OUTPUT
-    ${ISO_SUBSPACES_HEADER_FILE} ${CONSTRUCTORS_HEADER_FILE} ${WINDOW_CONSTRUCTORS_FILE} ${WORKERGLOBALSCOPE_CONSTRUCTORS_FILE} ${SHADOWREALMGLOBALSCOPE_CONSTRUCTORS_FILE} ${DEDICATEDWORKERGLOBALSCOPE_CONSTRUCTORS_FILE}
+    ${ISO_SUBSPACES_HEADER_FILE} ${CLIENT_ISO_SUBSPACES_HEADER_FILE} ${CONSTRUCTORS_HEADER_FILE} ${WINDOW_CONSTRUCTORS_FILE} ${WORKERGLOBALSCOPE_CONSTRUCTORS_FILE} ${SHADOWREALMGLOBALSCOPE_CONSTRUCTORS_FILE} ${DEDICATEDWORKERGLOBALSCOPE_CONSTRUCTORS_FILE}
     PP_EXTRA_ARGS
         --isoSubspacesHeaderFile ${ISO_SUBSPACES_HEADER_FILE}
+        --clientISOSubspacesHeaderFile ${CLIENT_ISO_SUBSPACES_HEADER_FILE}
         --constructorsHeaderFile ${CONSTRUCTORS_HEADER_FILE}
         --windowConstructorsFile ${WINDOW_CONSTRUCTORS_FILE}
         --workerGlobalScopeConstructorsFile ${WORKERGLOBALSCOPE_CONSTRUCTORS_FILE}

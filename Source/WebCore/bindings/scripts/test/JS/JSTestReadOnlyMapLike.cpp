@@ -22,7 +22,8 @@
 #include "JSTestReadOnlyMapLike.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -76,7 +77,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestReadOnlyMapLikePrototype, Base);
         return &vm.plainObjectSpace();
@@ -297,27 +298,14 @@ JSC_DEFINE_HOST_FUNCTION(jsTestReadOnlyMapLikePrototypeFunction_forEach, (JSGlob
     return IDLOperation<JSTestReadOnlyMapLike>::call<jsTestReadOnlyMapLikePrototypeFunction_forEachBody>(*lexicalGlobalObject, *callFrame, "forEach");
 }
 
-JSC::IsoSubspace* JSTestReadOnlyMapLike::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSTestReadOnlyMapLike::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForTestReadOnlyMapLike.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestReadOnlyMapLike> || !JSTestReadOnlyMapLike::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestReadOnlyMapLike>)
-        spaces.m_subspaceForTestReadOnlyMapLike = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestReadOnlyMapLike);
-    else
-        spaces.m_subspaceForTestReadOnlyMapLike = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestReadOnlyMapLike);
-    auto* space = spaces.m_subspaceForTestReadOnlyMapLike.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSTestReadOnlyMapLike::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSTestReadOnlyMapLike, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForTestReadOnlyMapLike.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestReadOnlyMapLike = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForTestReadOnlyMapLike.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestReadOnlyMapLike = WTFMove(space); }
+    );
 }
 
 void JSTestReadOnlyMapLike::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

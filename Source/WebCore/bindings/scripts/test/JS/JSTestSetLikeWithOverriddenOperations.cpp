@@ -22,7 +22,8 @@
 #include "JSTestSetLikeWithOverriddenOperations.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "IDLTypes.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
@@ -82,7 +83,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestSetLikeWithOverriddenOperationsPrototype, Base);
         return &vm.plainObjectSpace();
@@ -346,27 +347,14 @@ JSC_DEFINE_HOST_FUNCTION(jsTestSetLikeWithOverriddenOperationsPrototypeFunction_
     return IDLOperation<JSTestSetLikeWithOverriddenOperations>::call<jsTestSetLikeWithOverriddenOperationsPrototypeFunction_clearBody>(*lexicalGlobalObject, *callFrame, "clear");
 }
 
-JSC::IsoSubspace* JSTestSetLikeWithOverriddenOperations::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSTestSetLikeWithOverriddenOperations::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForTestSetLikeWithOverriddenOperations.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestSetLikeWithOverriddenOperations> || !JSTestSetLikeWithOverriddenOperations::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestSetLikeWithOverriddenOperations>)
-        spaces.m_subspaceForTestSetLikeWithOverriddenOperations = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestSetLikeWithOverriddenOperations);
-    else
-        spaces.m_subspaceForTestSetLikeWithOverriddenOperations = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestSetLikeWithOverriddenOperations);
-    auto* space = spaces.m_subspaceForTestSetLikeWithOverriddenOperations.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSTestSetLikeWithOverriddenOperations::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSTestSetLikeWithOverriddenOperations, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForTestSetLikeWithOverriddenOperations.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestSetLikeWithOverriddenOperations = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForTestSetLikeWithOverriddenOperations.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestSetLikeWithOverriddenOperations = WTFMove(space); }
+    );
 }
 
 void JSTestSetLikeWithOverriddenOperations::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

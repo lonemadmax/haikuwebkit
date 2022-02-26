@@ -31,7 +31,7 @@ from requests.auth import HTTPBasicAuth
 from twisted.internet import defer
 
 from layout_test_failures import LayoutTestFailures
-from send_email import send_email_to_patch_author, send_email_to_bot_watchers, send_email_to_github_admin
+from send_email import send_email_to_patch_author, send_email_to_bot_watchers, send_email_to_github_admin, FROM_EMAIL
 
 import json
 import os
@@ -127,6 +127,13 @@ class GitHub(object):
             print('Error reading GitHub credentials')
             return None, None
 
+    @classmethod
+    def email_for_owners(cls, owners):
+        if not owners:
+            return None, 'No owners defined, so email cannot be extracted'
+        contributors, errors = Contributors.load(use_network=False)
+        return contributors.get(owners[0], {}).get('email'), errors
+
 
 class GitHubMixin(object):
     addURLs = False
@@ -183,6 +190,36 @@ class GitHubMixin(object):
             self._addToLog('stdio', 'Cannot determine if hash is outdated or not.\n')
             return -1
         return 0 if pr_sha == self.getProperty('github.head.sha', '?') else 1
+
+    def should_send_email_for_pr(self, pr_number):
+        pr_json = self.get_pr_json(pr_number)
+        if not pr_json:
+            self._addToLog('stdio', 'Unable to fetch PR #{}\n'.format(pr_number))
+            return True
+
+        if 1 == self._is_hash_outdated(pr_json):
+            self._addToLog('stdio', 'Skipping email since hash {} on PR #{} is outdated\n'.format(
+                self.getProperty('github.head.sha', '?')[:HASH_LENGTH_TO_DISPLAY], pr_number,
+            ))
+            return False
+        return True
+
+
+class ShellMixin(object):
+    WINDOWS_SHELL_PLATFORMS = ['wincairo']
+
+    def has_windows_shell(self):
+        return self.getProperty('platform', '*') in self.WINDOWS_SHELL_PLATFORMS
+
+    def shell_command(self, command):
+        if self.has_windows_shell():
+            return ['cmd', '/c', command]
+        return ['/bin/sh', '-c', command]
+
+    def shell_exit_0(self):
+        if self.has_windows_shell():
+            return 'exit 0'
+        return 'true'
 
 
 class Contributors(object):
@@ -317,16 +354,15 @@ class ConfigureBuild(buildstep.BuildStep):
         if title:
             self.addURL('PR {}: {}'.format(pr_number, title), GitHub.pr_url(pr_number, repository_url))
         if owners:
-            contributors, errors = Contributors.load(use_network=False)
+            email, errors = GitHub.email_for_owners(owners)
             for error in errors:
                 print(error)
                 self._addToLog('stdio', error)
-            github_username = owners[0]
-            contributor = contributors.get(github_username, {})
-            display_name = contributor.get('email', github_username)
-            if display_name != github_username:
-                display_name = '{} ({})'.format(display_name, github_username)
-            self.addURL('PR by: {}'.format(display_name), '{}{}'.format(GITHUB_URL, github_username))
+            if email:
+                display_name = '{} ({})'.format(email, owners[0])
+            else:
+                display_name = owners[0]
+            self.addURL('PR by: {}'.format(display_name), '{}{}'.format(GITHUB_URL, owners[0]))
         if revision:
             self.addURL('Hash: {}'.format(revision[:HASH_LENGTH_TO_DISPLAY]), GitHub.commit_url(revision, repository_url))
 
@@ -547,7 +583,7 @@ class UpdateWorkingDirectory(shell.ShellCommand):
         return rc
 
 
-class ApplyPatch(shell.ShellCommand, CompositeStepMixin):
+class ApplyPatch(shell.ShellCommand, CompositeStepMixin, ShellMixin):
     name = 'apply-patch'
     description = ['applying-patch']
     descriptionDone = ['Applied patch']
@@ -571,7 +607,7 @@ class ApplyPatch(shell.ShellCommand, CompositeStepMixin):
         if not patch:
             # Forced build, don't have patch_id raw data on the request, need to fech it.
             patch_id = self.getProperty('patch_id', '')
-            self.command = ['/bin/sh', '-c', 'curl -L "https://bugs.webkit.org/attachment.cgi?id={}" -o .buildbot-diff && {}'.format(patch_id, ' '.join(self.command))]
+            self.command = self.shell_command('curl -L "https://bugs.webkit.org/attachment.cgi?id={}" -o .buildbot-diff && {}'.format(patch_id, ' '.join(self.command)))
             shell.ShellCommand.start(self)
             return None
 
@@ -606,11 +642,15 @@ class ApplyPatch(shell.ShellCommand, CompositeStepMixin):
         return rc
 
 
-class CheckOutPullRequest(steps.ShellSequence):
+class CheckOutPullRequest(steps.ShellSequence, ShellMixin):
     name = 'checkout-pull-request'
     description = ['checking-out-pull-request']
     descriptionDone = ['Checked out pull request']
     haltOnFailure = True
+    env = dict(
+        GIT_COMMITTER_NAME='EWS',
+        GIT_COMMITTER_EMAIL=FROM_EMAIL,
+    )
 
     def __init__(self, **kwargs):
         super(CheckOutPullRequest, self).__init__(timeout=10 * 60, logEnviron=False, **kwargs)
@@ -631,7 +671,7 @@ class CheckOutPullRequest(steps.ShellSequence):
         rebase_target_hash = self.getProperty('ews_revision') or self.getProperty('got_revision')
 
         commands = [
-            ['/bin/sh', '-c', 'git remote add {} {}{}.git & true'.format(remote, GITHUB_URL, project)],
+            self.shell_command('git remote add {} {}{}.git || {}'.format(remote, GITHUB_URL, project, self.shell_exit_0())),
             ['git', 'remote', 'set-url', remote, '{}{}.git'.format(GITHUB_URL, project)],
             ['git', 'fetch', remote],
             ['git', 'branch', '-f', pr_branch, 'remotes/{}/{}'.format(remote, pr_branch)],
@@ -1018,7 +1058,7 @@ class BugzillaMixin(object):
             return 1
         return 0
 
-    def should_send_email(self, patch_id):
+    def should_send_email_for_patch(self, patch_id):
         patch_json = self.get_patch_json(patch_id)
         if not patch_json:
             self._addToLog('stdio', 'Unable to fetch patch {}'.format(patch_id))
@@ -1391,6 +1431,9 @@ class SetCommitQueueMinusFlagOnPatch(buildstep.BuildStep, BugzillaMixin):
         elif self.results == SKIPPED:
             return buildstep.BuildStep.getResultSummary(self)
         return {'step': 'Failed to set cq- flag on patch'}
+
+    def doStepIf(self, step):
+        return self.getProperty('patch_id', False)
 
 
 class RemoveFlagsOnPatch(buildstep.BuildStep, BugzillaMixin):
@@ -2031,7 +2074,7 @@ class CompileWebKitWithoutChange(CompileWebKit):
             print('Error in sending email for unexpected build failure: {}'.format(e))
 
 
-class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin):
+class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
     name = 'analyze-compile-webkit-results'
     description = ['analyze-compile-webkit-results']
     descriptionDone = ['analyze-compile-webkit-results']
@@ -2123,14 +2166,37 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin):
     def send_email_for_new_build_failure(self):
         try:
             patch_id = self.getProperty('patch_id', '')
-            # FIXME: Support pull requests
-            if not patch_id or not self.should_send_email(patch_id):
+            pr_number = self.getProperty('github.number', '')
+            sha = self.getProperty('github.head.sha', '')[:HASH_LENGTH_TO_DISPLAY]
+
+            if patch_id and not self.should_send_email_for_patch(patch_id):
                 return
+            if pr_number and not self.should_send_email_for_pr(pr_number):
+                return
+            if not patch_id and not (pr_number and sha):
+                self._addToLog('stderr', 'Unrecognized change type')
+                return
+
+            change_string = None
+            change_author = None
+            if patch_id:
+                change_author = self.getProperty('patch_author', '')
+                change_string = 'Patch {}'.format(patch_id)
+            elif pr_number and sha:
+                change_string = 'Hash {}'.format(sha)
+                change_author, errors = GitHub.email_for_owners(self.getProperty('owners', []))
+                for error in errors:
+                    print(error)
+                    self._addToLog('stdio', error)
+
+            if not change_author:
+                self._addToLog('stderr', 'Unable to determine email address for {} from metadata/contributors.json. Skipping sending email.'.format(self.getProperty('owners', [])))
+                return
+
             builder_name = self.getProperty('buildername', '')
-            bug_id = self.getProperty('bug_id', '')
-            bug_title = self.getProperty('bug_title', '')
+            bug_id = self.getProperty('bug_id', '') or pr_number
+            title = self.getProperty('bug_title', '') or self.getProperty('github.title', '')
             worker_name = self.getProperty('workername', '')
-            patch_author = self.getProperty('patch_author', '')
             platform = self.getProperty('platform', '')
             build_url = '{}#/builders/{}/builds/{}'.format(self.master.config.buildbotURL, self.build._builderid, self.build.number)
             logs = self.error_logs.get(self.compile_webkit_step)
@@ -2139,17 +2205,22 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin):
             else:
                 logs = self.filter_logs_containing_error(logs)
 
-            email_subject = 'Build failure for Patch {}: {}'.format(patch_id, bug_title)
+            email_subject = 'Build failure for {}: {}'.format(change_string, title)
             email_text = 'EWS has detected build failure on {}'.format(builder_name)
-            email_text += ' while testing <a href="{}">Patch {}</a>'.format(Bugzilla.patch_url(patch_id), patch_id)
-            email_text += ' for <a href="{}">Bug {}</a>.'.format(Bugzilla.bug_url(bug_id), bug_id)
-            email_text += '\n\nFull details are available at: {}\n\nPatch author: {}'.format(build_url, patch_author)
+            if patch_id:
+                email_text += ' while testing <a href="{}">{}</a>'.format(Bugzilla.patch_url(patch_id), change_string)
+                email_text += ' for <a href="{}">Bug {}</a>.'.format(Bugzilla.bug_url(bug_id), bug_id)
+            if sha:
+                repository = self.getProperty('repository')
+                email_text += ' while testing <a href="{}">{}</a>'.format(GitHub.commit_url(sha, repository), change_string)
+                email_text += ' for <a href="{}">PR #{}</a>.'.format(GitHub.pr_url(pr_number, repository), pr_number)
+            email_text += '\n\nFull details are available at: {}\n\nChange author: {}'.format(build_url, change_author)
             if logs:
                 logs = logs.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
                 email_text += '\n\nError lines:\n\n<code>{}</code>'.format(logs)
             email_text += '\n\nTo unsubscribe from these notifications or to provide any feedback please email aakash_jain@apple.com'
-            self._addToLog('stdio', 'Sending email notification to {}'.format(patch_author))
-            send_email_to_patch_author(patch_author, email_subject, email_text, patch_id)
+            self._addToLog('stdio', 'Sending email notification to {}'.format(change_author))
+            send_email_to_patch_author(change_author, email_subject, email_text, patch_id or self.getProperty('github.head.sha', ''))
         except Exception as e:
             print('Error in sending email for new build failure: {}'.format(e))
 
@@ -2336,29 +2407,29 @@ class AnalyzeJSCTestsResults(buildstep.BuildStep):
     NUM_FAILURES_TO_DISPLAY = 10
 
     def start(self):
-        stress_failures_with_patch = set(self.getProperty('jsc_stress_test_failures', []))
-        binary_failures_with_patch = set(self.getProperty('jsc_binary_failures', []))
+        stress_failures_with_change = set(self.getProperty('jsc_stress_test_failures', []))
+        binary_failures_with_change = set(self.getProperty('jsc_binary_failures', []))
         clean_tree_stress_failures = set(self.getProperty('jsc_clean_tree_stress_test_failures', []))
         clean_tree_binary_failures = set(self.getProperty('jsc_clean_tree_binary_failures', []))
         clean_tree_failures = list(clean_tree_binary_failures) + list(clean_tree_stress_failures)
         clean_tree_failures_string = ', '.join(clean_tree_failures[:self.NUM_FAILURES_TO_DISPLAY])
 
-        flaky_stress_failures_with_patch = set(self.getProperty('jsc_flaky_and_passed', {}).keys())
+        flaky_stress_failures_with_change = set(self.getProperty('jsc_flaky_and_passed', {}).keys())
         clean_tree_flaky_stress_failures = set(self.getProperty('jsc_clean_tree_flaky_and_passed', {}).keys())
-        flaky_stress_failures = sorted(list(flaky_stress_failures_with_patch) + list(clean_tree_flaky_stress_failures))[:self.NUM_FAILURES_TO_DISPLAY]
+        flaky_stress_failures = sorted(list(flaky_stress_failures_with_change) + list(clean_tree_flaky_stress_failures))[:self.NUM_FAILURES_TO_DISPLAY]
         flaky_failures_string = ', '.join(flaky_stress_failures)
 
-        new_stress_failures = stress_failures_with_patch - clean_tree_stress_failures
-        new_binary_failures = binary_failures_with_patch - clean_tree_binary_failures
+        new_stress_failures = stress_failures_with_change - clean_tree_stress_failures
+        new_binary_failures = binary_failures_with_change - clean_tree_binary_failures
         self.new_stress_failures_to_display = ', '.join(sorted(list(new_stress_failures))[:self.NUM_FAILURES_TO_DISPLAY])
         self.new_binary_failures_to_display = ', '.join(sorted(list(new_binary_failures))[:self.NUM_FAILURES_TO_DISPLAY])
 
-        self._addToLog('stderr', '\nFailures with patch: {}'.format(list(binary_failures_with_patch) + list(stress_failures_with_patch))[:self.NUM_FAILURES_TO_DISPLAY])
-        self._addToLog('stderr', '\nFlaky Tests with patch: {}'.format(', '.join(flaky_stress_failures_with_patch)))
+        self._addToLog('stderr', '\nFailures with change: {}'.format(list(binary_failures_with_change) + list(stress_failures_with_change))[:self.NUM_FAILURES_TO_DISPLAY])
+        self._addToLog('stderr', '\nFlaky Tests with change: {}'.format(', '.join(flaky_stress_failures_with_change)))
         self._addToLog('stderr', '\nFailures on clean tree: {}'.format(clean_tree_failures_string))
         self._addToLog('stderr', '\nFlaky Tests on clean tree: {}'.format(', '.join(clean_tree_flaky_stress_failures)))
 
-        if (not stress_failures_with_patch) and (not binary_failures_with_patch):
+        if (not stress_failures_with_change) and (not binary_failures_with_change):
             # If we've made it here, then jsc-tests and re-run-jsc-tests failed, which means
             # there should have been some test failures. Otherwise there is some unexpected issue.
             clean_tree_run_status = self.getProperty('clean_tree_run_status', FAILURE)
@@ -2399,7 +2470,7 @@ class AnalyzeJSCTestsResults(buildstep.BuildStep):
     def report_failure(self, new_binary_failures, new_stress_failures):
         message = ''
         if (not new_binary_failures) and (not new_stress_failures):
-            message = 'Found unexpected failure with patch'
+            message = 'Found unexpected failure with change'
         if new_binary_failures:
             pluralSuffix = 's' if len(new_binary_failures) > 1 else ''
             message = 'Found {} new JSC binary failure{}: {}'.format(len(new_binary_failures), pluralSuffix, self.new_binary_failures_to_display)
@@ -2829,11 +2900,11 @@ class RunWebKitTestsWithoutChange(RunWebKitTests):
 
     def setLayoutTestCommand(self):
         super(RunWebKitTestsWithoutChange, self).setLayoutTestCommand()
-        # In order to speed up testing, on the step that retries running the layout tests without patch
+        # In order to speed up testing, on the step that retries running the layout tests without change
         # only run the subset of tests that failed on the previous steps.
         # But only do that if the previous steps didn't exceed the test failure limit
         # Also pass '--skipped=always' to avoid running a test that is skipped on the clean tree and that
-        # the patch removed from the TestExpectations file meanwhile it still fails with the patch (so
+        # the change removed from the TestExpectations file meanwhile it still fails with the change (so
         # it is passed as an argument on the command-line)
         # The flag '--skip-failing-tests' that is passed by default (in combination with '--skipped=always')
         # avoids running tests marked as failing on the Expectation files even when those are passed as arguments.
@@ -2842,12 +2913,12 @@ class RunWebKitTestsWithoutChange(RunWebKitTests):
         if not first_results_did_exceed_test_failure_limit and not second_results_did_exceed_test_failure_limit:
             first_results_failing_tests = set(self.getProperty('first_run_failures', set()))
             second_results_failing_tests = set(self.getProperty('second_run_failures', set()))
-            list_failed_tests_with_patch = sorted(first_results_failing_tests.union(second_results_failing_tests))
-            if list_failed_tests_with_patch:
-                self.setCommand(self.command + ['--skipped=always'] + list_failed_tests_with_patch)
+            list_failed_tests_with_change = sorted(first_results_failing_tests.union(second_results_failing_tests))
+            if list_failed_tests_with_change:
+                self.setCommand(self.command + ['--skipped=always'] + list_failed_tests_with_change)
 
 
-class AnalyzeLayoutTestsResults(buildstep.BuildStep, BugzillaMixin):
+class AnalyzeLayoutTestsResults(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
     name = 'analyze-layout-tests-results'
     description = ['analyze-layout-test-results']
     descriptionDone = ['analyze-layout-tests-results']
@@ -2857,7 +2928,7 @@ class AnalyzeLayoutTestsResults(buildstep.BuildStep, BugzillaMixin):
         self.finished(FAILURE)
         self.build.results = FAILURE
         if not new_failures:
-            message = 'Found unexpected failure with patch'
+            message = 'Found unexpected failure with change'
         else:
             pluralSuffix = 's' if len(new_failures) > 1 else ''
             if exceed_failure_limit:
@@ -2907,7 +2978,7 @@ class AnalyzeLayoutTestsResults(buildstep.BuildStep, BugzillaMixin):
 
     def retry_build(self, message=''):
         if not message:
-            message = 'Unable to confirm if test failures are introduced by patch, retrying build'
+            message = 'Unable to confirm if test failures are introduced by change, retrying build'
         self.descriptionDone = message
 
         triggered_by = self.getProperty('triggered_by', None)
@@ -2962,11 +3033,36 @@ class AnalyzeLayoutTestsResults(buildstep.BuildStep, BugzillaMixin):
     def send_email_for_new_test_failures(self, test_names, exceed_failure_limit=False):
         try:
             patch_id = self.getProperty('patch_id', '')
-            if not self.should_send_email(patch_id):
+            pr_number = self.getProperty('github.number', '')
+            sha = self.getProperty('github.head.sha', '')[:HASH_LENGTH_TO_DISPLAY]
+
+            if patch_id and not self.should_send_email_for_patch(patch_id):
                 return
+            if pr_number and not self.should_send_email_for_pr(pr_number):
+                return
+            if not patch_id and not (pr_number and sha):
+                self._addToLog('stderr', 'Unrecognized change type')
+                return
+
+            change_string = None
+            change_author = None
+            if patch_id:
+                change_author = self.getProperty('patch_author', '')
+                change_string = 'Patch {}'.format(patch_id)
+            elif pr_number and sha:
+                change_string = 'Hash {}'.format(sha)
+                change_author, errors = GitHub.email_for_owners(self.getProperty('owners', []))
+                for error in errors:
+                    print(error)
+                    self._addToLog('stdio', error)
+
+            if not change_author:
+                self._addToLog('stderr', 'Unable to determine email address for {} from metadata/contributors.json. Skipping sending email.'.format(self.getProperty('owners', [])))
+                return
+
             builder_name = self.getProperty('buildername', '')
-            bug_id = self.getProperty('bug_id', '')
-            bug_title = self.getProperty('bug_title', '')
+            bug_id = self.getProperty('bug_id', '') or pr_number
+            title = self.getProperty('bug_title', '') or self.getProperty('github.title', '')
             worker_name = self.getProperty('workername', '')
             patch_author = self.getProperty('patch_author', '')
             build_url = '{}#/builders/{}/builds/{}'.format(self.master.config.buildbotURL, self.build._builderid, self.build.number)
@@ -2976,17 +3072,23 @@ class AnalyzeLayoutTestsResults(buildstep.BuildStep, BugzillaMixin):
                 test_names_string += '\n- {} (<a href="{}">test history</a>)'.format(test_name, history_url)
 
             pluralSuffix = 's' if len(test_names) > 1 else ''
-            email_subject = 'Layout test failure for Patch {}: {} '.format(patch_id, bug_title)
+            email_subject = 'Layout test failure for {}: {}'.format(change_string, title)
             email_text = 'EWS has detected layout test failure{} on {}'.format(pluralSuffix, builder_name)
-            email_text += ' while testing <a href="{}">Patch {}</a>'.format(Bugzilla.patch_url(patch_id), patch_id)
-            email_text += ' for <a href="{}">Bug {}</a>.'.format(Bugzilla.bug_url(bug_id), bug_id)
-            email_text += '\n\nFull details are available at: {}\n\nPatch author: {}'.format(build_url, patch_author)
+            if patch_id:
+                email_text += ' while testing <a href="{}">{}</a>'.format(Bugzilla.patch_url(patch_id), change_string)
+                email_text += ' for <a href="{}">Bug {}</a>.'.format(Bugzilla.bug_url(bug_id), bug_id)
+            else:
+                repository = self.getProperty('repository')
+                email_text += ' while testing <a href="{}">{}</a>'.format(GitHub.commit_url(sha, repository), change_string)
+                email_text += ' for <a href="{}">PR #{}</a>.'.format(GitHub.pr_url(pr_number, repository), pr_number)
+            email_text += '\n\nFull details are available at: {}\n\nChange author: {}'.format(build_url, change_author)
+
             if exceed_failure_limit:
                 email_text += '\n\nAditionally the failure limit has been exceeded, so the test suite has been terminated early. It is likely that there would be more failures than the ones listed below.'
             email_text += '\n\nLayout test failure{}:\n{}'.format(pluralSuffix, test_names_string)
             email_text += '\n\nTo unsubscribe from these notifications or to provide any feedback please email aakash_jain@apple.com'
-            self._addToLog('stdio', 'Sending email notification to {}'.format(patch_author))
-            send_email_to_patch_author(patch_author, email_subject, email_text, patch_id)
+            self._addToLog('stdio', 'Sending email notification to {}'.format(change_author))
+            send_email_to_patch_author(change_author, email_subject, email_text, patch_id or self.getProperty('github.head.sha', ''))
         except Exception as e:
             print('Error in sending email for new layout test failures: {}'.format(e))
 
@@ -3009,7 +3111,7 @@ class AnalyzeLayoutTestsResults(buildstep.BuildStep, BugzillaMixin):
             clean_tree_run_status = self.getProperty('clean_tree_run_status', FAILURE)
             if clean_tree_run_status == SUCCESS:
                 return self.report_failure(set())
-            self.send_email_for_infrastructure_issue('Both first and second layout-test runs with patch generated no list of results but exited with error, and the clean_tree without patch retry also failed.')
+            self.send_email_for_infrastructure_issue('Both first and second layout-test runs with patch generated no list of results but exited with error, and the clean_tree without change retry also failed.')
             return self.retry_build('Unexpected infrastructure issue, retrying build')
 
         if first_results_did_exceed_test_failure_limit and second_results_did_exceed_test_failure_limit:
@@ -3140,14 +3242,14 @@ class RunWebKitTestsRepeatFailuresRedTree(RunWebKitTestsRedTree):
         self.setCommand(self.command + ['--fully-parallel', '--repeat-each=%s' % self.NUM_REPEATS_PER_TEST] + sorted(first_results_failing_tests))
 
     def evaluateCommand(self, cmd):
-        with_patch_repeat_failures_results_nonflaky_failures = set(self.getProperty('with_patch_repeat_failures_results_nonflaky_failures', []))
-        with_patch_repeat_failures_results_flakies = set(self.getProperty('with_patch_repeat_failures_results_flakies', []))
-        with_patch_repeat_failures_timedout = self.getProperty('with_patch_repeat_failures_timedout', False)
+        with_change_repeat_failures_results_nonflaky_failures = set(self.getProperty('with_change_repeat_failures_results_nonflaky_failures', []))
+        with_change_repeat_failures_results_flakies = set(self.getProperty('with_change_repeat_failures_results_flakies', []))
+        with_change_repeat_failures_timedout = self.getProperty('with_change_repeat_failures_timedout', False)
         first_results_flaky_tests = set(self.getProperty('first_run_flakies', []))
         rc = self.evaluateResult(cmd)
-        self.setProperty('with_patch_repeat_failures_retcode', rc)
+        self.setProperty('with_change_repeat_failures_retcode', rc)
         next_steps = [ArchiveTestResults(), UploadTestResults(identifier='repeat-failures'), ExtractTestResults(identifier='repeat-failures')]
-        if with_patch_repeat_failures_results_nonflaky_failures or with_patch_repeat_failures_timedout:
+        if with_change_repeat_failures_results_nonflaky_failures or with_change_repeat_failures_timedout:
             next_steps.extend([
                 ValidateChange(verifyBugClosed=False, addURLs=False),
                 KillOldProcesses(),
@@ -3155,7 +3257,7 @@ class RunWebKitTestsRepeatFailuresRedTree(RunWebKitTestsRedTree):
                 RevertPullRequestChanges(),
                 CompileWebKitWithoutChange(retry_build_on_failure=True),
                 ValidateChange(verifyBugClosed=False, addURLs=False),
-                RunWebKitTestsRepeatFailuresWithoutPatchRedTree(),
+                RunWebKitTestsRepeatFailuresWithoutChangeRedTree(),
             ])
         else:
             next_steps.append(AnalyzeLayoutTestsResultsRedTree())
@@ -3167,15 +3269,15 @@ class RunWebKitTestsRepeatFailuresRedTree(RunWebKitTestsRedTree):
         shell.Test.commandComplete(self, cmd)
         logText = self.log_observer.getStdout() + self.log_observer.getStderr()
         logTextJson = self.log_observer_json.getStdout()
-        with_patch_repeat_failures_results = LayoutTestFailures.results_from_string(logTextJson)
-        if with_patch_repeat_failures_results:
-            self.setProperty('with_patch_repeat_failures_results_exceed_failure_limit', with_patch_repeat_failures_results.did_exceed_test_failure_limit)
-            self.setProperty('with_patch_repeat_failures_results_nonflaky_failures', sorted(with_patch_repeat_failures_results.failing_tests))
-            self.setProperty('with_patch_repeat_failures_results_flakies', sorted(with_patch_repeat_failures_results.flaky_tests))
-            if with_patch_repeat_failures_results.failing_tests:
-                self._addToLog(self.test_failures_log_name, '\n'.join(with_patch_repeat_failures_results.failing_tests))
+        with_change_repeat_failures_results = LayoutTestFailures.results_from_string(logTextJson)
+        if with_change_repeat_failures_results:
+            self.setProperty('with_change_repeat_failures_results_exceed_failure_limit', with_change_repeat_failures_results.did_exceed_test_failure_limit)
+            self.setProperty('with_change_repeat_failures_results_nonflaky_failures', sorted(with_change_repeat_failures_results.failing_tests))
+            self.setProperty('with_change_repeat_failures_results_flakies', sorted(with_change_repeat_failures_results.flaky_tests))
+            if with_change_repeat_failures_results.failing_tests:
+                self._addToLog(self.test_failures_log_name, '\n'.join(with_change_repeat_failures_results.failing_tests))
         command_timedout = self._did_command_timed_out(self.log_observer.getHeaders())
-        self.setProperty('with_patch_repeat_failures_timedout', command_timedout)
+        self.setProperty('with_change_repeat_failures_timedout', command_timedout)
         self._parseRunWebKitTestsOutput(logText)
 
     def start(self):
@@ -3183,8 +3285,8 @@ class RunWebKitTestsRepeatFailuresRedTree(RunWebKitTestsRedTree):
         return super().start(BufferLogObserverClass=BufferLogHeaderObserver)
 
 
-class RunWebKitTestsRepeatFailuresWithoutPatchRedTree(RunWebKitTestsRedTree):
-    name = 'layout-tests-repeat-failures-without-patch'
+class RunWebKitTestsRepeatFailuresWithoutChangeRedTree(RunWebKitTestsRedTree):
+    name = 'layout-tests-repeat-failures-without-change'
     NUM_REPEATS_PER_TEST = 10
     EXIT_AFTER_FAILURES = None
     MAX_SECONDS_STEP_RUN = 10800  # 3h
@@ -3194,35 +3296,35 @@ class RunWebKitTestsRepeatFailuresWithoutPatchRedTree(RunWebKitTestsRedTree):
 
     def setLayoutTestCommand(self):
         super().setLayoutTestCommand()
-        with_patch_nonflaky_failures = set(self.getProperty('with_patch_repeat_failures_results_nonflaky_failures', []))
+        with_change_nonflaky_failures = set(self.getProperty('with_change_repeat_failures_results_nonflaky_failures', []))
         first_run_failures = set(self.getProperty('first_run_failures', []))
-        with_patch_repeat_failures_timedout = self.getProperty('with_patch_repeat_failures_timedout', False)
-        failures_to_repeat = first_run_failures if with_patch_repeat_failures_timedout else with_patch_nonflaky_failures
+        with_change_repeat_failures_timedout = self.getProperty('with_change_repeat_failures_timedout', False)
+        failures_to_repeat = first_run_failures if with_change_repeat_failures_timedout else with_change_nonflaky_failures
         # Pass '--skipped=always' to ensure that any test passed via command line arguments
         # is skipped anyways if is marked as such on the Expectation files or if is marked
         # as failure (since we are passing also '--skip-failing-tests'). That way we ensure
-        # to report the case of a patch removing an expectation that still fails with it.
+        # to report the case of a change removing an expectation that still fails with it.
         self.setCommand(self.command + ['--fully-parallel', '--repeat-each=%s' % self.NUM_REPEATS_PER_TEST, '--skipped=always'] + sorted(failures_to_repeat))
 
     def evaluateCommand(self, cmd):
         rc = self.evaluateResult(cmd)
-        self.setProperty('without_patch_repeat_failures_retcode', rc)
-        self.build.addStepsAfterCurrentStep([ArchiveTestResults(), UploadTestResults(identifier='repeat-failures-without-patch'), ExtractTestResults(identifier='repeat-failures-without-patch'), AnalyzeLayoutTestsResultsRedTree()])
+        self.setProperty('without_change_repeat_failures_retcode', rc)
+        self.build.addStepsAfterCurrentStep([ArchiveTestResults(), UploadTestResults(identifier='repeat-failures-without-change'), ExtractTestResults(identifier='repeat-failures-without-change'), AnalyzeLayoutTestsResultsRedTree()])
         return rc
 
     def commandComplete(self, cmd):
         shell.Test.commandComplete(self, cmd)
         logText = self.log_observer.getStdout() + self.log_observer.getStderr()
         logTextJson = self.log_observer_json.getStdout()
-        without_patch_repeat_failures_results = LayoutTestFailures.results_from_string(logTextJson)
-        if without_patch_repeat_failures_results:
-            self.setProperty('without_patch_repeat_failures_results_exceed_failure_limit', without_patch_repeat_failures_results.did_exceed_test_failure_limit)
-            self.setProperty('without_patch_repeat_failures_results_nonflaky_failures', sorted(without_patch_repeat_failures_results.failing_tests))
-            self.setProperty('without_patch_repeat_failures_results_flakies', sorted(without_patch_repeat_failures_results.flaky_tests))
-            if without_patch_repeat_failures_results.failing_tests:
-                self._addToLog(self.test_failures_log_name, '\n'.join(without_patch_repeat_failures_results.failing_tests))
+        without_change_repeat_failures_results = LayoutTestFailures.results_from_string(logTextJson)
+        if without_change_repeat_failures_results:
+            self.setProperty('without_change_repeat_failures_results_exceed_failure_limit', without_change_repeat_failures_results.did_exceed_test_failure_limit)
+            self.setProperty('without_change_repeat_failures_results_nonflaky_failures', sorted(without_change_repeat_failures_results.failing_tests))
+            self.setProperty('without_change_repeat_failures_results_flakies', sorted(without_change_repeat_failures_results.flaky_tests))
+            if without_change_repeat_failures_results.failing_tests:
+                self._addToLog(self.test_failures_log_name, '\n'.join(without_change_repeat_failures_results.failing_tests))
         command_timedout = self._did_command_timed_out(self.log_observer.getHeaders())
-        self.setProperty('without_patch_repeat_failures_timedout', command_timedout)
+        self.setProperty('without_change_repeat_failures_timedout', command_timedout)
         self._parseRunWebKitTestsOutput(logText)
 
     def start(self):
@@ -3261,7 +3363,7 @@ class AnalyzeLayoutTestsResultsRedTree(AnalyzeLayoutTestsResults):
     def report_infrastructure_issue_and_maybe_retry_build(self, message):
         retry_count = int(self.getProperty('retry_count', 0))
         if retry_count >= self.MAX_RETRY:
-            message += '\nReached the maximum number of retries ({}). Unable to determine if patch is bad or there is a pre-existent infrastructure issue.'.format(self.MAX_RETRY)
+            message += '\nReached the maximum number of retries ({}). Unable to determine if change is bad or there is a pre-existent infrastructure issue.'.format(self.MAX_RETRY)
             self.send_email_for_infrastructure_issue(message)
             return self.report_warning(message)
         message += "\nRetrying build [retry count is {} of {}]".format(retry_count, self.MAX_RETRY)
@@ -3278,10 +3380,10 @@ class AnalyzeLayoutTestsResultsRedTree(AnalyzeLayoutTestsResults):
             pluralSuffix = 's' if number_failures > 1 else ''
 
             email_subject = 'Info about {} pre-existent failure{} at {}'.format(number_failures, pluralSuffix, builder_name)
-            email_test = 'Info about pre-existent (non-flaky) test failure{} at EWS:\n'.format(pluralSuffix)
-            email_text = '    - Build : {}\n'.format(build_url)
-            email_text = '    - Builder : {}\n'.format(builder_name)
-            email_text = '    - Worker : {}\n'.format(worker_name)
+            email_text = 'Info about pre-existent (non-flaky) test failure{} at EWS:\n'.format(pluralSuffix)
+            email_text += '  - Build : {}\n'.format(build_url)
+            email_text += '  - Builder : {}\n'.format(builder_name)
+            email_text += '  - Worker : {}\n'.format(worker_name)
             for test_name in sorted(test_names):
                 history_url = '{}?suite=layout-tests&test={}'.format(RESULTS_DB_URL, test_name)
                 email_text += '\n- {} (<a href="{}">test history</a>)'.format(test_name, history_url)
@@ -3289,89 +3391,114 @@ class AnalyzeLayoutTestsResultsRedTree(AnalyzeLayoutTestsResults):
         except Exception as e:
             print('Error in sending email for flaky failure: {}'.format(e))
 
+    def send_email_for_flaky_failures_and_steps(self, test_names_steps_dict):
+        try:
+            builder_name = self.getProperty('buildername', '')
+            worker_name = self.getProperty('workername', '')
+            build_url = '{}#/builders/{}/builds/{}'.format(self.master.config.buildbotURL, self.build._builderid, self.build.number)
+            number_failures = len(test_names_steps_dict)
+            pluralSuffix = 's' if number_failures > 1 else ''
+            email_subject = 'Info about {} flaky failure{} at {}'.format(number_failures, pluralSuffix, builder_name)
+            email_text = 'Info about {} flaky test failure{} at EWS:\n'.format(number_failures, pluralSuffix)
+            email_text += '  - Build : {}\n'.format(build_url)
+            email_text += '  - Builder : {}\n'.format(builder_name)
+            email_text += '  - Worker : {}\n'.format(worker_name)
+            flaky_number = 0
+            for test_name in test_names_steps_dict:
+                flaky_number += 1
+                history_url = '{}?suite=layout-tests&test={}'.format(RESULTS_DB_URL, test_name)
+                number_steps_flaky = len(test_names_steps_dict[test_name])
+                pluralstepSuffix = 's' if number_steps_flaky > 1 else ''
+                step_names_str = '"{}"'.format('", "'.join(test_names_steps_dict[test_name]))
+                email_text += '\nFlaky #{}\n  - Test name: {}\n  - Flaky on step{}: {}\n  - History: {}\n'.format(flaky_number, test_name, pluralstepSuffix, step_names_str, history_url)
+            send_email_to_bot_watchers(email_subject, email_text, builder_name, 'flaky-{}'.format(worker_name))
+        except Exception as e:
+            print('Error in sending email for flaky failure: {}'.format(e))
+
     def start(self):
-        # Run with patch, running the whole layout test suite
+        # Run with change, running the whole layout test suite
         first_results_exceed_failure_limit = self.getProperty('first_results_exceed_failure_limit', False)
         first_run_failures = set(self.getProperty('first_run_failures', []))
         first_run_flakies = set(self.getProperty('first_run_flakies', []))
 
-        # Run with patch, running first_run_failures 10 times each test
-        with_patch_repeat_failures_results_exceed_failure_limit = self.getProperty('with_patch_repeat_failures_results_exceed_failure_limit', False)
-        with_patch_repeat_failures_results_nonflaky_failures = set(self.getProperty('with_patch_repeat_failures_results_nonflaky_failures', []))
-        with_patch_repeat_failures_results_flakies = set(self.getProperty('with_patch_repeat_failures_results_flakies', []))
-        with_patch_repeat_failures_timedout = self.getProperty('with_patch_repeat_failures_timedout', False)
+        # Run with change, running first_run_failures 10 times each test
+        with_change_repeat_failures_results_exceed_failure_limit = self.getProperty('with_change_repeat_failures_results_exceed_failure_limit', False)
+        with_change_repeat_failures_results_nonflaky_failures = set(self.getProperty('with_change_repeat_failures_results_nonflaky_failures', []))
+        with_change_repeat_failures_results_flakies = set(self.getProperty('with_change_repeat_failures_results_flakies', []))
+        with_change_repeat_failures_timedout = self.getProperty('with_change_repeat_failures_timedout', False)
 
-        # Run without patch, running with_patch_repeat_failures_results_nonflaky_failures 10 times each test
-        without_patch_repeat_failures_results_exceed_failure_limit = self.getProperty('without_patch_repeat_failures_results_exceed_failure_limit', False)
-        without_patch_repeat_failures_results_nonflaky_failures = set(self.getProperty('without_patch_repeat_failures_results_nonflaky_failures', []))
-        without_patch_repeat_failures_results_flakies = set(self.getProperty('without_patch_repeat_failures_results_flakies', []))
-        without_patch_repeat_failures_timedout = self.getProperty('without_patch_repeat_failures_timedout', False)
+        # Run without change, running with_change_repeat_failures_results_nonflaky_failures 10 times each test
+        without_change_repeat_failures_results_exceed_failure_limit = self.getProperty('without_change_repeat_failures_results_exceed_failure_limit', False)
+        without_change_repeat_failures_results_nonflaky_failures = set(self.getProperty('without_change_repeat_failures_results_nonflaky_failures', []))
+        without_change_repeat_failures_results_flakies = set(self.getProperty('without_change_repeat_failures_results_flakies', []))
+        without_change_repeat_failures_timedout = self.getProperty('without_change_repeat_failures_timedout', False)
 
         # If we've made it here that means that the first_run failed (non-zero status) but we don't have a list of failures or flakies. That is not expected.
         if (not first_run_failures) and (not first_run_flakies):
             # If we are not on the last retry, then try to retry the whole testing with the hope it was a random infrastructure error.
             retry_count = int(self.getProperty('retry_count', 0))
             if retry_count < self.MAX_RETRY:
-                return self.report_infrastructure_issue_and_maybe_retry_build('The layout-test run with patch generated no list of results and exited with error, retrying with the hope it was a random infrastructure error.')
+                return self.report_infrastructure_issue_and_maybe_retry_build('The layout-test run with change generated no list of results and exited with error, retrying with the hope it was a random infrastructure error.')
             # Otherwise (last retry) report and error or a warning, since we already gave it enough retries for the issue to not be caused by a random infrastructure error.
             # The clean tree run that only happens when the first run gives an error code without generating a list of failures or flakies.
             clean_tree_run_failures = set(self.getProperty('clean_tree_run_failures', []))
             clean_tree_run_flakies = set(self.getProperty('clean_tree_run_flakies', []))
             clean_tree_run_status = self.getProperty('clean_tree_run_status', FAILURE)
-            # If the clean-tree run generated some results then we assume this patch broke the script run-webkit-tests or something like that.
+            # If the clean-tree run generated some results then we assume this change broke the script run-webkit-tests or something like that.
             if (clean_tree_run_status in [SUCCESS, WARNINGS]) or clean_tree_run_failures or clean_tree_run_flakies:
                 return self.report_failure(set(), first_results_exceed_failure_limit)
             # This will end the testing as retry_count will be now self.MAX_RETRY and a warning will be reported.
-            return self.report_infrastructure_issue_and_maybe_retry_build('The layout-test run with patch generated no list of results and exited with error, and the clean_tree without patch run did the same thing.')
+            return self.report_infrastructure_issue_and_maybe_retry_build('The layout-test run with change generated no list of results and exited with error, and the clean_tree without change run did the same thing.')
 
-        if with_patch_repeat_failures_results_exceed_failure_limit or without_patch_repeat_failures_results_exceed_failure_limit:
+        if with_change_repeat_failures_results_exceed_failure_limit or without_change_repeat_failures_results_exceed_failure_limit:
             return self.report_infrastructure_issue_and_maybe_retry_build('One of the steps for retrying the failed tests has exited early, but this steps should run without "--exit-after-n-failures" switch, so they should not exit early.')
 
-        if without_patch_repeat_failures_timedout:
-            return self.report_infrastructure_issue_and_maybe_retry_build('The step "layout-tests-repeat-failures-without-patch" was interrumped because it reached the timeout.')
+        if without_change_repeat_failures_timedout:
+            return self.report_infrastructure_issue_and_maybe_retry_build('The step "layout-tests-repeat-failures-without-change" was interrumped because it reached the timeout.')
 
-        if with_patch_repeat_failures_timedout:
-            # The patch is causing the step 'layout-tests-repeat-failures-with-patch' to timeout, likely the patch is adding many failures or long timeouts needing lot of time to test the repeats.
-            # Report the tests that failed on the first run as we don't have the information of the ones that failed on 'layout-tests-repeat-failures-with-patch' because it was interrupted due to the timeout.
+        if with_change_repeat_failures_timedout:
+            # The change is causing the step 'layout-tests-repeat-failures-with-change' to timeout, likely the change is adding many failures or long timeouts needing lot of time to test the repeats.
+            # Report the tests that failed on the first run as we don't have the information of the ones that failed on 'layout-tests-repeat-failures-with-change' because it was interrupted due to the timeout.
             # There is no point in repeating this run, it would happen the same on next runs and consume lot of time.
-            likely_new_non_flaky_failures = first_run_failures - without_patch_repeat_failures_results_nonflaky_failures.union(without_patch_repeat_failures_results_flakies)
-            self.send_email_for_infrastructure_issue('The step "layout-tests-repeat-failures-with-patch" reached the timeout but the step "layout-tests-repeat-failures-without-patch" ended. Not trying to repeat this. Reporting {} failures from the first run.'.format(len(likely_new_non_flaky_failures)))
+            likely_new_non_flaky_failures = first_run_failures - without_change_repeat_failures_results_nonflaky_failures.union(without_change_repeat_failures_results_flakies)
+            self.send_email_for_infrastructure_issue('The step "layout-tests-repeat-failures-with-change" reached the timeout but the step "layout-tests-repeat-failures-without-change" ended. Not trying to repeat this. Reporting {} failures from the first run.'.format(len(likely_new_non_flaky_failures)))
             return self.report_failure(likely_new_non_flaky_failures, first_results_exceed_failure_limit)
 
         # The checks below need to be after the timeout ones (above) because when a timeout is trigerred no results will be generated for the step.
-        # The step with_patch_repeat_failures generated no list of failures or flakies, which should only happen when the return code of the step is SUCESS or WARNINGS.
-        if not with_patch_repeat_failures_results_nonflaky_failures and not with_patch_repeat_failures_results_flakies:
-            with_patch_repeat_failures_retcode = self.getProperty('with_patch_repeat_failures_retcode', FAILURE)
-            if with_patch_repeat_failures_retcode not in [SUCCESS, WARNINGS]:
+        # The step with_change_repeat_failures generated no list of failures or flakies, which should only happen when the return code of the step is SUCESS or WARNINGS.
+        if not with_change_repeat_failures_results_nonflaky_failures and not with_change_repeat_failures_results_flakies:
+            with_change_repeat_failures_retcode = self.getProperty('with_change_repeat_failures_retcode', FAILURE)
+            if with_change_repeat_failures_retcode not in [SUCCESS, WARNINGS]:
                 return self.report_infrastructure_issue_and_maybe_retry_build('The step "layout-tests-repeat-failures" failed to generate any list of failures or flakies and returned an error code.')
 
-        # Check the same for the step without_patch_repeat_failures
-        if not without_patch_repeat_failures_results_nonflaky_failures and not without_patch_repeat_failures_results_flakies:
-            without_patch_repeat_failures_retcode = self.getProperty('without_patch_repeat_failures_retcode', FAILURE)
-            if without_patch_repeat_failures_retcode not in [SUCCESS, WARNINGS]:
-                return self.report_infrastructure_issue_and_maybe_retry_build('The step "layout-tests-repeat-failures-without-patch" failed to generate any list of failures or flakies and returned an error code.')
+        # Check the same for the step without_change_repeat_failures
+        if not without_change_repeat_failures_results_nonflaky_failures and not without_change_repeat_failures_results_flakies:
+            without_change_repeat_failures_retcode = self.getProperty('without_change_repeat_failures_retcode', FAILURE)
+            if without_change_repeat_failures_retcode not in [SUCCESS, WARNINGS]:
+                return self.report_infrastructure_issue_and_maybe_retry_build('The step "layout-tests-repeat-failures-without-change" failed to generate any list of failures or flakies and returned an error code.')
 
-        # Warn EWS bot watchers about flakies so they can garden those. Include the step where the flaky was found in the e-mail to know if it was found with patch or without it.
-        # Due to the way this class works most of the flakies are filtered on the step with patch even when those were pre-existent issues (so this is also useful for bot watchers).
-        all_flaky_failures = first_run_flakies.union(with_patch_repeat_failures_results_flakies).union(without_patch_repeat_failures_results_flakies)
+        # Warn EWS bot watchers about flakies so they can garden those. Include the step where the flaky was found in the e-mail to know if it was found with change or without it.
+        # Due to the way this class works most of the flakies are filtered on the step with change even when those were pre-existent issues (so this is also useful for bot watchers).
+        all_flaky_failures = first_run_flakies.union(with_change_repeat_failures_results_flakies).union(without_change_repeat_failures_results_flakies)
+        flaky_steps_dict = {}
         for flaky_failure in all_flaky_failures:
             step_names = []
-            if flaky_failure in without_patch_repeat_failures_results_flakies:
-                step_names.append('layout-tests-repeat-failures-without-patch')
-            if flaky_failure in with_patch_repeat_failures_results_flakies:
-                step_names.append('layout-tests-repeat-failures (with patch)')
+            if flaky_failure in without_change_repeat_failures_results_flakies:
+                step_names.append('layout-tests-repeat-failures-without-change')
+            if flaky_failure in with_change_repeat_failures_results_flakies:
+                step_names.append('layout-tests-repeat-failures (with change)')
             if flaky_failure in first_run_flakies:
-                step_names.append('layout-tests (with patch)')
-            step_names_str = '"{}"'.format('", "'.join(step_names))
-            self.send_email_for_flaky_failure(flaky_failure, step_names_str)
+                step_names.append('layout-tests (with change)')
+            flaky_steps_dict[flaky_failure] = step_names
+        self.send_email_for_flaky_failures_and_steps(flaky_steps_dict)
 
         # Warn EWS bot watchers about pre-existent non-flaky failures (if any), but send only one e-mail with all the tests to avoid sending too much e-mails.
-        pre_existent_non_flaky_failures = without_patch_repeat_failures_results_nonflaky_failures - with_patch_repeat_failures_results_nonflaky_failures.union(all_flaky_failures)
+        pre_existent_non_flaky_failures = without_change_repeat_failures_results_nonflaky_failures - all_flaky_failures
         if pre_existent_non_flaky_failures:
             self.send_email_for_pre_existent_failures(pre_existent_non_flaky_failures)
 
-        # Finally check if there are new consistent (non-flaky) failures caused by the patch and warn the patch author stetting the status for the build.
-        new_non_flaky_failures = with_patch_repeat_failures_results_nonflaky_failures - without_patch_repeat_failures_results_nonflaky_failures.union(without_patch_repeat_failures_results_flakies)
+        # Finally check if there are new consistent (non-flaky) failures caused by the change and warn the change author stetting the status for the build.
+        new_non_flaky_failures = with_change_repeat_failures_results_nonflaky_failures - without_change_repeat_failures_results_nonflaky_failures.union(without_change_repeat_failures_results_flakies)
         if new_non_flaky_failures:
             return self.report_failure(new_non_flaky_failures, first_results_exceed_failure_limit)
 
@@ -3417,7 +3544,7 @@ class TransferToS3(master.MasterShellCommand):
     archive = WithProperties('public_html/archives/%(fullPlatform)s-%(architecture)s-%(configuration)s/%(change_id)s.zip')
     identifier = WithProperties('%(fullPlatform)s-%(architecture)s-%(configuration)s')
     change_id = WithProperties('%(change_id)s')
-    command = ['python3', '../Shared/transfer-archive-to-s3', '--patch_id', change_id, '--identifier', identifier, '--archive', archive]
+    command = ['python3', '../Shared/transfer-archive-to-s3', '--change-id', change_id, '--identifier', identifier, '--archive', archive]
     haltOnFailure = False
     flunkOnFailure = False
 
@@ -3583,7 +3710,7 @@ class ReRunAPITests(RunAPITests):
             steps_to_add.append(CompileWebKitWithoutChange(retry_build_on_failure=True))
             steps_to_add.append(ValidateChange(verifyBugClosed=False, addURLs=False))
             steps_to_add.append(KillOldProcesses())
-            steps_to_add.append(RunAPITestsWithoutPatch())
+            steps_to_add.append(RunAPITestsWithoutChange())
             steps_to_add.append(AnalyzeAPITestsResults())
             # Using a single addStepsAfterCurrentStep because of https://github.com/buildbot/buildbot/issues/4874
             self.build.addStepsAfterCurrentStep(steps_to_add)
@@ -3591,8 +3718,8 @@ class ReRunAPITests(RunAPITests):
         return rc
 
 
-class RunAPITestsWithoutPatch(RunAPITests):
-    name = 'run-api-tests-without-patch'
+class RunAPITestsWithoutChange(RunAPITests):
+    name = 'run-api-tests-without-change'
 
     def evaluateCommand(self, cmd):
         return TestWithFailureCount.evaluateCommand(self, cmd)
@@ -3608,7 +3735,7 @@ class AnalyzeAPITestsResults(buildstep.BuildStep):
         self.results = {}
         d = self.getTestsResults(RunAPITests.name)
         d.addCallback(lambda res: self.getTestsResults(ReRunAPITests.name))
-        d.addCallback(lambda res: self.getTestsResults(RunAPITestsWithoutPatch.name))
+        d.addCallback(lambda res: self.getTestsResults(RunAPITestsWithoutChange.name))
         d.addCallback(lambda res: self.analyzeResults())
         return defer.succeed(None)
 
@@ -3621,7 +3748,7 @@ class AnalyzeAPITestsResults(buildstep.BuildStep):
 
         first_run_results = self.results.get(RunAPITests.name)
         second_run_results = self.results.get(ReRunAPITests.name)
-        clean_tree_results = self.results.get(RunAPITestsWithoutPatch.name)
+        clean_tree_results = self.results.get(RunAPITestsWithoutChange.name)
 
         if not (first_run_results and second_run_results):
             self.finished(RETRY)
@@ -3888,7 +4015,7 @@ class PrintConfiguration(steps.ShellSequence):
 
 
 # FIXME: We should be able to remove this step once abandoning patch workflows
-class CleanGitRepo(steps.ShellSequence):
+class CleanGitRepo(steps.ShellSequence, ShellMixin):
     name = 'clean-up-git-repo'
     haltOnFailure = False
     flunkOnFailure = False
@@ -3903,7 +4030,7 @@ class CleanGitRepo(steps.ShellSequence):
         branch = self.getProperty('basename', self.default_branch)
         self.commands = []
         for command in [
-            ['/bin/sh', '-c', 'git rebase --abort & true'],
+            self.shell_command('git rebase --abort || {}'.format(self.shell_exit_0())),
             ['git', 'clean', '-f', '-d'],  # Remove any left-over layout test results, added files, etc.
             ['git', 'fetch', self.git_remote],  # Avoid updating the working copy to a stale revision.
             ['git', 'checkout', '{}/{}'.format(self.git_remote, branch), '-f'],  # Checkout branch from specific remote

@@ -1845,7 +1845,7 @@ typedef NS_ENUM(NSInteger, EndEditingReason) {
 #endif
 
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
-    if (gestureRecognizer != _mouseGestureRecognizer && [_mouseGestureRecognizer mouseTouch] == touch)
+    if (gestureRecognizer != _mouseGestureRecognizer && [_mouseGestureRecognizer mouseTouch] == touch && touch.type == UITouchTypeIndirectPointer)
         return NO;
     
     if (gestureRecognizer != _alternateMouseGestureRecognizer && [_alternateMouseGestureRecognizer mouseTouch] == touch)
@@ -2498,6 +2498,15 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
     return (a == x && b == y) || (b == x && a == y);
 }
 
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WKContentViewInteractionAdditions_SimultaneousRecognitionExtras.mm>)
+#import <WebKitAdditions/WKContentViewInteractionAdditions_SimultaneousRecognitionExtras.mm>
+#else
+- (BOOL)_shouldAdditionallyRecognizeGestureRecognizer:(UIGestureRecognizer *)gestureRecognizer simultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
+{
+    return NO;
+}
+#endif
+
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer*)otherGestureRecognizer
 {
     for (WKDeferringGestureRecognizer *gesture in self.deferringGestures) {
@@ -2573,6 +2582,9 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
     if (gestureRecognizer == _imageAnalysisGestureRecognizer || gestureRecognizer == _imageAnalysisTimeoutGestureRecognizer)
         return YES;
 #endif
+
+    if ([self _shouldAdditionallyRecognizeGestureRecognizer:gestureRecognizer simultaneouslyWithGestureRecognizer:otherGestureRecognizer])
+        return YES;
 
     return NO;
 }
@@ -3227,6 +3239,12 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
     [_inputPeripheral setSingleTapShouldEndEditing:[_inputPeripheral isEditing]];
 
     bool shouldRequestMagnificationInformation = _page->preferences().fasterClicksEnabled();
+
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+    if (WKHoverPlatterDomain.rootSettings.platterEnabledForDoubleTap)
+        shouldRequestMagnificationInformation = NO;
+#endif
+
     if (shouldRequestMagnificationInformation)
         RELEASE_LOG(ViewGestures, "Single tap identified. Request details on potential zoom. (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
 
@@ -3317,6 +3335,14 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
         [_inputPeripheral endEditing];
 
     RELEASE_LOG(ViewGestures, "Single tap recognized - commit potential tap (%p, pageProxyID=%llu)", self, _page->identifier().toUInt64());
+    
+    
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+    if (WKHoverPlatterDomain.rootSettings.platterEnabledForSingleTap && ![_hoverPlatter isVisible]) {
+        [_hoverPlatter didSingleTapAtPoint:_lastInteractionLocation];
+        return;
+    }
+#endif
 
     WebCore::PointerID pointerId = WebCore::mousePointerID;
     if (auto* singleTapTouchIdentifier = [_singleTapGestureRecognizer lastActiveTouchIdentifier]) {
@@ -3337,6 +3363,14 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
 
     auto location = [self _locationForGesture:gestureRecognizer];
     _lastInteractionLocation = location;
+
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+    if (WKHoverPlatterDomain.rootSettings.platterEnabledForDoubleTap) {
+        [_hoverPlatter didDoubleTapAtPoint:location];
+        return;
+    }
+#endif
+
     _smartMagnificationController->handleSmartMagnificationGesture(location);
 }
 
@@ -4667,7 +4701,7 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
         if (currentItem)
             [updatedItems removeObject:currentItem];
     } else if (!currentItem)
-        [updatedItems addObject:adoptNS([[UIMenuItem alloc] initWithTitle:WEB_UI_STRING("Markup Image", "Image analysis markup menu item") action:@selector(performImageAnalysisMarkup:)]).get()];
+        [updatedItems addObject:adoptNS([[UIMenuItem alloc] initWithTitle:WebCore::contextMenuItemTitleMarkupImage() action:@selector(performImageAnalysisMarkup:)]).get()];
 }
 
 - (BOOL)canPerformImageAnalysisMarkup
@@ -4731,7 +4765,7 @@ static void selectionChangedWithTouch(WKContentView *view, const WebCore::IntPoi
             return;
         }
 
-        WebKit::requestImageAnalysisMarkup(cgImage.get(), [sourceMIMEType, context, completion = WTFMove(completion), weakSelf](CGImageRef result) mutable {
+        WebKit::requestImageAnalysisMarkup(cgImage.get(), [sourceMIMEType, context, completion = WTFMove(completion), weakSelf](CGImageRef result, CGRect) mutable {
             auto strongSelf = weakSelf.get();
             if (!strongSelf) {
                 completion();
@@ -7552,6 +7586,13 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
 {
     _page->requestRVItemInCurrentSelectedRange([revealItemSelectionHandler = makeBlockPtr(completionHandler)](const WebKit::RevealItem& item) {
         revealItemSelectionHandler(item.item());
+    });
+}
+
+- (void)prepareSelectionForContextMenuWithLocationInView:(CGPoint)locationInView completionHandler:(void(^)(BOOL shouldPresentMenu, RVItem *item))completionHandler
+{
+    _page->prepareSelectionForContextMenuWithLocationInView(WebCore::roundedIntPoint(locationInView), [protectedCompletionHandler = makeBlockPtr(completionHandler)](bool shouldPresentMenu, const WebKit::RevealItem& item) {
+        protectedCompletionHandler(shouldPresentMenu, item.item());
     });
 }
 #endif
@@ -10862,7 +10903,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 - (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant copyCroppedImage:(UIImage *)image sourceMIMEType:(NSString *)sourceMIMEType
 {
     auto changeCount = UIPasteboard.generalPasteboard.changeCount;
-    WebKit::requestImageAnalysisMarkup(image.CGImage, [changeCount, weakSelf = WeakObjCPtr<WKContentView>(self), originalImage = RetainPtr { image }, sourceMIMEType = RetainPtr { sourceMIMEType }](CGImageRef result) mutable {
+    WebKit::requestImageAnalysisMarkup(image.CGImage, [changeCount, weakSelf = WeakObjCPtr<WKContentView>(self), originalImage = RetainPtr { image }, sourceMIMEType = RetainPtr { sourceMIMEType }](CGImageRef result, CGRect) mutable {
         auto strongSelf = weakSelf.get();
         if (!strongSelf)
             return;

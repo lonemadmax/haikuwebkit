@@ -1,3 +1,865 @@
+2022-02-20  Alan Bujtas  <zalan@apple.com>
+
+        [IFC][Integration] Enable non-paginated vertical-lr writing mode
+        https://bugs.webkit.org/show_bug.cgi?id=236481
+        <rdar://problem/89123721>
+
+        Reviewed by Antti Koivisto.
+
+        Progression:
+        * css3/flexbox/line-wrapping.html:
+
+        Legacy layout bounds floor/ceil mismatch:
+        * fast/block/float/float-with-fractional-height-vertical-lr.html:
+        * imported/blink/fast/multicol/vertical-lr/float-big-line-expected.html:
+        * imported/blink/fast/multicol/vertical-lr/float-big-line.html:
+
+        Progression (visually matching Chrome)
+        * platform/mac/fast/writing-mode/border-image-vertical-lr-expected.txt:
+        * platform/mac/fast/writing-mode/border-radius-clipping-vertical-lr-expected.txt:
+        * platform/mac/fast/writing-mode/border-styles-vertical-lr-expected.txt:
+        * platform/mac/fast/writing-mode/border-styles-vertical-lr-mixed-expected.txt:
+        * platform/mac/fast/writing-mode/box-shadow-vertical-lr-expected.txt:
+        * platform/mac/fast/writing-mode/text-orientation-basic-expected.txt:
+
+2022-02-19  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed gardening for GPU Process bots.
+
+        * gpu-process/TestExpectations:
+        * platform/ios/TestExpectations:
+
+2022-02-19  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed gardening. Relating tests failing due to turning accel drawing on to b236904.
+        * platform/ios/TestExpectations:
+
+2022-02-19  Jon Lee  <jonlee@apple.com>
+
+        Test gardening for [CSS Blending] Non-separable blend modes don't work
+        https://bugs.webkit.org/show_bug.cgi?id=131354
+
+        Unreviewed.
+        * TestExpectations:
+
+2022-02-19  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed gardening for GPU Process bots.
+
+        * gpu-process/TestExpectations:
+        * platform/ios/TestExpectations:
+
+        * compositing/images/positioned-image-content-rect.html:
+        * compositing/overlap-blending/nested-overlap.html:
+        * css2.1/20110323/height-applies-to-010a.htm:
+        * fast/borders/border-radius-on-html.html:
+        * fast/replaced/ul-li-word-break-break-word.html:
+        * imported/blink/fast/scrolling/fractional-scroll-offset-iframe-fixed-position.html:
+
+2022-02-19  Philippe Normand  <pnormand@igalia.com>
+
+        [WPE][GTK] Enable Thunder and remove old Clearkey CDM/Decryptor
+        https://bugs.webkit.org/show_bug.cgi?id=235492
+
+        Reviewed by Xabier Rodriguez-Calvar.
+
+        Update EME ClearKey baselines, a few more tests were enabled.
+
+        * platform/glib/TestExpectations:
+        * platform/glib/imported/w3c/web-platform-tests/encrypted-media/idlharness.https-expected.txt: Added.
+        * platform/wpe/imported/w3c/web-platform-tests/encrypted-media/idlharness.https-expected.txt: Removed.
+
+2022-02-18  Ben Nham  <nham@apple.com>
+
+        Hook up PushManager to permission state
+        https://bugs.webkit.org/show_bug.cgi?id=236739
+
+        Reviewed by Brady Eidson.
+
+        Added tests that make sure that PushManager.permissionState() and PushManager.subscribe()
+        respect the notification permission level for the current origin.
+
+        I made these regular tests rather than WPT tests because the WPT test harness calls
+        grantWebNotificationPermission at the top of its setup script (in testharnessreport.js), and
+        I didn't want to change that for this patch.
+
+        * http/tests/push-api/resources/push-api-test-pre.js: Added.
+        (finishPushAPITest):
+        (waitForState):
+        * http/tests/push-api/resources/subscribe-iframe-cross-origin.html: Added.
+        * http/tests/push-api/resources/subscribe-iframe-same-origin.html: Added.
+        * http/tests/push-api/resources/subscribe-tests.js: Added.
+        (async testServiceWorkerPermissionState):
+        (async testDocumentPermissionState):
+        (async testServiceWorkerSubscribe):
+        (async testDocumentSubscribe):
+        * http/tests/push-api/resources/subscribe-worker.js: Added.
+        (async event):
+        * http/tests/push-api/subscribe-default-permissions-expected.txt: Added.
+        * http/tests/push-api/subscribe-default-permissions-iframe-cross-origin-expected.txt: Added.
+        * http/tests/push-api/subscribe-default-permissions-iframe-cross-origin.html: Added.
+        * http/tests/push-api/subscribe-default-permissions-iframe-same-origin-expected.txt: Added.
+        * http/tests/push-api/subscribe-default-permissions-iframe-same-origin.html: Added.
+        * http/tests/push-api/subscribe-default-permissions.html: Added.
+        * http/tests/push-api/subscribe-deny-permissions-expected.txt: Added.
+        * http/tests/push-api/subscribe-deny-permissions.html: Added.
+        * http/tests/push-api/subscribe-grant-permissions-expected.txt: Added.
+        * http/tests/push-api/subscribe-grant-permissions.html: Added.
+        * platform/gtk/TestExpectations:
+        * platform/mac-wk1/TestExpectations:
+        * platform/win/TestExpectations:
+
+2022-02-18  Ryan Haddad  <ryanhaddad@apple.com>
+
+        http/wpt/push-api/onpush-disabled.html fails (incremental build issue?)
+        https://bugs.webkit.org/show_bug.cgi?id=236874
+
+        Unreviewed test gardening.
+
+        * TestExpectations: Mark test as failing to reduce impact on EWS.
+
+2022-02-18  Matteo Flores  <matteo_flores@apple.com>
+
+        REGRESSION(r287249): [ Monterey wk2 ] media/media-source/media-webm-vorbis-partial.html is a constant text failure
+        https://bugs.webkit.org/show_bug.cgi?id=236857
+
+        Unreviewed test gardening.
+
+        * platform/mac-bigsur/fast/text/international/Geeza-Pro-vertical-metrics-adjustment-expected.txt: Copied from LayoutTests/platform/mac/fast/text/international/Geeza-Pro-vertical-metrics-adjustment-expected.txt.
+        * platform/mac/fast/text/international/Geeza-Pro-vertical-metrics-adjustment-expected.txt: Rebaslining due to test changes.
+
+2022-02-18  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [Live Text] Add a mechanism to inject images into image overlays
+        https://bugs.webkit.org/show_bug.cgi?id=236842
+
+        Reviewed by Aditya Keerthi.
+
+        Add a layout test that exercises the new cropped image overlay code.
+
+        * fast/images/text-recognition/image-overlay-cropped-image-expected.txt: Added.
+        * fast/images/text-recognition/image-overlay-cropped-image.html: Added.
+
+2022-02-18  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        WebGL GPUP: Crash when running fast/mediastream/getUserMedia-to-canvas-1.html
+        https://bugs.webkit.org/show_bug.cgi?id=236502
+
+        Unskip the previous crashes caused by the lack of implementation.
+
+        Reviewed by Eric Carlson.
+
+        * platform/ios-wk2/TestExpectations:
+
+2022-02-18  Ryan Haddad  <ryanhaddad@apple.com>
+
+        REGRESSION (10/5/2021?): [iOS] http/wpt/cross-origin-opener-policy/single-request-to-server.html is a flaky failure
+        https://bugs.webkit.org/show_bug.cgi?id=233284
+
+        Unreviewed test gardening.
+
+        * platform/ios/TestExpectations: Mark test as flaky.
+
+2022-02-18  Jon Lee  <jonlee@apple.com>
+
+        REGRESSION (r289990): [iOS] fast/backgrounds/gradient-background-shadow.html is consistently failing
+        https://bugs.webkit.org/show_bug.cgi?id=236854
+
+        Unreviewed. Expanding fuzzy range.
+        * fast/backgrounds/gradient-background-shadow.html:
+
+2022-02-18  Tim Nguyen  <ntim@apple.com>
+
+        Re-import inert and <dialog> WPT
+        https://bugs.webkit.org/show_bug.cgi?id=236808
+
+        Reviewed by Simon Fraser.
+
+        Commit: https://github.com/web-platform-tests/wpt/commit/0d483a3bea340a2c60cb7a4add49eb63cbba2a64
+
+        * platform/ios-wk2/imported/w3c/web-platform-tests/inert/inert-iframe-hittest.tentative-expected.txt: Added.
+        * platform/ios-wk2/imported/w3c/web-platform-tests/inert/inert-iframe-tabbing.tentative-expected.txt: Added.
+
+2022-02-18  Sam Sneddon  <gsnedders@apple.com>
+
+        ServiceWorkerGlobalScope+PushAPI requires PushAPIEnabled
+        https://bugs.webkit.org/show_bug.cgi?id=236846
+
+        Reviewed by Chris Dumez.
+
+        * http/wpt/push-api/onpush-disabled-expected.txt: Added.
+        * http/wpt/push-api/onpush-disabled.html: Added.
+        * http/wpt/push-api/onpush-disabled.js: Added.
+        (test):
+        * http/wpt/push-api/onpush-enabled-expected.txt: Added.
+        * http/wpt/push-api/onpush-enabled.html: Added.
+        * http/wpt/push-api/onpush-enabled.js: Added.
+        (test):
+
+2022-02-18  Jon Lee  <jonlee@apple.com>
+
+        Follow up to b236802. Unreviewed.
+
+        * platform/ios/TestExpectations: Remove the test expectations.
+
+2022-02-18  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed gardening for GPU Process bot.
+
+        * TestExpectations:
+        * fast/css/counters/counter-list-item.html: Add fuzzy data.
+        * gpu-process/TestExpectations:
+        * platform/ios-wk2/TestExpectations:
+        * platform/ios/TestExpectations:
+
+2022-02-18  Jon Lee  <jonlee@apple.com>
+
+        imported/w3c/web-platform-tests/css/css-sizing/range-percent-intrinsic-size-* fail
+        https://bugs.webkit.org/show_bug.cgi?id=203514
+
+        Unreviewed.
+        * TestExpectations: No longer happening. Removing.
+
+2022-02-18  Antoine Quint  <graouts@webkit.org>
+
+        [frame-rate] [custom-effect] allow setting frameRate as an option passed to document.timeline.animate()
+        https://bugs.webkit.org/show_bug.cgi?id=236831
+
+        Reviewed by Dean Jackson.
+
+        * webanimations/frame-rate/animation-frame-rate-expected.txt:
+        * webanimations/frame-rate/animation-frame-rate.html:
+
+2022-02-18  Ziran Sun  <zsun@igalia.com>
+
+        [InputElement] Return empty string for an invalid floating-point number that ends with "."
+        https://bugs.webkit.org/show_bug.cgi?id=236700
+
+        Reviewed by Chris Dumez.
+
+        * fast/forms/number/number-stepup-stepdown-expected.txt:
+        * fast/forms/number/number-stepup-stepdown-from-renderer-expected.txt:
+        * fast/forms/number/number-stepup-stepdown-from-renderer.html:
+        * fast/forms/number/number-stepup-stepdown.html:
+
+2022-02-18  Antoine Quint  <graouts@webkit.org>
+
+        [frame-rate] allow setting frameRate as an option passed to Element.animate()
+        https://bugs.webkit.org/show_bug.cgi?id=236830
+
+        Reviewed by Dean Jackson.
+
+        * webanimations/frame-rate/animation-frame-rate-expected.txt:
+        * webanimations/frame-rate/animation-frame-rate.html:
+
+2022-02-18  Antoine Quint  <graouts@webkit.org>
+
+        [custom-effect] Animations associated with a custom effect should appear in document.getAnimations() result
+        https://bugs.webkit.org/show_bug.cgi?id=236828
+
+        Reviewed by Dean Jackson.
+
+        * webanimations/custom-effect/custom-effect-get-animations-expected.txt: Added.
+        * webanimations/custom-effect/custom-effect-get-animations.html: Added.
+
+2022-02-18  Antoine Quint  <graouts@webkit.org>
+
+        [frame-rate] animation with different but compatible frame rates should be aligned
+        https://bugs.webkit.org/show_bug.cgi?id=236778
+        <rdar://problem/89083932>
+
+        Reviewed by Simon Fraser.
+
+        Add new tests that check the behavior of alignment when:
+        
+        - two animations are started together with the same frame rate,
+        - two animations are started one frame apart with the same frame rate,
+        - three animations are each started one frame apart and with different, but compatible frame rates.
+
+        * TestExpectations:
+        * platform/ios-wk2/TestExpectations:
+        * platform/mac-wk2/TestExpectations:
+        * webanimations/frame-rate/animation-frame-rate-alignment-compatible-frame-rates-expected.txt: Added.
+        * webanimations/frame-rate/animation-frame-rate-alignment-compatible-frame-rates.html: Added.
+        * webanimations/frame-rate/animation-frame-rate-alignment-started-together-expected.txt: Added.
+        * webanimations/frame-rate/animation-frame-rate-alignment-started-together.html: Added.
+        * webanimations/frame-rate/animation-frame-rate-alignment-started-with-one-frame-separation-expected.txt: Added.
+        * webanimations/frame-rate/animation-frame-rate-alignment-started-with-one-frame-separation.html: Added.
+
+2022-02-18  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed gardening for GPU Process bots. Update fuzzy data.
+
+        * gpu-process/TestExpectations:
+        * platform/ios/TestExpectations: A couple tests are happening on all iOS bots and not uniquely on GPU Process bots.
+
+2022-02-17  Alan Bujtas  <zalan@apple.com>
+
+        [LFC][IFC] 'vertical-align: bottom' makes inline level boxes stick out of their parent block box
+        https://bugs.webkit.org/show_bug.cgi?id=236677
+
+        Reviewed by Antti Koivisto.
+
+        * fast/inline/vertical-align-bottom-expected.html: Added.
+        * fast/inline/vertical-align-bottom.html: Added.
+
+2022-02-17  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed gardening for iOS GPU Process bots.
+
+        * TestExpectations:
+        * gpu-process/TestExpectations: Triage remaining failures.
+
+        * css3/masking/clip-path-border-radius-border-box-000.html: Add fuzzy data.
+        * imported/blink/svg/paintorder/paintorder.svg:
+
+2022-02-17  Aditya Keerthi  <akeerthi@apple.com>
+
+        '-webkit-user-select: all' is not respected in editable views
+        https://bugs.webkit.org/show_bug.cgi?id=190977
+        rdar://34945944
+
+        Reviewed by Wenson Hsieh.
+
+        Add tests to verify the behavior of `-[WKWebView _setEditable:]` with
+        '-webkit-user-select: all', '-webkit-user-modify: none', and
+        'contenteditable=false'. Elements with '-webkit-user-select: all' should
+        not be editable.
+
+        * editing/editability/contenteditable-false-in-editable-view-expected.txt: Added.
+        * editing/editability/contenteditable-false-in-editable-view.html: Added.
+        * editing/editability/user-modify-read-only-in-editable-view-expected.txt: Added.
+        * editing/editability/user-modify-read-only-in-editable-view.html: Added.
+        * editing/editability/user-select-all-in-editable-view-expected.txt: Added.
+        * editing/editability/user-select-all-in-editable-view.html: Added.
+        * editing/input/ios/rtl-keyboard-input-on-focus-in-editable-page.html:
+
+        Replace the test option with the new UIHelper method.
+
+        * resources/ui-helper.js:
+        (window.UIHelper.setWebViewEditable):
+
+2022-02-17  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Account for subgrid MBP when sizing
+        https://bugs.webkit.org/show_bug.cgi?id=236338
+
+        Reviewed by Dean Jackson.
+
+        Account for subgrid MBP when sizing
+
+        * TestExpectations:
+
+2022-02-17  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Include sub grid items in the track sizing algorithm of the outer grid
+        https://bugs.webkit.org/show_bug.cgi?id=236337
+
+        Reviewed by Dean Jackson.
+
+        Existing test expectations updated.
+
+        * TestExpectations:
+
+2022-02-17  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed gardening. Add fuzzy data.
+
+        * fast/borders/border-radius-on-html.html:
+        * fast/images/exif-orientation-svg-feimage.html:
+
+2022-02-17  Ryan Haddad  <ryanhaddad@apple.com>
+
+        [iOS] css/css-color/t422-rgba-onscreen-b.xht and css/css-color/t425-hsla-onscreen-b.xht are consistently failing
+        https://bugs.webkit.org/show_bug.cgi?id=236802
+
+        Unreviewed test gardening.
+
+        * platform/ios/TestExpectations: Mark tests as failing.
+
+2022-02-17  Kyle Piddington  <kpiddington@apple.com>
+
+        Metal ANGLE: vertex array does not correctly observe contents of data buffers
+        https://bugs.webkit.org/show_bug.cgi?id=236733
+        <rdar://problem/88713302>
+        <rdar://problem/88499073>
+
+        Reviewed by Dean Jackson.
+
+        Similar to previous bug (236427), we were not correctly observing changes to the
+        vertex buffer data. This caused us to miss rebinding vertex buffers
+        when data was updated without causing conversion
+
+        * fast/canvas/webgl/buffer-data-subdata-dynamic-buffer.html: Added.
+        * fast/canvas/webgl/buffer-data-subdata-dynamic-buffer-expected.txt: Added.
+
+2022-02-17  Matteo Flores  <matteo_flores@apple.com>
+
+        [css-grid] Incorrectly stretched SVGs without an aspect-ratio.
+        https://bugs.webkit.org/show_bug.cgi?id=216145
+
+        Unreviewed test gardening.
+
+        * TestExpectations: Adding failure expectation for tests that were missed.
+
+2022-02-17  Truitt Savell  <tsavell@apple.com>
+
+        Remove the Catalina specific expectation added in r289834
+        https://bugs.webkit.org/show_bug.cgi?id=236619
+
+        Unreviewed test gardening.
+
+        * platform/mac-catalina/fonts/monospace-expected.txt: Removed.
+
+2022-02-17  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed GPU Process bot gardening.
+
+        * gpu-process/TestExpectations:
+
+2022-02-17  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Copy track sizes from parent grid into subgrid
+        https://bugs.webkit.org/show_bug.cgi?id=236336
+
+        Reviewed by Dean Jackson.
+
+        Existing test expectations updated.
+
+        * TestExpectations:
+
+2022-02-16  Antoine Quint  <graouts@webkit.org>
+
+        Use the animation frame rate during animation resolution and scheduling
+        https://bugs.webkit.org/show_bug.cgi?id=234202
+        rdar://85983678
+
+        Reviewed by Simon Fraser.
+
+        Update this test to not rely on hard values but rather check that throttling
+        has the expected effect of doubling the interval between frames.
+
+        * fast/animation/css-animation-throttling-lowPowerMode-expected.txt:
+        * fast/animation/css-animation-throttling-lowPowerMode.html:
+
+2022-02-16  Tim Horton  <timothy_horton@apple.com>
+
+        Revert r275772: inflated FloatSize memory layout unnecessarily
+        https://bugs.webkit.org/show_bug.cgi?id=236743
+
+        Reviewed by Simon Fraser.
+
+        * TestExpectations:
+
+2022-02-16  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Lookup line names for sub grids using line names from ancestor grids
+        https://bugs.webkit.org/show_bug.cgi?id=236287
+
+        Reviewed by Simon Fraser.
+
+        Update expectations for newly passing tests. 
+
+        * TestExpectations:
+
+2022-02-16  Joonghun Park  <jh718.park@samsung.com>
+
+        Change the canonical unit for time category from ms to s.
+        https://bugs.webkit.org/show_bug.cgi?id=236631
+
+        Reviewed by Darin Adler.
+
+        According to the spec, https://drafts.csswg.org/css-values-4/#time,
+        the canonical unit for <time> is Seconds.
+
+        * fast/css/calc-with-angle-time-frequency-expected.txt:
+        * fast/css/calc-with-angle-time-frequency.html:
+        * fast/css/getFloatValueForUnit-expected.txt:
+        * fast/css/getFloatValueForUnit.html:
+        * fast/css/transition-delay-calculated-value-expected.txt:
+        * fast/css/transition-delay-calculated-value.html:
+
+2022-02-16  Alan Bujtas  <zalan@apple.com>
+
+        REGRESSION(r285885) Unable to exit Trip Details in Amtrak app
+        https://bugs.webkit.org/show_bug.cgi?id=236732
+        <rdar://87462825>
+
+        Reviewed by Simon Fraser.
+
+        * fast/flexbox/incorrect-min-size-with-paint-contain-expected.html: Added.
+        * fast/flexbox/incorrect-min-size-with-paint-contain.html: Added.
+
+2022-02-16  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Implement getComputedStyle for subgrids
+        https://bugs.webkit.org/show_bug.cgi?id=236148
+
+        Reviewed by Manuel Rego Casasnovas.
+
+        Mark tests as no longer crashing.
+
+        * TestExpectations:
+
+2022-02-16  Jon Lee  <jonlee@apple.com>
+
+        Add fuzzy data for test failures seen on the iOS GPU Process bot
+        Unreviewed.
+
+        * compositing/backgrounds/fixed-backgrounds.html:
+        * compositing/images/positioned-image-content-rect.html:
+        * css3/background/background-repeat-space-border.html:
+        * css3/background/background-repeat-space-content.html:
+        * css3/background/background-repeat-space-padding.html:
+        * css3/masking/clip-path-ellipse.html:
+        * css3/masking/clip-path-inset-corners.html:
+        * css3/masking/clip-path-restore.html:
+        * fast/backgrounds/gradient-background-shadow.html:
+        * fast/filter-image/filter-image-blur.html:
+        * fast/layers/overflow-scroll-transform-border-radius.html:
+        * fast/masking/clip-path-inset-large-radii.html:
+        * fast/overflow/line-clamp-with-text-shadow.html:
+        * fast/text/decorations-vertical-underline.html:
+        * fast/text/fitzpatrick-combination.html:
+        * fast/text/simple-line-layout-text-position-with-stroke.html:
+        * gpu-process/TestExpectations:
+        * svg/clip-path/clip-opacity.html:
+        * svg/clip-path/clip-path-objectboundingbox-003.svg:
+        * svg/clip-path/svg-in-html.html:
+        * svg/clip-path/webkit-clip-path-after.svg:
+        * svg/clip-path/webkit-clip-path-before.svg:
+
+2022-02-16  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed gardening for GPU Process.
+
+        * gpu-process/TestExpectations:
+        * platform/mac/TestExpectations: fly-by update.
+
+2022-02-16  Jon Lee  <jonlee@apple.com>
+
+        iOS test gardening after turning on accelerated drawing
+        https://bugs.webkit.org/show_bug.cgi?id=236680
+        rdar://problem/88996489
+
+        Reviewed by Simon Fraser.
+
+        * TestExpectations:
+        * platform/gtk/TestExpectations: Some tests now uniquely fail on GTK; moved here.
+        * platform/ios-simulator-wk2/TestExpectations:
+        * platform/ios-simulator/TestExpectations:
+        * platform/ios-wk2/TestExpectations:
+        * platform/ios/TestExpectations: Many tests are passing only on iOS, some fail only on the iPad simulator.
+        * platform/mac/TestExpectations:
+
+2022-02-16  Matteo Flores  <matteo_flores@apple.com>
+
+        [ macOS ] http/tests/media/video-play-waiting.html is a constant time out.
+        https://bugs.webkit.org/show_bug.cgi?id=236722
+
+        Unreviewed test gardening.
+
+        * platform/mac/TestExpectations:
+
+2022-02-16  Ziran Sun  <zsun@igalia.com>
+
+        [InputElement] Remove extra form data made by image submit button when "value" attribute is present.
+        https://bugs.webkit.org/show_bug.cgi?id=236703
+
+        Reviewed by Chris Dumez.
+
+        Update test expectation as the test is now passing.
+        * fast/forms/input-image-submit.html:
+
+2022-02-16  Truitt Savell  <tsavell@apple.com>
+
+        Rebase http/tests/model/model-document.html after the changes in r289733
+        https://bugs.webkit.org/show_bug.cgi?id=236578
+
+        Unreviewed test gardening.
+
+        * http/tests/model/model-document-expected.txt:
+
+2022-02-16  Philippe Normand  <pnormand@igalia.com>
+
+        Add a dedicated ENABLE flag for MediaRecorder
+        https://bugs.webkit.org/show_bug.cgi?id=236652
+
+        Reviewed by Eric Carlson.
+
+        * platform/glib/TestExpectations: Skip MediaRecorder test, GLib ports don't enable this
+        feature yet. This test used to pass because MediaRecorder used to be under MediaStream and
+        there is a mock Recorder implementation.
+
+2022-02-16  Alexey Shvayka  <ashvayka@apple.com>
+
+        REGRESSION(r287293): EventListener::wasCreatedFromMarkup() is incorrect after replaceJSFunctionForAttributeListener()
+        https://bugs.webkit.org/show_bug.cgi?id=236618
+        <rdar://88696673>
+
+        Reviewed by Chris Dumez.
+
+        * http/tests/security/contentSecurityPolicy/inline-event-handler-allowed-after-being-replaced-expected.txt: Added.
+        * http/tests/security/contentSecurityPolicy/inline-event-handler-allowed-after-being-replaced.html: Added.
+
+2022-02-16  Ali Juma  <ajuma@chromium.org>
+
+        Floating point exception in RenderListBox::numVisibleItems
+        https://bugs.webkit.org/show_bug.cgi?id=229307
+
+        Reviewed by Mark Lam.
+
+        * fast/forms/listbox-zero-item-height-expected.txt: Added.
+        * fast/forms/listbox-zero-item-height.html: Added.
+
+2022-02-16  Jon Lee  <jonlee@apple.com>
+
+        Reset GPU Process TestExpectations after accelerated drawing is enabled.
+
+        * gpu-process/TestExpectations:
+
+2022-02-16  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed gardening.
+
+        * css3/calc/block-mask-overlay-image-outset.html: Expand pixel range for GPU Process.
+        * fast/forms/auto-fill-button/auto-fill-strong-password-button-when-maxlength-changes.html: Add fuzzy data for GPU Process.
+        * svg/clip-path/clip-path-line-use-before-defined.svg: Add fuzzy data for all bots.
+
+2022-02-15  Matteo Flores  <matteo_flores@apple.com>
+
+        http/tests/history/back-with-fragment-change.php fails.
+        https://bugs.webkit.org/show_bug.cgi?id=68278
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk2/TestExpectations: Remarking flaky expectation.
+
+2022-02-15  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [ iOS ] fast/text/ch-unit-synthetic-bold.html is failing constantly on iOS
+        https://bugs.webkit.org/show_bug.cgi?id=236610
+
+        Turns out iOS doesn't have Monaco. It's fine though; we can use local() to create
+        a font that doesn't have a bold family member.
+
+        Unreviewed.
+
+        * fast/text/ch-unit-synthetic-bold-expected.html:
+        * fast/text/ch-unit-synthetic-bold.html:
+        * fast/text/tab-width-synthetic-bold-complex-expected.html:
+        * fast/text/tab-width-synthetic-bold-complex.html:
+        * fast/text/tab-width-synthetic-bold-expected.html:
+        * fast/text/tab-width-synthetic-bold.html:
+
+2022-02-15  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed gardening.
+
+        * css3/masking/clip-path-inset-corners.html: Add fuzzy data.
+
+2022-02-15  Brady Eidson  <beidson@apple.com>
+
+        Implement ServiceWorkerRegistration.getNotifications().
+        https://bugs.webkit.org/show_bug.cgi?id=236545
+
+        Reviewed by Alex Christensen.
+
+        * http/tests/workers/service/getnotifications-expected.txt: Added.
+        * http/tests/workers/service/getnotifications.html: Added.
+        * http/tests/workers/service/resources/shownotification-worker.js:
+        (async tryShow):
+        (async getNotes):
+        (async event):
+
+2022-02-15  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        fast/filter-image/filter-image-svg.html is failing to load the image due to a wrong path
+        https://bugs.webkit.org/show_bug.cgi?id=236632
+
+        Reviewed by Simon Fraser.
+
+        This test case had the following CSS.
+        > background-image: filter(url(image.svg), url(#filter));
+
+        However, 'image.svg' doesn't exist. DRT and WTR unexpectedly
+        loaded the missing image icon and applied the filter. It should be
+        'resources/image.svg'.
+
+        * fast/filter-image/filter-image-svg.html:
+
+2022-02-15  Matteo Flores  <matteo_flores@apple.com>
+
+        REGRESSION(r289495): [ Monterey arm64 ] model-element/model-element-ready.html is a flaky assertion failure.
+        https://bugs.webkit.org/show_bug.cgi?id=236678
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-02-15  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [TextureMapperGL] drop-shadow filter with blur-radius doesn't work as expected if it is the last filter
+        https://bugs.webkit.org/show_bug.cgi?id=236407
+
+        Reviewed by Don Olmstead.
+
+        * platform/wincairo/css3/filters/effect-drop-shadow-hw-expected.png: Added.
+        * platform/wincairo/css3/filters/effect-drop-shadow-hw-expected.txt:
+
+2022-02-15  Matteo Flores  <matteo_flores@apple.com>
+
+        REGRESSION(r287249): [ Monterey wk2 ] media/media-source/media-webm-vorbis-partial.html is a constant text failure
+        https://bugs.webkit.org/show_bug.cgi?id=236656
+
+        Unreviewed test gardening.
+
+        * platform/mac-wk2/TestExpectations:
+
+2022-02-15  Joseph Griego  <jgriego@igalia.com>
+
+        Redirect shadow realm console output to page's ConsoleClient
+        https://bugs.webkit.org/show_bug.cgi?id=236518
+
+        Reviewed by Devin Rousso.
+
+        Add tests to verify that (nested) shadow realm contexts still output to
+        the parent page's inspector; fix one changed test.
+
+        * inspector/shadow-realm-console-expected.txt: Added.
+        * inspector/shadow-realm-console.html: Added.
+        * js/ShadowRealm-importValue-expected.txt: Added console line that had previously been blackholed
+
+2022-02-15  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Support all size features
+        https://bugs.webkit.org/show_bug.cgi?id=236640
+
+        Reviewed by Tim Nguyen and Sam Weinig.
+
+        * TestExpectations:
+
+2022-02-15  Matteo Flores  <matteo_flores@apple.com>
+
+        Rebaslining fonts/monospace.html for Monterey.
+        https://bugs.webkit.org/show_bug.cgi?id=236619
+
+        Unreviewed test gardening.
+
+        * platform/mac-catalina/fonts/monospace-expected.txt: Copied from LayoutTests/platform/mac/fonts/monospace-expected.txt.
+        * platform/mac/fonts/monospace-expected.txt:
+
+2022-02-15  Ziran Sun  <zsun@igalia.com>
+
+        [Forms] the select() method returns should be in line with specs
+        https://bugs.webkit.org/show_bug.cgi?id=236435
+
+        Reviewed by Chris Dumez.
+
+        * fast/forms/selection-functions-expected.txt:
+        * fast/forms/selection-wrongtype-expected.txt:
+        * fast/forms/selection-wrongtype.html:
+        * platform/gtk/imported/w3c/web-platform-tests/html/semantics/forms/textfieldselection/selection-not-application-expected.txt: Added.
+        * platform/gtk/imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/selection-expected.txt:
+        * platform/gtk/imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/type-change-state-expected.txt: Added.
+        * platform/ios-wk2/imported/w3c/web-platform-tests/html/semantics/forms/textfieldselection/selection-not-application-expected.txt:
+        * platform/ios-wk2/imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/type-change-state-expected.txt:
+        * platform/mac-wk1/imported/w3c/web-platform-tests/html/semantics/forms/textfieldselection/selection-not-application-expected.txt: Added.
+        * platform/mac-wk1/imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/selection-expected.txt: Copied from LayoutTests/imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/selection-expected.txt.
+        * platform/mac-wk1/imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/type-change-state-expected.txt: Added.
+        * platform/mac-wk2/imported/w3c/web-platform-tests/html/semantics/forms/textfieldselection/selection-not-application-expected.txt:
+        * platform/mac-wk2/imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/selection-expected.txt:
+        * platform/mac-wk2/imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/type-change-state-expected.txt:
+
+2022-02-15  Martin Robinson  <mrobinson@webkit.org>
+
+        Scrolling while focusing an element should take into account scroll margin
+        https://bugs.webkit.org/show_bug.cgi?id=235432
+
+        Reviewed by Simon Fraser.
+
+        * TestExpectations: Mark two tests as passing.
+
+2022-02-15  Gabriel Nava Marino  <gnavamarino@apple.com>
+
+        null ptr deref in WebCore::HTMLModelElement::enterFullscreen()
+        https://bugs.webkit.org/show_bug.cgi?id=236409
+
+        Reviewed by Darin Adler.
+
+        * model-element/model-element-enter-fullscreen-crash-expected.txt: Added.
+        * model-element/model-element-enter-fullscreen-crash.html: Added.
+
+2022-02-15  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        REGRESSION(r195447): [GTK] document.activeElement not set on mouse click
+        https://bugs.webkit.org/show_bug.cgi?id=236217
+
+        Reviewed by Michael Catanzaro.
+
+        * fast/events/click-focus-anchor-expected.txt:
+        * fast/events/click-focus-anchor.html:
+        * platform/glib/TestExpectations: Mark imported/blink/fast/events/click-focus-keydown-no-ring.html as failure.
+        * platform/glib/fast/events/click-focus-anchor-expected.txt: Copied from LayoutTests/fast/events/click-focus-anchor-expected.txt.
+
+2022-02-14  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Support range operators in size queries
+        https://bugs.webkit.org/show_bug.cgi?id=236600
+
+        Reviewed by Sam Weinig.
+
+        * TestExpectations:
+
+2022-02-14  Ryosuke Niwa  <rniwa@webkit.org>
+
+        REGRESSION (r288804): fast/forms/visual-hebrew-text-field.html is failing
+        https://bugs.webkit.org/show_bug.cgi?id=236325
+
+        Reviewed by Dean Jackson.
+
+        The test failure is caused by pre-existing inter-test dependencies.
+        Workaround whatever the underlying cause for the test failure by forcing
+        the use of ephemeral session for now.
+
+        * fast/forms/visual-hebrew-text-field.html:
+
+2022-02-14  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed gardening.
+
+        Expand pixel range.
+        * css3/color-filters/color-filter-color-text-decorations.html:
+
+2022-02-14  Simon Fraser  <simon.fraser@apple.com>
+
+        Fix crash with deeply nested async overflow scroll
+        https://bugs.webkit.org/show_bug.cgi?id=236599
+
+        Reviewed by Alan Bujtas.
+
+        * compositing/layer-creation/clipping-scope/deeply-nested-overflow-expected.txt: Added.
+        * compositing/layer-creation/clipping-scope/deeply-nested-overflow.html: Added.
+
+2022-02-07  Jon Lee  <jonlee@apple.com>
+
+        Enable accelerated drawing in the iOS simulator
+        https://bugs.webkit.org/show_bug.cgi?id=231828
+        rdar://problem/84315491
+
+        Reviewed by Simon Fraser.
+
+        * platform/ios/compositing/canvas/accelerated-canvas-compositing-size-limit-expected.txt:
+
+2022-02-14  Truitt Savell  <tsavell@apple.com>
+
+        Mark imported/w3c/web-platform-tests/xhr/send-timeout-events.htm as failing on iOS aftet the changes in r289540
+        https://bugs.webkit.org/show_bug.cgi?id=231337
+
+        Unreviewed test gardening.
+
+        * platform/ios/TestExpectations:
+
 2022-02-14  Arcady Goldmints-Orlov  <agoldmints@igalia.com>
 
         [GLIB] Update test expectations and baselines. Unreviewed test gardening.

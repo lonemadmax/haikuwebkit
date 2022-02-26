@@ -25,11 +25,22 @@
 
 #pragma once
 
-#if ENABLE(MEDIA_STREAM) && PLATFORM(COCOA) && ENABLE(GPU_PROCESS)
+#if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
 
+#include <wtf/Ref.h>
+#include <wtf/ThreadSafeRefCounted.h>
+
+#if PLATFORM(COCOA)
 #include "RemoteVideoFrameObjectHeapProxyProcessor.h"
+#endif
 
 namespace WebKit {
+
+class GPUProcessConnection;
+
+#if PLATFORM(COCOA)
+class RemoteVideoFrameProxy;
+#endif
 
 // Wrapper around RemoteVideoFrameObjectHeapProxyProcessor that will always be destroeyd on main thread.
 class RemoteVideoFrameObjectHeapProxy : public ThreadSafeRefCounted<RemoteVideoFrameObjectHeapProxy, WTF::DestructionThread::MainRunLoop> {
@@ -37,15 +48,20 @@ public:
     static Ref<RemoteVideoFrameObjectHeapProxy> create(GPUProcessConnection& connection) { return adoptRef(*new RemoteVideoFrameObjectHeapProxy(connection)); }
     ~RemoteVideoFrameObjectHeapProxy() = default;
 
+#if PLATFORM(COCOA)
     void getVideoFrameBuffer(const RemoteVideoFrameProxy& proxy, RemoteVideoFrameObjectHeapProxyProcessor::Callback&& callback) { m_processor->getVideoFrameBuffer(proxy, WTFMove(callback)); }
+#endif
 
 private:
     explicit RemoteVideoFrameObjectHeapProxy(GPUProcessConnection& connection)
+#if PLATFORM(COCOA)
         : m_processor(RemoteVideoFrameObjectHeapProxyProcessor::create(connection))
+#endif
     {
     }
-
+#if PLATFORM(COCOA)
     Ref<RemoteVideoFrameObjectHeapProxyProcessor> m_processor;
+#endif
 };
 
 } // namespace WebKit

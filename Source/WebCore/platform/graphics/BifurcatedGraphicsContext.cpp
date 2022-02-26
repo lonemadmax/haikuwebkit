@@ -263,23 +263,16 @@ void BifurcatedGraphicsContext::drawNativeImage(NativeImage& nativeImage, const 
     m_secondaryContext.drawNativeImage(nativeImage, selfSize, destRect, srcRect, options);
 }
 
-void BifurcatedGraphicsContext::drawPattern(NativeImage& nativeImage, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
+void BifurcatedGraphicsContext::drawPattern(NativeImage& nativeImage, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
 {
-    m_primaryContext.drawPattern(nativeImage, imageSize, destRect, tileRect, patternTransform, phase, spacing, options);
-    m_secondaryContext.drawPattern(nativeImage, imageSize, destRect, tileRect, patternTransform, phase, spacing, options);
+    m_primaryContext.drawPattern(nativeImage, destRect, tileRect, patternTransform, phase, spacing, options);
+    m_secondaryContext.drawPattern(nativeImage, destRect, tileRect, patternTransform, phase, spacing, options);
 }
 
 ImageDrawResult BifurcatedGraphicsContext::drawImage(Image& image, const FloatRect& destination, const FloatRect& source, const ImagePaintingOptions& options)
 {
     auto result = m_primaryContext.drawImage(image, destination, source, options);
     m_secondaryContext.drawImage(image, destination, source, options);
-    return result;
-}
-
-ImageDrawResult BifurcatedGraphicsContext::drawImageForCanvas(Image& image, const FloatRect& destination, const FloatRect& source, const ImagePaintingOptions& options, DestinationColorSpace canvasColorSpace)
-{
-    auto result = m_primaryContext.drawImageForCanvas(image, destination, source, options, canvasColorSpace);
-    m_secondaryContext.drawImageForCanvas(image, destination, source, options, canvasColorSpace);
     return result;
 }
 

@@ -22,7 +22,8 @@
 #include "JSSharedWorkerGlobalScope.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -147,23 +148,15 @@ JSC_DEFINE_CUSTOM_GETTER(jsSharedWorkerGlobalScope_SharedWorkerGlobalScopeConstr
     return IDLAttribute<JSSharedWorkerGlobalScope>::get<jsSharedWorkerGlobalScope_SharedWorkerGlobalScopeConstructorGetter>(*lexicalGlobalObject, thisValue, attributeName);
 }
 
-JSC::IsoSubspace* JSSharedWorkerGlobalScope::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSSharedWorkerGlobalScope::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForSharedWorkerGlobalScope.get())
-        return space;
-    spaces.m_subspaceForSharedWorkerGlobalScope = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, clientData.m_heapCellTypeForJSSharedWorkerGlobalScope, JSSharedWorkerGlobalScope);
-    auto* space = spaces.m_subspaceForSharedWorkerGlobalScope.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSSharedWorkerGlobalScope::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSSharedWorkerGlobalScope, UseCustomHeapCellType::Yes>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForSharedWorkerGlobalScope.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForSharedWorkerGlobalScope = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForSharedWorkerGlobalScope.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForSharedWorkerGlobalScope = WTFMove(space); },
+        [] (auto& server) -> JSC::HeapCellType& { return server.m_heapCellTypeForJSSharedWorkerGlobalScope; }
+    );
 }
 
 void JSSharedWorkerGlobalScope::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

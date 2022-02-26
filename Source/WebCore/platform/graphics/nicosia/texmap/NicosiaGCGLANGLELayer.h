@@ -30,7 +30,6 @@
 
 #if USE(NICOSIA) && USE(TEXTURE_MAPPER)
 
-#include "GLContext.h"
 #include "GraphicsContextGLANGLE.h"
 #include "NicosiaContentLayerTextureMapperImpl.h"
 #include <memory>
@@ -57,14 +56,14 @@ public:
         static const char* errorString(int statusCode);
         static const char* lastErrorString();
 
-        static std::unique_ptr<ANGLEContext> createContext();
+        static std::unique_ptr<ANGLEContext> createContext(bool isForWebGL2);
         virtual ~ANGLEContext();
 
         bool makeContextCurrent();
 #if ENABLE(WEBGL)
-        PlatformGraphicsContextGL platformContext() const;
-        PlatformGraphicsContextGLDisplay platformDisplay() const;
-        PlatformGraphicsContextGLConfig platformConfig() const;
+        GCGLContext platformContext() const;
+        GCGLDisplay platformDisplay() const;
+        GCGLConfig platformConfig() const;
 #endif
 
     private:
@@ -80,9 +79,9 @@ public:
     virtual ~GCGLANGLELayer();
 
     bool makeContextCurrent();
-    PlatformGraphicsContextGL platformContext() const;
-    PlatformGraphicsContextGLDisplay platformDisplay() const;
-    PlatformGraphicsContextGLConfig platformConfig() const;
+    GCGLContext platformContext() const;
+    GCGLDisplay platformDisplay() const;
+    GCGLConfig platformConfig() const;
 
     ContentLayer& contentLayer() const { return m_contentLayer; }
     void swapBuffersIfNeeded() final;

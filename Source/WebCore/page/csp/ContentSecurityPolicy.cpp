@@ -161,9 +161,9 @@ ContentSecurityPolicyResponseHeaders ContentSecurityPolicy::responseHeaders() co
 {
     if (!m_cachedResponseHeaders) {
         ContentSecurityPolicyResponseHeaders result;
-        result.m_headers.reserveInitialCapacity(m_policies.size());
-        for (auto& policy : m_policies)
-            result.m_headers.uncheckedAppend({ policy->header(), policy->headerType() });
+        result.m_headers = m_policies.map([](auto& policy) {
+            return std::pair { policy->header(), policy->headerType() };
+        });
         result.m_httpStatusCode = m_httpStatusCode;
         m_cachedResponseHeaders = WTFMove(result);
     }
@@ -893,7 +893,7 @@ void ContentSecurityPolicy::reportUnsupportedDirective(const String& name) const
     logToConsole(message);
 }
 
-void ContentSecurityPolicy::reportDirectiveAsSourceExpression(const String& directiveName, const String& sourceExpression) const
+void ContentSecurityPolicy::reportDirectiveAsSourceExpression(const String& directiveName, StringView sourceExpression) const
 {
     logToConsole("The Content Security Policy directive '" + directiveName + "' contains '" + sourceExpression + "' as a source expression. Did you mean '" + directiveName + " ...; " + sourceExpression + "...' (note the semicolon)?");
 }

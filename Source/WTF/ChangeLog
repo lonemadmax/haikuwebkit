@@ -1,3 +1,281 @@
+2022-02-18  Devin Rousso  <drousso@apple.com>
+
+        [iOS] Safari can sometimes hang while printing due to sync IPC
+        https://bugs.webkit.org/show_bug.cgi?id=236811
+        <rdar://problem/56425783>
+
+        Reviewed by Aditya Keerthi.
+
+        Adopt new UIKit SPI for allowing `UIPrintFormatter` to be called off the main thread.
+
+        * wtf/PlatformHave.h:
+        Add a `HAVE_UIKIT_BACKGROUND_THREAD_PRINTING` to guard this new behavior.
+
+2022-02-18  Robert Jenner  <Jenner@apple.com>
+
+        Unreviewed, reverting r290149.
+
+        Broke Debug Builds.
+
+        Reverted changeset:
+
+        "Generate compile_commands.json on macOS Builds"
+        https://bugs.webkit.org/show_bug.cgi?id=235686
+        https://commits.webkit.org/r290149
+
+2022-02-18  Eric Carlson  <eric.carlson@apple.com>
+
+        [macOS] Allow screen and window capture to be done in the GPU Process
+        https://bugs.webkit.org/show_bug.cgi?id=236815
+        <rdar://problem/89117278>
+
+        Reviewed by Jer Noble.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml: Add UseGPUProcessForDisplayCapture.
+
+2022-02-18  Brandon Stewart  <brandonstewart@apple.com>
+
+        Generate compile_commands.json on macOS Builds
+        https://bugs.webkit.org/show_bug.cgi?id=235686
+
+        Reviewed by Saam Barati.
+
+        Add support for generating compile_commands.json file to WebKit.
+        
+        compile_commands.json can be used by tools like clangd to provide code complete,
+        refactoring, formatting, and cross references.
+
+        Steps to generate the compile commands file:
+        make r EXPORT_COMPILE_COMMANDS=YES
+        generate-compile-commands WebKitBuild/Release
+
+        * Configurations/DebugRelease.xcconfig:
+
+2022-02-18  Brady Eidson  <beidson@apple.com>
+
+        Add an InstallCoordination webpushd backend
+        https://bugs.webkit.org/show_bug.cgi?id=233714
+
+        Reviewed by Alex Christensen.
+
+        * wtf/PlatformEnableCocoa.h:
+
+2022-02-17  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Enable subgrid by default.
+        https://bugs.webkit.org/show_bug.cgi?id=236821
+
+        Reviewed by Alan Bujtas.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-02-17  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        GeneratePreferences.rb: warning: Passing safe_level with the 2nd argument of ERB.new is deprecated
+        https://bugs.webkit.org/show_bug.cgi?id=236684
+
+        Reviewed by Yusuke Suzuki.
+
+        With Ruby 3.1.0, GeneratePreferences.rb reported the following warnings.
+        > GeneratePreferences.rb:235: warning: Passing safe_level with the 2nd argument of ERB.new is deprecated. Do not use it, and specify other arguments as keyword arguments.
+        > GeneratePreferences.rb:235: warning: Passing trim_mode with the 3rd argument of ERB.new is deprecated. Use keyword argument like ERB.new(str, trim_mode: ...) instead.
+
+        * Scripts/GeneratePreferences.rb: Changed to use the keyword argument for ERB.new.
+
+2022-02-17  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r289974.
+        https://bugs.webkit.org/show_bug.cgi?id=236804
+
+        Should not have been reverted on trunk
+
+        Reverted changeset:
+
+        "Unreviewed, reverting r286874."
+        https://bugs.webkit.org/show_bug.cgi?id=236734
+        https://commits.webkit.org/r289974
+
+2022-02-17  Jer Noble  <jer.noble@apple.com>
+
+        [Cocoa] Make AVFoundationSPI.h robust against changes in system headers
+        https://bugs.webkit.org/show_bug.cgi?id=236787
+
+        Reviewed by Eric Carlson.
+
+        * wtf/PlatformHave.h:
+
+2022-02-17  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        Enable CSS Motion Path by default
+        https://bugs.webkit.org/show_bug.cgi?id=236681
+
+        Unreviewed enable of WebKitLegacy.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-02-17  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        [Web Animations] Enable Composite Animations
+        https://bugs.webkit.org/show_bug.cgi?id=236682
+
+        Reviewed by Dean Jackson.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-02-17  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        Enable CSS Motion Path by default
+        https://bugs.webkit.org/show_bug.cgi?id=236681
+
+        Reviewed by Dean Jackson.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-02-17  Chris Dumez  <cdumez@apple.com>
+
+        Clean up / optimize call sites constructing vectors
+        https://bugs.webkit.org/show_bug.cgi?id=236748
+
+        Reviewed by Dean Jackson.
+
+        Clean up / optimize call sites constructing vectors:
+        - Use Vector::map() / WTF::map() where appropriate
+        - Replace Vector::reserveCapacity() with Vector::reserveInitialCapacity() 
+          where appropriate
+        - Replace Vector::append() with Vector::uncheckedAppend() where appropriate
+        - Leverage the fact that Vector<Ref<Foo>> is now copyable (Because Ref<> now has
+          a copy constructor)
+        - Call crossThreadCopy() to isolate-copy a Vector() without iterating.
+        - Leverage Vector constructor that takes in an intialization list in more cases
+        - Leverage Vector::from() in more cases to simplify vector construction in some
+          case.
+        - Drop unnecessary calls to Vector::reserve*Capacity() before calling
+          Vector::append(T*, size_t) since the append() implementation already does this
+          for us.
+        - Leverage copyToVector() and copyToVectorOf<> in more cases
+        - Call shrinkToFit() in some cases where we reserve capacity and then append()
+          but may not append() as much as we reserved. 
+
+        * wtf/Language.cpp:
+        (WTF::userPreferredLanguages):
+        (WTF::isolatedCopy): Deleted.
+
+2022-02-17  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Enable by default
+        https://bugs.webkit.org/show_bug.cgi?id=236776
+
+        Reviewed by Sam Weinig.
+
+        Flip the switch.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-02-16  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r286874.
+        https://bugs.webkit.org/show_bug.cgi?id=236734
+
+        Broke Apple Music pages which use the resolution media query
+
+        Reverted changeset:
+
+        "Enable the 'resolution' media query by default"
+        https://bugs.webkit.org/show_bug.cgi?id=78087
+        https://commits.webkit.org/r286874
+
+2022-02-16  Jer Noble  <jer.noble@apple.com>
+
+        [Cocoa] Adopt -streamDataParser:didProvideContentKeySpecifier:forTrackID: delegate callback
+        https://bugs.webkit.org/show_bug.cgi?id=236109
+
+        Reviewed by Eric Carlson.
+
+        * wtf/PlatformHave.h:
+
+2022-02-16  Eliot Hsu  <eliot_hsu@apple.com>
+
+        Move Safe Browsing knowledge into SafariSafeBrowsing framework
+        https://bugs.webkit.org/show_bug.cgi?id=231692
+
+        Reviewed by Alex Christensen.
+
+        Following up on an old FIXME, move Safari Safe Browsing-specific
+        knowledge out of WebKit and into the SafariSafeBrowsing framework.
+        This includes things like the Learn More URL, the Report an Error URL,
+        etc.
+
+        * wtf/PlatformHave.h:
+
+2022-02-16  Philippe Normand  <pnormand@igalia.com>
+
+        Add a dedicated ENABLE flag for MediaRecorder
+        https://bugs.webkit.org/show_bug.cgi?id=236652
+
+        Reviewed by Eric Carlson.
+
+        ENABLE(MEDIA_RECORDER) depends on ENABLE(MEDIA_STREAM) and is enabled only for COCOA
+        platforms. Suggested by Eric Carlson.
+
+        * wtf/PlatformEnable.h:
+        * wtf/PlatformEnableCocoa.h:
+
+2022-02-16  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        RemoteVideoFrameProxy is missing reference field encode, decode
+        https://bugs.webkit.org/show_bug.cgi?id=236690
+
+        Reviewed by Antti Koivisto.
+
+        Export the MediaTime TextStream operator<< as inline function
+        for all compilation modes. It is useful also when NDEBUG is defined,
+        and it is hard to ifdef at all the call sites.
+
+        * wtf/MediaTime.cpp:
+        * wtf/MediaTime.h:
+
+2022-02-15  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        Constructing untaken LOG(Channel, ...) arguments slow debug binaries down
+        https://bugs.webkit.org/show_bug.cgi?id=235562
+
+        Reviewed by Simon Fraser.
+
+        Speed up debug build binary LOG(Channel, ...) by checking the
+        channel (and level) before constructing the log arguments.
+        This is consistent with how RELEASE_LOG() works.
+
+        If the arguments are slow to create, call sites end up implementing
+        this at the call site and risk subtle bugs which make existing logging unreliable.
+
+        Fixes a bug with LOG_WITH_STREAM where ChannelState::OnWithAccumulation channels would not log.
+
+        * wtf/Assertions.h:
+
+2022-02-15  Chris Dumez  <cdumez@apple.com>
+
+        Do preliminary work to pass domain names to CoreLocation
+        https://bugs.webkit.org/show_bug.cgi?id=236566
+        <rdar://88761413>
+
+        Reviewed by Darin Adler.
+
+        Add build time flag for passing website identifiers to CoreLocation.
+
+        * wtf/PlatformHave.h:
+
+2022-02-15  Robin Morisset  <rmorisset@apple.com>
+
+        [WGSL] Implement enough of the lexer for the simplest shaders
+        https://bugs.webkit.org/show_bug.cgi?id=233276
+        <rdar://problem/85732675>
+
+        Reviewed by Myles Maxfield.
+
+        Add WTF::Unicode::formFeed and WTF::Unicode::verticalTabulation.
+
+        * wtf/unicode/CharacterNames.h:
+
 2022-02-14  Gustavo Noronha Silva  <gustavo@noronha.dev.br>
 
         [Linux/aarch64] Move page size ceiling to 16k

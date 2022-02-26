@@ -28,6 +28,7 @@
 
 #include "APIContentRuleList.h"
 #include "APICustomProtocolManagerClient.h"
+#include "APINavigation.h"
 #include "AuthenticationChallengeProxy.h"
 #include "AuthenticationManager.h"
 #include "DownloadProxyMap.h"
@@ -118,11 +119,9 @@ static bool shouldTerminateNetworkProcessBySendingMessage()
 
 Vector<Ref<NetworkProcessProxy>> NetworkProcessProxy::allNetworkProcesses()
 {
-    Vector<Ref<NetworkProcessProxy>> processes;
-    processes.reserveInitialCapacity(networkProcessesSet().size());
-    for (auto* networkProcess : networkProcessesSet())
-        processes.uncheckedAppend(*networkProcess);
-    return processes;
+    return WTF::map(networkProcessesSet(), [](auto* networkProcess) {
+        return Ref { *networkProcess };
+    });
 }
 
 RefPtr<NetworkProcessProxy>& NetworkProcessProxy::defaultNetworkProcess()
@@ -606,6 +605,14 @@ void NetworkProcessProxy::resourceLoadDidCompleteWithError(WebPageProxyIdentifie
     page->resourceLoadDidCompleteWithError(WTFMove(loadInfo), WTFMove(response), WTFMove(error));
 }
 
+#if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
+void NetworkProcessProxy::reloadAfterUnblockedContentFilter(WebPageProxyIdentifier pageID)
+{
+    if (auto* page = WebProcessProxy::webPage(pageID))
+        page->reload({ });
+}
+#endif
+
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 void NetworkProcessProxy::dumpResourceLoadStatistics(PAL::SessionID sessionID, CompletionHandler<void(String)>&& completionHandler)
 {
@@ -623,13 +630,7 @@ void NetworkProcessProxy::updatePrevalentDomainsToBlockCookiesFor(PAL::SessionID
         completionHandler();
         return;
     }
-
-    Vector<RegistrableDomain> registrableDomainsToBlock;
-    registrableDomainsToBlock.reserveInitialCapacity(domainsToBlock.size());
-    for (auto& domain : domainsToBlock)
-        registrableDomainsToBlock.uncheckedAppend(domain);
-
-    sendWithAsyncReply(Messages::NetworkProcess::UpdatePrevalentDomainsToBlockCookiesFor(sessionID, registrableDomainsToBlock), WTFMove(completionHandler));
+    sendWithAsyncReply(Messages::NetworkProcess::UpdatePrevalentDomainsToBlockCookiesFor(sessionID, domainsToBlock), WTFMove(completionHandler));
 }
 
 void NetworkProcessProxy::isPrevalentResource(PAL::SessionID sessionID, const RegistrableDomain& resourceDomain, CompletionHandler<void(bool)>&& completionHandler)

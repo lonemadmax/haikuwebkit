@@ -22,8 +22,9 @@
 #include "JSTestDefaultToJSON.h"
 
 #include "ActiveDOMObject.h"
-#include "DOMIsoSubspaces.h"
 #include "EventNames.h"
+#include "ExtendedDOMClientIsoSubspaces.h"
+#include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -121,7 +122,7 @@ public:
 
     DECLARE_INFO;
     template<typename CellType, JSC::SubspaceAccess>
-    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    static JSC::GCClient::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestDefaultToJSONPrototype, Base);
         return &vm.plainObjectSpace();
@@ -800,27 +801,14 @@ JSC_DEFINE_HOST_FUNCTION(jsTestDefaultToJSONPrototypeFunction_toJSON, (JSGlobalO
     return IDLOperation<JSTestDefaultToJSON>::call<jsTestDefaultToJSONPrototypeFunction_toJSONBody>(*lexicalGlobalObject, *callFrame, "toJSON");
 }
 
-JSC::IsoSubspace* JSTestDefaultToJSON::subspaceForImpl(JSC::VM& vm)
+JSC::GCClient::IsoSubspace* JSTestDefaultToJSON::subspaceForImpl(JSC::VM& vm)
 {
-    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
-    auto& spaces = clientData.subspaces();
-    if (auto* space = spaces.m_subspaceForTestDefaultToJSON.get())
-        return space;
-    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestDefaultToJSON> || !JSTestDefaultToJSON::needsDestruction);
-    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestDefaultToJSON>)
-        spaces.m_subspaceForTestDefaultToJSON = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestDefaultToJSON);
-    else
-        spaces.m_subspaceForTestDefaultToJSON = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestDefaultToJSON);
-    auto* space = spaces.m_subspaceForTestDefaultToJSON.get();
-IGNORE_WARNINGS_BEGIN("unreachable-code")
-IGNORE_WARNINGS_BEGIN("tautological-compare")
-    void (*myVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSTestDefaultToJSON::visitOutputConstraints;
-    void (*jsCellVisitOutputConstraint)(JSC::JSCell*, JSC::SlotVisitor&) = JSC::JSCell::visitOutputConstraints;
-    if (myVisitOutputConstraint != jsCellVisitOutputConstraint)
-        clientData.outputConstraintSpaces().append(space);
-IGNORE_WARNINGS_END
-IGNORE_WARNINGS_END
-    return space;
+    return WebCore::subspaceForImpl<JSTestDefaultToJSON, UseCustomHeapCellType::No>(vm,
+        [] (auto& spaces) { return spaces.m_clientSubspaceForTestDefaultToJSON.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestDefaultToJSON = WTFMove(space); },
+        [] (auto& spaces) { return spaces.m_subspaceForTestDefaultToJSON.get(); },
+        [] (auto& spaces, auto&& space) { spaces.m_subspaceForTestDefaultToJSON = WTFMove(space); }
+    );
 }
 
 void JSTestDefaultToJSON::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

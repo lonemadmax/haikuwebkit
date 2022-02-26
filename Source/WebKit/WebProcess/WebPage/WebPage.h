@@ -168,6 +168,7 @@ OBJC_CLASS NSArray;
 OBJC_CLASS NSDictionary;
 OBJC_CLASS NSObject;
 OBJC_CLASS WKAccessibilityWebPageObject;
+OBJC_CLASS RVItem;
 #endif
 
 #define ENABLE_VIEWPORT_RESIZING PLATFORM(IOS_FAMILY)
@@ -267,6 +268,10 @@ class HTMLAttachmentElement;
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
 struct TranslationContextMenuInfo;
 #endif
+
+namespace ImageOverlay {
+class CroppedImage;
+}
 }
 
 namespace WebKit {
@@ -798,7 +803,9 @@ public:
 
     void requestDictationContext(CompletionHandler<void(const String&, const String&, const String&)>&&);
 #if ENABLE(REVEAL)
+    RetainPtr<RVItem> revealItemForCurrentSelection();
     void requestRVItemInCurrentSelectedRange(CompletionHandler<void(const WebKit::RevealItem&)>&&);
+    void prepareSelectionForContextMenuWithLocationInView(const WebCore::IntPoint, CompletionHandler<void(bool, const RevealItem&)>&&);
 #endif
     void replaceDictatedText(const String& oldText, const String& newText);
     void replaceSelectedText(const String& oldText, const String& newText);
@@ -968,6 +975,7 @@ public:
 #endif
 
 #if PLATFORM(COCOA)
+    void replaceWithPasteboardData(const WebCore::ElementContext&, const Vector<String>& types, const IPC::DataReference&);
     void replaceSelectionWithPasteboardData(const Vector<String>& types, const IPC::DataReference&);
 #endif
 
@@ -1025,7 +1033,9 @@ public:
 #endif
 
 #if PLATFORM(IOS_FAMILY)
+#if !HAVE(UIKIT_BACKGROUND_THREAD_PRINTING)
     void computePagesForPrintingiOS(WebCore::FrameIdentifier, const PrintInfo&, Messages::WebPage::ComputePagesForPrintingiOSDelayedReply&&);
+#endif
     void drawToPDFiOS(WebCore::FrameIdentifier, const PrintInfo&, size_t, Messages::WebPage::DrawToPDFiOSAsyncReply&&);
 #endif
 
@@ -1207,7 +1217,7 @@ public:
 #if ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION)
     void handleTelephoneNumberClick(const String& number, const WebCore::IntPoint&, const WebCore::IntRect&);
     void handleSelectionServiceClick(WebCore::FrameSelection&, const Vector<String>& telephoneNumbers, const WebCore::IntPoint&);
-    void handleImageServiceClick(const WebCore::IntPoint&, WebCore::Image&, bool isEditable, const WebCore::IntRect&, const String& attachmentID);
+    void handleImageServiceClick(const WebCore::IntPoint&, WebCore::Image&, WebCore::HTMLImageElement&);
 #endif
 
     void didChangeScrollOffsetForFrame(WebCore::Frame*);
@@ -1315,7 +1325,9 @@ public:
 #if ENABLE(ATTACHMENT_ELEMENT)
     void insertAttachment(const String& identifier, std::optional<uint64_t>&& fileSize, const String& fileName, const String& contentType, CompletionHandler<void()>&&);
     void updateAttachmentAttributes(const String& identifier, std::optional<uint64_t>&& fileSize, const String& contentType, const String& fileName, const IPC::SharedBufferCopy& enclosingImageData, CompletionHandler<void()>&&);
-    void updateAttachmentIcon(const String& identifier, const ShareableBitmap::Handle& qlThumbnailHandle);
+    void updateAttachmentThumbnail(const String& identifier, const ShareableBitmap::Handle& qlThumbnailHandle);
+    void updateAttachmentIcon(const String& identifier, const ShareableBitmap::Handle& icon, const WebCore::FloatSize&);
+    void requestAttachmentIcon(const String& identifier, const WebCore::FloatSize&);
 #endif
 
 #if ENABLE(APPLICATION_MANIFEST)
@@ -1444,6 +1456,10 @@ public:
 #endif
 
     void requestImageBitmap(const WebCore::ElementContext&, CompletionHandler<void(const ShareableBitmap::Handle&, const String& sourceMIMEType)>&&);
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    void installCroppedImageOverlay(const WebCore::ElementContext&, const SharedMemory::IPCHandle& imageData, const String& mimeType, WebCore::FloatRect normalizedCropRect);
+    void setCroppedImageOverlayVisibility(bool);
+#endif
 
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
     void handleContextMenuTranslation(const WebCore::TranslationContextMenuInfo&);
@@ -2432,6 +2448,10 @@ private:
     
 #if ENABLE(APP_HIGHLIGHTS)
     WebCore::HighlightVisibility m_appHighlightsVisible { WebCore::HighlightVisibility::Hidden };
+#endif
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+    std::unique_ptr<WebCore::ImageOverlay::CroppedImage> m_croppedImageOverlay;
 #endif
 };
 

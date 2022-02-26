@@ -31,6 +31,7 @@
 #import "DaemonEncoder.h"
 #import "DaemonUtilities.h"
 #import "HandleMessage.h"
+#import "ICAppBundle.h"
 #import "MockAppBundleRegistry.h"
 
 #import <WebCore/PushPermissionState.h>
@@ -441,8 +442,11 @@ void Daemon::getOriginsWithPushAndNotificationPermissions(ClientConnection* conn
         return;
     }
 
-    // FIXME: This will need platform-specific implementations for real world bundles once implemented.
-    replySender({ });
+#if ENABLE(INSTALL_COORDINATION_BUNDLES)
+    ICAppBundle::getOriginsWithRegistrations(*connection, WTFMove(replySender));
+#else
+    RELEASE_ASSERT_NOT_REACHED();
+#endif
 }
 
 void Daemon::deletePushAndNotificationRegistration(ClientConnection* connection, const String& originString, CompletionHandler<void(const String&)>&& replySender)
@@ -618,12 +622,10 @@ void Daemon::getPushSubscription(ClientConnection* connection, const URL& scopeU
 
 void Daemon::getPushPermissionState(ClientConnection* connection, const URL& scopeURL, CompletionHandler<void(const Expected<uint8_t, WebCore::ExceptionData>&)>&& replySender)
 {
-    // FIXME
-#if HAVE(APPLE_PUSH_SERVICE_URL_TOKEN_SUPPORT)
-    replySender(static_cast<uint8_t>(WebCore::PushPermissionState::Granted));
-#else
+    // FIXME: This doesn't actually get called right now, since the permission is currently checked
+    // in WebProcess. However, we've left this stub in for now because there is a chance that we
+    // will move the permission check into webpushd when supporting other platforms.
     replySender(static_cast<uint8_t>(WebCore::PushPermissionState::Denied));
-#endif
 }
 
 ClientConnection* Daemon::toClientConnection(xpc_connection_t connection)
