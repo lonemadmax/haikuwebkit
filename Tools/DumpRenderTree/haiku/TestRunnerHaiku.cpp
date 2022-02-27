@@ -517,11 +517,6 @@ void TestRunner::apiTestGoToCurrentBackForwardItem()
     notImplemented();
 }
 
-void TestRunner::setWebViewEditable(bool)
-{
-    notImplemented();
-}
-
 void TestRunner::authenticateSession(JSStringRef, JSStringRef, JSStringRef)
 {
     notImplemented();

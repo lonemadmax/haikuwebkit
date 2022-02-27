@@ -292,11 +292,11 @@ void GraphicsContextHaiku::clipPath(const Path& path, WindRule windRule)
 }
 
 
-void GraphicsContextHaiku::drawPattern(NativeImage& image, const WebCore::FloatSize& size, const FloatRect& destRect,
+void GraphicsContextHaiku::drawPattern(NativeImage& image, const FloatRect& destRect,
     const FloatRect& tileRect, const AffineTransform& transform,
     const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
 {
-    drawBitmap(image.platformImage().get(), size, destRect, tileRect, transform, phase, spacing, options);
+    drawBitmap(image.platformImage().get(), image.size(), destRect, tileRect, transform, phase, spacing, options);
 }
 
 void GraphicsContextHaiku::drawBitmap(BBitmap* image, const WebCore::FloatSize& size, const FloatRect& destRect,
