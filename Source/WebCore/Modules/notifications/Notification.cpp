@@ -105,10 +105,12 @@ Notification::Notification(const Notification& other)
 
 Notification::~Notification()
 {
+#if ENABLE(SERVICE_WORKERS)
     if (auto* context = scriptExecutionContext()) {
         if (context->isServiceWorkerGlobalScope())
             downcast<ServiceWorkerGlobalScope>(context)->registration().removeNotificationFromList(*this);
     }
+#endif
 }
 
 Ref<Notification> Notification::copyForGetNotifications() const
@@ -120,8 +122,10 @@ void Notification::contextDestroyed()
 {
     auto* context = scriptExecutionContext();
     RELEASE_ASSERT(context);
+#if ENABLE(SERVICE_WORKERS)
     if (context->isServiceWorkerGlobalScope())
         downcast<ServiceWorkerGlobalScope>(context)->registration().removeNotificationFromList(*this);
+#endif
 
     ActiveDOMObject::contextDestroyed();
 }
@@ -171,8 +175,10 @@ void Notification::close()
         if (auto* client = clientFromContext())
             client->cancel(*this);
         if (auto* context = scriptExecutionContext()) {
+#if ENABLE(SERVICE_WORKERS)
             if (context->isServiceWorkerGlobalScope())
                 downcast<ServiceWorkerGlobalScope>(context)->registration().removeNotificationFromList(*this);
+#endif
         }
         break;
     }
