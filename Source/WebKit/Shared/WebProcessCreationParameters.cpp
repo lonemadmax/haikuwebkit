@@ -80,7 +80,6 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << shouldSuppressMemoryPressureHandler;
     encoder << shouldUseFontSmoothing;
     encoder << fontAllowList;
-    encoder << terminationTimeout;
     encoder << overrideLanguages;
 #if USE(GSTREAMER)
     encoder << gstreamerOptions;
@@ -173,6 +172,7 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
 #endif
 
 #if PLATFORM(IOS_FAMILY)
+    encoder << dynamicMachExtensionHandles;
     encoder << dynamicIOKitExtensionHandles;
 #endif
 
@@ -310,8 +310,6 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     if (!decoder.decode(parameters.shouldUseFontSmoothing))
         return false;
     if (!decoder.decode(parameters.fontAllowList))
-        return false;
-    if (!decoder.decode(parameters.terminationTimeout))
         return false;
     if (!decoder.decode(parameters.overrideLanguages))
         return false;
@@ -484,6 +482,12 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
 #endif
 
 #if PLATFORM(IOS_FAMILY)
+    std::optional<Vector<SandboxExtension::Handle>> dynamicMachExtensionHandles;
+    decoder >> dynamicMachExtensionHandles;
+    if (!dynamicMachExtensionHandles)
+        return false;
+    parameters.dynamicMachExtensionHandles = WTFMove(*dynamicMachExtensionHandles);
+
     std::optional<Vector<SandboxExtension::Handle>> dynamicIOKitExtensionHandles;
     decoder >> dynamicIOKitExtensionHandles;
     if (!dynamicIOKitExtensionHandles)

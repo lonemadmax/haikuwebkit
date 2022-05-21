@@ -113,10 +113,6 @@
 #import "WKStylusDeviceObserver.h"
 #endif
 
-#if __has_include(<AVKit/AVKitPictureInPictureController.h>)
-#import <AVKit/AVKitPictureInPictureController.h>
-#endif
-
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
 #include <WebCore/CaptionUserPreferencesMediaAF.h>
 #include <WebCore/MediaAccessibilitySoftLink.h>
@@ -134,7 +130,6 @@ NSString *WebKitJSCFTLJITEnabledDefaultsKey = @"WebKitJSCFTLJITEnabledDefaultsKe
 static NSString *WebKitApplicationDidChangeAccessibilityEnhancedUserInterfaceNotification = @"NSApplicationDidChangeAccessibilityEnhancedUserInterfaceNotification";
 static CFStringRef AppleColorPreferencesChangedNotification = CFSTR("AppleColorPreferencesChangedNotification");
 #endif
-static const char* const WebKitCaptivePortalModeChangedNotification_Legacy = "WebKitCaptivePortalModeEnabled";
 
 static NSString * const WebKitSuppressMemoryPressureHandlerDefaultsKey = @"WebKitSuppressMemoryPressureHandler";
 
@@ -296,6 +291,17 @@ void WebProcessPool::platformResolvePathsForSandboxExtensions()
 #endif
 }
 
+#if PLATFORM(IOS_FAMILY)
+static const Vector<ASCIILiteral>& nonBrowserServices()
+{
+    ASSERT(isMainRunLoop());
+    static NeverDestroyed services = Vector<ASCIILiteral> {
+        "com.apple.lsd.open"_s,
+    };
+    return services;
+}
+#endif
+
 void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process, WebProcessCreationParameters& parameters)
 {
     parameters.mediaMIMETypes = process.mediaMIMETypes();
@@ -391,7 +397,8 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
             parameters.audioCaptureExtensionHandle = WTFMove(*handle);
     }
 #else
-    UNUSED_PARAM(mediaDevicesEnabled);
+    UNUSED_VARIABLE(mediaDevicesEnabled);
+    UNUSED_VARIABLE(isSafari);
 #endif
 #endif
 
@@ -411,6 +418,9 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 #endif
 
 #if PLATFORM(IOS_FAMILY)
+    if (!isFullWebBrowser())
+        parameters.dynamicMachExtensionHandles = SandboxExtension::createHandlesForMachLookup(nonBrowserServices(), std::nullopt);
+
     if (WebCore::deviceHasAGXCompilerService())
         parameters.dynamicIOKitExtensionHandles = SandboxExtension::createHandlesForIOKitClassExtensions(WebCore::agxCompilerClasses(), std::nullopt);
 #endif
@@ -420,11 +430,7 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
 
 #if PLATFORM(IOS_FAMILY)
     parameters.currentUserInterfaceIdiomIsSmallScreen = currentUserInterfaceIdiomIsSmallScreen();
-#if ENABLE(VIDEO_PRESENTATION_MODE) && __has_include(<AVKit/AVKitPictureInPictureController.h>)
-    parameters.supportsPictureInPicture = [AVPictureInPictureController isPictureInPictureSupported];
-#else
-    parameters.supportsPictureInPicture = false;
-#endif
+    parameters.supportsPictureInPicture = supportsPictureInPicture();
     parameters.cssValueToSystemColorMap = RenderThemeIOS::cssValueToSystemColorMap();
     parameters.focusRingColor = RenderThemeIOS::systemFocusRingColor();
     parameters.localizedDeviceModel = localizedDeviceModel();
@@ -958,9 +964,6 @@ static bool isCaptivePortalModeEnabledBySystemIgnoringCaching()
 {
     if (auto& enabledForTesting = isCaptivePortalModeEnabledGloballyForTesting())
         return *enabledForTesting;
-
-    if ([[NSUserDefaults standardUserDefaults] boolForKey:[NSString stringWithUTF8String:WebKitCaptivePortalModeChangedNotification_Legacy]])
-        return true;
 
     if (![_WKSystemPreferences isCaptivePortalModeEnabled])
         return false;

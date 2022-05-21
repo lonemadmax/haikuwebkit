@@ -31,6 +31,7 @@
 #include "WebGPUAdapterImpl.h"
 #include "WebGPUDowncastConvertToBackingContext.h"
 #include <WebGPU/WebGPUExt.h>
+#include <wtf/BlockPtr.h>
 
 #if PLATFORM(COCOA)
 #include <wtf/darwin/WeakLinking.h>
@@ -40,9 +41,21 @@ WTF_WEAK_LINK_FORCE_IMPORT(wgpuCreateInstance);
 
 namespace PAL::WebGPU {
 
-RefPtr<GPUImpl> GPUImpl::create()
+RefPtr<GPUImpl> GPUImpl::create(ScheduleWorkFunction&& scheduleWorkFunction)
 {
-    WGPUInstanceDescriptor descriptor = { nullptr };
+    auto scheduleWorkBlock = makeBlockPtr([scheduleWorkFunction = WTFMove(scheduleWorkFunction)](WGPUWorkItem workItem)
+    {
+        scheduleWorkFunction(makeBlockPtr(WTFMove(workItem)));
+    });
+    WGPUInstanceCocoaDescriptor cocoaDescriptor {
+        {
+            nullptr,
+            static_cast<WGPUSType>(WGPUSTypeExtended_InstanceCocoaDescriptor),
+        },
+        scheduleWorkBlock.get(),
+    };
+    WGPUInstanceDescriptor descriptor = { &cocoaDescriptor.chain };
+
     if (!&wgpuCreateInstance)
         return nullptr;
     auto instance = wgpuCreateInstance(&descriptor);
@@ -63,16 +76,8 @@ GPUImpl::~GPUImpl()
     wgpuInstanceRelease(m_backing);
 }
 
-void requestAdapterCallback(WGPURequestAdapterStatus status, WGPUAdapter adapter, const char* message, void* userdata)
+void GPUImpl::requestAdapter(const RequestAdapterOptions& options, CompletionHandler<void(RefPtr<Adapter>&&)>&& callback)
 {
-    auto gpu = adoptRef(*static_cast<GPUImpl*>(userdata)); // adoptRef is balanced by leakRef in requestAdapter() below. We have to do this because we're using a C API with no concept of reference counting or blocks.
-    gpu->requestAdapterCallback(status, adapter, message);
-}
-
-void GPUImpl::requestAdapter(const RequestAdapterOptions& options, WTF::Function<void(RefPtr<Adapter>&&)>&& callback)
-{
-    Ref protectedThis(*this);
-
     WGPURequestAdapterOptions backingOptions {
         nullptr,
         nullptr,
@@ -80,16 +85,9 @@ void GPUImpl::requestAdapter(const RequestAdapterOptions& options, WTF::Function
         options.forceFallbackAdapter,
     };
 
-    m_callbacks.append(WTFMove(callback));
-
-    wgpuInstanceRequestAdapter(m_backing, &backingOptions, &WebGPU::requestAdapterCallback, &protectedThis.leakRef()); // leakRef is balanced by adoptRef in requestAdapterCallback() above. We have to do this because we're using a C API with no concept of reference counting or blocks.
-}
-
-void GPUImpl::requestAdapterCallback(WGPURequestAdapterStatus, WGPUAdapter adapter, const char* message)
-{
-    UNUSED_PARAM(message);
-    auto callback = m_callbacks.takeFirst();
-    callback(AdapterImpl::create(adapter, m_convertToBackingContext));
+    wgpuInstanceRequestAdapterWithBlock(m_backing, &backingOptions, makeBlockPtr([convertToBackingContext = m_convertToBackingContext.copyRef(), callback = WTFMove(callback)](WGPURequestAdapterStatus, WGPUAdapter adapter, const char*) mutable {
+        callback(AdapterImpl::create(adapter, convertToBackingContext));
+    }).get());
 }
 
 } // namespace PAL::WebGPU

@@ -26,6 +26,7 @@
 #import "config.h"
 #import "RenderPipeline.h"
 
+#import "APIConversions.h"
 #import "BindGroupLayout.h"
 #import "Device.h"
 
@@ -37,7 +38,7 @@ RefPtr<RenderPipeline> Device::createRenderPipeline(const WGPURenderPipelineDesc
     return RenderPipeline::create(nil);
 }
 
-void Device::createRenderPipelineAsync(const WGPURenderPipelineDescriptor& descriptor, WTF::Function<void(WGPUCreatePipelineAsyncStatus, RefPtr<RenderPipeline>&&, const char* message)>&& callback)
+void Device::createRenderPipelineAsync(const WGPURenderPipelineDescriptor& descriptor, CompletionHandler<void(WGPUCreatePipelineAsyncStatus, RefPtr<RenderPipeline>&&, String&& message)>&& callback)
 {
     UNUSED_PARAM(descriptor);
     UNUSED_PARAM(callback);
@@ -50,30 +51,32 @@ RenderPipeline::RenderPipeline(id<MTLRenderPipelineState> renderPipelineState)
 
 RenderPipeline::~RenderPipeline() = default;
 
-Ref<BindGroupLayout> RenderPipeline::getBindGroupLayout(uint32_t groupIndex)
+BindGroupLayout* RenderPipeline::getBindGroupLayout(uint32_t groupIndex)
 {
     UNUSED_PARAM(groupIndex);
-    return BindGroupLayout::create(nil, nil, nil);
+    return nullptr;
 }
 
-void RenderPipeline::setLabel(const char*)
+void RenderPipeline::setLabel(String&&)
 {
     // MTLRenderPipelineState's labels are read-only.
 }
 
 } // namespace WebGPU
 
+#pragma mark WGPU Stubs
+
 void wgpuRenderPipelineRelease(WGPURenderPipeline renderPipeline)
 {
-    delete renderPipeline;
+    WebGPU::fromAPI(renderPipeline).deref();
 }
 
 WGPUBindGroupLayout wgpuRenderPipelineGetBindGroupLayout(WGPURenderPipeline renderPipeline, uint32_t groupIndex)
 {
-    return new WGPUBindGroupLayoutImpl { renderPipeline->renderPipeline->getBindGroupLayout(groupIndex) };
+    return WebGPU::fromAPI(renderPipeline).getBindGroupLayout(groupIndex);
 }
 
 void wgpuRenderPipelineSetLabel(WGPURenderPipeline renderPipeline, const char* label)
 {
-    renderPipeline->renderPipeline->setLabel(label);
+    WebGPU::fromAPI(renderPipeline).setLabel(WebGPU::fromAPI(label));
 }

@@ -26,6 +26,8 @@
 #include "CSSComputedStyleDeclaration.h"
 #include "CSSCustomPropertyValue.h"
 #include "CSSDeferredParser.h"
+#include "CSSGridLineNamesValue.h"
+#include "CSSGridTemplateAreasValue.h"
 #include "CSSOffsetRotateValue.h"
 #include "CSSParser.h"
 #include "CSSPendingSubstitutionValue.h"
@@ -37,6 +39,7 @@
 #include "Color.h"
 #include "Document.h"
 #include "PropertySetCSSStyleDeclaration.h"
+#include "Rect.h"
 #include "StylePropertyShorthand.h"
 #include "StylePropertyShorthandFunctions.h"
 #include "StyleSheetContents.h"
@@ -217,6 +220,8 @@ String StyleProperties::getPropertyValue(CSSPropertyID propertyID) const
         return getShorthandValue(borderBlockStartShorthand());
     case CSSPropertyBorderBlockEnd:
         return getShorthandValue(borderBlockEndShorthand());
+    case CSSPropertyBorderImage:
+        return borderImagePropertyValue();
     case CSSPropertyBorderInline:
         return borderPropertyValue(borderInlineWidthShorthand(), borderInlineStyleShorthand(), borderInlineColorShorthand());
     case CSSPropertyBorderInlineColor:
@@ -252,9 +257,9 @@ String StyleProperties::getPropertyValue(CSSPropertyID propertyID) const
     case CSSPropertyGridArea:
         return getGridShorthandValue(gridAreaShorthand());
     case CSSPropertyGridTemplate:
-        return getGridShorthandValue(gridTemplateShorthand());
+        return getGridTemplateValue();
     case CSSPropertyGrid:
-        return getGridShorthandValue(gridShorthand());
+        return getGridValue();
     case CSSPropertyGridColumn:
         return getGridShorthandValue(gridColumnShorthand());
     case CSSPropertyGridRow:
@@ -765,7 +770,7 @@ String StyleProperties::getLayeredShorthandValue(const StylePropertyShorthand& s
 
                         auto maskId = downcast<CSSPrimitiveValue>(*value).valueID();
                         auto originId = downcast<CSSPrimitiveValue>(*originValue).valueID();
-                        return maskId == originId && (!isCSSWideValueKeyword(getValueName(maskId)) || value->isImplicitInitialValue());
+                        return maskId == originId && (!isCSSWideValueKeyword(StringView { getValueName(maskId) }) || value->isImplicitInitialValue());
                     }
                     if (property == CSSPropertyMaskOrigin) {
                         // We can skip serializing mask-origin if it's the initial value, but only if we're also going to skip serializing
@@ -833,6 +838,102 @@ String StyleProperties::getLayeredShorthandValue(const StylePropertyShorthand& s
     return result.isEmpty() ? String() : result.toString();
 }
 
+static bool isNoneValue(const RefPtr<CSSValue>& value)
+{
+    return value && value->isPrimitiveValue() && downcast<CSSPrimitiveValue>(value.get())->isValueID() && downcast<CSSPrimitiveValue>(value.get())->valueID() == CSSValueNone;
+}
+
+static bool isValueID(const Ref<CSSValue>& value, CSSValueID id)
+{
+    return value->isPrimitiveValue() && downcast<CSSPrimitiveValue>(value.get()).isValueID() && downcast<CSSPrimitiveValue>(value.get()).valueID() == id;
+}
+
+static bool isValueID(const RefPtr<CSSValue>& value, CSSValueID id)
+{
+    return value && isValueID(*value, id);
+}
+
+String StyleProperties::getGridTemplateValue() const
+{
+    StringBuilder result;
+    int areasIndex = findPropertyIndex(CSSPropertyGridTemplateAreas);
+    if (areasIndex == -1)
+        return String();
+    auto rows = getPropertyCSSValue(CSSPropertyGridTemplateRows);
+    if (!rows)
+        return String();
+    auto columns = getPropertyCSSValue(CSSPropertyGridTemplateColumns);
+    if (!columns)
+        return String();
+
+    auto areas = propertyAt(areasIndex);
+    if (isValueID(areas.value(), CSSValueNone) || areas.value()->isInitialValue()) {
+        String rowsText = rows->cssText();
+        result.append(rowsText);
+
+        String columnsText = columns->cssText();
+        // If the values are identical, and either a css wide keyword
+        // or 'none', then we can just output it once.
+        if (columnsText != rowsText || (!isCSSWideValueKeyword(columnsText) && !isValueID(columns, CSSValueNone))) {
+            result.append(" / ");
+            result.append(columnsText);
+        }
+        return result.toString();
+    }
+    // We only want to try serializing the interleaved areas/templates
+    // format if it was set from this shorthand, since that automatically
+    // excludes values that can't be represented in this format (subgrid,
+    // and the repeat() function).
+    if (!areas.toCSSProperty().isSetFromShorthand())
+        return String();
+
+    ASSERT(is<CSSValueList>(rows));
+    ASSERT(is<CSSGridTemplateAreasValue>(areas.value()));
+    auto& areasValue = downcast<CSSGridTemplateAreasValue>(*areas.value());
+    bool first = true;
+    unsigned row = 0;
+    for (auto& currentValue : downcast<CSSValueList>(*rows)) {
+        if (!first)
+            result.append(" ");
+        first = false;
+
+        if (is<CSSGridLineNamesValue>(currentValue))
+            result.append(currentValue->cssText());
+        else {
+            result.append("\"");
+            result.append(areasValue.stringForRow(row));
+            result.append("\"");
+
+            if (!isValueID(currentValue, CSSValueAuto)) {
+                result.append(" ");
+                result.append(currentValue->cssText());
+            }
+            row++;
+        }
+    }
+
+    String columnsText = columns->cssText();
+    if (!isNoneValue(columns)) {
+        result.append(" / ");
+        result.append(columnsText);
+    }
+
+    return result.toString();
+}
+
+String StyleProperties::getGridValue() const
+{
+    // If none of the implicit track properties have been set, then
+    // this shorthand can be represented using the grid-template shorthand
+    // format.
+    if (isValueID(getPropertyCSSValue(CSSPropertyGridAutoColumns), CSSValueAuto)
+        && isValueID(getPropertyCSSValue(CSSPropertyGridAutoRows), CSSValueAuto)
+        && isValueID(getPropertyCSSValue(CSSPropertyGridAutoFlow), CSSValueRow)) {
+        return getGridTemplateValue();
+    }
+    return getGridShorthandValue(gridShorthand());
+}
+
 String StyleProperties::getGridShorthandValue(const StylePropertyShorthand& shorthand) const
 {
     return getShorthandValue(shorthand, " / ");
@@ -898,6 +999,64 @@ String StyleProperties::getAlignmentShorthandValue(const StylePropertyShorthand&
     if (value.isNull() || value.isEmpty())
         return getShorthandValue(shorthand);
     return value;
+}
+
+String StyleProperties::borderImagePropertyValue() const
+{
+    const StylePropertyShorthand& shorthand = borderImageShorthand();
+    StringBuilder result;
+    bool lastPropertyWasImportant = false;
+    bool omittedSlice = false;
+    bool omittedWidth = false;
+    String commonWideValueText;
+    auto separator = "";
+    for (unsigned i = 0; i < shorthand.length(); ++i) {
+        // All longhands should have the same importance.
+        auto longhand = shorthand.properties()[i];
+        bool currentPropertyIsImportant = propertyIsImportant(longhand);
+        if (i && lastPropertyWasImportant != currentPropertyIsImportant)
+            return String();
+        lastPropertyWasImportant = currentPropertyIsImportant;
+
+        // All longhands should be present.
+        auto value = getPropertyCSSValue(longhand);
+        if (!value)
+            return String();
+
+        // Omit implicit initial values. However, border-image-width and border-image-outset require border-image-slice.
+        if (value->isInitialValue() && isPropertyImplicit(longhand)) {
+            if (longhand == CSSPropertyBorderImageSlice)
+                omittedSlice = true;
+            else if (longhand == CSSPropertyBorderImageWidth)
+                omittedWidth = true;
+            continue;
+        }
+        if (omittedSlice && (longhand == CSSPropertyBorderImageWidth || longhand == CSSPropertyBorderImageOutset))
+            return String();
+
+        // If a longhand is set to a css-wide keyword, the others should be the same.
+        String valueText = value->cssText();
+        if (isCSSWideValueKeyword(valueText)) {
+            if (!i)
+                commonWideValueText = valueText;
+            else if (commonWideValueText != valueText)
+                return String();
+            continue;
+        }
+        if (!commonWideValueText.isNull())
+            return String();
+
+        // Append separator and text.
+        if (longhand == CSSPropertyBorderImageWidth)
+            separator = " / ";
+        else if (longhand == CSSPropertyBorderImageOutset)
+            separator = omittedWidth ? " / / " : " / ";
+        result.append(separator, valueText);
+        separator = " ";
+    }
+    if (!commonWideValueText.isNull())
+        return commonWideValueText;
+    return result.toString();
 }
 
 String StyleProperties::borderPropertyValue(const StylePropertyShorthand& width, const StylePropertyShorthand& style, const StylePropertyShorthand& color) const
@@ -1093,7 +1252,7 @@ bool MutableStyleProperties::setCustomProperty(const Document* document, const S
 
     parserContext.mode = cssParserMode();
 
-    String syntax = "*";
+    String syntax = "*"_s;
     auto* registered = document ? document->getCSSRegisteredCustomPropertySet().get(propertyName) : nullptr;
 
     if (registered)
@@ -1342,6 +1501,13 @@ String StyleProperties::asText() const
             case CSSPropertyWebkitBorderHorizontalSpacing:
             case CSSPropertyWebkitBorderVerticalSpacing:
                 shorthandPropertyID = CSSPropertyBorderSpacing;
+                break;
+            case CSSPropertyBorderImageSource:
+            case CSSPropertyBorderImageSlice:
+            case CSSPropertyBorderImageWidth:
+            case CSSPropertyBorderImageOutset:
+            case CSSPropertyBorderImageRepeat:
+                shorthandPropertyID = CSSPropertyBorderImage;
                 break;
             case CSSPropertyFontFamily:
             case CSSPropertyLineHeight:
@@ -1774,7 +1940,7 @@ unsigned StyleProperties::averageSizeInBytes()
 struct SameSizeAsStyleProperties : public RefCounted<SameSizeAsStyleProperties> {
     unsigned bitfield;
 };
-COMPILE_ASSERT(sizeof(StyleProperties) == sizeof(SameSizeAsStyleProperties), style_property_set_should_stay_small);
+static_assert(sizeof(StyleProperties) == sizeof(SameSizeAsStyleProperties), "style property set should stay small");
 
 #ifndef NDEBUG
 void StyleProperties::showStyle()

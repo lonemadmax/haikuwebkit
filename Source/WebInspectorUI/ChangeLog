@@ -1,3 +1,90 @@
+2022-03-23  Razvan Caliman  <rcaliman@apple.com>
+
+        Web Inspector: Styles panel: Unwanted extra dash when autocompleting CSS variable names
+        https://bugs.webkit.org/show_bug.cgi?id=237676
+
+        Reviewed by Patrick Angle.
+
+        The CSS-mode tokenizer provided by CodeMirror and used in Web Inspector matches strictly conforming
+        CSS variable names, i.e. prefixed with two dahses, `--`.
+
+        An identifier like `-name` gets split into two tokens `-` and `name`.
+        The token at the cursor position becomes just `name`.
+        This token's value is used as a query string for autocompletion.
+
+        When a completion suggestion is picked, the query string gets replaced with the suggestion text in
+        `WI.SpreadsheetTextField._updatePendingValueWithCompletionText()`.
+        But because it was split from the query, the dash ends up prepended to the replaced string.
+
+        This patch adds a special case in `WI.CSSKeywordCompletions.forPartialPropertyValue()`
+        to account for this aspect of the tokenizer.
+
+        * UserInterface/Models/CSSKeywordCompletions.js:
+
+2022-03-22  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: Elements tab: selection variable not displayed after losing focus
+        https://bugs.webkit.org/show_bug.cgi?id=238226
+
+        Reviewed by Devin Rousso.
+
+        When rebuilding the underlying `DOMTreeElements`, we should make sure the inspected node is marked as such,
+        otherwise we won't update this until a different element becomes the inspected node.
+
+        * UserInterface/Views/DOMTreeOutline.js:
+        (WI.DOMTreeOutline.prototype.update):
+
+2022-03-22  Patrick Angle  <pangle@apple.com>
+
+        Web Inspector: `console.log` format strings containing invalid specifiers results in `[Object object]` replacing the specifier instead of ignoring the invalid specifier
+        https://bugs.webkit.org/show_bug.cgi?id=235061
+
+        Reviewed by Devin Rousso.
+
+        Logged console messages previously allows an specifier, even invalid ones, to be replaced with values. We should
+        instead ignore the invalid specifier to match Firefox's behavior. (Chrome's behavior currently is to remove the
+        invalid specifier from the result without replacing it with the first next available substitution value.)
+
+        Other call sites using `String.format` are handling localized strings or other backend-provided strings that
+        should always be well-formatted, so falling back to handling a format specifier as a string is not a particularly
+        useful behavior.
+
+        * UserInterface/Base/Utilities.js:
+        (value):
+
+2022-03-22  Nikita Vasilyev  <nvasilyev@apple.com>
+
+        Web Inspector: Inline swatch popovers should hide when inline swatches are removed
+        https://bugs.webkit.org/show_bug.cgi?id=235047
+        <rdar://problem/87687975>
+
+        Reviewed by Patrick Angle.
+
+        * UserInterface/Views/InlineSwatch.js:
+        (WI.InlineSwatch):
+        (WI.InlineSwatch.prototype.dismissPopover):
+        (WI.InlineSwatch.prototype._presentPopover):
+
+        * UserInterface/Views/SpreadsheetStyleProperty.js:
+        (WI.SpreadsheetStyleProperty.prototype.detached):
+        (WI.SpreadsheetStyleProperty.prototype.spreadsheetTextFieldDidCommit):
+        (WI.SpreadsheetStyleProperty.prototype._renderValue):
+        (WI.SpreadsheetStyleProperty.prototype._createInlineSwatch):
+
+2022-03-17  Nikita Vasilyev  <nvasilyev@apple.com>
+
+        Web Inspector: REGRESSION(r287753): Settings: checkboxes are smaller and no longer vertically align with related text
+        https://bugs.webkit.org/show_bug.cgi?id=237745
+        <rdar://problem/90129658>
+
+        Reviewed by Devin Rousso.
+
+        After r287753, `font-size` no longer affects the size of the checkboxes.
+        Use `width` and `height` to make the checkbox the expected size.
+
+        * UserInterface/Views/SettingsTabContentView.css:
+        (.content-view.tab.settings > .settings-view > .container > .editor-group > .setting-editor input[type="checkbox"]):
+
 2022-03-12  Tim Horton  <timothy_horton@apple.com>
 
         Adopt FALLBACK_PLATFORM_NAME in place of FALLBACK_PLATFORM

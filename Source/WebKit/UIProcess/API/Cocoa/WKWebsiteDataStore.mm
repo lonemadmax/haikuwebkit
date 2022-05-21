@@ -835,4 +835,25 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
     });
 }
 
+-(void)_scopeURL:(NSURL *)scopeURL hasPushSubscriptionForTesting:(void(^)(BOOL))completionHandler
+{
+    auto completionHandlerCopy = makeBlockPtr(completionHandler);
+    _websiteDataStore->networkProcess()
+        .hasPushSubscriptionForTesting(_websiteDataStore->sessionID(), scopeURL, [completionHandlerCopy](bool result) {
+            completionHandlerCopy(result);
+        });
+}
+
+-(void)_originDirectoryForTesting:(NSURL *)origin topOrigin:(NSURL *)topOrigin type:(NSString *)dataType completionHandler:(void(^)(NSString *))completionHandler
+{
+    auto websiteDataType = WebKit::toWebsiteDataType(dataType);
+    if (!websiteDataType)
+        return completionHandler(nil);
+
+    auto completionHandlerCopy = makeBlockPtr(completionHandler);
+    _websiteDataStore->originDirectoryForTesting(origin, topOrigin, *websiteDataType, [completionHandlerCopy = WTFMove(completionHandlerCopy)](auto result) {
+        completionHandlerCopy(result);
+    });
+}
+
 @end

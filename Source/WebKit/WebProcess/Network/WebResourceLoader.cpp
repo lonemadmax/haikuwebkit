@@ -149,12 +149,15 @@ void WebResourceLoader::didSendData(uint64_t bytesSent, uint64_t totalBytesToBeS
     m_coreLoader->didSendData(bytesSent, totalBytesToBeSent);
 }
 
-void WebResourceLoader::didReceiveResponse(const ResourceResponse& response, PrivateRelayed privateRelayed, bool needsContinueDidReceiveResponseMessage)
+void WebResourceLoader::didReceiveResponse(ResourceResponse&& response, PrivateRelayed privateRelayed, bool needsContinueDidReceiveResponseMessage, std::optional<NetworkLoadMetrics>&& metrics)
 {
     LOG(Network, "(WebProcess) WebResourceLoader::didReceiveResponse for '%s'. Status %d.", m_coreLoader->url().string().latin1().data(), response.httpStatusCode());
     WEBRESOURCELOADER_RELEASE_LOG("didReceiveResponse: (httpStatusCode=%d)", response.httpStatusCode());
 
     Ref<WebResourceLoader> protectedThis(*this);
+
+    if (metrics)
+        response.setDeprecatedNetworkLoadMetrics(Box<NetworkLoadMetrics>::create(WTFMove(*metrics)));
 
     if (privateRelayed == PrivateRelayed::Yes && mainFrameMainResource() == MainFrameMainResource::Yes)
         WebProcess::singleton().setHadMainFrameMainResourcePrivateRelayed();
@@ -351,25 +354,15 @@ void WebResourceLoader::didReceiveResource(const ShareableResource::Handle& hand
 #endif
 
 #if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
-void WebResourceLoader::contentFilterDidBlockLoad(const WebCore::ContentFilterUnblockHandler& unblockHandler, String&& unblockRequestDeniedScript)
+void WebResourceLoader::contentFilterDidBlockLoad(const WebCore::ContentFilterUnblockHandler& unblockHandler, String&& unblockRequestDeniedScript, const ResourceError& error, const URL& blockedPageURL,  WebCore::SubstituteData&& substituteData)
 {
     if (!m_coreLoader || !m_coreLoader->documentLoader())
         return;
-    m_coreLoader->documentLoader()->handleContentFilterDidBlock(unblockHandler, WTFMove(unblockRequestDeniedScript));
-}
-
-void WebResourceLoader::cancelMainResourceLoadForContentFilter(const WebCore::ResourceError& error)
-{
-    if (!m_coreLoader || !m_coreLoader->documentLoader())
-        return;
-    m_coreLoader->documentLoader()->cancelMainResourceLoad(error);
-}
-
-void WebResourceLoader::handleProvisionalLoadFailureFromContentFilter(const URL& blockedPageURL, const WebCore::SubstituteData& substituteData)
-{
-    if (!m_coreLoader || !m_coreLoader->documentLoader() || !substituteData.isValid())
-        return;
-    m_coreLoader->documentLoader()->handleContentFilterProvisionalLoadFailure(blockedPageURL, substituteData);
+    auto documentLoader = m_coreLoader->documentLoader();
+    documentLoader->setBlockedPageURL(blockedPageURL);
+    documentLoader->setSubstituteDataFromContentFilter(WTFMove(substituteData));
+    documentLoader->handleContentFilterDidBlock(unblockHandler, WTFMove(unblockRequestDeniedScript));
+    documentLoader->cancelMainResourceLoad(error);
 }
 #endif // ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
 

@@ -448,6 +448,16 @@ AXCoreObject* AccessibilityObject::parentObjectUnignored() const
     });
 }
 
+AccessibilityObject* AccessibilityObject::displayContentsParent() const
+{
+    auto* parentNode = node() ? node()->parentNode() : nullptr;
+    if (!is<Element>(parentNode) || !downcast<Element>(parentNode)->hasDisplayContents())
+        return nullptr;
+
+    auto* cache = axObjectCache();
+    return cache ? cache->getOrCreate(parentNode) : nullptr;
+}
+
 AccessibilityObject* AccessibilityObject::previousSiblingUnignored(int limit) const
 {
     AccessibilityObject* previous;
@@ -575,7 +585,7 @@ void AccessibilityObject::insertChild(AXCoreObject* newChild, unsigned index, De
 {
     if (!newChild)
         return;
-    
+
     ASSERT(is<AccessibilityObject>(newChild));
     if (!is<AccessibilityObject>(newChild))
         return;
@@ -600,7 +610,12 @@ void AccessibilityObject::insertChild(AXCoreObject* newChild, unsigned index, De
             }
         }
     }
-    
+
+    auto* displayContentsParent = child->displayContentsParent();
+    // To avoid double-inserting a child of a `display: contents` element, only insert if `this` is the rightful parent.
+    if (displayContentsParent && displayContentsParent != this)
+        return;
+
     auto thisAncestorFlags = computeAncestorFlags();
     child->initializeAncestorFlags(thisAncestorFlags);
     setIsIgnoredFromParentDataForChild(child);
@@ -625,7 +640,7 @@ void AccessibilityObject::insertChild(AXCoreObject* newChild, unsigned index, De
     } else {
         // Table component child-parent relationships often don't line up properly, hence the need for methods
         // like parentTable() and parentRow(). Exclude them from this ASSERT.
-        ASSERT((!isTableComponent(*child) && !isTableComponent(*this)) ? child->parentObject() == this : true);
+        ASSERT(isTableComponent(*child) || isTableComponent(*this) || child->parentObject() == this);
         m_children.insert(index, child);
     }
     
@@ -717,50 +732,122 @@ std::optional<SimpleRange> AccessibilityObject::elementRange() const
     return AXObjectCache::rangeForNodeContents(*node);
 }
 
+Vector<BoundaryPoint> AccessibilityObject::previousLineStartBoundaryPoints(const VisiblePosition& startingPosition, const SimpleRange& targetRange, unsigned positionsToRetrieve) const
+{
+    Vector<BoundaryPoint> boundaryPoints;
+    boundaryPoints.reserveInitialCapacity(positionsToRetrieve);
+
+    std::optional<VisiblePosition> lastPosition = startingPosition;
+    for (unsigned i = 0; i < positionsToRetrieve; i++) {
+        lastPosition = previousLineStartPositionInternal(*lastPosition);
+        if (!lastPosition)
+            break;
+
+        auto boundaryPoint = makeBoundaryPoint(*lastPosition);
+        if (!boundaryPoint || !contains(targetRange, *boundaryPoint))
+            break;
+
+        boundaryPoints.uncheckedAppend(WTFMove(*boundaryPoint));
+    }
+    boundaryPoints.shrinkToFit();
+    return boundaryPoints;
+}
+
+std::optional<BoundaryPoint> AccessibilityObject::lastBoundaryPointContainedInRect(const Vector<BoundaryPoint>& boundaryPoints, const BoundaryPoint& startBoundary, const FloatRect& rect, int leftIndex, int rightIndex) const
+{
+    if (leftIndex > rightIndex || boundaryPoints.isEmpty())
+        return std::nullopt;
+
+    auto indexIsValid = [&] (int index) {
+        return index >= 0 && static_cast<size_t>(index) < boundaryPoints.size();
+    };
+    auto boundaryPointContainedInRect = [&] (const BoundaryPoint& boundary) {
+        return boundaryPointsContainedInRect(startBoundary, boundary, rect);
+    };
+
+    int midIndex = leftIndex + (rightIndex - leftIndex) / 2;
+    if (boundaryPointContainedInRect(boundaryPoints.at(midIndex))) {
+        // We have a match if `midIndex` boundary point is contained in the rect, but the one at `midIndex - 1` isn't.
+        if (indexIsValid(midIndex - 1) && !boundaryPointContainedInRect(boundaryPoints.at(midIndex - 1)))
+            return boundaryPoints.at(midIndex);
+
+        return lastBoundaryPointContainedInRect(boundaryPoints, startBoundary, rect, leftIndex, midIndex - 1);
+    }
+    // And vice versa, we have a match if the `midIndex` boundary point is not contained in the rect, but the one at `midIndex + 1` is.
+    if (indexIsValid(midIndex + 1) && boundaryPointContainedInRect(boundaryPoints.at(midIndex + 1)))
+        return boundaryPoints.at(midIndex + 1);
+
+    return lastBoundaryPointContainedInRect(boundaryPoints, startBoundary, rect, midIndex + 1, rightIndex);
+}
+
+bool AccessibilityObject::boundaryPointsContainedInRect(const BoundaryPoint& startBoundary, const BoundaryPoint& endBoundary, const FloatRect& rect) const
+{
+    auto elementRect = boundsForRange({ startBoundary, endBoundary });
+    return rect.contains(elementRect.location() + elementRect.size());
+}
+
 std::optional<SimpleRange> AccessibilityObject::visibleCharacterRange() const
 {
     auto range = elementRange();
-    if (!range)
-        return std::nullopt;
-
     auto contentRect = unobscuredContentRect();
     auto elementRect = snappedIntRect(this->elementRect());
-    if (!contentRect.intersects(elementRect))
+    auto inputs = std::make_tuple(range, contentRect, elementRect);
+    if (m_cachedVisibleCharacterRangeInputs && *m_cachedVisibleCharacterRangeInputs == inputs)
+        return m_cachedVisibleCharacterRange;
+
+    auto computedRange = visibleCharacterRangeInternal(range, contentRect, elementRect);
+    m_cachedVisibleCharacterRangeInputs = inputs;
+    m_cachedVisibleCharacterRange = computedRange;
+    return computedRange;
+}
+
+std::optional<SimpleRange> AccessibilityObject::visibleCharacterRangeInternal(const std::optional<SimpleRange>& range, const FloatRect& contentRect, const IntRect& startingElementRect) const
+{
+    if (!range || !contentRect.intersects(startingElementRect))
         return std::nullopt;
 
-    std::optional<BoundaryPoint> startBoundary = range->start;
-    std::optional<BoundaryPoint> endBoundary = range->end;
+    auto elementRect = startingElementRect;
+    auto startBoundary = range->start;
+    auto endBoundary = range->end;
 
     // Origin isn't contained in visible rect, start moving forward by line.
     while (!contentRect.contains(elementRect.location())) {
-        auto nextLinePosition = nextLineEndPosition(VisiblePosition(makeContainerOffsetPosition(*startBoundary)));
-        std::optional<BoundaryPoint> testStartBoundary = makeBoundaryPoint(nextLinePosition);
+        auto nextLinePosition = nextLineEndPosition(VisiblePosition(makeContainerOffsetPosition(startBoundary)));
+        auto testStartBoundary = makeBoundaryPoint(nextLinePosition);
         if (!testStartBoundary || !contains(*range, *testStartBoundary))
             break;
-        
-        startBoundary = testStartBoundary;
-        elementRect = boundsForRange(SimpleRange(*startBoundary, range->end));
+
+        startBoundary = *testStartBoundary;
+        elementRect = boundsForRange(SimpleRange(startBoundary, range->end));
         if (elementRect.isEmpty())
             break;
     }
 
-    // End isn't contained in visible rect, start moving backwards by line.
-    while (!contentRect.contains(elementRect.location() + elementRect.size())) {
-        auto previousLinePosition = previousLineStartPosition(VisiblePosition(makeContainerOffsetPosition(*endBoundary)));
-        std::optional<BoundaryPoint> testEndBoundary = makeBoundaryPoint(previousLinePosition);
-        if (!testEndBoundary || !contains(*range, *testEndBoundary))
+    // Computing previous line start positions is cheap relative to computing boundsForRange, so compute the end boundary by
+    // grabbing batches of lines and binary searching within them to minimize calls to boundsForRange.
+    Vector<BoundaryPoint> boundaryPoints = { endBoundary };
+    do {
+        // If the first boundary point is contained in contentRect, then it's a match because we know everything in the last batch
+        // of lines was not contained in contentRect.
+        if (boundaryPointsContainedInRect(startBoundary, boundaryPoints.at(0), contentRect)) {
+            endBoundary = boundaryPoints.at(0);
             break;
-        
-        endBoundary = testEndBoundary;
-        elementRect = boundsForRange({ *startBoundary, *endBoundary });
+        }
+
+        auto lastBoundaryPoint = boundaryPoints.last();
+        elementRect = boundsForRange({ startBoundary, lastBoundaryPoint });
         if (elementRect.isEmpty())
             break;
-    }
+        // Otherwise if the last boundary point is contained in contentRect, then we know some boundary point in this batch is
+        // our target end boundary point.
+        if (contentRect.contains(elementRect.location() + elementRect.size())) {
+            endBoundary = lastBoundaryPointContainedInRect(boundaryPoints, startBoundary, contentRect).value_or(lastBoundaryPoint);
+            break;
+        }
+        boundaryPoints = previousLineStartBoundaryPoints(VisiblePosition(makeContainerOffsetPosition(lastBoundaryPoint)), *range, 64);
+    } while (!boundaryPoints.isEmpty());
 
-    if (!startBoundary || !endBoundary)
-        return std::nullopt;
-    
-    return {{ *startBoundary, *endBoundary }};
+    return { { startBoundary, endBoundary } };
 }
 
 std::optional<SimpleRange> AccessibilityObject::findTextRange(const Vector<String>& searchStrings, const SimpleRange& start, AccessibilitySearchTextDirection direction) const
@@ -1532,24 +1619,23 @@ VisiblePosition AccessibilityObject::nextLineEndPosition(const VisiblePosition& 
     return endPosition;
 }
 
-VisiblePosition AccessibilityObject::previousLineStartPosition(const VisiblePosition& visiblePos) const
+std::optional<VisiblePosition> AccessibilityObject::previousLineStartPositionInternal(const VisiblePosition& visiblePosition) const
 {
-    if (visiblePos.isNull())
-        return VisiblePosition();
+    if (visiblePosition.isNull())
+        return std::nullopt;
 
-    // make sure we move off of a line start
-    VisiblePosition prevVisiblePos = visiblePos.previous();
-    if (prevVisiblePos.isNull())
-        return VisiblePosition();
+    // Make sure we move off of a line start.
+    auto previousVisiblePosition = visiblePosition.previous();
+    if (previousVisiblePosition.isNull())
+        return std::nullopt;
 
-    VisiblePosition startPosition = startOfLine(prevVisiblePos);
-
-    // as long as the position hasn't reached the beginning of the doc,  keep searching for a valid line start position
-    // There are cases like when the position is next to a floating object that'll return null for start of line. This code will avoid returning null.
+    auto startPosition = startOfLine(previousVisiblePosition);
+    // As long as the position hasn't reached the beginning of the document, keep searching for a valid line start position.
+    // This avoids returning a null position when we shouldn't, like when a position is next to a floating object.
     if (startPosition.isNull()) {
-        while (startPosition.isNull() && prevVisiblePos.isNotNull()) {
-            prevVisiblePos = prevVisiblePos.previous();
-            startPosition = startOfLine(prevVisiblePos);
+        while (startPosition.isNull() && previousVisiblePosition.isNotNull()) {
+            previousVisiblePosition = previousVisiblePosition.previous();
+            startPosition = startOfLine(previousVisiblePosition);
         }
     } else
         startPosition = updateAXLineStartForVisiblePosition(startPosition);
@@ -1643,7 +1729,7 @@ bool AccessibilityObject::supportsReadOnly() const
 String AccessibilityObject::readOnlyValue() const
 {
     if (!hasAttribute(aria_readonlyAttr))
-        return ariaRoleAttribute() != AccessibilityRole::Unknown && supportsReadOnly() ? "false" : String();
+        return ariaRoleAttribute() != AccessibilityRole::Unknown && supportsReadOnly() ? "false"_s : String();
 
     return getAttribute(aria_readonlyAttr).string().convertToASCIILowercase();
 }
@@ -1671,7 +1757,7 @@ String AccessibilityObject::autoCompleteValue() const
         || equalLettersIgnoringASCIICase(autoComplete, "both"))
         return autoComplete;
 
-    return "none";
+    return "none"_s;
 }
 
 bool AccessibilityObject::contentEditableAttributeIsEnabled(Element* element)
@@ -2147,20 +2233,20 @@ String AccessibilityObject::currentValue() const
 {
     switch (currentState()) {
     case AccessibilityCurrentState::False:
-        return "false";
+        return "false"_s;
     case AccessibilityCurrentState::Page:
-        return "page";
+        return "page"_s;
     case AccessibilityCurrentState::Step:
-        return "step";
+        return "step"_s;
     case AccessibilityCurrentState::Location:
-        return "location";
+        return "location"_s;
     case AccessibilityCurrentState::Time:
-        return "time";
+        return "time"_s;
     case AccessibilityCurrentState::Date:
-        return "date";
+        return "date"_s;
     default:
     case AccessibilityCurrentState::True:
-        return "true";
+        return "true"_s;
     }
 }
 
@@ -2269,11 +2355,11 @@ bool AccessibilityObject::replaceTextInRange(const String& replacementString, co
     }
     
     if (is<HTMLInputElement>(element)) {
-        downcast<HTMLInputElement>(element).setRangeText(replacementString, range.start, range.length, "");
+        downcast<HTMLInputElement>(element).setRangeText(replacementString, range.start, range.length, emptyString());
         return true;
     }
     if (is<HTMLTextAreaElement>(element)) {
-        downcast<HTMLTextAreaElement>(element).setRangeText(replacementString, range.start, range.length, "");
+        downcast<HTMLTextAreaElement>(element).setRangeText(replacementString, range.start, range.length, emptyString());
         return true;
     }
 
@@ -2508,7 +2594,7 @@ String AccessibilityObject::computedRoleString() const
 
     // We do not compute a role string for generic block elements with user-agent assigned roles.
     if (role == AccessibilityRole::Group || role == AccessibilityRole::TextGroup)
-        return "";
+        return emptyString();
 
     // We do compute a role string for block elements with author-provided roles.
     if (role == AccessibilityRole::ApplicationTextGroup
@@ -2639,7 +2725,7 @@ String AccessibilityObject::roleDescription() const
 
 bool nodeHasPresentationRole(Node* node)
 {
-    return nodeHasRole(node, "presentation") || nodeHasRole(node, "none");
+    return nodeHasRole(node, "presentation"_s) || nodeHasRole(node, "none"_s);
 }
     
 bool AccessibilityObject::supportsPressAction() const
@@ -3124,10 +3210,10 @@ HashMap<String, AXEditingStyleValueVariant> AccessibilityObject::resolvedEditing
         return { };
 
     HashMap<String, AXEditingStyleValueVariant> styles;
-    styles.add("bold", selectionStyle->hasStyle(CSSPropertyFontWeight, "bold"));
-    styles.add("italic", selectionStyle->hasStyle(CSSPropertyFontStyle, "italic"));
-    styles.add("underline", selectionStyle->hasStyle(CSSPropertyWebkitTextDecorationsInEffect, "underline"));
-    styles.add("fontsize", selectionStyle->legacyFontSize(*document));
+    styles.add("bold"_s, selectionStyle->hasStyle(CSSPropertyFontWeight, "bold"_s));
+    styles.add("italic"_s, selectionStyle->hasStyle(CSSPropertyFontStyle, "italic"_s));
+    styles.add("underline"_s, selectionStyle->hasStyle(CSSPropertyWebkitTextDecorationsInEffect, "underline"_s));
+    styles.add("fontsize"_s, selectionStyle->legacyFontSize(*document));
     return styles;
 }
 
@@ -3532,8 +3618,8 @@ TextIteratorBehaviors AccessibilityObject::textIteratorBehaviorForTextRange() co
 {
     TextIteratorBehaviors behaviors { TextIteratorBehavior::IgnoresStyleVisibility };
 
-#if USE(ATK) || USE(ATSPI)
-    // We need to emit replaced elements for GTK, and present
+#if USE(ATSPI)
+    // We need to emit replaced elements for ATSPI, and present
     // them with the 'object replacement character' (0xFFFC).
     behaviors.add(TextIteratorBehavior::EmitsObjectReplacementCharacters);
 #endif
@@ -4002,7 +4088,7 @@ static bool isRadioButtonInDifferentAdhocGroup(RefPtr<AXCoreObject> axObject, AX
     if (!referenceObject || !referenceObject->isRadioButton())
         return true;
 
-    return axObject->attributeValue("name") != referenceObject->attributeValue("name");
+    return axObject->attributeValue("name"_s) != referenceObject->attributeValue("name"_s);
 }
 
 static bool isAccessibilityObjectSearchMatchAtIndex(RefPtr<AXCoreObject> axObject, AccessibilitySearchCriteria const& criteria, size_t index)
@@ -4177,9 +4263,15 @@ static void appendChildrenToArray(RefPtr<AXCoreObject> object, bool isForward, R
             startObject = parentObject;
             parentObject = parentObject->parentObject();
         }
+
+        // We should only ever hit this case with a live object (not an isolated object), as it would require startObject to be ignored,
+        // and we should never have created an isolated object from an ignored live object.
+        ASSERT(is<AccessibilityObject>(startObject));
+        auto* newStartObject = dynamicDowncast<AccessibilityObject>(startObject.get());
         // Get the un-ignored sibling based on the search direction, and update the searchPosition.
-        while (startObject && startObject->accessibilityIsIgnored())
-            startObject = isForward ? startObject->previousSibling() : startObject->nextSibling();
+        while (newStartObject && newStartObject->accessibilityIsIgnored())
+            newStartObject = isForward ? newStartObject->previousSibling() : newStartObject->nextSibling();
+        startObject = newStartObject;
     }
 
     size_t searchPosition = startObject ? searchChildren.find(startObject) : notFound;
@@ -4203,7 +4295,7 @@ static void appendChildrenToArray(RefPtr<AXCoreObject> object, bool isForward, R
 
 void findMatchingObjects(AccessibilitySearchCriteria const& criteria, AXCoreObject::AccessibilityChildrenVector& results)
 {
-    AXTRACE("Accessibility::findMatchingObjects");
+    AXTRACE("Accessibility::findMatchingObjects"_s);
     AXLOG(criteria);
 
     // This search algorithm only searches the elements before/after the starting object.

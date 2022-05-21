@@ -324,27 +324,27 @@ JSObject* createErrorForInvalidGlobalAssignment(JSGlobalObject* globalObject, co
 
 JSObject* createTDZError(JSGlobalObject* globalObject)
 {
-    return createReferenceError(globalObject, "Cannot access uninitialized variable.");
+    return createReferenceError(globalObject, "Cannot access uninitialized variable."_s);
 }
 
 JSObject* createInvalidPrivateNameError(JSGlobalObject* globalObject)
 {
-    return createTypeError(globalObject, makeString("Cannot access invalid private field"), defaultSourceAppender, TypeNothing);
+    return createTypeError(globalObject, "Cannot access invalid private field"_s, defaultSourceAppender, TypeNothing);
 }
 
 JSObject* createRedefinedPrivateNameError(JSGlobalObject* globalObject)
 {
-    return createTypeError(globalObject, makeString("Cannot redefine existing private field"), defaultSourceAppender, TypeNothing);
+    return createTypeError(globalObject, "Cannot redefine existing private field"_s, defaultSourceAppender, TypeNothing);
 }
 
 JSObject* createPrivateMethodAccessError(JSGlobalObject* globalObject)
 {
-    return createTypeError(globalObject, makeString("Cannot access private method or acessor"_s), defaultSourceAppender, TypeNothing);
+    return createTypeError(globalObject, "Cannot access private method or acessor"_s, defaultSourceAppender, TypeNothing);
 }
 
 JSObject* createReinstallPrivateMethodError(JSGlobalObject* globalObject)
 {
-    return createTypeError(globalObject, makeString("Cannot install same private methods on object more than once"_s), defaultSourceAppender, TypeNothing);
+    return createTypeError(globalObject, "Cannot install same private methods on object more than once"_s, defaultSourceAppender, TypeNothing);
 }
 
 Exception* throwOutOfMemoryError(JSGlobalObject* globalObject, ThrowScope& scope)

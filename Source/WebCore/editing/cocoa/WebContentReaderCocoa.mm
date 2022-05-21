@@ -200,10 +200,16 @@ private:
     bool m_didDisableImage { false };
 };
 
-
-static bool shouldReplaceSubresourceURL(const URL& url)
+enum class ReplacementMethod : bool { BlobURL, Attachment };
+static bool shouldReplaceSubresourceURL(const URL& url, ReplacementMethod replacementType = ReplacementMethod::BlobURL)
 {
-    return !(url.protocolIsInHTTPFamily() || url.protocolIsData());
+    if (url.protocolIsData())
+        return false;
+
+    if (url.protocolIsInHTTPFamily())
+        return replacementType == ReplacementMethod::Attachment;
+
+    return true;
 }
 
 static bool shouldReplaceRichContentWithAttachments()
@@ -297,7 +303,7 @@ static void replaceRichContentWithAttachments(Frame& frame, DocumentFragment& fr
     HashMap<AtomString, Ref<ArchiveResource>> urlToResourceMap;
     for (auto& subresource : subresources) {
         auto& url = subresource->url();
-        if (shouldReplaceSubresourceURL(url))
+        if (shouldReplaceSubresourceURL(url, ReplacementMethod::Attachment))
             urlToResourceMap.set(url.string(), subresource.copyRef());
     }
 
@@ -756,7 +762,7 @@ static Ref<HTMLElement> attachmentForData(Frame& frame, FragmentedSharedBuffer& 
     auto attachmentType = typeForAttachmentElement(contentType);
 
     // FIXME: We should instead ask CoreServices for a preferred name corresponding to the given content type.
-    static const char* defaultAttachmentName = "file";
+    static constexpr ASCIILiteral defaultAttachmentName = "file"_s;
 
     String fileName;
     if (name.isEmpty())

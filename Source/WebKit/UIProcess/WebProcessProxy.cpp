@@ -824,6 +824,12 @@ void WebProcessProxy::getGPUProcessConnection(GPUProcessConnectionParameters&& p
     m_processPool->getGPUProcessConnection(*this, WTFMove(parameters), WTFMove(reply));
 }
 
+void WebProcessProxy::gpuProcessDidFinishLaunching()
+{
+    for (auto& page : copyToVectorOf<RefPtr<WebPageProxy>>(m_pageMap.values()))
+        page->gpuProcessDidFinishLaunching();
+}
+
 void WebProcessProxy::gpuProcessExited(GPUProcessTerminationReason reason)
 {
     if (reason == GPUProcessTerminationReason::IdleExit)
@@ -1046,6 +1052,13 @@ void WebProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connect
 #if PLATFORM(COCOA)
     if (auto networkProcess = NetworkProcessProxy::defaultNetworkProcess())
         networkProcess->sendXPCEndpointToProcess(*this);
+    else {
+        RunLoop::main().dispatch([weakThis = WeakPtr { *this }] {
+            if (!weakThis)
+                return;
+            NetworkProcessProxy::ensureDefaultNetworkProcess()->sendXPCEndpointToProcess(*weakThis);
+        });
+    }
 #endif
 
     RELEASE_ASSERT(!m_webConnection);

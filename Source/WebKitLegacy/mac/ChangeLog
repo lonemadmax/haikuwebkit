@@ -1,3 +1,89 @@
+2022-03-26  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Use static_assert instead of COMPILE_ASSERT
+        https://bugs.webkit.org/show_bug.cgi?id=238417
+
+        Reviewed by Mark Lam.
+
+        * Plugins/WebBasePluginPackage.mm:
+        (-[WebBasePluginPackage isNativeLibraryData:]):
+        * WebView/WebDynamicScrollBarsView.mm:
+
+2022-03-25  Chris Dumez  <cdumez@apple.com>
+
+        Start preparing WebCore for making the String(const char*) constructor explicit
+        https://bugs.webkit.org/show_bug.cgi?id=238336
+
+        Reviewed by Geoffrey Garen.
+
+        Start preparing WebCore for making the String(const char*) constructor explicit.
+        Making this constructor explicit helps catch at compile time cases where the ""_s
+        prefix is missing on String literals.
+
+        * Misc/WebNSPasteboardExtras.mm:
+        (-[NSPasteboard _web_declareAndWriteDragImageForElement:URL:title:archive:source:]):
+
+2022-03-24  Chris Dumez  <cdumez@apple.com>
+
+        FileSystem::pathByAppendingComponent() should take in StringViews instead of Strings
+        https://bugs.webkit.org/show_bug.cgi?id=238344
+
+        Reviewed by Geoff Garen.
+
+        * Storage/WebDatabaseProvider.mm:
+        (WebDatabaseProvider::indexedDatabaseDirectoryPath):
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:]):
+
+2022-03-24  Chris Dumez  <cdumez@apple.com>
+
+        String's startsWith() / endsWith() / replace() should take in a StringView instead of a String
+        https://bugs.webkit.org/show_bug.cgi?id=238333
+
+        Reviewed by Geoff Garen.
+
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::handleAcceptedCandidateWithSoftSpaces):
+
+2022-03-18  Jonathan Bedard  <jbedard@apple.com>
+
+        [iOS 15.4] Fix unused variables
+        https://bugs.webkit.org/show_bug.cgi?id=238089
+        <rdar://problem/90498642>
+
+        Reviewed by Alexey Proskuryakov and Chris Dumez.
+
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::addMessageToConsole): Declare respondsToNewSelector as unused on iOS family.
+
+2022-03-15  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Allow for scheduling asynchronous work
+        https://bugs.webkit.org/show_bug.cgi?id=237755
+
+        Reviewed by Kimmo Kinnunen.
+
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::createGPUForWebGPU const):
+
+2022-03-15  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [macOS] Tooltip no longer disappears after leaving hovered element
+        https://bugs.webkit.org/show_bug.cgi?id=237815
+        rdar://90187247
+
+        Reviewed by Tim Horton.
+
+        Apply the same fix to legacy WebKit; see WebKit/ChangeLog for more information.
+
+        * WebView/WebHTMLView.mm:
+
+        Also wrap the owner in a WeakObjCPtr to avoid the possibility of calling methods on deallocated instances.
+
+        (-[WebHTMLView _toolTipOwnerForSendingMouseEvents]):
+        (-[WebHTMLView _sendToolTipMouseExited]):
+        (-[WebHTMLView _sendToolTipMouseEntered]):
+
 2022-03-12  Tim Horton  <timothy_horton@apple.com>
 
         Adopt FALLBACK_PLATFORM_NAME in place of FALLBACK_PLATFORM

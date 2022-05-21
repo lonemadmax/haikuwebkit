@@ -31,6 +31,13 @@ imported/w3c/web-platform-tests/css/css-color/t425-hsla-onscreen-multiple-boxes-
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-embed-element/embed-represent-nothing-02.html [ Pass ]
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-area-element/area-coords.html [ Pass ]
 
+fast/css/accent-color/checkbox.html [ Pass ]
+fast/css/accent-color/progress.html [ Pass ]
+fast/css/accent-color/radio.html [ Pass ]
+fast/css/accent-color/range.html [ Pass ]
+fast/css/accent-color/text.html [ Pass ]
+imported/w3c/web-platform-tests/css/css-ui/accent-color-checkbox-checked-001.tentative.html [ Pass ]
+
 # Some Apple ports don't support RTL scrollbars.
 fast/scrolling/rtl-scrollbars-alternate-body-dir-attr-does-not-update-scrollbar-placement.html [ Pass ]
 fast/scrolling/rtl-scrollbars-iframe-scrolled.html [ Pass ]
@@ -133,7 +140,6 @@ webkit.org/b/223862 accessibility/gtk/text-for-range-simple.html [ Failure ]
 webkit.org/b/223862 accessibility/gtk/text-for-range-table-cells.html [ Failure ]
 webkit.org/b/223862 accessibility/gtk/text-for-range-with-link.html [ Failure ]
 accessibility/model-element-attributes.html [ Skip ]
-accessibility/dropdown-value.html [ Skip ]
 
 # Tests failing with ATSPI implementation.
 webkit.org/b/235941 accessibility/gtk/text-at-offset-embedded-objects.html [ Failure ]
@@ -142,6 +148,7 @@ webkit.org/b/235941 accessibility/gtk/caret-offsets.html [ Timeout ]
 
 # canvas
 webkit.org/b/215462 imported/w3c/web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.commit.html [ Failure ]
+webkit.org/b/238208 imported/w3c/web-platform-tests/html/canvas/offscreen/fill-and-stroke-styles/2d.fillStyle.CSSHSL.html [ Failure ]
 
 # CSS
 webkit.org/b/216161 imported/w3c/web-platform-tests/css/css-pseudo/text-selection.html [ Failure Pass ]
@@ -614,9 +621,6 @@ webkit.org/b/152620 css3/font-variant-all.html [ ImageOnlyFailure ]
 webkit.org/b/152620 css3/font-variant-petite-caps-synthesis.html [ ImageOnlyFailure ]
 webkit.org/b/152620 css3/font-variant-small-caps-synthesis.html [ ImageOnlyFailure ]
 
-# monitorWheelEvents doesn't work in this test.
-css3/scroll-snap/scroll-snap-wheel-event.html [ Skip ]
-
 # Requires ENABLE(SAMPLING_PROFILER)
 webkit.org/b/153466 inspector/sampling-profiler [ Skip ]
 
@@ -936,9 +940,6 @@ webkit.org/b/225921 printing/print-close-crash.html [ Crash ]
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Crashing tests
 #////////////////////////////////////////////////////////////////////////////////////////
-
-# Tests behavior specific to MediaSessionManagerCocoa
-media/audio-session-category.html [ Skip ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # 4. FLAKY TESTS
@@ -1867,6 +1868,7 @@ accessibility/native-text-control-attributed-string.html [ Skip ]
 # These tests require platform support.
 media/media-allowed-codecs.html
 media/media-allowed-containers.html
+media/media-source/media-source-allowed-codecs.html
 
 # These failures occur on GTK only (moved from LayoutTests/TestExpectations)
 webkit.org/b/200208 imported/w3c/web-platform-tests/css/css-images/gradients-with-transparent.html [ ImageOnlyFailure ]
@@ -1880,6 +1882,7 @@ imported/w3c/web-platform-tests/xhr/preserve-ua-header-on-redirect.htm [ Failure
 http/tests/push-api/subscribe-default-permissions-iframe-cross-origin.html [ Failure ]
 http/tests/push-api/subscribe-default-permissions-iframe-same-origin.html [ Failure ]
 http/tests/push-api/subscribe-default-permissions.html [ Failure ]
+http/tests/push-api/subscribe-deny-permissions-on-prompt.html [ Failure ]
 http/tests/push-api/subscribe-deny-permissions.html [ Failure ]
 http/tests/push-api/subscribe-grant-permissions.html [ Failure ]
 

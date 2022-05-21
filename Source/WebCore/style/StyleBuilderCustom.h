@@ -127,12 +127,16 @@ public:
     static void applyInheritDisplay(BuilderState&);
     static void applyValueDisplay(BuilderState&, CSSValue&);
     // FIXME: <https://webkit.org/b/212506> Teach makeprop.pl to generate setters for hasExplicitlySet* flags
+    static void applyInitialBorderBottomLeftRadius(BuilderState&);
     static void applyInheritBorderBottomLeftRadius(BuilderState&);
     static void applyValueBorderBottomLeftRadius(BuilderState&, CSSValue&);
+    static void applyInitialBorderBottomRightRadius(BuilderState&);
     static void applyInheritBorderBottomRightRadius(BuilderState&);
     static void applyValueBorderBottomRightRadius(BuilderState&, CSSValue&);
+    static void applyInitialBorderTopLeftRadius(BuilderState&);
     static void applyInheritBorderTopLeftRadius(BuilderState&);
     static void applyValueBorderTopLeftRadius(BuilderState&, CSSValue&);
+    static void applyInitialBorderTopRightRadius(BuilderState&);
     static void applyInheritBorderTopRightRadius(BuilderState&);
     static void applyValueBorderTopRightRadius(BuilderState&, CSSValue&);
 
@@ -250,12 +254,12 @@ inline void BuilderCustom::applyValueZoom(BuilderState& builderState, CSSValue& 
 inline Length BuilderCustom::mmLength(double mm)
 {
     Ref<CSSPrimitiveValue> value(CSSPrimitiveValue::create(mm, CSSUnitType::CSS_MM));
-    return value.get().computeLength<Length>(CSSToLengthConversionData());
+    return value.get().computeLength<Length>({ });
 }
 inline Length BuilderCustom::inchLength(double inch)
 {
     Ref<CSSPrimitiveValue> value(CSSPrimitiveValue::create(inch, CSSUnitType::CSS_IN));
-    return value.get().computeLength<Length>(CSSToLengthConversionData());
+    return value.get().computeLength<Length>({ });
 }
 bool BuilderCustom::getPageSizeFromName(CSSPrimitiveValue* pageSizeName, CSSPrimitiveValue* pageOrientation, Length& width, Length& height)
 {
@@ -1084,52 +1088,76 @@ inline void BuilderCustom::applyValueFontFamily(BuilderState& builderState, CSSV
     builderState.setFontDescription(WTFMove(fontDescription));
 }
 
+inline void BuilderCustom::applyInitialBorderBottomLeftRadius(BuilderState& builderState)
+{
+    builderState.style().setBorderBottomLeftRadius(RenderStyle::initialBorderRadius());
+    builderState.style().setHasExplicitlySetBorderBottomLeftRadius(false);
+}
+
 inline void BuilderCustom::applyInheritBorderBottomLeftRadius(BuilderState& builderState)
 {
     builderState.style().setBorderBottomLeftRadius(forwardInheritedValue(builderState.parentStyle().borderBottomLeftRadius()));
-    builderState.style().setHasExplicitlySetBorderRadius(builderState.parentStyle().hasExplicitlySetBorderRadius());
+    builderState.style().setHasExplicitlySetBorderBottomLeftRadius(builderState.parentStyle().hasExplicitlySetBorderBottomLeftRadius());
 }
 
 inline void BuilderCustom::applyValueBorderBottomLeftRadius(BuilderState& builderState, CSSValue& value)
 {
     builderState.style().setBorderBottomLeftRadius(BuilderConverter::convertRadius(builderState, value));
-    builderState.style().setHasExplicitlySetBorderRadius(true);
+    builderState.style().setHasExplicitlySetBorderBottomLeftRadius(true);
+}
+
+inline void BuilderCustom::applyInitialBorderBottomRightRadius(BuilderState& builderState)
+{
+    builderState.style().setBorderBottomRightRadius(RenderStyle::initialBorderRadius());
+    builderState.style().setHasExplicitlySetBorderBottomRightRadius(false);
 }
 
 inline void BuilderCustom::applyInheritBorderBottomRightRadius(BuilderState& builderState)
 {
     builderState.style().setBorderBottomRightRadius(forwardInheritedValue(builderState.parentStyle().borderBottomRightRadius()));
-    builderState.style().setHasExplicitlySetBorderRadius(builderState.parentStyle().hasExplicitlySetBorderRadius());
+    builderState.style().setHasExplicitlySetBorderBottomRightRadius(builderState.parentStyle().hasExplicitlySetBorderBottomRightRadius());
 }
 
 inline void BuilderCustom::applyValueBorderBottomRightRadius(BuilderState& builderState, CSSValue& value)
 {
     builderState.style().setBorderBottomRightRadius(BuilderConverter::convertRadius(builderState, value));
-    builderState.style().setHasExplicitlySetBorderRadius(true);
+    builderState.style().setHasExplicitlySetBorderBottomRightRadius(true);
+}
+
+inline void BuilderCustom::applyInitialBorderTopLeftRadius(BuilderState& builderState)
+{
+    builderState.style().setBorderTopLeftRadius(RenderStyle::initialBorderRadius());
+    builderState.style().setHasExplicitlySetBorderTopLeftRadius(false);
 }
 
 inline void BuilderCustom::applyInheritBorderTopLeftRadius(BuilderState& builderState)
 {
     builderState.style().setBorderTopLeftRadius(forwardInheritedValue(builderState.parentStyle().borderTopLeftRadius()));
-    builderState.style().setHasExplicitlySetBorderRadius(builderState.parentStyle().hasExplicitlySetBorderRadius());
+    builderState.style().setHasExplicitlySetBorderTopLeftRadius(builderState.parentStyle().hasExplicitlySetBorderTopLeftRadius());
 }
 
 inline void BuilderCustom::applyValueBorderTopLeftRadius(BuilderState& builderState, CSSValue& value)
 {
     builderState.style().setBorderTopLeftRadius(BuilderConverter::convertRadius(builderState, value));
-    builderState.style().setHasExplicitlySetBorderRadius(true);
+    builderState.style().setHasExplicitlySetBorderTopLeftRadius(true);
+}
+
+inline void BuilderCustom::applyInitialBorderTopRightRadius(BuilderState& builderState)
+{
+    builderState.style().setBorderTopRightRadius(RenderStyle::initialBorderRadius());
+    builderState.style().setHasExplicitlySetBorderTopRightRadius(false);
 }
 
 inline void BuilderCustom::applyInheritBorderTopRightRadius(BuilderState& builderState)
 {
     builderState.style().setBorderTopRightRadius(forwardInheritedValue(builderState.parentStyle().borderTopRightRadius()));
-    builderState.style().setHasExplicitlySetBorderRadius(builderState.parentStyle().hasExplicitlySetBorderRadius());
+    builderState.style().setHasExplicitlySetBorderTopRightRadius(builderState.parentStyle().hasExplicitlySetBorderTopRightRadius());
 }
 
 inline void BuilderCustom::applyValueBorderTopRightRadius(BuilderState& builderState, CSSValue& value)
 {
     builderState.style().setBorderTopRightRadius(BuilderConverter::convertRadius(builderState, value));
-    builderState.style().setHasExplicitlySetBorderRadius(true);
+    builderState.style().setHasExplicitlySetBorderTopRightRadius(true);
 }
 
 inline bool BuilderCustom::isValidDisplayValue(BuilderState& builderState, DisplayType display)
@@ -1834,13 +1862,13 @@ inline void BuilderCustom::applyValueFontSize(BuilderState& builderState, CSSVal
     } else {
         fontDescription.setIsAbsoluteSize(parentIsAbsoluteSize || !(primitiveValue.isPercentage() || primitiveValue.isFontRelativeLength()));
         if (primitiveValue.isLength()) {
-            CSSToLengthConversionData conversionData { &builderState.parentStyle(), builderState.rootElementStyle(), &builderState.parentStyle(), builderState.document().renderView(), 1.0f, CSSPropertyFontSize, &builderState.style() };
+            // font-size is resolved against the parent style instead of the current style.
+            auto conversionData = builderState.cssToLengthConversionData().copyForFontSizeWithParentStyle();
             size = primitiveValue.computeLength<float>(conversionData);
         } else if (primitiveValue.isPercentage())
             size = (primitiveValue.floatValue() * parentSize) / 100.0f;
         else if (primitiveValue.isCalculatedPercentageWithLength()) {
-            // FIXME: Why does this need a different root style than the isLength case above?
-            CSSToLengthConversionData conversionData { &builderState.parentStyle(), builderState.cssToLengthConversionData().rootStyle(), &builderState.parentStyle(), builderState.document().renderView(), 1.0f, CSSPropertyFontSize, &builderState.style() };
+            auto conversionData = builderState.cssToLengthConversionData().copyForFontSizeWithParentStyle();
             size = primitiveValue.cssCalcValue()->createCalculationValue(conversionData)->evaluate(parentSize);
         } else
             return;
@@ -1896,32 +1924,24 @@ inline void BuilderCustom::applyValueGridTemplateAreas(BuilderState& builderStat
     builderState.style().setNamedGridAreaColumnCount(gridTemplateAreasValue.columnCount());
 }
 
-#define SET_TRACKS_DATA_INTERNAL(tracksData, style, parentStyle, TrackType) \
-    ASSERT(tracksData || parentStyle); \
-    style.setGrid##TrackType##s(tracksData ? tracksData->m_trackSizes : parentStyle->grid##TrackType##s()); \
-    style.setNamedGrid##TrackType##Lines(tracksData ? tracksData->m_namedGridLines : parentStyle->namedGrid##TrackType##Lines()); \
-    style.setOrderedNamedGrid##TrackType##Lines(tracksData ? tracksData->m_orderedNamedGridLines : parentStyle->orderedNamedGrid##TrackType##Lines()); \
-    style.setGridAutoRepeat##TrackType##s(tracksData ? tracksData->m_autoRepeatTrackSizes : parentStyle->gridAutoRepeat##TrackType##s()); \
-    style.setGridAutoRepeat##TrackType##sInsertionPoint(tracksData ? tracksData->m_autoRepeatInsertionPoint : parentStyle->gridAutoRepeat##TrackType##sInsertionPoint()); \
-    style.setAutoRepeatNamedGrid##TrackType##Lines(tracksData ? tracksData->m_autoRepeatNamedGridLines : parentStyle->autoRepeatNamedGrid##TrackType##Lines()); \
-    style.setAutoRepeatOrderedNamedGrid##TrackType##Lines(tracksData ? tracksData->m_autoRepeatOrderedNamedGridLines : parentStyle->autoRepeatOrderedNamedGrid##TrackType##Lines()); \
-    style.setGridAutoRepeat##TrackType##sType(tracksData ? tracksData->m_autoRepeatType : parentStyle->gridAutoRepeat##TrackType##sType()); \
-    style.setGridSubgrid##TrackType##s(tracksData ? tracksData->isSubgrid : parentStyle->gridSubgrid##TrackType##s());
+#define SET_TRACKS_DATA_INTERNAL(trackList, style, parentStyle, TrackType) \
+    ASSERT(trackList || parentStyle); \
+    style.setGrid##TrackType##List(trackList ? *trackList : parentStyle->grid##TrackType##List()); \
 
 #define SET_INHERIT_TRACKS_DATA(style, parentStyle, TrackType) \
-    BuilderConverter::TracksData* tracksData = nullptr; \
+    GridTrackList* trackList = nullptr; \
     const RenderStyle* parentStylePointer = &parentStyle; \
-    SET_TRACKS_DATA_INTERNAL(tracksData, style, parentStylePointer, TrackType)
+    SET_TRACKS_DATA_INTERNAL(trackList, style, parentStylePointer, TrackType)
 
-#define SET_TRACKS_DATA(tracksData, style, TrackType) \
-    BuilderConverter::TracksData* tracksDataPointer = &tracksData; \
+#define SET_TRACKS_DATA(trackList, style, TrackType) \
+    GridTrackList* trackListPointer = &trackList; \
     const RenderStyle* parentStyle = nullptr; \
-    SET_TRACKS_DATA_INTERNAL(tracksDataPointer, style, parentStyle, TrackType)
+    SET_TRACKS_DATA_INTERNAL(trackListPointer, style, parentStyle, TrackType)
 
 inline void BuilderCustom::applyInitialGridTemplateColumns(BuilderState& builderState)
 {
-    BuilderConverter::TracksData initialTracksData;
-    SET_TRACKS_DATA(initialTracksData, builderState.style(), Column);
+    GridTrackList initialTrackList;
+    SET_TRACKS_DATA(initialTrackList, builderState.style(), Column);
 }
 
 inline void BuilderCustom::applyInheritGridTemplateColumns(BuilderState& builderState)
@@ -1931,16 +1951,16 @@ inline void BuilderCustom::applyInheritGridTemplateColumns(BuilderState& builder
 
 inline void BuilderCustom::applyValueGridTemplateColumns(BuilderState& builderState, CSSValue& value)
 {
-    BuilderConverter::TracksData tracksData;
-    if (!BuilderConverter::createGridTrackList(value, tracksData, builderState))
+    GridTrackList trackList;
+    if (!BuilderConverter::createGridTrackList(value, trackList, builderState))
         return;
-    SET_TRACKS_DATA(tracksData, builderState.style(), Column);
+    SET_TRACKS_DATA(trackList, builderState.style(), Column);
 }
 
 inline void BuilderCustom::applyInitialGridTemplateRows(BuilderState& builderState)
 {
-    BuilderConverter::TracksData initialTracksData;
-    SET_TRACKS_DATA(initialTracksData, builderState.style(), Row);
+    GridTrackList initialTrackList;
+    SET_TRACKS_DATA(initialTrackList, builderState.style(), Row);
 }
 
 inline void BuilderCustom::applyInheritGridTemplateRows(BuilderState& builderState)
@@ -1950,11 +1970,11 @@ inline void BuilderCustom::applyInheritGridTemplateRows(BuilderState& builderSta
 
 inline void BuilderCustom::applyValueGridTemplateRows(BuilderState& builderState, CSSValue& value)
 {
-    BuilderConverter::TracksData tracksData;
-    if (!BuilderConverter::createGridTrackList(value, tracksData, builderState))
+    GridTrackList trackList;
+    if (!BuilderConverter::createGridTrackList(value, trackList, builderState))
         return;
 
-    SET_TRACKS_DATA(tracksData, builderState.style(), Row);
+    SET_TRACKS_DATA(trackList, builderState.style(), Row);
 }
 
 void BuilderCustom::applyValueAlt(BuilderState& builderState, CSSValue& value)

@@ -65,15 +65,16 @@ static inline String groupForAttributes(NSDictionary *attributes)
 namespace WebKit {
 using namespace fido;
 using namespace WebCore;
+using namespace WebAuthn;
 using CBOR = cbor::CBORValue;
 
 namespace LocalAuthenticatorInternal {
 
 // See https://www.w3.org/TR/webauthn/#flags.
-const uint8_t makeCredentialFlags = 0b01000101; // UP, UV and AT are set.
-const uint8_t otherMakeCredentialFlags = 0b01000001; // UP and AT are set.
-const uint8_t getAssertionFlags = 0b00000101; // UP and UV are set.
-const uint8_t otherGetAssertionFlags = 0b00000001; // UP is set.
+const uint8_t makeCredentialFlags = userPresenceFlag | userVerifiedFlag | attestedCredentialDataIncludedFlag; // UP, UV and AT are set.
+const uint8_t otherMakeCredentialFlags = userPresenceFlag | attestedCredentialDataIncludedFlag; // UP and AT are set.
+const uint8_t getAssertionFlags = userPresenceFlag | userVerifiedFlag; // UP and UV are set.
+const uint8_t otherGetAssertionFlags = userPresenceFlag; // UP is set.
 // Credential ID is currently SHA-1 of the corresponding public key.
 const uint16_t credentialIdLength = 20;
 const uint64_t counter = 0;
@@ -373,6 +374,7 @@ void LocalAuthenticator::continueMakeCredentialAfterUserVerification(SecAccessCo
     userEntityMap[cbor::CBORValue(fido::kEntityIdMapKey)] = cbor::CBORValue(creationOptions.user.id);
     userEntityMap[cbor::CBORValue(fido::kEntityNameMapKey)] = cbor::CBORValue(creationOptions.user.name);
     userEntityMap[cbor::CBORValue(fido::kDisplayNameMapKey)] = cbor::CBORValue(creationOptions.user.displayName);
+    userEntityMap[cbor::CBORValue(userEntityLastModifiedKey)] = cbor::CBORValue((int64_t)WallTime::now().secondsSinceEpoch().value());
     auto userEntity = cbor::CBORWriter::write(cbor::CBORValue(WTFMove(userEntityMap)));
     ASSERT(userEntity);
     auto secAttrApplicationTag = toNSData(*userEntity);
@@ -443,7 +445,7 @@ void LocalAuthenticator::continueMakeCredentialAfterUserVerification(SecAccessCo
         deleteDuplicateCredential();
 
         auto authData = buildAuthData(creationOptions.rp.id, flags, counter, buildAttestedCredentialData(Vector<uint8_t>(aaguidLength, 0), credentialId, cosePublicKey));
-        auto attestationObject = buildAttestationObject(WTFMove(authData), "", { }, AttestationConveyancePreference::None);
+        auto attestationObject = buildAttestationObject(WTFMove(authData), String { emptyString() }, { }, AttestationConveyancePreference::None);
         receiveRespond(AuthenticatorAttestationResponse::create(credentialId, attestationObject, AuthenticatorAttachment::Platform));
         return;
     }
@@ -470,7 +472,7 @@ void LocalAuthenticator::continueMakeCredentialAfterAttested(Vector<uint8_t>&& c
 
     if (error) {
         LOG_ERROR("Couldn't attest: %s", String(error.localizedDescription).utf8().data());
-        auto attestationObject = buildAttestationObject(WTFMove(authData), "", { }, AttestationConveyancePreference::None);
+        auto attestationObject = buildAttestationObject(WTFMove(authData), String { emptyString() }, { }, AttestationConveyancePreference::None);
         receiveRespond(AuthenticatorAttestationResponse::create(credentialId, attestationObject, AuthenticatorAttachment::Platform));
         return;
     }
@@ -487,7 +489,7 @@ void LocalAuthenticator::continueMakeCredentialAfterAttested(Vector<uint8_t>&& c
             cborArray.append(cbor::CBORValue(vectorFromNSData((NSData *)adoptCF(SecCertificateCopyData((__bridge SecCertificateRef)certificates[i])).get())));
         attestationStatementMap[cbor::CBORValue("x5c")] = cbor::CBORValue(WTFMove(cborArray));
     }
-    auto attestationObject = buildAttestationObject(WTFMove(authData), "apple", WTFMove(attestationStatementMap), creationOptions.attestation);
+    auto attestationObject = buildAttestationObject(WTFMove(authData), "apple"_s, WTFMove(attestationStatementMap), creationOptions.attestation);
 
     deleteDuplicateCredential();
     receiveRespond(AuthenticatorAttestationResponse::create(credentialId, attestationObject, AuthenticatorAttachment::Platform));

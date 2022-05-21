@@ -39,24 +39,7 @@
 #include "ProcessIdentity.h"
 #endif
 
-
-#if USE(NICOSIA)
-namespace Nicosia {
-class GCGLANGLELayer;
-class GCGLLayer;
-}
-
-struct gbm_device;
-struct gbm_bo;
-
-typedef void *EGLImage;
-#endif
-
 namespace WebCore {
-
-#if USE(TEXTURE_MAPPER)
-class TextureMapperGCGLPlatformLayer;
-#endif
 
 // Base class for GraphicsContextGL contexts that use ANGLE.
 class WEBCORE_EXPORT GraphicsContextGLANGLE : public GraphicsContextGL {
@@ -78,9 +61,6 @@ public:
         TerminateAndReleaseThreadResources
     };
     static bool releaseThreadResources(ReleaseThreadResourceBehavior);
-
-    // With multisampling on, blit from multisampleFBO to regular FBO.
-    void prepareTexture();
 
     // Get an attribute location without checking the name -> mangledname mapping.
     int getAttribLocationDirect(PlatformGLObject program, const String& name);
@@ -329,7 +309,6 @@ public:
     bool supportsExtension(const String&) override;
     void ensureExtensionEnabled(const String&) override;
     bool isExtensionEnabled(const String&) override;
-    GCGLint getGraphicsResetStatusARB() override;
     void drawBuffersEXT(GCGLSpan<const GCGLenum>) override;
     String getTranslatedShaderSourceANGLE(PlatformGLObject) override;
 
@@ -352,9 +331,6 @@ public:
     std::optional<PixelBuffer> paintRenderingResultsToPixelBuffer() final;
     void paintCompositedResultsToCanvas(ImageBuffer&) final;
 
-    void forceContextLost();
-    void recycleContext();
-    void dispatchContextChangedNotification();
     std::optional<PixelBuffer> readRenderingResultsForPainting();
     std::optional<PixelBuffer> readCompositedResultsForPainting();
 
@@ -390,7 +366,7 @@ protected:
     std::optional<PixelBuffer> readPixelsForPaintResults();
 
     bool reshapeFBOs(const IntSize&);
-    void prepareTextureImpl();
+    virtual void prepareTexture();
     void resolveMultisamplingIfNecessary(const IntRect& = IntRect());
     void attachDepthAndStencilBufferIfNeeded(GCGLuint internalDepthStencilFormat, int width, int height);
 #if PLATFORM(COCOA)
@@ -451,52 +427,6 @@ protected:
     // When preserveDrawingBuffer == true, this is blitted to during display prepare.
     std::unique_ptr<IOSurface> m_displayBufferBacking;
     void* m_displayBufferPbuffer { nullptr };
-#elif USE(TEXTURE_MAPPER)
-    GCGLuint m_compositorTexture { 0 };
-#if USE(COORDINATED_GRAPHICS)
-    GCGLuint m_intermediateTexture { 0 };
-#endif
-#endif
-#if USE(NICOSIA)
-    std::unique_ptr<Nicosia::GCGLANGLELayer> m_nicosiaLayer;
-
-    class EGLImageBacking {
-    WTF_MAKE_FAST_ALLOCATED;
-    public:
-        EGLImageBacking(GCGLDisplay);
-        ~EGLImageBacking();
-
-        bool reset(int width, int height, bool hasAlpha);
-
-        EGLImage image() const { return m_image; }
-        int fd() const { return m_FD; }
-
-        uint32_t format() const;
-        uint32_t stride() const;
-
-        bool isReleased();
-    private:
-        void releaseResources();
-
-        GCGLDisplay m_display;
-
-        gbm_bo* m_BO { nullptr };
-        int m_FD { -1 };
-        EGLImage m_image;
-    };
-
-    std::unique_ptr<EGLImageBacking> m_textureBacking;
-    std::unique_ptr<EGLImageBacking> m_compositorTextureBacking;
-    std::unique_ptr<EGLImageBacking> m_intermediateTextureBacking;
-#elif USE(TEXTURE_MAPPER)
-    std::unique_ptr<TextureMapperGCGLPlatformLayer> m_texmapLayer;
-#endif
-
-#if USE(NICOSIA)
-    friend class Nicosia::GCGLANGLELayer;
-    friend class Nicosia::GCGLLayer;
-#elif USE(TEXTURE_MAPPER)
-    friend class TextureMapperGCGLPlatformLayer;
 #endif
 };
 

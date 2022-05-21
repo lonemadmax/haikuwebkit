@@ -135,12 +135,17 @@ void InlineDisplayContentBuilder::appendTextDisplayBox(const Line::Run& lineRun,
             : formattingState().layoutState().geometryForBox(layoutBox.initialContainingBlock()).contentBox().size();
         auto strokeOverflow = ceilf(style.computedStrokeWidth(ceiledIntSize(initialContaingBlockSize)));
         auto inkOverflow = textRunRect;
+
         inkOverflow.inflate(strokeOverflow);
         auto letterSpacing = style.fontCascade().letterSpacing();
         if (letterSpacing < 0) {
             // Last letter's negative spacing shrinks logical rect. Push it to ink overflow.
             inkOverflow.expand(-letterSpacing, { });
         }
+
+        auto textShadow = style.textShadowExtent();
+        inkOverflow.inflate(-textShadow.top(), textShadow.right(), textShadow.bottom(), -textShadow.left());
+
         return inkOverflow;
     };
     auto content = downcast<InlineTextBox>(layoutBox).content();
@@ -676,6 +681,24 @@ void InlineDisplayContentBuilder::processBidiContent(const LineBuilder::LineCont
         adjustVisualGeometryWithInlineBoxes();
     };
     handleInlineBoxes();
+
+    auto handleTrailingOpenInlineBoxes = [&] {
+        for (auto& lineRun : makeReversedRange(lineContent.runs)) {
+            if (!lineRun.isInlineBoxStart() || lineRun.bidiLevel() != InlineItem::opaqueBidiLevel)
+                break;
+            // These are trailing inline box start runs (without the closing inline box end <span> <-line breaks here</span>).
+            // They don't participate in visual reordering (see createDisplayBoxesInVisualOrder above) as they we don't find them
+            // empty at inline building time (see setBidiLevelForOpaqueInlineItems) due to trailing whitespace.
+            // Non-empty inline boxes are normally get their display boxes generated when we process their content runs, but
+            // these trailing runs have their content on the subsequent line(s).
+            appendInlineBoxDisplayBox(lineRun
+                , lineBox.inlineLevelBoxForLayoutBox(lineRun.layoutBox())
+                , boxes.last().visualRectIgnoringBlockDirection()
+                , lineBox.hasContent()
+                , boxes);
+        }
+    };
+    handleTrailingOpenInlineBoxes();
 }
 
 void InlineDisplayContentBuilder::processOverflownRunsForEllipsis(DisplayBoxes& boxes, InlineLayoutUnit lineBoxRight)

@@ -273,6 +273,9 @@ public:
     virtual void didDispatchClick(Event&, const InputElementClickState&);
     virtual void handleDOMActivateEvent(Event&);
 
+    virtual bool allowsShowPickerAcrossFrames();
+    virtual void showPicker();
+
     enum ShouldCallBaseEventHandler { No, Yes };
     virtual ShouldCallBaseEventHandler handleKeydownEvent(KeyboardEvent&);
 
@@ -341,7 +344,7 @@ public:
     virtual bool shouldSendChangeEventAfterCheckedChanged();
     virtual bool canSetValue(const String&);
     virtual bool storesValueSeparateFromAttribute();
-    virtual void setValue(const String&, bool valueChanged, TextFieldEventBehavior);
+    virtual void setValue(const String&, bool valueChanged, TextFieldEventBehavior, TextControlSetValueSelection);
     virtual bool shouldResetOnDocumentActivation();
     virtual bool shouldRespectListAttribute();
     virtual bool shouldRespectHeightAndWidthAttributes();

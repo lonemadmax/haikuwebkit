@@ -26,6 +26,7 @@
 #import "config.h"
 #import "NetworkSessionCocoa.h"
 
+#import "AppStoreDaemonSPI.h"
 #import "AuthenticationChallengeDisposition.h"
 #import "AuthenticationManager.h"
 #import "DataReference.h"
@@ -931,7 +932,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
         NSURLSessionTaskTransactionMetrics *metrics = taskMetrics.transactionMetrics.lastObject;
 #if HAVE(NETWORK_CONNECTION_PRIVACY_STANCE)
-        auto privateRelayed = metrics._privacyStance == nw_connection_privacy_stance_direct ? PrivateRelayed::No : PrivateRelayed::Yes;
+        auto privateRelayed = metrics._privacyStance == nw_connection_privacy_stance_failed ? PrivateRelayed::No : PrivateRelayed::Yes;
 #else
         auto privateRelayed = PrivateRelayed::No;
 #endif
@@ -1717,6 +1718,17 @@ std::unique_ptr<WebSocketTask> NetworkSessionCocoa::createWebSocketTask(WebPageP
     appPrivacyReportTestingData().didLoadAppInitiatedRequest(nsRequest.get().attribution == NSURLRequestAttributionDeveloper);
 #endif
 
+    // FIXME: This function can make up to 3 copies of a request.
+    // Reduce that to one if the protocol is null, the request isn't app initiated,
+    // or the main frame main resource was private relayed, then set all properties
+    // on the one copy.
+    if (hadMainFrameMainResourcePrivateRelayed || request.url().host() == clientOrigin.topOrigin.host) {
+        RetainPtr<NSMutableURLRequest> mutableRequest = adoptNS([nsRequest.get() mutableCopy]);
+        if ([mutableRequest respondsToSelector:@selector(_setPrivacyProxyFailClosedForUnreachableNonMainHosts:)])
+            [mutableRequest _setPrivacyProxyFailClosedForUnreachableNonMainHosts:YES];
+        nsRequest = WTFMove(mutableRequest);
+    }
+
     auto& sessionSet = sessionSetForPage(webPageProxyID);
     RetainPtr<NSURLSessionWebSocketTask> task = [sessionSet.sessionWithCredentialStorage.session webSocketTaskWithRequest:nsRequest.get()];
     
@@ -1816,6 +1828,35 @@ Vector<WebCore::SecurityOriginData> NetworkSessionCocoa::hostNamesWithAlternativ
 #else
     return { };
 #endif
+}
+
+void NetworkSessionCocoa::donateToSKAdNetwork(WebCore::PrivateClickMeasurement&& pcm)
+{
+#if HAVE(SKADNETWORK_v4)
+    auto config = adoptNS([ASDInstallWebAttributionParamsConfig new]);
+    config.get().appAdamId = @(*pcm.adamID());
+    config.get().adNetworkRegistrableDomain = pcm.destinationSite().registrableDomain.string();
+    config.get().impressionId = pcm.ephemeralSourceNonce()->nonce;
+    config.get().sourceWebRegistrableDomain = pcm.sourceSite().registrableDomain.string();
+    config.get().version = @"3";
+    config.get().attributionContext = AttributionTypeDefault;
+    [[ASDInstallAttribution sharedInstance] addInstallWebAttributionParamsWithConfig:config.get() completionHandler:nil];
+#endif
+
+    if (!m_privateClickMeasurementDebugModeEnabled)
+        return;
+
+    StringBuilder debugString;
+    debugString.append("Submitting potential install attribution for AdamId: ");
+    debugString.append(makeString(*pcm.adamID()));
+    debugString.append(", adNetworkRegistrableDomain: ");
+    debugString.append(pcm.destinationSite().registrableDomain.string());
+    debugString.append(", impressionId: ");
+    debugString.append(pcm.ephemeralSourceNonce()->nonce);
+    debugString.append(", sourceWebRegistrableDomain: ");
+    debugString.append(pcm.sourceSite().registrableDomain.string());
+    debugString.append(", version: 3");
+    networkProcess().broadcastConsoleMessage(sessionID(), MessageSource::PrivateClickMeasurement, MessageLevel::Debug, debugString.toString());
 }
 
 void NetworkSessionCocoa::deleteAlternativeServicesForHostNames(const Vector<String>& hosts)

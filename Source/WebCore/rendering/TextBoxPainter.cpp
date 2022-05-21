@@ -29,8 +29,9 @@
 #include "Editor.h"
 #include "EventRegion.h"
 #include "GraphicsContext.h"
-#include "InlineIteratorLine.h"
+#include "InlineIteratorLineBox.h"
 #include "LegacyInlineTextBox.h"
+#include "LineSelection.h"
 #include "PaintInfo.h"
 #include "RenderBlock.h"
 #include "RenderCombineText.h"
@@ -65,7 +66,7 @@ TextBoxPainter::TextBoxPainter(const InlineIterator::TextBoxIterator& textBox, P
     , m_paintInfo(paintInfo)
     , m_selectableRange(m_textBox->selectableRange())
     , m_paintRect(computePaintRect(paintOffset))
-    , m_isFirstLine(m_textBox->line()->isFirst())
+    , m_isFirstLine(m_textBox->lineBox()->isFirst())
     , m_isPrinting(m_document.printing())
     , m_haveSelection(computeHaveSelection())
     , m_containsComposition(m_renderer.textNode() && m_renderer.frame().editor().compositionNode() == m_renderer.textNode())
@@ -185,9 +186,6 @@ void TextBoxPainter::paintForegroundAndDecorations()
         });
     }
 
-    // Coalesce styles of adjacent marked texts to minimize the number of drawing commands.
-    auto coalescedStyledMarkedTexts = StyledMarkedText::coalesceAdjacentWithEqualForeground(styledMarkedTexts);
-
     auto textDecorations = m_style.textDecorationsInEffect();
     bool highlightDecorations = !MarkedText::collectForHighlights(m_renderer, m_selectableRange, MarkedText::PaintPhase::Decoration).isEmpty();
     bool lineDecorations = !textDecorations.isEmpty();
@@ -240,6 +238,9 @@ void TextBoxPainter::paintForegroundAndDecorations()
             }
         }
     } else {
+        // Coalesce styles of adjacent marked texts to minimize the number of drawing commands.
+        auto coalescedStyledMarkedTexts = StyledMarkedText::coalesceAdjacentWithEqualForeground(styledMarkedTexts);
+
         for (auto& markedText : coalescedStyledMarkedTexts)
             paintForeground(markedText);
     }
@@ -288,17 +289,14 @@ void TextBoxPainter::paintBackground(unsigned startOffset, unsigned endOffset, c
 
     // Note that if the text is truncated, we let the thing being painted in the truncation
     // draw its own highlight.
-
-    const auto line = textBox().line();
-    LayoutUnit selectionBottom = line->selectionBottom();
-    LayoutUnit selectionTop = line->selectionTopAdjustedForPrecedingBlock();
-
+    auto lineBox = textBox().lineBox();
+    auto selectionBottom = LineSelection::logicalBottom(*lineBox);
+    auto selectionTop = LineSelection::logicalTopAdjustedForPrecedingBlock(*lineBox);
     // Use same y positioning and height as for selection, so that when the selection and this subrange are on
     // the same word there are no pieces sticking out.
-    LayoutUnit deltaY { m_style.isFlippedLinesWritingMode() ? selectionBottom - textBox().logicalBottom() : textBox().logicalTop() - selectionTop };
-    LayoutUnit selectionHeight = std::max<LayoutUnit>(0, selectionBottom - selectionTop);
-
-    LayoutRect selectionRect { LayoutUnit(m_paintRect.x()), LayoutUnit(m_paintRect.y() - deltaY), LayoutUnit(textBox().logicalWidth()), selectionHeight };
+    auto deltaY = LayoutUnit { m_style.isFlippedLinesWritingMode() ? selectionBottom - textBox().logicalBottom() : textBox().logicalTop() - selectionTop };
+    auto selectionHeight = LayoutUnit { std::max(0.f, selectionBottom - selectionTop) };
+    auto selectionRect = LayoutRect { LayoutUnit(m_paintRect.x()), LayoutUnit(m_paintRect.y() - deltaY), LayoutUnit(textBox().logicalWidth()), selectionHeight };
     fontCascade().adjustSelectionRectForText(m_paintTextRun, selectionRect, startOffset, endOffset);
 
     // FIXME: Support painting combined text. See <https://bugs.webkit.org/show_bug.cgi?id=180993>.
@@ -448,7 +446,7 @@ static float textPosition(const InlineIterator::TextBoxIterator& textBox)
     // from the containing block edge in its measurement. textPosition() should be consistent so the text are rendered in the same width.
     if (!textBox->logicalLeft())
         return 0;
-    return textBox->logicalLeft() - textBox->line()->contentLogicalLeft();
+    return textBox->logicalLeft() - textBox->lineBox()->contentLogicalLeft();
 }
 
 void TextBoxPainter::paintCompositionUnderline(const CompositionUnderline& underline)
@@ -572,7 +570,7 @@ FloatRect TextBoxPainter::computePaintRect(const LayoutPoint& paintOffset)
 
     localPaintOffset.move(0, m_style.isHorizontalWritingMode() ? 0 : -textBox().logicalHeight());
 
-    auto boxOrigin = textBox().visualRect(textBox().line()->containingBlock().logicalHeight()).location();
+    auto boxOrigin = textBox().visualRect(textBox().lineBox()->containingBlock().logicalHeight()).location();
     boxOrigin.moveBy(localPaintOffset);
     return { boxOrigin, FloatSize(textBox().logicalWidth(), textBox().logicalHeight()) };
 }

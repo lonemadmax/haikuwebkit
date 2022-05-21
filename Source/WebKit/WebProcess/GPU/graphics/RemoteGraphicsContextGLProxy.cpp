@@ -119,10 +119,10 @@ bool RemoteGraphicsContextGLProxy::isExtensionEnabled(const String& name)
 
 void RemoteGraphicsContextGLProxy::initialize(const String& availableExtensions, const String& requestableExtensions)
 {
-    for (auto& extension : availableExtensions.split(' '))
-        m_availableExtensions.add(extension);
-    for (auto& extension : requestableExtensions.split(' '))
-        m_requestableExtensions.add(extension);
+    for (auto extension : StringView(availableExtensions).split(' '))
+        m_availableExtensions.add(extension.toString());
+    for (auto extension : StringView(requestableExtensions).split(' '))
+        m_requestableExtensions.add(extension.toString());
 }
 
 void RemoteGraphicsContextGLProxy::reshape(int width, int height)
@@ -138,6 +138,8 @@ void RemoteGraphicsContextGLProxy::reshape(int width, int height)
 
 void RemoteGraphicsContextGLProxy::paintRenderingResultsToCanvas(ImageBuffer& buffer)
 {
+    if (isContextLost())
+        return;
     // FIXME: the buffer is "relatively empty" always, but for consistency, we need to ensure
     // no pending operations are targeted for the `buffer`.
     buffer.flushDrawingContext();
@@ -158,6 +160,8 @@ void RemoteGraphicsContextGLProxy::paintRenderingResultsToCanvas(ImageBuffer& bu
 
 void RemoteGraphicsContextGLProxy::paintCompositedResultsToCanvas(ImageBuffer& buffer)
 {
+    if (isContextLost())
+        return;
     buffer.flushDrawingContext();
     auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::PaintCompositedResultsToCanvas(buffer.renderingResourceIdentifier()), Messages::RemoteGraphicsContextGL::PaintCompositedResultsToCanvas::Reply());
     if (!sendResult) {
@@ -167,12 +171,12 @@ void RemoteGraphicsContextGLProxy::paintCompositedResultsToCanvas(ImageBuffer& b
 }
 
 #if ENABLE(MEDIA_STREAM)
-RefPtr<WebCore::MediaSample> RemoteGraphicsContextGLProxy::paintCompositedResultsToMediaSample()
+RefPtr<WebCore::VideoFrame> RemoteGraphicsContextGLProxy::paintCompositedResultsToVideoFrame()
 {
     if (isContextLost())
         return nullptr;
     std::optional<RemoteVideoFrameProxy::Properties> result;
-    auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::PaintCompositedResultsToMediaSample(), Messages::RemoteGraphicsContextGL::PaintCompositedResultsToMediaSample::Reply(result));
+    auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::PaintCompositedResultsToVideoFrame(), Messages::RemoteGraphicsContextGL::PaintCompositedResultsToVideoFrame::Reply(result));
     if (!sendResult) {
         markContextLost();
         return nullptr;
@@ -186,6 +190,8 @@ RefPtr<WebCore::MediaSample> RemoteGraphicsContextGLProxy::paintCompositedResult
 #if ENABLE(VIDEO)
 bool RemoteGraphicsContextGLProxy::copyTextureFromMedia(MediaPlayer& mediaPlayer, PlatformGLObject texture, GCGLenum target, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY)
 {
+    if (isContextLost())
+        return false;
     auto videoFrame = mediaPlayer.videoFrameForCurrentTime();
     // Video in WP while WebGL in GPUP is not supported.
     if (!videoFrame || !is<RemoteVideoFrameProxy>(*videoFrame))
@@ -209,7 +215,6 @@ void RemoteGraphicsContextGLProxy::synthesizeGLError(GCGLenum error)
             markContextLost();
         return;
     }
-    m_errorWhenContextIsLost = error;
 }
 
 GCGLenum RemoteGraphicsContextGLProxy::getError()
@@ -221,7 +226,7 @@ GCGLenum RemoteGraphicsContextGLProxy::getError()
             markContextLost();
         return static_cast<GCGLenum>(returnValue);
     }
-    return std::exchange(m_errorWhenContextIsLost, NO_ERROR);
+    return NO_ERROR;
 }
 
 void RemoteGraphicsContextGLProxy::simulateEventForTesting(SimulatedEventForTesting event)
@@ -273,21 +278,20 @@ void RemoteGraphicsContextGLProxy::wasLost()
     if (isContextLost())
         return;
     markContextLost();
+
 }
 
 void RemoteGraphicsContextGLProxy::wasChanged()
 {
     if (isContextLost())
         return;
-    for (auto* client : copyToVector(m_clients))
-        client->dispatchContextChangedNotification();
+    dispatchContextChangedNotification();
 }
 
 void RemoteGraphicsContextGLProxy::markContextLost()
 {
     disconnectGpuProcessIfNeeded();
-    for (auto* client : copyToVector(m_clients))
-        client->forceContextLost();
+    forceContextLost();
 }
 
 bool RemoteGraphicsContextGLProxy::handleMessageToRemovedDestination(IPC::Connection&, IPC::Decoder& decoder)

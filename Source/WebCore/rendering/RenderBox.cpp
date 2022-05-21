@@ -47,7 +47,7 @@
 #include "HTMLTextAreaElement.h"
 #include "HitTestResult.h"
 #include "InlineIteratorInlineBox.h"
-#include "InlineIteratorLine.h"
+#include "InlineIteratorLineBox.h"
 #include "InlineRunAndOffset.h"
 #include "LayoutIntegrationLineLayout.h"
 #include "LegacyInlineElementBox.h"
@@ -98,7 +98,7 @@ struct SameSizeAsRenderBox : public RenderBoxModelObject {
     void* pointers[2];
 };
 
-COMPILE_ASSERT(sizeof(RenderBox) == sizeof(SameSizeAsRenderBox), RenderBox_should_stay_small);
+static_assert(sizeof(RenderBox) == sizeof(SameSizeAsRenderBox), "RenderBox should stay small");
 
 using namespace HTMLNames;
 
@@ -2726,7 +2726,9 @@ void RenderBox::computeLogicalWidthInFragment(LogicalExtentComputedValues& compu
         containerWidthInInlineDirection = perpendicularContainingBlockLogicalHeight();
 
     // Width calculations
-    if (treatAsReplaced) {
+    if (isGridItem() && hasOverridingLogicalWidth()) {
+        computedValues.m_extent = overridingLogicalWidth();
+    } else if (treatAsReplaced) {
         computedValues.m_extent = logicalWidthLength.value() + borderAndPaddingLogicalWidth();
     } else if (shouldComputeLogicalWidthFromAspectRatio() && style().logicalWidth().isAuto()) {
         computedValues.m_extent = computeLogicalWidthFromAspectRatio(fragment);
@@ -2878,8 +2880,13 @@ bool RenderBox::hasStretchedLogicalHeight() const
         // The 'normal' value behaves like 'start' except for Flexbox Items, which obviously should have a container.
         return false;
     }
-    if (containingBlock->isHorizontalWritingMode() != isHorizontalWritingMode())
+    if (containingBlock->isHorizontalWritingMode() != isHorizontalWritingMode()) {
+        if (is<RenderGrid>(this) && downcast<RenderGrid>(this)->isSubgridInParentDirection(ForColumns))
+            return true;
         return style.resolvedJustifySelf(&containingBlock->style(), containingBlock->selfAlignmentNormalBehavior(this)).position() == ItemPosition::Stretch;
+    }
+    if (is<RenderGrid>(this) && downcast<RenderGrid>(this)->isSubgridInParentDirection(ForRows))
+        return true;
     return style.resolvedAlignSelf(&containingBlock->style(), containingBlock->selfAlignmentNormalBehavior(this)).position() == ItemPosition::Stretch;
 }
 
@@ -2896,8 +2903,13 @@ bool RenderBox::hasStretchedLogicalWidth(StretchingMode stretchingMode) const
         return false;
     }
     auto normalItemPosition = stretchingMode == StretchingMode::Any ? containingBlock->selfAlignmentNormalBehavior(this) : ItemPosition::Normal;
-    if (containingBlock->isHorizontalWritingMode() != isHorizontalWritingMode())
+    if (containingBlock->isHorizontalWritingMode() != isHorizontalWritingMode()) {
+        if (is<RenderGrid>(this) && downcast<RenderGrid>(this)->isSubgridInParentDirection(ForRows))
+            return true;
         return style.resolvedAlignSelf(&containingBlock->style(), normalItemPosition).position() == ItemPosition::Stretch;
+    }
+    if (is<RenderGrid>(this) && downcast<RenderGrid>(this)->isSubgridInParentDirection(ForColumns))
+        return true;
     return style.resolvedJustifySelf(&containingBlock->style(), normalItemPosition).position() == ItemPosition::Stretch;
 }
 

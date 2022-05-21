@@ -203,12 +203,24 @@ void FileInputType::handleDOMActivateEvent(Event& event)
     if (!UserGestureIndicator::processingUserGesture())
         return;
 
+    showPicker();
+    event.setDefaultHandled();
+}
+
+void FileInputType::showPicker()
+{
+    ASSERT(element());
+    auto& input = *element();
+
     if (auto* chrome = this->chrome()) {
         applyFileChooserSettings();
         chrome->runOpenPanel(*input.document().frame(), *m_fileChooser);
     }
+}
 
-    event.setDefaultHandled();
+bool FileInputType::allowsShowPickerAcrossFrames()
+{
+    return true;
 }
 
 RenderPtr<RenderElement> FileInputType::createInputRenderer(RenderStyle&& style)
@@ -253,7 +265,7 @@ bool FileInputType::getTypeSpecificValue(String& value)
     return true;
 }
 
-void FileInputType::setValue(const String&, bool, TextFieldEventBehavior)
+void FileInputType::setValue(const String&, bool, TextFieldEventBehavior, TextControlSetValueSelection)
 {
     // FIXME: Should we clear the file list, or replace it with a new empty one here? This is observable from JavaScript through custom properties.
     m_fileList->clear();

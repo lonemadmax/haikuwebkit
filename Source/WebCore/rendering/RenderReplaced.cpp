@@ -35,8 +35,9 @@
 #include "HighlightData.h"
 #include "HighlightRegister.h"
 #include "InlineIteratorBox.h"
-#include "InlineIteratorLine.h"
+#include "InlineIteratorLineBox.h"
 #include "LayoutRepainter.h"
+#include "LineSelection.h"
 #include "RenderBlock.h"
 #include "RenderFragmentedFlow.h"
 #include "RenderImage.h"
@@ -718,10 +719,11 @@ void RenderReplaced::computePreferredLogicalWidths()
 
 VisiblePosition RenderReplaced::positionForPoint(const LayoutPoint& point, const RenderFragmentContainer* fragment)
 {
-    auto [top, bottom] = [&] {
+    auto [top, bottom] = [&]() -> std::pair<float, float> {
         if (auto run = InlineIterator::boxFor(*this)) {
-            auto line = run->line();
-            return std::make_pair(line->selectionTopForHitTesting(), line->selectionBottom());
+            auto lineBox = run->lineBox();
+            auto lineContentTop = LayoutUnit { std::min(previousLineBoxContentBottomOrBorderAndPadding(*lineBox), lineBox->contentLogicalTop()) };
+            return std::make_pair(lineContentTop, LineSelection::logicalBottom(*lineBox));
         }
         return std::make_pair(logicalTop(), logicalBottom());
     }();

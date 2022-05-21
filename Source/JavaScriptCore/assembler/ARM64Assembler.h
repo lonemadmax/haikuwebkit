@@ -437,7 +437,7 @@ public:
             struct CopyTypes {
                 uint64_t content[3];
             } copyTypes;
-            COMPILE_ASSERT(sizeof(RealTypes) == sizeof(CopyTypes), LinkRecordCopyStructSizeEqualsRealStruct);
+            static_assert(sizeof(RealTypes) == sizeof(CopyTypes), "LinkRecord's CopyStruct size equals to RealStruct");
         } data;
     };
 
@@ -3123,7 +3123,7 @@ protected:
     template<BranchType type, CopyFunction copy = performJITMemcpy>
     static void linkJumpOrCall(int* from, const int* fromInstruction, void* to)
     {
-        static_assert(type == BranchType_JMP || type == BranchType_CALL, "");
+        static_assert(type == BranchType_JMP || type == BranchType_CALL);
 
         bool link;
         int imm26;
@@ -3240,7 +3240,7 @@ protected:
     template<BranchType type>
     static void relinkJumpOrCall(int* from, const int* fromInstruction, void* to)
     {
-        static_assert(type == BranchType_JMP || type == BranchType_CALL, "");
+        static_assert(type == BranchType_JMP || type == BranchType_CALL);
         if ((type == BranchType_JMP) && disassembleNop(from)) {
             unsigned op01;
             int imm19;

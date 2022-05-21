@@ -29,6 +29,7 @@
 #if ENABLE(WEB_AUTHN)
 
 #include "CBORWriter.h"
+#include "FidoConstants.h"
 #include "WebAuthenticationConstants.h"
 #include <pal/crypto/CryptoDigest.h>
 #include <wtf/JSONValues.h>
@@ -87,6 +88,22 @@ Vector<uint8_t> buildAttestedCredentialData(const Vector<uint8_t>& aaguid, const
     return attestedCredentialData;
 }
 
+cbor::CBORValue::MapValue buildUserEntityMap(const Vector<uint8_t>& userId, const String& name, const String& displayName)
+{
+    cbor::CBORValue::MapValue userEntityMap;
+    userEntityMap[cbor::CBORValue(fido::kEntityIdMapKey)] = cbor::CBORValue(userId);
+    userEntityMap[cbor::CBORValue(fido::kEntityNameMapKey)] = cbor::CBORValue(name);
+    userEntityMap[cbor::CBORValue(fido::kDisplayNameMapKey)] = cbor::CBORValue(displayName);
+    return userEntityMap;
+}
+
+cbor::CBORValue::MapValue buildCredentialDescriptor(const Vector<uint8_t>& credentialId)
+{
+    cbor::CBORValue::MapValue credential;
+    credential[cbor::CBORValue("id")] = cbor::CBORValue(credentialId);
+    return credential;
+}
+
 Vector<uint8_t> buildAuthData(const String& rpId, const uint8_t flags, const uint32_t counter, const Vector<uint8_t>& optionalAttestedCredentialData)
 {
     Vector<uint8_t> authData;
@@ -110,7 +127,7 @@ Vector<uint8_t> buildAuthData(const String& rpId, const uint8_t flags, const uin
     return authData;
 }
 
-Vector<uint8_t> buildAttestationObject(Vector<uint8_t>&& authData, String&& format, cbor::CBORValue::MapValue&& statementMap, const AttestationConveyancePreference& attestation)
+cbor::CBORValue::MapValue buildAttestationMap(Vector<uint8_t>&& authData, String&& format, cbor::CBORValue::MapValue&& statementMap, const AttestationConveyancePreference& attestation)
 {
     cbor::CBORValue::MapValue attestationObjectMap;
     // The following implements Step 20 with regard to AttestationConveyancePreference
@@ -121,12 +138,18 @@ Vector<uint8_t> buildAttestationObject(Vector<uint8_t>&& authData, String&& form
         const size_t aaguidOffset = rpIdHashLength + flagsLength + signCounterLength;
         if (authData.size() >= aaguidOffset + aaguidLength)
             memset(authData.data() + aaguidOffset, 0, aaguidLength);
-        format = noneAttestationValue;
+        format = String { noneAttestationValue };
         statementMap.clear();
     }
     attestationObjectMap[cbor::CBORValue("authData")] = cbor::CBORValue(WTFMove(authData));
     attestationObjectMap[cbor::CBORValue("fmt")] = cbor::CBORValue(WTFMove(format));
     attestationObjectMap[cbor::CBORValue("attStmt")] = cbor::CBORValue(WTFMove(statementMap));
+    return attestationObjectMap;
+}
+
+Vector<uint8_t> buildAttestationObject(Vector<uint8_t>&& authData, String&& format, cbor::CBORValue::MapValue&& statementMap, const AttestationConveyancePreference& attestation)
+{
+    cbor::CBORValue::MapValue attestationObjectMap = buildAttestationMap(WTFMove(authData), WTFMove(format), WTFMove(statementMap), attestation);
 
     auto attestationObject = cbor::CBORWriter::write(cbor::CBORValue(WTFMove(attestationObjectMap)));
     ASSERT(attestationObject);

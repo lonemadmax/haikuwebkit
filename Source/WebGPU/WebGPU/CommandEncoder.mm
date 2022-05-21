@@ -26,6 +26,7 @@
 #import "config.h"
 #import "CommandEncoder.h"
 
+#import "APIConversions.h"
 #import "Buffer.h"
 #import "CommandBuffer.h"
 #import "ComputePassEncoder.h"
@@ -37,16 +38,46 @@ namespace WebGPU {
 
 RefPtr<CommandEncoder> Device::createCommandEncoder(const WGPUCommandEncoderDescriptor& descriptor)
 {
-    UNUSED_PARAM(descriptor);
-    return CommandEncoder::create(nil);
+    if (descriptor.nextInChain)
+        return nullptr;
+
+    // https://gpuweb.github.io/gpuweb/#dom-gpudevice-createcommandencoder
+
+    auto *commandBufferDescriptor = [MTLCommandBufferDescriptor new];
+    commandBufferDescriptor.errorOptions = MTLCommandBufferErrorOptionEncoderExecutionStatus;
+    id<MTLCommandBuffer> commandBuffer = [getQueue().commandQueue() commandBufferWithDescriptor:commandBufferDescriptor];
+    if (!commandBuffer)
+        return nullptr;
+
+    commandBuffer.label = fromAPI(descriptor.label);
+
+    return CommandEncoder::create(commandBuffer, *this);
 }
 
-CommandEncoder::CommandEncoder(id<MTLCommandBuffer> commandBuffer)
+CommandEncoder::CommandEncoder(id<MTLCommandBuffer> commandBuffer, Device& device)
     : m_commandBuffer(commandBuffer)
+    , m_device(device)
 {
 }
 
-CommandEncoder::~CommandEncoder() = default;
+CommandEncoder::~CommandEncoder()
+{
+    finalizeBlitCommandEncoder();
+}
+
+void CommandEncoder::ensureBlitCommandEncoder()
+{
+    if (!m_blitCommandEncoder)
+        m_blitCommandEncoder = [m_commandBuffer blitCommandEncoder];
+}
+
+void CommandEncoder::finalizeBlitCommandEncoder()
+{
+    if (m_blitCommandEncoder) {
+        [m_blitCommandEncoder endEncoding];
+        m_blitCommandEncoder = nil;
+    }
+}
 
 RefPtr<ComputePassEncoder> CommandEncoder::beginComputePass(const WGPUComputePassDescriptor& descriptor)
 {
@@ -60,13 +91,71 @@ RefPtr<RenderPassEncoder> CommandEncoder::beginRenderPass(const WGPURenderPassDe
     return RenderPassEncoder::create(nil);
 }
 
+static bool validateCopyBufferToBuffer(const Buffer& source, uint64_t sourceOffset, const Buffer& destination, uint64_t destinationOffset, uint64_t size)
+{
+    // FIXME: "source is valid to use with this."
+
+    // FIXME: "destination is valid to use with this."
+
+    // "source.[[usage]] contains COPY_SRC."
+    if (!(source.usage() & WGPUBufferUsage_CopySrc))
+        return false;
+
+    // "destination.[[usage]] contains COPY_DST."
+    if (!(destination.usage() & WGPUBufferUsage_CopyDst))
+        return false;
+
+    // "size is a multiple of 4."
+    if (size % 4)
+        return false;
+
+    // "sourceOffset is a multiple of 4."
+    if (sourceOffset % 4)
+        return false;
+
+    // "destinationOffset is a multiple of 4."
+    if (destinationOffset % 4)
+        return false;
+
+    // FIXME: "(sourceOffset + size) does not overflow a GPUSize64."
+
+    // FIXME: "(destinationOffset + size) does not overflow a GPUSize64."
+
+    // FIXME: "source.[[size]] is greater than or equal to (sourceOffset + size)."
+    // FIXME: Use checked arithmetic
+    if (source.size() < sourceOffset + size)
+        return false;
+
+    // FIXME: "destination.[[size]] is greater than or equal to (destinationOffset + size)."
+    // FIXME: Use checked arithmetic
+    if (destination.size() < destinationOffset + size)
+        return false;
+
+    // FIXME: "source and destination are not the same GPUBuffer."
+    if (&source == &destination)
+        return false;
+
+    return true;
+}
+
 void CommandEncoder::copyBufferToBuffer(const Buffer& source, uint64_t sourceOffset, const Buffer& destination, uint64_t destinationOffset, uint64_t size)
 {
-    UNUSED_PARAM(source);
-    UNUSED_PARAM(sourceOffset);
-    UNUSED_PARAM(destination);
-    UNUSED_PARAM(destinationOffset);
-    UNUSED_PARAM(size);
+    // https://gpuweb.github.io/gpuweb/#dom-gpucommandencoder-copybuffertobuffer
+
+    // "Prepare the encoder state of this. If it returns false, stop."
+    if (!prepareTheEncoderState())
+        return;
+
+    // "If any of the following conditions are unsatisfied
+    if (!validateCopyBufferToBuffer(source, sourceOffset, destination, destinationOffset, size)) {
+        // "generate a validation error and stop."
+        m_device->generateAValidationError("Validation failure."_s);
+        return;
+    }
+
+    ensureBlitCommandEncoder();
+
+    [m_blitCommandEncoder copyFromBuffer:source.buffer() sourceOffset:static_cast<NSUInteger>(sourceOffset) toBuffer:destination.buffer() destinationOffset:static_cast<NSUInteger>(destinationOffset) size:static_cast<NSUInteger>(size)];
 }
 
 void CommandEncoder::copyBufferToTexture(const WGPUImageCopyBuffer& source, const WGPUImageCopyTexture& destination, const WGPUExtent3D& copySize)
@@ -90,31 +179,164 @@ void CommandEncoder::copyTextureToTexture(const WGPUImageCopyTexture& source, co
     UNUSED_PARAM(copySize);
 }
 
+static bool validateClearBuffer(const Buffer& buffer, uint64_t offset, uint64_t size)
+{
+    // FIXME: "buffer is valid to use with this."
+
+    // "buffer.[[usage]] contains COPY_DST."
+    if (!(buffer.usage() & WGPUBufferUsage_CopyDst))
+        return false;
+
+    // "size is a multiple of 4."
+    if (size % 4)
+        return false;
+
+    // "offset is a multiple of 4."
+    if (offset % 4)
+        return false;
+
+    // "buffer.[[size]] is greater than or equal to (offset + size)."
+    // FIXME: Use checked arithmetic.
+    if (buffer.size() < offset + size)
+        return false;
+
+    return true;
+}
+
 void CommandEncoder::clearBuffer(const Buffer& buffer, uint64_t offset, uint64_t size)
 {
-    UNUSED_PARAM(buffer);
-    UNUSED_PARAM(offset);
-    UNUSED_PARAM(size);
+    // https://gpuweb.github.io/gpuweb/#dom-gpucommandencoder-clearbuffer
+
+    // "Prepare the encoder state of this. If it returns false, stop."
+    if (!prepareTheEncoderState())
+        return;
+
+    // "If size is missing, set size to max(0, |buffer|.{{GPUBuffer/[[size]]}} - |offset|)."
+    if (size == WGPU_WHOLE_SIZE) {
+        // FIXME: Use checked arithmetic.
+        size = buffer.size() - offset;
+    }
+
+    // "If any of the following conditions are unsatisfied"
+    if (!validateClearBuffer(buffer, offset, size)) {
+        // "generate a validation error and stop."
+        m_device->generateAValidationError("Validation failure."_s);
+        return;
+    }
+
+    ensureBlitCommandEncoder();
+
+    [m_blitCommandEncoder fillBuffer:buffer.buffer() range:NSMakeRange(static_cast<NSUInteger>(offset), static_cast<NSUInteger>(size)) value:0];
+}
+
+bool CommandEncoder::validateFinish() const
+{
+    // "Let validationSucceeded be true if all of the following requirements are met, and false otherwise."
+
+    // FIXME: "this must be valid."
+
+    // "this.[[state]] must be "open"."
+    if (m_state != EncoderState::Open)
+        return false;
+
+    // FIXME: "this.[[debug_group_stack]] must be empty."
+
+    // FIXME: "Every usage scope contained in this must satisfy the usage scope validation."
+
+    return true;
 }
 
 RefPtr<CommandBuffer> CommandEncoder::finish(const WGPUCommandBufferDescriptor& descriptor)
 {
-    UNUSED_PARAM(descriptor);
-    return CommandBuffer::create(nil);
+    if (descriptor.nextInChain)
+        return nullptr;
+
+    // https://gpuweb.github.io/gpuweb/#dom-gpucommandencoder-finish
+
+    // "Let validationSucceeded be true if all of the following requirements are met, and false otherwise."
+    auto validationFailed = !validateFinish();
+
+    // "Set this.[[state]] to "ended"."
+    m_state = EncoderState::Ended;
+
+    // "If validationSucceeded is false, then:"
+    if (validationFailed) {
+        // "Generate a validation error."
+        m_device->generateAValidationError("Validation failure."_s);
+
+        // FIXME: "Return a new invalid GPUCommandBuffer."
+        return nullptr;
+    }
+
+    finalizeBlitCommandEncoder();
+
+    // "Set commandBuffer.[[command_list]] to this.[[commands]]."
+    auto *commandBuffer = m_commandBuffer;
+    m_commandBuffer = nil;
+
+    commandBuffer.label = fromAPI(descriptor.label);
+
+    return CommandBuffer::create(commandBuffer);
 }
 
-void CommandEncoder::insertDebugMarker(const char* markerLabel)
+void CommandEncoder::insertDebugMarker(String&& markerLabel)
 {
-    UNUSED_PARAM(markerLabel);
+    // https://gpuweb.github.io/gpuweb/#dom-gpudebugcommandsmixin-insertdebugmarker
+
+    // "Prepare the encoder state of this. If it returns false, stop."
+    if (!prepareTheEncoderState())
+        return;
+
+    finalizeBlitCommandEncoder();
+
+    // There's no direct way of doing this, so we just push/pop an empty debug group.
+    [m_commandBuffer pushDebugGroup:markerLabel];
+    [m_commandBuffer popDebugGroup];
+}
+
+bool CommandEncoder::validatePopDebugGroup() const
+{
+    // "this.[[debug_group_stack]] must not be empty."
+    if (!m_debugGroupStackSize)
+        return false;
+
+    return true;
 }
 
 void CommandEncoder::popDebugGroup()
 {
+    // https://gpuweb.github.io/gpuweb/#dom-gpudebugcommandsmixin-popdebuggroup
+
+    // "Prepare the encoder state of this. If it returns false, stop."
+    if (!prepareTheEncoderState())
+        return;
+
+    // "If any of the following requirements are unmet"
+    if (!validatePopDebugGroup()) {
+        // FIXME: "make this invalid, and stop."
+        return;
+    }
+
+    finalizeBlitCommandEncoder();
+
+    // "Pop an entry off of this.[[debug_group_stack]]."
+    --m_debugGroupStackSize;
+    [m_commandBuffer popDebugGroup];
 }
 
-void CommandEncoder::pushDebugGroup(const char* groupLabel)
+void CommandEncoder::pushDebugGroup(String&& groupLabel)
 {
-    UNUSED_PARAM(groupLabel);
+    // https://gpuweb.github.io/gpuweb/#dom-gpudebugcommandsmixin-pushdebuggroup
+
+    // "Prepare the encoder state of this. If it returns false, stop."
+    if (!prepareTheEncoderState())
+        return;
+    
+    finalizeBlitCommandEncoder();
+
+    // "Push groupLabel onto this.[[debug_group_stack]]."
+    ++m_debugGroupStackSize;
+    [m_commandBuffer pushDebugGroup:groupLabel];
 }
 
 void CommandEncoder::resolveQuerySet(const QuerySet& querySet, uint32_t firstQuery, uint32_t queryCount, const Buffer& destination, uint64_t destinationOffset)
@@ -132,87 +354,86 @@ void CommandEncoder::writeTimestamp(const QuerySet& querySet, uint32_t queryInde
     UNUSED_PARAM(queryIndex);
 }
 
-void CommandEncoder::setLabel(const char* label)
+void CommandEncoder::setLabel(String&& label)
 {
-    m_commandBuffer.label = [NSString stringWithCString:label encoding:NSUTF8StringEncoding];
+    m_commandBuffer.label = label;
 }
 
 } // namespace WebGPU
 
+#pragma mark WGPU Stubs
+
 void wgpuCommandEncoderRelease(WGPUCommandEncoder commandEncoder)
 {
-    delete commandEncoder;
+    WebGPU::fromAPI(commandEncoder).deref();
 }
 
 WGPUComputePassEncoder wgpuCommandEncoderBeginComputePass(WGPUCommandEncoder commandEncoder, const WGPUComputePassDescriptor* descriptor)
 {
-    auto result = commandEncoder->commandEncoder->beginComputePass(*descriptor);
-    return result ? new WGPUComputePassEncoderImpl { result.releaseNonNull() } : nullptr;
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(commandEncoder).beginComputePass(*descriptor));
 }
 
 WGPURenderPassEncoder wgpuCommandEncoderBeginRenderPass(WGPUCommandEncoder commandEncoder, const WGPURenderPassDescriptor* descriptor)
 {
-    auto result = commandEncoder->commandEncoder->beginRenderPass(*descriptor);
-    return result ? new WGPURenderPassEncoderImpl { result.releaseNonNull() } : nullptr;
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(commandEncoder).beginRenderPass(*descriptor));
 }
 
 void wgpuCommandEncoderCopyBufferToBuffer(WGPUCommandEncoder commandEncoder, WGPUBuffer source, uint64_t sourceOffset, WGPUBuffer destination, uint64_t destinationOffset, uint64_t size)
 {
-    commandEncoder->commandEncoder->copyBufferToBuffer(source->buffer, sourceOffset, destination->buffer, destinationOffset, size);
+    WebGPU::fromAPI(commandEncoder).copyBufferToBuffer(WebGPU::fromAPI(source), sourceOffset, WebGPU::fromAPI(destination), destinationOffset, size);
 }
 
 void wgpuCommandEncoderCopyBufferToTexture(WGPUCommandEncoder commandEncoder, const WGPUImageCopyBuffer* source, const WGPUImageCopyTexture* destination, const WGPUExtent3D* copySize)
 {
-    commandEncoder->commandEncoder->copyBufferToTexture(*source, *destination, *copySize);
+    WebGPU::fromAPI(commandEncoder).copyBufferToTexture(*source, *destination, *copySize);
 }
 
 void wgpuCommandEncoderCopyTextureToBuffer(WGPUCommandEncoder commandEncoder, const WGPUImageCopyTexture* source, const WGPUImageCopyBuffer* destination, const WGPUExtent3D* copySize)
 {
-    commandEncoder->commandEncoder->copyTextureToBuffer(*source, *destination, *copySize);
+    WebGPU::fromAPI(commandEncoder).copyTextureToBuffer(*source, *destination, *copySize);
 }
 
 void wgpuCommandEncoderCopyTextureToTexture(WGPUCommandEncoder commandEncoder, const WGPUImageCopyTexture* source, const WGPUImageCopyTexture* destination, const WGPUExtent3D* copySize)
 {
-    commandEncoder->commandEncoder->copyTextureToTexture(*source, *destination, *copySize);
+    WebGPU::fromAPI(commandEncoder).copyTextureToTexture(*source, *destination, *copySize);
 }
 
 void wgpuCommandEncoderClearBuffer(WGPUCommandEncoder commandEncoder, WGPUBuffer buffer, uint64_t offset, uint64_t size)
 {
-    commandEncoder->commandEncoder->clearBuffer(buffer->buffer, offset, size);
+    WebGPU::fromAPI(commandEncoder).clearBuffer(WebGPU::fromAPI(buffer), offset, size);
 }
 
 WGPUCommandBuffer wgpuCommandEncoderFinish(WGPUCommandEncoder commandEncoder, const WGPUCommandBufferDescriptor* descriptor)
 {
-    auto result = commandEncoder->commandEncoder->finish(*descriptor);
-    return result ? new WGPUCommandBufferImpl { result.releaseNonNull() } : nullptr;
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(commandEncoder).finish(*descriptor));
 }
 
 void wgpuCommandEncoderInsertDebugMarker(WGPUCommandEncoder commandEncoder, const char* markerLabel)
 {
-    commandEncoder->commandEncoder->insertDebugMarker(markerLabel);
+    WebGPU::fromAPI(commandEncoder).insertDebugMarker(WebGPU::fromAPI(markerLabel));
 }
 
 void wgpuCommandEncoderPopDebugGroup(WGPUCommandEncoder commandEncoder)
 {
-    commandEncoder->commandEncoder->popDebugGroup();
+    WebGPU::fromAPI(commandEncoder).popDebugGroup();
 }
 
 void wgpuCommandEncoderPushDebugGroup(WGPUCommandEncoder commandEncoder, const char* groupLabel)
 {
-    commandEncoder->commandEncoder->pushDebugGroup(groupLabel);
+    WebGPU::fromAPI(commandEncoder).pushDebugGroup(WebGPU::fromAPI(groupLabel));
 }
 
 void wgpuCommandEncoderResolveQuerySet(WGPUCommandEncoder commandEncoder, WGPUQuerySet querySet, uint32_t firstQuery, uint32_t queryCount, WGPUBuffer destination, uint64_t destinationOffset)
 {
-    commandEncoder->commandEncoder->resolveQuerySet(querySet->querySet, firstQuery, queryCount, destination->buffer, destinationOffset);
+    WebGPU::fromAPI(commandEncoder).resolveQuerySet(WebGPU::fromAPI(querySet), firstQuery, queryCount, WebGPU::fromAPI(destination), destinationOffset);
 }
 
 void wgpuCommandEncoderWriteTimestamp(WGPUCommandEncoder commandEncoder, WGPUQuerySet querySet, uint32_t queryIndex)
 {
-    commandEncoder->commandEncoder->writeTimestamp(querySet->querySet, queryIndex);
+    WebGPU::fromAPI(commandEncoder).writeTimestamp(WebGPU::fromAPI(querySet), queryIndex);
 }
 
 void wgpuCommandEncoderSetLabel(WGPUCommandEncoder commandEncoder, const char* label)
 {
-    commandEncoder->commandEncoder->setLabel(label);
+    WebGPU::fromAPI(commandEncoder).setLabel(WebGPU::fromAPI(label));
 }

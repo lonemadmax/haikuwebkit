@@ -168,6 +168,9 @@ public:
     WEBCORE_EXPORT void processSystemDidWake();
 
     virtual void resetHaveEverRegisteredAsNowPlayingApplicationForTesting() { };
+    virtual void resetSessionState() { };
+
+    bool isApplicationInBackground() const { return m_isApplicationInBackground; }
 
 protected:
     friend class PlatformMediaSession;
@@ -181,7 +184,6 @@ protected:
     void forEachSessionInGroup(MediaSessionGroupIdentifier, const Function<void(PlatformMediaSession&)>&);
     bool anyOfSessions(const Function<bool(const PlatformMediaSession&)>&) const;
 
-    bool isApplicationInBackground() const { return m_isApplicationInBackground; }
     void maybeDeactivateAudioSession();
     bool maybeActivateAudioSession();
 

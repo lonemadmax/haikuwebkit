@@ -85,7 +85,7 @@ private:
 
     void willSendRequest(WebCore::ResourceRequest&&, IPC::FormDataReference&& requestBody, WebCore::ResourceResponse&&);
     void didSendData(uint64_t bytesSent, uint64_t totalBytesToBeSent);
-    void didReceiveResponse(const WebCore::ResourceResponse&, PrivateRelayed, bool needsContinueDidReceiveResponseMessage);
+    void didReceiveResponse(WebCore::ResourceResponse&&, PrivateRelayed, bool needsContinueDidReceiveResponseMessage, std::optional<WebCore::NetworkLoadMetrics>&&);
     void didReceiveData(const IPC::SharedBufferCopy& data, int64_t encodedDataLength);
     void didFinishResourceLoad(const WebCore::NetworkLoadMetrics&);
     void didFailResourceLoad(const WebCore::ResourceError&);
@@ -102,9 +102,7 @@ private:
 #endif
 
 #if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
-    void contentFilterDidBlockLoad(const WebCore::ContentFilterUnblockHandler&, String&& unblockRequestDeniedScript);
-    void cancelMainResourceLoadForContentFilter(const WebCore::ResourceError&);
-    void handleProvisionalLoadFailureFromContentFilter(const URL& blockedPageURL, const WebCore::SubstituteData&);
+    void contentFilterDidBlockLoad(const WebCore::ContentFilterUnblockHandler&, String&& unblockRequestDeniedScript, const WebCore::ResourceError&, const URL& blockedPageURL, WebCore::SubstituteData&&);
 #endif
     
     RefPtr<WebCore::ResourceLoader> m_coreLoader;

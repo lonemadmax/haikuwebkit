@@ -105,6 +105,10 @@ class InbandTextTrackPrivateGStreamer;
 class MediaPlayerRequestInstallMissingPluginsCallback;
 class VideoTrackPrivateGStreamer;
 
+#if USE(TEXTURE_MAPPER_DMABUF)
+class GBMBufferSwapchain;
+#endif
+
 void registerWebKitGStreamerElements();
 
 // Use eager initialization for the WeakPtrFactory since we construct WeakPtrs on another thread.
@@ -267,6 +271,9 @@ protected:
     bool shouldIgnoreIntrinsicSize() final { return true; }
 #endif
 
+#if USE(TEXTURE_MAPPER_DMABUF)
+    GstElement* createVideoSinkDMABuf();
+#endif
 #if USE(GSTREAMER_GL)
     GstElement* createVideoSinkGL();
 #endif
@@ -279,6 +286,10 @@ protected:
     RefPtr<TextureMapperPlatformLayerProxy> proxy() const final;
     void swapBuffersIfNeeded() final;
 #endif
+#endif
+
+#if USE(TEXTURE_MAPPER_DMABUF)
+    void pushDMABufToCompositor();
 #endif
 
     GstElement* videoSink() const { return m_videoSink.get(); }
@@ -387,6 +398,8 @@ protected:
 #endif
 
     std::optional<GstVideoDecoderPlatform> m_videoDecoderPlatform;
+
+    String errorMessage() const override { return m_errorMessage; }
 
 private:
     class TaskAtMediaTimeScheduler {
@@ -508,7 +521,7 @@ private:
     RunLoop::Timer<MediaPlayerPrivateGStreamer> m_readyTimerHandler;
 #if USE(TEXTURE_MAPPER_GL)
 #if USE(NICOSIA)
-    Ref<Nicosia::ContentLayer> m_nicosiaLayer;
+    RefPtr<Nicosia::ContentLayer> m_nicosiaLayer;
 #else
     RefPtr<TextureMapperPlatformLayerProxy> m_platformLayerProxy;
 #endif
@@ -572,6 +585,12 @@ private:
 #if !RELEASE_LOG_DISABLED
     Ref<const Logger> m_logger;
     const void* m_logIdentifier;
+#endif
+
+    String m_errorMessage;
+
+#if USE(TEXTURE_MAPPER_DMABUF)
+    RefPtr<GBMBufferSwapchain> m_swapchain;
 #endif
 };
 

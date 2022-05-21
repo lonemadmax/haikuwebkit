@@ -1,5 +1,8 @@
 include(InspectorGResources.cmake)
-include(PdfJSGResources.cmake)
+
+if (ENABLE_PDFJS)
+    include(PdfJSGResources.cmake)
+endif ()
 
 set(WebKit_OUTPUT_NAME webkit2gtk-${WEBKITGTK_API_VERSION})
 set(WebProcess_OUTPUT_NAME WebKitWebProcess)
@@ -54,8 +57,6 @@ list(APPEND WebKit_MESSAGES_IN_FILES
 
 list(APPEND WebKit_DERIVED_SOURCES
     ${WebKit2Gtk_DERIVED_SOURCES_DIR}/InspectorGResourceBundle.c
-    ${WebKit2Gtk_DERIVED_SOURCES_DIR}/PdfJSGResourceBundle.c
-    ${WebKit2Gtk_DERIVED_SOURCES_DIR}/PdfJSGResourceBundleExtras.c
     ${WebKit2Gtk_DERIVED_SOURCES_DIR}/WebKitDirectoryInputStreamData.cpp
     ${WebKit2Gtk_DERIVED_SOURCES_DIR}/WebKitResourcesGResourceBundle.c
 
@@ -69,6 +70,15 @@ if (ENABLE_WAYLAND_TARGET)
         ${WebKit2Gtk_DERIVED_SOURCES_DIR}/pointer-constraints-unstable-v1-protocol.c
         ${WebKit2Gtk_DERIVED_SOURCES_DIR}/relative-pointer-unstable-v1-protocol.c
     )
+endif ()
+
+if (ENABLE_PDFJS)
+    list(APPEND WebKit_DERIVED_SOURCES
+        ${WebKit2Gtk_DERIVED_SOURCES_DIR}/PdfJSGResourceBundle.c
+        ${WebKit2Gtk_DERIVED_SOURCES_DIR}/PdfJSGResourceBundleExtras.c
+    )
+
+    WEBKIT_BUILD_PDFJS_GRESOURCES(${WebKit2Gtk_DERIVED_SOURCES_DIR})
 endif ()
 
 set(WebKit_DirectoryInputStream_DATA
@@ -455,12 +465,10 @@ list(APPEND WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/WebProcess/WebCoreSupport/gtk"
     "${WEBKIT_DIR}/WebProcess/WebCoreSupport/soup"
     "${WEBKIT_DIR}/WebProcess/WebPage/CoordinatedGraphics"
-    "${WEBKIT_DIR}/WebProcess/WebPage/atk"
     "${WEBKIT_DIR}/WebProcess/WebPage/gtk"
 )
 
 list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
-    ${ATK_INCLUDE_DIRS}
     ${ENCHANT_INCLUDE_DIRS}
     ${GIO_UNIX_INCLUDE_DIRS}
     ${GLIB_INCLUDE_DIRS}
@@ -563,7 +571,6 @@ add_custom_command(
 )
 
 WEBKIT_BUILD_INSPECTOR_GRESOURCES(${WebKit2Gtk_DERIVED_SOURCES_DIR})
-WEBKIT_BUILD_PDFJS_GRESOURCES(${WebKit2Gtk_DERIVED_SOURCES_DIR})
 
 set(WebKitResources "")
 list(APPEND WebKitResources "<file alias=\"css/gtk-theme.css\">gtk-theme.css</file>\n")

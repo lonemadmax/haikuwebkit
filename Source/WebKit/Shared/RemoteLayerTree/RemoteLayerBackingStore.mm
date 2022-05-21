@@ -182,6 +182,17 @@ bool RemoteLayerBackingStore::decode(IPC::Decoder& decoder, RemoteLayerBackingSt
     return true;
 }
 
+bool RemoteLayerBackingStore::layerWillBeDisplayed()
+{
+    auto* collection = backingStoreCollection();
+    if (!collection) {
+        ASSERT_NOT_REACHED();
+        return false;
+    }
+
+    return collection->backingStoreWillBeDisplayed(*this);
+}
+
 void RemoteLayerBackingStore::setNeedsDisplay(const WebCore::IntRect rect)
 {
     m_dirtyRegion.unite(rect);
@@ -238,13 +249,23 @@ WebCore::SetNonVolatileResult RemoteLayerBackingStore::swapToValidFrontBuffer()
 }
 
 // Called after buffer swapping in the GPU process.
-void RemoteLayerBackingStore::applySwappedBuffers(RefPtr<WebCore::ImageBuffer>&& front, RefPtr<WebCore::ImageBuffer>&& back, RefPtr<WebCore::ImageBuffer>&& secondaryBack)
+void RemoteLayerBackingStore::applySwappedBuffers(RefPtr<WebCore::ImageBuffer>&& front, RefPtr<WebCore::ImageBuffer>&& back, RefPtr<WebCore::ImageBuffer>&& secondaryBack, SwapBuffersDisplayRequirement displayRequirement)
 {
     ASSERT(WebProcess::singleton().shouldUseRemoteRenderingFor(WebCore::RenderingPurpose::DOM));
+    m_contentsBufferHandle = std::nullopt;
 
     m_frontBuffer.imageBuffer = WTFMove(front);
     m_backBuffer.imageBuffer = WTFMove(back);
     m_secondaryBackBuffer.imageBuffer = WTFMove(secondaryBack);
+
+    if (displayRequirement == SwapBuffersDisplayRequirement::NeedsNoDisplay)
+        return;
+
+    if (displayRequirement == SwapBuffersDisplayRequirement::NeedsFullDisplay)
+        setNeedsDisplay();
+
+    dirtyRepaintCounterIfNecessary();
+    ensureFrontBuffer();
 }
 
 bool RemoteLayerBackingStore::supportsPartialRepaint() const
@@ -261,6 +282,93 @@ void RemoteLayerBackingStore::setContents(WTF::MachSendRight&& contents)
     m_paintingRects.clear();
 }
 
+bool RemoteLayerBackingStore::needsDisplay() const
+{
+    auto* collection = backingStoreCollection();
+    if (!collection) {
+        ASSERT_NOT_REACHED();
+        return false;
+    }
+
+    if (m_layer->owner()->platformCALayerDelegatesDisplay(m_layer)) {
+        LOG_WITH_STREAM(RemoteRenderingBufferVolatility, stream << "RemoteLayerBackingStore " << m_layer->layerID() << " needsDisplay() - delegates display");
+        return true;
+    }
+
+    bool needsDisplay = collection->backingStoreNeedsDisplay(*this);
+    LOG_WITH_STREAM(RemoteRenderingBufferVolatility, stream << "RemoteLayerBackingStore " << m_layer->layerID() << " size " << size() << " needsDisplay() - needsDisplay " << needsDisplay);
+    return needsDisplay;
+}
+
+bool RemoteLayerBackingStore::performDelegatedLayerDisplay()
+{
+    auto& layerOwner = *m_layer->owner();
+    if (layerOwner.platformCALayerDelegatesDisplay(m_layer)) {
+        // This can call back to setContents(), setting m_contentsBufferHandle.
+        layerOwner.platformCALayerLayerDisplay(m_layer);
+        layerOwner.platformCALayerLayerDidDisplay(m_layer);
+        return true;
+    }
+    
+    return false;
+}
+
+void RemoteLayerBackingStore::prepareToDisplay()
+{
+    ASSERT(!WebProcess::singleton().shouldUseRemoteRenderingFor(WebCore::RenderingPurpose::DOM));
+    ASSERT(!m_frontBufferFlushers.size());
+
+    auto* collection = backingStoreCollection();
+    if (!collection) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    ASSERT(collection->backingStoreNeedsDisplay(*this));
+
+    LOG_WITH_STREAM(RemoteRenderingBufferVolatility, stream << "RemoteLayerBackingStore " << m_layer->layerID() << " prepareToDisplay()");
+
+    if (performDelegatedLayerDisplay())
+        return;
+
+    auto displayRequirement = prepareBuffers();
+    if (displayRequirement == SwapBuffersDisplayRequirement::NeedsNoDisplay)
+        return;
+
+    if (displayRequirement == SwapBuffersDisplayRequirement::NeedsFullDisplay)
+        setNeedsDisplay();
+
+    dirtyRepaintCounterIfNecessary();
+    ensureFrontBuffer();
+}
+
+void RemoteLayerBackingStore::dirtyRepaintCounterIfNecessary()
+{
+    if (m_layer->owner()->platformCALayerShowRepaintCounter(m_layer)) {
+        WebCore::IntRect indicatorRect(0, 0, 52, 27);
+        m_dirtyRegion.unite(indicatorRect);
+    }
+}
+
+void RemoteLayerBackingStore::ensureFrontBuffer()
+{
+    if (m_frontBuffer.imageBuffer)
+        return;
+
+    auto* collection = backingStoreCollection();
+    if (!collection) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    m_frontBuffer.imageBuffer = collection->allocateBufferForBackingStore(*this);
+
+#if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
+    if (m_includeDisplayList == IncludeDisplayList::Yes)
+        m_frontBuffer.displayListImageBuffer = WebCore::ConcreteImageBuffer<CGDisplayListImageBufferBackend>::create(m_size, m_scale, WebCore::DestinationColorSpace::SRGB(), pixelFormat(), nullptr);
+#endif
+}
+
 #if !LOG_DISABLED
 static TextStream& operator<<(TextStream& ts, SwapBuffersDisplayRequirement result)
 {
@@ -273,91 +381,45 @@ static TextStream& operator<<(TextStream& ts, SwapBuffersDisplayRequirement resu
 }
 #endif
 
-bool RemoteLayerBackingStore::prepareToDisplay()
-{
-    ASSERT(!m_frontBufferFlushers.size());
-
-    m_lastDisplayTime = MonotonicTime::now();
-
-    auto* collection = backingStoreCollection();
-    if (!collection) {
-        ASSERT_NOT_REACHED();
-        return false;
-    }
-
-    LOG_WITH_STREAM(RemoteRenderingBufferVolatility, stream << "RemoteLayerBackingStore " << m_layer->layerID() << " prepareToDisplay()");
-
-    bool needToEncodeBackingStore = collection->backingStoreWillBeDisplayed(*this);
-
-    auto& layerOwner = *m_layer->owner();
-    if (layerOwner.platformCALayerDelegatesDisplay(m_layer)) {
-        // This can call back to setContents(), setting m_contentsBufferHandle.
-        layerOwner.platformCALayerLayerDisplay(m_layer);
-        layerOwner.platformCALayerLayerDidDisplay(m_layer);
-        return true;
-    }
-
-    m_contentsBufferHandle = std::nullopt;
-
-    auto displayRequirement = collection->prepareBackingStoreBuffers(*this);
-
-    LOG_WITH_STREAM(RemoteRenderingBufferVolatility, stream << "RemoteLayerBackingStore " << m_layer->layerID() << " prepareToDisplay() - " << displayRequirement);
-
-    if (displayRequirement == SwapBuffersDisplayRequirement::NeedsNoDisplay)
-        return needToEncodeBackingStore;
-
-    if (displayRequirement == SwapBuffersDisplayRequirement::NeedsFullDisplay)
-        setNeedsDisplay();
-
-    if (layerOwner.platformCALayerShowRepaintCounter(m_layer)) {
-        WebCore::IntRect indicatorRect(0, 0, 52, 27);
-        m_dirtyRegion.unite(indicatorRect);
-    }
-
-    if (!m_frontBuffer.imageBuffer) {
-        m_frontBuffer.imageBuffer = collection->allocateBufferForBackingStore(*this);
-
-#if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
-        if (m_includeDisplayList == IncludeDisplayList::Yes)
-            m_frontBuffer.displayListImageBuffer = WebCore::ConcreteImageBuffer<CGDisplayListImageBufferBackend>::create(m_size, m_scale, WebCore::DestinationColorSpace::SRGB(), pixelFormat(), nullptr);
-#endif
-    }
-
-    return true;
-}
-
-SwapBuffersDisplayRequirement RemoteLayerBackingStore::prepareBuffers(bool hasEmptyDirtyRegion)
+SwapBuffersDisplayRequirement RemoteLayerBackingStore::prepareBuffers()
 {
     ASSERT(!WebProcess::singleton().shouldUseRemoteRenderingFor(WebCore::RenderingPurpose::DOM));
+    m_contentsBufferHandle = std::nullopt;
 
-    bool needsFullDisplay = false;
+    auto displayRequirement = SwapBuffersDisplayRequirement::NeedsNoDisplay;
 
     // Make the previous front buffer non-volatile early, so that we can dirty the whole layer if it comes back empty.
-    if (setFrontBufferNonVolatile() == WebCore::SetNonVolatileResult::Empty)
-        needsFullDisplay = true;
+    if (!hasFrontBuffer() || setFrontBufferNonVolatile() == WebCore::SetNonVolatileResult::Empty)
+        displayRequirement = SwapBuffersDisplayRequirement::NeedsFullDisplay;
+    else if (!hasEmptyDirtyRegion())
+        displayRequirement = SwapBuffersDisplayRequirement::NeedsNormalDisplay;
 
-    if (!needsFullDisplay && hasEmptyDirtyRegion)
-        return SwapBuffersDisplayRequirement::NeedsNoDisplay;
+    if (displayRequirement == SwapBuffersDisplayRequirement::NeedsNoDisplay)
+        return displayRequirement;
 
-    if (!hasFrontBuffer() || !supportsPartialRepaint())
-        needsFullDisplay = true;
+    if (!supportsPartialRepaint())
+        displayRequirement = SwapBuffersDisplayRequirement::NeedsFullDisplay;
 
     auto result = swapToValidFrontBuffer();
-    if (result == WebCore::SetNonVolatileResult::Empty)
-        needsFullDisplay = true;
+    if (!hasFrontBuffer() || result == WebCore::SetNonVolatileResult::Empty)
+        displayRequirement = SwapBuffersDisplayRequirement::NeedsFullDisplay;
 
-    return needsFullDisplay ? SwapBuffersDisplayRequirement::NeedsFullDisplay : SwapBuffersDisplayRequirement::NeedsNormalDisplay;
+    LOG_WITH_STREAM(RemoteRenderingBufferVolatility, stream << "RemoteLayerBackingStore " << m_layer->layerID() << " prepareBuffers() - " << displayRequirement);
+    return displayRequirement;
 }
 
 void RemoteLayerBackingStore::paintContents()
 {
     if (!m_frontBuffer.imageBuffer) {
-        ASSERT(m_contentsBufferHandle);
+        ASSERT(m_layer->owner()->platformCALayerDelegatesDisplay(m_layer));
         return;
     }
 
-    if (m_dirtyRegion.isEmpty() || m_size.isEmpty())
+    LOG_WITH_STREAM(RemoteRenderingBufferVolatility, stream << "RemoteLayerBackingStore " << m_layer->layerID() << " paintContents() - has dirty region " << !hasEmptyDirtyRegion());
+    if (hasEmptyDirtyRegion())
         return;
+
+    m_lastDisplayTime = MonotonicTime::now();
 
     if (m_includeDisplayList == IncludeDisplayList::Yes) {
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
@@ -554,6 +616,7 @@ void RemoteLayerBackingStore::applyBackingStoreToLayer(CALayer *layer, LayerCont
 
 Vector<std::unique_ptr<WebCore::ThreadSafeImageBufferFlusher>> RemoteLayerBackingStore::takePendingFlushers()
 {
+    LOG_WITH_STREAM(RemoteRenderingBufferVolatility, stream << "RemoteLayerBackingStore " << m_layer->layerID() << " takePendingFlushers()");
     return std::exchange(m_frontBufferFlushers, { });
 }
 

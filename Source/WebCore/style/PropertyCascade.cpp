@@ -56,16 +56,6 @@ static inline bool shouldApplyPropertyInParseOrder(CSSPropertyID propertyID)
     case CSSPropertyBorderImageWidth:
     case CSSPropertyWebkitBoxShadow:
     case CSSPropertyBoxShadow:
-    case CSSPropertyWebkitTextDecoration:
-    case CSSPropertyTextDecorationLine:
-    case CSSPropertyTextDecorationStyle:
-    case CSSPropertyTextDecorationColor:
-    case CSSPropertyTextDecorationSkip:
-    case CSSPropertyTextDecorationSkipInk:
-    case CSSPropertyTextUnderlinePosition:
-    case CSSPropertyTextUnderlineOffset:
-    case CSSPropertyTextDecorationThickness:
-    case CSSPropertyTextDecoration:
         return true;
     default:
         return false;
@@ -173,6 +163,7 @@ void PropertyCascade::setDeferred(CSSPropertyID id, CSSValue& cssValue, const Ma
     Property property;
     memset(property.cssValue, 0, sizeof(property.cssValue));
     setPropertyInternal(property, id, cssValue, matchedProperties, cascadeLevel);
+    m_deferredPropertiesIndices.set(id, m_deferredProperties.size());
     m_deferredProperties.append(property);
 }
 

@@ -1,3 +1,799 @@
+2022-03-27  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Preserve repeat() notation for grid-templates
+        https://bugs.webkit.org/show_bug.cgi?id=202259
+
+        Reviewed by Dean Jackson.
+
+        * web-platform-tests/css/css-grid/animation/grid-template-columns-interpolation-expected.txt:
+        * web-platform-tests/css/css-grid/animation/grid-template-rows-interpolation-expected.txt:
+        * web-platform-tests/css/css-grid/parsing/grid-template-columns-computed-nogrid-expected.txt:
+        * web-platform-tests/css/css-grid/parsing/grid-template-rows-computed-nogrid-expected.txt:
+
+        Update expectations for existing WPT tests, now that we get the correct computed value for
+        grid-template-rows/columns.
+
+2022-03-27  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Fix serialization of grid-template
+        https://bugs.webkit.org/show_bug.cgi?id=237868
+
+        Reviewed by Dean Jackson.
+
+        * web-platform-tests/css/css-grid/parsing/grid-shorthand-valid-expected.txt:
+        * web-platform-tests/css/css-grid/parsing/grid-template-shorthand-valid-expected.txt:
+
+        Update expectation files for newly passing tests.
+
+2022-03-27  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Lazily allocate backing store for grid columns.
+        https://bugs.webkit.org/show_bug.cgi?id=212201
+
+        Reviewed by Dean Jackson.
+
+        * web-platform-tests/css/css-grid/grid-definition/grid-limits-001-expected.txt: Added.
+
+        Add passing expectations file for previously skipped test.
+
+2022-03-26  Noam Rosenthal  <noam@webkit.org>
+
+        Import clip-path W3C tests
+        https://bugs.webkit.org/show_bug.cgi?id=238373
+
+        Reviewed by Tim Nguyen.
+
+        Imported css/css-masking/clip-path and css/css-masking/parsing
+        Upstream rev: f987e7440879b5446f135dca82239feacc9a9caf
+
+        * resources/resource-files.json:
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-filter-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-incompatible-shapes1-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-incompatible-shapes2-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-overflow-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-three-keyframes1-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-three-keyframes2-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/animations/clip-path-transition-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/animations/w3c-import.log:
+        * web-platform-tests/css/css-masking/clip-path/clip-path-blending-offset-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-borderBox-1a-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-borderBox-1a.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-borderBox-1b-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-borderBox-1b.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-borderBox-1c-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-borderBox-1c.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-contentBox-1a-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-contentBox-1a.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-contentBox-1b-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-contentBox-1b.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-contentBox-1c-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-contentBox-1c.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-fillBox-1a-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-fillBox-1a.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-filter-order-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-fixed-nested-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-fixed-scroll-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-geometryBox-1-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-geometryBox-2-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-geometryBox-2-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-geometryBox-2.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-inset-round-percent-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-localRef-1-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-localRef-1-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-localRef-1.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-marginBox-1a-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-marginBox-1a.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-mix-blend-mode-1-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-mix-blend-mode-1-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-mix-blend-mode-1.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-paddingBox-1a-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-paddingBox-1a.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-paddingBox-1b-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-paddingBox-1b.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-paddingBox-1c-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-paddingBox-1c.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-rotated-will-change-transform-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-shape-001-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-shape-001.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-shape-002-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-shape-002-units-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-shape-002-units.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-shape-002.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-shape-003-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-shape-003.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-shape-004-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-shape-004.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-shape-interpolation-001-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-shape-interpolation-001.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-shape-interpolation-002-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-shape-interpolation-002.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-strokeBox-1a-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-strokeBox-1a.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-strokeBox-1b-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-strokeBox-1b.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-svg-invalidate-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-svg-text-backdrop-filter-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-viewBox-1a-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-viewBox-1a.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-viewBox-1b-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-viewBox-1b.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-viewBox-1c-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/clip-path-viewBox-1c.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/svg-clip-path-circle-offset-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/svg-clip-path-circle-offset-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/svg-clip-path-circle-offset.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/svg-clip-path-ellipse-offset-expected.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/svg-clip-path-ellipse-offset-ref.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/svg-clip-path-ellipse-offset.html: Added.
+        * web-platform-tests/css/css-masking/clip-path/w3c-import.log:
+        * web-platform-tests/css/css-masking/parsing/clip-path-shape-parsing-expected.txt: Added.
+        * web-platform-tests/css/css-masking/parsing/clip-path-shape-parsing.html: Added.
+        * web-platform-tests/css/css-masking/parsing/support/parsing-testcommon.js: Added.
+        (test_valid_value):
+        * web-platform-tests/css/css-masking/parsing/w3c-import.log:
+
+2022-03-25  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        Incorrect handling of NaN inside calc() for top-level calculation
+        https://bugs.webkit.org/show_bug.cgi?id=234176
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-values/calc-infinity-nan-computed-expected.txt: Added.
+        * web-platform-tests/css/css-values/calc-infinity-nan-computed.html: Added.
+        * web-platform-tests/css/css-values/round-function-expected.txt:
+        * web-platform-tests/css/css-values/round-function.html:
+
+2022-03-25  Youenn Fablet  <youenn@apple.com>
+
+        Add support for focused and visible ServiceWorkerWindowClient states
+        https://bugs.webkit.org/show_bug.cgi?id=238372
+
+        Reviewed by Brady Eidson.
+
+        * web-platform-tests/service-workers/service-worker/ServiceWorkerGlobalScope/extendable-message-event.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/clients-get.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/clients-matchall-client-types.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/clients-matchall-exact-controller.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/clients-matchall.https-expected.txt:
+
+2022-03-25  Devin Rousso  <drousso@apple.com>
+
+        `PointerEvent.movementX` always 0 (breaks https://noisecraft.app/)
+        https://bugs.webkit.org/show_bug.cgi?id=220194
+        <rdar://problem/72814440>
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/pointerevents/pointerlock/pointerevent_movementxy_with_pointerlock-expected.txt:
+        This change causes the test to progress further than before, but there still appear to be
+        other issues elsewhere, so adjust the expected output to reflect that.
+
+2022-03-25  Alex Christensen  <achristensen@webkit.org>
+
+        Add css-typed-om color IDL skeletons
+        https://bugs.webkit.org/show_bug.cgi?id=238208
+
+        Reviewed by Sam Weinig.
+
+        * web-platform-tests/css/css-typed-om/idlharness-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/cssColorValue-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/cssHSL-expected.txt:
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/cssRGB-expected.txt:
+
+2022-03-24  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        calc(): Handle finite value with infinite step in round()
+        https://bugs.webkit.org/show_bug.cgi?id=238231
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-values/round-function-expected.txt:
+
+2022-03-24  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        Fix serialization of nan, infinity, -infinity for calc()
+        https://bugs.webkit.org/show_bug.cgi?id=238288
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-values/calc-catch-divide-by-0-expected.txt:
+        * web-platform-tests/css/css-values/calc-infinity-nan-serialize-angle-expected.txt:
+        * web-platform-tests/css/css-values/calc-infinity-nan-serialize-length-expected.txt:
+        * web-platform-tests/css/css-values/calc-infinity-nan-serialize-time-expected.txt:
+
+2022-03-24  Cathie Chen  <cathiechen@igalia.com>
+
+        Update css/css-sizing/contain-intrinsic-size tests from WPT
+        https://bugs.webkit.org/show_bug.cgi?id=238312
+
+        Reviewed by Rob Buis.
+
+        Update the contain-intrinsic-size tests to wpt commit: 7c61a4594a95682531367b6956d1c37f8b8fd486 
+
+        * resources/import-expectations.json:
+        * resources/resource-files.json:
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/animation/contain-intrinsic-size-interpolation-expected.txt:
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/animation/contain-intrinsic-size-interpolation.html:
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/auto-001-expected.txt: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/auto-001.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/auto-002-expected.txt: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/auto-002.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/auto-003-expected.txt: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/auto-003.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/auto-004-expected.txt: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/auto-004.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/auto-005-expected.txt: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/auto-005.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-001-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-002-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-003-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-004-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-005-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-006-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-007-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-008-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-009-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-010-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-011-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-012-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-013-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-014-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-015-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-016-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-017-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-018-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-019-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-020-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-021-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-022-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-023-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-024-ref.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-025-expected.html:
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-025-ref.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-025-expected.html.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-026-expected.html:
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-026-ref.html: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-026-expected.html.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-027-expected.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-027.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-logical-001-expected.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-logical-001.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-logical-002-expected.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-logical-002.html: Added.
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/parsing/contain-intrinsic-size-computed-expected.txt:
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/parsing/contain-intrinsic-size-computed.html:
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/parsing/contain-intrinsic-size-invalid-expected.txt:
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/parsing/contain-intrinsic-size-invalid.html:
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/parsing/contain-intrinsic-size-valid-expected.txt:
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/parsing/contain-intrinsic-size-valid.html:
+        * web-platform-tests/css/css-sizing/contain-intrinsic-size/w3c-import.log:
+
+2022-03-23  Cameron McCormack  <heycam@apple.com>
+
+        Bump up fuzzy tolerance on css-backgrounds/background-gradient-subpixel-fills-area.html
+        https://bugs.webkit.org/show_bug.cgi?id=238307
+
+        Unreviewed test gardening.
+
+        * web-platform-tests/css/css-backgrounds/background-gradient-subpixel-fills-area.html:
+
+2022-03-23  Jon Lee  <jonlee@apple.com>
+
+        Unreviewed fuzzy gardening.
+
+        * web-platform-tests/css/css-backgrounds/background-gradient-subpixel-fills-area.html:
+        * web-platform-tests/css/css-backgrounds/background-repeat-space-6.html:
+        * web-platform-tests/css/css-backgrounds/background-rounded-image-clip.html:
+        * web-platform-tests/css/css-backgrounds/border-bottom-right-radius-005.xht:
+        * web-platform-tests/css/css-backgrounds/border-top-left-radius-005.xht:
+        * web-platform-tests/css/css-backgrounds/border-top-right-radius-005.xht:
+        * web-platform-tests/css/css-backgrounds/css-box-shadow-001.html:
+        * web-platform-tests/css/css-transforms/2d-rotate-001.html:
+        * web-platform-tests/css/css-transforms/css-skew-002.html:
+
+2022-03-23  Ziran Sun  <zsun@igalia.com>
+
+        [InputElement] Add HTMLInputElement::showPicker() method
+        https://bugs.webkit.org/show_bug.cgi?id=237192
+
+        Reviewed by  Darin Adler.
+
+        Update test expectations as more tests are now passing.
+        * web-platform-tests/html/dom/idlharness.https-expected.txt:
+        * web-platform-tests/html/semantics/forms/the-input-element/show-picker-cross-origin-iframe-expected.txt:
+        * web-platform-tests/html/semantics/forms/the-input-element/show-picker-expected.txt:
+
+2022-03-23  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        Import calc() infinite/nan tests
+        https://bugs.webkit.org/show_bug.cgi?id=238237
+
+        Unreviewed, test import.
+
+        * web-platform-tests/css/css-values/calc-catch-divide-by-0-expected.txt: Added.
+        * web-platform-tests/css/css-values/calc-catch-divide-by-0.html: Added.
+        * web-platform-tests/css/css-values/calc-infinity-nan-serialize-angle-expected.txt: Added.
+        * web-platform-tests/css/css-values/calc-infinity-nan-serialize-angle.html: Added.
+        * web-platform-tests/css/css-values/calc-infinity-nan-serialize-length-expected.txt: Added.
+        * web-platform-tests/css/css-values/calc-infinity-nan-serialize-length.html: Added.
+        * web-platform-tests/css/css-values/calc-infinity-nan-serialize-time-expected.txt: Added.
+        * web-platform-tests/css/css-values/calc-infinity-nan-serialize-time.html: Added.
+
+2022-03-22  Sihui Liu  <sihui_liu@apple.com>
+
+        Check if origin can access storage in Storage API
+        https://bugs.webkit.org/show_bug.cgi?id=238158
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/file-system-access/opaque-origin.https.window-expected.txt:
+        * web-platform-tests/storage/opaque-origin.https.window-expected.txt:
+
+2022-03-22  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r291546.
+        https://bugs.webkit.org/show_bug.cgi?id=238218
+
+        7% regression in Speedometer2/jQuery-TodoMVC
+
+        Reverted changeset:
+
+        "Fix CSS cascade regarding logical properties"
+        https://bugs.webkit.org/show_bug.cgi?id=236199
+        https://commits.webkit.org/r291546
+
+2022-03-22  Ziran Sun  <zsun@igalia.com>
+
+        [selection] Change form's selection attribute to unsigned long
+        https://bugs.webkit.org/show_bug.cgi?id=237951
+
+        Reviewed by Chris Dumez.
+
+        Update test expectations as more sub-tests are now passing.
+        * web-platform-tests/html/semantics/forms/textfieldselection/selection-expected.txt:
+        * web-platform-tests/html/semantics/forms/textfieldselection/selection-start-end-expected.txt:
+        * web-platform-tests/html/semantics/forms/textfieldselection/textfieldselection-setSelectionRange-expected.txt:
+
+2022-03-21  Alex Christensen  <achristensen@webkit.org>
+
+        Implement CSSNumericValue.mul, div, add, sub, max, and min
+        https://bugs.webkit.org/show_bug.cgi?id=238153
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-typed-om/stylevalue-subclasses/numeric-objects/arithmetic.tentative-expected.txt:
+
+2022-03-21  Oriol Brufau  <obrufau@igalia.com>
+
+        [css-cascade] Let revert-layer roll back to preshints
+        https://bugs.webkit.org/show_bug.cgi?id=237532
+
+        Reviewed by Darin Adler.
+
+        Add test.
+
+        * web-platform-tests/css/css-cascade/presentational-hints-rollback-expected.txt: Added.
+        * web-platform-tests/css/css-cascade/presentational-hints-rollback.html: Added.
+
+2022-03-21  Chris Dumez  <cdumez@apple.com>
+
+        BroadcastChannel instances in distinct opaque origins can communicate
+        https://bugs.webkit.org/show_bug.cgi?id=238090
+        <rdar://problem/90511155>
+
+        Reviewed by Alex Christensen.
+
+        Import web-platform-tests test coverage.
+
+        * web-platform-tests/webmessaging/broadcastchannel/opaque-origin-expected.txt: Added.
+        * web-platform-tests/webmessaging/broadcastchannel/opaque-origin.html: Added.
+        * web-platform-tests/webmessaging/broadcastchannel/w3c-import.log:
+
+2022-03-21  Ziran Sun  <zsun@igalia.com>
+
+        [selection] HTMLTextFormControlElement::subtreeHasChanged() shouldn't be called in setRangeText
+        https://bugs.webkit.org/show_bug.cgi?id=237720
+
+        Reviewed by Chris Dumez.
+
+        Update test expectations as more sub-tests are now passing.
+        * web-platform-tests/html/semantics/forms/textfieldselection/selection-value-interactions-expected.txt:
+        * web-platform-tests/html/semantics/forms/textfieldselection/textfieldselection-setRangeText-expected.txt:
+
+2022-03-20  Oriol Brufau  <obrufau@igalia.com>
+
+        Fix CSS cascade regarding logical properties
+        https://bugs.webkit.org/show_bug.cgi?id=236199
+
+        Reviewed by Darin Adler.
+
+        Expect animation-004.html to pass.
+        Add new test logicalprops-with-deferred-writing-mode.html
+
+        * web-platform-tests/css/css-logical/animation-004-expected.txt:
+        * web-platform-tests/css/css-logical/logicalprops-with-deferred-writing-mode-expected.txt: Added.
+        * web-platform-tests/css/css-logical/logicalprops-with-deferred-writing-mode.html: Added.
+
+2022-03-19  Oriol Brufau  <obrufau@igalia.com>
+
+        [cssom] Implement border-image serialization
+        https://bugs.webkit.org/show_bug.cgi?id=238102
+
+        Reviewed by Darin Adler.
+
+        Let the test accept some equivalent serializations.
+        Expect it to pass.
+
+        * web-platform-tests/css/css-backgrounds/parsing/border-image-valid-expected.txt:
+        * web-platform-tests/css/css-backgrounds/parsing/border-image-valid.html:
+
+2022-03-19  Antoine Quint  <graouts@webkit.org>
+
+        Dialog element only animates once
+        https://bugs.webkit.org/show_bug.cgi?id=236274
+        rdar://88857731
+
+        Reviewed by Dean Jackson, Tim Nguyen and Antti Koivisto.
+
+        Import relevant WPT tests that had already been upstreamed in a previous, reverted
+        version of this patch.
+
+        * web-platform-tests/css/css-animations/dialog-animation-expected.txt: Added.
+        * web-platform-tests/css/css-animations/dialog-animation.html: Added.
+        * web-platform-tests/css/css-animations/dialog-backdrop-animation-expected.txt: Added.
+        * web-platform-tests/css/css-animations/dialog-backdrop-animation.html: Added.
+        * web-platform-tests/css/css-animations/support/testcommon.js:
+        (addElement):
+        (addDiv):
+
+2022-03-19  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Add Typed OM support for container units
+        https://bugs.webkit.org/show_bug.cgi?id=238078
+
+        Reviewed by Alan Bujtas.
+
+        * web-platform-tests/css/css-contain/container-queries/container-units-typed-om-expected.txt:
+
+2022-03-18  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r291476.
+        https://bugs.webkit.org/show_bug.cgi?id=238098
+
+        Caused Gtk js/weakref-finalizationregistry.html failure
+
+        Reverted changeset:
+
+        "Remove the 1ms minimum for setTimeout"
+        https://bugs.webkit.org/show_bug.cgi?id=221124
+        https://commits.webkit.org/r291476
+
+2022-03-18  Cameron McCormack  <heycam@apple.com>
+
+        Update Display P3 canvas drawImage(video) tests to avoid edge case bugs
+        https://bugs.webkit.org/show_bug.cgi?id=237286
+
+        Reviewed by Jer Noble.
+
+        This test is intermittently failing, due to the odd single frame
+        videos causing issues and loadeddata not being guaranteed to mean the
+        video is ready for drawing. Update the tests to work around these.
+
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-ImageBitmap-video.html:
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3-drawImage-video.html:
+        Use requestVideoFrameCallback if available, since that should be
+        better than loadeddata to guarantee the pixel data is available. Also
+        play the videos that are inserted, to avoid issues with the video
+        frame callback being called a bit late.
+
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-display-p3.js:
+        Fix the command line in the comment that's used to generate the test
+        videos.
+
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Rec2020-222000000.mp4:
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Rec2020-222000000.webm:
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Rec2020-3FF000000.mp4:
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/Rec2020-3FF000000.webm:
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-BB0000.mp4:
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-BB0000.webm:
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-FF0100.mp4:
+        * web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/resources/sRGB-FF0100.webm:
+        Change these videos from being a single frame long to 10s long.
+
+2022-03-18  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Ensure container style changes are propagated to descendants
+        https://bugs.webkit.org/show_bug.cgi?id=238072
+
+        Reviewed by Alan Bujtas.
+
+        * web-platform-tests/css/css-contain/container-queries/container-name-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-type-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-units-selection-expected.txt:
+
+2022-03-18  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Basic support for container units
+        https://bugs.webkit.org/show_bug.cgi?id=238021
+
+        Reviewed by Antoine Quint.
+
+        * web-platform-tests/css/css-contain/container-queries/container-units-animation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-units-basic-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-units-computational-independence-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-units-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-units-selection-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-units-small-viewport-fallback-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-units-typed-om-expected.txt:
+
+2022-03-17  Matt Woodrow  <mattwoodrow@apple.com>
+
+        Subgrid items should always be stretched.
+        https://bugs.webkit.org/show_bug.cgi?id=237628
+
+        Reviewed by Alan Bujtas.
+
+        * web-platform-tests/css/css-grid/subgrid/subgrid-stretch-expected.html: Added.
+        * web-platform-tests/css/css-grid/subgrid/subgrid-stretch.html: Added.
+
+        Added new WPT test covering various width/height and alignement contraints that should be
+        ignored since subgrids are always stretched.
+
+2022-03-17  Antoine Quint  <graouts@webkit.org>
+
+        REGRESSION (iOS 15.4 / r287669): Mobile app stopped working due to CSS / angular animation
+        https://bugs.webkit.org/show_bug.cgi?id=237920
+        <rdar://problem/90335275>
+
+        Reviewed by Antti Koivisto.
+
+        Add a test that looks at the default computed style for the "transition" and "animation"
+        shorthands.
+
+        * web-platform-tests/css/css-animations/parsing/animation-computed-expected.txt:
+        * web-platform-tests/css/css-animations/parsing/animation-computed.html:
+        * web-platform-tests/css/css-pseudo/first-letter-allowed-properties-expected.txt:
+        * web-platform-tests/css/css-pseudo/first-line-allowed-properties-expected.txt:
+        * web-platform-tests/css/css-transitions/parsing/transition-computed-expected.txt:
+        * web-platform-tests/css/css-transitions/parsing/transition-computed.html:
+
+2022-03-17  Ziran Sun  <zsun@igalia.com>
+
+        [Selection] Fixes selection range settings for TEXTAREA
+        https://bugs.webkit.org/show_bug.cgi?id=237641
+
+        Reviewed by Chris Dumez.
+
+        Updating test expectations as some sub-tests are now passing.
+        * web-platform-tests/html/semantics/forms/textfieldselection/defaultSelection-expected.txt:
+        * web-platform-tests/html/semantics/forms/textfieldselection/selection-start-end-expected.txt:
+        * web-platform-tests/html/semantics/forms/textfieldselection/selection-start-end-extra-expected.txt:
+        * web-platform-tests/html/semantics/forms/textfieldselection/selection-value-interactions-expected.txt:
+        * web-platform-tests/html/semantics/forms/textfieldselection/textarea-selection-while-parsing-expected.txt:
+
+2022-03-16  Rob Buis  <rbuis@igalia.com>
+
+        Sync css/css-contain from WPT
+        https://bugs.webkit.org/show_bug.cgi?id=237705
+
+        Reviewed by Manuel Rego Casasnovas.
+
+        Sync css/css-contain from WPT.
+
+        * resources/resource-files.json:
+        * web-platform-tests/css/css-contain/contain-layout-ink-overflow-013-expected.html:
+        * web-platform-tests/css/css-contain/contain-layout-ink-overflow-013.html:
+        * web-platform-tests/css/css-contain/contain-layout-ink-overflow-014.html:
+        * web-platform-tests/css/css-contain/contain-layout-ink-overflow-017.html:
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-044-expected.txt:
+        * web-platform-tests/css/css-contain/content-visibility/content-visibility-044.html:
+        * web-platform-tests/css/css-contain/content-visibility/resources/text-fragment-target-auto.html:
+        * web-platform-tests/css/css-contain/content-visibility/w3c-import.log:
+        * web-platform-tests/css/css-contain/w3c-import.log:
+
+2022-03-16  Youenn Fablet  <youenn@apple.com>
+
+        redirectCount returns 0 when using a Service Worker
+        https://bugs.webkit.org/show_bug.cgi?id=235710
+        <rdar://problem/88432190>
+
+        Reviewed by Chris Dumez.
+
+        * web-platform-tests/service-workers/service-worker/navigation-preload/resource-timing.https-expected.txt:
+        * web-platform-tests/service-workers/service-worker/redirected-response.https-expected.txt:
+
+2022-03-15  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r291282.
+        https://bugs.webkit.org/show_bug.cgi?id=237924
+
+        Speedometer2 1-2% regression
+
+        Reverted changeset:
+
+        "Dialog element only animates once"
+        https://bugs.webkit.org/show_bug.cgi?id=236274
+        https://commits.webkit.org/r291282
+
+2022-03-15  Patrick Griffis  <pgriffis@igalia.com>
+
+        Add initial implementation of Fetch Metadata
+        https://bugs.webkit.org/show_bug.cgi?id=204744
+
+        Reviewed by Youenn Fablet.
+
+        Update expectations for Fetch Metadata.
+
+        * web-platform-tests/fetch/metadata/download.https.sub-expected.txt:
+        * web-platform-tests/fetch/metadata/download.https.sub.html:
+        * web-platform-tests/fetch/metadata/fetch-preflight.https.sub.any-expected.txt: Added.
+        * web-platform-tests/fetch/metadata/fetch-preflight.https.sub.any.worker-expected.txt: Added.
+        * web-platform-tests/fetch/metadata/fetch-via-serviceworker--fallback.https.sub-expected.txt:
+        * web-platform-tests/fetch/metadata/fetch-via-serviceworker--respondWith.https.sub-expected.txt:
+        * web-platform-tests/fetch/metadata/fetch.https.sub.any-expected.txt: Added.
+        * web-platform-tests/fetch/metadata/fetch.https.sub.any.worker-expected.txt: Added.
+        * web-platform-tests/fetch/metadata/fetch.sub-expected.txt:
+        * web-platform-tests/fetch/metadata/font.https.sub-expected.txt:
+        * web-platform-tests/fetch/metadata/img.https.sub-expected.txt:
+        * web-platform-tests/fetch/metadata/redirect/cross-site-redirect.https.sub-expected.txt:
+        * web-platform-tests/fetch/metadata/redirect/multiple-redirect-cross-site.https.sub-expected.txt:
+        * web-platform-tests/fetch/metadata/script.https.sub-expected.txt:
+        * web-platform-tests/fetch/metadata/script.sub-expected.txt:
+        * web-platform-tests/fetch/metadata/serviceworker-accessors.https.sub-expected.txt: Added.
+        * web-platform-tests/fetch/metadata/serviceworker.https.sub-expected.txt:
+        * web-platform-tests/fetch/metadata/sharedworker.https.sub-expected.txt:
+        * web-platform-tests/fetch/metadata/trailing-dot.https.sub.any-expected.txt: Added.
+        * web-platform-tests/fetch/metadata/trailing-dot.https.sub.any.worker-expected.txt: Added.
+        * web-platform-tests/fetch/metadata/unload.https.sub-expected.txt:
+        * web-platform-tests/fetch/metadata/worker.https.sub-expected.txt:
+        * web-platform-tests/fetch/metadata/xslt.https.sub-expected.txt:
+        * web-platform-tests/service-workers/service-worker/update-module-request-mode.https-expected.txt:
+
+2022-03-15  Antti Koivisto  <antti@apple.com>
+
+        background-clip:text doesn't work with display:flex
+        https://bugs.webkit.org/show_bug.cgi?id=169125
+        <rdar://problem/72432683>
+
+        Reviewed by Simon Fraser.
+
+        * web-platform-tests/css/css-backgrounds/background-clip/clip-text-flex-expected.html: Added.
+        * web-platform-tests/css/css-backgrounds/background-clip/clip-text-flex-ref.html: Added.
+        * web-platform-tests/css/css-backgrounds/background-clip/clip-text-flex.html: Added.
+
+2022-03-15  Joseph Griego  <jgriego@igalia.com>
+
+        Expose some web APIs on Shadow Realms and Worklets
+        https://bugs.webkit.org/show_bug.cgi?id=235736
+
+        Reviewed by Yusuke Suzuki.
+
+        Import the latest relevant idl definitions and new idlharness-shadowrealm tests
+
+        * web-platform-tests/dom/idlharness-shadowrealm.window-expected.txt:
+        * web-platform-tests/dom/idlharness.any.serviceworker-expected.txt:
+        * web-platform-tests/dom/idlharness.any.sharedworker-expected.txt:
+        * web-platform-tests/dom/idlharness.any.worker-expected.txt:
+        * web-platform-tests/dom/idlharness.window-expected.txt:
+        * web-platform-tests/encoding/idlharness-shadowrealm.window-expected.txt: Added.
+        * web-platform-tests/encoding/idlharness-shadowrealm.window.html: Added.
+        * web-platform-tests/encoding/idlharness-shadowrealm.window.js: Added.
+        * web-platform-tests/hr-time/idlharness-shadowrealm.window-expected.txt: Added.
+        * web-platform-tests/hr-time/idlharness-shadowrealm.window.html: Added.
+        * web-platform-tests/hr-time/idlharness-shadowrealm.window.js: Added.
+        * web-platform-tests/html/dom/idlharness-shadowrealm.window-expected.txt: Added.
+        * web-platform-tests/html/dom/idlharness-shadowrealm.window.html: Added.
+        * web-platform-tests/html/dom/idlharness-shadowrealm.window.js: Added.
+        * web-platform-tests/interfaces/compression.idl:
+        * web-platform-tests/interfaces/dom.idl:
+        * web-platform-tests/interfaces/encoding.idl:
+        * web-platform-tests/interfaces/hr-time.idl:
+        * web-platform-tests/interfaces/html.idl:
+        * web-platform-tests/interfaces/performance-timeline.idl:
+        * web-platform-tests/interfaces/streams.idl:
+        * web-platform-tests/interfaces/url.idl:
+        * web-platform-tests/interfaces/user-timing.idl:
+        * web-platform-tests/performance-timeline/idlharness-shadowrealm.window-expected.txt: Added.
+        * web-platform-tests/performance-timeline/idlharness-shadowrealm.window.html: Added.
+        * web-platform-tests/performance-timeline/idlharness-shadowrealm.window.js: Added.
+        * web-platform-tests/resources/idlharness-shadowrealm.js:
+        (promise_setup.):
+        (idl_test_shadowrealm):
+        (promise_setup): Deleted.
+        * web-platform-tests/resources/idlharness.js:
+        (IdlInterface.prototype.test_self):
+        * web-platform-tests/streams/idlharness-shadowrealm.window-expected.txt: Copied from LayoutTests/imported/w3c/web-platform-tests/streams/idlharness.any-expected.txt.
+        * web-platform-tests/streams/idlharness-shadowrealm.window.html: Added.
+        * web-platform-tests/streams/idlharness-shadowrealm.window.js: Added.
+        * web-platform-tests/streams/idlharness.any-expected.txt:
+        * web-platform-tests/streams/idlharness.any.serviceworker-expected.txt:
+        * web-platform-tests/streams/idlharness.any.worker-expected.txt:
+        * web-platform-tests/url/idlharness-shadowrealm.window-expected.txt: Added.
+        * web-platform-tests/url/idlharness-shadowrealm.window.html: Added.
+        * web-platform-tests/url/idlharness-shadowrealm.window.js: Added.
+        * web-platform-tests/user-timing/idlharness-shadowrealm.window-expected.txt: Added.
+        * web-platform-tests/user-timing/idlharness-shadowrealm.window.html: Added.
+        * web-platform-tests/user-timing/idlharness-shadowrealm.window.js: Added.
+
+2022-03-15  Antti Koivisto  <antti@apple.com>
+
+        [CSS Container Queries] Some more WPT updates
+        https://bugs.webkit.org/show_bug.cgi?id=237890
+
+        Reviewed by Antoine Quint.
+
+        * web-platform-tests/css/css-contain/container-queries/canvas-as-container-005.html:
+        * web-platform-tests/css/css-contain/container-queries/canvas-as-container-006.html:
+        * web-platform-tests/css/css-contain/container-queries/chrome-legacy-skip-recalc.html:
+        * web-platform-tests/css/css-contain/container-queries/container-computed-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-computed.html:
+        * web-platform-tests/css/css-contain/container-queries/container-parsing-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-parsing.html:
+        * web-platform-tests/css/css-contain/container-queries/container-type-parsing-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-type-parsing.html:
+        * web-platform-tests/css/css-contain/container-queries/container-units-animation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-units-animation.html:
+        * web-platform-tests/css/css-contain/container-queries/container-units-basic.html:
+        * web-platform-tests/css/css-contain/container-queries/container-units-computational-independence-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-units-computational-independence.html:
+        * web-platform-tests/css/css-contain/container-queries/container-units-invalidation-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-units-invalidation.html:
+        * web-platform-tests/css/css-contain/container-queries/container-units-selection.html:
+        * web-platform-tests/css/css-contain/container-queries/container-units-small-viewport-fallback.html:
+        * web-platform-tests/css/css-contain/container-queries/container-units-typed-om-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/container-units-typed-om.html:
+        * web-platform-tests/css/css-contain/container-queries/display-none-expected.txt:
+        * web-platform-tests/css/css-contain/container-queries/display-none.html:
+        * web-platform-tests/css/css-contain/container-queries/fragmented-container-001.html:
+        * web-platform-tests/css/css-contain/container-queries/multicol-container-001.html:
+        * web-platform-tests/css/css-contain/container-queries/sibling-layout-dependency-expected.txt: Added.
+        * web-platform-tests/css/css-contain/container-queries/sibling-layout-dependency.html: Added.
+        * web-platform-tests/css/css-contain/container-queries/svg-foreignobject-no-size-container.html:
+        * web-platform-tests/css/css-contain/container-queries/svg-root-size-container.html:
+        * web-platform-tests/css/css-contain/container-queries/table-inside-container-changing-display.html:
+        * web-platform-tests/css/css-contain/container-queries/w3c-import.log:
+        * web-platform-tests/css/css-contain/container-queries/whitespace-update-after-removal.html:
+
+2022-03-15  Antti Koivisto  <antti@apple.com>
+
+        CSSConditionRule.conditionText should be readonly
+        https://bugs.webkit.org/show_bug.cgi?id=237880
+
+        Reviewed by Antoine Quint.
+
+        * web-platform-tests/interfaces/css-conditional.idl:
+
+2022-03-15  Antoine Quint  <graouts@webkit.org>
+
+        Dialog element only animates once
+        https://bugs.webkit.org/show_bug.cgi?id=236274
+
+        Reviewed by Dean Jackson, Tim Nguyen and Antti Koivisto.
+
+        Import relevant WPT tests that had already been upstreamed in a previous, reverted
+        version of this patch.
+
+        * web-platform-tests/css/css-animations/dialog-animation-expected.txt: Added.
+        * web-platform-tests/css/css-animations/dialog-animation.html: Added.
+        * web-platform-tests/css/css-animations/dialog-backdrop-animation-expected.txt: Added.
+        * web-platform-tests/css/css-animations/dialog-backdrop-animation.html: Added.
+        * web-platform-tests/css/css-animations/support/testcommon.js:
+        (addElement):
+        (addDiv):
+
+2022-03-14  Oriol Brufau  <obrufau@igalia.com>
+
+        [css-cascade] Fix 'revert' on low-priority properties
+        https://bugs.webkit.org/show_bug.cgi?id=236272
+
+        Reviewed by Darin Adler.
+
+        Add one test and expect an existing one to pass.
+
+        * web-platform-tests/css/css-cascade/all-prop-revert-layer-noop-expected.txt:
+        * web-platform-tests/css/css-cascade/all-prop-revert-noop-expected.txt: Copied from LayoutTests/imported/w3c/web-platform-tests/css/css-cascade/all-prop-revert-layer-noop-expected.txt.
+        * web-platform-tests/css/css-cascade/all-prop-revert-noop.html: Added.
+
 2022-03-14  Antoine Quint  <graouts@webkit.org>
 
         [web-animations] marker-start should support discrete animation

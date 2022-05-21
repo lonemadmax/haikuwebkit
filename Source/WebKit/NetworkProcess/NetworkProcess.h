@@ -175,7 +175,6 @@ public:
     void processWillSuspendImminentlyForTestingSync(CompletionHandler<void()>&&);
     void prepareToSuspend(bool isSuspensionImminent, CompletionHandler<void()>&&);
     void processDidResume();
-    void resume();
 
     CacheModel cacheModel() const { return m_cacheModel; }
 
@@ -293,6 +292,7 @@ public:
     void clearStorage(PAL::SessionID, CompletionHandler<void()>&&);
     void didIncreaseQuota(PAL::SessionID, WebCore::ClientOrigin&&, QuotaIncreaseRequestIdentifier, std::optional<uint64_t> newQuota);
     void renameOriginInWebsiteData(PAL::SessionID, const URL&, const URL&, OptionSet<WebsiteDataType>, CompletionHandler<void()>&&);
+    void websiteDataOriginDirectoryForTesting(PAL::SessionID, const URL&, const URL&, WebsiteDataType, CompletionHandler<void(const String&)>&&);
 
 #if PLATFORM(IOS_FAMILY)
     bool parentProcessHasServiceWorkerEntitlement() const;
@@ -333,6 +333,7 @@ public:
     const OptionSet<NetworkCache::CacheOption>& cacheOptions() const { return m_cacheOptions; }
 
     NetworkConnectionToWebProcess* webProcessConnection(WebCore::ProcessIdentifier) const;
+    WebCore::ProcessIdentifier webProcessIdentifierForConnection(IPC::Connection&) const;
     WebCore::MessagePortChannelRegistry& messagePortChannelRegistry() { return m_messagePortChannelRegistry; }
 
     void setServiceWorkerFetchTimeoutForTesting(Seconds, CompletionHandler<void()>&&);
@@ -377,6 +378,7 @@ public:
 
     void deletePushAndNotificationRegistration(PAL::SessionID, const WebCore::SecurityOriginData&, CompletionHandler<void(const String&)>&&);
     void getOriginsWithPushAndNotificationPermissions(PAL::SessionID, CompletionHandler<void(const Vector<WebCore::SecurityOriginData>&)>&&);
+    void hasPushSubscriptionForTesting(PAL::SessionID, URL&&, CompletionHandler<void(bool)>&&);
 
 private:
     void platformInitializeNetworkProcess(const NetworkProcessCreationParameters&);
@@ -524,6 +526,7 @@ private:
 
     bool m_privateClickMeasurementEnabled { true };
     bool m_ftpEnabled { false };
+    bool m_isSuspended { false };
 };
 
 #if !PLATFORM(COCOA)

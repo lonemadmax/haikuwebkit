@@ -40,7 +40,7 @@
 #include "HTMLHtmlElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
-#include "InlineIteratorLine.h"
+#include "InlineIteratorLineBox.h"
 #include "InlineIteratorTextBox.h"
 #include "LengthFunctions.h"
 #include "Logging.h"
@@ -1083,7 +1083,7 @@ void RenderElement::paintAsInlineBlock(PaintInfo& paintInfo, const LayoutPoint& 
     // (See Appendix E.2, section 6.4 on inline block/table/replaced elements in the CSS2.1 specification.)
     // This is also used by other elements (e.g. flex items and grid items).
     PaintPhase paintPhaseToUse = isExcludedAndPlacedInBorder() ? paintInfo.phase : PaintPhase::Foreground;
-    if (paintInfo.phase == PaintPhase::Selection || paintInfo.phase == PaintPhase::EventRegion)
+    if (paintInfo.phase == PaintPhase::Selection || paintInfo.phase == PaintPhase::EventRegion || paintInfo.phase == PaintPhase::TextClip)
         paint(paintInfo, childPoint);
     else if (paintInfo.phase == paintPhaseToUse) {
         paintPhase(*this, PaintPhase::BlockBackground, paintInfo, childPoint);
@@ -1591,7 +1591,7 @@ bool RenderElement::getLeadingCorner(FloatPoint& point, bool& insideFixed) const
             if (is<RenderText>(*o)) {
                 auto& textRenderer = downcast<RenderText>(*o);
                 if (auto run = InlineIterator::firstTextBoxFor(textRenderer))
-                    point.move(textRenderer.linesBoundingBox().x(), run->line()->top());
+                    point.move(textRenderer.linesBoundingBox().x(), run->lineBox()->contentLogicalTop());
             } else if (is<RenderBox>(*o))
                 point.moveBy(downcast<RenderBox>(*o).location());
             point = o->container()->localToAbsolute(point, UseTransforms, &insideFixed);

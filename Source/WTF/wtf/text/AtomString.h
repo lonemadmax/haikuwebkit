@@ -69,8 +69,8 @@ public:
     template<unsigned characterCount> ALWAYS_INLINE AtomString(const char (&characters)[characterCount], ConstructFromLiteralTag)
         : m_string(AtomStringImpl::addLiteral(characters, characterCount - 1))
     {
-        COMPILE_ASSERT(characterCount > 1, AtomStringFromLiteralNotEmpty);
-        COMPILE_ASSERT((characterCount - 1 <= ((unsigned(~0) - sizeof(StringImpl)) / sizeof(LChar))), AtomStringFromLiteralCannotOverflow);
+        static_assert(characterCount > 1, "AtomStringFromLiteral is not empty");
+        static_assert((characterCount - 1 <= ((unsigned(~0) - sizeof(StringImpl)) / sizeof(LChar))), "AtomStringFromLiteral cannot overflow");
     }
 
     AtomString(ASCIILiteral literal)
@@ -114,25 +114,23 @@ public:
 
     bool contains(UChar character) const { return m_string.contains(character); }
     bool contains(const LChar* string) const { return m_string.contains(string); }
-    bool contains(const String& string) const { return m_string.contains(string); }
-    bool containsIgnoringASCIICase(const String& string) const { return m_string.containsIgnoringASCIICase(string); }
+    bool contains(StringView) const;
+    bool containsIgnoringASCIICase(StringView) const;
 
     size_t find(UChar character, unsigned start = 0) const { return m_string.find(character, start); }
     size_t find(const LChar* string, unsigned start = 0) const { return m_string.find(string, start); }
-    size_t find(const String& string, unsigned start = 0) const { return m_string.find(string, start); }
-    size_t findIgnoringASCIICase(const String& string) const { return m_string.findIgnoringASCIICase(string); }
-    size_t findIgnoringASCIICase(const String& string, unsigned startOffset) const { return m_string.findIgnoringASCIICase(string, startOffset); }
+    size_t find(StringView, unsigned start = 0) const;
+    size_t findIgnoringASCIICase(StringView) const;
+    size_t findIgnoringASCIICase(StringView, unsigned start) const;
     size_t find(CodeUnitMatchFunction matchFunction, unsigned start = 0) const { return m_string.find(matchFunction, start); }
 
-    bool startsWith(const String& string) const { return m_string.startsWith(string); }
-    bool startsWithIgnoringASCIICase(const String& string) const { return m_string.startsWithIgnoringASCIICase(string); }
+    bool startsWith(StringView) const;
+    bool startsWithIgnoringASCIICase(StringView) const;
     bool startsWith(UChar character) const { return m_string.startsWith(character); }
-    template<unsigned matchLength> bool startsWith(const char (&prefix)[matchLength]) const { return m_string.startsWith<matchLength>(prefix); }
 
-    bool endsWith(const String& string) const { return m_string.endsWith(string); }
-    bool endsWithIgnoringASCIICase(const String& string) const { return m_string.endsWithIgnoringASCIICase(string); }
+    bool endsWith(StringView) const;
+    bool endsWithIgnoringASCIICase(StringView) const;
     bool endsWith(UChar character) const { return m_string.endsWith(character); }
-    template<unsigned matchLength> bool endsWith(const char (&prefix)[matchLength]) const { return m_string.endsWith<matchLength>(prefix); }
 
     WTF_EXPORT_PRIVATE AtomString convertToASCIILowercase() const;
     WTF_EXPORT_PRIVATE AtomString convertToASCIIUppercase() const;

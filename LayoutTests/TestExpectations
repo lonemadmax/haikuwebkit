@@ -278,6 +278,7 @@ media/deactivate-audio-session.html [ Skip ]
 # ApplePay is only available on iOS (greater than iOS 10) and macOS (greater than macOS 10.12) and only for WebKit2.
 fast/css/appearance-apple-pay-button.html [ Skip ]
 fast/css/appearance-apple-pay-button-border-radius.html [ Skip ]
+fast/css/appearance-apple-pay-button-border-radius-longhands.html [ Skip ]
 fast/css/appearance-apple-pay-button-default-corners.html [ Skip ]
 fast/css/getComputedStyle/computed-style-apple-pay-button.html [ Skip ]
 fast/css/webkit-named-image/apple-pay-logo-black [ Skip ]
@@ -1032,13 +1033,26 @@ imported/w3c/web-platform-tests/fetch/content-encoding/bad-gzip-body.any.html [ 
 
 # Fetch features that are not implemented.
 imported/w3c/web-platform-tests/fetch/corb [ Skip ]
-imported/w3c/web-platform-tests/fetch/metadata/ [ Skip ]
 imported/w3c/web-platform-tests/fetch/sec-metadata [ Skip ]
 
 # These fetch tests time out
 imported/w3c/web-platform-tests/fetch/api/request/destination/fetch-destination.https.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/api/request/destination/fetch-destination-prefetch.https.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/content-type/response.window.html [ Skip ]
+imported/w3c/web-platform-tests/fetch/metadata/history.https.sub.html [ Skip ]
+imported/w3c/web-platform-tests/fetch/metadata/object.https.sub.html [ Skip ]
+imported/w3c/web-platform-tests/fetch/metadata/prefetch.https.sub.html [ Skip ]
+imported/w3c/web-platform-tests/fetch/metadata/preload.https.sub.html [ Skip ]
+imported/w3c/web-platform-tests/fetch/metadata/report.https.sub.html [ Skip ]
+imported/w3c/web-platform-tests/fetch/metadata/embed.https.sub.tentative.html [ Skip ]
+imported/w3c/web-platform-tests/fetch/metadata/form.https.sub.html [ Skip ]
+imported/w3c/web-platform-tests/fetch/metadata/iframe.https.sub.html [ Skip ]
+imported/w3c/web-platform-tests/fetch/metadata/iframe.sub.html [ Skip ]
+imported/w3c/web-platform-tests/fetch/metadata/navigation.https.sub.html [ Skip ]
+imported/w3c/web-platform-tests/fetch/metadata/style.https.sub.html [ Skip ]
+imported/w3c/web-platform-tests/fetch/metadata/redirect/redirect-http-upgrade.sub.html [ Skip ]
+imported/w3c/web-platform-tests/fetch/metadata/window-open.https.sub.html [ Skip ]
+imported/w3c/web-platform-tests/fetch/metadata/redirect/ [ Skip ]
 
 # Not supported
 imported/w3c/web-platform-tests/background-fetch [ Skip ]
@@ -1402,7 +1416,6 @@ imported/w3c/web-platform-tests/css/css-grid/masonry/tentative/masonry-subgrid-0
 imported/w3c/web-platform-tests/css/css-grid/masonry/tentative/masonry-subgrid-002.html [ ImageOnlyFailure ]
 
 webkit.org/b/236959 imported/w3c/web-platform-tests/css/css-grid/subgrid/baseline-001.html [ ImageOnlyFailure ]
-webkit.org/b/236956 imported/w3c/web-platform-tests/css/css-grid/subgrid/grid-gap-003.html [ ImageOnlyFailure ]
 webkit.org/b/236958 imported/w3c/web-platform-tests/css/css-grid/subgrid/repeat-auto-fill-003.html [ ImageOnlyFailure ]
 webkit.org/b/236949 imported/w3c/web-platform-tests/css/css-grid/subgrid/subgrid-mbp-overflow-001.html [ ImageOnlyFailure ]
 webkit.org/b/236949 imported/w3c/web-platform-tests/css/css-grid/subgrid/subgrid-mbp-overflow-002.html [ ImageOnlyFailure ]
@@ -2159,8 +2172,26 @@ imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-inline-003.h
 imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-polygon-010.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-polygon-013.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-reference-box-004.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-borderBox-1a.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-borderBox-1c.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-contentBox-1c.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-fillBox-1a.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-paddingBox-1c.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-strokeBox-1a.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-strokeBox-1b.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-viewBox-1b.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-viewBox-1c.html [ ImageOnlyFailure ]
 webkit.org/b/104442 imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-url-reference-change-from-empty.html [ ImageOnlyFailure ]
 webkit.org/b/229510 imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-descendant-text-mutated-001.html [ ImageOnlyFailure ]
+
+# CSS shape()
+webkit.org/b/238371 imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-shape-001.html [ ImageOnlyFailure ]
+webkit.org/b/238371 imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-shape-002-units.html [ ImageOnlyFailure ]
+webkit.org/b/238371 imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-shape-002.html [ ImageOnlyFailure ]
+webkit.org/b/238371 imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-shape-003.html [ ImageOnlyFailure ]
+webkit.org/b/238371 imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-shape-004.html [ ImageOnlyFailure ]
+webkit.org/b/238371 imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-shape-interpolation-001.html [ ImageOnlyFailure ]
+webkit.org/b/238371 imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-shape-interpolation-002.html [ ImageOnlyFailure ]
 
 webkit.org/b/229370 imported/w3c/web-platform-tests/css/css-masking/clip/clip-filter-order.html [ ImageOnlyFailure ]
 webkit.org/b/229370 imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-image-url-local-mask.html [ ImageOnlyFailure ]
@@ -3633,6 +3664,7 @@ webgl/1.0.x/conformance/misc/invalid-passed-params.html [ Pass ]
 webgl/1.0.x/conformance/glsl/bugs/character-set.html [ Pass ]
 webgl/1.0.x/conformance/glsl/misc/fragcolor-fragdata-invariant.html [ Pass ]
 webgl/1.0.x/conformance/context/constants-and-properties.html [ Pass ]
+webgl/1.0.x/conformance/extensions/webgl-multi-draw.html [ Pass Slow ]
 
 
 # WebGL conformance test suite 2.0.1 is skipped until 2.0.0 is retired.
@@ -3643,6 +3675,7 @@ webgl/2.0.y/conformance/canvas/to-data-url-test.html [ Pass ]
 webgl/2.0.y/conformance/misc/invalid-passed-params.html [ Pass ]
 webgl/2.0.y/conformance/glsl/bugs/character-set.html [ Pass ]
 webgl/2.0.y/conformance/glsl/misc/fragcolor-fragdata-invariant.html [ Pass ]
+webgl/2.0.y/conformance/extensions/webgl-multi-draw.html [ Pass Slow ]
 webgl/2.0.y/conformance2/context/constants-and-properties-2.html [ Pass ]
 webgl/2.0.y/conformance2/vertex_arrays/vertex-array-object.html [ Pass ]
 webgl/1.0.x/conformance/extensions/oes-vertex-array-object.html [ Pass ]
@@ -4216,7 +4249,6 @@ webkit.org/b/204580 imported/w3c/web-platform-tests/css/css-grid/animation/grid-
 webkit.org/b/209460 imported/w3c/web-platform-tests/css/css-grid/abspos/descendant-static-position-001.html [ ImageOnlyFailure ]
 webkit.org/b/209460 imported/w3c/web-platform-tests/css/css-grid/abspos/descendant-static-position-002.html [ ImageOnlyFailure ]
 webkit.org/b/209460 imported/w3c/web-platform-tests/css/css-grid/abspos/descendant-static-position-003.html [ ImageOnlyFailure ]
-webkit.org/b/212201 imported/w3c/web-platform-tests/css/css-grid/grid-definition/grid-limits-001.html [ Skip ]
 webkit.org/b/212246 imported/w3c/web-platform-tests/css/css-grid/alignment/grid-baseline-align-cycles-001.html [ ImageOnlyFailure ]
 webkit.org/b/231021 imported/w3c/web-platform-tests/css/css-grid/alignment/grid-inline-baseline.html [ ImageOnlyFailure ]
 webkit.org/b/212246 imported/w3c/web-platform-tests/css/css-grid/alignment/grid-item-content-baseline-001.html [ ImageOnlyFailure ]
@@ -4481,6 +4513,9 @@ webkit.org/b/214463 imported/w3c/web-platform-tests/css/css-sizing/contain-intri
 webkit.org/b/214463 imported/w3c/web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-024.html [ ImageOnlyFailure ]
 webkit.org/b/214463 imported/w3c/web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-025.html [ ImageOnlyFailure ]
 webkit.org/b/214463 imported/w3c/web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-026.html [ ImageOnlyFailure ]
+webkit.org/b/214463 imported/w3c/web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-027.html [ ImageOnlyFailure ]
+webkit.org/b/214463 imported/w3c/web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-logical-001.html [ ImageOnlyFailure ]
+webkit.org/b/214463 imported/w3c/web-platform-tests/css/css-sizing/contain-intrinsic-size/contain-intrinsic-size-logical-002.html [ ImageOnlyFailure ]
 webkit.org/b/214463 imported/w3c/web-platform-tests/css/css-sizing/image-fractional-height-with-wide-aspect-ratio.html [ ImageOnlyFailure ]
 webkit.org/b/214463 imported/w3c/web-platform-tests/css/css-sizing/intrinsic-percent-replaced-008.html [ ImageOnlyFailure ]
 webkit.org/b/214463 imported/w3c/web-platform-tests/css/css-sizing/intrinsic-percent-replaced-dynamic-002.html [ ImageOnlyFailure ]
@@ -5158,3 +5193,9 @@ fast/canvas/large-getImageData.html [ Skip ]
 webkit.org/b/237108 http/tests/websocket/tests/hybi/extensions.html [ Failure ]
 webkit.org/b/237108 http/tests/websocket/tests/hybi/deflate-frame-parameter.html [ Failure ] # <rdar://problem/33850189>
 webkit.org/b/237108 http/tests/websocket/tests/hybi/handshake-ok-with-legacy-sec-websocket-response-headers.html [ Pass Failure ]
+
+# This test is only relevant on Apple platforms.
+fast/text/accessibility-bold.html [ Pass ImageOnlyFailure ]
+
+# Only certain ports have WebGPU implementations.
+http/tests/webgpu [ Failure ImageOnlyFailure Pass Timeout ]

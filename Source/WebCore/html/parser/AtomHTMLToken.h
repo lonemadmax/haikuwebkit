@@ -28,6 +28,8 @@
 
 #include "HTMLNameCache.h"
 #include "HTMLToken.h"
+#include <wtf/HashSet.h>
+#include <wtf/text/AtomStringHash.h>
 
 namespace WebCore {
 
@@ -204,6 +206,8 @@ inline void AtomHTMLToken::initializeAttributes(const HTMLToken::AttributeList& 
     if (!size)
         return;
 
+    HashSet<AtomString> addedAttributes;
+    addedAttributes.reserveInitialCapacity(size);
     m_attributes.reserveInitialCapacity(size);
     for (auto& attribute : attributes) {
         if (attribute.name.isEmpty())
@@ -211,8 +215,7 @@ inline void AtomHTMLToken::initializeAttributes(const HTMLToken::AttributeList& 
 
         auto qualifiedName = HTMLNameCache::makeAttributeQualifiedName(attribute.name);
 
-        // FIXME: This is N^2 for the number of attributes.
-        if (!hasAttribute(m_attributes, qualifiedName.localName()))
+        if (addedAttributes.add(qualifiedName.localName()).isNewEntry)
             m_attributes.uncheckedAppend(Attribute(WTFMove(qualifiedName), HTMLNameCache::makeAttributeValue(attribute.value)));
         else
             m_hasDuplicateAttribute = HasDuplicateAttribute::Yes;

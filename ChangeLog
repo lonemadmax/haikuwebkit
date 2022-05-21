@@ -1,3 +1,132 @@
+2022-03-26  Aakash Jain  <aakash_jain@apple.com>
+
+        Update my github username.
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
+2022-03-22  Per Arne Vollan  <pvollan@apple.com>
+
+        REGRESSION(r291587): Unintentionally removed contributors change
+        https://bugs.webkit.org/show_bug.cgi?id=238204
+
+        Unreviewed, partial revert of r291587.
+
+        * metadata/contributors.json:
+
+2022-03-22  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][WPE] Remove the ATK implementation
+        https://bugs.webkit.org/show_bug.cgi?id=238198
+
+        Reviewed by Adrian Perez de Castro.
+
+        * Source/cmake/OptionsGTK.cmake:
+        * Source/cmake/OptionsWPE.cmake:
+
+2022-03-21  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r291055.
+        https://bugs.webkit.org/show_bug.cgi?id=238145
+
+        Invalid test expectations
+
+        Reverted changeset:
+
+        "[iOS] Hard link AVPictureInPictureController"
+        https://bugs.webkit.org/show_bug.cgi?id=237227
+        https://commits.webkit.org/r291055
+
+2022-03-18  Philippe Normand  <pnormand@igalia.com>
+
+        [GStreamer] Migrate gst-full support to 1.20
+        https://bugs.webkit.org/show_bug.cgi?id=237772
+
+        Reviewed by Xabier Rodriguez-Calvar.
+
+        * Source/cmake/GStreamerChecks.cmake:
+
+2022-03-18  Philippe Normand  <pnormand@igalia.com>
+
+        [GStreamer] Initial import of the GstWebRTC backend
+        https://bugs.webkit.org/show_bug.cgi?id=236540
+
+        Reviewed by Carlos Garcia Campos and Xabier Rodriguez-Calvar.
+
+        Enable GstWebRTC by default if a recent-enough (>= 1.20) version is available.
+
+        * Source/cmake/FindGStreamer.cmake:
+        * Source/cmake/GStreamerChecks.cmake:
+        * Source/cmake/GStreamerDefinitions.cmake:
+        * Source/cmake/GStreamerDependencies.cmake:
+
+2022-03-18  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Add a public build option for PDF.js
+        https://bugs.webkit.org/show_bug.cgi?id=238023
+
+        Reviewed by Michael Catanzaro.
+
+        PDF.js increases the binary size of the library quite a bit, so embedders might want to disable it if they know
+        they don't need PDF support at all.
+
+        * Source/cmake/OptionsGTK.cmake:
+        * Source/cmake/OptionsWPE.cmake:
+        * Source/cmake/WebKitFeatures.cmake:
+
+2022-03-17  Zan Dobersek  <zdobersek@igalia.com>
+
+        [GTK][WPE] Also enable USE_TEXTURE_MAPPER_DMABUF alongside other DMABuf-related defines
+        https://bugs.webkit.org/show_bug.cgi?id=238017
+
+        Reviewed by Alejandro G. Castro.
+
+        For the GTK port, define USE_TEXTURE_MAPPER_DMABUF alongside the
+        dependencies and defines for DMABuf-backed ANGLE integration. This will
+        enable usage of the DMABuf-based video sink in any GStreamer pipeline
+        and subsequently display of the provided DMABuf objects. A comment is
+        added to explain this should be covered by a separate configuration
+        option on which USE_ANGLE_WEBGL should then depend.
+
+        For the WPE port the define is also added but without conditions, just
+        like it's done for the dependencies and the USE_LIBGBM define.
+
+        * Source/cmake/OptionsGTK.cmake:
+        * Source/cmake/OptionsWPE.cmake:
+
+2022-03-17  Zan Dobersek  <zdobersek@igalia.com>
+
+        [GTK][WPE] Guard libgbm and libdrm code, make them conditional dependencies for GTK
+        https://bugs.webkit.org/show_bug.cgi?id=237974
+
+        Reviewed by Alejandro G. Castro.
+
+        Guard usage of libgbm and libdrm dependencies with the USE_LIBGBM
+        define. This should be required until we can switch to a possibly more
+        dynamic implementation that doesn't require build-time dependencies.
+
+        For the GTK port, the desire is to keep these dependencies fully
+        optional. At the moment they are required when enabling ANGLE-backed
+        WebGL, with the USE_LIBGBM also defined in that case. This is needed
+        because ANGLE integration for Linux ports already depends on these
+        libraries.
+
+        For the WPE port only USE_LIBGBM is defined and the two dependencies
+        remain required.
+
+        * Source/cmake/OptionsGTK.cmake:
+        * Source/cmake/OptionsWPE.cmake:
+
+2022-03-14  Gabriel Nava Marino  <gnavamarino@apple.com>
+
+        Add myself (Gabriel Nava Marino) to contributors.json
+        https://bugs.webkit.org/show_bug.cgi?id=237634
+
+        Unreviewed.
+
+        * metadata/contributors.json:
+
 2022-03-11  Elliott Williams  <emw@apple.com>
 
         Makefile.shared: Rename WORKSPACE to WORKSPACE_PATH and allow overrides

@@ -355,8 +355,8 @@
 #include "HTMLVideoElement.h"
 #endif
 
-#define DOCUMENT_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", main=%d] Document::" fmt, this, valueOrDefault(pageID()).toUInt64(), valueOrDefault(frameID()).toUInt64(), this == &topDocument(), ##__VA_ARGS__)
-#define DOCUMENT_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", main=%d] Document::" fmt, this, valueOrDefault(pageID()).toUInt64(), valueOrDefault(frameID()).toUInt64(), this == &topDocument(), ##__VA_ARGS__)
+#define DOCUMENT_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] Document::" fmt, this, valueOrDefault(pageID()).toUInt64(), valueOrDefault(frameID()).toUInt64(), this == &topDocument(), ##__VA_ARGS__)
+#define DOCUMENT_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] Document::" fmt, this, valueOrDefault(pageID()).toUInt64(), valueOrDefault(frameID()).toUInt64(), this == &topDocument(), ##__VA_ARGS__)
 
 namespace WebCore {
 
@@ -562,6 +562,7 @@ Document::Document(Frame* frame, const Settings& settings, const URL& url, Docum
     , m_settings(settings)
     , m_quirks(makeUniqueRef<Quirks>(*this))
     , m_cachedResourceLoader(createCachedResourceLoader(frame))
+    , m_creationURL(url)
     , m_domTreeVersion(++s_globalTreeVersion)
     , m_styleScope(makeUnique<Style::Scope>(*this))
     , m_extensionStyleSheets(makeUnique<ExtensionStyleSheets>(*this))
@@ -1863,6 +1864,9 @@ void Document::visibilityStateChanged()
         for (auto& callback : callbacks)
             callback();
     }
+#if ENABLE(SERVICE_WORKER)
+    updateServiceWorkerClientData();
+#endif
 }
 
 VisibilityState Document::visibilityState() const
@@ -8766,7 +8770,11 @@ void Document::setServiceWorkerConnection(SWClientConnection* serviceWorkerConne
         m_serviceWorkerConnection->unregisterServiceWorkerClient(identifier());
 
     m_serviceWorkerConnection = serviceWorkerConnection;
+    updateServiceWorkerClientData();
+}
 
+void Document::updateServiceWorkerClientData()
+{
     if (!m_serviceWorkerConnection)
         return;
 
@@ -9135,6 +9143,12 @@ void Document::removeElementWithPendingUserAgentShadowTreeUpdate(Element& elemen
 bool Document::hasElementWithPendingUserAgentShadowTreeUpdate(Element& element) const
 {
     return m_elementsWithPendingUserAgentShadowTreeUpdates.contains(element);
+}
+
+bool Document::isSameSiteForCookies(const URL& url) const
+{
+    auto domain = isTopDocument() ? RegistrableDomain(securityOrigin().data()) : RegistrableDomain(siteForCookies());
+    return domain.matches(url);
 }
 
 } // namespace WebCore

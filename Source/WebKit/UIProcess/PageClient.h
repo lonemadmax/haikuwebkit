@@ -357,6 +357,7 @@ public:
 #endif
 
 #if ENABLE(GPU_PROCESS)
+    virtual void gpuProcessDidFinishLaunching() { }
     virtual void gpuProcessDidExit() { }
 #endif
 
@@ -619,7 +620,9 @@ public:
     virtual void didInsertAttachment(API::Attachment&, const String& source) { }
     virtual void didRemoveAttachment(API::Attachment&) { }
     virtual void didInvalidateDataForAttachment(API::Attachment&) { }
+#if PLATFORM(IOS_FAMILY)
     virtual void writePromisedAttachmentToPasteboard(WebCore::PromisedAttachmentInfo&&) { }
+#endif
 #if PLATFORM(COCOA)
     virtual NSFileWrapper *allocFileWrapperInstance() const { return nullptr; }
     virtual NSSet *serializableFileWrapperClasses() const { return nullptr; }

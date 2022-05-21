@@ -305,7 +305,11 @@ public:
     const LengthSize& borderBottomLeftRadius() const { return m_surroundData->border.bottomLeftRadius(); }
     const LengthSize& borderBottomRightRadius() const { return m_surroundData->border.bottomRightRadius(); }
     bool hasBorderRadius() const { return m_surroundData->border.hasBorderRadius(); }
-    bool hasExplicitlySetBorderRadius() const { return m_nonInheritedFlags.hasExplicitlySetBorderRadius; }
+    bool hasExplicitlySetBorderBottomLeftRadius() const { return m_nonInheritedFlags.hasExplicitlySetBorderBottomLeftRadius; }
+    bool hasExplicitlySetBorderBottomRightRadius() const { return m_nonInheritedFlags.hasExplicitlySetBorderBottomRightRadius; }
+    bool hasExplicitlySetBorderTopLeftRadius() const { return m_nonInheritedFlags.hasExplicitlySetBorderTopLeftRadius; }
+    bool hasExplicitlySetBorderTopRightRadius() const { return m_nonInheritedFlags.hasExplicitlySetBorderTopRightRadius; }
+    bool hasExplicitlySetBorderRadius() const { return hasExplicitlySetBorderBottomLeftRadius() || hasExplicitlySetBorderBottomRightRadius() || hasExplicitlySetBorderTopLeftRadius() || hasExplicitlySetBorderTopRightRadius(); }
 
     float borderLeftWidth() const { return m_surroundData->border.borderLeftWidth(); }
     BorderStyle borderLeftStyle() const { return m_surroundData->border.left().style(); }
@@ -374,8 +378,8 @@ public:
     const Length& textIndent() const { return m_rareInheritedData->indent; }
     TextAlignMode textAlign() const { return static_cast<TextAlignMode>(m_inheritedFlags.textAlign); }
     TextTransform textTransform() const { return static_cast<TextTransform>(m_inheritedFlags.textTransform); }
-    OptionSet<TextDecorationLine> textDecorationsInEffect() const { return OptionSet<TextDecorationLine>::fromRaw(m_inheritedFlags.textDecorations); }
-    OptionSet<TextDecorationLine> textDecoration() const { return OptionSet<TextDecorationLine>::fromRaw(m_visualData->textDecoration); }
+    OptionSet<TextDecorationLine> textDecorationsInEffect() const { return OptionSet<TextDecorationLine>::fromRaw(m_inheritedFlags.textDecorationLines); }
+    OptionSet<TextDecorationLine> textDecorationLine() const { return OptionSet<TextDecorationLine>::fromRaw(m_visualData->textDecorationLine); }
     TextDecorationStyle textDecorationStyle() const { return static_cast<TextDecorationStyle>(m_rareNonInheritedData->textDecorationStyle); }
     TextDecorationSkipInk textDecorationSkipInk() const { return static_cast<TextDecorationSkipInk>(m_rareInheritedData->textDecorationSkipInk); }
     TextUnderlinePosition textUnderlinePosition() const { return static_cast<TextUnderlinePosition>(m_rareInheritedData->textUnderlinePosition); }
@@ -505,6 +509,7 @@ public:
 
     float outlineOffset() const;
     const ShadowData* textShadow() const { return m_rareInheritedData->textShadow.get(); }
+    LayoutBoxExtent textShadowExtent() const { return shadowExtent(textShadow()); }
     void getTextShadowInlineDirectionExtent(LayoutUnit& logicalLeft, LayoutUnit& logicalRight) const { getShadowInlineDirectionExtent(textShadow(), logicalLeft, logicalRight); }
     void getTextShadowBlockDirectionExtent(LayoutUnit& logicalTop, LayoutUnit& logicalBottom) const { getShadowBlockDirectionExtent(textShadow(), logicalTop, logicalBottom); }
 
@@ -562,30 +567,32 @@ public:
     const StyleSelfAlignmentData& justifyItems() const { return m_rareNonInheritedData->justifyItems; }
     const StyleSelfAlignmentData& justifySelf() const { return m_rareNonInheritedData->justifySelf; }
 
-    const Vector<GridTrackSize>& gridColumns() const { return m_rareNonInheritedData->grid->gridColumns; }
-    const Vector<GridTrackSize>& gridRows() const { return m_rareNonInheritedData->grid->gridRows; }
-    const Vector<GridTrackSize>& gridAutoRepeatColumns() const { return m_rareNonInheritedData->grid->gridAutoRepeatColumns; }
-    const Vector<GridTrackSize>& gridAutoRepeatRows() const { return m_rareNonInheritedData->grid->gridAutoRepeatRows; }
-    unsigned gridAutoRepeatColumnsInsertionPoint() const { return m_rareNonInheritedData->grid->autoRepeatColumnsInsertionPoint; }
-    unsigned gridAutoRepeatRowsInsertionPoint() const { return m_rareNonInheritedData->grid->autoRepeatRowsInsertionPoint; }
-    AutoRepeatType gridAutoRepeatColumnsType() const  { return m_rareNonInheritedData->grid->autoRepeatColumnsType; }
-    AutoRepeatType gridAutoRepeatRowsType() const  { return m_rareNonInheritedData->grid->autoRepeatRowsType; }
-    const NamedGridLinesMap& namedGridColumnLines() const { return m_rareNonInheritedData->grid->namedGridColumnLines; }
-    const NamedGridLinesMap& namedGridRowLines() const { return m_rareNonInheritedData->grid->namedGridRowLines; }
-    const OrderedNamedGridLinesMap& orderedNamedGridColumnLines() const { return m_rareNonInheritedData->grid->orderedNamedGridColumnLines; }
-    const OrderedNamedGridLinesMap& orderedNamedGridRowLines() const { return m_rareNonInheritedData->grid->orderedNamedGridRowLines; }
-    const NamedGridLinesMap& autoRepeatNamedGridColumnLines() const { return m_rareNonInheritedData->grid->autoRepeatNamedGridColumnLines; }
-    const NamedGridLinesMap& autoRepeatNamedGridRowLines() const { return m_rareNonInheritedData->grid->autoRepeatNamedGridRowLines; }
-    const OrderedNamedGridLinesMap& autoRepeatOrderedNamedGridColumnLines() const { return m_rareNonInheritedData->grid->autoRepeatOrderedNamedGridColumnLines; }
-    const OrderedNamedGridLinesMap& autoRepeatOrderedNamedGridRowLines() const { return m_rareNonInheritedData->grid->autoRepeatOrderedNamedGridRowLines; }
+    const Vector<GridTrackSize>& gridColumns() const { return m_rareNonInheritedData->grid->gridColumns(); }
+    const Vector<GridTrackSize>& gridRows() const { return m_rareNonInheritedData->grid->gridRows(); }
+    const GridTrackList& gridColumnList() const { return m_rareNonInheritedData->grid->columns(); }
+    const GridTrackList& gridRowList() const { return m_rareNonInheritedData->grid->rows(); }
+    const Vector<GridTrackSize>& gridAutoRepeatColumns() const { return m_rareNonInheritedData->grid->gridAutoRepeatColumns(); }
+    const Vector<GridTrackSize>& gridAutoRepeatRows() const { return m_rareNonInheritedData->grid->gridAutoRepeatRows(); }
+    unsigned gridAutoRepeatColumnsInsertionPoint() const { return m_rareNonInheritedData->grid->autoRepeatColumnsInsertionPoint(); }
+    unsigned gridAutoRepeatRowsInsertionPoint() const { return m_rareNonInheritedData->grid->autoRepeatRowsInsertionPoint(); }
+    AutoRepeatType gridAutoRepeatColumnsType() const  { return m_rareNonInheritedData->grid->autoRepeatColumnsType(); }
+    AutoRepeatType gridAutoRepeatRowsType() const  { return m_rareNonInheritedData->grid->autoRepeatRowsType(); }
+    const NamedGridLinesMap& namedGridColumnLines() const { return m_rareNonInheritedData->grid->namedGridColumnLines(); }
+    const NamedGridLinesMap& namedGridRowLines() const { return m_rareNonInheritedData->grid->namedGridRowLines(); }
+    const OrderedNamedGridLinesMap& orderedNamedGridColumnLines() const { return m_rareNonInheritedData->grid->orderedNamedGridColumnLines(); }
+    const OrderedNamedGridLinesMap& orderedNamedGridRowLines() const { return m_rareNonInheritedData->grid->orderedNamedGridRowLines(); }
+    const NamedGridLinesMap& autoRepeatNamedGridColumnLines() const { return m_rareNonInheritedData->grid->autoRepeatNamedGridColumnLines(); }
+    const NamedGridLinesMap& autoRepeatNamedGridRowLines() const { return m_rareNonInheritedData->grid->autoRepeatNamedGridRowLines(); }
+    const OrderedNamedGridLinesMap& autoRepeatOrderedNamedGridColumnLines() const { return m_rareNonInheritedData->grid->autoRepeatOrderedNamedGridColumnLines(); }
+    const OrderedNamedGridLinesMap& autoRepeatOrderedNamedGridRowLines() const { return m_rareNonInheritedData->grid->autoRepeatOrderedNamedGridRowLines(); }
     const NamedGridLinesMap& implicitNamedGridColumnLines() const { return m_rareNonInheritedData->grid->implicitNamedGridColumnLines; }
     const NamedGridLinesMap& implicitNamedGridRowLines() const { return m_rareNonInheritedData->grid->implicitNamedGridRowLines; }
     const NamedGridAreaMap& namedGridArea() const { return m_rareNonInheritedData->grid->namedGridArea; }
     size_t namedGridAreaRowCount() const { return m_rareNonInheritedData->grid->namedGridAreaRowCount; }
     size_t namedGridAreaColumnCount() const { return m_rareNonInheritedData->grid->namedGridAreaColumnCount; }
     GridAutoFlow gridAutoFlow() const { return static_cast<GridAutoFlow>(m_rareNonInheritedData->grid->gridAutoFlow); }
-    bool gridSubgridRows() const { return m_rareNonInheritedData->grid->subgridRows; }
-    bool gridSubgridColumns() const { return m_rareNonInheritedData->grid->subgridColumns; }
+    bool gridSubgridRows() const { return m_rareNonInheritedData->grid->subgridRows(); }
+    bool gridSubgridColumns() const { return m_rareNonInheritedData->grid->subgridColumns(); }
     bool isGridAutoFlowDirectionRow() const { return (m_rareNonInheritedData->grid->gridAutoFlow & InternalAutoFlowDirectionRow); }
     bool isGridAutoFlowDirectionColumn() const { return (m_rareNonInheritedData->grid->gridAutoFlow & InternalAutoFlowDirectionColumn); }
     bool isGridAutoFlowAlgorithmSparse() const { return (m_rareNonInheritedData->grid->gridAutoFlow & InternalAutoFlowAlgorithmSparse); }
@@ -698,7 +705,13 @@ public:
 
     static constexpr OptionSet<TransformOperationOption> allTransformOperations = { TransformOperationOption::TransformOrigin, TransformOperationOption::Translate, TransformOperationOption::Rotate, TransformOperationOption::Scale , TransformOperationOption::Offset };
     static constexpr OptionSet<TransformOperationOption> individualTransformOperations = { TransformOperationOption::Translate, TransformOperationOption::Rotate, TransformOperationOption::Scale, TransformOperationOption::Offset };
+
+    bool affectedByTransformOrigin() const;
+    FloatPoint3D applyTransformOrigin(TransformationMatrix&, const FloatRect& boundingBox) const;
+    void unapplyTransformOrigin(TransformationMatrix&, const FloatPoint3D& originTranslate) const;
+    // applyTransform calls applyTransformOrigin(), then applyCSSTransform(), followed by unapplyTransformOrigin().
     void applyTransform(TransformationMatrix&, const FloatRect& boundingBox, OptionSet<TransformOperationOption> = allTransformOperations) const;
+    void applyCSSTransform(TransformationMatrix&, const FloatRect& boundingBox, OptionSet<TransformOperationOption> = allTransformOperations) const;
     void applyMotionPathTransform(TransformationMatrix&, const FloatRect& boundingBox) const;
     void setPageScaleTransform(float);
 
@@ -934,7 +947,10 @@ public:
 
     void setBorderRadius(LengthSize&&);
     void setBorderRadius(const IntSize&);
-    void setHasExplicitlySetBorderRadius(bool v) { m_nonInheritedFlags.hasExplicitlySetBorderRadius = v; }
+    void setHasExplicitlySetBorderBottomLeftRadius(bool v) { m_nonInheritedFlags.hasExplicitlySetBorderBottomLeftRadius = v; }
+    void setHasExplicitlySetBorderBottomRightRadius(bool v) { m_nonInheritedFlags.hasExplicitlySetBorderBottomRightRadius = v; }
+    void setHasExplicitlySetBorderTopLeftRadius(bool v) { m_nonInheritedFlags.hasExplicitlySetBorderTopLeftRadius = v; }
+    void setHasExplicitlySetBorderTopRightRadius(bool v) { m_nonInheritedFlags.hasExplicitlySetBorderTopRightRadius = v; }
 
     RoundedRect getRoundedBorderFor(const LayoutRect& borderRect, bool includeLogicalLeftEdge = true, bool includeLogicalRightEdge = true) const;
     RoundedRect getRoundedInnerBorderFor(const LayoutRect& borderRect, bool includeLogicalLeftEdge = true, bool includeLogicalRightEdge = true) const;
@@ -996,9 +1012,9 @@ public:
     void setTextIndent(Length&& length) { SET_VAR(m_rareInheritedData, indent, WTFMove(length)); }
     void setTextAlign(TextAlignMode v) { m_inheritedFlags.textAlign = static_cast<unsigned>(v); }
     void setTextTransform(TextTransform v) { m_inheritedFlags.textTransform = static_cast<unsigned>(v); }
-    void addToTextDecorationsInEffect(OptionSet<TextDecorationLine> v) { m_inheritedFlags.textDecorations |= static_cast<unsigned>(v.toRaw()); }
-    void setTextDecorationsInEffect(OptionSet<TextDecorationLine> v) { m_inheritedFlags.textDecorations = v.toRaw(); }
-    void setTextDecoration(OptionSet<TextDecorationLine> v) { SET_VAR(m_visualData, textDecoration, v.toRaw()); }
+    void addToTextDecorationsInEffect(OptionSet<TextDecorationLine> v) { m_inheritedFlags.textDecorationLines |= static_cast<unsigned>(v.toRaw()); }
+    void setTextDecorationsInEffect(OptionSet<TextDecorationLine> v) { m_inheritedFlags.textDecorationLines = v.toRaw(); }
+    void setTextDecorationLine(OptionSet<TextDecorationLine> v) { SET_VAR(m_visualData, textDecorationLine, v.toRaw()); }
     void setTextDecorationStyle(TextDecorationStyle v) { SET_VAR(m_rareNonInheritedData, textDecorationStyle, static_cast<unsigned>(v)); }
     void setTextDecorationSkipInk(TextDecorationSkipInk skipInk) { SET_VAR(m_rareInheritedData, textDecorationSkipInk, static_cast<unsigned>(skipInk)); }
     void setTextUnderlinePosition(TextUnderlinePosition position) { SET_VAR(m_rareInheritedData, textUnderlinePosition, static_cast<unsigned>(position)); }
@@ -1190,32 +1206,24 @@ public:
     void setBoxDecorationBreak(BoxDecorationBreak b) { SET_VAR(m_boxData, m_boxDecorationBreak, static_cast<unsigned>(b)); }
 #endif
 
+    void setGridColumnList(const GridTrackList& list)
+    {
+        if (!compareEqual(m_rareNonInheritedData->grid->columns(), list))
+            m_rareNonInheritedData.access().grid.access().setColumns(list);
+    }
+    void setGridRowList(const GridTrackList& list)
+    {
+        if (!compareEqual(m_rareNonInheritedData->grid->rows(), list))
+            m_rareNonInheritedData.access().grid.access().setRows(list);
+    }
     void setGridAutoColumns(const Vector<GridTrackSize>& trackSizeList) { SET_NESTED_VAR(m_rareNonInheritedData, grid, gridAutoColumns, trackSizeList); }
     void setGridAutoRows(const Vector<GridTrackSize>& trackSizeList) { SET_NESTED_VAR(m_rareNonInheritedData, grid, gridAutoRows, trackSizeList); }
-    void setGridColumns(const Vector<GridTrackSize>& lengths) { SET_NESTED_VAR(m_rareNonInheritedData, grid, gridColumns, lengths); }
-    void setGridRows(const Vector<GridTrackSize>& lengths) { SET_NESTED_VAR(m_rareNonInheritedData, grid, gridRows, lengths); }
-    void setGridAutoRepeatColumns(const Vector<GridTrackSize>& lengths) { SET_NESTED_VAR(m_rareNonInheritedData, grid, gridAutoRepeatColumns, lengths); }
-    void setGridAutoRepeatRows(const Vector<GridTrackSize>& lengths) { SET_NESTED_VAR(m_rareNonInheritedData, grid, gridAutoRepeatRows, lengths); }
-    void setGridAutoRepeatColumnsInsertionPoint(const unsigned insertionPoint) { SET_NESTED_VAR(m_rareNonInheritedData, grid, autoRepeatColumnsInsertionPoint, insertionPoint); }
-    void setGridAutoRepeatRowsInsertionPoint(const unsigned insertionPoint) { SET_NESTED_VAR(m_rareNonInheritedData, grid, autoRepeatRowsInsertionPoint, insertionPoint); }
-    void setGridAutoRepeatColumnsType(const AutoRepeatType autoRepeatType) { SET_NESTED_VAR(m_rareNonInheritedData, grid, autoRepeatColumnsType, autoRepeatType); }
-    void setGridAutoRepeatRowsType(const AutoRepeatType autoRepeatType) { SET_NESTED_VAR(m_rareNonInheritedData, grid, autoRepeatRowsType, autoRepeatType); }
-    void setNamedGridColumnLines(const NamedGridLinesMap& namedGridColumnLines) { SET_NESTED_VAR(m_rareNonInheritedData, grid, namedGridColumnLines, namedGridColumnLines); }
-    void setNamedGridRowLines(const NamedGridLinesMap& namedGridRowLines) { SET_NESTED_VAR(m_rareNonInheritedData, grid, namedGridRowLines, namedGridRowLines); }
-    void setOrderedNamedGridColumnLines(const OrderedNamedGridLinesMap& orderedNamedGridColumnLines) { SET_NESTED_VAR(m_rareNonInheritedData, grid, orderedNamedGridColumnLines, orderedNamedGridColumnLines); }
-    void setOrderedNamedGridRowLines(const OrderedNamedGridLinesMap& orderedNamedGridRowLines) { SET_NESTED_VAR(m_rareNonInheritedData, grid, orderedNamedGridRowLines, orderedNamedGridRowLines); }
-    void setAutoRepeatNamedGridColumnLines(const NamedGridLinesMap& namedGridColumnLines) { SET_NESTED_VAR(m_rareNonInheritedData, grid, autoRepeatNamedGridColumnLines, namedGridColumnLines); }
-    void setAutoRepeatNamedGridRowLines(const NamedGridLinesMap& namedGridRowLines) { SET_NESTED_VAR(m_rareNonInheritedData, grid, autoRepeatNamedGridRowLines, namedGridRowLines); }
-    void setAutoRepeatOrderedNamedGridColumnLines(const OrderedNamedGridLinesMap& orderedNamedGridColumnLines) { SET_NESTED_VAR(m_rareNonInheritedData, grid, autoRepeatOrderedNamedGridColumnLines, orderedNamedGridColumnLines); }
-    void setAutoRepeatOrderedNamedGridRowLines(const OrderedNamedGridLinesMap& orderedNamedGridRowLines) { SET_NESTED_VAR(m_rareNonInheritedData, grid, autoRepeatOrderedNamedGridRowLines, orderedNamedGridRowLines); }
     void setImplicitNamedGridColumnLines(const NamedGridLinesMap& namedGridColumnLines) { SET_NESTED_VAR(m_rareNonInheritedData, grid, implicitNamedGridColumnLines, namedGridColumnLines); }
     void setImplicitNamedGridRowLines(const NamedGridLinesMap& namedGridRowLines) { SET_NESTED_VAR(m_rareNonInheritedData, grid, implicitNamedGridRowLines, namedGridRowLines); }
     void setNamedGridArea(const NamedGridAreaMap& namedGridArea) { SET_NESTED_VAR(m_rareNonInheritedData, grid, namedGridArea, namedGridArea); }
     void setNamedGridAreaRowCount(size_t rowCount) { SET_NESTED_VAR(m_rareNonInheritedData, grid, namedGridAreaRowCount, rowCount); }
     void setNamedGridAreaColumnCount(size_t columnCount) { SET_NESTED_VAR(m_rareNonInheritedData, grid, namedGridAreaColumnCount, columnCount); }
     void setGridAutoFlow(GridAutoFlow flow) { SET_NESTED_VAR(m_rareNonInheritedData, grid, gridAutoFlow, flow); }
-    void setGridSubgridRows(bool subgrid) { SET_NESTED_VAR(m_rareNonInheritedData, grid, subgridRows, subgrid); }
-    void setGridSubgridColumns(bool subgrid) { SET_NESTED_VAR(m_rareNonInheritedData, grid, subgridColumns, subgrid); }
     void setGridItemColumnStart(const GridPosition& columnStartPosition) { SET_NESTED_VAR(m_rareNonInheritedData, gridItem, gridColumnStart, columnStartPosition); }
     void setGridItemColumnEnd(const GridPosition& columnEndPosition) { SET_NESTED_VAR(m_rareNonInheritedData, gridItem, gridColumnEnd, columnEndPosition); }
     void setGridItemRowStart(const GridPosition& rowStartPosition) { SET_NESTED_VAR(m_rareNonInheritedData, gridItem, gridRowStart, rowStartPosition); }
@@ -1633,7 +1641,7 @@ public:
     // Returning -100% percent here means the line-height is not set.
     static Length initialLineHeight() { return Length(-100.0f, LengthType::Percent); }
     static TextAlignMode initialTextAlign() { return TextAlignMode::Start; }
-    static OptionSet<TextDecorationLine> initialTextDecoration() { return OptionSet<TextDecorationLine> { }; }
+    static OptionSet<TextDecorationLine> initialTextDecorationLine() { return OptionSet<TextDecorationLine> { }; }
     static TextDecorationStyle initialTextDecorationStyle() { return TextDecorationStyle::Solid; }
     static TextDecorationSkipInk initialTextDecorationSkipInk() { return TextDecorationSkipInk::Auto; }
     static TextUnderlinePosition initialTextUnderlinePosition() { return TextUnderlinePosition::Auto; }
@@ -1925,6 +1933,8 @@ public:
     void setOffsetRotate(OffsetRotation&& rotation) { SET_VAR(m_rareNonInheritedData, offsetRotate, WTFMove(rotation)); }
     static OffsetRotation initialOffsetRotate() { return OffsetRotation(true, 0); }
 
+    bool borderAndBackgroundEqual(const RenderStyle&) const;
+
 private:
     struct NonInheritedFlags {
         bool operator==(const NonInheritedFlags&) const;
@@ -1947,7 +1957,10 @@ private:
         unsigned floating : 3; // Float
         unsigned tableLayout : 1; // TableLayoutType
 
-        unsigned hasExplicitlySetBorderRadius : 1;
+        unsigned hasExplicitlySetBorderBottomLeftRadius : 1;
+        unsigned hasExplicitlySetBorderBottomRightRadius : 1;
+        unsigned hasExplicitlySetBorderTopLeftRadius : 1;
+        unsigned hasExplicitlySetBorderTopRightRadius : 1;
         unsigned hasExplicitlySetDirection : 1;
         unsigned hasExplicitlySetWritingMode : 1;
         unsigned hasExplicitlySetTextAlign : 1;
@@ -1980,7 +1993,7 @@ private:
         unsigned visibility : 2; // Visibility
         unsigned textAlign : 4; // TextAlignMode
         unsigned textTransform : 2; // TextTransform
-        unsigned textDecorations : TextDecorationBits;
+        unsigned textDecorationLines : TextDecorationLineBits;
         unsigned cursor : 6; // CursorType
 #if ENABLE(CURSOR_VISIBILITY)
         unsigned cursorVisibility : 1; // CursorVisibility
@@ -2084,7 +2097,10 @@ inline bool RenderStyle::NonInheritedFlags::operator==(const NonInheritedFlags& 
         && unicodeBidi == other.unicodeBidi
         && floating == other.floating
         && tableLayout == other.tableLayout
-        && hasExplicitlySetBorderRadius == other.hasExplicitlySetBorderRadius
+        && hasExplicitlySetBorderBottomLeftRadius == other.hasExplicitlySetBorderBottomLeftRadius
+        && hasExplicitlySetBorderBottomRightRadius == other.hasExplicitlySetBorderBottomRightRadius
+        && hasExplicitlySetBorderTopLeftRadius == other.hasExplicitlySetBorderTopLeftRadius
+        && hasExplicitlySetBorderTopRightRadius == other.hasExplicitlySetBorderTopRightRadius
         && hasExplicitlySetDirection == other.hasExplicitlySetDirection
         && hasExplicitlySetWritingMode == other.hasExplicitlySetWritingMode
         && hasExplicitlySetTextAlign == other.hasExplicitlySetTextAlign
@@ -2121,7 +2137,10 @@ inline void RenderStyle::NonInheritedFlags::copyNonInheritedFrom(const NonInheri
 
     // Unlike properties tracked by the other hasExplicitlySet* flags, border-radius is non-inherited
     // and we need to remember whether it's been explicitly set when copying m_surroundData.
-    hasExplicitlySetBorderRadius = other.hasExplicitlySetBorderRadius;
+    hasExplicitlySetBorderBottomLeftRadius = other.hasExplicitlySetBorderBottomLeftRadius;
+    hasExplicitlySetBorderBottomRightRadius = other.hasExplicitlySetBorderBottomRightRadius;
+    hasExplicitlySetBorderTopLeftRadius = other.hasExplicitlySetBorderTopLeftRadius;
+    hasExplicitlySetBorderTopRightRadius = other.hasExplicitlySetBorderTopRightRadius;
 }
 
 inline bool RenderStyle::NonInheritedFlags::hasPseudoStyle(PseudoId pseudo) const
@@ -2147,7 +2166,7 @@ inline bool RenderStyle::InheritedFlags::operator==(const InheritedFlags& other)
         && visibility == other.visibility
         && textAlign == other.textAlign
         && textTransform == other.textTransform
-        && textDecorations == other.textDecorations
+        && textDecorationLines == other.textDecorationLines
         && cursor == other.cursor
 #if ENABLE(CURSOR_VISIBILITY)
         && cursorVisibility == other.cursorVisibility

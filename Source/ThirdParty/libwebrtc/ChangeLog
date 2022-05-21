@@ -1,3 +1,82 @@
+2022-03-22  David Quesada  <david_quesada@apple.com>
+
+        REGRESSION(r291455): libwebrtc has the wrong install name when using override frameworks directory
+        https://bugs.webkit.org/show_bug.cgi?id=238212
+        rdar://90604028
+
+        Reviewed by Alexey Proskuryakov.
+
+        r291455 introduced a default definition of DYLIB_INSTALL_NAME_BASE for non-macOS platforms that
+        stays defined as /S/L/PF/WebCore.framework/Frameworks. This explicit definition (rather than
+        falling back to the build system default of $INSTALL_PATH) is fine for those platforms but
+        clashes with the macOS definition of this variable when building with an override frameworks path:
+
+            DYLIB_INSTALL_NAME_BASE_USE_OVERRIDE_FRAMEWORKS_DIR_YES = $(DYLIB_INSTALL_NAME_BASE);
+
+        Because of the new default definition of `DYLIB_INSTALL_NAME_BASE`, the semantics of this line
+        were changed from "use the install path as the install name when there's an override frameworks
+        directory" to "use /S/L/PF/WebCore.frameworks/Frameworks as the install name when there's an
+        override frameworks directory", which completely bypasses the point of the *override* directory.
+
+        Resolve this by redefining DYLIB_INSTALL_NAME_BASE_USE_OVERRIDE_FRAMEWORKS_DIR_YES to explicitly
+        use the INSTALL_PATH as the base of the install name, which was the original intent before
+        r291455 changed the behavior of falling back to DYLIB_INSTALL_NAME_BASE.
+
+        * Configurations/libwebrtc.xcconfig:
+
+2022-03-21  Alex Christensen  <achristensen@webkit.org>
+
+        Dust off Mac CMake build
+        https://bugs.webkit.org/show_bug.cgi?id=238121
+
+        Reviewed by Yusuke Suzuki.
+
+        * CMakeLists.txt:
+        * Source/third_party/libwebm/common/vp9_level_stats.h:
+
+2022-03-17  Michael Saboff  <msaboff@apple.com>
+
+        libANGLE-shared.dylib, libwebrtc.dylib & WebGPU install names are prefixed with the system content path
+        https://bugs.webkit.org/show_bug.cgi?id=238058
+
+        Reviewed by Mark Lam.
+
+        We need to create a default value for DYLIB_INSTALL_NAME_BASE for iOS builds.
+        We want to allow executables to use the framework via the symlink from the old location.
+
+        * Configurations/libwebrtc.xcconfig:
+
+2022-03-17  Youenn Fablet  <youenn@apple.com>
+
+        Remove no longer used third party webrtc modules
+        https://bugs.webkit.org/show_bug.cgi?id=237945
+
+        Reviewed by Eric Carlson.
+
+        Remove folders that have not been used for a long time.
+
+        * CMakeLists.txt: Removed jsoncpp compilation.
+        * Configurations/libwebrtc.xcconfig:
+        * Source/third_party/gflags: Removed.
+        * Source/third_party/googletest: Removed.
+        * Source/third_party/gtest-parallel: Removed.
+        * Source/third_party/jsoncpp: Removed.
+        * libwebrtc.xcodeproj/project.pbxproj:
+
+2022-03-14  Elliott Williams  <emw@apple.com>
+
+        Unreviewed, reverting r291239.
+
+        Some builds failing with "fatal error:
+        'absl/utility/utility.h' file not found"
+
+        Reverted changeset:
+
+        "Reland "[XCBuild] libwebrtc's headers are copied via rsync
+        and do not emit task outputs""
+        https://bugs.webkit.org/show_bug.cgi?id=237112
+        https://commits.webkit.org/r291239
+
 2022-03-14  Elliott Williams  <emw@apple.com>
 
         Reland "[XCBuild] libwebrtc's headers are copied via rsync and do not emit task outputs"

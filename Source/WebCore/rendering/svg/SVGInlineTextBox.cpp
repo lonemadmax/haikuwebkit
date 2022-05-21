@@ -52,7 +52,7 @@ struct ExpectedSVGInlineTextBoxSize : public LegacyInlineTextBox {
     Vector<SVGTextFragment> vector;
 };
 
-COMPILE_ASSERT(sizeof(SVGInlineTextBox) == sizeof(ExpectedSVGInlineTextBoxSize), SVGInlineTextBox_is_not_of_expected_size);
+static_assert(sizeof(SVGInlineTextBox) == sizeof(ExpectedSVGInlineTextBoxSize), "SVGInlineTextBox is not of expected size");
 
 SVGInlineTextBox::SVGInlineTextBox(RenderSVGInlineText& renderer)
     : LegacyInlineTextBox(renderer)
@@ -453,7 +453,7 @@ static inline RenderBoxModelObject& findRendererDefininingTextDecoration(LegacyI
     while (parentBox) {
         renderer = &parentBox->renderer();
 
-        if (!renderer->style().textDecoration().isEmpty())
+        if (!renderer->style().textDecorationLine().isEmpty())
             break;
 
         parentBox = parentBox->parent();

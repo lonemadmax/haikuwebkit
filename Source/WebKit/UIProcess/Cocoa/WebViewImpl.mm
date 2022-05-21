@@ -2828,9 +2828,7 @@ void WebViewImpl::handleAcceptedAlternativeText(const String& acceptedAlternativ
 
 NSInteger WebViewImpl::spellCheckerDocumentTag()
 {
-    if (!m_spellCheckerDocumentTag)
-        m_spellCheckerDocumentTag = [NSSpellChecker uniqueSpellDocumentTag];
-    return m_spellCheckerDocumentTag.value();
+    return m_page->spellDocumentTag();
 }
 
 void WebViewImpl::pressureChangeWithEvent(NSEvent *event)
@@ -3883,7 +3881,7 @@ void WebViewImpl::updatePrimaryTrackingAreaOptions(NSTrackingAreaOptions options
 
 NSTrackingRectTag WebViewImpl::addTrackingRect(CGRect, id owner, void* userData, bool assumeInside)
 {
-    ASSERT(m_trackingRectOwner == nil);
+    ASSERT(!m_trackingRectOwner);
     m_trackingRectOwner = owner;
     m_trackingRectUserData = userData;
     return TRACKING_RECT_TAG;
@@ -3892,7 +3890,7 @@ NSTrackingRectTag WebViewImpl::addTrackingRect(CGRect, id owner, void* userData,
 NSTrackingRectTag WebViewImpl::addTrackingRectWithTrackingNum(CGRect, id owner, void* userData, bool assumeInside, int tag)
 {
     ASSERT(tag == 0 || tag == TRACKING_RECT_TAG);
-    ASSERT(m_trackingRectOwner == nil);
+    ASSERT(!m_trackingRectOwner);
     m_trackingRectOwner = owner;
     m_trackingRectUserData = userData;
     return TRACKING_RECT_TAG;
@@ -3902,7 +3900,7 @@ void WebViewImpl::addTrackingRectsWithTrackingNums(CGRect*, id owner, void** use
 {
     ASSERT(count == 1);
     ASSERT(trackingNums[0] == 0 || trackingNums[0] == TRACKING_RECT_TAG);
-    ASSERT(m_trackingRectOwner == nil);
+    ASSERT(!m_trackingRectOwner);
     m_trackingRectOwner = owner;
     m_trackingRectUserData = userDataList[0];
     trackingNums[0] = TRACKING_RECT_TAG;
@@ -3940,34 +3938,53 @@ void WebViewImpl::removeTrackingRects(NSTrackingRectTag *tags, int count)
     }
 }
 
+id WebViewImpl::toolTipOwnerForSendingMouseEvents() const
+{
+    if (id owner = m_trackingRectOwner.getAutoreleased())
+        return owner;
+
+    for (NSTrackingArea *trackingArea in view().trackingAreas) {
+        static Class managerClass;
+        static std::once_flag onceFlag;
+        std::call_once(onceFlag, [] {
+            managerClass = NSClassFromString(@"NSToolTipManager");
+        });
+
+        id owner = trackingArea.owner;
+        if ([owner class] == managerClass)
+            return owner;
+    }
+    return nil;
+}
+
 void WebViewImpl::sendToolTipMouseExited()
 {
     // Nothing matters except window, trackingNumber, and userData.
     NSEvent *fakeEvent = [NSEvent enterExitEventWithType:NSEventTypeMouseExited
-                                                location:NSMakePoint(0, 0)
-                                           modifierFlags:0
-                                               timestamp:0
-                                            windowNumber:[m_view window].windowNumber
-                                                 context:NULL
-                                             eventNumber:0
-                                          trackingNumber:TRACKING_RECT_TAG
-                                                userData:m_trackingRectUserData];
-    [m_trackingRectOwner mouseExited:fakeEvent];
+        location:NSZeroPoint
+        modifierFlags:0
+        timestamp:0
+        windowNumber:[m_view window].windowNumber
+        context:nil
+        eventNumber:0
+        trackingNumber:TRACKING_RECT_TAG
+        userData:m_trackingRectUserData];
+    [toolTipOwnerForSendingMouseEvents() mouseExited:fakeEvent];
 }
 
 void WebViewImpl::sendToolTipMouseEntered()
 {
     // Nothing matters except window, trackingNumber, and userData.
     NSEvent *fakeEvent = [NSEvent enterExitEventWithType:NSEventTypeMouseEntered
-                                                location:NSMakePoint(0, 0)
-                                           modifierFlags:0
-                                               timestamp:0
-                                            windowNumber:[m_view window].windowNumber
-                                                 context:NULL
-                                             eventNumber:0
-                                          trackingNumber:TRACKING_RECT_TAG
-                                                userData:m_trackingRectUserData];
-    [m_trackingRectOwner mouseEntered:fakeEvent];
+        location:NSZeroPoint
+        modifierFlags:0
+        timestamp:0
+        windowNumber:[m_view window].windowNumber
+        context:nil
+        eventNumber:0
+        trackingNumber:TRACKING_RECT_TAG
+        userData:m_trackingRectUserData];
+    [toolTipOwnerForSendingMouseEvents() mouseEntered:fakeEvent];
 }
 
 NSString *WebViewImpl::stringForToolTip(NSToolTipTag tag)
@@ -4433,7 +4450,7 @@ void WebViewImpl::startDrag(const WebCore::DragItem& item, const ShareableBitmap
 
 static bool matchesExtensionOrEquivalent(const String& filename, const String& extension)
 {
-    return filename.endsWithIgnoringASCIICase("." + extension)
+    return filename.endsWithIgnoringASCIICase(makeString('.', extension))
         || (equalLettersIgnoringASCIICase(extension, "jpeg") && filename.endsWithIgnoringASCIICase(".jpg"));
 }
 
@@ -4461,7 +4478,7 @@ void WebViewImpl::setPromisedDataForImage(WebCore::Image* image, NSString *filen
 
     RetainPtr<NSData> customDataBuffer;
     if (originIdentifier.length) {
-        [types addObject:@(WebCore::PasteboardCustomData::cocoaType())];
+        [types addObject:@(WebCore::PasteboardCustomData::cocoaType().characters())];
         WebCore::PasteboardCustomData customData;
         customData.setOrigin(originIdentifier);
         customDataBuffer = customData.createSharedBuffer()->createNSData();
@@ -4480,7 +4497,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
     if (customDataBuffer)
-        [pasteboard setData:customDataBuffer.get() forType:@(WebCore::PasteboardCustomData::cocoaType())];
+        [pasteboard setData:customDataBuffer.get() forType:@(WebCore::PasteboardCustomData::cocoaType().characters())];
 
     m_promisedImage = image;
 }
@@ -4607,7 +4624,7 @@ void WebViewImpl::requestDOMPasteAccess(WebCore::DOMPasteAccessCategory pasteAcc
     ASSERT(!m_domPasteRequestHandler);
     hideDOMPasteMenuWithResult(WebCore::DOMPasteAccessResponse::DeniedForGesture);
 
-    NSData *data = [pasteboardForAccessCategory(pasteAccessCategory) dataForType:@(WebCore::PasteboardCustomData::cocoaType())];
+    NSData *data = [pasteboardForAccessCategory(pasteAccessCategory) dataForType:@(WebCore::PasteboardCustomData::cocoaType().characters())];
     auto buffer = WebCore::SharedBuffer::create(data);
     if (WebCore::PasteboardCustomData::fromSharedBuffer(buffer.get()).origin() == originIdentifier) {
         m_page->grantAccessToCurrentPasteboardData(pasteboardNameForAccessCategory(pasteAccessCategory));

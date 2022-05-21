@@ -41,10 +41,6 @@
 #include <wtf/glib/GUniquePtr.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
 
-#if USE(GSTREAMER_FULL)
-#include <gst/gstinitstaticplugins.h>
-#endif
-
 #if USE(GSTREAMER_MPEGTS)
 #define GST_USE_UNSTABLE_API
 #include <gst/mpegts/mpegts.h>
@@ -188,6 +184,9 @@ const char* capsMediaType(const GstCaps* caps)
     if (gst_structure_has_name(structure, "application/x-cenc") || gst_structure_has_name(structure, "application/x-cbcs") || gst_structure_has_name(structure, "application/x-webm-enc"))
         return gst_structure_get_string(structure, "original-media-type");
 #endif
+    if (gst_structure_has_name(structure, "application/x-rtp"))
+        return gst_structure_get_string(structure, "media");
+
     return gst_structure_get_name(structure);
 }
 
@@ -307,9 +306,6 @@ void registerWebKitGStreamerElements()
 {
     static std::once_flag onceFlag;
     std::call_once(onceFlag, [] {
-#if USE(GSTREAMER_FULL)
-        gst_init_static_plugins();
-#endif
 
 #if ENABLE(ENCRYPTED_MEDIA) && ENABLE(THUNDER)
         if (!CDMFactoryThunder::singleton().supportedKeySystems().isEmpty()) {
@@ -481,8 +477,10 @@ GstElement* createAutoAudioSink(const String& role)
             g_object_set(object, "stream-properties", properties.get(), nullptr);
             GST_DEBUG("Set media.role as %s on %" GST_PTR_FORMAT, role->utf8().data(), GST_ELEMENT_CAST(object));
         }
-        if (g_object_class_find_property(objectClass, "client-name"))
-            g_object_set(object, "client-name", getApplicationName(), nullptr);
+        if (g_object_class_find_property(objectClass, "client-name")) {
+            auto& clientName = getApplicationName();
+            g_object_set(object, "client-name", clientName.ascii().data(), nullptr);
+        }
     }), role.isolatedCopy().releaseImpl().leakRef(), static_cast<GClosureNotify>([](gpointer userData, GClosure*) {
         reinterpret_cast<StringImpl*>(userData)->deref();
     }), static_cast<GConnectFlags>(0));

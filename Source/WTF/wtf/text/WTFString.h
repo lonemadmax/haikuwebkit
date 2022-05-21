@@ -103,11 +103,6 @@ public:
     // Construct a string from a constant string literal.
     WTF_EXPORT_PRIVATE String(ASCIILiteral);
 
-    // Construct a string from a constant string literal.
-    // This is the "big" version: puts the length in the function call and generates bigger code.
-    enum ConstructFromLiteralTag { ConstructFromLiteral };
-    template<unsigned characterCount> String(const char (&characters)[characterCount], ConstructFromLiteralTag) : m_impl(StringImpl::createFromLiteral<characterCount>(characters)) { }
-
     String(const String&) = default;
     String(String&&) = default;
     String& operator=(const String&) = default;
@@ -168,17 +163,17 @@ public:
     // Find a single character or string, also with match function & latin1 forms.
     size_t find(UChar character, unsigned start = 0) const { return m_impl ? m_impl->find(character, start) : notFound; }
 
-    size_t find(const String& string) const { return m_impl ? m_impl->find(string.impl()) : notFound; }
-    size_t find(const String& string, unsigned start) const { return m_impl ? m_impl->find(string.impl(), start) : notFound; }
-    size_t findIgnoringASCIICase(const String& string) const { return m_impl ? m_impl->findIgnoringASCIICase(string.impl()) : notFound; }
-    size_t findIgnoringASCIICase(const String& string, unsigned startOffset) const { return m_impl ? m_impl->findIgnoringASCIICase(string.impl(), startOffset) : notFound; }
+    size_t find(StringView) const;
+    size_t find(StringView, unsigned start) const;
+    size_t findIgnoringASCIICase(StringView) const;
+    size_t findIgnoringASCIICase(StringView, unsigned start) const;
 
     size_t find(CodeUnitMatchFunction matchFunction, unsigned start = 0) const { return m_impl ? m_impl->find(matchFunction, start) : notFound; }
     size_t find(const LChar* string, unsigned start = 0) const { return m_impl ? m_impl->find(string, start) : notFound; }
 
     // Find the last instance of a single character or string.
     size_t reverseFind(UChar character, unsigned start = MaxLength) const { return m_impl ? m_impl->reverseFind(character, start) : notFound; }
-    size_t reverseFind(const String& string, unsigned start = MaxLength) const { return m_impl ? m_impl->reverseFind(string.impl(), start) : notFound; }
+    size_t reverseFind(StringView, unsigned start = MaxLength) const;
 
     WTF_EXPORT_PRIVATE Vector<UChar> charactersWithNullTermination() const;
     WTF_EXPORT_PRIVATE Vector<UChar> charactersWithoutNullTermination() const;
@@ -187,22 +182,20 @@ public:
 
     bool contains(UChar character) const { return find(character) != notFound; }
     bool contains(const LChar* string) const { return find(string) != notFound; }
-    bool contains(const String& string) const { return find(string) != notFound; }
-    bool containsIgnoringASCIICase(const String& string) const { return findIgnoringASCIICase(string) != notFound; }
-    bool containsIgnoringASCIICase(const String& string, unsigned startOffset) const { return findIgnoringASCIICase(string, startOffset) != notFound; }
+    bool contains(StringView) const;
+    bool containsIgnoringASCIICase(StringView) const;
+    bool containsIgnoringASCIICase(StringView, unsigned start) const;
 
-    bool startsWith(const String& string) const { return m_impl ? m_impl->startsWith(string.impl()) : string.isEmpty(); }
-    bool startsWithIgnoringASCIICase(const String& string) const { return m_impl ? m_impl->startsWithIgnoringASCIICase(string.impl()) : string.isEmpty(); }
+    bool startsWith(StringView) const;
+    bool startsWithIgnoringASCIICase(StringView) const;
     bool startsWith(UChar character) const { return m_impl && m_impl->startsWith(character); }
-    template<unsigned matchLength> bool startsWith(const char (&prefix)[matchLength]) const { return m_impl ? m_impl->startsWith<matchLength>(prefix) : !matchLength; }
-    bool hasInfixStartingAt(const String& prefix, unsigned startOffset) const { return m_impl && prefix.impl() && m_impl->hasInfixStartingAt(*prefix.impl(), startOffset); }
+    bool hasInfixStartingAt(StringView prefix, unsigned start) const;
 
-    bool endsWith(const String& string) const { return m_impl ? m_impl->endsWith(string.impl()) : string.isEmpty(); }
-    bool endsWithIgnoringASCIICase(const String& string) const { return m_impl ? m_impl->endsWithIgnoringASCIICase(string.impl()) : string.isEmpty(); }
+    bool endsWith(StringView) const;
+    bool endsWithIgnoringASCIICase(StringView) const;
     bool endsWith(UChar character) const { return m_impl && m_impl->endsWith(character); }
     bool endsWith(char character) const { return endsWith(static_cast<UChar>(character)); }
-    template<unsigned matchLength> bool endsWith(const char (&prefix)[matchLength]) const { return m_impl ? m_impl->endsWith<matchLength>(prefix) : !matchLength; }
-    bool hasInfixEndingAt(const String& suffix, unsigned endOffset) const { return m_impl && suffix.impl() && m_impl->hasInfixEndingAt(*suffix.impl(), endOffset); }
+    bool hasInfixEndingAt(StringView suffix, unsigned end) const;
 
     WTF_EXPORT_PRIVATE void append(const String&);
     WTF_EXPORT_PRIVATE void append(LChar);
@@ -213,9 +206,9 @@ public:
     WTF_EXPORT_PRIVATE void insert(const String&, unsigned position);
 
     String& replace(UChar target, UChar replacement);
-    String& replace(UChar target, const String& replacement);
-    String& replace(const String& target, const String& replacement);
-    String& replace(unsigned start, unsigned length, const String& replacement);
+    String& replace(UChar target, StringView replacement);
+    String& replace(StringView target, StringView replacement);
+    String& replace(unsigned start, unsigned length, StringView replacement);
     template<unsigned characterCount> String& replaceWithLiteral(UChar target, const char (&replacement)[characterCount]);
 
     WTF_EXPORT_PRIVATE void truncate(unsigned length);
@@ -254,11 +247,11 @@ public:
 
     WTF_EXPORT_PRIVATE void split(UChar separator, const SplitFunctor&) const;
     WTF_EXPORT_PRIVATE Vector<String> split(UChar separator) const;
-    WTF_EXPORT_PRIVATE Vector<String> split(const String& separator) const;
+    WTF_EXPORT_PRIVATE Vector<String> split(StringView separator) const;
 
     WTF_EXPORT_PRIVATE void splitAllowingEmptyEntries(UChar separator, const SplitFunctor&) const;
     WTF_EXPORT_PRIVATE Vector<String> splitAllowingEmptyEntries(UChar separator) const;
-    WTF_EXPORT_PRIVATE Vector<String> splitAllowingEmptyEntries(const String& separator) const;
+    WTF_EXPORT_PRIVATE Vector<String> splitAllowingEmptyEntries(StringView separator) const;
 
     WTF_EXPORT_PRIVATE double toDouble(bool* ok = nullptr) const;
     WTF_EXPORT_PRIVATE float toFloat(bool* ok = nullptr) const;
@@ -359,7 +352,7 @@ private:
 
     template<bool allowEmptyEntries> void splitInternal(UChar separator, const SplitFunctor&) const;
     template<bool allowEmptyEntries> Vector<String> splitInternal(UChar separator) const;
-    template<bool allowEmptyEntries> Vector<String> splitInternal(const String& separator) const;
+    template<bool allowEmptyEntries> Vector<String> splitInternal(StringView separator) const;
 
     RefPtr<StringImpl> m_impl;
 };
@@ -479,6 +472,11 @@ inline String::String(StaticStringImpl* string)
 {
 }
 
+inline String::String(ASCIILiteral characters)
+    : m_impl(characters.isNull() ? nullptr : RefPtr<StringImpl> { StringImpl::createFromLiteral(characters) })
+{
+}
+
 template<size_t inlineCapacity, typename OverflowHandler> String::String(const Vector<UChar, inlineCapacity, OverflowHandler>& vector)
     : m_impl(vector.size() ? StringImpl::create(vector.data(), vector.size()) : Ref<StringImpl> { *StringImpl::empty() })
 {
@@ -505,27 +503,6 @@ inline String& String::replace(UChar target, UChar replacement)
 {
     if (m_impl)
         m_impl = m_impl->replace(target, replacement);
-    return *this;
-}
-
-inline String& String::replace(UChar target, const String& replacement)
-{
-    if (m_impl)
-        m_impl = m_impl->replace(target, replacement.impl());
-    return *this;
-}
-
-inline String& String::replace(const String& target, const String& replacement)
-{
-    if (m_impl)
-        m_impl = m_impl->replace(target.impl(), replacement.impl());
-    return *this;
-}
-
-inline String& String::replace(unsigned start, unsigned length, const String& replacement)
-{
-    if (m_impl)
-        m_impl = m_impl->replace(start, length, replacement.impl());
     return *this;
 }
 

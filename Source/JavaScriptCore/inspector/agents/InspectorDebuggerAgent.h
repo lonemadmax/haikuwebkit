@@ -60,7 +60,7 @@ public:
 
     static RefPtr<JSC::Breakpoint> debuggerBreakpointFromPayload(Protocol::ErrorString&, RefPtr<JSON::Object>&& options);
 
-    static const char* const backtraceObjectGroup;
+    static const ASCIILiteral backtraceObjectGroup;
 
     // InspectorAgentBase
     void didCreateFrontendAndBackend(FrontendRouter*, BackendDispatcher*) final;
@@ -151,6 +151,8 @@ protected:
     InspectorDebuggerAgent(AgentContext&);
     virtual void internalEnable();
     virtual void internalDisable(bool isBeingDestroyed);
+
+    Protocol::ErrorStringOr<std::tuple<Ref<Protocol::Runtime::RemoteObject>, std::optional<bool> /* wasThrown */, std::optional<int> /* savedResultIndex */>> evaluateOnCallFrame(InjectedScript&, const Protocol::Debugger::CallFrameId&, const String& expression, const String& objectGroup, std::optional<bool>&& includeCommandLineAPI, std::optional<bool>&& doNotPauseOnExceptionsAndMuteConsole, std::optional<bool>&& returnByValue, std::optional<bool>&& generatePreview, std::optional<bool>&& saveResult, std::optional<bool>&& emulateUserGesture);
 
     InjectedScriptManager& injectedScriptManager() const { return m_injectedScriptManager; }
     virtual InjectedScript injectedScriptForEval(Protocol::ErrorString&, std::optional<Protocol::Runtime::ExecutionContextId>&&) = 0;

@@ -1085,10 +1085,12 @@
             "com.apple.iphone.axserver-systemwide"
             "com.apple.mobileassetd.v2"
             "com.apple.mobilegestalt.xpc"
+#if !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
             "com.apple.nehelper"
             "com.apple.nesessionmanager.content-filter"
-            "com.apple.tccd"
             "com.apple.uikit.viewservice.com.apple.WebContentFilter.remoteUI"
+#endif
+            "com.apple.tccd"
             "com.apple.webinspector"
 )))
 
@@ -1107,6 +1109,7 @@
         (extension "com.apple.webkit.extension.mach")
         (global-name
             "com.apple.iconservices"
+            "com.apple.lsd.open"
         )
     )
 )
@@ -1278,6 +1281,9 @@
         SYS_setrlimit
         SYS_sigaltstack
         SYS_sigprocmask
+#if PLATFORM(WATCHOS)
+        SYS_sigreturn
+#endif
         SYS_socket
         SYS_thread_selfusage
         SYS_unlink
@@ -1650,3 +1656,23 @@
         "com.apple.accessibility.wob.status"
         "com.apple.automation.stringlookupinfoenabled"
         "com.apple.webinspectord.availability_check"))
+
+#if ENABLE(SYSTEM_CONTENT_PATH_SANDBOX_RULES)
+#include <WebKitAdditions/SystemContentSandbox-ios.defs>
+
+(allow file-read* file-test-existence
+    (apply subpath file-read-existence-secondary-paths))
+
+(allow file-map-executable
+    (apply subpath secondary-framework-and-dylib-paths))
+
+(allow-read-and-issue-generic-extensions
+    (apply subpath issue-extension-secondary-paths))
+    
+(allow file-issue-extension
+    (require-all
+        (extension-class "com.apple.mediaserverd.read")
+        (require-any
+            (apply subpath issue-extension-secondary-paths)
+        )))
+#endif

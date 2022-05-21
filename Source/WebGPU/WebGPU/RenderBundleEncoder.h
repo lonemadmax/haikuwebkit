@@ -25,10 +25,14 @@
 
 #pragma once
 
+#import "CommandsMixin.h"
 #import <wtf/FastMalloc.h>
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
 #import <wtf/RefPtr.h>
+
+struct WGPURenderBundleEncoderImpl {
+};
 
 namespace WebGPU {
 
@@ -37,7 +41,7 @@ class Buffer;
 class RenderBundle;
 class RenderPipeline;
 
-class RenderBundleEncoder : public RefCounted<RenderBundleEncoder> {
+class RenderBundleEncoder : public WGPURenderBundleEncoderImpl, public RefCounted<RenderBundleEncoder>, public CommandsMixin {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static Ref<RenderBundleEncoder> create(id<MTLIndirectCommandBuffer> indirectCommandBuffer)
@@ -52,23 +56,23 @@ public:
     void drawIndexedIndirect(const Buffer& indirectBuffer, uint64_t indirectOffset);
     void drawIndirect(const Buffer& indirectBuffer, uint64_t indirectOffset);
     RefPtr<RenderBundle> finish(const WGPURenderBundleDescriptor&);
-    void insertDebugMarker(const char* markerLabel);
+    void insertDebugMarker(String&& markerLabel);
     void popDebugGroup();
-    void pushDebugGroup(const char* groupLabel);
+    void pushDebugGroup(String&& groupLabel);
     void setBindGroup(uint32_t groupIndex, const BindGroup&, uint32_t dynamicOffsetCount, const uint32_t* dynamicOffsets);
     void setIndexBuffer(const Buffer&, WGPUIndexFormat, uint64_t offset, uint64_t size);
     void setPipeline(const RenderPipeline&);
     void setVertexBuffer(uint32_t slot, const Buffer&, uint64_t offset, uint64_t size);
-    void setLabel(const char*);
+    void setLabel(String&&);
 
 private:
     RenderBundleEncoder(id<MTLIndirectCommandBuffer>);
 
-    id<MTLIndirectCommandBuffer> m_indirectCommandBuffer { nil };
+    bool validatePopDebugGroup() const;
+
+    const id<MTLIndirectCommandBuffer> m_indirectCommandBuffer { nil };
+
+    uint64_t m_debugGroupStackSize { 0 };
 };
 
 } // namespace WebGPU
-
-struct WGPURenderBundleEncoderImpl {
-    Ref<WebGPU::RenderBundleEncoder> renderBundleEncoder;
-};

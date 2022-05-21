@@ -7822,16 +7822,21 @@ static void checkSettingsControlledByCaptivePortalMode(WKWebView *webView, Shoul
     EXPECT_EQ(runJSCheck("!!window.Gamepad"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // Gamepad API.
     EXPECT_EQ(runJSCheck("!!window.RemotePlayback"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // Remote Playback.
     EXPECT_EQ(runJSCheck("!!window.FileSystemHandle"_s), isShowingInitialEmptyDocument != IsShowingInitialEmptyDocument::Yes && shouldBeEnabled == ShouldBeEnabled::Yes); // File System Access.
+    EXPECT_EQ(runJSCheck("!!window.HTMLModelElement"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // AR (Model)
     EXPECT_EQ(runJSCheck("!!window.PictureInPictureEvent"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // Picture in Picture API.
     EXPECT_EQ(runJSCheck("!!window.SpeechRecognitionEvent"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // Speech recognition.
     EXPECT_EQ(runJSCheck("!!window.Notification"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // Notification API.
     EXPECT_EQ(runJSCheck("!!window.WebXRSystem"_s), false); // WebXR (currently always disabled).
     EXPECT_EQ(runJSCheck("!!window.AudioContext"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // WebAudio.
     EXPECT_EQ(runJSCheck("!!window.RTCPeerConnection"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // WebRTC Peer Connection.
+    EXPECT_EQ(runJSCheck("!!window.RTCRtpScriptTransform"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // WebRTC Script Transform
     EXPECT_EQ(runJSCheck("!!navigator.mediaDevices"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // GetUserMedia (Media Capture).
     EXPECT_EQ(runJSCheck("!!navigator.getUserMedia"_s), false); // Legacy GetUserMedia (currently always disabled).
     EXPECT_EQ(runJSCheck("!!window.MathMLElement"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // MathML.
     EXPECT_EQ(runJSCheck("!!window.MathMLMathElement"_s), shouldBeEnabled == ShouldBeEnabled::Yes); // MathML.
+    EXPECT_EQ(runJSCheck("!!window.PushManager"_s), isShowingInitialEmptyDocument != IsShowingInitialEmptyDocument::Yes && shouldBeEnabled == ShouldBeEnabled::Yes); // Push API.
+    EXPECT_EQ(runJSCheck("!!window.PushSubscription"_s), isShowingInitialEmptyDocument != IsShowingInitialEmptyDocument::Yes && shouldBeEnabled == ShouldBeEnabled::Yes); // Push API.
+    EXPECT_EQ(runJSCheck("!!window.PushSubscriptionOptions"_s), isShowingInitialEmptyDocument != IsShowingInitialEmptyDocument::Yes && shouldBeEnabled == ShouldBeEnabled::Yes); // Push API.
     String mathMLCheck = makeString("document.createElementNS('http://www.w3.org/1998/Math/MathML','mspace').__proto__ == ", shouldBeEnabled == ShouldBeEnabled::Yes ? "MathMLElement" : "Element", ".prototype");
     EXPECT_EQ(runJSCheck(mathMLCheck), true); // MathML.
 }
@@ -7849,14 +7854,28 @@ static void checkSettingsControlledByCaptivePortalMode(WKWebView *webView, Shoul
 
 @end
 
+void configureCaptivePortalWKWebViewConfiguration(WKWebViewConfiguration *config)
+{
+    [config.preferences _setMediaDevicesEnabled:YES];
+    config.preferences._mediaCaptureRequiresSecureConnection = NO;
+    [config.preferences _setNotificationsEnabled:YES];
+
+    for (_WKExperimentalFeature *feature in [WKPreferences _experimentalFeatures]) {
+        if ([feature.key isEqualToString:@"ModelElementEnabled"]
+            || [feature.key isEqualToString:@"PushAPIEnabled"]
+            || [feature.key isEqualToString:@"WebRTCEncodedTransformEnabled"]) {
+            [config.preferences _setEnabled:YES forFeature:feature];
+        }
+    }
+}
+
 TEST(ProcessSwap, NavigatingToCaptivePortalMode)
 {
     auto messageHandler = adoptNS([[CaptivePortalMessageHandler alloc] init]);
 
     auto webViewConfiguration = adoptNS([WKWebViewConfiguration new]);
     EXPECT_FALSE(webViewConfiguration.get().defaultWebpagePreferences._captivePortalModeEnabled);
-    [webViewConfiguration.get().preferences _setMediaDevicesEnabled:YES];
-    webViewConfiguration.get().preferences._mediaCaptureRequiresSecureConnection = NO;
+    configureCaptivePortalWKWebViewConfiguration(webViewConfiguration.get());
     [webViewConfiguration.get().userContentController addScriptMessageHandler:messageHandler.get() name:@"testHandler"];
 
     auto webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:webViewConfiguration.get()]);
@@ -7986,9 +8005,8 @@ TEST(ProcessSwap, CannotDisableCaptivePortalModeWithoutBrowserEntitlement)
 {
     auto webViewConfiguration = adoptNS([WKWebViewConfiguration new]);
     EXPECT_FALSE(webViewConfiguration.get().defaultWebpagePreferences._captivePortalModeEnabled);
+    configureCaptivePortalWKWebViewConfiguration(webViewConfiguration.get());
     [webViewConfiguration.get().defaultWebpagePreferences _setCaptivePortalModeEnabled:YES];
-    [webViewConfiguration.get().preferences _setMediaDevicesEnabled:YES];
-    webViewConfiguration.get().preferences._mediaCaptureRequiresSecureConnection = NO;
 
     auto webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:webViewConfiguration.get()]);
     auto delegate = adoptNS([TestNavigationDelegate new]);
@@ -8031,9 +8049,8 @@ TEST(ProcessSwap, CaptivePortalModeEnabledByDefaultThenOptOut)
 {
     auto webViewConfiguration = adoptNS([WKWebViewConfiguration new]);
     EXPECT_FALSE(webViewConfiguration.get().defaultWebpagePreferences._captivePortalModeEnabled);
+    configureCaptivePortalWKWebViewConfiguration(webViewConfiguration.get());
     [webViewConfiguration.get().defaultWebpagePreferences _setCaptivePortalModeEnabled:YES];
-    [webViewConfiguration.get().preferences _setMediaDevicesEnabled:YES];
-    webViewConfiguration.get().preferences._mediaCaptureRequiresSecureConnection = NO;
 
     auto webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:webViewConfiguration.get()]);
     auto delegate = adoptNS([TestNavigationDelegate new]);
@@ -8088,8 +8105,8 @@ TEST(ProcessSwap, CaptivePortalModeEnabledByDefaultThenOptOut)
 
     // captive portal mode should be disabled in new WebViews since it is not enabled globally.
     auto webViewConfiguration2 = adoptNS([WKWebViewConfiguration new]);
-    [webViewConfiguration2.get().preferences _setMediaDevicesEnabled:YES];
-    webViewConfiguration2.get().preferences._mediaCaptureRequiresSecureConnection = NO;
+    configureCaptivePortalWKWebViewConfiguration(webViewConfiguration2.get());
+    EXPECT_TRUE([webViewConfiguration2.get().defaultWebpagePreferences _captivePortalModeEnabled] == NO);
     auto webView2 = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:webViewConfiguration2.get()]);
     [webView2 setNavigationDelegate:delegate.get()];
     EXPECT_TRUE(isJITEnabled(webView2.get()));
@@ -8293,3 +8310,152 @@ TEST(ProcessSwap, CaptivePortalModeSystemSettingChangeDoesNotReloadViewsWhenMode
 }
 
 #endif
+
+#if PLATFORM(IOS_FAMILY)
+TEST(ProcessSwap, ContentModeInCaseOfCoopProcessSwap)
+{
+    using namespace TestWebKitAPI;
+
+    HTTPServer server({
+        { "/source.html", { "foo" } },
+        { "/destination.html", { { { "Content-Type", "text/html" }, { "Cross-Origin-Opener-Policy", "same-origin" } }, "bar" } },
+    }, HTTPServer::Protocol::Https);
+
+    auto processPoolConfiguration = psonProcessPoolConfiguration();
+    auto processPool = adoptNS([[WKProcessPool alloc] _initWithConfiguration:processPoolConfiguration.get()]);
+
+    auto webViewConfiguration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    [webViewConfiguration setProcessPool:processPool.get()];
+
+    auto webpagePreferences = adoptNS([[WKWebpagePreferences alloc] init]);
+    [webpagePreferences setPreferredContentMode:WKContentModeDesktop];
+    [webViewConfiguration setDefaultWebpagePreferences:webpagePreferences.get()];
+
+    auto webView = adoptNS([[WKWebView alloc] initWithFrame:CGRectMake(0, 0, 1024, 768) configuration:webViewConfiguration.get()]);
+    auto navigationDelegate = adoptNS([[PSONNavigationDelegate alloc] init]);
+    [webView setNavigationDelegate:navigationDelegate.get()];
+
+    done = false;
+    [webView loadRequest:server.request("/source.html")];
+    Util::run(&done);
+    done = false;
+
+    [webView evaluateJavaScript:@"navigator.userAgent;" completionHandler:^(id _Nullable response, NSError * _Nullable error) {
+        done = true;
+
+        ASSERT_TRUE(!error);
+        NSString *userAgent = (NSString *)response;
+        ASSERT_TRUE([userAgent containsString:@"Macintosh; Intel Mac"]);
+    }];
+    Util::run(&done);
+    done = false;
+
+    auto pid1 = [webView _webProcessIdentifier];
+
+    [webView loadRequest:server.request("/destination.html")];
+    Util::run(&done);
+    done = false;
+
+    [webView evaluateJavaScript:@"navigator.userAgent;" completionHandler:^(id _Nullable response, NSError * _Nullable error) {
+        done = true;
+
+        ASSERT_TRUE(!error);
+        NSString *userAgent = (NSString *)response;
+        ASSERT_TRUE([userAgent containsString:@"Macintosh; Intel Mac"]);
+    }];
+    Util::run(&done);
+    done = false;
+
+    auto pid2 = [webView _webProcessIdentifier];
+    EXPECT_NE(pid1, pid2);
+
+    [webView goBack]; // Back to source.html.
+    Util::run(&done);
+    done = false;
+
+    [webView evaluateJavaScript:@"navigator.userAgent;" completionHandler:^(id _Nullable response, NSError * _Nullable error) {
+        done = true;
+
+        ASSERT_TRUE(!error);
+        NSString *userAgent = (NSString *)response;
+        ASSERT_TRUE([userAgent containsString:@"Macintosh; Intel Mac"]);
+    }];
+    Util::run(&done);
+    done = false;
+}
+
+TEST(ProcessSwap, ContentModeInCaseOfPSONThenCoopProcessSwap)
+{
+    using namespace TestWebKitAPI;
+
+    HTTPServer server1({
+        { "/source.html", { "foo" } },
+    }, HTTPServer::Protocol::Https);
+
+    HTTPServer server2({
+        { "/destination.html", { { { "Content-Type", "text/html" }, { "Cross-Origin-Opener-Policy", "same-origin" } }, "bar" } },
+    }, HTTPServer::Protocol::Http);
+
+    auto processPoolConfiguration = psonProcessPoolConfiguration();
+    auto processPool = adoptNS([[WKProcessPool alloc] _initWithConfiguration:processPoolConfiguration.get()]);
+
+    auto webViewConfiguration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    [webViewConfiguration setProcessPool:processPool.get()];
+
+    auto webpagePreferences = adoptNS([[WKWebpagePreferences alloc] init]);
+    [webpagePreferences setPreferredContentMode:WKContentModeDesktop];
+    [webViewConfiguration setDefaultWebpagePreferences:webpagePreferences.get()];
+
+    auto webView = adoptNS([[WKWebView alloc] initWithFrame:CGRectMake(0, 0, 1024, 768) configuration:webViewConfiguration.get()]);
+    auto navigationDelegate = adoptNS([[PSONNavigationDelegate alloc] init]);
+    [webView setNavigationDelegate:navigationDelegate.get()];
+
+    done = false;
+    [webView loadRequest:server1.request("/source.html")];
+    Util::run(&done);
+    done = false;
+
+    [webView evaluateJavaScript:@"navigator.userAgent;" completionHandler:^(id _Nullable response, NSError * _Nullable error) {
+        done = true;
+
+        ASSERT_TRUE(!error);
+        NSString *userAgent = (NSString *)response;
+        ASSERT_TRUE([userAgent containsString:@"Macintosh; Intel Mac"]);
+    }];
+    Util::run(&done);
+    done = false;
+
+    auto pid1 = [webView _webProcessIdentifier];
+
+    [webView loadRequest:server2.request("/destination.html")];
+    Util::run(&done);
+    done = false;
+
+    [webView evaluateJavaScript:@"navigator.userAgent;" completionHandler:^(id _Nullable response, NSError * _Nullable error) {
+        done = true;
+
+        ASSERT_TRUE(!error);
+        NSString *userAgent = (NSString *)response;
+        ASSERT_TRUE([userAgent containsString:@"Macintosh; Intel Mac"]);
+    }];
+    Util::run(&done);
+    done = false;
+
+    auto pid2 = [webView _webProcessIdentifier];
+    EXPECT_NE(pid1, pid2);
+
+    [webView goBack]; // Back to source.html.
+    Util::run(&done);
+    done = false;
+
+    [webView evaluateJavaScript:@"navigator.userAgent;" completionHandler:^(id _Nullable response, NSError * _Nullable error) {
+        done = true;
+
+        ASSERT_TRUE(!error);
+        NSString *userAgent = (NSString *)response;
+        ASSERT_TRUE([userAgent containsString:@"Macintosh; Intel Mac"]);
+    }];
+    Util::run(&done);
+    done = false;
+}
+#endif // PLATFORM(IOS_FAMILY)

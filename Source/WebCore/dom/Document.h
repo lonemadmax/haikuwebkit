@@ -708,6 +708,8 @@ public:
     void setURL(const URL&);
     const URL& urlForBindings() const { return m_url.isEmpty() ? aboutBlankURL() : m_url; }
 
+    const URL& creationURL() const { return m_creationURL; }
+
     // To understand how these concepts relate to one another, please see the
     // comments surrounding their declaration.
     const URL& baseURL() const { return m_baseURL; }
@@ -835,7 +837,7 @@ public:
     void registerNodeListForInvalidation(LiveNodeList&);
     void unregisterNodeListForInvalidation(LiveNodeList&);
     WEBCORE_EXPORT void registerCollection(HTMLCollection&);
-    void unregisterCollection(HTMLCollection&);
+    WEBCORE_EXPORT void unregisterCollection(HTMLCollection&);
     void collectionCachedIdNameMap(const HTMLCollection&);
     void collectionWillClearIdNameMap(const HTMLCollection&);
     bool shouldInvalidateNodeListAndCollectionCaches() const;
@@ -1017,7 +1019,8 @@ public:
     // URL. For the top-level document, it is set to the document's URL.
     const URL& siteForCookies() const { return m_siteForCookies; }
     void setSiteForCookies(const URL& url) { m_siteForCookies = url; }
-    
+    bool isSameSiteForCookies(const URL&) const;
+
     // The following implements the rule from HTML 4 for what valid names are.
     // To get this right for all the XML cases, we probably have to improve this or move it
     // and make it sensitive to the type of document.
@@ -1564,6 +1567,7 @@ public:
 
 #if ENABLE(SERVICE_WORKER)
     void setServiceWorkerConnection(SWClientConnection*);
+    void updateServiceWorkerClientData();
 #endif
 
 #if ENABLE(VIDEO)
@@ -1815,6 +1819,7 @@ private:
 
     // Document URLs.
     URL m_url; // Document.URL: The URL from which this document was retrieved.
+    URL m_creationURL; // https://html.spec.whatwg.org/multipage/webappapis.html#concept-environment-creation-url.
     URL m_baseURL; // Node.baseURI: The URL to use when resolving relative URLs.
     URL m_baseURLOverride; // An alternative base URL that takes precedence over m_baseURL (but not m_baseElementURL).
     URL m_baseElementURL; // The URL set by the <base> element.

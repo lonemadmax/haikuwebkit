@@ -381,6 +381,7 @@ public:
 #endif
 
 #if ENABLE(GPU_PROCESS)
+    void gpuProcessDidFinishLaunching();
     void gpuProcessExited(GPUProcessTerminationReason);
 #endif
 
@@ -390,7 +391,7 @@ public:
     bool hasNetworkExtensionSandboxAccess() const { return m_hasNetworkExtensionSandboxAccess; }
     void markHasNetworkExtensionSandboxAccess() { m_hasNetworkExtensionSandboxAccess = true; }
 #endif
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) && !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
     bool hasManagedSessionSandboxAccess() const { return m_hasManagedSessionSandboxAccess; }
     void markHasManagedSessionSandboxAccess() { m_hasManagedSessionSandboxAccess = true; }
 #endif
@@ -628,7 +629,7 @@ private:
 #if PLATFORM(COCOA)
     bool m_hasNetworkExtensionSandboxAccess { false };
 #endif
-#if PLATFORM(IOS)
+#if PLATFORM(IOS) && !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
     bool m_hasManagedSessionSandboxAccess { false };
 #endif
 

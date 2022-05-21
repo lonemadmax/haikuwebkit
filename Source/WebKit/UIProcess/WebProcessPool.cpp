@@ -463,6 +463,14 @@ GPUProcessProxy& WebProcessPool::ensureGPUProcess()
     return *m_gpuProcess;
 }
 
+
+void WebProcessPool::gpuProcessDidFinishLaunching(ProcessID)
+{
+    auto processes = m_processes;
+    for (auto& process : processes)
+        process->gpuProcessDidFinishLaunching();
+}
+
 void WebProcessPool::gpuProcessExited(ProcessID identifier, GPUProcessTerminationReason reason)
 {
     WEBPROCESSPOOL_RELEASE_LOG(Process, "gpuProcessDidExit: PID=%d, reason=%u", identifier, static_cast<unsigned>(reason));
@@ -834,8 +842,6 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
 
     parameters.shouldAlwaysUseComplexTextCodePath = m_alwaysUsesComplexTextCodePath;
     parameters.shouldUseFontSmoothing = m_shouldUseFontSmoothing;
-
-    parameters.terminationTimeout = 0_s;
 
     parameters.textCheckerState = TextChecker::state();
 
@@ -1778,10 +1784,9 @@ WeakHashSet<WebProcessProxy>& WebProcessPool::remoteWorkerProcesses()
 
 void WebProcessPool::updateProcessAssertions()
 {
-    WebsiteDataStore::forEachWebsiteDataStore([] (WebsiteDataStore& dataStore) {
-        if (auto* networkProcess = dataStore.networkProcessIfExists())
-            networkProcess->updateProcessAssertion();
-    });
+    if (auto& networkProcess = NetworkProcessProxy::defaultNetworkProcess())
+        networkProcess->updateProcessAssertion();
+
 #if ENABLE(GPU_PROCESS)
     if (auto* gpuProcess = GPUProcessProxy::singletonIfCreated())
         gpuProcess->updateProcessAssertion();

@@ -70,7 +70,7 @@ public:
     template<PtrTag tag> using CodePtr = MacroAssemblerCodePtr<tag>;
     template<PtrTag tag> using CodeRef = MacroAssemblerCodeRef<tag>;
 
-    static const char* typeName(JITType);
+    static ASCIILiteral typeName(JITType);
 
     static JITType bottomTierJIT()
     {
@@ -165,9 +165,11 @@ public:
     {
         if (JITCode::isBaselineCode(jitType))
             return true;
-        if (!Options::useDataIC())
-            return false;
+#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)
         return Options::useDataICInOptimizingJIT();
+#else
+        return false;
+#endif
     }
 
     virtual const DOMJIT::Signature* signature() const { return nullptr; }

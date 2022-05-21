@@ -26,6 +26,7 @@
 #import "config.h"
 #import "QuerySet.h"
 
+#import "APIConversions.h"
 #import "Device.h"
 
 namespace WebGPU {
@@ -47,24 +48,26 @@ void QuerySet::destroy()
 {
 }
 
-void QuerySet::setLabel(const char*)
+void QuerySet::setLabel(String&&)
 {
     // MTLCounterSampleBuffer's labels are read-only.
 }
 
 } // namespace WebGPU
 
+#pragma mark WGPU Stubs
+
 void wgpuQuerySetRelease(WGPUQuerySet querySet)
 {
-    delete querySet;
+    WebGPU::fromAPI(querySet).deref();
 }
 
 void wgpuQuerySetDestroy(WGPUQuerySet querySet)
 {
-    querySet->querySet->destroy();
+    WebGPU::fromAPI(querySet).destroy();
 }
 
 void wgpuQuerySetSetLabel(WGPUQuerySet querySet, const char* label)
 {
-    querySet->querySet->setLabel(label);
+    WebGPU::fromAPI(querySet).setLabel(WebGPU::fromAPI(label));
 }

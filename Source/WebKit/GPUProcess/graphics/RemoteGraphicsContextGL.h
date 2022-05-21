@@ -42,7 +42,7 @@
 #if PLATFORM(COCOA)
 #include <WebCore/GraphicsContextGLCocoa.h>
 #else
-#include <WebCore/GraphicsContextGLTextureMapper.h>
+#include <WebCore/GraphicsContextGLTextureMapperANGLE.h>
 #endif
 
 #if PLATFORM(MAC)
@@ -101,7 +101,6 @@ protected:
     // GraphicsContextGL::Client overrides.
     void didComposite() final;
     void forceContextLost() final;
-    void recycleContext() final;
     void dispatchContextChangedNotification() final;
 
     // Messages to be received.
@@ -120,7 +119,7 @@ protected:
     void paintRenderingResultsToCanvas(WebCore::RenderingResourceIdentifier, CompletionHandler<void()>&&);
     void paintCompositedResultsToCanvas(WebCore::RenderingResourceIdentifier, CompletionHandler<void()>&&);
 #if ENABLE(MEDIA_STREAM)
-    void paintCompositedResultsToMediaSample(CompletionHandler<void(std::optional<WebKit::RemoteVideoFrameProxy::Properties>&&)>&&);
+    void paintCompositedResultsToVideoFrame(CompletionHandler<void(std::optional<WebKit::RemoteVideoFrameProxy::Properties>&&)>&&);
 #endif
 #if ENABLE(VIDEO)
     void copyTextureFromVideoFrame(RemoteVideoFrameReadReference, uint32_t texture, uint32_t target, int32_t level, uint32_t internalFormat, uint32_t format, uint32_t type, bool premultiplyAlpha, bool flipY, CompletionHandler<void(bool)>&&);
@@ -142,7 +141,7 @@ protected:
 #if PLATFORM(COCOA)
     using GCGLContext = WebCore::GraphicsContextGLCocoa;
 #else
-    using GCGLContext = WebCore::GraphicsContextGLTextureMapper;
+    using GCGLContext = WebCore::GraphicsContextGLTextureMapperANGLE;
 #endif
     RefPtr<GCGLContext> m_context WTF_GUARDED_BY_CAPABILITY(workQueue());
     GraphicsContextGLIdentifier m_graphicsContextGLIdentifier;

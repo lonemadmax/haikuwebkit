@@ -33,7 +33,6 @@
 #include "SampleBufferDisplayLayerMessages.h"
 #include <WebCore/ImageTransferSessionVT.h>
 #include <WebCore/LocalSampleBufferDisplayLayer.h>
-#include <WebCore/MediaSampleAVFObjC.h>
 
 namespace WebKit {
 
@@ -92,7 +91,7 @@ void RemoteSampleBufferDisplayLayer::updateAffineTransform(CGAffineTransform tra
     m_sampleBufferDisplayLayer->updateRootLayerAffineTransform(transform);
 }
 
-void RemoteSampleBufferDisplayLayer::updateBoundsAndPosition(CGRect bounds, WebCore::MediaSample::VideoRotation rotation)
+void RemoteSampleBufferDisplayLayer::updateBoundsAndPosition(CGRect bounds, WebCore::VideoFrame::Rotation rotation)
 {
     m_sampleBufferDisplayLayer->updateRootLayerBoundsAndPosition(bounds, rotation, LocalSampleBufferDisplayLayer::ShouldUpdateRootLayer::Yes);
 }
@@ -117,19 +116,15 @@ void RemoteSampleBufferDisplayLayer::pause()
     m_sampleBufferDisplayLayer->pause();
 }
 
-void RemoteSampleBufferDisplayLayer::enqueue(SharedVideoFrame&& frame)
+void RemoteSampleBufferDisplayLayer::enqueueVideoFrame(SharedVideoFrame&& frame)
 {
-    auto sample = m_sharedVideoFrameReader.read(WTFMove(frame));
-    if (!sample)
-        return;
-
-    MediaSampleAVFObjC::setAsDisplayImmediately(*sample);
-    m_sampleBufferDisplayLayer->enqueueSample(*sample);
+    if (auto videoFrame = m_sharedVideoFrameReader.read(WTFMove(frame)))
+        m_sampleBufferDisplayLayer->enqueueBuffer(videoFrame->pixelBuffer(), videoFrame->presentationTime());
 }
 
-void RemoteSampleBufferDisplayLayer::clearEnqueuedSamples()
+void RemoteSampleBufferDisplayLayer::clearVideoFrames()
 {
-    m_sampleBufferDisplayLayer->clearEnqueuedSamples();
+    m_sampleBufferDisplayLayer->clearVideoFrames();
 }
 
 IPC::Connection* RemoteSampleBufferDisplayLayer::messageSenderConnection() const

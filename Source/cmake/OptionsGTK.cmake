@@ -12,18 +12,15 @@ find_package(Cairo 1.14.0 REQUIRED)
 find_package(Fontconfig 2.8.0 REQUIRED)
 find_package(Freetype 2.4.2 REQUIRED)
 find_package(LibGcrypt 1.6.0 REQUIRED)
-find_package(GBM REQUIRED)
 find_package(GLIB 2.56.4 REQUIRED COMPONENTS gio gio-unix gobject gthread gmodule)
 find_package(HarfBuzz 0.9.18 REQUIRED COMPONENTS ICU)
 find_package(ICU 61.2 REQUIRED COMPONENTS data i18n uc)
 find_package(JPEG REQUIRED)
-find_package(LibDRM REQUIRED)
 find_package(LibXml2 2.8.0 REQUIRED)
 find_package(PNG REQUIRED)
 find_package(SQLite3 REQUIRED)
 find_package(Threads REQUIRED)
 find_package(ZLIB REQUIRED)
-find_package(ATK 2.16.0 REQUIRED)
 find_package(WebP REQUIRED COMPONENTS demux)
 find_package(ATSPI 2.5.3)
 find_package(EGL)
@@ -78,7 +75,6 @@ WEBKIT_OPTION_DEFINE(USE_WPE_RENDERER "Whether to enable WPE rendering" PUBLIC O
 
 # Private options specific to the GTK port. Changing these options is
 # completely unsupported. They are intended for use only by WebKit developers.
-WEBKIT_OPTION_DEFINE(USE_ATSPI "Whether to use the ATSPI a11y implementation instead of ATK." PRIVATE ON)
 
 WEBKIT_OPTION_DEPEND(ENABLE_3D_TRANSFORMS USE_OPENGL_OR_ES)
 WEBKIT_OPTION_DEPEND(ENABLE_ASYNC_SCROLLING USE_OPENGL_OR_ES)
@@ -124,6 +120,7 @@ endif ()
 # changing the value of the option.
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_DRAG_SUPPORT PUBLIC ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_GAMEPAD PUBLIC ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_PDFJS PUBLIC ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_SPELLCHECK PUBLIC ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_TOUCH_EVENTS PUBLIC ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEB_CRYPTO PUBLIC ON)
@@ -274,17 +271,7 @@ if (NOT EXISTS "${TOOLS_DIR}/glib/apply-build-revision-to-files.py")
     set(BUILD_REVISION "tarball")
 endif ()
 
-if (ENABLE_ACCESSIBILITY)
-    if (USE_ATSPI)
-        SET_AND_EXPOSE_TO_BUILD(USE_ATK FALSE)
-    else ()
-        SET_AND_EXPOSE_TO_BUILD(USE_ATK TRUE)
-    endif ()
-else ()
-    SET_AND_EXPOSE_TO_BUILD(USE_ATK FALSE)
-    SET_AND_EXPOSE_TO_BUILD(USE_ATSPI FALSE)
-endif ()
-
+SET_AND_EXPOSE_TO_BUILD(USE_ATSPI ${ENABLE_ACCESSIBILITY})
 SET_AND_EXPOSE_TO_BUILD(HAVE_GTK_UNIX_PRINTING ${GTK_UNIX_PRINT_FOUND})
 SET_AND_EXPOSE_TO_BUILD(HAVE_OS_DARK_MODE_SUPPORT 1)
 
@@ -383,6 +370,21 @@ if (USE_OPENGL_OR_ES)
     SET_AND_EXPOSE_TO_BUILD(USE_COORDINATED_GRAPHICS TRUE)
     SET_AND_EXPOSE_TO_BUILD(USE_NICOSIA TRUE)
     SET_AND_EXPOSE_TO_BUILD(USE_ANGLE ${USE_ANGLE_WEBGL})
+
+    if (USE_ANGLE_WEBGL)
+        # ANGLE-backed WebGL depends on DMABuf support, which at the moment is leveraged
+        # through libgbm and libdrm dependencies. USE_LIBGBM and USE_TEXTURE_MAPPER_DMABUF
+        # also have to be defined in that case.
+        # TODO: There should be a more generic configuration option on which USE_ANGLE_WEBGL
+        # should depend. These dependencies and defines would be applied when that option
+        # is enabled.
+
+        find_package(GBM REQUIRED)
+        find_package(LibDRM REQUIRED)
+
+        SET_AND_EXPOSE_TO_BUILD(USE_LIBGBM TRUE)
+        SET_AND_EXPOSE_TO_BUILD(USE_TEXTURE_MAPPER_DMABUF TRUE)
+    endif ()
 endif ()
 
 if (ENABLE_SPELLCHECK)

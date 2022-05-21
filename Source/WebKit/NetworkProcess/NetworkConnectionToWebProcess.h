@@ -68,6 +68,7 @@ namespace WebCore {
 class BlobDataFileReference;
 class BlobPart;
 class BlobRegistryImpl;
+class MockContentFilterSettings;
 class ResourceError;
 class ResourceRequest;
 enum class StorageAccessScope : bool;
@@ -199,6 +200,10 @@ public:
 
     void broadcastConsoleMessage(JSC::MessageSource, JSC::MessageLevel, const String& message);
     RefPtr<NetworkResourceLoader> takeNetworkResourceLoader(WebCore::ResourceLoaderIdentifier);
+
+#if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
+    void installMockContentFilter(WebCore::MockContentFilterSettings&&);
+#endif
 
 private:
     NetworkConnectionToWebProcess(NetworkProcess&, WebCore::ProcessIdentifier, PAL::SessionID, IPC::Connection::Identifier);
@@ -434,7 +439,7 @@ private:
     Ref<NetworkSchemeRegistry> m_schemeRegistry;
         
     HashSet<URL> m_blobURLs;
-    HashSet<URL> m_blobURLHandles;
+    HashCountedSet<URL> m_blobURLHandles;
 #if ENABLE(IPC_TESTING_API)
     IPCTester m_ipcTester;
 #endif

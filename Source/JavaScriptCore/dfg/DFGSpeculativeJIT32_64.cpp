@@ -168,14 +168,14 @@ bool SpeculativeJIT::fillJSValue(Edge edge, GPRReg& tagGPR, GPRReg& payloadGPR, 
     }
 }
 
-void SpeculativeJIT::cachedGetById(CodeOrigin origin, JSValueRegs base, JSValueRegs result, GPRReg stubInfoGPR, CacheableIdentifier identifier, JITCompiler::Jump slowPathTarget , SpillRegistersMode mode, AccessType type)
+void SpeculativeJIT::cachedGetById(CodeOrigin origin, JSValueRegs base, JSValueRegs result, GPRReg stubInfoGPR, GPRReg scratchGPR, CacheableIdentifier identifier, JITCompiler::Jump slowPathTarget , SpillRegistersMode mode, AccessType type)
 {
-    cachedGetById(origin, base.tagGPR(), base.payloadGPR(), result.tagGPR(), result.payloadGPR(), stubInfoGPR, identifier, slowPathTarget, mode, type);
+    cachedGetById(origin, base.tagGPR(), base.payloadGPR(), result.tagGPR(), result.payloadGPR(), stubInfoGPR, scratchGPR, identifier, slowPathTarget, mode, type);
 }
 
 void SpeculativeJIT::cachedGetById(
     CodeOrigin codeOrigin, GPRReg baseTagGPROrNone, GPRReg basePayloadGPR, GPRReg resultTagGPR, GPRReg resultPayloadGPR, GPRReg stubInfoGPR,
-    CacheableIdentifier identifier, JITCompiler::Jump slowPathTarget, SpillRegistersMode spillMode, AccessType type)
+    GPRReg scratchGPR, CacheableIdentifier identifier, JITCompiler::Jump slowPathTarget, SpillRegistersMode spillMode, AccessType type)
 {
     UNUSED_PARAM(stubInfoGPR);
     // This is a hacky fix for when the register allocator decides to alias the base payload with the result tag. This only happens
@@ -204,7 +204,7 @@ void SpeculativeJIT::cachedGetById(
         m_jit.codeBlock(), &m_jit.jitCode()->common.m_stubInfos, JITType::DFGJIT, codeOrigin, callSite, usedRegisters, identifier,
         JSValueRegs(baseTagGPROrNone, basePayloadGPR), JSValueRegs(resultTagGPR, resultPayloadGPR), InvalidGPRReg, type);
     
-    gen.generateFastPath(m_jit);
+    gen.generateFastPath(m_jit, scratchGPR);
     
     JITCompiler::JumpList slowCases;
     if (slowPathTarget.isSet())
@@ -229,7 +229,7 @@ void SpeculativeJIT::cachedGetById(
 }
 
 void SpeculativeJIT::cachedGetByIdWithThis(
-    CodeOrigin codeOrigin, GPRReg baseTagGPROrNone, GPRReg basePayloadGPR, GPRReg thisTagGPR, GPRReg thisPayloadGPR, GPRReg resultTagGPR, GPRReg resultPayloadGPR, GPRReg stubInfoGPR,
+    CodeOrigin codeOrigin, GPRReg baseTagGPROrNone, GPRReg basePayloadGPR, GPRReg thisTagGPR, GPRReg thisPayloadGPR, GPRReg resultTagGPR, GPRReg resultPayloadGPR, GPRReg stubInfoGPR, GPRReg scratchGPR,
     CacheableIdentifier identifier, const JITCompiler::JumpList& slowPathTarget)
 {
     UNUSED_PARAM(stubInfoGPR);
@@ -240,7 +240,7 @@ void SpeculativeJIT::cachedGetByIdWithThis(
         m_jit.codeBlock(), &m_jit.jitCode()->common.m_stubInfos, JITType::DFGJIT, codeOrigin, callSite, usedRegisters, identifier,
         JSValueRegs(resultTagGPR, resultPayloadGPR), JSValueRegs(baseTagGPROrNone, basePayloadGPR), JSValueRegs(thisTagGPR, thisPayloadGPR), InvalidGPRReg);
     
-    gen.generateFastPath(m_jit);
+    gen.generateFastPath(m_jit, scratchGPR);
     
     JITCompiler::JumpList slowCases;
     if (!slowPathTarget.empty())
@@ -314,7 +314,7 @@ void SpeculativeJIT::nonSpeculativeNonPeepholeCompareNullOrUndefined(Edge operan
         
         notCell.link(&m_jit);
         // null or undefined?
-        COMPILE_ASSERT((JSValue::UndefinedTag | 1) == JSValue::NullTag, UndefinedTag_OR_1_EQUALS_NullTag);
+        static_assert((JSValue::UndefinedTag | 1) == JSValue::NullTag, "UndefinedTag OR 1 equals to NullTag");
         m_jit.or32(TrustedImm32(1), argTagGPR, resultPayloadGPR);
         m_jit.compare32(JITCompiler::Equal, resultPayloadGPR, TrustedImm32(JSValue::NullTag), resultPayloadGPR);
 
@@ -378,7 +378,7 @@ void SpeculativeJIT::nonSpeculativePeepholeBranchNullOrUndefined(Edge operand, N
         
         notCell.link(&m_jit);
         // null or undefined?
-        COMPILE_ASSERT((JSValue::UndefinedTag | 1) == JSValue::NullTag, UndefinedTag_OR_1_EQUALS_NullTag);
+        static_assert((JSValue::UndefinedTag | 1) == JSValue::NullTag, "UndefinedTag OR 1 equals to NullTag");
         m_jit.or32(TrustedImm32(1), argTagGPR, resultGPR);
         branch32(invert ? JITCompiler::NotEqual : JITCompiler::Equal, resultGPR, JITCompiler::TrustedImm32(JSValue::NullTag), taken);
     }
@@ -783,7 +783,7 @@ void SpeculativeJIT::emitCall(Node* node)
         isEmulatedTail ? *staticInlineCallFrame->getCallerSkippingTailCalls() : staticOrigin;
     CallSiteIndex callSite = m_jit.recordCallSiteAndGenerateExceptionHandlingOSRExitIfNeeded(dynamicOrigin, m_stream->size());
     
-    auto* info = m_jit.jitCode()->common.addCallLinkInfo(node->origin.semantic);
+    auto* info = m_jit.jitCode()->common.addCallLinkInfo(node->origin.semantic, CallLinkInfo::UseDataIC::No);
     info->setUpCall(callType, calleePayloadGPR);
     
     auto setResultAndResetStack = [&] () {
@@ -825,7 +825,10 @@ void SpeculativeJIT::emitCall(Node* node)
         // This is the part where we meant to make a normal call. Oops.
         m_jit.addPtr(TrustedImm32(requiredBytes), JITCompiler::stackPointerRegister);
         m_jit.loadValue(JITCompiler::calleeFrameSlot(CallFrameSlot::callee), JSValueRegs { GPRInfo::regT1, GPRInfo::regT0 });
-        m_jit.emitVirtualCall(vm(), globalObject, info);
+        m_jit.move(TrustedImmPtr(info), GPRInfo::regT2);
+        m_jit.move(TrustedImmPtr::weakPointer(m_graph, globalObject), GPRInfo::regT3);
+        m_jit.emitVirtualCallWithoutMovingGlobalObject(vm(), GPRInfo::regT2, CallMode::Regular);
+        ASSERT(info->callMode() == CallMode::Regular);
         
         done.link(&m_jit);
         setResultAndResetStack();
@@ -888,7 +891,7 @@ void SpeculativeJIT::emitCall(Node* node)
 
     CCallHelpers::JumpList slowCases;
     if (isTail) {
-        slowCases = info->emitTailCallFastPath(m_jit, calleePayloadGPR, scopedLambda<void()>([&]{
+        slowCases = info->emitTailCallFastPath(m_jit, calleePayloadGPR, InvalidGPRReg, scopedLambda<void()>([&]{
             if (node->op() == TailCall) {
                 info->setFrameShuffleData(shuffleData);
                 CallFrameShuffler(m_jit, shuffleData).prepareForTailCall();
@@ -898,7 +901,7 @@ void SpeculativeJIT::emitCall(Node* node)
             }
         }));
     } else
-        slowCases = info->emitFastPath(m_jit, calleePayloadGPR, InvalidGPRReg, CallLinkInfo::UseDataIC::No);
+        slowCases = info->emitFastPath(m_jit, calleePayloadGPR, InvalidGPRReg);
 
     JITCompiler::Jump done = m_jit.jump();
 
@@ -1511,7 +1514,7 @@ void SpeculativeJIT::compileToBooleanObjectOrOther(Edge nodeUse, bool invert)
     
     notCell.link(&m_jit);
  
-    COMPILE_ASSERT((JSValue::UndefinedTag | 1) == JSValue::NullTag, UndefinedTag_OR_1_EQUALS_NullTag);
+    static_assert((JSValue::UndefinedTag | 1) == JSValue::NullTag, "UndefinedTag OR 1 equals to NullTag");
     if (needsTypeCheck(nodeUse, SpecCell | SpecOther)) {
         m_jit.or32(TrustedImm32(1), valueTagGPR, resultPayloadGPR);
         typeCheck(
@@ -1635,7 +1638,7 @@ void SpeculativeJIT::emitObjectOrOtherBranch(Edge nodeUse, BasicBlock* taken, Ba
     
     notCell.link(&m_jit);
     
-    COMPILE_ASSERT((JSValue::UndefinedTag | 1) == JSValue::NullTag, UndefinedTag_OR_1_EQUALS_NullTag);
+    static_assert((JSValue::UndefinedTag | 1) == JSValue::NullTag, "UndefinedTag OR 1 equals to NullTag");
     if (needsTypeCheck(nodeUse, SpecCell | SpecOther)) {
         m_jit.or32(TrustedImm32(1), valueTagGPR, scratchGPR);
         typeCheck(
@@ -3232,7 +3235,7 @@ void SpeculativeJIT::compile(Node* node)
             GPRReg resultTagGPR = resultTag.gpr();
             GPRReg resultPayloadGPR = resultPayload.gpr();
             
-            cachedGetByIdWithThis(node->origin.semantic, InvalidGPRReg, baseGPR, InvalidGPRReg, thisGPR, resultTagGPR, resultPayloadGPR, InvalidGPRReg, node->cacheableIdentifier());
+            cachedGetByIdWithThis(node->origin.semantic, InvalidGPRReg, baseGPR, InvalidGPRReg, thisGPR, resultTagGPR, resultPayloadGPR, InvalidGPRReg, InvalidGPRReg, node->cacheableIdentifier());
             
             jsValueResult(resultTagGPR, resultPayloadGPR, node);
         } else {
@@ -3252,7 +3255,7 @@ void SpeculativeJIT::compile(Node* node)
             notCellList.append(m_jit.branchIfNotCell(base.jsValueRegs()));
             notCellList.append(m_jit.branchIfNotCell(thisValue.jsValueRegs()));
             
-            cachedGetByIdWithThis(node->origin.semantic, baseTagGPR, basePayloadGPR, thisTagGPR, thisPayloadGPR, resultTagGPR, resultPayloadGPR, InvalidGPRReg, node->cacheableIdentifier(), notCellList);
+            cachedGetByIdWithThis(node->origin.semantic, baseTagGPR, basePayloadGPR, thisTagGPR, thisPayloadGPR, resultTagGPR, resultPayloadGPR, InvalidGPRReg, InvalidGPRReg, node->cacheableIdentifier(), notCellList);
             
             jsValueResult(resultTagGPR, resultPayloadGPR, node);
         }
@@ -3554,7 +3557,7 @@ void SpeculativeJIT::compile(Node* node)
         GPRReg resultGPR = result.gpr();
 
         m_jit.move(valueTagGPR, resultGPR);
-        static_assert((JSValue::UndefinedTag + 1 == JSValue::NullTag) && (JSValue::NullTag & 0x1), "");
+        static_assert((JSValue::UndefinedTag + 1 == JSValue::NullTag) && (JSValue::NullTag & 0x1));
         m_jit.or32(CCallHelpers::TrustedImm32(1), resultGPR);
         m_jit.compare32(CCallHelpers::Equal, resultGPR, CCallHelpers::TrustedImm32(JSValue::NullTag), resultGPR);
 

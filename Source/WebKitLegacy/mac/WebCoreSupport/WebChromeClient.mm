@@ -444,6 +444,7 @@ void WebChromeClient::addMessageToConsole(MessageSource source, MessageLevel lev
 
 #if PLATFORM(IOS_FAMILY)
     [[[m_webView _UIKitDelegateForwarder] asyncForwarder] webView:m_webView addMessageToConsole:dictionary withSource:messageSource];
+    UNUSED_VARIABLE(respondsToNewSelector);
 #else
     if (respondsToNewSelector)
         CallUIDelegate(m_webView, selector, dictionary, messageSource);
@@ -1163,7 +1164,9 @@ void WebChromeClient::changeUniversalAccessZoomFocus(const WebCore::IntRect& vie
 RefPtr<PAL::WebGPU::GPU> WebChromeClient::createGPUForWebGPU() const
 {
 #if HAVE(WEBGPU_IMPLEMENTATION)
-    return PAL::WebGPU::GPUImpl::create();
+    return PAL::WebGPU::GPUImpl::create([](PAL::WebGPU::GPUImpl::WorkItem&& workItem) {
+        callOnMainRunLoop(WTFMove(workItem));
+    });
 #else
     return nullptr;
 #endif

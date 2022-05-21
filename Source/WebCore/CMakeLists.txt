@@ -86,6 +86,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/css/calc"
     "${WEBCORE_DIR}/css/parser"
     "${WEBCORE_DIR}/css/typedom"
+    "${WEBCORE_DIR}/css/typedom/color"
     "${WEBCORE_DIR}/css/typedom/numeric"
     "${WEBCORE_DIR}/css/typedom/transform"
     "${WEBCORE_DIR}/cssjit"
@@ -234,6 +235,7 @@ set(WebCore_IDL_INCLUDES
 
     css/typedom
 
+    css/typedom/color
     css/typedom/numeric
     css/typedom/transform
 
@@ -539,17 +541,20 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/remoteplayback/RemotePlayback.idl
     Modules/remoteplayback/RemotePlaybackAvailabilityCallback.idl
 
+    Modules/speech/DOMWindow+SpeechSynthesis.idl
+    Modules/speech/SpeechRecognitionErrorEvent.idl
     Modules/speech/SpeechRecognition.idl
     Modules/speech/SpeechRecognitionAlternative.idl
     Modules/speech/SpeechRecognitionErrorCode.idl
-    Modules/speech/SpeechRecognitionErrorEvent.idl
     Modules/speech/SpeechRecognitionEvent.idl
     Modules/speech/SpeechRecognitionResult.idl
     Modules/speech/SpeechRecognitionResultList.idl
-
-    Modules/speech/DOMWindow+SpeechSynthesis.idl
+    Modules/speech/SpeechSynthesisErrorEventInit.idl
     Modules/speech/SpeechSynthesis.idl
+    Modules/speech/SpeechSynthesisErrorCode.idl
+    Modules/speech/SpeechSynthesisErrorEvent.idl
     Modules/speech/SpeechSynthesisEvent.idl
+    Modules/speech/SpeechSynthesisEventInit.idl
     Modules/speech/SpeechSynthesisUtterance.idl
     Modules/speech/SpeechSynthesisVoice.idl
 
@@ -820,6 +825,16 @@ set(WebCore_NON_SVG_IDL_FILES
     css/typedom/CSSUnparsedValue.idl
     css/typedom/StylePropertyMap.idl
     css/typedom/StylePropertyMapReadOnly.idl
+
+    css/typedom/color/CSSColor.idl
+    css/typedom/color/CSSColorValue.idl
+    css/typedom/color/CSSHSL.idl
+    css/typedom/color/CSSHWB.idl
+    css/typedom/color/CSSLCH.idl
+    css/typedom/color/CSSLab.idl
+    css/typedom/color/CSSOKLCH.idl
+    css/typedom/color/CSSOKLab.idl
+    css/typedom/color/CSSRGB.idl
 
     css/typedom/numeric/CSSMathInvert.idl
     css/typedom/numeric/CSSMathMax.idl

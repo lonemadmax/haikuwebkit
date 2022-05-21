@@ -637,7 +637,7 @@ void Debugger::evaluateBreakpointActions(Breakpoint& breakpoint, JSGlobalObject*
 
     for (const auto& action : breakpoint.actions()) {
         if (m_client)
-            m_client->debuggerWillEvaluate(*this, action);
+            m_client->debuggerWillEvaluate(*this, globalObject, action);
 
         auto& debuggerCallFrame = currentDebuggerCallFrame();
 
@@ -679,7 +679,7 @@ void Debugger::evaluateBreakpointActions(Breakpoint& breakpoint, JSGlobalObject*
         }
 
         if (m_client)
-            m_client->debuggerDidEvaluate(*this, action);
+            m_client->debuggerDidEvaluate(*this, globalObject, action);
 
         if (!isAttached(globalObject))
             return;
@@ -887,7 +887,7 @@ void Debugger::pauseIfNeeded(JSGlobalObject* globalObject)
     if (m_pauseAtNextOpportunity) {
         pauseNow = true;
         didPauseForStep = !afterBlackboxedScript;
-    } else if (m_pauseOnStepNext || m_pauseOnStepOut || (m_pauseOnCallFrame == m_currentCallFrame)) {
+    } else if (m_pauseOnCallFrame == m_currentCallFrame) {
         pauseNow = true;
         didPauseForStep = true;
     }

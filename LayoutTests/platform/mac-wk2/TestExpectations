@@ -814,8 +814,6 @@ webkit.org/b/172454 http/tests/navigation/statistics.html [ Pass Failure ]
 
 webkit.org/b/173188 fast/mediastream/getUserMedia-grant-persistency3.html [ Pass Failure ]
 
-webkit.org/b/172201 webaudio/silent-audio-interrupted-in-background.html [ Pass Timeout ]
-
 webkit.org/b/167757 workers/bomb.html [ Pass Timeout ]
 
 webkit.org/b/187649 editing/selection/update-selection-by-style-change.html [ Pass ImageOnlyFailure ]
@@ -1130,8 +1128,6 @@ webkit.org/b/230653 [ Debug ] imported/w3c/web-platform-tests/webrtc/simulcast/s
 webkit.org/b/214682 imported/w3c/web-platform-tests/css/cssom/stylesheet-same-origin.sub.html [ Pass Failure ]
 
 webkit.org/b/214683 [ Debug ] imported/w3c/web-platform-tests/media-source/mediasource-changetype-play-implicit.html [ Pass Failure ]
-
-webkit.org/b/236656 [ Monterey ] media/media-source/media-webm-vorbis-partial.html [ Failure ]
 
 webkit.org/b/214824 [ Debug ] js/throw-large-string-oom.html [ Skip ]
 
@@ -1690,10 +1686,13 @@ http/wpt/html/semantics/text-level-semantics/the-a-element/a-download-click-404.
 [ Monterey+ ] http/tests/model/model-document.html [ Skip ]
 [ Monterey+ ] http/tests/model/model-document-interactive.html [ Skip ]
 [ Monterey+ ] accessibility/model-element-attributes.html [ Skip ]
-
-# Captured WebGL to another context2d or WebGL not implemented yet.
-webkit.org/b/236496 fast/mediastream/captureStream/canvas3d.html [ Timeout ]
+[ Monterey+ ] model-element/model-element-interactive.html [ Skip ]
 
 webkit.org/b/237095 imported/w3c/web-platform-tests/workers/semantics/multiple-workers/004.html [ Pass Failure ]
 
 webkit.org/b/237165 [ BigSur+ Debug ] imported/w3c/web-platform-tests/html/webappapis/dynamic-markup-insertion/opening-the-input-stream/quirks.window.html [ Pass Crash ]
+
+# Monterey and later use the system font's variable-ness.
+[ Monterey+ ] fast/text/accessibility-bold.html [ Pass ]
+
+webkit.org/b/233621 http/tests/webgpu [ Skip ]

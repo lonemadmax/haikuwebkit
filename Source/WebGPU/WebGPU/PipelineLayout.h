@@ -30,11 +30,14 @@
 #import <wtf/RefCounted.h>
 #import <wtf/Vector.h>
 
+struct WGPUPipelineLayoutImpl {
+};
+
 namespace WebGPU {
 
 class BindGroupLayout;
 
-class PipelineLayout : public RefCounted<PipelineLayout> {
+class PipelineLayout : public WGPUPipelineLayoutImpl, public RefCounted<PipelineLayout> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static Ref<PipelineLayout> create(Vector<Ref<BindGroupLayout>>&& bindGroupLayouts)
@@ -44,7 +47,7 @@ public:
 
     ~PipelineLayout();
 
-    void setLabel(const char*);
+    void setLabel(String&&);
 
     bool operator==(const PipelineLayout&) const;
     bool operator!=(const PipelineLayout&) const;
@@ -59,7 +62,3 @@ private:
 };
 
 } // namespace WebGPU
-
-struct WGPUPipelineLayoutImpl {
-    Ref<WebGPU::PipelineLayout> pipelineLayout;
-};

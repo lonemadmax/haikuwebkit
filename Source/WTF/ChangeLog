@@ -1,3 +1,489 @@
+2022-03-27  Alexander Mikhaylenko  <alexm@gnome.org>
+
+        [GTK][WPE] Support CSS accent-color
+        https://bugs.webkit.org/show_bug.cgi?id=238398
+
+        Reviewed by Carlos Garcia Campos.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml: Enable accent-color for GTK and WPE.
+
+2022-03-26  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Use static_assert instead of COMPILE_ASSERT
+        https://bugs.webkit.org/show_bug.cgi?id=238417
+
+        Reviewed by Mark Lam.
+
+        Use C++ static_assert instead of COMPILE_ASSERT.
+        Currently keeping it since it was also used in Internal code too.
+
+        * wtf/CrossThreadCopier.cpp:
+        * wtf/JSONValues.cpp:
+        (WTF::JSONImpl::ObjectBase::asObject):
+        (WTF::JSONImpl::ObjectBase::asObject const):
+        (WTF::JSONImpl::ArrayBase::asArray):
+        * wtf/JSONValues.h:
+        * wtf/glib/FileSystemGlib.cpp:
+        (WTF::FileSystemImpl::lockFile):
+        * wtf/posix/FileSystemPOSIX.cpp:
+        (WTF::FileSystemImpl::lockFile):
+        * wtf/text/AtomString.h:
+
+2022-03-26  Youenn Fablet  <youenn@apple.com>
+
+        Implement ServiceWorkerWindowClient.focus
+        https://bugs.webkit.org/show_bug.cgi?id=238319
+        <rdar://90616490>
+
+        Reviewed by Brady Eidson.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-03-26  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Use unary static_assert
+        https://bugs.webkit.org/show_bug.cgi?id=238412
+
+        Reviewed by Mark Lam.
+
+        * wtf/CompactPointerTuple.h:
+        * wtf/FastMalloc.h:
+        * wtf/FunctionTraits.h:
+        (WTF::slotsForCCallArgument):
+        * wtf/Int128.cpp:
+        * wtf/MallocPtr.h:
+        * wtf/Markable.h:
+        (WTF::std::underlying_type<EnumType>::type>::max):
+        * wtf/PtrTag.h:
+        (WTF::tagInt):
+        * wtf/Seconds.h:
+        * wtf/StdLibExtras.h:
+        (WTF::roundUpToMultipleOf):
+        * wtf/SystemFree.h:
+        * wtf/UnalignedAccess.h:
+        (WTF::unalignedLoad):
+        (WTF::unalignedStore):
+        * wtf/UniqueArray.h:
+        (WTF::makeUniqueArray):
+        * wtf/WTFAssertions.cpp:
+        * wtf/text/StringConcatenate.h:
+        (WTF::tryMakeStringFromAdapters):
+        * wtf/text/StringImpl.h:
+        * wtf/text/SymbolImpl.h:
+
+2022-03-25  Chris Dumez  <cdumez@apple.com>
+
+        Use StringView::split() instead of String::split() in more places
+        https://bugs.webkit.org/show_bug.cgi?id=238362
+
+        Reviewed by Geoffrey Garen.
+
+        Use StringView::split() instead of String::split() where suitable and more efficient.
+
+        * wtf/Assertions.cpp:
+        * wtf/text/StringView.cpp:
+        (WTF::StringView::stripWhiteSpace const):
+        * wtf/text/StringView.h:
+        (WTF::StringView::toDouble const):
+        (WTF::StringView::stripLeadingAndTrailingMatchedCharacters const):
+        (WTF::StringView::stripLeadingAndTrailingMatchedCharacters): Deleted.
+
+2022-03-25  Antoine Quint  <graouts@webkit.org>
+
+        [web-animations] enable support for mutable timelines by default
+        https://bugs.webkit.org/show_bug.cgi?id=237958
+        <rdar://problem/90370794>
+
+        Reviewed by Dean Jackson.
+
+        Both Chrome and Firefox have been shipping this feature for quite some time.
+        Our support for it is complete, we just need to turn it on by default.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-03-25  Chris Dumez  <cdumez@apple.com>
+
+        Start preparing WebCore for making the String(const char*) constructor explicit
+        https://bugs.webkit.org/show_bug.cgi?id=238336
+
+        Reviewed by Geoffrey Garen.
+
+        Start preparing WebCore for making the String(const char*) constructor explicit.
+        Making this constructor explicit helps catch at compile time cases where the ""_s
+        prefix is missing on String literals.
+
+        * wtf/text/TextStream.h:
+        (WTF::TextStream::dumpProperty):
+
+2022-03-24  Chris Dumez  <cdumez@apple.com>
+
+        String::split() should take in a StringView instead of a String
+        https://bugs.webkit.org/show_bug.cgi?id=238355
+
+        Reviewed by Geoffrey Garen.
+
+        String::split() should take in a StringView instead of a String, to avoid unnecessary construction
+        of Strings in some instances.
+
+        * wtf/text/WTFString.cpp:
+        (WTF::String::splitInternal const):
+        (WTF::String::split const):
+        (WTF::String::splitAllowingEmptyEntries const):
+        * wtf/text/WTFString.h:
+
+2022-03-24  Chris Dumez  <cdumez@apple.com>
+
+        FileSystem::pathByAppendingComponent() should take in StringViews instead of Strings
+        https://bugs.webkit.org/show_bug.cgi?id=238344
+
+        Reviewed by Geoff Garen.
+
+        FileSystem::pathByAppendingComponent() should take in StringViews instead of Strings, to avoid
+        unnecessary String constructor in many instances.
+
+        * wtf/FileSystem.cpp:
+        (WTF::FileSystemImpl::pathByAppendingComponent):
+        * wtf/FileSystem.h:
+        * wtf/posix/FileSystemPOSIX.cpp:
+        (WTF::FileSystemImpl::pathByAppendingComponent):
+
+2022-03-24  Chris Dumez  <cdumez@apple.com>
+
+        String's startsWith() / endsWith() / replace() should take in a StringView instead of a String
+        https://bugs.webkit.org/show_bug.cgi?id=238333
+
+        Reviewed by Geoff Garen.
+
+        String's startsWith() / endsWith() / replace() should take in a StringView instead of a String,
+        to avoid unnecessary String creation in many instances.
+
+        * wtf/text/AtomString.h:
+        * wtf/text/StringCommon.h:
+        (WTF::startsWith): Deleted.
+        (WTF::startsWithIgnoringASCIICase): Deleted.
+        (WTF::endsWith): Deleted.
+        (WTF::endsWithIgnoringASCIICase): Deleted.
+        * wtf/text/StringImpl.cpp:
+        (WTF::equalInner):
+        (WTF::StringImpl::startsWith const):
+        (WTF::StringImpl::startsWithIgnoringASCIICase const):
+        (WTF::StringImpl::hasInfixStartingAt const):
+        (WTF::StringImpl::endsWith):
+        (WTF::StringImpl::endsWithIgnoringASCIICase const):
+        (WTF::StringImpl::hasInfixEndingAt const):
+        (WTF::StringImpl::replace):
+        * wtf/text/StringImpl.h:
+        (WTF::StringImpl::startsWith const): Deleted.
+        (WTF::StringImpl::endsWith const): Deleted.
+        * wtf/text/StringView.h:
+        (WTF::startsWith):
+        (WTF::startsWithIgnoringASCIICase):
+        (WTF::endsWith):
+        (WTF::endsWithIgnoringASCIICase):
+        (WTF::String::replace):
+        (WTF::String::startsWith const):
+        (WTF::String::startsWithIgnoringASCIICase const):
+        (WTF::String::endsWith const):
+        (WTF::String::endsWithIgnoringASCIICase const):
+        (WTF::String::hasInfixStartingAt const):
+        (WTF::String::hasInfixEndingAt const):
+        (WTF::AtomString::startsWith const):
+        (WTF::AtomString::startsWithIgnoringASCIICase const):
+        (WTF::AtomString::endsWith const):
+        (WTF::AtomString::endsWithIgnoringASCIICase const):
+        * wtf/text/WTFString.h:
+
+2022-03-24  Don Olmstead  <don.olmstead@sony.com>
+
+        [GLib] Add user directories to WTF::FileSystem
+        https://bugs.webkit.org/show_bug.cgi?id=238348
+
+        Reviewed by Adrian Perez de Castro.
+
+        Add FileSystem::userCacheDirectory and FileSystem::userDataDirectory which call into
+        g_get_user_cache_dir and g_get_user_data_dir respectively.
+
+        * wtf/FileSystem.h:
+        * wtf/glib/FileSystemGlib.cpp:
+        (WTF::FileSystemImpl::userCacheDirectory):
+        (WTF::FileSystemImpl::userDataDirectory):
+
+2022-03-24  Devin Rousso  <drousso@apple.com>
+
+        [iOS] make `WKMouseGestureRecognizer` officially conform to `_UIHoverEventRespondable`
+        https://bugs.webkit.org/show_bug.cgi?id=238242
+        <rdar://problem/88828903>
+
+        Reviewed by Tim Horton.
+
+        * wtf/PlatformHave.h:
+
+2022-03-24  Chris Dumez  <cdumez@apple.com>
+
+        String's find() / reverseFind() / replace() should take in a StringView instead of a String
+        https://bugs.webkit.org/show_bug.cgi?id=238287
+
+        Reviewed by Darin Adler.
+
+        String's find() / reverseFind() / replace() should take in a StringView instead of a String
+        to avoid unnecessary String construction in many cases. We should probably do the same for
+        more String functions where we don't really need a String parameter, but those will be
+        addressed separately.
+
+        * wtf/text/AtomString.h:
+        * wtf/text/StringCommon.h:
+        (WTF::findCommon): Deleted.
+        * wtf/text/StringImpl.cpp:
+        (WTF::StringImpl::find):
+        (WTF::StringImpl::findIgnoringASCIICase const):
+        (WTF::StringImpl::reverseFind):
+        (WTF::StringImpl::replace):
+        * wtf/text/StringImpl.h:
+        * wtf/text/StringView.h:
+        (WTF::findCommon):
+        (WTF::findIgnoringASCIICase):
+        (WTF::String::find const):
+        (WTF::String::findIgnoringASCIICase const):
+        (WTF::String::reverseFind const):
+        (WTF::String::contains const):
+        (WTF::String::containsIgnoringASCIICase const):
+        (WTF::String::replace):
+        (WTF::AtomString::find const):
+        (WTF::AtomString::findIgnoringASCIICase const):
+        (WTF::AtomString::contains const):
+        (WTF::AtomString::containsIgnoringASCIICase const):
+        * wtf/text/WTFString.h:
+
+2022-03-23  Chris Dumez  <cdumez@apple.com>
+
+        Inline String(ASCIILiteral) constructor so the compiler can optimize out strlen()
+        https://bugs.webkit.org/show_bug.cgi?id=238162
+
+        Reviewed by Geoffrey Garen.
+
+        I have verified using a profiler that strlen() is no longer called under String::String(WTF::ASCIILiteral)
+        or StringImpl::createFromLiteral(WTF::ASCIILiteral) when running Speedometer.
+
+        * wtf/text/StringImpl.cpp:
+        * wtf/text/StringImpl.h:
+        (WTF::StringImpl::createFromLiteral):
+        * wtf/text/WTFString.cpp:
+        * wtf/text/WTFString.h:
+        (WTF::String::String):
+
+2022-03-23  Alex Christensen  <achristensen@webkit.org>
+
+        Add off-by-default experimental feature for app store attribution
+        https://bugs.webkit.org/show_bug.cgi?id=238294
+
+        Reviewed by John Wilander.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-03-23  Chris Dumez  <cdumez@apple.com>
+
+        Prepare JSC for making the String(const char*) constructor explicit
+        https://bugs.webkit.org/show_bug.cgi?id=238264
+
+        Reviewed by Geoff Garen.
+
+        * wtf/ResourceUsage.h:
+        * wtf/cocoa/ResourceUsageCocoa.cpp:
+        (WTF::displayNameForVMTag):
+        * wtf/text/WTFString.cpp:
+        (WTF::String::numberToStringFixedPrecision):
+        (WTF::String::number):
+        (WTF::String::numberToStringFixedWidth):
+        * wtf/text/WTFString.h:
+
+2022-03-22  Alex Christensen  <achristensen@webkit.org>
+
+        Implement PCM to SKAdNetwork bridge
+        https://bugs.webkit.org/show_bug.cgi?id=237969
+        <rdar://82988054>
+
+        Reviewed by John Wilander.
+
+        * wtf/PlatformHave.h:
+
+2022-03-22  Chris Dumez  <cdumez@apple.com>
+
+        Add URL::stringWithoutFragmentIdentifier() overload which returns a String instead of a StringView
+        https://bugs.webkit.org/show_bug.cgi?id=238221
+
+        Reviewed by Geoffrey Garen.
+
+        * wtf/URL.cpp:
+        (WTF::URL::viewWithoutQueryOrFragmentIdentifier const):
+        (WTF::URL::viewWithoutFragmentIdentifier const):
+        (WTF::URL::stringWithoutFragmentIdentifier const):
+        (WTF::equalIgnoringFragmentIdentifier):
+        (WTF::URL::stringWithoutQueryOrFragmentIdentifier const): Deleted.
+        * wtf/URL.h:
+
+2022-03-22  Per Arne Vollan  <pvollan@apple.com>
+
+        Enable content filtering in the Network process
+        https://bugs.webkit.org/show_bug.cgi?id=238156
+
+        Reviewed by Geoffrey Garen.
+
+        Set the feature flag.
+
+        * wtf/PlatformEnableCocoa.h:
+
+2022-03-19  Chris Dumez  <cdumez@apple.com>
+
+        Vector move constructor and move assignment operator are suboptimal when the vector has an inline buffer
+        https://bugs.webkit.org/show_bug.cgi?id=238096
+
+        Reviewed by Darin Adler.
+
+        The move constructor (and move assignment operators) for Vector were implemented using Vector::swap(), which
+        is fine for vectors with out of line buffers because we're just swapping pointers. However, when the vector
+        has inline capacity, this is suboptimal because it is not cheap to move data from one inline buffer to another
+        and moving any data to the source buffer is unnecessary.
+
+        * wtf/Vector.h:
+        (WTF::VectorBuffer::VectorBuffer):
+        (WTF::VectorBuffer::adopt):
+        (WTF::Malloc>::Vector):
+        (WTF::=):
+
+2022-03-18  Philippe Normand  <pnormand@igalia.com>
+
+        [GStreamer] Initial import of the GstWebRTC backend
+        https://bugs.webkit.org/show_bug.cgi?id=236540
+
+        Reviewed by Carlos Garcia Campos and Xabier Rodriguez-Calvar.
+
+        * Scripts/Preferences/WebPreferences.yaml: Unconditionally enable WebRTC when GstWebRTC is
+        enabled. We don't have a runtime Provider yet.
+        * Scripts/Preferences/WebPreferencesExperimental.yaml: Disable encoded transforms unless libwebrtc is enabled.
+        * wtf/glib/GRefPtr.cpp: Add GArray handling.
+        (WTF::refGPtr):
+        (WTF::derefGPtr):
+        * wtf/glib/GRefPtr.h:
+
+2022-03-18  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GLIB] Make it possible to call GRefPtr::outPtr() multiple times wihtout an explicit clear
+        https://bugs.webkit.org/show_bug.cgi?id=238070
+
+        Reviewed by Adrian Perez de Castro.
+
+        Clear the GRefPtr before returning the value in outPtr(), similar to what GUniqueOutPtr does, since it's easy to
+        forget to explicitly call clear from the callers.
+
+        * wtf/glib/GRefPtr.h:
+        (WTF::GRefPtr::outPtr):
+
+2022-03-18  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Add a public build option for PDF.js
+        https://bugs.webkit.org/show_bug.cgi?id=238023
+
+        Reviewed by Michael Catanzaro.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+        * wtf/PlatformEnable.h:
+
+2022-03-17  Keith Miller  <keith_miller@apple.com>
+
+        tryReserveUncommittedAligned should round up to alignment not bytes requested
+        https://bugs.webkit.org/show_bug.cgi?id=238052
+
+        Reviewed by Yusuke Suzuki.
+
+        * wtf/posix/OSAllocatorPOSIX.cpp:
+        (WTF::OSAllocator::tryReserveUncommittedAligned):
+
+2022-03-17  Keith Miller  <keith_miller@apple.com>
+
+        Fix crash in Bleacher Report due to bad JSObjectRef passed to API
+        https://bugs.webkit.org/show_bug.cgi?id=238048
+        <rdar://88766464>
+
+        Reviewed by Yusuke Suzuki.
+
+        * wtf/cocoa/RuntimeApplicationChecksCocoa.h:
+
+2022-03-16  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Implement first draft of buffer mapping according to the spec
+        https://bugs.webkit.org/show_bug.cgi?id=237870
+
+        Reviewed by Kimmo Kinnunen.
+
+        WTF classes usually have 'using' statements so users don't have to qualify all uses.
+
+        * wtf/Range.h:
+
+2022-03-15  Patrick Griffis  <pgriffis@igalia.com>
+
+        Add initial implementation of Fetch Metadata
+        https://bugs.webkit.org/show_bug.cgi?id=204744
+
+        Reviewed by Youenn Fablet.
+
+        Add new experimental preference for Fetch Metadata, disabled by default.
+
+        * Scripts/Preferences/WebPreferencesExperimental.yaml:
+
+2022-03-15  Philippe Normand  <pnormand@igalia.com>
+
+        Unreviewed, CMake Debug build fix attempt after 248407@main
+
+        * wtf/CMakeLists.txt: Include StackCheck source unit.
+
+2022-03-15  Aditya Keerthi  <akeerthi@apple.com>
+
+        [iOS] Indefinite hang when printing using a UIPrintPageRenderer
+        https://bugs.webkit.org/show_bug.cgi?id=237835
+        rdar://90002387
+
+        Reviewed by Devin Rousso.
+
+        Remove unused HAVE macro.
+
+        * wtf/PlatformHave.h:
+
+2022-03-15  Jer Noble  <jer.noble@apple.com>
+
+        [Cocoa] Adopt AVAssetPrefersSandboxedParsingOptionKey
+        https://bugs.webkit.org/show_bug.cgi?id=237832
+        <rdar://89029829>
+
+        Reviewed by Eric Carlson.
+
+        * Scripts/Preferences/WebPreferencesInternal.yaml:
+
+2022-03-14  Mark Lam  <mark.lam@apple.com>
+
+        Enhance StackCheck debugging support and bump up the ASAN reserved zone size.
+        https://bugs.webkit.org/show_bug.cgi?id=237805
+
+        Reviewed by Robin Morisset.
+
+        1. Apply the ASAN multiplier to StackBound::DefaultReservedZone instead of just
+           in the StackCheck class.  This ensures that all stack checks using this
+           default value gets the necessary bump for ASAN as well.
+
+           Also bump the ASAN multipler from 2 to 3.  We have evidence that an ASAN Debug
+           build inflates stack usage more than 2x over a non-ASAN Debug build.
+
+        2. Enhance the StackCheck class to dump some debugging information when
+           VERIFY_STACK_CHECK_RESERVED_ZONE_SIZE is enabled.
+
+        * WTF.xcodeproj/project.pbxproj:
+        * wtf/StackBounds.h:
+        * wtf/StackCheck.cpp: Added.
+        (WTF::StackCheck::Scope::reportVerificationFailureAndCrash):
+        * wtf/StackCheck.h:
+        (WTF::StackCheck::Scope::Scope):
+        (WTF::StackCheck::Scope::~Scope):
+        (WTF::StackCheck::StackCheck):
+
 2022-03-12  Tim Horton  <timothy_horton@apple.com>
 
         Fail the build if Internal or Experimental web preferences are missing human readable names

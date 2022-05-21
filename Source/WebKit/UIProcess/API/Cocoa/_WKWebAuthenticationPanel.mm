@@ -48,6 +48,7 @@
 #import <WebCore/BufferSource.h>
 #import <WebCore/CBORReader.h>
 #import <WebCore/CBORWriter.h>
+#import <WebCore/CredentialRequestOptions.h>
 #import <WebCore/DeviceRequestConverter.h>
 #import <WebCore/FidoConstants.h>
 #import <WebCore/MockWebAuthenticationConfiguration.h>
@@ -115,6 +116,7 @@ NSString * const _WKLocalAuthenticatorCredentialCreationDateKey = @"_WKLocalAuth
 NSString * const _WKLocalAuthenticatorCredentialGroupKey = @"_WKLocalAuthenticatorCredentialGroupKey";
 NSString * const _WKLocalAuthenticatorCredentialSynchronizableKey = @"_WKLocalAuthenticatorCredentialSynchronizableKey";
 NSString * const _WKLocalAuthenticatorCredentialUserHandleKey = @"_WKLocalAuthenticatorCredentialUserHandleKey";
+NSString * const _WKLocalAuthenticatorCredentialLastUsedDateKey = @"_WKLocalAuthenticatorCredentialLastUsedDateKey";
 
 @implementation _WKWebAuthenticationPanel {
 #if ENABLE(WEB_AUTHN)
@@ -280,7 +282,7 @@ static RetainPtr<NSArray> getAllLocalAuthenticatorCredentialsImpl(NSString *acce
             username, _WKLocalAuthenticatorCredentialNameKey,
             attributes[bridge_cast(kSecAttrApplicationLabel)], _WKLocalAuthenticatorCredentialIDKey,
             attributes[bridge_cast(kSecAttrLabel)], _WKLocalAuthenticatorCredentialRelyingPartyIDKey,
-            attributes[bridge_cast(kSecAttrModificationDate)], _WKLocalAuthenticatorCredentialLastModificationDateKey,
+            attributes[bridge_cast(kSecAttrModificationDate)], _WKLocalAuthenticatorCredentialLastUsedDateKey,
             attributes[bridge_cast(kSecAttrCreationDate)], _WKLocalAuthenticatorCredentialCreationDateKey,
             nil
         ]);
@@ -290,6 +292,12 @@ static RetainPtr<NSArray> getAllLocalAuthenticatorCredentialsImpl(NSString *acce
             [credential setObject:adoptNS([[NSData alloc] initWithBytes:userHandle.data() length:userHandle.size()]).get() forKey:_WKLocalAuthenticatorCredentialUserHandleKey];
         } else
             [credential setObject:[NSNull null] forKey:_WKLocalAuthenticatorCredentialUserHandleKey];
+
+        it = responseMap.find(cbor::CBORValue(WebCore::userEntityLastModifiedKey));
+        if (it != responseMap.end() && it->second.isUnsigned())
+            [credential setObject:[NSDate dateWithTimeIntervalSince1970:it->second.getUnsigned()] forKey:_WKLocalAuthenticatorCredentialLastModificationDateKey];
+        else
+            [credential setObject:attributes[bridge_cast(kSecAttrCreationDate)] forKey:_WKLocalAuthenticatorCredentialLastModificationDateKey];
 
         updateCredentialIfNecessary(credential.get(), attributes);
 
@@ -396,6 +404,7 @@ static RetainPtr<NSArray> getAllLocalAuthenticatorCredentialsImpl(NSString *acce
         ASSERT_NOT_REACHED();
         return;
     }
+    updatedUserMap[cbor::CBORValue(WebCore::userEntityLastModifiedKey)] = cbor::CBORValue((int64_t)WallTime::now().secondsSinceEpoch().value());
     auto updatedTag = cbor::CBORWriter::write(cbor::CBORValue(WTFMove(updatedUserMap)));
 
     auto secAttrApplicationTag = adoptNS([[NSData alloc] initWithBytes:updatedTag->data() length:updatedTag->size()]);
@@ -786,6 +795,23 @@ static WebCore::AuthenticationExtensionsClientInputs authenticationExtensionsCli
 
     return result;
 }
+
+static WebCore::CredentialRequestOptions::MediationRequirement toWebCore(_WKWebAuthenticationMediationRequirement mediation)
+{
+    switch (mediation) {
+    case _WKWebAuthenticationMediationRequirementSilent:
+        return WebCore::CredentialRequestOptions::MediationRequirement::Silent;
+    case _WKWebAuthenticationMediationRequirementOptional:
+        return WebCore::CredentialRequestOptions::MediationRequirement::Optional;
+    case _WKWebAuthenticationMediationRequirementRequired:
+        return WebCore::CredentialRequestOptions::MediationRequirement::Required;
+    case _WKWebAuthenticationMediationRequirementConditional:
+        return WebCore::CredentialRequestOptions::MediationRequirement::Conditional;
+    default:
+        ASSERT_NOT_REACHED();
+        return WebCore::CredentialRequestOptions::MediationRequirement::Optional;
+    }
+}
 #endif
 
 + (WebCore::PublicKeyCredentialCreationOptions)convertToCoreCreationOptionsWithOptions:(_WKPublicKeyCredentialCreationOptions *)options
@@ -844,7 +870,7 @@ static RetainPtr<_WKAuthenticatorAttestationResponse> wkAuthenticatorAttestation
 #endif
 }
 
-- (void)makeCredentialWithClientDataHash:(NSData *)clientDataHash options:(_WKPublicKeyCredentialCreationOptions *)options completionHandler:(void (^)(_WKAuthenticatorAttestationResponse *, NSError *))handler
+- (void)makeCredentialWithMediationRequirement:(_WKWebAuthenticationMediationRequirement)mediation clientDataHash:(NSData *)clientDataHash options:(_WKPublicKeyCredentialCreationOptions *)options completionHandler:(void (^)(_WKAuthenticatorAttestationResponse *, NSError *))handler
 {
 #if ENABLE(WEB_AUTHN)
     auto callback = [handler = makeBlockPtr(handler)] (std::variant<Ref<WebCore::AuthenticatorResponse>, WebCore::ExceptionData>&& result) mutable {
@@ -854,8 +880,13 @@ static RetainPtr<_WKAuthenticatorAttestationResponse> wkAuthenticatorAttestation
             handler(nil, [NSError errorWithDomain:WKErrorDomain code:exception.code userInfo:@{ NSLocalizedDescriptionKey: exception.message }]);
         });
     };
-    _panel->handleRequest({ vectorFromNSData(clientDataHash), [_WKWebAuthenticationPanel convertToCoreCreationOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, true, String(), nullptr, std::nullopt, std::nullopt }, WTFMove(callback));
+    _panel->handleRequest({ vectorFromNSData(clientDataHash), [_WKWebAuthenticationPanel convertToCoreCreationOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, true, String(), nullptr, toWebCore(mediation), std::nullopt }, WTFMove(callback));
 #endif
+}
+
+- (void)makeCredentialWithClientDataHash:(NSData *)clientDataHash options:(_WKPublicKeyCredentialCreationOptions *)options completionHandler:(void (^)(_WKAuthenticatorAttestationResponse *, NSError *))handler
+{
+    [self makeCredentialWithMediationRequirement:_WKWebAuthenticationMediationRequirementOptional clientDataHash:clientDataHash options:options completionHandler:handler];
 }
 
 + (WebCore::PublicKeyCredentialRequestOptions)convertToCoreRequestOptionsWithOptions:(_WKPublicKeyCredentialRequestOptions *)options
@@ -908,7 +939,7 @@ static RetainPtr<_WKAuthenticatorAssertionResponse> wkAuthenticatorAssertionResp
 #endif
 }
 
-- (void)getAssertionWithClientDataHash:(NSData *)clientDataHash options:(_WKPublicKeyCredentialRequestOptions *)options completionHandler:(void (^)(_WKAuthenticatorAssertionResponse *, NSError *))handler
+- (void)getAssertionWithMediationRequirement:(_WKWebAuthenticationMediationRequirement)mediation clientDataHash:(NSData *)clientDataHash options:(_WKPublicKeyCredentialRequestOptions *)options completionHandler:(void (^)(_WKAuthenticatorAssertionResponse *, NSError *))handler
 {
 #if ENABLE(WEB_AUTHN)
     auto callback = [handler = makeBlockPtr(handler)] (std::variant<Ref<WebCore::AuthenticatorResponse>, WebCore::ExceptionData>&& result) mutable {
@@ -918,8 +949,13 @@ static RetainPtr<_WKAuthenticatorAssertionResponse> wkAuthenticatorAssertionResp
             handler(nil, [NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:nil]);
         });
     };
-    _panel->handleRequest({ vectorFromNSData(clientDataHash), [_WKWebAuthenticationPanel convertToCoreRequestOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, true, String(), nullptr, std::nullopt, std::nullopt }, WTFMove(callback));
+    _panel->handleRequest({ vectorFromNSData(clientDataHash), [_WKWebAuthenticationPanel convertToCoreRequestOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, true, String(), nullptr, toWebCore(mediation), std::nullopt }, WTFMove(callback));
 #endif
+}
+
+- (void)getAssertionWithClientDataHash:(NSData *)clientDataHash options:(_WKPublicKeyCredentialRequestOptions *)options completionHandler:(void (^)(_WKAuthenticatorAssertionResponse *, NSError *))handler
+{
+    [self getAssertionWithMediationRequirement:_WKWebAuthenticationMediationRequirementOptional clientDataHash:clientDataHash options:options completionHandler:handler];
 }
 
 + (BOOL)isUserVerifyingPlatformAuthenticatorAvailable

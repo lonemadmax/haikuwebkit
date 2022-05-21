@@ -4,7 +4,7 @@
          "aakash_jain@apple.com",
          "aj355@cornell.edu"
       ],
-      "github" : "jain-aakash",
+      "github" : "aj062",
       "name" : "Aakash Jain",
       "nicks" : [
          "aakash_jain"
@@ -2597,6 +2597,16 @@
    },
    {
       "emails" : [
+         "gnavamarino@apple.com"
+      ],
+      "name" : "Gabriel Nava Marino",
+      "nicks" : [
+         "gnavamarino"
+      ],
+      "status" : "committer"
+   },
+   {
+      "emails" : [
          "barraclough@apple.com"
       ],
       "expertise" : "JavaScript/ECMAScript",
@@ -4717,16 +4727,6 @@
    },
    {
       "emails" : [
-         "mmirman@apple.com"
-      ],
-      "expertise" : "JavaScript/ECMAScript",
-      "name" : "Matthew Mirman",
-      "nicks" : [
-         "mmirman"
-      ]
-   },
-   {
-      "emails" : [
          "Matteo_flores@apple.com"
       ],
       "github" : "Smackteo",
@@ -4735,6 +4735,16 @@
          "MatteoF"
       ],
       "status" : "committer"
+   },
+   {
+      "emails" : [
+         "mmirman@apple.com"
+      ],
+      "expertise" : "JavaScript/ECMAScript",
+      "name" : "Matthew Mirman",
+      "nicks" : [
+         "mmirman"
+      ]
    },
    {
       "emails" : [

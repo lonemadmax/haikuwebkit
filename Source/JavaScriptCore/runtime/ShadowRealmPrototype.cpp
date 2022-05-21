@@ -32,6 +32,7 @@
 #include "JSGlobalObject.h"
 #include "JSInternalPromise.h"
 #include "JSModuleLoader.h"
+#include "JSObjectInlines.h"
 #include "ShadowRealmObject.h"
 #include "StructureInlines.h"
 
@@ -46,7 +47,7 @@ namespace JSC {
 @end
 */
 
-const ClassInfo ShadowRealmPrototype::s_info = { "ShadowRealm", &Base::s_info, &shadowRealmPrototypeTable, nullptr, CREATE_METHOD_TABLE(ShadowRealmPrototype) };
+const ClassInfo ShadowRealmPrototype::s_info = { "ShadowRealm"_s, &Base::s_info, &shadowRealmPrototypeTable, nullptr, CREATE_METHOD_TABLE(ShadowRealmPrototype) };
 
 ShadowRealmPrototype::ShadowRealmPrototype(VM& vm, Structure* structure)
     : JSNonFinalObject(vm, structure)

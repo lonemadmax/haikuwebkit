@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -97,9 +97,6 @@ const TestFeatures& TestOptions::defaults()
             { "InputTypeMonthEnabled", true },
             { "InputTypeTimeEnabled", true },
             { "InputTypeWeekEnabled", true },
-#if USE(ATSPI)
-            { "IsAccessibilityIsolatedTreeEnabled", true },
-#endif
             { "JavaScriptCanAccessClipboard", true },
             { "JavaScriptCanOpenWindowsAutomatically", true },
             { "LargeImageAsyncDecodingEnabled", false },
@@ -128,6 +125,7 @@ const TestFeatures& TestOptions::defaults()
             { "TextAutosizingUsesIdempotentMode", false },
             { "UsesBackForwardCache", false },
             { "WebAuthenticationEnabled", true },
+            { "WebGPU", true },
             { "WebRTCRemoteVideoFrameEnabled", true },
             { "WebRTCMDNSICECandidatesEnabled", false },
             { "XSSAuditorEnabled", false },
@@ -135,7 +133,7 @@ const TestFeatures& TestOptions::defaults()
             { "VP9DecoderEnabled", false },
 #endif
 #if ENABLE(GPU_PROCESS)
-            { "UseGPUProcessForDOMRenderingEnabled", false },
+            { "UseGPUProcessForDOMRenderingEnabled", fullGPUProcessEnabledValue },
 #endif
 #if ENABLE(GPU_PROCESS) && ENABLE(WEBGL) && !PLATFORM(WIN)
             { "UseGPUProcessForWebGLEnabled", fullGPUProcessEnabledValue },

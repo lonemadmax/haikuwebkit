@@ -198,7 +198,7 @@ Database::Database(DatabaseContext& context, const String& name, const String& e
     , m_displayName(displayName.isolatedCopy())
     , m_estimatedSize(estimatedSize)
     , m_filename(DatabaseManager::singleton().fullPathForDatabase(m_document->securityOrigin(), m_name))
-    , m_databaseAuthorizer(DatabaseAuthorizer::create(unqualifiedInfoTableName))
+    , m_databaseAuthorizer(DatabaseAuthorizer::create(String { unqualifiedInfoTableName }))
 {
     {
         Locker locker { guidLock };
@@ -589,11 +589,13 @@ void Database::changeVersion(String&& oldVersion, String&& newVersion, RefPtr<SQ
 
 void Database::transaction(RefPtr<SQLTransactionCallback>&& callback, RefPtr<SQLTransactionErrorCallback>&& errorCallback, RefPtr<VoidCallback>&& successCallback)
 {
+    RELEASE_LOG_FAULT(SQLDatabase, "Database::transaction: Web SQL is deprecated.");
     runTransaction(WTFMove(callback), WTFMove(errorCallback), WTFMove(successCallback), nullptr, false);
 }
 
 void Database::readTransaction(RefPtr<SQLTransactionCallback>&& callback, RefPtr<SQLTransactionErrorCallback>&& errorCallback, RefPtr<VoidCallback>&& successCallback)
 {
+    RELEASE_LOG_FAULT(SQLDatabase, "Database::readTransaction: Web SQL is deprecated.");
     runTransaction(WTFMove(callback), WTFMove(errorCallback), WTFMove(successCallback), nullptr, true);
 }
 
@@ -685,7 +687,7 @@ void Database::runTransaction(RefPtr<SQLTransactionCallback>&& callback, RefPtr<
     if (!m_isTransactionQueueEnabled) {
         if (errorCallback) {
             m_document->eventLoop().queueTask(TaskSource::Networking, [errorCallback = Ref { *errorCallback }]() {
-                errorCallback->handleEvent(SQLError::create(SQLError::UNKNOWN_ERR, "database has been closed"));
+                errorCallback->handleEvent(SQLError::create(SQLError::UNKNOWN_ERR, "database has been closed"_s));
             });
         }
         return;

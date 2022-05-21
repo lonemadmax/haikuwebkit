@@ -605,6 +605,10 @@ public:
 
     WEBCORE_EXPORT bool mediaPlayerRenderingCanBeAccelerated() final;
 
+#if USE(AUDIO_SESSION)
+    WEBCORE_EXPORT AudioSessionCategory categoryAtMostRecentPlayback() const { return m_categoryAtMostRecentPlayback; }
+#endif
+
 protected:
     HTMLMediaElement(const QualifiedName&, Document&, bool createdByParser);
     virtual ~HTMLMediaElement();
@@ -778,6 +782,7 @@ private:
     const std::optional<Vector<FourCC>>& allowedMediaCaptionFormatTypes() const final;
 
     void mediaPlayerBufferedTimeRangesChanged() final;
+    bool mediaPlayerPrefersSandboxedParsing() const final;
 
 #if USE(GSTREAMER)
     void requestInstallMissingPlugins(const String& details, const String& description, MediaPlayerRequestInstallMissingPluginsCallback&) final;
@@ -1238,6 +1243,10 @@ private:
     String m_audioOutputHashedDeviceId;
 #endif
     String m_id;
+
+#if USE(AUDIO_SESSION)
+    AudioSessionCategory m_categoryAtMostRecentPlayback;
+#endif
 };
 
 String convertEnumerationToString(HTMLMediaElement::AutoplayEventPlaybackState);

@@ -427,6 +427,11 @@ void NetworkProcessProxy::renameOriginInWebsiteData(PAL::SessionID sessionID, co
     sendWithAsyncReply(Messages::NetworkProcess::RenameOriginInWebsiteData(sessionID, oldName, newName, dataTypes), WTFMove(completionHandler));
 }
 
+void NetworkProcessProxy::websiteDataOriginDirectoryForTesting(PAL::SessionID sessionID, URL&& origin, URL&& topOrigin, WebsiteDataType type, CompletionHandler<void(const String&)>&& completionHandler)
+{
+    sendWithAsyncReply(Messages::NetworkProcess::WebsiteDataOriginDirectoryForTesting(sessionID, WTFMove(origin), WTFMove(topOrigin), type), WTFMove(completionHandler));
+}
+
 void NetworkProcessProxy::networkProcessDidTerminate(TerminationReason reason)
 {
     Ref protectedThis { *this };
@@ -672,14 +677,6 @@ void NetworkProcessProxy::resourceLoadDidCompleteWithError(WebPageProxyIdentifie
 
     page->resourceLoadDidCompleteWithError(WTFMove(loadInfo), WTFMove(response), WTFMove(error));
 }
-
-#if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
-void NetworkProcessProxy::reloadAfterUnblockedContentFilter(WebPageProxyIdentifier pageID)
-{
-    if (auto* page = WebProcessProxy::webPage(pageID))
-        page->reload({ });
-}
-#endif
 
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 void NetworkProcessProxy::dumpResourceLoadStatistics(PAL::SessionID sessionID, CompletionHandler<void(String)>&& completionHandler)
@@ -1789,6 +1786,11 @@ void NetworkProcessProxy::deletePushAndNotificationRegistration(PAL::SessionID s
 void NetworkProcessProxy::getOriginsWithPushAndNotificationPermissions(PAL::SessionID sessionID, CompletionHandler<void(const Vector<SecurityOriginData>&)>&& callback)
 {
     sendWithAsyncReply(Messages::NetworkProcess::GetOriginsWithPushAndNotificationPermissions { sessionID }, WTFMove(callback));
+}
+
+void NetworkProcessProxy::hasPushSubscriptionForTesting(PAL::SessionID sessionID, const URL& scopeURL, CompletionHandler<void(bool)>&& callback)
+{
+    sendWithAsyncReply(Messages::NetworkProcess::HasPushSubscriptionForTesting { sessionID, scopeURL }, WTFMove(callback));
 }
 
 void NetworkProcessProxy::terminateRemoteWorkerContextConnectionWhenPossible(RemoteWorkerType workerType, PAL::SessionID sessionID, const WebCore::RegistrableDomain& registrableDomain, WebCore::ProcessIdentifier processIdentifier)

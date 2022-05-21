@@ -148,12 +148,12 @@ GPRReg SpeculativeJIT::fillJSValue(Edge edge)
     }
 }
 
-void SpeculativeJIT::cachedGetById(CodeOrigin origin, JSValueRegs base, JSValueRegs result, GPRReg stubInfoGPR, CacheableIdentifier identifier, JITCompiler::Jump slowPathTarget , SpillRegistersMode mode, AccessType type)
+void SpeculativeJIT::cachedGetById(CodeOrigin origin, JSValueRegs base, JSValueRegs result, GPRReg stubInfoGPR, GPRReg scratchGPR, CacheableIdentifier identifier, JITCompiler::Jump slowPathTarget , SpillRegistersMode mode, AccessType type)
 {
-    cachedGetById(origin, base.gpr(), result.gpr(), stubInfoGPR, identifier, slowPathTarget, mode, type);
+    cachedGetById(origin, base.gpr(), result.gpr(), stubInfoGPR, scratchGPR, identifier, slowPathTarget, mode, type);
 }
 
-void SpeculativeJIT::cachedGetById(CodeOrigin codeOrigin, GPRReg baseGPR, GPRReg resultGPR, GPRReg stubInfoGPR, CacheableIdentifier identifier, JITCompiler::Jump slowPathTarget, SpillRegistersMode spillMode, AccessType type)
+void SpeculativeJIT::cachedGetById(CodeOrigin codeOrigin, GPRReg baseGPR, GPRReg resultGPR, GPRReg stubInfoGPR, GPRReg scratchGPR, CacheableIdentifier identifier, JITCompiler::Jump slowPathTarget, SpillRegistersMode spillMode, AccessType type)
 {
     CallSiteIndex callSite = m_jit.recordCallSiteAndGenerateExceptionHandlingOSRExitIfNeeded(codeOrigin, m_stream->size());
     RegisterSet usedRegisters = this->usedRegisters();
@@ -163,15 +163,18 @@ void SpeculativeJIT::cachedGetById(CodeOrigin codeOrigin, GPRReg baseGPR, GPRReg
         usedRegisters.set(resultGPR, false);
         if (stubInfoGPR != InvalidGPRReg)
             usedRegisters.set(stubInfoGPR, false);
+        if (scratchGPR != InvalidGPRReg)
+            usedRegisters.set(scratchGPR, false);
     }
     JITGetByIdGenerator gen(
         m_jit.codeBlock(), &m_jit.jitCode()->common.m_stubInfos, JITType::DFGJIT, codeOrigin, callSite, usedRegisters, identifier,
         JSValueRegs(baseGPR), JSValueRegs(resultGPR), stubInfoGPR, type);
-    gen.generateFastPath(m_jit);
+    gen.generateFastPath(m_jit, scratchGPR);
     
     JITCompiler::JumpList slowCases;
     slowCases.append(slowPathTarget);
-    slowCases.append(gen.slowPathJump());
+    if (!JITCode::useDataIC(JITType::DFGJIT))
+        slowCases.append(gen.slowPathJump());
 
     std::unique_ptr<SlowPathGenerator> slowPath;
     if (JITCode::useDataIC(JITType::DFGJIT)) {
@@ -190,7 +193,7 @@ void SpeculativeJIT::cachedGetById(CodeOrigin codeOrigin, GPRReg baseGPR, GPRReg
     addSlowPathGenerator(WTFMove(slowPath));
 }
 
-void SpeculativeJIT::cachedGetByIdWithThis(CodeOrigin codeOrigin, GPRReg baseGPR, GPRReg thisGPR, GPRReg resultGPR, GPRReg stubInfoGPR, CacheableIdentifier identifier, const JITCompiler::JumpList& slowPathTarget)
+void SpeculativeJIT::cachedGetByIdWithThis(CodeOrigin codeOrigin, GPRReg baseGPR, GPRReg thisGPR, GPRReg resultGPR, GPRReg stubInfoGPR, GPRReg scratchGPR, CacheableIdentifier identifier, const JITCompiler::JumpList& slowPathTarget)
 {
     CallSiteIndex callSite = m_jit.recordCallSiteAndGenerateExceptionHandlingOSRExitIfNeeded(codeOrigin, m_stream->size());
     RegisterSet usedRegisters = this->usedRegisters();
@@ -200,15 +203,18 @@ void SpeculativeJIT::cachedGetByIdWithThis(CodeOrigin codeOrigin, GPRReg baseGPR
     usedRegisters.set(resultGPR, false);
     if (stubInfoGPR != InvalidGPRReg)
         usedRegisters.set(stubInfoGPR, false);
+    if (scratchGPR != InvalidGPRReg)
+        usedRegisters.set(scratchGPR, false);
     
     JITGetByIdWithThisGenerator gen(
         m_jit.codeBlock(), &m_jit.jitCode()->common.m_stubInfos, JITType::DFGJIT, codeOrigin, callSite, usedRegisters, identifier,
         JSValueRegs(resultGPR), JSValueRegs(baseGPR), JSValueRegs(thisGPR), stubInfoGPR);
-    gen.generateFastPath(m_jit);
+    gen.generateFastPath(m_jit, scratchGPR);
     
     JITCompiler::JumpList slowCases;
     slowCases.append(slowPathTarget);
-    slowCases.append(gen.slowPathJump());
+    if (!JITCode::useDataIC(JITType::DFGJIT))
+        slowCases.append(gen.slowPathJump());
     
     std::unique_ptr<SlowPathGenerator> slowPath;
     if (JITCode::useDataIC(JITType::DFGJIT)) {
@@ -690,6 +696,7 @@ void SpeculativeJIT::emitCall(Node* node)
     }
 
     GPRReg calleeGPR = InvalidGPRReg;
+    GPRReg callLinkInfoGPR = InvalidGPRReg;
     CallFrameShuffleData shuffleData;
     
     JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
@@ -702,6 +709,8 @@ void SpeculativeJIT::emitCall(Node* node)
     
     unsigned numPassedArgs = 0;
     unsigned numAllocatedArgs = 0;
+
+    auto* callLinkInfo = m_jit.jitCode()->common.addCallLinkInfo(m_currentNode->origin.semantic, JITCode::useDataIC(JITType::DFGJIT) ? CallLinkInfo::UseDataIC::Yes : CallLinkInfo::UseDataIC::No);
     
     // Gotta load the arguments somehow. Varargs is trickier.
     if (isVarargs || isForwardVarargs) {
@@ -819,6 +828,17 @@ void SpeculativeJIT::emitCall(Node* node)
             Edge calleeEdge = m_jit.graph().child(node, 0);
             JSValueOperand callee(this, calleeEdge);
             calleeGPR = callee.gpr();
+
+            // callLinkInfoGPR must be non callee-save register. Otherwise, tail-call preparation will fill it
+            // with saved callee-save. Also, it should not be the same to calleeGPR and regT0 since both will
+            // be used later differently.
+            // We also do not keep GPRTemporary (it is immediately destroyed) because
+            // 1. We do not want to keep the register locked in the following sequence of the Call.
+            // 2. This must be the last register allocation from DFG register bank, so it is OK (otherwise, callee.use() is wrong).
+            if (callLinkInfo->isDataIC()) {
+                GPRTemporary callLinkInfoTemp(this, JITCompiler::selectScratchGPR(calleeGPR, GPRInfo::regT0));
+                callLinkInfoGPR = callLinkInfoTemp.gpr();
+            }
             if (!isDirect)
                 callee.use();
 
@@ -840,6 +860,8 @@ void SpeculativeJIT::emitCall(Node* node)
             for (unsigned i = numPassedArgs; i < numAllocatedArgs; ++i)
                 shuffleData.args[i] = ValueRecovery::constant(jsUndefined());
 
+            if (callLinkInfo->isDataIC())
+                shuffleData.registers[callLinkInfoGPR] = ValueRecovery::inGPR(callLinkInfoGPR, DataFormatJS);
             shuffleData.setupCalleeSaveRegisters(&RegisterAtOffsetList::dfgCalleeSaveRegisters());
         } else {
             m_jit.store32(MacroAssembler::TrustedImm32(numPassedArgs), JITCompiler::calleeFramePayloadSlot(CallFrameSlot::argumentCountIncludingThis));
@@ -862,6 +884,18 @@ void SpeculativeJIT::emitCall(Node* node)
         Edge calleeEdge = m_jit.graph().child(node, 0);
         JSValueOperand callee(this, calleeEdge);
         calleeGPR = callee.gpr();
+
+        // callLinkInfoGPR must be non callee-save register. Otherwise, tail-call preparation will fill it
+        // with saved callee-save. Also, it should not be the same to calleeGPR and regT0 since both will
+        // be used later differently.
+        // We also do not keep GPRTemporary (it is immediately destroyed) because
+        // 1. We do not want to keep the register locked in the following sequence of the Call.
+        // 2. This must be the last register allocation from DFG register bank, so it is OK (otherwise, callee.use() is wrong).
+        if (callLinkInfo->isDataIC()) {
+            GPRTemporary callLinkInfoTemp(this, JITCompiler::selectScratchGPR(calleeGPR, GPRInfo::regT0));
+            callLinkInfoGPR = callLinkInfoTemp.gpr();
+        }
+
         callee.use();
         m_jit.store64(calleeGPR, JITCompiler::calleeFrameSlot(CallFrameSlot::callee));
 
@@ -890,7 +924,6 @@ void SpeculativeJIT::emitCall(Node* node)
         m_jit.addPtr(TrustedImm32(m_jit.graph().stackPointerOffset() * sizeof(Register)), GPRInfo::callFrameRegister, JITCompiler::stackPointerRegister);
     };
     
-    auto* callLinkInfo = m_jit.jitCode()->common.addCallLinkInfo(m_currentNode->origin.semantic);
     callLinkInfo->setUpCall(callType, calleeGPR);
 
     if (node->op() == CallEval) {
@@ -919,7 +952,10 @@ void SpeculativeJIT::emitCall(Node* node)
         // This is the part where we meant to make a normal call. Oops.
         m_jit.addPtr(TrustedImm32(requiredBytes), JITCompiler::stackPointerRegister);
         m_jit.load64(JITCompiler::calleeFrameSlot(CallFrameSlot::callee), GPRInfo::regT0);
-        m_jit.emitVirtualCall(vm(), globalObject, callLinkInfo);
+        m_jit.move(TrustedImmPtr(callLinkInfo), GPRInfo::regT2);
+        m_jit.move(TrustedImmPtr::weakPointer(m_graph, globalObject), GPRInfo::regT3);
+        m_jit.emitVirtualCallWithoutMovingGlobalObject(vm(), GPRInfo::regT2, CallMode::Regular);
+        ASSERT(callLinkInfo->callMode() == CallMode::Regular);
         
         done.link(&m_jit);
         setResultAndResetStack();
@@ -979,17 +1015,17 @@ void SpeculativeJIT::emitCall(Node* node)
     
     CCallHelpers::JumpList slowCases;
     if (isTail) {
-        slowCases = callLinkInfo->emitTailCallFastPath(m_jit, calleeGPR, scopedLambda<void()>([&]{
+        slowCases = callLinkInfo->emitTailCallFastPath(m_jit, calleeGPR, callLinkInfoGPR, scopedLambda<void()>([&]{
             if (node->op() == TailCall) {
                 callLinkInfo->setFrameShuffleData(shuffleData);
                 CallFrameShuffler(m_jit, shuffleData).prepareForTailCall();
             } else {
                 m_jit.emitRestoreCalleeSaves();
-                m_jit.prepareForTailCallSlow();
+                m_jit.prepareForTailCallSlow(callLinkInfoGPR);
             }
         }));
     } else
-        slowCases = callLinkInfo->emitFastPath(m_jit, calleeGPR, InvalidGPRReg, CallLinkInfo::UseDataIC::No);
+        slowCases = callLinkInfo->emitFastPath(m_jit, calleeGPR, callLinkInfoGPR);
     JITCompiler::Jump done = m_jit.jump();
 
     slowCases.link(&m_jit);
@@ -2699,182 +2735,128 @@ void SpeculativeJIT::compileRegExpTestInline(Node* node)
 {
     RegExp* regExp = jsCast<RegExp*>(node->cellOperand2()->value());
 
-    ASSERT(!regExp->globalOrSticky());
-
-    SpeculateCellOperand globalObject(this, node->child1());
-    SpeculateCellOperand base(this, node->child2());
-    GPRReg globalObjectGPR = globalObject.gpr();
-    GPRReg baseGPR = base.gpr();
-    GPRReg argumentGPR;
-    GPRFlushedCallResult result(this);
-    GPRReg resultGPR = result.gpr();
-    GPRTemporary stringImpl(this);
-    GPRTemporary stringData(this);
-    GPRTemporary strLength(this);
-    GPRTemporary output(this);
-    GPRTemporary result2(this);
-    GPRTemporary temp0(this);
-    GPRTemporary temp1(this);
-    GPRTemporary temp2;
-    GPRReg stringImplGPR = stringImpl.gpr();
-    GPRReg stringDataGPR = stringData.gpr();
-    GPRReg outputGPR = output.gpr();
-    GPRReg strLengthGPR = strLength.gpr();
-    GPRReg result2GPR = result2.gpr();
-    GPRReg temp0GPR = temp0.gpr();
-    GPRReg temp1GPR = temp1.gpr();
-    GPRReg temp2GPR = InvalidGPRReg;
-    GPRReg swapReg = InvalidGPRReg;
-
     auto jitCodeBlock = regExp->getRegExpJITCodeBlock();
     ASSERT(jitCodeBlock);
     auto inlineCodeStats8Bit = jitCodeBlock->get8BitInlineStats();
 
-#if !CPU(X86_64)
+    ASSERT(!regExp->globalOrSticky());
+
+    SpeculateCellOperand globalObject(this, node->child1());
+    SpeculateCellOperand base(this, node->child2());
+
+    GPRTemporary stringImpl(this);
+    GPRTemporary stringData(this);
+    GPRTemporary strLength(this);
+    GPRTemporary output(this);
+    GPRTemporary temp0(this);
+    std::optional<GPRTemporary> temp1;
+
+    GPRReg globalObjectGPR = globalObject.gpr();
+    GPRReg baseGPR = base.gpr();
+    GPRReg stringImplGPR = stringImpl.gpr();
+    GPRReg stringDataGPR = stringData.gpr();
+    GPRReg outputGPR = output.gpr();
+    GPRReg strLengthGPR = strLength.gpr();
+    GPRReg temp0GPR = temp0.gpr();
+    GPRReg temp1GPR = InvalidGPRReg;
+
     if (inlineCodeStats8Bit.needsTemp2()) {
-        GPRTemporary realTemp2(this);
-        temp2.adopt(realTemp2);
-        temp2GPR = temp2.gpr();
+        temp1.emplace(this);
+        temp1GPR = temp1->gpr();
     }
-#endif
 
     speculateRegExpObject(node->child2(), baseGPR);
 
-    MacroAssembler::JumpList done;
-    MacroAssembler::JumpList operationCases;
+    CCallHelpers::JumpList slowCases;
 
-    auto swapRegIfNeeded = [&] {
-        if (globalObjectGPR == resultGPR) {
-            swapReg = allocate();
-            m_jit.move(globalObjectGPR, swapReg);
-            globalObjectGPR = swapReg;
-        } else if (baseGPR == resultGPR) {
-            swapReg = allocate();
-            m_jit.move(baseGPR, swapReg);
-            baseGPR = swapReg;
-        } else if (argumentGPR == resultGPR) {
-            swapReg = allocate();
-            m_jit.move(argumentGPR, swapReg);
-            argumentGPR = swapReg;
-        }
-    };
-
-    auto regExpTestInlineCase = [&] {
-        m_jit.loadPtr(MacroAssembler::Address(stringImplGPR, StringImpl::dataOffset()), stringDataGPR);
-        m_jit.load32(MacroAssembler::Address(stringImplGPR, StringImpl::lengthMemoryOffset()), strLengthGPR);
-
-        GPRReg indexGPR = stringImplGPR;
-
-        m_jit.move(TrustedImm32(0), indexGPR);
-
-        Yarr::YarrJITRegisters yarrRegisters;
-        yarrRegisters.input = stringDataGPR;
-        yarrRegisters.index = indexGPR;
-        yarrRegisters.length = strLengthGPR;
-        yarrRegisters.output = outputGPR;
-        yarrRegisters.regT0 = temp0GPR;
-        yarrRegisters.regT1 = temp1GPR;
-#if CPU(X86_64)
-        temp2GPR = globalObjectGPR;
-#endif
-        if (inlineCodeStats8Bit.needsTemp2())
-            yarrRegisters.regT2 = temp2GPR;
-
-        yarrRegisters.returnRegister = resultGPR;
-        yarrRegisters.returnRegister2 = result2GPR;
-
-        auto commonData = m_jit.jitCode()->dfgCommon();
-        Yarr::jitCompileInlinedTest(&m_graph.m_stackChecker, regExp->pattern(), regExp->flags(), Yarr::CharSize::Char8, &vm(), commonData->m_boyerMooreData, m_jit, yarrRegisters);
-
-        auto failedMatch = m_jit.branch32(MacroAssembler::LessThan, resultGPR, TrustedImm32(0));
-
-        //  Saved cached result
-#if CPU(X86_64)
-        if (inlineCodeStats8Bit.needsTemp2()) {
-            // Since we reused globalObjectGPR for temp2, let's restore the global object.
-            JSGlobalObject* globalObjectConst = jsCast<JSGlobalObject*>(node->cellOperand()->value());
-            m_jit.move(CCallHelpers::TrustedImmPtr(globalObjectConst), globalObjectGPR);
-        }
-#endif
-
-        ptrdiff_t offset = JSGlobalObject::regExpGlobalDataOffset() + RegExpGlobalData::offsetOfCachedResult();
-
-        m_jit.storePtr(TrustedImmPtr::weakPointer(m_graph, regExp), JITCompiler::Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfLastRegExp()));
-        m_jit.storePtr(argumentGPR, JITCompiler::Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfLastInput()));
-        m_jit.store32(resultGPR, JITCompiler::Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfResult() + OBJECT_OFFSETOF(MatchResult, start)));
-        m_jit.store32(result2GPR, JITCompiler::Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfResult() + OBJECT_OFFSETOF(MatchResult, end)));
-        m_jit.store8(TrustedImm32(0), JITCompiler::Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfReified()));
-
-        if (swapReg != InvalidGPRReg)
-            unlock(swapReg);
-
-        m_jit.move(TrustedImm32(1), resultGPR);
-        done.append(m_jit.jump());
-
-        failedMatch.link(&m_jit);
-        m_jit.move(TrustedImm32(0), resultGPR);
-        done.append(m_jit.jump());
-    };
-
-    if (node->child3().useKind() == StringUse) {
-        SpeculateCellOperand argument(this, node->child3());
-        argumentGPR = argument.gpr();
-        speculateString(node->child3(), argumentGPR);
-
-        flushRegisters();
-
-        swapRegIfNeeded();
-
+    auto regExpTestInlineCase = [&](GPRReg argumentGPR, CCallHelpers::JumpList& slowCases) {
         m_jit.loadPtr(MacroAssembler::Address(argumentGPR, JSString::offsetOfValue()), stringImplGPR);
         // If the string is a rope or 16 bit, we call the operation.
-        operationCases.append(m_jit.branchIfRopeStringImpl(stringImplGPR));
-        operationCases.append(m_jit.branchTest32(
+        slowCases.append(m_jit.branchIfRopeStringImpl(stringImplGPR));
+        slowCases.append(m_jit.branchTest32(
             MacroAssembler::Zero,
             MacroAssembler::Address(stringImplGPR, StringImpl::flagsOffset()),
             TrustedImm32(StringImpl::flagIs8Bit())));
 
-        regExpTestInlineCase();
+        m_jit.loadPtr(MacroAssembler::Address(stringImplGPR, StringImpl::dataOffset()), stringDataGPR);
+        m_jit.load32(MacroAssembler::Address(stringImplGPR, StringImpl::lengthMemoryOffset()), strLengthGPR);
 
-        operationCases.link(&m_jit);
+        // Clobbering input registers is OK since we already called flushRegisters.
+        // slowCases jumps are already done. So we can modify baseGPR etc.
+        Yarr::YarrJITRegisters yarrRegisters;
+        yarrRegisters.input = stringDataGPR;
+        yarrRegisters.index = stringImplGPR;
+        yarrRegisters.length = strLengthGPR;
+        yarrRegisters.output = outputGPR;
+        yarrRegisters.regT0 = temp0GPR;
+        yarrRegisters.regT1 = baseGPR;
+        if (inlineCodeStats8Bit.needsTemp2())
+            yarrRegisters.regT2 = temp1GPR;
 
-        callOperation(operationRegExpTestString, resultGPR, globalObjectGPR, baseGPR, argumentGPR);
+        yarrRegisters.returnRegister = temp0GPR;
+        yarrRegisters.returnRegister2 = stringDataGPR;
 
+        auto commonData = m_jit.jitCode()->dfgCommon();
+        m_jit.move(TrustedImm32(0), yarrRegisters.index);
+        Yarr::jitCompileInlinedTest(&m_graph.m_stackChecker, regExp->pattern(), regExp->flags(), Yarr::CharSize::Char8, &vm(), commonData->m_boyerMooreData, m_jit, yarrRegisters);
+
+        auto failedMatch = m_jit.branch32(MacroAssembler::LessThan, yarrRegisters.returnRegister, TrustedImm32(0));
+
+        //  Saved cached result
+        ptrdiff_t offset = JSGlobalObject::regExpGlobalDataOffset() + RegExpGlobalData::offsetOfCachedResult();
+
+        m_jit.storePtr(TrustedImmPtr::weakPointer(m_graph, regExp), JITCompiler::Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfLastRegExp()));
+        m_jit.storePtr(argumentGPR, JITCompiler::Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfLastInput()));
+        m_jit.store32(yarrRegisters.returnRegister, JITCompiler::Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfResult() + OBJECT_OFFSETOF(MatchResult, start)));
+        m_jit.store32(yarrRegisters.returnRegister2, JITCompiler::Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfResult() + OBJECT_OFFSETOF(MatchResult, end)));
+        m_jit.store8(TrustedImm32(0), JITCompiler::Address(globalObjectGPR, offset + RegExpCachedResult::offsetOfReified()));
+
+        CCallHelpers::JumpList doneCases;
+
+        m_jit.move(TrustedImm32(1), temp0GPR);
+        doneCases.append(m_jit.jump());
+
+        failedMatch.link(&m_jit);
+        m_jit.move(TrustedImm32(0), temp0GPR);
+        doneCases.append(m_jit.jump());
+
+        return doneCases;
+    };
+
+    if (node->child3().useKind() == StringUse) {
+        SpeculateCellOperand argument(this, node->child3());
+        GPRReg argumentGPR = argument.gpr();
+        speculateString(node->child3(), argumentGPR);
+
+        flushRegisters();
+
+        auto doneCases = regExpTestInlineCase(argumentGPR, slowCases);
+
+        slowCases.link(&m_jit);
+        callOperation(operationRegExpTestString, temp0GPR, globalObjectGPR, baseGPR, argumentGPR);
         m_jit.exceptionCheck();
 
-        done.link(&m_jit);
-        unblessedBooleanResult(resultGPR, node);
-
+        doneCases.link(&m_jit);
+        unblessedBooleanResult(temp0GPR, node);
         return;
     }
 
     JSValueOperand argument(this, node->child3());
-    argumentGPR = argument.gpr();
+    GPRReg argumentGPR = argument.gpr();
 
     flushRegisters();
 
-    swapRegIfNeeded();
+    slowCases.append(m_jit.branchIfNotCell(argumentGPR));
+    slowCases.append(m_jit.branchIfNotString(argumentGPR));
 
-    operationCases.append(m_jit.branchIfNotCell(argumentGPR));
-    operationCases.append(m_jit.branchIfNotString(argumentGPR));
+    auto doneCases = regExpTestInlineCase(argumentGPR, slowCases);
 
-    m_jit.loadPtr(MacroAssembler::Address(argumentGPR, JSString::offsetOfValue()), stringImplGPR);
-    // If the string is a rope or 16 bit, we call the operation.
-    operationCases.append(m_jit.branchIfRopeStringImpl(stringImplGPR));
-    operationCases.append(m_jit.branchTest32(
-        MacroAssembler::Zero,
-        MacroAssembler::Address(stringImplGPR, StringImpl::flagsOffset()),
-        TrustedImm32(StringImpl::flagIs8Bit())));
-
-    regExpTestInlineCase();
-
-    operationCases.link(&m_jit);
-
-    callOperation(operationRegExpTest, resultGPR, globalObjectGPR, baseGPR, argumentGPR);
-
-    done.link(&m_jit);
+    slowCases.link(&m_jit);
+    callOperation(operationRegExpTest, temp0GPR, globalObjectGPR, baseGPR, argumentGPR);
     m_jit.exceptionCheck();
 
-    unblessedBooleanResult(resultGPR, node);
+    doneCases.link(&m_jit);
+    unblessedBooleanResult(temp0GPR, node);
 }
 #else
 void SpeculativeJIT::compileRegExpTestInline(Node* node)
@@ -4296,42 +4278,52 @@ void SpeculativeJIT::compile(Node* node)
 
     case GetByIdWithThis: {
         if (node->child1().useKind() == CellUse && node->child2().useKind() == CellUse) {
-            std::optional<GPRTemporary> stubInfo;
             SpeculateCellOperand base(this, node->child1());
             SpeculateCellOperand thisValue(this, node->child2());
 
-            GPRReg stubInfoGPR = InvalidGPRReg;
-            if (JITCode::useDataIC(JITType::DFGJIT)) {
-                stubInfo.emplace(this);
-                stubInfoGPR = stubInfo->gpr();
-            }
             GPRReg baseGPR = base.gpr();
             GPRReg thisValueGPR = thisValue.gpr();
             
             GPRFlushedCallResult result(this);
             GPRReg resultGPR = result.gpr();
+
+            std::optional<GPRTemporary> stubInfo;
+            std::optional<GPRTemporary> scratch;
+            GPRReg stubInfoGPR = InvalidGPRReg;
+            GPRReg scratchGPR = InvalidGPRReg;
+            if (JITCode::useDataIC(JITType::DFGJIT)) {
+                stubInfo.emplace(this);
+                scratch.emplace(this);
+                stubInfoGPR = stubInfo->gpr();
+                scratchGPR = scratch->gpr();
+            }
             
             flushRegisters();
             
-            cachedGetByIdWithThis(node->origin.semantic, baseGPR, thisValueGPR, resultGPR, stubInfoGPR, node->cacheableIdentifier(), JITCompiler::JumpList());
+            cachedGetByIdWithThis(node->origin.semantic, baseGPR, thisValueGPR, resultGPR, stubInfoGPR, scratchGPR, node->cacheableIdentifier(), JITCompiler::JumpList());
             
             jsValueResult(resultGPR, node);
             
         } else {
-            std::optional<GPRTemporary> stubInfo;
             JSValueOperand base(this, node->child1());
             JSValueOperand thisValue(this, node->child2());
 
-            GPRReg stubInfoGPR = InvalidGPRReg;
-            if (JITCode::useDataIC(JITType::DFGJIT)) {
-                stubInfo.emplace(this);
-                stubInfoGPR = stubInfo->gpr();
-            }
             GPRReg baseGPR = base.gpr();
             GPRReg thisValueGPR = thisValue.gpr();
             
             GPRFlushedCallResult result(this);
             GPRReg resultGPR = result.gpr();
+
+            std::optional<GPRTemporary> stubInfo;
+            std::optional<GPRTemporary> scratch;
+            GPRReg stubInfoGPR = InvalidGPRReg;
+            GPRReg scratchGPR = InvalidGPRReg;
+            if (JITCode::useDataIC(JITType::DFGJIT)) {
+                stubInfo.emplace(this);
+                scratch.emplace(this);
+                stubInfoGPR = stubInfo->gpr();
+                scratchGPR = scratch->gpr();
+            }
             
             flushRegisters();
             
@@ -4339,7 +4331,7 @@ void SpeculativeJIT::compile(Node* node)
             notCellList.append(m_jit.branchIfNotCell(JSValueRegs(baseGPR)));
             notCellList.append(m_jit.branchIfNotCell(JSValueRegs(thisValueGPR)));
             
-            cachedGetByIdWithThis(node->origin.semantic, baseGPR, thisValueGPR, resultGPR, stubInfoGPR, node->cacheableIdentifier(), notCellList);
+            cachedGetByIdWithThis(node->origin.semantic, baseGPR, thisValueGPR, resultGPR, stubInfoGPR, scratchGPR, node->cacheableIdentifier(), notCellList);
             
             jsValueResult(resultGPR, node);
         }

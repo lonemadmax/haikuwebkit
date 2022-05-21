@@ -256,7 +256,7 @@ public:
     WEBCORE_EXPORT static std::unique_ptr<Pasteboard> createForDragAndDrop(std::unique_ptr<PasteboardContext>&&);
     WEBCORE_EXPORT static std::unique_ptr<Pasteboard> create(const DragData&);
 
-    virtual void setDragImage(DragImage, const IntPoint& hotSpot);
+    WEBCORE_EXPORT virtual void setDragImage(DragImage, const IntPoint& hotSpot);
 #endif
 
 #if PLATFORM(WIN) || PLATFORM(HAIKU)
@@ -381,9 +381,9 @@ extern NSString *UIColorPboardType;
 #endif
 
 #if PLATFORM(MAC)
-extern const char* const WebArchivePboardType;
-extern const char* const WebURLNamePboardType;
-extern const char* const WebURLsWithTitlesPboardType;
+extern const ASCIILiteral WebArchivePboardType;
+extern const ASCIILiteral WebURLNamePboardType;
+extern const ASCIILiteral WebURLsWithTitlesPboardType;
 #endif
 
 #if !PLATFORM(GTK)

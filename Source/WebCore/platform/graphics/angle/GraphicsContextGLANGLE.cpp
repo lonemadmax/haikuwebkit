@@ -510,8 +510,9 @@ void GraphicsContextGLANGLE::validateDepthStencil(const char* packedDepthStencil
     // FIXME: Since the constructors of various platforms are not shared, we initialize this here.
     // Upon constructing the context, always initialize the extensions that the WebGLRenderingContext* will
     // use to turn on feature flags.
-    if (supportsExtension(packedDepthStencilExtension)) {
-        ensureExtensionEnabled(packedDepthStencilExtension);
+    String packedDepthStencilExtensionString { packedDepthStencilExtension };
+    if (supportsExtension(packedDepthStencilExtensionString)) {
+        ensureExtensionEnabled(packedDepthStencilExtensionString);
         m_internalDepthStencilFormat = GL_DEPTH24_STENCIL8_OES;
     } else
         m_internalDepthStencilFormat = GL_DEPTH_COMPONENT16;
@@ -528,53 +529,28 @@ void GraphicsContextGLANGLE::validateDepthStencil(const char* packedDepthStencil
 
     if (attrs.antialias) {
         // FIXME: must adjust this when upgrading to WebGL 2.0 / OpenGL ES 3.0 support.
-        if (!supportsExtension("GL_ANGLE_framebuffer_multisample") || !supportsExtension("GL_ANGLE_framebuffer_blit") || !supportsExtension("GL_OES_rgb8_rgba8")) {
+        if (!supportsExtension("GL_ANGLE_framebuffer_multisample"_s) || !supportsExtension("GL_ANGLE_framebuffer_blit"_s) || !supportsExtension("GL_OES_rgb8_rgba8"_s)) {
             attrs.antialias = false;
             setContextAttributes(attrs);
         } else {
-            ensureExtensionEnabled("GL_ANGLE_framebuffer_multisample");
-            ensureExtensionEnabled("GL_ANGLE_framebuffer_blit");
-            ensureExtensionEnabled("GL_OES_rgb8_rgba8");
+            ensureExtensionEnabled("GL_ANGLE_framebuffer_multisample"_s);
+            ensureExtensionEnabled("GL_ANGLE_framebuffer_blit"_s);
+            ensureExtensionEnabled("GL_OES_rgb8_rgba8"_s);
         }
     } else if (attrs.preserveDrawingBuffer) {
         // Needed for preserveDrawingBuffer:true support without antialiasing.
-        ensureExtensionEnabled("GL_ANGLE_framebuffer_blit");
+        ensureExtensionEnabled("GL_ANGLE_framebuffer_blit"_s);
     }
 }
 
 void GraphicsContextGLANGLE::prepareTexture()
-{
-    if (m_layerComposited)
-        return;
-
-    if (!makeContextCurrent())
-        return;
-
-    prepareTextureImpl();
-}
-
-void GraphicsContextGLANGLE::prepareTextureImpl()
 {
     ASSERT(!m_layerComposited);
 
     if (contextAttributes().antialias)
         resolveMultisamplingIfNecessary();
 
-#if USE(TEXTURE_MAPPER)
-    std::swap(m_texture, m_compositorTexture);
-#if USE(COORDINATED_GRAPHICS)
-    std::swap(m_texture, m_intermediateTexture);
-    std::swap(m_textureBacking, m_compositorTextureBacking);
-    std::swap(m_textureBacking, m_intermediateTextureBacking);
-#endif
-
-    GL_BindFramebuffer(GL_FRAMEBUFFER, m_fbo);
-    GL_FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, drawingBufferTextureTarget(), m_texture, 0);
-    GL_Flush();
-
-    if (m_state.boundDrawFBO != m_fbo)
-        GL_BindFramebuffer(GraphicsContextGL::FRAMEBUFFER, m_state.boundDrawFBO);
-#else
+#if PLATFORM(COCOA)
     if (m_preserveDrawingBufferTexture) {
         // Blit m_preserveDrawingBufferTexture into m_texture.
         ScopedGLCapability scopedScissor(GL_SCISSOR_TEST, GL_FALSE);
@@ -1925,8 +1901,8 @@ String GraphicsContextGLANGLE::getUnmangledInfoLog(PlatformGLObject shaders[2], 
     // causes a warning in some compilers. There is no point showing
     // this warning to the user since they didn't write the code that
     // is causing it.
-    static const NeverDestroyed<String> angleWarning { "WARNING: 0:1: extension 'GL_ARB_gpu_shader5' is not supported\n"_s };
-    int startFrom = log.startsWith(angleWarning) ? angleWarning.get().length() : 0;
+    static constexpr char angleWarning[] = "WARNING: 0:1: extension 'GL_ARB_gpu_shader5' is not supported\n";
+    int startFrom = log.startsWith(angleWarning) ? strlen(angleWarning) : 0;
     processedLog.append(log.substring(startFrom, log.length() - startFrom));
 
     LOG(WebGL, "Unmangled ShaderInfoLog:\n%s", processedLog.toString().utf8().data());
@@ -2190,24 +2166,6 @@ void GraphicsContextGLANGLE::synthesizeGLError(GCGLenum error)
     // any errors from GL_Error before the error we are synthesizing.
     moveErrorsToSyntheticErrorList();
     m_syntheticErrors.add(error);
-}
-
-void GraphicsContextGLANGLE::forceContextLost()
-{
-    for (auto* client : copyToVector(m_clients))
-        client->forceContextLost();
-}
-
-void GraphicsContextGLANGLE::recycleContext()
-{
-    for (auto* client : copyToVector(m_clients))
-        client->recycleContext();
-}
-
-void GraphicsContextGLANGLE::dispatchContextChangedNotification()
-{
-    for (auto* client : copyToVector(m_clients))
-        client->dispatchContextChangedNotification();
 }
 
 void GraphicsContextGLANGLE::drawArraysInstanced(GCGLenum mode, GCGLint first, GCGLsizei count, GCGLsizei primcount)
@@ -2939,11 +2897,6 @@ void GraphicsContextGLANGLE::ensureExtensionEnabled(const String& name)
 bool GraphicsContextGLANGLE::isExtensionEnabled(const String& name)
 {
     return m_availableExtensions.contains(name) || m_enabledExtensions.contains(name);
-}
-
-GLint GraphicsContextGLANGLE::getGraphicsResetStatusARB()
-{
-    return GraphicsContextGL::NO_ERROR;
 }
 
 String GraphicsContextGLANGLE::getTranslatedShaderSourceANGLE(PlatformGLObject shader)

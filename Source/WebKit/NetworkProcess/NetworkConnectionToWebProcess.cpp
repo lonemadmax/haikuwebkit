@@ -436,8 +436,10 @@ void NetworkConnectionToWebProcess::didClose(IPC::Connection& connection)
         networkSession->broadcastChannelRegistry().removeConnection(connection);
         for (auto& url : m_blobURLs)
             networkSession->blobRegistry().unregisterBlobURL(url);
-        for (auto& url : m_blobURLHandles)
-            networkSession->blobRegistry().unregisterBlobURLHandle(url);
+        for (auto& [url, count] : m_blobURLHandles) {
+            for (unsigned i = 0; i < count; ++i)
+                networkSession->blobRegistry().unregisterBlobURLHandle(url);
+        }
     }
 
     // All trackers of resources that were in the middle of being loaded were
@@ -1431,6 +1433,13 @@ RefPtr<NetworkResourceLoader> NetworkConnectionToWebProcess::takeNetworkResource
         return nullptr;
     return m_networkResourceLoaders.take(resourceLoadIdentifier);
 }
+
+#if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
+void NetworkConnectionToWebProcess::installMockContentFilter(WebCore::MockContentFilterSettings&& settings)
+{
+    MockContentFilterSettings::singleton() = WTFMove(settings);
+}
+#endif
 
 } // namespace WebKit
 

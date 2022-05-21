@@ -26,35 +26,220 @@
 #import "config.h"
 #import "Queue.h"
 
+#import "APIConversions.h"
 #import "Buffer.h"
 #import "CommandBuffer.h"
+#import "Device.h"
 
 namespace WebGPU {
 
-Queue::Queue(id<MTLCommandQueue> commandQueue)
+Queue::Queue(id<MTLCommandQueue> commandQueue, Device& device)
     : m_commandQueue(commandQueue)
+    , m_device(device)
 {
 }
 
-Queue::~Queue() = default;
-
-void Queue::onSubmittedWorkDone(uint64_t signalValue, WTF::Function<void(WGPUQueueWorkDoneStatus)>&& callback)
+Queue::~Queue()
 {
-    UNUSED_PARAM(signalValue);
-    UNUSED_PARAM(callback);
+    // If we're not idle, then there's a pending completed handler to be run,
+    // but the completed handler should have retained us,
+    // which means we shouldn't be being destroyed.
+    // So we must be idle.
+    ASSERT(isIdle());
+
+    // We can't actually call finalizeBlitCommandEncoder() here because, if there are pending copies,
+    // that would cause them to be committed, which ends up retaining this in the completed handler.
+    // It's actually fine, though, because we can just drop any pending copies on the floor.
+    // If the queue is being destroyed, this is unobservable.
+    if (m_blitCommandEncoder)
+        [m_blitCommandEncoder endEncoding];
+}
+
+void Queue::ensureBlitCommandEncoder()
+{
+    if (m_blitCommandEncoder)
+        return;
+
+    auto *commandBufferDescriptor = [MTLCommandBufferDescriptor new];
+    commandBufferDescriptor.errorOptions = MTLCommandBufferErrorOptionEncoderExecutionStatus;
+    m_commandBuffer = [m_commandQueue commandBufferWithDescriptor:commandBufferDescriptor];
+    m_blitCommandEncoder = [m_commandBuffer blitCommandEncoder];
+}
+
+void Queue::finalizeBlitCommandEncoder()
+{
+    if (m_blitCommandEncoder) {
+        [m_blitCommandEncoder endEncoding];
+        commitMTLCommandBuffer(m_commandBuffer);
+        m_blitCommandEncoder = nil;
+        m_commandBuffer = nil;
+    }
+}
+
+void Queue::onSubmittedWorkDone(uint64_t, CompletionHandler<void(WGPUQueueWorkDoneStatus)>&& callback)
+{
+    // https://gpuweb.github.io/gpuweb/#dom-gpuqueue-onsubmittedworkdone
+
+    ASSERT(m_submittedCommandBufferCount >= m_completedCommandBufferCount);
+
+    finalizeBlitCommandEncoder();
+
+    if (isIdle()) {
+        scheduleWork([callback = WTFMove(callback)]() mutable {
+            callback(WGPUQueueWorkDoneStatus_Success);
+        });
+        return;
+    }
+
+    auto& callbacks = m_onSubmittedWorkDoneCallbacks.add(m_submittedCommandBufferCount, OnSubmittedWorkDoneCallbacks()).iterator->value;
+    callbacks.append(WTFMove(callback));
+}
+
+bool Queue::validateSubmit() const
+{
+    // FIXME: "Every {{GPUCommandBuffer}} in |commandBuffers| is [$valid to use with$] |this|."
+
+    // FIXME: "Every GPUBuffer referenced in any element of commandBuffers is in the "unmapped" buffer state."
+
+    // FIXME: "Every GPUQuerySet referenced in a command in any element of commandBuffers is in the available state."
+    // FIXME: "For occlusion queries, occlusionQuerySet in beginRenderPass() does not constitute a reference, while beginOcclusionQuery() does."
+
+    // There's only one queue right now, so there is no need to make sure that the command buffers are being submitted to the correct queue.
+
+    return true;
+}
+
+void Queue::commitMTLCommandBuffer(id<MTLCommandBuffer> commandBuffer)
+{
+    ASSERT(commandBuffer.commandQueue == m_commandQueue);
+    [commandBuffer addCompletedHandler:[protectedThis = Ref { *this }](id<MTLCommandBuffer>) {
+        protectedThis->scheduleWork(CompletionHandler<void(void)>([protectedThis = protectedThis.copyRef()]() {
+            ++(protectedThis->m_completedCommandBufferCount);
+            for (auto& callback : protectedThis->m_onSubmittedWorkDoneCallbacks.take(protectedThis->m_completedCommandBufferCount))
+                callback(WGPUQueueWorkDoneStatus_Success);
+        }, CompletionHandlerCallThread::MainThread));
+    }];
+
+    [commandBuffer commit];
+    ++m_submittedCommandBufferCount;
 }
 
 void Queue::submit(Vector<std::reference_wrapper<const CommandBuffer>>&& commands)
 {
-    UNUSED_PARAM(commands);
+    // https://gpuweb.github.io/gpuweb/#dom-gpuqueue-submit
+
+    // "If any of the following conditions are unsatisfied"
+    if (!validateSubmit()) {
+        // "generate a validation error and stop."
+        m_device.generateAValidationError("Validation failure."_s);
+        return;
+    }
+
+    finalizeBlitCommandEncoder();
+
+    // "For each commandBuffer in commandBuffers:"
+    for (auto commandBuffer : commands) {
+        // "Execute each command in commandBuffer.[[command_list]]."
+        commitMTLCommandBuffer(commandBuffer.get().commandBuffer());
+    }
+}
+
+static bool validateWriteBufferInitial(size_t size)
+{
+    // "contentsSize ≥ 0."
+
+    // "dataOffset + contentsSize ≤ dataSize."
+
+    // "contentsSize, converted to bytes, is a multiple of 4 bytes."
+    if (size % 4)
+        return false;
+
+    return true;
+}
+
+bool Queue::validateWriteBuffer(const Buffer& buffer, uint64_t bufferOffset, size_t size) const
+{
+    // FIXME: "buffer is valid to use with this."
+
+    // "buffer.[[state]] is unmapped."
+    if (buffer.state() != Buffer::State::Unmapped)
+        return false;
+
+    // "buffer.[[usage]] includes COPY_DST."
+    if (!(buffer.usage() & WGPUBufferUsage_CopyDst))
+        return false;
+
+    // "bufferOffset, converted to bytes, is a multiple of 4 bytes."
+    if (bufferOffset % 4)
+        return false;
+
+    // "bufferOffset + contentsSize, converted to bytes, ≤ buffer.[[size]] bytes."
+    // FIXME: Use checked arithmetic
+    if (bufferOffset + size > buffer.size())
+        return false;
+
+    return true;
 }
 
 void Queue::writeBuffer(const Buffer& buffer, uint64_t bufferOffset, const void* data, size_t size)
 {
-    UNUSED_PARAM(buffer);
-    UNUSED_PARAM(bufferOffset);
-    UNUSED_PARAM(data);
-    UNUSED_PARAM(size);
+    // https://gpuweb.github.io/gpuweb/#dom-gpuqueue-writebuffer
+
+    // "If data is an ArrayBuffer or DataView, let the element type be "byte". Otherwise, data is a TypedArray; let the element type be the type of the TypedArray."
+
+    // "Let dataSize be the size of data, in elements."
+
+    // "If size is missing, let contentsSize be dataSize − dataOffset. Otherwise, let contentsSize be size."
+
+    // "If any of the following conditions are unsatisfied"
+    if (!validateWriteBufferInitial(size)) {
+        // FIXME: "throw OperationError and stop."
+        return;
+    }
+
+    // "Let dataContents be a copy of the bytes held by the buffer source."
+
+    // "Let contents be the contentsSize elements of dataContents starting at an offset of dataOffset elements."
+
+    // "If any of the following conditions are unsatisfied"
+    if (!validateWriteBuffer(buffer, bufferOffset, size)) {
+        // "generate a validation error and stop."
+        m_device.generateAValidationError("Validation failure."_s);
+        return;
+    }
+
+    // "Write contents into buffer starting at bufferOffset."
+    if (!size)
+        return;
+
+    // FIXME(PERFORMANCE): Instead of checking whether or not the whole queue is idle,
+    // we could detect whether this specific resource is idle, if we tracked every resource.
+    if (isIdle()) {
+        switch (buffer.buffer().storageMode) {
+        case MTLStorageModeShared:
+            memcpy(static_cast<char*>(buffer.buffer().contents) + bufferOffset, data, size);
+            return;
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+        case MTLStorageModeManaged:
+            memcpy(static_cast<char*>(buffer.buffer().contents) + bufferOffset, data, size);
+            [buffer.buffer() didModifyRange:NSMakeRange(bufferOffset, size)];
+            return;
+#endif
+        case MTLStorageModePrivate:
+            // The only way to get data into a private resource is to tell the GPU to copy it in.
+            break;
+        default:
+            ASSERT_NOT_REACHED();
+            return;
+        }
+    }
+
+    ensureBlitCommandEncoder();
+    // FIXME(PERFORMANCE): Suballocate, so the common case doesn't need to hit the kernel.
+    id<MTLBuffer> temporaryBuffer = [m_device.device() newBufferWithBytes:data length:static_cast<NSUInteger>(size) options:MTLResourceStorageModeShared];
+    if (!temporaryBuffer)
+        return;
+    [m_blitCommandEncoder copyFromBuffer:temporaryBuffer sourceOffset:0 toBuffer:buffer.buffer() destinationOffset:static_cast<NSUInteger>(bufferOffset) size:static_cast<NSUInteger>(size)];
 }
 
 void Queue::writeTexture(const WGPUImageCopyTexture& destination, const void* data, size_t dataSize, const WGPUTextureDataLayout& dataLayout, const WGPUExtent3D& writeSize)
@@ -66,28 +251,35 @@ void Queue::writeTexture(const WGPUImageCopyTexture& destination, const void* da
     UNUSED_PARAM(writeSize);
 }
 
-void Queue::setLabel(const char* label)
+void Queue::setLabel(String&& label)
 {
-    m_commandQueue.label = [NSString stringWithCString:label encoding:NSUTF8StringEncoding];
+    m_commandQueue.label = label;
+}
+
+void Queue::scheduleWork(Instance::WorkItem&& workItem)
+{
+    m_device.instance().scheduleWork(WTFMove(workItem));
 }
 
 } // namespace WebGPU
 
+#pragma mark WGPU Stubs
+
 void wgpuQueueRelease(WGPUQueue queue)
 {
-    delete queue;
+    WebGPU::fromAPI(queue).deref();
 }
 
 void wgpuQueueOnSubmittedWorkDone(WGPUQueue queue, uint64_t signalValue, WGPUQueueWorkDoneCallback callback, void* userdata)
 {
-    queue->queue->onSubmittedWorkDone(signalValue, [callback, userdata] (WGPUQueueWorkDoneStatus status) {
+    WebGPU::fromAPI(queue).onSubmittedWorkDone(signalValue, [callback, userdata](WGPUQueueWorkDoneStatus status) {
         callback(status, userdata);
     });
 }
 
 void wgpuQueueOnSubmittedWorkDoneWithBlock(WGPUQueue queue, uint64_t signalValue, WGPUQueueWorkDoneBlockCallback callback)
 {
-    queue->queue->onSubmittedWorkDone(signalValue, [callback] (WGPUQueueWorkDoneStatus status) {
+    WebGPU::fromAPI(queue).onSubmittedWorkDone(signalValue, [callback = WTFMove(callback)](WGPUQueueWorkDoneStatus status) {
         callback(status);
     });
 }
@@ -96,21 +288,21 @@ void wgpuQueueSubmit(WGPUQueue queue, uint32_t commandCount, const WGPUCommandBu
 {
     Vector<std::reference_wrapper<const WebGPU::CommandBuffer>> commandsToForward;
     for (uint32_t i = 0; i < commandCount; ++i)
-        commandsToForward.append(commands[i]->commandBuffer);
-    queue->queue->submit(WTFMove(commandsToForward));
+        commandsToForward.append(WebGPU::fromAPI(commands[i]));
+    WebGPU::fromAPI(queue).submit(WTFMove(commandsToForward));
 }
 
 void wgpuQueueWriteBuffer(WGPUQueue queue, WGPUBuffer buffer, uint64_t bufferOffset, const void* data, size_t size)
 {
-    queue->queue->writeBuffer(buffer->buffer, bufferOffset, data, size);
+    WebGPU::fromAPI(queue).writeBuffer(WebGPU::fromAPI(buffer), bufferOffset, data, size);
 }
 
 void wgpuQueueWriteTexture(WGPUQueue queue, const WGPUImageCopyTexture* destination, const void* data, size_t dataSize, const WGPUTextureDataLayout* dataLayout, const WGPUExtent3D* writeSize)
 {
-    queue->queue->writeTexture(*destination, data, dataSize, *dataLayout, *writeSize);
+    WebGPU::fromAPI(queue).writeTexture(*destination, data, dataSize, *dataLayout, *writeSize);
 }
 
 void wgpuQueueSetLabel(WGPUQueue queue, const char* label)
 {
-    queue->queue->setLabel(label);
+    WebGPU::fromAPI(queue).setLabel(WebGPU::fromAPI(label));
 }

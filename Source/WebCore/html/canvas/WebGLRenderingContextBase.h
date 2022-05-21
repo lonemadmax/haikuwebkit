@@ -48,6 +48,7 @@
 #include <limits>
 #include <memory>
 #include <wtf/CheckedArithmetic.h>
+#include <wtf/ListHashSet.h>
 #include <wtf/Lock.h>
 
 #if ENABLE(WEBGL2)
@@ -130,7 +131,7 @@ using WebGLCanvas = std::variant<RefPtr<HTMLCanvasElement>>;
 #endif
 
 #if ENABLE(MEDIA_STREAM)
-class MediaSample;
+class VideoFrame;
 #endif
 
 class WebGLRenderingContextBase : public GraphicsContextGL::Client, public GPUBasedCanvasRenderingContext, private ActivityStateChangeObserver {
@@ -394,7 +395,7 @@ public:
     void paintRenderingResultsToCanvas() final;
     std::optional<PixelBuffer> paintRenderingResultsToPixelBuffer();
 #if ENABLE(MEDIA_STREAM)
-    RefPtr<MediaSample> paintCompositedResultsToMediaSample();
+    RefPtr<VideoFrame> paintCompositedResultsToVideoFrame();
 #endif
 
     void removeSharedObject(WebGLSharedObject&);
@@ -412,8 +413,9 @@ public:
     // GraphicsContextGL::Client
     void didComposite() override;
     void forceContextLost() override;
-    void recycleContext() override;
     void dispatchContextChangedNotification() override;
+
+    void recycleContext();
 
     virtual void addMembersToOpaqueRoots(JSC::AbstractSlotVisitor&);
     // This lock must be held across all mutations of containers like
@@ -547,11 +549,20 @@ protected:
     void prepareForDisplay() final;
     void updateActiveOrdinal();
 
+    struct ContextLostState {
+        ContextLostState(LostContextMode mode)
+            : mode(mode)
+        {
+        }
+        ListHashSet<GCGLint> errors; // Losing context and WEBGL_lose_context generates errors here.
+        LostContextMode mode { LostContextMode::RealLostContext };
+        bool restoreRequested { false };
+    };
+
     RefPtr<GraphicsContextGL> m_context;
     RefPtr<WebGLContextGroup> m_contextGroup;
     Lock m_objectGraphLock;
 
-    bool m_restoreAllowed { false };
     SuspendableTimer m_restoreTimer;
 
     bool m_needsUpdate;
@@ -651,8 +662,7 @@ protected:
     bool m_unpackPremultiplyAlpha;
     GCGLenum m_unpackColorspaceConversion;
 
-    bool m_contextLost { false };
-    LostContextMode m_contextLostMode { SyntheticLostContext };
+    std::optional<ContextLostState>  m_contextLostState;
     WebGLContextAttributes m_attributes;
 
     bool m_layerCleared;
@@ -1094,8 +1104,8 @@ protected:
 #endif
 
     // Wrapper for GraphicsContextGLOpenGL::synthesizeGLError that sends a message to the JavaScript console.
-    enum ConsoleDisplayPreference { DisplayInConsole, DontDisplayInConsole };
-    void synthesizeGLError(GCGLenum, const char* functionName, const char* description, ConsoleDisplayPreference = DisplayInConsole);
+    void synthesizeGLError(GCGLenum, const char* functionName, const char* description);
+    void synthesizeLostContextGLError(GCGLenum, const char* functionName, const char* description);
 
     String ensureNotNull(const String&) const;
 

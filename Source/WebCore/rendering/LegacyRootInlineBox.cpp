@@ -51,9 +51,9 @@ struct SameSizeAsLegacyRootInlineBox : public LegacyInlineFlowBox, public CanMak
     void* pointers[2];
 };
 
-COMPILE_ASSERT(sizeof(LegacyRootInlineBox) == sizeof(SameSizeAsLegacyRootInlineBox), LegacyRootInlineBox_should_stay_small);
+static_assert(sizeof(LegacyRootInlineBox) == sizeof(SameSizeAsLegacyRootInlineBox), "LegacyRootInlineBox should stay small");
 #if !ASSERT_ENABLED
-COMPILE_ASSERT(sizeof(WeakPtr<RenderObject>) == sizeof(void*), WeakPtr_should_be_same_size_as_raw_pointer);
+static_assert(sizeof(WeakPtr<RenderObject>) == sizeof(void*), "WeakPtr should be same size as raw pointer");
 #endif
 
 typedef HashMap<const LegacyRootInlineBox*, std::unique_ptr<LegacyEllipsisBox>> EllipsisBoxMap;
@@ -469,7 +469,7 @@ const LegacyInlineBox* LegacyRootInlineBox::lastSelectedBox() const
     return nullptr;
 }
 
-LayoutUnit LegacyRootInlineBox::selectionTop(ForHitTesting forHitTesting) const
+LayoutUnit LegacyRootInlineBox::selectionTop() const
 {
     LayoutUnit selectionTop = m_lineTop;
     
@@ -514,7 +514,7 @@ LayoutUnit LegacyRootInlineBox::selectionTop(ForHitTesting forHitTesting) const
     if (auto* previousBox = prevRootBox())
         prevBottom = previousBox->selectionBottom();
     else
-        prevBottom = forHitTesting == ForHitTesting::Yes ? blockFlow().borderAndPaddingBefore() : selectionTop;
+        prevBottom = selectionTop;
 
     if (prevBottom < selectionTop && blockFlow().containsFloats()) {
         // This line has actually been moved further down, probably from a large line-height, but possibly because the
@@ -533,7 +533,7 @@ LayoutUnit LegacyRootInlineBox::selectionTop(ForHitTesting forHitTesting) const
 
 LayoutUnit LegacyRootInlineBox::selectionTopAdjustedForPrecedingBlock() const
 {
-    return blockFlow().adjustSelectionTopForPrecedingBlock(selectionTop());
+    return blockFlow().adjustEnclosingTopForPrecedingBlock(selectionTop());
 }
 
 LayoutUnit LegacyRootInlineBox::selectionBottom() const

@@ -29,9 +29,12 @@
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
 
+struct WGPUTextureViewImpl {
+};
+
 namespace WebGPU {
 
-class TextureView : public RefCounted<TextureView> {
+class TextureView : public WGPUTextureViewImpl, public RefCounted<TextureView> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static Ref<TextureView> create(id<MTLTexture> texture)
@@ -41,18 +44,14 @@ public:
 
     ~TextureView();
 
-    void setLabel(const char*);
+    void setLabel(String&&);
 
     id<MTLTexture> texture() const { return m_texture; }
 
 private:
     TextureView(id<MTLTexture>);
 
-    id<MTLTexture> m_texture { nil };
+    const id<MTLTexture> m_texture { nil };
 };
 
 } // namespace WebGPU
-
-struct WGPUTextureViewImpl {
-    Ref<WebGPU::TextureView> textureView;
-};

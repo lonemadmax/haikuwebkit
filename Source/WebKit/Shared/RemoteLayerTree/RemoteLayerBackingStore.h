@@ -67,10 +67,12 @@ public:
 
     void setContents(WTF::MachSendRight&& surfaceHandle);
 
-    SwapBuffersDisplayRequirement prepareBuffers(bool hasEmptyDirtyRegion);
+    // Returns true if we need encode the buffer.
+    bool layerWillBeDisplayed();
+    bool needsDisplay() const;
 
-    // Returns true if the backing store changed.
-    bool prepareToDisplay();
+    bool performDelegatedLayerDisplay();
+    void prepareToDisplay();
     void paintContents();
 
     WebCore::FloatSize size() const { return m_size; }
@@ -96,7 +98,7 @@ public:
     }
 
     // Just for RemoteBackingStoreCollection.
-    void applySwappedBuffers(RefPtr<WebCore::ImageBuffer>&& front, RefPtr<WebCore::ImageBuffer>&& back, RefPtr<WebCore::ImageBuffer>&& secondaryBack);
+    void applySwappedBuffers(RefPtr<WebCore::ImageBuffer>&& front, RefPtr<WebCore::ImageBuffer>&& back, RefPtr<WebCore::ImageBuffer>&& secondaryBack, SwapBuffersDisplayRequirement);
     WebCore::SetNonVolatileResult swapToValidFrontBuffer();
 
     Vector<std::unique_ptr<WebCore::ThreadSafeImageBufferFlusher>> takePendingFlushers();
@@ -140,6 +142,10 @@ private:
 
     bool setBufferVolatile(Buffer&);
     WebCore::SetNonVolatileResult setBufferNonVolatile(Buffer&);
+    
+    SwapBuffersDisplayRequirement prepareBuffers();
+    void ensureFrontBuffer();
+    void dirtyRepaintCounterIfNecessary();
 
     PlatformCALayerRemote* m_layer;
 

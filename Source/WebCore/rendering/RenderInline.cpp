@@ -29,7 +29,7 @@
 #include "GraphicsContext.h"
 #include "HitTestResult.h"
 #include "InlineIteratorInlineBox.h"
-#include "InlineIteratorLine.h"
+#include "InlineIteratorLineBox.h"
 #include "LayoutIntegrationLineLayout.h"
 #include "LegacyInlineElementBox.h"
 #include "LegacyInlineTextBox.h"
@@ -973,9 +973,9 @@ void RenderInline::paintOutline(PaintInfo& paintInfo, const LayoutPoint& paintOf
     rects.append(LayoutRect());
 
     for (auto box = InlineIterator::firstInlineBoxFor(*this); box; box.traverseNextInlineBox()) {
-        auto line = box->line();
-        LayoutUnit top = std::max(line->top(), LayoutUnit(box->logicalTop()));
-        LayoutUnit bottom = std::min(line->bottom(), LayoutUnit(box->logicalBottom()));
+        auto lineBox = box->lineBox();
+        auto top = LayoutUnit { std::max(lineBox->contentLogicalTop(), box->logicalTop()) };
+        auto bottom = LayoutUnit { std::min(lineBox->contentLogicalBottom(), box->logicalBottom()) };
         // FIXME: This is mixing physical and logical coordinates.
         rects.append({ LayoutUnit(box->visualRectIgnoringBlockDirection().x()), top, LayoutUnit(box->logicalWidth()), bottom - top });
     }

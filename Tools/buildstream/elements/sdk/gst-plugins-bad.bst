@@ -1,11 +1,8 @@
 kind: meson
 sources:
 - kind: tar
-  url: gst_downloads:gst-plugins-bad/gst-plugins-bad-1.20.0.tar.xz
-  ref: 015b8d4d9a395ebf444d40876867a2034dd3304b3ad48bc3a0dd0c1ee71dc11d
-# To be shipped in 1.20.1.
-- kind: patch
-  path: patches/gstreamer-0001-dtlstransport-Notify-ICE-transport-property-changes.patch
+  url: gst_downloads:gst-plugins-bad/gst-plugins-bad-1.20.1.tar.xz
+  ref: 09d3c2cf5911f0bc7da6bf557a55251779243d3de216b6a26cc90c445b423848
 build-depends:
 - freedesktop-sdk.bst:public-stacks/buildsystem-meson.bst
 depends:
@@ -45,7 +42,6 @@ variables:
     -Dbs2b=disabled
     -Dchromaprint=disabled
     -Dcolormanagement=disabled
-    -Dcuda=disabled
     -Dcurl-ssh2=disabled
     -Dcurl=disabled
     -Dd3dvideosink=disabled
@@ -69,7 +65,6 @@ variables:
     -Dladspa=disabled
     -Dldac=disabled
     -Dlibde265=disabled
-    -Dlibmms=disabled
     -Dlv2=disabled
     -Dmagicleap=disabled
     -Dmicrodns=disabled
@@ -80,9 +75,6 @@ variables:
     -Dmusepack=disabled
     -Dneon=disabled
     -Dnvcodec=disabled
-    -Dnvdec=disabled
-    -Dnvenc=disabled
-    -Dofa=disabled
     -Donnx=disabled
     -Dopenal=disabled
     -Dopenaptx=disabled
@@ -106,8 +98,6 @@ variables:
     -Dtinyalsa=disabled
     -Dttml=disabled
     -Dva=disabled
-    -Dvaacenc=disabled
-    -Dvdpau=disabled
     -Dvoaacenc=disabled
     -Dvoamrwbenc=disabled
     -Dvulkan=disabled

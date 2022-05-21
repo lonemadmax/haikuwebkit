@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
- * Copyright (C) 2013-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -346,6 +346,7 @@
 #endif
 
 #if PLATFORM(COCOA)
+#include "FontCacheCoreText.h"
 #include "SystemBattery.h"
 #include "VP9UtilitiesCocoa.h"
 #include <pal/spi/cf/CoreTextSPI.h>
@@ -554,7 +555,9 @@ void Internals::resetToConsistentState(Page& page)
     page.group().ensureCaptionPreferences().setCaptionsStyleSheetOverride(emptyString());
     PlatformMediaSessionManager::sharedManager().resetHaveEverRegisteredAsNowPlayingApplicationForTesting();
     PlatformMediaSessionManager::sharedManager().resetRestrictions();
+    PlatformMediaSessionManager::sharedManager().resetSessionState();
     PlatformMediaSessionManager::sharedManager().setWillIgnoreSystemInterruptions(true);
+    PlatformMediaSessionManager::sharedManager().applicationWillEnterForeground(false);
 #endif
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
     PlatformMediaSessionManager::sharedManager().setIsPlayingToAutomotiveHeadUnit(false);
@@ -599,6 +602,9 @@ void Internals::resetToConsistentState(Page& page)
     rtcProvider.setH265Support(true);
     rtcProvider.setVP9Support(true, true);
     rtcProvider.clearFactory();
+#elif USE(GSTREAMER_WEBRTC)
+    page.settings().setWebRTCEncryptionEnabled(true);
+    page.settings().setPeerConnectionEnabled(true);
 #endif
 
     page.setFullscreenAutoHideDuration(0_s);
@@ -1619,6 +1625,7 @@ void Internals::applyRotationForOutgoingVideoSources(RTCPeerConnection& connecti
 {
     connection.applyRotationForOutgoingVideoSources();
 }
+
 void Internals::setWebRTCH265Support(bool value)
 {
 #if USE(LIBWEBRTC)
@@ -1626,6 +1633,8 @@ void Internals::setWebRTCH265Support(bool value)
         page->libWebRTCProvider().setH265Support(value);
         page->libWebRTCProvider().clearFactory();
     }
+#else
+    UNUSED_PARAM(value);
 #endif
 }
 
@@ -1636,6 +1645,9 @@ void Internals::setWebRTCVP9Support(bool supportVP9Profile0, bool supportVP9Prof
         page->libWebRTCProvider().setVP9Support(supportVP9Profile0, supportVP9Profile2);
         page->libWebRTCProvider().clearFactory();
     }
+#else
+    UNUSED_PARAM(supportVP9Profile0);
+    UNUSED_PARAM(supportVP9Profile2);
 #endif
 }
 
@@ -1646,6 +1658,8 @@ void Internals::setWebRTCVP9VTBSupport(bool value)
         page->libWebRTCProvider().setVP9VTBSupport(value);
         page->libWebRTCProvider().clearFactory();
     }
+#else
+    UNUSED_PARAM(value);
 #endif
 }
 
@@ -1686,6 +1700,8 @@ void Internals::setEnableWebRTCEncryption(bool value)
 #if USE(LIBWEBRTC)
     if (auto* page = contextDocument()->page())
         page->settings().setWebRTCEncryptionEnabled(value);
+#else
+    UNUSED_PARAM(value);
 #endif
 }
 
@@ -1696,6 +1712,8 @@ void Internals::setUseDTLS10(bool useDTLS10)
     if (!document || !document->page())
         return;
     document->page()->libWebRTCProvider().setUseDTLS10(useDTLS10);
+#else
+    UNUSED_PARAM(useDTLS10);
 #endif
 }
 
@@ -1886,6 +1904,15 @@ void Internals::invalidateFontCache()
 void Internals::setFontSmoothingEnabled(bool enabled)
 {
     FontCascade::setShouldUseSmoothing(enabled);
+}
+
+void Internals::setOverrideEnhanceTextLegibility(bool enhance)
+{
+#if PLATFORM(COCOA)
+    WebCore::setOverrideEnhanceTextLegibility(enhance);
+#else
+    UNUSED_PARAM(enhance);
+#endif
 }
 
 ExceptionOr<void> Internals::setLowPowerModeEnabled(bool isEnabled)
@@ -4510,6 +4537,13 @@ bool Internals::isPlayerMuted(const HTMLMediaElement& element) const
     auto player = element.player();
     return player && player->muted();
 }
+
+void Internals::beginAudioSessionInterruption()
+{
+#if USE(AUDIO_SESSION)
+    AudioSession::sharedSession().beginInterruption();
+#endif
+}
 #endif // ENABLE(VIDEO)
 
 #if ENABLE(WEB_AUDIO)
@@ -5090,6 +5124,15 @@ bool Internals::userIsInteracting()
     return false;
 }
 
+bool Internals::hasTransientActivation()
+{
+    if (auto* document = contextDocument()) {
+        if (auto* window = document->domWindow())
+            return window->hasTransientActivation();
+    }
+    return false;
+}
+
 double Internals::lastHandledUserGestureTimestamp()
 {
     Document* document = contextDocument();
@@ -5494,7 +5537,7 @@ void Internals::stopObservingRealtimeMediaSource()
     case RealtimeMediaSource::Type::Video:
     case RealtimeMediaSource::Type::Screen:
     case RealtimeMediaSource::Type::Window:
-        m_trackSource->removeVideoSampleObserver(*this);
+        m_trackSource->removeVideoFrameObserver(*this);
         break;
     case RealtimeMediaSource::Type::None:
         ASSERT_NOT_REACHED();
@@ -5521,7 +5564,7 @@ void Internals::observeMediaStreamTrack(MediaStreamTrack& track)
     case RealtimeMediaSource::Type::Video:
     case RealtimeMediaSource::Type::Screen:
     case RealtimeMediaSource::Type::Window:
-        m_trackSource->addVideoSampleObserver(*this);
+        m_trackSource->addVideoFrameObserver(*this);
         break;
     case RealtimeMediaSource::Type::None:
         ASSERT_NOT_REACHED();
@@ -5538,13 +5581,13 @@ void Internals::mediaStreamTrackVideoFrameRotation(DOMPromiseDeferred<IDLShort>&
     promise.resolve(m_trackVideoRotation);
 }
 
-void Internals::videoSampleAvailable(MediaSample& sample, VideoSampleMetadata)
+void Internals::videoFrameAvailable(VideoFrame& videoFrame, VideoFrameTimeMetadata)
 {
-    callOnMainThread([this, weakThis = WeakPtr { *this }, sample = Ref { sample }] {
+    callOnMainThread([this, weakThis = WeakPtr { *this }, videoFrame = Ref { videoFrame }] {
         if (!weakThis)
             return;
         m_trackVideoSampleCount++;
-        m_trackVideoRotation = static_cast<int>(sample->videoRotation());
+        m_trackVideoRotation = static_cast<int>(videoFrame->rotation());
         if (!m_nextTrackFramePromise)
             return;
 
@@ -5552,7 +5595,7 @@ void Internals::videoSampleAvailable(MediaSample& sample, VideoSampleMetadata)
         if (!videoSettings.width() || !videoSettings.height())
             return;
 
-        auto rgba = sample->getRGBAImageData();
+        auto rgba = videoFrame->getRGBAImageData();
         if (!rgba)
             return;
 
@@ -5627,28 +5670,25 @@ bool Internals::supportsAudioSession() const
 #endif
 }
 
-String Internals::audioSessionCategory() const
+auto Internals::audioSessionCategory() const -> AudioSessionCategory
 {
 #if USE(AUDIO_SESSION)
-    switch (AudioSession::sharedSession().category()) {
-    case AudioSession::CategoryType::AmbientSound:
-        return "AmbientSound"_s;
-    case AudioSession::CategoryType::SoloAmbientSound:
-        return "SoloAmbientSound"_s;
-    case AudioSession::CategoryType::MediaPlayback:
-        return "MediaPlayback"_s;
-    case AudioSession::CategoryType::RecordAudio:
-        return "RecordAudio"_s;
-    case AudioSession::CategoryType::PlayAndRecord:
-        return "PlayAndRecord"_s;
-    case AudioSession::CategoryType::AudioProcessing:
-        return "AudioProcessing"_s;
-    case AudioSession::CategoryType::None:
-        return "None"_s;
-    }
+    return AudioSession::sharedSession().category();
+#else
+    return AudioSessionCategory::None;
 #endif
-    return emptyString();
 }
+
+#if ENABLE(VIDEO)
+auto Internals::categoryAtMostRecentPlayback(HTMLMediaElement& element) const -> AudioSessionCategory
+{
+#if USE(AUDIO_SESSION)
+    return element.categoryAtMostRecentPlayback();
+#else
+    return AudioSessionCategory::None;
+#endif
+}
+#endif
 
 double Internals::preferredAudioBufferSize() const
 {

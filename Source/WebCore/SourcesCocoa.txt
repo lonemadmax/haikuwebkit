@@ -119,6 +119,7 @@ Modules/plugins/YouTubePluginReplacement.cpp
 Modules/speech/cocoa/SpeechRecognizerCocoa.mm
 Modules/speech/cocoa/WebSpeechRecognizerTask.mm
 Modules/speech/cocoa/WebSpeechRecognizerTaskMock.mm
+Modules/system-preview/ARKitBadgeSystemImage.mm
 Modules/webdatabase/cocoa/DatabaseManagerCocoa.mm
 accessibility/ios/AXObjectCacheIOS.mm
 accessibility/ios/AccessibilityObjectIOS.mm
@@ -232,6 +233,7 @@ page/scrolling/mac/ScrollingTreeFrameScrollingNodeMac.mm
 page/scrolling/mac/ScrollingTreeMac.mm
 page/scrolling/mac/ScrollingTreeOverflowScrollingNodeMac.mm
 page/scrolling/mac/ScrollingTreeScrollingNodeDelegateMac.mm
+platform/VideoFrame.mm
 platform/audio/AudioSession.cpp
 platform/audio/cocoa/AudioDestinationCocoa.cpp
 platform/audio/cocoa/AudioFileReaderCocoa.cpp
@@ -280,7 +282,6 @@ platform/cocoa/PlaybackSessionModelMediaElement.mm
 platform/cocoa/PowerSourceNotifier.mm
 platform/cocoa/RemoteCommandListenerCocoa.mm
 platform/cocoa/RuntimeApplicationChecksCocoa.mm
-platform/cocoa/SharedVideoFrameUtilities.mm @no-unify
 platform/cocoa/SearchPopupMenuCocoa.mm
 platform/cocoa/SharedBufferCocoa.mm
 platform/cocoa/SystemVersion.mm
@@ -481,6 +482,7 @@ platform/ios/WebAVPlayerController.mm
 platform/ios/WebBackgroundTaskController.mm
 platform/ios/WebCoreMotionManager.mm
 platform/ios/WebEvent.mm @no-unify
+platform/ios/WebCoreUIColorExtras.mm
 platform/ios/WebItemProviderPasteboard.mm @no-unify
 platform/ios/WebSQLiteDatabaseTrackerClient.mm
 platform/ios/WebVideoFullscreenControllerAVKit.mm @no-unify

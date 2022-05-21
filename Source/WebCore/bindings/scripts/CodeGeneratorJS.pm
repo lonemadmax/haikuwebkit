@@ -1971,7 +1971,16 @@ sub IsAlwaysExposedOnInterface
     }
 
     if (ref($interfaceExposures) ne "ARRAY") {
-        $interfaceExposures = [$interfaceExposures];
+        # if the interface exposure list isn't an array, wrap it in one; unless the
+        # interface is Exposed=*, in which case, the only way the context could
+        # fail to be visible is if it is not also Exposed=* (or it lists out all
+        # of the possible contexts separately, which we deliberately do not
+        # handle)
+        if ($interfaceExposures eq "*") {
+            return $contextExposures eq "*";
+        } else {
+            $interfaceExposures = [$interfaceExposures];
+        }
     }
 
     foreach my $interfaceExposure (@$interfaceExposures) {
@@ -3973,6 +3982,25 @@ sub ToMethodName
     return $ret;
 }
 
+sub GenerateRuntimeEnableConditionalStringForExposeScope
+{
+    my ($exposed, $context, $globalObjectPtr) = @_;
+
+    if ($exposed eq "Window") {
+      return "jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext()->isDocument()";
+    } elsif ($exposed eq "Worker") {
+      return "jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext()->isWorkerGlobalScope()";
+    } elsif ($exposed eq "ShadowRealm") {
+      return "jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext()->isShadowRealmGlobalScope()";
+    } elsif ($exposed eq "Worklet") {
+      return "jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext()->isWorkletGlobalScope()";
+    } elsif ($exposed eq "AudioWorklet") {
+      return "is<AudioWorkletGlobalScope>(jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext())";
+    } else {
+      assert("Unrecognized value '" . Dumper($context->extendedAttributes->{Exposed}) . "' for the Exposed extended attribute on '" . ref($context) . "'.");
+    }
+}
+
 sub GenerateRuntimeEnableConditionalStringForExposed
 {
     my ($interface, $context, $globalObjectPtr, $conjuncts) = @_;
@@ -3985,24 +4013,15 @@ sub GenerateRuntimeEnableConditionalStringForExposed
     return if $exposed eq "*";
 
     if (ref($exposed) eq 'ARRAY') {
-        if (scalar(@$exposed) > 1) {
-            return;
+        my @disjuncts;
+        # if the interface is exposed on more than one global, we need to check
+        # the context against _each one_ and take the disjunction
+        foreach my $scope (@$exposed) {
+            push(@disjuncts, GenerateRuntimeEnableConditionalStringForExposeScope($scope, $context, $globalObjectPtr));
         }
-        $exposed = @$exposed[0];
-    }
-
-    if ($exposed eq "Window") {
-        push(@$conjuncts, "jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext()->isDocument()");
-    } elsif ($exposed eq "Worker") {
-        push(@$conjuncts, "jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext()->isWorkerGlobalScope()");
-    } elsif ($exposed eq "ShadowRealm") {
-        push(@$conjuncts, "jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext()->isShadowRealmGlobalScope()");
-    } elsif ($exposed eq "Worklet") {
-        push(@$conjuncts, "jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext()->isWorkletGlobalScope()");
-    } elsif ($exposed eq "AudioWorklet") {
-        push(@$conjuncts, "is<AudioWorkletGlobalScope>(jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext())");
+        push(@$conjuncts, "(" . (join ' || ', @disjuncts) . ")");
     } else {
-        assert("Unrecognized value '" . Dumper($context->extendedAttributes->{Exposed}) . "' for the Exposed extended attribute on '" . ref($context) . "'.");
+        push(@$conjuncts, GenerateRuntimeEnableConditionalStringForExposeScope($exposed, $context, $globalObjectPtr));
     }
 }
 
@@ -4535,7 +4554,7 @@ sub GenerateImplementation
         $object->GenerateHashTable($className, $hashName, $hashSize, \@hashKeys, \@hashSpecials, \@hashValue1, \@hashValue2, \%conditionals, \%readWriteConditionals, $justGenerateValueArray);
 
         my $prototypeHashTable = $justGenerateValueArray ? "nullptr" : "&${className}PrototypeTable";
-        push(@implContent, "const ClassInfo ${className}Prototype::s_info = { \"${visibleInterfaceName}\", &Base::s_info, ${prototypeHashTable}, nullptr, CREATE_METHOD_TABLE(${className}Prototype) };\n\n");
+        push(@implContent, "const ClassInfo ${className}Prototype::s_info = { \"${visibleInterfaceName}\"_s, &Base::s_info, ${prototypeHashTable}, nullptr, CREATE_METHOD_TABLE(${className}Prototype) };\n\n");
 
         push(@implContent, "void ${className}Prototype::finishCreation(VM& vm)\n");
         push(@implContent, "{\n");
@@ -4629,7 +4648,7 @@ sub GenerateImplementation
     }
 
     # - Initialize static ClassInfo object
-    push(@implContent, "const ClassInfo $className" . "::s_info = { \"${visibleInterfaceName}\", &Base::s_info, ");
+    push(@implContent, "const ClassInfo $className" . "::s_info = { \"${visibleInterfaceName}\"_s, &Base::s_info, ");
 
     if ($numInstanceProperties > 0) {
         push(@implContent, "&${className}Table");
@@ -5002,7 +5021,14 @@ sub GenerateImplementation
             push(@implContent, "        return true;\n");
             push(@implContent, "     }\n");
         }
-        if ($codeGenerator->InheritsInterface($interface, "EventTarget")) {
+        if ($codeGenerator->InheritsInterface($interface, "Node")) {
+            if (!$emittedJSCast) {
+                push(@implContent, "    auto* js${interfaceName} = jsCast<JS${interfaceName}*>(handle.slot()->asCell());\n");
+                $emittedJSCast = 1;
+            }
+            push(@implContent, "    if (JSNodeOwner::isReachableFromOpaqueRoots(handle, 0, visitor, reason))\n");
+            push(@implContent, "        return true;\n");
+        } elsif ($codeGenerator->InheritsInterface($interface, "EventTarget")) {
             if (!$emittedJSCast) {
                 push(@implContent, "    auto* js${interfaceName} = jsCast<JS${interfaceName}*>(handle.slot()->asCell());\n");
                 $emittedJSCast = 1;
@@ -5012,14 +5038,6 @@ sub GenerateImplementation
             push(@implContent, "            *reason = \"EventTarget firing event listeners\";\n");
             push(@implContent, "        return true;\n");
             push(@implContent, "    }\n");
-        }
-        if ($codeGenerator->InheritsInterface($interface, "Node")) {
-            if (!$emittedJSCast) {
-                push(@implContent, "    auto* js${interfaceName} = jsCast<JS${interfaceName}*>(handle.slot()->asCell());\n");
-                $emittedJSCast = 1;
-            }
-            push(@implContent, "    if (JSNodeOwner::isReachableFromOpaqueRoots(handle, 0, visitor, reason))\n");
-            push(@implContent, "        return true;\n");
         }
         if (GetGenerateIsReachable($interface)) {
             if (!$emittedJSCast) {
@@ -6584,7 +6602,7 @@ sub GenerateCallbackImplementationContent
             push(@$contentRef, "        return CallbackResultType::UnableToExecute;\n\n");
 
             push(@$contentRef, "    Ref<$className> protectedThis(*this);\n\n");
-            push(@$contentRef, "    auto& globalObject = *jsCast<JSDOMGlobalObject*>(scriptExecutionContext()->globalObject());\n");
+            push(@$contentRef, "    auto& globalObject = *jsCast<JSDOMGlobalObject*>(m_data->callback()->globalObject());\n");
             push(@$contentRef, "    auto& vm = globalObject.vm();\n\n");
             push(@$contentRef, "    JSLockHolder lock(vm);\n");
 
@@ -6811,11 +6829,11 @@ using ${iteratorPrototypeName} = JSDOMIteratorPrototype<${className}, ${iterator
 JSC_ANNOTATE_HOST_FUNCTION(${iteratorPrototypeName}Next, ${iteratorPrototypeName}::next);
 
 template<>
-const JSC::ClassInfo ${iteratorName}Base::s_info = { "${visibleInterfaceName} Iterator", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(${iteratorName}Base) };
-const JSC::ClassInfo ${iteratorName}::s_info = { "${visibleInterfaceName} Iterator", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(${iteratorName}) };
+const JSC::ClassInfo ${iteratorName}Base::s_info = { "${visibleInterfaceName} Iterator"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(${iteratorName}Base) };
+const JSC::ClassInfo ${iteratorName}::s_info = { "${visibleInterfaceName} Iterator"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(${iteratorName}) };
 
 template<>
-const JSC::ClassInfo ${iteratorPrototypeName}::s_info = { "${visibleInterfaceName} Iterator", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(${iteratorPrototypeName}) };
+const JSC::ClassInfo ${iteratorPrototypeName}::s_info = { "${visibleInterfaceName} Iterator"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(${iteratorPrototypeName}) };
 
 END
 
@@ -7812,7 +7830,7 @@ sub GenerateConstructorHelperMethods
         $leastConstructorLength = 0;
     }
 
-    push(@$outputArray, "template<> const ClassInfo ${constructorClassName}::s_info = { \"${visibleInterfaceName}\", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(${constructorClassName}) };\n\n");
+    push(@$outputArray, "template<> const ClassInfo ${constructorClassName}::s_info = { \"${visibleInterfaceName}\"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(${constructorClassName}) };\n\n");
 
     # If the interface has a parent interface which does not have [LegacyNoInterfaceObject], then use its interface object as prototype,
     # otherwise use FunctionPrototype: http://heycam.github.io/webidl/#interface-object

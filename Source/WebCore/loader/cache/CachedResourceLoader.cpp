@@ -790,11 +790,13 @@ void CachedResourceLoader::prepareFetch(CachedResource::Type type, CachedResourc
 
 void CachedResourceLoader::updateHTTPRequestHeaders(FrameLoader& frameLoader, CachedResource::Type type, CachedResourceRequest& request)
 {
-    // Implementing steps 7 to 12 of https://fetch.spec.whatwg.org/#http-network-or-cache-fetch
+    // Implementing steps 11 to 19 of https://fetch.spec.whatwg.org/#http-network-or-cache-fetch as of 22 Feb 2022.
 
     // FIXME: We should reconcile handling of MainResource with other resources.
     if (type != CachedResource::Type::MainResource)
         request.updateReferrerAndOriginHeaders(frameLoader);
+    if (frameLoader.frame().settings().fetchMetadataEnabled())
+        request.updateFetchMetadataHeaders();
     request.updateUserAgentHeader(frameLoader);
 
     request.updateAccordingCacheMode();
@@ -1334,8 +1336,14 @@ CachedResourceLoader::RevalidationPolicy CachedResourceLoader::determineRevalida
     // Check if the cache headers requires us to revalidate (cache expiration for example).
     if (revalidationDecision != CachedResource::RevalidationDecision::No) {
         // See if the resource has usable ETag or Last-modified headers.
-        if (existingResource->canUseCacheValidator())
+        if (existingResource->canUseCacheValidator()) {
+#if ENABLE(SERVICE_WORKER)
+            // Revalidating will mean exposing headers to the service worker, let's reload given the service worker already handled it.
+            if (cachedResourceRequest.options().serviceWorkerRegistrationIdentifier)
+                return Reload;
+#endif
             return Revalidate;
+        }
         
         // No, must reload.
         LOG(ResourceLoading, "CachedResourceLoader::determineRevalidationPolicy reloading due to missing cache validators.");

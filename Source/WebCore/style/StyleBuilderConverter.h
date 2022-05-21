@@ -58,6 +58,7 @@
 #include "SVGURIReference.h"
 #include "Settings.h"
 #include "StyleBuilderState.h"
+#include "StyleGridData.h"
 #include "StyleScrollSnapPoints.h"
 #include "TabSize.h"
 #include "TouchAction.h"
@@ -81,7 +82,7 @@ public:
     static LengthSize convertRadius(BuilderState&, const CSSValue&);
     static LengthPoint convertPosition(BuilderState&, const CSSValue&);
     static LengthPoint convertPositionOrAuto(BuilderState&, const CSSValue&);
-    static OptionSet<TextDecorationLine> convertTextDecoration(BuilderState&, const CSSValue&);
+    static OptionSet<TextDecorationLine> convertTextDecorationLine(BuilderState&, const CSSValue&);
     template<typename T> static T convertNumber(BuilderState&, const CSSValue&);
     template<typename T> static T convertNumberOrAuto(BuilderState&, const CSSValue&);
     static short convertWebkitHyphenateLimitLines(BuilderState&, const CSSValue&);
@@ -191,8 +192,7 @@ private:
 
     static GridLength createGridTrackBreadth(const CSSPrimitiveValue&, BuilderState&);
     static GridTrackSize createGridTrackSize(const CSSValue&, BuilderState&);
-    struct TracksData;
-    static bool createGridTrackList(const CSSValue&, TracksData&, BuilderState&);
+    static bool createGridTrackList(const CSSValue&, GridTrackList&, BuilderState&);
     static bool createGridPosition(const CSSValue&, GridPosition&);
     static void createImplicitNamedGridLinesFromGridArea(const NamedGridAreaMap&, NamedGridLinesMap&, GridTrackSizingDirection);
     static CSSToLengthConversionData csstoLengthConversionDataWithTextZoomFactor(BuilderState&);
@@ -432,9 +432,9 @@ inline LengthPoint BuilderConverter::convertPositionOrAuto(BuilderState& builder
     return LengthPoint(Length(LengthType::Auto), Length(LengthType::Auto));
 }
 
-inline OptionSet<TextDecorationLine> BuilderConverter::convertTextDecoration(BuilderState&, const CSSValue& value)
+inline OptionSet<TextDecorationLine> BuilderConverter::convertTextDecorationLine(BuilderState&, const CSSValue& value)
 {
-    auto result = RenderStyle::initialTextDecoration();
+    auto result = RenderStyle::initialTextDecorationLine();
     if (is<CSSValueList>(value)) {
         for (auto& currentValue : downcast<CSSValueList>(value))
             result.add(downcast<CSSPrimitiveValue>(currentValue.get()));
@@ -979,37 +979,7 @@ inline GridTrackSize BuilderConverter::createGridTrackSize(const CSSValue& value
     return GridTrackSize(minTrackBreadth, maxTrackBreadth);
 }
 
-static void createGridLineNamesList(const CSSValue& value, unsigned currentNamedGridLine, NamedGridLinesMap& namedGridLines, OrderedNamedGridLinesMap& orderedNamedGridLines)
-{
-    ASSERT(value.isGridLineNamesValue());
-    auto orderedResult = orderedNamedGridLines.add(currentNamedGridLine, Vector<String>());
-
-    for (auto& namedGridLineValue : downcast<CSSGridLineNamesValue>(value)) {
-        String namedGridLine = downcast<CSSPrimitiveValue>(namedGridLineValue.get()).stringValue();
-        auto result = namedGridLines.add(namedGridLine, Vector<unsigned>());
-        result.iterator->value.append(currentNamedGridLine);
-
-        orderedResult.iterator->value.append(namedGridLine);
-    }
-}
-
-struct BuilderConverter::TracksData {
-    WTF_MAKE_NONCOPYABLE(TracksData); WTF_MAKE_FAST_ALLOCATED;
-public:
-    TracksData() = default;
-
-    Vector<GridTrackSize> m_trackSizes;
-    NamedGridLinesMap m_namedGridLines;
-    OrderedNamedGridLinesMap m_orderedNamedGridLines;
-    Vector<GridTrackSize> m_autoRepeatTrackSizes;
-    NamedGridLinesMap m_autoRepeatNamedGridLines;
-    OrderedNamedGridLinesMap m_autoRepeatOrderedNamedGridLines;
-    unsigned m_autoRepeatInsertionPoint { RenderStyle::initialGridAutoRepeatInsertionPoint() };
-    AutoRepeatType m_autoRepeatType { RenderStyle::initialGridAutoRepeatType() };
-    bool isSubgrid { false };
-};
-
-inline bool BuilderConverter::createGridTrackList(const CSSValue& value, TracksData& tracksData, BuilderState& builderState)
+inline bool BuilderConverter::createGridTrackList(const CSSValue& value, GridTrackList& trackList, BuilderState& builderState)
 {
     // Handle 'none'.
     if (is<CSSPrimitiveValue>(value))
@@ -1018,62 +988,52 @@ inline bool BuilderConverter::createGridTrackList(const CSSValue& value, TracksD
     if (!is<CSSValueList>(value))
         return false;
 
-    unsigned currentNamedGridLine = 0;
-    auto handleLineNameOrTrackSize = [&](const CSSValue& currentValue) {
-        if (is<CSSGridLineNamesValue>(currentValue)) {
-            createGridLineNamesList(currentValue, currentNamedGridLine, tracksData.m_namedGridLines, tracksData.m_orderedNamedGridLines);
-            // Subgrids only have line names defined, not track sizes, so we want our count
-            // to be the number of lines named rather than number of sized tracks.
-            if (tracksData.isSubgrid)
-                currentNamedGridLine++;
-        } else {
-            ++currentNamedGridLine;
-            tracksData.m_trackSizes.append(createGridTrackSize(currentValue, builderState));
+    if (is<CSSSubgridValue>(value))
+        trackList.append(GridTrackEntrySubgrid());
+
+    auto buildRepeatList = [&](const CSSValue& repeatValue, RepeatTrackList& repeatList) {
+        for (auto& currentValue : downcast<CSSValueList>(repeatValue)) {
+            if (is<CSSGridLineNamesValue>(currentValue)) {
+                Vector<String> names;
+                for (auto& namedGridLineValue : downcast<CSSGridLineNamesValue>(currentValue.get()))
+                    names.append(downcast<CSSPrimitiveValue>(namedGridLineValue.get()).stringValue());
+                repeatList.append(WTFMove(names));
+            } else
+                repeatList.append(createGridTrackSize(currentValue, builderState));
         }
     };
 
-    if (is<CSSSubgridValue>(value))
-        tracksData.isSubgrid = true;
+    // FIXME: Ensure we always have a line name set at the start and end, unless we're
+    // subgrid, since this is the canonical represented of the computed value.
+    // Make sure code reading this handles empty line name sets.
 
-    unsigned autoRepeatIndex = 0;
     for (auto& currentValue : downcast<CSSValueList>(value)) {
         if (is<CSSGridAutoRepeatValue>(currentValue)) {
-            ASSERT(!autoRepeatIndex);
-            autoRepeatIndex = 0;
             CSSValueID autoRepeatID = downcast<CSSGridAutoRepeatValue>(currentValue.get()).autoRepeatID();
             ASSERT(autoRepeatID == CSSValueAutoFill || autoRepeatID == CSSValueAutoFit);
-            tracksData.m_autoRepeatType = autoRepeatID == CSSValueAutoFill ? AutoRepeatType::Fill : AutoRepeatType::Fit;
-            for (auto& autoRepeatValue : downcast<CSSValueList>(currentValue.get())) {
-                if (is<CSSGridLineNamesValue>(autoRepeatValue)) {
-                    createGridLineNamesList(autoRepeatValue.get(), autoRepeatIndex, tracksData.m_autoRepeatNamedGridLines, tracksData.m_autoRepeatOrderedNamedGridLines);
-                    if (tracksData.isSubgrid)
-                        ++autoRepeatIndex;
-                    continue;
-                }
-                ++autoRepeatIndex;
-                tracksData.m_autoRepeatTrackSizes.append(createGridTrackSize(autoRepeatValue.get(), builderState));
-            }
-            tracksData.m_autoRepeatInsertionPoint = currentNamedGridLine;
-            if (!tracksData.isSubgrid)
-                currentNamedGridLine++;
-            continue;
-        }
 
-        if (is<CSSGridIntegerRepeatValue>(currentValue)) {
-            size_t repetitions = downcast<CSSGridIntegerRepeatValue>(currentValue.get()).repetitions();
-            for (size_t i = 0; i < repetitions; ++i) {
-                for (auto& integerRepeatValue : downcast<CSSValueList>(currentValue.get()))
-                    handleLineNameOrTrackSize(integerRepeatValue);
-            }
-            continue;
-        }
+            GridTrackEntryAutoRepeat repeat;
+            repeat.type = autoRepeatID == CSSValueAutoFill ? AutoRepeatType::Fill : AutoRepeatType::Fit;
 
-        handleLineNameOrTrackSize(currentValue);
+            buildRepeatList(currentValue, repeat.list);
+            trackList.append(WTFMove(repeat));
+        } else if (is<CSSGridIntegerRepeatValue>(currentValue)) {
+            GridTrackEntryRepeat repeat;
+            repeat.repeats = downcast<CSSGridIntegerRepeatValue>(currentValue.get()).repetitions();
+
+            buildRepeatList(currentValue, repeat.list);
+            trackList.append(WTFMove(repeat));
+        } else if (is<CSSGridLineNamesValue>(currentValue)) {
+            Vector<String> names;
+            for (auto& namedGridLineValue : downcast<CSSGridLineNamesValue>(currentValue.get())) {
+                names.append(downcast<CSSPrimitiveValue>(namedGridLineValue.get()).stringValue());
+            }
+            trackList.append(WTFMove(names));
+        } else {
+            trackList.append(createGridTrackSize(currentValue, builderState));
+        }
     }
 
-    // The parser should have rejected any <track-list> without any <track-size> as
-    // this is not conformant to the syntax.
-    ASSERT(!tracksData.m_trackSizes.isEmpty() || !tracksData.m_autoRepeatTrackSizes.isEmpty() || tracksData.isSubgrid);
     return true;
 }
 
@@ -1565,7 +1525,7 @@ inline std::optional<Length> BuilderConverter::convertLineHeight(BuilderState& b
         return RenderStyle::initialLineHeight();
 
     if (primitiveValue.isLength()) {
-        auto conversionData = builderState.cssToLengthConversionData().copyWithAdjustedZoomAndPropertyToCompute(zoomWithTextZoomFactor(builderState), CSSPropertyLineHeight);
+        auto conversionData = builderState.cssToLengthConversionData().copyForLineHeight(zoomWithTextZoomFactor(builderState));
         Length length = primitiveValue.computeLength<Length>(conversionData);
         if (multiplier != 1.f)
             length = Length(length.value() * multiplier, LengthType::Fixed);

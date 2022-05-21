@@ -465,8 +465,12 @@ accessibility/aria-listbox-clear-selection-crash.html [ Skip ]
 accessibility/listbox-clear-selection.html [ Skip ]
 accessibility/embedded-image-description.html [ Skip ]
 accessibility/img-no-alt-not-ignored-with-title.html [ Skip ]
-accessibility/visible-character-range.html [ Skip ]
 accessibility/model-element-attributes.html [ Skip ]
+
+accessibility/visible-character-range-basic.html [ Skip ]
+accessibility/visible-character-range-height-changes.html [ Skip ]
+accessibility/visible-character-range-scrolling.html [ Skip ]
+accessibility/visible-character-range-width-changes.html [ Skip ]
 
 # Need to implement AccessibilityUIElement::hasDocumentRoleAncestor(), AccessibilityUIElement::hasWebApplicationAncestor(),
 # AccessibilityUIElement::isInDescriptionListDetail(), AccessibilityUIElement::isInDescriptionListTerm(), and
@@ -474,6 +478,7 @@ accessibility/model-element-attributes.html [ Skip ]
 accessibility/ancestor-computation.html [ Skip ]
 
 # Missing AccessibilityUIElement::uiElementForSearchPredicate implementation.
+accessibility/display-contents-search-traversal.html [ Skip ]
 accessibility/table-search-traversal.html [ Skip ]
 accessibility/dynamically-changing-iframe-remains-accessible.html [ Skip ]
 accessibility/ignore-modals-without-any-content.html [ Skip ]
@@ -1539,6 +1544,8 @@ webkit.org/b/140528 fast/encoding/idn-security.html [ Skip ]
 ################################################################################
 ##################        Accessibility Issues              ####################
 ################################################################################
+
+accessibility/display-contents-element-roles.html [ Skip ]
 
 # Missing 'press' support
 accessibility/axpress-on-aria-button.html [ Skip ]
@@ -3971,10 +3978,6 @@ imported/w3c/web-platform-tests/worklets/animation-worklet-service-worker-interc
 imported/w3c/web-platform-tests/worklets/audio-worklet-service-worker-interception.https.html [ Skip ]
 imported/w3c/web-platform-tests/worklets/layout-worklet-service-worker-interception.https.html [ Skip ]
 imported/w3c/web-platform-tests/worklets/paint-worklet-service-worker-interception.https.html [ Skip ]
-imported/w3c/web-platform-tests/worklets/animation-worklet-service-worker-interception.https.html [ Skip ]
-imported/w3c/web-platform-tests/worklets/audio-worklet-service-worker-interception.https.html [ Skip ]
-imported/w3c/web-platform-tests/worklets/layout-worklet-service-worker-interception.https.html [ Skip ]
-imported/w3c/web-platform-tests/worklets/paint-worklet-service-worker-interception.https.html [ Skip ]
 
 # No Cross-Origin-Opener-Policy / Cross-Origin-Embedder-Policy in WK1.
 imported/w3c/web-platform-tests/html/cross-origin-embedder-policy [ Skip ]
@@ -4617,8 +4620,6 @@ webkit.org/b/204438 http/tests/misc/repeat-open-cancel.html [ Pass Timeout ]
 webkit.org/b/204439 fast/repaint/backgroundSizeRepaint.html [ Pass ImageOnlyFailure ]
 webkit.org/b/204440 imported/blink/fast/events/panScroll-crash.html [ Pass Crash ]
 
-webkit.org/b/204489 storage/indexeddb/modern/new-database-after-user-delete.html [ Pass Failure ]
-
 webkit.org/b/204545 fast/xsl/sort-unicode.xml [ Failure ]
 webkit.org/b/204545 svg/W3C-SVG-1.1/paths-data-02-t.svg [ Failure ]
 webkit.org/b/204545 css2.1/20110323/border-conflict-element-001d.htm [ ImageOnlyFailure ]
@@ -5007,10 +5008,14 @@ http/tests/security/contentSecurityPolicy/userAgentShadowDOM/default-src-object-
 http/tests/security/contentSecurityPolicy/userAgentShadowDOM/default-src-object-data-url-blocked2.html [ Failure ]
 http/tests/security/contentSecurityPolicy/userAgentShadowDOM/default-src-object-data-url-blocked3.html [ Failure ]
 
+# Test is flaky on Window EWS and leads to false positives.
+streams/readable-stream-lock-after-worker-terminates-crash.html [ Timeout Pass ]
+
 # Push subscription tests fail without platform-specific PushCrypto implementations.
 http/tests/push-api/subscribe-default-permissions-iframe-cross-origin.html [ Failure ]
 http/tests/push-api/subscribe-default-permissions-iframe-same-origin.html [ Failure ]
 http/tests/push-api/subscribe-default-permissions.html [ Failure ]
+http/tests/push-api/subscribe-deny-permissions-on-prompt.html [ Failure ]
 http/tests/push-api/subscribe-deny-permissions.html [ Failure ]
 http/tests/push-api/subscribe-grant-permissions.html [ Failure ]
 

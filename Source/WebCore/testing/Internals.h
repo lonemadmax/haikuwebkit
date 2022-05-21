@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
- * Copyright (C) 2013-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,6 +45,10 @@
 #if ENABLE(VIDEO)
 #include "MediaElementSession.h"
 #include "MediaUniqueIdentifier.h"
+#endif
+
+#if USE(AUDIO_SESSION)
+#include "AudioSession.h"
 #endif
 
 OBJC_CLASS DDScannerResult;
@@ -165,7 +169,7 @@ class Internals final : public RefCounted<Internals>, private ContextDestruction
 #if ENABLE(MEDIA_STREAM)
     , public RealtimeMediaSource::Observer
     , private RealtimeMediaSource::AudioSampleObserver
-    , private RealtimeMediaSource::VideoSampleObserver
+    , private RealtimeMediaSource::VideoFrameObserver
 #endif
     {
 public:
@@ -311,6 +315,7 @@ public:
 
     void invalidateFontCache();
     void setFontSmoothingEnabled(bool);
+    void setOverrideEnhanceTextLegibility(bool);
 
     ExceptionOr<void> setLowPowerModeEnabled(bool);
     ExceptionOr<void> setOutsideViewportThrottlingEnabled(bool);
@@ -741,6 +746,7 @@ public:
     bool elementIsBlockingDisplaySleep(const HTMLMediaElement&) const;
     bool isPlayerVisibleInViewport(const HTMLMediaElement&) const;
     bool isPlayerMuted(const HTMLMediaElement&) const;
+    void beginAudioSessionInterruption();
 #endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -809,6 +815,8 @@ public:
     void withoutUserGesture(RefPtr<VoidCallback>&&);
 
     bool userIsInteracting();
+
+    bool hasTransientActivation();
 
     RefPtr<GCObservation> observeGC(JSC::JSValue);
 
@@ -886,8 +894,26 @@ public:
     bool shouldAudioTrackPlay(const AudioTrack&);
 #endif
 
+
+#if USE(AUDIO_SESSION)
+    using AudioSessionCategory = WebCore::AudioSessionCategory;
+#else
+    enum class AudioSessionCategory : uint8_t {
+        None,
+        AmbientSound,
+        SoloAmbientSound,
+        MediaPlayback,
+        RecordAudio,
+        PlayAndRecord,
+        AudioProcessing,
+    };
+#endif
+
     bool supportsAudioSession() const;
-    String audioSessionCategory() const;
+    AudioSessionCategory audioSessionCategory() const;
+#if ENABLE(VIDEO)
+    AudioSessionCategory categoryAtMostRecentPlayback(HTMLMediaElement&) const;
+#endif
     double preferredAudioBufferSize() const;
     double currentAudioBufferSize() const;
     bool audioSessionActive() const;
@@ -1293,7 +1319,7 @@ private:
 
 #if ENABLE(MEDIA_STREAM)
     // RealtimeMediaSource::Observer API
-    void videoSampleAvailable(MediaSample&, VideoSampleMetadata) final;
+    void videoFrameAvailable(VideoFrame&, VideoFrameTimeMetadata) final;
     // RealtimeMediaSource::AudioSampleObserver API
     void audioSamplesAvailable(const MediaTime&, const PlatformAudioData&, const AudioStreamDescription&, size_t) final { m_trackAudioSampleCount++; }
 

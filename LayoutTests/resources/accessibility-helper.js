@@ -1,3 +1,8 @@
+function axDebug(msg)
+{
+    getOrCreate("console", "div").innerText += `${msg}\n`;
+};
+
 // This function is necessary when printing AX attributes that are stringified with angle brackets:
 //    AXChildren: <array of size 0>
 // `debug` outputs to the `innerHTML` of a generated element, so these brackets must be escaped to be printed.
@@ -49,6 +54,12 @@ function touchAccessibilityTree(accessibilityObject) {
     }
 
     return true;
+}
+
+function visibleRange(axElement, {width, height, scrollTop}) {
+    document.body.scrollTop = scrollTop;
+    testRunner.setViewSize(width, height);
+    return `Range with view ${width}x${height}, scrollTop ${scrollTop}: ${axElement.stringDescriptionOfAttributeValue("AXVisibleCharacterRange")}\n`;
 }
 
 function platformValueForW3CName(accessibilityObject, includeSource=false) {

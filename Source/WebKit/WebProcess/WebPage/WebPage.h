@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -108,13 +108,8 @@
 #include <wtf/WallTime.h>
 #include <wtf/text/WTFString.h>
 
-#if ENABLE(ACCESSIBILITY)
-#if USE(ATK)
-typedef struct _AtkObject AtkObject;
-#include <wtf/glib/GRefPtr.h>
-#elif USE(ATSPI)
+#if USE(ATSPI)
 #include <WebCore/AccessibilityRootAtspi.h>
-#endif
 #endif
 
 #if PLATFORM(GTK)
@@ -819,7 +814,7 @@ public:
     void requestPositionInformation(const InteractionInformationRequest&);
     void startInteractionWithElementContextOrPosition(std::optional<WebCore::ElementContext>&&, WebCore::IntPoint&&);
     void stopInteraction();
-    void performActionOnElement(uint32_t action);
+    void performActionOnElement(uint32_t action, const String& authorizationToken, CompletionHandler<void()>&&);
     void focusNextFocusedElement(bool isForward, CompletionHandler<void()>&&);
     void autofillLoginCredentials(const String&, const String&);
     void setFocusedElementValue(const WebCore::ElementContext&, const String&);
@@ -1040,9 +1035,7 @@ public:
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-#if !HAVE(UIKIT_BACKGROUND_THREAD_PRINTING)
     void computePagesForPrintingiOS(WebCore::FrameIdentifier, const PrintInfo&, Messages::WebPage::ComputePagesForPrintingiOSDelayedReply&&);
-#endif
     void drawToPDFiOS(WebCore::FrameIdentifier, const PrintInfo&, size_t, Messages::WebPage::DrawToPDFiOSAsyncReply&&);
 #endif
 
@@ -1745,7 +1738,11 @@ private:
     void clearServiceWorkerEntitlementOverride(CompletionHandler<void()>&& completionHandler) { completionHandler(); }
 #endif
 
+#if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
+    void didReceivePolicyDecision(WebCore::FrameIdentifier, uint64_t listenerID, PolicyDecision&&);
+#else
     void didReceivePolicyDecision(WebCore::FrameIdentifier, uint64_t listenerID, PolicyDecision&&, const Vector<SandboxExtension::Handle>&);
+#endif
     void continueWillSubmitForm(WebCore::FrameIdentifier, FormSubmitListenerIdentifier);
     void setUserAgent(const String&);
     void setCustomTextEncodingName(const String&);
@@ -1982,7 +1979,9 @@ private:
 
     void setSelectionRange(const WebCore::IntPoint&, WebCore::TextGranularity, bool);
     
+#if !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
     void consumeNetworkExtensionSandboxExtensions(const Vector<SandboxExtension::Handle>&);
+#endif
 
     bool hasPendingEditorStateUpdate() const;
     bool shouldAvoidComputingPostLayoutDataForEditorState() const;
@@ -2073,12 +2072,8 @@ private:
     RetainPtr<NSDictionary> m_dataDetectionContext;
 #endif
 
-#if ENABLE(ACCESSIBILITY)
-#if USE(ATK)
-    GRefPtr<AtkObject> m_accessibilityObject;
-#elif USE(ATSPI)
+#if USE(ATSPI)
     RefPtr<WebCore::AccessibilityRootAtspi> m_accessibilityRootObject;
-#endif
 #endif
 
 #if PLATFORM(WIN)

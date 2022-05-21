@@ -26,6 +26,7 @@
 #import "config.h"
 #import "CommandBuffer.h"
 
+#import "APIConversions.h"
 
 namespace WebGPU {
 
@@ -36,19 +37,21 @@ CommandBuffer::CommandBuffer(id<MTLCommandBuffer> commandBuffer)
 
 CommandBuffer::~CommandBuffer() = default;
 
-void CommandBuffer::setLabel(const char* label)
+void CommandBuffer::setLabel(String&& label)
 {
-    m_commandBuffer.label = [NSString stringWithCString:label encoding:NSUTF8StringEncoding];
+    m_commandBuffer.label = label;
 }
 
-}
+} // namespace WebGPU
+
+#pragma mark WGPU Stubs
 
 void wgpuCommandBufferRelease(WGPUCommandBuffer commandBuffer)
 {
-    delete commandBuffer;
+    WebGPU::fromAPI(commandBuffer).deref();
 }
 
 void wgpuCommandBufferSetLabel(WGPUCommandBuffer commandBuffer, const char* label)
 {
-    commandBuffer->commandBuffer->setLabel(label);
+    WebGPU::fromAPI(commandBuffer).setLabel(WebGPU::fromAPI(label));
 }

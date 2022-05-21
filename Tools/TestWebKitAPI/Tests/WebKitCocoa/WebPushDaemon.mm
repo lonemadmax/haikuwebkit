@@ -36,6 +36,7 @@
 #import <WebKit/WKPreferencesPrivate.h>
 #import <WebKit/WKProcessPoolPrivate.h>
 #import <WebKit/WKUIDelegatePrivate.h>
+#import <WebKit/WKWebsiteDataRecordPrivate.h>
 #import <WebKit/WKWebsiteDataStorePrivate.h>
 #import <WebKit/WebPushDaemonConstants.h>
 #import <WebKit/_WKExperimentalFeature.h>
@@ -312,12 +313,6 @@ TEST(WebPushD, BasicCommunication)
     cleanUpTestWebPushD(tempDir);
 }
 
-static const char* mainBytes = R"WEBPUSHRESOURCE(
-<script>
-    Notification.requestPermission().then(() => { alert("done") })
-</script>
-)WEBPUSHRESOURCE";
-
 TEST(WebPushD, PermissionManagement)
 {
     NSURL *tempDirectory = setUpTestWebPushD();
@@ -335,21 +330,11 @@ TEST(WebPushD, PermissionManagement)
             [[configuration preferences] _setEnabled:YES forFeature:feature];
     }
 
-    auto handler = adoptNS([[TestURLSchemeHandler alloc] init]);
-    [configuration setURLSchemeHandler:handler.get() forURLScheme:@"testing"];
-
-    [handler setStartURLSchemeTaskHandler:^(WKWebView *, id<WKURLSchemeTask> task) {
-        auto response = adoptNS([[NSURLResponse alloc] initWithURL:task.request.URL MIMEType:@"text/html" expectedContentLength:0 textEncodingName:nil]);
-        [task didReceiveResponse:response.get()];
-        [task didReceiveData:[NSData dataWithBytes:mainBytes length:strlen(mainBytes)]];
-        [task didFinish];
-    }];
-
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:configuration.get()]);
     auto uiDelegate = adoptNS([[NotificationPermissionDelegate alloc] init]);
     [webView setUIDelegate:uiDelegate.get()];
-
-    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"testing://main/index.html"]]];
+    [webView synchronouslyLoadHTMLString:@"" baseURL:[NSURL URLWithString:@"https://example.org"]];
+    [webView evaluateJavaScript:@"Notification.requestPermission().then(() => { alert('done') })" completionHandler:nil];
     TestWebKitAPI::Util::run(&alertReceived);
 
     static bool originOperationDone = false;
@@ -362,8 +347,8 @@ TEST(WebPushD, PermissionManagement)
 
     TestWebKitAPI::Util::run(&originOperationDone);
 
-    EXPECT_WK_STREQ(origin.get().protocol, "testing");
-    EXPECT_WK_STREQ(origin.get().host, "main");
+    EXPECT_WK_STREQ(origin.get().protocol, "https");
+    EXPECT_WK_STREQ(origin.get().host, "example.org");
 
     // If we failed to retrieve an expected origin, we will have failed the above checks
     if (!origin) {
@@ -416,10 +401,9 @@ protected:
         clearWebsiteDataStore([m_configuration websiteDataStore]);
 
         [m_configuration.get().preferences _setNotificationsEnabled:YES];
+        [m_configuration.get().preferences _setPushAPIEnabled:YES];
         for (_WKExperimentalFeature *feature in [WKPreferences _experimentalFeatures]) {
             if ([feature.key isEqualToString:@"BuiltInNotificationsEnabled"])
-                [[m_configuration preferences] _setEnabled:YES forFeature:feature];
-            else if ([feature.key isEqualToString:@"PushAPIEnabled"])
                 [[m_configuration preferences] _setEnabled:YES forFeature:feature];
         }
 
@@ -449,6 +433,20 @@ protected:
         m_uiDelegate = adoptNS([[NotificationPermissionDelegate alloc] init]);
         [m_webView setUIDelegate:m_uiDelegate.get()];
         [m_webView loadRequest:m_server->request()];
+    }
+
+    bool hasPushSubscription()
+    {
+        __block bool done = false;
+        __block bool result = false;
+
+        [m_dataStore _scopeURL:m_server->request().URL hasPushSubscriptionForTesting:^(BOOL fetchedResult) {
+            result = fetchedResult;
+            done = true;
+        }];
+
+        TestWebKitAPI::Util::run(&done);
+        return result;
     }
 
     ~WebPushDTest()
@@ -646,6 +644,8 @@ TEST_F(WebPushDTest, SubscribeTest)
 
     // Client public key should be 65 bytes (87 bytes in unpadded base64url).
     ASSERT_EQ([subscription[@"keys"][@"p256dh"] length], 87u);
+
+    ASSERT_TRUE(hasPushSubscription());
 }
 
 TEST_F(WebPushDTest, SubscribeFailureTest)
@@ -683,6 +683,8 @@ TEST_F(WebPushDTest, SubscribeFailureTest)
     // Spec says that an error in the push service should be an AbortError.
     ASSERT_TRUE([obj isKindOfClass:[NSString class]]);
     ASSERT_TRUE([obj hasPrefix:@"Error: AbortError"]);
+
+    ASSERT_FALSE(hasPushSubscription());
 }
 
 TEST_F(WebPushDTest, UnsubscribeTest)
@@ -722,6 +724,149 @@ TEST_F(WebPushDTest, UnsubscribeTest)
     // First unsubscribe should succeed. Second one should fail since the first one removed the record from the database.
     id expected = @[@(1), @(0)];
     ASSERT_TRUE([obj isEqual:expected]);
+
+    ASSERT_FALSE(hasPushSubscription());
+}
+
+TEST_F(WebPushDTest, UnsubscribesOnServiceWorkerUnregisterTest)
+{
+    static const char* source = R"HTML(
+    <script src="/constants.js"></script>
+    <script>
+    navigator.serviceWorker.register('/sw.js').then(async () => {
+        const registration = await navigator.serviceWorker.ready;
+        let result = null;
+        try {
+            let subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: VALID_SERVER_KEY
+            });
+            result = await registration.unregister();
+        } catch (e) {
+            result = "Error: " + e;
+        }
+        window.webkit.messageHandlers.note.postMessage(result);
+    });
+    </script>
+    )HTML";
+
+    __block RetainPtr<id> unregisterSucceeded = nil;
+    __block bool done = false;
+    [m_notificationMessageHandler setMessageHandler:^(id message) {
+        unregisterSucceeded = message;
+        done = true;
+    }];
+
+    loadRequest(source, "");
+    TestWebKitAPI::Util::run(&done);
+
+    ASSERT_TRUE([unregisterSucceeded isEqual:@YES]);
+    ASSERT_FALSE(hasPushSubscription());
+}
+
+TEST_F(WebPushDTest, UnsubscribesOnClearingAllWebsiteData)
+{
+    static const char* source = R"HTML(
+    <script src="/constants.js"></script>
+    <script>
+    navigator.serviceWorker.register('/sw.js').then(async () => {
+        const registration = await navigator.serviceWorker.ready;
+        let result = null;
+        try {
+            let subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: VALID_SERVER_KEY
+            });
+            result = "Subscribed";
+        } catch (e) {
+            result = "Error: " + e;
+        }
+        window.webkit.messageHandlers.note.postMessage(result);
+    });
+    </script>
+    )HTML";
+
+    __block RetainPtr<id> result = nil;
+    __block bool done = false;
+    [m_notificationMessageHandler setMessageHandler:^(id message) {
+        result = message;
+        done = true;
+    }];
+
+    loadRequest(source, "");
+    TestWebKitAPI::Util::run(&done);
+
+    ASSERT_TRUE([result isEqualToString:@"Subscribed"]);
+
+    __block bool removedData = false;
+    [m_dataStore removeDataOfTypes:[NSSet setWithObject:WKWebsiteDataTypeServiceWorkerRegistrations] modifiedSince:[NSDate distantPast] completionHandler:^(void) {
+        removedData = true;
+    }];
+    TestWebKitAPI::Util::run(&removedData);
+
+    ASSERT_FALSE(hasPushSubscription());
+}
+
+TEST_F(WebPushDTest, UnsubscribesOnClearingWebsiteDataForOrigin)
+{
+    static const char* source = R"HTML(
+    <script src="/constants.js"></script>
+    <script>
+    navigator.serviceWorker.register('/sw.js').then(async () => {
+        const registration = await navigator.serviceWorker.ready;
+        let result = null;
+        try {
+            let subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: VALID_SERVER_KEY
+            });
+            result = "Subscribed";
+        } catch (e) {
+            result = "Error: " + e;
+        }
+        window.webkit.messageHandlers.note.postMessage(result);
+    });
+    </script>
+    )HTML";
+
+    __block RetainPtr<id> result = nil;
+    __block bool done = false;
+    [m_notificationMessageHandler setMessageHandler:^(id message) {
+        result = message;
+        done = true;
+    }];
+
+    loadRequest(source, "");
+    TestWebKitAPI::Util::run(&done);
+
+    ASSERT_TRUE([result isEqualToString:@"Subscribed"]);
+
+    __block bool fetchedRecords = false;
+    __block RetainPtr<NSArray<WKWebsiteDataRecord *>> records;
+    [m_dataStore fetchDataRecordsOfTypes:[NSSet setWithObject:WKWebsiteDataTypeServiceWorkerRegistrations] completionHandler:^(NSArray<WKWebsiteDataRecord *> *dataRecords) {
+        records = dataRecords;
+        fetchedRecords = true;
+    }];
+    TestWebKitAPI::Util::run(&fetchedRecords);
+
+    WKWebsiteDataRecord *filteredRecord = nil;
+    for (WKWebsiteDataRecord *record in records.get()) {
+        for (NSString *originString in record._originsStrings) {
+            if ([originString isEqualToString:m_server->origin()]) {
+                filteredRecord = record;
+                break;
+            }
+        }
+    }
+    ASSERT_TRUE(filteredRecord);
+
+    __block bool removedData = false;
+    [m_dataStore removeDataOfTypes:[NSSet setWithObject:WKWebsiteDataTypeServiceWorkerRegistrations] forDataRecords:[NSArray arrayWithObject:filteredRecord] completionHandler:^(void) {
+        removedData = true;
+    }];
+    TestWebKitAPI::Util::run(&removedData);
+
+    ASSERT_FALSE(hasPushSubscription());
 }
 
 #if ENABLE(INSTALL_COORDINATION_BUNDLES)
@@ -758,6 +903,12 @@ static void deleteAllRegistrationsForDataStore(WKWebsiteDataStore *dataStore)
     TestWebKitAPI::Util::run(&originOperationDone);
 
 }
+
+static const char* mainBytes = R"WEBPUSHRESOURCE(
+<script>
+    Notification.requestPermission().then(() => { alert("done") })
+</script>
+)WEBPUSHRESOURCE";
 
 TEST(WebPushD, InstallCoordinationBundles)
 {

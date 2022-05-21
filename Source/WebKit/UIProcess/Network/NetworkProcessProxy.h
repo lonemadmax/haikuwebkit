@@ -135,6 +135,7 @@ public:
     void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, CompletionHandler<void()>&& completionHandler);
     void deleteWebsiteDataForOrigins(PAL::SessionID, OptionSet<WebKit::WebsiteDataType>, const Vector<WebCore::SecurityOriginData>& origins, const Vector<String>& cookieHostNames, const Vector<String>& HSTSCacheHostNames, const Vector<RegistrableDomain>&, CompletionHandler<void()>&&);
     void renameOriginInWebsiteData(PAL::SessionID, const URL&, const URL&, OptionSet<WebsiteDataType>, CompletionHandler<void()>&&);
+    void websiteDataOriginDirectoryForTesting(PAL::SessionID, URL&&, URL&&, WebsiteDataType, CompletionHandler<void(const String&)>&&);
 
     void getLocalStorageDetails(PAL::SessionID, CompletionHandler<void(Vector<LocalStorageDatabaseTracker::OriginDetails>&&)>&&);
 
@@ -257,10 +258,6 @@ public:
     void resourceLoadDidReceiveResponse(WebPageProxyIdentifier, ResourceLoadInfo&&, WebCore::ResourceResponse&&);
     void resourceLoadDidCompleteWithError(WebPageProxyIdentifier, ResourceLoadInfo&&, WebCore::ResourceResponse&&, WebCore::ResourceError&&);
 
-#if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
-    void reloadAfterUnblockedContentFilter(WebPageProxyIdentifier);
-#endif
-
 #if ENABLE(APP_BOUND_DOMAINS)
     void hasAppBoundSession(PAL::SessionID, CompletionHandler<void(bool)>&&);
     void clearAppBoundSession(PAL::SessionID, CompletionHandler<void()>&&);
@@ -291,6 +288,7 @@ public:
 
     void deletePushAndNotificationRegistration(PAL::SessionID, const WebCore::SecurityOriginData&, CompletionHandler<void(const String&)>&&);
     void getOriginsWithPushAndNotificationPermissions(PAL::SessionID, CompletionHandler<void(const Vector<WebCore::SecurityOriginData>&)>&&);
+    void hasPushSubscriptionForTesting(PAL::SessionID, const URL&, CompletionHandler<void(bool)>&&);
 
     void dataTaskReceivedChallenge(DataTaskIdentifier, WebCore::AuthenticationChallenge&&, CompletionHandler<void(AuthenticationChallengeDisposition, WebCore::Credential&&)>&&);
     void dataTaskWillPerformHTTPRedirection(DataTaskIdentifier, WebCore::ResourceResponse&&, WebCore::ResourceRequest&&, CompletionHandler<void(bool)>&&);

@@ -111,8 +111,22 @@ void WebSWServerConnection::resolveRegistrationJobInClient(ServiceWorkerJobIdent
 void WebSWServerConnection::resolveUnregistrationJobInClient(ServiceWorkerJobIdentifier jobIdentifier, const ServiceWorkerRegistrationKey& registrationKey, bool unregistrationResult)
 {
     ASSERT(m_unregisterJobs.contains(jobIdentifier));
-    if (auto completionHandler = m_unregisterJobs.take(jobIdentifier))
+    if (auto completionHandler = m_unregisterJobs.take(jobIdentifier)) {
+#if ENABLE(BUILT_IN_NOTIFICATIONS)
+        if (!session()) {
+            completionHandler(unregistrationResult);
+            return;
+        }
+        
+        auto scopeURL = registrationKey.scope();
+        session()->notificationManager().unsubscribeFromPushService(WTFMove(scopeURL), std::nullopt, [completionHandler = WTFMove(completionHandler), unregistrationResult](auto&&) mutable {
+            completionHandler(unregistrationResult);
+        });
+        
+#else
         completionHandler(unregistrationResult);
+#endif
+    }
 }
 
 void WebSWServerConnection::startScriptFetchInClient(ServiceWorkerJobIdentifier jobIdentifier, const ServiceWorkerRegistrationKey& registrationKey, FetchOptions::Cache cachePolicy)
@@ -643,6 +657,11 @@ void WebSWServerConnection::getNavigationPreloadState(WebCore::ServiceWorkerRegi
         return;
     }
     callback(registration->navigationPreloadState());
+}
+
+void WebSWServerConnection::focusServiceWorkerClient(WebCore::ScriptExecutionContextIdentifier clientIdentifier, CompletionHandler<void(std::optional<ServiceWorkerClientData>&&)>&& callback)
+{
+    sendWithAsyncReply(Messages::WebSWClientConnection::FocusServiceWorkerClient { clientIdentifier }, WTFMove(callback));
 }
 
 } // namespace WebKit

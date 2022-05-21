@@ -35,7 +35,7 @@
 
 namespace JSC {
 
-const ClassInfo IntlRelativeTimeFormat::s_info = { "Object", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(IntlRelativeTimeFormat) };
+const ClassInfo IntlRelativeTimeFormat::s_info = { "Object"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(IntlRelativeTimeFormat) };
 
 namespace IntlRelativeTimeFormatInternal {
 }
@@ -96,7 +96,7 @@ void IntlRelativeTimeFormat::initializeRelativeTimeFormat(JSGlobalObject* global
     LocaleMatcher localeMatcher = intlOption<LocaleMatcher>(globalObject, options, vm.propertyNames->localeMatcher, { { "lookup"_s, LocaleMatcher::Lookup }, { "best fit"_s, LocaleMatcher::BestFit } }, "localeMatcher must be either \"lookup\" or \"best fit\""_s, LocaleMatcher::BestFit);
     RETURN_IF_EXCEPTION(scope, void());
 
-    String numberingSystem = intlStringOption(globalObject, options, vm.propertyNames->numberingSystem, { }, nullptr, nullptr);
+    String numberingSystem = intlStringOption(globalObject, options, vm.propertyNames->numberingSystem, { }, ASCIILiteral::null(), ASCIILiteral::null());
     RETURN_IF_EXCEPTION(scope, void());
     if (!numberingSystem.isNull()) {
         if (!isUnicodeLocaleIdentifierType(numberingSystem)) {
@@ -203,7 +203,7 @@ JSObject* IntlRelativeTimeFormat::resolvedOptions(JSGlobalObject* globalObject) 
 static StringView singularUnit(StringView unit)
 {
     // Plurals are allowed, but thankfully they're all just a simple -s.
-    return unit.endsWith("s") ? unit.left(unit.length() - 1) : unit;
+    return unit.endsWith('s') ? unit.left(unit.length() - 1) : unit;
 }
 
 // https://tc39.es/ecma402/#sec-singularrelativetimeunit

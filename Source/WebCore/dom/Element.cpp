@@ -2458,11 +2458,9 @@ void Element::addShadowRoot(Ref<ShadowRoot>&& newShadowRoot)
         shadowRoot.setHost(*this);
         shadowRoot.setParentTreeScope(treeScope());
 
-#if ASSERT_ENABLED
-        ASSERT(notifyChildNodeInserted(*this, shadowRoot).isEmpty());
-#else
-        notifyChildNodeInserted(*this, shadowRoot);
-#endif
+        NodeVector postInsertionNotificationTargets;
+        notifyChildNodeInserted(*this, shadowRoot, postInsertionNotificationTargets);
+        ASSERT_UNUSED(postInsertionNotificationTargets, postInsertionNotificationTargets.isEmpty());
 
         InspectorInstrumentation::didPushShadowRoot(*this, shadowRoot);
 
@@ -3445,6 +3443,16 @@ void Element::removeFromTopLayer()
         layer.establishesTopLayerWillChange();
     });
 
+    // We need to call Styleable::fromRenderer() while this element is still contained in
+    // Document::topLayerElements(), since Styleable::fromRenderer() relies on this to
+    // find the backdrop's associated element.
+    if (auto* renderer = this->renderer()) {
+        if (auto backdrop = renderer->backdropRenderer()) {
+            if (auto styleable = Styleable::fromRenderer(*backdrop))
+                styleable->cancelDeclarativeAnimations();
+        }
+    }
+
     document().removeTopLayerElement(*this);
     clearNodeFlag(NodeFlag::IsInTopLayer);
 
@@ -4052,6 +4060,8 @@ CSSAnimationCollection& Element::animationsCreatedByMarkup(PseudoId pseudoId)
 
 void Element::setAnimationsCreatedByMarkup(PseudoId pseudoId, CSSAnimationCollection&& animations)
 {
+    if (animations.isEmpty() && !animationRareData(pseudoId))
+        return;
     ensureAnimationRareData(pseudoId).setAnimationsCreatedByMarkup(WTFMove(animations));
 }
 
@@ -4640,7 +4650,7 @@ ExceptionOr<void> Element::insertAdjacentHTML(const String& where, const String&
     if (UNLIKELY(addedNodes)) {
         // Must be called before insertAdjacent, as otherwise the children of fragment will be moved
         // to their new parent and will be harder to keep track of.
-        *addedNodes = collectChildNodes(fragment.returnValue());
+        collectChildNodes(fragment.returnValue(), *addedNodes);
     }
 
     // Step 4.

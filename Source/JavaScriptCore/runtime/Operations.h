@@ -88,7 +88,7 @@ ALWAYS_INLINE JSString* jsString(JSGlobalObject* globalObject, const String& u1,
     unsigned length2 = s2->length();
     if (!length2)
         return jsString(vm, u1);
-    static_assert(JSString::MaxLength == std::numeric_limits<int32_t>::max(), "");
+    static_assert(JSString::MaxLength == std::numeric_limits<int32_t>::max());
     if (sumOverflows<int32_t>(length1, length2)) {
         throwOutOfMemoryError(globalObject, scope);
         return nullptr;
@@ -124,7 +124,7 @@ ALWAYS_INLINE JSString* jsString(JSGlobalObject* globalObject, JSString* s1, con
     unsigned length2 = u2.length();
     if (!length2)
         return s1;
-    static_assert(JSString::MaxLength == std::numeric_limits<int32_t>::max(), "");
+    static_assert(JSString::MaxLength == std::numeric_limits<int32_t>::max());
     if (sumOverflows<int32_t>(length1, length2)) {
         throwOutOfMemoryError(globalObject, scope);
         return nullptr;
@@ -157,7 +157,7 @@ ALWAYS_INLINE JSString* jsString(JSGlobalObject* globalObject, JSString* s1, JSS
     unsigned length2 = s2->length();
     if (!length2)
         return s1;
-    static_assert(JSString::MaxLength == std::numeric_limits<int32_t>::max(), "");
+    static_assert(JSString::MaxLength == std::numeric_limits<int32_t>::max());
     if (sumOverflows<int32_t>(length1, length2)) {
         throwOutOfMemoryError(globalObject, scope);
         return nullptr;
@@ -183,7 +183,7 @@ ALWAYS_INLINE JSString* jsString(JSGlobalObject* globalObject, JSString* s1, JSS
     if (!length3)
         RELEASE_AND_RETURN(scope, jsString(globalObject, s1, s2));
 
-    static_assert(JSString::MaxLength == std::numeric_limits<int32_t>::max(), "");
+    static_assert(JSString::MaxLength == std::numeric_limits<int32_t>::max());
     if (sumOverflows<int32_t>(length1, length2, length3)) {
         throwOutOfMemoryError(globalObject, scope);
         return nullptr;
@@ -203,7 +203,7 @@ ALWAYS_INLINE JSString* jsString(JSGlobalObject* globalObject, const String& u1,
     unsigned length2 = u2.length();
     if (!length2)
         return jsString(vm, u1);
-    static_assert(JSString::MaxLength == std::numeric_limits<int32_t>::max(), "");
+    static_assert(JSString::MaxLength == std::numeric_limits<int32_t>::max());
     if (sumOverflows<int32_t>(length1, length2)) {
         throwOutOfMemoryError(globalObject, scope);
         return nullptr;
@@ -243,7 +243,7 @@ ALWAYS_INLINE JSString* jsString(JSGlobalObject* globalObject, const String& u1,
     if (!length3)
         RELEASE_AND_RETURN(scope, jsString(globalObject, u1, u2));
 
-    static_assert(JSString::MaxLength == std::numeric_limits<int32_t>::max(), "");
+    static_assert(JSString::MaxLength == std::numeric_limits<int32_t>::max());
     if (sumOverflows<int32_t>(length1, length2, length3)) {
         throwOutOfMemoryError(globalObject, scope);
         return nullptr;
@@ -573,7 +573,7 @@ ALWAYS_INLINE JSValue jsAdd(JSGlobalObject* globalObject, JSValue v1, JSValue v2
 }
 
 template<typename DoubleOperation, typename BigIntOp>
-ALWAYS_INLINE JSValue arithmeticBinaryOp(JSGlobalObject* globalObject, JSValue v1, JSValue v2, DoubleOperation&& doubleOp, BigIntOp&& bigIntOp, const char* errorMessage)
+ALWAYS_INLINE JSValue arithmeticBinaryOp(JSGlobalObject* globalObject, JSValue v1, JSValue v2, DoubleOperation&& doubleOp, BigIntOp&& bigIntOp, ASCIILiteral errorMessage)
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
@@ -780,7 +780,7 @@ ALWAYS_INLINE JSValue shift(JSGlobalObject* globalObject, JSValue v1, JSValue v2
     }
 #endif
 
-    auto errorMessage = isLeft ? "Invalid mix of BigInt and other type in left shift operation." : "Invalid mix of BigInt and other type in signed right shift operation.";
+    auto errorMessage = isLeft ? "Invalid mix of BigInt and other type in left shift operation."_s : "Invalid mix of BigInt and other type in signed right shift operation."_s;
     return throwTypeError(globalObject, scope, errorMessage);
 }
 
@@ -815,7 +815,7 @@ ALWAYS_INLINE JSValue jsURShift(JSGlobalObject* globalObject, JSValue left, JSVa
 }
 
 template<typename Int32Operation, typename BigIntOp>
-ALWAYS_INLINE JSValue bitwiseBinaryOp(JSGlobalObject* globalObject, JSValue v1, JSValue v2, Int32Operation&& int32Op, BigIntOp&& bigIntOp, const char* errorMessage)
+ALWAYS_INLINE JSValue bitwiseBinaryOp(JSGlobalObject* globalObject, JSValue v1, JSValue v2, Int32Operation&& int32Op, BigIntOp&& bigIntOp, ASCIILiteral errorMessage)
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);

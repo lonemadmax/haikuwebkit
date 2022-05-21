@@ -55,7 +55,7 @@ class GraphicsContextGLCV;
 class MediaPlayer;
 #endif
 #if ENABLE(MEDIA_STREAM)
-class MediaSample;
+class VideoFrame;
 #endif
 
 // Base class for graphics context for implementing WebGL rendering model.
@@ -1035,7 +1035,6 @@ public:
         WEBCORE_EXPORT virtual ~Client();
         virtual void didComposite() = 0;
         virtual void forceContextLost() = 0;
-        virtual void recycleContext() = 0;
         virtual void dispatchContextChangedNotification() = 0;
     };
 
@@ -1048,8 +1047,7 @@ public:
     WEBCORE_EXPORT GraphicsContextGL(GraphicsContextGLAttributes);
     WEBCORE_EXPORT virtual ~GraphicsContextGL();
 
-    void addClient(Client& client) { m_clients.add(&client); }
-    void removeClient(Client& client) { m_clients.remove(&client); }
+    void setClient(Client* client) { m_client = client; }
 
     // ========== WebGL 1 entry points.
     virtual void activeTexture(GCGLenum texture) = 0;
@@ -1377,15 +1375,6 @@ public:
     // Has no other side-effects.
     virtual bool isExtensionEnabled(const String&) = 0;
 
-    // GL_ARB_robustness
-    // Note: This method's behavior differs from the GL_ARB_robustness
-    // specification in the following way:
-    // The implementation must not reset the error state during this call.
-    // If getGraphicsResetStatusARB returns an error, it should continue
-    // returning the same error. Restoring the GraphicsContextGLOpenGL is handled
-    // externally.
-    virtual GCGLint getGraphicsResetStatusARB() = 0;
-
     // GL_ANGLE_translated_shader_source
     virtual String getTranslatedShaderSourceANGLE(PlatformGLObject) = 0;
 
@@ -1441,7 +1430,7 @@ public:
     virtual std::optional<PixelBuffer> paintRenderingResultsToPixelBuffer() = 0;
     virtual void paintCompositedResultsToCanvas(ImageBuffer&) = 0;
 #if ENABLE(MEDIA_STREAM)
-    virtual RefPtr<MediaSample> paintCompositedResultsToMediaSample() = 0;
+    virtual RefPtr<VideoFrame> paintCompositedResultsToVideoFrame() = 0;
 #endif
 
     // FIXME: this should be removed. The layer should be marked composited by
@@ -1507,9 +1496,12 @@ public:
 
     WEBCORE_EXPORT static void paintToCanvas(const GraphicsContextGLAttributes&, PixelBuffer&&, const IntSize& canvasSize, GraphicsContext&);
 protected:
+    WEBCORE_EXPORT void forceContextLost();
+    WEBCORE_EXPORT void dispatchContextChangedNotification();
+
     int m_currentWidth { 0 };
     int m_currentHeight { 0 };
-    HashSet<Client*> m_clients;
+    Client* m_client { nullptr };
     // A bitmask of GL buffer bits (GL_COLOR_BUFFER_BIT,
     // GL_DEPTH_BUFFER_BIT, GL_STENCIL_BUFFER_BIT) which need to be
     // auto-cleared.

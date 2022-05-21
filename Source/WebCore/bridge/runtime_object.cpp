@@ -36,7 +36,7 @@ using namespace WebCore;
 namespace JSC {
 namespace Bindings {
 
-WEBCORE_EXPORT const ClassInfo RuntimeObject::s_info = { "RuntimeObject", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(RuntimeObject) };
+WEBCORE_EXPORT const ClassInfo RuntimeObject::s_info = { "RuntimeObject"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(RuntimeObject) };
 
 static JSC_DECLARE_HOST_FUNCTION(convertRuntimeObjectToPrimitive);
 static JSC_DECLARE_HOST_FUNCTION(callRuntimeObject);
@@ -310,7 +310,7 @@ void RuntimeObject::getOwnPropertyNames(JSObject* object, JSGlobalObject* lexica
 
 Exception* throwRuntimeObjectInvalidAccessError(JSGlobalObject* lexicalGlobalObject, ThrowScope& scope)
 {
-    return throwException(lexicalGlobalObject, scope, createReferenceError(lexicalGlobalObject, "Trying to access object from destroyed plug-in."));
+    return throwException(lexicalGlobalObject, scope, createReferenceError(lexicalGlobalObject, "Trying to access object from destroyed plug-in."_s));
 }
 
 JSC::GCClient::IsoSubspace* RuntimeObject::subspaceForImpl(JSC::VM& vm)

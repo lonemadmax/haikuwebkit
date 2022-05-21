@@ -32,11 +32,14 @@
 #import <wtf/text/StringHash.h>
 #import <wtf/text/WTFString.h>
 
+struct WGPUShaderModuleImpl {
+};
+
 namespace WebGPU {
 
 class PipelineLayout;
 
-class ShaderModule : public RefCounted<ShaderModule> {
+class ShaderModule : public WGPUShaderModuleImpl, public RefCounted<ShaderModule> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static Ref<ShaderModule> create(std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck>&& checkResult, HashMap<String, Ref<PipelineLayout>>&& pipelineLayoutHints, HashMap<String, WGSL::Reflection::EntryPointInformation>&& entryPointInformation, id<MTLLibrary> library)
@@ -46,11 +49,11 @@ public:
 
     ~ShaderModule();
 
-    void getCompilationInfo(WTF::Function<void(WGPUCompilationInfoRequestStatus, const WGPUCompilationInfo&)>&& callback);
-    void setLabel(const char*);
+    void getCompilationInfo(CompletionHandler<void(WGPUCompilationInfoRequestStatus, const WGPUCompilationInfo&)>&& callback);
+    void setLabel(String&&);
 
     static WGSL::PipelineLayout convertPipelineLayout(const PipelineLayout&);
-    static id<MTLLibrary> createLibrary(id<MTLDevice>, const String& msl, NSString *label);
+    static id<MTLLibrary> createLibrary(id<MTLDevice>, const String& msl, String&& label);
 
     const WGSL::AST::ShaderModule* ast() const;
 
@@ -64,11 +67,7 @@ private:
     const std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck> m_checkResult;
     const HashMap<String, Ref<PipelineLayout>> m_pipelineLayoutHints;
     const HashMap<String, WGSL::Reflection::EntryPointInformation> m_entryPointInformation;
-    id<MTLLibrary> m_library { nil }; // This is only non-null if we could compile the module early.
+    const id<MTLLibrary> m_library { nil }; // This is only non-null if we could compile the module early.
 };
 
 } // namespace WebGPU
-
-struct WGPUShaderModuleImpl {
-    Ref<WebGPU::ShaderModule> shaderModule;
-};

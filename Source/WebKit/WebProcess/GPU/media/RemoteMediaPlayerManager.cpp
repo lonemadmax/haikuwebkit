@@ -34,6 +34,7 @@
 #include "RemoteMediaPlayerManagerProxyMessages.h"
 #include "RemoteMediaPlayerProxyConfiguration.h"
 #include "SampleBufferDisplayLayerManager.h"
+#include "WebCoreArgumentCoders.h"
 #include "WebProcess.h"
 #include "WebProcessCreationParameters.h"
 #include <WebCore/ContentTypeUtilities.h>
@@ -174,6 +175,8 @@ std::unique_ptr<MediaPlayerPrivateInterface> RemoteMediaPlayerManager::createRem
     proxyConfiguration.allowedMediaAudioCodecIDs = player->allowedMediaAudioCodecIDs();
     proxyConfiguration.allowedMediaCaptionFormatTypes = player->allowedMediaCaptionFormatTypes();
     proxyConfiguration.playerContentBoxRect = player->playerContentBoxRect();
+
+    proxyConfiguration.prefersSandboxedParsing = player->prefersSandboxedParsing();
 
     auto identifier = MediaPlayerIdentifier::generate();
     gpuProcessConnection().connection().send(Messages::RemoteMediaPlayerManagerProxy::CreateMediaPlayer(identifier, remoteEngineIdentifier, proxyConfiguration), 0);

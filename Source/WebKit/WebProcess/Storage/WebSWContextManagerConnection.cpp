@@ -332,11 +332,16 @@ void WebSWContextManagerConnection::matchAllCompleted(uint64_t requestIdentifier
         callback(WTFMove(clientsData));
 }
 
-void WebSWContextManagerConnection::claim(WebCore::ServiceWorkerIdentifier serviceWorkerIdentifier, CompletionHandler<void(ExceptionOr<void>&&)>&& callback)
+void WebSWContextManagerConnection::claim(ServiceWorkerIdentifier serviceWorkerIdentifier, CompletionHandler<void(ExceptionOr<void>&&)>&& callback)
 {
     m_connectionToNetworkProcess->sendWithAsyncReply(Messages::WebSWServerToContextConnection::Claim { serviceWorkerIdentifier }, [callback = WTFMove(callback)](auto&& result) mutable {
         callback(result ? result->toException() : ExceptionOr<void> { });
     });
+}
+
+void WebSWContextManagerConnection::focus(ScriptExecutionContextIdentifier clientIdentifier, CompletionHandler<void(std::optional<WebCore::ServiceWorkerClientData>&&)>&& callback)
+{
+    m_connectionToNetworkProcess->sendWithAsyncReply(Messages::WebSWServerToContextConnection::Focus { clientIdentifier }, WTFMove(callback));
 }
 
 void WebSWContextManagerConnection::close()
@@ -370,6 +375,11 @@ void WebSWContextManagerConnection::convertFetchToDownload(SWServerConnectionIde
 void WebSWContextManagerConnection::didFailHeartBeatCheck(ServiceWorkerIdentifier serviceWorkerIdentifier)
 {
     m_connectionToNetworkProcess->send(Messages::WebSWServerToContextConnection::DidFailHeartBeatCheck { serviceWorkerIdentifier }, 0);
+}
+
+void WebSWContextManagerConnection::setAsInspected(WebCore::ServiceWorkerIdentifier identifier, bool isInspected)
+{
+    m_connectionToNetworkProcess->send(Messages::WebSWServerToContextConnection::SetAsInspected { identifier, isInspected }, 0);
 }
 
 } // namespace WebCore

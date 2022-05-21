@@ -61,6 +61,7 @@
 #import <WebCore/LocalCurrentTraitCollection.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/RuntimeApplicationChecks.h>
+#import <WebCore/WebCoreUIColorExtras.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <pal/spi/ios/GraphicsServicesSPI.h>
 #import <wtf/BlockPtr.h>
@@ -542,7 +543,7 @@ static WebCore::Color scrollViewBackgroundColor(WKWebView *webView, AllowPageBac
 
     if (!color.isValid()) {
 #if HAVE(OS_DARK_MODE_SUPPORT)
-        color = WebCore::roundAndClampToSRGBALossy(UIColor.systemBackgroundColor.CGColor);
+        color = WebCore::roundAndClampToSRGBALossy(WebCore::systemBackgroundColor().CGColor);
 #else
         color = WebCore::Color::white;
 #endif
@@ -778,6 +779,13 @@ static WebCore::Color scrollViewBackgroundColor(WKWebView *webView, AllowPageBac
 
     if (![self _scrollViewIsRubberBandingForRefreshControl])
         [_scrollView _stopScrollingAndZoomingAnimations];
+
+#if HAVE(UIFINDINTERACTION)
+    if (_findInteractionEnabled) {
+        [_findInteraction dismissFindNavigator];
+        [_findInteraction setSearchableObject:[self _searchableObject]];
+    }
+#endif
 }
 
 static CGPoint contentOffsetBoundedInValidRange(UIScrollView *scrollView, CGPoint contentOffset)
@@ -2533,6 +2541,7 @@ static int32_t activeOrientation(WKWebView *webView)
         [self _keyboardChangedWithInfo:notification.userInfo adjustScrollView:YES];
 
     _page->setIsKeyboardAnimatingIn(true);
+    [_contentView _keyboardWillShow];
 }
 
 - (void)_keyboardDidShow:(NSNotification *)notification
@@ -2710,6 +2719,18 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
 
     [super buildMenuWithBuilder:builder];
 }
+
+#if HAVE(UIFINDINTERACTION)
+
+- (id<_UITextSearching>)_searchableObject
+{
+    if ([_customContentView conformsToProtocol:@protocol(_UITextSearching)])
+        return (id<_UITextSearching>)_customContentView.get();
+
+    return _contentView.get();
+}
+
+#endif
 
 @end
 
@@ -3551,7 +3572,7 @@ static std::optional<WebCore::ViewportArguments> viewportArgumentsFromDictionary
         if (enabled) {
             if (!_findInteraction) {
                 _findInteraction = adoptNS([[_UIFindInteraction alloc] init]);
-                [_findInteraction setSearchableObject:_contentView.get()];
+                [_findInteraction setSearchableObject:[self _searchableObject]];
             }
 
             [self addInteraction:_findInteraction.get()];

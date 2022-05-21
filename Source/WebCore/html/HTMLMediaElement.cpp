@@ -130,6 +130,10 @@
 #include <wtf/Ref.h>
 #include <wtf/text/CString.h>
 
+#if USE(AUDIO_SESSION)
+#include "AudioSession.h"
+#endif
+
 #if ENABLE(WEB_AUDIO)
 #include "AudioSourceProvider.h"
 #include "MediaElementAudioSourceNode.h"
@@ -457,6 +461,9 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document& docum
 #if !RELEASE_LOG_DISABLED
     , m_logger(&document.logger())
     , m_logIdentifier(uniqueLogIdentifier())
+#endif
+#if USE(AUDIO_SESSION)
+    , m_categoryAtMostRecentPlayback(AudioSessionCategory::None)
 #endif
 {
     allMediaElements().add(this);
@@ -2175,7 +2182,9 @@ void HTMLMediaElement::noneSupported()
 
     // 6.1 - Set the error attribute to a new MediaError object whose code attribute is set to
     // MEDIA_ERR_SRC_NOT_SUPPORTED.
-    m_error = MediaError::create(MediaError::MEDIA_ERR_SRC_NOT_SUPPORTED, "Unsupported source type"_s);
+    m_error = m_player
+        ? MediaError::create(MediaError::MEDIA_ERR_SRC_NOT_SUPPORTED, m_player->lastErrorMessage())
+        : MediaError::create(MediaError::MEDIA_ERR_SRC_NOT_SUPPORTED, "Unsupported source type"_s);
 
     // 6.2 - Forget the media element's media-resource-specific text tracks.
     forgetResourceSpecificTracks();
@@ -2213,12 +2222,24 @@ void HTMLMediaElement::mediaLoadingFailedFatally(MediaPlayer::NetworkState error
     stopPeriodicTimers();
     m_loadState = WaitingForSource;
 
+    const auto getErrorMessage = [&] (String&& defaultMessage) {
+        String message = WTFMove(defaultMessage);
+        if (!m_player)
+            return message;
+
+        auto lastErrorMessage = m_player->lastErrorMessage();
+        if (!lastErrorMessage)
+            return message;
+
+        return makeString(message, ": ", lastErrorMessage);
+    };
+
     // 2 - Set the error attribute to a new MediaError object whose code attribute is
     // set to MEDIA_ERR_NETWORK/MEDIA_ERR_DECODE.
     if (error == MediaPlayer::NetworkState::NetworkError)
-        m_error = MediaError::create(MediaError::MEDIA_ERR_NETWORK, "Media failed to load"_s);
+        m_error = MediaError::create(MediaError::MEDIA_ERR_NETWORK, getErrorMessage("Media failed to load"_s));
     else if (error == MediaPlayer::NetworkState::DecodeError)
-        m_error = MediaError::create(MediaError::MEDIA_ERR_DECODE, "Media failed to decode"_s);
+        m_error = MediaError::create(MediaError::MEDIA_ERR_DECODE, getErrorMessage("Media failed to decode"_s));
     else
         ASSERT_NOT_REACHED();
 
@@ -5680,6 +5701,10 @@ void HTMLMediaElement::playPlayer()
     if (!m_player)
         return;
 
+#if USE(AUDIO_SESSION)
+    m_categoryAtMostRecentPlayback = AudioSession::sharedSession().category();
+#endif
+
 #if ENABLE(MEDIA_SESSION) && ENABLE(MEDIA_SESSION_COORDINATOR)
     do {
         if (!m_player->supportsPlayAtHostTime())
@@ -7477,6 +7502,11 @@ void HTMLMediaElement::mediaPlayerBufferedTimeRangesChanged()
             }
         }
     });
+}
+
+bool HTMLMediaElement::mediaPlayerPrefersSandboxedParsing() const
+{
+    return document().settings().preferSandboxedMediaParsing();
 }
 
 #if USE(GSTREAMER)

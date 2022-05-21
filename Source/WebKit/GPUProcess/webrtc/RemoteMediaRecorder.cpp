@@ -33,7 +33,6 @@
 #include "RemoteVideoFrameObjectHeap.h"
 #include "SharedRingBufferStorage.h"
 #include <WebCore/CARingBuffer.h>
-#include <WebCore/MediaSampleAVFObjC.h>
 #include <WebCore/WebAudioBufferList.h>
 #include <wtf/CompletionHandler.h>
 
@@ -87,10 +86,10 @@ void RemoteMediaRecorder::audioSamplesAvailable(MediaTime time, uint64_t numberO
     m_writer->appendAudioSampleBuffer(*m_audioBufferList, m_description, time, numberOfFrames);
 }
 
-void RemoteMediaRecorder::videoSampleAvailable(SharedVideoFrame&& sharedVideoFrame)
+void RemoteMediaRecorder::videoFrameAvailable(SharedVideoFrame&& sharedVideoFrame)
 {
-    if (auto sample = m_sharedVideoFrameReader.read(WTFMove(sharedVideoFrame)))
-        m_writer->appendVideoSampleBuffer(*sample);
+    if (auto frame = m_sharedVideoFrameReader.read(WTFMove(sharedVideoFrame)))
+        m_writer->appendVideoFrame(*frame);
 }
 
 void RemoteMediaRecorder::fetchData(CompletionHandler<void(IPC::DataReference&&, double)>&& completionHandler)

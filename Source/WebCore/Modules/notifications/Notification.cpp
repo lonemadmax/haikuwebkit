@@ -35,6 +35,7 @@
 
 #include "Notification.h"
 
+#include "DOMWindow.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "JSDOMPromiseDeferred.h"
@@ -306,6 +307,12 @@ void Notification::requestPermission(Document& document, RefPtr<NotificationPerm
 
     if (!document.isSecureContext()) {
         document.addConsoleMessage(MessageSource::Security, MessageLevel::Error, "The Notification permission may only be requested in a secure context."_s);
+        return resolvePromiseAndCallback(Permission::Denied);
+    }
+
+    auto* window = document.frame() ? document.frame()->window() : nullptr;
+    if (!window || !window->consumeTransientActivation()) {
+        document.addConsoleMessage(MessageSource::Security, MessageLevel::Error, "Notification prompting can only be done from a user gesture."_s);
         return resolvePromiseAndCallback(Permission::Denied);
     }
 

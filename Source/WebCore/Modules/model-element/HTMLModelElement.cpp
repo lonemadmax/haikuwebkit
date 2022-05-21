@@ -156,7 +156,8 @@ void HTMLModelElement::setSourceURL(const URL& url)
     auto resource = document().cachedResourceLoader().requestModelResource(WTFMove(request));
     if (!resource.has_value()) {
         queueTaskToDispatchEvent(*this, TaskSource::DOMManipulation, Event::create(eventNames().errorEvent, Event::CanBubble::No, Event::IsCancelable::No));
-        m_readyPromise->reject(Exception { NetworkError });
+        if (!m_readyPromise->isFulfilled())
+            m_readyPromise->reject(Exception { NetworkError });
         return;
     }
 
@@ -220,7 +221,8 @@ void HTMLModelElement::notifyFinished(CachedResource& resource, const NetworkLoa
 
         invalidateResourceHandleAndUpdateRenderer();
 
-        m_readyPromise->reject(Exception { NetworkError });
+        if (!m_readyPromise->isFulfilled())
+            m_readyPromise->reject(Exception { NetworkError });
         return;
     }
 
@@ -240,7 +242,8 @@ void HTMLModelElement::modelDidChange()
 {
     auto* page = document().page();
     if (!page) {
-        m_readyPromise->reject(Exception { AbortError });
+        if (!m_readyPromise->isFulfilled())
+            m_readyPromise->reject(Exception { AbortError });
         return;
     }
 
@@ -255,16 +258,24 @@ void HTMLModelElement::modelDidChange()
 
 void HTMLModelElement::createModelPlayer()
 {
+    if (!m_model)
+        return;
+
+    auto size = contentSize();
+    if (size.isEmpty())
+        return;
+
     ASSERT(document().page());
     m_modelPlayer = document().page()->modelPlayerProvider().createModelPlayer(*this);
     if (!m_modelPlayer) {
-        m_readyPromise->reject(Exception { AbortError });
+        if (!m_readyPromise->isFulfilled())
+            m_readyPromise->reject(Exception { AbortError });
         return;
     }
 
     // FIXME: We need to tell the player if the size changes as well, so passing this
     // in with load probably doesn't make sense.
-    m_modelPlayer->load(*m_model, contentSize());
+    m_modelPlayer->load(*m_model, size);
 }
 
 bool HTMLModelElement::usesPlatformLayer() const
@@ -281,7 +292,10 @@ PlatformLayer* HTMLModelElement::platformLayer() const
 
 void HTMLModelElement::sizeMayHaveChanged()
 {
-    m_modelPlayer->sizeDidChange(contentSize());
+    if (m_modelPlayer)
+        m_modelPlayer->sizeDidChange(contentSize());
+    else
+        createModelPlayer();
 }
 
 void HTMLModelElement::didFinishLoading(ModelPlayer& modelPlayer)
@@ -297,7 +311,8 @@ void HTMLModelElement::didFinishLoading(ModelPlayer& modelPlayer)
 void HTMLModelElement::didFailLoading(ModelPlayer& modelPlayer, const ResourceError&)
 {
     ASSERT_UNUSED(modelPlayer, &modelPlayer == m_modelPlayer);
-    m_readyPromise->reject(Exception { AbortError });
+    if (!m_readyPromise->isFulfilled())
+        m_readyPromise->reject(Exception { AbortError });
 }
 
 GraphicsLayer::PlatformLayerID HTMLModelElement::platformLayerID()

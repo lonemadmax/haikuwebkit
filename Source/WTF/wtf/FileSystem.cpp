@@ -825,7 +825,7 @@ bool makeAllDirectories(const String& path)
     return !ec;
 }
 
-String pathByAppendingComponent(const String& path, const String& component)
+String pathByAppendingComponent(StringView path, StringView component)
 {
     return fromStdFileSystemPath(toStdFileSystemPath(path) / toStdFileSystemPath(component));
 }

@@ -91,6 +91,7 @@ public:
         virtual void setRegistrationUpdateViaCache(ServiceWorkerRegistrationIdentifier, ServiceWorkerUpdateViaCache) = 0;
         virtual void notifyClientsOfControllerChange(const HashSet<ScriptExecutionContextIdentifier>& contextIdentifiers, const ServiceWorkerData& newController) = 0;
         virtual void postMessageToServiceWorkerClient(ScriptExecutionContextIdentifier, const MessageWithMessagePorts&, ServiceWorkerIdentifier, const String& sourceOrigin) = 0;
+        virtual void focusServiceWorkerClient(ScriptExecutionContextIdentifier, CompletionHandler<void(std::optional<ServiceWorkerClientData>&&)>&&) = 0;
 
         virtual void contextConnectionCreated(SWServerToContextConnection&) = 0;
 
@@ -218,6 +219,7 @@ public:
     WEBCORE_EXPORT void handleLowMemoryWarning();
 
     static constexpr Seconds defaultTerminationDelay = 10_s;
+    static constexpr Seconds defaultPushMessageDuration = 2_s;
 
     LastNavigationWasAppInitiated clientIsAppInitiatedForRegistrableDomain(const RegistrableDomain&);
     bool shouldRunServiceWorkersOnMainThreadForTesting() const { return m_shouldRunServiceWorkersOnMainThreadForTesting; }
@@ -230,6 +232,10 @@ public:
     ScriptExecutionContextIdentifier clientIdFromVisibleClientId(const String& visibleIdentifier) const { return m_visibleClientIdToInternalClientIdMap.get(visibleIdentifier); }
 
     void forEachServiceWorker(const Function<bool(const SWServerWorker&)>&) const;
+    bool hasClientsWithOrigin(const ClientOrigin& origin) { return m_clientIdentifiersPerOrigin.contains(origin); }
+
+    enum class ShouldDelayRemoval : bool { No, Yes };
+    ShouldDelayRemoval removeContextConnectionIfPossible(const RegistrableDomain&);
 
 private:
     void validateRegistrationDomain(WebCore::RegistrableDomain, ServiceWorkerJobType, CompletionHandler<void(bool)>&&);
@@ -300,6 +306,7 @@ private:
     bool m_hasServiceWorkerEntitlement { false };
     bool m_hasReceivedAppBoundDomains { false };
     unsigned m_uniqueRegistrationCount { 0 };
+    uint64_t m_focusOrder { 0 };
 };
 
 } // namespace WebCore

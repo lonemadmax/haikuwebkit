@@ -29,7 +29,9 @@
 
 #include "WebGPU.h"
 #include <WebGPU/WebGPU.h>
+#include <wtf/CompletionHandler.h>
 #include <wtf/Deque.h>
+#include <wtf/Function.h>
 
 namespace PAL::WebGPU {
 
@@ -38,7 +40,9 @@ class ConvertToBackingContext;
 class GPUImpl final : public GPU {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    PAL_EXPORT static RefPtr<GPUImpl> create();
+    using WorkItem = CompletionHandler<void(void)>;
+    using ScheduleWorkFunction = Function<void(WorkItem&&)>;
+    PAL_EXPORT static RefPtr<GPUImpl> create(ScheduleWorkFunction&&);
 
     static Ref<GPUImpl> create(WGPUInstance instance, ConvertToBackingContext& convertToBackingContext)
     {
@@ -49,7 +53,6 @@ public:
 
 private:
     friend class DowncastConvertToBackingContext;
-    friend void requestAdapterCallback(WGPURequestAdapterStatus, WGPUAdapter, const char* message, void* userdata);
 
     GPUImpl(WGPUInstance, ConvertToBackingContext&);
 
@@ -60,10 +63,7 @@ private:
 
     WGPUInstance backing() const { return m_backing; }
 
-    void requestAdapterCallback(WGPURequestAdapterStatus, WGPUAdapter, const char* message);
-    void requestAdapter(const RequestAdapterOptions&, WTF::Function<void(RefPtr<Adapter>&&)>&&) final;
-
-    Deque<WTF::Function<void(RefPtr<Adapter>&&)>> m_callbacks;
+    void requestAdapter(const RequestAdapterOptions&, CompletionHandler<void(RefPtr<Adapter>&&)>&&) final;
 
     WGPUInstance m_backing { nullptr };
     Ref<ConvertToBackingContext> m_convertToBackingContext;

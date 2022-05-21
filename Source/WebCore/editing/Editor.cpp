@@ -507,7 +507,7 @@ bool Editor::canCopy() const
     if (imageElementFromImageDocument(document()))
         return true;
     const VisibleSelection& selection = m_document.selection().selection();
-    return selection.isRange() && !selection.isInPasswordField();
+    return selection.isRange() && (!selection.isInPasswordField() || selection.isInAutoFilledAndViewableField());
 }
 
 bool Editor::canPaste() const
@@ -1009,7 +1009,8 @@ void Editor::applyParagraphStyle(StyleProperties* style, EditAction editingActio
 
     ApplyStyleCommand::create(document(), EditingStyle::create(style).ptr(), editingAction, ApplyStyleCommand::ForceBlockProperties)->apply();
 
-    client()->didApplyStyle();
+    if (client())
+        client()->didApplyStyle();
     if (element)
         dispatchInputEvent(*element, inputTypeName, inputEventData);
 }

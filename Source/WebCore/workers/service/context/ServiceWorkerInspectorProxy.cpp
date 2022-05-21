@@ -28,6 +28,7 @@
 
 #if ENABLE(SERVICE_WORKER)
 
+#include "SWContextManager.h"
 #include "ScriptExecutionContext.h"
 #include "ServiceWorkerGlobalScope.h"
 #include "ServiceWorkerThreadProxy.h"
@@ -61,6 +62,7 @@ void ServiceWorkerInspectorProxy::connectToWorker(FrontendChannel& channel)
 {
     m_channel = &channel;
 
+    SWContextManager::singleton().setAsInspected(m_serviceWorkerThreadProxy.identifier(), true);
     m_serviceWorkerThreadProxy.thread().runLoop().postDebuggerTask([] (ScriptExecutionContext& context) {
         downcast<WorkerGlobalScope>(context).inspectorController().connectFrontend();
     });
@@ -71,6 +73,7 @@ void ServiceWorkerInspectorProxy::disconnectFromWorker(FrontendChannel& channel)
     ASSERT_UNUSED(channel, &channel == m_channel);
     m_channel = nullptr;
 
+    SWContextManager::singleton().setAsInspected(m_serviceWorkerThreadProxy.identifier(), false);
     m_serviceWorkerThreadProxy.thread().runLoop().postDebuggerTask([] (ScriptExecutionContext& context) {
         downcast<WorkerGlobalScope>(context).inspectorController().disconnectFrontend(DisconnectReason::InspectorDestroyed);
 

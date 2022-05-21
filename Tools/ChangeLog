@@ -1,3 +1,1474 @@
+2022-03-26  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Import WebGPU Conformance Test Suite
+        https://bugs.webkit.org/show_bug.cgi?id=238123
+
+        Reviewed by Dean Jackson.
+
+        * Scripts/import-webgpu-cts: Added.
+
+2022-03-26  Youenn Fablet  <youenn@apple.com>
+
+        Implement ServiceWorkerWindowClient.focus
+        https://bugs.webkit.org/show_bug.cgi?id=238319
+        <rdar://90616490>
+
+        Reviewed by Brady Eidson.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/ServiceWorkerBasic.mm:
+
+2022-03-26  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Use unary static_assert
+        https://bugs.webkit.org/show_bug.cgi?id=238412
+
+        Reviewed by Mark Lam.
+
+        * TestWebKitAPI/Tests/WTF/EnumTraits.cpp:
+        * TestWebKitAPI/Tests/WTF/HashMap.cpp:
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/WTF/Int128.cpp:
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/WTF/Packed.cpp:
+        (TestWebKitAPI::TEST):
+        * TestWebKitAPI/Tests/WTF/RobinHoodHashMap.cpp:
+        (TestWebKitAPI::TEST):
+
+2022-03-26  Adrian Perez de Castro  <aperez@igalia.com>
+
+        [WPE][GTK] Dist/distcheck targets fail due to Python error
+        https://bugs.webkit.org/show_bug.cgi?id=238394
+
+        Reviewed by Philippe Normand.
+
+        * Scripts/make-dist:
+        (Directory.list_files_in_version_control): Ensure that data read from pipes is converted to
+        strings by specifying text="ascii", as it seems safe to assume that files listed by Git will
+        not contain non-ASCII characters. While at it, make the function return a set to speed up
+        lookups.
+
+2022-03-25  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Enable PGO when building for release and production
+        https://bugs.webkit.org/show_bug.cgi?id=238119
+        rdar://90182309
+
+        Reviewed by Alexey Proskuryakov and Geoff Garen.
+
+        Add an empty profiling data file that can be used as a fallback only for release (non-production) builds, when
+        the JavaScriptCore, WebCore or WebKit profiling data hasn't been locally downloaded.
+
+        * Profiling/Empty.profdata: Added.
+
+2022-03-25  Devin Rousso  <drousso@apple.com>
+
+        `PointerEvent.movementX` always 0 (breaks https://noisecraft.app/)
+        https://bugs.webkit.org/show_bug.cgi?id=220194
+        <rdar://problem/72814440>
+
+        Reviewed by Simon Fraser.
+
+        * DumpRenderTree/mac/EventSendingController.mm:
+        (-[EventSendingController mouseMoveToX:Y:]):
+        * WebKitTestRunner/mac/EventSenderProxy.mm:
+        (WTR::EventSenderProxy::mouseMoveTo):
+        On macOS, the screen's origin is the bottom-left corner, so we need to flip the `deltaY`.
+
+2022-03-25  J Pascoe  <j_pascoe@apple.com>
+
+        [WebAuthn] Maintain last modification time separate from last used time for platform credentials
+        https://bugs.webkit.org/show_bug.cgi?id=238293
+        rdar://90655676
+
+        Reviewed by Brent Fulgham.
+
+        This patch splits a key returned from [_WKWebAuthenticationPanel getAllLocalAuthenticatorCredentials...],
+        _WKLocalAuthenticatorCredentialLastModificationDateKey, which previously signified the last time a
+        credential was modified or used in an assertion, to just the last time the credential was modified.
+
+        A new key, _WKLocalAuthenticatorCredentialLastUsedDateKey represents the old definition, the last
+        time a key was used or modified.
+
+        Updated API test to verify differences between _WKLocalAuthenticatorCredentialLastModificationDateKey
+        and _WKLocalAuthenticatorCredentialLastModificationDateKey.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/_WKWebAuthenticationPanel.mm:
+        (TestWebKitAPI::TEST):
+
+2022-03-25  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] Handle no repository case
+        https://bugs.webkit.org/show_bug.cgi?id=238383
+        <rdar://problem/90842476>
+
+        Reviewed by Aakash Jain.
+
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/__init__.py:
+        (main): Set repository to 'None' instead of raising an OSError.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/canonicalize/__init__.py:
+        (Canonicalize.main): If no repository is provided, exit the program.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/checkout.py:
+        (Checkout.main): Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/command.py:
+        (FilteredCommand.pager): Ditto.
+        (FilteredCommand.main): Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/find.py:
+        (Info.main): Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/install_git_lfs.py:
+        (InstallGitLFS.parser): configure depends on if a repository is provided.
+        (InstallGitLFS.main): Install `git lfs` when no repository is provided.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/land.py:
+        (Land.main): If no repository is provided, exit the program.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/pull.py:
+        (Pull.main): Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/setup_git_svn.py:
+        (SetupGitSvn.main): Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/branch_unittest.py:
+        (TestBranch.test_basic_none):
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/canonicalize_unittest.py:
+        (TestCanonicalize.test_invalid_svn): Renamed from test_invalid.
+        (TestCanonicalize.test_invalid_None):
+        (TestCanonicalize.test_invalid): Renamed to test_invalid_svn.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/checkout_unittest.py:
+        (TestCheckout.test_checkout_none):
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/find_unittest.py:
+        (TestFind.test_none):
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/install_git_lfs_unittest.py:
+        (TestInstallGitLFS.test_no_repo):
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/land_unittest.py:
+        (TestLand.test_none):
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/log_unittest.py:
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/pull_request_unittest.py:
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/setup_git_svn_unittest.py:
+        (TestSetupGitSvn.test_none):
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/setup_unittest.py:
+        (TestSetup.test_none):
+
+2022-03-25  Chris Dumez  <cdumez@apple.com>
+
+        Start preparing WebCore for making the String(const char*) constructor explicit
+        https://bugs.webkit.org/show_bug.cgi?id=238336
+
+        Reviewed by Geoffrey Garen.
+
+        Start preparing WebCore for making the String(const char*) constructor explicit.
+        Making this constructor explicit helps catch at compile time cases where the ""_s
+        prefix is missing on String literals.
+
+        * TestWebKitAPI/Tests/mac/DragAndDropTestsMac.mm:
+        (TEST):
+
+2022-03-25  Sihui Liu  <sihui_liu@apple.com>
+
+        Introduce an SPI to get website data directory for origin and use it in API tests
+        https://bugs.webkit.org/show_bug.cgi?id=238269
+
+        Reviewed by Alex Christensen.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/IDBCheckpointWAL.mm:
+        (TEST):
+        * TestWebKitAPI/Tests/WebKitCocoa/IDBIndexUpgradeToV2.mm:
+        (runMultipleIndicesTestWithDatabase):
+        * TestWebKitAPI/Tests/WebKitCocoa/IndexedDBFileName.mm:
+        (runTest):
+        (TEST):
+        * TestWebKitAPI/Tests/WebKitCocoa/IndexedDBPersistence.mm:
+        * TestWebKitAPI/Tests/WebKitCocoa/IndexedDBTempFileSize.mm:
+        (TEST):
+        * TestWebKitAPI/Tests/WebKitCocoa/StoreBlobThenDelete.mm:
+        (TEST):
+        * TestWebKitAPI/Tests/WebKitCocoa/WebsiteDataStoreCustomPaths.mm:
+        (runWebsiteDataStoreCustomPaths):
+
+2022-03-24  Chris Dumez  <cdumez@apple.com>
+
+        FileSystem::pathByAppendingComponent() should take in StringViews instead of Strings
+        https://bugs.webkit.org/show_bug.cgi?id=238344
+
+        Reviewed by Geoff Garen.
+
+        * TestWebKitAPI/Tests/WTF/FileSystem.cpp:
+        (TestWebKitAPI::TEST_F):
+
+2022-03-24  Aakash Jain  <aakash_jain@apple.com>
+
+        [ews] Set bug_title property appropriately
+        https://bugs.webkit.org/show_bug.cgi?id=238342
+
+        Reviewed by Ryan Haddad.
+
+        * CISupport/ews-build/steps.py:
+        (BugzillaMixin._is_bug_closed):
+
+2022-03-24  Brent Fulgham  <bfulgham@apple.com>
+
+        Disable RTCRtpScriptTransform in CaptivePortal mode
+        https://bugs.webkit.org/show_bug.cgi?id=238340
+        <rdar://87821636>
+
+        Reviewed by Chris Dumez.
+
+        Add a test that RTCRtpScriptTransform is properly disabled in
+        CaptivePortal mode.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/ProcessSwapOnNavigation.mm:
+
+2022-03-24  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] Install git-lfs
+        https://bugs.webkit.org/show_bug.cgi?id=238270
+        <rdar://problem/90708032>
+
+        Reviewed by Aakash Jain and Wenson Hsieh.
+
+        * Scripts/libraries/webkitcorepy/setup.py: Bump version.
+        * Scripts/libraries/webkitcorepy/webkitcorepy/__init__.py: Ditto.
+        * Scripts/libraries/webkitcorepy/webkitcorepy/mocks/requests_.py:
+        (Response.__init__): Accept binary content or text.
+        (Response.text): Decode binary content.
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/mocks/local/git.py:
+        (Git): Add git lfs mocks.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/mocks/remote/git_hub.py:
+        (GitHub.__init__): Mock project release binaries.
+        (GitHub.request): Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/__init__.py: Add InstallGitLFS.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/install_git_lfs.py: Added.
+        (InstallGitLFS):
+        (InstallGitLFS.url): Return URL specific to the current platform.
+        (InstallGitLFS.install): Install `git lfs` globally on this machine.
+        (InstallGitLFS.parser): Install `git lfs` even if it is already installed.
+        (InstallGitLFS.main): Check `git lfs` version, install it if needed, and then run `git lfs install`.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/install_git_lfs_unittest.py: Added.
+        (TestInstallGitLFS):
+        (TestInstallGitLFS.setUp):
+        (TestInstallGitLFS.test_svn):
+        (TestInstallGitLFS.test_remote_git):
+        (TestInstallGitLFS.test_url):
+        (TestInstallGitLFS.test_install):
+        (TestInstallGitLFS.test_configure):
+        (TestInstallGitLFS.test_no_op):
+
+2022-03-24  Ben Nham  <nham@apple.com>
+
+        PushAPI.firePushEventWithNoPagesTimeout fails in debug builds
+        https://bugs.webkit.org/show_bug.cgi?id=238309
+
+        Reviewed by Youenn Fablet.
+
+        This test was dying on an assertion in debug builds because we were calling
+        terminateNetworkProcessWhileRegistrationIsStored with a brand new WKWebsiteDataStore, which
+        wasn't associated with an active NetworkProcess connection since it was a brand new object.
+        Fix this by using the existing data store object instead.
+
+        Additionally, terminateNetworkProcessWhileRegistrationIsStored was waiting on the wrong
+        filename, so I changed the test to reference the correct filename.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/PushAPI.mm:
+
+2022-03-24  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed, update outdated comment after r291787.
+
+        * TestWebKitAPI/Tests/WTF/StringImpl.cpp:
+        (TestWebKitAPI::TEST):
+
+2022-03-23  Simon Fraser  <simon.fraser@apple.com>
+
+        Have MiniBrowser shows the GPU Process pid in its title bar
+        https://bugs.webkit.org/show_bug.cgi?id=238286
+
+        Reviewed by Tim Horton.
+
+        KVO-observe the WKWebView's _gpuProcessIdentifier property and include it in the
+        window title.
+
+        * MiniBrowser/mac/WK2BrowserWindowController.m:
+        (-[WK2BrowserWindowController awakeFromNib]):
+        (-[WK2BrowserWindowController dealloc]):
+        (-[WK2BrowserWindowController updateTitle:]):
+        (-[WK2BrowserWindowController observeValueForKeyPath:ofObject:change:context:]):
+
+2022-03-23  Alex Christensen  <achristensen@webkit.org>
+
+        Add off-by-default experimental feature for app store attribution
+        https://bugs.webkit.org/show_bug.cgi?id=238294
+
+        Reviewed by John Wilander.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/EventAttribution.mm:
+        (TestWebKitAPI::TEST):
+
+2022-03-23  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Implement Device::createTexture() according to the spec
+        https://bugs.webkit.org/show_bug.cgi?id=238251
+
+        Reviewed by Darin Adler.
+
+        Document the behavior of fastLog2().
+
+        * TestWebKitAPI/Tests/WTF/MathExtras.cpp:
+        (TestWebKitAPI::TEST):
+
+2022-03-23  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [Cocoa] Make IPCTestingAPI.CGColorInNSSecureCoding more robust
+        https://bugs.webkit.org/show_bug.cgi?id=238300
+        <rdar://problem/90124325>
+
+        Unreviewed test gardening.
+
+        Round-tripping a CGColor through CFData on iOS can turn extended sRGB color spaces
+        into regular sRGB color spaces, if the color is common to both.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/IPCTestingAPI.mm:
+
+2022-03-22  Jonathan Bedard  <jbedard@apple.com>
+
+        [commits.webkit.org] Sync tags
+        https://bugs.webkit.org/show_bug.cgi?id=238144
+        <rdar://problem/90594915>
+
+        Reviewed by Dewei Zhu.
+
+        * Scripts/libraries/reporelaypy/reporelaypy/__init__.py: Bump version.
+        * Scripts/libraries/reporelaypy/reporelaypy/checkout.py:
+        (Checkout): Make 'origin' a global variable.
+        (Checkout.__init__): Ditto.
+        (Checkout.is_updated): Ditto.
+        (Checkout.push_update): Support pushing a tag.
+        (Checkout.fetch): Fetch a specific remote.
+        (Checkout.update_for): Make 'origin' a global variable.
+        (Checkout.update_all): Add tag syncing.
+        * Scripts/libraries/reporelaypy/reporelaypy/hooks.py:
+        (HookProcessor):
+        (HookProcessor.process_worker_hook): Update tags as well as branches.
+        * Scripts/libraries/reporelaypy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/setup.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/local/git.py:
+        (Git.tags): List tags for remote.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/local/svn.py:
+        (Svn.tags): Remove @property tag.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/mocks/local/git.py:
+        (Git.__init__): List tags for remote. 
+        * Scripts/libraries/webkitscmpy/webkitscmpy/remote/bitbucket.py:
+        (BitBucket.tags): Remove @property tag.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/remote/git_hub.py:
+        (GitHub.tags): Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/remote/svn.py:
+        (Svn.tags): Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/scm_base.py:
+        (ScmBase.tags): Ditto.
+        (ScmBase.find): tags is a function instead of a property.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/git_unittest.py:
+        (TestGit.test_tags):
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/svn_unittest.py:
+        (TestLocalSvn.test_tags):
+        (TestRemoteSvn.test_tags):
+
+2022-03-23  Jon Lee  <jonlee@apple.com>
+
+        Turn DOM in GPU Process on by default on iOS layout tests
+        https://bugs.webkit.org/show_bug.cgi?id=236547
+        rdar://88863036
+
+        Reviewed by Geoffrey Garen.
+
+        * WebKitTestRunner/TestOptions.cpp:
+        (WTR::TestOptions::defaults):
+
+2022-03-22  Ben Nham  <nham@apple.com>
+
+        Only show notification permission prompt on transient activation
+        https://bugs.webkit.org/show_bug.cgi?id=238188
+
+        Reviewed by Youenn Fablet.
+
+        Add an internal API denyWebNotificationPermissionOnPrompt to WebKitTestRunner that allows a
+        notification permission prompt to first be displayed and then rejected. This differs from
+        the existing denyNotificationPermission call, which denied notification permissions before
+        prompting.
+
+        * WebKitTestRunner/InjectedBundle/Bindings/TestRunner.idl:
+        * WebKitTestRunner/InjectedBundle/TestRunner.cpp:
+        (WTR::TestRunner::denyWebNotificationPermission):
+        (WTR::TestRunner::denyWebNotificationPermissionOnPrompt):
+        * WebKitTestRunner/InjectedBundle/TestRunner.h:
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::originUserVisibleName):
+        (WTR::TestController::denyNotificationPermissionOnPrompt):
+        (WTR::TestController::resetStateToConsistentValues):
+        (WTR::TestController::decidePolicyForNotificationPermissionRequest):
+        * WebKitTestRunner/TestController.h:
+        * WebKitTestRunner/TestInvocation.cpp:
+        (WTR::TestInvocation::didReceiveSynchronousMessageFromInjectedBundle):
+
+2022-03-22  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Test DFG / FTL DataIC
+        https://bugs.webkit.org/show_bug.cgi?id=231224
+
+        Reviewed by Saam Barati.
+
+        * Scripts/run-jsc-stress-tests:
+
+2022-03-22  Alex Christensen  <achristensen@webkit.org>
+
+        Implement PCM to SKAdNetwork bridge
+        https://bugs.webkit.org/show_bug.cgi?id=237969
+        <rdar://82988054>
+
+        Reviewed by John Wilander.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/EventAttribution.mm:
+        (TestWebKitAPI::TEST):
+
+2022-03-22  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] Do not re-prompt configuration options during setup
+        https://bugs.webkit.org/show_bug.cgi?id=237571
+        <rdar://problem/89940351>
+
+        Reviewed by Dewei Zhu.
+
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/program/setup.py:
+        (Setup.git): Skip already configured options by default.
+        (Setup.parser): Add option to re-prompt for previously configured options.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/test/setup_unittest.py:
+
+2022-03-22  Jonathan Bedard  <jbedard@apple.com>
+
+        [Merge-Queue] Add ValidateSquashed
+        https://bugs.webkit.org/show_bug.cgi?id=238172
+        <rdar://problem/90602594>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/factories.py:
+        (MergeQueueFactory.__init__): Add ValidateSquashed.
+        * CISupport/ews-build/factories_unittest.py:
+        (TestExpectedBuildSteps): Ditto.
+        * CISupport/ews-build/steps.py:
+        (VerifyGitHubIntegrity.send_email_for_github_issue):
+        (ValidateSquashed): Ensure that a pull request only has a single commit.
+        (ValidateSquashed.__init__): Do not log environment variables.
+        (ValidateSquashed.start): Log commits between the HEAD branch and base branch.
+        (ValidateSquashed.getResultSummary):
+        (ValidateSquashed.evaluateCommand): Check number of commits between HEAD and base branch.
+        (ValidateSquashed.doStepIf): Only run step for pull requests.
+        (ValidateSquashed.hideStepIf): Hide step if we aren't running it.
+
+2022-03-22  J Pascoe  <j_pascoe@apple.com>
+
+        [WebAuthn] Pass along timeout to ASA and ignore timeout for conditional mediation requests
+        https://bugs.webkit.org/show_bug.cgi?id=238147
+        rdar://90509464
+
+        Reviewed by Brent Fulgham.
+
+        Modify API test to use new SPI.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/_WKWebAuthenticationPanel.mm:
+        (TestWebKitAPI::TEST):
+
+2022-03-21  Jonathan Bedard  <jbedard@apple.com>
+
+        [Merge-Queue] Add ValidateCommitterAndReviewer
+        https://bugs.webkit.org/show_bug.cgi?id=238150
+        <rdar://problem/90587620>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/factories.py:
+        (CommitQueueFactory.__init__): Rename ValidateCommiterAndReviewer to ValidateCommiterAndReviewer.
+        (MergeQueueFactory.__init__): Add ValidateCommitterAndReviewer, PrintConfiguration, CleanGitRepo,
+        CheckOutSource, FetchBranches, ShowIdentifier, VerifyGitHubIntegrity, UpdateWorkingDirectory
+        and CheckOutPullRequest.
+        * CISupport/ews-build/factories_unittest.py:
+        (TestExpectedBuildSteps): Add Merge-Queue step names.
+        * CISupport/ews-build/steps.py:
+        (GitHubMixin.get_pr_json): Retry tied to attempt not index.
+        (GitHubMixin.get_reviewers): Get list of reviewers for pull-request in repository.
+        (ValidateCommitterAndReviewer): Renamed from ValidateCommiterAndReviewer, inherit from GitHubMixin.
+        (ValidateCommitterAndReviewer.__init__): Rename ValidateCommiterAndReviewer.
+        (ValidateCommitterAndReviewer.fail_build): Block pull request, differentiate comment for pull
+        request and patch.
+        (ValidateCommitterAndReviewer.start): Support pull requests.
+        (ValidateCommiterAndReviewer): Renamed to ValidateCommitterAndReviewer.
+        * CISupport/ews-build/steps_unittest.py:
+
+2022-03-22  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        -[WKWebView _spellCheckerDocumentTag] is inconsistent with the document tag passed into NSSpellChecker
+        https://bugs.webkit.org/show_bug.cgi?id=238186
+        rdar://90591883
+
+        Reviewed by Tim Horton.
+
+        Add a test to verify that the spell checking document tag passed into NSSpellChecker API is consistent with the
+        document tag reported by WKWebView.
+
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/Tests/mac/SpellCheckerDocumentTag.mm: Added.
+        (TestWebKitAPI::TEST):
+
+2022-03-22  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] Make radar conditional on authentication (Follow-up fix)
+        https://bugs.webkit.org/show_bug.cgi?id=238051
+        <rdar://problem/90384655>
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Scripts/libraries/webkitbugspy/webkitbugspy/radar.py:
+        (Tracker.__init__): Only check for authentication if library exists.
+
+2022-03-21  Jonathan Bedard  <jbedard@apple.com>
+
+        [Python 3] Use sys.executable instead of Python
+        https://bugs.webkit.org/show_bug.cgi?id=238175
+        <rdar://problem/90604107>
+
+        Reviewed by Ryan Haddad.
+
+        * Scripts/webkitpy/common/system/executive_unittest.py:
+        (ExecutiveTest.test_run_command_with_bad_command):
+
+2022-03-22  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK][WPE] Remove the ATK implementation
+        https://bugs.webkit.org/show_bug.cgi?id=238198
+
+        Reviewed by Adrian Perez de Castro.
+
+        * DumpRenderTree/AccessibilityController.h:
+        * DumpRenderTree/AccessibilityUIElement.h:
+        * Scripts/valgrind/suppressions.txt:
+        * Scripts/webkit-filter-log:
+        * TestWebKitAPI/Tests/WebKitGtk/TestWebKitAccessibility.cpp:
+        (testAccessibleChildrenChanged):
+        (testAccessibleAttributes):
+        (testAccessibleState):
+        (testAccessibleStateChanged):
+        (testAccessibleListMarkers):
+        (testTextSurrogatePair):
+        (testTextIterator):
+        (testTextExtents):
+        (testTextSelections):
+        (testTextAttributes):
+        (testTextStateChanged):
+        (testTextReplacedObjects):
+        (testTextListMarkers):
+        (testHyperlinkBasic):
+        (testHypertextBasic):
+        (testActionBasic):
+        (testDocumentBasic):
+        (testImageBasic):
+        (testSelectionMenuList):
+        (testTableBasic):
+        * TestWebKitAPI/glib/PlatformGTK.cmake:
+        * WebKitTestRunner/InjectedBundle/AccessibilityController.h:
+        * WebKitTestRunner/InjectedBundle/AccessibilityUIElement.h:
+        * WebKitTestRunner/InjectedBundle/atk/AccessibilityControllerAtk.cpp: Removed.
+        (WTR::AccessibilityController::resetToConsistentState): Deleted.
+        (WTR::childElementById): Deleted.
+        (WTR::AccessibilityController::accessibleElementById): Deleted.
+        (WTR::AccessibilityController::platformName): Deleted.
+        (WTR::AccessibilityController::injectAccessibilityPreference): Deleted.
+        (WTR::AccessibilityController::rootElement): Deleted.
+        (WTR::AccessibilityController::focusedElement): Deleted.
+        (WTR::AccessibilityController::addNotificationListener): Deleted.
+        (WTR::AccessibilityController::removeNotificationListener): Deleted.
+        * WebKitTestRunner/InjectedBundle/atk/AccessibilityNotificationHandlerAtk.cpp: Removed.
+        (): Deleted.
+        (WTR::AccessibilityNotificationHandler::AccessibilityNotificationHandler): Deleted.
+        (WTR::AccessibilityNotificationHandler::~AccessibilityNotificationHandler): Deleted.
+        (WTR::AccessibilityNotificationHandler::setNotificationFunctionCallback): Deleted.
+        (WTR::AccessibilityNotificationHandler::removeAccessibilityNotificationHandler): Deleted.
+        (WTR::AccessibilityNotificationHandler::connectAccessibilityCallbacks): Deleted.
+        (WTR::AccessibilityNotificationHandler::disconnectAccessibilityCallbacks): Deleted.
+        * WebKitTestRunner/InjectedBundle/atk/AccessibilityNotificationHandlerAtk.h: Removed.
+        (WTR::AccessibilityNotificationHandler::create): Deleted.
+        (WTR::AccessibilityNotificationHandler::setPlatformElement): Deleted.
+        (WTR::AccessibilityNotificationHandler::platformElement const): Deleted.
+        (WTR::AccessibilityNotificationHandler::notificationFunctionCallback const): Deleted.
+        * WebKitTestRunner/InjectedBundle/atk/AccessibilityUIElementAtk.cpp: Removed.
+        (): Deleted.
+        (WTR::AccessibilityUIElement::AccessibilityUIElement): Deleted.
+        (WTR::AccessibilityUIElement::~AccessibilityUIElement): Deleted.
+        (WTR::AccessibilityUIElement::isEqual): Deleted.
+        (WTR::AccessibilityUIElement::getChildren): Deleted.
+        (WTR::AccessibilityUIElement::getChildrenWithRange): Deleted.
+        (WTR::AccessibilityUIElement::childrenCount): Deleted.
+        (WTR::AccessibilityUIElement::elementAtPoint): Deleted.
+        (WTR::AccessibilityUIElement::indexOfChild): Deleted.
+        (WTR::AccessibilityUIElement::childAtIndex): Deleted.
+        (WTR::accessibilityElementAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::linkedUIElementAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::ariaOwnsElementAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::ariaOwnsReferencingElementAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::ariaFlowToElementAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::ariaFlowToReferencingElementAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::ariaControlsElementAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::ariaControlsReferencingElementAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::ariaLabelledByElementAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::ariaLabelledByReferencingElementAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::ariaDescribedByElementAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::ariaDescribedByReferencingElementAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::ariaDetailsElementAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::ariaDetailsReferencingElementAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::ariaErrorMessageElementAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::ariaErrorMessageReferencingElementAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::disclosedRowAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::rowAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::selectedChildAtIndex const): Deleted.
+        (WTR::AccessibilityUIElement::selectedChildrenCount const): Deleted.
+        (WTR::AccessibilityUIElement::selectedRowAtIndex): Deleted.
+        (WTR::AccessibilityUIElement::titleUIElement): Deleted.
+        (WTR::AccessibilityUIElement::parentElement): Deleted.
+        (WTR::AccessibilityUIElement::disclosedByRow): Deleted.
+        (WTR::AccessibilityUIElement::attributesOfLinkedUIElements): Deleted.
+        (WTR::AccessibilityUIElement::attributesOfDocumentLinks): Deleted.
+        (WTR::AccessibilityUIElement::attributesOfChildren): Deleted.
+        (WTR::AccessibilityUIElement::allAttributes): Deleted.
+        (WTR::AccessibilityUIElement::stringDescriptionOfAttributeValue): Deleted.
+        (WTR::AccessibilityUIElement::stringAttributeValue): Deleted.
+        (WTR::AccessibilityUIElement::numberAttributeValue): Deleted.
+        (WTR::AccessibilityUIElement::currentStateValue const): Deleted.
+        (WTR::AccessibilityUIElement::uiElementArrayAttributeValue const): Deleted.
+        (WTR::AccessibilityUIElement::rowHeaders const): Deleted.
+        (WTR::AccessibilityUIElement::columnHeaders const): Deleted.
+        (WTR::AccessibilityUIElement::uiElementAttributeValue const): Deleted.
+        (WTR::AccessibilityUIElement::boolAttributeValue): Deleted.
+        (WTR::AccessibilityUIElement::isAttributeSettable): Deleted.
+        (WTR::AccessibilityUIElement::isAttributeSupported): Deleted.
+        (WTR::AccessibilityUIElement::parameterizedAttributeNames): Deleted.
+        (WTR::AccessibilityUIElement::role): Deleted.
+        (WTR::AccessibilityUIElement::subrole): Deleted.
+        (WTR::AccessibilityUIElement::roleDescription): Deleted.
+        (WTR::AccessibilityUIElement::computedRoleString): Deleted.
+        (WTR::AccessibilityUIElement::title): Deleted.
+        (WTR::AccessibilityUIElement::description): Deleted.
+        (WTR::AccessibilityUIElement::orientation const): Deleted.
+        (WTR::AccessibilityUIElement::stringValue): Deleted.
+        (WTR::AccessibilityUIElement::language): Deleted.
+        (WTR::AccessibilityUIElement::helpText const): Deleted.
+        (WTR::AccessibilityUIElement::x): Deleted.
+        (WTR::AccessibilityUIElement::y): Deleted.
+        (WTR::AccessibilityUIElement::width): Deleted.
+        (WTR::AccessibilityUIElement::height): Deleted.
+        (WTR::AccessibilityUIElement::clickPointX): Deleted.
+        (WTR::AccessibilityUIElement::clickPointY): Deleted.
+        (WTR::AccessibilityUIElement::intValue const): Deleted.
+        (WTR::AccessibilityUIElement::minValue): Deleted.
+        (WTR::AccessibilityUIElement::maxValue): Deleted.
+        (WTR::AccessibilityUIElement::valueDescription): Deleted.
+        (WTR::AccessibilityUIElement::insertionPointLineNumber): Deleted.
+        (WTR::AccessibilityUIElement::isPressActionSupported): Deleted.
+        (WTR::AccessibilityUIElement::isIncrementActionSupported): Deleted.
+        (WTR::AccessibilityUIElement::isDecrementActionSupported): Deleted.
+        (WTR::AccessibilityUIElement::isEnabled): Deleted.
+        (WTR::AccessibilityUIElement::isRequired const): Deleted.
+        (WTR::AccessibilityUIElement::isFocused const): Deleted.
+        (WTR::AccessibilityUIElement::isSelected const): Deleted.
+        (WTR::AccessibilityUIElement::isSelectedOptionActive const): Deleted.
+        (WTR::AccessibilityUIElement::isExpanded const): Deleted.
+        (WTR::AccessibilityUIElement::isChecked const): Deleted.
+        (WTR::AccessibilityUIElement::isIndeterminate const): Deleted.
+        (WTR::AccessibilityUIElement::hierarchicalLevel const): Deleted.
+        (WTR::AccessibilityUIElement::speakAs): Deleted.
+        (WTR::AccessibilityUIElement::ariaIsGrabbed const): Deleted.
+        (WTR::AccessibilityUIElement::ariaDropEffects const): Deleted.
+        (WTR::AccessibilityUIElement::lineForIndex): Deleted.
+        (WTR::AccessibilityUIElement::rangeForLine): Deleted.
+        (WTR::AccessibilityUIElement::rangeForPosition): Deleted.
+        (WTR::AccessibilityUIElement::boundsForRange): Deleted.
+        (WTR::AccessibilityUIElement::stringForRange): Deleted.
+        (WTR::AccessibilityUIElement::attributedStringForRange): Deleted.
+        (WTR::AccessibilityUIElement::attributedStringRangeIsMisspelled): Deleted.
+        (WTR::AccessibilityUIElement::uiElementCountForSearchPredicate): Deleted.
+        (WTR::AccessibilityUIElement::uiElementForSearchPredicate): Deleted.
+        (WTR::AccessibilityUIElement::selectTextWithCriteria): Deleted.
+        (WTR::AccessibilityUIElement::attributesOfColumnHeaders): Deleted.
+        (WTR::AccessibilityUIElement::attributesOfRowHeaders): Deleted.
+        (WTR::AccessibilityUIElement::attributesOfColumns): Deleted.
+        (WTR::AccessibilityUIElement::attributesOfRows): Deleted.
+        (WTR::AccessibilityUIElement::attributesOfVisibleCells): Deleted.
+        (WTR::AccessibilityUIElement::attributesOfHeader): Deleted.
+        (WTR::AccessibilityUIElement::rowCount): Deleted.
+        (WTR::AccessibilityUIElement::columnCount): Deleted.
+        (WTR::AccessibilityUIElement::indexInTable): Deleted.
+        (WTR::AccessibilityUIElement::rowIndexRange): Deleted.
+        (WTR::AccessibilityUIElement::columnIndexRange): Deleted.
+        (WTR::AccessibilityUIElement::cellForColumnAndRow): Deleted.
+        (WTR::AccessibilityUIElement::horizontalScrollbar const): Deleted.
+        (WTR::AccessibilityUIElement::verticalScrollbar const): Deleted.
+        (WTR::AccessibilityUIElement::selectedTextRange): Deleted.
+        (WTR::AccessibilityUIElement::setSelectedTextRange): Deleted.
+        (WTR::AccessibilityUIElement::increment): Deleted.
+        (WTR::AccessibilityUIElement::decrement): Deleted.
+        (WTR::AccessibilityUIElement::showMenu): Deleted.
+        (WTR::AccessibilityUIElement::press): Deleted.
+        (WTR::AccessibilityUIElement::setSelectedChild const): Deleted.
+        (WTR::AccessibilityUIElement::setSelectedChildAtIndex const): Deleted.
+        (WTR::AccessibilityUIElement::removeSelectionAtIndex const): Deleted.
+        (WTR::AccessibilityUIElement::clearSelectedChildren const): Deleted.
+        (WTR::AccessibilityUIElement::accessibilityValue const): Deleted.
+        (WTR::AccessibilityUIElement::documentEncoding): Deleted.
+        (WTR::AccessibilityUIElement::documentURI): Deleted.
+        (WTR::AccessibilityUIElement::url): Deleted.
+        (WTR::AccessibilityUIElement::addNotificationListener): Deleted.
+        (WTR::AccessibilityUIElement::removeNotificationListener): Deleted.
+        (WTR::AccessibilityUIElement::isFocusable const): Deleted.
+        (WTR::AccessibilityUIElement::isSelectable const): Deleted.
+        (WTR::AccessibilityUIElement::isMultiSelectable const): Deleted.
+        (WTR::AccessibilityUIElement::isVisible const): Deleted.
+        (WTR::AccessibilityUIElement::isOffScreen const): Deleted.
+        (WTR::AccessibilityUIElement::isCollapsed const): Deleted.
+        (WTR::AccessibilityUIElement::isIgnored const): Deleted.
+        (WTR::AccessibilityUIElement::isSingleLine const): Deleted.
+        (WTR::AccessibilityUIElement::isMultiLine const): Deleted.
+        (WTR::AccessibilityUIElement::hasPopup const): Deleted.
+        (WTR::AccessibilityUIElement::takeFocus): Deleted.
+        (WTR::AccessibilityUIElement::takeSelection): Deleted.
+        (WTR::AccessibilityUIElement::addSelection): Deleted.
+        (WTR::AccessibilityUIElement::removeSelection): Deleted.
+        (WTR::AccessibilityUIElement::lineTextMarkerRangeForTextMarker): Deleted.
+        (WTR::AccessibilityUIElement::textMarkerRangeForElement): Deleted.
+        (WTR::AccessibilityUIElement::textMarkerRangeLength): Deleted.
+        (WTR::AccessibilityUIElement::previousTextMarker): Deleted.
+        (WTR::AccessibilityUIElement::nextTextMarker): Deleted.
+        (WTR::AccessibilityUIElement::stringForTextMarkerRange): Deleted.
+        (WTR::AccessibilityUIElement::rectsForTextMarkerRange): Deleted.
+        (WTR::AccessibilityUIElement::textMarkerRangeForMarkers): Deleted.
+        (WTR::AccessibilityUIElement::startTextMarkerForTextMarkerRange): Deleted.
+        (WTR::AccessibilityUIElement::endTextMarkerForTextMarkerRange): Deleted.
+        (WTR::AccessibilityUIElement::endTextMarkerForBounds): Deleted.
+        (WTR::AccessibilityUIElement::startTextMarkerForBounds): Deleted.
+        (WTR::AccessibilityUIElement::textMarkerForPoint): Deleted.
+        (WTR::AccessibilityUIElement::accessibilityElementForTextMarker): Deleted.
+        (WTR::AccessibilityUIElement::attributedStringForTextMarkerRange): Deleted.
+        (WTR::AccessibilityUIElement::attributedStringForTextMarkerRangeWithOptions): Deleted.
+        (WTR::AccessibilityUIElement::attributedStringForTextMarkerRangeContainsAttribute): Deleted.
+        (WTR::AccessibilityUIElement::indexForTextMarker): Deleted.
+        (WTR::AccessibilityUIElement::isTextMarkerValid): Deleted.
+        (WTR::AccessibilityUIElement::textMarkerForIndex): Deleted.
+        (WTR::AccessibilityUIElement::startTextMarker): Deleted.
+        (WTR::AccessibilityUIElement::endTextMarker): Deleted.
+        (WTR::AccessibilityUIElement::setSelectedTextMarkerRange): Deleted.
+        (WTR::AccessibilityUIElement::scrollToMakeVisible): Deleted.
+        (WTR::AccessibilityUIElement::scrollToGlobalPoint): Deleted.
+        (WTR::AccessibilityUIElement::scrollToMakeVisibleWithSubFocus): Deleted.
+        (WTR::AccessibilityUIElement::supportedActions const): Deleted.
+        (WTR::AccessibilityUIElement::pathDescription const): Deleted.
+        (WTR::AccessibilityUIElement::mathPostscriptsDescription const): Deleted.
+        (WTR::AccessibilityUIElement::mathPrescriptsDescription const): Deleted.
+        (WTR::AccessibilityUIElement::classList const): Deleted.
+        (WTR::stringAtOffset): Deleted.
+        (WTR::AccessibilityUIElement::characterAtOffset): Deleted.
+        (WTR::AccessibilityUIElement::wordAtOffset): Deleted.
+        (WTR::AccessibilityUIElement::lineAtOffset): Deleted.
+        (WTR::AccessibilityUIElement::sentenceAtOffset): Deleted.
+        (WTR::AccessibilityUIElement::replaceTextInRange): Deleted.
+        (WTR::AccessibilityUIElement::insertText): Deleted.
+        (WTR::AccessibilityUIElement::popupValue const): Deleted.
+        * WebKitTestRunner/PlatformGTK.cmake:
+        * WebKitTestRunner/PlatformWPE.cmake:
+        * WebKitTestRunner/TestOptions.cpp:
+        (WTR::TestOptions::defaults):
+
+2022-03-22  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Squelch warning message from output of build-jsc
+        https://bugs.webkit.org/show_bug.cgi?id=238177
+
+        Reviewed by Saam Barati.
+
+        There was a "prototype mismatch" error.
+
+        * Scripts/webkitperl/BuildSubproject.pm:
+
+2022-03-22  Youenn Fablet  <youenn@apple.com>
+
+        Website policies are not respected when doing COOP based process swap
+        https://bugs.webkit.org/show_bug.cgi?id=238036
+        <rdar://89616625>
+
+        Reviewed by Chris Dumez.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/ProcessSwapOnNavigation.mm:
+
+2022-03-21  Said Abou-Hallawa  <said@apple.com>
+
+        [GPU Process] Make GraphicsContextState keep track of changes till they are applied
+        https://bugs.webkit.org/show_bug.cgi?id=238066
+        rdar://90585183
+
+        Reviewed by Simon Fraser.
+
+        * TestWebKitAPI/Tests/WebCore/cg/GraphicsContextTestsCG.cpp:
+        (TestWebKitAPI::TEST):
+
+2022-03-21  Brent Fulgham  <bfulgham@apple.com>
+
+        Disable the <model> element in Captive Portal mode.
+        https://bugs.webkit.org/show_bug.cgi?id=238148
+        <rdar://90562002>
+
+        Reviewed by Chris Dumez.
+
+        Update tests to check <model> element.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/ProcessSwapOnNavigation.mm:
+
+2022-03-21  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Set the WebGPU WKPreference to true in layout tests
+        https://bugs.webkit.org/show_bug.cgi?id=238130
+
+        Reviewed by Sam Weinig.
+
+        WebGPU isn't ready yet to show up in any Safari menus, so rather than just marking it as an experimental feature,
+        this patch just enables the preference in DumpRenderTree and WebKitTestRunner.
+
+        This doesn't require a linker change, because all of the WebGPU calls are already behind HAS(WEBGPU_IMPLEMENTATION).
+        Therefore, the immediate behavior change of this patch is that the IDL types are exposed in layout tests, but calling
+        WebGPU functions in layout tests will return undefined. When we finally link WebCore with WebGPU, then these
+        functions will automatically start working in layout tests. Outside of layout tests, the IDL types are still not
+        present, and so therefore the WebGPU functions cannot be called because they are not visible from script.
+
+        * DumpRenderTree/TestOptions.cpp:
+        (WTR::TestOptions::defaults):
+        * WebKitTestRunner/TestOptions.cpp:
+        (WTR::TestOptions::defaults):
+
+2022-03-21  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Add a build-webgpu script
+        https://bugs.webkit.org/show_bug.cgi?id=238040
+
+        Reviewed by Saam Barati.
+
+        This patch adds a build-webgpu script by sharing code with the build-jsc script.
+        It moves almost all of the contents of the build-jsc script to a shared Perl module,
+        webkitperl/BuildSubproject.pm, and then has build-jsc and build-webgpu both call
+        into it to build the relevant projects.
+
+        * Scripts/build-jsc:
+        (buildMyProject): Deleted.
+        (writeCongrats): Deleted.
+        * Scripts/build-webgpu: Added.
+        * Scripts/webkitperl/BuildSubproject.pm: Copied from Tools/Scripts/build-jsc.
+        (buildMyProject):
+        (writeCongrats):
+
+2022-03-18  Jonathan Bedard  <jbedard@apple.com>
+
+        [Merge-Queue] Support multiple reviewers names
+        https://bugs.webkit.org/show_bug.cgi?id=238095
+        <rdar://problem/90503503>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/steps.py:
+        (ApplyPatch.start): Only apply the first reviewer name.
+        (ValidateCommiterAndReviewer.start): Support a list of reviewers.
+
+2022-03-21  Diego Pino Garcia  <dpino@igalia.com>
+
+        Unreviewed, fix Debian Stable build after r291543
+
+        * TestWebKitAPI/Tests/JavaScriptCore/glib/TestJSC.cpp:
+        (elementSize): Replace RELEASE_ASSERT_NOT_REACHED() for RELEASE_ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT().
+
+2022-03-20  Adrian Perez de Castro  <aperez@igalia.com>
+
+        Fix clang warning after r291229
+
+        Unreviewed build fix.
+
+        * TestWebKitAPI/Tests/JavaScriptCore/glib/TestJSC.cpp:
+        (elementSize): Move RELEASE_ASSERT_NOT_REACHED() out of the switch to make clang happy.
+
+2022-03-19  Chris Dumez  <cdumez@apple.com>
+
+        Vector move constructor and move assignment operator are suboptimal when the vector has an inline buffer
+        https://bugs.webkit.org/show_bug.cgi?id=238096
+
+        Reviewed by Darin Adler.
+
+        Add API test coverage.
+
+        * TestWebKitAPI/Tests/WTF/Vector.cpp:
+        (TestWebKitAPI::TEST):
+
+2022-03-18  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [Cocoa] Teach WebKit how to serialize CGColors
+        https://bugs.webkit.org/show_bug.cgi?id=238069
+        <rdar://problem/90124325>
+
+        Reviewed by Dean Jackson and Tim Horton.
+
+        * Scripts/webkitpy/style/checkers/cpp.py:
+        * TestWebKitAPI/Tests/WebKitCocoa/IPCTestingAPI.mm:
+
+2022-03-18  Per Arne Vollan  <pvollan@apple.com>
+
+        Fix test failures when enabling content filtering in the Network process
+        https://bugs.webkit.org/show_bug.cgi?id=237217
+
+        Reviewed by Brent Fulgham.
+
+        TestWebKitAPI needs to link with WebCore now that the mock content filter is compiled into WebCore.
+        Adjust test expectations, since the content filters are not expected to be loaded in the WebContent
+        process anymore.
+
+        * TestWebKitAPI/Configurations/TestWebKitAPI.xcconfig:
+        * TestWebKitAPI/Configurations/WebProcessPlugIn.xcconfig:
+        * TestWebKitAPI/Tests/WebKitCocoa/ContentFiltering.mm:
+        (TEST):
+        * TestWebKitAPI/Tests/WebKitCocoa/ContentFilteringPlugIn.mm:
+        * TestWebKitAPI/Tests/mac/ContentFiltering.mm:
+
+2022-03-18  Ben Nham  <nham@apple.com>
+
+        Remove push subscriptions when associated service worker registrations are removed
+        https://bugs.webkit.org/show_bug.cgi?id=237983
+
+        Reviewed by Youenn Fablet.
+
+        Add new tests to make sure that we delete push subscriptions when unregistering a service
+        worker or deleting website data.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/WebPushDaemon.mm:
+
+2022-03-18  J Pascoe  <j_pascoe@apple.com>
+
+        Trigger PDF download in captive portal mode instead of using PDF viewer
+        https://bugs.webkit.org/show_bug.cgi?id=237245
+        rdar://problem/89525531
+
+        Reviewed by Chris Dumez.
+
+        Add API test for captive portal pdf behavior.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/Download.mm:
+        (tempPDFThatDoesNotExist):
+
+2022-03-18  Jonathan Bedard  <jbedard@apple.com>
+
+        [git-webkit] Make radar conditional on authentication
+        https://bugs.webkit.org/show_bug.cgi?id=238051
+        <rdar://problem/90384655>
+
+        Reviewed by Aakash Jain.
+
+        * Scripts/libraries/webkitbugspy/setup.py: Bump version.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/__init__.py: Ditto.
+        * Scripts/libraries/webkitbugspy/webkitbugspy/radar.py:
+        (Tracker.__init__): Only instantiate client with valid authentication.
+        (Tracker.authentication): Catch exceptions from failed authentication.
+        * Scripts/libraries/webkitscmpy/setup.py: Bump version.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/__init__.py: Ditto.
+        * Scripts/libraries/webkitscmpy/webkitscmpy/local/scm.py:
+        (Scm.__init__): Only instantiate Radar as a tracker with valid authentication.
+
+2022-03-18  Patrick Griffis  <pgriffis@igalia.com>
+
+        [Flatpak] Pass extra webkit-flatpak args to sub-command
+        https://bugs.webkit.org/show_bug.cgi?id=238027
+
+        Reviewed by Carlos Garcia Campos.
+
+        This adds the abillity to run something like:
+          webkit-flatpak --command=echo -- --help
+        Where our script doesn't parse anything after `--` and it gets passed to the subcommand.
+
+        * flatpak/flatpakutils.py:
+        (extract_extra_command_args):
+        (WebkitFlatpak.load_from_args):
+        (WebkitFlatpak.setup_dev_env):
+
+2022-03-18  Philippe Normand  <pnormand@igalia.com>
+
+        [GStreamer] Initial import of the GstWebRTC backend
+        https://bugs.webkit.org/show_bug.cgi?id=236540
+
+        Reviewed by Carlos Garcia Campos and Xabier Rodriguez-Calvar.
+
+        * flatpak/flatpakutils.py:
+        (WebkitFlatpak.run_in_sandbox): Allow libnice debug log environment variable in runtime sandbox.
+
+2022-03-18  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GLIB] Make it possible to call GRefPtr::outPtr() multiple times wihtout an explicit clear
+        https://bugs.webkit.org/show_bug.cgi?id=238070
+
+        Reviewed by Adrian Perez de Castro.
+
+        Add a unit tests for GRefPtr.
+
+        * TestWebKitAPI/PlatformGTK.cmake:
+        * TestWebKitAPI/PlatformWPE.cmake:
+        * TestWebKitAPI/Tests/WTF/glib/GRefPtr.cpp: Added.
+        (TestWebKitAPI::GWeakPtr::GWeakPtr):
+        (TestWebKitAPI::GWeakPtr::~GWeakPtr):
+        (TestWebKitAPI::GWeakPtr::set):
+        (TestWebKitAPI::TEST):
+
+2022-03-18  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [ATSPI] accessibility/dropdown-value.html is timing out since added in 248145@main
+        https://bugs.webkit.org/show_bug.cgi?id=237803
+        <rdar://problem/90193311>
+
+        Reviewed by Andres Gonzalez.
+
+        The test expects the combo box to expose the selected element name as the string value.
+
+        * WebKitTestRunner/InjectedBundle/atspi/AccessibilityUIElementAtspi.cpp:
+        (WTR::AccessibilityUIElement::stringValue): Handle combo boxes as special case and return the selected element
+        name.
+
+2022-03-18  Youenn Fablet  <youenn@apple.com>
+
+        Keep service workers alive when they are inspected even though they should be terminated
+        https://bugs.webkit.org/show_bug.cgi?id=237827
+        <rdar://88313935>
+
+        Reviewed by Alex Christensen.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/PushAPI.mm:
+
+2022-03-17  Jonathan Bedard  <JonWBedard@gmail.com>
+
+        configure-xcode-for-embedded-development fails with Xcode 13.3
+        https://bugs.webkit.org/show_bug.cgi?id=237994
+        <rdar://problem/90455614>
+
+        Reviewed by Ryan Haddad.
+
+        * Scripts/configure-xcode-for-embedded-development: Handle different xcspec locations in XCode 13.3.
+
+2022-03-17  Brent Fulgham  <bfulgham@apple.com>
+
+        Disable push features in CaptivePortal mode 
+        https://bugs.webkit.org/show_bug.cgi?id=237981
+        <rdar://88897228>
+
+        Reviewed by Chris Dumez.
+
+        We should not support push features when running in a Captive Portal.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/ProcessSwapOnNavigation.mm:
+
+2022-03-17  Jonathan Bedard  <jbedard@apple.com>
+
+        [Merge-Queue] Remove merge-queue labels when blocking PR
+        https://bugs.webkit.org/show_bug.cgi?id=237964
+        <rdar://problem/90372805>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/steps.py:
+        (GitHubMixin.add_label): Renamed from modify_label, only handle add case
+        because removal case requires 'get' request first.
+        (GitHubMixin.remove_labels): Remove list of labels from PR.
+        (BlockPullRequest.start): Remove merge-queue labels.
+        (BlockPullRequest.getResultSummary): Add label name in results summary.
+        (GitHubMixin.modify_label): Renamed add_label.
+
+2022-03-17  Saam Barati  <sbarati@apple.com>
+
+        compare-results should break down sync vs async time in Speedometer2
+        https://bugs.webkit.org/show_bug.cgi?id=237993
+
+        Reviewed by Alexey Shvayka.
+
+        * Scripts/compare-results:
+        (speedometer2Breakdown):
+        (speedometer2BreakdownSyncAsync):
+        (dumpBreakdowns):
+        (getOptions):
+        (main):
+
+2022-03-17  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        Delete Tools/jsc-cli in favor of the jsc target in JavaScriptCore itself
+        https://bugs.webkit.org/show_bug.cgi?id=238042
+
+        Rubber-stamped by Saam Barati.
+
+        The last time jsc-cli was substantively modified was 8 years ago. On the other
+        hand, the jsc target in JavaScriptCore serves the same purpose, and is actively
+        maintained.
+
+        * Scripts/build-jsc:
+        * jsc-cli/jsc-cli.xcodeproj/project.pbxproj: Removed.
+        * jsc-cli/jsc-cli/CLIInstance.h: Removed.
+        * jsc-cli/jsc-cli/CLIInstance.m: Removed.
+        * jsc-cli/jsc-cli/JSModule.h: Removed.
+        * jsc-cli/jsc-cli/JSModule.m: Removed.
+        * jsc-cli/jsc-cli/JSRunLoopThread.h: Removed.
+        * jsc-cli/jsc-cli/JSRunLoopThread.m: Removed.
+        * jsc-cli/jsc-cli/ReadEvalPrintLoop.h: Removed.
+        * jsc-cli/jsc-cli/ReadEvalPrintLoop.m: Removed.
+        * jsc-cli/jsc-cli/RunLoopThread.h: Removed.
+        * jsc-cli/jsc-cli/RunLoopThread.m: Removed.
+        * jsc-cli/jsc-cli/ScriptInputSource.h: Removed.
+        * jsc-cli/jsc-cli/ScriptInputSource.m: Removed.
+        * jsc-cli/jsc-cli/main.m: Removed.
+
+2022-03-17  Ben Nham  <nham@apple.com>
+
+        Only show notification permission prompt on user gesture
+        https://bugs.webkit.org/show_bug.cgi?id=237946
+
+        Unreviewed build fix for r291414.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/WebPushDaemon.mm:
+
+2022-03-17  Ben Nham  <nham@apple.com>
+
+        Only show notification permission prompt on user gesture
+        https://bugs.webkit.org/show_bug.cgi?id=237946
+
+        Reviewed by Geoffrey Garen.
+
+        Change existing permission tests to use evaluateJavaScript since that executes in the
+        context of a user gesture.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/UIDelegate.mm:
+        * TestWebKitAPI/Tests/WebKitCocoa/WebPushDaemon.mm:
+
+2022-03-17  Ben Nham  <nham@apple.com>
+
+        Allow push preference to be set programatically
+        https://bugs.webkit.org/show_bug.cgi?id=238003
+
+        Reviewed by Geoffrey Garen.
+
+        Make webpushd tests enable the push API via WKPreferences.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/WebPushDaemon.mm:
+
+2022-03-17  Kate Cheney  <katherine_cheney@apple.com>
+
+        Calls to print can result in unresponsive print modal
+        https://bugs.webkit.org/show_bug.cgi?id=237940
+        <rdar://problem/88257828>
+
+        Reviewed by Chris Dumez.
+
+        Add API test. Adjust delegate naming in the PDF case to be more
+        specific so we can use the generic PrintUIDelegate name in the general
+        case.
+
+        * TestWebKitAPI/SourcesCocoa.txt:
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/Tests/WebKitCocoa/WKPDFView.mm:
+        (TEST):
+        (-[PrintUIDelegate _webView:printFrame:pdfFirstPageSize:completionHandler:]): Deleted.
+        (-[PrintUIDelegate waitForPageSize]): Deleted.
+        (-[PrintUIDelegate lastPrintedFrame]): Deleted.
+        * TestWebKitAPI/Tests/WebKitCocoa/WKPrinting.mm: Added.
+        (-[PrintUIDelegate callBlockAsync:]):
+        (-[PrintUIDelegate _webView:printFrame:pdfFirstPageSize:completionHandler:]):
+        (-[PrintUIDelegate waitForPagination]):
+        (TEST):
+
+2022-03-17  Oriol Brufau  <obrufau@igalia.com>
+
+        Clarify code for logical-to-physical mappings, and add physical-to-logical mappings
+        https://bugs.webkit.org/show_bug.cgi?id=237967
+
+        Reviewed by Darin Adler.
+
+        Add tests.
+
+        * TestWebKitAPI/CMakeLists.txt:
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/Tests/WebCore/WritingModeTests.cpp: Added.
+        (TestWebKitAPI::TEST):
+
+2022-03-17  Aakash Jain  <aakash_jain@apple.com>
+
+        XSS in EWS App
+        https://bugs.webkit.org/show_bug.cgi?id=236633
+
+        Reported by Iman Sharafaldin - Forward Security.
+
+        Reviewed by Darin Adler.
+
+        * CISupport/ews-app/ews/views/submittoews.py:
+        (SubmitToEWS.post):
+
+2022-03-16  Jonathan Bedard  <jbedard@apple.com>
+
+        [reporelaypy] Support credentialed https repositories
+        https://bugs.webkit.org/show_bug.cgi?id=237853
+        <rdar://90252426>
+
+        Reviewed by Ryan Haddad, Dewei Zhu and Stephanie Lewis.
+
+        * Scripts/libraries/reporelaypy/reporelaypy/__init__.py: Bump version.
+        * Scripts/libraries/reporelaypy/reporelaypy/checkout.py:
+        (Checkout.Encoder.default): Pass credentials.
+        (Checkout.clone): Add credentials to local configuration.
+        (Checkout.add_credentials): Add username to .git/config and populate
+        .git-credentials file appropriately.
+        (Checkout.__init__): Re-add credentials.
+        * Scripts/libraries/reporelaypy/reporelaypy/tests/checkout_unittest.py:
+        (CheckoutUnittest.test_json):
+        * Scripts/libraries/reporelaypy/setup.py: Bump version.
+
+2022-03-17  Nikolas Zimmermann  <nzimmermann@igalia.com>
+
+        Build broken on macOS Monterey 12.3 - PassKitSPI related error
+        https://bugs.webkit.org/show_bug.cgi?id=238010
+        <rdar://problem/90417687>
+
+        Reviewed by Antoine Quint.
+
+        Unbreak the macOS 12.3 build: assure that 'PKShippingMethod' is declared before used
+        in the 'PKShippingMethods' interface. Fix various unused variable warnings.
+
+        No new tests. No change in functionality.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/WKWebViewCloseAllMediaPresentations.mm:
+        (loadPictureInPicture):
+
+2022-03-17  Youenn Fablet  <youenn@apple.com>
+
+        AudioContext is suspended on iOS when page is backgrounded
+        https://bugs.webkit.org/show_bug.cgi?id=237878
+
+        Reviewed by Eric Carlson.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/GPUProcess.mm:
+        * TestWebKitAPI/Tests/WebKitCocoa/audio-context-playing.html:
+
+2022-03-16  Jonathan Bedard  <jbedard@apple.com>
+
+        [Merge-Queue] Add step to make comment on pull requests
+        https://bugs.webkit.org/show_bug.cgi?id=237962
+        <rdar://problem/90371727>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/steps.py:
+        (GitHubMixin.comment_on_pr): Make a comment on pull request for in repository.
+        (ApplyPatch.evaluateCommand): Rename CommentOnBug to LeaveComment.
+        (ValidateCommiterAndReviewer.fail_build): Ditto.
+        (ValidateChangeLogAndReviewer.evaluateCommand): Ditto.
+        (LeaveComment): Renamed from CommentOnBug, support pull request
+        (LeaveComment.start):
+        (LeaveComment.getResultSummary):
+        (AnalyzeCompileWebKitResults.analyzeResults): Rename CommentOnBug to LeaveComment.
+        (AnalyzeLayoutTestsResults.report_failure): Ditto.
+        (FindModifiedChangeLogs.evaluateCommand): Ditto.
+        (CreateLocalGITCommit.evaluateCommand): Ditto.
+        (PushCommitToWebKitRepo.evaluateCommand): Ditto.
+        (CommentOnBug): Renamed to LeaveComment.
+
+2022-03-16  Basuke Suzuki  <basuke.suzuki@sony.com>
+
+        Suppress warnings for implicit conversion from unsigned long to double
+        https://bugs.webkit.org/show_bug.cgi?id=237899
+        <rdar://problem/90364907>
+
+        Reviewed by Darin Adler.
+
+        Add static_cast for approx casting to double.
+
+        * TestWebKitAPI/Tests/WTF/Int128.cpp:
+        (TestWebKitAPI::TEST):
+
+2022-03-15  Jonathan Bedard  <jbedard@apple.com>
+
+        [Merge-Queue] Rename patch_reviewer
+        https://bugs.webkit.org/show_bug.cgi?id=237916
+        <rdar://problem/90324765>
+
+        Reviewed by Aakash Jain.
+
+        Rename patch_reviewer to reviewer for compatibility with
+        pull requests.
+
+        * CISupport/ews-build/steps.py:
+        (ApplyPatch.start):
+        (BugzillaMixin._does_patch_have_acceptable_review_flag):
+        (ValidateCommiterAndReviewer.start):
+        * CISupport/ews-build/steps_unittest.py:
+
+2022-03-16  Youenn Fablet  <youenn@apple.com>
+
+        Make MIMETypeRegistry::mimeTypeForPath take a StringView
+        https://bugs.webkit.org/show_bug.cgi?id=236441
+        <rdar://problem/89084526>
+
+        Reviewed by Chris Dumez.
+
+        * TestWebKitAPI/cocoa/TestInspectorURLSchemeHandler.mm:
+        (-[TestInspectorURLSchemeHandler webView:startURLSchemeTask:]):
+
+2022-03-15  Diego Pino Garcia  <dpino@igalia.com>
+
+        [GLIB] Unreviewed, fix build for Ubuntu 18.04 and Debian Stable after r291229
+        https://bugs.webkit.org/show_bug.cgi?id=237938
+
+        * TestWebKitAPI/Tests/JavaScriptCore/glib/TestJSC.cpp:
+        (elementSize):
+
+2022-03-15  Saam Barati  <sbarati@apple.com>
+
+        Add support for chrome-beta and chrome-dev to run-benchmark
+        https://bugs.webkit.org/show_bug.cgi?id=237937
+
+        Reviewed by Stephanie Lewis.
+
+        * Scripts/webkitpy/benchmark_runner/browser_driver/osx_chrome_driver.py:
+        (set_binary_location_impl):
+        (OSXChromeDriver._set_chrome_binary_location):
+        (OSXChromeCanaryDriver):
+        (OSXChromeCanaryDriver._set_chrome_binary_location):
+        (OSXChromeBetaDriver):
+        (OSXChromeBetaDriver._set_chrome_binary_location):
+        (OSXChromeDevDriver):
+        (OSXChromeDevDriver._set_chrome_binary_location):
+
+2022-03-15  Jonathan Bedard  <jbedard@apple.com>
+
+        [Merge-Queue] Rename bugzilla_comment_text
+        https://bugs.webkit.org/show_bug.cgi?id=237911
+        <rdar://problem/90319995>
+
+        Reviewed by Aakash Jain.
+
+        Rename bugzilla_comment_text to comment_text to re-use
+        code to comment on pull requests.
+
+        * CISupport/ews-build/steps.py:
+        (ApplyPatch.evaluateCommand):
+        (ValidateCommiterAndReviewer.fail_build):
+        (ValidateChangeLogAndReviewer.evaluateCommand):
+        (CommentOnBug.start):
+        (AnalyzeCompileWebKitResults.analyzeResults):
+        (AnalyzeLayoutTestsResults.report_failure):
+        (FindModifiedChangeLogs.evaluateCommand):
+        (CreateLocalGITCommit.evaluateCommand):
+        (PushCommitToWebKitRepo.evaluateCommand):
+        * CISupport/ews-build/steps_unittest.py:
+
+2022-03-15  Aditya Keerthi  <akeerthi@apple.com>
+
+        [iOS] Indefinite hang when printing using a UIPrintPageRenderer
+        https://bugs.webkit.org/show_bug.cgi?id=237835
+        rdar://90002387
+
+        Reviewed by Devin Rousso.
+
+        Add API test coverage for printing web content to a PDF, using a
+        UIPrintPageRenderer (which uses the main thread) and a
+        UIPrintInteractionController (which uses a background thread).
+
+        * TestWebKitAPI/Tests/WebKitCocoa/WKWebViewPrintFormatter.mm:
+        (TEST):
+
+2022-03-15  Alex Christensen  <achristensen@webkit.org>
+
+        Stop using DYLD_INTERPOSE
+        https://bugs.webkit.org/show_bug.cgi?id=237867
+
+        Reviewed by Anders Carlsson.
+
+        * Scripts/webkitpy/port/mac.py:
+        (MacPort.setup_environ_for_server):
+        * Scripts/webkitpy/port/mac_unittest.py:
+        (MacTest.test_setup_environ_for_server):
+
+2022-03-14  Jonathan Bedard  <jbedard@apple.com>
+
+        [Merge-Queue] Fail draft PRs
+        https://bugs.webkit.org/show_bug.cgi?id=237859
+        <rdar://problem/90277316>
+
+        Reviewed by Aakash Jain.
+
+        We should never merge a draft pull request.
+
+        * CISupport/ews-build/factories.py:
+        (MergeQueueFactory.__init__): Verify that provided change is not a draft.
+        * CISupport/ews-build/steps.py:
+        (GitHubMixin._is_pr_draft): Check if pr_json indicates a draft PR.
+        (ValidateChange.__init__): Accept verifyNoDraft flag.
+        (ValidateChange.start):
+        (ValidateChange.fail_build):
+        (ValidateChange.validate_github): Fail the build if the provided PR is a draft.
+        * CISupport/ews-build/steps_unittest.py:
+
+2022-03-15  Youenn Fablet  <youenn@apple.com>
+
+        Mark permission as denied if system forbids access to camera and/or microphone
+        https://bugs.webkit.org/show_bug.cgi?id=237823
+
+        Reviewed by Eric Carlson.
+
+        * TestWebKitAPI/Tests/WebKit/GetUserMedia.mm:
+        * TestWebKitAPI/Tests/WebKit/getUserMediaPermission.html:
+
+2022-03-14  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [Mail compose] Allow copied resources with remote (HTTP/HTTPS) URLs to be pasted as attachments
+        https://bugs.webkit.org/show_bug.cgi?id=237810
+        rdar://90119983
+
+        Reviewed by Devin Rousso.
+
+        Add an API test to exercise copying remote images and pasting as attachment-backed images. This API test first
+        loads a web page (simulating page load via HTTPS, along with multiple image subresources); it then pastes into
+        an attachment-enabled WKWebView-based editor and verifies that the _WKAttachment UI delegate hooks are invoked
+        with attachments corresponding to each of the remote images.
+
+        * TestWebKitAPI/Tests/WebKitCocoa/WKAttachmentTests.mm:
+        (TestWebKitAPI::TEST):
+
+2022-03-14  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [Mail Compose] Spelling and grammar context menu items need custom identifiers
+        https://bugs.webkit.org/show_bug.cgi?id=237804
+        rdar://90124049
+
+        Reviewed by Aditya Keerthi.
+
+        Add a new API test to exercise the new identifiers.
+
+        * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+        * TestWebKitAPI/Tests/mac/ContextMenuTests.mm: Added.
+        (-[NSMenu itemWithIdentifier:]):
+        (TestWebKitAPI::TEST):
+
+2022-03-10  Jonathan Bedard  <jbedard@apple.com>
+
+        [EWS] Clean up PR branches and remotes
+        https://bugs.webkit.org/show_bug.cgi?id=237714
+        <rdar://problem/88771970>
+
+        Reviewed by Aakash Jain.
+
+        * CISupport/ews-build/steps.py:
+        (ShellMixin.shell_command): Use `sh` on Windows.
+        (CleanGitRepo.run): Delete all non-origin remote and all unused branches.
+        * CISupport/ews-build/steps_unittest.py:
+
 2022-03-14  Jonathan Bedard  <jbedard@apple.com>
 
         [git-webkit] Handle comparing User and Contributor to None

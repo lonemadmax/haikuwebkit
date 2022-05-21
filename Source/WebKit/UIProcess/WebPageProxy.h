@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -613,7 +613,8 @@ public:
     void modelElementSetInteractionEnabled(ModelIdentifier, bool);
 #endif
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
-    void modelElementDidCreatePreview(const URL&, const String&, const WebCore::FloatSize&, CompletionHandler<void(Expected<std::pair<String, uint32_t>, WebCore::ResourceError>)>&&);
+    void modelElementCreateRemotePreview(const String&, const WebCore::FloatSize&, CompletionHandler<void(Expected<std::pair<String, uint32_t>, WebCore::ResourceError>)>&&);
+    void modelElementLoadRemotePreview(const String&, const URL&, CompletionHandler<void(std::optional<WebCore::ResourceError>&&)>&&);
     void modelElementSizeDidChange(const String&, WebCore::FloatSize, CompletionHandler<void(Expected<MachSendRight, WebCore::ResourceError>)>&&);
     void handleMouseDownForModelElement(const String&, const WebCore::LayoutPoint&, MonotonicTime);
     void handleMouseMoveForModelElement(const String&, const WebCore::LayoutPoint&, MonotonicTime);
@@ -889,7 +890,7 @@ public:
     void startInteractionWithPositionInformation(const InteractionInformationAtPosition&);
     void stopInteraction();
     void performActionOnElement(uint32_t action);
-    void saveImageToLibrary(const SharedMemory::IPCHandle& imageHandle);
+    void saveImageToLibrary(const SharedMemory::IPCHandle& imageHandle, const String& authorizationToken);
     void focusNextFocusedElement(bool isForward, CompletionHandler<void()>&& = [] { });
     void setFocusedElementValue(const WebCore::ElementContext&, const String&);
     void setFocusedElementSelectedIndex(const WebCore::ElementContext&, uint32_t index, bool allowMultipleSelection = false);
@@ -1269,8 +1270,8 @@ public:
 
     class PolicyDecisionSender;
     enum class WillContinueLoadInNewProcess : bool { No, Yes };
-    void receivedPolicyDecision(WebCore::PolicyAction, API::Navigation*, RefPtr<API::WebsitePolicies>&&, std::variant<Ref<API::NavigationResponse>, Ref<API::NavigationAction>>&&, Ref<PolicyDecisionSender>&&, std::optional<SandboxExtension::Handle> = { }, WillContinueLoadInNewProcess = WillContinueLoadInNewProcess::No);
-    void receivedNavigationPolicyDecision(WebCore::PolicyAction, API::Navigation*, Ref<API::NavigationAction>&&, ProcessSwapRequestedByClient, WebFrameProxy&, const FrameInfoData&, RefPtr<API::WebsitePolicies>&&, Ref<PolicyDecisionSender>&&);
+    void receivedPolicyDecision(WebCore::PolicyAction, API::Navigation*, RefPtr<API::WebsitePolicies>&&, std::variant<Ref<API::NavigationResponse>, Ref<API::NavigationAction>>&&, Ref<PolicyDecisionSender>&&, WillContinueLoadInNewProcess = WillContinueLoadInNewProcess::No, std::optional<SandboxExtension::Handle> = { });
+    void receivedNavigationPolicyDecision(WebCore::PolicyAction, API::Navigation*, Ref<API::NavigationAction>&&, ProcessSwapRequestedByClient, WebFrameProxy&, const FrameInfoData&, Ref<PolicyDecisionSender>&&);
 
     void backForwardRemovedItem(const WebCore::BackForwardItemIdentifier&);
 
@@ -1323,6 +1324,7 @@ public:
 #endif
 
 #if ENABLE(GPU_PROCESS)
+    void gpuProcessDidFinishLaunching();
     void gpuProcessExited(GPUProcessTerminationReason);
 #endif
 
@@ -1346,6 +1348,8 @@ public:
     WebProcessProxy& ensureRunningProcess();
     WebProcessProxy& process() const { return m_process; }
     ProcessID processIdentifier() const;
+
+    ProcessID gpuProcessIdentifier() const;
 
     WebBackForwardCache& backForwardCache() const;
 
@@ -1419,9 +1423,7 @@ public:
     uint64_t drawPagesToPDF(WebFrameProxy*, const PrintInfo&, uint32_t first, uint32_t count, CompletionHandler<void(API::Data*)>&&);
     void drawToPDF(WebCore::FrameIdentifier, const std::optional<WebCore::FloatRect>&, CompletionHandler<void(const IPC::SharedBufferCopy&)>&&);
 #if PLATFORM(IOS_FAMILY)
-#if !HAVE(UIKIT_BACKGROUND_THREAD_PRINTING)
     size_t computePagesForPrintingiOS(WebCore::FrameIdentifier, const PrintInfo&);
-#endif
     uint64_t drawToPDFiOS(WebCore::FrameIdentifier, const PrintInfo&, size_t pageCount, CompletionHandler<void(const IPC::SharedBufferCopy&)>&&);
 #endif
 #elif PLATFORM(GTK)
@@ -1690,6 +1692,7 @@ public:
 
     void getLoadDecisionForIcon(const WebCore::LinkIcon&, WebKit::CallbackID);
 
+    void focusFromServiceWorker(CompletionHandler<void()>&&);
     void setFocus(bool focused);
     void setWindowFrame(const WebCore::FloatRect&);
     void getWindowFrame(Messages::WebPageProxy::GetWindowFrameDelayedReply&&);
@@ -2395,6 +2398,8 @@ private:
     void showPlaybackTargetPicker(bool hasVideo, const WebCore::IntRect& elementRect, WebCore::RouteSharingPolicy, const String&);
 
     void updateStringForFind(const String&);
+
+    bool isValidPerformActionOnElementAuthorizationToken(const String& authorizationToken) const;
 #endif
 
     void focusedFrameChanged(const std::optional<WebCore::FrameIdentifier>&);
@@ -2542,7 +2547,9 @@ private:
     Ref<API::Attachment> ensureAttachment(const String& identifier);
     void invalidateAllAttachments();
 
-    void writePromisedAttachmentToPasteboard(WebCore::PromisedAttachmentInfo&&);
+#if PLATFORM(IOS_FAMILY)
+    void writePromisedAttachmentToPasteboard(WebCore::PromisedAttachmentInfo&&, const String& authorizationToken);
+#endif
 
     void requestAttachmentIcon(const String& identifier, const String& type, const String& path, const String& title, const WebCore::FloatSize&);
 
@@ -2551,7 +2558,7 @@ private:
 
     void reportPageLoadResult(const WebCore::ResourceError& = { });
 
-    void continueNavigationInNewProcess(API::Navigation&, std::unique_ptr<SuspendedPageProxy>&&, Ref<WebProcessProxy>&&, ProcessSwapRequestedByClient, WebCore::ShouldTreatAsContinuingLoad, RefPtr<API::WebsitePolicies>&&, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume = std::nullopt);
+    void continueNavigationInNewProcess(API::Navigation&, std::unique_ptr<SuspendedPageProxy>&&, Ref<WebProcessProxy>&&, ProcessSwapRequestedByClient, WebCore::ShouldTreatAsContinuingLoad, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume = std::nullopt);
 
     void setNeedsFontAttributes(bool);
     void updateFontAttributesAfterEditorStateChange();
@@ -2614,7 +2621,9 @@ private:
     bool setIsNavigatingToAppBoundDomainAndCheckIfPermitted(bool isMainFrame, const URL&, std::optional<NavigatingToAppBoundDomain>);
 #endif
 
+#if !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
     static Vector<SandboxExtension::Handle> createNetworkExtensionsSandboxExtensions(WebProcessProxy&);
+#endif
 
     static SandboxExtension::Handle fontdMachExtensionHandle();
 
@@ -3069,6 +3078,7 @@ private:
     WebCore::FloatSize m_minimumUnobscuredSize;
     WebCore::FloatSize m_maximumUnobscuredSize;
     bool m_lastObservedStateWasBackground { false };
+    HashSet<String> m_performActionOnElementAuthTokens;
 #endif
 
     std::optional<WebCore::FontAttributes> m_cachedFontAttributesAtSelectionStart;

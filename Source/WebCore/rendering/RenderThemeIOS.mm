@@ -28,6 +28,7 @@
 
 #if PLATFORM(IOS_FAMILY)
 
+#import "ARKitBadgeSystemImage.h"
 #import "BitmapImage.h"
 #import "CSSPrimitiveValue.h"
 #import "CSSToLengthConversionData.h"
@@ -80,6 +81,7 @@
 #import "Theme.h"
 #import "UTIUtilities.h"
 #import "WebCoreThreadRun.h"
+#import "WebCoreUIColorExtras.h"
 #import <CoreGraphics/CoreGraphics.h>
 #import <CoreImage/CoreImage.h>
 #import <objc/runtime.h>
@@ -702,7 +704,7 @@ LengthBox RenderThemeIOS::popupInternalPaddingBox(const RenderStyle& style, cons
     float padding = MenuListButtonPaddingAfter;
     if (settings.iOSFormControlRefreshEnabled()) {
         auto emSize = CSSPrimitiveValue::create(1.0, CSSUnitType::CSS_EMS);
-        padding = emSize->computeLength<float>(CSSToLengthConversionData(&style, nullptr, nullptr, nullptr, 1.0, std::nullopt));
+        padding = emSize->computeLength<float>({ style, nullptr, nullptr, nullptr });
     }
 
     if (style.effectiveAppearance() == MenulistButtonPart) {
@@ -752,7 +754,7 @@ static void applyCommonButtonPaddingToStyle(RenderStyle& style, const Element& e
     Document& document = element.document();
     auto emSize = CSSPrimitiveValue::create(0.5, CSSUnitType::CSS_EMS);
     // We don't need this element's parent style to calculate `em` units, so it's okay to pass nullptr for it here.
-    int pixels = emSize->computeLength<int>(CSSToLengthConversionData(&style, document.renderStyle(), nullptr, document.renderView(), document.frame() ? document.frame()->pageZoomFactor() : 1.));
+    int pixels = emSize->computeLength<int>({ style, document.renderStyle(), nullptr, document.renderView() });
     style.setPaddingBox(LengthBox(0, pixels, 0, pixels));
 }
 
@@ -1285,7 +1287,7 @@ void RenderThemeIOS::adjustButtonStyle(RenderStyle& style, const Element* elemen
     // Since the element might not be in a document, just pass nullptr for the root element style,
     // the parent element style, and the render view.
     auto emSize = CSSPrimitiveValue::create(1.0, CSSUnitType::CSS_EMS);
-    int pixels = emSize->computeLength<int>(CSSToLengthConversionData(&style, nullptr, nullptr, nullptr, 1.0, std::nullopt));
+    int pixels = emSize->computeLength<int>({ style, nullptr, nullptr, nullptr });
     style.setPaddingBox(LengthBox(0, pixels, 0, pixels));
 
     if (!element)
@@ -1444,6 +1446,7 @@ struct CSSValueSystemColorInformation {
     SEL selector;
     bool makeOpaque { false };
     float opacity { 1.0f };
+    UIColor *(*function)(void) { nullptr };
 };
 
 static const Vector<CSSValueSystemColorInformation>& cssValueSystemColorInformationList()
@@ -1456,7 +1459,7 @@ static const Vector<CSSValueSystemColorInformation>& cssValueSystemColorInformat
         [] {
         cssValueSystemColorInformationList.get() = Vector(std::initializer_list<CSSValueSystemColorInformation> {
             { CSSValueText, @selector(labelColor) },
-            { CSSValueWebkitControlBackground, @selector(systemBackgroundColor) },
+            { CSSValueWebkitControlBackground, nil, false, 1.0f, &systemBackgroundColor },
             { CSSValueAppleSystemBlue, @selector(systemBlueColor) },
             { CSSValueAppleSystemBrown, @selector(systemBrownColor) },
             { CSSValueAppleSystemGray, @selector(systemGrayColor) },
@@ -1468,7 +1471,7 @@ static const Vector<CSSValueSystemColorInformation>& cssValueSystemColorInformat
             { CSSValueAppleSystemRed, @selector(systemRedColor) },
             { CSSValueAppleSystemTeal, @selector(systemTealColor) },
             { CSSValueAppleSystemYellow, @selector(systemYellowColor) },
-            { CSSValueAppleSystemBackground, @selector(systemBackgroundColor) },
+            { CSSValueAppleSystemBackground, nil, false, 1.0f, &systemBackgroundColor },
             { CSSValueAppleSystemSecondaryBackground, @selector(secondarySystemBackgroundColor) },
             { CSSValueAppleSystemTertiaryBackground, @selector(tertiarySystemBackgroundColor) },
             { CSSValueAppleSystemOpaqueFill, @selector(systemFillColor), true },
@@ -1488,11 +1491,11 @@ static const Vector<CSSValueSystemColorInformation>& cssValueSystemColorInformat
             // FIXME: <rdar://problem/79471528> Adopt [UIColor opaqueSeparatorColor] once it has a high contrast variant.
             { CSSValueAppleSystemOpaqueSeparator, @selector(separatorColor), true },
             { CSSValueAppleSystemContainerBorder, @selector(separatorColor) },
-            { CSSValueAppleSystemControlBackground, @selector(systemBackgroundColor) },
+            { CSSValueAppleSystemControlBackground, nil, false, 1.0f, &systemBackgroundColor },
             { CSSValueAppleSystemGrid, @selector(separatorColor) },
             { CSSValueAppleSystemHeaderText, @selector(labelColor) },
             { CSSValueAppleSystemSelectedContentBackground, @selector(tableCellDefaultSelectionTintColor) },
-            { CSSValueAppleSystemTextBackground, @selector(systemBackgroundColor) },
+            { CSSValueAppleSystemTextBackground, nil, false, 1.0f, &systemBackgroundColor },
             { CSSValueAppleSystemUnemphasizedSelectedContentBackground, @selector(tableCellDefaultSelectionTintColor) },
             { CSSValueAppleWirelessPlaybackTargetActive, @selector(systemBlueColor) },
         });
@@ -1503,19 +1506,24 @@ static const Vector<CSSValueSystemColorInformation>& cssValueSystemColorInformat
 
 static inline std::optional<Color> systemColorFromCSSValueSystemColorInformation(CSSValueSystemColorInformation systemColorInformation, bool useDarkAppearance)
 {
-    if (auto color = wtfObjCMsgSend<UIColor *>(PAL::getUIColorClass(), systemColorInformation.selector)) {
-        Color systemColor(roundAndClampToSRGBALossy(color.CGColor), Color::Flags::Semantic);
+    UIColor *color = nil;
+    if (systemColorInformation.selector)
+        color = wtfObjCMsgSend<UIColor *>(PAL::getUIColorClass(), systemColorInformation.selector);
+    else
+        color = systemColorInformation.function();
 
-        if (systemColorInformation.opacity < 1.0f)
-            systemColor = systemColor.colorWithAlphaMultipliedBy(systemColorInformation.opacity);
+    if (!color)
+        return std::nullopt;
 
-        if (systemColorInformation.makeOpaque)
-            return blendSourceOver(useDarkAppearance ? Color::black : Color::white, systemColor);
+    Color systemColor(roundAndClampToSRGBALossy(color.CGColor), Color::Flags::Semantic);
 
-        return systemColor;
-    }
+    if (systemColorInformation.opacity < 1.0f)
+        systemColor = systemColor.colorWithAlphaMultipliedBy(systemColorInformation.opacity);
 
-    return std::nullopt;
+    if (systemColorInformation.makeOpaque)
+        return blendSourceOver(useDarkAppearance ? Color::black : Color::white, systemColor);
+
+    return systemColor;
 }
 
 static std::optional<Color> systemColorFromCSSValueID(CSSValueID cssValueID, bool useDarkAppearance, bool useElevatedUserInterfaceLevel)
@@ -2000,186 +2008,9 @@ String RenderThemeIOS::extraDefaultStyleSheet()
 #endif
 
 #if USE(SYSTEM_PREVIEW)
-static NSBundle *arKitBundle()
-{
-    static NSBundle *arKitBundle = []() {
-#if PLATFORM(IOS_FAMILY_SIMULATOR)
-        dlopen("/System/Library/PrivateFrameworks/AssetViewer.framework/AssetViewer", RTLD_NOW);
-        return [NSBundle bundleForClass:NSClassFromString(@"ASVThumbnailView")];
-#else
-        return [NSBundle bundleWithURL:[NSURL fileURLWithPath:@"/System/Library/PrivateFrameworks/AssetViewer.framework"]];
-#endif
-    }();
-
-    return arKitBundle;
-}
-
-static RetainPtr<CGPDFPageRef> loadARKitPDFPage(NSString *imageName)
-{
-    NSURL *url = [arKitBundle() URLForResource:imageName withExtension:@"pdf"];
-
-    if (!url)
-        return nullptr;
-
-    auto document = adoptCF(CGPDFDocumentCreateWithURL((CFURLRef)url));
-    if (!document)
-        return nullptr;
-
-    if (!CGPDFDocumentGetNumberOfPages(document.get()))
-        return nullptr;
-
-    return CGPDFDocumentGetPage(document.get(), 1);
-}
-
-static CGPDFPageRef systemPreviewLogo()
-{
-    static CGPDFPageRef logoPage = loadARKitPDFPage(@"ARKitBadge").leakRef();
-    return logoPage;
-}
-
 void RenderThemeIOS::paintSystemPreviewBadge(Image& image, const PaintInfo& paintInfo, const FloatRect& rect)
 {
-    static const int largeBadgeDimension = 70;
-    static const int largeBadgeOffset = 20;
-
-    static const int smallBadgeDimension = 35;
-    static const int smallBadgeOffset = 8;
-
-    static const int minimumSizeForLargeBadge = 240;
-
-    bool useSmallBadge = rect.width() < minimumSizeForLargeBadge || rect.height() < minimumSizeForLargeBadge;
-    int badgeOffset = useSmallBadge ? smallBadgeOffset : largeBadgeOffset;
-    int badgeDimension = useSmallBadge ? smallBadgeDimension : largeBadgeDimension;
-
-    int minimumDimension = badgeDimension + 2 * badgeOffset;
-    if (rect.width() < minimumDimension || rect.height() < minimumDimension)
-        return;
-
-    CGRect absoluteBadgeRect = CGRectMake(rect.x() + rect.width() - badgeDimension - badgeOffset, rect.y() + badgeOffset, badgeDimension, badgeDimension);
-    CGRect insetBadgeRect = CGRectMake(rect.width() - badgeDimension - badgeOffset, badgeOffset, badgeDimension, badgeDimension);
-    CGRect badgeRect = CGRectMake(0, 0, badgeDimension, badgeDimension);
-
-    CIImage *inputImage = [CIImage imageWithCGImage:image.nativeImage()->platformImage().get()];
-
-    // Create a circle to be used for the clipping path in the badge, as well as the drop shadow.
-    RetainPtr<CGPathRef> circle = adoptCF(CGPathCreateWithRoundedRect(absoluteBadgeRect, badgeDimension / 2, badgeDimension / 2, nullptr));
-
-    auto& graphicsContext = paintInfo.context();
-    if (graphicsContext.paintingDisabled())
-        return;
-
-    GraphicsContextStateSaver stateSaver(graphicsContext);
-
-    CGContextRef ctx = graphicsContext.platformContext();
-    if (!ctx)
-        return;
-
-    CGContextSaveGState(ctx);
-
-    // Draw a drop shadow around the circle.
-    // Use the GraphicsContext function, because it calculates the blur radius in context space,
-    // rather than screen space.
-    constexpr auto shadowColor = Color::black.colorWithAlphaByte(26);
-    graphicsContext.setShadow(FloatSize { }, 16, shadowColor);
-
-    // The circle must have an alpha channel value of 1 for the shadow color to appear.
-    CGFloat circleColorComponents[4] = { 0, 0, 0, 1 };
-    RetainPtr<CGColorRef> circleColor = adoptCF(CGColorCreate(sRGBColorSpaceRef(), circleColorComponents));
-    CGContextSetFillColorWithColor(ctx, circleColor.get());
-
-    // Clip out the circle to only show the shadow.
-    CGContextBeginPath(ctx);
-    CGContextAddRect(ctx, rect);
-    CGContextAddPath(ctx, circle.get());
-    CGContextClosePath(ctx);
-    CGContextEOClip(ctx);
-
-    // Draw a slightly smaller circle with a shadow, otherwise we'll see a fringe of the solid
-    // black circle around the edges of the clipped path below.
-    CGContextBeginPath(ctx);
-    CGRect slightlySmallerAbsoluteBadgeRect = CGRectMake(absoluteBadgeRect.origin.x + 0.5, absoluteBadgeRect.origin.y + 0.5, badgeDimension - 1, badgeDimension - 1);
-    RetainPtr<CGPathRef> slightlySmallerCircle = adoptCF(CGPathCreateWithRoundedRect(slightlySmallerAbsoluteBadgeRect, slightlySmallerAbsoluteBadgeRect.size.width / 2, slightlySmallerAbsoluteBadgeRect.size.height / 2, nullptr));
-    CGContextAddPath(ctx, slightlySmallerCircle.get());
-    CGContextClosePath(ctx);
-    CGContextFillPath(ctx);
-
-    CGContextRestoreGState(ctx);
-
-    // Draw the blurred backdrop. Scale from intrinsic size to render size.
-    CGAffineTransform transform = CGAffineTransformIdentity;
-    transform = CGAffineTransformScale(transform, rect.width() / image.width(), rect.height() / image.height());
-    CIImage *scaledImage = [inputImage imageByApplyingTransform:transform];
-
-    // CoreImage coordinates are y-up, so we need to flip the badge rectangle within the image frame.
-    CGRect flippedInsetBadgeRect = CGRectMake(insetBadgeRect.origin.x, rect.height() - insetBadgeRect.origin.y - insetBadgeRect.size.height, badgeDimension, badgeDimension);
-
-    // Create a cropped region with pixel values extending outwards.
-    CIImage *clampedImage = [scaledImage imageByClampingToRect:flippedInsetBadgeRect];
-
-    // Blur.
-    CIImage *blurredImage = [clampedImage imageByApplyingGaussianBlurWithSigma:10];
-
-    // Saturate.
-    CIFilter *saturationFilter = [CIFilter filterWithName:@"CIColorControls"];
-    [saturationFilter setValue:blurredImage forKey:kCIInputImageKey];
-    [saturationFilter setValue:@1.8 forKey:kCIInputSaturationKey];
-
-    // Tint.
-    CIFilter *tintFilter1 = [CIFilter filterWithName:@"CIConstantColorGenerator"];
-    CIColor *tintColor1 = [CIColor colorWithRed:1 green:1 blue:1 alpha:0.18];
-    [tintFilter1 setValue:tintColor1 forKey:kCIInputColorKey];
-
-    // Blend the tint with the saturated output.
-    CIFilter *sourceOverFilter = [CIFilter filterWithName:@"CISourceOverCompositing"];
-    [sourceOverFilter setValue:tintFilter1.outputImage forKey:kCIInputImageKey];
-    [sourceOverFilter setValue:saturationFilter.outputImage forKey:kCIInputBackgroundImageKey];
-
-    if (!m_ciContext)
-        m_ciContext = [CIContext context];
-
-    RetainPtr<CGImageRef> cgImage;
-#if HAVE(IOSURFACE_COREIMAGE_SUPPORT)
-    // Crop the result to the badge location.
-    CIImage *croppedImage = [sourceOverFilter.outputImage imageByCroppingToRect:flippedInsetBadgeRect];
-    CIImage *translatedImage = [croppedImage imageByApplyingTransform:CGAffineTransformMakeTranslation(-flippedInsetBadgeRect.origin.x, -flippedInsetBadgeRect.origin.y)];
-    IOSurfaceRef surface;
-    if (useSmallBadge) {
-        if (!m_smallBadgeSurface)
-            m_smallBadgeSurface = IOSurface::create({ smallBadgeDimension, smallBadgeDimension }, DestinationColorSpace::SRGB());
-        surface = m_smallBadgeSurface->surface();
-    } else {
-        if (!m_largeBadgeSurface)
-            m_largeBadgeSurface = IOSurface::create({ largeBadgeDimension, largeBadgeDimension }, DestinationColorSpace::SRGB());
-        surface = m_largeBadgeSurface->surface();
-    }
-    [m_ciContext render:translatedImage toIOSurface:surface bounds:badgeRect colorSpace:sRGBColorSpaceRef()];
-    cgImage = useSmallBadge ? m_smallBadgeSurface->createImage() : m_largeBadgeSurface->createImage();
-#else
-    cgImage = adoptCF([m_ciContext createCGImage:sourceOverFilter.outputImage fromRect:flippedInsetBadgeRect]);
-#endif
-
-    // Before we render the result, we should clip to a circle around the badge rectangle.
-    CGContextSaveGState(ctx);
-    CGContextBeginPath(ctx);
-    CGContextAddPath(ctx, circle.get());
-    CGContextClosePath(ctx);
-    CGContextClip(ctx);
-
-    CGContextTranslateCTM(ctx, absoluteBadgeRect.origin.x, absoluteBadgeRect.origin.y);
-    CGContextTranslateCTM(ctx, 0, badgeDimension);
-    CGContextScaleCTM(ctx, 1, -1);
-    CGContextDrawImage(ctx, badgeRect, cgImage.get());
-
-    if (auto logo = systemPreviewLogo()) {
-        CGSize pdfSize = CGPDFPageGetBoxRect(logo, kCGPDFMediaBox).size;
-        CGFloat scaleX = badgeDimension / pdfSize.width;
-        CGFloat scaleY = badgeDimension / pdfSize.height;
-        CGContextScaleCTM(ctx, scaleX, scaleY);
-        CGContextDrawPDFPage(ctx, logo);
-    }
-
-    CGContextFlush(ctx);
-    CGContextRestoreGState(ctx);
+    paintInfo.context().drawSystemImage(ARKitBadgeSystemImage::create(image), rect);
 }
 #endif
 
@@ -2888,7 +2719,7 @@ void RenderThemeIOS::paintMenuListButtonDecorationsWithFormControlRefresh(const 
     }
 
     auto emSize = CSSPrimitiveValue::create(1.0, CSSUnitType::CSS_EMS);
-    auto emPixels = emSize->computeLength<float>(CSSToLengthConversionData(&style, nullptr, nullptr, nullptr, 1.0, std::nullopt));
+    auto emPixels = emSize->computeLength<float>({ style, nullptr, nullptr, nullptr });
     auto glyphScale = 0.65f * emPixels / glyphSize.width();
     glyphSize = glyphScale * glyphSize;
 
@@ -2916,7 +2747,7 @@ void RenderThemeIOS::adjustSearchFieldDecorationPartStyle(RenderStyle& style, co
     constexpr int searchFieldDecorationEmSize = 1;
     constexpr int searchFieldDecorationMargin = 4;
 
-    CSSToLengthConversionData conversionData(&style, nullptr, nullptr, nullptr, 1.0, std::nullopt);
+    CSSToLengthConversionData conversionData(style, nullptr, nullptr, nullptr);
 
     auto emSize = CSSPrimitiveValue::create(searchFieldDecorationEmSize, CSSUnitType::CSS_EMS);
     auto size = emSize->computeLength<float>(conversionData);

@@ -442,10 +442,12 @@ void NetworkProcess::addWebsiteDataStore(WebsiteDataStoreParameters&& parameters
     auto sessionID = parameters.networkSessionParameters.sessionID;
     addStorageSession(sessionID, parameters.networkSessionParameters.shouldUseTestingNetworkSession, parameters.uiProcessCookieStorageIdentifier, parameters.cookieStoragePathExtensionHandle);
 
-    m_networkSessions.ensure(sessionID, [&]() {
+    auto& session = m_networkSessions.ensure(sessionID, [&]() {
         return NetworkSession::create(*this, parameters.networkSessionParameters);
-    });
-    
+    }).iterator->value;
+
+    if (m_isSuspended)
+        session->storageManager().suspend([] { });
 }
 
 void NetworkProcess::forEachNetworkSession(const Function<void(NetworkSession&)>& functor)
@@ -1509,8 +1511,13 @@ void NetworkProcess::deleteWebsiteData(PAL::SessionID sessionID, OptionSet<Websi
 
 #if ENABLE(SERVICE_WORKER)
     bool clearServiceWorkers = websiteDataTypes.contains(WebsiteDataType::DOMCache) || websiteDataTypes.contains(WebsiteDataType::ServiceWorkerRegistrations);
-    if (clearServiceWorkers && !sessionID.isEphemeral() && session)
+    if (clearServiceWorkers && !sessionID.isEphemeral() && session) {
         session->ensureSWServer().clearAll([clearTasksHandler] { });
+
+#if ENABLE(BUILT_IN_NOTIFICATIONS)
+        session->notificationManager().removeAllPushSubscriptions([clearTasksHandler](auto&&) { });
+#endif
+    }
 #endif
 
 #if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
@@ -1603,8 +1610,13 @@ void NetworkProcess::deleteWebsiteDataForOrigins(PAL::SessionID sessionID, Optio
     bool clearServiceWorkers = websiteDataTypes.contains(WebsiteDataType::DOMCache) || websiteDataTypes.contains(WebsiteDataType::ServiceWorkerRegistrations);
     if (clearServiceWorkers && !sessionID.isEphemeral() && session) {
         auto& server = session->ensureSWServer();
-        for (auto& originData : originDatas)
+        for (auto& originData : originDatas) {
             server.clear(originData, [clearTasksHandler] { });
+
+#if ENABLE(BUILT_IN_NOTIFICATIONS)
+            session->notificationManager().removePushSubscriptionsForOrigin(SecurityOriginData { originData }, [clearTasksHandler](auto&&) { });
+#endif
+        }
     }
 #endif
 
@@ -1796,8 +1808,13 @@ void NetworkProcess::deleteAndRestrictWebsiteDataForRegistrableDomains(PAL::Sess
                 if (!domainsToDeleteAllNonCookieWebsiteDataFor.contains(RegistrableDomain::uncheckedCreateFromHost(securityOrigin.host)))
                     continue;
                 callbackAggregator->m_domains.add(RegistrableDomain::uncheckedCreateFromHost(securityOrigin.host));
-                if (session)
+                if (session) {
                     session->ensureSWServer().clear(securityOrigin, [callbackAggregator] { });
+
+#if ENABLE(BUILT_IN_NOTIFICATIONS)
+                    session->notificationManager().removePushSubscriptionsForOrigin(SecurityOriginData { securityOrigin }, [callbackAggregator](auto&&) { });
+#endif
+                }
             }
         });
     }
@@ -2114,6 +2131,7 @@ void NetworkProcess::prepareToSuspend(bool isSuspensionImminent, CompletionHandl
 {
     RELEASE_LOG(ProcessSuspension, "%p - NetworkProcess::prepareToSuspend(), isSuspensionImminent=%d", this, isSuspensionImminent);
 
+    m_isSuspended = true;
     lowMemoryHandler(Critical::Yes);
 
     RefPtr<CallbackAggregator> callbackAggregator = CallbackAggregator::create([this, completionHandler = WTFMove(completionHandler)]() mutable {
@@ -2153,11 +2171,9 @@ void NetworkProcess::applicationWillEnterForeground()
 void NetworkProcess::processDidResume()
 {
     RELEASE_LOG(ProcessSuspension, "%p - NetworkProcess::processDidResume()", this);
-    resume();
-}
 
-void NetworkProcess::resume()
-{
+    m_isSuspended = false;
+
     for (auto& connection : m_webProcessConnections.values())
         connection->endSuspension();
 
@@ -2243,6 +2259,16 @@ void NetworkProcess::renameOriginInWebsiteData(PAL::SessionID sessionID, const U
         session->storageManager().moveData(dataTypes, WTFMove(oldOrigin), WTFMove(newOrigin), [aggregator] { });
 }
 
+void NetworkProcess::websiteDataOriginDirectoryForTesting(PAL::SessionID sessionID, const URL& origin, const URL& topOrigin, WebsiteDataType dataType, CompletionHandler<void(const String&)>&& completionHandler)
+{
+    auto* session = networkSession(sessionID);
+    if (!session)
+        return completionHandler({ });
+
+    auto clientOrigin = WebCore::ClientOrigin { WebCore::SecurityOriginData::fromURL(topOrigin), WebCore::SecurityOriginData::fromURL(origin) };
+    session->storageManager().getOriginDirectory(WTFMove(clientOrigin), dataType, WTFMove(completionHandler));
+}
+
 #if ENABLE(SERVICE_WORKER)
 #if ENABLE(BUILT_IN_NOTIFICATIONS)
 
@@ -2311,6 +2337,20 @@ void NetworkProcess::getOriginsWithPushAndNotificationPermissions(PAL::SessionID
     }
 #endif
     callback({ });
+}
+
+void NetworkProcess::hasPushSubscriptionForTesting(PAL::SessionID sessionID, URL&& scopeURL, CompletionHandler<void(bool)>&& callback)
+{
+#if ENABLE(BUILT_IN_NOTIFICATIONS)
+    if (auto* session = networkSession(sessionID)) {
+        session->notificationManager().getPushSubscription(WTFMove(scopeURL), [callback = WTFMove(callback)](auto &&result) mutable {
+            callback(result && result->has_value());
+        });
+        return;
+    }
+#endif
+
+    callback(false);
 }
 
 void NetworkProcess::requestStorageSpace(PAL::SessionID sessionID, const ClientOrigin& origin, uint64_t quota, uint64_t currentSize, uint64_t spaceRequired, CompletionHandler<void(std::optional<uint64_t>)>&& callback)
@@ -2520,6 +2560,15 @@ void NetworkProcess::connectionToWebProcessClosed(IPC::Connection& connection, P
 {
     if (auto* session = networkSession(sessionID))
         session->storageManager().stopReceivingMessageFromConnection(connection);
+}
+
+WebCore::ProcessIdentifier NetworkProcess::webProcessIdentifierForConnection(IPC::Connection& connection) const
+{
+    for (auto& [processIdentifier, webConnection] : m_webProcessConnections) {
+        if (&webConnection->connection() == &connection)
+            return processIdentifier;
+    }
+    return { };
 }
 
 NetworkConnectionToWebProcess* NetworkProcess::webProcessConnection(ProcessIdentifier identifier) const

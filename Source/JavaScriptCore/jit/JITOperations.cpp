@@ -127,7 +127,7 @@ static JSValue getWrappedValue(JSGlobalObject* globalObject, JSGlobalObject* tar
     if (value.isCallable(vm))
         RELEASE_AND_RETURN(scope, JSRemoteFunction::tryCreate(targetGlobalObject, vm, static_cast<JSObject*>(value.asCell())));
 
-    throwTypeError(globalObject, scope, "value passing between realms must be callable or primitive");
+    throwTypeError(globalObject, scope, "value passing between realms must be callable or primitive"_s);
     return jsUndefined();
 }
 
@@ -156,6 +156,34 @@ JSC_DEFINE_JIT_OPERATION(operationGetWrappedValueForCaller, EncodedJSValue, (JSR
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     RELEASE_AND_RETURN(scope, JSValue::encode(getWrappedValue(globalObject, globalObject, JSValue::decode(encodedValue))));
+}
+
+JSC_DEFINE_JIT_OPERATION(operationMaterializeRemoteFunctionTargetCode, void*, (JSRemoteFunction* callee))
+{
+    JSGlobalObject* globalObject = callee->globalObject();
+    VM& vm = globalObject->vm();
+
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
+
+    ASSERT(isRemoteFunction(vm, callee));
+
+    auto* targetFunction = jsCast<JSFunction*>(callee->targetFunction()); // We call this function only when JSRemoteFunction's target is JSFunction.
+    ExecutableBase* executable = targetFunction->executable();
+
+    // Force the executable to cache its arity entrypoint.
+    {
+        DeferTraps deferTraps(vm); // We can't jettison any code until after we link the call.
+        if (!executable->isHostFunction()) {
+            JSScope* scope = targetFunction->scopeUnchecked();
+            FunctionExecutable* functionExecutable = static_cast<FunctionExecutable*>(executable);
+            CodeBlock* codeBlockSlot = nullptr;
+            functionExecutable->prepareForExecution<FunctionExecutable>(vm, targetFunction, scope, CodeForCall, codeBlockSlot);
+            RETURN_IF_EXCEPTION(throwScope, nullptr);
+        }
+        return executable->entrypointFor(CodeForCall, MustCheckArity).executableAddress();
+    }
 }
 
 JSC_DEFINE_JIT_OPERATION(operationThrowRemoteFunctionException, EncodedJSValue, (JSRemoteFunction* callee))
@@ -2054,30 +2082,6 @@ JSC_DEFINE_JIT_OPERATION(operationOptimize, SlowPathReturnType, (VM* vmPointer, 
     
     CODEBLOCK_LOG_EVENT(codeBlock, "delayOptimizeToDFG", ("OSR failed"));
     return encodeResult(nullptr, nullptr);
-}
-
-JSC_DEFINE_JIT_OPERATION(operationTryOSREnterAtCatch, char*, (VM* vmPointer, uint32_t bytecodeIndexBits))
-{
-    VM& vm = *vmPointer;
-    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
-    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
-    BytecodeIndex bytecodeIndex = BytecodeIndex::fromBits(bytecodeIndexBits);
-
-    CodeBlock* codeBlock = callFrame->codeBlock();
-    CodeBlock* optimizedReplacement = codeBlock->replacement();
-    if (UNLIKELY(!optimizedReplacement))
-        return nullptr;
-
-    switch (optimizedReplacement->jitType()) {
-    case JITType::DFGJIT:
-    case JITType::FTLJIT: {
-        MacroAssemblerCodePtr<ExceptionHandlerPtrTag> entry = DFG::prepareCatchOSREntry(vm, callFrame, codeBlock, optimizedReplacement, bytecodeIndex);
-        return entry.executableAddress<char*>();
-    }
-    default:
-        break;
-    }
-    return nullptr;
 }
 
 JSC_DEFINE_JIT_OPERATION(operationTryOSREnterAtCatchAndValueProfile, char*, (VM* vmPointer, uint32_t bytecodeIndexBits))

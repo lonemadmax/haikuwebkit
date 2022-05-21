@@ -47,7 +47,8 @@
 #include "HitTestResult.h"
 #include "ImageOverlay.h"
 #include "InlineIteratorInlineBox.h"
-#include "InlineIteratorLine.h"
+#include "InlineIteratorLineBox.h"
+#include "LineSelection.h"
 #include "Page.h"
 #include "PaintInfo.h"
 #include "RenderChildIterator.h"
@@ -109,9 +110,10 @@ void RenderImage::collectSelectionGeometries(Vector<SelectionGeometry>& geometri
             lineExtentRect.setHeight(containingBlock->height());
         }
     } else {
-        auto line = run->line();
-        LayoutUnit selectionTop = !containingBlock->style().isFlippedBlocksWritingMode() ? line->selectionTop() - logicalTop() : logicalBottom() - line->selectionBottom();
-        imageRect = IntRect(0,  selectionTop, logicalWidth(), line->selectionHeight());
+        auto selectionLogicalRect = LineSelection::logicalRect(*run->lineBox());
+        int selectionTop = !containingBlock->style().isFlippedBlocksWritingMode() ? selectionLogicalRect.y() - logicalTop() : logicalBottom() - selectionLogicalRect.maxY();
+        int selectionHeight = selectionLogicalRect.height();
+        imageRect = IntRect { 0,  selectionTop, logicalWidth(), selectionHeight };
         isFirstOnLine = !run->previousOnLine();
         isLastOnLine = !run->nextOnLine();
         LogicalSelectionOffsetCaches cache(*containingBlock);

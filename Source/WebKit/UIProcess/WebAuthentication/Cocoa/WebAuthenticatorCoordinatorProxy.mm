@@ -241,8 +241,11 @@ static RetainPtr<ASCCredentialRequestContext> configureRegistrationRequestContex
     if (requestTypes & ASCCredentialRequestTypeSecurityKeyPublicKeyRegistration)
         [requestContext setSecurityKeyCredentialCreationOptions:credentialCreationOptions.get()];
 
-    if (options.extensions && [credentialCreationOptions respondsToSelector:@selector(setExtensions:)])
+    if (options.extensions)
         [credentialCreationOptions setExtensions:toASCExtensions(*options.extensions).get()];
+
+    if (options.timeout && [credentialCreationOptions respondsToSelector:@selector(setTimeout:)])
+        credentialCreationOptions.get().timeout = [NSNumber numberWithUnsignedInt:*options.timeout];
 
     return requestContext;
 }
@@ -252,17 +255,19 @@ static inline RetainPtr<ASCPublicKeyCredentialAssertionOptions> configureAsserti
     auto assertionOptions = adoptNS(allocASCPublicKeyCredentialAssertionOptionsInstance());
     if ([assertionOptions respondsToSelector:@selector(initWithKind:relyingPartyIdentifier:clientDataHash:userVerificationPreference:allowedCredentials:)]) {
         auto nsHash = toNSData(hash);
-        [assertionOptions initWithKind:ASCPublicKeyCredentialKindPlatform relyingPartyIdentifier:options.rpId clientDataHash:nsHash.get() userVerificationPreference:userVerification.get() allowedCredentials:allowedCredentials.get()];
+        [assertionOptions initWithKind:kind relyingPartyIdentifier:options.rpId clientDataHash:nsHash.get() userVerificationPreference:userVerification.get() allowedCredentials:allowedCredentials.get()];
     } else {
         auto challenge = WebCore::toNSData(options.challenge);
-        [assertionOptions initWithKind:ASCPublicKeyCredentialKindPlatform relyingPartyIdentifier:options.rpId challenge:challenge.get() userVerificationPreference:userVerification.get() allowedCredentials:allowedCredentials.get()];
+        [assertionOptions initWithKind:kind relyingPartyIdentifier:options.rpId challenge:challenge.get() userVerificationPreference:userVerification.get() allowedCredentials:allowedCredentials.get()];
     }
-    if (options.extensions && [assertionOptions respondsToSelector:@selector(setExtensions:)])
+    if (options.extensions)
         [assertionOptions setExtensions:toASCExtensions(*options.extensions).get()];
     if (parentOrigin && [assertionOptions respondsToSelector:@selector(setDestinationSiteForCrossSiteAssertion:)])
         assertionOptions.get().destinationSiteForCrossSiteAssertion = parentOrigin->toString();
     else if (parentOrigin && ![assertionOptions respondsToSelector:@selector(setDestinationSiteForCrossSiteAssertion:)])
         return nil;
+    if (options.timeout && [assertionOptions respondsToSelector:@selector(setTimeout:)])
+        assertionOptions.get().timeout = [NSNumber numberWithUnsignedInt:*options.timeout];
     return assertionOptions;
 }
 

@@ -68,7 +68,10 @@ public:
         virtual void matchAll(ServiceWorkerIdentifier, const ServiceWorkerClientQueryOptions&, ServiceWorkerClientsMatchAllCallback&&) = 0;
         virtual void claim(ServiceWorkerIdentifier, CompletionHandler<void(ExceptionOr<void>&&)>&&) = 0;
 
+        virtual void focus(ScriptExecutionContextIdentifier, CompletionHandler<void(std::optional<WebCore::ServiceWorkerClientData>&&)>&&) = 0;
+
         virtual void didFailHeartBeatCheck(ServiceWorkerIdentifier) = 0;
+        virtual void setAsInspected(ServiceWorkerIdentifier, bool) = 0;
 
         virtual bool isThrottleable() const = 0;
         virtual PageIdentifier pageIdentifier() const = 0;
@@ -109,6 +112,8 @@ public:
 
     static constexpr Seconds workerTerminationTimeout { 10_s };
     static constexpr Seconds syncWorkerTerminationTimeout { 100_ms }; // Only used by layout tests.
+
+    WEBCORE_EXPORT void setAsInspected(ServiceWorkerIdentifier, bool);
 
 private:
     SWContextManager() = default;

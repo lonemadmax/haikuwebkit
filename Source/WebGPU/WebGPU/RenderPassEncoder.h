@@ -25,11 +25,14 @@
 
 #pragma once
 
+#import "CommandsMixin.h"
 #import <wtf/FastMalloc.h>
-#import <wtf/Function.h>
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
 #import <wtf/Vector.h>
+
+struct WGPURenderPassEncoderImpl {
+};
 
 namespace WebGPU {
 
@@ -39,7 +42,7 @@ class QuerySet;
 class RenderBundle;
 class RenderPipeline;
 
-class RenderPassEncoder : public RefCounted<RenderPassEncoder> {
+class RenderPassEncoder : public WGPURenderPassEncoderImpl, public RefCounted<RenderPassEncoder>, public CommandsMixin {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static Ref<RenderPassEncoder> create(id<MTLRenderCommandEncoder> renderCommandEncoder)
@@ -59,9 +62,9 @@ public:
     void endPass();
     void endPipelineStatisticsQuery();
     void executeBundles(Vector<std::reference_wrapper<const RenderBundle>>&& bundles);
-    void insertDebugMarker(const char* markerLabel);
+    void insertDebugMarker(String&& markerLabel);
     void popDebugGroup();
-    void pushDebugGroup(const char* groupLabel);
+    void pushDebugGroup(String&& groupLabel);
     void setBindGroup(uint32_t groupIndex, const BindGroup&, uint32_t dynamicOffsetCount, const uint32_t* dynamicOffsets);
     void setBlendConstant(const WGPUColor&);
     void setIndexBuffer(const Buffer&, WGPUIndexFormat, uint64_t offset, uint64_t size);
@@ -70,16 +73,16 @@ public:
     void setStencilReference(uint32_t);
     void setVertexBuffer(uint32_t slot, const Buffer&, uint64_t offset, uint64_t size);
     void setViewport(float x, float y, float width, float height, float minDepth, float maxDepth);
-    void setLabel(const char*);
+    void setLabel(String&&);
 
 private:
     RenderPassEncoder(id<MTLRenderCommandEncoder>);
 
-    id<MTLRenderCommandEncoder> m_renderCommandEncoder { nil };
+    bool validatePopDebugGroup() const;
+
+    const id<MTLRenderCommandEncoder> m_renderCommandEncoder { nil };
+
+    uint64_t m_debugGroupStackSize { 0 };
 };
 
 } // namespace WebGPU
-
-struct WGPURenderPassEncoderImpl {
-    Ref<WebGPU::RenderPassEncoder> renderPassEncoder;
-};

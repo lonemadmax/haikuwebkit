@@ -55,6 +55,8 @@ public:
     virtual Vector<AtomString> filterEffectInputsNames() const { return { }; }
     virtual RefPtr<FilterEffect> filterEffect(const SVGFilterBuilder&, const FilterEffectVector&) const = 0;
 
+    static void invalidateFilterPrimitiveParent(SVGElement*);
+
 protected:
     SVGFilterPrimitiveStandardAttributes(const QualifiedName&, Document&);
 
@@ -62,7 +64,6 @@ protected:
     void svgAttributeChanged(const QualifiedName&) override;
     void childrenChanged(const ChildChange&) override;
 
-    void invalidate();
     void primitiveAttributeChanged(const QualifiedName& attributeName);
 
 private:
@@ -74,20 +75,12 @@ private:
 
     // Spec: If the x/y attribute is not specified, the effect is as if a value of "0%" were specified.
     // Spec: If the width/height attribute is not specified, the effect is as if a value of "100%" were specified.
-    Ref<SVGAnimatedLength> m_x { SVGAnimatedLength::create(this, SVGLengthMode::Width, "0%") };
-    Ref<SVGAnimatedLength> m_y { SVGAnimatedLength::create(this, SVGLengthMode::Height, "0%") };
-    Ref<SVGAnimatedLength> m_width { SVGAnimatedLength::create(this, SVGLengthMode::Width, "100%") };
-    Ref<SVGAnimatedLength> m_height { SVGAnimatedLength::create(this, SVGLengthMode::Height, "100%") };
+    Ref<SVGAnimatedLength> m_x { SVGAnimatedLength::create(this, SVGLengthMode::Width, "0%"_s) };
+    Ref<SVGAnimatedLength> m_y { SVGAnimatedLength::create(this, SVGLengthMode::Height, "0%"_s) };
+    Ref<SVGAnimatedLength> m_width { SVGAnimatedLength::create(this, SVGLengthMode::Width, "100%"_s) };
+    Ref<SVGAnimatedLength> m_height { SVGAnimatedLength::create(this, SVGLengthMode::Height, "100%"_s) };
     Ref<SVGAnimatedString> m_result { SVGAnimatedString::create(this) };
 };
-
-void invalidateFilterPrimitiveParent(SVGElement*);
-
-inline void SVGFilterPrimitiveStandardAttributes::invalidate()
-{
-    if (auto* primitiveRenderer = renderer())
-        RenderSVGResource::markForLayoutAndParentResourceInvalidation(*primitiveRenderer);
-}
 
 inline void SVGFilterPrimitiveStandardAttributes::primitiveAttributeChanged(const QualifiedName& attribute)
 {

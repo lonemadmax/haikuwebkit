@@ -26,29 +26,33 @@
 #import "config.h"
 #import "Instance.h"
 
+#import "APIConversions.h"
 #import "Adapter.h"
 #import "Surface.h"
 #import <cstring>
+#import <wtf/BlockPtr.h>
 #import <wtf/StdLibExtras.h>
 
 namespace WebGPU {
 
-static constexpr NSString *runLoopMode = @"kCFRunLoopWebGPUMode";
-
 RefPtr<Instance> Instance::create(const WGPUInstanceDescriptor& descriptor)
 {
-    if (descriptor.nextInChain)
+    if (!descriptor.nextInChain)
+        return adoptRef(*new Instance(nullptr));
+
+    if (descriptor.nextInChain->sType != static_cast<WGPUSType>(WGPUSTypeExtended_InstanceCocoaDescriptor))
         return nullptr;
 
-    NSRunLoop *runLoop = NSRunLoop.currentRunLoop;
-    if (!runLoop)
+    const WGPUInstanceCocoaDescriptor& cocoaDescriptor = reinterpret_cast<const WGPUInstanceCocoaDescriptor&>(*descriptor.nextInChain);
+
+    if (cocoaDescriptor.chain.next)
         return nullptr;
 
-    return adoptRef(*new Instance(runLoop));
+    return adoptRef(*new Instance(cocoaDescriptor.scheduleWorkBlock));
 }
 
-Instance::Instance(NSRunLoop *runLoop)
-    : m_runLoop(runLoop)
+Instance::Instance(WGPUScheduleWorkBlock scheduleWorkBlock)
+    : m_scheduleWorkBlock(scheduleWorkBlock ? WTFMove(scheduleWorkBlock) : ^(WGPUWorkItem workItem) { defaultScheduleWork(WTFMove(workItem)); })
 {
 }
 
@@ -61,17 +65,30 @@ RefPtr<Surface> Instance::createSurface(const WGPUSurfaceDescriptor& descriptor)
     return Surface::create();
 }
 
+void Instance::scheduleWork(WorkItem&& workItem)
+{
+    m_scheduleWorkBlock(makeBlockPtr(WTFMove(workItem)).get());
+}
+
+void Instance::defaultScheduleWork(WGPUWorkItem&& workItem)
+{
+    LockHolder lockHolder(m_lock);
+    m_pendingWork.append(WTFMove(workItem));
+}
+
 void Instance::processEvents()
 {
-    // NSRunLoops are not thread-safe, but then again neither is WebGPU.
-    // If the caller does all the necessary synchronization themselves, this will be safe.
-    // In that situation, we have to make sure we're using the run loop we were created on,
-    // so tasks that were queued up on one thread actually get executed here, even if
-    // this is executing on a different thread.
-    BOOL result;
-    do {
-        result = [m_runLoop runMode:runLoopMode beforeDate:[NSDate date]];
-    } while (result);
+    while (true) {
+        Deque<WGPUWorkItem> localWork;
+        {
+            LockHolder lockHolder(m_lock);
+            std::swap(m_pendingWork, localWork);
+        }
+        if (localWork.isEmpty())
+            return;
+        for (auto& workItem : localWork)
+            workItem();
+    }
 }
 
 static NSArray<id<MTLDevice>> *sortedDevices(NSArray<id<MTLDevice>> *devices, WGPUPowerPreference powerPreference)
@@ -105,12 +122,12 @@ static NSArray<id<MTLDevice>> *sortedDevices(NSArray<id<MTLDevice>> *devices, WG
 #else
         return devices;
 #endif
-    default:
+    case WGPUPowerPreference_Force32:
         return nil;
     }
 }
 
-void Instance::requestAdapter(const WGPURequestAdapterOptions& options, WTF::Function<void(WGPURequestAdapterStatus, RefPtr<Adapter>&&, const char*)>&& callback)
+void Instance::requestAdapter(const WGPURequestAdapterOptions& options, CompletionHandler<void(WGPURequestAdapterStatus, RefPtr<Adapter>&&, String&&)>&& callback)
 {
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     NSArray<id<MTLDevice>> *devices = MTLCopyAllDevices();
@@ -125,49 +142,50 @@ void Instance::requestAdapter(const WGPURequestAdapterOptions& options, WTF::Fun
     auto sortedDevices = WebGPU::sortedDevices(devices, options.powerPreference);
 
     if (options.nextInChain) {
-        callback(WGPURequestAdapterStatus_Error, nullptr, "Unknown descriptor type");
+        callback(WGPURequestAdapterStatus_Error, nullptr, "Unknown descriptor type"_s);
         return;
     }
 
     if (options.forceFallbackAdapter) {
-        callback(WGPURequestAdapterStatus_Unavailable, nullptr, "No adapters present");
+        callback(WGPURequestAdapterStatus_Unavailable, nullptr, "No adapters present"_s);
         return;
     }
 
     if (!sortedDevices) {
-        callback(WGPURequestAdapterStatus_Error, nullptr, "Unknown power preference");
+        callback(WGPURequestAdapterStatus_Error, nullptr, "Unknown power preference"_s);
         return;
     }
 
     if (!sortedDevices.count) {
-        callback(WGPURequestAdapterStatus_Unavailable, nullptr, "No adapters present");
+        callback(WGPURequestAdapterStatus_Unavailable, nullptr, "No adapters present"_s);
         return;
     }
 
     if (!sortedDevices[0]) {
-        callback(WGPURequestAdapterStatus_Error, nullptr, "Adapter is internally null");
+        callback(WGPURequestAdapterStatus_Error, nullptr, "Adapter is internally null"_s);
         return;
     }
 
-    callback(WGPURequestAdapterStatus_Success, Adapter::create(sortedDevices[0]), nullptr);
+    callback(WGPURequestAdapterStatus_Success, Adapter::create(sortedDevices[0], *this), { });
 }
 
 } // namespace WebGPU
 
+#pragma mark WGPU Stubs
+
 void wgpuInstanceRelease(WGPUInstance instance)
 {
-    delete instance;
+    WebGPU::fromAPI(instance).deref();
 }
 
 WGPUInstance wgpuCreateInstance(const WGPUInstanceDescriptor* descriptor)
 {
-    auto result = WebGPU::Instance::create(*descriptor);
-    return result ? new WGPUInstanceImpl { result.releaseNonNull() } : nullptr;
+    return WebGPU::releaseToAPI(WebGPU::Instance::create(*descriptor));
 }
 
 WGPUProc wgpuGetProcAddress(WGPUDevice, const char* procName)
 {
-    // FIXME: Use gperf to make this faster.
+    // FIXME(PERFORMANCE): Use gperf to make this faster.
     // FIXME: Generate this at build time
     if (!strcmp(procName, "wgpuAdapterEnumerateFeatures"))
         return reinterpret_cast<WGPUProc>(&wgpuAdapterEnumerateFeatures);
@@ -416,25 +434,24 @@ WGPUProc wgpuGetProcAddress(WGPUDevice, const char* procName)
 
 WGPUSurface wgpuInstanceCreateSurface(WGPUInstance instance, const WGPUSurfaceDescriptor* descriptor)
 {
-    auto result = instance->instance->createSurface(*descriptor);
-    return result ? new WGPUSurfaceImpl { result.releaseNonNull() } : nullptr;
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(instance).createSurface(*descriptor));
 }
 
 void wgpuInstanceProcessEvents(WGPUInstance instance)
 {
-    instance->instance->processEvents();
+    WebGPU::fromAPI(instance).processEvents();
 }
 
 void wgpuInstanceRequestAdapter(WGPUInstance instance, const WGPURequestAdapterOptions* options, WGPURequestAdapterCallback callback, void* userdata)
 {
-    instance->instance->requestAdapter(*options, [callback, userdata] (WGPURequestAdapterStatus status, RefPtr<WebGPU::Adapter>&& adapter, const char* message) {
-        callback(status, adapter ? new WGPUAdapterImpl { adapter.releaseNonNull() } : nullptr, message, userdata);
+    WebGPU::fromAPI(instance).requestAdapter(*options, [callback, userdata](WGPURequestAdapterStatus status, RefPtr<WebGPU::Adapter>&& adapter, String&& message) {
+        callback(status, WebGPU::releaseToAPI(WTFMove(adapter)), message.utf8().data(), userdata);
     });
 }
 
 void wgpuInstanceRequestAdapterWithBlock(WGPUInstance instance, WGPURequestAdapterOptions const * options, WGPURequestAdapterBlockCallback callback)
 {
-    instance->instance->requestAdapter(*options, [callback] (WGPURequestAdapterStatus status, RefPtr<WebGPU::Adapter>&& adapter, const char* message) {
-        callback(status, adapter ? new WGPUAdapterImpl { adapter.releaseNonNull() } : nullptr, message);
+    WebGPU::fromAPI(instance).requestAdapter(*options, [callback = WTFMove(callback)](WGPURequestAdapterStatus status, RefPtr<WebGPU::Adapter>&& adapter, String&& message) {
+        callback(status, WebGPU::releaseToAPI(WTFMove(adapter)), message.utf8().data());
     });
 }

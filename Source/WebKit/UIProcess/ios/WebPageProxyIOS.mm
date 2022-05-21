@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -594,14 +594,30 @@ void WebPageProxy::stopInteraction()
     m_process->send(Messages::WebPage::StopInteraction(), m_webPageID);
 }
 
-void WebPageProxy::performActionOnElement(uint32_t action)
+bool WebPageProxy::isValidPerformActionOnElementAuthorizationToken(const String& authorizationToken) const
 {
-    m_process->send(Messages::WebPage::PerformActionOnElement(action), m_webPageID);
+    return !authorizationToken.isNull() && m_performActionOnElementAuthTokens.contains(authorizationToken);
 }
 
-void WebPageProxy::saveImageToLibrary(const SharedMemory::IPCHandle& imageHandle)
+void WebPageProxy::performActionOnElement(uint32_t action)
+{
+    auto authorizationToken = createVersion4UUIDString();
+
+    m_performActionOnElementAuthTokens.add(authorizationToken);
+    
+    sendWithAsyncReply(Messages::WebPage::PerformActionOnElement(action, authorizationToken), [weakThis = WeakPtr { *this }, authorizationToken] () mutable {
+        if (!weakThis)
+            return;
+
+        ASSERT(weakThis->isValidPerformActionOnElementAuthorizationToken(authorizationToken));
+        weakThis->m_performActionOnElementAuthTokens.remove(authorizationToken);
+    });
+}
+
+void WebPageProxy::saveImageToLibrary(const SharedMemory::IPCHandle& imageHandle, const String& authorizationToken)
 {
     MESSAGE_CHECK(!imageHandle.handle.isNull());
+    MESSAGE_CHECK(isValidPerformActionOnElementAuthorizationToken(authorizationToken));
 
     auto sharedMemoryBuffer = SharedMemory::map(imageHandle.handle, SharedMemory::Protection::ReadOnly);
     if (!sharedMemoryBuffer)
@@ -1028,8 +1044,6 @@ void WebPageProxy::handleSmartMagnificationInformationForPotentialTap(WebKit::Ta
     pageClient().handleSmartMagnificationInformationForPotentialTap(requestID, renderRect, fitEntireRect, viewportMinimumScale, viewportMaximumScale, nodeIsRootLevel);
 }
 
-#if !HAVE(UIKIT_BACKGROUND_THREAD_PRINTING)
-
 size_t WebPageProxy::computePagesForPrintingiOS(FrameIdentifier frameID, const PrintInfo& printInfo)
 {
     ASSERT_WITH_MESSAGE(!printInfo.snapshotFirstPage, "If we are just snapshotting the first page, we don't need a synchronous message to determine the page count, which is 1.");
@@ -1041,8 +1055,6 @@ size_t WebPageProxy::computePagesForPrintingiOS(FrameIdentifier frameID, const P
     sendSync(Messages::WebPage::ComputePagesForPrintingiOS(frameID, printInfo), Messages::WebPage::ComputePagesForPrintingiOS::Reply(pageCount), Seconds::infinity());
     return pageCount;
 }
-
-#endif // !HAVE(UIKIT_BACKGROUND_THREAD_PRINTING)
 
 uint64_t WebPageProxy::drawToPDFiOS(FrameIdentifier frameID, const PrintInfo& printInfo, size_t pageCount, CompletionHandler<void(const IPC::SharedBufferCopy&)>&& completionHandler)
 {
@@ -1588,11 +1600,7 @@ Color WebPageProxy::platformUnderPageBackgroundColor() const
     if (auto contentViewBackgroundColor = pageClient().contentViewBackgroundColor(); contentViewBackgroundColor.isValid())
         return contentViewBackgroundColor;
 
-#if HAVE(OS_DARK_MODE_SUPPORT)
-    return WebCore::roundAndClampToSRGBALossy(UIColor.systemBackgroundColor.CGColor);
-#else
     return WebCore::Color::white;
-#endif
 }
 
 } // namespace WebKit

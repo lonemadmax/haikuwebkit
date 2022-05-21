@@ -25,11 +25,18 @@
 
 #pragma once
 
+#import "Queue.h"
+#import <wtf/CompletionHandler.h>
 #import <wtf/FastMalloc.h>
 #import <wtf/Function.h>
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
 #import <wtf/RefPtr.h>
+#import <wtf/Vector.h>
+#import <wtf/text/WTFString.h>
+
+struct WGPUDeviceImpl {
+};
 
 namespace WebGPU {
 
@@ -38,6 +45,7 @@ class BindGroupLayout;
 class Buffer;
 class CommandEncoder;
 class ComputePipeline;
+class Instance;
 class PipelineLayout;
 class QuerySet;
 class RenderBundleEncoder;
@@ -47,12 +55,11 @@ class ShaderModule;
 class Surface;
 class SwapChain;
 class Texture;
-class Queue;
 
-class Device : public RefCounted<Device> {
+class Device : public WGPUDeviceImpl, public RefCounted<Device> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static RefPtr<Device> create(id<MTLDevice>);
+    static RefPtr<Device> create(id<MTLDevice>, String&& deviceLabel, Instance&);
 
     ~Device();
 
@@ -61,12 +68,12 @@ public:
     RefPtr<Buffer> createBuffer(const WGPUBufferDescriptor&);
     RefPtr<CommandEncoder> createCommandEncoder(const WGPUCommandEncoderDescriptor&);
     RefPtr<ComputePipeline> createComputePipeline(const WGPUComputePipelineDescriptor&);
-    void createComputePipelineAsync(const WGPUComputePipelineDescriptor&, WTF::Function<void(WGPUCreatePipelineAsyncStatus, RefPtr<ComputePipeline>&&, const char* message)>&& callback);
+    void createComputePipelineAsync(const WGPUComputePipelineDescriptor&, CompletionHandler<void(WGPUCreatePipelineAsyncStatus, RefPtr<ComputePipeline>&&, String&& message)>&& callback);
     RefPtr<PipelineLayout> createPipelineLayout(const WGPUPipelineLayoutDescriptor&);
     RefPtr<QuerySet> createQuerySet(const WGPUQuerySetDescriptor&);
     RefPtr<RenderBundleEncoder> createRenderBundleEncoder(const WGPURenderBundleEncoderDescriptor&);
     RefPtr<RenderPipeline> createRenderPipeline(const WGPURenderPipelineDescriptor&);
-    void createRenderPipelineAsync(const WGPURenderPipelineDescriptor&, WTF::Function<void(WGPUCreatePipelineAsyncStatus, RefPtr<RenderPipeline>&&, const char* message)>&& callback);
+    void createRenderPipelineAsync(const WGPURenderPipelineDescriptor&, CompletionHandler<void(WGPUCreatePipelineAsyncStatus, RefPtr<RenderPipeline>&&, String&& message)>&& callback);
     RefPtr<Sampler> createSampler(const WGPUSamplerDescriptor&);
     RefPtr<ShaderModule> createShaderModule(const WGPUShaderModuleDescriptor&);
     RefPtr<SwapChain> createSwapChain(const Surface&, const WGPUSwapChainDescriptor&);
@@ -74,23 +81,45 @@ public:
     void destroy();
     size_t enumerateFeatures(WGPUFeatureName* features);
     bool getLimits(WGPUSupportedLimits&);
-    RefPtr<Queue> getQueue();
+    Queue& getQueue();
     bool hasFeature(WGPUFeatureName);
-    bool popErrorScope(WTF::Function<void(WGPUErrorType, const char*)>&& callback);
+    bool popErrorScope(CompletionHandler<void(WGPUErrorType, String&&)>&& callback);
     void pushErrorScope(WGPUErrorFilter);
-    void setDeviceLostCallback(WTF::Function<void(WGPUDeviceLostReason, const char*)>&&);
-    void setUncapturedErrorCallback(WTF::Function<void(WGPUErrorType, const char*)>&&);
-    void setLabel(const char*);
+    void setDeviceLostCallback(Function<void(WGPUDeviceLostReason, String&&)>&&);
+    void setUncapturedErrorCallback(Function<void(WGPUErrorType, String&&)>&&);
+    void setLabel(String&&);
+
+    id<MTLDevice> device() const { return m_device; }
+
+    void generateAValidationError(String&& message);
+
+    Instance& instance() const { return m_instance; }
+    bool hasUnifiedMemory() const { return m_device.hasUnifiedMemory; }
 
 private:
-    Device(id<MTLDevice>, Ref<Queue>&&);
+    Device(id<MTLDevice>, id<MTLCommandQueue> defaultQueue, Instance&);
 
-    id<MTLDevice> m_device { nil };
-    Ref<Queue> m_defaultQueue;
+    struct ErrorScope;
+    ErrorScope* currentErrorScope(WGPUErrorFilter);
+    bool validatePopErrorScope() const;
+    id<MTLBuffer> safeCreateBuffer(NSUInteger length, MTLStorageMode, MTLCPUCacheMode = MTLCPUCacheModeDefaultCache, MTLHazardTrackingMode = MTLHazardTrackingModeDefault) const;
+    bool validateCreateTexture(const WGPUTextureDescriptor&);
+
+    struct Error {
+        WGPUErrorType type;
+        String message;
+    };
+    struct ErrorScope {
+        std::optional<Error> error; // "The first GPUError, if any, observed while the GPU error scope was current."
+        const WGPUErrorFilter filter; // Determines what type of GPUError this GPU error scope observes.
+    };
+
+    const id<MTLDevice> m_device { nil };
+    const Ref<Queue> m_defaultQueue;
+    const Ref<Instance> m_instance;
+
+    Function<void(WGPUErrorType, String&&)> m_uncapturedErrorCallback;
+    Vector<ErrorScope> m_errorScopeStack; // "A stack of GPU error scopes that have been pushed to the GPUDevice."
 };
 
 } // namespace WebGPU
-
-struct WGPUDeviceImpl {
-    Ref<WebGPU::Device> device;
-};

@@ -69,7 +69,7 @@ public:
     void paintRenderingResultsToCanvas(WebCore::ImageBuffer&) final;
     void paintCompositedResultsToCanvas(WebCore::ImageBuffer&) final;
 #if ENABLE(MEDIA_STREAM)
-    RefPtr<WebCore::MediaSample> paintCompositedResultsToMediaSample() final;
+    RefPtr<WebCore::VideoFrame> paintCompositedResultsToVideoFrame() final;
 #endif
     void synthesizeGLError(GCGLenum error) final;
     GCGLenum getError() final;
@@ -314,7 +314,6 @@ public:
     String getActiveUniformBlockName(PlatformGLObject program, GCGLuint uniformBlockIndex) final;
     void uniformBlockBinding(PlatformGLObject program, GCGLuint uniformBlockIndex, GCGLuint uniformBlockBinding) final;
     void getActiveUniformBlockiv(GCGLuint program, GCGLuint uniformBlockIndex, GCGLenum pname, GCGLSpan<GCGLint> params) final;
-    GCGLint getGraphicsResetStatusARB() final;
     String getTranslatedShaderSourceANGLE(PlatformGLObject arg0) final;
     void drawBuffersEXT(GCGLSpan<const GCGLenum> bufs) final;
     void getInternalformativ(GCGLenum target, GCGLenum internalformat, GCGLenum pname, GCGLSpan<GCGLint> params) final;
@@ -367,7 +366,6 @@ private:
     HashSet<String> m_requestableExtensions;
 
     HashSet<String> m_enabledExtensions;
-    GCGLenum m_errorWhenContextIsLost = NO_ERROR;
     IPC::StreamClientConnection m_streamConnection;
 };
 

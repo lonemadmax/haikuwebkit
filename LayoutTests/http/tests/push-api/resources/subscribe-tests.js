@@ -38,34 +38,65 @@ async function testServiceWorkerSubscribe(registration, domExceptionName)
         log(`FAIL: service worker subscribe should be ${expected}, but was ${result}`);
 }
 
-async function testDocumentSubscribe(registration, domExceptionName)
+async function testDocumentSubscribeWithUserGesture(registration, domExceptionName, domMessage)
 {
-    let expected = domExceptionName ? `error: ${domExceptionName}` : "successful";
+    await testDocumentSubscribeImpl(registration, domExceptionName, domMessage, true);
+}
+
+async function testDocumentSubscribeWithoutUserGesture(registration, domExceptionName, domMessage)
+{
+    await testDocumentSubscribeImpl(registration, domExceptionName, domMessage, false);
+}
+
+async function testDocumentSubscribeImpl(registration, domExceptionName, domMessage, withUserGesture)
+{
+    let expected = "successful";
+    if (domMessage)
+        expected = `error: ${domExceptionName}: ${domMessage}`
+    else if (domExceptionName)
+        expected = `error: ${domExceptionName}`
+
     let result = null;
 
     let subscription = null;
     try {
-        // With default permissions, PushManager should request permission from TestController.
-        // TestController always calls WKNotificationPermissionRequestAllow so this should succeed.
-        subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: VALID_SERVER_KEY
-        });
+        let subscriptionPromise = null;
+        let subscribeFunc = function() {
+            // With default permissions, PushManager should request permission from TestController.
+            // TestController always calls WKNotificationPermissionRequestAllow so this should succeed.
+            subscriptionPromise = registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: VALID_SERVER_KEY
+            });
+        }
+
+        if (!window.internals)
+            subscribeFunc();
+        else if (withUserGesture)
+            internals.withUserGesture(subscribeFunc);
+        else
+            internals.withoutUserGesture(subscribeFunc);
+
+        subscription = await subscriptionPromise;
         result = 'successful';
     } catch (e) {
         // Layout tests aren't connected to webpushd, so subscribe is successful if it gets to the
         // point where we attempt to communicate with webpushd (an AbortError).
         if (e.name == 'AbortError')
             result = 'successful';
+        else if (domMessage)
+            result = `error: ${e?.name}: ${e?.message}`
         else
-            result = 'error: ' + (e ? e.name : null);
+            result = `error: ${e?.name}`;
     }
 
     if (subscription)
         await subscription.unsubscribe();
 
+    let gestureDescription = withUserGesture ? 'with user gesture' : 'without user gesture';
+
     if (result == expected)
-        log(`PASS: document subscribe was ${expected}`);
+        log(`PASS: document subscribe ${gestureDescription} was ${expected}`);
     else
-        log(`FAIL: document subscribe should be ${expected}, but was ${result}`);
+        log(`FAIL: document subscribe ${gestureDescription} should be ${expected}, but was ${result}`);
 }

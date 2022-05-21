@@ -33,18 +33,19 @@
 #import "IntRect.h"
 #import "Logging.h"
 #import "MediaConstraints.h"
-#import "MediaSampleAVFObjC.h"
 #import "PlatformLayer.h"
 #import "RealtimeMediaSourceCenter.h"
 #import "RealtimeMediaSourceSettings.h"
 #import "RealtimeVideoSource.h"
 #import "RealtimeVideoUtilities.h"
+#import "VideoFrameCV.h"
 #import <AVFoundation/AVCaptureDevice.h>
 #import <AVFoundation/AVCaptureInput.h>
 #import <AVFoundation/AVCaptureOutput.h>
 #import <AVFoundation/AVCaptureSession.h>
 #import <AVFoundation/AVError.h>
 #import <objc/runtime.h>
+#import <pal/avfoundation/MediaTimeAVFoundation.h>
 #import <pal/spi/cocoa/AVFoundationSPI.h>
 
 #import "CoreVideoSoftLink.h"
@@ -250,7 +251,7 @@ const RealtimeMediaSourceSettings& AVVideoCaptureSource::settings()
     settings.setFrameRate(frameRate());
 
     auto size = this->size();
-    if (m_sampleRotation == MediaSample::VideoRotation::Left || m_sampleRotation == MediaSample::VideoRotation::Right)
+    if (m_videoFrameRotation == VideoFrame::Rotation::Left || m_videoFrameRotation == VideoFrame::Rotation::Right)
         size = size.transposedSize();
     
     settings.setWidth(size.width());
@@ -422,13 +423,13 @@ bool AVVideoCaptureSource::setupSession()
 
 #if ENABLE(APP_PRIVACY_REPORT)
     auto identity = RealtimeMediaSourceCenter::singleton().identity();
-    if (identity && [PAL::allocAVCaptureSessionInstance() respondsToSelector:@selector(initWithAssumedIdentity:)])
+    if (identity && [PAL::getAVCaptureSessionClass() instancesRespondToSelector:@selector(initWithAssumedIdentity:)])
         m_session = adoptNS([PAL::allocAVCaptureSessionInstance() initWithAssumedIdentity:identity.get()]);
     else
-        m_session = adoptNS([PAL::allocAVCaptureSessionInstance() init]);
 #else
-    m_session = adoptNS([PAL::allocAVCaptureSessionInstance() init]);
+        m_session = adoptNS([PAL::allocAVCaptureSessionInstance() init]);
 #endif
+
 #if PLATFORM(IOS_FAMILY)
     PAL::AVCaptureSessionSetAuthorizedToUseCameraInMultipleForegroundAppLayout(m_session.get());
 #endif
@@ -495,7 +496,7 @@ bool AVVideoCaptureSource::setupCaptureSession()
     setSessionSizeAndFrameRate();
 
     m_sensorOrientation = sensorOrientationFromVideoOutput(m_videoOutput.get());
-    computeSampleRotation();
+    computeVideoFrameRotation();
 
     return true;
 }
@@ -520,38 +521,38 @@ void AVVideoCaptureSource::orientationChanged(int orientation)
 {
     ASSERT(orientation == 0 || orientation == 90 || orientation == -90 || orientation == 180);
     m_deviceOrientation = orientation;
-    computeSampleRotation();
-    ALWAYS_LOG_IF(loggerPtr(), LOGIDENTIFIER, "rotation = ", m_sampleRotation, ", orientation = ", m_deviceOrientation);
+    computeVideoFrameRotation();
+    ALWAYS_LOG_IF(loggerPtr(), LOGIDENTIFIER, "rotation = ", m_videoFrameRotation, ", orientation = ", m_deviceOrientation);
 }
 
-void AVVideoCaptureSource::computeSampleRotation()
+void AVVideoCaptureSource::computeVideoFrameRotation()
 {
     bool frontCamera = [device() position] == AVCaptureDevicePositionFront;
-    MediaSample::VideoRotation sampleRotation;
+    VideoFrame::Rotation videoFrameRotation;
     switch (m_sensorOrientation - m_deviceOrientation) {
     case 0:
-        sampleRotation = MediaSample::VideoRotation::None;
+        videoFrameRotation = VideoFrame::Rotation::None;
         break;
     case 180:
     case -180:
-        sampleRotation = MediaSample::VideoRotation::UpsideDown;
+        videoFrameRotation = VideoFrame::Rotation::UpsideDown;
         break;
     case 90:
     case -270:
-        sampleRotation = frontCamera ? MediaSample::VideoRotation::Left : MediaSample::VideoRotation::Right;
+        videoFrameRotation = frontCamera ? VideoFrame::Rotation::Left : VideoFrame::Rotation::Right;
         break;
     case -90:
     case 270:
-        sampleRotation = frontCamera ? MediaSample::VideoRotation::Right : MediaSample::VideoRotation::Left;
+        videoFrameRotation = frontCamera ? VideoFrame::Rotation::Right : VideoFrame::Rotation::Left;
         break;
     default:
         ASSERT_NOT_REACHED();
-        sampleRotation = MediaSample::VideoRotation::None;
+        videoFrameRotation = VideoFrame::Rotation::None;
     }
-    if (sampleRotation == m_sampleRotation)
+    if (videoFrameRotation == m_videoFrameRotation)
         return;
 
-    m_sampleRotation = sampleRotation;
+    m_videoFrameRotation = videoFrameRotation;
     notifySettingsDidChangeObservers({ RealtimeMediaSourceSettings::Flag::Width, RealtimeMediaSourceSettings::Flag::Height });
 }
 
@@ -560,12 +561,12 @@ void AVVideoCaptureSource::captureOutputDidOutputSampleBufferFromConnection(AVCa
     if (++m_framesCount <= framesToDropWhenStarting)
         return;
 
-    auto sample = MediaSampleAVFObjC::create(sampleBuffer, m_sampleRotation, [captureConnection isVideoMirrored]);
-    m_buffer = &sample.get();
-    setIntrinsicSize(expandedIntSize(sample->presentationSize()));
-    VideoSampleMetadata metadata;
+    auto videoFrame = VideoFrameCV::create(sampleBuffer, [captureConnection isVideoMirrored], m_videoFrameRotation);
+    m_buffer = &videoFrame.get();
+    setIntrinsicSize(expandedIntSize(videoFrame->presentationSize()));
+    VideoFrameTimeMetadata metadata;
     metadata.captureTime = MonotonicTime::now().secondsSinceEpoch();
-    dispatchMediaSampleToObservers(WTFMove(sample), metadata);
+    dispatchVideoFrameToObservers(WTFMove(videoFrame), metadata);
 }
 
 void AVVideoCaptureSource::captureSessionIsRunningDidChange(bool state)

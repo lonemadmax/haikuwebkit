@@ -710,6 +710,7 @@ PdfJSViewerEnabled:
   type: bool
   humanReadableName: "Enable PDF.js viewer"
   humanReadableDescription: "Enable PDF.js viewer"
+  condition: ENABLE(PDFJS)
   defaultValue:
     WebKitLegacy:
       default: false
@@ -745,6 +746,19 @@ PreferInlineTextSelectionInImages:
       default: true
     WebKit:
       "HAVE(UIKIT_WEBKIT_INTERNALS)": false
+      default: true
+
+PreferSandboxedMediaParsing:
+  type: bool
+  humanReadableName: "Prefer Sandboxed Parsing of Media"
+  humanReadableDescription: "Prefer parsing media out-of-process in a sandboxed service"
+  condition: ENABLE(VIDEO)
+  defaultValue:
+    WebCore:
+      default: true
+    WebKitLegacy:
+      default: true
+    WebKit:
       default: true
 
 ReplayCGDisplayListsIntoBackingStore:
@@ -830,6 +844,19 @@ ServiceWorkersEnabled:
       default: false
     WebCore:
       default: false
+
+ServiceWorkersUserGestureEnabled:
+  type: bool
+  humanReadableName: "Validate UserGesture requirements in Service Workers"
+  humanReadableDescription: "Validate UserGesture requirements in Service Workers"
+  condition: ENABLE(SERVICE_WORKER)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: true
+    WebCore:
+      default: true
 
 SimpleLineLayoutEnabled:
   type: bool

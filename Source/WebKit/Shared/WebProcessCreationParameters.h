@@ -143,8 +143,6 @@ struct WebProcessCreationParameters {
     bool hasRichContentServices { false };
 #endif
 
-    Seconds terminationTimeout;
-
     TextCheckerState textCheckerState;
 
 #if PLATFORM(COCOA)
@@ -215,6 +213,7 @@ struct WebProcessCreationParameters {
 #endif
 
 #if PLATFORM(IOS_FAMILY)
+    Vector<SandboxExtension::Handle> dynamicMachExtensionHandles;
     Vector<SandboxExtension::Handle> dynamicIOKitExtensionHandles;
 #endif
 

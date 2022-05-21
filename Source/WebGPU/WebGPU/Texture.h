@@ -30,34 +30,36 @@
 #import <wtf/RefCounted.h>
 #import <wtf/RefPtr.h>
 
+struct WGPUTextureImpl {
+};
+
 namespace WebGPU {
 
 class TextureView;
 
-class Texture : public RefCounted<Texture> {
+class Texture : public WGPUTextureImpl, public RefCounted<Texture> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<Texture> create(id<MTLTexture> texture)
+    static Ref<Texture> create(id<MTLTexture> texture, const WGPUTextureDescriptor& descriptor)
     {
-        return adoptRef(*new Texture(texture));
+        return adoptRef(*new Texture(texture, descriptor));
     }
 
     ~Texture();
 
     RefPtr<TextureView> createView(const WGPUTextureViewDescriptor&);
     void destroy();
-    void setLabel(const char*);
+    void setLabel(String&&);
 
     id<MTLTexture> texture() const { return m_texture; }
+    const WGPUTextureDescriptor& descriptor() const { return m_descriptor; }
 
 private:
-    Texture(id<MTLTexture>);
+    Texture(id<MTLTexture>, const WGPUTextureDescriptor&);
 
-    id<MTLTexture> m_texture { nil };
+    const id<MTLTexture> m_texture { nil };
+
+    const WGPUTextureDescriptor m_descriptor { }; // "The GPUTextureDescriptor describing this texture."
 };
 
 } // namespace WebGPU
-
-struct WGPUTextureImpl {
-    Ref<WebGPU::Texture> texture;
-};

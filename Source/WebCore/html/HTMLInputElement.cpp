@@ -36,6 +36,7 @@
 #include "CSSValuePool.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
+#include "DOMWindow.h"
 #include "DateComponents.h"
 #include "DateTimeChooser.h"
 #include "DocumentInlines.h"
@@ -492,14 +493,14 @@ void HTMLInputElement::updateFocusAppearance(SelectionRestorationMode restoratio
 void HTMLInputElement::setDefaultSelectionAfterFocus(SelectionRestorationMode restorationMode, SelectionRevealMode revealMode)
 {
     ASSERT(isTextField());
-    int start = 0;
+    unsigned start = 0;
     auto direction = SelectionHasNoDirection;
     auto* frame = document().frame();
     if (frame && frame->editor().behavior().shouldMoveSelectionToEndWhenFocusingTextInput()) {
-        start = std::numeric_limits<int>::max();
+        start = std::numeric_limits<unsigned>::max();
         direction = SelectionHasForwardDirection;
     }
-    int end = restorationMode == SelectionRestorationMode::PlaceCaretAtStart ? start : std::numeric_limits<int>::max();
+    unsigned end = restorationMode == SelectionRestorationMode::PlaceCaretAtStart ? start : std::numeric_limits<unsigned>::max();
     setSelectionRange(start, end, direction, revealMode, Element::defaultFocusTextStateChangeIntent());
 }
 
@@ -1064,7 +1065,7 @@ void HTMLInputElement::setValueForUser(const String& value)
     setValue(value, DispatchChangeEvent);
 }
 
-ExceptionOr<void> HTMLInputElement::setValue(const String& value, TextFieldEventBehavior eventBehavior)
+ExceptionOr<void> HTMLInputElement::setValue(const String& value, TextFieldEventBehavior eventBehavior, TextControlSetValueSelection selection)
 {
     if (isFileUpload() && !value.isEmpty())
         return Exception { InvalidStateError };
@@ -1079,11 +1080,16 @@ ExceptionOr<void> HTMLInputElement::setValue(const String& value, TextFieldEvent
 
     setLastChangeWasNotUserEdit();
     setFormControlValueMatchesRenderer(false);
-    m_inputType->setValue(sanitizedValue, valueChanged, eventBehavior);
+    m_inputType->setValue(sanitizedValue, valueChanged, eventBehavior, selection);
 
     bool wasModifiedProgrammatically = eventBehavior == DispatchNoEvent;
-    if (wasModifiedProgrammatically)
+    if (wasModifiedProgrammatically) {
         resignStrongPasswordAppearance();
+
+        if (m_isAutoFilledAndObscured)
+            setAutoFilledAndObscured(false);
+    }
+
     return { };
 }
 
@@ -1144,8 +1150,15 @@ void HTMLInputElement::setValueFromRenderer(const String& value)
 
     // We clear certain AutoFill flags here because this catches user edits.
     setAutoFilled(false);
-    if (m_isAutoFilledAndViewable && value.isEmpty())
+
+    if (!value.isEmpty())
+        return;
+
+    if (m_isAutoFilledAndViewable)
         setAutoFilledAndViewable(false);
+
+    if (m_isAutoFilledAndObscured)
+        setAutoFilledAndObscured(false);
 }
 
 void HTMLInputElement::willDispatchEvent(Event& event, InputElementClickState& state)
@@ -1270,6 +1283,28 @@ bool HTMLInputElement::isURLAttribute(const Attribute& attribute) const
     return attribute.name() == srcAttr || attribute.name() == formactionAttr || HTMLTextFormControlElement::isURLAttribute(attribute);
 }
 
+ExceptionOr<void> HTMLInputElement::showPicker()
+{
+    auto* frame = document().frame();
+    if (!frame)
+        return { };
+    
+    // In cross-origin iframes it should throw a "SecurityError" DOMException except on file and color. In same-origin iframes it should work fine.
+    // https://github.com/whatwg/html/issues/6909#issuecomment-917138991
+    if (!m_inputType->allowsShowPickerAcrossFrames()) {
+        Frame& topFrame = frame->tree().top();
+        if (!frame->document()->securityOrigin().isSameOriginAs(topFrame.document()->securityOrigin()))
+            return Exception { SecurityError, "Input showPicker() called from cross-origin iframe." };
+    }
+
+    auto* window = frame->window();
+    if (!window || !window->hasTransientActivation())
+        return Exception { NotAllowedError, "Input showPicker() requires a user gesture." };
+
+    m_inputType->showPicker();
+    return { };
+}
+
 String HTMLInputElement::defaultValue() const
 {
     return attributeWithoutSynchronization(valueAttr);
@@ -1285,7 +1320,7 @@ static inline bool isRFC2616TokenCharacter(UChar ch)
     return isASCII(ch) && ch > ' ' && ch != '"' && ch != '(' && ch != ')' && ch != ',' && ch != '/' && (ch < ':' || ch > '@') && (ch < '[' || ch > ']') && ch != '{' && ch != '}' && ch != 0x7f;
 }
 
-static bool isValidMIMEType(const String& type)
+static bool isValidMIMEType(StringView type)
 {
     size_t slashPosition = type.find('/');
     if (slashPosition == notFound || !slashPosition || slashPosition == type.length() - 1)
@@ -1297,21 +1332,21 @@ static bool isValidMIMEType(const String& type)
     return true;
 }
 
-static bool isValidFileExtension(const String& type)
+static bool isValidFileExtension(StringView type)
 {
     if (type.length() < 2)
         return false;
     return type[0] == '.';
 }
 
-static Vector<String> parseAcceptAttribute(const String& acceptString, bool (*predicate)(const String&))
+static Vector<String> parseAcceptAttribute(StringView acceptString, bool (*predicate)(StringView))
 {
     Vector<String> types;
     if (acceptString.isEmpty())
         return types;
 
-    for (auto& splitType : acceptString.split(',')) {
-        String trimmedType = stripLeadingAndTrailingHTMLSpaces(splitType);
+    for (auto splitType : acceptString.split(',')) {
+        auto trimmedType = splitType.stripLeadingAndTrailingMatchedCharacters(isHTMLSpace<UChar>);
         if (trimmedType.isEmpty())
             continue;
         if (!predicate(trimmedType))
@@ -2069,7 +2104,7 @@ void HTMLInputElement::invalidateStyleOnFocusChangeIfNeeded()
         invalidateStyleForSubtreeInternal();
 }
 
-std::optional<int> HTMLInputElement::selectionStartForBindings() const
+std::optional<unsigned> HTMLInputElement::selectionStartForBindings() const
 {
     if (!canHaveSelection() || !m_inputType->supportsSelectionAPI())
         return std::nullopt;
@@ -2077,7 +2112,7 @@ std::optional<int> HTMLInputElement::selectionStartForBindings() const
     return selectionStart();
 }
 
-ExceptionOr<void> HTMLInputElement::setSelectionStartForBindings(std::optional<int> start)
+ExceptionOr<void> HTMLInputElement::setSelectionStartForBindings(std::optional<unsigned> start)
 {
     if (!canHaveSelection() || !m_inputType->supportsSelectionAPI())
         return Exception { InvalidStateError, "The input element's type ('" + m_inputType->formControlType() + "') does not support selection." };
@@ -2086,7 +2121,7 @@ ExceptionOr<void> HTMLInputElement::setSelectionStartForBindings(std::optional<i
     return { };
 }
 
-std::optional<int> HTMLInputElement::selectionEndForBindings() const
+std::optional<unsigned> HTMLInputElement::selectionEndForBindings() const
 {
     if (!canHaveSelection() || !m_inputType->supportsSelectionAPI())
         return std::nullopt;
@@ -2094,7 +2129,7 @@ std::optional<int> HTMLInputElement::selectionEndForBindings() const
     return selectionEnd();
 }
 
-ExceptionOr<void> HTMLInputElement::setSelectionEndForBindings(std::optional<int> end)
+ExceptionOr<void> HTMLInputElement::setSelectionEndForBindings(std::optional<unsigned> end)
 {
     if (!canHaveSelection() || !m_inputType->supportsSelectionAPI())
         return Exception { InvalidStateError, "The input element's type ('" + m_inputType->formControlType() + "') does not support selection." };
@@ -2120,7 +2155,7 @@ ExceptionOr<void> HTMLInputElement::setSelectionDirectionForBindings(const Strin
     return { };
 }
 
-ExceptionOr<void> HTMLInputElement::setSelectionRangeForBindings(int start, int end, const String& direction)
+ExceptionOr<void> HTMLInputElement::setSelectionRangeForBindings(unsigned start, unsigned end, const String& direction)
 {
     if (!canHaveSelection() || !m_inputType->supportsSelectionAPI())
         return Exception { InvalidStateError, "The input element's type ('" + m_inputType->formControlType() + "') does not support selection." };

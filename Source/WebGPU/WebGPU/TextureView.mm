@@ -26,6 +26,7 @@
 #import "config.h"
 #import "TextureView.h"
 
+#import "APIConversions.h"
 
 namespace WebGPU {
 
@@ -36,19 +37,21 @@ TextureView::TextureView(id<MTLTexture> texture)
 
 TextureView::~TextureView() = default;
 
-void TextureView::setLabel(const char* label)
+void TextureView::setLabel(String&& label)
 {
-    m_texture.label = [NSString stringWithCString:label encoding:NSUTF8StringEncoding];
+    m_texture.label = label;
 }
 
-}
+} // namespace WebGPU
+
+#pragma mark WGPU Stubs
 
 void wgpuTextureViewRelease(WGPUTextureView textureView)
 {
-    UNUSED_PARAM(textureView);
+    WebGPU::fromAPI(textureView).deref();
 }
 
 void wgpuTextureViewSetLabel(WGPUTextureView textureView, const char* label)
 {
-    textureView->textureView->setLabel(label);
+    WebGPU::fromAPI(textureView).setLabel(WebGPU::fromAPI(label));
 }

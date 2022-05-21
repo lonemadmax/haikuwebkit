@@ -79,11 +79,6 @@ String::String(const char* nullTerminatedString)
         m_impl = StringImpl::create(reinterpret_cast<const LChar*>(nullTerminatedString));
 }
 
-String::String(ASCIILiteral characters)
-    : m_impl(StringImpl::createFromLiteral(characters))
-{
-}
-
 void String::append(const String& otherString)
 {
     // FIXME: This is extremely inefficient. So much so that we might want to take this out of String's API.
@@ -465,31 +460,31 @@ String String::number(unsigned long long number)
 String String::numberToStringFixedPrecision(float number, unsigned precision, TrailingZerosTruncatingPolicy trailingZerosTruncatingPolicy)
 {
     NumberToStringBuffer buffer;
-    return numberToFixedPrecisionString(number, precision, buffer, trailingZerosTruncatingPolicy == TruncateTrailingZeros);
+    return String { numberToFixedPrecisionString(number, precision, buffer, trailingZerosTruncatingPolicy == TruncateTrailingZeros) };
 }
 
 String String::numberToStringFixedPrecision(double number, unsigned precision, TrailingZerosTruncatingPolicy trailingZerosTruncatingPolicy)
 {
     NumberToStringBuffer buffer;
-    return numberToFixedPrecisionString(number, precision, buffer, trailingZerosTruncatingPolicy == TruncateTrailingZeros);
+    return String { numberToFixedPrecisionString(number, precision, buffer, trailingZerosTruncatingPolicy == TruncateTrailingZeros) };
 }
 
 String String::number(float number)
 {
     NumberToStringBuffer buffer;
-    return numberToString(number, buffer);
+    return String { numberToString(number, buffer) };
 }
 
 String String::number(double number)
 {
     NumberToStringBuffer buffer;
-    return numberToString(number, buffer);
+    return String { numberToString(number, buffer) };
 }
 
 String String::numberToStringFixedWidth(double number, unsigned decimalPlaces)
 {
     NumberToStringBuffer buffer;
-    return numberToFixedWidthString(number, decimalPlaces, buffer);
+    return String { numberToFixedWidthString(number, decimalPlaces, buffer) };
 }
 
 double String::toDouble(bool* ok) const
@@ -537,7 +532,7 @@ bool String::isSafeToSendToAnotherThread() const
 }
 
 template<bool allowEmptyEntries>
-inline Vector<String> String::splitInternal(const String& separator) const
+inline Vector<String> String::splitInternal(StringView separator) const
 {
     Vector<String> result;
 
@@ -591,7 +586,7 @@ Vector<String> String::split(UChar separator) const
     return splitInternal<false>(separator);
 }
 
-Vector<String> String::split(const String& separator) const
+Vector<String> String::split(StringView separator) const
 {
     return splitInternal<false>(separator);
 }
@@ -606,7 +601,7 @@ Vector<String> String::splitAllowingEmptyEntries(UChar separator) const
     return splitInternal<true>(separator);
 }
 
-Vector<String> String::splitAllowingEmptyEntries(const String& separator) const
+Vector<String> String::splitAllowingEmptyEntries(StringView separator) const
 {
     return splitInternal<true>(separator);
 }

@@ -35,6 +35,7 @@
 #include "NetworkResourceLoadParameters.h"
 #include "PrivateRelayed.h"
 #include <WebCore/ContentFilterClient.h>
+#include <WebCore/ContentFilterUnblockHandler.h>
 #include <WebCore/ContentSecurityPolicyClient.h>
 #include <WebCore/CrossOriginAccessControl.h>
 #include <WebCore/PrivateClickMeasurement.h>
@@ -165,6 +166,8 @@ public:
     void deref() const final { RefCounted<NetworkResourceLoader>::deref(); }
 #endif
 
+    void willSendServiceWorkerRedirectedRequest(WebCore::ResourceRequest&&, WebCore::ResourceRequest&& redirectRequest, WebCore::ResourceResponse&&);
+
 private:
     NetworkResourceLoader(NetworkResourceLoadParameters&&, NetworkConnectionToWebProcess&, Messages::NetworkConnectionToWebProcess::PerformSynchronousLoadDelayedReply&&);
 
@@ -239,8 +242,12 @@ private:
     ResourceLoadInfo resourceLoadInfo();
 
 #if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
-    void startContentFiltering(WebCore::ResourceRequest&);
+    bool startContentFiltering(WebCore::ResourceRequest&);
 #endif
+
+    enum class IsFromServiceWorker : bool { No, Yes };
+    void willSendRedirectedRequestInternal(WebCore::ResourceRequest&&, WebCore::ResourceRequest&& redirectRequest, WebCore::ResourceResponse&&, IsFromServiceWorker);
+    std::optional<WebCore::NetworkLoadMetrics> computeResponseMetrics(const WebCore::ResourceResponse&) const;
 
     const NetworkResourceLoadParameters m_parameters;
 
@@ -289,6 +296,8 @@ private:
 
 #if ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
     std::unique_ptr<WebCore::ContentFilter> m_contentFilter;
+    WebCore::ContentFilterUnblockHandler m_unblockHandler;
+    String m_unblockRequestDeniedScript;
 #endif
 
     PrivateRelayed m_privateRelayed { PrivateRelayed::No };

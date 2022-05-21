@@ -401,7 +401,7 @@ void PageConsoleClient::screenshot(JSC::JSGlobalObject* lexicalGlobalObject, Ref
             // FIXME: <https://webkit.org/b/180833> Web Inspector: support OffscreenCanvas for Canvas related operations
         } else {
             String base64;
-            if (possibleTarget.getString(lexicalGlobalObject, base64) && base64.startsWithIgnoringASCIICase("data:"_s) && base64.length() > 5) {
+            if (possibleTarget.getString(lexicalGlobalObject, base64) && base64.startsWithIgnoringASCIICase("data:") && base64.length() > 5) {
                 target = possibleTarget;
                 dataURL = base64;
             }
@@ -411,8 +411,8 @@ void PageConsoleClient::screenshot(JSC::JSGlobalObject* lexicalGlobalObject, Ref
     if (UNLIKELY(InspectorInstrumentation::hasFrontends())) {
         if (!target) {
             // If no target is provided, capture an image of the viewport.
-            IntRect imageRect(IntPoint::zero(), m_page.mainFrame().view()->sizeForVisibleContent());
-            if (auto snapshot = WebCore::snapshotFrameRect(m_page.mainFrame(), imageRect, { { SnapshotFlags::InViewCoordinates }, PixelFormat::BGRA8, DestinationColorSpace::SRGB() }))
+            auto viewportRect = m_page.mainFrame().view()->unobscuredContentRect();
+            if (auto snapshot = WebCore::snapshotFrameRect(m_page.mainFrame(), viewportRect, { { }, PixelFormat::BGRA8, DestinationColorSpace::SRGB() }))
                 dataURL = snapshot->toDataURL("image/png"_s, std::nullopt, PreserveResolution::Yes);
         }
 

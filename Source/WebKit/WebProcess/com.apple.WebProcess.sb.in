@@ -32,6 +32,10 @@
  
 #include "Shared/Sandbox/preferences.sb"
 
+#if ENABLE(SYSTEM_CONTENT_PATH_SANDBOX_RULES)
+#include <WebKitAdditions/SystemContentSandbox-macos.defs>
+#endif
+ 
 ;;;
 ;;; The following rules were originally contained in 'system.sb'. We are duplicating them here so we can
 ;;; remove unneeded sandbox extensions.
@@ -961,8 +965,10 @@
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED <= 110000
 (allow mach-lookup
-    (xpc-service-name "com.apple.audio.SandboxHelper")
-)
+    (xpc-service-name "com.apple.audio.SandboxHelper"))
+#else
+(deny mach-lookup (with no-log)
+    (xpc-service-name "com.apple.audio.SandboxHelper"))
 #endif
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED < 110000
@@ -1095,6 +1101,11 @@
 ;; This is to avoid warnings attempting to create extensions for these resources.
 (allow-read-directory-and-issue-read-extensions "/System/Library/PrivateFrameworks/WebInspectorUI.framework")
 
+#if USE(SYSTEM_CONTENT_PATH)
+(map allow-read-directory-and-issue-read-extensions
+    read-directory-and-issue-read-extension-secondary-paths)
+#endif
+
 ;; Sandbox extensions
 (define (apply-read-and-issue-extension op path-filter)
     (op file-read* path-filter)
@@ -1177,38 +1188,6 @@
         (require-all
             (extension "com.apple.webkit.extension.iokit")
             (iokit-user-client-class "AppleUpstreamUserClient")
-        )
-    )
-)
-
-(if (equal? (param "ENABLE_SANDBOX_MESSAGE_FILTER") "YES")
-    (allow iokit-open
-        (require-all
-            (extension "com.apple.webkit.extension.iokit")
-            (iokit-user-client-class "RootDomainUserClient") ;; Needed by Media playback
-        )
-        (apply-message-filter
-            (deny (with telemetry) (with message "RootDomainUserClient")
-                iokit-external-method
-            )
-            (allow iokit-external-method
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000
-                (iokit-method-number
-                    3
-                )
-#endif
-            )
-            (deny (with telemetry)
-                iokit-async-external-method
-                iokit-external-trap
-            )
-        )
-    )
-    ; else
-    (allow iokit-open
-        (require-all
-            (extension "com.apple.webkit.extension.iokit")
-            (iokit-user-client-class "RootDomainUserClient") ;; Needed by Media playback
         )
     )
 )
@@ -1390,8 +1369,10 @@
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED < 120000
 (allow mach-lookup
-    (global-name "com.apple.tccd.system")
-)
+    (global-name "com.apple.tccd.system"))
+#else
+(deny mach-lookup (with no-log)
+    (global-name "com.apple.tccd.system"))
 #endif
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED <= 110000
@@ -1510,13 +1491,11 @@
 #endif
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 120000
-(deny mach-lookup
-    (global-name-prefix "com.apple.distributed_notifications")
-)
+(deny mach-lookup (with no-log)
+    (global-name-prefix "com.apple.distributed_notifications"))
 #else
 (allow mach-lookup
-    (global-name-prefix "com.apple.distributed_notifications")
-)
+    (global-name-prefix "com.apple.distributed_notifications"))
 #endif
 
 (allow file-read-data
@@ -1770,8 +1749,10 @@
     (require-all
         (extension "com.apple.webkit.extension.mach")
         (global-name
+#if !ENABLE(CONTENT_FILTERING_IN_NETWORKING_PROCESS)
             "com.apple.nehelper"
             "com.apple.nesessionmanager.content-filter"
+#endif
             "com.apple.webinspector"
             "com.apple.coreservices.launchservicesd"
             "com.apple.iconservices"
@@ -1786,6 +1767,9 @@
     (require-all
         (require-not (extension "com.apple.webkit.extension.mach"))
         (global-name "com.apple.audio.AudioComponentRegistrar")))
+#else
+(deny mach-lookup (with no-log)
+    (global-name "com.apple.audio.AudioComponentRegistrar"))
 #endif
 
 ;; Caches for LaunchServices data needs to be able to mark the directory as 'hot'.
@@ -1876,7 +1860,24 @@
 (disable-syscall-inference)
 #endif
 
-(define (syscall-unix-common)
+#if HAVE(SANDBOX_STATE_FLAGS)
+(deny user-preference-read (with enable-state-flag "WebContentProcessLaunched")
+    (preference-domain "com.apple.WebKit.WebContent.Launch"))
+#endif
+
+(define (syscall-unix-only-in-use-during-launch)
+    (syscall-number
+        SYS_csops
+        SYS_csrctl
+        SYS_fsgetpath
+        SYS_getaudit_addr
+        SYS_getfsstat64
+        SYS_getrlimit
+        SYS_kdebug_trace
+        SYS_pathconf
+        SYS_statfs64))
+
+(define (syscall-unix-in-use-after-launch)
     (syscall-number
         SYS___disable_threadsignal
         SYS___mac_syscall
@@ -1888,9 +1889,7 @@
         SYS_bsdthread_terminate
         SYS_close
         SYS_close_nocancel
-        SYS_csops
         SYS_csops_audittoken
-        SYS_csrctl
         SYS_exit
         SYS_faccessat ;; <rdar://problem/56690456>
         SYS_fcntl
@@ -1899,28 +1898,23 @@
         SYS_fileport_makefd
         SYS_flock
         SYS_fsetxattr ;; <rdar://problem/56332491>
-        SYS_fsgetpath
         SYS_fstat64
         SYS_fstatat64
         SYS_fstatfs64
         SYS_ftruncate
         SYS_getattrlist
         SYS_getattrlistbulk
-        SYS_getaudit_addr
         SYS_getdirentries64
         SYS_getentropy
         SYS_geteuid
-        SYS_getfsstat64
         SYS_getgid
         SYS_gethostuuid
-        SYS_getrlimit
         SYS_getrusage
         SYS_gettimeofday
         SYS_getuid
         SYS_getxattr
         SYS_ioctl
         SYS_issetugid
-        SYS_kdebug_trace
         SYS_kdebug_trace64
         SYS_kdebug_trace_string ;; Needed for performance sampling, see <rdar://problem/48829655>.
         SYS_kevent_id
@@ -1943,7 +1937,6 @@
         SYS_open
         SYS_open_nocancel
         SYS_openat
-        SYS_pathconf
         SYS_pread
         SYS_proc_info
         SYS_psynch_cvbroad
@@ -1961,9 +1954,8 @@
         SYS_sendto
         SYS_sigaltstack
         SYS_sigprocmask
-        SYS_stat64
-        SYS_statfs64
         SYS_socket
+        SYS_stat64
         SYS_sysctlbyname
         SYS_thread_selfid
 #if !PLATFORM(MAC)
@@ -2009,6 +2001,8 @@
 #if !PLATFORM(MAC) || __MAC_OS_X_VERSION_MIN_REQUIRED < 120000
         SYS_rmdir
 #endif
+        ;; FIXME: SYS_setsockopt can be removed when contentfiltering has moved to the Network process
+        SYS_setsockopt ;; <rdar://90249455>
         SYS_shm_open
         SYS_sigaction
         SYS_sysctl
@@ -2027,9 +2021,21 @@
 ))
 
 (when (defined? 'syscall-unix)
-    (deny syscall-unix (with send-signal SIGKILL))
+    (deny syscall-unix (with telemetry) (with send-signal SIGKILL))
     (allow syscall-unix
-        (syscall-unix-common))
+        (syscall-unix-in-use-after-launch)
+        (syscall-unix-only-in-use-during-launch))
+
+#if HAVE(SANDBOX_STATE_FLAGS)
+    (with-filter (state-flag "WebContentProcessLaunched")
+        (deny syscall-unix
+            (syscall-unix-only-in-use-during-launch))
+        (allow syscall-unix
+            (with report)
+            (with telemetry)
+            (with message "Unix syscall used after launch")
+            (syscall-unix-only-in-use-during-launch)))
+#endif
 
     (if (equal? (param "CPU") "arm64")
         (begin

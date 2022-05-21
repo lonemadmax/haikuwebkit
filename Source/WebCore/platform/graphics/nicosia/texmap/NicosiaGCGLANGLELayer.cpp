@@ -32,6 +32,7 @@
 #if USE(NICOSIA) && USE(TEXTURE_MAPPER)
 
 #include "ANGLEHeaders.h"
+#include "GraphicsContextGLTextureMapperANGLE.h"
 #include "ImageBuffer.h"
 #include "Logging.h"
 #include "TextureMapperGL.h"
@@ -44,11 +45,6 @@ using namespace WebCore;
 
 void GCGLANGLELayer::swapBuffersIfNeeded()
 {
-    if (m_context.layerComposited())
-        return;
-
-    m_context.prepareTexture();
-
     auto& proxy = downcast<Nicosia::ContentLayerTextureMapperImpl>(contentLayer().impl()).proxy();
     auto size = m_context.getInternalFramebufferSize();
 
@@ -65,8 +61,6 @@ void GCGLANGLELayer::swapBuffersIfNeeded()
             ASSERT(is<TextureMapperPlatformLayerProxyGL>(proxy));
             downcast<TextureMapperPlatformLayerProxyGL>(proxy).pushNextBuffer(makeUnique<TextureMapperPlatformLayerDmabuf>(size, format, stride, fd));
         }
-
-        m_context.markLayerComposited();
         return;
     }
 
@@ -89,10 +83,9 @@ void GCGLANGLELayer::swapBuffersIfNeeded()
         layerBuffer->textureGL().setPendingContents(ImageBuffer::sinkIntoImage(WTFMove(imageBuffer)));
         downcast<TextureMapperPlatformLayerProxyGL>(proxy).pushNextBuffer(WTFMove(layerBuffer));
     }
-    m_context.markLayerComposited();
 }
 
-GCGLANGLELayer::GCGLANGLELayer(GraphicsContextGLANGLE& context)
+GCGLANGLELayer::GCGLANGLELayer(GraphicsContextGLTextureMapperANGLE& context)
     : m_context(context)
     , m_contentLayer(Nicosia::ContentLayer::create(Nicosia::ContentLayerTextureMapperImpl::createFactory(*this)))
 {

@@ -32,7 +32,7 @@
 
 namespace JSC {
 
-const ClassInfo FunctionExecutable::s_info = { "FunctionExecutable", &ScriptExecutable::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(FunctionExecutable) };
+const ClassInfo FunctionExecutable::s_info = { "FunctionExecutable"_s, &ScriptExecutable::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(FunctionExecutable) };
 
 FunctionExecutable::FunctionExecutable(VM& vm, const SourceCode& source, UnlinkedFunctionExecutable* unlinkedExecutable, Intrinsic intrinsic, bool isInsideOrdinaryFunction)
     : ScriptExecutable(vm.functionExecutableStructure.get(), vm, source, unlinkedExecutable->lexicalScopeFeatures(), unlinkedExecutable->derivedContextType(), false, isInsideOrdinaryFunction || !unlinkedExecutable->isArrowFunction(), EvalContextType::None, intrinsic)
@@ -141,11 +141,11 @@ JSString* FunctionExecutable::toStringSlow(JSGlobalObject* globalObject)
     if (isClass())
         return cache(jsString(vm, classSource().view().toString()));
 
-    String functionHeader;
+    ASCIILiteral functionHeader = ""_s;
     switch (parseMode()) {
     case SourceParseMode::GeneratorWrapperFunctionMode:
     case SourceParseMode::GeneratorWrapperMethodMode:
-        functionHeader = "function* ";
+        functionHeader = "function* "_s;
         break;
 
     case SourceParseMode::NormalFunctionMode:
@@ -159,26 +159,25 @@ JSString* FunctionExecutable::toStringSlow(JSGlobalObject* globalObject)
     case SourceParseMode::AsyncGeneratorBodyMode:
     case SourceParseMode::AsyncFunctionBodyMode:
     case SourceParseMode::AsyncArrowFunctionBodyMode:
-        functionHeader = "function ";
+        functionHeader = "function "_s;
         break;
 
     case SourceParseMode::ArrowFunctionMode:
     case SourceParseMode::ClassFieldInitializerMode:
-        functionHeader = "";
         break;
 
     case SourceParseMode::AsyncFunctionMode:
     case SourceParseMode::AsyncMethodMode:
-        functionHeader = "async function ";
+        functionHeader = "async function "_s;
         break;
 
     case SourceParseMode::AsyncArrowFunctionMode:
-        functionHeader = "async ";
+        functionHeader = "async "_s;
         break;
 
     case SourceParseMode::AsyncGeneratorWrapperFunctionMode:
     case SourceParseMode::AsyncGeneratorWrapperMethodMode:
-        functionHeader = "async function* ";
+        functionHeader = "async function* "_s;
         break;
     }
 

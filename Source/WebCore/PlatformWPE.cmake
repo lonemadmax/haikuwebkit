@@ -17,7 +17,6 @@ list(APPEND WebCore_UNIFIED_SOURCE_LIST_FILES
 )
 
 list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
-    "${WEBCORE_DIR}/accessibility/atk"
     "${WEBCORE_DIR}/accessibility/atspi"
     "${WEBCORE_DIR}/platform/adwaita"
     "${WEBCORE_DIR}/platform/audio/glib"
@@ -66,23 +65,17 @@ set(WebCore_USER_AGENT_SCRIPTS_DEPENDENCIES ${WEBCORE_DIR}/platform/wpe/RenderTh
 
 list(APPEND WebCore_LIBRARIES
     WPE::libwpe
-    ${ATK_LIBRARIES}
-    ${GBM_LIBRARIES}
     ${GLIB_GIO_LIBRARIES}
     ${GLIB_GMODULE_LIBRARIES}
     ${GLIB_GOBJECT_LIBRARIES}
     ${GLIB_LIBRARIES}
-    ${LIBDRM_LIBRARIES}
     ${LIBTASN1_LIBRARIES}
     ${UPOWERGLIB_LIBRARIES}
 )
 
 list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
-    ${ATK_INCLUDE_DIRS}
-    ${GBM_INCLUDE_DIR}
     ${GIO_UNIX_INCLUDE_DIRS}
     ${GLIB_INCLUDE_DIRS}
-    ${LIBDRM_INCLUDE_DIR}
     ${LIBTASN1_INCLUDE_DIRS}
     ${UPOWERGLIB_INCLUDE_DIRS}
 )
@@ -133,5 +126,16 @@ if (USE_ATSPI)
 
     list(APPEND WebCore_SOURCES
         ${WebCore_DERIVED_SOURCES_DIR}/AccessibilityAtspiInterfaces.c
+    )
+endif ()
+
+if (USE_LIBGBM)
+    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
+        ${GBM_INCLUDE_DIR}
+        ${LIBDRM_INCLUDE_DIR}
+    )
+    list(APPEND WebCore_LIBRARIES
+        ${GBM_LIBRARIES}
+        ${LIBDRM_LIBRARIES}
     )
 endif ()

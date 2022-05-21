@@ -204,6 +204,14 @@ void MediaSessionManagerCocoa::possiblyChangeAudioCategory()
     updateSessionState();
 }
 
+void MediaSessionManagerCocoa::resetSessionState()
+{
+    ALWAYS_LOG(LOGIDENTIFIER);
+    m_delayCategoryChangeTimer.stop();
+    m_previousCategory = AudioSession::CategoryType::None;
+    m_previousHadAudibleAudioOrVideoMediaType = false;
+}
+
 void MediaSessionManagerCocoa::beginInterruption(PlatformMediaSession::InterruptionType type)
 {
     if (type == PlatformMediaSession::InterruptionType::SystemInterruption) {
@@ -444,8 +452,8 @@ void MediaSessionManagerCocoa::updateNowPlayingInfo()
 
     if (m_nowPlayingManager->setNowPlayingInfo(*nowPlayingInfo)) {
 #ifdef LOG_DISABLED
-        String src = "src";
-        String title = "title";
+        String src = "src"_s;
+        String title = "title"_s;
 #else
         String src = nowPlayingInfo->artwork ? nowPlayingInfo->artwork->src : String();
         String title = nowPlayingInfo->title;

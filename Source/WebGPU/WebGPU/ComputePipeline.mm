@@ -26,7 +26,7 @@
 #import "config.h"
 #import "ComputePipeline.h"
 
-
+#import "APIConversions.h"
 #import "BindGroupLayout.h"
 #import "Device.h"
 #import "PipelineLayout.h"
@@ -36,7 +36,7 @@ namespace WebGPU {
 
 struct LibraryCreationResult {
     id<MTLLibrary> library;
-    WGSL::Reflection::EntryPointInformation entryPointInformation; // FIXME: This is big. Don't copy this around.
+    WGSL::Reflection::EntryPointInformation entryPointInformation; // FIXME(PERFORMANCE): This is big. Don't copy this around.
 };
 
 static std::optional<LibraryCreationResult> createLibrary(id<MTLDevice> device, const ShaderModule& shaderModule, const PipelineLayout& pipelineLayout, const String& entryPoint, NSString *label)
@@ -71,7 +71,7 @@ static MTLFunctionConstantValues *createConstantValues(uint32_t constantCount, c
     auto constantValues = [MTLFunctionConstantValues new];
     for (uint32_t i = 0; i < constantCount; ++i) {
         const auto& entry = constants[i];
-        auto nameIterator = entryPointInformation.specializationConstantIndices.find(entry.key);
+        auto nameIterator = entryPointInformation.specializationConstantIndices.find(String { entry.key });
         if (nameIterator == entryPointInformation.specializationConstantIndices.end())
             return nullptr;
         auto specializationConstantIndex = nameIterator->value;
@@ -100,8 +100,6 @@ static MTLFunctionConstantValues *createConstantValues(uint32_t constantCount, c
             [constantValues setConstantValue:&value type:MTLDataTypeUInt withName:specializationConstant.mangledName];
             break;
         }
-        default:
-            return nullptr;
         }
     }
     return constantValues;
@@ -148,11 +146,11 @@ RefPtr<ComputePipeline> Device::createComputePipeline(const WGPUComputePipelineD
     if (descriptor.nextInChain || descriptor.compute.nextInChain)
         return nullptr;
 
-    const ShaderModule& shaderModule = descriptor.compute.module->shaderModule;
-    const PipelineLayout& pipelineLayout = descriptor.layout->pipelineLayout;
-    auto label = [NSString stringWithCString:descriptor.label encoding:NSUTF8StringEncoding];
+    const ShaderModule& shaderModule = WebGPU::fromAPI(descriptor.compute.module);
+    const PipelineLayout& pipelineLayout = WebGPU::fromAPI(descriptor.layout);
+    auto label = fromAPI(descriptor.label);
 
-    auto libraryCreationResult = createLibrary(m_device, shaderModule, pipelineLayout, descriptor.compute.entryPoint, label);
+    auto libraryCreationResult = createLibrary(m_device, shaderModule, pipelineLayout, String { descriptor.compute.entryPoint }, label);
     if (!libraryCreationResult)
         return nullptr;
 
@@ -170,7 +168,7 @@ RefPtr<ComputePipeline> Device::createComputePipeline(const WGPUComputePipelineD
     return ComputePipeline::create(computePipelineState);
 }
 
-void Device::createComputePipelineAsync(const WGPUComputePipelineDescriptor& descriptor, WTF::Function<void(WGPUCreatePipelineAsyncStatus, RefPtr<ComputePipeline>&&, const char* message)>&& callback)
+void Device::createComputePipelineAsync(const WGPUComputePipelineDescriptor& descriptor, CompletionHandler<void(WGPUCreatePipelineAsyncStatus, RefPtr<ComputePipeline>&&, String&& message)>&& callback)
 {
     // FIXME: Implement this
     UNUSED_PARAM(descriptor);
@@ -184,30 +182,32 @@ ComputePipeline::ComputePipeline(id<MTLComputePipelineState> computePipelineStat
 
 ComputePipeline::~ComputePipeline() = default;
 
-Ref<BindGroupLayout> ComputePipeline::getBindGroupLayout(uint32_t groupIndex)
+BindGroupLayout* ComputePipeline::getBindGroupLayout(uint32_t groupIndex)
 {
     UNUSED_PARAM(groupIndex);
-    return BindGroupLayout::create(nil, nil, nil);
+    return nullptr;
 }
 
-void ComputePipeline::setLabel(const char*)
+void ComputePipeline::setLabel(String&&)
 {
     // MTLComputePipelineState's labels are read-only.
 }
 
 } // namespace WebGPU
 
+#pragma mark WGPU Stubs
+
 void wgpuComputePipelineRelease(WGPUComputePipeline computePipeline)
 {
-    delete computePipeline;
+    WebGPU::fromAPI(computePipeline).deref();
 }
 
 WGPUBindGroupLayout wgpuComputePipelineGetBindGroupLayout(WGPUComputePipeline computePipeline, uint32_t groupIndex)
 {
-    return new WGPUBindGroupLayoutImpl { computePipeline->computePipeline->getBindGroupLayout(groupIndex) };
+    return WebGPU::fromAPI(computePipeline).getBindGroupLayout(groupIndex);
 }
 
 void wgpuComputePipelineSetLabel(WGPUComputePipeline computePipeline, const char* label)
 {
-    computePipeline->computePipeline->setLabel(label);
+    WebGPU::fromAPI(computePipeline).setLabel(WebGPU::fromAPI(label));
 }

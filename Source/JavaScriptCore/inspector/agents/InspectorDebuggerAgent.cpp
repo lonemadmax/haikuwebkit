@@ -49,7 +49,7 @@
 
 namespace Inspector {
 
-const char* const InspectorDebuggerAgent::backtraceObjectGroup = "backtrace";
+const ASCIILiteral InspectorDebuggerAgent::backtraceObjectGroup = "backtrace"_s;
 
 // Objects created and retained by evaluating breakpoint actions are put into object groups
 // according to the breakpoint action identifier assigned by the frontend. A breakpoint may
@@ -741,7 +741,7 @@ Protocol::ErrorStringOr<String> InspectorDebuggerAgent::getScriptSource(const Pr
 {
     auto it = m_scripts.find(parseIntegerAllowingTrailingJunk<JSC::SourceID>(scriptId).value_or(0));
     if (it == m_scripts.end())
-        return makeUnexpected("Missing script for given scriptId");
+        return makeUnexpected("Missing script for given scriptId"_s);
 
     return it->value.source;
 }
@@ -992,16 +992,23 @@ Protocol::ErrorStringOr<void> InspectorDebuggerAgent::setPauseOnMicrotasks(bool 
     return { };
 }
 
-Protocol::ErrorStringOr<std::tuple<Ref<Protocol::Runtime::RemoteObject>, std::optional<bool> /* wasThrown */, std::optional<int> /* savedResultIndex */>> InspectorDebuggerAgent::evaluateOnCallFrame(const Protocol::Debugger::CallFrameId& callFrameId, const String& expression, const String& objectGroup, std::optional<bool>&& includeCommandLineAPI, std::optional<bool>&& doNotPauseOnExceptionsAndMuteConsole, std::optional<bool>&& returnByValue, std::optional<bool>&& generatePreview, std::optional<bool>&& saveResult, std::optional<bool>&&  /* emulateUserGesture */)
+Protocol::ErrorStringOr<std::tuple<Ref<Protocol::Runtime::RemoteObject>, std::optional<bool> /* wasThrown */, std::optional<int> /* savedResultIndex */>> InspectorDebuggerAgent::evaluateOnCallFrame(const Protocol::Debugger::CallFrameId& callFrameId, const String& expression, const String& objectGroup, std::optional<bool>&& includeCommandLineAPI, std::optional<bool>&& doNotPauseOnExceptionsAndMuteConsole, std::optional<bool>&& returnByValue, std::optional<bool>&& generatePreview, std::optional<bool>&& saveResult, std::optional<bool>&& emulateUserGesture)
 {
+    InjectedScript injectedScript = m_injectedScriptManager.injectedScriptForObjectId(callFrameId);
+    if (injectedScript.hasNoValue())
+        return makeUnexpected("Missing injected script for given callFrameId"_s);
+
+    return evaluateOnCallFrame(injectedScript, callFrameId, expression, objectGroup, WTFMove(includeCommandLineAPI), WTFMove(doNotPauseOnExceptionsAndMuteConsole), WTFMove(returnByValue), WTFMove(generatePreview), WTFMove(saveResult), WTFMove(emulateUserGesture));
+}
+
+Protocol::ErrorStringOr<std::tuple<Ref<Protocol::Runtime::RemoteObject>, std::optional<bool> /* wasThrown */, std::optional<int> /* savedResultIndex */>> InspectorDebuggerAgent::evaluateOnCallFrame(InjectedScript& injectedScript, const Protocol::Debugger::CallFrameId& callFrameId, const String& expression, const String& objectGroup, std::optional<bool>&& includeCommandLineAPI, std::optional<bool>&& doNotPauseOnExceptionsAndMuteConsole, std::optional<bool>&& returnByValue, std::optional<bool>&& generatePreview, std::optional<bool>&& saveResult, std::optional<bool>&& /* emulateUserGesture */)
+{
+    ASSERT(!injectedScript.hasNoValue());
+
     Protocol::ErrorString errorString;
 
     if (!assertPaused(errorString))
         return makeUnexpected(errorString);
-
-    InjectedScript injectedScript = m_injectedScriptManager.injectedScriptForObjectId(callFrameId);
-    if (injectedScript.hasNoValue())
-        return makeUnexpected("Missing injected script for given callFrameId"_s);
 
     JSC::Debugger::TemporarilyDisableExceptionBreakpoints temporarilyDisableExceptionBreakpoints(m_debugger);
 

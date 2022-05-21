@@ -33,8 +33,8 @@
 #include "RemoteVideoFrameProxy.h"
 #include <WebCore/CVUtilities.h>
 #include <WebCore/IOSurface.h>
-#include <WebCore/MediaSampleAVFObjC.h>
 #include <WebCore/SharedVideoFrameInfo.h>
+#include <WebCore/VideoFrameCV.h>
 #include <WebCore/VideoFrameLibWebRTC.h>
 #include <wtf/Scope.h>
 
@@ -93,15 +93,15 @@ bool SharedVideoFrameWriter::prepareWriting(const SharedVideoFrameInfo& info, co
     return true;
 }
 
-std::optional<SharedVideoFrame> SharedVideoFrameWriter::write(MediaSample& frame, const Function<void(IPC::Semaphore&)>& newSemaphoreCallback, const Function<void(const SharedMemory::IPCHandle&)>& newMemoryCallback)
+std::optional<SharedVideoFrame> SharedVideoFrameWriter::write(VideoFrame& frame, const Function<void(IPC::Semaphore&)>& newSemaphoreCallback, const Function<void(const SharedMemory::IPCHandle&)>& newMemoryCallback)
 {
     auto buffer = writeBuffer(frame, newSemaphoreCallback, newMemoryCallback);
     if (!buffer)
         return { };
-    return SharedVideoFrame { frame.presentationTime(), frame.videoMirrored(), frame.videoRotation(), WTFMove(*buffer) };
+    return SharedVideoFrame { frame.presentationTime(), frame.isMirrored(), frame.rotation(), WTFMove(*buffer) };
 }
 
-std::optional<SharedVideoFrame::Buffer> SharedVideoFrameWriter::writeBuffer(MediaSample& frame, const Function<void(IPC::Semaphore&)>& newSemaphoreCallback, const Function<void(const SharedMemory::IPCHandle&)>& newMemoryCallback)
+std::optional<SharedVideoFrame::Buffer> SharedVideoFrameWriter::writeBuffer(VideoFrame& frame, const Function<void(IPC::Semaphore&)>& newSemaphoreCallback, const Function<void(const SharedMemory::IPCHandle&)>& newMemoryCallback)
 {
     if (is<RemoteVideoFrameProxy>(frame))
         return downcast<RemoteVideoFrameProxy>(frame).newReadReference();
@@ -229,13 +229,13 @@ RetainPtr<CVPixelBufferRef> SharedVideoFrameReader::readBuffer(SharedVideoFrame:
     });
 }
 
-RefPtr<MediaSample> SharedVideoFrameReader::read(SharedVideoFrame&& sharedVideoFrame)
+RefPtr<VideoFrame> SharedVideoFrameReader::read(SharedVideoFrame&& sharedVideoFrame)
 {
     auto pixelBuffer = readBuffer(WTFMove(sharedVideoFrame.buffer));
     if (!pixelBuffer)
         return nullptr;
 
-    return MediaSampleAVFObjC::createFromPixelBuffer(WTFMove(pixelBuffer), sharedVideoFrame.rotation, sharedVideoFrame.mirrored, sharedVideoFrame.time);
+    return VideoFrameCV::create(sharedVideoFrame.time, sharedVideoFrame.mirrored, sharedVideoFrame.rotation, WTFMove(pixelBuffer));
 }
 
 CVPixelBufferPoolRef SharedVideoFrameReader::pixelBufferPool(const SharedVideoFrameInfo& info)

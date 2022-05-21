@@ -35,6 +35,7 @@
 #include <WebCore/LogInitialization.h>
 #include <pal/SessionID.h>
 #include <wtf/LogInitialization.h>
+#include <wtf/SetForScope.h>
 
 #if !OS(WINDOWS)
 #include <unistd.h>
@@ -49,7 +50,6 @@ using namespace WebCore;
 
 AuxiliaryProcess::AuxiliaryProcess()
     : m_terminationCounter(0)
-    , m_terminationTimer(RunLoop::main(), this, &AuxiliaryProcess::terminationTimerFired)
     , m_processSuppressionDisabled("Process Suppression Disabled by UIProcess")
 {
 }
@@ -155,7 +155,6 @@ void AuxiliaryProcess::removeMessageReceiver(IPC::MessageReceiver& messageReceiv
 void AuxiliaryProcess::disableTermination()
 {
     m_terminationCounter++;
-    m_terminationTimer.stop();
 }
 
 void AuxiliaryProcess::enableTermination()
@@ -163,15 +162,11 @@ void AuxiliaryProcess::enableTermination()
     ASSERT(m_terminationCounter > 0);
     m_terminationCounter--;
 
-    if (m_terminationCounter)
+    if (m_terminationCounter || m_isInShutDown)
         return;
 
-    if (!m_terminationTimeout) {
-        terminationTimerFired();
-        return;
-    }
-
-    m_terminationTimer.startOneShot(m_terminationTimeout);
+    if (shouldTerminate())
+        terminate();
 }
 
 void AuxiliaryProcess::mainThreadPing(CompletionHandler<void()>&& completionHandler)
@@ -187,14 +182,6 @@ IPC::Connection* AuxiliaryProcess::messageSenderConnection() const
 uint64_t AuxiliaryProcess::messageSenderDestinationID() const
 {
     return 0;
-}
-
-void AuxiliaryProcess::terminationTimerFired()
-{
-    if (!shouldTerminate())
-        return;
-
-    terminate();
 }
 
 void AuxiliaryProcess::stopRunLoop()
@@ -218,6 +205,7 @@ void AuxiliaryProcess::terminate()
 
 void AuxiliaryProcess::shutDown()
 {
+    SetForScope<bool> isInShutDown(m_isInShutDown, true);
     terminate();
 }
 

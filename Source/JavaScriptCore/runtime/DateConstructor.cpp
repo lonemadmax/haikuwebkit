@@ -40,7 +40,7 @@ static JSC_DECLARE_HOST_FUNCTION(dateNow);
 
 namespace JSC {
 
-const ClassInfo DateConstructor::s_info = { "Function", &InternalFunction::s_info, &dateConstructorTable, nullptr, CREATE_METHOD_TABLE(DateConstructor) };
+const ClassInfo DateConstructor::s_info = { "Function"_s, &InternalFunction::s_info, &dateConstructorTable, nullptr, CREATE_METHOD_TABLE(DateConstructor) };
 
 /* Source for DateConstructor.lut.h
 @begin dateConstructorTable
@@ -159,7 +159,7 @@ JSC_DEFINE_HOST_FUNCTION(dateParse, (JSGlobalObject* globalObject, CallFrame* ca
     auto scope = DECLARE_THROW_SCOPE(vm);
     String dateStr = callFrame->argument(0).toWTFString(globalObject);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
-    RELEASE_AND_RETURN(scope, JSValue::encode(jsNumber(vm.dateCache.parseDate(globalObject, vm, dateStr))));
+    RELEASE_AND_RETURN(scope, JSValue::encode(jsNumber(timeClip(vm.dateCache.parseDate(globalObject, vm, dateStr)))));
 }
 
 JSValue dateNowImpl()

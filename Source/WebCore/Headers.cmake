@@ -331,6 +331,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/streams/ReadableStreamSink.h
     Modules/streams/ReadableStreamSource.h
 
+    Modules/system-preview/ARKitBadgeSystemImage.h
+
     Modules/web-locks/WebLockIdentifier.h
     Modules/web-locks/WebLockManagerSnapshot.h
     Modules/web-locks/WebLockMode.h
@@ -976,9 +978,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     layout/integration/InlineIteratorBox.h
     layout/integration/InlineIteratorBoxLegacyPath.h
     layout/integration/InlineIteratorBoxModernPath.h
-    layout/integration/InlineIteratorLine.h
-    layout/integration/InlineIteratorLineLegacyPath.h
-    layout/integration/InlineIteratorLineModernPath.h
+    layout/integration/InlineIteratorLineBox.h
+    layout/integration/InlineIteratorLineBoxLegacyPath.h
+    layout/integration/InlineIteratorLineBoxModernPath.h
     layout/integration/InlineIteratorLogicalOrderTraversal.h
     layout/integration/InlineIteratorTextBox.h
     layout/integration/LayoutIntegrationInlineContent.h
@@ -1141,6 +1143,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/PageOverlay.h
     page/PageOverlayController.h
     page/PagePasteboardContext.h
+    page/PartitionedSecurityOrigin.h
     page/PerformanceLogging.h
     page/PerformanceLoggingClient.h
     page/PointerCaptureController.h
@@ -1363,7 +1366,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/ValidationBubble.h
     platform/VideoFrame.h
     platform/VideoFrameMetadata.h
-    platform/VideoSampleMetadata.h
+    platform/VideoFrameTimeMetadata.h
     platform/WebGLStateTracker.h
     platform/Widget.h
     platform/WindowsKeyboardCodes.h
@@ -1491,6 +1494,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/GraphicsContextGL.h
     platform/graphics/GraphicsContextGLAttributes.h
     platform/graphics/GraphicsContextGLState.h
+    platform/graphics/GraphicsContextState.h
+    platform/graphics/GraphicsContextStateSaver.h
     platform/graphics/GraphicsLayer.h
     platform/graphics/GraphicsLayerContentsDisplayDelegate.h
     platform/graphics/GraphicsLayerClient.h
@@ -1550,6 +1555,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/PlatformAudioTrackConfiguration.h
     platform/graphics/PlatformColorSpace.h
     platform/graphics/PlatformDisplay.h
+    platform/graphics/PlatformGraphicsContext.h
     platform/graphics/PlatformImage.h
     platform/graphics/PlatformImageBuffer.h
     platform/graphics/PlatformImageBufferBackend.h
@@ -1568,6 +1574,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/RenderingMode.h
     platform/graphics/RoundedRect.h
     platform/graphics/ShouldLocalizeAxisNames.h
+    platform/graphics/SourceBrush.h
     platform/graphics/SourceBufferPrivate.h
     platform/graphics/SourceBufferPrivateClient.h
     platform/graphics/SourceImage.h

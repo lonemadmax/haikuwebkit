@@ -1023,8 +1023,6 @@ webkit.org/b/187103 js/error-should-not-strong-reference-global-object.html [ Pa
 webkit.org/b/155505 http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-audio.html [ Skip ]
 webkit.org/b/155505 http/tests/security/contentSecurityPolicy/userAgentShadowDOM/allow-video.html [ Skip ]
 
-webkit.org/b/230428 http/tests/security/contentSecurityPolicy/frame-src-cross-origin-load.html [ Pass Failure ]
-
 webkit.org/b/154688 inspector/controller/runtime-controller.html [ Pass Timeout ]
 
 webkit.org/b/156351 storage/indexeddb/modern/autoincrement-abort-private.html [ Pass Timeout ]
@@ -1045,6 +1043,7 @@ webkit.org/b/158649 fast/text/chinese-font-name-aliases-2.html [ ImageOnlyFailur
 
 fast/css/appearance-apple-pay-button.html [ Pass ]
 fast/css/appearance-apple-pay-button-border-radius.html [ Pass ]
+fast/css/appearance-apple-pay-button-border-radius-longhands.html [ Pass ]
 fast/css/appearance-apple-pay-button-default-corners.html [ Pass ]
 fast/css/webkit-named-image/apple-pay-logo-black [ Pass ]
 fast/css/webkit-named-image/apple-pay-logo-white [ Pass ]
@@ -1474,9 +1473,9 @@ webaudio/oscillator-sine.html [ Skip ]
 
 webkit.org/b/190882 animations/change-one-anim.html [ Pass Failure ]
 
-# <rdar://problem/48781098>
-[ Catalina+ ] fast/images/animated-heics-draw.html [ Pass ]
-[ Catalina+ ] fast/images/animated-heics-verify.html [ Pass ]
+# <rdar://problem/88980849>
+[ Catalina+ ] fast/images/animated-heics-draw.html [ Skip ]
+[ Catalina+ ] fast/images/animated-heics-verify.html [ Skip ]
 
 # <rdar://problem/40172428>
 webkit.org/b/212172 [ Catalina ] fast/text/font-collection.html [ ImageOnlyFailure ]
@@ -1705,8 +1704,6 @@ webkit.org/b/209353 [ Release ] media/video-background-tab-playback.html [ Pass 
 webkit.org/b/215110 [ Release ] imported/w3c/web-platform-tests/css/css-animations/webkit-writing-mode-crash.html [ Pass Failure ]
 
 webkit.org/b/215177 [ Release ] editing/selection/navigation-clears-editor-state.html [ Pass Failure ]
-
-webkit.org/b/215271 [ Debug ] storage/indexeddb/modern/new-database-after-user-delete.html [ Pass Failure ]
 
 webkit.org/b/215450 imported/w3c/web-platform-tests/media-source/mediasource-changetype-play-negative.html [ Pass Failure ]
 
@@ -1958,8 +1955,6 @@ webkit.org/b/189672 [ Release ] webgl/2.0.0/conformance2/textures/canvas/tex-2d-
 
 webkit.org/b/191627 imported/w3c/web-platform-tests/css/css-grid/alignment/grid-self-baseline-not-applied-if-sizing-cyclic-dependency-001.html [ Pass ]
 
-webkit.org/b/215814 [ Debug ] inspector/console/queryInstances.html [ Pass Failure ]
-
 webkit.org/b/215817 [ Release ] webgl/2.0.0/conformance2/textures/canvas_sub_rectangle/tex-2d-rgb32f-rgb-float.html [ Pass Failure ]
 
 webkit.org/b/219448 [ Debug ] webgl/2.0.0/conformance/rendering/multisample-corruption.html [ Skip ]
@@ -2084,6 +2079,8 @@ webkit.org/b/222692 inspector/page/empty-or-missing-resources.html [ Pass Timeou
 [ arm64 ] webrtc/captureCanvas-webrtc-software-h264-high.html [ Pass Failure ]
 webrtc/h264-baseline.html  [ Failure Timeout ]
 
+webkit.org/b/238104 [ arm64 ] webrtc/vp9-profile2.html [ Skip ]
+
 webkit.org/b/223259 [ arm64 ] webgl/2.0.0/conformance2/textures/misc/tex-mipmap-levels.html [ Failure ]
 
 webkit.org/b/223271 [ Debug ] imported/w3c/web-platform-tests/xhr/event-upload-progress.any.worker.html [ Pass Failure ]
@@ -2194,9 +2191,6 @@ webkit.org/b/226050 imported/w3c/web-platform-tests/IndexedDB/blob-valid-before-
 
 webkit.org/b/226299 [ BigSur ] http/tests/performance/performance-resource-timing-resourcetimingbufferfull-crash.html [ Pass Failure ]
 
-# rdar://77527575 (REGRESSION: [ Monterey ] imported/w3c/web-platform-tests/html/canvas/element/line-styles/2d.line.width.scaledefault.html is a constant text failure 77527575)
-[ Monterey ] imported/w3c/web-platform-tests/html/canvas/element/line-styles/2d.line.width.scaledefault.html [ Pass Failure ]
-
 # rdar://78477744 (REGRESSION: [ Monterey ] 3 imported/w3c/web-platform-tests/css/css-text-decor (layout-tests) are constant ImageOnlyFailures)
 [ Monterey ] imported/w3c/web-platform-tests/css/css-text-decor/text-decoration-thickness-from-font-variable.html [ Pass ImageOnlyFailure ]
 [ Monterey ] imported/w3c/web-platform-tests/css/css-text-decor/text-underline-offset-variable.html [ Pass ImageOnlyFailure ]
@@ -2227,8 +2221,6 @@ webkit.org/b/226600 imported/w3c/web-platform-tests/navigation-timing/test_navig
 webkit.org/b/228002 transitions/transition-end-event-nested.html [ Pass Failure ]
 
 webkit.org/b/227877 imported/w3c/web-platform-tests/navigation-timing/test_timing_attributes_order.html [ Pass Failure ]
-
-webkit.org/b/228011 inspector/canvas/setRecordingAutoCaptureFrameCount.html [ Pass Failure ]
 
 webkit.org/b/214574 svg/animations/smil-leak-list-property-instances.svg [ Pass Failure ]
 
@@ -2389,8 +2381,6 @@ platform/mac/plugins/convert-point.html [ Skip ]
 
 webkit.org/b/226826 [ Monterey ] http/tests/ssl/applepay/ApplePayButton.html [ Failure ]
 
-webkit.org/b/221230 [ BigSur+ ] imported/w3c/web-platform-tests/media-source/mediasource-addsourcebuffer.html [ Pass Failure ]
-
 webkit.org/b/235660 [ Debug ] fast/replaced/encrypted-pdf-as-object-and-embed.html [ Skip ]
 
 # <model> tests involving the ready promise can only work on Monterey and up
@@ -2419,3 +2409,9 @@ fast/text/font-lookup-dot-prefix-case-sensitive.html [ Pass ]
 imported/w3c/web-platform-tests/xhr/event-timeout-order.any.worker.html [ Failure ]
 
 webkit.org/b/237166 [ BigSur+ ] webgl/pending/conformance/textures/misc/tex-image-video-repeated.html [ Pass Timeout ]
+
+# fast/text/accessibility-bold.html requires WK2. The ***-wk2/TestExpectation files mark it as PASS.
+fast/text/accessibility-bold.html [ Skip ]
+
+# macOS has a WebGPU implementation.
+http/tests/webgpu [ Pass ]

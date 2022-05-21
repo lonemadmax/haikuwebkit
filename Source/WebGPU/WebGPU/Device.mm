@@ -26,6 +26,7 @@
 #import "config.h"
 #import "Device.h"
 
+#import "APIConversions.h"
 #import "BindGroup.h"
 #import "BindGroupLayout.h"
 #import "Buffer.h"
@@ -45,19 +46,25 @@
 
 namespace WebGPU {
 
-RefPtr<Device> Device::create(id<MTLDevice> device)
+RefPtr<Device> Device::create(id<MTLDevice> device, String&& deviceLabel, Instance& instance)
 {
     id<MTLCommandQueue> commandQueue = [device newCommandQueue];
     if (!commandQueue)
         return nullptr;
-    auto queue = Queue::create(commandQueue);
 
-    return adoptRef(*new Device(device, WTFMove(queue)));
+    // See the comment in Device::setLabel() about why we're not setting the label on the MTLDevice here.
+
+    commandQueue.label = @"Default queue";
+    if (!deviceLabel.isEmpty())
+        commandQueue.label = [NSString stringWithFormat:@"Default queue for device %s", deviceLabel.utf8().data()];
+
+    return adoptRef(*new Device(device, commandQueue, instance));
 }
 
-Device::Device(id<MTLDevice> device, Ref<Queue>&& queue)
+Device::Device(id<MTLDevice> device, id<MTLCommandQueue> defaultQueue, Instance& instance)
     : m_device(device)
-    , m_defaultQueue(WTFMove(queue))
+    , m_defaultQueue(Queue::create(defaultQueue, *this))
+    , m_instance(instance)
 {
 }
 
@@ -84,9 +91,9 @@ bool Device::getLimits(WGPUSupportedLimits& limits)
     return true;
 }
 
-RefPtr<Queue> Device::getQueue()
+Queue& Device::getQueue()
 {
-    return m_defaultQueue.copyRef();
+    return m_defaultQueue;
 }
 
 bool Device::hasFeature(WGPUFeatureName)
@@ -95,227 +102,291 @@ bool Device::hasFeature(WGPUFeatureName)
     return false;
 }
 
-bool Device::popErrorScope(WTF::Function<void(WGPUErrorType, const char*)>&& callback)
+auto Device::currentErrorScope(WGPUErrorFilter type) -> ErrorScope*
 {
-    // FIXME: Implement this.
-    UNUSED_PARAM(callback);
-    return false;
+    // https://gpuweb.github.io/gpuweb/#abstract-opdef-current-error-scope
+
+    // "Let scope be the last item of device.[[errorScopeStack]]."
+    // "While scope is not undefined:"
+    for (auto iterator = m_errorScopeStack.rbegin(); iterator != m_errorScopeStack.rend(); ++iterator) {
+        // "If scope.[[filter]] is type, return scope."
+        if (iterator->filter == type)
+            return &*iterator;
+        // "Set scope to the previous item of device.[[errorScopeStack]]."
+    }
+    // "Return undefined."
+    return nullptr;
+}
+
+void Device::generateAValidationError(String&& message)
+{
+    // https://gpuweb.github.io/gpuweb/#abstract-opdef-generate-a-validation-error
+
+    // "Let scope be the current error scope for error and device."
+    auto* scope = currentErrorScope(WGPUErrorFilter_Validation);
+
+    // "If scope is not undefined:"
+    if (scope) {
+        // "If scope.[[error]] is null, set scope.[[error]] to error."
+        if (!scope->error)
+            scope->error = Error { WGPUErrorType_Validation, WTFMove(message) };
+        // "Stop."
+        return;
+    }
+
+    // "Otherwise issue the following steps to the Content timeline:"
+    // "If the user agent chooses, queue a task to fire a GPUUncapturedErrorEvent named "uncapturederror" on device with an error of error."
+    if (m_uncapturedErrorCallback) {
+        m_instance->scheduleWork([protectedThis = Ref { *this }, message = WTFMove(message)]() mutable {
+            protectedThis->m_uncapturedErrorCallback(WGPUErrorType_Validation, WTFMove(message));
+        });
+    }
+}
+
+bool Device::validatePopErrorScope() const
+{
+    // FIXME: "this must not be lost."
+
+    // "this.[[errorScopeStack]].size > 0."
+    if (m_errorScopeStack.isEmpty())
+        return false;
+
+    return true;
+}
+
+bool Device::popErrorScope(CompletionHandler<void(WGPUErrorType, String&&)>&& callback)
+{
+    // https://gpuweb.github.io/gpuweb/#dom-gpudevice-poperrorscope
+
+    // "If any of the following requirements are unmet"
+    if (!validatePopErrorScope()) {
+        // "reject promise with an OperationError and stop."
+        callback(WGPUErrorType_Unknown, "popErrorScope() failed validation."_s);
+        return false;
+    }
+
+    // "Let scope be the result of popping an item off of this.[[errorScopeStack]]."
+    auto scope = m_errorScopeStack.takeLast();
+
+    // "Resolve promise with scope.[[error]]."
+    m_instance->scheduleWork([scope = WTFMove(scope), callback = WTFMove(callback)]() mutable {
+        if (scope.error)
+            callback(scope.error->type, WTFMove(scope.error->message));
+        else
+            callback(WGPUErrorType_NoError, { });
+    });
+
+    // FIXME: Make sure this is the right thing to return.
+    return true;
 }
 
 void Device::pushErrorScope(WGPUErrorFilter filter)
 {
-    // FIXME: Implement this.
-    UNUSED_PARAM(filter);
+    // https://gpuweb.github.io/gpuweb/#dom-gpudevice-pusherrorscope
+
+    // "Let scope be a new GPU error scope."
+    // "Set scope.[[filter]] to filter."
+    ErrorScope scope { std::nullopt, filter };
+
+    // "Push scope onto this.[[errorScopeStack]]."
+    m_errorScopeStack.append(WTFMove(scope));
 }
 
-void Device::setDeviceLostCallback(WTF::Function<void(WGPUDeviceLostReason, const char*)>&& callback)
+void Device::setDeviceLostCallback(Function<void(WGPUDeviceLostReason, String&&)>&& callback)
 {
     // FIXME: Implement this.
     UNUSED_PARAM(callback);
 }
 
-void Device::setUncapturedErrorCallback(WTF::Function<void(WGPUErrorType, const char*)>&& callback)
+void Device::setUncapturedErrorCallback(Function<void(WGPUErrorType, String&&)>&& callback)
 {
-    // FIXME: Implement this.
-    UNUSED_PARAM(callback);
+    m_uncapturedErrorCallback = WTFMove(callback);
 }
 
-void Device::setLabel(const char*)
+void Device::setLabel(String&&)
 {
     // Because MTLDevices are process-global, we can't set the label on it, because 2 contexts' labels would fight each other.
 }
 
 } // namespace WebGPU
 
+#pragma mark WGPU Stubs
+
 void wgpuDeviceRelease(WGPUDevice device)
 {
-    delete device;
+    WebGPU::fromAPI(device).deref();
 }
 
 WGPUBindGroup wgpuDeviceCreateBindGroup(WGPUDevice device, const WGPUBindGroupDescriptor* descriptor)
 {
-    auto result = device->device->createBindGroup(*descriptor);
-    return result ? new WGPUBindGroupImpl { result.releaseNonNull() } : nullptr;
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createBindGroup(*descriptor));
 }
 
 WGPUBindGroupLayout wgpuDeviceCreateBindGroupLayout(WGPUDevice device, const WGPUBindGroupLayoutDescriptor* descriptor)
 {
-    auto result = device->device->createBindGroupLayout(*descriptor);
-    return result ? new WGPUBindGroupLayoutImpl { result.releaseNonNull() } : nullptr;
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createBindGroupLayout(*descriptor));
 }
 
 WGPUBuffer wgpuDeviceCreateBuffer(WGPUDevice device, const WGPUBufferDescriptor* descriptor)
 {
-    auto result = device->device->createBuffer(*descriptor);
-    return result ? new WGPUBufferImpl { result.releaseNonNull() } : nullptr;
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createBuffer(*descriptor));
 }
 
 WGPUCommandEncoder wgpuDeviceCreateCommandEncoder(WGPUDevice device, const WGPUCommandEncoderDescriptor* descriptor)
 {
-    auto result = device->device->createCommandEncoder(*descriptor);
-    return result ? new WGPUCommandEncoderImpl { result.releaseNonNull() } : nullptr;
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createCommandEncoder(*descriptor));
 }
 
 WGPUComputePipeline wgpuDeviceCreateComputePipeline(WGPUDevice device, const WGPUComputePipelineDescriptor* descriptor)
 {
-    auto result = device->device->createComputePipeline(*descriptor);
-    return result ? new WGPUComputePipelineImpl { result.releaseNonNull() } : nullptr;
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createComputePipeline(*descriptor));
 }
 
 void wgpuDeviceCreateComputePipelineAsync(WGPUDevice device, const WGPUComputePipelineDescriptor* descriptor, WGPUCreateComputePipelineAsyncCallback callback, void* userdata)
 {
-    device->device->createComputePipelineAsync(*descriptor, [callback, userdata] (WGPUCreatePipelineAsyncStatus status, RefPtr<WebGPU::ComputePipeline>&& pipeline, const char* message) {
-        callback(status, pipeline ? new WGPUComputePipelineImpl { pipeline.releaseNonNull() } : nullptr, message, userdata);
+    WebGPU::fromAPI(device).createComputePipelineAsync(*descriptor, [callback, userdata](WGPUCreatePipelineAsyncStatus status, RefPtr<WebGPU::ComputePipeline>&& pipeline, String&& message) {
+        callback(status, WebGPU::releaseToAPI(WTFMove(pipeline)), message.utf8().data(), userdata);
     });
 }
 
 void wgpuDeviceCreateComputePipelineAsyncWithBlock(WGPUDevice device, WGPUComputePipelineDescriptor const * descriptor, WGPUCreateComputePipelineAsyncBlockCallback callback)
 {
-    device->device->createComputePipelineAsync(*descriptor, [callback] (WGPUCreatePipelineAsyncStatus status, RefPtr<WebGPU::ComputePipeline>&& pipeline, const char* message) {
-        callback(status, pipeline ? new WGPUComputePipelineImpl { pipeline.releaseNonNull() } : nullptr, message);
+    WebGPU::fromAPI(device).createComputePipelineAsync(*descriptor, [callback = WTFMove(callback)](WGPUCreatePipelineAsyncStatus status, RefPtr<WebGPU::ComputePipeline>&& pipeline, String&& message) {
+        callback(status, WebGPU::releaseToAPI(WTFMove(pipeline)), message.utf8().data());
     });
 }
 
 WGPUPipelineLayout wgpuDeviceCreatePipelineLayout(WGPUDevice device, const WGPUPipelineLayoutDescriptor* descriptor)
 {
-    auto result = device->device->createPipelineLayout(*descriptor);
-    return result ? new WGPUPipelineLayoutImpl { result.releaseNonNull() } : nullptr;
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createPipelineLayout(*descriptor));
 }
 
 WGPUQuerySet wgpuDeviceCreateQuerySet(WGPUDevice device, const WGPUQuerySetDescriptor* descriptor)
 {
-    auto result = device->device->createQuerySet(*descriptor);
-    return result ? new WGPUQuerySetImpl { result.releaseNonNull() } : nullptr;
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createQuerySet(*descriptor));
 }
 
 WGPURenderBundleEncoder wgpuDeviceCreateRenderBundleEncoder(WGPUDevice device, const WGPURenderBundleEncoderDescriptor* descriptor)
 {
-    auto result = device->device->createRenderBundleEncoder(*descriptor);
-    return result ? new WGPURenderBundleEncoderImpl { result.releaseNonNull() } : nullptr;
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createRenderBundleEncoder(*descriptor));
 }
 
 WGPURenderPipeline wgpuDeviceCreateRenderPipeline(WGPUDevice device, const WGPURenderPipelineDescriptor* descriptor)
 {
-    auto result = device->device->createRenderPipeline(*descriptor);
-    return result ? new WGPURenderPipelineImpl { result.releaseNonNull() } : nullptr;
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createRenderPipeline(*descriptor));
 }
 
 void wgpuDeviceCreateRenderPipelineAsync(WGPUDevice device, const WGPURenderPipelineDescriptor* descriptor, WGPUCreateRenderPipelineAsyncCallback callback, void* userdata)
 {
-    device->device->createRenderPipelineAsync(*descriptor, [callback, userdata] (WGPUCreatePipelineAsyncStatus status, RefPtr<WebGPU::RenderPipeline>&& pipeline, const char* message) {
-        callback(status, pipeline ? new WGPURenderPipelineImpl { pipeline.releaseNonNull() } : nullptr, message, userdata);
+    WebGPU::fromAPI(device).createRenderPipelineAsync(*descriptor, [callback, userdata](WGPUCreatePipelineAsyncStatus status, RefPtr<WebGPU::RenderPipeline>&& pipeline, String&& message) {
+        callback(status, WebGPU::releaseToAPI(WTFMove(pipeline)), message.utf8().data(), userdata);
     });
 }
 
 void wgpuDeviceCreateRenderPipelineAsyncWithBlock(WGPUDevice device, WGPURenderPipelineDescriptor const * descriptor, WGPUCreateRenderPipelineAsyncBlockCallback callback)
 {
-    device->device->createRenderPipelineAsync(*descriptor, [callback] (WGPUCreatePipelineAsyncStatus status, RefPtr<WebGPU::RenderPipeline>&& pipeline, const char* message) {
-        callback(status, pipeline ? new WGPURenderPipelineImpl { pipeline.releaseNonNull() } : nullptr, message);
+    WebGPU::fromAPI(device).createRenderPipelineAsync(*descriptor, [callback = WTFMove(callback)](WGPUCreatePipelineAsyncStatus status, RefPtr<WebGPU::RenderPipeline>&& pipeline, String&& message) {
+        callback(status, WebGPU::releaseToAPI(WTFMove(pipeline)), message.utf8().data());
     });
 }
 
 WGPUSampler wgpuDeviceCreateSampler(WGPUDevice device, const WGPUSamplerDescriptor* descriptor)
 {
-    auto result = device->device->createSampler(*descriptor);
-    return result ? new WGPUSamplerImpl { result.releaseNonNull() } : nullptr;
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createSampler(*descriptor));
 }
 
 WGPUShaderModule wgpuDeviceCreateShaderModule(WGPUDevice device, const WGPUShaderModuleDescriptor* descriptor)
 {
-    auto result = device->device->createShaderModule(*descriptor);
-    return result ? new WGPUShaderModuleImpl { result.releaseNonNull() } : nullptr;
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createShaderModule(*descriptor));
 }
 
 WGPUSwapChain wgpuDeviceCreateSwapChain(WGPUDevice device, WGPUSurface surface, const WGPUSwapChainDescriptor* descriptor)
 {
-    auto result = device->device->createSwapChain(surface->surface, *descriptor);
-    return result ? new WGPUSwapChainImpl { result.releaseNonNull() } : nullptr;
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createSwapChain(WebGPU::fromAPI(surface), *descriptor));
 }
 
 WGPUTexture wgpuDeviceCreateTexture(WGPUDevice device, const WGPUTextureDescriptor* descriptor)
 {
-    auto result = device->device->createTexture(*descriptor);
-    return result ? new WGPUTextureImpl { result.releaseNonNull() } : nullptr;
+    return WebGPU::releaseToAPI(WebGPU::fromAPI(device).createTexture(*descriptor));
 }
 
 void wgpuDeviceDestroy(WGPUDevice device)
 {
-    device->device->destroy();
+    WebGPU::fromAPI(device).destroy();
 }
 
 size_t wgpuDeviceEnumerateFeatures(WGPUDevice device, WGPUFeatureName* features)
 {
-    return device->device->enumerateFeatures(features);
+    return WebGPU::fromAPI(device).enumerateFeatures(features);
 }
 
 bool wgpuDeviceGetLimits(WGPUDevice device, WGPUSupportedLimits* limits)
 {
-    return device->device->getLimits(*limits);
+    return WebGPU::fromAPI(device).getLimits(*limits);
 }
 
 WGPUQueue wgpuDeviceGetQueue(WGPUDevice device)
 {
-    auto result = device->device->getQueue();
-    return result ? new WGPUQueueImpl { result.releaseNonNull() } : nullptr;
+    return &WebGPU::fromAPI(device).getQueue();
 }
 
 bool wgpuDeviceHasFeature(WGPUDevice device, WGPUFeatureName feature)
 {
-    return device->device->hasFeature(feature);
+    return WebGPU::fromAPI(device).hasFeature(feature);
 }
 
 bool wgpuDevicePopErrorScope(WGPUDevice device, WGPUErrorCallback callback, void* userdata)
 {
-    return device->device->popErrorScope([callback, userdata] (WGPUErrorType type, const char* message) {
-        callback(type, message, userdata);
+    return WebGPU::fromAPI(device).popErrorScope([callback, userdata](WGPUErrorType type, String&& message) {
+        callback(type, message.utf8().data(), userdata);
     });
 }
 
 bool wgpuDevicePopErrorScopeWithBlock(WGPUDevice device, WGPUErrorBlockCallback callback)
 {
-    return device->device->popErrorScope([callback] (WGPUErrorType type, const char* message) {
-        callback(type, message);
+    return WebGPU::fromAPI(device).popErrorScope([callback = WTFMove(callback)](WGPUErrorType type, String&& message) {
+        callback(type, message.utf8().data());
     });
 }
 
 void wgpuDevicePushErrorScope(WGPUDevice device, WGPUErrorFilter filter)
 {
-    device->device->pushErrorScope(filter);
+    WebGPU::fromAPI(device).pushErrorScope(filter);
 }
 
 void wgpuDeviceSetDeviceLostCallback(WGPUDevice device, WGPUDeviceLostCallback callback, void* userdata)
 {
-    return device->device->setDeviceLostCallback([callback, userdata] (WGPUDeviceLostReason reason, const char* message) {
+    return WebGPU::fromAPI(device).setDeviceLostCallback([callback, userdata](WGPUDeviceLostReason reason, String&& message) {
         if (callback)
-            callback(reason, message, userdata);
+            callback(reason, message.utf8().data(), userdata);
     });
 }
 
 void wgpuDeviceSetDeviceLostCallbackWithBlock(WGPUDevice device, WGPUDeviceLostBlockCallback callback)
 {
-    return device->device->setDeviceLostCallback([callback] (WGPUDeviceLostReason reason, const char* message) {
+    return WebGPU::fromAPI(device).setDeviceLostCallback([callback = WTFMove(callback)](WGPUDeviceLostReason reason, String&& message) {
         if (callback)
-            callback(reason, message);
+            callback(reason, message.utf8().data());
     });
 }
 
 void wgpuDeviceSetUncapturedErrorCallback(WGPUDevice device, WGPUErrorCallback callback, void* userdata)
 {
-    return device->device->setUncapturedErrorCallback([callback, userdata] (WGPUErrorType type, const char* message) {
+    return WebGPU::fromAPI(device).setUncapturedErrorCallback([callback, userdata](WGPUErrorType type, String&& message) {
         if (callback)
-            callback(type, message, userdata);
+            callback(type, message.utf8().data(), userdata);
     });
 }
 
 void wgpuDeviceSetUncapturedErrorCallbackWithBlock(WGPUDevice device, WGPUErrorBlockCallback callback)
 {
-    return device->device->setUncapturedErrorCallback([callback] (WGPUErrorType type, const char* message) {
+    return WebGPU::fromAPI(device).setUncapturedErrorCallback([callback = WTFMove(callback)](WGPUErrorType type, String&& message) {
         if (callback)
-            callback(type, message);
+            callback(type, message.utf8().data());
     });
 }
 
 void wgpuDeviceSetLabel(WGPUDevice device, const char* label)
 {
-    device->device->setLabel(label);
+    WebGPU::fromAPI(device).setLabel(WebGPU::fromAPI(label));
 }

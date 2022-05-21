@@ -34,14 +34,16 @@
 #include "PushSubscriptionData.h"
 #include "SWContextManager.h"
 #include "ServiceWorkerClient.h"
+#include "ServiceWorkerGlobalScope.h"
 #include "ServiceWorkerRegistration.h"
 #include <wtf/ProcessID.h>
 
 namespace WebCore {
 
-ServiceWorkerInternals::ServiceWorkerInternals(ServiceWorkerIdentifier identifier)
+ServiceWorkerInternals::ServiceWorkerInternals(ServiceWorkerGlobalScope& globalScope, ServiceWorkerIdentifier identifier)
     : m_identifier(identifier)
 {
+    globalScope.setIsProcessingUserGestureForTesting(true);
 }
 
 ServiceWorkerInternals::~ServiceWorkerInternals() = default;
@@ -197,6 +199,11 @@ bool ServiceWorkerInternals::fetchEventIsSameSite(FetchEvent& event)
 String ServiceWorkerInternals::serviceWorkerClientInternalIdentifier(const ServiceWorkerClient& client)
 {
     return client.identifier().toString();
+}
+
+void ServiceWorkerInternals::setAsInspected(bool isInspected)
+{
+    SWContextManager::singleton().setAsInspected(m_identifier, isInspected);
 }
 
 } // namespace WebCore

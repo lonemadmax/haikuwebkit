@@ -99,8 +99,7 @@ void BoxTree::buildTree()
             auto& textRenderer = downcast<RenderText>(childRenderer);
             auto style = RenderStyle::createAnonymousStyleWithDisplay(textRenderer.style(), DisplayType::Inline);
             auto text = style.textSecurity() == TextSecurity::None ? textRenderer.text() : RenderBlock::updateSecurityDiscCharacters(style, textRenderer.text());
-            auto useSimplifiedTextMeasuring = textRenderer.canUseSimplifiedTextMeasuring() && (!firstLineStyle || firstLineStyle->fontCascade() == style.fontCascade());
-            return makeUnique<Layout::InlineTextBox>(text, useSimplifiedTextMeasuring, textRenderer.canUseSimpleFontCodePath(), WTFMove(style), WTFMove(firstLineStyle));
+            return makeUnique<Layout::InlineTextBox>(text, textRenderer.canUseSimplifiedTextMeasuring(), textRenderer.canUseSimpleFontCodePath(), WTFMove(style), WTFMove(firstLineStyle));
         }
 
         auto style = RenderStyle::clone(childRenderer.style());
@@ -109,6 +108,12 @@ void BoxTree::buildTree()
                 styleToAdjust.setDisplay(DisplayType::Inline);
                 styleToAdjust.setFloating(Float::None);
                 styleToAdjust.setPosition(PositionType::Static);
+
+                // Clear property should only apply on block elements, however,
+                // it appears that browsers seem to ignore it on <br> inline elements.
+                // https://drafts.csswg.org/css2/#propdef-clear
+                if (downcast<RenderLineBreak>(childRenderer).isWBR())
+                    styleToAdjust.setClear(Clear::None);
             };
             adjustStyle(style);
             if (firstLineStyle)

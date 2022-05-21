@@ -1,4 +1,4 @@
-# Copyright (C) 2010-2020 Apple Inc. All rights reserved.
+# Copyright (C) 2010-2022 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -41,6 +41,7 @@ messages -> WebPageProxy {
     SetStatusText(String statusText)
     SetFocus(bool focused)
     TakeFocus(uint8_t direction)
+    FocusFromServiceWorker() -> ()
     FocusedFrameChanged(std::optional<WebCore::FrameIdentifier> frameID)
     SetRenderTreeSize(uint64_t treeSize)
     SetToolbarsAreVisible(bool toolbarsAreVisible)
@@ -160,7 +161,7 @@ messages -> WebPageProxy {
 #if PLATFORM(IOS_FAMILY)
     InterpretKeyEvent(struct WebKit::EditorState state, bool isCharEvent) -> (bool handled) Synchronous
     DidReceivePositionInformation(struct WebKit::InteractionInformationAtPosition information)
-    SaveImageToLibrary(WebKit::SharedMemory::IPCHandle handle)
+    SaveImageToLibrary(WebKit::SharedMemory::IPCHandle handle, String authorizationToken)
     ShowPlaybackTargetPicker(bool hasVideo, WebCore::IntRect elementRect, enum:uint8_t WebCore::RouteSharingPolicy policy, String routingContextUID)
     CommitPotentialTapFailed()
     DidNotHandleTapAsClick(WebCore::IntPoint point)
@@ -525,7 +526,9 @@ messages -> WebPageProxy {
     DidInsertAttachmentWithIdentifier(String identifier, String source, bool hasEnclosingImage)
     DidRemoveAttachmentWithIdentifier(String identifier)
     SerializedAttachmentDataForIdentifiers(Vector<String> identifiers) -> (Vector<WebCore::SerializedAttachmentData> seralizedData) Synchronous
-    WritePromisedAttachmentToPasteboard(struct WebCore::PromisedAttachmentInfo info)
+#if PLATFORM(IOS_FAMILY)
+    WritePromisedAttachmentToPasteboard(struct WebCore::PromisedAttachmentInfo info, String authorizationToken)
+#endif
     RequestAttachmentIcon(String identifier, String contentType, String path, String title, WebCore::FloatSize size)
 #endif
 
@@ -589,7 +592,8 @@ messages -> WebPageProxy {
     ModelElementSetInteractionEnabled(struct WebKit::ModelIdentifier modelIdentifier, bool isInteractionEnabled)
 #endif
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
-    ModelElementDidCreatePreview(URL url, String uuid, WebCore::FloatSize size) -> (Expected<std::pair<String, uint32_t>, WebCore::ResourceError> result)
+    ModelElementCreateRemotePreview(String uuid, WebCore::FloatSize size) -> (Expected<std::pair<String, uint32_t>, WebCore::ResourceError> result)
+    ModelElementLoadRemotePreview(String uuid, URL url) -> (std::optional<WebCore::ResourceError> error)
     ModelElementSizeDidChange(String uuid, WebCore::FloatSize size) -> (Expected<MachSendRight, WebCore::ResourceError> result)
     HandleMouseDownForModelElement(String uuid, WebCore::LayoutPoint flippedLocationInElement, MonotonicTime timestamp)
     HandleMouseMoveForModelElement(String uuid, WebCore::LayoutPoint flippedLocationInElement, MonotonicTime timestamp)

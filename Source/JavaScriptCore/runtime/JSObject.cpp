@@ -65,9 +65,9 @@ const ASCIILiteral UnconfigurablePropertyChangeConfigurabilityError { "Attemptin
 const ASCIILiteral UnconfigurablePropertyChangeEnumerabilityError { "Attempting to change enumerable attribute of unconfigurable property."_s };
 const ASCIILiteral UnconfigurablePropertyChangeWritabilityError { "Attempting to change writable attribute of unconfigurable property."_s };
 
-const ClassInfo JSObject::s_info = { "Object", nullptr, nullptr, nullptr, CREATE_METHOD_TABLE(JSObject) };
+const ClassInfo JSObject::s_info = { "Object"_s, nullptr, nullptr, nullptr, CREATE_METHOD_TABLE(JSObject) };
 
-const ClassInfo JSFinalObject::s_info = { "Object", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSFinalObject) };
+const ClassInfo JSFinalObject::s_info = { "Object"_s, &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSFinalObject) };
 
 template<typename Visitor>
 ALWAYS_INLINE void JSObject::markAuxiliaryAndVisitOutOfLineProperties(Visitor& visitor, Butterfly* butterfly, Structure* structure, PropertyOffset maxOffset)
@@ -3621,18 +3621,18 @@ template<typename T>
 struct WeakCustomGetterOrSetterHashTranslator {
     using BaseHash = JSGlobalObject::WeakCustomGetterOrSetterHash<T>;
 
-    using Key = std::pair<PropertyName, typename T::CustomFunctionPointer>;
+    using Key = std::tuple<PropertyName, typename T::CustomFunctionPointer, const ClassInfo*>;
 
     static unsigned hash(const Key& key)
     {
-        return BaseHash::hash(std::get<0>(key), std::get<1>(key));
+        return BaseHash::hash(std::get<0>(key), std::get<1>(key), std::get<2>(key));
     }
 
     static bool equal(const Weak<T>& a, const Key& b)
     {
         if (!a)
             return false;
-        return a->propertyName() == std::get<0>(b) && a->customFunctionPointer() == std::get<1>(b);
+        return a->propertyName() == std::get<0>(b) && a->customFunctionPointer() == std::get<1>(b) && a->slotBaseClassInfoIfExists() == std::get<2>(b);
     }
 };
 
@@ -3643,7 +3643,10 @@ static JSCustomGetterFunction* createCustomGetterFunction(JSGlobalObject* global
     // WeakGCSet::ensureValue's functor must not invoke GC since GC can modify WeakGCSet in the middle of HashSet::ensure.
     // We use DeferGC here (1) not to invoke GC when executing WeakGCSet::ensureValue and (2) to avoid looking up HashSet twice.
     DeferGC deferGC(vm);
-    return globalObject->customGetterFunctionSet().ensureValue<Translator>(std::make_pair(propertyName, getValueFunc), [&] {
+    const ClassInfo* classInfo = nullptr;
+    if (domAttribute)
+        classInfo = domAttribute->classInfo;
+    return globalObject->customGetterFunctionSet().ensureValue<Translator>(std::tuple { propertyName, getValueFunc, classInfo }, [&] {
         return JSCustomGetterFunction::create(vm, globalObject, propertyName, getValueFunc, domAttribute);
     });
 }
@@ -3655,7 +3658,7 @@ static JSCustomSetterFunction* createCustomSetterFunction(JSGlobalObject* global
     // WeakGCSet::ensureValue's functor must not invoke GC since GC can modify WeakGCSet in the middle of HashSet::ensure.
     // We use DeferGC here (1) not to invoke GC when executing WeakGCSet::ensureValue and (2) to avoid looking up HashSet twice.
     DeferGC deferGC(vm);
-    return globalObject->customSetterFunctionSet().ensureValue<Translator>(std::make_pair(propertyName, putValueFunc), [&] {
+    return globalObject->customSetterFunctionSet().ensureValue<Translator>(std::tuple { propertyName, putValueFunc, nullptr }, [&] {
         return JSCustomSetterFunction::create(vm, globalObject, propertyName, putValueFunc);
     });
 }

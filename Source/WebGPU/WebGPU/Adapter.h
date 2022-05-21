@@ -25,22 +25,26 @@
 
 #pragma once
 
+#import <wtf/CompletionHandler.h>
 #import <wtf/FastMalloc.h>
-#import <wtf/Function.h>
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
 #import <wtf/RefPtr.h>
 
+struct WGPUAdapterImpl {
+};
+
 namespace WebGPU {
 
 class Device;
+class Instance;
 
-class Adapter : public RefCounted<Adapter> {
+class Adapter : public WGPUAdapterImpl, public RefCounted<Adapter> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<Adapter> create(id<MTLDevice> device)
+    static Ref<Adapter> create(id<MTLDevice> device, Instance& instance)
     {
-        return adoptRef(*new Adapter(device));
+        return adoptRef(*new Adapter(device, instance));
     }
 
     ~Adapter();
@@ -49,16 +53,13 @@ public:
     bool getLimits(WGPUSupportedLimits&);
     void getProperties(WGPUAdapterProperties&);
     bool hasFeature(WGPUFeatureName);
-    void requestDevice(const WGPUDeviceDescriptor&, WTF::Function<void(WGPURequestDeviceStatus, RefPtr<Device>&&, const char*)>&& callback);
+    void requestDevice(const WGPUDeviceDescriptor&, CompletionHandler<void(WGPURequestDeviceStatus, RefPtr<Device>&&, String&&)>&& callback);
 
 private:
-    Adapter(id<MTLDevice>);
+    Adapter(id<MTLDevice>, Instance&);
 
-    id<MTLDevice> m_device { nil };
+    const id<MTLDevice> m_device { nil };
+    const Ref<Instance> m_instance;
 };
 
 } // namespace WebGPU
-
-struct WGPUAdapterImpl {
-    Ref<WebGPU::Adapter> adapter;
-};

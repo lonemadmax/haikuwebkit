@@ -71,6 +71,8 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& coreObject, bool is
 {
     ASSERT(is<AccessibilityObject>(coreObject));
     auto& object = downcast<AccessibilityObject>(coreObject);
+    // We should never create an isolated object from an ignored object.
+    ASSERT(!object.accessibilityIsIgnored());
 
     setProperty(AXPropertyName::ARIALandmarkRoleDescription, object.ariaLandmarkRoleDescription().isolatedCopy());
     setProperty(AXPropertyName::AccessibilityDescription, object.accessibilityDescription().isolatedCopy());
@@ -81,7 +83,6 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& coreObject, bool is
         setProperty(AXPropertyName::AncestorFlags, object.computeAncestorFlagsWithTraversal());
 
     setProperty(AXPropertyName::HasARIAValueNow, object.hasARIAValueNow());
-    setProperty(AXPropertyName::IsAccessibilityIgnored, object.accessibilityIsIgnored());
     setProperty(AXPropertyName::IsActiveDescendantOfFocusedContainer, object.isActiveDescendantOfFocusedContainer());
     setProperty(AXPropertyName::IsAttachment, object.isAttachment());
     setProperty(AXPropertyName::IsBusy, object.isBusy());
@@ -227,8 +228,6 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& coreObject, bool is
     setProperty(AXPropertyName::HasPlainText, object.hasPlainText());
     setProperty(AXPropertyName::HasUnderline, object.hasUnderline());
     setProperty(AXPropertyName::IsKeyboardFocusable, object.isKeyboardFocusable());
-    setObjectProperty(AXPropertyName::NextSibling, object.nextSibling());
-    setObjectProperty(AXPropertyName::PreviousSibling, object.previousSibling());
     setProperty(AXPropertyName::BrailleRoleDescription, object.brailleRoleDescription().isolatedCopy());
     setProperty(AXPropertyName::BrailleLabel, object.brailleLabel().isolatedCopy());
 
@@ -306,7 +305,7 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& coreObject, bool is
         setProperty(AXPropertyName::TextLength, object.textLength());
 
     if (object.isRadioButton()) {
-        if (auto nameAttribute = object.attributeValue("name"))
+        if (auto nameAttribute = object.attributeValue("name"_s))
             setProperty(AXPropertyName::NameAttribute, nameAttribute->isolatedCopy());
     }
 
@@ -363,7 +362,7 @@ void AXIsolatedObject::initializeAttributeData(AXCoreObject& coreObject, bool is
     String combinedClassList;
     for (auto it = classList.begin(), end = classList.end(); it != end; ++it) {
         combinedClassList.append(*it);
-        combinedClassList.append(" ");
+        combinedClassList.append(" "_s);
     }
     setProperty(AXPropertyName::ClassList, combinedClassList);
 
@@ -601,7 +600,7 @@ void AXIsolatedObject::accessibilityText(Vector<AccessibilityText>& texts) const
 void AXIsolatedObject::classList(Vector<String>& list) const
 {
     String classList = stringAttributeValue(AXPropertyName::ClassList);
-    list.appendVector(classList.split(" "));
+    list.appendVector(classList.split(' '));
 }
 
 PAL::SessionID AXIsolatedObject::sessionID() const
@@ -982,6 +981,9 @@ T AXIsolatedObject::getOrRetrievePropertyValue(AXPropertyName propertyName)
 #if PLATFORM(COCOA)
         case AXPropertyName::Description:
             value = axObject->descriptionAttributeValue().isolatedCopy();
+            break;
+        case AXPropertyName::HelpText:
+            value = axObject->helpTextAttributeValue().isolatedCopy();
             break;
         case AXPropertyName::TitleAttributeValue:
             value = axObject->titleAttributeValue().isolatedCopy();
@@ -1975,30 +1977,6 @@ bool AXIsolatedObject::isModalNode() const
 }
 
 AXCoreObject* AXIsolatedObject::elementAccessibilityHitTest(const IntPoint&) const
-{
-    ASSERT_NOT_REACHED();
-    return nullptr;
-}
-
-AXCoreObject* AXIsolatedObject::firstChild() const
-{
-    ASSERT_NOT_REACHED();
-    return nullptr;
-}
-
-AXCoreObject* AXIsolatedObject::lastChild() const
-{
-    ASSERT_NOT_REACHED();
-    return nullptr;
-}
-
-AXCoreObject* AXIsolatedObject::nextSiblingUnignored(int) const
-{
-    ASSERT_NOT_REACHED();
-    return nullptr;
-}
-
-AXCoreObject* AXIsolatedObject::previousSiblingUnignored(int) const
 {
     ASSERT_NOT_REACHED();
     return nullptr;

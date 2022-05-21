@@ -162,9 +162,12 @@ protected:
 
 private:
     String getGridShorthandValue(const StylePropertyShorthand&) const;
+    String getGridTemplateValue() const;
+    String getGridValue() const;
     String getShorthandValue(const StylePropertyShorthand&, const char* separator = " ") const;
     String getCommonValue(const StylePropertyShorthand&) const;
     String getAlignmentShorthandValue(const StylePropertyShorthand&) const;
+    String borderImagePropertyValue() const;
     String borderPropertyValue(const StylePropertyShorthand&, const StylePropertyShorthand&, const StylePropertyShorthand&) const;
     String pageBreakPropertyValue(const StylePropertyShorthand&) const;
     String getLayeredShorthandValue(const StylePropertyShorthand&) const;

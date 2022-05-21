@@ -230,7 +230,7 @@ BlobData* BlobRegistryImpl::getBlobDataFromURL(const URL& url) const
 {
     ASSERT(isMainThread());
     if (url.hasFragmentIdentifier())
-        return m_blobs.get(url.stringWithoutFragmentIdentifier().toStringWithoutCopying());
+        return m_blobs.get(url.viewWithoutFragmentIdentifier().toStringWithoutCopying());
     return m_blobs.get(url.string());
 }
 
@@ -375,14 +375,16 @@ void BlobRegistryImpl::addBlobData(const String& url, RefPtr<BlobData>&& blobDat
 
 void BlobRegistryImpl::registerBlobURLHandle(const URL& url)
 {
-    if (m_blobs.contains(url.string()))
-        m_blobReferences.add(url.string());
+    auto urlKey = url.stringWithoutFragmentIdentifier();
+    if (m_blobs.contains(urlKey))
+        m_blobReferences.add(urlKey);
 }
 
 void BlobRegistryImpl::unregisterBlobURLHandle(const URL& url)
 {
-    if (m_blobReferences.remove(url.string()))
-        m_blobs.remove(url.string());
+    auto urlKey = url.stringWithoutFragmentIdentifier();
+    if (m_blobReferences.remove(urlKey))
+        m_blobs.remove(urlKey);
 }
 
 } // namespace WebCore
